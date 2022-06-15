@@ -31,11 +31,11 @@ class Atom:
 
 class Vertex:
     """Voronoi S-Vertex object. Created when building the network."""
-    def __init__(self, location, radius, e0, atoms):
+    def __init__(self, location, radius, atoms=None):
         self.loc = location  # Location of the vertex
         self.rad = radius  # Radius of the vertex's tangential sphere
         self.atoms = atoms  # List of Atom type objects
-        self.edges = [e0]  # List of Edge type objects
+        self.edges = []  # List of Edge type objects
 
 
 class Edge:
