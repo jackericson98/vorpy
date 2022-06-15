@@ -1,4 +1,5 @@
 from objects import System, Atom, Vertex
+import numpy as np
 
 
 def read_pdb(file):
@@ -58,12 +59,13 @@ def get_pdb_data(file, word):
     return data
 
 
-def read_verts(file):
-    file = open(file).readlines()
-    verts = []
-
-    for i in range(len(file)):
-        data = file[i].split(" ")
-        verts.append(Vertex(data[3:6], data[6]))
-
-        return verts
+# Random system function. Creates a system with atoms placed in random locations with random radii
+def random_system(anums=30, dmax=50, rmax=5):
+    # Instantiate the system
+    mySys = System()
+    # Create the atoms
+    for i in range(anums):
+        # Choose a random set of 3 numbers between dmax and -dmax. Choose a random radius between 0 and rmax
+        mySys.atoms.append(Atom(np.random.rand(3)*2*dmax - dmax, np.random.rand()*rmax))
+    # Return the system
+    return mySys
