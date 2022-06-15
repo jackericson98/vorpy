@@ -39,7 +39,7 @@ def read_pdb(file):
     # Make a sphere object in our Molecule's atoms list for each line in atoms
     for atom in atoms:
         # Create sphere object with radius grabbed from van der waals dictionary and coordinates from the data
-        mySys.atoms.append(Atom(vdw_rads[atom[-1]], [float(atom[-6]), float(atom[-5]), float(atom[-4])]))
+        mySys.atoms.append(Atom([float(atom[-6]), float(atom[-5]), float(atom[-4])], vdw_rads[atom[-1]]))
     # Return the molecule we created
     return mySys
 
