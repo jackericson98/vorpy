@@ -17,6 +17,7 @@ class Network:
         self.verts = []  # List of Vertex type objects
         self.surfs = []  # List of Surface type objects
         self.edges = []  # List of Edge type objects
+        self.rad = 50  # Ballpark range for radius needed for the entire network.
 
 
 class Atom:
