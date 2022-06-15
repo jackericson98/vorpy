@@ -8,9 +8,9 @@ def read_pdb(file):
     # Van der Waals radii for later translation
     vdw_rads = {'H': 1.1, 'C': 1.7, 'N': 1.55, 'O': 1.52, 'P': 1.8, 'S': 1.8, 'Na': 2.27}
     # Create molecule object
-    myMol = System()
+    mySys = System()
     # Get non-pertinent info from the pdb file. This will likely be excluded for space and time once in production
-    myMol.info = {
+    mySys.info = {
         "header": get_pdb_data(file, 'HEADER'),
         "title": get_pdb_data(file, 'TITLE'),
         "compound": get_pdb_data(file, 'COMPOUND'),
@@ -39,9 +39,9 @@ def read_pdb(file):
     # Make a sphere object in our Molecule's atoms list for each line in atoms
     for atom in atoms:
         # Create sphere object with radius grabbed from van der waals dictionary and coordinates from the data
-        myMol.atoms.append(Atom(vdw_rads[atom[-1]], [float(atom[-6]), float(atom[-5]), float(atom[-4])]))
+        mySys.atoms.append(Atom(vdw_rads[atom[-1]], [float(atom[-6]), float(atom[-5]), float(atom[-4])]))
     # Return the molecule we created
-    return myMol
+    return mySys
 
 
 def get_pdb_data(file, word):
