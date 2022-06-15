@@ -60,7 +60,7 @@ def get_pdb_data(file, word):
 
 
 # Random system function. Creates a system with atoms placed in random locations with random radii
-def random_system(anums=30, dmax=50, rmax=5):
+def random_system(anums=30, dmax=15, rmax=1):
     # Instantiate the system
     mySys = System()
     # Create the atoms

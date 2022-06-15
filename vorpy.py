@@ -6,14 +6,20 @@ from load_system import read_pdb
 from build_network import build_network
 from build_mesh import build_meshes
 from visualize import *
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
 
 
 class Vorpy:
     """Vorpy GUI class. When instantiated the Gui will launch"""
-    def __init__(self, mySys=None):
+    def __init__(self, mySys=None, width=1000, height=800):
         # Set up the window
         self.root = tk.Tk()
+        self.width = width
+        self.height = height
+        self.root.geometry(str(width) + "x" + str(height))
         self.root.title('vorpy')
+
         # Instantiate the system
         self.sys = mySys
         # Set up the strings
@@ -21,19 +27,22 @@ class Vorpy:
         self.name.set("No File Selected")
         # Set up the labels
         self.head = tk.Label(text="VorPy", font=('Helvetica bold', 40))
-        self.filename = tk.Label(self.root, textvariable=self.name)
+        self.filename = tk.Label(self.root, textvariable=self.name, font=('Times New Roman', 20))
         # Set up the buttons
         self.get_file = tk.Button(text="Load Molecule", command=self.load_molecule_button)
-        self.make_network = tk.Button(text="Build Network?", command=self.build_network_button)
-        self.make_meshes = tk.Button(text="Build Meshes?", command=self.build_meshes_button)
+        self.make_network = tk.Button(text="Build Network", command=self.build_network_button)
+        self.make_meshes = tk.Button(text="Build Meshes", command=self.build_meshes_button)
         self.exit = tk.Button(text="Exit", command=self.root.destroy)
+        # button that displays the plot
+        self.plot_button = tk.Button(text="Plot Atoms", command=self.plot)
         # Place the items
-        self.head.grid(row=0)
-        self.filename.grid(row=2)
-        self.get_file.grid(row=3, column=0)
-        self.make_network.grid(row=3, column=2)
-        self.make_meshes.grid(row=3, column=4)
-        self.exit.grid(row=5)
+        self.head.place(x=width/2 - width/12, y=height/16)
+        self.filename.place(x=width*19/32, y=7/32*height)
+        self.get_file.place(x=3/16*width, y=3/8*height)
+        self.make_network.place(x=3/16*width, y=1/2*height)
+        self.make_meshes.place(x=3/16*width, y=5/8*height)
+        self.plot_button.place(x=3/4*width - 1/8*width, y=3/4*height + 1/8*height)
+
         # End the loop
         self.root.mainloop()
 
@@ -73,6 +82,27 @@ class Vorpy:
         build_meshes(self.sys)
         # Plot the surfaces
         plot_surfs(surfs=self.sys.net.surfs)
+
+    def plot(self):
+        # Create figure
+        fig = Figure(figsize=(self.width/100, self.height/100), dpi=50)
+        # Use the plot atoms method to create plot contents
+        plot_atoms(self.sys.atoms, fig=fig)
+
+        # Create Canvas
+        canvas = FigureCanvasTkAgg(fig, master=self.root)
+        canvas.draw()
+
+
+        # canvas.get_tk_widget().pack()
+
+        # creating the Matplotlib toolbar
+        toolbar = NavigationToolbar2Tk(canvas, self.root)
+
+        toolbar.update()
+
+        # placing the toolbar on the Tkinter window
+        canvas.get_tk_widget().place(x=self.width*7/16, y=self.height*5/16)
 
 
 # Driver code

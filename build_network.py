@@ -140,7 +140,7 @@ def calc_vertex(atoms):
                                       np.linalg.det([A, B, [-d[0], -d[1], -d[2]]])
     # Instantiate our root arrays
     xs, ys, zs, Rs = [], [], [], []
-    verts = [None]
+    verts = []
     # Case 1:
     if ABC_rank == 3 and m_rank == 3 and f_rank == 3:
         # Calculate the radius polynomial coefficients
@@ -211,15 +211,19 @@ def calc_vertex(atoms):
                 R, y, z = F10 / F + x * F11 / F, F20 / F + x * F21 / F, F30 / F + x * F31 / F
                 # Move the vertex back to the actual location of the atoms
                 verts.append(Vertex([x + l1[0], y + l1[1], z + l1[2]], R))
-    print(verts[0].edges)
-    return verts[0]
+
+    if verts == []:
+        return None
+    else:
+        return verts[0]
 
 
 # Calculate edge function. Chases an edge toward the next vertex
-def calc_edge(edge, net, v0, dt=None):
+def calc_edge(edge, net, dt=None):
     # Find the closest neighbors
     neighbors = sortbyDist(edge.atoms, net, length=50)
-
+    # Get the old vertex
+    v0 = edge.verts[0]
     # Estimate a working dt
     if dt is None:
         dt = edge.atoms[0].rad / 20
@@ -270,9 +274,12 @@ def calc_edge(edge, net, v0, dt=None):
         # Record vns location before changing it
         vn_1 = vn
         # Move the atom along the direction of the edge by dt increments
+        print(dt)
         an.loc = an.loc[0] + dt*dr[0], an.loc[1] + dt*dr[1], an.loc[2] + dt*dr[2]
         # Calculate the new vertex
         vn = calc_vertex(edge.atoms + [an])
+        # Add the vertex location to the edges points
+        edge.points.append(vn.loc)
         # Find the new move direction by finding the direction from vn-1 to vn
         dr = np.array([vn.loc[0] - vn_1.loc[0], vn.loc[1] - vn_1.loc[1], vn.loc[2] - vn_1.loc[2]])
 
@@ -355,7 +362,6 @@ def find_v0(net):
     # Add connections to the network
     myVert.atoms = a0, a1, a2, my_an
     net.verts.append(myVert)
-    print(myVert)
     return myVert
 
 
@@ -364,9 +370,9 @@ def find_v0(net):
 
 
 # Find edges function. Recursively traces out the network and records vertex locations,
-def find_edges(vertex, net):
+def find_edges(vertex, net, nedges=4, recurse=True):
     # Create the edge objects or grab them from the network and connect them
-    for i in range(4):
+    for i in range(nedges):
         # Go through each iteration of atom combinations to make the edges.
         myAtoms = [vertex.atoms[i], vertex.atoms[(i+1) % 4], vertex.atoms[(i+2) % 4]]
 
@@ -396,14 +402,18 @@ def find_edges(vertex, net):
         # If the edge already has two vertices skip it
         if len(edge.verts) >= 2:
             continue
+        # Calculate the vertex
+        vn = calc_edge(edge, net)
 
-        vn = calc_edge(edge, net, vertex)
-
+        print(vn, vertex)
         if vn is None:
             edge.verts.append(None)
             continue
-
-        find_edges(vn, net)
+        # Spread to other sites or just find this one edge
+        if recurse:
+            find_edges(vn, net)
+        else:
+            return edge
 
 
 ########################################################################################################################
@@ -417,5 +427,4 @@ def build_network(mySys):
     find_edges(v0, mySys.net)
 
     # Return the completed network
-    print(mySys.net.verts)
     return mySys.net
