@@ -156,7 +156,7 @@ def calc_vertex(atoms):
         for R in Rs:
             x, y, z = F10/F + R*F11/F, F20/F + R*F21/F, F30/F + R*F31/F
             # Move the vertex back to the actual location of the atoms
-            verts.append([[x + l1[0], y + l1[1], z + l1[2]], R])
+            verts.append(Vertex([x + l1[0], y + l1[1], z + l1[2]], R))
 
     # Case 2:
     elif ABC_rank == 2 and m_rank == 3 and f_rank == 3:
@@ -176,7 +176,7 @@ def calc_vertex(atoms):
             for z in zs:
                 x, y, R = F10 / F + z * F11 / F, F20 / F + z * F21 / F, F30 / F + z * F31 / F
                 # Move the vertex back to the actual location of the atoms
-                verts.append([[x + l1[0], y + l1[1], z + l1[2]], R])
+                verts.append(Vertex([x + l1[0], y + l1[1], z + l1[2]], R))
 
         # Case 2.2
         elif np.linalg.matrix_rank([A, d, C]) == 3:
@@ -193,7 +193,7 @@ def calc_vertex(atoms):
             for y in ys:
                 x, R, z = F10 / F + y * F11 / F, F20 / F + y * F21 / F, F30 / F + y * F31 / F
                 # Move the vertex back to the actual location of the atoms
-                verts.append([[x + l1[0], y + l1[1], z + l1[2]], R])
+                verts.append(Vertex([x + l1[0], y + l1[1], z + l1[2]], R))
 
         # Case 2.3
         elif np.linalg.matrix_rank([d, B, C]):
@@ -210,47 +210,86 @@ def calc_vertex(atoms):
             for x in xs:
                 R, y, z = F10 / F + x * F11 / F, F20 / F + x * F21 / F, F30 / F + x * F31 / F
                 # Move the vertex back to the actual location of the atoms
-                verts.append([[x + l1[0], y + l1[1], z + l1[2]], R])
+                verts.append(Vertex([x + l1[0], y + l1[1], z + l1[2]], R))
 
     return verts
 
 
+
+# Check vertex function. Used to see if the new vertex is either better or worse than the old or not allowed.
+def check_vertex(vert, myVert):
+    bn =
+    return myVert
+
 ########################################################################################################################
 """Gather information functions"""
 
-# Doublet making function. Takes in a doublet and adds the two vertices tot herir respective places.
+
+# Doublet making function. Takes in a doublet and adds the two vertices to their respective places.
 def doublet(verts, net):
-    return v0
+    return verts[0]
+
+
+# Find circle function. Finds the smallest circle between the two given atoms and every other atom and return that atom
+def find_circle(a0, a1, net, num_checks=12):
+    # Instantiate variables
+    a2 = None
+    neighbors = sortbyDist([a0, a1], net)
+    rad = np.inf
+    # Go through the num_checks closest atoms and find the smallest circle
+    for atom in neighbors[1:num_checks]:
+        # Check if any are the same as the new atom
+        if a0 == atom or a1 == atom:
+            continue
+        # Calculate the radius of the circle made by the three atoms
+        new_rad = calc_circ([a0, a1, atom])[0][1]
+        # Check the new radius against the smallest found and make it the smallest if it is
+        if new_rad < rad:
+            rad = new_rad
+            a2 = atom
+    # Return the atom found to have the smallest circle
+    return a2
 
 
 # Find vertex function. Takes in an edge, network and finds the other site along that edge.
-def find_vertex(edge, net, a0=None):
-    # Set up our vertex
-    vert, doublet = None, None
-    # Grab the 50 closest atoms
-    prox_list = sortbyDist(edge.atoms, net, length=50)
+def find_vertex(edge, net, v0=None, n=50):
+    # Pull the atom from the old vertex that is not in the edge
+    for atom in v0.atoms:
+        if atom not in edge.atoms:
+            a0 = atom
+    # Instantiate vertex
+    vert, myVert = None, None
+    # Grab the n closest atoms
+    prox_list = sortbyDist(edge.atoms, net, length=n)
     # Go through each of the closest atoms
     for a3 in prox_list:
         # Calculate the value of the vertex made from the edge atoms and our test atom
         verts = calc_vertex([edge.atoms + a3])
+
         # Check the different vertex cases: None, singlet, doublet
         if len(verts) == 0:
             continue
         elif len(verts) == 1:
             vert = verts[0]
-        elif len(verts) == 2:
-            # Calculate the distance between
-            d1 = np.sqrt((verts[0][0] - a0.loc[0])**2 + (verts[0][1] - a0.loc[1])**2 + (verts[0][2] - a0.loc[2])**2)
-            d2 = np.sqrt((verts[1][0] - a0.loc[0])**2 + (verts[1][1] - a0.loc[1])**2 + (verts[1][2] - a0.loc[2])**2)
+        else:
+            # Calculate the distance between the vertex and the origin vertex atom
+            d1 = np.sqrt((verts[0].loc[0] - a0.loc[0])**2 + (verts[0].loc[1] - a0.loc[1])**2 + (verts[0].loc[2] - a0.loc[2])**2)
+            d2 = np.sqrt((verts[1].loc[0] - a0.loc[0])**2 + (verts[1].loc[1] - a0.loc[1])**2 + (verts[1].loc[2] - a0.loc[2])**2)
+            # Choose the closer vertex and run a vertex calculation on the other vertex
             vert = verts[0]
             if d2 < d1:
                 vert = verts[1]
-            doublet = vert
+            # Create doublet vertex and mark down all edges between the verts
+            doublet(vert, net)
+
+        if vert.rad + a0.rad > np.sqrt((vert.loc[0]-a0.loc[0])**2+(vert.loc[1]-a0.loc[1])**2+(vert.loc[2]-a0.loc[2])**2):
+        # Check if the new vertex is closer to the old vertex or not.
+        # Find the bottleneck of the edge
+        bn = calc_circ(edge)
+        # If the angle between the new vertex and the bottleneck is greater than
 
 
-    if vert == doublet:
-        vert = doublet(vert, net)
-    return vert
+    return myVert
 
 
 # Get initial vertex function. Finds an optimal starting vertex for the network.
@@ -261,7 +300,7 @@ def get_v1(net):
     neighbors0 = sortbyDist([a0], net)
     a1 = neighbors0[1]
     # Find the smallest circle you can make with a0, a1 and a third atom
-    a2 = find_circle(a0, a1, net)[0]
+    a2 = find_circle(a0, a1, net)
     # Find the first site
     e0 = Edge([a0, a1, a2], None)
     v1 = find_vertex(e0, net)
