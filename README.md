@@ -5,7 +5,7 @@
 
 Vorpy is a program designed to calculate analytical solutions for Voronoi S-network of sphere like objects It was designed for use in computational chemistry and molecular dynamics analysis. 
 
-## Table of Contents (Optional)
+## Table of Contents
 
 If your README is long, add a table of contents to make it easy for users to find what they need.
 
@@ -17,8 +17,8 @@ If your README is long, add a table of contents to make it easy for users to fin
 ## Installation
 
 1. Clone the repository
-2. From 
-What are the steps required to install your project? Provide a step-by-step description of how to get the development environment running.
+2. From a python environment (preferably 3.9) run main.py
+
 
 ## Usage
 
