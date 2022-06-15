@@ -140,7 +140,7 @@ def calc_vertex(atoms):
                                       np.linalg.det([A, B, [-d[0], -d[1], -d[2]]])
     # Instantiate our root arrays
     xs, ys, zs, Rs = [], [], [], []
-    verts = []
+    verts = [None]
     # Case 1:
     if ABC_rank == 3 and m_rank == 3 and f_rank == 3:
         # Calculate the radius polynomial coefficients
@@ -211,8 +211,85 @@ def calc_vertex(atoms):
                 R, y, z = F10 / F + x * F11 / F, F20 / F + x * F21 / F, F30 / F + x * F31 / F
                 # Move the vertex back to the actual location of the atoms
                 verts.append(Vertex([x + l1[0], y + l1[1], z + l1[2]], R))
+    print(verts[0].edges)
+    return verts[0]
 
-    return verts
+
+# Calculate edge function. Chases an edge toward the next vertex
+def calc_edge(edge, net, v0, dt=None):
+    # Find the closest neighbors
+    neighbors = sortbyDist(edge.atoms, net, length=50)
+
+    # Estimate a working dt
+    if dt is None:
+        dt = edge.atoms[0].rad / 20
+
+    an = None
+    # Find the atom from the v0 that is not in the edge's atom list
+    for atom in v0.atoms:
+        # Set our changing atom to the outlier atom found above and change the radius by 5%
+        if atom not in edge.atoms:
+            an = atom
+
+    # Calculate the bottleneck of the edge
+    bn = calc_circ(edge.atoms)[0][1]
+    # Adjust the size of the atom to fit through the bottleneck
+    if bn < 1.05*an.rad:
+        an.rad = 0.95*bn
+
+    # Find the vertex between the edge atoms and the adjusted atom
+    vn = calc_vertex(edge.atoms+[an])
+
+    # If we get a None vertex the shrink went too far. Keep increasing radius until a vertex is found.
+    while vn is None:
+        an.rad = an.rad * 1.01
+        vn = calc_vertex(edge.atoms+[an])
+    # If the radius is larger than the bottleneck, continue and hope that the other side of the edge will be able to
+    if vn.rad > bn:
+        return
+
+    # Find the initial direction by getting the vector between the new vertex formed after the atom got smaller
+    dr = np.array([v0.loc[0] - vn.loc[0], v0.loc[1] - vn.loc[1], v0.loc[2] - vn.loc[2]])
+
+    elen = 0
+    vfound = False
+    vert = None
+    # Keep adding points to the edge until the next vertex is found or the edge left the network
+    while not vfound:
+
+        # Normalize the direction vector
+        dr_mag = np.sqrt(dr.dot(dr))
+        dr = dr / dr_mag
+
+        # Add up the length of the edge
+        elen += dr_mag
+        if elen > net.rad:
+            edge.verts.append(None)
+            return None
+
+        # Record vns location before changing it
+        vn_1 = vn
+        # Move the atom along the direction of the edge by dt increments
+        an.loc = an.loc[0] + dt*dr[0], an.loc[1] + dt*dr[1], an.loc[2] + dt*dr[2]
+        # Calculate the new vertex
+        vn = calc_vertex(edge.atoms + [an])
+        # Find the new move direction by finding the direction from vn-1 to vn
+        dr = np.array([vn.loc[0] - vn_1.loc[0], vn.loc[1] - vn_1.loc[1], vn.loc[2] - vn_1.loc[2]])
+
+        # Check to see if we have passed a vertex
+        for vert in neighbors:
+            # Calculate the vectors between the vertex and the new and old edge points
+            d1 = np.array([vn_1.loc[0] - vert.loc[0], vn_1.loc[0] - vert.loc[0], vn_1.loc[0] - vert.loc[0]])
+            d2 = np.array([vn.loc[0] - vert.loc[0], vn.loc[0] - vert.loc[0], vn.loc[0] - vert.loc[0]])
+            # Check to see if the vertex is in between the new and old edge points
+            if np.sqrt(d1.dot(d1)) <= dr_mag and np.sqrt(d2.dot(d2)) <= dr_mag:
+                # If so, we have found our vert and exit
+                vfound = True
+
+    edge.verts.append(vert)
+    net.verts.append(vert)
+
+    return vert
 
 
 # Check vertex function. Used to see if the new vertex is either better or worse than the old or not allowed.
@@ -250,51 +327,8 @@ def find_circle(a0, a1, net, num_checks=12):
     return a2
 
 
-# Find vertex function. Takes in an edge, network and finds the other site along that edge.
-def find_vertex(edge, net, v0=None, n=50):
-    # Instantiate vertex
-    vert, myVert = None, None
-    # Find the atom from the v0 that is not in the edge
-    for atom in v0.atoms:
-        if atom not in edge.atoms:
-            a0 = atom
-    # Create a list of the n closest atoms in the
-    prox_list = sortbyDist(edge.atoms, net, length=n)
-    # Go through each of the closest atoms
-    for a3 in prox_list:
-        # Calculate the value of the vertex made from the edge atoms and our test atom
-        verts = calc_vertex([edge.atoms + a3])
-
-        # Filter out the different vertex cases that can be returned: None, singlet, doublet
-        if len(verts) == 0:  # No vertex exists, continue to the next atom
-            continue
-        elif len(verts) == 1:  # One vertex exists, extract it from the list
-            vert = verts[0]
-        elif len(verts) == 2:  # Two vertices exist, find the closer one and mark the doublet.
-            # Calculate the distance between the vertex and the origin vertex atom
-            d1 = np.sqrt((verts[0].loc[0] - a0.loc[0])**2 + (verts[0].loc[1] - a0.loc[1])**2 + (verts[0].loc[2] - a0.loc[2])**2)
-            d2 = np.sqrt((verts[1].loc[0] - a0.loc[0])**2 + (verts[1].loc[1] - a0.loc[1])**2 + (verts[1].loc[2] - a0.loc[2])**2)
-            # Choose the closer vertex and run a vertex calculation on the other vertex
-            vert = verts[0]
-            if d2 < d1:
-                vert = verts[1]
-            # Create doublet vertex and mark down all edges between the verts
-            # doublet(vert, net) ****
-
-        a0d = np.sqrt((vert.loc[0] - a0.loc[0]) ** 2 + (vert.loc[1] - a0.loc[1]) ** 2 + (vert.loc[2] - a0.loc[2]) ** 2)
-        if vert.rad + a0.rad > a0d:
-            continue
-        # Check if the new vertex is closer to the old vertex or not.
-        # Find the bottleneck of the edge
-        bn = calc_circ(edge)
-        # If the angle between the new vertex and the bottleneck is greater than
-
-
-    return myVert
-
-
 # Get initial vertex function. Finds an optimal starting vertex for the network.
-def get_v1(net):
+def find_v0(net):
     # Grab the first atom in the network. This will be replaced later with an optimized
     a0 = net.atoms[0]
     # Find it's closest neighbor
@@ -302,13 +336,27 @@ def get_v1(net):
     a1 = neighbors0[1]
     # Find the smallest circle you can make with a0, a1 and a third atom
     a2 = find_circle(a0, a1, net)
-    # Find the first site
-    e0 = Edge([a0, a1, a2], None)
-    v1 = find_vertex(e0, net)
-    for i in range(4):
-        print(net.atoms.index(v1.atoms[i]))
-
-    return v1
+    # Find the first site by choosing the smallest interstitial sphere that can be made with the 3 atoms and the 50
+    # closest atoms
+    neighbors2 = sortbyDist([a0, a1, a2], net)
+    r = np.inf
+    myVert, my_an = None, None
+    # Go through the closest atoms to the triplet and find the smallest vertex that can be made with a neighbor
+    for an in neighbors2:
+        # Calculate the vertex and check if None
+        vert = calc_vertex([a0, a1, a2, an])
+        if vert is None:
+            continue
+        # Check if the vn has a smaller radius than the current smallest radius
+        if vert.rad < r:
+            r = vert.rad
+            myVert = vert
+            my_an = an
+    # Add connections to the network
+    myVert.atoms = a0, a1, a2, my_an
+    net.verts.append(myVert)
+    print(myVert)
+    return myVert
 
 
 ########################################################################################################################
@@ -317,20 +365,45 @@ def get_v1(net):
 
 # Find edges function. Recursively traces out the network and records vertex locations,
 def find_edges(vertex, net):
+    # Create the edge objects or grab them from the network and connect them
+    for i in range(4):
+        # Go through each iteration of atom combinations to make the edges.
+        myAtoms = [vertex.atoms[i], vertex.atoms[(i+1) % 4], vertex.atoms[(i+2) % 4]]
 
-    # Find the edges
-    for edge in vertex.edges:
-        # If the edge already has two vertices skip it
-        if len(edge.verts) == 2:
+        # If there aren't edges, it is the first pass and the edges don't need to be checked.
+        if not net.edges:
+            vertex.edges.append(Edge(myAtoms, vertex))
             continue
 
-        # Find the smallest vertex that can be made with the atoms in the edge that is not the vertex
-        vn = find_vertex(edge, net, vertex)
+        # Check the atoms against each edge in the networks' atoms
+        for edge in net.edges:
+            # Reset the counter
+            like_atoms = 0
+            # Check each edge atom against my atoms
+            for atom in edge.atoms:
+                # If an atom is a match, increment the counter
+                if atom in myAtoms:
+                    like_atoms += 1
+            # If the number of like atoms is less than 3 (i.e. not a match) create an edge object
+            if like_atoms < 3:
+                vertex.edges.append(Edge([myAtoms], vertex))
+            # Else add the edge to the vertex's edge list and the vert to the edges list
+            else:
+                vertex.edges.append(edge)
+                edge.verts.append(vertex)
+    # Find the ends to the edges
+    for edge in vertex.edges:
+        # If the edge already has two vertices skip it
+        if len(edge.verts) >= 2:
+            continue
 
-        net.verts.append(vn)
-        edge.verts.append(vn)
+        vn = calc_edge(edge, net, vertex)
+
+        if vn is None:
+            edge.verts.append(None)
+            continue
+
         find_edges(vn, net)
-        print(vn.loc)
 
 
 ########################################################################################################################
@@ -338,12 +411,11 @@ def find_edges(vertex, net):
 
 # Build Network function. Takes in a system, runs as a shell for the recursive next_site function and returns a Network
 def build_network(mySys):
-    # Grab the network object from the molecule.
-    myNet = mySys.net
     # Find the first vertex
-    v1 = get_v1(myNet)
-    # Add the vertex to the edge of the vertex
+    v0 = find_v0(mySys.net)
+    # Initiate the recursive network finding algorithm on the network and the first vertex
+    find_edges(v0, mySys.net)
 
-    find_edges(v1, myNet)
-
-    return myNet
+    # Return the completed network
+    print(mySys.net.verts)
+    return mySys.net
