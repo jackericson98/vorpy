@@ -215,11 +215,10 @@ def calc_vertex(atoms):
     return verts
 
 
-
 # Check vertex function. Used to see if the new vertex is either better or worse than the old or not allowed.
 def check_vertex(vert, myVert):
-    bn =
     return myVert
+
 
 ########################################################################################################################
 """Gather information functions"""
@@ -253,25 +252,25 @@ def find_circle(a0, a1, net, num_checks=12):
 
 # Find vertex function. Takes in an edge, network and finds the other site along that edge.
 def find_vertex(edge, net, v0=None, n=50):
-    # Pull the atom from the old vertex that is not in the edge
+    # Instantiate vertex
+    vert, myVert = None, None
+    # Find the atom from the v0 that is not in the edge
     for atom in v0.atoms:
         if atom not in edge.atoms:
             a0 = atom
-    # Instantiate vertex
-    vert, myVert = None, None
-    # Grab the n closest atoms
+    # Create a list of the n closest atoms in the
     prox_list = sortbyDist(edge.atoms, net, length=n)
     # Go through each of the closest atoms
     for a3 in prox_list:
         # Calculate the value of the vertex made from the edge atoms and our test atom
         verts = calc_vertex([edge.atoms + a3])
 
-        # Check the different vertex cases: None, singlet, doublet
-        if len(verts) == 0:
+        # Filter out the different vertex cases that can be returned: None, singlet, doublet
+        if len(verts) == 0:  # No vertex exists, continue to the next atom
             continue
-        elif len(verts) == 1:
+        elif len(verts) == 1:  # One vertex exists, extract it from the list
             vert = verts[0]
-        else:
+        elif len(verts) == 2:  # Two vertices exist, find the closer one and mark the doublet.
             # Calculate the distance between the vertex and the origin vertex atom
             d1 = np.sqrt((verts[0].loc[0] - a0.loc[0])**2 + (verts[0].loc[1] - a0.loc[1])**2 + (verts[0].loc[2] - a0.loc[2])**2)
             d2 = np.sqrt((verts[1].loc[0] - a0.loc[0])**2 + (verts[1].loc[1] - a0.loc[1])**2 + (verts[1].loc[2] - a0.loc[2])**2)
@@ -280,9 +279,11 @@ def find_vertex(edge, net, v0=None, n=50):
             if d2 < d1:
                 vert = verts[1]
             # Create doublet vertex and mark down all edges between the verts
-            doublet(vert, net)
+            # doublet(vert, net) ****
 
-        if vert.rad + a0.rad > np.sqrt((vert.loc[0]-a0.loc[0])**2+(vert.loc[1]-a0.loc[1])**2+(vert.loc[2]-a0.loc[2])**2):
+        a0d = np.sqrt((vert.loc[0] - a0.loc[0]) ** 2 + (vert.loc[1] - a0.loc[1]) ** 2 + (vert.loc[2] - a0.loc[2]) ** 2)
+        if vert.rad + a0.rad > a0d:
+            continue
         # Check if the new vertex is closer to the old vertex or not.
         # Find the bottleneck of the edge
         bn = calc_circ(edge)
@@ -332,18 +333,17 @@ def find_edges(vertex, net):
         print(vn.loc)
 
 
-
 ########################################################################################################################
 
 
 # Build Network function. Takes in a system, runs as a shell for the recursive next_site function and returns a Network
-def build_network(mol):
+def build_network(mySys):
     # Grab the network object from the molecule.
-    net = mol.net
+    myNet = mySys.net
     # Find the first vertex
-    v1 = get_v1(net)
+    v1 = get_v1(myNet)
     # Add the vertex to the edge of the vertex
 
-    find_edges(v1, net)
+    find_edges(v1, myNet)
 
     return myNet
