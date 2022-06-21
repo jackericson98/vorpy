@@ -65,6 +65,7 @@ def move(loc, atom, to_home=False):
 
 # Calculate circle function. Takes in 3 atoms, calculates the center and radius of inscribed circle and returns them
 def calc_circ(atoms):
+    print(atoms[0].loc, atoms[1].loc, atoms[2].loc)
     # The real location and radius of the base sphere
     l1, R1 = atoms[0].loc, atoms[0].rad
     # Move each sphere to surround the base sphere now located at the origin
@@ -86,6 +87,9 @@ def calc_circ(atoms):
     Fy1 = - a3*c2*d1 + a2*c3*d1 + a3*c1*d2 - a1*c3*d2
     Fz0 = a3*b2*f1 - a2*b3*f1 - a3*b1*f2 + a1*b3*f2
     Fz1 = a3*b2*d1 - a2*b3*d1 - a3*b1*d2 + a1*b3*d2
+    # Catch for F=0 (i.e. no circle exists)
+    if F == 0:
+        return [[0, 0, 0], np.inf]
     # Find the radius of the tangential circle using the quadratic formula
     a = (Fx1 ** 2 + Fy1 ** 2 + Fz1 ** 2) / F ** 2 - 1
     b = 2 * (Fx0 * Fx1 + Fy0 * Fy1 + Fz0 * Fz1) / F ** 2 - 2 * R1
