@@ -21,13 +21,11 @@ def sortbyDist(atoms, net, length=None):
     # If the length of the returned list is not specified return the whole list
     if length is None:
         length = len(net.atoms)
-
     # Find the point closest to each of the atoms
     loc = [0, 0, 0]
     for i in range(len(atoms)):
         f = i + 1
         loc = loc[0] + atoms[i].loc[0] / f, loc[1] + atoms[i].loc[1] / f, loc[2] + atoms[i].loc[2] / f
-
     # Initialize the lists
     dist_list = []
     atom_list = []
@@ -40,9 +38,15 @@ def sortbyDist(atoms, net, length=None):
         dist = (np.sqrt((loc[0]-atom2.loc[0])**2 + (loc[1]-atom2.loc[1])**2 + (loc[2]-atom2.loc[2])**2)) - atom2.rad
         dist_list.append(dist)
         atom_list.append(atom2)
+    # Selection sort the atom list based off their distances from the point
+    for i in range(len(dist_list)):
+        low_in = i
+        for j in range(i+1, len(dist_list)):
+            if dist_list[low_in] > dist_list[j]:
+                low_in = j
+                dist_list[i], dist_list[low_in] = dist_list[low_in], dist_list[i]
+                atom_list[i], atom_list[low_in] = atom_list[low_in], atom_list[i]
 
-    # Sort the list of atoms by the distances from the given atom
-    atom_list = [atom for _, atom in sorted(zip(dist_list, atom_list))]
     # Return a list with the length specified
     return atom_list[:length]
 
