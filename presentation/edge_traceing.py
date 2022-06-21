@@ -6,5 +6,5 @@ mySys = random_system(anums=20, )
 plot_atoms(mySys.atoms)
 v0 = find_v0(mySys.net)
 
-v1 = find_edges(v0, mySys.net, nedges=1, recurse=False)
+v1 = find_edges(v0, mySys.net, nedges=1)
 print(v1)

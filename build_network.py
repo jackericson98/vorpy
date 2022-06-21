@@ -154,6 +154,10 @@ def calc_vertex(atoms):
         verts = []
         # Go through each radius and calculate the vertex
         for R in Rs:
+            if R < 0:
+                print('negative radius')
+            else:
+                print('positive radius')
             x, y, z = F10/F + R*F11/F, F20/F + R*F21/F, F30/F + R*F31/F
             # Move the vertex back to the actual location of the atoms
             verts.append(Vertex([x + l1[0], y + l1[1], z + l1[2]], R))

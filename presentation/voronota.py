@@ -1,7 +1,7 @@
 from objects import Vertex
 
 
-# Read verts function. Used to interperate voronota data
+# Read verts function. Used to interpret Voronota data
 def read_verts(file):
     file = open(file).readlines()
     verts = []

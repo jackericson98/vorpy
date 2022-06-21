@@ -84,7 +84,6 @@ def plot_surfs(atoms=None, surfs=None, fig=None, ax=None, Show=False, dfo=None, 
             x.append(point[0])
             y.append(point[1])
             z.append(point[2])
-
         # Plot the mesh data values. If the mesh is a plane, plot it as scatter plot.
         if plane:
             ax.scatter(x, y, z, color='y', alpha=0.5)
@@ -94,19 +93,16 @@ def plot_surfs(atoms=None, surfs=None, fig=None, ax=None, Show=False, dfo=None, 
         ax.set_xlim(-dfo, dfo)
         ax.set_ylim(-dfo, dfo)
         ax.set_zlim(-dfo, dfo)
-
-    # Set axes limits and labels
-    # ax.set_xlabel('X Axis')
-    # ax.set_ylabel('Y Axis')
-    # ax.set_zlabel('Z Axis')
+    # Turn off the axes
     ax.axis('off')
     ax.grid(grid)
+    # Show the plot if requested
     if Show:
         plt.show()
 
 
 # Plot vertices function. Plots the vertices of a network.
-def plot_verts(verts, fig=None, ax=None, Show=False, dfo=None, grid=False):
+def plot_verts(verts, fig=None, ax=None, Show=False, plot_spheres=False, dfo=None, grid=False, vcolors=None, scolors=None):
     # Create a new subplot if one isn't specified
     if ax is None:
         # Create new figure if one isn't specified
@@ -115,8 +111,36 @@ def plot_verts(verts, fig=None, ax=None, Show=False, dfo=None, grid=False):
             Show = True  # If no outside figure is specified, then the figure needs to be shown from within
         ax = fig.add_subplot(projection="3d")
 
-    for vert in verts:
-        ax.scatter(vert.loc[0], vert.loc[1], vert.loc[2])
+    # Set the colors of the spheres. Defaults to blue with a white base sphere
+    if vcolors is None:
+        vcolors = ['r' for _ in range(len(verts) - 1)]
+    # If not all colors are specified make the rest blue
+    if len(vcolors) < len(verts):
+        vcolors = vcolors + ['w' for _ in range(len(verts) - len(vcolors))]
+
+    # Set the colors of the spheres. Defaults to blue with a white base sphere
+    if scolors is None:
+        scolors = ['b' for _ in range(len(verts) - 1)]
+    # If not all colors are specified make the rest blue
+    if len(scolors) < len(verts):
+        scolors = scolors + ['b' for _ in range(len(verts) - len(scolors))]
+
+    # Set the distance from origin
+    if dfo is not None:
+        ax.set_xlim(-dfo, dfo)
+        ax.set_ylim(-dfo, dfo)
+        ax.set_zlim(-dfo, dfo)
+    # Turn off the axes
+    ax.axis('off')
+    ax.grid(grid)
+
+    # Plot each vertex
+    for i in range(len(verts)):
+        # Plot the point
+        ax.scatter(verts[i].loc[0], verts[i].loc[1], verts[i].loc[2], c=vcolors[i])
+        if plot_spheres:
+            # Plot the sphere
+            plot_atoms([Atom(verts[i].loc, verts[i].rad)], fig=fig, ax=ax, colors=scolors[i])
 
     if Show:
         plt.show()
