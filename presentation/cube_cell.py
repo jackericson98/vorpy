@@ -6,11 +6,11 @@ import matplotlib.patches as mpatches
 fig = plt.figure()
 ax = fig.add_subplot(projection="3d")
 # Create atom objects from sets of points
-atoms = [Atom([0, 0, 0], 1.5)]
+atoms = [Atom([0, 0, 0], 2.5)]
 dist = 5
 rad = .5
 
-atoms += [Atom([dist, 0, 0], rad+1), Atom([-dist, 0, 0], rad), Atom([0, dist, 0], rad), Atom([0, -dist, 0], rad),
+atoms += [Atom([dist, 0, 0], rad), Atom([-dist, 0, 0], rad), Atom([0, dist, 0], rad), Atom([0, -dist, 0], rad),
           Atom([0, 0, dist], rad), Atom([0, 0, -dist], rad)]
 # Plot the atom objects
 plot_atoms(atoms, fig=fig, ax=ax)
@@ -24,8 +24,8 @@ vert_nums = [[1, 3, 5], [2, 3, 5], [2, 4, 5], [1, 4, 5], [1, 3, 6], [2, 3, 6], [
 verts = []
 for i in range(8):
     vn = calc_vertex([atoms[0], atoms[vert_nums[i][0]], atoms[vert_nums[i][1]], atoms[vert_nums[i][2]]])
-    verts.append(vn)
-    print(vn.rad)
+    if vn:
+        verts.append(vn)
 
 
 # Build the network of vertices
@@ -36,6 +36,5 @@ red_patch = mpatches.Patch(color='red', label='Vertices')
 blue_patch = mpatches.Patch(color='blue', label='Atoms')
 black_patch = mpatches.Patch(color='black', label='Interstitial Spheres')
 ax.legend(handles=[blue_patch, red_patch, black_patch], loc='upper right')
-plot_verts(verts, fig=fig, ax=ax, plot_spheres=True, Show=True)
-
+plot_verts(verts, fig=fig, ax=ax, plot_spheres=True, dfo=10, Show=True)
 
