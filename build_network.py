@@ -11,7 +11,6 @@ from objects import Atom, Edge, Vertex, Surface
     5. calc_vertex: atoms -> Vertex
     """
 
-
 ########################################################################################################################
 """Calculator functions"""
 
@@ -132,17 +131,19 @@ def calc_circ(atoms):
 def calc_vertex(atoms):
     # The real location and radius of the base sphere
     l1, R1 = atoms[0].loc, atoms[0].rad
-
+    # Move all atoms toward the origin
+    for atom in atoms:
+        move(l1, atom)
     # Set the radii and x, y, z values for the 3 spheres
     R2, R3, R4 = atoms[1].rad, atoms[2].rad, atoms[3].rad
-    x2, y2, z2 = atoms[1].loc[0] - l1[0], atoms[1].loc[1] - l1[1], atoms[1].loc[2] - l1[1]
-    x3, y3, z3 = atoms[2].loc[0] - l1[0], atoms[2].loc[1] - l1[1], atoms[2].loc[2] - l1[1]
-    x4, y4, z4 = atoms[3].loc[0] - l1[0], atoms[3].loc[1] - l1[1], atoms[3].loc[2] - l1[1]
+    x2, y2, z2 = atoms[1].loc[0], atoms[1].loc[1], atoms[1].loc[2]
+    x3, y3, z3 = atoms[2].loc[0], atoms[2].loc[1], atoms[2].loc[2]
+    x4, y4, z4 = atoms[3].loc[0], atoms[3].loc[1], atoms[3].loc[2]
 
     # Calculate our system of linear equations coefficients
-    a1, b1, c1, d1, f1 = 2 * x2, 2 * y2, 2 * z2, 2 * (R1 - R2), R1 ** 2 - R2 ** 2 + x2 ** 2 + y2 ** 2 + z2 ** 2
-    a2, b2, c2, d2, f2 = 2 * x3, 2 * y3, 2 * z3, 2 * (R1 - R3), R1 ** 2 - R3 ** 2 + x3 ** 2 + y3 ** 2 + z3 ** 2
-    a3, b3, c3, d3, f3 = 2 * x4, 2 * y4, 2 * z4, 2 * (R1 - R4), R1 ** 2 - R4 ** 2 + x4 ** 2 + y4 ** 2 + z4 ** 2
+    a1, b1, c1, d1, f1 = 2 * x2, 2 * y2, 2 * z2, 2 * (R2 - R1), R1 ** 2 - R2 ** 2 + x2 ** 2 + y2 ** 2 + z2 ** 2
+    a2, b2, c2, d2, f2 = 2 * x3, 2 * y3, 2 * z3, 2 * (R3 - R1), R1 ** 2 - R3 ** 2 + x3 ** 2 + y3 ** 2 + z3 ** 2
+    a3, b3, c3, d3, f3 = 2 * x4, 2 * y4, 2 * z4, 2 * (R4 - R1), R1 ** 2 - R4 ** 2 + x4 ** 2 + y4 ** 2 + z4 ** 2
 
     A, B, C, d, f = [a1, a2, a3], [b1, b2, b3], [c1, c2, c3], [d1, d2, d3], [f1, f2, f2]
 
@@ -152,10 +153,13 @@ def calc_vertex(atoms):
     f_rank = np.linalg.matrix_rank([A, B, C, d, f])
 
     # Calculate the F values
-    F, F10, F11, F20, F21, F30, F31 = np.linalg.det([A, B, C]), np.linalg.det([f, B, C]), \
-                                      np.linalg.det([[-d[0], -d[1], -d[2]], B, C]), np.linalg.det([A, f, C]), \
-                                      np.linalg.det([A, [-d[0], -d[1], -d[2]], C]), np.linalg.det([A, B, f]), \
-                                      np.linalg.det([A, B, [-d[0], -d[1], -d[2]]])
+    F, F10, F11, F20, F21, F30, F31 = a1*b2*c3 - a1*b3*c2 - a2*b1*c3 + a2*b3*c1 + a3*b1*c2 - a3*b2*c1, \
+                                      b1*c2*f3 - b1*c3*f2 - b2*c1*f3 + b2*c3*f1 + b3*c1*f2 - b3*c2*f1, \
+                                      -b1*c2*d3 + b1*c3*d2 + b2*c1*d3 - b2*c3*d1 - b3*c1*d2 + b3*c2*d1, \
+                                      -a1*c2*f3 + a1*c3*f2 + a2*c1*f3 - a2*c3*f1 - a3*c1*f2 + a3*c2*f1, \
+                                      a1*c2*d3 - a1*c3*d2 - a2*c1*d3 + a2*c3*d1 + a3*c1*d2 - a3*c2*d1, \
+                                      a1*b2*f3 - a1*b3*f2 - a2*b1*f3 + a2*b3*f1 + a3*b1*f2 - a3*b2*f1, \
+                                      -a1*b2*d3 + a1*b3*d2 + a2*b1*d3 - a2*b3*d1 - a3*b1*d2 + a3*b2*d1
     # Catch for F = 0.
     if F == 0:
         return
@@ -165,9 +169,9 @@ def calc_vertex(atoms):
     # Case 1:
     if ABC_rank == 3 and m_rank == 3 and f_rank == 3:
         # Calculate the radius polynomial coefficients
-        a = (F11 ** 2 + F21 ** 2 + F31 ** 2) / F ** 2 - 1
-        b = 2 * (F10 * F11 + F20 * F21 + F30 * F31) / F ** 2 - 2 * R1
-        c = (F10 ** 2 + F20 ** 2 + F30 ** 2) / F ** 2 - R1 ** 2
+        a = ((F11 ** 2 + F21 ** 2 + F31 ** 2) / F ** 2) - 1
+        b = (2 * (F10 * F11 + F20 * F21 + F30 * F31) / F ** 2) - 2 * R1
+        c = ((F10 ** 2 + F20 ** 2 + F30 ** 2) / F ** 2) - R1 ** 2
         # If the discriminant is positive, find the real positive roots of the quadratic
         if -4*a*c + b**2 > 0:
             Rs = [R for R in np.roots([a, b, c]) if np.isreal(R) and R > 0]
@@ -253,6 +257,7 @@ def calc_edge(edge, net):
     d1 = calc_dist(v0.loc, c)
     # Make a list of the closest neighbors
     neighbors = sortbyDist(edge.atoms, net)
+
     # Find the other atom from the old vertex
     an = None
     # Find the atom from the v0 that is not in the edge's atom list
@@ -447,17 +452,14 @@ def find_v0(net):
 
 # Find edges function. Recursively traces out the network and records vertex locations,
 def find_edges(vertex, net, nedges=4, recurse=True):
-    print(vertex.loc)
     # Create the edge objects or grab them from the network and connect them
     for i in range(nedges):
         # Go through each iteration of atom combinations to make the edges.
         myAtoms = [vertex.atoms[i], vertex.atoms[(i+1) % 4], vertex.atoms[(i+2) % 4]]
-
         # If there aren't edges, it is the first pass and the edges don't need to be checked.
         if not net.edges:
             vertex.edges.append(Edge(myAtoms, vertex))
             continue
-
         # Check the atoms against each edge in the networks' atoms
         for edge in net.edges:
             # Reset the counter
@@ -469,6 +471,7 @@ def find_edges(vertex, net, nedges=4, recurse=True):
                     like_atoms += 1
             # If the number of like atoms is less than 3 (i.e. not a match) create an edge object
             if like_atoms < 3:
+                print("Check to see if we can catch a repeat edge. They should be the same:", myAtoms, edge.atoms)
                 vertex.edges.append(Edge([myAtoms], vertex))
             # Else add the edge to the vertex's edge list and the vert to the edges list
             else:
@@ -485,7 +488,6 @@ def find_edges(vertex, net, nedges=4, recurse=True):
         # If the vertex is None give the edge a None vertex and continue to the next edge
         if vn is None:
             edge.verts.append(None)
-            print(edge.atoms[0].loc, edge.atoms[1].loc, edge.atoms[2].loc)
             continue
         # Spread to other sites or just find this one edge
         if recurse:

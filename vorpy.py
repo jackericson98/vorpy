@@ -1,6 +1,6 @@
 # Outside Imports
 import tkinter as tk
-from tkinter import filedialog, Button
+from tkinter import filedialog, Button, CENTER
 # Internal Imports
 from load_system import read_pdb
 from build_network import build_network
@@ -34,7 +34,9 @@ class Vorpy:
         self.make_meshes = tk.Button(text="Build Meshes", command=self.build_meshes_button)
         self.exit = tk.Button(text="Exit", command=self.root.destroy)
         # button that displays the plot
-        self.plot_button = tk.Button(text="Plot Atoms", command=self.plot)
+        self.plot_button = tk.Button(text="Plot", command=self.plot)
+        self.atoms_butt = None
+        self.verts_butt = None
         # Place the items
         self.head.place(x=width/2 - width/12, y=height/16)
         self.filename.place(x=width*19/32, y=7/32*height)
@@ -83,16 +85,11 @@ class Vorpy:
         # Plot the surfaces
         plot_surfs(surfs=self.sys.net.surfs)
 
-    def plot(self):
-        # Create figure
-        fig = Figure(figsize=(self.width/100, self.height/100), dpi=50)
-        # Use the plot atoms method to create plot contents
+    def show_atoms(self, fig, canvas):
+
         plot_atoms(self.sys.atoms, fig=fig)
-
         # Create Canvas
-        canvas = FigureCanvasTkAgg(fig, master=self.root)
         canvas.draw()
-
 
         # canvas.get_tk_widget().pack()
 
@@ -102,8 +99,51 @@ class Vorpy:
         toolbar.update()
 
         # placing the toolbar on the Tkinter window
-        canvas.get_tk_widget().place(x=self.width*7/16, y=self.height*5/16)
+        canvas.get_tk_widget().place(x=self.width * 7 / 16, y=self.height * 5 / 16)
+
+    def show_verts(self, fig, canvas):
+
+        canvas.flush_events()
+        plot_atoms(self.sys.atoms, fig=fig)
+        plot_verts(self.sys.net.verts, fig=fig)
+        # Create Canvas
+        canvas.draw()
+
+        # canvas.get_tk_widget().pack()
+
+    def plot(self):
+        # Create figure
+        fig = Figure(figsize=(self.width / 100, self.height / 100), dpi=50)
+        canvas = FigureCanvasTkAgg(fig, master=self.root)
+        # Use the plot atoms method to create plot contents
+        self.atoms_butt = tk.Button(text="Atoms", command=self.show_atoms(fig, canvas))
+        self.verts_butt = tk.Button(text="Vertices", command=self.show_verts(fig, canvas))
+
+        self.atoms_butt.place(x=3 / 4 * self.width - 3 / 16 * self.width, y=3 / 4 * self.height + 1 / 16 * self.height)
+        self.verts_butt.place(x=3 / 4 * self.width + 1 / 16 * self.width, y=3 / 4 * self.height + 1 / 16 * self.height)
+
+        # creating the Matplotlib toolbar
+        toolbar = NavigationToolbar2Tk(canvas, self.root)
+
+        toolbar.update()
+
+        # placing the toolbar on the Tkinter window
+        canvas.get_tk_widget().place(x=self.width * 7 / 16, y=self.height * 5 / 16)
+        canvas.flush_events()
 
 
-# Driver code
+class ErrorBox:
+    """Error box class. Used to indicate if an error has occurred and takes the message as an input"""
+    def __init__(self, error_message):
+        self.eroot = tk.Tk()
+
+        self.eroot.title("vorpy")
+        self.error = tk.Label(text=error_message, font="none 14 bold")
+
+        self.error.config(anchor=CENTER)
+        self.error.pack(padx=20, pady=20)
+        # End the loop
+        self.eroot.mainloop()
+
+
 Vorpy()

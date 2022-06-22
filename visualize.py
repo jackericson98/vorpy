@@ -35,7 +35,6 @@ def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid
             z = atoms[i].rad * np.cos(v) + atoms[i].loc[2]
 
             # Plot the sphere
-            print(atoms[i].loc)
             ax.plot_wireframe(x, y, z, color=colors[i], alpha=alpha)
 
     # Set plot parameters
@@ -136,6 +135,7 @@ def plot_verts(verts, fig=None, ax=None, Show=False, plot_spheres=False, dfo=Non
         ax.scatter(verts[i].loc[0], verts[i].loc[1], verts[i].loc[2], c=vcolors[i])
         if plot_spheres:
             # Plot the sphere
+            print(verts[i].rad)
             plot_atoms([Atom(verts[i].loc, verts[i].rad)], fig=fig, ax=ax, colors=scolors[i], alpha=0.1)
 
     if Show:
