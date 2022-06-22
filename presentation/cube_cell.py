@@ -1,6 +1,8 @@
 from visualize import *
-from build_network import calc_vertex
-
+from build_network import calc_vertex, build_network
+# Create the figure
+fig = plt.figure()
+ax = fig.add_subplot(projection="3d")
 # Create atom objects from sets of points
 atoms = [Atom([0, 0, 0], .5)]
 dist = 5
@@ -8,7 +10,8 @@ rad = .5
 
 atoms += [Atom([dist, 0, 0], rad), Atom([-dist, 0, 0], rad), Atom([0, dist, 0], rad), Atom([0, -dist, 0], rad),
           Atom([0, 0, dist], rad), Atom([0, 0, -dist], rad)]
-
+# Plot the atom objects
+plot_atoms(atoms, fig=fig, ax=ax)
 # Create a system of from the atoms
 mySys = System()
 mySys.atoms = atoms
@@ -20,9 +23,10 @@ verts = []
 for i in range(8):
     verts.append(calc_vertex([atoms[0], atoms[vert_nums[i][0]], atoms[vert_nums[i][1]], atoms[vert_nums[i][2]]]))
 
-fig = plt.figure()
-ax = fig.add_subplot(projection="3d")
+
+# Build the network of vertices
+build_network(mySys)
+
 # Plot the vertices
-plot_verts(verts, fig=fig, ax=ax, plot_spheres=True)
-# Plot the atom objects
-plot_atoms(mySys.atoms, colors=['k', 'b'], fig=fig, ax=ax, Show=True)
+plot_verts(verts[0:3], fig=fig, ax=ax, plot_spheres=True, Show=True)
+

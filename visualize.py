@@ -3,8 +3,7 @@ from build_mesh import *
 
 
 # Plot spheres function. Plots the spheres specified
-def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False):
-
+def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=1):
     # Create a new subplot if one isn't specified
     if ax is None:
         # Create new figure if one isn't specified
@@ -15,7 +14,7 @@ def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid
 
     # Set the colors of the spheres. Defaults to blue with a white base sphere
     if colors is None:
-        colors = ['w'] + ['b' for _ in range(len(atoms) - 1)]
+        colors = ['b' for _ in range(len(atoms))]
     # If not all colors are specified make the rest blue
     if len(colors) < len(atoms):
         colors = colors + ['b' for _ in range(len(atoms) - len(colors))]
@@ -28,19 +27,16 @@ def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid
         res = 5 - len(atoms) // 20
         # Find u, v values that span phi and theta
         u, v = np.mgrid[0:2 * np.pi:res*8j, 0:np.pi:res*4j]
-        rads, locs = [], []
         # Plot each sphere
         for i in range(len(atoms)):
-            # Get radius and location values for the spheres
-            rads.append(atoms[i].rad)
-            locs.append(atoms[i].loc)
             # Get x, y, z data for the wireframe
-            x = rads[i] * np.cos(u) * np.sin(v) + locs[i][0]
-            y = rads[i] * np.sin(u) * np.sin(v) + locs[i][1]
-            z = rads[i] * np.cos(v) + locs[i][2]
+            x = atoms[i].rad * np.cos(u) * np.sin(v) + atoms[i].loc[0]
+            y = atoms[i].rad * np.sin(u) * np.sin(v) + atoms[i].loc[1]
+            z = atoms[i].rad * np.cos(v) + atoms[i].loc[2]
 
             # Plot the sphere
-            ax.plot_wireframe(x, y, z, color=colors[i])
+            print(atoms[i].loc)
+            ax.plot_wireframe(x, y, z, color=colors[i], alpha=alpha)
 
     # Set plot parameters
     if dfo is not None:
@@ -113,17 +109,17 @@ def plot_verts(verts, fig=None, ax=None, Show=False, plot_spheres=False, dfo=Non
 
     # Set the colors of the spheres. Defaults to blue with a white base sphere
     if vcolors is None:
-        vcolors = ['r' for _ in range(len(verts) - 1)]
+        vcolors = ['r' for _ in range(len(verts))]
     # If not all colors are specified make the rest blue
     if len(vcolors) < len(verts):
-        vcolors = vcolors + ['w' for _ in range(len(verts) - len(vcolors))]
+        vcolors = vcolors + ['r' for _ in range(len(verts) - len(vcolors))]
 
     # Set the colors of the spheres. Defaults to blue with a white base sphere
     if scolors is None:
-        scolors = ['b' for _ in range(len(verts) - 1)]
+        scolors = ['k' for _ in range(len(verts))]
     # If not all colors are specified make the rest blue
     if len(scolors) < len(verts):
-        scolors = scolors + ['b' for _ in range(len(verts) - len(scolors))]
+        scolors = scolors + ['k' for _ in range(len(verts) - len(scolors))]
 
     # Set the distance from origin
     if dfo is not None:
@@ -140,7 +136,7 @@ def plot_verts(verts, fig=None, ax=None, Show=False, plot_spheres=False, dfo=Non
         ax.scatter(verts[i].loc[0], verts[i].loc[1], verts[i].loc[2], c=vcolors[i])
         if plot_spheres:
             # Plot the sphere
-            plot_atoms([Atom(verts[i].loc, verts[i].rad)], fig=fig, ax=ax, colors=scolors[i])
+            plot_atoms([Atom(verts[i].loc, verts[i].rad)], fig=fig, ax=ax, colors=scolors[i], alpha=0.1)
 
     if Show:
         plt.show()
