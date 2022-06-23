@@ -312,6 +312,9 @@ def calc_edge(edge, net):
         d2 = calc_dist(vn.loc, c)
         # Calculate the distance between the new vertex and the old vertex
         d3 = calc_dist(vn.loc, v0.loc)
+
+
+
         # Mevdevev's edge site finding checks. Find the shortest relative distance from v0 to vn
         if d1 <= d3 or d2 <= d3:
             r_len = d1 + d2
