@@ -2,7 +2,6 @@
 import tkinter as tk
 from tkinter import filedialog, Button, CENTER
 # Internal Imports
-from file import get_data
 from build_network import build_network
 from build_mesh import build_meshes
 from visualize import *
@@ -14,11 +13,11 @@ class Vorpy:
     """Vorpy GUI class. When instantiated the Gui will launch"""
     def __init__(self, width=1000, height=800):
         # Set up the window
-        self.window = tk.Tk()
+        self.vp_main = tk.Tk()
         self.width = width
         self.height = height
-        self.window.geometry(str(width) + "x" + str(height))
-        self.window.title('vorpy')
+        self.vp_main.geometry(str(width) + "x" + str(height))
+        self.vp_main.title('vorpy')
 
         # Instantiate the system
         self.sys = None
@@ -29,14 +28,17 @@ class Vorpy:
 
         # Text boxes:
         self.head = tk.Label(text="VorPy", font=('Helvetica bold', 40))
-        self.filename = tk.Label(self.window, textvariable=self.name, font=('Times New Roman', 20))
+        self.filename = tk.Label(self.vp_main, textvariable=self.name, font=('Times New Roman', 20))
+
+        # Plot
+        self.fig = Figure(figsize=(self.width / 100, self.height / 100), dpi=50)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.vp_main)
 
         # Buttons:
         self.get_file = tk.Button(text="Load Molecule", command=self.load_molecule_button)
         self.make_network = tk.Button(text="Build Network", command=self.build_network_button)
         self.make_meshes = tk.Button(text="Build Meshes", command=self.build_meshes_button)
-        self.exit = tk.Button(text="Exit", command=self.window.destroy)
-        self.plot_button = tk.Button(text="Plot", command=self.plot)
+        self.exit = tk.Button(text="Exit", command=self.vp_main.destroy)
         self.atoms_butt = None
         self.verts_butt = None
 
@@ -46,10 +48,13 @@ class Vorpy:
         self.get_file.place(x=3/16*width, y=3/8*height)
         self.make_network.place(x=3/16*width, y=1/2*height)
         self.make_meshes.place(x=3/16*width, y=5/8*height)
-        self.plot_button.place(x=3/4*width - 1/8*width, y=3/4*height + 1/8*height)
+        self.atoms_butt = tk.Button(text="Atoms", command=self.show_atoms)
+        self.verts_butt = tk.Button(text="Vertices", command=self.show_verts)
+        self.atoms_butt.place(x=3 / 4 * self.width - 3 / 16 * self.width, y=3 / 4 * self.height + 1 / 16 * self.height)
+        self.verts_butt.place(x=3 / 4 * self.width + 1 / 16 * self.width, y=3 / 4 * self.height + 1 / 16 * self.height)
 
         # End the loop
-        self.window.mainloop()
+        self.vp_main.mainloop()
 
     def load_molecule_button(self):
         # File grabber pop up
@@ -63,7 +68,8 @@ class Vorpy:
     # Build network button function.
     def build_network_button(self):
         # Build the network
-        build_network(self.sys)
+        build_network(self.sys)  # Try statment with voronota_verts
+
         # Print out all the vertices
         for i in range(len(self.sys.net.verts)):
             print(self.sys.net.verts[i])
@@ -74,51 +80,29 @@ class Vorpy:
         # Plot the surfaces
         plot_surfs(surfs=self.sys.net.surfs)
 
-    def show_atoms(self, fig, canvas):
-
-        plot_atoms(self.sys.atoms, fig=fig)
+    def show_atoms(self):
+        if self.sys:
+            plot_atoms(self.sys.atoms, fig=self.fig)
         # Create Canvas
-        canvas.draw()
+        self.canvas.draw()
 
-        # canvas.get_tk_widget().pack()
+        self.canvas.get_tk_widget().pack()
 
         # creating the Matplotlib toolbar
-        toolbar = NavigationToolbar2Tk(canvas, self.window)
-
-        toolbar.update()
+        # toolbar = NavigationToolbar2Tk(self.canvas, self.vp_main)
+        #
+        # toolbar.update()
 
         # placing the toolbar on the Tkinter window
-        canvas.get_tk_widget().place(x=self.width * 7 / 16, y=self.height * 5 / 16)
+        self.canvas.get_tk_widget().place(x=self.width * 7 / 16, y=self.height * 5 / 16)
 
-    def show_verts(self, fig, canvas):
+    def show_verts(self):
 
-        canvas.flush_events()
-        plot_atoms(self.sys.atoms, fig=fig)
-        plot_verts(self.sys.net.verts, fig=fig)
+        plot_verts(self.sys.net.verts, fig=self.fig)
         # Create Canvas
-        canvas.draw()
+        self.canvas.draw()
 
-        # canvas.get_tk_widget().pack()
-
-    def plot(self):
-        # Create figure
-        fig = Figure(figsize=(self.width / 100, self.height / 100), dpi=50)
-        canvas = FigureCanvasTkAgg(fig, master=self.window)
-        # Use the plot atoms method to create plot contents
-        self.atoms_butt = tk.Button(text="Atoms", command=self.show_atoms(fig, canvas))
-        self.verts_butt = tk.Button(text="Vertices", command=self.show_verts(fig, canvas))
-
-        self.atoms_butt.place(x=3 / 4 * self.width - 3 / 16 * self.width, y=3 / 4 * self.height + 1 / 16 * self.height)
-        self.verts_butt.place(x=3 / 4 * self.width + 1 / 16 * self.width, y=3 / 4 * self.height + 1 / 16 * self.height)
-
-        # creating the Matplotlib toolbar
-        toolbar = NavigationToolbar2Tk(canvas, self.window)
-
-        toolbar.update()
-
-        # placing the toolbar on the Tkinter window
-        canvas.get_tk_widget().place(x=self.width * 7 / 16, y=self.height * 5 / 16)
-        canvas.flush_events()
+        self.canvas.get_tk_widget().pack()
 
 
 class ErrorBox:

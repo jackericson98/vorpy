@@ -5,8 +5,12 @@ import numpy as np
 class System:
     """Class used to import files of all types and return a system"""
     def __init__(self, file=None):
+        # If no file is given, generate a random system
         if file is None:
             self.random_system()
+        # If the file type is a list
+        if type(file) == list:
+            self.build_sys(file)
         # Grab the file
         self.file_name = self.get_name(file)
         self.file = open(file).readlines()
@@ -132,8 +136,6 @@ class System:
     # Get radius Method. Goes through the bondi_radius file from voronota and gives a radius to the given atom name
     @staticmethod
     def get_radius(atom_name):
-        # Set the bondi rads. Found from Voronota
-        bondi_rads = {"0": 1.2, "1": 1.7, "2": 1.55, "3": 1.52, "4": 1.8, "5": 0.0, "6": 2.29, "7": 1.33, "8": 1.1}
         # Get the classifier document
         radii = open('Data/bondi_classifier.txt').readlines()
         # Go through each line in the classifier document
@@ -142,19 +144,16 @@ class System:
             # Compare the given atom name and atom name in the line
             if atom_name.lower() == line[1].lower():
                 # Get the classifier for the line (0, 1, 2, 3, 4, 5, 6, 7)
-                classifier = str(line[2])
-                # Return the radius that relates to the found classifier
-                return bondi_rads[classifier]
+                return float(line[2])
 
     # Build system function. Takes in a list of coordinates and string atom names
-    def build_sys(self, lr_input_list, str_rads=False):
-        # If the radii are strings, go through and get the radii using get_radius method
-        if str_rads:
-            for line in lr_input_list:
+    def build_sys(self, lr_input_list):
+        # Go through each line in the input list
+        for line in lr_input_list:
+            # If the radius is a
+            if type(line[3]) == str:
                 self.atoms.append(Atom([line[0], line[1], line[2]], self.get_radius(line[3])))
-        # Else, just create the atoms
-        else:
-            for line in lr_input_list:
+            else:
                 self.atoms.append(Atom([line[0], line[1], line[2]], line[3]))
 
     # Random system function. Creates a system with atoms placed in random locations with random radii
