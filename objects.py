@@ -1,13 +1,168 @@
 """This file holds all object types needed for calculations: Molecule, Mesh, Sphere, Ray, Plane"""
+import numpy as np
 
 
 class System:
-    """System object. Holds everything from the import file. Used to build network for and analyze import file"""
-    def __init__(self):
-        self.info = {}  # Information about the system
+    """Class used to import files of all types and return a system"""
+    def __init__(self, file=None):
+        if file is None:
+            self.random_system()
+        # Grab the file
+        self.file_name = self.get_name(file)
+        self.file = open(file).readlines()
+        # Split each line in the file
+        for i in range(len(self.file)):
+            self.file[i] = self.file[i].split()
+        # Set up our
         self.atoms = []  # List of Atom type objects
         self.net = Network(self.atoms)  # Network type object for calculations
+        self.box = None
+        self.bonds = None
         self.Analysis = None  # Analysis type object for data collection
+        # Non-pertinent information
+        self.header = None
+        self.title = None
+        self.compound = None
+        self.source = None
+        self.key_words = None
+        self.exp_data = None
+        self.author = None
+        self.revisions = None
+        self.journal = None
+        self.remarks = None
+        self.debrief = None
+        self.seq_adv = None
+        self.formula = None
+        self.residues = None
+        self.helix = None
+        self.sheet = None
+        self.crystal = None
+        self.origin = None
+        self.scale = None
+        self.terminals = None
+        self.het_atom = None
+        self.master = None
+        # Check the filetype and use the appropriate function to get it
+        if file[-3:] == "pdb":
+            self.get_pdb()
+        elif file[-3:] == "gro":
+            self.get_gro()
+        elif file[-3:] == "mol":
+            self.get_mol()
+
+    @staticmethod
+    def get_name(file):
+        filename = ""
+        i = -1
+        # Go through each char in the path from the back and stop at the first slash
+        while file[i] != "/":
+            filename = filename + file[i]
+            i -= 1
+        # Trim the extension and the dot
+        return filename[-4:]
+
+    # Get pdb data method. Finds the lines of the file with prefixes and returns them as a list
+    def get_pdb_data(self, word):
+        # Special case for Atom lines
+        if word.lower() == 'atom':
+            atoms = []
+        # Go through each line in the file and check if the first word is the word we are looking for
+            for i in range(len(self.file)):
+                line = self.file[i]
+                if line and line[0].lower() == 'atom':  # Check if the line starts with atom
+                    print(line[-1])
+                    atom = Atom([float(line[-7]), float(line[-5]), float(line[-4])], get_radius(line[-1]))
+                    atoms.append(atom)
+            return atoms
+
+        # Standard case
+        else:
+            data = []
+            for i in range(len(self.file)):
+                if word == self.file[i][:len(word)]:  # check the first len(word) letters
+                    # Add the split test_data to our list and remove the word at the beginning of the list
+                    data.append(self.file[i].split()[1:])
+        return data
+
+    # Get pdb method. Finds the atoms and
+    def get_pdb(self):
+        # Open and read the file
+        self.header = self.get_pdb_data('HEADER')
+        self.title = self.get_pdb_data('TITLE')
+        self.compound = self.get_pdb_data('COMPOUND')
+        self.source = self.get_pdb_data('SOURCE')
+        self.key_words = self.get_pdb_data('KEYWDS')
+        self.exp_data = self.get_pdb_data('EXPDTA')
+        self.author = self.get_pdb_data('AUTHOR')
+        self.revisions = self.get_pdb_data('REVDAT')
+        self.journal = self.get_pdb_data('JRNL')
+        self.remarks = self.get_pdb_data('REMARK')
+        self.debrief = self.get_pdb_data('DBREF')
+        self.seq_adv = self.get_pdb_data('SEQADV')
+        self.formula = self.get_pdb_data('FORMUL')
+        self.residues = self.get_pdb_data('SEQRES')
+        self.helix = self.get_pdb_data('HELIX')
+        self.sheet = self.get_pdb_data('SHEET')
+        self.crystal = self.get_pdb_data('CRYST')
+        self.origin = self.get_pdb_data('ORIG')
+        self.scale = self.get_pdb_data('SCALE')
+        self.terminals = self.get_pdb_data('TER')
+        self.het_atom = self.get_pdb_data('HETATM')
+        self.master = self.get_pdb_data('MASTER')
+        # Grab all the lines that start with ATOM. Creates Atom objects
+        self.atoms = self.get_pdb_data('ATOM')
+
+    # Get gro method. Finds data in a gro file
+    def get_gro(self):
+        self.header = self.file[0]
+        self.box = self.file[-2]
+        # Go through each line in the file and
+        for line in self.file[2:-2]:
+            atom = Atom([line[3], line[4], line[5]], self.get_radius(line[1][0]))
+            if atom.rad is None:
+                print(line[1])
+            self.atoms.append(atom)
+
+    # Get mol method. Finds data in a mol file
+    def get_mol(self):
+        for line in self.file:
+            if len(line) > 6:
+                self.atoms.append(Atom([line[0], line[1], line[2]], self.get_radius(line[3])))
+
+    # Get radius Method. Goes through the bondi_radius file from voronota and gives a radius to the given atom name
+    @staticmethod
+    def get_radius(atom_name):
+        # Set the bondi rads. Found from Voronota
+        bondi_rads = {"0": 1.2, "1": 1.7, "2": 1.55, "3": 1.52, "4": 1.8, "5": 0.0, "6": 2.29, "7": 1.33, "8": 1.1}
+        # Get the classifier document
+        radii = open('Data/bondi_classifier.txt').readlines()
+        # Go through each line in the classifier document
+        for line in radii:
+            line = line.split()
+            # Compare the given atom name and atom name in the line
+            if atom_name.lower() == line[1].lower():
+                # Get the classifier for the line (0, 1, 2, 3, 4, 5, 6, 7)
+                classifier = str(line[2])
+                # Return the radius that relates to the found classifier
+                return bondi_rads[classifier]
+
+    # Build system function. Takes in a list of coordinates and string atom names
+    def build_sys(self, lr_input_list, str_rads=False):
+        # If the radii are strings, go through and get the radii using get_radius method
+        if str_rads:
+            for line in lr_input_list:
+                self.atoms.append(Atom([line[0], line[1], line[2]], self.get_radius(line[3])))
+        # Else, just create the atoms
+        else:
+            for line in lr_input_list:
+                self.atoms.append(Atom([line[0], line[1], line[2]], line[3]))
+
+    # Random system function. Creates a system with atoms placed in random locations with random radii
+    def random_system(self, anums=30, dmax=15, rmax=1):
+        # Create the atoms
+        for i in range(anums):
+            # Choose a random set of 3 numbers between dmax and -dmax. Choose a random radius between 0 and rmax
+            self.atoms.append(Atom(np.random.rand(3)*2*dmax - dmax, np.random.rand()*rmax))
 
 
 class Network:
