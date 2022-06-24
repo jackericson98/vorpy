@@ -71,7 +71,7 @@ class System:
                 line = self.file[i]
                 if line and line[0].lower() == 'atom':  # Check if the line starts with atom
                     print(line[-1])
-                    atom = Atom([float(line[-7]), float(line[-5]), float(line[-4])], get_radius(line[-1]))
+                    atom = Atom([float(line[-7]), float(line[-5]), float(line[-4])], self.get_radius(line[-1]))
                     atoms.append(atom)
             return atoms
 
