@@ -508,7 +508,6 @@ def find_edges(vertex, net):
             net.edges.append(edge)
         # If both the edge and the vertex do not exist in the network, we have a true new site
         else:
-            print(vn.loc)
             edge.verts.append(vn)
             net.edges.append(edge)
             net.verts.append(vn)

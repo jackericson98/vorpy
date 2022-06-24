@@ -20,7 +20,7 @@ def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid
         colors = colors + ['b' for _ in range(len(atoms) - len(colors))]
 
     # If the number of spheres to plot is more than 80, then plot them as points rather than spheres. Marker size?
-    if len(atoms) > 30:
+    if len(atoms) > 80:
         for sphere in atoms:
             ax.scatter(sphere.loc[0], sphere.loc[1], sphere.loc[2])
     else:

@@ -7,6 +7,8 @@ from build_mesh import build_meshes
 from visualize import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
+import os
+import glob
 
 
 class Vorpy:
@@ -23,24 +25,42 @@ class Vorpy:
         self.sys = None
 
         # Set up the strings
-        self.name = tk.StringVar()
+        self.head_str = tk.StringVar(self.vp_main)
+        self.name = tk.StringVar(self.vp_main)
+        self.dd_name = tk.StringVar(self.vp_main)
+        self.dd_var = tk.StringVar(self.vp_main)
+        # Get a list of the files in test data
+        pdb_vars = glob.glob("./Data/test_data/*.pdb")
+        gro_vars = glob.glob("./Data/test_data/*.gro")
+        mol_vars = glob.glob("./Data/test_data/*.mol")
+        self.dd_vars = pdb_vars + gro_vars + mol_vars
+        for i in range(len(self.dd_vars)):
+            self.dd_vars[i] = self.dd_vars[i][17:]
+
+        # Give strings names
+        self.head_str.set("Vorpy")
         self.name.set("No File Selected")
+        self.dd_name.set("Toy Systems")
+        self.dd_var.set(self.dd_vars[0])  # default value
 
         # Text boxes:
         self.head = tk.Label(text="VorPy", font=('Helvetica bold', 40))
         self.filename = tk.Label(self.vp_main, textvariable=self.name, font=('Times New Roman', 20))
-
-        # Plot
-        self.fig = Figure(figsize=(self.width / 100, self.height / 100), dpi=50)
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.vp_main)
 
         # Buttons:
         self.get_file = tk.Button(text="Load Molecule", command=self.load_molecule_button)
         self.make_network = tk.Button(text="Build Network", command=self.build_network_button)
         self.make_meshes = tk.Button(text="Build Meshes", command=self.build_meshes_button)
         self.exit = tk.Button(text="Exit", command=self.vp_main.destroy)
-        self.atoms_butt = None
-        self.verts_butt = None
+        self.atoms_butt = tk.Button(text="Atoms", command=self.show_atoms)
+        self.verts_butt = tk.Button(text="Vertices", command=self.show_verts)
+
+        # Plot
+        self.fig = Figure(figsize=(self.width / 100, self.height / 100), dpi=50)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.vp_main)
+
+        # Drop down menu
+        self.dd = tk.OptionMenu(self.vp_main, self.dd_var, *self.dd_vars)
 
         # Place the items
         self.head.place(x=width/2 - width/12, y=height/16)
@@ -48,10 +68,9 @@ class Vorpy:
         self.get_file.place(x=3/16*width, y=3/8*height)
         self.make_network.place(x=3/16*width, y=1/2*height)
         self.make_meshes.place(x=3/16*width, y=5/8*height)
-        self.atoms_butt = tk.Button(text="Atoms", command=self.show_atoms)
-        self.verts_butt = tk.Button(text="Vertices", command=self.show_verts)
         self.atoms_butt.place(x=3 / 4 * self.width - 3 / 16 * self.width, y=3 / 4 * self.height + 1 / 16 * self.height)
         self.verts_butt.place(x=3 / 4 * self.width + 1 / 16 * self.width, y=3 / 4 * self.height + 1 / 16 * self.height)
+        self.dd.place(x=40, y=50)
 
         # End the loop
         self.vp_main.mainloop()
@@ -60,7 +79,12 @@ class Vorpy:
         # File grabber pop up
         file_path = filedialog.askopenfilename()
         # Create the system
-        self.sys = System(file_path)
+        if file_path:
+            self.sys = System(file_path)
+        else:
+            self.sys = System("./Data/test_data/" + self.dd_var.get())
+
+
 
         # Set the name in reverse order since the letters were added backwards
         self.name.set(self.sys.file_name)
@@ -81,18 +105,13 @@ class Vorpy:
         plot_surfs(surfs=self.sys.net.surfs)
 
     def show_atoms(self):
-        if self.sys:
-            plot_atoms(self.sys.atoms, fig=self.fig)
+        # Set the default system to the dropdown variable
+        if not self.sys:
+            self.sys = System("./Data/test_data/" + self.dd_var.get())
+        plot_atoms(self.sys.atoms, fig=self.fig)
         # Create Canvas
         self.canvas.draw()
-
         self.canvas.get_tk_widget().pack()
-
-        # creating the Matplotlib toolbar
-        # toolbar = NavigationToolbar2Tk(self.canvas, self.vp_main)
-        #
-        # toolbar.update()
-
         # placing the toolbar on the Tkinter window
         self.canvas.get_tk_widget().place(x=self.width * 7 / 16, y=self.height * 5 / 16)
 

@@ -5,6 +5,7 @@ import numpy as np
 class System:
     """Class used to import files of all types and return a system"""
     def __init__(self, file=None):
+        self.atoms = []  # List of Atom type objects
         # If no file is given, generate a random system
         if file is None:
             self.random_system()
@@ -12,13 +13,12 @@ class System:
         if type(file) == list:
             self.build_sys(file)
         # Grab the file
-        self.file_name = self.get_name(file)
-        self.file = open(file).readlines()
-        # Split each line in the file
-        for i in range(len(self.file)):
-            self.file[i] = self.file[i].split()
+        self.file_address = file
+        self.file_name = None
+        self.file = None
+
         # Set up our
-        self.atoms = []  # List of Atom type objects
+        self.name = None
         self.net = Network(self.atoms)  # Network type object for calculations
         self.box = None
         self.bonds = None
@@ -56,6 +56,8 @@ class System:
 
     @staticmethod
     def get_name(file):
+        if not file:
+            return
         filename = ""
         i = -1
         # Go through each char in the path from the back and stop at the first slash
@@ -67,6 +69,12 @@ class System:
 
     # Get pdb data method. Finds the lines of the file with prefixes and returns them as a list
     def get_pdb_data(self, word):
+
+        self.file = open(self.file_address).readlines()
+        self.name = self.get_name(self.file_address)
+        # Split each line in the file
+        for i in range(len(self.file)):
+            self.file[i] = self.file[i].split()
         # Special case for Atom lines
         if word.lower() == 'atom':
             atoms = []
@@ -74,7 +82,6 @@ class System:
             for i in range(len(self.file)):
                 line = self.file[i]
                 if line and line[0].lower() == 'atom':  # Check if the line starts with atom
-                    print(line[-1])
                     atom = Atom([float(line[-7]), float(line[-5]), float(line[-4])], self.get_radius(line[-1]))
                     atoms.append(atom)
             return atoms
@@ -151,10 +158,10 @@ class System:
         # Go through each line in the input list
         for line in lr_input_list:
             # If the radius is a
-            if type(line[3]) == str:
-                self.atoms.append(Atom([line[0], line[1], line[2]], self.get_radius(line[3])))
+            if type(line[1]) == str:
+                self.atoms.append(Atom([line[0][0], line[0][1], line[0][2]], self.get_radius(line[1])))
             else:
-                self.atoms.append(Atom([line[0], line[1], line[2]], line[3]))
+                self.atoms.append(Atom([line[0][0], line[0][1], line[0][2]], line[1]))
 
     # Random system function. Creates a system with atoms placed in random locations with random radii
     def random_system(self, anums=30, dmax=15, rmax=1):
