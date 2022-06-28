@@ -54,6 +54,7 @@ class System:
         elif file[-3:] == "mol":
             self.get_mol()
 
+    # Get name method. Extracts the name from the file name
     @staticmethod
     def get_name(file):
         if not file:
@@ -202,9 +203,10 @@ class Vertex:
 
 class Edge:
     """Voronoi S-Channel"""
-    def __init__(self, atoms, v0):
+    def __init__(self, atoms, verts):
         self.atoms = atoms  # List of Atom type objects
-        self.verts = [v0]  # List of Vertex type objects
+        self.verts = verts  # List of Vertex type objects
+        self.center = None
         self.points = []  # List of points on the edge
 
 
@@ -214,5 +216,15 @@ class Surface:
         self.func = func
         self.atoms = atoms  # List of Atom type objects
         self.edges = []  # List of Edge type objects
+        self.edge_points = []
+        self.verts = []
+        self.vert_points = []
         self.points = []  # List of points on the surface
 
+
+class Ray:
+    """Ray object used to calculate surfaces."""
+    def __init__(self, location=None, direction=None, magnitude=None):
+        loc = location
+        dir = direction
+        mag = magnitude

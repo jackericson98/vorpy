@@ -56,15 +56,7 @@ def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid
 
 
 # Plot meshes function. Plots the meshes specified. If no meshes have been made user can specify spheres instead
-def plot_surfs(atoms=None, surfs=None, fig=None, ax=None, Show=False, dfo=None, grid=False):
-    plane = True
-    if atoms is not None:
-        surfs = []
-        for pair in atoms:
-            if pair[0].rad != pair[1].rad:
-                plane = False
-            surfs.append(make_meshes(pair[0], [pair[1]]))
-
+def plot_surfs(surfs, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None):
     # Create a new subplot if one isn't specified
     if ax is None:
         # Create new figure if one isn't specified
@@ -73,25 +65,36 @@ def plot_surfs(atoms=None, surfs=None, fig=None, ax=None, Show=False, dfo=None, 
             Show = True  # If no outside figure is specified, then the figure needs to be shown from within
         ax = fig.add_subplot(projection="3d")
 
-    for mesh in surfs:
+    # Set the colors of the spheres. Defaults to blue with a white base sphere
+    if colors is None:
+        colors = ['b' for _ in range(len(surfs))]
+    # If not all colors are specified make the rest blue
+    if len(colors) < len(surfs):
+        colors = colors + ['b' for _ in range(len(surfs) - len(colors))]
+
+    # Plot the surfaces
+    for surf in surfs:
         x, y, z = [], [], []
-        for point in mesh:
+        for point in surf.edge_points:
             x.append(point[0])
             y.append(point[1])
             z.append(point[2])
-        # Plot the mesh data values. If the mesh is a plane, plot it as scatter plot.
-        if plane:
-            ax.scatter(x, y, z, color='y', alpha=0.5)
-        else:
-            ax.plot_trisurf(x, y, z, color='y', alpha=0.5)
+        ax.scatter(x, y, z)
+
+    # Set plot parameters
     if dfo is not None:
         ax.set_xlim(-dfo, dfo)
         ax.set_ylim(-dfo, dfo)
         ax.set_zlim(-dfo, dfo)
-    # Turn off the axes
-    ax.axis('off')
-    ax.grid(grid)
-    # Show the plot if requested
+    # Set the grid if indicated
+    if grid:
+        ax.set_xlabel("X axis")
+        ax.set_ylabel("Y axis")
+        ax.set_zlabel("Z axis")
+    else:
+        ax.grid()
+        ax.axis('off')
+    # Show the figure if need be
     if Show:
         plt.show()
 
