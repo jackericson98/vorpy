@@ -1,7 +1,7 @@
 from objects import System, Edge, Surface
 from build_network import calc_vertex
-from build_mesh import calc_surf, make_mesh
-from visualize import plot_atoms, plot_verts, plot_surfs
+from build_mesh import calc_surf, make_mesh, calc_edge_points, edge_trace
+from visualize import plot_atoms, plot_verts, plot_surfs, plot_edges
 import matplotlib.pyplot as plt
 
 
@@ -10,7 +10,7 @@ atoms = [[[0, 0, 0], 2.5]]
 dist = 5
 rad = .5
 
-atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad],[[0, -dist, 0], rad], [[0, 0, dist], rad],
+atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[0, -dist, 0], rad], [[0, 0, dist], rad],
           [[0, 0, -dist], rad]]
 
 sys = System(atoms)
@@ -52,7 +52,7 @@ sys.net.verts[7].edges = [e7, e10, e11, None]
 # Set up the surfaces
 for i in range(6):
     a0, a1 = sys.atoms[0], sys.atoms[i+1]
-    sys.net.surfs.append(Surface(atoms=[a0, a1], func=calc_surf(a0, a1)))
+    sys.net.surfs.append(Surface(atoms=[a0, a1], func=calc_surf([a0, a1])))
 
 sys.net.surfs[0].verts = sys.net.verts[0], sys.net.verts[1], sys.net.verts[2], sys.net.verts[3]
 sys.net.surfs[1].verts = sys.net.verts[0], sys.net.verts[1], sys.net.verts[4], sys.net.verts[5]
@@ -68,9 +68,15 @@ sys.net.surfs[3].edges = [e2, e6, e7, e10]
 sys.net.surfs[4].edges = [e3, e4, e7, e11]
 sys.net.surfs[5].edges = [e8, e9, e10, e11]
 
-make_mesh(sys.net.surfs[0], sys.atoms[0], 100)
+
+f = calc_surf(sys.atoms[:2])
+edge_trace(sys.net.surfs[0])
+plot_edges(sys.net.surfs[0].edges, Show=True)
+make_mesh(sys.net.surfs[0])
+
+# make_mesh(sys.net.surfs[0], sys.atoms[0], 100)
 # Create the figure
-fig = plt.figure()
-ax = fig.add_subplot(projection="3d")
-plot_atoms(sys.atoms, fig=fig, ax=ax,)
-plot_surfs([sys.net.surfs[0]], fig=fig, ax=ax, Show=True)
+# fig = plt.figure()
+# ax = fig.add_subplot(projection="3d")
+# plot_atoms(sys.atoms, fig=fig, ax=ax,)
+# plot_surfs([sys.net.surfs[0]], fig=fig, ax=ax, Show=True)

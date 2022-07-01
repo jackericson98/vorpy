@@ -19,7 +19,6 @@ class System:
 
         # Set up our
         self.name = None
-        self.net = Network(self.atoms)  # Network type object for calculations
         self.box = None
         self.bonds = None
         self.Analysis = None  # Analysis type object for data collection
@@ -53,6 +52,7 @@ class System:
             self.get_gro()
         elif file[-3:] == "mol":
             self.get_mol()
+        self.net = Network(self.atoms)
 
     # Get name method. Extracts the name from the file name
     @staticmethod
@@ -66,7 +66,7 @@ class System:
             filename = filename + file[i]
             i -= 1
         # Trim the extension and the dot
-        return filename[-4:]
+        return filename[::-1][:-4]
 
     # Get pdb data method. Finds the lines of the file with prefixes and returns them as a list
     def get_pdb_data(self, word):

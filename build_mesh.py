@@ -33,22 +33,25 @@ def calc_angle(p0, p1, p2=None):
     # Get the unit vectors
     n0, n1 = v0/np.linalg.norm(v0), v1/np.linalg.norm(v1)
 
-    return np.arccos(np.clip(np.dot(n0, n1), -1.0, 1.0))
+    # Calculate the angle between the two vectors with catches for 180 and 0
+    angle = np.arccos(np.clip(np.dot(n0, n1), -1.0, 1.0))
+
+    return angle
 
 
 # Bisector function. Creates a bisector surface between 2 atoms
-def calc_surf(a1, a2):
-
-    # Set a1 to the smaller of the two atoms
-    if a1.rad > a2.rad:
-        a2, a1 = a1, a2
+def calc_surf(atoms):
+    # Make sure that a0 is the atom with the smaller radius
+    if atoms[0].rad > atoms[1].rad:
+        atoms[0], atoms[1] = atoms[1], atoms[0]
+    a0, a1 = atoms
 
     # Grab the centers of the spheres
-    x1, y1, z1 = a1.loc
-    x2, y2, z2 = a2.loc
+    x1, y1, z1 = a0.loc
+    x2, y2, z2 = a1.loc
 
     # Calculate the major coefficients (pg. 574 Z. Hu)
-    R = a1.rad - a2.rad
+    R = a0.rad - a1.rad
     K = (x2 ** 2 - x1 ** 2) + (y2 ** 2 - y1 ** 2) + (z2 ** 2 - z1 ** 2) - R ** 2
     d = x1 - x2, y1 - y2, z1 - z2
     J = 4 * R ** 2 * (x1 ** 2 + y1 ** 2 + z1 ** 2) - K ** 2
@@ -59,17 +62,15 @@ def calc_surf(a1, a2):
     for i in range(3):
         ABC.append(4 * R ** 2 - 4 * d[i] ** 2)
         DEF.append(-8 * d[i] * d[(i + 1) % 3])  # The equation asks for D_y, D_z, D_x in that order, hence modulus
-        GHI.append(-8 * R ** 2 * a1.loc[i] - 4 * K * d[i])
+        GHI.append(-8 * R ** 2 * a0.loc[i] - 4 * K * d[i])
 
     return ABC + DEF + GHI + [J] + [K] + [d]
 
 
 # Calculate edge points function. Takes in an edge and a surface and updates the edge's points
 def calc_edge_points(edge, surf):
-    # Make sure that a0 is the atom with the smaller radius
+    # Grab the smaller of the two atoms
     a0 = surf.atoms[0]
-    if a0.rad > surf.atoms[1].rad:
-        a0 = surf.atoms[1]
     # Find the angle made between the edges verts and the atom
     max_ang = calc_angle(a0.loc, edge.verts[0].loc, edge.verts[1].loc)
     num_points = int(np.degrees(max_ang))
@@ -78,33 +79,31 @@ def calc_edge_points(edge, surf):
     edge.points.append(edge.verts[0].loc)
     # Find the points along the edge, incrementing by angle
     for i in range(num_points):
-        # Find the unit vector facing the COM from the previous point in the path
+        # Find the unit vector facing the nex vertex from the previous point in the path
         r0 = np.array(edge.points[-1]) - np.array(edge.verts[1].loc)
         rn = r0 / np.linalg.norm(r0)
         # Get the angle between the path direction and center of the atom
         r_theta = calc_angle(edge.points[-1], rn, a0.loc)
+
         pn_1_theta = 180 - r_theta - dtheta
         # Using the law of sines, calculate the new sample point location
         b = np.sin(dtheta) * np.array(edge.points[-1]) / np.sin(pn_1_theta)
         new_samp = b[0] + edge.points[-1][0], b[1] + edge.points[-1][1], b[2] + edge.points[-1][2]
         # Get the new point location
         new_point = calc_spnt(surf, new_samp)
-        edge.points.append(new_point)
+
+        edge.points.append([new_point[0], new_point[1], new_point[2]])
 
 
 # Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
 # from the center of the smaller of the surfaces 2 atoms through the point into the surface
 def calc_spnt(surf, point):
-    # Make sure that a0 is the atom with the smaller radius
-    a0 = surf.atoms[0]
-    if a0.rad > surf.atoms[1].rad:
-        a0 = surf.atoms[1]
-
     # Grab the function
     if surf.func is None:
-        surf.func = calc_surf(surf.atoms[0], surf.atoms[1])
+        surf.func = calc_surf(surf)
     f = surf.func
-
+    # Get the first atoms in the surfaces list of atoms
+    a0 = surf.atoms[0]
     # Set up the unit vector
     vi = np.array(point) - np.array(a0.loc)
     vn = vi/np.linalg.norm(vi)
@@ -125,6 +124,8 @@ def calc_spnt(surf, point):
     if b ** 2 - 4 * a * c > 0:
         mag = min(abs(np.roots([a, b, c])))
         return vi + mag*vn
+    else:
+        print(None)
 
 
 # Edge trace function. Recursively goes around the edges of the surface and adds points for the vertices and the edges
@@ -153,30 +154,31 @@ def edge_trace(surf, en=None, vn=None):
 
 
 # Make mesh function. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
-def make_mesh(surf, a0, density):
+def make_mesh(surf, density=100):
     # Check to see if the edges' points have been recorded yet
     if not surf.edge_points:
         edge_trace(surf)
+    a0 = surf.atoms[0]
     # Calculate the center of mass of the edge points
     com = calc_com(surf.edge_points)
     # Find where com maps on the surface
     com = calc_spnt(surf, com)
     # Make a list of paths
     paths = []
-    max_angs = []
+    ngl_lst = []
     # Create (and calculate the maximum angle for) each path
     for i in range(len(surf.edge_points)):
         paths.append([surf.edge_points[i]])
-        max_angs.append(calc_angle(a0.loc, com, surf.edge_points[i]))
+        ngl_lst.append(calc_angle(a0.loc, com, surf.edge_points[i]))
     # Get the maximum path information
-    max_path_ndx = max_angs.index(max(max_angs))
+    max_path_ndx = ngl_lst.index(max(ngl_lst))
     max_path = paths[max_path_ndx]
     # Decide how many rings based off of density
     num_rings = int(calc_dist(max_path[0], com) * density)
     # Create a list of dthetas
     dthetas = []
     for i in range(len(surf.edge_points)):
-        dthetas.append(max_angs[i]/num_rings)
+        dthetas.append(ngl_lst[i]/num_rings)
 
     # Build the surface ring by ring
     for i in range(num_rings):
@@ -196,7 +198,6 @@ def make_mesh(surf, a0, density):
             new_samp = b[0] + paths[j][-1][0], b[1] + paths[j][-1][1], b[2] + paths[j][-1][2]
             # Get the new point location
             new_point = calc_spnt(surf, new_samp)
-
             # Find the most recent non-None point
             k = 1
             while paths[j-k][-1] is None:
@@ -212,3 +213,4 @@ def make_mesh(surf, a0, density):
         for i in range(len(path)):
             if path[i] is not None:
                 surf.points.append(path[i])
+    return surf

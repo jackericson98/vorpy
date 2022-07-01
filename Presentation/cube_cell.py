@@ -1,6 +1,7 @@
 from visualize import *
 from build_network import calc_vertex, build_network
 import matplotlib.patches as mpatches
+from objects import System, Surface
 
 # Create the figure
 fig = plt.figure()
@@ -29,10 +30,13 @@ for i in range(8):
 
 # Build the network of vertices
 build_network(mySys)
-
+print(mySys.net.verts)
 # Plot the vertices
 red_patch = mpatches.Patch(color='red', label='Vertices')
 blue_patch = mpatches.Patch(color='blue', label='Atoms')
 black_patch = mpatches.Patch(color='black', label='Interstitial Spheres')
 ax.legend(handles=[blue_patch, red_patch, black_patch], loc='upper right')
-plot_verts(mySys.net.verts, fig=fig, ax=ax, plot_spheres=True, dfo=10, Show=True)
+plot_verts(mySys.net.verts, fig=fig, ax=ax, dfo=10, Show=True)
+f = calc_surf(mySys.atoms[:2])
+mySurf = Surface(f, [mySys.atoms[0], mySys.atoms[1]])
+surf = make_mesh(mySurf)

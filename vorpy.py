@@ -2,8 +2,8 @@
 import tkinter as tk
 from tkinter import filedialog, Button, CENTER
 # Internal Imports
+from objects import System
 from build_network import build_network
-from build_mesh import build_meshes
 from visualize import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
@@ -84,15 +84,19 @@ class Vorpy:
         else:
             self.sys = System("./Data/test_data/" + self.dd_var.get())
 
-
-
         # Set the name in reverse order since the letters were added backwards
         self.name.set(self.sys.file_name)
 
     # Build network button function.
     def build_network_button(self):
+        # Create the system
+        if not self.sys:
+            self.sys = System("./Data/test_data/" + self.dd_var.get())
+            print(self.sys.name)
         # Build the network
+        print(self.sys.net.atoms)
         build_network(self.sys)  # Try statment with voronota_verts
+
 
         # Print out all the vertices
         for i in range(len(self.sys.net.verts)):

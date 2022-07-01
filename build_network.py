@@ -313,8 +313,6 @@ def calc_edge(edge, net):
         # Calculate the distance between the new vertex and the old vertex
         d3 = calc_dist(vn.loc, v0.loc)
 
-
-
         # Mevdevev's edge site finding checks. Find the shortest relative distance from v0 to vn
         if d1 <= d3 or d2 <= d3:
             r_len = d1 + d2
@@ -468,7 +466,7 @@ def find_v0(net):
             myVert = vert
             my_an = an
     # Add connections to the network
-    myVert.atoms = a0, a1, a2, my_an
+    myVert.atoms = [a0, a1, a2, my_an]
     net.verts.append(myVert)
     return myVert
 
@@ -479,14 +477,14 @@ def find_v0(net):
 
 # Find edges function. Recursively traces out the network and records vertex locations,
 def find_edges(vertex, net):
+    # Create 4 edges with the 4 combinations of atoms that can be created
     for i in range(4):
-        myEdge = Edge([vertex.atoms[i], vertex.atoms[(i + 1) % 4], vertex.atoms[(i + 2) % 4]], vertex)
+        myEdge = Edge([vertex.atoms[i], vertex.atoms[(i + 1) % 4], vertex.atoms[(i + 2) % 4]], [vertex])
         etest = check_edge(myEdge, net)
         if etest:
             vertex.edges.append(etest)
         else:
             vertex.edges.append(myEdge)
-
     # Create the edge objects or grab them from the network and connect them
     for edge in vertex.edges:
         # Check to see if the edge exists. If it does move on the next edge in the vertex
@@ -523,7 +521,4 @@ def build_network(mySys):
     v0 = find_v0(mySys.net)
     # Initiate the recursive network finding algorithm on the network and the first vertex
     find_edges(v0, mySys.net)
-    # Return the completed network
-    for vert in mySys.net.verts:
-        print(vert.loc)
     return mySys.net

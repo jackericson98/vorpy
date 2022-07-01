@@ -1,9 +1,10 @@
 import matplotlib.pyplot as plt
 from build_mesh import *
+from objects import Atom
 
 
-# Plot spheres function. Plots the spheres specified
-def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=1):
+# Set up plot function. Used to set the parameters for the plot
+def setup_plot(num_col, colors=None, fig=None, ax=None, dfo=None, grid=False, alpha=None):
     # Create a new subplot if one isn't specified
     if ax is None:
         # Create new figure if one isn't specified
@@ -14,16 +15,41 @@ def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid
 
     # Set the colors of the spheres. Defaults to blue with a white base sphere
     if colors is None:
-        colors = ['b' for _ in range(len(atoms))]
+        colors = ['b' for _ in range(num_col)]
     # If not all colors are specified make the rest blue
-    if len(colors) < len(atoms):
-        colors = colors + ['b' for _ in range(len(atoms) - len(colors))]
+    if len(colors) < num_col:
+        colors = colors + ['b' for _ in range(num_col - len(colors))]
+    # Set plot parameters
+    if dfo is not None:
+        ax.set_xlim(-dfo, dfo)
+        ax.set_ylim(-dfo, dfo)
+        ax.set_zlim(-dfo, dfo)
+    # Set the grid if indicated
+    if grid:
+        ax.set_xlabel("X axis")
+        ax.set_ylabel("Y axis")
+        ax.set_zlabel("Z axis")
+    else:
+        ax.grid()
+        ax.axis('off')
+    # Set alpha
+    if alpha is None:
+        alpha = 1
+    return fig, ax, colors, alpha
 
-    # If the number of spheres to plot is more than 80, then plot them as points rather than spheres. Marker size?
+
+# Plot spheres function. Plots the spheres specified
+def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=None):
+    # Set up the plot
+    fig, ax, colors, alpha = setup_plot(len(atoms), colors, fig, ax, dfo, grid, alpha)
+
+    # If the number of atoms to plot is more than 80, then plot them as points rather than spheres.
     if len(atoms) > 80:
         for sphere in atoms:
             ax.scatter(sphere.loc[0], sphere.loc[1], sphere.loc[2])
+    # Plot the spheres as wireframes
     else:
+        # Set the resolution of the spheres
         res = 5 - len(atoms) // 20
         # Find u, v values that span phi and theta
         u, v = np.mgrid[0:2 * np.pi:res*8j, 0:np.pi:res*4j]
@@ -33,44 +59,18 @@ def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid
             x = atoms[i].rad * np.cos(u) * np.sin(v) + atoms[i].loc[0]
             y = atoms[i].rad * np.sin(u) * np.sin(v) + atoms[i].loc[1]
             z = atoms[i].rad * np.cos(v) + atoms[i].loc[2]
-
             # Plot the sphere
             ax.plot_wireframe(x, y, z, color=colors[i], alpha=alpha)
 
-    # Set plot parameters
-    if dfo is not None:
-        ax.set_xlim(-dfo, dfo)
-        ax.set_ylim(-dfo, dfo)
-        ax.set_zlim(-dfo, dfo)
-    # Set the grid if indicated
-    if grid:
-        ax.set_xlabel("X axis")
-        ax.set_ylabel("Y axis")
-        ax.set_zlabel("Z axis")
-    else:
-        ax.grid()
-        ax.axis('off')
     # Show the figure if need be
     if Show:
         plt.show()
 
 
-# Plot meshes function. Plots the meshes specified. If no meshes have been made user can specify spheres instead
-def plot_surfs(surfs, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None):
-    # Create a new subplot if one isn't specified
-    if ax is None:
-        # Create new figure if one isn't specified
-        if fig is None:
-            fig = plt.figure()
-            Show = True  # If no outside figure is specified, then the figure needs to be shown from within
-        ax = fig.add_subplot(projection="3d")
-
-    # Set the colors of the spheres. Defaults to blue with a white base sphere
-    if colors is None:
-        colors = ['b' for _ in range(len(surfs))]
-    # If not all colors are specified make the rest blue
-    if len(colors) < len(surfs):
-        colors = colors + ['b' for _ in range(len(surfs) - len(colors))]
+# Plot surfaces function. Plots the surfaces given
+def plot_surfs(surfs, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None):
+    # Set up the plot
+    fig, ax, colors, alpha = setup_plot(len(surfs), colors, fig, ax, dfo, grid, alpha)
 
     # Plot the surfaces
     for surf in surfs:
@@ -79,66 +79,43 @@ def plot_surfs(surfs, fig=None, ax=None, Show=False, dfo=None, grid=False, color
             x.append(point[0])
             y.append(point[1])
             z.append(point[2])
-        ax.scatter(x, y, z)
+        ax.plot_trisurf(x, y, z, colors=colors)
 
-    # Set plot parameters
-    if dfo is not None:
-        ax.set_xlim(-dfo, dfo)
-        ax.set_ylim(-dfo, dfo)
-        ax.set_zlim(-dfo, dfo)
-    # Set the grid if indicated
-    if grid:
-        ax.set_xlabel("X axis")
-        ax.set_ylabel("Y axis")
-        ax.set_zlabel("Z axis")
-    else:
-        ax.grid()
-        ax.axis('off')
-    # Show the figure if need be
+    # Show the figure
+    if Show:
+        plt.show()
+
+
+# Plot edges function. Plots the edges given as lines
+def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None):
+    # Set up the plot
+    fig, ax, colors, alpha = setup_plot(len(edges), colors, fig, ax, dfo, grid, alpha)
+
+    # Plot the edges
+    for edge in edges:
+        xs, ys, zs = [], [], []
+        for point in edge.points:
+            xs += point[0]
+            ys += point[1]
+            zs += point[2]
+
+        ax.plot(xs, ys, zs)
+
+    # Show the figure
     if Show:
         plt.show()
 
 
 # Plot vertices function. Plots the vertices of a network.
-def plot_verts(verts, fig=None, ax=None, Show=False, plot_spheres=False, dfo=None, grid=False, vcolors=None, scolors=None):
-    # Create a new subplot if one isn't specified
-    if ax is None:
-        # Create new figure if one isn't specified
-        if fig is None:
-            fig = plt.figure()
-            Show = True  # If no outside figure is specified, then the figure needs to be shown from within
-        ax = fig.add_subplot(projection="3d")
-
-    # Set the colors of the spheres. Defaults to blue with a white base sphere
-    if vcolors is None:
-        vcolors = ['r' for _ in range(len(verts))]
-    # If not all colors are specified make the rest blue
-    if len(vcolors) < len(verts):
-        vcolors = vcolors + ['r' for _ in range(len(verts) - len(vcolors))]
-
-    # Set the colors of the spheres. Defaults to blue with a white base sphere
-    if scolors is None:
-        scolors = ['k' for _ in range(len(verts))]
-    # If not all colors are specified make the rest blue
-    if len(scolors) < len(verts):
-        scolors = scolors + ['k' for _ in range(len(verts) - len(scolors))]
-
-    # Set the distance from origin
-    if dfo is not None:
-        ax.set_xlim(-dfo, dfo)
-        ax.set_ylim(-dfo, dfo)
-        ax.set_zlim(-dfo, dfo)
-    # Turn off the axes
-    ax.axis('off')
-    ax.grid(grid)
+def plot_verts(verts, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None):
+    # Set up the plot
+    fig, ax, colors, alpha = setup_plot(len(verts), colors, fig, ax, dfo, grid, alpha)
 
     # Plot each vertex
     for i in range(len(verts)):
         # Plot the point
-        ax.scatter(verts[i].loc[0], verts[i].loc[1], verts[i].loc[2], c=vcolors[i])
-        if plot_spheres:
-            # Plot the sphere
-            plot_atoms([Atom(verts[i].loc, verts[i].rad)], fig=fig, ax=ax, colors=scolors[i], alpha=0.1)
+        ax.scatter(verts[i].loc[0], verts[i].loc[1], verts[i].loc[2], c=colors[i])
 
+    # Show if the plot needs to be shown
     if Show:
         plt.show()
