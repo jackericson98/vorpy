@@ -69,30 +69,41 @@ def calc_surf(atoms):
 
 # Calculate edge points function. Takes in an edge and a surface and updates the edge's points
 def calc_edge_points(edge, surf):
-    # Grab the smaller of the two atoms
-    a0 = surf.atoms[0]
-    # Find the angle made between the edges verts and the atom
-    max_ang = calc_angle(a0.loc, edge.verts[0].loc, edge.verts[1].loc)
+    # Get the location of the base atom
+    pa = edge.atoms[0].loc
+    # Get the locations of the vertices
+    pv0 = np.array(edge.verts[0].loc)
+    pv1 = np.array(edge.verts[1].loc)
+    # Add the first vertex to the edges points
+    edge.points = [pv0]
+    # Find the angle made between the edges vertices and the atom
+    max_ang = calc_angle(pa, pv0, pv1)
     num_points = int(np.degrees(max_ang))
-    dtheta = max_ang/num_points
-    # Make the first point in the edge its first vertex
-    edge.points.append(edge.verts[0].loc)
-    # Find the points along the edge, incrementing by angle
+    # Set angle A to be the incremental angle decided by num points
+    A = max_ang / num_points
+    # Go calculate each point along the way
     for i in range(num_points):
-        # Find the unit vector facing the nex vertex from the previous point in the path
-        r0 = np.array(edge.points[-1]) - np.array(edge.verts[1].loc)
-        rn = r0 / np.linalg.norm(r0)
-        # Get the angle between the path direction and center of the atom
-        r_theta = calc_angle(edge.points[-1], rn, a0.loc)
-
-        pn_1_theta = 180 - r_theta - dtheta
-        # Using the law of sines, calculate the new sample point location
-        b = np.sin(dtheta) * np.array(edge.points[-1]) / np.sin(pn_1_theta)
-        new_samp = b[0] + edge.points[-1][0], b[1] + edge.points[-1][1], b[2] + edge.points[-1][2]
-        # Get the new point location
-        new_point = calc_spnt(surf, new_samp)
-
-        edge.points.append([new_point[0], new_point[1], new_point[2]])
+        # Get the location of the previous point
+        pb = edge.points[-1]
+        # Get the distance between pb and pa
+        c = calc_dist(pa, pb)
+        # Get the angle between pa, pb and pv1
+        B = calc_angle(pb, pa, pv1)
+        # Get the last angle
+        C = 180 - A - B
+        # Find a using the law of sines
+        a = np.sin(A) * c / np.sin(C)
+        # Find the intercept point by adding a to pb
+        rn = pv1 - pb
+        rn_hat = rn/np.linalg.norm(rn)
+        pc = pb + rn_hat*a
+        # Calculate where the point intercepts the surface
+        pn = calc_spnt(surf, pc)
+        # Add the point to the edges list of points
+        edge.points.append(pn)
+    # Add the destination vertex point to the list of points
+    edge.points.append(pv1)
+    print(edge.points)
 
 
 # Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
@@ -128,29 +139,15 @@ def calc_spnt(surf, point):
         print(None)
 
 
-# Edge trace function. Recursively goes around the edges of the surface and adds points for the vertices and the edges
-def edge_trace(surf, en=None, vn=None):
-    # First run check
-    if en is None:
-        en = surf.edges[0]
-        vn = en.verts[0]
-    # Check to see if en has been traced out yet
-    if not en.points:
-        calc_edge_points(en, surf)
-    # Add the edge points and the vert points
-    surf.vert_points.append(vn.loc)
-    # Check to see if the points are ordered correctly
-    if calc_dist(en.points[0], vn.loc) > calc_dist(en.points[-1], vn.loc):
-        en.points.reverse()
-    # Add the points to the edge points
-    surf.edge_points += en.points
-    # Find the next edge around the surface
-    for em in surf.edges:
-        # Check each of em's vertices against the lead vertex
-        for i in range(2):
-            if vn == em.verts[i] and em.verts[i].loc not in surf.vert_points:
-                edge_trace(surf, em, em.verts[(i+1) % 2])
-    return
+# Edge trace function
+def edge_trace(surf):
+    # Go through each edge on the surface
+    for edge in surf.edges:
+        # If the edge points exist already continue to the next edge
+        if edge.points:
+            continue
+        calc_edge_points(edge, surf)
+    print(surf.edges)
 
 
 # Make mesh function. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
@@ -203,6 +200,7 @@ def make_mesh(surf, density=100):
             while paths[j-k][-1] is None:
                 k += 1
             # Check to see if it is too close to the last point in the path before
+            print(paths[j-k][-1])
             if calc_dist(new_point, paths[j-k][-1]) < 1/density:
                 paths[j].append(None)
             else:

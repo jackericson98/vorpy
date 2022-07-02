@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 
 
 # Create atom objects from sets of points
-atoms = [[[0, 0, 0], 2.5]]
+atoms = [[[0, 0, 0], .5]]
 dist = 5
-rad = .5
+rad = 2.5
 
 atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[0, -dist, 0], rad], [[0, 0, dist], rad],
           [[0, 0, -dist], rad]]
@@ -50,9 +50,13 @@ sys.net.verts[6].edges = [e6, e9, e10, None]
 sys.net.verts[7].edges = [e7, e10, e11, None]
 
 # Set up the surfaces
-for i in range(6):
-    a0, a1 = sys.atoms[0], sys.atoms[i+1]
-    sys.net.surfs.append(Surface(atoms=[a0, a1], func=calc_surf([a0, a1])))
+s0 = Surface([sys.atoms[0], sys.atoms[5]], calc_surf([sys.atoms[0], sys.atoms[5]]))
+s1 = Surface([sys.atoms[0], sys.atoms[3]], calc_surf([sys.atoms[0], sys.atoms[3]]))
+s2 = Surface([sys.atoms[0], sys.atoms[2]], calc_surf([sys.atoms[0], sys.atoms[2]]))
+s3 = Surface([sys.atoms[0], sys.atoms[4]], calc_surf([sys.atoms[0], sys.atoms[4]]))
+s4 = Surface([sys.atoms[0], sys.atoms[1]], calc_surf([sys.atoms[0], sys.atoms[1]]))
+s5 = Surface([sys.atoms[0], sys.atoms[6]], calc_surf([sys.atoms[0], sys.atoms[6]]))
+sys.net.surfs = [s0, s1, s2, s3, s4, s5]
 
 sys.net.surfs[0].verts = sys.net.verts[0], sys.net.verts[1], sys.net.verts[2], sys.net.verts[3]
 sys.net.surfs[1].verts = sys.net.verts[0], sys.net.verts[1], sys.net.verts[4], sys.net.verts[5]
@@ -71,8 +75,13 @@ sys.net.surfs[5].edges = [e8, e9, e10, e11]
 
 f = calc_surf(sys.atoms[:2])
 edge_trace(sys.net.surfs[0])
-plot_edges(sys.net.surfs[0].edges, Show=True)
-make_mesh(sys.net.surfs[0])
+
+
+fig = plt.figure()
+ax = fig.add_subplot(projection="3d")
+plot_atoms(sys.atoms, fig=fig, ax=ax)
+plot_verts(sys.net.surfs[0].edges[0].verts, fig=fig, ax=ax, colors=['r', 'r'])
+plot_edges(sys.net.surfs[0].edges, fig=fig, ax=ax, Show=True)
 
 # make_mesh(sys.net.surfs[0], sys.atoms[0], 100)
 # Create the figure

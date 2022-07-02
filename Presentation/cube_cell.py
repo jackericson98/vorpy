@@ -30,13 +30,15 @@ for i in range(8):
 
 # Build the network of vertices
 build_network(mySys)
-print(mySys.net.verts)
+for vert in mySys.net.verts:
+    print(vert.loc)
 # Plot the vertices
 red_patch = mpatches.Patch(color='red', label='Vertices')
 blue_patch = mpatches.Patch(color='blue', label='Atoms')
 black_patch = mpatches.Patch(color='black', label='Interstitial Spheres')
 ax.legend(handles=[blue_patch, red_patch, black_patch], loc='upper right')
-plot_verts(mySys.net.verts, fig=fig, ax=ax, dfo=10, Show=True)
+plot_verts(mySys.net.verts, fig=fig, ax=ax, dfo=10)
 f = calc_surf(mySys.atoms[:2])
 mySurf = Surface(f, [mySys.atoms[0], mySys.atoms[1]])
+
 surf = make_mesh(mySurf)

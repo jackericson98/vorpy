@@ -212,7 +212,7 @@ class Edge:
 
 class Surface:
     """Defines surface object"""
-    def __init__(self, func, atoms):
+    def __init__(self, atoms, func):
         self.func = func
         self.atoms = atoms  # List of Atom type objects
         self.edges = []  # List of Edge type objects
