@@ -82,10 +82,3 @@ ax = fig.add_subplot(projection="3d")
 plot_atoms(sys.atoms, fig=fig, ax=ax)
 plot_verts(sys.net.surfs[0].edges[0].verts, fig=fig, ax=ax, colors=['r', 'r'])
 plot_edges(sys.net.surfs[0].edges, fig=fig, ax=ax, Show=True)
-
-# make_mesh(sys.net.surfs[0], sys.atoms[0], 100)
-# Create the figure
-# fig = plt.figure()
-# ax = fig.add_subplot(projection="3d")
-# plot_atoms(sys.atoms, fig=fig, ax=ax,)
-# plot_surfs([sys.net.surfs[0]], fig=fig, ax=ax, Show=True)

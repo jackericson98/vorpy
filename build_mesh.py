@@ -103,7 +103,6 @@ def calc_edge_points(edge, surf):
         edge.points.append(pn)
     # Add the destination vertex point to the list of points
     edge.points.append(pv1)
-    print(edge.points)
 
 
 # Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
@@ -147,7 +146,6 @@ def edge_trace(surf):
         if edge.points:
             continue
         calc_edge_points(edge, surf)
-    print(surf.edges)
 
 
 # Make mesh function. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges

@@ -88,7 +88,6 @@ def plot_surfs(surfs, fig=None, ax=None, Show=False, dfo=None, grid=False, color
 
 # Plot edges function. Plots the edges given as lines
 def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None):
-    print(edges)
     # Set up the plot
     fig, ax, colors, alpha = setup_plot(len(edges), colors, fig, ax, dfo, grid, alpha)
 
