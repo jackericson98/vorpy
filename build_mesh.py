@@ -78,7 +78,7 @@ def calc_edge_points(edge, surf):
     edge.points = [pv0]
     # Find the angle made between the edges vertices and the atom
     max_ang = calc_angle(pa, pv0, pv1)
-    num_points = int(np.degrees(max_ang))
+    num_points = int(np.degrees(max_ang))  #############################################################################
     # Set angle A to be the incremental angle decided by num points
     A = max_ang / num_points
     # Go calculate each point along the way
@@ -90,13 +90,13 @@ def calc_edge_points(edge, surf):
         # Get the angle between pa, pb and pv1
         B = calc_angle(pb, pa, pv1)
         # Get the last angle
-        C = 180 - A - B
+        C = np.pi - A - B
         # Find a using the law of sines
         a = np.sin(A) * c / np.sin(C)
         # Find the intercept point by adding a to pb
         rn = pv1 - pb
         rn_hat = rn/np.linalg.norm(rn)
-        pc = pb + rn_hat*a
+        pc = pb + rn_hat * a
         # Calculate where the point intercepts the surface
         pn = calc_spnt(surf, pc)
         # Add the point to the edges list of points
@@ -153,8 +153,9 @@ def make_mesh(surf, density=100):
     # Check to see if the edges' points have been recorded yet
     if not surf.edge_points:
         edge_trace(surf)
+    # Grab the smaller of the 2 surface atoms
     a0 = surf.atoms[0]
-    # Calculate the center of mass of the edge points
+    # Calculate the center of mass point of the edge points
     com = calc_com(surf.edge_points)
     # Find where com maps on the surface
     com = calc_spnt(surf, com)

@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 # Create atom objects from sets of points
 atoms = [[[0, 0, 0], .5]]
 dist = 5
-rad = 2.5
+rad = 1.5
 
 atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[0, -dist, 0], rad], [[0, 0, dist], rad],
           [[0, 0, -dist], rad]]
