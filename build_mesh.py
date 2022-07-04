@@ -16,10 +16,10 @@ def calc_com(points):
     # Se the running total for the x, y, z values to 0
     xtot, ytot, ztot = 0, 0, 0
     for point in points:
-        xtot += point[0]
-        ytot += point[1]
-        ztot += point[2]
-    return [xtot/len(points), ytot/len(points), ztot/len(points)]
+        xtot = xtot + point[0]
+        ytot = ytot + point[1]
+        ztot = ztot + point[2]
+    return xtot/len(points), ytot/len(points), ztot/len(points)
 
 
 # Calculate angle function. Finds the angle (in rads) between three points. The first being the common point
@@ -83,8 +83,12 @@ def calc_edge_points(edge, surf):
     A = max_ang / num_points
     # Go calculate each point along the way
     for i in range(num_points):
-        # Get the location of the previous point
-        pb = edge.points[-1]
+        # If the edge points are empty set pb to the start vertex
+        if not edge.points:
+            pb = pv0
+        # Else get the location of the previous point
+        else:
+            pb = edge.points[-1]
         # Get the distance between pb and pa
         c = calc_dist(pa, pb)
         # Get the angle between pa, pb and pv1
@@ -138,6 +142,14 @@ def calc_spnt(surf, point):
         print(None)
 
 
+# Calculate overlap points function. Used to calculate the points in and at the overlap of two intersecting spheres
+def calc_olap_points(surf, com):
+    # Not sure how to do this yet. Maybe calc_spoint works maybe it doesn't
+    pass
+
+
+########################################################################################################################
+
 # Edge trace function
 def edge_trace(surf):
     # Go through each edge on the surface
@@ -146,6 +158,8 @@ def edge_trace(surf):
         if edge.points:
             continue
         calc_edge_points(edge, surf)
+        # Add the edge's points to the surface's edge points attribute
+        surf.edge_points += edge.points
 
 
 # Make mesh function. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
@@ -159,23 +173,22 @@ def make_mesh(surf, density=100):
     com = calc_com(surf.edge_points)
     # Find where com maps on the surface
     com = calc_spnt(surf, com)
-    # Make a list of paths
+    # Make a list of paths and angles
     paths = []
     ngl_lst = []
     # Create (and calculate the maximum angle for) each path
     for i in range(len(surf.edge_points)):
-        paths.append([surf.edge_points[i]])
+        paths.append(surf.edge_points[i])
         ngl_lst.append(calc_angle(a0.loc, com, surf.edge_points[i]))
     # Get the maximum path information
     max_path_ndx = ngl_lst.index(max(ngl_lst))
     max_path = paths[max_path_ndx]
     # Decide how many rings based off of density
-    num_rings = int(calc_dist(max_path[0], com) * density)
+    num_rings = int(calc_dist(max_path, com) * density/100)
     # Create a list of dthetas
     dthetas = []
     for i in range(len(surf.edge_points)):
         dthetas.append(ngl_lst[i]/num_rings)
-
     # Build the surface ring by ring
     for i in range(num_rings):
         # Go through each path
@@ -191,6 +204,7 @@ def make_mesh(surf, density=100):
             pn_1_theta = 180 - r_theta - dthetas[j]
             # Using the law of sines, calculate the new sample point location
             b = np.sin(dthetas[j]) * np.array(paths[j][-1]) / np.sin(pn_1_theta)
+            print(b)
             new_samp = b[0] + paths[j][-1][0], b[1] + paths[j][-1][1], b[2] + paths[j][-1][2]
             # Get the new point location
             new_point = calc_spnt(surf, new_samp)
@@ -199,15 +213,87 @@ def make_mesh(surf, density=100):
             while paths[j-k][-1] is None:
                 k += 1
             # Check to see if it is too close to the last point in the path before
-            print(paths[j-k][-1])
             if calc_dist(new_point, paths[j-k][-1]) < 1/density:
                 paths[j].append(None)
             else:
                 paths[j].append(new_point)
 
     for path in paths:
-        i = 0
         for i in range(len(path)):
             if path[i] is not None:
                 surf.points.append(path[i])
     return surf
+
+
+# Make mesh function. Calculates points on the surface
+def make_mesh1(surf, density=0.0001):
+    # Check to see if the edges' points have been recorded yet
+    if not surf.edge_points:
+        edge_trace(surf)
+    # For each edge point set up a path list.
+    paths = [[surf.edge_points[i]] for i in range(len(surf.edge_points))]
+    print(paths)
+    # Grab the smaller of the 2 surface atoms' location
+    pa = surf.atoms[0].loc
+    # Calculate the center of mass point of the edge points and where it maps on the surface
+    com = calc_spnt(surf, calc_com(surf.edge_points))
+    # Check to see if the atoms overlap
+    if calc_dist(pa, surf.atoms[1].loc) - (surf.atoms[0].rad + surf.atoms[1].rad) < 0:
+        ends = calc_olap_points(surf, com)
+    else:
+        ends = [com for i in range(len(paths))]
+    # Get the angles between the edge points and the end points
+    angs = []
+    for i in range(len(paths)):
+        # Calculate the angle for each path
+        angs.append(calc_angle(pa, paths[i][0], ends[i]))
+        # Get the maximum path information
+    max_path_ndx = angs.index(max(angs))
+    max_path = paths[max_path_ndx][0]
+    # Decide how many rings based off of density
+    num_rings = int(calc_dist(max_path, com) * 100)
+    # Get the incremental angle increases
+    dthetas = [angs[i]/num_rings for i in range(len(angs))]
+    # Set the pn_1 point to infinity
+    pn_1 = [np.inf, np.inf, np.inf]
+    num_paths = len(paths)
+    i = 0
+    # Go through ring by ring
+    for j in range(num_rings):
+        # Go through each of the remaining paths
+        while i < num_paths:
+            # Get the A angle
+            A = dthetas[i]
+            # Get the location of point b
+            pb = paths[i][-1]
+            # Get the distance between pb and pa
+            c = calc_dist(pa, pb)
+            # Get the angle between pa, pb and pv1
+            B = calc_angle(pb, pa, com)
+            # Get the last angle
+            C = np.pi - A - B
+            # Find a using the law of sines
+            a = np.sin(A) * c / np.sin(C)
+            # Find the intercept point by adding a to pb
+            rn = ends[i] - pb
+            rn_hat = rn / np.linalg.norm(rn)
+            pc = pb + rn_hat * a
+            # Calculate where the point intercepts the surface
+            pn = calc_spnt(surf, pc)
+            # Check to see of the new point is too close to the previous point and the path has to end
+            print(calc_dist(pn, pn_1))
+            if calc_dist(pn, pn_1) < density:
+                print(True)
+                # Add the path to the surfaces points and remove it from the paths list
+                surf.points += paths.pop(i)
+                ends.pop(i)
+                dthetas.pop(i)
+                num_paths -= 1
+            else:
+                print(False)
+                # Set the pn_1 to pn and add it to the path
+                pn_1 = pn
+                paths[i].append(pn)
+            i += 1
+
+    print(surf.points)
