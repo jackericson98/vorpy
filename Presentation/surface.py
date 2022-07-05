@@ -1,14 +1,14 @@
 from objects import System, Edge, Surface
 from build_network import calc_vertex
-from build_mesh import calc_surf, make_mesh1, calc_edge_points, edge_trace
+from build_mesh import calc_surf, make_mesh, calc_edge_points, edge_trace
 from visualize import plot_atoms, plot_verts, plot_surfs, plot_edges
 import matplotlib.pyplot as plt
 
 
 # Create atom objects from sets of points
-atoms = [[[0, 0, 0], .25]]
+atoms = [[[0, 0, 0], .5]]
 dist = 15
-rad = 5
+rad = 2
 
 atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[0, -dist, 0], rad], [[0, 0, dist], rad],
           [[0, 0, -dist], rad]]
@@ -73,13 +73,11 @@ sys.net.surfs[4].edges = [e3, e4, e7, e11]
 sys.net.surfs[5].edges = [e8, e9, e10, e11]
 
 
-f = calc_surf(sys.atoms[:2])
-edge_trace(sys.net.surfs[0])
-make_mesh1(sys.net.surfs[0])
-
+for i in range(len(sys.net.surfs)):
+    make_mesh(sys.net.surfs[i])
+print(sys.net.surfs)
 fig = plt.figure()
 ax = fig.add_subplot(projection="3d")
 plot_atoms(sys.atoms, fig=fig, ax=ax)
-plot_verts(sys.net.surfs[0].edges[0].verts, fig=fig, ax=ax, colors=['r', 'r'])
-#plot_edges(sys.net.surfs[0].edges, fig=fig, ax=ax)
-plot_surfs([sys.net.surfs[0]], fig=fig, ax=ax, Show=True)
+plot_verts(sys.net.verts, fig=fig, ax=ax, colors=['r' for i in range(8)])
+plot_surfs(sys.net.surfs, fig=fig, ax=ax, Show=True)

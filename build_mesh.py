@@ -78,11 +78,11 @@ def calc_edge_points(edge, surf):
     edge.points = [pv0]
     # Find the angle made between the edges vertices and the atom
     max_ang = calc_angle(pa, pv0, pv1)
-    num_points = int(np.degrees(max_ang))  #############################################################################
+    num_points = int(np.degrees(max_ang)/10)  # Need to incorporate density here
     # Set angle A to be the incremental angle decided by num points
     A = max_ang / num_points
-    # Go calculate each point along the way
-    for i in range(num_points):
+    # Calculate each point along the way
+    for i in range(num_points - 1):
         # If the edge points are empty set pb to the start vertex
         if not edge.points:
             pb = pv0
@@ -156,6 +156,7 @@ def edge_trace(surf):
     for edge in surf.edges:
         # If the edge points exist already continue to the next edge
         if edge.points:
+            surf.edge_points += edge.points
             continue
         calc_edge_points(edge, surf)
         # Add the edge's points to the surface's edge points attribute
@@ -163,85 +164,17 @@ def edge_trace(surf):
 
 
 # Make mesh function. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
-def make_mesh(surf, density=100):
+def make_mesh(surf, density=.01):
     # Check to see if the edges' points have been recorded yet
-    if not surf.edge_points:
-        edge_trace(surf)
-    # Grab the smaller of the 2 surface atoms
-    a0 = surf.atoms[0]
-    # Calculate the center of mass point of the edge points
-    com = calc_com(surf.edge_points)
-    # Find where com maps on the surface
-    com = calc_spnt(surf, com)
-    # Make a list of paths and angles
-    paths = []
-    ngl_lst = []
-    # Create (and calculate the maximum angle for) each path
-    for i in range(len(surf.edge_points)):
-        paths.append(surf.edge_points[i])
-        ngl_lst.append(calc_angle(a0.loc, com, surf.edge_points[i]))
-    # Get the maximum path information
-    max_path_ndx = ngl_lst.index(max(ngl_lst))
-    max_path = paths[max_path_ndx]
-    # Decide how many rings based off of density
-    num_rings = int(calc_dist(max_path, com) * density/100)
-    # Create a list of dthetas
-    dthetas = []
-    for i in range(len(surf.edge_points)):
-        dthetas.append(ngl_lst[i]/num_rings)
-    # Build the surface ring by ring
-    for i in range(num_rings):
-        # Go through each path
-        for j in range(len(paths)):
-            # If the path has terminated continue to the next one
-            if paths[j][-1] is None:
-                continue
-            # Find the unit vector facing the COM from the previous point in the path
-            r0 = np.array(com) - np.array(paths[j][-1])
-            rn = r0/np.linalg.norm(r0)
-            # Get the angle between the path direction and center of the atom
-            r_theta = calc_angle(paths[j][-1], rn, a0.loc)
-            pn_1_theta = 180 - r_theta - dthetas[j]
-            # Using the law of sines, calculate the new sample point location
-            b = np.sin(dthetas[j]) * np.array(paths[j][-1]) / np.sin(pn_1_theta)
-            print(b)
-            new_samp = b[0] + paths[j][-1][0], b[1] + paths[j][-1][1], b[2] + paths[j][-1][2]
-            # Get the new point location
-            new_point = calc_spnt(surf, new_samp)
-            # Find the most recent non-None point
-            k = 1
-            while paths[j-k][-1] is None:
-                k += 1
-            # Check to see if it is too close to the last point in the path before
-            if calc_dist(new_point, paths[j-k][-1]) < 1/density:
-                paths[j].append(None)
-            else:
-                paths[j].append(new_point)
-
-    for path in paths:
-        for i in range(len(path)):
-            if path[i] is not None:
-                surf.points.append(path[i])
-    return surf
-
-
-# Make mesh function. Calculates points on the surface
-def make_mesh1(surf, density=0.0001):
-    # Check to see if the edges' points have been recorded yet
-    if not surf.edge_points:
-        edge_trace(surf)
+    edge_trace(surf)
     # For each edge point set up a path list.
     paths = [[surf.edge_points[i]] for i in range(len(surf.edge_points))]
-    print(paths)
     # Grab the smaller of the 2 surface atoms' location
     pa = surf.atoms[0].loc
     # Calculate the center of mass point of the edge points and where it maps on the surface
     com = calc_spnt(surf, calc_com(surf.edge_points))
-    # Check to see if the atoms overlap
-    if calc_dist(pa, surf.atoms[1].loc) - (surf.atoms[0].rad + surf.atoms[1].rad) < 0:
-        ends = calc_olap_points(surf, com)
-    else:
-        ends = [com for i in range(len(paths))]
+    # Set up a list of end points
+    ends = [com for i in range(len(paths))]
     # Get the angles between the edge points and the end points
     angs = []
     for i in range(len(paths)):
@@ -251,16 +184,16 @@ def make_mesh1(surf, density=0.0001):
     max_path_ndx = angs.index(max(angs))
     max_path = paths[max_path_ndx][0]
     # Decide how many rings based off of density
-    num_rings = int(calc_dist(max_path, com) * 100)
+    num_rings = int(calc_dist(max_path, com))
     # Get the incremental angle increases
     dthetas = [angs[i]/num_rings for i in range(len(angs))]
     # Set the pn_1 point to infinity
     pn_1 = [np.inf, np.inf, np.inf]
     num_paths = len(paths)
-    i = 0
     # Go through ring by ring
     for j in range(num_rings):
         # Go through each of the remaining paths
+        i = 0
         while i < num_paths:
             # Get the A angle
             A = dthetas[i]
@@ -281,19 +214,16 @@ def make_mesh1(surf, density=0.0001):
             # Calculate where the point intercepts the surface
             pn = calc_spnt(surf, pc)
             # Check to see of the new point is too close to the previous point and the path has to end
-            print(calc_dist(pn, pn_1))
             if calc_dist(pn, pn_1) < density:
-                print(True)
                 # Add the path to the surfaces points and remove it from the paths list
                 surf.points += paths.pop(i)
                 ends.pop(i)
                 dthetas.pop(i)
                 num_paths -= 1
             else:
-                print(False)
                 # Set the pn_1 to pn and add it to the path
                 pn_1 = pn
                 paths[i].append(pn)
             i += 1
-
-    print(surf.points)
+    for path in paths:
+        surf.points += path

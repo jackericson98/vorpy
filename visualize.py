@@ -75,7 +75,7 @@ def plot_surfs(surfs, fig=None, ax=None, Show=False, dfo=None, grid=False, color
     # Plot the surfaces
     for surf in surfs:
         x, y, z = [], [], []
-        for point in surf.edge_points:
+        for point in surf.points:
             x.append(point[0])
             y.append(point[1])
             z.append(point[2])
