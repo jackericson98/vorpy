@@ -224,3 +224,9 @@ def make_mesh(surf, density=.01):
             i += 1
     for path in paths:
         surf.points += path
+
+
+# Build meshes function. Runs make_mesh on all surfaces in the network
+def build_meshes(sys):
+    for surf in sys.net.surfs:
+        make_mesh(surf)

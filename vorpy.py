@@ -95,7 +95,7 @@ class Vorpy:
             print(self.sys.name)
         # Build the network
         print(self.sys.net.atoms)
-        build_network(self.sys)  # Try statment with voronota_verts
+        build_network(self.sys)  # Try statement with voronota_verts
 
 
         # Print out all the vertices

@@ -79,7 +79,7 @@ def plot_surfs(surfs, fig=None, ax=None, Show=False, dfo=None, grid=False, color
             x.append(point[0])
             y.append(point[1])
             z.append(point[2])
-        ax.scatter(x, y, z)
+        ax.plot_trisurf(x, y, z)
 
     # Show the figure
     if Show:
