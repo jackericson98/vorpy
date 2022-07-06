@@ -64,7 +64,7 @@ def calc_surf(atoms):
     return ABC + DEF + GHI + [J] + [K] + [d]
 
 
-# Calculate edge points function. Takes in an edge and a surface and updates the edge's points
+# Calculate edge points function. Takes in an edge and a surface and updates the edge's points.
 def calc_edge_points(edge, surf):
     # Get the location of the base atom
     pa = edge.atoms[0].loc
@@ -97,14 +97,10 @@ def calc_edge_points(edge, surf):
         a = np.sin(A) * c / np.sin(C)
         # Find the intercept point by adding a to pb
         pc = pb + rn_hat * a
-        test_points.append(pc)
         # Calculate where the point intercepts the surface
         pn = calc_spnt(surf, pc)
-        print(calc_dist(pn, pb))
         # Add the point to the edges list of points
         edge.points.append(pn)
-    # Add the destination vertex point to the list of points
-    edge.points += test_points
 
 
 # Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
@@ -223,7 +219,9 @@ def make_mesh(surf, density=.01):
                 paths[i].append(pn)
             i += 1
     for path in paths:
-        surf.points += path
+        surf.points += path[1:]
+    # Add the center of mass point to the mesh
+    surf.points.append(com)
 
 
 # Build meshes function. Runs make_mesh on all surfaces in the network

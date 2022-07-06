@@ -1,5 +1,6 @@
 """This file holds all object types needed for calculations: Molecule, Mesh, Sphere, Ray, Plane"""
 import numpy as np
+from pathlib import Path
 
 
 class System:
@@ -145,7 +146,7 @@ class System:
     @staticmethod
     def get_radius(atom_name):
         # Get the classifier document
-        radii = open('Data/bondi_classifier.txt').readlines()
+        radii = open(Path('./Data/bondi_classifier.txt')).readlines()
         # Go through each line in the classifier document
         for line in radii:
             line = line.split()
@@ -193,7 +194,7 @@ class Atom:
 
 
 class Vertex:
-    """Voronoi S-Vertex object. Created when building the network."""
+    """Vertex object. Used to build the network and calculate the surfaces"""
     def __init__(self, location, radius, atoms=None):
         self.loc = location  # Location of the vertex
         self.rad = radius  # Radius of the vertex's tangential sphere
@@ -202,16 +203,16 @@ class Vertex:
 
 
 class Edge:
-    """Voronoi S-Channel"""
+    """Edge object. Used to build the network and calculate the surfaces"""
     def __init__(self, atoms, verts):
         self.atoms = atoms  # List of Atom type objects
         self.verts = verts  # List of Vertex type objects
         self.center = None
-        self.points = []  # List of points on the edge
+        self.points = []  # List of points on the edge. These points do not include the vertex points
 
 
 class Surface:
-    """Defines surface object"""
+    """Surface object. Holds the mesh data. Used to analyze."""
     def __init__(self, atoms, func):
         self.func = func
         self.atoms = atoms  # List of Atom type objects
@@ -220,11 +221,3 @@ class Surface:
         self.verts = []
         self.vert_points = []
         self.points = []  # List of points on the surface
-
-
-class Ray:
-    """Ray object used to calculate surfaces."""
-    def __init__(self, location=None, direction=None, magnitude=None):
-        loc = location
-        dir = direction
-        mag = magnitude
