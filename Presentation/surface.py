@@ -74,10 +74,10 @@ sys.net.surfs[5].edges = [e8, e9, e10, e11]
 
 
 for i in range(len(sys.net.surfs)):
-    make_mesh(sys.net.surfs[i])
-print(sys.net.surfs)
+    edge_trace(sys.net.surfs[i])
+
 fig = plt.figure()
 ax = fig.add_subplot(projection="3d")
-plot_atoms(sys.atoms, fig=fig, ax=ax)
-plot_verts(sys.net.verts, fig=fig, ax=ax, colors=['r' for i in range(8)])
-plot_surfs(sys.net.surfs, fig=fig, ax=ax, Show=True)
+plot_atoms(sys.atoms, fig=fig, ax=ax, grid=True)
+plot_verts(sys.net.verts, fig=fig, ax=ax, colors=['r' for i in range(8)], grid=True)
+plot_edges(sys.net.edges, fig=fig, ax=ax, Show=True, grid=True)

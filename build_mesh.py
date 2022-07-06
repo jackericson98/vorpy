@@ -29,13 +29,10 @@ def calc_angle(p0, p1, p2=None):
         v0, v1 = np.array(p0), np.array(p1)
     else:
         v0, v1 = np.array(p1) - np.array(p0), np.array(p2) - np.array(p0)
-
     # Get the unit vectors
     n0, n1 = v0/np.linalg.norm(v0), v1/np.linalg.norm(v1)
-
     # Calculate the angle between the two vectors with catches for 180 and 0
     angle = np.arccos(np.clip(np.dot(n0, n1), -1.0, 1.0))
-
     return angle
 
 
@@ -74,15 +71,16 @@ def calc_edge_points(edge, surf):
     # Get the locations of the vertices
     pv0 = np.array(edge.verts[0].loc)
     pv1 = np.array(edge.verts[1].loc)
-    # Add the first vertex to the edges points
-    edge.points = [pv0]
     # Find the angle made between the edges vertices and the atom
     max_ang = calc_angle(pa, pv0, pv1)
-    num_points = int(np.degrees(max_ang)/10)  # Need to incorporate density here
+    num_points = int(np.degrees(max_ang)/5)  # Need to incorporate density here
     # Set angle A to be the incremental angle decided by num points
     A = max_ang / num_points
+    rn = pv1 - pv0
+    rn_hat = rn / np.linalg.norm(rn)
     # Calculate each point along the way
-    for i in range(num_points - 1):
+    test_points = []
+    for i in range(1, num_points):
         # If the edge points are empty set pb to the start vertex
         if not edge.points:
             pb = pv0
@@ -98,15 +96,15 @@ def calc_edge_points(edge, surf):
         # Find a using the law of sines
         a = np.sin(A) * c / np.sin(C)
         # Find the intercept point by adding a to pb
-        rn = pv1 - pb
-        rn_hat = rn/np.linalg.norm(rn)
         pc = pb + rn_hat * a
+        test_points.append(pc)
         # Calculate where the point intercepts the surface
         pn = calc_spnt(surf, pc)
+        print(calc_dist(pn, pb))
         # Add the point to the edges list of points
         edge.points.append(pn)
     # Add the destination vertex point to the list of points
-    edge.points.append(pv1)
+    edge.points += test_points
 
 
 # Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
@@ -138,13 +136,12 @@ def calc_spnt(surf, point):
     if b ** 2 - 4 * a * c > 0:
         mag = min(abs(np.roots([a, b, c])))
         return vi + mag*vn
-    else:
-        print(None)
+    return
 
 
 # Calculate overlap points function. Used to calculate the points in and at the overlap of two intersecting spheres
 def calc_olap_points(surf, com):
-    # Not sure how to do this yet. Maybe calc_spoint works maybe it doesn't
+    # Not sure how to do this yet. Maybe calc_spoint doesn't work for the inner vals
     pass
 
 
