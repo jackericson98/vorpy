@@ -11,7 +11,7 @@ atoms = [[[0, 0, 0], 2.5]]
 dist = 5
 rad = .5
 
-atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad],[[0, -dist, 0], rad], [[0, 0, dist], rad],
+atoms += [[[dist, 0, 0], rad + 1], [[-dist - 4, 0, 0], rad], [[0, dist -1, 0], rad],[[0, -dist - 15, 0], rad], [[0, 0, dist], rad],
           [[0, 0, -dist], rad]]
 # Create a system of from the atoms
 mySys = System(atoms)
@@ -37,8 +37,8 @@ red_patch = mpatches.Patch(color='red', label='Vertices')
 blue_patch = mpatches.Patch(color='blue', label='Atoms')
 black_patch = mpatches.Patch(color='black', label='Interstitial Spheres')
 ax.legend(handles=[blue_patch, red_patch, black_patch], loc='upper right')
-plot_verts(mySys.net.verts, fig=fig, ax=ax, dfo=10)
+plot_verts(mySys.net.verts, fig=fig, ax=ax, dfo=10, Show=True, colors=['r' for i in range(4)], grid=True)
 f = calc_surf(mySys.atoms[:2])
 mySurf = Surface(f, [mySys.atoms[0], mySys.atoms[1]])
 
-surf = make_mesh(mySurf)
+# surf = make_mesh(mySurf)
