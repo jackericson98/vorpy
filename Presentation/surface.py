@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 
 # Create atom objects from sets of points
 atoms = [[[0, 0, 0], .5]]
-dist = 50
-rad = 10
+dist = 1.49
+rad = 1
 
 atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[0, -dist, 0], rad], [[0, 0, dist], rad],
           [[0, 0, -dist], rad]]
@@ -77,6 +77,8 @@ build_meshes(sys)
 
 fig = plt.figure()
 ax = fig.add_subplot(projection="3d")
-plot_atoms(sys.atoms, fig=fig, ax=ax, grid=True)
-plot_verts(sys.net.verts, fig=fig, ax=ax, colors=['r' for i in range(8)], grid=True)
-plot_surfs(sys.net.surfs, fig=fig, ax=ax, Show=True, grid=True)
+ax.set_title("Basic Cube Cell")
+plot_atoms(sys.atoms[0:1], fig=fig, ax=ax)
+plot_verts(sys.net.verts, fig=fig, ax=ax, colors=['r' for i in range(8)])
+plot_edges(sys.net.edges, fig=fig, ax=ax)
+plot_surfs(sys.net.surfs, fig=fig, ax=ax, Show=True)

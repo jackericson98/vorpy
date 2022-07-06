@@ -83,7 +83,6 @@ class Vorpy:
             self.sys = System(file_path)
         else:
             self.sys = System("./Data/test_data/" + self.dd_var.get())
-
         # Set the name in reverse order since the letters were added backwards
         self.name.set(self.sys.file_name)
 
@@ -92,15 +91,8 @@ class Vorpy:
         # Create the system
         if not self.sys:
             self.sys = System("./Data/test_data/" + self.dd_var.get())
-            print(self.sys.name)
         # Build the network
-        print(self.sys.net.atoms)
         build_network(self.sys)  # Try statement with voronota_verts
-
-
-        # Print out all the vertices
-        for i in range(len(self.sys.net.verts)):
-            print(self.sys.net.verts[i])
 
     def build_meshes_button(self):
         # Build the meshes

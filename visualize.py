@@ -79,7 +79,8 @@ def plot_surfs(surfs, fig=None, ax=None, Show=False, dfo=None, grid=False, color
             x.append(point[0])
             y.append(point[1])
             z.append(point[2])
-        ax.plot_trisurf(x, y, z)
+        ## ax.plot_trisurf(x, y, z)
+        ax.scatter(x, y, z, s=[0.1 for i in range(len(x))], alpha=0.1)
 
     # Show the figure
     if Show:
@@ -99,7 +100,7 @@ def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, color
             ys.append(point[1])
             zs.append(point[2])
         # Plot the points
-        ax.scatter(xs, ys, zs)
+        ax.plot(xs, ys, zs)
     # Show the figure
     if Show:
         plt.show()
