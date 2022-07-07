@@ -12,7 +12,6 @@ def setup_plot(num_col, colors=None, fig=None, ax=None, dfo=None, grid=False, al
             fig = plt.figure()
             Show = True  # If no outside figure is specified, then the figure needs to be shown from within
         ax = fig.add_subplot(projection="3d")
-
     # Set the colors of the spheres. Defaults to blue with a white base sphere
     if colors is None:
         colors = ['b' for _ in range(num_col)]
@@ -42,7 +41,6 @@ def setup_plot(num_col, colors=None, fig=None, ax=None, dfo=None, grid=False, al
 def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=None):
     # Set up the plot
     fig, ax, colors, alpha = setup_plot(len(atoms), colors, fig, ax, dfo, grid, alpha)
-
     # If the number of atoms to plot is more than 80, then plot them as points rather than spheres.
     if len(atoms) > 80:
         for sphere in atoms:
@@ -61,7 +59,6 @@ def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid
             z = atoms[i].rad * np.cos(v) + atoms[i].loc[2]
             # Plot the sphere
             ax.plot_wireframe(x, y, z, color=colors[i], alpha=alpha)
-
     # Show the figure if need be
     if Show:
         plt.show()
@@ -71,7 +68,6 @@ def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid
 def plot_surfs(surfs, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None):
     # Set up the plot
     fig, ax, colors, alpha = setup_plot(len(surfs), colors, fig, ax, dfo, grid, alpha)
-
     # Plot the surfaces
     for surf in surfs:
         x, y, z = [], [], []
@@ -79,9 +75,8 @@ def plot_surfs(surfs, fig=None, ax=None, Show=False, dfo=None, grid=False, color
             x.append(point[0])
             y.append(point[1])
             z.append(point[2])
-        ## ax.plot_trisurf(x, y, z)
+        # ax.plot_trisurf(x, y, z)
         ax.scatter(x, y, z, s=[0.1 for i in range(len(x))], alpha=0.1)
-
     # Show the figure
     if Show:
         plt.show()
@@ -91,14 +86,16 @@ def plot_surfs(surfs, fig=None, ax=None, Show=False, dfo=None, grid=False, color
 def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None):
     # Set up the plot
     fig, ax, colors, alpha = setup_plot(len(edges), colors, fig, ax, dfo, grid, alpha)
-
     # Plot the edges
     for edge in edges:
-        xs, ys, zs = [], [], []
+        xs, ys, zs = [edge.verts[0].loc[0]], [edge.verts[0].loc[1]], [edge.verts[0].loc[2]]
         for point in edge.points:
             xs.append(point[0])
             ys.append(point[1])
             zs.append(point[2])
+        xs.append(edge.verts[1].loc[0])
+        ys.append(edge.verts[1].loc[1])
+        zs.append(edge.verts[1].loc[2])
         # Plot the points
         ax.plot(xs, ys, zs)
     # Show the figure
