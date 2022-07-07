@@ -7,7 +7,7 @@ import numpy as np
 
 # Calculate distance function. Finds the distance between 2 points
 def calc_dist(l1, l2):
-    d = np.sqrt((l1[0]-l2[0])**2+(l1[1]-l2[2])**2+(l1[2]-l2[2])**2)
+    d = np.sqrt((l1[0]-l2[0])**2+(l1[1]-l2[1])**2+(l1[2]-l2[2])**2)
     return d
 
 
@@ -73,6 +73,8 @@ def calc_edge_points(edge, surf, min_dist):
     pv1 = np.array(edge.verts[1].loc)
     # Find the angle made between the edges vertices and the atom
     max_ang = calc_angle(pa, pv0, pv1)
+    if calc_dist(pv0, pv1) == 0:
+        print(edge.verts[0].loc, edge.verts[1].loc)
     num_points = int(calc_dist(pv0, pv1) / min_dist)
     print(num_points)
     # Set angle A to be the incremental angle decided by num points

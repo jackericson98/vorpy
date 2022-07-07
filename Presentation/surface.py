@@ -78,7 +78,7 @@ fig = plt.figure()
 ax = fig.add_subplot(projection="3d")
 ax.set_title("Basic Cube Cell")
 # Plot the elements of the network
-plot_atoms(sys.atoms, fig=fig, ax=ax, dfo=2, alpha=0.1)
+# plot_atoms(sys.atoms, fig=fig, ax=ax, dfo=2, alpha=0.1)
 plot_verts(sys.net.verts, fig=fig, ax=ax, colors=['r' for i in range(8)])
 plot_edges(sys.net.edges, fig=fig, ax=ax)
 plot_surfs(sys.net.surfs, fig=fig, ax=ax, Show=True)
