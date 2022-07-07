@@ -146,7 +146,7 @@ class System:
     @staticmethod
     def get_radius(atom_name):
         # Get the classifier document
-        radii = open(os.getcwd() + "/Data/bondi_classifier.txt").readlines()
+        radii = open("./Data/bondi_classifier.txt").readlines()
         # Go through each line in the classifier document
         for line in radii:
             line = line.split()
