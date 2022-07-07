@@ -276,17 +276,16 @@ def calc_edge(edge, net):
     # Grab the vertex of the edge for later use
     v0 = edge.verts[0]
     # Find the center of the edge atoms
-    c = calc_circ(edge.atoms)
-
-    if c is None:
+    circ = calc_circ(edge.atoms)
+    # If the circle made between the atom edges is Nonetype return
+    if not circ:
         return
     else:
-        c = c[0][0]
+        circ = circ[0][0]
     # Find the distance between the old vertex and the center of the bottleneck
-    d1 = calc_dist(v0.loc, c)
+    d1 = calc_dist(v0.loc, circ)
     # Make a list of the closest neighbors
     neighbors = sortbyDist(edge.atoms, net)
-
     # Find the other atom from the old vertex
     an = None
     # Find the atom from the v0 that is not in the edge's atom list
@@ -297,9 +296,8 @@ def calc_edge(edge, net):
     # Set the closest distance to infinity and the vertex to None
     c_dist = np.inf
     myVert = None
-
     # Go through each atom in the neighbor list
-    for n in neighbors:
+    for n in neighbors[:15]:
         # Check to see if the neighbor is the old vertex's other atom. If so continue
         if n == an:
             continue
@@ -309,10 +307,9 @@ def calc_edge(edge, net):
         if not vn or calc_dist(vn.loc, an.loc) < vn.rad + an.rad or check_vert(vn, net):
             continue
         # Calculate the distance between the new vertex and the center
-        d2 = calc_dist(vn.loc, c)
+        d2 = calc_dist(vn.loc, circ)
         # Calculate the distance between the new vertex and the old vertex
         d3 = calc_dist(vn.loc, v0.loc)
-
         # Mevdevev's edge site finding checks. Find the shortest relative distance from v0 to vn
         if d1 <= d3 or d2 <= d3:
             r_len = d1 + d2
@@ -333,7 +330,6 @@ def calc_edge1(edge, net, dt=None):
     # Estimate a working dt
     if dt is None:
         dt = edge.atoms[0].rad / 20
-
     an = None
     # Find the atom from the v0 that is not in the edge's atom list
     for atom in v0.atoms:
@@ -345,10 +341,8 @@ def calc_edge1(edge, net, dt=None):
     # Adjust the size of the atom to fit through the bottleneck
     if bn < 1.05*an.rad:
         an.rad = 0.95*bn
-
     # Find the vertex between the edge atoms and the adjusted atom
     vn = calc_vertex(edge.atoms+[an])
-
     # If we get a None vertex the shrink went too far. Keep increasing radius until a vertex is found.
     while vn is None:
         an.rad = an.rad * 1.01
@@ -356,26 +350,21 @@ def calc_edge1(edge, net, dt=None):
     # If the radius is larger than the bottleneck, continue and hope that the other side of the edge will be able to
     if vn.rad > bn:
         return
-
     # Find the initial direction by getting the vector between the new vertex formed after the atom got smaller
     dr = np.array([v0.loc[0] - vn.loc[0], v0.loc[1] - vn.loc[1], v0.loc[2] - vn.loc[2]])
-
     elen = 0
     vfound = False
     vert = None
     # Keep adding points to the edge until the next vertex is found or the edge left the network
     while not vfound:
-
         # Normalize the direction vector
         dr_mag = np.sqrt(dr.dot(dr))
         dr = dr / dr_mag
-
         # Add up the length of the edge
         elen += dr_mag
         if elen > net.rad:
             edge.verts.append(None)
             return None
-
         # Record vns location before changing it
         vn_1 = vn
         # Move the atom along the direction of the edge by dt increments
@@ -386,7 +375,6 @@ def calc_edge1(edge, net, dt=None):
         edge.points.append(vn.loc)
         # Find the new move direction by finding the direction from vn-1 to vn
         dr = np.array([vn.loc[0] - vn_1.loc[0], vn.loc[1] - vn_1.loc[1], vn.loc[2] - vn_1.loc[2]])
-
         # Check to see if we have passed a vertex
         for vert in neighbors:
             # Calculate the vectors between the vertex and the new and old edge points
@@ -396,10 +384,9 @@ def calc_edge1(edge, net, dt=None):
             if np.sqrt(d1.dot(d1)) <= dr_mag and np.sqrt(d2.dot(d2)) <= dr_mag:
                 # If so, we have found our vert and exit
                 vfound = True
-
+    # Add the vertex to the edge and the network
     edge.verts.append(vert)
     net.verts.append(vert)
-
     return vert
 
 
@@ -452,7 +439,7 @@ def find_v0(net):
     r = np.inf
     myVert, my_an = None, None
     # Go through the closest atoms to the triplet and find the smallest vertex that can be made with a neighbor
-    for an in neighbors2:
+    for an in neighbors2[:15]:
         if an.loc == a0.loc or an.loc == a1.loc or an.loc == a2.loc:
             continue
         # Calculate the vertex and check if None
@@ -510,6 +497,7 @@ def find_edges(vertex, net):
             net.edges.append(edge)
             net.verts.append(vn)
             find_edges(vn, net)
+    return
 
 
 ########################################################################################################################
