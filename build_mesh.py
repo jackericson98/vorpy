@@ -73,10 +73,7 @@ def calc_edge_points(edge, surf, min_dist):
     pv1 = np.array(edge.verts[1].loc)
     # Find the angle made between the edges vertices and the atom
     max_ang = calc_angle(pa, pv0, pv1)
-    if calc_dist(pv0, pv1) == 0:
-        print(edge.verts[0].loc, edge.verts[1].loc)
-    num_points = int(calc_dist(pv0, pv1) / min_dist)
-    print(num_points)
+    num_points = max(int(calc_dist(pv0, pv1) / min_dist), 10)
     # Set angle A to be the incremental angle decided by num points
     A = max_ang / num_points
     # Calculate each point along the way
@@ -90,8 +87,8 @@ def calc_edge_points(edge, surf, min_dist):
 
 
 # Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
-# from the center of the smaller of the surfaces 2 atoms through the point into the surface
-def calc_spnt(surf, point):
+# from the center of the smallest of the surfaces 2 atoms through the point into the surface
+def calc_surf_point(surf, point):
     # Grab the function
     if surf.func is None:
         surf.func = calc_surf(surf)
@@ -115,10 +112,9 @@ def calc_spnt(surf, point):
 
     # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
     # and add that point to our surface list of points
-    if b ** 2 - 4 * a * c > 0:
+    if round(b ** 2 - 4 * a * c) >= 0:
         mag = min(abs(np.roots([a, b, c])))
         return vi + mag*vn
-    return
 
 
 # Find next point function. Finds the
@@ -142,21 +138,20 @@ def find_next_point(pn_1, end, d_theta, surf):
     rn_hat = rn / np.linalg.norm(rn)
     pc = pb + rn_hat * a
     # Calculate where the point intercepts the surface
-    return calc_spnt(surf, pc)
+    return calc_surf_point(surf, pc)
 
 
 # Calculate overlap points function. Used to calculate the points in and at the overlap of two intersecting spheres
 def calc_olap_points(surf, com):
-    # Not sure how to do this yet. calc_spoint doesn't work for the inner vals
+    # Not sure how to do this yet. calc_surf_point doesn't work for the inner vals
 
     pass
 
 
 ########################################################################################################################
 
-# Edge trace function
-def edge_trace(surf, min_dist):
-    # Go through each edge on the surface
+
+def edge_trace1(surf, min_dist):
     for edge in surf.edges:
         # If the edge points exist already add them to the surfaces edge points and continue to the next edge
         if edge.points:
@@ -167,19 +162,47 @@ def edge_trace(surf, min_dist):
         surf.edge_points += edge.points
 
 
+# Edge trace function
+def edge_trace(surf, min_dist):
+    # Go through each edge on the surface
+    for edge in surf.edges:
+        # If the edge points exist already continue to the next edge
+        if not edge.points:
+            calc_edge_points(edge, surf, min_dist)
+    # Call the recursive edge tracing function
+    edges = surf.edges
+    # Get the first edge and vert
+    v0, vert = edges[0].verts
+    surf.edge_points = edges[0].points
+    # Find the edge that is closest to vert and add the points accordingly
+    v0_found = False
+    while not v0_found:
+        # Check the edges for similar vertices
+        for edge in edges[1:]:
+            # If the first vertex in the edge's vertex list is equal to vert, add the points
+            if edge.verts[0] == vert:
+                surf.edge_points += edge.points
+                vert = edge.verts[1]
+            elif edge.verts[1] == vert:
+                surf.edge_points = edge.points[::-1]
+                vert = edge.verts[0]
+        if vert.loc == v0.loc:
+            v0_found = True
+
+
 # Make mesh function. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
-def make_mesh(surf, min_dist, density=10):
+def make_mesh(surf, min_dist):
     # Set the atoms in the surface to make the smaller one listed first
     if surf.atoms[0].rad > surf.atoms[1].rad:
         surf.atoms = surf.atoms[1], surf.atoms[0]
     # Check to see if the edges' points have been recorded yet
-    edge_trace(surf, min_dist)
+    edge_trace1(surf, min_dist)
     # For each edge point set up a path list.
     paths = [[surf.edge_points[i]] for i in range(len(surf.edge_points))]
     # Grab the smallest of the 2 surface atoms' location
     pa = surf.atoms[0].loc
     # Calculate the center of mass point of the edge points and where it maps on the surface
-    com = calc_spnt(surf, calc_com(surf.edge_points))
+    com = calc_surf_point(surf, calc_com(surf.edge_points))
     # Set up a list of end points
     ends = [com for i in range(len(paths))]
     # Get the angles between the edge points and the end points
@@ -187,11 +210,9 @@ def make_mesh(surf, min_dist, density=10):
     for i in range(len(paths)):
         # Calculate the angle for each path
         angs.append(calc_angle(pa, paths[i][0], ends[i]))
-    # Get the minimum and maximum path information
+    # Get the maximum path
     max_path_ndx = angs.index(max(angs))
-    min_path_ndx = angs.index(min(angs))
     max_path = paths[max_path_ndx][0]
-    min_path = paths[min_path_ndx][0]
     # Decide how many rings based off of the ellipticity and density
     num_rings = int(calc_dist(max_path, ends[max_path_ndx]) / min_dist)
     # Get the incremental angle increases
@@ -209,7 +230,7 @@ def make_mesh(surf, min_dist, density=10):
             # Check to see of the new point is too close to the previous point and the path has to end
             if calc_dist(pn, pn_1) < min_dist:
                 # Add the path to the surfaces points and remove it from the paths list
-                surf.points += paths.pop(i)
+                surf.points += paths.pop(i)[1:]
                 ends.pop(i)
                 dthetas.pop(i)
                 num_paths -= 1
@@ -217,6 +238,7 @@ def make_mesh(surf, min_dist, density=10):
                 # Set the pn_1 to pn and add it to the path
                 pn_1 = pn
                 paths[i].append(pn)
+            # Increment i
             i += 1
     # Add the remaining paths to the surface
     for path in paths:
