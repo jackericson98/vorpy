@@ -71,12 +71,18 @@ def plot_surfs(surfs, fig=None, ax=None, Show=False, dfo=None, grid=False, color
     # Plot the surfaces
     for surf in surfs:
         x, y, z = [], [], []
-        for point in surf.points:
+        # Add the surface points
+        for point in surf.points + surf.edge_points:
             x.append(point[0])
             y.append(point[1])
             z.append(point[2])
-        # ax.plot_trisurf(x, y, z)
-        ax.scatter(x, y, z, s=[0.1 for i in range(len(x))], alpha=0.1)
+        # Add the vertex points
+        for vert in surf.verts:
+            x.append(vert.loc[0])
+            y.append(vert.loc[1])
+            z.append(vert.loc[2])
+        ax.plot_trisurf(x, y, z, alpha=alpha)
+        # ax.scatter(x, y, z, s=[0.1 for i in range(len(x))], alpha=alpha)
     # Show the figure
     if Show:
         plt.show()
@@ -107,12 +113,10 @@ def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, color
 def plot_verts(verts, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None):
     # Set up the plot
     fig, ax, colors, alpha = setup_plot(len(verts), colors, fig, ax, dfo, grid, alpha)
-
     # Plot each vertex
     for i in range(len(verts)):
         # Plot the point
         ax.scatter(verts[i].loc[0], verts[i].loc[1], verts[i].loc[2], c=colors[i])
-
     # Show if the plot needs to be shown
     if Show:
         plt.show()
