@@ -19,7 +19,7 @@ def calc_tri(points):
     AB = np.array(points[0]) - np.array(points[1])
     AC = np.array(points[0]) - np.array(points[2])
     # Return half the cross product between the two vectors
-    return 0.5 * abs(np.cross(AB, AC))
+    return 0.5 * np.linalg.norm((np.cross(AB, AC)))
 
 
 # Calculate surface area function. Takes in a
@@ -47,15 +47,16 @@ def calc_interface(surfs):
     return sa
 
 
-# Calculate cell volume function. Grabs all of the points in a cell and calculates the volume made by the tetrahedra
+# Calculate cell volume function. Grabs the points in a cell and calculates the volume made by the tetrahedrons
 def calc_vol(atom):
     points = []
-    # Grab all of the points for all of the surfaces in the cell
+    # Grab the points for the surfaces in the cell
     for surf in atom.surfs:
         points += surf.points
-    # Grab all of the points for the edges in the cell
+    # Grab the points for the edges in the cell
     for edge in atom.edges:
         points += edge.points
-    # Grab all of the vertices locations for the cell
+    # Grab the vertices locations for the cell
     for vert in atom.verts:
         points += [vert.loc]
+
