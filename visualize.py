@@ -43,7 +43,6 @@ def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid
         atom_colors = {1.2: 'w', 1.52: 'r', 2.29: 'g', 1.55: 'b', 1.7: 'grey', 1.8: 'y'}
         colors = []
         for atom in atoms:
-            print(atom.rad)
             try:
                 colors.append(atom_colors[atom.rad])
             except KeyError:
