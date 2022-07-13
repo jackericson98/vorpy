@@ -1,10 +1,8 @@
 from objects import Vertex, System, Edge, Surface
-import os
 from visualize import plot_atoms, plot_verts, plot_surfs, plot_edges
 import matplotlib.pyplot as plt
 from build_mesh import build_meshes, calc_surf
 from build_network import build_network
-os.chdir("..")
 
 
 # Check surf function. Takes in a set of atoms and a list of surfs and returns the corresponding surf or None if no surf
@@ -38,32 +36,6 @@ def check_vert(v_atoms, vert_list):
             # Return the edge
             return vert
     return
-
-
-# Build voronota system function. Takes in voronota data and returns a system
-def build_vta_sys(mol_file, ball_file, vert_file):
-    # Create the system and load the files
-    sys = System(mol_file)
-    vert_file = open(vert_file).readlines()
-    ball_file = open(ball_file).readlines()
-    # Interpret the balls
-    balls = []
-    for i in range(len(ball_file)):
-        # Split the data
-        data = ball_file[i].split(" ")
-        # Grab the data reference for the atoms
-        balls.append(sys.atoms[int(data[5])])
-    # Interpret the vertices
-    for i in range(len(vert_file)):
-        # Split the data
-        data = vert_file[i].split(" ")
-        # Add the vertex data
-        loc, rad = [float(data[4]), float(data[5]), float(data[6])], float(data[7])
-        atoms = [balls[int(data[0])], balls[int(data[1])], balls[int(data[2])], balls[int(data[3])]]
-        myVert = Vertex(loc, rad, atoms=atoms)
-        sys.net.verts.append(myVert)
-    # Make connections between the edges, surfaces and vertices
-    return sys
 
 
 # Connect network function. Takes in a network with
@@ -126,21 +98,3 @@ def connect_network(sys):
                 list(t_atoms)[1].verts += verts
     # Return the system we have created
     return sys
-
-
-m_file = "./Data/test_data/Na_W_cluster5.pdb"
-b_file = "./Data/test_data/Na_W_cluster5_balls.txt"
-v_file = "./Data/test_data/Na_W_cluster5_vertices.txt"
-sys0 = build_vta_sys(m_file, b_file, v_file)
-sys1 = System(m_file)
-sys1 = build_network(sys1)
-sys = connect_network(sys0)
-
-build_meshes(sys, min_dist=0.5)
-net = sys.net
-fig = plt.figure()
-ax = fig.add_subplot(projection='3d')
-plot_atoms(net.atoms, fig=fig, ax=ax, alpha=0.1)
-plot_verts(net.verts, fig=fig, ax=ax)
-plot_edges(net.edges, fig=fig, ax=ax)
-plot_surfs(net.surfs, fig=fig, ax=ax, alpha=1, Show=True)

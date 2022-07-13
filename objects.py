@@ -184,3 +184,25 @@ class System:
         for i in range(anums):
             # Choose a random set of 3 numbers between dmax and -dmax. Choose a random radius between 0 and rmax
             self.atoms.append(Atom(np.random.rand(3)*2*dmax - dmax, np.random.rand()*rmax))
+
+    # Add Voronota data method. Takes in voronota data and adds it to the system
+    def add_vta_data(self, ball_file, vert_file):
+        # Create the system and load the files
+        vert_file = open(vert_file).readlines()
+        ball_file = open(ball_file).readlines()
+        # Interpret the balls
+        balls = []
+        for i in range(len(ball_file)):
+            # Split the data
+            data = ball_file[i].split(" ")
+            # Grab the data reference for the atoms
+            balls.append(self.atoms[int(data[5])])
+        # Interpret the vertices
+        for i in range(len(vert_file)):
+            # Split the data
+            data = vert_file[i].split(" ")
+            # Add the vertex data
+            loc, rad = [float(data[4]), float(data[5]), float(data[6])], float(data[7])
+            atoms = [balls[int(data[0])], balls[int(data[1])], balls[int(data[2])], balls[int(data[3])]]
+            myVert = Vertex(loc, rad, atoms=atoms)
+            self.net.verts.append(myVert)
