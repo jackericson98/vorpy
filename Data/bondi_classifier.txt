@@ -2,8 +2,8 @@ NA   H     1.20
 DU   C     1.70
 DU   O     1.52
 DU   N     1.55
-DU   P     0.18
-NA   S     0.18
+DU   P     1.80
+NA   S     1.80
 CL   CL    2.29
 NA   NA    1.33
 
@@ -151,10 +151,10 @@ DG   O6    0.152
 SOL  OW    0.152
 HOH  OW    0.152
 
-DA   P     0.18
-DC   P     0.18
-DG   P     0.18
-DT   P     0.18
+DA   P     1.80
+DC   P     1.80
+DG   P     1.80
+DT   P     1.80
 
 NA   NA    1.33
 SOL  MW    0.00
