@@ -71,7 +71,7 @@ class System:
 
     # Get pdb data method. Finds the lines of the file with prefixes and returns them as a list
     def get_pdb_data(self, word):
-
+        # Get the file information
         self.file = open(self.file_address).readlines()
         self.name = self.get_name(self.file_address)
         # Split each line in the file
@@ -84,10 +84,9 @@ class System:
             for i in range(len(self.file)):
                 line = self.file[i]
                 if line and line[0].lower() == 'atom':  # Check if the line starts with atom
-                    atom = Atom([float(line[-7]), float(line[-5]), float(line[-4])], self.get_radius(line[-1]))
+                    atom = Atom([float(line[5]), float(line[6]), float(line[7])], self.get_radius(line[-1]))
                     atoms.append(atom)
             return atoms
-
         # Standard case
         else:
             data = []
@@ -213,11 +212,11 @@ class Edge:
 
 class Surface:
     """Surface object. Holds the mesh data. Used to analyze."""
-    def __init__(self, atoms, func):
+    def __init__(self, atoms, func, edges=None, verts=None):
         self.func = func
         self.atoms = atoms  # List of Atom type objects
-        self.edges = []  # List of Edge type objects
+        self.edges = edges  # List of Edge type objects
         self.edge_points = []
-        self.verts = []
+        self.verts = verts
         self.vert_points = []
         self.points = []  # List of points on the surface
