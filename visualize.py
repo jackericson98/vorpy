@@ -43,8 +43,8 @@ def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid
     fig, ax, colors, alpha = setup_plot(len(atoms), colors, fig, ax, dfo, grid, alpha)
     # If the number of atoms to plot is more than 80, then plot them as points rather than spheres.
     if len(atoms) > 80:
-        for sphere in atoms:
-            ax.scatter(sphere.loc[0], sphere.loc[1], sphere.loc[2])
+        for i in range(len(atoms)):
+            ax.scatter(atoms[i].loc[0], atoms[i].loc[1], atoms[i].loc[2], s=20, c=colors[i], alpha=alpha)
     # Plot the spheres as wireframes
     else:
         # Set the resolution of the spheres
@@ -69,20 +69,20 @@ def plot_surfs(surfs, fig=None, ax=None, Show=False, dfo=None, grid=False, color
     # Set up the plot
     fig, ax, colors, alpha = setup_plot(len(surfs), colors, fig, ax, dfo, grid, alpha)
     # Plot the surfaces
-    for surf in surfs:
+    for i in range(len(surfs)):
         x, y, z = [], [], []
         # Add the surface points
-        for point in surf.points + surf.edge_points:
+        for point in surfs[i].points + surfs[i].edge_points:
             x.append(point[0])
             y.append(point[1])
             z.append(point[2])
         # Add the vertex points
-        for vert in surf.verts:
+        for vert in surfs[i].verts:
             x.append(vert.loc[0])
             y.append(vert.loc[1])
             z.append(vert.loc[2])
-        ax.plot_trisurf(x, y, z, alpha=alpha)
-        # ax.scatter(x, y, z, s=[0.1 for i in range(len(x))], alpha=alpha)
+        # ax.plot_trisurf(x, y, z, alpha=alpha)
+        ax.scatter(x, y, z, s=[0.1 for j in range(len(x))], alpha=alpha, c=[colors[i] for k in range(len(x))])
     # Show the figure
     if Show:
         plt.show()
@@ -93,17 +93,17 @@ def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, color
     # Set up the plot
     fig, ax, colors, alpha = setup_plot(len(edges), colors, fig, ax, dfo, grid, alpha)
     # Plot the edges
-    for edge in edges:
-        xs, ys, zs = [edge.verts[0].loc[0]], [edge.verts[0].loc[1]], [edge.verts[0].loc[2]]
-        for point in edge.points:
+    for i in range(len(edges)):
+        xs, ys, zs = [edges[i].verts[0].loc[0]], [edges[i].verts[0].loc[1]], [edges[i].verts[0].loc[2]]
+        for point in edges[i].points:
             xs.append(point[0])
             ys.append(point[1])
             zs.append(point[2])
-        xs.append(edge.verts[1].loc[0])
-        ys.append(edge.verts[1].loc[1])
-        zs.append(edge.verts[1].loc[2])
+        xs.append(edges[i].verts[1].loc[0])
+        ys.append(edges[i].verts[1].loc[1])
+        zs.append(edges[i].verts[1].loc[2])
         # Plot the points
-        ax.plot(xs, ys, zs)
+        ax.plot(xs, ys, zs, c=colors[i])
     # Show the figure
     if Show:
         plt.show()
