@@ -13,7 +13,7 @@ def calc_dist(l1, l2):
 
 # Calculate center of mass function. Takes in a set of points and returns the coordinates of the com
 def calc_com(points):
-    # Se the running total for the x, y, z values to 0
+    # Set the running sum for the x, y, z values to 0
     xtot, ytot, ztot = 0, 0, 0
     for point in points:
         xtot = xtot + point[0]
@@ -73,7 +73,7 @@ def calc_edge_points(edge, surf, min_dist):
     pv1 = np.array(edge.verts[1].loc)
     # Find the angle made between the edges vertices and the atom
     max_ang = calc_angle(pa, pv0, pv1)
-    num_points = max(int(calc_dist(pv0, pv1) / min_dist), 10)
+    num_points = max(int(calc_dist(pv0, pv1) / min_dist), 100)
     # Set angle A to be the incremental angle decided by num points
     A = max_ang / num_points
     # Calculate each point along the way
@@ -100,7 +100,6 @@ def calc_surf_point(surf, point):
     vn = vi/np.linalg.norm(vi)
     # Find the location on the surface of the atom
     vi = np.array(a0.loc) + vn * a0.rad
-
     # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
     a = f[0] * vn[0] ** 2 + f[1] * vn[1] ** 2 + f[2] * vn[2] ** 2 + f[3] * vn[0] * vn[1] + f[4] * vn[1] * vn[2] + f[5] \
         * vn[2] * vn[0]
@@ -112,9 +111,13 @@ def calc_surf_point(surf, point):
 
     # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
     # and add that point to our surface list of points
-    if round(b ** 2 - 4 * a * c) >= 0:
-        mag = min(abs(np.roots([a, b, c])))
-        return vi + mag*vn
+    if round(b ** 2 - 4 * a * c, 2) >= 0:
+        # Check to see of the point on the atom is inside the other atom
+        if calc_dist(vi, surf.atoms[1].loc) - surf.atoms[1].rad < 0:
+            mag = - abs(min(np.roots([a, b, c])))
+        else:
+            mag = min(abs(np.roots([a, b, c])))
+        return vi + mag * vn
 
 
 # Find next point function. Finds the
@@ -139,13 +142,6 @@ def find_next_point(pn_1, end, d_theta, surf):
     pc = pb + rn_hat * a
     # Calculate where the point intercepts the surface
     return calc_surf_point(surf, pc)
-
-
-# Calculate overlap points function. Used to calculate the points in and at the overlap of two intersecting spheres
-def calc_olap_points(surf, com):
-    # Not sure how to do this yet. calc_surf_point doesn't work for the inner vals
-
-    pass
 
 
 ########################################################################################################################
@@ -214,7 +210,7 @@ def make_mesh(surf, min_dist):
     max_path_ndx = angs.index(max(angs))
     max_path = paths[max_path_ndx][0]
     # Decide how many rings based off of the ellipticity and density
-    num_rings = int(calc_dist(max_path, ends[max_path_ndx]) / min_dist)
+    num_rings = max(int(calc_dist(max_path, ends[max_path_ndx]) / min_dist), 10)
     # Get the incremental angle increases
     dthetas = [angs[i]/num_rings for i in range(len(angs))]
     # Set the pn_1 point to infinity
@@ -243,8 +239,7 @@ def make_mesh(surf, min_dist):
     # Add the remaining paths to the surface
     for path in paths:
         surf.points += path[1:]
-    # Add the center of mass point to the mesh
-    surf.points.append(com)
+
 
 
 # Build meshes function. Runs make_mesh on all surfaces in the network

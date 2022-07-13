@@ -509,4 +509,4 @@ def build_network(mySys):
     v0 = find_v0(mySys.net)
     # Initiate the recursive network finding algorithm on the network and the first vertex
     find_edges(v0, mySys.net)
-    return mySys.net
+    return mySys

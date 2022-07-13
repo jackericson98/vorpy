@@ -7,9 +7,9 @@ from analysis import calc_sa
 
 
 # Create atom objects from sets of points
-atoms = [[[0, 0, 0], .01]]
-dist = 5
-rad = 2
+atoms = [[[0, 0, 0], 1]]
+dist = 3
+rad = 2.5
 
 atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[0, -dist, 0], rad], [[0, 0, dist], rad],
           [[0, 0, -dist], rad]]
@@ -26,6 +26,7 @@ for i in range(8):
 sys.net.verts = verts
 
 # Set up the edges' atoms and vertices
+
 e0 = Edge([sys.atoms[0], sys.atoms[3], sys.atoms[5]], [sys.net.verts[0], sys.net.verts[1]])
 e1 = Edge([sys.atoms[0], sys.atoms[2], sys.atoms[5]], [sys.net.verts[1], sys.net.verts[2]])
 e2 = Edge([sys.atoms[0], sys.atoms[4], sys.atoms[5]], [sys.net.verts[2], sys.net.verts[3]])
@@ -73,7 +74,8 @@ sys.net.surfs[4].edges = [e3, e4, e7, e11]
 sys.net.surfs[5].edges = [e8, e9, e10, e11]
 
 # Build the surfaces
-build_meshes(sys, min_dist=0.5)
+build_meshes(sys, min_dist=0.1)
+
 # Set up the plot
 fig = plt.figure()
 ax = fig.add_subplot(projection="3d")

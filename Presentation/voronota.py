@@ -3,6 +3,7 @@ import os
 from visualize import plot_atoms, plot_verts, plot_surfs, plot_edges
 import matplotlib.pyplot as plt
 from build_mesh import build_meshes, calc_surf
+from build_network import build_network
 os.chdir("..")
 
 
@@ -61,7 +62,12 @@ def build_vta_sys(mol_file, ball_file, vert_file):
         atoms = [balls[int(data[0])], balls[int(data[1])], balls[int(data[2])], balls[int(data[3])]]
         myVert = Vertex(loc, rad, atoms=atoms)
         sys.net.verts.append(myVert)
+    # Make connections between the edges, surfaces and vertices
+    return sys
 
+
+# Connect network function. Takes in a network with
+def connect_network(sys):
     # Create edges and add connections between verts and edges
     # Go through each vertex and find its edges
     for vert1 in sys.net.verts:
@@ -125,14 +131,16 @@ def build_vta_sys(mol_file, ball_file, vert_file):
 m_file = "./Data/test_data/Na_W_cluster5.pdb"
 b_file = "./Data/test_data/Na_W_cluster5_balls.txt"
 v_file = "./Data/test_data/Na_W_cluster5_vertices.txt"
+sys0 = build_vta_sys(m_file, b_file, v_file)
+sys1 = System(m_file)
+sys1 = build_network(sys1)
+sys = connect_network(sys0)
 
-sys = build_vta_sys(m_file, b_file, v_file)
-build_meshes(sys, min_dist=0.1)
+build_meshes(sys, min_dist=0.5)
 net = sys.net
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
-print(net.atoms[0].verts)
-# plot_atoms(net.atoms[:20], fig=fig, ax=ax, alpha=0.1)
-plot_verts(net.atoms[0].verts, fig=fig, ax=ax)
-plot_edges(net.atoms[0].edges[:1], fig=fig, ax=ax, Show=True)
-# plot_surfs(net.atoms[0].surfs, fig=fig, ax=ax, alpha=1, Show=True)
+plot_atoms(net.atoms, fig=fig, ax=ax, alpha=0.1)
+plot_verts(net.verts, fig=fig, ax=ax)
+plot_edges(net.edges, fig=fig, ax=ax)
+plot_surfs(net.surfs, fig=fig, ax=ax, alpha=1, Show=True)
