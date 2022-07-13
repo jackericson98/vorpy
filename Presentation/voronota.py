@@ -89,12 +89,12 @@ def build_vta_sys(mol_file, ball_file, vert_file):
                 verts[1].edges.append(my_edge)
 
     # Create surfaces and add connections for edges and verts
-    for vert in sys.net.verts:
+    for vert1 in sys.net.verts:
         # Go through each combination of sets atom in the vertices' atom list
         t_ndxs = [[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]]
         for ndxs in t_ndxs:
             # Grab the atoms
-            t_atoms = {vert.atoms[ndxs[0]], vert.atoms[ndxs[1]]}
+            t_atoms = {vert1.atoms[ndxs[0]], vert1.atoms[ndxs[1]]}
             # Check to see if we have recorded this surface before
             if check_surf(t_atoms, sys.net.surfs):
                 continue
@@ -105,15 +105,19 @@ def build_vta_sys(mol_file, ball_file, vert_file):
                     edges.append(edge)
             # Put together a list of verts that have our atoms
             verts = []
-            for vert in sys.net.verts:
-                if t_atoms.issubset(vert.atoms):
-                    verts.append(vert)
+            for vert2 in sys.net.verts:
+                if t_atoms.issubset(vert2.atoms):
+                    verts.append(vert2)
             # In order to be a true surface the number of edges need to be equal to the number of verts
             if len(verts) == len(edges):
                 my_surf = Surface(list(t_atoms), calc_surf(list(t_atoms)), verts=verts, edges=edges)
                 sys.net.surfs.append(my_surf)
                 list(t_atoms)[0].surfs.append(my_surf)
                 list(t_atoms)[1].surfs.append(my_surf)
+                list(t_atoms)[0].edges += edges
+                list(t_atoms)[1].edges += edges
+                list(t_atoms)[0].verts += verts
+                list(t_atoms)[1].verts += verts
     # Return the system we have created
     return sys
 
@@ -127,7 +131,8 @@ build_meshes(sys, min_dist=0.1)
 net = sys.net
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
-# plot_atoms(net.atoms, fig=fig, ax=ax, colors=['b' for i in range(len(net.atoms))], alpha=0.1)
-plot_verts(net.atoms[0].verts, fig=fig, ax=ax, colors=['r' for i in range(len(net.verts))])
-plot_edges(net.atoms[0].edges, fig=fig, ax=ax, colors=['k' for i in range(len(net.edges))])
-plot_surfs(net.atoms[0].surfs, fig=fig, ax=ax, colors=['m' for i in range(len(net.surfs))], alpha=1, Show=True)
+print(net.atoms[0].verts)
+# plot_atoms(net.atoms[:20], fig=fig, ax=ax, alpha=0.1)
+plot_verts(net.atoms[0].verts, fig=fig, ax=ax)
+plot_edges(net.atoms[0].edges[:1], fig=fig, ax=ax, Show=True)
+# plot_surfs(net.atoms[0].surfs, fig=fig, ax=ax, alpha=1, Show=True)
