@@ -1,6 +1,55 @@
 """This file holds all object types needed for calculations: Molecule, Mesh, Sphere, Ray, Plane"""
 import numpy as np
-import os
+
+
+class Network:
+    """Network object. Graph that holds the elements of the Voronoi S-Network."""
+    def __init__(self, atoms):
+        self.atoms = atoms  # List of Atom type objects
+        self.verts = []  # List of Vertex type objects
+        self.surfs = []  # List of Surface type objects
+        self.edges = []  # List of Edge type objects
+        self.rad = 50  # Ballpark range for radius needed for the entire network.
+
+
+class Atom:
+    """Atom object. Created with import of file. Used to reference for building network and analyzing"""
+    def __init__(self, location, radius):
+        self.rad = radius  # Set the radius for the sphere object. Default is 1
+        self.loc = location  # Set the location of the center of the sphere
+        self.verts = []  # List of Vertex type objects
+        self.surfs = []  # List of Surface type objects
+        self.edges = []  # List of Edge type objects
+
+
+class Vertex:
+    """Vertex object. Used to build the network and calculate the surfaces"""
+    def __init__(self, location, radius, atoms=None):
+        self.loc = location  # Location of the vertex
+        self.rad = radius  # Radius of the vertex's tangential sphere
+        self.atoms = atoms  # List of Atom type objects
+        self.edges = []  # List of Edge type objects
+
+
+class Edge:
+    """Edge object. Used to build the network and calculate the surfaces"""
+    def __init__(self, atoms, verts):
+        self.atoms = atoms  # List of Atom type objects
+        self.verts = verts  # List of Vertex type objects
+        self.center = None
+        self.points = []  # List of points on the edge. These points do not include the vertex points
+
+
+class Surface:
+    """Surface object. Holds the mesh data. Used to analyze."""
+    def __init__(self, atoms, func, edges=None, verts=None):
+        self.func = func
+        self.atoms = atoms  # List of Atom type objects
+        self.edges = edges  # List of Edge type objects
+        self.edge_points = []
+        self.verts = verts
+        self.vert_points = []
+        self.points = []  # List of points on the surface
 
 
 class System:
@@ -135,53 +184,3 @@ class System:
         for i in range(anums):
             # Choose a random set of 3 numbers between dmax and -dmax. Choose a random radius between 0 and rmax
             self.atoms.append(Atom(np.random.rand(3)*2*dmax - dmax, np.random.rand()*rmax))
-
-
-class Network:
-    """Network object. Graph that holds the elements of the Voronoi S-Network."""
-    def __init__(self, atoms):
-        self.atoms = atoms  # List of Atom type objects
-        self.verts = []  # List of Vertex type objects
-        self.surfs = []  # List of Surface type objects
-        self.edges = []  # List of Edge type objects
-        self.rad = 50  # Ballpark range for radius needed for the entire network.
-
-
-class Atom:
-    """Atom object. Created with import of file. Used to reference for building network and analyzing"""
-    def __init__(self, location, radius):
-        self.rad = radius  # Set the radius for the sphere object. Default is 1
-        self.loc = location  # Set the location of the center of the sphere
-        self.verts = []  # List of Vertex type objects
-        self.surfs = []  # List of Surface type objects
-        self.edges = []  # List of Edge type objects
-
-
-class Vertex:
-    """Vertex object. Used to build the network and calculate the surfaces"""
-    def __init__(self, location, radius, atoms=None):
-        self.loc = location  # Location of the vertex
-        self.rad = radius  # Radius of the vertex's tangential sphere
-        self.atoms = atoms  # List of Atom type objects
-        self.edges = []  # List of Edge type objects
-
-
-class Edge:
-    """Edge object. Used to build the network and calculate the surfaces"""
-    def __init__(self, atoms, verts):
-        self.atoms = atoms  # List of Atom type objects
-        self.verts = verts  # List of Vertex type objects
-        self.center = None
-        self.points = []  # List of points on the edge. These points do not include the vertex points
-
-
-class Surface:
-    """Surface object. Holds the mesh data. Used to analyze."""
-    def __init__(self, atoms, func, edges=None, verts=None):
-        self.func = func
-        self.atoms = atoms  # List of Atom type objects
-        self.edges = edges  # List of Edge type objects
-        self.edge_points = []
-        self.verts = verts
-        self.vert_points = []
-        self.points = []  # List of points on the surface
