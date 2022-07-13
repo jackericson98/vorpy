@@ -17,35 +17,13 @@ class System:
         self.file_address = file
         self.file_name = None
         self.file = None
-
         # Set up our
         self.name = None
         self.box = None
         self.bonds = None
         self.Analysis = None  # Analysis type object for data collection
         # Non-pertinent information
-        self.header = None
-        self.title = None
-        self.compound = None
-        self.source = None
-        self.key_words = None
-        self.exp_data = None
-        self.author = None
-        self.revisions = None
-        self.journal = None
-        self.remarks = None
-        self.debrief = None
-        self.seq_adv = None
-        self.formula = None
-        self.residues = None
-        self.helix = None
-        self.sheet = None
-        self.crystal = None
-        self.origin = None
-        self.scale = None
-        self.terminals = None
-        self.het_atom = None
-        self.master = None
+        self.info = {}
         # Check the filetype and use the appropriate function to get it
         if file[-3:] == "pdb":
             self.get_pdb()
@@ -99,28 +77,15 @@ class System:
     # Get pdb method. Finds the atoms and
     def get_pdb(self):
         # Open and read the file
-        self.header = self.get_pdb_data('HEADER')
-        self.title = self.get_pdb_data('TITLE')
-        self.compound = self.get_pdb_data('COMPOUND')
-        self.source = self.get_pdb_data('SOURCE')
-        self.key_words = self.get_pdb_data('KEYWDS')
-        self.exp_data = self.get_pdb_data('EXPDTA')
-        self.author = self.get_pdb_data('AUTHOR')
-        self.revisions = self.get_pdb_data('REVDAT')
-        self.journal = self.get_pdb_data('JRNL')
-        self.remarks = self.get_pdb_data('REMARK')
-        self.debrief = self.get_pdb_data('DBREF')
-        self.seq_adv = self.get_pdb_data('SEQADV')
-        self.formula = self.get_pdb_data('FORMUL')
-        self.residues = self.get_pdb_data('SEQRES')
-        self.helix = self.get_pdb_data('HELIX')
-        self.sheet = self.get_pdb_data('SHEET')
-        self.crystal = self.get_pdb_data('CRYST')
-        self.origin = self.get_pdb_data('ORIG')
-        self.scale = self.get_pdb_data('SCALE')
-        self.terminals = self.get_pdb_data('TER')
-        self.het_atom = self.get_pdb_data('HETATM')
-        self.master = self.get_pdb_data('MASTER')
+        pdb_stds = ['HEADER', 'TITLE', 'COMPOUND', 'SOURCE', 'KEYWDS', 'EXPDTA', 'AUTHOR', 'REVDAT', 'JRNL', 'REMARK',
+                    'DBREF', 'SEQADV', 'FORMUL', 'SEQRES', 'HELIX', 'SHEET', 'CRYST', 'ORIG', 'SCALE', 'TER', 'HETATM',
+                    'MASTER']
+        keys = ['header', 'title', 'compound', 'source', 'key_words', 'exp_data', 'author', 'revisions', 'journal',
+                'remarks', 'debrief', 'seq_adv', 'formula', 'residues', 'helix', 'sheet', 'crystal', 'origin', 'scale',
+                'terminals', 'het_atom', 'master']
+        for i in range(len(pdb_stds)):
+            self.info[keys[i]] = self.get_pdb_data(pdb_stds[i])
+
         # Grab all the lines that start with ATOM. Creates Atom objects
         self.atoms = self.get_pdb_data('ATOM')
 
