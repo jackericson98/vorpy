@@ -1,4 +1,4 @@
-from System.objects import Edge, Surface
+from System.system import Edge, Surface
 from Cells.build_mesh import calc_surf
 
 

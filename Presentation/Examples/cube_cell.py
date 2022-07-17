@@ -1,4 +1,4 @@
-from System.objects import System, Edge, Surface
+from System.system import System, Edge, Surface
 from Network.build_network import calc_vert
 from Cells.build_mesh import calc_surf, build_meshes
 from Presentation.Visualize.visualize import plot_atoms, plot_verts, plot_surfs, plot_edges

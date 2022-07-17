@@ -1,5 +1,5 @@
 import numpy as np
-from System.objects import Edge, Atom, Vertex
+from System.system import Edge, Atom, Vertex
 from build_network.calculators import *
 from Presentation.Visualize.visualize import plot_atoms, plot_verts
 

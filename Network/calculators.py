@@ -1,5 +1,5 @@
 import numpy as np
-from System.objects import Vertex
+from System.system import Vertex
 """Calculator functions"""
 
 

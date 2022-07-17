@@ -1,6 +1,6 @@
 """Imports"""
 import numpy as np
-from System.objects import Edge, Vertex
+from System.system import Edge, Vertex
 from calculators import *
 
 

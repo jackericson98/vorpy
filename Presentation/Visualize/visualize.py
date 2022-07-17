@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 from Cells.build_mesh import *
-from System.objects import Atom
+from System.system import Atom
 
 
 # Set up plot function. Used to set the parameters for the plot

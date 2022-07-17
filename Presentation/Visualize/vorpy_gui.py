@@ -2,7 +2,7 @@
 import tkinter as tk
 from tkinter import filedialog, CENTER
 # Internal Imports
-from System.objects import System
+from System.system import System
 from Network import build_network
 from Presentation.Visualize.visualize import *
 from matplotlib.figure import Figure

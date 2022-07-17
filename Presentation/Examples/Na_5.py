@@ -1,5 +1,5 @@
 import os
-from System.objects import System
+from System.system import System
 from Network.calculators import calc_dist
 from Presentation.Visualize.visualize import plot_atoms, plot_verts
 import matplotlib.pyplot as plt
