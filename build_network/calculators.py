@@ -1,18 +1,6 @@
-"""Imports"""
 import numpy as np
-from objects import Atom, Edge, Vertex, Surface
-
-"""Operations:
-    1. build_network: System -> Network
-    2. first_site: Network -> Vertex
-    3. get_circle(
-    3. make_edges: Vertex, Network -> Network
-    4. calc_circle: atoms -> loc, rad
-    5. calc_vertex: atoms -> Vertex
-    """
-
-########################################################################################################################
-"""Check functions"""
+from system.objects import Vertex
+"""Calculator functions"""
 
 
 # Check vertex function. Takes in a vertex and a network, returns False if vertex in network
@@ -53,14 +41,69 @@ def check_edge(e1, net):
     return False
 
 
-########################################################################################################################
-"""Calculator functions"""
-
-
 # Calculate distance function. Takes in 2 points and returns the distance between them
 def calc_dist(l1, l2):
-    d = np.sqrt((l1[0]-l2[0])**2+(l1[1]-l2[2])**2+(l1[2]-l2[2])**2)
+    d = np.sqrt((l1[0]-l2[0])**2+(l1[1]-l2[1])**2+(l1[2]-l2[2])**2)
     return d
+
+
+# Calculate center of mass function. Takes in a set of points and returns the coordinates of the com
+def calc_com(atoms):
+    # Set the running sum for the x, y, z values to 0
+    xtot, ytot, ztot = 0, 0, 0
+    for atom in atoms:
+        xtot = xtot + atom.loc[0]
+        ytot = ytot + atom.loc[1]
+        ztot = ztot + atom.loc[2]
+    return xtot/len(atoms), ytot/len(atoms), ztot/len(atoms)
+
+# Calculate direction function. Takes in a vertex and an edge and returns True if it is facing the center
+def calc_dir(edge):
+    # Grab the previous vertex
+    vn_1 = edge.verts[0]
+    # Find ak and copy it
+    for atom in vn_1.atoms:
+        if not {atom}.issubset(edge.atoms):
+            ak = atom
+    akp = ak
+    # Find the direction toward the center of the edge
+    r0 = [edge.loc[0] - vn_1.loc[0], edge.loc[1] - vn_1.loc[1], edge.loc[2] - vn_1.loc[2]]
+    r0_mag = np.sqrt(r0[0]**2 + r0[1]**2 + r0[2]**2)
+    r0_hat = [r0[0]/r0_mag, r0[1]/r0_mag, r0[2]/r0_mag]
+    # Move the copy toward the center of the edge.
+    akp.loc = [akp.loc[0] + r0_hat[0]*0.1, akp.loc[1] + r0_hat[1]*0.1, akp.loc[2] + r0_hat[2]*0.1]
+    # Calculate the new vertex made by akp
+    vkp = calc_vert(edge.atoms + [akp])
+    while not vkp:
+        akp.loc = [akp.loc[0] - r0_hat[0]*0.01, akp.loc[1] - r0_hat[1]*0.1, akp.loc[2] - r0_hat[2]*0.1]
+        vkp = calc_vert(edge.atoms + [akp])
+    # If the new inscribed sphere overlaps with ak, flip the direction of tang_hat
+    if calc_dist(ak.loc, vkp.loc) - (ak.rad + vkp.rad) < 0:
+        return False
+    return True
+
+
+# Calculate relative length function. Takes in 3 points and returns a float value for the relative distance
+def calc_rel_dist(v0, v1, edge):
+    # Grab the center
+    c = np.array(edge.loc)
+    # Find the distances between the 3 points
+    r0, r1, r2 = np.linalg.norm(c - np.array(v0.loc)), np.linalg.norm(c - np.array(v1.loc)), \
+                 np.linalg.norm(np.array(v0.loc) - np.array(v1.loc))
+    # Cases 1 and 2: r0 > r1 > r2 and r0 > r2 > r1
+    if r0 >= r1 and r0 > r2 and edge.dir:
+        rel_dist = r2
+    # Cases 3 and 4: r1 > r0 > r2 and r1 > r2 > r0
+    elif r1 > r0 and r1 > r2 and not edge.dir:
+        rel_dist = r2
+    # Cases 5 and 6: r2 > r0 > r1 and r2 > r1 > r0
+    elif r2 > r0 and r2 > r1 and edge.dir:
+        rel_dist = r0 + r1
+    # All other cases should not give a distance
+    else:
+        rel_dist = np.inf
+    # Return the relative distance
+    return rel_dist
 
 
 # Sort by distance function. Sorts all atoms in the system by distance from COM of given atoms
@@ -159,7 +202,7 @@ def calc_circ(atoms):
 
 
 # Calculate vertex function. Takes in 4 atoms, calculates the center and radius of the inscribed sphere and returns them
-def calc_vertex(atoms):
+def calc_vert(atoms):
     # The real location and radius of the base sphere
     l1, R1 = atoms[0].loc, atoms[0].rad
     # Set the radii and x, y, z values for the 3 spheres
@@ -302,22 +345,31 @@ def calc_edge(edge, net):
         if n == an:
             continue
         # Calculate the vertex of the edge atoms with the neighbor atom
-        vn = calc_vertex(edge.atoms + [n])
+        vn = calc_vert(edge.atoms + [n])
         # Make sure that the vertex exists and does not overlap with the old vertex
         if not vn or calc_dist(vn.loc, an.loc) < vn.rad + an.rad or check_vert(vn, net):
             continue
-        # Calculate the distance between the new vertex and the center
-        d2 = calc_dist(vn.loc, circ)
-        # Calculate the distance between the new vertex and the old vertex
-        d3 = calc_dist(vn.loc, v0.loc)
-        # Mevdevev's edge site finding checks. Find the shortest relative distance from v0 to vn
-        if d1 <= d3 or d2 <= d3:
-            r_len = d1 + d2
-        else:
-            r_len = d3
-        if r_len < c_dist:
-            myVert = vn
-            c_dist = r_len
+        # Check to see if it is a real vertex or not
+        i = 0
+        overlap = False
+        while i < len(neighbors) and not overlap:
+            if {neighbors[i]}.issubset(edge.atoms + [n]):
+                continue
+            if calc_dist(vn.loc, neighbors[i].loc) - (vn.rad + neighbors[i].rad) < 0:
+                overlap = True
+        if not overlap:
+            # Calculate the distance between the new vertex and the center
+            d2 = calc_dist(vn.loc, circ)
+            # Calculate the distance between the new vertex and the old vertex
+            d3 = calc_dist(vn.loc, v0.loc)
+            # Mevdevev's edge site finding checks. Find the shortest relative distance from v0 to vn
+            if d1 <= d3 or d2 <= d3:
+                r_len = d1 + d2
+            else:
+                r_len = d3
+            if r_len < c_dist:
+                myVert = vn
+                c_dist = r_len
     return myVert
 
 
@@ -342,11 +394,11 @@ def calc_edge1(edge, net, dt=None):
     if bn < 1.05*an.rad:
         an.rad = 0.95*bn
     # Find the vertex between the edge atoms and the adjusted atom
-    vn = calc_vertex(edge.atoms+[an])
+    vn = calc_vert(edge.atoms + [an])
     # If we get a None vertex the shrink went too far. Keep increasing radius until a vertex is found.
     while vn is None:
         an.rad = an.rad * 1.01
-        vn = calc_vertex(edge.atoms+[an])
+        vn = calc_vert(edge.atoms + [an])
     # If the radius is larger than the bottleneck, continue and hope that the other side of the edge will be able to
     if vn.rad > bn:
         return
@@ -370,7 +422,7 @@ def calc_edge1(edge, net, dt=None):
         # Move the atom along the direction of the edge by dt increments
         an.loc = an.loc[0] + dt*dr[0], an.loc[1] + dt*dr[1], an.loc[2] + dt*dr[2]
         # Calculate the new vertex
-        vn = calc_vertex(edge.atoms + [an])
+        vn = calc_vert(edge.atoms + [an])
         # Add the vertex location to the edges points
         edge.points.append(vn.loc)
         # Find the new move direction by finding the direction from vn-1 to vn
@@ -388,125 +440,3 @@ def calc_edge1(edge, net, dt=None):
     edge.verts.append(vert)
     net.verts.append(vert)
     return vert
-
-
-########################################################################################################################
-"""Gather information functions"""
-
-
-# Doublet making function. Takes in a doublet and adds the two vertices to their respective places.
-def doublet(verts, net):
-    return verts[0]
-
-
-# Find circle function. Finds the smallest circle between the two given atoms and every other atom and return that atom
-def find_circle(a0, a1, net, num_checks=12):
-    # Instantiate variables
-    a2 = None
-    neighbors = sortbyDist([a0, a1], net)
-    rad = np.inf
-    # Go through the num_checks closest atoms and find the smallest circle
-    for atom in neighbors[1:num_checks]:
-        # Check if any are the same as the new atom
-        if a0 == atom or a1 == atom:
-            continue
-        # Calculate the radius of the circle made by the three atoms
-        new_rad = calc_circ([a0, a1, atom])
-        if new_rad:
-            new_rad = new_rad[0][1]
-        else:
-            continue
-        # Check the new radius against the smallest found and make it the smallest if it is
-        if new_rad < rad:
-            rad = new_rad
-            a2 = atom
-    # Return the atom found to have the smallest circle
-    return a2
-
-
-# Get initial vertex function. Finds an optimal starting vertex for the network.
-def find_v0(net):
-    # Grab the first atom in the network. This will be replaced later with an optimized
-    a0 = net.atoms[0]
-    # Find it's closest neighbor
-    neighbors0 = sortbyDist([a0], net)
-    a1 = neighbors0[0]
-    # Find the smallest circle you can make with a0, a1 and a third atom
-    a2 = find_circle(a0, a1, net)
-    # Find the first site by choosing the smallest interstitial sphere that can be made with the 3 atoms and the 50
-    # closest atoms
-    neighbors2 = sortbyDist([a0, a1, a2], net)
-    r = np.inf
-    myVert, my_an = None, None
-    # Go through the closest atoms to the triplet and find the smallest vertex that can be made with a neighbor
-    for an in neighbors2[:15]:
-        if an.loc == a0.loc or an.loc == a1.loc or an.loc == a2.loc:
-            continue
-        # Calculate the vertex and check if None
-        vert = calc_vertex([a0, a1, a2, an])
-        # Don't worry about None vert types
-        if vert is None:
-            continue
-        # Check if the vn has a smaller radius than the current smallest radius
-        if vert.rad < r:
-            r = vert.rad
-            myVert = vert
-            my_an = an
-    # Add connections to the network
-    myVert.atoms = [a0, a1, a2, my_an]
-    net.verts.append(myVert)
-    return myVert
-
-
-########################################################################################################################
-"""Recursive network finding function"""
-
-
-# Find edges function. Recursively traces out the network and records vertex locations,
-def find_edges(vertex, net):
-    # Create 4 edges with the 4 combinations of atoms that can be created
-    for i in range(4):
-        myEdge = Edge([vertex.atoms[i], vertex.atoms[(i + 1) % 4], vertex.atoms[(i + 2) % 4]], [vertex])
-        etest = check_edge(myEdge, net)
-        if etest:
-            vertex.edges.append(etest)
-        else:
-            vertex.edges.append(myEdge)
-    # Create the edge objects or grab them from the network and connect them
-    for edge in vertex.edges:
-        # Check to see if the edge exists. If it does move on the next edge in the vertex
-        net_edge = check_edge(edge, net)
-        if net_edge:
-            continue
-        # Create a vertex
-        vn = calc_edge(edge, net)
-        # If the vertex is None give the edge a None vertex and continue to the next edge
-        if vn is None:
-            edge.verts.append(Vertex([np.inf, np.inf, np.inf], np.inf))
-            net.edges.append(edge)
-            continue
-        # Check the vertex to see if it exists in the network
-        net_vert = check_vert(vn, net)
-        # If it does, add the vertex to the edge and the edge to the network
-        if net_vert:
-            edge.verts.append(net_vert)
-            net.edges.append(edge)
-        # If both the edge and the vertex do not exist in the network, we have a true new site
-        else:
-            edge.verts.append(vn)
-            net.edges.append(edge)
-            net.verts.append(vn)
-            find_edges(vn, net)
-    return
-
-
-########################################################################################################################
-
-
-# Build Network function. Takes in a system, runs as a shell for the recursive next_site function and returns a Network
-def build_network(mySys):
-    # Find the first vertex
-    v0 = find_v0(mySys.net)
-    # Initiate the recursive network finding algorithm on the network and the first vertex
-    find_edges(v0, mySys.net)
-    return mySys

@@ -1,13 +1,11 @@
-from objects import System, Edge, Surface
-from build_network import calc_vertex
-from build_mesh import calc_surf, make_mesh, calc_edge_points, edge_trace, build_meshes
-from visualize import plot_atoms, plot_verts, plot_surfs, plot_edges
+from system.objects import System, Edge, Surface
+from build_network.build_network import calc_vert
+from build_cells.build_mesh import calc_surf, build_meshes
+from Presentation.Visualize.visualize import plot_atoms, plot_verts, plot_surfs, plot_edges
 import matplotlib.pyplot as plt
-from analysis import calc_sa
-
 
 # Create atom objects from sets of points
-atoms = [[[0, 0, 0], 1]]
+atoms = [[[0, 0, 0], .5]]
 dist = 3
 rad = 2.5
 
@@ -15,12 +13,14 @@ atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[0, -
           [[0, 0, -dist], rad]]
 
 sys = System(atoms)
+# find_network(sys)
+print(sys.net.verts)
 
 # Calculate the vertices
 vert_nums = [[1, 3, 5], [2, 3, 5], [2, 4, 5], [1, 4, 5], [1, 3, 6], [2, 3, 6], [2, 4, 6], [1, 4, 6]]
 verts = []
 for i in range(8):
-    vn = calc_vertex([sys.atoms[0], sys.atoms[vert_nums[i][0]], sys.atoms[vert_nums[i][1]], sys.atoms[vert_nums[i][2]]])
+    vn = calc_vert([sys.atoms[0], sys.atoms[vert_nums[i][0]], sys.atoms[vert_nums[i][1]], sys.atoms[vert_nums[i][2]]])
     if vn:
         verts.append(vn)
 sys.net.verts = verts

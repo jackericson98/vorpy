@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
-from build_mesh import *
-from objects import Atom
+from build_cells.build_mesh import *
+from system.objects import Atom
 
 
 # Set up plot function. Used to set the parameters for the plot
@@ -89,8 +89,8 @@ def plot_surfs(surfs, fig=None, ax=None, Show=False, dfo=None, grid=False, color
             x.append(point[0])
             y.append(point[1])
             z.append(point[2])
-        ax.plot_trisurf(x, y, z, alpha=alpha)
-        # ax.scatter(x, y, z, s=[0.1 for j in range(len(x))], alpha=alpha, c=[colors[i] for k in range(len(x))])
+        # ax.plot_trisurf(x, y, z, alpha=alpha)
+        ax.scatter(x, y, z, s=[0.1 for j in range(len(x))], alpha=alpha, c=[colors[i] for k in range(len(x))])
     # Show the figure
     if Show:
         plt.show()
@@ -107,11 +107,14 @@ def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, color
         colors = colors + ['grey' for i in range(len(edges) - len(colors))]
     # Plot the edges
     for i in range(len(edges)):
-        xs, ys, zs = [], [], []
+        xs, ys, zs = [edges[i].verts[0].loc[0]], [edges[i].verts[0].loc[1]], [edges[i].verts[0].loc[2]]
         for point in edges[i].points:
             xs.append(point[0])
             ys.append(point[1])
             zs.append(point[2])
+        xs.append(edges[i].verts[1].loc[0])
+        ys.append(edges[i].verts[1].loc[1])
+        zs.append(edges[i].verts[1].loc[2])
         # Plot the points
         ax.plot(xs, ys, zs, c=colors[i])
     # Show the figure
@@ -120,7 +123,7 @@ def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, color
 
 
 # Plot vertices function. Plots the vertices of a network.
-def plot_verts(verts, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None):
+def plot_verts(verts, plot_spheres=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None):
     # Set up the plot
     fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha)
     # Default color is red
@@ -130,6 +133,12 @@ def plot_verts(verts, fig=None, ax=None, Show=False, dfo=None, grid=False, color
     for i in range(len(verts)):
         # Plot the point
         ax.scatter(verts[i].loc[0], verts[i].loc[1], verts[i].loc[2], c=colors[i])
+    # Plot the inscribed spheres
+    if plot_spheres:
+        spheres = []
+        for i in range(len(verts)):
+            spheres.append(Atom(verts[i].loc, verts[i].rad))
+        plot_atoms(spheres, fig=fig, ax=ax)
     # Show if the plot needs to be shown
     if Show:
         plt.show()

@@ -1,13 +1,12 @@
 # Outside Imports
 import tkinter as tk
-from tkinter import filedialog, Button, CENTER
+from tkinter import filedialog, CENTER
 # Internal Imports
-from objects import System
+from system.objects import System
 from build_network import build_network
-from visualize import *
+from Presentation.Visualize.visualize import *
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
-import os
+from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg)
 import glob
 
 

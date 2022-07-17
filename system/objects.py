@@ -1,4 +1,6 @@
 """This file holds all object types needed for calculations: Molecule, Mesh, Sphere, Ray, Plane"""
+import os
+
 import numpy as np
 
 
@@ -36,7 +38,9 @@ class Edge:
     def __init__(self, atoms, verts):
         self.atoms = atoms  # List of Atom type objects
         self.verts = verts  # List of Vertex type objects
-        self.center = None
+        self.loc = None
+        self.rad = None
+        self.dir = None
         self.points = []  # List of points on the edge. These points do not include the vertex points
 
 
@@ -54,7 +58,7 @@ class Surface:
 
 class System:
     """Class used to import files of all types and return a system"""
-    def __init__(self, file=None):
+    def __init__(self, file=None, box_size=1.5):
         self.atoms = []  # List of Atom type objects
         # If no file is given, generate a random system
         if file is None:
@@ -68,7 +72,7 @@ class System:
         self.file = None
         # Set up our
         self.name = None
-        self.box = None
+        self.box = self.calc_box(box_size)
         self.bonds = None
         self.Analysis = None  # Analysis type object for data collection
         # Non-pertinent information
@@ -95,6 +99,26 @@ class System:
             i -= 1
         # Trim the extension and the dot
         return filename[::-1][:-4]
+
+    # Calculate box function. Takes in a system and returns the dimensions of a box x times the size of the atoms
+    def calc_box(self, x):
+        # Set up the minimum and maximum x, y, z coordinates
+        mins = [np.inf, np.inf, np.inf]
+        maxes = [-np.inf, -np.inf, -np.inf]
+        # Check each atom in the system
+        for atom in self.atoms:
+            # Go through x, y, z
+            for i in range(3):
+                # If we find that the _ value is less replace the value in the mins list
+                if atom.loc[i] < mins[i]:
+                    mins[i] = atom.loc[i]
+                # If we find that the _ value is less replace the value in the mins list
+                elif atom.loc[i] > maxes[i]:
+                    maxes[i] = atom.loc[i]
+        for i in range(3):
+            mins[i] = mins[i] * x
+            maxes[i] = maxes[i] * x
+        return [mins, maxes]
 
     # Get pdb data method. Finds the lines of the file with prefixes and returns them as a list
     def get_pdb_data(self, word):
@@ -140,7 +164,7 @@ class System:
 
     # Get gro method. Finds data in a gro file
     def get_gro(self):
-        self.header = self.file[0]
+        self.info['header'] = self.file[0]
         self.box = self.file[-2]
         # Go through each line in the file and
         for line in self.file[2:-2]:

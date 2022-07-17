@@ -1,8 +1,5 @@
-from objects import Vertex, System, Edge, Surface
-from visualize import plot_atoms, plot_verts, plot_surfs, plot_edges
-import matplotlib.pyplot as plt
-from build_mesh import build_meshes, calc_surf
-from build_network import build_network
+from system.objects import Edge, Surface
+from build_cells.build_mesh import calc_surf
 
 
 # Check surf function. Takes in a set of atoms and a list of surfs and returns the corresponding surf or None if no surf
