@@ -2,8 +2,8 @@
 import tkinter as tk
 from tkinter import filedialog, CENTER
 # Internal Imports
-from system.objects import System
-from build_network import build_network
+from System.objects import System
+from Network import build_network
 from Presentation.Visualize.visualize import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg)
@@ -20,7 +20,7 @@ class Vorpy:
         self.vp_main.geometry(str(width) + "x" + str(height))
         self.vp_main.title('vorpy')
 
-        # Instantiate the system
+        # Instantiate the System
         self.sys = None
 
         # Set up the strings
@@ -77,7 +77,7 @@ class Vorpy:
     def load_molecule_button(self):
         # File grabber pop up
         file_path = filedialog.askopenfilename()
-        # Create the system
+        # Create the System
         if file_path:
             self.sys = System(file_path)
         else:
@@ -87,7 +87,7 @@ class Vorpy:
 
     # Build network button function.
     def build_network_button(self):
-        # Create the system
+        # Create the System
         if not self.sys:
             self.sys = System("./Data/test_data/" + self.dd_var.get())
         # Build the network
@@ -100,7 +100,7 @@ class Vorpy:
         plot_surfs(surfs=self.sys.net.surfs)
 
     def show_atoms(self):
-        # Set the default system to the dropdown variable
+        # Set the default System to the dropdown variable
         if not self.sys:
             self.sys = System("./Data/test_data/" + self.dd_var.get())
         plot_atoms(self.sys.atoms, fig=self.fig)

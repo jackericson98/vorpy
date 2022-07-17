@@ -1,6 +1,6 @@
 from Presentation.Visualize.visualize import plot_atoms
-from build_network.build_network import find_v0, find_edges
-from system.objects import System
+from Network.build_network import find_v0, find_edges
+from System.objects import System
 
 mySys = System()
 plot_atoms(mySys.atoms)

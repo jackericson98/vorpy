@@ -1,9 +1,9 @@
 import os
-from system.objects import System
-from build_network.calculators import calc_dist
+from System.objects import System
+from Network.calculators import calc_dist
 from Presentation.Visualize.visualize import plot_atoms, plot_verts
 import matplotlib.pyplot as plt
-from build_network.find_vertices import find_network
+from Network.find_vertices import find_network
 os.chdir("../..")
 
 
@@ -12,7 +12,7 @@ m_file = "./Data/test_data/Na_W_cluster5.pdb"
 b_file = "./Data/test_data/Na_W_cluster5_balls.txt"
 v_file = "./Data/test_data/Na_W_cluster5_vertices.txt"
 
-# Get the system
+# Get the System
 sys = System(m_file)
 find_network(sys)
 #
@@ -34,7 +34,7 @@ find_network(sys)
 for atom in sys.net.verts[0].atoms:
     print(calc_dist(atom.loc, sys.net.verts[0].loc) - (atom.rad + sys.net.verts[0].rad))
 # myVert = find_vertices(sys)
-# # Plot the system
+# # Plot the System
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
 plot_atoms(sys.atoms, fig=fig, ax=ax, alpha=0.1)

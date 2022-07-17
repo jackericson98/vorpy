@@ -1,5 +1,5 @@
-from system.objects import Edge, Surface
-from build_cells.build_mesh import calc_surf
+from System.objects import Edge, Surface
+from Cells.build_mesh import calc_surf
 
 
 # Check surf function. Takes in a set of atoms and a list of surfs and returns the corresponding surf or None if no surf
@@ -57,7 +57,7 @@ def connect_network(sys):
             if my_edge is None:
                 # Create the edge
                 my_edge = Edge(list(atoms), verts)
-                # Add the edge to the system
+                # Add the edge to the System
                 sys.net.edges.append(my_edge)
                 # Add the edge to the verts
                 verts[0].edges.append(my_edge)
@@ -93,5 +93,5 @@ def connect_network(sys):
                 list(t_atoms)[1].edges += edges
                 list(t_atoms)[0].verts += verts
                 list(t_atoms)[1].verts += verts
-    # Return the system we have created
+    # Return the System we have created
     return sys

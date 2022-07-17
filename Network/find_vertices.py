@@ -1,5 +1,5 @@
 import numpy as np
-from system.objects import Edge, Atom, Vertex
+from System.objects import Edge, Atom, Vertex
 from build_network.calculators import *
 from Presentation.Visualize.visualize import plot_atoms, plot_verts
 
@@ -74,7 +74,7 @@ def find_v0(sys):
     return myVert
 
 
-# Find site function. When given an edge, this function returns the closest next vertex in the system
+# Find site function. When given an edge, this function returns the closest next vertex in the System
 def find_site(edge, net):
     # Get the edges location and radius
     circs = calc_circ(edge.atoms)
@@ -87,7 +87,7 @@ def find_site(edge, net):
     vn_1 = edge.verts[0]
     min_val = np.inf
     vn = None
-    # Go through each atom in the system
+    # Go through each atom in the System
     for atom in net.atoms:
         # Check for edge atoms and backwards atom by making sure atom is not in vn_1's list of atoms
         if {atom}.issubset(vn_1.atoms):
@@ -139,9 +139,9 @@ def find_site1(edge, net):
 
 # Find network function. Keeps searching the network until all verts are found
 def find_network(sys):
-    # Find the first vertex in the system
+    # Find the first vertex in the System
     v0 = find_v0(sys)
-    # Add v0 to the system
+    # Add v0 to the System
     sys.net.verts.append(v0)
     # Set up the vertex stack
     vert_stack = [v0]

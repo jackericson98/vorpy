@@ -57,10 +57,10 @@ class Surface:
 
 
 class System:
-    """Class used to import files of all types and return a system"""
+    """Class used to import files of all types and return a System"""
     def __init__(self, file=None, box_size=1.5):
         self.atoms = []  # List of Atom type objects
-        # If no file is given, generate a random system
+        # If no file is given, generate a random System
         if file is None:
             self.random_system()
         # If the file type is a list
@@ -100,12 +100,12 @@ class System:
         # Trim the extension and the dot
         return filename[::-1][:-4]
 
-    # Calculate box function. Takes in a system and returns the dimensions of a box x times the size of the atoms
+    # Calculate box function. Takes in a System and returns the dimensions of a box x times the size of the atoms
     def calc_box(self, x):
         # Set up the minimum and maximum x, y, z coordinates
         mins = [np.inf, np.inf, np.inf]
         maxes = [-np.inf, -np.inf, -np.inf]
-        # Check each atom in the system
+        # Check each atom in the System
         for atom in self.atoms:
             # Go through x, y, z
             for i in range(3):
@@ -192,7 +192,7 @@ class System:
                 # Get the classifier for the line (0, 1, 2, 3, 4, 5, 6, 7)
                 return float(line[2])
 
-    # Build system function. Takes in a list of coordinates and string atom names
+    # Build System function. Takes in a list of coordinates and string atom names
     def build_sys(self, lr_input_list):
         # Go through each line in the input list
         for line in lr_input_list:
@@ -202,16 +202,16 @@ class System:
             else:
                 self.atoms.append(Atom([line[0][0], line[0][1], line[0][2]], line[1]))
 
-    # Random system function. Creates a system with atoms placed in random locations with random radii
+    # Random System function. Creates a System with atoms placed in random locations with random radii
     def random_system(self, anums=30, dmax=15, rmax=1):
         # Create the atoms
         for i in range(anums):
             # Choose a random set of 3 numbers between dmax and -dmax. Choose a random radius between 0 and rmax
             self.atoms.append(Atom(np.random.rand(3)*2*dmax - dmax, np.random.rand()*rmax))
 
-    # Add Voronota data method. Takes in voronota data and adds it to the system
+    # Add Voronota data method. Takes in voronota data and adds it to the System
     def add_vta_data(self, ball_file, vert_file):
-        # Create the system and load the files
+        # Create the System and load the files
         vert_file = open(vert_file).readlines()
         ball_file = open(ball_file).readlines()
         # Interpret the balls

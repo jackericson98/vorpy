@@ -1,5 +1,5 @@
 import numpy as np
-from system.objects import Vertex
+from System.objects import Vertex
 """Calculator functions"""
 
 
@@ -106,7 +106,7 @@ def calc_rel_dist(v0, v1, edge):
     return rel_dist
 
 
-# Sort by distance function. Sorts all atoms in the system by distance from COM of given atoms
+# Sort by distance function. Sorts all atoms in the System by distance from COM of given atoms
 def sortbyDist(atoms, net, length=None):
     # If the length of the returned list is not specified return the whole list
     if length is None:
@@ -211,7 +211,7 @@ def calc_vert(atoms):
     x3, y3, z3 = atoms[2].loc[0] - l1[0], atoms[2].loc[1] - l1[1], atoms[2].loc[2] - l1[2]
     x4, y4, z4 = atoms[3].loc[0] - l1[0], atoms[3].loc[1] - l1[1], atoms[3].loc[2] - l1[2]
 
-    # Calculate our system of linear equations coefficients
+    # Calculate our System of linear equations coefficients
     a1, b1, c1, d1, f1 = 2 * x2, 2 * y2, 2 * z2, 2 * (R2 - R1), R1 ** 2 - R2 ** 2 + x2 ** 2 + y2 ** 2 + z2 ** 2
     a2, b2, c2, d2, f2 = 2 * x3, 2 * y3, 2 * z3, 2 * (R3 - R1), R1 ** 2 - R3 ** 2 + x3 ** 2 + y3 ** 2 + z3 ** 2
     a3, b3, c3, d3, f3 = 2 * x4, 2 * y4, 2 * z4, 2 * (R4 - R1), R1 ** 2 - R4 ** 2 + x4 ** 2 + y4 ** 2 + z4 ** 2

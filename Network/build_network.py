@@ -1,6 +1,6 @@
 """Imports"""
 import numpy as np
-from system.objects import Edge, Vertex
+from System.objects import Edge, Vertex
 from calculators import *
 
 
@@ -111,7 +111,7 @@ def find_edges(vertex, net):
 ########################################################################################################################
 
 
-# Build Network function. Takes in a system, runs as a shell for the recursive next_site function and returns a Network
+# Build Network function. Takes in a System, runs as a shell for the recursive next_site function and returns a Network
 def build_network(mySys):
     # Find the first vertex
     v0 = find_v0(mySys.net)
