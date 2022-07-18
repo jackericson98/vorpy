@@ -1,5 +1,5 @@
 from System.system import Edge
-from Network.calculators import *
+from Network.net_calcs import *
 
 ########################################################################################################################
 """Finding functions"""
@@ -99,7 +99,7 @@ def find_site(edge_atoms, vn_1, net):
 
 
 # Find network function. Keeps searching the network until all verts are found
-def find_network(sys):
+def find_vertices(sys):
     # Find the first vertex in the System
     v0 = find_v0(sys)
     # Add v0 to the System
