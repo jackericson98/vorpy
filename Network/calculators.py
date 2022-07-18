@@ -307,6 +307,8 @@ def calc_vert(atoms):
     if not verts:
         return
     else:
+        if len(verts) == 2 and verts[0].rad > verts[1].rad:
+            return verts[1]
         return verts[0]
 
 
