@@ -89,8 +89,12 @@ def plot_surfs(surfs, fig=None, ax=None, Show=False, dfo=None, grid=False, color
             x.append(point[0])
             y.append(point[1])
             z.append(point[2])
-        # ax.plot_trisurf(x, y, z, alpha=alpha)
-        ax.scatter(x, y, z, s=[0.1 for j in range(len(x))], alpha=alpha, c=[colors[i] for k in range(len(x))])
+        for vert in surfs[i].verts:
+            x.append(vert.loc[0])
+            y.append(vert.loc[1])
+            z.append(vert.loc[2])
+        ax.plot_trisurf(x, y, z, alpha=alpha)
+        #ax.scatter(x, y, z, s=[0.1 for j in range(len(x))], alpha=alpha, c=[colors[i] for k in range(len(x))])
     # Show the figure
     if Show:
         plt.show()

@@ -34,6 +34,7 @@ def check_vert(v_atoms, vert_list):
             return vert
     return
 
+
 # Calculate distance function. Finds the distance between 2 points
 def calc_dist(l1, l2):
     d = np.sqrt((l1[0]-l2[0])**2+(l1[1]-l2[1])**2+(l1[2]-l2[2])**2)
@@ -102,7 +103,7 @@ def calc_edge_points(edge, surf, min_dist):
     pv1 = np.array(edge.verts[1].loc)
     # Find the angle made between the edges vertices and the atom
     max_ang = calc_angle(pa, pv0, pv1)
-    num_points = max(int(calc_dist(pv0, pv1) / min_dist), 100)
+    num_points = max(int(calc_dist(pv0, pv1) / min_dist), 10)
     # Set angle A to be the incremental angle decided by num points
     A = max_ang / num_points
     # Calculate each point along the way

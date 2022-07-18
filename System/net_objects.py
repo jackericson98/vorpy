@@ -28,13 +28,15 @@ class Vertex:
         self.rad = radius  # Radius of the vertex's tangential sphere
         self.atoms = atoms  # List of Atom type objects
         self.edges = []  # List of Edge type objects
+        self.surfs = []  # List of Surface type objects
 
 
 class Edge:
     """Edge object. Used to build the network and calculate the surfaces"""
-    def __init__(self, atoms, verts):
+    def __init__(self, atoms, verts, surfs=[]):
         self.atoms = atoms  # List of Atom type objects
         self.verts = verts  # List of Vertex type objects
+        self.surfs = surfs
         self.loc = None
         self.rad = None
         self.dir = None

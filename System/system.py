@@ -56,17 +56,21 @@ class System:
         maxes = [-np.inf, -np.inf, -np.inf]
         # Check each atom in the System
         for atom in self.atoms:
+            print("Atom Location: ", atom.loc)
             # Go through x, y, z
             for i in range(3):
-                # If we find that the _ value is less replace the value in the mins list
+                # If we find that the x, y, z value is less replace the value in the mins list
                 if atom.loc[i] < mins[i]:
                     mins[i] = atom.loc[i]
                 # If we find that the _ value is less replace the value in the mins list
                 elif atom.loc[i] > maxes[i]:
                     maxes[i] = atom.loc[i]
+            print("New minimum:", mins)
+            print("New maximum: ", maxes)
+        deltas = [maxes[0] - mins[0], maxes[1] - mins[1], maxes[2] - mins[2]]
         for i in range(3):
-            mins[i] = mins[i] * x
-            maxes[i] = maxes[i] * x
+            mins[i] = mins[i] - deltas[i]
+            maxes[i] = maxes[i] + deltas[i]
         return [mins, maxes]
 
     # Get pdb data method. Finds the lines of the file with prefixes and returns them as a list

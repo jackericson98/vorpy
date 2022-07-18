@@ -8,6 +8,38 @@ from Network.calculators import *
 """Gather information functions"""
 
 
+# Find site function. When given an edge, this function returns the closest next vertex in the System
+def find_site1(edge, net):
+    # Get the edges location and radius
+    circs = calc_circ(edge.atoms)
+    if circs is None:
+        return
+    edge.loc, edge.rad = circs[0][0], abs(circs[0][1])
+    # Get the edge's direction
+    edge.dir = calc_dir(edge)
+    # Grab the edge's previous vertex
+    vn_1 = edge.verts[0]
+    min_val = np.inf
+    vn = None
+    # Go through each atom in the System
+    for atom in net.atoms:
+        # Check for edge atoms and backwards atom by making sure atom is not in vn_1's list of atoms
+        if {atom}.issubset(vn_1.atoms):
+            continue
+        # Set up an atoms list
+        atoms = [atom] + edge.atoms
+        # Calculate the vertex
+        vert = calc_vert(atoms)
+        if vert is None:
+            continue
+        # Find the relative distance between the verts along the edge
+        dist = calc_rel_dist(vn_1, vert, edge)
+        if dist < min_val:
+            min_val = dist
+            vn = vert
+    return vn
+
+
 # Find circle function. Finds the smallest circle between the two given atoms and every other atom and return that atom
 def find_circle(a0, a1, net, num_checks=12):
     # Instantiate variables
@@ -75,7 +107,7 @@ def find_edges(vertex, net):
     # Create 4 edges with the 4 combinations of atoms that can be created
     for i in range(4):
         myEdge = Edge([vertex.atoms[i], vertex.atoms[(i + 1) % 4], vertex.atoms[(i + 2) % 4]], [vertex])
-        etest = check_edge(myEdge, net)
+        etest = check_edge(myEdge, net.edges)
         if etest:
             vertex.edges.append(etest)
         else:
@@ -83,11 +115,13 @@ def find_edges(vertex, net):
     # Create the edge objects or grab them from the network and connect them
     for edge in vertex.edges:
         # Check to see if the edge exists. If it does move on the next edge in the vertex
-        net_edge = check_edge(edge, net)
+        net_edge = check_edge(set(edge.atoms), net.edges)
+        print(net_edge)
         if net_edge:
             continue
         # Create a vertex
-        vn = calc_edge(edge, net)
+        vn = calc_edge1(edge, net)
+        print(vn)
         # If the vertex is None give the edge a None vertex and continue to the next edge
         if vn is None:
             edge.verts.append(Vertex([np.inf, np.inf, np.inf], np.inf))
@@ -99,6 +133,7 @@ def find_edges(vertex, net):
         if net_vert:
             edge.verts.append(net_vert)
             net.edges.append(edge)
+            return
         # If both the edge and the vertex do not exist in the network, we have a true new site
         else:
             edge.verts.append(vn)
