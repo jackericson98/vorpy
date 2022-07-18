@@ -1,7 +1,7 @@
 """Imports"""
 import numpy as np
 from System.system import Edge, Vertex
-from calculators import *
+from Network.calculators import *
 
 
 ########################################################################################################################

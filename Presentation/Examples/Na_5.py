@@ -14,6 +14,10 @@ v_file = "./Data/test_data/Na_W_cluster5_vertices.txt"
 
 # Get the System
 sys = System(m_file)
+
+for atom in sys.atoms:
+    atom.rad = atom.rad/10
+
 find_network(sys)
 #
 # sys.net.verts = []
@@ -31,13 +35,12 @@ find_network(sys)
 #
 # # Build the meshes
 # build_meshes(sys, min_dist=0.5)
-for atom in sys.net.verts[0].atoms:
-    print(calc_dist(atom.loc, sys.net.verts[0].loc) - (atom.rad + sys.net.verts[0].rad))
+
 # myVert = find_vertices(sys)
 # # Plot the System
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
 plot_atoms(sys.atoms, fig=fig, ax=ax, alpha=0.1)
-plot_verts(sys.net.verts, plot_spheres=True, fig=fig, ax=ax, Show=True, colors=['w'] + ['r' for i in range(len(sys.net.verts))])
+plot_verts(sys.net.verts[26:30], plot_spheres=True, fig=fig, ax=ax, Show=True, colors=['w'] + ['r' for i in range(len(sys.net.verts))])
 # plot_edges(sys.net.atoms[0].edges, fig=fig, ax=ax)
 # plot_surfs(sys.net.atoms[0].surfs, fig=fig, ax=ax, alpha=1)

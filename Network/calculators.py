@@ -3,42 +3,37 @@ from System.system import Vertex
 """Calculator functions"""
 
 
-# Check vertex function. Takes in a vertex and a network, returns False if vertex in network
-def check_vert(v1, net):
-    # Go through each vertex in the network
-    for v2 in net.verts:
-        # Set the counter to 0
-        counter = 0
-        # Go through each atom in the test vertex
-        for atom in v2.atoms:
-            # See if atom in our vertex
-            if atom in v1.atoms:
-                # Increment counter if it is
-                counter += 1
-        # If the counter is 4 or more we have found the vertex, and we need to return True
-        if counter >= 4:
-            return v2
-    # If we make it all the way through the networks vertices the vertex does not exist, and we return False
-    return False
+# Check surf function. Takes in a set of atoms and a list of surfs and returns the corresponding surf or None if no surf
+def check_surf(s_atoms, surf_list):
+    # Go through each surf in the surf list
+    for surf in surf_list:
+        # Check if the given atoms correspond to the atoms in the surf
+        if s_atoms.issubset(surf.atoms):
+            # Return the surf
+            return surf
+    return
 
 
-# Check edge function. Takes in edge and network, returns False if edge in network
-def check_edge(e1, net):
-    # Go through each edge in the network
-    for e2 in net.edges:
-        # Set the counter to 0
-        counter = 0
-        # Go through each atom in the test edge
-        for atom in e2.atoms:
-            # See if atom is in our edge
-            if atom in e1.atoms:
-                # Increment the counter if it is
-                counter += 1
-        # If the counter is 3 or more, we have found the edge, and we return True
-        if counter >= 3:
-            return e2
-    # If we make it through the networks edges the edge does not exist, and we return False
-    return False
+# Check edge function. Takes in a set of atoms and a list of edges and returns the corresponding edge or None if no edge
+def check_edge(e_atoms, edge_list):
+    # Go through each edge in the edge list
+    for edge in edge_list:
+        # Check if the given atoms correspond to the atoms in the edge
+        if e_atoms.issubset(edge.atoms):
+            # Return the edge
+            return edge
+    return
+
+
+# Check vert function. Takes in a set of atoms and a list of verts and returns the corresponding edge or None if no vert
+def check_vert(v_atoms, vert_list):
+    # Go through each edge in the edge list
+    for vert in vert_list:
+        # Check if the given atoms correspond to the atoms in the edge
+        if v_atoms.issubset(vert.atoms):
+            # Return the edge
+            return vert
+    return
 
 
 # Calculate distance function. Takes in 2 points and returns the distance between them
@@ -56,6 +51,7 @@ def calc_com(atoms):
         ytot = ytot + atom.loc[1]
         ztot = ztot + atom.loc[2]
     return xtot/len(atoms), ytot/len(atoms), ztot/len(atoms)
+
 
 # Calculate direction function. Takes in a vertex and an edge and returns True if it is facing the center
 def calc_dir(edge):
@@ -159,8 +155,8 @@ def calc_circ(atoms):
     l1, R1 = atoms[0].loc, atoms[0].rad
     # Get the relevant variables
     R2, R3 = atoms[1].rad, atoms[2].rad
-    x2, y2, z2 = atoms[1].loc[0] - l1[0], atoms[1].loc[1], atoms[1].loc[2]
-    x3, y3, z3 = atoms[2].loc[0] - l1[0], atoms[2].loc[1], atoms[2].loc[2]
+    x2, y2, z2 = atoms[1].loc[0] - l1[0], atoms[1].loc[1] - l1[1], atoms[1].loc[2] - l1[2]
+    x3, y3, z3 = atoms[2].loc[0] - l1[0], atoms[2].loc[1] - l1[1], atoms[2].loc[2] - l1[2]
     # Calculate coefficients
     a1, b1, c1, d1, f1 = 2 * x2, 2 * y2, 2 * z2, 2 * (R1 - R2), R1 ** 2 - R2 ** 2 + x2 ** 2 + y2 ** 2 + z2 ** 2
     a2, b2, c2, d2, f2 = 2 * x3, 2 * y3, 2 * z3, 2 * (R1 - R3), R1 ** 2 - R3 ** 2 + x3 ** 2 + y3 ** 2 + z3 ** 2
@@ -185,6 +181,7 @@ def calc_circ(atoms):
     # If the discriminant is negative then the tangential sphere does not exist.
     if disc > 0:
         circs = []
+        print(np.roots([a, b, c]))
         Rs = [R for R in np.roots([a, b, c]) if np.isreal(R) and R > 0]
         Rs.sort()
         # Go through each circle and gather its points

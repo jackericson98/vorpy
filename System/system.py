@@ -2,7 +2,7 @@
 import os
 
 import numpy as np
-from net_objects import *
+from System.net_objects import *
 
 
 class System:

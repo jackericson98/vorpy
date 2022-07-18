@@ -1,8 +1,7 @@
-import numpy as np
 from System.system import Edge, Atom, Vertex
-from build_network.calculators import *
+from Network.calculators import *
 from Presentation.Visualize.visualize import plot_atoms, plot_verts
-
+import matplotlib.pyplot as plt
 
 ########################################################################################################################
 """Finding functions"""
@@ -78,7 +77,7 @@ def find_v0(sys):
 def find_site(edge, net):
     # Get the edges location and radius
     circs = calc_circ(edge.atoms)
-    if circs == []:
+    if circs is None:
         return
     edge.loc, edge.rad = circs[0][0], abs(circs[0][1])
     # Get the edge's direction
@@ -103,14 +102,10 @@ def find_site(edge, net):
         if dist < min_val:
             min_val = dist
             vn = vert
-    # Return the vertex that is the smallest relative distance from the original vertex
-    if vn:
-        plot_verts([vn, vn_1], plot_spheres=True)
-        plot_atoms(edge.atoms, Show=True)
     return vn
 
 
-# Find site function (#2)> Takes in an edge and finds the smallest
+# Find site function (#2)> Takes in an edge and finds the smallest vertex attached to it
 def find_site1(edge, net):
     myVert = None
     # Loop through the atoms to see if they over
@@ -164,13 +159,5 @@ def find_network(sys):
             # If the vertex exists in the network add the vertex to the edge and move on to the next edge in the stack
             found_vert = check_vert(set(myVert.atoms), sys.net.verts)
             if not found_vert:
-                vert_stack.append(vert)
-                sys.net.verts.append(vert)
-            else:
-                print("Vert found")
-
-
-a0, a1, a2, a3, a4 = Atom([0, 0, 0], 2), Atom([1, 0, 0], 3), Atom([1, 1, 1], 1), Atom([-1, -1, -1], 2), Atom([1, 1, 2], 3)
-v0 = Vertex([1, 2, 3], 1, atoms=[a0, a1, a2, a3])
-v1 = Vertex([1, 2, 3], 1, atoms=[a2, a3, a1, a0])
-v2 = Vertex([1, 2, 3], 1, atoms=[a4, a1, a2, a3])
+                vert_stack.append(myVert)
+                sys.net.verts.append(myVert)
