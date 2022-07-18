@@ -1,5 +1,6 @@
 from System.system import Edge, Surface
-from Cells.calculators import *
+from Network.find_vertices import *
+from Meshes.mesh_calcs import calc_surf
 
 
 # Connect network function. Takes in a network with vertices defined and returns a filled out network of atoms,
