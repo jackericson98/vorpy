@@ -1,7 +1,5 @@
-from System.system import Edge, Atom, Vertex
+from System.system import Edge
 from Network.calculators import *
-from Presentation.Visualize.visualize import plot_atoms, plot_verts
-import matplotlib.pyplot as plt
 
 ########################################################################################################################
 """Finding functions"""
@@ -73,60 +71,28 @@ def find_v0(sys):
     return myVert
 
 
-# Find site function. When given an edge, this function returns the closest next vertex in the System
-def find_site(edge, net):
-    # Get the edges location and radius
-    circs = calc_circ(edge.atoms)
-    if circs is None:
-        return
-    edge.loc, edge.rad = circs[0][0], abs(circs[0][1])
-    # Get the edge's direction
-    edge.dir = calc_dir(edge)
-    # Grab the edge's previous vertex
-    vn_1 = edge.verts[0]
-    min_val = np.inf
-    vn = None
-    # Go through each atom in the System
-    for atom in net.atoms:
-        # Check for edge atoms and backwards atom by making sure atom is not in vn_1's list of atoms
-        if {atom}.issubset(vn_1.atoms):
-            continue
-        # Set up an atoms list
-        atoms = [atom] + edge.atoms
-        # Calculate the vertex
-        vert = calc_vert(atoms)
-        if vert is None:
-            continue
-        # Find the relative distance between the verts along the edge
-        dist = calc_rel_dist(vn_1, vert, edge)
-        if dist < min_val:
-            min_val = dist
-            vn = vert
-    return vn
-
-
-# Find site function (#2)> Takes in an edge and finds the smallest vertex attached to it
-def find_site1(edge, net):
+# Find site function. Takes in an edge and finds the only other vertex that does not overlap with other atoms
+def find_site(edge_atoms, vn_1, net):
+    # Instantiate the vertex
     myVert = None
-    # Loop through the atoms to see if they over
+    # Loop through the atoms to see if they create a vertex that doesn't overlap with any other atoms
     for atom in net.atoms:
         # This filters out any of the atoms in the edge or the remaining atom from the previous vertex
-        if {atom}.issubset(edge.verts[0].atoms):
+        if {atom}.issubset(vn_1.atoms):
             continue
         # Calculate the vertex with atom
-        vert = calc_vert(edge.atoms + [atom])
+        vert = calc_vert(edge_atoms + [atom])
         if vert is None:
             continue
         # Check if the vertex overlaps with any of the networks atoms
         overlap = False
         for a_test in net.atoms:
-            if {a_test}.issubset(edge.atoms + [atom]):
+            if {a_test}.issubset(edge_atoms + [atom]):
                 continue
             if round(calc_dist(a_test.loc, vert.loc) - (a_test.rad + vert.rad), 7) < 0:
                 overlap = True
                 break
         if not overlap:
-            print("vert found")
             myVert = vert
             break
     return myVert
@@ -145,16 +111,15 @@ def find_network(sys):
         # Get the vertex from the top of the stack
         vert = vert_stack.pop()
         # Set up the edge stack
-        e_stack = [Edge([vert.atoms[i], vert.atoms[(i + 1) % 4], vert.atoms[(i + 2) % 4]], [vert]) for i in range(4)]
+        e_stack = [[[vert.atoms[i], vert.atoms[(i + 1) % 4], vert.atoms[(i + 2) % 4]], vert] for i in range(4)]
         # While the edge stack is not empty
         while e_stack:
             # Get the edge from the top of the stack
             edge = e_stack.pop()
             # Find the next site in the network
-            myVert = find_site(edge, sys.net)
+            myVert = find_site(edge[0], edge[1], sys.net)
             # If the vertex is none continue
             if myVert is None:
-                print("None vert")
                 continue
             # If the vertex exists in the network add the vertex to the edge and move on to the next edge in the stack
             found_vert = check_vert(set(myVert.atoms), sys.net.verts)
