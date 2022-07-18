@@ -62,13 +62,18 @@ def connect_network(sys):
                 list(t_atoms)[0].verts += verts
                 list(t_atoms)[1].verts += verts
 
-    # Add the surfaces to the edges and the verts
-    for surf in sys.net.surfs:
-        for edge in surf.edges:
-            if not check_surf(set(surf.atoms), edge.surfs):
+    # Add the surfaces to the edges
+    for edge in sys.net.edges:
+        edge.surfs = []
+        for surf in sys.net.surfs:
+            if set(surf.atoms).issubset(edge.atoms):
                 edge.surfs.append(surf)
-        for vert in surf.verts:
-            if not check_surf(set(surf.atoms), vert.surfs):
+    # Add the surfaces to the vertices
+    for vert in sys.net.verts:
+        vert.surfs = []
+        for surf in sys.net.surfs:
+            if set(surf.atoms).issubset(vert.atoms):
                 vert.surfs.append(surf)
+
     # Return the System we have created
     return sys
