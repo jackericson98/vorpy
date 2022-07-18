@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from Cells.build_mesh import *
+from Meshes.build_mesh import *
 from System.system import Atom
 
 
