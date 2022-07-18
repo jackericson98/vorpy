@@ -181,7 +181,6 @@ def calc_circ(atoms):
     # If the discriminant is negative then the tangential sphere does not exist.
     if disc > 0:
         circs = []
-        print(np.roots([a, b, c]))
         Rs = [R for R in np.roots([a, b, c]) if np.isreal(R) and R > 0]
         Rs.sort()
         # Go through each circle and gather its points
@@ -344,16 +343,17 @@ def calc_edge(edge, net):
         # Calculate the vertex of the edge atoms with the neighbor atom
         vn = calc_vert(edge.atoms + [n])
         # Make sure that the vertex exists and does not overlap with the old vertex
-        if not vn or calc_dist(vn.loc, an.loc) < vn.rad + an.rad or check_vert(vn, net):
+        if not vn or check_vert(set(vn.atoms), net.verts):
             continue
         # Check to see if it is a real vertex or not
         i = 0
         overlap = False
-        while i < len(neighbors) and not overlap:
+        while i < len(neighbors):
             if {neighbors[i]}.issubset(edge.atoms + [n]):
                 continue
             if calc_dist(vn.loc, neighbors[i].loc) - (vn.rad + neighbors[i].rad) < 0:
                 overlap = True
+
         if not overlap:
             # Calculate the distance between the new vertex and the center
             d2 = calc_dist(vn.loc, circ)
