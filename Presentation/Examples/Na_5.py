@@ -1,9 +1,12 @@
 import os
 from System.system import System
 from Network.calculators import calc_dist
-from Presentation.Visualize.visualize import plot_atoms, plot_verts
+from Presentation.Visualize.visualize import plot_atoms, plot_verts, plot_edges, plot_surfs
 import matplotlib.pyplot as plt
 from Network.find_vertices import find_network
+from Network.build_network import build_network
+from Network.connect_network import connect_network
+from Cells.build_mesh import build_meshes
 os.chdir("../..")
 
 
@@ -31,16 +34,15 @@ find_network(sys)
 #
 #
 # # Connect the network
-# sys = connect_network(sys)
-#
+sys = connect_network(sys)
 # # Build the meshes
-# build_meshes(sys, min_dist=0.5)
+build_meshes(sys, min_dist=0.5)
 
 # myVert = find_vertices(sys)
 # # Plot the System
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
-plot_atoms(sys.atoms, fig=fig, ax=ax, alpha=0.1)
-plot_verts(sys.net.verts[26:30], plot_spheres=True, fig=fig, ax=ax, Show=True, colors=['w'] + ['r' for i in range(len(sys.net.verts))])
-# plot_edges(sys.net.atoms[0].edges, fig=fig, ax=ax)
-# plot_surfs(sys.net.atoms[0].surfs, fig=fig, ax=ax, alpha=1)
+plot_atoms(sys.atoms[:10], fig=fig, ax=ax, alpha=1, colors=['w' for i in range(len(sys.atoms))])
+plot_verts(sys.atoms[0].verts, fig=fig, ax=ax, colors=['r' for i in range(len(sys.net.verts))])
+plot_edges(sys.net.atoms[0].edges, fig=fig, ax=ax)
+plot_surfs(sys.net.atoms[0].surfs, fig=fig, ax=ax, alpha=1, Show=True)
