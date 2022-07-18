@@ -1,38 +1,6 @@
 """Calculator functions"""
 import numpy as np
-
-
-# Check surf function. Takes in a set of atoms and a list of surfs and returns the corresponding surf or None if no surf
-def check_surf(s_atoms, surf_list):
-    # Go through each surf in the surf list
-    for surf in surf_list:
-        # Check if the given atoms correspond to the atoms in the surf
-        if s_atoms.issubset(surf.atoms):
-            # Return the surf
-            return surf
-    return
-
-
-# Check edge function. Takes in a set of atoms and a list of edges and returns the corresponding edge or None if no edge
-def check_edge(e_atoms, edge_list):
-    # Go through each edge in the edge list
-    for edge in edge_list:
-        # Check if the given atoms correspond to the atoms in the edge
-        if e_atoms.issubset(edge.atoms):
-            # Return the edge
-            return edge
-    return
-
-
-# Check vert function. Takes in a set of atoms and a list of verts and returns the corresponding edge or None if no vert
-def check_vert(v_atoms, vert_list):
-    # Go through each edge in the edge list
-    for vert in vert_list:
-        # Check if the given atoms correspond to the atoms in the edge
-        if v_atoms.issubset(vert.atoms):
-            # Return the edge
-            return vert
-    return
+from System.checks import *
 
 
 # Calculate distance function. Finds the distance between 2 points
@@ -92,28 +60,6 @@ def calc_surf(atoms):
         GHI.append(-8 * R ** 2 * a0.loc[i] - 4 * K * d[i])
 
     return ABC + DEF + GHI + [J] + [K] + [d]
-
-
-# Calculate edge points function. Takes in an edge and a surface and updates the edge's points.
-def calc_edge_points(edge, surf, min_dist):
-    # Get the location of the base atom
-    pa = edge.atoms[0].loc
-    # Get the locations of the vertices
-    pv0 = np.array(edge.verts[0].loc)
-    pv1 = np.array(edge.verts[1].loc)
-    # Find the angle made between the edges vertices and the atom
-    max_ang = calc_angle(pa, pv0, pv1)
-    num_points = max(int(calc_dist(pv0, pv1) / min_dist), 10)
-    # Set angle A to be the incremental angle decided by num points
-    A = max_ang / num_points
-    # Calculate each point along the way
-    for i in range(1, num_points):
-        # If the edge points are empty set pb to the start vertex. Else get the previous point in the path
-        if not edge.points:
-            pb = pv0
-        else:
-            pb = edge.points[-1]
-        edge.points.append(find_next_point(pb, pv1, A, surf))
 
 
 # Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
