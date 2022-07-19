@@ -75,9 +75,9 @@ def make_bless_mesh(surf, radius, min_dist):
     # Get the normalized vector for the direction toward the center of the surface
     r01_hat = r01/np.linalg.norm(r01)
     # Get the point on the surface of a0 closest to a1
-    vc = a0.loc + r01_hat * a0.rad
+    dist = calc_dist(a0.loc, a1.loc) - (a0.rad + a1.rad)
     # Get the point on the surface corresponding to vc
-    center = np.array(calc_surf_point(surf, vc))
+    center = a0.loc + r01_hat * (dist + a0.rad)
     # Find a vector perpendicular to r01_hat
     if abs(r01_hat[0]) > abs(r01_hat[1]):
         p = np.array([r01_hat[1], -r01_hat[0], 0])
@@ -87,12 +87,7 @@ def make_bless_mesh(surf, radius, min_dist):
         p = np.array([-r01_hat[1], r01_hat[0], 0])
     # Normalize it
     p_hat = p/np.linalg.norm(p)
-    # Find the point on the surface at the beginning of the circle
-    c_points = [np.array(calc_surf_point(surf, center + p_hat * radius))]
-    # Get the center of the circle
-    c_mag = np.dot(c_points[-1] - np.array(a0.loc), center - np.array(a0.loc)) / np.linalg.norm(center - np.array(a0.loc))
-    # Get the location of the circle's center
-    circ_cent = c_mag * r01_hat + a0.loc
+    c_points = [p_hat*radius + center]
     # Get the circumference of the circle and divide by the minimum distance
     num_points = int(2*np.pi*radius/min_dist)
     # Get the incremental angle change around the circle
@@ -101,13 +96,16 @@ def make_bless_mesh(surf, radius, min_dist):
     proj_dist = radius * np.tan(dtheta)
     for i in range(num_points):
         # Find the binormal vector to r01_hat and the previous circle point by taking their cross products
-        bi = np.cross(r01_hat, c_points[-1] - circ_cent)
+        bi = np.cross(r01_hat, c_points[-1] - center)
         # Normalize it
         bi_hat = bi/np.linalg.norm(bi)
         # Get the surface point
         samp = c_points[-1] + proj_dist*bi_hat
         rn = samp - center
         rn_hat = rn/np.linalg.norm(rn)
-        c_points.append(calc_surf_point(surf, center + rn_hat*radius))
-    return c_points
+        c_points.append(center + rn_hat*radius)
+    edge_points = []
+    for i in range(len(c_points)):
+        edge_points.append(calc_surf_point(surf, c_points[i]))
+    return edge_points
 
