@@ -1,6 +1,5 @@
 from System.system import Edge, Surface
 from Network.find_vertices import *
-from Meshes.mesh_calcs import calc_surf
 
 
 # Connect network function. Takes in a network with vertices defined and returns a filled out network of atoms,
@@ -54,7 +53,7 @@ def connect_network(sys):
                     verts.append(vert2)
             # In order to be a true surface the number of edges need to be equal to the number of verts
             if len(verts) == len(edges):
-                my_surf = Surface(list(t_atoms), calc_surf(list(t_atoms)), verts=verts, edges=edges)
+                my_surf = Surface(list(t_atoms), verts=verts, edges=edges)
                 sys.net.surfs.append(my_surf)
                 list(t_atoms)[0].surfs.append(my_surf)
                 list(t_atoms)[1].surfs.append(my_surf)

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from Network.find_vertices import find_vertices
 from Network.build_network import build_network
 from Network.connect_network import connect_network
-from Meshes.build_mesh import build_meshes
+from Meshes.build_meshes import build_meshes
 os.chdir("../..")
 
 

@@ -1,6 +1,6 @@
 from System.system import System, Edge, Surface
 from Network.find_vertices import calc_vert, find_vertices
-from Meshes.build_mesh import calc_surf, build_meshes
+from Meshes.build_meshes import calc_surf, build_meshes
 from Presentation.Visualize.visualize import plot_atoms, plot_verts, plot_surfs, plot_edges
 import matplotlib.pyplot as plt
 
@@ -74,7 +74,7 @@ sys.net.surfs[4].edges = [e3, e4, e7, e11]
 sys.net.surfs[5].edges = [e8, e9, e10, e11]
 
 # Build the surfaces
-build_meshes(sys, min_dist=5)
+build_meshes(sys, min_dist=.1)
 
 # Set up the plot
 fig = plt.figure()

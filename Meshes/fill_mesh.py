@@ -1,13 +1,22 @@
 from Meshes.edge_trace import *
+from System.system import Atom, Surface
+from Presentation.Visualize.visualize import plot_surfs, plot_atoms
+import matplotlib.pyplot as plt
 
 
 # Make mesh function. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
-def make_mesh(surf, min_dist):
+def make_mesh(surf, min_dist, circ_mesh=False, radius=None):
     # Set the atoms in the surface to make the smaller one listed first
     if surf.atoms[0].rad > surf.atoms[1].rad:
         surf.atoms = surf.atoms[1], surf.atoms[0]
-    # Check to see if the edges' points have been recorded yet
-    edge_trace1(surf, min_dist)
+    # Check to see if a circular mesh has been requested
+    if circ_mesh:
+        if radius is None:
+            radius = surf.atoms[1].rad * 5
+        surf.edge_points = make_bless_mesh(surf, radius, min_dist)
+    else:
+        # Check to see if the edges' points have been recorded yet
+        edge_trace1(surf, min_dist)
     # For each edge point set up a path list.
     paths = [[surf.edge_points[i]] for i in range(len(surf.edge_points))]
     # Grab the smallest of the 2 surface atoms' location
@@ -54,3 +63,51 @@ def make_mesh(surf, min_dist):
     # Add the remaining paths to the surface
     for path in paths:
         surf.points += path[1:]
+
+
+# Make boundless mesh.
+def make_bless_mesh(surf, radius, min_dist):
+    # Grab the surfaces atoms and make sure the smaller one is a0
+    a0, a1 = surf.atoms[0], surf.atoms[1]
+    if a0.rad > a1.rad:
+        a0, a1, = a1, a0
+    r01 = np.array(a1.loc) - np.array(a0.loc)
+    # Get the normalized vector for the direction toward the center of the surface
+    r01_hat = r01/np.linalg.norm(r01)
+    # Get the point on the surface of a0 closest to a1
+    vc = a0.loc + r01_hat * a0.rad
+    # Get the point on the surface corresponding to vc
+    center = np.array(calc_surf_point(surf, vc))
+    # Find a vector perpendicular to r01_hat
+    if abs(r01_hat[0]) > abs(r01_hat[1]):
+        p = np.array([r01_hat[1], -r01_hat[0], 0])
+    elif r01_hat[0] == 0 and r01_hat[1] == 0:
+        p = np.array([1, 0, 0])
+    else:
+        p = np.array([-r01_hat[1], r01_hat[0], 0])
+    # Normalize it
+    p_hat = p/np.linalg.norm(p)
+    # Find the point on the surface at the beginning of the circle
+    c_points = [np.array(calc_surf_point(surf, center + p_hat * radius))]
+    # Get the center of the circle
+    c_mag = np.dot(c_points[-1] - np.array(a0.loc), center - np.array(a0.loc)) / np.linalg.norm(center - np.array(a0.loc))
+    # Get the location of the circle's center
+    circ_cent = c_mag * r01_hat + a0.loc
+    # Get the circumference of the circle and divide by the minimum distance
+    num_points = int(2*np.pi*radius/min_dist)
+    # Get the incremental angle change around the circle
+    dtheta = 2*np.pi/num_points
+    # Find the amount we project on the circle
+    proj_dist = radius * np.tan(dtheta)
+    for i in range(num_points):
+        # Find the binormal vector to r01_hat and the previous circle point by taking their cross products
+        bi = np.cross(r01_hat, c_points[-1] - circ_cent)
+        # Normalize it
+        bi_hat = bi/np.linalg.norm(bi)
+        # Get the surface point
+        samp = c_points[-1] + proj_dist*bi_hat
+        rn = samp - center
+        rn_hat = rn/np.linalg.norm(rn)
+        c_points.append(calc_surf_point(surf, center + rn_hat*radius))
+    return c_points
+

@@ -34,40 +34,10 @@ def calc_angle(p0, p1, p2=None):
     return angle
 
 
-# Bisector function. Creates a bisector surface between 2 atoms
-def calc_surf(atoms):
-    # Make sure that a0 is the atom with the smaller radius
-    if atoms[0].rad > atoms[1].rad:
-        atoms[0], atoms[1] = atoms[1], atoms[0]
-    a0, a1 = atoms
-
-    # Grab the centers of the spheres
-    x1, y1, z1 = a0.loc
-    x2, y2, z2 = a1.loc
-
-    # Calculate the major coefficients (pg. 574 Z. Hu)
-    R = a0.rad - a1.rad
-    K = (x2 ** 2 - x1 ** 2) + (y2 ** 2 - y1 ** 2) + (z2 ** 2 - z1 ** 2) - R ** 2
-    d = x1 - x2, y1 - y2, z1 - z2
-    J = 4 * R ** 2 * (x1 ** 2 + y1 ** 2 + z1 ** 2) - K ** 2
-
-    # Instantiate/reset the hyperboloid coefficient vector lists
-    ABC, DEF, GHI = [], [], []
-    # Calculate hyperboloid coefficients
-    for i in range(3):
-        ABC.append(4 * R ** 2 - 4 * d[i] ** 2)
-        DEF.append(-8 * d[i] * d[(i + 1) % 3])  # The equation asks for D_y, D_z, D_x in that order, hence modulus
-        GHI.append(-8 * R ** 2 * a0.loc[i] - 4 * K * d[i])
-
-    return ABC + DEF + GHI + [J] + [K] + [d]
-
-
 # Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
 # from the center of the smallest of the surfaces 2 atoms through the point into the surface
 def calc_surf_point(surf, point):
-    # Grab the function
-    if surf.func is None:
-        surf.func = calc_surf(surf)
+    # Grab the function's coefficients
     f = surf.func
     # Get the first atoms in the surfaces list of atoms
     a0 = surf.atoms[0]
@@ -88,11 +58,18 @@ def calc_surf_point(surf, point):
     # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
     # and add that point to our surface list of points
     if round(b ** 2 - 4 * a * c, 4) >= 0:
-        # Check to see of the point on the atom is inside the other atom
-        if calc_dist(vi, surf.atoms[1].loc) - surf.atoms[1].rad < 0:
-            mag = - abs(min(np.roots([a, b, c])))
+        if calc_dist(surf.atoms[0].loc, surf.atoms[1].loc) < surf.atoms[0].rad:
+            if calc_dist(vi, surf.atoms[1].loc) - surf.atoms[1].rad < 0:
+                print("negative")
+                mag = - min(abs((np.roots([a, b, c]))))
+            else:
+                mag = min(abs(np.roots([a, b, c])))
         else:
-            mag = min(abs(np.roots([a, b, c])))
+            # Check to see of the point on the atom is inside the other atom
+            if calc_dist(vi, surf.atoms[1].loc) - surf.atoms[1].rad < 0:
+                mag = - abs(min(np.roots([a, b, c])))
+            else:
+                mag = min(abs(np.roots([a, b, c])))
         return vi + mag * vn
 
 
