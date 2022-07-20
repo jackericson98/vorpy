@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 
 # Make mesh function. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
-def make_mesh(surf, min_dist, circ_mesh=False, radius=None):
+def make_mesh(surf, min_dist, circ_mesh=False, radius=None, edges_made=False):
     # Set the atoms in the surface to make the smaller one listed first
     if surf.atoms[0].rad > surf.atoms[1].rad:
         surf.atoms = surf.atoms[1], surf.atoms[0]
@@ -14,6 +14,8 @@ def make_mesh(surf, min_dist, circ_mesh=False, radius=None):
         if radius is None:
             radius = surf.atoms[1].rad * 5
         surf.edge_points = make_bless_mesh(surf, radius, min_dist)
+    elif edges_made:
+        pass
     else:
         # Check to see if the edges' points have been recorded yet
         edge_trace1(surf, min_dist)
