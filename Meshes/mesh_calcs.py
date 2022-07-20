@@ -58,14 +58,15 @@ def calc_surf_point(surf, point):
     # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
     # and add that point to our surface list of points
     if round(b ** 2 - 4 * a * c, 4) >= 0:
+        # If the projection point on a0's surface is outside a1's surface take the smallest of the roots
+        roots = np.roots([a, b, c])
         if calc_dist(vi, a1.loc) > a1.rad:
-            mag = min(abs(np.roots([a, b, c])))
+            mag = min(abs(roots))
         else:
             if calc_dist(a0.loc, a1.loc) > a0.rad:
-                mag = - abs(min(np.roots([a, b, c])))
+                mag = - abs(min(roots))
             else:
-                mag = - min(abs((np.roots([a, b, c]))))
-
+                mag = - min(abs(roots))
         return vi + mag * vn
 
 
