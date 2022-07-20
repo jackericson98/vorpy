@@ -40,7 +40,7 @@ def calc_surf_point(surf, point):
     # Grab the function's coefficients
     f = surf.func
     # Get the first atoms in the surfaces list of atoms
-    a0 = surf.atoms[0]
+    a0, a1 = surf.atoms[0], surf.atoms[1]
     # Set up the unit vector
     vi = np.array(point) - np.array(a0.loc)
     vn = vi/np.linalg.norm(vi)
@@ -58,18 +58,14 @@ def calc_surf_point(surf, point):
     # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
     # and add that point to our surface list of points
     if round(b ** 2 - 4 * a * c, 4) >= 0:
-        if calc_dist(surf.atoms[0].loc, surf.atoms[1].loc) < surf.atoms[0].rad:
-            if calc_dist(vi, surf.atoms[1].loc) - surf.atoms[1].rad < 0:
-                print("negative")
-                mag = - min(abs((np.roots([a, b, c]))))
-            else:
-                mag = min(abs(np.roots([a, b, c])))
+        if calc_dist(vi, a1.loc) > a1.rad:
+            mag = min(abs(np.roots([a, b, c])))
         else:
-            # Check to see of the point on the atom is inside the other atom
-            if calc_dist(vi, surf.atoms[1].loc) - surf.atoms[1].rad < 0:
+            if calc_dist(a0.loc, a1.loc) > a0.rad:
                 mag = - abs(min(np.roots([a, b, c])))
             else:
-                mag = min(abs(np.roots([a, b, c])))
+                mag = - min(abs((np.roots([a, b, c]))))
+
         return vi + mag * vn
 
 
