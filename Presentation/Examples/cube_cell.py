@@ -1,6 +1,6 @@
 from System.system import System, Edge, Surface
 from Network.find_vertices import calc_vert, find_vertices
-from Meshes.build_meshes import calc_surf, build_meshes
+from Meshes.build_meshes import build_meshes
 from Presentation.Visualize.visualize import plot_atoms, plot_verts, plot_surfs, plot_edges
 import matplotlib.pyplot as plt
 
@@ -50,12 +50,12 @@ sys.net.verts[6].edges = [e6, e9, e10, None]
 sys.net.verts[7].edges = [e7, e10, e11, None]
 
 # Set up the surfaces' atoms
-s0 = Surface([sys.atoms[0], sys.atoms[5]], calc_surf([sys.atoms[0], sys.atoms[5]]))
-s1 = Surface([sys.atoms[0], sys.atoms[3]], calc_surf([sys.atoms[0], sys.atoms[3]]))
-s2 = Surface([sys.atoms[0], sys.atoms[2]], calc_surf([sys.atoms[0], sys.atoms[2]]))
-s3 = Surface([sys.atoms[0], sys.atoms[4]], calc_surf([sys.atoms[0], sys.atoms[4]]))
-s4 = Surface([sys.atoms[0], sys.atoms[1]], calc_surf([sys.atoms[0], sys.atoms[1]]))
-s5 = Surface([sys.atoms[0], sys.atoms[6]], calc_surf([sys.atoms[0], sys.atoms[6]]))
+s0 = Surface([sys.atoms[0], sys.atoms[5]])
+s1 = Surface([sys.atoms[0], sys.atoms[3]])
+s2 = Surface([sys.atoms[0], sys.atoms[2]])
+s3 = Surface([sys.atoms[0], sys.atoms[4]])
+s4 = Surface([sys.atoms[0], sys.atoms[1]])
+s5 = Surface([sys.atoms[0], sys.atoms[6]])
 sys.net.surfs = [s0, s1, s2, s3, s4, s5]
 
 # Set the surfaces' vertices
