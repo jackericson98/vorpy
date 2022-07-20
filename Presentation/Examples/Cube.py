@@ -5,9 +5,9 @@ from Presentation.Visualize.visualize import plot_atoms, plot_verts, plot_surfs,
 import matplotlib.pyplot as plt
 
 # Create atom objects from sets of points
-atoms = [[[0, 0, 0], .5]]
-dist = 3
-rad = 2.5
+atoms = [[[0, 0, 0], 0.5]]
+dist = 2
+rad = 0.5
 
 atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[0, -dist, 0], rad], [[0, 0, dist], rad],
           [[0, 0, -dist], rad]]
@@ -85,3 +85,5 @@ plot_atoms(sys.atoms, fig=fig, ax=ax, dfo=2, alpha=0.1)
 plot_verts(sys.net.verts, fig=fig, ax=ax, colors=['r' for i in range(8)])
 plot_edges(sys.net.edges, fig=fig, ax=ax)
 plot_surfs(sys.net.surfs, fig=fig, ax=ax, Show=True, dfo=10)
+
+# Analysis checks:
