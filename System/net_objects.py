@@ -55,6 +55,8 @@ class Surface:
         self.verts = verts
         self.vert_points = []
         self.points = []  # List of points on the surface
+        self.simps = None
+        self.sa = None
         self.calc_surf()
 
     # Bisector function. Creates a bisector surface between 2 atoms
