@@ -60,8 +60,8 @@ def make_mesh(surf, min_dist, circ_mesh=False, radius=None, edges_made=False):
                 # Set the pn_1 to pn and add it to the path
                 pn_1 = pn
                 paths[i].append(pn)
-            # Increment i
-            i += 1
+                # Increment i
+                i += 1
     # Add the remaining paths to the surface
     for path in paths:
         surf.points += path[1:]
