@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from System.system import Atom
+from Analysis.find_simps import find_simps
 
 
 # Set up plot function. Used to set the parameters for the plot
@@ -72,31 +73,24 @@ def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid
         plt.show()
 
 
-# Plot surfaces function. Plots the surfaces given
-def plot_surfs(surfs, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None):
+# Plot vertices function. Plots the vertices of a network.
+def plot_verts(verts, plot_spheres=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None):
     # Set up the plot
     fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha)
-    # Set up the colors
+    # Default color is red
     if colors is None:
-        colors = ['y' for i in range(len(surfs))]
-    elif len(colors) < len(surfs):
-        colors = colors + ['y' for i in range(len(surfs) - len(colors))]
-    # Plot the surfaces
-    for i in range(len(surfs)):
-        x, y, z = [], [], []
-        # Add the surface points
-        for point in surfs[i].points + surfs[i].edge_points:
-            x.append(point[0])
-            y.append(point[1])
-            z.append(point[2])
-        if surfs[i].verts:
-            for vert in surfs[i].verts:
-                x.append(vert.loc[0])
-                y.append(vert.loc[1])
-                z.append(vert.loc[2])
-        # ax.plot_trisurf(x, y, z, alpha=alpha)
-        ax.scatter(x, y, z, s=[0.1 for j in range(len(x))], alpha=alpha, c=[colors[i] for k in range(len(x))])
-    # Show the figure
+        colors = ['r' for i in range(len(verts))]
+    # Plot each vertex
+    for i in range(len(verts)):
+        # Plot the point
+        ax.scatter(verts[i].loc[0], verts[i].loc[1], verts[i].loc[2], c=colors[i])
+    # Plot the inscribed spheres
+    if plot_spheres:
+        spheres = []
+        for i in range(len(verts)):
+            spheres.append(Atom(verts[i].loc, verts[i].rad))
+        plot_atoms(spheres, fig=fig, ax=ax)
+    # Show if the plot needs to be shown
     if Show:
         plt.show()
 
@@ -127,23 +121,45 @@ def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, color
         plt.show()
 
 
-# Plot vertices function. Plots the vertices of a network.
-def plot_verts(verts, plot_spheres=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None):
+# Plot surfaces function. Plots the surfaces given
+def plot_surfs(surfs, simps=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None):
     # Set up the plot
     fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha)
-    # Default color is red
+    # Set up the colors
     if colors is None:
-        colors = ['r' for i in range(len(verts))]
-    # Plot each vertex
-    for i in range(len(verts)):
-        # Plot the point
-        ax.scatter(verts[i].loc[0], verts[i].loc[1], verts[i].loc[2], c=colors[i])
-    # Plot the inscribed spheres
-    if plot_spheres:
-        spheres = []
-        for i in range(len(verts)):
-            spheres.append(Atom(verts[i].loc, verts[i].rad))
-        plot_atoms(spheres, fig=fig, ax=ax)
-    # Show if the plot needs to be shown
+        colors = ['y' for i in range(len(surfs))]
+    elif len(colors) < len(surfs):
+        colors = colors + ['y' for i in range(len(surfs) - len(colors))]
+    # Plot the surfaces
+    for i in range(len(surfs)):
+        s_points = np.array(surfs[i].points + surfs[i].edge_points)
+        x, y, z = s_points[:, 0], s_points[:, 1], s_points[:, 2]
+        if surfs[i].verts:
+            for vert in surfs[i].verts:
+                np.append(x, [vert.loc[0]])
+                np.append(y, [vert.loc[1]])
+                np.append(z, [vert.loc[2]])
+        # If simplices are requested get them or make them
+        if simps:
+            # If the simps don't exist make them
+            if surfs[i].simps is None:
+                surfs[i].simps = find_simps(surfs[i])
+            # Plot the simps using matplotlib tri_surf
+            ax.plot_trisurf(x, y, z, triangles=surfs[i].simps.triangles, alpha=.5)
+        # Otherwise, plot the points
+        else:
+            ax.scatter(x, y, z, s=[0.1 for j in range(len(x))], alpha=alpha, c=[colors[i] for k in range(len(x))])
+    # Show the figure
     if Show:
         plt.show()
+
+
+# Plot simplices function
+def plot_simps(surf, simps=None):
+    # If no simps are given, grab or create our own
+    if simps is None:
+        if not surf.simps:
+            simps = find_simps(surf)
+        else:
+            simps = surf.simps
+
