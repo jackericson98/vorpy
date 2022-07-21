@@ -42,7 +42,7 @@ def find_simps(surf):
     # Get the atoms
     a0, a1 = surf.atoms
     # Grab the points
-    points = surf.points + surf.edge_points
+    points = surf.points
     # Find the normal to the surface and the magnitude
     r10 = np.array(surf.atoms[0].loc) - np.array(surf.atoms[1].loc)
     d = np.linalg.norm(r10)
