@@ -13,25 +13,30 @@ def calc_edge_points(edge, surf, min_dist):
     num_points = max(int(calc_dist(pv0, pv1) / min_dist), 10)
     # Set angle A to be the incremental angle decided by num points
     A = max_ang / num_points
+    points = []
     # Calculate each point along the way
     for i in range(1, num_points):
         # If the edge points are empty set pb to the start vertex. Else get the previous point in the path
-        if not edge.points:
+        if not points:
             pb = pv0
         else:
-            pb = edge.points[-1]
-        edge.points.append(find_next_point(pb, pv1, A, surf))
+            pb = points[-1]
+        points.append(find_next_point(pb, pv1, A, surf))
+    return points
 
 
+# Edge trace function.
 def edge_trace1(surf, min_dist):
+    # Instantiate the edge_points list
+    edge_points = []
+    # Go through each edge in the surface's list of edges
     for edge in surf.edges:
         # If the edge points exist already add them to the surfaces edge points and continue to the next edge
-        if edge.points:
-            surf.edge_points += edge.points
-            continue
-        calc_edge_points(edge, surf, min_dist)
+        if not edge.points:
+            edge.points = calc_edge_points(edge, surf, min_dist)
         # Add the edge's points to the surface's edge points attribute
-        surf.edge_points += edge.points
+        edge_points += edge.points
+    return edge_points
 
 
 # Edge trace function
