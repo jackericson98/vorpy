@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 from Presentation.Visualize.visualize import *
 os.chdir("../..")
 
-
 cases = []
 # Case 0: No overlap - distance(a0, a1) < a0.rad + a1.rad
 cases.append([Atom([-2, 0, 0], 1.5), Atom([2, 0, 0], 0.5)])
@@ -31,6 +30,6 @@ titles = ["Case 0: No Overlap", "Case 1: Minimal overlap", "Case 2:"]
 for i in range(len(cases)):
     axn = fig.add_subplot(int("23" + str(i + 1)), projection="3d", xlim=10)
     plot_atoms(cases[i], fig=fig, ax=axn, colors=['r', 'b'], alpha=.1)
-    plot_surfs([surfs[i]], fig=fig, ax=axn, dfo=5)
+    plot_surfs([surfs[i]], simps=True, fig=fig, ax=axn, dfo=5)
 
 plt.show()
