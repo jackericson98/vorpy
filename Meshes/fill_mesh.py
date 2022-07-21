@@ -1,7 +1,4 @@
 from Meshes.edge_trace import *
-from System.system import Atom, Surface
-from Presentation.Visualize.visualize import plot_surfs, plot_atoms
-import matplotlib.pyplot as plt
 
 
 # Make mesh function. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
