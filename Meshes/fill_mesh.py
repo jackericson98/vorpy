@@ -3,19 +3,28 @@ from Meshes.edge_trace import *
 
 # Make mesh function. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
 def make_mesh(surf, min_dist, circ_mesh=False, radius=None, edges_made=False):
-    # Set the atoms in the surface to make the smaller one listed first
-    if surf.atoms[0].rad > surf.atoms[1].rad:
-        surf.atoms = surf.atoms[1], surf.atoms[0]
+    # Reset the all surface points to empty lists
+    surf.points, surf.vert_points, surf.edge_points, surf.surf_points = [], [], [], []
+    # Add the vertex points to the set of points in the mesh
+    if surf.verts:
+        for vert in surf.verts:
+            surf.vert_points.append(vert.loc)
+    # Add the vert points to the surface's points
+    surf.points.append(surf.vert_points)
     # Check to see if a circular mesh has been requested
     if circ_mesh:
         if radius is None:
             radius = surf.atoms[1].rad * 5
         surf.edge_points = make_bless_mesh(surf, radius, min_dist)
+    # This is for the voronota plot, since I didn't want to edge trace the edges
     elif edges_made:
-        pass
+        for edge in surf.edges:
+            surf.edge_points.append(edge.points)
+    # In the absence of special requests use the edge tracing function to get our edges
     else:
-        # Check to see if the edges' points have been recorded yet
-        edge_trace1(surf, min_dist)
+        surf.edge_points = edge_trace1(surf, min_dist)
+    # Add the edge points to the surface's points
+    surf.points.append(surf.edge_points)
     # For each edge point set up a path list.
     paths = [[surf.edge_points[i]] for i in range(len(surf.edge_points))]
     # Grab the smallest of the 2 surface atoms' location
@@ -49,7 +58,7 @@ def make_mesh(surf, min_dist, circ_mesh=False, radius=None, edges_made=False):
             # Check to see of the new point is too close to the previous point and the path has to end
             if calc_dist(pn, pn_1) < min_dist:
                 # Add the path to the surfaces points and remove it from the paths list
-                surf.points += paths.pop(i)[1:]
+                surf.surf_points += paths.pop(i)[1:]
                 ends.pop(i)
                 dthetas.pop(i)
                 num_paths -= 1
@@ -59,9 +68,9 @@ def make_mesh(surf, min_dist, circ_mesh=False, radius=None, edges_made=False):
                 paths[i].append(pn)
                 # Increment i
                 i += 1
-    # Add the remaining paths to the surface
+    # Add the remaining paths to the surface excluding the first point in the path (i.e. the edge point)
     for path in paths:
-        surf.points += path[1:]
+        surf.surf_points += path[1:]
 
 
 # Make boundless mesh.
