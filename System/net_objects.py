@@ -51,10 +51,11 @@ class Surface:
         self.func = None
         self.atoms = atoms  # List of Atom type objects
         self.edges = edges  # List of Edge type objects
-        self.edge_points = []
         self.verts = verts
         self.vert_points = []
-        self.points = []  # List of points on the surface
+        self.edge_points = []
+        self.surf_points = []  # List of points on the surface
+        self.points = []
         self.simps = None
         self.sa = None
         self.calc_surf()
