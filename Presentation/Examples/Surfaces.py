@@ -22,7 +22,7 @@ surfs = []
 for case_atoms in cases:
     mySurf = Surface(case_atoms)
     surfs.append(mySurf)
-    make_mesh(mySurf, 0.1, circ_mesh=True)
+    make_mesh(mySurf, 0.1)
 
 
 fig = plt.figure(figsize=(20, 40))
