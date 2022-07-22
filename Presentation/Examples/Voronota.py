@@ -7,9 +7,9 @@ import numpy as np
 
 os.chdir("../..")
 # Files
-m_file = "./Data/test_data/Na_W_cluster5.pdb"
-b_file = "./Data/test_data/Na_W_cluster5_balls.txt"
-v_file = "./Data/test_data/Na_W_cluster5_vertices.txt"
+m_file = "./Data/test_data/Complex1.pdb"
+b_file = "./Data/test_data/Complex1_balls.txt"
+v_file = "./Data/test_data/Complex1_vertices.txt"
 
 # Get the System
 sys = System(m_file)
@@ -71,11 +71,11 @@ def build_vrnta_meshes(sys, min_dist):
     return sys
 
 
-build_vrnta_meshes(sys, 2)
+build_vrnta_meshes(sys, 20)
 
 fig = plt.figure()
 ax = fig.add_subplot(projection="3d")
-plot_atoms([sys.net.atoms[0]], fig=fig, ax=ax)
-plot_edges(sys.net.atoms[0].edges, fig=fig, ax=ax)
-plot_verts(sys.net.atoms[0].verts, fig=fig, ax=ax)
-plot_surfs(sys.net.atoms[0].surfs, simps=True, fig=fig, ax=ax, Show=True)
+# plot_atoms(sys.net.atoms, fig=fig, ax=ax, dfo=20)
+plot_edges(sys.net.edges, fig=fig, ax=ax, dfo=20)
+plot_verts(sys.net.verts, fig=fig, ax=ax)
+plot_surfs(sys.net.surfs, simps=True, fig=fig, ax=ax, Show=True)
