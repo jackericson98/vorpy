@@ -62,8 +62,9 @@ def build_vrnta_meshes(sys, min_dist):
         # Change the radius and location of the smaller atom to represent a flat surface
         a0.loc = [a0.loc[0] + r_diff * r10_hat[0], a0.loc[1] + r_diff * r10_hat[1], a0.loc[2] + r_diff * r10_hat[2]]
         a0.rad = a1.rad
+        surf.atoms = [a0, a1]
         # Make the mesh
-        make_mesh(surf, 0.1, edges_made=True)
+        make_mesh(surf, 0.1, vta=True)
         # Return a0 to its radius and location
         a0.rad = a0.rad - r_diff
         a0.loc = [a0.loc[0] - r_diff * r10_hat[0], a0.loc[1] - r_diff * r10_hat[1], a0.loc[2] - r_diff * r10_hat[2]]
@@ -71,9 +72,10 @@ def build_vrnta_meshes(sys, min_dist):
 
 
 build_vrnta_meshes(sys, 2)
+
 fig = plt.figure()
 ax = fig.add_subplot(projection="3d")
-plot_atoms(sys.net.atoms, fig=fig, ax=ax)
-plot_edges(sys.net.edges, fig=fig, ax=ax)
-plot_verts(sys.net.verts, fig=fig, ax=ax)
-plot_surfs(sys.net.surfs, fig=fig, ax=ax, Show=True)
+plot_atoms([sys.net.atoms[0]], fig=fig, ax=ax)
+plot_edges(sys.net.atoms[0].edges, fig=fig, ax=ax)
+plot_verts(sys.net.atoms[0].verts, fig=fig, ax=ax)
+plot_surfs(sys.net.atoms[0].surfs, simps=True, fig=fig, ax=ax, Show=True)
