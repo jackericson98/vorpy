@@ -34,6 +34,7 @@ class System:
         elif file[-3:] == "mol":
             self.get_mol()
         self.net = Network(self.atoms)
+        self.Voronota = False
 
     # Get name method. Extracts the name from the file name
     @staticmethod
@@ -161,6 +162,7 @@ class System:
 
     # Add Voronota data method. Takes in voronota data and adds it to the System
     def add_vta_data(self, ball_file, vert_file):
+        self.Voronota = True
         # Create the System and load the files
         vert_file = open(vert_file).readlines()
         ball_file = open(ball_file).readlines()
