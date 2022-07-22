@@ -132,13 +132,11 @@ def plot_surfs(surfs, simps=False, fig=None, ax=None, Show=False, dfo=None, grid
         colors = colors + ['y' for i in range(len(surfs) - len(colors))]
     # Plot the surfaces
     for i in range(len(surfs)):
-        s_points = np.array(surfs[i].points + surfs[i].edge_points)
-        x, y, z = s_points[:, 0], s_points[:, 1], s_points[:, 2]
-        if surfs[i].verts:
-            for vert in surfs[i].verts:
-                np.append(x, [vert.loc[0]])
-                np.append(y, [vert.loc[1]])
-                np.append(z, [vert.loc[2]])
+        x, y, z = [], [], []
+        for point in surfs[i].points:
+            x.append(point[0])
+            y.append(point[1])
+            z.append(point[2])
         # If simplices are requested get them or make them
         if simps:
             # If the simps don't exist make them
