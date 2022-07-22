@@ -128,7 +128,7 @@ def find_next_point(pn_1, end, d_theta, surf):
     # Get the smaller atom's location
     pa = surf.atoms[0].loc
     # Get the location of point b
-    pb = pn_1
+    pb = np.array(pn_1)
     # Get the distance between pb and pa
     c = calc_dist(pa, pb)
     # Get the angle between pa, pb and pv1
