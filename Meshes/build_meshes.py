@@ -16,6 +16,6 @@ def build_meshes(sys=None, meshes=None, min_dist=None):
         min_dist = 0.5
     # Make each surface
     for surf in sys.net.surfs:
-        make_mesh(surf, min_dist)
+        make_mesh(surf, min_dist, vta=sys.Voronota)
     # Return the surfaces
     return sys.net.surfs
