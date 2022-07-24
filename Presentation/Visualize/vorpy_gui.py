@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import filedialog, CENTER
 # Internal Imports
 from System.system import System
-from Network import build_network
+from System.Network import build_network
 from Presentation.Visualize.visualize import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg)
@@ -49,7 +49,7 @@ class Vorpy:
         # Buttons:
         self.get_file = tk.Button(text="Load Molecule", command=self.load_molecule_button)
         self.make_network = tk.Button(text="Build Network", command=self.build_network_button)
-        self.make_meshes = tk.Button(text="Build Meshes", command=self.build_meshes_button)
+        self.make_meshes = tk.Button(text="Build Surfaces", command=self.build_meshes_button)
         self.exit = tk.Button(text="Exit", command=self.vp_main.destroy)
         self.atoms_butt = tk.Button(text="Atoms", command=self.show_atoms)
         self.verts_butt = tk.Button(text="Vertices", command=self.show_verts)
