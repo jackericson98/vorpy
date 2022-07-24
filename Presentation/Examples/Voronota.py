@@ -1,15 +1,15 @@
 import os
-from System.system import System, Surface
-from Network.connect_network import connect_network
-from Meshes.build_meshes import make_mesh
+from System.system import System
+from System.Network.connect_network import connect_network
+from System.Network.Surfaces.build_meshes import make_mesh
 from Presentation.Visualize.visualize import *
 import numpy as np
 
 os.chdir("../..")
 # Files
-m_file = "./Data/test_data/Complex1.pdb"
-b_file = "./Data/test_data/Complex1_balls.txt"
-v_file = "./Data/test_data/Complex1_vertices.txt"
+m_file = "./Data/test_data/Na_W_cluster5.pdb"
+b_file = "./Data/test_data/Na_W_cluster5_balls.txt"
+v_file = "./Data/test_data/Na_W_cluster5_vertices.txt"
 
 # Get the System
 sys = System(m_file)
