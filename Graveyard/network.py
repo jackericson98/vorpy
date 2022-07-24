@@ -1,7 +1,5 @@
 """Imports"""
-import numpy as np
-from System.system import Edge, Vertex
-from Network.net_calcs import *
+from System.Network.Vertices.vert_calcs import *
 
 
 ########################################################################################################################

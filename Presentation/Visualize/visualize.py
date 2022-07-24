@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from System.system import Atom
-from Analysis.find_simps import find_simps
+from System.Analysis.find_simps import find_simps
 
 
 # Set up plot function. Used to set the parameters for the plot

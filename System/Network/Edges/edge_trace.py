@@ -1,4 +1,4 @@
-from Meshes.mesh_calcs import *
+from System.Network.Surfaces.surf_calcs import *
 
 
 # Calculate edge points function. Takes in an edge and a surface and updates the edge's points.

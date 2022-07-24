@@ -1,4 +1,4 @@
-from Meshes.edge_trace import *
+from System.Network.Edges.edge_trace import *
 
 
 # Make mesh function. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges

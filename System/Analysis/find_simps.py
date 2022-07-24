@@ -1,5 +1,3 @@
-import numpy as np
-from Analysis.anal_calcs import *
 from Presentation.Visualize.visualize import *
 import matplotlib.tri as mtri
 

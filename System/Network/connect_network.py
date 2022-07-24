@@ -1,5 +1,5 @@
-from System.system import Edge, Surface
-from Network.find_vertices import *
+from System.sys_calcs import *
+from System.Network.Vertices.find_vertices import *
 
 
 # Connect network function. Takes in a network with vertices defined and returns a filled out network of atoms,

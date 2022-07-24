@@ -1,5 +1,5 @@
-from Analysis.anal_calcs import *
-from Analysis.find_simps import find_simps
+from System.Analysis.anal_calcs import *
+from System.Analysis.find_simps import find_simps
 
 
 # Analyze system function. Finds the surfaces and volumes of the system

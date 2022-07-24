@@ -1,6 +1,5 @@
 """Calculator functions"""
 import numpy as np
-from System.checks import *
 from scipy.spatial import Delaunay as dl
 
 

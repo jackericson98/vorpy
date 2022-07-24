@@ -1,6 +1,6 @@
 from System.system import System, Edge, Surface
-from Network.find_vertices import calc_vert, find_vertices
-from Meshes.build_meshes import build_meshes
+from System.Network.Vertices.find_vertices import calc_vert
+from System.Network.Surfaces.build_meshes import build_meshes
 from Presentation.Visualize.visualize import plot_atoms, plot_verts, plot_surfs, plot_edges
 import matplotlib.pyplot as plt
 

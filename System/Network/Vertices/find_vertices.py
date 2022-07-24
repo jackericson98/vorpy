@@ -1,5 +1,4 @@
-from System.system import Edge
-from Network.net_calcs import *
+from System.Network.Vertices.vert_calcs import *
 
 ########################################################################################################################
 """Finding functions"""
@@ -108,6 +107,10 @@ def find_vertices(sys):
     vert_stack = [v0]
     # While the verts stack is not empty
     while vert_stack:
+        # Running print statement giving an estimate for percentage of the network that has been created
+        tot_verts = max(len(sys.net.verts) + int(3*len(vert_stack)/4), 4 * len(sys.atoms))
+        percentage = int(len(sys.net.verts) / tot_verts * 100)
+        print("\rBuilding Network: ", percentage, "%", end='')
         # Get the vertex from the top of the stack
         vert = vert_stack.pop()
         # Set up the edge stack

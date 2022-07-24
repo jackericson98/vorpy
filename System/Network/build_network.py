@@ -1,4 +1,4 @@
-from Network.connect_network import *
+from System.Network.connect_network import *
 
 
 # Build network function. Takes in a system and returns a fully connected network

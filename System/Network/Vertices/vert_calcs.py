@@ -1,24 +1,6 @@
-import numpy as np
-from System.system import Vertex
-from System.checks import *
+from System.sys_calcs import *
+from System.system import *
 """Calculator functions"""
-
-
-# Calculate distance function. Takes in 2 points and returns the distance between them
-def calc_dist(l1, l2):
-    d = np.sqrt((l1[0]-l2[0])**2+(l1[1]-l2[1])**2+(l1[2]-l2[2])**2)
-    return d
-
-
-# Calculate center of mass function. Takes in a set of points and returns the coordinates of the com
-def calc_com(atoms):
-    # Set the running sum for the x, y, z values to 0
-    xtot, ytot, ztot = 0, 0, 0
-    for atom in atoms:
-        xtot = xtot + atom.loc[0]
-        ytot = ytot + atom.loc[1]
-        ztot = ztot + atom.loc[2]
-    return xtot/len(atoms), ytot/len(atoms), ztot/len(atoms)
 
 
 # Calculate direction function. Takes in a vertex and an edge and returns True if it is facing the center
@@ -26,6 +8,7 @@ def calc_dir(edge):
     # Grab the previous vertex
     vn_1 = edge.verts[0]
     # Find ak and copy it
+    ak = None
     for atom in vn_1.atoms:
         if not {atom}.issubset(edge.atoms):
             ak = atom
@@ -68,41 +51,6 @@ def calc_rel_dist(v0, v1, edge):
         rel_dist = np.inf
     # Return the relative distance
     return rel_dist
-
-
-# Sort by distance function. Sorts all atoms in the System by distance from COM of given atoms
-def sortbyDist(atoms, net, length=None):
-    # If the length of the returned list is not specified return the whole list
-    if length is None:
-        length = len(net.atoms)
-    # Find the point closest to each of the atoms
-    loc = [0, 0, 0]
-    for i in range(len(atoms)):
-        f = i + 1
-        loc = loc[0] + atoms[i].loc[0] / f, loc[1] + atoms[i].loc[1] / f, loc[2] + atoms[i].loc[2] / f
-    # Initialize the lists
-    dist_list = []
-    atom_list = []
-    # Go through all the atoms in the molecules
-    for atom2 in net.atoms:
-        # Don't include the atoms in our list of atom
-        if atom2 in atoms:
-            continue
-        # Get the distance between the atoms and subtract their radii
-        dist = calc_dist(loc, atom2.loc) - atom2.rad
-        dist_list.append(dist)
-        atom_list.append(atom2)
-    # Selection sort the atom list based off their distances from the point
-    for i in range(len(dist_list)):
-        low_in = i
-        for j in range(i+1, len(dist_list)):
-            if dist_list[low_in] > dist_list[j]:
-                low_in = j
-                dist_list[i], dist_list[low_in] = dist_list[low_in], dist_list[i]
-                atom_list[i], atom_list[low_in] = atom_list[low_in], atom_list[i]
-
-    # Return a list with the length specified
-    return atom_list[:length]
 
 
 # Move sphere function. Takes in a location, an Atom object and a direction and updates the Atom's location
@@ -278,132 +226,3 @@ def calc_vert(atoms):
         if len(verts) == 2 and verts[0].rad > verts[1].rad:
             return verts[1]
         return verts[0]
-
-
-# Calculate edge function. Takes in an edge and the network and returns the closest vertex along that edge
-def calc_edge(edge, net):
-    # Grab the vertex of the edge for later use
-    v0 = edge.verts[0]
-    # Find the center of the edge atoms
-    circ = calc_circ(edge.atoms)
-    # If the circle made between the atom edges is Nonetype return
-    if not circ:
-        return
-    else:
-        circ = circ[0][0]
-    # Find the distance between the old vertex and the center of the bottleneck
-    d1 = calc_dist(v0.loc, circ)
-    # Make a list of the closest neighbors
-    neighbors = sortbyDist(edge.atoms, net)
-    # Find the other atom from the old vertex
-    an = None
-    # Find the atom from the v0 that is not in the edge's atom list
-    for atom in v0.atoms:
-        # Set our changing atom to the outlier atom found above and change the radius by 5%
-        if atom not in edge.atoms:
-            an = atom
-    # Set the closest distance to infinity and the vertex to None
-    c_dist = np.inf
-    myVert = None
-    # Go through each atom in the neighbor list
-    for n in neighbors[:15]:
-        # Check to see if the neighbor is the old vertex's other atom. If so continue
-        if n == an:
-            continue
-        # Calculate the vertex of the edge atoms with the neighbor atom
-        vn = calc_vert(edge.atoms + [n])
-        # Make sure that the vertex exists and does not overlap with the old vertex
-        if not vn or check_vert(set(vn.atoms), net.verts):
-            continue
-        # Check to see if it is a real vertex or not
-        i = 0
-        overlap = False
-        while i < len(neighbors):
-            if {neighbors[i]}.issubset(edge.atoms + [n]):
-                continue
-            if calc_dist(vn.loc, neighbors[i].loc) - (vn.rad + neighbors[i].rad) < 0:
-                overlap = True
-
-        if not overlap:
-            # Calculate the distance between the new vertex and the center
-            d2 = calc_dist(vn.loc, circ)
-            # Calculate the distance between the new vertex and the old vertex
-            d3 = calc_dist(vn.loc, v0.loc)
-            # Mevdevev's edge site finding checks. Find the shortest relative distance from v0 to vn
-            if d1 <= d3 or d2 <= d3:
-                r_len = d1 + d2
-            else:
-                r_len = d3
-            if r_len < c_dist:
-                myVert = vn
-                c_dist = r_len
-    return myVert
-
-
-# Calculate edge function. Chases an edge toward the next vertex
-def calc_edge1(edge, net, dt=None):
-    # Find the closest neighbors
-    neighbors = sortbyDist(edge.atoms, net, length=50)
-    # Get the old vertex
-    v0 = edge.verts[0]
-    # Estimate a working dt
-    if dt is None:
-        dt = edge.atoms[0].rad / 20
-    an = None
-    # Find the atom from the v0 that is not in the edge's atom list
-    for atom in v0.atoms:
-        # Set our changing atom to the outlier atom found above and change the radius by 5%
-        if atom not in edge.atoms:
-            an = atom
-    # Calculate the bottleneck of the edge
-    bn = calc_circ(edge.atoms)[0][1]
-    # Adjust the size of the atom to fit through the bottleneck
-    if bn < 1.05*an.rad:
-        an.rad = 0.95*bn
-    # Find the vertex between the edge atoms and the adjusted atom
-    vn = calc_vert(edge.atoms + [an])
-    # If we get a None vertex the shrink went too far. Keep increasing radius until a vertex is found.
-    while vn is None:
-        an.rad = an.rad * 1.01
-        vn = calc_vert(edge.atoms + [an])
-    # If the radius is larger than the bottleneck, continue and hope that the other side of the edge will be able to
-    if vn.rad > bn:
-        return
-    # Find the initial direction by getting the vector between the new vertex formed after the atom got smaller
-    dr = np.array([v0.loc[0] - vn.loc[0], v0.loc[1] - vn.loc[1], v0.loc[2] - vn.loc[2]])
-    elen = 0
-    vfound = False
-    vert = None
-    # Keep adding points to the edge until the next vertex is found or the edge left the network
-    while not vfound:
-        # Normalize the direction vector
-        dr_mag = np.sqrt(dr.dot(dr))
-        dr = dr / dr_mag
-        # Add up the length of the edge
-        elen += dr_mag
-        if elen > net.rad:
-            edge.verts.append(None)
-            return None
-        # Record vns location before changing it
-        vn_1 = vn
-        # Move the atom along the direction of the edge by dt increments
-        an.loc = an.loc[0] + dt*dr[0], an.loc[1] + dt*dr[1], an.loc[2] + dt*dr[2]
-        # Calculate the new vertex
-        vn = calc_vert(edge.atoms + [an])
-        # Add the vertex location to the edges points
-        edge.points.append(vn.loc)
-        # Find the new move direction by finding the direction from vn-1 to vn
-        dr = np.array([vn.loc[0] - vn_1.loc[0], vn.loc[1] - vn_1.loc[1], vn.loc[2] - vn_1.loc[2]])
-        # Check to see if we have passed a vertex
-        for vert in neighbors:
-            # Calculate the vectors between the vertex and the new and old edge points
-            d1 = np.array([vn_1.loc[0] - vert.loc[0], vn_1.loc[0] - vert.loc[0], vn_1.loc[0] - vert.loc[0]])
-            d2 = np.array([vn.loc[0] - vert.loc[0], vn.loc[0] - vert.loc[0], vn.loc[0] - vert.loc[0]])
-            # Check to see if the vertex is in between the new and old edge points
-            if np.sqrt(d1.dot(d1)) <= dr_mag and np.sqrt(d2.dot(d2)) <= dr_mag:
-                # If so, we have found our vert and exit
-                vfound = True
-    # Add the vertex to the edge and the network
-    edge.verts.append(vert)
-    net.verts.append(vert)
-    return vert
