@@ -65,54 +65,6 @@ def move(loc, atom, to_home=False):
     atom.loc[2] = atom.loc[2] + d * loc[2]
 
 
-# Calculate circle function. Takes in 3 atoms, calculates the center and radius of inscribed circle and returns them
-def calc_circ(atoms):
-    # The real location and radius of the base sphere
-    l1, R1 = atoms[0].loc, atoms[0].rad
-    # Get the relevant variables
-    R2, R3 = atoms[1].rad, atoms[2].rad
-    x2, y2, z2 = atoms[1].loc[0] - l1[0], atoms[1].loc[1] - l1[1], atoms[1].loc[2] - l1[2]
-    x3, y3, z3 = atoms[2].loc[0] - l1[0], atoms[2].loc[1] - l1[1], atoms[2].loc[2] - l1[2]
-    # Calculate coefficients
-    a1, b1, c1, d1, f1 = 2 * x2, 2 * y2, 2 * z2, 2 * (R1 - R2), R1 ** 2 - R2 ** 2 + x2 ** 2 + y2 ** 2 + z2 ** 2
-    a2, b2, c2, d2, f2 = 2 * x3, 2 * y3, 2 * z3, 2 * (R1 - R3), R1 ** 2 - R3 ** 2 + x3 ** 2 + y3 ** 2 + z3 ** 2
-    a3, b3, c3 = y2*z3 - z2*y3, z2*x3 - x2*z3, x2*y3 - y2*x3
-    # More coefficients
-    F = a3*b2*c1 - a2*b3*c1 - a3*b1*c2 + a1*b3*c2 + a2*b1*c3 - a1*b2*c3
-    Fx0 = b3*c2*f1 - b2*c3*f1 - b3*c1*f2 + b1*c3*f2
-    Fx1 = b3*c2*d1 - b2*c3*d1 - b3*c1*d2 + b1*c3*d2
-    Fy0 = - a3*c2*f1 + a2*c3*f1 + a3*c1*f2 - a1*c3*f2
-    Fy1 = - a3*c2*d1 + a2*c3*d1 + a3*c1*d2 - a1*c3*d2
-    Fz0 = a3*b2*f1 - a2*b3*f1 - a3*b1*f2 + a1*b3*f2
-    Fz1 = a3*b2*d1 - a2*b3*d1 - a3*b1*d2 + a1*b3*d2
-    # Catch for F=0 (i.e. no circle exists)
-    if F == 0:
-        return
-    # Find the radius of the tangential circle using the quadratic formula
-    a = (Fx1 ** 2 + Fy1 ** 2 + Fz1 ** 2) / F ** 2 - 1
-    b = 2 * (Fx0 * Fx1 + Fy0 * Fy1 + Fz0 * Fz1) / F ** 2 - 2 * R1
-    c = (Fx0 ** 2 + Fy0 ** 2 + Fz0 ** 2) / F ** 2 - R1 ** 2
-    # Calculate the discriminant.
-    disc = b ** 2 - 4 * a * c
-    # If the discriminant is negative then the tangential sphere does not exist.
-    if disc > 0:
-        circs = []
-        Rs = [R for R in np.roots([a, b, c]) if np.isreal(R) and R > 0]
-        Rs.sort()
-        # Go through each circle and gather its points
-        for R in Rs:
-            # Calculate the vertex based off of our coefficient values and the sphere's radius
-            x = Fx0 / F + R * Fx1 / F + l1[0]
-            y = Fy0 / F + R * Fy1 / F + l1[1]
-            z = Fz0 / F + R * Fz1 / F + l1[2]
-            # Add the circle to the circle array
-            circs.append([[x, y, z], R])
-        return circs
-    # Catch for negative discriminant
-    else:
-        return
-
-
 # Calculate vertex function. Takes in 4 atoms, calculates the center and radius of the inscribed sphere and returns them
 def calc_vert(atoms):
     # The real location and radius of the base sphere

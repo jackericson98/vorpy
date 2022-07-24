@@ -1,37 +1,6 @@
 """Calculator functions"""
-import numpy as np
 from scipy.spatial import Delaunay as dl
-
-
-# Calculate distance function. Finds the distance between 2 points
-def calc_dist(l1, l2):
-    d = np.sqrt((l1[0]-l2[0])**2+(l1[1]-l2[1])**2+(l1[2]-l2[2])**2)
-    return d
-
-
-# Calculate center of mass function. Takes in a set of points and returns the coordinates of the com
-def calc_com(points):
-    # Set the running sum for the x, y, z values to 0
-    xtot, ytot, ztot = 0, 0, 0
-    for point in points:
-        xtot = xtot + point[0]
-        ytot = ytot + point[1]
-        ztot = ztot + point[2]
-    return xtot/len(points), ytot/len(points), ztot/len(points)
-
-
-# Calculate angle function. Finds the angle (in rads) between three points. The first being the common point
-def calc_angle(p0, p1, p2=None):
-    # If no p2 is given, use the origin
-    if p2 is None:
-        v0, v1 = np.array(p0), np.array(p1)
-    else:
-        v0, v1 = np.array(p1) - np.array(p0), np.array(p2) - np.array(p0)
-    # Get the unit vectors
-    n0, n1 = v0/np.linalg.norm(v0), v1/np.linalg.norm(v1)
-    # Calculate the angle between the two vectors with catches for 180 and 0
-    angle = np.arccos(np.clip(np.dot(n0, n1), -1.0, 1.0))
-    return angle
+from System.sys_calcs import *
 
 
 # Rotate points function. takes in a vector and points and rotates the points toward the origin away from the vector
