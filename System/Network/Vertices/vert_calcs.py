@@ -20,10 +20,10 @@ def calc_dir(edge):
     # Move the copy toward the center of the edge.
     akp.loc = [akp.loc[0] + r0_hat[0]*0.1, akp.loc[1] + r0_hat[1]*0.1, akp.loc[2] + r0_hat[2]*0.1]
     # Calculate the new vertex made by akp
-    vkp = calc_vert(edge.atoms + [akp])
+    vkp = Vertex(edge.atoms + [akp])
     while not vkp:
         akp.loc = [akp.loc[0] - r0_hat[0]*0.01, akp.loc[1] - r0_hat[1]*0.1, akp.loc[2] - r0_hat[2]*0.1]
-        vkp = calc_vert(edge.atoms + [akp])
+        vkp = Vertex(edge.atoms + [akp])
     # If the new inscribed sphere overlaps with ak, flip the direction of tang_hat
     if calc_dist(ak.loc, vkp.loc) - (ak.rad + vkp.rad) < 0:
         return False

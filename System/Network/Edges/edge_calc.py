@@ -1,7 +1,7 @@
 from System.Network.Edges.edge_calcs import *
 
 
-# Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
+# Calculate edge point function. Takes in a surface and a point and returns the intersection point of the vector
 # from the center of the smallest of the surfaces 2 atoms through the point into the surface
 def calc_edge_point(edge, s0):
     # Grab the function's coefficients

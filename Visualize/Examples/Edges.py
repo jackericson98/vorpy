@@ -1,5 +1,5 @@
 import os
-from Presentation.Visualize.visualize import *
+from Visualize.visualize import *
 from System.Network.Edges.edge import Edge
 from System.Network.Vertices.vertex import Vertex
 os.chdir("../..")

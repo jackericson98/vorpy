@@ -1,4 +1,4 @@
-from System.sys_calcs import np
+from System.sys_calcs import *
 
 
 class Vertex:

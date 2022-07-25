@@ -39,11 +39,11 @@ class Surface:
         # Calculate hyperboloid coefficients
         for i in range(3):
             ABC.append(4 * R ** 2 - 4 * d[i] ** 2)
-            DEF.append(
-                -8 * d[i] * d[(i + 1) % 3])  # The equation asks for D_y, D_z, D_x in that order, hence modulus
+            DEF.append(-8 * d[i] * d[(i + 1) % 3])  # The equation asks for D_y, D_z, D_x in that order, hence modulus
             GHI.append(-8 * R ** 2 * a0.loc[i] - 4 * K * d[i])
 
         self.func = ABC + DEF + GHI + [J] + [K] + [d]
 
+    # Build method. Makes the mesh for the surface
     def build(self):
         make_mesh(self, min_dist=0.1)

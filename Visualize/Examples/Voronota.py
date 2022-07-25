@@ -1,8 +1,7 @@
 import os
 from System.system import System
 from System.sys_funcs import build_vrnta_meshes
-from Presentation.Visualize.visualize import *
-import numpy as np
+from Visualize.visualize import *
 
 os.chdir("../..")
 # Files

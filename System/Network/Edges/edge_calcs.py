@@ -1,5 +1,5 @@
 from System.sys_calcs import *
-from System.Network.Vertices.vert_calcs import calc_circ, calc_vert
+from System.Network.Vertices.vertex import Vertex
 
 
 # Calculate edge function. Takes in an edge and the network and returns the closest vertex along that edge
@@ -33,7 +33,7 @@ def calc_edge(edge, net):
         if n == an:
             continue
         # Calculate the vertex of the edge atoms with the neighbor atom
-        vn = calc_vert(edge.atoms + [n])
+        vn = Vertex(edge.atoms + [n])
         # Make sure that the vertex exists and does not overlap with the old vertex
         if not vn or check_vert(set(vn.atoms), net.verts):
             continue
@@ -83,11 +83,11 @@ def calc_edge1(edge, net, dt=None):
     if bn < 1.05*an.rad:
         an.rad = 0.95*bn
     # Find the vertex between the edge atoms and the adjusted atom
-    vn = calc_vert(edge.atoms + [an])
+    vn = Vertex(edge.atoms + [an])
     # If we get a None vertex the shrink went too far. Keep increasing radius until a vertex is found.
     while vn is None:
         an.rad = an.rad * 1.01
-        vn = calc_vert(edge.atoms + [an])
+        vn = Vertex(edge.atoms + [an])
     # If the radius is larger than the bottleneck, continue and hope that the other side of the edge will be able to
     if vn.rad > bn:
         return
@@ -111,7 +111,7 @@ def calc_edge1(edge, net, dt=None):
         # Move the atom along the direction of the edge by dt increments
         an.loc = an.loc[0] + dt*dr[0], an.loc[1] + dt*dr[1], an.loc[2] + dt*dr[2]
         # Calculate the new vertex
-        vn = calc_vert(edge.atoms + [an])
+        vn = Vertex(edge.atoms + [an])
         # Add the vertex location to the edges points
         edge.points.append(vn.loc)
         # Find the new move direction by finding the direction from vn-1 to vn

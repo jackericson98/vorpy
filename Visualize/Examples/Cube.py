@@ -2,7 +2,7 @@ from System.system import System
 from System.Network.Vertices.vertex import Vertex
 from System.Network.Edges.edge import Edge
 from System.Network.Surfaces.surface import Surface
-from Presentation.Visualize.visualize import plot_atoms, plot_verts, plot_surfs, plot_edges
+from Visualize.visualize import plot_atoms, plot_verts, plot_surfs, plot_edges
 import matplotlib.pyplot as plt
 
 # Create atom objects from sets of points

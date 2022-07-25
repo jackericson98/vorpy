@@ -1,4 +1,4 @@
-from Presentation.Visualize.visualize import *
+from Visualize.visualize import *
 from System.Network.Vertices.vertex import Vertex
 """Example for vertices"""
 
@@ -21,7 +21,7 @@ for i in range(len(cases)):
     myVert = Vertex(atoms=cases[i])
     verts.append(myVert)
 
-print(verts)
+
 fig = plt.figure(figsize=(20, 40))
 titles = ["Case 0: No Overlap", "Case 1: One overlapping ball", "Case 2: Two overlapping balls",
           "Case 3: Three overlapping balls", "Case 4: Four overlapping balls"]

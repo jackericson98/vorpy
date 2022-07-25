@@ -4,7 +4,7 @@ from tkinter import filedialog, CENTER
 # Internal Imports
 from System.system import System
 from System.Network import build_network
-from Presentation.Visualize.visualize import *
+from Presentation.visualize import *
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg)
 import glob

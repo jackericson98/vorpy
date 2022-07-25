@@ -1,6 +1,6 @@
 import os
 from System.system import Surface
-from Presentation.Visualize.visualize import *
+from Visualize.visualize import *
 os.chdir("../..")
 
 cases = []

@@ -1,7 +1,6 @@
 import os
 from System.system import System
-from System.Network.network import Network
-from Presentation.Visualize.visualize import plot_edges
+from Visualize.visualize import plot_edges
 import matplotlib.pyplot as plt
 from System.Network.net_funcs import find_vertices
 os.chdir("../..")

@@ -1,4 +1,4 @@
-from Presentation.Visualize.visualize import *
+from Visualize.visualize import *
 import matplotlib.tri as mtri
 
 

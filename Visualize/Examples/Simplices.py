@@ -1,6 +1,6 @@
 from System.system import *
 from System.Network.Surfaces.surface import make_mesh
-from Presentation.Visualize.visualize import *
+from Visualize.visualize import *
 
 # Create the atoms for the mesh
 atoms = [Atom([-5, 0, 0], 3), Atom([5, 0, 0], 1)]
