@@ -1,4 +1,4 @@
-from System.Network.Surfaces.surf_calcs import *
+from System.Network.surf_calcs import *
 
 
 # Calculate edge points function. Takes in an edge and a surface and updates the edge's points.
@@ -24,20 +24,6 @@ def calc_edge_points(edge, surf, min_dist):
         point1 = find_next_point(pb, pv1, A, surf)
         points.append([point1[0], point1[1], point1[2]])
     return points
-
-
-# Edge trace function.
-def edge_trace1(surf, min_dist):
-    # Instantiate the edge_points list
-    edge_points = []
-    # Go through each edge in the surface's list of edges
-    for edge in surf.edges:
-        # If the edge points exist already add them to the surfaces edge points and continue to the next edge
-        if not edge.points:
-            edge.points = calc_edge_points(edge, surf, min_dist)
-        # Add the edge's points to the surface's edge points attribute
-        edge_points += edge.points
-    return edge_points
 
 
 # Edge trace function

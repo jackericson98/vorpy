@@ -1,7 +1,7 @@
 from System.system import System
-from System.Network.Vertices.vertex import Vertex
-from System.Network.Edges.edge import Edge
-from System.Network.Surfaces.surface import Surface
+from System.Network.vertex import Vertex
+from System.Network.edge import Edge
+from System.Network.surface import Surface
 from Visualize.visualize import plot_atoms, plot_verts, plot_surfs, plot_edges
 import matplotlib.pyplot as plt
 

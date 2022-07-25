@@ -1,5 +1,5 @@
 from System.sys_calcs import *
-from System.Network.Vertices.vertex import Vertex
+from System.Network.vertex import Vertex
 
 
 # Calculate edge function. Takes in an edge and the network and returns the closest vertex along that edge

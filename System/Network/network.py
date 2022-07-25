@@ -1,5 +1,5 @@
-from System.Network.Edges.edge import Edge
-from System.Network.Surfaces.surface import Surface
+from System.Network.edge import Edge
+from System.Network.surface import Surface
 from System.Network.net_funcs import *
 
 

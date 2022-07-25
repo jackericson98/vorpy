@@ -115,7 +115,7 @@ def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, color
         ys.append(edges[i].verts[1].loc[1])
         zs.append(edges[i].verts[1].loc[2])
         # Plot the points
-        ax.plot(xs, ys, zs, c=colors[i])
+        ax.scatter(xs, ys, zs, c=colors[i])
     # Show the figure
     if Show:
         plt.show()

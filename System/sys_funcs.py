@@ -1,5 +1,5 @@
 from System.sys_calcs import *
-from System.Network.Surfaces.surface import make_mesh
+from System.Network.surface import make_mesh
 
 
 # Build Voronota meshes function. Takes in a voronota system and builds meshes for it

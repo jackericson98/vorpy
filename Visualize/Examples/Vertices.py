@@ -1,5 +1,5 @@
 from Visualize.visualize import *
-from System.Network.Vertices.vertex import Vertex
+from System.Network.vertex import Vertex
 """Example for vertices"""
 
 # With vertices, we have __ different cases

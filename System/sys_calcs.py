@@ -48,7 +48,7 @@ def calc_edges_com(edges=None, surf=None, points=None):
     elif points:
         myPoints = points
     else:
-        print("Please give a surface or mesh!")
+        print("Please give a surface or mesh!")\
     # Find the sum of the points
     x_tot, y_tot, z_tot = 0, 0, 0
     for point in myPoints:
