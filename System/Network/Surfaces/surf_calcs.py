@@ -17,7 +17,7 @@ def rotate_points(vec, points):
     for p in points:
         # Multiplying the x, y rotation matrices gives the following:
         npx = p[0] * cp + p[2] * sp
-        npy = p[0] * st *sp + p[0] * ct -p[2] * st * cp
+        npy = p[0] * st * sp + p[0] * ct -p[2] * st * cp
         npz = - p[0] * ct * sp + p[1] * st + p[2] * ct * cp
         nps.append([npx, npy, npz])
     return nps
@@ -73,7 +73,6 @@ def calc_surf_point(surf, point):
         * (vn[2] * vi[0] + vn[0] * vi[2]) + f[6] * vn[0] + f[7] * vn[1] + f[8] * vn[2]
     c = f[0] * vi[0] ** 2 + f[1] * vi[1] ** 2 + f[2] * vi[2] ** 2 + f[3] * vi[0] * vi[1] + f[4] * vi[1] * vi[2] + \
         f[5] * vi[2] * vi[0] + f[6] * vi[0] + f[7] * vi[1] + f[8] * vi[2] + f[9]
-
     # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
     # and add that point to our surface list of points
     if round(b ** 2 - 4 * a * c, 4) >= 0:

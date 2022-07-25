@@ -22,7 +22,7 @@ def calc_angle(p0, p1, p2=None):
 
 
 # Calculate center of mass function. Takes in a set of points and returns the coordinates of the com
-def calc_com(atoms):
+def calc_atoms_com(atoms):
     # Set the running sum for the x, y, z values to 0
     xtot, ytot, ztot = 0, 0, 0
     for atom in atoms:
@@ -30,6 +30,33 @@ def calc_com(atoms):
         ytot = ytot + atom.loc[1]
         ztot = ztot + atom.loc[2]
     return xtot/len(atoms), ytot/len(atoms), ztot/len(atoms)
+
+
+# Calculate edges center of mass function. Takes in a surface or edges and returns the center of mass of the points
+def calc_edges_com(edges=None, surf=None, points=None):
+    # Set up the points list
+    myPoints = []
+    # Check to see if edges were given
+    if edges:
+        for edge in edges:
+            myPoints += edge.points
+    # Check to see if a surface was given
+    elif surf:
+        for edge in surf.edges:
+            myPoints += edge.points
+    # Check to see if points were given
+    elif points:
+        myPoints = points
+    else:
+        print("Please give a surface or mesh!")
+    # Find the sum of the points
+    x_tot, y_tot, z_tot = 0, 0, 0
+    for point in myPoints:
+        x_tot += point[0]
+        y_tot += point[1]
+        z_tot += point[2]
+    # Return the center of mass of the edge points
+    return [x_tot / len(myPoints), y_tot / len(myPoints), z_tot / len(myPoints)]
 
 
 # Sort by distance function. Sorts all atoms in the System by distance from COM of given atoms
@@ -113,6 +140,18 @@ def calc_circ(atoms):
     # Catch for negative discriminant
     else:
         return
+
+
+# Move sphere function. Takes in a location, an Atom object and a direction and updates the Atom's location
+def move(loc, atom, to_home=False):
+    # Change whether we are adding or subtracting the location to the sphere's location.
+    d = 1
+    if not to_home:
+        d = -1
+    # Update the atom's location
+    atom.loc[0] = atom.loc[0] + d * loc[0]
+    atom.loc[1] = atom.loc[1] + d * loc[1]
+    atom.loc[2] = atom.loc[2] + d * loc[2]
 
 
 """System checks"""

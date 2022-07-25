@@ -1,4 +1,5 @@
 from System.Network.Edges.edge_trace import *
+from System.Network.Surfaces.surf_calcs import *
 
 
 # Make mesh function. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
@@ -15,6 +16,8 @@ def make_mesh(surf, min_dist, radius=None, vta=False):
         surf.points = surf.vert_points
         # Use the edge tracing function to get edges' points
         surf.edge_points = edge_trace1(surf, min_dist)
+        # Calculate the center of mass point of the edge points and where it maps on the surface
+        com = calc_surf_point(surf, calc_edges_com(surf.edges))
     # If no edges exist create a circular edge
     elif not surf.edges:
         # If no radius is specified, create one 5x larger than the size of the center atom
@@ -22,6 +25,8 @@ def make_mesh(surf, min_dist, radius=None, vta=False):
             radius = surf.atoms[1].rad * 5
         # Add the circular edge points to the surfaces list of edge points
         surf.edge_points = circ_edge_trace(surf, radius, min_dist)
+        # Calculate the center of mass point of the edge points and where it maps on the surface
+        com = calc_surf_point(surf, calc_edges_com(points=surf.edge_points))
     # This is for the voronota plot. If the first edge in the list of edges has points add all edges' points so the list
     elif vta:
         # Go through the
@@ -37,8 +42,6 @@ def make_mesh(surf, min_dist, radius=None, vta=False):
     paths = [[surf.edge_points[i]] for i in range(len(surf.edge_points))]
     # Grab the smallest of the 2 surface atoms' location
     pa = surf.atoms[0].loc
-    # Calculate the center of mass point of the edge points and where it maps on the surface
-    com = calc_surf_point(surf, calc_com(surf.edge_points))
     # Set up a list of end points
     ends = [com for i in range(len(paths))]
     # Get the angles between the edge points and the end points

@@ -1,4 +1,5 @@
-from System.Network.Vertices.vert_calcs import *
+from System.sys_calcs import *
+from System.Network.Vertices.vertex import Vertex
 
 ########################################################################################################################
 """Finding functions"""
@@ -10,14 +11,14 @@ def doublet(verts, net):
 
 
 # Find v0 function. Finds the first vertex in the network
-def find_v0(sys):
+def find_v0(net):
     # Find the center of mass of the atoms
-    com = calc_com(sys.atoms)
+    com = calc_atoms_com(net.atoms)
     # First choose an appropriate initial atom based of com proximity
     min_dist = np.inf
     a0 = None
     # Go through each atom determining if it is closer to the com
-    for atom in sys.atoms:
+    for atom in net.atoms:
         # Set the new com distance
         com_dist = calc_dist(atom.loc, com)
         # If is less than the current closest atom's distance to the center of mass update the variables
@@ -28,7 +29,7 @@ def find_v0(sys):
     min_dist = np.inf
     a1 = None
     # Go through each atom determining the atom with the minimum distance between it and a0's surfaces
-    for atom in sys.atoms:
+    for atom in net.atoms:
         # Skip a0
         if atom == a0:
             continue
@@ -42,7 +43,7 @@ def find_v0(sys):
     min_rad = np.inf
     a2 = None
     # Go through each other atom to determine the smallest circle that can be made with our 2 atoms and a third
-    for atom in sys.atoms:
+    for atom in net.atoms:
         # Skip a0, a1
         if atom == a0 or atom == a1:
             continue
@@ -56,14 +57,15 @@ def find_v0(sys):
     min_rad = np.inf
     myVert = None
     # Go through each other atom to determine the smallest possible inscribed sphere
-    for atom in sys.atoms:
+    for atom in net.atoms:
         # Skip a0, a1, a2
         if atom == a0 or atom == a1 or atom == a2:
             continue
         # Get the vertex made from the atoms
-        vert = calc_vert([a0, a1, a2] + [atom])
+        vert = Vertex(atoms=[a0, a1, a2] + [atom])
+        print()
         # If the radius of the inscribed
-        if vert and vert.rad < min_rad:
+        if vert.loc and vert.rad < min_rad:
             min_rad = vert.rad
             myVert = vert
     # Return the vertex
@@ -80,8 +82,8 @@ def find_site(edge_atoms, vn_1, net):
         if {atom}.issubset(vn_1.atoms):
             continue
         # Calculate the vertex with atom
-        vert = calc_vert(edge_atoms + [atom])
-        if vert is None:
+        vert = Vertex(atoms=edge_atoms + [atom])
+        if vert.loc is None:
             continue
         # Check if the vertex overlaps with any of the networks atoms
         overlap = False
@@ -98,18 +100,18 @@ def find_site(edge_atoms, vn_1, net):
 
 
 # Find network function. Keeps searching the network until all verts are found
-def find_vertices(sys):
+def find_vertices(net):
     # Find the first vertex in the System
-    v0 = find_v0(sys)
+    v0 = find_v0(net)
     # Add v0 to the System
-    sys.net.verts.append(v0)
+    net.verts.append(v0)
     # Set up the vertex stack
     vert_stack = [v0]
     # While the verts stack is not empty
     while vert_stack:
         # Running print statement giving an estimate for percentage of the network that has been created
-        tot_verts = max(len(sys.net.verts) + int(3*len(vert_stack)/4), 4 * len(sys.atoms))
-        percentage = int(len(sys.net.verts) / tot_verts * 100)
+        tot_verts = max(len(net.verts) + int(3*len(vert_stack)/4), 4 * len(net.atoms))
+        percentage = int(len(net.verts) / tot_verts * 100)
         print("\rBuilding Network: ", percentage, "%", end='')
         # Get the vertex from the top of the stack
         vert = vert_stack.pop()
@@ -120,12 +122,14 @@ def find_vertices(sys):
             # Get the edge from the top of the stack
             edge = e_stack.pop()
             # Find the next site in the network
-            myVert = find_site(edge[0], edge[1], sys.net)
+            myVert = find_site(edge[0], edge[1], net)
             # If the vertex is none continue
             if myVert is None:
                 continue
             # If the vertex exists in the network add the vertex to the edge and move on to the next edge in the stack
-            found_vert = check_vert(set(myVert.atoms), sys.net.verts)
+            found_vert = check_vert(set(myVert.atoms), net.verts)
             if not found_vert:
                 vert_stack.append(myVert)
-                sys.net.verts.append(myVert)
+                net.verts.append(myVert)
+
+

@@ -1,5 +1,5 @@
 from System.system import *
-from System.Network.Surfaces.build_meshes import *
+from System.Network.Surfaces.surface import make_mesh
 from Presentation.Visualize.visualize import *
 
 # Create the atoms for the mesh

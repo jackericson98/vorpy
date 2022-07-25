@@ -2,7 +2,17 @@
 import os
 
 import numpy as np
-from System.net_objects import *
+from System.Network.network import *
+
+
+class Atom:
+    """Atom object. Created with import of file. Used to reference for building network and analyzing"""
+    def __init__(self, location, radius):
+        self.loc = location  # Set the location of the center of the sphere
+        self.rad = radius  # Set the radius for the sphere object. Default is 1
+        self.verts = []  # List of Vertex type objects
+        self.surfs = []  # List of Surface type objects
+        self.edges = []  # List of Edge type objects
 
 
 class System:
@@ -180,5 +190,5 @@ class System:
             # Add the vertex data
             loc, rad = [float(data[4]), float(data[5]), float(data[6])], float(data[7])
             atoms = [balls[int(data[0])], balls[int(data[1])], balls[int(data[2])], balls[int(data[3])]]
-            myVert = Vertex(loc, rad, atoms=atoms)
+            myVert = Vertex(atoms=atoms, location=loc, radius=rad)
             self.net.verts.append(myVert)

@@ -1,6 +1,7 @@
-from System.system import System, Edge, Surface
-from System.Network.Vertices.find_vertices import calc_vert
-from System.Network.Surfaces.build_meshes import build_meshes
+from System.system import System
+from System.Network.Vertices.vertex import Vertex
+from System.Network.Edges.edge import Edge
+from System.Network.Surfaces.surface import Surface
 from Presentation.Visualize.visualize import plot_atoms, plot_verts, plot_surfs, plot_edges
 import matplotlib.pyplot as plt
 
@@ -19,7 +20,7 @@ sys = System(atoms)
 vert_nums = [[1, 3, 5], [2, 3, 5], [2, 4, 5], [1, 4, 5], [1, 3, 6], [2, 3, 6], [2, 4, 6], [1, 4, 6]]
 verts = []
 for i in range(8):
-    vn = calc_vert([sys.atoms[0], sys.atoms[vert_nums[i][0]], sys.atoms[vert_nums[i][1]], sys.atoms[vert_nums[i][2]]])
+    vn = Vertex([sys.atoms[0], sys.atoms[vert_nums[i][0]], sys.atoms[vert_nums[i][1]], sys.atoms[vert_nums[i][2]]])
     if vn:
         verts.append(vn)
 sys.net.verts = verts
@@ -74,7 +75,7 @@ sys.net.surfs[4].edges = [e3, e4, e7, e11]
 sys.net.surfs[5].edges = [e8, e9, e10, e11]
 
 # Build the surfaces
-build_meshes(sys, min_dist=.1)
+sys.net.build_meshes(min_dist=.1)
 
 # Set up the plot
 fig = plt.figure()

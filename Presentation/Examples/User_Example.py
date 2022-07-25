@@ -1,10 +1,9 @@
 import os
 from System.system import System
+from System.Network.network import Network
 from Presentation.Visualize.visualize import plot_edges
 import matplotlib.pyplot as plt
-from System.Network.Vertices.find_vertices import find_vertices
-from System.Network.connect_network import connect_network
-from System.Network.Surfaces.build_meshes import build_meshes
+from System.Network.net_funcs import find_vertices
 os.chdir("../..")
 
 
@@ -17,7 +16,7 @@ v_file = "./Data/test_data/Na_W_cluster5_vertices.txt"
 sys = System(m_file)
 
 
-find_vertices(sys)
+find_vertices(sys.net)
 #
 # sys.net.verts = []
 # sys.net.edges = []
@@ -37,9 +36,9 @@ for vert in sys.net.verts:
 sys.net.verts = verts
 
 # # Connect the network
-sys = connect_network(sys)
+sys.net.connect()
 # # Build the meshes
-build_meshes(sys, min_dist=0.5)
+sys.net.build_meshes(min_dist=0.5)
 # Print the data
 # print("\n\nAtom Data: ###################################################################\n")
 # for i in range(len(sys.net.atoms)):

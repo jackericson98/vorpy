@@ -6,36 +6,29 @@ from System.Network.Edges.edge_calcs import *
 def calc_edge_point(edge, s0):
     # Grab the function's coefficients
     f = s0.func
-    # Get the first atoms in the surfaces list of atoms
-    a0, a1 = s0.atoms[0], s0.atoms[1]
-    # Find the center point of the edge
-    cn, bn = calc_circ()
+    # Grab the vertex points
+    pv0, pv1 = np.array(edge.verts[0].loc), np.array(edge.verts[1].loc)
+    # Find the point in between the two vertex points
+    r01 = pv1 - pv0
+    r01_mag = np.linalg.norm(r01)
+    rn01 = r01 / r01_mag
+    # Get the center point of the vertices
+    cp = pv0 + 0.5 * rn01 * r01_mag
 
-    # Set up the unit vector
-    vi = np.array(point) - np.array(a0.loc)
-    vn = vi/np.linalg.norm(vi)
-    # Find the location on the surface of the atom
-    vi = np.array(a0.loc) + vn * a0.rad
     # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
-    a = f[0] * vn[0] ** 2 + f[1] * vn[1] ** 2 + f[2] * vn[2] ** 2 + f[3] * vn[0] * vn[1] + f[4] * vn[1] * vn[2] + f[5] \
-        * vn[2] * vn[0]
-    b = 2 * f[0] * vn[0] * vi[0] + 2 * f[1] * vn[1] * vi[1] + 2 * f[2] * vn[2] * vi[2] + f[3] \
-        * (vn[0] * vi[1] + vn[1] * vi[0]) + f[4] * (vn[1] * vi[2] + vn[2] * vi[1]) + f[5] \
-        * (vn[2] * vi[0] + vn[0] * vi[2]) + f[6] * vn[0] + f[7] * vn[1] + f[8] * vn[2]
-    c = f[0] * vi[0] ** 2 + f[1] * vi[1] ** 2 + f[2] * vi[2] ** 2 + f[3] * vi[0] * vi[1] + f[4] * vi[1] * vi[2] + \
-        f[5] * vi[2] * vi[0] + f[6] * vi[0] + f[7] * vi[1] + f[8] * vi[2] + f[9]
+    a = f[0] * rn01[0] ** 2 + f[1] * rn01[1] ** 2 + f[2] * rn01[2] ** 2 + f[3] * rn01[0] * rn01[1] + f[4] * rn01[1] * rn01[2] + f[5] \
+        * rn01[2] * rn01[0]
+    b = 2 * f[0] * rn01[0] * cp[0] + 2 * f[1] * rn01[1] * cp[1] + 2 * f[2] * rn01[2] * cp[2] + f[3] \
+        * (rn01[0] * cp[1] + rn01[1] * cp[0]) + f[4] * (rn01[1] * cp[2] + rn01[2] * cp[1]) + f[5] \
+        * (rn01[2] * cp[0] + rn01[0] * cp[2]) + f[6] * rn01[0] + f[7] * rn01[1] + f[8] * rn01[2]
+    c = f[0] * cp[0] ** 2 + f[1] * cp[1] ** 2 + f[2] * cp[2] ** 2 + f[3] * cp[0] * cp[1] + f[4] * cp[1] * cp[2] + \
+        f[5] * cp[2] * cp[0] + f[6] * cp[0] + f[7] * cp[1] + f[8] * cp[2] + f[9]
 
     # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
     # and add that point to our surface list of points
     if round(b ** 2 - 4 * a * c, 4) >= 0:
         # If the projection point on a0's surface is outside a1's surface take the smallest of the roots
         roots = np.roots([a, b, c])
-        if calc_dist(vi, a1.loc) > a1.rad:
-            mag = min(abs(roots))
-        else:
-            if calc_dist(a0.loc, a1.loc) > a0.rad:
-                mag = - abs(min(roots))
-            else:
-                mag = - min(abs(roots))
-        return vi + mag * vn
+        mag = min(abs(roots))
+        return cp + mag * rn01
 

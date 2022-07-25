@@ -1,5 +1,4 @@
 import os
-from System.Network.Surfaces.build_meshes import make_mesh
 from System.system import Surface
 from Presentation.Visualize.visualize import *
 os.chdir("../..")
@@ -21,8 +20,9 @@ cases.append([Atom([0, 0, 0], 1.5), Atom([0.1, 0, 0], 0.25)])
 surfs = []
 for case_atoms in cases:
     mySurf = Surface(case_atoms)
+    mySurf.build()
     surfs.append(mySurf)
-    make_mesh(mySurf, 0.1)
+
 
 
 fig = plt.figure(figsize=(20, 40))

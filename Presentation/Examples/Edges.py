@@ -1,7 +1,7 @@
 import os
-from System.system import Edge
-from System.Network.build_network import *
 from Presentation.Visualize.visualize import *
+from System.Network.Edges.edge import Edge
+from System.Network.Vertices.vertex import Vertex
 os.chdir("../..")
 
 
@@ -41,8 +41,8 @@ va0, va1 = Atom([0, 0, 10], 0.5), Atom([0, 0, -10], 0.5)
 # Create vertices, Edge obgect and calculate the edges points for each edge
 for case_atoms in cases:
     # Calculate the two vertices
-    v0 = calc_vert([va0] + case_atoms)
-    v1 = calc_vert([va1] + case_atoms)
+    v0 = Vertex([va0] + case_atoms)
+    v1 = Vertex([va1] + case_atoms)
     # Create the edge
     myEdge = Edge(case_atoms, [v0, v1])
     # Get the edges points
@@ -52,7 +52,7 @@ for case_atoms in cases:
 
 
 fig = plt.figure(figsize=(20, 40))
-titles = ["Case 0: No Overlap", "Case 1: Two overlapping atoms", "Case 2: Three overlapping atoms"]
+titles = ["Case 0: No Overlap", "Case 1: One overlap", "Case 2: Two overlaps", "Case 3: all overlapping"]
 for i in range(len(cases)):
     axn = fig.add_subplot(int("23" + str(i + 1)), projection="3d", xlim=10)
     axn.set_title(titles[i])
