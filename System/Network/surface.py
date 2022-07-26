@@ -1,4 +1,4 @@
-from System.Network.surf_funcs import make_mesh
+from System.Network.surf_funcs import *
 
 
 class Surface:

@@ -13,7 +13,6 @@ def setup_plot(fig=None, ax=None, dfo=None, grid=False, alpha=None):
             fig = plt.figure()
             Show = True  # If no outside figure is specified, then the figure needs to be shown from within
         ax = fig.add_subplot(projection="3d")
-    ax.set_facecolor('k')
     ax.axis('auto')
     # Set plot parameters
     if dfo is not None:
@@ -28,6 +27,7 @@ def setup_plot(fig=None, ax=None, dfo=None, grid=False, alpha=None):
     else:
         ax.grid()
         ax.axis('off')
+        ax.set_facecolor('k')
     # Set alpha
     if alpha is None:
         alpha = 1
@@ -115,7 +115,7 @@ def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, color
         ys.append(edges[i].verts[1].loc[1])
         zs.append(edges[i].verts[1].loc[2])
         # Plot the points
-        ax.scatter(xs, ys, zs, c=colors[i])
+        ax.scatter(xs, ys, zs, c=colors[i], s=0.1)
     # Show the figure
     if Show:
         plt.show()

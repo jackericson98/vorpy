@@ -7,6 +7,7 @@ def edge_trace1(surf):
     edge_points = []
     # Go through each edge in the surface's list of edges
     for edge in surf.edges:
+        edge.calc_points(surf=surf)
         # Add the edge's points to the surface's edge points attribute
         edge_points += edge.points
     return edge_points

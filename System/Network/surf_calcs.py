@@ -1,4 +1,5 @@
 """Calculator functions"""
+import numpy as np
 from scipy.spatial import Delaunay as dl
 from System.sys_calcs import *
 
@@ -55,16 +56,19 @@ def calc_surf_simps(surf):
 
 # Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
 # from the center of the smallest of the surfaces 2 atoms through the point into the surface
-def calc_surf_point(surf, point):
+def calc_surf_point(surf, point, bp=None):
     # Grab the function's coefficients
     f = surf.func
     # Get the first atoms in the surfaces list of atoms
     a0, a1 = surf.atoms[0], surf.atoms[1]
+    # If a vector is given make the base point the base point given with the vector
+    if bp is None:
+        bp = a0.loc
     # Set up the unit vector
-    vi = np.array(point) - np.array(a0.loc)
+    vi = np.array(point) - np.array(bp)
     vn = vi/np.linalg.norm(vi)
     # Find the location on the surface of the atom
-    vi = np.array(a0.loc) + vn * a0.rad
+    vi = np.array(bp) + vn * a0.rad
     # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
     a = f[0] * vn[0] ** 2 + f[1] * vn[1] ** 2 + f[2] * vn[2] ** 2 + f[3] * vn[0] * vn[1] + f[4] * vn[1] * vn[2] + f[5] \
         * vn[2] * vn[0]
@@ -81,7 +85,7 @@ def calc_surf_point(surf, point):
         if calc_dist(vi, a1.loc) > a1.rad:
             mag = min(abs(roots))
         else:
-            if calc_dist(a0.loc, a1.loc) > a0.rad:
+            if calc_dist(bp, a1.loc) > a0.rad:
                 mag = - abs(min(roots))
             else:
                 mag = - min(abs(roots))
