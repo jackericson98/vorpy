@@ -126,7 +126,7 @@ def calc_circ(atoms):
     # If the discriminant is negative then the tangential sphere does not exist.
     if disc > 0:
         circs = []
-        Rs = [R for R in np.roots([a, b, c]) if np.isreal(R) and R > 0]
+        Rs = [R for R in np.roots([a, b, c]) if np.isreal(R)]
         Rs.sort()
         # Go through each circle and gather its points
         for R in Rs:
@@ -140,6 +140,42 @@ def calc_circ(atoms):
     # Catch for negative discriminant
     else:
         return
+
+
+"""Translator functions"""
+
+
+# Rotate points function. Takes in a set of points and a vector and returns a set of rotated points about the origin
+def rotate_points(vec, points):
+    # Get the vx, vy, vz vector components
+    vx, vy, vz = vec
+    # If x and y are 0 no transform is needed
+    if vy == 0 == vx:
+        return points
+    elif vz == 0 == vy:
+        theta = 0
+        phi = np.pi/2
+    elif vz == 0 == vx:
+        phi = 0
+        theta = np.pi/2
+    elif vz == 0:
+        theta = np.pi / 2
+        phi = np.arctan(vy/vx)
+    else:
+        theta = np.arctan(vx / vz)
+        phi = np.arctan(vy / vz)
+    # Get variables for sin(theta), cos(theta), sin(phi), cos(phi)
+    st, ct, sp, cp = np.sin(theta), np.cos(theta), np.sin(phi), np.cos(phi)
+    nps = []
+    for p in points:
+        px, py, pz = round(p[0], 7), round(p[1], 7), round(p[2], 7)
+        # Multiplying the x, y rotation matrices gives the following:
+        npx = px * cp + pz * sp
+        npy = px * st * sp + py * ct - pz * st * cp
+        npz = - px * ct * sp + py * st + pz * ct * cp
+        # Add the new points to the list
+        nps.append([npx, npy, npz])
+    return nps
 
 
 # Move sphere function. Takes in a location, an Atom object and a direction and updates the Atom's location

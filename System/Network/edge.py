@@ -1,6 +1,7 @@
 from System.sys_calcs import *
 from System.Network.surface import Surface, calc_surf_point
 
+
 class Edge:
     """Edge object. Used to build the network and calculate the surfaces"""
     def __init__(self, atoms, verts, surfs=None):
@@ -13,6 +14,7 @@ class Edge:
         self.rad = None
         self.dir = None
         self.points = []  # List of points on the edge. These points do not include the vertex points
+        self.calc_points()
 
     # Calculate points function. Find points long the edge, given it has atoms and vertices
     def calc_points(self, surf=None, min_dist=None):
@@ -55,8 +57,8 @@ class Edge:
         # Get the center point of the vertices
         pc01 = pv0 + 0.5 * rn01 * d
         # Get the center point of the edge
-        circ = calc_circ(self.atoms)[0]
-        c, bn = circ[0], circ[1]
+        circ = calc_circ(self.atoms)
+        c, bn = circ[0][0], circ[0][1]
         # Determine if the center of the edge is inside the vertices or not
         dr = 1
         if calc_dist(c, pv0) < d or calc_dist(c, pv1) < d:
@@ -93,7 +95,10 @@ class Edge:
             rac = np.array(pc) - np.array(pa)
             rnac = rac / np.linalg.norm(rac)
             # Project the vector onto the surface
-            self.points.append(self.project(rnac, pa, f))
+            surf_point = self.project(rnac, pa, f)
+            if surf_point is None:
+                break
+            self.points.append(surf_point)
 
     @staticmethod
     def project(rn, pa, f):

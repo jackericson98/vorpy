@@ -1,11 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from System.system import Atom
-from System.Analysis.find_simps import find_simps
 
 
 # Set up plot function. Used to set the parameters for the plot
-def setup_plot(fig=None, ax=None, dfo=None, grid=False, alpha=None):
+def setup_plot(fig=None, ax=None, dfo=None, grid=False, alpha=None, bg_color=None):
     # Create a new subplot if one isn't specified
     if ax is None:
         # Create new figure if one isn't specified
@@ -27,7 +26,10 @@ def setup_plot(fig=None, ax=None, dfo=None, grid=False, alpha=None):
     else:
         ax.grid()
         ax.axis('off')
-        ax.set_facecolor('k')
+        if bg_color:
+            ax.set_facecolor(bg_color)
+        else:
+            ax.set_facecolor('k')
     # Set alpha
     if alpha is None:
         alpha = 1
@@ -35,9 +37,9 @@ def setup_plot(fig=None, ax=None, dfo=None, grid=False, alpha=None):
 
 
 # Plot spheres function. Plots the spheres specified
-def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=None):
+def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=None, bg_color=None, res=4):
     # Set up the plot
-    fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha)
+    fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha, bg_color)
 
     # Get the atoms colors
     if colors is None:
@@ -57,9 +59,9 @@ def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid
     # Plot the spheres as wireframes
     else:
         # Set the resolution of the spheres
-        res = 5 - len(atoms) // 20
+        f = 5 - len(atoms) // 20
         # Find u, v values that span phi and theta
-        u, v = np.mgrid[0:2 * np.pi:res*8j, 0:np.pi:res*4j]
+        u, v = np.mgrid[0:2 * np.pi:f*res*2j, 0:np.pi:f*res*1j]
         # Plot each sphere
         for i in range(len(atoms)):
             # Get x, y, z data for the wireframe
@@ -74,9 +76,9 @@ def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid
 
 
 # Plot vertices function. Plots the vertices of a network.
-def plot_verts(verts, plot_spheres=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None):
+def plot_verts(verts, plot_spheres=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None, bg_color=None):
     # Set up the plot
-    fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha)
+    fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha, bg_color)
     # Default color is red
     if colors is None:
         colors = ['r' for i in range(len(verts))]
@@ -89,16 +91,16 @@ def plot_verts(verts, plot_spheres=False, fig=None, ax=None, Show=False, dfo=Non
         spheres = []
         for i in range(len(verts)):
             spheres.append(Atom(verts[i].loc, verts[i].rad))
-        plot_atoms(spheres, fig=fig, ax=ax)
+        plot_atoms(spheres, fig=fig, ax=ax, colors=['grey'], alpha=0.1)
     # Show if the plot needs to be shown
     if Show:
         plt.show()
 
 
 # Plot edges function. Plots the edges given as lines
-def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None):
+def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None, bg_color=None):
     # Set up the plot
-    fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha)
+    fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha, bg_color)
     # Set the color if it is not indicated already
     if colors is None:
         colors = ['grey' for i in range(len(edges))]
@@ -115,16 +117,16 @@ def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, color
         ys.append(edges[i].verts[1].loc[1])
         zs.append(edges[i].verts[1].loc[2])
         # Plot the points
-        ax.scatter(xs, ys, zs, c=colors[i], s=0.1)
+        ax.plot(xs, ys, zs, c=colors[i])
     # Show the figure
     if Show:
         plt.show()
 
 
 # Plot surfaces function. Plots the surfaces given
-def plot_surfs(surfs, simps=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None):
+def plot_surfs(surfs, simps=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None, bg_color=None):
     # Set up the plot
-    fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha)
+    fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha, bg_color)
     # Set up the colors
     if colors is None:
         colors = ['y' for i in range(len(surfs))]
@@ -139,9 +141,6 @@ def plot_surfs(surfs, simps=False, fig=None, ax=None, Show=False, dfo=None, grid
             z.append(point[2])
         # If simplices are requested get them or make them
         if simps:
-            # If the simps don't exist make them
-            if surfs[i].simps is None:
-                surfs[i].simps = find_simps(surfs[i])
             # Plot the simps using matplotlib tri_surf
             ax.plot_trisurf(x, y, z, triangles=surfs[i].simps.triangles, alpha=.5)
         # Otherwise, plot the points
@@ -153,11 +152,16 @@ def plot_surfs(surfs, simps=False, fig=None, ax=None, Show=False, dfo=None, grid
 
 
 # Plot simplices function
-def plot_simps(surf, simps=None):
-    # If no simps are given, grab or create our own
-    if simps is None:
-        if not surf.simps:
-            simps = find_simps(surf)
-        else:
-            simps = surf.simps
+def plot_simps(surf, simps=None, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None, bg_color=None):
+    # Set up the plot
+    fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha, bg_color)
+    # Go through each triangle in the surfaces list of simplices
+    for simp in surf.simps.triangles:
+        p0, p1, p2 = surf.points[simp[0]], surf.points[simp[1]], surf.points[simp[2]]
+        ax.plot([p0[0], p1[0]], [p0[1], p1[1]], [p0[2], p1[2]], c='w')
+        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], c='w')
+        ax.plot([p2[0], p0[0]], [p2[1], p0[1]], [p2[2], p0[2]], c='w')
+    # Show the figure
+    if Show:
+        plt.show()
 
