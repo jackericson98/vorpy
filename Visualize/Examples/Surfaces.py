@@ -24,7 +24,6 @@ for case_atoms in cases:
     surfs.append(mySurf)
 
 
-
 fig = plt.figure(figsize=(20, 40))
 titles = ["Case 0: No overlap (equal radii)",
           "Case 1: No overlap",

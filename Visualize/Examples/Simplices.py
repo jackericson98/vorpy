@@ -13,5 +13,5 @@ fig = plt.figure()
 ax = fig.add_subplot(projection="3d")
 
 # ax.scatter()
-#plot_atoms(mySurf.atoms, fig=fig, ax=ax, grid=True)
+plot_atoms(mySurf.atoms, fig=fig, ax=ax, grid=True, alpha=0.1)
 plot_simps(mySurf, Show=True, fig=fig, ax=ax, dfo=5)

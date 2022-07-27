@@ -1,5 +1,5 @@
 from System.sys_calcs import *
-from System.Network.surface import make_mesh
+from System.Network.surface import make_mesh, find_simps
 
 
 # Build Voronota meshes function. Takes in a voronota system and builds meshes for it
@@ -51,4 +51,6 @@ def build_vrnta_meshes(sys, min_dist):
         # Return a0 to its radius and location
         a0.rad = a0.rad - r_diff
         a0.loc = [a0.loc[0] - r_diff * r10_hat[0], a0.loc[1] - r_diff * r10_hat[1], a0.loc[2] - r_diff * r10_hat[2]]
+        # Build the simplices for the surfaces
+        surf.simps = find_simps(surf.points, surf.atoms)
     return sys

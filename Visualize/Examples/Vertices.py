@@ -9,11 +9,11 @@ cases.append([Atom([1, 0, 0.5], 0.5), Atom([-1, 0, 0.5], 0.5), Atom([0, 1, -0.5]
 # Case 1: One overlapping ball
 cases.append([Atom([.1, 0, 0.5], 0.5), Atom([-.1, 0, 0.5], 0.5), Atom([0, 1, -0.5], 0.5), Atom([0, -1, -0.5], 0.5)])
 # Case 2: Two overlapping balls
-cases.append([Atom([0.3, 1, 1], 0.25), Atom([0, 1, 0], 0.25), Atom([-0.3, 1, 0], 0.25), Atom([0, -1, 0], 0.25)])
+cases.append([Atom([0.5, 0, 0], 0.5), Atom([-0.5, 0, 0], 0.5), Atom([-0.25, 0.25, 1], 0.5), Atom([-0.25, -0.25, 1], 0.75)])
 # Case 3: Three overlapping balls
-cases.append([Atom([0.25, .75, 1], 0.25), Atom([0, 1, 0], 0.25), Atom([-.25, .75, 0], 0.25), Atom([.4, 0.5, 0], 0.25)])
+cases.append([Atom([0, 0, 1], 0.25), Atom([0, 0, -1], 0.25), Atom([1, 0.5, 0], 0.25), Atom([-0.5, 0.5, 0], 0.25)])
 # Case 4: Four overlapping balls
-cases.append([Atom([1, 0, 1], 1), Atom([0, 1, 0], 1), Atom([-1, 0, 0], 1), Atom([0, -1, 0], 1)])
+cases.append([Atom([1, 1, 1], 1.3), Atom([0, 1, 0], 1.3), Atom([-1, 0, 0], 1.1), Atom([0, -1, 0], 1.1)])
 
 
 verts = []
@@ -30,6 +30,6 @@ for i in range(len(cases)):
     axn = fig.add_subplot(int("23" + str(i + 1)), projection="3d", xlim=10)
     axn.set_title(titles[i])
     plot_atoms(cases[i], fig=fig, ax=axn, colors=['y', 'y', 'y', 'y'], alpha=.1, dfo=5)
-    plot_verts([verts[i]], fig=fig, ax=axn, dfo=5, plot_spheres=True)
+    plot_verts([verts[i]], fig=fig, ax=axn, dfo=15, plot_spheres=True)
 
 plt.show()

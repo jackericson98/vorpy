@@ -2,6 +2,7 @@ import os
 from System.system import System
 from System.sys_funcs import build_vrnta_meshes
 from Visualize.visualize import *
+from System.Network.surf_calcs import find_simps
 
 os.chdir("../..")
 # Files

@@ -158,9 +158,9 @@ def plot_simps(surf, simps=None, fig=None, ax=None, Show=False, dfo=None, grid=F
     # Go through each triangle in the surfaces list of simplices
     for simp in surf.simps.triangles:
         p0, p1, p2 = surf.points[simp[0]], surf.points[simp[1]], surf.points[simp[2]]
-        ax.plot([p0[0], p1[0]], [p0[1], p1[1]], [p0[2], p1[2]], c='w')
-        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], c='w')
-        ax.plot([p2[0], p0[0]], [p2[1], p0[1]], [p2[2], p0[2]], c='w')
+        ax.plot([p0[0], p1[0]], [p0[1], p1[1]], [p0[2], p1[2]], c='w', linewidth=.1)
+        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], c='w', linewidth=.1)
+        ax.plot([p2[0], p0[0]], [p2[1], p0[1]], [p2[2], p0[2]], c='w', linewidth=.1)
     # Show the figure
     if Show:
         plt.show()

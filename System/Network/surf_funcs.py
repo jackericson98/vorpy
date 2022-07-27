@@ -37,7 +37,7 @@ def circ_edge_trace(surf, radius, min_dist):
     p_hat = p/np.linalg.norm(p)
     c_points = [p_hat*radius + center]
     # Get the circumference of the circle and divide by the minimum distance
-    num_points = int(2*np.pi*radius/min_dist)
+    num_points = int(np.pi*radius/(2*min_dist))
     # Get the incremental angle change around the circle
     dtheta = 2*np.pi/num_points
     # Find the amount we project on the circle

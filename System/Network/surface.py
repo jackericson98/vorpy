@@ -44,4 +44,4 @@ class Surface:
     # Build method. Makes the mesh for the surface
     def build(self, min_dist=0.1):
         make_mesh(self, min_dist=min_dist)
-        find_simps(self)
+        self.simps = find_simps(self.points, self.atoms)

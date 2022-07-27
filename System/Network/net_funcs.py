@@ -63,7 +63,6 @@ def find_v0(net):
             continue
         # Get the vertex made from the atoms
         vert = Vertex(atoms=[a0, a1, a2] + [atom])
-        print()
         # If the radius of the inscribed
         if vert.loc and vert.rad < min_rad:
             min_rad = vert.rad

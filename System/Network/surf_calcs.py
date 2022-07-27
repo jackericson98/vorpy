@@ -4,13 +4,11 @@ from System.sys_calcs import *
 
 
 # Calculate surface simplices function.
-def find_simps(surf):
+def find_simps(points, atoms):
     # Get the atoms
-    a0, a1 = surf.atoms
-    # Grab the points
-    points = surf.points
+    a0, a1 = atoms
     # Find the normal to the surface and the magnitude
-    r10 = np.array(surf.atoms[0].loc) - np.array(surf.atoms[1].loc)
+    r10 = np.array(a0.loc) - np.array(a1.loc)
     d = np.linalg.norm(r10)
     r10_hat = r10/d
     # Get the distance between the surfaces
@@ -28,25 +26,23 @@ def find_simps(surf):
     # Get the Delaunay tesselation
     tri = mtri.Triangulation(nps2d[0], nps2d[1])
     # Filter out any connections between the vertices
-    surf.simps = tri
+    for i in range(len(points)):
+        points[i] = points[i] + c
     return tri
 
 
 # Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
 # from the center of the smallest of the surfaces 2 atoms through the point into the surface
-def calc_surf_point(surf, point, bp=None):
+def calc_surf_point(surf, point):
     # Grab the function's coefficients
     f = surf.func
     # Get the first atoms in the surfaces list of atoms
     a0, a1 = surf.atoms[0], surf.atoms[1]
-    # If a vector is given make the base point the base point given with the vector
-    if bp is None:
-        bp = a0.loc
     # Set up the unit vector
-    vi = np.array(point) - np.array(bp)
+    vi = np.array(point) - np.array(a0.loc)
     vn = vi/np.linalg.norm(vi)
     # Find the location on the surface of the atom
-    vi = np.array(bp) + vn * a0.rad
+    vi = np.array(a0.loc) + vn * a0.rad
     # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
     a = f[0] * vn[0] ** 2 + f[1] * vn[1] ** 2 + f[2] * vn[2] ** 2 + f[3] * vn[0] * vn[1] + f[4] * vn[1] * vn[2] + f[5] \
         * vn[2] * vn[0]
@@ -63,7 +59,7 @@ def calc_surf_point(surf, point, bp=None):
         if calc_dist(vi, a1.loc) > a1.rad:
             mag = min(abs(roots))
         else:
-            if calc_dist(bp, a1.loc) > a0.rad:
+            if calc_dist(a0.loc, a1.loc) > a0.rad:
                 mag = - abs(min(roots))
             else:
                 mag = - min(abs(roots))

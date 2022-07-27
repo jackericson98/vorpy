@@ -17,7 +17,7 @@ sys = System(atoms)
 sys.net.build_net()
 
 # Build the surfaces
-sys.net.build_meshes(min_dist=2)
+sys.net.build_meshes(min_dist=.1)
 
 # Set up the plot
 fig = plt.figure()

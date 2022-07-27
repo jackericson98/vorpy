@@ -103,4 +103,4 @@ class Network:
             # Calculate and print the running percentage for mesh calculations
             percentage = int(i / num_surfs * 100) + 1
             print("\rBuilding Surfaces: ", percentage, "%", end='')
-            self.surfs[i].build()
+            self.surfs[i].build(min_dist=min_dist)
