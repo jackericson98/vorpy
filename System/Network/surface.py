@@ -15,10 +15,10 @@ class Surface:
         self.points = []
         self.simps = None
         self.sa = None
-        self.calc_surf()
+        self.calc_func()
 
     # Bisector function. Creates a bisector surface between 2 atoms
-    def calc_surf(self):
+    def calc_func(self):
         # Make sure that a0 is the atom with the smaller radius
         if self.atoms[0].rad > self.atoms[1].rad:
             self.atoms[0], self.atoms[1] = self.atoms[1], self.atoms[0]
@@ -41,12 +41,41 @@ class Surface:
         # Set the function attribute
         self.func = ABC + DEF + GHI + [J] + [K] + [d]
 
+    # Calculate surface simplices function.
+    def find_simps(self):
+        # Get the atoms
+        a0, a1 = self.atoms
+        # Find the normal to the surface and the magnitude
+        r10 = np.array(a0.loc) - np.array(a1.loc)
+        d = np.linalg.norm(r10)
+        r10_hat = r10 / d
+        # Get the distance between the surfaces
+        ds = d - (a0.rad + a1.rad)
+        # Get the center of the surface
+        c = np.array(a1.loc) + (0.5 * ds + a0.rad) * r10_hat
+        # Move all surf points toward the origin via center point
+        for i in range(len(self.points)):
+            self.points[i] = self.points[i] - c
+        # Calculate the angles to rotate the center point around
+        nps = rotate_points(c, self.points)
+        # Get the 2d version of the points
+        nps = np.array(nps)
+        nps2d = nps[:, 0], nps[:, 1]
+        # Get the Delaunay tesselation
+        tri = mtri.Triangulation(nps2d[0], nps2d[1])
+        # Move the points back to their original location
+        for i in range(len(self.points)):
+            self.points[i] = self.points[i] + c
+        # Filter out any connections between the vertices or the edges
+        self.simps = tri
+
     # Build method. Makes the mesh for the surface and calculates the simplices between them
-    def build(self, min_dist=0.1):
+    def build(self, min_dist=0.1, simps=True):
         # Build the mesh
         make_mesh(self, min_dist=min_dist)
         # Calculate the simplices
-        self.simps = find_simps(self.points, self.atoms)
+        if simps:
+            self.find_simps(self.points)
 
     # Build vta surface function
     def build_vta(self):
@@ -54,4 +83,4 @@ class Surface:
         for vert in self.verts:
             self.points.append(vert.loc)
         # Calculate the simplices
-        self.simps = find_simps(self.points, self.atoms)
+        self.find_simps(self.points)

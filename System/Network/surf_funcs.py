@@ -2,34 +2,6 @@ from System.sys_funcs import *
 import matplotlib.tri as mtri
 
 
-# Calculate surface simplices function.
-def find_simps(points, atoms):
-    # Get the atoms
-    a0, a1 = atoms
-    # Find the normal to the surface and the magnitude
-    r10 = np.array(a0.loc) - np.array(a1.loc)
-    d = np.linalg.norm(r10)
-    r10_hat = r10/d
-    # Get the distance between the surfaces
-    ds = d - (a0.rad + a1.rad)
-    # Get the center of the surface
-    c = np.array(a1.loc) + (0.5 * ds + a0.rad) * r10_hat
-    # Move all surf points toward the origin via center point
-    for i in range(len(points)):
-        points[i] = points[i] - c
-    # Calculate the angles to rotate the center point around
-    nps = rotate_points(c, points)
-    # Get the 2d version of the points
-    nps = np.array(nps)
-    nps2d = nps[:, 0], nps[:, 1]
-    # Get the Delaunay tesselation
-    tri = mtri.Triangulation(nps2d[0], nps2d[1])
-    # Filter out any connections between the vertices
-    for i in range(len(points)):
-        points[i] = points[i] + c
-    return tri
-
-
 # Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
 # from the center of the smallest of the surfaces 2 atoms through the point into the surface
 def calc_surf_point(surf, point):

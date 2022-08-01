@@ -179,18 +179,6 @@ def rotate_points(vec, points):
     return nps
 
 
-# Move sphere function. Takes in a location, an Atom object and a direction and updates the Atom's location
-def move(loc, atom, to_home=False):
-    # Change whether we are adding or subtracting the location to the sphere's location.
-    d = 1
-    if not to_home:
-        d = -1
-    # Update the atom's location
-    atom.loc[0] = atom.loc[0] + d * loc[0]
-    atom.loc[1] = atom.loc[1] + d * loc[1]
-    atom.loc[2] = atom.loc[2] + d * loc[2]
-
-
 """System checks"""
 
 

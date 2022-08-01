@@ -76,7 +76,7 @@ def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid
 
 
 # Plot vertices function. Plots the vertices of a network.
-def plot_verts(verts, plot_spheres=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None, bg_color=None):
+def plot_verts(verts, spheres=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None, bg_color=None):
     # Set up the plot
     fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha, bg_color)
     # Default color is red
@@ -87,7 +87,7 @@ def plot_verts(verts, plot_spheres=False, fig=None, ax=None, Show=False, dfo=Non
         # Plot the point
         ax.scatter(verts[i].loc[0], verts[i].loc[1], verts[i].loc[2], c=colors[i])
     # Plot the inscribed spheres
-    if plot_spheres:
+    if spheres:
         spheres = []
         for i in range(len(verts)):
             spheres.append(Atom(verts[i].loc, verts[i].rad))

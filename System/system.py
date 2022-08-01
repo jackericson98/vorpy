@@ -35,12 +35,13 @@ class System:
         # Non-pertinent information
         self.info = {}
         # Check the filetype and use the appropriate function to get it
-        if file[-3:] == "pdb":
-            self.get_pdb()
-        elif file[-3:] == "gro":
-            self.get_gro()
-        elif file[-3:] == "mol":
-            self.get_mol()
+        if file:
+            if file[-3:] == "pdb":
+                self.get_pdb()
+            elif file[-3:] == "gro":
+                self.get_gro()
+            elif file[-3:] == "mol":
+                self.get_mol()
         self.net = Network(self.atoms)
 
     # Get name method. Extracts the name from the file name
@@ -191,7 +192,17 @@ class System:
             atoms = [balls[int(data[0])], balls[int(data[1])], balls[int(data[2])], balls[int(data[3])]]
             myVert = Vertex(atoms=atoms, location=loc, radius=rad)
             self.net.verts.append(myVert)
-    #
+
+    # Build network function. Allows user to build the network from the system object.
+    def build_network(self, min_dist=0.1):
+        # Build the network
+        self.net.build(min_dist)
+
+    # Analyze method. Finds the surface area of every surface in the system and volume of all of the cells
+    def analyze(self):
+        # Run analysis on the network
+        self.net.analyze()
+
     # # Export function. Takes the system data and creates a set of obj files in the working directory
     # def export(self, dir=None):
 

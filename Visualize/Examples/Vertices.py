@@ -30,6 +30,6 @@ for i in range(len(cases)):
     axn = fig.add_subplot(int("23" + str(i + 1)), projection="3d", xlim=10)
     axn.set_title(titles[i])
     plot_atoms(cases[i], fig=fig, ax=axn, colors=['y', 'y', 'y', 'y'], alpha=.1, dfo=5)
-    plot_verts([verts[i]], fig=fig, ax=axn, dfo=15, plot_spheres=True)
+    plot_verts([verts[i]], fig=fig, ax=axn, dfo=15, spheres=True)
 
 plt.show()
