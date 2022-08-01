@@ -1,4 +1,4 @@
-from System.sys_calcs import *
+from System.sys_funcs import *
 from System.Network.vertex import Vertex
 
 

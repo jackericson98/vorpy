@@ -41,7 +41,17 @@ class Surface:
         # Set the function attribute
         self.func = ABC + DEF + GHI + [J] + [K] + [d]
 
-    # Build method. Makes the mesh for the surface
+    # Build method. Makes the mesh for the surface and calculates the simplices between them
     def build(self, min_dist=0.1):
+        # Build the mesh
         make_mesh(self, min_dist=min_dist)
+        # Calculate the simplices
+        self.simps = find_simps(self.points, self.atoms)
+
+    # Build vta surface function
+    def build_vta(self):
+        # Add the vertex points to the surface's list of points
+        for vert in self.verts:
+            self.points.append(vert.loc)
+        # Calculate the simplices
         self.simps = find_simps(self.points, self.atoms)

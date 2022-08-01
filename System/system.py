@@ -1,7 +1,4 @@
 """This file holds all object types needed for calculations: Molecule, Mesh, Sphere, Ray, Plane"""
-import os
-
-import numpy as np
 from System.Network.network import *
 
 
@@ -13,6 +10,7 @@ class Atom:
         self.verts = []  # List of Vertex type objects
         self.surfs = []  # List of Surface type objects
         self.edges = []  # List of Edge type objects
+        self.cell = True
 
 
 class System:
@@ -44,7 +42,6 @@ class System:
         elif file[-3:] == "mol":
             self.get_mol()
         self.net = Network(self.atoms)
-        self.Voronota = False
 
     # Get name method. Extracts the name from the file name
     @staticmethod
@@ -63,23 +60,24 @@ class System:
     # Calculate box function. Takes in a System and returns the dimensions of a box x times the size of the atoms
     def calc_box(self, x):
         # Set up the minimum and maximum x, y, z coordinates
-        mins = [np.inf, np.inf, np.inf]
-        maxes = [-np.inf, -np.inf, -np.inf]
+        min_vert = np.array([np.inf, np.inf, np.inf])
+        max_vert = np.array([-np.inf, -np.inf, -np.inf])
         # Check each atom in the System
         for atom in self.atoms:
             # Go through x, y, z
             for i in range(3):
                 # If we find that the x, y, z value is less replace the value in the mins list
-                if atom.loc[i] < mins[i]:
-                    mins[i] = atom.loc[i]
-                # If we find that the _ value is less replace the value in the mins list
-                elif atom.loc[i] > maxes[i]:
-                    maxes[i] = atom.loc[i]
-        deltas = [maxes[0] - mins[0], maxes[1] - mins[1], maxes[2] - mins[2]]
-        for i in range(3):
-            mins[i] = mins[i] - deltas[i]
-            maxes[i] = maxes[i] + deltas[i]
-        return [mins, maxes]
+                if atom.loc[i] < min_vert[i]:
+                    min_vert[i] = atom.loc[i]
+                # If we find that the x, y, z value is less replace the value in the mins list
+                elif atom.loc[i] > max_vert[i]:
+                    max_vert[i] = atom.loc[i]
+        # Get the vector between the minimum and maximum vertices for the defining box
+        r_box = max_vert - min_vert
+        # Set the new vertices to the x factor times the vector between them added to their complimentary vertices
+        min_vert, max_vert = max_vert + r_box * x, min_vert - r_box * x
+        # Return the list of array turned list vertices
+        return [min_vert.tolist(), max_vert.tolist()]
 
     # Get pdb data method. Finds the lines of the file with prefixes and returns them as a list
     def get_pdb_data(self, word):
@@ -172,7 +170,8 @@ class System:
 
     # Add Voronota data method. Takes in voronota data and adds it to the System
     def add_vta_data(self, ball_file, vert_file):
-        self.Voronota = True
+        # Set the voronota system indicator to True
+        self.net.vta = True
         # Create the System and load the files
         vert_file = open(vert_file).readlines()
         ball_file = open(ball_file).readlines()
@@ -192,3 +191,7 @@ class System:
             atoms = [balls[int(data[0])], balls[int(data[1])], balls[int(data[2])], balls[int(data[3])]]
             myVert = Vertex(atoms=atoms, location=loc, radius=rad)
             self.net.verts.append(myVert)
+    #
+    # # Export function. Takes the system data and creates a set of obj files in the working directory
+    # def export(self, dir=None):
+

@@ -1,10 +1,10 @@
-from System.sys_calcs import *
+from System.sys_funcs import *
 from System.Network.surface import Surface, calc_surf_point
 
 
 class Edge:
     """Edge object. Used to build the network and calculate the surfaces"""
-    def __init__(self, atoms, verts, surfs=None):
+    def __init__(self, atoms, verts, surfs=None, calc_points=True):
         if surfs is None:
             surfs = []
         self.atoms = atoms  # List of Atom type objects
@@ -14,10 +14,11 @@ class Edge:
         self.rad = None
         self.dir = None
         self.points = []  # List of points on the edge. These points do not include the vertex points
-        self.calc_points()
+        if calc_points:
+            self.build()
 
     # Calculate points function. Find points long the edge, given it has atoms and vertices
-    def calc_points(self, surf=None, min_dist=None):
+    def build(self, surf=None, min_dist=None):
         # Give the edge a minimum distance
         if min_dist is None:
             min_dist = 0.1

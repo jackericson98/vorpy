@@ -11,6 +11,7 @@ class Network:
         self.surfs = []  # List of Surface type objects
         self.edges = []  # List of Edge type objects
         self.rad = 50  # Ballpark range for radius needed for the entire network.
+        self.vta = False
 
     def connect(self):
         # Create edges and add connections between verts and edges
@@ -32,7 +33,7 @@ class Network:
                 my_edge = check_edge(atoms, self.edges)
                 if my_edge is None:
                     # Create the edge
-                    my_edge = Edge(list(atoms), verts)
+                    my_edge = Edge(list(atoms), verts, calc_points=not self.vta)
                     # Add the edge to the System
                     self.edges.append(my_edge)
                     # Add the edge to the verts
@@ -83,17 +84,13 @@ class Network:
                 if set(surf.atoms).issubset(vert.atoms):
                     vert.surfs.append(surf)
 
-    def find_vertices(self):
-        find_vertices(self)
-
     # Build network function. Takes in a system and returns a fully connected network
-    def build_net(self):
-        # Find the vertices of the system
-        find_vertices(self)
+    def build(self, min_dist=None):
+        # Find the vertices of the system if it is not a voronota system
+        if not self.vta and not self.verts:
+            find_vertices(self)
         # Connect the network of vertices
         self.connect()
-
-    def build_meshes(self, min_dist=None):
         # Set the minimum distance
         if min_dist is None:
             min_dist = 0.5
@@ -103,4 +100,9 @@ class Network:
             # Calculate and print the running percentage for mesh calculations
             percentage = int(i / num_surfs * 100) + 1
             print("\rBuilding Surfaces: ", percentage, "%", end='')
-            self.surfs[i].build(min_dist=min_dist)
+            # If the network is a voronota network, use build_vta method
+            if self.vta:
+                self.surfs[i].build_vta()
+            # Otherwise, proceed with the regular build method
+            else:
+                self.surfs[i].build(min_dist=min_dist)

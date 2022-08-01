@@ -14,10 +14,10 @@ atoms += [[[dist + 4, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[
           [[0, 0, -dist], rad]]
 
 sys = System(atoms)
-sys.net.build_net()
+sys.net.build()
 
 # Build the surfaces
-sys.net.build_meshes(min_dist=.1)
+sys.net.build(min_dist=.1)
 
 # Set up the plot
 fig = plt.figure()

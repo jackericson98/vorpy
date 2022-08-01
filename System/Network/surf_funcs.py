@@ -1,13 +1,103 @@
-from System.Network.surf_calcs import *
+from System.sys_funcs import *
+import matplotlib.tri as mtri
 
 
-# Edge trace function.
+# Calculate surface simplices function.
+def find_simps(points, atoms):
+    # Get the atoms
+    a0, a1 = atoms
+    # Find the normal to the surface and the magnitude
+    r10 = np.array(a0.loc) - np.array(a1.loc)
+    d = np.linalg.norm(r10)
+    r10_hat = r10/d
+    # Get the distance between the surfaces
+    ds = d - (a0.rad + a1.rad)
+    # Get the center of the surface
+    c = np.array(a1.loc) + (0.5 * ds + a0.rad) * r10_hat
+    # Move all surf points toward the origin via center point
+    for i in range(len(points)):
+        points[i] = points[i] - c
+    # Calculate the angles to rotate the center point around
+    nps = rotate_points(c, points)
+    # Get the 2d version of the points
+    nps = np.array(nps)
+    nps2d = nps[:, 0], nps[:, 1]
+    # Get the Delaunay tesselation
+    tri = mtri.Triangulation(nps2d[0], nps2d[1])
+    # Filter out any connections between the vertices
+    for i in range(len(points)):
+        points[i] = points[i] + c
+    return tri
+
+
+# Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
+# from the center of the smallest of the surfaces 2 atoms through the point into the surface
+def calc_surf_point(surf, point):
+    # Grab the function's coefficients
+    f = surf.func
+    # Get the first atoms in the surfaces list of atoms
+    a0, a1 = surf.atoms[0], surf.atoms[1]
+    # Set up the unit vector
+    vi = np.array(point) - np.array(a0.loc)
+    vn = vi/np.linalg.norm(vi)
+    # Find the location on the surface of the atom
+    vi = np.array(a0.loc) + vn * a0.rad
+    # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
+    a = f[0] * vn[0] ** 2 + f[1] * vn[1] ** 2 + f[2] * vn[2] ** 2 + f[3] * vn[0] * vn[1] + f[4] * vn[1] * vn[2] + f[5] \
+        * vn[2] * vn[0]
+    b = 2 * f[0] * vn[0] * vi[0] + 2 * f[1] * vn[1] * vi[1] + 2 * f[2] * vn[2] * vi[2] + f[3] \
+        * (vn[0] * vi[1] + vn[1] * vi[0]) + f[4] * (vn[1] * vi[2] + vn[2] * vi[1]) + f[5] \
+        * (vn[2] * vi[0] + vn[0] * vi[2]) + f[6] * vn[0] + f[7] * vn[1] + f[8] * vn[2]
+    c = f[0] * vi[0] ** 2 + f[1] * vi[1] ** 2 + f[2] * vi[2] ** 2 + f[3] * vi[0] * vi[1] + f[4] * vi[1] * vi[2] + \
+        f[5] * vi[2] * vi[0] + f[6] * vi[0] + f[7] * vi[1] + f[8] * vi[2] + f[9]
+    # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
+    # and add that point to our surface list of points
+    if round(b ** 2 - 4 * a * c, 4) >= 0:
+        roots = np.roots([a, b, c])
+        # If the projection point on a0's surface is outside a1's surface take the smallest of the roots
+        if calc_dist(vi, a1.loc) > a1.rad:
+            mag = min(abs(roots))
+        # If the projection point is within the intersection, the magnitude is negative
+        else:
+            #
+            if calc_dist(a0.loc, a1.loc) > a0.rad:
+                mag = - abs(min(roots))
+            else:
+                mag = - min(abs(roots))
+        return vi + mag * vn
+
+
+# Find next point function. Finds the next point along the given path by projecting a reference point onto the surface
+def find_next_point(pn_1, end, d_theta, surf):
+    # Get the A angle
+    A = d_theta
+    # Get the smaller atom's location
+    pa = surf.atoms[0].loc
+    # Get the location of point b
+    pb = np.array(pn_1)
+    # Get the distance between pb and pa
+    c = calc_dist(pa, pb)
+    # Get the angle between pa, pb and pv1
+    B = calc_angle(pb, pa, end)
+    # Get the last angle
+    C = np.pi - A - B
+    # Find a using the law of sines
+    a = np.sin(A) * c / np.sin(C)
+    # Find the intercept point by adding a to pb
+    rn = end - pb
+    rn_hat = rn / np.linalg.norm(rn)
+    pc = pb + rn_hat * a
+    # Calculate where the point intercepts the surface
+    return calc_surf_point(surf, pc)
+
+
+# Edge trace function. I want to update to put the points in order
 def edge_trace1(surf):
     # Instantiate the edge_points list
     edge_points = []
     # Go through each edge in the surface's list of edges
     for edge in surf.edges:
-        edge.calc_points(surf=surf)
+        edge.build(surf=surf)
         # Add the edge's points to the surface's edge points attribute
         edge_points += edge.points
     return edge_points
@@ -85,10 +175,13 @@ def make_mesh(surf, min_dist, radius=None, vta=False):
         com = calc_surf_point(surf, calc_edges_com(points=surf.edge_points))
     # This is for the voronota plot. If the first edge in the list of edges has points add all edges' points so the list
     elif vta:
-        # Go through the
+        # Go through the vertices and add their locations to the surface's points
+        for vert in surf.verts:
+            surf.vert_points.append(vert.loc)
+        # Make sure the edge's points are set to just include the vertices
         for edge in surf.edges:
-            surf.edge_points += edge.points
-        surf.points += surf.edge_points
+            edge.points = [edge.verts[0].loc, edge.verts[1].loc]
+        surf.points += surf.vert_points
         return
     else:
         return
