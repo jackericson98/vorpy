@@ -42,11 +42,13 @@ class Surface:
         self.func = ABC + DEF + GHI + [J] + [K] + [d]
 
     # Make mesh method. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
-    def make_mesh(self, min_dist, radius=None, vta=False):
+    def make_mesh(self, min_dist, radius=None):
+        # Get the atoms
+        a0, a1 = self.atoms[0], self.atoms[1]
         # Reset the all surface points to empty lists
         self.points, self.vert_points, self.edge_points, self.surf_points = [], [], [], []
         # If the surface has vertices, add those points to the vert_points attribute of the surface
-        if self.verts and not vta:
+        if self.verts:
             # Go through each vertex on the surface
             for vert in self.verts:
                 # Add the points to the surface's list of vertex points
@@ -55,8 +57,18 @@ class Surface:
             self.points = self.vert_points
             # Use the edge tracing function to get edges' points
             self.edge_points = edge_trace1(self)
+            # Get the center of mass of the edges of the surface
+            com = calc_edges_com(self.edges)
+            d_coma1 = calc_dist(com, self.atoms[1].loc)
+            if d_coma1 > calc_dist(a0.loc, a1.loc):
+                theta = calc_angle(a0.loc, com, a1.loc) - np.pi / 2
+                mag = 2 * calc_dist(a0.loc, com) * np.sin(theta)
+                r = (np.array(a1.loc) - np.array(a0.loc))
+                rn = r / np.linalg.norm(r)
+                com = com + mag * rn
+
             # Calculate the center of mass point of the edge points and where it maps on the surface
-            com = calc_surf_point(self, calc_edges_com(self.edges))
+            com = calc_surf_point(self, com)
         # If no edges exist create a circular edge
         elif not self.edges:
             # If no radius is specified, create one 5x larger than the size of the center atom
@@ -91,7 +103,6 @@ class Surface:
         # Set the pn_1 point to infinity
         pn_1 = [np.inf, np.inf, np.inf]
         num_paths = len(paths)
-        surf_points = []
         # Go through ring by ring
         for j in range(num_rings):
             # Go through each of the remaining paths
@@ -102,7 +113,7 @@ class Surface:
                 # Check to see of the new point is too close to the previous point and the path has to end
                 if calc_dist(pn, pn_1) < min_dist:
                     # Add the path to the surfaces points and remove it from the paths list
-                    surf_points += paths.pop(i)[1:]
+                    self.surf_points += paths.pop(i)[1:]
                     ends.pop(i)
                     dthetas.pop(i)
                     num_paths -= 1
@@ -114,8 +125,9 @@ class Surface:
                     i += 1
         # Add the remaining paths to the surface excluding the first point in the path (i.e. the edge point)
         for path in paths:
-            surf_points += path[1:]
-        self.surf_points = np.array(surf_points).tolist()
+            self.surf_points += path[1:]
+        # Add the center of mass point to the mesh
+        self.surf_points.append(com)
         # Add the surface points to the general list of points
         self.points += self.surf_points
 

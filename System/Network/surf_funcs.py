@@ -9,6 +9,9 @@ def calc_surf_point(surf, point):
     f = surf.func
     # Get the first atoms in the surfaces list of atoms
     a0, a1 = surf.atoms[0], surf.atoms[1]
+    # Get the vector between the atoms
+    r01 = np.array(a1.loc) - np.array(a0.loc)
+    r01n = r01/np.linalg.norm(r01)
     # Set up the unit vector
     vi = np.array(point) - np.array(a0.loc)
     vn = vi/np.linalg.norm(vi)
@@ -24,18 +27,20 @@ def calc_surf_point(surf, point):
         f[5] * vi[2] * vi[0] + f[6] * vi[0] + f[7] * vi[1] + f[8] * vi[2] + f[9]
     # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
     # and add that point to our surface list of points
-    if round(b ** 2 - 4 * a * c, 4) >= 0:
+    if round(b ** 2 - 4 * a * c, 10) >= 0:
         roots = np.roots([a, b, c])
         # If the projection point on a0's surface is outside a1's surface take the smallest of the roots
         if calc_dist(vi, a1.loc) > a1.rad:
-            mag = min(abs(roots))
+            if calc_angle(a0.loc, a1.loc, vi) > 5 * np.pi / 8:
+                mag = max(abs(roots))
+            else:
+                mag = min(abs(roots))
         # If the projection point is within the intersection, the magnitude is negative
         else:
-            #
-            if calc_dist(a0.loc, a1.loc) > a0.rad:
-                mag = - abs(min(roots))
-            else:
+            if calc_angle(a0.loc, a1.loc, vi) > np.pi/4:
                 mag = - min(abs(roots))
+            else:
+                mag = -abs(min(roots))
         return vi + mag * vn
 
 
