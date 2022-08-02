@@ -53,7 +53,7 @@ class Network:
                 continue
             # Calculate the circle made with the 3 atoms
             circ = calc_circ([a0, a1, atom])
-            # If the radius of the circle that is made with the 3 atoms is smaller than the previous smallest radius replace
+            # If the radius of the inscribed circle is smaller than the previous smallest found circle's radius replace
             if circ and abs(circ[0][1]) < min_rad:
                 min_rad = abs(circ[0][1])
                 a2 = atom

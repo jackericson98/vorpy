@@ -109,29 +109,27 @@ class System:
 
     # Get pdb method. Finds the atoms and
     def get_pdb(self):
-        # Open and read the file
+        # .PDB file type standards.
         pdb_stds = ['HEADER', 'TITLE', 'COMPOUND', 'SOURCE', 'KEYWDS', 'EXPDTA', 'AUTHOR', 'REVDAT', 'JRNL', 'REMARK',
                     'DBREF', 'SEQADV', 'FORMUL', 'SEQRES', 'HELIX', 'SHEET', 'CRYST', 'ORIG', 'SCALE', 'TER', 'HETATM',
                     'MASTER']
+        # Define the keys
         keys = ['header', 'title', 'compound', 'source', 'key_words', 'exp_data', 'author', 'revisions', 'journal',
                 'remarks', 'debrief', 'seq_adv', 'formula', 'residues', 'helix', 'sheet', 'crystal', 'origin', 'scale',
                 'terminals', 'het_atom', 'master']
+        # Set the keys
         for i in range(len(pdb_stds)):
             self.info[keys[i]] = self.get_pdb_data(pdb_stds[i])
-
-        # Grab all the lines that start with ATOM. Creates Atom objects
+        # Grab the lines that start with ATOM and create Atom objects
         self.atoms = self.get_pdb_data('ATOM')
 
     # Get gro method. Finds data in a gro file
     def get_gro(self):
         self.info['header'] = self.file[0]
         self.box = self.file[-2]
-        # Go through each line in the file and
+        # Go through each line in the file and create an atom object
         for line in self.file[2:-2]:
-            atom = Atom([line[3], line[4], line[5]], self.get_radius(line[1][0]))
-            if atom.rad is None:
-                print(line[1])
-            self.atoms.append(atom)
+            self.atoms.append(Atom([line[3], line[4], line[5]], self.get_radius(line[1][0])))
 
     # Get mol method. Finds data in a mol file
     def get_mol(self):
@@ -154,13 +152,17 @@ class System:
 
     # Build System function. Takes in a list of coordinates and string atom names
     def build_sys(self, lr_input_list):
-        # Go through each line in the input list
-        for line in lr_input_list:
-            # If the radius is a
-            if type(line[1]) == str:
-                self.atoms.append(Atom([line[0][0], line[0][1], line[0][2]], self.get_radius(line[1])))
-            else:
-                self.atoms.append(Atom([line[0][0], line[0][1], line[0][2]], line[1]))
+        # Check if atom objects are given
+        if type(lr_input_list[0]) is Atom:
+            self.atoms = lr_input_list
+        else:
+            # Go through each line in the input list
+            for line in lr_input_list:
+                # If the radius is a string, convert the radius using the get_radius method
+                if type(line[1]) == str:
+                    self.atoms.append(Atom([line[0][0], line[0][1], line[0][2]], self.get_radius(line[1])))
+                else:
+                    self.atoms.append(Atom([line[0][0], line[0][1], line[0][2]], line[1]))
 
     # Random System function. Creates a System with atoms placed in random locations with random radii
     def random_system(self, anums=30, dmax=15, rmax=1):
