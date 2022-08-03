@@ -1,4 +1,4 @@
-from System.Network.surf_funcs import *
+from System.sys_funcs import *
 import matplotlib.tri as mtri
 
 
@@ -42,6 +42,70 @@ class Surface:
         # Set the function attribute
         self.func = ABC + DEF + GHI + [J] + [K] + [d]
 
+    # Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
+    # from the center of the smallest of the surfaces 2 atoms through the point into the surface
+    def calc_surf_point(self, point):
+        # Grab the function's coefficients
+        f = self.func
+        # Get the first atoms in the surfaces list of atoms
+        a0, a1 = self.atoms[0], self.atoms[1]
+        # Set up the unit vector
+        vi = np.array(point) - np.array(a0.loc)
+        vn = vi / np.linalg.norm(vi)
+        # Find the location on the surface of the atom
+        vi = np.array(a0.loc) + vn * a0.rad
+        # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
+        a = f[0] * vn[0] ** 2 + f[1] * vn[1] ** 2 + f[2] * vn[2] ** 2 + f[3] * vn[0] * vn[1] + f[4] * vn[1] * vn[2] + f[
+            5] \
+            * vn[2] * vn[0]
+        b = 2 * f[0] * vn[0] * vi[0] + 2 * f[1] * vn[1] * vi[1] + 2 * f[2] * vn[2] * vi[2] + f[3] \
+            * (vn[0] * vi[1] + vn[1] * vi[0]) + f[4] * (vn[1] * vi[2] + vn[2] * vi[1]) + f[5] \
+            * (vn[2] * vi[0] + vn[0] * vi[2]) + f[6] * vn[0] + f[7] * vn[1] + f[8] * vn[2]
+        c = f[0] * vi[0] ** 2 + f[1] * vi[1] ** 2 + f[2] * vi[2] ** 2 + f[3] * vi[0] * vi[1] + f[4] * vi[1] * vi[2] + \
+            f[5] * vi[2] * vi[0] + f[6] * vi[0] + f[7] * vi[1] + f[8] * vi[2] + f[9]
+        # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
+        # and add that point to our surface list of points
+        if round(b ** 2 - 4 * a * c, 4) >= 0:
+            roots = np.roots([a, b, c])
+            # If the projection point on a0's surface is outside a1's surface take the smallest of the roots
+            if calc_dist(vi, a1.loc) > a1.rad:
+                x = 1 - (calc_dist(a0.loc, a1.loc) * a0.rad) / a1.rad
+                if calc_angle(a0.loc, a1.loc, vi) - np.pi / 2 > x:
+                    mag = max(abs(roots))
+                else:
+                    mag = min(abs(roots))
+            # If the projection point is within the intersection, the magnitude is negative
+            else:
+                if calc_angle(a0.loc, a1.loc, vi) > np.pi / 4:
+                    mag = - min(abs(roots))
+                else:
+                    mag = -abs(min(roots))
+            return vi + mag * vn
+
+    # Find next point method. Finds the next point along the given path by projecting a reference point onto the surface
+    def find_next_point(self, pn_1, end, d_theta):
+        # Get the A angle
+        A = d_theta
+        # Get the smaller atom's location
+        pa = self.atoms[0].loc
+        # Get the location of point b
+        pb = np.array(pn_1)
+        # Get the distance between pb and pa
+        c = calc_dist(pa, pb)
+        # Get the angle between pa, pb and pv1
+        B = calc_angle(pb, pa, end)
+        # Get the last angle
+        C = np.pi - A - B
+        # Find a using the law of sines
+        a = np.sin(A) * c / np.sin(C)
+        # Find the intercept point by adding a to pb
+        rn = end - pb
+        rn_hat = rn / np.linalg.norm(rn)
+        pc = pb + rn_hat * a
+        # Calculate where the point intercepts the surface
+        sp = self.calc_surf_point(pc)
+        return sp
+
     # Make mesh method. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
     def make_mesh(self, min_dist):
         # Get the atoms
@@ -67,7 +131,7 @@ class Surface:
         com = calc_edges_com(self.edges)
         # Get the distance between the center of mass and a1
         d_coma1 = calc_dist(com, self.atoms[1].loc)
-        # Check to see if the center of mass is
+        # Check to see if the center of mass is going to trigger a
         if d_coma1 > calc_dist(a0.loc, a1.loc):
             theta = calc_angle(a0.loc, com, a1.loc) - np.pi / 2
             mag = 2 * calc_dist(a0.loc, com) * np.sin(theta)
@@ -75,7 +139,7 @@ class Surface:
             rn = r / np.linalg.norm(r)
             com = com + mag * rn
         # Calculate the center of mass point of the edge points and where it maps on the surface
-        com = calc_surf_point(self, com)
+        com = self.calc_surf_point(com)
         # Add the edge points to the surface's points
         self.points += self.edge_points
         # For each edge point set up a path list.
@@ -103,7 +167,7 @@ class Surface:
             i = 0
             while i < num_paths:
                 # Get the next point along the path
-                pn = find_next_point(paths[i][-1], com, dthetas[i], self)
+                pn = self.find_next_point(paths[i][-1], com, dthetas[i])
                 # Check to see of the new point is too close to the previous point and the path has to end
                 if calc_dist(pn, pn_1) < min_dist:
                     # Add the path to the surfaces points and remove it from the paths list

@@ -1,5 +1,5 @@
 from System.sys_funcs import *
-from System.Network.surface import Surface, calc_surf_point
+from System.Network.surface import Surface
 
 
 class Edge:
