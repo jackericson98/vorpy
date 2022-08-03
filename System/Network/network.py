@@ -208,28 +208,26 @@ class Network:
                     vert.surfs.append(surf)
 
     # Build network function. Takes in a system and returns a fully connected network
-    def build(self, min_dist=None):
+    def build(self, min_dist=None, surfs=True):
         # Find the vertices of the system if it is not a voronota system
         if not self.vta and not self.verts:
             self.find_vertices()
         # Connect the network of vertices
         self.connect()
-        # Set the minimum distance to 0.5A
-        if min_dist is None:
-            min_dist = 0.5
         num_surfs = len(self.surfs)
-        # Make each surface
-        for i in range(num_surfs):
-            # Calculate and print the running percentage for mesh calculations
-            percentage = int(i / num_surfs * 100) + 1
-            pertentage = percentage // 10
-            print("\rBuilding Surfaces:", '#' * pertentage + ' ' * (10 - pertentage), percentage,  "%", end='')
-            # If the network is a voronota network, use build_vta method
-            if self.vta:
-                self.surfs[i].build_vta()
-            # Otherwise, proceed with the regular build method
-            else:
-                self.surfs[i].build(min_dist=min_dist)
-        print("\r Surfaces Built")
-        print("\r")
+        if surfs:
+            # Make each surface
+            for i in range(num_surfs):
+                # Calculate and print the running percentage for mesh calculations
+                percentage = int(i / num_surfs * 100) + 1
+                pertentage = percentage // 10
+                print("\rBuilding Surfaces:", '#' * pertentage + ' ' * (10 - pertentage), percentage,  "%", end='')
+                # If the network is a voronota network, use build_vta method
+                if self.vta:
+                    self.surfs[i].build_vta()
+                # Otherwise, proceed with the regular build method
+                else:
+                    self.surfs[i].build()
+            print("\r Surfaces Built")
+            print("\r")
 

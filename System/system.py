@@ -196,9 +196,9 @@ class System:
             self.net.verts.append(myVert)
 
     # Build network function. Allows user to build the network from the system object.
-    def build_network(self, min_dist=0.1):
+    def build_network(self, min_dist=0.1, surfs=True):
         # Build the network
-        self.net.build(min_dist)
+        self.net.build(min_dist, surfs)
 
     # Analyze method. Finds the surface area of every surface in the system and volume of all of the cells
     def analyze(self):

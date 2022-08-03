@@ -4,7 +4,7 @@ import matplotlib.tri as mtri
 
 class Surface:
     """Surface object. Holds the mesh data. Used to analyze."""
-    def __init__(self, atoms, edges=None, verts=None):
+    def __init__(self, atoms, edges=None, verts=None, min_dist=0.1):
         self.func = None
         self.atoms = atoms  # List of Atom type objects
         self.edges = edges  # List of Edge type objects
@@ -16,6 +16,7 @@ class Surface:
         self.points = []
         self.tris = None
         self.sa = None
+        self.min_dist = min_dist
         self.calc_func()
 
     # Bisector function. Creates a bisector surface between 2 atoms
@@ -107,7 +108,7 @@ class Surface:
         return sp
 
     # Make mesh method. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
-    def make_mesh(self, min_dist):
+    def make_mesh(self):
         # Get the atoms
         a0, a1 = self.atoms[0], self.atoms[1]
         # Reset the all surface points to empty lists
@@ -120,7 +121,7 @@ class Surface:
         self.points += self.vert_points
         # Go through each edge in the surface's list of edges
         for edge in self.edges:
-            edge.build(surf=self, min_dist=min_dist)
+            edge.build(surf=self)
             # Add the edge's points to the surface's edge points attribute
             self.edge_points += edge.points
         # Check to see if the atoms have equal radii
@@ -155,7 +156,7 @@ class Surface:
         max_path_ndx = angs.index(max(angs))
         max_path = paths[max_path_ndx][0]
         # Decide how many rings based off of the ellipticity and density
-        num_rings = max(int(calc_dist(max_path, com) / min_dist), 10)
+        num_rings = max(int(calc_dist(max_path, com) / self.min_dist), 10)
         # Get the incremental angle increases
         dthetas = [angs[i] / num_rings for i in range(len(angs))]
         # Set the pn_1 point to infinity
@@ -169,7 +170,7 @@ class Surface:
                 # Get the next point along the path
                 pn = self.find_next_point(paths[i][-1], com, dthetas[i])
                 # Check to see of the new point is too close to the previous point and the path has to end
-                if calc_dist(pn, pn_1) < min_dist:
+                if calc_dist(pn, pn_1) < self.min_dist:
                     # Add the path to the surfaces points and remove it from the paths list
                     self.surf_points += paths.pop(i)[1:]
                     dthetas.pop(i)
@@ -240,7 +241,7 @@ class Surface:
     # Build method. Makes the mesh for the surface and calculates the simplices between them
     def build(self, min_dist=0.1, simps=True):
         # Build the mesh
-        self.make_mesh(min_dist=min_dist)
+        self.make_mesh()
         # Calculate the simplices
         if simps:
             self.find_simps()

@@ -6,19 +6,18 @@ from Visualize.visualize import plot_atoms, plot_verts, plot_surfs, plot_edges
 import matplotlib.pyplot as plt
 
 # Create atom objects from sets of points
-atoms = [[[0, 0, 0], 1]]
+atoms = [[[0, 0, 0], 2]]
 
 dist = 4
-rad = 1.5
+rad = 2
 
 atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[0, -dist, 0], rad], [[0, 0, dist], rad],
           [[0, 0, -dist], rad]]
 
 sys = System(atoms)
-sys.net.build()
 
 # Build the surfaces
-sys.net.build(min_dist=.3)
+sys.net.build(min_dist=.1)
 
 # Set up the plot
 fig = plt.figure()

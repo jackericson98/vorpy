@@ -23,15 +23,13 @@ vert_atoms = [Atom([1, 5, 5], 2.5), Atom([1, -5, 5], 2.5), Atom([1, 5, -5], 2.5)
 cases = []
 cases.append(System([Atom([-1, 0, 0], .5), Atom([3, 0, 0], .5)] + vert_atoms))
 cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([1, 0, 0], 0.5)] + vert_atoms))
-cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([0.51, 0, 0], 0.5)] + vert_atoms))
-cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([0.5, 0, 0], 0.5)] + vert_atoms))
-cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([0.49, 0, 0], 0.5)] + vert_atoms))
-cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([0.01, 0, 0], 0.5)] + vert_atoms))
-cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([0, 0, 0], 0.5)] + vert_atoms))
+cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([0.6, 0, 0], 0.5)] + vert_atoms))
+cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([0.4, 0, 0], 0.5)] + vert_atoms))
+cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([0.25, 0, 0], 0.5)] + vert_atoms))
+cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([0.1, 0, 0], 0.5)] + vert_atoms))
+cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([-.1, 0, 0], 0.5)] + vert_atoms))
 cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([-0.25, 0, 0], 0.5)] + vert_atoms))
-cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([-0.49, 0, 0], 0.5)] + vert_atoms))
-#cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([-0.5, 0, 0], 0.5)] + vert_atoms))
-# cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([-0.55, 0, 0], 0.5)] + vert_atoms))
+cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([-0.4, 0, 0], 0.5)] + vert_atoms))
 
 
 for sys in cases:
@@ -39,12 +37,14 @@ for sys in cases:
 
 
 fig = plt.figure(figsize=(20, 40))
-titles = ["Case 0: No overlap (equal radii)",
-          "Case 1: No overlap",
-          "Case 2: Minimal overlap",
-          "Case 3: More than half of one atom",
+titles = ["Equal Radii",
+          "No overlap",
+          "Very close",
+          "Minimal overlap",
+          "Minimal Overlap",
+          "Minimal Overlap",
           "Case 4: Overlap is more than half of both atoms",
-          "Case 5: Full encapsulation of one atom", "", "", ""]
+          "Case 5: Full encapsulation of one atom", "", ""]
 for i in range(len(cases)):
     sys = cases[i]
     axn = fig.add_subplot(int("33" + str(i + 1)), projection="3d", xlim=10)

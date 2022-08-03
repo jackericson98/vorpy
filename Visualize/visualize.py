@@ -108,14 +108,12 @@ def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, color
         colors = colors + ['grey' for i in range(len(edges) - len(colors))]
     # Plot the edges
     for i in range(len(edges)):
-        xs, ys, zs = [edges[i].verts[0].loc[0]], [edges[i].verts[0].loc[1]], [edges[i].verts[0].loc[2]]
+        xs, ys, zs = [], [], []
         for point in edges[i].points:
             xs.append(point[0])
             ys.append(point[1])
             zs.append(point[2])
-        xs.append(edges[i].verts[1].loc[0])
-        ys.append(edges[i].verts[1].loc[1])
-        zs.append(edges[i].verts[1].loc[2])
+
         # Plot the points
         ax.plot(xs, ys, zs, c=colors[i])
     # Show the figure
