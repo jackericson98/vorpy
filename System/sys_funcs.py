@@ -137,7 +137,7 @@ def calc_circ(atoms):
             z = Fz0 / F + R * Fz1 / F + l1[2]
             # Add the circle to the circle array
             circs.append([[x, y, z], R])
-        return circs
+        return circs[0]
     # Catch for negative discriminant
     else:
         return

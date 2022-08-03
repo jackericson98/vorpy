@@ -17,10 +17,23 @@ sys.add_vta_data(b_file, v_file)
 # Build the network
 sys.net.build()
 
+atoms, edges, surfs, verts = [],[], [], []
+for atom in sys.net.atoms:
+    cell = True
+    for vert in atom.verts:
+        if len(vert.edges) < 3:
+            cell = False
+            break
+    if cell:
+        atoms.append(atom)
+        edges += atom.edges
+        verts += atom.verts
+        surfs += atom.surfs
+
 # Plot everything
 fig = plt.figure()
 ax = fig.add_subplot(projection="3d")
 # plot_atoms(sys.net.atoms, fig=fig, ax=ax, dfo=20)
-plot_edges(sys.net.edges, fig=fig, ax=ax)
-plot_verts(sys.net.verts, fig=fig, ax=ax)
-plot_surfs(sys.net.surfs, simps=True, fig=fig, ax=ax, Show=True)
+plot_edges(edges, fig=fig, ax=ax)
+plot_verts(verts, fig=fig, ax=ax)
+plot_surfs(surfs, simps=True, fig=fig, ax=ax, Show=True)

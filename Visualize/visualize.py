@@ -32,7 +32,7 @@ def setup_plot(fig=None, ax=None, dfo=None, grid=False, alpha=None, bg_color=Non
             ax.set_facecolor('k')
     # Set alpha
     if alpha is None:
-        alpha = 1
+        alpha = 0.5
     return fig, ax, alpha
 
 
@@ -129,9 +129,9 @@ def plot_surfs(surfs, simps=False, fig=None, ax=None, Show=False, dfo=None, grid
     fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha, bg_color)
     # Set up the colors
     if colors is None:
-        colors = ['y' for i in range(len(surfs))]
+        colors = ['w' for i in range(len(surfs))]
     elif len(colors) < len(surfs):
-        colors = colors + ['y' for i in range(len(surfs) - len(colors))]
+        colors = colors + ['w' for i in range(len(surfs) - len(colors))]
     # Plot the surfaces
     for i in range(len(surfs)):
         x, y, z = [], [], []
@@ -142,7 +142,7 @@ def plot_surfs(surfs, simps=False, fig=None, ax=None, Show=False, dfo=None, grid
         # If simplices are requested get them or make them
         if simps:
             # Plot the simps using matplotlib tri_surf
-            ax.plot_trisurf(x, y, z, triangles=surfs[i].simps.triangles, alpha=.5)
+            ax.plot_trisurf(x, y, z, triangles=surfs[i].tris, alpha=alpha, color=colors[i])
         # Otherwise, plot the points
         else:
             ax.scatter(x, y, z, s=[0.1 for j in range(len(x))], alpha=alpha, c=[colors[i] for k in range(len(x))])

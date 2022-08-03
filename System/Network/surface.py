@@ -1,4 +1,5 @@
 from System.Network.surf_funcs import *
+import matplotlib.tri as mtri
 
 
 class Surface:
@@ -13,7 +14,7 @@ class Surface:
         self.edge_points = []
         self.surf_points = []  # List of points on the surface
         self.points = []
-        self.simps = None
+        self.tris = None
         self.sa = None
         self.calc_func()
 
@@ -42,62 +43,55 @@ class Surface:
         self.func = ABC + DEF + GHI + [J] + [K] + [d]
 
     # Make mesh method. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
-    def make_mesh(self, min_dist, radius=None):
+    def make_mesh(self, min_dist):
         # Get the atoms
         a0, a1 = self.atoms[0], self.atoms[1]
         # Reset the all surface points to empty lists
         self.points, self.vert_points, self.edge_points, self.surf_points = [], [], [], []
-        # If the surface has vertices, add those points to the vert_points attribute of the surface
-        if self.verts:
-            # Go through each vertex on the surface
-            for vert in self.verts:
-                # Add the points to the surface's list of vertex points
-                self.vert_points.append(vert.loc)
-            # Add the vert points to the surface's points
-            self.points = self.vert_points
-            # Use the edge tracing function to get edges' points
-            self.edge_points = edge_trace1(self)
-            # Get the center of mass of the edges of the surface
-            com = calc_edges_com(self.edges)
-            d_coma1 = calc_dist(com, self.atoms[1].loc)
-            if d_coma1 > calc_dist(a0.loc, a1.loc):
-                theta = calc_angle(a0.loc, com, a1.loc) - np.pi / 2
-                mag = 2 * calc_dist(a0.loc, com) * np.sin(theta)
-                r = (np.array(a1.loc) - np.array(a0.loc))
-                rn = r / np.linalg.norm(r)
-                com = com + mag * rn
-
-            # Calculate the center of mass point of the edge points and where it maps on the surface
-            com = calc_surf_point(self, com)
-        # If no edges exist create a circular edge
-        elif not self.edges:
-            # If no radius is specified, create one 5x larger than the size of the center atom
-            if radius is None:
-                radius = self.atoms[1].rad * 5
-            # Add the circular edge points to the surfaces list of edge points
-            self.edge_points = circ_edge_trace(self, radius, min_dist)
-            # Calculate the center of mass point of the edge points and where it maps on the surface
-            com = calc_surf_point(self, calc_edges_com(points=self.edge_points))
-        else:
+        # Go through each vertex on the surface
+        for vert in self.verts:
+            # Add the points to the surface's list of vertex points
+            self.vert_points.append(vert.loc)
+        # Add the vert points to the surface's points
+        self.points += self.vert_points
+        # Go through each edge in the surface's list of edges
+        for edge in self.edges:
+            edge.build(surf=self, min_dist=min_dist)
+            # Add the edge's points to the surface's edge points attribute
+            self.edge_points += edge.points
+        # Check to see if the atoms have equal radii
+        if a0.rad == a1.rad:
+            self.points += self.edge_points
             return
+        # Get the center of mass of the edges of the surface
+        com = calc_edges_com(self.edges)
+        # Get the distance between the center of mass and a1
+        d_coma1 = calc_dist(com, self.atoms[1].loc)
+        # Check to see if the center of mass is
+        if d_coma1 > calc_dist(a0.loc, a1.loc):
+            theta = calc_angle(a0.loc, com, a1.loc) - np.pi / 2
+            mag = 2 * calc_dist(a0.loc, com) * np.sin(theta)
+            r = (np.array(a1.loc) - np.array(a0.loc))
+            rn = r / np.linalg.norm(r)
+            com = com + mag * rn
+        # Calculate the center of mass point of the edge points and where it maps on the surface
+        com = calc_surf_point(self, com)
         # Add the edge points to the surface's points
         self.points += self.edge_points
         # For each edge point set up a path list.
         paths = [[self.edge_points[i]] for i in range(len(self.edge_points))]
         # Grab the smallest of the 2 surface atoms' location
         pa = self.atoms[0].loc
-        # Set up a list of end points
-        ends = [com for i in range(len(paths))]
         # Get the angles between the edge points and the end points
         angs = []
         for i in range(len(paths)):
             # Calculate the angle for each path
-            angs.append(calc_angle(pa, paths[i][0], ends[i]))
+            angs.append(calc_angle(pa, paths[i][0], com))
         # Get the maximum path
         max_path_ndx = angs.index(max(angs))
         max_path = paths[max_path_ndx][0]
         # Decide how many rings based off of the ellipticity and density
-        num_rings = max(int(calc_dist(max_path, ends[max_path_ndx]) / min_dist), 10)
+        num_rings = max(int(calc_dist(max_path, com) / min_dist), 10)
         # Get the incremental angle increases
         dthetas = [angs[i] / num_rings for i in range(len(angs))]
         # Set the pn_1 point to infinity
@@ -109,12 +103,11 @@ class Surface:
             i = 0
             while i < num_paths:
                 # Get the next point along the path
-                pn = find_next_point(paths[i][-1], ends[i], dthetas[i], self)
+                pn = find_next_point(paths[i][-1], com, dthetas[i], self)
                 # Check to see of the new point is too close to the previous point and the path has to end
                 if calc_dist(pn, pn_1) < min_dist:
                     # Add the path to the surfaces points and remove it from the paths list
                     self.surf_points += paths.pop(i)[1:]
-                    ends.pop(i)
                     dthetas.pop(i)
                     num_paths -= 1
                 else:
@@ -157,7 +150,28 @@ class Surface:
         for i in range(len(self.points)):
             self.points[i] = self.points[i] + c
         # Filter out any connections between the vertices or the edges
-        self.simps = tri
+        self.tris = tri.triangles.tolist()
+        # If the surface's atoms have equal radii, were done
+        if a0.rad == a1.rad:
+            return
+        remove_ndxs = []
+        # Go through each triangle on the surface
+        for i in range(len(self.tris)):
+            # Set the counter to 0
+            counter = 0
+            # Go through each point on the triangle checking to see if it is an edge point
+            for j in range(3):
+                # If the triangles jth point index is less than the number of vertex & edge points increment the counter
+                if self.tris[i][j] < len(self.vert_points) + len(self.edge_points):
+                    counter += 1
+            # If all three of the points are on an edge we need to check it
+            if counter == 3:
+                remove_ndxs.append(i)
+        # Remove the outer triangles
+        remove_ndxs.sort()
+        for tri_ndx in remove_ndxs[::-1]:
+            if tri_ndx:
+                self.tris.pop(tri_ndx)
 
     # Build method. Makes the mesh for the surface and calculates the simplices between them
     def build(self, min_dist=0.1, simps=True):

@@ -54,8 +54,8 @@ class Network:
             # Calculate the circle made with the 3 atoms
             circ = calc_circ([a0, a1, atom])
             # If the radius of the inscribed circle is smaller than the previous smallest found circle's radius replace
-            if circ and abs(circ[0][1]) < min_rad:
-                min_rad = abs(circ[0][1])
+            if circ and abs(circ[1]) < min_rad:
+                min_rad = abs(circ[1])
                 a2 = atom
         # Find the set of atoms with the minimum inscribed sphere
         min_rad = np.inf
@@ -134,6 +134,7 @@ class Network:
                     vert_stack.append(myVert)
                     self.verts.append(myVert)
         print("\rNetwork Built")
+        print("\r")
 
     def connect(self):
         # Create edges and add connections between verts and edges
@@ -230,3 +231,5 @@ class Network:
             else:
                 self.surfs[i].build(min_dist=min_dist)
         print("\r Surfaces Built")
+        print("\r")
+
