@@ -114,7 +114,7 @@ class Network:
             tot_verts = max(len(self.verts) + int(3 * len(vert_stack) / 4), 6 * len(self.atoms))
             percentage = int(len(self.verts) / tot_verts * 100)
             pertentage = percentage // 10
-            print("\rBuilding Network: ", '#' * pertentage + ' ' * (10 - pertentage),percentage, "%", end='')
+            print("\rBuilding Network: ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
             # Get the vertex from the top of the stack
             vert = vert_stack.pop()
             # Set up the edge stack
@@ -133,8 +133,9 @@ class Network:
                 if not found_vert:
                     vert_stack.append(myVert)
                     self.verts.append(myVert)
+        print("\r                            ")
         print("\rNetwork Built")
-        print("\r")
+
 
     def connect(self):
         # Create edges and add connections between verts and edges
@@ -227,7 +228,8 @@ class Network:
                     self.surfs[i].build_vta()
                 # Otherwise, proceed with the regular build method
                 else:
-                    self.surfs[i].build()
+                    self.surfs[i].build(simps=True)
+            print("\r                            ")
             print("\r Surfaces Built")
-            print("\r")
+
 

@@ -140,6 +140,7 @@ def plot_surfs(surfs, simps=False, fig=None, ax=None, Show=False, dfo=None, grid
         # If simplices are requested get them or make them
         if simps:
             # Plot the simps using matplotlib tri_surf
+            print(surfs[i].tris)
             ax.plot_trisurf(x, y, z, triangles=surfs[i].tris, alpha=alpha, color=colors[i])
         # Otherwise, plot the points
         else:

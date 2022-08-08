@@ -9,10 +9,8 @@ class Surface:
         self.atoms = atoms  # List of Atom type objects
         self.edges = edges  # List of Edge type objects
         self.verts = verts
-        if verts:
-            self.vert_points = [verts[i].loc for i in range(len(verts))]
-        self.edge_points = []
-        self.surf_points = []  # List of points on the surface
+        self.perimeter = []
+        self.vert_ndxs = []
         self.points = []
         self.tris = None
         self.sa = None
@@ -70,11 +68,7 @@ class Surface:
             roots = np.roots([a, b, c])
             # If the projection point on a0's surface is outside a1's surface take the smallest of the roots
             if calc_dist(vi, a1.loc) > a1.rad:
-                x = 1 - (calc_dist(a0.loc, a1.loc) * a0.rad) / a1.rad
-                if calc_angle(a0.loc, a1.loc, vi) - np.pi / 2 > x:
-                    mag = max(abs(roots))
-                else:
-                    mag = min(abs(roots))
+                mag = min(abs(roots))
             # If the projection point is within the intersection, the magnitude is negative
             else:
                 if calc_angle(a0.loc, a1.loc, vi) > np.pi / 4:
@@ -113,25 +107,19 @@ class Surface:
         a0, a1 = self.atoms[0], self.atoms[1]
         # Reset the all surface points to empty lists
         self.points, self.vert_points, self.edge_points, self.surf_points = [], [], [], []
-
-        # Go through each vertex on the surface
-        for vert in self.verts:
-            # Add the points to the surface's list of vertex points
-            self.vert_points.append(vert.loc)
-
         # Go through each edge in the surface's list of edges
         for edge in self.edges:
             edge.build(surf=self)
         # Add the edge's points to the surface's edge points attribute
-        self.points = [self.edges[0].verts[0].loc] + self.edges[0].points
+        self.perimeter = [self.edges[0].verts[0].loc] + self.edges[0].points
         edges = self.edges[1:].copy()
         while edges:
             d = np.inf
             ndx = None
             reverse = False
             for i in range(len(edges)):
-                d0 = calc_dist(self.points[-1], edges[i].points[0])
-                d1 = calc_dist(self.points[-1], edges[i].points[-1])
+                d0 = calc_dist(self.perimeter[-1], edges[i].points[0])
+                d1 = calc_dist(self.perimeter[-1], edges[i].points[-1])
                 if d0 < d and d0 < d1:
                     d = d0
                     ndx = i
@@ -141,11 +129,14 @@ class Surface:
                     reverse = True
             myEdge = edges.pop(ndx)
             if not reverse:
-                self.points.append(myEdge.verts[0].loc)
-                self.points += myEdge.points
+                self.vert_ndxs.append(len(self.perimeter))
+                self.perimeter.append(myEdge.verts[0].loc)
+                self.perimeter += myEdge.points
             else:
-                self.points.append(myEdge.verts[1].loc)
-                self.points += myEdge.points[::-1]
+                self.vert_ndxs.append(len(self.perimeter))
+                self.perimeter.append(myEdge.verts[1].loc)
+                self.perimeter += myEdge.points[::-1]
+        self.points += self.perimeter
         # Check to see if the atoms have equal radii
         if a0.rad == a1.rad:
             return
@@ -187,6 +178,8 @@ class Surface:
         for j in range(num_rings):
             # Go through each of the remaining paths
             i = 0
+            if num_paths == 565:
+                continue
             while i < num_paths:
                 # Get the next point along the path
                 pn = self.find_next_point(paths[i][-1], com, dthetas[i])
@@ -248,11 +241,16 @@ class Surface:
             # Go through each point on the triangle checking to see if it is an edge point
             for j in range(3):
                 # If the triangles jth point index is less than the number of vertex & edge points increment the counter
-                if self.tris[i][j] < len(self.vert_points) + len(self.edge_points):
+                if self.tris[i][j] < len(self.perimeter):
                     counter += 1
             # If all three of the points are on an edge we need to check it
             if counter == 3:
-                remove_ndxs.append(i)
+                pass_tri = False
+                for vert_ndx in self.vert_ndxs:
+                    if self.tris[i][0] < vert_ndx < self.tris[i][1] or self.tris[i][1] < vert_ndx < self.tris[i][2]:
+                        pass_tri = True
+                if not pass_tri:
+                    remove_ndxs.append(i)
         # Remove the outer triangles
         remove_ndxs.sort()
         for tri_ndx in remove_ndxs[::-1]:
