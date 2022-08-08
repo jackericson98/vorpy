@@ -37,7 +37,7 @@ for case_atoms in cases:
     edges.append(myEdge)
 
 
-fig = plt.figure(figsize=(15, 30))
+fig = plt.figure(figsize=(10, 5))
 fig.tight_layout()
 titles = ["Case 0a: No overlap, all equal", "Case 0b: No Overlap, different radii", "Case 1: One overlapping",
           "Case 2: Two overlapping", "Case 3a: All overlapping, hole", "Case 3b: All overlapping, no hole"]

@@ -113,20 +113,41 @@ class Surface:
         a0, a1 = self.atoms[0], self.atoms[1]
         # Reset the all surface points to empty lists
         self.points, self.vert_points, self.edge_points, self.surf_points = [], [], [], []
+
         # Go through each vertex on the surface
         for vert in self.verts:
             # Add the points to the surface's list of vertex points
             self.vert_points.append(vert.loc)
-        # Add the vert points to the surface's points
-        self.points += self.vert_points
+
         # Go through each edge in the surface's list of edges
         for edge in self.edges:
             edge.build(surf=self)
-            # Add the edge's points to the surface's edge points attribute
-            self.edge_points += edge.points
+        # Add the edge's points to the surface's edge points attribute
+        self.points = [self.edges[0].verts[0].loc] + self.edges[0].points
+        edges = self.edges[1:].copy()
+        while edges:
+            d = np.inf
+            ndx = None
+            reverse = False
+            for i in range(len(edges)):
+                d0 = calc_dist(self.points[-1], edges[i].points[0])
+                d1 = calc_dist(self.points[-1], edges[i].points[-1])
+                if d0 < d and d0 < d1:
+                    d = d0
+                    ndx = i
+                elif d1 < d:
+                    d = d1
+                    ndx = i
+                    reverse = True
+            myEdge = edges.pop(ndx)
+            if not reverse:
+                self.points.append(myEdge.verts[0].loc)
+                self.points += myEdge.points
+            else:
+                self.points.append(myEdge.verts[1].loc)
+                self.points += myEdge.points[::-1]
         # Check to see if the atoms have equal radii
         if a0.rad == a1.rad:
-            self.points += self.edge_points
             return
         # Get the center of mass of the edges of the surface
         com = calc_edges_com(self.edges)
@@ -144,7 +165,7 @@ class Surface:
         # Add the edge points to the surface's points
         self.points += self.edge_points
         # For each edge point set up a path list.
-        paths = [[self.edge_points[i]] for i in range(len(self.edge_points))]
+        paths = [[self.points[i]] for i in range(len(self.points))]
         # Grab the smallest of the 2 surface atoms' location
         pa = self.atoms[0].loc
         # Get the angles between the edge points and the end points

@@ -33,7 +33,7 @@ cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([-0.4, 0, 0], 0.5)] + vert_at
 
 
 for sys in cases:
-    sys.build_network(0.1)
+    sys.build_network(0.2)
 
 
 fig = plt.figure(figsize=(20, 40))
@@ -50,7 +50,7 @@ for i in range(len(cases)):
     axn = fig.add_subplot(int("33" + str(i + 1)), projection="3d", xlim=10)
     axn.set_title(titles[i])
     plot_verts(sys.net.surfs[0].verts, fig=fig, ax=axn)
-    plot_atoms(sys.net.surfs[0].atoms, fig=fig, ax=axn, colors=['r', 'b'], alpha=.5)
+    plot_atoms(sys.net.surfs[0].atoms, fig=fig, ax=axn, colors=['r', 'b'], alpha=.5, res=3)
     plot_edges(sys.net.surfs[0].edges, fig=fig, ax=axn)
     plot_surfs(sys.net.surfs[:1], simps=True, fig=fig, ax=axn, dfo=1.5)
 
