@@ -4,6 +4,7 @@ import matplotlib.tri as mtri
 
 class Surface:
     """Surface object. Holds the mesh data. Used to analyze."""
+
     def __init__(self, atoms, edges=None, verts=None, min_dist=0.1):
         self.func = None
         self.atoms = atoms  # List of Atom type objects
@@ -102,32 +103,47 @@ class Surface:
         return sp
 
     # Make mesh method. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
-    def make_mesh(self):
+    def make_mesh(self, min_dist=0.5):
+        # Set the minimum distance
+        self.min_dist = min_dist
         # Get the atoms
         a0, a1 = self.atoms[0], self.atoms[1]
         # Reset the all surface points to empty lists
-        self.points, self.vert_points, self.edge_points, self.surf_points = [], [], [], []
+        self.points, self.vert_ndxs = [], [0]
         # Go through each edge in the surface's list of edges
         for edge in self.edges:
             edge.build(surf=self)
-        # Add the edge's points to the surface's edge points attribute
+        # Add the first edge's points to the surface's edge points attribute
         self.perimeter = [self.edges[0].verts[0].loc] + self.edges[0].points
+        # Make a copy of the edges to organize
         edges = self.edges[1:].copy()
+        # Keep looping while we haven't gone through all of the edges
         while edges:
+            # Set the maximum distance to infinity
             d = np.inf
+            # Set the index of the edge we want to nothing
             ndx = None
+            # Set up a boolean to keep track of if the order of the edge points
             reverse = False
+            # Go through each of the remaining edges in the list
             for i in range(len(edges)):
+                # Calculate the distance between the most recently recorded point and the first/last points in the edge
                 d0 = calc_dist(self.perimeter[-1], edges[i].points[0])
                 d1 = calc_dist(self.perimeter[-1], edges[i].points[-1])
+                # If the first edge point is closer to the last perimeter point and the last isn't closer add that edge
                 if d0 < d and d0 < d1:
                     d = d0
                     ndx = i
+                    # Set reverse to false
+                    reverse = False
+                # Otherwise if the last edge point is the closest add the edge in reverse
                 elif d1 < d:
                     d = d1
                     ndx = i
                     reverse = True
+            # Pull the edge from the list of edges
             myEdge = edges.pop(ndx)
+            # Add the edge appropriately
             if not reverse:
                 self.vert_ndxs.append(len(self.perimeter))
                 self.perimeter.append(myEdge.verts[0].loc)
@@ -153,8 +169,7 @@ class Surface:
             com = com + mag * rn
         # Calculate the center of mass point of the edge points and where it maps on the surface
         com = self.calc_surf_point(com)
-        # Add the edge points to the surface's points
-        self.points += self.edge_points
+
         # For each edge point set up a path list.
         paths = [[self.points[i]] for i in range(len(self.points))]
         # Grab the smallest of the 2 surface atoms' location
@@ -186,7 +201,7 @@ class Surface:
                 # Check to see of the new point is too close to the previous point and the path has to end
                 if calc_dist(pn, pn_1) < self.min_dist:
                     # Add the path to the surfaces points and remove it from the paths list
-                    self.surf_points += paths.pop(i)[1:]
+                    self.points += paths.pop(i)[1:]
                     dthetas.pop(i)
                     num_paths -= 1
                 else:
@@ -197,11 +212,9 @@ class Surface:
                     i += 1
         # Add the remaining paths to the surface excluding the first point in the path (i.e. the edge point)
         for path in paths:
-            self.surf_points += path[1:]
+            self.points += path[1:]
         # Add the center of mass point to the mesh
-        self.surf_points.append(com)
-        # Add the surface points to the general list of points
-        self.points += self.surf_points
+        self.points.append(com)
 
     # Calculate surface simplices function.
     def find_simps(self):
@@ -236,18 +249,23 @@ class Surface:
         remove_ndxs = []
         # Go through each triangle on the surface
         for i in range(len(self.tris)):
+            tri = self.tris[i]
             # Set the counter to 0
             counter = 0
             # Go through each point on the triangle checking to see if it is an edge point
             for j in range(3):
                 # If the triangles jth point index is less than the number of vertex & edge points increment the counter
-                if self.tris[i][j] < len(self.perimeter):
+                if tri[j] < len(self.perimeter):
                     counter += 1
             # If all three of the points are on an edge we need to check it
             if counter == 3:
+                # Set up the pass triangle boolean
                 pass_tri = False
+                # If the triangle has points on either side of a vertex, we exclude it
                 for vert_ndx in self.vert_ndxs:
-                    if self.tris[i][0] < vert_ndx < self.tris[i][1] or self.tris[i][1] < vert_ndx < self.tris[i][2]:
+                    if tri[0] < vert_ndx < tri[1] or tri[1] < vert_ndx < tri[0] or \
+                            tri[0] < vert_ndx < tri[2] or tri[2] < vert_ndx < tri[0] or \
+                            tri[1] < vert_ndx < tri[2] or tri[2] < vert_ndx < tri[1]:
                         pass_tri = True
                 if not pass_tri:
                     remove_ndxs.append(i)
@@ -260,7 +278,7 @@ class Surface:
     # Build method. Makes the mesh for the surface and calculates the simplices between them
     def build(self, min_dist=0.1, simps=True):
         # Build the mesh
-        self.make_mesh()
+        self.make_mesh(min_dist)
         # Calculate the simplices
         if simps:
             self.find_simps()

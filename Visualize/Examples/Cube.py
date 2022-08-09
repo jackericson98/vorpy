@@ -17,11 +17,14 @@ atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[0, -
 sys = System(atoms)
 
 # Build the surfaces
-sys.net.build(min_dist=.5)
+sys.net.build(min_dist=1)
+
 
 # Set up the plot
 fig = plt.figure()
 ax = fig.add_subplot(projection="3d")
+
+
 ax.set_title("Basic Cube Cell")
 # Plot the elements of the network
 plot_atoms(sys.atoms, fig=fig, ax=ax, dfo=2, alpha=0.1)

@@ -228,7 +228,7 @@ class Network:
                     self.surfs[i].build_vta()
                 # Otherwise, proceed with the regular build method
                 else:
-                    self.surfs[i].build(simps=True)
+                    self.surfs[i].build(simps=True, min_dist=min_dist)
             print("\r                            ")
             print("\r Surfaces Built")
 
