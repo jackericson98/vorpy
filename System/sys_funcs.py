@@ -1,4 +1,5 @@
 import numpy as np
+import os
 
 
 # Calculate distance function. Takes in 2 points and returns the distance between them

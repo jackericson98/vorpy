@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.spatial import Delaunay as dl
 
 
 # Calculate tetrahedron volume function. Calculated the volume of a tetrahedron defined by its vertices
@@ -23,53 +22,35 @@ def calc_tri(points):
 
 
 # Calculate surface area function. Takes in a
-def calc_sa(points):
-    # Calculate the Delaunay simplexes
-    tri = dl(points)
+def calc_sa(surf):
     sa = 0
-    # Go through each simplex
-    for simplex in tri.simplices:
-        spoints = []
-        # Grab the points of the simplex
-        for ndx in simplex:
-           spoints.append(points[ndx])
-        # Calculate the area of the triangle made by the simplex and add it to the total surface area
-        sa += calc_tri(spoints)
+    for tri in surf.tris:
+        p0, p1, p2 = surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
+        sa += calc_tri([p0, p1, p2])
     # Return the total surface area
-    return sa
-
-
-# Calculate interface function. Takes in a set of surfaces and calculates the total surface area
-def calc_interface(surfs):
-    sa = 0
-    for surf in surfs:
-        sa += calc_sa(surf.points + surf.edge_points)
     return sa
 
 
 # Calculate cell volume function. Grabs the points in a cell and calculates the volume made by the tetrahedrons
 def calc_vol(atom):
-    points = []
-    # Grab the points for the surfaces in the cell
+    vol = 0
+    # Go through each surface on the atom
     for surf in atom.surfs:
-        points += surf.points
-    # Grab the points for the edges in the cell
-    for edge in atom.edges:
-        points += edge.points
-    # Grab the vertices locations for the cell
-    for vert in atom.verts:
-        points += [vert.loc]
+        for tri in surf.tris:
+            p0, p1, p2, p3 = atom.loc, surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
+            vol += calc_tetra_vol(p0, p1, p2, p3)
+    return vol
 
 
 # Analyze system function. Finds the surfaces and volumes of the system
 def analyze(sys):
     # Go through each surface in the system and find the simplices and the surface area
-    for surf in sys.net.surf:
+    for surf in sys.net.surfs:
         # Get the surfaces simplices
         surf.simps = surf.find_simps()
         # Get the surface area of the surface
         surf.sa = calc_sa(surf)
 
-    # Go through each atom in the system
+    # Go through each atom in the system and find the volume
     for atom in sys.atoms:
         atom.cell_vol = calc_vol(atom)

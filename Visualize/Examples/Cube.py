@@ -3,9 +3,9 @@ from Visualize.visualize import plot_atoms, plot_verts, plot_surfs, plot_edges
 import matplotlib.pyplot as plt
 
 # Create atom objects from sets of points
-atoms = [[[0, 0, 0], 4]]
+atoms = [[[0, 0, 0], 2]]
 
-dist = 4
+dist = 5
 rad = 2
 
 atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[0, -dist, 0], rad], [[0, 0, dist], rad],
@@ -30,7 +30,9 @@ plot_edges(sys.net.edges, fig=fig, ax=ax)
 plot_surfs(sys.net.surfs, simps=True, fig=fig, ax=ax, Show=True, dfo=10)
 
 # Analysis checks:
-
+sys.analyze()
+print(sys.atoms[0].cell_vol)
+print(sys.net.surfs[0].sa)
 
 # Export the file
 # sys.export()

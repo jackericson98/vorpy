@@ -1,7 +1,6 @@
 """This file holds all object types needed for calculations: Molecule, Mesh, Sphere, Ray, Plane"""
-import os
-
 from System.Network.network import *
+from System.analysis import *
 
 
 class Atom:
@@ -13,6 +12,7 @@ class Atom:
         self.surfs = []  # List of Surface type objects
         self.edges = []  # List of Edge type objects
         self.cell = True
+        self.cell_vol = 0
 
 
 class System:
@@ -205,11 +205,10 @@ class System:
     # Analyze method. Finds the surface area of every surface in the system and volume of all of the cells
     def analyze(self):
         # Run analysis on the network
-        self.net.analyze()
+        analyze(self)
 
     # Export function. Takes the system data and creates a set of obj files in the working directory for the surfaces
     def export(self, directory=None):
-        print(os.getcwd())
         # Change to the directory indicated
         if directory:
             os.chdir(directory)
