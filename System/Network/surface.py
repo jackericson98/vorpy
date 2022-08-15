@@ -112,7 +112,7 @@ class Surface:
         self.points, self.vert_ndxs = [], [0]
         # Go through each edge in the surface's list of edges
         for edge in self.edges:
-            edge.build(surf=self, min_dist=min_dist)
+            edge.build(min_dist=min_dist)
         # Add the first edge's points to the surface's edge points attribute
         self.perimeter = [self.edges[0].verts[0].loc] + self.edges[0].points
         # Make a copy of the edges to organize

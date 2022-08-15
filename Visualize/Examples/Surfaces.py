@@ -32,8 +32,8 @@ cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([-0.25, 0, 0], 0.5)] + vert_a
 cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([-0.4, 0, 0], 0.5)] + vert_atoms))
 
 
-for sys in cases:
-    sys.build_network(0.2)
+for i in range(len(cases)):
+    cases[i].net.build(0.2)
 
 
 fig = plt.figure(figsize=(20, 40))

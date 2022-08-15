@@ -18,37 +18,24 @@ class Edge:
             self.build()
 
     # Calculate points function. Find points long the edge, given it has atoms and vertices
-    def build(self, surf=None, min_dist=None):
+    def build(self, min_dist=None):
+        # Grab the vertex points
+        pv0, pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
+        # If the edge is completely straight add 1 point in the middle and return
+        if self.atoms[0].rad == self.atoms[1].rad and self.atoms[1].rad == self.atoms[2].rad:
+            r = pv1 - pv0
+            self.points.append(pv0 + r/2)
+            return
         # Give the edge a minimum distance
         if min_dist is None:
             min_dist = 0.1
-        # Grab the vertex points
-        pv0, pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
-        # Check to see if it is a straight edge
-        if round(self.atoms[0].rad, 10) == round(self.atoms[1].rad, 10) and \
-                round(self.atoms[1].rad, 10) == round(self.atoms[2].rad, 10):
-            # Find the distance between the verts
-            d = calc_dist(pv0, pv1)
-            # Determine the number of points to make based on the minimum distance
-            num_pts = max(int(d / min_dist), 10)
-            # Find the incremental change
-            dr = d/num_pts
-            # Find the vector need to keep moving the point
-            r = dr * (pv1 - pv0) / d
-            # Add the first vertex point to the edge
-            self.points.append(pv0.tolist())
-            # Add num_pts along the edge
-            for i in range(num_pts):
-                pt = np.array(self.points[-1]) + r
-                self.points.append(pt.tolist())
-            self.points.append(pv1.tolist())
-            return
         # If no surface is given, arbitrarily choose one
-        if surf is None:
-            if round(self.atoms[0].rad, 10) == round(self.atoms[1].rad, 10):
-                surf = Surface(self.atoms[1:3])
-            else:
-                surf = Surface(self.atoms[:2])
+        if round(self.atoms[0].rad, 10) == round(self.atoms[1].rad, 10):
+            surf = Surface(self.atoms[1:])
+        elif round(self.atoms[0].rad, 10) == round(self.atoms[2].rad, 10):
+            surf = Surface(self.atoms[:2])
+        else:
+            surf = Surface([self.atoms[0], self.atoms[2]])
         # Grab the function's coefficients
         f = surf.func
         # Find the point in between the two vertex points
@@ -101,6 +88,7 @@ class Edge:
                 break
             self.points.append(surf_point)
         self.points = self.points[1:]
+
     @staticmethod
     def project(rn, pa, f):
         # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
