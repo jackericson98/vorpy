@@ -12,8 +12,6 @@ v_file = "./Data/test_data/Na_W_cluster5_vertices.txt"
 
 # Get the System
 sys = System(m_file)
-for i in range(len(sys.atoms)):
-    sys.atoms[i].rad == sys.atoms[i].rad/2
 
 sys.build_network(1, surfs=True)
 

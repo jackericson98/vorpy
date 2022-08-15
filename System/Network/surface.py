@@ -169,7 +169,6 @@ class Surface:
             com = com + mag * rn
         # Calculate the center of mass point of the edge points and where it maps on the surface
         com = self.calc_surf_point(com)
-
         # For each edge point set up a path list.
         paths = [[self.points[i]] for i in range(len(self.points))]
         # Grab the smallest of the 2 surface atoms' location
@@ -266,6 +265,9 @@ class Surface:
                     if tri[0] < vert_ndx < tri[1] or tri[1] < vert_ndx < tri[0] or \
                             tri[0] < vert_ndx < tri[2] or tri[2] < vert_ndx < tri[0] or \
                             tri[1] < vert_ndx < tri[2] or tri[2] < vert_ndx < tri[1]:
+                        pass_tri = True
+                for k in range(3):
+                    if {tri[k], tri[(k + 1) % 3]}.issubset(self.vert_ndxs):
                         pass_tri = True
                 if not pass_tri:
                     remove_ndxs.append(i)

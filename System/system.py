@@ -1,4 +1,6 @@
 """This file holds all object types needed for calculations: Molecule, Mesh, Sphere, Ray, Plane"""
+import os
+
 from System.Network.network import *
 
 
@@ -205,6 +207,24 @@ class System:
         # Run analysis on the network
         self.net.analyze()
 
-    # # Export function. Takes the system data and creates a set of obj files in the working directory
-    # def export(self, dir=None):
+    # Export function. Takes the system data and creates a set of obj files in the working directory for the surfaces
+    def export(self, directory=None):
+        print(os.getcwd())
+        # Change to the directory indicated
+        if directory:
+            os.chdir(directory)
+        # Set the name of the file to be created if no name exists
+        if self.name is None:
+            self.name = "mySystem"
+        # Go through each surface and create a file for each adding the vertex points
+        for i in range(len(self.net.surfs)):
+            #
+            file = open(str(self.name + "_surf_" + str(i) + ".obj"), 'w')
+            for point in self.net.surfs[i].points:
+                file.write("v " + str(round(point[0], 3)) + " " + str(round(point[1], 3)) + " " + str(round(point[2], 3)) + '\n')
+        # Go through each surface opening the previously created file and add the faces
+        for i in range(len(self.net.surfs)):
+            file = open(str(self.name + "_surf_" + str(i) + ".obj"), 'a')
+            for tri in self.net.surfs[i].tris:
+                file.write("vf " + str(tri[0]) + "// " + str(tri[1]) + "// " + str(tri[2]) + "//\n")
 
