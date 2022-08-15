@@ -112,7 +112,7 @@ class Surface:
         self.points, self.vert_ndxs = [], [0]
         # Go through each edge in the surface's list of edges
         for edge in self.edges:
-            edge.build(surf=self)
+            edge.build(surf=self, min_dist=min_dist)
         # Add the first edge's points to the surface's edge points attribute
         self.perimeter = [self.edges[0].verts[0].loc] + self.edges[0].points
         # Make a copy of the edges to organize
@@ -215,7 +215,8 @@ class Surface:
         # Add the center of mass point to the mesh
         self.points.append(com)
 
-    # Calculate surface simplices function.
+    # Find simplices function. Transforms and rotates surface points to be concave along the z axis and returns the
+    # Delaunay simplices created by the 2d projection of the points onto the xy plane
     def find_simps(self):
         # Get the atoms
         a0, a1 = self.atoms
@@ -248,7 +249,8 @@ class Surface:
         remove_ndxs = []
         # Go through each triangle on the surface
         for i in range(len(self.tris)):
-            tri = self.tris[i]
+            tri = self.tris[i].copy()
+            tri.sort()
             # Set the counter to 0
             counter = 0
             # Go through each point on the triangle checking to see if it is an edge point
@@ -262,13 +264,15 @@ class Surface:
                 pass_tri = False
                 # If the triangle has points on either side of a vertex, we exclude it
                 for vert_ndx in self.vert_ndxs:
-                    if tri[0] < vert_ndx < tri[1] or tri[1] < vert_ndx < tri[0] or \
-                            tri[0] < vert_ndx < tri[2] or tri[2] < vert_ndx < tri[0] or \
-                            tri[1] < vert_ndx < tri[2] or tri[2] < vert_ndx < tri[1]:
+                    # Check to see if there is a vertex index between any of the points
+                    if tri[0] <= vert_ndx <= tri[1] or tri[1] <= vert_ndx <= tri[0] or \
+                            tri[1] <= vert_ndx <= tri[2]:
                         pass_tri = True
-                for k in range(3):
-                    if {tri[k], tri[(k + 1) % 3]}.issubset(self.vert_ndxs):
+                if tri[0] in self.vert_ndxs or tri[1] in self.vert_ndxs or tri[2] in self.vert_ndxs:
+                    if tri[2] - tri[0] == 2 or (tri[1] == 1 and tri[2] == len(self.perimeter) - 1):
                         pass_tri = True
+                    else:
+                        pass_tri = False
                 if not pass_tri:
                     remove_ndxs.append(i)
         # Remove the outer triangles

@@ -79,7 +79,7 @@ class Edge:
         # Add the first vertex to the list of points
         self.points = [pv0.tolist()]
         # Find the edges points
-        for i in range(n):
+        for i in range(n-1):
             # Set pb to the previous point
             pb = self.points[-1]
             # Get the distance between pb and pa for c
@@ -100,7 +100,7 @@ class Edge:
             if surf_point is None:
                 break
             self.points.append(surf_point)
-
+        self.points = self.points[1:]
     @staticmethod
     def project(rn, pa, f):
         # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
