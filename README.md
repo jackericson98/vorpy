@@ -3,18 +3,38 @@
 ## Description
 
 
-Vorpy is a program designed to calculate analytical solutions for Voronoi S-network of sphere like objects It was designed for use in computational chemistry and molecular dynamics analysis. 
+Vorpy is a comprehensive 3D Voronoi cell generator designed for molecular analysis. Vorpy works by creating a network of 
+vertices and edges vorpy creates a network it uses to build inter atomic interfacial surfaces that can be constructed 
+into cells. These surfaces, volumes, curvatures, vertices, etc. can all be used to better understand molecular 
+structures in a simulated environment.  
 
 
-## Installation
+## Installation (Jupyter Notebook)
 
-1. Clone the repository
-2. From a python environment (preferably 3.9) run main.py
+1. Make sure you have python 3.9 installed as well as jupyter notebook. I recommend getting the whole anaconda suite (it's free) and launching from there.
+2. Clone the repository into a working directory
+3. Import the system object from the vorpy directory:
+    ```commandline
+    from vorpy.System import System
+    ```
 
 
 ## Usage
 
-    ```
+1. Load your file:
+
+   ```
+   sys = System("PATH/TO/FILE.pdb")
+   ```
+2. Build the network:
+   ```
+   sys.net.build(min_dist=0.5)
+   ```
+3. Run the analysis function
+   ```
+   sys.net.analyze()
+   ```
+4. 
 
 ## Credits
 
