@@ -95,7 +95,9 @@ class Vertex:
         if not verts:
             return
         else:
+            # If we have 2 roots and the first root's radius is larger than the second root's radius, choose the second
             if len(verts) == 2 and verts[0][1] > verts[1][1]:
                 self.loc, self.rad = verts[1]
+            # Otherwise, choose the first
             else:
                 self.loc, self.rad = verts[0]
