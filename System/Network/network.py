@@ -133,9 +133,8 @@ class Network:
                 if not found_vert:
                     vert_stack.append(myVert)
                     self.verts.append(myVert)
-        print("\r                            ")
+        print("\rBuilding Network:  ########## 100 %")
         print("\rNetwork Built")
-
 
     def connect(self):
         # Create edges and add connections between verts and edges
@@ -220,7 +219,7 @@ class Network:
             # Make each surface
             for i in range(num_surfs):
                 # Calculate and print the running percentage for mesh calculations
-                percentage = int(i / num_surfs * 100) + 1
+                percentage = int((i + 1) / num_surfs * 100)
                 pertentage = percentage // 10
                 print("\rBuilding Surfaces:", '#' * pertentage + ' ' * (10 - pertentage), percentage,  "%", end='')
                 # If the network is a voronota network, use build_vta method
@@ -229,7 +228,7 @@ class Network:
                 # Otherwise, proceed with the regular build method
                 else:
                     self.surfs[i].build(simps=True, min_dist=min_dist)
-            print("\r                            ")
-            print("\r Surfaces Built")
+            print("\r")
+            print("\rSurfaces Built")
 
 
