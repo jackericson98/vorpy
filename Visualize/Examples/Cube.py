@@ -14,10 +14,13 @@ atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[0, -
 sys = System(atoms)
 
 # Build the surfaces
-sys.net.build(min_dist=.5)
+sys.net.build(min_dist=1)
 
 # Analysis checks:
 sys.analyze()
+
+# Export the system
+sys.export()
 
 ##################################################### Set up the plot ##################################################
 
@@ -61,4 +64,4 @@ plot_verts(sys.net.verts, fig=fig, ax=ax, colors=['r' for i in range(8)])
 plot_edges(sys.net.edges, fig=fig, ax=ax)
 plot_surfs(sys.net.surfs, simps=True, fig=fig, ax=ax, dfo=10)
 
-plt.show()
+# plt.show()
