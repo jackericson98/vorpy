@@ -1,6 +1,7 @@
 """This file holds all object types needed for calculations: Molecule, Mesh, Sphere, Ray, Plane"""
+import os
+
 from System.Network.network import *
-from System.analysis import *
 
 
 class Atom:
@@ -210,21 +211,59 @@ class System:
 
     # Export function. Takes the system data and creates a set of obj files in the working directory for the surfaces
     def export(self, directory=None):
-        # Change to the directory indicated
+        # Change to the directory indicated or create a directory called User_Data
         if directory:
             os.chdir(directory)
+        else:
+            os.mkdir(os.getcwd() + "/User_Data")
+            os.chdir("./User_Data")
         # Set the name of the file to be created if no name exists
         if self.name is None:
             self.name = "mySystem"
+
+        # Surfaces Folder
+        os.mkdir(os.getcwd() + "/Surfaces")
+        os.chdir("./Surfaces")
         # Go through each surface and create a file for each adding the vertex points
         for i in range(len(self.net.surfs)):
-            #
-            file = open(str(self.name + "_surf_" + str(i) + ".obj"), 'w')
+            file = open(str("surf_" + str(i + 1) + ".off"), 'w')
+            file.write("OFF\n" + str(len(self.net.surfs[i].points)) + " " + str(len(self.net.surfs[i].tris)) + " 0\n\n\n")
             for point in self.net.surfs[i].points:
-                file.write("v " + str(round(point[0], 3)) + " " + str(round(point[1], 3)) + " " + str(round(point[2], 3)) + '\n')
+                file.write(str(round(point[0], 4)) + " " + str(round(point[1], 4)) + " " + str(round(point[2], 4)) + '\n')
+
         # Go through each surface opening the previously created file and add the faces
         for i in range(len(self.net.surfs)):
-            file = open(str(self.name + "_surf_" + str(i) + ".obj"), 'a')
+            file = open(str("surf_" + str(i + 1) + ".off"), 'a')
             for tri in self.net.surfs[i].tris:
-                file.write("vf " + str(tri[0]) + "// " + str(tri[1]) + "// " + str(tri[2]) + "//\n")
+                file.write("3 " + str(tri[0]) + " " + str(tri[1]) + " " + str(tri[2]) + " 1 0 0\n")
 
+        # Atoms Folder
+        os.chdir("..")
+        os.mkdir(os.getcwd() + "/Atoms")
+        os.chdir("./Atoms")
+        # Add the vertices and triangles for each surface of each atom
+        for i in range(len(self.atoms)):
+            # Create a file for each atom
+            file = open(str("atom_" + str(i + 1) + "_cell.off"), 'w')
+            # Calculate the number of points and triangles
+            tot_verts, tot_tris = 0, 0
+            for surf in self.atoms[i].surfs:
+                tot_verts += len(surf.points)
+                tot_tris += len(surf.tris)
+            # Create the off header
+            file.write("OFF\n" + str(tot_verts) + " " + str(tot_tris) + " 0\n\n\n")
+            # Go through each surface of the atom and add the vertices
+            for j in range(len(self.atoms[i].surfs)):
+                for point in self.atoms[i].surfs[j].points:
+                    file.write(str(round(point[0], 4)) + " " + str(round(point[1], 4)) + " " + str(round(point[2], 4)) + '\n')
+            num_verts = 0
+            # Go through each surface opening the previously created file and add the faces
+            for j in range(len(self.atoms[i].surfs)):
+                file = open(str("atom_" + str(i + 1) + "_cell.off"), 'a')
+                for tri in self.atoms[i].surfs[j].tris:
+                    file.write("3 " + str(tri[0] + num_verts) + " " + str(tri[1] + num_verts) + " " +
+                               str(tri[2] + num_verts) + " 1 0 0\n")
+                num_verts += len(self.atoms[i].surfs[j].points)
+
+        print("\rExporting Files:  ########## 100 %")
+        print("\rFiles Exported")
