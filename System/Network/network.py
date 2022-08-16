@@ -228,19 +228,30 @@ class Network:
                 # Otherwise, proceed with the regular build method
                 else:
                     self.surfs[i].build(simps=True, min_dist=min_dist)
-            print("\r")
+            print("\rBuilding Surfaces:  ########## 100 %")
             print("\rSurfaces Built")
 
     # Analyze system function. Finds the surfaces and volumes of the system
     def analyze(self):
+        # Get the percentage total number
+        tot_num = len(self.surfs) + len(self.atoms)
         # Go through each surface in the system and find the simplices and the surface area
-        for surf in self.surfs:
+        i = 0
+        for i in range(len(self.surfs)):
+            percentage = int((i + 1) / tot_num * 100)
+            pertentage = percentage // 10
+            print("\rAnalyzing System:", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
             # Get the surfaces simplices
-            surf.simps = surf.find_simps()
+            self.surfs[i].simps = self.surfs[i].find_simps()
             # Get the surface area of the surface
-            surf.sa = calc_sa(surf)
+            self.surfs[i].sa = calc_sa(self.surfs[i])
 
         # Go through each atom in the system and find the volume
-        for atom in self.atoms:
-            atom.cell_vol = calc_vol(atom)
+        for j in range(len(self.atoms)):
+            percentage = int((i + j + 1) / tot_num * 100)
+            pertentage = percentage // 10
+            print("\rAnalyzing System:", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            self.atoms[j].cell_vol = calc_vol(self.atoms[j])
 
+        print("\rAnalyzing System:  ########## 100 %")
+        print("\rSystem Analyzed")
