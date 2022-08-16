@@ -1,7 +1,7 @@
 from System.Network.edge import Edge
 from System.Network.surface import Surface
 from System.Network.vertex import Vertex
-from System.sys_funcs import *
+from System.calcs import *
 
 
 class Network:
@@ -231,4 +231,16 @@ class Network:
             print("\r")
             print("\rSurfaces Built")
 
+    # Analyze system function. Finds the surfaces and volumes of the system
+    def analyze(self):
+        # Go through each surface in the system and find the simplices and the surface area
+        for surf in self.surfs:
+            # Get the surfaces simplices
+            surf.simps = surf.find_simps()
+            # Get the surface area of the surface
+            surf.sa = calc_sa(surf)
+
+        # Go through each atom in the system and find the volume
+        for atom in self.atoms:
+            atom.cell_vol = calc_vol(atom)
 

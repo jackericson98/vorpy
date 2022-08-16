@@ -13,6 +13,7 @@ class Atom:
         self.edges = []  # List of Edge type objects
         self.cell = True
         self.cell_vol = 0
+        self.type = ""
 
 
 class System:
@@ -202,10 +203,10 @@ class System:
         # Build the network
         self.net.build(min_dist, surfs)
 
-    # Analyze method. Finds the surface area of every surface in the system and volume of all of the cells
+    # Analyze method. Finds the surface area of every surface in the system and volume of all the cells
     def analyze(self):
         # Run analysis on the network
-        analyze(self)
+        self.net.analyze()
 
     # Export function. Takes the system data and creates a set of obj files in the working directory for the surfaces
     def export(self, directory=None):

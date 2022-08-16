@@ -1,4 +1,4 @@
-from System.sys_funcs import *
+from System.calcs import *
 import matplotlib.tri as mtri
 
 
