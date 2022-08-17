@@ -4,68 +4,62 @@ from System.Network.surface import Surface
 
 class Edge:
     """Edge object. Used to build the network and calculate the surfaces"""
-    def __init__(self, atoms, verts, surfs=None, calc_points=True):
-        if surfs is None:
-            surfs = []
+    def __init__(self, atoms, verts, calc_points=True):
         self.atoms = atoms  # List of Atom type objects
         self.verts = verts  # List of Vertex type objects
-        self.surfs = surfs
-        self.loc = None
-        self.rad = None
-        self.dir = None
+        self.surfs = []  # List of 2 surfaces attached to the edge
+        self.loc = None  # Location of the center of the 3 atoms that make up the edge
+        self.rad = None  # Radius of the inscribed circle of the three atoms
+        self.dir = None  # Direction along the edge from the edge's first vertex
         self.points = []  # List of points on the edge. These points do not include the vertex points
-        if calc_points:
+        if calc_points:  # Build the edge if calc_points is true
             self.build()
 
-    # Calculate points function. Find points long the edge, given it has atoms and vertices
-    def build(self, min_dist=None):
-        # Grab the vertex points
+    # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
+    def build(self, min_dist=0.1):
+        # Grab the vertex points and make numpy arrays out of them
         pv0, pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
         # If the edge is completely straight add 1 point in the middle and return
         if self.atoms[0].rad == self.atoms[1].rad and self.atoms[1].rad == self.atoms[2].rad:
             r = pv1 - pv0
             self.points.append(pv0 + r/2)
             return
-        # Give the edge a minimum distance
-        if min_dist is None:
-            min_dist = 0.1
-        # If no surface is given, arbitrarily choose one
+        # If no surface is given, choose a curved one to project onto. If the edge isn't straight 2 surfs are curved.
         if round(self.atoms[0].rad, 10) == round(self.atoms[1].rad, 10):
             surf = Surface(self.atoms[1:])
-        elif round(self.atoms[0].rad, 10) == round(self.atoms[2].rad, 10):
-            surf = Surface(self.atoms[:2])
         else:
-            surf = Surface([self.atoms[0], self.atoms[2]])
-        # Grab the function's coefficients
+            surf = Surface(self.atoms[:2])
+        # Grab the surface's function's coefficients
         f = surf.func
+
         # Find the point in between the two vertex points
-        r01 = pv1 - pv0
-        d = np.linalg.norm(r01)
-        rn01 = r01 / d
-        # Get the center point of the vertices
-        pc01 = pv0 + 0.5 * rn01 * d
+        r01 = pv1 - pv0  # Vector between vertices
+        r_mag = np.linalg.norm(r01)  # Magnitude of the vector between the two vertex points
+        rn01 = r01 / r_mag  # Normal to the vector between the vertices
+        pc01 = pv0 + 0.5 * rn01 * r_mag  # Center point
         # Get the center point of the edge
         circ = calc_circ(self.atoms)
         c, bn = circ[0], circ[1]
-        # Determine if the center of the edge is inside the vertices or not
+        # Determine if the theoretical center of the edge is inside the vertices or not
         dr = 1
-        if calc_dist(c, pv0) < d or calc_dist(c, pv1) < d:
+        if calc_dist(c, pv0) < r_mag or calc_dist(c, pv1) < r_mag:
             dr = -1
-        # Find the vector perpendicular to the vectors between the center of the edge, pv1 and pc01
+        # Find the vector normal to the projection plane
         P_norm = dr * np.cross(np.array(c) - np.array(pc01), np.array(pv1) - np.array(pc01))
         # Find the vector perpendicular to the plane's normal (i.e. in the plane) and the vector between vertices
         rpcr = - np.cross(P_norm, rn01)
         rnpcr = rpcr / np.linalg.norm(rpcr)
         # Calculate the reference point
-        pa = pc01 + 0.5 * d * rnpcr
+        pa = pc01 + 0.5 * r_mag * rnpcr
+
         # Find the number of points
-        n = max(int(d / min_dist), 10)
+        n = max(int(r_mag / min_dist), 10)
         # Calculate the angle between the vertices and the reference point
         theta = calc_angle(pa, pv0, pv1)
         A = theta / n
         # Add the first vertex to the list of points
         self.points = [pv0.tolist()]
-        # Find the edges points
+        # Find the edges points. Don't count the vertex
         for i in range(n-1):
             # Set pb to the previous point
             pb = self.points[-1]
@@ -104,11 +98,8 @@ class Edge:
             f[5] * pa[2] * pa[0] + f[6] * pa[0] + f[7] * pa[1] + f[8] * pa[2] + f[9]
         # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
         # and add that point to our surface list of points
-
-        if b ** 2 - 4 * a * c >= 0:
+        if b ** 2 - 4 * a * c > 0:
             # If the projection point on a0's surface is outside a1's surface take the smallest of the roots
             roots = np.roots([a, b, c])
-            if len(roots) == 0:
-                return
             mag = min([abs(roots[i]) for i in range(len(roots))])
             return pa + mag * rn
