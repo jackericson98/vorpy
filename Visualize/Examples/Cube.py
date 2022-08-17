@@ -14,11 +14,11 @@ atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[0, -
 sys = System(atoms)
 
 # Build the surfaces
-sys.net.build(min_dist=1)
+sys.net.build(min_dist=.5)
 
 # Analysis checks:
 sys.analyze()
-
+sys.name = "Cube"
 # Export the system
 sys.export()
 
@@ -48,7 +48,7 @@ text.text(-0.15, .36, "Vertex 1: {},       Vertex 2: {},\nVertex 3: {},      Ver
                   round_verts[6], round_verts[7]), fontsize=11)
 
 # Print the volume and the surface area of the surfaces
-text.text(-0.18, 0.25, "Volume = {} units cubed".format(round(sys.net.atoms[0].cell_vol, 2)), fontsize=15)
+text.text(-0.18, 0.25, "Volume = {} units cubed".format(round(sys.net.atoms[0].vol, 2)), fontsize=15)
 text.text(-0.18, 0.15, "Surface Areas: ", fontsize=15)
 text.text(-0.15, 0.0, "Surface 1 = {} units squared,   Surface 2 = {} units squared,\nSurface 3 = {} units squared,   "
                       "Surface 4 = {} units squared,\nSurface 5 = {} units squared,   Surface 6 = {} units squared"
