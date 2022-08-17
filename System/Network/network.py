@@ -222,7 +222,7 @@ class Network:
                 # Calculate and print the running percentage for mesh calculations
                 percentage = int((i + 1) / num_surfs * 100)
                 pertentage = percentage // 10
-                print("\rBuilding Surfaces:", '#' * pertentage + ' ' * (10 - pertentage), percentage,  "%", end='')
+                print("\rBuilding Surfaces: ", '#' * pertentage + ' ' * (10 - pertentage), percentage,  "%", end='')
                 # If the network is a voronota network, use build_vta method
                 if self.vta:
                     self.surfs[i].build_vta()

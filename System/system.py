@@ -1,6 +1,4 @@
 """This file holds all object types needed for calculations: Molecule, Mesh, Sphere, Ray, Plane"""
-import os
-
 from System.Network.network import *
 
 
@@ -15,6 +13,14 @@ class Atom:
         self.cell = True
         self.vol = 0
         self.type = ""
+
+
+class Molecule:
+    """Molecule object. Created from pdb import files or by user"""
+    def __init__(self):
+        self.atoms = []
+        self.id = ""
+        self.chain = ""
 
 
 class System:
@@ -115,11 +121,11 @@ class System:
     # Get pdb method. Finds the atoms and
     def get_pdb(self):
         # .PDB file type standards.
-        pdb_stds = ['HEADER', 'TITLE', 'COMPOUND', 'SOURCE', 'KEYWDS', 'EXPDTA', 'AUTHOR', 'REVDAT', 'JRNL', 'REMARK',
+        keys = ['HEADER', 'TITLE', 'COMPOUND', 'SOURCE', 'KEYWDS', 'EXPDTA', 'AUTHOR', 'REVDAT', 'JRNL', 'REMARK',
                     'DBREF', 'SEQADV', 'FORMUL', 'SEQRES', 'HELIX', 'SHEET', 'CRYST', 'ORIG', 'SCALE', 'TER', 'HETATM',
                     'MASTER']
         # Define the keys
-        keys = ['header', 'title', 'compound', 'source', 'key_words', 'exp_data', 'author', 'revisions', 'journal',
+        pdb_stds = ['header', 'title', 'compound', 'source', 'key_words', 'exp_data', 'author', 'revisions', 'journal',
                 'remarks', 'debrief', 'seq_adv', 'formula', 'residues', 'helix', 'sheet', 'crystal', 'origin', 'scale',
                 'terminals', 'het_atom', 'master']
         # Set the keys
@@ -219,12 +225,14 @@ class System:
         if directory:
             os.chdir(directory)
         else:
+            # If the system has a name set the data folder to it
             if len(self.name) > 0:
                 os.mkdir(os.getcwd() + "/" + self.name)
                 os.chdir("./" + self.name)
             else:
                 os.mkdir(os.getcwd() + "/User_Data")
                 os.chdir("./User_Data")
+        tot_num = 2 * len(self.net.surfs) + len(self.atoms)
         # Set the counters to 0
         tot_verts, tot_tris = 0, 0
         # Get the total number of vertices and tris
@@ -248,6 +256,10 @@ class System:
             for point in self.net.surfs[i].points:
                 sys_file.write(str(round(point[0], 4)) + " " + str(round(point[1], 4)) + " " + str(round(point[2], 4)) + '\n')
                 file.write(str(round(point[0], 4)) + " " + str(round(point[1], 4)) + " " + str(round(point[2], 4)) + '\n')
+            percentage = int((i + 1) / tot_num * 100)
+            pertentage = percentage // 10
+            print("\rExporting Files:", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+
         num_verts = 0
         # Go through each surface opening the previously created file and add the faces
         for i in range(len(self.net.surfs)):
@@ -256,6 +268,9 @@ class System:
                 sys_file.write("3 " + str(tri[0] + num_verts) + " " + str(tri[1] + num_verts) + " " + str(tri[2] + num_verts) + " 1 0 0\n")
                 file.write("3 " + str(tri[0]) + " " + str(tri[1]) + " " + str(tri[2]) + " 1 0 0\n")
             num_verts += len(self.net.surfs[i].points)
+            percentage = int((i + 1 + len(self.net.surfs)) / tot_num * 100)
+            pertentage = percentage // 10
+            print("\rExporting Files:", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
         os.chdir("..")
 
         # Atoms Folder
@@ -296,6 +311,9 @@ class System:
                 atom_info.write("  Surface " + str(j + 1) + ", Made with Atom " + str(self.atoms.index(a1) + 1) +
                                 ", Surface Area = " + str(self.atoms[i].surfs[j].sa) + "\n")
             atom_info.write("\n")
+            percentage = int((i + 1 + 2 * len(self.net.surfs)) / tot_num * 100)
+            pertentage = percentage // 10
+            print("\rExporting Files:", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
 
         os.chdir("..")
         os.mkdir(os.getcwd() + "/Molecules")
