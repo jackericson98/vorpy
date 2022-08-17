@@ -13,7 +13,7 @@ class Atom:
         self.surfs = []  # List of Surface type objects
         self.edges = []  # List of Edge type objects
         self.cell = True
-        self.cell_vol = 0
+        self.vol = 0
         self.type = ""
 
 
@@ -47,6 +47,7 @@ class System:
             elif file[-3:] == "mol":
                 self.get_mol()
         self.net = Network(self.atoms)
+        self.mols = []
 
     # Get name method. Extracts the name from the file name
     @staticmethod
@@ -218,22 +219,31 @@ class System:
         if directory:
             os.chdir(directory)
         else:
-            os.mkdir(os.getcwd() + "/User_Data" + self.name)
-            os.chdir("./User_Data")
+            if len(self.name) > 0:
+                os.mkdir(os.getcwd() + "/" + self.name)
+                os.chdir("./" + self.name)
+            else:
+                os.mkdir(os.getcwd() + "/User_Data")
+                os.chdir("./User_Data")
         # Set the counters to 0
         tot_verts, tot_tris = 0, 0
         # Get the total number of vertices and tris
         for surf in self.net.surfs:
             tot_verts += len(surf.points)
             tot_tris += len(surf.tris)
+
+        # System file
+        sys_file = open(str(self.name + "System.off"), 'w')
+        sys_file.write("OFF\n" + str(tot_verts) + " " + str(tot_tris) + " 0\n\n\n")
+
         # Surfaces Folder
         os.mkdir(os.getcwd() + "/Surfaces")
         os.chdir("./Surfaces")
-        sys_file = open(str(self.name + "System.off"), 'w')
-        sys_file.write("OFF\n" + str(tot_verts) + " " + str(tot_tris) + " 0\n\n\n")
         # Go through each surface and create a file for each adding the vertex points
+        surf_ndxs = []
         for i in range(len(self.net.surfs)):
-            file = open(str("surf_" + str(i + 1) + ".off"), 'w')
+            surf_ndxs.append(str(self.atoms.index(self.net.surfs[i].atoms[0]) + 1) + "_" + str(self.atoms.index(self.net.surfs[i].atoms[1]) + 1))
+            file = open(str("surf_" + surf_ndxs[i] + ".off"), 'w')
             file.write("OFF\n" + str(len(self.net.surfs[i].points)) + " " + str(len(self.net.surfs[i].tris)) + " 0\n\n\n")
             for point in self.net.surfs[i].points:
                 sys_file.write(str(round(point[0], 4)) + " " + str(round(point[1], 4)) + " " + str(round(point[2], 4)) + '\n')
@@ -241,16 +251,17 @@ class System:
         num_verts = 0
         # Go through each surface opening the previously created file and add the faces
         for i in range(len(self.net.surfs)):
-            file = open(str("surf_" + str(i + 1) + ".off"), 'a')
+            file = open(str("surf_" + surf_ndxs[i] + ".off"), 'a')
             for tri in self.net.surfs[i].tris:
                 sys_file.write("3 " + str(tri[0] + num_verts) + " " + str(tri[1] + num_verts) + " " + str(tri[2] + num_verts) + " 1 0 0\n")
                 file.write("3 " + str(tri[0]) + " " + str(tri[1]) + " " + str(tri[2]) + " 1 0 0\n")
             num_verts += len(self.net.surfs[i].points)
+        os.chdir("..")
 
         # Atoms Folder
-        os.chdir("..")
         os.mkdir(os.getcwd() + "/Atoms")
         os.chdir("./Atoms")
+        atom_info = open("atom_info.txt", 'w')
         # Add the vertices and triangles for each surface of each atom
         for i in range(len(self.atoms)):
             # Create a file for each atom
@@ -272,8 +283,26 @@ class System:
                 atom_file = open(str("atom_" + str(i + 1) + "_cell.off"), 'a')
                 for tri in self.atoms[i].surfs[j].tris:
                     atom_file.write("3 " + str(tri[0] + num_verts) + " " + str(tri[1] + num_verts) + " " +
-                               str(tri[2] + num_verts) + " 1 0 0\n")
+                                    str(tri[2] + num_verts) + " 1 0 0\n")
                 num_verts += len(self.atoms[i].surfs[j].points)
+            atom_info.write("Atom " + str(i + 1) + "\n")
+            atom_info.write(" Cell Volume = {}\n".format(self.atoms[i].vol))
+            atom_info.write(" Surfaces:\n")
+            for j in range(len(self.atoms[i].surfs)):
+                if self.atoms[i] == self.atoms[i].surfs[j].atoms[0]:
+                    a1 = self.atoms[i].surfs[j].atoms[1]
+                else:
+                    a1 = self.atoms[i].surfs[j].atoms[0]
+                atom_info.write("  Surface " + str(j + 1) + ", Made with Atom " + str(self.atoms.index(a1) + 1) +
+                                ", Surface Area = " + str(self.atoms[i].surfs[j].sa) + "\n")
+            atom_info.write("\n")
 
-        print("\rExporting Files:  ########## 100 %")
+        os.chdir("..")
+        os.mkdir(os.getcwd() + "/Molecules")
+        os.chdir("./Molecules")
+
+        # Molecules Folder
+        for mol in self.mols:
+            pass
+        print("\rExporting Files:    ########## 100 %")
         print("\rFiles Exported")
