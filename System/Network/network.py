@@ -133,9 +133,10 @@ class Network:
                 if not found_vert:
                     vert_stack.append(myVert)
                     self.verts.append(myVert)
-        print("\rBuilding Network:  ########## 100 %")
+        print("\rBuilding Network:   ########## 100 %")
         print("\rNetwork Built")
 
+    # Connect network method.
     def connect(self):
         # Create edges and add connections between verts and edges
         # Go through each vertex and find its edges
@@ -251,7 +252,7 @@ class Network:
             percentage = int((i + j + 1) / tot_num * 100)
             pertentage = percentage // 10
             print("\rAnalyzing System:", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
-            self.atoms[j].cell_vol = calc_vol(self.atoms[j])
+            self.atoms[j].vol = calc_vol(self.atoms[j])
 
-        print("\rAnalyzing System:  ########## 100 %")
+        print("\rAnalyzing System:   ########## 100 %")
         print("\rSystem Analyzed")
