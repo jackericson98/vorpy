@@ -258,7 +258,7 @@ class System:
                 file.write(str(round(point[0], 4)) + " " + str(round(point[1], 4)) + " " + str(round(point[2], 4)) + '\n')
             percentage = int((i + 1) / tot_num * 100)
             pertentage = percentage // 10
-            print("\rExporting Files:", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            print("\rExporting Files:    ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
 
         num_verts = 0
         # Go through each surface opening the previously created file and add the faces
@@ -270,7 +270,7 @@ class System:
             num_verts += len(self.net.surfs[i].points)
             percentage = int((i + 1 + len(self.net.surfs)) / tot_num * 100)
             pertentage = percentage // 10
-            print("\rExporting Files:", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            print("\rExporting Files:    ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
         os.chdir("..")
 
         # Atoms Folder
@@ -313,7 +313,7 @@ class System:
             atom_info.write("\n")
             percentage = int((i + 1 + 2 * len(self.net.surfs)) / tot_num * 100)
             pertentage = percentage // 10
-            print("\rExporting Files:", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            print("\rExporting Files:    ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
 
         os.chdir("..")
         os.mkdir(os.getcwd() + "/Molecules")

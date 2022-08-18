@@ -1,19 +1,19 @@
 from System.calcs import *
 import matplotlib.tri as mtri
+import alphashape
 
 
 class Surface:
-    """Surface object. Holds the mesh data. Used to analyze."""
-
+    """Surface object. Network building block, connects atoms, verts and edges. Interface between two voronoi cells"""
     def __init__(self, atoms, edges=None, verts=None, min_dist=0.1):
-        self.func = None
-        self.atoms = atoms  # List of Atom type objects
-        self.edges = edges  # List of Edge type objects
-        self.verts = verts
-        self.perimeter = []
-        self.vert_ndxs = []
-        self.points = []
-        self.tris = None
+        self.atoms = atoms  # Atoms
+        self.edges = edges  # Edges
+        self.verts = verts  # Vertices
+        self.func = None  # Function describing the underlying hyperboloid
+        self.perimeter = []  # Points in order around the perimeter of the surface
+        self.vert_ndxs = []  # Indices of the vertices along the perimeter
+        self.points = []  # All surface points including perimeter
+        self.tris = []  # Triangles made
         self.sa = None
         self.min_dist = min_dist
         self.calc_func()
@@ -42,12 +42,11 @@ class Surface:
         # Set the function attribute
         self.func = ABC + DEF + GHI + [J] + [K] + [d]
 
-    # Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
-    # from the center of the smallest of the surfaces 2 atoms through the point into the surface
+    # Calculate surface point function. Projects from the center of a0 through the given point on to the surface
     def calc_surf_point(self, point):
         # Grab the function's coefficients
         f = self.func
-        # Get the first atoms in the surfaces list of atoms
+        # Get the surfaces atoms
         a0, a1 = self.atoms[0], self.atoms[1]
         # Set up the unit vector
         vi = np.array(point) - np.array(a0.loc)
