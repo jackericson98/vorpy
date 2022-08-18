@@ -1,6 +1,5 @@
 from System.calcs import *
 import matplotlib.tri as mtri
-import alphashape
 
 
 class Surface:
@@ -259,21 +258,25 @@ class Surface:
                     counter += 1
             # If all three of the points are on an edge we need to check it
             if counter == 3:
-                # Set up the pass triangle boolean
-                pass_tri = False
-                # If the triangle has points on either side of a vertex, we exclude it
-                for vert_ndx in self.vert_ndxs:
-                    # Check to see if there is a vertex index between any of the points
-                    if tri[0] <= vert_ndx <= tri[1] or tri[1] <= vert_ndx <= tri[0] or \
-                            tri[1] <= vert_ndx <= tri[2]:
-                        pass_tri = True
-                if tri[0] in self.vert_ndxs or tri[1] in self.vert_ndxs or tri[2] in self.vert_ndxs:
-                    if tri[2] - tri[0] == 2 or (tri[1] == 1 and tri[2] == len(self.perimeter) - 1):
-                        pass_tri = True
-                    else:
-                        pass_tri = False
-                if not pass_tri:
+                # Check the length of one of the longest legs
+                if calc_dist(self.points[max(tri)], self.points[min(tri)]) > self.min_dist * 7:
                     remove_ndxs.append(i)
+                else:
+                    # Set up the pass triangle boolean
+                    keep_tri = False
+                    # If the triangle has points on either side of a vertex, we exclude it
+                    for vert_ndx in self.vert_ndxs:
+                        # Check to see if there is a vertex index between any of the points
+                        if tri[0] <= vert_ndx <= tri[1] or tri[1] <= vert_ndx <= tri[0] or \
+                                tri[1] <= vert_ndx <= tri[2]:
+                            keep_tri = True
+                    if tri[0] in self.vert_ndxs or tri[1] in self.vert_ndxs or tri[2] in self.vert_ndxs:
+                        if tri[2] - tri[0] == 2 or (tri[1] == 1 and tri[2] == len(self.perimeter) - 1):
+                            keep_tri = True
+                        else:
+                            keep_tri = False
+                    if not keep_tri:
+                        remove_ndxs.append(i)
         # Remove the outer triangles
         remove_ndxs.sort()
         for tri_ndx in remove_ndxs[::-1]:

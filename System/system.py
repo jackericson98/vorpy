@@ -113,21 +113,21 @@ class System:
         else:
             data = []
             for i in range(len(self.file)):
-                if word == self.file[i][:len(word)]:  # check the first len(word) letters
+                if self.file[i] and word == self.file[i][0].lower():  # check the first len(word) letters
                     # Add the split test_data to our list and remove the word at the beginning of the list
-                    data.append(self.file[i].split()[1:])
+                    data.append(self.file[i][1:])
         return data
 
     # Get pdb method. Finds the atoms and
     def get_pdb(self):
         # .PDB file type standards.
-        keys = ['HEADER', 'TITLE', 'COMPOUND', 'SOURCE', 'KEYWDS', 'EXPDTA', 'AUTHOR', 'REVDAT', 'JRNL', 'REMARK',
-                    'DBREF', 'SEQADV', 'FORMUL', 'SEQRES', 'HELIX', 'SHEET', 'CRYST', 'ORIG', 'SCALE', 'TER', 'HETATM',
-                    'MASTER']
+        keys = ['HEADER', 'TITLE', 'COMPOUND', 'SOURCE', 'KEY WORDS', 'EXPDTA', 'AUTHOR', 'REVISION DATA', 'JOURNAL', 'REMARK',
+                'DBREF', 'SEQADV', 'FORMUL', 'RESIDUES', 'HELIX', 'SHEET', 'CRYSTAL', 'ORIGIN', 'SCALE', 'TERMINALS', 'HET_ATM',
+                'MASTER']
         # Define the keys
-        pdb_stds = ['header', 'title', 'compound', 'source', 'key_words', 'exp_data', 'author', 'revisions', 'journal',
-                'remarks', 'debrief', 'seq_adv', 'formula', 'residues', 'helix', 'sheet', 'crystal', 'origin', 'scale',
-                'terminals', 'het_atom', 'master']
+        pdb_stds = ['header', 'title', 'compnd', 'source', 'keywds', 'exp_data', 'author', 'revdat', 'jrnl',
+                    'remark', 'debrief', 'seq_adv', 'formula', 'seqres', 'helix', 'sheet', 'cryst', 'orig', 'scale',
+                    'ter', 'hetatm', 'master']
         # Set the keys
         for i in range(len(pdb_stds)):
             self.info[keys[i]] = self.get_pdb_data(pdb_stds[i])
@@ -258,7 +258,7 @@ class System:
                 file.write(str(round(point[0], 4)) + " " + str(round(point[1], 4)) + " " + str(round(point[2], 4)) + '\n')
             percentage = int((i + 1) / tot_num * 100)
             pertentage = percentage // 10
-            print("\rExporting Files:    ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            print("\rExporting Files:   ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
 
         num_verts = 0
         # Go through each surface opening the previously created file and add the faces
@@ -270,7 +270,7 @@ class System:
             num_verts += len(self.net.surfs[i].points)
             percentage = int((i + 1 + len(self.net.surfs)) / tot_num * 100)
             pertentage = percentage // 10
-            print("\rExporting Files:    ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            print("\rExporting Files:   ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
         os.chdir("..")
 
         # Atoms Folder
@@ -313,7 +313,7 @@ class System:
             atom_info.write("\n")
             percentage = int((i + 1 + 2 * len(self.net.surfs)) / tot_num * 100)
             pertentage = percentage // 10
-            print("\rExporting Files:    ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            print("\rExporting Files:   ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
 
         os.chdir("..")
         os.mkdir(os.getcwd() + "/Molecules")

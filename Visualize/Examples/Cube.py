@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 atoms = [[[0, 0, 0], 4]]
 
 dist = 4
-rad = 2
+rad = 2.2
 
 atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[0, -dist, 0], rad], [[0, 0, dist], rad],
           [[0, 0, -dist], rad]]
