@@ -135,102 +135,75 @@ class Network:
 
     # Connect network method.
     def connect(self):
-        # Create the edges
+        # Create edges and add connections between verts and edges
+        # Go through each vertex and find its edges
         for vert1 in self.verts:
             # Check every combination of vert atoms as an edge
             for i in range(4):
                 # Grab the atoms
                 atoms = {vert1.atoms[i], vert1.atoms[(i + 1) % 4], vert1.atoms[(i + 2) % 4]}
-                # If the edge has been found before, continue
-                if check_edge(atoms, self.edges):
-                    continue
                 verts = []
-                # Find the possible verts (the original vert and the new vert)
+                # Find the possible verts
                 for vert2 in self.verts:
                     if atoms.issubset(vert2.atoms):
                         verts.append(vert2)
-                # If the number of valid vertices for the edge is 1
+                # Find which edge, if any, go nowhere
                 if len(verts) == 1:
                     continue
-                # Create the edge
-                my_edge = Edge(list(atoms), verts, calc_points=not self.vta)
-                # Add the edge to the System
-                self.edges.append(my_edge)
+                # Check to see if the edge has been found
+                my_edge = check_edge(atoms, self.edges)
+                if my_edge is None:
+                    # Create the edge
+                    my_edge = Edge(list(atoms), verts, calc_points=not self.vta)
+                    # Add the edge to the System
+                    self.edges.append(my_edge)
+                    # Add the edge to the verts
+                    verts[0].edges.append(my_edge)
+                    verts[1].edges.append(my_edge)
 
-        # Create the surfaces
-        for edge in self.edges:
-            # Go through the edge's atoms combinations
-            for i in range(3):
-                atoms = {edge.atoms[i], edge.atoms[(i+1) % 3]}
-                # If the surface has been found before continue
-                if check_surf(atoms, self.surfs):
+        # Create surfaces and add connections for edges and verts
+        for vert1 in self.verts:
+            # Go through each combination of sets atom in the vertices' atom list
+            t_ndxs = [[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]]
+            for ndxs in t_ndxs:
+                # Grab the atoms
+                t_atoms = {vert1.atoms[ndxs[0]], vert1.atoms[ndxs[1]]}
+                # Check to see if we have recorded this surface before
+                if check_surf(t_atoms, self.surfs):
                     continue
                 # Put together a list of edges that have our atoms
                 edges = []
                 for edge in self.edges:
-                    if atoms.issubset(edge.atoms):
+                    if t_atoms.issubset(edge.atoms):
                         edges.append(edge)
                 # Put together a list of verts that have our atoms
                 verts = []
                 for vert2 in self.verts:
-                    if atoms.issubset(vert2.atoms):
+                    if t_atoms.issubset(vert2.atoms):
                         verts.append(vert2)
                 # In order to be a true surface the number of edges need to be equal to the number of verts
                 if len(verts) == len(edges):
-                    my_surf = Surface(list(atoms), verts=verts, edges=edges)
+                    my_surf = Surface(list(t_atoms), verts=verts, edges=edges)
                     self.surfs.append(my_surf)
+                    list(t_atoms)[0].surfs.append(my_surf)
+                    list(t_atoms)[1].surfs.append(my_surf)
+                    list(t_atoms)[0].edges += edges
+                    list(t_atoms)[1].edges += edges
+                    list(t_atoms)[0].verts += verts
+                    list(t_atoms)[1].verts += verts
 
-        # Add the vertices, edges and surfs to the atoms
-        for atom in self.atoms:
-            # Reset the atom's vert list
-            atom.verts = []
-            # Go through the verts in the network
-            for vert in self.verts:
-                # If the atom is in the vertices atoms add the vertex to the atom's list of vertices
-                if {atom}.issubset(vert.atoms):
-                    atom.verts.append(vert)
-            # Reset the atom's edge list
-            atom.edges = []
-            # Go through the edges in the network
-            for edge in self.edges:
-                # If the atom is in the edge's list of atoms add the edge to the atoms list of edges
-                if {atom}.issubset(edge.atoms):
-                    atom.edges.append(edge)
-            # Reset the atom's surf list
-            atom.surfs = []
-            # Go through the surfs in the network
-            for surf in self.surfs:
-                # If the atom is in the surfs list of atoms add the surf to the atoms list of surfs
-                if {atom}.issubset(surf.atoms):
-                    atom.surfs.append(surf)
-
-
-        # Add the edges and surfs to the vertices
-        for vert in self.verts:
-            # Reset the vertexes edge list
-            vert.edges = []
-            # Go through the edges in the network
-            for edge in self.edges:
-                # If the edges atoms are in the vertices atoms add it to the vertex
-                if set(edge.atoms).issubset(vert.atoms):
-                    vert.edges.append(edge)
-            # Reset the vertexes surf list
-            vert.surfs = []
-            # Go through the surfaces in the network
-            for surf in self.surfs:
-                # If the surfaces atoms are in the vertexes atoms add it to the vertex
-                if set(surf.atoms).issubset(vert.atoms):
-                    vert.surfs.append(surf)
-
-        # Add the surfs to the edges
+        # Add the surfaces to the edges
         for edge in self.edges:
-            # Reset the edges surf list
             edge.surfs = []
-            # Go through the surfaces in the network
             for surf in self.surfs:
-                # If the surfaces atoms are in the edges atoms add it to the edge
                 if set(surf.atoms).issubset(edge.atoms):
                     edge.surfs.append(surf)
+        # Add the surfaces to the vertices
+        for vert in self.verts:
+            vert.surfs = []
+            for surf in self.surfs:
+                if set(surf.atoms).issubset(vert.atoms):
+                    vert.surfs.append(surf)
 
     # Build network function. Takes in a system and returns a fully connected network
     def build(self, min_dist=None, surfs=True):
@@ -246,7 +219,7 @@ class Network:
                 # Calculate and print the running percentage for mesh calculations
                 percentage = int((i + 1) / num_surfs * 100)
                 pertentage = percentage // 10
-                print("\rBuilding Surfaces: ", '#' * pertentage + ' ' * (10 - pertentage), percentage,  "%", end='')
+                print("\rBuilding Surfaces:  ", '#' * pertentage + ' ' * (10 - pertentage), percentage,  "%", end='')
                 # If the network is a voronota network, use build_vta method
                 if self.vta:
                     self.surfs[i].build_vta()
@@ -265,7 +238,7 @@ class Network:
         for i in range(len(self.surfs)):
             percentage = int((i + 1) / tot_num * 100)
             pertentage = percentage // 10
-            print("\rAnalyzing System:  ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            print("\rAnalyzing System:   ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
             # Get the surfaces simplices
             self.surfs[i].simps = self.surfs[i].find_simps()
             # Get the surface area of the surface
@@ -275,7 +248,7 @@ class Network:
         for j in range(len(self.atoms)):
             percentage = int((i + j + 1) / tot_num * 100)
             pertentage = percentage // 10
-            print("\rAnalyzing System:  ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            print("\rAnalyzing System:   ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
             self.atoms[j].vol = calc_vol(self.atoms[j])
 
         print("\rAnalyzing System:   ########## 100 %")
