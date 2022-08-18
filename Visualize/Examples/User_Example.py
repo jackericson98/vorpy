@@ -6,7 +6,7 @@ os.chdir("../..")
 
 
 # Files
-m_file = "./Data/test_data/Complex1.pdb"
+m_file = "./Data/test_data/Na_W_cluster5.pdb"
 
 # Get the System
 sys = System(m_file)
