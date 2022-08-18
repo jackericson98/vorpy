@@ -1,4 +1,4 @@
-from System.Network.edge import Edge
+from System.Network.edge import *
 from System.Network.surface import Surface
 from System.Network.vertex import Vertex
 from System.calcs import *
