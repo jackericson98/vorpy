@@ -1,7 +1,9 @@
+import os
+
 from System.system import System
 from Visualize.visualize import plot_atoms, plot_verts, plot_surfs, plot_edges
 import matplotlib.pyplot as plt
-
+os.chdir("../..")
 # Create atom objects from sets of points
 atoms = [[[0, 0, 0], 4]]
 
@@ -14,11 +16,11 @@ atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[0, -
 sys = System(atoms)
 
 # Build the surfaces
-sys.net.build(min_dist=.5)
+sys.net.build(min_dist=1)
 
 # Analysis checks:
 sys.analyze()
-sys.name = "Cube"
+sys.name = "Cube_02"
 # Export the system
 sys.export()
 

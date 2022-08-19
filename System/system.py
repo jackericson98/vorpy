@@ -1,10 +1,12 @@
 """This file holds all object types needed for calculations: Molecule, Mesh, Sphere, Ray, Plane"""
+import os
+
 from System.Network.network import *
 
 
 class Atom:
     """Atom object. Created with import of file. Used to reference for building network and analyzing"""
-    def __init__(self, location, radius):
+    def __init__(self, location, radius, type=""):
         self.loc = location  # Set the location of the center of the sphere
         self.rad = radius  # Set the radius for the sphere object. Default is 1
         self.verts = []  # List of Vertex type objects
@@ -12,7 +14,10 @@ class Atom:
         self.edges = []  # List of Edge type objects
         self.cell = True
         self.vol = 0
-        self.type = ""
+        self.type = type
+        self.chain = ""
+        self.res = ""
+        self.res_seq = ""
 
 
 class Molecule:
@@ -25,7 +30,7 @@ class Molecule:
 
 class System:
     """Class used to import files of all types and return a System"""
-    def __init__(self, file=None, box_size=1.5):
+    def __init__(self, file=None):
         self.atoms = []  # List of Atom type objects
         # If no file is given, generate a random System
         if file is None:
@@ -39,7 +44,6 @@ class System:
         self.file = None
         # Set up our
         self.name = ""
-        self.box = self.calc_box(box_size)
         self.bonds = None
         self.Analysis = None  # Analysis type object for data collection
         # Non-pertinent information
@@ -52,7 +56,7 @@ class System:
                 self.get_gro()
             elif file[-3:] == "mol":
                 self.get_mol()
-        self.net = Network(self.atoms)
+        self.net = Network(self, self.atoms)
         self.mols = []
 
     # Get name method. Extracts the name from the file name
@@ -66,30 +70,8 @@ class System:
         while file[i] != "/":
             filename = filename + file[i]
             i -= 1
-        # Trim the extension and the dot
+        # Reverse to normal and trim the extension and the dot
         return filename[::-1][:-4]
-
-    # Calculate box function. Takes in a System and returns the dimensions of a box x times the size of the atoms
-    def calc_box(self, x):
-        # Set up the minimum and maximum x, y, z coordinates
-        min_vert = np.array([np.inf, np.inf, np.inf])
-        max_vert = np.array([-np.inf, -np.inf, -np.inf])
-        # Check each atom in the System
-        for atom in self.atoms:
-            # Go through x, y, z
-            for i in range(3):
-                # If we find that the x, y, z value is less replace the value in the mins list
-                if atom.loc[i] < min_vert[i]:
-                    min_vert[i] = atom.loc[i]
-                # If we find that the x, y, z value is less replace the value in the mins list
-                elif atom.loc[i] > max_vert[i]:
-                    max_vert[i] = atom.loc[i]
-        # Get the vector between the minimum and maximum vertices for the defining box
-        r_box = max_vert - min_vert
-        # Set the new vertices to the x factor times the vector between them added to their complimentary vertices
-        min_vert, max_vert = max_vert + r_box * x, min_vert - r_box * x
-        # Return the list of array turned list vertices
-        return [min_vert.tolist(), max_vert.tolist()]
 
     # Get pdb data method. Finds the lines of the file with prefixes and returns them as a list
     def get_pdb_data(self, word):
@@ -106,7 +88,7 @@ class System:
             for i in range(len(self.file)):
                 line = self.file[i]
                 if line and line[0].lower() == 'atom':  # Check if the line starts with atom
-                    atom = Atom([float(line[5]), float(line[6]), float(line[7])], self.get_radius(line[-1]))
+                    atom = Atom([float(line[5]), float(line[6]), float(line[7])], self.get_radius(line[-1]), type=line[-1])
                     atoms.append(atom)
             return atoms
         # Standard case
@@ -134,32 +116,73 @@ class System:
         # Grab the lines that start with ATOM and create Atom objects
         self.atoms = self.get_pdb_data('ATOM')
 
+    # Create pdb method. Creates a pdb file type in the current working directory
+    def create_pdb(self, directory=None):
+        # Make sure each atom has a type before we change directories
+        for atom in self.atoms:
+            # Give each atom a type if not indicated
+            if atom.type == "":
+                atom.type = self.get_radius(atom.rad, return_type=True)
+        # Move to the indicated directory
+        if directory:
+            os.chdir(directory)
+        # Create the output file
+        file = open(self.name + "_structure.pdb", 'w')
+        # Go through each atom in the system
+        for i in range(len(self.atoms)):
+            a = self.atoms[i]
+            loc = [str(round(a.loc[0], 3)), str(round(a.loc[1], 3)), str(round(a.loc[2], 3))]
+            # Write the lines for the atom
+            file.write("ATOM" + " " * (7 - len(str(i+1))) + str(i + 1) +
+                       "  " + a.type + " " * (4 - len(a.type)) +
+                       a.res + " " * (4 - len(a.res)) +
+                       a.chain + " " * (5 - len(a.chain) - len(a.res_seq)) +
+                       " " * (12 - len(loc[0])) + loc[0] +
+                       " " * (8 - len(loc[1])) + loc[1] +
+                       " " * (8 - len(loc[2])) + loc[2] +
+                       "  1.00  0.00" + " " * (12 - len(a.type)) + a.type + "\n")
+
     # Get gro method. Finds data in a gro file
     def get_gro(self):
         self.info['header'] = self.file[0]
-        self.box = self.file[-2]
         # Go through each line in the file and create an atom object
         for line in self.file[2:-2]:
-            self.atoms.append(Atom([line[3], line[4], line[5]], self.get_radius(line[1][0])))
+            self.atoms.append(Atom([line[3], line[4], line[5]], self.get_radius(line[1][0]), type=line[1][0]))
 
     # Get mol method. Finds data in a mol file
     def get_mol(self):
         for line in self.file:
             if len(line) > 6:
-                self.atoms.append(Atom([line[0], line[1], line[2]], self.get_radius(line[3])))
+                self.atoms.append(Atom([line[0], line[1], line[2]], self.get_radius(line[3]), type=line[3]))
 
     # Get radius Method. Goes through the bondi_radius file from voronota and gives a radius to the given atom name
     @staticmethod
-    def get_radius(atom_name):
+    def get_radius(radius, return_type=False):
         # Get the classifier document
+        print(os.getcwd())
         radii = open("./Data/bondi_classifier.txt").readlines()
+        atom_type = ""
         # Go through each line in the classifier document
         for line in radii:
             line = line.split()
-            # Compare the given atom name and atom name in the line
-            if atom_name.lower() == line[1].lower():
-                # Get the classifier for the line (0, 1, 2, 3, 4, 5, 6, 7)
-                return float(line[2])
+            if len(line) < 1:
+                continue
+            min_diff = np.inf
+            # If indicated we return the type of atom that the radius indicates
+            if return_type:
+                # If we get the exact radius, great. If not we'll have to choose the closest
+                if line[2] == float(radius):
+                    return line[1]
+                new_min = abs(float(radius) - float(line[2]))
+                if new_min < min_diff:
+                    min_diff = new_min
+                    atom_type = line[1]
+            # If we have the type and just want the radius, keep scanning until we find the radius
+            else:
+                if radius.lower() == line[1].lower():
+                    return float(line[2])
+        # If nothing is found to be exact return the closest atom type
+        return atom_type
 
     # Build System function. Takes in a list of coordinates and string atom names
     def build_sys(self, lr_input_list):
@@ -223,15 +246,21 @@ class System:
             self.name = "mySystem"
         # Change to the directory indicated or create a directory called User_Data
         if directory:
-            os.chdir(directory)
+            myDir = directory
         else:
             # If the system has a name set the data folder to it
             if len(self.name) > 0:
-                os.mkdir(os.getcwd() + "/" + self.name)
-                os.chdir("./" + self.name)
+                myDir = os.getcwd() + "/" + self.name
+                os.mkdir(myDir)
             else:
-                os.mkdir(os.getcwd() + "/User_Data")
-                os.chdir("./User_Data")
+                myDir = os.getcwd() + "/User_Data"
+                os.mkdir(myDir)
+        # If the file is none create a pdb for the file
+        if self.file is None:
+            self.create_pdb(myDir)
+        # Move to the new directory
+        os.chdir(myDir)
+        # Create a total number of operations for the percentage calculator
         tot_num = 2 * len(self.net.surfs) + len(self.atoms)
         # Set the counters to 0
         tot_verts, tot_tris = 0, 0
@@ -241,7 +270,7 @@ class System:
             tot_tris += len(surf.tris)
 
         # System file
-        sys_file = open(str(self.name + "System.off"), 'w')
+        sys_file = open(self.name + "System.off", 'w')
         sys_file.write("OFF\n" + str(tot_verts) + " " + str(tot_tris) + " 0\n\n\n")
 
         # Surfaces Folder

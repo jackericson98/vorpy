@@ -6,13 +6,37 @@ from System.calcs import *
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
-    def __init__(self, atoms):
+    def __init__(self, sys, atoms, box_size=1.5):
+        self.sys = sys
         self.atoms = atoms  # List of Atom type objects
         self.verts = []  # List of Vertex type objects
         self.surfs = []  # List of Surface type objects
         self.edges = []  # List of Edge type objects
         self.rad = 50  # Ballpark range for radius needed for the entire network.
         self.vta = False
+        self.box = self.calc_box(box_size)
+
+    # Calculate box function. Takes in a System and returns the dimensions of a box x times the size of the atoms
+    def calc_box(self, x):
+        # Set up the minimum and maximum x, y, z coordinates
+        min_vert = np.array([np.inf, np.inf, np.inf])
+        max_vert = np.array([-np.inf, -np.inf, -np.inf])
+        # Check each atom in the System
+        for atom in self.atoms:
+            # Go through x, y, z
+            for i in range(3):
+                # If we find that the x, y, z value is less replace the value in the mins list
+                if atom.loc[i] < min_vert[i]:
+                    min_vert[i] = atom.loc[i]
+                # If we find that the x, y, z value is less replace the value in the mins list
+                elif atom.loc[i] > max_vert[i]:
+                    max_vert[i] = atom.loc[i]
+        # Get the vector between the minimum and maximum vertices for the defining box
+        r_box = max_vert - min_vert
+        # Set the new vertices to the x factor times the vector between them added to their complimentary vertices
+        min_vert, max_vert = max_vert + r_box * x, min_vert - r_box * x
+        # Return the list of array turned list vertices
+        return [min_vert.tolist(), max_vert.tolist()]
 
     # Find v0 function. Finds the first vertex in the network
     def find_v0(self):
@@ -138,6 +162,10 @@ class Network:
 
     # Connect network method.
     def connect(self):
+        # Check to see if the voronota data has been loaded
+        if self.vta and not self.verts:
+            print("Load Voronota data for {} to continue".format(self.sys.name))
+            exit()
         # Create edges and add connections between verts and edges
         # Go through each vertex and find its edges
         for vert1 in self.verts:

@@ -44,6 +44,35 @@ class Surface:
 
     # Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
     # from the center of the smallest of the surfaces 2 atoms through the point into the surface
+    def calc_surf_point1(self, point):
+        # Grab the function's coefficients
+        f = self.func
+        # Get the first atoms in the surfaces list of atoms
+        a0, a1 = self.atoms[0], self.atoms[1]
+        # Set up the unit vector
+        vi = np.array(point) - np.array(a0.loc)
+        vn = vi / np.linalg.norm(vi)
+        # Find the location on the surface of the atom
+        vi = np.array(a0.loc) + vn * a0.rad
+        # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
+        a = f[0] * vn[0] ** 2 + f[1] * vn[1] ** 2 + f[2] * vn[2] ** 2 + f[3] * vn[0] * vn[1] + f[4] * vn[1] * vn[
+            2] + f[
+                5] \
+            * vn[2] * vn[0]
+        b = 2 * f[0] * vn[0] * vi[0] + 2 * f[1] * vn[1] * vi[1] + 2 * f[2] * vn[2] * vi[2] + f[3] \
+            * (vn[0] * vi[1] + vn[1] * vi[0]) + f[4] * (vn[1] * vi[2] + vn[2] * vi[1]) + f[5] \
+            * (vn[2] * vi[0] + vn[0] * vi[2]) + f[6] * vn[0] + f[7] * vn[1] + f[8] * vn[2]
+        c = f[0] * vi[0] ** 2 + f[1] * vi[1] ** 2 + f[2] * vi[2] ** 2 + f[3] * vi[0] * vi[1] + f[4] * vi[1] * vi[
+            2] + \
+            f[5] * vi[2] * vi[0] + f[6] * vi[0] + f[7] * vi[1] + f[8] * vi[2] + f[9]
+        # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
+        # and add that point to our surface list of points
+        if round(b ** 2 - 4 * a * c, 4) >= 0:
+            roots = np.roots([a, b, c])
+            return roots
+
+    # Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
+    # from the center of the smallest of the surfaces 2 atoms through the point into the surface
     def calc_surf_point(self, point):
         # Grab the function's coefficients
         f = self.func
@@ -260,8 +289,12 @@ class Surface:
                     counter += 1
             # If all three of the points are on an edge we need to check it
             if counter == 3:
+                #
+                side_dists = []
+                for k in range(3):
+                    side_dists.append(calc_dist(self.points[tri[k]], self.points[tri[(k+1) % 3]]))
                 # Check the length of one of the longest legs
-                if calc_dist(self.points[max(tri)], self.points[min(tri)]) > self.min_dist * 7:
+                if min(side_dists) * 10 < max(side_dists):
                     remove_ndxs.append(i)
                 else:
                     # Set up the pass triangle boolean

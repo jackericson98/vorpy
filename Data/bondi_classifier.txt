@@ -167,7 +167,7 @@ NA   B     1.92
 NA   O     1.52
 NA   F     1.47
 NA   Ne    1.54
-NA   Na    1.55.27
+NA   Na    1.5527
 NA   Mg    1.73
 NA   Al    1.84
 NA   Si    2.10
