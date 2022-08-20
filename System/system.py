@@ -18,6 +18,7 @@ class Atom:
         self.chain = chain
         self.res = res
         self.res_seq = res_seq
+        self.box = []
 
 
 class Molecule:
