@@ -66,21 +66,29 @@ class Network:
             # Add the box to the atom
             atom.box = [ai, aj, ak]
 
+    # Get atoms method. Takes in the cells and the number of additional cells to search and returns an atom list
+    def get_atoms(self, cell, rnge):
+        # Set the initial search parameters to the given cells
+        xs, ys, zs = [x for x in range(-rnge + 1, rnge)], [y for y in range(-rnge + 1, rnge)], \
+                     [z for z in range(-rnge + 1, rnge)]
+        atoms = []
+        # First go through the atoms in a0's box
+        for i in xs:
+            for j in ys:
+                for k in zs:
+                    atoms += self.sub_boxes[cell[0] + i][cell[1] + j][cell[2] + k]
+        return atoms
+
     # Find v0 function. Finds the first vertex in the network
     def find_v0(self):
-        # Find the center of mass of the atoms
-        com = calc_atoms_com(self.atoms)
-        # First choose an appropriate initial atom based of com proximity
-        min_dist = np.inf
-        a0 = None
-        # Go through each atom determining if it is closer to the com
-        for atom in self.atoms:
-            # Set the new com distance
-            com_dist = calc_dist(atom.loc, com)
-            # If is less than the current closest atom's distance to the center of mass update the variables
-            if com_dist < min_dist:
-                min_dist = com_dist
-                a0 = atom
+        # Find the middle sub_box of the set of boxes and
+        mid = len(self.sub_boxes) // 2
+        atoms = []
+        inc = 0
+        while not atoms:
+            atoms = self.get_atoms([mid, mid, mid], inc)
+            inc += 1
+        a0 = atoms[0]
         # Find the set of atoms with the minimum distance between surfaces
         min_dist = np.inf
         a1 = None
