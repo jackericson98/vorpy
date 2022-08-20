@@ -7,6 +7,7 @@ from System.calcs import *
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
     def __init__(self, sys, atoms, box_size=1.5):
+        self.sub_boxes = None
         self.sys = sys
         self.atoms = atoms  # List of Atom type objects
         self.verts = []  # List of Vertex type objects
@@ -14,7 +15,8 @@ class Network:
         self.edges = []  # List of Edge type objects
         self.rad = 50  # Ballpark range for radius needed for the entire network.
         self.vta = False
-        self.box = self.calc_box(box_size)
+        self.box = None
+        self.sort_atoms(box_size)
 
     # Calculate box function. Takes in a System and returns the dimensions of a box x times the size of the atoms
     def calc_box(self, x):
@@ -33,10 +35,36 @@ class Network:
                     max_vert[i] = atom.loc[i]
         # Get the vector between the minimum and maximum vertices for the defining box
         r_box = max_vert - min_vert
+        # If the atoms are in the same plane
+        for i in range(3):
+            if r_box[i] == 0:
+                r_box[i] = 4 * self.atoms[0].rad
         # Set the new vertices to the x factor times the vector between them added to their complimentary vertices
         min_vert, max_vert = min_vert - r_box * x, max_vert + r_box * x
         # Return the list of array turned list vertices
         return [min_vert.tolist(), max_vert.tolist()]
+
+    # Sort atoms method. Puts the atoms in the network in their respective grid sections
+    def sort_atoms(self, box_size=2, num_boxes=1000):
+        # First get the box for the
+        self.box = self.calc_box(box_size)
+        # Number of cells per row/column/aisle
+        n = int(np.cbrt(num_boxes))
+        # Divide the box into sub_boxes
+        self.sub_boxes = [[[[] for i in range(n)] for j in range(n)] for k in range(n)]
+        # Get the cell size
+        cell_size = [(self.box[1][0] - self.box[0][0]) / n, (self.box[1][1] - self.box[0][1]) / n,
+                     (self.box[1][2] - self.box[0][2]) / n]
+        # Sort the atoms
+        for atom in self.atoms:
+            # Find the box they belong to
+            ai = int((atom.loc[0] - self.box[0][0]) / cell_size[0])
+            aj = int((atom.loc[1] - self.box[0][1]) / cell_size[1])
+            ak = int((atom.loc[2] - self.box[0][2]) / cell_size[2])
+            # Add the atom to the box
+            self.sub_boxes[ai][aj][ak].append(atom)
+            # Add the box to the atom
+            atom.box = [ai, aj, ak]
 
     # Find v0 function. Finds the first vertex in the network
     def find_v0(self):
