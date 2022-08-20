@@ -3,12 +3,14 @@ from System.calcs import *
 
 class Vertex:
     """Vertex object. Used to build the network and calculate the surfaces"""
-    def __init__(self, atoms, location=None, radius=None):
+    def __init__(self, atoms, net, location=None, radius=None):
         self.loc = location
         self.rad = radius  # Radius of the vertex's tangential sphere
         self.atoms = atoms  # List of Atom type objects
+        self.ndx = [net.atoms.index(atom) for atom in self.atoms]
         self.edges = []  # List of Edge type objects
         self.surfs = []  # List of Surface type objects
+        self.net = net
         if self.loc is None:
             self.calc_vert()
 
@@ -50,7 +52,8 @@ class Vertex:
             c = ((F10 ** 2 + F20 ** 2 + F30 ** 2) / F ** 2) - R1 ** 2
             # If the discriminant is positive, find the real positive roots of the quadratic
             if -4 * a * c + b ** 2 > 0:
-                Rs = [R for R in np.roots([a, b, c]) if np.isreal(R) and R > 0]
+
+                Rs = [R for R in np.roots([a, b, c]) if np.isreal(R)]
             # Instantiate the verts array
             verts = []
             # Go through each radius and calculate the vertex
@@ -96,8 +99,14 @@ class Vertex:
             return
         else:
             # If we have 2 roots and the first root's radius is larger than the second root's radius, choose the second
-            if len(verts) == 2 and verts[0][1] > verts[1][1]:
-                self.loc, self.rad = verts[1]
+            if len(verts) == 2 and abs(verts[0][1]) > abs(verts[1][1]):
+                loc, rad = verts[1][0], abs(verts[1][1])
+                if self.net.box[0][0] <= loc[0] <= self.net.box[1][0] and \
+                   self.net.box[0][1] <= loc[1] <= self.net.box[1][1] and \
+                   self.net.box[0][2] <= loc[2] <= self.net.box[1][2]:
+                    self.loc, self.rad = verts[1][0], abs(verts[1][1])
+                else:
+                    return
             # Otherwise, choose the first
             else:
                 self.loc, self.rad = verts[0]

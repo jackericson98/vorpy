@@ -6,7 +6,7 @@ from System.Network.network import *
 
 class Atom:
     """Atom object. Created with import of file. Used to reference for building network and analyzing"""
-    def __init__(self, location, radius, type=""):
+    def __init__(self, location, radius, type="", chain="", res="", res_seq=""):
         self.loc = location  # Set the location of the center of the sphere
         self.rad = radius  # Set the radius for the sphere object. Default is 1
         self.verts = []  # List of Vertex type objects
@@ -15,9 +15,9 @@ class Atom:
         self.cell = True
         self.vol = 0
         self.type = type
-        self.chain = ""
-        self.res = ""
-        self.res_seq = ""
+        self.chain = chain
+        self.res = res
+        self.res_seq = res_seq
 
 
 class Molecule:
@@ -88,7 +88,8 @@ class System:
             for i in range(len(self.file)):
                 line = self.file[i]
                 if line and line[0].lower() == 'atom':  # Check if the line starts with atom
-                    atom = Atom([float(line[5]), float(line[6]), float(line[7])], self.get_radius(line[-1]), type=line[-1])
+                    atom = Atom([float(line[5]), float(line[6]), float(line[7])], self.get_radius(line[-1]),
+                                type=line[-1], res=line[2], chain=line[3], res_seq=line[4])
                     atoms.append(atom)
             return atoms
         # Standard case
@@ -104,12 +105,12 @@ class System:
     def get_pdb(self):
         # .PDB file type standards.
         keys = ['HEADER', 'TITLE', 'COMPOUND', 'SOURCE', 'KEYWDS', 'EXPDTA', 'AUTHOR', 'REVDAT', 'JRNL', 'REMARK',
-                    'DBREF', 'SEQADV', 'FORMUL', 'SEQRES', 'HELIX', 'SHEET', 'CRYST', 'ORIG', 'SCALE', 'TER', 'HETATM',
-                    'MASTER']
+                'DBREF', 'SEQADV', 'FORMUL', 'SEQRES', 'HELIX', 'SHEET', 'CRYST', 'ORIG', 'SCALE', 'TER', 'HETATM',
+                'MASTER']
         # Define the keys
         pdb_stds = ['header', 'title', 'compound', 'source', 'key_words', 'exp_data', 'author', 'revisions', 'journal',
-                'remarks', 'debrief', 'seq_adv', 'formula', 'residues', 'helix', 'sheet', 'crystal', 'origin', 'scale',
-                'terminals', 'het_atom', 'master']
+                    'remarks', 'debrief', 'seq_adv', 'formula', 'residues', 'helix', 'sheet', 'crystal', 'origin', 'scale',
+                    'terminals', 'het_atom', 'master']
         # Set the keys
         for i in range(len(pdb_stds)):
             self.info[keys[i]] = self.get_pdb_data(pdb_stds[i])
@@ -133,14 +134,16 @@ class System:
             a = self.atoms[i]
             loc = [str(round(a.loc[0], 3)), str(round(a.loc[1], 3)), str(round(a.loc[2], 3))]
             # Write the lines for the atom
-            file.write("ATOM" + " " * (7 - len(str(i+1))) + str(i + 1) +
-                       "  " + a.type + " " * (4 - len(a.type)) +
+            file.write("ATOM" + " " * (7 - len(str(i+1))) +
+                       str(i + 1) + "  " +
+                       a.type + " " * (4 - len(a.type)) +
                        a.res + " " * (4 - len(a.res)) +
                        a.chain + " " * (5 - len(a.chain) - len(a.res_seq)) +
-                       " " * (12 - len(loc[0])) + loc[0] +
-                       " " * (8 - len(loc[1])) + loc[1] +
-                       " " * (8 - len(loc[2])) + loc[2] +
-                       "  1.00  0.00" + " " * (12 - len(a.type)) + a.type + "\n")
+                       " " * 4 + " " * (8 - len(loc[0])) +
+                       loc[0] + " " * (8 - len(loc[1])) +
+                       loc[1] + " " * (8 - len(loc[2])) +
+                       loc[2] + " " * 2 +
+                       "1.00  0.00" + " " * (12 - len(a.type)) + a.type + "\n")
 
     # Get gro method. Finds data in a gro file
     def get_gro(self):
@@ -159,7 +162,6 @@ class System:
     @staticmethod
     def get_radius(radius, return_type=False):
         # Get the classifier document
-        print(os.getcwd())
         radii = open("./Data/bondi_classifier.txt").readlines()
         atom_type = ""
         # Go through each line in the classifier document
@@ -270,7 +272,7 @@ class System:
             tot_tris += len(surf.tris)
 
         # System file
-        sys_file = open(self.name + "System.off", 'w')
+        sys_file = open(self.name + "_System.off", 'w')
         sys_file.write("OFF\n" + str(tot_verts) + " " + str(tot_tris) + " 0\n\n\n")
 
         # Surfaces Folder
@@ -287,8 +289,7 @@ class System:
                 file.write(str(round(point[0], 4)) + " " + str(round(point[1], 4)) + " " + str(round(point[2], 4)) + '\n')
             percentage = int((i + 1) / tot_num * 100)
             pertentage = percentage // 10
-            print("\rExporting Files:", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
-
+            print("\rExporting Files:   ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
         num_verts = 0
         # Go through each surface opening the previously created file and add the faces
         for i in range(len(self.net.surfs)):
@@ -299,7 +300,7 @@ class System:
             num_verts += len(self.net.surfs[i].points)
             percentage = int((i + 1 + len(self.net.surfs)) / tot_num * 100)
             pertentage = percentage // 10
-            print("\rExporting Files:", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            print("\rExporting Files:   ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
         os.chdir("..")
 
         # Atoms Folder
@@ -342,7 +343,7 @@ class System:
             atom_info.write("\n")
             percentage = int((i + 1 + 2 * len(self.net.surfs)) / tot_num * 100)
             pertentage = percentage // 10
-            print("\rExporting Files:", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            print("\rExporting Files:   ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
 
         os.chdir("..")
         os.mkdir(os.getcwd() + "/Molecules")

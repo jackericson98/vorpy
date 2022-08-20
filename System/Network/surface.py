@@ -5,11 +5,13 @@ import matplotlib.tri as mtri
 class Surface:
     """Surface object. Holds the mesh data. Used to analyze."""
 
-    def __init__(self, atoms, edges=None, verts=None, min_dist=0.1):
+    def __init__(self, atoms, net, edges=None, verts=None, min_dist=0.1):
         self.func = None
         self.atoms = atoms  # List of Atom type objects
         self.edges = edges  # List of Edge type objects
+        self.net = net
         self.verts = verts
+        self.ndx = [net.atoms.index(atom) for atom in self.atoms]
         self.perimeter = []
         self.vert_ndxs = []
         self.points = []
@@ -211,7 +213,7 @@ class Surface:
         max_path_ndx = angs.index(max(angs))
         max_path = paths[max_path_ndx][0]
         # Decide how many rings based off of the ellipticity and density
-        num_rings = max(int(calc_dist(max_path, com) / self.min_dist), 10)
+        num_rings = max(int(calc_dist(max_path, com) / self.min_dist), 2)
         # Get the incremental angle increases
         dthetas = [angs[i] / num_rings for i in range(len(angs))]
         # Set the pn_1 point to infinity
@@ -289,12 +291,12 @@ class Surface:
                     counter += 1
             # If all three of the points are on an edge we need to check it
             if counter == 3:
-                #
+                # Calculate the side distances for the triangle
                 side_dists = []
                 for k in range(3):
                     side_dists.append(calc_dist(self.points[tri[k]], self.points[tri[(k+1) % 3]]))
                 # Check the length of one of the longest legs
-                if min(side_dists) * 10 < max(side_dists):
+                if min(side_dists) * 10 < max(side_dists) and max(side_dists) > 3 * self.min_dist:
                     remove_ndxs.append(i)
                 else:
                     # Set up the pass triangle boolean

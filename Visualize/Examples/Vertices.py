@@ -13,23 +13,24 @@ cases.append([Atom([0.5, 0, 0], 0.5), Atom([-0.5, 0, 0], 0.5), Atom([-0.25, 0.25
 # Case 3: Three overlapping balls
 cases.append([Atom([0, 0, 1], 0.25), Atom([0, 0, -1], 0.25), Atom([1, 0.5, 0], 0.25), Atom([-0.5, 0.5, 0], 0.25)])
 # Case 4: Four overlapping balls
-cases.append([Atom([1, 1, 1], 1.3), Atom([0, 1, 0], 1.3), Atom([-1, 0, 0], 1.1), Atom([0, -1, 0], 1.1)])
+cases.append([Atom([0, 1, 1], 1.3), Atom([0, 1, 0], 1.3), Atom([-1, 0, 0], 1.1), Atom([0, -1, 0], 1.1)])
 
 
 verts = []
-for i in range(len(cases)):
-    myVert = Vertex(atoms=cases[i])
-    print(myVert.loc)
-    verts.append(myVert)
+# for i in range(len(cases)):
+myVert = Vertex(atoms=cases[4])
+print(myVert.loc)
+
+verts.append(myVert)
 
 
 fig = plt.figure(figsize=(20, 40))
 titles = ["Case 0: No Overlap", "Case 1: One overlapping set", "Case 2: Two overlapping balls",
           "Case 3: Three overlapping balls", "Case 4: Four overlapping balls"]
-for i in range(len(cases)):
+for i in range(4, 5):
     axn = fig.add_subplot(int("23" + str(i + 1)), projection="3d", xlim=10)
     axn.set_title(titles[i])
     plot_atoms(cases[i], fig=fig, ax=axn, colors=['y', 'y', 'y', 'y'], alpha=.1, dfo=5)
-    plot_verts([verts[i]], fig=fig, ax=axn, dfo=15, spheres=True)
+    plot_verts([verts[0]], fig=fig, ax=axn, dfo=15, spheres=True)
 
 plt.show()

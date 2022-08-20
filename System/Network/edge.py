@@ -4,10 +4,12 @@ from System.Network.surface import Surface
 
 class Edge:
     """Edge object. Used to build the network and calculate the surfaces"""
-    def __init__(self, atoms, verts, calc_points=True):
+    def __init__(self, atoms, verts, net, calc_points=True):
         self.atoms = atoms  # List of Atom type objects
         self.verts = verts  # List of Vertex type objects
         self.surfs = []  # List of 2 surfaces attached to the edge
+        self.net = net
+        self.ndx = [net.atoms.index(atom) for atom in self.atoms]
         self.loc = None  # Location of the center of the 3 atoms that make up the edge
         self.rad = None  # Radius of the inscribed circle of the three atoms
         self.dir = None  # Direction along the edge from the edge's first vertex
@@ -26,9 +28,9 @@ class Edge:
             return
         # If no surface is given, choose a curved one to project onto. If the edge isn't straight 2 surfs are curved.
         if round(self.atoms[0].rad, 10) == round(self.atoms[1].rad, 10):
-            surf = Surface(self.atoms[1:])
+            surf = Surface(self.atoms[1:], self.net)
         else:
-            surf = Surface(self.atoms[:2])
+            surf = Surface(self.atoms[:2], self.net)
         # Grab the surface's function's coefficients
         f = surf.func
 
@@ -53,7 +55,7 @@ class Edge:
         pa = pc01 + 0.5 * r_mag * rnpcr
 
         # Find the number of points
-        n = max(int(r_mag / min_dist), 10)
+        n = max(int(r_mag / min_dist), 2)
         # Calculate the angle between the vertices and the reference point
         theta = calc_angle(pa, pv0, pv1)
         A = theta / n
@@ -77,14 +79,14 @@ class Edge:
             rac = np.array(pc) - np.array(pa)
             rnac = rac / np.linalg.norm(rac)
             # Project the vector onto the surface
-            surf_point = self.project(rnac, pa, f)
+            surf_point = self.project(rnac, pa, pb, f)
             if surf_point is None:
                 break
             self.points.append(surf_point)
         self.points = self.points[1:]
 
     @staticmethod
-    def project(rn, pa, f):
+    def project(rn, pa, pb, f):
         # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
         a = f[0] * rn[0] ** 2 + f[1] * rn[1] ** 2 + f[2] * rn[2] ** 2 + f[3] * rn[0] * rn[1] + f[4] * rn[
             1] * rn[
@@ -101,8 +103,12 @@ class Edge:
         if b ** 2 - 4 * a * c > 0:
             # If the projection point on a0's surface is outside a1's surface take the smallest of the roots
             roots = np.roots([a, b, c])
-            mag = min([abs(roots[i]) for i in range(len(roots))])
-            return pa + mag * rn
+            p0 = pa + abs(roots[0]) * rn
+            if len(roots) > 1:
+                p1 = pa + abs(roots[1]) * rn
+                if calc_dist(pb, p0) > calc_dist(pb, p1):
+                    p0 = p1
+            return p0
 
 
 # Calculate circle function. Takes in 3 atoms, calculates the center and radius of inscribed circle and returns them

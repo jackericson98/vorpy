@@ -34,7 +34,7 @@ class Network:
         # Get the vector between the minimum and maximum vertices for the defining box
         r_box = max_vert - min_vert
         # Set the new vertices to the x factor times the vector between them added to their complimentary vertices
-        min_vert, max_vert = max_vert + r_box * x, min_vert - r_box * x
+        min_vert, max_vert = min_vert - r_box * x, max_vert + r_box * x
         # Return the list of array turned list vertices
         return [min_vert.tolist(), max_vert.tolist()]
 
@@ -90,7 +90,7 @@ class Network:
             if atom == a0 or atom == a1 or atom == a2:
                 continue
             # Get the vertex made from the atoms
-            vert = Vertex(atoms=[a0, a1, a2] + [atom])
+            vert = Vertex(atoms=[a0, a1, a2] + [atom], net=self)
             # If the radius of the inscribed
             if vert.loc and vert.rad < min_rad:
                 min_rad = vert.rad
@@ -108,7 +108,7 @@ class Network:
             if {atom}.issubset(vn_1.atoms):
                 continue
             # Calculate the vertex with atom
-            vert = Vertex(atoms=edge_atoms + [atom])
+            vert = Vertex(atoms=edge_atoms + [atom], net=self)
             if vert.loc is None:
                 continue
             # Check if the vertex overlaps with any of the networks atoms
@@ -138,7 +138,7 @@ class Network:
             tot_verts = max(len(self.verts) + int(3 * len(vert_stack) / 4), 6 * len(self.atoms))
             percentage = int(len(self.verts) / tot_verts * 100)
             pertentage = percentage // 10
-            print("\rBuilding Network: ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            print("\rBuilding Network:  ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
             # Get the vertex from the top of the stack
             vert = vert_stack.pop()
             # Set up the edge stack
@@ -185,7 +185,7 @@ class Network:
                 my_edge = check_edge(atoms, self.edges)
                 if my_edge is None:
                     # Create the edge
-                    my_edge = Edge(list(atoms), verts, calc_points=not self.vta)
+                    my_edge = Edge(list(atoms), verts, calc_points=not self.vta, net=self)
                     # Add the edge to the System
                     self.edges.append(my_edge)
                     # Add the edge to the verts
@@ -214,7 +214,7 @@ class Network:
                         verts.append(vert2)
                 # In order to be a true surface the number of edges need to be equal to the number of verts
                 if len(verts) == len(edges):
-                    my_surf = Surface(list(t_atoms), verts=verts, edges=edges)
+                    my_surf = Surface(list(t_atoms), verts=verts, edges=edges, net=self)
                     self.surfs.append(my_surf)
                     list(t_atoms)[0].surfs.append(my_surf)
                     list(t_atoms)[1].surfs.append(my_surf)
@@ -269,7 +269,7 @@ class Network:
         for i in range(len(self.surfs)):
             percentage = int((i + 1) / tot_num * 100)
             pertentage = percentage // 10
-            print("\rAnalyzing System:", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            print("\rAnalyzing System:  ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
             # Get the surfaces simplices
             self.surfs[i].simps = self.surfs[i].find_simps()
             # Get the surface area of the surface
@@ -279,7 +279,7 @@ class Network:
         for j in range(len(self.atoms)):
             percentage = int((i + j + 1) / tot_num * 100)
             pertentage = percentage // 10
-            print("\rAnalyzing System:", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            print("\rAnalyzing System:  ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
             self.atoms[j].vol = calc_vol(self.atoms[j])
 
         print("\rAnalyzing System:   ########## 100 %")
