@@ -145,7 +145,8 @@ class Surface:
         for edge in self.edges:
             edge.build(min_dist=min_dist)
         # Add the first edge's points to the surface's edge points attribute
-        self.perimeter = [self.edges[0].verts[0].loc] + self.edges[0].points
+        p0 = self.edges[0].verts[0].loc
+        self.perimeter = [p0] + self.edges[0].points
         # Make a copy of the edges to organize
         edges = self.edges[1:].copy()
         # Keep looping while we haven't gone through all of the edges
@@ -183,6 +184,7 @@ class Surface:
                 self.vert_ndxs.append(len(self.perimeter))
                 self.perimeter.append(myEdge.verts[1].loc)
                 self.perimeter += myEdge.points[::-1]
+        self.perimeter.append(p0)
         self.points += self.perimeter
         # Check to see if the atoms have equal radii
         if a0.rad == a1.rad:
@@ -201,7 +203,7 @@ class Surface:
         # Calculate the center of mass point of the edge points and where it maps on the surface
         com = self.calc_surf_point(com)
         # For each edge point set up a path list.
-        paths = [[self.points[i]] for i in range(len(self.points))]
+        paths = [[self.perimeter[i]] for i in range(len(self.perimeter))]
         # Grab the smallest of the 2 surface atoms' location
         pa = self.atoms[0].loc
         # Get the angles between the edge points and the end points
