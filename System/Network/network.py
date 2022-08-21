@@ -8,6 +8,7 @@ class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
     def __init__(self, sys, atoms, box_size=1.5):
         self.sub_boxes = None
+        self.sub_box_size = []
         self.sys = sys
         self.atoms = atoms  # List of Atom type objects
         self.verts = []  # List of Vertex type objects
@@ -53,30 +54,56 @@ class Network:
         # Divide the box into sub_boxes
         self.sub_boxes = [[[[] for i in range(n)] for j in range(n)] for k in range(n)]
         # Get the cell size
-        cell_size = [(self.box[1][0] - self.box[0][0]) / n, (self.box[1][1] - self.box[0][1]) / n,
+        self.sub_box_size = [(self.box[1][0] - self.box[0][0]) / n, (self.box[1][1] - self.box[0][1]) / n,
                      (self.box[1][2] - self.box[0][2]) / n]
         # Sort the atoms
         for atom in self.atoms:
             # Find the box they belong to
-            ai = int((atom.loc[0] - self.box[0][0]) / cell_size[0])
-            aj = int((atom.loc[1] - self.box[0][1]) / cell_size[1])
-            ak = int((atom.loc[2] - self.box[0][2]) / cell_size[2])
+            ai = int((atom.loc[0] - self.box[0][0]) / self.sub_box_size[0])
+            aj = int((atom.loc[1] - self.box[0][1]) / self.sub_box_size[1])
+            ak = int((atom.loc[2] - self.box[0][2]) / self.sub_box_size[2])
             # Add the atom to the box
             self.sub_boxes[ai][aj][ak].append(atom)
             # Add the box to the atom
             atom.box = [ai, aj, ak]
 
     # Get atoms method. Takes in the cells and the number of additional cells to search and returns an atom list
-    def get_atoms(self, cell, rnge):
+    def get_atoms(self, cells, rnge, exclusive=False):
+        # Get the min and max of the cells
+        ndx_min = [np.inf, np.inf, np.inf]
+        ndx_max = [-np.inf, -np.inf, -np.inf]
+        # Go through the cells and set the minimum and
+        for cell in cells:
+            for i in range(3):
+                if cell[i] < ndx_min[i]:
+                    ndx_min[i] = cell[i]
+                if cell[i] > ndx_max[i]:
+                    ndx_max[i] = cell[i]
+
         # Set the initial search parameters to the given cells
-        xs, ys, zs = [x for x in range(-rnge + 1, rnge)], [y for y in range(-rnge + 1, rnge)], \
-                     [z for z in range(-rnge + 1, rnge)]
+        xs, ys, zs = [x for x in range(-rnge + ndx_min[0] + 1, rnge + ndx_max[0])], \
+                     [y for y in range(-rnge + ndx_min[1] + 1, rnge + ndx_max[1])], \
+                     [z for z in range(-rnge + ndx_min[2] + 1, rnge + ndx_max[2])]
         atoms = []
         # First go through the atoms in a0's box
-        for i in xs:
-            for j in ys:
-                for k in zs:
-                    atoms += self.sub_boxes[cell[0] + i][cell[1] + j][cell[2] + k]
+        if exclusive:
+            for i in xs:
+                for j in ys:
+                    for k in zs:
+                        if abs(i) != rnge and abs(j) != rnge and abs(k) != rnge:
+                            continue
+                        try:
+                            atoms += self.sub_boxes[i][j][k]
+                        except IndexError:
+                            continue
+        else:
+            for i in xs:
+                for j in ys:
+                    for k in zs:
+                        try:
+                            atoms += self.sub_boxes[i][j][k]
+                        except IndexError:
+                            continue
         return atoms
 
     # Find v0 function. Finds the first vertex in the network
@@ -86,37 +113,46 @@ class Network:
         atoms = []
         inc = 0
         while not atoms:
-            atoms = self.get_atoms([mid, mid, mid], inc)
+            atoms = self.get_atoms([[mid, mid, mid]], inc)
             inc += 1
         a0 = atoms[0]
+
         # Find the set of atoms with the minimum distance between surfaces
         min_dist = np.inf
         a1 = None
-        # Go through each atom determining the atom with the minimum distance between it and a0's surfaces
-        for atom in self.atoms:
-            # Skip a0
-            if atom == a0:
-                continue
-            # Set the new atom distances
-            a_dist = calc_dist(a0.loc, atom.loc) - (a0.rad + atom.rad)
-            # If the new atom distance is less than the previous minimum distance update the variables
-            if a_dist < min_dist:
-                min_dist = a_dist
-                a1 = atom
+        inc = 0
+        while not a1:
+            atoms = self.get_atoms([a0.box], inc)
+            # Go through each atom determining the atom with the minimum distance between it and a0's surfaces
+            for atom in atoms:
+                # Skip a0
+                if atom == a0:
+                    continue
+                # Set the new atom distances
+                a_dist = calc_dist(a0.loc, atom.loc) - (a0.rad + atom.rad)
+                # If the new atom distance is less than the previous minimum distance update the variables
+                if a_dist < min_dist:
+                    min_dist = a_dist
+                    a1 = atom
+            inc += 1
         # Find the set of atoms with the minimum inscribed circle
         min_rad = np.inf
         a2 = None
-        # Go through each other atom to determine the smallest circle that can be made with our 2 atoms and a third
-        for atom in self.atoms:
-            # Skip a0, a1
-            if atom == a0 or atom == a1:
-                continue
-            # Calculate the circle made with the 3 atoms
-            circ = calc_circ([a0, a1, atom])
-            # If the radius of the inscribed circle is smaller than the previous smallest found circle's radius replace
-            if circ and abs(circ[1]) < min_rad:
-                min_rad = abs(circ[1])
-                a2 = atom
+        inc = 0
+        while not a2:
+            atoms = self.get_atoms([a0.box, a1.box], inc + 1)
+            # Go through each other atom to determine the smallest circle that can be made with our 2 atoms and a third
+            for atom in atoms:
+                # Skip a0, a1
+                if atom == a0 or atom == a1:
+                    continue
+                # Calculate the circle made with the 3 atoms
+                circ = calc_circ([a0, a1, atom])
+                # If the radius of the inscribed circle is smaller than the previous smallest found circle's radius replace
+                if circ and abs(circ[1]) < min_rad:
+                    min_rad = abs(circ[1])
+                    a2 = atom
+            inc += 1
         # Find the set of atoms with the minimum inscribed sphere
         min_rad = np.inf
         myVert = None
@@ -138,27 +174,58 @@ class Network:
     def find_site(self, edge_atoms, vn_1):
         # Instantiate the vertex
         myVert = None
-        # Loop through the atoms to see if they create a vertex that doesn't overlap with any other atoms
-        for atom in self.atoms:
-            # This filters out any of the atoms in the edge or the remaining atom from the previous vertex
-            if {atom}.issubset(vn_1.atoms):
+        inc = 0
+        min_vert = np.inf
+        # Loop through the atoms to see if they create a vertex that doesn't overlap with other atoms or whole system
+        while inc <= len(self.sub_boxes) + 1:
+            # If no vert has been found yet, keep expanding
+            if myVert is None or myVert.loc is None:
+                # Keep adding boxes around the atoms to check
+                atoms = self.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], inc)
+                # Go through the atoms in the surrounding boxes and find the smallest vertex that can be created
+                for atom in atoms:
+                    # This filters out any of the atoms in the edge or the remaining atom from the previous vertex
+                    if {atom}.issubset(vn_1.atoms):
+                        continue
+                    # Calculate the vertex with atom and pass if the vertex location is None
+                    vert = Vertex(atoms=edge_atoms + [atom], net=self)
+                    # I need to fix Vertex to get to a point where I dont need this
+                    if vert is None or vert.loc is None:
+                        continue
+                    # Sniff out the smallest vertex that can be made in the box and store it
+                    if vert.rad < min_vert:
+                        # Replace the variables
+                        min_vert = vert.rad
+                        myVert = vert
+            # If no vertex can be made restart the search with a larger set of boxes
+            if myVert is None or myVert.loc is None:
+                inc += 1
                 continue
-            # Calculate the vertex with atom
-            vert = Vertex(atoms=edge_atoms + [atom], net=self)
-            if vert.loc is None:
-                continue
-            # Check if the vertex overlaps with any of the networks atoms
+            # Find the box that the vertex would be in
+            vi = int((myVert.loc[0] - self.box[0][0]) / self.sub_box_size[0])
+            vj = int((myVert.loc[1] - self.box[0][1]) / self.sub_box_size[1])
+            vk = int((myVert.loc[2] - self.box[0][2]) / self.sub_box_size[2])
+            # Any atom that can overlap with this vertex is within the 'vertex's radius over the smallest box length'
+            # plus the 'maximum radius of an atom over the smallest box length' # of boxes away from the vert.loc box
+            atoms = self.get_atoms([[vi, vj, vk]],
+                                   int(myVert.rad/min(self.sub_box_size)) + int(5/min(self.sub_box_size)) + 2)
+            # Set up an overlap variable
             overlap = False
-            for a_test in self.atoms:
-                if {a_test}.issubset(edge_atoms + [atom]):
+            # Test the atoms in the new atom list to see if they overlap with the vertex
+            for atom in atoms:
+                # If the atom is one of the vert atoms move on
+                if {atom}.issubset(myVert.atoms):
                     continue
-                if round(calc_dist(a_test.loc, vert.loc) - (a_test.rad + vert.rad), 7) < 0:
+                # If the distance between the vertex and the atom is less than their radii create a new vertex and reset
+                if calc_dist(atom.loc, myVert.loc) - (atom.rad + myVert.rad) < 0:
+                    myVert = Vertex(edge_atoms + [atom], net=self)
                     overlap = True
                     break
+            # Check to see if the vertex had no overlaps --> We found the vertex!
             if not overlap:
-                myVert = vert
-                break
-        return myVert
+                return myVert
+            # If we have made it this far increment the counter and keep expanding
+            inc += 1
 
     # Find network function. Keeps searching the network until all verts are found
     def find_vertices(self):
@@ -182,9 +249,9 @@ class Network:
             # While the edge stack is not empty
             while e_stack:
                 # Get the edge from the top of the stack
-                edge = e_stack.pop()
+                edge, vert = e_stack.pop()
                 # Find the next site in the network
-                myVert = self.find_site(edge[0], edge[1])
+                myVert = self.find_site(edge, vert)
                 # If the vertex is none continue
                 if myVert is None:
                     continue
