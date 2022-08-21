@@ -6,6 +6,46 @@ from System.Network.Vertices.vert_calcs import *
 """Gather information functions"""
 
 
+# Find site function. Takes in an edge and finds the only other vertex that does not overlap with other atoms
+def find_site1(self, edge_atoms, vn_1):
+    # Instantiate the vertex
+    myVert = None
+    inc = 0
+    # Loop through the atoms to see if they create a vertex that doesn't overlap with any other atoms
+    while inc < len(self.sub_boxes):
+        atoms = self.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], inc)
+        for atom in atoms:
+            # This filters out any of the atoms in the edge or the remaining atom from the previous vertex
+            if {atom}.issubset(vn_1.atoms):
+                continue
+            # Calculate the vertex with atom and pass if the vertex location is None
+            vert = Vertex(atoms=edge_atoms + [atom], net=self)
+            if vert.loc is None:
+                continue  ## This is where I implement Hu's Method
+            # Find the box that the vertex would be in
+            vi = int((vert.loc[0] - self.box[0][0]) / self.sub_box_size[0])
+            vj = int((vert.loc[1] - self.box[0][1]) / self.sub_box_size[1])
+            vk = int((vert.loc[2] - self.box[0][2]) / self.sub_box_size[2])
+            # Get the set of atoms needed to check for the next vertex
+            atoms = self.get_atoms([vert.atoms[0].box, vert.atoms[1].box, vert.atoms[2].box, vert.atoms[3].box,
+                                    [vi, vj, vk]], int(vert.rad / min(self.sub_box_size)) + 3)
+            # Check if the vertex overlaps with any of the networks atoms
+            overlap = False
+            # Loop over all atoms
+            for a_test in atoms:
+                if {a_test}.issubset(edge_atoms + [atom]):
+                    continue
+                if calc_dist(a_test.loc, vert.loc) - (a_test.rad + vert.rad) < 0:
+                    overlap = True
+                    break
+            if not overlap:
+                myVert = vert
+                break
+        inc += 1
+    return myVert
+
+
+
 # Find site function. When given an edge, this function returns the closest next vertex in the System
 def find_site1(edge, net):
     # Get the edges location and radius
