@@ -83,7 +83,6 @@ class Edge:
             if surf_point is None:
                 break
             self.points.append(surf_point)
-        self.points = self.points[1:]
 
     @staticmethod
     def project(rn, pa, pb, f):
