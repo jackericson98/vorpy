@@ -62,6 +62,7 @@ def calc_vol(atom):
             vol += calc_tetra_vol(p0, p1, p2, p3)
     return vol
 
+
 # Calculate center of mass function. Takes in a set of points and returns the coordinates of the com
 def calc_atoms_com(atoms):
     # Set the running sum for the x, y, z values to 0
@@ -99,6 +100,33 @@ def calc_edges_com(edges=None, surf=None, points=None):
         z_tot += point[2]
     # Return the center of mass of the edge points
     return [x_tot / len(myPoints), y_tot / len(myPoints), z_tot / len(myPoints)]
+
+
+# Calculate bisector value function. Takes in a bisector and point and returns the value of that point in regard to
+# the bisector function. A point that is actually on the bisector surface should return a value of 0.
+def calc_bisector_val(f, point):
+    x, y, z = point
+    val = f[0] * x ** 2 + f[1] * y ** 2 + f[2] * z ** 2 + \
+          f[3] * x * y + f[4] * y * z + f[5] * z * x + \
+          f[6] * x + f[7] * y + f[8] * z + f[9]
+    return val
+
+
+# Inverse Jacobian Function. Takes in 3 bisector functions and point in 3 space and returns the inverse Jacobian matrix.
+# Only works with hyperboloid surfaces. Could be developed to more general case, but this is faster for now.
+def inv_jac(funcs, point):
+    # Get functions and point
+    f1, f2, f3 = funcs
+    x, y, z = point
+    # Create the Jacobian Matrix
+    jac_mat = [[2 * f1[0] * x + f1[3] * y + f1[5] * z + f1[6], 2 * f1[1] * y + f1[3] * x + f1[4] * z + f1[7],
+                2 * f1[2] * z + f1[4] * y + f1[5] * x + f1[8]],
+               [2 * f2[0] * x + f2[3] * y + f2[5] * z + f2[6], 2 * f2[1] * y + f2[3] * x + f2[4] * z + f2[7],
+                2 * f2[2] * z + f2[4] * y + f2[5] * x + f2[8]],
+               [2 * f3[0] * x + f3[3] * y + f3[5] * z + f3[6], 2 * f3[1] * y + f3[3] * x + f3[4] * z + f3[7],
+                2 * f3[2] * z + f3[4] * y + f3[5] * x + f3[8]]]
+    # Calculate the inverse of this matrix and return it
+    return np.linalg.inv(jac_mat)
 
 
 # Sort by distance function. Sorts all atoms in the System by distance from COM of given atoms
