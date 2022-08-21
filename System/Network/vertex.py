@@ -1,5 +1,4 @@
-from System.calcs import *
-
+from System.Network.surface import *
 
 class Vertex:
     """Vertex object. Used to build the network and calculate the surfaces"""
@@ -38,21 +37,22 @@ class Vertex:
         F21 = a1 * c2 * d3 - a1 * c3 * d2 - a2 * c1 * d3 + a2 * c3 * d1 + a3 * c1 * d2 - a3 * c2 * d1
         F30 = a1 * b2 * f3 - a1 * b3 * f2 - a2 * b1 * f3 + a2 * b3 * f1 + a3 * b1 * f2 - a3 * b2 * f1
         F31 = -a1 * b2 * d3 + a1 * b3 * d2 + a2 * b1 * d3 - a2 * b3 * d1 - a3 * b1 * d2 + a3 * b2 * d1
-        # Catch for F = 0.
-        if F == 0:
-            return
-        # Instantiate our root arrays
-        xs, ys, zs, Rs = [], [], [], []
+
         verts = []
+        xs, ys, zs, Rs = [], [], [], []
+        # Case 0: Catch for F = 0.
+        if F == 0:
+            loc = self.fv2()
+            rad = np.linalg.norm(loc - self.atoms[0].loc) - self.atoms[0].rad
+            verts = [[loc, rad]]
         # Case 1:
-        if ABC_rank == 3 and m_rank == 3 and f_rank == 3:
+        elif ABC_rank == 3 and m_rank == 3 and f_rank == 3:
             # Calculate the radius polynomial coefficients
             a = ((F11 ** 2 + F21 ** 2 + F31 ** 2) / F ** 2) - 1
             b = (2 * (F10 * F11 + F20 * F21 + F30 * F31) / F ** 2) - 2 * R1
             c = ((F10 ** 2 + F20 ** 2 + F30 ** 2) / F ** 2) - R1 ** 2
             # If the discriminant is positive, find the real positive roots of the quadratic
             if -4 * a * c + b ** 2 > 0:
-
                 Rs = [R for R in np.roots([a, b, c]) if np.isreal(R)]
             # Instantiate the verts array
             verts = []
@@ -71,7 +71,7 @@ class Vertex:
             # Check the discriminant
             disc = -4 * a * c + b ** 2
             if disc > 0:
-                roots = [root for root in np.roots([a, b, c]) if np.isreal(root) and root > 0]
+                roots = [root for root in np.roots([a, b, c]) if np.isreal(root)]
             # Case 2 subcases:
             # Case 2.1
             if np.linalg.matrix_rank([A, B, d]) == 3:
@@ -95,18 +95,61 @@ class Vertex:
                     # Move the vertex back to the actual location of the atoms
                     verts.append([[x + l0[0], y + l0[1], z + l0[2]], R])
         # If no verts are found return None
-        if not verts:
-            return
-        else:
+        if verts:
+            b0, b1 = self.net.box[0], self.net.box[1]
             # If we have 2 roots and the first root's radius is larger than the second root's radius, choose the second
             if len(verts) == 2 and abs(verts[0][1]) > abs(verts[1][1]):
                 loc, rad = verts[1][0], abs(verts[1][1])
-                if self.net.box[0][0] <= loc[0] <= self.net.box[1][0] and \
-                   self.net.box[0][1] <= loc[1] <= self.net.box[1][1] and \
-                   self.net.box[0][2] <= loc[2] <= self.net.box[1][2]:
-                    self.loc, self.rad = verts[1][0], abs(verts[1][1])
+                # Check to see if the vertex is in the box or not
+                if b0[0] <= loc[0] <= b1[0] and b0[1] <= loc[1] <= b1[1] and b0[2] <= loc[2] <= b1[2]:
+                    self.loc, self.rad = loc, rad
                 else:
                     return
             # Otherwise, choose the first
             else:
-                self.loc, self.rad = verts[0]
+                loc, rad = verts[0][0], abs(verts[0][1])
+                # Check to see if the vertex is in the box or not
+                if b0[0] <= loc[0] <= b1[0] and b0[1] <= loc[1] <= b1[1] and b0[2] <= loc[2] <= b1[2]:
+                    self.loc, self.rad = loc, rad
+        else:
+            # Worst case scenario try the Hu Method
+            loc = self.fv2()
+            if len(loc) > 0:
+                self.loc = loc
+                self.rad = np.linalg.norm(self.loc - self.atoms[0].loc) - self.atoms[0].rad
+
+    # Hu's method. Finds vertex using trial and error
+    def fv2(self, P0=None, epsilon=None):
+        # Get the surfaces
+        s1, s2, s3 = Surface(self.atoms[:2], self.net), Surface([self.atoms[0], self.atoms[2]], self.net), \
+                     Surface([self.atoms[0], self.atoms[3]], self.net)
+        # Get the functions
+        f1, f2, f3 = s1.func, s2.func, s3.func
+        # Initial guess function gets put here
+        if P0 is None:
+            P0 = calc_atoms_com(self.atoms)
+        # Set the error to infinity
+        err = np.inf
+        # User set threshold for "closeness" to the vertex
+        if epsilon is None:
+            epsilon = .001
+        # Reset the point to the initial guess and the counter for number of iterations
+        pk = P0
+        count = 0
+        # Keep running the algorithm until the error is less than the allowed threshold
+        while err >= epsilon and count < 20:
+            # Newtonian-Raphson method:
+            # Calculate the output of each function given the current point
+            F = calc_bisector_val(f1, pk), calc_bisector_val(f2, pk), calc_bisector_val(f3, pk)
+            # Adjust the point based off the above F values dotted with the respective inverse Jacobian
+            pk = pk - np.dot(inv_jac([f1, f2, f3], pk), F)
+            # Calculate the new error to test against the threshold
+            err = max(abs(F[0]), abs(F[1]), abs(F[2]))
+            # Update the count
+            count += 1
+        if err >= epsilon:
+            print("I got a point")
+            # Return the point
+            return pk
+        else:
+            return []
