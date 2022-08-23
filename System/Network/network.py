@@ -181,7 +181,7 @@ class Network:
             # If no vert has been found yet, keep expanding
             if myVert is None or myVert.loc is None:
                 # Keep adding boxes around the atoms to check
-                atoms = self.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], inc)
+                atoms = self.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], inc + 1)
                 # Go through the atoms in the surrounding boxes and find the smallest vertex that can be created
                 for atom in atoms:
                     # This filters out any of the atoms in the edge or the remaining atom from the previous vertex
@@ -208,7 +208,7 @@ class Network:
             # Any atom that can overlap with this vertex is within the 'vertex's radius over the smallest box length'
             # plus the 'maximum radius of an atom over the smallest box length' # of boxes away from the vert.loc box
             atoms = self.get_atoms([[vi, vj, vk]],
-                                   int(myVert.rad/min(self.sub_box_size)) + int(5/min(self.sub_box_size)) + 2)
+                                   int(myVert.rad/min(self.sub_box_size)) + int(5/min(self.sub_box_size)) + 1)
             # Set up an overlap variable
             overlap = False
             # Test the atoms in the new atom list to see if they overlap with the vertex
@@ -265,79 +265,105 @@ class Network:
 
     # Connect network method.
     def connect(self):
-        # Check to see if the voronota data has been loaded
-        if self.vta and not self.verts:
-            print("Load Voronota data for {} to continue".format(self.sys.name))
-            exit()
-        # Create edges and add connections between verts and edges
-        # Go through each vertex and find its edges
+        # Create the edges
         for vert1 in self.verts:
             # Check every combination of vert atoms as an edge
             for i in range(4):
                 # Grab the atoms
                 atoms = {vert1.atoms[i], vert1.atoms[(i + 1) % 4], vert1.atoms[(i + 2) % 4]}
+                # If the edge has been found before, continue
+                if check_edge(atoms, self.edges):
+                    continue
                 verts = []
-                # Find the possible verts
+                # Find the possible verts (the original vert and the new vert)
                 for vert2 in self.verts:
                     if atoms.issubset(vert2.atoms):
                         verts.append(vert2)
-                # Find which edge, if any, go nowhere
+                # If the number of valid vertices for the edge is 1
                 if len(verts) == 1:
                     continue
-                # Check to see if the edge has been found
-                my_edge = check_edge(atoms, self.edges)
-                if my_edge is None:
-                    # Create the edge
-                    my_edge = Edge(list(atoms), verts, calc_points=not self.vta, net=self)
-                    # Add the edge to the System
-                    self.edges.append(my_edge)
-                    # Add the edge to the verts
-                    verts[0].edges.append(my_edge)
-                    verts[1].edges.append(my_edge)
+                # Create the edge
+                my_edge = Edge(list(atoms), verts, self, calc_points=not self.vta)
+                # Add the edge to the System
+                self.edges.append(my_edge)
 
-        # Create surfaces and add connections for edges and verts
-        for vert1 in self.verts:
-            # Go through each combination of sets atom in the vertices' atom list
-            t_ndxs = [[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]]
-            for ndxs in t_ndxs:
-                # Grab the atoms
-                t_atoms = {vert1.atoms[ndxs[0]], vert1.atoms[ndxs[1]]}
-                # Check to see if we have recorded this surface before
-                if check_surf(t_atoms, self.surfs):
+        # Create the surfaces
+        self.surfs = []
+        for edge in self.edges:
+            # Go through the edge's atoms combinations
+            for i in range(3):
+                atoms = {edge.atoms[i], edge.atoms[(i+1) % 3]}
+                # If the surface has been found before continue
+                if check_surf(atoms, self.surfs):
                     continue
                 # Put together a list of edges that have our atoms
                 edges = []
                 for edge in self.edges:
-                    if t_atoms.issubset(edge.atoms):
+                    if atoms.issubset(edge.atoms):
                         edges.append(edge)
                 # Put together a list of verts that have our atoms
                 verts = []
                 for vert2 in self.verts:
-                    if t_atoms.issubset(vert2.atoms):
+                    if atoms.issubset(vert2.atoms):
                         verts.append(vert2)
                 # In order to be a true surface the number of edges need to be equal to the number of verts
                 if len(verts) == len(edges):
-                    my_surf = Surface(list(t_atoms), verts=verts, edges=edges, net=self)
+                    my_surf = Surface(list(atoms), verts=verts, net=self, edges=edges)
                     self.surfs.append(my_surf)
-                    list(t_atoms)[0].surfs.append(my_surf)
-                    list(t_atoms)[1].surfs.append(my_surf)
-                    list(t_atoms)[0].edges += edges
-                    list(t_atoms)[1].edges += edges
-                    list(t_atoms)[0].verts += verts
-                    list(t_atoms)[1].verts += verts
+                else:
+                    pass
 
-        # Add the surfaces to the edges
-        for edge in self.edges:
-            edge.surfs = []
+        # Add the vertices, edges and surfs to the atoms
+        for atom in self.atoms:
+            # Reset the atom's vert list
+            atom.verts = []
+            # Go through the verts in the network
+            for vert in self.verts:
+                # If the atom is in the vertices atoms add the vertex to the atom's list of vertices
+                if {atom}.issubset(vert.atoms):
+                    atom.verts.append(vert)
+            # Reset the atom's edge list
+            atom.edges = []
+            # Go through the edges in the network
+            for edge in self.edges:
+                # If the atom is in the edge's list of atoms add the edge to the atoms list of edges
+                if {atom}.issubset(edge.atoms):
+                    atom.edges.append(edge)
+            # Reset the atom's surf list
+            atom.surfs = []
+            # Go through the surfs in the network
             for surf in self.surfs:
-                if set(surf.atoms).issubset(edge.atoms):
-                    edge.surfs.append(surf)
-        # Add the surfaces to the vertices
+                # If the atom is in the surfs list of atoms add the surf to the atoms list of surfs
+                if {atom}.issubset(surf.atoms):
+                    atom.surfs.append(surf)
+
+
+        # Add the edges and surfs to the vertices
         for vert in self.verts:
+            # Reset the vertexes edge list
+            vert.edges = []
+            # Go through the edges in the network
+            for edge in self.edges:
+                # If the edges atoms are in the vertices atoms add it to the vertex
+                if set(edge.atoms).issubset(vert.atoms):
+                    vert.edges.append(edge)
+            # Reset the vertexes surf list
             vert.surfs = []
+            # Go through the surfaces in the network
             for surf in self.surfs:
+                # If the surfaces atoms are in the vertexes atoms add it to the vertex
                 if set(surf.atoms).issubset(vert.atoms):
                     vert.surfs.append(surf)
+
+        # Add the surfs to the edges
+        for edge in self.edges:
+            # Reset the edges surf list
+            edge.surfs = []
+            # Go through the surfaces in the network
+            for surf in self.surfs:
+                # If the surfaces atoms are in the edges atoms add it to the edge
+                if set(surf.atoms).issubset(edge.atoms):
+                    edge.surfs.append(surf)
 
     # Build network function. Takes in a system and returns a fully connected network
     def build(self, min_dist=None, surfs=True):
