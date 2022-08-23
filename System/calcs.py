@@ -119,14 +119,16 @@ def inv_jac(funcs, point):
     f1, f2, f3 = funcs
     x, y, z = point
     # Create the Jacobian Matrix
-    jac_mat = [[2 * f1[0] * x + f1[3] * y + f1[5] * z + f1[6], 2 * f1[1] * y + f1[3] * x + f1[4] * z + f1[7],
-                2 * f1[2] * z + f1[4] * y + f1[5] * x + f1[8]],
-               [2 * f2[0] * x + f2[3] * y + f2[5] * z + f2[6], 2 * f2[1] * y + f2[3] * x + f2[4] * z + f2[7],
-                2 * f2[2] * z + f2[4] * y + f2[5] * x + f2[8]],
-               [2 * f3[0] * x + f3[3] * y + f3[5] * z + f3[6], 2 * f3[1] * y + f3[3] * x + f3[4] * z + f3[7],
-                2 * f3[2] * z + f3[4] * y + f3[5] * x + f3[8]]]
-    # Calculate the inverse of this matrix and return it
-    return np.linalg.inv(jac_mat)
+    jac_mat = np.array([[2 * f1[0] * x + f1[3] * y + f1[5] * z + f1[6], 2 * f1[1] * y + f1[3] * x + f1[4] * z + f1[7],
+                         2 * f1[2] * z + f1[4] * y + f1[5] * x + f1[8]],
+                        [2 * f2[0] * x + f2[3] * y + f2[5] * z + f2[6], 2 * f2[1] * y + f2[3] * x + f2[4] * z + f2[7],
+                         2 * f2[2] * z + f2[4] * y + f2[5] * x + f2[8]],
+                        [2 * f3[0] * x + f3[3] * y + f3[5] * z + f3[6], 2 * f3[1] * y + f3[3] * x + f3[4] * z + f3[7],
+                         2 * f3[2] * z + f3[4] * y + f3[5] * x + f3[8]]])
+
+    if jac_mat.shape[0] == jac_mat.shape[1] and np.linalg.matrix_rank(jac_mat) == jac_mat.shape[0]:
+        # Calculate the inverse of this matrix and return it
+        return np.linalg.inv(jac_mat)
 
 
 # Sort by distance function. Sorts all atoms in the System by distance from COM of given atoms
