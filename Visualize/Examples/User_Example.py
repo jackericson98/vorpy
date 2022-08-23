@@ -9,16 +9,11 @@ os.chdir("../..")
 m_file = "./Data/test_data/Na5.pdb"
 
 # Get the System
-sys = System(m_file)
+sys = System(m_file, box_size=1.5)
 
 sys.net.build(.1, surfs=True)
 
 
-for vert in sys.net.verts:
-    print(vert.ndx)
-
-for surf in sys.net.surfs:
-    print(surf.ndx)
 # Plot the System
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')

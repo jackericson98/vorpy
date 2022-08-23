@@ -17,14 +17,14 @@ os.chdir("../..")
 # # Case 5: Full encapsulation of one atom - distance(a0, a1) + a0.rad < a1.rad
 # cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([-0.24, 0, 0], 0.25)] + vert_atoms))
 # Create atoms for vertices and edges
-vert_atoms = [Atom([1, 5, 5], 2.5), Atom([1, -5, 5], 2.5), Atom([1, 5, -5], 2.5), Atom([1, -5, -5], 2.5)]
+vert_atoms = [Atom([2, 5, 5], 2.5), Atom([2, -5, 5], 2.5), Atom([2, 5, -5], 2.5), Atom([2, -5, -5], 2.5)]
 
 
 cases = []
 cases.append(System([Atom([-1, 0, 0], .5), Atom([3, 0, 0], .5)] + vert_atoms))
 cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([1, 0, 0], 0.5)] + vert_atoms))
-# cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([0.6, 0, 0], 0.5)] + vert_atoms))
-cases.append(System([Atom([-15, 0, 0], 15), Atom([0.5, 0, 0], 1), Atom([10, 5, 5], 2.5), Atom([10, -5, 5], 2.5), Atom([10, 5, -5], 2.5), Atom([10, -5, -5], 2.5)]))
+cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([0.6, 0, 0], 0.5)] + vert_atoms))
+# cases.append(System([Atom([-15, 0, 0], 15), Atom([0.5, 0, 0], 1), Atom([10, 5, 5], 2.5), Atom([10, -5, 5], 2.5), Atom([10, 5, -5], 2.5), Atom([10, -5, -5], 2.5)]))
 cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([0.4, 0, 0], 0.5)] + vert_atoms))
 cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([0.25, 0, 0], 0.5)] + vert_atoms))
 cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([0.1, 0, 0], 0.5)] + vert_atoms))
@@ -34,7 +34,7 @@ cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([-0.4, 0, 0], 0.5)] + vert_at
 
 
 for i in range(len(cases)):
-    cases[i].net.build(0.2)
+    cases[i].net.build(0.05)
 
 
 fig = plt.figure(figsize=(20, 40))
@@ -47,12 +47,17 @@ titles = ["Equal Radii",
           "Case 4: Overlap is more than half of both atoms",
           "Case 5: Full encapsulation of one atom", "", ""]
 for i in range(len(cases)):
+
     sys = cases[i]
+    if i == 6:
+        print(sys.net.surfs[0].perimeter)
     axn = fig.add_subplot(int("33" + str(i + 1)), projection="3d", xlim=10)
     axn.set_title(titles[i])
-    plot_verts(sys.net.surfs[0].verts, fig=fig, ax=axn)
-    plot_atoms(sys.net.surfs[0].atoms, fig=fig, ax=axn, colors=['r', 'b'], alpha=.5, res=3)
-    plot_edges(sys.net.surfs[0].edges, fig=fig, ax=axn)
-    plot_surfs(sys.net.surfs[:1], simps=True, fig=fig, ax=axn, dfo=1.5)
-
+    try:
+        plot_verts(sys.net.surfs[0].verts, fig=fig, ax=axn)
+        plot_atoms(sys.net.surfs[0].atoms, fig=fig, ax=axn, colors=['r', 'b'], alpha=.5, res=3)
+        plot_edges(sys.net.surfs[0].edges, fig=fig, ax=axn)
+        plot_surfs(sys.net.surfs[:1], simps=True, fig=fig, ax=axn, dfo=1.5)
+    except IndexError:
+        continue
 plt.show()

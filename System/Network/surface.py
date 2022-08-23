@@ -20,7 +20,7 @@ class Surface:
         self.min_dist = min_dist
         self.crit_ang = np.pi
         self.calc_func()
-        self.calc_crit_ang()
+        # self.calc_crit_ang()
 
     # Bisector function. Creates a bisector surface between 2 atoms
     def calc_func(self):
@@ -104,7 +104,6 @@ class Surface:
                 # Get the point using the angle and then find the magnitudes of the projections (i.e. the roots)
                 proj_points.append([self.atoms[0].rad * np.cos(ang), self.atoms[0].rad * np.sin(ang), 0])
                 roots.append(self.calc_surf_point(proj_points[-1], return_roots=True))
-
                 root_diffs.append(abs(abs(roots[-1][0]) - abs(roots[-1][1])))
             better_ang = [ang0, ang1][root_diffs.index(min(root_diffs))]
             if min(root_diffs) < self.min_dist/2:
