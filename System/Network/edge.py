@@ -31,9 +31,6 @@ class Edge:
             surf = Surface(self.atoms[1:], self.net)
         else:
             surf = Surface(self.atoms[:2], self.net)
-        # Grab the surface's function's coefficients
-        f = surf.func
-
         # Find the point in between the two vertex points
         r01 = pv1 - pv0  # Vector between vertices
         r_mag = np.linalg.norm(r01)  # Magnitude of the vector between the two vertex points
@@ -53,7 +50,6 @@ class Edge:
         rnpcr = rpcr / np.linalg.norm(rpcr)
         # Calculate the reference point
         pa = pc01 + 0.5 * r_mag * rnpcr
-
         # Find the number of points
         n = max(int(r_mag / min_dist), 2)
         # Calculate the angle between the vertices and the reference point
@@ -79,13 +75,15 @@ class Edge:
             rac = np.array(pc) - np.array(pa)
             rnac = rac / np.linalg.norm(rac)
             # Project the vector onto the surface
-            surf_point = self.project(rnac, pa, pb, f)
+            surf_point = self.project(rnac, pa, pb, surf)
             if surf_point is None:
                 break
             self.points.append(surf_point)
 
     @staticmethod
-    def project(rn, pa, pb, f):
+    def project(rn, pa, pb, surf):
+        # Get the function values
+        f, a0, a1 = surf.func, surf.atoms[0], surf.atoms[1]
         # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
         a = f[0] * rn[0] ** 2 + f[1] * rn[1] ** 2 + f[2] * rn[2] ** 2 + f[3] * rn[0] * rn[1] + f[4] * rn[
             1] * rn[
