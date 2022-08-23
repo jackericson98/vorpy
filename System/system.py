@@ -31,7 +31,7 @@ class Molecule:
 
 class System:
     """Class used to import files of all types and return a System"""
-    def __init__(self, file=None):
+    def __init__(self, file=None, box_size=1.5):
         self.atoms = []  # List of Atom type objects
         # If no file is given, generate a random System
         if file is None:
@@ -57,7 +57,7 @@ class System:
                 self.get_gro()
             elif file[-3:] == "mol":
                 self.get_mol()
-        self.net = Network(self, self.atoms)
+        self.net = Network(self, self.atoms, box_size=box_size)
         self.mols = []
 
     # Get name method. Extracts the name from the file name
@@ -229,7 +229,7 @@ class System:
             # Add the vertex data
             loc, rad = [float(data[4]), float(data[5]), float(data[6])], float(data[7])
             atoms = [balls[int(data[0])], balls[int(data[1])], balls[int(data[2])], balls[int(data[3])]]
-            myVert = Vertex(atoms=atoms, location=loc, radius=rad)
+            myVert = Vertex(atoms=atoms, net=self.net, location=loc, radius=rad)
             self.net.verts.append(myVert)
 
     # Build network function. Allows user to build the network from the system object.
