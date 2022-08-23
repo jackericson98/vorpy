@@ -42,9 +42,10 @@ class Vertex:
         xs, ys, zs, Rs = [], [], [], []
         # Case 0: Catch for F = 0.
         if F == 0:
-            loc = self.fv2()
-            rad = np.linalg.norm(loc - self.atoms[0].loc) - self.atoms[0].rad
-            verts = [[loc, rad]]
+            pass
+            # loc = self.fv2()
+            # rad = np.linalg.norm(loc - self.atoms[0].loc) - self.atoms[0].rad
+            # verts = [[loc, rad]]
         # Case 1:
         elif ABC_rank == 3 and m_rank == 3 and f_rank == 3:
             # Calculate the radius polynomial coefficients
@@ -113,10 +114,11 @@ class Vertex:
                     self.loc, self.rad = loc, rad
         else:
             # Worst case scenario try the Hu Method
-            loc = self.fv2()
-            if len(loc) > 0:
-                self.loc = loc
-                self.rad = np.linalg.norm(self.loc - self.atoms[0].loc) - self.atoms[0].rad
+            pass
+            # loc = self.fv2()
+            # if len(loc) > 0:
+            #     self.loc = loc
+            #     self.rad = np.linalg.norm(self.loc - self.atoms[0].loc) - self.atoms[0].rad
 
     # Hu's method. Finds vertex using trial and error
     def fv2(self, P0=None, epsilon=None):
@@ -148,7 +150,6 @@ class Vertex:
             # Update the count
             count += 1
         if err >= epsilon:
-            print("I got a point")
             # Return the point
             return pk
         else:
