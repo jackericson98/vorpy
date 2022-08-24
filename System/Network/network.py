@@ -17,10 +17,11 @@ class Network:
         self.rad = 50  # Ballpark range for radius needed for the entire network.
         self.vta = False
         self.box = None
-        self.sort_atoms(box_size)
+        self.box_size = box_size
+        self.sort_atoms()
 
     # Calculate box function. Takes in a System and returns the dimensions of a box x times the size of the atoms
-    def calc_box(self, x):
+    def calc_box(self):
         # Set up the minimum and maximum x, y, z coordinates
         min_vert = np.array([np.inf, np.inf, np.inf])
         max_vert = np.array([-np.inf, -np.inf, -np.inf])
@@ -29,33 +30,36 @@ class Network:
             # Go through x, y, z
             for i in range(3):
                 # If we find that the x, y, z value is less replace the value in the mins list
-                if atom.loc[i] < min_vert[i]:
+                if atom.loc[i] <= min_vert[i]:
                     min_vert[i] = atom.loc[i]
                 # If we find that the x, y, z value is less replace the value in the mins list
-                elif atom.loc[i] > max_vert[i]:
+                elif atom.loc[i] >= max_vert[i]:
                     max_vert[i] = atom.loc[i]
         # Get the vector between the minimum and maximum vertices for the defining box
         r_box = max_vert - min_vert
         # If the atoms are in the same plane
         for i in range(3):
-            if r_box[i] == 0:
-                r_box[i] = 4 * self.atoms[0].rad
+            if r_box[i] == 0 or abs(r_box[i]) == np.inf:
+                r_box[i] = 40 * self.atoms[0].rad
+            else:
+                r_box[i] = max(40 * self.atoms[0].rad, r_box[i])
         # Set the new vertices to the x factor times the vector between them added to their complimentary vertices
-        min_vert, max_vert = min_vert - r_box * x, max_vert + r_box * x
+        min_vert, max_vert = min_vert - r_box * self.box_size, max_vert + r_box * self.box_size
         # Return the list of array turned list vertices
         return [min_vert.tolist(), max_vert.tolist()]
 
     # Sort atoms method. Puts the atoms in the network in their respective grid sections
-    def sort_atoms(self, box_size=2, num_boxes=1000):
+    def sort_atoms(self, num_boxes=15625):
         # First get the box for the
-        self.box = self.calc_box(box_size)
+        self.box = self.calc_box()
         # Number of cells per row/column/aisle
         n = int(np.cbrt(num_boxes))
         # Divide the box into sub_boxes
         self.sub_boxes = [[[[] for i in range(n)] for j in range(n)] for k in range(n)]
+
         # Get the cell size
         self.sub_box_size = [(self.box[1][0] - self.box[0][0]) / n, (self.box[1][1] - self.box[0][1]) / n,
-                     (self.box[1][2] - self.box[0][2]) / n]
+                             (self.box[1][2] - self.box[0][2]) / n]
         # Sort the atoms
         for atom in self.atoms:
             # Find the box they belong to
@@ -85,38 +89,32 @@ class Network:
                      [y for y in range(-rnge + ndx_min[1] + 1, rnge + ndx_max[1])], \
                      [z for z in range(-rnge + ndx_min[2] + 1, rnge + ndx_max[2])]
         atoms = []
-        # First go through the atoms in a0's box
-        if exclusive:
-            for i in xs:
-                for j in ys:
-                    for k in zs:
-                        if abs(i) != rnge and abs(j) != rnge and abs(k) != rnge:
-                            continue
-                        try:
-                            atoms += self.sub_boxes[i][j][k]
-                        except IndexError:
-                            continue
-        else:
-            for i in xs:
-                for j in ys:
-                    for k in zs:
-                        try:
-                            atoms += self.sub_boxes[i][j][k]
-                        except IndexError:
-                            continue
+        # Go through each box in the range given and add the atoms
+        for i in xs:
+            for j in ys:
+                for k in zs:
+                    # If the exclusive parameter was set we only want the outer shell, skip none of the indices are max
+                    if exclusive and abs(i) != rnge and abs(j) != rnge and abs(k) != rnge:
+                        continue
+                    # Easy way around hitting the edge of the box
+                    try:
+                        atoms += self.sub_boxes[i][j][k]
+                    except IndexError:
+                        continue
         return atoms
 
     # Find v0 function. Finds the first vertex in the network
-    def find_v0(self):
-        # Find the middle sub_box of the set of boxes and
-        mid = len(self.sub_boxes) // 2
-        atoms = []
-        inc = 0
-        while not atoms:
-            atoms = self.get_atoms([[mid, mid, mid]], inc)
-            inc += 1
-        a0 = atoms[0]
-
+    def find_v0(self, a0=None):
+        # If no a0 is given
+        if a0 is None:
+            # Find the middle sub_box of the set of boxes and
+            mid = len(self.sub_boxes) // 2
+            atoms = []
+            inc = 1
+            while not atoms:
+                atoms = self.get_atoms([[mid, mid, mid]], inc)
+                inc += 1
+            a0 = atoms[-1]
         # Find the set of atoms with the minimum distance between surfaces
         min_dist = np.inf
         a1 = None
@@ -154,25 +152,17 @@ class Network:
                     a2 = atom
             inc += 1
         # Find the set of atoms with the minimum inscribed sphere
-        min_rad = np.inf
-        myVert = None
-        # Go through each other atom to determine the smallest possible inscribed sphere
-        for atom in self.atoms:
-            # Skip a0, a1, a2
-            if atom == a0 or atom == a1 or atom == a2:
-                continue
-            # Get the vertex made from the atoms
-            vert = Vertex(atoms=[a0, a1, a2] + [atom], net=self)
-            # If the radius of the inscribed
-            if vert.loc and vert.rad < min_rad:
-                min_rad = vert.rad
-                myVert = vert
+        myVert = self.find_site([a0, a1, a2])
         # Return the vertex
         return myVert
 
     # Find site function. Takes in an edge and finds the only other vertex that does not overlap with other atoms
-    def find_site(self, edge_atoms, vn_1):
+    def find_site(self, edge_atoms, vn_1=None):
         # Instantiate the vertex
+        if vn_1 is None:
+            old_atoms = []
+        else:
+            old_atoms = vn_1.atoms
         myVert = None
         inc = 0
         min_vert = np.inf
@@ -181,14 +171,18 @@ class Network:
             # If no vert has been found yet, keep expanding
             if myVert is None or myVert.loc is None:
                 # Keep adding boxes around the atoms to check
-                atoms = self.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], inc + 1)
+                atoms = self.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], inc + 2)
                 # Go through the atoms in the surrounding boxes and find the smallest vertex that can be created
                 for atom in atoms:
                     # This filters out any of the atoms in the edge or the remaining atom from the previous vertex
-                    if {atom}.issubset(vn_1.atoms):
+                    if {atom}.issubset(old_atoms):
                         continue
                     # Calculate the vertex with atom and pass if the vertex location is None
                     vert = Vertex(atoms=edge_atoms + [atom], net=self)
+                    if vert.loc is None:
+                        atoms = []
+                        for atom in vert.atoms:
+                            atoms.append([atom.loc, atom.rad])
                     # I need to fix Vertex to get to a point where I dont need this
                     if vert is None or vert.loc is None:
                         continue
@@ -208,9 +202,10 @@ class Network:
             # Any atom that can overlap with this vertex is within the 'vertex's radius over the smallest box length'
             # plus the 'maximum radius of an atom over the smallest box length' # of boxes away from the vert.loc box
             atoms = self.get_atoms([[vi, vj, vk]],
-                                   int(myVert.rad/min(self.sub_box_size)) + int(5/min(self.sub_box_size)) + 1)
+                                   int(myVert.rad/min(self.sub_box_size)) + int(5/min(self.sub_box_size)) + 2)
             # Set up an overlap variable
             overlap = False
+            min_rad = np.inf
             # Test the atoms in the new atom list to see if they overlap with the vertex
             for atom in atoms:
                 # If the atom is one of the vert atoms move on
@@ -218,9 +213,11 @@ class Network:
                     continue
                 # If the distance between the vertex and the atom is less than their radii create a new vertex and reset
                 if calc_dist(atom.loc, myVert.loc) - (atom.rad + myVert.rad) < 0:
-                    myVert = Vertex(edge_atoms + [atom], net=self)
+                    vert = Vertex(edge_atoms + [atom], net=self)
                     overlap = True
-                    break
+                    if myVert.rad < min_rad:
+                        myVert = vert
+                        min_rad = myVert.rad
             # Check to see if the vertex had no overlaps --> We found the vertex!
             if not overlap:
                 return myVert
@@ -228,9 +225,11 @@ class Network:
             inc += 1
 
     # Find network function. Keeps searching the network until all verts are found
-    def find_vertices(self):
-        # Find the first vertex in the System
-        v0 = self.find_v0()
+    def find_vertices(self, v0=None):
+        # If no vert is given get one
+        if v0 is None:
+            # Find the first vertex in the System
+            v0 = self.find_v0()
         # Add v0 to the System
         self.verts.append(v0)
         # Set up the vertex stack
@@ -238,7 +237,7 @@ class Network:
         # While the verts stack is not empty
         while vert_stack:
             # Running print statement giving an estimate for percentage of the network that has been created
-            tot_verts = max(len(self.verts) + int(3 * len(vert_stack) / 4), 6 * len(self.atoms))
+            tot_verts = max(len(self.verts) + int(len(vert_stack)/2), 6 * len(self.atoms))
             percentage = int(len(self.verts) / tot_verts * 100)
             pertentage = percentage // 10
             print("\rBuilding Network:  ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
