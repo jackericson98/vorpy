@@ -31,7 +31,7 @@ class Molecule:
 
 class System:
     """Class used to import files of all types and return a System"""
-    def __init__(self, file=None, box_size=1.5):
+    def __init__(self, file=None, box_size=1.5, min_dist=1):
         self.atoms = []  # List of Atom type objects
         # If no file is given, generate a random System
         if file is None:
@@ -57,6 +57,7 @@ class System:
                 self.get_gro()
             elif file[-3:] == "mol":
                 self.get_mol()
+        self.min_dist = min_dist
         self.net = Network(self, self.atoms, box_size=box_size)
         self.mols = []
 
@@ -233,9 +234,9 @@ class System:
             self.net.verts.append(myVert)
 
     # Build network function. Allows user to build the network from the system object.
-    def build_network(self, min_dist=0.1, surfs=True):
+    def build_network(self, surfs=True):
         # Build the network
-        self.net.build(min_dist, surfs)
+        self.net.build(surfs)
 
     # Analyze method. Finds the surface area of every surface in the system and volume of all the cells
     def analyze(self):
