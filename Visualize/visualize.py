@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from System.system import Atom
 
 
 # Set up plot function. Used to set the parameters for the plot
@@ -37,10 +36,19 @@ def setup_plot(fig=None, ax=None, dfo=None, grid=False, alpha=None, bg_color=Non
 
 
 # Plot spheres function. Plots the spheres specified
-def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=None, bg_color=None, res=4):
+def plot_atoms(atoms=None, atom_list=None, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=None, bg_color=None, res=4):
+    # Give an option for not atom objects (lists) to be plotted
+    locs, rads = [], []
+    if atom_list is None:
+        for i in range(len(atoms)):
+            locs.append(atoms[i].loc)
+            rads.append(atoms[i].rad)
+    else:
+        for i in range(len(atom_list)):
+            locs.append(atom_list[i][0])
+            rads.append(atom_list[i][0])
     # Set up the plot
     fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha, bg_color)
-
     # Get the atoms colors
     if colors is None:
         atom_colors = {1.2: 'w', 1.52: 'r', 2.29: 'g', 1.55: 'b', 1.7: 'grey', 1.8: 'y'}
@@ -51,23 +59,23 @@ def plot_atoms(atoms, colors=None, fig=None, ax=None, Show=False, dfo=None, grid
             except KeyError:
                 colors.append('pink')
     else:
-        colors = colors + ['pink'for i in range(abs(len(atoms) - len(colors)))]
+        colors = colors + ['pink'for i in range(abs(len(locs) - len(colors)))]
     # If the number of atoms to plot is more than 80, then plot them as points rather than spheres.
-    if len(atoms) > 80:
-        for i in range(len(atoms)):
-            ax.scatter(atoms[i].loc[0], atoms[i].loc[1], atoms[i].loc[2], s=20, c=colors[i], alpha=alpha)
+    if len(locs) > 80:
+        for i in range(len(locs)):
+            ax.scatter(locs[i][0], locs[i][1], locs[i][2], s=20, c=colors[i], alpha=alpha)
     # Plot the spheres as wireframes
     else:
         # Set the resolution of the spheres
-        f = 5 - len(atoms) // 20
+        f = 5 - len(locs) // 20
         # Find u, v values that span phi and theta
         u, v = np.mgrid[0:2 * np.pi:f*res*2j, 0:np.pi:f*res*1j]
         # Plot each sphere
         for i in range(len(atoms)):
             # Get x, y, z data for the wireframe
-            x = atoms[i].rad * np.cos(u) * np.sin(v) + atoms[i].loc[0]
-            y = atoms[i].rad * np.sin(u) * np.sin(v) + atoms[i].loc[1]
-            z = atoms[i].rad * np.cos(v) + atoms[i].loc[2]
+            x = rads[i] * np.cos(u) * np.sin(v) + locs[i][0]
+            y = rads[i] * np.sin(u) * np.sin(v) + locs[i][1]
+            z = rads[i] * np.cos(v) + locs[i][2]
             # Plot the sphere
             ax.plot_wireframe(x, y, z, color=colors[i], alpha=alpha)
     # Show the figure if need be
@@ -90,8 +98,8 @@ def plot_verts(verts, spheres=False, fig=None, ax=None, Show=False, dfo=None, gr
     if spheres:
         spheres = []
         for i in range(len(verts)):
-            spheres.append(Atom(verts[i].loc, verts[i].rad))
-        plot_atoms(spheres, fig=fig, ax=ax, colors=['grey'], alpha=0.1)
+            spheres.append([verts[i].loc, verts[i].rad])
+        plot_atoms(atom_list=None, fig=fig, ax=ax, colors=['grey'], alpha=0.1)
     # Show if the plot needs to be shown
     if Show:
         plt.show()
