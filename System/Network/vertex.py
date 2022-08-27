@@ -1,5 +1,6 @@
 from System.Network.surface import *
 
+
 class Vertex:
     """Vertex object. Used to build the network and calculate the surfaces"""
     def __init__(self, atoms, net, location=None, radius=None):
@@ -97,24 +98,32 @@ class Vertex:
                     verts.append([[x + l0[0], y + l0[1], z + l0[2]], R])
         # If no verts are found return None
         if verts:
-            b0, b1 = self.net.box[0], self.net.box[1]
-            # If we have 2 roots and the first root's radius is larger than the second root's radius, choose the second
-            if len(verts) == 2 and abs(verts[0][1]) > abs(verts[1][1]):
-                loc, rad = verts[1][0], abs(verts[1][1])
+            # If no roots exist return
+            if len(verts) == 0:
+                return
+            # If one root exists return it
+            elif len(verts) == 1:
+                self.loc, self.rad = verts[0][0], verts[0][1]
+            for i in range(2):
+                if round(calc_dist(self.atoms[0].loc, verts[i][0]) - self.atoms[0].rad, 3) == \
+                    round(calc_dist(self.atoms[1].loc, verts[i][0]) - self.atoms[1].rad, 3) == \
+                    round(calc_dist(self.atoms[2].loc, verts[i][0]) - self.atoms[2].rad, 3) == \
+                    round(calc_dist(self.atoms[3].loc, verts[i][0]) - self.atoms[3].rad, 3):
+                    self.loc, self.rad = verts[i][0], abs(verts[i][1])
                 # Check to see if the vertex is in the box or not
-                if b0[0] <= loc[0] <= b1[0] and b0[1] <= loc[1] <= b1[1] and b0[2] <= loc[2] <= b1[2]:
-                    self.loc, self.rad = loc, rad
-                else:
-                    return
-            # Otherwise, choose the first
-            else:
-                loc, rad = verts[0][0], abs(verts[0][1])
-                # Check to see if the vertex is in the box or not
-                if b0[0] <= loc[0] <= b1[0] and b0[1] <= loc[1] <= b1[1] and b0[2] <= loc[2] <= b1[2]:
-                    self.loc, self.rad = loc, rad
-        else:
+        #         if b0[0] <= loc[0] <= b1[0] and b0[1] <= loc[1] <= b1[1] and b0[2] <= loc[2] <= b1[2]:
+        #             self.loc, self.rad = loc, rad
+        #         else:
+        #             return
+        #     # Otherwise, choose the first
+        #     else:
+        #         loc, rad = verts[0][0], abs(verts[0][1])
+        #         # Check to see if the vertex is in the box or not
+        #         if b0[0] <= loc[0] <= b1[0] and b0[1] <= loc[1] <= b1[1] and b0[2] <= loc[2] <= b1[2]:
+        #             self.loc, self.rad = loc, rad
+        # else:
             # Worst case scenario try the Hu Method
-            pass
+            # pass
             # loc = self.fv2()
             # if len(loc) > 0:
             #     self.loc = loc
@@ -129,7 +138,7 @@ class Vertex:
         f1, f2, f3 = s1.func, s2.func, s3.func
         # Initial guess function gets put here
         if P0 is None:
-            P0 = calc_atoms_com(self.atoms)
+            P0 = calc_com(self.atoms)
         # Set the error to infinity
         err = np.inf
         # User set threshold for "closeness" to the vertex
