@@ -64,14 +64,16 @@ def calc_vol(atom):
 
 
 # Calculate center of mass function. Takes in a set of points and returns the coordinates of the com
-def calc_atoms_com(atoms):
+def calc_com(atoms=None, points=None):
+    if atoms:
+        points = [atoms[i].loc for i in range(atoms)]
     # Set the running sum for the x, y, z values to 0
     xtot, ytot, ztot = 0, 0, 0
-    for atom in atoms:
-        xtot = xtot + atom.loc[0]
-        ytot = ytot + atom.loc[1]
-        ztot = ztot + atom.loc[2]
-    return xtot/len(atoms), ytot/len(atoms), ztot/len(atoms)
+    for point in points:
+        xtot = xtot + point[0]
+        ytot = ytot + point[1]
+        ztot = ztot + point[2]
+    return xtot/len(points), ytot/len(points), ztot/len(points)
 
 
 # Calculate edges center of mass function. Takes in a surface or edges and returns the center of mass of the points
@@ -169,29 +171,32 @@ def rotate_points(vec, points):
     # Get the vx, vy, vz vector components
     vx, vy, vz = vec
     # If x and y are 0 no transform is needed
-    if vy == 0 == vx:
+    if round(vy, 2) == 0 == round(vx, 2):
+        print("No rotation")
         return points
-    elif vz == 0 == vy:
-        theta = 0
-        phi = np.pi/2
-    elif vz == 0 == vx:
-        phi = 0
-        theta = np.pi/2
-    elif vz == 0:
+    elif round(vz, 2) == 0 == round(vy, 2):
+        print("Theta = 0")
         theta = np.pi / 2
-        phi = np.arctan(vy/vx)
+        phi = np.pi / 2
+    elif round(vz, 2) == 0 == round(vx, 2):
+        print("Phi = 0")
+        phi = 0
+        theta = np.pi / 2
+    elif round(vz, 2) == 0:
+        theta = np.pi / 2
+        phi = np.arctan(vx / vy)
     else:
-        theta = np.arctan(vx / vz)
-        phi = np.arctan(vy / vz)
+        theta = np.arctan(vy / vz)
+        phi = np.arctan(vx / vy)
     # Get variables for sin(theta), cos(theta), sin(phi), cos(phi)
     st, ct, sp, cp = np.sin(theta), np.cos(theta), np.sin(phi), np.cos(phi)
     nps = []
     for p in points:
         px, py, pz = round(p[0], 7), round(p[1], 7), round(p[2], 7)
         # Multiplying the x, y rotation matrices gives the following:
-        npx = px * cp + pz * sp
-        npy = px * st * sp + py * ct - pz * st * cp
-        npz = - px * ct * sp + py * st + pz * ct * cp
+        npx = px * cp - py * sp
+        npy = px * ct * sp + py * ct * cp - pz * st
+        npz = px * st * sp + py * st * cp + pz * ct
         # Add the new points to the list
         nps.append([npx, npy, npz])
     return nps
