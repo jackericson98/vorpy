@@ -10,11 +10,11 @@ class Network:
         self.sub_boxes = None
         self.sub_box_size = []
         self.sys = sys
+        self.min_dist = sys.min_dist
         self.atoms = atoms  # List of Atom type objects
         self.verts = []  # List of Vertex type objects
         self.surfs = []  # List of Surface type objects
         self.edges = []  # List of Edge type objects
-        self.rad = 50  # Ballpark range for radius needed for the entire network.
         self.vta = False
         self.box = None
         self.box_size = box_size
@@ -212,7 +212,7 @@ class Network:
                 if {atom}.issubset(myVert.atoms):
                     continue
                 # If the distance between the vertex and the atom is less than their radii create a new vertex and reset
-                if calc_dist(atom.loc, myVert.loc) - (atom.rad + myVert.rad) < 0:
+                if myVert.loc and calc_dist(atom.loc, myVert.loc) - (atom.rad + myVert.rad) < 0:
                     vert = Vertex(edge_atoms + [atom], net=self)
                     overlap = True
                     if myVert.rad < min_rad:
@@ -336,7 +336,6 @@ class Network:
                 if {atom}.issubset(surf.atoms):
                     atom.surfs.append(surf)
 
-
         # Add the edges and surfs to the vertices
         for vert in self.verts:
             # Reset the vertexes edge list
@@ -369,6 +368,9 @@ class Network:
         # Find the vertices of the system if it is not a voronota system
         if not self.vta and not self.verts:
             self.find_vertices()
+        # If no minimum distance is given use the system's minimum distance
+        if not min_dist:
+            min_dist = self.min_dist
         # Connect the network of vertices
         self.connect()
         num_surfs = len(self.surfs)
@@ -398,8 +400,6 @@ class Network:
             percentage = int((i + 1) / tot_num * 100)
             pertentage = percentage // 10
             print("\rAnalyzing System:  ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
-            # Get the surfaces simplices
-            self.surfs[i].simps = self.surfs[i].find_simps()
             # Get the surface area of the surface
             self.surfs[i].sa = calc_sa(self.surfs[i])
 
