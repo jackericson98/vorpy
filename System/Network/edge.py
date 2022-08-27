@@ -9,6 +9,7 @@ class Edge:
         self.verts = verts  # List of Vertex type objects
         self.surfs = []  # List of 2 surfaces attached to the edge
         self.net = net
+        self.min_dist = net.min_dist
         self.ndx = [net.atoms.index(atom) for atom in self.atoms]
         self.loc = None  # Location of the center of the 3 atoms that make up the edge
         self.rad = None  # Radius of the inscribed circle of the three atoms
@@ -80,8 +81,7 @@ class Edge:
                 break
             self.points.append(surf_point)
 
-    @staticmethod
-    def project(rn, pa, pb, surf):
+    def project(self, rn, pa, pb, surf):
         # Get the function values
         f, a0, a1 = surf.func, surf.atoms[0], surf.atoms[1]
         # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
@@ -98,14 +98,19 @@ class Edge:
         # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
         # and add that point to our surface list of points
         if b ** 2 - 4 * a * c > 0:
-            # If the projection point on a0's surface is outside a1's surface take the smallest of the roots
+            # Calculate the roots
             roots = np.roots([a, b, c])
-            p0 = pa + abs(roots[0]) * rn
-            if len(roots) > 1:
-                p1 = pa + abs(roots[1]) * rn
-                if calc_dist(pb, p0) > calc_dist(pb, p1):
-                    p0 = p1
-            return p0
+            # If no roots exist return
+            if len(roots) == 0:
+                return
+            # If one root exists return it
+            elif len(roots) == 1:
+                return pa + roots[0] * rn
+            # If the smallest root is negative (i.e. incorrect) return the other root
+            if min(roots) < 0:
+                return pa + rn * max(roots)
+            # Otherwise return the smaller of the two
+            return pa + min(roots) * rn
 
 
 # Calculate circle function. Takes in 3 atoms, calculates the center and radius of inscribed circle and returns them
