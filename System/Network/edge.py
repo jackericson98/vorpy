@@ -8,9 +8,10 @@ class Edge:
         self.atoms = atoms  # List of Atom type objects
         self.verts = verts  # List of Vertex type objects
         self.surfs = []  # List of 2 surfaces attached to the edge
-        self.net = net
         self.min_dist = net.min_dist
-        self.ndx = [net.atoms.index(atom) for atom in self.atoms]
+        if net is not None:
+            self.net = net
+            self.ndx = [net.atoms.index(atom) for atom in self.atoms]
         self.loc = None  # Location of the center of the 3 atoms that make up the edge
         self.rad = None  # Radius of the inscribed circle of the three atoms
         self.dir = None  # Direction along the edge from the edge's first vertex

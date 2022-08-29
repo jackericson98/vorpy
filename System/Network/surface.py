@@ -6,13 +6,14 @@ from Visualize.visualize import *
 class Surface:
     """Surface object. Holds the mesh data. Used to analyze."""
 
-    def __init__(self, atoms, net, edges=None, verts=None, min_dist=0.1):
+    def __init__(self, atoms, net=None, edges=None, verts=None, min_dist=0.1):
         self.func = None
         self.atoms = atoms  # List of Atom type objects
         self.edges = edges  # List of Edge type objects
-        self.net = net
         self.verts = verts
-        self.ndx = [net.atoms.index(atom) for atom in self.atoms]
+        if net is not None:
+            self.net = net
+            self.ndx = [net.atoms.index(atom) for atom in self.atoms]
         self.perimeter = []
         self.vert_ndxs = []
         self.points = []

@@ -3,14 +3,15 @@ from System.Network.surface import *
 
 class Vertex:
     """Vertex object. Used to build the network and calculate the surfaces"""
-    def __init__(self, atoms, net, location=None, radius=None):
+    def __init__(self, atoms, net=None, location=None, radius=None):
         self.loc = location
         self.rad = radius  # Radius of the vertex's tangential sphere
         self.atoms = atoms  # List of Atom type objects
-        self.ndx = [net.atoms.index(atom) for atom in self.atoms]
         self.edges = []  # List of Edge type objects
         self.surfs = []  # List of Surface type objects
-        self.net = net
+        if net is not None:
+            self.net = net
+            self.ndx = [net.atoms.index(atom) for atom in self.atoms]
         if self.loc is None:
             self.calc_vert()
 
@@ -38,23 +39,22 @@ class Vertex:
         F21 = a1 * c2 * d3 - a1 * c3 * d2 - a2 * c1 * d3 + a2 * c3 * d1 + a3 * c1 * d2 - a3 * c2 * d1
         F30 = a1 * b2 * f3 - a1 * b3 * f2 - a2 * b1 * f3 + a2 * b3 * f1 + a3 * b1 * f2 - a3 * b2 * f1
         F31 = -a1 * b2 * d3 + a1 * b3 * d2 + a2 * b1 * d3 - a2 * b3 * d1 - a3 * b1 * d2 + a3 * b2 * d1
-
         verts = []
         xs, ys, zs, Rs = [], [], [], []
         # Case 0: Catch for F = 0.
         if F == 0:
+            print("F = 0")
             pass
-            # loc = self.fv2()
-            # rad = np.linalg.norm(loc - self.atoms[0].loc) - self.atoms[0].rad
-            # verts = [[loc, rad]]
         # Case 1:
         elif ABC_rank == 3 and m_rank == 3 and f_rank == 3:
+            print("Case 1")
             # Calculate the radius polynomial coefficients
             a = ((F11 ** 2 + F21 ** 2 + F31 ** 2) / F ** 2) - 1
             b = (2 * (F10 * F11 + F20 * F21 + F30 * F31) / F ** 2) - 2 * R1
             c = ((F10 ** 2 + F20 ** 2 + F30 ** 2) / F ** 2) - R1 ** 2
             # If the discriminant is positive, find the real positive roots of the quadratic
-            if -4 * a * c + b ** 2 > 0:
+            if round(-4 * a * c + b ** 2, 10) >= 0:
+                print("Positive Discriminant")
                 Rs = [R for R in np.roots([a, b, c]) if np.isreal(R)]
             # Instantiate the verts array
             verts = []
