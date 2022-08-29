@@ -1,5 +1,5 @@
 """Imports"""
-from System.Network.Vertices.vert_calcs import *
+from System.system import *
 
 
 ########################################################################################################################
@@ -369,3 +369,34 @@ def move(loc, atom, to_home=False):
     atom.loc[0] = atom.loc[0] + d * loc[0]
     atom.loc[1] = atom.loc[1] + d * loc[1]
     atom.loc[2] = atom.loc[2] + d * loc[2]
+
+
+# Sort by distance function. Sorts all atoms in the System by distance from COM of given atoms
+def sortbyDist(atoms, net):
+    # Find the point closest to each of the atoms
+    loc = [0, 0, 0]
+    for i in range(len(atoms)):
+        loc = loc[0] + atoms[i].loc[0], loc[1] + atoms[i].loc[1], loc[2] + atoms[i].loc[2]
+    loc = [loc[0]/len(atoms), loc[1]/len(atoms), loc[2]/len(atoms)]
+    # Initialize the lists
+    dist_list, atom_list = [], []
+    # Go through all the atoms in the molecules
+    for atom in net.atoms:
+        # Don't include the atoms in our list of atom
+        if atom in atoms:
+            continue
+        # Get the distance between the atoms and subtract their radii
+        dist = calc_dist(loc, atom.loc) - atom.rad
+        dist_list.append(dist)
+        atom_list.append(atom)
+    # Selection sort the atom list based off their distances from the point
+    for i in range(len(dist_list)):
+        low_in = i
+        for j in range(i+1, len(dist_list)):
+            if dist_list[low_in] > dist_list[j]:
+                low_in = j
+                dist_list[i], dist_list[low_in] = dist_list[low_in], dist_list[i]
+                atom_list[i], atom_list[low_in] = atom_list[low_in], atom_list[i]
+    # Return a list with the length specified
+    return atom_list
+
