@@ -1,5 +1,4 @@
 import numpy as np
-import os
 
 
 # Calculate distance function. Takes in 2 points and returns the distance between them
@@ -133,36 +132,6 @@ def inv_jac(funcs, point):
         return np.linalg.inv(jac_mat)
 
 
-# Sort by distance function. Sorts all atoms in the System by distance from COM of given atoms
-def sortbyDist(atoms, net):
-    # Find the point closest to each of the atoms
-    loc = [0, 0, 0]
-    for i in range(len(atoms)):
-        loc = loc[0] + atoms[i].loc[0], loc[1] + atoms[i].loc[1], loc[2] + atoms[i].loc[2]
-    loc = [loc[0]/len(atoms), loc[1]/len(atoms), loc[2]/len(atoms)]
-    # Initialize the lists
-    dist_list, atom_list = [], []
-    # Go through all the atoms in the molecules
-    for atom in net.atoms:
-        # Don't include the atoms in our list of atom
-        if atom in atoms:
-            continue
-        # Get the distance between the atoms and subtract their radii
-        dist = calc_dist(loc, atom.loc) - atom.rad
-        dist_list.append(dist)
-        atom_list.append(atom)
-    # Selection sort the atom list based off their distances from the point
-    for i in range(len(dist_list)):
-        low_in = i
-        for j in range(i+1, len(dist_list)):
-            if dist_list[low_in] > dist_list[j]:
-                low_in = j
-                dist_list[i], dist_list[low_in] = dist_list[low_in], dist_list[i]
-                atom_list[i], atom_list[low_in] = atom_list[low_in], atom_list[i]
-    # Return a list with the length specified
-    return atom_list
-
-
 """Translator functions"""
 
 
@@ -172,14 +141,11 @@ def rotate_points(vec, points):
     vx, vy, vz = vec
     # If x and y are 0 no transform is needed
     if round(vy, 2) == 0 == round(vx, 2):
-        print("No rotation")
         return points
     elif round(vz, 2) == 0 == round(vy, 2):
-        print("Theta = 0")
         theta = np.pi / 2
         phi = np.pi / 2
     elif round(vz, 2) == 0 == round(vx, 2):
-        print("Phi = 0")
         phi = 0
         theta = np.pi / 2
     elif round(vz, 2) == 0:

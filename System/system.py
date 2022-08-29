@@ -1,12 +1,11 @@
 """This file holds all object types needed for calculations: Molecule, Mesh, Sphere, Ray, Plane"""
 import os
-
 from System.Network.network import *
 
 
 class Atom:
     """Atom object. Created with import of file. Used to reference for building network and analyzing"""
-    def __init__(self, location, radius, type="", chain="", res="", res_seq=""):
+    def __init__(self, location, radius, symbol="", chain="", res="", res_seq=""):
         self.loc = location  # Set the location of the center of the sphere
         self.rad = radius  # Set the radius for the sphere object. Default is 1
         self.verts = []  # List of Vertex type objects
@@ -14,7 +13,7 @@ class Atom:
         self.edges = []  # List of Edge type objects
         self.cell = True
         self.vol = 0
-        self.type = type
+        self.type = symbol
         self.chain = chain
         self.res = res
         self.res_seq = res_seq
@@ -91,7 +90,7 @@ class System:
                 line = self.file[i]
                 if line and line[0].lower() == 'atom':  # Check if the line starts with atom
                     atom = Atom([float(line[5]), float(line[6]), float(line[7])], self.get_radius(line[-1]),
-                                type=line[-1], res=line[2], chain=line[3], res_seq=line[4])
+                                symbol=line[-1], res=line[2], chain=line[3], res_seq=line[4])
                     atoms.append(atom)
             return atoms
         # Standard case
@@ -111,8 +110,8 @@ class System:
                 'MASTER']
         # Define the keys
         pdb_stds = ['header', 'title', 'compound', 'source', 'key_words', 'exp_data', 'author', 'revisions', 'journal',
-                    'remarks', 'debrief', 'seq_adv', 'formula', 'residues', 'helix', 'sheet', 'crystal', 'origin', 'scale',
-                    'terminals', 'het_atom', 'master']
+                    'remarks', 'debrief', 'seq_adv', 'formula', 'residues', 'helix', 'sheet', 'crystal', 'origin',
+                    'scale', 'terminals', 'het_atom', 'master']
         # Set the keys
         for i in range(len(pdb_stds)):
             self.info[keys[i]] = self.get_pdb_data(pdb_stds[i])
@@ -125,7 +124,7 @@ class System:
         for atom in self.atoms:
             # Give each atom a type if not indicated
             if atom.type == "":
-                atom.type = self.get_radius(atom.rad, return_type=True)
+                atom.type = self.get_radius(atom.rad, return_symbol=True)
         # Move to the indicated directory
         if directory:
             os.chdir(directory)
@@ -152,32 +151,36 @@ class System:
         self.info['header'] = self.file[0]
         # Go through each line in the file and create an atom object
         for line in self.file[2:-2]:
-            self.atoms.append(Atom([line[3], line[4], line[5]], self.get_radius(line[1][0]), type=line[1][0]))
+            self.atoms.append(Atom([line[3], line[4], line[5]], self.get_radius(line[1][0]), symbol=line[1][0]))
 
     # Get mol method. Finds data in a mol file
     def get_mol(self):
         for line in self.file:
             if len(line) > 6:
-                self.atoms.append(Atom([line[0], line[1], line[2]], self.get_radius(line[3]), type=line[3]))
+                self.atoms.append(Atom([line[0], line[1], line[2]], self.get_radius(line[3]), symbol=line[3]))
 
     # Get radius Method. Goes through the bondi_radius file from voronota and gives a radius to the given atom name
     @staticmethod
-    def get_radius(radius, return_type=False):
+    def get_radius(radius, return_symbol=False):
         # Get the classifier document
         radii = open("./Data/bondi_classifier.txt").readlines()
         atom_type = ""
-        # Go through each line in the classifier document
+        min_diff = np.inf
+        # Go through each line in the classifier document to find the radius or symbol for the atom
         for line in radii:
+            # Split the line
             line = line.split()
-            if len(line) < 1:
+            # If the line is empty, continue
+            if len(line) == 0:
                 continue
-            min_diff = np.inf
-            # If indicated we return the type of atom that the radius indicates
-            if return_type:
-                # If we get the exact radius, great. If not we'll have to choose the closest
+            # If indicated we return the symbol of atom that the radius indicates
+            if return_symbol:
+                # If we get the exact radius, return it
                 if line[2] == float(radius):
                     return line[1]
+                # Find the difference between the bondi classifier line's radius and the atom's
                 new_min = abs(float(radius) - float(line[2]))
+                # If the check radius is closer to the actual radius update the symbol and the minimum difference
                 if new_min < min_diff:
                     min_diff = new_min
                     atom_type = line[1]
@@ -283,26 +286,36 @@ class System:
         # Go through each surface and create a file for each adding the vertex points
         surf_ndxs = []
         for i in range(len(self.net.surfs)):
-            surf_ndxs.append(str(self.atoms.index(self.net.surfs[i].atoms[0]) + 1) + "_" + str(self.atoms.index(self.net.surfs[i].atoms[1]) + 1))
+            # Find the relative surface index and add it to the list
+            surf_ndxs.append(str(self.atoms.index(self.net.surfs[i].atoms[0]) + 1) + "_" +
+                             str(self.atoms.index(self.net.surfs[i].atoms[1]) + 1))
+            # Name the file with the surface's index
             file = open(str("surf_" + surf_ndxs[i] + ".off"), 'w')
-            file.write("OFF\n" + str(len(self.net.surfs[i].points)) + " " + str(len(self.net.surfs[i].tris)) + " 0\n\n\n")
+            # Start the file with "OFF", the number of points for the surface and the number of triangles
+            file.write("OFF\n" +
+                       str(len(self.net.surfs[i].points)) + " " + str(len(self.net.surfs[i].tris)) + " 0\n\n\n")
+            # Go through the points on the surface
             for point in self.net.surfs[i].points:
-                sys_file.write(str(round(point[0], 4)) + " " + str(round(point[1], 4)) + " " + str(round(point[2], 4)) + '\n')
-                file.write(str(round(point[0], 4)) + " " + str(round(point[1], 4)) + " " + str(round(point[2], 4)) + '\n')
-            percentage = int((i + 1) / tot_num * 100)
-            pertentage = percentage // 10
-            print("\rExporting Files:   ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+                # Add the point to the system file and the surface's file (rounded to 4 decimal points)
+                str_point = [str(round(point[_], 4)) for _ in range(3)]
+                sys_file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
+                file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
+            # Percentage printer
+            per = int((i + 1) / tot_num * 100)
+            print("\rExporting Files:   ", '#' * (per // 10) + ' ' * (10 - (per // 10)), per, "%", end='')
         num_verts = 0
         # Go through each surface opening the previously created file and add the faces
         for i in range(len(self.net.surfs)):
             file = open(str("surf_" + surf_ndxs[i] + ".off"), 'a')
             for tri in self.net.surfs[i].tris:
-                sys_file.write("3 " + str(tri[0] + num_verts) + " " + str(tri[1] + num_verts) + " " + str(tri[2] + num_verts) + " 1 0 0\n")
+                # Add the triangle to the system file and the surface's file
+                str_tri = [str(tri[_] + num_verts) for _ in range(3)]
+                sys_file.write("3 " + str_tri[0] + " " + str_tri[1] + " " + str_tri[2] + " 1 0 0\n")
                 file.write("3 " + str(tri[0]) + " " + str(tri[1]) + " " + str(tri[2]) + " 1 0 0\n")
+            # Keep counting triangles for the system file
             num_verts += len(self.net.surfs[i].points)
-            percentage = int((i + 1 + len(self.net.surfs)) / tot_num * 100)
-            pertentage = percentage // 10
-            print("\rExporting Files:   ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            per = int((i + 1 + len(self.net.surfs)) / tot_num * 100)
+            print("\rExporting Files:   ", '#' * (per // 10) + ' ' * (10 - (per // 10)), per, "%", end='')
         os.chdir("..")
 
         # Atoms Folder
@@ -323,7 +336,8 @@ class System:
             # Go through each surface of the atom and add the vertices
             for j in range(len(self.atoms[i].surfs)):
                 for point in self.atoms[i].surfs[j].points:
-                    atom_file.write(str(round(point[0], 4)) + " " + str(round(point[1], 4)) + " " + str(round(point[2], 4)) + '\n')
+                    str_point = [str(round(point[_], 4)) for _ in range(3)]
+                    atom_file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
             num_verts = 0
             # Go through each surface opening the previously created file and add the faces
             for j in range(len(self.atoms[i].surfs)):
@@ -343,16 +357,12 @@ class System:
                 atom_info.write("  Surface " + str(j + 1) + ", Made with Atom " + str(self.atoms.index(a1) + 1) +
                                 ", Surface Area = " + str(self.atoms[i].surfs[j].sa) + "\n")
             atom_info.write("\n")
-            percentage = int((i + 1 + 2 * len(self.net.surfs)) / tot_num * 100)
-            pertentage = percentage // 10
-            print("\rExporting Files:   ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            per = int((i + 1 + 2 * len(self.net.surfs)) / tot_num * 100)
+            print("\rExporting Files:   ", '#' * (per // 10) + ' ' * (10 - (per // 10)), per, "%", end='')
 
         os.chdir("..")
         os.mkdir(os.getcwd() + "/Molecules")
         os.chdir("./Molecules")
 
-        # Molecules Folder
-        for mol in self.mols:
-            pass
         print("\rExporting Files:    ########## 100 %")
         print("\rFiles Exported")

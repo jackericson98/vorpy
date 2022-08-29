@@ -84,7 +84,7 @@ class Surface:
             # If the smallest root is negative (i.e. incorrect) return the other root
             if min(roots) < 0:
                 return a0.loc + vn * max(roots)
-            # Otherwise return the smaller of the two
+            # Otherwise, return the smaller of the two
             return a0.loc + min(roots) * vn
 
     # Find next point method. Finds the next point along the given path by projecting a reference point onto the surface
@@ -123,7 +123,7 @@ class Surface:
         # Go through each edge in the surface's list of edges and build it
         for edge in self.edges:
             edge.build(min_dist=min_dist)
-        # Add the first edge's vertex location and it's set of points to the perimeter points list
+        # Add the first edge's vertex location and set of points to the perimeter points list
         self.perimeter = [self.edges[0].verts[0].loc] + self.edges[0].points
         # Make a copy of the edges to organize excluding the first edge
         edges = self.edges[1:].copy()
@@ -134,11 +134,12 @@ class Surface:
             # Go through each of the remaining edges in the list
             for i in range(len(edges)):
                 # Calculate the distance between the most recently recorded point and the first/last points in the edge
-                d0, d1 = calc_dist(self.perimeter[-1], edges[i].points[0]), calc_dist(self.perimeter[-1], edges[i].points[-1])
+                d0, d1 = calc_dist(self.perimeter[-1], edges[i].points[0]), \
+                         calc_dist(self.perimeter[-1], edges[i].points[-1])
                 # If the first edge point is closer to the last perimeter point and the last isn't closer add that edge
                 if d0 < d and d0 < d1:
                     d, ndx, reverse = d0, i, False
-                # Otherwise if the last edge point is the closest add the edge in reverse
+                # Otherwise, if the last edge point is the closest add the edge in reverse
                 elif d1 < d:
                     d, ndx, reverse = d1, i, True
             # Pull the edge from the list of edges
@@ -202,7 +203,6 @@ class Surface:
         for path in paths:
             self.points += path[1:]
         # Add the center of mass point to the mesh
-        self.points.append(com)
 
     # Find simplices function. Transforms and rotates surface points to be concave along the z axis and returns the
     # Delaunay simplices created by the 2d projection of the points onto the xy plane
@@ -238,9 +238,7 @@ class Surface:
             # Make a copy of the triangle for
             tri = self.tris[i].copy()
             tri.sort()
-            points = [self.points[tri[i]] for i in range(len(tri))]
-            com = calc_com(points=points)
-
+            # points = [self.points[tri[i]] for i in range(len(tri))]
             # Set the counter to 0
             counter = 0
             # Go through each point on the triangle checking to see if it is an edge point

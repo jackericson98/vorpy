@@ -77,12 +77,13 @@ class Edge:
             rac = np.array(pc) - np.array(pa)
             rnac = rac / np.linalg.norm(rac)
             # Project the vector onto the surface
-            surf_point = self.project(rnac, pa, pb, surf)
+            surf_point = self.project(rnac, pa, surf)
             if surf_point is None:
                 break
             self.points.append(surf_point)
 
-    def project(self, rn, pa, pb, surf):
+    @staticmethod
+    def project(rn, pa, surf):
         # Get the function values
         f, a0, a1 = surf.func, surf.atoms[0], surf.atoms[1]
         # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
@@ -110,7 +111,7 @@ class Edge:
             # If the smallest root is negative (i.e. incorrect) return the other root
             if min(roots) < 0:
                 return pa + rn * max(roots)
-            # Otherwise return the smaller of the two
+            # Otherwise, return the smaller of the two
             return pa + min(roots) * rn
 
 

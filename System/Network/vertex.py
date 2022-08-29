@@ -18,14 +18,15 @@ class Vertex:
     # Calculate vertex function. Takes in 4 atoms, calculates the loc and rad of the inscribed sphere and adds the
     def calc_vert(self):
         # The real location and radius of the base sphere
-        locs = np.array(self.atoms[0].loc), np.array(self.atoms[1].loc), np.array(self.atoms[2].loc), np.array(self.atoms[3].loc)
+        locs = np.array(self.atoms[0].loc), np.array(self.atoms[1].loc), np.array(self.atoms[2].loc), \
+               np.array(self.atoms[3].loc)
         R1, R2, R3, R4 = self.atoms[0].rad, self.atoms[1].rad, self.atoms[2].rad, self.atoms[3].rad
         # Find the recalculated location of the atoms
         l0, l1, l2, l3 = locs[0], locs[1] - locs[0], locs[2] - locs[0], locs[3] - locs[0]
         # Calculate our System of linear equations coefficients
-        a1, b1, c1, d1, f1 = 2 * l1[0], 2 * l1[1], 2 * l1[2], 2 * (R2 - R1), R1**2 - R2**2 + l1[0]**2 + l1[1]**2 + l1[2]**2
-        a2, b2, c2, d2, f2 = 2 * l2[0], 2 * l2[1], 2 * l2[2], 2 * (R3 - R1), R1**2 - R3**2 + l2[0]**2 + l2[1]**2 + l2[2]**2
-        a3, b3, c3, d3, f3 = 2 * l3[0], 2 * l3[1], 2 * l3[2], 2 * (R4 - R1), R1**2 - R4**2 + l3[0]**2 + l3[1]**2 + l3[2]**2
+        a1, b1, c1, d1, f1 = 2*l1[0], 2*l1[1], 2*l1[2], 2*(R2 - R1), R1**2 - R2**2 + l1[0]**2 + l1[1]**2 + l1[2]**2
+        a2, b2, c2, d2, f2 = 2*l2[0], 2*l2[1], 2*l2[2], 2*(R3 - R1), R1**2 - R3**2 + l2[0]**2 + l2[1]**2 + l2[2]**2
+        a3, b3, c3, d3, f3 = 2*l3[0], 2*l3[1], 2*l3[2], 2*(R4 - R1), R1**2 - R4**2 + l3[0]**2 + l3[1]**2 + l3[2]**2
         A, B, C, d, f = [a1, a2, a3], [b1, b2, b3], [c1, c2, c3], [d1, d2, d3], [f1, f2, f2]
         # Calculate the ranks of the matrices
         ABC_rank = np.linalg.matrix_rank([A, B, C])
@@ -43,18 +44,15 @@ class Vertex:
         xs, ys, zs, Rs = [], [], [], []
         # Case 0: Catch for F = 0.
         if F == 0:
-            print("F = 0")
             pass
         # Case 1:
         elif ABC_rank == 3 and m_rank == 3 and f_rank == 3:
-            print("Case 1")
             # Calculate the radius polynomial coefficients
             a = ((F11 ** 2 + F21 ** 2 + F31 ** 2) / F ** 2) - 1
             b = (2 * (F10 * F11 + F20 * F21 + F30 * F31) / F ** 2) - 2 * R1
             c = ((F10 ** 2 + F20 ** 2 + F30 ** 2) / F ** 2) - R1 ** 2
             # If the discriminant is positive, find the real positive roots of the quadratic
             if round(-4 * a * c + b ** 2, 10) >= 0:
-                print("Positive Discriminant")
                 Rs = [R for R in np.roots([a, b, c]) if np.isreal(R)]
             # Instantiate the verts array
             verts = []
@@ -106,9 +104,9 @@ class Vertex:
                 self.loc, self.rad = verts[0][0], verts[0][1]
             for i in range(2):
                 if round(calc_dist(self.atoms[0].loc, verts[i][0]) - self.atoms[0].rad, 3) == \
-                    round(calc_dist(self.atoms[1].loc, verts[i][0]) - self.atoms[1].rad, 3) == \
-                    round(calc_dist(self.atoms[2].loc, verts[i][0]) - self.atoms[2].rad, 3) == \
-                    round(calc_dist(self.atoms[3].loc, verts[i][0]) - self.atoms[3].rad, 3):
+                   round(calc_dist(self.atoms[1].loc, verts[i][0]) - self.atoms[1].rad, 3) == \
+                   round(calc_dist(self.atoms[2].loc, verts[i][0]) - self.atoms[2].rad, 3) == \
+                   round(calc_dist(self.atoms[3].loc, verts[i][0]) - self.atoms[3].rad, 3):
                     self.loc, self.rad = verts[i][0], abs(verts[i][1])
                 # Check to see if the vertex is in the box or not
         #         if b0[0] <= loc[0] <= b1[0] and b0[1] <= loc[1] <= b1[1] and b0[2] <= loc[2] <= b1[2]:
