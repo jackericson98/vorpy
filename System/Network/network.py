@@ -55,7 +55,7 @@ class Network:
         # Number of cells per row/column/aisle
         n = int(np.cbrt(num_boxes))
         # Divide the box into sub_boxes
-        self.sub_boxes = [[[[] for i in range(n)] for j in range(n)] for k in range(n)]
+        self.sub_boxes = [[[[] for _ in range(n)] for _ in range(n)] for _ in range(n)]
 
         # Get the cell size
         self.sub_box_size = [(self.box[1][0] - self.box[0][0]) / n, (self.box[1][1] - self.box[0][1]) / n,
@@ -72,7 +72,7 @@ class Network:
             atom.box = [ai, aj, ak]
 
     # Get atoms method. Takes in the cells and the number of additional cells to search and returns an atom list
-    def get_atoms(self, cells, rnge, exclusive=False):
+    def get_atoms(self, cells, reach, exclusive=False):
         # Get the min and max of the cells
         ndx_min = [np.inf, np.inf, np.inf]
         ndx_max = [-np.inf, -np.inf, -np.inf]
@@ -85,16 +85,16 @@ class Network:
                     ndx_max[i] = cell[i]
 
         # Set the initial search parameters to the given cells
-        xs, ys, zs = [x for x in range(-rnge + ndx_min[0] + 1, rnge + ndx_max[0])], \
-                     [y for y in range(-rnge + ndx_min[1] + 1, rnge + ndx_max[1])], \
-                     [z for z in range(-rnge + ndx_min[2] + 1, rnge + ndx_max[2])]
+        xs, ys, zs = [x for x in range(-reach + ndx_min[0] + 1, reach + ndx_max[0])], \
+                     [y for y in range(-reach + ndx_min[1] + 1, reach + ndx_max[1])], \
+                     [z for z in range(-reach + ndx_min[2] + 1, reach + ndx_max[2])]
         atoms = []
         # Go through each box in the range given and add the atoms
         for i in xs:
             for j in ys:
                 for k in zs:
                     # If the exclusive parameter was set we only want the outer shell, skip none of the indices are max
-                    if exclusive and abs(i) != rnge and abs(j) != rnge and abs(k) != rnge:
+                    if exclusive and abs(i) != reach and abs(j) != reach and abs(k) != reach:
                         continue
                     # Easy way around hitting the edge of the box
                     try:
@@ -146,7 +146,7 @@ class Network:
                     continue
                 # Calculate the circle made with the 3 atoms
                 circ = calc_circ([a0, a1, atom])
-                # If the radius of the inscribed circle is smaller than the previous smallest found circle's radius replace
+                # If the radius of the inscribed circle is smaller than the previous smallest found circle's rad replace
                 if circ and abs(circ[1]) < min_rad:
                     min_rad = abs(circ[1])
                     a2 = atom
@@ -173,17 +173,17 @@ class Network:
                 # Keep adding boxes around the atoms to check
                 atoms = self.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], inc + 2)
                 # Go through the atoms in the surrounding boxes and find the smallest vertex that can be created
-                for atom in atoms:
+                for atom1 in atoms:
                     # This filters out any of the atoms in the edge or the remaining atom from the previous vertex
-                    if {atom}.issubset(old_atoms):
+                    if {atom1}.issubset(old_atoms):
                         continue
                     # Calculate the vertex with atom and pass if the vertex location is None
-                    vert = Vertex(atoms=edge_atoms + [atom], net=self)
+                    vert = Vertex(atoms=edge_atoms + [atom1], net=self)
                     if vert.loc is None:
                         atoms = []
-                        for atom in vert.atoms:
-                            atoms.append([atom.loc, atom.rad])
-                    # I need to fix Vertex to get to a point where I dont need this
+                        for atom2 in vert.atoms:
+                            atoms.append([atom2.loc, atom2.rad])
+                    # I need to fix Vertex to get to a point where I don't need this
                     if vert is None or vert.loc is None:
                         continue
                     # Sniff out the smallest vertex that can be made in the box and store it
@@ -239,8 +239,8 @@ class Network:
             # Running print statement giving an estimate for percentage of the network that has been created
             tot_verts = max(len(self.verts) + int(len(vert_stack)/2), 6 * len(self.atoms))
             percentage = int(len(self.verts) / tot_verts * 100)
-            pertentage = percentage // 10
-            print("\rBuilding Network:  ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            print("\rBuilding Network:  ",
+                  '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
             # Get the vertex from the top of the stack
             vert = vert_stack.pop()
             # Set up the edge stack
@@ -254,7 +254,7 @@ class Network:
                 # If the vertex is none continue
                 if myVert is None:
                     continue
-                # If the vertex exists in the network add the vertex to the edge and move on to the next edge in the stack
+                # If the vertex exists in the network add the vertex to the edge and move on to the next edge
                 found_vert = check_vert(set(myVert.atoms), self.verts)
                 if not found_vert:
                     vert_stack.append(myVert)
@@ -288,18 +288,18 @@ class Network:
 
         # Create the surfaces
         self.surfs = []
-        for edge in self.edges:
+        for edge1 in self.edges:
             # Go through the edge's atoms combinations
             for i in range(3):
-                atoms = {edge.atoms[i], edge.atoms[(i+1) % 3]}
+                atoms = {edge1.atoms[i], edge1.atoms[(i+1) % 3]}
                 # If the surface has been found before continue
                 if check_surf(atoms, self.surfs):
                     continue
                 # Put together a list of edges that have our atoms
                 edges = []
-                for edge in self.edges:
-                    if atoms.issubset(edge.atoms):
-                        edges.append(edge)
+                for edge2 in self.edges:
+                    if atoms.issubset(edge2.atoms):
+                        edges.append(edge2)
                 # Put together a list of verts that have our atoms
                 verts = []
                 for vert2 in self.verts:
@@ -379,8 +379,8 @@ class Network:
             for i in range(num_surfs):
                 # Calculate and print the running percentage for mesh calculations
                 percentage = int((i + 1) / num_surfs * 100)
-                pertentage = percentage // 10
-                print("\rBuilding Surfaces: ", '#' * pertentage + ' ' * (10 - pertentage), percentage,  "%", end='')
+                print("\rBuilding Surfaces: ",
+                      '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage,  "%", end='')
                 # If the network is a voronota network, use build_vta method
                 if self.vta:
                     self.surfs[i].build_vta()
@@ -398,16 +398,16 @@ class Network:
         i = 0
         for i in range(len(self.surfs)):
             percentage = int((i + 1) / tot_num * 100)
-            pertentage = percentage // 10
-            print("\rAnalyzing System:  ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            print("\rAnalyzing System:  ",
+                  '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
             # Get the surface area of the surface
             self.surfs[i].sa = calc_sa(self.surfs[i])
 
         # Go through each atom in the system and find the volume
         for j in range(len(self.atoms)):
             percentage = int((i + j + 1) / tot_num * 100)
-            pertentage = percentage // 10
-            print("\rAnalyzing System:  ", '#' * pertentage + ' ' * (10 - pertentage), percentage, "%", end='')
+            print("\rAnalyzing System:  ",
+                  '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
             self.atoms[j].vol = calc_vol(self.atoms[j])
 
         print("\rAnalyzing System:   ########## 100 %")
