@@ -67,12 +67,11 @@ def calc_com(atoms=None, points=None):
     if atoms:
         points = [atoms[i].loc for i in range(atoms)]
     # Set the running sum for the x, y, z values to 0
-    xtot, ytot, ztot = 0, 0, 0
+    tots = [0 for _ in range(len(points[0]))]
     for point in points:
-        xtot = xtot + point[0]
-        ytot = ytot + point[1]
-        ztot = ztot + point[2]
-    return xtot/len(points), ytot/len(points), ztot/len(points)
+        for i in range(len(points[0])):
+            tots[i] += point[i]
+    return [tots[i]/len(points) for i in range(len(points[0]))]
 
 
 # Calculate edges center of mass function. Takes in a surface or edges and returns the center of mass of the points

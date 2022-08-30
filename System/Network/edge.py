@@ -145,7 +145,7 @@ def calc_circ(atoms):
     # Calculate the discriminant.
     disc = b ** 2 - 4 * a * c
     # If the discriminant is negative then the tangential circle does not exist.
-    if disc > 0:
+    if round(disc, 10) >= 0:
         # Grab the two roots
         Rs = [R for R in np.roots([a, b, c]) if np.isreal(R)]
         if len(Rs) > 1 and abs(Rs[1]) < abs(Rs[0]):

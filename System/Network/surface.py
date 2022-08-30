@@ -1,6 +1,8 @@
 from System.calcs import *
 import matplotlib.tri as mtri
 from Visualize.visualize import *
+from shapely.geometry.polygon import Polygon
+from shapely.geometry import Point
 
 
 class Surface:
@@ -23,6 +25,7 @@ class Surface:
         self.crit_ang = np.pi
         self.rn = None
         self.calc_func()
+        self.flat_points = []
 
     # Bisector function. Creates a bisector surface between 2 atoms
     def calc_func(self):
@@ -203,6 +206,59 @@ class Surface:
         for path in paths:
             self.points += path[1:]
         # Add the center of mass point to the mesh
+        # self.points.append(com)
+
+    def tri_within(self, myTri):
+        perimeter = self.flat_points[:len(self.perimeter)]
+        tri = myTri.copy()
+        tri.sort()
+        points = [self.flat_points[tri[i]] for i in range(len(tri))]
+        O = calc_com(points=points)
+        xings = 0
+
+        perimeter_xs = [self.flat_points[i][0] for i in range(len(perimeter))]
+        perimeter_ys = [self.flat_points[i][1] for i in range(len(perimeter))]
+
+        for i in range(len(perimeter)):
+            # Get the line segment
+            p1 = perimeter[i]
+            p2 = perimeter[(i + 1) % len(perimeter)]
+            # Get the normal x direction
+            M = [1, 0]
+            # Get the relevant vectors
+            v1 = [O[0] - p1[0], O[1] - p1[1]]
+            v2 = [p2[0] - p1[0], p2[1] - p1[1]]
+            v3 = [1, 0]
+            dot = np.dot(v2, v3)
+            if abs(dot) <= 0.0000000001:
+                return
+
+            t1 = np.cross(v2, v1) / dot
+            t2 = np.dot(v1, v3) / dot
+
+            if t1 >= 0.0 and 0.0 <= t2 <= 1.0:
+                xings += 1
+
+        # If we have an even number of intersections
+        print(xings%2)
+        if xings % 2 == 0:
+            plt.plot([points[i % 3][0] for i in range(len(points) + 1)],
+                     [points[i % 3][1] for i in range(len(points) + 1)])
+            plt.plot(perimeter_xs, perimeter_ys, c='r')
+            plt.show()
+            return False
+        else:
+            return True
+
+    def get_tri_circ(self, tri):
+        pa, pb, pc = self.flat_points[tri[0]], self.flat_points[tri[1]], self.flat_points[tri[2]]
+        a = np.sqrt((pa[0] - pb[0]) ** 2 + (pa[1] - pb[1]) ** 2)
+        b = np.sqrt((pb[0] - pc[0]) ** 2 + (pb[1] - pc[1]) ** 2)
+        c = np.sqrt((pc[0] - pa[0]) ** 2 + (pc[1] - pa[1]) ** 2)
+        s = (a + b + c) / 2.0
+        area = np.sqrt(s * (s - a) * (s - b) * (s - c))
+        circum_r = a * b * c / (4.0 * area)
+        return circum_r
 
     # Find simplices function. Transforms and rotates surface points to be concave along the z axis and returns the
     # Delaunay simplices created by the 2d projection of the points onto the xy plane
@@ -218,59 +274,30 @@ class Surface:
             points[i] = points[i] - c
         # Calculate the angles to rotate the center point around
         nps = rotate_points(self.rn, points)
-
         # Get the 2d version of the points
         nps = np.array(nps)
-        nps2d = nps[:, 0], nps[:, 1]
         # Get the Delaunay tesselation
-        tri = mtri.Triangulation(nps2d[0], nps2d[1])
-        # Move the points back to their original location
-        # for i in range(len(self.points)):
-        #     self.points[i] = self.points[i] + c
-        # Filter out any connections between the vertices or the edges
+        tri = mtri.Triangulation(nps[:, 0], nps[:, 1])
+        # Find the 2d polygon
+        self.flat_points = [nps[i, :2] for i in range(len(self.points))]
         self.tris = tri.triangles.tolist()
-        # If the surface's atoms have equal radii, were done
-        if a0.rad == a1.rad:
-            return
+        perimeter = self.flat_points[:len(self.perimeter)]
+        perimeter_xs = [self.flat_points[i][0] for i in range(len(perimeter))]
+        perimeter_ys = [self.flat_points[i][1] for i in range(len(perimeter))]
         remove_ndxs = []
-        # Go through each triangle on the surface
+        # Go through the triangles that have been created
         for i in range(len(self.tris)):
-            # Make a copy of the triangle for
-            tri = self.tris[i].copy()
-            tri.sort()
-            # points = [self.points[tri[i]] for i in range(len(tri))]
-            # Set the counter to 0
-            counter = 0
-            # Go through each point on the triangle checking to see if it is an edge point
-            for j in range(3):
-                # If the triangles jth point index is less than the number of vertex & edge points increment the counter
-                if tri[j] < len(self.perimeter):
-                    counter += 1
-            # If all three of the points are on an edge we need to check it
-            if counter == 3:
-                # Calculate the side distances for the triangle
-                side_dists = []
-                for k in range(3):
-                    side_dists.append(calc_dist(self.points[tri[k]], self.points[tri[(k+1) % 3]]))
-                # Check the length of one of the longest legs
-                if min(side_dists) * 10 < max(side_dists) and max(side_dists) > 3 * self.min_dist:
-                    remove_ndxs.append(i)
-                else:
-                    # Set up the pass triangle boolean
-                    keep_tri = False
-                    # If the triangle has points on either side of a vertex, we exclude it
-                    for vert_ndx in self.vert_ndxs:
-                        # Check to see if there is a vertex index between any of the points
-                        if tri[0] <= vert_ndx <= tri[1] or tri[1] <= vert_ndx <= tri[0] or \
-                                tri[1] <= vert_ndx <= tri[2]:
-                            keep_tri = True
-                    if tri[0] in self.vert_ndxs or tri[1] in self.vert_ndxs or tri[2] in self.vert_ndxs:
-                        if tri[2] - tri[0] == 2 or (tri[1] == 1 and tri[2] == len(self.perimeter) - 1):
-                            keep_tri = True
-                        else:
-                            keep_tri = False
-                    if not keep_tri:
-                        remove_ndxs.append(i)
+            tri = self.tris[i]
+            rad = self.get_tri_circ(tri)
+            tri_points = [self.flat_points[tri[i]] for i in range(len(tri))]
+            if rad > 2 * np.sqrt(self.min_dist):
+                remove_ndxs.append(self.tris.index(tri))
+                plt.plot([tri_points[i % 3][0] for i in range(len(tri_points) + 1)],
+                         [tri_points[i % 3][1] for i in range(len(tri_points) + 1)])
+                plt.plot(perimeter_xs, perimeter_ys, c='r')
+            else:
+                print(rad, 2 * np.cbrt(self.min_dist))
+                # plt.show()
         # Remove the outer triangles
         remove_ndxs.sort()
         for tri_ndx in remove_ndxs[::-1]:

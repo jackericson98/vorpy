@@ -30,3 +30,48 @@ def calc_crit_ang(self):
             ang_inc = ang_inc * x * 2
         counter += 1
     self.crit_ang = ang
+
+# Go through each triangle on the surface
+for i in range(len(self.tris)):
+# Make a copy of the triangle for
+tri = self.tris[i].copy()
+tri.sort()
+points = [[nps2d[0][tri[i]], nps2d[1][tri[i]]] for i in range(len(tri))]
+com = Point(calc_com(points=points))
+print(com, polygon)
+if not polygon.contains(com):
+    remove_ndxs.append(i)
+
+
+# Set the counter to 0
+counter = 0
+# Go through each point on the triangle checking to see if it is an edge point
+for j in range(3):
+    # If the triangles jth point index is less than the number of vertex & edge points increment the counter
+    if tri[j] < len(self.perimeter):
+        counter += 1
+# If all three of the points are on an edge we need to check it
+if counter == 3:
+    # Calculate the side distances for the triangle
+    side_dists = []
+    for k in range(3):
+        side_dists.append(calc_dist(self.points[tri[k]], self.points[tri[(k+1) % 3]]))
+    # Check the length of one of the longest legs
+    if min(side_dists) * 10 < max(side_dists) and max(side_dists) > 3 * self.min_dist:
+        remove_ndxs.append(i)
+    else:
+        # Set up the pass triangle boolean
+        keep_tri = False
+        # If the triangle has points on either side of a vertex, we exclude it
+        for vert_ndx in self.vert_ndxs:
+            # Check to see if there is a vertex index between any of the points
+            if tri[0] <= vert_ndx <= tri[1] or tri[1] <= vert_ndx <= tri[0] or \
+                    tri[1] <= vert_ndx <= tri[2]:
+                keep_tri = True
+        if tri[0] in self.vert_ndxs or tri[1] in self.vert_ndxs or tri[2] in self.vert_ndxs:
+            if tri[2] - tri[0] == 2 or (tri[1] == 1 and tri[2] == len(self.perimeter) - 1):
+                keep_tri = True
+            else:
+                keep_tri = False
+        if not keep_tri:
+            remove_ndxs.append(i)
