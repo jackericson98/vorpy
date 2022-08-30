@@ -292,20 +292,21 @@ class Surface:
             tri_points = [self.flat_points[tri[i]] for i in range(len(tri))]
             if rad > 2 * np.sqrt(self.min_dist):
                 remove_ndxs.append(self.tris.index(tri))
+            else:
                 plt.plot([tri_points[i % 3][0] for i in range(len(tri_points) + 1)],
                          [tri_points[i % 3][1] for i in range(len(tri_points) + 1)])
                 plt.plot(perimeter_xs, perimeter_ys, c='r')
-            else:
-                print(rad, 2 * np.cbrt(self.min_dist))
                 # plt.show()
         # Remove the outer triangles
         remove_ndxs.sort()
-        for tri_ndx in remove_ndxs[::-1]:
-            if tri_ndx:
-                self.tris.pop(tri_ndx)
+        for i in range(len(remove_ndxs)):
+            self.tris.pop(remove_ndxs[-(i+1)])
 
     # Build method. Makes the mesh for the surface and calculates the simplices between them
-    def build(self, min_dist=0.1, simps=True):
+    def build(self, min_dist=None, simps=True):
+        # Set the minimum distance
+        if min_dist is None:
+            min_dist = self.net.min_dist
         # Build the mesh
         self.make_mesh(min_dist)
         # Calculate the simplices
