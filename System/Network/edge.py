@@ -99,14 +99,11 @@ class Edge:
             f[5] * pa[2] * pa[0] + f[6] * pa[0] + f[7] * pa[1] + f[8] * pa[2] + f[9]
         # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
         # and add that point to our surface list of points
-        if b ** 2 - 4 * a * c > 0:
+        if round(b ** 2 - 4 * a * c, 10) >= 0:
             # Calculate the roots
             roots = np.roots([a, b, c])
-            # If no roots exist return
-            if len(roots) == 0:
-                return
             # If one root exists return it
-            elif len(roots) == 1:
+            if len(roots) == 1:
                 return pa + roots[0] * rn
             # If the smallest root is negative (i.e. incorrect) return the other root
             if min(roots) < 0:
