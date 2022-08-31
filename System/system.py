@@ -87,7 +87,7 @@ class System:
             export_mols(self)
             export_analysis(self)
         # Go through the export options
-        if export_type.lower()[:5] == 'atoms':
+        elif export_type.lower()[:5] == 'atoms':
             export_atoms(self)
         elif export_type.lower()[:5] == 'surfs':
             export_atoms(self)

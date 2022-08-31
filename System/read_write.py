@@ -241,7 +241,64 @@ def export_mols(sys):
     # Create the molecules folder
     os.mkdir(sys.dir + '/Molecules')
     os.chdir(sys.dir + '/Molecules')
-
+    chains = []
+    chain_lists = []
+    for atom in sys.atoms:
+        if atom.chain not in chains:
+            os.mkdir(sys.dir + '/Molecules/' + atom.chain)
+            chains.append(atom.chain)
+            chain_lists.append([sys.atoms.index(atom)])
+        else:
+            chain_lists[chains.index(atom.chain)].append(sys.atoms.index(atom))
+    for i in range(len(chains)):
+        os.chdir(sys.dir + '/Molecules/' + chains[i])
+        for j in range(len(chains)):
+            if chains[j] == chains[i]:
+                continue
+            open(chains[i] + '_' + chains[j] + '_interface', 'w')
+        vert_counts = [0 for _ in range(len(chains))]
+        for surf in sys.net.surfs:
+            if surf.atoms[0].chain == chains[i]:
+                file = open(chains[i] + '_' + surf.atoms[1].chain + '_interface', 'a')
+            elif surf.atoms[1].chain == chains[i]:
+                file = open(chains[i] + '_' + surf.atoms[1].chain + '_interface', 'a')
+            else:
+                continue
+            # Go through the points on the surface
+            for point in surf.points:
+                # Add the point to the system file and the surface's file (rounded to 4 decimal points)
+                str_point = [str(round(point[_], 4)) for _ in range(3)]
+                file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
+                # Add 1 to the vert counter
+                vert_counts[chains.index(surf.atoms[1].chain)] += 1
+            # Go through each surface opening the previously created file and add the faces
+        num_verts = 0
+        tri_counts = [0 for _ in range(len(chains))]
+        for surf in sys.net.surfs:
+            if surf.atoms[0].chain == chains[i]:
+                file = open(chains[i] + '_' + surf.atoms[1].chain + '_interface', 'a')
+            elif surf.atoms[1].chain == chains[i]:
+                file = open(chains[i] + '_' + surf.atoms[1].chain + '_interface', 'a')
+            else:
+                continue
+            for tri in sys.net.surfs[i].tris:
+                # Add the triangle to the system file and the surface's file
+                str_tri = [str(tri[_] + num_verts) for _ in range(3)]
+                file.write("3 " + str_tri[0] + " " + str_tri[1] + " " + str_tri[2] + " 1 0 0\n")
+                # Add 1 to the tri counter
+                tri_counts[chains.index(surf.atoms[1].chain)] += 1
+            # Keep counting triangles for the system file
+            num_verts += len(surf.points)
+        for j in range(len(chains)):
+            if chains[i] == chains[j]:
+                continue
+            # Sneaky way to add to the top of the file
+            with open(chains[i] + '_' + chains[j] + '_interface', 'r+') as f:
+                content = f.read()
+                f.seek(0, 0)
+                line = "OFF\n" + str(vert_counts[j]) + " " + str(tri_counts[j]) + " 0\n\n\n"
+                f.write(line.rstrip('\r\n') + '\n' + content)
+        os.chdir("..")
     os.chdir('..')
 
 
