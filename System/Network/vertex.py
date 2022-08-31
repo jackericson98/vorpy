@@ -29,9 +29,9 @@ class Vertex:
         a3, b3, c3, d3, f3 = 2*l3[0], 2*l3[1], 2*l3[2], 2*(R4 - R1), R1**2 - R4**2 + l3[0]**2 + l3[1]**2 + l3[2]**2
         A, B, C, d, f = [a1, a2, a3], [b1, b2, b3], [c1, c2, c3], [d1, d2, d3], [f1, f2, f2]
         # Calculate the ranks of the matrices
-        ABC_rank = np.linalg.matrix_rank([A, B, C])
-        m_rank = np.linalg.matrix_rank([A, B, C, d])
-        f_rank = np.linalg.matrix_rank([A, B, C, d, f])
+        ABC_rank = np.linalg.matrix_rank(np.array([A, B, C]))
+        m_rank = np.linalg.matrix_rank(np.array([A, B, C, d]))
+        f_rank = np.linalg.matrix_rank(np.array([A, B, C, d, f]))
         # Calculate the F values
         F = a1 * b2 * c3 - a1 * b3 * c2 - a2 * b1 * c3 + a2 * b3 * c1 + a3 * b1 * c2 - a3 * b2 * c1
         F10 = b1 * c2 * f3 - b1 * c3 * f2 - b2 * c1 * f3 + b2 * c3 * f1 + b3 * c1 * f2 - b3 * c2 * f1
@@ -42,11 +42,9 @@ class Vertex:
         F31 = -a1 * b2 * d3 + a1 * b3 * d2 + a2 * b1 * d3 - a2 * b3 * d1 - a3 * b1 * d2 + a3 * b2 * d1
         verts = []
         xs, ys, zs, Rs = [], [], [], []
-        # Case 0: Catch for F = 0.
-        if F == 0:
-            pass
+
         # Case 1:
-        elif ABC_rank == 3 and m_rank == 3 and f_rank == 3:
+        if ABC_rank == 3 and m_rank == 3 and f_rank == 3:
             # Calculate the radius polynomial coefficients
             a = ((F11 ** 2 + F21 ** 2 + F31 ** 2) / F ** 2) - 1
             b = (2 * (F10 * F11 + F20 * F21 + F30 * F31) / F ** 2) - 2 * R1
@@ -62,7 +60,7 @@ class Vertex:
                 # Move the vertex back to the actual location of the atoms
                 verts.append([[x + l0[0], y + l0[1], z + l0[2]], R])
         # Case 2:
-        elif ABC_rank == 2 and m_rank == 3 and f_rank == 3:
+        elif ABC_rank == 2 and m_rank == 3 and f_rank == 3 and F > 0:
             # Calculate the _ polynomial coefficients
             a = F ** 2 + F11 ** 2 + F21 ** 2 - F31 ** 2
             b = 2 * (F10 * F11 + F20 * F21 - F30 * F31 - F * F31 * R1)
@@ -94,38 +92,17 @@ class Vertex:
                     R, y, z = F10 / F + x * F11 / F, F20 / F + x * F21 / F, F30 / F + x * F31 / F
                     # Move the vertex back to the actual location of the atoms
                     verts.append([[x + l0[0], y + l0[1], z + l0[2]], R])
-        # If no verts are found return None
-        if verts:
-            # If no roots exist return
-            if len(verts) == 0:
-                return
-            # If one root exists return it
-            elif len(verts) == 1:
-                self.loc, self.rad = verts[0][0], verts[0][1]
+        # If one root exists return it
+        if len(verts) == 1:
+            self.loc, self.rad = verts[0][0], verts[0][1]
+        # If two roots exist:
+        elif len(verts) == 2:
             for i in range(2):
                 if round(calc_dist(self.atoms[0].loc, verts[i][0]) - self.atoms[0].rad, 3) == \
                    round(calc_dist(self.atoms[1].loc, verts[i][0]) - self.atoms[1].rad, 3) == \
                    round(calc_dist(self.atoms[2].loc, verts[i][0]) - self.atoms[2].rad, 3) == \
                    round(calc_dist(self.atoms[3].loc, verts[i][0]) - self.atoms[3].rad, 3):
                     self.loc, self.rad = verts[i][0], abs(verts[i][1])
-                # Check to see if the vertex is in the box or not
-        #         if b0[0] <= loc[0] <= b1[0] and b0[1] <= loc[1] <= b1[1] and b0[2] <= loc[2] <= b1[2]:
-        #             self.loc, self.rad = loc, rad
-        #         else:
-        #             return
-        #     # Otherwise, choose the first
-        #     else:
-        #         loc, rad = verts[0][0], abs(verts[0][1])
-        #         # Check to see if the vertex is in the box or not
-        #         if b0[0] <= loc[0] <= b1[0] and b0[1] <= loc[1] <= b1[1] and b0[2] <= loc[2] <= b1[2]:
-        #             self.loc, self.rad = loc, rad
-        # else:
-            # Worst case scenario try the Hu Method
-            # pass
-            # loc = self.fv2()
-            # if len(loc) > 0:
-            #     self.loc = loc
-            #     self.rad = np.linalg.norm(self.loc - self.atoms[0].loc) - self.atoms[0].rad
 
     # Hu's method. Finds vertex using trial and error
     def fv2(self, P0=None, epsilon=None):
