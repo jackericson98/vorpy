@@ -1,4 +1,4 @@
-from System.system import System
+from System.system import System, Vertex
 from Visualize.visualize import *
 
 verts = [
@@ -274,8 +274,12 @@ vert_pool = [
     [[[27.314, 30.779, 9.417], 1.52], [[29.494, 29.329, 10.537], 1.2], [[28.804, 32.509, 9.147], 1.33], [[25.904, 34.699, 7.567], 1.2]],
     [[[28.804, 32.509, 9.147], 1.33], [[30.204, 32.709, 10.717], 1.52], [[27.314, 30.779, 9.417], 1.52], [[28.154, 30.289, 12.327], 1.2]]]
 syss = []
-for vert in vert_pool:
+for vert in verts:
     syss.append(System(vert))
 
 print(syss[0].atoms)
-plot_atoms(syss[1].atoms, Show=True, colors=['r', 'w', 'b', 'g'])
+for atom in syss[0].atoms:
+    print(atom.loc)
+plot_atoms(syss[0].atoms, Show=True, colors=['r', 'w', 'w', 'g'])
+myVert = Vertex(syss[0].atoms)
+print(myVert.loc)

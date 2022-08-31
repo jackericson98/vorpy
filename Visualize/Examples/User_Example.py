@@ -9,11 +9,10 @@ os.chdir("../..")
 m_file = "./Data/test_data/Na5.pdb"
 
 # Get the System
-sys = System(m_file, box_size=2)
-
-sys.net.build(.05, surfs=True)
-print(len(sys.net.verts))
-
+sys = System(m_file, box_size=3)
+sys.net.build(.5, surfs=True)
+# print(len(sys.net.verts))
+sys.name = "Na5_Test"
 
 # Plot the System
 fig = plt.figure()

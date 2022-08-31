@@ -1,5 +1,5 @@
 import os
-from System.system import System
+from System.system import System, Atom
 from Visualize.visualize import *
 os.chdir("../..")
 
@@ -49,8 +49,6 @@ titles = ["Equal Radii",
 for i in range(len(cases)):
 
     sys = cases[i]
-    if i == 6:
-        print(sys.net.surfs[0].perimeter)
     axn = fig.add_subplot(int("33" + str(i + 1)), projection="3d", xlim=10)
     axn.set_title(titles[i])
     try:
