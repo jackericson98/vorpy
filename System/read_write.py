@@ -21,7 +21,7 @@ def get_name(file):
 def get_pdb_data(sys, word):
     # Get the file information
     sys.file = open(sys.file_address).readlines()
-    sys.name = get_name(sys.file_address)
+    sys.file_name = get_name(sys.file_address)
     # Split each line in the file
     for i in range(len(sys.file)):
         sys.file[i] = sys.file[i].split()
@@ -32,7 +32,7 @@ def get_pdb_data(sys, word):
         for i in range(len(sys.file)):
             line = sys.file[i]
             if line and line[0].lower() == 'atom':  # Check if the line starts with atom
-                atom = Atom([float(line[5]), float(line[6]), float(line[7])], get_radius(line[-1]),
+                atom = Atom([float(line[-6]), float(line[-5]), float(line[-4])], get_radius(line[-1]),
                             symbol=line[-1], res=line[2], chain=line[3], res_seq=line[4])
                 atoms.append(atom)
         return atoms
@@ -69,14 +69,9 @@ def create_pdb(sys, directory=None):
     file = open(sys.name + "_structure.pdb", 'w')
     # If the file exists, copy it over
     if sys.file is not None:
-        for line in sys.file:
-            file.write(line)
+        for line in open(sys.file_address):
+            file.write(str(line))
         return
-    # Make sure each atom has a type before we change directories
-    for atom in sys.atoms:
-        # Give each atom a type if not indicated
-        if atom.type == "":
-            atom.type = sys.get_radius(atom.rad, return_symbol=True)
     # Move to the indicated directory
     if directory:
         os.chdir(directory)
@@ -98,8 +93,21 @@ def create_pdb(sys, directory=None):
                    "1.00  0.00" + " " * (12 - len(a.type)) + a.type + "\n")
 
 
+# Get cif function. Finds the data in a cif file
+def get_cif(sys):
+    sys.file = open(sys.file_address).readlines()
+    num = int(sys.file[0][4:])
+    for i in range(len(sys.file)):
+        sys.file[i] = sys.file[i].split()
+
+        if sys.file[i] == int(num) and len(sys.file[i]) >= 7:
+            sys.atoms.append(Atom([sys.file[i][9], sys.file[i][10], sys.file[i][11]], get_radius(sys.file[i][3]),
+                                  symbol=sys.file[i][3]))
+
+
 # Get gro method. Finds data in a gro file
 def get_gro(sys):
+    sys.file = open(sys.file_address).readlines()
     sys.info['header'] = sys.file[0]
     # Go through each line in the file and create an atom object
     for line in sys.file[2:-2]:
@@ -108,9 +116,23 @@ def get_gro(sys):
 
 # Get mol method. Finds data in a mol file
 def get_mol(sys):
+    sys.file = open(sys.file_address).readlines()
     for line in sys.file:
         if len(line) > 6:
             sys.atoms.append(Atom([line[0], line[1], line[2]], sys.get_radius(line[3]), symbol=line[3]))
+
+
+# Add vertices function. Takes in a system and a file with vertices in it and adds the verts to the system
+def add_verts(sys, file_address):
+    # Reset the network and open the network
+    sys.net.verts, sys.net.surfs, sys.net.edges = [], [], []
+    vert_file = open(file_address).readlines()
+    # Go through each of the vertices file
+    for line in vert_file:
+        line = line.split()
+        atoms = [sys.atoms[int(line[i])] for i in range(4, 8)]
+        sys.net.verts.append(Vertex(atoms, location=[float(line[0]), float(line[1]), float(line[2])],
+                                    radius=float(line[3]), net=sys.net))
 
 
 # Add Voronota data method. Takes in voronota data and adds it to the System
@@ -138,14 +160,18 @@ def add_vta_data(sys, ball_file, vert_file):
         sys.net.verts.append(myVert)
 
 
-def export_sys(sys):
+# Export my system function. Used to create and export the surfaces of a system as one file
+def export_mySys(sys, n, max_num):
+    # Get the percentage and update the print statement
+    percentage = int((n + 1) / max_num * 100)
+    print("\rExporting System: ",
+          '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
     os.chdir(sys.dir)
     # If the file is none create a pdb for the file
-    if sys.file is None:
-        create_pdb(sys)
+    create_pdb(sys, sys.file)
     # Set the name of the file to be created if no name exists
-    if sys.name is None:
-        sys.name = "mySystem"
+    if sys.file_name is None:
+        sys.file_name = "mySystem"
     # Set the counters to 0
     tot_verts, tot_tris = 0, 0
     # Get the total number of vertices and tris
@@ -153,7 +179,7 @@ def export_sys(sys):
         tot_verts += len(surf.points)
         tot_tris += len(surf.tris)
     # System file
-    sys_file = open(sys.name + "_System.off", 'w')
+    sys_file = open(sys.file_name + "_System.off", 'w')
     sys_file.write("OFF\n" + str(tot_verts) + " " + str(tot_tris) + " 0\n\n\n")
     # Go through the surfaces and add the points
     for i in range(len(sys.net.surfs)):
@@ -174,13 +200,17 @@ def export_sys(sys):
     os.chdir('..')
 
 
-def export_surfs(sys):
+# Export my surfaces function. Used to create and export the surfaces of a system as seperate files
+def export_mySurfs(sys, n, max_num):
     # Surfaces Folder
     os.mkdir(sys.dir + "/Surfaces")
     os.chdir(sys.dir + "/Surfaces")
     # Go through each surface and create a file for each adding the vertex points
     surf_ndxs = []
     for i in range(len(sys.net.surfs)):
+        percentage = int((n + (i + 1) / 2) / max_num * 100)
+        print("\rExporting System: ",
+              '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
         # Find the relative surface index and add it to the list
         surf_ndxs.append(str(sys.atoms.index(sys.net.surfs[i].atoms[0]) + 1) + "_" +
                          str(sys.atoms.index(sys.net.surfs[i].atoms[1]) + 1))
@@ -197,6 +227,9 @@ def export_surfs(sys):
     num_verts = 0
     # Go through each surface opening the previously created file and add the faces
     for i in range(len(sys.net.surfs)):
+        percentage = int((n + len(sys.net.surfs) + (i + 1) / 2) / max_num * 100)
+        print("\rExporting System: ",
+              '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
         file = open(str("surf_" + surf_ndxs[i] + ".off"), 'a')
         for tri in sys.net.surfs[i].tris:
             # Add the triangle to the system file and the surface's file
@@ -206,12 +239,16 @@ def export_surfs(sys):
     os.chdir("..")
 
 
-def export_atoms(sys):
+# Export my atoms function. Used to create and export the surfaces surrounding each atom of a system as separate files
+def export_myAtoms(sys, n, max_num):
     # Atoms Folder
     os.mkdir(sys.dir + "/Atoms")
     os.chdir(sys.dir + "/Atoms")
     # Add the vertices and triangles for each surface of each atom
     for i in range(len(sys.atoms)):
+        percentage = int((n + (i + 1) / 2) / max_num * 100)
+        print("\rExporting System: ",
+              '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
         # Create a file for each atom
         atom_file = open(str("atom_" + str(i + 1) + "_cell.off"), 'w')
         # Calculate the number of points and triangles
@@ -229,6 +266,9 @@ def export_atoms(sys):
         num_verts = 0
         # Go through each surface opening the previously created file and add the faces
         for j in range(len(sys.atoms[i].surfs)):
+            percentage = int((n + len(sys.atoms) + (i + 1) / 2) / max_num * 100)
+            print("\rExporting System: ",
+                  '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
             atom_file = open(str("atom_" + str(i + 1) + "_cell.off"), 'a')
             for tri in sys.atoms[i].surfs[j].tris:
                 atom_file.write("3 " + str(tri[0] + num_verts) + " " + str(tri[1] + num_verts) + " " +
@@ -237,31 +277,47 @@ def export_atoms(sys):
     os.chdir('..')
 
 
-def export_mols(sys):
+# Export my mols function. Used to create and export the surfaces the interfaces between molecules of the system  and
+# the cells of the atoms of each molecule as separate files
+def export_myMols(sys, n, max_num):
     # Create the molecules folder
     os.mkdir(sys.dir + '/Molecules')
     os.chdir(sys.dir + '/Molecules')
     chains = []
     chain_lists = []
+    # Create the chains
     for atom in sys.atoms:
+        # If the chain hasn't been found create it and add the atom to it
         if atom.chain not in chains:
             os.mkdir(sys.dir + '/Molecules/' + atom.chain)
             chains.append(atom.chain)
             chain_lists.append([sys.atoms.index(atom)])
+        # If the chain has been found add the atom to the chain's list of atoms
         else:
             chain_lists[chains.index(atom.chain)].append(sys.atoms.index(atom))
+    # Go through each of the chains
     for i in range(len(chains)):
+        # Percentage print statement
+        percentage = int((n + (i + 1)) / max_num * 100)
+        print("\rExporting System: ",
+              '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
+        # Move to the directory of the chain
         os.chdir(sys.dir + '/Molecules/' + chains[i])
+        # Go through the other chains and create a file for their interfaces
         for j in range(len(chains)):
             if chains[j] == chains[i]:
                 continue
-            open(chains[i] + '_' + chains[j] + '_interface', 'w')
+            open(chains[i] + '_' + chains[j] + '_interface.off', 'w')
+        # Set up a running variable for the number of vertices that will need to be recorded at the top of the file
         vert_counts = [0 for _ in range(len(chains))]
+        # Find the file
         for surf in sys.net.surfs:
-            if surf.atoms[0].chain == chains[i]:
-                file = open(chains[i] + '_' + surf.atoms[1].chain + '_interface', 'a')
-            elif surf.atoms[1].chain == chains[i]:
-                file = open(chains[i] + '_' + surf.atoms[1].chain + '_interface', 'a')
+            if surf.atoms[0].chain == chains[i] != surf.atoms[1].chain:
+                file = open(chains[i] + '_' + surf.atoms[1].chain + '_interface.off', 'a')
+                chain2 = surf.atoms[1].chain
+            elif surf.atoms[1].chain == chains[i] != surf.atoms[0].chain:
+                chain2 = surf.atoms[0].chain
+                file = open(chains[i] + '_' + surf.atoms[0].chain + '_interface.off', 'a')
             else:
                 continue
             # Go through the points on the surface
@@ -270,39 +326,44 @@ def export_mols(sys):
                 str_point = [str(round(point[_], 4)) for _ in range(3)]
                 file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
                 # Add 1 to the vert counter
-                vert_counts[chains.index(surf.atoms[1].chain)] += 1
+                vert_counts[chains.index(chain2)] += 1
             # Go through each surface opening the previously created file and add the faces
         num_verts = 0
         tri_counts = [0 for _ in range(len(chains))]
         for surf in sys.net.surfs:
-            if surf.atoms[0].chain == chains[i]:
-                file = open(chains[i] + '_' + surf.atoms[1].chain + '_interface', 'a')
-            elif surf.atoms[1].chain == chains[i]:
-                file = open(chains[i] + '_' + surf.atoms[1].chain + '_interface', 'a')
+            if surf.atoms[0].chain == chains[i] != surf.atoms[1].chain:
+                chain2 = surf.atoms[1].chain
+                file = open(chains[i] + '_' + surf.atoms[1].chain + '_interface.off', 'a')
+            elif surf.atoms[1].chain == chains[i] != surf.atoms[0].chain:
+                chain2 = surf.atoms[0].chain
+                file = open(chains[i] + '_' + surf.atoms[0].chain + '_interface.off', 'a')
             else:
                 continue
-            for tri in sys.net.surfs[i].tris:
+            for tri in surf.tris:
                 # Add the triangle to the system file and the surface's file
                 str_tri = [str(tri[_] + num_verts) for _ in range(3)]
                 file.write("3 " + str_tri[0] + " " + str_tri[1] + " " + str_tri[2] + " 1 0 0\n")
                 # Add 1 to the tri counter
-                tri_counts[chains.index(surf.atoms[1].chain)] += 1
+                tri_counts[chains.index(chain2)] += 1
             # Keep counting triangles for the system file
             num_verts += len(surf.points)
         for j in range(len(chains)):
             if chains[i] == chains[j]:
                 continue
             # Sneaky way to add to the top of the file
-            with open(chains[i] + '_' + chains[j] + '_interface', 'r+') as f:
+            with open(chains[i] + '_' + chains[j] + '_interface.off', 'r+') as f:
                 content = f.read()
                 f.seek(0, 0)
                 line = "OFF\n" + str(vert_counts[j]) + " " + str(tri_counts[j]) + " 0\n\n\n"
-                f.write(line.rstrip('\r\n') + '\n' + content)
+                f.write(line.rstrip('\r\n') + '\n\n\n' + content)
         os.chdir("..")
     os.chdir('..')
 
 
-def export_analysis(sys):
+def export_myAnalysis(sys, n, max_num):
+    percentage = int((n + 1) / max_num * 100)
+    print("\rExporting System: ",
+          '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
     os.chdir(sys.dir)
     # Create the Atoms Folder
     atom_info = open("atom_info.txt", 'w')
