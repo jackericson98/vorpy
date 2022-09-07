@@ -18,7 +18,7 @@ def find_v0(net, a0=None):
     min_dist = np.inf
     a1 = None
     inc = 0
-    while not a1:
+    while not a1 and inc <= len(net.sub_boxes) + 1:
         atoms = net.get_atoms([a0.box], inc)
         # Go through each atom determining the atom with the minimum distance between it and a0's surfaces
         for atom in atoms:
@@ -36,7 +36,7 @@ def find_v0(net, a0=None):
     min_rad = np.inf
     a2 = None
     inc = 0
-    while not a2:
+    while not a2 and inc <= len(net.sub_boxes) + 1:
         atoms = net.get_atoms([a0.box, a1.box], inc + 1)
         # Go through each other atom to determine the smallest circle that can be made with our 2 atoms and a third
         for atom in atoms:
@@ -50,6 +50,8 @@ def find_v0(net, a0=None):
                 min_rad = abs(circ[1])
                 a2 = atom
         inc += 1
+    if a2 is None:
+        return
     # Find the set of atoms with the minimum inscribed sphere
     myVert = find_site(net, [a0, a1, a2])
     # Return the vertex
@@ -67,22 +69,18 @@ def find_site(net, edge_atoms, vn_1=None):
     inc = 0
     min_vert = np.inf
     # Loop through the atoms to see if they create a vertex that doesn't overlap with other atoms or whole system
-    while inc <= len(net.sub_boxes) + 1:
+    while inc <= 7:
         # If no vert has been found yet, keep expanding
         if myVert is None or myVert.loc is None:
             # Keep adding boxes around the atoms to check
-            atoms = net.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], inc + 2)
+            atoms = net.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], inc)
             # Go through the atoms in the surrounding boxes and find the smallest vertex that can be created
             for atom1 in atoms:
                 # This filters out any of the atoms in the edge or the remaining atom from the previous vertex
-                if {atom1}.issubset(old_atoms):
+                if atom1 in old_atoms:
                     continue
                 # Calculate the vertex with atom and pass if the vertex location is None
                 vert = Vertex(atoms=edge_atoms + [atom1], net=net)
-                if vert.loc is None:
-                    atoms = []
-                    for atom2 in vert.atoms:
-                        atoms.append([atom2.loc, atom2.rad])
                 # I need to fix Vertex to get to a point where I don't need this
                 if vert is None or vert.loc is None:
                     continue
@@ -109,12 +107,13 @@ def find_site(net, edge_atoms, vn_1=None):
         # Test the atoms in the new atom list to see if they overlap with the vertex
         for atom in atoms:
             # If the atom is one of the vert atoms move on
-            if {atom}.issubset(myVert.atoms):
+            if atom in myVert.atoms:
                 continue
             # If the distance between the vertex and the atom is less than their radii create a new vertex and reset
             if myVert.loc and calc_dist(atom.loc, myVert.loc) - (atom.rad + myVert.rad) < 0:
                 vert = Vertex(edge_atoms + [atom], net=net)
                 overlap = True
+                # Set the new vertex to test as the one that can be made with the atom that overlaps with it
                 if myVert.rad < min_rad:
                     myVert = vert
                     min_rad = myVert.rad
@@ -138,7 +137,7 @@ def find_vertices(net, v0=None, i=0):
     # While the verts stack is not empty
     while vert_stack:
         # Running print statement giving an estimate for percentage of the network that has been created
-        tot_verts = len(net.verts) + (3 * len(net.atoms) - i)
+        tot_verts = len(net.verts) + (len(net.atoms) - i)
         percentage = int(len(net.verts) / tot_verts * 10000)/100
         print("\rBuilding Network:  ",
               '#' * (int(percentage) // 10) + ' ' * (10 - (int(percentage) // 10)), percentage, "%", end='')
@@ -160,3 +159,5 @@ def find_vertices(net, v0=None, i=0):
             if not found_vert:
                 vert_stack.append(myVert)
                 net.verts.append(myVert)
+                for atom in myVert.atoms:
+                    atom.verts.append(myVert)
