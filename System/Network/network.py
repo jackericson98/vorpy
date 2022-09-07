@@ -5,11 +5,11 @@ from System.Network.find_vertices import *
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
-    def __init__(self, sys, atoms, box_size=1.5):
+    def __init__(self, sys, atoms, min_dist=0.1, box_size=1.5):
         self.sub_boxes = None
         self.sub_box_size = []
         self.sys = sys
-        self.min_dist = sys.min_dist
+        self.min_dist = min_dist
         self.atoms = atoms  # List of Atom type objects
         self.verts = []  # List of Vertex type objects
         self.surfs = []  # List of Surface type objects
@@ -17,7 +17,6 @@ class Network:
         self.vta = False
         self.box = None
         self.box_size = box_size
-        self.sort_atoms()
 
     # Calculate box function. Takes in a System and returns the dimensions of a box x times the size of the atoms
     def calc_box(self):
@@ -219,29 +218,30 @@ class Network:
                     edge.surfs.append(surf)
 
     # Build network function. Takes in a system and returns a fully connected network
-    def build(self, min_dist=None, surfs=True):
-        # Find the vertices of the system if it is not a voronota system
-        if not self.vta and not self.verts:
-
+    def build(self, get_verts=True, get_surfs=True):
+        self.sort_atoms()
+        # Find the vertices of the system if it is not a voronota system or we haven't indicated not to find them
+        if not self.vta and get_verts:
+            # Go through each atom in the system
             for i in range(len(self.atoms)):
-
-                tot_verts = len(self.verts) + (3 * len(self.atoms) - i)
+                # Update the running print statement
+                tot_verts = len(self.verts) + (len(self.atoms) - i)
                 percentage = int(len(self.verts) / tot_verts * 10000)/100
-                print("\rBuilding Network:  ", '#' * (int(percentage) // 10) + ' ' * (10 - (int(percentage) // 10)), percentage,
-                      "%", end='')
+                print("\rBuilding Network:  ", '#' * (int(percentage) // 10) + ' ' * (10 - (int(percentage) // 10)),
+                      percentage, "%", end='')
+                # If the atom has no vertices run the vertex finder on it
                 if len(self.atoms[i].verts) == 0:
-                    find_vertices(self, find_v0(self, self.atoms[i]), i=i)
+                    v0 = find_v0(self, self.atoms[i])
+                    if v0 is not None:
+                        find_vertices(self, v0, i=i)
 
         print("\rBuilding Network:   ########## 100 %")
         print("\rNetwork Built")
 
-        # If no minimum distance is given use the system's minimum distance
-        if not min_dist:
-            min_dist = self.min_dist
         # Connect the network of vertices
         self.connect()
         num_surfs = len(self.surfs)
-        if surfs:
+        if get_surfs:
             # Make each surface
             for i in range(num_surfs):
                 # Calculate and print the running percentage for mesh calculations
@@ -253,7 +253,7 @@ class Network:
                     self.surfs[i].build_vta()
                 # Otherwise, proceed with the regular build method
                 else:
-                    self.surfs[i].build(simps=True, min_dist=min_dist)
+                    self.surfs[i].build(simps=True, min_dist=self.min_dist)
             print("\rBuilding Surfaces:  ########## 100 %")
             print("\rSurfaces Built")
 
