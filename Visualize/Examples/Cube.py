@@ -5,18 +5,18 @@ from Visualize.visualize import  plot_verts, plot_surfs, plot_edges
 import matplotlib.pyplot as plt
 os.chdir("../..")
 # Create atom objects from sets of points
-atoms = [[[0, 0, 0], 2]]
+atoms = [[[0, 0, 0], 1.7]]
 
-dist = 2.5
-rad = 2.5
+dist = 2
+rad = 1.2
 
-atoms += [[[dist + 4, 0, 0], rad], [[-dist - 1, 0, 0], rad], [[0, dist + 1, 0], rad], [[0, -dist, 0], rad], [[0, 0, dist], rad],
+atoms += [[[dist, 0, 0], rad], [[-dist - 1, 0, 0], rad], [[0, dist, 0], rad], [[0, -dist, 0], rad], [[0, 0, dist], rad],
           [[0, 0, -dist], rad]]
 
 sys = System(atoms)
 
 # Build the surfaces
-sys.net.build(min_dist=.1)
+sys.build_network(get_verts=True)
 
 
 # Analysis checks:

@@ -147,7 +147,7 @@ class Vorpy:
             ErrorBox("Please select a system")
         # Create a new directory of one has not been indicated
         if self.output_directory[-len(self.sys.name):] != self.sys.name:
-            # If the system doesn;t have a name
+            # If the system doesn't have a name
             if self.sys.name == '':
                 self.sys.name = "User_Data"
             i = 0

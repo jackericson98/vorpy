@@ -182,21 +182,15 @@ def inv_jac(funcs, point):
 def rotate_points(vec, points):
     # Get the vx, vy, vz vector components
     vx, vy, vz = vec
-    # If x and y are 0 no transform is needed
-    if round(vy, 2) == 0 == round(vx, 2):
-        return points
-    elif round(vx, 2) == 0:
-        phi = 0
-        theta = np.arctan(vy / vz)
-    elif round(vy, 2) == 0:
+    # If vy or vz are zero we need a catch for divide by zero error.
+    if round(vy, 2) == 0:
         phi = np.pi / 2
-        theta = np.arctan(vy / vz)
-    elif round(vz, 2) == 0:
+    else:
         phi = np.arctan(vx / vy)
+    if round(vz, 2) == 0:
         theta = np.pi / 2
     else:
         theta = np.arctan(vy / vz)
-        phi = np.arctan(vx / vy)
     # Get variables for sin(theta), cos(theta), sin(phi), cos(phi)
     st, ct, sp, cp = np.sin(theta), np.cos(theta), np.sin(phi), np.cos(phi)
     nps = []
