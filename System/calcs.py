@@ -185,15 +185,15 @@ def rotate_points(vec, points):
     # If x and y are 0 no transform is needed
     if round(vy, 2) == 0 == round(vx, 2):
         return points
-    elif round(vz, 2) == 0 == round(vy, 2):
-        theta = np.pi / 2
-        phi = np.pi / 2
-    elif round(vz, 2) == 0 == round(vx, 2):
+    elif round(vx, 2) == 0:
         phi = 0
-        theta = np.pi / 2
+        theta = np.arctan(vy / vz)
+    elif round(vy, 2) == 0:
+        phi = np.pi / 2
+        theta = np.arctan(vy / vz)
     elif round(vz, 2) == 0:
-        theta = np.pi / 2
         phi = np.arctan(vx / vy)
+        theta = np.pi / 2
     else:
         theta = np.arctan(vy / vz)
         phi = np.arctan(vx / vy)
