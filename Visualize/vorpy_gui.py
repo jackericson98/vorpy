@@ -19,7 +19,7 @@ class Vorpy:
         self.sys_box_size = 2
         self.sys_resolution = 0.1
         self.vorpy_directory = os.getcwd()
-        self.output_directory = os.getcwd()
+        self.output_directory = None
         self.verts_loaded = False
 
         # Instantiate the System
@@ -110,7 +110,7 @@ class Vorpy:
         # Create the System
         if file_path:
             self.file = file_path
-            self.sys = self.sys = System(file_path)
+            self.sys = System(file_path)
         filename = ""
         i = -1
         while self.file[i] != "/":
@@ -136,7 +136,7 @@ class Vorpy:
         # Create the System
         if file_path:
             self.output_directory = file_path
-            self.output_dir_str.set(os.getcwd()[:12] + ' ... ' + os.getcwd()[-12:])
+            self.output_dir_str.set(file_path[:12] + ' ... ' + file_path[-12:])
         else:
             ErrorBox("Directory not changed")
 
@@ -146,7 +146,7 @@ class Vorpy:
         if self.sys is None:
             ErrorBox("Please select a system")
         # Create a new directory of one has not been indicated
-        if self.output_directory[-len(self.sys.name):] != self.sys.name:
+        if self.output_directory is None:
             # If the system doesn't have a name
             if self.sys.name == '':
                 self.sys.name = "User_Data"
@@ -162,7 +162,8 @@ class Vorpy:
                     i += 1
             self.output_directory = os.getcwd() + "/" + self.sys.name + i_str
         # Build the network
-        self.sys.build_network(get_verts=not self.verts_loaded, export_verts=(self.output_verts.get() or self.output_all.get()),
+        self.sys.build_network(get_verts=not self.verts_loaded,
+                               export_verts=(self.output_verts.get() or self.output_all.get()),
                                directory=self.output_directory, box_size=float(self.box_size.get()),
                                min_dist=float(self.resolution.get()))
         # Analyze the network
