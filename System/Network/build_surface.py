@@ -203,7 +203,7 @@ def calc_tri_circ(surf, tri):
     b = np.sqrt((pb[0] - pc[0]) ** 2 + (pb[1] - pc[1]) ** 2)
     c = np.sqrt((pc[0] - pa[0]) ** 2 + (pc[1] - pa[1]) ** 2)
     s = (a + b + c) / 2.0
-    area = np.sqrt(s * (s - a) * (s - b) * (s - c))
+    area = np.sqrt(max(s * (s - a) * (s - b) * (s - c), 0))
     if area == 0:
         return np.inf
     circum_r = a * b * c / (4.0 * area)
