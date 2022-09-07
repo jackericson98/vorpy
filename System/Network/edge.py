@@ -82,8 +82,7 @@ class Edge:
                 break
             self.points.append(surf_point)
 
-    @staticmethod
-    def project(rn, pa, surf):
+    def project(self, rn, pa, surf):
         # Get the function values
         f, a0, a1 = surf.func, surf.atoms[0], surf.atoms[1]
         # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
@@ -104,9 +103,20 @@ class Edge:
             roots = np.roots([a, b, c])
             # If one root exists return it
             if len(roots) == 1:
-                return pa + roots[0] * rn
-            # If the smallest root is negative (i.e. incorrect) return the other root
-            if min(roots) < 0:
-                return pa + rn * max(roots)
-            # Otherwise, return the smaller of the two
-            return pa + min(roots) * rn
+                point = pa + roots[0] * rn
+            elif min(roots) < 0:
+                point = pa + rn * max(roots)
+
+            elif round(calc_dist(pa + max(roots) * rn, self.atoms[0].loc) - self.atoms[0].rad, 2) == \
+                 round(calc_dist(pa + max(roots) * rn, self.atoms[1].loc) - self.atoms[1].rad, 2) == \
+                 round(calc_dist(pa + max(roots) * rn, self.atoms[2].loc) - self.atoms[2].rad, 2):
+                point = pa + rn * max(roots)
+            else:
+                point = pa + min(roots) * rn
+            # Check that the point is in the box
+            for i in range(3):
+                if point[i] < self.net.box[0][i] or point[i] > self.net.box[1][i]:
+                    return
+
+            return point
+
