@@ -1,6 +1,6 @@
 import os
 from System.system import System
-from Visualize.visualize import plot_edges, plot_verts, plot_atoms, plot_surfs
+from Visualize.visualize import plot_edges, plot_verts
 import matplotlib.pyplot as plt
 os.chdir("../..")
 
