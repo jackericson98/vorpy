@@ -217,16 +217,16 @@ class Network:
                 if set(surf.atoms).issubset(edge.atoms):
                     edge.surfs.append(surf)
 
-    # Build network function. Takes in a system and returns a fully connected network
-    def build(self, get_verts=True, get_surfs=True):
+    def find_verts(self):
+        # Put the atoms in their place
         self.sort_atoms()
         # Find the vertices of the system if it is not a voronota system or we haven't indicated not to find them
-        if not self.vta and get_verts:
+        if not self.vta:
             # Go through each atom in the system
             for i in range(len(self.atoms)):
                 # Update the running print statement
                 tot_verts = len(self.verts) + (len(self.atoms) - i)
-                percentage = int(len(self.verts) / tot_verts * 10000)/100
+                percentage = int(len(self.verts) / tot_verts * 10000) / 100
                 print("\rBuilding Network:  ", '#' * (int(percentage) // 10) + ' ' * (10 - (int(percentage) // 10)),
                       percentage, "%", end='')
                 # If the atom has no vertices run the vertex finder on it
@@ -238,6 +238,10 @@ class Network:
         print("\rBuilding Network:   ########## 100 %")
         print("\rNetwork Built")
 
+    # Build network function. Takes in a system and returns a fully connected network
+    def build(self, get_verts=True, get_surfs=True):
+        if get_verts:
+            self.find_verts()
         # Connect the network of vertices
         self.connect()
         num_surfs = len(self.surfs)
