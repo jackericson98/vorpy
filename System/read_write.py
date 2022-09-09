@@ -20,17 +20,17 @@ def get_name(file):
 # Get pdb data method. Finds the lines of the file with prefixes and returns them as a list
 def get_pdb_data(sys, word):
     # Get the file information
-    sys.file = open(sys.file_address).readlines()
-    sys.file_name = get_name(sys.file_address)
+    sys.sys_file_address = open(sys.file_address).readlines()
+    sys.sys_file_name = get_name(sys.file_address)
     # Split each line in the file
-    for i in range(len(sys.file)):
-        sys.file[i] = sys.file[i].split()
+    for i in range(len(sys.sys_file_address)):
+        sys.sys_file_address[i] = sys.sys_file_address[i].split()
     # Special case for Atom lines
     if word.lower() == 'atom':
         atoms = []
     # Go through each line in the file and check if the first word is the word we are looking for
-        for i in range(len(sys.file)):
-            line = sys.file[i]
+        for i in range(len(sys.sys_file_address)):
+            line = sys.sys_file_address[i]
             if line and line[0].lower() == 'atom':  # Check if the line starts with atom
                 atom = Atom([float(line[-6]), float(line[-5]), float(line[-4])], get_radius(line[-1]),
                             symbol=line[-1], res=line[2], chain=line[3], res_seq=line[4])
@@ -39,10 +39,10 @@ def get_pdb_data(sys, word):
     # Standard case
     else:
         data = []
-        for i in range(len(sys.file)):
-            if word == sys.file[i][:len(word)]:  # check the first len(word) letters
+        for i in range(len(sys.sys_file_address)):
+            if word == sys.sys_file_address[i][:len(word)]:  # check the first len(word) letters
                 # Add the split test_data to our list and remove the word at the beginning of the list
-                data.append(sys.file[i].split()[1:])
+                data.append(sys.sys_file_address[i].split()[1:])
     return data
 
 
@@ -68,7 +68,7 @@ def create_pdb(sys, directory=None):
     # Create the output file
     file = open(sys.name + "_structure.pdb", 'w')
     # If the file exists, copy it over
-    if sys.file is not None:
+    if sys.sys_file_address is not None:
         for line in open(sys.file_address):
             file.write(str(line))
         return
@@ -95,29 +95,29 @@ def create_pdb(sys, directory=None):
 
 # Get cif function. Finds the data in a cif file
 def get_cif(sys):
-    sys.file = open(sys.file_address).readlines()
-    num = int(sys.file[0][4:])
-    for i in range(len(sys.file)):
-        sys.file[i] = sys.file[i].split()
+    sys.sys_file_address = open(sys.file_address).readlines()
+    num = int(sys.sys_file_address[0][4:])
+    for i in range(len(sys.sys_file_address)):
+        sys.sys_file_address[i] = sys.sys_file_address[i].split()
 
-        if sys.file[i] == int(num) and len(sys.file[i]) >= 7:
-            sys.atoms.append(Atom([sys.file[i][9], sys.file[i][10], sys.file[i][11]], get_radius(sys.file[i][3]),
-                                  symbol=sys.file[i][3]))
+        if sys.sys_file_address[i] == int(num) and len(sys.sys_file_address[i]) >= 7:
+            sys.atoms.append(Atom([sys.sys_file_address[i][9], sys.sys_file_address[i][10], sys.sys_file_address[i][11]], get_radius(sys.sys_file_address[i][3]),
+                                  symbol=sys.sys_file_address[i][3]))
 
 
 # Get gro method. Finds data in a gro file
 def get_gro(sys):
-    sys.file = open(sys.file_address).readlines()
-    sys.info['header'] = sys.file[0]
+    sys.sys_file_address = open(sys.file_address).readlines()
+    sys.info['header'] = sys.sys_file_address[0]
     # Go through each line in the file and create an atom object
-    for line in sys.file[2:-2]:
+    for line in sys.sys_file_address[2:-2]:
         sys.atoms.append(Atom([line[3], line[4], line[5]], sys.get_radius(line[1][0]), symbol=line[1][0]))
 
 
 # Get mol method. Finds data in a mol file
 def get_mol(sys):
-    sys.file = open(sys.file_address).readlines()
-    for line in sys.file:
+    sys.sys_file_address = open(sys.file_address).readlines()
+    for line in sys.sys_file_address:
         if len(line) > 6:
             sys.atoms.append(Atom([line[0], line[1], line[2]], sys.get_radius(line[3]), symbol=line[3]))
 
@@ -166,12 +166,12 @@ def export_mySys(sys, n, max_num):
     percentage = int((n + 1) / max_num * 100)
     print("\rExporting System: ",
           '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
-    os.chdir(sys.dir)
+    os.chdir(sys.output_directory)
     # If the file is none create a pdb for the file
-    create_pdb(sys, sys.file)
+    create_pdb(sys, sys.sys_file_address)
     # Set the name of the file to be created if no name exists
-    if sys.file_name is None:
-        sys.file_name = "mySystem"
+    if sys.sys_file_name is None:
+        sys.sys_file_name = "mySystem"
     # Set the counters to 0
     tot_verts, tot_tris = 0, 0
     # Get the total number of vertices and tris
@@ -179,7 +179,7 @@ def export_mySys(sys, n, max_num):
         tot_verts += len(surf.points)
         tot_tris += len(surf.tris)
     # System file
-    sys_file = open(sys.file_name + "_System.off", 'w')
+    sys_file = open(sys.sys_file_name + "_System.off", 'w')
     sys_file.write("OFF\n" + str(tot_verts) + " " + str(tot_tris) + " 0\n\n\n")
     # Go through the surfaces and add the points
     for i in range(len(sys.net.surfs)):
@@ -203,8 +203,8 @@ def export_mySys(sys, n, max_num):
 # Export my surfaces function. Used to create and export the surfaces of a system as seperate files
 def export_mySurfs(sys, n, max_num):
     # Surfaces Folder
-    os.mkdir(sys.dir + "/Surfaces")
-    os.chdir(sys.dir + "/Surfaces")
+    os.mkdir(sys.output_directory + "/Surfaces")
+    os.chdir(sys.output_directory + "/Surfaces")
     # Go through each surface and create a file for each adding the vertex points
     surf_ndxs = []
     for i in range(len(sys.net.surfs)):
@@ -242,8 +242,8 @@ def export_mySurfs(sys, n, max_num):
 # Export my atoms function. Used to create and export the surfaces surrounding each atom of a system as separate files
 def export_myAtoms(sys, n, max_num):
     # Atoms Folder
-    os.mkdir(sys.dir + "/Atoms")
-    os.chdir(sys.dir + "/Atoms")
+    os.mkdir(sys.output_directory + "/Atoms")
+    os.chdir(sys.output_directory + "/Atoms")
     # Add the vertices and triangles for each surface of each atom
     for i in range(len(sys.atoms)):
         percentage = int((n + (i + 1) / 2) / max_num * 100)
@@ -281,15 +281,15 @@ def export_myAtoms(sys, n, max_num):
 # the cells of the atoms of each molecule as separate files
 def export_myMols(sys, n, max_num):
     # Create the molecules folder
-    os.mkdir(sys.dir + '/Molecules')
-    os.chdir(sys.dir + '/Molecules')
+    os.mkdir(sys.output_directory + '/Molecules')
+    os.chdir(sys.output_directory + '/Molecules')
     chains = []
     chain_lists = []
     # Create the chains
     for atom in sys.atoms:
         # If the chain hasn't been found create it and add the atom to it
         if atom.chain not in chains:
-            os.mkdir(sys.dir + '/Molecules/' + atom.chain)
+            os.mkdir(sys.output_directory + '/Molecules/' + atom.chain)
             chains.append(atom.chain)
             chain_lists.append([sys.atoms.index(atom)])
         # If the chain has been found add the atom to the chain's list of atoms
@@ -302,7 +302,7 @@ def export_myMols(sys, n, max_num):
         print("\rExporting System: ",
               '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
         # Move to the directory of the chain
-        os.chdir(sys.dir + '/Molecules/' + chains[i])
+        os.chdir(sys.output_directory + '/Molecules/' + chains[i])
         # Go through the other chains and create a file for their interfaces
         for j in range(len(chains)):
             if chains[j] == chains[i]:
@@ -364,7 +364,7 @@ def export_myAnalysis(sys, n, max_num):
     percentage = int((n + 1) / max_num * 100)
     print("\rExporting System: ",
           '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
-    os.chdir(sys.dir)
+    os.chdir(sys.output_directory)
     # Create the Atoms Folder
     atom_info = open("atom_info.txt", 'w')
     # Add the vertices and triangles for each surface of each atom
