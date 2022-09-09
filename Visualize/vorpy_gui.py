@@ -8,8 +8,9 @@ from System.system import System
 
 class Vorpy:
     """Vorpy GUI class. When instantiated the Gui will launch"""
-    def __init__(self, width=450, height=600):
+    def __init__(self, width=500, height=600):
         # Set up the window
+        self.sys_atom_list = []
         self.vp_main = tk.Tk()
         self.width = width
         self.height = height
@@ -30,7 +31,7 @@ class Vorpy:
         tk.Label(f, text="Load", font=('Times New Roman bold', 20)).grid(row=2, column=0, columnspan=2, sticky='w')
 
         # System file information
-        self.sys_file_address = None
+        self.sys_file_address = ""
         self.sys_file_name = tk.StringVar(self.vp_main, "None")
         tk.Label(f, text="System: ", font=('Times New Roman', 12)).grid(row=3, column=0, sticky='w')
         tk.Label(f, textvariable=self.sys_file_name, font=('Times New Roman', 15)) \
@@ -51,7 +52,7 @@ class Vorpy:
         tk.Label(f, text="Enter atoms (e.g. [[x0, y0, z0], r0], [[x1, y1, z1], r1], ... , "
                          "[[xn, yn, zn], rn]): ").grid(row=5, column=0, columnspan=3, sticky='w')
         tk.Entry(f, textvariable=self.user_atoms_str).grid(row=6, column=0, columnspan=2, sticky='ew')
-        tk.Button(f, text="Build System", command=self.build_sys_button).grid(row=6, column=2, sticky='e')
+        tk.Button(f, text="Build System", command=self.add_atoms).grid(row=6, column=2, sticky='e')
         tk.Label(f, text="").grid(row=5)
 
         # Setting variables:
@@ -119,23 +120,28 @@ class Vorpy:
         # End the loop
         self.vp_main.mainloop()
 
+    # Load system button function. Calls the file browser and sets the system
     def load_sys_button(self):
         # File grabber pop up
         file_path = filedialog.askopenfilename()
-        # Create the System
+        # Set the file path
         if file_path:
             self.sys_file_address = file_path
             self.sys = System(file_path)
+        # Get the file name
         filename = ""
         i = -1
-        while self.sys_file_address[i] != "/":
-            filename = filename + self.sys_file_address[i]
-            i -= 1
-
+        if len(self.sys_file_address) > 0:
+            while self.sys_file_address[i] != "/":
+                filename = filename + self.sys_file_address[i]
+                i -= 1
+        else:
+            filename = "User_data    "
+        # Set the file name
         self.sys_file_name.set(filename[::-1][:-4])
-
-    def build_sys_button(self):
-        pass
+    
+    def add_atoms(self):
+        self.sys_atom_list += list(self.user_atoms_str.get())
 
     def add_vertices(self):
         if self.sys is None:
