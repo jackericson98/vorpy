@@ -17,6 +17,10 @@ class Vorpy:
         self.vp_main.geometry(str(width) + "x" + str(height))
         self.vp_main.title('vorpy')
         self.vorpy_directory = os.getcwd()
+        self.sys_output_directory = None
+        self.sys_file_address = None
+        self.vert_file_address = None
+        self.user_atoms_list = []
 
         # Set up the main frame
         f = tk.Frame(self.vp_main)
@@ -31,7 +35,6 @@ class Vorpy:
         tk.Label(f, text="Load", font=('Times New Roman bold', 20)).grid(row=2, column=0, columnspan=2, sticky='w')
 
         # System file information
-        self.sys_file_address = ""
         self.sys_file_name = tk.StringVar(self.vp_main, "None")
         tk.Label(f, text="System: ", font=('Times New Roman', 12)).grid(row=3, column=0, sticky='w')
         tk.Label(f, textvariable=self.sys_file_name, font=('Times New Roman', 15)) \
@@ -39,7 +42,6 @@ class Vorpy:
         tk.Button(f, text="Load System ", command=self.load_sys_button).grid(row=3, column=2, sticky='e')
 
         # Vertices file information
-        self.vert_file_address = None
         self.vert_file_name = tk.StringVar(self.vp_main, "None")
         tk.Label(f, text="Vertices: ", font=('Times New Roman', 12)).grid(row=4, column=0, sticky='w')
         tk.Label(f, textvariable=self.vert_file_name, font=('Times New Roman', 15)) \
@@ -47,7 +49,6 @@ class Vorpy:
         tk.Button(f, text="Load Vertices", command=self.add_vertices).grid(row=4, column=2, sticky='e')
 
         # Build system information
-        self.user_atoms_list = None
         self.user_atoms_str = tk.StringVar(self.vp_main, str(self.user_atoms_list))
         tk.Label(f, text="Enter atoms (e.g. [[x0, y0, z0], r0], [[x1, y1, z1], r1], ... , "
                          "[[xn, yn, zn], rn]): ").grid(row=5, column=0, columnspan=3, sticky='w')
@@ -58,20 +59,24 @@ class Vorpy:
         # Setting variables:
         # Settings header
         tk.Label(f, text='Settings', font=('Times New Roman bold', 20)).grid(row=7, column=0, columnspan=2, sticky='w')
+
         # System box size multiplier
-        self.sys_box_x_flt = 2
+        self.sys_box_x_flt = tk.DoubleVar(self.vp_main, 2)
         tk.Label(f, text="Container Size: ").grid(row=8, column=0, sticky='w')
-        tk.Scale(f, from_=0, to=5, orient=tk.HORIZONTAL, variable=self.sys_box_x_flt, resolution=.05).grid(row=8, column=1, sticky='ewn')
+        tk.Scale(f, from_=1, to=5, orient=tk.HORIZONTAL, variable=self.sys_box_x_flt, resolution=.05)\
+            .grid(row=8, column=1, sticky='ewn')
 
         # System resolution value
-        self.sys_res_flt = 0.1
+        self.sys_res_flt = tk.DoubleVar(self.vp_main, 0.1)
         tk.Label(f, text="Resolution: ").grid(row=9, column=0, sticky='w')
-        tk.Scale(f, from_=0, to=1, orient=tk.HORIZONTAL, variable=self.sys_res_flt, resolution=0.05).grid(row=9, column=1, sticky='ewn')
+        tk.Scale(f, from_=0, to=1, orient=tk.HORIZONTAL, variable=self.sys_res_flt, resolution=0.05)\
+            .grid(row=9, column=1, sticky='ewn')
 
         # Voronota system check
         self.vta = tk.BooleanVar(self.vp_main)
         tk.Checkbutton(f, text="Voronota System ", variable=self.vta, onvalue=True, offvalue=False)\
             .grid(row=8, column=2, sticky='w')
+
         # Parallelize check
         self.parallelize = tk.BooleanVar(self.vp_main)
         tk.Checkbutton(f, text="Parallelize ", variable=self.parallelize, onvalue=True, offvalue=False)\
@@ -81,11 +86,13 @@ class Vorpy:
         # Output variables
         # Output Header
         tk.Label(f, text="Outputs", font=("Times New Roman bold", 20)).grid(row=12, column=0, columnspan=2, sticky='w')
+
         # Output directory information
         self.output_dir_str = tk.StringVar(self.vp_main, os.getcwd()[:12] + ' ... ' + os.getcwd()[-12:])
         tk.Label(f, text="Output Directory: ").grid(row=13, column=0, sticky='w')
         tk.Label(f, textvariable=self.output_dir_str).grid(row=13, column=1, sticky='w')
         tk.Button(f, text="     Change    ", command=self.change_output_directory).grid(row=13, column=2, sticky='e')
+
         # Check boxes
         self.output_all = tk.BooleanVar(self.vp_main, True)
         tk.Checkbutton(f, text="All", variable=self.output_all, onvalue=True, offvalue=False)\
@@ -127,7 +134,6 @@ class Vorpy:
         # Set the file path
         if file_path:
             self.sys_file_address = file_path
-            self.sys = System(file_path)
         # Get the file name
         filename = ""
         i = -1
@@ -136,7 +142,7 @@ class Vorpy:
                 filename = filename + self.sys_file_address[i]
                 i -= 1
         else:
-            filename = "User_data    "
+            filename = "    atad_resU"
         # Set the file name
         self.sys_file_name.set(filename[::-1][:-4])
     
@@ -144,19 +150,28 @@ class Vorpy:
         self.sys_atom_list += list(self.user_atoms_str.get())
 
     def add_vertices(self):
-        if self.sys is None:
-            ErrorBox("Please select a system to add the vertices to")
         # File grabber pop up
         file_path = filedialog.askopenfilename()
-        self.sys.add_verts(file_path)
-        self.sys_verts_loaded = True
+        print(file_path)
+        self.vert_file_address = file_path
+        # Get the file name
+        filename = ""
+        i = -1
+        if len(self.sys_file_address) > 0:
+            while self.sys_file_address[i] != "/":
+                filename = filename + self.sys_file_address[i]
+                i -= 1
+        else:
+            filename = "    strev_atad_resU"
+        if file_path:
+            self.vert_file_name.set(filename[::-1][:-4] + "_verts")
 
     def change_output_directory(self):
         # File grabber pop up
         file_path = filedialog.askdirectory()
         # Create the System
         if file_path:
-            self.sys.output_directory = file_path
+            self.sys_output_directory = file_path
             self.output_dir_str.set(file_path[:12] + ' ... ' + file_path[-12:])
         else:
             ErrorBox("Directory not changed")
