@@ -236,9 +236,9 @@ def find_simps(surf):
     for i in range(len(surf.tris)):
         tri = surf.tris[i]
         rad = calc_tri_circ(surf, tri)
-        if rad > 10 * surf.min_dist:
+        if rad > 15 * surf.min_dist:
             remove_ndxs.append(surf.tris.index(tri))
-    # Remove the outer triangles
+    # Remove the outer trianglesM
     remove_ndxs.sort()
     for i in range(len(remove_ndxs)):
         surf.tris.pop(remove_ndxs[-(i + 1)])
