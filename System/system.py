@@ -34,7 +34,7 @@ class System:
                 get_mol(self)
         self.net = Network(self, self.atoms)
         self.mols = []
-        self.dir = ''
+        self.output_directory = None
 
     # Build System function. Takes in a list of coordinates and string atom names
     def build_sys(self, lr_input_list):
@@ -85,6 +85,15 @@ class System:
     def add_verts(self, file_address):
         add_verts(self, file_address)
 
+    def export_verts(self):
+        os.chdir(self.output_directory)
+        file = open(os.getcwd() + "/Vertices.txt", 'w')
+        for i in range(len(self.net.verts)):
+            vert = self.net.verts[i]
+            ndxs = [self.atoms.index(vert.atoms[i]) for i in range(4)]
+            file.write(str(vert.loc[0]) + " " + str(vert.loc[1]) + " " + str(vert.loc[2]) + " " + str(vert.rad)
+                       + " " + str(ndxs[0]) + " " + str(ndxs[1]) + " " + str(ndxs[2]) + " " + str(ndxs[3]) + '\n')
+
     # Export method. Takes in an export type: 'Atoms', 'surfs'
     def export(self, directory=None, export_all=False, export_sys=False, export_atoms=False, export_mols=False,
                export_surfs=False, export_analysis=False, export_sys_pdb=False):
@@ -99,7 +108,7 @@ class System:
             else:
                 myDir = os.getcwd() + "/User_Data"
                 os.mkdir(myDir)
-        self.dir = myDir
+        self.output_directory = myDir
         os.chdir(myDir)
         # Go through all the possible user inputs and choose the correct export function
         n = 0
