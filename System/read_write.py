@@ -20,17 +20,17 @@ def get_name(file):
 # Get pdb data method. Finds the lines of the file with prefixes and returns them as a list
 def get_pdb_data(sys, word):
     # Get the file information
-    sys.sys_file_address = open(sys.file_address).readlines()
+    sys.file = open(sys.file_address).readlines()
     sys.sys_file_name = get_name(sys.file_address)
     # Split each line in the file
-    for i in range(len(sys.sys_file_address)):
-        sys.sys_file_address[i] = sys.sys_file_address[i].split()
+    for i in range(len(sys.file)):
+        sys.file[i] = sys.file[i].split()
     # Special case for Atom lines
     if word.lower() == 'atom':
         atoms = []
     # Go through each line in the file and check if the first word is the word we are looking for
-        for i in range(len(sys.sys_file_address)):
-            line = sys.sys_file_address[i]
+        for i in range(len(sys.file)):
+            line = sys.file[i]
             if line and line[0].lower() == 'atom':  # Check if the line starts with atom
                 atom = Atom([float(line[-6]), float(line[-5]), float(line[-4])], get_radius(line[-1]),
                             symbol=line[-1], res=line[2], chain=line[3], res_seq=line[4])
@@ -39,10 +39,10 @@ def get_pdb_data(sys, word):
     # Standard case
     else:
         data = []
-        for i in range(len(sys.sys_file_address)):
-            if word == sys.sys_file_address[i][:len(word)]:  # check the first len(word) letters
+        for i in range(len(sys.file)):
+            if word == sys.file[i][:len(word)]:  # check the first len(word) letters
                 # Add the split test_data to our list and remove the word at the beginning of the list
-                data.append(sys.sys_file_address[i].split()[1:])
+                data.append(sys.file[i].split()[1:])
     return data
 
 
@@ -68,7 +68,7 @@ def create_pdb(sys, directory=None):
     # Create the output file
     file = open(sys.name + "_structure.pdb", 'w')
     # If the file exists, copy it over
-    if sys.sys_file_address is not None:
+    if sys.file is not None:
         for line in open(sys.file_address):
             file.write(str(line))
         return
@@ -168,7 +168,7 @@ def export_mySys(sys, n, max_num):
           '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
     os.chdir(sys.output_directory)
     # If the file is none create a pdb for the file
-    create_pdb(sys, sys.sys_file_address)
+    create_pdb(sys, sys.file_address)
     # Set the name of the file to be created if no name exists
     if sys.sys_file_name is None:
         sys.sys_file_name = "mySystem"
