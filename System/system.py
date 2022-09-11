@@ -3,7 +3,7 @@ from System.read_write import *
 
 class System:
     """Class used to import files of all types and return a System"""
-    def __init__(self, file=None):
+    def __init__(self, file=None, box_size=None):
         self.atoms = []  # List of Atom type objects
         # If no file is given, generate a random System
         if file is None:
@@ -32,9 +32,10 @@ class System:
                 get_gro(self)
             elif file[-3:] == "mol":
                 get_mol(self)
-        self.net = Network(self, self.atoms)
+        self.net = Network(self, self.atoms, box_size=box_size)
         self.mols = []
         self.output_directory = None
+        self.box_size = box_size
 
     # Build System function. Takes in a list of coordinates and string atom names
     def build_sys(self, lr_input_list):
@@ -95,7 +96,7 @@ class System:
                        + " " + str(ndxs[0]) + " " + str(ndxs[1]) + " " + str(ndxs[2]) + " " + str(ndxs[3]) + '\n')
 
     # Export method. Takes in an export type: 'Atoms', 'surfs'
-    def export(self, directory=None, export_all=False, export_sys=False, export_atoms=False, export_mols=False,
+    def export(self, directory=None, export_all=True, export_sys=False, export_atoms=False, export_mols=False,
                export_surfs=False, export_analysis=False, export_sys_pdb=False):
         # Change to the directory indicated or create a directory called User_Data
         if directory:
@@ -134,6 +135,5 @@ class System:
         if export_analysis or export_all:
             export_myAnalysis(self, n, max_num)
             n += 1
-
         print("\rExporting System:  ########## 100 %")
         print("\rSystem Exported")
