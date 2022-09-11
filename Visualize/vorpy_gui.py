@@ -3,7 +3,6 @@ import tkinter as tk
 from tkinter import filedialog
 from tkinter.messagebox import showinfo
 from tkinter.ttk import Progressbar
-from System.system import System
 
 
 class Vorpy:
@@ -152,12 +151,13 @@ class Vorpy:
     def add_vertices(self):
         # File grabber pop up
         file_path = filedialog.askopenfilename()
-        print(file_path)
+        if file_path is None:
+            return
         self.vert_file_address = file_path
         # Get the file name
         filename = ""
         i = -1
-        if len(self.sys_file_address) > 0:
+        if self.sys_file_address and len(self.sys_file_address) > 0:
             while self.sys_file_address[i] != "/":
                 filename = filename + self.sys_file_address[i]
                 i -= 1
@@ -165,6 +165,8 @@ class Vorpy:
             filename = "    strev_atad_resU"
         if file_path:
             self.vert_file_name.set(filename[::-1][:-4] + "_verts")
+        else:
+            self.vert_file_address = None
 
     def change_output_directory(self):
         # File grabber pop up
@@ -178,7 +180,7 @@ class Vorpy:
 
     # Build network button function.
     def build_network_button(self):
-        self.vp_main.quit()
+        self.vp_main.destroy()
 
 
 class ErrorBox:
@@ -238,6 +240,4 @@ class LoadingBox:
     def stop(self):
         self.pb.stop()
         self.value_label['text'] = self.update_progress_label()
-
-
 
