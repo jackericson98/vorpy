@@ -12,6 +12,7 @@ class Vertex:
         if net is not None:
             self.net = net
             self.ndx = [net.atoms.index(atom) for atom in self.atoms]
+            self.ndx.sort()
         if self.loc is None:
             self.calc_vert()
 
