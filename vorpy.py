@@ -10,12 +10,12 @@ if __name__ == '__main__':
     myVorpy = Vorpy()
     # Create the System
     if myVorpy.sys_file_address is not None:
-        mySys = System(myVorpy.sys_file_address)
+        mySys = System(myVorpy.sys_file_address, box_size=myVorpy.sys_box_x_flt.get())
         mySys.name = myVorpy.sys_file_name.get()
         if myVorpy.vert_file_address is not None:
             mySys.add_verts(myVorpy.vert_file_address)
     elif len(myVorpy.sys_atom_list) > 0:
-        mySys = System(myVorpy.sys_atom_list)
+        mySys = System(myVorpy.sys_atom_list, box_size=myVorpy.sys_box_x_flt.get())
         mySys.name = "User_Data"
     else:
         ErrorBox("Please select a file or enter atoms")
