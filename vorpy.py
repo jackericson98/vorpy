@@ -6,6 +6,7 @@ from System.system import System
 
 
 if __name__ == '__main__':
+    os.chdir("..")
     # Launch the gui
     myVorpy = Vorpy()
     # Create the System
