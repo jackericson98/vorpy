@@ -18,6 +18,7 @@ class Edge:
         self.points = []  # List of points on the edge. These points do not include the vertex points
         if calc_points:  # Build the edge if calc_points is true
             self.build()
+        self.touches_box = False
 
     # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
     def build(self, min_dist=0.1):
@@ -116,6 +117,7 @@ class Edge:
             # Check that the point is in the box
             for i in range(3):
                 if point[i] < self.net.box[0][i] or point[i] > self.net.box[1][i]:
+                    self.touches_box = True
                     return
 
             return point
