@@ -6,13 +6,11 @@ os.chdir("../..")
 
 
 # Files
-m_file = "./Data/test_data/Na5.pdb"
+m_file = os.getcwd() + "./Data/test_data/Na5.pdb"
 
 # Get the System
 sys = System(m_file, box_size=3)
-sys.net.build(.5, surfs=True)
-# print(len(sys.net.verts))
-sys.name = "Na5_Test"
+sys.net.build()
 
 # Plot the System
 fig = plt.figure()
