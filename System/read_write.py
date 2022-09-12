@@ -160,51 +160,62 @@ def add_vta_data(sys, ball_file, vert_file):
         sys.net.verts.append(myVert)
 
 
+# Write surfaces function. Writes files given a list of surfaces
+def write_surfs(surfs, file_name, directory=None):
+    # Get the current directory to be able to change back to later
+    myDir = os.getcwd()
+    # Change to the directory indicated
+    if directory:
+        os.chdir(directory)
+    file = open(file_name + ".off", 'w')
+    vert_count = 0
+    # Go through the surfaces and add the points
+    for i in range(len(surfs)):
+        # Go through the points on the surface
+        for point in surfs[i].points:
+            # Add the point to the system file and the surface's file (rounded to 4 decimal points)
+            str_point = [str(round(point[_], 4)) for _ in range(3)]
+            file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
+            vert_count += 1
+    num_verts, tri_count = 0, 0
+    # Go through each surface and add the faces
+    for i in range(len(surfs)):
+        for tri in surfs[i].tris:
+            # Add the triangle to the system file and the surface's file
+            str_tri = [str(tri[_] + num_verts) for _ in range(3)]
+            file.write("3 " + str_tri[0] + " " + str_tri[1] + " " + str_tri[2] + " 1 0 0\n")
+            tri_count += 1
+        # Keep counting triangles for the system file
+        num_verts += len(surfs[i].points)
+    # Sneaky way to add to the top of the file
+    with open(file_name + ".off", 'r+') as f:
+        content = f.read()
+        f.seek(0, 0)
+        line = "OFF\n" + str(vert_count) + " " + str(tri_count) + " 0\n\n\n"
+        f.write(line.rstrip('\r\n') + '\n\n\n' + content)
+    # Change back to the original directory
+    os.chdir(myDir)
+
+
 # Export my system function. Used to create and export the surfaces of a system as one file
 def export_mySys(sys, n, max_num):
     # Get the percentage and update the print statement
     percentage = int((n + 1) / max_num * 100)
     print("\rExporting System: ",
           '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
-    os.chdir(sys.output_directory)
     # If the file is none create a pdb for the file
     create_pdb(sys, sys.file_address)
     # Set the name of the file to be created if no name exists
-    if sys.sys_file_name is None:
-        sys.sys_file_name = "mySystem"
-    # Set the counters to 0
-    tot_verts, tot_tris = 0, 0
-    # Get the total number of vertices and tris
-    for surf in sys.net.surfs:
-        tot_verts += len(surf.points)
-        tot_tris += len(surf.tris)
-    # System file
-    sys_file = open(sys.sys_file_name + "_System.off", 'w')
-    sys_file.write("OFF\n" + str(tot_verts) + " " + str(tot_tris) + " 0\n\n\n")
-    # Go through the surfaces and add the points
-    for i in range(len(sys.net.surfs)):
-        # Go through the points on the surface
-        for point in sys.net.surfs[i].points:
-            # Add the point to the system file and the surface's file (rounded to 4 decimal points)
-            str_point = [str(round(point[_], 4)) for _ in range(3)]
-            sys_file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
-    num_verts = 0
-    # Go through each surface and add the faces
-    for i in range(len(sys.net.surfs)):
-        for tri in sys.net.surfs[i].tris:
-            # Add the triangle to the system file and the surface's file
-            str_tri = [str(tri[_] + num_verts) for _ in range(3)]
-            sys_file.write("3 " + str_tri[0] + " " + str_tri[1] + " " + str_tri[2] + " 1 0 0\n")
-        # Keep counting triangles for the system file
-        num_verts += len(sys.net.surfs[i].points)
-    os.chdir('..')
+    if sys.file_name is None:
+        sys.file_name = "mySystem"
+    # Write the surfaces
+    write_surfs(sys.net.surfs, sys.file_name + "system", sys.output_directory)
 
 
-# Export my surfaces function. Used to create and export the surfaces of a system as seperate files
+# Export my surfaces function. Used to create and export the surfaces of a system as separate files
 def export_mySurfs(sys, n, max_num):
     # Surfaces Folder
     os.mkdir(sys.output_directory + "/Surfaces")
-    os.chdir(sys.output_directory + "/Surfaces")
     # Go through each surface and create a file for each adding the vertex points
     surf_ndxs = []
     for i in range(len(sys.net.surfs)):
@@ -214,67 +225,21 @@ def export_mySurfs(sys, n, max_num):
         # Find the relative surface index and add it to the list
         surf_ndxs.append(str(sys.atoms.index(sys.net.surfs[i].atoms[0]) + 1) + "_" +
                          str(sys.atoms.index(sys.net.surfs[i].atoms[1]) + 1))
-        # Name the file with the surface's index
-        file = open(str("surf_" + surf_ndxs[i] + ".off"), 'w')
-        # Start the file with "OFF", the number of points for the surface and the number of triangles
-        file.write("OFF\n" +
-                   str(len(sys.net.surfs[i].points)) + " " + str(len(sys.net.surfs[i].tris)) + " 0\n\n\n")
-        # Go through the points on the surface
-        for point in sys.net.surfs[i].points:
-            # Add the point to the system file and the surface's file (rounded to 4 decimal points)
-            str_point = [str(round(point[_], 4)) for _ in range(3)]
-            file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
-    num_verts = 0
-    # Go through each surface opening the previously created file and add the faces
-    for i in range(len(sys.net.surfs)):
-        percentage = int((n + len(sys.net.surfs) + (i + 1) / 2) / max_num * 100)
-        print("\rExporting System: ",
-              '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
-        file = open(str("surf_" + surf_ndxs[i] + ".off"), 'a')
-        for tri in sys.net.surfs[i].tris:
-            # Add the triangle to the system file and the surface's file
-            file.write("3 " + str(tri[0]) + " " + str(tri[1]) + " " + str(tri[2]) + " 1 0 0\n")
-        # Keep counting triangles for the system file
-        num_verts += len(sys.net.surfs[i].points)
-    os.chdir("..")
+        # Write the surface
+        write_surfs([sys.net.surfs[i]], "surf_" + surf_ndxs[i], sys.output_directory + "/Surfaces")
 
 
 # Export my atoms function. Used to create and export the surfaces surrounding each atom of a system as separate files
 def export_myAtoms(sys, n, max_num):
     # Atoms Folder
     os.mkdir(sys.output_directory + "/Atoms")
-    os.chdir(sys.output_directory + "/Atoms")
     # Add the vertices and triangles for each surface of each atom
     for i in range(len(sys.atoms)):
         percentage = int((n + (i + 1) / 2) / max_num * 100)
         print("\rExporting System: ",
               '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
-        # Create a file for each atom
-        atom_file = open(str("atom_" + str(i + 1) + "_cell.off"), 'w')
-        # Calculate the number of points and triangles
-        tot_verts, tot_tris = 0, 0
-        for surf in sys.atoms[i].surfs:
-            tot_verts += len(surf.points)
-            tot_tris += len(surf.tris)
-        # Create the off header
-        atom_file.write("OFF\n" + str(tot_verts) + " " + str(tot_tris) + " 0\n\n\n")
-        # Go through each surface of the atom and add the vertices
-        for j in range(len(sys.atoms[i].surfs)):
-            for point in sys.atoms[i].surfs[j].points:
-                str_point = [str(round(point[_], 4)) for _ in range(3)]
-                atom_file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
-        num_verts = 0
-        # Go through each surface opening the previously created file and add the faces
-        for j in range(len(sys.atoms[i].surfs)):
-            percentage = int((n + len(sys.atoms) + (i + 1) / 2) / max_num * 100)
-            print("\rExporting System: ",
-                  '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
-            atom_file = open(str("atom_" + str(i + 1) + "_cell.off"), 'a')
-            for tri in sys.atoms[i].surfs[j].tris:
-                atom_file.write("3 " + str(tri[0] + num_verts) + " " + str(tri[1] + num_verts) + " " +
-                                str(tri[2] + num_verts) + " 1 0 0\n")
-            num_verts += len(sys.atoms[i].surfs[j].points)
-    os.chdir('..')
+        # Write the surfaces
+        write_surfs(sys.atoms[i].surfs, "atom_" + str(i + 1) + "_cell", sys.output_directory + "/Atoms")
 
 
 # Export my mols function. Used to create and export the surfaces the interfaces between molecules of the system  and
@@ -282,7 +247,6 @@ def export_myAtoms(sys, n, max_num):
 def export_myMols(sys, n, max_num):
     # Create the molecules folder
     os.mkdir(sys.output_directory + '/Molecules')
-    os.chdir(sys.output_directory + '/Molecules')
     chains = []
     chain_lists = []
     # Create the chains
@@ -301,63 +265,25 @@ def export_myMols(sys, n, max_num):
         percentage = int((n + (i + 1)) / max_num * 100)
         print("\rExporting System: ",
               '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
-        # Move to the directory of the chain
-        os.chdir(sys.output_directory + '/Molecules/' + chains[i])
+        chain_file_names = []
         # Go through the other chains and create a file for their interfaces
         for j in range(len(chains)):
             if chains[j] == chains[i]:
                 continue
-            open(chains[i] + '_' + chains[j] + '_interface.off', 'w')
-        # Set up a running variable for the number of vertices that will need to be recorded at the top of the file
-        vert_counts = [0 for _ in range(len(chains))]
-        # Find the file
+            chain_file_names.append(chains[i] + '_' + chains[j] + '_interface')
+        chain_surfs = [[] for _ in range(len(chain_file_names))]
+        # Find the file that each surf belongs to
         for surf in sys.net.surfs:
             if surf.atoms[0].chain == chains[i] != surf.atoms[1].chain:
-                file = open(chains[i] + '_' + surf.atoms[1].chain + '_interface.off', 'a')
-                chain2 = surf.atoms[1].chain
+                chain_surfs[chain_file_names.index(chains[i] + '_' + surf.atoms[1].chain + '_interface')].append(surf)
             elif surf.atoms[1].chain == chains[i] != surf.atoms[0].chain:
-                chain2 = surf.atoms[0].chain
-                file = open(chains[i] + '_' + surf.atoms[0].chain + '_interface.off', 'a')
+                chain_surfs[chain_file_names.index(chains[i] + '_' + surf.atoms[0].chain + '_interface')].append(surf)
             else:
                 continue
-            # Go through the points on the surface
-            for point in surf.points:
-                # Add the point to the system file and the surface's file (rounded to 4 decimal points)
-                str_point = [str(round(point[_], 4)) for _ in range(3)]
-                file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
-                # Add 1 to the vert counter
-                vert_counts[chains.index(chain2)] += 1
-            # Go through each surface opening the previously created file and add the faces
-        num_verts = 0
-        tri_counts = [0 for _ in range(len(chains))]
-        for surf in sys.net.surfs:
-            if surf.atoms[0].chain == chains[i] != surf.atoms[1].chain:
-                chain2 = surf.atoms[1].chain
-                file = open(chains[i] + '_' + surf.atoms[1].chain + '_interface.off', 'a')
-            elif surf.atoms[1].chain == chains[i] != surf.atoms[0].chain:
-                chain2 = surf.atoms[0].chain
-                file = open(chains[i] + '_' + surf.atoms[0].chain + '_interface.off', 'a')
-            else:
-                continue
-            for tri in surf.tris:
-                # Add the triangle to the system file and the surface's file
-                str_tri = [str(tri[_] + num_verts) for _ in range(3)]
-                file.write("3 " + str_tri[0] + " " + str_tri[1] + " " + str_tri[2] + " 1 0 0\n")
-                # Add 1 to the tri counter
-                tri_counts[chains.index(chain2)] += 1
-            # Keep counting triangles for the system file
-            num_verts += len(surf.points)
-        for j in range(len(chains)):
-            if chains[i] == chains[j]:
-                continue
-            # Sneaky way to add to the top of the file
-            with open(chains[i] + '_' + chains[j] + '_interface.off', 'r+') as f:
-                content = f.read()
-                f.seek(0, 0)
-                line = "OFF\n" + str(vert_counts[j]) + " " + str(tri_counts[j]) + " 0\n\n\n"
-                f.write(line.rstrip('\r\n') + '\n\n\n' + content)
-        os.chdir("..")
-    os.chdir('..')
+        # Make a file for each of the interfaces
+        for j in range(len(chain_surfs)):
+            write_surfs(chain_surfs[j], chain_file_names[j],
+                        directory=sys.output_directory + "/Molecules/" + chains[i])
 
 
 def export_myAnalysis(sys, n, max_num):
