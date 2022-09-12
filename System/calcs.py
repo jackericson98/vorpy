@@ -1,4 +1,5 @@
 import numpy as np
+import os
 
 
 # Calculate distance function. Takes in 2 points and returns the distance between them
@@ -65,7 +66,7 @@ def calc_vol(atom):
 # Calculate center of mass function. Takes in a set of points and returns the coordinates of the com
 def calc_com(atoms=None, points=None):
     if atoms:
-        points = [atoms[i].loc for i in range(atoms)]
+        points = [atoms[i].loc for i in range(len(atoms))]
     # Set the running sum for the x, y, z values to 0
     tots = [0 for _ in range(len(points[0]))]
     for point in points:
@@ -235,7 +236,7 @@ def check_vert(v_atoms, vert_list):
     # Go through each edge in the edge list
     for vert in vert_list:
         # Check if the given atoms correspond to the atoms in the edge
-        if v_atoms.issubset(vert.atoms):
+        if set(v_atoms).issubset(vert.atoms):
             # Return the edge
             return vert
     return

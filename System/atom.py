@@ -21,7 +21,7 @@ class Atom:
 # Get radius Method. Goes through the bondi_radius file from voronota and gives a radius to the given atom name
 def get_radius(radius, return_symbol=False):
     # Get the classifier document
-    radii = open("./Data/bondi_classifier.txt").readlines()
+    radii = open(os.getcwd() + "/Data/bondi_classifier.txt").readlines()
     atom_type = ""
     min_diff = np.inf
     # Go through each line in the classifier document to find the radius or symbol for the atom
