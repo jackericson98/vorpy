@@ -111,7 +111,6 @@ class Network:
         for i in range(len(self.verts)):
             #
             self.verts[i].ndx.sort()
-            print(self.verts[i].ndx, vert_ndxs)
             if self.verts[i].ndx not in vert_ndxs:
                 vert_ndxs.append(self.verts[i].ndx)
                 verts.append(self.verts[i])
