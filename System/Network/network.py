@@ -5,18 +5,21 @@ from System.Network.find_vertices import *
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
+
     def __init__(self, sys, atoms, min_dist=0.1, box_size=1.5):
         self.sub_boxes = None
         self.sub_box_size = []
+        self.box = None
+        self.box_size = box_size
+        self.atoms_range = []
         self.sys = sys
         self.min_dist = min_dist
         self.atoms = atoms  # List of Atom type objects
         self.verts = []  # List of Vertex type objects
         self.surfs = []  # List of Surface type objects
         self.edges = []  # List of Edge type objects
+        self.vert_ndxs = []
         self.vta = False
-        self.box = None
-        self.box_size = box_size
 
     # Calculate box function. Takes in a System and returns the dimensions of a box x times the size of the atoms
     def calc_box(self):
@@ -39,17 +42,16 @@ class Network:
         for i in range(3):
             if r_box[i] == 0 or abs(r_box[i]) == np.inf:
                 r_box[i] = 40 * self.atoms[0].rad
-            else:
-                r_box[i] = max(40 * self.atoms[0].rad, r_box[i])
+        self.atoms_range = [min_vert, max_vert]
         # Set the new vertices to the x factor times the vector between them added to their complimentary vertices
-        min_vert, max_vert = min_vert - r_box * self.box_size, max_vert + r_box * self.box_size
+        min_vert, max_vert = max_vert - r_box * self.box_size, min_vert + r_box * self.box_size
         # Return the list of array turned list vertices
-        return [min_vert.tolist(), max_vert.tolist()]
+        self.box = [min_vert.tolist(), max_vert.tolist()]
 
     # Sort atoms method. Puts the atoms in the network in their respective grid sections
-    def sort_atoms(self, num_boxes=15625):
+    def sort_atoms(self, num_boxes=8000):
         # First get the box for the
-        self.box = self.calc_box()
+        self.calc_box()
         # Number of cells per row/column/aisle
         n = int(np.cbrt(num_boxes))
         # Divide the box into sub_boxes
@@ -109,6 +111,7 @@ class Network:
         for i in range(len(self.verts)):
             #
             self.verts[i].ndx.sort()
+            print(self.verts[i].ndx, vert_ndxs)
             if self.verts[i].ndx not in vert_ndxs:
                 vert_ndxs.append(self.verts[i].ndx)
                 verts.append(self.verts[i])
@@ -130,7 +133,6 @@ class Network:
                 # Find the possible verts (the original vert and the new vert)
                 for vert2 in self.verts:
                     if atoms.issubset(vert2.atoms):
-
                         verts.append(vert2)
                 # If the number of valid vertices for the edge is 1
                 if len(verts) == 1:
@@ -143,9 +145,11 @@ class Network:
         # Create the surfaces
         self.surfs = []
         for edge1 in self.edges:
+            if edge1.touches_box:
+                continue
             # Go through the edge's atoms combinations
             for i in range(3):
-                atoms = {edge1.atoms[i], edge1.atoms[(i+1) % 3]}
+                atoms = {edge1.atoms[i], edge1.atoms[(i + 1) % 3]}
                 # If the surface has been found before continue
                 if check_surf(atoms, self.surfs):
                     continue
@@ -234,7 +238,6 @@ class Network:
                     v0 = find_v0(self, self.atoms[i])
                     if v0 is not None:
                         find_vertices(self, v0, i=i)
-
         print("\rBuilding Network:   ########## 100 %")
         print("\rNetwork Built")
 
@@ -251,7 +254,7 @@ class Network:
                 # Calculate and print the running percentage for mesh calculations
                 percentage = int((i + 1) / num_surfs * 100)
                 print("\rBuilding Surfaces: ",
-                      '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage,  "%", end='')
+                      '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
                 # If the network is a voronota network, use build_vta method
                 if self.vta:
                     self.surfs[i].build_vta()
