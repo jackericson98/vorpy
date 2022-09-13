@@ -1,5 +1,6 @@
 from System.calcs import *
 import matplotlib.tri as mtri
+from Visualize.visualize import *
 
 
 # Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
@@ -155,8 +156,6 @@ def make_mesh(surf, min_dist=0.5):
     # Add the remaining paths to the surface excluding the first point in the path (i.e. the edge point)
     for path in paths:
         surf.points += path[1:]
-    # Add the center of mass point to the mesh
-    # self.points.append(com)
 
 
 # Triangle within the surface function. Checks to see if a triangle lies within the perimeter of a surface
@@ -165,8 +164,12 @@ def tri_within(surf, myTri):
     perimeter = surf.flat_points[:len(surf.perimeter)]
     # Copy the triangle, retrieve its points and calculate the center of mass
     tri = myTri.copy()
+    # Get the triangles points
     points = [surf.flat_points[tri[i]] for i in range(len(tri))]
+    # Calculate the triangle's center of mass
     tri_com = calc_com(points=points)
+    proj_vec = [1.124127831293, 1.3664655885]
+    proj_point = np.array(tri_com) + np.array(proj_vec)
     # Reset the number of intersections
     xings = 0
     # Go through each line segments around the perimeter
@@ -174,19 +177,14 @@ def tri_within(surf, myTri):
         # Get the line segment's points
         p1 = perimeter[i]
         p2 = perimeter[(i + 1) % len(perimeter)]
-        # Get the relevant vectors
-        v1 = [tri_com[0] - p1[0], tri_com[1] - p1[1]]
-        v2 = [p2[0] - p1[0], p2[1] - p1[1]]
-        v3 = [1, 0]
-        dot = np.dot(v2, v3)
-        # Catch for if the vector is parallel to the segment
-        if abs(dot) <= 0.00001:
-            return
-        # Find the values of t1 and t2
-        t1 = np.cross(v2, v1) / dot
-        t2 = np.dot(v1, v3) / dot
+        # Get the angles
+        theta = calc_angle(tri_com, p1, p2)
+        theta_n = calc_angle(tri_com, p1, proj_point)
+        theta_n1 = calc_angle(tri_com, p2, proj_point)
         # If we have a crossing
-        if t1 >= 0.0 and 0.0 <= t2 <= 1.0:
+        if theta_n == theta or theta_n1 == theta:
+            xings += 0.5
+        elif theta_n < theta and theta_n1 < theta:
             xings += 1
     # If we have an even number of intersections
     if xings % 2 == 0:
@@ -234,11 +232,13 @@ def find_simps(surf):
     remove_ndxs = []
     # Go through the triangles that have been created
     for i in range(len(surf.tris)):
+        # Grab the triangle
         tri = surf.tris[i]
-        rad = calc_tri_circ(surf, tri)
-        if rad > 15 * surf.min_dist:
+        circ = calc_tri_circ(surf, tri)
+        # If the circumference of the triangle is less than x times the minimum distance check to see if tri is within
+        if circ > 5 * surf.net.min_dist and not tri_within(surf, tri):
             remove_ndxs.append(surf.tris.index(tri))
-    # Remove the outer trianglesM
+    # Remove the outer triangles
     remove_ndxs.sort()
     for i in range(len(remove_ndxs)):
         surf.tris.pop(remove_ndxs[-(i + 1)])
