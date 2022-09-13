@@ -104,20 +104,25 @@ class Network:
 
     # Filter vertices function. Filters out any repeat vertices
     def filter_verts(self):
+        # Re-sort the atoms
+        self.sort_atoms()
         # Set up a list of vertex ndxs and vertices
         vert_ndxs = []
         verts = []
         # Go through the vertices
         for i in range(len(self.verts)):
-            #
+            # Sort the indices of the vertices
             self.verts[i].ndx.sort()
+            vert_inside = all([self.box[0][j] < self.verts[i].loc[j] < self.box[1][j] for j in range(3)])
             if self.verts[i].ndx not in vert_ndxs:
                 vert_ndxs.append(self.verts[i].ndx)
                 verts.append(self.verts[i])
+        # Set the networks vertices
         self.verts = verts
 
     # Connect network method.
     def connect(self):
+        # Filter the vertices
         self.filter_verts()
         # Create the edges
         for vert1 in self.verts:
