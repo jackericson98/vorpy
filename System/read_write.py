@@ -32,7 +32,10 @@ def get_pdb_data(sys, word):
         for i in range(len(sys.file)):
             line = sys.file[i]
             if line and line[0].lower() == 'atom':  # Check if the line starts with atom
-                atom = Atom([float(line[-6]), float(line[-5]), float(line[-4])], get_radius(line[-1]),
+                j = 0
+                if line[-2] == '1.00100.00':
+                    j = 1
+                atom = Atom([float(line[-6 + j]), float(line[-5 + j]), float(line[-4 + j])], get_radius(line[-1]),
                             symbol=line[-1], res=line[2], chain=line[3], res_seq=line[4])
                 atoms.append(atom)
         return atoms
@@ -95,19 +98,22 @@ def create_pdb(sys, directory=None):
 
 # Get cif function. Finds the data in a cif file
 def get_cif(sys):
-    sys.sys_file_address = open(sys.file_address).readlines()
-    num = int(sys.sys_file_address[0][4:])
-    for i in range(len(sys.sys_file_address)):
-        sys.sys_file_address[i] = sys.sys_file_address[i].split()
-
-        if sys.sys_file_address[i] == int(num) and len(sys.sys_file_address[i]) >= 7:
-            sys.atoms.append(Atom([sys.sys_file_address[i][9], sys.sys_file_address[i][10], sys.sys_file_address[i][11]], get_radius(sys.sys_file_address[i][3]),
-                                  symbol=sys.sys_file_address[i][3]))
+    # Get the system file
+    sys.file = open(sys.file_address).readlines()
+    num = int(sys.file[0][4:])
+    # Go through each line of the file
+    for i in range(len(sys.file)):
+        # Split the line
+        sys.file[i] = sys.file[i].split()
+        # Add the atoms
+        if sys.file[i] == int(num) and len(sys.file[i]) >= 7:
+            sys.atoms.append(Atom([sys.file[i][9], sys.file[i][10], sys.file[i][11]], get_radius(sys.file[i][3]),
+                                  symbol=sys.file[i][3]))
 
 
 # Get gro method. Finds data in a gro file
 def get_gro(sys):
-    sys.sys_file_address = open(sys.file_address).readlines()
+    sys.file = open(sys.file_address).readlines()
     sys.info['header'] = sys.sys_file_address[0]
     # Go through each line in the file and create an atom object
     for line in sys.sys_file_address[2:-2]:
@@ -116,7 +122,7 @@ def get_gro(sys):
 
 # Get mol method. Finds data in a mol file
 def get_mol(sys):
-    sys.sys_file_address = open(sys.file_address).readlines()
+    sys.file = open(sys.file_address).readlines()
     for line in sys.sys_file_address:
         if len(line) > 6:
             sys.atoms.append(Atom([line[0], line[1], line[2]], sys.get_radius(line[3]), symbol=line[3]))
