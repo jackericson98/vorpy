@@ -3,7 +3,7 @@ from System.read_write import *
 
 class System:
     """Class used to import files of all types and return a System"""
-    def __init__(self, file=None, box_size=None):
+    def __init__(self, file=None, box_size=1.5, min_dist=0.1):
         self.atoms = []  # List of Atom type objects
         # If no file is given, generate a random System
         if file is None:
@@ -12,10 +12,11 @@ class System:
         if type(file) == list:
             self.build_sys(file)
             self.name = None
+            self.file_address = os.getcwd()
         else:
             self.name = get_name(file)
+            self.file_address = file
         # Grab the file
-        self.file_address = file
         self.file_name = None
         self.file = None
         self.bonds = None
@@ -32,10 +33,11 @@ class System:
                 get_gro(self)
             elif file[-3:] == "mol":
                 get_mol(self)
-        self.net = Network(self, self.atoms, box_size=box_size)
+        self.net = Network(self, self.atoms, box_size=box_size, min_dist=min_dist)
         self.mols = []
         self.output_directory = None
         self.box_size = box_size
+        self.min_dist = min_dist
 
     # Build System function. Takes in a list of coordinates and string atom names
     def build_sys(self, lr_input_list):
@@ -47,8 +49,8 @@ class System:
             for line in lr_input_list:
                 # If the radius is a string, convert the radius using the get_radius method
                 if type(line[1]) == str:
-                    self.atoms.append(Atom([line[0][0], line[0][1], line[0][2]], get_radius(self, line[1]),
-                                      symbol=line[1], chain="None"))
+                    self.atoms.append(Atom([float(line[0][0]), float(line[0][1]), float(line[0][2])],
+                                           get_radius(self, line[1]), symbol=line[1], chain="None"))
                 else:
                     self.atoms.append(Atom([line[0][0], line[0][1], line[0][2]], line[1],
                                            symbol=get_radius(line[1], return_symbol=True), chain="None"))
