@@ -166,6 +166,31 @@ def add_vta_data(sys, ball_file, vert_file):
         sys.net.verts.append(myVert)
 
 
+# Set output directory function. prevents the system from making duplicate output directories
+def set_output_dir(sys, dir_name=None):
+    # If no outer directory was specified use the directory outside the current one
+    if dir_name is None:
+        dir_name = os.getcwd() + "/" + sys.name
+    # Catch for existing directories. Keep trying out directories until one doesn't exist
+    i = 0
+    while True:
+        # Try creating the directory with the system name + the current i_string
+        try:
+            # Create a string variable for the incrementing variable
+            i_str = str(i)
+            # If no file with the system name exists change the string to empty
+            if i == 0:
+                i_str = ""
+            # Try to create the directory
+            os.mkdir(dir_name + i_str)
+            break
+        # If the file exists increment the counter and try creating the directory again
+        except FileExistsError:
+            i += 1
+    # Set the output directory for the system
+    sys.output_directory = dir_name + i_str
+
+
 # Write surfaces function. Writes files given a list of surfaces
 def write_surfs(surfs, file_name, directory=None):
     # Get the current directory to be able to change back to later
@@ -174,7 +199,13 @@ def write_surfs(surfs, file_name, directory=None):
     if directory:
         os.chdir(directory)
     file = open(file_name + ".off", 'w')
-    vert_count = 0
+    # Count the number of triangles and vertices there are
+    num_verts, num_tris = 0, 0
+    for i in range(len(surfs)):
+        num_verts += len(surfs[i].points)
+        num_tris += len(surfs[i].tris)
+    # Write the numbers into the file
+    file.write("OFF\n" + str(num_verts) + " " + str(num_tris) + " 0\n\n\n")
     # Go through the surfaces and add the points
     for i in range(len(surfs)):
         # Go through the points on the surface
@@ -182,7 +213,6 @@ def write_surfs(surfs, file_name, directory=None):
             # Add the point to the system file and the surface's file (rounded to 4 decimal points)
             str_point = [str(round(point[_], 4)) for _ in range(3)]
             file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
-            vert_count += 1
     num_verts, tri_count = 0, 0
     # Go through each surface and add the faces
     for i in range(len(surfs)):
@@ -190,17 +220,26 @@ def write_surfs(surfs, file_name, directory=None):
             # Add the triangle to the system file and the surface's file
             str_tri = [str(tri[_] + num_verts) for _ in range(3)]
             file.write("3 " + str_tri[0] + " " + str_tri[1] + " " + str_tri[2] + " 1 0 0\n")
-            tri_count += 1
         # Keep counting triangles for the system file
         num_verts += len(surfs[i].points)
-    # Sneaky way to add to the top of the file
-    with open(file_name + ".off", 'r+') as f:
-        content = f.read()
-        f.seek(0, 0)
-        line = "OFF\n" + str(vert_count) + " " + str(tri_count) + " 0\n\n\n"
-        f.write(line.rstrip('\r\n') + '\n\n\n' + content)
     # Change back to the original directory
     os.chdir(myDir)
+
+
+# Export vertices function. Creates a vertex file for future reference
+def export_myVerts(sys):
+    # Change to the output directory
+    os.chdir(sys.output_directory)
+    # Create the vertices file
+    file = open(os.getcwd() + "/" + sys.name + "Vertices.txt", 'w')
+    # Go through the vertices in the system
+    for i in range(len(sys.net.verts)):
+        # Get the vertex and the vertexes' atoms' indices
+        vert = sys.net.verts[i]
+        ndxs = [sys.atoms.index(vert.atoms[i]) for i in range(4)]
+        # Write the vertex into the file (x y z r a0 a1 a2 a3 a4)
+        file.write(str(vert.loc[0]) + " " + str(vert.loc[1]) + " " + str(vert.loc[2]) + " " + str(vert.rad)
+                   + " " + str(ndxs[0]) + " " + str(ndxs[1]) + " " + str(ndxs[2]) + " " + str(ndxs[3]) + '\n')
 
 
 # Export my system function. Used to create and export the surfaces of a system as one file
@@ -212,10 +251,10 @@ def export_mySys(sys, n, max_num):
     # If the file is none create a pdb for the file
     create_pdb(sys, sys.file_address)
     # Set the name of the file to be created if no name exists
-    if sys.file_name is None:
-        sys.file_name = "mySystem"
+    if sys.name is None:
+        sys.name = "mySystem"
     # Write the surfaces
-    write_surfs(sys.net.surfs, sys.file_name + "system", sys.output_directory)
+    write_surfs(sys.net.surfs, sys.name + "_system", sys.output_directory)
 
 
 # Export my surfaces function. Used to create and export the surfaces of a system as separate files
@@ -292,16 +331,20 @@ def export_myMols(sys, n, max_num):
                         directory=sys.output_directory + "/Molecules/" + chains[i])
 
 
+# Export analysis function. Creates an analysis file for the user.
 def export_myAnalysis(sys, n, max_num):
+    # Get the running export counter
     percentage = int((n + 1) / max_num * 100)
     print("\rExporting System: ",
           '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
+    # Change to the output directory
     os.chdir(sys.output_directory)
     # Create the Atoms Folder
     atom_info = open("atom_info.txt", 'w')
     # Add the vertices and triangles for each surface of each atom
     for i in range(len(sys.atoms)):
-        atom_info.write("Atom " + str(i + 1) + "\n")
+        # Write the header for each atom
+        atom_info.write("Atom " + str(i) + ": Chain - " + sys.atoms[i].chain + "\n")
         atom_info.write(" Cell Volume = {}\n".format(sys.atoms[i].vol))
         atom_info.write(" Surfaces:\n")
         for j in range(len(sys.atoms[i].surfs)):
@@ -312,4 +355,3 @@ def export_myAnalysis(sys, n, max_num):
             atom_info.write("  Surface " + str(j + 1) + ", Made with Atom " + str(sys.atoms.index(a1) + 1) +
                             ", Surface Area = " + str(sys.atoms[i].surfs[j].sa) + "\n")
         atom_info.write("\n")
-    os.chdir("..")
