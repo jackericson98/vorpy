@@ -76,7 +76,7 @@ def make_mesh(surf, min_dist=0.5):
     surf.points, surf.vert_ndxs = [], [0]
     # Go through each edge in the surface's list of edges and build it
     for edge in surf.edges:
-        edge.build(min_dist=min_dist)
+        edge.build()
     # Add the first edge's vertex location and set of points to the perimeter points list
     surf.perimeter = [surf.edges[0].verts[0].loc] + surf.edges[0].points
     # Make a copy of the edges to organize excluding the first edge
@@ -140,8 +140,11 @@ def make_mesh(surf, min_dist=0.5):
         # Go through each of the remaining paths
         i = 0
         while i < num_paths:
-            # # Get the next point along the path
+            # Get the next point along the path
             pn = find_next_point(surf, paths[i][-1], com, dthetas[i])
+            # Check to see if the point is outside the network's box
+            if pn is not None and not np.array([surf.net.box[0][i] <= pn[i] <= surf.net.box[1][i] for i in range(3)]).all():
+                surf.outside_box = True
             # Check to see of the new point is too close to the previous point and the path has to end
             if pn is None or (calc_dist(pn, pn_1) < surf.min_dist and calc_dist(paths[i - 1][-1], pn) < 2 * min_dist):
                 # Add the path to the surfaces points and remove it from the paths list
@@ -225,10 +228,10 @@ def find_simps(surf):
     # Get the 2d version of the points
     nps = np.array(nps)
     # Get the Delaunay tesselation
-    tri = mtri.Triangulation(nps[:, 0], nps[:, 1])
+    tris = mtri.Triangulation(nps[:, 0], nps[:, 1])
     # Find the 2d polygon
     surf.flat_points = [nps[i, :2] for i in range(len(surf.points))]
-    surf.tris = tri.triangles.tolist()
+    surf.tris = tris.triangles.tolist()
     remove_ndxs = []
     # Go through the triangles that have been created
     for i in range(len(surf.tris)):
