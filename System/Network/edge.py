@@ -8,7 +8,6 @@ class Edge:
         self.atoms = atoms  # List of Atom type objects
         self.verts = verts  # List of Vertex type objects
         self.surfs = []  # List of 2 surfaces attached to the edge
-        self.min_dist = net.min_dist
         if net is not None:
             self.net = net
             self.ndx = [net.atoms.index(atom) for atom in self.atoms]
@@ -23,7 +22,7 @@ class Edge:
     # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
     def build(self):
         # Get the network's minimum distance
-        min_dist = self.net.min_dist
+        min_dist = self.net.sys.min_dist
         # Grab the vertex points and make numpy arrays out of them
         pv0, pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
         # If the edge is completely straight add 1 point in the middle and return
@@ -122,6 +121,4 @@ class Edge:
                 if point[i] < self.net.box[0][i] or point[i] > self.net.box[1][i]:
                     self.touches_box = True
                     return
-
             return point
-
