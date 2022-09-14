@@ -60,7 +60,7 @@ class Vorpy:
         tk.Label(f, text='Settings', font=('Times New Roman bold', 20)).grid(row=7, column=0, columnspan=2, sticky='w')
 
         # System box size multiplier
-        self.sys_box_x_flt = tk.DoubleVar(self.vp_main, 2)
+        self.sys_box_x_flt = tk.DoubleVar(self.vp_main, 1.4)
         tk.Label(f, text="Container Size: ").grid(row=8, column=0, sticky='w')
         tk.Scale(f, from_=1, to=5, orient=tk.HORIZONTAL, variable=self.sys_box_x_flt, resolution=.05)\
             .grid(row=8, column=1, sticky='ewn')
@@ -144,10 +144,12 @@ class Vorpy:
             filename = "    atad_resU"
         # Set the file name
         self.sys_file_name.set(filename[::-1][:-4])
-    
+
+    # Add atoms method. When this command runs it updates the system atoms list
     def add_atoms(self):
         self.sys_atom_list += list(self.user_atoms_str.get())
 
+    # Add vertices method. Adds the vertices in the file to the system
     def add_vertices(self):
         # File grabber pop up
         file_path = filedialog.askopenfilename()
@@ -162,12 +164,14 @@ class Vorpy:
                 filename = filename + self.sys_file_address[i]
                 i -= 1
         else:
+            # Written in reverse
             filename = "    strev_atad_resU"
         if file_path:
             self.vert_file_name.set(filename[::-1][:-4] + "_verts")
         else:
             self.vert_file_address = None
 
+    # Change output directory method. Updates the location of the output directory
     def change_output_directory(self):
         # File grabber pop up
         file_path = filedialog.askdirectory()
@@ -178,7 +182,7 @@ class Vorpy:
         else:
             ErrorBox("Directory not changed")
 
-    # Build network button function.
+    # Build network button method. Cements the settings and destroys the gui
     def build_network_button(self):
         self.vp_main.destroy()
 
