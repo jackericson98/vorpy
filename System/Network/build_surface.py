@@ -146,7 +146,7 @@ def make_mesh(surf, min_dist=0.5):
             if pn is not None and not np.array([surf.net.box[0][i] <= pn[i] <= surf.net.box[1][i] for i in range(3)]).all():
                 surf.outside_box = True
             # Check to see of the new point is too close to the previous point and the path has to end
-            if pn is None or (calc_dist(pn, pn_1) < surf.min_dist and calc_dist(paths[i - 1][-1], pn) < 2 * min_dist):
+            if pn is None or (calc_dist(pn, pn_1) < surf.min_dist and calc_dist(paths[i - 1][-1], pn) < 4 * min_dist):
                 # Add the path to the surfaces points and remove it from the paths list
                 surf.points += paths.pop(i)[1:]
                 dthetas.pop(i)
