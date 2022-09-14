@@ -59,7 +59,12 @@ def find_v0(net, a0=None):
 
 
 # Find site function. Takes in an edge and finds the only other vertex that does not overlap with other atoms
-def find_site(net, edge_atoms):
+def find_site(net, edge_atoms, vn_1=None):
+    # Get the atoms that should not ba a part of the new vertex
+    if vn_1 is None:
+        vert_atoms = edge_atoms
+    else:
+        vert_atoms = vn_1.atoms
     # Instantiate the vertex, incrementer and minimum radius
     myVert = None
     inc, min_rad = 0, np.inf
@@ -68,7 +73,7 @@ def find_site(net, edge_atoms):
         # Grab atoms from the cells surrounding the edge atoms
         vert_test_atoms = net.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], len(net.sub_boxes))
         for atom in vert_test_atoms:
-            if atom in edge_atoms:
+            if atom in vert_atoms:
                 continue
             vert = Vertex(edge_atoms + [atom], net=net)
             if vert.rad and vert.rad < min_rad:
@@ -118,9 +123,9 @@ def find_vertices(net, v0=None, i=0):
         # While the edge stack is not empty
         while e_stack:
             # Get the edge from the top of the stack
-            edge, vert = e_stack.pop()
+            edge_atoms, vert = e_stack.pop()
             # Find the next site in the network
-            myVert = find_site(net, edge)
+            myVert = find_site(net, edge_atoms, vert)
             # If the vertex is none continue
             if myVert is None:
                 continue
