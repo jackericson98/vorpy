@@ -67,13 +67,13 @@ def find_next_point(surf, pn_1, end, d_theta):
 
 
 # Make mesh method. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
-def make_mesh(surf, min_dist=0.5):
-    # Set the surface's minimum distance
-    surf.min_dist = min_dist
+def make_mesh(surf):
+    # Get the resolution
+    res = surf.net.sys.min_dist
     # Get the atoms
     a0, a1 = surf.atoms[0], surf.atoms[1]
     # Reset the surface's list of points to empty list and reset the vertex indices list
-    surf.points, surf.vert_ndxs = [], [0]
+    surf.points = []
     # Go through each edge in the surface's list of edges and build it
     for edge in surf.edges:
         edge.build()
@@ -100,10 +100,8 @@ def make_mesh(surf, min_dist=0.5):
         myEdge = edges.pop(ndx)
         # Add the edge's point in the right order and then add the correct vertex
         if not reverse:  # In order
-            surf.vert_ndxs.append(len(surf.perimeter))
             surf.perimeter += [myEdge.verts[0].loc] + myEdge.points
         else:  # Reverse order
-            surf.vert_ndxs.append(len(surf.perimeter))
             surf.perimeter += [myEdge.verts[1].loc] + myEdge.points[::-1]
     # Add the perimeter points to the whole set of points
     surf.points += surf.perimeter
@@ -129,7 +127,7 @@ def make_mesh(surf, min_dist=0.5):
     max_path_ndx = angs.index(max(angs))
     max_path = paths[max_path_ndx][0]
     # Decide how many rings based off of the ellipticity and density
-    num_rings = max(int(calc_dist(max_path, com) / surf.min_dist), 2)
+    num_rings = max(int(calc_dist(max_path, com) / res), 2)
     # Get the incremental angle increases
     dthetas = [angs[i] / num_rings for i in range(len(angs))]
     # Set the pn_1 point to infinity
@@ -144,9 +142,9 @@ def make_mesh(surf, min_dist=0.5):
             pn = find_next_point(surf, paths[i][-1], com, dthetas[i])
             # Check to see if the point is outside the network's box
             if pn is not None and not np.array([surf.net.box[0][i] <= pn[i] <= surf.net.box[1][i] for i in range(3)]).all():
-                surf.outside_box = True
+                surf.in_box = False
             # Check to see of the new point is too close to the previous point and the path has to end
-            if pn is None or (calc_dist(pn, pn_1) < surf.min_dist and calc_dist(paths[i - 1][-1], pn) < 4 * min_dist):
+            if pn is None or (calc_dist(pn, pn_1) < res and calc_dist(paths[i - 1][-1], pn) < 4 * res):
                 # Add the path to the surfaces points and remove it from the paths list
                 surf.points += paths.pop(i)[1:]
                 dthetas.pop(i)
@@ -159,6 +157,8 @@ def make_mesh(surf, min_dist=0.5):
     # Add the remaining paths to the surface excluding the first point in the path (i.e. the edge point)
     for path in paths:
         surf.points += path[1:]
+    # Find the simplices of the surface
+    find_simps(surf)
 
 
 # Triangle within the surface function. Checks to see if a triangle lies within the perimeter of a surface
@@ -239,7 +239,7 @@ def find_simps(surf):
         tri = surf.tris[i]
         circ = calc_tri_circ(surf, tri)
         # If the circumference of the triangle is less than x times the minimum distance check to see if tri is within
-        if circ > 5 * surf.net.min_dist and not tri_within(surf, tri):
+        if circ > 5 * surf.net.sys.min_dist and not tri_within(surf, tri):
             remove_ndxs.append(surf.tris.index(tri))
     # Remove the outer triangles
     remove_ndxs.sort()
