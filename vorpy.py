@@ -1,4 +1,6 @@
 import multiprocessing as mp
+import os
+
 from Visualize.vorpy_gui import Vorpy, ErrorBox, LoadingBox
 from System.system import System
 from System.calcs import *
@@ -75,36 +77,10 @@ if __name__ == '__main__':
         Sys.setrecursionlimit(recursion_limit)
 
 
-    ############################################  Create the output directory  #########################################
-
-    # If no outer directory was specified use the directory outside the current one
-    if export_dir is None:
-        export_dir = os.getcwd()
-
-    # Catch for existing directories. Keep trying out directories until one doesn't exist
-    i = 0
-    while True:
-        # Try creating the directory with the system name + the current i_string
-        try:
-            # Create a string variable for the incrementing variable
-            i_str = str(i)
-            # If no file with the system name exists change the string to empty
-            if i == 0:
-                i_str = ""
-            # Try to create the directory
-            os.mkdir(os.getcwd() + "/" + mySys.name + i_str)
-            break
-        # If the file exists increment the counter and try creating the directory again
-        except FileExistsError:
-            i += 1
-    # Set the output directory for the system
-    mySys.output_directory = os.getcwd() + "/" + mySys.name + i_str
-
-
     #################################################  Find the vertices  ##############################################
 
     # Catch for if the verts have been loaded already.
-    if myVorpy.vert_file_address is None:
+    if vert_file is None:
         mySys.net.find_verts()
 
     # Export the vertices
@@ -183,7 +159,6 @@ if __name__ == '__main__':
                       '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
 
     ###################################################  Export the System  ############################################
-
     # Export the system
-    mySys.export(directory=export_dir, export_all=export_all, export_sys=export_sys, export_mols=export_mols,
+    mySys.export(export_all=export_all, export_sys=export_sys, export_mols=export_mols,
                  export_atoms=export_atoms, export_analysis=export_analysis, export_surfs=export_surfs)
