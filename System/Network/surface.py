@@ -3,24 +3,25 @@ from System.Network.build_surface import *
 
 class Surface:
     """Surface object. Holds the mesh data. Used to analyze interfaces between atoms."""
-    def __init__(self, atoms, net=None, edges=None, verts=None, min_dist=0.1):
-        self.func = None
-        self.atoms = atoms  # List of Atom type objects
-        self.edges = edges  # List of Edge type objects
-        self.verts = verts
+    def __init__(self, atoms, net=None, edges=None, verts=None):
+        # If no network was given have a catch
         if net is not None:
-            self.net = net
-            self.ndx = [net.atoms.index(atom) for atom in self.atoms]
-        self.perimeter = []
-        self.vert_ndxs = []
-        self.points = []
-        self.tris = None
-        self.sa = None
-        self.min_dist = min_dist
-        self.crit_ang = np.pi
-        self.rn = None
-        self.calc_func()
-        self.flat_points = []
+            ndx = [net.atoms.index(atom) for atom in atoms]
+            self.ndx = ndx     # Index            : Indices of the atoms of the surface
+            self.net = net     # Network          : Network of the System
+        self.atoms = atoms     # Atoms            : Atoms of the surface
+        self.edges = edges     # Edges            : Edges of the surface
+        self.verts = verts     # Vertices         : Vertices of the surface
+
+        self.func = None       # Surface function : Holds the coefficients of the function describing the surf
+        self.calc_func()       # Calc function    : Call to calculate the coefficients of the surfaces
+        self.perimeter = []    # Perimeter        : The points around the edges of the surface (IN ORDER)
+        self.points = []       # Points           : The points that make up the surface
+        self.flat_points = []  # Flattened points : Points projected into 2d based off of the surface normal
+        self.tris = None       # Triangles        : A list of connections between the points
+        self.sa = None         # Surface Area     : The surface area of the
+        self.rn = None         # Surface Normal   : Normal to the center of the surface
+        self.in_box = True     # Outside Box      : Gets flipped if a point from the surface is found outside the system
 
     # Bisector function. Creates a bisector surface between 2 atoms
     def calc_func(self):
@@ -50,15 +51,9 @@ class Surface:
         self.func = ABC + DEF + GHI + [J] + [K] + [d]
 
     # Build method. Makes the mesh for the surface and calculates the simplices between them
-    def build(self, min_dist=None, simps=True):
-        # Set the minimum distance
-        if min_dist is None:
-            min_dist = self.net.min_dist
+    def build(self):
         # Build the mesh
-        make_mesh(self, min_dist)
-        # Calculate the simplices
-        if simps:
-            find_simps(self)
+        make_mesh(self)
 
     # Build vta surface function
     def build_vta(self):
