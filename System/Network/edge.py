@@ -21,7 +21,9 @@ class Edge:
         self.touches_box = False
 
     # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
-    def build(self, min_dist=0.1):
+    def build(self):
+        # Get the network's minimum distance
+        min_dist = self.net.min_dist
         # Grab the vertex points and make numpy arrays out of them
         pv0, pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
         # If the edge is completely straight add 1 point in the middle and return
@@ -83,6 +85,7 @@ class Edge:
                 break
             self.points.append(surf_point)
 
+    # Project method. Projects a point onto the surface using a reference point
     def project(self, rn, pa, surf):
         # Get the function values
         f, a0, a1 = surf.func, surf.atoms[0], surf.atoms[1]
