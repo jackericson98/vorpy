@@ -6,11 +6,23 @@ os.chdir("../..")
 
 
 # Files
-m_file = os.getcwd() + "./Data/test_data/Na5.pdb"
+m_file = os.getcwd() + "./Data/test_data/Na_W_cluster5.pdb"
+v_file = os.getcwd() + "./Data/test_data/Na5_verts.txt"
 
 # Get the System
-sys = System(m_file, box_size=3)
-sys.net.build()
+sys = System(m_file, box_size=1.5, min_dist=0.1)
+sys.add_verts(v_file)
+
+sys.net.connect()
+
+surfs = sys.net.surfs
+for i in range(len(surfs)):
+    # Calculate and print the running percentage for mesh calculations
+    surfs[i].build()
+    # Calculate and print the running percentage for mesh calculations
+    percentage = int((i + 1) / len(surfs) * 100)
+    print("\rBuilding Surfaces: ",
+          '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
 
 # Plot the System
 fig = plt.figure()
@@ -20,5 +32,5 @@ plot_verts(sys.net.verts, fig=fig, ax=ax, colors=['r' for i in range(len(sys.net
 plot_edges(sys.net.edges, fig=fig, ax=ax)
 # plot_surfs(sys.atoms[0].surfs, fig=fig, ax=ax, alpha=1, simps=True)
 plt.show()
-sys.analyze()
-sys.export()
+# sys.analyze()
+# sys.export()
