@@ -16,6 +16,7 @@ class Network:
         self.box = None           # Box         :   Holds a max and min vertex for the retaining box
         self.sub_boxes = None     # Sub boxes   :   Holds atoms in their different relative locations in the grid
         self.box_size = box_size  # Box size    :   Holds the box multiplier for the system box from the atoms box
+        self.sub_box_size = None  # Sub box size:   Holds the size of each sub box
         self.atoms_box = []       # Atoms box   :   Holds the min and max verts for the box containing the atoms
         self.min_dist = min_dist  # Resolution  :   How small the triangles in the surfaces are
         self.vert_ndxs = []       # Vert indices:   Holds the indices of the atoms of the vertices in the network
@@ -57,14 +58,14 @@ class Network:
         # Instantiate the grid structure of lists is locations repres
         self.sub_boxes = [[[[] for _ in range(n)] for _ in range(n)] for _ in range(n)]
         # Get the cell size
-        sub_box_size = [(self.box[1][0] - self.box[0][0]) / n, (self.box[1][1] - self.box[0][1]) / n,
+        self.sub_box_size = [(self.box[1][0] - self.box[0][0]) / n, (self.box[1][1] - self.box[0][1]) / n,
                              (self.box[1][2] - self.box[0][2]) / n]
         # Sort the atoms
         for atom in self.atoms:
             # Find the box they belong to
-            ai = int((atom.loc[0] - self.box[0][0]) / sub_box_size[0])
-            aj = int((atom.loc[1] - self.box[0][1]) / sub_box_size[1])
-            ak = int((atom.loc[2] - self.box[0][2]) / sub_box_size[2])
+            ai = int((atom.loc[0] - self.box[0][0]) / self.sub_box_size[0])
+            aj = int((atom.loc[1] - self.box[0][1]) / self.sub_box_size[1])
+            ak = int((atom.loc[2] - self.box[0][2]) / self.sub_box_size[2])
             # Add the atom to the box
             self.sub_boxes[ai][aj][ak].append(atom)
             # Add the box to the atom
