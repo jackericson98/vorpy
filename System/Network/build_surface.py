@@ -154,7 +154,7 @@ def make_mesh(surf):
             if pn is not None and np.array([surf.net.box[0][i] <= pn[i] <= surf.net.box[1][i] for i in range(3)]).all():
                 surf.in_box = False
             # Check to see of the new point is too close to the previous point and the path has to end
-            if pn is None or (calc_dist(pn, pn_1) < res and calc_dist(paths[i - 1][-1], pn) < res):
+            if pn is None or (calc_dist(pn, pn_1) < 0.5 * res and calc_dist(paths[i - 1][-1], pn) < 0.5 * res):
                 # Add the path to the surfaces points and remove it from the paths list
                 surf.points += paths.pop(i)[1:]
                 dthetas.pop(i)
@@ -167,6 +167,7 @@ def make_mesh(surf):
     # Add the remaining paths to the surface excluding the first point in the path (i.e. the edge point)
     for path in paths:
         surf.points += path[1:]
+    surf.points.append(com)
     # Find the simplices of the surface
     find_simps(surf)
 
