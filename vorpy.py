@@ -154,7 +154,7 @@ if __name__ == '__main__':
                 # Analyze each of the atom's cells
                 calc_vol(atom)
                 # Update the print statement
-                percentage = int((mySys.net.surfs.index(surf) + 1) / len(mySys.net.surfs) * 100)
+                percentage = int((mySys.atoms.index(atom) + 1) / len(mySys.atoms) * 100)
                 print("\rAnalyzing Atomic Cells: ",
                       '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
 
