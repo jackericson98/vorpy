@@ -141,6 +141,21 @@ def add_verts(sys, file_address):
                                     radius=float(line[3]), net=sys.net))
 
 
+# Add vertices function. Takes in a system and a file with vertices in it and adds the verts to the system
+def add_grant_verts(sys, file_address):
+    # Reset the network and open the network
+    sys.net.verts, sys.net.surfs, sys.net.edges = [], [], []
+    vert_file = open(file_address).readlines()
+    # Go through each of the vertices file
+    for line in vert_file[1:]:
+        line = line.split(',')
+        atoms = [sys.atoms[int(line[i]) - 1] for i in range(4)]
+        loc = [float(line[-3][1:]), float(line[-2]), float(line[-1][:-2])]
+        rad = calc_dist(atoms[0].loc, loc) - atoms[0].rad
+        vert = Vertex(atoms, location=loc, radius=rad, net=sys.net)
+        sys.net.verts.append(vert)
+
+
 # Add Voronota data method. Takes in voronota data and adds it to the System
 def add_vta_data(sys, ball_file, vert_file):
     # Set the voronota system indicator to True
@@ -211,7 +226,7 @@ def write_surfs(surfs, file_name, directory=None):
         # Go through the points on the surface
         for point in surfs[i].points:
             # Add the point to the system file and the surface's file (rounded to 4 decimal points)
-            str_point = [str(round(point[_], 4)) for _ in range(3)]
+            str_point = [str(round(float(point[_]), 4)) for _ in range(3)]
             file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
     num_verts, tri_count = 0, 0
     # Go through each surface and add the faces
