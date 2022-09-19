@@ -28,7 +28,9 @@ class Edge:
         # If the edge is completely straight add 1 point in the middle and return
         if self.atoms[0].rad == self.atoms[1].rad and self.atoms[1].rad == self.atoms[2].rad:
             r = pv1 - pv0
-            self.points.append(pv0 + r/2)
+            num_points = int(np.linalg.norm(r) // min_dist)
+            for i in range(num_points):
+                self.points.append(pv0 + r * (i / num_points))
             return
         # If no surface is given, choose a curved one to project onto. If the edge isn't straight 2 surfs are curved.
         if round(self.atoms[0].rad, 10) == round(self.atoms[1].rad, 10):
