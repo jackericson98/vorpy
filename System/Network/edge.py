@@ -106,19 +106,19 @@ class Edge:
             roots = np.roots([a, b, c])
             # If one root exists return it
             if len(roots) == 1:
-                point = pa + roots[0] * rn
-            elif min(roots) < 0:
-                point = pa + rn * max(roots)
-
-            elif round(calc_dist(pa + max(roots) * rn, self.atoms[0].loc) - self.atoms[0].rad, 2) == \
-                 round(calc_dist(pa + max(roots) * rn, self.atoms[1].loc) - self.atoms[1].rad, 2) == \
-                 round(calc_dist(pa + max(roots) * rn, self.atoms[2].loc) - self.atoms[2].rad, 2):
-                point = pa + rn * max(roots)
+                return pa + roots[0] * rn
             else:
-                point = pa + min(roots) * rn
-            # Check that the point is in the box
-            for i in range(3):
-                if point[i] < self.net.box[0][i] or point[i] > self.net.box[1][i]:
-                    self.touches_box = True
-                    return
+                p1 = pa + min(roots) * rn
+                p2 = pa + max(roots) * rn
+            # If the point we are calculating is the first in the edge choose the one closest to the vertex
+            if len(self.points) == 1:
+                point = p1
+                if calc_dist(p2, self.points[0]) <= calc_dist(p1, self.points[0]):
+                    point = p2
+            # If we have 2 points to choose from, choose the one that makes the angle closer to 180
+            else:
+                point = p1
+                if calc_angle(self.points[-1], self.points[-2], p2) >= calc_angle(self.points[-1], self.points[-2], p1):
+                    point = p2
+            # Return the point we choose
             return point
