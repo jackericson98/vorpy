@@ -72,6 +72,10 @@ def make_mesh(surf):
     res = surf.net.sys.min_dist
     # Get the atoms
     a0, a1 = surf.atoms[0], surf.atoms[1]
+    # Get the normal to the surface
+    if surf.rn is None:
+        r = np.array(a1.loc) - np.array(a0.loc)
+        surf.rn = r / np.linalg.norm(r)
     # Reset the surface's list of points to empty list and reset the vertex indices list
     surf.points = []
     # Go through each edge in the surface's list of edges and build it
@@ -108,9 +112,15 @@ def make_mesh(surf):
     # Check to see if the atoms have equal radii
     if a0.rad == a1.rad:
         return
-    # Get the center of mass of the edges of the surface
-    com = calc_edges_com(surf.edges)
-    com = calc_surf_point(surf, com)
+    # Get the center point for the surface
+    center = surf.rn * 0.5 * (calc_dist(a0.loc, a1.loc) - (a0.rad + a1.rad)) + a0.loc
+    # Check to see if the center point is inside the perimeter or not
+    if tri_within(surf, point=center):
+        com = center
+    else:
+        # Get the center of mass of the edges of the surface
+        com = calc_edges_com(surf.edges)
+        com = calc_surf_point(surf, com)
     # For each edge point set up a path list.
     paths = [[surf.perimeter[i]] for i in range(len(surf.perimeter))]
     # Grab the smallest of the 2 surface atoms' location
@@ -141,10 +151,10 @@ def make_mesh(surf):
             # Get the next point along the path
             pn = find_next_point(surf, paths[i][-1], com, dthetas[i])
             # Check to see if the point is outside the network's box
-            if pn is not None and not np.array([surf.net.box[0][i] <= pn[i] <= surf.net.box[1][i] for i in range(3)]).all():
+            if pn is not None and np.array([surf.net.box[0][i] <= pn[i] <= surf.net.box[1][i] for i in range(3)]).all():
                 surf.in_box = False
             # Check to see of the new point is too close to the previous point and the path has to end
-            if pn is None or (calc_dist(pn, pn_1) < res and calc_dist(paths[i - 1][-1], pn) < 4 * res):
+            if pn is None or (calc_dist(pn, pn_1) < res and calc_dist(paths[i - 1][-1], pn) < res):
                 # Add the path to the surfaces points and remove it from the paths list
                 surf.points += paths.pop(i)[1:]
                 dthetas.pop(i)
@@ -162,17 +172,27 @@ def make_mesh(surf):
 
 
 # Triangle within the surface function. Checks to see if a triangle lies within the perimeter of a surface
-def tri_within(surf, myTri):
+def tri_within(surf, myTri=None, point=None):
     # Get the perimeter of the translated and rotated surface
     perimeter = surf.flat_points[:len(surf.perimeter)]
-    # Copy the triangle, retrieve its points and calculate the center of mass
-    tri = myTri.copy()
-    # Get the triangles points
-    points = [surf.flat_points[tri[i]] for i in range(len(tri))]
-    # Calculate the triangle's center of mass
-    tri_com = calc_com(points=points)
-    proj_vec = [1.124127831293, 1.3664655885]
-    proj_point = np.array(tri_com) + np.array(proj_vec)
+    if len(perimeter) == 0:
+        return False
+    center = calc_com(points=perimeter)
+    # If we are given a triangle determine the center of mass and use that point
+    if myTri:
+        # Copy the triangle, retrieve its points and calculate the center of mass
+        tri = myTri.copy()
+        # Get the triangles points
+        points = [surf.flat_points[tri[i]] for i in range(len(tri))]
+        # Calculate the triangle's center of mass
+        point = calc_com(points=points)
+    else:
+        # The point needs to be rotated and dropped to 2D
+        my_point = rotate_points(surf.rn, [point])[0]
+        point = my_point[:2]
+    # Get the projected point
+    proj_vec = np.array(center) - np.array(point)
+    proj_point = np.array(point) + np.array(proj_vec)
     # Reset the number of intersections
     xings = 0
     # Go through each line segments around the perimeter
@@ -181,13 +201,11 @@ def tri_within(surf, myTri):
         p1 = perimeter[i]
         p2 = perimeter[(i + 1) % len(perimeter)]
         # Get the angles
-        theta = calc_angle(tri_com, p1, p2)
-        theta_n = calc_angle(tri_com, p1, proj_point)
-        theta_n1 = calc_angle(tri_com, p2, proj_point)
+        theta = calc_angle(point, p1, p2)
+        theta_n = calc_angle(point, p1, proj_point)
+        theta_n1 = calc_angle(point, p2, proj_point)
         # If we have a crossing
-        if theta_n == theta or theta_n1 == theta:
-            xings += 0.5
-        elif theta_n < theta and theta_n1 < theta:
+        if theta_n < theta and theta_n1 < theta:
             xings += 1
     # If we have an even number of intersections
     if xings % 2 == 0:
