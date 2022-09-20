@@ -1,4 +1,5 @@
-from System.read_write import *
+from System.input_system import *
+from System.output_system import *
 
 
 class System:
@@ -34,7 +35,7 @@ class System:
                 return
         # If no file is given and the user has entered atoms build system
         elif user_atoms:
-            self.name = "User Atoms"
+            self.name = "User_Atoms"
             self.build_sys(user_atoms)
         # If no file is given, generate a random System
         else:
@@ -84,9 +85,11 @@ class System:
         # Run analysis on the network
         self.net.analyze()
 
+    # System level add vertex method. Just a pass through to the input system file
     def add_verts(self, file_address):
-        add_verts(self, file_address)
+        add_grant_verts(self, file_address)
 
+    # System level Export vertices method.
     def export_verts(self):
         if self.output_directory is None:
             set_output_dir(self)
@@ -95,33 +98,35 @@ class System:
 
     # Export method. Takes in an export type: 'Atoms', 'surfs'
     def export(self, export_all=True, export_sys=False, export_atoms=False, export_mols=False,
-               export_surfs=False, export_analysis=False, export_sys_pdb=False):
+               export_surfs=False, export_sys_pdb=False, export_reses=False):
         if self.output_directory is None:
             set_output_dir(self)
         os.chdir(self.output_directory)
         # Go through all the possible user inputs and choose the correct export function
         n = 0
-        lengths = [1, len(self.net.surfs), len(self.atoms), len(self.mols), 1]
-        max_num_arr = [lengths[i] for i in range(len(lengths))
-                       if [export_sys, export_surfs, export_atoms, export_mols, export_analysis][i] or export_all]
+        lengths = [1, len(self.net.surfs), len(self.atoms), len(self.mols)]
+        exports = [export_sys, export_surfs, export_atoms, export_mols]
+        # Find the total number of things being exported for the loading bar
+        max_num_arr = [lengths[i] for i in range(len(lengths)) if exports[i] or export_all]
         max_num = sum(max_num_arr)
-        # Export each
+        # Export the system
         if export_sys or export_all:
             export_mySys(self, n, max_num)
             n += 1
+        # Export the pdb of the system
         if export_sys_pdb or export_all:
             create_pdb(self, os.getcwd())
+        # Export the individual surfaces
         if export_surfs or export_all:
             export_mySurfs(self, n, max_num)
             n += len(self.net.surfs)
+        # Export the atom cells
         if export_atoms or export_all:
             export_myAtoms(self, n, max_num)
             n += len(self.atoms)
+        # Export the molecules
         if export_mols or export_all:
-            export_myMols(self, n, max_num)
+            export_myMols(self, n, max_num, export_residues=export_reses or export_all)
             n += len(self.mols)
-        if export_analysis or export_all:
-            export_myAnalysis(self, n, max_num)
-            n += 1
         print("\rExporting System:  ########## 100 %")
         print("\rSystem Exported")
