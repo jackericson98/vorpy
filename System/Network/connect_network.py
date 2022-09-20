@@ -5,8 +5,6 @@ from System.Network.surface import Surface
 
 # Connect network method.
 def connect(net):
-    # Filter the vertices
-    net.filter_verts()
     # Create the edges
     for vert1 in net.verts:
         # Check every combination of vert atoms as an edge
@@ -25,9 +23,7 @@ def connect(net):
             if len(verts) == 1:
                 continue
             # Create the edge
-            my_edge = Edge(list(atoms), verts, net, calc_points=not net.vta)
-            if my_edge.touches_box:
-                continue
+            my_edge = Edge(list(atoms), verts, net)
             # Add the edge to the System
             net.edges.append(my_edge)
 

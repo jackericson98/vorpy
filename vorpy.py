@@ -40,13 +40,12 @@ if __name__ == '__main__':
     box_multiplier = myVorpy.sys_box_x_flt.get()
     export_dir = myVorpy.sys_output_directory
     cpu_boost = myVorpy.parallelize.get()
-    get_analysis = myVorpy.output_analysis.get()
     export_all = myVorpy.output_all.get()
     export_surfs = myVorpy.output_surfs.get()
     export_atoms = myVorpy.output_atoms.get()
     export_mols = myVorpy.output_mols.get()
-    export_analysis = myVorpy.output_analysis.get()
     export_sys = myVorpy.output_sys.get()
+    export_residues = myVorpy.output_residues.get()
 
 
     #############################################  Create the System  ##################################################
@@ -120,45 +119,42 @@ if __name__ == '__main__':
 
     ##############################################  Analyze the network  ###############################################
 
-    # Check to see if the user wants the network analyzed
-    if get_analysis or export_all:
-
-        # If the cpu boost button was clicked use the 'analyze surface' and 'analyze cell' functions
-        if cpu_boost:
-            # Analyze the surfaces in the system
-            with mp.Pool() as anal_surf_pool:
-                for surf in anal_surf_pool.imap(analyze_surf, mySys.net.surfs):
-                    # Print the running percentage meter for analyzing the surfaces
-                    percentage = int((mySys.net.surfs.index(surf) + 1) / len(mySys.net.surfs) * 100)
-                    print("\rAnalyzing Surfaces: ",
-                          '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
-            # Run analysis on the cells of the system
-            with mp.Pool() as anal_cell_pool:
-                for surf in anal_cell_pool.imap(analyze_cell, mySys.net.surfs):
-                    percentage = int((mySys.net.surfs.index(surf) + 1) / len(mySys.net.surfs) * 100)
-                    print("\rAnalyzing Atomic Cells: ",
-                          '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
-
-        # Without the cpu_boost button clicked loop through each of the surfaces and atoms and analyze them
-        else:
-            # Go through each of the surfaces in the network
-            for surf in mySys.net.surfs:
-                # Analyze the surface
-                analyze_surf(surf)
-                # Update the print statement
+    # If the cpu boost button was clicked use the 'analyze surface' and 'analyze cell' functions
+    if cpu_boost:
+        # Analyze the surfaces in the system
+        with mp.Pool() as anal_surf_pool:
+            for surf in anal_surf_pool.imap(analyze_surf, mySys.net.surfs):
+                # Print the running percentage meter for analyzing the surfaces
                 percentage = int((mySys.net.surfs.index(surf) + 1) / len(mySys.net.surfs) * 100)
                 print("\rAnalyzing Surfaces: ",
                       '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
-            # Go through each of the atoms in the network
-            for atom in mySys.atoms:
-                # Analyze each of the atom's cells
-                calc_vol(atom)
-                # Update the print statement
-                percentage = int((mySys.atoms.index(atom) + 1) / len(mySys.atoms) * 100)
+        # Run analysis on the cells of the system
+        with mp.Pool() as anal_cell_pool:
+            for surf in anal_cell_pool.imap(analyze_cell, mySys.net.surfs):
+                percentage = int((mySys.net.surfs.index(surf) + 1) / len(mySys.net.surfs) * 100)
                 print("\rAnalyzing Atomic Cells: ",
                       '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
 
+    # Without the cpu_boost button clicked loop through each of the surfaces and atoms and analyze them
+    else:
+        # Go through each of the surfaces in the network
+        for surf in mySys.net.surfs:
+            # Analyze the surface
+            analyze_surf(surf)
+            # Update the print statement
+            percentage = int((mySys.net.surfs.index(surf) + 1) / len(mySys.net.surfs) * 100)
+            print("\rAnalyzing Surfaces: ",
+                  '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
+        # Go through each of the atoms in the network
+        for atom in mySys.atoms:
+            # Analyze each of the atom's cells
+            calc_vol(atom)
+            # Update the print statement
+            percentage = int((mySys.atoms.index(atom) + 1) / len(mySys.atoms) * 100)
+            print("\rAnalyzing Atomic Cells: ",
+                  '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
+
     ###################################################  Export the System  ############################################
-    # Export the system
+
     mySys.export(export_all=export_all, export_sys=export_sys, export_mols=export_mols,
-                 export_atoms=export_atoms, export_analysis=export_analysis, export_surfs=export_surfs)
+                 export_atoms=export_atoms, export_surfs=export_surfs, export_reses=export_residues)

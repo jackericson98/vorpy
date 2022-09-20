@@ -109,6 +109,7 @@ def add_verts(sys, file_address):
         atoms = [sys.atoms[int(line[i])] for i in range(4, 8)]
         sys.net.verts.append(Vertex(atoms, location=[float(line[0]), float(line[1]), float(line[2])],
                                     radius=float(line[3]), net=sys.net))
+    sys.net.filter_verts()
 
 
 # Add vertices function. Takes in a system and a file with vertices in it and adds the verts to the system
