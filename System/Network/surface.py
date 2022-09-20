@@ -14,12 +14,11 @@ class Surface:
         self.verts = verts     # Vertices         : Vertices of the surface
 
         self.func = None       # Surface function : Holds the coefficients of the function describing the surf
-        self.calc_func()       # Calc function    : Call to calculate the coefficients of the surfaces
         self.perimeter = []    # Perimeter        : The points around the edges of the surface (IN ORDER)
         self.points = []       # Points           : The points that make up the surface
         self.flat_points = []  # Flattened points : Points projected into 2d based off of the surface normal
-        self.tris = None       # Triangles        : A list of connections between the points
-        self.sa = None         # Surface Area     : The surface area of the
+        self.tris = []         # Triangles        : A list of connections between the points
+        self.sa = 0            # Surface Area     : The surface area of the
         self.rn = None         # Surface Normal   : Normal to the center of the surface
         self.in_box = True     # Outside Box      : Gets flipped if a point from the surface is found outside the system
 
