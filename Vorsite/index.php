@@ -63,7 +63,6 @@
                 <h1>Welcome!</h1>
                 <h2>Created by: Jack Ericson</h2>
                 <p><?php echo "The time is " . date("h:i:sa");?></p>
-                
                 <button class="main__btn"><a href="/">Get Started</a></button>
                 
             </div>
