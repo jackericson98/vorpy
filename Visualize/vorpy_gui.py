@@ -103,16 +103,16 @@ class Vorpy:
         tk.Checkbutton(f, text="System pdb ", variable=self.output_pdb, onvalue=True, offvalue=False) \
             .grid(row=15, column=2, sticky='w')
         self.output_atoms = tk.BooleanVar(self.vp_main, False)
-        tk.Checkbutton(f, text="Atom Cells", variable=self.output_atoms, onvalue=True, offvalue=False) \
+        tk.Checkbutton(f, text="Atoms", variable=self.output_atoms, onvalue=True, offvalue=False) \
             .grid(row=16, column=0, sticky='w')
         self.output_surfs = tk.BooleanVar(self.vp_main, False)
         tk.Checkbutton(f, text="Surfaces", variable=self.output_surfs, onvalue=True, offvalue=False) \
             .grid(row=16, column=1, sticky='w')
         self.output_mols = tk.BooleanVar(self.vp_main, False)
-        tk.Checkbutton(f, text="Molecule Interfaces", variable=self.output_mols, onvalue=True, offvalue=False) \
+        tk.Checkbutton(f, text="Molecule", variable=self.output_mols, onvalue=True, offvalue=False) \
             .grid(row=16, column=2, sticky='w')
-        self.output_analysis = tk.BooleanVar(self.vp_main, False)
-        tk.Checkbutton(f, text="Analysis ", variable=self.output_analysis, onvalue=True, offvalue=False) \
+        self.output_residues = tk.BooleanVar(self.vp_main, False)
+        tk.Checkbutton(f, text="Residues ", variable=self.output_residues, onvalue=True, offvalue=False) \
             .grid(row=17, column=0, sticky='w')
         self.output_verts = tk.BooleanVar(self.vp_main, False)
         tk.Checkbutton(f, text="Vertices ", variable=self.output_verts, onvalue=True, offvalue=False) \
@@ -244,4 +244,3 @@ class LoadingBox:
     def stop(self):
         self.pb.stop()
         self.value_label['text'] = self.update_progress_label()
-
