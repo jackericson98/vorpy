@@ -1,3 +1,5 @@
+import numpy as np
+
 from System.Network.find_vertices import *
 from System.Network.connect_network import connect
 
@@ -20,6 +22,8 @@ class Network:
         self.atoms_box = []       # Atoms box   :   Holds the min and max verts for the box containing the atoms
         self.min_dist = min_dist  # Resolution  :   How small the triangles in the surfaces are
         self.vert_ndxs = []       # Vert indices:   Holds the indices of the atoms of the vertices in the network
+
+        self.sort_atoms()         # Sort Atoms  :   Once the network has been created place the atoms in their sub-boxes
 
 
     # Calculate box function. Takes in a System and returns the dimensions of a box x times the size of the atoms
@@ -50,12 +54,15 @@ class Network:
         self.box = [min_vert.tolist(), max_vert.tolist()]
 
     # Sort atoms method. Puts the atoms in the network in their respective grid sections
-    def sort_atoms(self, num_boxes=8000):
+    def sort_atoms(self, num_boxes=None):
+        # Set the number of boxes to roughly 5x the number of atoms must be a cube for the of cells per row/column/aisle
+        if num_boxes is None:
+            n = int(np.cbrt(len(self.atoms) * 5)) + 1
+        else:
+            n = int(np.cbrt(num_boxes))
         # First get the box for the atoms to be sorted into
         self.calc_box()
-        # Number of cells per row/column/aisle
-        n = int(np.cbrt(num_boxes))
-        # Instantiate the grid structure of lists is locations repres
+        # Instantiate the grid structure of lists is locations representing a grid
         self.sub_boxes = [[[[] for _ in range(n)] for _ in range(n)] for _ in range(n)]
         # Get the cell size
         self.sub_box_size = [(self.box[1][0] - self.box[0][0]) / n, (self.box[1][1] - self.box[0][1]) / n,
@@ -85,9 +92,9 @@ class Network:
                 if cell[i] > ndx_max[i]:
                     ndx_max[i] = cell[i]
         # Set the initial search parameters to the given cells
-        xs, ys, zs = [x for x in range(-reach + ndx_min[0] + 1, reach + ndx_max[0])], \
-                     [y for y in range(-reach + ndx_min[1] + 1, reach + ndx_max[1])], \
-                     [z for z in range(-reach + ndx_min[2] + 1, reach + ndx_max[2])]
+        xs, ys, zs = [x for x in range(max(0, -reach + ndx_min[0] + 1), reach + ndx_max[0])], \
+                     [y for y in range(max(0, -reach + ndx_min[1] + 1), reach + ndx_max[1])], \
+                     [z for z in range(max(0, -reach + ndx_min[2] + 1), reach + ndx_max[2])]
         atoms = []
         # Go through each box in the range given and add the atoms
         for i in xs:
@@ -105,17 +112,13 @@ class Network:
 
     # Filter vertices function. Filters out any repeat vertices
     def filter_verts(self):
-        # Re-sort the atoms
-        self.sort_atoms()
         # Set up a list of vertex ndxs and vertices
         vert_ndxs = []
         verts = []
         # Go through the vertices
         for i in range(len(self.verts)):
             # Sort the indices of the vertices
-            self.verts[i].ndx.sort()
-            vert_inside = all([self.box[0][j] < self.verts[i].loc[j] < self.box[1][j] for j in range(3)])
-            if self.verts[i].ndx not in vert_ndxs and vert_inside:
+            if self.verts[i].ndx not in vert_ndxs:
                 vert_ndxs.append(self.verts[i].ndx)
                 verts.append(self.verts[i])
         # Set the networks vertices
@@ -127,26 +130,25 @@ class Network:
 
     # Find vertices method. Using the functions in find_vertices.py finds the vertices in the network
     def find_verts(self):
-        # Put the atoms in their place
-        self.sort_atoms()
-        # Find the vertices of the system if we haven't indicated not to find them
         # Go through each atom in the system
         for i in range(len(self.atoms)):
+            if len(self.atoms[i].verts) > 0:
+                continue
             # Update the running print statement
             tot_verts = len(self.verts) + (len(self.atoms) - i)
             percentage = int(len(self.verts) / tot_verts * 10000) / 100
             print("\rBuilding Network:  ", '#' * (int(percentage) // 10) + ' ' * (10 - (int(percentage) // 10)),
                   percentage, "%", end='')
             # If the atom has no vertices run the vertex finder on it
-            if len(self.atoms[i].verts) == 0:
-                v0 = find_v0(self, self.atoms[i])
-                if v0 is not None:
-                    find_vertices(self, v0, i=i)
+            v0 = find_v0(self, self.atoms[i])
+            if v0 is not None:
+                find_vertices(self, v0, i=i)
         print("\rBuilding Network:   ########## 100 %")
         print("\rNetwork Built")
 
     # Build network function. Takes in a system and returns a fully connected network
     def build(self, get_verts=True, get_surfs=True):
+        # Catch for if the verts have been loaded already
         if get_verts:
             self.find_verts()
         # Connect the network of vertices
@@ -164,7 +166,7 @@ class Network:
                     self.surfs[i].build_vta()
                 # Otherwise, proceed with the regular build method
                 else:
-                    self.surfs[i].build(simps=True, min_dist=self.sys.min_dist)
+                    self.surfs[i].build()
             print("\rBuilding Surfaces:  ########## 100 %")
             print("\rSurfaces Built")
 
