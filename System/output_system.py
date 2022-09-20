@@ -38,10 +38,9 @@ def export_myVerts(sys):
     for i in range(len(sys.net.verts)):
         # Get the vertex and the vertexes' atoms' indices
         vert = sys.net.verts[i]
-        ndxs = [sys.atoms.index(vert.atoms[i]) for i in range(4)]
         # Write the vertex into the file (x y z r a0 a1 a2 a3 a4)
-        file.write(str(vert.loc[0]) + " " + str(vert.loc[1]) + " " + str(vert.loc[2]) + " " + str(vert.rad)
-                   + " " + str(ndxs[0]) + " " + str(ndxs[1]) + " " + str(ndxs[2]) + " " + str(ndxs[3]) + '\n')
+        file.write(str(vert.loc[0]) + " " + str(vert.loc[1]) + " " + str(vert.loc[2]) + " " + str(vert.rad) + " "
+                   + str(vert.ndx[0]) + " " + str(vert.ndx[1]) + " " + str(vert.ndx[2]) + " " + str(vert.ndx[3]) + '\n')
 
 
 # Create pdb method. Creates a pdb file type in the current working directory
@@ -75,7 +74,10 @@ def create_pdb(sys, directory=None):
 
 
 # Write surfaces function. Writes files given a list of surfaces
-def write_surfs(surfs, file_name):
+def write_surfs(surfs, file_name, color=None):
+    # If no color is given, make the color white
+    if color is None:
+        color = [1, 1, 1]
     # Create the file
     file = open(file_name + ".off", 'w')
     # Count the number of triangles and vertices there are
@@ -98,7 +100,8 @@ def write_surfs(surfs, file_name):
         for tri in surfs[i].tris:
             # Add the triangle to the system file and the surface's file
             str_tri = [str(tri[_] + num_verts) for _ in range(3)]
-            file.write("3 " + str_tri[0] + " " + str_tri[1] + " " + str_tri[2] + " 1 0 0\n")
+            file.write("3 " + str_tri[0] + " " + str_tri[1] + " " + str_tri[2] + " " + str(color[0]) + " " +
+                       str(color[1]) + " " + str(color[2]) + "\n")
         # Keep counting triangles for the system file
         num_verts += len(surfs[i].points)
 
@@ -132,8 +135,10 @@ def export_mySurfs(sys, n, max_num):
         # Find the relative surface index and add it to the list
         surf_ndxs.append(str(sys.atoms.index(sys.net.surfs[i].atoms[0]) + 1) + "_" +
                          str(sys.atoms.index(sys.net.surfs[i].atoms[1]) + 1))
+        # Give the surfaces random colors
+        color = [np.random.random_sample() for _ in range(3)]
         # Write the surface
-        write_surfs([sys.net.surfs[i]], "surf_" + surf_ndxs[i])
+        write_surfs([sys.net.surfs[i]], "surf_" + surf_ndxs[i], color)
     export_info(sys, sys.name + "_surface_info", "surfaces", interfaces=[[surf] for surf in sys.net.surfs])
     os.chdir(sys.output_directory)
 
@@ -148,8 +153,10 @@ def export_myAtoms(sys, n, max_num):
         percentage = int((n + (i + 1) / 2) / max_num * 100)
         print("\rExporting System: ",
               '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
+        # Give the surfaces random colors
+        color = [np.random.random_sample() for _ in range(3)]
         # Write the surfaces
-        write_surfs(sys.atoms[i].surfs, "atom_" + str(i + 1) + "_cell")
+        write_surfs(sys.atoms[i].surfs, "atom_" + str(i + 1) + "_cell", color)
     # Export the information file
     export_info(sys, sys.name + "_Atom_info", "", sys.atoms)
     os.chdir(sys.output_directory)
@@ -199,11 +206,15 @@ def export_myMols(sys, n, max_num, export_residues=False):
                 continue
         # Make a file for the whole chain
         os.chdir(sys.output_directory + "/Molecules")
-        write_surfs(chain_surfs, chains[i])
+        # Give the surfaces random colors
+        color = [np.random.random_sample() for _ in range(3)]
+        write_surfs(chain_surfs, chains[i], color)
         # Make a file for each of the interfaces
         os.chdir(sys.output_directory + "/Molecules/" + chains[i])
         for j in range(len(chain_iface_surfs)):
-            write_surfs(chain_iface_surfs[j], chain_file_names[j])
+            # Give the surfaces random colors
+            color = [np.random.random_sample() for _ in range(3)]
+            write_surfs(chain_iface_surfs[j], chain_file_names[j], color)
         # Export the residues for the molecule
         if export_residues:
             export_myResidues(sys, chain_lists[i], chains[i])
@@ -235,13 +246,15 @@ def export_myResidues(sys, mol_atoms, chain):
             res_lists.append([atom])
         # If the chain has been found add the atom to the chain's list of atoms
         else:
-            res_lists[residues.index(atom.chain)].append(atom)
+            res_lists[residues.index(atom.res)].append(atom)
     # Write the residue files
     for i in range(len(residues)):
         res_surfs = []
         for atom in res_lists[i]:
             res_surfs += atom.surfs
-        write_surfs(res_surfs, residues[i])
+        # Give the surfaces random colors
+        color = [np.random.random_sample() for _ in range(3)]
+        write_surfs(res_surfs, residues[i], color)
 
 
 # Export analysis function. Creates an analysis file for the user.
