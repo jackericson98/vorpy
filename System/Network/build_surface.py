@@ -66,21 +66,14 @@ def find_next_point(surf, pn_1, end, d_theta):
     return calc_surf_point(surf, pc)
 
 
-# Make mesh method. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
-def make_mesh(surf):
-    # Get the resolution
-    res = surf.net.sys.min_dist
-    # Get the atoms
-    a0, a1 = surf.atoms[0], surf.atoms[1]
-    # Get the normal to the surface
-    if surf.rn is None:
-        r = np.array(a1.loc) - np.array(a0.loc)
-        surf.rn = r / np.linalg.norm(r)
-    # Reset the surface's list of points to empty list and reset the vertex indices list
-    surf.points = []
+# Build perimeter function. Sorts the edges of the surface to create a list of points in order around the perimeter
+def build_perimeter(surf):
+    # Reset the surface's perimeter points list
+    surf.perimeter = []
     # Go through each edge in the surface's list of edges and build it
     for edge in surf.edges:
-        edge.build()
+        if len(edge.points) == 0:
+            edge.build()
     # Add the first edge's vertex location and set of points to the perimeter points list
     surf.perimeter = [surf.edges[0].verts[0].loc] + surf.edges[0].points
     # Make a copy of the edges to organize excluding the first edge
@@ -109,9 +102,17 @@ def make_mesh(surf):
             surf.perimeter += [myEdge.verts[1].loc] + myEdge.points[::-1]
     # Add the perimeter points to the whole set of points
     surf.points += surf.perimeter
-    # Check to see if the atoms have equal radii
-    if a0.rad == a1.rad:
-        return
+
+
+# Fill mesh function. Works inward from a set of perimeter points toward a center point filling in equally spaced points
+def fill_mesh(surf):
+    # Check to see that the surface has perimeter points
+    if len(surf.perimeter) == 0:
+        build_perimeter(surf)
+    # Get the resolution
+    res = surf.net.sys.min_dist
+    # Get the atoms
+    a0, a1 = surf.atoms[0], surf.atoms[1]
     # Get the center point for the surface
     center = surf.rn * 0.5 * (calc_dist(a0.loc, a1.loc) - (a0.rad + a1.rad)) + a0.loc
     # Check to see if the center point is inside the perimeter or not
@@ -121,6 +122,9 @@ def make_mesh(surf):
         # Get the center of mass of the edges of the surface
         com = calc_edges_com(surf.edges)
         com = calc_surf_point(surf, com)
+    # Check to see if the atoms have equal radii
+    if a0.rad == a1.rad:
+        return
     # For each edge point set up a path list.
     paths = [[surf.perimeter[i]] for i in range(len(surf.perimeter))]
     # Grab the smallest of the 2 surface atoms' location
@@ -167,9 +171,8 @@ def make_mesh(surf):
     # Add the remaining paths to the surface excluding the first point in the path (i.e. the edge point)
     for path in paths:
         surf.points += path[1:]
+    # Add the center of mass point to the set of points
     surf.points.append(com)
-    # Find the simplices of the surface
-    find_simps(surf)
 
 
 # Triangle within the surface function. Checks to see if a triangle lies within the perimeter of a surface
@@ -230,8 +233,7 @@ def calc_tri_circ(surf, tri):
     return circum_r
 
 
-# Find simplices function. Transforms and rotates surface points to be concave along the z axis and returns the
-# Delaunay simplices created by the 2d projection of the points onto the xy plane
+# Find simplices function. Transforms and rotates surface points to xy-plane and returns the Delaunay simplices
 def find_simps(surf):
     # Get the atoms
     a0, a1, d = surf.atoms[0], surf.atoms[1], np.linalg.norm(surf.rn)
@@ -251,10 +253,15 @@ def find_simps(surf):
     # Find the 2d polygon
     surf.flat_points = [nps[i, :2] for i in range(len(surf.points))]
     surf.tris = tris.triangles.tolist()
+
+
+# Filter triangles function. Goes through the
+def filter_tris(surf):
+    # Set up a list of indices to remove for the triangles
     remove_ndxs = []
-    # Go through the triangles that have been created
+    # Go through the triangles in the surface
     for i in range(len(surf.tris)):
-        # Grab the triangle
+        # Grab the triangle and calculate its circumference
         tri = surf.tris[i]
         circ = calc_tri_circ(surf, tri)
         # If the circumference of the triangle is less than x times the minimum distance check to see if tri is within
@@ -264,3 +271,24 @@ def find_simps(surf):
     remove_ndxs.sort()
     for i in range(len(remove_ndxs)):
         surf.tris.pop(remove_ndxs[-(i + 1)])
+
+
+# Make mesh method. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
+def make_mesh(surf):
+    # Get the surface's function coefficients
+    if surf.func is None:
+        surf.calc_func()
+    # Get the normal to the surface
+    if surf.rn is None:
+        r = np.array(surf.atoms[1].loc) - np.array(surf.atoms[0].loc)
+        surf.rn = r / np.linalg.norm(r)
+    # Reset the surface's list of points to empty list and reset the vertex indices list
+    surf.points = []
+    # Build the perimeter of the surface
+    build_perimeter(surf)
+    # Fill the mesh
+    fill_mesh(surf)
+    # Find the simplices of the surface
+    find_simps(surf)
+    # Filter out the bad triangles
+    filter_tris(surf)
