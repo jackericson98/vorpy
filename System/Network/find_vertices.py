@@ -81,8 +81,16 @@ def find_site(net, edge_atoms, vn_1=None):
         vert = Vertex(edge_atoms + [atom], net=net)
         if vert.loc is None:
             continue
+
+        # Otherwise, find the indices of the sub-box for the vertex
+        vi = int((vert.loc[0] / net.sub_box_size[0]) - net.box[0][0])
+        vj = int((vert.loc[1] / net.sub_box_size[1]) - net.box[0][1])
+        vk = int((vert.loc[2] / net.sub_box_size[2]) - net.box[0][2])
+        # Get the number of boxes that an overlapping atom could possibly be away from the vertex sub-box
+        atom_range = int(vert.rad / min(net.sub_box_size)) + int(5 / min(net.sub_box_size)) + 1
+        overlap_test_atoms = net.get_atoms([[vi, vj, vk]], atom_range)
         overlap = False
-        for atom2 in net.atoms:
+        for atom2 in overlap_test_atoms:
             if atom2 in edge_atoms + [atom]:
                 continue
             if calc_dist(atom2.loc, vert.loc) < atom2.rad + vert.rad:

@@ -21,6 +21,7 @@ class Surface:
         self.sa = 0            # Surface Area     : The surface area of the
         self.rn = None         # Surface Normal   : Normal to the center of the surface
         self.in_box = True     # Outside Box      : Gets flipped if a point from the surface is found outside the system
+        self.bad = False       # Bad
 
     # Bisector function. Creates a bisector surface between 2 atoms
     def calc_func(self):

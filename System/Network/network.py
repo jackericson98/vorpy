@@ -24,7 +24,6 @@ class Network:
         self.vert_ndxs = []       # Vert indices:   Holds the indices of the atoms of the vertices in the network
 
         self.sort_atoms()         # Sort Atoms  :   Once the network has been created place the atoms in their sub-boxes
-        print(self.box)
 
     # Calculate box function. Takes in a System and returns the dimensions of a box x times the size of the atoms
     def calc_box(self):
@@ -117,7 +116,7 @@ class Network:
         verts = []
         # Go through the vertices
         for i in range(len(self.verts)):
-            # Set up the vertex in box tracking boolean veaiable
+            # Set up the vertex in box tracking boolean variable
             in_box = True
             # Check if the vertex is inside the box
             for j in range(3):
