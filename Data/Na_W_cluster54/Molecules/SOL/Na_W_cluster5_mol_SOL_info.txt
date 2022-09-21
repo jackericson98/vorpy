@@ -1,0 +1,740 @@
+SOL
+
+Atoms
+
+Total Volume for SOL = 0
+
+Atom 0: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 36, Surface Area = 0.2102782341916984
+  Surface 2, Made with Atom 34, Surface Area = 0.43481137086085553
+  Surface 3, Made with Atom 61, Surface Area = 5.7886925622750525
+  Surface 4, Made with Atom 30, Surface Area = 3.098059070269561
+  Surface 5, Made with Atom 10, Surface Area = 0.7833064228809212
+  Surface 6, Made with Atom 42, Surface Area = 2.7279035489908603
+  Surface 7, Made with Atom 11, Surface Area = 2.9315658043918194
+  Surface 8, Made with Atom 40, Surface Area = 0.2382408600337581
+  Surface 9, Made with Atom 29, Surface Area = 1.5208202618184197
+  Surface 10, Made with Atom 28, Surface Area = 2.684073547232051
+  Surface 11, Made with Atom 54, Surface Area = 0.6114322282979677
+  Surface 12, Made with Atom 27, Surface Area = 0.7662872991137798
+  Surface 13, Made with Atom 25, Surface Area = 1.950891242107812
+  Surface 14, Made with Atom 52, Surface Area = 0.9593192462461219
+  Surface 15, Made with Atom 12, Surface Area = 0.03160752890279198
+  Surface 16, Made with Atom 22, Surface Area = 2.2654438308409706
+  Surface 17, Made with Atom 24, Surface Area = 0.08556748563285849
+  Surface 18, Made with Atom 9, Surface Area = 0.10568494984154236
+
+
+Atom 1: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 52, Surface Area = 7.559120213019347
+  Surface 2, Made with Atom 27, Surface Area = 0.777559400439341
+  Surface 3, Made with Atom 61, Surface Area = 0.20101451064780654
+  Surface 4, Made with Atom 22, Surface Area = 1.4563226416536825
+  Surface 5, Made with Atom 25, Surface Area = 1.191994986700985
+  Surface 6, Made with Atom 24, Surface Area = 0.5688911252494094
+
+
+Atom 2: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 28, Surface Area = 0.24087395969837683
+  Surface 2, Made with Atom 29, Surface Area = 0.018142054066388136
+  Surface 3, Made with Atom 41, Surface Area = 0.21126937597009987
+  Surface 4, Made with Atom 40, Surface Area = 1.7706283453634417
+  Surface 5, Made with Atom 42, Surface Area = 0.23782333460477986
+  Surface 6, Made with Atom 11, Surface Area = 1.2330721202885513
+  Surface 7, Made with Atom 9, Surface Area = 2.4763026436776876
+  Surface 8, Made with Atom 22, Surface Area = 1.8266633161246907e-05
+
+
+Atom 3: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 34, Surface Area = 3.130470243945806
+  Surface 2, Made with Atom 36, Surface Area = 7.225011754500049
+  Surface 3, Made with Atom 10, Surface Area = 0.32163004244031945
+  Surface 4, Made with Atom 57, Surface Area = 0.0700908441932237
+  Surface 5, Made with Atom 40, Surface Area = 0.3479051190675773
+  Surface 6, Made with Atom 42, Surface Area = 1.0057376806722975
+  Surface 7, Made with Atom 28, Surface Area = 0.01887987332642278
+  Surface 8, Made with Atom 35, Surface Area = 0.8405416482559772
+  Surface 9, Made with Atom 56, Surface Area = 0.05944486797134711
+  Surface 10, Made with Atom 58, Surface Area = 0.2508889918563178
+
+
+Atom 4: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 36, Surface Area = 0.17773875623293658
+
+
+Atom 5: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 42, Surface Area = 0.6129745206412103
+  Surface 2, Made with Atom 36, Surface Area = 0.27383721460319377
+  Surface 3, Made with Atom 35, Surface Area = 0.009253390722806216
+  Surface 4, Made with Atom 58, Surface Area = 6.188176173792325
+
+
+Atom 6: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 29, Surface Area = 1.6534106953601493
+  Surface 2, Made with Atom 52, Surface Area = 8.084044454288426
+  Surface 3, Made with Atom 41, Surface Area = 0.5668876843485707
+  Surface 4, Made with Atom 40, Surface Area = 0.7769028587310194
+  Surface 5, Made with Atom 28, Surface Area = 0.059756145568933515
+
+
+Atom 7: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+
+
+Atom 8: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 1, Surface Area = 0.10568494984154236
+  Surface 2, Made with Atom 3, Surface Area = 2.4763026436776876
+
+
+Atom 9: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 61, Surface Area = 4.2302961892004625
+  Surface 2, Made with Atom 1, Surface Area = 0.7833064228809212
+  Surface 3, Made with Atom 36, Surface Area = 1.508002175381924
+  Surface 4, Made with Atom 56, Surface Area = 0.6747070462771908
+  Surface 5, Made with Atom 4, Surface Area = 0.32163004244031945
+  Surface 6, Made with Atom 44, Surface Area = 0.2728205983013921
+  Surface 7, Made with Atom 31, Surface Area = 1.6882693761526306
+  Surface 8, Made with Atom 22, Surface Area = 0.0188215817536591
+  Surface 9, Made with Atom 16, Surface Area = 0.15175172744132884
+
+
+Atom 10: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 36, Surface Area = 0.28745763676637404
+  Surface 2, Made with Atom 1, Surface Area = 2.9315658043918194
+  Surface 3, Made with Atom 42, Surface Area = 0.11065921660155167
+  Surface 4, Made with Atom 22, Surface Area = 0.012417332731729588
+  Surface 5, Made with Atom 3, Surface Area = 1.2330721202885513
+
+
+Atom 11: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 31, Surface Area = 0.4897383403177173
+  Surface 2, Made with Atom 44, Surface Area = 1.5714593036060547
+  Surface 3, Made with Atom 61, Surface Area = 0.027102141546513178
+  Surface 4, Made with Atom 22, Surface Area = 0.16819042683827895
+  Surface 5, Made with Atom 1, Surface Area = 0.03160752890279198
+
+
+Atom 12: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 58, Surface Area = 0.36719311917935715
+  Surface 2, Made with Atom 49, Surface Area = 1.451739393205225
+  Surface 3, Made with Atom 50, Surface Area = 3.1128303487004834
+  Surface 4, Made with Atom 26, Surface Area = 3.5590204834979398
+  Surface 5, Made with Atom 37, Surface Area = 0.19460133023048115
+  Surface 6, Made with Atom 25, Surface Area = 0.6975704413653472
+  Surface 7, Made with Atom 19, Surface Area = 0.022885534497571133
+
+
+Atom 13: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 58, Surface Area = 4.7673831301718606
+  Surface 2, Made with Atom 26, Surface Area = 1.92172821875571
+
+
+Atom 14: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 25, Surface Area = 0.21936647123521325
+  Surface 2, Made with Atom 26, Surface Area = 0.11906529049802192
+
+
+Atom 15: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 23, Surface Area = 1.898668095942471
+  Surface 2, Made with Atom 19, Surface Area = 2.6181865127121466
+  Surface 3, Made with Atom 20, Surface Area = 1.5378570246346834
+  Surface 4, Made with Atom 32, Surface Area = 7.477649932416393
+  Surface 5, Made with Atom 46, Surface Area = 3.397185171140879
+  Surface 6, Made with Atom 45, Surface Area = 3.794948197733627
+  Surface 7, Made with Atom 44, Surface Area = 7.45137233406085
+  Surface 8, Made with Atom 31, Surface Area = 0.0707643630357869
+  Surface 9, Made with Atom 18, Surface Area = 129.61686219241224
+  Surface 10, Made with Atom 56, Surface Area = 0.10605180184826898
+  Surface 11, Made with Atom 57, Surface Area = 0.939184436005266
+  Surface 12, Made with Atom 10, Surface Area = 0.15175172744132884
+
+
+Atom 16: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 19, Surface Area = 0.45418132815488854
+  Surface 2, Made with Atom 18, Surface Area = 3.794577123943266
+
+
+Atom 17: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 31, Surface Area = 0.328641263225142
+  Surface 2, Made with Atom 56, Surface Area = 2.4339551415485925
+  Surface 3, Made with Atom 46, Surface Area = 8.935444745973735
+  Surface 4, Made with Atom 17, Surface Area = 3.794577123943266
+  Surface 5, Made with Atom 16, Surface Area = 129.61686219241224
+  Surface 6, Made with Atom 32, Surface Area = 1.1877715341565704
+  Surface 7, Made with Atom 55, Surface Area = 5.665744564378734
+  Surface 8, Made with Atom 48, Surface Area = 3.0027494774014376
+
+
+Atom 18: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 37, Surface Area = 0.5173902879315009
+  Surface 2, Made with Atom 25, Surface Area = 2.675117136632189
+  Surface 3, Made with Atom 39, Surface Area = 1.2213911130759096
+  Surface 4, Made with Atom 52, Surface Area = 0.055482752422844596
+  Surface 5, Made with Atom 16, Surface Area = 2.6181865127121466
+  Surface 6, Made with Atom 17, Surface Area = 0.45418132815488854
+  Surface 7, Made with Atom 32, Surface Area = 2.189667041575895
+  Surface 8, Made with Atom 22, Surface Area = 0.0005483032160406381
+  Surface 9, Made with Atom 50, Surface Area = 1.6394145235363016
+  Surface 10, Made with Atom 13, Surface Area = 0.022885534497571133
+
+
+Atom 19: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 16, Surface Area = 1.5378570246346834
+
+
+Atom 20: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 49, Surface Area = 1.2392759742981643
+  Surface 2, Made with Atom 37, Surface Area = 0.757425249461662
+  Surface 3, Made with Atom 25, Surface Area = 0.3218408438107933
+  Surface 4, Made with Atom 39, Surface Area = 0.17789889467792838
+  Surface 5, Made with Atom 50, Surface Area = 0.4581973389902327
+
+
+Atom 21: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 32, Surface Area = 0.005391223684278025
+  Surface 2, Made with Atom 31, Surface Area = 4.0390516992039665
+  Surface 3, Made with Atom 61, Surface Area = 0.58813417360042
+  Surface 4, Made with Atom 12, Surface Area = 0.16819042683827895
+  Surface 5, Made with Atom 11, Surface Area = 0.012417332731729588
+  Surface 6, Made with Atom 10, Surface Area = 0.0188215817536591
+  Surface 7, Made with Atom 1, Surface Area = 2.2654438308409706
+  Surface 8, Made with Atom 2, Surface Area = 1.4563226416536825
+  Surface 9, Made with Atom 25, Surface Area = 0.2980364349629578
+  Surface 10, Made with Atom 52, Surface Area = 1.4326504275474576
+  Surface 11, Made with Atom 19, Surface Area = 0.0005483032160406381
+  Surface 12, Made with Atom 33, Surface Area = 0.0004662541014635735
+  Surface 13, Made with Atom 3, Surface Area = 1.8266633161246907e-05
+
+
+Atom 22: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 52, Surface Area = 1.6196557935146911
+  Surface 2, Made with Atom 16, Surface Area = 1.898668095942471
+  Surface 3, Made with Atom 32, Surface Area = 0.5648817577885877
+  Surface 4, Made with Atom 25, Surface Area = 0.07697333945764595
+
+
+Atom 23: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 2, Surface Area = 0.5688911252494094
+  Surface 2, Made with Atom 1, Surface Area = 0.08556748563285849
+  Surface 3, Made with Atom 52, Surface Area = 2.3749398825587167
+
+
+Atom 24: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 58, Surface Area = 0.8077357705936491
+  Surface 2, Made with Atom 26, Surface Area = 137.37565474371357
+  Surface 3, Made with Atom 30, Surface Area = 3.1434564196038943
+  Surface 4, Made with Atom 1, Surface Area = 1.950891242107812
+  Surface 5, Made with Atom 27, Surface Area = 6.907869264136539
+  Surface 6, Made with Atom 37, Surface Area = 2.143617543467713
+  Surface 7, Made with Atom 39, Surface Area = 0.28716271887278594
+  Surface 8, Made with Atom 15, Surface Area = 0.21936647123521325
+  Surface 9, Made with Atom 13, Surface Area = 0.6975704413653472
+  Surface 10, Made with Atom 21, Surface Area = 0.3218408438107933
+  Surface 11, Made with Atom 19, Surface Area = 2.675117136632189
+  Surface 12, Made with Atom 61, Surface Area = 4.851871594640093
+  Surface 13, Made with Atom 2, Surface Area = 1.191994986700985
+  Surface 14, Made with Atom 22, Surface Area = 0.2980364349629578
+  Surface 15, Made with Atom 31, Surface Area = 1.4985701545459975
+  Surface 16, Made with Atom 52, Surface Area = 1.2695204317042101
+  Surface 17, Made with Atom 23, Surface Area = 0.07697333945764595
+  Surface 18, Made with Atom 33, Surface Area = 0.6863937116649619
+  Surface 19, Made with Atom 50, Surface Area = 1.0488861986465872
+  Surface 20, Made with Atom 34, Surface Area = 1.7704563441131704
+  Surface 21, Made with Atom 35, Surface Area = 0.5041452651761077
+
+
+Atom 25: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 14, Surface Area = 1.92172821875571
+  Surface 2, Made with Atom 58, Surface Area = 5.67602041162862
+  Surface 3, Made with Atom 13, Surface Area = 3.5590204834979398
+  Surface 4, Made with Atom 37, Surface Area = 1.8598075391250335
+  Surface 5, Made with Atom 50, Surface Area = 0.8075598736131073
+  Surface 6, Made with Atom 60, Surface Area = 0.8311576885743874
+  Surface 7, Made with Atom 38, Surface Area = 2.0229101595691494
+  Surface 8, Made with Atom 30, Surface Area = 0.23388686023553187
+  Surface 9, Made with Atom 25, Surface Area = 137.37565474371357
+  Surface 10, Made with Atom 27, Surface Area = 0.7030946135404799
+  Surface 11, Made with Atom 15, Surface Area = 0.11906529049802192
+  Surface 12, Made with Atom 34, Surface Area = 0.000516565525636963
+  Surface 13, Made with Atom 35, Surface Area = 0.3059575057348516
+
+
+Atom 26: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 38, Surface Area = 6.3493127744291895
+  Surface 2, Made with Atom 26, Surface Area = 0.7030946135404799
+  Surface 3, Made with Atom 30, Surface Area = 4.383198840154003
+  Surface 4, Made with Atom 29, Surface Area = 0.3769492457608974
+  Surface 5, Made with Atom 54, Surface Area = 1.8251311366915217
+  Surface 6, Made with Atom 1, Surface Area = 0.7662872991137798
+  Surface 7, Made with Atom 25, Surface Area = 6.907869264136539
+  Surface 8, Made with Atom 52, Surface Area = 3.163315722807791
+  Surface 9, Made with Atom 2, Surface Area = 0.777559400439341
+  Surface 10, Made with Atom 37, Surface Area = 1.6353633508952512
+  Surface 11, Made with Atom 39, Surface Area = 0.2578062229111032
+
+
+Atom 27: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 4, Surface Area = 0.01887987332642278
+  Surface 2, Made with Atom 36, Surface Area = 0.7303355717907318
+  Surface 3, Made with Atom 42, Surface Area = 5.996217044387335
+  Surface 4, Made with Atom 58, Surface Area = 2.557114885583437
+  Surface 5, Made with Atom 34, Surface Area = 0.026363075962364285
+  Surface 6, Made with Atom 30, Surface Area = 364.36657407169014
+  Surface 7, Made with Atom 38, Surface Area = 0.10598994594895664
+  Surface 8, Made with Atom 1, Surface Area = 2.684073547232051
+  Surface 9, Made with Atom 3, Surface Area = 0.24087395969837683
+  Surface 10, Made with Atom 7, Surface Area = 0.059756145568933515
+
+
+Atom 28: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 30, Surface Area = 3.5259670274029813
+  Surface 2, Made with Atom 27, Surface Area = 0.3769492457608974
+  Surface 3, Made with Atom 1, Surface Area = 1.5208202618184197
+  Surface 4, Made with Atom 3, Surface Area = 0.018142054066388136
+  Surface 5, Made with Atom 7, Surface Area = 1.6534106953601493
+
+
+Atom 29: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 61, Surface Area = 0.008517852899793968
+  Surface 2, Made with Atom 1, Surface Area = 3.098059070269561
+  Surface 3, Made with Atom 36, Surface Area = 0.06621588017563641
+  Surface 4, Made with Atom 28, Surface Area = 364.36657407169014
+  Surface 5, Made with Atom 26, Surface Area = 0.23388686023553187
+  Surface 6, Made with Atom 60, Surface Area = 1.6499009928705375
+  Surface 7, Made with Atom 25, Surface Area = 3.1434564196038943
+  Surface 8, Made with Atom 38, Surface Area = 1.7815358251427578
+  Surface 9, Made with Atom 27, Surface Area = 4.383198840154003
+  Surface 10, Made with Atom 29, Surface Area = 3.5259670274029813
+  Surface 11, Made with Atom 42, Surface Area = 0.047447596718883274
+  Surface 12, Made with Atom 54, Surface Area = 0.07053649596719377
+
+
+Atom 30: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 32, Surface Area = 7.926797975498711
+  Surface 2, Made with Atom 16, Surface Area = 0.0707643630357869
+  Surface 3, Made with Atom 44, Surface Area = 1.0272020611950252
+  Surface 4, Made with Atom 45, Surface Area = 0.8252507791019228
+  Surface 5, Made with Atom 22, Surface Area = 4.0390516992039665
+  Surface 6, Made with Atom 43, Surface Area = 1.0323538824653766
+  Surface 7, Made with Atom 12, Surface Area = 0.4897383403177173
+  Surface 8, Made with Atom 10, Surface Area = 1.6882693761526306
+  Surface 9, Made with Atom 61, Surface Area = 6.714971808323919
+  Surface 10, Made with Atom 25, Surface Area = 1.4985701545459975
+  Surface 11, Made with Atom 50, Surface Area = 2.8293043622078065
+  Surface 12, Made with Atom 47, Surface Area = 0.05288332153408561
+  Surface 13, Made with Atom 34, Surface Area = 0.8158419944911833
+  Surface 14, Made with Atom 49, Surface Area = 0.17927901556030626
+  Surface 15, Made with Atom 56, Surface Area = 1.608065067153192
+  Surface 16, Made with Atom 46, Surface Area = 1.3901477646040024
+  Surface 17, Made with Atom 18, Surface Area = 0.328641263225142
+
+
+Atom 31: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 16, Surface Area = 7.477649932416393
+  Surface 2, Made with Atom 23, Surface Area = 0.5648817577885877
+  Surface 3, Made with Atom 19, Surface Area = 2.189667041575895
+  Surface 4, Made with Atom 31, Surface Area = 7.926797975498711
+  Surface 5, Made with Atom 46, Surface Area = 1.7835448094347028
+  Surface 6, Made with Atom 45, Surface Area = 0.7446903264058997
+  Surface 7, Made with Atom 22, Surface Area = 0.005391223684278025
+  Surface 8, Made with Atom 44, Surface Area = 1.629525235554359
+  Surface 9, Made with Atom 18, Surface Area = 1.1877715341565704
+  Surface 10, Made with Atom 33, Surface Area = 1.0417659830768522
+
+
+Atom 32: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 22, Surface Area = 0.0004662541014635735
+  Surface 2, Made with Atom 25, Surface Area = 0.6863937116649619
+  Surface 3, Made with Atom 50, Surface Area = 0.8349319597399141
+  Surface 4, Made with Atom 47, Surface Area = 0.05505702738091784
+  Surface 5, Made with Atom 46, Surface Area = 0.20098312809615607
+  Surface 6, Made with Atom 32, Surface Area = 1.0417659830768522
+
+
+Atom 33: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 36, Surface Area = 8.250589950902231
+  Surface 2, Made with Atom 61, Surface Area = 6.238204813548418
+  Surface 3, Made with Atom 1, Surface Area = 0.43481137086085553
+  Surface 4, Made with Atom 42, Surface Area = 0.02120955850831687
+  Surface 5, Made with Atom 56, Surface Area = 8.311057292856512
+  Surface 6, Made with Atom 4, Surface Area = 3.130470243945806
+  Surface 7, Made with Atom 28, Surface Area = 0.026363075962364285
+  Surface 8, Made with Atom 59, Surface Area = 1.9788209482519465
+  Surface 9, Made with Atom 49, Surface Area = 2.123814182826575
+  Surface 10, Made with Atom 50, Surface Area = 1.7628608577364377
+  Surface 11, Made with Atom 25, Surface Area = 1.7704563441131704
+  Surface 12, Made with Atom 31, Surface Area = 0.8158419944911833
+  Surface 13, Made with Atom 26, Surface Area = 0.000516565525636963
+
+
+Atom 34: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 4, Surface Area = 0.8405416482559772
+  Surface 2, Made with Atom 6, Surface Area = 0.009253390722806216
+  Surface 3, Made with Atom 36, Surface Area = 0.6617469145544045
+  Surface 4, Made with Atom 59, Surface Area = 4.569687814438041
+  Surface 5, Made with Atom 49, Surface Area = 0.8357208351811638
+  Surface 6, Made with Atom 50, Surface Area = 0.5924795882693745
+  Surface 7, Made with Atom 26, Surface Area = 0.3059575057348516
+  Surface 8, Made with Atom 25, Surface Area = 0.5041452651761077
+
+
+Atom 35: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 34, Surface Area = 8.250589950902231
+  Surface 2, Made with Atom 61, Surface Area = 0.0002516082519112841
+  Surface 3, Made with Atom 1, Surface Area = 0.2102782341916984
+  Surface 4, Made with Atom 10, Surface Area = 1.508002175381924
+  Surface 5, Made with Atom 42, Surface Area = 2.0320486816550534
+  Surface 6, Made with Atom 55, Surface Area = 0.47971735391944276
+  Surface 7, Made with Atom 4, Surface Area = 7.225011754500049
+  Surface 8, Made with Atom 5, Surface Area = 0.17773875623293658
+  Surface 9, Made with Atom 40, Surface Area = 0.1897200711007569
+  Surface 10, Made with Atom 11, Surface Area = 0.28745763676637404
+  Surface 11, Made with Atom 28, Surface Area = 0.7303355717907318
+  Surface 12, Made with Atom 6, Surface Area = 0.27383721460319377
+  Surface 13, Made with Atom 35, Surface Area = 0.6617469145544045
+  Surface 14, Made with Atom 58, Surface Area = 0.11333891238365158
+  Surface 15, Made with Atom 30, Surface Area = 0.06621588017563641
+
+
+Atom 36: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 13, Surface Area = 0.19460133023048115
+  Surface 2, Made with Atom 26, Surface Area = 1.8598075391250335
+  Surface 3, Made with Atom 52, Surface Area = 0.00057238541993478
+  Surface 4, Made with Atom 27, Surface Area = 1.6353633508952512
+  Surface 5, Made with Atom 25, Surface Area = 2.143617543467713
+  Surface 6, Made with Atom 21, Surface Area = 0.757425249461662
+  Surface 7, Made with Atom 19, Surface Area = 0.5173902879315009
+
+
+Atom 37: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 26, Surface Area = 2.0229101595691494
+  Surface 2, Made with Atom 30, Surface Area = 1.7815358251427578
+  Surface 3, Made with Atom 27, Surface Area = 6.3493127744291895
+  Surface 4, Made with Atom 28, Surface Area = 0.10598994594895664
+  Surface 5, Made with Atom 52, Surface Area = 0.11385191867095498
+
+
+Atom 38: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 52, Surface Area = 5.241879242388671
+  Surface 2, Made with Atom 27, Surface Area = 0.2578062229111032
+  Surface 3, Made with Atom 25, Surface Area = 0.28716271887278594
+  Surface 4, Made with Atom 21, Surface Area = 0.17789889467792838
+  Surface 5, Made with Atom 19, Surface Area = 1.2213911130759096
+
+
+Atom 39: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 36, Surface Area = 0.1897200711007569
+  Surface 2, Made with Atom 4, Surface Area = 0.3479051190675773
+  Surface 3, Made with Atom 42, Surface Area = 7.547732529982044
+  Surface 4, Made with Atom 1, Surface Area = 0.2382408600337581
+  Surface 5, Made with Atom 7, Surface Area = 0.7769028587310194
+  Surface 6, Made with Atom 3, Surface Area = 1.7706283453634417
+
+
+Atom 40: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 7, Surface Area = 0.5668876843485707
+  Surface 2, Made with Atom 3, Surface Area = 0.21126937597009987
+  Surface 3, Made with Atom 42, Surface Area = 0.27634343004444234
+
+
+Atom 41: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 36, Surface Area = 2.0320486816550534
+  Surface 2, Made with Atom 1, Surface Area = 2.7279035489908603
+  Surface 3, Made with Atom 34, Surface Area = 0.02120955850831687
+  Surface 4, Made with Atom 40, Surface Area = 7.547732529982044
+  Surface 5, Made with Atom 11, Surface Area = 0.11065921660155167
+  Surface 6, Made with Atom 4, Surface Area = 1.0057376806722975
+  Surface 7, Made with Atom 28, Surface Area = 5.996217044387335
+  Surface 8, Made with Atom 6, Surface Area = 0.6129745206412103
+  Surface 9, Made with Atom 30, Surface Area = 0.047447596718883274
+  Surface 10, Made with Atom 3, Surface Area = 0.23782333460477986
+  Surface 11, Made with Atom 41, Surface Area = 0.27634343004444234
+
+
+Atom 42: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 44, Surface Area = 92.69561907768178
+  Surface 2, Made with Atom 31, Surface Area = 1.0323538824653766
+  Surface 3, Made with Atom 61, Surface Area = 1.367852973653532e-06
+
+
+Atom 43: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 32, Surface Area = 1.629525235554359
+  Surface 2, Made with Atom 45, Surface Area = 0.7864749622696435
+  Surface 3, Made with Atom 16, Surface Area = 7.45137233406085
+  Surface 4, Made with Atom 31, Surface Area = 1.0272020611950252
+  Surface 5, Made with Atom 43, Surface Area = 92.69561907768178
+  Surface 6, Made with Atom 12, Surface Area = 1.5714593036060547
+  Surface 7, Made with Atom 10, Surface Area = 0.2728205983013921
+  Surface 8, Made with Atom 57, Surface Area = 0.22743037085379342
+
+
+Atom 44: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 16, Surface Area = 3.794948197733627
+  Surface 2, Made with Atom 32, Surface Area = 0.7446903264058997
+  Surface 3, Made with Atom 44, Surface Area = 0.7864749622696435
+  Surface 4, Made with Atom 31, Surface Area = 0.8252507791019228
+
+
+Atom 45: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 32, Surface Area = 1.7835448094347028
+  Surface 2, Made with Atom 16, Surface Area = 3.397185171140879
+  Surface 3, Made with Atom 31, Surface Area = 1.3901477646040024
+  Surface 4, Made with Atom 56, Surface Area = 6.320115764357873
+  Surface 5, Made with Atom 18, Surface Area = 8.935444745973735
+  Surface 6, Made with Atom 50, Surface Area = 0.0015066461034534927
+  Surface 7, Made with Atom 55, Surface Area = 0.642870274845277
+  Surface 8, Made with Atom 33, Surface Area = 0.20098312809615607
+
+
+Atom 46: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 33, Surface Area = 0.05505702738091784
+  Surface 2, Made with Atom 50, Surface Area = 0.11497060658640242
+  Surface 3, Made with Atom 31, Surface Area = 0.05288332153408561
+
+
+Atom 47: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 18, Surface Area = 3.0027494774014376
+
+
+Atom 48: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 35, Surface Area = 0.8357208351811638
+  Surface 2, Made with Atom 34, Surface Area = 2.123814182826575
+  Surface 3, Made with Atom 50, Surface Area = 554.0037819632194
+  Surface 4, Made with Atom 58, Surface Area = 0.6349703882703412
+  Surface 5, Made with Atom 13, Surface Area = 1.451739393205225
+  Surface 6, Made with Atom 21, Surface Area = 1.2392759742981643
+  Surface 7, Made with Atom 31, Surface Area = 0.17927901556030626
+
+
+Atom 49: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 35, Surface Area = 0.5924795882693745
+  Surface 2, Made with Atom 34, Surface Area = 1.7628608577364377
+  Surface 3, Made with Atom 49, Surface Area = 554.0037819632194
+  Surface 4, Made with Atom 58, Surface Area = 0.4939332741289675
+  Surface 5, Made with Atom 13, Surface Area = 3.1128303487004834
+  Surface 6, Made with Atom 26, Surface Area = 0.8075598736131073
+  Surface 7, Made with Atom 25, Surface Area = 1.0488861986465872
+  Surface 8, Made with Atom 33, Surface Area = 0.8349319597399141
+  Surface 9, Made with Atom 19, Surface Area = 1.6394145235363016
+  Surface 10, Made with Atom 47, Surface Area = 0.11497060658640242
+  Surface 11, Made with Atom 31, Surface Area = 2.8293043622078065
+  Surface 12, Made with Atom 61, Surface Area = 0.13330898554419174
+  Surface 13, Made with Atom 46, Surface Area = 0.0015066461034534927
+  Surface 14, Made with Atom 21, Surface Area = 0.4581973389902327
+
+
+Atom 50: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 58, Surface Area = 0.4148631969552795
+
+
+Atom 51: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 27, Surface Area = 3.163315722807791
+  Surface 2, Made with Atom 54, Surface Area = 15.639644064726545
+  Surface 3, Made with Atom 1, Surface Area = 0.9593192462461219
+  Surface 4, Made with Atom 7, Surface Area = 8.084044454288426
+  Surface 5, Made with Atom 2, Surface Area = 7.559120213019347
+  Surface 6, Made with Atom 38, Surface Area = 0.11385191867095498
+  Surface 7, Made with Atom 39, Surface Area = 5.241879242388671
+  Surface 8, Made with Atom 37, Surface Area = 0.00057238541993478
+  Surface 9, Made with Atom 23, Surface Area = 1.6196557935146911
+  Surface 10, Made with Atom 19, Surface Area = 0.055482752422844596
+  Surface 11, Made with Atom 25, Surface Area = 1.2695204317042101
+  Surface 12, Made with Atom 22, Surface Area = 1.4326504275474576
+  Surface 13, Made with Atom 24, Surface Area = 2.3749398825587167
+  Surface 14, Made with Atom 53, Surface Area = 14.523498048646768
+
+
+Atom 52: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 52, Surface Area = 14.523498048646768
+
+
+Atom 53: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 30, Surface Area = 0.07053649596719377
+  Surface 2, Made with Atom 1, Surface Area = 0.6114322282979677
+  Surface 3, Made with Atom 27, Surface Area = 1.8251311366915217
+  Surface 4, Made with Atom 52, Surface Area = 15.639644064726545
+
+
+Atom 54: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 36, Surface Area = 0.47971735391944276
+  Surface 2, Made with Atom 18, Surface Area = 5.665744564378734
+  Surface 3, Made with Atom 46, Surface Area = 0.642870274845277
+
+
+Atom 55: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 61, Surface Area = 0.003033611512214343
+  Surface 2, Made with Atom 34, Surface Area = 8.311057292856512
+  Surface 3, Made with Atom 10, Surface Area = 0.6747070462771908
+  Surface 4, Made with Atom 4, Surface Area = 0.05944486797134711
+  Surface 5, Made with Atom 31, Surface Area = 1.608065067153192
+  Surface 6, Made with Atom 46, Surface Area = 6.320115764357873
+  Surface 7, Made with Atom 18, Surface Area = 2.4339551415485925
+  Surface 8, Made with Atom 16, Surface Area = 0.10605180184826898
+  Surface 9, Made with Atom 57, Surface Area = 0.28985101616346304
+
+
+Atom 56: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 4, Surface Area = 0.0700908441932237
+  Surface 2, Made with Atom 44, Surface Area = 0.22743037085379342
+  Surface 3, Made with Atom 16, Surface Area = 0.939184436005266
+  Surface 4, Made with Atom 56, Surface Area = 0.28985101616346304
+
+
+Atom 57: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 36, Surface Area = 0.11333891238365158
+  Surface 2, Made with Atom 28, Surface Area = 2.557114885583437
+  Surface 3, Made with Atom 6, Surface Area = 6.188176173792325
+  Surface 4, Made with Atom 60, Surface Area = 18.039016113093254
+  Surface 5, Made with Atom 4, Surface Area = 0.2508889918563178
+  Surface 6, Made with Atom 59, Surface Area = 13.314898944567531
+  Surface 7, Made with Atom 49, Surface Area = 0.6349703882703412
+  Surface 8, Made with Atom 50, Surface Area = 0.4939332741289675
+  Surface 9, Made with Atom 51, Surface Area = 0.4148631969552795
+  Surface 10, Made with Atom 14, Surface Area = 4.7673831301718606
+  Surface 11, Made with Atom 13, Surface Area = 0.36719311917935715
+  Surface 12, Made with Atom 26, Surface Area = 5.67602041162862
+  Surface 13, Made with Atom 25, Surface Area = 0.8077357705936491
+
+
+Atom 58: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 35, Surface Area = 4.569687814438041
+  Surface 2, Made with Atom 34, Surface Area = 1.9788209482519465
+  Surface 3, Made with Atom 58, Surface Area = 13.314898944567531
+
+
+Atom 59: Chain - SOL
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 58, Surface Area = 18.039016113093254
+  Surface 2, Made with Atom 26, Surface Area = 0.8311576885743874
+  Surface 3, Made with Atom 30, Surface Area = 1.6499009928705375
+
+
+
+Interfaces
+
+Total Surface Area for SOL = 28.785401219843774
+
+
+Interface SOL_NA_interface:
+
+Total Surface Area = 28.785401219843774
+Curvature = 
+

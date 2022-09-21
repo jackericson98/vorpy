@@ -1,0 +1,1314 @@
+surfaces
+
+Interfaces
+
+Total Surface Area for surfaces = 1685.3953829821994
+
+
+Interface :
+
+Total Surface Area = 8.250589950902231
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.0002516082519112841
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 6.238204813548418
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.2102782341916984
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.43481137086085553
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 5.7886925622750525
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.008517852899793968
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 3.098059070269561
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 4.2302961892004625
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.7833064228809212
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.508002175381924
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 2.0320486816550534
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 2.7279035489908603
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.02120955850831687
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.003033611512214343
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 8.311057292856512
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.6747070462771908
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.47971735391944276
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 3.130470243945806
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 7.225011754500049
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.32163004244031945
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.17773875623293658
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.0700908441932237
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.1897200711007569
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.3479051190675773
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.28745763676637404
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 2.9315658043918194
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 7.547732529982044
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.11065921660155167
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.2382408600337581
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.0057376806722975
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.01887987332642278
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.7303355717907318
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 5.996217044387335
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.6129745206412103
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.27383721460319377
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.8405416482559772
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.009253390722806216
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.6617469145544045
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.11333891238365158
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 2.557114885583437
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 6.188176173792325
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 18.039016113093254
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.026363075962364285
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.06621588017563641
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 364.36657407169014
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 4.569687814438041
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.9788209482519465
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.05944486797134711
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.2508889918563178
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 13.314898944567531
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.8357208351811638
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 2.123814182826575
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.5924795882693745
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.7628608577364377
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 554.0037819632194
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.6349703882703412
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.4939332741289675
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.4148631969552795
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 4.7673831301718606
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.36719311917935715
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.451739393205225
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 3.1128303487004834
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.2392759742981643
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.92172821875571
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 5.67602041162862
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 3.5590204834979398
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.19460133023048115
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.8598075391250335
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.8075598736131073
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.8311576885743874
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 2.0229101595691494
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.23388686023553187
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.6499009928705375
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.8077357705936491
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 137.37565474371357
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 3.1434564196038943
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.7815358251427578
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 6.3493127744291895
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.7030946135404799
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 4.383198840154003
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.10598994594895664
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 3.5259670274029813
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.3769492457608974
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.5208202618184197
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 2.684073547232051
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.24087395969837683
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.018142054066388136
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.047447596718883274
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.07053649596719377
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.6114322282979677
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.8251311366915217
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.6534106953601493
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.7662872991137798
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.950891242107812
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 6.907869264136539
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 3.163315722807791
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 15.639644064726545
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.9593192462461219
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 8.084044454288426
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 7.559120213019347
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.777559400439341
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.11385191867095498
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 5.241879242388671
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.00057238541993478
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.6353633508952512
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.2578062229111032
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 2.143617543467713
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.28716271887278594
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.21936647123521325
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.11906529049802192
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.6975704413653472
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.757425249461662
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.3218408438107933
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.5173902879315009
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 2.675117136632189
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.17789889467792838
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.2213911130759096
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.6196557935146911
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.055482752422844596
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.898668095942471
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 2.6181865127121466
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.5378570246346834
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.45418132815488854
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 7.477649932416393
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.5648817577885877
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 2.189667041575895
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 7.926797975498711
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.7835448094347028
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 3.397185171140879
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 3.794948197733627
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.7446903264058997
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.005391223684278025
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.629525235554359
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.7864749622696435
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 7.45137233406085
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.0707643630357869
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.0272020611950252
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 92.69561907768178
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.8252507791019228
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 4.0390516992039665
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.0323538824653766
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.4897383403177173
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.5714593036060547
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.2728205983013921
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.6882693761526306
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.22743037085379342
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.027102141546513178
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.367852973653532e-06
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 6.714971808323919
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.58813417360042
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.16819042683827895
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.012417332731729588
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.0188215817536591
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.03160752890279198
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 2.2654438308409706
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.20101451064780654
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.4563226416536825
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 4.851871594640093
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.191994986700985
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.5688911252494094
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.08556748563285849
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.2980364349629578
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.4985701545459975
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.2695204317042101
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.4326504275474576
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 2.3749398825587167
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.07697333945764595
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.0005483032160406381
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.0004662541014635735
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.6863937116649619
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.0488861986465872
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.8349319597399141
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.6394145235363016
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.05505702738091784
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.11497060658640242
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.022885534497571133
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 2.8293043622078065
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.05288332153408561
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.13330898554419174
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.7704563441131704
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.8158419944911833
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.17927901556030626
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.608065067153192
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.3901477646040024
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 6.320115764357873
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.328641263225142
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 2.4339551415485925
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 8.935444745973735
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.0015066461034534927
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.4581973389902327
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 3.794577123943266
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 129.61686219241224
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.1877715341565704
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 5.665744564378734
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 3.0027494774014376
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.642870274845277
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.10605180184826898
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.939184436005266
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.28985101616346304
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.15175172744132884
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.20098312809615607
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.0417659830768522
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.000516565525636963
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.3059575057348516
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.5041452651761077
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 14.523498048646768
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.5668876843485707
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.7769028587310194
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.059756145568933515
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.21126937597009987
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.7706283453634417
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.23782333460477986
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.27634343004444234
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.2330721202885513
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 0.10568494984154236
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 2.4763026436776876
+Curvature = 
+
+
+Interface :
+
+Total Surface Area = 1.8266633161246907e-05
+Curvature = 
+

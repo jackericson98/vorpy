@@ -1,0 +1,35 @@
+NA
+
+Atoms
+
+Total Volume for NA = 0
+
+Atom 0: Chain - NA
+ Cell Volume = 0
+ Surfaces:
+  Surface 1, Made with Atom 36, Surface Area = 0.0002516082519112841
+  Surface 2, Made with Atom 34, Surface Area = 6.238204813548418
+  Surface 3, Made with Atom 1, Surface Area = 5.7886925622750525
+  Surface 4, Made with Atom 30, Surface Area = 0.008517852899793968
+  Surface 5, Made with Atom 10, Surface Area = 4.2302961892004625
+  Surface 6, Made with Atom 56, Surface Area = 0.003033611512214343
+  Surface 7, Made with Atom 12, Surface Area = 0.027102141546513178
+  Surface 8, Made with Atom 43, Surface Area = 1.367852973653532e-06
+  Surface 9, Made with Atom 31, Surface Area = 6.714971808323919
+  Surface 10, Made with Atom 22, Surface Area = 0.58813417360042
+  Surface 11, Made with Atom 2, Surface Area = 0.20101451064780654
+  Surface 12, Made with Atom 25, Surface Area = 4.851871594640093
+  Surface 13, Made with Atom 50, Surface Area = 0.13330898554419174
+
+
+
+Interfaces
+
+Total Surface Area for NA = 28.785401219843774
+
+
+Interface NA_SOL_interface:
+
+Total Surface Area = 28.785401219843774
+Curvature = 
+
