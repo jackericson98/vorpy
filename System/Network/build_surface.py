@@ -117,18 +117,18 @@ def fill_mesh(surf):
     center = surf.rn * 0.5 * (calc_dist(a0.loc, a1.loc) - (a0.rad + a1.rad)) + a0.loc
     # Get the center of mass for the edges
     com3d = calc_edges_com(surf.edges)
-    com3d_proj = calc_surf_point(surf, com3d)
-    com3d_trans = com3d_proj - center
-    com2d_trans = rotate_points(center, [com3d_trans])
+    com = calc_surf_point(surf, com3d)
+    # com3d_trans = com3d_proj - center
+    # com2d_trans = rotate_points(center, [com3d_trans])
     # Check to see if the center point is inside the perimeter or not
-    if tri_within(surf, point=com2d_trans):
-        com = com3d_proj
-    else:
-        if tri_within(surf, point=center):
-            com = center
-        else:
-            print("Bad surface! Surface: ", surf.ndx)
-            return
+    # if tri_within(surf, point=com2d_trans):
+    #     com = com3d_proj
+    # else:
+    #     if tri_within(surf, point=center):
+    #         com = center
+    #     else:
+    #         print("Bad surface! Surface: ", surf.ndx)
+    #         return
     # Check to see if the atoms have equal radii
     if a0.rad == a1.rad:
         return
