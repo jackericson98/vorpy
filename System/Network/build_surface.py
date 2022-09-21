@@ -115,13 +115,20 @@ def fill_mesh(surf):
     a0, a1 = surf.atoms[0], surf.atoms[1]
     # Get the center point for the surface
     center = surf.rn * 0.5 * (calc_dist(a0.loc, a1.loc) - (a0.rad + a1.rad)) + a0.loc
+    # Get the center of mass for the edges
+    com3d = calc_edges_com(surf.edges)
+    com3d_proj = calc_surf_point(surf, com3d)
+    com3d_trans = com3d_proj - center
+    com2d_trans = rotate_points(center, [com3d_trans])
     # Check to see if the center point is inside the perimeter or not
-    if tri_within(surf, point=center):
-        com = center
+    if tri_within(surf, point=com2d_trans):
+        com = com3d_proj
     else:
-        # Get the center of mass of the edges of the surface
-        com = calc_edges_com(surf.edges)
-        com = calc_surf_point(surf, com)
+        if tri_within(surf, point=center):
+            com = center
+        else:
+            print("Bad surface! Surface: ", surf.ndx)
+            return
     # Check to see if the atoms have equal radii
     if a0.rad == a1.rad:
         return
@@ -158,7 +165,7 @@ def fill_mesh(surf):
             if pn is not None and np.array([surf.net.box[0][i] <= pn[i] <= surf.net.box[1][i] for i in range(3)]).all():
                 surf.in_box = False
             # Check to see of the new point is too close to the previous point and the path has to end
-            if pn is None or (calc_dist(pn, pn_1) < 0.5 * res and calc_dist(paths[i - 1][-1], pn) < 0.5 * res):
+            if pn is None or (calc_dist(pn, pn_1) < 0.5 * res and not calc_dist(paths[i - 1][-1], pn) > res):
                 # Add the path to the surfaces points and remove it from the paths list
                 surf.points += paths.pop(i)[1:]
                 dthetas.pop(i)
