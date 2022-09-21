@@ -7,12 +7,13 @@ os.chdir("../..")
 
 # Files
 m_file = os.getcwd() + "./Data/test_data/Na_W_cluster5.pdb"
-v_file = os.getcwd() + "./Data/test_data/Na5_verts.txt"
+v_file = os.getcwd() + "./Data/test_data/Na5_verts1.txt"
 
 # Get the System
-sys = System(m_file, box_size=1.5, min_dist=0.5)
-sys.add_verts(v_file)
-
+sys = System(m_file, box_size=1.1, min_dist=0.05)
+# sys.add_verts(v_file)
+sys.net.find_verts()
+sys.export_verts()
 sys.net.connect()
 
 surfs = sys.net.surfs
