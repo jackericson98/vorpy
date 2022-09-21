@@ -24,7 +24,7 @@ class Network:
         self.vert_ndxs = []       # Vert indices:   Holds the indices of the atoms of the vertices in the network
 
         self.sort_atoms()         # Sort Atoms  :   Once the network has been created place the atoms in their sub-boxes
-
+        print(self.box)
 
     # Calculate box function. Takes in a System and returns the dimensions of a box x times the size of the atoms
     def calc_box(self):
@@ -117,8 +117,14 @@ class Network:
         verts = []
         # Go through the vertices
         for i in range(len(self.verts)):
+            # Set up the vertex in box tracking boolean veaiable
+            in_box = True
+            # Check if the vertex is inside the box
+            for j in range(3):
+                if self.verts[i].loc[j] < self.box[0][j] or self.verts[i].loc[j] > self.box[1][j]:
+                    in_box = False
             # Sort the indices of the vertices
-            if self.verts[i].ndx not in vert_ndxs:
+            if self.verts[i].ndx not in vert_ndxs and in_box:
                 vert_ndxs.append(self.verts[i].ndx)
                 verts.append(self.verts[i])
         # Set the networks vertices
@@ -131,18 +137,17 @@ class Network:
     # Find vertices method. Using the functions in find_vertices.py finds the vertices in the network
     def find_verts(self):
         # Go through each atom in the system
-        for i in range(len(self.atoms)):
-            if len(self.atoms[i].verts) > 0:
-                continue
-            # Update the running print statement
-            tot_verts = len(self.verts) + (len(self.atoms) - i)
-            percentage = int(len(self.verts) / tot_verts * 10000) / 100
-            print("\rBuilding Network:  ", '#' * (int(percentage) // 10) + ' ' * (10 - (int(percentage) // 10)),
-                  percentage, "%", end='')
-            # If the atom has no vertices run the vertex finder on it
-            v0 = find_v0(self, self.atoms[i])
-            if v0 is not None:
-                find_vertices(self, v0, i=i)
+        # for i in range(len(self.atoms)):
+        #     if len(self.atoms[i].verts) > 0:
+        #         continue
+        # Update the running print statement
+        tot_verts = len(self.atoms) * 6
+        percentage = int(len(self.verts) / tot_verts * 10000) / 100
+        print("\rBuilding Network:  ", '#' * (int(percentage) // 10) + ' ' * (10 - (int(percentage) // 10)),
+              percentage, "%", end='')
+        # If the atom has no vertices run the vertex finder on it
+        v0 = find_v0(self)
+        find_vertices(self, v0)
         print("\rBuilding Network:   ########## 100 %")
         print("\rNetwork Built")
 
