@@ -87,7 +87,7 @@ class System:
 
     # System level add vertex method. Just a pass through to the input system file
     def add_verts(self, file_address):
-        add_grant_verts(self, file_address)
+        add_verts(self, file_address)
 
     # System level Export vertices method.
     def export_verts(self):
