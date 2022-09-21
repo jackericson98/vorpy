@@ -58,45 +58,106 @@ def find_v0(net, a0=None):
     return myVert
 
 
-# Find site function. Takes in an edge and finds the only other vertex that does not overlap with other atoms
+# Find site function. Currently overkill, searching through all atoms for overlap and
 def find_site(net, edge_atoms, vn_1=None):
     # Get the atoms that should not ba a part of the new vertex
     if vn_1 is None:
         vert_atoms = edge_atoms
     else:
         vert_atoms = vn_1.atoms
-    # Instantiate the vertex, incrementer and minimum radius
-    myVert = None
-    inc, min_rad = 0, np.inf
-    # Go through larger and larger search area looking for a vertex
-    while myVert is None:
-        # Grab atoms from the cells surrounding the edge atoms
-        vert_test_atoms = net.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], len(net.sub_boxes))
-        for atom in vert_test_atoms:
-            if atom in vert_atoms:
+    verts = []
+    for atom in net.atoms:
+        if atom in vert_atoms:
+            continue
+        # If we have found the vertex before it is not the previous vertex return
+        vert_found = False
+        atom_ndxs = [net.atoms.index(atom1) for atom1 in edge_atoms + [atom]]
+        for vert1 in net.verts:
+            atom_ndxs.sort()
+            if vert1.ndx == atom_ndxs:
+                vert_found = True
+        if vert_found:
+            return
+        vert = Vertex(edge_atoms + [atom], net=net)
+        if vert.loc is None:
+            continue
+        overlap = False
+        for atom2 in net.atoms:
+            if atom2 in edge_atoms + [atom]:
                 continue
-            vert = Vertex(edge_atoms + [atom], net=net)
-            if vert.rad and vert.rad < min_rad:
+            if calc_dist(atom2.loc, vert.loc) < atom2.rad + vert.rad:
+                overlap = True
+                break
+        if not overlap:
+            verts.append(vert)
+    if len(verts) == 0:
+        return
+    elif len(verts) == 1:
+        return verts[0]
+    else:
+        myVert = None
+        min_rad = np.inf
+        for vert in verts:
+            if vert.rad < min_rad:
                 myVert = vert
                 min_rad = vert.rad
-        if myVert is None:
-            inc += 1
-            continue
-        vi = int((myVert.loc[0] / net.sub_box_size[0]) - net.box[0][0])
-        vj = int((myVert.loc[1] / net.sub_box_size[1]) - net.box[0][1])
-        vk = int((myVert.loc[2] / net.sub_box_size[2]) - net.box[0][2])
-        atom_range = int(myVert.rad / min(net.sub_box_size)) + int(5 / min(net.sub_box_size)) + 2
-        overlap_test_atoms = net.get_atoms([[vi, vj, vk]], len(net.sub_boxes))
-        overlap = False
-        for atom in overlap_test_atoms:
-            if atom in myVert.atoms:
-                continue
-
-            if calc_dist(atom.loc, myVert.loc) < atom.rad + myVert.rad:
-                overlap = True
-        if overlap:
-            myVert = None
         return myVert
+
+
+# Find site function. Takes in an edge and finds the only other vertex that does not overlap with other atoms
+def find_site1(net, edge_atoms, vn_1=None):
+    # Get the atoms that should not ba a part of the new vertex
+    if vn_1 is None:
+        vert_atoms = edge_atoms
+    else:
+        vert_atoms = vn_1.atoms
+    # Instantiate the vertex, incrementer, minimum radius and overlap check
+    min_rad = np.linalg.norm(np.array(net.box[0]) - np.array(net.box[1])) / 4
+    myVert, inc, overlap = None, 0, False
+    # Go through larger and larger search area looking for a vertex
+    while myVert is None and inc < len(net.sub_boxes):
+        # Grab atoms from the cells surrounding the edge atoms
+        vert_test_atoms = net.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], inc)
+        # Go through each atom in the surrounding cells
+        for atom in vert_test_atoms:
+            # If the atom is a part of the vertex go to the next atom
+            if atom in vert_atoms:
+                continue
+            # If we have found the vertex before it is not the previous vertex return
+            vert_found = False
+            atom_ndxs = [net.atoms.index(atom1) for atom1 in edge_atoms + [atom]]
+            for vert1 in net.verts:
+                atom_ndxs.sort()
+                if vert1.ndx == atom_ndxs:
+                    vert_found = True
+            if vert_found:
+                return
+            # Create the vertex to test against
+            vert = Vertex(edge_atoms + [atom], net=net)
+            if vert.rad is None or vert.rad > min_rad:
+                continue
+            # Otherwise, find the indices of the sub-box for the vertex
+            vi = int((vert.loc[0] / net.sub_box_size[0]) - net.box[0][0])
+            vj = int((vert.loc[1] / net.sub_box_size[1]) - net.box[0][1])
+            vk = int((vert.loc[2] / net.sub_box_size[2]) - net.box[0][2])
+            # Get the number of boxes that an overlapping atom could possibly be away from the vertex sub-box
+            atom_range = int(vert.rad / min(net.sub_box_size)) + int(5 / min(net.sub_box_size)) + 1
+            overlap_test_atoms = net.get_atoms([[vi, vj, vk]], atom_range)
+            # Set the overlap to False so that we have an innocent assumption for our vertex
+            for atom1 in overlap_test_atoms:
+                # Skip any atoms in the vertex
+                if atom1 in vert.atoms:
+                    continue
+                # Check to see if there is any overlap with the check atom
+                if calc_dist(atom1.loc, vert.loc) <= atom1.rad + vert.rad:
+                    overlap = True
+                    break
+            # Check to see if the vertex's radius exists and is less than the minimum radius
+            if vert.rad < min_rad and not overlap:
+                myVert = vert
+                min_rad = vert.rad
+        inc += 1
+    return myVert
 
 
 # Find network function. Keeps searching the network until all verts are found
@@ -129,10 +190,9 @@ def find_vertices(net, v0=None, i=0):
             # If the vertex is none continue
             if myVert is None:
                 continue
-            # If the vertex exists in the network add the vertex to the edge and move on to the next edge
-            found_vert = check_vert(set(myVert.atoms), net.verts)
-            if not found_vert:
-                vert_stack.append(myVert)
-                net.verts.append(myVert)
-                for atom in myVert.atoms:
-                    atom.verts.append(myVert)
+            # Add the vertex to the stack and the network
+            vert_stack.append(myVert)
+            net.verts.append(myVert)
+            for atom in myVert.atoms:
+                atom.verts.append(myVert)
+    net.filter_verts()
