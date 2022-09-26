@@ -87,7 +87,7 @@ def get_gro(sys):
     sys.info['header'] = sys.file[0]
     # Go through each line in the file and create an atom object
     for line in sys.file[2:-2]:
-        sys.atoms.append(Atom([line[3], line[4], line[5]], sys.get_radius(line[1][0]), symbol=line[1][0]))
+        sys.atoms.append(Atom([line[3], line[4], line[5]], get_radius(line[1][0]), symbol=line[1][0]))
 
 
 # Get mol method. Finds data in a mol file
@@ -95,7 +95,7 @@ def get_mol(sys):
     sys.file = open(sys.file_address).readlines()
     for line in sys.file:
         if len(line) > 6:
-            sys.atoms.append(Atom([line[0], line[1], line[2]], sys.get_radius(line[3]), symbol=line[3]))
+            sys.atoms.append(Atom([line[0], line[1], line[2]], get_radius(line[3]), symbol=line[3]))
 
 
 # Add vertices function. Takes in a system and a file with vertices in it and adds the verts to the system
