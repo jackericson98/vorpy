@@ -16,10 +16,11 @@ class Vorpy:
         self.vp_main.geometry(str(width) + "x" + str(height))
         self.vp_main.title('vorpy')
         self.vorpy_directory = os.getcwd()
-        self.sys_output_directory = None
+        self.sys_output_directory = ""
         self.sys_file_address = None
         self.vert_file_address = None
         self.user_atoms_list = []
+        self.building = False
 
         # Set up the main frame
         f = tk.Frame(self.vp_main)
@@ -34,14 +35,14 @@ class Vorpy:
         tk.Label(f, text="Load", font=('Times New Roman bold', 20)).grid(row=2, column=0, columnspan=2, sticky='w')
 
         # System file information
-        self.sys_file_name = tk.StringVar(self.vp_main, "None")
+        self.sys_file_name = tk.StringVar(self.vp_main, "")
         tk.Label(f, text="System: ", font=('Times New Roman', 12)).grid(row=3, column=0, sticky='w')
         tk.Label(f, textvariable=self.sys_file_name, font=('Times New Roman', 15)) \
             .grid(row=3, column=1, columnspan=2, sticky='w')
         tk.Button(f, text="Load System ", command=self.load_sys_button).grid(row=3, column=2, sticky='e')
 
         # Vertices file information
-        self.vert_file_name = tk.StringVar(self.vp_main, "None")
+        self.vert_file_name = tk.StringVar(self.vp_main, "")
         tk.Label(f, text="Vertices: ", font=('Times New Roman', 12)).grid(row=4, column=0, sticky='w')
         tk.Label(f, textvariable=self.vert_file_name, font=('Times New Roman', 15)) \
             .grid(row=4, column=1, columnspan=2, sticky='w')
@@ -87,7 +88,8 @@ class Vorpy:
         tk.Label(f, text="Outputs", font=("Times New Roman bold", 20)).grid(row=12, column=0, columnspan=2, sticky='w')
 
         # Output directory information
-        self.output_dir_str = tk.StringVar(self.vp_main, os.getcwd()[:12] + ' ... ' + os.getcwd()[-12:])
+        self.output_dir_str = tk.StringVar(self.vp_main, os.getcwd()[:12] + ' .../vorpy/Data/User_data/' +
+                                           self.sys_file_name.get())
         tk.Label(f, text="Output Directory: ").grid(row=13, column=0, sticky='w')
         tk.Label(f, textvariable=self.output_dir_str).grid(row=13, column=1, sticky='w')
         tk.Button(f, text="     Change    ", command=self.change_output_directory).grid(row=13, column=2, sticky='e')
