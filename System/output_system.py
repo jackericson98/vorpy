@@ -7,7 +7,7 @@ from System.calcs import *
 def set_output_dir(sys, dir_name=None):
     # If no outer directory was specified use the directory outside the current one
     if dir_name is None:
-        dir_name = os.getcwd() + "/" + sys.name
+        dir_name = sys.vorpy_directory + "/Data/User_data/" + sys.name
     # Catch for existing directories. Keep trying out directories until one doesn't exist
     i = 0
     while True:
