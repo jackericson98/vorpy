@@ -1,3 +1,5 @@
+import os
+
 from System.input_system import *
 from System.output_system import *
 
@@ -44,6 +46,7 @@ class System:
         # Set up the network
         self.net = Network(self, self.atoms, box_size=box_size, min_dist=min_dist)
         self.output_directory = None
+        self.vorpy_directory = os.getcwd()
 
     # Build System method. Takes in a list of atomic values
     def build_sys(self, user_atoms):
@@ -89,7 +92,7 @@ class System:
     def add_verts(self, file_address):
         add_verts(self, file_address)
 
-    # System level Export vertices method.
+    # System level export vertices method.
     def export_verts(self):
         if self.output_directory is None:
             set_output_dir(self)
