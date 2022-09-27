@@ -36,7 +36,7 @@ def get_pdb_data(sys, word):
                 if line[-2] == '1.00100.00':
                     j = 1
                 atom = Atom([float(line[-6 + j]), float(line[-5 + j]), float(line[-4 + j])], get_radius(line[-1]),
-                            symbol=line[-1], res=line[2], chain=line[3], res_seq=line[4])
+                            symbol=line[-1], res=line[3], chain=line[4], res_seq=line[5])
                 atoms.append(atom)
         return atoms
     # Standard case
