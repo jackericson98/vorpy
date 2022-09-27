@@ -53,9 +53,31 @@ def find_v0(net, a0=None):
     if a2 is None:
         return
     # Find the set of atoms with the minimum inscribed sphere
-    myVert = find_site(net, [a0, a1, a2])
+    myVert = find_site(net, [a0, a1, a2])[0]
     # Return the vertex
     return myVert
+
+
+# Search vertices function. Searches a list of indices of atoms sorted by smallest atom
+def search_verts(test_lol, my_list):
+    # If the length of the test list is equal to 0 return the next index
+    if len(test_lol) <= 1:
+        if len(test_lol) > 0 and my_list > test_lol[0]:
+            return 1
+        return 0
+    # Get the middle of the list of vertices
+    mid_list_ndx = len(test_lol) // 2
+    # If the search element (my_list) is greater than the test element (test_lol) search the lower half of test_lol
+    if my_list > test_lol[mid_list_ndx]:
+        my_vert_ndx = search_verts(test_lol[mid_list_ndx:], my_list)
+        return my_vert_ndx + len(test_lol[:mid_list_ndx])
+    # If the search element (my_list) is less than the test element (test_lol) search the upper half of test_lol
+    elif my_list < test_lol[mid_list_ndx]:
+        my_vert_ndx = search_verts(test_lol[:mid_list_ndx], my_list)
+        return my_vert_ndx
+    # If the search element (my_list) is greater than the test element (test_lol) search the lower half of test_lol
+    elif my_list == test_lol[mid_list_ndx]:
+        return mid_list_ndx
 
 
 # Find site function. Currently, overkill, searching through all atoms for overlap and
@@ -65,52 +87,72 @@ def find_site(net, edge_atoms, vn_1=None):
         vert_atoms = edge_atoms
     else:
         vert_atoms = vn_1.atoms
+    # Instantiate the vertex list and the size limit for vertices found
     verts = []
+    vert_ndx_list_locs = []
     min_rad = np.linalg.norm(np.array(net.box[0]) - np.array(net.box[1])) / 4
+    # Go through each atom in the network --> This can easily be improved
     for atom in net.atoms:
+        # If the atom is in the previous vertex move on
         if atom in vert_atoms:
             continue
         # If we have found the vertex before it is not the previous vertex return
-        vert_found = False
         atom_ndxs = [net.atoms.index(atom1) for atom1 in edge_atoms + [atom]]
-        for vert1 in net.verts:
-            atom_ndxs.sort()
-            if vert1.ndx == atom_ndxs:
-                vert_found = True
-        if vert_found:
+        atom_ndxs.sort()
+        # Get the vertex's index/insert index
+        vert_ndx = search_verts(net.vert_ndxs, atom_ndxs)
+        # If the found vertex index is less than the # of vertices and the found vertex index list matches ours, return
+        if vert_ndx < len(net.vert_ndxs) and net.vert_ndxs[vert_ndx] == atom_ndxs:
             return
+        # Create the vertex
         vert = Vertex(edge_atoms + [atom], net=net)
+        # Filter the vertex out if it is too large or not able to be made
         if vert.loc is None or vert.rad > min_rad:
             continue
-
         # Otherwise, find the indices of the sub-box for the vertex
         vi = int((vert.loc[0] - net.box[0][0]) / net.sub_box_size[0])
         vj = int((vert.loc[1] - net.box[0][1]) / net.sub_box_size[1])
         vk = int((vert.loc[2] - net.box[0][2]) / net.sub_box_size[2])
         # Get the number of boxes that an overlapping atom could possibly be away from the vertex sub-box
         atom_range = int(vert.rad / min(net.sub_box_size)) + int(5 / min(net.sub_box_size))
+        # Get the atoms in that range
         overlap_test_atoms = net.get_atoms([[vi, vj, vk]], atom_range)
+        # Set up the overlap tracker
         overlap = False
+        # Go through the atoms in the overlap test atom list
         for atom2 in overlap_test_atoms:
+            # If the atom is one of the vertex atoms move on
             if atom2 in edge_atoms + [atom]:
                 continue
+            # If the distance between the vertex and the test atom is less than the sum of their radii, they overlap
             if calc_dist(atom2.loc, vert.loc) < atom2.rad + vert.rad:
                 overlap = True
                 break
+        # If we make it all the way through the list of close atoms without overlapping it is a viable vertex
         if not overlap:
             verts.append(vert)
+            vert_ndx_list_locs.append(vert_ndx)
+    # If no verts have been found return
     if len(verts) == 0:
         return
+    # If we find only 1 vertex, return it
     elif len(verts) == 1:
-        return verts[0]
-    else:
+        return verts[0], vert_ndx_list_locs[0]
+    # If there are multiple vertices find the smallest one
+    elif len(verts) >= 2:
+        # Instantiate the return vertex, its relative location in the vertex list and the comparison radius
         myVert = None
         min_rad = np.inf
-        for vert in verts:
+        myVert_ndx = None
+        # Go through the list of vertices
+        for j in range(len(verts)):
+            vert = verts[j]
             if vert.rad < min_rad:
                 myVert = vert
                 min_rad = vert.rad
-        return myVert
+                myVert_ndx = vert_ndx_list_locs[j]
+        # Return the smallest vertex and where it belongs in the network's list of sorted vertex indices
+        return myVert, myVert_ndx
 
 
 # Find network function. Keeps searching the network until all verts are found
@@ -143,9 +185,14 @@ def find_vertices(net, v0=None, i=0):
             # If the vertex is none continue
             if myVert is None:
                 continue
+            myVert, myVert_ndx = myVert
             # Add the vertex to the stack and the network
             vert_stack.append(myVert)
-            net.verts.append(myVert)
+            # Insert the vertices in order of increasing atom indices
+            net.verts.insert(myVert_ndx, myVert)
+            net.vert_ndxs.insert(myVert_ndx, myVert.ndx)
+            # Add the vertex to the atoms
             for atom in myVert.atoms:
                 atom.verts.append(myVert)
+    # Check for repeat vertices
     net.filter_verts()
