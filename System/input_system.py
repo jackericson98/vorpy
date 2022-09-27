@@ -130,7 +130,7 @@ def add_grant_verts(sys, file_address):
 # Add Voronota data method. Takes in voronota data and adds it to the System
 def add_vta_data(sys, ball_file, vert_file):
     # Set the voronota system indicator to True
-    sys.net.vta = True
+    sys.net.flat_faces = True
     # Create the System and load the files
     vert_file = open(vert_file).readlines()
     ball_file = open(ball_file).readlines()

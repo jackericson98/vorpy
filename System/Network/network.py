@@ -14,7 +14,7 @@ class Network:
         self.surfs = []           # Surfaces    :   Surfaces of the network
         self.edges = []           # Edges       :   Edges of the network
 
-        self.vta = False          # Voronota    :   Boolean for whether the network should be treated as a voronota net
+        self.flat_faces = False   # Flat Faces  :   Boolean for whether the network should be created with flat faces
         self.box = None           # Box         :   Holds a max and min vertex for the retaining box
         self.sub_boxes = None     # Sub boxes   :   Holds atoms in their different relative locations in the grid
         self.box_size = box_size  # Box size    :   Holds the box multiplier for the system box from the atoms box
@@ -166,7 +166,7 @@ class Network:
                 print("\rBuilding Surfaces: ",
                       '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
                 # If the network is a voronota network, use build_vta method
-                if self.vta:
+                if self.flat_faces:
                     self.surfs[i].build_vta()
                 # Otherwise, proceed with the regular build method
                 else:
