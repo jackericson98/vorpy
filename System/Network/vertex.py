@@ -6,6 +6,8 @@ class Vertex:
     def __init__(self, atoms, net=None, location=None, radius=None):
         self.loc = location
         self.rad = radius  # Radius of the vertex's tangential sphere
+        self.loc2 = None
+        self.rad2 = None
         self.atoms = atoms  # List of Atom type objects
         self.edges = []  # List of Edge type objects
         self.surfs = []  # List of Surface type objects
@@ -98,44 +100,18 @@ class Vertex:
             self.loc, self.rad = verts[0][0], verts[0][1]
         # If two roots exist:
         elif len(verts) == 2:
-            for i in range(2):
-                if round(calc_dist(self.atoms[0].loc, verts[i][0]) - self.atoms[0].rad, 3) == \
-                   round(calc_dist(self.atoms[1].loc, verts[i][0]) - self.atoms[1].rad, 3) == \
-                   round(calc_dist(self.atoms[2].loc, verts[i][0]) - self.atoms[2].rad, 3) == \
-                   round(calc_dist(self.atoms[3].loc, verts[i][0]) - self.atoms[3].rad, 3):
-                    self.loc, self.rad = verts[i][0], abs(verts[i][1])
-
-    # Hu's method. Finds vertex using trial and error
-    def fv2(self, P0=None, epsilon=None):
-        # Get the surfaces
-        s1, s2, s3 = Surface(self.atoms[:2], self.net), Surface([self.atoms[0], self.atoms[2]], self.net), \
-                     Surface([self.atoms[0], self.atoms[3]], self.net)
-        # Get the functions
-        f1, f2, f3 = s1.func, s2.func, s3.func
-        # Initial guess function gets put here
-        if P0 is None:
-            P0 = calc_com(self.atoms)
-        # Set the error to infinity
-        err = np.inf
-        # User set threshold for "closeness" to the vertex
-        if epsilon is None:
-            epsilon = .001
-        # Reset the point to the initial guess and the counter for number of iterations
-        pk = P0
-        count = 0
-        # Keep running the algorithm until the error is less than the allowed threshold
-        while err >= epsilon and count < 20:
-            # Newtonian-Raphson method:
-            # Calculate the output of each function given the current point
-            F = calc_bisector_val(f1, pk), calc_bisector_val(f2, pk), calc_bisector_val(f3, pk)
-            # Adjust the point based off the above F values dotted with the respective inverse Jacobian
-            pk = pk - np.dot(inv_jac([f1, f2, f3], pk), F)
-            # Calculate the new error to test against the threshold
-            err = max(abs(F[0]), abs(F[1]), abs(F[2]))
-            # Update the count
-            count += 1
-        if err >= epsilon:
-            # Return the point
-            return pk
-        else:
-            return []
+            # If both radii are negative (I'm not sure if this is possible, but let's catch it anyway)
+            if verts[0][1] < 0 and verts[1][1] < 0:
+                return
+            # Check to see if the second vertex is negative (i.e. not a doublet)
+            elif verts[0][1] < 0 < verts[1][1]:
+                self.loc, self.rad = verts[1][0], verts[1][1]
+            elif verts[1][1] < 0 < verts[0][1]:
+                self.loc, self.rad = verts[0][0], verts[0][1]
+            # If both radii are positive we have a doublet. Choose the smaller vertex to be the lead vertex and set loc2
+            elif verts[0][1] < verts[1][1]:
+                self.loc, self.rad = verts[0][0], verts[0][1]
+                self.loc2, self.rad2 = verts[1][0], verts[1][1]
+            elif verts[1][1] < verts[0][1]:
+                self.loc, self.rad = verts[1][0], verts[1][1]
+                self.loc2, self.rad2 = verts[0][0], verts[0][1]
