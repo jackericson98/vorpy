@@ -80,6 +80,33 @@ def search_verts(test_lol, my_list):
         return mid_list_ndx
 
 
+# Verify site function. Compares a vertex to the atoms around to see if they overlap
+def verify_site(vert, net, pass_atoms):
+    # Find the indices of the sub-box for the vertex
+    vi = int((vert.loc[0] - net.box[0][0]) / net.sub_box_size[0])
+    vj = int((vert.loc[1] - net.box[0][1]) / net.sub_box_size[1])
+    vk = int((vert.loc[2] - net.box[0][2]) / net.sub_box_size[2])
+    # Get the number of boxes that an overlapping atom could possibly be away from the vertex sub-box
+    atom_range = int(vert.rad / min(net.sub_box_size)) + int(5 / min(net.sub_box_size))
+    # Get the atoms in that range
+    overlap_test_atoms = net.get_atoms([[vi, vj, vk]], atom_range)
+    # Set up the overlap tracker
+    overlap = False
+    # Go through the atoms in the overlap test atom list
+    for atom2 in overlap_test_atoms:
+        # If the atom is one of the vertex atoms move on
+        if atom2 in pass_atoms:
+            continue
+        # If the distance between the vertex and the test atom is less than the sum of their radii, they overlap
+        if calc_dist(atom2.loc, vert.loc) < atom2.rad + vert.rad:
+            overlap = True
+            break
+    # If we make it all the way through the list of close atoms without overlapping it is a viable vertex
+    if not overlap:
+        return True
+    return False
+
+
 # Find site function. Currently, overkill, searching through all atoms for overlap and
 def find_site(net, edge_atoms, vn_1=None):
     # Get the atoms that should not ba a part of the new vertex
@@ -116,27 +143,8 @@ def find_site(net, edge_atoms, vn_1=None):
         # Filter the vertex out if it is too large or not able to be made
         if vert.loc is None or vert.rad > min_rad:
             continue
-        # Otherwise, find the indices of the sub-box for the vertex
-        vi = int((vert.loc[0] - net.box[0][0]) / net.sub_box_size[0])
-        vj = int((vert.loc[1] - net.box[0][1]) / net.sub_box_size[1])
-        vk = int((vert.loc[2] - net.box[0][2]) / net.sub_box_size[2])
-        # Get the number of boxes that an overlapping atom could possibly be away from the vertex sub-box
-        atom_range = int(vert.rad / min(net.sub_box_size)) + int(5 / min(net.sub_box_size))
-        # Get the atoms in that range
-        overlap_test_atoms = net.get_atoms([[vi, vj, vk]], atom_range)
-        # Set up the overlap tracker
-        overlap = False
-        # Go through the atoms in the overlap test atom list
-        for atom2 in overlap_test_atoms:
-            # If the atom is one of the vertex atoms move on
-            if atom2 in edge_atoms + [atom]:
-                continue
-            # If the distance between the vertex and the test atom is less than the sum of their radii, they overlap
-            if calc_dist(atom2.loc, vert.loc) < atom2.rad + vert.rad:
-                overlap = True
-                break
-        # If we make it all the way through the list of close atoms without overlapping it is a viable vertex
-        if not overlap:
+        # If the site is verified add it to the list of potential vertices
+        if verify_site(vert, net, edge_atoms + [atom]):
             verts.append(vert)
             vert_ndx_list_locs.append(vert_ndx)
     # If no verts have been found return
