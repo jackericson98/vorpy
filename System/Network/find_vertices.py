@@ -87,12 +87,19 @@ def find_site(net, edge_atoms, vn_1=None):
         vert_atoms = edge_atoms
     else:
         vert_atoms = vn_1.atoms
+    # Set up a list of atoms to test our edge atoms with
+    test_atoms = []
+    inc = 0
+    # Grab the atoms we want to test against
+    while len(test_atoms) < 20 or len(test_atoms) < len(net.atoms):
+        test_atoms += net.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], inc)
+        inc += 1
     # Instantiate the vertex list and the size limit for vertices found
     verts = []
     vert_ndx_list_locs = []
     min_rad = np.linalg.norm(np.array(net.box[0]) - np.array(net.box[1])) / 4
     # Go through each atom in the network --> This can easily be improved
-    for atom in net.atoms:
+    for atom in test_atoms:
         # If the atom is in the previous vertex move on
         if atom in vert_atoms:
             continue
@@ -196,3 +203,4 @@ def find_vertices(net, v0=None, i=0):
                 atom.verts.append(myVert)
     # Check for repeat vertices
     net.filter_verts()
+    print(len(net.verts))
