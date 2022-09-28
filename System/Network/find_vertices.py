@@ -3,7 +3,7 @@ from System.Network.vertex import Vertex
 
 
 # Find v0 function. Finds the first vertex in the network
-def find_v0(net, a0=None):
+def find_v0(net, a0=None, n=0):
     # If no a0 is given
     if a0 is None:
         # Find the middle sub_box of the set of boxes and
@@ -53,7 +53,14 @@ def find_v0(net, a0=None):
     if a2 is None:
         return
     # Find the set of atoms with the minimum inscribed sphere
-    myVert = find_site(net, [a0, a1, a2])[0]
+    myVert = find_site(net, [a0, a1, a2])
+    n += 1
+    # Keep recursively calling the find_v0 function until it finds a valid site that isn't a doublet
+    if myVert is None or myVert[0].doublet:
+        myVert = find_v0(net, a0=net.atoms[n], n=n)
+    else:
+        # If we find v0 return the vertex that was found
+        myVert = myVert[0]
     # Return the vertex
     return myVert
 
@@ -91,7 +98,7 @@ def verify_site(vert, net, doublet_check=False):
     vj = int((loc[1] - net.box[0][1]) / net.sub_box_size[1])
     vk = int((loc[2] - net.box[0][2]) / net.sub_box_size[2])
     # Get the number of boxes that an overlapping atom could possibly be away from the vertex sub-box
-    atom_range = int(rad / min(net.sub_box_size)) + int(5 / min(net.sub_box_size))
+    atom_range = int(rad / min(net.sub_box_size) + net.max_rad / min(net.sub_box_size)) + 2
     # Get the atoms in that range
     overlap_test_atoms = net.get_atoms([[vi, vj, vk]], atom_range)
     # Set up the overlap tracker
@@ -122,8 +129,8 @@ def find_site(net, edge_atoms, vn_1=None):
     test_atoms = []
     inc = 0
     # Grab the atoms we want to test against
-    while len(test_atoms) < 20 or len(test_atoms) < len(net.atoms):
-        test_atoms += net.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], inc)
+    while len(test_atoms) < 10 or len(test_atoms) < len(net.atoms):
+        test_atoms += net.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], inc, exclusive=True)
         inc += 1
     # Instantiate the vertex list and the size limit for vertices found
     verts = []
@@ -149,9 +156,24 @@ def find_site(net, edge_atoms, vn_1=None):
             continue
         # For doublet cases verify differently
         if vert.loc2 is not None:
-            pass
+            # If the first vertex site is a valid site add it to the list of check vertices and add its index
+            if verify_site(vert, net):
+                verts.append(vert)
+                vert_ndx_list_locs.append(vert_ndx)
+                # If the second vertex's radius is less than the min_rad, and it is a verified site mark it as a doublet
+                if vert.rad2 < min_rad and verify_site(vert, net, doublet_check=True):
+                    vert.doublet = True
+            # If the first vertex is not a verified site, test the second location
+            elif vert.rad2 < min_rad and verify_site(vert, net, doublet_check=True):
+                # Replace the location and radius for the vertex and add it to the list
+                vert.loc, vert.rad = vert.loc2, vert.rad2
+                verts.append(vert)
+                vert_ndx_list_locs.append(vert_ndx)
+            # If neither sites are verifiable continue
+            else:
+                continue
         # If the site is verified add it to the list of potential vertices
-        if verify_site(vert, net):
+        elif verify_site(vert, net):
             verts.append(vert)
             vert_ndx_list_locs.append(vert_ndx)
     # If no verts have been found return
