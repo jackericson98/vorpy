@@ -6,6 +6,7 @@ class Vertex:
     def __init__(self, atoms, net=None, location=None, radius=None):
         self.loc = location
         self.rad = radius  # Radius of the vertex's tangential sphere
+        self.doublet = False
         self.loc2 = None
         self.rad2 = None
         self.atoms = atoms  # List of Atom type objects
