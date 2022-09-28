@@ -112,7 +112,7 @@ if __name__ == '__main__':
             # Calculate and print the running percentage for mesh calculations
             build_surf(surfs[i])
             # Calculate and print the running percentage for mesh calculations
-            percentage = int((i + 1) / len(surfs) * 100)
+            percentage = np.round((i + 1) / len(surfs) * 100, 2)
             print("\rBuilding Surfaces: ",
                   '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
 
@@ -150,7 +150,7 @@ if __name__ == '__main__':
             # Analyze each of the atom's cells
             calc_vol(atom)
             # Update the print statement
-            percentage = int((mySys.atoms.index(atom) + 1) / len(mySys.atoms) * 100)
+            percentage = np.round((mySys.atoms.index(atom) + 1) / len(mySys.atoms) * 100, 2)
             print("\rAnalyzing Atomic Cells: ",
                   '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
 
