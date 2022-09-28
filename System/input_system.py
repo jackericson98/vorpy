@@ -32,11 +32,21 @@ def get_pdb_data(sys, word):
         for i in range(len(sys.file)):
             line = sys.file[i]
             if line and line[0].lower() == 'atom':  # Check if the line starts with atom
+                # Check for the overlapping error
                 j = 0
                 if line[-2] == '1.00100.00':
                     j = 1
+                # Check to see if they indicate molecule chain or not
+                k = 1
+                # If no molecule chain is given
+                chain = 'A'
+                res_seq = line[4]
+                if len(line) + j == 12:
+                    chain = line[4]
+                    res_seq = line[5]
+                # Create the atom with checks in place
                 atom = Atom([float(line[-6 + j]), float(line[-5 + j]), float(line[-4 + j])], get_radius(line[-1]),
-                            symbol=line[-1], res=line[3], chain=line[4], res_seq=line[5])
+                            symbol=line[-1], res=line[3], chain=chain, res_seq=res_seq)
                 atoms.append(atom)
         return atoms
     # Standard case
