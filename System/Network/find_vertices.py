@@ -212,8 +212,8 @@ def find_vertices(net, v0=None, i=0):
     # While the verts stack is not empty
     while vert_stack:
         # Running print statement giving an estimate for percentage of the network that has been created
-        tot_verts = len(net.verts) + (len(net.atoms) - i)
-        percentage = int(len(net.verts) / tot_verts * 10000)/100
+        tot_verts = len(net.verts) + len(net.atoms)
+        percentage = float(np.round(100 * ((len(net.verts) / tot_verts) ** 2), 2))
         print("\rBuilding Network:  ",
               '#' * (int(percentage) // 10) + ' ' * (10 - (int(percentage) // 10)), percentage, "%", end='')
         # Get the vertex from the top of the stack
@@ -240,4 +240,3 @@ def find_vertices(net, v0=None, i=0):
                 atom.verts.append(myVert)
     # Check for repeat vertices
     net.filter_verts()
-    print(len(net.verts))
