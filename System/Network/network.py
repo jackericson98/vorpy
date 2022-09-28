@@ -8,22 +8,23 @@ class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
     def __init__(self, sys, atoms, min_dist=0.1, box_size=1.5):
 
-        self.sys = sys            # System      :   Route back to outer system for system attribute access
-        self.atoms = atoms        # Atoms       :   Atoms of the network. Should be identical to self.sys.atoms
-        self.verts = []           # Vertices    :   Vertices of the network
-        self.surfs = []           # Surfaces    :   Surfaces of the network
-        self.edges = []           # Edges       :   Edges of the network
+        self.sys = sys            # System       :  Route back to outer system for system attribute access
+        self.atoms = atoms        # Atoms        :  Atoms of the network. Should be identical to self.sys.atoms
+        self.verts = []           # Vertices     :  Vertices of the network
+        self.surfs = []           # Surfaces     :  Surfaces of the network
+        self.edges = []           # Edges        :  Edges of the network
 
-        self.flat_faces = False   # Flat Faces  :   Boolean for whether the network should be created with flat faces
-        self.box = None           # Box         :   Holds a max and min vertex for the retaining box
-        self.sub_boxes = None     # Sub boxes   :   Holds atoms in their different relative locations in the grid
-        self.box_size = box_size  # Box size    :   Holds the box multiplier for the system box from the atoms box
-        self.sub_box_size = None  # Sub box size:   Holds the size of each sub box
-        self.atoms_box = []       # Atoms box   :   Holds the min and max verts for the box containing the atoms
-        self.min_dist = min_dist  # Resolution  :   How small the triangles in the surfaces are
-        self.vert_ndxs = []       # Vert indices:   Holds the indices of the atoms of the vertices in the network
+        self.flat_faces = False   # Flat Faces   :  Boolean for whether the network should be created with flat faces
+        self.box = None           # Box          :  Holds a max and min vertex for the retaining box
+        self.sub_boxes = None     # Sub boxes    :  Holds atoms in their different relative locations in the grid
+        self.box_size = box_size  # Box size     :  Holds the box multiplier for the system box from the atoms box
+        self.sub_box_size = None  # Sub box size :  Holds the size of each sub box
+        self.atoms_box = []       # Atoms box    :  Holds the min and max verts for the box containing the atoms
+        self.min_dist = min_dist  # Resolution   :  How small the triangles in the surfaces are
+        self.max_rad = 0          # Max radius   :  Holds the largest radius of the system for reference
+        self.vert_ndxs = []       # Vert indices :  Holds the indices of the atoms of the vertices in the network
 
-        self.sort_atoms()         # Sort Atoms  :   Once the network has been created place the atoms in their sub-boxes
+        self.sort_atoms()         # Sort Atoms   :  Once the network has been created place the atoms in their sub-boxes
 
     # Calculate box function. Takes in a System and returns the dimensions of a box x times the size of the atoms
     def calc_box(self):
@@ -68,6 +69,9 @@ class Network:
                              (self.box[1][2] - self.box[0][2]) / n]
         # Sort the atoms
         for atom in self.atoms:
+            # Adjust the maximum radius
+            if atom.rad > self.max_rad:
+                self.max_rad = atom.rad
             # Find the box they belong to
             ai = int((atom.loc[0] - self.box[0][0]) / self.sub_box_size[0])
             aj = int((atom.loc[1] - self.box[0][1]) / self.sub_box_size[1])
