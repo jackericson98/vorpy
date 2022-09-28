@@ -1,3 +1,5 @@
+import numpy as np
+
 from System.calcs import *
 from System.Network.surface import Surface
 
@@ -22,8 +24,32 @@ class Edge:
         self.points = []
         # Get the network's minimum distance
         min_dist = self.net.sys.min_dist
-        # Grab the vertex points and make numpy arrays out of them
         pv0, pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
+        # Doublet catch
+        if self.verts[0].doublet or self.verts[1].doublet:
+            # If both vertices are doublets we have to find the closest two vertex locations
+            if self.verts[0].doublet and self.verts[1].doublet:
+                # Get the backup locations for the vertices
+                pv0_, pv1_ = np.array(self.verts[0].loc2), np.array(self.verts[1].loc2)
+                # Find the minimum distance
+                ds = [calc_dist(pv0, pv1), calc_dist(pv0, pv1_), calc_dist(pv0_, pv1), calc_dist(pv0_, pv1_)]
+                ndx = ds.index(min(ds))
+                # If the minimum distance comes from the second half, replace the vertex location for pv0
+                if ndx > 1:
+                    pv0 = pv0_
+                # If the ndx is odd, replace the vertex location for pv1
+                if ndx % 2 == 1:
+                    pv1 = pv1_
+            # If only v0 is a doublet, find the closest vertex location to v0
+            elif self.verts[0].doublet:
+                if calc_dist(pv0, pv1) > calc_dist(self.verts[0].loc2, pv1):
+                    pv0 = np.array(self.verts[0].loc2)
+            # If only v1 is a doublet, find the closest vertex location to v0
+            elif self.verts[1].doublet:
+                if calc_dist(pv0, pv1) > calc_dist(pv0, self.verts[1].loc2):
+                    pv1 = np.array(self.verts[1].loc2)
+
+
         # If the edge is completely straight add 1 point in the middle and return
         if self.atoms[0].rad == self.atoms[1].rad and self.atoms[1].rad == self.atoms[2].rad:
             r = pv1 - pv0
