@@ -17,14 +17,22 @@ def get_name(file):
     return filename[::-1][:-4]
 
 
+# Read PDB atom data function. Gets atom information from pdb data line
+def read_pdb_atom(line):
+    # Make sure that the line starts with ATOM
+    if line[:4].lower() != 'atom':
+        return
+    # Create the atom
+    atom = Atom([float(line[30:38]), float(line[38:46]), float(line[46:54])], get_radius(line[76:78]),
+                symbol=line[76:78], res=line[17:20], chain=[21], res_seq=line[22:26])
+    return atom
+
+
 # Get pdb data method. Finds the lines of the file with prefixes and returns them as a list
 def get_pdb_data(sys, word):
     # Get the file information
     sys.file = open(sys.file_address).readlines()
     sys.sys_file_name = get_name(sys.file_address)
-    # Split each line in the file
-    for i in range(len(sys.file)):
-        sys.file[i] = sys.file[i].split()
     # Special case for Atom lines
     if word.lower() == 'atom':
         atoms = []
@@ -32,21 +40,7 @@ def get_pdb_data(sys, word):
         for i in range(len(sys.file)):
             line = sys.file[i]
             if line and line[0].lower() == 'atom':  # Check if the line starts with atom
-                # Check for the overlapping error
-                j = 0
-                if line[-2] == '1.00100.00':
-                    j = 1
-                # Check to see if they indicate molecule chain or not
-                k = 1
-                # If no molecule chain is given
-                chain = 'A'
-                res_seq = line[4]
-                if len(line) + j == 12:
-                    chain = line[4]
-                    res_seq = line[5]
-                # Create the atom with checks in place
-                atom = Atom([float(line[-6 + j]), float(line[-5 + j]), float(line[-4 + j])], get_radius(line[-1]),
-                            symbol=line[-1], res=line[3], chain=chain, res_seq=res_seq)
+                atom = read_pdb_atom(line)
                 atoms.append(atom)
         return atoms
     # Standard case
