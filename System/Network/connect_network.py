@@ -7,6 +7,13 @@ from System.Network.surface import Surface
 def connect(net):
     # Create the edges
     for vert1 in net.verts:
+        # Check to see if the vertex is a doublet
+        if vert1.doublet:
+            for i in range(4):
+                atoms = [vert1.atoms[i], vert1.atoms[(i + 1) % 4], vert1.atoms[(i + 2) % 4]]
+                circ = calc_circ(atoms)
+                if calc_dist(circ[0], vert1.atoms[(i + 3) % 4]) > circ[1] + vert1.atoms[(i + 3) % 4].rad:
+                    net.edges.append(Edge())
         # Check every combination of vert atoms as an edge
         for i in range(4):
             # Grab the atoms
