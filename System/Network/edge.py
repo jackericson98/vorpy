@@ -6,7 +6,7 @@ from System.Network.surface import Surface
 
 class Edge:
     """Edge object. Used to build the network and calculate the surfaces"""
-    def __init__(self, atoms, verts, net):
+    def __init__(self, atoms, verts, net, doublet=False):
 
         self.atoms = atoms  # List of Atom type objects
         self.verts = verts  # List of Vertex type objects
@@ -17,6 +17,7 @@ class Edge:
         self.loc = None  # Location of the center of the 3 atoms that make up the edge
         self.rad = None  # Radius of the inscribed circle of the three atoms
         self.points = []  # List of points on the edge. These points do not include the vertex points
+        self.doublet = doublet  # Check for if a. edge is directly part of a doublet
 
     # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
     def build(self):
@@ -25,8 +26,11 @@ class Edge:
         # Get the network's minimum distance
         min_dist = self.net.sys.min_dist
         pv0, pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
-        # Doublet catch
-        if self.verts[0].doublet or self.verts[1].doublet:
+        # Catch for an edge that is formed between the same vertex, but different doublet sites
+        if self.doublet:
+            pv0, pv1 = np.array(self.verts[0].loc), np.array(self.verts[0].loc2)
+        # Catch for an edge connected to a doublet, but has distinct vertices
+        elif self.verts[0].doublet or self.verts[1].doublet:
             # If both vertices are doublets we have to find the closest two vertex locations
             if self.verts[0].doublet and self.verts[1].doublet:
                 # Get the backup locations for the vertices
