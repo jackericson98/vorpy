@@ -19,7 +19,6 @@ class Vorpy:
         self.sys_output_directory = ""
         self.sys_file_address = None
         self.vert_file_address = None
-        self.user_atoms_list = []
         self.building = False
 
         # Set up the main frame
@@ -27,103 +26,114 @@ class Vorpy:
         f.place(relx=0.5, rely=0.5, anchor='c')
 
         # Header
-        tk.Label(f, text="Vorpy", font=("Times New Roman bold", 40)).grid(row=0, column=0, columnspan=3)
+        tk.Label(f, text="Vorpy", font=("Times New Roman bold", 40)).grid(row=0, column=0, columnspan=10)
         tk.Label(f, text="").grid(row=1)
 
         # Load file variables
         # Load header
-        tk.Label(f, text="Load", font=('Times New Roman bold', 20)).grid(row=2, column=0, columnspan=2, sticky='w')
+        tk.Label(f, text="Load Atoms", font=('Times New Roman bold', 20)).grid(row=2, column=0, columnspan=9, sticky='w')
 
         # System file information
         self.sys_file_name = tk.StringVar(self.vp_main, "")
         tk.Label(f, text="System: ", font=('Times New Roman', 12)).grid(row=3, column=0, sticky='w')
         tk.Label(f, textvariable=self.sys_file_name, font=('Times New Roman', 15)) \
             .grid(row=3, column=1, columnspan=2, sticky='w')
-        tk.Button(f, text="Load System ", command=self.load_sys_button).grid(row=3, column=2, sticky='e')
+        tk.Button(f, text="Load System ", command=self.load_sys_button).grid(row=3, column=9, sticky='e')
 
         # Vertices file information
         self.vert_file_name = tk.StringVar(self.vp_main, "")
-        tk.Label(f, text="Vertices: ", font=('Times New Roman', 12)).grid(row=4, column=0, sticky='w')
+        tk.Label(f, text="Vertices: ", font=('Times New Roman', 12)).grid(row=4, column=0, columnspan=3, sticky='w')
         tk.Label(f, textvariable=self.vert_file_name, font=('Times New Roman', 15)) \
-            .grid(row=4, column=1, columnspan=2, sticky='w')
-        tk.Button(f, text="Load Vertices", command=self.add_vertices).grid(row=4, column=2, sticky='e')
+            .grid(row=4, column=3, columnspan=9, sticky='w')
+        tk.Button(f, text="Load Vertices", command=self.add_vertices).grid(row=4, column=9, sticky='e')
 
         # Build system information
-        self.user_atoms_str = tk.StringVar(self.vp_main, str(self.user_atoms_list))
-        tk.Label(f, text="Enter atoms (e.g. [[x0, y0, z0], r0], [[x1, y1, z1], r1], ... , "
-                         "[[xn, yn, zn], rn]): ").grid(row=5, column=0, columnspan=3, sticky='w')
-        tk.Entry(f, textvariable=self.user_atoms_str).grid(row=6, column=0, columnspan=2, sticky='ew')
-        tk.Button(f, text="Build System", command=self.add_atoms).grid(row=6, column=2, sticky='e')
-        tk.Label(f, text="").grid(row=5)
+
+        self.user_atoms_x, self.user_atoms_y = tk.StringVar(self.vp_main), tk.StringVar(self.vp_main)
+        self.user_atoms_z, self.user_atoms_rad = tk.StringVar(self.vp_main), tk.StringVar(self.vp_main)
+        self.user_atoms_list = tk.StringVar(self.vp_main)
+        tk.Label(f, text="Atom Info: ").grid(row=6, column=0, sticky='w')
+        tk.Label(f, text="X ").grid(row=6, column=1)
+        tk.Entry(f, textvariable=self.user_atoms_x, width=5).grid(row=6, column=2)
+        tk.Label(f, text="Y ").grid(row=6, column=3)
+        tk.Entry(f, textvariable=self.user_atoms_y, width=5).grid(row=6, column=4)
+        tk.Label(f, text="Z ").grid(row=6, column=5)
+        tk.Entry(f, textvariable=self.user_atoms_z, width=5).grid(row=6, column=6)
+        tk.Label(f, text="Rad ").grid(row=6, column=7)
+        tk.Entry(f, textvariable=self.user_atoms_rad, width=5).grid(row=6, column=8)
+        tk.Button(f, text="Add Atom", command=self.add_atoms).grid(row=6, column=9, sticky='e')
+        tk.Label(f, textvariable=self.user_atoms_list).grid(row=7, column=0, columnspan=10)
+        tk.Label(f, text="").grid(row=8)
 
         # Setting variables:
         # Settings header
-        tk.Label(f, text='Settings', font=('Times New Roman bold', 20)).grid(row=7, column=0, columnspan=2, sticky='w')
+        tk.Label(f, text='Settings', font=('Times New Roman bold', 20)).grid(row=9, column=0, columnspan=9, sticky='w')
 
         # System box size multiplier
         self.sys_box_x_flt = tk.DoubleVar(self.vp_main, 1.4)
-        tk.Label(f, text="Container Size: ").grid(row=8, column=0, sticky='w')
+        tk.Label(f, text="Container Size: ").grid(row=11, column=0, columnspan=3, sticky='w')
         tk.Scale(f, from_=1, to=5, orient=tk.HORIZONTAL, variable=self.sys_box_x_flt, resolution=.05)\
-            .grid(row=8, column=1, sticky='ewn')
+            .grid(row=10, column=2, columnspan=6, sticky='ewn')
 
         # System resolution value
         self.sys_res_flt = tk.DoubleVar(self.vp_main, 0.1)
-        tk.Label(f, text="Resolution: ").grid(row=9, column=0, sticky='w')
+        tk.Label(f, text="Resolution: ").grid(row=10, column=0, columnspan=3, sticky='w')
         tk.Scale(f, from_=0, to=1, orient=tk.HORIZONTAL, variable=self.sys_res_flt, resolution=0.05)\
-            .grid(row=9, column=1, sticky='ewn')
+            .grid(row=11, column=2, columnspan=6, sticky='ewn')
 
         # Voronota system check
         self.vta = tk.BooleanVar(self.vp_main)
-        tk.Checkbutton(f, text="Voronota System ", variable=self.vta, onvalue=True, offvalue=False)\
-            .grid(row=8, column=2, sticky='w')
+        tk.Checkbutton(f, text="Flat Faces ", variable=self.vta, onvalue=True, offvalue=False)\
+            .grid(row=10, column=9, columnspan=3, sticky='w')
 
         # Parallelize check
         self.parallelize = tk.BooleanVar(self.vp_main)
         tk.Checkbutton(f, text="Parallelize ", variable=self.parallelize, onvalue=True, offvalue=False)\
-            .grid(row=9, column=2, sticky='w')
-        tk.Label(f, text="").grid(row=11)
+            .grid(row=11, column=9, columnspan=3, sticky='w')
+        tk.Label(f, text="").grid(row=13)
 
         # Output variables
         # Output Header
-        tk.Label(f, text="Outputs", font=("Times New Roman bold", 20)).grid(row=12, column=0, columnspan=2, sticky='w')
+        tk.Label(f, text="Outputs", font=("Times New Roman bold", 20)).grid(row=12, column=0, columnspan=9, sticky='w')
 
         # Output directory information
         self.output_dir_str = tk.StringVar(self.vp_main, os.getcwd()[:12] + ' .../vorpy/Data/User_data/' +
                                            self.sys_file_name.get())
-        tk.Label(f, text="Output Directory: ").grid(row=13, column=0, sticky='w')
-        tk.Label(f, textvariable=self.output_dir_str).grid(row=13, column=1, sticky='w')
-        tk.Button(f, text="     Change    ", command=self.change_output_directory).grid(row=13, column=2, sticky='e')
+        tk.Label(f, text="Output Directory: ").grid(row=13, column=0, columnspan=3, sticky='w')
+        tk.Label(f, textvariable=self.output_dir_str).grid(row=13, column=2, columnspan=6, sticky='w')
+        tk.Button(f, text="     Change    ", command=self.change_output_directory)\
+            .grid(row=13, column=8, columnspan=2, sticky='e')
 
         # Check boxes
         self.output_all = tk.BooleanVar(self.vp_main, True)
         tk.Checkbutton(f, text="All", variable=self.output_all, onvalue=True, offvalue=False)\
-            .grid(row=15, column=0, sticky='w')
+            .grid(row=15, column=0, columnspan=3, sticky='w')
         self.output_sys = tk.BooleanVar(self.vp_main, False)
         tk.Checkbutton(f, text="System", variable=self.output_sys, onvalue=True, offvalue=False) \
-            .grid(row=15, column=1, sticky='w')
+            .grid(row=15, column=3, columnspan=3, sticky='w')
         self.output_pdb = tk.BooleanVar(self.vp_main, False)
         tk.Checkbutton(f, text="System pdb ", variable=self.output_pdb, onvalue=True, offvalue=False) \
-            .grid(row=15, column=2, sticky='w')
+            .grid(row=15, column=6, columnspan=3, sticky='w')
         self.output_atoms = tk.BooleanVar(self.vp_main, False)
         tk.Checkbutton(f, text="Atoms", variable=self.output_atoms, onvalue=True, offvalue=False) \
-            .grid(row=16, column=0, sticky='w')
+            .grid(row=16, column=0, columnspan=3, sticky='w')
         self.output_surfs = tk.BooleanVar(self.vp_main, False)
         tk.Checkbutton(f, text="Surfaces", variable=self.output_surfs, onvalue=True, offvalue=False) \
-            .grid(row=16, column=1, sticky='w')
+            .grid(row=16, column=3, columnspan=3, sticky='w')
         self.output_mols = tk.BooleanVar(self.vp_main, False)
         tk.Checkbutton(f, text="Molecule", variable=self.output_mols, onvalue=True, offvalue=False) \
-            .grid(row=16, column=2, sticky='w')
+            .grid(row=16, column=6, columnspan=3, sticky='w')
         self.output_residues = tk.BooleanVar(self.vp_main, False)
         tk.Checkbutton(f, text="Residues ", variable=self.output_residues, onvalue=True, offvalue=False) \
-            .grid(row=17, column=0, sticky='w')
+            .grid(row=17, column=0, columnspan=3, sticky='w')
         self.output_verts = tk.BooleanVar(self.vp_main, False)
         tk.Checkbutton(f, text="Vertices ", variable=self.output_verts, onvalue=True, offvalue=False) \
-            .grid(row=17, column=1, sticky='w')
+            .grid(row=17, column=3, columnspan=3, sticky='w')
         tk.Label(f, text="").grid(row=18)
 
         # Run program
         tk.Button(f, text="Build System", font=("Times New Roman bold", 20), command=self.build_network_button) \
-            .grid(row=19, column=0, columnspan=3)
+            .grid(row=19, column=0, columnspan=10)
 
         # End the loop
         self.vp_main.mainloop()
@@ -149,7 +159,15 @@ class Vorpy:
 
     # Add atoms method. When this command runs it updates the system atoms list
     def add_atoms(self):
-        self.sys_atom_list += list(self.user_atoms_str.get())
+        # Add the values as a list of atoms
+        self.sys_atom_list.append([[float(self.user_atoms_x.get()), float(self.user_atoms_y.get()),
+                                    float(self.user_atoms_z.get())], float(self.user_atoms_rad.get())])
+        # Print the first and last two atoms in the list
+        if len(self.sys_atom_list) <= 4:
+            self.user_atoms_list.set(self.sys_atom_list)
+        else:
+            self.user_atoms_list.set(str(self.sys_atom_list[:2]) + " ... " + str(self.sys_atom_list[-2:]))
+
 
     # Add vertices method. Adds the vertices in the file to the system
     def add_vertices(self):
