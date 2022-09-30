@@ -63,14 +63,14 @@ def create_pdb(sys, directory=None):
         # Write the lines for the atom
         file.write("ATOM" + " " * (7 - len(str(i+1))) +
                    str(i + 1) + "  " +
-                   a.type + " " * (4 - len(a.type)) +
+                   a.element + " " * (4 - len(a.element)) +
                    a.res + " " * (4 - len(a.res)) +
                    a.chain + " " * (5 - len(a.chain) - len(a.res_seq)) +
                    " " * 4 + " " * (8 - len(loc[0])) +
                    loc[0] + " " * (8 - len(loc[1])) +
                    loc[1] + " " * (8 - len(loc[2])) +
                    loc[2] + " " * 2 +
-                   "1.00  0.00" + " " * (12 - len(a.type)) + a.type + "\n")
+                   "1.00  0.00" + " " * (12 - len(a.element)) + a.element + "\n")
 
 
 # Write surfaces function. Writes files given a list of surfaces
@@ -269,14 +269,14 @@ def export_info(sys, file_name, set_name, atoms=None, interfaces=None, interface
         info_file.write("\nAtoms\n")
         # Go through each atom adding to the running total volume
         for i in range(len(atoms)):
-            tot_vol += atoms[i].vol
+            tot_vol += atoms[i].cell_vol
         # Write out the total volume for the set of atoms
         info_file.write("\nTotal Volume for " + set_name + " = " + str(tot_vol) + "\n\n")
         # Go through each atom recording volume and surface areas for the respective surfaces
         for i in range(len(atoms)):
             # Write the header for each atom
             info_file.write("Atom " + str(i) + ": Chain - " + atoms[i].chain + "\n")
-            info_file.write(" Cell Volume = {}\n".format(atoms[i].vol))
+            info_file.write(" Cell Volume = {}\n".format(atoms[i].cell_vol))
             # Write the surface information
             info_file.write(" Surfaces:\n")
             for j in range(len(atoms[i].surfs)):
