@@ -24,7 +24,11 @@ def read_pdb_atom(line):
         return
     # Create the atom
     atom = Atom([float(line[30:38]), float(line[38:46]), float(line[46:54])], get_radius(line[76:78]),
-                symbol=line[76:78], res=line[17:20], chain=[21], res_seq=line[22:26])
+                symbol=line[76:78], res=line[17:20], chain=line[21], res_seq=line[22:26])
+    # If no chain is specified, set the chain to 'None'
+    if atom.chain == ' ':
+        atom.chain = 'None'
+    # Return the atom
     return atom
 
 
@@ -39,7 +43,7 @@ def get_pdb_data(sys, word):
     # Go through each line in the file and check if the first word is the word we are looking for
         for i in range(len(sys.file)):
             line = sys.file[i]
-            if line and line[0].lower() == 'atom':  # Check if the line starts with atom
+            if line and line[:4].lower() == 'atom':  # Check if the line starts with atom
                 atom = read_pdb_atom(line)
                 atoms.append(atom)
         return atoms
