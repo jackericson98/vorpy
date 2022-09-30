@@ -39,14 +39,15 @@ class Network:
                 if atom.loc[i] <= min_vert[i]:
                     min_vert[i] = atom.loc[i]
                 # If we find that the x, y, z value is less replace the value in the mins list
-                elif atom.loc[i] >= max_vert[i]:
+                if atom.loc[i] >= max_vert[i]:
                     max_vert[i] = atom.loc[i]
         # Get the vector between the minimum and maximum vertices for the defining box
         r_box = max_vert - min_vert
         # If the atoms are in the same plane
         for i in range(3):
             if r_box[i] == 0 or abs(r_box[i]) == np.inf:
-                r_box[i] = 40 * self.atoms[0].rad
+                r_box[i] = 4 * self.atoms[0].rad
+                min_vert[i], max_vert[i] = self.atoms[0].loc[i], self.atoms[0].loc[i]
         self.atoms_box = [min_vert, max_vert]
         # Set the new vertices to the x factor times the vector between them added to their complimentary vertices
         min_vert, max_vert = max_vert - r_box * self.box_size, min_vert + r_box * self.box_size
@@ -195,6 +196,6 @@ class Network:
             percentage = int((i + j + 1) / tot_num * 100)
             print("\rAnalyzing System:  ",
                   '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
-            self.atoms[j].vol = calc_vol(self.atoms[j])
+            self.atoms[j].cell_vol = calc_vol(self.atoms[j])
         print("\rAnalyzing System:   ########## 100 %")
         print("\rSystem Analyzed")
