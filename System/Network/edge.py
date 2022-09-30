@@ -17,6 +17,8 @@ class Edge:
         self.loc = None  # Location of the center of the 3 atoms that make up the edge
         self.rad = None  # Radius of the inscribed circle of the three atoms
         self.points = []  # List of points on the edge. These points do not include the vertex points
+        self.pv0 = None
+        self.pv1 = None
         self.doublet = doublet  # Check for if a. edge is directly part of a doublet
 
     # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
@@ -25,41 +27,47 @@ class Edge:
         self.points = []
         # Get the network's minimum distance
         min_dist = self.net.sys.min_dist
-        pv0, pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
         # Catch for an edge that is formed between the same vertex, but different doublet sites
         if self.doublet:
-            pv0, pv1 = np.array(self.verts[0].loc), np.array(self.verts[0].loc2)
+            self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[0].loc2)
         # Catch for an edge connected to a doublet, but has distinct vertices
         elif self.verts[0].doublet or self.verts[1].doublet:
+            # Get the default vertex locations
+            self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
             # If both vertices are doublets we have to find the closest two vertex locations
             if self.verts[0].doublet and self.verts[1].doublet:
                 # Get the backup locations for the vertices
                 pv0_, pv1_ = np.array(self.verts[0].loc2), np.array(self.verts[1].loc2)
                 # Find the minimum distance
-                ds = [calc_dist(pv0, pv1), calc_dist(pv0, pv1_), calc_dist(pv0_, pv1), calc_dist(pv0_, pv1_)]
+                ds = [calc_dist(self.pv0, self.pv1), calc_dist(self.pv0, pv1_), calc_dist(pv0_, self.pv1),
+                      calc_dist(pv0_, pv1_)]
                 ndx = ds.index(min(ds))
                 # If the minimum distance comes from the second half, replace the vertex location for pv0
                 if ndx > 1:
-                    pv0 = pv0_
+                    self.pv0 = pv0_
                 # If the ndx is odd, replace the vertex location for pv1
                 if ndx % 2 == 1:
-                    pv1 = pv1_
+                    self.pv1 = pv1_
             # If only v0 is a doublet, find the closest vertex location to v0
             elif self.verts[0].doublet:
-                if calc_dist(pv0, pv1) > calc_dist(self.verts[0].loc2, pv1):
-                    pv0 = np.array(self.verts[0].loc2)
+                if calc_dist(self.pv0, self.pv1) > calc_dist(self.verts[0].loc2, self.pv1):
+                    self.pv0 = np.array(self.verts[0].loc2)
             # If only v1 is a doublet, find the closest vertex location to v0
             elif self.verts[1].doublet:
-                if calc_dist(pv0, pv1) > calc_dist(pv0, self.verts[1].loc2):
-                    pv1 = np.array(self.verts[1].loc2)
+                if calc_dist(self.pv0, self.pv1) > calc_dist(self.pv0, self.verts[1].loc2):
+                    self.pv1 = np.array(self.verts[1].loc2)
+        else:
+            # Typical case, no doublets
+            self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
 
-
-        # If the edge is completely straight add 1 point in the middle and return
+        # If the edge is completely straight add points in a line from pv0 to pv0
         if self.atoms[0].rad == self.atoms[1].rad and self.atoms[1].rad == self.atoms[2].rad:
-            r = pv1 - pv0
+            # Get the vector between the two vectors and the number of point in the edge
+            r = self.pv1 - self.pv0
             num_points = int(np.linalg.norm(r) // min_dist) + 2
+            # Add the points
             for i in range(num_points):
-                self.points.append(pv0 + r * (i / num_points))
+                self.points.append(self.pv0 + r * (i / num_points))
             return
         # If no surface is given, choose a curved one to project onto. If the edge isn't straight 2 surfs are curved.
         if round(self.atoms[0].rad, 10) == round(self.atoms[1].rad, 10):
@@ -67,18 +75,18 @@ class Edge:
         else:
             surf = Surface(self.atoms[:2], self.net)
         # Find the point in between the two vertex points
-        r01 = pv1 - pv0  # Vector between vertices
+        r01 = self.pv1 - self.pv0  # Vector between vertices
         r_mag = np.linalg.norm(r01)  # Magnitude of the vector between the two vertex points
         rn01 = r01 / r_mag  # Normal to the vector between the vertices
-        pc01 = pv0 + 0.5 * rn01 * r_mag  # Center point
+        pc01 = self.pv0 + 0.5 * rn01 * r_mag  # Center point
         # Get the center point of the edge and the bottleneck
         self.loc, self.rad = calc_circ(self.atoms)
         # Determine if the theoretical center of the edge is inside the vertices or not
         dr = 1
-        if calc_dist(self.loc, pv0) < r_mag or calc_dist(self.loc, pv1) < r_mag:
+        if calc_dist(self.loc, self.pv0) < r_mag or calc_dist(self.loc, self.pv1) < r_mag:
             dr = -1
         # Find the vector normal to the projection plane
-        P_norm = dr * np.cross(np.array(self.loc) - np.array(pc01), np.array(pv1) - np.array(pc01))
+        P_norm = dr * np.cross(np.array(self.loc) - np.array(pc01), np.array(self.pv1) - np.array(pc01))
         # Find the vector perpendicular to the plane's normal (i.e. in the plane) and the vector between vertices
         rpcr = - np.cross(P_norm, rn01)
         rnpcr = rpcr / np.linalg.norm(rpcr)
@@ -87,10 +95,10 @@ class Edge:
         # Find the number of points
         n = max(int(r_mag / min_dist), 2)
         # Calculate the angle between the vertices and the reference point
-        theta = calc_angle(pa, pv0, pv1)
+        theta = calc_angle(pa, self.pv0, self.pv1)
         A = theta / n
         # Add the first vertex to the list of points
-        self.points = [pv0.tolist()]
+        self.points = [self.pv0.tolist()]
         # Find the edges points. Don't count the vertex
         for i in range(n-1):
             # Set pb to the previous point
