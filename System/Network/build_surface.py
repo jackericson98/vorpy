@@ -97,9 +97,9 @@ def build_perimeter(surf):
         myEdge = edges.pop(ndx)
         # Add the edge's point in the right order and then add the correct vertex
         if not reverse:  # In order
-            surf.perimeter += [myEdge.verts[0].loc] + myEdge.points
+            surf.perimeter += [myEdge.pv0] + myEdge.points
         else:  # Reverse order
-            surf.perimeter += [myEdge.verts[1].loc] + myEdge.points[::-1]
+            surf.perimeter += [myEdge.pv1] + myEdge.points[::-1]
     # Add the perimeter points to the whole set of points
     surf.points += surf.perimeter
 
@@ -272,8 +272,11 @@ def filter_tris(surf):
         tri = surf.tris[i]
         circ = calc_tri_circ(surf, tri)
         # If the circumference of the triangle is less than x times the minimum distance check to see if tri is within
-        if circ > 5 * surf.net.sys.min_dist and not tri_within(surf, tri):
+        if circ < 5 * surf.net.sys.min_dist:
             remove_ndxs.append(surf.tris.index(tri))
+        elif not tri_within(surf, tri):
+            remove_ndxs.append(surf.tris.index(tri))
+
     # Remove the outer triangles
     remove_ndxs.sort()
     for i in range(len(remove_ndxs)):
