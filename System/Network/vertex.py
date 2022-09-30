@@ -7,6 +7,7 @@ class Vertex:
         self.loc = location
         self.rad = radius  # Radius of the vertex's tangential sphere
         self.doublet = False
+        self.d_type = None
         self.loc2 = None
         self.rad2 = None
         self.atoms = atoms  # List of Atom type objects
