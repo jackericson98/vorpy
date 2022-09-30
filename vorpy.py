@@ -23,7 +23,7 @@ if __name__ == '__main__':
 
     # Analyze cell function. Used for analyzing each atomic cell at the main wrapper level
     def analyze_cell(myAtom):
-        myAtom.vol = calc_vol(myAtom)
+        myAtom.cell_vol = calc_vol(myAtom)
 
 
     ##############################################  Settings GUI  ######################################################
@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
     # If the user entered atoms build a list system
     elif len(user_atoms) > 0:
-        mySys = System(user_atoms, box_size=box_multiplier, min_dist=surf_res)
+        mySys = System(user_atoms=user_atoms, box_size=box_multiplier, min_dist=surf_res)
         mySys.name = "User_Data"
 
     # Throw an error otherwise
@@ -112,9 +112,9 @@ if __name__ == '__main__':
             # Calculate and print the running percentage for mesh calculations
             build_surf(surfs[i])
             # Calculate and print the running percentage for mesh calculations
-            percentage = np.round((i + 1) / len(surfs) * 100, 2)
+            percentage = float(np.round((i + 1) / len(surfs) * 100, 2))
             print("\rBuilding Surfaces: ",
-                  '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
+                  '#' * (int(percentage) // 10) + ' ' * (10 - (int(percentage) // 10)), percentage, "%", end='')
 
 
     ##############################################  Analyze the network  ###############################################
@@ -150,9 +150,9 @@ if __name__ == '__main__':
             # Analyze each of the atom's cells
             calc_vol(atom)
             # Update the print statement
-            percentage = np.round((mySys.atoms.index(atom) + 1) / len(mySys.atoms) * 100, 2)
+            percentage = float(np.round((mySys.atoms.index(atom) + 1) / len(mySys.atoms) * 100, 2))
             print("\rAnalyzing Atomic Cells: ",
-                  '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
+                  '#' * (int(percentage) // 10) + ' ' * (10 - (int(percentage) // 10)), percentage, "%", end='')
 
     ###################################################  Export the System  ############################################
 
