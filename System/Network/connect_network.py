@@ -3,68 +3,12 @@ from System.Network.edge import Edge
 from System.Network.surface import Surface
 
 
-# Connect network function. Takes in a broken network of vertices and spits out a connected network
+# Connect network method.
 def connect(net):
-
-    ################################################# Create the edges #################################################
-
-    # Reset the network's list of edges
-    net.edges = []
-    net.surfs = []
-    # Go through the vertices in the network searching for potential edges
+    # Create the edges
     for vert1 in net.verts:
-        # Set up the edges and doublet indices
-        my_edges = []
-        dub_edges = []
-        # Check to see if the vertex is a doublet
-        if vert1.doublet:
-            # If it is, we need to find what type of doublet it is (i.e. the # of edges)
-            for i in range(4):
-                # Get each combination of atoms
-                atoms = [vert1.atoms[i], vert1.atoms[(i + 1) % 4], vert1.atoms[(i + 2) % 4]]
-                # Calculate the inscribed circle for the current set of test atoms
-                circ = calc_circ(atoms)
-                # If this circle doesn't overlap with the other atom this is doublet edge
-                if calc_dist(circ[0], vert1.atoms[(i + 3) % 4].loc) > circ[1] + vert1.atoms[(i + 3) % 4].rad:
-                    # Add the
-                    my_edges.append(Edge(atoms, [vert1], net, doublet=True))
-                    dub_edges.append(i)
-            # Mark the vertex as a 1 or 3 surface doublet type
-            if len(dub_edges) == 2:
-                # Set the vertex doublet type
-                vert1.d_type = "1"
-                # Get the atoms in the surface
-                surf_atoms = [atom for atom in my_edges[0].atoms if atom in my_edges[1].atoms]
-                # Create the surface
-                mySurf = Surface(surf_atoms, edges=my_edges)
-                net.surfs.append(mySurf)
-            # If the vertex is a 3 surface type create those surfaces
-            elif len(dub_edges) == 3:
-                # Set the vertex doublet type
-                vert1.d_type = "3"
-                # Get the center atom
-                min_rad, myAtom = np.inf, None
-                # Find the smallest atom in the bunch
-                for atom1 in vert1.atoms:
-                    if atom1.rad < min_rad:
-                        myAtom = atom1
-                        min_rad = myAtom.rad
-                # Get a list of the other atoms in the surfaces
-                other_atoms = [atom for atom in vert1.atoms if atom != myAtom]
-                # Create the surfaces
-                vert_surfs = []
-                edges = my_edges
-                for k in range(3):
-                    surf_edges = [edges[k], edges[(k + 1) % 3]]
-                    surf_atoms = [atom for atom in vert1.atoms if atom in surf_edges[0].atoms and atom in surf_edges[1].atoms]
-                    vert_surfs.append(Surface(surf_atoms, net, surf_edges))
-            elif len(dub_edges) == 3:
-                vert1.d_type = "3"
         # Check every combination of vert atoms as an edge
         for i in range(4):
-            # Check for previously made doublet edges
-            if i in dub_edges:
-                continue
             # Grab the atoms
             atoms = {vert1.atoms[i], vert1.atoms[(i + 1) % 4], vert1.atoms[(i + 2) % 4]}
             # If the edge has been found before, continue
@@ -81,19 +25,11 @@ def connect(net):
             # Create the edge
             my_edge = Edge(list(atoms), verts, net)
             # Add the edge to the System
-            my_edges.append(my_edge)
-        # Add the edges to the network's list of edges
-        net.edges += my_edges
+            net.edges.append(my_edge)
 
-    ################################################### Create the surfaces ############################################
-
-    # Reset the network's list of surfaces
+    # Create the surfaces
     net.surfs = []
-    # Go through the edges in the network
     for edge1 in net.edges:
-        # If the edge is a doublet, skip it
-        if edge1.doublet:
-            continue
         # Go through the edge's atoms combinations
         for i in range(3):
             atoms = {edge1.atoms[i], edge1.atoms[(i + 1) % 3]}
@@ -117,9 +53,7 @@ def connect(net):
             else:
                 pass
 
-    ################################################# Connect the atoms ################################################
-
-    # Go through the atoms in the network adding vertices, edges and surfaces
+    # Add the vertices, edges and surfs to the atoms
     for atom in net.atoms:
         # Reset the atom's vert list
         atom.verts = []
@@ -143,9 +77,7 @@ def connect(net):
             if {atom}.issubset(surf.atoms):
                 atom.surfs.append(surf)
 
-    ################################################# Connect the vertices #############################################
-
-    # Go through the vertices in the network adding the edges and surfaces that share atoms
+    # Add the edges and surfs to the vertices
     for vert in net.verts:
         # Reset the vertexes edge list
         vert.edges = []
@@ -161,6 +93,7 @@ def connect(net):
             # If the surfaces atoms are in the vertexes atoms add it to the vertex
             if set(surf.atoms).issubset(vert.atoms):
                 vert.surfs.append(surf)
+
     # Add the surfs to the edges
     for edge in net.edges:
         # Reset the edges surf list
