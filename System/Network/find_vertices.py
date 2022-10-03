@@ -56,35 +56,13 @@ def find_v0(net, a0=None, n=0):
     myVert = find_site(net, [a0, a1, a2])
     n += 1
     # Keep recursively calling the find_v0 function until it finds a valid site that isn't a doublet
-    if myVert is None or myVert[0].doublet:
+    if myVert is None:
         myVert = find_v0(net, a0=net.atoms[n], n=n)
     else:
         # If we find v0 return the vertex that was found
         myVert = myVert[0]
     # Return the vertex
     return myVert
-
-
-# Search vertices function. Searches a list of indices of atoms sorted by smallest atom
-def search_verts(test_lol, my_list):
-    # If the length of the test list is equal to 0 return the next index
-    if len(test_lol) <= 1:
-        if len(test_lol) > 0 and my_list > test_lol[0]:
-            return 1
-        return 0
-    # Get the middle of the list of vertices
-    mid_list_ndx = len(test_lol) // 2
-    # If the search element (my_list) is greater than the test element (test_lol) search the lower half of test_lol
-    if my_list > test_lol[mid_list_ndx]:
-        my_vert_ndx = search_verts(test_lol[mid_list_ndx:], my_list)
-        return my_vert_ndx + len(test_lol[:mid_list_ndx])
-    # If the search element (my_list) is less than the test element (test_lol) search the upper half of test_lol
-    elif my_list < test_lol[mid_list_ndx]:
-        my_vert_ndx = search_verts(test_lol[:mid_list_ndx], my_list)
-        return my_vert_ndx
-    # If the search element (my_list) is greater than the test element (test_lol) search the lower half of test_lol
-    elif my_list == test_lol[mid_list_ndx]:
-        return mid_list_ndx
 
 
 # Verify site function. Compares a vertex to the atoms around to see if they overlap
@@ -238,5 +216,3 @@ def find_vertices(net, v0=None, i=0):
             # Add the vertex to the atoms
             for atom in myVert.atoms:
                 atom.verts.append(myVert)
-    # Check for repeat vertices
-    net.filter_verts()
