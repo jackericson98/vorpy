@@ -29,7 +29,7 @@ def get_radius(radius, return_symbol=False):
         atom_type = ""
         # Check to see if the radius is in the system
         if radius in radii[1]:
-            return radius[0][radius[1].index(radius)]
+            return radii[0][radii[1].index(radius)]
         else:
             # Get the closest atom to it
             min_diff = np.inf
