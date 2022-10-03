@@ -224,6 +224,9 @@ def check_surf(s_atoms, surf_list):
 def check_edge(e_atoms, edge_list):
     # Go through each edge in the edge list
     for edge in edge_list:
+        # Skip for doublets
+        if edge.doublet:
+            continue
         # Check if the given atoms correspond to the atoms in the edge
         if e_atoms.issubset(edge.atoms):
             # Return the edge
