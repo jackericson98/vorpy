@@ -113,22 +113,9 @@ def fill_mesh(surf):
     res = surf.net.sys.min_dist
     # Get the atoms
     a0, a1 = surf.atoms[0], surf.atoms[1]
-    # Get the center point for the surface
-    center = surf.rn * 0.5 * (calc_dist(a0.loc, a1.loc) - (a0.rad + a1.rad)) + a0.loc
     # Get the center of mass for the edges
     com3d = calc_edges_com(surf.edges)
     com = calc_surf_point(surf, com3d)
-    # com3d_trans = com3d_proj - center
-    # com2d_trans = rotate_points(center, [com3d_trans])
-    # Check to see if the center point is inside the perimeter or not
-    # if tri_within(surf, point=com2d_trans):
-    #     com = com3d_proj
-    # else:
-    #     if tri_within(surf, point=center):
-    #         com = center
-    #     else:
-    #         print("Bad surface! Surface: ", surf.ndx)
-    #         return
     # Check to see if the atoms have equal radii
     if a0.rad == a1.rad:
         return
@@ -216,7 +203,7 @@ def tri_within(surf, myTri=None, point=None):
         theta_n = calc_angle(point, p1, proj_point)
         theta_n1 = calc_angle(point, p2, proj_point)
         # If we have a crossing
-        if theta_n < theta and theta_n1 < theta:
+        if 0 < theta_n < theta and theta_n1 < theta:
             xings += 1
     # If we have an even number of intersections
     if xings % 2 == 0:
@@ -272,11 +259,8 @@ def filter_tris(surf):
         tri = surf.tris[i]
         circ = calc_tri_circ(surf, tri)
         # If the circumference of the triangle is less than x times the minimum distance check to see if tri is within
-        if circ < 5 * surf.net.sys.min_dist:
+        if not circ < 5 * surf.net.sys.min_dist and not tri_within(surf, tri):
             remove_ndxs.append(surf.tris.index(tri))
-        elif not tri_within(surf, tri):
-            remove_ndxs.append(surf.tris.index(tri))
-
     # Remove the outer triangles
     remove_ndxs.sort()
     for i in range(len(remove_ndxs)):
