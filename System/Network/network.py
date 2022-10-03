@@ -60,7 +60,7 @@ class Network:
         if num_boxes is None:
             n = int(np.cbrt(len(self.atoms) * 5)) + 1
         else:
-            n = int(np.cbrt(num_boxes))
+            n = int(np.cbrt(num_boxes)) + 1
         # First get the box for the atoms to be sorted into
         self.calc_box()
         # Instantiate the grid structure of lists is locations representing a grid
@@ -113,26 +113,6 @@ class Network:
                     except IndexError:
                         continue
         return atoms
-
-    # Filter vertices function. Filters out any repeat vertices
-    def filter_verts(self):
-        # Set up a list of vertex ndxs and vertices
-        vert_ndxs = []
-        verts = []
-        # Go through the vertices
-        for i in range(len(self.verts)):
-            # Set up the vertex in box tracking boolean variable
-            in_box = True
-            # Check if the vertex is inside the box
-            for j in range(3):
-                if self.verts[i].loc[j] < self.box[0][j] or self.verts[i].loc[j] > self.box[1][j]:
-                    in_box = False
-            # Sort the indices of the vertices
-            if self.verts[i].ndx not in vert_ndxs and in_box:
-                vert_ndxs.append(self.verts[i].ndx)
-                verts.append(self.verts[i])
-        # Set the networks vertices
-        self.verts = verts
 
     # Connect method. Connects the network using the functions in the connect_network.py file
     def connect(self):
