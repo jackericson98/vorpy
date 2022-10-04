@@ -3,25 +3,24 @@ from System.Network.build_surface import *
 
 class Surface:
     """Surface object. Holds the mesh data. Used to analyze interfaces between atoms."""
-    def __init__(self, atoms, net=None, edges=None, verts=None):
+    def __init__(self, atoms, net=None, edges=None, verts=None, doublet=False):
         # If no network was given have a catch
         if net is not None:
             ndx = [net.atoms.index(atom) for atom in atoms]
-            self.ndx = ndx     # Index            : Indices of the atoms of the surface
-            self.net = net     # Network          : Network of the System
-        self.atoms = atoms     # Atoms            : Atoms of the surface
-        self.edges = edges     # Edges            : Edges of the surface
-        self.verts = verts     # Vertices         : Vertices of the surface
+            self.ndx = ndx      # Index            : Indices of the atoms of the surface
+            self.net = net      # Network          : Network of the System
+        self.atoms = atoms      # Atoms            : Atoms of the surface
+        self.edges = edges      # Edges            : Edges of the surface
+        self.verts = verts      # Vertices         : Vertices of the surface
 
-        self.func = None       # Surface function : Holds the coefficients of the function describing the surf
-        self.perimeter = []    # Perimeter        : The points around the edges of the surface (IN ORDER)
-        self.points = []       # Points           : The points that make up the surface
-        self.flat_points = []  # Flattened points : Points projected into 2d based off of the surface normal
-        self.tris = []         # Triangles        : A list of connections between the points
-        self.sa = 0            # Surface Area     : The surface area of the
-        self.rn = None         # Surface Normal   : Normal to the center of the surface
-        self.in_box = True     # Outside Box      : Gets flipped if a point from the surface is found outside the system
-        self.bad = False       # Bad
+        self.func = None        # Surface function : Holds the coefficients of the function describing the surf
+        self.perimeter = []     # Perimeter        : The points around the edges of the surface (IN ORDER)
+        self.points = []        # Points           : The points that make up the surface
+        self.flat_points = []   # Flattened points : Points projected into 2d based off of the surface normal
+        self.tris = []          # Triangles        : A list of connections between the points
+        self.sa = 0             # Surface Area     : The surface area of the
+        self.rn = None          # Surface Normal   : Normal to the center of the surface
+        self.doublet = doublet  # Doublet          : Indicates whether a surface is a part of a doublet or not
 
     # Bisector function. Creates a bisector surface between 2 atoms
     def calc_func(self):
