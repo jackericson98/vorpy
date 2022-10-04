@@ -3,13 +3,13 @@ from System.Network.surface import *
 
 class Vertex:
     """Vertex object. Used to build the network and calculate the surfaces"""
-    def __init__(self, atoms, net=None, location=None, radius=None):
+    def __init__(self, atoms, net=None, location=None, radius=None, loc2=None, rad2=None, doublet=False):
         self.loc = location
         self.rad = radius  # Radius of the vertex's tangential sphere
-        self.doublet = False
+        self.doublet = doublet
         self.d_type = None
-        self.loc2 = None
-        self.rad2 = None
+        self.loc2 = loc2
+        self.rad2 = rad2
         self.atoms = atoms  # List of Atom type objects
         self.edges = []  # List of Edge type objects
         self.surfs = []  # List of Surface type objects
