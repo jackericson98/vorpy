@@ -13,7 +13,7 @@ def find_v0(net, a0=None, n=0):
         while not atoms:
             atoms = net.get_atoms([[mid, mid, mid]], inc)
             inc += 1
-        a0 = atoms[-1]
+        a0 = atoms[-1 - n]
     # Find the set of atoms with the minimum distance between surfaces
     min_dist = np.inf
     a1 = None
@@ -54,10 +54,9 @@ def find_v0(net, a0=None, n=0):
         return
     # Find the set of atoms with the minimum inscribed sphere
     myVert = find_site(net, [a0, a1, a2])
-    n += 1
     # Keep recursively calling the find_v0 function until it finds a valid site that isn't a doublet
     if myVert is None:
-        myVert = find_v0(net, a0=net.atoms[n], n=n)
+        myVert = find_v0(net, a0=net.atoms[n], n=n+1)
     else:
         # If we find v0 return the vertex that was found
         myVert = myVert[0]
