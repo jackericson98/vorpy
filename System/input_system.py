@@ -112,12 +112,32 @@ def add_verts(sys, file_address):
     sys.net.verts, sys.net.surfs, sys.net.edges = [], [], []
     vert_file = open(file_address).readlines()
     # Go through each of the vertices file
-    for line in vert_file:
+    for i in range(len(vert_file)):
+        # Set up the line variable and split it
+        line = vert_file[i]
         line = line.split()
-        atoms = [sys.atoms[int(line[i])] for i in range(4, 8)]
-        sys.net.verts.append(Vertex(atoms, location=[float(line[0]), float(line[1]), float(line[2])],
-                                    radius=float(line[3]), net=sys.net))
-    sys.net.filter_verts()
+        # Set uo the line2 variable
+        line2 = None
+        # If there is another line after this one, check it for the same atoms
+        if i + 1 < len(vert_file):
+            line2 = vert_file[i + 1]
+            line2 = line2.split()
+        atoms = [sys.atoms[int(line[_])] for _ in range(4, 8)]
+        # Check if the next line has the same atom indices as the current line
+        if line2 is not None and atoms == [sys.atoms[int(line2[_])] for _ in range(4, 8)]:
+            print("Doublet")
+            # Doublet vertex
+            my_vert = Vertex(atoms, location=[float(line[0]), float(line[1]), float(line[2])], radius=float(line[3]),
+                             net=sys.net, doublet=True, loc2=[float(line2[0]), float(line2[1]),
+                             float(line2[2])], rad2=float(line2[3]))
+            # Skip the next line
+            i += 1
+        else:
+            # Regular vertex
+            my_vert = Vertex(atoms, location=[float(line[0]), float(line[1]), float(line[2])], radius=float(line[3]),
+                             net=sys.net)
+        # Add the vertex to the system
+        sys.net.verts.append(my_vert)
 
 
 # Add vertices function. Takes in a system and a file with vertices in it and adds the verts to the system

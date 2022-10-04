@@ -41,6 +41,11 @@ def export_myVerts(sys):
         # Write the vertex into the file (x y z r a0 a1 a2 a3 a4)
         file.write(str(vert.loc[0]) + " " + str(vert.loc[1]) + " " + str(vert.loc[2]) + " " + str(vert.rad) + " "
                    + str(vert.ndx[0]) + " " + str(vert.ndx[1]) + " " + str(vert.ndx[2]) + " " + str(vert.ndx[3]) + '\n')
+        # If the vertex is a doublet, write down the radius and location
+        if vert.doublet:
+            file.write(str(vert.loc2[0]) + " " + str(vert.loc2[1]) + " " + str(vert.loc2[2]) + " " + str(vert.rad2) +
+                       " " + str(vert.ndx[0]) + " " + str(vert.ndx[1]) + " " + str(vert.ndx[2]) + " " + str(vert.ndx[3])
+                       + '\n')
 
 
 # Create pdb method. Creates a pdb file type in the current working directory
