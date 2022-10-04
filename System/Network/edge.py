@@ -30,10 +30,12 @@ class Edge:
         # Catch for an edge that is formed between the same vertex, but different doublet sites
         if self.doublet:
             self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[0].loc2)
+
         # Catch for an edge connected to a doublet, but has distinct vertices
         elif self.verts[0].doublet or self.verts[1].doublet:
             # Get the default vertex locations
             self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
+
             # If both vertices are doublets we have to find the closest two vertex locations
             if self.verts[0].doublet and self.verts[1].doublet:
                 # Get the backup locations for the vertices
@@ -48,10 +50,12 @@ class Edge:
                 # If the ndx is odd, replace the vertex location for pv1
                 if ndx % 2 == 1:
                     self.pv1 = pv1_
+
             # If only v0 is a doublet, find the closest vertex location to v0
             elif self.verts[0].doublet:
                 if calc_dist(self.pv0, self.pv1) > calc_dist(self.verts[0].loc2, self.pv1):
                     self.pv0 = np.array(self.verts[0].loc2)
+
             # If only v1 is a doublet, find the closest vertex location to v0
             elif self.verts[1].doublet:
                 if calc_dist(self.pv0, self.pv1) > calc_dist(self.pv0, self.verts[1].loc2):
@@ -91,16 +95,21 @@ class Edge:
         rpcr = - np.cross(P_norm, rn01)
         rnpcr = rpcr / np.linalg.norm(rpcr)
         # Calculate the reference point
-        pa = pc01 + 0.5 * r_mag * rnpcr
+        pa = pc01 + 2 * r_mag * rnpcr
         # Find the number of points
-        n = max(int(r_mag / min_dist), 2)
+        n = max(int(r_mag / min_dist), 10)
         # Calculate the angle between the vertices and the reference point
         theta = calc_angle(pa, self.pv0, self.pv1)
-        A = theta / n
         # Add the first vertex to the list of points
         self.points = [self.pv0.tolist()]
         # Find the edges points. Don't count the vertex
-        for i in range(n-1):
+        for i in range(n):
+            if i == 0:
+                A = 0.1 * theta / n
+            elif i == 1:
+                A = 0.9 * theta / n
+            else:
+                A = theta / n
             # Set pb to the previous point
             pb = self.points[-1]
             # Get the distance between pb and pa for c
@@ -163,3 +172,6 @@ class Edge:
                     point = p2
             # Return the point we choose
             return point
+
+# Calculate edge distance function. Calculates the relative edge distance
+# def calc_edge_dist(edge, points):
