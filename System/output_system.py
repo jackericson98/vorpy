@@ -169,97 +169,94 @@ def export_myAtoms(sys, n, max_num):
 
 # Export my mols function. Used to create and export the surfaces the interfaces between molecules of the system  and
 # the cells of the atoms of each molecule as separate files
-def export_myMols(sys, n, max_num, export_residues=False):
+def export_myMols(sys, export_residues=False):
     # Create the molecules folder
     os.mkdir(sys.output_directory + '/Molecules')
-    chains = []
-    chain_lists = []
-    # Create the chains
-    for atom in sys.atoms:
-        # If the chain hasn't been found create it and add the atom to it
-        if atom.chain not in chains:
-            os.mkdir(sys.output_directory + '/Molecules/' + atom.chain)
-            chains.append(atom.chain)
-            chain_lists.append([atom])
-        # If the chain has been found add the atom to the chain's list of atoms
-        else:
-            chain_lists[chains.index(atom.chain)].append(atom)
-    # Go through each of the chains
-    for i in range(len(chains)):
-        # Percentage print statement
-        percentage = int((n + (i + 1)) / max_num * 100)
-        print("\rExporting System: ",
-              '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
-        chain_file_names = []
-        # Go through the other chains and create a file for their interfaces
-        for j in range(len(chains)):
-            if chains[j] == chains[i]:
-                continue
-            chain_file_names.append(chains[i] + '_' + chains[j] + '_interface')
-        # Get the surfaces for the interfaces of each molecule
-        chain_iface_surfs = [[] for _ in range(len(chain_file_names))]
-        chain_surfs = []
-        # Find the file that each surf belongs to
+    # Go through the chains in the system
+    for mol in sys.mols:
+        # Set up the list of molecule surfaces
+        mol_surfs = []
+        # Get the name of the molecule
+        mol_name = mol[0].chain
+        # Make the output directory for the molecule
+        os.mkdir(sys.output_directory + '/Molecules/' + mol_name)
+        # Change to the directory of the molecule
+        os.chdir(sys.output_directory + '/Molecules/' + mol_name)
+        # Get the surrounding surfaces for the molecule
         for surf in sys.net.surfs:
-            if surf.atoms[0].chain == chains[i] != surf.atoms[1].chain:
-                chain_iface_surfs[chain_file_names.index(chains[i] + '_' + surf.atoms[1].chain + '_interface')].append(surf)
-                chain_surfs.append(surf)
-            elif surf.atoms[1].chain == chains[i] != surf.atoms[0].chain:
-                chain_iface_surfs[chain_file_names.index(chains[i] + '_' + surf.atoms[0].chain + '_interface')].append(surf)
-                chain_surfs.append(surf)
-            else:
-                continue
-        # Make a file for the whole chain
-        os.chdir(sys.output_directory + "/Molecules")
+            # Grab the surface's atoms
+            a0, a1 = surf.atoms
+            # Check to see if the surface is a part of the current molecule and another molecule or not
+            if (a0.chain == mol_name and a1.chain != mol_name) or (a0.chain != mol_name and a1.chain == mol_name):
+                mol_surfs.append(surf)
         # Give the surfaces random colors
         color = [np.random.random_sample() for _ in range(3)]
-        write_surfs(chain_surfs, chains[i], color)
-        # Make a file for each of the interfaces
-        os.chdir(sys.output_directory + "/Molecules/" + chains[i])
-        for j in range(len(chain_iface_surfs)):
-            # Give the surfaces random colors
-            color = [np.random.random_sample() for _ in range(3)]
-            write_surfs(chain_iface_surfs[j], chain_file_names[j], color)
-        # Export the residues for the molecule
+        # Create the molecule file
+        write_surfs(mol_surfs, "Molecule_" + mol_name, color)
+
+        # Create the interfaces folder and change to it
+        os.mkdir(sys.output_directory + '/Molecules/' + mol_name + '/Interfaces')
+        # Change to the directory of the molecule
+        os.chdir(sys.output_directory + '/Molecules/' + mol_name + '/Interfaces')
+        # Create a liat to hold the interfaces for the molecule
+        interfaces = [[] for _ in range(len(sys.mols))]
+        # Create the interfaces of the molecule with the other molecules
+        for i in range(len(sys.mols)):
+            # Get the second molecule
+            mol2 = sys.mols[i]
+            # Make sure the 2 molecules aren't the same
+            if mol == mol2:
+                continue
+            # Get the second molecule's name
+            mol2_name = mol2[0].chain
+            # Find the surfaces in the 2 molecules' interface
+            for surf in sys.net.surfs:
+                # Grab the surface's atoms
+                a0, a1 = surf.atoms
+                # Check to see if the surface is a part of the current molecule and another molecule or not
+                if (a0.chain == mol2_name and a1.chain == mol_name) or (a0.chain == mol_name and a1.chain == mol2_name):
+                    # Add the surface to the list of surfaces in the interface
+                    interfaces[i].append(surf)
+            # Only create the file if one or more surface exists in the interface between the molecules
+            if len(interfaces[i]) >= 1:
+                write_surfs(interfaces[i], mol_name + "_" + mol2_name + "_Interface")
+        # Change back out of the directory
+        os.chdir(sys.output_directory + '/Molecules/' + mol_name)
+        # If the residues have been requested to be exported, do so
         if export_residues:
-            export_myResidues(sys, chain_lists[i], chains[i])
-        # Change back to the chain directory
-        os.chdir(sys.output_directory + "/Molecules/" + chains[i])
-        # Get the information for the molecules in the system
-        export_info(sys, sys.name + "_mol_" + chains[i] + "_info", chains[i], chain_lists[i], chain_iface_surfs, chain_file_names)
-        # Change back to the main directory
-        os.chdir(sys.output_directory)
+            export_myResidues(sys, mol, mol_name)
+        # Export the information for the molecule
+        export_info(sys, mol_name + "_Information", mol_name + "_Information", interfaces=interfaces)
 
 
 # Export residues function.
-def export_myResidues(sys, mol_atoms, chain):
+def export_myResidues(sys, mol, mol_name):
     # Create a 'residues' folder for each chain
-    os.mkdir(sys.output_directory + "/Molecules/" + chain + "/Residues")
-    os.chdir(sys.output_directory + "/Molecules/" + chain + "/Residues")
-    # Create the lists of residues and their respective atoms
-    residues = []
-    res_lists = []
-    # Create the residues
-    for atom in mol_atoms:
-        # Check to see that the atom has a residue
-        if atom.res == "":
-            atom.res = "None"
-        # If the chain hasn't been found create it and add the atom to it
-        if atom.res not in residues:
-            os.mkdir(sys.output_directory + '/Molecules/' + chain + "/" + atom.res)
-            residues.append(atom.res)
-            res_lists.append([atom])
-        # If the chain has been found add the atom to the chain's list of atoms
-        else:
-            res_lists[residues.index(atom.res)].append(atom)
-    # Write the residue files
-    for i in range(len(residues)):
+    os.mkdir(sys.output_directory + "/Molecules/" + mol_name + "/Residues")
+    os.chdir(sys.output_directory + "/Molecules/" + mol_name + "/Residues")
+    # Go through each residue adding the surrounding surfaces
+    for res in sys.residues:
+        # Check the residue to see if it belongs to the molecule
+        if res[0].chain != mol[0].chain:
+            continue
+        # Get the residue sequence to check against
+        res_seq = res[0].res_seq
+        surfs = []
+        for atom in res:
+            surfs += atom.surfs
+        # Set up a list of surfaces for the residue's outer surfaces
         res_surfs = []
-        for atom in res_lists[i]:
-            res_surfs += atom.surfs
+        # Go through the surfaces in the
+        for surf in surfs:
+            # Get the surface's atoms
+            a0, a1 = surf.atoms
+            # Check to see if the surface is a part of the current molecule and another molecule or not
+            if (a0.res_seq == res_seq and a1.res_seq != res_seq) or (a0.res_seq != res_seq and a1.res_seq == res_seq):
+                res_surfs.append(surf)
         # Give the surfaces random colors
         color = [np.random.random_sample() for _ in range(3)]
-        write_surfs(res_surfs, residues[i], color)
+        # Create the molecule file
+        write_surfs(surfs=res_surfs, file_name=res[0].res, color=color)
 
 
 # Export analysis function. Creates an analysis file for the user.
