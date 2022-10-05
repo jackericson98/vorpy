@@ -38,7 +38,7 @@ if __name__ == '__main__':
     user_atoms = myVorpy.sys_atom_list
     surf_res = myVorpy.sys_res_flt.get()
     box_multiplier = myVorpy.sys_box_x_flt.get()
-    beta_val = myVorpy.sys_beta_value.get()
+    beta_val = myVorpy.sys_alpha_value.get()
     export_dir = myVorpy.sys_output_directory
     cpu_boost = myVorpy.parallelize.get()
     export_all = myVorpy.output_all.get()
