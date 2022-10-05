@@ -6,7 +6,7 @@ from System.output_system import *
 
 class System:
     """Class used to import files of all types and return a System"""
-    def __init__(self, file=None, user_atoms=None, box_size=1.5, min_dist=0.1):
+    def __init__(self, file=None, user_atoms=None, box_size=1.5, min_dist=0.1, beta_val=2):
 
         # Set up the major system attributes
         self.info = {}
@@ -44,7 +44,7 @@ class System:
             self.random_system()
 
         # Set up the network
-        self.net = Network(self, self.atoms, box_size=box_size, min_dist=min_dist)
+        self.net = Network(self, self.atoms, box_size=box_size, min_dist=min_dist, beta_val=beta_val)
         self.output_directory = None
         self.vorpy_directory = os.getcwd()
 
