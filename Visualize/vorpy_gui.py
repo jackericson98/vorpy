@@ -85,9 +85,9 @@ class Vorpy:
         tk.Label(f, text=u'\u212B', font=('Times New Roman', 15)).grid(row=11, column=7, columnspan=2, sticky='s')
 
         # Beta value for the system
-        self.sys_alpha_value = tk.DoubleVar(self.vp_main, 2)
+        self.sys_alpha_value = tk.DoubleVar(self.vp_main, 5)
         tk.Label(f, text="Max Vertex: ").grid(row=12, column=0, columnspan=3, sticky='ws')
-        tk.Scale(f, from_=0.5, to=5, orient=tk.HORIZONTAL, variable=self.sys_alpha_value, resolution=0.05) \
+        tk.Scale(f, from_=2, to=10, orient=tk.HORIZONTAL, variable=self.sys_alpha_value, resolution=0.05) \
             .grid(row=12, column=2, columnspan=5, sticky='ewn')
         tk.Label(f, text=u'\u212B', font=('Times New Roman', 15)).grid(row=12, column=7, columnspan=2, sticky='s')
 
