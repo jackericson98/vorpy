@@ -1,8 +1,7 @@
 import multiprocessing as mp
-import os
 
-from Visualize.vorpy_gui import Vorpy, ErrorBox, LoadingBox
-from System.system import System, Network, Atom
+from Visualize.vorpy_gui import Vorpy, ErrorBox
+from System.system import System, Network, Atom, verify_site
 from System.calcs import *
 import sys as Sys
 
@@ -12,6 +11,10 @@ if __name__ == '__main__':
 
 
     #############################################  Functions  ##########################################################
+
+    # Find vertices function. Used for parallel computing at the main wrapper level
+    def find_vertices(myNet, myCounter=None):
+        myNet.find_verts(myCounter)
 
     # Build surface function. Used for parallel computing at the main wrapper level
     def build_surf(mySurf):
@@ -85,12 +88,12 @@ if __name__ == '__main__':
     # Catch for if the verts have been loaded already.
     if vert_file is None:
         # For small systems (<= 200) run the normal algorithm
-        if len(mySys.atoms) <= 2000:
+        if len(mySys.atoms) <= 200:
             net.find_verts()
         # For large systems, split the atoms into separate smaller networks top search for vertices in
         else:
             # This gets us to average about 60 atoms per medium box
-            n = max(int(np.cbrt(len(mySys.atoms) // 60)), 2)
+            n = max(int(np.cbrt(len(mySys.atoms) // 30)), 2)
             # The range to search for new vertices
             rnge = len(net.sub_boxes) // n
             # Get the atoms in the
@@ -98,11 +101,12 @@ if __name__ == '__main__':
             # Set up the network list and the list of the atom indices from the main network for reference later
             test_nets = []
             test_nets_real_ndxs = []
+            overlap = int(2 * (net.beta_val + net.max_atom_rad) // min(net.sub_box_size)) + 1
             # Go through each of the boxes in the medium_boxes matrix to create networks
             for i in range(n):
                 for j in range(n):
                     for k in range(n):
-                        inc = 5
+                        inc = overlap
                         # Make sure there are enough atoms to do a valid search
                         while len(med_boxes[i][j][k]) < 100:
                             # Starting from the middle of the range search out the atoms within 0.75 + the increment
@@ -119,12 +123,21 @@ if __name__ == '__main__':
                         test_nets.append(Network(mySys, new_atoms, box_size=1.1, min_dist=surf_res, beta_val=beta_val))
                         test_nets_real_ndxs.append(old_ndxs)
                         rnge = len(net.sub_boxes) // n
-            # Build the networks
+            num_verts = 0
+            # Find the vertices
             for i in range(len(test_nets)):
-                num_verts = len(net.verts)
+                # Get the fake network
                 net2 = test_nets[i]
-                net2.find_verts([num_verts, num_verts +
-                                 sum([len(test_nets[_].atoms) * 6 for _ in range(i, len(test_nets))])])
+                # Create a counter for the find vertices function
+                counter = [num_verts, num_verts + sum([len(test_nets[_].atoms) * 6 for _ in range(i, len(test_nets))])]
+                # Find the vertices
+                find_vertices(net2, counter)
+                # keep recording the number of vertices already in the network
+                num_verts += len(net2.verts)
+
+            # Fix and filter the vertices
+            for i in range(len(test_nets)):
+                net2 = test_nets[i]
                 # Sort through the vertices in each network
                 for j in range(len(net2.verts)):
                     vert = net2.verts[j]
@@ -137,8 +150,10 @@ if __name__ == '__main__':
                     v_ndx = search_verts(net.vert_ndxs, vert.ndx)
                     # If found, verify it is not a doublet
                     if 0 == len(net.vert_ndxs) or len(net.vert_ndxs) <= v_ndx:
+                        vert.net = net
                         net.vert_ndxs.append(vert.ndx)
                         net.verts.append(vert)
+                    # If the indices match we need to check if it is a doublet
                     elif vert.ndx == net.vert_ndxs[v_ndx]:
                         # If the location is different and we haven't indicated the vertex as a doublet already add it
                         if [round(vert.loc[k], 7) for k in range(3)] != \
@@ -147,10 +162,14 @@ if __name__ == '__main__':
                             # Add the doublet
                             net.verts[v_ndx].doublet = True
                             mySys.net.verts[v_ndx].loc2, mySys.net.verts[v_ndx].rad2 = vert.loc, vert.rad
+                    # If this is a novel vertex, we need to verify it
                     else:
-                        # Add the vertex to the system
-                        mySys.net.vert_ndxs.insert(v_ndx, vert.ndx)
-                        mySys.net.verts.insert(v_ndx, vert)
+                        if verify_site(vert, net):
+                            # Add the vertex to the system
+                            vert.net = net
+                            mySys.net.vert_ndxs.insert(v_ndx, vert.ndx)
+                            mySys.net.verts.insert(v_ndx, vert)
+
 
     # Export the vertices
     mySys.export_verts()
