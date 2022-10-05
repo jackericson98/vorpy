@@ -91,7 +91,7 @@ class System:
                     atom.chain = 'Mol'
             # If the atom's chain does not exist add it to the list of chains
             if atom.chain not in chain_names:
-                self.mols.append(atom)
+                self.mols.append([atom])
                 chain_names.append(atom.chain)
             else:
                 self.mols[chain_names.index(atom.chain)].append(atom)
@@ -103,7 +103,7 @@ class System:
             res_name = [atom.res, atom.res_seq]
             # If the residue name does not exist, add it
             if res_name not in res_names:
-                self.residues.append(atom)
+                self.residues.append([atom])
                 res_names.append(res_name)
             else:
                 self.residues[res_names.index(res_name)].append(atom)
