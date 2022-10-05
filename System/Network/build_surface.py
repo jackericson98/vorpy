@@ -116,6 +116,9 @@ def fill_mesh(surf):
     # Get the center of mass for the edges
     com3d = calc_edges_com(surf.edges)
     com = calc_surf_point(surf, com3d)
+    # Check to see if the center of mass is within the surface's perimeter
+    if not tri_within(surf, point=com):
+        return
     # Check to see if the atoms have equal radii
     if a0.rad == a1.rad:
         return
