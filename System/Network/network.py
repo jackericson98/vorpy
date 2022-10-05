@@ -6,7 +6,7 @@ from System.Network.connect_network import connect
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
-    def __init__(self, sys, atoms, min_dist=0.1, box_size=1.5):
+    def __init__(self, sys, atoms, min_dist=0.1, box_size=1.5, beta_val=2):
 
         self.sys = sys            # System       :  Route back to outer system for system attribute access
         self.atoms = atoms        # Atoms        :  Atoms of the network. Should be identical to self.sys.atoms
@@ -21,7 +21,8 @@ class Network:
         self.sub_box_size = None  # Sub box size :  Holds the size of each sub box
         self.atoms_box = []       # Atoms box    :  Holds the min and max verts for the box containing the atoms
         self.min_dist = min_dist  # Resolution   :  How small the triangles in the surfaces are
-        self.max_rad = 0          # Max radius   :  Holds the largest radius of the system for reference
+        self.beta_val = beta_val  # Beta value   :  The maximum vertex radius for the network
+        self.max_atom_rad = 0     # Max atom rad :  Holds the largest radius of the system for reference
         self.vert_ndxs = []       # Vert indices :  Holds the indices of the atoms of the vertices in the network
 
         self.sort_atoms()         # Sort Atoms   :  Once the network has been created place the atoms in their sub-boxes
@@ -71,8 +72,8 @@ class Network:
         # Sort the atoms
         for atom in self.atoms:
             # Adjust the maximum radius
-            if atom.rad > self.max_rad:
-                self.max_rad = atom.rad
+            if atom.rad > self.max_atom_rad:
+                self.max_atom_rad = atom.rad
             # Find the box they belong to
             ai = int((atom.loc[0] - self.box[0][0]) / self.sub_box_size[0])
             aj = int((atom.loc[1] - self.box[0][1]) / self.sub_box_size[1])
@@ -119,21 +120,21 @@ class Network:
         connect(self)
 
     # Find vertices method. Using the functions in find_vertices.py finds the vertices in the network
-    def find_verts(self):
-        # Go through each atom in the system
-        # for i in range(len(self.atoms)):
-        #     if len(self.atoms[i].verts) > 0:
-        #         continue
-        # Update the running print statement
-        tot_verts = len(self.atoms) * 6
-        percentage = int(len(self.verts) / tot_verts * 10000) / 100
+    def find_verts(self, print_loc=None):
+        # If print_loc is given, set the
+        if print_loc is not None:
+            tot_verts = print_loc[1]
+            benchmark = print_loc[0]
+        else:
+            tot_verts = len(self.atoms) * 6
+            benchmark = 0
+        # Update the print statement
+        percentage = int((benchmark + len(self.verts)) / tot_verts * 10000) / 100
         print("\rBuilding Network:  ", '#' * (int(percentage) // 10) + ' ' * (10 - (int(percentage) // 10)),
               percentage, "%", end='')
         # If the atom has no vertices run the vertex finder on it
         v0 = find_v0(self)
-        find_vertices(self, v0)
-        print("\rBuilding Network:   ########## 100 %")
-        print("\rNetwork Built")
+        find_vertices(self, v0, print_loc)
 
     # Build network function. Takes in a system and returns a fully connected network
     def build(self, get_verts=True, get_surfs=True):
