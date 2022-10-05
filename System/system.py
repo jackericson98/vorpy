@@ -43,6 +43,12 @@ class System:
         else:
             self.random_system()
 
+        # Sort the atoms into their respective molecules and residues
+        self.mols = []
+        self.sol = []
+        self.residues = []
+        self.sort_atoms()
+
         # Set up the network
         self.net = Network(self, self.atoms, box_size=box_size, min_dist=min_dist, beta_val=beta_val)
         self.output_directory = None
@@ -70,6 +76,37 @@ class System:
         for i in range(anums):
             # Choose a random set of 3 numbers between dmax and -dmax. Choose a random radius between 0 and rmax
             self.atoms.append(Atom(np.random.rand(3)*2*dmax - dmax, np.random.rand()*rmax))
+
+    # Sort atoms method. Used to put atoms in their correct molecules and residues
+    def sort_atoms(self):
+        # Set up the chain names list
+        chain_names = []
+        # Go through each of the atoms in the system adding the atoms to their respective chains
+        for atom in self.atoms:
+            # If no chain is specified, set the chain to 'None'
+            if atom.chain == ' ':
+                if atom.res.lower == 'sol':
+                    atom.chain = 'SOL'
+                else:
+                    atom.chain = 'Mol'
+            # If the atom's chain does not exist add it to the list of chains
+            if atom.chain not in chain_names:
+                self.mols.append(atom)
+                chain_names.append(atom.chain)
+            else:
+                self.mols[chain_names.index(atom.chain)].append(atom)
+        # Set up the residues names list
+        res_names = []
+        # Set up the residues
+        for atom in self.atoms:
+            # Get the residue name for the atom
+            res_name = [atom.res, atom.res_seq]
+            # If the residue name does not exist, add it
+            if res_name not in res_names:
+                self.residues.append(atom)
+                res_names.append(res_name)
+            else:
+                self.residues[res_names.index(res_name)].append(atom)
 
     # Build network function. Allows user to build the network from the system object.
     def build_network(self, get_verts=True, get_surfs=True, export_verts=False, min_dist=None, box_size=None):
