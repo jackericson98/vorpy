@@ -4,6 +4,9 @@ from System.Network.vertex import Vertex
 
 # Find v0 function. Finds the first vertex in the network
 def find_v0(net, a0=None, n=0):
+    # Check for if the network does not have enough atoms
+    if len(net.atoms) < 4:
+        return
     # If no a0 is given
     if a0 is None:
         # Find the middle sub_box of the set of boxes and
@@ -18,7 +21,8 @@ def find_v0(net, a0=None, n=0):
     min_dist = np.inf
     a1 = None
     inc = 0
-    while not a1 and inc <= len(net.sub_boxes) + 1:
+    while a1 is None and inc <= len(net.sub_boxes) + 1:
+        # Get the atoms in the system
         atoms = net.get_atoms([a0.box], inc)
         # Go through each atom determining the atom with the minimum distance between it and a0's surfaces
         for atom in atoms:
@@ -36,7 +40,8 @@ def find_v0(net, a0=None, n=0):
     min_rad = np.inf
     a2 = None
     inc = 0
-    while not a2 and inc <= len(net.sub_boxes) + 1:
+    while a2 is None and inc <= len(net.sub_boxes) + 1:
+        # Get the atoms from the network
         atoms = net.get_atoms([a0.box, a1.box], inc + 1)
         # Go through each other atom to determine the smallest circle that can be made with our 2 atoms and a third
         for atom in atoms:
@@ -75,7 +80,7 @@ def verify_site(vert, net, doublet_check=False):
     vj = int((loc[1] - net.box[0][1]) / net.sub_box_size[1])
     vk = int((loc[2] - net.box[0][2]) / net.sub_box_size[2])
     # Get the number of boxes that an overlapping atom could possibly be away from the vertex sub-box
-    atom_range = int(rad / min(net.sub_box_size) + net.max_rad / min(net.sub_box_size)) + 2
+    atom_range = int(rad / min(net.sub_box_size) + net.max_atom_rad / min(net.sub_box_size)) + 2
     # Get the atoms in that range
     overlap_test_atoms = net.get_atoms([[vi, vj, vk]], atom_range)
     # Set up the overlap tracker
@@ -106,13 +111,12 @@ def find_site(net, edge_atoms, vn_1=None):
     test_atoms = []
     inc = 0
     # Grab the atoms we want to test against
-    while len(test_atoms) < 10 or len(test_atoms) < len(net.atoms):
+    while (len(test_atoms) < 10 or len(test_atoms) < len(net.atoms)) and inc < 5:
         test_atoms += net.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], inc, exclusive=True)
         inc += 1
     # Instantiate the vertex list and the size limit for vertices found
     verts = []
     vert_ndx_list_locs = []
-    min_rad = np.linalg.norm(np.array(net.box[0]) - np.array(net.box[1])) / 4
     # Go through each atom in the network --> This can easily be improved
     for atom in test_atoms:
         # If the atom is in the previous vertex move on
@@ -129,7 +133,7 @@ def find_site(net, edge_atoms, vn_1=None):
         # Create the vertex
         vert = Vertex(edge_atoms + [atom], net=net)
         # Filter the vertex out if it is too large or not able to be made
-        if vert.loc is None or vert.rad > min_rad:
+        if vert.loc is None or vert.rad > net.beta_val:
             continue
         # For doublet cases verify differently
         if vert.loc2 is not None:
@@ -138,10 +142,10 @@ def find_site(net, edge_atoms, vn_1=None):
                 verts.append(vert)
                 vert_ndx_list_locs.append(vert_ndx)
                 # If the second vertex's radius is less than the min_rad, and it is a verified site mark it as a doublet
-                if vert.rad2 < min_rad and verify_site(vert, net, doublet_check=True):
+                if vert.rad2 < net.beta_val and verify_site(vert, net, doublet_check=True):
                     vert.doublet = True
             # If the first vertex is not a verified site, test the second location
-            elif vert.rad2 < min_rad and verify_site(vert, net, doublet_check=True):
+            elif vert.rad2 < net.beta_val and verify_site(vert, net, doublet_check=True):
                 # Replace the location and radius for the vertex and add it to the list
                 vert.loc, vert.rad = vert.loc2, vert.rad2
                 verts.append(vert)
@@ -177,7 +181,14 @@ def find_site(net, edge_atoms, vn_1=None):
 
 
 # Find network function. Keeps searching the network until all verts are found
-def find_vertices(net, v0=None, i=0):
+def find_vertices(net, v0=None, print_loc=None):
+    # If print_loc is given, set the
+    if print_loc is not None:
+        tot_verts = print_loc[1]
+        benchmark = print_loc[0]
+    else:
+        tot_verts = len(net.atoms) * 6
+        benchmark = 0
     # If no vert is given get one
     if v0 is None:
         # Find the first vertex in the System
@@ -189,8 +200,7 @@ def find_vertices(net, v0=None, i=0):
     # While the verts stack is not empty
     while vert_stack:
         # Running print statement giving an estimate for percentage of the network that has been created
-        tot_verts = len(net.verts) + len(net.atoms)
-        percentage = float(np.round(100 * ((len(net.verts) / tot_verts) ** 2), 2))
+        percentage = float(np.round(100 * ((benchmark + len(net.verts)) / tot_verts), 2))
         print("\rBuilding Network:  ",
               '#' * (int(percentage) // 10) + ' ' * (10 - (int(percentage) // 10)), percentage, "%", end='')
         # Get the vertex from the top of the stack
