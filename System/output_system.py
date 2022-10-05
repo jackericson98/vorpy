@@ -317,3 +317,40 @@ def export_info(sys, file_name, set_name, atoms=None, interfaces=None, interface
             info_file.write("\nInterface " + interface_names[i] + ":\n")
             info_file.write("\nTotal Surface Area = " + str(surface_areas[i]))
             info_file.write("\nCurvature = \n\n")
+
+
+# Export surfaces function. Used to store pre-calculated surfaces
+def export_sys(sys, directory=None):
+    # Check to see if an output directory was indicated
+    if directory is not None:
+        os.chdir(directory)
+    else:
+        os.chdir(sys.output_directory + "System")
+    # Create the surfaces file
+    file = open(sys.name + "_network.txt")
+    # Go through each of the edges in the system
+    for edge in sys.net.edges:
+        # Write the main edge information
+        file.write("EDGE " + edge.ndx + '\n\n')
+        # Go through the points along the edge
+        for point in edge.points:
+            # Add the points of the edge to the edge file
+            file.write("POINT" + point[0] + " " + point[1] + " " + point[2] + "\n")
+        # Make an end line to indicate that all the points have been accounted for
+        file.write("END\n\n")
+    # Go through the surfaces in the network
+    for surf in sys.net.surfs:
+        # Write the main edge information
+        file.write("Surf " + surf.ndx + '\n\n')
+        # Go through the points along the edge
+        for point in surf.points:
+            # Add the points of the edge to the edge file
+            file.write("POINT " + point[0] + " " + point[1] + " " + point[2] + "\n")
+        # Add a space
+        file.write("\n")
+        # Go through the triangles in the surface's list of triangles
+        for tri in surf.tris:
+            # Add the triangles to the list of surface triangles
+            file.write("TRI " + tri[0] + " " + tri[1] + " " + tri[2] + "\n")
+        # Make an end line to indicate that all the points have been accounted for
+        file.write("\nEND\n\n")
