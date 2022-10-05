@@ -105,9 +105,9 @@ class Edge:
         # Find the edges points. Don't count the vertex
         for i in range(n):
             if i == 0:
-                A = 0.1 * theta / n
+                A = 0.01 * theta / n
             elif i == 1:
-                A = 0.9 * theta / n
+                A = 0.99 * theta / n
             else:
                 A = theta / n
             # Set pb to the previous point
