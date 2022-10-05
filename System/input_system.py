@@ -27,7 +27,7 @@ def read_pdb_atom(line):
                 symbol=line[76:78], res=line[17:20], chain=line[21], res_seq=line[22:26])
     # If no chain is specified, set the chain to 'None'
     if atom.chain == ' ':
-        atom.chain = 'None'
+        atom.chain = 'Mol'
     # Return the atom
     return atom
 
