@@ -7,7 +7,7 @@ from tkinter.ttk import Progressbar
 
 class Vorpy:
     """Vorpy GUI class. When instantiated the Gui will launch"""
-    def __init__(self, width=500, height=600):
+    def __init__(self, width=450, height=700):
         # Set up the window
         self.sys_atom_list = []
         self.vp_main = tk.Tk()
@@ -31,11 +31,12 @@ class Vorpy:
 
         # Load file variables
         # Load header
-        tk.Label(f, text="Load Atoms", font=('Times New Roman bold', 20)).grid(row=2, column=0, columnspan=9, sticky='w')
+        tk.Label(f, text="Load Atoms", font=('Times New Roman bold', 20))\
+            .grid(row=2, column=0, columnspan=9, sticky='w')
 
         # System file information
         self.sys_file_name = tk.StringVar(self.vp_main, "")
-        tk.Label(f, text="System: ", font=('Times New Roman', 12)).grid(row=3, column=0, sticky='w')
+        tk.Label(f, text="System: ", font=('Times New Roman', 12)).grid(row=3, column=0, columnspan=2, sticky='w')
         tk.Label(f, textvariable=self.sys_file_name, font=('Times New Roman', 15)) \
             .grid(row=3, column=1, columnspan=2, sticky='w')
         tk.Button(f, text="Load System ", command=self.load_sys_button).grid(row=3, column=9, sticky='e')
@@ -48,21 +49,21 @@ class Vorpy:
         tk.Button(f, text="Load Vertices", command=self.add_vertices).grid(row=4, column=9, sticky='e')
 
         # Build system information
-
         self.user_atoms_x, self.user_atoms_y = tk.StringVar(self.vp_main), tk.StringVar(self.vp_main)
         self.user_atoms_z, self.user_atoms_rad = tk.StringVar(self.vp_main), tk.StringVar(self.vp_main)
         self.user_atoms_list = tk.StringVar(self.vp_main)
-        tk.Label(f, text="Atom Info: ").grid(row=6, column=0, sticky='w')
-        tk.Label(f, text="X ").grid(row=6, column=1)
-        tk.Entry(f, textvariable=self.user_atoms_x, width=5).grid(row=6, column=2)
-        tk.Label(f, text="Y ").grid(row=6, column=3)
-        tk.Entry(f, textvariable=self.user_atoms_y, width=5).grid(row=6, column=4)
-        tk.Label(f, text="Z ").grid(row=6, column=5)
-        tk.Entry(f, textvariable=self.user_atoms_z, width=5).grid(row=6, column=6)
-        tk.Label(f, text="Rad ").grid(row=6, column=7)
-        tk.Entry(f, textvariable=self.user_atoms_rad, width=5).grid(row=6, column=8)
-        tk.Button(f, text="Add Atom", command=self.add_atoms).grid(row=6, column=9, sticky='e')
-        tk.Label(f, textvariable=self.user_atoms_list).grid(row=7, column=0, columnspan=10)
+
+        tk.Label(f, text="Add Atoms: ", font=("Times New Roman", 15)).grid(row=6, column=0, columnspan=2, sticky='w')
+        tk.Label(f, textvariable=self.user_atoms_list).grid(row=6, column=1, columnspan=9)
+        tk.Label(f, text="X:").grid(row=7, column=0, sticky='e')
+        tk.Entry(f, textvariable=self.user_atoms_x, width=5).grid(row=7, column=1, sticky='w')
+        tk.Label(f, text="Y:").grid(row=7, column=2, sticky='e')
+        tk.Entry(f, textvariable=self.user_atoms_y, width=5).grid(row=7, column=3, sticky='w')
+        tk.Label(f, text="Z:").grid(row=7, column=4, sticky='e')
+        tk.Entry(f, textvariable=self.user_atoms_z, width=5).grid(row=7, column=5, sticky='w')
+        tk.Label(f, text="Rad:").grid(row=7, column=6, sticky='e')
+        tk.Entry(f, textvariable=self.user_atoms_rad, width=5).grid(row=7, column=7, sticky='w')
+        tk.Button(f, text="Add Atom", command=self.add_atoms).grid(row=7, column=9, sticky='e')
         tk.Label(f, text="").grid(row=8)
 
         # Setting variables:
@@ -71,69 +72,77 @@ class Vorpy:
 
         # System box size multiplier
         self.sys_box_x_flt = tk.DoubleVar(self.vp_main, 1.4)
-        tk.Label(f, text="Container Size: ").grid(row=11, column=0, columnspan=3, sticky='w')
-        tk.Scale(f, from_=1, to=5, orient=tk.HORIZONTAL, variable=self.sys_box_x_flt, resolution=.05)\
-            .grid(row=10, column=2, columnspan=6, sticky='ewn')
+        tk.Label(f, text="Box Size: ").grid(row=10, column=0, columnspan=3, sticky='ws')
+        tk.Scale(f, from_=1.05, to=3, orient=tk.HORIZONTAL, variable=self.sys_box_x_flt, resolution=.05)\
+            .grid(row=10, column=2, columnspan=5, sticky='ewn')
+        tk.Label(f, text="x", font=('Times New Roman', 15)).grid(row=10, column=7, columnspan=2, sticky='s')
 
         # System resolution value
         self.sys_res_flt = tk.DoubleVar(self.vp_main, 0.1)
-        tk.Label(f, text="Resolution: ").grid(row=10, column=0, columnspan=3, sticky='w')
-        tk.Scale(f, from_=0, to=1, orient=tk.HORIZONTAL, variable=self.sys_res_flt, resolution=0.05)\
-            .grid(row=11, column=2, columnspan=6, sticky='ewn')
+        tk.Label(f, text="Resolution: ").grid(row=11, column=0, columnspan=3, sticky='ws')
+        tk.Scale(f, from_=0.05, to=1, orient=tk.HORIZONTAL, variable=self.sys_res_flt, resolution=0.05)\
+            .grid(row=11, column=2, columnspan=5, sticky='ewn')
+        tk.Label(f, text=u'\u212B', font=('Times New Roman', 15)).grid(row=11, column=7, columnspan=2, sticky='s')
+
+        # Beta value for the system
+        self.sys_alpha_value = tk.DoubleVar(self.vp_main, 2)
+        tk.Label(f, text="Max Vertex: ").grid(row=12, column=0, columnspan=3, sticky='ws')
+        tk.Scale(f, from_=0.5, to=5, orient=tk.HORIZONTAL, variable=self.sys_alpha_value, resolution=0.05) \
+            .grid(row=12, column=2, columnspan=5, sticky='ewn')
+        tk.Label(f, text=u'\u212B', font=('Times New Roman', 15)).grid(row=12, column=7, columnspan=2, sticky='s')
 
         # Voronota system check
         self.vta = tk.BooleanVar(self.vp_main)
         tk.Checkbutton(f, text="Flat Faces ", variable=self.vta, onvalue=True, offvalue=False)\
-            .grid(row=10, column=9, columnspan=3, sticky='w')
+            .grid(row=10, column=9, sticky='ws')
 
         # Parallelize check
         self.parallelize = tk.BooleanVar(self.vp_main)
         tk.Checkbutton(f, text="Parallelize ", variable=self.parallelize, onvalue=True, offvalue=False)\
-            .grid(row=11, column=9, columnspan=3, sticky='w')
-        tk.Label(f, text="").grid(row=13)
+            .grid(row=11, column=9, sticky='ws')
 
         # Output variables
         # Output Header
-        tk.Label(f, text="Outputs", font=("Times New Roman bold", 20)).grid(row=12, column=0, columnspan=9, sticky='w')
+        tk.Label(f, text="Outputs", font=("Times New Roman bold", 20)).grid(row=14, column=0, columnspan=9, sticky='w')
 
         # Output directory information
-        self.output_dir_str = tk.StringVar(self.vp_main, os.getcwd()[:12] + ' .../vorpy/Data/User_data/' +
-                                           self.sys_file_name.get())
-        tk.Label(f, text="Output Directory: ").grid(row=13, column=0, columnspan=3, sticky='w')
-        tk.Label(f, textvariable=self.output_dir_str).grid(row=13, column=2, columnspan=6, sticky='w')
+        self.output_dir_str = tk.StringVar(self.vp_main, os.getcwd()[:min(60, len(os.getcwd()))]
+                                           + "/Data/User_data" + self.sys_file_name.get())
+        tk.Label(f, text="Output Directory: ").grid(row=15, column=0, columnspan=3, sticky='w')
+        tk.Label(f, textvariable=self.output_dir_str).grid(row=16, column=0, columnspan=10, sticky='w')
         tk.Button(f, text="     Change    ", command=self.change_output_directory)\
-            .grid(row=13, column=8, columnspan=2, sticky='e')
+            .grid(row=15, column=8, columnspan=2, sticky='en')
 
         # Check boxes
         self.output_all = tk.BooleanVar(self.vp_main, True)
         tk.Checkbutton(f, text="All", variable=self.output_all, onvalue=True, offvalue=False)\
-            .grid(row=15, column=0, columnspan=3, sticky='w')
+            .grid(row=17, column=0, columnspan=3, sticky='w')
         self.output_sys = tk.BooleanVar(self.vp_main, False)
         tk.Checkbutton(f, text="System", variable=self.output_sys, onvalue=True, offvalue=False) \
-            .grid(row=15, column=3, columnspan=3, sticky='w')
+            .grid(row=17, column=4, columnspan=3, sticky='w')
         self.output_pdb = tk.BooleanVar(self.vp_main, False)
         tk.Checkbutton(f, text="System pdb ", variable=self.output_pdb, onvalue=True, offvalue=False) \
-            .grid(row=15, column=6, columnspan=3, sticky='w')
+            .grid(row=17, column=8, columnspan=3, sticky='w')
         self.output_atoms = tk.BooleanVar(self.vp_main, False)
         tk.Checkbutton(f, text="Atoms", variable=self.output_atoms, onvalue=True, offvalue=False) \
-            .grid(row=16, column=0, columnspan=3, sticky='w')
+            .grid(row=18, column=0, columnspan=3, sticky='w')
         self.output_surfs = tk.BooleanVar(self.vp_main, False)
         tk.Checkbutton(f, text="Surfaces", variable=self.output_surfs, onvalue=True, offvalue=False) \
-            .grid(row=16, column=3, columnspan=3, sticky='w')
+            .grid(row=18, column=4, columnspan=3, sticky='w')
         self.output_mols = tk.BooleanVar(self.vp_main, False)
         tk.Checkbutton(f, text="Molecule", variable=self.output_mols, onvalue=True, offvalue=False) \
-            .grid(row=16, column=6, columnspan=3, sticky='w')
+            .grid(row=18, column=8, columnspan=3, sticky='w')
         self.output_residues = tk.BooleanVar(self.vp_main, False)
         tk.Checkbutton(f, text="Residues ", variable=self.output_residues, onvalue=True, offvalue=False) \
-            .grid(row=17, column=0, columnspan=3, sticky='w')
+            .grid(row=19, column=0, columnspan=3, sticky='w')
         self.output_verts = tk.BooleanVar(self.vp_main, False)
         tk.Checkbutton(f, text="Vertices ", variable=self.output_verts, onvalue=True, offvalue=False) \
-            .grid(row=17, column=3, columnspan=3, sticky='w')
-        tk.Label(f, text="").grid(row=18)
+            .grid(row=19, column=4, columnspan=3, sticky='w')
+        tk.Label(f, text="").grid(row=20)
 
         # Run program
         tk.Button(f, text="Build System", font=("Times New Roman bold", 20), command=self.build_network_button) \
-            .grid(row=19, column=0, columnspan=10)
+            .grid(row=21, column=0, columnspan=10)
 
         # End the loop
         self.vp_main.mainloop()
