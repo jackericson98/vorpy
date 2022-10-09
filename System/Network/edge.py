@@ -6,27 +6,38 @@ from System.Network.surface import Surface
 
 class Edge:
     """Edge object. Used to build the network and calculate the surfaces"""
-    def __init__(self, atoms, verts, net, doublet=False):
+    def __init__(self, atoms, net, verts=None, doublet=False, points=None, loc=None, rad=None):
 
-        self.atoms = atoms  # List of Atom type objects
-        self.verts = verts  # List of Vertex type objects
-        self.surfs = []  # List of 2 surfaces attached to the edge
+        # If no network was given have a catch
         if net is not None:
-            self.net = net
-            self.ndx = [net.atoms.index(atom) for atom in self.atoms]
-        self.loc = None  # Location of the center of the 3 atoms that make up the edge
-        self.rad = None  # Radius of the inscribed circle of the three atoms
-        self.points = []  # List of points on the edge. These points do not include the vertex points
-        self.pv0 = None
-        self.pv1 = None
-        self.doublet = doublet  # Check for if a. edge is directly part of a doublet
+            ndx = [net.atoms.index(atom) for atom in atoms]
+            self.ndx = ndx               # Index         :   Indices of the atoms of the surface
+            self.net = net               # Network       :   Network of the System
+        self.atoms = atoms               # Atoms         :   List of Atom type objects for the edge
+        self.verts = verts               # Vertices      :   List of Vertex type objects
+        self.surfs = []                  # Surfaces      :   List of 2 surfaces attached to the edge
+
+        self.loc = loc                   # Location      :   Location of the center of the 3 atoms that make up the edge
+        self.rad = rad                   # Radius        :   Radius of the inscribed circle of the three atoms
+        self.points = points             # Points        :   List of points along the
+        self.pv0, self.pv1 = None, None  # Vertex points :   The points on the ends of the edges
+        self.doublet = doublet           # Doublet       :   Boolean for if the edge is part of a doublet or not
 
     # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
     def build(self):
+
         # Reset the edges points
         self.points = []
         # Get the network's minimum distance
-        min_dist = self.net.sys.min_dist
+        min_dist = self.net.min_dist
+        # Choose a curved one to project onto. If the edge isn't straight 2 surfs are curved.
+        if round(self.atoms[0].rad, 10) == round(self.atoms[1].rad, 10):
+            surf = Surface(self.atoms[1:], self.net)
+        else:
+            surf = Surface(self.atoms[:2], self.net)
+
+        ############################################ Find Ends #########################################################
+
         # Catch for an edge that is formed between the same vertex, but different doublet sites
         if self.doublet:
             self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[0].loc2)
@@ -64,7 +75,9 @@ class Edge:
             # Typical case, no doublets
             self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
 
-        # If the edge is completely straight add points in a line from pv0 to pv0
+        ################################################# Fill Edge ####################################################
+
+        # If the edge is completely straight add points in a line from pv0 to pv0 and return
         if self.atoms[0].rad == self.atoms[1].rad and self.atoms[1].rad == self.atoms[2].rad:
             # Get the vector between the two vectors and the number of point in the edge
             r = self.pv1 - self.pv0
@@ -73,11 +86,9 @@ class Edge:
             for i in range(num_points):
                 self.points.append(self.pv0 + r * (i / num_points))
             return
-        # If no surface is given, choose a curved one to project onto. If the edge isn't straight 2 surfs are curved.
-        if round(self.atoms[0].rad, 10) == round(self.atoms[1].rad, 10):
-            surf = Surface(self.atoms[1:], self.net)
-        else:
-            surf = Surface(self.atoms[:2], self.net)
+
+        # Get the projection point
+
         # Find the point in between the two vertex points
         r01 = self.pv1 - self.pv0  # Vector between vertices
         r_mag = np.linalg.norm(r01)  # Magnitude of the vector between the two vertex points
@@ -96,6 +107,9 @@ class Edge:
         rnpcr = rpcr / np.linalg.norm(rpcr)
         # Calculate the reference point
         pa = pc01 + 2 * r_mag * rnpcr
+
+        # Calculate the points
+
         # Find the number of points
         n = max(int(r_mag / min_dist), 10)
         # Calculate the angle between the vertices and the reference point
@@ -172,6 +186,3 @@ class Edge:
                     point = p2
             # Return the point we choose
             return point
-
-# Calculate edge distance function. Calculates the relative edge distance
-# def calc_edge_dist(edge, points):
