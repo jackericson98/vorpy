@@ -6,7 +6,7 @@ from System.Network.surface import Surface
 ############################################ Filter System #############################################################
 
 
-# Filter vertices function. Filters out any repeat vertices
+# Filter vertices function. Filters out vertices that are repeated, outside the box or larger than the max vertex value
 def filter_verts(net):
 
     # Set up a list of vertex ndxs and vertices
@@ -14,12 +14,14 @@ def filter_verts(net):
     verts = []
     # Go through the vertices
     for i in range(len(net.verts)):
+
         # Boolean for whether the vertex is inside the box or not
         loc_in_box = True
         vert = net.verts[i]
         # Check for None vertices
         if vert.loc is None:
             continue
+
         # Doublet verts
         if vert.doublet:
             loc2_in_box = True
@@ -48,16 +50,19 @@ def filter_verts(net):
             for j in range(3):
                 if vert.loc[j] < net.box[0][j] or vert.loc[j] > net.box[1][j]:
                     loc_in_box = False
+
         # Search the list of vertices for the vertex
         if vert.ndx not in vert_ndxs and loc_in_box:
             vert_ndxs.append(net.verts[i].ndx)
             verts.append(net.verts[i])
+
     # Set the networks vertices
     net.verts = verts
 
 
 ############################################## Doublets ################################################################
 
+# Doublet creating function. Fills in the surfaces and edges inside the doublet vertex
 def doublet(vert, net):
 
     # Set up a variable for doublet edges
@@ -73,7 +78,7 @@ def doublet(vert, net):
         # If this circle doesn't overlap with the other atom this is doublet edge
         if calc_dist(circ[0], vert.atoms[(i + 3) % 4].loc) > circ[1] + vert.atoms[(i + 3) % 4].rad:
             # Add the doublet edge to the list of edges
-            my_edges.append(Edge(atoms, [vert], net, doublet=True))
+            my_edges.append(Edge(atoms, net, [vert], doublet=True))
             dub_edges.append(i)
 
     # Add the edges to the network
@@ -101,16 +106,15 @@ def doublet(vert, net):
             net.surfs.append(Surface(atoms, net, edges, doublet=True))
 
 
-# Connect network function. Takes in a broken network of vertices and spits out a connected network
-def connect(net):
+# Make objects function. Checks the atoms of the vertices for patterns and creates edges and surfaces
+def make_objects(net):
 
-    filter_verts(net)
+    # Reset the network's list of edges and surfaces for a clean slate
+    net.edges = []
+    net.surfs = []
 
     ################################################# Create the edges #################################################
 
-    # Reset the network's list of edges
-    net.edges = []
-    net.surfs = []
     # Go through the vertices in the network searching for potential edges
     for vert1 in net.verts:
         # Set up the edges and doublet indices
@@ -134,7 +138,7 @@ def connect(net):
             if len(verts) == 1:
                 continue
             # Create the edge
-            my_edge = Edge(list(atoms), verts, net)
+            my_edge = Edge(list(atoms), net, verts)
             # Add the edge to the System
             my_edges.append(my_edge)
         # Add the edges to the network's list of edges
@@ -172,13 +176,16 @@ def connect(net):
             if len(verts) + num_dubs == len(edges):
                 my_surf = Surface(list(atoms), verts=verts, net=net, edges=edges)
                 net.surfs.append(my_surf)
-            else:
-                pass
+
+
+# Connect network function. Takes in a disconnected network of atoms, vertices, surfaces and edges and connects it
+def connect(net):
 
     ################################################# Connect the atoms ################################################
 
     # Go through the atoms in the network adding vertices, edges and surfaces
     for atom in net.atoms:
+
         # Reset the atom's vert list
         atom.verts = []
         # Go through the verts in the network
@@ -186,6 +193,7 @@ def connect(net):
             # If the atom is in the vertices atoms add the vertex to the atom's list of vertices
             if {atom}.issubset(vert.atoms):
                 atom.verts.append(vert)
+
         # Reset the atom's edge list
         atom.edges = []
         # Go through the edges in the network
@@ -193,6 +201,7 @@ def connect(net):
             # If the atom is in the edge's list of atoms add the edge to the atoms list of edges
             if {atom}.issubset(edge.atoms):
                 atom.edges.append(edge)
+
         # Reset the atom's surf list
         atom.surfs = []
         # Go through the surfs in the network
@@ -201,10 +210,11 @@ def connect(net):
             if {atom}.issubset(surf.atoms):
                 atom.surfs.append(surf)
 
-    ################################################# Connect the vertices #############################################
+    ############################################# Connect the vertices #################################################
 
     # Go through the vertices in the network adding the edges and surfaces that share atoms
     for vert in net.verts:
+
         # Reset the vertexes edge list
         vert.edges = []
         # Go through the edges in the network
@@ -212,6 +222,7 @@ def connect(net):
             # If the edges atoms are in the vertices atoms add it to the vertex
             if set(edge.atoms).issubset(vert.atoms):
                 vert.edges.append(edge)
+
         # Reset the vertexes surf list
         vert.surfs = []
         # Go through the surfaces in the network
@@ -219,6 +230,9 @@ def connect(net):
             # If the surfaces atoms are in the vertexes atoms add it to the vertex
             if set(surf.atoms).issubset(vert.atoms):
                 vert.surfs.append(surf)
+
+    ########################################## Connect the Edges #######################################################
+
     # Add the surfs to the edges
     for edge in net.edges:
         # Reset the edges surf list
@@ -228,3 +242,15 @@ def connect(net):
             # If the surfaces atoms are in the edges atoms add it to the edge
             if set(surf.atoms).issubset(edge.atoms):
                 edge.surfs.append(surf)
+
+
+# Create network function. Takes in a broken network of vertices and spits out a connected network
+def build(net):
+
+    # Filter the vertices
+    filter_verts(net)
+    # Make the surface and edge objects
+    make_objects(net)
+    # Connect the network
+    connect(net)
+
