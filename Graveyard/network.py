@@ -185,9 +185,9 @@ def find_edges(vertex, net):
 # Build Network function. Takes in a System, runs as a shell for the recursive next_site function and returns a Network
 def build_network(mySys):
     # Find the first vertex
-    v0 = find_v0(mySys.net)
+    v0 = find_v0(mySys.myNet)
     # Initiate the recursive network finding algorithm on the network and the first vertex
-    find_edges(v0, mySys.net)
+    find_edges(v0, mySys.myNet)
     return mySys
 
 

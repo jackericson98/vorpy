@@ -3,22 +3,31 @@ from System.calcs import *
 
 class Atom:
     """Atom object. Created with import of file. Used to reference for building network and analyzing"""
-    def __init__(self, location, radius, system=None, symbol="", chain="", res="", res_seq=""):
+    def __init__(self, location, radius, system=None, symbol="", chain="", res="", res_seq="", name="", ocp="", t_fact="", seg_id="", charge=""):
+
         # Inherent traits
-        self.loc = location     # Location    :   Set the location of the center of the sphere
-        self.rad = radius       # Radius      :   Set the radius for the sphere object. Default is 1
-        self.sys = system       # System      :   Set the atom's system attribute
-        self.element = symbol   # Symbol      :   Element of the atom
-        self.chain = chain      # Chain       :   Molecule chain the atom is a part of
-        self.res = res          # Residue     :   Residue of the molecule that the atom is a part of
-        self.res_seq = res_seq  # Sequence    :   Sequence of the residue that the atom is a part of
-        self.box = []           # Box         :   The grid location of the atom
+        self.loc = location     # Location     :   Set the location of the center of the sphere
+        self.rad = radius       # Radius       :   Set the radius for the sphere object. Default is 1
+        self.sys = system       # System       :   Set the atom's system attribute
+        self.element = symbol   # Symbol       :   Element of the atom
+        self.chain = chain      # Chain        :   Molecule chain the atom is a part of
+        self.res = res          # Residue      :   Residue of the molecule that the atom is a part of
+        self.res_seq = res_seq  # Sequence     :   Sequence of the residue that the atom is a part of
+        self.name = name        # Name         :   Name retrieved from pdb file
+        self.occupancy = ocp    # Occupancy    :   Occupancy of the atom
+        self.t_fact = t_fact    # Temp Factor  :   Temperature factor for the atom
+        self.seg_id = seg_id    # Segment ID   :   Segment identifier for the atom
+        self.charge = charge    # Charge       :   Charge of the atom
+
         # Network connections
-        self.verts = []         # Vertices    :   List of Vertex type objects
-        self.surfs = []         # Surfaces    :   List of Surface type objects
-        self.edges = []         # Edges       :   List of Edge type objects
+        self.verts = []         # Vertices     :   List of Vertex type objects
+        self.surfs = []         # Surfaces     :   List of Surface type objects
+        self.edges = []         # Edges        :   List of Edge type objects
+        self.load_ndxs = None   # Load indices :   Holds the object indices for when the system is loaded back in
+
         # Calculated traits
-        self.cell_vol = 0       # Cell Volume :   Volume of the voronoi cell for the atom
+        self.cell_vol = 0       # Cell Volume  :   Volume of the voronoi cell for the atom
+        self.box = []           # Box          :   The grid location of the atom
 
 
 # Get radius function. Goes through the bondi_radius file from voronota and gives a radius to the given atom name
