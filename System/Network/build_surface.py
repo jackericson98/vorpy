@@ -1,11 +1,13 @@
 from System.calcs import *
 import matplotlib.tri as mtri
-from Visualize.visualize import *
 
 
-# Calculate surface point function. Takes in a surface and a point and returns the intersection point of the vector
-# from the center of the smallest of the surfaces 2 atoms through the point into the surface
-def calc_surf_point(surf, point, return_roots=False):
+################################################# Find Surface Points  #################################################
+
+
+# Calculate surface point function. Finds the projection a surface's small atom through the given point onto the surface
+def calc_surf_point(surf, point):
+
     # Grab the surfaces function and atoms
     f, a0, a1 = surf.func, surf.atoms[0], surf.atoms[1]
     # Set up the unit vector
@@ -13,7 +15,10 @@ def calc_surf_point(surf, point, return_roots=False):
     vn = vi / np.linalg.norm(vi)
     # Set the atom's location as the root
     vi = a0.loc
-    # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
+
+    # Solve the surface function's equation for the vector through the given point from the atom's location:
+
+    # Get the a/b/c values for the point(s) that lies on the surface and along the vector from a0 to the given point
     a = f[0] * vn[0] ** 2 + f[1] * vn[1] ** 2 + f[2] * vn[2] ** 2 + f[3] * vn[0] * vn[1] + f[4] * vn[1] * vn[2] + f[
         5] \
         * vn[2] * vn[0]
@@ -22,14 +27,13 @@ def calc_surf_point(surf, point, return_roots=False):
         * (vn[2] * vi[0] + vn[0] * vi[2]) + f[6] * vn[0] + f[7] * vn[1] + f[8] * vn[2]
     c = f[0] * vi[0] ** 2 + f[1] * vi[1] ** 2 + f[2] * vi[2] ** 2 + f[3] * vi[0] * vi[1] + f[4] * vi[1] * vi[2] + \
         f[5] * vi[2] * vi[0] + f[6] * vi[0] + f[7] * vi[1] + f[8] * vi[2] + f[9]
-    # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
-    # and add that point to our surface list of points
+
+    # Choose the correct root:
+
+    # Check that the discriminant of the solution to at^2 + bt + c = 0, is positive
     if round(b ** 2 - 4 * a * c, 10) >= 0:
-        # Calculate the roots
+        # Calculate the roots of the factoring equation
         roots = np.roots([a, b, c])
-        # If the roots are requested return them
-        if return_roots:
-            return roots
         # If one root exists return it
         if len(roots) == 1:
             return vi + roots[0] * vn
@@ -42,6 +46,7 @@ def calc_surf_point(surf, point, return_roots=False):
 
 # Find next point method. Finds the next point along the given path by projecting a reference point onto the surface
 def find_next_point(surf, pn_1, end, d_theta):
+
     # Get the A angle
     A = d_theta
     # Get the smaller atom's location
@@ -68,6 +73,7 @@ def find_next_point(surf, pn_1, end, d_theta):
 
 # Build perimeter function. Sorts the edges of the surface to create a list of points in order around the perimeter
 def build_perimeter(surf):
+
     # Reset the surface's perimeter points list
     surf.perimeter = []
     # Go through each edge in the surface's list of edges and build it
@@ -78,10 +84,13 @@ def build_perimeter(surf):
     surf.perimeter = [surf.edges[0].verts[0].loc] + surf.edges[0].points
     # Make a copy of the edges to organize excluding the first edge
     edges = surf.edges[1:].copy()
+
     # Keep looping while we haven't gone through the edges
     while edges:
+
         # Set the max distance to infinity, the index for the intended edge to None and the reverse bool to False
         d, ndx, reverse = np.inf, None, False
+
         # Go through each of the remaining edges in the list
         for i in range(len(edges)):
             # Calculate the distance between the most recently recorded point and the first/last points in the edge
@@ -100,12 +109,14 @@ def build_perimeter(surf):
             surf.perimeter += [myEdge.pv0] + myEdge.points
         else:  # Reverse order
             surf.perimeter += [myEdge.pv1] + myEdge.points[::-1]
+
     # Add the perimeter points to the whole set of points
     surf.points += surf.perimeter
 
 
 # Fill mesh function. Works inward from a set of perimeter points toward a center point filling in equally spaced points
 def fill_mesh(surf):
+
     # Check to see that the surface has perimeter points
     if len(surf.perimeter) == 0:
         build_perimeter(surf)
@@ -126,6 +137,7 @@ def fill_mesh(surf):
     paths = [[surf.perimeter[i]] for i in range(len(surf.perimeter))]
     # Grab the smallest of the 2 surface atoms' location
     pa = surf.atoms[0].loc
+
     # Get the angles between the edge points and the end points
     dists = []
     angs = []
@@ -165,6 +177,7 @@ def fill_mesh(surf):
                 pn_1 = pn
                 paths[i].append(pn)
                 i += 1
+
     # Add the remaining paths to the surface excluding the first point in the path (i.e. the edge point)
     for path in paths:
         surf.points += path[1:]
@@ -172,8 +185,12 @@ def fill_mesh(surf):
     surf.points.append(com)
 
 
+############################################## Triangulate Surface Points  #############################################
+
+
 # Triangle within the surface function. Checks to see if a triangle lies within the perimeter of a surface
 def tri_within(surf, myTri=None, point=None):
+
     # Get the perimeter of the translated and rotated surface
     perimeter = surf.flat_points[:len(surf.perimeter)]
     if len(perimeter) == 0:
@@ -194,6 +211,7 @@ def tri_within(surf, myTri=None, point=None):
     # Get the projected point
     proj_vec = np.array(center) - np.array(point)
     proj_point = np.array(point) + np.array(proj_vec)
+
     # Reset the number of intersections
     xings = 0
     # Go through each line segments around the perimeter
@@ -208,6 +226,7 @@ def tri_within(surf, myTri=None, point=None):
         # If we have a crossing
         if 0 < theta_n < theta and theta_n1 < theta:
             xings += 1
+
     # If we have an even number of intersections
     if xings % 2 == 0:
         return False
@@ -217,43 +236,52 @@ def tri_within(surf, myTri=None, point=None):
 
 # Calculate triangle circumference function. Finds the circumference of the circumscribed circle for the triangle
 def calc_tri_circ(surf, tri):
+
     # Get the points of the triangle
     pa, pb, pc = surf.flat_points[tri[0]], surf.flat_points[tri[1]], surf.flat_points[tri[2]]
+    # Get their squared differences
     a = np.sqrt((pa[0] - pb[0]) ** 2 + (pa[1] - pb[1]) ** 2)
     b = np.sqrt((pb[0] - pc[0]) ** 2 + (pb[1] - pc[1]) ** 2)
     c = np.sqrt((pc[0] - pa[0]) ** 2 + (pc[1] - pa[1]) ** 2)
+    # Calculate the area
     s = (a + b + c) / 2.0
     area = np.sqrt(max(s * (s - a) * (s - b) * (s - c), 0))
+    # If the triangle is open or has repeat lines or broken in any way, we don't want it so return inf
     if area == 0:
         return np.inf
+    # Else, return the circumference of the circle that the triangle inscribes
     circum_r = a * b * c / (4.0 * area)
     return circum_r
 
 
 # Find simplices function. Transforms and rotates surface points to xy-plane and returns the Delaunay simplices
 def find_simps(surf):
+
     # Get the atoms
     a0, a1, d = surf.atoms[0], surf.atoms[1], np.linalg.norm(surf.rn)
     # Get the center of the surface
     c = np.array(a1.loc) - (0.5 * (d - (a0.rad + a1.rad)) + a0.rad) * surf.rn
     # Copy the surface points
     points = surf.points.copy()
+
     # Move all surf points toward the origin via center point
     for i in range(len(points)):
         points[i] = points[i] - c
+
     # Calculate the angles to rotate the center point around
     nps = rotate_points(surf.rn, points)
-    # Get the 2d version of the points
+
+    # Get the 2d version of the points and their Delaunay tesselation
     nps = np.array(nps)
-    # Get the Delaunay tesselation
     tris = mtri.Triangulation(nps[:, 0], nps[:, 1])
-    # Find the 2d polygon
+    # Add the flat points to the surface's list of flat points
     surf.flat_points = [nps[i, :2] for i in range(len(surf.points))]
     surf.tris = tris.triangles.tolist()
 
 
 # Filter triangles function. Goes through the
 def filter_tris(surf):
+
     # Set up a list of indices to remove for the triangles
     remove_ndxs = []
     # Go through the triangles in the surface
@@ -262,8 +290,9 @@ def filter_tris(surf):
         tri = surf.tris[i]
         circ = calc_tri_circ(surf, tri)
         # If the circumference of the triangle is less than x times the minimum distance check to see if tri is within
-        if not circ < 5 * surf.net.sys.min_dist and not tri_within(surf, tri):
+        if not circ < 5 * surf.net.min_dist and not tri_within(surf, tri):
             remove_ndxs.append(surf.tris.index(tri))
+
     # Remove the outer triangles
     remove_ndxs.sort()
     for i in range(len(remove_ndxs)):
@@ -272,6 +301,9 @@ def filter_tris(surf):
 
 # Make mesh method. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
 def make_mesh(surf):
+
+    # Prepare Surface
+
     # Get the surface's function coefficients
     if surf.func is None:
         surf.calc_func()
@@ -281,6 +313,9 @@ def make_mesh(surf):
         surf.rn = r / np.linalg.norm(r)
     # Reset the surface's list of points to empty list and reset the vertex indices list
     surf.points = []
+
+    # Build Surface:
+
     # Build the perimeter of the surface
     build_perimeter(surf)
     # Fill the mesh
