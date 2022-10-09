@@ -28,54 +28,32 @@ def set_output_dir(sys, dir_name=None):
     sys.output_directory = dir_name + i_str
 
 
-# Export vertices function. Creates a vertex file for future reference
-def export_myVerts(sys):
-    # Change to the output directory
-    os.chdir(sys.output_directory)
-    # Create the vertices file
-    file = open(os.getcwd() + "/" + sys.name + "Vertices.txt", 'w')
-    # Go through the vertices in the system
-    for i in range(len(sys.net.verts)):
-        # Get the vertex and the vertexes' atoms' indices
-        vert = sys.net.verts[i]
-        # Write the vertex into the file (x y z r a0 a1 a2 a3 a4)
-        file.write(str(vert.loc[0]) + " " + str(vert.loc[1]) + " " + str(vert.loc[2]) + " " + str(vert.rad) + " "
-                   + str(vert.ndx[0]) + " " + str(vert.ndx[1]) + " " + str(vert.ndx[2]) + " " + str(vert.ndx[3]) + '\n')
-        # If the vertex is a doublet, write down the radius and location
-        if vert.doublet:
-            file.write(str(vert.loc2[0]) + " " + str(vert.loc2[1]) + " " + str(vert.loc2[2]) + " " + str(vert.rad2) +
-                       " " + str(vert.ndx[0]) + " " + str(vert.ndx[1]) + " " + str(vert.ndx[2]) + " " + str(vert.ndx[3])
-                       + '\n')
-
-
 # Create pdb method. Creates a pdb file type in the current working directory
-def create_pdb(sys, directory=None):
+def write_pdb(atoms, name):
     # Create the output file
-    file = open(sys.name + "_structure.pdb", 'w')
-    # If the file exists, copy it over
-    if sys.file is not None:
-        for line in open(sys.file_address):
-            file.write(str(line))
-        return
-    # Move to the indicated directory
-    if directory:
-        os.chdir(directory)
-
+    file = open(name + ".pdb", 'w')
     # Go through each atom in the system
-    for i in range(len(sys.atoms)):
-        a = sys.atoms[i]
-        loc = [str(round(a.loc[0], 3)), str(round(a.loc[1], 3)), str(round(a.loc[2], 3))]
-        # Write the lines for the atom
-        file.write("ATOM" + " " * (7 - len(str(i+1))) +
-                   str(i + 1) + "  " +
-                   a.element + " " * (4 - len(a.element)) +
-                   a.res + " " * (4 - len(a.res)) +
-                   a.chain + " " * (5 - len(a.chain) - len(a.res_seq)) +
-                   " " * 4 + " " * (8 - len(loc[0])) +
-                   loc[0] + " " * (8 - len(loc[1])) +
-                   loc[1] + " " * (8 - len(loc[2])) +
-                   loc[2] + " " * 2 +
-                   "1.00  0.00" + " " * (12 - len(a.element)) + a.element + "\n")
+    for i in range(len(atoms)):
+        a = atoms[i]
+        loc = [str(round(_, 3)) for _ in a.loc]
+        # Get the information from the atom in writable format
+        ser_num = " " * (5 - len(str(i+1))) + str(i + 1)
+        name = a.name + " " * (4 - len(a.name))
+        res = " " * (3 - len(a.res)) + a.res
+        chain = str(a.chain) + " " * (1 - len(a.chain))
+        res_seq = " " * (3 - len(a.res_seq)) + a.res_seq
+        loc_strs = [" " * (7 - len(_)) + _ for _ in loc]
+        occupancy = " " * (5 - len(a.occupancy)) + a.occupancy
+        t_fact = " " * (5 - len(a.t_fact)) + a.t_fact
+        seg_id = a.seg_id + " " * (3 - len(a.seg_id))
+        symbol = a.element
+        charge = a.charge
+        # Write the atom information
+        file.write("ATOM  " + ser_num + "  " + name + " " + res + "  " + chain + res_seq + " " + sum(loc_strs) +
+                   occupancy + t_fact + "       " + seg_id + symbol + charge)
+
+
+################################################  Export Requests  #####################################################
 
 
 # Write surfaces function. Writes files given a list of surfaces
@@ -112,245 +90,191 @@ def write_surfs(surfs, file_name, color=None):
 
 
 # Export my system function. Used to create and export the surfaces of a system as one file
-def export_mySys(sys, n, max_num):
-    # Get the percentage and update the print statement
-    percentage = int((n + 1) / max_num * 100)
-    print("\rExporting System: ",
-          '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
+def export_mySys(sys):
     # If the file is none create a pdb for the file
-    create_pdb(sys, sys.file_address)
-    # Set the name of the file to be created if no name exists
-    if sys.name is None:
-        sys.name = "mySystem"
+    write_pdb(sys.atoms, sys.file_address)
     # Write the surfaces
-    write_surfs(sys.net.surfs, sys.name + "_system")
+    write_surfs(sys.myNet.surfs, sys.name + "_system")
 
 
-# Export my surfaces function. Used to create and export the surfaces of a system as separate files
-def export_mySurfs(sys, n, max_num):
-    # Surfaces Folder
-    os.mkdir(sys.output_directory + "/Surfaces")
-    os.chdir(sys.output_directory + "/Surfaces")
-    # Go through each surface and create a file for each adding the vertex points
-    surf_ndxs = []
-    for i in range(len(sys.net.surfs)):
-        percentage = int((n + (i + 1) / 2) / max_num * 100)
-        print("\rExporting System: ",
-              '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
-        # Find the relative surface index and add it to the list
-        surf_ndxs.append(str(sys.atoms.index(sys.net.surfs[i].atoms[0]) + 1) + "_" +
-                         str(sys.atoms.index(sys.net.surfs[i].atoms[1]) + 1))
-        # Give the surfaces random colors
-        color = [np.random.random_sample() for _ in range(3)]
-        # Write the surface
-        write_surfs([sys.net.surfs[i]], "surf_" + surf_ndxs[i], color)
-    export_info(sys, sys.name + "_surface_info", "surfaces", interfaces=[[surf] for surf in sys.net.surfs])
-    os.chdir(sys.output_directory)
+# Export interface information function. Exports the information from the given interface as a txt file
+def export_interface(groups, info_file=False, interface_atoms=False):
+    # Get the groups
+    g0, g1 = groups
+    # Set the interface name
+    interface_name = g0.name + "_" + g1.name + "_interface"
+    # Move to the output directory
+    os.chdir(g0.net.sys.output_directory)
+    # Make sure the two groups are best friends
+    if g0.bff != g1 or g1.bff != g0:
+        # Set the groups as friends
+        g0.bff, g1.bff = g1, g0
+        # Get the information for the two atoms
+        g0.get_info()
+    # Create and move to the interface directory
+    os.mkdir(os.getcwd() + "/" + interface_name)
+    os.chdir(os.getcwd() + "/" + interface_name)
+    # Write the surfaces for the interface
+    write_surfs(groups[0].interface_surfs, interface_name)
+    # Check to see of the user wants to export the interface's atoms
+    if interface_atoms:
+        # Get the two sets of interface atoms
+        write_pdb(g0.interface_atoms, interface_name + "_" + g0.name + "_atoms")
+        write_pdb(g1.interface_atoms, interface_name + "_" + g1.name + "_atoms")
+    # Check to see if the user wants to export the interface's information
+    if info_file:
+        info = open(interface_name + "_info.txt", 'w')
+        info.write("Interface between " + g0.name + " and " + g1.name +":\n")
+        info.write("Number of Surfaces: " + str(len(g0.interface)))
+        info.write("Surface Area: " + str(g0.interface_sa))
 
 
-# Export my atoms function. Used to create and export the surfaces surrounding each atom of a system as separate files
-def export_myAtoms(sys, n, max_num):
-    # Atoms Folder
-    os.mkdir(sys.output_directory + "/Atoms")
-    os.chdir(sys.output_directory + "/Atoms")
-    # Add the vertices and triangles for each surface of each atom
-    for i in range(len(sys.atoms)):
-        percentage = int((n + (i + 1) / 2) / max_num * 100)
-        print("\rExporting System: ",
-              '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
-        # Give the surfaces random colors
-        color = [np.random.random_sample() for _ in range(3)]
-        # Write the surfaces
-        write_surfs(sys.atoms[i].surfs, "atom_" + str(i + 1) + "_cell", color)
-    # Export the information file
-    export_info(sys, sys.name + "_Atom_info", "", sys.atoms)
-    os.chdir(sys.output_directory)
+# Export interface information function. Exports the information from the given body as a txt file
+def export_body(group, info_file=False, outer_atoms=False):
+    # Move to the output directory
+    os.chdir(group.net.sys.output_directory)
+    # Create and move to the interface directory
+    os.mkdir(os.getcwd() + "/" + group.name)
+    os.chdir(os.getcwd() + "/" + group.name)
+    # Write the surfaces for the interface
+    write_surfs(group.body_surfs, group.name)
+    # Check to see of the user wants to export the interface's atoms
+    if outer_atoms:
+        write_pdb(group.outer_atoms, group.name + "_outside_atoms")
+        write_pdb(group.surr_atoms, group.name + "_surrounding_atoms")
+    # Check to see if the user wants to export the interface's information
+    if info_file:
+        info = open(group + "_info.txt", 'w')
+        info.write(group.name + " body \n")
+        info.write("Number of atoms: " + str(len(group.atoms)))
+        info.write("Volume: " + str(group.body_vol))
+        info.write("Surface Area: " + str(group.body_sa))
 
 
-# Export my mols function. Used to create and export the surfaces the interfaces between molecules of the system  and
-# the cells of the atoms of each molecule as separate files
-def export_myMols(sys, export_residues=False):
-    # Create the molecules folder
-    os.mkdir(sys.output_directory + '/Molecules')
-    # Go through the chains in the system
-    for mol in sys.mols:
-        # Set up the list of molecule surfaces
-        mol_surfs = []
-        # Get the name of the molecule
-        mol_name = mol[0].chain
-        # Make the output directory for the molecule
-        os.mkdir(sys.output_directory + '/Molecules/' + mol_name)
-        # Change to the directory of the molecule
-        os.chdir(sys.output_directory + '/Molecules/' + mol_name)
-        # Get the surrounding surfaces for the molecule
-        for surf in sys.net.surfs:
-            # Grab the surface's atoms
-            a0, a1 = surf.atoms
-            # Check to see if the surface is a part of the current molecule and another molecule or not
-            if (a0.chain == mol_name and a1.chain != mol_name) or (a0.chain != mol_name and a1.chain == mol_name):
-                mol_surfs.append(surf)
-        # Give the surfaces random colors
-        color = [np.random.random_sample() for _ in range(3)]
-        # Create the molecule file
-        write_surfs(mol_surfs, "Molecule_" + mol_name, color)
-
-        # Create the interfaces folder and change to it
-        os.mkdir(sys.output_directory + '/Molecules/' + mol_name + '/Interfaces')
-        # Change to the directory of the molecule
-        os.chdir(sys.output_directory + '/Molecules/' + mol_name + '/Interfaces')
-        # Create a liat to hold the interfaces for the molecule
-        interfaces = [[] for _ in range(len(sys.mols))]
-        # Create the interfaces of the molecule with the other molecules
-        for i in range(len(sys.mols)):
-            # Get the second molecule
-            mol2 = sys.mols[i]
-            # Make sure the 2 molecules aren't the same
-            if mol == mol2:
-                continue
-            # Get the second molecule's name
-            mol2_name = mol2[0].chain
-            # Find the surfaces in the 2 molecules' interface
-            for surf in sys.net.surfs:
-                # Grab the surface's atoms
-                a0, a1 = surf.atoms
-                # Check to see if the surface is a part of the current molecule and another molecule or not
-                if (a0.chain == mol2_name and a1.chain == mol_name) or (a0.chain == mol_name and a1.chain == mol2_name):
-                    # Add the surface to the list of surfaces in the interface
-                    interfaces[i].append(surf)
-            # Only create the file if one or more surface exists in the interface between the molecules
-            if len(interfaces[i]) >= 1:
-                write_surfs(interfaces[i], mol_name + "_" + mol2_name + "_Interface")
-        # Change back out of the directory
-        os.chdir(sys.output_directory + '/Molecules/' + mol_name)
-        # If the residues have been requested to be exported, do so
-        if export_residues:
-            export_myResidues(sys, mol, mol_name)
-        # Export the information for the molecule
-        export_info(sys, mol_name + "_Information", mol_name + "_Information", interfaces=interfaces)
+############################################  Export Network  ##########################################################
 
 
-# Export residues function.
-def export_myResidues(sys, mol, mol_name):
-    # Create a 'residues' folder for each chain
-    os.mkdir(sys.output_directory + "/Molecules/" + mol_name + "/Residues")
-    os.chdir(sys.output_directory + "/Molecules/" + mol_name + "/Residues")
-    # Go through each residue adding the surrounding surfaces
-    for res in sys.residues:
-        # Check the residue to see if it belongs to the molecule
-        if res[0].chain != mol[0].chain:
-            continue
-        # Get the residue sequence to check against
-        res_seq = res[0].res_seq
-        surfs = []
-        for atom in res:
-            surfs += atom.surfs
-        # Set up a list of surfaces for the residue's outer surfaces
-        res_surfs = []
-        # Go through the surfaces in the
-        for surf in surfs:
-            # Get the surface's atoms
-            a0, a1 = surf.atoms
-            # Check to see if the surface is a part of the current molecule and another molecule or not
-            if (a0.res_seq == res_seq and a1.res_seq != res_seq) or (a0.res_seq != res_seq and a1.res_seq == res_seq):
-                res_surfs.append(surf)
-        # Give the surfaces random colors
-        color = [np.random.random_sample() for _ in range(3)]
-        # Create the molecule file
-        write_surfs(surfs=res_surfs, file_name=res[0].res, color=color)
+# Export surfaces function. Used to store pre-calculated surfaces in whatever directory the program is in
+def export_net(net, verts_only=False):
+    # Move to the output directory
+    os.chdir(net.sys.output_directory)
 
+    # Check to see if we are only exporting the vertices
+    if verts_only:
 
-# Export analysis function. Creates an analysis file for the user.
-def export_info(sys, file_name, set_name, atoms=None, interfaces=None, interface_names=None):
-    # Create the Atoms Folder
-    info_file = open(file_name + ".txt", 'w')
-    info_file.write(set_name + "\n")
-    # Go through each atom in the list providing contributing information to the set of atoms
-    if atoms is not None:
-        # Get the total volume for the atoms in the given system
-        tot_vol = 0
-        info_file.write("\nAtoms\n")
-        # Go through each atom adding to the running total volume
-        for i in range(len(atoms)):
-            tot_vol += atoms[i].cell_vol
-        # Write out the total volume for the set of atoms
-        info_file.write("\nTotal Volume for " + set_name + " = " + str(tot_vol) + "\n\n")
-        # Go through each atom recording volume and surface areas for the respective surfaces
-        for i in range(len(atoms)):
-            # Write the header for each atom
-            info_file.write("Atom " + str(i) + ": Chain - " + atoms[i].chain + "\n")
-            info_file.write(" Cell Volume = {}\n".format(atoms[i].cell_vol))
-            # Write the surface information
-            info_file.write(" Surfaces:\n")
-            for j in range(len(atoms[i].surfs)):
-                # Grab the other atom in the surface
-                if atoms[i] == atoms[i].surfs[j].atoms[0]:
-                    a1 = atoms[i].surfs[j].atoms[1]
-                else:
-                    a1 = atoms[i].surfs[j].atoms[0]
-                # Write the information for the surface
-                info_file.write("  Surface " + str(j + 1) + ", Made with Atom " + str(sys.atoms.index(a1) + 1) +
-                                ", Surface Area = " + str(atoms[i].surfs[j].sa) + "\n")
-            info_file.write("\n\n")
+        # Create the network file
+        file = open(net.sys.name + "_network.txt", 'w')
 
-    # Go through each interface given
-    if interfaces is not None:
-        # Set the interface names to nothing if they have not been given
-        if interface_names is None:
-            interface_names = ["" for i in range(len(interfaces))]
-        # Get the total surface area for the atoms in the given system
-        total_sa = 0
-        info_file.write("\nInterfaces\n")
-        surface_areas = []
-        # Go through each interface listed
-        for i in range(len(interfaces)):
-            iface = interfaces[i]
-            iface_sa = 0
-            # Go through each surface in the interface
-            for j in range(len(iface)):
-                iface_sa += iface[j].sa
-            surface_areas.append(iface_sa)
-            total_sa += iface_sa
-        # Write out the total volume for the set of atoms
-        info_file.write("\nTotal Surface Area for " + set_name + " = " + str(total_sa) + "\n\n")
-        # Go through each interface writing the information for it
-        for i in range(len(interfaces)):
-            info_file.write("\nInterface " + interface_names[i] + ":\n")
-            info_file.write("\nTotal Surface Area = " + str(surface_areas[i]))
-            info_file.write("\nCurvature = \n\n")
+        # Write the general information about the system
+        file.write("NETW" + str(net.min_dist) + " " + str(net.beta_val) + " " + str(net.box_size) + " " + str(net.sol_verts) + " " + str(net.curved_faces) + " " + str(net.flat_faces))
 
+        # Write Objects:
 
-# Export surfaces function. Used to store pre-calculated surfaces
-def export_sys(sys, directory=None):
-    # Check to see if an output directory was indicated
-    if directory is not None:
-        os.chdir(directory)
-    else:
-        os.chdir(sys.output_directory + "System")
-    # Create the surfaces file
-    file = open(sys.name + "_network.txt")
-    # Go through each of the edges in the system
-    for edge in sys.net.edges:
-        # Write the main edge information
-        file.write("EDGE " + edge.ndx + '\n\n')
-        # Go through the points along the edge
-        for point in edge.points:
-            # Add the points of the edge to the edge file
-            file.write("POINT" + point[0] + " " + point[1] + " " + point[2] + "\n")
-        # Make an end line to indicate that all the points have been accounted for
-        file.write("END\n\n")
-    # Go through the surfaces in the network
-    for surf in sys.net.surfs:
-        # Write the main edge information
-        file.write("Surf " + surf.ndx + '\n\n')
-        # Go through the points along the edge
-        for point in surf.points:
-            # Add the points of the edge to the edge file
-            file.write("POINT " + point[0] + " " + point[1] + " " + point[2] + "\n")
-        # Add a space
+        # Write atoms
+        for atom in net.atoms:
+
+            # Get the atom's box
+            box = [str(_) + " " for _ in atom.box]
+            # Write atoms information: index, box, cell volume
+            file.write("ATOM " + " " + str(net.atoms.index(atom)) + " " + sum(box) + str(atom.cell_vol) + "\n")
+
+            # Get the vertex, edge and surface index information
+            vert_ndxs = [str(net.verts.index(vert)) + " " for vert in atom.verts]
+            edge_ndxs = [str(net.edges.index(edge)) + " " for edge in atom.edges]
+            surf_ndxs = [str(net.surfs.index(surf)) + " " for surf in atom.surfs]
+
+            # Write the object indices
+            file.write("ACON " + sum(vert_ndxs) + "\n")
+            file.write("ACON " + sum(edge_ndxs) + "\n")
+            file.write("ACON " + sum(surf_ndxs) + "\n")
+
+        # Write vertices
+        for vert in net.verts:
+
+            # Get the normal information
+            loc, ndx = [str(_) + " " for _ in vert.loc], [str(_) + " " for _ in vert.ndx]
+
+            # Get the doublet information
+            dub, loc2, rad2 = str(False), [""], [""]
+            if vert.doublet:
+                dub, loc2, rad2 = str(True), [str(_) + " " for _ in vert.loc2], str(vert.rad2)
+
+            # Write the vertex information
+            file.write("VERT " + sum(ndx) + sum(loc) + str(vert.rad) + dub + sum(loc2) + rad2 + '\n')
+
+            # Get the edge and surface index information
+            edge_ndxs = [str(net.edges.index(edge)) + " " for edge in vert.edges]
+            surf_ndxs = [str(net.surfs.index(surf)) + " " for surf in vert.surfs]
+            # Write the connection information
+            file.write("VCON " + sum(edge_ndxs) + "\n")
+            file.write("VCON " + sum(surf_ndxs) + "\n")
+
+        # Write a separating line
         file.write("\n")
-        # Go through the triangles in the surface's list of triangles
-        for tri in surf.tris:
-            # Add the triangles to the list of surface triangles
-            file.write("TRI " + tri[0] + " " + tri[1] + " " + tri[2] + "\n")
-        # Make an end line to indicate that all the points have been accounted for
-        file.write("\nEND\n\n")
+
+    else:
+
+        # Open back up the file
+        file = open(net.sys.name + "_network.txt", 'a')
+
+
+        # Write edges
+        for edge in net.edges:
+
+            # If the edge location is None get a location
+            if edge.loc is None:
+                edge.loc, edge.rad = calc_circ(edge.atoms)
+
+            # Get the doublet information
+            dub = "0 "
+            if edge.doublet:
+                dub = "1 "
+
+            # Get the atom's box
+            ndx, loc = [str(_) + " " for _ in edge.ndx], [str(_) + " " for _ in edge.loc]
+            rad, pv0, pv1 = str(edge.rad) + " ", str(edge.pv0) + " " + [str(_) for _ in edge.pv1], [str(_) for _ in edge.pv1]
+
+            # Write Edge information: index, location, radius, end points
+            file.write("EDGE " + sum(ndx) + sum(loc) + rad + pv0 + pv1 + dub + "\n")
+
+            # Get the vertex, edge and surface index information
+            vert_ndxs = [str(net.verts.index(vert)) + " " for vert in edge.verts]
+            surf_ndxs = [str(net.surfs.index(surf)) + " " for surf in edge.surfs]
+
+            # Write the object indices
+            file.write("ECON " + sum(vert_ndxs) + "\n")
+            file.write("ECON " + sum(surf_ndxs) + "\n")
+
+            # Go through the points along the edge
+            for point in edge.points:
+                # Add the points of the edge to the edge file
+                file.write("EPNT " + str(point[0]) + " " + str(point[1]) + " " + str(point[2]) + "\n")
+
+
+        # Write surfaces
+        for surf in net.surfs:
+
+            # Write the main edge information
+            ndx, rn = [str(_) + " " for _ in surf.ndx], [str(_) + " " for _ in surf.rn]
+            file.write("SURF " + sum(ndx) + sum(rn) + str(surf.interface_sa) + " " + str(len(surf.perimeter)) + ' \n')
+
+            # Get the vertex, edge and surface index information
+            vert_ndxs = [str(net.verts.index(vert)) + " " for vert in surf.verts]
+            edge_ndxs = [str(net.edges.index(edge)) + " " for edge in surf.edges]
+
+            # Write the object indices
+            file.write("SCON " + sum(vert_ndxs) + "\n")
+            file.write("SCON " + sum(edge_ndxs) + "\n")
+
+            # Go through the points along the perimeter of the surface
+            for i in range(len(surf.points)):
+                # Add the points of the edge to the edge file
+                file.write("SPNT " + sum([str(_) + " " for _ in surf.points[i]]) + "\n")
+
+            # Go through the triangles in the surface's list of triangles
+            for i in range(len(surf.tris)):
+                # Add the triangles to the list of surface triangles
+                file.write("STRI " + sum([str(_) + " " for _ in surf.tris[i]]) + "\n")
+
+        # Write the end line
+        file.write('END')
