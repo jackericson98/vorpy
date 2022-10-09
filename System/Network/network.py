@@ -1,31 +1,40 @@
 import numpy as np
 
 from System.Network.find_vertices import *
-from System.Network.connect_network import connect
+from System.Network.connect_network import build
+from System.atom import Atom
 
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
-    def __init__(self, sys, atoms, min_dist=0.1, box_size=1.5, beta_val=2):
+    def __init__(self, sys, atoms=None, min_dist=0.1, box_size=1.5, beta_val=2):
 
-        self.sys = sys            # System       :  Route back to outer system for system attribute access
-        self.atoms = atoms        # Atoms        :  Atoms of the network. Should be identical to self.sys.atoms
-        self.verts = []           # Vertices     :  Vertices of the network
-        self.surfs = []           # Surfaces     :  Surfaces of the network
-        self.edges = []           # Edges        :  Edges of the network
+        self.sys = sys             # System       :  Route back to outer system for system attribute access
+        self.atoms = atoms         # Atoms        :  Atoms of the network. Should be identical to self.sys.atoms
+        self.verts = []            # Vertices     :  Vertices of the network
+        self.surfs = []            # Surfaces     :  Surfaces of the network
+        self.edges = []            # Edges        :  Edges of the network
 
-        self.flat_faces = False   # Flat Faces   :  Boolean for whether the network should be created with flat faces
-        self.box = None           # Box          :  Holds a max and min vertex for the retaining box
-        self.sub_boxes = None     # Sub boxes    :  Holds atoms in their different relative locations in the grid
-        self.box_size = box_size  # Box size     :  Holds the box multiplier for the system box from the atoms box
-        self.sub_box_size = None  # Sub box size :  Holds the size of each sub box
-        self.atoms_box = []       # Atoms box    :  Holds the min and max verts for the box containing the atoms
-        self.min_dist = min_dist  # Resolution   :  How small the triangles in the surfaces are
-        self.beta_val = beta_val  # Beta value   :  The maximum vertex radius for the network
-        self.max_atom_rad = 0     # Max atom rad :  Holds the largest radius of the system for reference
-        self.vert_ndxs = []       # Vert indices :  Holds the indices of the atoms of the vertices in the network
+        self.box = None            # Box          :  Holds a max and min vertex for the retaining box
+        self.sub_boxes = None      # Sub boxes    :  Holds atoms in their different relative locations in the grid
+        self.sub_box_size = None   # Sub box size :  Holds the size of each sub box
+        self.atoms_box = []        # Atoms box    :  Holds the min and max verts for the box containing the atoms
+        self.max_atom_rad = 0      # Max atom rad :  Holds the largest radius of the system for reference
+        self.vert_ndxs = []        # Vert indices :  Holds the indices of the atoms of the vertices in the network
 
-        self.sort_atoms()         # Sort Atoms   :  Once the network has been created place the atoms in their sub-boxes
+        # Settings
+
+        self.min_dist = min_dist   # Resolution   :  How small the triangles in the surfaces are
+        self.beta_val = beta_val   # Beta value   :  The maximum vertex radius for the network
+        self.box_size = box_size   # Box size     :  Holds the box multiplier for the system box from the atoms box
+
+        self.parallelize = False   # Parallelize  :  Split the calculations between cores?
+        self.sol_verts = True      # Sol Vertices :  Solve the solution's vertices?
+        self.curved_faces = True   # Curved Faces :  Create curved faces for surfaces?
+        self.flat_faces = False    # Flat Faces   :  Create flat faces for surfaces?
+        self.verts_loaded = False  # Verts Loaded :  Use loaded verts?
+
+        self.sort_atoms()         # Sort Atoms    :  Place the atoms in their sub-boxes
 
     # Calculate box function. Takes in a System and returns the dimensions of a box x times the size of the atoms
     def calc_box(self):
@@ -57,6 +66,9 @@ class Network:
 
     # Sort atoms method. Puts the atoms in the network in their respective grid sections
     def sort_atoms(self, num_boxes=None):
+        # Check the length of the atoms list
+        if len(self.atoms) < 1:
+            return
         # Set the number of boxes to roughly 5x the number of atoms must be a cube for the of cells per row/column/aisle
         if num_boxes is None:
             n = int(np.cbrt(len(self.atoms) * 5)) + 1
@@ -117,48 +129,113 @@ class Network:
 
     # Connect method. Connects the network using the functions in the connect_network.py file
     def connect(self):
-        connect(self)
+        build(self)
+
+    # Split
+    def split_sys(self):
+        # This gets us to average about 60 atoms per medium box
+        n = max(int(np.cbrt(len(self.atoms) // 30)), 2)
+        # The range to search for new vertices
+        rnge = len(self.sub_boxes) // n
+        # Get the atoms in the
+        med_boxes = [[[[] for i in range(n)] for j in range(n)] for k in range(n)]
+        # Set up the network list and the list of the atom indices from the main network for reference later
+        test_nets = []
+        test_nets_real_ndxs = []
+        overlap = int(2 * (self.beta_val + self.max_atom_rad) // min(self.sub_box_size)) + 1
+        # Go through each of the boxes in the medium_boxes matrix to create networks
+        for i in range(n):
+            for j in range(n):
+                for k in range(n):
+                    inc = overlap
+                    # Make sure there are enough atoms to do a valid search
+                    while len(med_boxes[i][j][k]) < 100:
+                        # Starting from the middle of the range search out the atoms within 0.75 + the increment
+                        med_boxes[i][j][k] = self.get_atoms([[int((i + .5) * rnge), int((j + .5) * rnge),
+                                                              int((k + .5) * rnge)]], int(0.5 * rnge) + inc)
+                        inc += 1
+                    # Set up the indices' tracker list
+                    new_atoms, old_ndxs = [], []
+                    # Create a copy of each atom in the network
+                    for atom in med_boxes[i][j][k]:
+                        new_atoms.append(Atom(atom.loc, atom.rad))
+                        old_ndxs.append(self.atoms.index(atom))
+                    # Create the network
+                    test_nets.append(Network(self.sys, new_atoms, box_size=1.1, min_dist=self.sys.surf_res,
+                                             beta_val=self.sys.beta_val))
+                    test_nets_real_ndxs.append(old_ndxs)
+                    rnge = len(self.sub_boxes) // n
+        num_verts = 0
+
+        # Find the vertices
+        for i in range(len(test_nets)):
+            # Get the fake network
+            net2 = test_nets[i]
+            # Create a counter for the find vertices function
+            counter = [num_verts, num_verts + sum([len(test_nets[_].atoms) * 6 for _ in range(i, len(test_nets))])]
+            # Find the vertices
+            find_vertices(net2, self.sys.gui, counter)
+            # keep recording the number of vertices already in the network
+            num_verts += len(net2.verts)
+
+        # Fix and filter the vertices
+        for i in range(len(test_nets)):
+            net2 = test_nets[i]
+            # Sort through the vertices in each network
+            for j in range(len(net2.verts)):
+                vert = net2.verts[j]
+                # Get the vertex's actual atoms
+                vert.atoms = [self.atoms[test_nets_real_ndxs[i][ndx]] for ndx in vert.ndx]
+                # Get the vertex's index
+                vert.ndx = [self.atoms.index(atom) for atom in vert.atoms]
+                vert.ndx.sort()
+                # Look for the vertex in the network
+                v_ndx = search_verts(self.vert_ndxs, vert.ndx)
+                # If found, verify it is not a doublet
+                if 0 == len(self.vert_ndxs) or len(self.vert_ndxs) <= v_ndx:
+                    vert.myNet = self
+                    self.vert_ndxs.append(vert.ndx)
+                    self.verts.append(vert)
+                # If the indices match we need to check if it is a doublet
+                elif vert.ndx == self.vert_ndxs[v_ndx]:
+                    # If the location is different and we haven't indicated the vertex as a doublet already add it
+                    if [round(vert.loc[k], 7) for k in range(3)] != \
+                            [round(self.verts[v_ndx].loc[k], 7) for k in range(3)] \
+                            and not self.verts[v_ndx].doublet:
+                        # Add the doublet
+                        self.verts[v_ndx].doublet = True
+                        self.verts[v_ndx].loc2, self.verts[v_ndx].rad2 = vert.loc, vert.rad
+                # If this is a novel vertex, we need to verify it
+                else:
+                    if verify_site(vert, self):
+                        # Add the vertex to the system
+                        vert.myNet = self
+                        self.vert_ndxs.insert(v_ndx, vert.ndx)
+                        self.verts.insert(v_ndx, vert)
 
     # Find vertices method. Using the functions in find_vertices.py finds the vertices in the network
-    def find_verts(self, print_loc=None):
-        # If print_loc is given, set the
-        if print_loc is not None:
-            tot_verts = print_loc[1]
-            benchmark = print_loc[0]
-        else:
-            tot_verts = len(self.atoms) * 6
-            benchmark = 0
-        # Update the print statement
-        percentage = int((benchmark + len(self.verts)) / tot_verts * 10000) / 100
-        print("\rBuilding Network:  ", '#' * (int(percentage) // 10) + ' ' * (10 - (int(percentage) // 10)),
-              percentage, "%", end='')
+    def find_verts(self, counter=None):
+        print("Verts!!")
         # If the atom has no vertices run the vertex finder on it
         v0 = find_v0(self)
-        find_vertices(self, v0, print_loc)
+        find_vertices(self, v0, counter)
+
+
 
     # Build network function. Takes in a system and returns a fully connected network
-    def build(self, get_verts=True, get_surfs=True):
-        # Catch for if the verts have been loaded already
-        if get_verts:
-            self.find_verts()
-        # Connect the network of vertices
-        self.connect()
-        num_surfs = len(self.surfs)
-        if get_surfs:
-            # Make each surface
-            for i in range(num_surfs):
-                # Calculate and print the running percentage for mesh calculations
-                percentage = int((i + 1) / num_surfs * 100)
-                print("\rBuilding Surfaces: ",
-                      '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
-                # If the network is a voronota network, use build_vta method
-                if self.flat_faces:
-                    self.surfs[i].build_vta()
-                # Otherwise, proceed with the regular build method
-                else:
-                    self.surfs[i].build()
-            print("\rBuilding Surfaces:  ########## 100 %")
-            print("\rSurfaces Built")
+    def build_surfs(self):
+        # Make each surface
+        for i in range(len(self.surfs)):
+            # Calculate and print the running percentage for mesh calculations
+            percentage = int((i + 1) / len(self.surfs) * 100)
+            self.sys.gui.loading_bar.step(-100)
+            self.sys.gui.loading_bar.step(percentage)
+            # If the network is a voronota network, use build_vta method
+            if self.flat_faces:
+                self.surfs[i].build_vta()
+            # Otherwise, proceed with the regular build method
+            else:
+                self.surfs[i].build()
 
     # Analyze system function. Finds the surfaces and volumes of the system
     def analyze(self):
@@ -168,15 +245,13 @@ class Network:
         i = 0
         for i in range(len(self.surfs)):
             percentage = int((i + 1) / tot_num * 100)
-            print("\rAnalyzing System:  ",
-                  '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
+            self.sys.gui.loading_bar.step(-100)
+            self.sys.gui.loading_bar.step(percentage)
             # Get the surface area of the surface
-            self.surfs[i].sa = calc_sa(self.surfs[i])
+            self.surfs[i].interface_sa = calc_sa(self.surfs[i])
         # Go through each atom in the system and find the volume
         for j in range(len(self.atoms)):
             percentage = int((i + j + 1) / tot_num * 100)
-            print("\rAnalyzing System:  ",
-                  '#' * (percentage // 10) + ' ' * (10 - (percentage // 10)), percentage, "%", end='')
+            self.sys.gui.loading_bar.step(-100)
+            self.sys.gui.loading_bar.step(percentage)
             self.atoms[j].cell_vol = calc_vol(self.atoms[j])
-        print("\rAnalyzing System:   ########## 100 %")
-        print("\rSystem Analyzed")
