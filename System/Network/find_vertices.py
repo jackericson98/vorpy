@@ -194,7 +194,7 @@ def find_vertices(net, v0=None, counter=None):
         # Find the first vertex in the System
         v0 = find_v0(net)
     # Add v0 to the System
-    net.verts.append(v0)
+    net.verts = [v0]
     # Set up the vertex stack
     vert_stack = [v0]
     # While the verts stack is not empty
