@@ -6,7 +6,7 @@ from System.Network.surface import Surface
 
 class Edge:
     """Edge object. Used to build the network and calculate the surfaces"""
-    def __init__(self, atoms, net, verts=None, doublet=False, points=None, loc=None, rad=None):
+    def __init__(self, atoms=None, net=None, verts=None, doublet=False, points=None, loc=None, rad=None):
 
         # If no network was given have a catch
         if net is not None:
@@ -16,26 +16,18 @@ class Edge:
         self.atoms = atoms               # Atoms         :   List of Atom type objects for the edge
         self.verts = verts               # Vertices      :   List of Vertex type objects
         self.surfs = []                  # Surfaces      :   List of 2 surfaces attached to the edge
-        self.load_ndxs = None       # Load indices  :   List of object load indices
+        self.load_ndxs = []              # Load indices  :   List of object load indices
 
         self.loc = loc                   # Location      :   Location of the center of the 3 atoms that make up the edge
         self.rad = rad                   # Radius        :   Radius of the inscribed circle of the three atoms
         self.points = points             # Points        :   List of points along the
-        self.pv0, self.pv1 = None, None  # Vertex points :   The points on the ends of the edges
+        self.pv0 = None                  # Vertex pt 0   :   The points on the ends of the edges
+        self.pv1 = None                  # Vertex pt 1   :   The points on the ends of the edges
+        self.pa = None                   # Projection pt :   The projection point from which the edge is built
         self.doublet = doublet           # Doublet       :   Boolean for if the edge is part of a doublet or not
 
-    # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
-    def build(self):
-
-        # Reset the edges points
-        self.points = []
-        # Get the network's minimum distance
-        min_dist = self.net.min_dist
-        # Choose a curved one to project onto. If the edge isn't straight 2 surfs are curved.
-        if round(self.atoms[0].rad, 10) == round(self.atoms[1].rad, 10):
-            surf = Surface(self.atoms[1:], self.net)
-        else:
-            surf = Surface(self.atoms[:2], self.net)
+    # Find projection values. Calculates the correct end points and projection point for the edge
+    def find_pvals(self):
 
         ############################################ Find Ends #########################################################
 
@@ -76,6 +68,45 @@ class Edge:
             # Typical case, no doublets
             self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
 
+        ###################################### Get the projection point ################################################
+
+        # Find the point in between the two vertex points
+        r01 = self.pv1 - self.pv0  # Vector between vertices
+        r_mag = np.linalg.norm(r01)  # Magnitude of the vector between the two vertex points
+        rn01 = r01 / r_mag  # Normal to the vector between the vertices
+        pc01 = self.pv0 + 0.5 * rn01 * r_mag  # Center point
+        # Get the center point of the edge and the bottleneck
+        self.loc, self.rad = calc_circ(self.atoms)
+
+        # Determine if the theoretical center of the edge is inside the vertices or not
+        dr = 1
+        if calc_dist(self.loc, self.pv0) < r_mag or calc_dist(self.loc, self.pv1) < r_mag:
+            dr = -1
+
+        # Find the vector normal to the projection plane
+        P_norm = dr * np.cross(np.array(self.loc) - np.array(pc01), np.array(self.pv1) - np.array(pc01))
+        # Find the vector perpendicular to the plane's normal (i.e. in the plane) and the vector between vertices
+        rpcr = - np.cross(P_norm, rn01)
+        rnpcr = rpcr / np.linalg.norm(rpcr)
+        # Calculate the reference point
+        self.pa = pc01 + 2 * r_mag * rnpcr
+
+    # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
+    def build(self):
+
+        # Get the pvals
+        self.find_pvals()
+
+        # Reset the edges points
+        self.points = []
+        # Get the network's minimum distance
+        min_dist = self.net.min_dist
+        # Choose a curved one to project onto. If the edge isn't straight 2 surfs are curved.
+        if round(self.atoms[0].rad, 10) == round(self.atoms[1].rad, 10):
+            surf = Surface(self.atoms[1:], self.net)
+        else:
+            surf = Surface(self.atoms[:2], self.net)
+
         ################################################# Fill Edge ####################################################
 
         # If the edge is completely straight add points in a line from pv0 to pv0 and return
@@ -88,33 +119,16 @@ class Edge:
                 self.points.append(self.pv0 + r * (i / num_points))
             return
 
-        # Get the projection point
+        # Calculate the points
 
         # Find the point in between the two vertex points
         r01 = self.pv1 - self.pv0  # Vector between vertices
         r_mag = np.linalg.norm(r01)  # Magnitude of the vector between the two vertex points
         rn01 = r01 / r_mag  # Normal to the vector between the vertices
-        pc01 = self.pv0 + 0.5 * rn01 * r_mag  # Center point
-        # Get the center point of the edge and the bottleneck
-        self.loc, self.rad = calc_circ(self.atoms)
-        # Determine if the theoretical center of the edge is inside the vertices or not
-        dr = 1
-        if calc_dist(self.loc, self.pv0) < r_mag or calc_dist(self.loc, self.pv1) < r_mag:
-            dr = -1
-        # Find the vector normal to the projection plane
-        P_norm = dr * np.cross(np.array(self.loc) - np.array(pc01), np.array(self.pv1) - np.array(pc01))
-        # Find the vector perpendicular to the plane's normal (i.e. in the plane) and the vector between vertices
-        rpcr = - np.cross(P_norm, rn01)
-        rnpcr = rpcr / np.linalg.norm(rpcr)
-        # Calculate the reference point
-        pa = pc01 + 2 * r_mag * rnpcr
-
-        # Calculate the points
-
         # Find the number of points
         n = max(int(r_mag / min_dist), 10)
         # Calculate the angle between the vertices and the reference point
-        theta = calc_angle(pa, self.pv0, self.pv1)
+        theta = calc_angle(self.pa, self.pv0, self.pv1)
         # Add the first vertex to the list of points
         self.points = [self.pv0.tolist()]
         # Find the edges points. Don't count the vertex
@@ -128,9 +142,9 @@ class Edge:
             # Set pb to the previous point
             pb = self.points[-1]
             # Get the distance between pb and pa for c
-            c = calc_dist(pb, pa)
+            c = calc_dist(pb, self.pa)
             # Get the angle between pb, pa and pb + rno1
-            B = calc_angle(pb, pb + rn01, pa)
+            B = calc_angle(pb, pb + rn01, self.pa)
             # Get the last angle
             C = np.pi - B - A
             # Get the distance to our projection point or 'a' on our triangle
@@ -138,10 +152,10 @@ class Edge:
             # Use that distance to project rn01 from pb to find our projection point or pc
             pc = pb + a * rn01
             # Get the vector from pa to pc
-            rac = np.array(pc) - np.array(pa)
+            rac = np.array(pc) - np.array(self.pa)
             rnac = rac / np.linalg.norm(rac)
             # Project the vector onto the surface
-            surf_point = self.project(rnac, pa, surf)
+            surf_point = self.project(rnac, self.pa, surf)
             if surf_point is None:
                 break
             self.points.append(surf_point)
