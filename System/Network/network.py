@@ -33,8 +33,9 @@ class Network:
         self.curved_faces = True   # Curved Faces :  Create curved faces for surfaces?
         self.flat_faces = False    # Flat Faces   :  Create flat faces for surfaces?
         self.verts_loaded = False  # Verts Loaded :  Use loaded verts?
-
-        self.sort_atoms()         # Sort Atoms    :  Place the atoms in their sub-boxes
+        # Run diagnostics
+        self.cpu_time = None       # CPU time     :  CPU time taken to calculate the network
+        self.my_time = None        # My time      :  Time taken to calculate the network
 
     # Calculate box function. Takes in a System and returns the dimensions of a box x times the size of the atoms
     def calc_box(self):
@@ -215,15 +216,13 @@ class Network:
 
     # Find vertices method. Using the functions in find_vertices.py finds the vertices in the network
     def find_verts(self, counter=None):
-        print("Verts!!")
         # If the atom has no vertices run the vertex finder on it
         v0 = find_v0(self)
         find_vertices(self, v0, counter)
 
-
-
     # Build network function. Takes in a system and returns a fully connected network
     def build_surfs(self):
+        i = 0
         # Make each surface
         for i in range(len(self.surfs)):
             # Calculate and print the running percentage for mesh calculations
