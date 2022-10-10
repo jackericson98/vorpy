@@ -253,4 +253,3 @@ def build(net):
     make_objects(net)
     # Connect the network
     connect(net)
-
