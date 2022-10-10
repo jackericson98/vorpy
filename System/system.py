@@ -1,3 +1,5 @@
+import time
+
 from System.input_system import *
 from System.output_system import *
 
@@ -25,12 +27,10 @@ class System:
 
         self.gui = gui                       # GUI              :    GUI Vorpy object that can be updated through sys
 
-        self.sort_atoms()                     # Sort atoms       :    Sorts atoms into their molecules and residues
-
     # Load network method. Used to load a network that was previously calculated
     def load_net(self, net_file):
         # If no file has been loaded before, create the main network
-        if self.net_files is None:
+        if self.nets is None:
             self.net_files = [net_file]
             import_net(self.net, net_file)
         else:
@@ -64,7 +64,7 @@ class System:
     # Sort atoms method. Used to put atoms in their correct molecules and residues
     def sort_atoms(self):
         # Set up the chain names list
-        chain_names = []
+        self.mols, chain_names = [], []
         # Go through each of the atoms in the system adding the atoms to their respective chains
         for atom in self.atoms:
             # If no chain is specified, set the chain to 'None'
@@ -80,7 +80,7 @@ class System:
             else:
                 self.mols[chain_names.index(atom.chain)].append(atom)
         # Set up the residues names list
-        res_names = []
+        self.residues, res_names = [], []
         # Set up the residues
         for atom in self.atoms:
             # Get the residue name for the atom
@@ -113,10 +113,16 @@ class System:
         self.sort_atoms()
 
     # Build network function. Allows user to build the network from the system object.
-    def build_network(self):
+    def build_network(self, net_ndx=0):
+        # Start the timer
+        start = time.perf_counter()
+        # Set the network's atoms
+        self.net.atoms = self.atoms
         # Set the settings info
         self.net.min_dist, self.net.beta_val = self.gui.sys_res_flt.get(), self.gui.sys_alpha_value.get()
         self.net.box_size = self.gui.sys_box_x_flt.get()
+        # Sort the atoms in the network
+        self.net.sort_atoms()
         # Check to see if there are vertices loaded
         if not self.gui.use_loaded_verts.get():
             # For small systems (<= 200) run the normal algorithm
@@ -126,25 +132,27 @@ class System:
             else:
                 self.net.split_sys()
             self.gui.update_progress_canvas()
+            print("Connecting Network")
             build(self.net)
+        print("Building Surfaces")
         # Set the output directory
         set_output_dir(self, self.output_directory)
         # Export the vertices
-        self.export_net(verts_only=True)
         self.gui.update_progress_canvas()
         # Build the network
         self.net.build_surfs()
         self.gui.update_progress_canvas()
         # Analyze the network
+        print("Analyzing surfaces")
         self.net.analyze()
         self.gui.update_progress_canvas()
+        print("Exporting system")
         # Export the rest of the network
         self.export_net()
-        # Get rid of the load frame and load the build frame
-        self.gui.build_frame.pack_forget()
-        self.gui.main.geometry("800x900")
-        self.gui.analysis_frame.pack()
+        # Stop the timer and measure the time
+        stop = time.perf_counter()
+        self.net.my_time = stop - start
 
     # Export network method. Exports the values calculated by the network
-    def export_net(self, verts_only=False):
-        export_net(self.net, verts_only)
+    def export_net(self):
+        export_net(self.net)
