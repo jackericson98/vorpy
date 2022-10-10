@@ -16,7 +16,7 @@ class Edge:
         self.atoms = atoms               # Atoms         :   List of Atom type objects for the edge
         self.verts = verts               # Vertices      :   List of Vertex type objects
         self.surfs = []                  # Surfaces      :   List of 2 surfaces attached to the edge
-        self.load_ndxs = [[], []]        # Load indices  :   List of object load indices
+        self.load_ndxs = None       # Load indices  :   List of object load indices
 
         self.loc = loc                   # Location      :   Location of the center of the 3 atoms that make up the edge
         self.rad = rad                   # Radius        :   Radius of the inscribed circle of the three atoms
