@@ -3,7 +3,7 @@ from System.calcs import *
 
 class Atom:
     """Atom object. Created with import of file. Used to reference for building network and analyzing"""
-    def __init__(self, location, radius, system=None, symbol="", chain="", res="", res_seq="", name="", ocp="", t_fact="", seg_id="", charge=""):
+    def __init__(self, location=None, radius=None, system=None, symbol="", chain="", res="", res_seq="", name="", ocp="", t_fact="", seg_id="", charge=""):
 
         # Inherent traits
         self.loc = location     # Location     :   Set the location of the center of the sphere
@@ -23,7 +23,7 @@ class Atom:
         self.verts = []         # Vertices     :   List of Vertex type objects
         self.surfs = []         # Surfaces     :   List of Surface type objects
         self.edges = []         # Edges        :   List of Edge type objects
-        self.load_ndxs = None   # Load indices :   Holds the object indices for when the system is loaded back in
+        self.load_ndxs = []     # Load indices :   Holds the object indices for when the system is loaded back in
 
         # Calculated traits
         self.cell_vol = 0       # Cell Volume  :   Volume of the voronoi cell for the atom
