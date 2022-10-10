@@ -91,7 +91,7 @@ def doublet(vert, net):
         # Get the atoms in the surface
         surf_atoms = [atom for atom in my_edges[0].atoms if atom in my_edges[1].atoms]
         # Create the surface
-        mySurf = Surface(surf_atoms, net, edges=my_edges, doublet=True)
+        mySurf = Surface(surf_atoms, net, edges=my_edges, verts=[vert], doublet=True)
         # Add the surface to the network
         net.surfs.append(mySurf)
 
@@ -103,7 +103,7 @@ def doublet(vert, net):
         for k in range(3):
             edges = [my_edges[k], my_edges[(k + 1) % 3]]
             atoms = [atom for atom in edges[0].atoms if atom in edges[1].atoms]
-            net.surfs.append(Surface(atoms, net, edges, doublet=True))
+            net.surfs.append(Surface(atoms, net, edges, verts=[vert], doublet=True))
 
 
 # Make objects function. Checks the atoms of the vertices for patterns and creates edges and surfaces
