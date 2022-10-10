@@ -140,8 +140,8 @@ def export_body(group, info_file=False, outer_atoms=False):
     write_surfs(group.body_surfs, group.name)
     # Check to see of the user wants to export the interface's atoms
     if outer_atoms:
-        write_pdb(group.outer_atoms, group.name + "_outside_atoms")
-        write_pdb(group.surr_atoms, group.name + "_surrounding_atoms")
+        write_pdb(group.outer_body_atoms, group.name + "_outside_atoms")
+        write_pdb(group.surr_body_atoms, group.name + "_surrounding_atoms")
     # Check to see if the user wants to export the interface's information
     if info_file:
         info = open(group + "_info.txt", 'w')
