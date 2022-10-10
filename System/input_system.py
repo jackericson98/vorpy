@@ -20,14 +20,19 @@ def get_name(file):
 # Get pdb data method. Finds the lines of the file with prefixes and returns them as a list
 def read_pdb(sys):
     # Get the file information
-    sys.base_file = open(sys.base_file).readlines()
+    file = open(sys.base_file).readlines()
     sys.sys_file_name = get_name(sys.base_file)
     atoms = []
     data = []
     # Go through each line in the file and check if the first word is the word we are looking for
-    for i in range(len(sys.base_file)):
-        line = sys.base_file[i]
+    for i in range(len(file)):
+        # Check to make sure the line isn't empty
+        if len(file[i]) == 0:
+            continue
+        # Pull the file line and first word
+        line = file[i]
         word = line[:4].lower()
+        # Check to see if the line is an atom line
         if line and word == 'atom':  # Check if the line starts with atom
             # Create the atom
             atom = Atom([float(line[30:38]), float(line[38:46]), float(line[46:54])], get_radius(line[76:78]),
@@ -38,12 +43,10 @@ def read_pdb(sys):
                 atom.chain = 'Mol'
             # Add the atom to the
             atoms.append(atom)
+        # If the line is not an atom line store the other data
         else:
-
-            for i in range(len(sys.base_file)):
-                if word == sys.base_file[i][:len(word)]:  # check the first len(word) letters
-                    # Add the split test_data to our list and remove the word at the beginning of the list
-                    data.append(sys.base_file[i].split()[1:])
+            data.append(file[i].split())
+    # Return the atoms and the data
     return atoms, data
 
 
@@ -109,6 +112,7 @@ def import_net(net, filename):
 
     # Open the file
     file = open(filename).readlines()
+    net.verts, net.edges, net.surfs = [], [], []
 
     # Go through the file, line by line
     for i in range(len(file)):
@@ -117,15 +121,11 @@ def import_net(net, filename):
 
         # Get the line
         line = file[i]
+        # Split the information in the file
+        line = line.split()
         # Check for empty lines
         if len(line) == 0:
             continue
-        # Split the information in the file
-        line.split()
-        # If there is another line after this one, check it for the same atoms
-        if len(file) > i + 1 and len(file[i + 1]) > 0:
-            line2 = file[i + 1]
-            line2.split()
 
         ######################################### Get Objects ##########################################################
 
@@ -150,8 +150,11 @@ def import_net(net, filename):
             # Set attributes for the atom
             myAtom.box = [int(_) for _ in line[2:5]]
             myAtom.cell_vol = float(line[5])
+            # Get atom index lines and split them
+            acon_lines = file[i + 1: i + 4]
+            acon_lines = [line.split() for line in acon_lines]
             # Get the indices of the objects by checking going through the next 3 lines
-            myAtom.load_ndxs = [[int(_) for _ in line[1:]] for line in file[i + 1: i + 4]]
+            myAtom.load_ndxs = [[int(_) for _ in line[1:]] for line in acon_lines]
             # Skip the next 3 lines
             i += 3
 
@@ -160,32 +163,40 @@ def import_net(net, filename):
         # Check for if the line is a vertex line
         elif line[0].lower() == "vert":
             # Get the indices of the atoms in the vertex and then the atoms themselves
-            ndxs = [int(_) for _ in line[1:5]]
+            ndxs = [int(_) for _ in line[2:6]]
             atoms = [net.atoms[ndx] for ndx in ndxs]
             # Get the location and radius of the vertex
-            loc, rad = [float(_) for _ in line[5:8]], float(line[8])
+            loc, rad, loc2, rad2 = [float(_) for _ in line[6:9]], float(line[9]), None, None
             # Get the doublet information
-            dub, loc2, rad2 = bool(line[9]), [float(_) for _ in line[-4:-1]], float(line[-1])
+            dub = False
+            if line[10].lower() == 'true':
+                dub, loc2, rad2 = True, [float(_) for _ in line[11:14]], float(line[14])
             # Set up the default vertex
             myVert = Vertex(atoms=atoms, net=net, location=loc, radius=rad, doublet=dub, loc2=loc2, rad2=rad2)
+            # Get the vertex index lines
+            vcon_lines = file[i + 1: i + 3]
+            vcon_lines = [line.split() for line in vcon_lines]
             # Get the indices of the objects by checking going through the next 2 lines
-            myVert.load_ndxs = [[int(_) for _ in line[1:]] for line in file[i + 1: i + 3]]
-            # Skip the next 2 lines
-            i += 2
+            myVert.load_ndxs = [[int(_) for _ in line[1:]] for line in vcon_lines]
             # Add the vertex to the network
             net.verts.append(myVert)
+            # Skip the next 2 lines
+            i += 2
 
         # Edges
 
         # Check for if the line is an edge line or not
         elif line[0].lower() == "edge":
             # Get the indices and atoms for the edges
-            ndxs = [int(_) for _ in line[1:4]]
+            ndxs = [int(_) for _ in line[2:5]]
             atoms = [net.atoms[ndx] for ndx in ndxs]
             # Create the edge
             myEdge = Edge(atoms, net)
+            # Get the edge index lines
+            econ_lines = file[i + 1: i + 3]
+            econ_lines = [line.split() for line in econ_lines]
             # Get the indices of the objects by checking going through the next 2 lines
-            myEdge.load_ndxs = [[int(_) for _ in line[1:]] for line in file[i + 1: i + 3]]
+            myEdge.load_ndxs = [[int(_) for _ in line[1:]] for line in econ_lines]
             # Skip the next 2 lines
             i += 2
             # Set up the points list
@@ -195,9 +206,11 @@ def import_net(net, filename):
                 points.append([float(_) for _ in file[i + 1][1:]])
                 i += 1
             # Add the points, location and radius to the edge
-            myEdge.points, myEdge.loc, myEdge.rad = points, [float(_) for _ in line[4:7]], float(line[7])
-            myEdge.pv0, myEdge.pv1 = [float(_) for _ in line[8:11]], [float(_) for _ in line[11:14]]
-            myEdge.doublet = bool(line[14])
+            myEdge.points, myEdge.loc, myEdge.rad = points, [float(_) for _ in line[5:8]], float(line[8])
+            myEdge.pv0, myEdge.pv1 = [float(_) for _ in line[9:12] if _ != 'None'], [float(_) for _ in line[12:15] if _ != 'None']
+            # Check for doubletness
+            if line[15] == 'True':
+                myEdge.doublet = True
             # Add the edge to the network
             net.edges.append(myEdge)
 
@@ -207,14 +220,17 @@ def import_net(net, filename):
         elif line[0].lower() == "surf":
 
             # Get the indices and atoms for the edges
-            ndxs = [int(_) for _ in line[1:3]]
+            ndxs = [int(_) for _ in line[2:4]]
             atoms = [net.atoms[ndx] for ndx in ndxs]
             # Create the surface and add it to the network
             mySurf = Surface(atoms=atoms, net=net)
             # Get the surface normal and the surface area
-            mySurf.rn, mySurf.sa = [float(_) for _ in line[3:6]], float(line[6])
+            mySurf.rn, mySurf.sa = [float(_) for _ in line[4:7]], float(line[7])
+            # Get the surface index lines
+            scon_lines = file[i + 1: i + 3]
+            scon_lines = [line1.split() for line1 in scon_lines]
             # Get the indices of the objects by checking going through the next 2 lines
-            mySurf.load_ndxs = [[int(_) for _ in line[1:]] for line in file[i + 1: i + 3]]
+            mySurf.load_ndxs = [[int(_) for _ in line1[1:]] for line1 in scon_lines]
             # Set up the list of points and perimeter points
             points, tris = [], []
             # Get the surface points
@@ -229,7 +245,7 @@ def import_net(net, filename):
                 tris.append([int(_) for _ in file[i + 1][1:]])
                 i += 1
             # Add the points, triangles and perimeter points
-            mySurf.points, mySurf.tris, mySurf.perimeter = points, tris, points[:int(line[7])]
+            mySurf.points, mySurf.tris, mySurf.perimeter = points, tris, points[:int(line[8])]
             # Add the surface to the network
             net.surfs.append(mySurf)
     # Connect the objects
@@ -238,7 +254,6 @@ def import_net(net, filename):
 
 # Connect input network function. Connect the network objects using their load index lists
 def connect_input_net(net):
-
     # Connect the atom objects
     for atom in net.atoms:
         # Connect the atom's verts
@@ -253,6 +268,8 @@ def connect_input_net(net):
 
     # Connect the vertex objects
     for vert in net.verts:
+        # Reset the vertices edges and surfaces
+        vert.edges, vert.surfs = [], []
         # Connect the atom's verts
         for i in range(len(vert.load_ndxs[0])):
             vert.edges.append(net.edges[vert.load_ndxs[0][i]])
@@ -262,6 +279,8 @@ def connect_input_net(net):
 
     # Connect the edge objects
     for edge in net.edges:
+        # Reset the edge's vertices and surfaces
+        edge.verts, edge.surfs = [], []
         # Connect the edge's vertices
         for i in range(len(edge.load_ndxs[0])):
             edge.verts.append(net.verts[edge.load_ndxs[0][i]])
@@ -271,6 +290,8 @@ def connect_input_net(net):
 
     # Connect the surface objects
     for surf in net.surfs:
+        # Reset the surfaces and edges
+        surf.verts, surf.edges = [], []
         # Connect the surface's vertices
         for i in range(len(surf.load_ndxs[0])):
             surf.verts.append(net.verts[surf.load_ndxs[0][i]])
