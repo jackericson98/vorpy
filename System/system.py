@@ -1,61 +1,45 @@
-import os
-
 from System.input_system import *
 from System.output_system import *
 
 
 class System:
     """Class used to import files of all types and return a System"""
-    def __init__(self, file=None, user_atoms=None, box_size=1.5, min_dist=0.1, beta_val=2):
+    def __init__(self, atoms=None, mols=None, sol=None, residues=None, data=None, name=None, base_file=None,
+                 frame_files=None, nets=None, net_files=None, ndx_files=None, gui=None):
 
-        # Set up the major system attributes
-        self.info = {}
-        self.atoms = []
-        self.mols = []
-        self.min_dist = min_dist
-
+        self.atoms = atoms                    # Atoms            :    List holding the atom objects
+        self.mols = mols                      # Molecules        :    List of molecules
+        self.sol = sol                        # Solution         :    List of solution molecules (lists of atoms)
+        self.residues = residues              # Residues         :    List of residues (lists of atoms)
         # Set up the file attributes
-        self.name = None
-        self.file = None
-        self.file_address = None
+        self.name = name                      # Name             :    Name describing the system
+        self.data = data                      # Data             :    Additional data provided by the base file
+        self.net = Network(self, self.atoms)  # Network          :    Network object holding the primary network
+        self.base_file = base_file            # Base file        :    Primary file address
+        self.nets = nets                      # Networks         :    Different networks for other frames
+        self.net_files = net_files            # Network files    :    Network files for multiple frames
+        self.ndx_files = ndx_files            # Index files      :    File addresses for index file in GROMACS format
+        self.frame_files = frame_files        # Frame files      :    File addresses for different frames (.gro,.pdb)
+        self.output_directory = None          # Output Directory :    Output directory for the export files
+        self.vorpy_directory = os.getcwd()    # Vorpy Directory  :    Directory that vorpy is running out of
 
-        # If a file is given read the file and set the system attributes
-        if file:
-            self.file = open(file).readlines()
-            self.file_address = file
-            self.name = get_name(file)
-            # Check the file type
-            if file[-3:] == "pdb":
-                get_pdb(self)
-            elif file[-3:] == "cif":
-                get_cif(self)
-            elif file[-3:] == "gro":
-                get_gro(self)
-            elif file[-3:] == "mol":
-                get_mol(self)
-            else:
-                return
-        # If no file is given and the user has entered atoms build system
-        elif user_atoms:
-            self.name = "User_Atoms"
-            self.build_sys(user_atoms)
-        # If no file is given, generate a random System
+        self.gui = gui                       # GUI              :    GUI Vorpy object that can be updated through sys
+
+        self.sort_atoms()                     # Sort atoms       :    Sorts atoms into their molecules and residues
+
+    # Load network method. Used to load a network that was previously calculated
+    def load_net(self, net_file):
+        # If no file has been loaded before, create the main network
+        if self.net_files is None:
+            self.net_files = [net_file]
+            import_net(self.net, net_file)
         else:
-            self.random_system()
-
-        # Sort the atoms into their respective molecules and residues
-        self.mols = []
-        self.sol = []
-        self.residues = []
-        self.sort_atoms()
-
-        # Set up the network
-        self.net = Network(self, self.atoms, box_size=box_size, min_dist=min_dist, beta_val=beta_val)
-        self.output_directory = None
-        self.vorpy_directory = os.getcwd()
+            self.net_files.append(net_file)
+            self.nets.append(Network(self, self.atoms))
+            import_net(self.nets[-1], net_file)
 
     # Build System method. Takes in a list of atomic values
-    def build_sys(self, user_atoms):
+    def build_user_atoms_sys(self, user_atoms):
         # Check if the user entered Atoms into their list
         if type(user_atoms[0]) is Atom:
             self.atoms = user_atoms
@@ -108,65 +92,59 @@ class System:
             else:
                 self.residues[res_names.index(res_name)].append(atom)
 
+    # Load system method. Chooses the correct file type from the file provided
+    def load_sys(self, file):
+        # If a file is given read the file and set the system attributes
+        if file:
+            self.base_file = file
+            self.name = get_name(file)
+            # Check the file type
+            if file[-3:] == "pdb":
+                self.atoms, self.data = read_pdb(self)
+            elif file[-3:] == "cif":
+                read_cif(self)
+            elif file[-3:] == "gro":
+                read_gro(self)
+            elif file[-3:] == "mol":
+                read_mol(self)
+            else:
+                print("Wrong file Loser!")
+                return
+        self.sort_atoms()
+
     # Build network function. Allows user to build the network from the system object.
-    def build_network(self, get_verts=True, get_surfs=True, export_verts=False, min_dist=None, box_size=None):
-        if min_dist is not None:
-            self.min_dist = min_dist
-        if box_size is not None:
-            self.net.box_size = box_size
-        # Build the network
-        self.net.build(get_verts=get_verts, get_surfs=get_surfs)
+    def build_network(self):
+        # Set the settings info
+        self.net.min_dist, self.net.beta_val = self.gui.sys_res_flt.get(), self.gui.sys_alpha_value.get()
+        self.net.box_size = self.gui.sys_box_x_flt.get()
+        # Check to see if there are vertices loaded
+        if not self.gui.use_loaded_verts.get():
+            # For small systems (<= 200) run the normal algorithm
+            if len(self.atoms) <= 200:
+                self.net.find_verts()
+            # For large systems, split the atoms into separate smaller networks top search for vertices in
+            else:
+                self.net.split_sys()
+            self.gui.update_progress_canvas()
+            build(self.net)
+        # Set the output directory
+        set_output_dir(self, self.output_directory)
         # Export the vertices
-        if export_verts:
-            export_myVerts(self)
-
-    # Analyze method. Finds the surface area of every surface in the system and volume of all the cells
-    def analyze(self):
-        # Run analysis on the network
+        self.export_net(verts_only=True)
+        self.gui.update_progress_canvas()
+        # Build the network
+        self.net.build_surfs()
+        self.gui.update_progress_canvas()
+        # Analyze the network
         self.net.analyze()
+        self.gui.update_progress_canvas()
+        # Export the rest of the network
+        self.export_net()
+        # Get rid of the load frame and load the build frame
+        self.gui.build_frame.pack_forget()
+        self.gui.main.geometry("800x900")
+        self.gui.analysis_frame.pack()
 
-    # System level add vertex method. Just a pass through to the input system file
-    def add_verts(self, file_address):
-        add_verts(self, file_address)
-
-    # System level export vertices method.
-    def export_verts(self):
-        if self.output_directory is None:
-            set_output_dir(self)
-        export_myVerts(self)
-
-
-    # Export method. Takes in an export type: 'Atoms', 'surfs'
-    def export(self, export_all=True, export_sys=False, export_atoms=False, export_mols=False,
-               export_surfs=False, export_sys_pdb=False, export_reses=False):
-        if self.output_directory is None:
-            set_output_dir(self)
-        os.chdir(self.output_directory)
-        # Go through all the possible user inputs and choose the correct export function
-        n = 0
-        lengths = [1, len(self.net.surfs), len(self.atoms), len(self.mols)]
-        exports = [export_sys, export_surfs, export_atoms, export_mols]
-        # Find the total number of things being exported for the loading bar
-        max_num_arr = [lengths[i] for i in range(len(lengths)) if exports[i] or export_all]
-        max_num = sum(max_num_arr)
-        # Export the system
-        if export_sys or export_all:
-            export_mySys(self, n, max_num)
-            n += 1
-        # Export the pdb of the system
-        if export_sys_pdb or export_all:
-            create_pdb(self, os.getcwd())
-        # Export the individual surfaces
-        if export_surfs or export_all:
-            export_mySurfs(self, n, max_num)
-            n += len(self.net.surfs)
-        # Export the atom cells
-        if export_atoms or export_all:
-            export_myAtoms(self, n, max_num)
-            n += len(self.atoms)
-        # Export the molecules
-        if export_mols or export_all:
-            export_myMols(self, n, max_num, export_residues=export_reses or export_all)
-            n += len(self.mols)
-        print("\rExporting System:  ########## 100 %")
-        print("\rSystem Exported")
+    # Export network method. Exports the values calculated by the network
+    def export_net(self, verts_only=False):
+        export_net(self.net, verts_only)

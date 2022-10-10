@@ -20,13 +20,13 @@ def get_name(file):
 # Get pdb data method. Finds the lines of the file with prefixes and returns them as a list
 def read_pdb(sys):
     # Get the file information
-    sys.file = open(sys.file_address).readlines()
-    sys.sys_file_name = get_name(sys.file_address)
+    sys.base_file = open(sys.base_file).readlines()
+    sys.sys_file_name = get_name(sys.base_file)
     atoms = []
     data = []
     # Go through each line in the file and check if the first word is the word we are looking for
-    for i in range(len(sys.file)):
-        line = sys.file[i]
+    for i in range(len(sys.base_file)):
+        line = sys.base_file[i]
         word = line[:4].lower()
         if line and word == 'atom':  # Check if the line starts with atom
             # Create the atom
@@ -40,41 +40,41 @@ def read_pdb(sys):
             atoms.append(atom)
         else:
 
-            for i in range(len(sys.file)):
-                if word == sys.file[i][:len(word)]:  # check the first len(word) letters
+            for i in range(len(sys.base_file)):
+                if word == sys.base_file[i][:len(word)]:  # check the first len(word) letters
                     # Add the split test_data to our list and remove the word at the beginning of the list
-                    data.append(sys.file[i].split()[1:])
+                    data.append(sys.base_file[i].split()[1:])
     return atoms, data
 
 
 # Get cif function. Finds the data in a cif file
 def read_cif(sys):
     # Get the system file
-    sys.file = open(sys.file_address).readlines()
-    num = int(sys.file[0][4:])
+    sys.base_file = open(sys.base_file).readlines()
+    num = int(sys.base_file[0][4:])
     # Go through each line of the file
-    for i in range(len(sys.file)):
+    for i in range(len(sys.base_file)):
         # Split the line
-        sys.file[i] = sys.file[i].split()
+        sys.base_file[i] = sys.base_file[i].split()
         # Add the atoms
-        if sys.file[i] == int(num) and len(sys.file[i]) >= 7:
-            sys.atoms.append(Atom([sys.file[i][9], sys.file[i][10], sys.file[i][11]], get_radius(sys.file[i][3]),
-                                  symbol=sys.file[i][3]))
+        if sys.base_file[i] == int(num) and len(sys.base_file[i]) >= 7:
+            sys.atoms.append(Atom([sys.base_file[i][9], sys.base_file[i][10], sys.base_file[i][11]], get_radius(sys.base_file[i][3]),
+                                  symbol=sys.base_file[i][3]))
 
 
 # Get gro method. Finds data in a gro file
 def read_gro(sys):
-    sys.file = open(sys.file_address).readlines()
-    sys.info['header'] = sys.file[0]
+    sys.base_file = open(sys.base_file).readlines()
+    sys.info['header'] = sys.base_file[0]
     # Go through each line in the file and create an atom object
-    for line in sys.file[2:-2]:
+    for line in sys.base_file[2:-2]:
         sys.atoms.append(Atom([line[3], line[4], line[5]], get_radius(line[1][0]), symbol=line[1][0]))
 
 
 # Get mol method. Finds data in a mol file
 def read_mol(sys):
-    sys.file = open(sys.file_address).readlines()
-    for line in sys.file:
+    sys.base_file = open(sys.base_file).readlines()
+    for line in sys.base_file:
         if len(line) > 6:
             sys.atoms.append(Atom([line[0], line[1], line[2]], get_radius(line[3]), symbol=line[3]))
 

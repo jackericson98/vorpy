@@ -15,7 +15,7 @@ sys = System(m_file)
 sys.add_vta_data(b_file, v_file)
 
 # Build the network
-sys.net.build()
+sys.net.build_surfs()
 
 atoms, edges, surfs, verts = [],[], [], []
 for atom in sys.net.atoms:

@@ -2,23 +2,26 @@ import os
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import filedialog
+from System.system import System, Network
 
 
 # Loading gui class. Holds the settings for the load/settings gui
 class Vorpy:
 
-    def __init__(self, width=750, height=650):
+    def __init__(self, sys=None, width=750, height=650):
 
-        # Main frame
         self.main = tk.Tk()
         self.main.geometry(str(width) + "x" + str(height))
         self.main.title('vorpy')
         self.running = False
+        self.exporting = False
         self.atom_list = ["Molecullllle"]
         self.mol_lis = ["Molecullllle"]
         self.res_list = ["Molecullllle"]
         self.index_list = []
         self.output_directory = os.getcwd()
+        self.net_file = None
+        self.sys = None
 
         #############################################  Load Frame Attributes ###########################################
 
@@ -26,15 +29,10 @@ class Vorpy:
         self.load_frame.pack()
 
         # Set up the loading attributes
-        self.sys_file_address = None
+        self.sys_file = None
         self.frame_files = []
         self.user_atoms = []
 
-        # Set up the settings attributes
-        self.max_vert_rad = None
-        self.box_size = None
-        self.resolution = None
-        self.parallelize = False
 
         # Set up the load network
         self.net_file_address = None
@@ -42,6 +40,7 @@ class Vorpy:
         # Header frame
         tk.Label(self.load_frame, text="VorPy", font=("Times New Roman bold", 40)).grid(row=0, column=0, columnspan=3, padx=10, pady=10)
         ttk.Separator(self.load_frame).grid(row=1, columnspan=3, sticky='ew')
+
         # File stuff
         load_system_frame = tk.Frame(self.load_frame, width=375)
         load_system_frame.grid(row=2, column=0, padx=10, pady=10)
@@ -171,10 +170,12 @@ class Vorpy:
         self.percentage = tk.StringVar(self.main, "0%")
         tk.Label(build_net_progress_frame, textvariable=self.current_process_str).grid(row=2, column=0, sticky='w')
         tk.Label(build_net_progress_frame, textvariable=self.percentage).grid(row=2, column=2, sticky='e')
-        ttk.Progressbar(build_net_progress_frame, length=400, mode='determinate').grid(row=3, columnspan=3)
+        self.loading_bar = ttk.Progressbar(build_net_progress_frame, length=400, mode='determinate')
+        self.loading_bar.grid(row=3, columnspan=3)
 
         # Cancel button
-        tk.Button(self.build_frame, text='Quit', command=self.quit_running).grid(row=5)
+        tk.Button(self.build_frame, text='Quit').grid(row=5)
+        tk.Button(self.build_frame, text='Build', command=self.start_building_network).grid(row=5, column=1)
 
 
 
@@ -198,7 +199,9 @@ class Vorpy:
 
         # Network information List
         anal_net_frame = tk.Frame(self.analysis_frame)
-        anal_net_frame.grid(row=4, column=0)
+        anal_net_frame.grid(row=4, column=0, padx=10, pady=10)
+
+        tk.Label(anal_net_frame, text="Network Information:", font=("Times New Roman bold", 20)).grid(row=0, column=0, columnspan=2, sticky='nw')
 
         ttk.Separator(anal_net_frame, orient=tk.VERTICAL).grid(row=1, rowspan=3, column=1, sticky='ns')
         ttk.Separator(anal_net_frame, orient=tk.HORIZONTAL).grid(row=2, columnspan=3, column=0, sticky='ew')
@@ -207,32 +210,56 @@ class Vorpy:
         anal_sys_info_subframe = tk.Frame(anal_net_frame)
         anal_sys_info_subframe.grid(row=1, column=0, padx=5, pady=5)
 
+        tk.Label(anal_sys_info_subframe, text="System Information").grid(row=3, columnspan=3, sticky='n')
+        tk.Label(anal_sys_info_subframe, text="Atoms:\nMolecules:\nResidues:\n    ~    \n    ~    \n    ~    \n") \
+            .grid(row=4, column=0)
+        tk.Label(anal_sys_info_subframe, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
+        self.sys_info = tk.StringVar(self.main, "   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n")
+        tk.Label(anal_sys_info_subframe, textvariable=self.sys_info).grid(row=4, column=2)
 
         # Create the system information sub frame
         anal_cpu_info_subframe = tk.Frame(anal_net_frame)
         anal_cpu_info_subframe.grid(row=1, column=2, padx=5, pady=5)
+
+        tk.Label(anal_cpu_info_subframe, text="CPU Information").grid(row=3, columnspan=3, sticky='n')
+        tk.Label(anal_cpu_info_subframe, text="My Time:\nCPU Time:\nComputations:\n    ~    \n    ~    \n    ~    \n") \
+            .grid(row=4, column=0)
+        tk.Label(anal_cpu_info_subframe, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
+        self.cpu_info = tk.StringVar(self.main, "   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n")
+        tk.Label(anal_cpu_info_subframe, textvariable=self.cpu_info).grid(row=4, column=2)
 
 
         # Create the system information sub frame
         anal_settings_subframe = tk.Frame(anal_net_frame)
         anal_settings_subframe.grid(row=3, column=0, padx=5, pady=5)
 
+        tk.Label(anal_settings_subframe, text="Settings Information").grid(row=3, columnspan=3, sticky='n')
+        tk.Label(anal_settings_subframe, text="Box Size:\nResolution:\nMax Vertex:\n    ~    \n    ~    \n    ~    \n") \
+            .grid(row=4, column=0)
+        tk.Label(anal_settings_subframe, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
+        tk.Label(anal_settings_subframe, textvariable=self.net_sets).grid(row=4, column=2)
+
 
         # Create the system information sub frame
         anal_outputs_info_subframe = tk.Frame(anal_net_frame)
         anal_outputs_info_subframe.grid(row=3, column=2, padx=5, pady=5)
 
+        tk.Label(anal_outputs_info_subframe, text="Output Information").grid(row=3, columnspan=3, sticky='n')
+        tk.Label(anal_outputs_info_subframe, text="Vertices:\nSurfaces:\nEdges:\nFull Cells\n   ~   \n   ~   ") \
+            .grid(row=4, column=0)
+        tk.Label(anal_outputs_info_subframe, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
+        self.output_info = tk.StringVar(self.main, "   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n")
+        tk.Label(anal_outputs_info_subframe, textvariable=self.output_info).grid(row=4, column=2)
 
-        tk.Label(anal_net_frame, text="Network Information:", font=("Times New Roman bold", 20)).grid(row=0, column=0, columnspan=2, sticky='nw')
 
         # Seperator
         ttk.Separator(self.analysis_frame, orient=tk.VERTICAL).grid(row=3, column=1, rowspan=3, sticky='ns')
 
         # Export information List
         group_info_frame = tk.Frame(self.analysis_frame)
-        group_info_frame.grid(row=4, column=2)
+        group_info_frame.grid(row=4, column=2, sticky='ns', padx=10, pady=10)
 
-        tk.Label(group_info_frame, text="Export Information:").grid(row=0, column=0, sticky='nw')
+        tk.Label(group_info_frame, text="Export Information:", font=("Times New Roman bold", 20)).grid(row=0, column=0, sticky='nw', columnspan=2)
         tk.Label(group_info_frame, text="Group 1").grid(row=1, column=0)
         ttk.Separator(group_info_frame, orient=tk.VERTICAL).grid(row=1, rowspan=3, column=1, sticky='ns')
         tk.Label(group_info_frame, text="Group 2").grid(row=1, column=2)
@@ -276,26 +303,34 @@ class Vorpy:
         choose_index_subframe.grid(column=2, row=0, sticky='ns', padx=10, pady=10)
 
         # Set the label header for the "choose index" sub frame
-        self.current_ndx = tk.StringVar(self.main, "")
         tk.Label(choose_index_subframe, text="Get Atoms:", font=("Times New Roman bold", 20)).grid(row=0, columnspan=3, sticky='nw')
-        tk.Label(choose_index_subframe, text="Choose Index:").grid(row=1, column=0)
-        tk.OptionMenu(choose_index_subframe, variable=None, value=self.index_list).grid(row=1, column=1)
+        tk.Label(choose_index_subframe, text="Choose Index:", font=("Times New Roman bold", 15)).grid(row=1, column=0)
+        self.current_ndx = tk.StringVar(self.main, "[None]")
+        tk.OptionMenu(choose_index_subframe, variable=self.current_ndx, value=self.index_list).grid(row=1, column=1)
         tk.Button(choose_index_subframe, text="Browse", command=self.load_index).grid(row=1, column=2)
-        # Seperate the
-        ttk.Separator(choose_index_subframe).grid(row=2, columnspan=3, sticky='ew')
 
-        tk.Label(choose_index_subframe, text="Create Index").grid(row=3, column=1)
+        # Create the index
+        # Atoms
+        tk.Label(choose_index_subframe, text="Create Index", font=("Times New Roman bold", 15)).grid(row=3, column=0)
         self.current_atom_selection = tk.StringVar(self.main, "None")
         tk.Label(choose_index_subframe, text="Atom").grid(row=4, column=0)
         tk.OptionMenu(choose_index_subframe, variable=self.current_atom_selection, value=self.atom_list).grid(row=5, column=0)
 
+        # Molecules
         self.current_mol_selection = tk.StringVar(self.main, "None")
         tk.Label(choose_index_subframe, text="Molecule").grid(row=4, column=1)
         tk.OptionMenu(choose_index_subframe, variable=self.current_mol_selection, value=self.atom_list).grid(row=5, column=1)
 
+        # Residues
         self.current_res_selection = tk.StringVar(self.main, "None")
         tk.Label(choose_index_subframe, text="Residue").grid(row=4, column=2)
         tk.OptionMenu(choose_index_subframe, variable=self.current_res_selection, value=self.atom_list).grid(row=5, column=2)
+
+
+        # Selection Button
+        tk.Button(choose_index_subframe, text="Reset Group", command=self.reset_group).grid(row=6, column=0)
+        tk.Button(choose_index_subframe, text="Undo Selection", command=self.undo_selection).grid(row=6, column=1)
+        tk.Button(choose_index_subframe, text="Add Selection", command=self.add_selection).grid(row=6, column=2)
 
         # Seperator
         ttk.Separator(export_obj_frame, orient=tk.VERTICAL).grid(column=3, row=0, sticky='ns', rowspan=3)
@@ -313,14 +348,8 @@ class Vorpy:
         self.export_info = tk.BooleanVar(self.main, False)
         tk.Checkbutton(export_obj_subframe, text="Export Info", variable=self.export_info.get()).grid(row=3, column=0, columnspan=2)
 
-        tk.Button(export_obj_subframe, text="Export", font=("Times New Roman bold",20)).grid(row=4, column=0, columnspan=2, rowspan=2)
-
-
-
-
-
-
-
+        tk.Button(export_obj_subframe, text="Export", font=("Times New Roman bold", 20), command=self.export_selections)\
+            .grid(row=4, column=0, columnspan=2, rowspan=2)
 
         self.main.mainloop()
 
@@ -328,22 +357,38 @@ class Vorpy:
 
     # Load system button function. Calls the file browser and sets the system
     def load_sys_button(self):
+        # Reset the system
+        self.sys = System()
+        # Re-connect the gui and the system
+        self.sys.gui = self
         # File grabber pop up
         file_path = filedialog.askopenfilename()
         # Set the file path
         if file_path:
-            self.sys_file_address = file_path
+            self.sys_file = file_path
         # Get the file name
         filename = ""
         i = -1
-        if len(self.sys_file_address) > 0:
-            while self.sys_file_address[i] != "/":
-                filename = filename + self.sys_file_address[i]
-                i -= 1
-        else:
-            filename = "    atad_resU"
+        while self.sys_file[i] != "/":
+            filename = filename + self.sys_file[i]
+            i -= 1
         # Set the file name
-        self.sys_name.set(filename[::-1][:-4])
+        self.sys.name = filename[::-1][:-4]
+        self.sys_name.set(self.sys.name)
+        # Load the system
+        self.sys.load_sys(file_path)
+        # Set the system information
+        self.set_sys_info()
+        # Create the network
+        self.sys.net = Network(self.sys, self.sys.atoms)
+
+
+    def set_sys_info(self):
+        # We want to get the number of atoms, the number of molecules, etc
+        mystr = str(len(self.sys.atoms)) + '\n' + str(len(self.sys.mols)) + '\n' + str(len(self.sys.residues)) + \
+                "\n   ~   \n   ~   \n   ~   "
+        # Set the variables
+        self.sys_pros.set(mystr)
 
     # Load frames function.
     def load_frames_button(self):
@@ -353,22 +398,33 @@ class Vorpy:
 
     # Load network button function. Pulls up the file browser and lets the user select their vorpy saved system
     def load_network(self):
-        pass
+        # File grabber pop up
+        file_path = filedialog.askopenfilename()
+        self.net_file = file_path
+        # Check to see if there is a system file
+        if len(self.sys.atoms) < 1:
+            return
+        else:
+            print("here")
+            self.sys.load_net(self.net_file)
 
     def load_index(self):
-        pass
+        # File grabber pop up
+        file_path = filedialog.askopenfilename()
+        self.index_file = file_path
 
     def add_atoms_button(self):
         pass
 
     # Build network button method. Cements the settings and destroys the gui
     def build_network_button(self):
-        # Get rid of the load frame and load the build frame
-        self.load_frame.pack_forget()
-        self.main.geometry("500x600")
-        self.build_frame.pack()
-        # Run the program
-        self.running = True
+        if self.sys is not None:
+            self.load_frame.destroy()
+            self.main.geometry("500x600")
+            self.build_frame.pack()
+
+    def start_building_network(self):
+        self.sys.build_network()
 
     # Change output directory method. Updates the location of the output directory
     def change_output_directory(self):
@@ -412,11 +468,6 @@ class Vorpy:
         canvas.create_text(2.5 * w, h, text="Building\nSurfaces", font=("Times New Roman bold", 10))
         canvas.create_text(3.5 * w, h, text="Analyzing\nNetwork", font=("Times New Roman bold", 10))
 
-    def quit_running(self):
-
-        self.build_frame.pack_forget()
-        self.main.geometry("800x700")
-        self.analysis_frame.pack()
 
     def flip_g1(self):
         self.using_group1.set(not self.using_group1.get())
@@ -424,5 +475,14 @@ class Vorpy:
     def flip_g2(self):
         self.using_group2.set(not self.using_group2.get())
 
+    def reset_group(self):
+        pass
 
-Vorpy()
+    def undo_selection(self):
+        pass
+
+    def add_selection(self):
+        pass
+
+    def export_selections(self):
+        self.exporting = True

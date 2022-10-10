@@ -14,12 +14,12 @@ sys = System(m_file, box_size=1.1, min_dist=0.05)
 # sys.add_verts(v_file)
 sys.net.find_verts()
 sys.export_verts()
-sys.net.connect()
+sys.net.build_surfs()
 
 surfs = sys.net.surfs
 for i in range(len(surfs)):
     # Calculate and print the running percentage for mesh calculations
-    surfs[i].build()
+    surfs[i].build_surfs()
     # Calculate and print the running percentage for mesh calculations
     percentage = int((i + 1) / len(surfs) * 100)
     print("\rBuilding Surfaces: ",

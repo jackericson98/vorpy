@@ -7,27 +7,27 @@ from System.atom import Atom
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
-    def __init__(self, sys, atoms=None, min_dist=0.1, box_size=1.5, beta_val=2):
-
+    def __init__(self, sys, index=0, atoms=None, verts=None, edges=None, surfs=None, groups=None,
+                 min_dist=0.1, box_size=1.5, beta_val=2):
+        # Network graph objects
         self.sys = sys             # System       :  Route back to outer system for system attribute access
+        self.index = index         # Index        :  Holds the index of the network in the system object
         self.atoms = atoms         # Atoms        :  Atoms of the network. Should be identical to self.sys.atoms
-        self.verts = []            # Vertices     :  Vertices of the network
-        self.surfs = []            # Surfaces     :  Surfaces of the network
-        self.edges = []            # Edges        :  Edges of the network
-
+        self.verts = verts         # Vertices     :  Vertices of the network
+        self.edges = edges         # Edges        :  Edges of the network
+        self.surfs = surfs         # Surfaces     :  Surfaces of the network
+        self.groups = groups       # Groups       :  Groups objects for analysis of selected surfaces
+        # Tools for splitting up the atoms
         self.box = None            # Box          :  Holds a max and min vertex for the retaining box
         self.sub_boxes = None      # Sub boxes    :  Holds atoms in their different relative locations in the grid
         self.sub_box_size = None   # Sub box size :  Holds the size of each sub box
         self.atoms_box = []        # Atoms box    :  Holds the min and max verts for the box containing the atoms
         self.max_atom_rad = 0      # Max atom rad :  Holds the largest radius of the system for reference
         self.vert_ndxs = []        # Vert indices :  Holds the indices of the atoms of the vertices in the network
-
         # Settings
-
         self.min_dist = min_dist   # Resolution   :  How small the triangles in the surfaces are
         self.beta_val = beta_val   # Beta value   :  The maximum vertex radius for the network
         self.box_size = box_size   # Box size     :  Holds the box multiplier for the system box from the atoms box
-
         self.parallelize = False   # Parallelize  :  Split the calculations between cores?
         self.sol_verts = True      # Sol Vertices :  Solve the solution's vertices?
         self.curved_faces = True   # Curved Faces :  Create curved faces for surfaces?

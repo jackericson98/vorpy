@@ -13,6 +13,7 @@ class Vertex:
         self.atoms = atoms  # List of Atom type objects
         self.edges = []  # List of Edge type objects
         self.surfs = []  # List of Surface type objects
+        self.load_ndxs = [[], []]  # Load indices  :   List of object load indices
         if net is not None:
             self.net = net
             self.ndx = [net.atoms.index(atom) for atom in self.atoms]

@@ -8,6 +8,7 @@ from tkinter.ttk import Progressbar
 class Vorpy:
     """Vorpy GUI class. When instantiated the Gui will launch"""
     def __init__(self, width=450, height=700):
+
         # Set up the window
         self.sys_atom_list = []
         self.vp_main = tk.Tk()
@@ -273,3 +274,6 @@ class LoadingBox:
     def stop(self):
         self.pb.stop()
         self.value_label['text'] = self.update_progress_label()
+
+
+Vorpy()

@@ -92,7 +92,7 @@ def write_surfs(surfs, file_name, color=None):
 # Export my system function. Used to create and export the surfaces of a system as one file
 def export_mySys(sys):
     # If the file is none create a pdb for the file
-    write_pdb(sys.atoms, sys.file_address)
+    write_pdb(sys.atoms, sys.base_file)
     # Write the surfaces
     write_surfs(sys.myNet.surfs, sys.name + "_system")
 

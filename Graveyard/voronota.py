@@ -5,7 +5,7 @@ from System.Network.surface import make_mesh, find_simps
 # Build Voronota meshes function. Takes in a voronota system and builds meshes for it
 def build_vrnta_meshes(sys, min_dist):
     # Add the edge points for Voronota's vertices
-    for edge in sys.net.edges:
+    for edge in sys.myNet.edges:
         # Get the vertices of the edge
         v0, v1 = edge.verts
         # Define the vector from v0 to v1
@@ -27,14 +27,14 @@ def build_vrnta_meshes(sys, min_dist):
         # Add v1's location
         edge.points.append(v1.loc)
     # Build each mesh
-    for i in range(len(sys.net.surfs)):
+    for i in range(len(sys.myNet.surfs)):
         # Pull the surf out and name it better
-        surf = sys.net.surfs[i]
+        surf = sys.myNet.surfs[i]
         # Add the edge points to the surfaces edge points
         for edge in surf.edges:
             surf.edge_points += edge.points
         # Get the atoms and make sure the smaller one is a0
-        a0, a1 = sys.net.surfs[i].atoms
+        a0, a1 = sys.myNet.surfs[i].atoms
         if a0.rad > a1.rad:
             a0, a1 = a1, a0
         # Get the normal vector along the direction from a1 to a0
