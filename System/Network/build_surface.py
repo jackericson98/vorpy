@@ -78,7 +78,7 @@ def build_perimeter(surf):
     surf.perimeter = []
     # Go through each edge in the surface's list of edges and build it
     for edge in surf.edges:
-        if len(edge.points) == 0:
+        if edge.points is None or len(edge.points) == 0:
             edge.build()
     # Add the first edge's vertex location and set of points to the perimeter points list
     surf.perimeter = [surf.edges[0].verts[0].loc] + surf.edges[0].points
@@ -121,15 +121,12 @@ def fill_mesh(surf):
     if len(surf.perimeter) == 0:
         build_perimeter(surf)
     # Get the resolution
-    res = surf.net.sys.min_dist
+    res = surf.net.min_dist
     # Get the atoms
     a0, a1 = surf.atoms[0], surf.atoms[1]
     # Get the center of mass for the edges
     com3d = calc_edges_com(surf.edges)
     com = calc_surf_point(surf, com3d)
-    # Check to see if the center of mass is within the surface's perimeter
-    if not tri_within(surf, point=com):
-        return
     # Check to see if the atoms have equal radii
     if a0.rad == a1.rad:
         return
