@@ -6,6 +6,7 @@ class Group:
 
         self.net = net                 # Network            :    Network of the System
         self.atoms = atoms             # Atoms              :    List of Atom type objects for the edge
+        self.prev_sele = None          # Previous Selection :    List of the previously selected atoms
         self.name = None               # Name               :    Name of the group
 
         self.body_surfs = None         # Body surfaces      :    The surfaces on the outside of the body
@@ -26,13 +27,13 @@ class Group:
         # Reset the main information variables
         self.body_surfs, self.all_body_atoms, self.outer_body_atoms, self.surr_body_atoms = [], [], [], []
         self.body_vol, self.body_sa = 0, 0
-        # CGo through the atom in the group
+        # Go through the atom in the group
         for atom in self.atoms:
             # Add the volume of the atom to the group's volume and add the atom to the group
             self.body_vol += atom.cell_vol
             self.all_body_atoms.append(atom)
             # Check the surfaces of each of the atoms to see if they are on the outside or not
-            for surf in atom.surf:
+            for surf in atom.surfs:
                 # Check if the surface's first atom is in self.atoms and the surfaces second atom is in self.bff.atoms
                 if surf.atoms[0] in self.atoms and surf.atoms[1] not in self.atoms:
                     # Add a0 and a1 to the list of the outer atoms and the list of surrounding atoms respectively
@@ -47,7 +48,7 @@ class Group:
                     continue
                 # Add the surface to the list of interface surfs and add the surface area of the surface
                 self.body_surfs.append(surf)
-                self.body_vol += surf.sa
+                self.body_sa += surf.sa
         # If the group has a bff get that information
         if self.bff:
             # Get the surfaces and the
@@ -69,4 +70,3 @@ class Group:
                 # Add the surface to the list of interface surfs and add the surface area of the surface
                 interface.append(surf)
                 self.interface_sa += surf.sa
-
