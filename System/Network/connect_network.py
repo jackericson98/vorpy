@@ -57,7 +57,6 @@ def filter_verts(net):
             verts.append(net.verts[i])
 
     # Set the networks vertices
-    print("Verts filtered = ", net.verts - len(verts))
     net.verts = verts
 
 

@@ -34,7 +34,7 @@ cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([-0.4, 0, 0], 0.5)] + vert_at
 
 
 for i in range(len(cases)):
-    cases[i].net.build(0.05)
+    cases[i].net.build_surfs(0.05)
 
 
 fig = plt.figure(figsize=(20, 40))

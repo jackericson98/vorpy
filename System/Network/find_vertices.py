@@ -181,11 +181,11 @@ def find_site(net, edge_atoms, vn_1=None):
 
 
 # Find network function. Keeps searching the network until all verts are found
-def find_vertices(net, v0=None, print_loc=None):
-    # If print_loc is given, set the
-    if print_loc is not None:
-        tot_verts = print_loc[1]
-        benchmark = print_loc[0]
+def find_vertices(net, v0=None, counter=None):
+    # If the counter is given set the benchmark
+    if counter is not None:
+        tot_verts = counter[1]
+        benchmark = counter[0]
     else:
         tot_verts = len(net.atoms) * 6
         benchmark = 0
@@ -201,8 +201,8 @@ def find_vertices(net, v0=None, print_loc=None):
     while vert_stack:
         # Running print statement giving an estimate for percentage of the network that has been created
         percentage = float(np.round(100 * ((benchmark + len(net.verts)) / tot_verts), 2))
-        print("\rBuilding Network:  ",
-              '#' * (int(percentage) // 10) + ' ' * (10 - (int(percentage) // 10)), percentage, "%", end='')
+        net.sys.gui.percentage.set(str(percentage) + "%")
+        net.sys.gui.loading_bar["value"] = percentage
         # Get the vertex from the top of the stack
         vert = vert_stack.pop()
         # Set up the edge stack

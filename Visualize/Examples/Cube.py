@@ -13,7 +13,8 @@ rad = 1.2
 atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[0, -dist, 0], rad], [[0, 0, dist], rad],
           [[0, 0, -dist], rad]]
 
-sys = System(user_atoms=atoms)
+sys = System()
+sys.user_atoms = atoms
 
 # Build the surfaces
 sys.build_network(get_verts=True)
