@@ -1,8 +1,5 @@
-import numpy as np
-
-from System.Network.find_vertices import *
-from System.Network.connect_network import build
-from System.atom import Atom
+from System.Network.find_verts import *
+from System.Network.build_net import *
 
 
 class Network:
