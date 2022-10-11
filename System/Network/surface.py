@@ -1,10 +1,11 @@
-from System.Network.build_surface import *
+from System.Network.build_surfs import *
 
 
 class Surface:
     """Surface object. Holds the mesh data. Used to analyze interfaces between atoms."""
-    def __init__(self, atoms, net=None, edges=None, verts=None, doublet=False, points=None, tris=None, perimeter=None,
-                 rn=None, sa=None):
+    def __init__(self, atoms=None, net=None, edges=None, verts=None, doublet=False, points=None, tris=None, perimeter=None,
+                 rn=None, sa=0):
+
         # If no network was given have a catch
         if net is not None:
             ndx = [net.atoms.index(atom) for atom in atoms]
@@ -13,7 +14,7 @@ class Surface:
         self.atoms = atoms          # Atoms            : Atoms of the surface
         self.verts = verts          # Vertices         : Vertices of the surface
         self.edges = edges          # Edges            : Edges of the surface
-        self.load_ndxs = [[], []]   # Load indices     : List of object load indices
+        self.load_ndxs = []        # Load indices     : List of object load indices
 
         self.func = None            # Surface function : Holds the coefficients of the function describing the surf
         self.perimeter = perimeter  # Perimeter        : The points around the edges of the surface (IN ORDER)
