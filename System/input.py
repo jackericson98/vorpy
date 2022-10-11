@@ -1,6 +1,5 @@
-from System.Network.network import *
 from System.atom import Atom, get_radius
-from System.Network.connect_network import Edge, Surface
+from System.Network.network import Vertex, Edge, Surface
 
 
 # Get name method. Extracts the name from the file name
