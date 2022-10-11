@@ -49,7 +49,7 @@ def write_pdb(atoms, name):
         symbol = a.element
         charge = a.charge
         # Write the atom information
-        file.write("ATOM  " + ser_num + "  " + name + " " + res + "  " + chain + res_seq + " " + sum(loc_strs) +
+        file.write("ATOM  " + ser_num + "  " + name + " " + res + "  " + chain + res_seq + " " + "".join(loc_strs) +
                    occupancy + t_fact + "       " + seg_id + symbol + charge)
 
 
@@ -94,7 +94,7 @@ def export_mySys(sys):
     # If the file is none create a pdb for the file
     write_pdb(sys.atoms, sys.base_file)
     # Write the surfaces
-    write_surfs(sys.myNet.surfs, sys.name + "_system")
+    write_surfs(sys.net.surfs, sys.name + "_system")
 
 
 # Export interface information function. Exports the information from the given interface as a txt file
@@ -163,8 +163,9 @@ def export_net(net):
     file = open(net.sys.name + "_network.txt", 'w')
 
     # Write the general information about the system
-    file.write("NETW " + str(net.min_dist) + " " + str(net.beta_val) + " " + str(net.box_size) + " " +
-               str(net.sol_verts) + " " + str(net.curved_faces) + " " + str(net.flat_faces) + "\n")
+    file.write("NETW " + str(net.min_dist) + " " + str(net.beta_val) + " " + str(net.box_size) + " " + str(net.my_time)
+               + " " + str(net.cpu_time) + " " + str(net.sol_verts) + " " + str(net.curved_faces) + " " +
+               str(net.flat_faces) + "\n")
 
     # Write Objects:
 
