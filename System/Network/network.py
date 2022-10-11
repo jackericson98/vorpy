@@ -17,6 +17,7 @@ class Network:
         self.edges = edges         # Edges        :  Edges of the network
         self.surfs = surfs         # Surfaces     :  Surfaces of the network
         self.groups = groups       # Groups       :  Groups objects for analysis of selected surfaces
+        self.name = None           # Name         :  Name of the network. Used to name subnetworks recursively
         # Tools for splitting up the atoms
         self.box = None            # Box          :  Holds a max and min vertex for the retaining box
         self.sub_boxes = None      # Sub boxes    :  Holds atoms in their different relative locations in the grid
@@ -72,7 +73,7 @@ class Network:
             return
         # Set the number of boxes to roughly 5x the number of atoms must be a cube for the of cells per row/column/aisle
         if num_boxes is None:
-            n = int(np.cbrt(len(self.atoms) * 5)) + 1
+            n = int(np.cbrt(len(self.atoms) * 20)) + 1
         else:
             n = int(np.cbrt(num_boxes)) + 1
         # First get the box for the atoms to be sorted into
@@ -132,8 +133,10 @@ class Network:
     def connect(self):
         build(self)
 
-    # Split
-    def split_sys(self):
+    # Find subnetworks method. Divides the network up into smaller networks, finds their vertices and combines them
+    def find_subnets(self):
+        # Instantiate the vertices
+        self.verts = []
         # This gets us to average about 60 atoms per medium box
         n = max(int(np.cbrt(len(self.atoms) // 30)), 2)
         # The range to search for new vertices
@@ -141,19 +144,26 @@ class Network:
         # Get the atoms in the
         med_boxes = [[[[] for i in range(n)] for j in range(n)] for k in range(n)]
         # Set up the network list and the list of the atom indices from the main network for reference later
-        test_nets = []
-        test_nets_real_ndxs = []
-        overlap = int(2 * (self.beta_val + self.max_atom_rad) // min(self.sub_box_size)) + 1
+        test_nets, test_nets_real_ndxs = [], []
+        # Calculate the overlap needed to prevent missing vertices
+        overlap = int((self.beta_val + self.max_atom_rad) // min(self.sub_box_size)) + 1
         # Go through each of the boxes in the medium_boxes matrix to create networks
         for i in range(n):
             for j in range(n):
                 for k in range(n):
+                    # get the increment to spread each net out by
                     inc = overlap
+                    # Starting from the middle of the range search out the atoms within 0.75 + the increment
+                    med_boxes[i][j][k] = self.get_atoms([[int((i + .5) * rnge), int((j + .5) * rnge),
+                                                          int((k + .5) * rnge)]], int(rnge // 2) + 1)
+                    # Skip the net if there are no atoms in the quadrant
+                    if len(med_boxes) == 0:
+                        continue
                     # Make sure there are enough atoms to do a valid search
-                    while len(med_boxes[i][j][k]) < 100:
+                    while len(med_boxes[i][j][k]) < 30:
                         # Starting from the middle of the range search out the atoms within 0.75 + the increment
                         med_boxes[i][j][k] = self.get_atoms([[int((i + .5) * rnge), int((j + .5) * rnge),
-                                                              int((k + .5) * rnge)]], int(0.5 * rnge) + inc)
+                                                              int((k + .5) * rnge)]], int(rnge // 2) + inc)
                         inc += 1
                     # Set up the indices' tracker list
                     new_atoms, old_ndxs = [], []
@@ -161,33 +171,32 @@ class Network:
                     for atom in med_boxes[i][j][k]:
                         new_atoms.append(Atom(atom.loc, atom.rad))
                         old_ndxs.append(self.atoms.index(atom))
-                    # Create the network
-                    test_nets.append(Network(self.sys, new_atoms, box_size=1.1, min_dist=self.sys.surf_res,
-                                             beta_val=self.sys.beta_val))
+                    # Create the network and add it to the list of subnetworks
+                    test_nets.append(Network(sys=self.sys, atoms=new_atoms, box_size=1.1, min_dist=self.min_dist,
+                                             beta_val=self.beta_val))
+                    # Store the atoms' real indices
                     test_nets_real_ndxs.append(old_ndxs)
-                    rnge = len(self.sub_boxes) // n
-        num_verts = 0
-
-        # Find the vertices
+        # Find the vertices for each of the networks
         for i in range(len(test_nets)):
-            # Get the fake network
+            # Get the subnetwork
             net2 = test_nets[i]
-            # Create a counter for the find vertices function
-            counter = [num_verts, num_verts + sum([len(test_nets[_].atoms) * 6 for _ in range(i, len(test_nets))])]
+            # Sort the atoms in the network
+            net2.sort_atoms()
+            # Set the name of the subnetwork and print the progress
+            net2.name = "Subnetwork " + str(i + 1) + "/" + len(test_nets) + " of " + self.name
+            print("Finding " + net2.name + " - " + len(net2.atoms) + " atoms\r\r")
             # Find the vertices
-            find_vertices(net2, self.sys.gui, counter)
-            # keep recording the number of vertices already in the network
-            num_verts += len(net2.verts)
-
-        # Fix and filter the vertices
+            net2.find_verts(n)
+        # Go through each of the vertices found in each of the subnetworks filtering out repeat/large verts + doublets
         for i in range(len(test_nets)):
+            # Grab the subnetwork
             net2 = test_nets[i]
             # Sort through the vertices in each network
             for j in range(len(net2.verts)):
+                # Grab the vertex
                 vert = net2.verts[j]
-                # Get the vertex's actual atoms
+                # Set the vertex's actual atoms and use them to set the vertex's index, then sort it
                 vert.atoms = [self.atoms[test_nets_real_ndxs[i][ndx]] for ndx in vert.ndx]
-                # Get the vertex's index
                 vert.ndx = [self.atoms.index(atom) for atom in vert.atoms]
                 vert.ndx.sort()
                 # Look for the vertex in the network
@@ -215,10 +224,13 @@ class Network:
                         self.verts.insert(v_ndx, vert)
 
     # Find vertices method. Using the functions in find_vertices.py finds the vertices in the network
-    def find_verts(self, counter=None):
-        # If the atom has no vertices run the vertex finder on it
-        v0 = find_v0(self)
-        find_vertices(self, v0, counter)
+    def find_verts(self, n=None):
+        # For small systems (<= 200) run the normal algorithm
+        if len(self.atoms) <= 100 or n == 3:
+            find_vertices(self)
+        # For large systems, split the atoms into separate smaller networks top search for vertices in
+        else:
+            self.find_subnets()
 
     # Build network function. Takes in a system and returns a fully connected network
     def build_surfs(self):
@@ -234,6 +246,7 @@ class Network:
                 self.surfs[i].build_vta()
             # Otherwise, proceed with the regular build method
             else:
+                print("Building surface " + str(i + 1) + "/" + str(len(self.surfs)))
                 self.surfs[i].build()
 
     # Analyze system function. Finds the surfaces and volumes of the system
