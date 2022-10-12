@@ -1,72 +1,67 @@
 from System.calcs import *
 from System.Network.vertex import Vertex
+from System.Network.edge import Edge
 
 
-# Find v0 function. Finds the first vertex in the network
-def find_v0(net, a0=None, n=0):
-    # Check for if the network does not have enough atoms
-    if len(net.atoms) < 4:
-        return
-    # If no a0 is given
-    if a0 is None:
+# Find v0 function. Uses the atom finding functions to find a real verified site in the network
+def find_v0(net):
+    # Instantiate the v0 variable
+    v0 = None
+    i = 0
+    # Find the initial atom in the system, with the option to change it if necessary
+    while v0 is None and i < len(net.atoms):
+        print(i)
         # Find the middle sub_box of the set of boxes and
         mid = len(net.sub_boxes) // 2
-        atoms = []
-        inc = 1
-        while not atoms:
-            atoms = net.get_atoms([[mid, mid, mid]], inc)
+        a0s = []
+        inc = 0
+        # Keep grabbing atoms until we have enough to get the current a0 increment
+        while len(a0s) < i + 1:
+            a0s = net.get_atoms([[mid, mid, mid]], inc)
             inc += 1
-        a0 = atoms[-1 - n]
-    # Find the set of atoms with the minimum distance between surfaces
-    min_dist = np.inf
-    a1 = None
-    inc = 0
-    while a1 is None and inc <= len(net.sub_boxes) + 1:
-        # Get the atoms in the system
-        atoms = net.get_atoms([a0.box], inc)
-        # Go through each atom determining the atom with the minimum distance between it and a0's surfaces
-        for atom in atoms:
-            # Skip a0
-            if atom == a0:
-                continue
-            # Set the new atom distances
-            a_dist = calc_dist(a0.loc, atom.loc) - (a0.rad + atom.rad)
-            # If the new atom distance is less than the previous minimum distance update the variables
-            if a_dist < min_dist:
-                min_dist = a_dist
-                a1 = atom
-        inc += 1
-    # Find the set of atoms with the minimum inscribed circle
-    min_rad = np.inf
-    a2 = None
-    inc = 0
-    while a2 is None and inc <= len(net.sub_boxes) + 1:
-        # Get the atoms from the network
-        atoms = net.get_atoms([a0.box, a1.box], inc + 1)
-        # Go through each other atom to determine the smallest circle that can be made with our 2 atoms and a third
-        for atom in atoms:
-            # Skip a0, a1
-            if atom == a0 or atom == a1:
-                continue
-            # Calculate the circle made with the 3 atoms
-            circ = calc_circ([a0, a1, atom])
-            # If the radius of the inscribed circle is smaller than the previous smallest found circle's rad replace
-            if circ and abs(circ[1]) < min_rad:
-                min_rad = abs(circ[1])
-                a2 = atom
-        inc += 1
-    if a2 is None:
-        return
-    # Find the set of atoms with the minimum inscribed sphere
-    myVert = find_site(net, [a0, a1, a2])
-    # Keep recursively calling the find_v0 function until it finds a valid site that isn't a doublet
-    if myVert is None:
-        myVert = find_v0(net, a0=net.atoms[n], n=n+1)
-    else:
-        # If we find v0 return the vertex that was found
-        myVert = myVert[0]
-    # Return the vertex
-    return myVert
+        # Pull an atom from the atoms list
+        a0 = a0s[i]
+        a1s = []
+        inc = 0
+        # Get the 5 closest atoms to a0
+        while len(a1s) < 5:
+            a1s = net.get_atoms([a0.box], inc)
+            inc += 1
+        # Set up the a2s lists
+        a2s = []
+        # Check the a1s for verifiable
+        for j in range(len(a1s)):
+            # Add the circle check
+            a2s.append([])
+            inc = 0
+            # Get the 20 closest atoms to a0 and the current a1
+            while len(a2s[j]) < 20:
+                a2s[j] = net.get_atoms([[mid, mid, mid]], inc)
+                inc += 1
+
+            # Filter out the circles that don't work
+
+            # Set up verified circles list for this a1
+            verified_circles = []
+            # Check each of the combinations for this a1
+            for a2 in a2s[j]:
+                # Use an edge object as a vehicle for calculating and verifying the inscribed circle
+                edge = Edge(atoms=[a0, a1s[j], a2])
+                edge.get_loc()
+                # If a circle can be made and the site does not overlap with any other atoms, add it to the list
+                if edge.loc is not None and verify_site(edge, net):
+                    verified_circles.append(edge.atoms)
+
+            # Test for verified sites
+
+            # Try to make a verified v0 site with the verified circles
+            for circle in verified_circles:
+                # Try to create a vertex
+                myVert = find_site(net, circle)[0]
+                # Check for a real site
+                if myVert is not None and myVert.loc is not None:
+                    return myVert
+        i += 1
 
 
 # Verify site function. Compares a vertex to the atoms around to see if they overlap
@@ -132,6 +127,7 @@ def find_site(net, edge_atoms, vn_1=None):
             return
         # Create the vertex
         vert = Vertex(edge_atoms + [atom], net=net)
+        vert.calc_vert()
         # Filter the vertex out if it is too large or not able to be made
         if vert.loc is None or vert.rad > net.beta_val:
             continue
@@ -189,10 +185,9 @@ def find_vertices(net, v0=None, counter=None):
     else:
         tot_verts = len(net.atoms) * 6
         benchmark = 0
-    # If no vert is given get one
-    if v0 is None:
-        # Find the first vertex in the System
-        v0 = find_v0(net)
+    # Find the first verified vertex
+    v0 = find_v0(net)
+    print("found v0")
     # Add v0 to the System
     net.verts = [v0]
     # Set up the vertex stack
