@@ -352,7 +352,7 @@ HET     CL  A 173       1
 HET     CL  A 178       1                                                       
 HET    BME  A 901       4                                                       
 HET    BME  A 902       4                                                       
-HET    BNZ  A 400       6                                                       
+HET    BNZ  A 400       6
 HETNAM      CL CHLORIDE ION                                                     
 HETNAM     BME BETA-MERCAPTOETHANOL                                             
 HETNAM     BNZ BENZENE                                                          
