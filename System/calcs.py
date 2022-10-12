@@ -1,11 +1,10 @@
 import numpy as np
-import os
 
 
 # Calculate distance function. Takes in 2 points and returns the distance between them
 def calc_dist(l1, l2):
-    d = np.sqrt((l1[0]-l2[0])**2+(l1[1]-l2[1])**2+(l1[2]-l2[2])**2)
-    return d
+    # Pythagorean theorem
+    return np.sqrt((l1[0]-l2[0])**2+(l1[1]-l2[1])**2+(l1[2]-l2[2])**2)
 
 
 # Calculate angle function. Finds the angle (in rads) between three points. The first being the common point
@@ -133,13 +132,23 @@ def calc_circ(atoms):
     # Calculate the discriminant.
     disc = b ** 2 - 4 * a * c
     # If the discriminant is negative then the tangential circle does not exist.
-    if round(disc, 10) >= 0:
+    if round(disc, 10) > 0:
         # Grab the two roots
         Rs = [R for R in np.roots([a, b, c]) if np.isreal(R)]
-        if len(Rs) > 1 and abs(Rs[1]) < abs(Rs[0]):
-            Rs[0], Rs[1] = Rs[1], Rs[0]
-        R = Rs[0]
-        # Go through each circle and gather its points
+        # If there is only one root return it
+        if len(Rs) == 1:
+            R = Rs[0]
+        # If there are 2 roots choose between them
+        else:
+            # If the smaller of the two roots is negative return the other root
+            if min(Rs) < 0:
+                R = max(Rs)
+            # If they're both positive, return the smaller of the two
+            elif Rs[0] > 0 and Rs[1] > 0:
+                R = min(Rs)
+            # If they're both negative return
+            else:
+                return
         # Calculate the vertex based off of our coefficient values and the sphere's radius
         x = Fx0 / F + R * Fx1 / F + l1[0]
         y = Fy0 / F + R * Fy1 / F + l1[1]
