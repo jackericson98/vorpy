@@ -44,6 +44,7 @@ class System:
             self.net_files.append(net_file)
             self.nets.append(Network(self, self.atoms))
             import_net(self.nets[-1], net_file)
+        self.analysis_prep()
 
     # Build System method. Takes in a list of atomic values
     def build_user_atoms_sys(self, user_atoms):
@@ -145,26 +146,21 @@ class System:
             self.net.find_verts()
             # Connect the network
             self.net.connect()
-        # Set the output directory
-        set_output_dir(self, self.output_directory)
         # Export the vertices
         self.gui.update_progress_canvas()
         # Build the network
         self.net.build_surfs()
         # Analyze the network
         self.net.analyze()
-        # Export the rest of the network
-        self.export_net()
         # Stop the timer and measure the time
         stop = time.perf_counter()
         self.net.my_time = stop - start
+        self.analysis_prep()
 
     # Export network method. Exports the values calculated by the network
     def export_net(self):
         # Export the network
         export_net(self.net)
-        # Export a full system
-        export_mySys(self)
 
     # Export selection method. Exports either a single group's body or two group's bodies and the interface between them
     def export_selection(self, group1, group2=None, info=True):
@@ -180,3 +176,18 @@ class System:
     # Set output directory method. Links set output directory to the system
     def set_output_directory(self):
         set_output_dir(self)
+
+    # Analysis preparation method. Prepares the output directory and system for output. Kepps things consistent
+    def analysis_prep(self):
+        # Set the output directory
+        self.set_output_directory()
+        # Export the network
+        self.export_net()
+        # Export a pdb file for the system
+        write_pdb(self.atoms, self.name)
+        # Export a full system
+        export_mySys(self)
+        # Make the surfaces file
+        os.mkdir(self.output_directory + "/Surfaces")
+        os.chdir(self.output_directory + "/Surfaces")
+
