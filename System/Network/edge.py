@@ -1,5 +1,3 @@
-import numpy as np
-
 from System.calcs import *
 from System.Network.surface import Surface
 
@@ -26,11 +24,17 @@ class Edge:
         self.pa = None                   # Projection pt :   The projection point from which the edge is built
         self.doublet = doublet           # Doublet       :   Boolean for if the edge is part of a doublet or not
 
-    # Find projection values. Calculates the correct end points and projection point for the edge
+    # Get location method. Calculates the circle made between the atoms
+    def get_loc(self):
+        # Get the center point of the edge and the bottleneck
+        circ = calc_circ(self.atoms)
+        if circ is not None:
+            self.loc, self.rad = circ
+
+    # Find projection values. Calculates the correct end and projection points for the edge
     def find_pvals(self):
 
-        ############################################ Find Ends #########################################################
-
+        # Find the ends
         # Catch for an edge that is formed between the same vertex, but different doublet sites
         if self.doublet:
             self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[0].loc2)
@@ -68,15 +72,12 @@ class Edge:
             # Typical case, no doublets
             self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
 
-        ###################################### Get the projection point ################################################
-
+        # Get the projection point
         # Find the point in between the two vertex points
         r01 = self.pv1 - self.pv0  # Vector between vertices
         r_mag = np.linalg.norm(r01)  # Magnitude of the vector between the two vertex points
         rn01 = r01 / r_mag  # Normal to the vector between the vertices
         pc01 = self.pv0 + 0.5 * rn01 * r_mag  # Center point
-        # Get the center point of the edge and the bottleneck
-        self.loc, self.rad = calc_circ(self.atoms)
 
         # Determine if the theoretical center of the edge is inside the vertices or not
         dr = 1
@@ -91,12 +92,55 @@ class Edge:
         # Calculate the reference point
         self.pa = pc01 + 2 * r_mag * rnpcr
 
+    # Project method. Projects a point onto the surface using a reference point
+    def project(self, rn, pa, surf):
+        # Check to see if the surface has its function values
+        if surf.func is None:
+            surf.calc_func()
+        # Get the function values
+        f, a0, a1 = surf.func, surf.atoms[0], surf.atoms[1]
+        # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
+        a = f[0] * rn[0] ** 2 + f[1] * rn[1] ** 2 + f[2] * rn[2] ** 2 + f[3] * rn[0] * rn[1] + f[4] * rn[
+            1] * rn[
+                2] + f[5] \
+            * rn[2] * rn[0]
+        b = 2 * f[0] * rn[0] * pa[0] + 2 * f[1] * rn[1] * pa[1] + 2 * f[2] * rn[2] * pa[2] + f[3] \
+            * (rn[0] * pa[1] + rn[1] * pa[0]) + f[4] * (rn[1] * pa[2] + rn[2] * pa[1]) + f[5] \
+            * (rn[2] * pa[0] + rn[0] * pa[2]) + f[6] * rn[0] + f[7] * rn[1] + f[8] * rn[2]
+        c = f[0] * pa[0] ** 2 + f[1] * pa[1] ** 2 + f[2] * pa[2] ** 2 + f[3] * pa[0] * pa[1] + f[4] * pa[1] * pa[
+            2] + \
+            f[5] * pa[2] * pa[0] + f[6] * pa[0] + f[7] * pa[1] + f[8] * pa[2] + f[9]
+        # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
+        # and add that point to our surface list of points
+        if round(b ** 2 - 4 * a * c, 10) >= 0:
+            # Calculate the roots
+            roots = np.roots([a, b, c])
+            # If one root exists return it
+            if len(roots) == 1:
+                return pa + roots[0] * rn
+            else:
+                p1 = pa + min(roots) * rn
+                p2 = pa + max(roots) * rn
+            # If the point we are calculating is the first in the edge choose the one closest to the vertex
+            if len(self.points) == 1:
+                point = p1
+                if calc_dist(p2, self.points[0]) <= calc_dist(p1, self.points[0]):
+                    point = p2
+            # If we have 2 points to choose from, choose the one that makes the angle closer to 180
+            else:
+                point = p1
+                if calc_angle(self.points[-1], self.points[-2], p2) >= calc_angle(self.points[-1], self.points[-2], p1):
+                    point = p2
+            # Return the point we choose
+            return point
+
     # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
     def build(self):
 
+        # Get the location and radius of the circle inscribed between the edge atoms
+        self.get_loc()
         # Get the pvals
         self.find_pvals()
-
         # Reset the edges points
         self.points = []
         # Get the network's minimum distance
@@ -159,45 +203,3 @@ class Edge:
             if surf_point is None:
                 break
             self.points.append(surf_point)
-
-    # Project method. Projects a point onto the surface using a reference point
-    def project(self, rn, pa, surf):
-        # Check to see if the surface has its function values
-        if surf.func is None:
-            surf.calc_func()
-        # Get the function values
-        f, a0, a1 = surf.func, surf.atoms[0], surf.atoms[1]
-        # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
-        a = f[0] * rn[0] ** 2 + f[1] * rn[1] ** 2 + f[2] * rn[2] ** 2 + f[3] * rn[0] * rn[1] + f[4] * rn[
-            1] * rn[
-                2] + f[5] \
-            * rn[2] * rn[0]
-        b = 2 * f[0] * rn[0] * pa[0] + 2 * f[1] * rn[1] * pa[1] + 2 * f[2] * rn[2] * pa[2] + f[3] \
-            * (rn[0] * pa[1] + rn[1] * pa[0]) + f[4] * (rn[1] * pa[2] + rn[2] * pa[1]) + f[5] \
-            * (rn[2] * pa[0] + rn[0] * pa[2]) + f[6] * rn[0] + f[7] * rn[1] + f[8] * rn[2]
-        c = f[0] * pa[0] ** 2 + f[1] * pa[1] ** 2 + f[2] * pa[2] ** 2 + f[3] * pa[0] * pa[1] + f[4] * pa[1] * pa[
-            2] + \
-            f[5] * pa[2] * pa[0] + f[6] * pa[0] + f[7] * pa[1] + f[8] * pa[2] + f[9]
-        # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
-        # and add that point to our surface list of points
-        if round(b ** 2 - 4 * a * c, 10) >= 0:
-            # Calculate the roots
-            roots = np.roots([a, b, c])
-            # If one root exists return it
-            if len(roots) == 1:
-                return pa + roots[0] * rn
-            else:
-                p1 = pa + min(roots) * rn
-                p2 = pa + max(roots) * rn
-            # If the point we are calculating is the first in the edge choose the one closest to the vertex
-            if len(self.points) == 1:
-                point = p1
-                if calc_dist(p2, self.points[0]) <= calc_dist(p1, self.points[0]):
-                    point = p2
-            # If we have 2 points to choose from, choose the one that makes the angle closer to 180
-            else:
-                point = p1
-                if calc_angle(self.points[-1], self.points[-2], p2) >= calc_angle(self.points[-1], self.points[-2], p1):
-                    point = p2
-            # Return the point we choose
-            return point
