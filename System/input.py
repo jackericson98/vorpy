@@ -116,6 +116,7 @@ def import_net(net, filename):
     net.verts, net.edges, net.surfs = [], [], []
     # Instantiate the current objects
     curr_atom, curr_vert, curr_edge, curr_surf = Atom(), Vertex(), Edge(), Surface()
+    perim_len = 0
     # Go through the file, line by line
     for i in range(len(file)):
         # Get the line
@@ -168,7 +169,7 @@ def import_net(net, filename):
             if line[10].lower() == 'true':
                 dub, loc2, rad2 = True, [float(_) for _ in line[11:14]], float(line[14])
             # Set up the default vertex
-            myVert = Vertex(atoms=atoms, net=net, location=loc, radius=rad, doublet=dub, loc2=loc2, rad2=rad2)
+            myVert = Vertex(atoms=atoms, net=net, location=loc, radius=rad, doublet=dub, loc2=loc2, rad2=rad2, ndx=ndxs)
             curr_vert = myVert
             # Add the vertex to the network
             net.verts.append(myVert)
@@ -216,6 +217,7 @@ def import_net(net, filename):
             mySurf.rn, mySurf.sa, mySurf.points, mySurf.tris = [float(_) for _ in line[4:7]], float(line[7]), [], []
             # Set the current surface
             curr_surf = mySurf
+            perim_len = int(line[8])
             net.surfs.append(mySurf)
         # Add the surface connections
         elif line[0].lower() == 'scon':
@@ -224,6 +226,8 @@ def import_net(net, filename):
         # Surface point
         elif line[0].lower() == 'spnt':
             curr_surf.points.append([float(_) for _ in line[1:]])
+            if len(curr_surf.points) == perim_len:
+                curr_surf.perimeter = curr_surf.points
         # Surface triangles
         elif line[0].lower() == 'stri':
             curr_surf.tris.append([int(_) for _ in line[1:]])
