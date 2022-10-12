@@ -18,11 +18,12 @@ def get_name(file):
 
 # Read pdb function. Interprets pdb data into a system of atom objects
 def read_pdb(sys):
-    # Get the file information
-    file = open(sys.base_file).readlines()
+    # Get the file information and make sure to close the file when done
+    with open(sys.base_file, 'r') as f:
+        file = f.readlines()
+    # Add the system name and reset the atoms and data lists
     sys.sys_file_name = get_name(sys.base_file)
-    atoms = []
-    data = []
+    atoms, data = [], []
     # Go through each line in the file and check if the first word is the word we are looking for
     for i in range(len(file)):
         # Check to make sure the line isn't empty
