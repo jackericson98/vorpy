@@ -177,7 +177,7 @@ class System:
     def set_output_directory(self):
         set_output_dir(self)
 
-    # Analysis preparation method. Prepares the output directory and system for output. Kepps things consistent
+    # Analysis preparation method. Prepares the output directory and system for output. Keeps things consistent
     def analysis_prep(self):
         # Set the output directory
         self.set_output_directory()
@@ -190,4 +190,12 @@ class System:
         # Make the surfaces file
         os.mkdir(self.output_directory + "/Surfaces")
         os.chdir(self.output_directory + "/Surfaces")
+        # Export the surfaces one by one
+        for i in range(len(self.net.surfs)):
+            # Export the
+            surf = self.net.surfs[i]
+            # Get a random color
+            my_color = np.random.rand(3)
+            # Write each of the surfaces
+            write_surfs([surf], "surf_" + str(surf.ndx[0]) + "_" + str(surf.ndx[1]), my_color)
 
