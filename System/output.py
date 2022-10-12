@@ -89,8 +89,6 @@ def write_surfs(surfs, file_name, color=None):
 
 # Export system function. Used to create and export the surfaces of a system as one file
 def export_mySys(sys):
-    # If the file is none create a pdb for the file
-    write_pdb(sys.atoms, sys.base_file)
     # Write the surfaces
     write_surfs(sys.net.surfs, sys.name + "_system")
 
@@ -134,9 +132,6 @@ def export_interface(groups, info_file=False, interface_atoms=False):
 def export_body(group, info_file=False, outer_atoms=False):
     # Move to the output directory
     os.chdir(group.net.sys.output_directory)
-    # Create and move to the interface directory
-    os.mkdir(os.getcwd() + "/" + group.name)
-    os.chdir(os.getcwd() + "/" + group.name)
     # Write the surfaces for the interface
     write_surfs(group.body_surfs, group.name)
     # Check to see of the user wants to export the interface's atoms
@@ -242,7 +237,7 @@ def export_net(net):
         # Write the main edge information
         ndx, rn = [str(_) for _ in surf.ndx], [str(_) for _ in surf.rn]
         file.write("SURF " + str(net.surfs.index(surf)) + " " + " ".join(ndx) + " " + " ".join(rn) + " " +
-                   str(surf.interface_sa) + " " + str(len(surf.perimeter)) + '\n')
+                   str(surf.sa) + " " + str(len(surf.perimeter)) + '\n')
         # Get the vertex, edge and surface index information
         vert_ndxs = [str(net.verts.index(vert)) for vert in surf.verts]
         edge_ndxs = [str(net.edges.index(edge)) for edge in surf.edges]
