@@ -102,6 +102,12 @@ def find_site(net, edge_atoms, vn_1=None):
         vert_atoms = edge_atoms
     else:
         vert_atoms = vn_1.atoms
+    # Set up check sol variable
+    check_sol = False
+    # Check the edge atoms to see if they are sol atoms
+    if (not net.sol_verts) and edge_atoms[0].res.lower() == 'sol' and \
+            edge_atoms[1].res.lower() == 'sol' and edge_atoms[2].res.lower() == 'sol':
+        check_sol = True
     # Set up a list of atoms to test our edge atoms with
     test_atoms = []
     inc = 0
@@ -115,7 +121,7 @@ def find_site(net, edge_atoms, vn_1=None):
     # Go through each atom in the network --> This can easily be improved
     for atom in test_atoms:
         # If the atom is in the previous vertex move on
-        if atom in vert_atoms:
+        if atom in vert_atoms or check_sol and atom.res.lower() == 'sol':
             continue
         # If we have found the vertex before it is not the previous vertex return
         atom_ndxs = [net.atoms.index(atom1) for atom1 in edge_atoms + [atom]]
@@ -187,7 +193,6 @@ def find_vertices(net, v0=None, counter=None):
         benchmark = 0
     # Find the first verified vertex
     v0 = find_v0(net)
-    print("found v0")
     # Add v0 to the System
     net.verts = [v0]
     # Set up the vertex stack
