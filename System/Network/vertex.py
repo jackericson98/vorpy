@@ -3,14 +3,14 @@ from System.calcs import *
 
 class Vertex:
     """Vertex object. Used to build the network and calculate the surfaces"""
-    def __init__(self, atoms=None, net=None, location=None, radius=None, loc2=None, rad2=None, doublet=False):
+    def __init__(self, atoms=None, net=None, location=None, radius=None, loc2=None, rad2=None, doublet=False, ndx=None):
 
         self.net = net           # Network       :   Network object for the vertex to refer back to
         self.atoms = atoms       # Atoms         :   List of atoms used to construct the vertex
         self.edges = []          # Edges         :   List of Edge type objects connected to the vertex in the network
         self.surfs = []          # Surfaces      :   List of Surface type objects that the vertex is a part of
 
-        self.ndx = None          # Index         :   Indices of the atoms in the vertex
+        self.ndx = ndx           # Index         :   Indices of the atoms in the vertex
         self.loc = location      # Location      :   Where the vertex is located in 3D
         self.rad = radius        # Radius        :   Radius of the vertex's tangential sphere
         self.load_ndxs = []      # Load indices  :   List of object load indices
