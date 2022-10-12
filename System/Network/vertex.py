@@ -24,7 +24,7 @@ class Vertex:
     def calc_vert(self):
         # If the vertex is mature enough to be calculated, create and sort its indices
         self.ndx = [self.net.atoms.index(atom) for atom in self.atoms]
-        self.ndx = self.ndx.sort()
+        self.ndx.sort()
         # The real location and radius of the base sphere
         locs = np.array(self.atoms[0].loc), np.array(self.atoms[1].loc), np.array(self.atoms[2].loc), \
                np.array(self.atoms[3].loc)
