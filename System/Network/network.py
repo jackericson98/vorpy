@@ -121,7 +121,11 @@ class Network:
                         continue
                     # Easy way around hitting the edge of the box
                     try:
+                        # Add the atoms
                         atoms += self.sub_boxes[i][j][k]
+                        # Add a little catch to not go forever
+                        if len(atoms) == len(self.atoms):
+                            return atoms
                     except IndexError:
                         continue
         return atoms
@@ -180,7 +184,7 @@ class Network:
             # Sort the atoms in the network
             net2.sort_atoms()
             # Set the name of the subnetwork and print the progress
-            net2.name = "Subnetwork " + str(i + 1) + "/" + len(test_nets) + " of " + self.name
+            net2.name = "Subnetwork " + str(i + 1) + "/" + str(len(test_nets)) + " of " + self.name
             print("Finding " + net2.name + " - " + len(net2.atoms) + " atoms\r\r")
             # Find the vertices
             net2.find_verts(n)
