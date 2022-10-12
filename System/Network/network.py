@@ -5,35 +5,35 @@ from System.Network.build_net import *
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
     def __init__(self, sys, index=0, atoms=None, verts=None, edges=None, surfs=None, groups=None,
-                 min_dist=0.1, box_size=1.5, beta_val=2):
+                 min_dist=0.1, box_size=1.5, beta_val=2, sol_verts=True):
         # Network graph objects
-        self.sys = sys             # System       :  Route back to outer system for system attribute access
-        self.index = index         # Index        :  Holds the index of the network in the system object
-        self.atoms = atoms         # Atoms        :  Atoms of the network. Should be identical to self.sys.atoms
-        self.verts = verts         # Vertices     :  Vertices of the network
-        self.edges = edges         # Edges        :  Edges of the network
-        self.surfs = surfs         # Surfaces     :  Surfaces of the network
-        self.groups = groups       # Groups       :  Groups objects for analysis of selected surfaces
-        self.name = None           # Name         :  Name of the network. Used to name subnetworks recursively
+        self.sys = sys              # System        :  Route back to outer system for system attribute access
+        self.index = index          # Index         :  Holds the index of the network in the system object
+        self.atoms = atoms          # Atoms         :  Atoms of the network. Should be identical to self.sys.atoms
+        self.verts = verts          # Vertices      :  Vertices of the network
+        self.edges = edges          # Edges         :  Edges of the network
+        self.surfs = surfs          # Surfaces      :  Surfaces of the network
+        self.groups = groups        # Groups        :  Groups objects for analysis of selected surfaces
+        self.name = None            # Name          :  Name of the network. Used to name subnetworks recursively
         # Tools for splitting up the atoms
-        self.box = None            # Box          :  Holds a max and min vertex for the retaining box
-        self.sub_boxes = None      # Sub boxes    :  Holds atoms in their different relative locations in the grid
-        self.sub_box_size = None   # Sub box size :  Holds the size of each sub box
-        self.atoms_box = []        # Atoms box    :  Holds the min and max verts for the box containing the atoms
-        self.max_atom_rad = 0      # Max atom rad :  Holds the largest radius of the system for reference
-        self.vert_ndxs = []        # Vert indices :  Holds the indices of the atoms of the vertices in the network
+        self.box = None             # Box           :  Holds a max and min vertex for the retaining box
+        self.sub_boxes = None       # Sub boxes     :  Holds atoms in their different relative locations in the grid
+        self.sub_box_size = None    # Sub box size  :  Holds the size of each sub box
+        self.atoms_box = []         # Atoms box     :  Holds the min and max verts for the box containing the atoms
+        self.max_atom_rad = 0       # Max atom rad  :  Holds the largest radius of the system for reference
+        self.vert_ndxs = []         # Vert indices  :  Holds the indices of the atoms of the vertices in the network
         # Settings
-        self.min_dist = min_dist   # Resolution   :  How small the triangles in the surfaces are
-        self.beta_val = beta_val   # Beta value   :  The maximum vertex radius for the network
-        self.box_size = box_size   # Box size     :  Holds the box multiplier for the system box from the atoms box
-        self.parallelize = False   # Parallelize  :  Split the calculations between cores?
-        self.sol_verts = True      # Sol Vertices :  Solve the solution's vertices?
-        self.curved_faces = True   # Curved Faces :  Create curved faces for surfaces?
-        self.flat_faces = False    # Flat Faces   :  Create flat faces for surfaces?
-        self.verts_loaded = False  # Verts Loaded :  Use loaded verts?
+        self.min_dist = min_dist    # Resolution    :  How small the triangles in the surfaces are
+        self.beta_val = beta_val    # Beta value    :  The maximum vertex radius for the network
+        self.box_size = box_size    # Box size      :  Holds the box multiplier for the system box from the atoms box
+        self.parallelize = False    # Parallelize   :  Split the calculations between cores?
+        self.sol_verts = sol_verts  # Sol Vertices  :  Solve the solution's vertices?
+        self.curved_faces = True    # Curved Faces  :  Create curved faces for surfaces?
+        self.flat_faces = False     # Flat Faces    :  Create flat faces for surfaces?
+        self.verts_loaded = False   # Verts Loaded  :  Use loaded verts?
         # Run diagnostics
-        self.cpu_time = None       # CPU time     :  CPU time taken to calculate the network
-        self.my_time = None        # My time      :  Time taken to calculate the network
+        self.cpu_time = None        # CPU time      :  CPU time taken to calculate the network
+        self.my_time = None         # My time       :  Time taken to calculate the network
 
     # Calculate box function. Takes in a System and returns the dimensions of a box x times the size of the atoms
     def calc_box(self):
@@ -174,7 +174,7 @@ class Network:
                         old_ndxs.append(self.atoms.index(atom))
                     # Create the network and add it to the list of subnetworks
                     test_nets.append(Network(sys=self.sys, atoms=new_atoms, box_size=1.1, min_dist=self.min_dist,
-                                             beta_val=self.beta_val))
+                                             beta_val=self.beta_val, sol_verts=self.sol_verts))
                     # Store the atoms' real indices
                     test_nets_real_ndxs.append(old_ndxs)
         # Find the vertices for each of the networks
