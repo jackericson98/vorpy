@@ -185,7 +185,7 @@ class Network:
             net2.sort_atoms()
             # Set the name of the subnetwork and print the progress
             net2.name = "Subnetwork " + str(i + 1) + "/" + str(len(test_nets)) + " of " + self.name
-            print("Finding " + net2.name + " - " + len(net2.atoms) + " atoms\r\r")
+            print("Finding " + net2.name + " - " + str(len(net2.atoms)) + " atoms\r\r")
             # Find the vertices
             net2.find_verts(n)
         # Go through each of the vertices found in each of the subnetworks filtering out repeat/large verts + doublets
@@ -227,7 +227,7 @@ class Network:
     # Find vertices method. Using the functions in find_vertices.py finds the vertices in the network
     def find_verts(self, n=None):
         # For small systems (<= 200) run the normal algorithm
-        if len(self.atoms) <= 100 or n == 3:
+        if len(self.atoms) <= 300 or n == 2:
             find_vertices(self)
         # For large systems, split the atoms into separate smaller networks top search for vertices in
         else:
