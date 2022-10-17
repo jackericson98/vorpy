@@ -26,7 +26,6 @@ class Vorpy:
 
         self.mol_list, self.res_list, self.atom_list = [], [], []
 
-
         self.sys_name = tk.StringVar(self.main, "No System Selected")
         self.net_name = tk.StringVar(self.main, "No Network Selected")
         self.sys_file = None
@@ -48,8 +47,6 @@ class Vorpy:
         self.sys_res_flt = tk.DoubleVar(self.main, 0.1)
         self.sys_alpha_value = tk.DoubleVar(self.main, 5)
         self.sys_box_x_flt = tk.DoubleVar(self.main, 1.4)
-
-
 
         ############################################## Load Header subframe ############################################
 
@@ -140,7 +137,6 @@ class Vorpy:
                  resolution=.05, length=400).grid(row=6, column=0, columnspan=3, sticky='ew')
         tk.Label(bld_sbfrm, text="x", font=('Times New Roman', 20)).grid(row=6, column=3, sticky='s')
 
-
         # Parallelize check
         self.parallelize = tk.BooleanVar(self.main)
         tk.Checkbutton(bld_sbfrm, text="Parallelize ", variable=self.parallelize, onvalue=True,
@@ -170,11 +166,10 @@ class Vorpy:
         tk.Button(bld_sbfrm, text="Build Network", font=("Times New Roman bold", 20),
                   command=self.build_network_button).grid(row=5, rowspan=2, column=4, columnspan=2)
 
-
-
         """########################################### Build Frame ##################################################"""
 
         self.build_frame = tk.Frame(self.main, name="build")
+        # self.build_frame.pack()
 
         # Header
         tk.Label(self.build_frame, text="VorPy", font=("Times New Roman bold", 40)).grid(row=0, column=0,
@@ -219,8 +214,6 @@ class Vorpy:
         # Cancel button
         tk.Button(self.build_frame, text='Quit').grid(row=5)
 
-
-
         """######################################### Analysis Frame #################################################"""
 
         # Set up the analysis frame
@@ -229,15 +222,14 @@ class Vorpy:
         # Header
         tk.Label(self.analysis_frame, text="VorPy", font=("Times New Roman bold", 40)).grid(row=0, columnspan=3,
                                                                                             padx=10, pady=10,)
-
-        # Seperator
+        # Separator
         ttk.Separator(self.analysis_frame).grid(row=1, columnspan=3, sticky='ew')
 
         # Network name
         tk.Label(self.analysis_frame, textvariable=self.net_name, font=("Times New Roman bold", 20))\
             .grid(row=2, columnspan=3, padx=10, pady=10)
 
-        # Seperator
+        # Separator
         ttk.Separator(self.analysis_frame).grid(row=3, columnspan=3, sticky='ew')
 
         # Network information List
@@ -271,7 +263,6 @@ class Vorpy:
         self.cpu_info = tk.StringVar(self.main, "   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n")
         tk.Label(anal_cpu_info_subframe, textvariable=self.cpu_info).grid(row=4, column=2)
 
-
         # Create the system information sub frame
         anal_settings_subframe = tk.Frame(anal_net_frame)
         anal_settings_subframe.grid(row=3, column=0, padx=5, pady=5)
@@ -281,7 +272,6 @@ class Vorpy:
                  text="Box Size:\nResolution:\nMax Vertex:\n    ~    \n    ~    \n    ~    \n").grid(row=4, column=0)
         tk.Label(anal_settings_subframe, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
         tk.Label(anal_settings_subframe, textvariable=self.net_sets).grid(row=4, column=2)
-
 
         # Create the system information sub frame
         anal_outputs_info_subframe = tk.Frame(anal_net_frame)
@@ -293,7 +283,6 @@ class Vorpy:
         tk.Label(anal_outputs_info_subframe, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
         self.output_info = tk.StringVar(self.main, "   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n")
         tk.Label(anal_outputs_info_subframe, textvariable=self.output_info).grid(row=4, column=2)
-
 
         # Seperator
         ttk.Separator(self.analysis_frame, orient=tk.VERTICAL).grid(row=3, column=1, rowspan=3, sticky='ns')
@@ -325,20 +314,15 @@ class Vorpy:
 
         ttk.Separator(self.analysis_frame).grid(row=5, columnspan=5, sticky='ew')
 
-
-
         # Main frame Network object gathering
         export_obj_frame = tk.Frame(self.analysis_frame)
         export_obj_frame.grid(row=6, column=0, columnspan=3, padx=10, pady=10)
-
-
 
         # Group sub frame
         self.using_group1 = tk.BooleanVar(self.main, True)
         self.using_group2 = tk.BooleanVar(self.main, not self.using_group1.get())
         anal_check_subframe = tk.Frame(export_obj_frame)
         anal_check_subframe.grid(column=0, row=0, padx=10, pady=10)
-
 
         tk.Label(anal_check_subframe, text="Groups:", font=("Times New Roman bold", 20)).grid(row=0)
         self.group1_selections = tk.StringVar(self.main, "")
@@ -351,7 +335,6 @@ class Vorpy:
                        command=self.flip_g1).grid(row=4, column=0)
         tk.Label(anal_check_subframe, text="Selections").grid(row=5, column=0)
         tk.Label(anal_check_subframe, textvariable=self.group2_selections).grid(row=6, column=0)
-
 
         # Choose index
 
@@ -392,7 +375,6 @@ class Vorpy:
         self.res_options = tk.OptionMenu(self.choose_index_subframe, self.current_res_selection, "", *self.sys.residues)
         self.res_options.grid(row=5, column=2)
 
-
         # Selection Button
         tk.Button(self.choose_index_subframe, text="Reset Group", command=self.reset_group).grid(row=6, column=0)
         tk.Button(self.choose_index_subframe, text="Undo Selection", command=self.undo_selection).grid(row=6, column=1)
@@ -404,7 +386,6 @@ class Vorpy:
         # Export object sub frame
         export_obj_subframe = tk.Frame(export_obj_frame)
         export_obj_subframe.grid(column=4, row=0, padx=10, pady=10, sticky='ns')
-
 
         tk.Label(export_obj_subframe, text="Export:", font=("Times New Roman bold", 20))\
             .grid(column=0, row=0, columnspan=2, sticky='nw')
@@ -580,7 +561,6 @@ class Vorpy:
         canvas.create_text(2.5 * w, h, text="Building\nSurfaces", font=("Times New Roman bold", 10))
         canvas.create_text(3.5 * w, h, text="Analyzing\nNetwork", font=("Times New Roman bold", 10))
 
-
     def flip_g1(self):
         self.using_group1.set(not self.using_group1.get())
 
@@ -600,7 +580,6 @@ class Vorpy:
             if self.g1 is not None:
                 self.g1 = Group(self.sys.net, self.g1.atoms)
                 self.g1.get_info()
-
 
     def undo_selection(self):
         if self.using_group1.get() and len(self.g1.atoms) >= 1:
@@ -664,7 +643,6 @@ class Vorpy:
                              str(len(self.g2.outer_body_atoms)) + "\n" + str(len(self.g2.surr_body_atoms)))
             if self.g2 is not None:
                 self.g2.bff, self.g1.bff = self.g1, self.g2
-
 
     def export_selections(self):
         if self.g1 is not None:
