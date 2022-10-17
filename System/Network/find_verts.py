@@ -57,10 +57,10 @@ def find_v0(net):
             # Try to make a verified v0 site with the verified circles
             for circle in verified_circles:
                 # Try to create a vertex
-                myVert = find_site(net, circle)[0]
+                myVert = find_site(net, circle)
                 # Check for a real site
-                if myVert is not None and myVert.loc is not None:
-                    return myVert
+                if myVert is not None and myVert[0].loc is not None:
+                    return myVert[0]
         i += 1
 
 
