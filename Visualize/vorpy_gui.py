@@ -143,8 +143,8 @@ class Vorpy:
                        offvalue=False).grid(row=2, column=4, sticky='w', padx=10)
 
         # Find solution vertices check
-        self.measure_sol = tk.BooleanVar(self.main, True)
-        tk.Checkbutton(bld_sbfrm, text="Find SOL Verts", variable=self.measure_sol, onvalue=True,
+        self.sol_verts = tk.BooleanVar(self.main, True)
+        tk.Checkbutton(bld_sbfrm, text="Find SOL Verts", variable=self.sol_verts, onvalue=True,
                        offvalue=False).grid(row=3, column=4, sticky='w', padx=10)
 
         # Curved faces check
