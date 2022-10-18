@@ -11,7 +11,7 @@ v_file = os.getcwd() + "./Data/test_data/Na5_verts1.txt"
 
 # Get the System
 sys = System()
-sys.load_sys(file="C:/Users/jacke/PycharmProjects/vorpy/Data/test_data/cambrin.pdb")
+sys.load_sys(file="C:/Users/jacke/PycharmProjects/vorpy/Data/test_data/EDTA_Mg.pdb")
 sys.net.sol_verts = False
 sys.build_network()
 
