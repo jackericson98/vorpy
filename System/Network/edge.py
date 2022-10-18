@@ -203,3 +203,5 @@ class Edge:
             if surf_point is None:
                 break
             self.points.append(surf_point)
+        # Add the end point
+        self.points.append(self.pv1)

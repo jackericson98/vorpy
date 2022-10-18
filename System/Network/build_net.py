@@ -3,6 +3,7 @@ from System.atom import Atom
 from System.Network.vertex import Vertex
 from System.Network.edge import Edge
 from System.Network.surface import Surface
+from Visualize.visualize import *
 
 
 ############################################ Filter System #############################################################
@@ -100,14 +101,21 @@ def doublet(vert, net):
 
     # If there are 3 edges involved in the doublet it is a type 3 doublet and has 3 surfaces
     elif len(dub_edges) == 3:
+        surfs = []
         # Set the vertex doublet type
         vert.d_type = "3"
         # Create the surfaces for the vertex surfaces
         for k in range(3):
             edges = [my_edges[k], my_edges[(k + 1) % 3]]
-            atoms = [atom for atom in edges[0].atoms if atom in edges[1].atoms]
+            atoms = [atom for atom in my_edges[k].atoms if atom in my_edges[(k + 1) % 3].atoms]
             net.edges.append(my_edges[k])
-            net.surfs.append(Surface(atoms, net, edges, verts=[vert], doublet=True))
+            surf = Surface(atoms, net, edges, verts=[vert], doublet=True)
+            net.surfs.append(surf)
+            surfs.append(surf)
+            surf.edges[0].build()
+            surf.edges[1].build()
+            surf.build()
+        plot_surfs(surfs, simps=True, Show=True)
 
 
 # Make objects function. Checks the atoms of the vertices for patterns and creates edges and surfaces
