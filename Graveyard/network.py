@@ -400,3 +400,94 @@ def sortbyDist(atoms, net):
     # Return a list with the length specified
     return atom_list
 
+
+
+ # Find subnetworks method. Divides the network up into smaller networks, finds their vertices and combines them
+def find_subnets(self):
+    # Instantiate the vertices
+    self.verts = []
+    # This gets us to average about 60 atoms per medium box
+    n = max(int(np.cbrt(len(self.atoms) // 30)), 2)
+    # The range to search for new vertices
+    rnge = len(self.sub_boxes) // n
+    # Get the atoms in the
+    med_boxes = [[[[] for _ in range(n)] for _ in range(n)] for _ in range(n)]
+    # Set up the network list and the list of the atom indices from the main network for reference later
+    test_nets, test_nets_real_ndxs = [], []
+    # Calculate the overlap needed to prevent missing vertices
+    overlap = int((self.beta_val + self.max_atom_rad) / min(self.sub_box_size)) + 1
+    # Go through each of the boxes in the medium_boxes matrix to create networks
+    for i in range(n):
+        for j in range(n):
+            for k in range(n):
+                # Starting from the middle of the range search out the atoms within 0.75 + the increment
+                med_boxes[i][j][k] = self.get_atoms([[int((i + .5) * rnge), int((j + .5) * rnge),
+                                                      int((k + .5) * rnge)]], int(rnge // 2) + overlap)
+                # Skip the net if there are no atoms in the quadrant
+                if len(med_boxes) == 0:
+                    continue
+                # Get the increment to spread each net out by
+                inc = overlap
+                # Make sure there are enough atoms to do a valid search
+                while len(med_boxes[i][j][k]) < 30:
+                    # Starting from the middle of the range search out the atoms within 0.75 + the increment
+                    med_boxes[i][j][k] = self.get_atoms([[int((i + .5) * rnge), int((j + .5) * rnge),
+                                                          int((k + .5) * rnge)]], int(rnge // 2) + inc)
+                    inc += 1
+                # Set up the indices' tracker list
+                new_atoms, old_ndxs = [], []
+                # Create a copy of each atom in the network
+                for atom in med_boxes[i][j][k]:
+                    new_atoms.append(Atom(atom.loc, atom.rad))
+                    old_ndxs.append(self.atoms.index(atom))
+                # Create the network and add it to the list of subnetworks
+                test_nets.append(Network(sys=self.sys, atoms=new_atoms, box_size=1.1, min_dist=self.min_dist,
+                                         beta_val=self.beta_val, sol_verts=self.sol_verts))
+                # Store the atoms' real indices
+                test_nets_real_ndxs.append(old_ndxs)
+    # Find the vertices for each of the networks
+    for i in range(len(test_nets)):
+        # Get the subnetwork
+        net2 = test_nets[i]
+        # Sort the atoms in the network
+        net2.sort_atoms()
+        # Set the name of the subnetwork and print the progress
+        net2.name = "Subnetwork " + str(i + 1) + "/" + str(len(test_nets)) + " of " + self.name
+        print("\rFinding " + net2.name + " - " + str(len(net2.atoms)) + " atoms", end="")
+        # Find the vertices
+        net2.find_verts(n)
+    # Go through each of the vertices found in each of the subnetworks filtering out repeat/large verts + doublets
+    for i in range(len(test_nets)):
+        # Grab the subnetwork
+        net2 = test_nets[i]
+        # Sort through the vertices in each network
+        for j in range(len(net2.verts)):
+            # Grab the vertex
+            vert = net2.verts[j]
+            # Set the vertex's actual atoms and use them to set the vertex's index, then sort it
+            vert.atoms = [self.atoms[test_nets_real_ndxs[i][ndx]] for ndx in vert.ndx]
+            vert.ndx = [self.atoms.index(atom) for atom in vert.atoms]
+            vert.ndx.sort()
+            # Look for the vertex in the network
+            v_ndx = search_verts(self.vert_ndxs, vert.ndx)
+            # If found, verify it is not a doublet
+            if 0 == len(self.vert_ndxs) or len(self.vert_ndxs) <= v_ndx:
+                vert.myNet = self
+                self.vert_ndxs.append(vert.ndx)
+                self.verts.append(vert)
+            # If the indices match we need to check if it is a doublet
+            elif vert.ndx == self.vert_ndxs[v_ndx]:
+                # If the location is different, and we haven't indicated the vertex as a doublet already add it
+                if [round(vert.loc[k], 7) for k in range(3)] != \
+                        [round(self.verts[v_ndx].loc[k], 7) for k in range(3)] \
+                        and not self.verts[v_ndx].doublet:
+                    # Add the doublet
+                    self.verts[v_ndx].doublet = True
+                    self.verts[v_ndx].loc2, self.verts[v_ndx].rad2 = vert.loc, vert.rad
+            # If this is a novel vertex, we need to verify it
+            else:
+                if verify_site(vert, self):
+                    # Add the vertex to the system
+                    vert.myNet = self
+                    self.vert_ndxs.insert(v_ndx, vert.ndx)
+                    self.verts.insert(v_ndx, vert)
