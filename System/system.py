@@ -143,9 +143,7 @@ class System:
         # Set the settings info
         if self.gui is not None:
             self.net.min_dist, self.net.beta_val = self.gui.sys_res_flt.get(), self.gui.sys_alpha_value.get()
-            self.net.box_size = self.gui.sys_box_x_flt.get()
-        else:
-            self.net.min_dist, self.net.beta_val, self.net.box_size = 0.1, 10, 1.3
+            self.net.box_size, self.net.sol_verts = self.gui.sys_box_x_flt.get(), self.gui.sol_verts.get()
         # Sort the atoms in the network
         self.net.sort_atoms()
         # Check to see if there are vertices loaded
