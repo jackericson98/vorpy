@@ -189,7 +189,7 @@ def inv_jac(funcs, point):
 
 
 # Rotate points function. Takes in a set of points and a vector and rotates the points and the vector so the v = [0,0,1]
-def rotate_points(vec, points):
+def rotate_points(vec, points, reverse=False):
     # Get the vx, vy, vz vector components
     vx, vy, vz = vec
     # If vy or vz are zero we need a catch for divide by zero error.
@@ -201,6 +201,9 @@ def rotate_points(vec, points):
         theta = np.pi / 2
     else:
         theta = np.arctan(vy / vz)
+    # If the points are to be sent back, provide the negative values for the angles
+    if reverse:
+        theta, phi = -theta, -phi
     # Get variables for sin(theta), cos(theta), sin(phi), cos(phi)
     st, ct, sp, cp = np.sin(theta), np.cos(theta), np.sin(phi), np.cos(phi)
     nps = []

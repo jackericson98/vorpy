@@ -11,17 +11,21 @@ class System:
     def __init__(self, atoms=None, mols=None, sol=None, residues=None, data=None, name=None, base_file=None,
                  frame_files=None, nets=None, net_files=None, ndx_files=None, gui=None):
 
+        # Names
         self.name = name                      # Name             :    Name describing the system
         self.atom_names = None                # Atom Names       :    List holding the names of the atoms in the system
         self.mol_names = None                 # Residue Names    :    List of molecule names
         self.res_names = None                 # Residue Names    :    List of residue names
+        self.ndx_names = None                 # Index Names      :    List of names of indices corresponding to ndxs
 
+        # Data
         self.net = Network(self, atoms)       # Network          :    Network object holding the primary network
         self.nets = nets                      # Networks         :    Different networks for other frames
         self.atoms = atoms                    # Atoms            :    List holding the atom objects
         self.mols = mols                      # Molecules        :    List of molecules
         self.residues = residues              # Residues         :    List of residues (lists of atoms)
         self.sol = sol                        # Solution         :    List of solution molecules (lists of atoms)
+        self.ndxs = None                      # Indices          :    List of lists indices of atoms
 
         # Set up the file attributes
         self.data = data                      # Data             :    Additional data provided by the base file
@@ -32,18 +36,19 @@ class System:
         self.output_directory = None          # Output Directory :    Output directory for the export files
         self.vorpy_directory = os.getcwd()    # Vorpy Directory  :    Directory that vorpy is running out of
 
+        # Gui
         self.gui = gui                       # GUI               :    GUI Vorpy object that can be updated through sys
 
     # Load network method. Used to load a network that was previously calculated
-    def load_net(self, net_file):
+    def load_net(self, net_file, verts_only=False):
         # If no file has been loaded before, create the main network
         if self.nets is None:
             self.net_files = [net_file]
-            import_net(self.net, net_file)
+            import_net(self.net, net_file, verts_only=verts_only)
         else:
             self.net_files.append(net_file)
             self.nets.append(Network(self, self.atoms))
-            import_net(self.nets[-1], net_file)
+            import_net(self.nets[-1], net_file, verts_only=verts_only)
         self.analysis_prep()
 
     # Build System method. Takes in a list of atomic values
@@ -104,9 +109,7 @@ class System:
 
     # Load system method. Chooses the correct file type from the file provided
     def load_sys(self, file):
-        # Set the output directory
-        if self.output_directory is None:
-            set_output_dir(self)
+
         # If a file is given read the file and set the system attributes
         if file:
             self.base_file = file
@@ -123,6 +126,10 @@ class System:
             else:
                 print("Wrong file Loser!")
                 return
+        # Set the output directory
+        if self.output_directory is None:
+            set_output_dir(self)
+        # Sort the atoms
         self.sort_atoms()
 
     # Build network function. Allows user to build the network from the system object.
@@ -134,20 +141,23 @@ class System:
         # Set the network's atoms
         self.net.atoms = self.atoms
         # Set the settings info
-        self.net.min_dist, self.net.beta_val = self.gui.sys_res_flt.get(), self.gui.sys_alpha_value.get()
-        self.net.box_size = self.gui.sys_box_x_flt.get()
+        if self.gui is not None:
+            self.net.min_dist, self.net.beta_val = self.gui.sys_res_flt.get(), self.gui.sys_alpha_value.get()
+            self.net.box_size = self.gui.sys_box_x_flt.get()
+        else:
+            self.net.min_dist, self.net.beta_val, self.net.box_size = 0.1, 10, 1.3
         # Sort the atoms in the network
         self.net.sort_atoms()
         # Check to see if there are vertices loaded
-        if not self.gui.use_loaded_verts.get():
+        if self.gui is None or not self.gui.use_loaded_verts.get():
             # Set the main network's name to main
             self.net.name = "Main"
             # Find the vertices
             self.net.find_verts()
             # Connect the network
             self.net.connect()
-        # Export the vertices
-        self.gui.update_progress_canvas()
+        # Build the edges in the network
+        self.net.build_edges()
         # Build the network
         self.net.build_surfs()
         # Analyze the network

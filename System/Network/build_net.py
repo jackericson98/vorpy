@@ -95,6 +95,7 @@ def doublet(vert, net):
         # Create the surface
         mySurf = Surface(surf_atoms, net, edges=my_edges, verts=[vert], doublet=True)
         # Add the surface to the network
+        net.edges += my_edges
         net.surfs.append(mySurf)
 
     # If there are 3 edges involved in the doublet it is a type 3 doublet and has 3 surfaces
@@ -105,6 +106,7 @@ def doublet(vert, net):
         for k in range(3):
             edges = [my_edges[k], my_edges[(k + 1) % 3]]
             atoms = [atom for atom in edges[0].atoms if atom in edges[1].atoms]
+            net.edges.append(my_edges[k])
             net.surfs.append(Surface(atoms, net, edges, verts=[vert], doublet=True))
 
 

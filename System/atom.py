@@ -3,7 +3,8 @@ from System.calcs import *
 
 class Atom:
     """Atom object. Created with import of file. Used to reference for building network and analyzing"""
-    def __init__(self, location=None, radius=None, system=None, symbol="", chain="", res="", res_seq="", name="", ocp="", t_fact="", seg_id="", charge=""):
+    def __init__(self, location=None, radius=None, system=None, symbol="", chain="", res="", res_seq="", name="",
+                 ocp="", t_fact="", seg_id="", charge=""):
 
         # Inherent traits
         self.loc = location     # Location     :   Set the location of the center of the sphere

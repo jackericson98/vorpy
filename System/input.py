@@ -40,7 +40,7 @@ def read_pdb(sys):
                         ocp=line[54:60], t_fact=line[60:66], seg_id=line[72:76], charge=line[78:80])
             # If no chain is specified, set the chain to 'None'
             if atom.chain == ' ':
-                atom.chain = 'Mol'
+                atom.chain = 'ZZ'
             # Add the atom to the
             atoms.append(atom)
         # If the line is not an atom line store the other data
@@ -107,8 +107,33 @@ def add_vta_data(sys, ball_file, vert_file):
         sys.myNet.verts.append(myVert)
 
 
+# Input index function. Takes in an index file and loads it into the list of indices
+def input_index(sys):
+    # Get the file information and make sure to close the file when done
+    with open(sys.index_file, 'r') as f:
+        file = f.readlines()
+    # Set up the indices lists and the current index
+    curr_ndx = -1
+    indices = []
+    names = []
+    # Go through the lines in the file
+    for line in file:
+        # Split the line into
+        line = line.split()
+        # Add the
+        if line[0] == "[":
+            curr_ndx += 1
+            names.append([line[1]])
+        else:
+            for i in range(len(line)):
+                indices[curr_ndx].append(line[i])
+    # Set the systems indices
+    sys.ndx_names = names
+    sys.ndxs = [[sys.atoms[ndx] for ndx in indices[i]] for i in range(len(indices))]
+
+
 # Import network function. Imports vorpy-created text document and creates network objects
-def import_net(net, filename):
+def import_net(net, filename, verts_only=False):
 
     # Open the file
     file = open(filename).readlines()
@@ -181,6 +206,10 @@ def import_net(net, filename):
         # Edges
         # Check for if the line is an edge line or not
         elif line[0].lower() == "edge":
+            # Quick check for verts_only
+            if verts_only:
+                net.build()
+                return
             # Get the indices and atoms for the edges
             ndxs = [int(_) for _ in line[2:5]]
             atoms = [net.atoms[ndx] for ndx in ndxs]

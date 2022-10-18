@@ -30,9 +30,19 @@ def set_output_dir(sys, dir_name=None):
 
 
 # Create pdb method. Creates a pdb file type in the current working directory
-def write_pdb(atoms, name):
+def write_pdb(atoms, name, sys=None):
     # Create the output file
     file = open(name + ".pdb", 'w')
+    # Check to see if a system was provided
+    if sys is not None and sys.base_file is not None:
+        # Open the base file
+        with open(sys.base_file, 'r') as f:
+            base_file = f.readlines()
+        # Copy the lines
+        for line in base_file:
+            file.write(line)
+        # Return the file
+        return file
     # Go through each atom in the system
     for i in range(len(atoms)):
         a = atoms[i]
@@ -42,6 +52,8 @@ def write_pdb(atoms, name):
         name = a.name + " " * (4 - len(a.name))
         res = " " * (3 - len(a.res)) + a.res
         chain = str(a.chain) + " " * (1 - len(a.chain))
+        if chain == "ZZ":
+            chain = "  "
         res_seq = " " * (3 - len(a.res_seq)) + a.res_seq
         loc_strs = [" " * (7 - len(_)) + _ for _ in loc]
         occupancy = " " * (5 - len(a.occupancy)) + a.occupancy
@@ -50,8 +62,8 @@ def write_pdb(atoms, name):
         symbol = a.element
         charge = a.charge
         # Write the atom information
-        file.write("ATOM  " + ser_num + "  " + name + " " + res + "  " + chain + res_seq + " " + "".join(loc_strs) +
-                   occupancy + t_fact + "       " + seg_id + symbol + charge)
+        file.write("ATOM  " + ser_num + " " + name + " " + res + " " + chain + res_seq + "   " + " ".join(loc_strs) +
+                   occupancy + t_fact + "      " + seg_id + symbol + charge + "\n")
 
 
 # Write surfaces function. Writes files given a list of surfaces

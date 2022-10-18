@@ -157,7 +157,7 @@ class Edge:
         if self.atoms[0].rad == self.atoms[1].rad and self.atoms[1].rad == self.atoms[2].rad:
             # Get the vector between the two vectors and the number of point in the edge
             r = self.pv1 - self.pv0
-            num_points = int(np.linalg.norm(r) // min_dist) + 2
+            num_points = 5
             # Add the points
             for i in range(num_points):
                 self.points.append(self.pv0 + r * (i / num_points))
@@ -176,7 +176,7 @@ class Edge:
         # Add the first vertex to the list of points
         self.points = [self.pv0.tolist()]
         # Find the edges points. Don't count the vertex
-        for i in range(n):
+        for i in range(n + 1):
             if i == 0:
                 A = 0.01 * theta / n
             elif i == 1:

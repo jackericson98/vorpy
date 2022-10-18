@@ -1,7 +1,6 @@
 from System.calcs import *
 import matplotlib.tri as mtri
 
-
 ################################################# Find Surface Points  #################################################
 
 
@@ -76,12 +75,9 @@ def build_perimeter(surf):
 
     # Reset the surface's perimeter points list
     surf.perimeter = []
-    # Go through each edge in the surface's list of edges and build it
-    for edge in surf.edges:
-        if edge.points is None or len(edge.points) == 0:
-            edge.build()
+    e0 = surf.edges[0]
     # Add the first edge's vertex location and set of points to the perimeter points list
-    surf.perimeter = [surf.edges[0].verts[0].loc] + surf.edges[0].points
+    surf.perimeter = e0.points.copy()
     # Make a copy of the edges to organize excluding the first edge
     edges = surf.edges[1:].copy()
 
@@ -106,17 +102,61 @@ def build_perimeter(surf):
         myEdge = edges.pop(ndx)
         # Add the edge's point in the right order and then add the correct vertex
         if not reverse:  # In order
-            surf.perimeter += [myEdge.pv0] + myEdge.points
+            surf.perimeter += myEdge.points
         else:  # Reverse order
-            surf.perimeter += [myEdge.pv1] + myEdge.points[::-1]
+            surf.perimeter += myEdge.points[::-1]
 
     # Add the perimeter points to the whole set of points
     surf.points += surf.perimeter
+    # Get the perimeter flat points
+    surf.pflat_points = surf.perimeter.copy()
+    # Get the atoms
+    a0, a1 = surf.atoms[0], surf.atoms[1]
+    d = calc_dist(a0.loc, a1.loc)
+    # Get the center of the surface
+    surf.center = np.array(a0.loc) + (a0.rad + 0.5 * (d - (a0.rad + a1.rad))) * surf.rn
+    for i in range(len(surf.pflat_points)):
+        # Move the points
+        surf.pflat_points[i] = surf.pflat_points[i] - surf.center
+    # Rotate the point
+    surf.pflat_points = rotate_points(surf.rn, surf.pflat_points)
+    # Get the 2d version
+    surf.pflat_points = [point[:2] for point in surf.pflat_points]
+
+
+# Get center of mass function.Finds the center of mass of a surface's perimeter
+def get_com(surf):
+    # Next try the center of mass of the 3d points projected onto the surface
+    my_com = calc_edges_com(edges=surf.edges)
+    com0 = calc_surf_point(surf, my_com)
+    if com0 is not None and tri_within(surf, point=com0) and surf.atoms[0].rad != surf.atoms[1].rad:
+        return com0
+    # Get the center of the surface
+    if tri_within(surf, point=surf.center):
+        return surf.center
+    # Next we have to really get our hands dirty and find the average angle between the points in the perimeter
+    # angs = []
+    # for point in surf.perimeter:
+    #     norm_vec = point / np.linalg.norm(point)
+    #     theta = np.arctan(norm_vec[1] / norm_vec[2])
+    #     phi = np.arctan(norm_vec[0] / norm_vec[1])
+    #     angs.append([theta, phi])
+    # # Get the middle angles for the perimeter points
+    # theta_avg = sum([_[0] for _ in angs]) / len(angs)
+    # phi_avg = sum([_[1] for _ in angs]) / len(angs)
+    # # Get the center of mass from the average angles
+    # com2 = calc_surf_point(surf, [np.sin(theta_avg) * np.cos(phi_avg), np.sin(theta_avg) * np.sin(phi_avg),
+    #                               np.cos(theta_avg)])
+    # # Check to see if this center of mass is within the perimeter or not
+    # if com2 is not None and tri_within(surf, point=com2):
+    #     print("Center angle")
+    #     return com2
+    # If nothing else set the center of mass to the first point in the perimeter
+    return surf.perimeter[0]
 
 
 # Fill mesh function. Works inward from a set of perimeter points toward a center point filling in equally spaced points
 def fill_mesh(surf):
-
     # Check to see that the surface has perimeter points
     if len(surf.perimeter) == 0:
         build_perimeter(surf)
@@ -124,17 +164,18 @@ def fill_mesh(surf):
     res = surf.net.min_dist
     # Get the atoms
     a0, a1 = surf.atoms[0], surf.atoms[1]
-    # Get the center of mass for the edges
-    com3d = calc_edges_com(surf.edges)
-    com = calc_surf_point(surf, com3d)
+    # Get the center of mass
+    com = get_com(surf)
     # Check to see if the atoms have equal radii
     if a0.rad == a1.rad:
+        surf.flat = True
+        surf.points.append(com)
         return
+    # Get the center of mass
     # For each edge point set up a path list.
     paths = [[surf.perimeter[i]] for i in range(len(surf.perimeter))]
     # Grab the smallest of the 2 surface atoms' location
     pa = surf.atoms[0].loc
-
     # Get the angles between the edge points and the end points
     dists = []
     angs = []
@@ -189,12 +230,12 @@ def fill_mesh(surf):
 def tri_within(surf, myTri=None, point=None):
 
     # Get the perimeter of the translated and rotated surface
-    perimeter = surf.flat_points[:len(surf.perimeter)]
+    perimeter = surf.pflat_points
     if len(perimeter) == 0:
         return False
     center = calc_com(points=perimeter)
     # If we are given a triangle determine the center of mass and use that point
-    if myTri:
+    if myTri is not None:
         # Copy the triangle, retrieve its points and calculate the center of mass
         tri = myTri.copy()
         # Get the triangles points
@@ -202,9 +243,12 @@ def tri_within(surf, myTri=None, point=None):
         # Calculate the triangle's center of mass
         point = calc_com(points=points)
     else:
-        # The point needs to be rotated and dropped to 2D
-        my_point = rotate_points(surf.rn, [point])[0]
-        point = my_point[:2]
+        # Move the point
+        point = point - surf.center
+        # Rotate the point
+        new_point = rotate_points(surf.rn, [point])[0]
+        # Get the 2d version
+        point = new_point[:2]
     # Get the projected point
     proj_vec = np.array(center) - np.array(point)
     proj_point = np.array(point) + np.array(proj_vec)
@@ -253,17 +297,15 @@ def calc_tri_circ(surf, tri):
 
 # Find simplices function. Transforms and rotates surface points to xy-plane and returns the Delaunay simplices
 def find_simps(surf):
-
-    # Get the atoms
-    a0, a1, d = surf.atoms[0], surf.atoms[1], np.linalg.norm(surf.rn)
-    # Get the center of the surface
-    c = np.array(a1.loc) - (0.5 * (d - (a0.rad + a1.rad)) + a0.rad) * surf.rn
+    # Check to see if the surface is flat or not.
+    if surf.flat:
+        surf.tris = [[i, (i + 1) % len(surf.perimeter), len(surf.points) - 1] for i in range(len(surf.perimeter))]
+        return
     # Copy the surface points
     points = surf.points.copy()
-
     # Move all surf points toward the origin via center point
     for i in range(len(points)):
-        points[i] = points[i] - c
+        points[i] = points[i] - surf.center
 
     # Calculate the angles to rotate the center point around
     nps = rotate_points(surf.rn, points)
@@ -276,9 +318,11 @@ def find_simps(surf):
     surf.tris = tris.triangles.tolist()
 
 
-# Filter triangles function. Goes through the
+# Filter triangles function. Goes through the triangles on the surface measuring the circumference & testing if inside
 def filter_tris(surf):
-
+    # Check to see if the surface is flat or not
+    if surf.flat:
+        return
     # Set up a list of indices to remove for the triangles
     remove_ndxs = []
     # Go through the triangles in the surface
@@ -286,8 +330,8 @@ def filter_tris(surf):
         # Grab the triangle and calculate its circumference
         tri = surf.tris[i]
         circ = calc_tri_circ(surf, tri)
-        # If the circumference of the triangle is less than x times the minimum distance check to see if tri is within
-        if not circ < 5 * surf.net.min_dist and not tri_within(surf, tri):
+        # If the circumference of the triangle is less than x times the min_dist check to see if tri is within
+        if circ > 5 * surf.net.min_dist and not tri_within(surf, tri):
             remove_ndxs.append(surf.tris.index(tri))
 
     # Remove the outer triangles
@@ -304,10 +348,6 @@ def make_mesh(surf):
     # Get the surface's function coefficients
     if surf.func is None:
         surf.calc_func()
-    # Get the normal to the surface
-    if surf.rn is None:
-        r = np.array(surf.atoms[1].loc) - np.array(surf.atoms[0].loc)
-        surf.rn = r / np.linalg.norm(r)
     # Reset the surface's list of points to empty list and reset the vertex indices list
     surf.points = []
 

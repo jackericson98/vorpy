@@ -9,6 +9,7 @@ class Surface:
         # If no network was given have a catch
         if net is not None:
             ndx = [net.atoms.index(atom) for atom in atoms]
+            ndx.sort()
             self.ndx = ndx          # Index            : Indices of the atoms of the surface
             self.net = net          # Network          : Network of the System
         self.atoms = atoms          # Atoms            : Atoms of the surface
@@ -20,10 +21,14 @@ class Surface:
         self.perimeter = perimeter  # Perimeter        : The points around the edges of the surface (IN ORDER)
         self.points = points        # Points           : The points that make up the surface
         self.flat_points = []       # Flattened points : Points projected into 2d based off of the surface normal
+        self.pflat_points = []      # Flat perimeter   : Flattened points around the perimeter
         self.tris = tris            # Triangles        : A list of connections between the points
         self.sa = sa                # Surface Area     : The surface area of the
         self.rn = rn                # Surface Normal   : Normal to the center of the surface
+        self.center = None          # Center           : Center point of the hyperboloid the surface is made from
+        self.com = None             # Center of mass   : The point toward which all building paths travel
         self.doublet = doublet      # Doublet          : Indicates whether a surface is a part of a doublet or not
+        self.flat = False           # Flat             : Whether the surface is flat or not
 
     # Bisector function. Creates a bisector surface between 2 atoms
     def calc_func(self):
@@ -33,7 +38,8 @@ class Surface:
         # Create a0, a1 variables
         a0, a1 = self.atoms
         # Set the rn vector for the surface since the atoms are sorted
-        self.rn = np.array(a1.loc) - np.array(a0.loc)
+        r = np.array(a1.loc) - np.array(a0.loc)
+        self.rn = r / np.linalg.norm(r)
         # Grab the centers of the spheres
         x1, y1, z1 = a0.loc
         x2, y2, z2 = a1.loc

@@ -10,7 +10,6 @@ def find_v0(net):
     i = 0
     # Find the initial atom in the system, with the option to change it if necessary
     while v0 is None and i < len(net.atoms):
-        print(i)
         # Find the middle sub_box of the set of boxes and
         mid = len(net.sub_boxes) // 2
         a0s = []
@@ -49,7 +48,7 @@ def find_v0(net):
                 edge = Edge(atoms=[a0, a1s[j], a2])
                 edge.get_loc()
                 # If a circle can be made and the site does not overlap with any other atoms, add it to the list
-                if edge.loc is not None and verify_site(edge, net):
+                if edge.loc is not None and edge.rad < net.beta_val and verify_site(edge, net):
                     verified_circles.append(edge.atoms)
 
             # Test for verified sites
@@ -184,13 +183,6 @@ def find_site(net, edge_atoms, vn_1=None):
 
 # Find network function. Keeps searching the network until all verts are found
 def find_vertices(net, v0=None, counter=None):
-    # If the counter is given set the benchmark
-    if counter is not None:
-        tot_verts = counter[1]
-        benchmark = counter[0]
-    else:
-        tot_verts = len(net.atoms) * 6
-        benchmark = 0
     # Find the first verified vertex
     v0 = find_v0(net)
     # Add v0 to the System
@@ -199,16 +191,13 @@ def find_vertices(net, v0=None, counter=None):
     vert_stack = [v0]
     # While the verts stack is not empty
     while vert_stack:
-        # Running print statement giving an estimate for percentage of the network that has been created
-        percentage = float(np.round(100 * ((benchmark + len(net.verts)) / tot_verts), 2))
-        net.sys.gui.percentage.set(str(percentage) + "%")
-        net.sys.gui.loading_bar["value"] = percentage
         # Get the vertex from the top of the stack
         vert = vert_stack.pop()
         # Set up the edge stack
         e_stack = [[[vert.atoms[i], vert.atoms[(i + 1) % 4], vert.atoms[(i + 2) % 4]], vert] for i in range(4)]
         # While the edge stack is not empty
         while e_stack:
+            print("\rFinding vertices:" + str(round(len(net.verts)/len(net.atoms) * 6, 2)) + " %", end="")
             # Get the edge from the top of the stack
             edge_atoms, vert = e_stack.pop()
             # Find the next site in the network

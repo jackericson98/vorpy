@@ -2,13 +2,13 @@
 
 class Group:
     """Group class. Used to hold selections of atoms and do analysis on it"""
-    def __init__(self, net, atoms):
+    def __init__(self, net, atoms, name=None):
 
         self.net = net                 # Network            :    Network of the System
         self.atoms = atoms             # Atoms              :    List of Atom type objects for the edge
         self.prev_sele = None          # Previous Selection :    List of the previously selected atoms
         self.prev_str = None           # Previous String    :    String from the last group of atoms selected
-        self.name = None               # Name               :    Name of the group
+        self.name = name               # Name               :    Name of the group
 
         self.body_surfs = None         # Body surfaces      :    The surfaces on the outside of the body
         self.body_sa = None            # Body surface area  :    The surface area of the outer surfaces of the body
