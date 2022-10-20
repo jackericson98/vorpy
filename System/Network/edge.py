@@ -170,7 +170,7 @@ class Edge:
         r_mag = np.linalg.norm(r01)  # Magnitude of the vector between the two vertex points
         rn01 = r01 / r_mag  # Normal to the vector between the vertices
         # Find the number of points
-        n = max(int(r_mag / min_dist), 10)
+        n = max(int(r_mag / min_dist), 4)
         # Calculate the angle between the vertices and the reference point
         theta = calc_angle(self.pa, self.pv0, self.pv1)
         # Add the first vertex to the list of points
