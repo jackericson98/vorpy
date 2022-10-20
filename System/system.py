@@ -77,17 +77,17 @@ class System:
     # Sort atoms method. Used to put atoms in their correct molecules and residues
     def sort_atoms(self):
         # Set up the chain names list
-        self.mols, self.mol_names, self.atom_names = [], [], []
+        self.mols, self.mol_names, self.atom_names, self.sol = [], [], [], []
         # Go through each of the atoms in the system adding the atoms to their respective chains
         for atom in self.atoms:
             # Set the atom's name
             self.atom_names.append("Atom " + str(self.atoms.index(atom)) + " - " + atom.element)
+            # Add the solution
+            if atom.res.lower() == 'sol':
+                self.sol.append(atom)
             # If no chain is specified, set the chain to 'None'
             if atom.chain == ' ':
-                if atom.res.lower == 'sol':
-                    atom.chain = 'SOL'
-                else:
-                    atom.chain = 'Mol'
+                atom.chain = 'ZZ'
             # If the atom's chain does not exist add it to the list of chains
             if atom.chain not in self.mol_names:
                 self.mols.append([atom])

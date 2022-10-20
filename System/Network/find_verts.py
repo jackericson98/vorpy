@@ -182,7 +182,12 @@ def find_site(net, edge_atoms, vn_1=None):
 
 
 # Find network function. Keeps searching the network until all verts are found
-def find_vertices(net, v0=None, counter=None):
+def find_vertices(net):
+    # Calculate the total number of vertices
+    if net.sol_verts:
+        tot_verts = 6 * len(net.atoms)
+    else:
+        tot_verts = 6 * (len(net.atoms) - len(net.sys.sol))
     # Find the first verified vertex
     v0 = find_v0(net)
     # Add v0 to the System
@@ -197,7 +202,9 @@ def find_vertices(net, v0=None, counter=None):
         e_stack = [[[vert.atoms[i], vert.atoms[(i + 1) % 4], vert.atoms[(i + 2) % 4]], vert] for i in range(4)]
         # While the edge stack is not empty
         while e_stack:
-            print("\rFinding vertices:" + str(round(len(net.verts)/len(net.atoms) * 6, 2)) + " %", end="")
+            # Get the percentage and print it
+            percentage = min((len(net.verts) / tot_verts) * 100, 100)
+            print("\rFinding vertices: {:.2f} %".format(percentage), end="")
             # Get the edge from the top of the stack
             edge_atoms, vert = e_stack.pop()
             # Find the next site in the network
