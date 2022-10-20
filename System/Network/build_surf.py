@@ -1,5 +1,8 @@
+import numpy as np
+
 from System.calcs import *
 import matplotlib.tri as mtri
+from Visualize.visualize import *
 
 ################################################# Find Surface Points  #################################################
 
@@ -134,25 +137,8 @@ def get_com(surf):
     # Get the center of the surface
     if tri_within(surf, point=surf.center):
         return surf.center
-    # Next we have to really get our hands dirty and find the average angle between the points in the perimeter
-    # angs = []
-    # for point in surf.perimeter:
-    #     norm_vec = point / np.linalg.norm(point)
-    #     theta = np.arctan(norm_vec[1] / norm_vec[2])
-    #     phi = np.arctan(norm_vec[0] / norm_vec[1])
-    #     angs.append([theta, phi])
-    # # Get the middle angles for the perimeter points
-    # theta_avg = sum([_[0] for _ in angs]) / len(angs)
-    # phi_avg = sum([_[1] for _ in angs]) / len(angs)
-    # # Get the center of mass from the average angles
-    # com2 = calc_surf_point(surf, [np.sin(theta_avg) * np.cos(phi_avg), np.sin(theta_avg) * np.sin(phi_avg),
-    #                               np.cos(theta_avg)])
-    # # Check to see if this center of mass is within the perimeter or not
-    # if com2 is not None and tri_within(surf, point=com2):
-    #     print("Center angle")
-    #     return com2
     # If nothing else set the center of mass to the first point in the perimeter
-    return surf.perimeter[0]
+    return surf.perimeter[len(surf.perimeter)//2]
 
 
 # Fill mesh function. Works inward from a set of perimeter points toward a center point filling in equally spaced points
@@ -171,7 +157,6 @@ def fill_mesh(surf):
         surf.flat = True
         surf.points.append(com)
         return
-    # Get the center of mass
     # For each edge point set up a path list.
     paths = [[surf.perimeter[i]] for i in range(len(surf.perimeter))]
     # Grab the smallest of the 2 surface atoms' location
@@ -219,8 +204,6 @@ def fill_mesh(surf):
     # Add the remaining paths to the surface excluding the first point in the path (i.e. the edge point)
     for path in paths:
         surf.points += path[1:]
-    # Add the center of mass point to the set of points
-    surf.points.append(com)
 
 
 ############################################## Triangulate Surface Points  #############################################
