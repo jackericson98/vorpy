@@ -23,8 +23,9 @@ class Vertex:
     # Calculate vertex function. Takes in 4 atoms, calculates the loc and rad of the inscribed sphere and adds the
     def calc_vert(self):
         # If the vertex is mature enough to be calculated, create and sort its indices
-        self.ndx = [self.net.atoms.index(atom) for atom in self.atoms]
-        self.ndx.sort()
+        if self.net is not None:
+            self.ndx = [self.net.atoms.index(atom) for atom in self.atoms]
+            self.ndx.sort()
         # The real location and radius of the base sphere
         locs = np.array(self.atoms[0].loc), np.array(self.atoms[1].loc), np.array(self.atoms[2].loc), \
                np.array(self.atoms[3].loc)
@@ -107,7 +108,11 @@ class Vertex:
         elif len(verts) == 2:
             # If both radii are negative (I'm not sure if this is possible, but let's catch it anyway)
             if verts[0][1] < 0 and verts[1][1] < 0:
-                return
+                if abs(verts[0][1]) < abs(verts[1][1]) and len([1 for _ in self.atoms if _.rad < abs(verts[0][1])]) < 1:
+                    self.loc, self.rad = verts[0][0], verts[0][1]
+                elif len([1 for _ in self.atoms if _.rad < abs(verts[1][1])]) < 1:
+                    self.loc, self.rad = verts[1][0], verts[1][1]
+
             # Check to see if the second vertex is negative (i.e. not a doublet)
             elif verts[0][1] < 0 < verts[1][1]:
                 self.loc, self.rad = verts[1][0], verts[1][1]
