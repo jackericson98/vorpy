@@ -84,8 +84,6 @@ def doublet(vert, net):
             my_edges.append(Edge(atoms, net, [vert], doublet=True))
             dub_edges.append(i)
 
-    # Add the edges to the network
-    net.edges += my_edges
 
     # If there are 2 edges involved in the doublet it is a type 1 doublet and has 1 surface
     if len(dub_edges) == 2:
@@ -115,7 +113,6 @@ def doublet(vert, net):
             surf.edges[0].build()
             surf.edges[1].build()
             surf.build()
-        plot_surfs(surfs, simps=True, Show=True)
 
 
 # Make objects function. Checks the atoms of the vertices for patterns and creates edges and surfaces
