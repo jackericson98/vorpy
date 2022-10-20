@@ -159,7 +159,7 @@ class Edge:
             r = self.pv1 - self.pv0
             num_points = 5
             # Add the points
-            for i in range(num_points):
+            for i in range(num_points + 1):
                 self.points.append(self.pv0 + r * (i / num_points))
             return
 
