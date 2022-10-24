@@ -3,23 +3,19 @@
 ## Description
 
 
-Vorpy is a comprehensive 3D Voronoi cell generator designed for molecular analysis. Vorpy works by creating a network of 
-vertices and edges vorpy creates a network it uses to build inter atomic interfacial surfaces that can be constructed 
-into cells. These surfaces, volumes, curvatures, vertices, etc. can all be used to better understand molecular 
-structures in a simulated environment.  
+Vorpy is a comprehensive 3D Voronoi cell generator designed for molecular analysis. It works by sampling a network of points equidistant from the surfaces of neighboring atoms. Then constructs the cells around a group of atoms or interfaces between two groups of atoms for analysis. 
 
 
-## Installation (Jupyter Notebook)
-
-1. Make sure you have python 3.9 installed as well as jupyter notebook. I recommend getting the whole anaconda suite (it's free) and launching from there.
-2. Clone the repository into a working directory
-3. Import the system object from the vorpy directory:
-    ```commandline
-    from vorpy.System import System
-    ```
+## Installation
 
 
-## Usage
+
+## Usage (GUI)
+
+1. Still need: Picture of the load screen with arrows and descriptions
+2. Still need: Picture of the outputs screen with arrows and descriptions
+
+## Usage (Jupyter Notebook)
 
 1. Load your file:
 
@@ -28,24 +24,14 @@ structures in a simulated environment.
    ```
 2. Build the network:
    ```
-   sys.net.build(min_dist=0.5)
+   sys.net.build_network(min_dist=0.5)
    ```
-3. Run the analysis function
-   ```
-   sys.net.analyze()
-   ```
-4. 
 
 ## Credits
 
 ...
 
-## Analysis
+## Outputs
 
-1. Determine the volume of closed cell molecules Voronoi S-networks.
-2.  
-
-
-## Tests
 
 
