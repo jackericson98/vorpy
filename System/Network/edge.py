@@ -34,43 +34,44 @@ class Edge:
     # Find projection values. Calculates the correct end and projection points for the edge
     def find_pvals(self):
 
-        # Find the ends
-        # Catch for an edge that is formed between the same vertex, but different doublet sites
-        if self.doublet:
-            self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[0].loc2)
+        # Find the ends if they don't exist
+        if self.pv0 is None or self.pv1 is None:
+            # Catch for an edge that is formed between the same vertex, but different doublet sites
+            if self.doublet:
+                self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[0].loc2)
 
-        # Catch for an edge connected to a doublet, but has distinct vertices
-        elif self.verts[0].doublet or self.verts[1].doublet:
-            # Get the default vertex locations
-            self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
+            # Catch for an edge connected to a doublet, but has distinct vertices
+            elif self.verts[0].doublet or self.verts[1].doublet:
+                # Get the default vertex locations
+                self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
 
-            # If both vertices are doublets we have to find the closest two vertex locations
-            if self.verts[0].doublet and self.verts[1].doublet:
-                # Get the backup locations for the vertices
-                pv0_, pv1_ = np.array(self.verts[0].loc2), np.array(self.verts[1].loc2)
-                # Find the minimum distance
-                ds = [calc_dist(self.pv0, self.pv1), calc_dist(self.pv0, pv1_), calc_dist(pv0_, self.pv1),
-                      calc_dist(pv0_, pv1_)]
-                ndx = ds.index(min(ds))
-                # If the minimum distance comes from the second half, replace the vertex location for pv0
-                if ndx > 1:
-                    self.pv0 = pv0_
-                # If the ndx is odd, replace the vertex location for pv1
-                if ndx % 2 == 1:
-                    self.pv1 = pv1_
+                # If both vertices are doublets we have to find the closest two vertex locations
+                if self.verts[0].doublet and self.verts[1].doublet:
+                    # Get the backup locations for the vertices
+                    pv0_, pv1_ = np.array(self.verts[0].loc2), np.array(self.verts[1].loc2)
+                    # Find the minimum distance
+                    ds = [calc_dist(self.pv0, self.pv1), calc_dist(self.pv0, pv1_), calc_dist(pv0_, self.pv1),
+                          calc_dist(pv0_, pv1_)]
+                    ndx = ds.index(min(ds))
+                    # If the minimum distance comes from the second half, replace the vertex location for pv0
+                    if ndx > 1:
+                        self.pv0 = pv0_
+                    # If the ndx is odd, replace the vertex location for pv1
+                    if ndx % 2 == 1:
+                        self.pv1 = pv1_
 
-            # If only v0 is a doublet, find the closest vertex location to v0
-            elif self.verts[0].doublet:
-                if calc_dist(self.pv0, self.pv1) > calc_dist(self.verts[0].loc2, self.pv1):
-                    self.pv0 = np.array(self.verts[0].loc2)
+                # If only v0 is a doublet, find the closest vertex location to v0
+                elif self.verts[0].doublet:
+                    if calc_dist(self.pv0, self.pv1) > calc_dist(self.verts[0].loc2, self.pv1):
+                        self.pv0 = np.array(self.verts[0].loc2)
 
-            # If only v1 is a doublet, find the closest vertex location to v0
-            elif self.verts[1].doublet:
-                if calc_dist(self.pv0, self.pv1) > calc_dist(self.pv0, self.verts[1].loc2):
-                    self.pv1 = np.array(self.verts[1].loc2)
-        else:
-            # Typical case, no doublets
-            self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
+                # If only v1 is a doublet, find the closest vertex location to v0
+                elif self.verts[1].doublet:
+                    if calc_dist(self.pv0, self.pv1) > calc_dist(self.pv0, self.verts[1].loc2):
+                        self.pv1 = np.array(self.verts[1].loc2)
+            else:
+                # Typical case, no doublets
+                self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
 
         # Get the projection point
         # Find the point in between the two vertex points
@@ -135,7 +136,7 @@ class Edge:
             return point
 
     # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
-    def build(self):
+    def build(self, surf=None, min_dist=None):
 
         # Get the location and radius of the circle inscribed between the edge atoms
         self.get_loc()
@@ -143,13 +144,17 @@ class Edge:
         self.find_pvals()
         # Reset the edges points
         self.points = []
-        # Get the network's minimum distance
-        min_dist = self.net.min_dist
-        # Choose a curved one to project onto. If the edge isn't straight 2 surfs are curved.
-        if round(self.atoms[0].rad, 10) == round(self.atoms[1].rad, 10):
-            surf = Surface(self.atoms[1:], self.net)
-        else:
-            surf = Surface(self.atoms[:2], self.net)
+        # Check to see if a minimum distance has been provided
+        if min_dist is None:
+            # Get the network's minimum distance
+            min_dist = self.net.min_dist
+        # Check to see if a surface has been provided
+        if surf is None:
+            # Choose a curved one to project onto. If the edge isn't straight 2 surfs are curved.
+            if round(self.atoms[0].rad, 10) == round(self.atoms[1].rad, 10):
+                surf = Surface(self.atoms[1:], self.net)
+            else:
+                surf = Surface(self.atoms[:2], self.net)
 
         ################################################# Fill Edge ####################################################
 
