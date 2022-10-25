@@ -129,11 +129,13 @@ def build_perimeter(surf):
 
 # Get center of mass function.Finds the center of mass of a surface's perimeter
 def get_com(surf):
-    # Next try the center of mass of the 3d points projected onto the surface
-    my_com = calc_edges_com(edges=surf.edges)
-    com0 = calc_surf_point(surf, my_com)
-    if com0 is not None and tri_within(surf, point=com0) and surf.atoms[0].rad != surf.atoms[1].rad:
-        return com0
+    # First try the center of mass of the 3d points projected onto the surface
+    my_com = calc_com(points=surf.perimeter[::5])
+    # If the surface is flat, the center of mass will not need to be projected
+    if not surf.flat:
+        my_com = calc_surf_point(surf, my_com)
+    if my_com is not None and tri_within(surf, point=my_com) and surf.atoms[0].rad != surf.atoms[1].rad:
+        return my_com
     # Get the center of the surface
     if tri_within(surf, point=surf.center):
         return surf.center
@@ -186,6 +188,12 @@ def fill_mesh(surf):
         while i < num_paths:
             # Get the next point along the path
             pn = find_next_point(surf, paths[i][-1], com, dthetas[i])
+            # Check for edges that start by going outside
+            if j == 0 and not tri_within(surf, point=pn):
+                paths.pop(i)
+                dthetas.pop(i)
+                num_paths -= 1
+                continue
             # Check to see if the point is outside the network's box
             if pn is not None and np.array([surf.net.box[0][i] <= pn[i] <= surf.net.box[1][i] for i in range(3)]).all():
                 surf.in_box = False
