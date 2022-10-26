@@ -189,7 +189,7 @@ def fill_mesh(surf):
             # Get the next point along the path
             pn = find_next_point(surf, paths[i][-1], com, dthetas[i])
             # Check for edges that start by going outside
-            if j == 0 and not tri_within(surf, point=pn):
+            if j == 0 and pn is not None and not tri_within(surf, point=pn):
                 paths.pop(i)
                 dthetas.pop(i)
                 num_paths -= 1
