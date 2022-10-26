@@ -22,6 +22,7 @@ class Network:
         self.atoms_box = []         # Atoms box      :  Holds the min and max verts for the box containing the atoms
         self.max_atom_rad = 0       # Max atom rad   :  Holds the largest radius of the system for reference
         self.vert_ndxs = []         # Vert indices   :  Holds the indices of the atoms of the vertices in the network
+        self.atom_ndxs = []         # Atom indices   :  Used to track atoms that have been used in a vertex
         # Settings
         self.min_dist = min_dist    # Resolution     :  How small the triangles in the surfaces are
         self.beta_val = beta_val    # Beta value     :  The maximum vertex radius for the network
@@ -132,12 +133,22 @@ class Network:
 
     # Connect method. Connects the network using the functions in the connect_network.py file
     def connect(self):
+        print("\rConnecting Network", end="")
         build(self)
 
     # Find vertices method. Using the functions in find_vertices.py finds the vertices in the network
     def find_verts(self):
-        # Run the normal algorithm
+        # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
+        self.atom_ndxs = [i for i in range(len(self.atoms)) if self.atoms[i].res.lower() != 'sol']
+        # Do an initial sweep
         find_vertices(self)
+        i = 0
+        while len(self.atom_ndxs) > 0:
+            i = i % 4
+            print("\rChecking Missing vertices  " + i * ". ", end="")
+            find_vertices(self, a0=self.atoms[self.atom_ndxs.pop()])
+            i += 1
+        print("\r                                        ", end="")
 
 
     # Build edges function. Builds the edges in the network for use in the surfaces
@@ -171,6 +182,6 @@ class Network:
             self.surfs[i].interface_sa = calc_sa(self.surfs[i])
         # Go through each atom in the system and find the volume
         for j in range(len(self.atoms)):
-            percentage = int((i + j + 1) / tot_num * 100)
+            percentage = int((i + j + 2) / tot_num * 100)
             print("\rAnalyzing: {} %".format(percentage), end="")
             self.atoms[j].cell_vol = calc_vol(self.atoms[j])
