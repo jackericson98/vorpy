@@ -73,7 +73,7 @@ class Vorpy:
             .grid(row=2, column=2, sticky='e')
         # Add the system information header and labels
         tk.Label(load_system_frame, text="System Information").grid(row=3, column=1, sticky='n')
-        tk.Label(load_system_frame, text="Atoms:\nMolecules:\nSolution:\n   ~   \n   ~   \n   ~   \n")\
+        tk.Label(load_system_frame, text="Atoms:\nMolecules:\nSolute:\n   ~   \n   ~   \n   ~   \n")\
             .grid(row=4, column=0, sticky='w')
         tk.Label(load_system_frame, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
         # Add the system information to match the labels
@@ -570,7 +570,7 @@ class Vorpy:
     def reset_group(self):
         if self.using_group1.get():
             self.g1 = None
-            self.group2_selections.set("")
+            self.group1_selections.set("")
             if self.g2 is not None:
                 self.g2 = Group(self.sys.net, self.g2.atoms)
                 self.g2.get_info()
