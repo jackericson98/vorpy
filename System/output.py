@@ -62,8 +62,8 @@ def write_pdb(atoms, name, sys=None):
         symbol = a.element
         charge = a.charge
         # Write the atom information
-        file.write("ATOM  " + ser_num + " " + name + " " + res + " " + chain + res_seq + "   " + " ".join(loc_strs) +
-                   occupancy + t_fact + "      " + seg_id + symbol + charge + "\n")
+        file.write("ATOM  " + ser_num + " " + name + " " + res + " " + chain + res_seq + "    " + " ".join(loc_strs) +
+                   occupancy + t_fact + "        " + seg_id + symbol + charge + "\n")
 
 
 # Write surfaces function. Writes files given a list of surfaces
