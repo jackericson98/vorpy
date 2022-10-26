@@ -4,63 +4,58 @@ from System.Network.edge import Edge
 
 
 # Find v0 function. Uses the atom finding functions to find a real verified site in the network
-def find_v0(net):
-    # Instantiate the v0 variable
-    v0 = None
-    i = 0
-    # Find the initial atom in the system, with the option to change it if necessary
-    while v0 is None and i < len(net.atoms):
-        # Find the middle sub_box of the set of boxes and
-        mid = len(net.sub_boxes) // 2
+def find_v0(net, a0=None):
+    # Find the middle sub_box of the set of boxes and
+    mid = len(net.sub_boxes) // 2
+    if a0 is None:
         a0s = []
         inc = 0
         # Keep grabbing atoms until we have enough to get the current a0 increment
-        while len(a0s) < i + 1:
+        while len(a0s) < 5:
             a0s = net.get_atoms([[mid, mid, mid]], inc)
             inc += 1
         # Pull an atom from the atoms list
-        a0 = a0s[i]
-        a1s = []
+        a0 = a0s[0]
+    a1s = []
+    inc = 0
+    # Get the 5 closest atoms to a0
+    while len(a1s) < 5:
+        a1s = net.get_atoms([a0.box], inc)
+        inc += 1
+    # Set up the a2s lists
+    a2s = []
+    # Check the a1s for verifiable
+    for j in range(len(a1s)):
+        # Add the circle check
+        a2s.append([])
         inc = 0
-        # Get the 5 closest atoms to a0
-        while len(a1s) < 5:
-            a1s = net.get_atoms([a0.box], inc)
+        # Get the 20 closest atoms to a0 and the current a1
+        while len(a2s[j]) < 20:
+            a2s[j] = net.get_atoms([[mid, mid, mid]], inc)
             inc += 1
-        # Set up the a2s lists
-        a2s = []
-        # Check the a1s for verifiable
-        for j in range(len(a1s)):
-            # Add the circle check
-            a2s.append([])
-            inc = 0
-            # Get the 20 closest atoms to a0 and the current a1
-            while len(a2s[j]) < 20:
-                a2s[j] = net.get_atoms([[mid, mid, mid]], inc)
-                inc += 1
 
-            # Filter out the circles that don't work
+        # Filter out the circles that don't work
 
-            # Set up verified circles list for this a1
-            verified_circles = []
-            # Check each of the combinations for this a1
-            for a2 in a2s[j]:
-                # Use an edge object as a vehicle for calculating and verifying the inscribed circle
-                edge = Edge(atoms=[a0, a1s[j], a2])
-                edge.get_loc()
-                # If a circle can be made and the site does not overlap with any other atoms, add it to the list
-                if edge.loc is not None and edge.rad < net.beta_val and verify_site(edge, net):
-                    verified_circles.append(edge.atoms)
+        # Set up verified circles list for this a1
+        verified_circles = []
+        # Check each of the combinations for this a1
+        for a2 in a2s[j]:
+            # Use an edge object as a vehicle for calculating and verifying the inscribed circle
+            edge = Edge(atoms=[a0, a1s[j], a2])
+            edge.get_loc()
+            # If a circle can be made and the site does not overlap with any other atoms, add it to the list
+            if edge.loc is not None and edge.rad < net.beta_val and verify_site(edge, net):
+                verified_circles.append(edge.atoms)
 
-            # Test for verified sites
+        # Test for verified sites
 
-            # Try to make a verified v0 site with the verified circles
-            for circle in verified_circles:
-                # Try to create a vertex
-                myVert = find_site(net, circle)
-                # Check for a real site
-                if myVert is not None and myVert[0].loc is not None:
-                    return myVert[0]
-        i += 1
+        # Try to make a verified v0 site with the verified circles
+        for circle in verified_circles:
+            # Try to create a vertex
+            myVert = find_site(net, circle)
+            # Check for a real site
+            if myVert is not None and myVert[0].loc is not None:
+                return myVert[0]
 
 
 # Verify site function. Compares a vertex to the atoms around to see if they overlap
@@ -182,14 +177,17 @@ def find_site(net, edge_atoms, vn_1=None):
 
 
 # Find network function. Keeps searching the network until all verts are found
-def find_vertices(net):
+def find_vertices(net, a0=None):
     # Calculate the total number of vertices
     if net.sol_verts:
         tot_verts = 6 * len(net.atoms)
     else:
-        tot_verts = 6 * (len(net.atoms) - len(net.sys.sol))
+        tot_verts = 8 * (len(net.atoms) - len(net.sys.sol))
     # Find the first verified vertex
-    v0 = find_v0(net)
+    v0 = find_v0(net, a0)
+    # If no v0 is possible (e.g., a lone atom) return
+    if v0 is None:
+        return
     # Add v0 to the System
     net.verts = [v0]
     # Set up the vertex stack
@@ -218,6 +216,8 @@ def find_vertices(net):
             # Insert the vertices in order of increasing atom indices
             net.verts.insert(myVert_ndx, myVert)
             net.vert_ndxs.insert(myVert_ndx, myVert.ndx)
-            # Add the vertex to the atoms
+            # Remove the atoms from the
             for atom in myVert.atoms:
-                atom.verts.append(myVert)
+                atom_ndx = net.atoms.index(atom)
+                if atom_ndx in net.atom_ndxs:
+                    net.atom_ndxs.remove(atom_ndx)
