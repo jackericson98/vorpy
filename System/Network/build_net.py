@@ -70,7 +70,7 @@ def doublet(vert, net):
 
     # Set up a variable for doublet edges
     dub_edges = []
-    my_edges = []
+    con_edges = []
 
     # Find what type of doublet it is (i.e. the # of edges) by counting the number of "free" inscribed circles
     for i in range(4):
@@ -81,21 +81,34 @@ def doublet(vert, net):
         # If this circle doesn't overlap with the other atom this is doublet edge
         if calc_dist(circ[0], vert.atoms[(i + 3) % 4].loc) > circ[1] + vert.atoms[(i + 3) % 4].rad:
             # Add the doublet edge to the list of edges
-            my_edges.append(Edge(atoms, net, [vert], doublet=True))
-            dub_edges.append(i)
+            dub_edges.append(Edge(atoms, net, [vert], doublet=True))
+        else:
+            con_edges.append(Edge(atoms, net, [vert]))
 
 
     # If there are 2 edges involved in the doublet it is a type 1 doublet and has 1 surface
     if len(dub_edges) == 2:
+
         # Set the vertex doublet type
         vert.d_type = "1"
         # Get the atoms in the surface
-        surf_atoms = [atom for atom in my_edges[0].atoms if atom in my_edges[1].atoms]
+        surf_atoms = [atom for atom in dub_edges[0].atoms if atom in dub_edges[1].atoms]
         # Create the surface
-        mySurf = Surface(surf_atoms, net, edges=my_edges, verts=[vert], doublet=True)
+        mySurf = Surface(surf_atoms, net, edges=dub_edges, verts=[vert], doublet=True)
         # Add the surface to the network
-        net.edges += my_edges
+        net.edges += dub_edges
         net.surfs.append(mySurf)
+        # Create the 4 outer edges
+        for edge in con_edges:
+            edge_verts = []
+            for vert in net.verts:
+                if len([0 for ndx in edge.ndx if ndx in vert.ndx]) == 3:
+                    edge_verts.append(vert)
+            net.edges.append(Edge(edge.atoms, net, edge.verts + [edge_verts[0]], True))
+            if len(edge_verts) > 1:
+                e1 = Edge(edge.atoms, net, edge.verts + [edge_verts[1]], True)
+                net.edges.append(e1)
+
 
     # If there are 3 edges involved in the doublet it is a type 3 doublet and has 3 surfaces
     elif len(dub_edges) == 3:
@@ -104,15 +117,26 @@ def doublet(vert, net):
         vert.d_type = "3"
         # Create the surfaces for the vertex surfaces
         for k in range(3):
-            edges = [my_edges[k], my_edges[(k + 1) % 3]]
-            atoms = [atom for atom in my_edges[k].atoms if atom in my_edges[(k + 1) % 3].atoms]
-            net.edges.append(my_edges[k])
+            edges = [dub_edges[k], dub_edges[(k + 1) % 3]]
+            atoms = [atom for atom in dub_edges[k].atoms if atom in dub_edges[(k + 1) % 3].atoms]
+            net.edges.append(dub_edges[k])
             surf = Surface(atoms, net, edges, verts=[vert], doublet=True)
             net.surfs.append(surf)
             surfs.append(surf)
             surf.edges[0].build()
             surf.edges[1].build()
             surf.build()
+        # Create the 2 outer edges
+        edge = con_edges[0]
+        edge_verts = []
+        for vert in net.verts:
+            if len([0 for ndx in edge.ndx if ndx in vert.ndx]) == 3:
+                edge_verts.append(vert)
+        e0 = Edge(edge.atoms, net, edge.verts + [edge_verts[0]], True)
+        net.edges.append(e0)
+        if len(edge_verts) > 1:
+            e1 = Edge(edge.atoms, net, edge.verts + [edge_verts[1]], True)
+            net.edges.append(e1)
 
 
 # Make objects function. Checks the atoms of the vertices for patterns and creates edges and surfaces
