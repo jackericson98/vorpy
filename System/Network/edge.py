@@ -4,7 +4,8 @@ from System.Network.surface import Surface
 
 class Edge:
     """Edge object. Used to build the network and calculate the surfaces"""
-    def __init__(self, atoms=None, net=None, verts=None, doublet=False, points=None, loc=None, rad=None):
+    def __init__(self, atoms=None, net=None, verts=None, doublet=False, points=None, loc=None, rad=None, pv0=None,
+                 pv1=None):
 
         # If no network was given have a catch
         if net is not None:
@@ -19,8 +20,8 @@ class Edge:
         self.loc = loc                   # Location      :   Location of the center of the 3 atoms that make up the edge
         self.rad = rad                   # Radius        :   Radius of the inscribed circle of the three atoms
         self.points = points             # Points        :   List of points along the
-        self.pv0 = None                  # Vertex pt 0   :   The points on the ends of the edges
-        self.pv1 = None                  # Vertex pt 1   :   The points on the ends of the edges
+        self.pv0 = pv0                   # Vertex pt 0   :   The points on the ends of the edges
+        self.pv1 = pv1                   # Vertex pt 1   :   The points on the ends of the edges
         self.pa = None                   # Projection pt :   The projection point from which the edge is built
         self.doublet = doublet           # Doublet       :   Boolean for if the edge is part of a doublet or not
 
