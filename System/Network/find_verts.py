@@ -219,5 +219,5 @@ def find_vertices(net, a0=None):
             # Remove the atoms from the
             for atom in myVert.atoms:
                 atom_ndx = net.atoms.index(atom)
-                if atom_ndx in net.atom_ndxs:
+                if net.atoms[atom_ndx].res.lower() != 'sol' and atom_ndx in net.atom_ndxs:
                     net.atom_ndxs.remove(atom_ndx)
