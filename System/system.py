@@ -39,8 +39,12 @@ class System:
         # Gui
         self.gui = gui                       # GUI               :    GUI Vorpy object that can be updated through sys
 
-    # Load network method. Used to load a network that was previously calculated
     def load_net(self, net_file, verts_only=False):
+        """
+        Used to load a network that was previously calculated
+        :param net_file:
+        :param verts_only:
+        """
         # If no file has been loaded before, create the main network
         if self.nets is None:
             self.net_files = [net_file]
@@ -51,24 +55,30 @@ class System:
             import_net(self.nets[-1], net_file, verts_only=verts_only)
         self.analysis_prep()
 
-    # Build System method. Takes in a list of atomic values
+    # Build System method.
     def build_user_atoms_sys(self, user_atoms):
-        # Check if the user entered Atoms into their list
-        if type(user_atoms[0]) is Atom:
-            self.atoms = user_atoms
-            return
+        """
+        Takes in a list of atomic values and creates atom objects for the system to interpret
+        :param user_atoms: List of locations and radii for the atoms in the system
+        """
         # Go through each line in the input list
         for line in user_atoms:
             # If the radius is a string, convert the radius using the get_radius method
             if type(line[1]) == str:
                 self.atoms.append(Atom([float(line[0][0]), float(line[0][1]), float(line[0][2])],
-                                       get_radius(self, line[1]), symbol=line[1], chain="None"))
+                                       get_radius(self, line[1]), element=line[1], chain="None"))
             else:
                 self.atoms.append(Atom([float(line[0][0]), float(line[0][1]), float(line[0][2])], float(line[1]),
-                                       symbol=get_radius(line[1], return_symbol=True), chain="None"))
+                                       element=get_radius(line[1], return_symbol=True), chain="None"))
 
-    # Random System function. Creates a System with atoms placed in random locations with random radii
     def random_system(self, anums=30, dmax=15, rmax=1):
+        """
+        Creates a System with atoms placed in random locations with random radii
+        :param anums:
+        :param dmax:
+        :param rmax:
+        :return:
+        """
         # Create the atoms
         for i in range(anums):
             # Choose a random set of 3 numbers between dmax and -dmax. Choose a random radius between 0 and rmax

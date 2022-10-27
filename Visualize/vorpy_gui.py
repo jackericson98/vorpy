@@ -37,7 +37,7 @@ class Vorpy:
 
         # Load subframe attributes
         self.load_frame = tk.Frame(self.main, name="load")
-        self.load_frame.pack()
+        # self.load_frame.pack()
 
         # Load frame attributes
         self.sys_pros = tk.StringVar(self.main, "   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n")
@@ -218,188 +218,270 @@ class Vorpy:
 
         # Set up the analysis frame
         self.analysis_frame = tk.Frame(self.main, name="analysis")
+        self.analysis_frame.pack()
 
         # Header
-        tk.Label(self.analysis_frame, text="VorPy", font=("Times New Roman bold", 40)).grid(row=0, columnspan=3,
-                                                                                            padx=10, pady=10,)
-        # Separator
-        ttk.Separator(self.analysis_frame).grid(row=1, columnspan=3, sticky='ew')
+        tk.Label(self.analysis_frame, text="VorPy", font=("Times New Roman bold", 20)).grid(row=0, columnspan=3,
+                                                                                            padx=10, pady=10, )
 
-        # Network name
-        tk.Label(self.analysis_frame, textvariable=self.net_name, font=("Times New Roman bold", 20))\
-            .grid(row=2, columnspan=3, padx=10, pady=10)
+        # System information subframe
+        self.sys_info_frm = tk.Frame(self.analysis_frame, highlightthickness=1, highlightcolor='blue')
+        self.sys_info_frm.grid(row=2, column=0)
+        tk.Label(self.sys_info_frm, text="System", font=("bold underlined", 15), justify=tk.CENTER)\
+            .grid(column=0, columnspan=3)
 
-        # Separator
-        ttk.Separator(self.analysis_frame).grid(row=3, columnspan=3, sticky='ew')
+        # Network information subframe
+        self.net_info_frm = tk.Frame(self.analysis_frame, highlightthickness=1)
+        self.net_info_frm.grid(row=2, column=2)
+        tk.Label(self.net_info_frm, text="Network", font=("Times New Roman bold underlined", 15), justify=tk.CENTER)\
+            .grid(column=0, columnspan=3)
 
-        # Network information List
-        anal_net_frame = tk.Frame(self.analysis_frame)
-        anal_net_frame.grid(row=4, column=0, padx=10, pady=10)
+        # Select atoms subframe
+        self.select_atoms_frm = tk.Frame(self.analysis_frame)
+        self.select_atoms_frm.grid(row=4, columnspan=3)
 
-        tk.Label(anal_net_frame, text="Network Information:", font=("Times New Roman bold", 20))\
-            .grid(row=0, column=0, columnspan=2, sticky='nw')
+        # Header
+        tk.Label(self.select_atoms_frm, text="Select Atoms", font=("underlined bold", 20)).grid(columnspan=3)
 
-        ttk.Separator(anal_net_frame, orient=tk.VERTICAL).grid(row=1, rowspan=3, column=1, sticky='ns')
-        ttk.Separator(anal_net_frame, orient=tk.HORIZONTAL).grid(row=2, columnspan=3, column=0, sticky='ew')
+        # Current selection textbox
+        self.current_selection_str_var = tk.StringVar(self.main)
+        tk.Label(self.select_atoms_frm, textvariable=self.current_selection_str_var, highlightcolor='white',
+                 highlightthickness=1, justify=tk.CENTER).grid(row=2, column=0, sticky='ns')
 
-        # Create the system information sub frame
-        anal_sys_info_subframe = tk.Frame(anal_net_frame)
-        anal_sys_info_subframe.grid(row=1, column=0, padx=5, pady=5)
+        # Select atoms sub-frame
+        self.select_atoms_sub_frm = tk.Frame(self.select_atoms_frm)
+        self.select_atoms_sub_frm.grid(row=2, column=1, sticky='nsew')
 
-        tk.Label(anal_sys_info_subframe, text="System Information").grid(row=3, columnspan=3, sticky='n')
-        tk.Label(anal_sys_info_subframe, text="Atoms:\nMolecules:\nResidues:\n    ~    \n    ~    \n    ~    \n") \
-            .grid(row=4, column=0)
-        tk.Label(anal_sys_info_subframe, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
-        tk.Label(anal_sys_info_subframe, textvariable=self.sys_pros).grid(row=4, column=2)
-
-        # Create the system information sub frame
-        anal_cpu_info_subframe = tk.Frame(anal_net_frame)
-        anal_cpu_info_subframe.grid(row=1, column=2, padx=5, pady=5)
-
-        tk.Label(anal_cpu_info_subframe, text="CPU Information").grid(row=3, columnspan=3, sticky='n')
-        tk.Label(anal_cpu_info_subframe, text="My Time:\nCPU Time:\nComputations:\n    ~    \n    ~    \n    ~    \n") \
-            .grid(row=4, column=0)
-        tk.Label(anal_cpu_info_subframe, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
-        self.cpu_info = tk.StringVar(self.main, "   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n")
-        tk.Label(anal_cpu_info_subframe, textvariable=self.cpu_info).grid(row=4, column=2)
-
-        # Create the system information sub frame
-        anal_settings_subframe = tk.Frame(anal_net_frame)
-        anal_settings_subframe.grid(row=3, column=0, padx=5, pady=5)
-
-        tk.Label(anal_settings_subframe, text="Settings Information").grid(row=3, columnspan=3, sticky='n')
-        tk.Label(anal_settings_subframe,
-                 text="Box Size:\nResolution:\nMax Vertex:\n    ~    \n    ~    \n    ~    \n").grid(row=4, column=0)
-        tk.Label(anal_settings_subframe, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
-        tk.Label(anal_settings_subframe, textvariable=self.net_sets).grid(row=4, column=2)
-
-        # Create the system information sub frame
-        anal_outputs_info_subframe = tk.Frame(anal_net_frame)
-        anal_outputs_info_subframe.grid(row=3, column=2, padx=5, pady=5)
-
-        tk.Label(anal_outputs_info_subframe, text="Output Information").grid(row=3, columnspan=3, sticky='n')
-        tk.Label(anal_outputs_info_subframe, text="Vertices:\nSurfaces:\nEdges:\nFull Cells\n   ~   \n   ~   ") \
-            .grid(row=4, column=0)
-        tk.Label(anal_outputs_info_subframe, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
-        self.output_info = tk.StringVar(self.main, "   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n")
-        tk.Label(anal_outputs_info_subframe, textvariable=self.output_info).grid(row=4, column=2)
-
-        # Seperator
-        ttk.Separator(self.analysis_frame, orient=tk.VERTICAL).grid(row=3, column=1, rowspan=3, sticky='ns')
-
-        # Export information List
-        group_info_frame = tk.Frame(self.analysis_frame)
-        group_info_frame.grid(row=4, column=2, sticky='ns', padx=10, pady=10)
-
-        tk.Label(group_info_frame, text="Group Information:", font=("Times New Roman bold", 18))\
-            .grid(row=0, column=0, sticky='nw', columnspan=5)
-        tk.Label(group_info_frame, text="Group 1").grid(row=1, column=2)
-        ttk.Separator(group_info_frame, orient=tk.VERTICAL).grid(row=1, rowspan=3, column=1, sticky='ns')
-        ttk.Separator(group_info_frame, orient=tk.VERTICAL).grid(row=1, rowspan=3, column=3, sticky='ns')
-
-        tk.Label(group_info_frame, text="Group 2").grid(row=1, column=4)
-        ttk.Separator(group_info_frame).grid(row=2, columnspan=5, sticky='ew')
-        tk.Label(group_info_frame, text="Surface Area:\n\nVolume:\n\nBoundary atoms:\n\nOuter Atoms:\n")\
-            .grid(row=3, column=0, sticky='w')
-        self.g1_info = tk.StringVar(self.main, "   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   ")
-        tk.Label(group_info_frame, textvariable=self.g1_info).grid(row=3, column=2)
-        self.g2_info = tk.StringVar(self.main, "   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   ")
-        tk.Label(group_info_frame, textvariable=self.g2_info).grid(row=3, column=4)
-        ttk.Separator(group_info_frame).grid(row=4, column=0, columnspan=5, sticky='ew')
-        tk.Label(group_info_frame, text="Interface:").grid(row=6, column=1)
-        tk.StringVar()
-        tk.Label(group_info_frame, text="   ~   \n   ~   \n   ~   ")
-
-        self.interface_info = tk.StringVar(self.main, )
-
-        ttk.Separator(self.analysis_frame).grid(row=5, columnspan=5, sticky='ew')
-
-        # Main frame Network object gathering
-        export_obj_frame = tk.Frame(self.analysis_frame)
-        export_obj_frame.grid(row=6, column=0, columnspan=3, padx=10, pady=10)
-
-        # Group sub frame
-        self.using_group1 = tk.BooleanVar(self.main, True)
-        self.using_group2 = tk.BooleanVar(self.main, not self.using_group1.get())
-        anal_check_subframe = tk.Frame(export_obj_frame)
-        anal_check_subframe.grid(column=0, row=0, padx=10, pady=10)
-
-        tk.Label(anal_check_subframe, text="Groups:", font=("Times New Roman bold", 20)).grid(row=0)
-        self.group1_selections = tk.StringVar(self.main, "")
-        self.group2_selections = tk.StringVar(self.main, "")
-        tk.Checkbutton(anal_check_subframe, text="Group 1", font=("Times New Roman", 15), variable=self.using_group1,
-                       command=self.flip_g2).grid(row=1, column=0)
-        tk.Label(anal_check_subframe, text="Selections").grid(row=2, column=0)
-        tk.Label(anal_check_subframe, textvariable=self.group1_selections).grid(row=3, column=0)
-        tk.Checkbutton(anal_check_subframe, text="Group 2", font=("Times New Roman", 15), variable=self.using_group2,
-                       command=self.flip_g1).grid(row=4, column=0)
-        tk.Label(anal_check_subframe, text="Selections").grid(row=5, column=0)
-        tk.Label(anal_check_subframe, textvariable=self.group2_selections).grid(row=6, column=0)
-
-        # Choose index
-
-        # Seperator
-        ttk.Separator(export_obj_frame, orient=tk.VERTICAL).grid(column=1, row=0, sticky='ns', rowspan=3)
-        # Choose index sub frame
-        self.choose_index_subframe = tk.Frame(export_obj_frame)
-        self.choose_index_subframe.grid(column=2, row=0, sticky='ns', padx=10, pady=10)
-
-        # Set the label header for the "choose index" sub frame
-        tk.Label(self.choose_index_subframe, text="Get Atoms:", font=("Times New Roman bold", 20))\
-            .grid(row=0, columnspan=3, sticky='nw')
-        tk.Label(self.choose_index_subframe, text="Choose Index:", font=("Times New Roman bold", 15))\
-            .grid(row=1, column=0)
-        self.current_ndx = tk.StringVar(self.main, "[None]")
-        tk.OptionMenu(self.choose_index_subframe, variable=self.current_ndx, value=self.index_list)\
-            .grid(row=1, column=1)
-        tk.Button(self.choose_index_subframe, text="Browse", command=self.load_index).grid(row=1, column=2)
-
-        # Create the index
-        # Atoms
-        tk.Label(self.choose_index_subframe, text="Create Index", font=("Times New Roman bold", 12))\
-            .grid(row=3, column=0, columnspan=3)
-        self.current_atom_selection = tk.StringVar(self.main, "")
-        tk.Label(self.choose_index_subframe, text="Atom").grid(row=4, column=0)
-        self.atom_options = tk.OptionMenu(self.choose_index_subframe, self.current_atom_selection, "", *self.sys.atoms)
-        self.atom_options.grid(row=5, column=0)
-
-        # Molecules
+        # Molecule Dropdown
+        self.sys.mol_names, self.sys.res_names, self.sys.atom_names = [["o", "sdds", "s", "G"] for _ in range(3)]
+        tk.Label(self.select_atoms_sub_frm, text="Molecules").grid()
         self.current_mol_selection = tk.StringVar(self.main)
-        tk.Label(self.choose_index_subframe, text="Molecule").grid(row=4, column=1)
-        self.mol_options = tk.OptionMenu(self.choose_index_subframe, self.current_mol_selection, "", *self.sys.mols)
-        self.mol_options.grid(row=5, column=1)
+        self.mol_options = tk.OptionMenu(self.select_atoms_sub_frm, self.current_mol_selection, "", *self.sys.mol_names)
+        self.mol_options.grid(row=1)
+        tk.Button(self.select_atoms_sub_frm)
 
-        # Residues
-        self.current_res_selection = tk.StringVar(self.main, "")
-        tk.Label(self.choose_index_subframe, text="Residue").grid(row=4, column=2)
-        self.res_options = tk.OptionMenu(self.choose_index_subframe, self.current_res_selection, "", *self.sys.residues)
-        self.res_options.grid(row=5, column=2)
+        tk.Label(self.select_atoms_sub_frm, text="Residues").grid(row=2)
+        self.current_res_selection = tk.StringVar(self.main)
+        self.res_options = tk.OptionMenu(self.select_atoms_sub_frm, self.current_res_selection, "", *self.sys.res_names)
+        self.res_options.grid(row=3)
 
-        # Selection Button
-        tk.Button(self.choose_index_subframe, text="Reset Group", command=self.reset_group).grid(row=6, column=0)
-        tk.Button(self.choose_index_subframe, text="Undo Selection", command=self.undo_selection).grid(row=6, column=1)
-        tk.Button(self.choose_index_subframe, text="Add Selection", command=self.add_selection).grid(row=6, column=2)
+        tk.Label(self.select_atoms_sub_frm, text="Atoms").grid()
+        self.current_atom_selection = tk.StringVar(self.main)
+        self.atom_options = tk.OptionMenu(self.select_atoms_sub_frm, self.current_atom_selection, "", *self.sys.atom_names)
+        self.atom_options.grid(row=5)
 
-        # Seperator
-        ttk.Separator(export_obj_frame, orient=tk.VERTICAL).grid(column=3, row=0, sticky='ns', rowspan=3)
 
-        # Export object sub frame
-        export_obj_subframe = tk.Frame(export_obj_frame)
-        export_obj_subframe.grid(column=4, row=0, padx=10, pady=10, sticky='ns')
+        # Select atoms buttons sub-frame
+        self.select_atoms_buttons_sub_frm = tk.Frame(self.select_atoms_frm)
+        self.select_atoms_buttons_sub_frm.grid(column=2, row=2)
 
-        tk.Label(export_obj_subframe, text="Export:", font=("Times New Roman bold", 20))\
-            .grid(column=0, row=0, columnspan=2, sticky='nw')
-        tk.Label(export_obj_subframe, text="Change Output Directory:").grid(row=1, column=0)
-        tk.Button(export_obj_subframe, text="Browse", command=self.change_output_directory).grid(row=1, column=1)
-        self.output_dir_str = tk.StringVar(self.main, os.getcwd()[:12] + "..." + "/Data/User_data")
-        tk.Label(export_obj_subframe, textvariable=self.output_dir_str).grid(row=2, column=0, columnspan=2)
-        self.export_info = tk.BooleanVar(self.main, False)
-        tk.Checkbutton(export_obj_subframe, text="Export Info", variable=self.export_info)\
-            .grid(row=3, column=0, columnspan=2)
+        tk.Button(self.select_atoms_buttons_sub_frm, text="Load Index", command=self.load_index)\
+            .grid(row=0, padx=10, pady=10)
+        tk.Button(self.select_atoms_buttons_sub_frm, text="Undo Last", command=self.undo_selection)\
+            .grid(row=1, padx=10, pady=10)
+        tk.Button(self.select_atoms_buttons_sub_frm, text="Reset All", command=self.reset_group)\
+            .grid(row=2, padx=10, pady=10)
 
-        tk.Button(export_obj_subframe, text="Export", font=("Times New Roman bold", 20),
-                  command=self.export_selections).grid(row=4, column=0, columnspan=2, rowspan=2)
-
+        # tk.Label(self.choose_index_subframe, text="Create Index", font=("Times New Roman bold", 12))\
+        #     .grid(row=3, column=0, columnspan=3)
+        # self.current_atom_selection = tk.StringVar(self.main, "")
+        # tk.Label(self.choose_index_subframe, text="Atom").grid(row=4, column=0)
+        # self.atom_options = tk.OptionMenu(self.choose_index_subframe, self.current_atom_selection, "", *self.sys.atoms)
+        # self.atom_options.grid(row=5, column=0)
+        #
+        # # Molecules
+        # self.current_mol_selection = tk.StringVar(self.main)
+        # tk.Label(self.choose_index_subframe, text="Molecule").grid(row=4, column=1)
+        # self.mol_options = tk.OptionMenu(self.choose_index_subframe, self.current_mol_selection, "", *self.sys.mols)
+        # self.mol_options.grid(row=5, column=1)
+        #
+        # # Residues
+        # self.current_res_selection = tk.StringVar(self.main, "")
+        # tk.Label(self.choose_index_subframe, text="Residue").grid(row=4, column=2)
+        # self.res_options = tk.OptionMenu(self.choose_index_subframe, self.current_res_selection, "", *self.sys.residues)
+        # self.res_options.grid(row=5, column=2)
+        #
+        #
+        #
+        #
+        # # Separator
+        # ttk.Separator(self.analysis_frame).grid(row=1, columnspan=3, sticky='ew')
+        #
+        # # Network name
+        # tk.Label(self.analysis_frame, textvariable=self.net_name, font=("Times New Roman bold", 20))\
+        #     .grid(row=2, columnspan=3, padx=10, pady=10)
+        #
+        # # Separator
+        # ttk.Separator(self.analysis_frame).grid(row=3, columnspan=3, sticky='ew')
+        #
+        # # Network information List
+        # anal_net_frame = tk.Frame(self.analysis_frame)
+        # anal_net_frame.grid(row=4, column=0, padx=10, pady=10)
+        #
+        # tk.Label(anal_net_frame, text="Network Information:", font=("Times New Roman bold", 20))\
+        #     .grid(row=0, column=0, columnspan=2, sticky='nw')
+        #
+        # ttk.Separator(anal_net_frame, orient=tk.VERTICAL).grid(row=1, rowspan=3, column=1, sticky='ns')
+        # ttk.Separator(anal_net_frame, orient=tk.HORIZONTAL).grid(row=2, columnspan=3, column=0, sticky='ew')
+        #
+        # # Create the system information sub frame
+        # anal_sys_info_subframe = tk.Frame(anal_net_frame)
+        # anal_sys_info_subframe.grid(row=1, column=0, padx=5, pady=5)
+        #
+        # tk.Label(anal_sys_info_subframe, text="System Information").grid(row=3, columnspan=3, sticky='n')
+        # tk.Label(anal_sys_info_subframe, text="Atoms:\nMolecules:\nResidues:\n    ~    \n    ~    \n    ~    \n") \
+        #     .grid(row=4, column=0)
+        # tk.Label(anal_sys_info_subframe, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
+        # tk.Label(anal_sys_info_subframe, textvariable=self.sys_pros).grid(row=4, column=2)
+        #
+        # # Create the system information sub frame
+        # anal_cpu_info_subframe = tk.Frame(anal_net_frame)
+        # anal_cpu_info_subframe.grid(row=1, column=2, padx=5, pady=5)
+        #
+        # tk.Label(anal_cpu_info_subframe, text="CPU Information").grid(row=3, columnspan=3, sticky='n')
+        # tk.Label(anal_cpu_info_subframe, text="My Time:\nCPU Time:\nComputations:\n    ~    \n    ~    \n    ~    \n") \
+        #     .grid(row=4, column=0)
+        # tk.Label(anal_cpu_info_subframe, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
+        # self.cpu_info = tk.StringVar(self.main, "   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n")
+        # tk.Label(anal_cpu_info_subframe, textvariable=self.cpu_info).grid(row=4, column=2)
+        #
+        # # Create the system information sub frame
+        # anal_settings_subframe = tk.Frame(anal_net_frame)
+        # anal_settings_subframe.grid(row=3, column=0, padx=5, pady=5)
+        #
+        # tk.Label(anal_settings_subframe, text="Settings Information").grid(row=3, columnspan=3, sticky='n')
+        # tk.Label(anal_settings_subframe,
+        #          text="Box Size:\nResolution:\nMax Vertex:\n    ~    \n    ~    \n    ~    \n").grid(row=4, column=0)
+        # tk.Label(anal_settings_subframe, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
+        # tk.Label(anal_settings_subframe, textvariable=self.net_sets).grid(row=4, column=2)
+        #
+        # # Create the system information sub frame
+        # anal_outputs_info_subframe = tk.Frame(anal_net_frame)
+        # anal_outputs_info_subframe.grid(row=3, column=2, padx=5, pady=5)
+        #
+        # tk.Label(anal_outputs_info_subframe, text="Output Information").grid(row=3, columnspan=3, sticky='n')
+        # tk.Label(anal_outputs_info_subframe, text="Vertices:\nSurfaces:\nEdges:\nFull Cells\n   ~   \n   ~   ") \
+        #     .grid(row=4, column=0)
+        # tk.Label(anal_outputs_info_subframe, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
+        # self.output_info = tk.StringVar(self.main, "   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n")
+        # tk.Label(anal_outputs_info_subframe, textvariable=self.output_info).grid(row=4, column=2)
+        #
+        # # Seperator
+        # ttk.Separator(self.analysis_frame, orient=tk.VERTICAL).grid(row=3, column=1, rowspan=3, sticky='ns')
+        #
+        # # Export information List
+        # group_info_frame = tk.Frame(self.analysis_frame)
+        # group_info_frame.grid(row=4, column=2, sticky='ns', padx=10, pady=10)
+        #
+        # tk.Label(group_info_frame, text="Group Information:", font=("Times New Roman bold", 18))\
+        #     .grid(row=0, column=0, sticky='nw', columnspan=5)
+        # tk.Label(group_info_frame, text="Group 1").grid(row=1, column=2)
+        # ttk.Separator(group_info_frame, orient=tk.VERTICAL).grid(row=1, rowspan=3, column=1, sticky='ns')
+        # ttk.Separator(group_info_frame, orient=tk.VERTICAL).grid(row=1, rowspan=3, column=3, sticky='ns')
+        #
+        # tk.Label(group_info_frame, text="Group 2").grid(row=1, column=4)
+        # ttk.Separator(group_info_frame).grid(row=2, columnspan=5, sticky='ew')
+        # tk.Label(group_info_frame, text="Surface Area:\n\nVolume:\n\nBoundary atoms:\n\nOuter Atoms:\n")\
+        #     .grid(row=3, column=0, sticky='w')
+        # self.g1_info = tk.StringVar(self.main, "   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   ")
+        # tk.Label(group_info_frame, textvariable=self.g1_info).grid(row=3, column=2)
+        # self.g2_info = tk.StringVar(self.main, "   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   ")
+        # tk.Label(group_info_frame, textvariable=self.g2_info).grid(row=3, column=4)
+        # ttk.Separator(group_info_frame).grid(row=4, column=0, columnspan=5, sticky='ew')
+        # tk.Label(group_info_frame, text="Interface:").grid(row=6, column=1)
+        # tk.StringVar()
+        # tk.Label(group_info_frame, text="   ~   \n   ~   \n   ~   ")
+        #
+        # self.interface_info = tk.StringVar(self.main, )
+        #
+        # ttk.Separator(self.analysis_frame).grid(row=5, columnspan=5, sticky='ew')
+        #
+        # # Main frame Network object gathering
+        # export_obj_frame = tk.Frame(self.analysis_frame)
+        # export_obj_frame.grid(row=6, column=0, columnspan=3, padx=10, pady=10)
+        #
+        # # Group sub frame
+        # self.using_group1 = tk.BooleanVar(self.main, True)
+        # self.using_group2 = tk.BooleanVar(self.main, not self.using_group1.get())
+        # anal_check_subframe = tk.Frame(export_obj_frame)
+        # anal_check_subframe.grid(column=0, row=0, padx=10, pady=10)
+        #
+        # tk.Label(anal_check_subframe, text="Groups:", font=("Times New Roman bold", 20)).grid(row=0)
+        # self.group1_selections = tk.StringVar(self.main, "")
+        # self.group2_selections = tk.StringVar(self.main, "")
+        # tk.Checkbutton(anal_check_subframe, text="Group 1", font=("Times New Roman", 15), variable=self.using_group1,
+        #                command=self.flip_g2).grid(row=1, column=0)
+        # tk.Label(anal_check_subframe, text="Selections").grid(row=2, column=0)
+        # tk.Label(anal_check_subframe, textvariable=self.group1_selections).grid(row=3, column=0)
+        # tk.Checkbutton(anal_check_subframe, text="Group 2", font=("Times New Roman", 15), variable=self.using_group2,
+        #                command=self.flip_g1).grid(row=4, column=0)
+        # tk.Label(anal_check_subframe, text="Selections").grid(row=5, column=0)
+        # tk.Label(anal_check_subframe, textvariable=self.group2_selections).grid(row=6, column=0)
+        #
+        # # Choose index
+        #
+        # # Seperator
+        # ttk.Separator(export_obj_frame, orient=tk.VERTICAL).grid(column=1, row=0, sticky='ns', rowspan=3)
+        # # Choose index sub frame
+        # self.choose_index_subframe = tk.Frame(export_obj_frame)
+        # self.choose_index_subframe.grid(column=2, row=0, sticky='ns', padx=10, pady=10)
+        #
+        # # Set the label header for the "choose index" sub frame
+        # tk.Label(self.choose_index_subframe, text="Get Atoms:", font=("Times New Roman bold", 20))\
+        #     .grid(row=0, columnspan=3, sticky='nw')
+        # tk.Label(self.choose_index_subframe, text="Choose Index:", font=("Times New Roman bold", 15))\
+        #     .grid(row=1, column=0)
+        # self.current_ndx = tk.StringVar(self.main, "[None]")
+        # tk.OptionMenu(self.choose_index_subframe, variable=self.current_ndx, value=self.index_list)\
+        #     .grid(row=1, column=1)
+        # tk.Button(self.choose_index_subframe, text="Browse", command=self.load_index).grid(row=1, column=2)
+        #
+        # # Create the index
+        # # Atoms
+        # tk.Label(self.choose_index_subframe, text="Create Index", font=("Times New Roman bold", 12))\
+        #     .grid(row=3, column=0, columnspan=3)
+        # self.current_atom_selection = tk.StringVar(self.main, "")
+        # tk.Label(self.choose_index_subframe, text="Atom").grid(row=4, column=0)
+        # self.atom_options = tk.OptionMenu(self.choose_index_subframe, self.current_atom_selection, "", *self.sys.atoms)
+        # self.atom_options.grid(row=5, column=0)
+        #
+        # # Molecules
+        # self.current_mol_selection = tk.StringVar(self.main)
+        # tk.Label(self.choose_index_subframe, text="Molecule").grid(row=4, column=1)
+        # self.mol_options = tk.OptionMenu(self.choose_index_subframe, self.current_mol_selection, "", *self.sys.mols)
+        # self.mol_options.grid(row=5, column=1)
+        #
+        # # Residues
+        # self.current_res_selection = tk.StringVar(self.main, "")
+        # tk.Label(self.choose_index_subframe, text="Residue").grid(row=4, column=2)
+        # self.res_options = tk.OptionMenu(self.choose_index_subframe, self.current_res_selection, "", *self.sys.residues)
+        # self.res_options.grid(row=5, column=2)
+        #
+        # # Selection Button
+        # tk.Button(self.choose_index_subframe, text="Reset Group", command=self.reset_group).grid(row=6, column=0)
+        # tk.Button(self.choose_index_subframe, text="Undo Selection", command=self.undo_selection).grid(row=6, column=1)
+        # tk.Button(self.choose_index_subframe, text="Add Selection", command=self.add_selection).grid(row=6, column=2)
+        #
+        # # Seperator
+        # ttk.Separator(export_obj_frame, orient=tk.VERTICAL).grid(column=3, row=0, sticky='ns', rowspan=3)
+        #
+        # # Export object sub frame
+        # export_obj_subframe = tk.Frame(export_obj_frame)
+        # export_obj_subframe.grid(column=4, row=0, padx=10, pady=10, sticky='ns')
+        #
+        # tk.Label(export_obj_subframe, text="Export:", font=("Times New Roman bold", 20))\
+        #     .grid(column=0, row=0, columnspan=2, sticky='nw')
+        # tk.Label(export_obj_subframe, text="Change Output Directory:").grid(row=1, column=0)
+        # tk.Button(export_obj_subframe, text="Browse", command=self.change_output_directory).grid(row=1, column=1)
+        # self.output_dir_str = tk.StringVar(self.main, os.getcwd()[:12] + "..." + "/Data/User_data")
+        # tk.Label(export_obj_subframe, textvariable=self.output_dir_str).grid(row=2, column=0, columnspan=2)
+        # self.export_info = tk.BooleanVar(self.main, False)
+        # tk.Checkbutton(export_obj_subframe, text="Export Info", variable=self.export_info)\
+        #     .grid(row=3, column=0, columnspan=2)
+        #
+        # tk.Button(export_obj_subframe, text="Export", font=("Times New Roman bold", 20),
+        #           command=self.export_selections).grid(row=4, column=0, columnspan=2, rowspan=2)
+        #
         self.main.mainloop()
 
     """############################################# Functions  #####################################################"""
@@ -443,15 +525,15 @@ class Vorpy:
 
             self.atom_list.append(str(self.sys.atoms.index(atom)) + " " + atom.element)
         self.mol_options.destroy()
-        self.mol_options = tk.OptionMenu(self.choose_index_subframe, self.current_mol_selection, *self.sys.mol_names)
+        self.mol_options = tk.OptionMenu(self.select_atoms_sub_frm, self.current_mol_selection, *self.sys.mol_names)
         self.mol_options.grid(row=5, column=1)
 
         self.res_options.destroy()
-        self.res_options = tk.OptionMenu(self.choose_index_subframe, self.current_res_selection, *self.sys.res_names)
+        self.res_options = tk.OptionMenu(self.select_atoms_sub_frm, self.current_res_selection, *self.sys.res_names)
         self.res_options.grid(row=5, column=2)
 
         self.atom_options.destroy()
-        self.atom_options = tk.OptionMenu(self.choose_index_subframe, self.current_atom_selection, *self.sys.atom_names)
+        self.atom_options = tk.OptionMenu(self.select_atoms_sub_frm, self.current_atom_selection, *self.sys.atom_names)
         self.atom_options.grid(row=5, column=0)
 
     # Load frames function.
@@ -561,11 +643,8 @@ class Vorpy:
         canvas.create_text(2.5 * w, h, text="Building\nSurfaces", font=("Times New Roman bold", 10))
         canvas.create_text(3.5 * w, h, text="Analyzing\nNetwork", font=("Times New Roman bold", 10))
 
-    def flip_g1(self):
-        self.using_group1.set(not self.using_group1.get())
+    def reset_all(self):
 
-    def flip_g2(self):
-        self.using_group2.set(not self.using_group2.get())
 
     def reset_group(self):
         if self.using_group1.get():
@@ -647,3 +726,6 @@ class Vorpy:
     def export_selections(self):
         if self.g1 is not None:
             self.sys.export_selection(self.g1, group2=self.g2, info=self.export_info.get())
+
+
+Vorpy()

@@ -42,7 +42,7 @@ class Vorpy(ctk.CTk):
 
         # Settings
         self.res_val = tk.DoubleVar(self, 0.1)
-        self.res_val_entry = ctk.CTkEntry(self.settings_frame, textvariable=self.res_val)
+        self.res_val_entry = ctk.CTkEntry(self.settings_frame, textvariable=self.res_val, width=20)
         self.res_val_entry.grid(row=0, column=0, padx=10, pady=10, sticky='ew')
         ctk.CTkLabel(self.settings_frame, text=u'\u212B').grid(row=0, column=1, sticky='w')
 

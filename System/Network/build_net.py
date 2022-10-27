@@ -9,9 +9,13 @@ from Visualize.visualize import *
 ############################################ Filter System #############################################################
 
 
-# Filter vertices function. Filters out vertices that are repeated, outside the box or larger than the max vertex value
 def filter_verts(net):
+    """
+    Filters out vertices that are repeated, outside the box or larger than the max vertex value
 
+    :param net: network of unfiltered vertices
+
+    """
     # Set up a list of vertex ndxs and vertices
     vert_ndxs = []
     verts = []
@@ -65,9 +69,14 @@ def filter_verts(net):
 
 ############################################## Doublets ################################################################
 
-# Doublet creating function. Fills in the surfaces and edges inside the doublet vertex
-def doublet(vert, net):
 
+def doublet(vert, net):
+    """
+    Fills in the surfaces and edges inside the doublet vertex
+
+    :param vert: Vertex object
+    :param net: network object to pull from
+    """
     # Set up a variable for doublet edges
     dub_edges = []
     con_edges = []
@@ -103,7 +112,9 @@ def doublet(vert, net):
             edge_verts = []
             for vert in net.verts:
                 if len([0 for ndx in edge.ndx if ndx in vert.ndx]) == 3:
+                    print(vert.ndx)
                     edge_verts.append(vert)
+
             net.edges.append(Edge(edge.atoms, net, edge.verts + [edge_verts[0]], True))
             if len(edge_verts) > 1:
                 e1 = Edge(edge.atoms, net, edge.verts + [edge_verts[1]], True)
@@ -139,9 +150,11 @@ def doublet(vert, net):
             net.edges.append(e1)
 
 
-# Make objects function. Checks the atoms of the vertices for patterns and creates edges and surfaces
 def make_objects(net):
-
+    """
+    Checks the atoms of the vertices for patterns and creates edges and surfaces
+    :param net: Network object to pull information from
+    """
     # Reset the network's list of edges and surfaces for a clean slate
     net.edges = []
     net.surfs = []
@@ -211,8 +224,12 @@ def make_objects(net):
                 net.surfs.append(my_surf)
 
 
-# Connect network function. Takes in a disconnected network of atoms, vertices, surfaces and edges and connects it
+# Connect network function.
 def connect(net):
+    """
+    Takes in a disconnected network of atoms, vertices, surfaces and edges and connects it
+    :param net: network to connect
+    """
 
     ################################################# Connect the atoms ################################################
 
@@ -277,9 +294,12 @@ def connect(net):
                 edge.surfs.append(surf)
 
 
-# Create network function. Takes in a broken network of vertices and spits out a connected network
 def build(net):
+    """
+    Takes in a broken network of vertices and spits out a connected network
 
+    :param net: network to build
+    """
     # Filter the vertices
     filter_verts(net)
     # Make the surface and edge objects

@@ -2,17 +2,57 @@ from System.calcs import *
 
 
 class Atom:
-    """Atom object. Created with import of file. Used to reference for building network and analyzing"""
-    def __init__(self, location=None, radius=None, system=None, symbol="", chain="", res="", res_seq="", name="",
+    """
+    Atom object class used to represent loaded atoms
+
+    location: list
+        set the location of the center of the sphere
+    radius : float
+        set the radius for the sphere object. Default is 1
+    system : System object
+        set the atom's system attribute
+    element : str
+        element of the atom
+    chain : str
+        molecule chain the atom is a part of
+    residue : str
+        residue of the molecule that the atom is a part of
+    res_seq : int
+        sequence of the residue that the atom is a part of
+    name : str
+        name retrieved from pdb file
+    ocp : str
+        Occupancy of the atom
+    t_fact : str
+        Temperature factor for the atom
+    seg_id : str
+        Segment identifier for the atom
+    charge : float
+        Charge of the atom
+    verts : list
+        Vertex objects connected to the atom
+    surfs : list
+        Surface objects connected to the atom
+    edges : list
+        Edge objects connected to the atom
+    load_ndxs : list
+        Holds the object indices for when the system is loaded back in
+    cell_vol : float
+        Volume of the voronoi cell for the atom
+    box : list
+        The grid location of the atom
+
+    """
+    def __init__(self, location=None, radius=None, system=None, element="", chain="", residue="", res_seq="", name="",
                  ocp="", t_fact="", seg_id="", charge=""):
 
         # Inherent traits
         self.loc = location     # Location     :   Set the location of the center of the sphere
         self.rad = radius       # Radius       :   Set the radius for the sphere object. Default is 1
         self.sys = system       # System       :   Set the atom's system attribute
-        self.element = symbol   # Symbol       :   Element of the atom
+        self.element = element  # Symbol       :   Element of the atom
         self.chain = chain      # Chain        :   Molecule chain the atom is a part of
-        self.res = res          # Residue      :   Residue of the molecule that the atom is a part of
+        self.res = residue      # Residue      :   Residue of the molecule that the atom is a part of
         self.res_seq = res_seq  # Sequence     :   Sequence of the residue that the atom is a part of
         self.name = name        # Name         :   Name retrieved from pdb file
         self.occupancy = ocp    # Occupancy    :   Occupancy of the atom
@@ -31,8 +71,15 @@ class Atom:
         self.box = []           # Box          :   The grid location of the atom
 
 
-# Get radius function. Goes through the bondi_radius file from voronota and gives a radius to the given atom name
 def get_radius(radius, return_symbol=False):
+    """
+        Finds the radius of the atom from the symbol or vice versa
+
+    :param radius: Either the elemental symbol for the atom or it's radius
+    :param return_symbol: Boolean for whether to return the symbol or not
+    :return: The radius of the atom from the symbol or vice versa
+    """
+
     # If indicated we return the symbol of atom that the radius indicates
     if return_symbol:
         # Set the atom type to nothing

@@ -2,10 +2,9 @@ from System.atom import Atom, get_radius
 from System.Network.network import Vertex, Edge, Surface
 
 
-# Get name method. Extracts the name from the file name
+# Get name method. Strips the location and extension from the file
 def get_name(file):
-    if not file:
-        return
+    # Set up the file name variable
     filename = ""
     i = -1
     # Go through each char in the path from the back and stop at the first slash
@@ -22,7 +21,8 @@ def read_pdb(sys):
     with open(sys.base_file, 'r') as f:
         file = f.readlines()
     # Add the system name and reset the atoms and data lists
-    sys.sys_file_name = get_name(sys.base_file)
+    sys.name = get_name(sys.base_file)
+    # Set up the atom and the data lists
     atoms, data = [], []
     # Go through each line in the file and check if the first word is the word we are looking for
     for i in range(len(file)):
@@ -36,7 +36,7 @@ def read_pdb(sys):
         if line and word == 'atom':  # Check if the line starts with atom
             # Create the atom
             atom = Atom([float(line[30:38]), float(line[38:46]), float(line[46:54])], get_radius(line[76:78]),
-                        symbol=line[76:78], res=line[17:20], chain=line[21], res_seq=line[22:26], name=line[12:16],
+                        element=line[76:78], residue=line[17:20], chain=line[21], res_seq=line[22:26], name=line[12:16],
                         ocp=line[54:60], t_fact=line[60:66], seg_id=line[72:76], charge=line[78:80])
             # If no chain is specified, set the chain to 'None'
             if atom.chain == ' ':
@@ -50,36 +50,44 @@ def read_pdb(sys):
     return atoms, data
 
 
-# Get cif function. Finds the data in a cif file
+# Read cif function. Interprets the data in a cif file
 def read_cif(sys):
-    # Get the system file
-    sys.base_file = open(sys.base_file).readlines()
-    num = int(sys.base_file[0][4:])
+    # Get the file information and make sure to close the file when done
+    with open(sys.base_file, 'r') as f:
+        file = f.readlines()
+    # Get the starting number for the line
+    num = int(file)
     # Go through each line of the file
-    for i in range(len(sys.base_file)):
+    for i in range(len(file)):
         # Split the line
-        sys.base_file[i] = sys.base_file[i].split()
+        file[i] = file[i].split()
         # Add the atoms
-        if sys.base_file[i] == int(num) and len(sys.base_file[i]) >= 7:
-            sys.atoms.append(Atom([sys.base_file[i][9], sys.base_file[i][10], sys.base_file[i][11]],
-                                  get_radius(sys.base_file[i][3]), symbol=sys.base_file[i][3]))
+        if file[i] == int(num) and len(file[i]) >= 7:
+            sys.atoms.append(Atom([file[i][9], file[i][10], file[i][11]],
+                                  get_radius(file[i][3]), element=file[i][3]))
 
 
-# Get gro method. Finds data in a gro file
+# Read gro method. Interprets the data from a .cif file type
 def read_gro(sys):
-    sys.base_file = open(sys.base_file).readlines()
-    sys.info['header'] = sys.base_file[0]
+    # Get the file information and make sure to close the file when done
+    with open(sys.base_file, 'r') as f:
+        file = f.readlines()
     # Go through each line in the file and create an atom object
-    for line in sys.base_file[2:-2]:
-        sys.atoms.append(Atom([line[3], line[4], line[5]], get_radius(line[1][0]), symbol=line[1][0]))
+    for line in file[2:-2]:
+        sys.atoms.append(Atom([line[3], line[4], line[5]], get_radius(line[1][0]), element=line[1][0]))
 
 
-# Get mol method. Finds data in a mol file
+# Read mol method. Interprets the data from a .mol file type
 def read_mol(sys):
-    sys.base_file = open(sys.base_file).readlines()
-    for line in sys.base_file:
+    # Get the file information and make sure to close the file when done
+    with open(sys.base_file, 'r') as f:
+        file = f.readlines()
+    # Go through the lines in the file
+    for line in file:
+        # If the line is an atom line add the data
         if len(line) > 6:
-            sys.atoms.append(Atom([line[0], line[1], line[2]], get_radius(line[3]), symbol=line[3]))
+            # Add the data
+            sys.atoms.append(Atom([line[0], line[1], line[2]], get_radius(line[3]), element=line[3]))
 
 
 # Add Voronota data method. Takes in voronota data and adds it to the System
