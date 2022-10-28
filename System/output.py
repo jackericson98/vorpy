@@ -109,7 +109,7 @@ def export_mySys(sys):
 
 
 # Export interface information function. Exports the information from the given interface as a txt file
-def export_interface(groups, info_file=False, interface_atoms=False):
+def export_iface(groups, info_file=False, interface_atoms=False):
     # Get the groups
     g0, g1 = groups
     # Set the interface name

@@ -189,7 +189,7 @@ class System:
         # Check for a second group
         if group2 is not None:
             export_body(group1, info_file=info)
-            export_interface([group1, group2], info_file=info)
+            export_iface([group1, group2], info_file=info)
 
     # Set output directory method. Links set output directory to the system
     def set_output_directory(self):
