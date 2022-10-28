@@ -4,6 +4,7 @@ import tkinter.ttk as ttk
 from tkinter import filedialog
 from System.system import System
 from System.group import Group
+from System.output import *
 
 
 # Loading gui class. Holds the settings for the load/settings gui
@@ -252,18 +253,47 @@ class Vorpy:
         # Export cell subframe
         self.export_cell_subfrm = tk.Frame(self.export_selections_subfrm)
         self.export_cell_subfrm.grid(row=1)
+        tk.Label(self.export_cell_subfrm, text="Export Cell", font=15).grid(row=0)
         self.cell_atoms = []
         self.cell_atoms_names = tk.StringVar(self.main)
-        tk.Label(self.export_cell_subfrm, textvariable=self.cell_atoms_names).grid()
+        tk.Label(self.export_cell_subfrm, text="Current Cell Atoms").grid(row=1)
+        tk.Label(self.export_cell_subfrm, textvariable=self.cell_atoms_names).grid(row=2)
+        tk.Button(self.export_cell_subfrm, text="Add Selection").grid(row=3)
+        self.export_cell_info = tk.BooleanVar(self.main)
+        tk.Checkbutton(self.export_cell_subfrm, text="Export Information", variable=self.export_cell_info).grid(row=4)
+        tk.Button(self.export_cell_subfrm, text="Export Cell", command=self.export_cell).grid(row=5)
 
         # Export interface subframe
-        self.export_interface_subfrm = tk.Label(self.export_selections_subfrm)
-        self.export_interface_subfrm.grid(row=1, column=1)
+        self.export_iface_subfrm = tk.Label(self.export_selections_subfrm)
+        self.export_iface_subfrm.grid(row=1, column=1)
+        tk.Label(self.export_iface_subfrm, text="Export Interface", font=15).grid(row=0, columnspan=2)
+        self.iface_atoms1 = []
+        self.iface_atoms2 = []
+        self.iface_atoms1_names = tk.StringVar(self.main)
+        self.iface_atoms2_names = tk.StringVar(self.main)
+        # Iface atoms 1
+        tk.Label(self.export_iface_subfrm, text="Atom Group 1").grid(row=1)
+        tk.Label(self.export_iface_subfrm, textvariable=self.iface_atoms2_names).grid(row=2)
+        tk.Button(self.export_iface_subfrm, text="Add Selection").grid(row=3)
+        # Iface atoms 2
+        tk.Label(self.export_iface_subfrm, text="Atom Group 2").grid(row=1, column=1)
+        tk.Label(self.export_iface_subfrm, textvariable=self.iface_atoms2_names).grid(row=2, column=1)
+        tk.Button(self.export_iface_subfrm, text="Add Selection").grid(row=3, column=1)
+        # Buttons
+        self.export_cell_info = tk.BooleanVar(self.main)
+        tk.Checkbutton(self.export_iface_subfrm, text="Export Information", variable=self.export_cell_info).grid(row=4, columnspan=2)
+        tk.Button(self.export_iface_subfrm, text="Export Interface", command=self.export_cell).grid(row=5, columnspan=2)
 
 
         # Export information subframe
         self.export_info_subfrm = tk.Label(self.export_selections_subfrm)
         self.export_info_subfrm.grid(row=1, column=2)
+        tk.Label(self.export_info_subfrm, text="Selection Information").grid(row=0, columnspan=2)
+        tk.Label(self.export_info_subfrm, text="Export Cell").grid(row=1, columnspan=2)
+        tk.Label(self.export_info_subfrm, text="").grid(row=2, columnspan=2)
+        tk.Radiobutton(self.export_info_subfrm, text="Cell", value=False).grid(row=5, column=0)
+        tk.Radiobutton(self.export_info_subfrm, text="Interface").grid(row=5, column=1)
+
 
         self.main.mainloop()
 
@@ -363,7 +393,6 @@ class Vorpy:
         self.load_frame.destroy()
         self.main.geometry("800x900")
         self.analysis_frame.pack()
-        self.set_analyze_info()
 
     # Change output directory method. Updates the location of the output directory
     def change_output_directory(self):
@@ -395,6 +424,15 @@ class Vorpy:
 
     def add_atom_button(self):
         self.selected_atoms.append(self.sys.atoms[self.sys.atom_names.index(self.current_atom_selection.get()) - 1])
+
+    def export_cell(self):
+        my_group = Group(net=self.sys.net, atoms=sum(self.cell_atoms, []), name=" ".join(self.cell_atoms_names))
+        export_body(my_group, info_file=self.export_cell_info.get())
+
+    def export_interface(self):
+        my_group1 = Group(net=self.sys.net, atoms=sum(self.iface_atoms1, []), name=" ".join(self.iface_atoms1_names))
+        my_group2 = Group(net=self.sys.net, atoms=sum(self.iface_atoms2, []), name=" ".join(self.iface_atoms2_names))
+        export_iface(groups=[my_group1, my_group2], info_file=self.export_iface_info.get())
 
 
 Vorpy()
