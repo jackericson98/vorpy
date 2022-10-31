@@ -30,9 +30,12 @@ def find_v0(net, a0=None):
         a2s.append([])
         inc = 0
         # Get the 20 closest atoms to a0 and the current a1
-        while len(a2s[j]) < 20:
-            a2s[j] = net.get_atoms([[mid, mid, mid]], inc)
-            inc += 1
+        if len(net.atoms) < 20:
+            a2s[j] = net.atoms
+        else:
+            while len(a2s[j]) < 20:
+                a2s[j] = net.get_atoms([[mid, mid, mid]], inc)
+                inc += 1
 
         # Filter out the circles that don't work
 
@@ -129,7 +132,7 @@ def find_site(net, edge_atoms, vn_1=None):
         vert = Vertex(edge_atoms + [atom], net=net)
         vert.calc_vert()
         # Filter the vertex out if it is too large or not able to be made
-        if vert.loc is None or vert.rad > net.beta_val:
+        if vert.loc is None or abs(vert.rad) > net.beta_val:
             continue
         # For doublet cases verify differently
         if vert.loc2 is not None:
