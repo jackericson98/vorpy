@@ -31,6 +31,7 @@ def set_output_dir(sys, dir_name=None):
 
 # Create pdb method. Creates a pdb file type in the current working directory
 def write_pdb(atoms, name, sys=None):
+    print(os.getcwd())
     # Create the output file
     file = open(name + ".pdb", 'w')
     # Check to see if a system was provided
@@ -62,7 +63,7 @@ def write_pdb(atoms, name, sys=None):
         symbol = a.element
         charge = a.charge
         # Write the atom information
-        file.write("ATOM  " + ser_num + " " + name + " " + res + " " + chain + res_seq + "    " + " ".join(loc_strs) +
+        file.write("ATOM  " + ser_num + " " + name + " " + res + " " + chain + res_seq + "     " + " ".join(loc_strs) +
                    occupancy + t_fact + "        " + seg_id + symbol + charge + "\n")
 
 
@@ -126,18 +127,18 @@ def export_iface(groups, info_file=False, interface_atoms=False):
     os.mkdir(os.getcwd() + "/" + interface_name)
     os.chdir(os.getcwd() + "/" + interface_name)
     # Write the surfaces for the interface
-    write_surfs(groups[0].interface_surfs, interface_name)
+    write_surfs(g0.iface_surfs, interface_name)
     # Check to see of the user wants to export the interface's atoms
     if interface_atoms:
         # Get the two sets of interface atoms
-        write_pdb(g0.interface_atoms, interface_name + "_" + g0.name + "_atoms")
-        write_pdb(g1.interface_atoms, interface_name + "_" + g1.name + "_atoms")
+        write_pdb(g0.iface_atoms, interface_name + "_" + g0.name + "_atoms")
+        write_pdb(g1.iface_atoms, interface_name + "_" + g1.name + "_atoms")
     # Check to see if the user wants to export the interface's information
     if info_file:
         info = open(interface_name + "_info.txt", 'w')
         info.write("Interface between " + g0.name + " and " + g1.name + " : \n")
         info.write("Number of Surfaces: " + str(len(g0.interface)))
-        info.write("Surface Area: " + str(g0.interface_sa))
+        info.write("Surface Area: " + str(g0.iface_sa))
 
 
 # Export interface information function. Exports the information from the given body as a txt file
@@ -152,11 +153,11 @@ def export_body(group, info_file=False, outer_atoms=False):
         write_pdb(group.surr_body_atoms, group.name + "_surrounding_atoms")
     # Check to see if the user wants to export the interface's information
     if info_file:
-        info = open(group + "_info.txt", 'w')
+        info = open("cell_" + group.name + "_info.txt", 'w')
         info.write(group.name + " body: \n")
-        info.write("Number of atoms: " + str(len(group.atoms)))
-        info.write("Volume: " + str(group.body_vol))
-        info.write("Surface Area: " + str(group.body_sa))
+        info.write("Number of atoms: " + str(len(group.atoms)) + "\n")
+        info.write("Volume: " + str(group.body_vol) + "\n")
+        info.write("Surface Area: " + str(group.body_sa) + "\n")
 
 
 #################################################### Export Network ####################################################
@@ -172,7 +173,8 @@ def export_net(net):
     # Write the general information about the system
     file.write("NETW " + str(net.min_dist) + " " + str(net.beta_val) + " " + str(net.box_size) + " " + str(net.my_time)
                + " " + str(net.cpu_time) + " " + str(net.sol_verts) + " " + str(net.curved_faces) + " " +
-               str(net.flat_faces) + "\n")
+               str(net.flat_faces) + " " + str(len(net.verts)) + " " + str(len(net.edges)) + " " +
+               str(len(net.surfs)) + "\n")
 
     # Write Objects:
 
