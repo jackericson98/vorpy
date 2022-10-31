@@ -284,7 +284,7 @@ def export_info(sys, file_name, set_name, atoms=None, interfaces=None, interface
                     a1 = atoms[i].surfs[j].atoms[0]
                 # Write the information for the surface
                 info_file.write("  Surface " + str(j + 1) + ", Made with Atom " + str(sys.atoms.index(a1) + 1) +
-                                ", Surface Area = " + str(atoms[i].surfs[j].interface_sa) + "\n")
+                                ", Surface Area = " + str(atoms[i].surfs[j].iface_sa) + "\n")
             info_file.write("\n\n")
 
     # Go through each interface given
@@ -302,7 +302,7 @@ def export_info(sys, file_name, set_name, atoms=None, interfaces=None, interface
             iface_sa = 0
             # Go through each surface in the interface
             for j in range(len(iface)):
-                iface_sa += iface[j].interface_sa
+                iface_sa += iface[j].iface_sa
             surface_areas.append(iface_sa)
             total_sa += iface_sa
         # Write out the total volume for the set of atoms
