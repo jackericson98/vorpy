@@ -112,7 +112,6 @@ def doublet(vert, net):
             edge_verts = []
             for vert in net.verts:
                 if len([0 for ndx in edge.ndx if ndx in vert.ndx]) == 3:
-                    print(vert.ndx)
                     edge_verts.append(vert)
 
             net.edges.append(Edge(edge.atoms, net, edge.verts + [edge_verts[0]], True))

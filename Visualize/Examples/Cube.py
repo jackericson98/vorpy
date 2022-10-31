@@ -1,6 +1,6 @@
 import os
 
-from System.system import System
+from System.system import System, Atom
 from Visualize.visualize import  plot_verts, plot_surfs, plot_edges
 import matplotlib.pyplot as plt
 os.chdir("../..")
@@ -13,11 +13,12 @@ rad = 1.2
 atoms += [[[dist, 0, 0], rad], [[-dist, 0, 0], rad], [[0, dist, 0], rad], [[0, -dist, 0], rad], [[0, 0, dist], rad],
           [[0, 0, -dist], rad]]
 
-sys = System()
-sys.user_atoms = atoms
+my_atoms = [Atom(location=_[0], radius=_[1]) for _ in atoms]
+
+sys = System(atoms=my_atoms)
 
 # Build the surfaces
-sys.build_network(get_verts=True)
+sys.build_network()
 
 
 # Analysis checks:
