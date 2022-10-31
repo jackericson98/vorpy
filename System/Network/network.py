@@ -67,10 +67,10 @@ class Network:
     # Sort atoms method. Puts the atoms in the network in their respective grid sections
     def sort_atoms(self, num_boxes=None):
         # Check the length of the atoms list
-        if len(self.atoms) < 1:
+        if len(self.atoms) < 4:
             return
         # Set the number of boxes to roughly 5x the number of atoms must be a cube for the of cells per row/column/aisle
-        if num_boxes is None:
+        elif num_boxes is None:
             n = int(np.sqrt(len(self.atoms))) + 1
         else:
             n = int(np.cbrt(num_boxes)) + 1
@@ -179,7 +179,7 @@ class Network:
             percentage = int((i + 1) / tot_num * 100)
             print("\rAnalyzing: {} %".format(percentage), end="")
             # Get the surface area of the surface
-            self.surfs[i].interface_sa = calc_sa(self.surfs[i])
+            self.surfs[i].sa = calc_sa(self.surfs[i])
         # Go through each atom in the system and find the volume
         for j in range(len(self.atoms)):
             percentage = int((i + j + 2) / tot_num * 100)
