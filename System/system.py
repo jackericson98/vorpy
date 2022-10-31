@@ -53,7 +53,7 @@ class System:
             self.net_files.append(net_file)
             self.nets.append(Network(self, self.atoms))
             import_net(self.nets[-1], net_file, verts_only=verts_only)
-        self.analysis_prep()
+        # Set the output directory
 
     # Build System method.
     def build_user_atoms_sys(self, user_atoms):
@@ -104,6 +104,9 @@ class System:
                 self.mol_names.append(atom.chain)
             else:
                 self.mols[self.mol_names.index(atom.chain)].append(atom)
+        # Add the solution to the molecules list
+        self.mols.append(self.sol)
+        self.mol_names.append("SOL")
         # Set up the residues names list
         self.residues, self.res_names = [], []
         # Set up the residues
@@ -202,7 +205,7 @@ class System:
         # Export the network
         self.export_net()
         # Export a pdb file for the system
-        write_pdb(self.atoms, self.name)
+        write_pdb(self.atoms, self.name, self)
         # Export a full system
         export_mySys(self)
         # Make the surfaces file
