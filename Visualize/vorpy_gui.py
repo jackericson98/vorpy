@@ -38,7 +38,7 @@ class Vorpy:
 
         # Load subframe attributes
         self.load_frame = tk.Frame(self.main, name="load")
-        # self.load_frame.pack()
+        self.load_frame.pack()
 
         # Load frame attributes
         self.sys_pros = tk.StringVar(self.main, "   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n   ~   \n")
@@ -59,27 +59,29 @@ class Vorpy:
         ############################################## Load system subframe ############################################
 
         # Set up the frame and place it
-        load_system_frame = tk.Frame(self.load_frame, width=375)
-        load_system_frame.grid(row=2, column=0, padx=10, pady=10)
+        self.load_system_frame = tk.Frame(self.load_frame, width=375)
+        self.load_system_frame.grid(row=2, column=0, padx=10, pady=10)
         # Write and place the frame's title
-        tk.Label(load_system_frame, text="Load System", font=("Times New Roman Bold", 10))\
+        tk.Label(self.load_system_frame, text="Load System", font=("Times New Roman Bold", 10))\
             .grid(row=0, column=0, columnspan=3, sticky='nw')
         # Create the system's name with a default letting the user know nothing has been selected, then place it
-        tk.Label(load_system_frame, textvariable=self.sys_name, font=("Times New Roman bold", 15))\
+        tk.Label(self.load_system_frame, textvariable=self.sys_name, font=("Times New Roman bold", 15))\
             .grid(row=1, column=0, columnspan=3)
         # Create the "Add Atoms", "Load System" and "Load Frames" buttons and place them
-        tk.Button(load_system_frame, text="Add Atoms ", command=self.build_atoms_button)\
+        tk.Button(self.load_system_frame, text="Add Atoms ", command=self.build_atoms_button)\
             .grid(row=2, column=0, sticky='w')
-        tk.Button(load_system_frame, text="Load System ", command=self.load_sys_button).grid(row=2, column=1)
-        tk.Button(load_system_frame, text="Load Frames ", command=self.load_frames_button)\
+        tk.Button(self.load_system_frame, text="Load System ", command=self.load_sys_button).grid(row=2, column=1)
+        tk.Button(self.load_system_frame, text="Load Frames ", command=self.load_frames_button)\
             .grid(row=2, column=2, sticky='e')
+        self.load_system_subfrm = tk.Frame(self.load_system_frame)
+        self.load_system_subfrm.grid(row=3, columnspan=3)
         # Add the system information header and labels
-        tk.Label(load_system_frame, text="System Information").grid(row=3, column=1, sticky='n')
-        tk.Label(load_system_frame, text="Atoms:\nMolecules:\nSolute:\n   ~   \n   ~   \n   ~   \n")\
-            .grid(row=4, column=0, sticky='w')
-        tk.Label(load_system_frame, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
+        tk.Label(self.load_system_subfrm, text="System Information").grid(row=0, column=1, sticky='n')
+        tk.Label(self.load_system_subfrm, text="Atoms:\nMolecules:\nSolute:\n   ~   \n   ~   \n   ~   \n")\
+            .grid(row=1, column=0, sticky='w')
+        tk.Label(self.load_system_subfrm, text=":\n:\n:\n:\n:\n:").grid(row=1, column=1)
         # Add the system information to match the labels
-        tk.Label(load_system_frame, textvariable=self.sys_pros).grid(row=4, column=2)
+        tk.Label(self.load_system_subfrm, textvariable=self.sys_pros).grid(row=1, column=2)
 
         # Add a seperator for the load system and load network frames
         ttk.Separator(self.load_frame, orient=tk.VERTICAL).grid(row=1, column=1, rowspan=3, sticky='ns')
@@ -172,29 +174,41 @@ class Vorpy:
 
         # Set up the analysis frame
         self.analysis_frame = tk.Frame(self.main, name="analysis")
-        self.analysis_frame.pack()
+        # self.analysis_frame.pack()
 
         # Header
         tk.Label(self.analysis_frame, text="VorPy", font=("Times New Roman bold", 20), justify=tk.CENTER)\
             .grid(row=0, columnspan=2, padx=10, pady=10)
 
+        tk.Label(self.analysis_frame, textvariable=self.sys_name, font=("Times New Roman bold", 15), justify=tk.CENTER)\
+            .grid(row=1, columnspan=2, padx=10, pady=10)
+
         # System information subframe
         self.sys_info_frm = tk.Frame(self.analysis_frame, highlightthickness=1, highlightcolor='blue')
-        self.sys_info_frm.grid(row=1, column=0)
-        # Header
-        tk.Label(self.sys_info_frm, text="System", font=("bold underlined", 15), justify=tk.CENTER)\
-            .grid(column=0, columnspan=3)
+        self.sys_info_frm.grid(row=2, column=0, sticky='nsew')
+        # Add the system information header and labels
+        tk.Label(self.sys_info_frm, text="System Information").grid(row=0, column=1, sticky='n')
+        tk.Label(self.sys_info_frm, text="Atoms:\nMolecules:\nSolute:\n   ~   \n   ~   \n   ~   \n") \
+            .grid(row=1, column=0, sticky='w')
+        tk.Label(self.sys_info_frm, text=":\n:\n:\n:\n:\n:").grid(row=1, column=1)
+        # Add the system information to match the labels
+        tk.Label(self.sys_info_frm, textvariable=self.sys_pros).grid(row=1, column=2)
+
 
         # Network information subframe
         self.net_info_frm = tk.Frame(self.analysis_frame, highlightthickness=1)
-        self.net_info_frm.grid(row=1, column=1)
+        self.net_info_frm.grid(row=2, column=1)
         # Header
         tk.Label(self.net_info_frm, text="Network", font=("Times New Roman bold underlined", 15), justify=tk.CENTER)\
             .grid(column=0, columnspan=3)
+        # Network Information
+        tk.Label(self.net_info_frm, textvariable=self.net_sets).grid(row=1)
 
         # Select atoms subframe
         self.select_atoms_frm = tk.Frame(self.analysis_frame)
-        self.select_atoms_frm.grid(row=2, columnspan=2)
+        self.select_atoms_frm.grid(row=3, columnspan=2)
+        self.selected_atoms = []
+        self.selected_atoms_names = []
 
         # Header
         tk.Label(self.select_atoms_frm, text="Select Atoms", font=("underlined bold", 20)).grid(columnspan=3)
@@ -203,17 +217,17 @@ class Vorpy:
         self.select_atoms_current_selection_frm = tk.Frame(self.select_atoms_frm)
         self.select_atoms_current_selection_frm.grid(row=1, column=0)
         tk.Label(self.select_atoms_current_selection_frm, text="Current Selection").grid(row=0, column=0)
-        self.selected_atoms_str = tk.StringVar(self.main)
+        self.selected_atoms_str = tk.StringVar(self.main, "\n\n\n")
         tk.Label(self.select_atoms_current_selection_frm, textvariable=self.selected_atoms_str, highlightcolor='white',
                  highlightthickness=1, justify=tk.CENTER).grid(row=1, column=0, sticky='ns')
 
-        # Select atoms subsub-frame
+        # Select atoms sub-sub-frame
         self.select_atoms_subfrm = tk.Frame(self.select_atoms_frm)
         self.select_atoms_subfrm.grid(row=1, column=1, sticky='nsew')
 
         # Molecule Dropdown
         self.sys.mol_names, self.sys.res_names, self.sys.atom_names = [["o", "sdds", "s", "G"] for _ in range(3)]
-        tk.Label(self.select_atoms_subfrm, text="Molecules").grid()
+        tk.Label(self.select_atoms_subfrm, text="Molecules").grid(row=0)
         self.current_mol_selection = tk.StringVar(self.main)
         self.mol_options = tk.OptionMenu(self.select_atoms_subfrm, self.current_mol_selection, "", *self.sys.mol_names)
         self.mol_options.grid(row=1)
@@ -225,13 +239,13 @@ class Vorpy:
         self.res_options.grid(row=3)
         tk.Button(self.select_atoms_subfrm, text="Add", command=self.add_res_button).grid(row=3, column=1)
 
-        tk.Label(self.select_atoms_subfrm, text="Atoms").grid()
+        tk.Label(self.select_atoms_subfrm, text="Atoms").grid(row=4)
         self.current_atom_selection = tk.StringVar(self.main)
         self.atom_options = tk.OptionMenu(self.select_atoms_subfrm, self.current_atom_selection, "", *self.sys.atom_names)
         self.atom_options.grid(row=5)
         tk.Button(self.select_atoms_subfrm, text="Add", command=self.add_atom_button).grid(row=5, column=1)
 
-        # Select atoms buttons subsub-frame
+        # Select atoms buttons sub-sub-frame
         self.select_atoms_buttons_subfrm = tk.Frame(self.select_atoms_frm)
         self.select_atoms_buttons_subfrm.grid(column=2, row=1)
 
@@ -244,7 +258,9 @@ class Vorpy:
 
         # Export selections
         self.export_selections_subfrm = tk.Frame(self.analysis_frame)
-        self.export_selections_subfrm.grid(row=3, columnspan=2)
+        self.export_selections_subfrm.grid(row=4, columnspan=2, sticky='ew')
+        self.cell_group = None
+        self.iface_groups = [None, None]
 
         # Header
         tk.Label(self.export_selections_subfrm, text="Export Selections", font=("underlined bold", 20))\
@@ -255,10 +271,10 @@ class Vorpy:
         self.export_cell_subfrm.grid(row=1)
         tk.Label(self.export_cell_subfrm, text="Export Cell", font=15).grid(row=0)
         self.cell_atoms = []
-        self.cell_atoms_names = tk.StringVar(self.main)
+        self.cell_atoms_names = tk.StringVar(self.main, "\n\n\n")
         tk.Label(self.export_cell_subfrm, text="Current Cell Atoms").grid(row=1)
         tk.Label(self.export_cell_subfrm, textvariable=self.cell_atoms_names).grid(row=2)
-        tk.Button(self.export_cell_subfrm, text="Add Selection").grid(row=3)
+        tk.Button(self.export_cell_subfrm, text="Add Selection", command=self.add_cell_group).grid(row=3)
         self.export_cell_info = tk.BooleanVar(self.main)
         tk.Checkbutton(self.export_cell_subfrm, text="Export Information", variable=self.export_cell_info).grid(row=4)
         tk.Button(self.export_cell_subfrm, text="Export Cell", command=self.export_cell).grid(row=5)
@@ -269,28 +285,29 @@ class Vorpy:
         tk.Label(self.export_iface_subfrm, text="Export Interface", font=15).grid(row=0, columnspan=2)
         self.iface_atoms1 = []
         self.iface_atoms2 = []
-        self.iface_atoms1_names = tk.StringVar(self.main)
-        self.iface_atoms2_names = tk.StringVar(self.main)
+        self.iface_atoms1_names = tk.StringVar(self.main, "\n\n\n")
+        self.iface_atoms2_names = tk.StringVar(self.main, "\n\n\n")
         # Iface atoms 1
         tk.Label(self.export_iface_subfrm, text="Atom Group 1").grid(row=1)
-        tk.Label(self.export_iface_subfrm, textvariable=self.iface_atoms2_names).grid(row=2)
-        tk.Button(self.export_iface_subfrm, text="Add Selection").grid(row=3)
+        tk.Label(self.export_iface_subfrm, textvariable=self.iface_atoms1_names).grid(row=2)
+        tk.Button(self.export_iface_subfrm, text="Add Selection", command=self.add_interface_g1).grid(row=3)
         # Iface atoms 2
         tk.Label(self.export_iface_subfrm, text="Atom Group 2").grid(row=1, column=1)
         tk.Label(self.export_iface_subfrm, textvariable=self.iface_atoms2_names).grid(row=2, column=1)
-        tk.Button(self.export_iface_subfrm, text="Add Selection").grid(row=3, column=1)
-        # Buttons
-        self.export_cell_info = tk.BooleanVar(self.main)
+        tk.Button(self.export_iface_subfrm, text="Add Selection", command=self.add_interface_g2).grid(row=3, column=1)
+        # Buttons - interface
+        self.export_iface_info = tk.BooleanVar(self.main)
         tk.Checkbutton(self.export_iface_subfrm, text="Export Information", variable=self.export_cell_info).grid(row=4, columnspan=2)
-        tk.Button(self.export_iface_subfrm, text="Export Interface", command=self.export_cell).grid(row=5, columnspan=2)
+        tk.Button(self.export_iface_subfrm, text="Export Interface", command=self.export_iface).grid(row=5, columnspan=2)
 
 
         # Export information subframe
         self.export_info_subfrm = tk.Label(self.export_selections_subfrm)
         self.export_info_subfrm.grid(row=1, column=2)
-        tk.Label(self.export_info_subfrm, text="Selection Information").grid(row=0, columnspan=2)
+        tk.Label(self.export_info_subfrm, text="Selection Information", font=15).grid(row=0, columnspan=2)
         tk.Label(self.export_info_subfrm, text="Export Cell").grid(row=1, columnspan=2)
-        tk.Label(self.export_info_subfrm, text="").grid(row=2, columnspan=2)
+        self.selection_analysis_info = tk.StringVar(self.main, "\n\n\n")
+        tk.Label(self.export_info_subfrm, textvariable=self.selection_analysis_info).grid(row=2, columnspan=2)
         tk.Radiobutton(self.export_info_subfrm, text="Cell", value=False).grid(row=5, column=0)
         tk.Radiobutton(self.export_info_subfrm, text="Interface").grid(row=5, column=1)
 
@@ -337,17 +354,18 @@ class Vorpy:
         for atom in self.sys.atoms:
 
             self.atom_list.append(str(self.sys.atoms.index(atom)) + " " + atom.element)
+        # Set up the molecules list
         self.mol_options.destroy()
         self.mol_options = tk.OptionMenu(self.select_atoms_subfrm, self.current_mol_selection, *self.sys.mol_names)
-        self.mol_options.grid(row=5, column=1)
-
+        self.mol_options.grid(row=1)
+        # Set up the residues list
         self.res_options.destroy()
         self.res_options = tk.OptionMenu(self.select_atoms_subfrm, self.current_res_selection, *self.sys.res_names)
-        self.res_options.grid(row=5, column=2)
-
+        self.res_options.grid(row=3)
+        # Set up the atoms list
         self.atom_options.destroy()
         self.atom_options = tk.OptionMenu(self.select_atoms_subfrm, self.current_atom_selection, *self.sys.atom_names)
-        self.atom_options.grid(row=5, column=0)
+        self.atom_options.grid(row=5)
 
     # Load frames function.
     def load_frames_button(self):
@@ -369,6 +387,9 @@ class Vorpy:
         else:
             self.sys.load_net(self.net_file)
         self.sys.set_output_directory()
+        self.net_name.set(self.sys.name + " Network")
+        self.net_sets.set(str(self.sys_box_x_flt.get()) + "\n" + str(self.sys_res_flt.get()) + "\n" +
+                          str(self.sys_alpha_value.get()) + "\n    ~    \n    ~    \n    ~   ")
 
     # Load analysis button method. Moves the screen to the analysis screen once a network has been loaded
     def load_analyze_button(self):
@@ -404,11 +425,9 @@ class Vorpy:
             self.output_dir_str.set(file_path[:12] + ' ... ' + file_path[-12:])
 
 
-
     def reset_all(self):
         self.selected_atoms = []
         self.selected_atoms_names = []
-        self.selected_atoms_last = 0
         self.selected_atoms_str.set("")
 
     def undo_last(self):
@@ -417,22 +436,76 @@ class Vorpy:
         self.selected_atoms_str.set("\n".join(self.selected_atoms_names))
 
     def add_mol_button(self):
-        self.selected_atoms.append(self.sys.mols[self.sys.mol_names.index(self.current_mol_selection.get()) - 1])
+        mol_ndx = self.sys.mol_names.index(self.current_mol_selection.get())
+        self.selected_atoms.append(self.sys.mols[mol_ndx])
+        self.selected_atoms_names.append(self.sys.mol_names[mol_ndx])
+        if len(self.selected_atoms_names) > 3:
+            sele_str = self.selected_atoms_names[0] + "\n:\n" + self.selected_atoms_names[2]
+        else:
+            sele_str = "\n".join(self.selected_atoms_names) + (3 - len(self.selected_atoms_names)) * "\n"
+        self.selected_atoms_str.set(sele_str)
 
     def add_res_button(self):
-        self.selected_atoms.append(self.sys.residues[self.sys.res_names.index(self.current_res_selection.get()) - 1])
+        res_ndx = self.sys.res_names.index(self.current_res_selection.get())
+        self.selected_atoms.append(self.sys.residues[res_ndx])
+        self.selected_atoms_names.append(self.sys.res_names[res_ndx])
+        if len(self.selected_atoms_names) > 3:
+            sele_str = self.selected_atoms_names[0] + "\n:\n" + self.selected_atoms_names[2]
+        else:
+            sele_str = "\n".join(self.selected_atoms_names) + (3 - len(self.selected_atoms_names)) * "\n"
+        self.selected_atoms_str.set(sele_str)
 
     def add_atom_button(self):
-        self.selected_atoms.append(self.sys.atoms[self.sys.atom_names.index(self.current_atom_selection.get()) - 1])
+        atom_ndx = self.sys.atom_names.index(self.current_atom_selection.get())
+        self.selected_atoms.append([self.sys.atoms[atom_ndx]])
+        self.selected_atoms_names.append(self.sys.atom_names[atom_ndx])
+        if len(self.selected_atoms_names) > 3:
+            sele_str = self.selected_atoms_names[0] + "\n:\n" + self.selected_atoms_names[2]
+        else:
+            sele_str = "\n".join(self.selected_atoms_names) + (3 - len(self.selected_atoms_names)) * "\n"
+        self.selected_atoms_str.set(sele_str)
+
+    def add_cell_group(self):
+        self.cell_group = Group(net=self.sys.net, atoms=sum(self.selected_atoms, []),
+                                name=" ".join(self.selected_atoms_names))
+        self.cell_atoms_names.set(self.selected_atoms_str.get())
+        self.cell_group.get_info()
+
+    # noinspection PyUnresolvedReferences
+    def add_interface_g1(self):
+        name = self.selected_atoms_names[0] + "_" + \
+               "".join([_ for _ in self.selected_atoms_names[-1] if len(self.selected_atoms_names) > 1])
+        self.iface_groups[0] = Group(net=self.sys.net, atoms=sum(self.selected_atoms, []),
+                                     name=name)
+        self.iface_atoms1_names.set(self.selected_atoms_str.get())
+        if self.iface_groups[1] is not None:
+            self.iface_groups[0].bff = self.iface_groups[1]
+            self.iface_groups[1].bff = self.iface_groups[0]
+        self.iface_groups[0].get_info()
+
+    # noinspection PyUnresolvedReferences
+    def add_interface_g2(self):
+        print(self.iface_groups[0])
+        name = self.selected_atoms_names[0] + "_" + \
+               "".join([_ for _ in self.selected_atoms_names[-1] if len(self.selected_atoms_names) > 1])
+        self.iface_groups[1] = Group(net=self.sys.net, atoms=sum(self.selected_atoms, []),
+                                     name=name)
+        self.iface_atoms2_names.set(self.selected_atoms_str.get())
+        if self.iface_groups[0] is not None:
+            self.iface_groups[1].bff = self.iface_groups[0]
+            self.iface_groups[0].bff = self.iface_groups[1]
+        print(self.iface_groups[0].iface_surfs)
+        self.iface_groups[1].get_info()
+        print(self.iface_groups)
+
+        print("Group 1 interface surfaces after adding group 2: ", len(self.iface_groups[0].iface_surfs))
 
     def export_cell(self):
-        my_group = Group(net=self.sys.net, atoms=sum(self.cell_atoms, []), name=" ".join(self.cell_atoms_names))
-        export_body(my_group, info_file=self.export_cell_info.get())
+        export_body(self.cell_group, info_file=self.export_cell_info.get())
 
-    def export_interface(self):
-        my_group1 = Group(net=self.sys.net, atoms=sum(self.iface_atoms1, []), name=" ".join(self.iface_atoms1_names))
-        my_group2 = Group(net=self.sys.net, atoms=sum(self.iface_atoms2, []), name=" ".join(self.iface_atoms2_names))
-        export_iface(groups=[my_group1, my_group2], info_file=self.export_iface_info.get())
+    def export_iface(self):
+
+        export_iface(groups=self.iface_groups, info_file=self.export_iface_info.get())
 
 
-Vorpy()
+# Vorpy()
