@@ -18,8 +18,11 @@ def get_name(file):
 # Read pdb function. Interprets pdb data into a system of atom objects
 def read_pdb(sys):
     # Get the file information and make sure to close the file when done
-    with open(sys.base_file, 'r') as f:
-        file = f.readlines()
+    try:
+        with open(sys.base_file, 'r') as f:
+            file = f.readlines()
+    except FileNotFoundError:
+        return
     # Add the system name and reset the atoms and data lists
     sys.name = get_name(sys.base_file)
     # Set up the atom and the data lists
@@ -34,6 +37,7 @@ def read_pdb(sys):
         word = line[:4].lower()
         # Check to see if the line is an atom line
         if line and word == 'atom':  # Check if the line starts with atom
+
             # Create the atom
             atom = Atom([float(line[30:38]), float(line[38:46]), float(line[46:54])], get_radius(line[76:78]),
                         element=line[76:78], residue=line[17:20], chain=line[21], res_seq=line[22:26], name=line[12:16],
@@ -118,8 +122,11 @@ def add_vta_data(sys, ball_file, vert_file):
 # Input index function. Takes in an index file and loads it into the list of indices
 def input_index(sys):
     # Get the file information and make sure to close the file when done
-    with open(sys.index_file, 'r') as f:
-        file = f.readlines()
+    try:
+        with open(sys.index_file, 'r') as f:
+            file = f.readlines()
+    except FileNotFoundError:
+        return
     # Set up the indices lists and the current index
     curr_ndx = -1
     indices = []
@@ -144,12 +151,18 @@ def input_index(sys):
 def import_net(net, filename, verts_only=False):
 
     # Open the file
-    file = open(filename).readlines()
+    try:
+        file = open(filename).readlines()
+    except FileNotFoundError:
+        print("\r No such file exists", end="")
+        return
     # Instantiate the lists
     net.verts, net.edges, net.surfs = [], [], []
     # Instantiate the current objects
     curr_atom, curr_vert, curr_edge, curr_surf = Atom(), Vertex(), Edge(), Surface()
     perim_len = 0
+    num_verts, num_edges, num_surfs = 0, 0, 0
+    print("\rLoading Network: ", end="")
     # Go through the file, line by line
     for i in range(len(file)):
         # Get the line
@@ -175,9 +188,14 @@ def import_net(net, filename, verts_only=False):
             net.curved_faces = bool(line[7])
             net.flat_faces = bool(line[8])
 
+            num_verts, num_edges, num_surfs = [int(_) for _ in line[9:12]]
+
+
         # Atoms
         # Check to see if the line is an atom line
         elif line[0].lower() == "atom":
+            # Running print statement tracking the progress of loading the atoms
+            print("\rLoading Atoms: {:.2f}%       ".format(min(100, 100 * (int(line[1]) + 1) / len(net.atoms))), end="")
             # Get the atom from the network
             myAtom = net.atoms[int(line[1])]
             # Set attributes for the atom
@@ -192,6 +210,8 @@ def import_net(net, filename, verts_only=False):
         # Vertices
         # Check for if the line is a vertex line
         elif line[0].lower() == "vert":
+            # Running print statement tracking the progress of loading the vertices
+            print("\rLoading Vertices: {:.2f}%         ".format(min(100, 100 * (int(line[1]) + 1) / num_verts)), end="")
             # Get the indices of the atoms in the vertex and then the atoms themselves
             ndxs = [int(_) for _ in line[2:6]]
             atoms = [net.atoms[ndx] for ndx in ndxs]
@@ -214,6 +234,8 @@ def import_net(net, filename, verts_only=False):
         # Edges
         # Check for if the line is an edge line or not
         elif line[0].lower() == "edge":
+            # Running print statement tracking the progress of loading the edges
+            print("\rLoading Edges: {:.2f}%            ".format(min(100, 100 * (int(line[1]) + 1) / num_edges)), end="")
             # Quick check for verts_only
             if verts_only:
                 net.build()
@@ -245,6 +267,8 @@ def import_net(net, filename, verts_only=False):
         # Surfaces
         # Check for if the line is for a surface
         elif line[0].lower() == "surf":
+            # Running print statement tracking the progress of loading the surfaces
+            print("\rLoading Surfaces: {:.2f}%         ".format(min(100, 100 * (int(line[1]) + 1) / num_surfs)), end="")
             # Get the indices and atoms for the edges
             ndxs = [int(_) for _ in line[2:4]]
             atoms = [net.atoms[ndx] for ndx in ndxs]
@@ -276,6 +300,7 @@ def import_net(net, filename, verts_only=False):
 # Connect input network function. Connect the network objects using their load index lists
 def connect_input_net(net):
     # Connect the atom objects
+    print("\rConnecting Atoms            ", end="")
     for atom in net.atoms:
         # Connect the atom's verts
         for i in range(len(atom.load_ndxs[0])):
@@ -288,6 +313,7 @@ def connect_input_net(net):
             atom.surfs.append(net.surfs[atom.load_ndxs[2][i]])
 
     # Connect the vertex objects
+    print("\rConnecting Vertices               ", end="")
     for vert in net.verts:
         # Reset the vertices edges and surfaces
         vert.edges, vert.surfs = [], []
@@ -299,6 +325,7 @@ def connect_input_net(net):
             vert.surfs.append(net.surfs[vert.load_ndxs[1][i]])
 
     # Connect the edge objects
+    print("\rConnecting Edges                  ", end="")
     for edge in net.edges:
         # Reset the edge's vertices and surfaces
         edge.verts, edge.surfs = [], []
@@ -310,6 +337,7 @@ def connect_input_net(net):
             edge.surfs.append(net.surfs[edge.load_ndxs[1][i]])
 
     # Connect the surface objects
+    print("\rConnecting Surfaces               ", end="")
     for surf in net.surfs:
         # Reset the surfaces and edges
         surf.verts, surf.edges = [], []
@@ -319,3 +347,4 @@ def connect_input_net(net):
         # Connect the surface's edges
         for i in range(len(surf.load_ndxs[1])):
             surf.edges.append(net.edges[surf.load_ndxs[1][i]])
+    print("\rNetwork Loaded                    ", end="")
