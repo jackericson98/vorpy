@@ -17,9 +17,9 @@ class Group:
         self.surr_body_atoms = None    # Surrounding atoms  :    Atoms not in the group that create surfaces with it
 
         self.bff = None                # BFF                :    Other group used for comparison
-        self.interface_surfs = None    # Interface surfaces :    Surfaces that make the interface
-        self.interface_atoms = None    # Interface atoms    :    Atoms in the group in the interface
-        self.interface_sa = None       # Surface area       :    Surface area of the interface
+        self.iface_surfs = None        # Interface surfaces :    Surfaces that make the interface
+        self.iface_atoms = None        # Interface atoms    :    Atoms in the group in the interface
+        self.iface_sa = None           # Surface area       :    Surface area of the interface
 
 
     # Get information method. Gathers the information for the group(s) selected
@@ -58,23 +58,25 @@ class Group:
                 else:
                     continue
         # If the group has a bff get that information
-        if self.bff:
+        if self.bff is not None:
             # Get the surfaces and the
-            self.interface_atoms, self.interface_surfs = [], []
-            self.interface_sa = 0
-            # Check the network's surfaces' atoms looking for one in self.atoms and the other in self.bff.atoms
-            for surf in self.net.surfs:
-                # Check if the surface's first atom is in self.atoms and the surfaces second atom is in self.bff.atoms
-                if surf.atoms[0] in self.atoms and surf.atoms[1] in self.bff.atoms:
-                    # Add the first atom to the group's list of interface atoms
-                    self.interface_atoms.append(surf.atoms[0])
-                    # Add the surface to the list of interface surfs and add the surface area of the surface
-                    self.interface_surfs.append(surf)
-                    self.interface_sa += surf.sa
-                # Check if the surface's first atom is in self.bff.atoms and the surfaces second atom is in self.atoms
-                elif surf.atoms[0] in self.bff.atoms and surf.atoms[1] in self.atoms:
-                    # Add the second atom to the list of interface atoms
-                    self.interface_atoms.append(surf.atoms[1])
-                    # Add the surface to the list of interface surfs and add the surface area of the surface
-                    self.interface_surfs.append(surf)
-                    self.interface_sa += surf.sa
+            self.iface_atoms, self.bff.iface_atoms, self.iface_surfs, self.bff.iface_surfs = [], [], [], []
+            self.iface_sa = 0
+            # Go through all the atoms in the group
+            for atom in self.atoms:
+                # Go through the surfaces in the atom's list of surfaces
+                for surf in atom.surfs:
+                    # Get the other atom from the surface's atoms
+                    other_atom = [_ for _ in surf.atoms if _ != atom][0]
+                    # Check to see if the other atom is in the self.bff's list of atoms
+                    if other_atom in self.bff.atoms:
+                        # Add the first atom to the group's list of interface atoms
+                        self.iface_atoms.append(atom)
+                        self.bff.iface_atoms.append(other_atom)
+                        # Add the surface to the list of interface surfs and add the surface area of the surface
+                        self.iface_surfs.append(surf)
+                        self.bff.iface_surfs.append(surf)
+                        self.iface_sa += surf.sa
+            # Set the bff's surface area
+            self.bff.iface_sa = self.iface_sa
+
