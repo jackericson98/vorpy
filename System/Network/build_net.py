@@ -19,6 +19,11 @@ def filter_verts(net):
     # Set up a list of vertex ndxs and vertices
     vert_ndxs = []
     verts = []
+    # Check to see if no vertices have been made
+    if net.verts is None:
+        print("No vertices to filter")
+        return
+
     # Go through the vertices
     for i in range(len(net.verts)):
 
@@ -208,9 +213,9 @@ def make_objects(net):
                 # If the surface's atoms are in the edge add it
                 if atoms.issubset(edge2.atoms):
                     edges.append(edge2)
-                    # If the edge is a doublet, the vertex will only count once, so we need to add another to the count
-                    if edge2.doublet:
-                        num_dubs += 1
+                    # # If the edge is a doublet, the vertex will only count once, so we need to add another to the count
+                    # if edge2.doublet:
+                    #     num_dubs += 1
             # Put together a list of verts that have our atoms
             verts = []
             for vert2 in net.verts:
