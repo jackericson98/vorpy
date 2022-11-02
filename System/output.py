@@ -71,7 +71,7 @@ def write_pdb(atoms, name, sys=None):
 def write_surfs(surfs, file_name, color=None):
     # If no color is given, make the color white
     if color is None:
-        color = [1, 1, 1]
+        color = [1, 0, 0]
     # Create the file
     file = open(file_name + ".off", 'w')
     # Count the number of triangles and vertices there are
@@ -158,6 +158,24 @@ def export_body(group, info_file=False, outer_atoms=False):
         info.write("Number of atoms: " + str(len(group.atoms)) + "\n")
         info.write("Volume: " + str(group.body_vol) + "\n")
         info.write("Surface Area: " + str(group.body_sa) + "\n")
+
+
+#################################################### Export Vertices ###################################################
+
+# Export vertices function.
+def export_verts(net):
+    # Move to the correct output directory
+    os.chdir(net.sys.output_directory)
+    # Open the file for the vertices
+    file = open(net.sys.name + "_verts.txt", 'w')
+    # Create a header for the vertices file
+    file.write(net.sys.name + " Vertices: \n")
+    # Write the vertices
+    for vert in net.verts:
+        # Write the vertex
+        file.write("VERT " + " ".join(vert.ndx) + " ".join(vert.loc) + vert.rad + "\n")
+    # Write the end line for the file
+    file.write("END")
 
 
 #################################################### Export Network ####################################################
