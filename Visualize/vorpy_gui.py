@@ -67,12 +67,7 @@ class Vorpy:
         # Create the system's name with a default letting the user know nothing has been selected, then place it
         tk.Label(self.load_system_frame, textvariable=self.sys_name, font=("Times New Roman bold", 15))\
             .grid(row=1, column=0, columnspan=3)
-        # Create the "Add Atoms", "Load System" and "Load Frames" buttons and place them
-        tk.Button(self.load_system_frame, text="Add Atoms ", command=self.build_atoms_button)\
-            .grid(row=2, column=0, sticky='w')
         tk.Button(self.load_system_frame, text="Load System ", command=self.load_sys_button).grid(row=2, column=1)
-        tk.Button(self.load_system_frame, text="Load Frames ", command=self.load_frames_button)\
-            .grid(row=2, column=2, sticky='e')
         self.load_system_subfrm = tk.Frame(self.load_system_frame)
         self.load_system_subfrm.grid(row=3, columnspan=3)
         # Add the system information header and labels
@@ -89,23 +84,24 @@ class Vorpy:
         ############################################# Load network subframe ############################################
 
         # Set up and place the load network frame
-        load_network_frame = tk.Frame(self.load_frame, width=375)
-        load_network_frame.grid(row=2, column=2, padx=10, pady=10)
+        self.load_network_frame = tk.Frame(self.load_frame, width=375)
+        self.load_network_frame.grid(row=2, column=2, padx=10, pady=10)
         # Add the header for the load network frame
-        tk.Label(load_network_frame, text="Load Network", font=("Times New Roman bold", 10))\
+        tk.Label(self.load_network_frame, text="Load Network", font=("Times New Roman bold", 10))\
             .grid(row=0, column=0, columnspan=3, sticky='nw')
         # Set the network's name at the top of the frame
-        tk.Label(load_network_frame, textvariable=self.net_name, font=("Times New Roman bold", 15))\
+        tk.Label(self.load_network_frame, textvariable=self.net_name, font=("Times New Roman bold", 15))\
             .grid(row=1, column=0, columnspan=3)
         # Add the buttons for loading the network and analyzing it
-        tk.Button(load_network_frame, text="Load Network", command=self.load_network).grid(row=2, column=1)
-        tk.Button(load_network_frame, text="Analyze", command=self.load_analyze_button).grid(row=2, column=2)
+        tk.Button(self.load_network_frame, text="Load Vertices", command=self.load_verts).grid(row=2, column=0)
+        tk.Button(self.load_network_frame, text="Load Network", command=self.load_net).grid(row=2, column=1)
+        tk.Button(self.load_network_frame, text="Analyze", command=self.load_analyze_button).grid(row=2, column=2)
         # Report the loaded network's information
-        tk.Label(load_network_frame, text="Network Information").grid(row=3, column=1, sticky='n')
-        tk.Label(load_network_frame, text="Box Size:\nResolution:\nMax Vertex:\n    ~    \n    ~    \n    ~    \n")\
-            .grid(row=4, column=0)
-        tk.Label(load_network_frame, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
-        tk.Label(load_network_frame, textvariable=self.net_sets).grid(row=4, column=2)
+        tk.Label(self.load_network_frame, text="Network Information").grid(row=3, column=1, sticky='n')
+        tk.Label(self.load_network_frame, text="Box Size:\nResolution:\nMax Vertex:\n# of Vertices:\n# of Edges:"
+                                               "\n# of Surfaces:\n").grid(row=4, column=0)
+        tk.Label(self.load_network_frame, text=":\n:\n:\n:\n:\n:").grid(row=4, column=1)
+        tk.Label(self.load_network_frame, textvariable=self.net_sets).grid(row=4, column=2)
 
         # Separate the system and network frame from the build frame
         ttk.Separator(self.load_frame).grid(row=3, columnspan=3, sticky='ew')
@@ -122,53 +118,59 @@ class Vorpy:
 
         # System resolution value
         tk.Label(bld_sbfrm, text="\nResolution: ", font=("Times New Roman bold", 12))\
-            .grid(row=1, column=0,  columnspan=3)
+            .grid(row=1, column=0, columnspan=2)
         # Slider for setting the network's resolution and then a label for the units
-        tk.Scale(bld_sbfrm, from_=0.005, to=0.5, orient=tk.HORIZONTAL, variable=self.sys_res_flt,
-                 resolution=0.005).grid(row=2, column=0, columnspan=3, sticky='ew')
-        tk.Label(bld_sbfrm, text=u'\u212B', font=('Times New Roman', 15)).grid(row=2, column=3, sticky='s')
+        tk.Entry(bld_sbfrm, textvariable=self.sys_res_flt).grid(row=2, column=0, sticky='ew')
+        tk.Label(bld_sbfrm, text=u'\u212B', font=('Times New Roman', 15)).grid(row=2, column=1, sticky='s')
 
         # Maximum vertex radius value for the system
-        tk.Label(bld_sbfrm, text="\nMax Vertex:", font=("Times New Roman bold", 12)).grid(row=3, column=0, columnspan=3)
+        tk.Label(bld_sbfrm, text="\nMax Vertex:", font=("Times New Roman bold", 12)).grid(row=3, column=0, columnspan=2)
         # Slider for setting the network's resolution and then a label for the units
-        tk.Scale(bld_sbfrm, from_=2, to=10, orient=tk.HORIZONTAL, variable=self.sys_alpha_value,
-                 resolution=0.05).grid(row=4, column=0, columnspan=3, sticky='ew')
-        tk.Label(bld_sbfrm, text=u'\u212B', font=('Times New Roman', 15)).grid(row=4, column=3, sticky='s')
+        tk.Entry(bld_sbfrm, textvariable=self.sys_alpha_value).grid(row=4, column=0, sticky='ew')
+        tk.Label(bld_sbfrm, text=u'\u212B', font=('Times New Roman', 15)).grid(row=4, column=1, sticky='s')
 
         # Box size
-        tk.Label(bld_sbfrm, text="Box Size: ", font=("Times New Roman bold", 12)).grid(row=5, column=0, columnspan=3)
-        tk.Scale(bld_sbfrm, from_=1.05, to=3, orient=tk.HORIZONTAL, variable=self.sys_box_x_flt,
-                 resolution=.05, length=400).grid(row=6, column=0, columnspan=3, sticky='ew')
-        tk.Label(bld_sbfrm, text="x", font=('Times New Roman', 20)).grid(row=6, column=3, sticky='s')
+        tk.Label(bld_sbfrm, text="Box Size: ", font=("Times New Roman bold", 12)).grid(row=5, column=0, columnspan=2)
+        tk.Entry(bld_sbfrm, textvariable=self.sys_box_x_flt).grid(row=6, column=0, sticky='ew')
+        tk.Label(bld_sbfrm, text="x", font=('Times New Roman', 20)).grid(row=6, column=1, sticky='s')
+
+        # Change Radius
+        tk.Label(bld_sbfrm, text="Change Atom Radius").grid(row=5, column=3)
+        self.current_elem_selection = tk.StringVar(self.main)
+        self.current_rad_set = tk.DoubleVar(self.main)
+        self.elem_rad_options = tk.OptionMenu(bld_sbfrm, self.current_elem_selection, " ", *self.sys.radii[0])
+        self.elem_rad_options.grid(row=6, column=3)
+        tk.Entry(bld_sbfrm, textvariable=self.current_rad_set, width=20).grid(row=6, column=4)
+        tk.Button(bld_sbfrm, text="Change", command=self.change_radius_button).grid(row=6, column=5)
 
         # Parallelize check
         self.parallelize = tk.BooleanVar(self.main)
         tk.Checkbutton(bld_sbfrm, text="Parallelize ", variable=self.parallelize, onvalue=True,
-                       offvalue=False).grid(row=2, column=4, sticky='w', padx=10)
+                       offvalue=False).grid(row=2, column=3, sticky='w', padx=10)
 
         # Find solution vertices check
         self.sol_verts = tk.BooleanVar(self.main, True)
         tk.Checkbutton(bld_sbfrm, text="Find SOL Verts", variable=self.sol_verts, onvalue=True,
-                       offvalue=False).grid(row=3, column=4, sticky='w', padx=10)
+                       offvalue=False).grid(row=3, column=3, sticky='w', padx=10)
 
         # Curved faces check
         self.curved_faces = tk.BooleanVar(self.main, True)
         tk.Checkbutton(bld_sbfrm, text="Curved Faces", variable=self.curved_faces, onvalue=True, offvalue=False) \
-            .grid(row=4, column=4, sticky='w', padx=10)
+            .grid(row=4, column=3, sticky='w', padx=10)
 
         # Parallelize check
         self.flat_faces = tk.BooleanVar(self.main, False)
         tk.Checkbutton(bld_sbfrm, text="Flat Faces", variable=self.flat_faces, onvalue=True, offvalue=False) \
-            .grid(row=2, column=5, sticky='w')
+            .grid(row=2, column=4, sticky='w')
 
         # Use loaded vertices check
         self.use_loaded_verts = tk.BooleanVar(self.main, False)
         tk.Checkbutton(bld_sbfrm, text="Use Loaded Vertices", variable=self.use_loaded_verts, onvalue=True,
-                       offvalue=False).grid(row=3, column=5, sticky='w')
+                       offvalue=False).grid(row=3, column=4, sticky='w')
 
         # Build network button
         tk.Button(bld_sbfrm, text="Build Network", font=("Times New Roman bold", 20),
-                  command=self.build_network_button).grid(row=5, rowspan=2, column=4, columnspan=2)
+                  command=self.build_network_button).grid(row=7, rowspan=2, column=0, columnspan=6)
 
         """######################################### Analysis Frame #################################################"""
 
@@ -249,12 +251,24 @@ class Vorpy:
         self.select_atoms_buttons_subfrm = tk.Frame(self.select_atoms_frm)
         self.select_atoms_buttons_subfrm.grid(column=2, row=1)
 
-        tk.Button(self.select_atoms_buttons_subfrm, text="Load Index", command=self.load_index)\
-            .grid(row=0, padx=10, pady=10)
         tk.Button(self.select_atoms_buttons_subfrm, text="Undo Last", command=self.undo_last)\
             .grid(row=1, padx=10, pady=10)
         tk.Button(self.select_atoms_buttons_subfrm, text="Reset All", command=self.reset_all)\
             .grid(row=2, padx=10, pady=10)
+
+        # Select index sub-sub-frame
+        self.select_ndx_sbfrm = tk.Frame(self.select_atoms_frm)
+        self.select_ndx_sbfrm.grid(column=3, row=1)
+
+        tk.Label(self.select_ndx_sbfrm, text="Select Index", font=15).grid(columnspan=2)
+        tk.Label(self.select_ndx_sbfrm, text="Index File: ").grid(row=1)
+        self.ndx_file_str = tk.StringVar(self.main, "No Index File Chosen")
+        tk.Label(self.select_ndx_sbfrm, textvariable=self.ndx_file_str).grid(row=1, column=1)
+        tk.Button(self.select_ndx_sbfrm, text="Load Index", command=self.load_ndx).grid(row=2, column=2)
+        self.ndx_names = []
+        self.current_ndx_selection = tk.StringVar(self.main)
+        self.ndx_options = tk.OptionMenu(self.select_ndx_sbfrm, self.current_ndx_selection, " ", *self.ndx_names)
+        self.ndx_options.grid(row=2)
 
         # Export selections
         self.export_selections_subfrm = tk.Frame(self.analysis_frame)
@@ -306,10 +320,15 @@ class Vorpy:
         self.export_info_subfrm.grid(row=1, column=2)
         tk.Label(self.export_info_subfrm, text="Selection Information", font=15).grid(row=0, columnspan=2)
         tk.Label(self.export_info_subfrm, text="Export Cell").grid(row=1, columnspan=2)
+        self.selection_analysis_prompts = tk.StringVar(self.main)
         self.selection_analysis_info = tk.StringVar(self.main, "\n\n\n")
-        tk.Label(self.export_info_subfrm, textvariable=self.selection_analysis_info).grid(row=2, columnspan=2)
-        tk.Radiobutton(self.export_info_subfrm, text="Cell", value=False).grid(row=5, column=0)
-        tk.Radiobutton(self.export_info_subfrm, text="Interface").grid(row=5, column=1)
+        tk.Label(self.export_info_subfrm, textvariable=self.selection_analysis_prompts).grid(row=2, column=0)
+        tk.Label(self.export_info_subfrm, textvariable=self.selection_analysis_info).grid(row=2, column=1)
+        tk.Radiobutton(self.export_info_subfrm, text="Cell", value=True, variable=self.export_cell_info,
+                       command=self.export_cell_info.set(not self.export_cell_info.get()))\
+            .grid(row=5, column=0)
+        tk.Radiobutton(self.export_info_subfrm, text="Interface", value=False, variable=self.export_iface_info,
+                       command=self.export_iface_info.set(not self.export_iface_info.get())).grid(row=5, column=1)
 
 
         self.main.mainloop()
@@ -376,8 +395,14 @@ class Vorpy:
     def build_atoms_button(self):
         pass
 
+    def load_verts(self):
+        # Get the filepath for the vertices
+        # File grabber pop up
+        file_path = filedialog.askopenfilename()
+        self.sys.load_verts(filename=file_path)
+
     # Load network button function. Pulls up the file browser and lets the user select their vorpy saved system
-    def load_network(self):
+    def load_net(self):
         # File grabber pop up
         file_path = filedialog.askopenfilename()
         self.net_file = file_path
@@ -399,11 +424,26 @@ class Vorpy:
             self.main.geometry("800x900")
             self.analysis_frame.pack()
 
+    def change_radius_button(self):
+        old_rad = self.sys.radii[1][self.sys.radii[0].index(self.current_elem_selection.get())]
+        # When pressed, the current atom selection's radius changes
+        self.sys.radii[1][self.sys.radii[0].index(self.current_elem_selection.get())] = self.current_rad_set.get()
+        # print an update
+        print("\r{} radius changed from {} to {}".format(self.current_elem_selection.get(), old_rad,
+                                                         self.current_rad_set.get()), end="")
+
     # Load index file method. Allows the user to load
-    def load_index(self):
+    def load_ndx(self):
         # File grabber pop up
         file_path = filedialog.askopenfilename()
-        self.index_file = file_path
+        # Set the system's index file
+        self.sys.ndx_file = file_path
+        # Load the indices into the system
+        self.sys.load_ndx()
+        # Set the GUI variables
+        self.ndx_options.destroy()
+        self.atom_options = tk.OptionMenu(self.select_ndx_sbfrm, self.current_ndx_selection, " ", *self.sys.ndx_names)
+        self.atom_options.grid(row=5)
 
     # Build network button method. Cements the settings and destroys the gui
     def build_network_button(self):
@@ -465,11 +505,25 @@ class Vorpy:
             sele_str = "\n".join(self.selected_atoms_names) + (3 - len(self.selected_atoms_names)) * "\n"
         self.selected_atoms_str.set(sele_str)
 
+    def add_ndx_button(self):
+        ndx_ndx = self.sys.ndx_names.index(self.current_ndx_selection.get())
+        self.selected_atoms.append([self.sys.ndxs[ndx_ndx]])
+        self.selected_atoms_names.append(self.current_ndx_selection.get())
+        if len(self.selected_atoms_names) > 3:
+            sele_str = self.selected_atoms_names[0] + "\n:\n" + self.selected_atoms_names[2]
+        else:
+            sele_str = "\n".join(self.selected_atoms_names) + (3 - len(self.selected_atoms_names)) * "\n"
+        self.selected_atoms_str.set(sele_str)
+
     def add_cell_group(self):
         self.cell_group = Group(net=self.sys.net, atoms=sum(self.selected_atoms, []),
                                 name=" ".join(self.selected_atoms_names))
         self.cell_atoms_names.set(self.selected_atoms_str.get())
         self.cell_group.get_info()
+        self.selection_analysis_prompts.set("Cell Volume:\nOuter Surface Area:\nNumber of Atoms:")
+        self.selection_analysis_info.set("\n".join(["{:.2f}".format(self.cell_group.body_vol),
+                                                    "{:.2f}".format(self.cell_group.body_sa),
+                                                    str(len(self.cell_group.atoms))]))
 
     # noinspection PyUnresolvedReferences
     def add_interface_g1(self):
@@ -482,10 +536,14 @@ class Vorpy:
             self.iface_groups[0].bff = self.iface_groups[1]
             self.iface_groups[1].bff = self.iface_groups[0]
         self.iface_groups[0].get_info()
+        if self.iface_groups[0].bff is not None:
+            self.selection_analysis_prompts.set("Interface Surface Area:\n# of Group 1 Atoms:\n # of Group 2 Atoms:")
+            self.selection_analysis_info.set("\n".join(["{:.2f}".format(self.iface_groups[0].iface_sa),
+                                                        str(len(self.iface_groups[0].iface_atoms)),
+                                                        str(len(self.iface_groups[0].bff.iface_atoms))]))
 
     # noinspection PyUnresolvedReferences
     def add_interface_g2(self):
-        print(self.iface_groups[0])
         name = self.selected_atoms_names[0] + "_" + \
                "".join([_ for _ in self.selected_atoms_names[-1] if len(self.selected_atoms_names) > 1])
         self.iface_groups[1] = Group(net=self.sys.net, atoms=sum(self.selected_atoms, []),
@@ -494,17 +552,12 @@ class Vorpy:
         if self.iface_groups[0] is not None:
             self.iface_groups[1].bff = self.iface_groups[0]
             self.iface_groups[0].bff = self.iface_groups[1]
-        print(self.iface_groups[0].iface_surfs)
         self.iface_groups[1].get_info()
-        print(self.iface_groups)
-
-        print("Group 1 interface surfaces after adding group 2: ", len(self.iface_groups[0].iface_surfs))
 
     def export_cell(self):
         export_body(self.cell_group, info_file=self.export_cell_info.get())
 
     def export_iface(self):
-
         export_iface(groups=self.iface_groups, info_file=self.export_iface_info.get())
 
 
