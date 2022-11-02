@@ -5,7 +5,7 @@ from System.Network.build_net import *
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
     def __init__(self, sys, index=0, atoms=None, verts=None, edges=None, surfs=None, groups=None,
-                 min_dist=0.1, box_size=1.3, beta_val=5, sol_verts=True):
+                 min_dist=0.1, box_size=1.1, beta_val=1, sol_verts=True):
         # Network graph objects
         self.sys = sys              # System         :  Route back to outer system for system attribute access
         self.index = index          # Index          :  Holds the index of the network in the system object
