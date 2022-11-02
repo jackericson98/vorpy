@@ -30,14 +30,43 @@ class System:
         # Set up the file attributes
         self.data = data                      # Data             :    Additional data provided by the base file
         self.base_file = base_file            # Base file        :    Primary file address
-        self.net_files = net_files            # Network files    :    Network files for multiple frames
-        self.ndx_files = ndx_files            # Index files      :    File addresses for index file in GROMACS format
+        self.net_file = net_files            # Network files    :    Network files for multiple frames
+        self.ndx_file = ndx_files            # Index files      :    File addresses for index file in GROMACS format
         self.frame_files = frame_files        # Frame files      :    File addresses for different frames (.gro,.pdb)
         self.output_directory = None          # Output Directory :    Output directory for the export files
         self.vorpy_directory = os.getcwd()    # Vorpy Directory  :    Directory that vorpy is running out of
 
         # Gui
         self.gui = gui                       # GUI               :    GUI Vorpy object that can be updated through sys
+        self.radii = my_radii
+
+    # Load system method. Chooses the correct file type from the file provided
+    def load_sys(self, file):
+
+        # If a file is given read the file and set the system attributes
+        if file:
+            self.base_file = file
+            self.name = get_name(file)
+            # Check the file type
+            if file[-3:] == "pdb":
+                self.atoms, self.data = read_pdb(self)
+            elif file[-3:] == "cif":
+                read_cif(self)
+            elif file[-3:] == "gro":
+                read_gro(self)
+            elif file[-3:] == "mol":
+                read_mol(self)
+            else:
+                print("Wrong file Loser!")
+                return
+        # Set the output directory
+        if self.output_directory is None:
+            set_output_dir(self)
+        # Sort the atoms
+        self.sort_atoms()
+
+    def load_verts(self, filename):
+        read_verts(self.net, filename)
 
     def load_net(self, net_file, verts_only=False):
         """
@@ -47,13 +76,15 @@ class System:
         """
         # If no file has been loaded before, create the main network
         if self.nets is None:
-            self.net_files = [net_file]
-            import_net(self.net, net_file, verts_only=verts_only)
+            self.net_file = [net_file]
+            reat_net(self.net, net_file, verts_only=verts_only)
         else:
-            self.net_files.append(net_file)
+            self.net_file.append(net_file)
             self.nets.append(Network(self, self.atoms))
-            import_net(self.nets[-1], net_file, verts_only=verts_only)
-        # Set the output directory
+            reat_net(self.nets[-1], net_file, verts_only=verts_only)
+
+    def load_ndx(self):
+        read_ndx(self)
 
     # Build System method.
     def build_user_atoms_sys(self, user_atoms):
@@ -69,7 +100,7 @@ class System:
                                        get_radius(self, line[1]), element=line[1], chain="None"))
             else:
                 self.atoms.append(Atom([float(line[0][0]), float(line[0][1]), float(line[0][2])], float(line[1]),
-                                       element=get_radius(line[1], return_symbol=True), chain="None"))
+                                       element=get_radius(line[1], system=self, return_symbol=True), chain="None"))
 
     def random_system(self, anums=30, dmax=15, rmax=1):
         """
@@ -105,8 +136,9 @@ class System:
             else:
                 self.mols[self.mol_names.index(atom.chain)].append(atom)
         # Add the solution to the molecules list
-        self.mols.append(self.sol)
-        self.mol_names.append("SOL")
+        if self.sol is not None:
+            self.mols.append(self.sol)
+            self.mol_names.append("SOL")
         # Set up the residues names list
         self.residues, self.res_names = [], []
         # Set up the residues
@@ -119,31 +151,6 @@ class System:
                 self.res_names.append(res_name)
             else:
                 self.residues[self.res_names.index(res_name)].append(atom)
-
-    # Load system method. Chooses the correct file type from the file provided
-    def load_sys(self, file):
-
-        # If a file is given read the file and set the system attributes
-        if file:
-            self.base_file = file
-            self.name = get_name(file)
-            # Check the file type
-            if file[-3:] == "pdb":
-                self.atoms, self.data = read_pdb(self)
-            elif file[-3:] == "cif":
-                read_cif(self)
-            elif file[-3:] == "gro":
-                read_gro(self)
-            elif file[-3:] == "mol":
-                read_mol(self)
-            else:
-                print("Wrong file Loser!")
-                return
-        # Set the output directory
-        if self.output_directory is None:
-            set_output_dir(self)
-        # Sort the atoms
-        self.sort_atoms()
 
     # Build network function. Allows user to build the network from the system object.
     def build_network(self):
@@ -220,3 +227,48 @@ class System:
             # Write each of the surfaces
             write_surfs([surf], "surf_" + str(surf.ndx[0]) + "_" + str(surf.ndx[1]), my_color)
 
+
+my_radii = [['h' , 'he', 'li', 'be', 'b' , 'c' , 'n' , 'o' , 'f' , 'ne', 'na', 'mg', 'al', 'si', 'p' , 's' , 'cl', 'ar',
+             'k' , 'ca', 'sc', 'ti', 'v' , 'cr', 'mn', 'fe', 'co', 'ni', 'cu', 'zn', 'ga', 'ge', 'as', 'se', 'br', 'kr',
+             'rb', 'sr', 'y' , 'zr', 'nb', 'mo', 'tc', 'ru', 'rh', 'pd', 'ag', 'cd', 'in', 'sn', 'sb', 'te', 'i' , 'xe',
+             'cs', 'ba', 'la', 'hf', 'ta', 'w' , 're', 'os', 'ir', 'pt', 'au', 'hg', 'tl', 'pb', 'bi', 'po', 'at', 'rn',
+             'fr', 'ra', 'ac', 'rf', 'db', 'sg', 'bh', 'hs', 'mt', 'ds', 'rg', 'cn', 'nh', 'fl', 'mc', 'lv', 'ts', 'og',
+             'ce', 'pr', 'nd', 'pm', 'sm', 'eu', 'gd', 'tb', 'dy', 'ho', 'er', 'tm', 'yb', 'lu',
+             'th', 'pa', 'u' , 'np', 'pu', 'am', 'cm', 'bk', 'cf', 'es', 'fm', 'md', 'no', 'lr'],
+            [1.30, 1.40, 0.76, 0.45, 1.92, 1.80, 1.60, 1.50, 1.33, 1.54, 1.02, 0.72, 0.60, 2.10, 1.90, 1.90, 1.81, 1.88,
+             1.38, 1.00, None, None, None, None, None, None, None, None, None, None, 0.62, 0.73, 0.58, 1.90, 1.83, 2.02,
+             1.52, 1.18, None, None, None, None, None, None, None, None, None, None, 1.93, 2.17, 2.06, 2.06, 2.20, 2.16,
+             1.67, 1.35, None, None, None, None, None, None, None, None, None, None, 1.96, 2.02, 2.07, 1.97, 2.02, 2.20,
+             3.48, 2.83, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+             None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+             None, None, None, None, None, None, None, None, None, None, None, None, None, None]]
+
+vta_rads = [['h' , 'he', 'li', 'be', 'b' , 'c' , 'n' , 'o' , 'f' , 'ne', 'na', 'mg', 'al', 'si', 'p' , 's' , 'cl', 'ar',
+             'k' , 'ca', 'sc', 'ti', 'v' , 'cr', 'mn', 'fe', 'co', 'ni', 'cu', 'zn', 'ga', 'ge', 'as', 'se', 'br', 'kr',
+             'rb', 'sr', 'y' , 'zr', 'nb', 'mo', 'tc', 'ru', 'rh', 'pd', 'ag', 'cd', 'in', 'sn', 'sb', 'te', 'i' , 'xe',
+             'cs', 'ba', 'la', 'hf', 'ta', 'w' , 're', 'os', 'ir', 'pt', 'au', 'hg', 'tl', 'pb', 'bi', 'po', 'at', 'rn',
+             'fr', 'ra', 'ac', 'rf', 'db', 'sg', 'bh', 'hs', 'mt', 'ds', 'rg', 'cn', 'nh', 'fl', 'mc', 'lv', 'ts', 'og',
+             'ce', 'pr', 'nd', 'pm', 'sm', 'eu', 'gd', 'tb', 'dy', 'ho', 'er', 'tm', 'yb', 'lu',
+             'th', 'pa', 'u' , 'np', 'pu', 'am', 'cm', 'bk', 'cf', 'es', 'fm', 'md', 'no', 'lr'],
+            [1.30, 1.40, 0.76, 0.45, 1.92, 1.80, 1.60, 1.50, 1.33, 1.54, 1.02, 0.72, 0.60, 2.10, 1.90, 1.90, 1.81, 1.88,
+             1.38, 1.00, None, None, None, None, None, None, None, None, None, None, 0.62, 0.73, 0.58, 1.90, 1.83, 2.02,
+             1.52, 1.18, None, None, None, None, None, None, None, None, None, None, 1.93, 2.17, 2.06, 2.06, 2.20, 2.16,
+             1.67, 1.35, None, None, None, None, None, None, None, None, None, None, 1.96, 2.02, 2.07, 1.97, 2.02, 2.20,
+             3.48, 2.83, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+             None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+             None, None, None, None, None, None, None, None, None, None, None, None, None, None]]
+
+pym_rads = [['h' , 'he', 'li', 'be', 'b' , 'c' , 'n' , 'o' , 'f' , 'ne', 'na', 'mg', 'al', 'si', 'p' , 's' , 'cl', 'ar',
+             'k' , 'ca', 'sc', 'ti', 'v' , 'cr', 'mn', 'fe', 'co', 'ni', 'cu', 'zn', 'ga', 'ge', 'as', 'se', 'br', 'kr',
+             'rb', 'sr', 'y' , 'zr', 'nb', 'mo', 'tc', 'ru', 'rh', 'pd', 'ag', 'cd', 'in', 'sn', 'sb', 'te', 'i' , 'xe',
+             'cs', 'ba', 'la', 'hf', 'ta', 'w' , 're', 'os', 'ir', 'pt', 'au', 'hg', 'tl', 'pb', 'bi', 'po', 'at', 'rn',
+             'fr', 'ra', 'ac', 'rf', 'db', 'sg', 'bh', 'hs', 'mt', 'ds', 'rg', 'cn', 'nh', 'fl', 'mc', 'lv', 'ts', 'og',
+             'ce', 'pr', 'nd', 'pm', 'sm', 'eu', 'gd', 'tb', 'dy', 'ho', 'er', 'tm', 'yb', 'lu',
+             'th', 'pa', 'u' , 'np', 'pu', 'am', 'cm', 'bk', 'cf', 'es', 'fm', 'md', 'no', 'lr'],
+            [1.30, 1.40, 0.76, 0.45, 1.92, 1.80, 1.60, 1.50, 1.33, 1.54, 1.02, 0.72, 0.60, 2.10, 1.90, 1.90, 1.81, 1.88,
+             1.38, 1.00, None, None, None, None, None, None, None, None, None, None, 0.62, 0.73, 0.58, 1.90, 1.83, 2.02,
+             1.52, 1.18, None, None, None, None, None, None, None, None, None, None, 1.93, 2.17, 2.06, 2.06, 2.20, 2.16,
+             1.67, 1.35, None, None, None, None, None, None, None, None, None, None, 1.96, 2.02, 2.07, 1.97, 2.02, 2.20,
+             3.48, 2.83, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+             None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+             None, None, None, None, None, None, None, None, None, None, None, None, None, None]]
