@@ -39,7 +39,7 @@ def read_pdb(sys):
         if line and word == 'atom':  # Check if the line starts with atom
 
             # Create the atom
-            atom = Atom([float(line[30:38]), float(line[38:46]), float(line[46:54])], get_radius(line[76:78]),
+            atom = Atom([float(line[30:38]), float(line[38:46]), float(line[46:54])], get_radius(line[76:78], system=sys),
                         element=line[76:78], residue=line[17:20], chain=line[21], res_seq=line[22:26], name=line[12:16],
                         ocp=line[54:60], t_fact=line[60:66], seg_id=line[72:76], charge=line[78:80])
             # If no chain is specified, set the chain to 'None'
@@ -68,7 +68,7 @@ def read_cif(sys):
         # Add the atoms
         if file[i] == int(num) and len(file[i]) >= 7:
             sys.atoms.append(Atom([file[i][9], file[i][10], file[i][11]],
-                                  get_radius(file[i][3]), element=file[i][3]))
+                                  get_radius(file[i][3], system=sys), element=file[i][3]))
 
 
 # Read gro method. Interprets the data from a .cif file type
@@ -78,7 +78,7 @@ def read_gro(sys):
         file = f.readlines()
     # Go through each line in the file and create an atom object
     for line in file[2:-2]:
-        sys.atoms.append(Atom([line[3], line[4], line[5]], get_radius(line[1][0]), element=line[1][0]))
+        sys.atoms.append(Atom([line[3], line[4], line[5]], get_radius(line[1][0], system=sys), element=line[1][0]))
 
 
 # Read mol method. Interprets the data from a .mol file type
@@ -91,7 +91,7 @@ def read_mol(sys):
         # If the line is an atom line add the data
         if len(line) > 6:
             # Add the data
-            sys.atoms.append(Atom([line[0], line[1], line[2]], get_radius(line[3]), element=line[3]))
+            sys.atoms.append(Atom([line[0], line[1], line[2]], get_radius(line[3], system=sys), element=line[3]))
 
 
 # Add Voronota data method. Takes in voronota data and adds it to the System
@@ -120,10 +120,10 @@ def add_vta_data(sys, ball_file, vert_file):
 
 
 # Input index function. Takes in an index file and loads it into the list of indices
-def input_index(sys):
+def read_ndx(sys):
     # Get the file information and make sure to close the file when done
     try:
-        with open(sys.index_file, 'r') as f:
+        with open(sys.ndx_file, 'r') as f:
             file = f.readlines()
     except FileNotFoundError:
         return
@@ -147,12 +147,31 @@ def input_index(sys):
     sys.ndxs = [[sys.atoms[ndx] for ndx in indices[i]] for i in range(len(indices))]
 
 
-# Import network function. Imports vorpy-created text document and creates network objects
-def import_net(net, filename, verts_only=False):
-
+# Import vertices function.
+def read_verts(net, filename):
     # Open the file
     try:
-        file = open(filename).readlines()
+        with open(filename) as f:
+            file = f.readlines()
+    except FileNotFoundError:
+        print("\r No such file exists", end="")
+        return
+    # Set up the vertices list
+    verts = []
+    # Go through the lines in the file
+    for line in file[1:]:
+        line = line.split()
+        verts.append(Vertex(atoms=[net.atoms[_] for _ in line[1:4]], location=line[4:7], radius=line[7]))
+    # Set the network's vertices
+    net.verts = verts
+
+
+# Import network function. Imports vorpy-created text document and creates network objects
+def reat_net(net, filename, verts_only=False):
+    # Open the file
+    try:
+        with open(filename) as f:
+            file = f.readlines()
     except FileNotFoundError:
         print("\r No such file exists", end="")
         return
@@ -294,11 +313,11 @@ def import_net(net, filename, verts_only=False):
             curr_surf.tris.append([int(_) for _ in line[1:]])
 
     # Connect the objects
-    connect_input_net(net)
+    connect_read_net(net)
 
 
 # Connect input network function. Connect the network objects using their load index lists
-def connect_input_net(net):
+def connect_read_net(net):
     # Connect the atom objects
     print("\rConnecting Atoms            ", end="")
     for atom in net.atoms:
