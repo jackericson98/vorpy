@@ -5,7 +5,7 @@ from System.Network.build_net import *
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
     def __init__(self, sys, index=0, atoms=None, verts=None, edges=None, surfs=None, groups=None,
-                 min_dist=0.1, box_size=1.1, beta_val=1, sol_verts=True):
+                 min_dist=0.1, box_size=1.5, max_vert=5, sol_verts=True):
         # Network graph objects
         self.sys = sys              # System         :  Route back to outer system for system attribute access
         self.index = index          # Index          :  Holds the index of the network in the system object
@@ -25,7 +25,7 @@ class Network:
         self.atom_ndxs = []         # Atom indices   :  Used to track atoms that have been used in a vertex
         # Settings
         self.min_dist = min_dist    # Resolution     :  How small the triangles in the surfaces are
-        self.beta_val = beta_val    # Beta value     :  The maximum vertex radius for the network
+        self.max_vert = max_vert    # Max vert rad   :  The maximum vertex radius for the network
         self.box_size = box_size    # Box size       :  Holds the box multiplier for the system box from the atoms box
         self.parallelize = False    # Parallelize    :  Split the calculations between cores?
         self.sol_verts = sol_verts  # Sol Vertices   :  Solve the solution's vertices?
