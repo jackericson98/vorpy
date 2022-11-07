@@ -189,7 +189,7 @@ def export_net(net):
     # Create the network file
     file = open(net.sys.name + "_network.txt", 'w')
     # Write the general information about the system
-    file.write("NETW " + str(net.min_dist) + " " + str(net.beta_val) + " " + str(net.box_size) + " " + str(net.my_time)
+    file.write("NETW " + str(net.min_dist) + " " + str(net.max_vert) + " " + str(net.box_size) + " " + str(net.my_time)
                + " " + str(net.cpu_time) + " " + str(net.sol_verts) + " " + str(net.curved_faces) + " " +
                str(net.flat_faces) + " " + str(len(net.verts)) + " " + str(len(net.edges)) + " " +
                str(len(net.surfs)) + "\n")
