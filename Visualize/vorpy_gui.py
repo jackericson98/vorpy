@@ -46,7 +46,7 @@ class Vorpy:
 
         # Build subframe attributes
         self.sys_res_flt = tk.DoubleVar(self.main, 0.1)
-        self.sys_alpha_value = tk.DoubleVar(self.main, 5)
+        self.sys_max_vert = tk.DoubleVar(self.main, 5)
         self.sys_box_x_flt = tk.DoubleVar(self.main, 1.4)
 
         ############################################## Load Header subframe ############################################
@@ -126,7 +126,7 @@ class Vorpy:
         # Maximum vertex radius value for the system
         tk.Label(bld_sbfrm, text="\nMax Vertex:", font=("Times New Roman bold", 12)).grid(row=3, column=0, columnspan=2)
         # Slider for setting the network's resolution and then a label for the units
-        tk.Entry(bld_sbfrm, textvariable=self.sys_alpha_value).grid(row=4, column=0, sticky='ew')
+        tk.Entry(bld_sbfrm, textvariable=self.sys_max_vert).grid(row=4, column=0, sticky='ew')
         tk.Label(bld_sbfrm, text=u'\u212B', font=('Times New Roman', 15)).grid(row=4, column=1, sticky='s')
 
         # Box size
@@ -414,7 +414,7 @@ class Vorpy:
         self.sys.set_output_directory()
         self.net_name.set(self.sys.name + " Network")
         self.net_sets.set(str(self.sys_box_x_flt.get()) + "\n" + str(self.sys_res_flt.get()) + "\n" +
-                          str(self.sys_alpha_value.get()) + "\n    ~    \n    ~    \n    ~   ")
+                          str(self.sys_max_vert.get()) + "\n    ~    \n    ~    \n    ~   ")
 
     # Load analysis button method. Moves the screen to the analysis screen once a network has been loaded
     def load_analyze_button(self):
