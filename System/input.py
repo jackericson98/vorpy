@@ -97,7 +97,7 @@ def read_mol(sys):
 # Add Voronota data method. Takes in voronota data and adds it to the System
 def add_vta_data(sys, ball_file, vert_file):
     # Set the voronota system indicator to True
-    sys.myNet.flat_faces = True
+    sys.net.flat_faces = True
     # Create the System and load the files
     vert_file = open(vert_file).readlines()
     ball_file = open(ball_file).readlines()
@@ -199,7 +199,7 @@ def reat_net(net, filename, verts_only=False):
         elif line[0].lower() == 'netw':
             # Load the network information
             net.min_dist = float(line[1])
-            net.beta_val = float(line[2])
+            net.max_vert = float(line[2])
             net.box_size = float(line[3])
             net.my_time = float(line[4])
             net.cpu_time = float(line[5])
