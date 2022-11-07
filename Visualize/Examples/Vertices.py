@@ -1,5 +1,5 @@
 from Visualize.visualize import *
-from System.Network.vertex import Vertex
+from System.Network.network import Vertex, Atom
 """Example for vertices"""
 
 # With vertices, we have __ different cases
@@ -17,20 +17,21 @@ cases.append([Atom([0, 1, 1], 1.3), Atom([0, 1, 0], 1.3), Atom([-1, 0, 0], 1.1),
 
 
 verts = []
-# for i in range(len(cases)):
-myVert = Vertex(atoms=cases[4])
-print(myVert.loc)
+for i in range(len(cases)):
+    myVert = Vertex(atoms=cases[i])
+    myVert.calc_vert()
 
-verts.append(myVert)
+    verts.append(myVert)
 
 
 fig = plt.figure(figsize=(20, 40))
 titles = ["Case 0: No Overlap", "Case 1: One overlapping set", "Case 2: Two overlapping balls",
           "Case 3: Three overlapping balls", "Case 4: Four overlapping balls"]
-for i in range(4, 5):
+for i in range(len(verts)):
+    print(verts[i].rad)
     axn = fig.add_subplot(int("23" + str(i + 1)), projection="3d", xlim=10)
     axn.set_title(titles[i])
     plot_atoms(cases[i], fig=fig, ax=axn, colors=['y', 'y', 'y', 'y'], alpha=.1, dfo=5)
-    plot_verts([verts[0]], fig=fig, ax=axn, dfo=15, spheres=True)
+    plot_verts([verts[i]], fig=fig, ax=axn, dfo=15, spheres=True)
 
 plt.show()
