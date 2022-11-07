@@ -9,7 +9,9 @@ from Visualize.visualize import *
 
 # Calculate surface point function. Finds the projection a surface's small atom through the given point onto the surface
 def calc_surf_point(surf, point):
-
+    # Check to see if the surface's function has been calculated
+    if surf.func is None:
+        surf.calc_func()
     # Grab the surfaces function and atoms
     f, a0, a1 = surf.func, surf.atoms[0], surf.atoms[1]
     # Set up the unit vector
