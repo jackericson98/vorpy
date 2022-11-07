@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from System.system import *
+from System.Network.build_surf import calc_surf_point
 
 # Create 2 sets of 10 subcases for comparison
 radii = [[0.35, 1], [0.325, 1], [0.3, 1], [0.275, 1], [0.25, 1], [0.225, 1], [0.2, 1], [0.175, 1], [0.15, 1], [0.45, 1]]
@@ -24,7 +25,7 @@ for surf in surfs:
     crit_ang = 0
     for ang in ang_incs:
         point = [surf.atoms[0].rad*np.cos(ang), surf.atoms[0].rad*np.sin(ang), 0]
-        roots = surf.calc_surf_point(point, roots=True)
+        roots = calc_surf_point(surf, point)
         my_diff = np.inf
         if roots is not None and len(roots) > 1:
             my_diff = abs(abs(roots[0]) - abs(roots[1]))
