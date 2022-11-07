@@ -572,7 +572,7 @@ def update_progress_canvas(self, task_ndx=None):
     # Set analyze frame info. When the analysis frame is pulled up this is called and sets the info
     def set_analyze_info(self):
         # We want to get the number of atoms, the number of molecules, etc
-        myStr = str(self.sys.net.box_size) + '\n' + str(self.sys.net.min_dist) + '\n' + str(self.sys.net.beta_val) + \
+        myStr = str(self.sys.net.box_size) + '\n' + str(self.sys.net.min_dist) + '\n' + str(self.sys.net.max_vert) + \
                 "\n   ~   \n   ~   \n   ~   "
         # Set the variables
         self.net_sets.set(myStr)
