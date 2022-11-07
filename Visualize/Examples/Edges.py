@@ -2,7 +2,7 @@ import os
 from Visualize.visualize import *
 from System.Network.edge import Edge
 from System.Network.vertex import Vertex
-from System.system import System
+from System.system import System, Atom
 os.chdir("../..")
 
 
@@ -28,11 +28,13 @@ syss = []
 for case_atoms in cases:
     syss.append(System(case_atoms + [va0, va1]))
     # Calculate the two vertices
-    v0 = Vertex([va0] + case_atoms, syss[-1].net)
-    v1 = Vertex([va1] + case_atoms, syss[-1].net)
+    v0 = Vertex([va0] + case_atoms)
+    v0.calc_vert()
+    v1 = Vertex([va1] + case_atoms)
+    v1.calc_vert()
     verts.append([v0, v1])
     # Create the edge
-    myEdge = Edge(case_atoms, [v0, v1], syss[-1].net)
+    myEdge = Edge(case_atoms, verts=[v0, v1])
     # Get the edges points
     myEdge.build(min_dist=.05)
     # Add the edge to the list of
