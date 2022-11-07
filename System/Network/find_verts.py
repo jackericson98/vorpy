@@ -47,7 +47,7 @@ def find_v0(net, a0=None):
             edge = Edge(atoms=[a0, a1s[j], a2])
             edge.get_loc()
             # If a circle can be made and the site does not overlap with any other atoms, add it to the list
-            if edge.loc is not None and edge.rad < net.beta_val and verify_site(edge, net):
+            if edge.loc is not None and edge.rad < net.max_vert and verify_site(edge, net):
                 verified_circles.append(edge.atoms)
 
         # Test for verified sites
@@ -132,7 +132,7 @@ def find_site(net, edge_atoms, vn_1=None):
         vert = Vertex(edge_atoms + [atom], net=net)
         vert.calc_vert()
         # Filter the vertex out if it is too large or not able to be made
-        if vert.loc is None or abs(vert.rad) > net.beta_val:
+        if vert.loc is None or abs(vert.rad) > net.max_vert:
             continue
         # For doublet cases verify differently
         if vert.loc2 is not None:
@@ -141,10 +141,10 @@ def find_site(net, edge_atoms, vn_1=None):
                 verts.append(vert)
                 vert_ndx_list_locs.append(vert_ndx)
                 # If the second vertex's radius is less than the min_rad, and it is a verified site mark it as a doublet
-                if vert.rad2 < net.beta_val and verify_site(vert, net, doublet_check=True):
+                if vert.rad2 < net.max_vert and verify_site(vert, net, doublet_check=True):
                     vert.doublet = True
             # If the first vertex is not a verified site, test the second location
-            elif vert.rad2 < net.beta_val and verify_site(vert, net, doublet_check=True):
+            elif vert.rad2 < net.max_vert and verify_site(vert, net, doublet_check=True):
                 # Replace the location and radius for the vertex and add it to the list
                 vert.loc, vert.rad = vert.loc2, vert.rad2
                 verts.append(vert)
