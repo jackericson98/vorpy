@@ -7,7 +7,7 @@ class Surface:
                  rn=None, sa=0):
 
         # If no network was given have a catch
-        if net is not None:
+        if net is not None and net.atoms is not None:
             ndx = [net.atoms.index(atom) for atom in atoms]
             ndx.sort()
             self.ndx = ndx          # Index            : Indices of the atoms of the surface
