@@ -415,7 +415,7 @@ def find_subnets(self):
     # Set up the network list and the list of the atom indices from the main network for reference later
     test_nets, test_nets_real_ndxs = [], []
     # Calculate the overlap needed to prevent missing vertices
-    overlap = int((self.beta_val + self.max_atom_rad) / min(self.sub_box_size)) + 1
+    overlap = int((self.max_vert + self.max_atom_rad) / min(self.sub_box_size)) + 1
     # Go through each of the boxes in the medium_boxes matrix to create networks
     for i in range(n):
         for j in range(n):
@@ -442,7 +442,7 @@ def find_subnets(self):
                     old_ndxs.append(self.atoms.index(atom))
                 # Create the network and add it to the list of subnetworks
                 test_nets.append(Network(sys=self.sys, atoms=new_atoms, box_size=1.1, min_dist=self.min_dist,
-                                         beta_val=self.beta_val, sol_verts=self.sol_verts))
+                                         max_vert=self.max_vert, sol_verts=self.sol_verts))
                 # Store the atoms' real indices
                 test_nets_real_ndxs.append(old_ndxs)
     # Find the vertices for each of the networks
