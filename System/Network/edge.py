@@ -8,10 +8,10 @@ class Edge:
                  pv1=None):
 
         # If no network was given have a catch
-        if net is not None:
+        if net is not None and net.atoms is not None:
             ndx = [net.atoms.index(atom) for atom in atoms]
             self.ndx = ndx               # Index         :   Indices of the atoms of the surface
-            self.net = net               # Network       :   Network of the System
+        self.net = net                   # Network       :   Network of the System
         self.atoms = atoms               # Atoms         :   List of Atom type objects for the edge
         self.verts = verts               # Vertices      :   List of Vertex type objects
         self.surfs = []                  # Surfaces      :   List of 2 surfaces attached to the edge
