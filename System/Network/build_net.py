@@ -235,7 +235,7 @@ def make_objects(net):
                         if len([1 for _ in vert1.ndx if _ in vert2.ndx]) == 3:
                             connections += 1
                     # If there are less than 3 vertices (two adjacent + 1 self) connected to the vertex it's not a surf
-                    if connections < 3:
+                    if connections < 2:
                         is_surf = False
                 # If we make it all the way through without issue add the surface
                 if is_surf:
