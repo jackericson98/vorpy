@@ -11,9 +11,8 @@ v_file = os.getcwd() + "./Data/test_data/Na5_verts1.txt"
 
 # Get the System
 sys = System()
-sys.load_sys(file="C:/Users/jacke/PycharmProjects/vorpy/Data/presentation_data/2_Cube/Cube_Atoms4.pdb")
-sys.net.sol_verts = False
-sys.build_network()
+sys.load_sys(file="C:/Users/jacke/PycharmProjects/vorpy/Data/test_data/EDTA_Mg.pdb")
+sys.build_network(sol_verts=True, min_dist=0.5, max_vert=20)
 
 
 # # Plot the System
