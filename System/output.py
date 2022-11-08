@@ -137,7 +137,7 @@ def export_iface(groups, info_file=False, interface_atoms=False):
     if info_file:
         info = open(interface_name + "_info.txt", 'w')
         info.write("Interface between " + g0.name + " and " + g1.name + " : \n")
-        info.write("Number of Surfaces: " + str(len(g0.interface)))
+        info.write("Number of Surfaces: " + str(len(g0.iface_surfs)))
         info.write("Surface Area: " + str(g0.iface_sa))
 
 
