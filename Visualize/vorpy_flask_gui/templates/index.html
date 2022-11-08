@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>vorpy</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<style>
+body, h1,h2,h3,h4,h5,h6 {font-family: "Montserrat", sans-serif}
+.w3-row-padding img {margin-bottom: 12px}
+/* Set the width of the sidebar to 120px */
+.w3-sidebar {width: 120px;background: #222;}
+/* Add a left margin to the "page content" that matches the width of the sidebar (120px) */
+#main {margin-left: 120px}
+/* Remove margins from "page content" on small screens */
+{# @media only screen and (max-width: 600px) {#main {margin-left: 0}} #}
+</style>
+</head>
+<body class="w3-black">
+
+<!-- Icon Bar (Sidebar - hidden on small screens) -->
+<nav class="w3-sidebar w3-bar-block w3-small w3-hide-small w3-center">
+  <!-- Avatar image in top left corner -->
+  <img src="gsu_logo.png" style="height:6%" hspace="5" vspace="10">
+  <a href="#" class="w3-bar-item w3-button w3-padding-large w3-black">
+    <i class="fa fa-home w3-xxlarge"></i>
+    <p>HOME</p>
+  </a>
+  <a href="#load" class="w3-bar-item w3-button w3-padding-large w3-hover-black">
+    <i class="fa fa-folder w3-xxlarge"></i>
+    <p>LOAD</p>
+  </a>
+  <a href="#build" class="w3-bar-item w3-button w3-padding-large w3-hover-black">
+    <i class="fa fa-hourglass-half w3-xxlarge"></i>
+    <p>BUILD</p>
+  </a>
+  <a href="#analyze" class="w3-bar-item w3-button w3-padding-large w3-hover-black">
+    <i class="fa fa-area-chart w3-xxlarge"></i>
+    <p>ANALYZE</p>
+  </a>
+  <a href="#contact" class="w3-bar-item w3-button w3-padding-large w3-hover-black">
+    <i class="fa fa-address-book w3-xxlarge"></i>
+    <p>CONTACT</p>
+  </a>
+</nav>
+
+<!-- Navbar on small screens (Hidden on medium and large screens) -->
+<div class="w3-top w3-hide-large w3-hide-medium" id="myNavbar">
+  <div class="w3-bar w3-black w3-opacity w3-hover-opacity-off w3-center w3-small">
+    <a href="#" class="w3-bar-item w3-button" style="width:25% !important">HOME</a>
+    <a href="load" class="w3-bar-item w3-button" style="width:25% !important">LOAD</a>
+    <a href="build" class="w3-bar-item w3-button" style="width:25% !important">BUILD</a>
+    <a href="analyze" class="w3-bar-item w3-button" style="width:25% !important">ANALYZE</a>
+  </div>
+</div>
+
+<!-- Page Content -->
+<div class="w3-padding-large" id="main">
+  <!-- Header/Home -->
+  <header class="w3-container w3-padding-32 w3-center w3-black" id="home">
+    <h1 class="w3-jumbo"><span class="w3-hide-small">VorPy</span></h1>
+    <h4 class="w3-text-dark-grey">By: Jack Ericson</h4>
+    <p>Molecular Partitioning and Analysis Tool</p>
+    <img src="header.png" alt="boy" class="w3-image" width="900">
+  </header>
+  <br><br><br><br><br><br><br>
+
+  <!-- Load Section -->
+  <div class="w3-content w3-justify w3-text-grey w3-padding-64" id="load">
+    <div class="w3-half">
+      <h2 class="w3-text-light-grey">System</h2>
+      <hr style="width:200px" class="w3-opacity">
+
+      <button class="w3-button w3-light-grey w3-padding-large w3-section" onclick="load_system.py">
+        <i class="fa fa-folder"></i> Load System
+      </button>
+    </div>
+    <div class="w3-half">
+      <h2 class="w3-text-light-grey">Network</h2>
+      <hr style="width:200px" class="w3-opacity">
+
+      <button class="w3-button w3-light-grey w3-padding-large w3-section" onclick="load_system.py">
+        <i class="fa fa-folder"></i> Load Network
+      </button>
+    </div>
+    <img src="DNA.png" height="400" width="300" vspace="80">
+    <img src="DNA_net.png" height="400" width="300" vspace="80" hspace="150">
+  <!-- End Load Section -->
+  </div>
+
+  <!-- Build Section -->
+  <div class="w3-padding-64 w3-content" id="build">
+    <h2 class="w3-text-light-grey">Progress</h2>
+    <hr style="width:200px" class="w3-opacity">
+
+    <!-- Grid for progress bars -->
+    <div class="w3-row-padding" style="margin:0 -16px">
+      <div class="w3-half">
+        <h4>Overall Progress</h4>
+      </div>
+
+      <div class="w3-half">
+        <h4>Process Progress</h4>
+      </div>
+    <!-- End progress grid -->
+    </div>
+    <img src="loading_bar.jpg" width="80%" vspace="100">
+  <!-- End Build Section -->
+  </div>
+
+
+  <!-- Analyze section -->
+  <div class="w3-content w3-justify w3-text-grey w3-padding-64" id="analyze">
+    <div class="w3-half">
+      <h2 class="w3-text-light-grey">Analyze</h2>
+      <hr style="width:200px" class="w3-opacity">
+      <h4 class="w3-text-light-grey">Surface Area       = 1343.433   Angstroms^2</h4>
+      <h4 class="w3-text-light-grey">Volume             = 25964.220  Angstroms^3</h4>
+      <h4 class="w3-text-light-grey">Number of atoms    = 567 </h4>
+      <h4 class="w3-text-light-grey">Number of surfaces = 1503 </h4>
+      <h4 class="w3-text-light-grey">Number of edges    = 1236 </h4>
+      <h4 class="w3-text-light-grey">Number of vertices = 345 </h4>
+      <img src="DNA.png" height="400" vspace="30">
+      
+    </div>
+    <div class="w3-half">
+      <img src="DNA_net_strand1.png" height="800">
+    </div>
+    <br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
+    <br><br><br><br><br><br><br><br><br><br><br>
+  </div>
+  <!-- Contact Section -->
+  <div class="w3-content w3-justify w3-text-grey w3-padding-64"  id="contact">
+    <div class="w3-half">
+      <h2 class="w3-text-light-grey">Contact</h2>
+      <hr style="width:200px" class="w3-opacity">
+      <br>
+      <div class="w3-section">
+        <p><i class="fa fa-map-marker fa-fw w3-text-white w3-xxlarge w3-margin-right"></i> GSU: Natural Science Center 416</p>
+        <p><i class="fa fa-phone fa-fw w3-text-white w3-xxlarge w3-margin-right"></i> Phone: (404)-435-4013</p>
+        <p><i class="fa fa-envelope fa-fw w3-text-white w3-xxlarge w3-margin-right"> </i> Email: jericson1@gsu.edu</p>
+      </div>
+    </div>
+    <div class="w3-half">
+      <img src="gsu_logo.png" height="300">
+      <br><br><br><br><br><br>
+    </div>
+
+  <!-- End Contact Section -->
+  </div>
+
+
+    <!-- Footer -->
+  <footer class="w3-content w3-padding-64 w3-text-grey w3-xlarge">
+    <i class="fa fa-facebook-official w3-hover-opacity"></i>
+    <i class="fa fa-instagram w3-hover-opacity"></i>
+    <i class="fa fa-snapchat w3-hover-opacity"></i>
+    <i class="fa fa-twitter w3-hover-opacity"></i>
+    <i class="fa fa-linkedin w3-hover-opacity"></i>
+    <p class="w3-medium">
+      <a href="https://chemistry.gsu.edu/research/#biophysical-computational" target="_blank" class="w3-hover-text-green">
+        Georgia State University Biophysical/Computational Chemistry</a></p>
+  <!-- End footer -->
+  </footer>
+
+<!-- END PAGE CONTENT -->
+</div>
+
+</body>
+</html>
