@@ -187,7 +187,11 @@ def find_vertices(net, a0=None):
     else:
         tot_verts = 8 * (len(net.atoms) - len(net.sys.sol))
     # Find the first verified vertex
-    v0 = find_v0(net, a0)
+    if len(net.atoms) == 4:
+        v0 = Vertex(net.atoms, net)
+        v0.calc_vert()
+    else:
+        v0 = find_v0(net, a0)
     # If no v0 is possible (e.g., a lone atom) return
     if v0 is None:
         return
