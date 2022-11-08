@@ -167,7 +167,7 @@ def read_verts(net, filename):
 
 
 # Import network function. Imports vorpy-created text document and creates network objects
-def reat_net(net, filename, verts_only=False):
+def read_net(net, filename, verts_only=False):
     # Open the file
     try:
         with open(filename) as f:

@@ -1,9 +1,9 @@
 from System.calcs import *
-from System.atom import Atom
-from System.Network.vertex import Vertex
+# from System.atom import Atom
+# from System.Network.vertex import Vertex
 from System.Network.edge import Edge
 from System.Network.surface import Surface
-from Visualize.visualize import *
+# from Visualize.visualize import *
 
 
 ############################################ Filter System #############################################################
@@ -207,23 +207,41 @@ def make_objects(net):
             # Put together a list of edges that have our atoms
             edges = []
             # Create a variable for the edges that are doublets
-            num_dubs = 0
+            d_surf = False
             # Go through the edges in the system
             for edge2 in net.edges:
                 # If the surface's atoms are in the edge add it
                 if atoms.issubset(edge2.atoms):
                     edges.append(edge2)
-                    # # If the edge is a doublet, the vertex will only count once, so we need to add another to the count
-                    # if edge2.doublet:
-                    #     num_dubs += 1
+                    # If the edge is a doublet, the vertex will only count once, so we need to add another to the count
+                    if edge2.doublet:
+                        d_surf = True
             # Put together a list of verts that have our atoms
             verts = []
             for vert2 in net.verts:
                 # If the surface's atoms are shared with the vertex, add it to the list
                 if atoms.issubset(vert2.atoms):
                     verts.append(vert2)
+            # If we have detected a doublet related surface (one that contains a doublet edge) treat it carefully
+            if d_surf:
+                # Set up our tracking boolean. Innocent until proven guilty
+                is_surf = True
+                # Go through the vertices related to the surface and count the number of 3-atom similarities they have
+                for vert1 in verts:
+                    connections = 0
+                    # Go through each vertex in the list of vertices checking for 3-atom similarities
+                    for vert2 in verts:
+                        # If there are 3 similar atoms in the two vertices count it as a connection
+                        if len([1 for _ in vert1.ndx if _ in vert2.ndx]) == 3:
+                            connections += 1
+                    # If there are less than 3 vertices (two adjacent + 1 self) connected to the vertex it's not a surf
+                    if connections < 3:
+                        is_surf = False
+                # If we make it all the way through without issue add the surface
+                if is_surf:
+                    net.surfs.append(Surface(atoms=list(atoms), net=net, verts=verts, edges=edges))
             # In order to be a true surface the number of edges need to be equal to the number of verts (+ doublets)
-            if len(verts) + num_dubs == len(edges):
+            elif len(verts) == len(edges):
                 my_surf = Surface(list(atoms), verts=verts, net=net, edges=edges)
                 net.surfs.append(my_surf)
 
