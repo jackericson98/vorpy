@@ -2,7 +2,7 @@ import os
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import filedialog
-from System.system import System
+from System.system import System, Network
 from System.group import Group
 from System.output import *
 
@@ -279,10 +279,15 @@ class Vorpy:
         # Header
         tk.Label(self.export_selections_subfrm, text="Export Selections", font=("underlined bold", 20))\
             .grid(columnspan=3)
+        vpy_out_dir = self.sys.vorpy_directory + "/Data/User_data/"
+        self.output_dir_str = tk.StringVar(self.main, vpy_out_dir[:12] + ' ... ' + vpy_out_dir[-12:])
+        tk.Label(self.export_selections_subfrm, textvariable=self.output_dir_str).grid(row=1, columnspan=3, sticky="w")
+        tk.Button(self.export_selections_subfrm, text="Browse", command=self.change_output_directory)\
+            .grid(row=1, column=2, sticky="e")
 
         # Export cell subframe
         self.export_cell_subfrm = tk.Frame(self.export_selections_subfrm)
-        self.export_cell_subfrm.grid(row=1)
+        self.export_cell_subfrm.grid(row=2)
         tk.Label(self.export_cell_subfrm, text="Export Cell", font=15).grid(row=0)
         self.cell_atoms = []
         self.cell_atoms_names = tk.StringVar(self.main, "\n\n\n")
@@ -295,7 +300,7 @@ class Vorpy:
 
         # Export interface subframe
         self.export_iface_subfrm = tk.Label(self.export_selections_subfrm)
-        self.export_iface_subfrm.grid(row=1, column=1)
+        self.export_iface_subfrm.grid(row=2, column=1)
         tk.Label(self.export_iface_subfrm, text="Export Interface", font=15).grid(row=0, columnspan=2)
         self.iface_atoms1 = []
         self.iface_atoms2 = []
@@ -317,7 +322,7 @@ class Vorpy:
 
         # Export information subframe
         self.export_info_subfrm = tk.Label(self.export_selections_subfrm)
-        self.export_info_subfrm.grid(row=1, column=2)
+        self.export_info_subfrm.grid(row=2, column=2)
         tk.Label(self.export_info_subfrm, text="Selection Information", font=15).grid(row=0, columnspan=2)
         tk.Label(self.export_info_subfrm, text="Export Cell").grid(row=1, columnspan=2)
         self.selection_analysis_prompts = tk.StringVar(self.main)
@@ -363,8 +368,6 @@ class Vorpy:
                 "\n   ~   \n   ~   \n   ~   "
         # Set the variables
         self.sys_pros.set(myStr)
-        # Set the networks atoms
-        self.sys.net.atoms = self.sys.atoms
         # Set the molecule names
         for mol in self.sys.mols:
             self.mol_list.append(mol[0].chain)
@@ -385,6 +388,9 @@ class Vorpy:
         self.atom_options.destroy()
         self.atom_options = tk.OptionMenu(self.select_atoms_subfrm, self.current_atom_selection, *self.sys.atom_names)
         self.atom_options.grid(row=5)
+        # Set the output directory
+        self.output_directory = set_output_dir(self.sys)
+        self.output_dir_str.set(self.output_directory)
 
     # Load frames function.
     def load_frames_button(self):
@@ -403,6 +409,9 @@ class Vorpy:
 
     # Load network button function. Pulls up the file browser and lets the user select their vorpy saved system
     def load_net(self):
+        # Check to see if a network exists already
+        if self.sys.net is None:
+            self.sys.net = Network(self, self.sys.atoms)
         # File grabber pop up
         file_path = filedialog.askopenfilename()
         self.net_file = file_path
