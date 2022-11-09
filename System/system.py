@@ -1,4 +1,5 @@
 # import os
+import os
 import time
 
 from System.input import *
@@ -180,6 +181,8 @@ class System:
         Allows user to build the network from the system object.
         :return:
         """
+        set_output_dir(self)
+        os.chdir(self.output_directory)
         # Check to see if a network exists
         if self.net is None:
             self.net = Network(sys=self, atoms=self.atoms)
@@ -210,6 +213,8 @@ class System:
             self.net.name = "Main"
             # Find the vertices
             self.net.find_verts()
+            # Export the vertices
+            self.export_verts()
             # Check to see if there are vertices
             if self.net.verts is None or len(self.net.verts) <= 4:
                 return
@@ -226,6 +231,13 @@ class System:
         self.net.my_time = stop - start
         if output:
             self.analysis_prep()
+
+    def export_verts(self):
+        """
+        Exports the vertices after they are calculated
+        :return:
+        """
+        export_verts(self.net)
 
     def export_net(self):
         """
@@ -264,8 +276,7 @@ class System:
         Prepares the output directory and system for output. Keeps things consistent
         :return:
         """
-        # Set the output directory
-        self.set_output_directory()
+        os.chdir(self.output_directory)
         # Export the network
         self.export_net()
         # Export a pdb file for the system
