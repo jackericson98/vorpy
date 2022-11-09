@@ -173,7 +173,8 @@ def export_verts(net):
     # Write the vertices
     for vert in net.verts:
         # Write the vertex
-        file.write("VERT " + " ".join(vert.ndx) + " ".join(vert.loc) + vert.rad + "\n")
+        file.write("VERT " + " ".join([str(_) for _ in vert.ndx]) + " ".join([str(_) for _ in vert.loc]) +
+                   str(vert.rad) + "\n")
     # Write the end line for the file
     file.write("END")
 
