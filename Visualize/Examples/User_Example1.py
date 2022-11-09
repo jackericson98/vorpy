@@ -11,7 +11,7 @@ for file in files:
     # Get the System
     sys = System()
 
-    sys.load_sys(file="C:/Users/jacke/PycharmProjects/vorpy/Data/test_data/" + file)
+    sys.load_sys(file=os.getcwd() + "/Data/test_data/" + file)
     sys.build_network(sol_verts=True, min_dist=0.2, max_vert=10, box_size=2)
 
 
