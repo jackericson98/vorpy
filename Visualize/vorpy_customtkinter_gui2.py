@@ -16,7 +16,7 @@ class Vorpy(ctk.CTk):
         self.net_file = None
 
         # Set the geometry
-        self.geometry("500x300")
+        self.geometry("800x500")
         self.title("Vorpy")
         self.minsize(400, 300)
         self.main_frame = ctk.CTkFrame(self)
