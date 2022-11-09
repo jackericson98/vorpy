@@ -1,3 +1,3 @@
-from Visualize.vorpy_gui import Vorpy
+from Visualize.vorpy_tkinter_gui import Vorpy
 
 Vorpy()
