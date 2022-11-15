@@ -298,7 +298,7 @@ def find_simps(surf):
     points = surf.points.copy()
     # Move all surf points toward the origin via center point
     for i in range(len(points)):
-        points[i] = points[i] - surf.center
+        points[i] = np.array(points[i]) - np.array(surf.center)
 
     # Calculate the angles to rotate the center point around
     nps = rotate_points(surf.rn, points)

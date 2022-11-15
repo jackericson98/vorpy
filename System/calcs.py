@@ -226,7 +226,7 @@ def check_surf(s_atoms, surf_list):
     # Go through each surf in the surf list
     for surf in surf_list:
         # Check if the given atoms correspond to the atoms in the surf
-        if s_atoms.issubset(surf.atoms):
+        if len([0 for _ in s_atoms if _ in surf.atoms]) == 2:
             # Return the surf
             return surf
     return
@@ -240,7 +240,7 @@ def check_edge(e_atoms, edge_list):
         if edge.doublet:
             continue
         # Check if the given atoms correspond to the atoms in the edge
-        if e_atoms.issubset(edge.atoms):
+        if len([0 for _ in e_atoms if _ in edge.atoms]) == 3:
             # Return the edge
             return edge
     return
@@ -251,7 +251,7 @@ def check_vert(v_atoms, vert_list):
     # Go through each edge in the edge list
     for vert in vert_list:
         # Check if the given atoms correspond to the atoms in the edge
-        if set(v_atoms).issubset(vert.atoms):
+        if len([0 for _ in v_atoms if _ in vert.atoms]) == 4:
             # Return the edge
             return vert
     return

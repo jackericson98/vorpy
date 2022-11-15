@@ -4,37 +4,36 @@ from System.Network.build_net import *
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
-    def __init__(self, sys, index=0, atoms=None, verts=None, edges=None, surfs=None, groups=None,
-                 min_dist=0.1, box_size=1.5, max_vert=5, sol_verts=True):
+    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, groups=None,
+                 min_dist=0.1, box_size=1.5, max_vert=5, sol_verts=True, flat_faces=False):
         # Network graph objects
-        self.sys = sys              # System         :  Route back to outer system for system attribute access
-        self.index = index          # Index          :  Holds the index of the network in the system object
-        self.atoms = atoms          # Atoms          :  Atoms of the network. Should be identical to self.sys.atoms
-        self.verts = verts          # Vertices       :  Vertices of the network
-        self.edges = edges          # Edges          :  Edges of the network
-        self.surfs = surfs          # Surfaces       :  Surfaces of the network
-        self.groups = groups        # Groups         :  Groups objects for analysis of selected surfaces
-        self.name = None            # Name           :  Name of the network. Used to name subnetworks recursively
+        self.sys = sys                # System         :  Route back to outer system for system attribute access
+        self.atoms = atoms            # Atoms          :  Atoms of the network. Should be identical to self.sys.atoms
+        self.verts = verts            # Vertices       :  Vertices of the network
+        self.edges = edges            # Edges          :  Edges of the network
+        self.surfs = surfs            # Surfaces       :  Surfaces of the network
+        self.groups = groups          # Groups         :  Groups objects for analysis of selected surfaces
+        self.name = None              # Name           :  Name of the network. Used to name subnetworks recursively
         # Tools for splitting up the atoms
-        self.box = None             # Box            :  Holds a max and min vertex for the retaining box
-        self.sub_boxes = None       # Sub boxes      :  Holds atoms in their different relative locations in the grid
-        self.sub_box_size = None    # Sub box size   :  Holds the size of each sub box
-        self.atoms_box = []         # Atoms box      :  Holds the min and max verts for the box containing the atoms
-        self.max_atom_rad = 0       # Max atom rad   :  Holds the largest radius of the system for reference
-        self.vert_ndxs = []         # Vert indices   :  Holds the indices of the atoms of the vertices in the network
-        self.atom_ndxs = []         # Atom indices   :  Used to track atoms that have been used in a vertex
+        self.box = None               # Box            :  Holds a max and min vertex for the retaining box
+        self.sub_boxes = None         # Sub boxes      :  Holds atoms in their different relative locations in the grid
+        self.sub_box_size = None      # Sub box size   :  Holds the size of each sub box
+        self.atoms_box = []           # Atoms box      :  Holds the min and max verts for the box containing the atoms
+        self.max_atom_rad = 0         # Max atom rad   :  Holds the largest radius of the system for reference
+        self.vert_ndxs = []           # Vert indices   :  Holds the indices of the atoms of the vertices in the network
+        self.atom_ndxs = []           # Atom indices   :  Used to track atoms that have been used in a vertex
         # Settings
-        self.min_dist = min_dist    # Resolution     :  How small the triangles in the surfaces are
-        self.max_vert = max_vert    # Max vert rad   :  The maximum vertex radius for the network
-        self.box_size = box_size    # Box size       :  Holds the box multiplier for the system box from the atoms box
-        self.parallelize = False    # Parallelize    :  Split the calculations between cores?
-        self.sol_verts = sol_verts  # Sol Vertices   :  Solve the solution's vertices?
-        self.curved_faces = True    # Curved Faces   :  Create curved faces for surfaces?
-        self.flat_faces = False     # Flat Faces     :  Create flat faces for surfaces?
-        self.verts_loaded = False   # Verts Loaded   :  Use loaded verts?
+        self.min_dist = min_dist      # Resolution     :  How small the triangles in the surfaces are
+        self.max_vert = max_vert      # Max vert rad   :  The maximum vertex radius for the network
+        self.box_size = box_size      # Box size       :  Holds the box multiplier for the system box from the atoms box
+        self.parallelize = False      # Parallelize    :  Split the calculations between cores?
+        self.sol_verts = sol_verts    # Sol Vertices   :  Solve the solution's vertices?
+        self.curved_faces = True      # Curved Faces   :  Create curved faces for surfaces?
+        self.flat_faces = flat_faces  # Flat Faces     :  Create flat faces for surfaces?
+        self.verts_loaded = False     # Verts Loaded   :  Use loaded verts?
         # Run diagnostics
-        self.cpu_time = None        # CPU time       :  CPU time taken to calculate the network
-        self.my_time = None         # My time        :  Time taken to calculate the network
+        self.cpu_time = None          # CPU time       :  CPU time taken to calculate the network
+        self.my_time = None           # My time        :  Time taken to calculate the network
 
     # Calculate box function. Takes in a System and returns the dimensions of a box x times the size of the atoms
     def calc_box(self):
@@ -66,7 +65,7 @@ class Network:
 
     # Sort atoms method. Puts the atoms in the network in their respective grid sections
     def sort_atoms(self, num_boxes=None):
-        # Check the length of the atoms list
+        # Check the length of the atoms list is big enough to make a vertex
         if len(self.atoms) < 4:
             return
         # Set the number of boxes to roughly 5x the number of atoms must be a cube for the of cells per row/column/aisle
@@ -79,21 +78,18 @@ class Network:
         # Instantiate the grid structure of lists is locations representing a grid
         self.sub_boxes = [[[[] for _ in range(n)] for _ in range(n)] for _ in range(n)]
         # Get the cell size
-        self.sub_box_size = [(self.box[1][0] - self.box[0][0]) / n, (self.box[1][1] - self.box[0][1]) / n,
-                             (self.box[1][2] - self.box[0][2]) / n]
+        self.sub_box_size = [(self.box[1][i] - self.box[0][i]) / n for i in range(3)]
         # Sort the atoms
         for atom in self.atoms:
             # Adjust the maximum radius
             if atom.rad > self.max_atom_rad:
                 self.max_atom_rad = atom.rad
             # Find the box they belong to
-            ai = int((atom.loc[0] - self.box[0][0]) / self.sub_box_size[0])
-            aj = int((atom.loc[1] - self.box[0][1]) / self.sub_box_size[1])
-            ak = int((atom.loc[2] - self.box[0][2]) / self.sub_box_size[2])
+            box_ndxs = [int((atom.loc[i] - self.box[0][i]) / self.sub_box_size[i]) for i in range(3)]
             # Add the atom to the box
-            self.sub_boxes[ai][aj][ak].append(atom)
+            self.sub_boxes[box_ndxs[0]][box_ndxs[1]][box_ndxs[2]].append(atom)
             # Add the box to the atom
-            atom.box = [ai, aj, ak]
+            atom.box = box_ndxs
 
     # Get atoms method. Takes in the cells and the number of additional cells to search and returns an atom list
     def get_atoms(self, cells, reach, exclusive=False):
@@ -109,9 +105,9 @@ class Network:
                 if cell[i] > ndx_max[i]:
                     ndx_max[i] = cell[i]
         # Set the initial search parameters to the given cells
-        xs, ys, zs = [x for x in range(max(0, -reach + ndx_min[0] + 1), reach + ndx_max[0])], \
-                     [y for y in range(max(0, -reach + ndx_min[1] + 1), reach + ndx_max[1])], \
-                     [z for z in range(max(0, -reach + ndx_min[2] + 1), reach + ndx_max[2])]
+        xs = [x for x in range(max(0, -reach + ndx_min[0] + 1), reach + ndx_max[0])]
+        ys = [y for y in range(max(0, -reach + ndx_min[1] + 1), reach + ndx_max[1])]
+        zs = [z for z in range(max(0, -reach + ndx_min[2] + 1), reach + ndx_max[2])]
         atoms = []
         # Go through each box in the range given and add the atoms
         for i in xs:
@@ -125,8 +121,8 @@ class Network:
                         # Add the atoms
                         atoms += self.sub_boxes[i][j][k]
                         # Add a little catch to not go forever
-                        if len(atoms) == len(self.atoms):
-                            return atoms
+                        if len(atoms) >= len(self.atoms):
+                            return self.atoms
                     except IndexError:
                         continue
         return atoms

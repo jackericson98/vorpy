@@ -5,11 +5,12 @@ import time
 from System.input import *
 from System.output import *
 from System.Network.network import *
+from System.group import Group
 
 
 class System:
     def __init__(self, atoms=None, net=None, mols=None, sol=None, residues=None, data=None, name=None, base_file=None,
-                 vert_file=None, net_file=None, index_file=None):
+                 vert_file=None, net_file=None, index_file=None, sig_figs=3):
         """
         Class used to import files of all types and return a System
         :param name: (str) Name describing the system
@@ -25,33 +26,34 @@ class System:
         """
 
         # Names
-        self.name = name                    # Name             :   Name describing the system
-        self.atom_names = None              # Atom Names       :   List holding the names of the atoms in the system
-        self.mol_names = None               # Residue Names    :   List of molecule names
-        self.res_names = None               # Residue Names    :   List of residue names
-        self.ndx_names = None               # Index Names      :   List of names of indices corresponding to ndxs
+        self.name = name                    # Name                :   Name describing the system
+        self.atom_names = None              # Atom Names          :   List holding the names of the atoms in the system
+        self.mol_names = None               # Residue Names       :   List of molecule names
+        self.res_names = None               # Residue Names       :   List of residue names
+        self.ndx_names = None               # Index Names         :   List of names of indices corresponding to ndxs
 
         # Data
-        self.net = net                      # Network          :   Network object holding the primary network
-        self.atoms = atoms                  # Atoms            :   List holding the atom objects
-        self.mols = mols                    # Molecules        :   List of molecules
-        self.residues = residues            # Residues         :   List of residues (lists of atoms)
-        self.sol = sol                      # Solution         :   List of solution molecules (lists of atoms)
-        self.ndxs = None                    # Indices          :   List of lists indices of atoms
-        self.radii = my_radii               # Radii            :   List of
+        self.net = net                      # Network             :   Network object holding the primary network
+        self.atoms = atoms                  # Atoms               :   List holding the atom objects
+        self.mols = mols                    # Molecules           :   List of molecules
+        self.residues = residues            # Residues            :   List of residues (lists of atoms)
+        self.sol = sol                      # Solution            :   List of solution molecules (lists of atoms)
+        self.ndxs = None                    # Indices             :   List of lists indices of atoms
+        self.radii = my_radii               # Radii               :   List of
+        self.sig_figs = sig_figs            # Significant figures
 
         # Set up the file attributes
-        self.data = data                    # Data             :   Additional data provided by the base file
-        self.base_file = base_file          # Base file        :   Primary file address
-        self.vert_file = vert_file          # Vertex file      :   Address to the vertices of the primary system
-        self.net_file = net_file            # Network files    :   Network files for multiple frames
-        self.ndx_file = index_file          # Index file       :   File addresses for index file in GROMACS index format
+        self.data = data                    # Data                :   Additional data provided by the base file
+        self.base_file = base_file          # Base file           :   Primary file address
+        self.vert_file = vert_file          # Vertex file         :   Address to the vertices of the primary system
+        self.net_file = net_file            # Network files       :   Network files for multiple frames
+        self.ndx_file = index_file          # Index file          :   File addresses for index file in GROMACS format
         out_dir = os.getcwd() + "/Data/User_data/"
-        self.output_directory = out_dir     # Output Directory :   Output directory for the export files
-        self.vorpy_directory = os.getcwd()  # Vorpy Directory  :   Directory that vorpy is running out of
+        self.output_directory = out_dir     # Output Directory    :   Output directory for the export files
+        self.vorpy_directory = os.getcwd()  # Vorpy Directory     :   Directory that vorpy is running out of
 
         # Gui
-        self.gui = None                     # GUI              :   GUI Vorpy object that can be updated through sys
+        self.gui = None                     # GUI                 :   GUI Vorpy object that can be updated through sys
 
     def load_sys(self, file):
         """
@@ -81,13 +83,17 @@ class System:
         # Sort the atoms
         self.sort_atoms()
 
-    def load_verts(self, filename):
+    def load_verts(self, vert_file, vta_ball_file=None):
         """
         Loads vorpy specific vertices file from the system level
-        :param filename:
+        :param vta_ball_file:
+        :param vert_file:
         :return:
         """
-        read_verts(self.net, filename)
+        if vta_ball_file is None:
+            read_verts(self.net, vert_file)
+        else:
+            add_vta_data(self, vert_file=vert_file, ball_file=vta_ball_file)
 
     def load_net(self, net_file, verts_only=False):
         """
@@ -176,7 +182,7 @@ class System:
             else:
                 self.residues[self.res_names.index(res_name)].append(atom)
 
-    def build_network(self, output=True, max_vert=None, box_size=None, min_dist=None, sol_verts=None):
+    def build_network(self, output=True, max_vert=None, box_size=None, min_dist=None, sol_verts=None, flat_faces=None):
         """
         Allows user to build the network from the system object.
         :return:
@@ -193,8 +199,10 @@ class System:
             self.net.box_size = box_size
         if min_dist is not None:
             self.net.min_dist = min_dist
-        if sol_verts:
+        if sol_verts is not None:
             self.net.sol_verts = sol_verts
+        if flat_faces is not None:
+            self.net.flat_faces = flat_faces
         # Instantiate the timer variables
         self.net.my_time, self.net.cpu_time = 0, 0
         # Start the timer
@@ -216,10 +224,10 @@ class System:
             # Export the vertices
             self.export_verts()
             # Check to see if there are vertices
-            if self.net.verts is None or len(self.net.verts) <= 4:
+            if self.net.verts is None or len(self.net.verts) < 1:
                 return
-            # Connect the network
-            self.net.connect()
+        # Connect the network
+        self.net.connect()
         # Build the edges in the network
         self.net.build_edges()
         # Build the network
@@ -230,7 +238,7 @@ class System:
         stop = time.perf_counter()
         self.net.my_time = stop - start
         if output:
-            self.analysis_prep()
+            self.initial_export()
 
     def export_verts(self):
         """
@@ -271,30 +279,43 @@ class System:
         """
         set_output_dir(self)
 
-    def analysis_prep(self):
+    def initial_export(self, network=True, pdb=True, surfaces=True, full_network_object=False,
+                       no_sol_network_object=True, alter_atoms_script=True):
         """
         Prepares the output directory and system for output. Keeps things consistent
         :return:
         """
         os.chdir(self.output_directory)
-        # Export the network
-        self.export_net()
-        # Export a pdb file for the system
-        write_pdb(self.atoms, self.name, self)
-        # Export a full system
-        export_mySys(self)
-        # Make the surfaces file
-        os.mkdir(self.output_directory + "/Surfaces")
-        os.chdir(self.output_directory + "/Surfaces")
-        # Export the surfaces one by one
-        for i in range(len(self.net.surfs)):
-            # Export the
-            surf = self.net.surfs[i]
-            # Get a random color
-            my_color = np.random.rand(3)
-            # Write each of the surfaces
-            write_surfs([surf], "surf_" + str(surf.ndx[0]) + "_" + str(surf.ndx[1]), my_color)
-
+        if network:
+            # Export the network
+            self.export_net()
+        if pdb:
+            # Export a pdb file for the system
+            write_pdb(self.atoms, self.name, self)
+        if full_network_object:
+            # Export a full system
+            export_mySys(self)
+        if no_sol_network_object:
+            # Export the system without the solution
+            no_sol = Group(self.net, self.sol, self.name + "_no_sol")
+            no_sol.get_info()
+            # Export the group
+            export_body(no_sol)
+        if alter_atoms_script:
+            # Write the alter atoms script
+            set_pymol_atoms(self)
+        if surfaces:
+            # Make the surfaces file
+            os.mkdir(self.output_directory + "/Surfaces")
+            os.chdir(self.output_directory + "/Surfaces")
+            # Export the surfaces one by one
+            for i in range(len(self.net.surfs)):
+                # Export the
+                surf = self.net.surfs[i]
+                # Get a random color
+                my_color = np.random.rand(3)
+                # Write each of the surfaces
+                write_surfs([surf], "surf_" + str(surf.ndx[0]) + "_" + str(surf.ndx[1]), my_color)
 
 ##################################################### Atomic Radii #####################################################
 

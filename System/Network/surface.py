@@ -65,8 +65,16 @@ class Surface:
 
     # Build vta surface function
     def build_vta(self):
+        # Instantiate the points attribute
+        self.points = []
         # Add the vertex points to the surface's list of points
         for vert in self.verts:
             self.points.append(vert.loc)
+        self.perimeter = self.points
+        # Calculate the center of the surface
+        self.center = calc_com(points=self.points)
+        self.points.append(self.center)
+        # Calculate the vector between the atoms
+        self.rn = np.array(self.atoms[1].loc) - np.array(self.atoms[0].loc)
         # Calculate the simplices
         find_simps(self)

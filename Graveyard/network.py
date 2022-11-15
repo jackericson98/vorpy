@@ -491,3 +491,47 @@ def find_subnets(self):
                     vert.myNet = self
                     self.vert_ndxs.insert(v_ndx, vert.ndx)
                     self.verts.insert(v_ndx, vert)
+
+
+
+############################################ Filter System #############################################################
+
+
+def filter_verts(net):
+    """
+    Filters out vertices that are repeated, outside the box or larger than the max vertex value
+
+    :param net: network of unfiltered vertices
+
+    """
+    # Set up a list of vertex ndxs and vertices
+    vert_ndxs = []
+    verts = []
+    # Check to see if no vertices have been made
+    if net.verts is None:
+        print("No vertices to filter")
+        return
+
+    # Go through the vertices
+    for i in range(len(net.verts)):
+
+        # Boolean for whether the vertex is inside the box or not
+        loc_in_box = True
+        vert = net.verts[i]
+        # Check for None vertices
+        if vert.loc is None:
+            continue
+        # Check if the vertex is inside the box
+        for j in range(3):
+            if vert.loc[j] < net.box[0][j] or vert.loc[j] > net.box[1][j]:
+                loc_in_box = False
+
+        # Search the list of vertices for the vertex
+        if vert.ndx not in vert_ndxs and loc_in_box:
+            vert_ndxs.append(net.verts[i].ndx)
+            verts.append(net.verts[i])
+            if net.verts[i].doublet is not None:
+                verts.append(net.verts.append())
+
+    # Set the networks vertices
+    net.verts = verts

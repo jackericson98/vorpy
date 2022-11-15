@@ -173,7 +173,7 @@ def export_verts(net):
     # Write the vertices
     for vert in net.verts:
         # Write the vertex
-        file.write("VERT " + " ".join([str(_) for _ in vert.ndx]) + " ".join([str(_) for _ in vert.loc]) +
+        file.write("VERT " + " ".join([str(_) for _ in vert.ndx]) + " " + " ".join([str(_) for _ in vert.loc]) + " " +
                    str(vert.rad) + "\n")
     # Write the end line for the file
     file.write("END")
@@ -287,3 +287,21 @@ def export_net(net):
             file.write("STRI " + " ".join([str(_) + " " for _ in surf.tris[i]]) + "\n")
     # Write the end line
     file.write('END')
+
+
+############################################ Pymol Scripts #############################################################
+
+def set_pymol_atoms(sys):
+    """
+    Creates a script to set the radii of the spheres in pymol
+    :param sys:
+    :return:
+    """
+    # Create the file
+    file = open('set_atoms.pml', 'w')
+    # Write the change radii script for the system's set atomic radii
+    for i in range(len(sys.radii[0])):
+        if sys.radii[1] is not None:
+            file.write("alter (elem {}), vdw={}\n".format(sys.radii[0][i], sys.radii[1][i]))
+    # Rebuild the system
+    file.write("\nrebuild")

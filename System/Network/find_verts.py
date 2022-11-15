@@ -62,11 +62,9 @@ def find_v0(net, a0=None):
 
 
 # Verify site function. Compares a vertex to the atoms around to see if they overlap
-def verify_site(vert, net, doublet_check=False):
+def verify_site(vert, net):
     # Grad the location and radius of the check vertex
     loc, rad = vert.loc, vert.rad
-    if doublet_check:
-        loc, rad = vert.loc2, vert.rad2
     # Find the indices of the sub-box for the vertex
     vi = int((loc[0] - net.box[0][0]) / net.sub_box_size[0])
     vj = int((loc[1] - net.box[0][1]) / net.sub_box_size[1])
@@ -132,30 +130,20 @@ def find_site(net, edge_atoms, vn_1=None):
         vert = Vertex(edge_atoms + [atom], net=net)
         vert.calc_vert()
         # Filter the vertex out if it is too large or not able to be made
-        if vert.loc is None or abs(vert.rad) > net.max_vert:
-            continue
-        # For doublet cases verify differently
-        if vert.loc2 is not None:
-            # If the first vertex site is a valid site add it to the list of check vertices and add its index
-            if verify_site(vert, net):
-                verts.append(vert)
-                vert_ndx_list_locs.append(vert_ndx)
-                # If the second vertex's radius is less than the min_rad, and it is a verified site mark it as a doublet
-                if vert.rad2 < net.max_vert and verify_site(vert, net, doublet_check=True):
-                    vert.doublet = True
-            # If the first vertex is not a verified site, test the second location
-            elif vert.rad2 < net.max_vert and verify_site(vert, net, doublet_check=True):
-                # Replace the location and radius for the vertex and add it to the list
-                vert.loc, vert.rad = vert.loc2, vert.rad2
-                verts.append(vert)
-                vert_ndx_list_locs.append(vert_ndx)
-            # If neither sites are verifiable continue
-            else:
-                continue
-        # If the site is verified add it to the list of potential vertices
-        elif verify_site(vert, net):
+        if vert.loc is not None and abs(vert.rad) < net.max_vert and verify_site(vert, net):
+
             verts.append(vert)
             vert_ndx_list_locs.append(vert_ndx)
+        # For doublet cases verify differently
+        if vert.loc2 is not None and abs(vert.rad2) < net.max_vert:
+            # Create the alternate vertex for the doublet site
+            doublet = Vertex(location=vert.loc2, radius=vert.rad2, atoms=vert.atoms, net=net, doublet=vert,
+                             loc2=vert.loc, rad2=vert.rad, ndx=vert.ndx)
+            # If the first vertex site is a valid site add it to the list of check vertices and add its index
+            if verify_site(doublet, net):
+                verts.append(doublet)
+                vert_ndx_list_locs.append(vert_ndx)
+                vert.doublet = doublet
     # If no verts have been found return
     if len(verts) == 0:
         return
@@ -185,7 +173,7 @@ def find_vertices(net, a0=None):
     if net.sol_verts:
         tot_verts = 6 * len(net.atoms)
     else:
-        tot_verts = 8 * (len(net.atoms) - len(net.sys.sol))
+        tot_verts = 10 * (len(net.atoms) - len(net.sys.sol))
     # Find the first verified vertex
     if len(net.atoms) == 4:
         v0 = Vertex(net.atoms, net)
@@ -199,6 +187,10 @@ def find_vertices(net, a0=None):
     net.verts = [v0]
     # Set up the vertex stack
     vert_stack = [v0]
+    # Check for doubletness of the initial vertex
+    if v0.doublet is not None:
+        # Add the doublet to the network
+        net.verts.append(v0.doublet)
     # While the verts stack is not empty
     while vert_stack:
         # Get the vertex from the top of the stack
@@ -223,6 +215,10 @@ def find_vertices(net, a0=None):
             # Insert the vertices in order of increasing atom indices
             net.verts.insert(myVert_ndx, myVert)
             net.vert_ndxs.insert(myVert_ndx, myVert.ndx)
+            # Add the doublet if it exists
+            if myVert.doublet is not None:
+                net.verts.insert(myVert_ndx + 1, myVert.doublet)
+                net.vert_ndxs.insert(myVert_ndx + 1, myVert.doublet.ndx)
             # Remove the atoms from the
             for atom in myVert.atoms:
                 atom_ndx = net.atoms.index(atom)

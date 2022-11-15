@@ -3,7 +3,7 @@ from System.calcs import *
 
 class Vertex:
     """Vertex object. Used to build the network and calculate the surfaces"""
-    def __init__(self, atoms=None, net=None, location=None, radius=None, loc2=None, rad2=None, doublet=False, ndx=None):
+    def __init__(self, atoms=None, net=None, location=None, radius=None, loc2=None, rad2=None, doublet=None, ndx=None):
 
         self.net = net           # Network       :   Network object for the vertex to refer back to
         self.atoms = atoms       # Atoms         :   List of atoms used to construct the vertex
@@ -20,16 +20,25 @@ class Vertex:
         self.loc2 = loc2         # Location 2    :   Location of the doublet site
         self.rad2 = rad2         # Radius 2      :   Radius of the doublet site's tangential sphere
 
+        self.flat_faced = False  # Flat Faced?   :   Was this vertex constructed with flat faces in mind?
+        self.ff_atoms = None     # ^ FF Atoms    :   Holds the location and radius for the atoms
+
     # Calculate vertex function. Takes in 4 atoms, calculates the loc and rad of the inscribed sphere and adds the
     def calc_vert(self):
         # If the vertex is mature enough to be calculated, create and sort its indices
         if self.net is not None:
             self.ndx = [self.net.atoms.index(atom) for atom in self.atoms]
             self.ndx.sort()
-        # The real location and radius of the base sphere
-        locs = np.array(self.atoms[0].loc), np.array(self.atoms[1].loc), np.array(self.atoms[2].loc), \
-               np.array(self.atoms[3].loc)
-        R1, R2, R3, R4 = self.atoms[0].rad, self.atoms[1].rad, self.atoms[2].rad, self.atoms[3].rad
+        # Check to see if the network wants flat faces or not
+        if self.net is not None and self.net.flat_faces:
+            self.make_ff_atoms()
+            return
+        else:
+            # The real location and radius of the base sphere
+            locs = np.array(self.atoms[0].loc), np.array(self.atoms[1].loc), np.array(self.atoms[2].loc), \
+                   np.array(self.atoms[3].loc)
+            R1, R2, R3, R4 = self.atoms[0].rad, self.atoms[1].rad, self.atoms[2].rad, self.atoms[3].rad
+
         # Find the recalculated location of the atoms
         l0, l1, l2, l3 = locs[0], locs[1] - locs[0], locs[2] - locs[0], locs[3] - locs[0]
         # Calculate our System of linear equations coefficients
@@ -125,3 +134,26 @@ class Vertex:
             elif verts[1][1] < verts[0][1]:
                 self.loc, self.rad = verts[1][0], verts[1][1]
                 self.loc2, self.rad2 = verts[0][0], verts[0][1]
+
+    def make_ff_atoms(self):
+        # First we need to create atoms and translate them to the correct place
+        self.ff_atoms = self.atoms.copy()
+        # Find the smallest radius atom
+        rads = [_.rad for _ in self.ff_atoms]
+        min_atom = self.ff_atoms[rads.index(min(rads))]
+        # Swap the minimum atom with the atom first in the list
+        self.ff_atoms[0], self.ff_atoms[self.ff_atoms.index(min_atom)] = \
+            self.ff_atoms[self.ff_atoms.index(min_atom)], self.ff_atoms[0]
+        # Go through the other atoms, moving them toward the smallest atom
+        for atom in self.ff_atoms[1:]:
+            # Get the old radius of the atom
+            old_rad = atom.rad
+            # Set their radii
+            atom.rad = min_atom.rad
+            # Move the atoms toward the smallest radius by the difference between the two's radii
+            r = np.array(min_atom.loc) - np.array(atom.loc)
+            rn = r / np.linalg.norm(r)
+            atom.loc = np.array(atom.loc) + rn * (old_rad - atom.rad)
+        # Get the location of the vertex based off of the com of the points
+        self.loc = calc_com(atoms=self.ff_atoms)
+        self.rad = calc_dist(self.ff_atoms[0].loc, self.loc) - self.ff_atoms[0].rad

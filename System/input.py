@@ -1,5 +1,5 @@
 from System.atom import Atom, get_radius
-from System.Network.network import Vertex, Edge, Surface
+from System.Network.network import Network, Vertex, Edge, Surface
 
 
 # Get name method. Strips the location and extension from the file
@@ -96,8 +96,9 @@ def read_mol(sys):
 
 # Add Voronota data method. Takes in voronota data and adds it to the System
 def add_vta_data(sys, ball_file, vert_file):
-    # Set the voronota system indicator to True
-    sys.net.flat_faces = True
+    # If no network has been created, make one
+    if sys.net is None:
+        sys.net = Network(sys, sys.atoms, verts=[], edges=[], surfs=[], flat_faces=True)
     # Create the System and load the files
     vert_file = open(vert_file).readlines()
     ball_file = open(ball_file).readlines()
@@ -115,8 +116,10 @@ def add_vta_data(sys, ball_file, vert_file):
         # Add the vertex data
         loc, rad = [float(data[4]), float(data[5]), float(data[6])], float(data[7])
         atoms = [balls[int(data[0])], balls[int(data[1])], balls[int(data[2])], balls[int(data[3])]]
-        myVert = Vertex(atoms=atoms, net=sys.myNet, location=loc, radius=rad)
-        sys.myNet.verts.append(myVert)
+        ndx = [sys.atoms.index(atom) for atom in atoms]
+        ndx.sort()
+        myVert = Vertex(atoms=atoms, net=sys.net, ndx=ndx, location=loc, radius=rad)
+        sys.net.verts.append(myVert)
 
 
 # Input index function. Takes in an index file and loads it into the list of indices
@@ -158,10 +161,18 @@ def read_verts(net, filename):
         return
     # Set up the vertices list
     verts = []
+    last_vert = None
     # Go through the lines in the file
     for line in file[1:]:
         line = line.split()
-        verts.append(Vertex(atoms=[net.atoms[_] for _ in line[1:4]], location=line[4:7], radius=line[7]))
+        new_vert = Vertex(atoms=[net.atoms[_] for _ in line[1:4]], location=line[4:7], radius=line[7])
+        verts.append(new_vert)
+        if last_vert is not None and last_vert.ndx == new_vert.ndx:
+            # Link the doublets
+            last_vert.doublet, last_vert.loc2, last_vert.rad2 = new_vert, new_vert.loc, new_vert.rad
+            new_vert.doublet, new_vert.loc2, new_vert.rad2 = last_vert, last_vert.loc, last_vert.rad
+        # Assign the vertex
+        last_vert = new_vert
     # Set the network's vertices
     net.verts = verts
 
