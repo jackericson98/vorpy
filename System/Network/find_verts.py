@@ -128,10 +128,12 @@ def find_site(net, edge_atoms, vn_1=None):
             return
         # Create the vertex
         vert = Vertex(edge_atoms + [atom], net=net)
-        vert.calc_vert()
+        if net.flat_faces:
+            vert.calc_ff_vert()
+        else:
+            vert.calc_vert()
         # Filter the vertex out if it is too large or not able to be made
         if vert.loc is not None and abs(vert.rad) < net.max_vert and verify_site(vert, net):
-
             verts.append(vert)
             vert_ndx_list_locs.append(vert_ndx)
         # For doublet cases verify differently
@@ -144,6 +146,7 @@ def find_site(net, edge_atoms, vn_1=None):
                 verts.append(doublet)
                 vert_ndx_list_locs.append(vert_ndx)
                 vert.doublet = doublet
+
     # If no verts have been found return
     if len(verts) == 0:
         return
