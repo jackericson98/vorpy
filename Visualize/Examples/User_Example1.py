@@ -12,7 +12,7 @@ for file in files:
     sys = System()
 
     sys.load_sys(file=os.getcwd() + "/Data/test_data/" + file)
-    sys.build_network(sol_verts=True, min_dist=0.2, max_vert=10, box_size=2)
+    sys.build_network(sol_verts=True, surf_res=0.2, max_vert=10, box_size=2)
 
 
 
