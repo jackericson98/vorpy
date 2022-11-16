@@ -62,7 +62,6 @@ def make_objects(net):
     net.surfs = []
 
     ################################################# Create the edges #################################################
-
     vert_dubs = []
     # Go through the vertices in the network searching for potential edges
     for vert1 in net.verts:
