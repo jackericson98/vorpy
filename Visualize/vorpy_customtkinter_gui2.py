@@ -301,27 +301,30 @@ class Vorpy(ctk.CTk):
         ctk.CTkLabel(self.choose_list_subfrm, text="Choose").grid(row=0, columnspan=4)
 
         # Show radio button
-        self.choose_mol_bool = ctk.BooleanVar(self)
-        self.mol_radio_button = ctk.CTkRadioButton(self.choose_list_subfrm, text="Molecules", command=self.set_show_list_mol, variable=self.choose_mol_bool)
+        self.choose_mol_bool = ctk.BooleanVar(self, True)
+        self.mol_radio_button = ctk.CTkRadioButton(self.choose_list_subfrm, text="Molecules", command=self.set_show_list_mol, state=self.choose_mol_bool)
         self.mol_radio_button.grid(row=1, column=0, padx=10)
-        self.choose_res_bool = ctk.BooleanVar(self)
-        self.res_radio_button = ctk.CTkRadioButton(self.choose_list_subfrm, text="Residues", command=self.set_show_list_res, variable=self.choose_res_bool)
+        self.choose_res_bool = ctk.BooleanVar(self, False)
+        self.res_radio_button = ctk.CTkRadioButton(self.choose_list_subfrm, text="Residues", command=self.set_show_list_res, state=self.choose_res_bool)
         self.res_radio_button.grid(row=1, column=1, padx=10)
-        self.choose_ndx_bool = ctk.BooleanVar(self)
-        self.ndx_radio_button = ctk.CTkRadioButton(self.choose_list_subfrm, text="Indices", command=self.set_show_list_ndx, variable=self.choose_ndx_bool)
+        self.choose_ndx_bool = ctk.BooleanVar(self, False)
+        self.ndx_radio_button = ctk.CTkRadioButton(self.choose_list_subfrm, text="Indices", command=self.set_show_list_ndx, state=self.choose_ndx_bool)
         self.ndx_radio_button.grid(row=1, column=2, padx=10)
-        self.choose_atom_bool = ctk.BooleanVar(self)
-        self.atom_radio_button = ctk.CTkRadioButton(self.choose_list_subfrm, text="Atoms", command=self.set_show_list_atom, variable=self.choose_atom_bool)
+        self.choose_atom_bool = ctk.BooleanVar(self, False)
+        self.atom_radio_button = ctk.CTkRadioButton(self.choose_list_subfrm, text="Atoms", command=self.set_show_list_atom, state=self.choose_atom_bool)
         self.atom_radio_button.grid(row=1, column=3, padx=10)
 
         # Choose lists
         self.current_selection = None
         self.mol_list, self.res_list, self.atom_list, self.ndx_list = [], [], [], []
-        self.choose_mol_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.mol_list, variable=self.current_selection, width=400).grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
-        self.choose_res_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.res_list, variable=self.current_selection, width=400).grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
-        self.choose_ndx_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.ndx_list, variable=self.current_selection, width=400).grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
-        self.choose_atom_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.atom_list, variable=self.current_selection, width=400).grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
-
+        self.choose_mol_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.mol_list, variable=self.current_selection, width=400)
+        self.choose_mol_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
+        self.choose_res_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.res_list, variable=self.current_selection, width=400)
+        self.choose_res_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
+        self.choose_ndx_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.ndx_list, variable=self.current_selection, width=400)
+        self.choose_ndx_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
+        self.choose_atom_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.atom_list, variable=self.current_selection, width=400)
+        self.choose_atom_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
         # Group frame
         self.group_frame = ctk.CTkFrame(self.save_frame)
         self.group_frame.grid(row=2, padx=10, pady=10)
@@ -417,11 +420,26 @@ class Vorpy(ctk.CTk):
             self.mol_list.append(mol[0].chain)
         for res in self.sys.residues:
             self.res_list.append(res[0].res + " " + res[0].res_seq)
+        if self.sys.ndxs is not None:
+            for ndx in self.sys.ndxs:
+                self.ndx_list.append(ndx.name)
         for atom in self.sys.atoms:
             self.atom_list.append(str(self.sys.atoms.index(atom)) + " " + atom.element)
 
+        self.choose_mol_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.mol_list, variable=self.current_selection, width=400)
+        self.choose_mol_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
+        self.choose_res_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.res_list, variable=self.current_selection, width=400)
+        self.choose_res_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
+        self.choose_ndx_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.ndx_list, variable=self.current_selection, width=400)
+        self.choose_ndx_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
+        self.choose_atom_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.atom_list, variable=self.current_selection, width=400)
+        self.choose_atom_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
         # Set the output directory
         self.out_dir_str.set(set_output_dir(self.sys))
+        # Raise the buttons
+        self.load_frame_button.tkraise()
+        self.build_frame_button.tkraise()
+        self.save_frame_button.tkraise()
 
     def load_ndx_button(self):
         # File grabber pop up
@@ -491,18 +509,34 @@ class Vorpy(ctk.CTk):
     def set_show_list_mol(self):
         self.choose_mol_list.tkraise()
         self.current_selection = None
+        self.choose_mol_bool.set(True)
+        self.choose_ndx_bool.set(False)
+        self.choose_res_bool.set(False)
+        self.choose_atom_bool.set(False)
 
     def set_show_list_res(self):
         self.choose_res_list.tkraise()
         self.current_selection = None
+        self.choose_mol_bool.set(False)
+        self.choose_ndx_bool.set(False)
+        self.choose_res_bool.set(True)
+        self.choose_atom_bool.set(False)
 
     def set_show_list_ndx(self):
         self.choose_ndx_list.tkraise()
         self.current_selection = None
+        self.choose_mol_bool.set(False)
+        self.choose_ndx_bool.set(True)
+        self.choose_res_bool.set(False)
+        self.choose_atom_bool.set(False)
 
     def set_show_list_atom(self):
         self.choose_atom_list.tkraise()
         self.current_selection = None
+        self.choose_mol_bool.set(False)
+        self.choose_ndx_bool.set(False)
+        self.choose_res_bool.set(False)
+        self.choose_atom_bool.set(True)
 
     def add_g1_button(self):
         pass
