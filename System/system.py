@@ -54,6 +54,8 @@ class System:
 
         # Gui
         self.gui = None                     # GUI                 :   GUI Vorpy object that can be updated through sys
+        if self.base_file is not None:
+            self.load_sys(self.base_file)
 
     def load_sys(self, file):
         """
@@ -182,7 +184,7 @@ class System:
             else:
                 self.residues[self.res_names.index(res_name)].append(atom)
 
-    def build_network(self, output=True, max_vert=None, box_size=None, min_dist=None, sol_verts=None, flat_faces=None):
+    def build_network(self, output=True, max_vert=None, box_size=None, surf_res=None, sol_verts=None, flat_faces=None, use_loaded_verts=False):
         """
         Allows user to build the network from the system object.
         :return:
@@ -197,8 +199,8 @@ class System:
             self.net.max_vert = max_vert
         if box_size is not None:
             self.net.box_size = box_size
-        if min_dist is not None:
-            self.net.min_dist = min_dist
+        if surf_res is not None:
+            self.net.min_dist = surf_res
         if sol_verts is not None:
             self.net.sol_verts = sol_verts
         if flat_faces is not None:
@@ -209,14 +211,10 @@ class System:
         start = time.perf_counter()
         # Set the network's atoms
         self.net.atoms = self.atoms
-        # Set the settings info
-        if self.gui is not None:
-            self.net.min_dist, self.net.max_vert = self.gui.sys_res_flt.get(), self.gui.sys_max_vert.get()
-            self.net.box_size, self.net.sol_verts = self.gui.sys_box_x_flt.get(), self.gui.sol_verts.get()
         # Sort the atoms in the network
         self.net.sort_atoms()
         # Check to see if there are vertices loaded
-        if self.gui is None or not self.gui.use_loaded_verts.get():
+        if not use_loaded_verts or self.vert_file is None:
             # Set the main network's name to main
             self.net.name = "Main"
             # Find the vertices
