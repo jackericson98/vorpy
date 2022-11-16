@@ -405,7 +405,7 @@ class Vorpy:
         # Get the filepath for the vertices
         # File grabber pop up
         file_path = filedialog.askopenfilename()
-        self.sys.load_verts(filename=file_path)
+        self.sys.load_verts(vert_file=file_path)
 
     # Load network button function. Pulls up the file browser and lets the user select their vorpy saved system
     def load_net(self):
@@ -570,4 +570,4 @@ class Vorpy:
         export_iface(groups=self.iface_groups, info_file=self.export_iface_info.get())
 
 
-# Vorpy()
+Vorpy()
