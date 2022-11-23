@@ -31,7 +31,6 @@ def set_output_dir(sys, dir_name=None):
 
 # Create pdb method. Creates a pdb file type in the current working directory
 def write_pdb(atoms, name, sys=None):
-    print(os.getcwd())
     # Create the output file
     file = open(name + ".pdb", 'w')
     # Check to see if a system was provided
@@ -145,6 +144,9 @@ def export_iface(groups, info_file=False, interface_atoms=False):
 def export_body(group, info_file=False, outer_atoms=False):
     # Move to the output directory
     os.chdir(group.net.sys.output_directory)
+    # If the group name is empty, name it
+    if group.name is None:
+        group.set_name()
     # Write the surfaces for the interface
     write_surfs(group.body_surfs, group.name)
     # Check to see of the user wants to export the interface's atoms
