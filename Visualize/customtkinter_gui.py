@@ -1,11 +1,10 @@
-import os
-
 import customtkinter as ctk
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import filedialog
 from System.system import System, Network
 from System.output import *
+from System.group import *
 
 
 class Vorpy(ctk.CTk):
@@ -16,6 +15,8 @@ class Vorpy(ctk.CTk):
         self.sys = None
         self.sys_file = None
         self.net_file = None
+        self.g1 = None
+        self.g2 = None
 
         self.elms = ['h', 'he', 'li', 'be', 'b', 'c', 'n', 'o', 'f', 'ne', 'na', 'mg', 'al', 'si', 'p', 's', 'cl', 'ar',
              'k' , 'ca', 'sc', 'ti', 'v' , 'cr', 'mn', 'fe', 'co', 'ni', 'cu', 'zn', 'ga', 'ge', 'as', 'se', 'br', 'kr',
@@ -29,6 +30,8 @@ class Vorpy(ctk.CTk):
         self.geometry("700x700")
         self.title("vorPy")
         self.minsize(700, 700)
+
+        # Set up the font variables
 
         # Main Header frame
         self.header_frame = ctk.CTkFrame(self)
@@ -315,16 +318,18 @@ class Vorpy(ctk.CTk):
         self.atom_radio_button.grid(row=1, column=3, padx=10)
 
         # Choose lists
-        self.current_selection = None
+        self.current_selection = ctk.StringVar(self)
+        self.current_selection_atoms = []
         self.mol_list, self.res_list, self.atom_list, self.ndx_list = [], [], [], []
-        self.choose_mol_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.mol_list, variable=self.current_selection, width=400)
+        self.choose_mol_list = ctk.CTkOptionMenu(master=self.choose_list_subfrm, variable=self.current_selection, values=self.mol_list, width=400)
         self.choose_mol_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
-        self.choose_res_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.res_list, variable=self.current_selection, width=400)
+        self.choose_res_list = ctk.CTkOptionMenu(master=self.choose_list_subfrm, variable=self.current_selection, values=self.res_list, width=400)
         self.choose_res_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
-        self.choose_ndx_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.ndx_list, variable=self.current_selection, width=400)
+        self.choose_ndx_list = ctk.CTkOptionMenu(master=self.choose_list_subfrm, variable=self.current_selection, values=self.ndx_list, width=400)
         self.choose_ndx_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
-        self.choose_atom_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.atom_list, variable=self.current_selection, width=400)
+        self.choose_atom_list = ctk.CTkOptionMenu(master=self.choose_list_subfrm, variable=self.current_selection, values=self.atom_list, width=400)
         self.choose_atom_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
+
         # Group frame
         self.group_frame = ctk.CTkFrame(self.save_frame)
         self.group_frame.grid(row=2, padx=10, pady=10)
@@ -342,8 +347,8 @@ class Vorpy(ctk.CTk):
         ctk.CTkButton(self.g1_subfrm, text="Reset", command=self.reset_g1_button, width=30).grid(row=1, column=2, sticky='nsew', padx=2)
 
         # Group 1 selection list
-        self.g1_sele_list = ctk.StringVar(self, "\n\n\n\n")
-        ctk.CTkLabel(self.g1_subfrm, textvariable=self.g1_sele_list, width=200).grid(row=2, columnspan=3, sticky='nsew')
+        self.g1_sele_str = ctk.StringVar(self, "\n\n\n\n")
+        ctk.CTkLabel(self.g1_subfrm, textvariable=self.g1_sele_str, width=200).grid(row=2, columnspan=3, sticky='nsew')
 
         # Group 1 export button
         ctk.CTkButton(self.group_frame, text="Export\nGroup", command=self.export_g1_button).grid(row=1, column=0)
@@ -364,8 +369,8 @@ class Vorpy(ctk.CTk):
         ctk.CTkButton(self.g2_subfrm, text="Reset", command=self.reset_g2_button, width=30).grid(row=1, column=2, sticky='nsew', padx=2)
 
         # Group 2 selection list
-        self.g2_sele_list = ctk.StringVar(self, "\n\n\n\n")
-        ctk.CTkLabel(self.g2_subfrm, textvariable=self.g2_sele_list, width=200).grid(row=2, columnspan=3, sticky='nsew')
+        self.g2_sele_str = ctk.StringVar(self, "\n\n\n\n")
+        ctk.CTkLabel(self.g2_subfrm, textvariable=self.g2_sele_str, width=200).grid(row=2, columnspan=3, sticky='nsew')
 
         # Group 2 export button
         ctk.CTkButton(self.group_frame, text="Export\nGroup", command=self.export_g2_button).grid(row=1, column=2)
@@ -416,23 +421,19 @@ class Vorpy(ctk.CTk):
         # Set the variables
         self.sys_data.set(myStr)
         # Set the molecule names
-        for mol in self.sys.mols:
-            self.mol_list.append(mol[0].chain)
-        for res in self.sys.residues:
-            self.res_list.append(res[0].res + " " + res[0].res_seq)
-        if self.sys.ndxs is not None:
-            for ndx in self.sys.ndxs:
-                self.ndx_list.append(ndx.name)
-        for atom in self.sys.atoms:
-            self.atom_list.append(str(self.sys.atoms.index(atom)) + " " + atom.element)
+        self.mol_list = self.sys.mol_names
+        self.res_list = self.sys.res_names
+        self.ndx_list = self.sys.ndx_names
+        self.atom_list = self.sys.atom_names
 
-        self.choose_mol_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.mol_list, variable=self.current_selection, width=400)
+
+        self.choose_mol_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.sys.mol_names, variable=self.current_selection, width=400)
         self.choose_mol_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
-        self.choose_res_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.res_list, variable=self.current_selection, width=400)
+        self.choose_res_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.sys.res_names, variable=self.current_selection, width=400)
         self.choose_res_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
-        self.choose_ndx_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.ndx_list, variable=self.current_selection, width=400)
+        self.choose_ndx_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.sys.ndx_names, variable=self.current_selection, width=400)
         self.choose_ndx_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
-        self.choose_atom_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.atom_list, variable=self.current_selection, width=400)
+        self.choose_atom_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.sys.atom_names, variable=self.current_selection, width=400)
         self.choose_atom_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
         # Set the output directory
         self.out_dir_str.set(set_output_dir(self.sys))
@@ -477,96 +478,171 @@ class Vorpy(ctk.CTk):
     ################################################# Build Frame ######################################################
 
     def change_atom_radius(self):
-        old_rad = self.sys.radii[1][self.sys.radii[0].index(self.cur_elem_rad.get())]
         # When pressed, the current atom selection's radius changes
+        old_rad = self.sys.radii[1][self.sys.radii[0].index(self.cur_elem.get())]
         self.sys.radii[1][self.sys.radii[0].index(self.cur_elem.get())] = self.cur_elem_rad.get()
         # print an update
-        print("\r{} radius changed from {} to {}".format(self.cur_elem_rad.get(), old_rad,
-                                                         self.cur_elem.get()), end="")
+        my_elem = self.cur_elem.get() + " "
+        my_elem = my_elem[0].upper() + my_elem[1:]
+        print("\r{} radius changed from {} to {}".format(my_elem, old_rad,
+                                                         self.cur_elem_rad.get()), end="")
 
     def build_net_button(self):
         if self.sys is None:
             return
-
-
         print(self.flat_faces.get())
 
         self.sys.build_network(max_vert=self.max_vert.get(), surf_res=self.surf_res.get(),
                                flat_faces=self.flat_faces.get(), box_size=self.box_size.get(),
                                use_loaded_verts=self.use_loaded_verts.get())
+        self.net_data.set(str(len(self.sys.net.surfs)) + "\n" + str(len(self.sys.net.edges)) + "\n" +
+                          str(len(self.sys.net.verts)) + "\n    ~    \n    ~    \n    ~   ")
+
+        self.build_data.set(str(self.sys.net.my_time) + "\n" + str(self.sys.net.cpu_time) + "\n" + str(self.sys.net.min_dist) +
+                            "\n" + str(self.sys.net.box_size) + "\n" + str(self.sys.net.max_vert))
 
 
     ############################################### Export Frame #######################################################
 
     def set_out_dir_button(self):
+        """
+        Sets the output directory for the export files and folders
+        :return:
+        """
         # File grabber pop up
         file_path = filedialog.askdirectory()
         # Create the System
         if file_path:
-            self.output_directory = file_path
+            # Set the system's output directory and the string version of the file location
+            self.sys.output_directory = file_path
             self.out_dir_str.set(file_path[:12] + ' ... ' + file_path[-12:])
 
     def set_show_list_mol(self):
+        """
+        Shows the molecule list in the dropdown menu of the choose section of the save frame
+        :return:
+        """
         self.choose_mol_list.tkraise()
-        self.current_selection = None
         self.choose_mol_bool.set(True)
         self.choose_ndx_bool.set(False)
         self.choose_res_bool.set(False)
         self.choose_atom_bool.set(False)
 
     def set_show_list_res(self):
+        """
+        Shows the reside list in the dropdown menu of the choose section of the save frame
+        :return:
+        """
         self.choose_res_list.tkraise()
-        self.current_selection = None
         self.choose_mol_bool.set(False)
         self.choose_ndx_bool.set(False)
         self.choose_res_bool.set(True)
         self.choose_atom_bool.set(False)
 
     def set_show_list_ndx(self):
+        """
+        Shows the indices list in the dropdown menu of the choose section of the save frame
+        :return:
+        """
         self.choose_ndx_list.tkraise()
-        self.current_selection = None
         self.choose_mol_bool.set(False)
         self.choose_ndx_bool.set(True)
         self.choose_res_bool.set(False)
         self.choose_atom_bool.set(False)
 
     def set_show_list_atom(self):
+        """
+        Shows the atoms list in the dropdown menu of the choose section of the save frame
+        :return:
+        """
         self.choose_atom_list.tkraise()
-        self.current_selection = None
         self.choose_mol_bool.set(False)
         self.choose_ndx_bool.set(False)
         self.choose_res_bool.set(False)
         self.choose_atom_bool.set(True)
 
+    def get_current_selection_atoms(self):
+        """
+        Finds and sets the current selection atoms
+        :return:
+        """
+        if self.choose_mol_bool.get():
+            self.current_selection_atoms = self.sys.mols[self.sys.mol_names.index(self.current_selection.get())]
+        elif self.choose_res_bool.get():
+            self.current_selection_atoms = self.sys.residues[self.sys.res_names.index(self.current_selection.get())]
+        elif self.choose_ndx_bool.get():
+            self.current_selection_atoms = self.sys.ndxs[self.sys.ndx_names.index(self.current_selection.get())]
+        elif self.choose_atom_bool.get():
+            self.current_selection_atoms = self.sys.atoms[self.sys.atom_names.index(self.current_selection.get())]
+
+
     def add_g1_button(self):
-        pass
+        """
+        Adds information to the group 1 group and analyzes the new information
+        :return:
+        """
+        # Get the current selection atoms for reference
+        self.get_current_selection_atoms()
+        # If group 1 has not been created, make a class and set the string with the current selection
+        if self.g1 is None:
+            self.g1 = Group(self.sys.net, self.current_selection_atoms)
+            self.g1.select_strs = [self.current_selection.get()]
+        # If the group exists, use the add selection method with the current selection
+        else:
+            self.g1.add_sele(self.current_selection_atoms, self.current_selection.get())
+        # Make an interface if both groups are populated
+        if self.g2 is not None:
+            self.g1.bff, self.g2.bff = self.g2, self.g1
+            self.g2.get_info()
+        # Get the information about both the cell and the interface
+        self.g1.get_info()
+        # Set the selections string
+        self.g1_sele_str.set("\n".join(self.g1.select_strs))
 
     def add_g2_button(self):
-        pass
+        """
+        Adds information to the group 2 group and analyzes the new information
+        :return:
+        """
+        # Get the current selection atoms for reference
+        self.get_current_selection_atoms()
+        # If group 2 has not been created, make a class and set the string with the current selection
+        if self.g2 is None:
+            self.g2 = Group(self.sys.net, self.current_selection_atoms)
+            self.g2.select_strs = [self.current_selection.get()]
+        # If the group exists, use the add selection method with the current selection
+        else:
+            self.g2.add_sele(self.current_selection_atoms, self.current_selection.get())
+        # Make an interface if both groups are populated
+        if self.g1 is not None:
+            self.g2.bff, self.g1.bff = self.g1, self.g2
+            self.g1.get_info()
+        # Get the information about both the cell and the interface
+        self.g2.get_info()
+        # Set the selections string
+        self.g2_sele_str.set("\n".join(self.g2.select_strs))
 
     def undo_g1_button(self):
-        pass
+        self.g1.undo_sele()
+        self.g1_sele_str.set("\n".join(self.g1.select_strs))
 
     def undo_g2_button(self):
-        pass
+        self.g2.undo_sele()
+        self.g2_sele_str.set("\n".join(self.g2.select_strs))
 
     def reset_g1_button(self):
-        pass
+        self.g1 = Group(self.sys.net, [])
+        self.g1_sele_str.set("")
 
     def reset_g2_button(self):
-        pass
+        self.g2 = Group(self.sys.net, [])
+        self.g2_sele_str.set("")
 
     def export_g1_button(self):
-        pass
+        export_body(self.g1, info_file=True, outer_atoms=False)
 
     def export_g2_button(self):
-        pass
+        export_body(self.g2, info_file=True, outer_atoms=False)
 
     def export_iface_button(self):
-        pass
-
-if __name__ == "__main__":
-    os.chdir("..")
-    app = Vorpy()
-    app.mainloop()
-
+        export_iface([self.g1, self.g2], info_file=True, interface_atoms=False)
