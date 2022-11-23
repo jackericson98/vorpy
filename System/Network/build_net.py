@@ -16,13 +16,8 @@ def find_doublet_edges(net, vert):
     """
     # Grab the two vertices
     v0, v1, atoms = vert, vert.doublet, vert.atoms
-    # Set up a variable for doublet edges
-    edges = []
-    # Find what type of doublet it is (i.e. the # of edges) by counting the number of "free" inscribed circles
-    for i in range(4):
-        # Get the current combination of atoms to test doubletness of the edge
-        edge_atoms = [net.atoms.index(_) for _ in [atoms[i], atoms[(i + 1) % 4], atoms[(i + 2) % 4]]]
-        edges.append(edge_atoms)
+    # Get the edges
+    edges = [[net.atoms.index(_) for _ in [atoms[i], atoms[(i + 1) % 4], atoms[(i + 2) % 4]]] for i in range(4)]
     # Add the connecting edges
     for edge_atoms in edges:
         # Create a vertices list
