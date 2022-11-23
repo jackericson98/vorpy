@@ -1,8 +1,6 @@
-import numpy as np
-
 from System.calcs import *
 import matplotlib.tri as mtri
-from Visualize.visualize import *
+from Visualize.mpl_visualize import *
 
 ################################################# Find Surface Points  #################################################
 
