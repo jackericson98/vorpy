@@ -6,8 +6,8 @@ class Group:
 
         self.net = net                 # Network            :    Network of the System
         self.atoms = atoms             # Atoms              :    List of Atom type objects for the edge
-        self.prev_sele = None          # Previous Selection :    List of the previously selected atoms
-        self.prev_str = None           # Previous String    :    String from the last group of atoms selected
+        self.selects = []              # Previous Selection :    List of the previously selected atoms
+        self.select_strs = []          # Previous String    :    String from the last group of atoms selected
         self.name = name               # Name               :    Name of the group
 
         self.body_surfs = None         # Body surfaces      :    The surfaces on the outside of the body
@@ -24,6 +24,9 @@ class Group:
 
     # Get information method. Gathers the information for the group(s) selected
     def get_info(self):
+        # Set the name of the group
+        if self.name is None:
+            self.set_name()
         # Reset the main information variables
         self.body_surfs, self.outer_body_atoms, self.surr_body_atoms = [], [], []
         self.body_vol, self.body_sa = 0, 0
@@ -79,4 +82,20 @@ class Group:
                         self.iface_sa += surf.sa
             # Set the bff's surface area
             self.bff.iface_sa = self.iface_sa
+
+    def set_name(self):
+        self.name = self.net.sys.name + "_" + self.select_strs[0] + "group"
+
+    # Add selection method. Adds a new selection to the group
+    def add_sele(self, new_sele, new_str):
+        self.selects.append(new_sele)
+        self.select_strs.append(new_str)
+        self.atoms += new_sele
+
+    # Undo selection method. Undoes the last selection in the group
+    def undo_sele(self):
+        last_select = self.selects.pop()
+        self.select_strs.pop()
+        self.atoms = self.atoms[:len(self.atoms) - len(last_select)]
+        self.get_info()
 
