@@ -39,8 +39,8 @@ class System:
         self.residues = residues            # Residues            :   List of residues (lists of atoms)
         self.sol = sol                      # Solution            :   List of solution molecules (lists of atoms)
         self.ndxs = None                    # Indices             :   List of lists indices of atoms
-        self.radii = my_radii               # Radii               :   List of
-        self.sig_figs = sig_figs            # Significant figures
+        self.radii = my_radii               # Radii               :   List of atomic radii
+        self.sig_figs = sig_figs            # Significant figures :   Significant figures setting for the whole system
 
         # Set up the file attributes
         self.data = data                    # Data                :   Additional data provided by the base file
@@ -55,7 +55,7 @@ class System:
         # Gui
         self.gui = None                     # GUI                 :   GUI Vorpy object that can be updated through sys
         if self.base_file is not None:
-            self.load_sys(self.base_file)
+            self.load_sys(self.base_file)   # Forced loading of the base file
 
     def load_sys(self, file):
         """
@@ -136,7 +136,7 @@ class System:
         Creates a System with atoms placed in random locations with random radii
         :param anums: Integer for the number of atoms in the system
         :param dmax: Maximum distance from the center for the atoms
-        :param rmax:
+        :param rmax: Maximum radius of an atom in the system
         :return:
         """
         # Create the atoms
@@ -184,7 +184,8 @@ class System:
             else:
                 self.residues[self.res_names.index(res_name)].append(atom)
 
-    def build_network(self, output=True, max_vert=None, box_size=None, surf_res=None, sol_verts=None, flat_faces=None, use_loaded_verts=False):
+    def build_network(self, output=True, max_vert=None, box_size=None, surf_res=None, sol_verts=None, flat_faces=None,
+                      use_loaded_verts=False):
         """
         Allows user to build the network from the system object.
         :return:

@@ -4,8 +4,13 @@ import os
 ####################################################### Exports ########################################################
 
 
-# Set output directory function. prevents the system from making duplicate output directories
 def set_output_dir(sys, dir_name=None):
+    """
+    Sets the directory for the output data. If the directory exists add 1 to the end number
+    :param sys: System to assign the output directory to
+    :param dir_name: Name for the directory
+    :return:
+    """
     # If no outer directory was specified use the directory outside the current one
     if dir_name is None:
         dir_name = sys.vorpy_directory + "/Data/User_data/" + sys.name
@@ -29,8 +34,14 @@ def set_output_dir(sys, dir_name=None):
     sys.output_directory = dir_name + i_str
 
 
-# Create pdb method. Creates a pdb file type in the current working directory
 def write_pdb(atoms, name, sys=None):
+    """
+    Creates a pdb file type in the current working directory
+    :param atoms: List of atom type objects for writing
+    :param name: Name of the output file
+    :param sys: System object used for writing the whole pbd file
+    :return:
+    """
     # Create the output file
     file = open(name + ".pdb", 'w')
     # Check to see if a system was provided
