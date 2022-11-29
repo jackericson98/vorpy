@@ -186,8 +186,11 @@ def find_vertices(net, a0=None):
     # If no v0 is possible (e.g., a lone atom) return
     if v0 is None:
         return
-    # Add v0 to the System
-    net.verts = [v0]
+    # Check if this is the first go around
+    if net.verts is None:
+        net.verts = [v0]
+    else:
+        net.verts.append(v0)
     # Set up the vertex stack
     vert_stack = [v0]
     # Check for doubletness of the initial vertex
