@@ -171,22 +171,26 @@ def find_vertices(net, a0=None):
     if net.sol_verts:
         tot_verts = 6 * len(net.atoms)
     else:
-        tot_verts = 10 * (len(net.atoms) - len(net.sys.sol))
+        tot_verts = 16 * (len(net.atoms) - len(net.sys.sol))
     # Find the first verified vertex
     if len(net.atoms) == 4:
         v0 = Vertex(net.atoms, net)
         v0.calc_vert()
     else:
         v0 = find_v0(net, a0)
+
     # If no v0 is possible (e.g., a lone atom) return
     if v0 is None:
         return
     # Check if this is the first go around
     if net.verts is None:
         net.verts = [v0]
+        net.vert_ndxs = [v0.ndx]
         net.edges = []
     else:
-        net.verts.append(v0)
+        my_ndx = search_verts(net.vert_ndxs, v0.ndx)
+        net.verts.insert(my_ndx, v0)
+        net.vert_ndxs.insert(my_ndx, v0.ndx)
     # Set up the vertex stack
     vert_stack = [v0]
     # While the verts stack is not empty
