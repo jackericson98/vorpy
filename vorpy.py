@@ -1,3 +1,6 @@
-from Visualize.vorpy_tkinter_gui import Vorpy
+from Visualize.customtkinter_gui import Vorpy
+import os
 
-Vorpy()
+if __name__ == "__main__":
+    app = Vorpy()
+    app.mainloop()

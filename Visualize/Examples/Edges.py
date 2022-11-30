@@ -1,5 +1,5 @@
 import os
-from Visualize.visualize import *
+from Visualize.mpl_visualize import *
 from System.Network.edge import Edge
 from System.Network.vertex import Vertex
 from System.system import System, Atom
