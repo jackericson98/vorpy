@@ -5,7 +5,6 @@ from System.Network.edge import Edge
 from System.Network.surface import Surface
 # from Visualize.visualize import *
 
-
 ############################################## Doublets ################################################################
 
 
@@ -22,8 +21,10 @@ def doublify(net):
             doublets.append(vert)
     # Go through the doublets
     for dub in doublets:
+
         # Add the doublet to the network
         net.verts.insert(net.verts.index(dub) + 1, dub.doublet)
+        net.vert_ndxs.insert(net.verts.index(dub) + 1, dub.doublet)
 
         ################################################ Create the outer edges ########################################
 
@@ -142,7 +143,7 @@ def make_objects(net):
                     verts.append(vert2)
 
             # In order to be a true surface the number of edges need to be equal to the number of verts
-            if len(verts) <= len(edges):
+            if len(verts) == len(edges):
                 my_surf = Surface(list(atoms), verts=verts, net=net, edges=edges)
                 net.surfs.append(my_surf)
 
