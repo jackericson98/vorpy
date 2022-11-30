@@ -18,11 +18,9 @@ def get_name(file):
 # Read pdb function. Interprets pdb data into a system of atom objects
 def read_pdb(sys):
     # Get the file information and make sure to close the file when done
-    try:
-        with open(sys.base_file, 'r') as f:
-            file = f.readlines()
-    except FileNotFoundError:
-        return
+    with open(sys.base_file, 'r') as f:
+        file = f.readlines()
+
     # Add the system name and reset the atoms and data lists
     sys.name = get_name(sys.base_file)
     # Set up the atom and the data lists

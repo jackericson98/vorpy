@@ -26,14 +26,13 @@ class Vorpy(ctk.CTk):
              'th', 'pa', 'u' , 'np', 'pu', 'am', 'cm', 'bk', 'cf', 'es', 'fm', 'md', 'no', 'lr']
 
         # Set the geometry
-        self.geometry("700x700")
+        self.geometry("675x600")
         self.title("vorPy")
-        self.minsize(700, 700)
 
         # Main Header frame
         self.header_frame = ctk.CTkFrame(self)
         self.header_frame.grid(columnspan=4, sticky='nsew')
-        ctk.CTkLabel(self.header_frame, text="Vorpy", anchor="center").grid(sticky='e')
+        ctk.CTkLabel(self.header_frame, text="Vorpy", anchor="center").grid(sticky='e', padx=10, pady=10)
         # System name header
         self.sys_name = ctk.StringVar(self, "System")
         ctk.CTkLabel(self.header_frame, textvariable=self.sys_name, text_font=("bold", 20)).grid(row=0, column=1, sticky='e')
@@ -45,7 +44,7 @@ class Vorpy(ctk.CTk):
 
         # Data frame
         self.data_frame = ctk.CTkFrame(self)
-        self.data_frame.grid(row=3, sticky='nsew')
+        self.data_frame.grid(row=3, sticky='nsew', padx=10, pady=10)
 
         # Data Header
         ctk.CTkLabel(self.data_frame, text="Data").grid()
@@ -564,6 +563,7 @@ class Vorpy(ctk.CTk):
 
     def export_iface_button(self):
         pass
+
 
 if __name__ == "__main__":
     os.chdir("..")
