@@ -1,6 +1,7 @@
 from System.calcs import *
 from System.Network.vertex import Vertex
 from System.Network.edge import Edge
+from Visualize.mpl_visualize import *
 
 
 # Find v0 function. Uses the atom finding functions to find a real verified site in the network
@@ -90,7 +91,7 @@ def verify_site(vert, net):
     return False
 
 
-# Find site function. Currently, overkill, searching through all atoms for overlap and
+# Find site function. Used a vertex and a combination of it's edge atoms to find the connecting vertex
 def find_site(net, edge_atoms, vn_1=None):
     # Get the atoms that should not ba a part of the new vertex
     if vn_1 is None:
@@ -113,7 +114,7 @@ def find_site(net, edge_atoms, vn_1=None):
     # Instantiate the vertex list and the size limit for vertices found
     verts = []
     vert_ndx_list_locs = []
-    # Go through each atom in the network --> This can easily be improved
+    # Go through each atom in the given test atoms. Extremely optimized
     for atom in test_atoms:
         # If the atom is in the previous vertex move on
         if atom in vert_atoms or check_sol and atom.res.lower() == 'sol':
@@ -123,30 +124,24 @@ def find_site(net, edge_atoms, vn_1=None):
         atom_ndxs.sort()
         # Get the vertex's index/insert index
         vert_ndx = search_verts(net.vert_ndxs, atom_ndxs)
-        # If the found vertex index is less than the # of vertices and the found vertex index list matches ours, return
+        # If the vertex has been found before connect it to the previous one and return
         if vert_ndx < len(net.vert_ndxs) and net.vert_ndxs[vert_ndx] == atom_ndxs:
             return
-        # Create the vertex
+        # Create the vertex and calculate its value
         vert = Vertex(edge_atoms + [atom], net=net)
-        if net.flat_faces:
-            vert.calc_ff_vert()
-        else:
-            vert.calc_vert()
+        vert.calc_vert()
         # Filter the vertex out if it is too large or not able to be made
         if vert.loc is not None and abs(vert.rad) < net.max_vert and verify_site(vert, net):
             verts.append(vert)
             vert_ndx_list_locs.append(vert_ndx)
-        # For doublet cases verify differently
+        # Verify the vertex's doublet if it exists
         if vert.loc2 is not None and abs(vert.rad2) < net.max_vert:
             # Create the alternate vertex for the doublet site
             doublet = Vertex(location=vert.loc2, radius=vert.rad2, atoms=vert.atoms, net=net, doublet=vert,
                              loc2=vert.loc, rad2=vert.rad, ndx=vert.ndx)
             # If the first vertex site is a valid site add it to the list of check vertices and add its index
             if verify_site(doublet, net):
-                verts.append(doublet)
-                vert_ndx_list_locs.append(vert_ndx)
                 vert.doublet = doublet
-
     # If no verts have been found return
     if len(verts) == 0:
         return
@@ -189,14 +184,11 @@ def find_vertices(net, a0=None):
     # Check if this is the first go around
     if net.verts is None:
         net.verts = [v0]
+        net.edges = []
     else:
         net.verts.append(v0)
     # Set up the vertex stack
     vert_stack = [v0]
-    # Check for doubletness of the initial vertex
-    if v0.doublet is not None:
-        # Add the doublet to the network
-        net.verts.append(v0.doublet)
     # While the verts stack is not empty
     while vert_stack:
         # Get the vertex from the top of the stack
@@ -221,10 +213,6 @@ def find_vertices(net, a0=None):
             # Insert the vertices in order of increasing atom indices
             net.verts.insert(myVert_ndx, myVert)
             net.vert_ndxs.insert(myVert_ndx, myVert.ndx)
-            # Add the doublet if it exists
-            if myVert.doublet is not None:
-                net.verts.insert(myVert_ndx + 1, myVert.doublet)
-                net.vert_ndxs.insert(myVert_ndx + 1, myVert.doublet.ndx)
             # Remove the atoms from the
             for atom in myVert.atoms:
                 atom_ndx = net.atoms.index(atom)
