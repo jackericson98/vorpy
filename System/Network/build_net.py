@@ -20,10 +20,8 @@ def doublify(net):
         # If we come across a doublet add it to the list
         if vert.doublet is not None:
             doublets.append(vert)
-    num_sing_dubs, num_trip_dubs = 0, 0
     # Go through the doublets
     for dub in doublets:
-
         # Add the doublet to the network
         net.verts.insert(net.verts.index(dub) + 1, dub.doublet)
 
@@ -86,20 +84,6 @@ def make_objects(net):
     # Reset the network's list of edges and surfaces for a clean slate
     net.surfs = []
     net.edges = []
-
-    # Filter out the repeat vertices
-    my_ndxs, my_verts = [], []
-    for vert in net.verts:
-        if vert.ndx not in my_ndxs:
-            my_verts.append(vert)
-            my_ndxs.append(vert.ndx)
-        # If there is another vert for the doublet continue, otherwise we need to check for the better vertex
-        elif vert.doublet is None:
-            # Could do a comparison, but for now leaving as is
-            other_vert = my_verts[my_ndxs.index(vert.ndx)]
-    net.verts = my_verts
-
-
     # Fill in the doublets and set their outer edges
     doublify(net)
 
@@ -157,17 +141,8 @@ def make_objects(net):
                 if set(atoms).issubset(vert2.atoms):
                     verts.append(vert2)
 
-            if [net.atoms.index(atoms[0]), net.atoms.index(atoms[1])] == [3, 7] or [net.atoms.index(atoms[0]),
-                                                                                    net.atoms.index(atoms[1])] == [7,3]:
-                print(len(verts), len(edges))
-                for vert3 in net.verts:
-                    if 3 in vert3.ndx and 7 in vert3.ndx:
-                        print(vert3.ndx)
-
-
-
             # In order to be a true surface the number of edges need to be equal to the number of verts
-            if len(verts) == len(edges):
+            if len(verts) <= len(edges):
                 my_surf = Surface(list(atoms), verts=verts, net=net, edges=edges)
                 net.surfs.append(my_surf)
 
