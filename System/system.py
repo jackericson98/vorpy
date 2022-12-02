@@ -9,7 +9,7 @@ from System.group import Group
 
 
 class System:
-    def __init__(self, atoms=None, net=None, mols=None, sol=None, residues=None, data=None, name=None, base_file=None,
+    def __init__(self, base_file=None, atoms=None, net=None, mols=None, sol=None, residues=None, data=None, name=None,
                  vert_file=None, net_file=None, index_file=None, sig_figs=3):
         """
         Class used to import files of all types and return a System
@@ -184,7 +184,7 @@ class System:
             else:
                 self.residues[self.res_names.index(res_name)].append(atom)
 
-    def build_network(self, output=True, max_vert=None, box_size=None, surf_res=None, sol_verts=None, flat_faces=None,
+    def build_network(self, output=True, surf_res=None, max_vert=None, box_size=None, sol_verts=True, flat_faces=False,
                       use_loaded_verts=False):
         """
         Allows user to build the network from the system object.
@@ -202,10 +202,8 @@ class System:
             self.net.box_size = box_size
         if surf_res is not None:
             self.net.min_dist = surf_res
-        if sol_verts is not None:
-            self.net.sol_verts = sol_verts
-        if flat_faces is not None:
-            self.net.flat_faces = flat_faces
+        self.net.sol_verts = sol_verts
+        self.net.flat_faces = flat_faces
         # Instantiate the timer variables
         self.net.my_time, self.net.cpu_time = 0, 0
         # Start the timer
@@ -238,6 +236,9 @@ class System:
         self.net.my_time = stop - start
         if output:
             self.initial_export()
+
+    def rebuild_net(self, resolution=None, flat_faces=None, max_vert=None, box_size=None, ):
+        pass
 
     def export_verts(self):
         """
@@ -315,6 +316,45 @@ class System:
                 my_color = np.random.rand(3)
                 # Write each of the surfaces
                 write_surfs([surf], "surf_" + str(surf.ndx[0]) + "_" + str(surf.ndx[1]), my_color)
+
+    def show_sys(self, info=True, show=False, fig=None, ax=None): ######## Needs to be way more extensive
+
+        # Info section
+        if info:
+            # Print the header
+            print("{} System information:".format(self.name))
+            # Print the information
+            print("System Object Counts:\n  Atoms    : {}\nMolecules: {}\n".format(len(self.atoms), len(self.mols)))
+
+        # Show section
+        plot_atoms(self.atoms, fig=fig, ax=ax)
+
+    def show_net(self, info=True, full_net=False, verts=False, edges=False, surfs=False, system=False):
+        # Empty Network
+        if self.net is None:
+            print("No network constructed")
+            return
+        # Info section
+        if info:
+            # Print the header
+            print("{} Network Information:\n".format(self.name))
+            # Network objects information
+            print("\nObject counts:\n  Vertices: {}\n  Edges   : {}\n  Surfaces: {}\n  Doublets: {}"
+                  .format(len(self.net.verts), len(self.net.edges), len(self.net.surfs), len(self.net.doublets)))
+
+            # Print the build parameters
+            print("\nBuild parameters:\n  Surface Resolution: {}\n  Maximum Vertex Radius: {}\n  Retaining Box Size: {}"
+                  .format(self.net.min_dist, self.net.max_vert, self.net.box_size))
+
+        # Show section
+        if full_net or verts or edges or surfs or system:
+            # Set up the figure
+            fig = plt.figure()
+            ax = fig.add_subplot(projection="3d")
+            # If the full network is expected to be shown
+
+
+
 
 ##################################################### Atomic Radii #####################################################
 
