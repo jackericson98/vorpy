@@ -1,3 +1,4 @@
+import time
 from System.Network.find_verts import *
 from System.Network.build_net import *
 
@@ -36,8 +37,11 @@ class Network:
         self.cpu_time = None          # CPU time       :  CPU time taken to calculate the network
         self.my_time = None           # My time        :  Time taken to calculate the network
 
-    # Calculate box function. Takes in a System and returns the dimensions of a box x times the size of the atoms
     def calc_box(self):
+        """
+        Takes in a System and returns the dimensions of a box x times the size of the atoms
+        :return:
+        """
         # Set up the minimum and maximum x, y, z coordinates
         min_vert = np.array([np.inf, np.inf, np.inf])
         max_vert = np.array([-np.inf, -np.inf, -np.inf])
@@ -64,8 +68,12 @@ class Network:
         # Return the list of array turned list vertices
         self.box = [min_vert.tolist(), max_vert.tolist()]
 
-    # Sort atoms method. Puts the atoms in the network in their respective grid sections
     def sort_atoms(self, num_boxes=None):
+        """
+        Puts the atoms in the network in their respective grid sections
+        :param num_boxes: The number of sub boxes the network is divided into
+        :return:
+        """
         # Check the length of the atoms list is big enough to make a vertex
         if len(self.atoms) < 4:
             return
@@ -92,8 +100,14 @@ class Network:
             # Add the box to the atom
             atom.box = box_ndxs
 
-    # Get atoms method. Takes in the cells and the number of additional cells to search and returns an atom list
-    def get_atoms(self, cells, reach, exclusive=False):
+    def get_atoms(self, cells, reach, exterior=False):
+        """
+        Takes in the cells and the number of additional cells to search and returns an atom list
+        :param cells: The initial boxes in the network to stem from
+        :param reach: The number of cells out from the initial set of cells to search
+        :param exterior: Only get the exterior atoms
+        :return:
+        """
         # Get the min and max of the cells
         ndx_min = [np.inf, np.inf, np.inf]
         ndx_max = [-np.inf, -np.inf, -np.inf]
@@ -115,7 +129,7 @@ class Network:
             for j in ys:
                 for k in zs:
                     # If the exclusive parameter was set we only want the outer shell, skip none of the indices are max
-                    if exclusive and abs(i) != reach and abs(j) != reach and abs(k) != reach:
+                    if exterior and abs(i) != reach and abs(j) != reach and abs(k) != reach:
                         continue
                     # Easy way around hitting the edge of the box
                     try:
@@ -182,3 +196,58 @@ class Network:
             percentage = int((i + j + 2) / tot_num * 100)
             print("\rAnalyzing: {} %".format(percentage), end="")
             self.atoms[j].cell_vol = calc_vol(self.atoms[j])
+
+
+    def build(self, output=True, surf_res=None, max_vert=None, box_size=None, sol_verts=True, flat_faces=False,
+                      find_verts=True):
+        """
+        Build network function used to calculate the voronoi
+        :param output:
+        :param surf_res:
+        :param max_vert:
+        :param box_size:
+        :param sol_verts:
+        :param flat_faces:
+        :param find_verts:
+        :return:
+        """
+        # Check for input values for the network build
+        if max_vert is not None:
+            self.max_vert = max_vert
+        if box_size is not None:
+            self.box_size = box_size
+        if surf_res is not None:
+            self.min_dist = surf_res
+        self.sol_verts = sol_verts
+        self.flat_faces = flat_faces
+        # Instantiate the timer variables
+        self.my_time, self.cpu_time = 0, 0
+        # Start the timer
+        start = time.perf_counter()
+        # Sort the atoms in the network
+        self.sort_atoms()
+        # Check to see if there are vertices loaded
+        if find_verts:
+            # Find the vertices
+            self.find_verts()
+            # Export the vertices
+            self.sys.export_verts()
+            # Check to see if there are vertices
+            if self.verts is None or len(self.verts) == 0:
+                return
+        # Connect the network
+        self.connect()
+        # Build the edges in the network
+        self.build_edges()
+        # Build the network
+        self.build_surfs()
+        # Analyze the network
+        self.analyze()
+        # Stop the timer and measure the time
+        stop = time.perf_counter()
+        self.my_time = stop - start
+        if output:
+            self.sys.initial_export()
+
+    def rebuild_net(self, resolution=None, flat_faces=None, max_vert=None, box_size=None):
+        pass

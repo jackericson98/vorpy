@@ -184,8 +184,8 @@ class System:
             else:
                 self.residues[self.res_names.index(res_name)].append(atom)
 
-    def build_network(self, output=True, surf_res=None, max_vert=None, box_size=None, sol_verts=True, flat_faces=False,
-                      use_loaded_verts=False):
+    def build_network(self, surf_res=None, max_vert=None, box_size=None, sol_verts=True, output=True, flat_faces=False,
+                      find_verts=True):
         """
         Allows user to build the network from the system object.
         :return:
@@ -194,51 +194,10 @@ class System:
         os.chdir(self.output_directory)
         # Check to see if a network exists
         if self.net is None:
-            self.net = Network(sys=self, atoms=self.atoms)
-        # Check for input values for the network build
-        if max_vert is not None:
-            self.net.max_vert = max_vert
-        if box_size is not None:
-            self.net.box_size = box_size
-        if surf_res is not None:
-            self.net.min_dist = surf_res
-        self.net.sol_verts = sol_verts
-        self.net.flat_faces = flat_faces
-        # Instantiate the timer variables
-        self.net.my_time, self.net.cpu_time = 0, 0
-        # Start the timer
-        start = time.perf_counter()
-        # Set the network's atoms
-        self.net.atoms = self.atoms
-        # Sort the atoms in the network
-        self.net.sort_atoms()
-        # Check to see if there are vertices loaded
-        if not use_loaded_verts or self.vert_file is None:
-            # Set the main network's name to main
-            self.net.name = "Main"
-            # Find the vertices
-            self.net.find_verts()
-            # Export the vertices
-            self.export_verts()
-            # Check to see if there are vertices
-            if self.net.verts is None or len(self.net.verts) < 1:
-                return
-        # Connect the network
-        self.net.connect()
-        # Build the edges in the network
-        self.net.build_edges()
+            self.net = Network(self, atoms=self.atoms)
         # Build the network
-        self.net.build_surfs()
-        # Analyze the network
-        self.net.analyze()
-        # Stop the timer and measure the time
-        stop = time.perf_counter()
-        self.net.my_time = stop - start
-        if output:
-            self.initial_export()
-
-    def rebuild_net(self, resolution=None, flat_faces=None, max_vert=None, box_size=None, ):
-        pass
+        self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, sol_verts=sol_verts, output=output,
+                       flat_faces=flat_faces, find_verts=find_verts)
 
     def export_verts(self):
         """
@@ -352,8 +311,20 @@ class System:
             fig = plt.figure()
             ax = fig.add_subplot(projection="3d")
             # If the full network is expected to be shown
-
-
+            if full_net:
+                plot_atoms(self.atoms, fig=fig, ax=ax)
+                plot_verts(self.net.verts, fig=fig, ax=ax)
+                plot_surfs(self.net.surfs, fig=fig, ax=ax)
+                plot_edges(self.net.edges, fig=fig, ax=ax, Show=True)
+            # Plot individual items
+            else:
+                # Plot the verts, surfs or edges
+                if verts:
+                    plot_verts(self.net.verts, fig=fig, ax=ax)
+                if surfs:
+                    plot_surfs(self.net.surfs, fig=fig, ax=ax)
+                if verts:
+                    plot_edges(self.net.edges, fig=fig, ax=ax)
 
 
 ##################################################### Atomic Radii #####################################################
