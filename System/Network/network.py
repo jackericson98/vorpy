@@ -4,7 +4,7 @@ from System.Network.build_net import *
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
-    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, groups=None,
+    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, doublets=None, groups=None,
                  min_dist=0.1, box_size=1.5, max_vert=5, sol_verts=True, flat_faces=False):
         # Network graph objects
         self.sys = sys                # System         :  Route back to outer system for system attribute access
@@ -12,6 +12,7 @@ class Network:
         self.verts = verts            # Vertices       :  Vertices of the network
         self.edges = edges            # Edges          :  Edges of the network
         self.surfs = surfs            # Surfaces       :  Surfaces of the network
+        self.doublets = doublets      # Doublets       :  Doublets in the network
         self.groups = groups          # Groups         :  Groups objects for analysis of selected surfaces
         self.name = None              # Name           :  Name of the network. Used to name subnetworks recursively
         # Tools for splitting up the atoms
@@ -27,10 +28,10 @@ class Network:
         self.max_vert = max_vert      # Max vert rad   :  The maximum vertex radius for the network
         self.box_size = box_size      # Box size       :  Holds the box multiplier for the system box from the atoms box
         self.parallelize = False      # Parallelize    :  Split the calculations between cores?
-        self.sol_verts = sol_verts    # Sol Vertices   :  Solve the solution's vertices?
-        self.curved_faces = True      # Curved Faces   :  Create curved faces for surfaces?
-        self.flat_faces = flat_faces  # Flat Faces     :  Create flat faces for surfaces?
-        self.verts_loaded = False     # Verts Loaded   :  Use loaded verts?
+        self.sol_verts = sol_verts    # Sol Vertices   :  Solve the solution's vertices. Bool
+        self.curved_faces = True      # Curved Faces   :  Create curved faces for surfaces. Bool
+        self.flat_faces = flat_faces  # Flat Faces     :  Create flat faces for surfaces. Bool
+        self.verts_loaded = False     # Verts Loaded   :  Use loaded verts. Bool
         # Run diagnostics
         self.cpu_time = None          # CPU time       :  CPU time taken to calculate the network
         self.my_time = None           # My time        :  Time taken to calculate the network
