@@ -413,7 +413,7 @@ class Vorpy(ctk.CTk):
         self.sys.name = filename[::-1][:-4]
         self.sys_name.set(self.sys.name)
         # Load the system
-        self.sys.load_sys(file_path)
+        self.sys.load_sys_file(file_path)
         # Set the system information
         # We want to get the number of atoms, the number of molecules, etc
         myStr = str(len(self.sys.atoms)) + '\n' + str(len(self.sys.mols)) + '\n' + str(len(self.sys.residues)) + \
@@ -494,7 +494,7 @@ class Vorpy(ctk.CTk):
 
         self.sys.build_network(max_vert=self.max_vert.get(), surf_res=self.surf_res.get(),
                                flat_faces=self.flat_faces.get(), box_size=self.box_size.get(),
-                               use_loaded_verts=self.use_loaded_verts.get())
+                               find_verts=self.use_loaded_verts.get())
         self.net_data.set(str(len(self.sys.net.surfs)) + "\n" + str(len(self.sys.net.edges)) + "\n" +
                           str(len(self.sys.net.verts)) + "\n    ~    \n    ~    \n    ~   ")
 
