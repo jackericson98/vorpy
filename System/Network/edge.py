@@ -25,6 +25,7 @@ class Edge:
         self.pv1 = pv1                   # Vertex pt 1   :   The points on the ends of the edges
         self.pa = None                   # Projection pt :   The projection point from which the edge is built
         self.doublet = doublet           # Doublet       :   Boolean for if the edge is part of a doublet or not
+        self.loc2 = None                 # Loc2          :   Allows edges to be checked like vertices
 
     # Get location method. Calculates the circle made between the atoms
     def get_loc(self):
