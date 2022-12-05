@@ -5,6 +5,7 @@ from System.Network.edge import Edge
 from System.Network.surface import Surface
 # from Visualize.visualize import *
 
+
 ############################################## Doublets ################################################################
 
 
@@ -14,17 +15,17 @@ def doublify(net):
     :return:
     """
     # Find the doublets, separate them and connect their edges
-    doublets = []
+    net.doublets = []
     for vert in net.verts:
         # If we come across a doublet add it to the list
         if vert.doublet is not None:
-            doublets.append(vert)
+            net.doublets.append(vert)
+
     # Go through the doublets
-    for dub in doublets:
+    for dub in net.doublets:
 
         # Add the doublet to the network
         net.verts.insert(net.verts.index(dub) + 1, dub.doublet)
-        net.vert_ndxs.insert(net.verts.index(dub) + 1, dub.doublet)
 
         ################################################ Create the outer edges ########################################
 
@@ -85,6 +86,7 @@ def make_objects(net):
     # Reset the network's list of edges and surfaces for a clean slate
     net.surfs = []
     net.edges = []
+
     # Fill in the doublets and set their outer edges
     doublify(net)
 
@@ -125,6 +127,8 @@ def make_objects(net):
         # Go through the edge's atoms combinations
         for i in range(3):
             atoms = [edge1.atoms[i], edge1.atoms[(i + 1) % 3]]
+            atom_ndxs = [net.atoms.index(atom) for atom in atoms]
+            atom_ndxs.sort()
             # If the surface has been found before continue
             if check_surf(atoms, net.surfs):
                 continue

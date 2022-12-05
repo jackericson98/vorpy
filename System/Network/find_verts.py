@@ -116,6 +116,8 @@ def find_site(net, edge_atoms, vn_1=None):
     vert_ndx_list_locs = []
     # Go through each atom in the given test atoms. Extremely optimized
     for atom in test_atoms:
+        # Reset the doublet variable
+        doublet = None
         # If the atom is in the previous vertex move on
         if atom in vert_atoms or check_sol and atom.res.lower() == 'sol':
             continue
@@ -130,18 +132,30 @@ def find_site(net, edge_atoms, vn_1=None):
         # Create the vertex and calculate its value
         vert = Vertex(edge_atoms + [atom], net=net)
         vert.calc_vert()
-        # Filter the vertex out if it is too large or not able to be made
-        if vert.loc is not None and abs(vert.rad) < net.max_vert and verify_site(vert, net):
-            verts.append(vert)
-            vert_ndx_list_locs.append(vert_ndx)
-        # Verify the vertex's doublet if it exists
+        # Catch the none location case
+        if vert.loc is None:
+            continue
+
+        # Create the vertex's doublet if it exists
         if vert.loc2 is not None and abs(vert.rad2) < net.max_vert:
             # Create the alternate vertex for the doublet site
             doublet = Vertex(location=vert.loc2, radius=vert.rad2, atoms=vert.atoms, net=net, doublet=vert,
                              loc2=vert.loc, rad2=vert.rad, ndx=vert.ndx)
+
+        # Filter the vertex out if it is too large or not able to be made
+        if abs(vert.rad) < net.max_vert and verify_site(vert, net):
+            verts.append(vert)
+            vert_ndx_list_locs.append(vert_ndx)
             # If the first vertex site is a valid site add it to the list of check vertices and add its index
-            if verify_site(doublet, net):
+            if doublet is not None and verify_site(doublet, net):
                 vert.doublet = doublet
+        # Check to see if the doublet's site is verified
+        elif doublet is not None and verify_site(doublet, net):
+            doublet.doublet = None
+            verts.append(doublet)
+            vert_ndx_list_locs.append(vert_ndx)
+
+
     # If no verts have been found return
     if len(verts) == 0:
         return
@@ -171,7 +185,10 @@ def find_vertices(net, a0=None):
     if net.sol_verts:
         tot_verts = 6 * len(net.atoms)
     else:
-        tot_verts = 16 * (len(net.atoms) - len(net.sys.sol))
+        sol_len = 0
+        if net.sys.sol is not None:
+            sol_len = len(net.sys.sol)
+        tot_verts = 16 * (len(net.atoms) - sol_len)
     # Find the first verified vertex
     if len(net.atoms) == 4:
         v0 = Vertex(net.atoms, net)
@@ -211,6 +228,7 @@ def find_vertices(net, a0=None):
             # If the vertex is none continue
             if myVert is None:
                 continue
+
             myVert, myVert_ndx = myVert
             # Add the vertex to the stack and the network
             vert_stack.append(myVert)

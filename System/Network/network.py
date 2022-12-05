@@ -156,7 +156,6 @@ class Network:
         i = 0
         while len(self.atom_ndxs) > 0:
             i = i % 4
-            print("\rChecking Missing vertices  " + i * ". ", end="")
             find_vertices(self, a0=self.atoms[self.atom_ndxs.pop()])
             i += 1
         print("\r                                        ", end="")
@@ -194,7 +193,7 @@ class Network:
         # Go through each atom in the system and find the volume
         for j in range(len(self.atoms)):
             percentage = int((i + j + 2) / tot_num * 100)
-            print("\rAnalyzing: {} %".format(percentage), end="")
+            print("\rAnalyzing: {} %          ".format(percentage), end="")
             self.atoms[j].cell_vol = calc_vol(self.atoms[j])
 
 
@@ -211,6 +210,9 @@ class Network:
         :param find_verts:
         :return:
         """
+        # If the system has no name, one needs top be set
+        if self.sys.name is None:
+            self.sys.name = "User_Atoms"
         # Check for input values for the network build
         if max_vert is not None:
             self.max_vert = max_vert
@@ -230,11 +232,12 @@ class Network:
         if find_verts:
             # Find the vertices
             self.find_verts()
-            # Export the vertices
-            self.sys.export_verts()
             # Check to see if there are vertices
             if self.verts is None or len(self.verts) == 0:
                 return
+
+            # Export the vertices
+            self.sys.export_verts()
         # Connect the network
         self.connect()
         # Build the edges in the network

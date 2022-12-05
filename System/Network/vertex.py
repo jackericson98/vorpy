@@ -119,7 +119,6 @@ class Vertex:
             self.loc, self.rad = verts[0][0], verts[0][1]
         # If two roots exist:
         elif len(verts) == 2:
-
             # Get the largest atom's radius
             max_atom_rad = max([atom.rad for atom in self.atoms])
             # Set the locations and radii, so that the smaller vertex is first
@@ -127,7 +126,6 @@ class Vertex:
                 verts[0], verts[1] = verts[1], verts[0]
             # Set the locations and radii variables
             locs, rads = [verts[0][0], verts[1][0]], [verts[0][1], verts[1][1]]
-
             # If both radii are negative (I'm not sure if this is possible, but let's catch it anyway)
             if rads[0] < 0 or rads[1] < 0:
                 if abs(rads[0]) < max_atom_rad:
