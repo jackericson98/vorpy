@@ -1,7 +1,3 @@
-# import os
-import os
-import time
-
 from System.input import *
 from System.output import *
 from System.Network.network import *
@@ -35,6 +31,7 @@ class System:
         # Data
         self.net = net                      # Network             :   Network object holding the primary network
         self.atoms = atoms                  # Atoms               :   List holding the atom objects
+        self.user_atoms = atoms             # User Atoms          :   List of user provided locations and radii
         self.mols = mols                    # Molecules           :   List of molecules
         self.residues = residues            # Residues            :   List of residues (lists of atoms)
         self.sol = sol                      # Solution            :   List of solution molecules (lists of atoms)
@@ -54,10 +51,16 @@ class System:
 
         # Gui
         self.gui = None                     # GUI                 :   GUI Vorpy object that can be updated through sys
-        if self.base_file is not None:
-            self.load_sys(self.base_file)   # Forced loading of the base file
 
-    def load_sys(self, file):
+        # Load the base file if given one
+        if self.base_file is not None:
+            self.load_sys_file(self.base_file)   # Forced loading of the base file
+        # Load the user atoms if given them
+        if self.user_atoms is not None:
+            self.load_sys_atoms()
+
+
+    def load_sys_file(self, file):
         """
         Sets the base file for the system using one of the import file functions
         :param file: .pdb, .gro, .mol, .cif
@@ -116,20 +119,28 @@ class System:
         read_ndx(self)
 
     # Build System method.
-    def build_user_atoms_sys(self, user_atoms):
+    def load_sys_atoms(self):
         """
         Takes in a list of atomic values and creates atom objects for the system to interpret
         :param user_atoms: List of locations and radii for the atoms in the system
         """
+        # Disconnect atoms and user atoms
+        self.atoms = []
+        # Set the system Name
+        if self.name is None:
+            self.name = "User_Atoms"
         # Go through each line in the input list
-        for line in user_atoms:
+        for atom in self.user_atoms:
             # If the radius is a string, convert the radius using the get_radius method
-            if type(line[1]) == str:
-                self.atoms.append(Atom([float(line[0][0]), float(line[0][1]), float(line[0][2])],
-                                       get_radius(self, line[1]), element=line[1], chain="None"))
+            if isinstance(atom, Atom):
+                self.atoms.append(atom)
             else:
-                self.atoms.append(Atom([float(line[0][0]), float(line[0][1]), float(line[0][2])], float(line[1]),
-                                       element=get_radius(line[1], system=self, return_symbol=True), chain="None"))
+                if type(atom[1]) == str:
+                    self.atoms.append(Atom([float(atom[0][0]), float(atom[0][1]), float(atom[0][2])],
+                                           get_radius(self, atom[1]), element=atom[1], chain="None"))
+                else:
+                    self.atoms.append(Atom([float(atom[0][0]), float(atom[0][1]), float(atom[0][2])], float(atom[1]),
+                                       element=get_radius(atom[1], system=self, return_symbol=True), chain="None"))
 
     def random_system(self, anums=30, dmax=15, rmax=1):
         """
@@ -254,7 +265,7 @@ class System:
         if full_network_object:
             # Export a full system
             export_mySys(self)
-        if no_sol_network_object:
+        if no_sol_network_object and self.sol is not None and len(self.sol) > 0:
             # Export the system without the solution
             no_sol = Group(self.net, self.sol, self.name + "_no_sol")
             no_sol.get_info()

@@ -31,6 +31,9 @@ class Vertex:
         if self.net is not None:
             self.ndx = [self.net.atoms.index(atom) for atom in self.atoms]
             self.ndx.sort()
+
+
+
         # Check to see if the network wants flat faces or not
         if self.net is not None and self.net.flat_faces:
             self.make_ff_atoms()
@@ -62,7 +65,6 @@ class Vertex:
         F31 = -a1 * b2 * d3 + a1 * b3 * d2 + a2 * b1 * d3 - a2 * b3 * d1 - a3 * b1 * d2 + a3 * b2 * d1
         verts = []
         xs, ys, zs, Rs = [], [], [], []
-
         # Case 1:
         if ABC_rank == 3 and m_rank == 3 and f_rank == 3:
             # Calculate the radius polynomial coefficients
@@ -117,25 +119,24 @@ class Vertex:
             self.loc, self.rad = verts[0][0], verts[0][1]
         # If two roots exist:
         elif len(verts) == 2:
-            # If both radii are negative (I'm not sure if this is possible, but let's catch it anyway)
-            if verts[0][1] < 0 and verts[1][1] < 0:
-                if abs(verts[0][1]) < abs(verts[1][1]) and len([1 for _ in self.atoms if _.rad < abs(verts[0][1])]) < 1:
-                    self.loc, self.rad = verts[0][0], verts[0][1]
-                elif len([1 for _ in self.atoms if _.rad < abs(verts[1][1])]) < 1:
-                    self.loc, self.rad = verts[1][0], verts[1][1]
 
-            # Check to see if the second vertex is negative (i.e. not a doublet)
-            elif verts[0][1] < 0 < verts[1][1]:
-                self.loc, self.rad = verts[1][0], verts[1][1]
-            elif verts[1][1] < 0 < verts[0][1]:
-                self.loc, self.rad = verts[0][0], verts[0][1]
+            # Get the largest atom's radius
+            max_atom_rad = max([atom.rad for atom in self.atoms])
+            # Set the locations and radii, so that the smaller vertex is first
+            if abs(verts[0][1]) > abs(verts[1][1]):
+                verts[0], verts[1] = verts[1], verts[0]
+            # Set the locations and radii variables
+            locs, rads = [verts[0][0], verts[1][0]], [verts[0][1], verts[1][1]]
+
+            # If both radii are negative (I'm not sure if this is possible, but let's catch it anyway)
+            if rads[0] < 0 or rads[1] < 0:
+                if abs(rads[0]) < max_atom_rad:
+                    self.loc, self.rad = locs[0], rads[0]
+                    if abs(rads[1]) < max_atom_rad:
+                        self.loc2, self.rad2 = locs[1], rads[1]
             # If both radii are positive we have a doublet. Choose the smaller vertex to be the lead vertex and set loc2
-            elif verts[0][1] < verts[1][1]:
-                self.loc, self.rad = verts[0][0], verts[0][1]
-                self.loc2, self.rad2 = verts[1][0], verts[1][1]
-            elif verts[1][1] < verts[0][1]:
-                self.loc, self.rad = verts[1][0], verts[1][1]
-                self.loc2, self.rad2 = verts[0][0], verts[0][1]
+            else:
+                self.loc, self.loc2, self.rad, self.rad2 = locs[0], locs[1], rads[0], rads[1]
 
     def make_ff_atoms(self):
         # First we need to create atoms and translate them to the correct place
@@ -189,7 +190,6 @@ class Vertex:
         # First check to see if the planes intersect
         if np.linalg.matrix_rank(A) == 3:
             self.loc = np.linalg.inv(A).dot(B)
-            print(self.loc)
             self.rad = calc_dist(self.loc, small_atom.loc) - small_atom.rad
 
     def calc_ff_vert1(self):
