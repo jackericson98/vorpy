@@ -9,13 +9,22 @@ The general use case would be for analysis of simulated olecule files for volume
 
 Created by Jack Ericson in collaboration with Georgia State University 
 
+## Prerequisites
+- Dependencies:
+- Instalation:
+Move to the vorpy directory in a shell or command prompt:
+```
+cd PATH/TO/vorpy
+```
+Install the requirements
+```
+pip install requirements.txt
+```
+
 ## Usage (GUI)
 
 1. Download the repository and move to the main vorpy directory in a shell or command prompt
-2. Install the requirements
-   ```
-   pip install requirements.txt
-   ```
+2. Install the requirements (see prerequisites section)
 3. Run the following from the vorpy directory
    ```
    py vorpy.py
@@ -26,7 +35,9 @@ Created by Jack Ericson in collaboration with Georgia State University
 
 ## Usage (Jupyter Notebook)
 
-1. Import the system object and other helpful functions
+1. Download the repository and move to the main vorpy directory in a shell or command prompt
+2. Install the requirements (see prerequisites section)
+2. Import the system object and other helpful functions
    ```
    from System.system import *
    ```
@@ -50,6 +61,7 @@ Created by Jack Ericson in collaboration with Georgia State University
    plot_surfs(net.atoms[0].surfs, fig=fig, ax=ax, Show=True)
    ```
 4. Analyze the network
+   The user can analyze atoms, surfaces, vertices or any other network object individually:
    ```
    my_vol = 0
    for atom in sys.mols[0]:
@@ -57,7 +69,31 @@ Created by Jack Ericson in collaboration with Georgia State University
    print("Molecule {} has volume: {} Angstroms Cubed".format(sys.mol_names[0], my_vol)
    
    ```
-
+   The user can also create groups for analysis
+   ```
+   g1 = Group(net=sys.net, atoms=sys.atoms[22:45], name="My_group1")
+   g1.get_info()
+   print(g1.body_vol)
+   
+   ```
+ 5. Export data
+    Exporting the network will allow the network to be re-loaded without having to be calculated
+    ```
+    sys.export_net()
+    ```
+    Similarly the user can export vertices
+    ```
+    sys.export_verts()
+    ```
+    The user can export the surfaces associated with a group
+    ```
+    sys.export_selection(group1=g1, info=True)
+    ```
+    or the interface between two groups
+    ```
+    g2 = Group(net=sys.net, atoms=sys.atoms[:22], name="My_group2")
+    sys.export_selection(group1=g1, group2=g2, info=True)
+    ```
 
 ## Visualization
 
@@ -66,7 +102,7 @@ Once built the network can be viewed in a number of ways. The first being trough
 ### Pymol
 
 Pymol is currently the best way to view the data produced from vorpy and can be downloaded here:
-https://pymol.org/2/ . Once downloaded run the software through one of the processes above and drag the output files (.off) and the system files (.pdb) into the pymol frame
+https://pymol.org/2/ . Once downloaded run the software through one of the processes above and drag the output files (.off) and the system files (.pdb) into the pymol frame. Be sure to use the "set_pymol_atoms.pml" script to get accurately set atom radii.
 
 ## VMD
 
