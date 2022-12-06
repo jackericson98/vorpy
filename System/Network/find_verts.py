@@ -180,7 +180,7 @@ def find_site(net, edge_atoms, vn_1=None):
 
 
 # Find network function. Keeps searching the network until all verts are found
-def find_vertices(net, a0=None):
+def find_verts(net, a0=None):
     # Calculate the total number of vertices
     if net.sol_verts:
         tot_verts = 6 * len(net.atoms)
