@@ -49,7 +49,7 @@ Once built the network can be viewed in a number of ways. The first being trough
 ### Pymol
 
 Pymol is currently the best way to view the data produced from vorpy and can be downloaded here:
-https://pymol.org/2/
+https://pymol.org/2/ . Once downloaded run the software through one of the processes above and drag the output files (.off) and the system files (.pdb) into the pymol frame
 
 ## VMD
 
