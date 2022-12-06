@@ -1,7 +1,7 @@
 import os
 from System.system import System
 from Visualize.visualize import *
-from System.input import add_vta_data
+from System.input import read_vta_data
 
 os.chdir("../..")
 # Files
@@ -13,7 +13,7 @@ v_file = "./Data/test_data/Na_W_cluster5_vertices.txt"
 sys = System(m_file)
 
 # Add the voronota data
-add_vta_data(sys, b_file, v_file)
+read_vta_data(sys, b_file, v_file)
 
 # Build the network
 sys.net.build_surfs()
