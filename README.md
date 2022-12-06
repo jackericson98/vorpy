@@ -21,7 +21,9 @@ Install the requirements
 pip install requirements.txt
 ```
 
-## Usage (GUI)
+## Usage
+
+### Gui 
 
 1. Download the repository and move to the main vorpy directory in a shell or command prompt
 2. Install the requirements (see prerequisites section)
@@ -33,7 +35,7 @@ pip install requirements.txt
 3. From the build screen of the gui change the settings and then click build
 4. From the analyze screen analyze the newly constructed network
 
-## Usage (Jupyter Notebook)
+### Jupyter Notebook
 
 1. Download the repository and move to the main vorpy directory in a shell or command prompt
 2. Install the requirements (see prerequisites section)
@@ -95,15 +97,21 @@ pip install requirements.txt
     sys.export_selection(group1=g1, group2=g2, info=True)
     ```
 
-## Visualization
+### Visualization
 
 Once built the network can be viewed in a number of ways. The first being trough vorpy's built in visualization functions (plot_atoms, plot_verts, plot_edges, plot_surfs) or one of the following
 
-### Pymol
+#### Pymol
 
 Pymol is currently the best way to view the data produced from vorpy and can be downloaded here:
 https://pymol.org/2/ . Once downloaded run the software through one of the processes above and drag the output files (.off) and the system files (.pdb) into the pymol frame. Be sure to use the "set_pymol_atoms.pml" script to get accurately set atom radii.
 
-## VMD
+#### VMD
 
 I have never tried vmd
+## Citation
+
+## Contact
+- Email: jericson1@gsu.edu
+- Site: https://cas.gsu.edu/profile/greg-poon/
+- Phone: (404)-413-5491
