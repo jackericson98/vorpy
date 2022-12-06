@@ -39,7 +39,24 @@ Created by Jack Ericson in collaboration with Georgia State University
    ```
    sys.build_network(sol_verts=False, surf_res=0.2, max_vert=10, box_size=1.5)
    ```
-3. Find your file in the /vorpy/Data/User_data/ folder
+3. Plot the compnents
+   ```
+   from Visualize.mpl_visualize import *
+   fig = plt.figure()
+   ax = fig.add_subplot(projection="3d")
+   plot_atoms(net.atoms[0:1], fig=fig, ax=ax)
+   plot_verts(net.atoms[0].verts, fig=fig, ax=ax)
+   plot_edges(net.atoms[0].edges, fig=fig, ax=ax)
+   plot_surfs(net.atoms[0].surfs, fig=fig, ax=ax, Show=True)
+   ```
+4. Analyze the network
+   ```
+   my_vol = 0
+   for atom in sys.mols[0]:
+      my_vol += atom.vol
+   print("Molecule {} has volume: {} Angstroms Cubed".format(sys.mol_names[0], my_vol)
+   
+   ```
 
 
 ## Visualization
