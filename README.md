@@ -12,8 +12,13 @@ Vorpy is a comprehensive 3D Voronoi cell generator designed for molecular analys
 
 ## Usage (GUI)
 
-1. Still need: Picture of the load screen with arrows and descriptions
-2. Still need: Picture of the outputs screen with arrows and descriptions
+1. Run the following from the vorpy directory
+   ```
+   py vorpy.py
+   ```
+2. From the load screen of the gui load your pdb file
+3. From the build screen of the gui change the settings and then click build
+4. From the analyze screen analyze the newly constructed network
 
 ## Usage (Jupyter Notebook)
 
@@ -24,8 +29,9 @@ Vorpy is a comprehensive 3D Voronoi cell generator designed for molecular analys
    ```
 2. Build the network:
    ```
-   sys.net.build_network(min_dist=0.5)
+   sys.net.build_network(sol_verts=False, surf_res=0.2, max_vert=10, box_size=1.5)
    ```
+3. Find your file in the /vorpy/Data/User_data/ folder
 
 ## Credits
 
