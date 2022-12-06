@@ -5,14 +5,14 @@
 
 Vorpy is a comprehensive 3D Voronoi cell generator designed for molecular analysis. It works by sampling a network of points equidistant from the surfaces of neighboring atoms. Then constructs the cells around a group of atoms or interfaces between two groups of atoms for analysis. Created by Jack Ericson in collaboration with Georgia State University 
 
-
-## Installation
-
-
-
 ## Usage (GUI)
 
-1. Run the following from the vorpy directory
+1. Download the repository and move to the main vorpy directory in a shell or command prompt
+2. Install the requirements
+   ```
+   pip install requirements.txt
+   ```
+3. Run the following from the vorpy directory
    ```
    py vorpy.py
    ```
