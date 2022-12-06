@@ -37,7 +37,7 @@ def read_pdb(sys):
         if line and word == 'atom':  # Check if the line starts with atom
 
             # Create the atom
-            atom = Atom([float(line[30:38]), float(line[38:46]), float(line[46:54])], get_radius(line[76:78], system=sys),
+            atom = Atom([float(line[30:38]), float(line[38:46]), float(line[46:54])], get_radius(line[76:78], sys),
                         element=line[76:78], residue=line[17:20], chain=line[21], res_seq=line[22:26], name=line[12:16],
                         ocp=line[54:60], t_fact=line[60:66], seg_id=line[72:76], charge=line[78:80])
             # If no chain is specified, set the chain to 'None'
@@ -93,7 +93,7 @@ def read_mol(sys):
 
 
 # Add Voronota data method. Takes in voronota data and adds it to the System
-def add_vta_data(sys, ball_file, vert_file):
+def read_vta_data(sys, ball_file, vert_file):
     # If no network has been created, make one
     if sys.net is None:
         sys.net = Network(sys, sys.atoms, verts=[], edges=[], surfs=[], flat_faces=True)
