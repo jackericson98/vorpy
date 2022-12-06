@@ -3,7 +3,7 @@
 ## Description
 
 
-Vorpy is the first open-source comprehensive 3D Voronoi network generator for 3D spheres. It is designed with simulated molecular analysis in mind. Vorpy time-stamps of simulations of molecules and samples a network of points equidistant from the surfaces of all neighboring atoms in the frame. The result is a partitioning of the frame atom by atom and a set of atom-atom partitioning surfaces. These surfaces can then be used for analysis and interpretation. 
+Vorpy is the first open-source comprehensive 3D Voronoi network generator for 3D spheres. It is designed with simulated molecular analysis in mind. Vorpy processes time-stamps of simulations of molecules by samples a network of points equidistant from the surfaces of all neighboring atoms in the system. This results in a partitioning of the system atom by atom and a provides a set of atom to atom partitioning surfaces for analysis. 
 
 The general use case would be for analysis of simulated olecule files for volume, interface and void analysis. Once a frame is analyzed all of these data points can be deriven. For example, if a molecule is simulated in solution until it reaches a certain equilibrium, a frame can be processed through vorpy and tested for volume and voids. 
 
