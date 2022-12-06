@@ -29,7 +29,7 @@ Vorpy is a comprehensive 3D Voronoi cell generator designed for molecular analys
    ```
 2. Build the network:
    ```
-   sys.net.build_network(sol_verts=False, surf_res=0.2, max_vert=10, box_size=1.5)
+   sys.build_network(sol_verts=False, surf_res=0.2, max_vert=10, box_size=1.5)
    ```
 3. Find your file in the /vorpy/Data/User_data/ folder
 
