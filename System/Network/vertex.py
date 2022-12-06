@@ -5,25 +5,26 @@ from System.calcs import *
 
 class Vertex:
     """Vertex object. Used to build the network and calculate the surfaces"""
+
     def __init__(self, atoms=None, net=None, location=None, radius=None, loc2=None, rad2=None, doublet=None, ndx=None):
 
-        self.net = net           # Network       :   Network object for the vertex to refer back to
-        self.atoms = atoms       # Atoms         :   List of atoms used to construct the vertex
-        self.edges = []          # Edges         :   List of Edge type objects connected to the vertex in the network
-        self.surfs = []          # Surfaces      :   List of Surface type objects that the vertex is a part of
+        self.net = net  # Network       :   Network object for the vertex to refer back to
+        self.atoms = atoms  # Atoms         :   List of atoms used to construct the vertex
+        self.edges = []  # Edges         :   List of Edge type objects connected to the vertex in the network
+        self.surfs = []  # Surfaces      :   List of Surface type objects that the vertex is a part of
 
-        self.ndx = ndx           # Index         :   Indices of the atoms in the vertex
-        self.loc = location      # Location      :   Where the vertex is located in 3D
-        self.rad = radius        # Radius        :   Radius of the vertex's tangential sphere
-        self.load_ndxs = []      # Load indices  :   List of object load indices
+        self.ndx = ndx  # Index         :   Indices of the atoms in the vertex
+        self.loc = location  # Location      :   Where the vertex is located in 3D
+        self.rad = radius  # Radius        :   Radius of the vertex's tangential sphere
+        self.load_ndxs = []  # Load indices  :   List of object load indices
 
-        self.doublet = doublet   # Doublet       :   Whether the vertex is a doublet
-        self.d_type = None       # Doublet type  :   Doublet type it is: 3 edges, 3 surfaces or two edges, one surface
-        self.loc2 = loc2         # Location 2    :   Location of the doublet site
-        self.rad2 = rad2         # Radius 2      :   Radius of the doublet site's tangential sphere
+        self.doublet = doublet  # Doublet       :   Whether the vertex is a doublet
+        self.d_type = None  # Doublet type  :   Doublet type it is: 3 edges, 3 surfaces or two edges, one surface
+        self.loc2 = loc2  # Location 2    :   Location of the doublet site
+        self.rad2 = rad2  # Radius 2      :   Radius of the doublet site's tangential sphere
 
         self.flat_faced = False  # Flat Faced?   :   Was this vertex constructed with flat faces in mind?
-        self.ff_atoms = None     # ^ FF Atoms    :   Holds the location and radius for the atoms
+        self.ff_atoms = None  # ^ FF Atoms    :   Holds the location and radius for the atoms
 
     # Calculate vertex function. Takes in 4 atoms, calculates the loc and rad of the inscribed sphere and adds the
     def calc_vert(self):
@@ -31,8 +32,8 @@ class Vertex:
         if self.net is not None:
             self.ndx = [self.net.atoms.index(atom) for atom in self.atoms]
             self.ndx.sort()
-
-
+        if self.ndx == [3, 10, 2190, 3838]:
+            print()
 
         # Check to see if the network wants flat faces or not
         if self.net is not None and self.net.flat_faces:
@@ -47,9 +48,12 @@ class Vertex:
         # Find the recalculated location of the atoms
         l0, l1, l2, l3 = locs[0], locs[1] - locs[0], locs[2] - locs[0], locs[3] - locs[0]
         # Calculate our System of linear equations coefficients
-        a1, b1, c1, d1, f1 = 2*l1[0], 2*l1[1], 2*l1[2], 2*(R2 - R1), R1**2 - R2**2 + l1[0]**2 + l1[1]**2 + l1[2]**2
-        a2, b2, c2, d2, f2 = 2*l2[0], 2*l2[1], 2*l2[2], 2*(R3 - R1), R1**2 - R3**2 + l2[0]**2 + l2[1]**2 + l2[2]**2
-        a3, b3, c3, d3, f3 = 2*l3[0], 2*l3[1], 2*l3[2], 2*(R4 - R1), R1**2 - R4**2 + l3[0]**2 + l3[1]**2 + l3[2]**2
+        a1, b1, c1, d1, f1 = 2 * l1[0], 2 * l1[1], 2 * l1[2], 2 * (R2 - R1), R1 ** 2 - R2 ** 2 + l1[0] ** 2 + l1[
+            1] ** 2 + l1[2] ** 2
+        a2, b2, c2, d2, f2 = 2 * l2[0], 2 * l2[1], 2 * l2[2], 2 * (R3 - R1), R1 ** 2 - R3 ** 2 + l2[0] ** 2 + l2[
+            1] ** 2 + l2[2] ** 2
+        a3, b3, c3, d3, f3 = 2 * l3[0], 2 * l3[1], 2 * l3[2], 2 * (R4 - R1), R1 ** 2 - R4 ** 2 + l3[0] ** 2 + l3[
+            1] ** 2 + l3[2] ** 2
         A, B, C, d, f = [a1, a2, a3], [b1, b2, b3], [c1, c2, c3], [d1, d2, d3], [f1, f2, f2]
         # Calculate the ranks of the matrices
         ABC_rank = np.linalg.matrix_rank(np.array([A, B, C]))
@@ -65,6 +69,8 @@ class Vertex:
         F31 = -a1 * b2 * d3 + a1 * b3 * d2 + a2 * b1 * d3 - a2 * b3 * d1 - a3 * b1 * d2 + a3 * b2 * d1
         verts = []
         xs, ys, zs, Rs = [], [], [], []
+        if self.ndx == [3, 10, 2190, 3838]:
+            print(m_rank, ABC_rank, f_rank)
         # Case 1:
         if ABC_rank == 3 and m_rank == 3 and f_rank == 3:
             # Calculate the radius polynomial coefficients
@@ -126,12 +132,14 @@ class Vertex:
                 verts[0], verts[1] = verts[1], verts[0]
             # Set the locations and radii variables
             locs, rads = [verts[0][0], verts[1][0]], [verts[0][1], verts[1][1]]
-            # If both radii are negative (I'm not sure if this is possible, but let's catch it anyway)
+            # If either radii are negative (I'm not sure if this is possible, but let's catch it anyway)
             if rads[0] < 0 or rads[1] < 0:
-                if abs(rads[0]) < max_atom_rad:
+                if rads[0] > 0 or abs(rads[0]) < max_atom_rad:
                     self.loc, self.rad = locs[0], rads[0]
-                    if abs(rads[1]) < max_atom_rad:
+                    if rads[1] > 0 or abs(rads[1]) < max_atom_rad:
                         self.loc2, self.rad2 = locs[1], rads[1]
+                elif rads[1] > 0 or abs(rads[1]) < max_atom_rad:
+                    self.loc, self.rad = locs[1], rads[1]
             # If both radii are positive we have a doublet. Choose the smaller vertex to be the lead vertex and set loc2
             else:
                 self.loc, self.loc2, self.rad, self.rad2 = locs[0], locs[1], rads[0], rads[1]

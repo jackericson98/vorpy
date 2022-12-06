@@ -230,6 +230,7 @@ def find_vertices(net, a0=None):
                 continue
 
             myVert, myVert_ndx = myVert
+
             # Add the vertex to the stack and the network
             vert_stack.append(myVert)
             # Insert the vertices in order of increasing atom indices
