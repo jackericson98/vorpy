@@ -98,7 +98,7 @@ class System:
         if vta_ball_file is None:
             read_verts(self.net, vert_file)
         else:
-            add_vta_data(self, vert_file=vert_file, ball_file=vta_ball_file)
+            read_vta_data(self, vert_file=vert_file, ball_file=vta_ball_file)
 
     def load_net(self, net_file, verts_only=False):
         """
@@ -122,7 +122,6 @@ class System:
     def load_sys_atoms(self):
         """
         Takes in a list of atomic values and creates atom objects for the system to interpret
-        :param user_atoms: List of locations and radii for the atoms in the system
         """
         # Disconnect atoms and user atoms
         self.atoms = []
@@ -196,7 +195,7 @@ class System:
                 self.residues[self.res_names.index(res_name)].append(atom)
 
     def build_network(self, surf_res=None, max_vert=None, box_size=None, sol_verts=True, output=True, flat_faces=False,
-                      find_verts=True):
+                      calc_verts=True):
         """
         Allows user to build the network from the system object.
         :return:
@@ -208,7 +207,7 @@ class System:
             self.net = Network(self, atoms=self.atoms)
         # Build the network
         self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, sol_verts=sol_verts, output=output,
-                       flat_faces=flat_faces, find_verts=find_verts)
+                       flat_faces=flat_faces, calc_verts=calc_verts)
 
     def export_verts(self):
         """
@@ -287,8 +286,9 @@ class System:
                 # Write each of the surfaces
                 write_surfs([surf], "surf_" + str(surf.ndx[0]) + "_" + str(surf.ndx[1]), my_color)
 
-    def show_sys(self, info=True, show=False, fig=None, ax=None): ######## Needs to be way more extensive
-
+    def show_sys(self, info=True, show=False, fig=None, ax=None):  # Needs to be way more extensive
+        if show:
+            pass
         # Info section
         if info:
             # Print the header
