@@ -110,6 +110,8 @@ https://pymol.org/2/ . Once downloaded run the software through one of the proce
 
 I have never tried vmd
 ## Citation
+-Doi: [![DOI](https://zenodo.org/badge/502126698.svg)](https://zenodo.org/badge/latestdoi/502126698)
+
 
 ## Contact
 - Email: jericson1@gsu.edu
