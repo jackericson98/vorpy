@@ -37,11 +37,5 @@ Vorpy is a comprehensive 3D Voronoi cell generator designed for molecular analys
    ```
 3. Find your file in the /vorpy/Data/User_data/ folder
 
-## Credits
-
-...
-
-## Outputs
-
 
 
