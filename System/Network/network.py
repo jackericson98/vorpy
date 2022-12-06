@@ -152,11 +152,11 @@ class Network:
         # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
         self.atom_ndxs = [i for i in range(len(self.atoms)) if self.atoms[i].res.lower() != 'sol']
         # Do an initial sweep
-        find_vertices(self)
+        find_verts(self)
         i = 0
         while len(self.atom_ndxs) > 0:
             i = i % 4
-            find_vertices(self, a0=self.atoms[self.atom_ndxs.pop()])
+            find_verts(self, a0=self.atoms[self.atom_ndxs.pop()])
             i += 1
         print("\r                                        ", end="")
 
@@ -198,7 +198,7 @@ class Network:
 
 
     def build(self, output=True, surf_res=None, max_vert=None, box_size=None, sol_verts=True, flat_faces=False,
-                      find_verts=True):
+              calc_verts=True):
         """
         Build network function used to calculate the voronoi
         :param output:
@@ -207,7 +207,7 @@ class Network:
         :param box_size:
         :param sol_verts:
         :param flat_faces:
-        :param find_verts:
+        :param calc_verts:
         :return:
         """
         # If the system has no name, one needs top be set
@@ -229,7 +229,7 @@ class Network:
         # Sort the atoms in the network
         self.sort_atoms()
         # Check to see if there are vertices loaded
-        if find_verts:
+        if calc_verts:
             # Find the vertices
             self.find_verts()
             # Check to see if there are vertices
