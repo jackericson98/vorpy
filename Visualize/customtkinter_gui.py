@@ -39,7 +39,8 @@ class Vorpy(ctk.CTk):
         ctk.CTkLabel(self.header_frame, text="Vorpy", anchor="center").grid(sticky='e')
         # System name header
         self.sys_name = ctk.StringVar(self, "System")
-        ctk.CTkLabel(self.header_frame, textvariable=self.sys_name, text_font=("bold", 20)).grid(row=0, column=1, sticky='e')
+        ctk.CTkLabel(self.header_frame, textvariable=self.sys_name, text_font=("bold", 20)).grid(row=0, column=1,
+                                                                                                 sticky='e')
 
 
 
@@ -117,7 +118,7 @@ class Vorpy(ctk.CTk):
         ############################################### Load Frame #####################################################
 
         self.load_frame = ctk.CTkFrame(self.view_frame)
-        self.load_frame.grid(row=1, columnspan=3, sticky='nesw', padx=20, pady=20)
+        self.load_frame.grid(row=1, columnspan=3, sticky='nsew', padx=20, pady=20)
 
         # System sub frame
         self.load_sys_frame = ctk.CTkFrame(self.load_frame)
@@ -130,13 +131,15 @@ class Vorpy(ctk.CTk):
         ctk.CTkLabel(self.load_sys_frame, text="System File").grid(row=1, column=0)
         self.sys_file_str = ctk.StringVar(self)
         ctk.CTkLabel(self.load_sys_frame, textvariable=self.sys_file_str, width=150).grid(row=1, column=1)
-        ctk.CTkButton(self.load_sys_frame, text="Browse", command=self.load_sys_button).grid(row=1, column=2, padx=4, pady=4)
+        ctk.CTkButton(self.load_sys_frame, text="Browse", command=self.load_sys_button).grid(row=1, column=2, padx=4,
+                                                                                             pady=4)
 
         # Load index file stuff
         ctk.CTkLabel(self.load_sys_frame, text="Index File").grid(row=2, column=0)
         self.ndx_file_str = ctk.StringVar(self)
         ctk.CTkLabel(self.load_sys_frame, textvariable=self.ndx_file_str, width=150).grid(row=2, column=1)
-        ctk.CTkButton(self.load_sys_frame, text="Browse", command=self.load_ndx_button).grid(row=2, column=2, padx=4, pady=4)
+        ctk.CTkButton(self.load_sys_frame, text="Browse", command=self.load_ndx_button).grid(row=2, column=2, padx=4,
+                                                                                             pady=4)
 
         # System sub frame
         self.load_net_frame = ctk.CTkFrame(self.load_frame)
@@ -216,9 +219,11 @@ class Vorpy(ctk.CTk):
         ctk.CTkEntry(self.change_atom_rad_frame, textvariable=self.cur_elem_rad, width=60).grid(row=0, column=1, pady=2)
         ctk.CTkLabel(self.change_atom_rad_frame, text=u'\u212B', width=25).grid(row=0, column=2, sticky='w')
         self.cur_elem = ctk.StringVar(self)
-        ctk.CTkOptionMenu(self.change_atom_rad_frame, variable=self.cur_elem, values=self.elms, width=60).grid(row=0, column=3, padx=2, pady=2)
+        ctk.CTkOptionMenu(self.change_atom_rad_frame, variable=self.cur_elem, values=self.elms, width=60)\
+            .grid(row=0, column=3, padx=2, pady=2)
 
-        ctk.CTkButton(self.change_atom_rad_frame, text="Change", command=self.change_atom_radius).grid(row=0, column=4, padx=2)
+        ctk.CTkButton(self.change_atom_rad_frame, text="Change", command=self.change_atom_radius)\
+            .grid(row=0, column=4, padx=2)
 
         # Estimated time sub frame
         self.est_subfrm = ctk.CTkFrame(self.build_frame)
@@ -246,7 +251,8 @@ class Vorpy(ctk.CTk):
 
         # Reuse surfaces
         self.reuse_surfs = ctk.BooleanVar(self, False)
-        ctk.CTkCheckBox(self.set_surf_subfrm, text="Reuse Surfaces", variable=self.reuse_surfs).grid(row=4, columnspan=3)
+        ctk.CTkCheckBox(self.set_surf_subfrm, text="Reuse Surfaces", variable=self.reuse_surfs)\
+            .grid(row=4, columnspan=3)
 
         # Set vertices subframe
         self.set_vert_subfrm = ctk.CTkFrame(self.build_frame)
@@ -274,7 +280,8 @@ class Vorpy(ctk.CTk):
 
         # Use Loaded verts checkbox
         self.use_loaded_verts = ctk.BooleanVar(self, False)
-        ctk.CTkCheckBox(self.set_vert_subfrm, text="Use Loaded Vertices", variable=self.use_loaded_verts).grid(row=4, columnspan=3)
+        ctk.CTkCheckBox(self.set_vert_subfrm, text="Use Loaded Vertices", variable=self.use_loaded_verts)\
+            .grid(row=4, columnspan=3)
 
         # Build network button
         ctk.CTkButton(self.build_frame, text="Build", command=self.build_net_button).grid(row=4, columnspan=2)
@@ -305,29 +312,37 @@ class Vorpy(ctk.CTk):
 
         # Show radio button
         self.choose_mol_bool = ctk.BooleanVar(self, True)
-        self.mol_radio_button = ctk.CTkRadioButton(self.choose_list_subfrm, text="Molecules", command=self.set_show_list_mol, state=self.choose_mol_bool)
+        self.mol_radio_button = ctk.CTkRadioButton(self.choose_list_subfrm, text="Molecules",
+                                                   command=self.set_show_list_mol, state=self.choose_mol_bool)
         self.mol_radio_button.grid(row=1, column=0, padx=10)
         self.choose_res_bool = ctk.BooleanVar(self, False)
-        self.res_radio_button = ctk.CTkRadioButton(self.choose_list_subfrm, text="Residues", command=self.set_show_list_res, state=self.choose_res_bool)
+        self.res_radio_button = ctk.CTkRadioButton(self.choose_list_subfrm, text="Residues",
+                                                   command=self.set_show_list_res, state=self.choose_res_bool)
         self.res_radio_button.grid(row=1, column=1, padx=10)
         self.choose_ndx_bool = ctk.BooleanVar(self, False)
-        self.ndx_radio_button = ctk.CTkRadioButton(self.choose_list_subfrm, text="Indices", command=self.set_show_list_ndx, state=self.choose_ndx_bool)
+        self.ndx_radio_button = ctk.CTkRadioButton(self.choose_list_subfrm, text="Indices",
+                                                   command=self.set_show_list_ndx, state=self.choose_ndx_bool)
         self.ndx_radio_button.grid(row=1, column=2, padx=10)
         self.choose_atom_bool = ctk.BooleanVar(self, False)
-        self.atom_radio_button = ctk.CTkRadioButton(self.choose_list_subfrm, text="Atoms", command=self.set_show_list_atom, state=self.choose_atom_bool)
+        self.atom_radio_button = ctk.CTkRadioButton(self.choose_list_subfrm, text="Atoms",
+                                                    command=self.set_show_list_atom, state=self.choose_atom_bool)
         self.atom_radio_button.grid(row=1, column=3, padx=10)
 
         # Choose lists
         self.current_selection = ctk.StringVar(self)
         self.current_selection_atoms = []
         self.mol_list, self.res_list, self.atom_list, self.ndx_list = [], [], [], []
-        self.choose_mol_list = ctk.CTkOptionMenu(master=self.choose_list_subfrm, variable=self.current_selection, values=self.mol_list, width=400)
+        self.choose_mol_list = ctk.CTkOptionMenu(master=self.choose_list_subfrm, variable=self.current_selection,
+                                                 values=self.mol_list, width=400)
         self.choose_mol_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
-        self.choose_res_list = ctk.CTkOptionMenu(master=self.choose_list_subfrm, variable=self.current_selection, values=self.res_list, width=400)
+        self.choose_res_list = ctk.CTkOptionMenu(master=self.choose_list_subfrm, variable=self.current_selection,
+                                                 values=self.res_list, width=400)
         self.choose_res_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
-        self.choose_ndx_list = ctk.CTkOptionMenu(master=self.choose_list_subfrm, variable=self.current_selection, values=self.ndx_list, width=400)
+        self.choose_ndx_list = ctk.CTkOptionMenu(master=self.choose_list_subfrm, variable=self.current_selection,
+                                                 values=self.ndx_list, width=400)
         self.choose_ndx_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
-        self.choose_atom_list = ctk.CTkOptionMenu(master=self.choose_list_subfrm, variable=self.current_selection, values=self.atom_list, width=400)
+        self.choose_atom_list = ctk.CTkOptionMenu(master=self.choose_list_subfrm, variable=self.current_selection,
+                                                  values=self.atom_list, width=400)
         self.choose_atom_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
 
         # Group frame
@@ -342,9 +357,12 @@ class Vorpy(ctk.CTk):
         ctk.CTkLabel(self.g1_subfrm, text="Group 1").grid(row=0, columnspan=3)
 
         # Group 1 Buttons
-        ctk.CTkButton(self.g1_subfrm, text="Add", command=self.add_g1_button, width=40).grid(row=1, column=0, sticky='nsew', padx=2)
-        ctk.CTkButton(self.g1_subfrm, text="Undo", command=self.undo_g1_button, width=30).grid(row=1, column=1, sticky='nsew', padx=2)
-        ctk.CTkButton(self.g1_subfrm, text="Reset", command=self.reset_g1_button, width=30).grid(row=1, column=2, sticky='nsew', padx=2)
+        ctk.CTkButton(self.g1_subfrm, text="Add", command=self.add_g1_button, width=40)\
+            .grid(row=1, column=0, sticky='nsew', padx=2)
+        ctk.CTkButton(self.g1_subfrm, text="Undo", command=self.undo_g1_button, width=30)\
+            .grid(row=1, column=1, sticky='nsew', padx=2)
+        ctk.CTkButton(self.g1_subfrm, text="Reset", command=self.reset_g1_button, width=30)\
+            .grid(row=1, column=2, sticky='nsew', padx=2)
 
         # Group 1 selection list
         self.g1_sele_str = ctk.StringVar(self, "\n\n\n\n")
@@ -364,9 +382,12 @@ class Vorpy(ctk.CTk):
         ctk.CTkLabel(self.g2_subfrm, text="Group 2").grid(row=0, columnspan=3)
 
         # Group 2 buttons
-        ctk.CTkButton(self.g2_subfrm, text="Add", command=self.add_g2_button, width=40).grid(row=1, column=0, sticky='nsew', padx=2)
-        ctk.CTkButton(self.g2_subfrm, text="Undo", command=self.undo_g2_button, width=30).grid(row=1, column=1, sticky='nsew', padx=2)
-        ctk.CTkButton(self.g2_subfrm, text="Reset", command=self.reset_g2_button, width=30).grid(row=1, column=2, sticky='nsew', padx=2)
+        ctk.CTkButton(self.g2_subfrm, text="Add", command=self.add_g2_button, width=40)\
+            .grid(row=1, column=0, sticky='nsew', padx=2)
+        ctk.CTkButton(self.g2_subfrm, text="Undo", command=self.undo_g2_button, width=30)\
+            .grid(row=1, column=1, sticky='nsew', padx=2)
+        ctk.CTkButton(self.g2_subfrm, text="Reset", command=self.reset_g2_button, width=30)\
+            .grid(row=1, column=2, sticky='nsew', padx=2)
 
         # Group 2 selection list
         self.g2_sele_str = ctk.StringVar(self, "\n\n\n\n")
@@ -376,7 +397,8 @@ class Vorpy(ctk.CTk):
         ctk.CTkButton(self.group_frame, text="Export\nGroup", command=self.export_g2_button).grid(row=1, column=2)
 
         # Export interface button
-        ctk.CTkButton(self.group_frame, text="Export\nInterface", command=self.export_iface_button).grid(row=2, columnspan=3, padx=5, pady=5)
+        ctk.CTkButton(self.group_frame, text="Export\nInterface", command=self.export_iface_button)\
+            .grid(row=2, columnspan=3, padx=5, pady=5)
 
         ######################################### Top buttons ##########################################################
 
@@ -427,13 +449,17 @@ class Vorpy(ctk.CTk):
         self.atom_list = self.sys.atom_names
 
 
-        self.choose_mol_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.sys.mol_names, variable=self.current_selection, width=400)
+        self.choose_mol_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.sys.mol_names,
+                                                 variable=self.current_selection, width=400)
         self.choose_mol_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
-        self.choose_res_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.sys.res_names, variable=self.current_selection, width=400)
+        self.choose_res_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.sys.res_names,
+                                                 variable=self.current_selection, width=400)
         self.choose_res_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
-        self.choose_ndx_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.sys.ndx_names, variable=self.current_selection, width=400)
+        self.choose_ndx_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.sys.ndx_names,
+                                                 variable=self.current_selection, width=400)
         self.choose_ndx_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
-        self.choose_atom_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.sys.atom_names, variable=self.current_selection, width=400)
+        self.choose_atom_list = ctk.CTkOptionMenu(self.choose_list_subfrm, values=self.sys.atom_names,
+                                                  variable=self.current_selection, width=400)
         self.choose_atom_list.grid(row=2, columnspan=4, sticky='ew', padx=10, pady=6)
         # Set the output directory
         self.out_dir_str.set(set_output_dir(self.sys))
@@ -494,12 +520,13 @@ class Vorpy(ctk.CTk):
 
         self.sys.build_network(max_vert=self.max_vert.get(), surf_res=self.surf_res.get(),
                                flat_faces=self.flat_faces.get(), box_size=self.box_size.get(),
-                               find_verts=self.use_loaded_verts.get())
+                               calc_verts=self.use_loaded_verts.get())
         self.net_data.set(str(len(self.sys.net.surfs)) + "\n" + str(len(self.sys.net.edges)) + "\n" +
                           str(len(self.sys.net.verts)) + "\n    ~    \n    ~    \n    ~   ")
 
-        self.build_data.set(str(self.sys.net.my_time) + "\n" + str(self.sys.net.cpu_time) + "\n" + str(self.sys.net.min_dist) +
-                            "\n" + str(self.sys.net.box_size) + "\n" + str(self.sys.net.max_vert))
+        self.build_data.set(str(self.sys.net.my_time) + "\n" + str(self.sys.net.cpu_time) + "\n" +
+                            str(self.sys.net.min_dist) + "\n" + str(self.sys.net.box_size) + "\n" +
+                            str(self.sys.net.max_vert))
 
 
     ############################################### Export Frame #######################################################
@@ -530,7 +557,7 @@ class Vorpy(ctk.CTk):
 
     def set_show_list_res(self):
         """
-        Shows the reside list in the dropdown menu of the choose section of the save frame
+        Shows the residue list in the dropdown menu of the choose section of the save frame
         :return:
         """
         self.choose_res_list.tkraise()
