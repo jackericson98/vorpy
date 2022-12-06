@@ -22,7 +22,11 @@ Vorpy is a comprehensive 3D Voronoi cell generator designed for molecular analys
 
 ## Usage (Jupyter Notebook)
 
-1. Load your file:
+1. Import the system object and other helpful functions
+   ```
+   from System.system import *
+   ```
+2. Load your file:
 
    ```
    sys = System("PATH/TO/FILE.pdb")
