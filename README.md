@@ -3,7 +3,7 @@
 ## Description
 
 
-Vorpy is a comprehensive 3D Voronoi cell generator designed for molecular analysis. It works by sampling a network of points equidistant from the surfaces of neighboring atoms. Then constructs the cells around a group of atoms or interfaces between two groups of atoms for analysis. 
+Vorpy is a comprehensive 3D Voronoi cell generator designed for molecular analysis. It works by sampling a network of points equidistant from the surfaces of neighboring atoms. Then constructs the cells around a group of atoms or interfaces between two groups of atoms for analysis. Created by Jack Ericson in collaboration with Georgia State University 
 
 
 ## Installation
