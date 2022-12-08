@@ -213,6 +213,8 @@ class Network:
         # If the system has no name, one needs top be set
         if self.sys.name is None:
             self.sys.name = "User_Atoms"
+        print("Building {} network\n    Maximum Vertex Radius = {}\n    Surface Resolution = {}\n    SOL Verts = {}\n"
+              .format(self.sys.name, self.max_vert, self.min_dist, self.sol_verts))
         # Check for input values for the network build
         if max_vert is not None:
             self.max_vert = max_vert
@@ -251,6 +253,10 @@ class Network:
         self.my_time = stop - start
         if output:
             self.sys.initial_export()
+
+        # Print the network data
+        print("\n{} Network Built:\n    Time = {:.2f} seconds\n    Vertices Found = {}\n    Surfaces Built = {}\n"
+              .format(self.sys.name, self.my_time, len(self.verts), len(self.surfs)))
 
     def rebuild_net(self, resolution=None, flat_faces=None, max_vert=None, box_size=None):
         pass
