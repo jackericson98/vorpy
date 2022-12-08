@@ -6,7 +6,8 @@ from System.output import *
 User Example:
  
  To use this script follow the triple quotation comments in the code for instructions for setting up the program. Then 
- run this script and analyze the results.
+ run this script and analyze the results. All of the variables work in their current state, so only change the ones 
+ needed
 
 
 """
@@ -50,6 +51,8 @@ mySys = System(file=test_files[3],
     a. surf_res: Resolution of surfaces created in network -|- From 0.01 to 1 A (Angstroms), recommended 0.1 A
     b. max_vert: Maximum allowed vertex radius for network -|- From 0.10 to 20 A, recommended 7 A 
     c. box_size: Allowed vertex retaining box size multiplier -|- From 1 to 10 A, recommended 1.5 A
+    d. sol_verts: Calculate the vertices between the solute atoms or just the molecule atoms
+    e. output: 
 """
 mySys.build_network(surf_res=0.2,
                     max_vert=10,
@@ -71,7 +74,6 @@ mySys.build_network(surf_res=0.2,
     h. grid: Show the grid for the plot
 
 """
-
 plot_net(net=mySys.net,
          Show=True,
          atoms=True,
@@ -96,7 +98,7 @@ group1 = Group(net=mySys.net,
                ndxs=None,
                name=mySys.name + "_g1")
 """
-4b. Create a Group 2 for comparative and interfacial analysis between the two groups
+4b. (optional) Create a Group 2 for comparative and interfacial analysis between the two groups
 """
 group2 = Group(net=mySys.net,
                mols=None,
@@ -113,15 +115,20 @@ group2 = Group(net=mySys.net,
     a. network: Export the reloadable network file created from a previously solved system
     b. pdb: Export a pdb file for the system (if a file was loaded it is a copy of that file)
     c. surfaces: Export all surfaces from the network
-    d.no_sol_network_object: Export the outer surfaces for all of the 
+    d. no_sol_network_object: Export the outer surfaces for all of the 
+    e. alter_atoms_script: Export a script to alter the atoms in pymol to what they are set to here
+    f. export_groups: Export the groups created above
+    g. export_interface: Export the interface between the two groups above 
 """
-
-mySys.initial_export(network=True,
-                     pdb=True,
-                     surfaces=True,
-                     full_network_object=True,
-                     no_sol_network_object=True,
-                     alter_atoms_script=True)
+mySys.exports(groups=[group1, group2],
+              network=True,
+              pdb=True,
+              surfaces=True,
+              full_network_object=True,
+              no_sol_network_object=True,
+              alter_atoms_script=True,
+              export_groups=True,
+              export_interface=True)
 
 ########################################## Run this program ############################################################
 

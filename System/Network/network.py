@@ -252,7 +252,7 @@ class Network:
         stop = time.perf_counter()
         self.my_time = stop - start
         if output:
-            self.sys.initial_export()
+            self.sys.exports()
 
         # Print the network data
         print("\n{} Network Built:\n    Time = {:.2f} seconds\n    Vertices Found = {}\n    Surfaces Built = {}\n"
