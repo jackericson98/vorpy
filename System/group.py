@@ -2,7 +2,7 @@
 
 class Group:
     """Group class. Used to hold selections of atoms and do analysis on it"""
-    def __init__(self, net, atoms, name=None):
+    def __init__(self, net, atoms=None, name=None, mols=None, residues=None, my_atoms=None, ndxs=None):
 
         self.net = net                 # Network            :    Network of the System
         self.atoms = atoms             # Atoms              :    List of Atom type objects for the edge
@@ -20,6 +20,17 @@ class Group:
         self.iface_surfs = None        # Interface surfaces :    Surfaces that make the interface
         self.iface_atoms = None        # Interface atoms    :    Atoms in the group in the interface
         self.iface_sa = None           # Surface area       :    Surface area of the interface
+
+        # Check if the group gets initialized with string versions of common identifiers
+        if mols is not None:
+            self.get_mol_atoms(mols)
+        if residues is not None:
+            self.get_res_atoms(residues)
+        if my_atoms is not None:
+            self.get_atom_atoms(my_atoms)
+        if ndxs is not None:
+            self.get_ndx_atoms(ndxs)
+
 
 
     # Get information method. Gathers the information for the group(s) selected
@@ -99,3 +110,28 @@ class Group:
         self.atoms = self.atoms[:len(self.atoms) - len(last_select)]
         self.get_info()
 
+    # Get group function. Interprets the strings from below
+    def get_mol_atoms(self, mols):
+        # Get the molecules from their names
+        mol_atoms = []
+        for mol in mols:
+            self.atoms += self.net.sys.mols[self.net.sys.mol_names.index(mol)]
+
+    # Get group function. Interprets the strings from below
+    def get_res_atoms(self, residues):
+        # Get the molecules from their names
+        res_atoms = []
+        for res in residues:
+            self.atoms += self.net.sys.residues[self.net.sys.res_names.index(res)]
+
+    # Get group function. Interprets the strings from below
+    def get_atom_atoms(self, atoms):
+        # Get the molecules from their names
+        for atom in atoms:
+            self.atoms.append(self.net.sys.atoms[int(atom)])
+
+    # Get group function. Interprets the strings from below
+    def get_ndx_atoms(self, ndxs):
+        # Get the molecules from their names
+        for ndx in ndxs:
+            self.atoms += self.net.sys.ndxs[self.net.sys.ndx_names.index(ndx)]

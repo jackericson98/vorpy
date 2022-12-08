@@ -3,39 +3,21 @@ import os
 from System.system import System, Group
 from System.output import *
 
-os.chdir("../..")
-
 """
 User Example. Follow the triple quotation comments in the code for instructions
 """
 
+#################################### Example system bank ###############################################################
 
-# Get group function. Interprets the strings from below
-def get_group(selections, sys, name=None):
-    print(selections)
-    # Get the molecules from their names
-    mol_atoms = []
-    for mol in selections[0]:
-        mol_atoms += sys.mols[sys.mol_names.index(mol)]
-    res_atoms = []
-    for res in selections[1]:
-        res_atoms += sys.residues[sys.res_names.index(res)]
-    my_atoms = [sys.atoms[int(atom)] for atom in selections[2]]
-    ndx_atoms = []
-    for ndx in selections[3]:
-        ndx_atoms += sys.ndxs[sys.ndx_names.index(ndx)]
-
-    return Group(net=sys.net, atoms=mol_atoms + res_atoms + my_atoms + ndx_atoms, name=name)
-
-
-#################################### Create the System #################################################################
-
+# Cube configuration of atoms
 cube_atoms = [[[-1, 0, 0], 1], [[1, 0, 0], 1], [[0, 1, 0], 1], [[0, -1, 0], 1], [[0, 0, 1], 1], [[0, 0, -1], 1],
               [[0, 0, 0], 0.5]]
 
 # Choose one of the following line for testing below (e.g. System(file=test_files[0]))  V V V
 test_files = ["Na5", "Na7", "EDTA_Mg", "1BNA", "cambrin", "DB1976", "hairpin", "18L4_benzene"]
 test_files = [os.getcwd() + "/Data/test_data/" + test_file + ".pdb" for test_file in test_files]
+
+#################################### Create the System #################################################################
 
 """
 1. Create the system and specify the different files. Either use the full file address or use a test file from above
@@ -71,10 +53,6 @@ mySys.build_network(surf_res=0.2,
                     sol_verts=False,
                     output=False)
 
-# Print the network data
-print("\r\n{} Network Built:\n\n    Time = {:.2f} seconds\n    Vertices Found = {}\n    Surfaces Built = {}\n"
-      .format(mySys.name, mySys.net.my_time, len(mySys.net.verts), len(mySys.net.surfs)), end="")
-
 ######################################### Plot the network #############################################################
 
 """
@@ -105,25 +83,23 @@ plot_net(net=mySys.net,
 
 """
 4. Create Group 1:
-    a. Using the names of the molecules, residues or atoms (e.g. mols = ["A", "C"], resids = ["DC 22"]) 
-    b. From the index_file loaded above (e.g. g1_ndxs = ["PROTEIN"]). The index file can also be loaded after the fact 
-       using mySys.load_ndx(file=path_str)
+    a. net: Network object (Use mySys.
 """
-g1_mols = []
-g1_resids = []
-g1_atoms = []
-g1_ndxs = []
+group1 = Group(net=mySys.net,
+               mols=None,
+               residues=None,
+               atoms=[1, 5, 6],
+               ndxs=None,
+               name=mySys.name + "_g1")
 """
-4b. Create a Group 2 for interfacial analysis
+4b. Create a Group 2 for comparative and interfacial analysis between the two groups
 """
-g2_mols = []
-g2_resids = []
-g2_atoms = []
-g2_ndxs = []
-
-# Get the groups
-group1 = get_group([g1_mols, g1_resids, g1_atoms, g1_ndxs], mySys)
-group2 = get_group([g2_mols, g2_resids, g2_atoms, g2_ndxs], mySys)
+group2 = Group(net=mySys.net,
+               mols=None,
+               residues=None,
+               atoms=[3, 4],
+               ndxs=None,
+               name=mySys.name + "_g2")
 
 ####################################### Export Selections ##############################################################
 
@@ -142,6 +118,7 @@ mySys.initial_export(network=True,
                      full_network_object=True,
                      no_sol_network_object=True,
                      alter_atoms_script=True)
+
 
 ########################################## Open in pymol ###############################################################
 
