@@ -1,5 +1,4 @@
 from Visualize.mpl_visualize import *
-import os
 from System.system import System, Group
 from System.output import *
 
@@ -20,7 +19,7 @@ test_files = [os.getcwd() + "/Data/test_data/" + test_file + ".pdb" for test_fil
 #################################### Create the System #################################################################
 
 """
-1. Create the system and specify the different files. Either use the full file address or use a test file from above
+1. Create the system and specify the different files. Use the full file address (or select test_files[i] for i in 0-7)
     a. file: Main system file address. .pdb, .gro, .mol, .cif file types allowed. This gets priority over atoms
     b. atoms: List of either location and radii data or Atom objects (e.g. System(atoms=[[[1, 0, 0], 2], ... ])
     c. network_file: Network file address. Must be created with the same atoms as the current system  ...   VVV
@@ -30,7 +29,7 @@ test_files = [os.getcwd() + "/Data/test_data/" + test_file + ".pdb" for test_fil
     g. output_directory: Directory address for desired output destination for network exports
 
 """
-mySys = System(file=test_files[0],
+mySys = System(file=test_files[3],
                atoms=None,
                network_file=None,
                verts_file=None,
@@ -119,6 +118,10 @@ mySys.initial_export(network=True,
                      no_sol_network_object=True,
                      alter_atoms_script=True)
 
+########################################## Run this program ############################################################
+
+if __name__ == '__main__':
+    pass
 
 ########################################## Open in pymol ###############################################################
 
