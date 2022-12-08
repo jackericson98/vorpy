@@ -16,22 +16,25 @@ def get_name(file):
 
 
 # Read pdb function. Interprets pdb data into a system of atom objects
-def read_pdb(sys):
+def read_pdb(sys, file=None):
+    # Check to see if the file is provided and use the base file if not
+    if file is None and sys.base_file[-3:] == 'pdb':
+        file = sys.base_file
     # Get the file information and make sure to close the file when done
-    with open(sys.base_file, 'r') as f:
-        file = f.readlines()
+    with open(file, 'r') as f:
+        my_file = f.readlines()
 
     # Add the system name and reset the atoms and data lists
     sys.name = get_name(sys.base_file)
     # Set up the atom and the data lists
     atoms, data = [], []
     # Go through each line in the file and check if the first word is the word we are looking for
-    for i in range(len(file)):
+    for i in range(len(my_file)):
         # Check to make sure the line isn't empty
-        if len(file[i]) == 0:
+        if len(my_file[i]) == 0:
             continue
         # Pull the file line and first word
-        line = file[i]
+        line = my_file[i]
         word = line[:4].lower()
         # Check to see if the line is an atom line
         if line and word == 'atom':  # Check if the line starts with atom
@@ -47,45 +50,54 @@ def read_pdb(sys):
             atoms.append(atom)
         # If the line is not an atom line store the other data
         else:
-            data.append(file[i].split())
+            data.append(my_file[i].split())
     # Return the atoms and the data
     return atoms, data
 
 
 # Read cif function. Interprets the data in a cif file
-def read_cif(sys):
+def read_cif(sys, file=None):
+    # Check to see if the file is provided and use the bse file if not
+    if file is None and sys.base_file[-3:] == 'cif':
+        file = sys.base_file
     # Get the file information and make sure to close the file when done
-    with open(sys.base_file, 'r') as f:
-        file = f.readlines()
+    with open(file, 'r') as f:
+        my_file = f.readlines()
     # Get the starting number for the line
-    num = int(file)
+    num = int(my_file)
     # Go through each line of the file
-    for i in range(len(file)):
+    for i in range(len(my_file)):
         # Split the line
-        file[i] = file[i].split()
+        my_file[i] = my_file[i].split()
         # Add the atoms
-        if file[i] == int(num) and len(file[i]) >= 7:
-            sys.atoms.append(Atom([file[i][9], file[i][10], file[i][11]],
-                                  get_radius(file[i][3], system=sys), element=file[i][3]))
+        if my_file[i] == int(num) and len(my_file[i]) >= 7:
+            sys.atoms.append(Atom([my_file[i][9], my_file[i][10], my_file[i][11]],
+                                  get_radius(my_file[i][3], system=sys), element=my_file[i][3]))
 
 
 # Read gro method. Interprets the data from a .cif file type
-def read_gro(sys):
+def read_gro(sys, file=None):
+    # Check to see if the file is provided and use the bse file if not
+    if file is None and sys.base_file[-3:] == 'gro':
+        file = sys.base_file
     # Get the file information and make sure to close the file when done
-    with open(sys.base_file, 'r') as f:
-        file = f.readlines()
+    with open(file, 'r') as f:
+        my_file = f.readlines()
     # Go through each line in the file and create an atom object
-    for line in file[2:-2]:
+    for line in my_file[2:-2]:
         sys.atoms.append(Atom([line[3], line[4], line[5]], get_radius(line[1][0], system=sys), element=line[1][0]))
 
 
 # Read mol method. Interprets the data from a .mol file type
-def read_mol(sys):
+def read_mol(sys, file=None):
+    # Check to see if the file is provided and use the bse file if not
+    if file is None and sys.base_file[-3:] == 'mol':
+        file = sys.base_file
     # Get the file information and make sure to close the file when done
-    with open(sys.base_file, 'r') as f:
-        file = f.readlines()
+    with open(file, 'r') as f:
+        my_file = f.readlines()
     # Go through the lines in the file
-    for line in file:
+    for line in my_file:
         # If the line is an atom line add the data
         if len(line) > 6:
             # Add the data
@@ -121,11 +133,14 @@ def read_vta_data(sys, ball_file, vert_file):
 
 
 # Input index function. Takes in an index file and loads it into the list of indices
-def read_ndx(sys):
+def read_ndx(sys, file=None):
+    # If no file is provided, check the system
+    if file is None:
+        file = sys.ndx_file
     # Get the file information and make sure to close the file when done
     try:
         with open(sys.ndx_file, 'r') as f:
-            file = f.readlines()
+            my_file = f.readlines()
     except FileNotFoundError:
         return
     # Set up the indices lists and the current index
@@ -133,7 +148,7 @@ def read_ndx(sys):
     indices = []
     names = []
     # Go through the lines in the file
-    for line in file:
+    for line in my_file:
         # Split the line into
         line = line.split()
         # Add the
@@ -149,11 +164,14 @@ def read_ndx(sys):
 
 
 # Import vertices function.
-def read_verts(net, filename):
+def read_verts(net, file=None):
+    # If file is None use the system's vertex file
+    if file is None:
+        file = net.sys.verts_file
     # Open the file
     try:
-        with open(filename) as f:
-            file = f.readlines()
+        with open(file) as f:
+            my_file = f.readlines()
     except FileNotFoundError:
         print("\r No such file exists", end="")
         return
@@ -161,7 +179,7 @@ def read_verts(net, filename):
     verts = []
     last_vert = None
     # Go through the lines in the file
-    for line in file[1:]:
+    for line in my_file[1:]:
         line = line.split()
         new_vert = Vertex(atoms=[net.atoms[_] for _ in line[1:4]], location=line[4:7], radius=line[7])
         verts.append(new_vert)
@@ -176,11 +194,11 @@ def read_verts(net, filename):
 
 
 # Import network function. Imports vorpy-created text document and creates network objects
-def read_net(net, filename, verts_only=False):
+def read_net(net, file, verts_only=False):
     # Open the file
     try:
-        with open(filename) as f:
-            file = f.readlines()
+        with open(file) as f:
+            my_file = f.readlines()
     except FileNotFoundError:
         print("\r No such file exists", end="")
         return
@@ -192,9 +210,9 @@ def read_net(net, filename, verts_only=False):
     num_verts, num_edges, num_surfs = 0, 0, 0
     print("\rLoading Network: ", end="")
     # Go through the file, line by line
-    for i in range(len(file)):
+    for i in range(len(my_file)):
         # Get the line
-        line = file[i]
+        line = my_file[i]
         # Check for empty lines
         if len(line) == 0:
             continue
