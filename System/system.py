@@ -5,62 +5,60 @@ from System.group import Group
 
 
 class System:
-    def __init__(self, base_file=None, atoms=None, net=None, mols=None, sol=None, residues=None, data=None, name=None,
-                 vert_file=None, net_file=None, index_file=None, sig_figs=3):
+    def __init__(self, file=None, atoms=None, verts_file=None, network_file=None, index_file=None, frame_files=None,
+                 output_directory=None, gui=None):
         """
         Class used to import files of all types and return a System
-        :param name: (str) Name describing the system
+        :param file: Base system file address
         :param atoms: List holding the atom objects
-        :param mols: List of molecule atom object lists
-        :param sol: List of solution atom objects
-        :param residues: List of residue atom object lists
-        :param data: Additional data provided by the base file
-        :param base_file: Base system file address
-        :param vert_file: Vertex data file address in vorpy format
-        :param net_file: Network data file address in vorpy format
+        :param verts_file: Vertex data file address in vorpy format
+        :param network_file: Network data file address in vorpy format
         :param index_file: Index file address in GROMACS index format
+        :param frame_files: Files for atom movements
+        :param output_directory: Directory for export files to be output to
+        :param gui: The GUI object (tkinter) associated with loading the system and loading/creating the network
         """
 
         # Names
-        self.name = name                    # Name                :   Name describing the system
+        self.name = None                    # Name                :   Name describing the system
         self.atom_names = None              # Atom Names          :   List holding the names of the atoms in the system
         self.mol_names = None               # Residue Names       :   List of molecule names
         self.res_names = None               # Residue Names       :   List of residue names
         self.ndx_names = None               # Index Names         :   List of names of indices corresponding to ndxs
 
         # Data
-        self.net = net                      # Network             :   Network object holding the primary network
+        self.net = None                     # Network             :   Network object holding the primary network
         self.atoms = atoms                  # Atoms               :   List holding the atom objects
         self.user_atoms = atoms             # User Atoms          :   List of user provided locations and radii
-        self.mols = mols                    # Molecules           :   List of molecules
-        self.residues = residues            # Residues            :   List of residues (lists of atoms)
-        self.sol = sol                      # Solution            :   List of solution molecules (lists of atoms)
+        self.mols = None                    # Molecules           :   List of molecules
+        self.residues = None                # Residues            :   List of residues (lists of atoms)
+        self.sol = None                     # Solution            :   List of solution molecules (lists of atoms)
         self.ndxs = None                    # Indices             :   List of lists indices of atoms
         self.radii = my_radii               # Radii               :   List of atomic radii
-        self.sig_figs = sig_figs            # Significant figures :   Significant figures setting for the whole system
+        self.sig_figs = None                # Significant figures :   Significant figures setting for the whole system
 
         # Set up the file attributes
-        self.data = data                    # Data                :   Additional data provided by the base file
-        self.base_file = base_file          # Base file           :   Primary file address
-        self.vert_file = vert_file          # Vertex file         :   Address to the vertices of the primary system
-        self.net_file = net_file            # Network files       :   Network files for multiple frames
+        self.data = None                    # Data                :   Additional data provided by the base file
+        self.base_file = file               # Base file           :   Primary file address
+        self.vert_file = verts_file         # Vertex file         :   Address to the vertices of the primary system
+        self.net_file = network_file        # Network files       :   Network files for multiple frames
         self.ndx_file = index_file          # Index file          :   File addresses for index file in GROMACS format
-        out_dir = os.getcwd() + "/Data/User_data/"
-        self.output_directory = out_dir     # Output Directory    :   Output directory for the export files
+        self.frame_files = frame_files      # Frame files         :   Files storing atom movements
+        self.dir = output_directory         # Output Directory    :   Output directory for the export files
         self.vorpy_directory = os.getcwd()  # Vorpy Directory     :   Directory that vorpy is running out of
 
         # Gui
-        self.gui = None                     # GUI                 :   GUI Vorpy object that can be updated through sys
+        self.gui = gui                     # GUI                 :   GUI Vorpy object that can be updated through sys
 
         # Load the base file if given one
         if self.base_file is not None:
-            self.load_sys_file(self.base_file)   # Forced loading of the base file
+            self.load_sys(self.base_file)   # Forced loading of the base file
         # Load the user atoms if given them
         if self.user_atoms is not None:
             self.load_sys_atoms()
 
 
-    def load_sys_file(self, file):
+    def load_sys(self, file):
         """
         Sets the base file for the system using one of the import file functions
         :param file: .pdb, .gro, .mol, .cif
@@ -111,12 +109,12 @@ class System:
         self.net = Network(self, atoms=self.atoms)
         read_net(self.net, net_file, verts_only=verts_only)
 
-    def load_ndx(self):
+    def load_ndx(self, file=None):
         """
         Reads GROMACS index files from the system level
         :return:
         """
-        read_ndx(self)
+        read_ndx(self, file=file)
 
     # Build System method.
     def load_sys_atoms(self):
@@ -201,7 +199,7 @@ class System:
         :return:
         """
         set_output_dir(self)
-        os.chdir(self.output_directory)
+        os.chdir(self.dir)
         # Check to see if a network exists
         if self.net is None:
             self.net = Network(self, atoms=self.atoms)
@@ -233,7 +231,7 @@ class System:
         :return:
         """
         # Change to the designated output directory
-        os.chdir(self.output_directory)
+        os.chdir(self.dir)
         # Export the first group's body
         export_body(group1, info_file=info)
         # Check for a second group
@@ -254,7 +252,7 @@ class System:
         Prepares the output directory and system for output. Keeps things consistent
         :return:
         """
-        os.chdir(self.output_directory)
+        os.chdir(self.dir)
         if network:
             # Export the network
             self.export_net()
@@ -275,8 +273,8 @@ class System:
             set_pymol_atoms(self)
         if surfaces:
             # Make the surfaces file
-            os.mkdir(self.output_directory + "/Surfaces")
-            os.chdir(self.output_directory + "/Surfaces")
+            os.mkdir(self.dir + "/Surfaces")
+            os.chdir(self.dir + "/Surfaces")
             # Export the surfaces one by one
             for i in range(len(self.net.surfs)):
                 # Export the
