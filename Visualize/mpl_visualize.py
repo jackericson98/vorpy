@@ -3,7 +3,7 @@ import numpy as np
 
 
 # Set up plot function. Used to set the parameters for the plot
-def setup_plot(fig=None, ax=None, dfo=None, grid=False, alpha=None, bg_color=None):
+def setup_plot(fig=None, ax=None, dfo=None, grid=False, bg_color=None):
     # Create a new subplot if one isn't specified
     if ax is None:
         # Create new figure if one isn't specified
@@ -28,10 +28,7 @@ def setup_plot(fig=None, ax=None, dfo=None, grid=False, alpha=None, bg_color=Non
             ax.set_facecolor(bg_color)
         else:
             ax.set_facecolor('k')
-    # Set alpha
-    if alpha is None:
-        alpha = 0.5
-    return fig, ax, alpha
+    return fig, ax
 
 
 # Plot spheres function. Plots the spheres specified
@@ -49,7 +46,7 @@ def plot_atoms(atoms=None, atom_list=None, colors=None, fig=None, ax=None, Show=
             locs.append(atom_list[i][0])
             rads.append(atom_list[i][1])
     # Set up the plot
-    fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha, bg_color)
+    fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Get the atoms colors
     if colors is None:
         atom_colors = {1.2: 'w', 1.52: 'r', 2.29: 'g', 1.55: 'b', 1.7: 'grey', 1.8: 'y'}
@@ -88,7 +85,7 @@ def plot_atoms(atoms=None, atom_list=None, colors=None, fig=None, ax=None, Show=
 def plot_verts(verts, spheres=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None,
                bg_color=None):
     # Set up the plot
-    fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha, bg_color)
+    fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Default color is red
     if colors is None:
         colors = ['r' for _ in range(len(verts))]
@@ -110,7 +107,7 @@ def plot_verts(verts, spheres=False, fig=None, ax=None, Show=False, dfo=None, gr
 # Plot edges function. Plots the edges given as lines
 def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None, bg_color=None):
     # Set up the plot
-    fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha, bg_color)
+    fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Set the color if it is not indicated already
     if colors is None:
         colors = ['grey' for _ in range(len(edges))]
@@ -138,7 +135,7 @@ def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, color
 def plot_surfs(surfs, simps=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None,
                bg_color=None):
     # Set up the plot
-    fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha, bg_color)
+    fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Set up the colors
     if colors is None:
         colors = ['w' for _ in range(len(surfs))]
@@ -163,10 +160,10 @@ def plot_surfs(surfs, simps=False, fig=None, ax=None, Show=False, dfo=None, grid
         plt.show()
 
 
-# Plot simplices function
+# Plot simplices function.
 def plot_simps(surf, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=None, bg_color=None):
     # Set up the plot
-    fig, ax, alpha = setup_plot(fig, ax, dfo, grid, alpha, bg_color)
+    fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Go through each triangle in the surfaces list of simplices
     for simp in surf.simps.triangles:
         p0, p1, p2 = surf.points[simp[0]], surf.points[simp[1]], surf.points[simp[2]]
@@ -174,5 +171,31 @@ def plot_simps(surf, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=
         ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], c='w', linewidth=.1)
         ax.plot([p2[0], p0[0]], [p2[1], p0[1]], [p2[2], p0[2]], c='w', linewidth=.1)
     # Show the figure
+    if Show:
+        plt.show()
+
+
+# Plot network function. Plots the network items
+def plot_net(net, plot_all=False, atoms=False, verts=False, edges=False, surfs=False, fig=None, ax=None, grid=False,
+             bg_color=None, dfo=None, Show=True):
+    # Check for a figure or an ax
+    if fig is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(projection="3d")
+    # Set up the plot
+    fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
+    # Atoms
+    if atoms or plot_all:
+        plot_atoms(net.atoms, fig=fig, ax=ax)
+    # Vertices
+    if verts or plot_all:
+        plot_verts(net.verts, fig=fig, ax=ax)
+    # Edges
+    if edges or plot_all:
+        plot_edges(net.edges, fig=fig, ax=ax)
+    # Surfaces
+    if surfs or plot_all:
+        plot_surfs(net.surfs, fig=fig, ax=ax)
+    # Show the plot
     if Show:
         plt.show()
