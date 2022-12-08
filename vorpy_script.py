@@ -3,7 +3,12 @@ from System.system import System, Group
 from System.output import *
 
 """
-User Example. Follow the triple quotation comments in the code for instructions
+User Example:
+ 
+ To use this script follow the triple quotation comments in the code for instructions for setting up the program. Then 
+ run this script and analyze the results.
+
+
 """
 
 #################################### Example system bank ###############################################################
