@@ -31,7 +31,7 @@ def set_output_dir(sys, dir_name=None):
         except FileExistsError:
             i += 1
     # Set the output directory for the system
-    sys.output_directory = dir_name + i_str
+    sys.dir = dir_name + i_str
 
 
 def write_pdb(atoms, name, sys=None):
@@ -126,7 +126,7 @@ def export_iface(groups, info_file=False, interface_atoms=False):
     # Set the interface name
     interface_name = g0.name + "_" + g1.name + "_interface"
     # Move to the output directory
-    os.chdir(g0.net.sys.output_directory)
+    os.chdir(g0.net.sys.dir)
     # Make sure the two groups are best friends
     if g0.bff != g1 or g1.bff != g0:
         # Set the groups as friends
@@ -154,7 +154,7 @@ def export_iface(groups, info_file=False, interface_atoms=False):
 # Export interface information function. Exports the information from the given body as a txt file
 def export_body(group, info_file=False, outer_atoms=False):
     # Move to the output directory
-    os.chdir(group.net.sys.output_directory)
+    os.chdir(group.net.sys.dir)
     # If the group name is empty, name it
     if group.name is None:
         group.set_name()
@@ -178,7 +178,7 @@ def export_body(group, info_file=False, outer_atoms=False):
 # Export vertices function.
 def export_verts(net):
     # Move to the correct output directory
-    os.chdir(net.sys.output_directory)
+    os.chdir(net.sys.dir)
     # Open the file for the vertices
     file = open(net.sys.name + "_verts.txt", 'w')
     # Create a header for the vertices file
@@ -199,7 +199,7 @@ def export_verts(net):
 def export_net(net):
 
     # Move to the output directory
-    os.chdir(net.sys.output_directory)
+    os.chdir(net.sys.dir)
     # Create the network file
     file = open(net.sys.name + "_network.txt", 'w')
     # Write the general information about the system
