@@ -435,7 +435,7 @@ class Vorpy(ctk.CTk):
         self.sys.name = filename[::-1][:-4]
         self.sys_name.set(self.sys.name)
         # Load the system
-        self.sys.load_sys_file(file_path)
+        self.sys.load_sys(file_path)
         # Set the system information
         # We want to get the number of atoms, the number of molecules, etc
         myStr = str(len(self.sys.atoms)) + '\n' + str(len(self.sys.mols)) + '\n' + str(len(self.sys.residues)) + \
@@ -541,7 +541,7 @@ class Vorpy(ctk.CTk):
         # Create the System
         if file_path:
             # Set the system's output directory and the string version of the file location
-            self.sys.output_directory = file_path
+            self.sys.dir = file_path
             self.out_dir_str.set(file_path[:12] + ' ... ' + file_path[-12:])
 
     def set_show_list_mol(self):

@@ -361,7 +361,7 @@ class Vorpy:
         self.sys.name = filename[::-1][:-4]
         self.sys_name.set(self.sys.name)
         # Load the system
-        self.sys.load_sys_file(file_path)
+        self.sys.load_sys(file_path)
         # Set the system information
         # We want to get the number of atoms, the number of molecules, etc
         myStr = str(len(self.sys.atoms)) + '\n' + str(len(self.sys.mols)) + '\n' + str(len(self.sys.residues)) + \
