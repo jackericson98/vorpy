@@ -3,16 +3,15 @@
 ## Description
 
 
-Vorpy is an open-source comprehensive 3D Voronoi network generator for 3D spheres. It is designed with simulated molecular analysis in mind. Vorpy processes time-stamps of simulations of molecules by samples a network of points equidistant from the surfaces of all neighboring atoms in the system. This results in a partitioning of the system atom by atom and a provides a set of atom to atom partitioning surfaces for analysis. 
+Vorpy is a comprehensive Voronoi cell network generator for 3D spheres designed with simulated molecular dynamics (md) analysis in mind. It works by partitioning the space between simulated atoms and using these partitions to calculate volumes and surface areas of bodies and interfaces of interest (residue, protein/DNA, etc.). By probing inter-atomic partitions it is possible to better understand a number of features of simulated molecules ranging inter-atomic influence in different chemical bonds to the evolution of a protein-DNA complex. 
 
-The general use case would be for analysis of simulated olecule files for volume, interface and void analysis. Once a frame is analyzed all of these data points can be deriven. For example, if a molecule is simulated in solution until it reaches a certain equilibrium, a frame can be processed through vorpy and tested for volume and voids. 
-
-Created by Jack Ericson in collaboration with Georgia State University 
+Created by Jack Ericson - Georgia State University 
 
 ## Prerequisites
+
 - Dependencies: >= python 3.9
 - Instalation:
-Move to the vorpy directory in a shell or command prompt:
+   Move to the vorpy directory in a shell or command prompt:
    ```
    cd PATH/TO/vorpy
    ```
@@ -20,7 +19,7 @@ Move to the vorpy directory in a shell or command prompt:
    ```
    pip install requirements.txt
    ```
-Note: If installing the requirements.txt fails, retry with just numpy and matplotlib (ex: pip install matplotlib) and only use the command prompt, jupyter notebook or script provided below
+   Note: If installing the requirements.txt fails, retry with just numpy and matplotlib (ex: pip install matplotlib) and only use the command prompt, jupyter notebook     or script provided below
 
 ## Usage
 
@@ -73,13 +72,14 @@ Once built the network can be viewed in a number of ways. The first being trough
 
 #### Pymol
 
-Pymol is currently the best way to view the data produced from vorpy and can be downloaded here:
-https://pymol.org/2/ . Once downloaded run the software through one of the processes above and drag the output files (.off) and the system files (.pdb) into the pymol frame. Be sure to use the "set_pymol_atoms.pml" script to get accurately set atom radii.
+Pymol is currently the best way to view the data produced from vorpy and can be downloaded here: https://pymol.org/2/ . Once downloaded run the software through one of the processes above and drag the output files (.off) and the system files (.pdb) into the pymol frame. Be sure to use the "set_pymol_atoms.pml" script to get accurately set atom radii.
 
-#### VMD
+#### plot_net
 
-I have never tried vmd
+For small systems, the plot_net function in Visualize.mpl_visualize can be used
+
 ## Citation
+
 [![DOI](https://zenodo.org/badge/502126698.svg)](https://zenodo.org/badge/latestdoi/502126698)
 
 
