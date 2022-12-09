@@ -125,7 +125,7 @@ def find_site(net, edge_atoms, vn_1=None):
         atom_ndxs = [net.atoms.index(atom1) for atom1 in edge_atoms + [atom]]
         atom_ndxs.sort()
         # Get the vertex's index/insert index
-        vert_ndx = search_verts(net.vert_ndxs, atom_ndxs)
+        vert_ndx = ndx_search(net.vert_ndxs, atom_ndxs)
         # If the vertex has been found before connect it to the previous one and return
         if vert_ndx < len(net.vert_ndxs) and net.vert_ndxs[vert_ndx] == atom_ndxs:
             return
@@ -205,7 +205,7 @@ def find_verts(net, a0=None):
         net.vert_ndxs = [v0.ndx]
         net.edges = []
     else:
-        my_ndx = search_verts(net.vert_ndxs, v0.ndx)
+        my_ndx = ndx_search(net.vert_ndxs, v0.ndx)
         net.verts.insert(my_ndx, v0)
         net.vert_ndxs.insert(my_ndx, v0.ndx)
     # Set up the vertex stack
