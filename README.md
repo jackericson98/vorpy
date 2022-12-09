@@ -53,7 +53,7 @@ Created by Jack Ericson - Georgia State University
 ### Script
 
 1. Open vorpy_script.py in an ide
-2. Change the load/build/output settings using the comments 
+2. Change the load/build/output settings following the provided comments for instruction
 3. Run the script
 
 ### Jupyter Notebook
