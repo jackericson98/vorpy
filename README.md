@@ -27,11 +27,11 @@ Created by Jack Ericson - Georgia State University
 
 1. Move to the main vorpy directory in a shell or command prompt
 2. Run the either of following
-   Basic GUI
+   Basic Gui
    ```
    py vorpy_gui.py
    ```
-   Fancy GUI
+   Fancy Gui
    ```
    py vorpy_gui1.py
    ```
