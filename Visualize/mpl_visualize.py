@@ -65,7 +65,7 @@ def plot_atoms(atoms=None, atom_list=None, colors=None, fig=None, ax=None, Show=
     # Plot the spheres as wireframes
     else:
         # Set the resolution of the spheres
-        f = 5 - len(locs) // 20
+        f = max(3 - len(locs) // 40, 1)
         # Find u, v values that span phi and theta
         u, v = np.mgrid[0:2 * np.pi:f*res*2j, 0:np.pi:f*res*1j]
         # Plot each sphere
@@ -132,7 +132,7 @@ def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, color
 
 
 # Plot surfaces function. Plots the surfaces given
-def plot_surfs(surfs, simps=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None,
+def plot_surfs(surfs, simps=True, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None,
                bg_color=None):
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
@@ -177,7 +177,7 @@ def plot_simps(surf, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=
 
 # Plot network function. Plots the network items
 def plot_net(net, plot_all=False, atoms=False, verts=False, edges=False, surfs=False, fig=None, ax=None, grid=False,
-             bg_color=None, dfo=None, Show=True):
+             bg_color='white', dfo=None, Show=True, a_alpha=1, v_alpha=1, e_alpha=1, s_alpha=1):
     # Check for a figure or an ax
     if fig is None:
         fig = plt.figure()
@@ -186,16 +186,16 @@ def plot_net(net, plot_all=False, atoms=False, verts=False, edges=False, surfs=F
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Atoms
     if atoms or plot_all:
-        plot_atoms(net.atoms, fig=fig, ax=ax)
+        plot_atoms(net.atoms, fig=fig, ax=ax, alpha=a_alpha)
     # Vertices
     if verts or plot_all:
-        plot_verts(net.verts, fig=fig, ax=ax)
+        plot_verts(net.verts, fig=fig, ax=ax, colors=['r' for _ in range(len(net.verts))], alpha=v_alpha)
     # Edges
     if edges or plot_all:
-        plot_edges(net.edges, fig=fig, ax=ax)
+        plot_edges(net.edges, fig=fig, ax=ax, colors=['k' for _ in range(len(net.edges))], alpha=e_alpha)
     # Surfaces
     if surfs or plot_all:
-        plot_surfs(net.surfs, fig=fig, ax=ax)
+        plot_surfs(net.surfs, fig=fig, ax=ax, colors=[np.random.rand(3) for _ in range(len(net.surfs))], alpha=s_alpha)
     # Show the plot
     if Show:
         plt.show()
