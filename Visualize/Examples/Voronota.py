@@ -1,6 +1,6 @@
 import os
 from System.system import System
-from Visualize.visualize import *
+from Visualize.mpl_visualize import *
 from System.input import read_vta_data
 
 os.chdir("../..")
