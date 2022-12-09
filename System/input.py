@@ -38,7 +38,9 @@ def read_pdb(sys, file=None):
         word = line[:4].lower()
         # Check to see if the line is an atom line
         if line and word == 'atom':  # Check if the line starts with atom
-
+            # Check for the "m" situation
+            if line[76:78] == ' M':
+                continue
             # Create the atom
             atom = Atom([float(line[30:38]), float(line[38:46]), float(line[46:54])], get_radius(line[76:78], sys),
                         element=line[76:78], residue=line[17:20], chain=line[21], res_seq=line[22:26], name=line[12:16],
@@ -181,7 +183,10 @@ def read_verts(net, file=None):
     # Go through the lines in the file
     for line in my_file[1:]:
         line = line.split()
-        new_vert = Vertex(atoms=[net.atoms[_] for _ in line[1:4]], location=line[4:7], radius=line[7])
+        if line[0].lower() != 'vert':
+            continue
+        new_vert = Vertex(atoms=[net.atoms[int(_)] for _ in line[1:5]], location=[float(_) for _ in line[5:8]],
+                          radius=float(line[8]), ndx=[int(_) for _ in line[1:5]])
         verts.append(new_vert)
         if last_vert is not None and last_vert.ndx == new_vert.ndx:
             # Link the doublets
