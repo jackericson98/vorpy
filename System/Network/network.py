@@ -26,6 +26,8 @@ class Network:
         self.atoms_box = []           # Atoms box       :  Holds the min and max verts for the box containing the atoms
         self.max_atom_rad = 0         # Max atom rad    :  Holds the largest radius of the system for reference
         self.vert_ndxs = []           # Vert indices    :  Holds the indices of the atoms of the vertices in the network
+        self.edge_ndxs = []           # Edge indices    :  Holds the indices of the atoms of the edges in the network
+        self.surf_ndxs = []           # Surface indices :  Holds the indices of the atoms of the surfaces in the network
         self.atom_ndxs = []           # Atom indices    :  Used to track atoms that have been used in a vertex
         # Settings
         self.min_dist = min_dist      # Resolution      :  How small the triangles in the surfaces are
@@ -217,7 +219,7 @@ class Network:
 
 
     def build(self, output=True, surf_res=None, max_vert=None, box_size=None, sol_verts=True, flat_faces=False,
-              calc_verts=True):
+              calc_verts=None):
         """
         Build network function used to calculate the voronoi
         :param output:
@@ -232,7 +234,7 @@ class Network:
         # If the system has no name, one needs top be set
         if self.sys.name is None:
             self.sys.name = "User_Atoms"
-        print("Building {} network\n    Maximum Vertex Radius = {}\n    Surface Resolution = {}\n    SOL Verts = {}\n"
+        print("\nBuilding {} network\n    Maximum Vertex Radius = {}\n    Surface Resolution = {}\n    SOL Verts = {}\n"
               .format(self.sys.name, max_vert, surf_res, sol_verts))
         # Check for input values for the network build
         if max_vert is not None:
@@ -250,15 +252,16 @@ class Network:
         # Sort the atoms in the network
         self.sort_atoms()
         # Check to see if there are vertices loaded
-        if calc_verts:
-            # Find the vertices
-            self.find_verts()
-            # Check to see if there are vertices
+        if calc_verts is None or calc_verts:
             if self.verts is None or len(self.verts) == 0:
-                return
+                # Find the vertices
+                self.find_verts()
+                # Export the vertices
+                self.sys.export_verts()
 
-            # Export the vertices
-            self.sys.export_verts()
+        # Check to see if there are vertices
+        if self.verts is None or len(self.verts) == 0:
+            return
         # Connect the network
         self.connect()
         # Build the edges in the network
