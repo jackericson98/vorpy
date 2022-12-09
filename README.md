@@ -25,77 +25,46 @@ pip install requirements.txt
 
 ### Gui 
 
-1. Download the repository and move to the main vorpy directory in a shell or command prompt
-2. Install the requirements (see prerequisites section)
-3. Run the following from the vorpy directory
+1. Move to the main vorpy directory in a shell or command prompt
+2. Run the either of following
+   Basic GUI
    ```
-   py vorpy.py
+   py vorpy_gui.py
    ```
-2. From the load screen of the gui load your pdb file (for testing go to the vorpy/Data/test_data folder)
-3. From the build screen of the gui change the settings and then click build
-4. From the analyze screen analyze the newly constructed network
+   Fancy GUI
+   ```
+   py vorpy_gui1.py
+   ```
+   
+3. From the load screen of the gui load your pdb file (for testing go to the vorpy/Data/test_data folder)
+4. From the build screen of the gui change the settings and then click build
+5. From the analyze screen analyze the newly constructed network
+6. Use a software like pymol to view the outputs
+
+### Command Line 
+
+1. Move to the main vorpy directory in a shell or command prompt
+2. Run the following
+```
+py vorpy.py
+```
+3. Follow the prompts
+
+### Script
+
+1. Open vorpy_script.py in an ide
+2. Change the load/build/output settings using the comments 
+3. Run the script
 
 ### Jupyter Notebook
 
-1. Download the repository and move to the main vorpy directory in a shell or command prompt
-2. Install the requirements (see prerequisites section)
-2. Import the system object and other helpful functions
-   ```
-   from System.system import *
-   ```
-2. Load your file:
-
-   ```
-   sys = System("PATH/TO/FILE.pdb")
-   ```
-2. Build the network:
-   ```
-   sys.build_network(sol_verts=False, surf_res=0.2, max_vert=10, box_size=1.5)
-   ```
-3. Plot the compnents
-   ```
-   from Visualize.mpl_visualize import *
-   fig = plt.figure()
-   ax = fig.add_subplot(projection="3d")
-   plot_atoms(net.atoms[0:1], fig=fig, ax=ax)
-   plot_verts(net.atoms[0].verts, fig=fig, ax=ax)
-   plot_edges(net.atoms[0].edges, fig=fig, ax=ax)
-   plot_surfs(net.atoms[0].surfs, fig=fig, ax=ax, Show=True)
-   ```
-4. Analyze the network
-   The user can analyze atoms, surfaces, vertices or any other network object individually:
-   ```
-   my_vol = 0
-   for atom in sys.mols[0]:
-      my_vol += atom.vol
-   print("Molecule {} has volume: {} Angstroms Cubed".format(sys.mol_names[0], my_vol)
-   
-   ```
-   The user can also create groups for analysis
-   ```
-   g1 = Group(net=sys.net, atoms=sys.atoms[22:45], name="My_group1")
-   g1.get_info()
-   print(g1.body_vol)
-   
-   ```
- 5. Export data
-    Exporting the network will allow the network to be re-loaded without having to be calculated
-    ```
-    sys.export_net()
-    ```
-    Similarly the user can export vertices
-    ```
-    sys.export_verts()
-    ```
-    The user can export the surfaces associated with a group
-    ```
-    sys.export_selection(group1=g1, info=True)
-    ```
-    or the interface between two groups
-    ```
-    g2 = Group(net=sys.net, atoms=sys.atoms[:22], name="My_group2")
-    sys.export_selection(group1=g1, group2=g2, info=True)
-    ```
+1. Make sure you have Anaconda downloaded
+2. Move to the vorpy directory in an Anaconda shell and type:
+```
+jupyter notebook
+```
+3. Select the vorpy_jupnot.ipynb file
+4. Follow the instructions in the file
 
 ### Visualization
 
