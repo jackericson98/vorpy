@@ -267,32 +267,32 @@ def check_vert(v_atoms, vert_list):
     return
 
 
-def search_verts(my_vert_ndxs, vert_ndx):
+def ndx_search(ndxs_list, ndxs):
     """
      Searches a list of indices of atoms sorted by smallest atom and where the vertex would be
-    :param my_vert_ndxs: The index for checking
-    :param vert_ndx: The indices to check against
+    :param ndxs_list: The index for checking
+    :param ndxs: The indices to check against
     :return: The vertex index of the vertex or where the vertex should be inserted
     """
     # If the length of the test list is equal to 0 return the next index
-    if len(my_vert_ndxs) <= 1:
+    if len(ndxs_list) <= 1:
         # If there exists one vertex already and the new vertex is less than the old vertex return 1
-        if len(my_vert_ndxs) > 0 and vert_ndx > my_vert_ndxs[0]:
+        if len(ndxs_list) > 0 and ndxs > ndxs_list[0]:
             return 1
         # Otherwise, return 0
         return 0
     # Get the middle of the list of vertices
-    mid_list_ndx = len(my_vert_ndxs) // 2
+    mid_list_ndx = len(ndxs_list) // 2
     # If the search element (my_list) is greater than the test element (test_lol) search the lower half of test_lol
-    if vert_ndx > my_vert_ndxs[mid_list_ndx]:
-        my_vert_ndx = search_verts(my_vert_ndxs[mid_list_ndx:], vert_ndx)
-        return my_vert_ndx + len(my_vert_ndxs[:mid_list_ndx])
+    if ndxs > ndxs_list[mid_list_ndx]:
+        ndxs_ndx = ndx_search(ndxs_list[mid_list_ndx:], ndxs)
+        return ndxs_ndx + len(ndxs_list[:mid_list_ndx])
     # If the search element (my_list) is less than the test element (test_lol) search the upper half of test_lol
-    elif vert_ndx < my_vert_ndxs[mid_list_ndx]:
-        my_vert_ndx = search_verts(my_vert_ndxs[:mid_list_ndx], vert_ndx)
-        return my_vert_ndx
+    elif ndxs < ndxs_list[mid_list_ndx]:
+        ndxs_ndx = ndx_search(ndxs_list[:mid_list_ndx], ndxs)
+        return ndxs_ndx
     # If the search element (my_list) is greater than the test element (test_lol) search the lower half of test_lol
-    elif vert_ndx == my_vert_ndxs[mid_list_ndx]:
+    elif ndxs == ndxs_list[mid_list_ndx]:
         return mid_list_ndx
 
 
