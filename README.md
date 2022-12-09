@@ -10,16 +10,17 @@ The general use case would be for analysis of simulated olecule files for volume
 Created by Jack Ericson in collaboration with Georgia State University 
 
 ## Prerequisites
-- Dependencies:
+- Dependencies: >= python 3.9
 - Instalation:
 Move to the vorpy directory in a shell or command prompt:
-```
-cd PATH/TO/vorpy
-```
-Install the requirements
-```
-pip install requirements.txt
-```
+   ```
+   cd PATH/TO/vorpy
+   ```
+   Install the requirements
+   ```
+   pip install requirements.txt
+   ```
+Note: If installing the requirements.txt fail, retry with just numpy and matplotlib (ex: pip install matplotlib) and only use the command prompt, jupyter notebook or script provided below
 
 ## Usage
 
@@ -45,9 +46,9 @@ pip install requirements.txt
 
 1. Move to the main vorpy directory in a shell or command prompt
 2. Run the following
-```
-py vorpy.py
-```
+   ```
+   py vorpy.py
+   ```
 3. Follow the prompts
 
 ### Script
@@ -60,9 +61,9 @@ py vorpy.py
 
 1. Make sure you have Anaconda downloaded
 2. Move to the vorpy directory in an Anaconda shell and type:
-```
-jupyter notebook
-```
+   ```
+   jupyter notebook
+   ```
 3. Select the vorpy_jupnot.ipynb file
 4. Follow the instructions in the file
 
