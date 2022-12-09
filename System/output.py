@@ -42,6 +42,9 @@ def write_pdb(atoms, name, sys=None):
     :param sys: System object used for writing the whole pbd file
     :return:
     """
+
+    if atoms is None or len(atoms) == 0:
+        return
     # Create the output file
     file = open(name + ".pdb", 'w')
     # Check to see if a system was provided
@@ -77,11 +80,24 @@ def write_pdb(atoms, name, sys=None):
                    occupancy + t_fact + "        " + seg_id + symbol + charge + "\n")
 
 
-# Write surfaces function. Writes files given a list of surfaces
-def write_surfs(surfs, file_name, color=None):
-    # If no color is given, make the color white
+def write_surfs(surfs, file_name, color=None, directory=None):
+    """
+    Writes files given a list of surfaces into the current directory or the given one
+    :param surfs: Surface object
+    :param file_name: Name of the output file for the surfaces
+    :param color: Color of the output surface
+    :param directory:
+    :return:
+    """
+    # Check to see if a directory is given
+    if directory is not None:
+        os.chdir(directory)
+    # If no surfaces are provided return
+    if surfs is None or len(surfs) == 0:
+        return
+    # If no color is given, make the color random
     if color is None:
-        color = [1, 0, 0]
+        color = np.random.rand(3)
     # Create the file
     file = open(file_name + ".off", 'w')
     # Count the number of triangles and vertices there are
@@ -110,8 +126,12 @@ def write_surfs(surfs, file_name, color=None):
         num_verts += len(surfs[i].points)
 
 
-# Export system function. Used to create and export the surfaces of a system as one file
 def export_mySys(sys):
+    """
+    Used to create and export the surfaces of a system as one file
+    :param sys: System object
+    :return:
+    """
     # Write the surfaces
     write_surfs(sys.net.surfs, sys.name + "_system")
 
@@ -119,8 +139,14 @@ def export_mySys(sys):
 #################################################### Main Requests #####################################################
 
 
-# Export interface information function. Exports the information from the given interface as a txt file
 def export_iface(groups, info_file=False, interface_atoms=False):
+    """
+    Exports the information from the given interface as a txt file
+    :param groups: Group objects for the interface
+    :param info_file: Whether to export a txt file with info on the interface or not
+    :param interface_atoms: Whether to export a pdb file with the atoms around the interface or not
+    :return:
+    """
     # Get the groups
     g0, g1 = groups
     # Set the interface name
@@ -151,8 +177,14 @@ def export_iface(groups, info_file=False, interface_atoms=False):
         info.write("Surface Area: " + str(g0.iface_sa))
 
 
-# Export interface information function. Exports the information from the given body as a txt file
 def export_body(group, info_file=False, outer_atoms=False):
+    """
+    Exports the information from the given body as a txt file
+    :param group: Group object
+    :param info_file: Whether to export an information file about the group or not
+    :param outer_atoms: Whether to export a pdb file of the outer atoms or not
+    :return:
+    """
     # Move to the output directory
     os.chdir(group.net.sys.dir)
     # If the group name is empty, name it
@@ -175,8 +207,13 @@ def export_body(group, info_file=False, outer_atoms=False):
 
 #################################################### Export Vertices ###################################################
 
-# Export vertices function.
+
 def export_verts(net):
+    """
+    Exports a txt file with the vertex information for reloading later
+    :param net: The network to interpret the vertex data from
+    :return:
+    """
     # Move to the correct output directory
     os.chdir(net.sys.dir)
     # Open the file for the vertices
@@ -195,9 +232,12 @@ def export_verts(net):
 #################################################### Export Network ####################################################
 
 
-# Export surfaces function. Used to store pre-calculated surfaces in whatever directory the program is in
 def export_net(net):
-
+    """
+    Used to store pre-calculated surfaces in whatever directory the program is in
+    :param net: The network object to export the data from
+    :return:
+    """
     # Move to the output directory
     os.chdir(net.sys.dir)
     # Create the network file
@@ -303,6 +343,7 @@ def export_net(net):
 
 
 ############################################ Pymol Scripts #############################################################
+
 
 def set_pymol_atoms(sys):
     """
