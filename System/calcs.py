@@ -1,14 +1,25 @@
 import numpy as np
 
 
-# Calculate distance function. Takes in 2 points and returns the distance between them
-def calc_dist(l1, l2):
+def calc_dist(l0, l1):
+    """
+    Calculate distance function used to simplify code
+    :param l0: Point 0 list, array, n-dimensional must match point 1
+    :param l1: Point 1 list, array, n-dimensional must match point 0
+    :return: float distance between the two points
+    """
     # Pythagorean theorem
-    return np.sqrt((l1[0]-l2[0])**2+(l1[1]-l2[1])**2+(l1[2]-l2[2])**2)
+    return np.linalg.norm(np.array(l0) - np.array(l1))
 
 
-# Calculate angle function. Finds the angle (in rads) between three points. The first being the common point
 def calc_angle(p0, p1, p2=None):
+    """
+    Finds the angle (in rads) between three points. The first being the common point
+    :param p0: Point 0 list, array, n-dimensional must match points 1 and 2
+    :param p1: Point 1 list, array, n-dimensional must match points 0 and 2
+    :param p2: (optional) Point 2 list, array, n-dimensional must match points 0 and 1
+    :return: Angle between (p0, O) and (p1, O) or (p0, p1) and (p0, p2)
+    """
     # If no p2 is given, use the origin
     if p2 is None:
         v0, v1 = np.array(p0), np.array(p1)
@@ -21,8 +32,16 @@ def calc_angle(p0, p1, p2=None):
     return angle
 
 
-# Calculate tetrahedron volume function. Calculated the volume of a tetrahedron defined by its vertices
+# Calculate tetrahedron volume function.
 def calc_tetra_vol(p0, p1, p2, p3):
+    """
+    Calculates the volume of a tetrahedron defined by its vertices
+    :param p0:
+    :param p1:
+    :param p2:
+    :param p3:
+    :return: Volume of the tetrahedron
+    """
     # Choose a base point (p0) and find the vectors between it and other points
     r01 = p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]
     r02 = p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]
@@ -32,8 +51,12 @@ def calc_tetra_vol(p0, p1, p2, p3):
     return vol
 
 
-# Calculate triangle are function. Takes in 3 points in 3 space and returns the area of the triangle created by them
 def calc_tri(points):
+    """
+    Takes in 3 points in 3 space and returns the area of the triangle created by them
+    :param points:
+    :return: Area of the triangle made by the three points
+    """
     # Get the two triangles vectors
     AB = np.array(points[0]) - np.array(points[1])
     AC = np.array(points[0]) - np.array(points[2])
@@ -41,29 +64,48 @@ def calc_tri(points):
     return 0.5 * np.linalg.norm((np.cross(AB, AC)))
 
 
-# Calculate surface area function. Takes in a
 def calc_sa(surf):
+    """
+    Calculates the surface area of the input surface
+    :param surf:
+    :return: Surface area of the surface
+    """
+    # Create the surface area variable
     sa = 0
+    # Go through the triangles in the surface
     for tri in surf.tris:
+        # Get the points from the surface and calculate the surface area
         p0, p1, p2 = surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
         sa += calc_tri([p0, p1, p2])
-    # Return the total surface area
+    # Return the surface area
     return sa
 
 
-# Calculate cell volume function. Grabs the points in a cell and calculates the volume made by the tetrahedrons
 def calc_vol(atom):
+    """
+    Calculates the cumulative volume of the tetrahedrons made by the atom's location and each of the surfaces' triangles
+    :param atom: Atom object
+    :return: Volume of the cell
+    """
+    # Create the volume variable
     vol = 0
     # Go through each surface on the atom
     for surf in atom.surfs:
         for tri in surf.tris:
             p0, p1, p2, p3 = atom.loc, surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
             vol += calc_tetra_vol(p0, p1, p2, p3)
+    # Return the volume
     return vol
 
 
-# Calculate center of mass function. Takes in a set of points and returns the coordinates of the com
 def calc_com(atoms=None, points=None):
+    """
+    Takes in a set of points and returns the coordinates of the center of mass
+    :param atoms: Atom objects
+    :param points: lists or arrays
+    :return: Center of mass of the inputs
+    """
+    # If the function was given atoms, get their points
     if atoms:
         points = [atoms[i].loc for i in range(len(atoms))]
     # Set the running sum for the x, y, z values to 0
@@ -71,39 +113,16 @@ def calc_com(atoms=None, points=None):
     for point in points:
         for i in range(len(points[0])):
             tots[i] += point[i]
+    # Return the center of mass of inputs
     return [tots[i]/len(points) for i in range(len(points[0]))]
 
 
-# Calculate edges center of mass function. Takes in a surface or edges and returns the center of mass of the points
-def calc_edges_com(edges=None, surf=None, points=None):
-    # Set up the points list
-    myPoints = []
-    # Check to see if edges were given
-    if edges:
-        for edge in edges:
-            myPoints += edge.points
-    # Check to see if a surface was given
-    elif surf:
-        for edge in surf.edges:
-            myPoints += edge.points
-    # Check to see if points were given
-    elif points:
-        myPoints = points
-    else:
-        print("Please give a surface or mesh!")\
-
-    # Find the sum of the points
-    x_tot, y_tot, z_tot = 0, 0, 0
-    for point in myPoints:
-        x_tot += point[0]
-        y_tot += point[1]
-        z_tot += point[2]
-    # Return the center of mass of the edge points
-    return [x_tot / len(myPoints), y_tot / len(myPoints), z_tot / len(myPoints)]
-
-
-# Calculate circle function. Takes in 3 atoms, calculates the center and radius of inscribed circle and returns them
 def calc_circ(atoms):
+    """
+    Takes in 3 atoms, calculates the center and radius of inscribed circle
+    :param atoms: vorPy Atom objects
+    :return: Center and radius of the inscribed circle
+    """
     # The real location and radius of the base sphere
     l1, R1 = atoms[0].loc, atoms[0].rad
     # Get the relevant variables
@@ -156,40 +175,15 @@ def calc_circ(atoms):
         return [[x, y, z], R]
 
 
-# Calculate bisector value function. Takes in a bisector and point and returns the value of that point in regard to
-# the bisector function. A point that is actually on the bisector surface should return a value of 0.
-def calc_bisector_val(f, point):
-    x, y, z = point
-    val = f[0] * x ** 2 + f[1] * y ** 2 + f[2] * z ** 2 + \
-          f[3] * x * y + f[4] * y * z + f[5] * z * x + \
-          f[6] * x + f[7] * y + f[8] * z + f[9]
-    return val
 
-
-# Inverse Jacobian Function. Takes in 3 bisector functions and point in 3 space and returns the inverse Jacobian matrix.
-# Only works with hyperboloid surfaces. Could be developed to more general case, but this is faster for now.
-def inv_jac(funcs, point):
-    # Get functions and point
-    f1, f2, f3 = funcs
-    x, y, z = point
-    # Create the Jacobian Matrix
-    jac_mat = np.array([[2 * f1[0] * x + f1[3] * y + f1[5] * z + f1[6], 2 * f1[1] * y + f1[3] * x + f1[4] * z + f1[7],
-                         2 * f1[2] * z + f1[4] * y + f1[5] * x + f1[8]],
-                        [2 * f2[0] * x + f2[3] * y + f2[5] * z + f2[6], 2 * f2[1] * y + f2[3] * x + f2[4] * z + f2[7],
-                         2 * f2[2] * z + f2[4] * y + f2[5] * x + f2[8]],
-                        [2 * f3[0] * x + f3[3] * y + f3[5] * z + f3[6], 2 * f3[1] * y + f3[3] * x + f3[4] * z + f3[7],
-                         2 * f3[2] * z + f3[4] * y + f3[5] * x + f3[8]]])
-
-    if jac_mat.shape[0] == jac_mat.shape[1] and np.linalg.matrix_rank(jac_mat) == jac_mat.shape[0]:
-        # Calculate the inverse of this matrix and return it
-        return np.linalg.inv(jac_mat)
-
-
-"""Translator functions"""
-
-
-# Rotate points function. Takes in a set of points and a vector and rotates the points and the vector so the v = [0,0,1]
 def rotate_points(vec, points, reverse=False):
+    """
+    Takes in a set of points and a vector and rotates the points and the vector so the v = [0,0,1]
+    :param vec: The vector about which the surface is rotated
+    :param points: the points of the surface
+    :param reverse: Bool for rotating the surface back
+    :return: List of rotated points
+    """
     # Get the vx, vy, vz vector components
     vx, vy, vz = vec
     # If vy or vz are zero we need a catch for divide by zero error.
@@ -221,8 +215,14 @@ def rotate_points(vec, points, reverse=False):
 """System checks"""
 
 
-# Check surf function. Takes in a set of atoms and a list of surfs and returns the corresponding surf or None if no surf
+# Check surf function.
 def check_surf(s_atoms, surf_list):
+    """
+    Takes in a set of atoms and a list of surfs and returns the corresponding surf or None if no surf
+    :param s_atoms: Surface atoms for checking
+    :param surf_list: List of surfaces to check against
+    :return: The surface if found
+    """
     # Go through each surf in the surf list
     for surf in surf_list:
         # Check if the given atoms correspond to the atoms in the surf
@@ -232,8 +232,13 @@ def check_surf(s_atoms, surf_list):
     return
 
 
-# Check edge function. Takes in a set of atoms and a list of edges and returns the corresponding edge or None if no edge
 def check_edge(e_atoms, edge_list):
+    """
+    Takes in a set of atoms and a list of edges and returns the corresponding edge or None if no edge
+    :param e_atoms: Edge atoms for checking
+    :param edge_list: List of edges to check against
+    :return: The edge if found
+    """
     # Go through each edge in the edge list
     for edge in edge_list:
         # Skip for doublets
@@ -246,8 +251,13 @@ def check_edge(e_atoms, edge_list):
     return
 
 
-# Check vert function. Takes in a set of atoms and a list of verts and returns the corresponding edge or None if no vert
 def check_vert(v_atoms, vert_list):
+    """
+    Takes in a set of atoms and a list of verts and returns the corresponding edge or None if no vert
+    :param v_atoms: Vertex atoms for checking
+    :param vert_list: The list of vertices to check against
+    :return: The vertex if found
+    """
     # Go through each edge in the edge list
     for vert in vert_list:
         # Check if the given atoms correspond to the atoms in the edge
@@ -257,8 +267,13 @@ def check_vert(v_atoms, vert_list):
     return
 
 
-# Search vertices function. Searches a list of indices of atoms sorted by smallest atom and where the vertex would be
 def search_verts(my_vert_ndxs, vert_ndx):
+    """
+     Searches a list of indices of atoms sorted by smallest atom and where the vertex would be
+    :param my_vert_ndxs: The index for checking
+    :param vert_ndx: The indices to check against
+    :return: The vertex index of the vertex or where the vertex should be inserted
+    """
     # If the length of the test list is equal to 0 return the next index
     if len(my_vert_ndxs) <= 1:
         # If there exists one vertex already and the new vertex is less than the old vertex return 1
@@ -279,3 +294,17 @@ def search_verts(my_vert_ndxs, vert_ndx):
     # If the search element (my_list) is greater than the test element (test_lol) search the lower half of test_lol
     elif vert_ndx == my_vert_ndxs[mid_list_ndx]:
         return mid_list_ndx
+
+
+def get_time(seconds):
+    """
+    Turns seconds into hours, minutes and seconds
+    :param seconds:
+    :return: hours, minutes, seconds
+    """
+    # Divide up the values
+    hours = seconds // 3600
+    minutes = (seconds - (hours * 3600)) // 60
+    seconds = seconds - hours * 3600 - minutes * 60
+    # Return the values
+    return hours, minutes, seconds
