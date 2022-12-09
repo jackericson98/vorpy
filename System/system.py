@@ -93,6 +93,9 @@ class System:
         :param vert_file:
         :return:
         """
+        # Check to see if the network has been created yet or not
+        if self.net is None:
+            self.net = Network(atoms=self.atoms, sys=self)
         if vta_ball_file is None:
             read_verts(self.net, vert_file)
         else:
