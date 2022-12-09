@@ -20,7 +20,7 @@ Move to the vorpy directory in a shell or command prompt:
    ```
    pip install requirements.txt
    ```
-Note: If installing the requirements.txt fail, retry with just numpy and matplotlib (ex: pip install matplotlib) and only use the command prompt, jupyter notebook or script provided below
+Note: If installing the requirements.txt fails, retry with just numpy and matplotlib (ex: pip install matplotlib) and only use the command prompt, jupyter notebook or script provided below
 
 ## Usage
 
