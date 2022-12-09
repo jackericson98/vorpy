@@ -3,113 +3,87 @@
 ## Description
 
 
-Vorpy is the first open-source comprehensive 3D Voronoi network generator for 3D spheres. It is designed with simulated molecular analysis in mind. Vorpy processes time-stamps of simulations of molecules by samples a network of points equidistant from the surfaces of all neighboring atoms in the system. This results in a partitioning of the system atom by atom and a provides a set of atom to atom partitioning surfaces for analysis. 
+Vorpy is a comprehensive Voronoi cell network generator for 3D spheres designed with simulated molecular dynamics (md) analysis in mind. It works by partitioning the space between simulated atoms and using these partitions to calculate volumes and surface areas of bodies and interfaces of interest (residue, protein/DNA, etc.). By probing inter-atomic partitions it is possible to better understand a number of features of simulated molecules ranging inter-atomic influence in different chemical bonds to the evolution of a protein-DNA complex. 
 
-The general use case would be for analysis of simulated olecule files for volume, interface and void analysis. Once a frame is analyzed all of these data points can be deriven. For example, if a molecule is simulated in solution until it reaches a certain equilibrium, a frame can be processed through vorpy and tested for volume and voids. 
-
-Created by Jack Ericson in collaboration with Georgia State University 
+Created by Jack Ericson - Georgia State University 
 
 ## Prerequisites
-- Dependencies:
+
+- Dependencies: >= python 3.9
 - Instalation:
-Move to the vorpy directory in a shell or command prompt:
-```
-cd PATH/TO/vorpy
-```
-Install the requirements
-```
-pip install requirements.txt
-```
+   Move to the vorpy directory in a shell or command prompt:
+   ```
+   cd PATH/TO/vorpy
+   ```
+   Install the requirements
+   ```
+   pip install requirements.txt
+   ```
+   Note: If installing the requirements.txt fails, retry with just numpy and matplotlib (ex: pip install matplotlib) and only use the command prompt, jupyter notebook     or script provided below
 
 ## Usage
 
 ### Gui 
 
-1. Download the repository and move to the main vorpy directory in a shell or command prompt
-2. Install the requirements (see prerequisites section)
-3. Run the following from the vorpy directory
+1. Move to the main vorpy directory in a shell or command prompt
+2. Run the either of following
+   Basic Gui
+   ```
+   py vorpy_gui.py
+   ```
+   Fancy Gui
+   ```
+   py vorpy_gui1.py
+   ```
+   
+3. From the load screen of the gui load your pdb file (for testing go to the vorpy/Data/test_data folder)
+4. From the build screen of the gui change the settings and then click build
+5. From the analyze screen analyze the newly constructed network
+6. Use a software like pymol to view the outputs
+
+### Command Line 
+
+1. Move to the main vorpy directory in a shell or command prompt
+2. Run the following
    ```
    py vorpy.py
    ```
-2. From the load screen of the gui load your pdb file (for testing go to the vorpy/Data/test_data folder)
-3. From the build screen of the gui change the settings and then click build
-4. From the analyze screen analyze the newly constructed network
+3. Follow the prompts
+
+### Script
+
+1. Open vorpy_script.py in an ide
+2. Change the load/build/output settings following the provided comments for instruction
+3. Run the script
 
 ### Jupyter Notebook
 
-1. Download the repository and move to the main vorpy directory in a shell or command prompt
-2. Install the requirements (see prerequisites section)
-2. Import the system object and other helpful functions
+1. Make sure you have Anaconda downloaded
+2. Move to the vorpy directory in an Anaconda shell and type:
    ```
-   from System.system import *
+   jupyter notebook
    ```
-2. Load your file:
+3. Select the vorpy_jupnot.ipynb file
+4. Follow the instructions in the file
 
-   ```
-   sys = System("PATH/TO/FILE.pdb")
-   ```
-2. Build the network:
-   ```
-   sys.build_network(sol_verts=False, surf_res=0.2, max_vert=10, box_size=1.5)
-   ```
-3. Plot the compnents
-   ```
-   from Visualize.mpl_visualize import *
-   fig = plt.figure()
-   ax = fig.add_subplot(projection="3d")
-   plot_atoms(net.atoms[0:1], fig=fig, ax=ax)
-   plot_verts(net.atoms[0].verts, fig=fig, ax=ax)
-   plot_edges(net.atoms[0].edges, fig=fig, ax=ax)
-   plot_surfs(net.atoms[0].surfs, fig=fig, ax=ax, Show=True)
-   ```
-4. Analyze the network
-   The user can analyze atoms, surfaces, vertices or any other network object individually:
-   ```
-   my_vol = 0
-   for atom in sys.mols[0]:
-      my_vol += atom.vol
-   print("Molecule {} has volume: {} Angstroms Cubed".format(sys.mol_names[0], my_vol)
-   
-   ```
-   The user can also create groups for analysis
-   ```
-   g1 = Group(net=sys.net, atoms=sys.atoms[22:45], name="My_group1")
-   g1.get_info()
-   print(g1.body_vol)
-   
-   ```
- 5. Export data
-    Exporting the network will allow the network to be re-loaded without having to be calculated
-    ```
-    sys.export_net()
-    ```
-    Similarly the user can export vertices
-    ```
-    sys.export_verts()
-    ```
-    The user can export the surfaces associated with a group
-    ```
-    sys.export_selection(group1=g1, info=True)
-    ```
-    or the interface between two groups
-    ```
-    g2 = Group(net=sys.net, atoms=sys.atoms[:22], name="My_group2")
-    sys.export_selection(group1=g1, group2=g2, info=True)
-    ```
-
-### Visualization
+## Visualization
 
 Once built the network can be viewed in a number of ways. The first being trough vorpy's built in visualization functions (plot_atoms, plot_verts, plot_edges, plot_surfs) or one of the following
 
-#### Pymol
+### Pymol
 
-Pymol is currently the best way to view the data produced from vorpy and can be downloaded here:
-https://pymol.org/2/ . Once downloaded run the software through one of the processes above and drag the output files (.off) and the system files (.pdb) into the pymol frame. Be sure to use the "set_pymol_atoms.pml" script to get accurately set atom radii.
+Pymol is currently the best way to view the data produced from vorpy and can be downloaded here: https://pymol.org/2/ . Once downloaded run the software through one of the processes above and drag the output files (.off) and the system files (.pdb) into the pymol frame. Be sure to use the "set_pymol_atoms.pml" script to get accurately set atom radii.
 
-#### VMD
+### plot_net
 
-I have never tried vmd
+For small systems, the plot_net function in Visualize.mpl_visualize can be used
+
+## Documentation
+
+Full documentation can be found in the docs.md file
+
 ## Citation
+
 [![DOI](https://zenodo.org/badge/502126698.svg)](https://zenodo.org/badge/latestdoi/502126698)
 
 
