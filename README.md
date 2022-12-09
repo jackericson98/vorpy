@@ -66,15 +66,15 @@ Created by Jack Ericson - Georgia State University
 3. Select the vorpy_jupnot.ipynb file
 4. Follow the instructions in the file
 
-### Visualization
+## Visualization
 
 Once built the network can be viewed in a number of ways. The first being trough vorpy's built in visualization functions (plot_atoms, plot_verts, plot_edges, plot_surfs) or one of the following
 
-#### Pymol
+### Pymol
 
 Pymol is currently the best way to view the data produced from vorpy and can be downloaded here: https://pymol.org/2/ . Once downloaded run the software through one of the processes above and drag the output files (.off) and the system files (.pdb) into the pymol frame. Be sure to use the "set_pymol_atoms.pml" script to get accurately set atom radii.
 
-#### plot_net
+### plot_net
 
 For small systems, the plot_net function in Visualize.mpl_visualize can be used
 
