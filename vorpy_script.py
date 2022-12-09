@@ -2,17 +2,23 @@ from Visualize.mpl_visualize import *
 from System.system import System, Group
 from System.output import *
 
+
 """
+
 User Example:
  
- To use this script follow the triple quotation comments in the code for instructions for setting up the program. Then 
- run this script and analyze the results. All of the variables work in their current state, so only change the ones 
- needed
+ To use this script follow the triple quotation comments in the code for instructions on set up. 
+ 
+ Once everything is set up run this script. 
+ 
+ Note: The variables work in their current state, so only change the ones needed
 
 
 """
 
-#################################### Example system bank ###############################################################
+
+############################################## Example system bank #####################################################
+
 
 # Cube configuration of atoms
 cube_atoms = [[[-1, 0, 0], 1], [[1, 0, 0], 1], [[0, 1, 0], 1], [[0, -1, 0], 1], [[0, 0, 1], 1], [[0, 0, -1], 1],
@@ -22,7 +28,9 @@ cube_atoms = [[[-1, 0, 0], 1], [[1, 0, 0], 1], [[0, 1, 0], 1], [[0, -1, 0], 1], 
 test_files = ["Na5", "Na7", "EDTA_Mg", "1BNA", "cambrin", "DB1976", "hairpin", "18L4_benzene"]
 test_files = [os.getcwd() + "/Data/test_data/" + test_file + ".pdb" for test_file in test_files]
 
-#################################### Create the System #################################################################
+
+############################################## Create the System #######################################################
+
 
 """
 1. Create the system and specify the different files. Use the full file address (or select test_files[i] for i in 0-7)
@@ -35,7 +43,7 @@ test_files = [os.getcwd() + "/Data/test_data/" + test_file + ".pdb" for test_fil
     g. output_directory: Directory address for desired output destination for network exports
 
 """
-mySys = System(file=test_files[3],
+mySys = System(file=test_files[0],
                atoms=None,
                network_file=None,
                verts_file=None,
@@ -43,7 +51,8 @@ mySys = System(file=test_files[3],
                frame_files=None,
                output_directory=None)
 
-########################################## Build the Network ###########################################################
+
+############################################### Build the Network ######################################################
 
 
 """
@@ -54,13 +63,15 @@ mySys = System(file=test_files[3],
     d. sol_verts: Calculate the vertices between the solute atoms or just the molecule atoms
     e. output: 
 """
-mySys.build_network(surf_res=0.2,
-                    max_vert=10,
+mySys.build_network(surf_res=0.1,
+                    max_vert=7,
                     box_size=1.5,
-                    sol_verts=False,
+                    sol_verts=True,
                     output=False)
 
-######################################### Plot the network #############################################################
+
+############################################## Plot the Network ########################################################
+
 
 """
 3. Show (or dont show) the network objects and set the plot attributes
@@ -72,7 +83,6 @@ mySys.build_network(surf_res=0.2,
     f. surfs: Show the surfaces in the plot
     g. bg_color: Set the background color for the plot
     h. grid: Show the grid for the plot
-
 """
 plot_net(net=mySys.net,
          Show=True,
@@ -84,7 +94,8 @@ plot_net(net=mySys.net,
          grid=False
          )
 
-######################################## Create Groups for Analysis ####################################################
+
+################################################### Create Groups ######################################################
 
 
 """
@@ -107,7 +118,8 @@ group2 = Group(net=mySys.net,
                ndxs=None,
                name=mySys.name + "_g2")
 
-####################################### Export Selections ##############################################################
+
+################################################ Export Selections #####################################################
 
 
 """
@@ -130,16 +142,19 @@ mySys.exports(groups=[group1, group2],
               export_groups=True,
               export_interface=True)
 
-########################################## Run this program ############################################################
 
+################################################# Run the program ######################################################
+
+
+# Main running guy. Go get em guy!
 if __name__ == '__main__':
     pass
 
-########################################## Open in pymol ###############################################################
+
+################################################# Open in pymol ########################################################
+
 
 """
-6. Check your output directory for the outputs (if you're not sure check vorpy/Data/User_data/) and open the outputs in
+6. Check the output directory for the outputs (default is vorpy/Data/User_data/) and open the outputs in
  a program that can handle molecule files and .off files like Pymol
  """
-
-
