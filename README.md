@@ -78,6 +78,10 @@ Pymol is currently the best way to view the data produced from vorpy and can be 
 
 For small systems, the plot_net function in Visualize.mpl_visualize can be used
 
+## Documentation
+
+Full documentation can be found in the docs.md file
+
 ## Citation
 
 [![DOI](https://zenodo.org/badge/502126698.svg)](https://zenodo.org/badge/latestdoi/502126698)
