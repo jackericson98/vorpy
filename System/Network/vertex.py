@@ -1,5 +1,3 @@
-import numpy as np
-
 from System.calcs import *
 
 
@@ -8,23 +6,23 @@ class Vertex:
 
     def __init__(self, atoms=None, net=None, location=None, radius=None, loc2=None, rad2=None, doublet=None, ndx=None):
 
-        self.net = net  # Network       :   Network object for the vertex to refer back to
-        self.atoms = atoms  # Atoms         :   List of atoms used to construct the vertex
-        self.edges = []  # Edges         :   List of Edge type objects connected to the vertex in the network
-        self.surfs = []  # Surfaces      :   List of Surface type objects that the vertex is a part of
+        self.net = net           # Network       :   Network object for the vertex to refer back to
+        self.atoms = atoms       # Atoms         :   List of atoms used to construct the vertex
+        self.edges = []          # Edges         :   List of Edge type objects connected to the vertex in the network
+        self.surfs = []          # Surfaces      :   List of Surface type objects that the vertex is a part of
 
-        self.ndx = ndx  # Index         :   Indices of the atoms in the vertex
-        self.loc = location  # Location      :   Where the vertex is located in 3D
-        self.rad = radius  # Radius        :   Radius of the vertex's tangential sphere
-        self.load_ndxs = []  # Load indices  :   List of object load indices
+        self.ndx = ndx           # Index         :   Indices of the atoms in the vertex
+        self.loc = location      # Location      :   Where the vertex is located in 3D
+        self.rad = radius        # Radius        :   Radius of the vertex's tangential sphere
+        self.load_ndxs = []      # Load indices  :   List of object load indices
 
-        self.doublet = doublet  # Doublet       :   Whether the vertex is a doublet
-        self.d_type = None  # Doublet type  :   Doublet type it is: 3 edges, 3 surfaces or two edges, one surface
-        self.loc2 = loc2  # Location 2    :   Location of the doublet site
-        self.rad2 = rad2  # Radius 2      :   Radius of the doublet site's tangential sphere
+        self.doublet = doublet   # Doublet       :   Whether the vertex is a doublet
+        self.d_type = None       # Doublet type  :   Doublet type it is: 3 edges, 3 surfaces or two edges, one surface
+        self.loc2 = loc2         # Location 2    :   Location of the doublet site
+        self.rad2 = rad2         # Radius 2      :   Radius of the doublet site's tangential sphere
 
         self.flat_faced = False  # Flat Faced?   :   Was this vertex constructed with flat faces in mind?
-        self.ff_atoms = None  # ^ FF Atoms    :   Holds the location and radius for the atoms
+        self.ff_atoms = None     # ^ FF Atoms    :   Holds the location and radius for the atoms
 
     # Calculate vertex function. Takes in 4 atoms, calculates the loc and rad of the inscribed sphere and adds the
     def calc_vert(self):
@@ -32,8 +30,6 @@ class Vertex:
         if self.net is not None:
             self.ndx = [self.net.atoms.index(atom) for atom in self.atoms]
             self.ndx.sort()
-        if self.ndx == [3, 10, 2190, 3838]:
-            print()
 
         # Check to see if the network wants flat faces or not
         if self.net is not None and self.net.flat_faces:
@@ -69,8 +65,7 @@ class Vertex:
         F31 = -a1 * b2 * d3 + a1 * b3 * d2 + a2 * b1 * d3 - a2 * b3 * d1 - a3 * b1 * d2 + a3 * b2 * d1
         verts = []
         xs, ys, zs, Rs = [], [], [], []
-        if self.ndx == [3, 10, 2190, 3838]:
-            print(m_rank, ABC_rank, f_rank)
+
         # Case 1:
         if ABC_rank == 3 and m_rank == 3 and f_rank == 3:
             # Calculate the radius polynomial coefficients
