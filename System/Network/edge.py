@@ -4,7 +4,7 @@ from System.Network.surface import Surface
 
 class Edge:
     """Edge object. Used to build the network and calculate the surfaces"""
-    def __init__(self, atoms=None, net=None, verts=None, doublet=False, points=None, loc=None, rad=None, pv0=None,
+    def __init__(self, atoms=None, net=None, verts=None, surfs=None, doublet=False, points=None, loc=None, rad=None, pv0=None,
                  pv1=None, ndx=None):
 
         # If no network was given have a catch
@@ -15,7 +15,7 @@ class Edge:
         self.net = net                   # Network       :   Network of the System
         self.atoms = atoms               # Atoms         :   List of Atom type objects for the edge
         self.verts = verts               # Vertices      :   List of Vertex type objects
-        self.surfs = []                  # Surfaces      :   List of 2 surfaces attached to the edge
+        self.surfs = surfs               # Surfaces      :   List of 2 surfaces attached to the edge
         self.load_ndxs = []              # Load indices  :   List of object load indices
 
         self.loc = loc                   # Location      :   Location of the center of the 3 atoms that make up the edge
