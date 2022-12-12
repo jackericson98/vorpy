@@ -497,7 +497,7 @@ class Vorpy(ctk.CTk):
         # Get the filepath for the vertices
         # File grabber pop up
         file_path = filedialog.askopenfilename()
-        self.sys.load_verts(vert_file=file_path)
+        self.sys.load_verts(file=file_path)
         self.net_data.set(str(len(self.sys.net.surfs)) + "\n" + str(len(self.sys.net.edges)) + "\n" +
                           str(len(self.sys.net.verts)) + "\n~\n~\n~")
 
@@ -516,7 +516,6 @@ class Vorpy(ctk.CTk):
     def build_net_button(self):
         if self.sys is None:
             return
-        print(self.flat_faces.get())
 
         self.sys.build_network(max_vert=self.max_vert.get(), surf_res=self.surf_res.get(),
                                flat_faces=self.flat_faces.get(), box_size=self.box_size.get(),
