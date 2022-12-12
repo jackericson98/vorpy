@@ -370,7 +370,7 @@ class Vorpy:
         self.sys_pros.set(myStr)
         # Set the molecule names
         for mol in self.sys.mols:
-            self.mol_list.append(mol[0].chain)
+            self.mol_list.append(mol[0].mol)
         for res in self.sys.residues:
             self.res_list.append(res[0].res + " " + res[0].res_seq)
         for atom in self.sys.atoms:
@@ -405,7 +405,7 @@ class Vorpy:
         # Get the filepath for the vertices
         # File grabber pop up
         file_path = filedialog.askopenfilename()
-        self.sys.load_verts(vert_file=file_path)
+        self.sys.load_verts(file=file_path)
 
     # Load network button function. Pulls up the file browser and lets the user select their vorpy saved system
     def load_net(self):
