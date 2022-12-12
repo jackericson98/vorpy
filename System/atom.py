@@ -61,7 +61,7 @@ class Atom:
 
         # Inherent traits
         self.element = element  # Symbol       :   Element of the atom
-        self.chain = chain      # Chain        :   Molecule chain the atom is a part of
+        self.mol = chain        # Chain        :   Molecule chain the atom is a part of
         self.res = residue      # Residue      :   Residue of the molecule that the atom is a part of
         self.res_seq = res_seq  # Sequence     :   Sequence of the residue that the atom is a part of
         self.name = name        # Name         :   Name retrieved from pdb file
