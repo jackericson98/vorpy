@@ -35,16 +35,21 @@ def doublify(net):
         # Find all vertices that match edges with the doublet's atoms
         con_verts = []
         for vert in net.verts:
-            if len([0 for _ in dub.ndx if _ in vert.ndx]) == 3:
-                con_verts.append(vert)
+            try:
+                if len([0 for _ in dub.ndx if _ in vert.ndx]) == 3:
+                    con_verts.append(vert)
+            except AttributeError:
+                pass
         # Divide the connecting outer vertices between the two doublet vertices
         dub_verts, dub_dub_verts = [], []
         for vert in con_verts:
-            if calc_dist(vert.loc, dub.loc) < calc_dist(vert.loc, dub.doublet.loc):
-                dub_verts.append(vert)
-            else:
-                dub_dub_verts.append(vert)
-
+            try:
+                if calc_dist(vert.loc, dub.loc) < calc_dist(vert.loc, dub.doublet.loc):
+                    dub_verts.append(vert)
+                else:
+                    dub_dub_verts.append(vert)
+            except AttributeError:
+                pass
         # Create the edge objects for each of the vertices connected to the primary doublet vertex
         dub.edges = []
         for vert in dub_verts:
