@@ -1,8 +1,8 @@
-from System.calcs import *
+from System.sys_funcs.calcs import *
 # from System.atom import Atom
 # from System.Network.vertex import Vertex
-from System.Network.edge import Edge
-from System.Network.surface import Surface
+from System.Network.net_objs.edge import Edge
+from System.Network.net_objs.surface import Surface
 # from Visualize.visualize import *
 
 
@@ -54,7 +54,7 @@ def doublify(net):
         dub.edges = []
         for vert in dub_verts:
             # Create the edge from the atoms in both dub and vert and add it to the network and each vertex
-            my_edge = Edge([net.atoms[_] for _ in [_ for _ in vert.ndx if _ in dub.ndx]], net=net, verts=[dub, vert])
+            my_edge = Edge([net.atoms[_] for _ in [_ for _ in vert.ndx if _ in dub.ndx]], net=net, verts=[dub, vert], surfs=[])
             net.edges.append(my_edge)
             dub.edges.append(my_edge)
             vert.edges.append(my_edge)

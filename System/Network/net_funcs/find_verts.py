@@ -1,6 +1,6 @@
-from System.calcs import *
-from System.Network.vertex import Vertex
-from System.Network.edge import Edge
+from System.sys_funcs.calcs import *
+from System.Network.net_objs.vertex import Vertex
+from System.Network.net_objs.edge import Edge
 from Visualize.mpl_visualize import *
 
 

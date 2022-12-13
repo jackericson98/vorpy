@@ -1,4 +1,4 @@
-from System.calcs import *
+from System.sys_funcs.calcs import *
 import matplotlib.tri as mtri
 from Visualize.mpl_visualize import *
 
