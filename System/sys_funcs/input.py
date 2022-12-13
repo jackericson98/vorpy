@@ -1,4 +1,4 @@
-from System.atom import Atom, get_radius
+from System.sys_objs.atom import Atom, get_radius
 from System.Network.network import Network, Vertex, Edge, Surface
 
 
@@ -46,8 +46,8 @@ def read_pdb(sys, file=None):
                         element=line[76:78], residue=line[17:20], chain=line[21], res_seq=line[22:26], name=line[12:16],
                         ocp=line[54:60], t_fact=line[60:66], seg_id=line[72:76], charge=line[78:80])
             # If no chain is specified, set the chain to 'None'
-            if atom.chain == ' ':
-                atom.chain = 'ZZ'
+            if atom.mol == ' ' and atom.res.lower() != 'sol' and atom.res_seq.lower() != 'sol':
+                atom.mol = 'MOL'
             # Add the atom to the
             atoms.append(atom)
         # If the line is not an atom line store the other data
@@ -230,7 +230,7 @@ def read_net(net, file, verts_only=False):
         # Check for the network signifier
         elif line[0].lower() == 'netw':
             # Load the network information
-            net.min_dist = float(line[1])
+            net.surf_res = float(line[1])
             net.max_vert = float(line[2])
             net.box_size = float(line[3])
             net.my_time = float(line[4])
@@ -268,13 +268,15 @@ def read_net(net, file, verts_only=False):
             atoms = [net.atoms[ndx] for ndx in ndxs]
             # Get the location and radius of the vertex
             loc, rad, loc2, rad2 = [float(_) for _ in line[6:9]], float(line[9]), None, None
-            # Get the doublet information
-            dub = False
-            if line[10].lower() == 'true':
-                dub, loc2, rad2 = True, [float(_) for _ in line[11:14]], float(line[14])
             # Set up the default vertex
-            myVert = Vertex(atoms=atoms, net=net, location=loc, radius=rad, doublet=dub, loc2=loc2, rad2=rad2, ndx=ndxs)
+            myVert = Vertex(atoms=atoms, net=net, location=loc, radius=rad, loc2=loc2, rad2=rad2, ndx=ndxs)
             curr_vert = myVert
+            # Get the doublet information
+            if line[10].lower() == 'true':
+                loc2, rad2 = [float(_) for _ in line[11:14]], float(line[14])
+                if loc2 == net.verts[-1].loc:
+                    net.verts[-1].doublet = myVert
+                    myVert.doublet = net.verts[-1].doublet
             # Add the vertex to the network
             net.verts.append(myVert)
         # Get the vertex connections
