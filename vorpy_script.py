@@ -1,6 +1,6 @@
 from Visualize.mpl_visualize import *
 from System.system import System, Group
-from System.output import *
+from System.sys_funcs.output import *
 
 
 """
@@ -43,10 +43,10 @@ test_files = [os.getcwd() + "/Data/test_data/" + test_file + ".pdb" for test_fil
     g. output_directory: Directory address for desired output destination for network exports
 
 """
-mySys = System(file=test_files[0],
+mySys = System(file=test_files[7],
                atoms=None,
                network_file=None,
-               verts_file=None,
+               verts_file="C:/Users/jacke/PycharmProjects/vorpy/Data/User_data/18L4_benzene2/18L4_benzene_verts.txt",
                index_file=None,
                frame_files=None,
                output_directory=None)

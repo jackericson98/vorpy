@@ -1,7 +1,7 @@
-from System.input import *
-from System.output import *
+from System.sys_funcs.input import *
+from System.sys_funcs.output import *
 from System.Network.network import *
-from System.group import Group
+from System.sys_objs.group import Group
 
 
 class System:
@@ -21,10 +21,11 @@ class System:
 
         # Names
         self.name = None                    # Name                :   Name describing the system
-        self.atom_names = None              # Atom Names          :   List holding the names of the atoms in the system
-        self.mol_names = None               # Residue Names       :   List of molecule names
-        self.res_names = None               # Residue Names       :   List of residue names
-        self.ndx_names = None               # Index Names         :   List of names of indices corresponding to ndxs
+        self.atom_names = []                # Atom Names          :   List holding the names of the atoms in the system
+        self.mol_names = []                 # Residue Names       :   List of molecule names
+        self.res_names = []                 # Residue Names       :   List of residue names
+        self.ndx_names = []                 # Index Names         :   List of names of indices corresponding to ndxs
+        self.group_names = []               # Group Names         :   List of names of user groups for to self.groups
 
         # Data
         self.net = None                     # Network             :   Network object holding the primary network
@@ -33,7 +34,8 @@ class System:
         self.mols = None                    # Molecules           :   List of molecules
         self.residues = None                # Residues            :   List of residues (lists of atoms)
         self.sol = None                     # Solution            :   List of solution molecules (lists of atoms)
-        self.ndxs = None                    # Indices             :   List of lists indices of atoms
+        self.groups = []                    # Groups              :   List of groups in the system
+        self.ndxs = []                      # Indices             :   List of lists indices of atoms
         self.radii = my_radii               # Radii               :   List of atomic radii
         self.sig_figs = None                # Significant figures :   Significant figures setting for the whole system
 
@@ -50,67 +52,90 @@ class System:
         # Gui
         self.gui = gui                     # GUI                 :   GUI Vorpy object that can be updated through sys
 
-        # Load the base file if given one
+        # Initiate the system
+        self.load_files()
+
+
+    def load_files(self):
+        """
+        Create the system and make sure the files added in __init__ are added to the system
+        :return:
+        """
+        # Load the system
         if self.base_file is not None:
-            self.load_sys(self.base_file)   # Forced loading of the base file
-        # Load the user atoms if given them
-        if self.user_atoms is not None:
+            self.load_sys()
+        elif self.user_atoms is not None:
             self.load_sys_atoms()
 
+        # Load the network
+        if self.net_file is not None:
+            self.load_net()
+        elif self.vert_file is not None:
+            self.load_verts()
 
-    def load_sys(self, file):
+        # Load the index file
+        if self.ndx_file is not None:
+            self.load_ndx()
+
+
+    def load_sys(self, file=None):
         """
         Sets the base file for the system using one of the import file functions
         :param file: .pdb, .gro, .mol, .cif
         :return:
         """
         # If a file is given read the file and set the system attributes
-        if file:
+        if file is not None:
             # Set the file
             self.base_file = file
-            self.name = get_name(file)
-            # Read PDB file
-            if file[-3:] == "pdb":
-                self.atoms, self.data = read_pdb(self)
-            # Read CIF file
-            elif file[-3:] == "cif":
-                read_cif(self)
-            # Read GRO file
-            elif file[-3:] == "gro":
-                read_gro(self)
-            # Read MOL file
-            elif file[-3:] == "mol":
-                read_mol(self)
-            else:
-                return
+        # Set the name of the system
+        self.name = get_name(self.base_file)
+        # Read PDB file
+        if self.base_file[-3:] == "pdb":
+            self.atoms, self.data = read_pdb(self)
+        # Read CIF file
+        elif self.base_file[-3:] == "cif":
+            read_cif(self)
+        # Read GRO file
+        elif self.base_file[-3:] == "gro":
+            read_gro(self)
+        # Read MOL file
+        elif self.base_file[-3:] == "mol":
+            read_mol(self)
+        else:
+            return
         # Sort the atoms
         self.sort_atoms()
 
-    def load_verts(self, vert_file, vta_ball_file=None):
+    def load_verts(self, file=None, vta_ball_file=None):
         """
         Loads vorpy specific vertices file from the system level
         :param vta_ball_file:
-        :param vert_file:
+        :param file:
         :return:
         """
+        if file is not None:
+            self.vert_file = file
         # Check to see if the network has been created yet or not
         if self.net is None:
             self.net = Network(atoms=self.atoms, sys=self)
         if vta_ball_file is None:
-            read_verts(self.net, vert_file)
+            read_verts(self.net, self.vert_file)
         else:
-            read_vta_data(self, vert_file=vert_file, ball_file=vta_ball_file)
+            read_vta_data(self, vert_file=file, ball_file=vta_ball_file)
 
-    def load_net(self, net_file, verts_only=False):
+    def load_net(self, file=None, verts_only=False):
         """
         Used to load a network that was previously calculated
-        :param net_file:
+        :param file:
         :param verts_only:
         """
         # If no file has been loaded before, create the main network
-        self.net_file = net_file
+        if file is not None:
+            self.net_file = file
+        # Create the network
         self.net = Network(self, atoms=self.atoms)
-        read_net(self.net, net_file, verts_only=verts_only)
+        read_net(self.net, file, verts_only=verts_only)
 
     def load_ndx(self, file=None):
         """
@@ -165,19 +190,19 @@ class System:
         # Go through each of the atoms in the system adding the atoms to their respective chains
         for atom in self.atoms:
             # Set the atom's name
-            self.atom_names.append("Atom " + str(self.atoms.index(atom)) + " - " + atom.element)
+            self.atom_names.append("A" + atom.element + str(self.atoms.index(atom)))
             # Add the solution
             if atom.res.lower() == 'sol':
                 self.sol.append(atom)
             # If no chain is specified, set the chain to 'None'
-            if atom.chain == ' ':
-                atom.chain = 'ZZ'
+            if atom.mol == ' ':
+                atom.mol = 'MOL'
             # If the atom's chain does not exist add it to the list of chains
-            if atom.chain not in self.mol_names:
+            if atom.mol not in self.mol_names:
                 self.mols.append([atom])
-                self.mol_names.append(atom.chain)
+                self.mol_names.append(atom.mol)
             else:
-                self.mols[self.mol_names.index(atom.chain)].append(atom)
+                self.mols[self.mol_names.index(atom.mol)].append(atom)
         # Add the solution to the molecules list
         if self.sol is not None:
             self.mols.append(self.sol)
@@ -187,7 +212,7 @@ class System:
         # Set up the residues
         for atom in self.atoms:
             # Get the residue name for the atom
-            res_name = atom.res + atom.res_seq
+            res_name = atom.res + " " + atom.res_seq
             # If the residue name does not exist, add it
             if res_name not in self.res_names:
                 self.residues.append([atom])
@@ -249,8 +274,8 @@ class System:
         """
         set_output_dir(self)
 
-    def exports(self, groups=None, network=True, pdb=True, surfaces=True, full_network_object=False,
-                no_sol_network_object=True, alter_atoms_script=True, export_groups=False, export_interface=False):
+    def exports(self, groups=None, network=False, pdb=False, surfaces=False, full_network_object=False,
+                no_sol_network_object=False, alter_atoms_script=False, export_groups=False, export_interface=False):
         """
         Prepares the output directory and system for output. Keeps things consistent
         :return:
@@ -321,7 +346,7 @@ class System:
 
             # Print the build parameters
             print("\nBuild parameters:\n  Surface Resolution: {}\n  Maximum Vertex Radius: {}\n  Retaining Box Size: {}"
-                  .format(self.net.min_dist, self.net.max_vert, self.net.box_size))
+                  .format(self.net.surf_res, self.net.max_vert, self.net.box_size))
 
         # Show section
         if full_net or verts or edges or surfs or system:

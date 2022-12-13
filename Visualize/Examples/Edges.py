@@ -1,7 +1,7 @@
 import os
 from Visualize.mpl_visualize import *
-from System.Network.edge import Edge
-from System.Network.vertex import Vertex
+from System.Network.net_objs.edge import Edge
+from System.Network.net_objs.vertex import Vertex
 from System.system import System, Atom
 os.chdir("../..")
 

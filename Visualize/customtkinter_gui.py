@@ -3,8 +3,8 @@ import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import filedialog
 from System.system import System, Network
-from System.output import *
-from System.group import *
+from System.sys_funcs.output import *
+from System.sys_objs.group import *
 
 
 class Vorpy(ctk.CTk):

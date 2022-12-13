@@ -1,10 +1,9 @@
-import os
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import filedialog
 from System.system import System, Network
-from System.group import Group
-from System.output import *
+from System.sys_objs.group import Group
+from System.sys_funcs.output import *
 
 
 # Loading gui class. Holds the settings for the load/settings gui
