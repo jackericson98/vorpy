@@ -65,7 +65,7 @@ def write_pdb(atoms, name, sys=None):
         ser_num = " " * (5 - len(str(i+1))) + str(i + 1)
         name = a.name + " " * (4 - len(a.name))
         res = " " * (3 - len(a.res)) + a.res
-        chain = str(a.chain) + " " * (1 - len(a.chain))
+        chain = str(a.mol) + " " * (1 - len(a.mol))
         if chain == "ZZ":
             chain = "  "
         res_seq = " " * (3 - len(a.res_seq)) + a.res_seq
@@ -232,10 +232,11 @@ def export_verts(net):
 #################################################### Export Network ####################################################
 
 
-def export_net(net):
+def export_net(net, point_res=None):
     """
     Used to store pre-calculated surfaces in whatever directory the program is in
     :param net: The network object to export the data from
+    :param point_res: Holds the number of decimal places to output. If None it is set to 3
     :return:
     """
     # Move to the output directory
@@ -243,10 +244,13 @@ def export_net(net):
     # Create the network file
     file = open(net.sys.name + "_network.txt", 'w')
     # Write the general information about the system
-    file.write("NETW " + str(net.min_dist) + " " + str(net.max_vert) + " " + str(net.box_size) + " " + str(net.my_time)
+    file.write("NETW " + str(net.surf_res) + " " + str(net.max_vert) + " " + str(net.box_size) + " " + str(net.my_time)
                + " " + str(net.cpu_time) + " " + str(net.sol_verts) + " " + str(net.curved_faces) + " " +
                str(net.flat_faces) + " " + str(len(net.verts)) + " " + str(len(net.edges)) + " " +
                str(len(net.surfs)) + "\n")
+    # Set the resolution of the network's output points
+    if point_res is None:
+        point_res = 3
 
     # Write Objects:
 
@@ -271,11 +275,11 @@ def export_net(net):
     # Write vertices
     for vert in net.verts:
         # Get the normal information
-        loc, ndx = [str(_) for _ in vert.loc], [str(_) for _ in vert.ndx]
+        loc, ndx = [str(round(_, point_res)) for _ in vert.loc], [str(_) for _ in vert.ndx]
         # Get the doublet information
         loc2, rad2 = [""], ""
         if vert.doublet:
-            loc2, rad2 = [str(_) for _ in vert.loc2], str(vert.rad2)
+            loc2, rad2 = [str(round(_, point_res)) for _ in vert.loc2], str(round(vert.rad2, point_res))
         # Write the vertex information
         file.write("VERT " + str(net.verts.index(vert)) + " " + " ".join(ndx) + " " + " ".join(loc) + " " +
                    str(vert.rad) + " " + str(vert.doublet) + " " + " ".join(loc2) + " " + rad2 + '\n')
@@ -294,11 +298,12 @@ def export_net(net):
         if edge.loc is None:
             edge.loc, edge.rad = calc_circ(edge.atoms)
         # Get the atom's box
-        ndx, loc = [str(_) for _ in edge.ndx], [str(_) for _ in edge.loc]
+        ndx, loc = [str(_) for _ in edge.ndx], [str(round(_, point_res)) for _ in edge.loc]
         # Make sure the points are interpretable
         if edge.pv1 is None:
             edge.pv0, edge.pv1 = [np.inf, np.inf, np.inf], [np.inf, np.inf, np.inf]
-        rad, pv0, pv1 = str(edge.rad) + " ", [str(_) for _ in edge.pv0], [str(_) for _ in edge.pv1]
+        rad, pv0, pv1 = str(round(edge.rad, point_res)) + " ", [str(round(_, point_res)) for _ in edge.pv0], \
+                        [str(round(_, point_res)) for _ in edge.pv1]
         # Write Edge information: index, location, radius, end points
         file.write("EDGE " + str(net.edges.index(edge)) + " " + " ".join(ndx) + " " + " ".join(loc) + " " + rad +
                    " ".join(pv0) + " " + " ".join(pv1) + " " + str(edge.doublet) + "\n")
@@ -314,7 +319,8 @@ def export_net(net):
         # Go through the points along the edge
         for point in edge.points:
             # Add the points of the edge to the edge file
-            file.write("EPNT " + str(point[0]) + " " + str(point[1]) + " " + str(point[2]) + "\n")
+            file.write("EPNT " + str(round(point[0], point_res)) + " " + str(round(point[1], point_res)) + " " +
+                       str(round(point[2], point_res)) + "\n")
     # Write a separating line
     file.write("\n")
 
@@ -333,7 +339,7 @@ def export_net(net):
         # Go through the points along the perimeter of the surface
         for i in range(len(surf.points)):
             # Add the points of the edge to the edge file
-            file.write("SPNT " + " ".join([str(_) for _ in surf.points[i]]) + "\n")
+            file.write("SPNT " + " ".join([str(round(_, point_res)) for _ in surf.points[i]]) + "\n")
         # Go through the triangles in the surface's list of triangles
         for i in range(len(surf.tris)):
             # Add the triangles to the list of surface triangles
