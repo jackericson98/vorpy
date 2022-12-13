@@ -114,7 +114,7 @@ class Edge:
         # Check to see if a minimum distance has been provided
         if min_dist is None:
             # Get the network's minimum distance
-            min_dist = self.net.min_dist
+            min_dist = self.net.surf_res
         # Check to see if a surface has been provided
         if surf is None:
             # Choose a curved one to project onto. If the edge isn't straight 2 surfs are curved.

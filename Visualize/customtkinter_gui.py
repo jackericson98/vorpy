@@ -524,7 +524,7 @@ class Vorpy(ctk.CTk):
                           str(len(self.sys.net.verts)) + "\n    ~    \n    ~    \n    ~   ")
 
         self.build_data.set(str(self.sys.net.my_time) + "\n" + str(self.sys.net.cpu_time) + "\n" +
-                            str(self.sys.net.min_dist) + "\n" + str(self.sys.net.box_size) + "\n" +
+                            str(self.sys.net.surf_res) + "\n" + str(self.sys.net.box_size) + "\n" +
                             str(self.sys.net.max_vert))
 
 
