@@ -1,4 +1,4 @@
-from System.Network.build_surf import *
+from System.Network.net_funcs.build_surf import *
 
 
 class Surface:

@@ -1,5 +1,5 @@
-from System.calcs import *
-from System.Network.surface import Surface
+from System.sys_funcs.calcs import *
+from System.Network.net_objs.surface import Surface
 
 
 class Edge:
