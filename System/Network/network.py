@@ -1,13 +1,13 @@
 import time
-from System.Network.find_verts import *
-from System.Network.build_net import *
-from System.Network.process_net import *
+from System.Network.net_funcs.find_verts import *
+from System.Network.net_funcs.build_net import *
+from System.Network.net_funcs.process_net import *
 
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
     def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, doublets=None, groups=None,
-                 min_dist=0.1, box_size=1.5, max_vert=5, sol_verts=True, flat_faces=False):
+                 surf_res=0.3, box_size=1.25, max_vert=7, sol_verts=True, flat_faces=False):
         # Network graph objects
         self.sys = sys                # System          :  Route back to outer system for system attribute access
         self.atoms = atoms            # Atoms           :  Atoms of the network. Should be identical to self.sys.atoms
@@ -30,7 +30,7 @@ class Network:
         self.surf_ndxs = []           # Surface indices :  Holds the indices of the atoms of the surfaces in the network
         self.atom_ndxs = []           # Atom indices    :  Used to track atoms that have been used in a vertex
         # Settings
-        self.min_dist = min_dist      # Resolution      :  How small the triangles in the surfaces are
+        self.surf_res = surf_res      # Resolution      :  How small the triangles in the surfaces are
         self.max_vert = max_vert      # Max vert rad    :  The maximum vertex radius for the network
         self.box_size = box_size      # Box size        :  Holds the box multiplier for the sys box from the atoms box
         self.parallelize = False      # Parallelize     :  Split the calculations between cores?
@@ -214,8 +214,8 @@ class Network:
             percentage = int((i + j + 2) / tot_num * 100)
             print("\rAnalyzing: {} %          ".format(percentage), end="")
             self.atoms[j].cell_vol = calc_vol(self.atoms[j])
-        # Get the solute layers
-        self.sol_layers, self.sol_layer_atoms = find_sol_layers(self)
+        # # Get the solute layers
+        # self.sol_layers, self.sol_layer_atoms = find_sol_layers(self)
 
 
     def build(self, output=True, surf_res=None, max_vert=None, box_size=None, sol_verts=True, flat_faces=False,
@@ -234,17 +234,22 @@ class Network:
         # If the system has no name, one needs top be set
         if self.sys.name is None:
             self.sys.name = "User_Atoms"
-        print("\nBuilding {} network\n    Maximum Vertex Radius = {}\n    Surface Resolution = {}\n    SOL Verts = {}\n"
-              .format(self.sys.name, max_vert, surf_res, sol_verts))
         # Check for input values for the network build
         if max_vert is not None:
             self.max_vert = max_vert
         if box_size is not None:
             self.box_size = box_size
         if surf_res is not None:
-            self.min_dist = surf_res
+            self.surf_res = surf_res
         self.sol_verts = sol_verts
         self.flat_faces = flat_faces
+        prepping_header = "\r\nMy Settings:                                             \n\n" \
+                          "  1. Surface Resolution    : {}                                \n" \
+                          "  2. Maximum Vertex Radius : {}                                \n" \
+                          "  3. Box Size              : {}                                \n" \
+                          "  4. Solute Vertices       : {}                                \n" \
+            .format(self.surf_res, self.max_vert, self.box_size, self.sol_verts)
+        print(prepping_header)
         # Instantiate the timer variables
         self.my_time, self.cpu_time = 0, 0
         # Start the timer
@@ -274,11 +279,11 @@ class Network:
         stop = time.perf_counter()
         self.my_time = stop - start
         if output:
-            self.sys.exports()
+            self.sys.exports(network=True)
         # Translate the second data to hours minutes and seconds
         h, m, s = get_time(self.my_time)
         # Print the network data
-        print("\n{} Network Built:\n\n    Time = {}:{}:{:.2f} s\n    Vertices Found = {}\n    Surfaces Built = {}\n"
+        print("\n\n{} Network Built:\n\n    Time = {}:{}:{:.2f} s\n    Vertices Found = {}\n    Surfaces Built = {}\n"
               .format(self.sys.name, int(h), int(m), s, len(self.verts), len(self.surfs)))
 
     def rebuild_net(self, resolution=None, flat_faces=None, max_vert=None, box_size=None):
