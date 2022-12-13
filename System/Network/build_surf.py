@@ -149,7 +149,7 @@ def fill_mesh(surf):
     if len(surf.perimeter) == 0:
         build_perimeter(surf)
     # Get the resolution
-    res = surf.net.min_dist
+    res = surf.net.surf_res
     # Get the atoms
     a0, a1 = surf.atoms[0], surf.atoms[1]
     # Get the center of mass
@@ -322,7 +322,7 @@ def filter_tris(surf):
         tri = surf.tris[i]
         circ = calc_tri_circ(surf, tri)
         # If the circumference of the triangle is less than x times the min_dist check to see if tri is within
-        if circ > 5 * surf.net.min_dist and not tri_within(surf, tri):
+        if circ > 5 * surf.net.surf_res and not tri_within(surf, tri):
             remove_ndxs.append(surf.tris.index(tri))
 
     # Remove the outer triangles
