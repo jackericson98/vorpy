@@ -1,4 +1,4 @@
-from System.calcs import *
+from System.sys_funcs.calcs import *
 
 
 class Group:
@@ -109,7 +109,7 @@ class Group:
             self.bff.iface_sa = self.iface_sa
 
     def set_name(self):
-        self.name = self.net.sys.name + "_" + self.select_strs[0] + "group"
+        self.name = self.net.sys.name + "_" + "_".join(self.select_strs) + "group"
 
     # Add selection method. Adds a new selection to the group
     def add_sele(self, new_sele, new_str):
@@ -149,3 +149,48 @@ class Group:
         # Get the molecules from their names
         for ndx in ndxs:
             self.atoms += self.net.sys.ndxs[self.net.sys.ndx_names.index(ndx)]
+
+    # Get Sol
+    def find_sol_layers(net, mol=None):
+        # We want a function that creates full solute layers
+        # This variable holds the atoms for their respective layers
+        layers_atoms = []
+        # This variable holds the surfaces associated with the layers
+        layers = []
+        # Holds the current set of atoms being surrounded
+        current_layer, next_layer = None, None
+        sol_atoms = net.sys.sol.copy()
+        if sol_atoms is None:
+            return
+        i = 0
+        # Keep adding layers until the sol atoms are gone
+        while len(sol_atoms) > 0 and i < 10:
+            # Set the current layer to what was the next layer
+            current_layer, next_layer = next_layer, []
+            # If the current layer is none, this is the first layer and we are calculating the molecule's sol layer
+            if current_layer is None:
+                # If no molecule is provided go off of the system's molecule list
+                if mol is None:
+                    current_layer = []
+                    for my_mol in net.sys.mols:
+                        if net.sys.mol_names[net.sys.mols.index(my_mol)].lower() == 'sol':
+                            continue
+                        current_layer += my_mol
+                else:
+                    current_layer = mol
+            # Set up the shell storage for the surfaces
+            shell = []
+            # Check each surface to see if it is in the current layer
+            for surf in net.surfs:
+                if surf.atoms[0] in current_layer and surf.atoms[1] in sol_atoms:
+                    my_atom = sol_atoms.pop(sol_atoms.index(surf.atoms[1]))
+                    next_layer.append(my_atom)
+                    shell.append(surf)
+            # Add the correct variables
+            layers.append(shell)
+            layers_atoms.append(current_layer)
+
+            i += 1
+        # Add the last layer of atoms
+        layers.append(next_layer)
+        return layers, layers_atoms
