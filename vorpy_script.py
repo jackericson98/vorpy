@@ -2,20 +2,18 @@ from Visualize.mpl_visualize import *
 from System.system import System, Group
 from System.sys_funcs.output import *
 
-
 """
 
 User Example:
- 
+
  To use this script follow the triple quotation comments in the code for instructions on set up. 
- 
+
  Once everything is set up run this script. 
- 
+
  Note: The variables work in their current state, so only change the ones needed
 
 
 """
-
 
 ############################################## Example system bank #####################################################
 
@@ -27,7 +25,6 @@ cube_atoms = [[[-1, 0, 0], 1], [[1, 0, 0], 1], [[0, 1, 0], 1], [[0, -1, 0], 1], 
 # Choose one of the following line for testing below (e.g. System(file=test_files[0]))  V V V
 test_files = ["Na5", "Na7", "EDTA_Mg", "1BNA", "cambrin", "DB1976", "hairpin", "18L4_benzene"]
 test_files = [os.getcwd() + "/Data/test_data/" + test_file + ".pdb" for test_file in test_files]
-
 
 ############################################## Create the System #######################################################
 
@@ -43,14 +40,13 @@ test_files = [os.getcwd() + "/Data/test_data/" + test_file + ".pdb" for test_fil
     g. output_directory: Directory address for desired output destination for network exports
 
 """
-mySys = System(file=test_files[7],
+mySys = System(file=test_files[1],
                atoms=None,
                network_file=None,
-               verts_file="C:/Users/jacke/PycharmProjects/vorpy/Data/User_data/18L4_benzene2/18L4_benzene_verts.txt",
+               verts_file=None,
                index_file=None,
                frame_files=None,
                output_directory=None)
-
 
 ############################################### Build the Network ######################################################
 
@@ -63,12 +59,11 @@ mySys = System(file=test_files[7],
     d. sol_verts: Calculate the vertices between the solute atoms or just the molecule atoms
     e. output: 
 """
-mySys.build_network(surf_res=0.1,
+mySys.build_network(surf_res=0.05,
                     max_vert=7,
                     box_size=1.5,
                     sol_verts=True,
                     output=False)
-
 
 ############################################## Plot the Network ########################################################
 
@@ -85,7 +80,7 @@ mySys.build_network(surf_res=0.1,
     h. grid: Show the grid for the plot
 """
 plot_net(net=mySys.net,
-         Show=True,
+         Show=False,
          atoms=True,
          verts=True,
          edges=True,
@@ -93,7 +88,6 @@ plot_net(net=mySys.net,
          bg_color='black',
          grid=False
          )
-
 
 ################################################### Create Groups ######################################################
 
@@ -105,7 +99,7 @@ plot_net(net=mySys.net,
 group1 = Group(net=mySys.net,
                mols=None,
                residues=None,
-               atoms=[1, 5, 6],
+               atoms=None,
                ndxs=None,
                name=mySys.name + "_g1")
 """
@@ -114,10 +108,9 @@ group1 = Group(net=mySys.net,
 group2 = Group(net=mySys.net,
                mols=None,
                residues=None,
-               atoms=[3, 4],
+               atoms=None,
                ndxs=None,
                name=mySys.name + "_g2")
-
 
 ################################################ Export Selections #####################################################
 
@@ -132,7 +125,7 @@ group2 = Group(net=mySys.net,
     f. export_groups: Export the groups created above
     g. export_interface: Export the interface between the two groups above 
 """
-mySys.exports(groups=[group1, group2],
+mySys.exports(groups=None,
               network=True,
               pdb=True,
               surfaces=True,
@@ -142,14 +135,12 @@ mySys.exports(groups=[group1, group2],
               export_groups=True,
               export_interface=True)
 
-
 ################################################# Run the program ######################################################
 
 
 # Main running guy. Go get em guy!
 if __name__ == '__main__':
     pass
-
 
 ################################################# Open in pymol ########################################################
 
