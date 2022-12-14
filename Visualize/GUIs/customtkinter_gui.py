@@ -7,7 +7,7 @@ from System.sys_funcs.output import *
 from System.sys_objs.group import *
 
 
-class Vorpy(ctk.CTk):
+class VorpyC(ctk.CTk):
     def __init__(self):
         # Get all the characteristics from the CTk class
         super().__init__()

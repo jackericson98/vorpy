@@ -7,7 +7,7 @@ from System.sys_funcs.output import *
 
 
 # Loading gui class. Holds the settings for the load/settings gui
-class Vorpy:
+class VorpyT:
 
     def __init__(self, width=750, height=650):
 
@@ -20,7 +20,7 @@ class Vorpy:
         self.index_list = []
         self.output_directory = os.getcwd()
         self.net_file = None
-        self.sys = System(atoms=[], mols=[], residues=[])
+        self.sys = System()
         self.g1 = None
         self.g2 = None
 
@@ -242,7 +242,8 @@ class Vorpy:
 
         tk.Label(self.select_atoms_subfrm, text="Atoms").grid(row=4)
         self.current_atom_selection = tk.StringVar(self.main)
-        self.atom_options = tk.OptionMenu(self.select_atoms_subfrm, self.current_atom_selection, "", *self.sys.atom_names)
+        self.atom_options = tk.OptionMenu(self.select_atoms_subfrm, self.current_atom_selection, "",
+                                          *self.sys.atom_names)
         self.atom_options.grid(row=5)
         tk.Button(self.select_atoms_subfrm, text="Add", command=self.add_atom_button).grid(row=5, column=1)
 
@@ -315,8 +316,10 @@ class Vorpy:
         tk.Button(self.export_iface_subfrm, text="Add Selection", command=self.add_interface_g2).grid(row=3, column=1)
         # Buttons - interface
         self.export_iface_info = tk.BooleanVar(self.main)
-        tk.Checkbutton(self.export_iface_subfrm, text="Export Information", variable=self.export_cell_info).grid(row=4, columnspan=2)
-        tk.Button(self.export_iface_subfrm, text="Export Interface", command=self.export_iface).grid(row=5, columnspan=2)
+        tk.Checkbutton(self.export_iface_subfrm, text="Export Information", variable=self.export_cell_info)\
+            .grid(row=4, columnspan=2)
+        tk.Button(self.export_iface_subfrm, text="Export Interface", command=self.export_iface)\
+            .grid(row=5, columnspan=2)
 
 
         # Export information subframe
@@ -569,4 +572,4 @@ class Vorpy:
         export_iface(groups=self.iface_groups, info_file=self.export_iface_info.get())
 
 
-Vorpy()
+VorpyT()
