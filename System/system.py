@@ -76,6 +76,17 @@ class System:
         # Load the index file
         if self.ndx_file is not None:
             self.load_ndx()
+        # Instantiate the major variables
+        if self.atoms is None:
+            self.atoms = []
+        if self.residues is None:
+            self.residues = []
+        if self.mols is None:
+            self.mols = []
+        if self.ndxs is None:
+            self.ndxs = []
+        if self.data is None:
+            self.data = []
 
 
     def load_sys(self, file=None):
