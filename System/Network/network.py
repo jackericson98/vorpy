@@ -243,13 +243,6 @@ class Network:
             self.surf_res = surf_res
         self.sol_verts = sol_verts
         self.flat_faces = flat_faces
-        prepping_header = "\r\nMy Settings:                                             \n\n" \
-                          "  1. Surface Resolution    : {}                                \n" \
-                          "  2. Maximum Vertex Radius : {}                                \n" \
-                          "  3. Box Size              : {}                                \n" \
-                          "  4. Solute Vertices       : {}                                \n" \
-            .format(self.surf_res, self.max_vert, self.box_size, self.sol_verts)
-        print(prepping_header)
         # Instantiate the timer variables
         self.my_time, self.cpu_time = 0, 0
         # Start the timer
@@ -278,13 +271,12 @@ class Network:
         # Stop the timer and measure the time
         stop = time.perf_counter()
         self.my_time = stop - start
+        # Export the network
         if output:
             self.sys.exports(network=True)
-        # Translate the second data to hours minutes and seconds
         h, m, s = get_time(self.my_time)
-        # Print the network data
-        print("\n\n{} Network Built:\n\n    Time = {}:{}:{:.2f} s\n    Vertices Found = {}\n    Surfaces Built = {}\n"
-              .format(self.sys.name, int(h), int(m), s, len(self.verts), len(self.surfs)))
+        print("\rNetwork Built - {} verts, {} surfs - {}:{}:{:.2f} s\n".format(len(self.verts), len(self.surfs),
+                                                                                int(h), int(m), s), end="")
 
     def rebuild_net(self, resolution=None, flat_faces=None, max_vert=None, box_size=None):
         pass
