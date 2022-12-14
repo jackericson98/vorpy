@@ -102,7 +102,9 @@ def build(net):
     ################################################# Create the edges #################################################
 
     # Go through the vertices in the network searching for potential edges
-    for vert1 in net.verts:
+    for i in range(len(net.verts)):
+        print("\rConnecting Network: {:.2f} %".format(min(100, 100 * i / (2 * len(net.verts)))), end="")
+        vert1 = net.verts[i]
         if vert1.doublet is not None:
             continue
         # Check every combination of vert atoms as a potential edge
@@ -141,7 +143,9 @@ def build(net):
     ################################################### Create the surfaces ############################################
 
     # Go through the edges in the network
-    for edge1 in net.edges:
+    for i in range(len(net.edges)):
+        print("\rConnecting Network: {:.2f} %".format(min(100, 100 * (i + len(net.edges) - 1) / (2 * len(net.verts)))), end="")
+        edge1 = net.edges[i]
         # Go through the edge's atoms combinations
         for i in range(3):
             # Get the atoms and their sorted list of ndxs
