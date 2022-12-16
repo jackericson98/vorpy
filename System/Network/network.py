@@ -152,7 +152,7 @@ class Network:
         Connects the network using the functions in the build_net.py file
         :return:
         """
-        print("\rConnecting Network", end="")
+        print("\rconnecting network", end="")
         build(self)
 
     def find_verts(self):
@@ -192,7 +192,8 @@ class Network:
                 self.surfs[i].build_vta()
             # Otherwise, proceed with the regular build method
             else:
-                print("\rBuilding surface " + str(i + 1) + "/" + str(len(self.surfs)), end="")
+                print("\rbuilding surfaces " + " " * (len(str(len(self.surfs) - 1)) - len(str(i + 1))) + str(i + 1) + "/" +
+                      str(len(self.surfs)) + "                   ", end="")
                 self.surfs[i].build()
 
     def analyze(self):
@@ -206,13 +207,13 @@ class Network:
         i = 0
         for i in range(len(self.surfs)):
             percentage = int((i + 1) / tot_num * 100)
-            print("\rAnalyzing: {} %".format(percentage), end="")
+            print("\ranalyzing: {} %            ".format(percentage), end="")
             # Get the surface area of the surface
             self.surfs[i].sa = calc_sa(self.surfs[i])
         # Go through each atom in the system and find the volume
         for j in range(len(self.atoms)):
             percentage = int((i + j + 2) / tot_num * 100)
-            print("\rAnalyzing: {} %          ".format(percentage), end="")
+            print("\ranalyzing: {} %          ".format(percentage), end="")
             self.atoms[j].cell_vol = calc_vol(self.atoms[j])
         # # Get the solute layers
         # self.sol_layers, self.sol_layer_atoms = find_sol_layers(self)
@@ -275,7 +276,7 @@ class Network:
         if output:
             self.sys.exports(network=True)
         h, m, s = get_time(self.my_time)
-        print("\rNetwork Built - {} verts, {} surfs - {}:{}:{:.2f} s\n".format(len(self.verts), len(self.surfs),
+        print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s\n".format(len(self.verts), len(self.surfs),
                                                                                 int(h), int(m), s), end="")
 
     def rebuild_net(self, resolution=None, flat_faces=None, max_vert=None, box_size=None):
