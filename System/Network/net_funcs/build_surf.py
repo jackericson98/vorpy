@@ -65,7 +65,7 @@ def find_next_point(surf, pn_1, end, d_theta):
     a = np.sin(A) * c / np.sin(C)
     # Find the direction of the vector pointing from the previous point to the end point
     rn = end - pb
-    # Normalize this vector
+    # Normalize this vector. Try to supress warnings
     try:
         rn_hat = rn / np.linalg.norm(rn)
     except RuntimeWarning:
