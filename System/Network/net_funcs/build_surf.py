@@ -66,7 +66,10 @@ def find_next_point(surf, pn_1, end, d_theta):
     # Find the direction of the vector pointing from the previous point to the end point
     rn = end - pb
     # Normalize this vector
-    rn_hat = rn / np.linalg.norm(rn)
+    try:
+        rn_hat = rn / np.linalg.norm(rn)
+    except RuntimeWarning:
+        return
     # Find the next projection point by adding the vector with 'a' magnitude and rn_hat direction
     pc = pb + rn_hat * a
     # Calculate where the point intercepts the surface and return it
