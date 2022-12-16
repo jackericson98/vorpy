@@ -220,7 +220,7 @@ def find_verts(net, a0=None):
         while e_stack:
             # Get the percentage and print it
             percentage = min((len(net.verts) / tot_verts) * 100, 100)
-            print("\rFinding vertices: {:.2f} %".format(percentage), end="")
+            print("\rfinding vertices: {:.2f} %".format(percentage), end="")
             # Get the edge from the top of the stack
             edge_atoms, vert = e_stack.pop()
             # Find the next site in the network
