@@ -54,7 +54,8 @@ def doublify(net):
         dub.edges = []
         for vert in dub_verts:
             # Create the edge from the atoms in both dub and vert and add it to the network and each vertex
-            my_edge = Edge([net.atoms[_] for _ in [_ for _ in vert.ndx if _ in dub.ndx]], net=net, verts=[dub, vert], surfs=[])
+            my_edge = Edge([net.atoms[_] for _ in [_ for _ in vert.ndx if _ in dub.ndx]], net=net, verts=[dub, vert],
+                           surfs=[])
             net.edges.append(my_edge)
             dub.edges.append(my_edge)
             vert.edges.append(my_edge)
@@ -108,9 +109,9 @@ def build(net):
         if vert1.doublet is not None:
             continue
         # Check every combination of vert atoms as a potential edge
-        for i in range(4):
+        for j in range(4):
             # Grab the atoms
-            atoms = [vert1.atoms[i], vert1.atoms[(i + 1) % 4], vert1.atoms[(i + 2) % 4]]
+            atoms = [vert1.atoms[j], vert1.atoms[(j + 1) % 4], vert1.atoms[(j + 2) % 4]]
             # Get the atoms indices
             atom_ndxs = [net.atoms.index(_) for _ in atoms]
             atom_ndxs.sort()
@@ -147,9 +148,9 @@ def build(net):
         print("\rConnecting Network: {:.2f} %".format(min(100, 100 * (i + len(net.edges) - 1) / (2 * len(net.verts)))), end="")
         edge1 = net.edges[i]
         # Go through the edge's atoms combinations
-        for i in range(3):
+        for j in range(3):
             # Get the atoms and their sorted list of ndxs
-            atoms = [edge1.atoms[i], edge1.atoms[(i + 1) % 3]]
+            atoms = [edge1.atoms[j], edge1.atoms[(j + 1) % 3]]
             atom_ndxs = [net.atoms.index(atom) for atom in atoms]
             atom_ndxs.sort()
             # If the surface has been found before continue
