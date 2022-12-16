@@ -1,4 +1,7 @@
 import numpy as np
+import warnings
+
+warnings.filterwarnings("error")
 
 
 def calc_dist(l0, l1):
@@ -26,9 +29,12 @@ def calc_angle(p0, p1, p2=None):
     else:
         v0, v1 = np.array(p1) - np.array(p0), np.array(p2) - np.array(p0)
     # Get the unit vectors
-    n0, n1 = v0/np.linalg.norm(v0), v1/np.linalg.norm(v1)
-    # Calculate the angle between the two vectors with catches for 180 and 0
-    angle = np.arccos(np.clip(np.dot(n0, n1), -1.0, 1.0))
+    try:
+        n0, n1 = v0/np.linalg.norm(v0), v1/np.linalg.norm(v1)
+        # Calculate the angle between the two vectors with catches for 180 and 0
+        angle = np.arccos(np.clip(np.dot(n0, n1), -1.0, 1.0))
+    except RuntimeWarning:
+        angle = 0.000001
     return angle
 
 
@@ -202,7 +208,7 @@ def rotate_points(vec, points, reverse=False):
     st, ct, sp, cp = np.sin(theta), np.cos(theta), np.sin(phi), np.cos(phi)
     nps = []
     for p in points:
-        px, py, pz = round(p[0], 7), round(p[1], 7), round(p[2], 7)
+        px, py, pz = np.round(p[0], 7), np.round(p[1], 7), np.round(p[2], 7)
         # Multiplying the x, y rotation matrices gives the following:
         npx = px * cp - py * sp
         npy = px * ct * sp + py * ct * cp - pz * st
