@@ -55,8 +55,8 @@ def write_pdb(atoms, name, sys=None):
         # Copy the lines
         for line in base_file:
             file.write(line)
-        # Return the file
-        return file
+        file.close()
+        return
     # Go through each atom in the system
     for i in range(len(atoms)):
         a = atoms[i]
@@ -78,6 +78,7 @@ def write_pdb(atoms, name, sys=None):
         # Write the atom information
         file.write("ATOM  " + ser_num + " " + name + " " + res + " " + chain + res_seq + "     " + " ".join(loc_strs) +
                    occupancy + t_fact + "        " + seg_id + symbol + charge + "\n")
+    file.close()
 
 
 def write_surfs(surfs, file_name, color=None, directory=None):
@@ -124,6 +125,7 @@ def write_surfs(surfs, file_name, color=None, directory=None):
                        str(color[1]) + " " + str(color[2]) + "\n")
         # Keep counting triangles for the system file
         num_verts += len(surfs[i].points)
+    file.close()
 
 
 def export_mySys(sys):
@@ -175,6 +177,7 @@ def export_iface(groups, info_file=False, interface_atoms=False):
         info.write("Interface between " + g0.name + " and " + g1.name + " : \n")
         info.write("Number of Surfaces: " + str(len(g0.iface_surfs)))
         info.write("Surface Area: " + str(g0.iface_sa))
+        info.close()
 
 
 def export_body(group, info_file=False, outer_atoms=False):
@@ -187,6 +190,20 @@ def export_body(group, info_file=False, outer_atoms=False):
     """
     # Move to the output directory
     os.chdir(group.net.sys.dir)
+    no_dir = True
+    inc = 0
+    while no_dir:
+        # Create the directory for the storage of exported group data
+        my_str = str(inc)
+        if inc == 0:
+            my_str = ""
+        try:
+            os.mkdir(group.name + my_str)
+            no_dir = False
+        except FileExistsError:
+            inc += 1
+
+    os.chdir(os.getcwd() + "/" + group.name)
     # If the group name is empty, name it
     if group.name is None:
         group.set_name()
@@ -203,6 +220,8 @@ def export_body(group, info_file=False, outer_atoms=False):
         info.write("Number of atoms: " + str(len(group.atoms)) + "\n")
         info.write("Volume: " + str(group.body_vol) + "\n")
         info.write("Surface Area: " + str(group.body_sa) + "\n")
+        info.close()
+    os.chdir("..")
 
 
 #################################################### Export Vertices ###################################################
@@ -227,6 +246,7 @@ def export_verts(net):
                    str(vert.rad) + "\n")
     # Write the end line for the file
     file.write("END")
+    file.close()
 
 
 #################################################### Export Network ####################################################
@@ -346,6 +366,7 @@ def export_net(net, point_res=None):
             file.write("STRI " + " ".join([str(_) + " " for _ in surf.tris[i]]) + "\n")
     # Write the end line
     file.write('END')
+    file.close()
 
 
 ############################################ Pymol Scripts #############################################################
@@ -365,3 +386,4 @@ def set_pymol_atoms(sys):
             file.write("alter (elem {}), vdw={}\n".format(sys.radii[0][i], sys.radii[1][i]))
     # Rebuild the system
     file.write("\nrebuild")
+    file.close()
