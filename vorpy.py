@@ -1,5 +1,4 @@
-import numpy as np
-
+from os import path
 from System.system import *
 
 """
@@ -13,9 +12,10 @@ Has a running header that updates as commands are preformed. User can get system
 ys = ['y', 'yes', 'ya', 'yeet', 'yur', 'yoint', 'uhu', 'yup', 'jess', 'affirmative', 'yass', '', 'yuss', 'yess',
       'yesss', 'yessss', 'yar', 'yuh', 'mhm']
 ns = ['n', 'no', 'naur', 'nope', 'nonya', 'nope', 'nien', 'nada']
-dones = ['done', 'd', 'finished', 'finito', 'complete', 'doneso', 'don', 'fin', 'keep movin bruh', 'mf move on',
+dones = ['done', 'd', 'finished', 'finito', 'complete', 'doneso', 'don', 'fin', 'keep movin bruh',
          'you still here?', 'go on', 'goo\'oon']
 ands = ['&', 'and', 'nd', 'also', '+', '&&']
+splitters = ['/', '-']
 
 # General commands
 quits = ['quit', 'q']
@@ -79,7 +79,7 @@ def create_header(sys):
 
 
 def are_you_sure():
-    ays = input("Are you sure? (Y/N):   ")
+    ays = input("Are you sure? (y/n):   ")
     if ays in ys:
         return True
     return False
@@ -88,7 +88,7 @@ def are_you_sure():
 def invalid_input(string):
     if type(string) is list:
         string = " ".join(string)
-    print("\'{}\' is not a valid input. Please try again or type \'h\' for help".format(string))
+    print("\'{}\' is not a valid input. try again or type \'h\' for help".format(string))
 
 
 def get_help():
@@ -145,26 +145,41 @@ def get_help():
     print(splitting_line, "\n")
 
 
-def get_ndx(ndx_item=""):
+def get_ndx(ndx=None, list_len=None, obj=None):
     """
     Asks the user for the index of the object they specified
     :return:
     """
+    if obj is not None and obj in my_objects:
+        names = ["molecule", "residue", "atom", "index"]
+        for i in range(4):
+            if obj in [mol_objs, res_objs, atom_objs, ndx_objs][i]:
+                obj = names[i]
+    else:
+        obj = "object"
     asking = True
-    my_ndx = None
     while asking:
-        my_ndx = input("Please enter a(n) {} index".format(ndx_item))
-        if my_ndx in quits or my_ndx in dones:
+        if ndx is None:
+            extra = ""
+            if list_len is not None:
+                extra = " less than {}".format(list_len)
+            prompt_str = "Enter {} index{} \nindex >>>   ".format(obj, extra)
+            ndx = input(prompt_str)
+        if ndx in quits or ndx in dones:
             return
         try:
-            my_ndx = int(my_ndx) - 1
+            ndx = int(ndx)
             asking = False
         except ValueError:
-            invalid_input(my_ndx)
-    return my_ndx
+            invalid_input(ndx)
+            ndx = None
+        if not asking and list_len is not None and ndx > list_len:
+            invalid_input(ndx)
+            asking = True
+    return ndx
 
 
-def get_obj(obj=None):
+def get_obj(obj=None, return_ndx=True):
     """
     Makes the user type a proper object
     :return: 1-4 based on if it is a 1. molecule 2. residue 3. atom or 4. index
@@ -177,7 +192,7 @@ def get_obj(obj=None):
     # Keep asking the user to choose an object to export
     while choosing:
         # Prompt the user
-        my_input = input("Enter an object type. (\'mol\', \'res\', \'atom\', or \'ndx\'):   ")
+        my_input = input("Enter an object type. (\'mol\', \'res\', \'atom\', or \'ndx\')\nobject type >>>   ")
         # Check to see if the user gave a valid response or not
         if my_input.lower() not in my_objects:
             # Tell the user they suck and try again
@@ -189,13 +204,178 @@ def get_obj(obj=None):
         # Otherwise, we have a success
         else:
             choosing = False
-    # Go through and find the type of object we are getting
-    objs = [mol_objs, res_objs, atom_objs, ndx_objs]
-    for i in range(4):
-        if my_input.lower() in objs[i]:
-            return i + 1
+    if return_ndx:
+        # Go through and find the type of object we are getting
+        objs = [mol_objs, res_objs, atom_objs, ndx_objs]
+        for i in range(4):
+            if my_input.lower() in objs[i]:
+                return i + 1
     # As a failsafe
     return my_input
+
+
+def get_file(file=None):
+    if file is None:
+        print("Enter a file address. (Use \'./\' to load a file from the \'.../vorpy\' directory):")
+    checking_file = True
+    while checking_file:
+        # Get the file if None was specified
+        if file is None:
+            file = input("file address >>>   ")
+            if file in quits:
+                return
+            test_file = file.split()
+            if test_file[0] in load_cmds:
+                file = file[len(test_file[0]) + 1:]
+        if path.exists(file):
+            checking_file = False
+        else:
+            invalid_input(file[0])
+            file = None
+            continue
+
+    return file
+
+
+def get_set(setting=None, val=None):
+    """
+        Makes the user type a proper Value
+        :return: 1-4 based on if it is a 1. molecule 2. residue 3. atom or 4. index
+        """
+    my_input, choosing = val, False
+    # If obj not in my objects
+    if val is None or val.lower() not in my_settings:
+        choosing = True
+
+    # Keep asking the user to choose an object to export
+    while choosing:
+        my_input = setting
+        if setting is None:
+            # Prompt the user
+            my_input = input("Enter setting type. (\'surf_res\', \'max_vert\', \'box_size\', or \'sol_verts\')\nsetting type >>>   ")
+        # Check to see if the user gave a valid response or not
+        if my_input.lower() not in my_settings:
+            # Tell the user they suck and try again
+            invalid_input(my_input)
+            continue
+        # If they quit, then quit
+        elif my_input.lower() in quits:
+            return
+        # Otherwise, we have a success
+        else:
+            choosing = False
+    # As a failsafe
+    return my_input
+
+
+def get_val(setting, val=None):
+    """
+        Asks the user for the index of the object they specified
+        :return:
+        """
+    sett_name = ""
+    if setting.lower() in my_settings:
+        names = ["surface resolution", "maximum vertex", "box size", "solute vertices"]
+        for i in range(4):
+            if sett in [surf_reses, max_verts, box_sizes, sol_vertses][i]:
+                sett_name = names[i]
+    else:
+        sett_name = "setting"
+    asking = True
+    while asking:
+        if val is None:
+            prompt_str = "Enter {} value \nvalue >>>   ".format(sett_name)
+            val = input(prompt_str)
+        if val in quits or val in dones:
+            return
+        if setting in sol_vertses:
+            try:
+                val = bool(val)
+            except ValueError:
+                val = None
+        else:
+            try:
+                val = float(val)
+            except ValueError:
+                val = None
+        if val is not None:
+            asking = False
+    return val
+
+
+
+def print_list(names, list_name=None, width=150, height=30, cutoff=15):
+    """
+    Prints a long list in columns with numbers and allows the user to scroll through the list
+    :param names:
+    :param list_name:
+    :param width:
+    :param height:
+    :param cutoff:
+    :return:
+    """
+    # Check to see if a list name was provided
+    if list_name is None:
+        list_name = "My Objects"
+    # First find the longest input in the list
+    max_len = 0
+    for name in names:
+        if len(name) > max_len:
+            max_len = len(name)
+    if max_len > cutoff:
+        max_len = cutoff
+
+    # Figure out the columns. num cols = width / # of digits in index of last element + 2 ('. ') + max_len + 2 spaces
+    num_cols = int(width / (2 + len(str(len(names) - 1)) + max_len + 2))
+    # Print the first set of numbers
+    i, row = 0, 0
+    # Go through the names row by row, also print the header
+    print(list_name)
+    while row < height:
+        row_str = ""
+        for col in range(num_cols):
+            if i >= len(names):
+                row = np.inf
+            else:
+                row_str += str(i) + ". " + " " * (len(str(len(names) - 1)) - len(str(i))) + names[i] + " " * (
+                            max_len - len(names[i])) + "  "
+                i += 1
+        print(row_str)
+    # If that is all the data we are done and able to quit
+    if len(names) < num_cols * height:
+        return
+    # In the case where the user wants to see a really long list, allow them to scroll
+    scrolling = True
+    while scrolling:
+        my_response = input("Enter an index or a range or type 'q' to quit. (\'356\' or \'400-600\'")
+        nums = None
+        for i in range(len(my_response)):
+            if my_response[i] in splitters:
+                try:
+                    nums = [int(my_response[:i], int(my_response[i + 1:]))]
+                except ValueError:
+                    nums = None
+        # Check to see if a single number has been entered
+        if nums is None:
+            try:
+                nums = [int(my_response)]
+            except ValueError:
+                nums = None
+        # Print the lists
+        if nums is not None and len(nums) == 1 and nums[0] < len(names):
+            print_list(names[nums[0]:nums[0] + num_cols * height],
+                       list_name=list_name + ": Elements " + str(nums[0]) + "-" + str(nums[0] + num_cols * height),
+                       height=height, width=width, cutoff=max_len)
+        elif nums is not None and nums[0] < nums[1] < len(names):
+            # Check to see if the height needs to be changed
+            new_height = height
+            if nums[1] - nums[0] > num_cols * height:
+                new_height = (nums[1] - nums[0]) // num_cols + 1
+            print_list(names[nums[0]:nums[1]], list_name=list_name + ": Elements " + str(nums[0]) + "-" + str(nums[1]),
+                       height=new_height, width=width, cutoff=max_len)
+        else:
+            invalid_input(my_response)
+
 
 
 def show(sys, usr_npt):
@@ -203,21 +383,16 @@ def show(sys, usr_npt):
     Shows the input group type
     :return:
     """
+
+    # If the user types 'Show' have a catch for it
+    if len(usr_npt) == 1:
+        show_var = get_obj(return_ndx=False).lower()
     # Get the list that the user wants to be shown if none was provided
-    if len(usr_npt) >= 1 and usr_npt[1] in my_objects:
-        show_var = usr_npt[1]
+    elif len(usr_npt) == 2 and usr_npt[1] in my_objects:
+        show_var = usr_npt[1].lower()
     else:
-        finding_show_var = True
-        show_var = None
-        while finding_show_var:
-            show_var = input("Which object list would you like to see? (enter \'h\' for assistance):   ")
-            if show_var.lower() in helps:
-                get_help()
-                return
-            elif show_var.lower() not in my_objects:
-                invalid_input(show_var)
-            else:
-                finding_show_var = False
+        invalid_input(usr_npt)
+        return
 
     # Get the correct list to show the user
     if show_var in mol_objs:
@@ -237,39 +412,11 @@ def show(sys, usr_npt):
         show_list = []
 
     # Show the list
-    if len(show_list) <= 30:
-        print(show_name)
-        for i in range(len(show_list)):
-            print(str(i + 1) + ". " + show_list[i])
+    if len(show_list) == 0:
+        print("no objects to show")
+        return
     else:
-        print(show_name)
-        for i in range(len(show_list[:30])):
-            print(str(i + 1) + ". " + show_list[i])
-        print("The list is too long")
-        showing = True
-        while showing:
-            usr_rng = input("Specify a range of numbers to show separated by a dash and spaces between 1 and {}".format(len(show_list)))
-            # If the user inputs a help command
-            if usr_rng.lower() in helps:
-                get_help()
-                continue
-            # If the user quits
-            elif usr_rng.lower() in quits:
-                if are_you_sure():
-                    return
-            # Split their inputs by spaces and try to create integers out of the inputs
-            usr_rng.split()
-            ndx1, ndx2 = None, None
-            try:
-                ndx1 = int(usr_rng[0])
-                ndx2 = int(usr_rng[2])
-            except ValueError or IndexError:
-                invalid_input(usr_rng)
-            if ndx1 is not None and ndx2 is not None and 0 < ndx1 < ndx2:
-                if ndx2 >= len(show_list):
-                    ndx2 = len(show_list)
-                for i in range(show_list[ndx1 - 1:ndx2 - 1]):
-                    print(str(i + ndx1) + ". " + show_list[i])
+        print_list(show_list, show_name)
 
 
 
@@ -280,11 +427,22 @@ def load(sys, usr_npt):
     :param usr_npt:
     :return:
     """
-    for file in usr_npt[1::2]:
+    my_files = []
+    if len(usr_npt) == 1:
+        my_files.append(get_file())
+    else:
+        for file in usr_npt[1::2]:
+            my_file = get_file(file)
+            if my_file is None:
+                return
+            my_files.append(my_file)
+    for file in my_files:
         # Check to see what type of file it is
         if file[-3:] == 'pdb' or file[-3:] == 'mol' or file[-3:] == 'gro' or file[-3:] == 'cif':
-            if sys.name is not None and (sys.atoms is not None or sys.vert_file is not None or sys.net_file is not None):
-                reset_sys = input("\n{} System is already loaded. Would you like to replace this system with: {} (Y/N)".format(sys.name, file))
+            if sys.name is not None and \
+                    (sys.atoms is not None or sys.vert_file is not None or sys.net_file is not None):
+                reset_sys = input("\n{} System is already loaded. Would you like to replace this system with: {} (y/n)"
+                                  .format(sys.name, file))
                 if reset_sys.lower() in ys:
                     my_sys = System(file)
                     print(my_sys.name, "loaded")
@@ -297,11 +455,10 @@ def load(sys, usr_npt):
         elif file[-3:] == 'txt':
             # If the new file is a vertex file load it
             if file[-9:-4] == 'verts':
-                verts_loaded = True
                 # If a vertex file has already been loaded make sure the user wants to load it if not load it
                 if sys.vert_file is not None and sys.vert_file != "":
                     replace_vert_file = input("\nThere is a vertex file already loaded: {}\n "
-                                              "Would you like to replace it? (Y/N):   ".format(sys.vert_file))
+                                              "Would you like to replace it? (y/n):   ".format(sys.vert_file))
                     if replace_vert_file in ys or replace_vert_file in dones:
                         sys.load_verts(file)
                         print(sys.vert_file, "loaded")
@@ -311,14 +468,15 @@ def load(sys, usr_npt):
 
             # If the new file is a network file load it
             elif file[-11:-4] == 'network':
-                net_loaded = True
                 # If a vertex file has already been loaded make sure the user wants to load it if not load it
                 if sys.net_file is not None or sys.net_file != "":
-                    replace_net_file = input("\nThere is a Network file already loaded: {}\n "
-                                              "Would you like to replace it? (Y/N):   ".format(sys.net_file))
-                    if replace_net_file in ys or replace_net_file in dones:
+                    replace_net_file = input("\n{} is already loaded\n "
+                                              "replace file >>>   ".format(sys.net_file))
+                    if replace_net_file in ys:
                         sys.load_net(file)
                         print(sys.net_file, "loaded")
+                    else:
+                        return
                 else:
                     sys.load_net(file)
                     print(sys.net_file, "loaded")
@@ -329,9 +487,8 @@ def load(sys, usr_npt):
 
         # In all other case print an error and give the user a chance to try again
         else:
-            print("\r\n\n{} Is not a valid input. Please provide the full address for one of the following file types: \n .pdb, "
-                  ".mol, .cif, .gro, _verts.txt (vorpy created), _network.txt (vorpy created), .ndx (GROMACS created)"
-                  .format(file), end="")
+            print("\'{}\' is not a valid input. allowed file types: .pdb, .mol, .cif, .gro, .txt, .ndx. type "
+                  "\'h\' for help".format(file))
             return
 
 
@@ -342,62 +499,62 @@ def sett(sys, usr_npt):
     :param usr_npt:
     :return:
     """
+    if len(usr_npt) == 1:
+        my_set = get_set()
+        my_val = get_val(my_set)
+    elif len(usr_npt) == 2:
+        my_set = get_set(usr_npt[1])
+        my_val = get_val(my_set)
+    elif len(usr_npt) <= 3:
+        my_set = get_set(usr_npt[1])
+        my_val = get_val(my_set, usr_npt[2])
+    else:
+        invalid_input(usr_npt)
+        return
     # Check to see if a network has been created yet
     if sys.net is None:
         sys.net = Network(sys=sys, atoms=sys.atoms)
     # Set the surfaces resolution
-    if usr_npt[1] in surf_reses:
-        # Check to see that the user entered a value:
-        try:
-            sys.net.surf_res = float(usr_npt[2])
-        except ValueError or IndexError:
-            pass
+    if my_set in surf_reses:
+        sys.net.surf_res = my_val
+        print(u"surface resolution set to {} \u212B".format(my_val))
     # Set the maximum vertex radius
-    elif usr_npt[1] in max_verts:
-        # Check to see that the user entered a value:
-        try:
-            sys.net.max_vert = float(usr_npt[2])
-        except ValueError or IndexError:
-            pass
+    elif my_set in max_verts:
+        sys.net.max_vert = my_val
+        print(u"maximum vertex radius set to {} \u212B".format(my_val))
     # Set the box multiplier
-    elif usr_npt[1] in box_sizes:
-        # Check to see that the user entered a value:
-        try:
-            sys.net.box_size = float(usr_npt[2])
-        except ValueError or IndexError:
-            pass
+    elif my_set in box_sizes:
+        sys.net.box_size = my_val
+        print("box size multiplier set to {} x".format(my_val))
     # Set the solute vertices
-    elif usr_npt[1] in sol_vertses:
-        # Check to see that the user entered a value:
-        try:
-            sys.net.sol_verts = bool(usr_npt[2])
-        except ValueError or IndexError:
-            pass
+    elif my_set in sol_vertses:
+        sys.net.sol_verts = my_val
+        print("calculate solute vertices set to {}".format(my_val))
+    else:
+        invalid_input(usr_npt)
 
 
-def build(sys, usr_npt=None):
+def build(sys):
     """
     Prints a pre-built header and asks the user if they are ready to build. Once confirmed prints a building header and
     builds
     :param sys:
-    :param usr_npt:
     :return:
     """
     # Check to see if a network has been added
     if sys.net is None:
         sys.net = Network(sys=sys, atoms=sys.atoms)
     # Once the build command is used, the user is greeted with the build settings and asked if they are ready to build
-    prepping_header = "\rSettings     -     surf_res = {:.2f}   max_vert  = {:.2f}\n" \
-                        "                   box_size = {:.2f}   sol_verts = {}"\
+    prepping_header = "\rsettings     -    surf_res = {:.2f}   max_vert  = {:.2f}   box_size = {:.2f}   sol_verts = {}"\
         .format(sys.net.surf_res, sys.net.max_vert, sys.net.box_size, sys.net.sol_verts)
     print(prepping_header, end=" ")
     # The user is prompted to start the build - This could say eta and other build qualities
-    pre_build_confirmation = input("\nBuild network? (Y/N):   ")
+    pre_build_confirmation = input("\nbuild network (y/n) >>>   ")
     # If the user is ready to build, build the system
     if pre_build_confirmation.lower() in ys:
         sys.build_network()
     elif pre_build_confirmation.lower() in ns:
-        print("Note To change build settings use the command line using the \'set\' command, a setting and a value ")
+        print("note: to change build settings use the command line using the \'set\' command, a setting and a value ")
         return
 
 
@@ -445,12 +602,23 @@ def group(sys, usr_npt):
     # Create a group and add it to the system
     my_group = Group(sys.net, atoms=selections, name="_".join(selection_names))
     sys.groups.append(my_group)
-    # Ask the user if they want to rename the group
-    rename = input("\n{}\n\nAre you ok with this name? (Y/N):   ".format(my_group.name))
-    if rename in ns:
-        new_name = input("What would you like to rename it to? (up to 10 characters, no spaces):   ")
-        new_name.replace(" ", "_")
-        my_group.name = new_name
+    naming = True
+    while naming:
+        # Ask the user if they want to rename the group
+        rename = input("\ngroup name = {}\nchange name >>>   ".format(my_group.name))
+        # If they want to rename the group, let them
+        if rename in ys:
+            new_name = input("What would you like to rename it to? (up to 10 characters, no spaces):   ")
+            new_name.replace(" ", "_")
+            my_group.name = new_name
+        # If they don't we are done
+        elif rename in ns:
+            naming = False
+        else:
+            change_to_input = input("new group name {} \nchange name >>>  ".format(rename))
+            if change_to_input in ys:
+                group.name = rename
+
 
 
 def export(sys, usr_npt):
@@ -460,62 +628,69 @@ def export(sys, usr_npt):
     :param usr_npt:
     :return:
     """
-
-    # Separate the ands
-    my_selects = [[]]
-    for npt in usr_npt[1:]:
-        if npt in ands:
-            my_selects.append([])
+    my_obj, my_ndx, my_obj2, my_ndx2 = None, None, None, None
+    if len(usr_npt) <= 1:
+        my_obj = get_obj()
+        my_ndx  = get_ndx()
+    elif len(usr_npt) == 2:
+        my_obj = get_obj(obj=usr_npt[1])
+        my_ndx = get_ndx(obj=my_obj)
+    elif len(usr_npt) == 3:
+        my_obj = get_obj(obj=usr_npt[1])
+        my_ndx = get_ndx(ndx=usr_npt[2], obj=my_obj)
+    elif len(usr_npt) > 3 and usr_npt[3].lower() in ands:
+        my_obj = get_obj(obj=usr_npt[1])
+        my_ndx = get_ndx(ndx=usr_npt[2], obj=my_obj)
+        if len(usr_npt) == 4:
+            my_obj2 = get_obj()
+            my_ndx2 = get_ndx()
+        elif len(usr_npt) == 5:
+            my_obj2 = get_obj(usr_npt[4])
+            my_ndx2 = get_ndx(obj=my_obj2)
         else:
-            my_selects[-1].append(npt)
-    # Create the export groups variable
-    my_groups = []
-    # Go through the selections
-    for select in my_selects:
-        # Give the selection a place-holder
-        if len(select) == 1:
-            usr_npt.append("")
-        # If the user gave an invalid selection make them choose one
-        my_obj = get_obj(select[0])
-        if my_obj is None:
-            return
-        # Get the index
-        try:
-            my_ndx = int(select[1])
-        except ValueError:
-            my_ndx = None
-        if my_ndx is None:
-            my_ndx = get_ndx()
-        # Get the atoms
-        my_atoms = [sys.mols, sys.residues, sys.atoms, sys.ndxs][my_obj - 1][my_ndx - 1]
+            my_obj2 = get_obj(usr_npt[4])
+            my_ndx2 = get_ndx(usr_npt[5], obj=my_obj2)
+    else:
+        invalid_input(usr_npt)
+        return
+
+    # Get the atoms
+    try:
+        my_atoms = [sys.mols, sys.residues, sys.atoms, sys.ndxs][my_obj - 1][my_ndx]
+    except IndexError:
+        invalid_input(my_obj)
+        return
+    # In the case where we get one atom, make it a list
+    if type(my_atoms) is not list:
+        my_atoms = [my_atoms]
+
+    # Create the first group, get its data and export it
+    group1 = Group(atoms=my_atoms, net=sys.net)
+    group1.get_info()
+    export_body(group1, True, True)
+
+
+    # Check to see if there is a second group
+    if my_obj2 is not None:
+        my_atoms = [sys.mols, sys.residues, sys.atoms, sys.ndxs][my_obj2 - 1][my_ndx2]
         if type(my_atoms) is not list:
             my_atoms = [my_atoms]
-        # Create the group
-        my_group = Group(atoms=my_atoms, net=sys.net)
-        my_group.get_info()
-        # Add it to the groups list
-        my_groups.append(my_group)
-
-    # Export the groups
-    for my_group in my_groups:
-        export_body(my_group, info_file=True, outer_atoms=True)
-    # Export the interfaces
-    if len(my_groups) == 2:
-        my_iface_groups = my_groups
-    # If there are more than two groups specified ask the user which of the two they want
-    elif len(my_groups) > 2:
-        # Prompt the user
-        g1_ndx = get_ndx("Group 1")
-        g2_ndx = get_ndx("Group 2")
-        my_iface_groups = [sys.groups[g1_ndx], sys.groups[g2_ndx]]
+        group2 = Group(atoms=my_atoms, net=sys.net)
+        group2.get_info()
+        export_body(group2, True, True)
+        # Ask the user if they want to export the interface
+        exp_iface = input("Export interface between {} and {}? (y/n):   \nvorpy >>>")
+        if exp_iface.lower() in ys:
+            group1.bff, group2.bff = group2, group1
+            group1.get_info()
+            group2.get_info()
+            export_iface([group1, group2], True, True)
+            print("{}, {} and {}-{} interface exported".format(group1.name, group2.name, group1.name, group2.name))
+        else:
+            print("{} and {} exported".format(group1.name, group2.name))
     else:
-        return
-    # Prompt the user to export the 2 groups as an interface or not
-    export_iface_prompt = input("\nExport interface between {} and {}? (Y/N):   "
-                                .format(my_iface_groups[0].name, my_iface_groups[1].name))
-    # If the user wants to export the interface between the two selected groups, do it
-    if export_iface_prompt in ys:
-        export_iface(groups=my_groups, info_file=True, interface_atoms=True)
+        print("{} exported".format(group1.name))
+
 
 
 def check_input(sys):
@@ -546,7 +721,7 @@ def check_input(sys):
         sett(sys, usr_npt)
     # Check if the user's input is in builds
     elif usr_npt[0].lower() in build_cmds:
-        build(sys, usr_npt)
+        build(sys)
     # Check if the user's input is in groups
     elif usr_npt[0].lower() in group_cmds:
         group(sys, usr_npt)
