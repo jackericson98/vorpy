@@ -37,7 +37,7 @@ class System:
         self.groups = []                    # Groups              :   List of groups in the system
         self.ndxs = []                      # Indices             :   List of lists indices of atoms
         self.radii = my_radii               # Radii               :   List of atomic radii
-        self.sig_figs = None                # Significant figures :   Significant figures setting for the whole system
+        self.decimals = None                # Decimals            :   Decimals setting for the whole system
 
         # Set up the file attributes
         self.data = None                    # Data                :   Additional data provided by the base file
