@@ -151,7 +151,7 @@ class Group:
             self.atoms += self.net.sys.ndxs[self.net.sys.ndx_names.index(ndx)]
 
     # Get Sol
-    def find_sol_layers(net, mol=None):
+    def find_sol_layers(self, mol=None):
         # We want a function that creates full solute layers
         # This variable holds the atoms for their respective layers
         layers_atoms = []
@@ -159,7 +159,7 @@ class Group:
         layers = []
         # Holds the current set of atoms being surrounded
         current_layer, next_layer = None, None
-        sol_atoms = net.sys.sol.copy()
+        sol_atoms = self.net.sys.sol.copy()
         if sol_atoms is None:
             return
         i = 0
@@ -172,8 +172,8 @@ class Group:
                 # If no molecule is provided go off of the system's molecule list
                 if mol is None:
                     current_layer = []
-                    for my_mol in net.sys.mols:
-                        if net.sys.mol_names[net.sys.mols.index(my_mol)].lower() == 'sol':
+                    for my_mol in self.net.sys.mols:
+                        if self.net.sys.mol_names[self.net.sys.mols.index(my_mol)].lower() == 'sol':
                             continue
                         current_layer += my_mol
                 else:
@@ -181,7 +181,7 @@ class Group:
             # Set up the shell storage for the surfaces
             shell = []
             # Check each surface to see if it is in the current layer
-            for surf in net.surfs:
+            for surf in self.surfs:
                 if surf.atoms[0] in current_layer and surf.atoms[1] in sol_atoms:
                     my_atom = sol_atoms.pop(sol_atoms.index(surf.atoms[1]))
                     next_layer.append(my_atom)
