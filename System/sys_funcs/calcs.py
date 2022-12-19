@@ -81,8 +81,12 @@ def calc_sa(surf):
     # Go through the triangles in the surface
     for tri in surf.tris:
         # Get the points from the surface and calculate the surface area
-        p0, p1, p2 = surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
-        sa += calc_tri([p0, p1, p2])
+        try:
+            p0, p1, p2 = surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
+            sa += calc_tri([p0, p1, p2])
+        except IndexError:
+            print(tri, len(surf.points))
+
     # Return the surface area
     return sa
 
