@@ -20,6 +20,8 @@ class Surface:
         self.func = None            # Surface function : Holds the coefficients of the function describing the surf
         self.perimeter = perimeter  # Perimeter        : The points around the edges of the surface (IN ORDER)
         self.points = points        # Points           : The points that make up the surface
+        self.rings = None           # Rings            : Lists of points in rings toward the center
+        self.ring_tris = None       # Ring Triangles   : Triangulation of each set of concentric ring points
         self.flat_points = []       # Flattened points : Points projected into 2d based off of the surface normal
         self.pflat_points = []      # Flat perimeter   : Flattened points around the perimeter
         self.tris = tris            # Triangles        : A list of connections between the points
@@ -78,3 +80,20 @@ class Surface:
         self.rn = np.array(self.atoms[1].loc) - np.array(self.atoms[0].loc)
         # Calculate the simplices
         find_simps(self)
+
+    def find_flat_points(self):
+        # Check to see if the surface is flat or not.
+        if self.flat:
+            self.tris = [[i, (i + 1) % len(self.perimeter), len(self.points) - 1] for i in range(len(self.perimeter))]
+            return
+        # Copy the surface points
+        points = self.points.copy()
+        # Move all surf points toward the origin via center point
+        for i in range(len(points)):
+            points[i] = np.array(points[i]) - np.array(self.center)
+        # Calculate the angles to rotate the center point around
+        nps = rotate_points(self.rn, points)
+        # Get the 2d version of the points and their Delaunay tesselation
+        nps = np.array(nps)
+        # Add the flat points to the surface's list of flat points
+        self.flat_points = [nps[i, :2] for i in range(len(self.points))]
