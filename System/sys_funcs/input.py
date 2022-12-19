@@ -112,19 +112,22 @@ def read_vta_data(sys, ball_file, vert_file):
     if sys.net is None:
         sys.net = Network(sys, sys.atoms, verts=[], edges=[], surfs=[], flat_faces=True)
     # Create the System and load the files
-    vert_file = open(vert_file).readlines()
-    ball_file = open(ball_file).readlines()
+    with open(ball_file, 'r') as b:
+        b_file = b.readlines()
+    with open(vert_file, 'r') as v:
+        v_file = v.readlines()
     # Interpret the balls
     balls = []
-    for i in range(len(ball_file)):
+    for i in range(len(b_file)):
         # Split the data
-        data = ball_file[i].split(" ")
+        data = b_file[i].split(" ")
+        print(data, data[5])
         # Grab the data reference for the atoms
         balls.append(sys.atoms[int(data[5])])
     # Interpret the vertices
-    for i in range(len(vert_file)):
+    for i in range(len(v_file)):
         # Split the data
-        data = vert_file[i].split(" ")
+        data = v_file[i].split(" ")
         # Add the vertex data
         loc, rad = [float(data[4]), float(data[5]), float(data[6])], float(data[7])
         atoms = [balls[int(data[0])], balls[int(data[1])], balls[int(data[2])], balls[int(data[3])]]
@@ -141,7 +144,7 @@ def read_ndx(sys, file=None):
         file = sys.ndx_file
     # Get the file information and make sure to close the file when done
     try:
-        with open(sys.ndx_file, 'r') as f:
+        with open(file, 'r') as f:
             my_file = f.readlines()
     except FileNotFoundError:
         return
