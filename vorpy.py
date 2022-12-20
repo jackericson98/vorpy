@@ -35,7 +35,7 @@ my_commands = quits + helps + show_cmds + load_cmds + set_cmds + build_cmds + gr
 mol_objs = ['m', 'ms', 'molecule', 'molecules', 'mol', 'mols', 'ml', 'mls']
 atom_objs = ['a', 'as', 'atom', 'atoms', 'at', 'ats', 'am', 'ams']
 res_objs = ['r', 'rs', 'residue', 'residues', 'resid', 'resids', 'res', 'ress', 'reses', 'rdue', 'rdues']
-ndx_objs = ['i', 'is',  'index', 'indexs', 'indexes', 'indices', 'ndx', 'ndxs', 'ndex']
+ndx_objs = ['i', 'is',  'index', 'indexs', 'indexes', 'indices', 'ndx', 'ndxs', 'ndex', 'group', 'g', 'grp']
 
 my_objects = mol_objs + res_objs + atom_objs + ndx_objs
 
@@ -79,9 +79,13 @@ def create_header(sys):
 
 
 def are_you_sure():
-    ays = input("Are you sure? (y/n):   ")
-    if ays in ys:
+    ays = input("confirm >>>   ")
+    if ays.lower() in ys:
         return True
+    elif ays.lower() in helps:
+        help_()
+    elif ays.lower() in quits:
+        return
     return False
 
 
@@ -91,7 +95,7 @@ def invalid_input(string):
     print("\'{}\' is not a valid input. try again or type \'h\' for help".format(string))
 
 
-def get_help():
+def help_():
     """
     Shows a list of commands that the user has access to
     :return:
@@ -150,23 +154,39 @@ def get_ndx(ndx=None, list_len=None, obj=None):
     Asks the user for the index of the object they specified
     :return:
     """
+    obj_name = None
+    names = ["molecule", "residue", "atom", "index"]
+    # Get the object and make sure it's real
     if obj is not None and obj in my_objects:
-        names = ["molecule", "residue", "atom", "index"]
         for i in range(4):
             if obj in [mol_objs, res_objs, atom_objs, ndx_objs][i]:
-                obj = names[i]
+                obj =  i + 1
+                obj_name = names[i]
+    elif type(obj) is int and obj <= 4:
+        obj_name = names[obj - 1]
     else:
-        obj = "object"
+        obj = get_obj(obj=obj)
+        obj_name = names[obj - 1]
+    # Start asking for the index of the object
     asking = True
     while asking:
-        if ndx is None:
+        max_ndx = len([sys.mols, sys.residues, sys.atoms, sys.groups][obj - 1])
+        if max_ndx == 0:
+            print("No {} to choose from. Choose another object or type \'h\' for help")
+        elif ndx is None:
             extra = ""
             if list_len is not None:
                 extra = " less than {}".format(list_len)
-            prompt_str = "Enter {} index{} \nindex >>>   ".format(obj, extra)
+            prompt_str = "Enter {} index{} between 0 and {}\nindex >>>   ".format(obj_name, extra, max_ndx)
             ndx = input(prompt_str)
-        if ndx in quits or ndx in dones:
+        if ndx.lower() in quits or ndx.lower() in dones:
             return
+        elif ndx.lower() in helps:
+            help_()
+            continue
+        elif ndx.lower() in show_cmds:
+            show(obj_name)
+            continue
         try:
             ndx = int(ndx)
             asking = False
@@ -186,62 +206,87 @@ def get_obj(obj=None, return_ndx=True):
     """
     my_input, choosing = obj, False
     # If obj not in my objects
-    if obj is None or obj.lower() not in my_objects:
+    if obj is None or (type(obj) is str and obj.lower() not in my_objects) or (type(obj) is int and obj > 4):
         choosing = True
-
     # Keep asking the user to choose an object to export
     while choosing:
         # Prompt the user
-        my_input = input("Enter an object type. (\'mol\', \'res\', \'atom\', or \'ndx\')\nobject type >>>   ")
+        my_input = input("Enter an object type. (\'mol\', \'res\', \'atom\', or \'ndx\')\nobject >>>   ")
         # Check to see if the user gave a valid response or not
-        if my_input.lower() not in my_objects:
+        if my_input.lower() in quits:
+            return
+        elif my_input.lower() in helps:
+            help_()
+        elif my_input.lower() not in my_objects:
             # Tell the user they suck and try again
             invalid_input(my_input)
             continue
-        # If they quit, then quit
-        elif my_input.lower() in quits:
-            return
         # Otherwise, we have a success
         else:
             choosing = False
     if return_ndx:
+        # If the input is already an integer return it
+        if type(my_input) is int and my_input <= 4:
+            return my_input
         # Go through and find the type of object we are getting
         objs = [mol_objs, res_objs, atom_objs, ndx_objs]
         for i in range(4):
             if my_input.lower() in objs[i]:
-                return i + 1
+                if len([sys.mols, sys.residues, sys.atoms, sys.ndxs][i]) > 0:
+                    return i + 1
+                else:
+                    print("No {} in the system. Try again or typ \'h\' for help"
+                          .format(["molecules", "residues", "atoms", "groups"][i]))
+
     # As a failsafe
     return my_input
 
 
 def get_file(file=None):
+    # Check if there is a file provided
     if file is None:
         print("Enter a file address. (Use \'./\' to load a file from the \'.../vorpy\' directory):")
+    # Check the file
     checking_file = True
     while checking_file:
         # Get the file if None was specified
         if file is None:
-            file = input("file address >>>   ")
-            if file in quits:
+            file = input("file >>>   ")
+            if file.lower() in quits:
                 return
+            elif len(file) == 0:
+                checking_file = True
+                continue
+            elif file.lower() in helps:
+                help_()
             test_file = file.split()
             if test_file[0] in load_cmds:
                 file = file[len(test_file[0]) + 1:]
-        if path.exists(file):
+        # Check if the initial file works
+        if path.exists(file) and len(file) > 0:
             checking_file = False
+        # Check if the file is in the ./Data/test_data folder
+        elif path.exists("./Data/test_data/" + file) and len(file) > 0:
+            file = "./Data/test_data/" + file
+            checking_file = False
+        # Check if it is just the raw name
+        elif path.exists("Data/test_data/" + file + ".pdb") and len(file) > 0:
+            file = "./Data/test_data/" + file + ".pdb"
+            checking_file = False
+        # Otherwise, tell the user to try again
         else:
-            invalid_input(file[0])
+            invalid_input(file)
             file = None
             continue
-
+    # Return the file
     return file
 
 
 def get_set(setting=None, val=None):
     """
-        Makes the user type a proper Value
-        :return: 1-4 based on if it is a 1. molecule 2. residue 3. atom or 4. index
-        """
+    Makes the user type a proper Value
+    :return: 1-4 based on if it is a 1. molecule 2. residue 3. atom or 4. index
+    """
     my_input, choosing = val, False
     # If obj not in my objects
     if val is None or val.lower() not in my_settings:
@@ -252,7 +297,7 @@ def get_set(setting=None, val=None):
         my_input = setting
         if setting is None:
             # Prompt the user
-            my_input = input("Enter setting type. (\'surf_res\', \'max_vert\', \'box_size\', or \'sol_verts\')\nsetting type >>>   ")
+            my_input = input("Enter setting type. (\'surf_res\', \'max_vert\', \'box_size\', or \'sol_verts\')\nsetting >>>   ")
         # Check to see if the user gave a valid response or not
         if my_input.lower() not in my_settings:
             # Tell the user they suck and try again
@@ -261,6 +306,8 @@ def get_set(setting=None, val=None):
         # If they quit, then quit
         elif my_input.lower() in quits:
             return
+        elif my_input.lower() in helps:
+            help_()
         # Otherwise, we have a success
         else:
             choosing = False
@@ -268,31 +315,33 @@ def get_set(setting=None, val=None):
     return my_input
 
 
-def get_val(setting, val=None):
+def get_val(setting=None, val=None):
     """
         Asks the user for the index of the object they specified
         :return:
         """
-    sett_name = ""
-    if setting.lower() in my_settings:
-        names = ["surface resolution", "maximum vertex", "box size", "solute vertices"]
-        for i in range(4):
-            if sett in [surf_reses, max_verts, box_sizes, sol_vertses][i]:
-                sett_name = names[i]
-    else:
-        sett_name = "setting"
+    # If the setting is not in the settingsd
+    if setting is None or setting.lower() not in my_settings:
+        setting = get_set()
+    # Set up the list of possible names
+    names = ["surface resolution", "maximum vertex", "box size", "solute vertices"]
+    # Find the value for the setting
     asking = True
     while asking:
+        # If no val has been provided
         if val is None:
-            prompt_str = "Enter {} value \nvalue >>>   ".format(sett_name)
+            prompt_str = "Enter \'{}\' value \nvalue >>>   ".format(setting)
             val = input(prompt_str)
-        if val in quits or val in dones:
+
+        if val.lower() in quits or val.lower() in dones:
             return
+        elif val.lower() in helps:
+            help_()
         if setting in sol_vertses:
-            try:
-                val = bool(val)
-            except ValueError:
-                val = None
+            if val.lower() in ['t', 'true', 'tr'] + ys:
+                val = True
+            elif val.lower() in ['f', 'false', 'flse', 'fl', 'fa', 'fs', 'fls'] + ns:
+                val = False
         else:
             try:
                 val = float(val)
@@ -301,7 +350,6 @@ def get_val(setting, val=None):
         if val is not None:
             asking = False
     return val
-
 
 
 def print_list(names, list_name=None, width=150, height=30, cutoff=15):
@@ -347,7 +395,11 @@ def print_list(names, list_name=None, width=150, height=30, cutoff=15):
     # In the case where the user wants to see a really long list, allow them to scroll
     scrolling = True
     while scrolling:
-        my_response = input("Enter an index or a range or type 'q' to quit. (\'356\' or \'400-600\'")
+        my_response = input("Enter an index or a range or type 'q' to quit. (\'356\' or \'400-600\')\nindex >>>   ")
+        if my_response.lower() in quits:
+            return
+        elif my_response.lower() in helps:
+            help_()
         nums = None
         for i in range(len(my_response)):
             if my_response[i] in splitters:
@@ -378,14 +430,14 @@ def print_list(names, list_name=None, width=150, height=30, cutoff=15):
 
 
 
-def show(sys, usr_npt):
+def show(usr_npt=None):
     """
     Shows the input group type
     :return:
     """
-
+    global sys
     # If the user types 'Show' have a catch for it
-    if len(usr_npt) == 1:
+    if usr_npt is None or len(usr_npt) == 1:
         show_var = get_obj(return_ndx=False).lower()
     # Get the list that the user wants to be shown if none was provided
     elif len(usr_npt) == 2 and usr_npt[1] in my_objects:
@@ -420,20 +472,23 @@ def show(sys, usr_npt):
 
 
 
-def load(sys, usr_npt):
+def load(usr_npt):
     """
     Once one of the load commands is used try to load the rest of the string
-    :param sys: System object to add the file to
     :param usr_npt:
     :return:
     """
+    global sys
     my_files = []
     if len(usr_npt) == 1:
         my_files.append(get_file())
+        if my_files[-1] is None or my_files[-1].lower() in quits:
+            return
+
     else:
         for file in usr_npt[1::2]:
             my_file = get_file(file)
-            if my_file is None:
+            if my_file is None or my_file.lower() in quits:
                 return
             my_files.append(my_file)
     for file in my_files:
@@ -441,50 +496,70 @@ def load(sys, usr_npt):
         if file[-3:] == 'pdb' or file[-3:] == 'mol' or file[-3:] == 'gro' or file[-3:] == 'cif':
             if sys.name is not None and \
                     (sys.atoms is not None or sys.vert_file is not None or sys.net_file is not None):
-                reset_sys = input("\n{} System is already loaded. Would you like to replace this system with: {} (y/n)"
+                reset_sys = input("Replacing {} with {}\nconfirm >>>   "
                                   .format(sys.name, file))
                 if reset_sys.lower() in ys:
-                    my_sys = System(file)
-                    print(my_sys.name, "loaded")
-                    return my_sys
+                    sys = System(file)
+                    print(sys.name + " loaded - {} atoms, {} molecules, solute: {}"
+                          .format(len(sys.atoms), len(sys.mols), sys.sol_name))
+                    return sys
+                elif reset_sys.lower() in helps:
+                    help_()
+                elif reset_sys.lower() in quits:
+                    return
             else:
-                my_sys = System(file)
-                print(my_sys.name, "loaded")
-                return my_sys
+                sys = System(file)
+                print(sys.name + " loaded - {} atoms, {} molecules, solute: {}"
+                      .format(len(sys.atoms), len(sys.mols), sys.sol_name))
+                return sys
         # If the loaded file is a vertex or network file load them accordingly
         elif file[-3:] == 'txt':
             # If the new file is a vertex file load it
             if file[-9:-4] == 'verts':
                 # If a vertex file has already been loaded make sure the user wants to load it if not load it
                 if sys.vert_file is not None and sys.vert_file != "":
-                    replace_vert_file = input("\nThere is a vertex file already loaded: {}\n "
-                                              "Would you like to replace it? (y/n):   ".format(sys.vert_file))
-                    if replace_vert_file in ys or replace_vert_file in dones:
+                    replace_vert_file = input("Replacing {} with {}\n "
+                                              "confirm >>>   ".format(sys.vert_file, file))
+                    if replace_vert_file.lower() in ys or replace_vert_file.lower() in dones:
                         sys.load_verts(file)
-                        print(sys.vert_file, "loaded")
+                        print("{} vertices loaded - {} vertices, maximum vertex radius: {} \u208B, box size: {} x\n"
+                              .format(sys.name, len(sys.net.verts), sys.net.max_vert, sys.net.box_size))
+                    elif replace_vert_file.lower() in helps:
+                        help_()
+                    elif replace_vert_file.lower() in quits:
+                        return
                 else:
                     sys.load_verts(file)
-                    print(sys.vert_file, "loaded")
+                    print("{} vertices loaded - {} vertices, maximum vertex radius: {} \u208B, box size: {} x\n"
+                          .format(sys.name, len(sys.net.verts), sys.net.max_vert, sys.net.box_size))
 
             # If the new file is a network file load it
             elif file[-11:-4] == 'network':
                 # If a vertex file has already been loaded make sure the user wants to load it if not load it
                 if sys.net_file is not None or sys.net_file != "":
-                    replace_net_file = input("\n{} is already loaded\n "
-                                              "replace file >>>   ".format(sys.net_file))
+                    replace_net_file = input("Replacing {} with {}\n "
+                                              "confirm >>>   ".format(sys.net_file, file))
                     if replace_net_file in ys:
                         sys.load_net(file)
-                        print(sys.net_file, "loaded")
+                        print("{} network loaded - surface resolution: {}\u208B, maximum vertex radius: {} \u208B, box"
+                              " size: {} x\n".format(sys.name, len(sys.net.verts), sys.net.max_vert, sys.net.box_size))
+                    elif replace_net_file in helps:
+                        help_()
                     else:
                         return
                 else:
+                    # Load the file
                     sys.load_net(file)
-                    print(sys.net_file, "loaded")
+                    if len(sys.net.surfs) > 0:
+                        print("{} network loaded - surface resolution: {}\u208B, maximum vertex radius: {} \u208B, box size: {} x\n"
+                              .format(sys.name, len(sys.net.verts), sys.net.max_vert, sys.net.box_size))
+                    else:
+                        print("{} vertices loaded - {} vertices, maximum vertex radius: {} \u208B, box size: {} x\n"
+                              .format(sys.name, len(sys.net.verts), sys.net.max_vert, sys.net.box_size))
         # If the file is an index file load it accordingly
         elif file[-3:] == 'ndx':
             sys.load_ndx(file)
-            print(sys.ndx_file, "loaded")
-
+            print(sys.ndx_file + "loaded -  {}".format(sys.ndx_names[:min(len(sys.ndx_names) - 1, 10)]))
         # In all other case print an error and give the user a chance to try again
         else:
             print("\'{}\' is not a valid input. allowed file types: .pdb, .mol, .cif, .gro, .txt, .ndx. type "
@@ -492,13 +567,13 @@ def load(sys, usr_npt):
             return
 
 
-def sett(sys, usr_npt):
+def sett(usr_npt):
     """
     Set the network parameters
-    :param sys:
     :param usr_npt:
     :return:
     """
+    global sys
     if len(usr_npt) == 1:
         my_set = get_set()
         my_val = get_val(my_set)
@@ -517,194 +592,169 @@ def sett(sys, usr_npt):
     # Set the surfaces resolution
     if my_set in surf_reses:
         sys.net.surf_res = my_val
-        print(u"surface resolution set to {} \u212B".format(my_val))
+        print(u"Surface resolution set to {} \u212B".format(my_val))
     # Set the maximum vertex radius
     elif my_set in max_verts:
         sys.net.max_vert = my_val
-        print(u"maximum vertex radius set to {} \u212B".format(my_val))
+        print(u"Maximum vertex radius set to {} \u212B".format(my_val))
     # Set the box multiplier
     elif my_set in box_sizes:
         sys.net.box_size = my_val
-        print("box size multiplier set to {} x".format(my_val))
+        print("Box size multiplier set to {} x".format(my_val))
     # Set the solute vertices
     elif my_set in sol_vertses:
         sys.net.sol_verts = my_val
-        print("calculate solute vertices set to {}".format(my_val))
+        print("Calculate solute vertices set to {}".format(sys.net.sol_verts))
     else:
         invalid_input(usr_npt)
 
 
-def build(sys):
+def build():
     """
     Prints a pre-built header and asks the user if they are ready to build. Once confirmed prints a building header and
     builds
-    :param sys:
     :return:
     """
+    global sys
+    # If no system has been loaded tell the user to fuck off
+    if len(sys.atoms) == 0:
+        print("No atoms in the system. Use the \'load\' command or type \'h\' for help")
+        return
     # Check to see if a network has been added
     if sys.net is None:
         sys.net = Network(sys=sys, atoms=sys.atoms)
     # Once the build command is used, the user is greeted with the build settings and asked if they are ready to build
-    prepping_header = "\rsettings     -    surf_res = {:.2f}   max_vert  = {:.2f}   box_size = {:.2f}   sol_verts = {}"\
+    prepping_header = "\rSettings - surf_res = {:.2f}   max_vert  = {:.2f}   box_size = {:.2f}   sol_verts = {}"\
         .format(sys.net.surf_res, sys.net.max_vert, sys.net.box_size, sys.net.sol_verts)
     print(prepping_header, end=" ")
     # The user is prompted to start the build - This could say eta and other build qualities
-    pre_build_confirmation = input("\nbuild network (y/n) >>>   ")
+    pre_build_confirmation = input("\nconfirm >>>   ")
     # If the user is ready to build, build the system
     if pre_build_confirmation.lower() in ys:
         sys.build_network()
     elif pre_build_confirmation.lower() in ns:
-        print("note: to change build settings use the command line using the \'set\' command, a setting and a value ")
+        print("Use the \'set\' command to change a setting and a value. Type \'h\' for help")
+        return
+    elif pre_build_confirmation.lower() in helps:
+        help_()
+    elif pre_build_confirmation.lower() in quits:
         return
 
 
-def group(sys, usr_npt):
+def group(usr_npt, for_export=False):
     """
     Takes input strings interprets them and returns a group
-    :param sys:
     :param usr_npt:
     :return:
     """
-    selections = []
-    selection_names = []
-    # Go through the user's input's grabbing the atoms, molecules, residues and indices
-    for i in range(len(usr_npt)):
-        # If the current value is and, continue
-        if usr_npt[i] in ands:
-            continue
-        # If the user specified the index of the object us it
-        if i + 1 < len(usr_npt):
-            print(usr_npt, i + 1)
-            my_ndx = int(usr_npt[i + 1])
-        # If the user did not we need to ask for it
+    global sys
+    # Initial selection check
+    selections, selection_names = [], []
+    for word in usr_npt:
+        if word in ands or word.lower() in group_cmds or (for_export and word.lower() in export_cmds):
+            selections.append([])
+            selection_names.append("")
         else:
-            my_ndx = get_ndx()
-        # Exit this iteration if no ndx can be found
-        if my_ndx is None:
-            continue
-        # Check to see if the object specified was a molecule
-        elif usr_npt[i] in mol_objs and my_ndx < len(sys.mols):
-            # Add the selections from the molecules and molecule names list of the sytem
-            selections += sys.mols[my_ndx]
-            selection_names.append(sys.mol_names[my_ndx])
-        elif usr_npt[i] in res_objs:
-            # Add the selections from the residues and residue names list in the system
-            selections += sys.residues[my_ndx]
-            selection_names.append(sys.res_names[my_ndx])
-        elif usr_npt[i] in atom_objs:
-            # Add the selections from the residues and residue names list in the system
-            selections.append(sys.atoms[my_ndx])
-            selection_names.append(sys.atom_names[my_ndx])
-        elif usr_npt[i] in ndx_objs:
-            # Add the selections from the residues and residue names list in the system
-            selections += sys.ndxs[my_ndx]
-            selection_names.append(sys.ndx_names[my_ndx])
-    # Create a group and add it to the system
-    my_group = Group(sys.net, atoms=selections, name="_".join(selection_names))
-    sys.groups.append(my_group)
-    naming = True
-    while naming:
-        # Ask the user if they want to rename the group
-        rename = input("\ngroup name = {}\nchange name >>>   ".format(my_group.name))
-        # If they want to rename the group, let them
-        if rename in ys:
-            new_name = input("What would you like to rename it to? (up to 10 characters, no spaces):   ")
-            new_name.replace(" ", "_")
-            my_group.name = new_name
-        # If they don't we are done
-        elif rename in ns:
-            naming = False
-        else:
-            change_to_input = input("new group name {} \nchange name >>>  ".format(rename))
-            if change_to_input in ys:
-                group.name = rename
-
-
-
-def export(sys, usr_npt):
-    """
-    Takes in input strings and exports them based on their option choices
-    :param sys:
-    :param usr_npt:
-    :return:
-    """
-    my_obj, my_ndx, my_obj2, my_ndx2 = None, None, None, None
-    if len(usr_npt) <= 1:
-        my_obj = get_obj()
-        my_ndx  = get_ndx()
-    elif len(usr_npt) == 2:
-        my_obj = get_obj(obj=usr_npt[1])
-        my_ndx = get_ndx(obj=my_obj)
-    elif len(usr_npt) == 3:
-        my_obj = get_obj(obj=usr_npt[1])
-        my_ndx = get_ndx(ndx=usr_npt[2], obj=my_obj)
-    elif len(usr_npt) > 3 and usr_npt[3].lower() in ands:
-        my_obj = get_obj(obj=usr_npt[1])
-        my_ndx = get_ndx(ndx=usr_npt[2], obj=my_obj)
-        if len(usr_npt) == 4:
-            my_obj2 = get_obj()
-            my_ndx2 = get_ndx()
-        elif len(usr_npt) == 5:
-            my_obj2 = get_obj(usr_npt[4])
-            my_ndx2 = get_ndx(obj=my_obj2)
-        else:
-            my_obj2 = get_obj(usr_npt[4])
-            my_ndx2 = get_ndx(usr_npt[5], obj=my_obj2)
-    else:
-        invalid_input(usr_npt)
-        return
-
-    # Get the atoms
-    try:
-        my_atoms = [sys.mols, sys.residues, sys.atoms, sys.ndxs][my_obj - 1][my_ndx]
-    except IndexError:
-        invalid_input(my_obj)
-        return
-    # In the case where we get one atom, make it a list
-    if type(my_atoms) is not list:
-        my_atoms = [my_atoms]
-
-    # Create the first group, get its data and export it
-    group1 = Group(atoms=my_atoms, net=sys.net)
-    group1.get_info()
-    export_body(group1, True, True)
-
-
-    # Check to see if there is a second group
-    if my_obj2 is not None:
-        my_atoms = [sys.mols, sys.residues, sys.atoms, sys.ndxs][my_obj2 - 1][my_ndx2]
+            selections[-1].append(word)
+            selection_names[-1] += word
+    # Make sure that the selections are long enough
+    for selection in selections:
+        selection += [None] * abs((2 - len(selection)))
+    groups = []
+    # Create the groups
+    for i in range(len(selections)):
+        # pull the selection variable
+        selection = selections[i]
+        # Get the first selections
+        my_obj = get_obj(obj=selection[0])
+        my_ndx = get_ndx(obj=my_obj, ndx=selection[1])
+        # Check to see if the index provided is out of range
+        checking_ndx, my_atoms = True, None
+        while checking_ndx:
+            # Try to create the selection
+            try:
+                my_atoms = [sys.mols, sys.residues, sys.atoms, sys.ndxs][my_obj - 1][my_ndx]
+                checking_ndx = False
+            except IndexError:
+                my_ndx = get_ndx(obj=my_obj)
+                continue
+        # Check real quick for single atoms
         if type(my_atoms) is not list:
             my_atoms = [my_atoms]
-        group2 = Group(atoms=my_atoms, net=sys.net)
-        group2.get_info()
-        export_body(group2, True, True)
-        # Ask the user if they want to export the interface
-        exp_iface = input("Export interface between {} and {}? (y/n):   \nvorpy >>>")
-        if exp_iface.lower() in ys:
-            group1.bff, group2.bff = group2, group1
-            group1.get_info()
-            group2.get_info()
-            export_iface([group1, group2], True, True)
-            print("{}, {} and {}-{} interface exported".format(group1.name, group2.name, group1.name, group2.name))
-        else:
-            print("{} and {} exported".format(group1.name, group2.name))
+        # Create the group
+        my_group = Group(sys.net, atoms=my_atoms, name="_".join(selection_names[i]))
+        my_group.get_info()
+        # Naming loop
+        naming = True
+        while naming:
+            # Ask the user if they want to rename the group
+            rename = input("Group name: \"{}\"\nconfirm >>>   ".format(my_group.name))
+            # If they want to rename the group, let them
+            if rename in ns:
+                new_name = input("name >>>   ")
+                new_name.replace(" ", "_")
+                my_group.name = new_name
+            # If they don't we are done
+            elif rename in ys:
+                naming = False
+            elif rename in quits:
+                return
+            else:
+                change_to_input = input("Group name: \'{}\' \nconfirm >>>   ".format(rename))
+                if change_to_input in ys:
+                    group.name = rename
+        # Create the group
+        groups.append(my_group)
+    # If the groups have been made for export, do not add them to the system, just return them
+    if for_export:
+        return groups
     else:
-        print("{} exported".format(group1.name))
+        sys.groups += groups
+        return groups
 
 
 
-def check_input(sys):
+
+def export(usr_npt):
     """
-    Main function that is looped. Checks the inputs and runs the correct functions
-    :param sys:
+    Takes in input strings and exports them based on their option choices
+    :param usr_npt:
     :return:
     """
+    # Get the groups based off of what was specified
+    groups = group(usr_npt, for_export=True)
+    # Go through the groups in the list
+    for my_group in groups:
+        export_body(my_group, True, True)
+    # Check to see if there is a second group
+    if len(groups) > 1:
+        # Ask the user if they want to export the interface
+        exp_iface = input("Exporting interface between {} and {}\nconfirm >>>   ".format(groups[0].name, groups[1].name))
+        if exp_iface.lower() in ys:
+            groups[0].bff, groups[1].bff = groups[1], groups[0]
+            groups[0].get_info()
+            groups[1].get_info()
+            export_iface(groups, True, True)
+            print("Groups {} and {}, and {}-{} interface exported".format(groups[0].name, groups[1].name, groups[0].name, groups[1].name))
+        else:
+            print("Groups {} and {} exported".format(groups[0].name, groups[1].name))
+    else:
+        print("Group {} exported".format(groups[0].name))
+
+
+
+def check_input():
+    """
+    Main function that is looped. Checks the inputs and runs the correct functions
+    :return:
+    """
+    global sys
     # Set up the prompt
     usr_npt = input("vorpy >>>   ")
     # Split it up by the spaces
     usr_npt = usr_npt.split()
     # Check to see if the initial input is a command
-    if usr_npt[0] not in my_commands:
+    if len(usr_npt) == 0 or usr_npt[0] not in my_commands:
         invalid_input(usr_npt)
         return True
 
@@ -712,28 +762,28 @@ def check_input(sys):
 
     # Check if the user's input is in loads
     if usr_npt[0].lower() in load_cmds:
-        my_sys = load(sys=sys, usr_npt=usr_npt)
+        my_sys = load(usr_npt=usr_npt)
         if my_sys is not None:
             sys = my_sys
             return sys
     # Check if the user's input is in builds
     elif usr_npt[0].lower() in set_cmds:
-        sett(sys, usr_npt)
+        sett(usr_npt)
     # Check if the user's input is in builds
     elif usr_npt[0].lower() in build_cmds:
-        build(sys)
+        build()
     # Check if the user's input is in groups
     elif usr_npt[0].lower() in group_cmds:
-        group(sys, usr_npt)
+        group(usr_npt)
     # Check if the user's input is in exports
     elif usr_npt[0].lower() in export_cmds:
-        export(sys, usr_npt)
+        export(usr_npt)
     # Check if the user's input is in shows
     elif usr_npt[0].lower() in show_cmds:
-        show(sys, usr_npt)
+        show(usr_npt)
     # Check if the user wants help
     elif usr_npt[0].lower() in helps:
-        get_help()
+        help_()
     # Check to see if the user's input includes quits
     elif usr_npt[0].lower() in quits:
         if are_you_sure():
@@ -745,15 +795,15 @@ def check_input(sys):
 
 if __name__ == '__main__':
     # Welcome introduction
-    print("Welcome to vorpy. For assistance type \'h\'")
+    print("Welcome to vorpy. For assistance type \'h\'. To quit type \'q\'")
     # Create the system
-    mySys = System()
+    sys = System()
     # Set up the running variable
     running = True
     # Run the program
     while running:
         # create_header(mySys)
-        running = check_input(mySys)
+        running = check_input()
         if type(running) is not bool:
-            mySys = running
+            sys = running
             running = True
