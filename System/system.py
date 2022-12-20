@@ -34,6 +34,7 @@ class System:
         self.mols = None                    # Molecules           :   List of molecules
         self.residues = None                # Residues            :   List of residues (lists of atoms)
         self.sol = None                     # Solution            :   List of solution molecules (lists of atoms)
+        self.sol_name = "None"              # Solute Name         :   Name for the solute from the atoms
         self.groups = []                    # Groups              :   List of groups in the system
         self.ndxs = []                      # Indices             :   List of lists indices of atoms
         self.radii = my_radii               # Radii               :   List of atomic radii
@@ -87,6 +88,8 @@ class System:
             self.ndxs = []
         if self.data is None:
             self.data = []
+        if self.sol is not None:
+            self.get_sol_name()
 
 
     def load_sys(self, file=None):
@@ -146,7 +149,7 @@ class System:
             self.net_file = file
         # Create the network
         self.net = Network(self, atoms=self.atoms)
-        read_net(self.net, file, verts_only=verts_only)
+        read_net(self.net, self.net_file, verts_only=verts_only)
 
     def load_ndx(self, file=None):
         """
@@ -154,6 +157,22 @@ class System:
         :return:
         """
         read_ndx(self, file=file)
+
+    def get_sol_name(self):
+        # Check to make sure that the solute is provided
+        if self.sol is None:
+            return
+        # Get a residue from the solute
+        my_sol = self.sol[0]
+        # Check to see if the sol is water
+        is_water = True
+        for atom in my_sol:
+            if atom.element.lower() not in ['h', 'o']:
+                is_water =  False
+        # Return water
+        if is_water and len(my_sol) == 3:
+            return 'h2o'
+        # Return the other possible solutes
 
     # Build System method.
     def load_sys_atoms(self):
@@ -204,7 +223,10 @@ class System:
             self.atom_names.append("A" + atom.element + str(self.atoms.index(atom)))
             # Add the solution
             if atom.res.lower() == 'sol':
-                self.sol.append(atom)
+                if len(self.sol) > 0 and atom.res_seq == self.sol[-1][0]:
+                    self.sol[-1].append(atom)
+                else:
+                    self.sol.append([atom])
             # If no chain is specified, set the chain to 'None'
             if atom.mol == ' ':
                 atom.mol = 'MOL'
