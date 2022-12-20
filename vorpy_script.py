@@ -79,15 +79,15 @@ mySys.build_network(surf_res=0.05,
     g. bg_color: Set the background color for the plot
     h. grid: Show the grid for the plot
 """
-plot_net(net=mySys.net,
-         Show=False,
-         atoms=True,
-         verts=True,
-         edges=True,
-         surfs=True,
-         bg_color='black',
-         grid=False
-         )
+# plot_net(net=mySys.net,
+#          Show=False,
+#          atoms=True,
+#          verts=True,
+#          edges=True,
+#          surfs=True,
+#          bg_color='black',
+#          grid=False
+#          )
 
 ################################################### Create Groups ######################################################
 
@@ -96,21 +96,21 @@ plot_net(net=mySys.net,
 4. Create Group 1:
     a. net: Network object (Use mySys.
 """
-group1 = Group(net=mySys.net,
-               mols=None,
-               residues=None,
-               atoms=None,
-               ndxs=None,
-               name=mySys.name + "_g1")
+# group1 = Group(net=mySys.net,
+#                mols=None,
+#                residues=None,
+#                atoms=None,
+#                ndxs=None,
+#                name=mySys.name + "_g1")
 """
 4b. (optional) Create a Group 2 for comparative and interfacial analysis between the two groups
 """
-group2 = Group(net=mySys.net,
-               mols=None,
-               residues=None,
-               atoms=None,
-               ndxs=None,
-               name=mySys.name + "_g2")
+# group2 = Group(net=mySys.net,
+#                mols=None,
+#                residues=None,
+#                atoms=None,
+#                ndxs=None,
+#                name=mySys.name + "_g2")
 
 ################################################ Export Selections #####################################################
 
@@ -132,8 +132,8 @@ mySys.exports(groups=None,
               full_network_object=True,
               no_sol_network_object=True,
               alter_atoms_script=True,
-              export_groups=True,
-              export_interface=True)
+              export_groups=False,
+              export_interface=False)
 
 ################################################# Run the program ######################################################
 
