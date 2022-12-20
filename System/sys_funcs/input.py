@@ -111,6 +111,8 @@ def read_vta_data(sys, ball_file, vert_file):
     # If no network has been created, make one
     if sys.net is None:
         sys.net = Network(sys, sys.atoms, verts=[], edges=[], surfs=[], flat_faces=True)
+    if sys.net.verts is None:
+        sys.net.verts = []
     # Create the System and load the files
     with open(ball_file, 'r') as b:
         b_file = b.readlines()
@@ -121,9 +123,8 @@ def read_vta_data(sys, ball_file, vert_file):
     for i in range(len(b_file)):
         # Split the data
         data = b_file[i].split(" ")
-        print(data, data[5])
         # Grab the data reference for the atoms
-        balls.append(sys.atoms[int(data[5])])
+        balls.append(sys.atoms[int(data[5]) - 1])
     # Interpret the vertices
     for i in range(len(v_file)):
         # Split the data
