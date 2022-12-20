@@ -274,7 +274,7 @@ class Network:
         self.my_time = stop - start
         # Export the network
         if output:
-            self.sys.exports(network=True)
+            self.sys.exports(network=True, pdb=True, no_sol_network_object=True)
         h, m, s = get_time(self.my_time)
         print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s\n".format(len(self.verts), len(self.surfs),
                                                                                 int(h), int(m), s), end="")
