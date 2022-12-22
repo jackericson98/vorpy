@@ -421,7 +421,7 @@ def export_net_fast(net, light=False, separate_surfs=False):
         # Write the connections and surface and points range information for each edge in the network
         for i in range(len(net.surfs)):
             surf = net.surfs[i]
-            writer.writerow([i] + [[round(_, 3) for _ in surf.func], [net.atoms.index(_) for _ in surf.atoms],
+            writer.writerow([i] + [surf.func, [net.atoms.index(_) for _ in surf.atoms],
                                    [net.verts.index(_) for _ in surf.verts], [net.edges.index(_) for _ in surf.edges]])
             if not light and not separate_surfs:
                 writer.writerow(["Points: "] + [[round(_[j], 3) for j in range(3)] for _ in surf.points])
