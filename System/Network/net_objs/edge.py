@@ -4,8 +4,8 @@ from System.Network.net_objs.surface import Surface
 
 class Edge:
     """Edge object. Used to build the network and calculate the surfaces"""
-    def __init__(self, atoms=None, net=None, verts=None, surfs=None, doublet=False, points=None, loc=None, rad=None, pv0=None,
-                 pv1=None, ndx=None):
+    def __init__(self, atoms=None, net=None, verts=None, surfs=None, doublet=False, points=None, loc=None, rad=None,
+                 pv0=None, pv1=None, ndx=None, load_ndxs=None, point_refs=None):
 
         # If no network was given have a catch
         if net is not None and net.atoms is not None:
@@ -16,7 +16,8 @@ class Edge:
         self.atoms = atoms               # Atoms         :   List of Atom type objects for the edge
         self.verts = verts               # Vertices      :   List of Vertex type objects
         self.surfs = surfs               # Surfaces      :   List of 2 surfaces attached to the edge
-        self.load_ndxs = []              # Load indices  :   List of object load indices
+        self.load_ndxs = load_ndxs       # Load indices  :   List of object load indices
+        self.point_refs = point_refs     # Point refs    :   List of the surface and indices of the points for the edge
 
         self.loc = loc                   # Location      :   Location of the center of the 3 atoms that make up the edge
         self.rad = rad                   # Radius        :   Radius of the inscribed circle of the three atoms
@@ -26,6 +27,8 @@ class Edge:
         self.pa = None                   # Projection pt :   The projection point from which the edge is built
         self.doublet = doublet           # Doublet       :   Boolean for if the edge is part of a doublet or not
         self.loc2 = None                 # Loc2          :   Allows edges to be checked like vertices
+
+        self.ref = None                  # Reference     :   Tuple holding a surface and a range for efficient storage
 
     # Get location method. Calculates the circle made between the atoms
     def get_loc(self):
