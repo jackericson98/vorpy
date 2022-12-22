@@ -60,6 +60,7 @@ def write_pdb(atoms, name, sys=None):
             file.close()
             return
         except FileNotFoundError:
+            file.close()
             return
     # Go through each atom in the system
     for i in range(len(atoms)):
