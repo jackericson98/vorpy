@@ -1,3 +1,4 @@
+import os
 from os import path
 from System.system import *
 
@@ -267,11 +268,11 @@ def get_file(file=None):
             checking_file = False
         # Check if the file is in the ./Data/test_data folder
         elif path.exists("./Data/test_data/" + file) and len(file) > 0:
-            file = "./Data/test_data/" + file
+            file = os.getcwd() + "./Data/test_data/" + file
             checking_file = False
         # Check if it is just the raw name
         elif path.exists("Data/test_data/" + file + ".pdb") and len(file) > 0:
-            file = "./Data/test_data/" + file + ".pdb"
+            file = os.getcwd() + "./Data/test_data/" + file + ".pdb"
             checking_file = False
         # Otherwise, tell the user to try again
         else:
@@ -666,7 +667,7 @@ def group(usr_npt, for_export=False):
         # pull the selection variable
         selection = selections[i]
         # Get the first selections
-        my_obj = get_obj(obj=selection[0])
+        my_obj = get_obj(obj=selection[0], return_ndx=True)
         my_ndx = get_ndx(obj=my_obj, ndx=selection[1])
         # Check to see if the index provided is out of range
         checking_ndx, my_atoms = True, None
