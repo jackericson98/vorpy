@@ -38,6 +38,8 @@ class Group:
             self.get_atom_atoms(my_atoms)
         if ndxs is not None:
             self.get_ndx_atoms(ndxs)
+        if type(self.atoms) is int:
+            self.get_atom_atoms(self.atoms)
 
     # Get information method. Gathers the information for the group(s) selected
     def get_info(self):
