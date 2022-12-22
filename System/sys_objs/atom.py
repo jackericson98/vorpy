@@ -43,34 +43,45 @@ class Atom:
         The grid location of the atom
 
     """
-    def __init__(self, location=None, radius=None, system=None, element="", chain="", residue="", res_seq="", name="",
-                 ocp="", t_fact="", seg_id="", charge=""):
+    def __init__(self, location=None, radius=None, system=None, element=None, chain=None, residue=None, res_seq=None, name=None,
+                 ocp=None, t_fact=None, seg_id=None, charge=None, load_ndxs=None):
 
         # Calculated Traits
-        self.loc = location     # Location     :   Set the location of the center of the sphere
-        self.rad = radius       # Radius       :   Set the radius for the sphere object. Default is 1
-        self.cell_vol = 0       # Cell Volume  :   Volume of the voronoi cell for the atom
-        self.box = []           # Box          :   The grid location of the atom
+        self.loc = location         # Location     :   Set the location of the center of the sphere
+        self.rad = radius           # Radius       :   Set the radius for the sphere object. Default is 1
+        self.cell_vol = 0           # Cell Volume  :   Volume of the voronoi cell for the atom
+        self.box = []               # Box          :   The grid location of the atom
 
         # Network connections
-        self.sys = system       # System       :   Set the atom's system attribute
-        self.verts = []         # Vertices     :   List of Vertex type objects
-        self.surfs = []         # Surfaces     :   List of Surface type objects
-        self.edges = []         # Edges        :   List of Edge type objects
-        self.load_ndxs = []     # Load indices :   Holds the object indices for when the system is loaded back in
+        self.sys = system           # System       :   Set the atom's system attribute
+        self.verts = []             # Vertices     :   List of Vertex type objects
+        self.surfs = []             # Surfaces     :   List of Surface type objects
+        self.edges = []             # Edges        :   List of Edge type objects
+        self.load_ndxs = load_ndxs  # Load indices :   Holds the object indices for when the system is loaded back in
 
         # Inherent traits
-        self.element = element  # Symbol       :   Element of the atom
-        self.mol = chain        # Chain        :   Molecule chain the atom is a part of
-        self.res = residue      # Residue      :   Residue of the molecule that the atom is a part of
-        self.res_seq = res_seq  # Sequence     :   Sequence of the residue that the atom is a part of
-        self.name = name        # Name         :   Name retrieved from pdb file
-        self.occupancy = ocp    # Occupancy    :   Occupancy of the atom
-        self.t_fact = t_fact    # Temp Factor  :   Temperature factor for the atom
-        self.seg_id = seg_id    # Segment ID   :   Segment identifier for the atom
-        self.charge = charge    # Charge       :   Charge of the atom
+        self.element = element      # Symbol       :   Element of the atom
+        self.mol = chain            # Chain        :   Molecule chain the atom is a part of
+        self.res = residue          # Residue      :   Residue of the molecule that the atom is a part of
+        self.res_seq = res_seq      # Sequence     :   Sequence of the residue that the atom is a part of
+        self.name = name            # Name         :   Name retrieved from pdb file
+        self.occupancy = ocp        # Occupancy    :   Occupancy of the atom
+        self.t_fact = t_fact        # Temp Factor  :   Temperature factor for the atom
+        self.seg_id = seg_id        # Segment ID   :   Segment identifier for the atom
+        self.charge = charge        # Charge       :   Charge of the atom
+
+        self.sort_()
 
         # Calculated traits
+    def sort_(self):
+        """
+        Puts the atom in the correct spot in the system
+        :return:
+        """
+        # If no system exists, there is no place to be sorted to
+        if self.sys is None:
+            return
+        # Find the molecule
 
 
 

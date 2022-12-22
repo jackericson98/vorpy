@@ -40,7 +40,7 @@ test_files = [os.getcwd() + "/Data/test_data/" + test_file + ".pdb" for test_fil
     g. output_directory: Directory address for desired output destination for network exports
 
 """
-mySys = System(file=test_files[1],
+mySys = System(file=test_files[3],
                atoms=None,
                network_file=None,
                verts_file=None,
@@ -59,10 +59,10 @@ mySys = System(file=test_files[1],
     d. sol_verts: Calculate the vertices between the solute atoms or just the molecule atoms
     e. output: 
 """
-mySys.build_network(surf_res=0.05,
-                    max_vert=7,
-                    box_size=1.5,
-                    sol_verts=True,
+mySys.build_network(surf_res=0.1,
+                    max_vert=5,
+                    box_size=1.25,
+                    sol_verts=False,
                     output=False)
 
 ############################################## Plot the Network ########################################################
