@@ -119,7 +119,7 @@ def find_site(net, edge_atoms, vn_1=None):
         # Reset the doublet variable
         doublet = None
         # If the atom is in the previous vertex move on
-        if atom in vert_atoms or check_sol and atom.res.lower() == 'sol':
+        if atom in vert_atoms or (check_sol and atom.res.lower() == 'sol'):
             continue
         # If we have found the vertex before it is not the previous vertex return
         atom_ndxs = [net.atoms.index(atom1) for atom1 in edge_atoms + [atom]]
