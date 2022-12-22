@@ -84,6 +84,8 @@ def build_perimeter(surf):
     # Reset the surface's perimeter points list
     surf.perimeter = []
     e0 = surf.edges[0]
+    # Set the edge's reference surface and range (overwrite the ref in place, to ensure a lighter storage with an e0)
+    e0.ref = [surf.net.surfs.index(surf), 0, len(e0.points) - 1]
     # Add the first edge's vertex location and set of points to the perimeter points list
     surf.perimeter = e0.points.copy()
     # Make a copy of the edges to organize excluding the first edge
@@ -113,6 +115,8 @@ def build_perimeter(surf):
             surf.perimeter += myEdge.points
         else:  # Reverse order
             surf.perimeter += myEdge.points[::-1]
+        if myEdge.ref is None:
+            myEdge.ref = [[surf.net.surfs.index(surf), len(surf.perimeter) - len(e0.points), len(surf.perimeter)]]
 
     # Add the perimeter points to the whole set of points
     surf.points += surf.perimeter
