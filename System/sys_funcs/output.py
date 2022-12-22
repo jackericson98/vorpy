@@ -50,14 +50,17 @@ def write_pdb(atoms, name, sys=None):
     file = open(name + ".pdb", 'w')
     # Check to see if a system was provided
     if sys is not None and sys.base_file is not None:
-        # Open the base file
-        with open(sys.base_file, 'r') as f:
-            base_file = f.readlines()
-        # Copy the lines
-        for line in base_file:
-            file.write(line)
-        file.close()
-        return
+        try:
+            # Open the base file
+            with open(sys.base_file, 'r') as f:
+                base_file = f.readlines()
+            # Copy the lines
+            for line in base_file:
+                file.write(line)
+            file.close()
+            return
+        except FileNotFoundError:
+            return
     # Go through each atom in the system
     for i in range(len(atoms)):
         a = atoms[i]
