@@ -4,7 +4,7 @@ from System.Network.net_funcs.build_surf import *
 class Surface:
     """Surface object. Holds the mesh data. Used to analyze interfaces between atoms."""
     def __init__(self, atoms=None, net=None, edges=None, verts=None, doublet=False, points=None, tris=None, perimeter=None,
-                 rn=None, sa=0):
+                 rn=None, sa=0, function=None, load_ndxs=None):
 
         # If no network was given have a catch
         if net is not None and net.atoms is not None:
@@ -15,9 +15,9 @@ class Surface:
         self.atoms = atoms          # Atoms            : Atoms of the surface
         self.verts = verts          # Vertices         : Vertices of the surface
         self.edges = edges          # Edges            : Edges of the surface
-        self.load_ndxs = []        # Load indices     : List of object load indices
+        self.load_ndxs = load_ndxs  # Load indices     : List of object load indices
 
-        self.func = None            # Surface function : Holds the coefficients of the function describing the surf
+        self.func = function        # Surface function : Holds the coefficients of the function describing the surf
         self.perimeter = perimeter  # Perimeter        : The points around the edges of the surface (IN ORDER)
         self.points = points        # Points           : The points that make up the surface
         self.rings = None           # Rings            : Lists of points in rings toward the center
