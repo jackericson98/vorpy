@@ -1,5 +1,8 @@
+import csv
+
 from System.sys_objs.atom import Atom, get_radius
 from System.Network.network import Network, Vertex, Edge, Surface
+import pandas as pd
 
 
 # Get name method. Strips the location and extension from the file
@@ -42,7 +45,7 @@ def read_pdb(sys, file=None):
             if line[76:78] == ' M':
                 continue
             # Create the atom
-            atom = Atom([float(line[30:38]), float(line[38:46]), float(line[46:54])], get_radius(line[76:78], sys),
+            atom = Atom(location=[float(line[30:38]), float(line[38:46]), float(line[46:54])], radius=get_radius(line[76:78], sys),
                         element=line[76:78], residue=line[17:20], chain=line[21], res_seq=line[22:26], name=line[12:16],
                         ocp=line[54:60], t_fact=line[60:66], seg_id=line[72:76], charge=line[78:80])
             # If no chain is specified, set the chain to 'None'
@@ -405,3 +408,95 @@ def connect_read_net(net):
         for i in range(len(surf.load_ndxs[1])):
             surf.edges.append(net.edges[surf.load_ndxs[1][i]])
     print("\rNetwork Loaded                    ", end="")
+
+
+def read_net_csv(sys, file=None):
+    # Open the file
+    if file is None:
+        file = sys.net_file
+    # Open the file
+    my_file = open(file, 'r')
+    # Get the network information
+    my_file = my_file.readlines()
+    net_info = my_file[1].split(',')
+    surf_res, max_vert, box_size, sol_verts, net_atoms, net_verts, net_edges, net_surfs, sep_surfs = net_info
+    # Check to see if the network has been created yet or not
+    if sys.net is None:
+        sys.net = Network(sys=sys, atoms=sys.atoms, surf_res=surf_res, max_vert=max_vert, box_size=box_size,
+                          sol_verts=sol_verts)
+    # Go through the atom lines in the file
+    atom_ndx1, atom_ndx2 = 3, 2 + int(net_atoms)
+    atom_lines = my_file[atom_ndx1:atom_ndx2]
+    for i in range(len(atom_lines)):
+        # Split the line
+        atom_line = atom_lines[i].split(',')
+        print(atom_line)
+        # Create the atom
+        sys.atoms[i].loc, sys.atoms[i].rad, sys.atoms[i].load_ndxs = [float(_) for _ in atom_line[1:4]], \
+                                                                     float(atom_line[4]), \
+                                                                     [[int(_) for _ in list(ndxs) if _ not in ['[', ']']] for ndxs in atom_line[5:8]]
+    # Go through the vertex lines in the file
+    vert_ndx1, vert_ndx2 = atom_ndx2 + 1, atom_ndx2 + net_verts + 1
+    vert_lines = my_file[vert_ndx1:vert_ndx2]
+    sys.net.verts = []
+    for i in range(len(vert_lines)):
+        # Split the line
+        vert_line = vert_lines[i].split(',')
+        # Create the vertex
+        my_vert = Vertex(location=[float(_) for _ in vert_line[1:4]], radius=float(4),
+                         load_ndxs=[[int(_) for _ in list(ndxs)] for ndxs in vert_line[5:8]])
+        sys.net.verts.append(my_vert)
+    # Go through the edge lines in the file
+    edge_ndx1, edge_ndx2 = vert_ndx2 + 1, vert_ndx2 + net_edges + 1
+    edge_lines = my_file[edge_ndx1:edge_ndx2]
+    sys.net.edges = []
+    for i in range(len(edge_lines)):
+        # Split the line
+        edge_line = edge_lines[i].split(',')
+        # Create the vertex
+        my_edge = Edge(point_refs=[int(_) for _ in edge_line[1:3]],
+                       load_ndxs=[[int(_) for _ in list(ndxs)] for ndxs in edge_line[4:7]])
+        sys.net.edges.append(my_edge)
+
+    # Go through the surface lines in the file
+    surf_ndx1, surf_ndx2 = edge_ndx2 + 1, edge_ndx2 + net_surfs + 1
+    surf_lines = my_file[edge_ndx1:surf_ndx2]
+    sys.net.surfs = []
+    for i in range(len(surf_lines)):
+        # Split the line
+        surf_line = surf_lines[i].split(',')
+        # Check to see if the line is a points or triangles line
+        if surf_line[0] == 'Points:':
+            my_surf = sys.net.surfs[-1]
+            for j in range(1, len(surf_line) - 1):
+                point = surf_line[j]
+                my_surf.points.append([float(_) for _ in point])
+        elif surf_line[0] == 'Triangles':
+            my_surf = sys.net.surfs[-1]
+            for j in range(1, len(surf_line) - 1):
+                tri = surf_line[j]
+                my_surf.tris.append([int(_) for _ in tri])
+        else:
+            my_surf = Surface(function=[int(_) for _ in list(surf_line[1])],
+                              load_ndxs=[[int(_) for _ in ndxs] for ndxs in surf_line[2:5]])
+            sys.net.surfs.append(my_surf)
+    # Connect the network
+    for atom in sys.atoms:
+        atom.verts = [sys.net.verts[_] for _ in atom.load_ndxs[0]]
+        atom.edges = [sys.net.edges[_] for _ in atom.load_ndxs[1]]
+        atom.surfs = [sys.net.surfs[_] for _ in atom.load_ndxs[2]]
+
+    for vert in sys.net.verts:
+        vert.atoms = [sys.net.atoms[_] for _ in vert.load_ndxs[0]]
+        vert.edges = [sys.net.edges[_] for _ in vert.load_ndxs[1]]
+        vert.surfs = [sys.net.surfs[_] for _ in vert.load_ndxs[2]]
+
+    for edge in sys.net.edges:
+        edge.atoms = [sys.net.atoms[_] for _ in edge.load_ndxs[0]]
+        edge.verts = [sys.net.verts[_] for _ in edge.load_ndxs[1]]
+        edge.surfs = [sys.net.surfs[_] for _ in edge.load_ndxs[2]]
+
+    for surf in sys.net.surfs:
+        surf.atoms = [sys.net.atoms[_] for _ in surf.load_ndxs[0]]
+        surf.verts = [sys.net.verts[_] for _ in surf.load_ndxs[1]]
+        surf.edges = [sys.net.edges[_] for _ in surf.load_ndxs[2]]
