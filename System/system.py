@@ -149,7 +149,8 @@ class System:
             self.net_file = file
         # Create the network
         self.net = Network(self, atoms=self.atoms)
-        read_net(self.net, self.net_file, verts_only=verts_only)
+        # read_net(self.net, self.net_file, verts_only=verts_only)
+        read_net_csv(self)
 
     def load_ndx(self, file=None):
         """
@@ -220,7 +221,7 @@ class System:
         # Go through each of the atoms in the system adding the atoms to their respective chains
         for atom in self.atoms:
             # Set the atom's name
-            self.atom_names.append("A" + atom.element + str(self.atoms.index(atom)))
+            self.atom_names.append(atom.element + str(self.atoms.index(atom)))
             # Add the solution
             if atom.res.lower() == 'sol':
                 if len(self.sol) > 0 and atom.res_seq == self.sol[-1][0]:
@@ -281,6 +282,7 @@ class System:
         :return:
         """
         # Export the network
+        export_net_fast(self.net)
         export_net(self.net)
 
     def export_selection(self, group1, group2=None, info=True):
@@ -323,12 +325,12 @@ class System:
         if full_network_object:
             # Export a full system
             export_mySys(self)
-        if no_sol_network_object and self.sol is not None and len(self.sol) > 0:
-            # Export the system without the solution
-            no_sol = Group(self.net, self.sol, self.name + "_no_sol")
-            no_sol.get_info()
-            # Export the group
-            export_body(no_sol)
+        # if no_sol_network_object and self.sol is not None and len(self.sol) > 0:
+        #     # Export the system without the solution
+        #     no_sol = Group(self.net, self.sol, self.name + "_no_sol")
+        #     no_sol.get_info()
+        #     # Export the group
+        #     export_body(no_sol)
         if alter_atoms_script:
             # Write the alter atoms script
             set_pymol_atoms(self)
