@@ -79,7 +79,7 @@ mySys.build_network(surf_res=0.1,
     g. bg_color: Set the background color for the plot
     h. grid: Show the grid for the plot
 """
-if len(mySys.atoms) > 200:
+if len(mySys.atoms) < 200:
     plot_net(net=mySys.net,
              Show=True,
              atoms=True,
