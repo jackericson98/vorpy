@@ -268,11 +268,11 @@ def get_file(file=None):
             checking_file = False
         # Check if the file is in the ./Data/test_data folder
         elif path.exists("./Data/test_data/" + file) and len(file) > 0:
-            file = os.getcwd() + os.getcwd() + "/Data/test_data/" + file
+            file = os.getcwd() + "/Data/test_data/" + file
             checking_file = False
         # Check if it is just the raw name
         elif path.exists("./Data/test_data/" + file + ".pdb") and len(file) > 0:
-            file = os.getcwd() + os.getcwd() + "/Data/test_data/" + file + ".pdb"
+            file = os.getcwd() + "/Data/test_data/" + file + ".pdb"
             checking_file = False
         # Otherwise, tell the user to try again
         else:

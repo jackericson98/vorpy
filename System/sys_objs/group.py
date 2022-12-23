@@ -38,7 +38,7 @@ class Group:
             self.get_atom_atoms(my_atoms)
         if ndxs is not None:
             self.get_ndx_atoms(ndxs)
-        if type(self.atoms) is int:
+        if type(self.atoms[0]) is int:
             self.get_atom_atoms(self.atoms)
 
     # Get information method. Gathers the information for the group(s) selected
@@ -50,8 +50,10 @@ class Group:
         self.surfs, self.surf_ndxs, self.body_surfs, self.outer_body_atoms, self.surr_body_atoms = [], [], [], [], []
         self.body_vol, self.body_sa = 0, 0
         # Go through the atom in the group
+        print(self.atoms)
         for atom in self.atoms:
             # Add the volume of the atom to the group's volume and add the atom to the group
+            print(atom)
             self.body_vol += atom.vol
             # Check the surfaces of each of the atoms to see if they are on the outside or not
             for surf in atom.surfs:

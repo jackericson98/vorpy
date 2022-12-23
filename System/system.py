@@ -309,8 +309,8 @@ class System:
         """
         set_output_dir(self)
 
-    def exports(self, groups=None, network=False, pdb=False, surfaces=False, full_network_object=False,
-                no_sol_network_object=False, alter_atoms_script=False, export_groups=False, export_interface=False,
+    def exports(self, groups=None, network=True, pdb=True, surfaces=True, full_network_object=True,
+                no_sol_network_object=True, alter_atoms_script=True, export_groups=False, export_interface=False,
                 export_info=True):
         """
         Prepares the output directory and system for output. Keeps things consistent
