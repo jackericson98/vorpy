@@ -52,7 +52,7 @@ class Group:
         # Go through the atom in the group
         for atom in self.atoms:
             # Add the volume of the atom to the group's volume and add the atom to the group
-            self.body_vol += atom.cell_vol
+            self.body_vol += atom.vol
             # Check the surfaces of each of the atoms to see if they are on the outside or not
             for surf in atom.surfs:
                 # Get the index of the surface

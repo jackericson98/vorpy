@@ -214,7 +214,7 @@ class Network:
         for j in range(len(self.atoms)):
             percentage = int((i + j + 2) / tot_num * 100)
             print("\ranalyzing: {} %          ".format(percentage), end="")
-            self.atoms[j].cell_vol = calc_vol(self.atoms[j])
+            self.atoms[j].vol = calc_vol(self.atoms[j])
         # # Get the solute layers
         # self.sol_layers, self.sol_layer_atoms = find_sol_layers(self)
 

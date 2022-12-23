@@ -49,7 +49,7 @@ class Atom:
         # Calculated Traits
         self.loc = location         # Location     :   Set the location of the center of the sphere
         self.rad = radius           # Radius       :   Set the radius for the sphere object. Default is 1
-        self.cell_vol = 0           # Cell Volume  :   Volume of the voronoi cell for the atom
+        self.vol = 0           # Cell Volume  :   Volume of the voronoi cell for the atom
         self.box = []               # Box          :   The grid location of the atom
 
         # Network connections

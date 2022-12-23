@@ -40,7 +40,7 @@ test_files = [os.getcwd() + "/Data/test_data/" + test_file + ".pdb" for test_fil
     g. output_directory: Directory address for desired output destination for network exports
 
 """
-mySys = System(file=test_files[3],
+mySys = System(file=test_files[0],
                atoms=None,
                network_file=None,
                verts_file=None,
@@ -79,15 +79,16 @@ mySys.build_network(surf_res=0.1,
     g. bg_color: Set the background color for the plot
     h. grid: Show the grid for the plot
 """
-# plot_net(net=mySys.net,
-#          Show=False,
-#          atoms=True,
-#          verts=True,
-#          edges=True,
-#          surfs=True,
-#          bg_color='black',
-#          grid=False
-#          )
+if len(mySys.atoms) > 200:
+    plot_net(net=mySys.net,
+             Show=True,
+             atoms=True,
+             verts=True,
+             edges=True,
+             surfs=True,
+             bg_color='black',
+             grid=False
+             )
 
 ################################################### Create Groups ######################################################
 
@@ -133,7 +134,8 @@ mySys.exports(groups=None,
               no_sol_network_object=True,
               alter_atoms_script=True,
               export_groups=False,
-              export_interface=False)
+              export_interface=False,
+              export_info=True)
 
 ################################################# Run the program ######################################################
 

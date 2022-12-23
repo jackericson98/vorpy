@@ -285,7 +285,7 @@ def export_net(net, point_res=None):
         # Get the atom's box
         box = [str(_) for _ in atom.box]
         # Write atoms information: index, box, cell volume
-        file.write("ATOM " + " " + str(net.atoms.index(atom)) + " " + ' '.join(box) + " " + str(atom.cell_vol) + "\n")
+        file.write("ATOM " + " " + str(net.atoms.index(atom)) + " " + ' '.join(box) + " " + str(atom.vol) + "\n")
         # Get the vertex, edge and surface index information
         vert_ndxs = [str(net.verts.index(vert)) for vert in atom.verts]
         edge_ndxs = [str(net.edges.index(edge)) for edge in atom.edges]
@@ -451,6 +451,20 @@ def export_net_fast(net, light=False, separate_surfs=False):
                     writer.writerow(['t'] + [round(_, 3) for _ in tri])
         # Change back to the system directory
         os.chdir(net.sys.dir)
+
+
+def export_net_info(net):
+    # Open the file
+    file = open(net.sys.name + "_net_info.txt", 'w')
+    # Write the header
+    file.write(net.sys.name + " Network")
+    # Write the atom information
+    for i in range(len(net.atoms)):
+        file.write("{} - cell volume = {}\n".format(net.sys.atom_names[i], net.atoms[i].vol))
+    # write the surface information
+    for i in range(len(net.surfs)):
+        file.write("Surface {}-{} - Surface area = {}\n".format(net.surfs[i].ndx[0], net.surfs[i].ndx[1], net.surfs[i].sa))
+    file.close()
 
 
 ############################################ Pymol Scripts #############################################################

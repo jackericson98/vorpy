@@ -258,7 +258,7 @@ def read_net(net, file, verts_only=False):
             myAtom = net.atoms[int(line[1])]
             # Set attributes for the atom
             myAtom.box = [int(_) for _ in line[2:5]]
-            myAtom.cell_vol = float(line[5])
+            myAtom.vol = float(line[5])
             curr_atom = myAtom
         # Add the connections for the atom
         elif line[0].lower() == "acon":

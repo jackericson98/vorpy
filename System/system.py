@@ -310,7 +310,8 @@ class System:
         set_output_dir(self)
 
     def exports(self, groups=None, network=False, pdb=False, surfaces=False, full_network_object=False,
-                no_sol_network_object=False, alter_atoms_script=False, export_groups=False, export_interface=False):
+                no_sol_network_object=False, alter_atoms_script=False, export_groups=False, export_interface=False,
+                export_info=True):
         """
         Prepares the output directory and system for output. Keeps things consistent
         :return:
@@ -346,11 +347,14 @@ class System:
                 my_color = np.random.rand(3)
                 # Write each of the surfaces
                 write_surfs([surf], "surf_" + str(surf.ndx[0]) + "_" + str(surf.ndx[1]), my_color)
+            os.chdir("..")
         if export_groups and groups is not None:
             for group in groups:
                 export_body(group, True, True)
         if export_interface and len(groups) > 1:
             export_iface(groups, True, True)
+        if export_info:
+            export_net_info(self.net)
 
 
     def show_sys(self, info=True, show=False, fig=None, ax=None):  # Needs to be way more extensive
