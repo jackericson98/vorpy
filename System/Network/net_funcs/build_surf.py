@@ -1,5 +1,3 @@
-import numpy as np
-
 from System.sys_funcs.calcs import *
 import matplotlib.tri as mtri
 from Visualize.mpl_visualize import *
@@ -7,8 +5,13 @@ from Visualize.mpl_visualize import *
 ################################################# Find Surface Points  #################################################
 
 
-# Calculate surface point function. Finds the projection a surface's small atom through the given point onto the surface
 def calc_surf_point(surf, point):
+    """
+    Projects a vector through the reference point and the smaller surface atom's center onto the surface
+    :param surf: Surface object to project the point onto
+    :param point: Reference point to be projected through
+    :return: The point on the surface
+    """
     # Check to see if the surface's function has been calculated
     if surf.func is None:
         surf.calc_func()
@@ -48,9 +51,15 @@ def calc_surf_point(surf, point):
         return a0.loc + min(roots) * vn
 
 
-# Find next point method. Finds the next point along the given path by projecting a reference point onto the surface
 def find_next_point(surf, pn_1, end, d_theta):
-
+    """
+    Finds the next point along the given path by projecting a reference point onto the surface
+    :param surf: Surface object holding the paths
+    :param pn_1: Previous path point
+    :param end: End path point being moved towards by a d_theta amount
+    :param d_theta: Angular increment to move towards the end point
+    :return: The new point on the surface
+    """
     # Get the A angle
     A = d_theta
     # Get the smaller atom's location
@@ -78,9 +87,12 @@ def find_next_point(surf, pn_1, end, d_theta):
     return calc_surf_point(surf, pc)
 
 
-# Build perimeter function. Sorts the edges of the surface to create a list of points in order around the perimeter
 def build_perimeter(surf):
-
+    """
+    Sorts the edges of the surface to create a list of points in order around the perimeter
+    :param surf: Surface object for perimeter building
+    :return: None
+    """
     # Reset the surface's perimeter points list
     surf.perimeter = []
     e0 = surf.edges[0]
@@ -116,7 +128,7 @@ def build_perimeter(surf):
         else:  # Reverse order
             surf.perimeter += myEdge.points[::-1]
         if myEdge.ref is None:
-            myEdge.ref = [[surf.net.surfs.index(surf), len(surf.perimeter) - len(e0.points), len(surf.perimeter)]]
+            myEdge.ref = [surf.net.surfs.index(surf), len(surf.perimeter) - len(e0.points), len(surf.perimeter)]
 
     # Add the perimeter points to the whole set of points
     surf.points += surf.perimeter
@@ -136,8 +148,12 @@ def build_perimeter(surf):
     surf.pflat_points = [point[:2] for point in surf.pflat_points]
 
 
-# Get center of mass function.Finds the center of mass of a surface's perimeter
 def get_com(surf):
+    """
+    Finds the center of mass of a surface's perimeter points
+    :param surf: Surface object holding the perimeter points
+    :return: Center of mass
+    """
     # First try the center of mass of the 3d points projected onto the surface
     my_com = calc_com(points=surf.perimeter[::5])
     # If the surface is flat, the center of mass will not need to be projected
@@ -152,8 +168,12 @@ def get_com(surf):
     return surf.perimeter[len(surf.perimeter)//2]
 
 
-# Fill mesh function. Works inward from a set of perimeter points toward a center point filling in equally spaced points
 def fill_mesh(surf):
+    """
+    Works inward from a set of perimeter points toward a center point filling in equally spaced points
+    :param surf: Surface object being filled
+    :return: None
+    """
     # Check to see that the surface has perimeter points
     if len(surf.perimeter) == 0:
         build_perimeter(surf)
@@ -234,6 +254,11 @@ def fill_mesh(surf):
 
 
 def triangulate_rings(surf):
+    """
+    Finds the triangulation of the surface points by triangulating point rings
+    :param surf: Surface object to triangulate
+    :return: None
+    """
     # Check to see if the surface is flat or not.
     if surf.flat:
         surf.tris = [[i, (i + 1) % len(surf.perimeter), len(surf.points) - 1] for i in range(len(surf.perimeter))]
@@ -267,7 +292,6 @@ def triangulate_rings(surf):
             oc = calc_dist(inner_ring[j], outer_ring[i + 1])
             ic = calc_dist(outer_ring[i], inner_ring[j + 1])
             # Check to see which of the triangles has the smaller circumference
-            print(oc, ic)
             if oc < ic:
                 tri = [i + outer_ndx, j + inner_ndx, i + outer_ndx + 1]
                 i += 1
@@ -321,18 +345,21 @@ def triangulate_rings(surf):
         surf.tris += ring_tris
         surf.ring_tris.append(ring_tris)
         # Set the indices for the next ring if needed
-        print(outer_ndx, inner_ndx)
         outer_ndx, inner_ndx = outer_ndx + len(outer_ring), inner_ndx + len(inner_ring)
-        print(outer_ndx, inner_ndx)
         ring_num += 1
 
     # Plot the results
     plot_surfs([surf], simps=True, Show=True)
 
 
-# Triangle within the surface function. Checks to see if a triangle lies within the perimeter of a surface
 def tri_within(surf, myTri=None, point=None):
-
+    """
+    Checks to see if a triangle lies within the perimeter of a surface
+    :param surf: Surface object to check against
+    :param myTri: Triangle to test insideness
+    :param point: point to test insideness
+    :return: Bool
+    """
     # Get the perimeter of the translated and rotated surface
     perimeter = surf.pflat_points
     if len(perimeter) == 0:
@@ -379,9 +406,13 @@ def tri_within(surf, myTri=None, point=None):
         return True
 
 
-# Calculate triangle circumference function. Finds the circumference of the circumscribed circle for the triangle
 def calc_tri_circ(surf, tri):
-
+    """
+    Finds the circumference of the circumscribed circle for the triangle
+    :param surf: Surface from which the triangle was created
+    :param tri: Triangle to test
+    :return: Circumference of the circle circumscribing the triangle
+    """
     # Get the points of the triangle
     pa, pb, pc = surf.flat_points[tri[0]], surf.flat_points[tri[1]], surf.flat_points[tri[2]]
     # Get their squared differences
@@ -399,8 +430,12 @@ def calc_tri_circ(surf, tri):
     return circum_r
 
 
-# Find simplices function. Transforms and rotates surface points to xy-plane and returns the Delaunay simplices
 def find_simps(surf):
+    """
+    Transforms and rotates surface points to xy-plane and returns the Delaunay simplices
+    :param surf: Surface object holding the points
+    :return: None
+    """
     # Check to see if the surface is flat or not.
     if surf.flat:
         surf.tris = [[i, (i + 1) % len(surf.perimeter), len(surf.points) - 1] for i in range(len(surf.perimeter))]
@@ -422,8 +457,12 @@ def find_simps(surf):
     surf.tris = tris.triangles.tolist()
 
 
-# Filter triangles function. Goes through the triangles on the surface measuring the circumference & testing if inside
 def filter_tris(surf):
+    """
+    Goes through the triangles on the surface measuring the circumference & testing if inside
+    :param surf: Surface object holding the triangles for filtration
+    :return:
+    """
     # Check to see if the surface is flat or not
     if surf.flat:
         return
@@ -442,27 +481,3 @@ def filter_tris(surf):
     remove_ndxs.sort()
     for i in range(len(remove_ndxs)):
         surf.tris.pop(remove_ndxs[-(i + 1)])
-
-
-# Make mesh method. Goes in shrinking concentric circles inside the edges of the surface toward the com of the edges
-def make_mesh(surf):
-
-    # Prepare Surface
-
-    # Get the surface's function coefficients
-    if surf.func is None:
-        surf.calc_func()
-    # Reset the surface's list of points to empty list and reset the vertex indices list
-    surf.points = []
-
-    # Build Surface:
-
-    # Build the perimeter of the surface
-    build_perimeter(surf)
-    # Fill the mesh
-    fill_mesh(surf)
-    # triangulate_rings(surf)
-    # Find the simplices of the surface
-    find_simps(surf)
-    # Filter out the bad triangles
-    filter_tris(surf)
