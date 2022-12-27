@@ -83,6 +83,29 @@ class Atom:
             return
         # Find the molecule
 
+    def calc_vol(self):
+        # Create the volume variable
+        vol = 0
+        # Go through each surface on the atom
+        for surf in self.surfs:
+            if surf.tris is None or len(surf.tris) == 0:
+                if surf.file is not None:
+                    try:
+                        surf.read_file(surf.file)
+                    except FileNotFoundError:
+                        surf.build()
+                else:
+                    surf.build()
+
+            for tri in surf.tris:
+                if tri is None:
+                    print(surf.tris)
+                p0, p1, p2, p3 = self.loc, surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
+                vol += calc_tetra_vol(p0, p1, p2, p3)
+        # Return the volume
+        self.vol = vol
+        return vol
+
 
 
 def get_radius(radius, system, return_symbol=False):
