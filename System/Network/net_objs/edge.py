@@ -8,7 +8,7 @@ class Edge:
                  pv0=None, pv1=None, ndx=None, load_ndxs=None, point_refs=None):
 
         # If no network was given have a catch
-        if net is not None and net.atoms is not None:
+        if net is not None and net.atoms is not None and atoms is not None:
             ndx = [net.atoms.index(atom) for atom in atoms]
             ndx.sort()
         self.ndx = ndx                   # Index         :   Indices of the atoms of the surface
