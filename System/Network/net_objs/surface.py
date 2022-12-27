@@ -1,13 +1,15 @@
 from System.Network.net_funcs.build_surf import *
+import csv
 
 
 class Surface:
     """Surface object. Holds the mesh data. Used to analyze interfaces between atoms."""
     def __init__(self, atoms=None, net=None, edges=None, verts=None, doublet=False, points=None, tris=None, perimeter=None,
-                 rn=None, sa=0, function=None, load_ndxs=None):
+                 rn=None, sa=0, curvature=0, function=None, load_ndxs=None, file=None):
 
         # If no network was given have a catch
-        if net is not None and net.atoms is not None:
+        self.ndx = None
+        if net is not None and net.atoms is not None and atoms is not None:
             ndx = [net.atoms.index(atom) for atom in atoms]
             ndx.sort()
             self.ndx = ndx          # Index            : Indices of the atoms of the surface
@@ -16,6 +18,7 @@ class Surface:
         self.verts = verts          # Vertices         : Vertices of the surface
         self.edges = edges          # Edges            : Edges of the surface
         self.load_ndxs = load_ndxs  # Load indices     : List of object load indices
+        self.file = file
 
         self.func = function        # Surface function : Holds the coefficients of the function describing the surf
         self.perimeter = perimeter  # Perimeter        : The points around the edges of the surface (IN ORDER)
@@ -26,13 +29,13 @@ class Surface:
         self.pflat_points = []      # Flat perimeter   : Flattened points around the perimeter
         self.tris = tris            # Triangles        : A list of connections between the points
         self.sa = sa                # Surface Area     : The surface area of the
+        self.curv = curvature       # Curvature        : The curvature of the surface between the
         self.rn = rn                # Surface Normal   : Normal to the center of the surface
         self.center = None          # Center           : Center point of the hyperboloid the surface is made from
         self.com = None             # Center of mass   : The point toward which all building paths travel
         self.doublet = doublet      # Doublet          : Indicates whether a surface is a part of a doublet or not
         self.flat = False           # Flat             : Whether the surface is flat or not
 
-    # Bisector function. Creates a bisector surface between 2 atoms
     def calc_func(self):
         # Make sure that a0 is the atom with the smaller radius
         if self.atoms[0].rad > self.atoms[1].rad:
@@ -60,10 +63,65 @@ class Surface:
         # Set the function attribute
         self.func = ABC + DEF + GHI + [J] + [K] + [d]
 
+    def read_file(self, file=None):
+        # Check to see if the file exists
+        if file is None and self.file is not None:
+            file = self.file
+        if file[-3:].lower() == 'csv':
+            # Open the file
+            with open(file, 'r') as my_file:
+                # Get the file element array to read
+                read_file = list(csv.reader(my_file, delimiter=","))
+                # Get the number of points and triangles
+                num_points, num_tris = [int(_) for _ in read_file[1][1:]]
+                # Go through the points lines of the file
+                self.points = []
+                for i in range(3, num_points + 3):
+                    self.points.append([float(_) for _ in read_file[i][1:]])
+                # Go through the triangles lines of the file
+                self.tris = []
+                for i in range(4 + num_points, 4 + num_points + num_tris):
+                    self.tris.append([int(_) for _ in read_file[i][1:]])
+        elif file[-3:].lower() == 'off':
+            # Open the file
+            with open(file, 'r') as my_file:
+                # Read the lines
+                file_array = my_file.readlines()
+
+                # Get the number of points and triangles
+                num_points, num_tris = file_array[1].split()[1:]
+                # Add the points
+                for i in range(4, num_points + 4):
+                    line = file_array[i].split()
+                    self.points.append([float(_) for _ in line[1:]])
+                # Add the tris
+                for i in range(4 + num_points, num_tris):
+                    line = file_array[i].split()
+                    self.tris.append([int(_) for _ in line[1:]])
+
+    # Calculate curvature method
+    def calc_curv(self):
+        # Check to see that the function has been calculated or not
+        if self.func is None:
+            self.calc_func()
+        # Made up function to calculate the general curvature of the hyperboloid
+        self.curv = np.sqrt(self.func[0]**2 + self.func[1]**2 + self.func[2]**2)
+
     # Build method. Makes the mesh for the surface and calculates the simplices between them
     def build(self):
-        # Build the mesh
-        make_mesh(self)
+        # Check to see if the function or curvature have been calculated and calculate them if not
+        if self.curv is None:
+            self.calc_curv()
+        # Reset the surface's list of points to empty list and reset the vertex indices list
+        self.points = []
+        # Build the perimeter of the surface
+        build_perimeter(self)
+        # Fill the mesh
+        fill_mesh(self)
+        # Find the simplices of the surface
+        find_simps(self)
+        # Filter out the bad triangles
+        filter_tris(self)
 
     # Build vta surface function
     def build_vta(self):
