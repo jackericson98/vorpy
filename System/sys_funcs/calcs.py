@@ -91,23 +91,6 @@ def calc_sa(surf):
     return sa
 
 
-def calc_vol(atom):
-    """
-    Calculates the cumulative volume of the tetrahedrons made by the atom's location and each of the surfaces' triangles
-    :param atom: Atom object
-    :return: Volume of the cell
-    """
-    # Create the volume variable
-    vol = 0
-    # Go through each surface on the atom
-    for surf in atom.surfs:
-        for tri in surf.tris:
-            p0, p1, p2, p3 = atom.loc, surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
-            vol += calc_tetra_vol(p0, p1, p2, p3)
-    # Return the volume
-    return vol
-
-
 def calc_com(atoms=None, points=None):
     """
     Takes in a set of points and returns the coordinates of the center of mass
