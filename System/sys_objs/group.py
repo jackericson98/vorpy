@@ -50,13 +50,21 @@ class Group:
         self.surfs, self.surf_ndxs, self.body_surfs, self.outer_body_atoms, self.surr_body_atoms = [], [], [], [], []
         self.body_vol, self.body_sa = 0, 0
         # Go through the atom in the group
-        print(self.atoms)
         for atom in self.atoms:
+            if atom.vol is None or atom.vol == 0:
+                atom.calc_vol()
             # Add the volume of the atom to the group's volume and add the atom to the group
-            print(atom)
             self.body_vol += atom.vol
             # Check the surfaces of each of the atoms to see if they are on the outside or not
             for surf in atom.surfs:
+                # Check if the surface has been set up
+                if surf.points is None or len(surf.points) == 0 or surf.tris is None or len(surf.tris) == 0:
+                    # Check to see if there is a file to choose from
+                    if surf.file is not None:
+                        # Try to grab the file
+                        surf.read_file()
+                    else:
+                        surf.build()
                 # Get the index of the surface
                 my_surf_ndx = ndx_search(self.surf_ndxs, surf.ndx)
                 # Check to see if we have found this surface before
