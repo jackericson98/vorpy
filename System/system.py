@@ -138,9 +138,10 @@ class System:
         else:
             read_vta_data(self, vert_file=file, ball_file=vta_ball_file)
 
-    def load_net(self, file=None, verts_only=False):
+    def load_net(self, file=None, verts_only=False, old_net=False):
         """
         Used to load a network that was previously calculated
+        :param old_net:
         :param file:
         :param verts_only:
         """
@@ -149,8 +150,13 @@ class System:
             self.net_file = file
         # Create the network
         self.net = Network(self, atoms=self.atoms)
-        # read_net(self.net, self.net_file, verts_only=verts_only)
-        read_net_csv(self)
+        # Check to see if it is an old_net or not
+        if old_net:
+            read_old_net(self.net, self.net_file)
+        else:
+            # read_net(self.net, self.net_file, verts_only=verts_only)
+            read_net(self)
+        print("\rnetwork loaded - {} verts, {} surfs\n".format(len(self.net.verts), len(self.net.surfs)), end="")
 
     def load_ndx(self, file=None):
         """
@@ -282,8 +288,8 @@ class System:
         :return:
         """
         # Export the network
-        export_net_fast(self.net)
         export_net(self.net)
+        # export_net(self.net)
 
     def export_selection(self, group1, group2=None, info=True):
         """
