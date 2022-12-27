@@ -257,7 +257,7 @@ def export_verts(net):
 #################################################### Export Network ####################################################
 
 
-def export_net(net, point_res=None):
+def export_old_net(net, point_res=None):
     """
     Used to store pre-calculated surfaces in whatever directory the program is in
     :param net: The network object to export the data from
@@ -374,7 +374,7 @@ def export_net(net, point_res=None):
     file.close()
 
 
-def export_net_fast(net, light=False, separate_surfs=False):
+def export_net(net, output_surfs=True):
     # Create the file for export
     if net.sys.net_file is None:
         net.sys.net_file = net.sys.dir + "/" + net.sys.name + "_net.csv"
@@ -383,74 +383,85 @@ def export_net_fast(net, light=False, separate_surfs=False):
         writer = csv.writer(f)
         # Write a separating line for the info and the surfaces points and tris
         writer.writerow(["Network", "Surface Resolution", "Maximum Vertex Resolution", "Box Size Multiplier",
-                         "Calculate Solute Vertices?", "# of Atoms", "# of Vertices", "# of Edges", "# of Surfaces", "Light"])
-        writer.writerow([net.sys.name] + [net.surf_res, net.max_vert, net.box_size, net.sol_verts, len(net.atoms),
-                                       len(net.verts), len(net.edges), len(net.surfs), separate_surfs])
-        # Create an atoms header
-        writer.writerow(["Atom", "Loc - X", "Loc - Y", "Loc - Z", "Radius", "Vertices", "Edges", "Surfaces"])
-        # Write the connections and location and radius information for each atom in the network
-        for i in range(len(net.atoms)):
-            atom = net.atoms[i]
-            writer.writerow([net.atoms.index(atom)] + [round(_, 3) for _ in atom.loc + [atom.rad]] +
-                            [[net.verts.index(_) for _ in atom.verts]] +
-                            [[net.edges.index(_) for _ in atom.edges]] +
-                            [[net.surfs.index(_) for _ in atom.surfs]])
+                         "Calculate Solute Vertices?", "# of Vertices", "# of Edges", "# of Surfaces", "Surfaces Folder"])
+        writer.writerow([net.sys.name] + [net.surf_res, net.max_vert, net.box_size, net.sol_verts,
+                                       len(net.verts), len(net.edges), len(net.surfs), output_surfs])
         # Create a vertices header
-        writer.writerow(["Vertex", "Loc - X", "Loc - Y", "Loc - Z", "Radius", "Atoms", "Edges", "Surfaces"])
+        writer.writerow(["Vertex", "Loc - X", "Loc - Y", "Loc - Z", "Radius", "Atom 1", "Atom 2", "Atom 3", "Atom 4",
+                         "Edge 1", "Edge 2", "Edge 3", "Edge 4", "Edge 5 (incorrect)", "Surface 1", "Surface 2", "Surface 3", "Surface 4",
+                         "Surface 5", "Surface 6"])
         # Write the connections and location and radius for each vertex in the network
         for i in range(len(net.verts)):
             vert = net.verts[i]
-            writer.writerow([i] + [round(_, 3) for _ in vert.loc + [vert.rad]] +
-                            [[net.atoms.index(_) for _ in vert.atoms], [net.edges.index(_) for _ in vert.edges],
-                             [net.surfs.index(_) for _ in vert.surfs]])
+            v_edges, v_surfs = [net.edges.index(_) for _ in vert.edges], [net.surfs.index(_) for _ in vert.surfs]
+            writer.writerow([i] + [round(_, 3) for _ in vert.loc + [vert.rad]] + vert.ndx +
+                            v_edges + [None] * (5 - len(v_edges)) + v_surfs + [None] * (6 - len(v_surfs)))
+
         # Create an edges header
-        writer.writerow(["Edge", "Reference Surface", "Starting Surface Point Index", "Ending Surface Point Index",
-                         "Atoms", "Vertices", "Surfaces"])
+        writer.writerow(["Edge", "Reference Surface", "Start Index", "End Index", "Atom 1", "Atom 2", "Atom 3",
+                         "Vertex 1", "Vertex 2", "Surface 1", "Surface 2", "Surface 3"])
         # Write the connections and surface and points range information for each edge in the network
         for i in range(len(net.edges)):
+            # Get the edge
             edge = net.edges[i]
+            # Get the reference value for the edge
             if edge.ref is None:
-                try:
-                    ndx_1 = edge.surfs[0].points.index[edge.points[0]]
-                    ndx_2 = ndx_1 + len(edge.points)
-                    surf_ndx = net.surfs.index(edge.surfs[0])
-                except IndexError:
-                    ndx_1, ndx_2, surf_ndx = None, None, None
+                if len(edge.surfs) > 0:
+                    try:
+                        ndx_1 = edge.surfs[0].points.index(edge.points[0])
+                        ndx_2 = ndx_1 + len(edge.points)
+                        surf_ndx = net.surfs.index(edge.surfs[0])
+                        # Set the reference value
+                        edge.ref = [surf_ndx, ndx_1, ndx_2]
+                    except IndexError:
+                        edge.ref = [None, None, None]
+                else:
+                    edge.ref = [None, None, None]
+            e_verts, e_surfs = [net.verts.index(_) for _ in edge.verts], [net.surfs.index(_) for _ in edge.surfs]
+            # Write the edge information in the file
+            writer.writerow([i] + edge.ref + edge.ndx + e_verts + [None] * (2 - len(e_verts)) + e_surfs +
+                            [None] * (3 - len(e_surfs)))
 
-                edge.ref = [surf_ndx, ndx_1, ndx_2]
-            writer.writerow([i] + edge.ref + [[net.atoms.index(_) for _ in edge.atoms],
-                            [net.verts.index(_) for _ in edge.verts], [net.surfs.index(_) for _ in edge.surfs]])
         # Create a surfaces header
-        writer.writerow(["Surface", "Function Coefficient", "Atoms", "Vertices", "Edges"])
+        writer.writerow(["Surface", "File", "Surface Area", "Curvature", "Atom 1", "Atom 2", "Function A", "Function B",
+                         "Function C", "Function D", "Function E", "Function F", "Function G", "Function H",
+                         "Function I", "Function J", "Function K", "Function d1", "Function d2", "Function d3"])
         # Write the connections and surface and points range information for each edge in the network
         for i in range(len(net.surfs)):
+            # Get the surface
             surf = net.surfs[i]
-            writer.writerow([i] + [surf.func, [net.atoms.index(_) for _ in surf.atoms],
-                                   [net.verts.index(_) for _ in surf.verts], [net.edges.index(_) for _ in surf.edges]])
-            if not light and not separate_surfs:
-                writer.writerow(["Points: "] + [[round(_[j], 3) for j in range(3)] for _ in surf.points])
-                writer.writerow(["Triangles:"] + [[_ for _ in tri] for tri in surf.tris])
-    # If the user wants separate surfs help them
-    if separate_surfs:
-        # Create a directory for the separate network surface
-        os.mkdir(surf.net.sys.dir + "/net_surfs")
-        os.chdir(surf.net.sys.dir + "/net_surfs")
-        # Create a file for each of the surfaces
-        for surf in net.surfs:
-            # Create the file
-            with open("surf_" + str(surf.ndx[0]) + "_" + str(surf.ndx[1]) + ".csv") as sf:
-                # Create the writer
-                writer = csv.writer(sf)
-                # Write each point
-                for point in surf.points:
-                    # Write the point
-                    writer.writerow(["s"] + [round(_, 3) for _ in point])
-                # Write each triangle
-                for tri in surf.tris:
-                    # Write the triangle
-                    writer.writerow(['t'] + [round(_, 3) for _ in tri])
-        # Change back to the system directory
-        os.chdir(net.sys.dir)
+            # Get the file address for the output points
+            file_address = None
+            if output_surfs:
+                file_address = os.getcwd() + "/" + net.sys.name + "_surfaces/" + "_".join([str(_) for _ in surf.ndx]) + ".csv"
+            # Write the surface information
+            writer.writerow([i, file_address, surf.sa, surf.curv, surf.ndx[0], surf.ndx[1]] + list(surf.func[:11]) + list(surf.func[11]))
+        # Check to see if the surfaces have been requested
+        if output_surfs:
+            # Create a surfaces folder and change to it
+            os.mkdir(net.sys.name + "_surfaces")
+            os.chdir(net.sys.name + "_surfaces")
+            # Go through the surfaces 1 by one creating point files
+            for surf in net.surfs:
+                # Create the surface file
+                with open(os.getcwd() + "/" + "_".join([str(_) for _ in surf.ndx]) + ".csv", 'w', newline='') as surf_file:
+                    surf_writer = csv.writer(surf_file)
+                    surf_writer.writerow(["Surface", "# of Points", "# of Triangles"])
+                    surf_writer.writerow([i, len(surf.points), len(surf.tris)])
+                    # Write the header for the points
+                    surf_writer.writerow(["Point", "Loc - X", "Loc - Y", "Loc - Z"])
+                    # Go through the points
+                    for j in range(len(surf.points)):
+                        # Write the point information
+                        surf_writer.writerow([j, surf.points[j][0], surf.points[j][1], surf.points[j][2]])
+                    # Write the triangles header
+                    surf_writer.writerow(["Triangle", "Point 1", "Point 2", "Point 3"])
+                    # Go through the triangles
+                    for j in range(len(surf.tris)):
+                        # Write the triangle information
+                        surf_writer.writerow([j, surf.tris[j][0], surf.tris[j][1], surf.tris[j][2]])
+            # Change back to the network file's directory
+            os.chdir("..")
 
 
 def export_net_info(net):
