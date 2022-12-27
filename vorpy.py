@@ -557,6 +557,11 @@ def load(usr_npt):
                     else:
                         print("{} vertices loaded - {} vertices, maximum vertex radius: {} \u208B, box size: {} x\n"
                               .format(sys.name, len(sys.net.verts), sys.net.max_vert, sys.net.box_size))
+        # Check to see if it is a new network file
+        elif file[-3:] == 'csv':
+            # Check to see that this is a network file
+            if file[-7:-4].lower() == 'net':
+                sys.load_net(file=file)
         # If the file is an index file load it accordingly
         elif file[-3:] == 'ndx':
             sys.load_ndx(file)
@@ -625,9 +630,8 @@ def build():
     if sys.net is None:
         sys.net = Network(sys=sys, atoms=sys.atoms)
     # Once the build command is used, the user is greeted with the build settings and asked if they are ready to build
-    prepping_header = "\rSettings - surf_res = {:.2f}   max_vert  = {:.2f}   box_size = {:.2f}   sol_verts = {}"\
-        .format(sys.net.surf_res, sys.net.max_vert, sys.net.box_size, sys.net.sol_verts)
-    print(prepping_header, end=" ")
+    print("\rSettings - surf_res = {:.2f} \u208B,  max_vert  = {:.2f} \u208B,  box_size = {:.2f} x,  sol_verts = {}"
+        .format(sys.net.surf_res, sys.net.max_vert, sys.net.box_size, sys.net.sol_verts), end="")
     # The user is prompted to start the build - This could say eta and other build qualities
     pre_build_confirmation = input("\nconfirm >>>   ")
     # If the user is ready to build, build the system
@@ -712,8 +716,6 @@ def group(usr_npt, for_export=False):
     else:
         sys.groups += groups
         return groups
-
-
 
 
 def export(usr_npt):
