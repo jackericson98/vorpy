@@ -138,6 +138,8 @@ def build_perimeter(surf):
     a0, a1 = surf.atoms[0], surf.atoms[1]
     d = calc_dist(a0.loc, a1.loc)
     # Get the center of the surface
+    if surf.rn is None:
+        surf.calc_func()
     surf.center = np.array(a0.loc) + (a0.rad + 0.5 * (d - (a0.rad + a1.rad))) * surf.rn
     for i in range(len(surf.pflat_points)):
         # Move the points

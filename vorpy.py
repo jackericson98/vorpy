@@ -299,16 +299,16 @@ def get_set(setting=None, val=None):
         if setting is None:
             # Prompt the user
             my_input = input("Enter setting type. (\'surf_res\', \'max_vert\', \'box_size\', or \'sol_verts\')\nsetting >>>   ")
+        # If they quit, then quit
+        if my_input.lower() in quits:
+            return
+        elif my_input.lower() in helps:
+            help_()
         # Check to see if the user gave a valid response or not
         if my_input.lower() not in my_settings:
             # Tell the user they suck and try again
             invalid_input(my_input)
             continue
-        # If they quit, then quit
-        elif my_input.lower() in quits:
-            return
-        elif my_input.lower() in helps:
-            help_()
         # Otherwise, we have a success
         else:
             choosing = False
@@ -582,16 +582,23 @@ def sett(usr_npt):
     global sys
     if len(usr_npt) == 1:
         my_set = get_set()
+        if my_set is None:
+            return
         my_val = get_val(my_set)
     elif len(usr_npt) == 2:
         my_set = get_set(usr_npt[1])
+        if my_set is None:
+            return
         my_val = get_val(my_set)
     elif len(usr_npt) <= 3:
         my_set = get_set(usr_npt[1])
+        if my_set is None:
+            return
         my_val = get_val(my_set, usr_npt[2])
     else:
         invalid_input(usr_npt)
         return
+
     # Check to see if a network has been created yet
     if sys.net is None:
         sys.net = Network(sys=sys, atoms=sys.atoms)
@@ -611,6 +618,8 @@ def sett(usr_npt):
     elif my_set in sol_vertses:
         sys.net.sol_verts = my_val
         print("Calculate solute vertices set to {}".format(sys.net.sol_verts))
+    elif my_set.lower() in quits:
+        return
     else:
         invalid_input(usr_npt)
 
