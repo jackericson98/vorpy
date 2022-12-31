@@ -471,7 +471,7 @@ def export_net_info(net):
     file.write(net.sys.name + " Network")
     # Write the atom information
     for i in range(len(net.atoms)):
-        file.write("{} - cell volume = {}\n".format(net.sys.atom_names[i], net.atoms[i].vol))
+        file.write("{} - cell volume = {}, cell surface area {}\n".format(net.sys.atom_names[i], net.atoms[i].vol, net.atoms[i].sa))
     # write the surface information
     for i in range(len(net.surfs)):
         file.write("Surface {}-{} - Surface area = {}\n".format(net.surfs[i].ndx[0], net.surfs[i].ndx[1], net.surfs[i].sa))

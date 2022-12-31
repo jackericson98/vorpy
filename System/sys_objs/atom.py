@@ -49,7 +49,8 @@ class Atom:
         # Calculated Traits
         self.loc = location         # Location     :   Set the location of the center of the sphere
         self.rad = radius           # Radius       :   Set the radius for the sphere object. Default is 1
-        self.vol = 0           # Cell Volume  :   Volume of the voronoi cell for the atom
+        self.vol = 0                # Cell Volume  :   Volume of the voronoi cell for the atom
+        self.sa = 0                 # Surface Area :   Surface area of the atom's celll
         self.box = []               # Box          :   The grid location of the atom
 
         # Network connections
@@ -88,6 +89,7 @@ class Atom:
         vol = 0
         # Go through each surface on the atom
         for surf in self.surfs:
+            self.sa += surf.sa
             if surf.tris is None or len(surf.tris) == 0:
                 if surf.file is not None:
                     try:
