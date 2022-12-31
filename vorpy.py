@@ -724,6 +724,10 @@ def export(usr_npt):
     :param usr_npt:
     :return:
     """
+    if len(usr_npt) > 1 and usr_npt.lower() == 'all':
+        sys.exports(network=True, pdb=True, surfaces=True, full_network_object=True, no_sol_network_object=True,
+                    alter_atoms_script=True)
+        return
     # Get the groups based off of what was specified
     groups = group(usr_npt, for_export=True)
     # Go through the groups in the list
