@@ -50,6 +50,7 @@ class Group:
         self.surfs, self.surf_ndxs, self.body_surfs, self.outer_body_atoms, self.surr_body_atoms = [], [], [], [], []
         self.body_vol, self.body_sa = 0, 0
         # Go through the atom in the group
+        print(self.atoms)
         for atom in self.atoms:
             if atom.vol is None or atom.vol == 0:
                 atom.calc_vol()
@@ -142,13 +143,17 @@ class Group:
     def get_mol_atoms(self, mols):
         # Get the molecules from their names
         for mol in mols:
-            self.atoms += self.net.sys.mols[self.net.sys.mol_names.index(mol)]
+            mol_atoms = self.net.sys.mols[self.net.sys.mol_names.index(int(mol))]
+            for atom in mol_atoms:
+                self.atoms.append(atom)
 
     # Get group function. Interprets the strings from below
     def get_res_atoms(self, residues):
         # Get the molecules from their names
         for res in residues:
-            self.atoms += self.net.sys.residues[self.net.sys.res_names.index(res)]
+            res_atoms = self.net.sys.residues[self.net.sys.res_names.index(int(res))]
+            for atom in res_atoms:
+                self.atoms.append(atom)
 
     # Get group function. Interprets the strings from below
     def get_atom_atoms(self, atoms):
@@ -160,7 +165,9 @@ class Group:
     def get_ndx_atoms(self, ndxs):
         # Get the molecules from their names
         for ndx in ndxs:
-            self.atoms += self.net.sys.ndxs[self.net.sys.ndx_names.index(ndx)]
+            ndx_atoms = self.net.sys.ndxs[self.net.sys.ndx_names.index(ndx)]
+            for atom in ndx_atoms:
+                self.atoms.append(atom)
 
     # Get Sol
     def find_sol_layers(self, mol=None):

@@ -693,10 +693,18 @@ def group(usr_npt, for_export=False):
                 my_ndx = get_ndx(obj=my_obj)
                 continue
         # Check real quick for single atoms
-        if type(my_atoms) is not list:
-            my_atoms = [my_atoms]
+        list_atoms = []
+        if type(my_atoms) is list:
+            for atom in my_atoms:
+                if type(atom) is list:
+                    for sub_atom in atom:
+                        list_atoms.append(sub_atom)
+                else:
+                    list_atoms.append(atom)
+        else:
+            list_atoms = my_atoms
         # Create the group
-        my_group = Group(sys.net, atoms=my_atoms, name="_".join(selection_names[i]))
+        my_group = Group(sys.net, atoms=list_atoms, name="_".join(selection_names[i]))
         my_group.get_info()
         # Naming loop
         naming = True
@@ -733,7 +741,7 @@ def export(usr_npt):
     :param usr_npt:
     :return:
     """
-    if len(usr_npt) > 1 and usr_npt.lower() == 'all':
+    if len(usr_npt) > 1 and usr_npt[1].lower() == 'all':
         sys.exports(network=True, pdb=True, surfaces=True, full_network_object=True, no_sol_network_object=True,
                     alter_atoms_script=True)
         return
