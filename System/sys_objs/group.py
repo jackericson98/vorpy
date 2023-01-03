@@ -50,7 +50,6 @@ class Group:
         self.surfs, self.surf_ndxs, self.body_surfs, self.outer_body_atoms, self.surr_body_atoms = [], [], [], [], []
         self.body_vol, self.body_sa = 0, 0
         # Go through the atom in the group
-        print(self.atoms)
         for atom in self.atoms:
             if atom.vol is None or atom.vol == 0:
                 atom.calc_vol()
