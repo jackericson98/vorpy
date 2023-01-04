@@ -1,4 +1,3 @@
-import os
 from os import path
 from System.system import *
 
@@ -49,13 +48,12 @@ sol_vertses = ['sol_verts', 'sv']
 my_settings = surf_reses + max_verts + box_sizes + sol_vertses
 
 
-def create_header(sys):
+def create_header():
     """
     Creates a header string to print in the terminal holding the loaded information
-    :param sys:
     :return:
     """
-
+    global sys
     # Get the printable information
 
     # File strings
@@ -324,8 +322,6 @@ def get_val(setting=None, val=None):
     # If the setting is not in the settingsd
     if setting is None or setting.lower() not in my_settings:
         setting = get_set()
-    # Set up the list of possible names
-    names = ["surface resolution", "maximum vertex", "box size", "solute vertices"]
     # Find the value for the setting
     asking = True
     while asking:
@@ -510,6 +506,7 @@ def load(usr_npt):
                     return
             else:
                 sys = System(file)
+                # noinspection PyUnresolvedReferences
                 print(sys.name + " loaded - {} atoms, {} molecules, solute: {}"
                       .format(len(sys.atoms), len(sys.mols), sys.sol_name))
                 return sys
@@ -658,6 +655,7 @@ def build():
 def group(usr_npt, for_export=False):
     """
     Takes input strings interprets them and returns a group
+    :param for_export:
     :param usr_npt:
     :return:
     """
@@ -702,9 +700,9 @@ def group(usr_npt, for_export=False):
                 else:
                     list_atoms.append(atom)
         else:
-            list_atoms = my_atoms
+            list_atoms = [my_atoms]
         # Create the group
-        my_group = Group(sys.net, atoms=list_atoms, name="_".join(selection_names[i]))
+        my_group = Group(sys, atoms=list_atoms, name="_".join(selection_names[i]))
         my_group.get_info()
         # Naming loop
         naming = True
@@ -749,7 +747,8 @@ def export(usr_npt):
     groups = group(usr_npt, for_export=True)
     # Go through the groups in the list
     for my_group in groups:
-        export_body(my_group, True, True)
+        my_group.get_info()
+        my_group.exports()
     # Check to see if there is a second group
     if len(groups) > 1:
         # Ask the user if they want to export the interface
