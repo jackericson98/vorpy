@@ -611,7 +611,7 @@ class VorpyC(ctk.CTk):
         self.get_current_selection_atoms()
         # If group 1 has not been created, make a class and set the string with the current selection
         if self.g1 is None:
-            self.g1 = Group(self.sys.net, self.current_selection_atoms)
+            self.g1 = Group(self.sys, self.current_selection_atoms)
             self.g1.select_strs = [self.current_selection.get()]
         # If the group exists, use the add selection method with the current selection
         else:
@@ -634,7 +634,7 @@ class VorpyC(ctk.CTk):
         self.get_current_selection_atoms()
         # If group 2 has not been created, make a class and set the string with the current selection
         if self.g2 is None:
-            self.g2 = Group(self.sys.net, self.current_selection_atoms)
+            self.g2 = Group(self.sys, self.current_selection_atoms)
             self.g2.select_strs = [self.current_selection.get()]
         # If the group exists, use the add selection method with the current selection
         else:
@@ -657,11 +657,11 @@ class VorpyC(ctk.CTk):
         self.g2_sele_str.set("\n".join(self.g2.select_strs))
 
     def reset_g1_button(self):
-        self.g1 = Group(self.sys.net, [])
+        self.g1 = Group(self.sys, [])
         self.g1_sele_str.set("")
 
     def reset_g2_button(self):
-        self.g2 = Group(self.sys.net, [])
+        self.g2 = Group(self.sys, [])
         self.g2_sele_str.set("")
 
     def export_g1_button(self):

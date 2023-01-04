@@ -527,7 +527,7 @@ class VorpyT:
         self.selected_atoms_str.set(sele_str)
 
     def add_cell_group(self):
-        self.cell_group = Group(net=self.sys.net, atoms=sum(self.selected_atoms, []),
+        self.cell_group = Group(sys=self.sys, atoms=sum(self.selected_atoms, []),
                                 name=" ".join(self.selected_atoms_names))
         self.cell_atoms_names.set(self.selected_atoms_str.get())
         self.cell_group.get_info()
@@ -540,7 +540,7 @@ class VorpyT:
     def add_interface_g1(self):
         name = self.selected_atoms_names[0] + "_" + \
                "".join([_ for _ in self.selected_atoms_names[-1] if len(self.selected_atoms_names) > 1])
-        self.iface_groups[0] = Group(net=self.sys.net, atoms=sum(self.selected_atoms, []),
+        self.iface_groups[0] = Group(sys=self.sys, atoms=sum(self.selected_atoms, []),
                                      name=name)
         self.iface_atoms1_names.set(self.selected_atoms_str.get())
         if self.iface_groups[1] is not None:
@@ -557,7 +557,7 @@ class VorpyT:
     def add_interface_g2(self):
         name = self.selected_atoms_names[0] + "_" + \
                "".join([_ for _ in self.selected_atoms_names[-1] if len(self.selected_atoms_names) > 1])
-        self.iface_groups[1] = Group(net=self.sys.net, atoms=sum(self.selected_atoms, []),
+        self.iface_groups[1] = Group(sys=self.sys, atoms=sum(self.selected_atoms, []),
                                      name=name)
         self.iface_atoms2_names.set(self.selected_atoms_str.get())
         if self.iface_groups[0] is not None:
