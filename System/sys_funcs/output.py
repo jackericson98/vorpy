@@ -47,43 +47,51 @@ def write_pdb(atoms, name, sys=None):
     if atoms is None or len(atoms) == 0:
         return
     # Create the output file
-    file = open(name + ".pdb", 'w')
-    # Check to see if a system was provided
-    if sys is not None and sys.base_file is not None:
-        try:
+    with open(name + ".pdb", 'w') as write_file:
+        # Check to see if a system was provided
+        if sys is not None and sys.base_file is not None:
             # Open the base file
             with open(sys.base_file, 'r') as f:
-                base_file = f.readlines()
-            # Copy the lines
-            for line in base_file:
-                file.write(line)
-            file.close()
-            return
-        except FileNotFoundError:
-            file.close()
-            return
-    # Go through each atom in the system
-    for i in range(len(atoms)):
-        a = atoms[i]
-        loc = [str(round(_, 3)) for _ in a.loc]
-        # Get the information from the atom in writable format
-        ser_num = " " * (5 - len(str(i+1))) + str(i + 1)
-        name = a.name + " " * (4 - len(a.name))
-        res = " " * (3 - len(a.res)) + a.res
-        chain = str(a.mol) + " " * (1 - len(a.mol))
-        if chain == "ZZ":
-            chain = "  "
-        res_seq = " " * (3 - len(a.res_seq)) + a.res_seq
-        loc_strs = [" " * (7 - len(_)) + _ for _ in loc]
-        occupancy = " " * (5 - len(a.occupancy)) + a.occupancy
-        t_fact = " " * (5 - len(a.t_fact)) + a.t_fact
-        seg_id = a.seg_id + " " * (3 - len(a.seg_id))
-        symbol = a.element
-        charge = a.charge
-        # Write the atom information
-        file.write("ATOM  " + ser_num + " " + name + " " + res + " " + chain + res_seq + "     " + " ".join(loc_strs) +
-                   occupancy + t_fact + "        " + seg_id + symbol + charge + "\n")
-    file.close()
+                read_file = f.readlines()
+            # If the output is all atoms just copy the pdb
+            if len(atoms) == len(sys.atoms):
+                for line in read_file:
+                    write_file.write(line)
+                return
+            # Otherwise, create a header and only export the relevant atoms
+            else:
+                # Write a header for the pdb
+                write_file.write("HEADER  vorpy output - " + sys.name + " group " + name + " atoms\n")
+                # Figure out what lines the atoms start on
+                offset = 0
+                while read_file[offset][:4].lower() != 'atom':
+                    offset += 1
+                # Grab the lines from the initial pdb
+                for j in range(len(sys.atoms)):
+                    if sys.atoms[j] in atoms:
+                        write_file.write(read_file[j + offset])
+        else:
+            # Go through each atom in the system
+            for i in range(len(atoms)):
+                a = atoms[i]
+                loc = [str(round(_, 3)) for _ in a.loc]
+                # Get the information from the atom in writable format
+                ser_num = " " * (5 - len(str(i+1))) + str(i + 1)
+                name = a.name + " " * (4 - len(a.name))
+                res = " " * (3 - len(a.res)) + a.res
+                chain = str(a.mol) + " " * (1 - len(a.mol))
+                if chain == "ZZ" or chain == 'MOL':
+                    chain = "  "
+                res_seq = " " * (3 - len(a.res_seq)) + a.res_seq
+                loc_strs = [" " * (7 - len(_)) + _ for _ in loc]
+                occupancy = " " * (5 - len(a.occupancy)) + a.occupancy
+                t_fact = " " * (5 - len(a.t_fact)) + a.t_fact
+                seg_id = a.seg_id + " " * (3 - len(a.seg_id))
+                symbol = a.element
+                charge = a.charge
+                # Write the atom information
+                write_file.write("ATOM  " + ser_num + " " + name + " " + res + " " + chain + res_seq + "    " + " ".join(loc_strs) +
+                           occupancy + t_fact + "      " + seg_id + symbol + charge + "\n")
 
 
 def write_surfs(surfs, file_name, color=None, directory=None):
@@ -105,32 +113,31 @@ def write_surfs(surfs, file_name, color=None, directory=None):
     if color is None:
         color = np.random.rand(3)
     # Create the file
-    file = open(file_name + ".off", 'w')
-    # Count the number of triangles and vertices there are
-    num_verts, num_tris = 0, 0
-    for i in range(len(surfs)):
-        num_verts += len(surfs[i].points)
-        num_tris += len(surfs[i].tris)
-    # Write the numbers into the file
-    file.write("OFF\n" + str(num_verts) + " " + str(num_tris) + " 0\n\n\n")
-    # Go through the surfaces and add the points
-    for i in range(len(surfs)):
-        # Go through the points on the surface
-        for point in surfs[i].points:
-            # Add the point to the system file and the surface's file (rounded to 4 decimal points)
-            str_point = [str(round(float(point[_]), 4)) for _ in range(3)]
-            file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
-    num_verts, tri_count = 0, 0
-    # Go through each surface and add the faces
-    for i in range(len(surfs)):
-        for tri in surfs[i].tris:
-            # Add the triangle to the system file and the surface's file
-            str_tri = [str(tri[_] + num_verts) for _ in range(3)]
-            file.write("3 " + str_tri[0] + " " + str_tri[1] + " " + str_tri[2] + " " + str(color[0]) + " " +
-                       str(color[1]) + " " + str(color[2]) + "\n")
-        # Keep counting triangles for the system file
-        num_verts += len(surfs[i].points)
-    file.close()
+    with open(file_name + ".off", 'w') as file:
+        # Count the number of triangles and vertices there are
+        num_verts, num_tris = 0, 0
+        for i in range(len(surfs)):
+            num_verts += len(surfs[i].points)
+            num_tris += len(surfs[i].tris)
+        # Write the numbers into the file
+        file.write("OFF\n" + str(num_verts) + " " + str(num_tris) + " 0\n\n\n")
+        # Go through the surfaces and add the points
+        for i in range(len(surfs)):
+            # Go through the points on the surface
+            for point in surfs[i].points:
+                # Add the point to the system file and the surface's file (rounded to 4 decimal points)
+                str_point = [str(round(float(point[_]), 4)) for _ in range(3)]
+                file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
+        num_verts, tri_count = 0, 0
+        # Go through each surface and add the faces
+        for i in range(len(surfs)):
+            for tri in surfs[i].tris:
+                # Add the triangle to the system file and the surface's file
+                str_tri = [str(tri[_] + num_verts) for _ in range(3)]
+                file.write("3 " + str_tri[0] + " " + str_tri[1] + " " + str_tri[2] + " " + str(color[0]) + " " +
+                           str(color[1]) + " " + str(color[2]) + "\n")
+            # Keep counting triangles for the system file
+            num_verts += len(surfs[i].points)
 
 
 def export_mySys(sys):
@@ -174,8 +181,8 @@ def export_iface(groups, info_file=False, interface_atoms=False):
     # Check to see of the user wants to export the interface's atoms
     if interface_atoms:
         # Get the two sets of interface atoms
-        write_pdb(g0.iface_atoms, interface_name + "_" + g0.name + "_atoms")
-        write_pdb(g1.iface_atoms, interface_name + "_" + g1.name + "_atoms")
+        write_pdb(g0.iface_atoms, interface_name + "_" + g0.name + "_atoms", g0.sys)
+        write_pdb(g1.iface_atoms, interface_name + "_" + g1.name + "_atoms", g1.sys)
     # Check to see if the user wants to export the interface's information
     if info_file:
         info = open(interface_name + "_info.txt", 'w')
@@ -216,8 +223,8 @@ def export_body(group, info_file=False, outer_atoms=False):
     write_surfs(group.body_surfs, group.name)
     # Check to see of the user wants to export the interface's atoms
     if outer_atoms:
-        write_pdb(group.outer_body_atoms, group.name + "_outside_atoms")
-        write_pdb(group.surr_body_atoms, group.name + "_surrounding_atoms")
+        write_pdb(group.outer_body_atoms, group.name + "_outside_atoms", group.sys)
+        write_pdb(group.surr_body_atoms, group.name + "_surrounding_atoms", group.sys)
     # Check to see if the user wants to export the interface's information
     if info_file:
         info = open("cell_" + group.name + "_info.txt", 'w')
@@ -374,6 +381,31 @@ def export_old_net(net, point_res=None):
     file.close()
 
 
+def export_csv_surfs(net):
+    # Create a surfaces folder and change to it
+    os.mkdir(net.sys.dir + "/csv_surfs")
+    os.chdir(net.sys.dir + "/csv_surfs")
+    # Go through the surfaces 1 by one creating point files
+    for surf in net.surfs:
+        # Create the surface file
+        with open(os.getcwd() + "/" + "_".join([str(_) for _ in surf.ndx]) + ".off", 'w', newline='') as surf_file:
+            surf_writer = csv.writer(surf_file)
+            surf_writer.writerow(["Surface", "# of Points", "# of Triangles"])
+            surf_writer.writerow([net.surfs.index(surf), len(surf.points), len(surf.tris)])
+            # Write the header for the points
+            surf_writer.writerow(["Point", "Loc - X", "Loc - Y", "Loc - Z"])
+            # Go through the points
+            for j in range(len(surf.points)):
+                # Write the point information
+                surf_writer.writerow([j, surf.points[j][0], surf.points[j][1], surf.points[j][2]])
+            # Write the triangles header
+            surf_writer.writerow(["Triangle", "Point 1", "Point 2", "Point 3"])
+            # Go through the triangles
+            for j in range(len(surf.tris)):
+                # Write the triangle information
+                surf_writer.writerow([j, surf.tris[j][0], surf.tris[j][1], surf.tris[j][2]])
+
+
 def export_net(net, output_surfs=True):
     # Create the file for export
     if net.sys.net_file is None:
@@ -433,35 +465,19 @@ def export_net(net, output_surfs=True):
             # Get the file address for the output points
             file_address = None
             if output_surfs:
-                file_address = os.getcwd() + "/" + net.sys.name + "_surfaces/" + "_".join([str(_) for _ in surf.ndx]) + ".csv"
+                file_address = net.sys.dir + "/surfs/" + "_".join([str(_) for _ in surf.ndx]) + ".off"
             # Write the surface information
             writer.writerow([i, file_address, surf.sa, surf.curv, surf.ndx[0], surf.ndx[1]] + list(surf.func[:11]) + list(surf.func[11]))
         # Check to see if the surfaces have been requested
         if output_surfs:
             # Create a surfaces folder and change to it
-            os.mkdir(net.sys.name + "_surfaces")
-            os.chdir(net.sys.name + "_surfaces")
+            os.mkdir(net.sys.dir + "/surfs")
+            os.chdir(net.sys.dir + "/surfs")
             # Go through the surfaces 1 by one creating point files
             for surf in net.surfs:
-                # Create the surface file
-                with open(os.getcwd() + "/" + "_".join([str(_) for _ in surf.ndx]) + ".csv", 'w', newline='') as surf_file:
-                    surf_writer = csv.writer(surf_file)
-                    surf_writer.writerow(["Surface", "# of Points", "# of Triangles"])
-                    surf_writer.writerow([i, len(surf.points), len(surf.tris)])
-                    # Write the header for the points
-                    surf_writer.writerow(["Point", "Loc - X", "Loc - Y", "Loc - Z"])
-                    # Go through the points
-                    for j in range(len(surf.points)):
-                        # Write the point information
-                        surf_writer.writerow([j, surf.points[j][0], surf.points[j][1], surf.points[j][2]])
-                    # Write the triangles header
-                    surf_writer.writerow(["Triangle", "Point 1", "Point 2", "Point 3"])
-                    # Go through the triangles
-                    for j in range(len(surf.tris)):
-                        # Write the triangle information
-                        surf_writer.writerow([j, surf.tris[j][0], surf.tris[j][1], surf.tris[j][2]])
-            # Change back to the network file's directory
-            os.chdir("..")
+                write_surfs([surf], "_".join([str(_) for _ in surf.ndx]))
+    # Change back to the network file's directory
+    os.chdir(net.sys.dir)
 
 
 def export_net_info(net):
