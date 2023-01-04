@@ -220,7 +220,7 @@ class Group:
         os.chdir(self.dir)
         # If the user wants to export the atoms for the group
         if atoms:
-            write_pdb(atoms=self.atoms, name=self.name)
+            write_pdb(atoms=self.atoms, name=self.name, sys=self.sys)
         # If the user wants to export the shell for the group
         if shell:
             write_surfs(surfs=self.layer_surfs[0], file_name=self.name + "_shell")
