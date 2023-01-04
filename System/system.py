@@ -145,6 +145,9 @@ class System:
         :param file:
         :param verts_only:
         """
+        # Set the output directory if None has been set yet
+        if self.dir is None:
+            self.set_output_directory()
         # If no file has been loaded before, create the main network
         if file is not None:
             self.net_file = file
@@ -289,7 +292,6 @@ class System:
         """
         # Export the network
         export_net(self.net)
-        # export_net(self.net)
 
     def export_selection(self, group1, group2=None, info=True):
         """
@@ -314,37 +316,37 @@ class System:
         :return:
         """
         set_output_dir(self)
+        os.chdir(self.dir)
 
-    def exports(self, groups=None, network=True, pdb=True, surfaces=True, full_network_object=True,
+    def exports(self, network=True, pdb=True, surfaces=True, full_network_object=True,
                 no_sol_network_object=True, alter_atoms_script=True, export_groups=False, export_interface=False,
                 export_info=True):
         """
         Prepares the output directory and system for output. Keeps things consistent
         :return:
         """
-        os.chdir(self.dir)
+        os.mkdir(self.dir + "/sys")
         if network:
+            os.chdir(self.dir)
             # Export the network
             self.export_net()
         if pdb:
+            os.chdir(self.dir + "/sys")
             # Export a pdb file for the system
             write_pdb(self.atoms, self.name, self)
         if full_network_object:
+            os.chdir(self.dir + "/sys")
             # Export a full system
             export_mySys(self)
-        # if no_sol_network_object and self.sol is not None and len(self.sol) > 0:
-        #     # Export the system without the solution
-        #     no_sol = Group(self.net, self.sol, self.name + "_no_sol")
-        #     no_sol.get_info()
-        #     # Export the group
-        #     export_body(no_sol)
+        # Write the alter atoms script
         if alter_atoms_script:
-            # Write the alter atoms script
+            os.chdir(self.dir + "/sys")
             set_pymol_atoms(self)
+        # Write the surfaces
         if surfaces:
             # Make the surfaces file
-            os.mkdir(self.dir + "/Surfaces")
-            os.chdir(self.dir + "/Surfaces")
+            os.mkdir(self.dir + "/sys/surfaces")
+            os.chdir(self.dir + "/sys/surfaces")
             # Export the surfaces one by one
             for i in range(len(self.net.surfs)):
                 # Export the
@@ -354,13 +356,10 @@ class System:
                 # Write each of the surfaces
                 write_surfs([surf], "surf_" + str(surf.ndx[0]) + "_" + str(surf.ndx[1]), my_color)
             os.chdir("..")
-        if export_groups and groups is not None:
-            for group in groups:
-                export_body(group, True, True)
-        if export_interface and len(groups) > 1:
-            export_iface(groups, True, True)
         if export_info:
+            os.chdir(self.dir + "/sys")
             export_net_info(self.net)
+        os.chdir(self.dir)
 
 
     def show_sys(self, info=True, show=False, fig=None, ax=None):  # Needs to be way more extensive
