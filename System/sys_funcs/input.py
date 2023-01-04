@@ -1,8 +1,6 @@
 import csv
-
 from System.sys_objs.atom import Atom, get_radius
 from System.Network.network import Network, Vertex, Edge, Surface
-import pandas as pd
 
 
 # Get name method. Strips the location and extension from the file
@@ -430,7 +428,8 @@ def read_net(sys, file=None):
         sys.net.edges = [Edge(net=sys.net) for _ in range(net_edges)]
         sys.net.surfs = [Surface(net=sys.net) for _ in range(net_surfs)]
         # Add the settings
-        sys.net.surf_res, sys.net.max_vert, sys.net.box_size, sys.net.sol_verts = read_file[1][1:5]
+        sys.net.surf_res, sys.net.max_vert, sys.net.box_size = [float(_) for _ in read_file[1][1:4]]
+        sys.net.sol_verts = bool(read_file[1][4])
         # Add the vertices
         for i in range(3, 3 + net_verts):
             vert = sys.net.verts[i - 3]
@@ -472,3 +471,6 @@ def read_net(sys, file=None):
             surf.func = [float(_) for _ in read_file[i][5:16]] + [[float(_) for _ in read_file[i][16:]]]
             for atom in surf.atoms:
                 atom.surfs.append(surf)
+    # Go through and add the surfaces if they have files
+    for surf in sys.net.surfs:
+        surf.read_file()
