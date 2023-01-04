@@ -67,7 +67,24 @@ class Surface:
         # Check to see if the file exists
         if file is None and self.file is not None:
             file = self.file
-        if file[-3:].lower() == 'csv':
+        # Read an off file
+        if file[-3:].lower() == 'off':
+            # Open the file
+            with open(file, 'r') as my_file:
+                # Read the lines
+                file_array = my_file.readlines()
+                # Get the number of points and triangles
+                num_points, num_tris = [int(_) for _ in file_array[1].split()[1:]]
+                # Add the points
+                for i in range(4, num_points + 4):
+                    line = file_array[i].split()
+                    self.points.append([float(_) for _ in line[1:]])
+                # Add the tris
+                for i in range(4 + num_points, 4 + num_points + num_tris):
+                    line = file_array[i].split()
+                    self.tris.append([int(_) for _ in line[1:]])
+        # Read a comma separated file surface file
+        elif file[-3:].lower() == 'csv':
             # Open the file
             with open(file, 'r') as my_file:
                 # Get the file element array to read
@@ -82,22 +99,6 @@ class Surface:
                 self.tris = []
                 for i in range(4 + num_points, 4 + num_points + num_tris):
                     self.tris.append([int(_) for _ in read_file[i][1:]])
-        elif file[-3:].lower() == 'off':
-            # Open the file
-            with open(file, 'r') as my_file:
-                # Read the lines
-                file_array = my_file.readlines()
-
-                # Get the number of points and triangles
-                num_points, num_tris = file_array[1].split()[1:]
-                # Add the points
-                for i in range(4, num_points + 4):
-                    line = file_array[i].split()
-                    self.points.append([float(_) for _ in line[1:]])
-                # Add the tris
-                for i in range(4 + num_points, num_tris):
-                    line = file_array[i].split()
-                    self.tris.append([int(_) for _ in line[1:]])
 
     # Calculate curvature method
     def calc_curv(self):
