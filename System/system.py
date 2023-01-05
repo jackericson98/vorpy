@@ -1,7 +1,6 @@
 from System.sys_funcs.input import *
 from System.sys_funcs.output import *
 from System.Network.network import *
-from System.sys_objs.group import Group
 
 
 class System:
@@ -56,7 +55,6 @@ class System:
         # Initiate the system
         self.load_files()
 
-
     def load_files(self):
         """
         Create the system and make sure the files added in __init__ are added to the system
@@ -90,7 +88,6 @@ class System:
             self.data = []
         if self.sol is not None:
             self.get_sol_name()
-
 
     def load_sys(self, file=None):
         """
@@ -178,7 +175,7 @@ class System:
         is_water = True
         for atom in my_sol:
             if atom.element.lower() not in ['h', 'o']:
-                is_water =  False
+                is_water = False
         # Return water
         if is_water and len(my_sol) == 3:
             return 'h2o'
@@ -205,7 +202,7 @@ class System:
                                            get_radius(self, atom[1]), element=atom[1], chain="None"))
                 else:
                     self.atoms.append(Atom([float(atom[0][0]), float(atom[0][1]), float(atom[0][2])], float(atom[1]),
-                                       element=get_radius(atom[1], system=self, return_symbol=True), chain="None"))
+                                           element=get_radius(atom[1], system=self, return_symbol=True), chain="None"))
 
     def random_system(self, anums=30, dmax=15, rmax=1):
         """

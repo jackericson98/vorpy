@@ -67,6 +67,22 @@ class Surface:
         # Check to see if the file exists
         if file is None and self.file is not None:
             file = self.file
+
+        # Quick little check for the surfaces
+        try:
+            p = open(file, 'r')
+            p.close()
+        except FileNotFoundError:
+            # This solves linux load issues
+            file = self.net.sys.dir + file
+        # Check again for just an overall shite file
+        try:
+            p = open(file, 'r')
+            p.close()
+        except FileNotFoundError:
+            # If all else fails just build the surface
+            self.build()
+            return
         # Read an off file
         if file[-3:].lower() == 'off':
             # Open the file

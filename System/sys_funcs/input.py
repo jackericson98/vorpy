@@ -67,15 +67,14 @@ def read_cif(sys, file=None):
     with open(file, 'r') as f:
         my_file = f.readlines()
     # Get the starting number for the line
-    num = int(my_file)
+    num = int(my_file[0].split()[0])
     # Go through each line of the file
     for i in range(len(my_file)):
         # Split the line
-        my_file[i] = my_file[i].split()
+        line = my_file[i].split()
         # Add the atoms
-        if my_file[i] == int(num) and len(my_file[i]) >= 7:
-            sys.atoms.append(Atom([my_file[i][9], my_file[i][10], my_file[i][11]],
-                                  get_radius(my_file[i][3], system=sys), element=my_file[i][3]))
+        if line == int(num) and len(line) >= 7:
+            sys.atoms.append(Atom([line[9], line[10], line[11]], get_radius(line[3], system=sys), element=line[3]))
 
 
 # Read gro method. Interprets the data from a .cif file type
@@ -459,8 +458,9 @@ def read_net(sys, file=None):
             for surf in edge.surfs:
                 if surf.edges is None:
                     surf.edges = []
-                surf.edges.append(surf)
+                surf.edges.append(edge)
         # Add the surfaces
+        # noinspection PyTypeChecker
         for i in range(5 + net_verts + net_edges, 5 + net_verts + net_edges + net_surfs):
             surf = sys.net.surfs[i - 5 - net_verts - net_edges]
             surf.atoms = [sys.atoms[int(_)] for _ in read_file[i][4:6]]

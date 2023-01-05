@@ -494,6 +494,16 @@ def export_net_info(net):
     file.close()
 
 
+def export_net1(net, verts_only=False):
+    """
+    An efficient storage of network information. 
+    :param net:
+    :param verts_only:
+    :return:
+    """
+
+
+
 ############################################ Pymol Scripts #############################################################
 
 

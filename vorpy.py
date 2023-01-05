@@ -1,5 +1,6 @@
 from os import path
 from System.system import *
+from System.sys_objs.group import *
 
 """
 I want this to be a constantly running interface where the user can load, build, and export Voronoi network components. 
@@ -558,7 +559,9 @@ def load(usr_npt):
         elif file[-3:] == 'csv':
             # Check to see that this is a network file
             if file[-7:-4].lower() == 'net':
+
                 sys.load_net(file=file)
+
         # If the file is an index file load it accordingly
         elif file[-3:] == 'ndx':
             sys.load_ndx(file)

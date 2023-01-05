@@ -21,7 +21,6 @@ def doublify(net):
         # If we come across a doublet add it to the list
         if vert.doublet is not None:
             net.doublets.append(vert)
-
     # Go through the doublets
     for dub in net.doublets:
 
@@ -35,21 +34,16 @@ def doublify(net):
         # Find all vertices that match edges with the doublet's atoms
         con_verts = []
         for vert in net.verts:
-            try:
-                if len([0 for _ in dub.ndx if _ in vert.ndx]) == 3:
-                    con_verts.append(vert)
-            except AttributeError:
-                pass
+            if len([0 for _ in dub.ndx if _ in vert.ndx]) == 3:
+                con_verts.append(vert)
         # Divide the connecting outer vertices between the two doublet vertices
         dub_verts, dub_dub_verts = [], []
         for vert in con_verts:
-            try:
-                if calc_dist(vert.loc, dub.loc) < calc_dist(vert.loc, dub.doublet.loc):
-                    dub_verts.append(vert)
-                else:
-                    dub_dub_verts.append(vert)
-            except AttributeError:
-                pass
+            # Decide between the two sides of the doublet for the outer vertex
+            if calc_dist(vert.loc, dub.loc) < calc_dist(vert.loc, dub.doublet.loc):
+                dub_verts.append(vert)
+            else:
+                dub_dub_verts.append(vert)
         # Create the edge objects for each of the vertices connected to the primary doublet vertex
         dub.edges = []
         for vert in dub_verts:
@@ -66,24 +60,32 @@ def doublify(net):
             # Create the edge from the atoms in both dub.doublet and vert and add it to the network and each vertex
             my_edge = Edge(atoms=[net.atoms[_] for _ in [_ for _ in vert.ndx if _ in dub.doublet.ndx]], net=net,
                            verts=[dub.doublet, vert], surfs=[])
+
             net.edges.append(my_edge)
+
+            edge_ndx = ndx_search(net.edge_ndxs, my_edge.ndx)
+            net.edges.insert(edge_ndx, my_edge)
+            net.edge_ndxs.insert(edge_ndx, my_edge.ndx)
+
             dub.doublet.edges.append(my_edge)
             vert.edges.append(my_edge)
 
         ########################################## Create the inner edges ##########################################
 
-
         potential_edges = [[dub.ndx[i], dub.ndx[(i + 1) % 4], dub.ndx[(i + 2) % 4]] for i in range(4)]
         for ndx in potential_edges:
             ndx.sort()
         known_edges_ndxs = [edge.ndx for edge in dub.edges + dub.doublet.edges]
-
         # Gather the other combinations of atoms and create the remaining inner atoms
         edges = [Edge(atoms=[net.atoms[_] for _ in ndx], net=net, verts=[dub, dub.doublet], doublet=True, surfs=[])
                  for ndx in potential_edges if ndx not in known_edges_ndxs]
 
         # Add the edges to the network and the doublet vertices
-        net.edges += edges
+        for edge in edges:
+            edge_ndx = ndx_search(net.edge_ndxs, edge.ndx)
+            net.edges.insert(edge_ndx, edge)
+            net.edge_ndxs.insert(edge_ndx, edge.ndx)
+
         dub.edges += edges
         dub.doublet.edges += edges
 
@@ -104,7 +106,7 @@ def build(net):
 
     # Go through the vertices in the network searching for potential edges
     for i in range(len(net.verts)):
-        print("\rConnecting Network: {:.2f} %".format(min(100, 100 * i / (2 * len(net.verts)))), end="")
+        print("\rConnecting Network: {:.2f} %".format(min(100.0, 100 * i / (2 * len(net.verts)))), end="")
         vert1 = net.verts[i]
         if vert1.doublet is not None:
             continue
@@ -143,9 +145,10 @@ def build(net):
 
     ################################################### Create the surfaces ############################################
 
+
     # Go through the edges in the network
     for i in range(len(net.edges)):
-        print("\rConnecting Network: {:.2f} %".format(min(100, 100 * (i + len(net.edges) - 1) / (2 * len(net.verts)))), end="")
+        print("\rConnecting Network: {:.2f} %".format(min(100.0, 100 * (i + len(net.edges) - 1) / (2 * len(net.verts)))), end="")
         edge1 = net.edges[i]
         # Go through the edge's atoms combinations
         for j in range(3):
@@ -171,6 +174,11 @@ def build(net):
                 # If the surface's atoms are shared with the vertex, add it to the list
                 if len([0 for ndx in atom_ndxs if ndx in vert2.ndx]) == 2:
                     verts.append(vert2)
+
+            if atom_ndxs == [15, 332]:
+                print("{} Edges: ".format(len(edges)), *[_.ndx for _ in edges])
+                print("{} Verts: ".format(len(verts)), *[_.ndx for _ in verts])
+
             # In order to be a true surface the number of edges need to be equal to the number of verts
             if len(verts) == len(edges):
                 # Create the surface
