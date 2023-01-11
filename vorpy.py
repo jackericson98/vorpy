@@ -520,7 +520,7 @@ def load(usr_npt):
                     replace_vert_file = input("Replacing {} with {}\n "
                                               "confirm >>>   ".format(sys.vert_file, file))
                     if replace_vert_file.lower() in ys or replace_vert_file.lower() in dones:
-                        sys.load_verts(file)
+                        sys.load_verts(file, vta_ball_file=sys.ball_file)
                         print("{} vertices loaded - {} vertices, maximum vertex radius: {} \u208B, box size: {} x\n"
                               .format(sys.name, len(sys.net.verts), sys.net.max_vert, sys.net.box_size))
                     elif replace_vert_file.lower() in helps:
@@ -528,10 +528,11 @@ def load(usr_npt):
                     elif replace_vert_file.lower() in quits:
                         return
                 else:
-                    sys.load_verts(file)
+                    sys.load_verts(file, vta_ball_file=sys.ball_file)
                     print("{} vertices loaded - {} vertices, maximum vertex radius: {} \u208B, box size: {} x\n"
                           .format(sys.name, len(sys.net.verts), sys.net.max_vert, sys.net.box_size))
-
+            elif file[-9:-4] == 'balls':
+                sys.ball_file = file
             # If the new file is a network file load it
             elif file[-11:-4] == 'network':
                 # If a vertex file has already been loaded make sure the user wants to load it if not load it
@@ -639,13 +640,13 @@ def build():
     if sys.net is None:
         sys.net = Network(sys=sys, atoms=sys.atoms)
     # Once the build command is used, the user is greeted with the build settings and asked if they are ready to build
-    print("\rSettings - surf_res = {:.2f} \u208B,  max_vert  = {:.2f} \u208B,  box_size = {:.2f} x,  sol_verts = {}"
-        .format(sys.net.surf_res, sys.net.max_vert, sys.net.box_size, sys.net.sol_verts), end="")
+    print(u"Settings - surf_res = {:.2f} \u208B,  max_vert  = {:.2f} \u208B,  box_size = {:.2f} x,  sol_verts = {}"
+          .format(sys.net.surf_res, sys.net.max_vert, sys.net.box_size, sys.net.sol_verts))
     # The user is prompted to start the build - This could say eta and other build qualities
-    pre_build_confirmation = input("\nconfirm >>>   ")
+    pre_build_confirmation = input("confirm >>>   ")
     # If the user is ready to build, build the system
     if pre_build_confirmation.lower() in ys:
-        sys.build_network()
+        sys.build_network(flat_faces=sys.net.flat_faces)
     elif pre_build_confirmation.lower() in ns:
         print("Use the \'set\' command to change a setting and a value. Type \'h\' for help")
         return

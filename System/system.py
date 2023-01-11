@@ -42,6 +42,7 @@ class System:
         # Set up the file attributes
         self.data = None                    # Data                :   Additional data provided by the base file
         self.base_file = file               # Base file           :   Primary file address
+        self.ball_file = None
         self.vert_file = verts_file         # Vertex file         :   Address to the vertices of the primary system
         self.net_file = network_file        # Network files       :   Network files for multiple frames
         self.ndx_file = index_file          # Index file          :   File addresses for index file in GROMACS format
@@ -134,6 +135,7 @@ class System:
             read_verts(self.net, self.vert_file)
         else:
             read_vta_data(self, vert_file=file, ball_file=vta_ball_file)
+            self.net.flat_faces = True
 
     def load_net(self, file=None, verts_only=False, old_net=False):
         """

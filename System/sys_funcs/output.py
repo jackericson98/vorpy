@@ -447,6 +447,8 @@ def export_net(net, output_surfs=True):
                         edge.ref = [surf_ndx, ndx_1, ndx_2]
                     except IndexError:
                         edge.ref = [None, None, None]
+                    except ValueError:
+                        edge.ref = [None, None, None]
                 else:
                     edge.ref = [None, None, None]
             e_verts, e_surfs = [net.verts.index(_) for _ in edge.verts], [net.surfs.index(_) for _ in edge.surfs]
@@ -467,7 +469,10 @@ def export_net(net, output_surfs=True):
             if output_surfs:
                 file_address = net.sys.dir + "/surfs/" + "_".join([str(_) for _ in surf.ndx]) + ".off"
             # Write the surface information
-            writer.writerow([i, file_address, surf.sa, surf.curv, surf.ndx[0], surf.ndx[1]] + list(surf.func[:11]) + list(surf.func[11]))
+            try:
+                writer.writerow([i, file_address, surf.sa, surf.curv, surf.ndx[0], surf.ndx[1]] + list(surf.func[:11]) + list(surf.func[11]))
+            except TypeError:
+                pass
         # Check to see if the surfaces have been requested
         if output_surfs:
             # Create a surfaces folder and change to it

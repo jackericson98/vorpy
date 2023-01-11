@@ -251,7 +251,7 @@ class Network:
         # Sort the atoms in the network
         self.sort_atoms()
         # Check to see if there are vertices loaded
-        if calc_verts is None or calc_verts:
+        if (calc_verts is None or calc_verts) and not flat_faces:
             if self.verts is None or len(self.verts) == 0:
                 # Find the vertices
                 self.find_verts()

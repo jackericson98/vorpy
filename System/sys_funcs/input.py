@@ -136,6 +136,7 @@ def read_vta_data(sys, ball_file, vert_file):
         ndx.sort()
         myVert = Vertex(atoms=atoms, net=sys.net, ndx=ndx, location=loc, radius=rad)
         sys.net.verts.append(myVert)
+    sys.net.flat_faces = True
 
 
 # Input index function. Takes in an index file and loads it into the list of indices

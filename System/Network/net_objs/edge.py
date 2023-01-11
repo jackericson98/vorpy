@@ -43,6 +43,9 @@ class Edge:
         # Typical case, no doublets
         self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
 
+        if self.net.flat_faces:
+            return
+
         # Get the projection point
         # Find the point in between the two vertex points
         r01 = self.pv1 - self.pv0  # Vector between vertices
