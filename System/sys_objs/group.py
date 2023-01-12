@@ -52,6 +52,17 @@ class Group:
         # Reset the main information variables
         self.surfs, self.surf_ndxs, self.body_surfs, self.outer_body_atoms, self.surr_body_atoms = [], [], [], [], []
         self.body_vol, self.body_sa = 0, 0
+        # In the case where the surfaces have not been calculated collect and calculate them
+        if not self.sys.net.calc_surfs:
+            surfs = []
+            for atom in self.atoms:
+                for surf in atom.surfs:
+                    if surf.points is None:
+                        surfs.append(surf)
+            for i in range(len(surfs)):
+                print("\rbuilding surfaces " + " " * (len(str(len(surfs) - 1)) - len(str(i + 1))) + str(i + 1) + "/" +
+                      str(len(surfs)) + "                   ", end="")
+                surfs[i].build()
         # Go through the atom in the group
         for atom in self.atoms:
             if atom.vol is None or atom.vol == 0:
@@ -220,8 +231,7 @@ class Group:
         export_iface(groups=[self, g2], info_file=info_file, interface_atoms=interface_atoms)
 
 
-
-    def exports(self, atoms=True, shell=True, fill=True, surfaces=True, layers=True):
+    def exports(self, atoms=True, shell=True, fill=True, surfaces=True, layers=False):
         # Create the output directory inside the system's directory
         if self.dir is None:
             self.dir = self.sys.dir + "/" + self.name

@@ -33,9 +33,9 @@ my_objects = mol_objs + res_objs + atom_objs + ndx_objs
 surf_reses = ['surf_res', 'sr', 'surface_resolution', 'surface_res', 'surf_resolution']
 max_verts = ['max_vert', 'mv', 'maximum_vertex', 'max_vertex', 'maximum_vert']
 box_sizes = ['box_size', 'bs']
-sol_vertses = ['sol_verts', 'sv']
+calc_surfses = ['calc_surfs', 'cs']
 
-my_settings = surf_reses + max_verts + box_sizes + sol_vertses
+my_settings = surf_reses + max_verts + box_sizes + calc_surfses
 
 
 def are_you_sure():
@@ -68,10 +68,9 @@ def help_():
                        "  1. load  : Loads file addresses for System (.pdb, .gro, .mol, .cif), Network (.txt), vertices (.txt) or index (.ndx) files",
                        "  2. set   : Sets build Settings with values (float, float, float, True)                                                    ",
                        "  3. build : Builds a Network for the System with the current settings                                                      ",
-                       "  4. group : Groups together System objects                                                                                 ",
-                       "  5. export: Exports System objects. Use \'and\' to export the interface between two groups (e.g. \'export ndx 1 and atom 3\')  ",
-                       "  6. show  : Shows System elements in a given object category                                                               ",
-                       "  7. quit  : Quits from the current process                                                                                 "]
+                       "  4. export: Exports System objects. Use \'and\' to export the interface between two groups (e.g. \'export ndx 1 and atom 3\')  ",
+                       "  5. show  : Shows System elements in a given object category                                                               ",
+                       "  6. quit  : Quits from the current process                                                                                 "]
 
     splitting_line = "--------------------------------------------------------------------------------------------------------------------------------"
 
@@ -87,9 +86,8 @@ def help_():
                        "  1. surf_res : Surface Resolution (From 0.01 to 1 A, recommended 0.1 A)    ",
                        "  2. max_vert : Maximum Vertex Radius (From 0.10 to 20 A, recommended 7 A)  ",
                        "  3. box_size : Retaining Box Multiplier (From 1 to 10 A, recommended 1.5 A)",
-                       "  4. sol_verts: Find the Vertices of all atoms or all atoms but the solute  ",
-                       "                atoms (True/False, recommended True)                        ",
-                       "                                                                             "]
+                       "  4. calc_surfs: Calculate the network's surfaces (True/False/Group,        ",
+                       "                 recommended False)                                         "]
 
     # Print everything
     print(splitting_line)

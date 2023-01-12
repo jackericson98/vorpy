@@ -98,12 +98,6 @@ def find_site(net, edge_atoms, vn_1=None):
         vert_atoms = edge_atoms
     else:
         vert_atoms = vn_1.atoms
-    # Set up check sol variable
-    check_sol = False
-    # Check the edge atoms to see if they are sol atoms
-    if (not net.sol_verts) and edge_atoms[0].res.lower() == 'sol' and \
-            edge_atoms[1].res.lower() == 'sol' and edge_atoms[2].res.lower() == 'sol':
-        check_sol = True
     # Set up a list of atoms to test our edge atoms with
     test_atoms = []
     inc = 0
@@ -119,7 +113,7 @@ def find_site(net, edge_atoms, vn_1=None):
         # Reset the doublet variable
         doublet = None
         # If the atom is in the previous vertex move on
-        if atom in vert_atoms or (check_sol and atom.res.lower() == 'sol'):
+        if atom in vert_atoms:
             continue
         # If we have found the vertex before it is not the previous vertex return
         atom_ndxs = [net.atoms.index(atom1) for atom1 in edge_atoms + [atom]]
@@ -182,13 +176,7 @@ def find_site(net, edge_atoms, vn_1=None):
 # Find network function. Keeps searching the network until all verts are found
 def find_verts(net, a0=None):
     # Calculate the total number of vertices
-    if net.sol_verts:
-        tot_verts = 6 * len(net.atoms)
-    else:
-        sol_len = 0
-        if net.sys.sol is not None:
-            sol_len = len(net.sys.sol)
-        tot_verts = 16 * (len(net.atoms) - sol_len)
+    tot_verts = 6 * len(net.atoms)
     # Find the first verified vertex
     if len(net.atoms) == 4:
         v0 = Vertex(net.atoms, net)

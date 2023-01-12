@@ -152,7 +152,7 @@ def get_set(setting=None, val=None):
         my_input = setting
         if setting is None:
             # Prompt the user
-            my_input = input("Enter setting type. (\'surf_res\', \'max_vert\', \'box_size\', or \'sol_verts\')\nsetting >>>   ")
+            my_input = input("Enter setting type. (\'surf_res\', \'max_vert\', \'box_size\', or \'calc_surfs\')\nsetting >>>   ")
         # If they quit, then quit
         if my_input.lower() in quits:
             return
@@ -190,7 +190,7 @@ def get_val(setting=None, val=None):
             return
         elif val.lower() in helps:
             help_()
-        if setting in sol_vertses:
+        if setting in calc_surfses:
             if val.lower() in ['t', 'true', 'tr'] + ys:
                 val = True
             elif val.lower() in ['f', 'false', 'flse', 'fl', 'fa', 'fs', 'fls'] + ns:

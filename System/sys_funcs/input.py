@@ -224,7 +224,8 @@ def read_net(sys, file=None):
         sys.net.surfs = [Surface(net=sys.net) for _ in range(net_surfs)]
         # Add the settings
         sys.net.surf_res, sys.net.max_vert, sys.net.box_size = [float(_) for _ in read_file[1][1:4]]
-        sys.net.sol_verts = bool(read_file[1][4])
+        sys.net.calc_surfs = bool(read_file[1][4])
+        sys.net.calc_box()
         # Add the vertices
         for i in range(3, 3 + net_verts):
             vert = sys.net.verts[i - 3]
@@ -269,4 +270,5 @@ def read_net(sys, file=None):
                 atom.surfs.append(surf)
     # Go through and add the surfaces if they have files
     for surf in sys.net.surfs:
-        surf.read_file()
+        if surf.file is not None and surf.file != '':
+            surf.read_file()

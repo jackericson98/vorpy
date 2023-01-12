@@ -9,6 +9,7 @@ class Surface:
 
         # If no network was given have a catch
         self.ndx = None
+        self.net = net
         if net is not None and net.atoms is not None and atoms is not None:
             ndx = [net.atoms.index(atom) for atom in atoms]
             ndx.sort()

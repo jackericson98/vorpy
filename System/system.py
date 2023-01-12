@@ -54,7 +54,8 @@ class System:
         self.gui = gui                     # GUI                 :   GUI Vorpy object that can be updated through sys
 
         # Initiate the system
-        self.load_files()
+        if self.base_file is not None:
+            self.load_files()
 
     def load_files(self):
         """
@@ -89,6 +90,9 @@ class System:
             self.data = []
         if self.sol is not None:
             self.get_sol_name()
+        self.name = get_name(self.base_file)
+        set_output_dir(self)
+        os.chdir(self.dir)
 
     def load_sys(self, file=None):
         """
@@ -137,12 +141,10 @@ class System:
             read_vta_data(self, vert_file=file, ball_file=vta_ball_file)
             self.net.flat_faces = True
 
-    def load_net(self, file=None, verts_only=False, old_net=False):
+    def load_net(self, file=None):
         """
         Used to load a network that was previously calculated
-        :param old_net:
         :param file:
-        :param verts_only:
         """
         # Set the output directory if None has been set yet
         if self.dir is None:
@@ -152,12 +154,8 @@ class System:
             self.net_file = file
         # Create the network
         self.net = Network(self, atoms=self.atoms)
-        # Check to see if it is an old_net or not
-        if old_net:
-            read_old_net(self.net, self.net_file)
-        else:
-            # read_net(self.net, self.net_file, verts_only=verts_only)
-            read_net(self)
+        # read_net(self.net, self.net_file, verts_only=verts_only)
+        read_net(self)
         print("\rnetwork loaded - {} verts, {} surfs\n".format(len(self.net.verts), len(self.net.surfs)), end="")
 
     def load_ndx(self, file=None):
@@ -268,13 +266,11 @@ class System:
         Allows user to build the network from the system object.
         :return:
         """
-        set_output_dir(self)
-        os.chdir(self.dir)
         # Check to see if a network exists
         if self.net is None:
             self.net = Network(self, atoms=self.atoms)
         # Build the network
-        self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, sol_verts=sol_verts, output=output,
+        self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, calc_surfs=sol_verts, output=output,
                        flat_faces=flat_faces, calc_verts=calc_verts)
 
     def export_verts(self):
@@ -333,7 +329,7 @@ class System:
             os.chdir(self.dir + "/sys")
             # Export a pdb file for the system
             write_pdb(self.atoms, self.name, self)
-        if full_network_object:
+        if full_network_object and self.net.calc_surfs:
             os.chdir(self.dir + "/sys")
             # Export a full system
             export_mySys(self)
@@ -342,7 +338,7 @@ class System:
             os.chdir(self.dir + "/sys")
             set_pymol_atoms(self)
         # Write the surfaces
-        if surfaces:
+        if surfaces and self.net.calc_surfs:
             # Make the surfaces file
             os.mkdir(self.dir + "/sys/surfaces")
             os.chdir(self.dir + "/sys/surfaces")

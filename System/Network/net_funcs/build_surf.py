@@ -96,6 +96,10 @@ def build_perimeter(surf):
     # Reset the surface's perimeter points list
     surf.perimeter = []
     e0 = surf.edges[0]
+    # Check to see if the edges have been built yet
+    for edge in surf.edges:
+        if edge.points is None:
+            edge.build()
     # Set the edge's reference surface and range (overwrite the ref in place, to ensure a lighter storage with an e0)
     e0.ref = [surf.net.surfs.index(surf), 0, len(e0.points) - 1]
     # Add the first edge's vertex location and set of points to the perimeter points list

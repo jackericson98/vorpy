@@ -415,8 +415,8 @@ def export_net(net, output_surfs=True):
         writer = csv.writer(f)
         # Write a separating line for the info and the surfaces points and tris
         writer.writerow(["Network", "Surface Resolution", "Maximum Vertex Resolution", "Box Size Multiplier",
-                         "Calculate Solute Vertices?", "# of Vertices", "# of Edges", "# of Surfaces", "Surfaces Folder"])
-        writer.writerow([net.sys.name] + [net.surf_res, net.max_vert, net.box_size, net.sol_verts,
+                         "Calculate Surfaces?", "# of Vertices", "# of Edges", "# of Surfaces", "Surfaces Folder"])
+        writer.writerow([net.sys.name] + [net.surf_res, net.max_vert, net.box_size, net.calc_surfs,
                                        len(net.verts), len(net.edges), len(net.surfs), output_surfs])
         # Create a vertices header
         writer.writerow(["Vertex", "Loc - X", "Loc - Y", "Loc - Z", "Radius", "Atom 1", "Atom 2", "Atom 3", "Atom 4",
@@ -449,6 +449,8 @@ def export_net(net, output_surfs=True):
                         edge.ref = [None, None, None]
                     except ValueError:
                         edge.ref = [None, None, None]
+                    except AttributeError:
+                        edge.ref = [None, None, None]
                 else:
                     edge.ref = [None, None, None]
             e_verts, e_surfs = [net.verts.index(_) for _ in edge.verts], [net.surfs.index(_) for _ in edge.surfs]
@@ -465,16 +467,13 @@ def export_net(net, output_surfs=True):
             # Get the surface
             surf = net.surfs[i]
             # Get the file address for the output points
-            file_address = None
-            if output_surfs:
+            file_address = ""
+            if output_surfs and net.calc_surfs:
                 file_address = net.sys.dir + "/surfs/" + "_".join([str(_) for _ in surf.ndx]) + ".off"
             # Write the surface information
-            try:
-                writer.writerow([i, file_address, surf.sa, surf.curv, surf.ndx[0], surf.ndx[1]] + list(surf.func[:11]) + list(surf.func[11]))
-            except TypeError:
-                pass
+            writer.writerow([i, file_address, surf.sa, surf.curv, surf.ndx[0], surf.ndx[1]] + list(surf.func[:11]) + list(surf.func[11]))
         # Check to see if the surfaces have been requested
-        if output_surfs:
+        if output_surfs and net.calc_surfs:
             # Create a surfaces folder and change to it
             os.mkdir(net.sys.dir + "/surfs")
             os.chdir(net.sys.dir + "/surfs")

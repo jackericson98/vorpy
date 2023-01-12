@@ -96,6 +96,8 @@ class Atom:
                         surf.read_file(surf.file)
                     except FileNotFoundError:
                         surf.build()
+                    except PermissionError:
+                        surf.build()
                 else:
                     surf.build()
 
