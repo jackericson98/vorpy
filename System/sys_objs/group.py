@@ -173,7 +173,6 @@ class Group:
             for atom in ndx_atoms:
                 self.atoms.append(atom)
 
-
     def get_layers(self, max_layers=50):
         # Make sure that the group has atoms
         if self.atoms is None:
@@ -209,6 +208,16 @@ class Group:
             self.layer_atoms.append([])
             layer_atoms_ndxs.append([])
             counter += 1
+
+    def export_iface(self, g2=None, info_file=True, interface_atoms=True):
+        # Check for a second group
+        if g2 is None:
+            if self.bff is not None:
+                g2 = self.bff
+            else:
+                return
+        # Export the interface
+        export_iface(groups=[self, g2], info_file=info_file, interface_atoms=interface_atoms)
 
 
 
