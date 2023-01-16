@@ -126,6 +126,19 @@ class Surface:
         # Made up function to calculate the general curvature of the hyperboloid
         self.curv = np.sqrt(self.func[0]**2 + self.func[1]**2 + self.func[2]**2)
 
+    def calc_sa(self):
+        """
+        Calculates the surface area of the input surface
+        :return: Surface area of the surface
+        """
+        # Create the surface area variable
+        sa = 0
+        # Go through the triangles in the surface
+        for tri in self.tris:
+            p0, p1, p2 = self.points[tri[0]], self.points[tri[1]], self.points[tri[2]]
+            sa += calc_tri([p0, p1, p2])
+        self.sa = sa
+
     # Build method. Makes the mesh for the surface and calculates the simplices between them
     def build(self, res=None):
         # Set the resolution value that the surface is built with
@@ -145,6 +158,8 @@ class Surface:
         find_simps(self)
         # Filter out the bad triangles
         filter_tris(self)
+        # Calculate the surface area
+        self.calc_sa()
 
     # Build vta surface function
     def build_vta(self):
