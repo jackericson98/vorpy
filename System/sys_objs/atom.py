@@ -44,7 +44,7 @@ class Atom:
 
     """
     def __init__(self, location=None, radius=None, system=None, element=None, chain=None, residue=None, res_seq=None, name=None,
-                 ocp=None, t_fact=None, seg_id=None, charge=None, load_ndxs=None):
+                 ocp=None, t_fact=None, seg_id=None, charge=None, load_ndxs=None, index=None):
 
         # Calculated Traits
         self.loc = location         # Location     :   Set the location of the center of the sphere
@@ -61,6 +61,7 @@ class Atom:
         self.load_ndxs = load_ndxs  # Load indices :   Holds the object indices for when the system is loaded back in
 
         # Inherent traits
+        self.num = index
         self.element = element      # Symbol       :   Element of the atom
         self.mol = chain            # Chain        :   Molecule chain the atom is a part of
         self.res = residue          # Residue      :   Residue of the molecule that the atom is a part of
