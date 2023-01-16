@@ -43,18 +43,20 @@ class Atom:
         The grid location of the atom
 
     """
-    def __init__(self, location=None, radius=None, system=None, element=None, chain=None, residue=None, res_seq=None, name=None,
-                 ocp=None, t_fact=None, seg_id=None, charge=None, load_ndxs=None, index=None):
+    def __init__(self, location=None, radius=None, system=None, element=None, chain=None, mol_class=None, residue=None,
+                 molecule=None, res_seq=None, name=None, ocp=None, t_fact=None, seg_id=None, charge=None, load_ndxs=None, index=None):
 
         # Calculated Traits
         self.loc = location         # Location     :   Set the location of the center of the sphere
         self.rad = radius           # Radius       :   Set the radius for the sphere object. Default is 1
         self.vol = 0                # Cell Volume  :   Volume of the voronoi cell for the atom
-        self.sa = 0                 # Surface Area :   Surface area of the atom's celll
+        self.sa = 0                 # Surface Area :   Surface area of the atom's cell
         self.box = []               # Box          :   The grid location of the atom
 
         # Network connections
         self.sys = system           # System       :   Set the atom's system attribute
+        self.resid = residue        # Residue      :   The residue of the atom
+        self.mol = molecule         # Molecule     :   The molecule that the atom is a part of
         self.verts = []             # Vertices     :   List of Vertex type objects
         self.surfs = []             # Surfaces     :   List of Surface type objects
         self.edges = []             # Edges        :   List of Edge type objects
@@ -63,8 +65,8 @@ class Atom:
         # Inherent traits
         self.num = index
         self.element = element      # Symbol       :   Element of the atom
-        self.mol = chain            # Chain        :   Molecule chain the atom is a part of
-        self.res = residue          # Residue      :   Residue of the molecule that the atom is a part of
+        self.chain = chain          # Chain        :   Molecule chain the atom is a part of
+        self.mol_class = mol_class  # Mol Class    :   Class of molecule that the atom is a part of
         self.res_seq = res_seq      # Sequence     :   Sequence of the residue that the atom is a part of
         self.name = name            # Name         :   Name retrieved from pdb file
         self.occupancy = ocp        # Occupancy    :   Occupancy of the atom
@@ -143,4 +145,3 @@ def get_radius(radius, system, return_symbol=False):
         return radii[1][radii[0].index(radius.lower())]
     # If nothing is found to be exact return the closest atom type
     return atom_type
-
