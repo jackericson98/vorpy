@@ -70,27 +70,6 @@ def calc_tri(points):
     return 0.5 * np.linalg.norm((np.cross(AB, AC)))
 
 
-def calc_sa(surf):
-    """
-    Calculates the surface area of the input surface
-    :param surf:
-    :return: Surface area of the surface
-    """
-    # Create the surface area variable
-    sa = 0
-    # Go through the triangles in the surface
-    for tri in surf.tris:
-        # Get the points from the surface and calculate the surface area
-        try:
-            p0, p1, p2 = surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
-            sa += calc_tri([p0, p1, p2])
-        except IndexError:
-            print(tri, len(surf.points))
-
-    # Return the surface area
-    return sa
-
-
 def calc_com(atoms=None, points=None):
     """
     Takes in a set of points and returns the coordinates of the center of mass
