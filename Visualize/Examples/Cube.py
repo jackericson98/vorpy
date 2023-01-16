@@ -1,7 +1,7 @@
 import os
 
 from System.system import System, Atom
-from Visualize.visualize import  plot_verts, plot_surfs, plot_edges
+from Visualize.mpl_visualize import plot_verts, plot_surfs, plot_edges
 import matplotlib.pyplot as plt
 os.chdir("../..")
 # Create atom objects from sets of points
