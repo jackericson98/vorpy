@@ -158,7 +158,7 @@ class Network:
         :return:
         """
         # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
-        self.atom_ndxs = [i for i in range(len(self.atoms)) if self.atoms[i].res.lower() != 'sol']
+        self.atom_ndxs = [i for i in range(len(self.atoms))]
         # Do an initial sweep
         find_verts(self)
         i = 0
@@ -206,7 +206,7 @@ class Network:
             percentage = int((i + 1) / tot_num * 100)
             print("\ranalyzing: {} %            ".format(percentage), end="")
             # Get the surface area of the surface
-            self.surfs[i].sa = calc_sa(self.surfs[i])
+            self.surfs[i].calc_sa()
         # Go through each atom in the system and find the volume
         for j in range(len(self.atoms)):
             percentage = int((i + j + 2) / tot_num * 100)
@@ -275,7 +275,7 @@ class Network:
         self.my_time = stop - start
         # Export the network
         if output:
-            self.sys.exports(network=True, pdb=True, no_sol_network_object=True, export_info=True)
+            self.sys.exports(network=True, pdb=True, no_sol_network_object=True, info=self.build_surfs)
         h, m, s = get_time(self.my_time)
         print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s\n".format(len(self.verts), len(self.surfs),
                                                                                 int(h), int(m), s), end="")
