@@ -192,17 +192,20 @@ class System:
         if self.name is None:
             self.name = "User_Atoms"
         # Go through each line in the input list
-        for atom in self.user_atoms:
+        for i in range(len(self.user_atoms)):
+            # Get the atom
+            atom = self.user_atoms[i]
             # If the radius is a string, convert the radius using the get_radius method
             if isinstance(atom, Atom):
                 self.atoms.append(atom)
             else:
                 if type(atom[1]) == str:
                     self.atoms.append(Atom([float(atom[0][0]), float(atom[0][1]), float(atom[0][2])],
-                                           get_radius(self, atom[1]), element=atom[1], chain="None"))
+                                           get_radius(self, atom[1]), element=atom[1], chain="None", index=i))
                 else:
                     self.atoms.append(Atom([float(atom[0][0]), float(atom[0][1]), float(atom[0][2])], float(atom[1]),
-                                           element=get_radius(atom[1], system=self, return_symbol=True), chain="None"))
+                                           element=get_radius(atom[1], system=self, return_symbol=True), chain="None",
+                                           index=i))
 
     def random_system(self, anums=30, dmax=15, rmax=1):
         """
@@ -215,7 +218,7 @@ class System:
         # Create the atoms
         for i in range(anums):
             # Choose a random set of 3 numbers between dmax and -dmax. Choose a random radius between 0 and rmax
-            self.atoms.append(Atom(np.random.rand(3)*2*dmax - dmax, np.random.rand()*rmax))
+            self.atoms.append(Atom(location=np.random.rand(3)*2*dmax - dmax, radius=np.random.rand()*rmax, index=i))
 
     def sort_atoms(self):
         """
@@ -298,12 +301,13 @@ class System:
         """
         # Change to the designated output directory
         os.chdir(self.dir)
-        # Export the first group's body
-        export_body(group1, info_file=info)
-        # Check for a second group
+        # Check for an interface request
         if group2 is not None:
-            export_body(group1, info_file=info)
-            export_iface([group1, group2], info_file=info)
+            interface = True
+            if group1.bff is not group2:
+                group1.get_iface(bff=group2)
+        # Export the first group's body
+        group1.export(info=info, iface=interface)
 
     def set_output_directory(self):
         """
