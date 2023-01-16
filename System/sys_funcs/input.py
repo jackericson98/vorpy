@@ -28,7 +28,7 @@ def read_pdb(sys, file=None):
     # Add the system name and reset the atoms and data lists
     sys.name = get_name(sys.base_file)
     # Set up the atom and the data lists
-    atoms, data = [], []
+    atoms, data, atom_count = [], [], 0
     # Go through each line in the file and check if the first word is the word we are looking for
     for i in range(len(my_file)):
         # Check to make sure the line isn't empty
@@ -45,12 +45,13 @@ def read_pdb(sys, file=None):
             # Create the atom
             atom = Atom(location=[float(line[30:38]), float(line[38:46]), float(line[46:54])], radius=get_radius(line[76:78], sys), system=sys,
                         element=line[76:78], residue=line[17:20], chain=line[21], res_seq=line[22:26], name=line[12:16],
-                        ocp=line[54:60], t_fact=line[60:66], seg_id=line[72:76], charge=line[78:80])
+                        ocp=line[54:60], t_fact=line[60:66], seg_id=line[72:76], charge=line[78:80], index=atom_count)
             # If no chain is specified, set the chain to 'None'
             if atom.mol == ' ' and atom.res.lower() != 'sol' and atom.res_seq.lower() != 'sol':
                 atom.mol = 'MOL'
             # Add the atom to the
             atoms.append(atom)
+            atom_count += 1
         # If the line is not an atom line store the other data
         else:
             data.append(my_file[i].split())
@@ -74,7 +75,8 @@ def read_cif(sys, file=None):
         line = my_file[i].split()
         # Add the atoms
         if line == int(num) and len(line) >= 7:
-            sys.atoms.append(Atom([line[9], line[10], line[11]], get_radius(line[3], system=sys), element=line[3]))
+            sys.atoms.append(Atom([line[9], line[10], line[11]], get_radius(line[3], system=sys), element=line[3],
+                                  index=i))
 
 
 # Read gro method. Interprets the data from a .cif file type
@@ -86,8 +88,10 @@ def read_gro(sys, file=None):
     with open(file, 'r') as f:
         my_file = f.readlines()
     # Go through each line in the file and create an atom object
-    for line in my_file[2:-2]:
-        sys.atoms.append(Atom([line[3], line[4], line[5]], get_radius(line[1][0], system=sys), element=line[1][0]))
+    for i in range(2, len(my_file) - 2):
+        line = my_file[i]
+        sys.atoms.append(Atom([line[3], line[4], line[5]], get_radius(line[1][0], system=sys), element=line[1][0],
+                              index=i))
 
 
 # Read mol method. Interprets the data from a .mol file type
@@ -99,11 +103,14 @@ def read_mol(sys, file=None):
     with open(file, 'r') as f:
         my_file = f.readlines()
     # Go through the lines in the file
-    for line in my_file:
+    for i in range(len(my_file)):
+        # Get the line
+        line = my_file[i]
         # If the line is an atom line add the data
         if len(line) > 6:
             # Add the data
-            sys.atoms.append(Atom([line[0], line[1], line[2]], get_radius(line[3], system=sys), element=line[3]))
+            sys.atoms.append(Atom([line[0], line[1], line[2]], get_radius(line[3], system=sys), element=line[3],
+                                  index=i))
 
 
 # Add Voronota data method. Takes in voronota data and adds it to the System
