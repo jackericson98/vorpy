@@ -5,7 +5,7 @@ import csv
 class Surface:
     """Surface object. Holds the mesh data. Used to analyze interfaces between atoms."""
     def __init__(self, atoms=None, net=None, edges=None, verts=None, doublet=False, points=None, tris=None, perimeter=None,
-                 rn=None, sa=0, curvature=0, function=None, load_ndxs=None, file=None):
+                 rn=None, sa=0, curvature=None, function=None, load_ndxs=None, file=None, resolution=None):
 
         # If no network was given have a catch
         self.ndx = None
@@ -29,6 +29,7 @@ class Surface:
         self.flat_points = []       # Flattened points : Points projected into 2d based off of the surface normal
         self.pflat_points = []      # Flat perimeter   : Flattened points around the perimeter
         self.tris = tris            # Triangles        : A list of connections between the points
+        self.res = resolution       # Resolution       : The resolution with which to build the surface
         self.sa = sa                # Surface Area     : The surface area of the
         self.curv = curvature       # Curvature        : The curvature of the surface between the
         self.rn = rn                # Surface Normal   : Normal to the center of the surface
@@ -126,7 +127,11 @@ class Surface:
         self.curv = np.sqrt(self.func[0]**2 + self.func[1]**2 + self.func[2]**2)
 
     # Build method. Makes the mesh for the surface and calculates the simplices between them
-    def build(self):
+    def build(self, res=None):
+        # Set the resolution value that the surface is built with
+        if res is None:
+            res = self.net.surf_res
+        self.res = res
         # Check to see if the function or curvature have been calculated and calculate them if not
         if self.curv is None:
             self.calc_curv()
