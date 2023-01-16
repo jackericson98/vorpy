@@ -44,10 +44,10 @@ def read_pdb(sys, file=None):
                 continue
             # Create the atom
             atom = Atom(location=[float(line[30:38]), float(line[38:46]), float(line[46:54])], radius=get_radius(line[76:78], sys), system=sys,
-                        element=line[76:78], residue=line[17:20], chain=line[21], res_seq=line[22:26], name=line[12:16],
+                        element=line[76:78], mol_class=line[17:20], chain=line[21], res_seq=line[22:26], name=line[12:16],
                         ocp=line[54:60], t_fact=line[60:66], seg_id=line[72:76], charge=line[78:80], index=atom_count)
             # If no chain is specified, set the chain to 'None'
-            if atom.mol == ' ' and atom.res.lower() != 'sol' and atom.res_seq.lower() != 'sol':
+            if atom.mol == ' ' and atom.mol_class.lower() != 'sol' and atom.res_seq.lower() != 'sol':
                 atom.mol = 'MOL'
             # Add the atom to the
             atoms.append(atom)
