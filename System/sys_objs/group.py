@@ -76,7 +76,7 @@ class Group:
         for atom in atom_list:
             atom_ndx = ndx_search(self.atom_ndxs, atom.num)
             # Check to see if we have found this surface before
-            if atom_ndx < len(self.atom_ndxs) and self.atoms[atom_ndx] != atom.num:
+            if atom_ndx >= len(self.atom_ndxs) or self.atoms[atom_ndx] != atom.num:
                 self.atoms.insert(atom_ndx, atom)
                 self.atom_ndxs.insert(atom_ndx, atom.num)
 
@@ -89,7 +89,7 @@ class Group:
         if atoms is not None:
             self.add_atoms(atoms)
         # If mols were provided and not entered into the group add them
-        if mols is not None and self.mols is None or len(self.mols) < mols:
+        if mols is not None and (self.mols is None or len(self.mols) < mols):
             self.mols = mols
         elif self.mols is None:
             self.mols = []
@@ -97,7 +97,7 @@ class Group:
         for mol in self.mols:
             self.add_atoms(mol.atoms)
         # If residues were provided and not entered into the group add them
-        if resids is not None and self.resids is None or len(self.resids) < resids:
+        if resids is not None and (self.resids is None or len(self.resids) < resids):
             self.resids = resids
         elif self.resids is None:
             self.resids = []
@@ -182,7 +182,7 @@ class Group:
                         self.layer_atoms[-1].append(self.sys.atoms[surf.ndx[0]])
                         layer_atoms_ndxs[-1].append(surf.ndx[0])
             # Check to make sure the surfaces are built in the layer
-            self.build_surfs(surfs=self.layer_surfs, name="layer {}".format(counter))
+            self.build_surfs(surfs=self.layer_surfs[-1], name="layer {}".format(counter))
             # Check to see if the residues are supposed to stay together
             if group_resids:
                 for atom in self.layer_atoms[-1]:
@@ -249,7 +249,7 @@ class Group:
             info.close()
 
 
-    def exports(self, atoms=True, shell=True, fill=True, surfaces=True, layers=False, num_layers=50, info=True, iface=False):
+    def exports(self, atoms=False, shell=False, fill=False, surfaces=False, layers=False, num_layers=50, info=False, iface=False):
         # Create the output directory inside the system's directory
         if self.dir is None:
             self.dir = self.sys.dir + "/" + self.name
@@ -289,6 +289,7 @@ class Group:
                 write_surfs(self.layer_surfs[i], file_name=str(i) + "_surfs")
             # If the user wants info and layers create a layers info file
             if info:
+                self.get_info()
                 # Create the information file
                 info = open(self.name + "_layer_info.txt", 'w')
                 info.write(self.name + " body: \n")
@@ -305,6 +306,7 @@ class Group:
             self.export_iface([self, self.bff], info_file=info)
         # If the user wants a full information file on the group
         if info:
+            self.get_info()
             info = open("cell_" + self.name + "_info.txt", 'w')
             info.write(self.name + " body: \n")
             info.write("Number of atoms: " + str(len(self.atoms)) + "\n")
