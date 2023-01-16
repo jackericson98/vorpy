@@ -109,7 +109,7 @@ class Edge:
             return point
 
     # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
-    def build(self, surf=None, min_dist=None):
+    def build(self, surf=None, res=None):
 
         # Get the location and radius of the circle inscribed between the edge atoms
         self.get_loc()
@@ -118,9 +118,9 @@ class Edge:
         # Reset the edges points
         self.points = []
         # Check to see if a minimum distance has been provided
-        if min_dist is None:
+        if res is None:
             # Get the network's minimum distance
-            min_dist = self.net.surf_res
+            res = self.net.surf_res
         # Check to see if a surface has been provided
         if surf is None:
             # Choose a curved one to project onto. If the edge isn't straight 2 surfs are curved.
@@ -148,7 +148,7 @@ class Edge:
         r_mag = np.linalg.norm(r01)  # Magnitude of the vector between the two vertex points
         rn01 = r01 / r_mag  # Normal to the vector between the vertices
         # Find the number of points
-        n = max(int(r_mag / min_dist), 4)
+        n = max(int(r_mag / res), 4)
         # Calculate the angle between the vertices and the reference point
         theta = calc_angle(self.pa, self.pv0, self.pv1)
         # Add the first vertex to the list of points
