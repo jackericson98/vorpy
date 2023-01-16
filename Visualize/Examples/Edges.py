@@ -36,7 +36,7 @@ for case_atoms in cases:
     # Create the edge
     myEdge = Edge(case_atoms, verts=[v0, v1])
     # Get the edges points
-    myEdge.build(min_dist=.05)
+    myEdge.build(res=.05)
     # Add the edge to the list of
     edges.append(myEdge)
 
