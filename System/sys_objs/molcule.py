@@ -7,3 +7,7 @@ class Molecule:
         self.resids = residues
         self.sys = sys
         self.name = name
+        if self.resids is None:
+            self.resids = []
+        if self.atoms is None:
+            self.atoms = []
