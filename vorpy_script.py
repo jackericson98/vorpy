@@ -135,7 +135,7 @@ mySys.exports(groups=None,
               alter_atoms_script=True,
               export_groups=False,
               export_interface=False,
-              export_info=True)
+              info=True)
 
 ################################################# Run the program ######################################################
 
