@@ -99,7 +99,7 @@ def build_perimeter(surf):
     # Check to see if the edges have been built yet
     for edge in surf.edges:
         if edge.points is None:
-            edge.build()
+            edge.build(res=surf.res)
     # Set the edge's reference surface and range (overwrite the ref in place, to ensure a lighter storage with an e0)
     e0.ref = [surf.net.surfs.index(surf), 0, len(e0.points) - 1]
     # Add the first edge's vertex location and set of points to the perimeter points list
@@ -184,7 +184,7 @@ def fill_mesh(surf):
     if len(surf.perimeter) == 0:
         build_perimeter(surf)
     # Get the resolution
-    res = surf.net.surf_res
+    res = surf.res
     # Get the atoms
     a0, a1 = surf.atoms[0], surf.atoms[1]
     # Get the center of mass
@@ -480,7 +480,7 @@ def filter_tris(surf):
         tri = surf.tris[i]
         circ = calc_tri_circ(surf, tri)
         # If the circumference of the triangle is less than x times the min_dist check to see if tri is within
-        if circ > 5 * surf.net.surf_res and not tri_within(surf, tri):
+        if circ > 5 * surf.res and not tri_within(surf, tri):
             remove_ndxs.append(surf.tris.index(tri))
 
     # Remove the outer triangles
