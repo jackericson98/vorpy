@@ -1,6 +1,9 @@
 from System.sys_funcs.input import *
 from System.sys_funcs.output import *
 from System.Network.network import *
+from System.sys_objs.group import Group
+from System.sys_objs.molcule import Molecule
+from System.sys_objs.residue import Residue
 
 
 class System:
@@ -88,8 +91,6 @@ class System:
             self.ndxs = []
         if self.data is None:
             self.data = []
-        if self.sol is not None:
-            self.get_sol_name()
         self.name = get_name(self.base_file)
         set_output_dir(self)
         os.chdir(self.dir)
@@ -165,22 +166,6 @@ class System:
         """
         read_ndx(self, file=file)
 
-    def get_sol_name(self):
-        # Check to make sure that the solute is provided
-        if self.sol is None:
-            return
-        # Get a residue from the solute
-        my_sol = self.sol[0]
-        # Check to see if the sol is water
-        is_water = True
-        for atom in my_sol:
-            if atom.element.lower() not in ['h', 'o']:
-                is_water = False
-        # Return water
-        if is_water and len(my_sol) == 3:
-            return 'h2o'
-        # Return the other possible solutes
-
     # Build System method.
     def load_sys_atoms(self):
         """
@@ -226,42 +211,54 @@ class System:
         :return:
         """
         # Set up the chain names list
-        self.mols, self.mol_names, self.atom_names, self.sol = [], [], [], []
+        self.mols, self.mol_names, self.atom_names, = [], [], []
         # Go through each of the atoms in the system adding the atoms to their respective chains
         for atom in self.atoms:
+
             # Set the atom's name
             self.atom_names.append(atom.element + str(self.atoms.index(atom)))
             # Add the solution
-            if atom.res.lower() == 'sol':
-                if len(self.sol) > 0 and atom.res_seq == self.sol[-1][0]:
-                    self.sol[-1].append(atom)
+            if atom.mol_class.lower() == 'sol':
+                if self.sol is None:
+                    self.sol = Molecule(atoms=[atom])
+                    atom.mol = self.sol
                 else:
-                    self.sol.append([atom])
-            # If no chain is specified, set the chain to 'None'
-            if atom.mol == ' ':
-                atom.mol = 'MOL'
-            # If the atom's chain does not exist add it to the list of chains
-            if atom.mol not in self.mol_names:
-                self.mols.append([atom])
-                self.mol_names.append(atom.mol)
+                    self.sol.atoms.append(atom)
+                    atom.mol = self.sol
             else:
-                self.mols[self.mol_names.index(atom.mol)].append(atom)
+                # If no chain is specified, set the chain to 'None'
+                if atom.chain == ' ':
+                    atom.chain = 'MOL'
+                # If the atom's chain does not exist add it to the list of chains
+                if atom.chain not in self.mol_names:
+                    my_mol = Molecule(atoms=[atom], name=atom.chain)
+                    self.mols.append(my_mol)
+                    self.mol_names.append(atom.chain)
+                    atom.mol = my_mol
+                else:
+                    my_mol = self.mols[self.mol_names.index(atom.chain)]
+                    my_mol.atoms.append(atom)
+                    atom.mol = my_mol
         # Add the solution to the molecules list
         if self.sol is not None:
-            self.mols.append(self.sol)
+            self.mols.append(Molecule(atoms=self.sol))
             self.mol_names.append("SOL")
         # Set up the residues names list
         self.residues, self.res_names = [], []
         # Set up the residues
         for atom in self.atoms:
-            # Get the residue name for the atom
-            res_name = atom.res + " " + atom.res_seq
             # If the residue name does not exist, add it
-            if res_name not in self.res_names:
-                self.residues.append([atom])
-                self.res_names.append(res_name)
+            if atom.res_seq not in self.res_names:
+                my_res = Residue(atoms=[atom], sequence=atom.res_seq, seg_id=atom.seg_id, mol=atom.mol)
+                self.residues.append(my_res)
+                self.res_names.append(atom.res_seq)
+                atom.res = my_res
+                atom.mol.resids.append(my_res)
             else:
-                self.residues[self.res_names.index(res_name)].append(atom)
+                my_res = self.residues[self.res_names.index(atom.res_seq)]
+                my_res.atoms.append(atom)
+                atom.res = my_res
+
 
     def build_network(self, surf_res=None, max_vert=None, box_size=None, sol_verts=True, output=True, flat_faces=False,
                       calc_verts=True):
@@ -302,9 +299,15 @@ class System:
         # Change to the designated output directory
         os.chdir(self.dir)
         # Check for an interface request
+        interface = False
         if group2 is not None:
             interface = True
+            # Set the bff
             if group1.bff is not group2:
+                group1.bff = group2
+                group1.iface_atoms = None
+            # Calculate the interface
+            if group1.iface_atoms is None or len(group1.iface_atoms) == 0:
                 group1.get_iface(bff=group2)
         # Export the first group's body
         group1.export(info=info, iface=interface)
@@ -317,9 +320,8 @@ class System:
         set_output_dir(self)
         os.chdir(self.dir)
 
-    def exports(self, network=True, pdb=True, surfaces=True, full_network_object=True,
-                no_sol_network_object=True, alter_atoms_script=True, export_groups=False, export_interface=False,
-                export_info=True):
+    def exports(self, network=True, pdb=True, surfaces=True, full_network_object=True, no_sol_network_object=True,
+                alter_atoms_script=True, info=True):
         """
         Prepares the output directory and system for output. Keeps things consistent
         :return:
@@ -355,7 +357,13 @@ class System:
                 # Write each of the surfaces
                 write_surfs([surf], "surf_" + str(surf.ndx[0]) + "_" + str(surf.ndx[1]), my_color)
             os.chdir("..")
-        if export_info:
+        # If the user wants the surfaces of the system without the SOL
+        if no_sol_network_object:
+            # Create the group
+            no_sol = Group(sys=self, mols=self.mols[:-1], name=self.name + "_shell")
+            no_sol.exports(shell=True, info=info)
+        # If the information is requested, export it
+        if info:
             os.chdir(self.dir + "/sys")
             export_net_info(self.net)
         os.chdir(self.dir)
