@@ -67,7 +67,7 @@ def find_next_point(surf, pn_1, end, d_theta):
     # Get the location of point b
     pb = np.array(pn_1)
     # Get the distance between pb and pa
-    c = calc_dist(pa, pb)
+    c = np.sqrt(sum(np.square(np.array(pa) - np.array(pb))))
     # Get the angle between pa, pb and pv1
     B = calc_angle(pb, pa, end)
     # Get the last angle
@@ -116,8 +116,8 @@ def build_perimeter(surf):
         # Go through each of the remaining edges in the list
         for i in range(len(edges)):
             # Calculate the distance between the most recently recorded point and the first/last points in the edge
-            d0, d1 = calc_dist(surf.perimeter[-1], edges[i].points[0]), \
-                     calc_dist(surf.perimeter[-1], edges[i].points[-1])
+            d0 = np.sqrt(sum(np.square(np.array(surf.perimeter[-1]) - np.array(edges[i].points[0]))))
+            d1 = np.sqrt(sum(np.square(np.array(surf.perimeter[-1]) - np.array(edges[i].points[-1]))))
             # If the first edge point is closer to the last perimeter point and the last isn't closer add that edge
             if d0 < d and d0 < d1:
                 d, ndx, reverse = d0, i, False
@@ -140,7 +140,7 @@ def build_perimeter(surf):
     surf.pflat_points = surf.perimeter.copy()
     # Get the atoms
     a0, a1 = surf.atoms[0], surf.atoms[1]
-    d = calc_dist(a0.loc, a1.loc)
+    d = np.sqrt(sum(np.square(np.array(a0.loc) - np.array(a1.loc))))
     # Get the center of the surface
     if surf.rn is None:
         surf.calc_func()
@@ -207,12 +207,12 @@ def fill_mesh(surf):
         # Calculate the angle for each path
         angs.append(calc_angle(pa, paths[i][0], com))
         # Get the dists from the com to the path
-        dists.append(calc_dist(paths[i][0], com))
+        dists.append(np.sqrt(sum(np.square(np.array(paths[i][0]) - np.array(com)))))
     # Get the maximum path
     max_path_ndx = angs.index(max(angs))
     max_path = paths[max_path_ndx][0]
     # Decide how many rings based off of the ellipticity and density
-    num_rings = max(int(calc_dist(max_path, com) / res), 2)
+    num_rings = max(int(np.sqrt(sum(np.square(np.array(max_path) - np.array(com)))) / res), 2)
     # Get the incremental angle increases
     dthetas = [angs[i] / num_rings for i in range(len(angs))]
     # Set the pn_1 point to infinity
@@ -238,7 +238,8 @@ def fill_mesh(surf):
             if pn is not None and np.array([surf.net.box[0][i] <= pn[i] <= surf.net.box[1][i] for i in range(3)]).all():
                 surf.in_box = False
             # Check to see of the new point is too close to the previous point and the path has to end
-            if pn is None or (calc_dist(pn, pn_1) < 0.5 * res and not calc_dist(paths[i - 1][-1], pn) > res):
+            if pn is None or (np.sqrt(sum(np.square(np.array(pn) - np.array(pn_1)))) < 0.5 * res and not
+            np.sqrt(sum(np.square(np.array(paths[i - 1][-1]) - np.array(pn)))) > res):
                 # Add the path to the surfaces points and remove it from the paths list
                 surf.points += paths.pop(i)[1:]
                 dthetas.pop(i)
