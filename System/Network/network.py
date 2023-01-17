@@ -7,7 +7,7 @@ from System.Network.net_funcs.process_net import *
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
     def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, doublets=None, surf_res=0.3, box_size=1.25,
-                 max_vert=7, calc_surfs=False, flat_faces=False):
+                 max_vert=7, calc_surfs=True, flat_faces=False):
         # Network graph objects
         self.sys = sys                # System          :  Route back to outer system for system attribute access
         self.atoms = atoms            # Atoms           :  Atoms of the network. Should be identical to self.sys.atoms
@@ -171,7 +171,7 @@ class Network:
         if time_start is not None:
             self.my_time = time.perf_counter() - time_start
             h, m, s = get_time(self.my_time)
-            print("\rVertex process = {}:{}:{:.2f} s".format(int(h), int(m), s))
+            print("\rVertex process ({} verts) = {}:{}:{:.2f} s".format(len(self.verts), int(h), int(m), s))
 
     def build_edges(self):
         """

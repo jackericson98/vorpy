@@ -94,8 +94,9 @@ def find_site(net, edge_atoms, vn_1=None):
     # Set up a list of atoms to test our edge atoms with
     test_atoms = []
     inc = 0
+    max_inc = int(net.max_vert / min(net.sub_box_size) - net.max_atom_rad) + 1
     # Grab the atoms we want to test against
-    while (len(test_atoms) < 10 or len(test_atoms) < len(net.atoms)) and inc < 5:
+    while (len(test_atoms) < 10 or len(test_atoms) < len(net.atoms)) and inc < max_inc:
         test_atoms += net.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], inc)
         inc += 1
     # Instantiate the vertex list and the size limit for vertices found
