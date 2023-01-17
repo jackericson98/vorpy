@@ -45,14 +45,11 @@ def find_v0(net, a0=None):
         # Check each of the combinations for this a1
         for a2 in a2s[j]:
             # Use an edge object as a vehicle for calculating and verifying the inscribed circle
-            edge = Edge(atoms=[a0, a1s[j], a2])
+            edge = Edge(atoms=[a0, a1s[j], a2], net=net)
             edge.get_loc()
             # If a circle can be made and the site does not overlap with any other atoms, add it to the list
             if edge.loc is not None and edge.rad < net.max_vert and verify_site(edge, net):
                 verified_circles.append(edge.atoms)
-
-        # Test for verified sites
-
         # Try to make a verified v0 site with the verified circles
         for circle in verified_circles:
             # Try to create a vertex
@@ -74,30 +71,26 @@ def verify_site(vert, net):
     atom_range = int(rad / min(net.sub_box_size) + net.max_atom_rad / min(net.sub_box_size)) + 2
     # Get the atoms in that range
     overlap_test_atoms = net.get_atoms([[vi, vj, vk]], atom_range)
-    # Set up the overlap tracker
-    overlap = False
     # Go through the atoms in the overlap test atom list
     for atom2 in overlap_test_atoms:
         # If the atom is one of the vertex atoms move on
-        if atom2 in vert.atoms:
+        if atom2.num in vert.ndx:
             continue
         # If the distance between the vertex and the test atom is less than the sum of their radii, they overlap
-        if calc_dist(atom2.loc, loc) < atom2.rad + rad:
-            overlap = True
-            break
+        if np.sqrt(sum(np.square(np.array(atom2.loc) - np.array(loc)))) < atom2.rad + rad:
+            return False
     # If we make it all the way through the list of close atoms without overlapping it is a viable vertex
-    if not overlap:
-        return True
-    return False
+    return True
 
 
 # Find site function. Used a vertex and a combination of it's edge atoms to find the connecting vertex
 def find_site(net, edge_atoms, vn_1=None):
     # Get the atoms that should not ba a part of the new vertex
+    edge_ndxs = [_.num for _ in edge_atoms]
     if vn_1 is None:
-        vert_atoms = edge_atoms
+        vert_atom_ndxs = edge_ndxs
     else:
-        vert_atoms = vn_1.atoms
+        vert_atom_ndxs = vn_1.ndx
     # Set up a list of atoms to test our edge atoms with
     test_atoms = []
     inc = 0
@@ -113,10 +106,10 @@ def find_site(net, edge_atoms, vn_1=None):
         # Reset the doublet variable
         doublet = None
         # If the atom is in the previous vertex move on
-        if atom in vert_atoms:
+        if atom.num in vert_atom_ndxs:
             continue
         # If we have found the vertex before it is not the previous vertex return
-        atom_ndxs = [net.atoms.index(atom1) for atom1 in edge_atoms + [atom]]
+        atom_ndxs = edge_ndxs + [atom.num]
         atom_ndxs.sort()
         # Get the vertex's index/insert index
         vert_ndx = ndx_search(net.vert_ndxs, atom_ndxs)
@@ -129,7 +122,6 @@ def find_site(net, edge_atoms, vn_1=None):
         # Catch the none location case
         if vert.loc is None:
             continue
-
         # Create the vertex's doublet if it exists
         if vert.loc2 is not None and abs(vert.rad2) < net.max_vert:
             # Create the alternate vertex for the doublet site
@@ -148,7 +140,6 @@ def find_site(net, edge_atoms, vn_1=None):
             doublet.doublet = None
             verts.append(doublet)
             vert_ndx_list_locs.append(vert_ndx)
-
 
     # If no verts have been found return
     if len(verts) == 0:
@@ -176,14 +167,13 @@ def find_site(net, edge_atoms, vn_1=None):
 # Find network function. Keeps searching the network until all verts are found
 def find_verts(net, a0=None):
     # Calculate the total number of vertices
-    tot_verts = 6 * len(net.atoms)
+    tot_verts = 7 * len(net.atoms)
     # Find the first verified vertex
     if len(net.atoms) == 4:
         v0 = Vertex(net.atoms, net)
         v0.calc_vert()
     else:
         v0 = find_v0(net, a0)
-
     # If no v0 is possible (e.g., a lone atom) return
     if v0 is None:
         return
@@ -216,9 +206,8 @@ def find_verts(net, a0=None):
             # If the vertex is none continue
             if myVert is None:
                 continue
-
+            # Set the vertex and its index
             myVert, myVert_ndx = myVert
-
             # Add the vertex to the stack and the network
             vert_stack.append(myVert)
             # Insert the vertices in order of increasing atom indices
