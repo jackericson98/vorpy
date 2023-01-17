@@ -12,7 +12,7 @@ def calc_dist(l0, l1):
     :return: float distance between the two points
     """
     # Pythagorean theorem
-    return np.linalg.norm(np.array(l0) - np.array(l1))
+    return np.sqrt(sum(np.square(np.array(l0) - np.array(l1))))
 
 
 def calc_angle(p0, p1, p2=None):
@@ -147,7 +147,6 @@ def calc_circ(atoms):
         return [[x, y, z], R]
 
 
-
 def rotate_points(vec, points, reverse=False):
     """
     Takes in a set of points and a vector and rotates the points and the vector so the v = [0,0,1]
@@ -184,61 +183,6 @@ def rotate_points(vec, points, reverse=False):
     return nps
 
 
-"""System checks"""
-
-
-# Check surf function.
-def check_surf(s_atoms, surf_list):
-    """
-    Takes in a set of atoms and a list of surfs and returns the corresponding surf or None if no surf
-    :param s_atoms: Surface atoms for checking
-    :param surf_list: List of surfaces to check against
-    :return: The surface if found
-    """
-    # Go through each surf in the surf list
-    for surf in surf_list:
-        # Check if the given atoms correspond to the atoms in the surf
-        if len([0 for _ in s_atoms if _ in surf.atoms]) == 2:
-            # Return the surf
-            return surf
-    return
-
-
-def check_edge(e_atoms, edge_list):
-    """
-    Takes in a set of atoms and a list of edges and returns the corresponding edge or None if no edge
-    :param e_atoms: Edge atoms for checking
-    :param edge_list: List of edges to check against
-    :return: The edge if found
-    """
-    # Go through each edge in the edge list
-    for edge in edge_list:
-        # Skip for doublets
-        if edge.doublet:
-            continue
-        # Check if the given atoms correspond to the atoms in the edge
-        if len([0 for _ in e_atoms if _ in edge.atoms]) == 3:
-            # Return the edge
-            return edge
-    return
-
-
-def check_vert(v_atoms, vert_list):
-    """
-    Takes in a set of atoms and a list of verts and returns the corresponding edge or None if no vert
-    :param v_atoms: Vertex atoms for checking
-    :param vert_list: The list of vertices to check against
-    :return: The vertex if found
-    """
-    # Go through each edge in the edge list
-    for vert in vert_list:
-        # Check if the given atoms correspond to the atoms in the edge
-        if len([0 for _ in v_atoms if _ in vert.atoms]) == 4:
-            # Return the edge
-            return vert
-    return
-
-
 def ndx_search(ndxs_list, ndxs):
     """
      Searches a list of indices of atoms sorted by smallest atom and where the vertex would be
@@ -258,7 +202,7 @@ def ndx_search(ndxs_list, ndxs):
     # If the search element (my_list) is greater than the test element (test_lol) search the lower half of test_lol
     if ndxs > ndxs_list[mid_list_ndx]:
         ndxs_ndx = ndx_search(ndxs_list[mid_list_ndx:], ndxs)
-        return ndxs_ndx + len(ndxs_list[:mid_list_ndx])
+        return ndxs_ndx + mid_list_ndx
     # If the search element (my_list) is less than the test element (test_lol) search the upper half of test_lol
     elif ndxs < ndxs_list[mid_list_ndx]:
         ndxs_ndx = ndx_search(ndxs_list[:mid_list_ndx], ndxs)
