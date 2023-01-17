@@ -3,7 +3,6 @@ from Visualize.commands.build import *
 from Visualize.commands.export import *
 from Visualize.commands.load import *
 from Visualize.commands.set import *
-from Visualize.commands.show import *
 
 
 def check_input():
@@ -43,7 +42,7 @@ def check_input():
         export(sys=sys, usr_npt=usr_npt)
     # Check if the user's input is in shows
     elif usr_npt[0].lower() in show_cmds:
-        show(usr_npt)
+        show(sys=sys, usr_npt=usr_npt)
     # Check if the user wants help
     elif usr_npt[0].lower() in helps:
         help_()

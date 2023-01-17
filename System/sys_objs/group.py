@@ -264,7 +264,7 @@ class Group:
                 # Get the first layer
                 self.get_layers(max_layers=1)
                 # noinspection PyUnresolvedReferences
-                write_surfs(surfs=self.layer_surfs[0], file_name=self.name + "_shell")
+                write_surfs(surfs=self.layer_surfs[0], file_name=self.name)
         # If the user wants a filled shell for the group
         if fill:
             write_surfs(surfs=self.surfs, file_name=self.name + "_fill")

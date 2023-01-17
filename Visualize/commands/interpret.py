@@ -1,5 +1,4 @@
 from Visualize.commands.commands import *
-from Visualize.commands.show import *
 import os
 from os import path
 
