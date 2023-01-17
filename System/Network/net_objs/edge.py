@@ -55,7 +55,8 @@ class Edge:
 
         # Determine if the theoretical center of the edge is inside the vertices or not
         dr = 1
-        if calc_dist(self.loc, self.pv0) < r_mag or calc_dist(self.loc, self.pv1) < r_mag:
+        if np.sqrt(sum(np.square(np.array(self.loc) - np.array(self.pv0)))) < r_mag or \
+                np.sqrt(sum(np.square(np.array(self.loc) - np.array(self.pv1)))) < r_mag:
             dr = -1
 
         # Find the vector normal to the projection plane
@@ -98,7 +99,8 @@ class Edge:
             # If the point we are calculating is the first in the edge choose the one closest to the vertex
             if len(self.points) == 1:
                 point = p1
-                if calc_dist(p2, self.points[0]) <= calc_dist(p1, self.points[0]):
+                if np.sqrt(sum(np.square(np.array(p2) - np.array(self.points[0])))) <= \
+                        np.sqrt(sum(np.square(np.array(p1) - np.array(self.points[0])))):
                     point = p2
             # If we have 2 points to choose from, choose the one that makes the angle closer to 180
             else:
@@ -164,7 +166,7 @@ class Edge:
             # Set pb to the previous point
             pb = self.points[-1]
             # Get the distance between pb and pa for c
-            c = calc_dist(pb, self.pa)
+            c = np.sqrt(sum(np.square(np.array(pb) - np.array(self.pa))))
             # Get the angle between pb, pa and pb + rno1
             B = calc_angle(pb, pb + rn01, self.pa)
             # Get the last angle
