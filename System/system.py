@@ -59,6 +59,7 @@ class System:
         # Initiate the system
         if self.base_file is not None:
             self.load_files()
+        np.seterr(divide='ignore', invalid='ignore')
 
     def load_files(self):
         """
@@ -140,7 +141,7 @@ class System:
             read_verts(self.net, self.vert_file)
         else:
             read_vta_data(self, vert_file=file, ball_file=vta_ball_file)
-            self.net.flat_faces = True
+            self.net.flat_faces = False
 
     def load_net(self, file=None):
         """
