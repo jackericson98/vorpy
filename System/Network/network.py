@@ -152,7 +152,7 @@ class Network:
         print("\rconnecting network", end="")
         build(self)
 
-    def find_verts(self):
+    def find_verts(self, time_start=None):
         """
         Using the functions in find_vertices.py finds the vertices in the network
         :return:
@@ -167,6 +167,11 @@ class Network:
             find_verts(self, a0=self.atoms[self.atom_ndxs.pop()])
             i += 1
         print("\r                                        ", end="")
+        # Bit of code for timing the vertex building process
+        if time_start is not None:
+            self.my_time = time.perf_counter() - time_start
+            h, m, s = get_time(self.my_time)
+            print("\rVertex process = {}:{}:{:.2f} s".format(int(h), int(m), s))
 
     def build_edges(self):
         """
@@ -253,7 +258,7 @@ class Network:
         if (calc_verts is None or calc_verts) and not flat_faces:
             if self.verts is None or len(self.verts) == 0:
                 # Find the vertices
-                self.find_verts()
+                self.find_verts(start)
 
         # Check to see if there are vertices
         if self.verts is None or len(self.verts) == 0:
