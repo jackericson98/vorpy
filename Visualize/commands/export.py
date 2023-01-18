@@ -2,87 +2,6 @@ from Visualize.commands.interpret import *
 from System.sys_objs.group import Group
 
 
-def group(sys, usr_npt, for_export=False):
-    """
-    Takes input strings interprets them and returns a group
-    :param sys:
-    :param for_export:
-    :param usr_npt:
-    :return:
-    """
-    # Initial selection check
-    selections, selection_names = [], []
-    for word in usr_npt:
-        if word in ands or word.lower() in group_cmds or (for_export and word.lower() in export_cmds):
-            selections.append([])
-            selection_names.append("")
-        else:
-            selections[-1].append(word)
-            selection_names[-1] += word
-    # Make sure that the selections are long enough
-    for selection in selections:
-        selection += [None] * abs((2 - len(selection)))
-    groups = []
-    # Create the groups
-    for i in range(len(selections)):
-        # pull the selection variable
-        selection = selections[i]
-        # Get the first selections
-        my_obj = get_obj(sys=sys, obj=selection[0], return_ndx=True)
-        my_ndx = get_ndx(sys=sys, obj=my_obj, ndx=selection[1])
-        # Check to see if the index provided is out of range
-        checking_ndx, my_atoms = True, None
-        while checking_ndx:
-            # Try to create the selection
-            try:
-                my_atoms = [sys.mols, sys.residues, sys.atoms, sys.ndxs][my_obj - 1][my_ndx]
-                checking_ndx = False
-            except IndexError:
-                my_ndx = get_ndx(sys=sys, obj=my_obj)
-                continue
-        # Check real quick for single atoms
-        list_atoms = []
-        if type(my_atoms) is list:
-            for atom in my_atoms:
-                if type(atom) is list:
-                    for sub_atom in atom:
-                        list_atoms.append(sub_atom)
-                else:
-                    list_atoms.append(atom)
-        else:
-            list_atoms = [my_atoms]
-        # Create the group
-        my_group = Group(sys, atoms=list_atoms, name="_".join(selection_names[i]))
-        my_group.get_info()
-        # Naming loop
-        naming = True
-        while naming:
-            # Ask the user if they want to rename the group
-            rename = input("Group name: \"{}\"\nconfirm >>>   ".format(my_group.name))
-            # If they want to rename the group, let them
-            if rename in ns:
-                new_name = input("name >>>   ")
-                new_name.replace(" ", "_")
-                my_group.name = new_name
-            # If they don't we are done
-            elif rename in ys:
-                naming = False
-            elif rename in quits:
-                return
-            else:
-                change_to_input = input("Group name: \'{}\' \nconfirm >>>   ".format(rename))
-                if change_to_input in ys:
-                    group.name = rename
-        # Create the group
-        groups.append(my_group)
-    # If the groups have been made for export, do not add them to the system, just return them
-    if for_export:
-        return groups
-    else:
-        sys.groups += groups
-        return groups
-
-
 
 def export(sys, usr_npt):
     """
@@ -91,27 +10,71 @@ def export(sys, usr_npt):
     :param usr_npt:
     :return:
     """
-    if len(usr_npt) > 1 and usr_npt[1].lower() == 'all':
-        sys.exports(network=True, pdb=True, surfaces=True, full_network_object=True, no_sol_network_object=True,
-                    alter_atoms_script=True)
-        return
-    # Get the groups based off of what was specified
-    groups = group(sys, usr_npt, for_export=True)
-    # Go through the groups in the list
-    for my_group in groups:
-        my_group.get_info()
-        my_group.exports()
-    # Check to see if there is a second group
-    if len(groups) > 1:
-        # Ask the user if they want to export the interface
-        exp_iface = input("Exporting interface between {} and {}\nconfirm >>>   ".format(groups[0].name, groups[1].name))
-        if exp_iface.lower() in ys:
-            groups[0].bff, groups[1].bff = groups[1], groups[0]
-            groups[0].get_info()
-            groups[1].get_info()
-            groups[0].export_iface(groups[1], True, True)
-            print("Groups {} and {}, and {}-{} interface exported".format(groups[0].name, groups[1].name, groups[0].name, groups[1].name))
+    my_obj, my_ndx = None, None
+    # User only input "export"
+    if len(usr_npt) <= 1:
+        # Tell the user to pick an object and an index
+        my_obj = get_obj(sys=sys)
+        my_ndx = get_ndx(sys=sys, obj=my_obj)
+    # User entered "export obj" and needs an index
+    elif len(usr_npt) == 2:
+        # Check the object provided by the user
+        my_obj = get_obj(sys=sys, obj=usr_npt[1])
+        my_ndx = get_ndx(sys=sys, obj=my_obj)
+    # If the user input an object and an index of their own
+    elif len(usr_npt) >= 3:
+        # Check the object
+        my_obj = get_obj(sys=sys, obj=usr_npt[1])
+        my_ndx = get_ndx(sys=sys, obj=my_obj, ndx_npt=usr_npt[2])
+    # Get the group information
+    obj_ndx = ['m', 'r', 'a', 'n'].index(my_obj)
+    obj_list = [sys.mols, sys.residues, sys.atoms, sys.ndxs][obj_ndx]
+    name_prfx = ['mol', 'resid', 'atom', 'ndx'][obj_ndx]
+    my_list, name = None, None
+    # Get the slice and name of the group
+    if len(my_ndx) == 1:
+        my_list = [obj_list[my_ndx[0]]]
+        name = name_prfx + '_' + str(my_ndx[0])
+    elif len(my_ndx) <= 2:
+        my_list = obj_list[my_ndx[0]:my_ndx[1]]
+        name = name_prfx + 's_' + str(my_ndx[0]) + '_' + str(my_ndx[1])
+    # Create the group
+    npt_list = [None]*4
+    npt_list[obj_ndx] = my_list
+    my_group = Group(sys=sys, mols=npt_list[0], residues=npt_list[1], atoms=npt_list[2], indices=npt_list[3], name=name)
+    while True:
+        # Export the group exports
+        xpt_npt = input("choose one of the following to export (or type \'q\' to quit): 1. Shell, 2. Surfaces, 3. Layers, 4. Atoms, 5. Filled Body, 6. Info File\nexport >>>   ")
+        # Check for a quit
+        if xpt_npt.lower() in quits:
+            return
+        # Check for help request
+        elif xpt_npt.lower() in helps:
+            help_()
+            continue
+        # Export the shell:
+        elif xpt_npt.lower() in ['1', '1.', 'shell', 'sh']:
+            my_group.exports(shell=True)
+            print("\r{} shell exported to {}".format(my_group.name, my_group.dir))
+        # Export the Surfaces
+        elif xpt_npt.lower() in ['2', '2.', 'surfs', 'surfaces']:
+            my_group.exports(surfaces=True)
+            print("\r{} surfaces exported to {}".format(my_group.name, my_group.dir + "/surfaces"))
+        # Export the layers
+        elif xpt_npt.lower() in ['3', '3.', 'layers', 'lyrs', 'l']:
+            my_group.exports(layers=True)
+            print("\r{} layers exported to {}".format(my_group.name, my_group.dir + "/layers"))
+        # Export the atoms
+        elif xpt_npt.lower() in ['4', '4.', 'atoms', 'a', 'atms']:
+            my_group.exports(atoms=True)
+            print("\r{} atoms exported to {}".format(my_group.name, my_group.dir))
+        # Export the filled body
+        elif xpt_npt.lower() in ['5', '5.', 'filled body', 'fb', 'f', 'filled_body', 'f_b', 'fld_bdy']:
+            my_group.exports(fill=True)
+            print("\r{} filled body exported to {}".format(my_group.name, my_group.dir))
+        # Export the Info file
+        elif xpt_npt.lower() in ['6', '6.', 'info', 'info_file', 'info file']:
+            my_group.exports(info=True)
+            print("\r{} info file exported to {}".format(my_group.name, my_group.dir))
         else:
-            print("Groups {} and {} exported".format(groups[0].name, groups[1].name))
-    else:
-        print("Group {} exported".format(groups[0].name))
+            invalid_input(xpt_npt)
