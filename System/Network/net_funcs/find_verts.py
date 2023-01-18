@@ -24,9 +24,11 @@ def find_v0(net, a0=None):
         a1s = net.get_atoms([a0.box], inc)
         inc += 1
     # Set up the a2s lists
-    a2s = []
+    a2s, j = [], 0
     # Check the a1s for verifiable
-    for j in range(len(a1s)):
+    while len(a1s) > 0:
+        # Get the a1
+        a1 = a1s.pop()
         # Add the circle check
         a2s.append([])
         inc = 0
@@ -37,7 +39,6 @@ def find_v0(net, a0=None):
             while len(a2s[j]) < 20:
                 a2s[j] = net.get_atoms([[mid, mid, mid]], inc)
                 inc += 1
-
         # Filter out the circles that don't work
 
         # Set up verified circles list for this a1
@@ -45,7 +46,7 @@ def find_v0(net, a0=None):
         # Check each of the combinations for this a1
         for a2 in a2s[j]:
             # Use an edge object as a vehicle for calculating and verifying the inscribed circle
-            edge = Edge(atoms=[a0, a1s[j], a2], net=net)
+            edge = Edge(atoms=[a0, a1, a2], net=net)
             edge.get_loc()
             # If a circle can be made and the site does not overlap with any other atoms, add it to the list
             if edge.loc is not None and edge.rad < net.max_vert and verify_site(edge, net):
@@ -57,6 +58,7 @@ def find_v0(net, a0=None):
             # Check for a real site
             if myVert is not None and myVert[0].loc is not None:
                 return myVert[0]
+        j += 1
 
 
 # Verify site function. Compares a vertex to the atoms around to see if they overlap
@@ -84,7 +86,7 @@ def verify_site(vert, net):
 
 
 # Find site function. Used a vertex and a combination of it's edge atoms to find the connecting vertex
-def find_site(net, edge_atoms, vn_1=None):
+def find_site(net, edge_atoms, vn_1=None, first=False):
     # Get the atoms that should not ba a part of the new vertex
     edge_ndxs = [_.num for _ in edge_atoms]
     if vn_1 is None:
@@ -95,6 +97,8 @@ def find_site(net, edge_atoms, vn_1=None):
     test_atoms = []
     inc = 0
     max_inc = int(net.max_vert / min(net.sub_box_size) - net.max_atom_rad) + 1
+    if first:
+        max_inc = 5
     # Grab the atoms we want to test against
     while (len(test_atoms) < 10 or len(test_atoms) < len(net.atoms)) and inc < max_inc:
         test_atoms += net.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], inc)
