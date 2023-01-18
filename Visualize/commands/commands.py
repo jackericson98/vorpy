@@ -25,7 +25,7 @@ my_commands = quits + helps + show_cmds + load_cmds + set_cmds + build_cmds + gr
 mol_objs = ['m', 'ms', 'molecule', 'molecules', 'mol', 'mols', 'ml', 'mls']
 atom_objs = ['a', 'as', 'atom', 'atoms', 'at', 'ats', 'am', 'ams']
 res_objs = ['r', 'rs', 'residue', 'residues', 'resid', 'resids', 'res', 'ress', 'reses', 'rdue', 'rdues']
-ndx_objs = ['i', 'is',  'index', 'indexs', 'indexes', 'indices', 'ndx', 'ndxs', 'ndex', 'group', 'g', 'grp']
+ndx_objs = ['i', 'is',  'index', 'indexs', 'indexes', 'indices', 'ndx', 'ndxs', 'ndex', 'group', 'g', 'grp', 'n']
 
 my_objects = mol_objs + res_objs + atom_objs + ndx_objs
 
@@ -138,8 +138,8 @@ def print_list(names, list_name=None, width=150, height=30, cutoff=15):
             if i >= len(names):
                 row = 100000000000
             else:
-                row_str += str(i) + ". " + " " * (len(str(len(names) - 1)) - len(str(i))) + names[i] + " " * (
-                            max_len - len(names[i])) + "  "
+                row_str += "(" + str(i) + ") - " + " " * (len(str(len(names) - 1)) - len(str(i))) + names[i] + " " * (
+                            max_len - len(names[i])) + ",  "
                 i += 1
         print(row_str)
     # If that is all the data we are done and able to quit
@@ -148,7 +148,7 @@ def print_list(names, list_name=None, width=150, height=30, cutoff=15):
     # In the case where the user wants to see a really long list, allow them to scroll
     scrolling = True
     while scrolling:
-        my_response = input("Enter an index or a range or type 'q' to quit. (\'356\' or \'400-600\')\nindex >>>   ")
+        my_response = input("enter an index or a range or type 'q' to quit. (\'356\' or \'400-600\')\nindex >>>   ")
         if my_response.lower() in quits:
             return
         elif my_response.lower() in helps:
@@ -169,14 +169,14 @@ def print_list(names, list_name=None, width=150, height=30, cutoff=15):
         # Print the lists
         if nums is not None and len(nums) == 1 and nums[0] < len(names):
             print_list(names[nums[0]:nums[0] + num_cols * height],
-                       list_name=list_name + ": Elements " + str(nums[0]) + "-" + str(nums[0] + num_cols * height),
+                       list_name=list_name + ": elements " + str(nums[0]) + "-" + str(nums[0] + num_cols * height),
                        height=height, width=width, cutoff=max_len)
         elif nums is not None and nums[0] < nums[1] < len(names):
             # Check to see if the height needs to be changed
             new_height = height
             if nums[1] - nums[0] > num_cols * height:
                 new_height = (nums[1] - nums[0]) // num_cols + 1
-            print_list(names[nums[0]:nums[1]], list_name=list_name + ": Elements " + str(nums[0]) + "-" + str(nums[1]),
+            print_list(names[nums[0]:nums[1]], list_name=list_name + ": elements " + str(nums[0]) + "-" + str(nums[1]),
                        height=new_height, width=width, cutoff=max_len)
         else:
             invalid_input(my_response)
@@ -195,7 +195,7 @@ def get_obj(sys, obj=None, return_ndx=True):
     # Keep asking the user to choose an object to export
     while choosing:
         # Prompt the user
-        my_input = input("Enter an object type. (\'mol\', \'res\', \'atom\', or \'ndx\')\nobject >>>   ")
+        my_input = input("enter an object type. (\'mol\', \'res\', \'atom\', or \'ndx\')\nobject >>>   ")
         # Check to see if the user gave a valid response or not
         if my_input.lower() in quits:
             return
@@ -219,7 +219,7 @@ def get_obj(sys, obj=None, return_ndx=True):
                 if len([sys.mols, sys.residues, sys.atoms, sys.ndxs][i]) > 0:
                     return i + 1
                 else:
-                    print("No {} in the system. Try again or typ \'h\' for help"
+                    print("no {} in the system. try again or typ \'h\' for help"
                           .format(["molecules", "residues", "atoms", "groups"][i]))
 
     # As a failsafe
