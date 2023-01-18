@@ -99,7 +99,7 @@ def build_perimeter(surf):
     # Check to see if the edges have been built yet
     for edge in surf.edges:
         if edge.points is None:
-            edge.build(res=surf.res)
+            edge.build(res=surf.res, straight=surf.flat)
     # Set the edge's reference surface and range (overwrite the ref in place, to ensure a lighter storage with an e0)
     e0.ref = [surf.net.surfs.index(surf), 0, len(e0.points) - 1]
     # Add the first edge's vertex location and set of points to the perimeter points list
@@ -190,7 +190,7 @@ def fill_mesh(surf):
     # Get the center of mass
     com = get_com(surf)
     # Check to see if the atoms have equal radii
-    if a0.rad == a1.rad:
+    if a0.rad == a1.rad or surf.flat:
         surf.flat = True
         surf.points.append(com)
         return
