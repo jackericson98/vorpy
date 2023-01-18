@@ -30,12 +30,13 @@ ndx_objs = ['i', 'is',  'index', 'indexs', 'indexes', 'indices', 'ndx', 'ndxs', 
 my_objects = mol_objs + res_objs + atom_objs + ndx_objs
 
 # Settings
-surf_reses = ['surf_res', 'sr', 'surface_resolution', 'surface_res', 'surf_resolution']
-max_verts = ['max_vert', 'mv', 'maximum_vertex', 'max_vertex', 'maximum_vert']
-box_sizes = ['box_size', 'bs']
-calc_surfses = ['calc_surfs', 'cs']
+surf_reses = ['surf_res', 'sr', 'surface_resolution', 'surface_res', 'surf_resolution', 'surfs', 'surf', 'surfs_res', 'surfs_resolution', 'surfaces_resolution', 'surfaces_res']
+max_verts = ['max_vert', 'mv', 'maximum_vertex', 'max_vertex', 'maximum_vert', 'verts', 'vs', 'vert_size', 'max_vert_size', 'mvs', 'vert_max', 'vertex_max', 'vertex_maximum']
+box_sizes = ['box_size', 'bm', 'box', 'bx_sz', 'size_box', 'containing_box', 'containing_box_size', 'box_multi', 'box_multiplier']
+build_surfses = ['build_surfs', 'build_surfaces', 'bs', 'bld_srfs', 'cs', 'calc_surfs', 'surfs_build', 'surfaces_build', 'build_surf', 'build_surf']
+flat_surfses = ['flat_surfs', 'flat_surfaces', 'fs', 'flt_srfs', 'surfaces_flat', 'surfs_flat', 'flat_surf', 'flat_surface', 'ff']
 
-my_settings = surf_reses + max_verts + box_sizes + calc_surfses
+my_settings = surf_reses + max_verts + box_sizes + build_surfses + flat_surfses
 
 
 def are_you_sure():
@@ -86,8 +87,9 @@ def help_():
                        "  1. surf_res : Surface Resolution (From 0.01 to 1 A, recommended 0.1 A)    ",
                        "  2. max_vert : Maximum Vertex Radius (From 0.10 to 20 A, recommended 7 A)  ",
                        "  3. box_size : Retaining Box Multiplier (From 1 to 10 A, recommended 1.5 A)",
-                       "  4. calc_surfs: Calculate the network's surfaces (True/False/Group,        ",
-                       "                 recommended False)                                         "]
+                       "  4. build_surfs: Calculate the network's surfaces (True/False/Group,       ",
+                       "                 recommended False)                                         ",
+                       "  5. flat_surfs: Build the surfaces flat (True/False recommended False)     "]
 
     # Print everything
     print(splitting_line)
