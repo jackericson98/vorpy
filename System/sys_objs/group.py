@@ -3,18 +3,19 @@ from System.sys_funcs.output import *
 
 class Group:
     """Group class. Used to hold selections of atoms and do analysis on it"""
-    def __init__(self, sys, atoms=None, name=None, mols=None, residues=None, bff=None):
+    def __init__(self, sys, atoms=None, name=None, mols=None, residues=None, indices=None, bff=None):
 
         self.sys = sys                 # Network            :    Network of the System
-        self.atoms = atoms             # Atoms              :    List of Atom type objects for the edge
-        self.mols = mols
-        self.resids = residues
+        self.atoms = atoms             # Atoms              :    List of Atom type objects in the group
+        self.mols = mols               # Molecules          :    List of molecule objects in the group
+        self.resids = residues         # Residues           :    List of residue objects in the group
+        self.ndxs = indices            # Indices            :    List of index objects in the group
         self.atom_ndxs = []            # Atom indices       :    List of atom indices for checking against
         self.name = name               # Name               :    Name of the group
         self.dir = None                # Directory          :    Directory holding the group export info
 
         self.surfs = None              # Surfaces           :    All surfaces associated with the group
-        self.surf_ndxs = None          # Surface indices    :    Atom indices of the surfaces associated with the group
+        self.surf_ndxs = []            # Surface indices    :    Atom indices of the surfaces associated with the group
         self.sa = None                 # Surface area       :    The surface area of the outer surfaces of the body
         self.vol = None                # Volume             :    The volume of the group's atom's cells
         self.layer_atoms = None        # Layer atoms        :    List of lists of atoms corresponding to layers
@@ -49,7 +50,11 @@ class Group:
         # Get the list of surfaces
         if surfs is not None:
             group_surfs = surfs
+        # Build all surfaces in the group
         else:
+            #
+            if self.surfs is None:
+                self.get_surfs()
             group_surfs = self.surfs
         # Get the resolution
         if resolution is None:
@@ -174,10 +179,17 @@ class Group:
                     elif surf.ndx[0] in layer_atoms_ndxs[-2] and surf.ndx[1] in layer_atoms_ndxs[-2]:
                         continue
                     self.layer_surfs[-1].append(surf)
+                    # Get the index of the surface
+                    surf_ndx = ndx_search(self.surf_ndxs, surf.ndx)
+                    # Check if the surface has been added yet or not
+                    if surf_ndx < len(self.surf_ndxs) and self.surf_ndxs[surf_ndx] != surf.ndx:
+                        # Insert the index and the surfaces in their correct place
+                        self.surfs.insert(surf_ndx, surf)
+                        self.surf_ndxs.insert(surf_ndx, surf.ndx)
+                    # Sort the surface's atoms inside or out
                     if surf.ndx[0] in layer_atoms_ndxs[-2] and surf.ndx[1] not in layer_atoms_ndxs[-2]:
                         self.layer_atoms[-1].append(self.sys.atoms[surf.ndx[1]])
                         layer_atoms_ndxs[-1].append(surf.ndx[1])
-
                     if surf.ndx[1] in layer_atoms_ndxs[-2] and surf.ndx[0] not in layer_atoms_ndxs[-2]:
                         self.layer_atoms[-1].append(self.sys.atoms[surf.ndx[0]])
                         layer_atoms_ndxs[-1].append(surf.ndx[0])
@@ -267,9 +279,11 @@ class Group:
                 write_surfs(surfs=self.layer_surfs[0], file_name=self.name)
         # If the user wants a filled shell for the group
         if fill:
+            self.build_surfs()
             write_surfs(surfs=self.surfs, file_name=self.name + "_fill")
         # If the user wants separate surfaces for the group
         if surfaces:
+            self.build_surfs()
             os.mkdir(self.dir + "/surfaces")
             os.chdir(self.dir + "/surfaces")
             for surf in self.surfs:
@@ -278,7 +292,7 @@ class Group:
         # If the user wants layers
         if layers:
             # First check to see if the number of layers is greater than 1
-            if self.layer_atoms <= 1:
+            if self.layer_atoms is None or len(self.layer_atoms) <= 1:
                 self.get_layers(max_layers=num_layers)
             # Create the layers directory
             os.mkdir(os.getcwd() + "/layers")
@@ -303,6 +317,7 @@ class Group:
             os.chdir(self.dir)
         # If the user wants to export the interface
         if iface and self.bff is not None:
+            self.get_iface()
             self.export_iface([self, self.bff], info_file=info)
         # If the user wants a full information file on the group
         if info:
