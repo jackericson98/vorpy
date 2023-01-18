@@ -192,7 +192,7 @@ def export_old_net(net, point_res=None):
     # Write the general information about the system
     file.write("NETW " + str(net.surf_res) + " " + str(net.max_vert) + " " + str(net.box_size) + " " + str(net.my_time)
                + " " + str(net.cpu_time) + " " + str(net.sol_verts) + " " + str(net.curved_faces) + " " +
-               str(net.flat_faces) + " " + str(len(net.verts)) + " " + str(len(net.edges)) + " " +
+               str(net.flat_surfs) + " " + str(len(net.verts)) + " " + str(len(net.edges)) + " " +
                str(len(net.surfs)) + "\n")
     # Set the resolution of the network's output points
     if point_res is None:
@@ -330,7 +330,7 @@ def export_net(net, output_surfs=True):
         # Write a separating line for the info and the surfaces points and tris
         writer.writerow(["Network", "Surface Resolution", "Maximum Vertex Resolution", "Box Size Multiplier",
                          "Calculate Surfaces?", "# of Vertices", "# of Edges", "# of Surfaces", "Surfaces Folder"])
-        writer.writerow([net.sys.name] + [net.surf_res, net.max_vert, net.box_size, net.calc_surfs,
+        writer.writerow([net.sys.name] + [net.surf_res, net.max_vert, net.box_size, net.build_surfs,
                                        len(net.verts), len(net.edges), len(net.surfs), output_surfs])
         # Create a vertices header
         writer.writerow(["Vertex", "Loc - X", "Loc - Y", "Loc - Z", "Radius", "Atom 1", "Atom 2", "Atom 3", "Atom 4",
@@ -382,12 +382,12 @@ def export_net(net, output_surfs=True):
             surf = net.surfs[i]
             # Get the file address for the output points
             file_address = ""
-            if output_surfs and net.calc_surfs:
+            if output_surfs and net.build_surfs:
                 file_address = net.sys.dir + "/surfs/" + "_".join([str(_) for _ in surf.ndx]) + ".off"
             # Write the surface information
             writer.writerow([i, file_address, surf.sa, surf.curv, surf.ndx[0], surf.ndx[1]] + list(surf.func[:11]) + list(surf.func[11]))
         # Check to see if the surfaces have been requested
-        if output_surfs and net.calc_surfs:
+        if output_surfs and net.build_surfs:
             # Create a surfaces folder and change to it
             os.mkdir(net.sys.dir + "/surfs")
             os.chdir(net.sys.dir + "/surfs")
