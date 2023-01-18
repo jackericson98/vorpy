@@ -3,103 +3,85 @@ import os
 from os import path
 
 
-def get_ndx(sys, ndx=None, list_len=None, obj=None):
+def get_ndx(sys, obj, ndx_npt=None):
     """
     Asks the user for the index of the object they specified
     :return:
     """
-    obj_name = None
-    names = ["molecule", "residue", "atom", "index"]
-    # Get the object and make sure it's real
-    if obj is not None and obj in my_objects:
-        for i in range(4):
-            if obj in [mol_objs, res_objs, atom_objs, ndx_objs][i]:
-                obj =  i + 1
-                obj_name = names[i]
-    elif type(obj) is int and obj <= 4:
-        obj_name = names[obj - 1]
-    else:
-        obj = get_obj(sys=sys, obj=obj)
-        obj_name = names[obj - 1]
-    # Start asking for the index of the object
-    asking = True
-    while asking:
-        max_ndx = len([sys.mols, sys.residues, sys.atoms, sys.groups][obj - 1])
-        if max_ndx == 0:
-            print("No {} to choose from. Choose another object or type \'h\' for help")
-        elif ndx is None:
-            extra = ""
-            if list_len is not None:
-                extra = " less than {}".format(list_len)
-            prompt_str = "Enter {} index{} between 0 and {}\nindex >>>   ".format(obj_name, extra, max_ndx)
-            ndx = input(prompt_str)
-        if ndx.lower() in quits or ndx.lower() in dones:
+    # Create the naming dictionary
+    name_dict = {'m': 'Molecule', 'r': 'Residue', 'a': 'Atom', 'n': 'Index'}
+    # Get the name
+    name = name_dict[obj]
+    # Get the list
+    obj_list = []
+    if obj == 'm':
+        obj_list, obj_num = sys.mols, 0
+    elif obj == 'r':
+        obj_list, obj_num = sys.resids, 1
+    elif obj == 'a':
+        obj_list, obj_num = sys.atoms, 2
+    elif obj == 'n':
+        obj_list, obj_num = sys.ndxs, 3
+    # Start the ndx checking loop
+    while True:
+        # Get the index if the index doesn't exist
+        if ndx_npt is None:
+            ndx_npt = input("enter a {} index (range: 0 - {})\nindex >>>   ".format(name, len(obj_list) - 1))
+        # Check for quits
+        if ndx_npt.lower() in quits:
             return
-        elif ndx.lower() in helps:
+        # Check for helps
+        elif ndx_npt.lower in helps:
             help_()
             continue
-        elif ndx.lower() in show_cmds:
-            show(obj_name)
-            continue
+        # Check the input
+        ndx_npt = ndx_npt.split("-")
+        # Get the list of index numbers
         try:
-            ndx = int(ndx)
-            asking = False
+            return [int(_) for _ in ndx_npt]
         except ValueError:
-            invalid_input(ndx)
-            ndx = None
-        if not asking and list_len is not None and ndx > list_len:
-            invalid_input(ndx)
-            asking = True
-    return ndx
+            continue
 
 
-def get_obj(sys, obj=None, return_ndx=True):
+
+
+
+
+def get_obj(sys, obj=None):
     """
     Makes the user type a proper object
     :return: 1-4 based on if it is a 1. molecule 2. residue 3. atom or 4. index
     """
-    my_input, choosing = obj, False
-    # If obj not in my objects
-    if obj is None or (type(obj) is str and obj.lower() not in my_objects) or (type(obj) is int and obj > 4):
-        choosing = True
     # Keep asking the user to choose an object to export
-    while choosing:
-        # Prompt the user
-        my_input = input("Enter an object type. (\'mol\', \'res\', \'atom\', or \'ndx\')\nobject >>>   ")
+    while True:
+        # If no input was given
+        if obj is None:
+            # Prompt the user
+            obj = input("enter an object type. (\'mol\', \'res\', \'atom\', or \'ndx\')\nobject >>>   ")
         # Check to see if the user gave a valid response or not
-        if my_input.lower() in quits:
+        if obj.lower() in quits:
             return
-        elif my_input.lower() in helps:
+        elif obj.lower() in helps:
             help_()
-        elif my_input.lower() not in my_objects:
+        elif obj.lower() not in my_objects:
             # Tell the user they suck and try again
-            invalid_input(my_input)
+            invalid_input(obj)
             continue
         # Otherwise, we have a success
-        else:
-            choosing = False
-    if return_ndx:
-        # If the input is already an integer return it
-        if type(my_input) is int and my_input <= 4:
-            return my_input
-        # Go through and find the type of object we are getting
-        objs = [mol_objs, res_objs, atom_objs, ndx_objs]
-        for i in range(4):
-            if my_input.lower() in objs[i]:
-                if len([sys.mols, sys.residues, sys.atoms, sys.ndxs][i]) > 0:
-                    return i + 1
-                else:
-                    print("No {} in the system. Try again or typ \'h\' for help"
-                          .format(["molecules", "residues", "atoms", "groups"][i]))
-
-    # As a failsafe
-    return my_input
+        elif obj.lower() in mol_objs:
+            return 'm'
+        elif obj.lower() in res_objs:
+            return 'r'
+        elif obj.lower() in atom_objs:
+            return 'a'
+        elif obj.lower() in ndx_objs:
+            return 'n'
 
 
 def get_file(file=None):
     # Check if there is a file provided
     if file is None:
-        print("Enter a file address. (Use \'./\' to load a file from the \'.../vorpy\' directory):")
+        print("enter a file address. (Use \'./\' to load a file from the \'.../vorpy\' directory):")
     # Check the file
     checking_file = True
     while checking_file:
@@ -136,37 +118,42 @@ def get_file(file=None):
     return file
 
 
-def get_set(setting=None, val=None):
+def get_set(usr_npt=None):
     """
     Makes the user type a proper Value
-    :return: 1-4 based on if it is a 1. molecule 2. residue 3. atom or 4. index
+    :return: base versions of the settings ('sr', 'mv', 'bm', 'bs', 'fs')
     """
-    my_input, choosing = val, False
-    # If obj not in my objects
-    if val is None or val.lower() not in my_settings:
-        choosing = True
-
     # Keep asking the user to choose an object to export
-    while choosing:
-        my_input = setting
-        if setting is None:
+    while True:
+        # Check if we need to start from scratch
+        if usr_npt is None:
             # Prompt the user
-            my_input = input("Enter setting type. (\'surf_res\', \'max_vert\', \'box_size\', or \'calc_surfs\')\nsetting >>>   ")
+            usr_npt = input("setting >>>   ")
         # If they quit, then quit
-        if my_input.lower() in quits:
+        if usr_npt.lower() in quits:
             return
-        elif my_input.lower() in helps:
+        elif usr_npt.lower() in helps:
             help_()
         # Check to see if the user gave a valid response or not
-        if my_input.lower() not in my_settings:
-            # Tell the user they suck and try again
-            invalid_input(my_input)
-            continue
-        # Otherwise, we have a success
+        if usr_npt.lower() in surf_reses:
+            # Return the base setting
+            return 'sr'
+        elif usr_npt.lower() in max_verts:
+            # Return the base setting
+            return 'mv'
+        elif usr_npt.lower() in box_sizes:
+            # Return the base setting
+            return 'bm'
+        elif usr_npt.lower() in build_surfses:
+            # Return the base setting
+            return 'bs'
+        elif usr_npt.lower() in flat_surfses:
+            # Return the base setting
+            return 'fs'
         else:
-            choosing = False
-    # As a failsafe
-    return my_input
+            # Tell the user they suck and try again
+            print("\"{}\" is not a valid input. Enter a correct value (\'surf_res\', \'max_vert\', \'box_size\', or \'calc_surfs\')".format(usr_npt))
+            usr_npt = None
 
 
 def get_val(setting=None, val=None):
@@ -184,21 +171,25 @@ def get_val(setting=None, val=None):
         if val is None:
             prompt_str = "Enter \'{}\' value \nvalue >>>   ".format(setting)
             val = input(prompt_str)
-
+        # Quit if asked
         if val.lower() in quits or val.lower() in dones:
             return
+        # Give help if needed
         elif val.lower() in helps:
             help_()
-        if setting in calc_surfses:
+        # Test the validity of the user's true and false skills
+        if setting in build_surfses + flat_surfses:
             if val.lower() in ['t', 'true', 'tr'] + ys:
                 val = True
             elif val.lower() in ['f', 'false', 'flse', 'fl', 'fa', 'fs', 'fls'] + ns:
                 val = False
-        else:
+        # Test for a float value
+        elif setting in surf_reses + max_verts + box_sizes:
             try:
                 val = float(val)
             except ValueError:
                 val = None
+        # Check if we cool
         if val is not None:
             asking = False
     return val
