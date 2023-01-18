@@ -27,24 +27,6 @@ Created by Jack Ericson - Georgia State University
 
 ## Usage
 
-### Gui 
-
-1. Move to the main vorpy directory in a shell or command prompt
-2. Run the either of following
-   Basic Gui
-   ```
-   py vorpy_gui.py
-   ```
-   Fancy Gui
-   ```
-   py vorpy_gui1.py
-   ```
-   
-3. From the load screen of the gui load your pdb file (for testing go to the vorpy/Data/test_data folder)
-4. From the build screen of the gui change the settings and then click build
-5. From the analyze screen analyze the newly constructed network
-6. Use a software like pymol to view the outputs
-
 ### Command Line 
 
 1. Move to the main vorpy directory in a shell or command prompt
