@@ -32,15 +32,10 @@ class Vertex:
             self.ndx = [self.net.atoms.index(atom) for atom in self.atoms]
             self.ndx.sort()
 
-        # Check to see if the network wants flat faces or not
-        if self.net is not None and self.net.flat_faces:
-            self.make_ff_atoms()
-            return
-        else:
-            # The real location and radius of the base sphere
-            locs = np.array(self.atoms[0].loc), np.array(self.atoms[1].loc), np.array(self.atoms[2].loc), \
-                   np.array(self.atoms[3].loc)
-            R1, R2, R3, R4 = self.atoms[0].rad, self.atoms[1].rad, self.atoms[2].rad, self.atoms[3].rad
+        # The real location and radius of the base sphere
+        locs = np.array(self.atoms[0].loc), np.array(self.atoms[1].loc), np.array(self.atoms[2].loc), \
+               np.array(self.atoms[3].loc)
+        R1, R2, R3, R4 = self.atoms[0].rad, self.atoms[1].rad, self.atoms[2].rad, self.atoms[3].rad
 
         # Find the recalculated location of the atoms
         l0, l1, l2, l3 = locs[0], locs[1] - locs[0], locs[2] - locs[0], locs[3] - locs[0]
@@ -139,75 +134,3 @@ class Vertex:
             # If both radii are positive we have a doublet. Choose the smaller vertex to be the lead vertex and set loc2
             else:
                 self.loc, self.loc2, self.rad, self.rad2 = locs[0], locs[1], rads[0], rads[1]
-
-    def make_ff_atoms(self):
-        # First we need to create atoms and translate them to the correct place
-        self.ff_atoms = self.atoms.copy()
-        # Find the smallest radius atom
-        rads = [_.rad for _ in self.ff_atoms]
-        min_atom = self.ff_atoms[rads.index(min(rads))]
-        # Swap the minimum atom with the atom first in the list
-        self.ff_atoms[0], self.ff_atoms[self.ff_atoms.index(min_atom)] = \
-            self.ff_atoms[self.ff_atoms.index(min_atom)], self.ff_atoms[0]
-        # Go through the other atoms, moving them toward the smallest atom
-        for atom in self.ff_atoms[1:]:
-            # Get the old radius of the atom
-            old_rad = atom.rad
-            # Set their radii
-            atom.rad = min_atom.rad
-            # Move the atoms toward the smallest radius by the difference between the two's radii
-            r = np.array(min_atom.loc) - np.array(atom.loc)
-            rn = r / np.linalg.norm(r)
-            atom.loc = np.array(atom.loc) + rn * (old_rad - atom.rad)
-        # Get the location of the vertex based off of the com of the points
-
-    def calc_ff_vert(self):
-        # If the vertex is mature enough to be calculated, create and sort its indices
-        if self.net is not None:
-            self.ndx = [self.net.atoms.index(atom) for atom in self.atoms]
-            self.ndx.sort()
-        # Step 1: Find the smallest atom
-        min_rad, small_atom_ndx = np.inf, 0
-        for i in range(len(self.atoms)):
-            # Check to see if this atom is smaller than the current smallest atom
-            if self.atoms[i].rad < min_rad:
-                # If it is smaller, replace the necessary variables
-                small_atom_ndx = i
-                min_rad = self.atoms[i].rad
-        # Set up the planes
-        A, B = [], []
-        # Get the small atom
-        small_atom = self.atoms[small_atom_ndx]
-        # Step 2: Make the intersecting planes with the small atom and the three other atoms
-        for atom in self.atoms[:small_atom_ndx] + self.atoms[small_atom_ndx + 1:]:
-            # Get normal to the plane
-            r = np.array(small_atom.loc) - np.array(atom.loc)
-            rn = r / np.linalg.norm(r)
-            # Get the middle point
-            center = np.array(atom.loc) + 0.5 * rn * calc_dist(small_atom.loc, atom.loc)
-            # Define the plan's coefficients
-            A.append(rn)
-            B.append(np.dot(rn, center))
-        # Step 3: Create and solve the coefficient matrix for the 3 planes
-        # First check to see if the planes intersect
-        if np.linalg.matrix_rank(A) == 3:
-            self.loc = np.linalg.inv(A).dot(B)
-            self.rad = calc_dist(self.loc, small_atom.loc) - small_atom.rad
-
-    def calc_ff_vert1(self):
-        # If the vertex is mature enough to be calculated, create and sort its indices
-        if self.net is not None:
-            self.ndx = [self.net.atoms.index(atom) for atom in self.atoms]
-            self.ndx.sort()
-        # First we need to create atoms and translate them to the correct place
-        self.ff_atoms = self.atoms.copy()
-        # Find the smallest radius atom
-        rads = [_.rad for _ in self.ff_atoms]
-        min_atom = self.ff_atoms[rads.index(min(rads))]
-        # Go through the other atoms, moving them toward the smallest atom
-        for atom in self.ff_atoms:
-            # Set their radii
-            atom.rad = atom.rad - min_atom.rad
-        self.atoms, self.ff_atoms = self.ff_atoms, self.atoms
-        self.calc_vert()
-        self.atoms, self.ff_atoms = self.ff_atoms, self.atoms
