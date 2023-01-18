@@ -227,16 +227,15 @@ class System:
                     atom.mol = self.sol
             else:
                 # If no chain is specified, set the chain to 'None'
-                if atom.chain == ' ':
-                    atom.chain = 'MOL'
+                mol_name = atom.mol_class + atom.chain
                 # If the atom's chain does not exist add it to the list of chains
-                if atom.chain not in self.mol_names:
-                    my_mol = Molecule(atoms=[atom], name=atom.chain)
+                if mol_name not in self.mol_names:
+                    my_mol = Molecule(atoms=[atom], name=mol_name)
                     self.mols.append(my_mol)
-                    self.mol_names.append(atom.chain)
+                    self.mol_names.append(mol_name)
                     atom.mol = my_mol
                 else:
-                    my_mol = self.mols[self.mol_names.index(atom.chain)]
+                    my_mol = self.mols[self.mol_names.index(mol_name)]
                     my_mol.atoms.append(atom)
                     atom.mol = my_mol
         # Add the solution to the molecules list
@@ -247,15 +246,16 @@ class System:
         self.residues, self.res_names = [], []
         # Set up the residues
         for atom in self.atoms:
+            res_name = atom.mol_class + atom.res_seq
             # If the residue name does not exist, add it
-            if atom.res_seq not in self.res_names:
-                my_res = Residue(atoms=[atom], sequence=atom.res_seq, seg_id=atom.seg_id, mol=atom.mol)
+            if res_name not in self.res_names:
+                my_res = Residue(atoms=[atom], sequence=atom.res_seq, seg_id=atom.seg_id, mol=atom.mol, name=res_name)
                 self.residues.append(my_res)
-                self.res_names.append(atom.res_seq)
+                self.res_names.append(res_name)
                 atom.res = my_res
                 atom.mol.resids.append(my_res)
             else:
-                my_res = self.residues[self.res_names.index(atom.res_seq)]
+                my_res = self.residues[self.res_names.index(res_name)]
                 my_res.atoms.append(atom)
                 atom.res = my_res
 
