@@ -7,37 +7,38 @@ from System.Network.net_funcs.process_net import *
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
     def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, doublets=None, surf_res=0.3, box_size=1.25,
-                 max_vert=7, calc_surfs=True, flat_faces=False):
+                 max_vert=7, build_surfs=False, flat_surfs=False):
         # Network graph objects
-        self.sys = sys                # System          :  Route back to outer system for system attribute access
-        self.atoms = atoms            # Atoms           :  Atoms of the network. Should be identical to self.sys.atoms
-        self.verts = verts            # Vertices        :  Vertices of the network
-        self.edges = edges            # Edges           :  Edges of the network
-        self.surfs = surfs            # Surfaces        :  Surfaces of the network
-        self.doublets = doublets      # Doublets        :  Doublets in the network
-        self.name = None              # Name            :  Name of the network. Used to name subnetworks recursively
-        self.sol_layers = None        # Sol Layers      :  The surfaces comprising the layers of solute around the mols
-        self.sol_layer_atoms = None   # SOL Layer Atoms :  The atoms corresponding to the layers of the sol_layers attr
+        self.sys = sys                 # System          : Route back to outer system for system attribute access
+        self.atoms = atoms             # Atoms           : Atoms of the network. Should be identical to self.sys.atoms
+        self.verts = verts             # Vertices        : Vertices of the network
+        self.edges = edges             # Edges           : Edges of the network
+        self.surfs = surfs             # Surfaces        : Surfaces of the network
+        self.doublets = doublets       # Doublets        : Doublets in the network
+        self.name = None               # Name            : Name of the network. Used to name subnetworks recursively
+        self.sol_layers = None         # Sol Layers      : The surfaces comprising the layers of solute around the mols
+        self.sol_layer_atoms = None    # SOL Layer Atoms : The atoms corresponding to the layers of the sol_layers attr
         # Tools for splitting up the atoms
-        self.box = None               # Box             :  Holds a max and min vertex for the retaining box
-        self.sub_boxes = None         # Sub boxes       :  Holds atoms in their different relative locations in the grid
-        self.sub_box_size = None      # Sub box size    :  Holds the size of each sub box
-        self.atoms_box = []           # Atoms box       :  Holds the min and max verts for the box containing the atoms
-        self.max_atom_rad = 0         # Max atom rad    :  Holds the largest radius of the system for reference
-        self.vert_ndxs = []           # Vert indices    :  Holds the sorted indices of the atoms of the network's verts
-        self.edge_ndxs = []           # Edge indices    :  Holds the sorted indices of the atoms of the network's edges
-        self.surf_ndxs = []           # Surface indices :  Holds the sorted indices of the atoms of the network's surfs
-        self.atom_ndxs = []           # Atom indices    :  Used to track atoms that have been used in a vertex
+        self.box = None                 # Box            : Holds a max and min vertex for the retaining box
+        self.sub_boxes = None           # Sub boxes      : Holds atoms in their different relative locations in the grid
+        self.sub_box_size = None        # Sub box size   : Holds the size of each sub box
+        self.atoms_box = []             # Atoms box      : Holds the min and max verts for the box containing the atoms
+        self.max_atom_rad = 0           # Max atom rad   : Holds the largest radius of the system for reference
+        self.vert_ndxs = []             # Vert indices   : Holds the sorted indices of the atoms of the network's verts
+        self.edge_ndxs = []             # Edge indices   : Holds the sorted indices of the atoms of the network's edges
+        self.surf_ndxs = []             # Surf indices   : Holds the sorted indices of the atoms of the network's surfs
+        self.atom_ndxs = []             # Atom indices   : Used to track atoms that have been used in a vertex
         # Settings
-        self.surf_res = surf_res      # Resolution      :  How small the triangles in the surfaces are
-        self.max_vert = max_vert      # Max vert rad    :  The maximum vertex radius for the network
-        self.box_size = box_size      # Box size        :  Holds the box multiplier for the sys box from the atoms box
-        self.calc_surfs = calc_surfs  # Calculate Surfs :  Calculate the network's surfaces? Bool
-        self.flat_faces = flat_faces  # Flat Faces      :  Create flat faces for surfaces. Bool
-        self.verts_loaded = False     # Verts Loaded    :  Use loaded verts. Bool
+        self.surf_res = surf_res        # Resolution     : How small the triangles in the surfaces are
+        self.max_vert = max_vert        # Max vert rad   : The maximum vertex radius for the network
+        self.box_size = box_size        # Box size       : Holds the box multiplier for the sys box from the atoms box
+        self.build_surfs = build_surfs  # Calc Surfs     : Calculate the network's surfaces? Bool
+        self.flat_surfs = flat_surfs    # Flat Faces     : Create flat faces for surfaces. Bool
+        self.calc_verts = True          # Calc Verts     : Use loaded verts. Bool
+        self.connect_net = True         # Connect net    : Used to differentiate between loaded net and loaded verts
         # Run diagnostics
-        self.cpu_time = None          # CPU time        :  CPU time taken to calculate the network
-        self.my_time = None           # My time         :  Time taken to calculate the network
+        self.cpu_time = None            # CPU time       : CPU time taken to calculate the network
+        self.my_time = None             # My time        : Time taken to calculate the network
 
     def calc_box(self):
         """
@@ -161,11 +162,10 @@ class Network:
         self.atom_ndxs = [i for i in range(len(self.atoms))]
         # Do an initial sweep
         find_verts(self)
-        i = 0
+        # Check for disconnects in the network
         while len(self.atom_ndxs) > 0:
-            i = i % 4
             find_verts(self, a0=self.atoms[self.atom_ndxs.pop()])
-            i += 1
+        # Clear the print statement
         print("\r                                        ", end="")
         # Bit of code for timing the vertex building process
         if time_start is not None:
@@ -180,23 +180,19 @@ class Network:
         """
         # Go through the edges in the network
         for edge in self.edges:
-            edge.build()
+            edge.build(straight=self.flat_surfs)
 
-    def build_surfs(self):
+    def build_surfaces(self):
         """
         Takes in a system and returns a fully connected network
         :return:
         """
         # Make each surface
         for i in range(len(self.surfs)):
-            # If the network is a voronota network, use build_vta method
-            if self.flat_faces:
-                self.surfs[i].build_vta()
-            # Otherwise, proceed with the regular build method
-            else:
-                print("\rbuilding surfaces " + " " * (len(str(len(self.surfs) - 1)) - len(str(i + 1))) + str(i + 1) + "/" +
-                      str(len(self.surfs)) + "                   ", end="")
-                self.surfs[i].build()
+            # Build the surfaces and print the progress
+            print("\rBuilding surfaces " + " " * (len(str(len(self.surfs) - 1)) - len(str(i + 1))) + str(i + 1) + "/" +
+                  str(len(self.surfs)) + "                   ", end="")
+            self.surfs[i].build(flat=self.flat_surfs)
 
     def analyze(self):
         """
@@ -221,7 +217,7 @@ class Network:
         # self.sol_layers, self.sol_layer_atoms = find_sol_layers(self)
 
 
-    def build(self, output=True, surf_res=None, max_vert=None, box_size=None, calc_surfs=None, flat_faces=None,
+    def build(self, output=True, surf_res=None, max_vert=None, box_size=None, build_surfs=None, flat_surfs=None,
               calc_verts=None):
         """
         Build network function used to calculate the voronoi
@@ -229,8 +225,8 @@ class Network:
         :param surf_res:
         :param max_vert:
         :param box_size:
-        :param calc_surfs:
-        :param flat_faces:
+        :param build_surfs:
+        :param flat_surfs:
         :param calc_verts:
         :return:
         """
@@ -238,16 +234,18 @@ class Network:
         if self.sys.name is None:
             self.sys.name = "User_Atoms"
         # Check for input values for the network build
+        if surf_res is not None:
+            self.surf_res = surf_res
         if max_vert is not None:
             self.max_vert = max_vert
         if box_size is not None:
             self.box_size = box_size
-        if surf_res is not None:
-            self.surf_res = surf_res
-        if calc_surfs is not None:
-            self.calc_surfs = calc_surfs
-        if flat_faces is not None:
-            self.flat_faces = flat_faces
+        if build_surfs is not None:
+            self.build_surfs = build_surfs
+        if flat_surfs is not None:
+            self.flat_surfs = flat_surfs
+        if calc_verts is not None:
+            self.calc_verts = calc_verts
         # Instantiate the timer variables
         self.my_time, self.cpu_time = 0, 0
         # Start the timer
@@ -255,21 +253,19 @@ class Network:
         # Sort the atoms in the network
         self.sort_atoms()
         # Check to see if there are vertices loaded
-        if (calc_verts is None or calc_verts) and not flat_faces:
+        if self.calc_verts:
+            # Find the vertices
+            self.find_verts(start)
+            # Check to see if there are vertices
             if self.verts is None or len(self.verts) == 0:
-                # Find the vertices
-                self.find_verts(start)
-
-        # Check to see if there are vertices
-        if self.verts is None or len(self.verts) == 0:
-            return
+                return
         # Connect the network
         self.connect()
         # Build the edges in the network
         self.build_edges()
-        if self.calc_surfs:
+        if self.build_surfs:
             # Build the network
-            self.build_surfs()
+            self.build_surfaces()
             # Analyze the network
             self.analyze()
         else:
