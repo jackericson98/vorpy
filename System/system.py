@@ -141,7 +141,6 @@ class System:
             read_verts(self.net, self.vert_file)
         else:
             read_vta_data(self, vert_file=file, ball_file=vta_ball_file)
-            self.net.flat_faces = False
 
     def load_net(self, file=None):
         """
@@ -261,7 +260,7 @@ class System:
                 atom.res = my_res
 
 
-    def build_network(self, surf_res=None, max_vert=None, box_size=None, sol_verts=True, output=True, flat_faces=False,
+    def build_network(self, surf_res=None, max_vert=None, box_size=None, sol_verts=True, output=True, flat_surfs=False,
                       calc_verts=True):
         """
         Allows user to build the network from the system object.
@@ -271,8 +270,8 @@ class System:
         if self.net is None:
             self.net = Network(self, atoms=self.atoms)
         # Build the network
-        self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, calc_surfs=sol_verts, output=output,
-                       flat_faces=flat_faces, calc_verts=calc_verts)
+        self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=sol_verts, output=output,
+                       flat_surfs=flat_surfs, calc_verts=calc_verts)
 
     def export_verts(self):
         """
@@ -336,7 +335,7 @@ class System:
             os.chdir(self.dir + "/sys")
             # Export a pdb file for the system
             write_pdb(self.atoms, self.name, self)
-        if full_network_object and self.net.calc_surfs:
+        if full_network_object and self.net.build_surfs:
             os.chdir(self.dir + "/sys")
             # Export a full system
             export_mySys(self)
@@ -345,7 +344,7 @@ class System:
             os.chdir(self.dir + "/sys")
             set_pymol_atoms(self)
         # Write the surfaces
-        if surfaces and self.net.calc_surfs:
+        if surfaces and self.net.build_surfs:
             # Make the surfaces file
             os.mkdir(self.dir + "/sys/surfaces")
             os.chdir(self.dir + "/sys/surfaces")
