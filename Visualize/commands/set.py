@@ -47,20 +47,44 @@ def sett(sys, usr_npt):
         sys.net = Network(sys=sys, atoms=sys.atoms)
     # Set the surfaces resolution
     if my_set in surf_reses:
-        sys.net.surf_res = my_val
-        print(u"Surface resolution set to {} \u212B".format(my_val))
+        # Check to see if the value is correct
+        try:
+            sys.net.surf_res = float(my_val)
+            print(u"Surface resolution set to {} \u212B".format(my_val))
+        except ValueError:
+            print("\"{}\" is an invalid input for the surface resolution setting. Enter a float value (From 0.01 to 1 A, recommended 0.1 A)".format(my_val))
     # Set the maximum vertex radius
     elif my_set in max_verts:
-        sys.net.max_vert = my_val
-        print(u"Maximum vertex radius set to {} \u212B".format(my_val))
+        # Check to see if the value is correct
+        try:
+            sys.net.max_vert = float(my_val)
+            print(u"Maximum vertex radius set to {} \u212B".format(my_val))
+        except ValueError:
+            print("\"{}\" is an invalid input for the maximum vertex radius setting. Enter a float value (From 0.10 to 20 A, recommended 7 A)".format(my_val))
     # Set the box multiplier
     elif my_set in box_sizes:
-        sys.net.box_size = my_val
-        print("Box size multiplier set to {} x".format(my_val))
+        # Check to see if the value is correct
+        try:
+            sys.net.box_size = float(my_val)
+            print("Box size multiplier set to {} x".format(my_val))
+        except ValueError:
+            print("\"{}\" is an invalid input for the box size multiplier setting. Enter a float value (From 1.0 to 10.0 X, recommended 1.5 X)".format(my_val))
     # Set the solute vertices
-    elif my_set in calc_surfses:
-        sys.net.sol_verts = my_val
-        print("Calculate surfaces vertices set to {}".format(sys.net.sol_verts))
+    elif my_set in build_surfses:
+        try:
+            sys.net.build_surfs = bool(my_val)
+            print("Build surfaces set to {}".format(sys.net.build_surfs))
+        except ValueError:
+            print("\"{}\" is an invalid input for the build surfaces setting. Enter a True/False value (From 1.0 to 10.0 X, recommended 1.5 X)".format(my_val))
+    # Set the flat surfaces
+    elif my_set in flat_surfses:
+        # Check to see if the value is correct
+        try:
+            sys.net.flat_surfs = bool(my_val)
+            print("Flat surfaces set to {}".format(sys.net.flat_surfs))
+        except ValueError:
+            print("\"{}\" is an invalid input for the flat surfaces setting. Enter a True/False value (From 1.0 to 10.0 X, recommended 1.5 X)".format(my_val))
+    # Check for a quit request
     elif my_set.lower() in quits:
         return
     else:
