@@ -171,7 +171,7 @@ class Network:
         if time_start is not None:
             self.my_time = time.perf_counter() - time_start
             h, m, s = get_time(self.my_time)
-            print("\rVertex process ({} verts) = {}:{}:{:.2f} s".format(len(self.verts), int(h), int(m), s))
+            print("\rvertex process ({} verts) = {}:{}:{:.2f} s".format(len(self.verts), int(h), int(m), s))
 
     def build_edges(self):
         """
@@ -190,7 +190,7 @@ class Network:
         # Make each surface
         for i in range(len(self.surfs)):
             # Build the surfaces and print the progress
-            print("\rBuilding surfaces " + " " * (len(str(len(self.surfs) - 1)) - len(str(i + 1))) + str(i + 1) + "/" +
+            print("\rbuilding surfaces " + " " * (len(str(len(self.surfs) - 1)) - len(str(i + 1))) + str(i + 1) + "/" +
                   str(len(self.surfs)) + "                   ", end="")
             self.surfs[i].build(flat=self.flat_surfs)
 
