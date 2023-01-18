@@ -117,7 +117,7 @@ def read_mol(sys, file=None):
 def read_vta_data(sys, ball_file, vert_file):
     # If no network has been created, make one
     if sys.net is None:
-        sys.net = Network(sys, sys.atoms, verts=[], edges=[], surfs=[], flat_faces=True)
+        sys.net = Network(sys, sys.atoms, verts=[], edges=[], surfs=[], flat_surfs=True)
     if sys.net.verts is None:
         sys.net.verts = []
     # Create the System and load the files
@@ -143,7 +143,6 @@ def read_vta_data(sys, ball_file, vert_file):
         ndx.sort()
         myVert = Vertex(atoms=atoms, net=sys.net, ndx=ndx, location=loc, radius=rad)
         sys.net.verts.append(myVert)
-    sys.net.flat_faces = True
 
 
 # Input index function. Takes in an index file and loads it into the list of indices
@@ -231,7 +230,7 @@ def read_net(sys, file=None):
         sys.net.surfs = [Surface(net=sys.net) for _ in range(net_surfs)]
         # Add the settings
         sys.net.surf_res, sys.net.max_vert, sys.net.box_size = [float(_) for _ in read_file[1][1:4]]
-        sys.net.calc_surfs = bool(read_file[1][4])
+        sys.net.build_surfs = bool(read_file[1][4])
         sys.net.calc_box()
         # Add the vertices
         for i in range(3, 3 + net_verts):
@@ -279,3 +278,5 @@ def read_net(sys, file=None):
     for surf in sys.net.surfs:
         if surf.file is not None and surf.file != '':
             surf.read_file()
+    # Set the network to connected
+    sys.net.connect_net = False
