@@ -140,7 +140,11 @@ class Surface:
         self.sa = sa
 
     # Build method. Makes the mesh for the surface and calculates the simplices between them
-    def build(self, res=None):
+    def build(self, res=None, flat=None):
+        # Check to see if the user provided a flat indication
+        if flat is None:
+            # Check if the surface is to be flat
+            self.flat = flat
         # Set the resolution value that the surface is built with
         if res is None:
             res = self.net.surf_res
