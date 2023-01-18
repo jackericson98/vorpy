@@ -29,6 +29,7 @@ class Edge:
         self.loc2 = None                 # Loc2          :   Allows edges to be checked like vertices
 
         self.ref = None                  # Reference     :   Tuple holding a surface and a range for efficient storage
+        self.straight = False            # Straight edge :   Straight edge or not
 
     # Get location method. Calculates the circle made between the atoms
     def get_loc(self):
@@ -43,7 +44,7 @@ class Edge:
         # Typical case, no doublets
         self.pv0, self.pv1 = np.array(self.verts[0].loc), np.array(self.verts[1].loc)
 
-        if self.net.flat_faces:
+        if self.straight:
             return
 
         # Get the projection point
@@ -111,7 +112,7 @@ class Edge:
             return point
 
     # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
-    def build(self, surf=None, res=None):
+    def build(self, surf=None, res=None, straight=False):
 
         # Get the location and radius of the circle inscribed between the edge atoms
         self.get_loc()
@@ -134,7 +135,7 @@ class Edge:
         ################################################# Fill Edge ####################################################
 
         # If the edge is completely straight add points in a line from pv0 to pv0 and return
-        if self.net.flat_faces or (self.atoms[0].rad == self.atoms[1].rad and self.atoms[1].rad == self.atoms[2].rad):
+        if straight or (self.atoms[0].rad == self.atoms[1].rad and self.atoms[1].rad == self.atoms[2].rad):
             # Get the vector between the two vectors and the number of point in the edge
             r = self.pv1 - self.pv0
             num_points = 5
