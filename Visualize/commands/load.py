@@ -27,7 +27,7 @@ def load(sys, usr_npt):
         if file[-3:] == 'pdb' or file[-3:] == 'mol' or file[-3:] == 'gro' or file[-3:] == 'cif':
             if sys.name is not None and \
                     (sys.atoms is not None or sys.vert_file is not None or sys.net_file is not None):
-                reset_sys = input("Replacing {} with {}\nconfirm >>>   "
+                reset_sys = input("replacing {} with {}\nconfirm >>>   "
                                   .format(sys.name, file))
                 if reset_sys.lower() in ys:
                     sys = System(file)
@@ -50,7 +50,7 @@ def load(sys, usr_npt):
             if file[-9:-4] == 'verts':
                 # If a vertex file has already been loaded make sure the user wants to load it if not load it
                 if sys.vert_file is not None and sys.vert_file != "":
-                    replace_vert_file = input("Replacing {} with {}\n "
+                    replace_vert_file = input("replacing {} with {}\n "
                                               "confirm >>>   ".format(sys.vert_file, file))
                     if replace_vert_file.lower() in ys or replace_vert_file.lower() in dones:
                         sys.load_verts(file, vta_ball_file=sys.ball_file)
@@ -70,7 +70,7 @@ def load(sys, usr_npt):
             elif file[-11:-4] == 'network':
                 # If a vertex file has already been loaded make sure the user wants to load it if not load it
                 if sys.net_file is not None or sys.net_file != "":
-                    replace_net_file = input("Replacing {} with {}\n "
+                    replace_net_file = input("replacing {} with {}\n "
                                               "confirm >>>   ".format(sys.net_file, file))
                     if replace_net_file in ys:
                         sys.load_net(file)
