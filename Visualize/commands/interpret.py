@@ -43,10 +43,6 @@ def get_ndx(sys, obj, ndx_npt=None):
             continue
 
 
-
-
-
-
 def get_obj(sys, obj=None):
     """
     Makes the user type a proper object
