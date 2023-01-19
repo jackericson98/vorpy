@@ -42,9 +42,10 @@ def export(sys, usr_npt):
     npt_list = [None]*4
     npt_list[obj_ndx] = my_list
     my_group = Group(sys=sys, mols=npt_list[0], residues=npt_list[1], atoms=npt_list[2], indices=npt_list[3], name=name)
+    print("choose one to export: 1. Shell, 2. Surfaces, 3. Layers, 4. Atoms, 5. Filled Body, 6. Info File")
     while True:
         # Export the group exports
-        xpt_npt = input("choose one of the following to export (or type \'q\' to quit): 1. Shell, 2. Surfaces, 3. Layers, 4. Atoms, 5. Filled Body, 6. Info File\nexport >>>   ")
+        xpt_npt = input("export >>>   ")
         # Check for a quit
         if xpt_npt.lower() in quits:
             return
