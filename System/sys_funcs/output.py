@@ -178,148 +178,6 @@ def export_verts(net):
 #################################################### Export Network ####################################################
 
 
-def export_old_net(net, point_res=None):
-    """
-    Used to store pre-calculated surfaces in whatever directory the program is in
-    :param net: The network object to export the data from
-    :param point_res: Holds the number of decimal places to output. If None it is set to 3
-    :return:
-    """
-    # Move to the output directory
-    os.chdir(net.sys.dir)
-    # Create the network file
-    file = open(net.sys.name + "_network.txt", 'w')
-    # Write the general information about the system
-    file.write("NETW " + str(net.surf_res) + " " + str(net.max_vert) + " " + str(net.box_size) + " " + str(net.my_time)
-               + " " + str(net.cpu_time) + " " + str(net.sol_verts) + " " + str(net.curved_faces) + " " +
-               str(net.flat_surfs) + " " + str(len(net.verts)) + " " + str(len(net.edges)) + " " +
-               str(len(net.surfs)) + "\n")
-    # Set the resolution of the network's output points
-    if point_res is None:
-        point_res = 3
-
-    # Write Objects:
-
-    # Write atoms
-    # Go through the atoms in the network
-    for atom in net.atoms:
-        # Get the atom's box
-        box = [str(_) for _ in atom.box]
-        # Write atoms information: index, box, cell volume
-        file.write("ATOM " + " " + str(net.atoms.index(atom)) + " " + ' '.join(box) + " " + str(atom.vol) + "\n")
-        # Get the vertex, edge and surface index information
-        vert_ndxs = [str(net.verts.index(vert)) for vert in atom.verts]
-        edge_ndxs = [str(net.edges.index(edge)) for edge in atom.edges]
-        surf_ndxs = [str(net.surfs.index(surf)) for surf in atom.surfs]
-        # Write the object indices
-        file.write("ACON " + " ".join(vert_ndxs) + "\n")
-        file.write("ACON " + " ".join(edge_ndxs) + "\n")
-        file.write("ACON " + " ".join(surf_ndxs) + "\n")
-    # Write a separating line
-    file.write("\n")
-
-    # Write vertices
-    for vert in net.verts:
-        # Get the normal information
-        loc, ndx = [str(round(_, point_res)) for _ in vert.loc], [str(_) for _ in vert.ndx]
-        # Get the doublet information
-        loc2, rad2 = [""], ""
-        if vert.doublet:
-            loc2, rad2 = [str(round(_, point_res)) for _ in vert.loc2], str(round(vert.rad2, point_res))
-        # Write the vertex information
-        file.write("VERT " + str(net.verts.index(vert)) + " " + " ".join(ndx) + " " + " ".join(loc) + " " +
-                   str(vert.rad) + " " + str(vert.doublet) + " " + " ".join(loc2) + " " + rad2 + '\n')
-        # Get the edge and surface index information
-        edge_ndxs = [str(net.edges.index(edge)) for edge in vert.edges]
-        surf_ndxs = [str(net.surfs.index(surf)) for surf in vert.surfs]
-        # Write the connection information
-        file.write("VCON " + " ".join(edge_ndxs) + "\n")
-        file.write("VCON " + " ".join(surf_ndxs) + "\n")
-    # Write a separating line
-    file.write("\n")
-
-    # Write edges
-    for edge in net.edges:
-        # If the edge location is None get a location
-        if edge.loc is None:
-            edge.loc, edge.rad = calc_circ(edge.atoms)
-        # Get the atom's box
-        ndx, loc = [str(_) for _ in edge.ndx], [str(round(_, point_res)) for _ in edge.loc]
-        # Make sure the points are interpretable
-        if edge.pv1 is None:
-            edge.pv0, edge.pv1 = [np.inf, np.inf, np.inf], [np.inf, np.inf, np.inf]
-        rad, pv0, pv1 = str(round(edge.rad, point_res)) + " ", [str(round(_, point_res)) for _ in edge.pv0], \
-                        [str(round(_, point_res)) for _ in edge.pv1]
-        # Write Edge information: index, location, radius, end points
-        file.write("EDGE " + str(net.edges.index(edge)) + " " + " ".join(ndx) + " " + " ".join(loc) + " " + rad +
-                   " ".join(pv0) + " " + " ".join(pv1) + " " + str(edge.doublet) + "\n")
-        # Get the vertex, edge and surface index information
-        vert_ndxs = [str(net.verts.index(vert)) for vert in edge.verts]
-        surf_ndxs = [str(net.surfs.index(surf)) for surf in edge.surfs]
-        # Write the object indices
-        file.write("ECON " + " ".join(vert_ndxs) + "\n")
-        file.write("ECON " + " ".join(surf_ndxs) + "\n")
-        # Check to make sure the edge has points
-        if edge.points is None:
-            edge.build()
-        # Go through the points along the edge
-        for point in edge.points:
-            # Add the points of the edge to the edge file
-            file.write("EPNT " + str(round(point[0], point_res)) + " " + str(round(point[1], point_res)) + " " +
-                       str(round(point[2], point_res)) + "\n")
-    # Write a separating line
-    file.write("\n")
-
-    # Write surfaces
-    for surf in net.surfs:
-        # Write the main edge information
-        ndx, rn = [str(_) for _ in surf.ndx], [str(_) for _ in surf.rn]
-        file.write("SURF " + str(net.surfs.index(surf)) + " " + " ".join(ndx) + " " + " ".join(rn) + " " +
-                   str(surf.sa) + " " + str(len(surf.perimeter)) + '\n')
-        # Get the vertex, edge and surface index information
-        vert_ndxs = [str(net.verts.index(vert)) for vert in surf.verts]
-        edge_ndxs = [str(net.edges.index(edge)) for edge in surf.edges]
-        # Write the object indices
-        file.write("SCON " + " ".join(vert_ndxs) + "\n")
-        file.write("SCON " + " ".join(edge_ndxs) + "\n")
-        # Go through the points along the perimeter of the surface
-        for i in range(len(surf.points)):
-            # Add the points of the edge to the edge file
-            file.write("SPNT " + " ".join([str(round(_, point_res)) for _ in surf.points[i]]) + "\n")
-        # Go through the triangles in the surface's list of triangles
-        for i in range(len(surf.tris)):
-            # Add the triangles to the list of surface triangles
-            file.write("STRI " + " ".join([str(_) + " " for _ in surf.tris[i]]) + "\n")
-    # Write the end line
-    file.write('END')
-    file.close()
-
-
-def export_csv_surfs(net):
-    # Create a surfaces folder and change to it
-    os.mkdir(net.sys.dir + "/csv_surfs")
-    os.chdir(net.sys.dir + "/csv_surfs")
-    # Go through the surfaces 1 by one creating point files
-    for surf in net.surfs:
-        # Create the surface file
-        with open(os.getcwd() + "/" + "_".join([str(_) for _ in surf.ndx]) + ".off", 'w', newline='') as surf_file:
-            surf_writer = csv.writer(surf_file)
-            surf_writer.writerow(["Surface", "# of Points", "# of Triangles"])
-            surf_writer.writerow([net.surfs.index(surf), len(surf.points), len(surf.tris)])
-            # Write the header for the points
-            surf_writer.writerow(["Point", "Loc - X", "Loc - Y", "Loc - Z"])
-            # Go through the points
-            for j in range(len(surf.points)):
-                # Write the point information
-                surf_writer.writerow([j, surf.points[j][0], surf.points[j][1], surf.points[j][2]])
-            # Write the triangles header
-            surf_writer.writerow(["Triangle", "Point 1", "Point 2", "Point 3"])
-            # Go through the triangles
-            for j in range(len(surf.tris)):
-                # Write the triangle information
-                surf_writer.writerow([j, surf.tris[j][0], surf.tris[j][1], surf.tris[j][2]])
-
-
 def export_net(net, output_surfs=True):
     # Create the file for export
     if net.sys.net_file is None:
@@ -382,8 +240,8 @@ def export_net(net, output_surfs=True):
             surf = net.surfs[i]
             # Get the file address for the output points
             file_address = ""
-            if output_surfs and net.build_surfs:
-                file_address = net.sys.dir + "/surfs/" + "_".join([str(_) for _ in surf.ndx]) + ".off"
+            if output_surfs and surf.points is not None:
+                file_address = "/surfs/" + "_".join([str(_) for _ in surf.ndx]) + ".off"
             # Write the surface information
             writer.writerow([i, file_address, surf.sa, surf.curv, surf.ndx[0], surf.ndx[1]] + list(surf.func[:11]) + list(surf.func[11]))
         # Check to see if the surfaces have been requested
@@ -410,16 +268,6 @@ def export_net_info(net):
     for i in range(len(net.surfs)):
         file.write("Surface {}-{} - Surface area = {}\n".format(net.surfs[i].ndx[0], net.surfs[i].ndx[1], net.surfs[i].sa))
     file.close()
-
-
-def export_net1(net, verts_only=False):
-    """
-    An efficient storage of network information. 
-    :param net:
-    :param verts_only:
-    :return:
-    """
-
 
 
 ############################################ Pymol Scripts #############################################################
