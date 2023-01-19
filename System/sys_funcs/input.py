@@ -1,4 +1,6 @@
 import csv
+import os.path
+
 from System.sys_objs.atom import Atom, get_radius
 from System.Network.network import Network, Vertex, Edge, Surface
 
@@ -213,8 +215,12 @@ def read_net(sys, file=None):
     # Open the file
     if file is None:
         file = sys.net_file
-    if sys.dir is None:
-        sys.set_output_directory()
+        if sys.net_file is None:
+            return
+    # Get the directory for the surfaces
+    net_dir = os.path.dirname(file)
+    # Keep using the same directory, this will cut down on clutter
+    sys.dir = net_dir
     # Open the file
     with open(file, 'r') as my_file:
         # Get the file element array to read
@@ -234,6 +240,7 @@ def read_net(sys, file=None):
         sys.net.calc_box()
         # Add the vertices
         for i in range(3, 3 + net_verts):
+            print("\rloading vertices - {}%".format(round((i - 3) / net_verts, 2)), end="")
             vert = sys.net.verts[i - 3]
             vert.loc = [float(_) for _ in read_file[i][1:4]]
             vert.rad = float(read_file[i][4])
@@ -250,6 +257,7 @@ def read_net(sys, file=None):
                 surf.verts.append(vert)
         # Add the edges
         for i in range(4 + net_verts, 4 + net_verts + net_edges):
+            print("\rloading edges - {}%".format(round((i - 4 - net_verts) / net_edges, 2)), end="")
             edge = sys.net.edges[i - 4 - net_verts]
             edge.point_refs = [int(_) for _ in read_file[i][1:4] if _ != '']
             edge.atoms = [sys.atoms[int(_)] for _ in read_file[i][4:7]]
@@ -265,6 +273,7 @@ def read_net(sys, file=None):
         # Add the surfaces
         # noinspection PyTypeChecker
         for i in range(5 + net_verts + net_edges, 5 + net_verts + net_edges + net_surfs):
+            print("\rloading surfaces - {}%".format(round(i - 3 / net_verts, 2)))
             surf = sys.net.surfs[i - 5 - net_verts - net_edges]
             surf.atoms = [sys.atoms[int(_)] for _ in read_file[i][4:6]]
             surf.ndx = [int(_) for _ in read_file[i][4:6]]
@@ -274,9 +283,5 @@ def read_net(sys, file=None):
             surf.func = [float(_) for _ in read_file[i][5:16]] + [[float(_) for _ in read_file[i][16:]]]
             for atom in surf.atoms:
                 atom.surfs.append(surf)
-    # Go through and add the surfaces if they have files
-    for surf in sys.net.surfs:
-        if surf.file is not None and surf.file != '':
-            surf.read_file()
     # Set the network to connected
     sys.net.connect_net = False
