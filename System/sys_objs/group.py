@@ -52,7 +52,7 @@ class Group:
             group_surfs = surfs
         # Build all surfaces in the group
         else:
-            #
+            # Get the surfaces
             if self.surfs is None:
                 self.get_surfs()
             group_surfs = self.surfs
@@ -64,8 +64,16 @@ class Group:
         # Go through the list of build surfaces checking for
         for surf in group_surfs:
             # Check if the resolution is different from the set resolution or the surface has no points
-            if surf.res != resolution or surf.points is None:
+            if surf.res != resolution:
                 build_surfs.append(surf)
+            # Check if there is any sign of missing points or triangles
+            elif surf.points is None or surf.tris is None or len(surf.points) <= 2 or len(surf.tris) == 0:
+                # If it is possible to load the file
+                if surf.file is not None and surf.file not in ["", " "]:
+                    surf.load_file()
+                # Worst case, add the surface to the list of surfaces to be built
+                else:
+                    build_surfs.append(surf)
         # Build the surfaces
         for i in range(len(build_surfs)):
             print("\rbuilding " + name + " surfaces " + " " * (len(str(len(surfs) - 1)) - len(str(i + 1))) + str(i + 1)
@@ -136,7 +144,7 @@ class Group:
         # Set the bff
         if bff is not None:
             self.bff = bff
-        # Reset the interface attributes for the group and it's bff
+        # Reset the interface attributes for the group, and it's bff
         self.iface_atoms, self.bff.iface_atoms, self.iface_surfs, self.bff.iface_surfs = [], [], [], []
         self.iface_sa = 0
         # Go through the atoms in the group
@@ -284,8 +292,15 @@ class Group:
         # If the user wants separate surfaces for the group
         if surfaces:
             self.build_surfs()
-            os.mkdir(self.dir + "/surfaces")
-            os.chdir(self.dir + "/surfaces")
+            i = 1
+            my_dir = self.dir + "/surfaces"
+            while os.path.exists(my_dir):
+                if my_dir[-1] == 's':
+                    my_dir += '__'
+                my_dir  = my_dir[:-2] + str(i)
+                i += 1
+            os.mkdir(my_dir)
+            os.chdir(my_dir)
             for surf in self.surfs:
                 write_surfs([surf], file_name="_".join([str(_) for _ in surf.ndx]))
             os.chdir(self.dir)
@@ -295,8 +310,15 @@ class Group:
             if self.layer_atoms is None or len(self.layer_atoms) <= 1:
                 self.get_layers(max_layers=num_layers)
             # Create the layers directory
-            os.mkdir(os.getcwd() + "/layers")
-            os.chdir(os.getcwd() + "/layers")
+            i = 1
+            my_dir = os.getcwd() + "/layers"
+            while os.path.exists(my_dir):
+                if my_dir[-1] == 's':
+                    my_dir += '__'
+                my_dir = my_dir[:-2] + str(i)
+                i += 1
+            os.mkdir(my_dir)
+            os.chdir(my_dir)
             # Create the layer and atoms files
             for i in range(len(self.layer_surfs)):
                 write_pdb(self.layer_atoms[i + 1], name=str(i) + "_atoms", sys=self.sys)
