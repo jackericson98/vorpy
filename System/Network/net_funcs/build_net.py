@@ -105,7 +105,7 @@ def build(net):
 
     # Go through the vertices in the network searching for potential edges
     for i in range(len(net.verts)):
-        print("\rConnecting Network: {:.2f} %".format(min(100.0, 100 * i / (2 * len(net.verts)))), end="")
+        print("\rConnecting Network: {:.2f} %".format(min(100.0, 100 * (len(net.edges)) / (2 * len(net.verts)))), end="")
         vert1 = net.verts[i]
         if vert1.doublet is not None:
             continue
