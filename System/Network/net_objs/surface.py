@@ -1,3 +1,5 @@
+import os.path
+
 from System.Network.net_funcs.build_surf import *
 import csv
 
@@ -70,23 +72,24 @@ class Surface:
         if file is None and self.file is not None:
             file = self.file
 
-        # Quick little check for the surfaces
-        try:
-            p = open(file, 'r')
-            p.close()
-        except FileNotFoundError:
-            # This solves linux load issues
-            file = self.net.sys.dir + file
-        # Check again for just an overall shite file
-        try:
-            p = open(file, 'r')
-            p.close()
-        except FileNotFoundError:
-            # If all else fails just build the surface
-            self.build()
-            return
+        # Check that the provided file works as an address on its own
+        if os.path.exists(file):
+            file_address = file
+        # Check that the file name is a relative location to the system directory
+        elif os.path.exists(self.net.sys.dir + file):
+            file_address = self.net.sys.dir + file
+        # Last brute force a location if the file name is incorrect
+        else:
+            pot_surf_dirs = [_[0] for _ in os.walk(os.path.dirname(self.net.sys.net_file))] + \
+                            [_[0] for _ in os.walk(self.net.sys.dir)]
+            for my_dir in pot_surf_dirs:
+                if os.path.exists(my_dir + "/" + "_".join([str(_) for _ in self.ndx]) + ".off"):
+                    file_address = my_dir + "/" + "_".join([str(_) for _ in self.ndx]) + ".off"
+                    break
+            else:
+                return
         # Read an off file
-        if file[-3:].lower() == 'off':
+        if file_address[-3:].lower() == 'off':
             # Open the file
             with open(file, 'r') as my_file:
                 # Read the lines
@@ -94,15 +97,17 @@ class Surface:
                 # Get the number of points and triangles
                 num_points, num_tris = [int(_) for _ in file_array[1].split()[1:]]
                 # Add the points
+                self.points = []
                 for i in range(4, num_points + 4):
                     line = file_array[i].split()
                     self.points.append([float(_) for _ in line[1:]])
                 # Add the tris
+                self.tris = []
                 for i in range(4 + num_points, 4 + num_points + num_tris):
                     line = file_array[i].split()
                     self.tris.append([int(_) for _ in line[1:]])
         # Read a comma separated file surface file
-        elif file[-3:].lower() == 'csv':
+        elif file_address[-3:].lower() == 'csv':
             # Open the file
             with open(file, 'r') as my_file:
                 # Get the file element array to read
