@@ -5,32 +5,34 @@ class Vertex:
     """Vertex object. Used to build the network and calculate the surfaces"""
 
     def __init__(self, atoms=None, net=None, location=None, radius=None, loc2=None, rad2=None, doublet=None, ndx=None,
-                 load_ndxs=None):
+                 load_ndxs=None, flat_faces=False):
 
-        self.net = net              # Network       :   Network object for the vertex to refer back to
-        self.atoms = atoms          # Atoms         :   List of atoms used to construct the vertex
-        self.edges = []             # Edges         :   List of Edge type objects connected to the vertex in the network
-        self.surfs = []             # Surfaces      :   List of Surface type objects that the vertex is a part of
+        self.net = net                # Network       :   Network object for the vertex to refer back to
+        self.atoms = atoms            # Atoms         :   List of atoms used to construct the vertex
+        self.edges = []               # Edges         :   List of Edge type objects connected to the vertex
+        self.surfs = []               # Surfaces      :   List of Surface type objects that the vertex is a part of
 
-        self.ndx = ndx              # Index         :   Indices of the atoms in the vertex
-        self.loc = location         # Location      :   Where the vertex is located in 3D
-        self.rad = radius           # Radius        :   Radius of the vertex's tangential sphere
-        self.load_ndxs = load_ndxs  # Load indices  :   List of object load indices
+        self.ndx = ndx                # Index         :   Indices of the atoms in the vertex
+        self.loc = location           # Location      :   Where the vertex is located in 3D
+        self.rad = radius             # Radius        :   Radius of the vertex's tangential sphere
+        self.load_ndxs = load_ndxs    # Load indices  :   List of object load indices
 
-        self.doublet = doublet      # Doublet       :   Whether the vertex is a doublet
-        self.d_type = None          # Doublet type  :   Doublet type it is: 3 edges, 3 surfaces or two edges, one surface
-        self.loc2 = loc2            # Location 2    :   Location of the doublet site
-        self.rad2 = rad2            # Radius 2      :   Radius of the doublet site's tangential sphere
+        self.doublet = doublet        # Doublet       :   Whether the vertex is a doublet
+        self.d_type = None            # Doublet type  :   Doublet type it is: 3 edges, 3 surfs or two edges, one surf
+        self.loc2 = loc2              # Location 2    :   Location of the doublet site
+        self.rad2 = rad2              # Radius 2      :   Radius of the doublet site's tangential sphere
 
-        self.flat_faced = False     # Flat Faced?   :   Was this vertex constructed with flat faces in mind?
-        self.ff_atoms = None        # ^ FF Atoms    :   Holds the location and radius for the atoms
+        self.flat_faced = flat_faces  # Flat Faced?   :   Was this vertex constructed with flat faces in mind?
+        self.num_edges = 0
+
+        # If the vertex is mature enough to be calculated, create and sort its indices
+        if self.net is not None and self.atoms is not None:
+            self.ndx = [atom.num for atom in self.atoms]
+            self.ndx.sort()
+
 
     # Calculate vertex function. Takes in 4 atoms, calculates the loc and rad of the inscribed sphere and adds the
     def calc_vert(self):
-        # If the vertex is mature enough to be calculated, create and sort its indices
-        if self.net is not None:
-            self.ndx = [self.net.atoms.index(atom) for atom in self.atoms]
-            self.ndx.sort()
 
         # The real location and radius of the base sphere
         locs = np.array(self.atoms[0].loc), np.array(self.atoms[1].loc), np.array(self.atoms[2].loc), \
