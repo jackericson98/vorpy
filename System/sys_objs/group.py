@@ -272,7 +272,16 @@ class Group:
     def exports(self, atoms=False, shell=False, fill=False, surfaces=False, layers=False, num_layers=50, info=False, iface=False):
         # Create the output directory inside the system's directory
         if self.dir is None:
-            self.dir = self.sys.dir + "/" + self.name
+            i = 1
+            my_dir = self.sys.dir + "/" + self.name
+            first = True
+            while os.path.exists(my_dir):
+                if first:
+                    my_dir += "__"
+                    first = False
+                my_dir = my_dir[:-(1 + len(str(i)))] + '_' + str(i)
+                i += 1
+            self.dir = my_dir
             os.mkdir(self.dir)
         os.chdir(self.dir)
         # If the user wants to export the atoms for the group
