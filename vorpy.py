@@ -16,8 +16,7 @@ def check_input():
     # Split it up by the spaces
     usr_npt = usr_npt.split()
     # Check to see if the initial input is a command
-    print(usr_npt[0].lower())
-    if len(usr_npt) == 0 or usr_npt[0].lower() not in my_commands:
+    if len(usr_npt) == 0 or usr_npt[0] not in my_commands:
         invalid_input(usr_npt)
         return True
 
@@ -25,7 +24,6 @@ def check_input():
 
     # Check if the user's input is in loads
     if usr_npt[0].lower() in load_cmds:
-        print(usr_npt)
         my_sys = load(sys=sys, usr_npt=usr_npt)
         if my_sys is not None:
             sys = my_sys
@@ -59,11 +57,12 @@ if __name__ == '__main__':
     print("Welcome to vorpy. For assistance type \'h\'. To quit type \'q\'")
     # Create the system
     sys = System()
+    # Set up the running variable
+    running = True
     # Run the program
-    while True:
+    while running:
         # create_header(mySys)
         running = check_input()
         if type(running) is not bool:
             sys = running
-        else:
-            break
+            running = True

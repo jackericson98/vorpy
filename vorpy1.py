@@ -34,9 +34,6 @@ def check_input():
     # Check if the user's input is in builds
     elif usr_npt[0].lower() in build_cmds:
         build(sys=sys)
-    # Check if the user's input is in groups
-    elif usr_npt[0].lower() in group_cmds:
-        group(sys=sys, usr_npt=usr_npt)
     # Check if the user's input is in exports
     elif usr_npt[0].lower() in export_cmds:
         export(sys=sys, usr_npt=usr_npt)
