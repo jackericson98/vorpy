@@ -231,7 +231,7 @@ def export_net(net, output_surfs=True):
                             [None] * (3 - len(e_surfs)))
 
         # Create a surfaces header
-        writer.writerow(["Surface", "File", "Surface Area", "Curvature", "Atom 1", "Atom 2", "Function A", "Function B",
+        writer.writerow(["Surface", "File", "Resolution", "Surface Area", "Curvature", "Atom 1", "Atom 2", "Function A", "Function B",
                          "Function C", "Function D", "Function E", "Function F", "Function G", "Function H",
                          "Function I", "Function J", "Function K", "Function d1", "Function d2", "Function d3"])
         # Write the connections and surface and points range information for each edge in the network
@@ -240,10 +240,10 @@ def export_net(net, output_surfs=True):
             surf = net.surfs[i]
             # Get the file address for the output points
             file_address = ""
-            if output_surfs and surf.points is not None:
+            if surf.points is not None:
                 file_address = "/surfs/" + "_".join([str(_) for _ in surf.ndx]) + ".off"
             # Write the surface information
-            writer.writerow([i, file_address, surf.sa, surf.curv, surf.ndx[0], surf.ndx[1]] + list(surf.func[:11]) + list(surf.func[11]))
+            writer.writerow([i, file_address, surf.res, surf.sa, surf.curv, surf.ndx[0], surf.ndx[1]] + list(surf.func[:11]) + [surf.func[11], surf.res])
         # Check to see if the surfaces have been requested
         if output_surfs and net.build_surfs:
             # Create a surfaces folder and change to it
