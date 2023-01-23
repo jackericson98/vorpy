@@ -240,7 +240,7 @@ def read_net(sys, file=None):
         sys.net.calc_box()
         # Add the vertices
         for i in range(3, 3 + net_verts):
-            print("\rloading vertices - {}%".format(round((i - 3) / net_verts, 2)), end="")
+            print("\rloading vertices - {}%".format(round(100 * (i - 3) / net_verts, 2)), end="")
             vert = sys.net.verts[i - 3]
             vert.loc = [float(_) for _ in read_file[i][1:4]]
             vert.rad = float(read_file[i][4])
@@ -257,7 +257,7 @@ def read_net(sys, file=None):
                 surf.verts.append(vert)
         # Add the edges
         for i in range(4 + net_verts, 4 + net_verts + net_edges):
-            print("\rloading edges - {}%".format(round((i - 4 - net_verts) / net_edges, 2)), end="")
+            print("\rloading edges - {}%".format(round(100 * (i - 4 - net_verts) / net_edges, 2)), end="")
             edge = sys.net.edges[i - 4 - net_verts]
             edge.point_refs = [int(_) for _ in read_file[i][1:4] if _ != '']
             edge.atoms = [sys.atoms[int(_)] for _ in read_file[i][4:7]]
@@ -273,14 +273,16 @@ def read_net(sys, file=None):
         # Add the surfaces
         # noinspection PyTypeChecker
         for i in range(5 + net_verts + net_edges, 5 + net_verts + net_edges + net_surfs):
-            print("\rloading surfaces - {}%".format(round(i - 3 / net_verts, 2)))
+            print("\rloading surfaces - {}%".format(round(100 * (i - 5 - net_verts - net_edges) / net_surfs, 2)), end="")
             surf = sys.net.surfs[i - 5 - net_verts - net_edges]
-            surf.atoms = [sys.atoms[int(_)] for _ in read_file[i][4:6]]
-            surf.ndx = [int(_) for _ in read_file[i][4:6]]
+            surf.atoms = [sys.atoms[int(_)] for _ in read_file[i][5:7]]
+            surf.ndx = [int(_) for _ in read_file[i][5:7]]
             surf.file = read_file[i][1]
-            surf.sa = float(read_file[i][2])
-            surf.curv = float(read_file[i][3])
-            surf.func = [float(_) for _ in read_file[i][5:16]] + [[float(_) for _ in read_file[i][16:]]]
+            surf.res = float(read_file[i][2])
+            surf.sa = float(read_file[i][3])
+            if read_file[i][4].isdigit():
+                surf.curv = float(read_file[i][4])
+            surf.func = [float(_) for _ in read_file[i][7:16]] + [[float(_) for _ in read_file[i][16:]]]
             for atom in surf.atoms:
                 atom.surfs.append(surf)
     # Set the network to connected
