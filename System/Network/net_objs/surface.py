@@ -88,28 +88,29 @@ class Surface:
                     break
             else:
                 return
+
         # Read an off file
         if file_address[-3:].lower() == 'off':
             # Open the file
-            with open(file, 'r') as my_file:
+            with open(file_address, 'r') as my_file:
                 # Read the lines
                 file_array = my_file.readlines()
                 # Get the number of points and triangles
-                num_points, num_tris = [int(_) for _ in file_array[1].split()[1:]]
+                num_points, num_tris = [int(_) for _ in file_array[1].split()[:2]]
                 # Add the points
                 self.points = []
                 for i in range(4, num_points + 4):
                     line = file_array[i].split()
-                    self.points.append([float(_) for _ in line[1:]])
+                    self.points.append([float(_) for _ in line])
                 # Add the tris
                 self.tris = []
                 for i in range(4 + num_points, 4 + num_points + num_tris):
                     line = file_array[i].split()
-                    self.tris.append([int(_) for _ in line[1:]])
+                    self.tris.append([int(_) for _ in line[1:4]])
         # Read a comma separated file surface file
         elif file_address[-3:].lower() == 'csv':
             # Open the file
-            with open(file, 'r') as my_file:
+            with open(file_address, 'r') as my_file:
                 # Get the file element array to read
                 read_file = list(csv.reader(my_file, delimiter=","))
                 # Get the number of points and triangles
@@ -150,6 +151,11 @@ class Surface:
         if flat is None:
             # Check if the surface is to be flat
             self.flat = flat
+        # Check to see if the file exists
+        if self.file is not None:
+            self.read_file()
+            if self.points is not None and len(self.points) > 1:
+                return
         # Set the resolution value that the surface is built with
         if res is None:
             res = self.net.surf_res
