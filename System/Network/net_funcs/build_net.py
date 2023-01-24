@@ -106,7 +106,7 @@ def build(net, get_edges=True, get_surfs=True):
         net.surfs = []
 
     # Fill in the doublets and set their outer edges
-    doublify(net, get_edges=get_edges, get_surfs=get_surfs)
+    doublify(net, get_edges=get_edges)
 
     ################################################# Create the edges #################################################
 
