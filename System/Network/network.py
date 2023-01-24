@@ -2,6 +2,7 @@ import time
 from System.Network.net_funcs.find_verts import *
 from System.Network.net_funcs.build_net import *
 from System.Network.net_funcs.process_net import *
+from System.Network.net_funcs.find_flat_verts import *
 
 
 class Network:
@@ -103,12 +104,11 @@ class Network:
             # Add the box to the atom
             atom.box = box_ndxs
 
-    def get_atoms(self, cells, reach, exterior=False):
+    def get_atoms(self, cells, reach):
         """
         Takes in the cells and the number of additional cells to search and returns an atom list
         :param cells: The initial boxes in the network to stem from
         :param reach: The number of cells out from the initial set of cells to search
-        :param exterior: Only get the exterior atoms
         :return:
         """
         # Get the min and max of the cells
@@ -122,36 +122,32 @@ class Network:
                     ndx_min[i] = cell[i]
                 if cell[i] > ndx_max[i]:
                     ndx_max[i] = cell[i]
+
+        mins = [-reach + _ + 1 for _ in ndx_min]
+        maxs = [reach + _ for _ in ndx_max]
+        my_mins = [_ if 0 < _ else 0 for _ in mins]
+        my_maxs = [maxs[i] if maxs[i] < len(self.sub_boxes[i]) else len(self.sub_boxes[i]) - 1 for i in range(3)]
         # Set the initial search parameters to the given cells
-        xs = [x for x in range(max(0, -reach + ndx_min[0] + 1), reach + ndx_max[0])]
-        ys = [y for y in range(max(0, -reach + ndx_min[1] + 1), reach + ndx_max[1])]
-        zs = [z for z in range(max(0, -reach + ndx_min[2] + 1), reach + ndx_max[2])]
+        xs, ys, zs = [range(my_mins[i], my_maxs[i]) for i in range(3)]
         atoms = []
         # Go through each box in the range given and add the atoms
         for i in xs:
             for j in ys:
                 for k in zs:
-                    # If the exclusive parameter was set we only want the outer shell, skip none of the indices are max
-                    if exterior and abs(i) != reach and abs(j) != reach and abs(k) != reach:
-                        continue
-                    # Easy way around hitting the edge of the box
-                    try:
-                        # Add the atoms
-                        atoms += self.sub_boxes[i][j][k]
-                        # Add a little catch to not go forever
-                        if len(atoms) >= len(self.atoms):
-                            return self.atoms
-                    except IndexError:
-                        continue
+                    # Add the atoms
+                    atoms += self.sub_boxes[i][j][k]
+                    # Add a little catch to not go forever
+                    if len(atoms) >= len(self.atoms):
+                        return self.atoms.copy()
         return atoms
 
-    def connect(self):
+    def connect(self, get_edges=True, get_surfs=True):
         """
         Connects the network using the functions in the build_net.py file
         :return:
         """
         print("\rconnecting network", end="")
-        build(self)
+        build(self, get_edges=get_edges, get_surfs=get_surfs)
 
     def find_verts(self, time_start=None):
         """
@@ -160,11 +156,21 @@ class Network:
         """
         # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
         self.atom_ndxs = [i for i in range(len(self.atoms))]
-        # Do an initial sweep
-        find_verts(self)
-        # Check for disconnects in the network
-        while len(self.atom_ndxs) > 0:
-            find_verts(self, a0=self.atoms[self.atom_ndxs.pop()])
+        # Find curved surfaces verts
+        if not self.flat_surfs:
+            # Do an initial sweep
+            find_verts(self)
+            # Check for disconnects in the network
+            while len(self.atom_ndxs) > 0:
+                find_verts(self, a0=self.atoms[self.atom_ndxs.pop()])
+
+        # Find flat surfaces vertices
+        else:
+            # Do an initial sweep
+            ffind_verts(self)
+            # Check for disconnects in the network
+            while len(self.atom_ndxs) > 0:
+                ffind_verts(self, a0=self.atoms[self.atom_ndxs.pop()])
         # Clear the print statement
         print("\r                                        ", end="")
         # Bit of code for timing the vertex building process
