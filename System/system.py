@@ -361,7 +361,7 @@ class System:
         if no_sol_network_object:
             # Create the group
             no_sol = Group(sys=self, mols=self.mols[:-1], name=self.name + "_shell")
-            no_sol.exports(shell=True, info=info)
+            no_sol.exports(shell=True, info=True)
         # If the information is requested, export it
         if info:
             os.chdir(self.dir + "/sys")
