@@ -94,7 +94,7 @@ def plot_verts(verts, spheres=False, fig=None, ax=None, Show=False, dfo=None, gr
         # Plot the point
         ax.scatter(verts[i].loc[0], verts[i].loc[1], verts[i].loc[2], c=colors[i])
     # Plot the inscribed spheres
-    if spheres:
+    if spheres and not verts[0].flat_faced:
         spheres = []
         for i in range(len(verts)):
             spheres.append([verts[i].loc, verts[i].rad])
