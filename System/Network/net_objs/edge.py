@@ -5,11 +5,11 @@ from System.Network.net_objs.surface import Surface
 class Edge:
     """Edge object. Used to build the network and calculate the surfaces"""
     def __init__(self, atoms=None, net=None, verts=None, surfs=None, doublet=False, points=None, loc=None, rad=None,
-                 pv0=None, pv1=None, ndx=None, load_ndxs=None, point_refs=None):
+                 pv0=None, pv1=None, ndx=None, load_ndxs=None, point_refs=None, straight=False):
 
         # If no network was given have a catch
         if net is not None and net.atoms is not None and atoms is not None:
-            ndx = [net.atoms.index(atom) for atom in atoms]
+            ndx = [atom.num for atom in atoms]
             ndx.sort()
         self.ndx = ndx                   # Index         :   Indices of the atoms of the surface
         self.net = net                   # Network       :   Network of the System
@@ -29,7 +29,7 @@ class Edge:
         self.loc2 = None                 # Loc2          :   Allows edges to be checked like vertices
 
         self.ref = None                  # Reference     :   Tuple holding a surface and a range for efficient storage
-        self.straight = False            # Straight edge :   Straight edge or not
+        self.straight = straight         # Straight edge :   Straight edge or not
 
     # Get location method. Calculates the circle made between the atoms
     def get_loc(self):
@@ -118,6 +118,9 @@ class Edge:
         self.get_loc()
         # Get the pvals
         self.find_pvals()
+        if straight:
+            self.points = [self.pv0, self.pv1]
+            return
         # Reset the edges points
         self.points = []
         # Check to see if a minimum distance has been provided
