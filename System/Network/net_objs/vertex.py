@@ -1,4 +1,5 @@
 from System.sys_funcs.calcs import *
+from numba import njit
 
 
 class Vertex:
@@ -37,16 +38,16 @@ class Vertex:
         # The real location and radius of the base sphere
         locs = np.array(self.atoms[0].loc), np.array(self.atoms[1].loc), np.array(self.atoms[2].loc), \
                np.array(self.atoms[3].loc)
-        r0, R2, R3, R4 = self.atoms[0].rad, self.atoms[1].rad, self.atoms[2].rad, self.atoms[3].rad
+        r0, r1, r2, r3 = self.atoms[0].rad, self.atoms[1].rad, self.atoms[2].rad, self.atoms[3].rad
         r0_2 = r0 ** 2
         # Find the recalculated location of the atoms
         l0, l1, l2, l3 = locs[0], locs[1] - locs[0], locs[2] - locs[0], locs[3] - locs[0]
         # Calculate our System of linear equations coefficients
-        a1, b1, c1, d1, f1 = 2 * l1[0], 2 * l1[1], 2 * l1[2], 2 * (R2 - r0), r0_2 - R2 ** 2 + l1[0] ** 2 + l1[
+        a1, b1, c1, d1, f1 = 2 * l1[0], 2 * l1[1], 2 * l1[2], 2 * (r1 - r0), r0_2 - r1 ** 2 + l1[0] ** 2 + l1[
             1] ** 2 + l1[2] ** 2
-        a2, b2, c2, d2, f2 = 2 * l2[0], 2 * l2[1], 2 * l2[2], 2 * (R3 - r0), r0_2 - R3 ** 2 + l2[0] ** 2 + l2[
+        a2, b2, c2, d2, f2 = 2 * l2[0], 2 * l2[1], 2 * l2[2], 2 * (r2 - r0), r0_2 - r2 ** 2 + l2[0] ** 2 + l2[
             1] ** 2 + l2[2] ** 2
-        a3, b3, c3, d3, f3 = 2 * l3[0], 2 * l3[1], 2 * l3[2], 2 * (R4 - r0), r0_2 - R4 ** 2 + l3[0] ** 2 + l3[
+        a3, b3, c3, d3, f3 = 2 * l3[0], 2 * l3[1], 2 * l3[2], 2 * (r3 - r0), r0_2 - r3 ** 2 + l3[0] ** 2 + l3[
             1] ** 2 + l3[2] ** 2
         # Calculate the F values
         F = a1 * b2 * c3 - a1 * b3 * c2 - a2 * b1 * c3 + a2 * b3 * c1 + a3 * b1 * c2 - a3 * b2 * c1
@@ -64,42 +65,16 @@ class Vertex:
             m_rank = np.linalg.matrix_rank(np.array(my_mtx[:-1]))
             if m_rank != 3:
                 f_rank = np.linalg.matrix_rank(np.array(my_mtx))
-        # # The real location and radius of the base sphere
-        # l0 = np.array(self.atoms[0].loc)
-        # locs = np.array([self.atoms[0].loc] + [np.array(_.loc) - l0 for _ in self.atoms[1:]])
-        # # Get the radii
-        # r0 = self.atoms[0].rad
-        # rads = np.array([self.atoms[0].rad, self.atoms[1].rad, self.atoms[2].rad, self.atoms[3].rad])
-        # # Calculate our System of linear equations coefficients
-        # as_ = 2 * locs[1:, 0]
-        # bs = 2 * locs[1:, 1]
-        # cs = 2 * locs[1:, 2]
-        # ds = 2 * np.array([_ - r0 for _ in rads[1:]])
-        # fs = [r0 ** 2 - rads[i] ** 2 + sum([_ ** 2 for _ in locs[i]]) for i in range(1, 4)]
-        # # Calculate the ranks of the matrices
-        # m_rank = np.linalg.matrix_rank([as_, bs, cs, ds])
-        # f_rank = np.linalg.matrix_rank([as_, bs, cs, ds, fs])
-        #
-        # F = np.linalg.det(np.array([as_, bs, cs]))
-        # F_2 = F ** 2
-        # F10 = np.linalg.det(np.array([fs, bs, cs]))
-        # F11 = np.linalg.det(np.array([-ds, bs, cs]))
-        # F20 = np.linalg.det(np.array([as_, fs, cs]))
-        # F21 = np.linalg.det(np.array([as_, -ds, cs]))
-        # F30 = np.linalg.det(np.array([as_, bs, fs]))
-        # F31 = np.linalg.det(np.array([as_, bs, -ds]))
-
-
         verts = []
         xs, ys, zs, Rs = [], [], [], []
         # Case 1:
-        if F != 0 and m_rank == 3 and f_rank == 3:
+        if F != 0:
             # Calculate the radius polynomial coefficients
             a = ((F11 ** 2 + F21 ** 2 + F31 ** 2) / F_2) - 1
             b = 2 * (((F10 * F11 + F20 * F21 + F30 * F31) / F_2) - r0)
             c = ((F10 ** 2 + F20 ** 2 + F30 ** 2) / F_2) - r0 ** 2
             # If the discriminant is positive, find the real positive roots of the quadratic
-            if round(-4 * a * c + b ** 2, 10) >= 0:
+            if -4 * a * c + b ** 2 >= 0:
                 Rs = [R for R in np.roots([a, b, c]) if np.isreal(R)]
             # Instantiate the verts array
             verts = []
@@ -109,7 +84,7 @@ class Vertex:
                 # Move the vertex back to the actual location of the atoms
                 verts.append([[x + l0[0], y + l0[1], z + l0[2]], R])
         # Case 2:
-        elif np.linalg.matrix_rank([[a1, a2, a3], [b1, b2, b3], [c1, c2, c3]]) == 2 and m_rank == 3 and f_rank == 3 and F > 0:
+        elif a1 * b2 - a2 * b1 != 0 and m_rank == 3 and f_rank == 3 and F > 0:
             # Calculate the _ polynomial coefficients
             a = F_2 + F11 ** 2 + F21 ** 2 - F31 ** 2
             b = 2 * (F10 * F11 + F20 * F21 - F30 * F31 - F * F31 * r0)
@@ -141,13 +116,14 @@ class Vertex:
                     R, y, z = F10 / F + x * F11 / F, F20 / F + x * F21 / F, F30 / F + x * F31 / F
                     # Move the vertex back to the actual location of the atoms
                     verts.append([[x + l0[0], y + l0[1], z + l0[2]], R])
+        loc, rad, loc2, rad2 = None, None, None, None
         # If one root exists return it
         if len(verts) == 1:
-            self.loc, self.rad = verts[0][0], verts[0][1]
+            loc, rad = verts[0][0], verts[0][1]
         # If two roots exist:
         elif len(verts) == 2:
             # Get the largest atom's radius
-            max_atom_rad = max([atom.rad for atom in self.atoms])
+            max_atom_rad = max([r0, r1, r2, r3])
             # Set the locations and radii, so that the smaller vertex is first
             if abs(verts[0][1]) > abs(verts[1][1]):
                 verts[0], verts[1] = verts[1], verts[0]
@@ -156,11 +132,14 @@ class Vertex:
             # If either radii are negative (I'm not sure if this is possible, but let's catch it anyway)
             if rads[0] < 0 or rads[1] < 0:
                 if rads[0] > 0 or abs(rads[0]) < max_atom_rad:
-                    self.loc, self.rad = locs[0], rads[0]
+                    loc, rad = locs[0], rads[0]
                     if rads[1] > 0 or abs(rads[1]) < max_atom_rad:
-                        self.loc2, self.rad2 = locs[1], rads[1]
+                        loc2, rad2 = locs[1], rads[1]
                 elif rads[1] > 0 or abs(rads[1]) < max_atom_rad:
-                    self.loc, self.rad = locs[1], rads[1]
+                    loc, rad = locs[1], rads[1]
             # If both radii are positive we have a doublet. Choose the smaller vertex to be the lead vertex and set loc2
             else:
-                self.loc, self.loc2, self.rad, self.rad2 = locs[0], locs[1], rads[0], rads[1]
+                loc, loc2, rad, rad2 = locs[0], locs[1], rads[0], rads[1]
+        self.loc, self.rad, self.loc2, self.rad2 = loc, rad, loc2, rad2
+# @njit
+# def calc_Fs()
