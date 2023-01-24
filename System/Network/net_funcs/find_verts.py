@@ -34,7 +34,7 @@ def find_v0(net, a0=None):
         inc = 0
         # Get the 20 closest atoms to a0 and the current a1
         if len(net.atoms) < 20:
-            a2s[j] = net.atoms
+            a2s[j] = net.atoms.copy()
         else:
             while len(a2s[j]) < 20:
                 a2s[j] = net.get_atoms([[mid, mid, mid]], inc)
