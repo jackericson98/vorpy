@@ -60,6 +60,7 @@ class Atom:
         self.verts = []             # Vertices     :   List of Vertex type objects
         self.surfs = []             # Surfaces     :   List of Surface type objects
         self.edges = []             # Edges        :   List of Edge type objects
+        self.nbors = []             # Neighbors    :   List of atoms that share surfaces with the atom
         self.load_ndxs = load_ndxs  # Load indices :   Holds the object indices for when the system is loaded back in
 
         # Inherent traits
