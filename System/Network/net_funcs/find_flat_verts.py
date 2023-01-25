@@ -1,6 +1,7 @@
-from System.sys_funcs.calcs import calc_circ, np, calc_dist, ndx_search
+from System.sys_funcs.calcs import calc_circ, np, calc_dist, ndx_search, calc_angle
 from System.Network.net_objs.vertex import Vertex
 from System.Network.net_objs.edge import Edge
+from itertools import combinations
 
 """
 Throw an f in front of each function to differentiate when importing. Functions needed:
@@ -108,7 +109,7 @@ def ffind_site(edge_atoms, net, vn_1):
     # Get the closest atoms around
     test_atoms = net.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], 5)
     # Set up the list of distances
-    min_dist, my_vert, my_vert_ndx = np.inf, None, None
+    min_max_angle, my_vert, my_vert_ndx = 2 * np.pi, None, None
     new_test_atoms = []
     new_vert_ndxs = []
     for an in test_atoms:
@@ -138,11 +139,25 @@ def ffind_site(edge_atoms, net, vn_1):
                 outside = True
         if outside:
             continue
-        # Find the distance between the new vert and the old vert
-        vert_dist = calc_dist(vn_1.loc, vert_loc)
-        if vert_dist < min_dist:
+        # Get the new edge vectors
+        edge_vectors = [np.array(vn_1.loc) - np.array(vert_loc)]
+        edges = [[edge_atoms[j], edge_atoms[(j + 1) % 3], an] for j in range(3)]
+        for edge in edges:
+            my_circ = calc_circ(edge)
+            edge_vectors.append(np.array(my_circ[0]) - np.array(vert_loc))
+        normed_vectors = []
+        for vector in edge_vectors:
+            normed_vectors.append(vector/np.linalg.norm(vector))
+        # Get the angles of the edges in relation to each other
+        for combo in combinations(normed_vectors, 2):
+            my_ang = calc_angle(combo[0], combo[1])
+            if my_ang > min_max_angle:
+                break
+        else:
+            # Find the distance between the new vert and the old ver
             my_vert = Vertex(atoms=edge_atoms + [an], net=net, location=vert_loc, radius=0, flat_faces=True)
             my_vert_ndx = vert_ndx
+
     # Check to see if the vertex is None
     if my_vert is not None:
         return my_vert, my_vert_ndx
@@ -203,5 +218,3 @@ def ffind_verts(net, a0=None):
                 atom_ndx = net.atoms.index(atom)
                 if atom_ndx in net.atom_ndxs:
                     net.atom_ndxs.remove(atom_ndx)
-
-    print(*[_.ndx for _ in net.verts])

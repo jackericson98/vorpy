@@ -123,22 +123,22 @@ class Network:
                 if cell[i] > ndx_max[i]:
                     ndx_max[i] = cell[i]
 
-        mins = [-reach + _ + 1 for _ in ndx_min]
-        maxs = [reach + _ for _ in ndx_max]
-        my_mins = [_ if 0 < _ else 0 for _ in mins]
-        my_maxs = [maxs[i] if maxs[i] < len(self.sub_boxes[i]) else len(self.sub_boxes[i]) - 1 for i in range(3)]
-        # Set the initial search parameters to the given cells
-        xs, ys, zs = [range(my_mins[i], my_maxs[i]) for i in range(3)]
+        xs = [x for x in range(max(0, -reach + ndx_min[0] + 1), reach + ndx_max[0])]
+        ys = [y for y in range(max(0, -reach + ndx_min[1] + 1), reach + ndx_max[1])]
+        zs = [z for z in range(max(0, -reach + ndx_min[2] + 1), reach + ndx_max[2])]
         atoms = []
         # Go through each box in the range given and add the atoms
         for i in xs:
             for j in ys:
                 for k in zs:
-                    # Add the atoms
-                    atoms += self.sub_boxes[i][j][k]
                     # Add a little catch to not go forever
                     if len(atoms) >= len(self.atoms):
                         return self.atoms.copy()
+                    try:
+                        # Add the atoms
+                        atoms += self.sub_boxes[i][j][k]
+                    except IndexError:
+                        pass
         return atoms
 
     def connect(self, get_edges=True, get_surfs=True):

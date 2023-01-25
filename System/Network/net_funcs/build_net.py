@@ -150,7 +150,7 @@ def build(net, get_edges=True, get_surfs=True):
                 atom.edges.append(my_edge)
             for vert in verts:
                 vert.edges.append(my_edge)
-
+        print(*[_.ndx for _ in net.edges])
 
     ################################################### Create the surfaces ############################################
 
