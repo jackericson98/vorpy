@@ -70,10 +70,14 @@ class Group:
             elif surf.points is None or surf.tris is None or len(surf.points) <= 2 or len(surf.tris) == 0:
                 # If it is possible to load the file
                 if surf.file is not None and surf.file not in ["", " "]:
-                    surf.load_file()
+                    test = surf.read_file()
+                    if test is None:
+                        build_surfs.append(surf)
                 # Worst case, add the surface to the list of surfaces to be built
                 else:
                     build_surfs.append(surf)
+            else:
+                build_surfs.append(surf)
         # Build the surfaces
         for i in range(len(build_surfs)):
             print("\rbuilding " + name + " surfaces " + " " * (len(str(len(surfs) - 1)) - len(str(i + 1))) + str(i + 1)

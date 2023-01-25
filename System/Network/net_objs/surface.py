@@ -80,14 +80,7 @@ class Surface:
             file_address = self.net.sys.dir + file
         # Last brute force a location if the file name is incorrect
         else:
-            pot_surf_dirs = [_[0] for _ in os.walk(os.path.dirname(self.net.sys.net_file))] + \
-                            [_[0] for _ in os.walk(self.net.sys.dir)]
-            for my_dir in pot_surf_dirs:
-                if os.path.exists(my_dir + "/" + "_".join([str(_) for _ in self.ndx]) + ".off"):
-                    file_address = my_dir + "/" + "_".join([str(_) for _ in self.ndx]) + ".off"
-                    break
-            else:
-                return
+            return
 
         # Read an off file
         if file_address[-3:].lower() == 'off':
