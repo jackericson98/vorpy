@@ -13,7 +13,7 @@ def fget_circ_rad(dist, r0, r1):
 
 def ffind_near_atoms(net, a0, inc=0):
     # Get the closest atoms
-    near_atoms = net.get_atoms(cells=a0.box, reach=inc)
+    near_atoms = net.get_atoms(cells=[a0.box], reach=inc)
     dists = []
     a0_array = np.array(a0.loc)
     # Get the atoms distance from a0
@@ -75,21 +75,22 @@ def expand_circle(net, s0, surfs, max_dist=None):
         d0, d1 = np.dot(s0.rn, s0.center), np.dot(surfs[i].rn, surfs[i].center)
         # Get the parameterized line equations
         denominator = a1 * b0 - a0 * b1
+        if denominator == 0:
+            continue
         xt = [(-b1 * c0 + b0 * c1) / denominator, (-b1 * d0 + b0 * d1) / denominator]
         yt = [(a1 * c0 - a0 * c1) / denominator, (a1 * d0 - a0 * d1) / denominator]
         zt = [1, 0]
-
         # Get the normal to the line
         r = np.array([_[0] for _ in [xt, yt, zt]])
         l_vctr = r / np.linalg.norm(r)
         # Find an arbitrary point on the line (t = 0)
         pa = np.array([_[1] for _ in [xt, yt, zt]])
         # Get the vector between this and the center of the circle
-        pac = np.array(c0[1]) - pa
+        pac = np.array(s0.center) - pa
         # Get the center of the line by dotting the atom's location onto it
         l_cntr = pa + l_vctr * np.dot(pac, l_vctr)
         # Check to see if the line center is too far away from the atom's location
-        l_dist = np.sqrt(sum(np.square(np.array(c0[0]) - np.array(l_cntr))))
+        l_dist = np.sqrt(sum(np.square(np.array(s0.center) - np.array(l_cntr))))
 
         if max_dist is not None and l_dist > max_dist:
             continue
@@ -105,40 +106,49 @@ def expand_circle(net, s0, surfs, max_dist=None):
 
 
 # Expand line function. Keeps expanding the given line until both sides intersect another line
-def expand_line(l0, lines, atoms, max_dist=np.inf):
+def expand_line(net, e0, edges, max_dist=np.inf):
     """
 
-    :param l0: iterable - baseline with a normalized vector along the line from the point closest to the base atom
-    :param lines: list - connecting check lines
+    :param net:
+    :param e0: iterable - baseline with a normalized vector along the line from the point closest to the base atom
+    :param edges: list - connecting check lines
+    :param max_dist:
     :return: two vertices or 1 vertex and None
     """
     # Set up the vertex locations and radii lists
     neg_vert, pos_vert, neg_vert_dist, pos_vert_dist = None, None, max_dist, -max_dist
     # Go through the lines in the list and
-    for i in range(len(lines)):
+    for i in range(len(edges)):
+        # Get the edge we are comparing against
+        my_edge = edges.pop(0)
         # Get the vector between the line's center points from l0
-        rx0, ry0, rz0, x0, y0, z0 = l0[0] + l0[1]
-        rx1, ry1, rz1, x1, y1, z1 = l0[0] + l0[1]
+        rx0, ry0, rz0 = e0.rn
+        x0, y0, z0 = e0.loc
+        rx1, ry1, rz1 = my_edge.rn
+        x1, y1, z1 = my_edge.loc
         # Calculate the intersecting point between the two lines
         t1 = (ry0 * x0 + ry0 * x1 - rx0 * y0 - rx0 * y1)
         t0 = (x0 + x1) / rx0 + rx1 * t1 / rx0
         # Get our x, y, z, variables
         x, y, z = rx0 * t0 + x0, ry0 * t0 + y0, rz0 * t0 + z0
         # Calculate the distance between this and l0
-        my_dist = np.sqrt(sum(np.square(np.array([x, y, z]) - np.array(l0[1]))))
+        my_dist = np.sqrt(sum(np.square(np.array([x, y, z]) - np.array(e0.loc))))
+        if my_dist > max_dist:
+            continue
         # Add it to the correct bin
-        if 0 <= t0 and my_dist < pos_vert_dist:
+        elif 0 <= t0 and my_dist < pos_vert_dist:
             # Check to see if the vertex is closer to the center of the edge or not
-            pos_vert = [x, y, z]
+            pos_vert = Vertex(net=net, location=[x, y, z], radius=my_dist)
             pos_vert_dist = my_dist
         elif 0 > t0 and my_dist < neg_vert_dist:
-            neg_vert = [x, y, z]
+            neg_vert = Vertex(net=net, location=[x, y, z], radius=my_dist)
             neg_vert_dist = my_dist
     # We should have the closest two vertices to this edge
     return pos_vert, neg_vert
 
 
 def ffind_verts(net, a0=None, max_dist=10):
+    net.verts = []
     # Get the starting atom
     if a0 is None:
         # Get a random atom
@@ -159,9 +169,8 @@ def ffind_verts(net, a0=None, max_dist=10):
         atoms = [_[0] for _ in search_atoms]
         # Get the surfaces
         my_surfs = expand_atom(net=net, a0=my_atom, dists=dists, atoms=atoms, max_dist=max_dist)
-        inc = 0
         # Keep looking for close atoms until the atom is complete or the distance is less than the max allowed
-        while not cell_complete or len(my_surfs) > 0:
+        while not cell_complete and len(my_surfs) > 0:
 
             # Get one of the
             my_surf = my_surfs.pop(0)
@@ -172,29 +181,38 @@ def ffind_verts(net, a0=None, max_dist=10):
             if len(net.surf_ndxs) < surf_ndx and net.surf_ndxs[surf_ndx] == ndx:
                 continue
             # Get the edges of the current surface
-            lines = expand_circle(net=net, s0=my_surf, surfs=my_surfs, max_dist=max_dist)
+            edges = expand_circle(net=net, s0=my_surf, surfs=my_surfs, max_dist=max_dist)
             # Start the lines while loop
             loop_complete = False
-            found_edges_ndxs = []
-            while not loop_complete or len(lines) == 0:
+            while not loop_complete and len(edges) > 0:
                 # Get the edge from the lines
-                l_vctr, l_cntr, l_atoms = lines.pop(0)
-                edge_ndx = sorted([_.ndx for _ in l_atoms])
+                my_edge = edges.pop(0)
                 # Search for previously found edge
-                line_ndx = ndx_search(net.edge_ndxs, edge_ndx)
-                if len(net.edge_ndxs) > line_ndx and net.edge_ndxs[line_ndx] == edge_ndx:
-                    found_edges_ndxs.append(edge_ndx)
+                line_ndx = ndx_search(net.edge_ndxs, my_edge.ndx)
+                if len(net.edge_ndxs) > line_ndx and net.edge_ndxs[line_ndx] == my_edge.ndx:
                     continue
                 # Get the vertices for the edge
-                vert_locs, vert_atoms = expand_line(a0, [l_vctr, l_cntr], my_atom.edges)
+                e_verts = expand_line(net=net, e0=my_edge, edges=edges, max_dist=max_dist)
+                # Check the vertices against the list of network vertices
+                for vert in e_verts:
+                    if vert is None:
+                        continue
+                    check_ndx = ndx_search(net.vert_ndxs, vert.ndx)
+                    if check_ndx >= len(net.vert_ndxs) or net.vert_ndxs[check_ndx] != vert.ndx:
+                        net.verts.insert(check_ndx, vert)
+                        net.vert_ndxs.insert(check_ndx, vert.ndx)
 
+
+                # Test to see if the loop is complete
 
 
             # Test to see if the cell is complete
 
 
 if __name__ == '__main__':
-    mySys = System(file='./Data/test_data/cube.pdb')
+    mySys = System(file='/Data/test_data/cube.pdb', root_dir='/Users/jackericson/PycharmProjects/vorpy')
     mySys.net = Network(atoms=mySys.atoms, sys=mySys)
+    mySys.net.sort_atoms()
     ffind_verts(mySys.net)
+    print(len(mySys.net.verts))
 
