@@ -8,7 +8,7 @@ from System.sys_objs.residue import Residue
 
 class System:
     def __init__(self, file=None, atoms=None, verts_file=None, network_file=None, index_file=None, frame_files=None,
-                 output_directory=None, gui=None):
+                 output_directory=None, gui=None, root_dir=None):
         """
         Class used to import files of all types and return a System
         :param file: Base system file address
@@ -51,7 +51,7 @@ class System:
         self.ndx_file = index_file          # Index file          :   File addresses for index file in GROMACS format
         self.frame_files = frame_files      # Frame files         :   Files storing atom movements
         self.dir = output_directory         # Output Directory    :   Output directory for the export files
-        self.vorpy_directory = os.getcwd()  # Vorpy Directory     :   Directory that vorpy is running out of
+        self.vpy_dir = root_dir             # Vorpy Directory     :   Directory that vorpy is running out of
 
         # Gui
         self.gui = gui                     # GUI                 :   GUI Vorpy object that can be updated through sys
@@ -110,7 +110,11 @@ class System:
         self.name = get_name(self.base_file)
         # Read PDB file
         if self.base_file[-3:] == "pdb":
-            self.atoms, self.data = read_pdb(self)
+            file_data = read_pdb(self)
+            if file_data is not None:
+                self.atoms, self.data = file_data
+            else:
+                return
         # Read CIF file
         elif self.base_file[-3:] == "cif":
             read_cif(self)

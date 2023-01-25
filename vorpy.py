@@ -1,3 +1,5 @@
+import os
+
 from System.system import *
 from Visualize.commands.build import *
 from Visualize.commands.export import *
@@ -56,7 +58,7 @@ if __name__ == '__main__':
     # Welcome introduction
     print("Welcome to vorpy. For assistance type \'h\'. To quit type \'q\'")
     # Create the system
-    sys = System()
+    sys = System(root_dir=os.getcwd())
     # Set up the running variable
     running = True
     # Run the program
