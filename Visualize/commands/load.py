@@ -39,7 +39,7 @@ def load(sys, usr_npt):
                 elif reset_sys.lower() in quits:
                     return
             else:
-                sys = System(file)
+                sys.load_sys(file=file)
                 # noinspection PyUnresolvedReferences
                 print(sys.name + " loaded - {} atoms, {} molecules, solute: {}"
                       .format(len(sys.atoms), len(sys.mols), sys.sol_name))
