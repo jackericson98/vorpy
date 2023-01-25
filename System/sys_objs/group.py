@@ -273,7 +273,6 @@ class Group:
             info.write("Surface Area: " + str(self.iface_sa))
             info.close()
 
-
     def exports(self, atoms=False, shell=False, fill=False, surfaces=False, layers=False, num_layers=50, info=False, iface=False):
         # Create the output directory inside the system's directory
         if self.dir is None:
@@ -298,7 +297,7 @@ class Group:
                 # Get the first layer
                 self.get_layers(max_layers=1)
                 # noinspection PyUnresolvedReferences
-                if self.layer_surfs is not None and len(self.layer_surfs) < 0:
+                if self.layer_surfs is not None and len(self.layer_surfs) > 0:
                     write_surfs(surfs=self.layer_surfs[0], file_name=self.name)
         # If the user wants a filled shell for the group
         if fill:

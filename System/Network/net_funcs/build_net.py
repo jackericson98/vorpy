@@ -140,15 +140,6 @@ def build(net, get_edges=True, get_surfs=True):
             # If the number of valid vertices for the edge is 1
             if len(verts) == 1:
                 continue
-            elif len(verts) >= 2:
-                new_verts = []
-                for vert1 in verts:
-                    for vert2 in verts:
-                        if vert1 == vert2:
-                            continue
-
-            else:
-                new_verts = verts
             # Create the edge
             my_edge = Edge(atoms=atoms, net=net, verts=verts, surfs=[])
             # Add the edge to the System
@@ -159,7 +150,7 @@ def build(net, get_edges=True, get_surfs=True):
                 atom.edges.append(my_edge)
             for vert in verts:
                 vert.edges.append(my_edge)
-    print(*[len(edge.verts) for edge in net.edges])
+
 
     ################################################### Create the surfaces ############################################
 
