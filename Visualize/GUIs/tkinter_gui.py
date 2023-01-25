@@ -279,7 +279,7 @@ class VorpyT:
         # Header
         tk.Label(self.export_selections_subfrm, text="Export Selections", font=("underlined bold", 20))\
             .grid(columnspan=3)
-        vpy_out_dir = self.sys.vorpy_directory + "/Data/User_data/"
+        vpy_out_dir = self.sys.vpy_dir + "/Data/User_data/"
         self.output_dir_str = tk.StringVar(self.main, vpy_out_dir[:12] + ' ... ' + vpy_out_dir[-12:])
         tk.Label(self.export_selections_subfrm, textvariable=self.output_dir_str).grid(row=1, columnspan=3, sticky="w")
         tk.Button(self.export_selections_subfrm, text="Browse", command=self.change_output_directory)\
