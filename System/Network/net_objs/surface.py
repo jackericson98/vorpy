@@ -7,7 +7,7 @@ import csv
 class Surface:
     """Surface object. Holds the mesh data. Used to analyze interfaces between atoms."""
     def __init__(self, atoms=None, net=None, edges=None, verts=None, doublet=False, points=None, tris=None, perimeter=None,
-                 rn=None, sa=0, curvature=None, function=None, load_ndxs=None, file=None, resolution=None):
+                 rn=None, sa=0, curvature=None, function=None, load_ndxs=None, file=None, resolution=None, center=None):
 
         # If no network was given have a catch
         self.ndx = None
@@ -35,7 +35,7 @@ class Surface:
         self.sa = sa                # Surface Area     : The surface area of the
         self.curv = curvature       # Curvature        : The curvature of the surface between the
         self.rn = rn                # Surface Normal   : Normal to the center of the surface
-        self.center = None          # Center           : Center point of the hyperboloid the surface is made from
+        self.center = center        # Center           : Center point of the hyperboloid the surface is made from
         self.com = None             # Center of mass   : The point toward which all building paths travel
         self.doublet = doublet      # Doublet          : Indicates whether a surface is a part of a doublet or not
         self.flat = False           # Flat             : Whether the surface is flat or not

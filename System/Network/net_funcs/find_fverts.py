@@ -1,6 +1,8 @@
 from System.system import System
 from System.Network.network import Network, Vertex
 from System.sys_funcs.calcs import calc_angle, np, ndx_search
+from System.Network.net_objs.surface import Surface
+from System.Network.net_objs.edge import Edge
 
 
 def fget_circ_rad(dist, r0, r1):
@@ -23,11 +25,9 @@ def ffind_near_atoms(net, a0, inc=0):
 
 
 # Expand atom function. Expands into the surrounding atoms, creating intersecting spheres -> circles
-def expand_atom(a0, atoms, dists, max_dist=None):
+def expand_atom(net, a0, atoms, dists, max_dist=None):
     # Set up the centers and rn lists
-    c_cntrs = []
-    c_vctrs = []
-    c_atoms = []
+    surfs = []
     # Go through the atoms in the list of atoms
     for i in range(len(atoms)):
         # Set up the atom
@@ -37,47 +37,47 @@ def expand_atom(a0, atoms, dists, max_dist=None):
             continue
         # If the center is out of range return
         if max_dist is not None and 0.5 * dists[i] > max_dist:
-            return c_cntrs, c_vctrs, c_atoms
+            return surfs
         # Get the vector between the atoms, the normal of that vector and the center
         r = np.array(a0.loc) - np.array(an.loc)
         rn = r / np.linalg.norm(r)
         center = np.array(an.loc) + (a0.rad + 0.5 * dists[i]) * rn
         # Add the centers and rns
-        c_cntrs.append(center)
-        c_vctrs.append(rn)
-        c_atoms.append([a0, an])
+        surfs.append(Surface(net=net, atoms=[a0, an], center=center, rn=rn))
     # Return a tuple
-    return c_vctrs, c_cntrs, c_atoms
+    return surfs
 
 
 # Expand circle function. Keeps expanding the given circle into surrounding circles providing overlapping lines
-def expand_circle(c0, c_vctrs, c_cntrs, max_dist=None):
+def expand_circle(net, s0, surfs, max_dist=None):
     """
     Expands the intersecting circle between two balloons until it meets another circle around the same atom
-    :param c0:
-    :param c_vctrs:
-    :param c_cntrs:
+    :param net:
+    :param s0:
+    :param surfs:
     :param max_dist:
     :return:
     """
     # Create the line vectors and centers lists
-    l_vctrs, l_cntrs, l_dists = [], [], []
+    l_vctrs, l_cntrs, l_dists, l_atoms = [], [], [], []
     # Go through the circles finding where they intersect
-    for i in range(len(c_vctrs)):
+    for i in range(len(surfs)):
         # Check to see if the c_vctr is the same as c0
-        if np.dot(c_vctrs[i], c0[0]) == 0:
+        if surfs[i].ndx == s0.ndx:
             continue
+        # Get the edge atom
+        ndx = [_ for _ in surfs[i].ndx if _ not in s0.ndx] + s0.ndx
+        ndx.sort()
         # Get the plane coefficients
-        a0, b0, c0 = c0[0]
-        a1, b1, c1 = c_vctrs[i]
+        a0, b0, c0 = s0.rn
+        a1, b1, c1 = surfs[i].rn
         # Get the offset
-        d0, d1 = np.dot(c0[0], c0[1]), np.dot(c_vctrs[i], c_cntrs[i][1])
+        d0, d1 = np.dot(s0.rn, s0.center), np.dot(surfs[i].rn, surfs[i].center)
         # Get the parameterized line equations
         denominator = a1 * b0 - a0 * b1
         xt = [(-b1 * c0 + b0 * c1) / denominator, (-b1 * d0 + b0 * d1) / denominator]
         yt = [(a1 * c0 - a0 * c1) / denominator, (a1 * d0 - a0 * d1) / denominator]
         zt = [1, 0]
-
 
         # Get the normal to the line
         r = np.array([_[0] for _ in [xt, yt, zt]])
@@ -97,9 +97,11 @@ def expand_circle(c0, c_vctrs, c_cntrs, max_dist=None):
         l_dists.append(l_dist)
         l_vctrs.append(l_vctr)
         l_cntrs.append(l_cntr)
+        l_atoms.append(ndx)
     # Sort the vectors and the centers by their distance from the atom
-    ls = [[d, v, c] for d, v, c in sorted(zip(l_dists, l_vctrs, l_cntrs), key=lambda triplet: triplet[0])]
-    return ls
+    ls = [[d, v, c, a] for d, v, c, a in sorted(zip(l_dists, l_vctrs, l_cntrs, l_atoms), key=lambda quad: quad[0])]
+    edges = [Edge(atoms=[net.atoms[_] for _ in ls[i][3]], rn=ls[i][1], loc=ls[i][2], dist=ls[i][0]) for i in range(len(ls))]
+    return edges
 
 
 # Expand line function. Keeps expanding the given line until both sides intersect another line
@@ -156,13 +158,13 @@ def ffind_verts(net, a0=None, max_dist=10):
         dists = [_[1] for _ in search_atoms]
         atoms = [_[0] for _ in search_atoms]
         # Get the surfaces
-        c_vctrs, c_cntrs, c_atoms = expand_atom(a0=my_atom, dists=dists, atoms=atoms, max_dist=max_dist)
+        my_surfs = expand_atom(net=net, a0=my_atom, dists=dists, atoms=atoms, max_dist=max_dist)
         inc = 0
         # Keep looking for close atoms until the atom is complete or the distance is less than the max allowed
-        while not cell_complete or len(c_vctrs) > 0:
+        while not cell_complete or len(my_surfs) > 0:
 
             # Get one of the
-            rn, c, atoms = c_vctrs.pop(0), c_cntrs.pop(0), c_atoms.pop(0)
+            my_surf = my_surfs.pop(0)
             ndx = sorted([_.num for _ in atoms])
             # Search to see if the atoms have been found before
             surf_ndx = ndx_search(net.surf_ndxs, ndx)
@@ -170,7 +172,7 @@ def ffind_verts(net, a0=None, max_dist=10):
             if len(net.surf_ndxs) < surf_ndx and net.surf_ndxs[surf_ndx] == ndx:
                 continue
             # Get the edges of the current surface
-            lines = expand_circle(c0=[rn, c], c_vctrs=c_vctrs, c_cntrs=c_cntrs, max_dist=max_dist)
+            lines = expand_circle(net=net, s0=my_surf, surfs=my_surfs, max_dist=max_dist)
             # Start the lines while loop
             loop_complete = False
             found_edges_ndxs = []
@@ -184,7 +186,7 @@ def ffind_verts(net, a0=None, max_dist=10):
                     found_edges_ndxs.append(edge_ndx)
                     continue
                 # Get the vertices for the edge
-                vert_locs, vert_atoms = expand_line([l_vctr, l_cntr], my_atom.edges)
+                vert_locs, vert_atoms = expand_line(a0, [l_vctr, l_cntr], my_atom.edges)
 
 
 

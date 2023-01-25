@@ -93,6 +93,8 @@ class Atom:
         vol = 0
         # Go through each surface on the atom
         for surf in self.surfs:
+            if surf.points is None or surf.tris is None:
+                surf.build()
             self.sa += surf.sa
             if surf.tris is None or len(surf.tris) == 0:
                 if surf.file is not None:

@@ -1,5 +1,4 @@
 from System.sys_funcs.calcs import *
-from numba import njit
 
 
 class Vertex:
@@ -30,7 +29,6 @@ class Vertex:
         if self.net is not None and self.atoms is not None:
             self.ndx = [atom.num for atom in self.atoms]
             self.ndx.sort()
-
 
     # Calculate vertex function. Takes in 4 atoms, calculates the loc and rad of the inscribed sphere and adds the
     def calc_vert(self):

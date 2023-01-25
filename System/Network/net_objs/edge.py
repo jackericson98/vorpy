@@ -5,7 +5,7 @@ from System.Network.net_objs.surface import Surface
 class Edge:
     """Edge object. Used to build the network and calculate the surfaces"""
     def __init__(self, atoms=None, net=None, verts=None, surfs=None, doublet=False, points=None, loc=None, rad=None,
-                 pv0=None, pv1=None, ndx=None, load_ndxs=None, point_refs=None, straight=False):
+                 rn=None, dist=None, pv0=None, pv1=None, ndx=None, load_ndxs=None, point_refs=None, straight=False):
 
         # If no network was given have a catch
         if net is not None and net.atoms is not None and atoms is not None:
@@ -21,6 +21,8 @@ class Edge:
 
         self.loc = loc                   # Location      :   Location of the center of the 3 atoms that make up the edge
         self.rad = rad                   # Radius        :   Radius of the inscribed circle of the three atoms
+        self.rn = rn
+        self.dist = dist
         self.points = points             # Points        :   List of points along the
         self.pv0 = pv0                   # Vertex pt 0   :   The points on the ends of the edges
         self.pv1 = pv1                   # Vertex pt 1   :   The points on the ends of the edges

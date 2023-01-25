@@ -117,6 +117,8 @@ def write_surfs(surfs, file_name, color=None, directory=None):
         # Count the number of triangles and vertices there are
         num_verts, num_tris = 0, 0
         for i in range(len(surfs)):
+            if surfs[i].points is None:
+                surfs[i].build()
             num_verts += len(surfs[i].points)
             num_tris += len(surfs[i].tris)
         # Write the numbers into the file

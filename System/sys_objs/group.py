@@ -132,10 +132,11 @@ class Group:
         if self.layer_surfs is None or self.layer_surfs == []:
             # Calculate the first layer
             self.get_layers(max_layers=1)
-        # Go through the surfaces in the first layer
-        for surf in self.layer_surfs[0]:
-            # Add the surface area
-            self.sa += surf.sa
+        if self.layer_surfs is not None and len(self.layer_surfs) > 0:
+            # Go through the surfaces in the first layer
+            for surf in self.layer_surfs[0]:
+                # Add the surface area
+                self.sa += surf.sa
         # Check to see if there is an interface in play
         if self.bff is not None and iface_info:
             self.get_iface()
@@ -293,7 +294,8 @@ class Group:
                 # Get the first layer
                 self.get_layers(max_layers=1)
                 # noinspection PyUnresolvedReferences
-                write_surfs(surfs=self.layer_surfs[0], file_name=self.name)
+                if self.layer_surfs is not None and len(self.layer_surfs) < 0:
+                    write_surfs(surfs=self.layer_surfs[0], file_name=self.name)
         # If the user wants a filled shell for the group
         if fill:
             self.build_surfs()
