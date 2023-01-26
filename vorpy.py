@@ -59,6 +59,7 @@ if __name__ == '__main__':
     print("Welcome to vorpy. For assistance type \'h\'. To quit type \'q\'")
     # Create the system
     sys = System(root_dir=os.getcwd())
+
     # Set up the running variable
     running = True
     # Run the program

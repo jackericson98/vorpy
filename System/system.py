@@ -1,3 +1,5 @@
+import os.path
+
 from System.sys_funcs.input import *
 from System.sys_funcs.output import *
 from System.Network.network import *
@@ -52,7 +54,6 @@ class System:
         self.frame_files = frame_files      # Frame files         :   Files storing atom movements
         self.dir = output_directory         # Output Directory    :   Output directory for the export files
         self.vpy_dir = root_dir             # Vorpy Directory     :   Directory that vorpy is running out of
-
         # Gui
         self.gui = gui                     # GUI                 :   GUI Vorpy object that can be updated through sys
 
@@ -93,8 +94,6 @@ class System:
         if self.data is None:
             self.data = []
         self.name = get_name(self.base_file)
-        set_output_dir(self)
-        os.chdir(self.dir)
 
     def load_sys(self, file=None):
         """
@@ -106,6 +105,8 @@ class System:
         if file is not None:
             # Set the file
             self.base_file = file
+            if os.path.dirname(file)[:-9] != 'test_data':
+                self.dir = os.path.dirname(file)
         # Set the name of the system
         self.name = get_name(self.base_file)
         # Read PDB file
@@ -126,6 +127,10 @@ class System:
             read_mol(self)
         else:
             return
+        # Check to see if the directory has been created or not
+        if self.dir is None:
+            set_output_dir(self)
+            os.chdir(self.dir)
         # Sort the atoms
         self.sort_atoms()
 
@@ -330,7 +335,6 @@ class System:
         Prepares the output directory and system for output. Keeps things consistent
         :return:
         """
-        os.mkdir(self.dir + "/sys")
         if network:
             os.chdir(self.dir)
             # Export the network

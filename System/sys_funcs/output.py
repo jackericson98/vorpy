@@ -13,8 +13,13 @@ def set_output_dir(sys, dir_name=None):
     :return:
     """
     # If no outer directory was specified use the directory outside the current one
-    if dir_name is None and sys.vpy_dir is not None:
-        dir_name = sys.vpy_dir + "/Data/User_data/" + sys.name
+    if dir_name is None:
+        if sys.vpy_dir is not None:
+            dir_name = sys.vpy_dir + "/Data/User_data/" + sys.name
+        else:
+            os.chdir('../..')
+            dir_name = os.getcwd() + "/Data/User_data/" + sys.name
+            os.chdir(os.getcwd() + '/System/sys_funcs')
     # Catch for existing directories. Keep trying out directories until one doesn't exist
     i = 0
     while True:

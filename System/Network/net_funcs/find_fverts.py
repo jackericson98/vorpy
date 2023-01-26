@@ -87,8 +87,10 @@ def expand_circle(net, s0, surfs, max_dist=None):
         pa = np.array([_[1] for _ in [xt, yt, zt]])
         # Get the vector between this and the center of the circle
         pac = np.array(s0.center) - pa
+        print(pac)
         # Get the center of the line by dotting the atom's location onto it
         l_cntr = pa + l_vctr * np.dot(pac, l_vctr)
+        print(l_cntr)
         # Check to see if the line center is too far away from the atom's location
         l_dist = np.sqrt(sum(np.square(np.array(s0.center) - np.array(l_cntr))))
 
