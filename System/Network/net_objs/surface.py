@@ -39,6 +39,12 @@ class Surface:
         self.com = None             # Center of mass   : The point toward which all building paths travel
         self.doublet = doublet      # Doublet          : Indicates whether a surface is a part of a doublet or not
         self.flat = False           # Flat             : Whether the surface is flat or not
+        # Make sure that a0 is the atom with the smaller radius
+        if self.atoms is not None:
+            if self.atoms[0].rad > self.atoms[1].rad:
+                self.atoms[0], self.atoms[1] = self.atoms[1], self.atoms[0]
+
+
 
     def calc_func(self):
         # Make sure that a0 is the atom with the smaller radius
@@ -65,7 +71,7 @@ class Surface:
             DEF.append(-8 * d[i] * d[(i + 1) % 3])  # The equation asks for D_y, D_z, D_x in that order, hence modulus
             GHI.append(-8 * R ** 2 * a0.loc[i] - 4 * K * d[i])
         # Set the function attribute
-        self.func = ABC + DEF + GHI + [J] + [K] + [d]
+        self.func = ABC + DEF + GHI + [J] + [K] + list(d)
 
     def read_file(self, file=None):
         # Check to see if the file exists
