@@ -82,14 +82,15 @@ class Group:
         # Create the system's surface's file if needed
         if len(build_surfs) > 0 and not os.path.exists(self.sys.dir + "/surfs"):
             os.mkdir(self.sys.dir + "/surfs")
-        os.chdir(self.sys.dir + '/surfs')
+            os.chdir(self.sys.dir + '/surfs')
         # Build the surfaces
         for i in range(len(build_surfs)):
 
             print("\rbuilding " + name + " surfaces " + " " * (len(str(len(surfs) - 1)) - len(str(i + 1))) + str(i + 1)
                   + "/" + str(len(surfs)) + "                   ", end="")
             build_surfs[i].build(res=resolution)
-            write_surfs([build_surfs[i]], "_".join([str(_) for _ in build_surfs[i].ndx]))
+            if build_surfs[i].file is None:
+                write_surfs([build_surfs[i]], "_".join([str(_) for _ in build_surfs[i].ndx]))
         # Change back
         os.chdir(self.sys.dir)
 
@@ -326,9 +327,8 @@ class Group:
                 my_dir  = my_dir[:-2] + str(i)
                 i += 1
             os.mkdir(my_dir)
-            os.chdir(my_dir)
             for surf in self.surfs:
-                write_surfs([surf], file_name="_".join([str(_) for _ in surf.ndx]))
+                write_surfs([surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=my_dir)
             os.chdir(self.dir)
         # If the user wants layers
         if layers or all_:
