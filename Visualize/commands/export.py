@@ -38,7 +38,7 @@ def export(sys, usr_npt):
         my_list = [obj_list[my_ndx[0]]]
         name = name_prfx + '_' + str(my_ndx[0])
     elif len(my_ndx) <= 2:
-        my_list = obj_list[my_ndx[0]:my_ndx[1]]
+        my_list = obj_list[max(0, my_ndx[0]):min(len(obj_list), my_ndx[1] + 1)]
         name = name_prfx + 's_' + str(my_ndx[0]) + '_' + str(my_ndx[1])
     # Create the group
     npt_list = [None]*4
