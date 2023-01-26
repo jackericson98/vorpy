@@ -105,10 +105,14 @@ class System:
         if file is not None:
             # Set the file
             self.base_file = file
-            if os.path.dirname(file)[:-9] != 'test_data':
-                self.dir = os.path.dirname(file)
         # Set the name of the system
         self.name = get_name(self.base_file)
+        # Check to see if the pdb directory is suitable
+        if self.dir is None:
+            if os.path.dirname(file)[-9:] != 'test_data':
+                self.dir = os.path.dirname(file)
+            else:
+                self.set_output_directory()
         # Read PDB file
         if self.base_file[-3:] == "pdb":
             file_data = read_pdb(self)
@@ -127,10 +131,6 @@ class System:
             read_mol(self)
         else:
             return
-        # Check to see if the directory has been created or not
-        if self.dir is None:
-            set_output_dir(self)
-            os.chdir(self.dir)
         # Sort the atoms
         self.sort_atoms()
 
@@ -340,31 +340,24 @@ class System:
             # Export the network
             self.export_net()
         if pdb:
+            if not os.path.exists(self.dir + '/sys'):
+                os.mkdir(self.dir + "/sys")
             os.chdir(self.dir + "/sys")
             # Export a pdb file for the system
             write_pdb(self.atoms, self.name, self)
+            os.chdir('..')
         if full_network_object and self.net.build_surfs:
+            if not os.path.exists(self.dir + '/sys'):
+                os.mkdir(self.dir + "/sys")
             os.chdir(self.dir + "/sys")
             # Export a full system
             export_mySys(self)
         # Write the alter atoms script
         if alter_atoms_script:
+            if not os.path.exists(self.dir + '/sys'):
+                os.mkdir(self.dir + "/sys")
             os.chdir(self.dir + "/sys")
             set_pymol_atoms(self)
-        # Write the surfaces
-        if surfaces and self.net.build_surfs:
-            # Make the surfaces file
-            os.mkdir(self.dir + "/sys/surfaces")
-            os.chdir(self.dir + "/sys/surfaces")
-            # Export the surfaces one by one
-            for i in range(len(self.net.surfs)):
-                # Export the
-                surf = self.net.surfs[i]
-                # Get a random color
-                my_color = np.random.rand(3)
-                # Write each of the surfaces
-                write_surfs([surf], "surf_" + str(surf.ndx[0]) + "_" + str(surf.ndx[1]), my_color)
-            os.chdir("..")
         # If the user wants the surfaces of the system without the SOL
         if no_sol_network_object:
             # Create the group
