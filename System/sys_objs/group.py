@@ -273,7 +273,7 @@ class Group:
             info.write("Surface Area: " + str(self.iface_sa))
             info.close()
 
-    def exports(self, atoms=False, shell=False, fill=False, surfaces=False, layers=False, num_layers=50, info=False, iface=False):
+    def exports(self, all_=False, atoms=False, shell=False, fill=False, surfaces=False, layers=False, num_layers=50, info=False, iface=False):
         # Create the output directory inside the system's directory
         if self.dir is None:
             i = 1
@@ -289,10 +289,10 @@ class Group:
             os.mkdir(self.dir)
         os.chdir(self.dir)
         # If the user wants to export the atoms for the group
-        if atoms:
+        if atoms or all_:
             write_pdb(atoms=self.atoms, name=self.name, sys=self.sys)
         # If the user wants to export the shell for the group
-        if shell:
+        if shell or all_:
             if self.layer_surfs is None:
                 # Get the first layer
                 self.get_layers(max_layers=1)
@@ -300,11 +300,11 @@ class Group:
                 if self.layer_surfs is not None and len(self.layer_surfs) > 0:
                     write_surfs(surfs=self.layer_surfs[0], file_name=self.name)
         # If the user wants a filled shell for the group
-        if fill:
+        if fill or all_:
             self.build_surfs()
             write_surfs(surfs=self.surfs, file_name=self.name + "_fill")
         # If the user wants separate surfaces for the group
-        if surfaces:
+        if surfaces or all_:
             self.build_surfs()
             i = 1
             my_dir = self.dir + "/surfaces"
@@ -319,7 +319,7 @@ class Group:
                 write_surfs([surf], file_name="_".join([str(_) for _ in surf.ndx]))
             os.chdir(self.dir)
         # If the user wants layers
-        if layers:
+        if layers or all_:
             # First check to see if the number of layers is greater than 1
             if self.layer_atoms is None or len(self.layer_atoms) <= 1:
                 self.get_layers(max_layers=num_layers)
@@ -338,7 +338,7 @@ class Group:
                 write_pdb(self.layer_atoms[i + 1], name=str(i) + "_atoms", sys=self.sys)
                 write_surfs(self.layer_surfs[i], file_name=str(i) + "_surfs")
             # If the user wants info and layers create a layers info file
-            if info:
+            if info or all_:
                 self.get_info()
                 # Create the information file
                 info = open(self.name + "_layer_info.txt", 'w')
@@ -352,11 +352,11 @@ class Group:
             # Change back to the group directory
             os.chdir(self.dir)
         # If the user wants to export the interface
-        if iface and self.bff is not None:
+        if (iface or all_) and self.bff is not None:
             self.get_iface()
             self.export_iface([self, self.bff], info_file=info)
         # If the user wants a full information file on the group
-        if info:
+        if info or all_:
             self.get_info()
             info = open("cell_" + self.name + "_info.txt", 'w')
             info.write(self.name + " body: \n")
