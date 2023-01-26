@@ -96,17 +96,6 @@ class Atom:
             if surf.points is None or surf.tris is None:
                 surf.build()
             self.sa += surf.sa
-            if surf.tris is None or len(surf.tris) == 0:
-                if surf.file is not None:
-                    try:
-                        surf.read_file(surf.file)
-                    except FileNotFoundError:
-                        surf.build()
-                    except PermissionError:
-                        surf.build()
-                else:
-                    surf.build()
-
             for tri in surf.tris:
                 if tri is None:
                     print(surf.tris)
