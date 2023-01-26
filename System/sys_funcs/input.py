@@ -288,14 +288,24 @@ def read_net(sys, file=None):
             print("\rloading surfaces - {}%".format(round(100 * (i - 5 - net_verts - net_edges) / net_surfs, 2)), end="")
             surf = sys.net.surfs[i - 5 - net_verts - net_edges]
             surf.atoms = [sys.atoms[int(_)] for _ in read_file[i][5:7]]
+            if surf.atoms[0].rad > surf.atoms[1].rad:
+                surf.atoms[0], surf.atoms[1] = surf.atoms[1], surf.atoms[0]
             surf.ndx = [int(_) for _ in read_file[i][5:7]]
-            surf.file = read_file[i][1]
-            surf.res = float(read_file[i][2])
-            surf.sa = float(read_file[i][3])
+            if read_file[i][1] != '':
+                surf.file = read_file[i][1]
+            if read_file[i][2] != '':
+                surf.res = float(read_file[i][2])
+            if read_file[i][3] != '':
+                surf.sa = float(read_file[i][3])
             if read_file[i][4].isdigit():
                 surf.curv = float(read_file[i][4])
-            surf.func = [float(_) for _ in read_file[i][7:16]] + [[float(_) for _ in read_file[i][16:]]]
+            if isinstance(read_file[i][16], tuple):
+                surf.func = [float(_) for _ in read_file[i][7:16]] + [float(_) for _ in read_file[i][16:]]
+            else:
+                surf.func = [float(_) for _ in read_file[i][7:]]
             for atom in surf.atoms:
                 atom.surfs.append(surf)
+        if surf.atoms[0].rad > surf.atoms[1].rad:
+            surf.atoms[0], surf.atoms[1] = surf.atoms[1], surf.atoms[0]
     # Set the network to connected
     sys.net.connect_net = False
