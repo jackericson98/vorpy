@@ -16,6 +16,14 @@ def build(sys):
     # Check to see if a network has been added
     if sys.net is None:
         sys.net = Network(sys=sys, atoms=sys.atoms)
+    # Check to see if the network has been built before
+    if sys.net.verts is not None:
+        rebuild_npt = input("{} network already constructed. would you like to rebuild?\nconfirm >>>   ".format(sys.name))
+        if rebuild_npt.lower() in ys:
+            sys.net = Network(sys=sys, atoms=sys.atom, surf_res=sys.net.surf_res, max_vert=sys.net.max_vert,
+                              box_size=sys.net.box_size, build_surfs=sys.net.build_surfs, flat_surfs=sys.net.flat_surfs)
+        else:
+            return
     # Once the build command is used, the user is greeted with the build settings and asked if they are ready to build
     print(u"settings - surf_res = {:.2f} \u208B,  max_vert  = {:.2f} \u208B,  box_size = {:.2f} x,  build_surfs = {}, flat_surfs = {}"
           .format(sys.net.surf_res, sys.net.max_vert, sys.net.box_size, sys.net.build_surfs, sys.net.flat_surfs))
