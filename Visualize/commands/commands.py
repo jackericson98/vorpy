@@ -8,7 +8,7 @@ ands = ['&', 'and', 'nd', 'also', '+', '&&']
 splitters = ['/', '-']
 
 # General commands
-quits = ['quit', 'q']
+quits = ['quit', 'q', 'qt', 'exit', 'ext']
 helps = ['h', 'help']
 
 # Main commands
@@ -65,19 +65,18 @@ def help_():
 
 
 
-    commands_header = ["Commands:                                                                                                                   ",
-                       "  1. load  : Loads file addresses for System (.pdb, .gro, .mol, .cif), Network (.txt), vertices (.txt) or index (.ndx) files",
-                       "  2. set   : Sets build Settings with values (float, float, float, True)                                                    ",
-                       "  3. build : Builds a Network for the System with the current settings                                                      ",
-                       "  4. export: Exports System objects. Use \'and\' to export the interface between two groups (e.g. \'export ndx 1 and atom 3\')  ",
-                       "  5. show  : Shows System elements in a given object category                                                               ",
-                       "  6. quit  : Quits from the current process                                                                                 "]
+    commands_header = ["Commands:                                                                                                                      ",
+                       "  1. load  : Loads file types by their extension - System: (.pdb/.gro/.mol/.cif), Network: (.csv), Surface (.off), Index (.ndx)",
+                       "  2. set   : Sets network build settings with a setting - (see Settings) and a value - (float, float, float, T/F, T/F)         ",
+                       "  3. build : Builds the network. Asks the user to confirm and shows the current settings before starting the build process.    ",
+                       "  4. export: Exports network objects with a name - (see below) and (optionally) an index (integer or range separated with \'-\') ",
+                       "  5. show  : Shows element information by name (see below) for reference in a command (load/set/build/export)                  ",
+                       "                                             (for more type \'c\')                                                             "]
 
     splitting_line = "--------------------------------------------------------------------------------------------------------------------------------"
 
     objects_header = ["Objects:                                           ",
-                      "  1. mol : Molecule object from the current System ",
-                      "           (Use the number or name of the Molecule)",
+                      "  1. mol : Molecule object from the current System (Use the number or name of the Molecule)",
                       "  2. res : Residue object from the current System  ",
                       "  3. atom: Atom object from the current System     ",
                       "  4. ndx : Index loaded into the current System or ",
