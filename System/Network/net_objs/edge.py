@@ -79,15 +79,12 @@ class Edge:
         f, a0, a1 = surf.func, surf.atoms[0], surf.atoms[1]
         # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
         a = f[0] * rn[0] ** 2 + f[1] * rn[1] ** 2 + f[2] * rn[2] ** 2 + f[3] * rn[0] * rn[1] + f[4] * rn[
-            1] * rn[
-                2] + f[5] \
-            * rn[2] * rn[0]
+            1] * rn[2] + f[5] * rn[2] * rn[0]
         b = 2 * f[0] * rn[0] * pa[0] + 2 * f[1] * rn[1] * pa[1] + 2 * f[2] * rn[2] * pa[2] + f[3] \
             * (rn[0] * pa[1] + rn[1] * pa[0]) + f[4] * (rn[1] * pa[2] + rn[2] * pa[1]) + f[5] \
             * (rn[2] * pa[0] + rn[0] * pa[2]) + f[6] * rn[0] + f[7] * rn[1] + f[8] * rn[2]
         c = f[0] * pa[0] ** 2 + f[1] * pa[1] ** 2 + f[2] * pa[2] ** 2 + f[3] * pa[0] * pa[1] + f[4] * pa[1] * pa[
-            2] + \
-            f[5] * pa[2] * pa[0] + f[6] * pa[0] + f[7] * pa[1] + f[8] * pa[2] + f[9]
+            2] + f[5] * pa[2] * pa[0] + f[6] * pa[0] + f[7] * pa[1] + f[8] * pa[2] + f[9]
         # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
         # and add that point to our surface list of points
         if round(b ** 2 - 4 * a * c, 10) >= 0:
@@ -115,7 +112,6 @@ class Edge:
 
     # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
     def build(self, surf=None, res=None, straight=False):
-
         # Get the location and radius of the circle inscribed between the edge atoms
         self.get_loc()
         # Get the pvals
