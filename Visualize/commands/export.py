@@ -10,6 +10,7 @@ def export(sys, usr_npt):
     :param usr_npt:
     :return:
     """
+    # Create the object and index variables
     my_obj, my_ndx = None, None
     # User only input "export"
     if len(usr_npt) <= 1:
@@ -18,6 +19,7 @@ def export(sys, usr_npt):
         my_ndx = get_ndx(sys=sys, obj=my_obj)
     # User entered "export obj" and needs an index
     elif len(usr_npt) == 2:
+        # Add a check for system
         # Check the object provided by the user
         my_obj = get_obj(sys=sys, obj=usr_npt[1])
         my_ndx = get_ndx(sys=sys, obj=my_obj)
@@ -42,10 +44,11 @@ def export(sys, usr_npt):
     npt_list = [None]*4
     npt_list[obj_ndx] = my_list
     my_group = Group(sys=sys, mols=npt_list[0], residues=npt_list[1], atoms=npt_list[2], indices=npt_list[3], name=name)
-    print("choose one to export: 1. Shell, 2. Surfaces, 3. Layers, 4. Atoms, 5. Filled Body, 6. Info File")
+    print("choose one to export: 1. Shell, 2. Surfaces, 3. Layers, 4. Atoms, 5. Filled Body, 6. Info File, 7. All")
     while True:
         # Export the group exports
         xpt_npt = input("export >>>   ")
+        xpt_npt = xpt_npt.strip()
         # Check for a quit
         if xpt_npt.lower() in quits:
             return
@@ -77,5 +80,9 @@ def export(sys, usr_npt):
         elif xpt_npt.lower() in ['6', '6.', 'info', 'info_file', 'info file']:
             my_group.exports(info=True)
             print("\r{} info file exported to {}".format(my_group.name, my_group.dir))
+        # Export All
+        elif xpt_npt.lower() in ['7', '7.', 'all', 'a', 'info file']:
+            my_group.exports(all_=True)
+            print("\r{} shell, surfaces, layers, atoms, filled body and info file exported to {}".format(my_group.name, my_group.dir))
         else:
             invalid_input(xpt_npt)
