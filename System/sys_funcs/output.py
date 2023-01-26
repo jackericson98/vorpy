@@ -17,16 +17,14 @@ def set_output_dir(sys, dir_name=None):
         if sys.vpy_dir is not None:
             dir_name = sys.vpy_dir + "/Data/User_data/" + sys.name
         else:
-            os.chdir('../..')
             dir_name = os.getcwd() + "/Data/User_data/" + sys.name
-            os.chdir(os.getcwd() + '/System/sys_funcs')
     # Catch for existing directories. Keep trying out directories until one doesn't exist
     i = 0
     while True:
         # Try creating the directory with the system name + the current i_string
         try:
             # Create a string variable for the incrementing variable
-            i_str = str(i)
+            i_str = '_' + str(i)
             # If no file with the system name exists change the string to empty
             if i == 0:
                 i_str = ""
@@ -216,25 +214,10 @@ def export_net(net, output_surfs=True):
             # Get the edge
             edge = net.edges[i]
             # Get the reference value for the edge
-            if edge.ref is None:
-                if len(edge.surfs) > 0:
-                    try:
-                        ndx_1 = edge.surfs[0].points.index(edge.points[0])
-                        ndx_2 = ndx_1 + len(edge.points)
-                        surf_ndx = net.surfs.index(edge.surfs[0])
-                        # Set the reference value
-                        edge.ref = [surf_ndx, ndx_1, ndx_2]
-                    except IndexError:
-                        edge.ref = [None, None, None]
-                    except ValueError:
-                        edge.ref = [None, None, None]
-                    except AttributeError:
-                        edge.ref = [None, None, None]
-                else:
-                    edge.ref = [None, None, None]
+            edge_ref = [None, None, None]
             e_verts, e_surfs = [net.verts.index(_) for _ in edge.verts], [net.surfs.index(_) for _ in edge.surfs]
             # Write the edge information in the file
-            writer.writerow([i] + edge.ref + edge.ndx + e_verts + [None] * (2 - len(e_verts)) + e_surfs +
+            writer.writerow([i] + edge_ref + edge.ndx + e_verts + [None] * (2 - len(e_verts)) + e_surfs +
                             [None] * (3 - len(e_surfs)))
 
         # Create a surfaces header
@@ -249,8 +232,14 @@ def export_net(net, output_surfs=True):
             file_address = ""
             if surf.points is not None:
                 file_address = "/surfs/" + "_".join([str(_) for _ in surf.ndx]) + ".off"
+            if surf.res is None:
+                surf.res = surf.net.surf_res
+            if surf.sa is None:
+                surf.sa = 0
+            if surf.curv is None:
+                surf.curv = 0
             # Write the surface information
-            writer.writerow([i, file_address, surf.res, surf.sa, surf.curv, surf.ndx[0], surf.ndx[1]] + list(surf.func[:11]) + [surf.func[11], surf.res])
+            writer.writerow([i, file_address, surf.res, surf.sa, surf.curv, surf.ndx[0], surf.ndx[1]] + list(surf.func))
         # Check to see if the surfaces have been requested
         if output_surfs and net.build_surfs:
             # Create a surfaces folder and change to it
