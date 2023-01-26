@@ -78,11 +78,21 @@ class Group:
                     build_surfs.append(surf)
             else:
                 build_surfs.append(surf)
+
+        # Create the system's surface's file if needed
+        if len(build_surfs) > 0 and not os.path.exists(self.sys.dir + "/surfs"):
+            os.mkdir(self.sys.dir + "/surfs")
+        os.chdir(self.sys.dir + '/surfs')
         # Build the surfaces
         for i in range(len(build_surfs)):
+
             print("\rbuilding " + name + " surfaces " + " " * (len(str(len(surfs) - 1)) - len(str(i + 1))) + str(i + 1)
                   + "/" + str(len(surfs)) + "                   ", end="")
             build_surfs[i].build(res=resolution)
+            write_surfs([build_surfs[i]], "_".join([str(_) for _ in build_surfs[i].ndx]))
+        # Change back
+        os.chdir(self.sys.dir)
+
 
     # Add atoms method. Adds the atoms from a list (mol.atoms, res.atoms, atoms, etc) to the group checking duplicates
     def add_atoms(self, atom_list):
@@ -121,6 +131,8 @@ class Group:
         # Add the residue atoms
         for residue in self.resids:
             self.add_atoms(residue.atoms)
+        # Get the surfaces
+        self.get_surfs()
 
     # Get information method. Gathers information about the group and stores it in a dictionary
     def get_info(self, iface_info=True):
@@ -296,9 +308,9 @@ class Group:
             if self.layer_surfs is None:
                 # Get the first layer
                 self.get_layers(max_layers=1)
-                # noinspection PyUnresolvedReferences
-                if self.layer_surfs is not None and len(self.layer_surfs) > 0:
-                    write_surfs(surfs=self.layer_surfs[0], file_name=self.name)
+            # noinspection PyUnresolvedReferences
+            if self.layer_surfs is not None and len(self.layer_surfs) > 0:
+                write_surfs(surfs=self.layer_surfs[0], file_name=self.name, directory=self.dir)
         # If the user wants a filled shell for the group
         if fill or all_:
             self.build_surfs()
@@ -357,6 +369,7 @@ class Group:
             self.export_iface([self, self.bff], info_file=info)
         # If the user wants a full information file on the group
         if info or all_:
+            os.chdir(self.dir)
             self.get_info()
             info = open("cell_" + self.name + "_info.txt", 'w')
             info.write(self.name + " body: \n")
