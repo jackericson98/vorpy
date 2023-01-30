@@ -2,7 +2,10 @@ import csv
 import os.path
 
 from System.sys_objs.atom import Atom, get_radius
-from System.Network.network import Network, Vertex, Edge, Surface
+from System.Network.network import Network
+from System.Network.net_objs.vertex import Vertex
+from System.Network.net_objs.edge import Edge
+from System.Network.net_objs.surface import Surface
 
 
 # Get name method. Strips the location and extension from the file

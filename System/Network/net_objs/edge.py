@@ -1,5 +1,6 @@
-from System.sys_funcs.calcs import *
+from System.sys_funcs.calcs import calc_circ, calc_angle
 from System.Network.net_objs.surface import Surface
+import numpy as np
 
 
 class Edge:

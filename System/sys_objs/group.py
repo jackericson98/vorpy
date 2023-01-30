@@ -1,4 +1,6 @@
-from System.sys_funcs.output import *
+from System.sys_funcs.calcs import ndx_search
+from System.sys_funcs.output import write_surfs, write_pdb
+import os
 
 
 class Group:

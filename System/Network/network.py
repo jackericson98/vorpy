@@ -1,8 +1,8 @@
 import time
-from System.Network.net_funcs.find_verts import *
-from System.Network.net_funcs.build_net import *
-from System.Network.net_funcs.process_net import *
-from System.Network.net_funcs.find_flat_verts import *
+from System.Network.net_funcs.find_verts import find_verts
+from System.Network.net_funcs.build_net import build, get_time
+from System.Network.net_funcs.find_flat_verts import ffind_verts
+import numpy as np
 
 
 class Network:
@@ -104,7 +104,7 @@ class Network:
             # Add the box to the atom
             atom.box = box_ndxs
 
-    def get_atoms(self, cells, reach):
+    def get_atoms(self, cells, reach=0):
         """
         Takes in the cells and the number of additional cells to search and returns an atom list
         :param cells: The initial boxes in the network to stem from
@@ -149,7 +149,7 @@ class Network:
         print("\rconnecting network", end="")
         build(self, get_edges=get_edges, get_surfs=get_surfs)
 
-    def find_verts(self, time_start=None):
+    def find_verts(self, time_start=None, process_time_start=None):
         """
         Using the functions in find_vertices.py finds the vertices in the network
         :return:

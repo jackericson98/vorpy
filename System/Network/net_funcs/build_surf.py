@@ -1,6 +1,8 @@
-from System.sys_funcs.calcs import *
+from System.sys_funcs.calcs import calc_angle, calc_com, rotate_points, calc_dist
+from Visualize.mpl_visualize import plot_surfs
 import matplotlib.tri as mtri
-from Visualize.mpl_visualize import *
+import numpy as np
+
 
 ################################################# Find Surface Points  #################################################
 

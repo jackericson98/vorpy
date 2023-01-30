@@ -1,8 +1,10 @@
 from System.system import System
-from System.Network.network import Network, Vertex
-from System.sys_funcs.calcs import calc_angle, np, ndx_search
+from System.Network.network import Network
+from System.sys_funcs.calcs import ndx_search
+from System.Network.net_objs.vertex import Vertex
 from System.Network.net_objs.surface import Surface
 from System.Network.net_objs.edge import Edge
+import numpy as np
 
 
 def fget_circ_rad(dist, r0, r1):

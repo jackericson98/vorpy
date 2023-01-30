@@ -1,4 +1,4 @@
-from Visualize.commands.interpret import *
+from Visualize.commands.interpret import get_file
 from Visualize.commands.commands import *
 from System.system import System
 

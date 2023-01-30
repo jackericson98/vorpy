@@ -1,7 +1,7 @@
-from System.sys_funcs.calcs import *
+from System.sys_funcs.calcs import ndx_search
 from System.Network.net_objs.vertex import Vertex
 from System.Network.net_objs.edge import Edge
-from Visualize.mpl_visualize import *
+import numpy as np
 
 
 # Find v0 function. Uses the atom finding functions to find a real verified site in the network
