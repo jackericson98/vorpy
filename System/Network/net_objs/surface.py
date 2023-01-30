@@ -45,7 +45,6 @@ class Surface:
                 self.atoms[0], self.atoms[1] = self.atoms[1], self.atoms[0]
 
 
-
     def calc_func(self):
         # Make sure that a0 is the atom with the smaller radius
         if self.atoms[0].rad > self.atoms[1].rad:
@@ -53,11 +52,12 @@ class Surface:
         # Create a0, a1 variables
         a0, a1 = self.atoms
         # Set the rn vector for the surface since the atoms are sorted
-        r = np.array(a1.loc) - np.array(a0.loc)
+        l0, l1 = np.array(a0.loc), np.array(a1.loc)
+        r = l1 - l0
         self.rn = r / np.linalg.norm(r)
         # Grab the centers of the spheres
-        x1, y1, z1 = a0.loc
-        x2, y2, z2 = a1.loc
+        x1, y1, z1 = l0
+        x2, y2, z2 = l1
         # Calculate the major coefficients (pg. 574 Z. Hu)
         R = a0.rad - a1.rad
         K = (x2 ** 2 - x1 ** 2) + (y2 ** 2 - y1 ** 2) + (z2 ** 2 - z1 ** 2) - R ** 2
@@ -69,7 +69,7 @@ class Surface:
         for i in range(3):
             ABC.append(4 * R ** 2 - 4 * d[i] ** 2)
             DEF.append(-8 * d[i] * d[(i + 1) % 3])  # The equation asks for D_y, D_z, D_x in that order, hence modulus
-            GHI.append(-8 * R ** 2 * a0.loc[i] - 4 * K * d[i])
+            GHI.append(-8 * R ** 2 * l0[i] - 4 * K * d[i])
         # Set the function attribute
         self.func = ABC + DEF + GHI + [J] + [K] + list(d)
 
