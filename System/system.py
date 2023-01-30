@@ -2,10 +2,11 @@ import os.path
 
 from System.sys_funcs.input import *
 from System.sys_funcs.output import *
-from System.Network.network import *
+from Visualize.mpl_visualize import *
 from System.sys_objs.group import Group
 from System.sys_objs.molcule import Molecule
 from System.sys_objs.residue import Residue
+import numpy as np
 
 
 class System:
@@ -102,11 +103,13 @@ class System:
         :return:
         """
         # If a file is given read the file and set the system attributes
-        if file is not None:
+        if file is None:
             # Set the file
+            file = self.base_file
+        else:
             self.base_file = file
         # Set the name of the system
-        self.name = get_name(self.base_file)
+        self.name = get_name(file)
         # Check to see if the pdb directory is suitable
         if self.dir is None:
             if os.path.dirname(file)[-9:] != 'test_data':
