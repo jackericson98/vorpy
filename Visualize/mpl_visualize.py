@@ -192,7 +192,7 @@ def plot_net(net, plot_all=False, atoms=False, verts=False, edges=False, surfs=F
         plot_verts(net.verts, fig=fig, ax=ax, colors=['r' for _ in range(len(net.verts))], alpha=v_alpha)
     # Edges
     if edges or plot_all:
-        plot_edges(net.edges, fig=fig, ax=ax, colors=['k' for _ in range(len(net.edges))], alpha=e_alpha)
+        plot_edges(net.edges, fig=fig, ax=ax, colors=['w' for _ in range(len(net.edges))], alpha=e_alpha)
     # Surfaces
     if surfs or plot_all:
         plot_surfs(net.surfs, fig=fig, ax=ax, colors=[np.random.rand(3) for _ in range(len(net.surfs))], alpha=s_alpha)
