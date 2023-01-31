@@ -32,7 +32,9 @@ def calc_flat_vert(atoms):
     y_numerator = - d*g*i + c*h*i + d*e*k - a*h*k - c*e*m + a*g*m
     z_numerator = d*f*i - b*h*i - d*e*j + a*h*j + b*e*m - a*f*m
     x, y, z = x_numerator / disc, y_numerator / disc, z_numerator / disc
-    return [x, y, z]
+    # Get the radius
+    rad = calc_dist([x, y, z], atoms[0].loc)
+    return [x, y, z], rad
 
 
 def ffind_v0(net, a0=None):
@@ -89,7 +91,7 @@ def ffind_v0(net, a0=None):
             if a3 in [a0, a1, my_a2]:
                 continue
             # Calculate the vertex's
-            my_vert_loc = calc_flat_vert([a0, a1, my_a2, a3])
+            my_vert_loc, my_vert_rad = calc_flat_vert([a0, a1, my_a2, a3])
             my_dist = calc_dist(my_vert_loc, my_circ[0])
             # Check the locations distance from the center of the atoms
             if my_dist < min_dist and [_.num for _ in [a0, a1, my_a2, a3]] not in net.vert_ndxs:
@@ -97,6 +99,29 @@ def ffind_v0(net, a0=None):
                 min_dist = my_dist
         j += 1
         return my_vert
+
+
+def verify_site(vert, net):
+    # Grad the location and radius of the check vertex
+    loc, rad = vert.loc, vert.rad
+    # Find the indices of the sub-box for the vertex
+    vi = int((vert.loc[0] - net.box[0][0]) / net.sub_box_size[0])
+    vj = int((vert.loc[1] - net.box[0][1]) / net.sub_box_size[1])
+    vk = int((vert.loc[2] - net.box[0][2]) / net.sub_box_size[2])
+    # Get the number of boxes that an overlapping atom could possibly be away from the vertex sub-box
+    atom_range = int(rad / min(net.sub_box_size) + net.max_atom_rad / min(net.sub_box_size)) + 2
+    # Get the atoms in that range
+    overlap_test_atoms = net.get_atoms([[vi, vj, vk]], atom_range)
+    # Go through the atoms in the overlap test atom list
+    for atom2 in overlap_test_atoms:
+        # If the atom is one of the vertex atoms move on
+        if atom2.num in vert.ndx:
+            continue
+        # If the distance between the vertex and the test atom is less than the sum of their radii, they overlap
+        if np.sqrt(sum(np.square(np.array(atom2.loc) - np.array(loc)))) < rad:
+            return False
+    # If we make it all the way through the list of close atoms without overlapping it is a viable vertex
+    return True
 
 
 def ffind_site(edge_atoms, net, vn_1):
@@ -131,7 +156,7 @@ def ffind_site(edge_atoms, net, vn_1):
     for i in range(len(new_test_atoms)):
         an, vert_ndx = new_test_atoms[i], new_vert_ndxs[i]
         # Get the intersecting point of the edge and the plane made by a0 and an
-        vert_loc = calc_flat_vert(edge_atoms + [an])
+        vert_loc, vert_rad = calc_flat_vert(edge_atoms + [an])
         # Check that the vertex is inside the network's box
         outside = False
         for j in range(3):
@@ -139,28 +164,13 @@ def ffind_site(edge_atoms, net, vn_1):
                 outside = True
         if outside:
             continue
-        # Get the new edge vectors
-        edge_vectors = [np.array(vn_1.loc) - np.array(vert_loc)]
-        edges = [[edge_atoms[j], edge_atoms[(j + 1) % 3], an] for j in range(3)]
-        for edge in edges:
-            my_circ = calc_circ(edge)
-            edge_vectors.append(np.array(my_circ[0]) - np.array(vert_loc))
-        normed_vectors = []
-        for vector in edge_vectors:
-            normed_vectors.append(vector/np.linalg.norm(vector))
-        # Get the angles of the edges in relation to each other
-        for combo in combinations(normed_vectors, 2):
-            my_ang = calc_angle(combo[0], combo[1])
-            if my_ang > min_max_angle:
-                break
-        else:
-            # Find the distance between the new vert and the old ver
-            my_vert = Vertex(atoms=edge_atoms + [an], net=net, location=vert_loc, radius=0, flat_faces=True)
-            my_vert_ndx = vert_ndx
 
-    # Check to see if the vertex is None
-    if my_vert is not None:
-        return my_vert, my_vert_ndx
+        # Find the distance between the new vert and the old ver
+        my_vert = Vertex(atoms=edge_atoms + [an], net=net, location=vert_loc, radius=vert_rad, flat_faces=True)
+
+        # Verify that this site is real
+        if verify_site(my_vert, net):
+            return my_vert, vert_ndx
 
 
 # Find network function. Keeps searching the network until all verts are found
@@ -169,7 +179,8 @@ def ffind_verts(net, a0=None):
     tot_verts = 5 * len(net.atoms)
     # Find the first verified vertex
     if len(net.atoms) == 4:
-        v0 = Vertex(atoms=net.atoms, net=net, location=calc_flat_vert(net.atoms), radius=0, flat_faces=True)
+        loc, rad = calc_flat_vert(net.atoms)
+        v0 = Vertex(atoms=net.atoms, net=net, location=loc, radius=rad, flat_faces=True)
         v0.calc_vert()
     else:
         v0 = ffind_v0(net, a0)
