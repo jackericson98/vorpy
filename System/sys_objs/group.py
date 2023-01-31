@@ -90,7 +90,7 @@ class Group:
 
             print("\rbuilding " + name + " surfaces " + " " * (len(str(len(surfs) - 1)) - len(str(i + 1))) + str(i + 1)
                   + "/" + str(len(surfs)) + "                   ", end="")
-            build_surfs[i].build(res=resolution)
+            build_surfs[i].build(res=resolution, flat=self.sys.net.flat_surfs)
             if build_surfs[i].file is None:
                 write_surfs([build_surfs[i]], "_".join([str(_) for _ in build_surfs[i].ndx]))
         # Change back
