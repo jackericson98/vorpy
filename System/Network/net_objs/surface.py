@@ -1,5 +1,5 @@
 import os.path
-
+from System.sys_funcs.calcs import calc_tri
 from System.Network.net_funcs.build_surf import *
 import csv
 
@@ -7,7 +7,7 @@ import csv
 class Surface:
     """Surface object. Holds the mesh data. Used to analyze interfaces between atoms."""
     def __init__(self, atoms=None, net=None, edges=None, verts=None, doublet=False, points=None, tris=None, perimeter=None,
-                 rn=None, sa=0, curvature=None, function=None, load_ndxs=None, file=None, resolution=None, center=None):
+                 normal=None, sa=0, curvature=None, function=None, load_ndxs=None, file=None, resolution=None, center=None, distance=None):
 
         # If no network was given have a catch
         self.ndx = None
@@ -34,8 +34,9 @@ class Surface:
         self.res = resolution       # Resolution       : The resolution with which to build the surface
         self.sa = sa                # Surface Area     : The surface area of the
         self.curv = curvature       # Curvature        : The curvature of the surface between the
-        self.rn = rn                # Surface Normal   : Normal to the center of the surface
-        self.center = center        # Center           : Center point of the hyperboloid the surface is made from
+        self.norm = normal          # Surface Normal   : Normal to the center of the surface
+        self.loc = center           # Location         : Center point of the hyperboloid the surface is made from
+        self.dist = distance        # Distance         : Distance from the center of the surface to its atoms
         self.com = None             # Center of mass   : The point toward which all building paths travel
         self.doublet = doublet      # Doublet          : Indicates whether a surface is a part of a doublet or not
         self.flat = False           # Flat             : Whether the surface is flat or not
@@ -54,7 +55,7 @@ class Surface:
         # Set the rn vector for the surface since the atoms are sorted
         l0, l1 = np.array(a0.loc), np.array(a1.loc)
         r = l1 - l0
-        self.rn = r / np.linalg.norm(r)
+        self.norm = r / np.linalg.norm(r)
         # Grab the centers of the spheres
         x1, y1, z1 = l0
         x2, y2, z2 = l1
@@ -184,10 +185,10 @@ class Surface:
             self.points.append(vert.loc)
         self.perimeter = self.points
         # Calculate the center of the surface
-        self.center = calc_com(points=self.points)
-        self.points.append(self.center)
+        self.loc = calc_com(points=self.points)
+        self.points.append(self.loc)
         # Calculate the vector between the atoms
-        self.rn = np.array(self.atoms[1].loc) - np.array(self.atoms[0].loc)
+        self.norm = np.array(self.atoms[1].loc) - np.array(self.atoms[0].loc)
         # Calculate the simplices
         find_simps(self)
 
@@ -200,9 +201,9 @@ class Surface:
         points = self.points.copy()
         # Move all surf points toward the origin via center point
         for i in range(len(points)):
-            points[i] = np.array(points[i]) - np.array(self.center)
+            points[i] = np.array(points[i]) - np.array(self.loc)
         # Calculate the angles to rotate the center point around
-        nps = rotate_points(self.rn, points)
+        nps = rotate_points(self.norm, points)
         # Get the 2d version of the points and their Delaunay tesselation
         nps = np.array(nps)
         # Add the flat points to the surface's list of flat points

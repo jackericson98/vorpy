@@ -5,16 +5,17 @@ class Vertex:
     """Vertex object. Used to build the network and calculate the surfaces"""
 
     def __init__(self, atoms=None, net=None, location=None, radius=None, loc2=None, rad2=None, doublet=None, ndx=None,
-                 load_ndxs=None, flat_faces=False):
+                 load_ndxs=None, flat_faces=False, edges=None, surfaces=None, distance=None):
 
         self.net = net                # Network       :   Network object for the vertex to refer back to
         self.atoms = atoms            # Atoms         :   List of atoms used to construct the vertex
-        self.edges = []               # Edges         :   List of Edge type objects connected to the vertex
-        self.surfs = []               # Surfaces      :   List of Surface type objects that the vertex is a part of
+        self.edges = edges            # Edges         :   List of Edge type objects connected to the vertex
+        self.surfs = surfaces         # Surfaces      :   List of Surface type objects that the vertex is a part of
 
         self.ndx = ndx                # Index         :   Indices of the atoms in the vertex
         self.loc = location           # Location      :   Where the vertex is located in 3D
         self.rad = radius             # Radius        :   Radius of the vertex's tangential sphere
+        self.dist = distance
         self.load_ndxs = load_ndxs    # Load indices  :   List of object load indices
 
         self.doublet = doublet        # Doublet       :   Whether the vertex is a doublet
@@ -29,6 +30,12 @@ class Vertex:
         if self.net is not None and self.atoms is not None:
             self.ndx = [atom.num for atom in self.atoms]
             self.ndx.sort()
+
+        # Set up the edge and surfaces lists
+        if self.edges is None:
+            self.edges = []
+        if self.surfs is None:
+            self.surfs = []
 
     # Calculate vertex function. Takes in 4 atoms, calculates the loc and rad of the inscribed sphere and adds the
     def calc_vert(self):

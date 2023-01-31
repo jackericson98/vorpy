@@ -144,15 +144,15 @@ def build_perimeter(surf):
     a0, a1 = surf.atoms[0], surf.atoms[1]
     d = np.sqrt(sum(np.square(np.array(a0.loc) - np.array(a1.loc))))
     # Get the center of the surface
-    if surf.rn is None:
+    if surf.norm is None:
         r = np.array(a1.loc) - np.array(a0.loc)
-        surf.rn = r / np.linalg.norm(r)
-    surf.center = np.array(a0.loc) + (a0.rad + 0.5 * (d - (a0.rad + a1.rad))) * surf.rn
+        surf.norm = r / np.linalg.norm(r)
+    surf.loc = np.array(a0.loc) + (a0.rad + 0.5 * (d - (a0.rad + a1.rad))) * surf.norm
     for i in range(len(surf.pflat_points)):
         # Move the points
-        surf.pflat_points[i] = surf.pflat_points[i] - surf.center
+        surf.pflat_points[i] = surf.pflat_points[i] - surf.loc
     # Rotate the point
-    surf.pflat_points = rotate_points(surf.rn, surf.pflat_points)
+    surf.pflat_points = rotate_points(surf.norm, surf.pflat_points)
     # Get the 2d version
     surf.pflat_points = [point[:2] for point in surf.pflat_points]
 
@@ -171,8 +171,8 @@ def get_com(surf):
     if my_com is not None and tri_within(surf, point=my_com) and surf.atoms[0].rad != surf.atoms[1].rad:
         return my_com
     # Get the center of the surface
-    if tri_within(surf, point=surf.center):
-        return surf.center
+    if tri_within(surf, point=surf.loc):
+        return surf.loc
     # If nothing else set the center of mass to the first point in the perimeter
     return surf.perimeter[len(surf.perimeter)//2]
 
@@ -385,9 +385,9 @@ def tri_within(surf, myTri=None, point=None):
         point = calc_com(points=points)
     else:
         # Move the point
-        point = point - surf.center
+        point = point - surf.loc
         # Rotate the point
-        new_point = rotate_points(surf.rn, [point])[0]
+        new_point = rotate_points(surf.norm, [point])[0]
         # Get the 2d version
         point = new_point[:2]
     # Get the projected point
@@ -454,10 +454,10 @@ def find_simps(surf):
     points = surf.points.copy()
     # Move all surf points toward the origin via center point
     for i in range(len(points)):
-        points[i] = np.array(points[i]) - np.array(surf.center)
+        points[i] = np.array(points[i]) - np.array(surf.loc)
 
     # Calculate the angles to rotate the center point around
-    nps = rotate_points(surf.rn, points)
+    nps = rotate_points(surf.norm, points)
 
     # Get the 2d version of the points and their Delaunay tesselation
     nps = np.array(nps)
