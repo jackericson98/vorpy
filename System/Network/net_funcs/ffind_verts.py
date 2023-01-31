@@ -1,76 +1,15 @@
-import numpy as np
-from System.system import System
-from System.Network.network import Network
-from System.Network.net_objs.surface import Surface
-from System.Network.net_objs.edge import Edge
+from System.sys_funcs.calcs import calc_circ, np, calc_dist, ndx_search, calc_angle
 from System.Network.net_objs.vertex import Vertex
-from System.sys_funcs.calcs import ndx_search
+from System.Network.net_objs.edge import Edge
+from itertools import combinations
 
-
-def ffind_near_atoms(net, a0, max_dist=20):
-    # Get the closest atoms to a0
-    max_atom_dist = 0
-    dists = []
-    a0_array = np.array(a0.loc)
-    max_inc = int(max_dist/min(net.sub_box_size)) + 1
-    # Get the atoms
-    my_atoms = net.get_atoms([a0.box], reach=max_inc)
-    # Get the atoms distance from a0
-    for atom in my_atoms[len(dists):]:
-        # Calculate the distance between the atoms
-        my_dist = np.sqrt(sum(np.square(a0_array - np.array(atom.loc)))) - (a0.rad + atom.rad)
-        # Replace the maximum distance if needed
-        if my_dist > max_atom_dist:
-            max_atom_dist = my_dist
-            # Check that the atom's distance isn't larger than the specified maximum distance
-            if my_dist < max_dist:
-                dists.append(my_dist)
-        else:
-            dists.append(my_dist)
-    # Sort the atoms
-    sorted_atoms = [[x, _] for _, x in sorted(zip(dists, my_atoms), key=lambda pair: pair[0]) if x.num != a0.num]
-    # Make sure the return doesn't trigger an index error
-    return sorted_atoms
-
-
-def ffind_near_surfs(net, s0):
-    # First get the first atom's surfaces
-    my_surfs = [_ for _ in s0.atoms[0].surfs if _.ndx != s0.ndx]
-    # Add the surfaces from a1
-    my_surfs += [_ for _ in s0.atoms[1].surfs if _ not in my_surfs and _.ndx != s0.ndx]
-    my_edges, my_dists = [], []
-    # Find the intersection of the closest surfaces with s0 and calculate center of the edge
-    for i in range(len(my_surfs)):
-        # Get the x, y, z variables for the check surfaces normal
-        a0, b0, c0 = s0.norm
-        a1, b1, c1 = my_surfs[i].norm
-        # Get the offset
-        d0, d1 = np.dot(s0.norm, s0.loc), np.dot(my_surfs[i].norm, my_surfs[i].loc)
-        # Get the parameterized line equations
-        denominator = a1 * b0 - a0 * b1
-        if denominator == 0:
-            continue
-        xt = [(-b1 * c0 + b0 * c1) / denominator, (-b1 * d0 + b0 * d1) / denominator]
-        yt = [(a1 * c0 - a0 * c1) / denominator, (a1 * d0 - a0 * d1) / denominator]
-        zt = [1, 0]
-        # Get the normal to the line
-        r = np.array([_[0] for _ in [xt, yt, zt]])
-        l_vctr = r / np.linalg.norm(r)
-        # Find an arbitrary point on the line (t = 0)
-        pa = np.array([_[1] for _ in [xt, yt, zt]])
-        # Get the vector between this and the center of the circle
-        pac = np.array(s0.loc) - pa
-        # Get the center of the line by dotting the atom's location onto it
-        l_cntr = pa + l_vctr * np.dot(pac, l_vctr)
-        # Get the atoms by finding the outlier in the my_surf.atoms list and adding the check_surf.atoms
-        edge_atoms = [_ for _ in s0.atoms if _.num not in my_surfs[i].ndx] + my_surfs[i].atoms
-        edge_ndx = [_.num for _ in edge_atoms]
-        edge_ndx.sort()
-        edge_dist = np.sqrt(sum(np.square(np.array(s0.loc) - np.array(l_cntr))))
-        my_edges.append(Edge(net=net, atoms=edge_atoms, ndx=edge_ndx, center=l_cntr, normal=l_vctr, dist=edge_dist))
-        my_dists.append(edge_dist)
-    # Return the list of surfaces sorted by maximum dot product with s0's normal
-    return [[x, _] for _, x in sorted(zip(my_dists, my_surfs), key=lambda pair: pair[0])]
+"""
+Throw an f in front of each function to differentiate when importing. Functions needed:
+1. ffind_v0 - Finds the start vertex by closeness
+2. ffind_verts - Stack of verts, each with a sub_stack of edges. Goes from site to edge to site till net is complete
+3. ffind_site - Takes in an edge and a vert and finds the closest atom
+4.
+"""
 
 
 def calc_flat_vert(atoms):
@@ -93,101 +32,200 @@ def calc_flat_vert(atoms):
     y_numerator = - d*g*i + c*h*i + d*e*k - a*h*k - c*e*m + a*g*m
     z_numerator = d*f*i - b*h*i - d*e*j + a*h*j + b*e*m - a*f*m
     x, y, z = x_numerator / disc, y_numerator / disc, z_numerator / disc
-    return [x, y, z]
+    # Get the radius
+    rad = calc_dist([x, y, z], atoms[0].loc)
+    return [x, y, z], rad
 
 
-def ffind_all_verts(surf, net):
-    # Make sure the initial vertices are found
-    if len(surf.verts) <= 3:
-        ffind_init_edges(net, surf)
-    j = 3
-    surf_vert_dists = [_.dist for _ in surf.edges]
-    # Keep looking for edges until the maximum vertex distance is less than the closest outside edge
-    while True:
-        check_edge, check_edge_dist = surf.edge_bank[j]
-        if check_edge_dist < max(surf_vert_dists):
-            # Create a variable to track the minimum set of edges
-            min_edges = []
-            min_edge_dists = []
-            # We need to add the edge to the surface where it is still sorted
-            for k in range(len(surf.edges)):
-                check_dist = np.sqrt(
-                    sum(np.square(np.array(surf.edge_bank[j][0].loc) - np.array(surf.edges[k].loc))))
-                if len(min_edges) < 2 or check_dist < min_edge_dists[1]:
-                    min_edges[1], min_edge_dists[1] = check_edge, check_dist
-                # Quick sort
-                if min_edge_dists[0] > min_edge_dists[1]:
-                    min_edges[0], min_edges[1] = min_edges[1], min_edges[0]
-                    min_edge_dists[0], min_edge_dists[1] = min_edge_dists[1], min_edge_dists[0]
-            nsrt_ndx = min([surf.edges.index(_) for _ in min_edges])
-            surf.edges.insert(nsrt_ndx, check_edge)
-        else:
-            break
-        j += 1
-
-
-def ffind_init_edges(net, my_surf):
-    # Create the sorted list of surfaces
-    my_surf.edge_bank = ffind_near_surfs(net=net, s0=my_surf)
-    # Add the closest 3 edges to the surface's list of surfaces
-    my_surf.edges = [my_surf.edge_bank[i][0] for i in range(3)]
-    # Get the initial vertices for each of the edge combinations
-    surf_verts = []
-    for j in range(3):
-        # Get the edges for this vertex
-        e1, e2 = my_surf.edges[j], my_surf.edges[(j + 1) % 3]
-        # Pull the atoms from the edges and get their indices
-        my_vert_atoms = [_ for _ in e1.atoms if _.num not in e2.ndx] + e2.atoms
-        my_vert_ndx = [_.num for _ in my_vert_atoms]
-        my_vert_ndx.sort()
-        # Create the vertex object and add it to the list of surface vertices
-        surf_verts.append(Vertex(net=net, atoms=my_vert_atoms, ndx=my_vert_ndx, edges=[e1, e2],
-                          location=calc_flat_vert(my_vert_atoms)))
-    # Calculate the distances from the surface's center
-    surf_vert_dists = [np.sqrt(sum(np.square(np.array(_.loc) - np.array(my_surf.loc)))) for _ in surf_verts]
-
-
-
-
-def ffind_init_surfs(net, my_atom, max_dist=20):
-    # Get the sorted closest max_surfs number of atoms, atoms
-    my_atom.surf_bank = ffind_near_atoms(net=net, a0=my_atom, max_dist=max_dist)
-    # Add the atoms to the net surfs list
-    for j in range(4):
-        # Get the check atom variable
-        check_atom, check_dist = my_atom.surf_bank[j]
-        # Get the index to search for
-        surf_ndx = [my_atom.num, check_atom.num]
-        surf_ndx.sort()
-        surf_net_ndx = ndx_search(net.surf_ndxs, surf_ndx)
-        if surf_net_ndx < len(net.surfs) and net.surf_ndxs[surf_net_ndx] == surf_ndx:
+def ffind_v0(net, a0=None):
+    # Find the middle sub_box of the set of boxes and
+    mid = len(net.sub_boxes) // 2
+    if a0 is None:
+        a0s = []
+        inc = 0
+        # Keep grabbing atoms until we have enough to get the current a0 increment
+        while len(a0s) < 5:
+            a0s = net.get_atoms([[mid, mid, mid]], inc)
+            inc += 1
+        # Pull an atom from the atoms list
+        a0 = a0s[0]
+    a1s = []
+    inc = 0
+    # Get the 5 closest atoms to a0
+    while len(a1s) < 5:
+        a1s = net.get_atoms([a0.box], inc)
+        inc += 1
+    # Set up the a2s lists
+    a2s, j = [], 0
+    # Check the a1s for verifiable
+    while len(a1s) > 0:
+        # Get the a1
+        a1 = a1s.pop()
+        if a1 == a0:
             continue
-        # Create a new surface object
-        my_surf = Surface(atoms=[my_atom, check_atom], distance=check_dist)
-        my_surf.ndx = surf_ndx
-        net.surfs.insert(surf_net_ndx, my_surf)
-        net.surf_ndxs.insert(surf_net_ndx, surf_ndx)
-        # Find where to insert the surface
-        k = 0
-        while k < len(my_atom.surfs) and check_dist > my_atom.surfs[k].dist:
-            k += 1
-        # Insert the surface's other atom's index and distance
-        my_atom.surfs.insert(k, my_surf)
-        # Find where to insert my_atom into the close atom's list
-        m = 0
-        while m < len(check_atom.surfs) and check_dist > check_atom.surfs[m].dist:
-            m += 1
-        check_atom.surfs.insert(m, my_surf)
+        # Add the circle check
+        a2s.append([])
+        inc = 0
+        # Get the 20 closest atoms to a0 and the current a1
+        if len(net.atoms) < 20:
+            a2s[j] = net.atoms.copy()
+        else:
+            while len(a2s[j]) < 20:
+                a2s[j] = net.get_atoms([[mid, mid, mid]], inc)
+                inc += 1
+        # Set up verified circles list for this a1
+        min_rad, my_circ, my_a2 = np.inf, None, None
+        # Check each of the combinations for this a1
+        for a2 in a2s[j]:
+            # Calculate the circle between the a2 atoms
+            test_circ = calc_circ([a0, a1, a2])
+            # Get the smallest non-None circle
+            if test_circ is not None and test_circ[1] < min_rad:
+                my_circ, min_rad, my_a2 = test_circ, test_circ[1], a2
+        # Get the nearest atoms
+        test_atoms = net.get_atoms([a0.box, a1.box, my_a2.box], 5)
+        # Set up the tracker variables
+        min_dist, my_vert, my_vert_loc = np.inf, None, []
+        # Go through the test_atoms
+        for a3 in test_atoms:
+            if a3 in [a0, a1, my_a2]:
+                continue
+            # Calculate the vertex's
+            my_vert_loc, my_vert_rad = calc_flat_vert([a0, a1, my_a2, a3])
+            my_dist = calc_dist(my_vert_loc, my_circ[0])
+            # Check the locations distance from the center of the atoms
+            if my_dist < min_dist and [_.num for _ in [a0, a1, my_a2, a3]] not in net.vert_ndxs:
+                my_vert = Vertex(atoms=[a0, a1, my_a2, a3], net=net, location=my_vert_loc, radius=0, flat_faces=True)
+                min_dist = my_dist
+        j += 1
+        return my_vert
 
 
-if __name__ == '__main__':
-    my_sys = System(file='C:/Users/jacke/PycharmProjects/vorpy/Data/test_data/Na5.pdb', root_dir='C:/Users/jacke/PycharmProjects/vorpy')
-    my_sys.net = Network(sys=my_sys, atoms=my_sys.atoms)
-    my_sys.net.sort_atoms()
-    for atom in my_sys.net.atoms:
-        ffind_init_surfs(my_sys.net, atom)
-    for surf in my_sys.net.surfs:
-        ffind_init_edges(my_sys.net, surf)
+def verify_site(vert, net):
+    # Grad the location and radius of the check vertex
+    loc, rad = vert.loc, vert.rad
+    # Find the indices of the sub-box for the vertex
+    vi = int((vert.loc[0] - net.box[0][0]) / net.sub_box_size[0])
+    vj = int((vert.loc[1] - net.box[0][1]) / net.sub_box_size[1])
+    vk = int((vert.loc[2] - net.box[0][2]) / net.sub_box_size[2])
+    # Get the number of boxes that an overlapping atom could possibly be away from the vertex sub-box
+    atom_range = int(rad / min(net.sub_box_size) + net.max_atom_rad / min(net.sub_box_size)) + 2
+    # Get the atoms in that range
+    overlap_test_atoms = net.get_atoms([[vi, vj, vk]], atom_range)
+    # Go through the atoms in the overlap test atom list
+    for atom2 in overlap_test_atoms:
+        # If the atom is one of the vertex atoms move on
+        if atom2.num in vert.ndx:
+            continue
+        # If the distance between the vertex and the test atom is less than the sum of their radii, they overlap
+        if np.sqrt(sum(np.square(np.array(atom2.loc) - np.array(loc)))) < rad:
+            return False
+    # If we make it all the way through the list of close atoms without overlapping it is a viable vertex
+    return True
 
 
+def ffind_site(edge_atoms, net, vn_1):
+    # Get the atoms that should not ba a part of the new vertex
+    edge_ndxs = [_.num for _ in edge_atoms]
+    if vn_1 is None:
+        vert_atom_ndxs = edge_ndxs
+    else:
+        vert_atom_ndxs = vn_1.ndx
+    # Get the closest atoms around
+    test_atoms = net.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], 5)
+    # Set up the list of distances
+    min_max_angle, my_vert, my_vert_ndx = 2 * np.pi, None, None
+    new_test_atoms = []
+    new_vert_ndxs = []
+    for an in test_atoms:
+        # If the atom is in the previous vertex move on
+        if an.num in vert_atom_ndxs:
+            continue
+        new_test_atoms.append(an)
+        # If we have found the vertex before it is not the previous vertex return
+        atom_ndxs = edge_ndxs + [an.num]
+        atom_ndxs.sort()
+        # Get the vertex's index/insert index
+        vert_ndx = ndx_search(net.vert_ndxs, atom_ndxs)
+        # If the vertex has been found before connect it to the previous one and return
+        if vert_ndx < len(net.vert_ndxs) and net.vert_ndxs[vert_ndx] == atom_ndxs:
+            # net.edges.append(Edge(net=net, atoms=edge_atoms, verts=[vn_1, net.verts[vert_ndx]], doublet=False, straight=True))
+            return
+        new_vert_ndxs.append(vert_ndx)
+    # Get the planes made by the test atoms and one of the edge atoms
+    for i in range(len(new_test_atoms)):
+        an, vert_ndx = new_test_atoms[i], new_vert_ndxs[i]
+        # Get the intersecting point of the edge and the plane made by a0 and an
+        vert_loc, vert_rad = calc_flat_vert(edge_atoms + [an])
+        # Check that the vertex is inside the network's box
+        outside = False
+        for j in range(3):
+            if not (net.box[0][j] <= vert_loc[j] <= net.box[1][j]):
+                outside = True
+        if outside:
+            continue
 
+        # Find the distance between the new vert and the old ver
+        my_vert = Vertex(atoms=edge_atoms + [an], net=net, location=vert_loc, radius=vert_rad, flat_faces=True)
+
+        # Verify that this site is real
+        if verify_site(my_vert, net):
+            return my_vert, vert_ndx
+
+
+# Find network function. Keeps searching the network until all verts are found
+def ffind_verts(net, a0=None):
+    # Calculate the total number of vertices
+    tot_verts = 5 * len(net.atoms)
+    # Find the first verified vertex
+    if len(net.atoms) == 4:
+        loc, rad = calc_flat_vert(net.atoms)
+        v0 = Vertex(atoms=net.atoms, net=net, location=loc, radius=rad, flat_faces=True)
+        v0.calc_vert()
+    else:
+        v0 = ffind_v0(net, a0)
+    # If no v0 is possible (e.g., a lone atom) return
+    if v0 is None:
+        return
+    # Check if this is the first go around
+    if net.verts is None:
+        net.verts = [v0]
+        net.vert_ndxs = [v0.ndx]
+        net.edges = []
+    else:
+        my_ndx = ndx_search(net.vert_ndxs, v0.ndx)
+        net.verts.insert(my_ndx, v0)
+        net.vert_ndxs.insert(my_ndx, v0.ndx)
+    # Set up the vertex stack
+    vert_stack = [v0]
+    # While the verts stack is not empty
+    while vert_stack:
+        # Get the vertex from the top of the stack
+        vert = vert_stack.pop()
+        # Set up the edge stack
+        e_stack = [[[vert.atoms[i], vert.atoms[(i + 1) % 4], vert.atoms[(i + 2) % 4]], vert] for i in range(4)]
+        # While the edge stack is not empty
+        while e_stack:
+            # Get the percentage and print it
+            percentage = min((len(net.verts) / tot_verts) * 100, 100)
+            print("\rfinding vertices: {:.2f} %".format(percentage), end="")
+            # Get the edge from the top of the stack
+            edge_atoms, vert = e_stack.pop()
+            # Find the next site in the network
+            myVert = ffind_site(edge_atoms=edge_atoms, net=net, vn_1=vert)
+            # If the vertex is none continue
+            if myVert is None:
+                continue
+            # Set the vertex and its index
+            myVert, myVert_ndx = myVert
+            # Add the vertex to the stack and the network
+            vert_stack.append(myVert)
+            # Insert the vertices in order of increasing atom indices
+            net.verts.insert(myVert_ndx, myVert)
+            net.vert_ndxs.insert(myVert_ndx, myVert.ndx)
+            # Add the minimum vertex size
+            # Remove the atoms from the
+            for atom in myVert.atoms:
+                atom_ndx = net.atoms.index(atom)
+                if atom_ndx in net.atom_ndxs:
+                    net.atom_ndxs.remove(atom_ndx)
