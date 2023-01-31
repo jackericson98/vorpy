@@ -186,11 +186,15 @@ def build(net, get_edges=True, get_surfs=True):
                 # If the surface's atoms are shared with the vertex, add it to the list
                 if len([0 for ndx in atom_ndxs if ndx in vert2.ndx]) == 2:
                     verts.append(vert2)
-
+            if atom_ndxs == [30, 60]:
+                print(len(verts), len(edges))
+                print([_.ndx for _ in verts])
+                print([_.ndx for _ in edges])
             # In order to be a true surface the number of edges need to be equal to the number of verts
             if len(verts) == len(edges):
                 # Create the surface
                 my_surf = Surface(atoms=atoms, verts=verts, net=net, edges=edges)
+
                 net.surfs.insert(surf_ndx, my_surf)
                 net.surf_ndxs.insert(surf_ndx, atom_ndxs)
                 # Add the surface to its objects

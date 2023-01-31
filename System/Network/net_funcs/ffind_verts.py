@@ -40,6 +40,35 @@ def calc_flat_vert(atoms):
 def ffind_v0(net, a0=None):
     # Find the middle sub_box of the set of boxes and
     mid = len(net.sub_boxes) // 2
+    mid_atoms = []
+    inc = 0
+    while len(mid_atoms) < len(net.atoms) and len(mid_atoms) < 20:
+        mid_atoms = net.get_atoms([[mid, mid, mid]], inc)
+        inc += 1
+    if a0 is None:
+        a0 = mid_atoms.pop(0)
+    min_dist = np.inf
+    a1 = None
+    for atom in mid_atoms:
+        my_dist = calc_dist(atom.loc, a0.loc)
+        if my_dist < min_dist:
+            a1 = atom
+            min_dist = my_dist
+    min_rad = np.inf
+    a2 = None
+    for atom in mid_atoms:
+        if atom.num == a1.num:
+            continue
+        my_circ_rad = calc_circ([a0, a1, atom])
+        if my_circ_rad is not None and abs(my_circ_rad[1]) < min_rad:
+            a2 = atom
+            min_rad = my_circ_rad[1]
+    return ffind_site(net=net, edge_atoms=[a0, a1, a2])[0]
+
+
+def ffind_v01(net, a0=None):
+    # Find the middle sub_box of the set of boxes and
+    mid = len(net.sub_boxes) // 2
     if a0 is None:
         a0s = []
         inc = 0
@@ -71,7 +100,7 @@ def ffind_v0(net, a0=None):
             a2s[j] = net.atoms.copy()
         else:
             while len(a2s[j]) < 20:
-                a2s[j] = net.get_atoms([[mid, mid, mid]], inc)
+                a2s[j] = net.get_atoms([a0.box, a1.box], inc)
                 inc += 1
         # Set up verified circles list for this a1
         min_rad, my_circ, my_a2 = np.inf, None, None
@@ -84,21 +113,17 @@ def ffind_v0(net, a0=None):
                 my_circ, min_rad, my_a2 = test_circ, test_circ[1], a2
         # Get the nearest atoms
         test_atoms = net.get_atoms([a0.box, a1.box, my_a2.box], 5)
-        # Set up the tracker variables
-        min_dist, my_vert, my_vert_loc = np.inf, None, []
         # Go through the test_atoms
         for a3 in test_atoms:
             if a3 in [a0, a1, my_a2]:
                 continue
             # Calculate the vertex's
             my_vert_loc, my_vert_rad = calc_flat_vert([a0, a1, my_a2, a3])
-            my_dist = calc_dist(my_vert_loc, my_circ[0])
+            my_vert = Vertex(atoms=[a0, a1, my_a2, a3], net=net, location=my_vert_loc, radius=0, flat_faces=True)
             # Check the locations distance from the center of the atoms
-            if my_dist < min_dist and [_.num for _ in [a0, a1, my_a2, a3]] not in net.vert_ndxs:
-                my_vert = Vertex(atoms=[a0, a1, my_a2, a3], net=net, location=my_vert_loc, radius=0, flat_faces=True)
-                min_dist = my_dist
+            if verify_site(my_vert, net):
+                return my_vert
         j += 1
-        return my_vert
 
 
 def verify_site(vert, net):
@@ -124,7 +149,7 @@ def verify_site(vert, net):
     return True
 
 
-def ffind_site(edge_atoms, net, vn_1):
+def ffind_site(edge_atoms, net, vn_1=None):
     # Get the atoms that should not ba a part of the new vertex
     edge_ndxs = [_.num for _ in edge_atoms]
     if vn_1 is None:
@@ -133,8 +158,6 @@ def ffind_site(edge_atoms, net, vn_1):
         vert_atom_ndxs = vn_1.ndx
     # Get the closest atoms around
     test_atoms = net.get_atoms([edge_atoms[0].box, edge_atoms[1].box, edge_atoms[2].box], 5)
-    # Set up the list of distances
-    min_max_angle, my_vert, my_vert_ndx = 2 * np.pi, None, None
     new_test_atoms = []
     new_vert_ndxs = []
     for an in test_atoms:
@@ -149,7 +172,6 @@ def ffind_site(edge_atoms, net, vn_1):
         vert_ndx = ndx_search(net.vert_ndxs, atom_ndxs)
         # If the vertex has been found before connect it to the previous one and return
         if vert_ndx < len(net.vert_ndxs) and net.vert_ndxs[vert_ndx] == atom_ndxs:
-            # net.edges.append(Edge(net=net, atoms=edge_atoms, verts=[vn_1, net.verts[vert_ndx]], doublet=False, straight=True))
             return
         new_vert_ndxs.append(vert_ndx)
     # Get the planes made by the test atoms and one of the edge atoms

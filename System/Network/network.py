@@ -1,8 +1,8 @@
 import time
 from System.Network.net_funcs.find_verts import find_verts
 from System.Network.net_funcs.build_net import build, get_time
-from System.Network.net_funcs.find_flat_verts import ffind_verts
-import numpy as np
+from System.Network.net_funcs.ffind_verts import ffind_verts
+from Visualize.mpl_visualize import *
 
 
 class Network:
