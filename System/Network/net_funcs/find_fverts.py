@@ -45,9 +45,42 @@ def expand_atom(net, a0, atoms, dists, max_dist=None):
         rn = r / np.linalg.norm(r)
         center = np.array(an.loc) + (a0.rad + 0.5 * dists[i]) * rn
         # Add the centers and rns
-        surfs.append(Surface(net=net, atoms=[a0, an], center=center, rn=rn))
+        surfs.append(Surface(net=net, atoms=[a0, an], center=center, normal=rn))
     # Return a tuple
     return surfs
+
+def make_cell(atom, surr_atoms):
+    my_center = np.array(atom.loc)
+    rns = []
+    # Create the rn vectors
+    for surr_atom in surr_atoms:
+        r = my_center - np.array(surr_atom.loc)
+        rns.append(r / np.linalg.norm(r))
+    # Create a list of maximum dot products for each surr atom
+    atom_dots = [[] for _ in range(len(surr_atoms))]
+    atom_atoms = [[] for _ in range(len(surr_atoms))]
+    for i in range(len(surr_atoms)):
+        # Get the surrounding atoms and their rn's
+        surr_atom, surr_atom_rn = surr_atoms[i], rns[i]
+        # Go through the surfaces near this one
+        for j in range(len(surr_atoms)):
+            if i == j or surr_atoms[j] in atom_atoms[i]:
+                continue
+            # Calculate the dot product between the current surface and
+            my_dot = np.dot(rns[i], rns[j])
+            k = 0
+            # Compare this dot product to the others and place if in the correct order
+            while k < len(atom_dots[i]) and my_dot < atom_dots[i][k]:
+                k += 1
+            atom_dots[i].insert(k, my_dot)
+            atom_atoms[i].insert(k, surr_atoms[j])
+            # Find where to insert the other atom's info for this surface
+            m = 0
+            # Compare the dot product to the other dot products in the surrounding atom's list
+            while m < len(atom_dots) and my_dot < atom_dots[surr_atom[j]][m]:
+                m += 1
+            atom_dots[surr_atoms[j]].insert(m, my_dot)
+            atom_atoms[surr_atoms[j]].insert(m, i)
 
 
 # Expand circle function. Keeps expanding the given circle into surrounding circles providing overlapping lines
@@ -71,10 +104,10 @@ def expand_circle(net, s0, surfs, max_dist=None):
         ndx = [_ for _ in surfs[i].ndx if _ not in s0.ndx] + s0.ndx
         ndx.sort()
         # Get the plane coefficients
-        a0, b0, c0 = s0.rn
-        a1, b1, c1 = surfs[i].rn
+        a0, b0, c0 = s0.norm
+        a1, b1, c1 = surfs[i].norm
         # Get the offset
-        d0, d1 = np.dot(s0.rn, s0.center), np.dot(surfs[i].rn, surfs[i].center)
+        d0, d1 = np.dot(s0.norm, s0.loc), np.dot(surfs[i].norm, surfs[i].loc)
         # Get the parameterized line equations
         denominator = a1 * b0 - a0 * b1
         if denominator == 0:
@@ -88,13 +121,13 @@ def expand_circle(net, s0, surfs, max_dist=None):
         # Find an arbitrary point on the line (t = 0)
         pa = np.array([_[1] for _ in [xt, yt, zt]])
         # Get the vector between this and the center of the circle
-        pac = np.array(s0.center) - pa
+        pac = np.array(s0.loc) - pa
         print(pac)
         # Get the center of the line by dotting the atom's location onto it
         l_cntr = pa + l_vctr * np.dot(pac, l_vctr)
         print(l_cntr)
         # Check to see if the line center is too far away from the atom's location
-        l_dist = np.sqrt(sum(np.square(np.array(s0.center) - np.array(l_cntr))))
+        l_dist = np.sqrt(sum(np.square(np.array(s0.loc) - np.array(l_cntr))))
 
         if max_dist is not None and l_dist > max_dist:
             continue
@@ -105,7 +138,7 @@ def expand_circle(net, s0, surfs, max_dist=None):
         l_atoms.append(ndx)
     # Sort the vectors and the centers by their distance from the atom
     ls = [[d, v, c, a] for d, v, c, a in sorted(zip(l_dists, l_vctrs, l_cntrs, l_atoms), key=lambda quad: quad[0])]
-    edges = [Edge(atoms=[net.atoms[_] for _ in ls[i][3]], rn=ls[i][1], loc=ls[i][2], dist=ls[i][0]) for i in range(len(ls))]
+    edges = [Edge(atoms=[net.atoms[_] for _ in ls[i][3]], normal=ls[i][1], center=ls[i][2], dist=ls[i][0]) for i in range(len(ls))]
     return edges
 
 
@@ -126,9 +159,9 @@ def expand_line(net, e0, edges, max_dist=np.inf):
         # Get the edge we are comparing against
         my_edge = edges.pop(0)
         # Get the vector between the line's center points from l0
-        rx0, ry0, rz0 = e0.rn
+        rx0, ry0, rz0 = e0.norm
         x0, y0, z0 = e0.loc
-        rx1, ry1, rz1 = my_edge.rn
+        rx1, ry1, rz1 = my_edge.norm
         x1, y1, z1 = my_edge.loc
         # Calculate the intersecting point between the two lines
         t1 = (ry0 * x0 + ry0 * x1 - rx0 * y0 - rx0 * y1)
