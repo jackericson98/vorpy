@@ -44,7 +44,7 @@ class Atom:
 
     """
     def __init__(self, location=None, radius=None, system=None, element=None, chain=None, mol_class=None, residue=None,
-                 molecule=None, res_seq=None, name=None, ocp=None, t_fact=None, seg_id=None, charge=None, load_ndxs=None, index=None):
+                 molecule=None, res_seq=None, name=None, ocp=None, t_fact=None, seg_id=None, charge=None, load_ndxs=None, index=None, surf_bank=None):
 
         # Calculated Traits
         self.loc = location         # Location     :   Set the location of the center of the sphere
@@ -60,7 +60,7 @@ class Atom:
         self.verts = []             # Vertices     :   List of Vertex type objects
         self.surfs = []             # Surfaces     :   List of Surface type objects
         self.edges = []             # Edges        :   List of Edge type objects
-        self.nbors = []             # Neighbors    :   List of atoms that share surfaces with the atom
+        self.surf_bank = surf_bank  # Surf Bank    :   List of surfaces within range in order to add
         self.load_ndxs = load_ndxs  # Load indices :   Holds the object indices for when the system is loaded back in
 
         # Inherent traits
@@ -104,7 +104,6 @@ class Atom:
         # Return the volume
         self.vol = vol
         return vol
-
 
 
 def get_radius(radius, system, return_symbol=False):
