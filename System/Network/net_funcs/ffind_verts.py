@@ -97,8 +97,9 @@ def calc_flat_vert(atoms):
 
 
 def ffind_all_verts(surf, net):
+    # Make sure the initial vertices are found
     if len(surf.verts) <= 3:
-        ffind_init_edges(net, edge)
+        ffind_init_edges(net, surf)
     j = 3
     surf_vert_dists = [_.dist for _ in surf.edges]
     # Keep looking for edges until the maximum vertex distance is less than the closest outside edge
@@ -126,66 +127,67 @@ def ffind_all_verts(surf, net):
 
 
 def ffind_init_edges(net, my_surf):
-        # Create the sorted list of surfaces
-        my_surf.edge_bank = ffind_near_surfs(net=net, s0=my_surf)
-        # Add the closest 3 edges to the surface's list of surfaces
-        my_surf.edges = [my_surf.edge_bank[i][0] for i in range(3)]
-        # Find the vertices made by the edges
-        inc = 0
-        # Get the initial vertices for each of the edge combinations
-        surf_verts = []
-        for j in range(3):
-            e1, e2 = my_surf.edges[i], my_surf.edges[(i + 1) % 3]
-            my_vert_atoms = [_ for _ in e1.atoms if _.num not in e2.ndx] + e2.atoms
-            my_vert_ndx = [_.num for _ in my_vert_atoms]
-            my_vert_ndx.sort()
-            surf_verts.append(Vertex(net=net, atoms=my_vert_atoms, ndx=my_vert_ndx, edges=[e1, e2],
-                              location=calc_flat_vert(my_vert_atoms)))
-        surf_vert_dists = [np.sqrt(sum(np.square(np.array(_.loc) - np.array(my_surf.loc)))) for _ in surf_verts]
+    # Create the sorted list of surfaces
+    my_surf.edge_bank = ffind_near_surfs(net=net, s0=my_surf)
+    # Add the closest 3 edges to the surface's list of surfaces
+    my_surf.edges = [my_surf.edge_bank[i][0] for i in range(3)]
+    # Get the initial vertices for each of the edge combinations
+    surf_verts = []
+    for j in range(3):
+        # Get the edges for this vertex
+        e1, e2 = my_surf.edges[j], my_surf.edges[(j + 1) % 3]
+        # Pull the atoms from the edges and get their indices
+        my_vert_atoms = [_ for _ in e1.atoms if _.num not in e2.ndx] + e2.atoms
+        my_vert_ndx = [_.num for _ in my_vert_atoms]
+        my_vert_ndx.sort()
+        # Create the vertex object and add it to the list of surface vertices
+        surf_verts.append(Vertex(net=net, atoms=my_vert_atoms, ndx=my_vert_ndx, edges=[e1, e2],
+                          location=calc_flat_vert(my_vert_atoms)))
+    # Calculate the distances from the surface's center
+    surf_vert_dists = [np.sqrt(sum(np.square(np.array(_.loc) - np.array(my_surf.loc)))) for _ in surf_verts]
 
 
 
-def ffind_init_surfs(net, max_dist=20):
-    # Go through the atoms in the network
-    for i in range(len(net.atoms)):
-        # Set up the current atom's variable
-        my_atom = net.atoms[i]
-        # Get the sorted closest max_surfs number of atoms, atoms
-        my_atom.surf_bank = ffind_near_atoms(net=net, a0=my_atom, max_dist=max_dist)
-        # Add the atoms to the net surfs list
-        for j in range(4):
-            # Get the check atom variable
-            check_atom, check_dist = my_atom.surf_bank[j]
-            # Get the index to search for
-            surf_ndx = [my_atom.num, check_atom.num]
-            surf_ndx.sort()
-            surf_net_ndx = ndx_search(net.surf_ndxs, surf_ndx)
-            if surf_net_ndx < len(net.surfs) and net.surf_ndxs[surf_net_ndx] == surf_ndx:
-                continue
-            # Create a new surface object
-            my_surf = Surface(atoms=[my_atom, check_atom], distance=check_dist)
-            my_surf.ndx = surf_ndx
-            net.surfs.insert(surf_net_ndx, my_surf)
-            net.surf_ndxs.insert(surf_net_ndx, surf_ndx)
-            # Find where to insert the surface
-            k = 0
-            while k < len(my_atom.surfs) and check_dist > my_atom.surfs[k].dist:
-                k += 1
-            # Insert the surface's other atom's index and distance
-            my_atom.surfs.insert(k, my_surf)
-            # Find where to insert my_atom into the close atom's list
-            m = 0
-            while m < len(check_atom.surfs) and check_dist > check_atom.surfs[m].dist:
-                m += 1
-            check_atom.surfs.insert(m, my_surf)
+
+def ffind_init_surfs(net, my_atom, max_dist=20):
+    # Get the sorted closest max_surfs number of atoms, atoms
+    my_atom.surf_bank = ffind_near_atoms(net=net, a0=my_atom, max_dist=max_dist)
+    # Add the atoms to the net surfs list
+    for j in range(4):
+        # Get the check atom variable
+        check_atom, check_dist = my_atom.surf_bank[j]
+        # Get the index to search for
+        surf_ndx = [my_atom.num, check_atom.num]
+        surf_ndx.sort()
+        surf_net_ndx = ndx_search(net.surf_ndxs, surf_ndx)
+        if surf_net_ndx < len(net.surfs) and net.surf_ndxs[surf_net_ndx] == surf_ndx:
+            continue
+        # Create a new surface object
+        my_surf = Surface(atoms=[my_atom, check_atom], distance=check_dist)
+        my_surf.ndx = surf_ndx
+        net.surfs.insert(surf_net_ndx, my_surf)
+        net.surf_ndxs.insert(surf_net_ndx, surf_ndx)
+        # Find where to insert the surface
+        k = 0
+        while k < len(my_atom.surfs) and check_dist > my_atom.surfs[k].dist:
+            k += 1
+        # Insert the surface's other atom's index and distance
+        my_atom.surfs.insert(k, my_surf)
+        # Find where to insert my_atom into the close atom's list
+        m = 0
+        while m < len(check_atom.surfs) and check_dist > check_atom.surfs[m].dist:
+            m += 1
+        check_atom.surfs.insert(m, my_surf)
 
 
 if __name__ == '__main__':
     my_sys = System(file='C:/Users/jacke/PycharmProjects/vorpy/Data/test_data/Na5.pdb', root_dir='C:/Users/jacke/PycharmProjects/vorpy')
     my_sys.net = Network(sys=my_sys, atoms=my_sys.atoms)
     my_sys.net.sort_atoms()
-    ffind_init_surfs(my_sys.net)
-
+    for atom in my_sys.net.atoms:
+        ffind_init_surfs(my_sys.net, atom)
+    for surf in my_sys.net.surfs:
+        ffind_init_edges(my_sys.net, surf)
 
 
 
