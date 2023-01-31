@@ -1,4 +1,5 @@
 import os.path
+import numpy as np
 from System.sys_funcs.calcs import calc_tri
 from System.Network.net_funcs.build_surf import *
 import csv
@@ -150,7 +151,7 @@ class Surface:
         # Check to see if the user provided a flat indication
         if flat is None:
             # Check if the surface is to be flat
-            self.flat = flat
+            flat = self.flat
         # Check to see if the file exists
         if self.file is not None:
             self.read_file()
@@ -163,18 +164,26 @@ class Surface:
         # Check to see if the function or curvature have been calculated and calculate them if not
         if self.curv is None:
             self.calc_curv()
-        # Reset the surface's list of points to empty list and reset the vertex indices list
-        self.points = []
-        # Build the perimeter of the surface
-        build_perimeter(self)
-        # Fill the mesh
-        fill_mesh(self)
-        # Find the simplices of the surface
-        find_simps(self)
-        # Filter out the bad triangles
-        filter_tris(self)
-        # Calculate the surface area
-        self.calc_sa()
+        # If the surface is flat, add the vertices as points and find tris
+        if flat:
+            self.points = [_.loc for _ in self.verts]
+            if self.loc is None:
+                r = np.array(self.atoms[0].loc) - np.array(self.atoms[1].loc)
+                self.loc = np.array(self.atoms[1].loc) + 0.5 * r
+            find_simps(self)
+        else:
+            # Reset the surface's list of points to empty list and reset the vertex indices list
+            self.points = []
+            # Build the perimeter of the surface
+            build_perimeter(self)
+            # Fill the mesh
+            fill_mesh(self)
+            # Find the simplices of the surface
+            find_simps(self)
+            # Filter out the bad triangles
+            filter_tris(self)
+            # Calculate the surface area
+            self.calc_sa()
 
     # Build vta surface function
     def build_vta(self):
