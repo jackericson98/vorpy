@@ -1,7 +1,5 @@
-from System.sys_funcs.calcs import calc_circ, np, calc_dist, ndx_search, calc_angle
+from System.sys_funcs.calcs import calc_circ, np, calc_dist, ndx_search
 from System.Network.net_objs.vertex import Vertex
-from System.Network.net_objs.edge import Edge
-from itertools import combinations
 
 """
 Throw an f in front of each function to differentiate when importing. Functions needed:
@@ -186,10 +184,8 @@ def ffind_site(edge_atoms, net, vn_1=None):
                 outside = True
         if outside:
             continue
-
         # Find the distance between the new vert and the old ver
         my_vert = Vertex(atoms=edge_atoms + [an], net=net, location=vert_loc, radius=vert_rad, flat_faces=True)
-
         # Verify that this site is real
         if verify_site(my_vert, net):
             return my_vert, vert_ndx
