@@ -1,26 +1,25 @@
-from System.sys_funcs.calcs import calc_circ, np, calc_dist, ndx_search, calc_angle
+from System.sys_funcs.calcs import calc_circ, np, calc_dist, ndx_search
 from System.Network.net_objs.vertex import Vertex
-from System.Network.net_objs.edge import Edge
-from itertools import combinations
-
-"""
-Throw an f in front of each function to differentiate when importing. Functions needed:
-1. ffind_v0 - Finds the start vertex by closeness
-2. ffind_verts - Stack of verts, each with a sub_stack of edges. Goes from site to edge to site till net is complete
-3. ffind_site - Takes in an edge and a vert and finds the closest atom
-4.
-"""
 
 
 def calc_flat_vert(atoms):
+    """
+    Calculates the flat vertex between 4 atoms by finding the intersection of the mid-point planes between the first
+    atom and the others
+    :param atoms:
+    :return:
+    """
+    rads = [_.rad for _ in atoms]
+    atom_rads = [x for _, x in sorted(zip(rads, atoms), key=lambda pair: pair[0])]
     # Get the plane equations
     coeffs = []
     # Go through the atoms to make the planes
-    for an in atoms[1:]:
+    for an in atom_rads[1:]:
         # Get the point between the atoms
-        r = np.array(an.loc) - np.array(atoms[0].loc)
-        rn = r / np.linalg.norm(r)
-        center = 0.5 * r + np.array(atoms[0].loc)
+        r = np.array(an.loc) - np.array(atom_rads[0].loc)
+        norm = np.linalg.norm(r)
+        rn = r / norm
+        center = 0.5 * r + np.array(atom_rads[0].loc)
         coeffs.append(rn.tolist() + [np.dot(rn, center)])
 
     a, b, c, d = coeffs[0]
@@ -33,8 +32,8 @@ def calc_flat_vert(atoms):
     z_numerator = d*f*i - b*h*i - d*e*j + a*h*j + b*e*m - a*f*m
     x, y, z = x_numerator / disc, y_numerator / disc, z_numerator / disc
     # Get the radius
-    rad = calc_dist([x, y, z], atoms[0].loc)
-    return [x, y, z], rad
+    rad = calc_dist([x, y, z], atom_rads[0].loc)
+    return [x, y, z], rad, atom_rads[0].rad
 
 
 def ffind_v0(net, a0=None):
@@ -118,15 +117,15 @@ def ffind_v01(net, a0=None):
             if a3 in [a0, a1, my_a2]:
                 continue
             # Calculate the vertex's
-            my_vert_loc, my_vert_rad = calc_flat_vert([a0, a1, my_a2, a3])
+            my_vert_loc, my_vert_rad, min_rad = calc_flat_vert([a0, a1, my_a2, a3])
             my_vert = Vertex(atoms=[a0, a1, my_a2, a3], net=net, location=my_vert_loc, radius=0, flat_faces=True)
             # Check the locations distance from the center of the atoms
-            if verify_site(my_vert, net):
+            if verify_site(my_vert, net, min_rad):
                 return my_vert
         j += 1
 
 
-def verify_site(vert, net):
+def verify_site(vert, net, min_rad):
     # Grad the location and radius of the check vertex
     loc, rad = vert.loc, vert.rad
     # Find the indices of the sub-box for the vertex
@@ -178,7 +177,7 @@ def ffind_site(edge_atoms, net, vn_1=None):
     for i in range(len(new_test_atoms)):
         an, vert_ndx = new_test_atoms[i], new_vert_ndxs[i]
         # Get the intersecting point of the edge and the plane made by a0 and an
-        vert_loc, vert_rad = calc_flat_vert(edge_atoms + [an])
+        vert_loc, vert_rad, min_rad = calc_flat_vert(edge_atoms + [an])
         # Check that the vertex is inside the network's box
         outside = False
         for j in range(3):
@@ -191,7 +190,7 @@ def ffind_site(edge_atoms, net, vn_1=None):
         my_vert = Vertex(atoms=edge_atoms + [an], net=net, location=vert_loc, radius=vert_rad, flat_faces=True)
 
         # Verify that this site is real
-        if verify_site(my_vert, net):
+        if verify_site(my_vert, net, min_rad):
             return my_vert, vert_ndx
 
 
@@ -201,7 +200,7 @@ def ffind_verts(net, a0=None):
     tot_verts = 5 * len(net.atoms)
     # Find the first verified vertex
     if len(net.atoms) == 4:
-        loc, rad = calc_flat_vert(net.atoms)
+        loc, rad, min_rad = calc_flat_vert(net.atoms)
         v0 = Vertex(atoms=net.atoms, net=net, location=loc, radius=rad, flat_faces=True)
         v0.calc_vert()
     else:
