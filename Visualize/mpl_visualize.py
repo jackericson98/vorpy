@@ -94,7 +94,7 @@ def plot_verts(verts, spheres=False, fig=None, ax=None, Show=False, dfo=None, gr
         # Plot the point
         ax.scatter(verts[i].loc[0], verts[i].loc[1], verts[i].loc[2], c=colors[i])
     # Plot the inscribed spheres
-    if spheres and not verts[0].flat_faced:
+    if spheres:
         spheres = []
         for i in range(len(verts)):
             spheres.append([verts[i].loc, verts[i].rad])
@@ -189,7 +189,7 @@ def plot_net(net, plot_all=False, atoms=False, verts=False, edges=False, surfs=F
         plot_atoms(net.atoms, fig=fig, ax=ax, alpha=a_alpha)
     # Vertices
     if verts or plot_all:
-        plot_verts(net.verts, fig=fig, ax=ax, colors=['r' for _ in range(len(net.verts))], alpha=v_alpha)
+        plot_verts(net.verts, fig=fig, ax=ax, colors=['r' for _ in range(len(net.verts))], alpha=v_alpha, spheres=True)
     # Edges
     if edges or plot_all:
         plot_edges(net.edges, fig=fig, ax=ax, colors=['w' for _ in range(len(net.edges))], alpha=e_alpha)
