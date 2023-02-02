@@ -33,7 +33,7 @@ def calc_flat_vert(atoms):
     x, y, z = x_numerator / disc, y_numerator / disc, z_numerator / disc
     # Get the radius
     rad = calc_dist([x, y, z], atom_rads[0].loc)
-    return [x, y, z], rad, atom_rads[0].rad
+    return [x, y, z], rad
 
 
 def ffind_v0(net, a0=None):
@@ -65,67 +65,7 @@ def ffind_v0(net, a0=None):
     return ffind_site(net=net, edge_atoms=[a0, a1, a2])[0]
 
 
-def ffind_v01(net, a0=None):
-    # Find the middle sub_box of the set of boxes and
-    mid = len(net.sub_boxes) // 2
-    if a0 is None:
-        a0s = []
-        inc = 0
-        # Keep grabbing atoms until we have enough to get the current a0 increment
-        while len(a0s) < 5:
-            a0s = net.get_atoms([[mid, mid, mid]], inc)
-            inc += 1
-        # Pull an atom from the atoms list
-        a0 = a0s[0]
-    a1s = []
-    inc = 0
-    # Get the 5 closest atoms to a0
-    while len(a1s) < 5:
-        a1s = net.get_atoms([a0.box], inc)
-        inc += 1
-    # Set up the a2s lists
-    a2s, j = [], 0
-    # Check the a1s for verifiable
-    while len(a1s) > 0:
-        # Get the a1
-        a1 = a1s.pop()
-        if a1 == a0:
-            continue
-        # Add the circle check
-        a2s.append([])
-        inc = 0
-        # Get the 20 closest atoms to a0 and the current a1
-        if len(net.atoms) < 20:
-            a2s[j] = net.atoms.copy()
-        else:
-            while len(a2s[j]) < 20:
-                a2s[j] = net.get_atoms([a0.box, a1.box], inc)
-                inc += 1
-        # Set up verified circles list for this a1
-        min_rad, my_circ, my_a2 = np.inf, None, None
-        # Check each of the combinations for this a1
-        for a2 in a2s[j]:
-            # Calculate the circle between the a2 atoms
-            test_circ = calc_circ([a0, a1, a2])
-            # Get the smallest non-None circle
-            if test_circ is not None and test_circ[1] < min_rad:
-                my_circ, min_rad, my_a2 = test_circ, test_circ[1], a2
-        # Get the nearest atoms
-        test_atoms = net.get_atoms([a0.box, a1.box, my_a2.box], 5)
-        # Go through the test_atoms
-        for a3 in test_atoms:
-            if a3 in [a0, a1, my_a2]:
-                continue
-            # Calculate the vertex's
-            my_vert_loc, my_vert_rad, min_rad = calc_flat_vert([a0, a1, my_a2, a3])
-            my_vert = Vertex(atoms=[a0, a1, my_a2, a3], net=net, location=my_vert_loc, radius=0, flat_faces=True)
-            # Check the locations distance from the center of the atoms
-            if verify_site(my_vert, net, min_rad):
-                return my_vert
-        j += 1
-
-
-def verify_site(vert, net, min_rad):
+def verify_site(vert, net):
     # Grad the location and radius of the check vertex
     loc, rad = vert.loc, vert.rad
     # Find the indices of the sub-box for the vertex
@@ -177,7 +117,7 @@ def ffind_site(edge_atoms, net, vn_1=None):
     for i in range(len(new_test_atoms)):
         an, vert_ndx = new_test_atoms[i], new_vert_ndxs[i]
         # Get the intersecting point of the edge and the plane made by a0 and an
-        vert_loc, vert_rad, min_rad = calc_flat_vert(edge_atoms + [an])
+        vert_loc, vert_rad = calc_flat_vert(edge_atoms + [an])
         # Check that the vertex is inside the network's box
         outside = False
         for j in range(3):
@@ -185,12 +125,9 @@ def ffind_site(edge_atoms, net, vn_1=None):
                 outside = True
         if outside:
             continue
-
         # Find the distance between the new vert and the old ver
         my_vert = Vertex(atoms=edge_atoms + [an], net=net, location=vert_loc, radius=vert_rad, flat_faces=True)
-
-        # Verify that this site is real
-        if verify_site(my_vert, net, min_rad):
+        if verify_site(my_vert, net):
             return my_vert, vert_ndx
 
 
@@ -200,7 +137,7 @@ def ffind_verts(net, a0=None):
     tot_verts = 5 * len(net.atoms)
     # Find the first verified vertex
     if len(net.atoms) == 4:
-        loc, rad, min_rad = calc_flat_vert(net.atoms)
+        loc, rad = calc_flat_vert(net.atoms)
         v0 = Vertex(atoms=net.atoms, net=net, location=loc, radius=rad, flat_faces=True)
         v0.calc_vert()
     else:
@@ -235,7 +172,7 @@ def ffind_verts(net, a0=None):
             # Find the next site in the network
             myVert = ffind_site(edge_atoms=edge_atoms, net=net, vn_1=vert)
             # If the vertex is none continue
-            if myVert is None:
+            if myVert is None or (len(myVert) > 1 and myVert[1] is None):
                 continue
             # Set the vertex and its index
             myVert, myVert_ndx = myVert
