@@ -107,6 +107,10 @@ def build(net, get_edges=True, get_surfs=True):
 
     # Fill in the doublets and set their outer edges
     doublify(net, get_edges=get_edges)
+    # Add the vertices to the atoms
+    for vert in net.verts:
+        for atom in vert.atoms:
+            atom.verts.append(vert)
 
     ################################################# Create the edges #################################################
 
@@ -150,7 +154,6 @@ def build(net, get_edges=True, get_surfs=True):
                 atom.edges.append(my_edge)
             for vert in verts:
                 vert.edges.append(my_edge)
-
 
     ################################################### Create the surfaces ############################################
 
