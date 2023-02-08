@@ -12,6 +12,41 @@ Throw an f in front of each function to differentiate when importing. Functions 
 """
 
 
+def calc_flat_vert_pow(atoms):
+    """
+    Calculates the flat vertex between 4 atoms by finding the intersection of the mid-point planes between the first
+    atom and the others
+    :param atoms:
+    :return:
+    """
+    rads = [_.rad for _ in atoms]
+    atom_rads = [x for _, x in sorted(zip(rads, atoms), key=lambda pair: pair[0])]
+    # Get the plane equations
+    coeffs = []
+    # Go through the atoms to make the planes
+    for an in atom_rads[1:]:
+        # Get the point between the atoms
+        r = np.array(an.loc) - np.array(atoms[0].loc)
+        norm = np.linalg.norm(r)
+        rn = r / norm
+        atom_surf_dist = norm - an.rad - atoms[0].rad
+        center = (0.5 * atom_surf_dist + atoms[0].rad) * rn + np.array(atoms[0].loc)
+        coeffs.append(rn.tolist() + [np.dot(rn, center)])
+
+    a, b, c, d = coeffs[0]
+    e, f, g, h = coeffs[1]
+    i, j, k, m = coeffs[2]
+
+    disc = c * f * i - b * g * i - c * e * j + a * g * j + b * e * k - a * f * k
+    x_numerator = d * g * j - c * h * j - d * f * k + b * h * k + c * f * m - b * g * m
+    y_numerator = - d * g * i + c * h * i + d * e * k - a * h * k - c * e * m + a * g * m
+    z_numerator = d * f * i - b * h * i - d * e * j + a * h * j + b * e * m - a * f * m
+    x, y, z = x_numerator / disc, y_numerator / disc, z_numerator / disc
+    # Get the radius
+    rad = calc_dist([x, y, z], atom_rads[0].loc) - atom_rads[0].rad
+    return [x, y, z], rad
+
+
 def calc_flat_vert(atoms):
     """
     Calculates the flat vertex between 4 atoms by finding the intersection of the mid-point planes between the first
@@ -71,8 +106,33 @@ def ffind_v0(net, a0=None):
         my_circ_rad = calc_circ([a0, a1, atom])
         if my_circ_rad is not None and abs(my_circ_rad[1]) < min_rad:
             a2 = atom
-            min_rad = my_circ_rad[1]
-    return ffind_site(net=net, edge_atoms=[a0, a1, a2])[0]
+            min_rad = abs(my_circ_rad[1])
+    v0_site = ffind_site(net=net, edge_atoms=[a0, a1, a2])
+    return v0_site[0]
+
+
+def verify_site_power(vert, net):
+    # Grad the location and radius of the check vertex
+    loc, rad = vert.loc, vert.rad
+    # Find the indices of the sub-box for the vertex
+    vi = int((vert.loc[0] - net.box[0][0]) / net.sub_box_size[0])
+    vj = int((vert.loc[1] - net.box[0][1]) / net.sub_box_size[1])
+    vk = int((vert.loc[2] - net.box[0][2]) / net.sub_box_size[2])
+    # Get the number of boxes that an overlapping atom could possibly be away from the vertex sub-box
+    atom_range = int(rad / min(net.sub_box_size) + net.max_atom_rad / min(net.sub_box_size)) + 2
+    # Get the atoms in that range
+    overlap_test_atoms = net.get_atoms([[vi, vj, vk]], atom_range)
+    # Go through the atoms in the overlap test atom list
+    for atom2 in overlap_test_atoms:
+        # If the atom is one of the vertex atoms move on
+        if atom2.num in vert.ndx:
+            continue
+        # Get the power distance between the atom2 and the vertex
+        pow_dist = np.dot(atom2.loc, loc) - atom2.rad ** 2
+        # Check that the power distance between the vert and the atom is not less than the radius of the vertex
+        if pow_dist < rad:
+            return False
+    return True
 
 
 def verify_site(vert, net):
