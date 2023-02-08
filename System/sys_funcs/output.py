@@ -1,4 +1,5 @@
 from System.sys_funcs.calcs import *
+from System.sys_objs.atom import Atom, get_radius
 import os
 import csv
 
@@ -38,17 +39,22 @@ def set_output_dir(sys, dir_name=None):
     sys.dir = dir_name + i_str
 
 
-def write_pdb(atoms, name, sys=None):
+def write_pdb(atoms, name, sys=None, directory=None):
     """
     Creates a pdb file type in the current working directory
+    :param directory:
     :param atoms: List of atom type objects for writing
     :param name: Name of the output file
     :param sys: System object used for writing the whole pbd file
     :return:
     """
-
+    start_dir = None
+    if directory is not None:
+        start_dir = os.getcwd()
+        os.chdir(directory)
     if atoms is None or len(atoms) == 0:
         return
+
     # Create the output file
     with open(name + ".pdb", 'w') as write_file:
         # Check to see if a system was provided
@@ -77,7 +83,7 @@ def write_pdb(atoms, name, sys=None):
             # Go through each atom in the system
             for i in range(len(atoms)):
                 a = atoms[i]
-                loc = [str(round(_, 3)) for _ in a.loc]
+                loc = ["{:.3f}".format(_) for _ in a.loc]
                 # Get the information from the atom in writable format
                 ser_num = " " * (5 - len(str(i+1))) + str(i + 1)
                 name = a.name + " " * (4 - len(a.name))
@@ -95,6 +101,30 @@ def write_pdb(atoms, name, sys=None):
                 # Write the atom information
                 write_file.write("ATOM  " + ser_num + " " + name + " " + res + " " + chain + res_seq + "    " + " ".join(loc_strs) +
                            occupancy + t_fact + "      " + seg_id + symbol + charge + "\n")
+    if start_dir is not None:
+        os.chdir(start_dir)
+
+
+def write_verts(verts, file_name, atom_type=None, directory=None):
+    """
+    Creates a pdb file for vertex representation
+    :param verts:
+    :param file_name:
+    :param atom_type:
+    :param directory:
+    :return:
+    """
+    # Check to see if a directory is given
+    if directory is not None:
+        os.chdir(directory)
+    if atom_type is None:
+        atom_type = 'h'
+    # If no surfaces are provided return
+    if verts is None or len(verts) == 0:
+        return
+    vert_atoms = [Atom(location=_.loc, element=atom_type) for _ in verts]
+    # Write the pdb with the atom objects from the verts
+    write_pdb(atoms=vert_atoms, name=file_name, directory=directory)
 
 
 def write_surfs(surfs, file_name, color=None, directory=None):
