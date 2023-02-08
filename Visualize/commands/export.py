@@ -44,7 +44,7 @@ def export(sys, usr_npt):
     npt_list = [None]*4
     npt_list[obj_ndx] = my_list
     my_group = Group(sys=sys, mols=npt_list[0], residues=npt_list[1], atoms=npt_list[2], indices=npt_list[3], name=name)
-    print("choose one to export: 1. Shell, 2. Surfaces, 3. Layers, 4. Atoms, 5. Filled Body, 6. Info File, 7. All")
+    print("choose one to export: 1. Shell, 2. Surfaces, 3. Layers, 4. Atoms, 5. Filled Body, 6. Info File, 7. Vertices, 8. All")
     while True:
         # Export the group exports
         xpt_npt = input("export >>>   ")
@@ -80,9 +80,14 @@ def export(sys, usr_npt):
         elif xpt_npt.lower() in ['6', '6.', 'info', 'info_file', 'info file']:
             my_group.exports(info=True)
             print("\r{} info file exported to {}".format(my_group.name, my_group.dir))
-        # Export All
-        elif xpt_npt.lower() in ['7', '7.', 'all', 'a', 'info file']:
+        # Export vertices
+        elif xpt_npt.lower() in ['7', '7.', 'verts', 'vertices']:
+            my_group.exports(verts=True)
+            print("\r {} exported to {}".format(my_group.name, my_group.dir))
+            # Export all
+        elif xpt_npt.lower() in ['8', '8.', 'eight', 'ocho', '8 ', 'all', 'a']:
             my_group.exports(all_=True)
-            print("\r{} shell, surfaces, layers, atoms, filled body and info file exported to {}".format(my_group.name, my_group.dir))
+            print("\r{} shell, surfaces, layers, atoms, filled body and info file exported to {}".format(my_group.name,
+                                                                                                         my_group.dir))
         else:
             invalid_input(xpt_npt)
