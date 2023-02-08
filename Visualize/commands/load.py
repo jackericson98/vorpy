@@ -47,7 +47,7 @@ def load(sys, usr_npt):
         # If the loaded file is a vertex or network file load them accordingly
         elif file[-3:] == 'txt':
             # If the new file is a vertex file load it
-            if file[-9:-4] == 'verts':
+            if file[-9:-4] == 'verts' or file[-12:-4] == 'vertices':
                 # If a vertex file has already been loaded make sure the user wants to load it if not load it
                 if sys.vert_file is not None and sys.vert_file != "":
                     replace_vert_file = input("replacing {} with {}\n "

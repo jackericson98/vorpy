@@ -118,11 +118,11 @@ def write_verts(verts, file_name, atom_type=None, directory=None):
     if directory is not None:
         os.chdir(directory)
     if atom_type is None:
-        atom_type = 'h'
+        atom_type = 'H'
     # If no surfaces are provided return
     if verts is None or len(verts) == 0:
         return
-    vert_atoms = [Atom(location=_.loc, element=atom_type) for _ in verts]
+    vert_atoms = [Atom(location=_.loc, element=atom_type, ) for _ in verts]
     # Write the pdb with the atom objects from the verts
     write_pdb(atoms=vert_atoms, name=file_name, directory=directory)
 
