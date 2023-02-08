@@ -121,6 +121,11 @@ def find_site(net, edge_atoms, vn_1=None, first=False):
         # If the vertex has been found before connect it to the previous one and return
         if vert_ndx < len(net.vert_ndxs) and net.vert_ndxs[vert_ndx] == atom_ndxs:
             return
+        # Get the vertex's index/insert index
+        bad_vert_ndx = ndx_search(net.bad_verts, atom_ndxs)
+        # If the vertex has been found before connect it to the previous one and return
+        if bad_vert_ndx < len(net.bad_verts) and net.bad_verts[bad_vert_ndx] == atom_ndxs:
+            continue
         # Create the vertex and calculate its value
         vert = Vertex(edge_atoms + [atom], net=net)
         vert.calc_vert()
@@ -145,6 +150,8 @@ def find_site(net, edge_atoms, vn_1=None, first=False):
             doublet.doublet = None
             verts.append(doublet)
             vert_ndx_list_locs.append(vert_ndx)
+        else:
+            net.bad_verts.insert(bad_vert_ndx, atom_ndxs)
 
     # If no verts have been found return
     if len(verts) == 0:
