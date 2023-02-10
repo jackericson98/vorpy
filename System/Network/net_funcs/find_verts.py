@@ -69,18 +69,44 @@ def verify_site(vert, net):
     vi = int((loc[0] - net.box[0][0]) / net.sub_box_size[0])
     vj = int((loc[1] - net.box[0][1]) / net.sub_box_size[1])
     vk = int((loc[2] - net.box[0][2]) / net.sub_box_size[2])
-    # Get the number of boxes that an overlapping atom could possibly be away from the vertex sub-box
-    atom_range = int(rad / min(net.sub_box_size) + net.max_atom_rad / min(net.sub_box_size)) + 2
-    # Get the atoms in that range
-    overlap_test_atoms = net.get_atoms([[vi, vj, vk]], atom_range)
-    # Go through the atoms in the overlap test atom list
-    for atom2 in overlap_test_atoms:
+    # Check to see if the sub box even exists
+    if vi > net.box_max[0] or vj > net.box_max[1] or vk > net.box_max[2] or vi < 0 or vj < 0 or vk < 0:
+        return False
+    # Checked atoms list
+    checked_atoms = [_ for _ in vert.ndx]
+    # Set up the numpy checks for faster reference
+    sqrt, array, square = np.sqrt, np.array, np.square
+    # Quick check to see if any atoms exist inside the vertex's box
+    quick_atoms = net.sub_boxes[vi][vj][vk]
+    for atom in quick_atoms:
+        # Get the location of the atom num in the checked atoms list
+        checked_ndx = ndx_search(checked_atoms, atom.num)
         # If the atom is one of the vertex atoms move on
-        if atom2.num in vert.ndx:
+        if checked_ndx < len(checked_atoms) and atom.num == checked_atoms[checked_ndx]:
             continue
         # If the distance between the vertex and the test atom is less than the sum of their radii, they overlap
-        if np.sqrt(sum(np.square(np.array(atom2.loc) - np.array(loc)))) < atom2.rad + rad:
+        if sqrt(sum(square(array(atom.loc) - array(loc)))) < atom.rad + rad:
             return False
+        checked_atoms.insert(checked_ndx, atom.num)
+    inc = 1
+    # Get the number of boxes that an overlapping atom could possibly be away from the vertex sub-box
+    min_sub_box_size = min(net.sub_box_size)
+    atom_range = int(rad / min_sub_box_size + net.max_atom_rad / min_sub_box_size) + 2
+    while inc <= atom_range:
+        # Get the atoms in that range
+        overlap_test_atoms = net.get_atoms([[vi, vj, vk]], inc)
+        # Go through the atoms in the overlap test atom list
+        for atom in overlap_test_atoms:
+            # Get the location of the atom num in the checked atoms list
+            checked_ndx = ndx_search(checked_atoms, atom.num)
+            # If the atom is one of the vertex atoms move on
+            if checked_ndx < len(checked_atoms) and atom.num == checked_atoms[checked_ndx]:
+                continue
+            # If the distance between the vertex and the test atom is less than the sum of their radii, they overlap
+            if sqrt(sum(square(array(atom.loc) - array(loc)))) < atom.rad + rad:
+                return False
+            checked_atoms.insert(checked_ndx, atom.num)
+        inc += 1
     # If we make it all the way through the list of close atoms without overlapping it is a viable vertex
     return True
 
