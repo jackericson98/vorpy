@@ -1,4 +1,6 @@
 import time
+from itertools import chain as chain
+
 from System.Network.net_funcs.find_verts import find_verts
 from System.Network.net_funcs.build_net import build, get_time
 from System.Network.net_funcs.ffind_verts import ffind_verts
@@ -23,6 +25,7 @@ class Network:
         self.box = None                 # Box            : Holds a max and min vertex for the retaining box
         self.sub_boxes = None           # Sub boxes      : Holds atoms in their different relative locations in the grid
         self.sub_box_size = None        # Sub box size   : Holds the size of each sub box
+        self.box_max = None             # Box maxes      :
         self.atoms_box = []             # Atoms box      : Holds the min and max verts for the box containing the atoms
         self.max_atom_rad = 0           # Max atom rad   : Holds the largest radius of the system for reference
         self.vert_ndxs = []             # Vert indices   : Holds the sorted indices of the atoms of the network's verts
@@ -103,6 +106,7 @@ class Network:
             self.sub_boxes[box_ndxs[0]][box_ndxs[1]][box_ndxs[2]].append(atom)
             # Add the box to the atom
             atom.box = box_ndxs
+        self.box_max = len(self.sub_boxes) - 1, len(self.sub_boxes[0]) - 1, len(self.sub_boxes[0][0]) - 1
 
     def get_atoms(self, cells, reach=0):
         """
@@ -122,23 +126,11 @@ class Network:
                     ndx_min[i] = cell[i]
                 if cell[i] > ndx_max[i]:
                     ndx_max[i] = cell[i]
-
         xs = [x for x in range(max(0, -reach + ndx_min[0] + 1), reach + ndx_max[0])]
         ys = [y for y in range(max(0, -reach + ndx_min[1] + 1), reach + ndx_max[1])]
         zs = [z for z in range(max(0, -reach + ndx_min[2] + 1), reach + ndx_max[2])]
-        atoms = []
-        # Go through each box in the range given and add the atoms
-        for i in xs:
-            for j in ys:
-                for k in zs:
-                    # Add a little catch to not go forever
-                    if len(atoms) >= len(self.atoms):
-                        return self.atoms.copy()
-                    try:
-                        # Add the atoms
-                        atoms += self.sub_boxes[i][j][k]
-                    except IndexError:
-                        pass
+        atoms = [self.sub_boxes[i][j][k] for k in zs for j in ys for i in xs if 0 < k < self.box_max[2] and 0 < j < self.box_max[1] and 0 < i < self.box_max[0]]
+        atoms = list(chain.from_iterable(atoms))
         return atoms
 
     def connect(self, get_edges=True, get_surfs=True):
@@ -175,9 +167,10 @@ class Network:
         print("\r                                        ", end="")
         # Bit of code for timing the vertex building process
         if time_start is not None:
-            self.my_time = time.perf_counter() - time_start
+            self.my_time = time.time() - time_start
+            process_time = time.process_time() - process_time_start
             h, m, s = get_time(self.my_time)
-            print("\rvertex process ({} verts) = {}:{}:{:.2f} s".format(len(self.verts), int(h), int(m), s))
+            print("\rvertex process ({} verts) = {}:{}:{:.2f} s, cpu time = {}".format(len(self.verts), int(h), int(m), s, process_time))
 
     def build_edges(self):
         """
@@ -254,13 +247,14 @@ class Network:
         # Instantiate the timer variables
         self.my_time, self.cpu_time = 0, 0
         # Start the timer
-        start = time.perf_counter()
+        start = time.time()
+        process_start = time.process_time()
         # Sort the atoms in the network
         self.sort_atoms()
         # Check to see if there are vertices loaded
         if self.calc_verts:
             # Find the vertices
-            self.find_verts(start)
+            self.find_verts(start, process_time_start=process_start)
             # Check to see if there are vertices
             if self.verts is None or len(self.verts) == 0:
                 return
@@ -277,14 +271,14 @@ class Network:
             for surf in self.surfs:
                 surf.calc_func()
         # Stop the timer and measure the time
-        stop = time.perf_counter()
-        self.my_time = stop - start
+        self.my_time = time.time() - start
+        self.cpu_time = time.process_time() - process_start
         # Export the network
         if output:
             self.sys.exports(network=True, pdb=True, no_sol_network_object=True, info=self.build_surfs)
         h, m, s = get_time(self.my_time)
-        print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s\n".format(len(self.verts), len(self.surfs),
-                                                                                int(h), int(m), s), end="")
+        print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s, cpu time = {}\n".format(len(self.verts), len(self.surfs),
+                                                                                int(h), int(m), s, self.cpu_time), end="")
 
     def rebuild_net(self, resolution=None, flat_faces=None, max_vert=None, box_size=None):
         pass
