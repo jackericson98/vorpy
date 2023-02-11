@@ -24,8 +24,9 @@ class Network:
         # Tools for splitting up the atoms
         self.box = None                 # Box            : Holds a max and min vertex for the retaining box
         self.sub_boxes = None           # Sub boxes      : Holds atoms in their different relative locations in the grid
+        self.vert_sub_boxes = None      # Vert Sub Boxes : Holds the vertices of the network by their location
         self.sub_box_size = None        # Sub box size   : Holds the size of each sub box
-        self.box_max = None             # Box maxes      :
+        self.box_max = None             # Box maxes      : Number of x, y, z boxes or rows, columns, aisles
         self.atoms_box = []             # Atoms box      : Holds the min and max verts for the box containing the atoms
         self.max_atom_rad = 0           # Max atom rad   : Holds the largest radius of the system for reference
         self.vert_ndxs = []             # Vert indices   : Holds the sorted indices of the atoms of the network's verts
