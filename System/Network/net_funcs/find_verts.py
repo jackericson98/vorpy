@@ -66,9 +66,7 @@ def verify_site(vert, net):
     # Grad the location and radius of the check vertex
     loc, rad = vert.loc, vert.rad
     # Find the indices of the sub-box for the vertex
-    vi = int((loc[0] - net.box[0][0]) / net.sub_box_size[0])
-    vj = int((loc[1] - net.box[0][1]) / net.sub_box_size[1])
-    vk = int((loc[2] - net.box[0][2]) / net.sub_box_size[2])
+    vi, vj, vk = [int((loc[i] - net.box[0][i]) / net.sub_box_size[i]) for i in range(3)]
     # Check to see if the sub box even exists
     if vi > net.box_max[0] or vj > net.box_max[1] or vk > net.box_max[2] or vi < 0 or vj < 0 or vk < 0:
         return False
@@ -79,15 +77,14 @@ def verify_site(vert, net):
     # Quick check to see if any atoms exist inside the vertex's box
     quick_atoms = net.sub_boxes[vi][vj][vk]
     for atom in quick_atoms:
-        # Get the location of the atom num in the checked atoms list
-        checked_ndx = ndx_search(checked_atoms, atom.num)
         # If the atom is one of the vertex atoms move on
-        if checked_ndx < len(checked_atoms) and atom.num == checked_atoms[checked_ndx]:
+        if atom.num in checked_atoms:
             continue
         # If the distance between the vertex and the test atom is less than the sum of their radii, they overlap
         if sqrt(sum(square(array(atom.loc) - array(loc)))) < atom.rad + rad:
             return False
-        checked_atoms.insert(checked_ndx, atom.num)
+        # Add the atom to the checked atoms list
+        checked_atoms.append(atom.num)
     inc = 1
     # Get the number of boxes that an overlapping atom could possibly be away from the vertex sub-box
     min_sub_box_size = min(net.sub_box_size)
@@ -97,15 +94,13 @@ def verify_site(vert, net):
         overlap_test_atoms = net.get_atoms([[vi, vj, vk]], inc)
         # Go through the atoms in the overlap test atom list
         for atom in overlap_test_atoms:
-            # Get the location of the atom num in the checked atoms list
-            checked_ndx = ndx_search(checked_atoms, atom.num)
             # If the atom is one of the vertex atoms move on
-            if checked_ndx < len(checked_atoms) and atom.num == checked_atoms[checked_ndx]:
+            if atom.num in checked_atoms:
                 continue
             # If the distance between the vertex and the test atom is less than the sum of their radii, they overlap
             if sqrt(sum(square(array(atom.loc) - array(loc)))) < atom.rad + rad:
                 return False
-            checked_atoms.insert(checked_ndx, atom.num)
+            checked_atoms.append(atom.num)
         inc += 1
     # If we make it all the way through the list of close atoms without overlapping it is a viable vertex
     return True
@@ -158,9 +153,10 @@ def find_site(net, edge_atoms, vn_1=None, first=False):
             # Create the alternate vertex for the doublet site
             doublet = Vertex(location=vert.loc2, radius=vert.rad2, atoms=vert.atoms, net=net, doublet=vert,
                              loc2=vert.loc, rad2=vert.rad, ndx=vert.ndx)
-
         # Filter the vertex out if it is too large or not able to be made
         if abs(vert.rad) < net.max_vert and verify_site(vert, net):
+            if len(verts) > 0 and verts[0].rad < vert.rad:
+                return verts[0], vert_ndx_list_locs[0]
             verts.append(vert)
             vert_ndx_list_locs.append(vert_ndx)
             # If the first vertex site is a valid site add it to the list of check vertices and add its index
@@ -171,28 +167,13 @@ def find_site(net, edge_atoms, vn_1=None, first=False):
             doublet.doublet = None
             verts.append(doublet)
             vert_ndx_list_locs.append(vert_ndx)
-
     # If no verts have been found return
     if len(verts) == 0:
         return
     # If we find only 1 vertex, return it
-    elif len(verts) == 1:
+    elif len(verts) == 1 or verts[0].rad < verts[1].rad:
         return verts[0], vert_ndx_list_locs[0]
-    # If there are multiple vertices find the smallest one
-    elif len(verts) >= 2:
-        # Instantiate the return vertex, its relative location in the vertex list and the comparison radius
-        myVert = None
-        min_rad = np.inf
-        myVert_ndx = None
-        # Go through the list of vertices
-        for j in range(len(verts)):
-            vert = verts[j]
-            if vert.rad < min_rad:
-                myVert = vert
-                min_rad = vert.rad
-                myVert_ndx = vert_ndx_list_locs[j]
-        # Return the smallest vertex and where it belongs in the network's list of sorted vertex indices
-        return myVert, myVert_ndx
+    return verts[1], vert_ndx_list_locs[1]
 
 
 # Find network function. Keeps searching the network until all verts are found
@@ -246,6 +227,5 @@ def find_verts(net, a0=None):
             net.vert_ndxs.insert(myVert_ndx, myVert.ndx)
             # Remove the atoms from the
             for atom in myVert.atoms:
-                atom_ndx = net.atoms.index(atom)
-                if atom_ndx in net.atom_ndxs:
-                    net.atom_ndxs.remove(atom_ndx)
+                if atom.num in net.atom_ndxs:
+                    net.atom_ndxs.remove(atom.num)
