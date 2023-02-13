@@ -29,6 +29,7 @@ class Network:
         self.box_max = None             # Box maxes      : Number of x, y, z boxes or rows, columns, aisles
         self.atoms_box = []             # Atoms box      : Holds the min and max verts for the box containing the atoms
         self.max_atom_rad = 0           # Max atom rad   : Holds the largest radius of the system for reference
+        self.max_vert_rad = 0           # Max Vertex Rad : Holds the maximum real vertex recorded
         self.vert_ndxs = []             # Vert indices   : Holds the sorted indices of the atoms of the network's verts
         self.edge_ndxs = []             # Edge indices   : Holds the sorted indices of the atoms of the network's edges
         self.surf_ndxs = []             # Surf indices   : Holds the sorted indices of the atoms of the network's surfs
@@ -109,6 +110,27 @@ class Network:
             atom.box = box_ndxs
         self.box_max = len(self.sub_boxes) - 1, len(self.sub_boxes[0]) - 1, len(self.sub_boxes[0][0]) - 1
 
+    def sort_verts(self, num_boxes=None):
+        """
+        Puts the verts in the network in their respective grid sections
+        :param num_boxes: The number of sub boxes the network is divided into
+        :return:
+        """
+        # Instantiate the grid structure of lists is locations representing a grid
+        self.vert_sub_boxes = [[[[] for _ in range(self.box_max[2] + 1)] for _ in range(self.box_max[1] + 1)] for _ in range(self.box_max[0] + 1)]
+        # Sort the atoms
+        for vert in self.verts:
+            # Adjust the maximum radius
+            if vert.rad > self.max_vert_rad:
+                self.max_vert_rad = vert.rad
+            # Find the box they belong to
+            box_ndxs = [int((vert.loc[i] - self.box[0][i]) / self.sub_box_size[i]) for i in range(3)]
+            # Add the atom to the box
+            self.vert_sub_boxes[box_ndxs[0]][box_ndxs[1]][box_ndxs[2]].append(vert)
+            # Add the box to the atom
+            vert.box = box_ndxs
+        self.box_max = len(self.sub_boxes) - 1, len(self.sub_boxes[0]) - 1, len(self.sub_boxes[0][0]) - 1
+
     def get_atoms(self, cells, reach=0):
         """
         Takes in the cells and the number of additional cells to search and returns an atom list
@@ -133,6 +155,32 @@ class Network:
         atoms = [self.sub_boxes[i][j][k] for k in zs for j in ys for i in xs if 0 < k < self.box_max[2] and 0 < j < self.box_max[1] and 0 < i < self.box_max[0]]
         atoms = list(chain.from_iterable(atoms))
         return atoms
+
+    def get_verts(self, cells, reach=0):
+        """
+        Takes in the cells and the number of additional cells to search and returns an atom list
+        :param cells: The initial boxes in the network to stem from
+        :param reach: The number of cells out from the initial set of cells to search
+        :return:
+        """
+        # Get the min and max of the cells
+        ndx_min = [np.inf, np.inf, np.inf]
+        ndx_max = [-np.inf, -np.inf, -np.inf]
+        # Go through the cells and set the minimum and maximum indexes for xyz for a rectangle containing the atoms
+        for cell in cells:
+            # Check each xyz index to see if they are larger or smaller than the max or min
+            for i in range(3):
+                if cell[i] < ndx_min[i]:
+                    ndx_min[i] = cell[i]
+                if cell[i] > ndx_max[i]:
+                    ndx_max[i] = cell[i]
+        xs = [x for x in range(max(0, -reach + ndx_min[0] + 1), reach + ndx_max[0])]
+        ys = [y for y in range(max(0, -reach + ndx_min[1] + 1), reach + ndx_max[1])]
+        zs = [z for z in range(max(0, -reach + ndx_min[2] + 1), reach + ndx_max[2])]
+        verts = [self.vert_sub_boxes[i][j][k] for k in zs for j in ys for i in xs if 0 < k < self.box_max[2] and 0 < j < self.box_max[1] and 0 < i < self.box_max[0]]
+        verts = list(chain.from_iterable(verts))
+
+        return verts
 
     def connect(self, get_edges=True, get_surfs=True):
         """
