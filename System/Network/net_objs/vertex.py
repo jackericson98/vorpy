@@ -15,6 +15,7 @@ class Vertex:
         self.ndx = ndx                # Index         :   Indices of the atoms in the vertex
         self.loc = location           # Location      :   Where the vertex is located in 3D
         self.rad = radius             # Radius        :   Radius of the vertex's tangential sphere
+        self.box = None               # Box index     :   Sub box index for sorting
         self.dist = distance
         self.load_ndxs = load_ndxs    # Load indices  :   List of object load indices
 
@@ -146,5 +147,3 @@ class Vertex:
             else:
                 loc, loc2, rad, rad2 = locs[0], locs[1], rads[0], rads[1]
         self.loc, self.rad, self.loc2, self.rad2 = loc, rad, loc2, rad2
-# @njit
-# def calc_Fs()
