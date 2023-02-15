@@ -186,7 +186,7 @@ class Network:
         print("\rconnecting network", end="")
         build(self, get_edges=get_edges, get_surfs=get_surfs)
 
-    def find_verts(self, time_start=None, process_time_start=None):
+    def find_verts(self, time_start=None, process_time_start=None, group=None):
         """
         Using the functions in find_vertices.py finds the vertices in the network
         :return:
@@ -196,18 +196,18 @@ class Network:
         # Find curved surfaces verts
         if not self.flat_surfs:
             # Do an initial sweep
-            find_verts(self)
+            find_verts(self, group=group)
             # Check for disconnects in the network
             while len(self.atom_ndxs) > 0:
-                find_verts(self, a0=self.atoms[self.atom_ndxs.pop()])
+                find_verts(self, a0=self.atoms[self.atom_ndxs.pop()], group=group)
 
         # Find flat surfaces vertices
         else:
             # Do an initial sweep
-            ffind_verts(self)
+            ffind_verts(self, group=group)
             # Check for disconnects in the network
             while len(self.atom_ndxs) > 0:
-                ffind_verts(self, a0=self.atoms[self.atom_ndxs.pop()])
+                ffind_verts(self, a0=self.atoms[self.atom_ndxs.pop()], group=group)
         # Clear the print statement
         print("\r                                        ", end="")
         # Bit of code for timing the vertex building process
@@ -261,9 +261,10 @@ class Network:
         # self.sol_layers, self.sol_layer_atoms = find_sol_layers(self)
 
     def build(self, output=True, surf_res=None, max_vert=None, box_size=None, build_surfs=None, flat_surfs=None,
-              calc_verts=None):
+              calc_verts=None, group=None):
         """
         Build network function used to calculate the voronoi
+        :param group:
         :param output:
         :param surf_res:
         :param max_vert:
@@ -299,7 +300,7 @@ class Network:
         # Check to see if there are vertices loaded
         if self.calc_verts:
             # Find the vertices
-            self.find_verts(start, process_time_start=process_start)
+            self.find_verts(start, process_time_start=process_start, group=group)
             # Check to see if there are vertices
             if self.verts is None or len(self.verts) == 0:
                 return

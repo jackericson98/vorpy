@@ -203,7 +203,7 @@ def ffind_site(edge_atoms, net, vn_1=None):
 
 
 # Find network function. Keeps searching the network until all verts are found
-def ffind_verts(net, a0=None):
+def ffind_verts(net, a0=None, group=None):
     # Calculate the total number of vertices
     tot_verts = 5 * len(net.atoms)
     # Find the first verified vertex

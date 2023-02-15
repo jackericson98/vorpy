@@ -35,7 +35,9 @@ def check_input():
         sett(sys=sys, usr_npt=usr_npt)
     # Check if the user's input is in builds
     elif usr_npt[0].lower() in build_cmds:
-        build(sys=sys)
+        if len(usr_npt) == 1:
+            usr_npt = None
+        build(sys=sys, usr_npt=usr_npt)
     # Check if the user's input is in exports
     elif usr_npt[0].lower() in export_cmds:
         export(sys=sys, usr_npt=usr_npt)

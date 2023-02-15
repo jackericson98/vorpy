@@ -1,9 +1,10 @@
 from Visualize.commands.commands import *
 from Visualize.commands.set import sett
 from System.Network.network import Network
+from Visualize.commands.group import group
 
 
-def build(sys):
+def build(sys, usr_npt=None):
     """
     Prints a pre-built header and asks the user if they are ready to build. Once confirmed prints a building header and
     builds
@@ -18,7 +19,7 @@ def build(sys):
         sys.net = Network(sys=sys, atoms=sys.atoms)
     # Check to see if the network has been built before
     build_vta = False
-    if sys.ball_fall is not None:
+    if sys.ball_file is not None:
         build_vta = True
         # rebuild_npt = input("{} network already constructed. would you like to rebuild?\nconfirm >>>   ".format(sys.name))
         # if rebuild_npt.lower() in ys:
@@ -26,6 +27,10 @@ def build(sys):
         #                       box_size=sys.net.box_size, build_surfs=sys.net.build_surfs, flat_surfs=sys.net.flat_surfs)
         # else:
         #     return
+    # Check to see if a group was specified
+    my_group = None
+    if usr_npt is not None:
+        my_group = group(sys, usr_npt)
     # Once the build command is used, the user is greeted with the build settings and asked if they are ready to build
     print(u"settings - surf_res = {:.2f} \u208B,  max_vert  = {:.2f} \u208B,  box_size = {:.2f} x,  build_surfs = {}, flat_surfs = {}"
           .format(sys.net.surf_res, sys.net.max_vert, sys.net.box_size, sys.net.build_surfs, sys.net.flat_surfs))
@@ -33,7 +38,7 @@ def build(sys):
     pre_build_confirmation = input("confirm >>>   ")
     # If the user is ready to build, build the system
     if pre_build_confirmation.lower() in ys:
-        sys.net.build(calc_verts=not build_vta)
+        sys.net.build(calc_verts=not build_vta, group=my_group)
     elif pre_build_confirmation.lower() in ns:
         # Ask the user if they would like to change the settings
         chng_stngs_npt = input("change settings?\nconfirm >>>   ")
