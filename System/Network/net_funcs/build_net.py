@@ -16,13 +16,13 @@ def doublify(net, get_edges=True):
     :return:
     """
     # Find the doublets, separate them and connect their edges
-    net.doublets = []
+    doublets = []
     for vert in net.verts:
         # If we come across a doublet add it to the list
         if vert.doublet is not None:
-            net.doublets.append(vert)
+            doublets.append(vert)
     # Go through the doublets
-    for dub in net.doublets:
+    for dub in doublets:
         # Add the doublet to the network
         dub_ndx = net.verts.index(dub)
         net.verts.insert(dub_ndx + 1, dub.doublet)
