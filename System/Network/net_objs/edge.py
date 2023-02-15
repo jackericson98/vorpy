@@ -69,7 +69,7 @@ class Edge:
         rpcr = - np.cross(P_norm, rn01)
         rnpcr = rpcr / np.linalg.norm(rpcr)
         # Calculate the reference point
-        self.pa = pc01 + 2 * r_mag * rnpcr
+        self.pa = pc01 + 0.5 * r_mag * rnpcr
 
     # Project method. Projects a point onto the surface using a reference point
     def project(self, rn, pa, surf):
