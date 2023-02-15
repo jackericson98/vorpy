@@ -43,8 +43,9 @@ class Atom:
         The grid location of the atom
 
     """
-    def __init__(self, location=None, radius=None, system=None, element=None, chain=None, mol_class=None, residue=None,
-                 molecule=None, res_seq=None, name=None, ocp=None, t_fact=None, seg_id=None, charge=None, load_ndxs=None, index=None, surf_bank=None):
+    def __init__(self, location=None, radius=None, system=None, element="", chain="", mol_class=None, residue="",
+                 molecule="", res_seq="", name="", ocp="", t_fact="", seg_id="", charge="", load_ndxs="", index="",
+                 surf_bank=""):
 
         # Calculated Traits
         self.loc = location         # Location     :   Set the location of the center of the sphere
@@ -55,7 +56,7 @@ class Atom:
 
         # Network connections
         self.sys = system           # System       :   Set the atom's system attribute
-        self.resid = residue        # Residue      :   The residue of the atom
+        self.res = residue          # Residue      :   The residue of the atom
         self.mol = molecule         # Molecule     :   The molecule that the atom is a part of
         self.verts = []             # Vertices     :   List of Vertex type objects
         self.surfs = []             # Surfaces     :   List of Surface type objects

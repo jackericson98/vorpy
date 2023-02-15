@@ -1,5 +1,5 @@
 from System.sys_funcs.calcs import ndx_search
-from System.sys_funcs.output import write_surfs, write_pdb
+from System.sys_funcs.output import write_surfs, write_pdb, write_verts
 import os
 
 
@@ -226,9 +226,9 @@ class Group:
             # Check to see if the residues are supposed to stay together
             if group_resids:
                 for atom in self.layer_atoms[-1]:
-                    if atom.resid is not None:
+                    if atom.res is not None:
                         # Get the atoms in the residue that are not already in the layer
-                        for resid_atom in atom.resid:
+                        for resid_atom in atom.res.atoms:
                             # Check if the atom is in the layer or not
                             if resid_atom not in self.layer_atoms[-1]:
                                 self.layer_atoms[-1].append(resid_atom)
@@ -288,7 +288,7 @@ class Group:
             info.write("Surface Area: " + str(self.iface_sa))
             info.close()
 
-    def exports(self, all_=False, atoms=False, shell=False, fill=False, surfaces=False, layers=False, num_layers=50, info=False, iface=False):
+    def exports(self, all_=False, atoms=False, shell=False, fill=False, surfaces=False, layers=False, num_layers=50, info=False, iface=False, verts=False):
         # Create the output directory inside the system's directory
         if self.dir is None:
             i = 1
@@ -379,6 +379,15 @@ class Group:
             info.write("Volume: " + str(self.vol) + "\n")
             info.write("Surface Area: " + str(self.sa) + "\n")
             info.close()
+        if verts or all:
+            os.chdir(self.dir)
+            my_verts, vert_ndxs = [], []
+            for atom in self.atoms:
+                for vert in atom.verts:
+                    if vert.ndx not in vert_ndxs:
+                        my_verts.append(vert)
+                        vert_ndxs.append(vert.ndx)
+            write_verts(verts=my_verts, file_name=self.name + "_verts", )
         os.chdir("..")
         # Change back to the system directory
         os.chdir(self.sys.dir)

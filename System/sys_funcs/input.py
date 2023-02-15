@@ -134,7 +134,7 @@ def read_mol(sys, file=None):
 def read_vta_data(sys, ball_file, vert_file):
     # If no network has been created, make one
     if sys.net is None:
-        sys.net = Network(sys, sys.atoms, verts=[], edges=[], surfs=[], flat_surfs=True)
+        sys.net = Network(sys, sys.atoms, verts=[], edges=[], surfs=[])
     if sys.net.verts is None:
         sys.net.verts = []
     # Create the System and load the files

@@ -27,6 +27,7 @@ class Network:
         self.max_atom_rad = 0           # Max atom rad   : Holds the largest radius of the system for reference
         self.max_vert_rad = 0           # Max Vertex Rad : Holds the maximum real vertex recorded
         self.vert_ndxs = []             # Vert indices   : Holds the sorted indices of the atoms of the network's verts
+        self.bad_verts = []             # Bad Vertices   : Holds vertex indices for the vertices that arent real
         self.edge_ndxs = []             # Edge indices   : Holds the sorted indices of the atoms of the network's edges
         self.surf_ndxs = []             # Surf indices   : Holds the sorted indices of the atoms of the network's surfs
         self.atom_ndxs = []             # Atom indices   : Used to track atoms that have been used in a vertex
