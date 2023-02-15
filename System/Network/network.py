@@ -9,18 +9,14 @@ from Visualize.mpl_visualize import *
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
-    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, doublets=None, surf_res=0.3, box_size=1.25,
-                 max_vert=7, build_surfs=False, flat_surfs=False):
+    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.3, box_size=1.25, max_vert=7,
+                 build_surfs=False, flat_surfs=False):
         # Network graph objects
         self.sys = sys                 # System          : Route back to outer system for system attribute access
         self.atoms = atoms             # Atoms           : Atoms of the network. Should be identical to self.sys.atoms
         self.verts = verts             # Vertices        : Vertices of the network
         self.edges = edges             # Edges           : Edges of the network
         self.surfs = surfs             # Surfaces        : Surfaces of the network
-        self.doublets = doublets       # Doublets        : Doublets in the network
-        self.name = None               # Name            : Name of the network. Used to name subnetworks recursively
-        self.sol_layers = None         # Sol Layers      : The surfaces comprising the layers of solute around the mols
-        self.sol_layer_atoms = None    # SOL Layer Atoms : The atoms corresponding to the layers of the sol_layers attr
         # Tools for splitting up the atoms
         self.box = None                 # Box            : Holds a max and min vertex for the retaining box
         self.sub_boxes = None           # Sub boxes      : Holds atoms in their different relative locations in the grid
@@ -110,10 +106,9 @@ class Network:
             atom.box = box_ndxs
         self.box_max = len(self.sub_boxes) - 1, len(self.sub_boxes[0]) - 1, len(self.sub_boxes[0][0]) - 1
 
-    def sort_verts(self, num_boxes=None):
+    def sort_verts(self):
         """
         Puts the verts in the network in their respective grid sections
-        :param num_boxes: The number of sub boxes the network is divided into
         :return:
         """
         # Instantiate the grid structure of lists is locations representing a grid
@@ -152,7 +147,7 @@ class Network:
         xs = [x for x in range(max(0, -reach + ndx_min[0] + 1), reach + ndx_max[0])]
         ys = [y for y in range(max(0, -reach + ndx_min[1] + 1), reach + ndx_max[1])]
         zs = [z for z in range(max(0, -reach + ndx_min[2] + 1), reach + ndx_max[2])]
-        atoms = [self.sub_boxes[i][j][k] for k in zs for j in ys for i in xs if 0 < k < self.box_max[2] and 0 < j < self.box_max[1] and 0 < i < self.box_max[0]]
+        atoms = [self.sub_boxes[i][j][k] for k in zs for j in ys for i in xs if 0 <= k <= self.box_max[2] and 0 <= j <= self.box_max[1] and 0 <= i <= self.box_max[0]]
         atoms = list(chain.from_iterable(atoms))
         return atoms
 
