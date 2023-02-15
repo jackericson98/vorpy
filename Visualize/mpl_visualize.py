@@ -98,7 +98,7 @@ def plot_verts(verts, spheres=False, fig=None, ax=None, Show=False, dfo=None, gr
         spheres = []
         for i in range(len(verts)):
             spheres.append([verts[i].loc, verts[i].rad])
-        plot_atoms(atom_list=spheres, fig=fig, ax=ax, colors=['grey'], alpha=1)
+        plot_atoms(atom_list=spheres, fig=fig, ax=ax, colors=colors, alpha=alpha)
     # Show if the plot needs to be shown
     if Show:
         plt.show()
