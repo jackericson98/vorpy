@@ -40,7 +40,6 @@ class Vertex:
 
     # Calculate vertex function. Takes in 4 atoms, calculates the loc and rad of the inscribed sphere and adds the
     def calc_vert(self):
-
         # The real location and radius of the base sphere
         locs = np.array(self.atoms[0].loc), np.array(self.atoms[1].loc), np.array(self.atoms[2].loc), \
                np.array(self.atoms[3].loc)
