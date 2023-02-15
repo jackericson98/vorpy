@@ -264,6 +264,9 @@ def read_net(sys, file=None):
             vert.edges = [sys.net.edges[int(_)] for _ in read_file[i][9:14] if _ != '']
             surf_ndxs = [int(_) for _ in read_file[i][14:] if _ != '']
             vert.surfs = [sys.net.surfs[_] for _ in surf_ndxs]
+            if i >= 3 and vert.ndx == sys.net.verts[i - 2].ndx:
+                vert.doublet = sys.net.verts[i - 2]
+                sys.net.verts[i - 2].doublet = vert
             for atom in vert.atoms:
                 atom.verts.append(vert)
             for surf in vert.surfs:
