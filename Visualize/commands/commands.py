@@ -76,19 +76,19 @@ def help_():
     splitting_line = "--------------------------------------------------------------------------------------------------------------------------------"
 
     objects_header = ["Objects:                                           ",
-                      "  1. mol : Molecule object from the current System (Use the number or name of the Molecule)",
+                      "  1. mol : Molecule object from the current System ",
                       "  2. res : Residue object from the current System  ",
                       "  3. atom: Atom object from the current System     ",
                       "  4. ndx : Index loaded into the current System or ",
-                      "           created by the user                     "]
+                      "           created by the user                     ",
+                      "                                                   "]
 
     settings_header = ["Settings:                                                                   ",
                        "  1. surf_res : Surface Resolution (From 0.01 to 1 A, recommended 0.1 A)    ",
                        "  2. max_vert : Maximum Vertex Radius (From 0.10 to 20 A, recommended 7 A)  ",
                        "  3. box_size : Retaining Box Multiplier (From 1 to 10 A, recommended 1.5 A)",
-                       "  4. build_surfs: Calculate the network's surfaces (True/False/Group,       ",
-                       "                 recommended False)                                         ",
-                       "  5. flat_surfs: Build the surfaces flat (True/False recommended False)     "]
+                       "  4. build_surfs: Calculate the network's surfaces (True/False)",
+                       "  5. flat_surfs: Build the surfaces flat (True/False)     "]
 
     # Print everything
     print(splitting_line)
