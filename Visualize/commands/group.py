@@ -27,7 +27,7 @@ def group(sys, usr_npt):
     name_prfx = ['mol', 'resid', 'atom', 'ndx'][obj_ndx]
     my_list, name = None, None
     # Get the slice and name of the group
-    if len(my_ndx) == 1:
+    if len(my_ndx) == 1 and my_ndx[0] < len(obj_list):
         my_list = [obj_list[my_ndx[0]]]
         name = name_prfx + '_' + str(my_ndx[0])
     elif len(my_ndx) <= 2:
