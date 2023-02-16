@@ -329,8 +329,9 @@ class Group:
                 my_dir  = my_dir[:-2] + str(i)
                 i += 1
             os.mkdir(my_dir)
+            os.chdir(my_dir)
             for surf in self.surfs:
-                write_surfs([surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=my_dir)
+                write_surfs([surf], file_name="_".join([str(_) for _ in surf.ndx]))
             os.chdir(self.dir)
         # If the user wants layers
         if layers or all_:
