@@ -5,7 +5,7 @@ import numpy as np
 
 
 # Find v0 function. Uses the atom finding functions to find a real verified site in the network
-def find_v0(net, a0=None):
+def find_v0(net, a0=None, group_atoms=None):
     # Find the middle sub_box of the set of boxes and
     mid = len(net.sub_boxes) // 2
     if a0 is None:
@@ -178,14 +178,18 @@ def find_site(net, edge_atoms, vn_1=None, first=False):
 
 # Find network function. Keeps searching the network until all verts are found
 def find_verts(net, a0=None, group=None):
+    if group is not None:
+        group_atoms = group.atom_ndxs
+    else:
+        group_atoms = [i for i in range(len(net.atoms))]
     # Calculate the total number of vertices
-    tot_verts = 7 * len(net.atoms)
+    tot_verts = 7 * len(group_atoms)
     # Find the first verified vertex
     if len(net.atoms) == 4:
         v0 = Vertex(net.atoms, net)
         v0.calc_vert()
     else:
-        v0 = find_v0(net, a0)
+        v0 = find_v0(net, a0, group_atoms)
     # If no v0 is possible (e.g., a lone atom) return
     if v0 is None:
         return
