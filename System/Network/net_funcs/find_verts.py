@@ -6,14 +6,19 @@ import numpy as np
 
 # Find v0 function. Uses the atom finding functions to find a real verified site in the network
 def find_v0(net, a0=None, group_atoms=None):
-    # Find the middle sub_box of the set of boxes and
-    mid = len(net.sub_boxes) // 2
+    # Check to see if we need a group atom's box
+    if group_atoms is not None:
+        my_box = net.atoms[group_atoms[0]].box
+    else:
+        # Find the middle sub_box of the set of boxes and
+        mid = len(net.sub_boxes) // 2
+        my_box = [mid, mid, mid]
     if a0 is None:
         a0s = []
         inc = 0
         # Keep grabbing atoms until we have enough to get the current a0 increment
         while len(a0s) < 5:
-            a0s = net.get_atoms([[mid, mid, mid]], inc)
+            a0s = net.get_atoms([my_box], inc)
             inc += 1
         # Pull an atom from the atoms list
         a0 = a0s[0]
@@ -37,10 +42,8 @@ def find_v0(net, a0=None, group_atoms=None):
             a2s[j] = net.atoms.copy()
         else:
             while len(a2s[j]) < 20:
-                a2s[j] = net.get_atoms([[mid, mid, mid]], inc)
+                a2s[j] = net.get_atoms([my_box], inc)
                 inc += 1
-        # Filter out the circles that don't work
-
         # Set up verified circles list for this a1
         verified_circles = []
         # Check each of the combinations for this a1
@@ -107,9 +110,14 @@ def verify_site(vert, net):
 
 
 # Find site function. Used a vertex and a combination of it's edge atoms to find the connecting vertex
-def find_site(net, edge_atoms, vn_1=None, first=False):
+def find_site(net, edge_atoms, vn_1=None, first=False, group_atoms=None):
     # Get the atoms that should not ba a part of the new vertex
     edge_ndxs = [_.num for _ in edge_atoms]
+    # Check if the edge contains a group atom or not
+    check_atoms = False
+    if group_atoms is not None and len([_ for _ in edge_ndxs if _ in group_atoms]) == 0:
+        check_atoms = True
+    # If the previous vertex has been provided, add the other atom to the not allowed atoms
     if vn_1 is None:
         vert_atom_ndxs = edge_ndxs
     else:
@@ -133,6 +141,9 @@ def find_site(net, edge_atoms, vn_1=None, first=False):
         doublet = None
         # If the atom is in the previous vertex move on
         if atom.num in vert_atom_ndxs:
+            continue
+        # Check if we need to check and if so check for the atom in the list
+        if check_atoms and atom.num not in group_atoms:
             continue
         # If we have found the vertex before it is not the previous vertex return
         atom_ndxs = edge_ndxs + [atom.num]
@@ -185,7 +196,7 @@ def find_verts(net, a0=None, group=None):
     # Calculate the total number of vertices
     tot_verts = 7 * len(group_atoms)
     # Find the first verified vertex
-    if len(net.atoms) == 4:
+    if len(group_atoms) == 4:
         v0 = Vertex(net.atoms, net)
         v0.calc_vert()
     else:

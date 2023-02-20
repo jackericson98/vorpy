@@ -191,8 +191,13 @@ class Network:
         Using the functions in find_vertices.py finds the vertices in the network
         :return:
         """
+        # Check to see if a group has been provided
+        if group is not None:
+            atom_nums = group.atom_ndxs
+        else:
+            atom_nums = [i for i in range(len(self.atoms))]
         # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
-        self.atom_ndxs = [i for i in range(len(self.atoms))]
+        self.atom_ndxs = [_ for _ in atom_nums]
         # Find curved surfaces verts
         if not self.flat_surfs:
             # Do an initial sweep
