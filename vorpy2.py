@@ -1,0 +1,173 @@
+import os
+
+from System.system import *
+from Visualize.commands.build import *
+from Visualize.commands.export import *
+from Visualize.commands.load import *
+from Visualize.commands.set import *
+
+
+def load_atom_file():
+    global sys
+    # Keep asking for an atom file till one is loaded
+    while True:
+        # Set up the prompt
+        usr_file = input("atom file >>>   ")
+        # Check if the user entered load first
+        usr_file = usr_file.split()
+        if len(usr_file) > 1:
+            usr_file = usr_file[1]
+        # Check if the full path was loaded
+        if os.path.exists(usr_file) and usr_file[-3:] in {"pdb", "gro", "mol", "cif"}:
+            file_path = usr_file
+        # Check if the file was loaded without the directory
+        elif os.path.exists("./Data/test_data/" + usr_file):
+            file_path = os.getcwd() + "/Data/test_data/" + usr_file
+        # Check if the path exists without the directory or the extension
+        elif os.path.exists("./Data/test_data/" + usr_file + ".pdb"):
+            file_path = os.getcwd() + "/Data/test_data/" + usr_file + ".pdb"
+        # Else try again
+        else:
+            print("{} is not a valid input file".format(usr_file))
+            continue
+        # Create the system and return
+        sys = System(file=file_path)
+        print(sys.name + " loaded - {} atoms, {} molecules"
+                  .format(len(sys.atoms), len(sys.mols)))
+        return
+
+
+def load_another_file():
+    # Load the global system variable
+    global sys
+    # Ask the usr what type of file they want to load
+    file_type = input(
+        "Enter type: 1. Network (.csv)  2. Voronota Balls (.txt)  3. Voronota Vertices (.txt)  4. GROMACS index (.ndx)\n(1-4) >>>   ")
+    # If the input is a network file load it into the system
+    if file_type.lower() in {"1", "1.", "one", "un", "uno", "1 "}:
+        # Ask the user to add the input file for the system name
+        my_net_file = input("Enter a network file (.csv) for {}".format(sys.name))
+        # Check that the file is correct
+        if my_net_file[:-3] == 'csv' and os.path.exists(my_net_file):
+            # Load the network file
+            sys.load_net(my_net_file)
+        else:
+            print("Bad file")
+            return
+    # If the input is to load a ball file
+    elif file_type.lower() in {"2", "2.", "two", "to", "too", "dos", "du", "due"}:
+        # Ask the user to add the input file for the system name
+        my_ball_file = input("Enter a Voronota Ball file (.txt) for {}".format(sys.name))
+        # Check that the file is correct
+        if my_ball_file[:-3] == 'txt' and os.path.exists(my_ball_file):
+            # Load the network file
+            sys.ball_file = my_ball_file
+        else:
+            print("Bad file")
+            return
+    # If the input is to load a ball file
+    elif file_type.lower() in {"3", "3.", "three", "tre", "tres"}:
+        # Ask the user to add the input file for the system name
+        my_vert_file = input("Enter a Voronota Vertex file (.txt) for {}".format(sys.name))
+        # Check that the file is correct
+        if my_vert_file[:-3] == 'txt' and os.path.exists(my_vert_file):
+            # Load the network file
+            sys.vert_file = my_vert_file
+        else:
+            print("Bad file")
+            return
+    # If the input is to load a ball file
+    elif file_type.lower() in {"4", "4.", "four", "quattro", "for", "4 "}:
+        # Ask the user to add the input file for the system name
+        my_ndx_file = input("Enter a GROMACS index file (.txt) for {}".format(sys.name))
+        # Check that the file is correct
+        if my_ndx_file[:-3] == 'ndx' and os.path.exists(my_ndx_file):
+            # Load the network file
+            sys.load_ndx(file=my_ndx_file)
+        else:
+            print("Bad file")
+            return
+    else:
+        print("Bad Number")
+        return
+    # Check if both voronota files have been loaded
+    if sys.ball_file is not None and sys.vert_file is not None:
+        sys.load_verts(file=sys.vert_file, vta_ball_file=sys.ball_file)
+
+
+def create_group(usr_npt):
+    # Get the system variable
+    global sys
+    # Create the object and index variables
+    my_obj, my_ndx = None, None
+    # User only input "export"
+    if len(usr_npt) == 0:
+        # Tell the user to pick an object and an index
+        my_obj = get_obj(sys=sys)
+        my_ndx = get_ndx(sys=sys, obj=my_obj)
+    # User entered "export obj" and needs an index
+    elif len(usr_npt) == 1:
+        # Add a check for system
+        # Check the object provided by the user
+        my_obj = get_obj(sys=sys, obj=usr_npt[0])
+        my_ndx = get_ndx(sys=sys, obj=my_obj)
+    # If the user input an object and an index of their own
+    elif len(usr_npt) >= 2:
+        # Check the object
+        my_obj = get_obj(sys=sys, obj=usr_npt[0])
+        my_ndx = get_ndx(sys=sys, obj=my_obj, ndx_npt=usr_npt[1])
+    # Get the group information
+    obj_ndx = ['m', 'r', 'a', 'n'].index(my_obj)
+    obj_list = [sys.mols, sys.residues, sys.atoms, sys.ndxs][obj_ndx]
+    name_prfx = ['mol', 'resid', 'atom', 'ndx'][obj_ndx]
+    my_list, name = None, None
+    # Get the slice and name of the group
+    if len(my_ndx) == 1:
+        my_list = [obj_list[my_ndx[0]]]
+        name = name_prfx + '_' + str(my_ndx[0])
+    elif len(my_ndx) <= 2:
+        my_list = obj_list[max(0, my_ndx[0]):min(len(obj_list), my_ndx[1] + 1)]
+        name = name_prfx + 's_' + str(my_ndx[0]) + '_' + str(my_ndx[1])
+    # Create the group
+    npt_list = [None] * 4
+    npt_list[obj_ndx] = my_list
+    return Group(sys=sys, mols=npt_list[0], residues=npt_list[1], atoms=npt_list[2], indices=npt_list[3], name=name)
+
+
+def vorpy():
+    """
+    Main function that is looped. Checks the inputs and runs the correct functions
+    :return:
+    """
+    global sys
+    # Load the initial input file
+    load_atom_file()
+    # Allow the user to keep loading files
+    while True:
+        # Ask the user if they have another file to load
+        load_another = input("Load another file?\n(y/n) >>>   ")
+        # Check if load another is requested
+        if load_another.lower() in ys:
+            # Give the user the interface to load files
+            load_atom_file()
+            continue
+        break
+    # Get an initial grouping input
+    usr_npt = input("Enter a group type and index for export. Type \'h\' for help")
+    # Create the group
+    my_group = create_group(usr_npt)
+    # Change the settings
+    sett(sys)
+    # Build the group
+    sys.net.build(group=my_group)
+
+
+
+if __name__ == '__main__':
+    # Welcome introduction
+    print("Welcome to vorpy. For assistance type \'h\'. To quit type \'q\'")
+    sys = System()
+    # Run vorpy
+    vorpy()
+
+
