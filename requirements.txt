@@ -7,5 +7,5 @@ pandas~=1.5.1
 scipy~=1.9.3
 plotly~=5.11.0
 scikit-learn~=1.1.3
-numba~=0.54.1
+# numba~=0.54.1
 future~=0.18.2
