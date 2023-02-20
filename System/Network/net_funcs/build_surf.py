@@ -1,5 +1,5 @@
 from System.sys_funcs.calcs import calc_angle, calc_com, rotate_points, calc_dist
-from Visualize.mpl_visualize import plot_surfs
+# from Visualize.mpl_visualize import plot_surfs
 import matplotlib.tri as mtri
 import numpy as np
 
@@ -359,7 +359,7 @@ def triangulate_rings(surf):
         ring_num += 1
 
     # Plot the results
-    plot_surfs([surf], simps=True, Show=True)
+    # plot_surfs([surf], simps=True, Show=True)
 
 
 def tri_within(surf, myTri=None, point=None):
