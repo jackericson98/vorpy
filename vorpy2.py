@@ -17,6 +17,8 @@ def load_atom_file():
         usr_file = usr_file.split()
         if len(usr_file) > 1:
             usr_file = usr_file[1]
+        else:
+            usr_file = usr_file[0]
         # Check if the full path was loaded
         if os.path.exists(usr_file) and usr_file[-3:] in {"pdb", "gro", "mol", "cif"}:
             file_path = usr_file
@@ -32,6 +34,7 @@ def load_atom_file():
             continue
         # Create the system and return
         sys = System(file=file_path)
+        sys.net = Network(sys=sys, atoms=sys.atoms)
         print(sys.name + " loaded - {} atoms, {} molecules"
                   .format(len(sys.atoms), len(sys.mols)))
         return
@@ -98,6 +101,13 @@ def load_another_file():
 def create_group(usr_npt):
     # Get the system variable
     global sys
+    # Check for basic inputs
+    if usr_npt[0].lower() == 'f':
+        return Group(sys=sys, atoms=sys.atoms, name="{}_full".format(sys.name))
+    # Check for no sol
+    elif usr_npt[0].lower() == 'ns':
+        return Group(sys=sys, mols=sys.mols[:-1], name=sys.name + "_no_SOL")
+
     # Create the object and index variables
     my_obj, my_ndx = None, None
     # User only input "export"
@@ -153,14 +163,32 @@ def vorpy():
             continue
         break
     # Get an initial grouping input
-    usr_npt = input("Enter a group type and index for export. Type \'h\' for help")
+    usr_npt = input("Enter a group to build and export. (full = \'f\', No SOL = \'ns\', mol = \'m\', res = \'r\', atom = \'a\', index = \'i\')\ngroup >>>   ")
+    # Split the user input
+    usr_npt = usr_npt.split()
     # Create the group
     my_group = create_group(usr_npt)
-    # Change the settings
-    sett(sys)
+    # Keep asking for a setting to change
+    while True:
+        # Print the build settings and see if the user wants to change anything
+        change_settings = input(u"settings - surf_res = {:.2f} \u208B,  max_vert  = {:.2f} \u208B,  box_size = {:.2f} x,  build_surfs = {}, flat_surfs = {}\nchange settings? (y/n) >>>   "
+                                .format(sys.net.surf_res, sys.net.max_vert, sys.net.box_size, sys.net.build_surfs, sys.net.flat_surfs))
+        change_settings.split()
+        # If the user wants to change the settings:
+        if change_settings[0].lower() in ys:
+            sett(sys, ["set"])
+        # If the user changes the settings here, insert the inp-ut into the sett funciton
+        elif change_settings[0].lower() in set_cmds:
+            sett(sys, usr_npt)
+        # If the user input is not a good one let them go again
+        elif change_settings[0].lower() not in ns:
+            print("not a valid input")
+            continue
+        break
     # Build the group
     sys.net.build(group=my_group)
-
+    # Export
+    export(sys, usr_npt="e", my_group=my_group)
 
 
 if __name__ == '__main__':

@@ -8,10 +8,10 @@ class Group:
     def __init__(self, sys, atoms=None, name=None, mols=None, residues=None, indices=None, bff=None):
 
         self.sys = sys                 # Network            :    Network of the System
-        self.atoms = atoms             # Atoms              :    List of Atom type objects in the group
-        self.mols = mols               # Molecules          :    List of molecule objects in the group
-        self.resids = residues         # Residues           :    List of residue objects in the group
-        self.ndxs = indices            # Indices            :    List of index objects in the group
+        self.atoms = None              # Atoms              :    List of Atom type objects in the group
+        self.mols = None               # Molecules          :    List of molecule objects in the group
+        self.resids = None             # Residues           :    List of residue objects in the group
+        self.ndxs = None               # Indices            :    List of index objects in the group
         self.atom_ndxs = []            # Atom indices       :    List of atom indices for checking against
         self.name = name               # Name               :    Name of the group
         self.dir = None                # Directory          :    Directory holding the group export info
@@ -29,7 +29,7 @@ class Group:
         self.iface_atoms = None        # Interface atoms    :    Atoms in the group in the interface
         self.iface_sa = None           # Surface area       :    Surface area of the interface
 
-        self.process_inputs()
+        self.process_inputs(atoms=atoms, mols=mols, resids=residues)
 
     # Get surfaces method. Finds and sorts all surfaces in the group without needing to calculate them
     def get_surfs(self):
@@ -96,7 +96,6 @@ class Group:
         # Change back
         os.chdir(self.sys.dir)
 
-
     # Add atoms method. Adds the atoms from a list (mol.atoms, res.atoms, atoms, etc) to the group checking duplicates
     def add_atoms(self, atom_list):
         # Check to see if the atoms list has been instantiated
@@ -136,6 +135,7 @@ class Group:
             self.add_atoms(residue.atoms)
         # Get the surfaces
         self.get_surfs()
+        print(self.atom_ndxs)
 
     # Get information method. Gathers information about the group and stores it in a dictionary
     def get_info(self, iface_info=True):

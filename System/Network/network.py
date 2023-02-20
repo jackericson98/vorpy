@@ -186,14 +186,15 @@ class Network:
         print("\rconnecting network", end="")
         build(self, get_edges=get_edges, get_surfs=get_surfs)
 
-    def find_verts(self, time_start=None, process_time_start=None, group=None):
+    def find_verts(self, time_start=None, process_time_start=None, my_group=None):
         """
         Using the functions in find_vertices.py finds the vertices in the network
         :return:
         """
         # Check to see if a group has been provided
-        if group is not None:
-            atom_nums = group.atom_ndxs
+        if my_group is not None:
+            print("group nums")
+            atom_nums = my_group.atom_ndxs
         else:
             atom_nums = [i for i in range(len(self.atoms))]
         # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
@@ -201,18 +202,18 @@ class Network:
         # Find curved surfaces verts
         if not self.flat_surfs:
             # Do an initial sweep
-            find_verts(self, group=group)
+            find_verts(self, group=my_group)
             # Check for disconnects in the network
             while len(self.atom_ndxs) > 0:
-                find_verts(self, a0=self.atoms[self.atom_ndxs.pop()], group=group)
+                find_verts(self, a0=self.atoms[self.atom_ndxs.pop()], group=my_group)
 
         # Find flat surfaces vertices
         else:
             # Do an initial sweep
-            ffind_verts(self, group=group)
+            ffind_verts(self, group=my_group)
             # Check for disconnects in the network
             while len(self.atom_ndxs) > 0:
-                ffind_verts(self, a0=self.atoms[self.atom_ndxs.pop()], group=group)
+                ffind_verts(self, a0=self.atoms[self.atom_ndxs.pop()], group=my_group)
         # Clear the print statement
         print("\r                                        ", end="")
         # Bit of code for timing the vertex building process
@@ -305,7 +306,7 @@ class Network:
         # Check to see if there are vertices loaded
         if self.calc_verts:
             # Find the vertices
-            self.find_verts(start, process_time_start=process_start, group=group)
+            self.find_verts(start, process_time_start=process_start, my_group=group)
             # Check to see if there are vertices
             if self.verts is None or len(self.verts) == 0:
                 return

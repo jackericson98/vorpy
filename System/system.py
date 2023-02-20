@@ -271,7 +271,6 @@ class System:
                 my_res.atoms.append(atom)
                 atom.res = my_res
 
-
     def build_network(self, surf_res=None, max_vert=None, box_size=None, sol_verts=True, output=True, flat_surfs=False,
                       calc_verts=True):
         """

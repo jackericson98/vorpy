@@ -2,14 +2,16 @@ from Visualize.commands.interpret import *
 from Visualize.commands.group import group
 
 
-def export(sys, usr_npt):
+def export(sys, usr_npt, my_group=None):
     """
     Takes in input strings and exports them based on their option choices
     :param sys:
     :param usr_npt:
     :return:
     """
-    my_group = group(sys, usr_npt)
+    if my_group is None:
+        my_group = group(sys, usr_npt)
+
     print("choose one to export: 1. Shell, 2. Surfaces, 3. Layers, 4. Atoms, 5. Filled Body, 6. Info File, 7. Vertices, 8. All")
     while True:
         # Export the group exports
@@ -53,7 +55,6 @@ def export(sys, usr_npt):
             # Export all
         elif xpt_npt.lower() in ['8', '8.', 'eight', 'ocho', '8 ', 'all', 'a']:
             my_group.exports(all_=True)
-            print("\r{} shell, surfaces, layers, atoms, filled body and info file exported to {}".format(my_group.name,
-                                                                                                         my_group.dir))
+            print("\r{} shell, surfaces, layers, atoms, filled body and info file exported to {}".format(group.name,                                                                                                   group.dir))
         else:
             invalid_input(xpt_npt)

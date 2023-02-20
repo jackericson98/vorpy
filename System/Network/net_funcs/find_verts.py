@@ -6,6 +6,7 @@ import numpy as np
 
 # Find v0 function. Uses the atom finding functions to find a real verified site in the network
 def find_v0(net, a0=None, group_atoms=None):
+    print(group_atoms)
     # Check to see if we need a group atom's box
     if group_atoms is not None:
         my_box = net.atoms[group_atoms[0]].box
