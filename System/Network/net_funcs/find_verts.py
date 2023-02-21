@@ -6,9 +6,10 @@ import numpy as np
 
 # Find v0 function. Uses the atom finding functions to find a real verified site in the network
 def find_v0(net, a0=None, group_atoms=None):
-    print(group_atoms)
     # Check to see if we need a group atom's box
-    if group_atoms is not None:
+    if a0 is not None:
+        my_box = a0.box
+    elif group_atoms is not None:
         my_box = net.atoms[group_atoms[0]].box
     else:
         # Find the middle sub_box of the set of boxes and
@@ -58,7 +59,7 @@ def find_v0(net, a0=None, group_atoms=None):
         # Try to make a verified v0 site with the verified circles
         for circle in verified_circles:
             # Try to create a vertex
-            myVert = find_site(net, circle)
+            myVert = find_site(net, circle, group_atoms=group_atoms)
             # Check for a real site
             if myVert is not None and myVert[0].loc is not None:
                 return myVert[0]
@@ -115,9 +116,11 @@ def find_site(net, edge_atoms, vn_1=None, first=False, group_atoms=None):
     # Get the atoms that should not ba a part of the new vertex
     edge_ndxs = [_.num for _ in edge_atoms]
     # Check if the edge contains a group atom or not
-    check_atoms = False
-    if group_atoms is not None and len([_ for _ in edge_ndxs if _ in group_atoms]) == 0:
-        check_atoms = True
+    check_atoms = True
+    for ndx in edge_ndxs:
+        if ndx in group_atoms:
+            check_atoms = False
+            break
     # If the previous vertex has been provided, add the other atom to the not allowed atoms
     if vn_1 is None:
         vert_atom_ndxs = edge_ndxs
@@ -190,12 +193,18 @@ def find_site(net, edge_atoms, vn_1=None, first=False, group_atoms=None):
 
 # Find network function. Keeps searching the network until all verts are found
 def find_verts(net, a0=None, group=None):
-    if group is not None:
-        group_atoms = group.atom_ndxs
-    else:
+    # Get the group atoms from which to check vertices against
+    if group is None or (group is not None and len(group.atoms) == len(net.atoms)):
         group_atoms = [i for i in range(len(net.atoms))]
-    # Calculate the total number of vertices
-    tot_verts = 7 * len(group_atoms)
+        # Calculate the rough number of vertices
+        tot_verts = 7 * len(net.atoms)
+    # If a group was provided make sure to get its indices
+    elif group is not None:
+        group_atoms = group.atom_ndxs
+        # Calculate the number of vertices
+        tot_verts = 7 * len(group_atoms) + int(120 * np.sqrt(len(group_atoms)))
+    else:
+        return
     # Find the first verified vertex
     if len(group_atoms) == 4:
         v0 = Vertex(net.atoms, net)
@@ -230,7 +239,7 @@ def find_verts(net, a0=None, group=None):
             # Get the edge from the top of the stack
             edge_atoms, vert = e_stack.pop()
             # Find the next site in the network
-            myVert = find_site(net, edge_atoms, vert)
+            myVert = find_site(net, edge_atoms, vert, group_atoms=group_atoms)
             # If the vertex is none continue
             if myVert is None:
                 continue
