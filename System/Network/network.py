@@ -10,7 +10,7 @@ from Visualize.mpl_visualize import *
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
     def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.3, box_size=1.25, max_vert=7,
-                 build_surfs=False, flat_surfs=False):
+                 build_surfs=True, flat_surfs=False):
         # Network graph objects
         self.sys = sys                 # System          : Route back to outer system for system attribute access
         self.atoms = atoms             # Atoms           : Atoms of the network. Should be identical to self.sys.atoms
@@ -193,7 +193,6 @@ class Network:
         """
         # Check to see if a group has been provided
         if my_group is not None:
-            print("group nums")
             atom_nums = my_group.atom_ndxs
         else:
             atom_nums = [i for i in range(len(self.atoms))]
