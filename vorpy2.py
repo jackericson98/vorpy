@@ -35,8 +35,8 @@ def load_atom_file():
         # Create the system and return
         sys = System(file=file_path)
         sys.net = Network(sys=sys, atoms=sys.atoms)
-        print(sys.name + " loaded - {} atoms, {} molecules"
-                  .format(len(sys.atoms), len(sys.mols)))
+        print(sys.name + " loaded - {} atoms, {} chains, {} residues"
+                  .format(len(sys.atoms), len(sys.mols), len(sys.residues)))
         return
 
 
@@ -44,58 +44,65 @@ def load_another_file():
     # Load the global system variable
     global sys
     # Ask the usr what type of file they want to load
-    file_type = input(
-        "Enter type: 1. Network (.csv)  2. Voronota Balls (.txt)  3. Voronota Vertices (.txt)  4. GROMACS index (.ndx)\n(1-4) >>>   ")
+    file_type = input("Enter file type: 1. Network (.csv)  2. Voronota Balls (.txt)  3. Voronota Vertices (.txt)  4. GROMACS index (.ndx)\nfile type (1-4) >>>   ")
     # If the input is a network file load it into the system
     if file_type.lower() in {"1", "1.", "one", "un", "uno", "1 "}:
+        # Print the message that the network file type has been chosen
+        print("Network file type selected. Please enter a vorpy generated network file address (extension .csv) for \'{}\'".format(sys.name))
         # Ask the user to add the input file for the system name
-        my_net_file = input("Enter a network file (.csv) for {}".format(sys.name))
+        my_net_file = input("file address (.csv) >>>   ")
         # Check that the file is correct
-        if my_net_file[:-3] == 'csv' and os.path.exists(my_net_file):
+        if my_net_file[-3:] == 'csv' and os.path.exists(my_net_file):
             # Load the network file
             sys.load_net(my_net_file)
         else:
             print("Bad file")
-            return
+            return False
     # If the input is to load a ball file
     elif file_type.lower() in {"2", "2.", "two", "to", "too", "dos", "du", "due"}:
+        # Print the message that the voronota balls file type has been chosen
+        print("Voronota balls file type selected. Please enter a Voronota generated balls full file address (extension .txt) for \'{}\'".format(sys.name))
         # Ask the user to add the input file for the system name
-        my_ball_file = input("Enter a Voronota Ball file (.txt) for {}".format(sys.name))
+        my_ball_file = input("file address (.txt) >>>   ".format(sys.name))
         # Check that the file is correct
-        if my_ball_file[:-3] == 'txt' and os.path.exists(my_ball_file):
+        if my_ball_file[-3:] == 'txt' and os.path.exists(my_ball_file):
             # Load the network file
             sys.ball_file = my_ball_file
         else:
             print("Bad file")
-            return
+            return False
     # If the input is to load a ball file
     elif file_type.lower() in {"3", "3.", "three", "tre", "tres"}:
+        # Print the message that the voronota balls file type has been chosen
+        print("Voronota vertices file type selected. Please enter a Voronota generated vertices file address (extension .txt) for \'{}\'".format(
+                sys.name))
         # Ask the user to add the input file for the system name
-        my_vert_file = input("Enter a Voronota Vertex file (.txt) for {}".format(sys.name))
+        my_vert_file = input("file address (.txt) >>>   ".format(sys.name))
         # Check that the file is correct
-        if my_vert_file[:-3] == 'txt' and os.path.exists(my_vert_file):
+        if my_vert_file[-3:] == 'txt' and os.path.exists(my_vert_file):
             # Load the network file
             sys.vert_file = my_vert_file
         else:
             print("Bad file")
-            return
+            return False
     # If the input is to load a ball file
     elif file_type.lower() in {"4", "4.", "four", "quattro", "for", "4 "}:
+        # Print the message that the voronota balls file type has been chosen
+        print("GROMACS index file type selected. Please enter a GROMACS generated index file address (extension .ndx) for \'{}\'".format(
+                sys.name))
         # Ask the user to add the input file for the system name
-        my_ndx_file = input("Enter a GROMACS index file (.txt) for {}".format(sys.name))
+        my_ndx_file = input("file address (.ndx) >>>   ".format(sys.name))
         # Check that the file is correct
-        if my_ndx_file[:-3] == 'ndx' and os.path.exists(my_ndx_file):
+        if my_ndx_file[-3:] == 'ndx' and os.path.exists(my_ndx_file):
             # Load the network file
             sys.load_ndx(file=my_ndx_file)
         else:
             print("Bad file")
-            return
+            return False
     else:
         print("Bad Number")
-        return
-    # Check if both voronota files have been loaded
-    if sys.ball_file is not None and sys.vert_file is not None:
-        sys.load_verts(file=sys.vert_file, vta_ball_file=sys.ball_file)
+        return False
+    return True
 
 
 def create_group(usr_npt):
@@ -132,7 +139,9 @@ def create_group(usr_npt):
     name_prfx = ['mol', 'resid', 'atom', 'ndx'][obj_ndx]
     my_list, name = None, None
     # Get the slice and name of the group
-    if len(my_ndx) == 1:
+    if my_ndx is None:
+        return
+    elif len(my_ndx) == 1:
         my_list = [obj_list[my_ndx[0]]]
         name = name_prfx + '_' + str(my_ndx[0])
     elif len(my_ndx) <= 2:
@@ -155,47 +164,82 @@ def vorpy():
     # Allow the user to keep loading files
     while True:
         # Ask the user if they have another file to load
-        load_another = input("Load another file?\n(y/n) >>>   ")
+        load_another = input("load another file? (y/n) >>>   ")
         # Check if load another is requested
         if load_another.lower() in ys:
             # Give the user the interface to load files
-            load_atom_file()
-            continue
-        break
-    # Get an initial grouping input
-    usr_npt = input("Enter a group to build and export. (full = \'f\', No SOL = \'ns\', mol = \'m\', res = \'r\', atom = \'a\', index = \'i\')\ngroup >>>   ")
-    # Split the user input
-    usr_npt = usr_npt.split()
-    # Create the group
-    my_group = create_group(usr_npt)
-    # Keep asking for a setting to change
+            good_file = load_another_file()
+            if good_file:
+                continue
+        elif load_another.lower() in ns:
+            break
+    # Start the grouping loop
     while True:
-        # Print the build settings and see if the user wants to change anything
-        change_settings = input(u"settings - surf_res = {:.2f} \u208B,  max_vert  = {:.2f} \u208B,  box_size = {:.2f} x,  build_surfs = {}, flat_surfs = {}\nchange settings? (y/n) >>>   "
-                                .format(sys.net.surf_res, sys.net.max_vert, sys.net.box_size, sys.net.build_surfs, sys.net.flat_surfs))
-        change_settings.split()
-        # If the user wants to change the settings:
-        if change_settings[0].lower() in ys:
-            sett(sys, ["set"])
-        # If the user changes the settings here, insert the inp-ut into the sett funciton
-        elif change_settings[0].lower() in set_cmds:
-            sett(sys, usr_npt)
-        # If the user input is not a good one let them go again
-        elif change_settings[0].lower() not in ns:
-            print("not a valid input")
+        # Get an initial grouping input
+        usr_npt = input("Create a group. (Full = \'f\', No SOL = \'ns\', mol = \'m\', res = \'r\', atom = \'a\', index = \'i\')\ngroup >>>   ")
+        # Split the user input
+        usr_npt = usr_npt.split()
+        # Check that the user's input is valid
+        if usr_npt[0].lower() in my_objects:
+            break
+        elif usr_npt[0].lower() in show_cmds:
+            show(sys, usr_npt)
             continue
-        break
-    # Build the group
-    sys.net.build(group=my_group)
-    # Export
-    export(sys, usr_npt="e", my_group=my_group)
+        # Tell the user they f'd up
+        print("Bad input")
+    # Create the group
+    while True:
+        my_group = create_group(usr_npt)
+        if my_group is not None:
+            break
+    # Check if the network has been loaded
+    if sys.net_file is None:
+        # Keep asking for a setting to change
+        while True:
+            # Print the default settings
+            print(
+                u"{} Build Settings - surf_res = {:.2f} \u208B,  max_vert  = {:.2f} \u208B,  box_multi = {:.2f} x,  build_surfs = {}, "
+                u"flat_surfs = {}".format(my_group.name, sys.net.surf_res, sys.net.max_vert, sys.net.box_size, sys.net.build_surfs,
+                                          sys.net.flat_surfs))
+            # Print the build settings and see if the user wants to change anything
+            change_settings = input("change settings? (y/n) >>>   ")
+            change_settings = change_settings.split()
+            # If the user wants to change the settings:
+            if change_settings[0].lower() in ys:
+                sett(sys, ["set"], vorpy2_set=True)
+            # If the user changes the settings here, insert the inp-ut into the sett function
+            elif change_settings[0].lower() in my_settings:
+                sett(sys, change_settings, vorpy2_set=True)
+            # If the user input is not a good one let them go again
+            elif change_settings[0].lower() in ns:
+                break
+        # Build the group
+        sys.net.build(group=my_group)
+    # Check if both voronota files have been loaded
+    elif sys.ball_file is not None and sys.vert_file is not None:
+        sys.load_verts(file=sys.vert_file, vta_ball_file=sys.ball_file)
+    while True:
+        # CHeck if the user wants to export files
+        export_files = input("export files? (y/n) >>>   ")
+        if export_files.lower() in ys:
+            # Export
+            export(sys, usr_npt="e", my_group=my_group)
+        else:
+            # Ask the user if they want to quit
+            analyze_another_file = input("analyze another file? (y/n)")
+            if analyze_another_file.lower() in ys:
+                return True
+            elif analyze_another_file.lower() in ns:
+                return False
 
 
 if __name__ == '__main__':
-    # Welcome introduction
-    print("Welcome to vorpy. For assistance type \'h\'. To quit type \'q\'")
-    sys = System()
-    # Run vorpy
-    vorpy()
+    go_again = True
+    while go_again:
+        # Welcome introduction
+        print("Welcome to vorpy. For assistance type \'h\'. To quit type \'q\'")
+        sys = System()
+        # Run vorpy
+        go_again = vorpy()
 
 

@@ -22,12 +22,14 @@ export_cmds = ['e', 'export', 'xport', 'xprt', 'xpt', 'xp', 'expt', 'ext']
 my_commands = quits + helps + show_cmds + load_cmds + set_cmds + build_cmds + group_cmds + export_cmds
 
 # Objects
+full_objs = ['f', 'full', 'fl', 'ful']
+noSOL_objs = ['ns', 'nosol', 'no_sol', 'nos', 'nsol']
 mol_objs = ['m', 'ms', 'molecule', 'molecules', 'mol', 'mols', 'ml', 'mls']
 atom_objs = ['a', 'as', 'atom', 'atoms', 'at', 'ats', 'am', 'ams']
 res_objs = ['r', 'rs', 'residue', 'residues', 'resid', 'resids', 'res', 'ress', 'reses', 'rdue', 'rdues']
 ndx_objs = ['i', 'is',  'index', 'indexs', 'indexes', 'indices', 'ndx', 'ndxs', 'ndex', 'group', 'g', 'grp', 'n']
 
-my_objects = mol_objs + res_objs + atom_objs + ndx_objs
+my_objects = full_objs + noSOL_objs + mol_objs + res_objs + atom_objs + ndx_objs
 
 # Settings
 surf_reses = ['surf_res', 'sr', 'surface_resolution', 'surface_res', 'surf_resolution', 'surfs', 'surf', 'surfs_res', 'surfs_resolution', 'surfaces_resolution', 'surfaces_res']
@@ -37,6 +39,7 @@ build_surfses = ['build_surfs', 'build_surfaces', 'bs', 'bld_srfs', 'cs', 'calc_
 flat_surfses = ['flat_surfs', 'flat_surfaces', 'fs', 'flt_srfs', 'surfaces_flat', 'surfs_flat', 'flat_surf', 'flat_surface', 'ff']
 
 my_settings = surf_reses + max_verts + box_sizes + build_surfses + flat_surfses
+settings_dict = {'sr' : 'Surface Resolution', 'mv' : 'Maximum Vertex', 'bm' : 'Box Multiplier', 'bs': 'Build Surfaces?', 'fs': 'Flat Surfaces?'}
 
 
 def are_you_sure():
@@ -149,7 +152,7 @@ def print_list(names, list_name=None, width=150, height=30, cutoff=15):
     while scrolling:
         my_response = input("enter an index or a range or type 'q' to quit. (\'356\' or \'400-600\')\nindex >>>   ")
         if my_response.lower() in quits:
-            return
+            return 'q'
         elif my_response.lower() in helps:
             help_()
         nums = None
@@ -167,16 +170,20 @@ def print_list(names, list_name=None, width=150, height=30, cutoff=15):
                 nums = None
         # Print the lists
         if nums is not None and len(nums) == 1 and nums[0] < len(names):
-            print_list(names[nums[0]:nums[0] + num_cols * height],
-                       list_name=list_name + ": elements " + str(nums[0]) + "-" + str(nums[0] + num_cols * height),
-                       height=height, width=width, cutoff=max_len)
+            quit_check = print_list(names[nums[0]:nums[0] + num_cols * height],
+                                    list_name=list_name + ": elements " + str(nums[0]) + "-" + str(nums[0] + num_cols * height),
+                                    height=height, width=width, cutoff=max_len)
+            if quit_check in quits:
+                return
         elif nums is not None and nums[0] < nums[1] < len(names):
             # Check to see if the height needs to be changed
             new_height = height
             if nums[1] - nums[0] > num_cols * height:
                 new_height = (nums[1] - nums[0]) // num_cols + 1
-            print_list(names[nums[0]:nums[1]], list_name=list_name + ": elements " + str(nums[0]) + "-" + str(nums[1]),
-                       height=new_height, width=width, cutoff=max_len)
+            quit_check = print_list(names[nums[0]:nums[1]], list_name=list_name + ": elements " + str(nums[0]) + "-" + str(nums[1]),
+                                    height=new_height, width=width, cutoff=max_len)
+            if quit_check in quits:
+                return
         else:
             invalid_input(my_response)
 
