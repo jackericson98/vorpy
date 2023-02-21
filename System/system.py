@@ -77,8 +77,6 @@ class System:
         # Load the network
         if self.net_file is not None:
             self.load_net()
-        elif self.vert_file is not None:
-            self.load_verts()
 
         # Load the index file
         if self.ndx_file is not None:
@@ -110,12 +108,6 @@ class System:
             self.base_file = file
         # Set the name of the system
         self.name = get_name(file)
-        # Check to see if the pdb directory is suitable
-        if self.dir is None:
-            if os.path.dirname(file)[-9:] != 'test_data':
-                self.dir = os.path.dirname(file)
-            else:
-                self.set_output_directory()
         # Read PDB file
         if self.base_file[-3:] == "pdb":
             file_data = read_pdb(self)
@@ -331,12 +323,18 @@ class System:
         set_output_dir(self)
         os.chdir(self.dir)
 
-    def exports(self, network=True, pdb=True, surfaces=True, full_network_object=True, no_sol_network_object=True,
-                alter_atoms_script=True, info=True):
+    def exports(self, network=False, pdb=False, surfaces=False, full_network_object=False, no_sol_network_object=False,
+                alter_atoms_script=False, info=False):
         """
         Prepares the output directory and system for output. Keeps things consistent
         :return:
         """
+        # Check to see if the pdb directory is suitable
+        if self.dir is None:
+            if os.path.dirname(self.base_file)[-9:] != 'test_data':
+                self.dir = os.path.dirname(self.base_file)
+            else:
+                self.set_output_directory()
         if network:
             os.chdir(self.dir)
             # Export the network
@@ -347,7 +345,14 @@ class System:
             os.chdir(self.dir + "/sys")
             # Export a pdb file for the system
             write_pdb(self.atoms, self.name, self)
-            os.chdir('..')
+            os.chdir(self.dir)
+        if surfaces:
+            if not os.path.exists(self.dir + '/surfs'):
+                os.mkdir(self.dir + "/surfs")
+            # Export a pdb file for the system
+            for surf in self.net.surfs:
+                write_surfs(surfs=[surf], file_name="_".join(surf.ndx), directory=self.dir + "/surfs")
+            os.chdir(self.dir)
         if full_network_object and self.net.build_surfs:
             if not os.path.exists(self.dir + '/sys'):
                 os.mkdir(self.dir + "/sys")
