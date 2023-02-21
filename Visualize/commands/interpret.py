@@ -17,7 +17,7 @@ def get_ndx(sys, obj, ndx_npt=None):
     if obj == 'm':
         obj_list, obj_num = sys.mols, 0
     elif obj == 'r':
-        obj_list, obj_num = sys.resids, 1
+        obj_list, obj_num = sys.residues, 1
     elif obj == 'a':
         obj_list, obj_num = sys.atoms, 2
     elif obj == 'n':
@@ -43,7 +43,7 @@ def get_ndx(sys, obj, ndx_npt=None):
             continue
 
 
-def get_obj(sys, obj=None):
+def get_obj(obj=None):
     """
     Makes the user type a proper object
     :return: 1-4 based on if it is a 1. molecule 2. residue 3. atom or 4. index
@@ -165,7 +165,7 @@ def get_val(setting=None, val=None):
     while asking:
         # If no val has been provided
         if val is None:
-            prompt_str = "Enter \'{}\' value \nvalue >>>   ".format(setting)
+            prompt_str = "Enter {} value \nvalue >>>   ".format(settings_dict[setting])
             val = input(prompt_str)
         # Quit if asked
         if val.lower() in quits or val.lower() in dones:
