@@ -5,20 +5,23 @@ from Visualize.commands.group import group
 def export(sys, usr_npt, my_group=None):
     """
     Takes in input strings and exports them based on their option choices
+    :param my_group:
     :param sys:
     :param usr_npt:
     :return:
     """
     if my_group is None:
         my_group = group(sys, usr_npt)
+    if sys.dir is None:
+        sys.set_output_directory()
 
-    print("choose one to export: 1. Shell, 2. Surfaces, 3. Layers, 4. Atoms, 5. Filled Body, 6. Info File, 7. Vertices, 8. All")
+    print("{} export options: 1. Shell, 2. Surfaces, 3. Layers, 4. Atoms, 5. Filled Body, 6. Info File, 7. Vertices, 8. All".format(my_group.name))
     while True:
         # Export the group exports
-        xpt_npt = input("export >>>   ")
+        xpt_npt = input("export object (1-8) >>>   ")
         xpt_npt = xpt_npt.strip()
         # Check for a quit
-        if xpt_npt.lower() in quits:
+        if xpt_npt.lower() in quits + ns:
             return
         # Check for help request
         elif xpt_npt.lower() in helps:
@@ -51,10 +54,10 @@ def export(sys, usr_npt, my_group=None):
         # Export vertices
         elif xpt_npt.lower() in ['7', '7.', 'verts', 'vertices']:
             my_group.exports(verts=True)
-            print("\r {} exported to {}".format(my_group.name, my_group.dir))
+            print("\r{} exported to {}".format(my_group.name, my_group.dir))
             # Export all
         elif xpt_npt.lower() in ['8', '8.', 'eight', 'ocho', '8 ', 'all', 'a']:
             my_group.exports(all_=True)
-            print("\r{} shell, surfaces, layers, atoms, filled body and info file exported to {}".format(group.name,                                                                                                   group.dir))
+            print("\r{} shell, surfaces, layers, atoms, filled body and info file exported to {}".format(my_group.name, my_group.dir))
         else:
             invalid_input(xpt_npt)
