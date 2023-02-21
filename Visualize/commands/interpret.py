@@ -43,7 +43,7 @@ def get_ndx(sys, obj, ndx_npt=None):
             continue
 
 
-def get_obj(obj=None):
+def get_obj(sys, obj=None):
     """
     Makes the user type a proper object
     :return: 1-4 based on if it is a 1. molecule 2. residue 3. atom or 4. index
