@@ -42,7 +42,7 @@ class Group:
                 # Get the index of the surface
                 surf_ndx = ndx_search(self.surf_ndxs, surf.ndx)
                 # Check if the surface has been added yet or not
-                if surf_ndx < len(self.surf_ndxs) and self.surf_ndxs[surf_ndx] != surf.ndx:
+                if surf_ndx >= len(self.surf_ndxs) or self.surf_ndxs[surf_ndx] == surf.ndx:
                     # Insert the index and the surfaces in their correct place
                     self.surfs.insert(surf_ndx, surf)
                     self.surf_ndxs.insert(surf_ndx, surf.ndx)
@@ -78,9 +78,6 @@ class Group:
                 # Worst case, add the surface to the list of surfaces to be built
                 else:
                     build_surfs.append(surf)
-            else:
-                build_surfs.append(surf)
-
         # Create the system's surface's file if needed
         if len(build_surfs) > 0 and not os.path.exists(self.sys.dir + "/surfs"):
             os.mkdir(self.sys.dir + "/surfs")
@@ -135,7 +132,6 @@ class Group:
             self.add_atoms(residue.atoms)
         # Get the surfaces
         self.get_surfs()
-        print(self.atom_ndxs)
 
     # Get information method. Gathers information about the group and stores it in a dictionary
     def get_info(self, iface_info=True):
@@ -195,7 +191,11 @@ class Group:
         if self.atoms is None:
             return
         # Set up the layer surfs and layer atoms list variables
-        counter, self.layer_atoms, layer_atoms_ndxs, self.layer_surfs, self.layer_info = 0, [self.atoms, []], [[self.sys.atoms.index(_) for _ in self.atoms], []], [[]], [[0, 0]]
+        counter = 0
+        self.layer_atoms = [self.atoms, []]
+        layer_atoms_ndxs = [[_.num for _ in self.atoms], []]
+        self.layer_surfs = [[]]
+        self.layer_info = [[0, 0]]
         # Set up the loop to keep adding layers
         while counter < max_layers:
             # Go through the atoms in the last layer
@@ -289,6 +289,9 @@ class Group:
             info.close()
 
     def exports(self, all_=False, atoms=False, shell=False, fill=False, surfaces=False, layers=False, num_layers=50, info=False, iface=False, verts=False):
+        # Get the surfaces if they haven't been got
+        if self.surfs is None or len(self.surfs) == 0:
+            self.get_surfs()
         # Create the output directory inside the system's directory
         if self.dir is None:
             i = 1
@@ -305,7 +308,7 @@ class Group:
         os.chdir(self.dir)
         # If the user wants to export the atoms for the group
         if atoms or all_:
-            write_pdb(atoms=self.atoms, name=self.name, sys=self.sys)
+            write_pdb(atoms=self.atoms, name=self.name + "_atoms", sys=self.sys)
         # If the user wants to export the shell for the group
         if shell or all_:
             if self.layer_surfs is None:
@@ -317,10 +320,9 @@ class Group:
         # If the user wants a filled shell for the group
         if fill or all_:
             self.build_surfs()
-            write_surfs(surfs=self.surfs, file_name=self.name + "_fill")
+            write_surfs(surfs=self.surfs, file_name=self.name + "_fill", directory=self.dir)
         # If the user wants separate surfaces for the group
         if surfaces or all_:
-            self.build_surfs()
             i = 1
             my_dir = self.dir + "/surfaces"
             while os.path.exists(my_dir):
@@ -331,7 +333,7 @@ class Group:
             os.mkdir(my_dir)
             os.chdir(my_dir)
             for surf in self.surfs:
-                write_surfs([surf], file_name="_".join([str(_) for _ in surf.ndx]))
+                write_surfs([surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=my_dir)
             os.chdir(self.dir)
         # If the user wants layers
         if layers or all_:
