@@ -266,10 +266,10 @@ class Network:
         # self.sol_layers, self.sol_layer_atoms = find_sol_layers(self)
 
     def build(self, output=True, surf_res=None, max_vert=None, box_size=None, build_surfs=None, flat_surfs=None,
-              calc_verts=None, group=None):
+              calc_verts=None, my_group=None):
         """
         Build network function used to calculate the voronoi
-        :param group:
+        :param my_group:
         :param output:
         :param surf_res:
         :param max_vert:
@@ -305,7 +305,7 @@ class Network:
         # Check to see if there are vertices loaded
         if self.calc_verts:
             # Find the vertices
-            self.find_verts(start, process_time_start=process_start, my_group=group)
+            self.find_verts(start, process_time_start=process_start, my_group=my_group)
             # Check to see if there are vertices
             if self.verts is None or len(self.verts) == 0:
                 return
