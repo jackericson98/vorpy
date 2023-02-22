@@ -100,9 +100,9 @@ def build(net, get_edges=True, get_surfs=True):
     :param net: Network object to pull information from
     """
     # Reset the network's list of edges and surfaces for a clean slate
-    if get_edges:
+    if get_edges and (net.edges is None or len(net.edges) == 0):
         net.edges = []
-    if get_surfs:
+    if get_surfs and (net.surfs is None or len(net.surfs) == 0):
         net.surfs = []
 
     # Fill in the doublets and set their outer edges
