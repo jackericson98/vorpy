@@ -273,7 +273,8 @@ def export_net(net, output_surfs=True):
         # Check to see if the surfaces have been requested
         if output_surfs and net.build_surfs:
             # Create a surfaces folder and change to it
-            os.mkdir(net.sys.dir + "/surfs")
+            if not os.path.exists(net.sys.dir + "/surfs"):
+                os.mkdir(net.sys.dir + "/surfs")
             os.chdir(net.sys.dir + "/surfs")
             # Go through the surfaces 1 by one creating point files
             for surf in net.surfs:
