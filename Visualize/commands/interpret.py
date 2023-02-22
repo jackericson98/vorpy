@@ -54,23 +54,25 @@ def get_obj(sys, obj=None):
         if obj is None:
             # Prompt the user
             obj = input("enter an object type. (\'mol\', \'res\', \'atom\', or \'ndx\')\nobject >>>   ")
+            obj = obj.split()
         # Check to see if the user gave a valid response or not
-        if obj.lower() in quits:
+        if obj[0].lower() in quits:
             return
-        elif obj.lower() in helps:
+        elif obj[0].lower() in helps:
             help_()
-        elif obj.lower() not in my_objects:
+        elif obj[0].lower() not in my_objects:
             # Tell the user they suck and try again
             invalid_input(obj)
+            obj = None
             continue
         # Otherwise, we have a success
-        elif obj.lower() in mol_objs:
+        elif obj[0].lower() in mol_objs:
             return 'm'
-        elif obj.lower() in res_objs:
+        elif obj[0].lower() in res_objs:
             return 'r'
-        elif obj.lower() in atom_objs:
+        elif obj[0].lower() in atom_objs:
             return 'a'
-        elif obj.lower() in ndx_objs:
+        elif obj[0].lower() in ndx_objs:
             return 'n'
 
 
