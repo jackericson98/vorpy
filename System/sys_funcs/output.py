@@ -127,7 +127,7 @@ def write_verts(verts, file_name, atom_type=None, directory=None):
     write_pdb(atoms=vert_atoms, name=file_name, directory=directory)
 
 
-def write_surfs(surfs, file_name, color=None, directory=None):
+def write_surfs(surfs, file_name, color=False, directory=None):
     """
     Writes files given a list of surfaces into the current directory or the given one
     :param surfs: Surface object
@@ -143,7 +143,7 @@ def write_surfs(surfs, file_name, color=None, directory=None):
     if surfs is None or len(surfs) == 0:
         return
     # If no color is given, make the color random
-    if color is None:
+    if color is False:
         color = np.random.rand(3)
     # Create the file
     with open(file_name + ".off", 'w') as file:
@@ -166,7 +166,10 @@ def write_surfs(surfs, file_name, color=None, directory=None):
         num_verts, tri_count = 0, 0
         # Go through each surface and add the faces
         for i in range(len(surfs)):
-            for tri in surfs[i].tris:
+            for j in range(len(surfs[i].tris)):
+                tri = surfs[i].tris[j]
+                if surfs[i].tri_colors is not None:
+                    color = surfs[i].tri_colors[j]
                 # Add the triangle to the system file and the surface's file
                 str_tri = [str(tri[_] + num_verts) for _ in range(3)]
                 file.write("3 " + str_tri[0] + " " + str_tri[1] + " " + str_tri[2] + " " + str(color[0]) + " " +
