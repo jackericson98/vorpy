@@ -2,6 +2,7 @@ import os.path
 import numpy as np
 from System.sys_funcs.calcs import calc_tri
 from System.Network.net_funcs.build_surf import *
+from matplotlib.cm import get_cmap as cmap
 import csv
 
 
@@ -32,6 +33,7 @@ class Surface:
         self.flat_points = []       # Flattened points : Points projected into 2d based off of the surface normal
         self.pflat_points = []      # Flat perimeter   : Flattened points around the perimeter
         self.tris = tris            # Triangles        : A list of connections between the points
+        self.tri_colors = None
         self.res = resolution       # Resolution       : The resolution with which to build the surface
         self.sa = sa                # Surface Area     : The surface area of the
         self.curv = curvature       # Curvature        : The curvature of the surface between the
@@ -45,7 +47,6 @@ class Surface:
         if self.atoms is not None:
             if self.atoms[0].rad > self.atoms[1].rad:
                 self.atoms[0], self.atoms[1] = self.atoms[1], self.atoms[0]
-
 
     def calc_func(self):
         # Make sure that a0 is the atom with the smaller radius
@@ -147,7 +148,7 @@ class Surface:
         self.sa = sa
 
     # Build method. Makes the mesh for the surface and calculates the simplices between them
-    def build(self, res=None, flat=None):
+    def build(self, res=None, flat=None, color=False):
         # Check to see if the user provided a flat indication
         if flat is None:
             # Check if the surface is to be flat
@@ -184,6 +185,8 @@ class Surface:
             filter_tris(self)
             # Calculate the surface area
             self.calc_sa()
+        if color:
+            self.color_tris()
 
     # Build vta surface function
     def build_vta(self):
@@ -217,3 +220,59 @@ class Surface:
         nps = np.array(nps)
         # Add the flat points to the surface's list of flat points
         self.flat_points = [nps[i, :2] for i in range(len(self.points))]
+
+    # Color points method. Returns a list of colors corresponding to values at that point.
+    def color_tris(self, dist=False, curvature=False, inside_outside=False, color_map='magma'):
+
+        # Some options
+        # 1. Map colors to distance from center
+        # 2. Map colors based on curvature
+        # 3. Map colors (a or b) to inside or outside the spheres
+        # Set up the color map
+        my_cmap = cmap(color_map)
+        # Check and make sure the surface is not flat
+        if self.flat:
+            self.tri_colors = [my_cmap(1) for _ in self.tris]
+
+        # Default is distance based color map
+        if dist or not (curvature or inside_outside):
+            # Set up the distances
+            dists = []
+            tri_dists = []
+            max_dist, min_dist = 0, np.inf
+            # Provide value for the points
+            for point in self.points:
+                # Calculate the distance
+                my_dist = calc_dist(point, self.loc)
+                dists.append(my_dist)
+                # Record the minimum and maximum distances
+                if my_dist < min_dist:
+                    min_dist = my_dist
+                elif my_dist > max_dist:
+                    max_dist = my_dist
+            # Go through the triangles in the surface
+            for i in range(len(self.tris)):
+                # Find the maximum distance point of the triangles
+                tri_dists.append(max([dists[_] for _ in self.tris[i]]))
+            self.tri_colors = [my_cmap((_ - min_dist) / (max_dist - min_dist)) for _ in tri_dists]
+        else:
+            # Set up a list of tracking
+            inside_array = []
+            # Go through the points in the surface
+            for point in self.points:
+                # Calculate the distance between the point and the atom
+                my_dist = calc_dist(point, self.atoms[0].loc)
+                if my_dist < self.atoms[0].rad:
+                    inside_array.append(True)
+                else:
+                    inside_array.append(False)
+            # Now add the triangles
+            my_map = []
+            for tri in self.tris:
+                if inside_array[tri[0]] and inside_array[tri[1]] and inside_array[tri[2]]:
+                    my_map.append(my_cmap(0.25))
+                else:
+                    my_map.append(my_cmap(0.75))
+            self.tri_colors = my_map
+
+
