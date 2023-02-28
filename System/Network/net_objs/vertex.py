@@ -146,3 +146,44 @@ class Vertex:
             else:
                 loc, loc2, rad, rad2 = locs[0], locs[1], rads[0], rads[1]
         self.loc, self.rad, self.loc2, self.rad2 = loc, rad, loc2, rad2
+
+    def calc_flat_vert(self, power=False):
+        """
+        Calculates the flat vertex between 4 atoms by finding the intersection of the mid-point planes between the first
+        atom and the others
+        :param power:
+        :return:
+        """
+        rads = [_.rad for _ in self.atoms]
+        atom_rads = [x for _, x in sorted(zip(rads, self.atoms), key=lambda pair: pair[0])]
+        # Get the plane equations
+        coeffs = []
+        # Go through the atoms to make the planes
+        for an in atom_rads[1:]:
+            # Get the point between the atoms
+            r = np.array(an.loc) - np.array(atom_rads[0].loc)
+            norm = np.linalg.norm(r)
+            rn = r / norm
+            if power:
+                d0 = 0.5 * (norm ** 2 + atom_rads[0].rad ** 2 - an.rad ** 2) / norm
+                center = atom_rads[0].loc + d0 * rn
+            else:
+                center = 0.5 * r + np.array(atom_rads[0].loc)
+            coeffs.append(rn.tolist() + [np.dot(rn, center)])
+
+        a, b, c, d = coeffs[0]
+        e, f, g, h = coeffs[1]
+        i, j, k, m = coeffs[2]
+
+        disc = c * f * i - b * g * i - c * e * j + a * g * j + b * e * k - a * f * k
+        x_numerator = d * g * j - c * h * j - d * f * k + b * h * k + c * f * m - b * g * m
+        y_numerator = - d * g * i + c * h * i + d * e * k - a * h * k - c * e * m + a * g * m
+        z_numerator = d * f * i - b * h * i - d * e * j + a * h * j + b * e * m - a * f * m
+        x, y, z = x_numerator / disc, y_numerator / disc, z_numerator / disc
+        # Get the radius
+        if power:
+            rads = [calc_dist([x, y, z], _.loc) - _.rad for _ in atom_rads]
+            rad = max(rads)
+        else:
+            rad = calc_dist([x, y, z], atom_rads[0].loc)
+        self.loc, self.rad = [x, y, z], rad
