@@ -1,8 +1,8 @@
 import os.path
+import matplotlib
 import numpy as np
 from System.sys_funcs.calcs import calc_tri
 from System.Network.net_funcs.build_surf import *
-from matplotlib.cm import get_cmap as cmap
 import csv
 
 
@@ -153,6 +153,8 @@ class Surface:
         if flat is None:
             # Check if the surface is to be flat
             flat = self.flat
+        if self.flat != flat:
+            self.flat = flat
         # Check to see if the file exists
         if self.file is not None:
             self.read_file()
@@ -165,26 +167,18 @@ class Surface:
         # Check to see if the function or curvature have been calculated and calculate them if not
         if self.curv is None:
             self.calc_curv()
-        # If the surface is flat, add the vertices as points and find tris
-        if flat:
-            self.points = [_.loc for _ in self.verts]
-            if self.loc is None:
-                r = np.array(self.atoms[0].loc) - np.array(self.atoms[1].loc)
-                self.loc = np.array(self.atoms[1].loc) + 0.5 * r
-            find_simps(self)
-        else:
-            # Reset the surface's list of points to empty list and reset the vertex indices list
-            self.points = []
-            # Build the perimeter of the surface
-            build_perimeter(self)
-            # Fill the mesh
-            fill_mesh(self)
-            # Find the simplices of the surface
-            find_simps(self)
-            # Filter out the bad triangles
-            filter_tris(self)
-            # Calculate the surface area
-            self.calc_sa()
+        # Reset the surface's list of points to empty list and reset the vertex indices list
+        self.points = []
+        # Build the perimeter of the surface
+        build_perimeter(self)
+        # Fill the mesh
+        fill_mesh(self)
+        # Find the simplices of the surface
+        find_simps(self)
+        # Filter out the bad triangles
+        filter_tris(self)
+        # Calculate the surface area
+        self.calc_sa()
         if color:
             self.color_tris()
 
@@ -229,7 +223,7 @@ class Surface:
         # 2. Map colors based on curvature
         # 3. Map colors (a or b) to inside or outside the spheres
         # Set up the color map
-        my_cmap = cmap(color_map)
+        my_cmap = matplotlib.colormaps[color_map]
         # Check and make sure the surface is not flat
         if self.flat:
             self.tri_colors = [my_cmap(1) for _ in self.tris]
@@ -274,5 +268,3 @@ class Surface:
                 else:
                     my_map.append(my_cmap(0.75))
             self.tri_colors = my_map
-
-
