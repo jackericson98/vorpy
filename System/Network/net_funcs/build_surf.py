@@ -166,6 +166,8 @@ def get_com(surf):
     # First try the center of mass of the 3d points projected onto the surface
     my_com = calc_com(points=surf.perimeter[::5])
     # If the surface is flat, the center of mass will not need to be projected
+    if surf.flat:
+        return calc_com(points=surf.perimeter)
     if not surf.flat:
         my_com = calc_surf_point(surf, my_com)
     if my_com is not None and tri_within(surf, point=my_com) and surf.atoms[0].rad != surf.atoms[1].rad:
@@ -192,13 +194,24 @@ def fill_mesh(surf):
     a0, a1 = surf.atoms[0], surf.atoms[1]
     # Get the center of mass
     com = get_com(surf)
-    # Check to see if the atoms have equal radii
-    if a0.rad == a1.rad or surf.flat:
-        surf.flat = True
-        surf.points.append(com)
-        return
     # For each path toward the center of the surface, set up a path list.
     paths = [[surf.perimeter[i]] for i in range(len(surf.perimeter))]
+    # Check to see if the atoms have equal radii
+    if a0.rad == a1.rad or surf.flat:
+        # Make sure the surface is flat
+        surf.flat = True
+        # Go through the paths
+        for i in range(len(paths)):
+            # Get the
+            r = np.array(com) - np.array(paths[i][0])
+            if r.all() == 0:
+                continue
+            norm = np.linalg.norm(r)
+            rn = r / norm
+            num_steps = max(int(norm / surf.res), 2)
+            step = norm / num_steps
+            surf.points += [paths[i][0] + rn * j * step for j in range(1, num_steps + 1)]
+        return
     # For each ring toward the center of the surface record a list
     surf.rings = [surf.perimeter]
     # Grab the smallest of the 2 surface atoms' location
@@ -358,9 +371,6 @@ def triangulate_rings(surf):
         outer_ndx, inner_ndx = outer_ndx + len(outer_ring), inner_ndx + len(inner_ring)
         ring_num += 1
 
-    # Plot the results
-    plot_surfs([surf], simps=True, Show=True)
-
 
 def tri_within(surf, myTri=None, point=None):
     """
@@ -446,10 +456,6 @@ def find_simps(surf):
     :param surf: Surface object holding the points
     :return: None
     """
-    # Check to see if the surface is flat or not.
-    if surf.flat:
-        surf.tris = [[i, (i + 1) % len(surf.perimeter), len(surf.points) - 1] for i in range(len(surf.perimeter))]
-        return
     # Copy the surface points
     points = surf.points.copy()
     # Move all surf points toward the origin via center point
