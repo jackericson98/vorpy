@@ -30,7 +30,8 @@ class Edge:
         self.pa = None                   # Projection pt :   The projection point from which the edge is built
         self.doublet = doublet           # Doublet       :   Boolean for if the edge is part of a doublet or not
         self.loc2 = None                 # Loc2          :   Allows edges to be checked like vertices
-
+        self.draw_points = None
+        self.draw_tris = None
         self.ref = None                  # Reference     :   Tuple holding a surface and a range for efficient storage
         self.straight = straight         # Straight edge :   Straight edge or not
 
@@ -117,9 +118,6 @@ class Edge:
         self.get_loc()
         # Get the pvals
         self.find_pvals()
-        if straight:
-            self.points = [self.pv0, self.pv1]
-            return
         # Reset the edges points
         self.points = []
         # Check to see if a minimum distance has been provided
@@ -140,7 +138,7 @@ class Edge:
         if straight or (self.atoms[0].rad == self.atoms[1].rad and self.atoms[1].rad == self.atoms[2].rad):
             # Get the vector between the two vectors and the number of point in the edge
             r = self.pv1 - self.pv0
-            num_points = 5
+            num_points = max(int(np.linalg.norm(r) / self.net.surf_res), 4)
             # Add the points
             for i in range(num_points + 1):
                 self.points.append(self.pv0 + r * (i / num_points))
