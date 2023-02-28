@@ -212,7 +212,7 @@ def vorpy():
                 u"{} Build Settings - surf_res = {:.2f} \u208B,  max_vert  = {:.2f} \u208B,  box_multi = {:.2f} x,  build_surfs = {}, "
                 u"flat_surfs = {}".format(my_group.name, sys.net.surf_res, sys.net.max_vert, sys.net.box_size,
                                           sys.net.build_surfs,
-                                          sys.net.flat_surfs))
+                                          sys.net.flat_Del))
             # Print the build settings and see if the user wants to change anything
             change_settings = input("change settings? (y/n) >>>   ")
             change_settings = change_settings.split()
