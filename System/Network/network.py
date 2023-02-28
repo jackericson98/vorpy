@@ -8,7 +8,7 @@ from Visualize.mpl_visualize import *
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
-    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.3, box_size=1.25, max_vert=7,
+    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.1, box_size=1.25, max_vert=7,
                  build_surfs=True, flat_surfs=False):
         # Network graph objects
         self.sys = sys                 # System          : Route back to outer system for system attribute access
@@ -36,7 +36,7 @@ class Network:
         self.box_size = box_size        # Box size       : Holds the box multiplier for the sys box from the atoms box
         self.build_surfs = build_surfs  # Calc Surfs     : Calculate the network's surfaces? Bool
         self.flat_pow = False
-        self.flat_Del = False
+        self.flat_Del = flat_surfs
         self.calc_verts = True          # Calc Verts     : Use loaded verts. Bool
         self.connect_net = True         # Connect net    : Used to differentiate between loaded net and loaded verts
         # Run diagnostics
