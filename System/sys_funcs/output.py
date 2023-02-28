@@ -166,10 +166,18 @@ def write_surfs(surfs, file_name, color=False, directory=None):
         num_verts, tri_count = 0, 0
         # Go through each surface and add the faces
         for i in range(len(surfs)):
+            surf = surfs[i]
+            # Go through the triangles in the surface
             for j in range(len(surfs[i].tris)):
-                tri = surfs[i].tris[j]
-                if surfs[i].tri_colors is not None:
-                    color = surfs[i].tri_colors[j]
+                # Get the triangle and colors
+                tri = surf.tris[j]
+                colors = surf.tri_colors
+                if colors is not None:
+                    # If the surface is flat, average out the colors
+                    if surf.flat:
+                        color = [[0, 0, 0]]*len(colors)
+                    else:
+                        color = colors[j]
                 # Add the triangle to the system file and the surface's file
                 str_tri = [str(tri[_] + num_verts) for _ in range(3)]
                 file.write("3 " + str_tri[0] + " " + str_tri[1] + " " + str_tri[2] + " " + str(color[0]) + " " +
