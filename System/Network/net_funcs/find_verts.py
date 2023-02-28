@@ -102,8 +102,11 @@ def verify_site(vert, net):
             # If the atom is one of the vertex atoms move on
             if atom.num in checked_atoms:
                 continue
+            my_radius = atom.rad
+            if net.flat_Del:
+                my_radius = 0
             # If the distance between the vertex and the test atom is less than the sum of their radii, they overlap
-            if sqrt(sum(square(array(atom.loc) - array(loc)))) < atom.rad + rad:
+            if sqrt(sum(square(array(atom.loc) - array(loc)))) < my_radius + rad:
                 return False
             checked_atoms.append(atom.num)
         inc += 1
@@ -118,7 +121,7 @@ def find_site(net, edge_atoms, vn_1=None, first=False, group_atoms=None):
     # Check if the edge contains a group atom or not
     check_atoms = True
     for ndx in edge_ndxs:
-        if ndx in group_atoms:
+        if group_atoms is not None and ndx in group_atoms:
             check_atoms = False
             break
     # If the previous vertex has been provided, add the other atom to the not allowed atoms
@@ -159,7 +162,13 @@ def find_site(net, edge_atoms, vn_1=None, first=False, group_atoms=None):
             return
         # Create the vertex and calculate its value
         vert = Vertex(edge_atoms + [atom], net=net)
-        vert.calc_vert()
+        # Calculate the correct vertex values
+        if net.flat_pow:
+            vert.calc_flat_vert(power=True)
+        elif net.flat_Del:
+            vert.calc_flat_vert(power=False)
+        else:
+            vert.calc_vert()
         # Catch the none location case
         if vert.loc is None:
             continue
@@ -239,7 +248,7 @@ def find_verts(net, a0=None, group=None):
             # Get the edge from the top of the stack
             edge_atoms, vert = e_stack.pop()
             # Find the next site in the network
-            myVert = find_site(net, edge_atoms, vert, group_atoms=group_atoms)
+            myVert = find_site(net=net, edge_atoms=edge_atoms, vn_1=vert, group_atoms=group_atoms)
             # If the vertex is none continue
             if myVert is None:
                 continue
