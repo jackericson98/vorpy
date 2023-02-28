@@ -15,6 +15,10 @@ class Vertex:
         self.ndx = ndx                # Index         :   Indices of the atoms in the vertex
         self.loc = location           # Location      :   Where the vertex is located in 3D
         self.rad = radius             # Radius        :   Radius of the vertex's tangential sphere
+        self.loc_points = None
+        self.loc_tris = None
+        self.sphere_points = None
+        self.sphere_tris = None
         self.box = None               # Box index     :   Sub box index for sorting
         self.dist = distance
         self.load_ndxs = load_ndxs    # Load indices  :   List of object load indices
