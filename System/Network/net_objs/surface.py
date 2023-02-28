@@ -216,18 +216,9 @@ class Surface:
         self.flat_points = [nps[i, :2] for i in range(len(self.points))]
 
     # Color points method. Returns a list of colors corresponding to values at that point.
-    def color_tris(self, dist=False, curvature=False, inside_outside=False, color_map='magma'):
-
-        # Some options
-        # 1. Map colors to distance from center
-        # 2. Map colors based on curvature
-        # 3. Map colors (a or b) to inside or outside the spheres
+    def color_tris(self, dist=False, curvature=False, inside_outside=False, color_map='inferno'):
         # Set up the color map
         my_cmap = matplotlib.colormaps[color_map]
-        # Check and make sure the surface is not flat
-        if self.flat:
-            self.tri_colors = [my_cmap(1) for _ in self.tris]
-
         # Default is distance based color map
         if dist or not (curvature or inside_outside):
             # Set up the distances
@@ -247,7 +238,7 @@ class Surface:
             # Go through the triangles in the surface
             for i in range(len(self.tris)):
                 # Find the maximum distance point of the triangles
-                tri_dists.append(max([dists[_] for _ in self.tris[i]]))
+                tri_dists.append(min([dists[_] for _ in self.tris[i]]))
             self.tri_colors = [my_cmap((_ - min_dist) / (max_dist - min_dist)) for _ in tri_dists]
         else:
             # Set up a list of tracking
