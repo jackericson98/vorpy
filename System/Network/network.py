@@ -3,7 +3,6 @@ from itertools import chain as chain
 
 from System.Network.net_funcs.find_verts import find_verts
 from System.Network.net_funcs.build_net import build, get_time
-from System.Network.net_funcs.ffind_verts import ffind_verts
 from Visualize.mpl_visualize import *
 
 
@@ -36,7 +35,8 @@ class Network:
         self.max_vert = max_vert        # Max vert rad   : The maximum vertex radius for the network
         self.box_size = box_size        # Box size       : Holds the box multiplier for the sys box from the atoms box
         self.build_surfs = build_surfs  # Calc Surfs     : Calculate the network's surfaces? Bool
-        self.flat_surfs = flat_surfs    # Flat Faces     : Create flat faces for surfaces. Bool
+        self.flat_pow = False
+        self.flat_Del = False
         self.calc_verts = True          # Calc Verts     : Use loaded verts. Bool
         self.connect_net = True         # Connect net    : Used to differentiate between loaded net and loaded verts
         # Run diagnostics
@@ -198,21 +198,11 @@ class Network:
             atom_nums = [i for i in range(len(self.atoms))]
         # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
         self.atom_ndxs = [_ for _ in atom_nums]
-        # Find curved surfaces verts
-        if not self.flat_surfs:
-            # Do an initial sweep
-            find_verts(self, group=my_group)
-            # Check for disconnects in the network
-            while len(self.atom_ndxs) > 0:
-                find_verts(self, a0=self.atoms[self.atom_ndxs.pop()], group=my_group)
-
-        # Find flat surfaces vertices
-        else:
-            # Do an initial sweep
-            ffind_verts(self, group=my_group)
-            # Check for disconnects in the network
-            while len(self.atom_ndxs) > 0:
-                ffind_verts(self, a0=self.atoms[self.atom_ndxs.pop()], group=my_group)
+        # Do an initial sweep
+        find_verts(self, group=my_group)
+        # Check for disconnects in the network
+        while len(self.atom_ndxs) > 0:
+            find_verts(self, a0=self.atoms[self.atom_ndxs.pop()], group=my_group)
         # Clear the print statement
         print("\r                                        ", end="")
         # Bit of code for timing the vertex building process
@@ -229,7 +219,7 @@ class Network:
         """
         # Go through the edges in the network
         for edge in self.edges:
-            edge.build(straight=self.flat_surfs)
+            edge.build(straight=self.flat_pow or self.flat_Del)
 
     def build_surfaces(self):
         """
@@ -241,7 +231,7 @@ class Network:
             # Build the surfaces and print the progress
             print("\rbuilding surfaces " + " " * (len(str(len(self.surfs) - 1)) - len(str(i + 1))) + str(i + 1) + "/" +
                   str(len(self.surfs)) + "                   ", end="")
-            self.surfs[i].build(flat=self.flat_surfs, color=True)
+            self.surfs[i].build(flat=self.flat_pow or self.flat_Del, color=True)
 
     def analyze(self):
         """
@@ -265,17 +255,18 @@ class Network:
         # # Get the solute layers
         # self.sol_layers, self.sol_layer_atoms = find_sol_layers(self)
 
-    def build(self, output=True, surf_res=None, max_vert=None, box_size=None, build_surfs=None, flat_surfs=None,
+    def build(self, output=True, surf_res=None, max_vert=None, box_size=None, build_surfs=None, flat_pow=None, flat_Del=None,
               calc_verts=None, my_group=None):
         """
         Build network function used to calculate the voronoi
+        :param flat_Del:
+        :param flat_pow:
         :param my_group:
         :param output:
         :param surf_res:
         :param max_vert:
         :param box_size:
         :param build_surfs:
-        :param flat_surfs:
         :param calc_verts:
         :return:
         """
@@ -291,8 +282,10 @@ class Network:
             self.box_size = box_size
         if build_surfs is not None:
             self.build_surfs = build_surfs
-        if flat_surfs is not None:
-            self.flat_surfs = flat_surfs
+        if flat_pow is not None:
+            self.flat_pow = flat_pow
+        if flat_Del is not None:
+            self.flat_Del = flat_Del
         if calc_verts is not None:
             self.calc_verts = calc_verts
         # Instantiate the timer variables
