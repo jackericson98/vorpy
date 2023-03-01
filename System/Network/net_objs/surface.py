@@ -1,6 +1,5 @@
 import os.path
 import matplotlib
-import numpy as np
 from System.sys_funcs.calcs import calc_tri
 from System.Network.net_funcs.build_surf import *
 import csv
@@ -9,7 +8,8 @@ import csv
 class Surface:
     """Surface object. Holds the mesh data. Used to analyze interfaces between atoms."""
     def __init__(self, atoms=None, net=None, edges=None, verts=None, doublet=False, points=None, tris=None, perimeter=None,
-                 normal=None, sa=0, curvature=None, function=None, load_ndxs=None, file=None, resolution=None, center=None, distance=None):
+                 normal=None, sa=0, curvature=None, function=None, load_ndxs=None, file=None, resolution=None, center=None,
+                 distance=None, tri_colors=None, color_scheme=None, color_map=None):
 
         # If no network was given have a catch
         self.ndx = None
@@ -33,7 +33,9 @@ class Surface:
         self.flat_points = []       # Flattened points : Points projected into 2d based off of the surface normal
         self.pflat_points = []      # Flat perimeter   : Flattened points around the perimeter
         self.tris = tris            # Triangles        : A list of connections between the points
-        self.tri_colors = None
+        self.tri_colors = tri_colors
+        self.color_scheme = color_scheme
+        self.color_map = color_map
         self.res = resolution       # Resolution       : The resolution with which to build the surface
         self.sa = sa                # Surface Area     : The surface area of the
         self.curv = curvature       # Curvature        : The curvature of the surface between the
@@ -216,11 +218,13 @@ class Surface:
         self.flat_points = [nps[i, :2] for i in range(len(self.points))]
 
     # Color points method. Returns a list of colors corresponding to values at that point.
-    def color_tris(self, dist=False, curvature=False, inside_outside=False, color_map='inferno'):
+    def color_tris(self, color_scheme='dist', color_map='inferno'):
         # Set up the color map
         my_cmap = matplotlib.colormaps[color_map]
+        self.color_map = color_map
         # Default is distance based color map
-        if dist or not (curvature or inside_outside):
+        if color_scheme == 'dist':
+            self.color_scheme = color_scheme
             # Set up the distances
             dists = []
             tri_dists = []
@@ -240,7 +244,8 @@ class Surface:
                 # Find the maximum distance point of the triangles
                 tri_dists.append(min([dists[_] for _ in self.tris[i]]))
             self.tri_colors = [my_cmap((_ - min_dist) / (max_dist - min_dist)) for _ in tri_dists]
-        else:
+        elif color_scheme == 'ins_out':
+            self.color_scheme = color_scheme
             # Set up a list of tracking
             inside_array = []
             # Go through the points in the surface
@@ -259,3 +264,6 @@ class Surface:
                 else:
                     my_map.append(my_cmap(0.75))
             self.tri_colors = my_map
+        elif color_scheme == 'curv':
+            self.color_scheme = color_scheme
+            pass
