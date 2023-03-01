@@ -450,7 +450,8 @@ class Group:
             info.write("Surface Area: " + str(self.sa) + "\n")
             info.close()
         if verts or all_:
-            self.get_verts()
+            if self.verts is None:
+                self.get_verts()
             write_verts(verts=self.verts, file_name=self.name + "_verts", directory=self.dir)
         if surr_atoms or all_:
             if self.layer_surfs is None:
@@ -465,16 +466,17 @@ class Group:
             # write the surrounding atoms
             write_pdb(atoms=self.layer_atoms[0], name=self.name + "_ext_atoms", directory=self.dir)
         if shell_verts or all_:
-            self.get_verts()
             if self.layer_verts is None:
                 # Get the first layer
                 self.get_layers(max_layers=1, build_surfs=False)
             write_verts(self.layer_verts[0], file_name=self.name + "_shell_verts", directory=self.dir)
         if edges or all_:
-            self.get_edges()
+            if self.edges is None:
+                self.get_edges()
             write_edges(edges=self.edges, file_name=self.name + "_edges", directory=self.dir)
         if shell_edges or all_:
-            self.get_edges()
+            if self.edges is None:
+                self.get_edges()
             if self.layer_edges is None:
                 self.get_layers(max_layers=1, build_surfs=False)
             write_edges(self.layer_edges[0], file_name=self.name + "_shell_edges", directory=self.dir)
