@@ -231,7 +231,7 @@ class Network:
             # Build the surfaces and print the progress
             print("\rbuilding surfaces " + " " * (len(str(len(self.surfs) - 1)) - len(str(i + 1))) + str(i + 1) + "/" +
                   str(len(self.surfs)) + "                   ", end="")
-            self.surfs[i].build(flat=self.flat_pow or self.flat_Del, color=True)
+            self.surfs[i].build(flat=self.flat_pow or self.flat_Del, color=False)
 
     def analyze(self):
         """
