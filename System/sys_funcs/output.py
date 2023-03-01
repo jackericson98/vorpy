@@ -14,6 +14,8 @@ def set_output_dir(sys, dir_name=None):
     :param dir_name: Name for the directory
     :return:
     """
+    if not os.path.exists("/Data/User_data"):
+        os.mkdir("./Data/User_data")
     # If no outer directory was specified use the directory outside the current one
     if dir_name is None:
         if sys.vpy_dir is not None:
