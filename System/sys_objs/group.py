@@ -5,7 +5,7 @@ import os
 
 class Group:
     """Group class. Used to hold selections of atoms and do analysis on it"""
-    def __init__(self, sys, atoms=None, name=None, mols=None, residues=None, indices=None, bff=None):
+    def __init__(self, sys, atoms=None, name=None, mols=None, residues=None, indices=None, bff=None, color='plasma', scheme='dist'):
 
         self.sys = sys                 # Network            :    Network of the System
         self.atoms = None              # Atoms              :    List of Atom type objects in the group
@@ -20,6 +20,8 @@ class Group:
         self.surf_ndxs = []            # Surface indices    :    Atom indices of the surfaces associated with the group
         self.edges = None
         self.edge_ndxs = []
+        self.verts = None
+        self.vert_ndxs = None
         self.sa = None                 # Surface area       :    The surface area of the outer surfaces of the body
         self.vol = None                # Volume             :    The volume of the group's atom's cells
         self.layer_atoms = None        # Layer atoms        :    List of lists of atoms corresponding to layers
@@ -27,6 +29,10 @@ class Group:
         self.layer_verts = None
         self.layer_edges = None
         self.layer_info = None         # Layer Information  :    List of information (atoms, SA, vol) for each layer
+
+        self.surf_color = color
+        self.surf_scheme = scheme
+        self.surf_res = None
 
         self.bff = bff                 # BFF                :    Other group used for comparison
         self.iface_surfs = None        # Interface surfaces :    Surfaces that make the interface
@@ -54,18 +60,42 @@ class Group:
     def get_edges(self):
         # Reset the surfaces lists
         self.edges, self.edge_ndxs = [], []
-        # Go through the atoms in the group
-        for atom in self.atoms:
-            # Go through the surfaces in the atoms list of surfaces
-            for edge in atom.edges:
-                # Get the index of the edge
-                edge_ndx = ndx_search(self.edge_ndxs, edge.ndx)
-                # Check if the edge has been added yet or not
-                if edge_ndx >= len(self.edge_ndxs) or self.edge_ndxs[edge_ndx] == edge.ndx:
-                    # Insert the index and the surfaces in their correct place
-                    self.edges.insert(edge_ndx, edge)
-                    self.surf_ndxs.insert(edge_ndx, edge.ndx)
+        # Go through the surfaces in the atoms list of surfaces
+        for edge in self.sys.net.edges:
+            good = False
+            for ndx in edge.ndx:
+                if ndx in self.atom_ndxs:
+                    good = True
+            if not good:
+                continue
+            # Get the index of the edge
+            edge_ndx = ndx_search(self.edge_ndxs, edge.ndx)
+            # Check if the edge has been added yet or not
+            if edge_ndx >= len(self.edge_ndxs) or self.edge_ndxs[edge_ndx] == edge.ndx:
+                # Insert the index and the surfaces in their correct place
+                self.edges.insert(edge_ndx, edge)
+                self.edge_ndxs.insert(edge_ndx, edge.ndx)
 
+    def get_verts(self):
+        # Reset the surfaces lists
+        self.verts, self.vert_ndxs = [], []
+        self.atom_ndxs = [_.num for _ in self.atoms]
+        self.atom_ndxs.sort()
+        # Go through the surfaces in the atoms list of surfaces
+        for vert in self.sys.net.verts:
+            good = False
+            for ndx in vert.ndx:
+                if ndx in self.atom_ndxs:
+                    good = True
+            if not good:
+                continue
+            # Get the index of the edge
+            vert_ndx = ndx_search(self.vert_ndxs, vert.ndx)
+            # Check if the edge has been added yet or not
+            if vert_ndx >= len(self.vert_ndxs) or self.vert_ndxs[vert_ndx] == vert.ndx:
+                # Insert the index and the surfaces in their correct place
+                self.verts.insert(vert_ndx, vert)
+                self.vert_ndxs.insert(vert_ndx, vert.ndx)
 
     # Build surfaces method. Checks the surfaces for points and allows for rebuilds surfaces with incorrect resolutions
     def build_surfs(self, resolution=None, surfs=None, name=""):
@@ -81,6 +111,7 @@ class Group:
         # Get the resolution
         if resolution is None:
             resolution = self.sys.net.surf_res
+            self.surf_res = resolution
         # Set up the build surfaces list
         build_surfs = []
         # Go through the list of build surfaces checking for
@@ -88,6 +119,7 @@ class Group:
             # Check if the resolution is different from the set resolution or the surface has no points
             if surf.res != resolution:
                 build_surfs.append(surf)
+
             # Check if there is any sign of missing points or triangles
             elif surf.points is None or surf.tris is None or len(surf.points) <= 2 or len(surf.tris) == 0:
                 # If it is possible to load the file
@@ -109,7 +141,7 @@ class Group:
                   + "/" + str(len(group_surfs)) + "                   ", end="")
             build_surfs[i].build(res=resolution, flat=self.sys.net.flat_Del)
             if build_surfs[i].file is None:
-                write_surfs([build_surfs[i]], "_".join([str(_) for _ in build_surfs[i].ndx]))
+                write_surfs([build_surfs[i]], "_".join([str(_) for _ in build_surfs[i].ndx]), )
         # Change back
         os.chdir(self.sys.dir)
 
@@ -206,7 +238,7 @@ class Group:
         self.bff.iface_sa = self.iface_sa
 
     # Get layers method. Gets the surrounding layers of the group
-    def get_layers(self, max_layers=50, group_resids=True):
+    def get_layers(self, max_layers=50, group_resids=True, build_surfs=True):
         # Make sure that the group has atoms
         if self.atoms is None:
             return
@@ -251,8 +283,9 @@ class Group:
                     if surf.ndx[1] in layer_atoms_ndxs[-2] and surf.ndx[0] not in layer_atoms_ndxs[-2]:
                         self.layer_atoms[-1].append(self.sys.atoms[surf.ndx[0]])
                         layer_atoms_ndxs[-1].append(surf.ndx[0])
-            # Check to make sure the surfaces are built in the layer
-            self.build_surfs(surfs=self.layer_surfs[-1], name="layer {}".format(counter))
+            if build_surfs:
+                # Check to make sure the surfaces are built in the layer
+                self.build_surfs(surfs=self.layer_surfs[-1], name="layer {}".format(counter))
             # Check to see if the residues are supposed to stay together
             if group_resids:
                 for atom in self.layer_atoms[-1]:
@@ -325,7 +358,7 @@ class Group:
                 shell_verts=False, edges=False):
         # Get the surfaces if they haven't been got
         if self.surfs is None or len(self.surfs) == 0:
-            self.get_surfs()
+            self.build_surfs()
         # Create the output directory inside the system's directory
         if self.dir is None:
             i = 1
@@ -350,11 +383,11 @@ class Group:
                 self.get_layers(max_layers=1)
             # noinspection PyUnresolvedReferences
             if self.layer_surfs is not None and len(self.layer_surfs) > 0:
-                write_surfs(surfs=self.layer_surfs[0], file_name=self.name + "_shell", directory=self.dir)
+                write_surfs(surfs=self.layer_surfs[0], file_name=self.name + "_shell", directory=self.dir, color_map=self.surf_color, color_scheme=self.surf_scheme)
         # If the user wants a filled shell for the group
         if fill or all_:
             self.build_surfs()
-            write_surfs(surfs=self.surfs, file_name=self.name + "_fill", directory=self.dir)
+            write_surfs(surfs=self.surfs, file_name=self.name + "_fill", directory=self.dir, color_map=self.surf_color, color_scheme=self.surf_scheme)
         # If the user wants separate surfaces for the group
         if surfaces or all_:
             i = 1
@@ -367,7 +400,7 @@ class Group:
             os.mkdir(my_dir)
             os.chdir(my_dir)
             for surf in self.surfs:
-                write_surfs([surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=my_dir)
+                write_surfs([surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=my_dir, color_map=self.surf_color, color_scheme=self.surf_scheme)
             os.chdir(self.dir)
         # If the user wants layers
         if layers or all_:
@@ -387,7 +420,7 @@ class Group:
             # Create the layer and atoms files
             for i in range(len(self.layer_surfs)):
                 write_pdb(self.layer_atoms[i + 1], name=str(i) + "_atoms", sys=self.sys)
-                write_surfs(self.layer_surfs[i], file_name=str(i) + "_surfs")
+                write_surfs(self.layer_surfs[i], file_name=str(i) + "_surfs", color_map=self.surf_color, color_scheme=self.surf_scheme)
             # If the user wants info and layers create a layers info file
             if info or all_:
                 self.get_info()
@@ -417,13 +450,8 @@ class Group:
             info.write("Surface Area: " + str(self.sa) + "\n")
             info.close()
         if verts or all_:
-            my_verts, vert_ndxs = [], []
-            for atom in self.atoms:
-                for vert in atom.verts:
-                    if vert.ndx not in vert_ndxs:
-                        my_verts.append(vert)
-                        vert_ndxs.append(vert.ndx)
-            write_verts(verts=my_verts, file_name=self.name + "_verts", directory=self.dir)
+            self.get_verts()
+            write_verts(verts=self.verts, file_name=self.name + "_verts", directory=self.dir)
         if surr_atoms or all_:
             if self.layer_surfs is None:
                 # Get the first layer
@@ -437,20 +465,18 @@ class Group:
             # write the surrounding atoms
             write_pdb(atoms=self.layer_atoms[0], name=self.name + "_ext_atoms", directory=self.dir)
         if shell_verts or all_:
+            self.get_verts()
             if self.layer_verts is None:
                 # Get the first layer
-                self.get_layers(max_layers=1)
+                self.get_layers(max_layers=1, build_surfs=False)
             write_verts(self.layer_verts[0], file_name=self.name + "_shell_verts", directory=self.dir)
         if edges or all_:
-            os.chdir(self.dir)
-            if self.edges is None:
-                self.get_edges()
+            self.get_edges()
             write_edges(edges=self.edges, file_name=self.name + "_edges", directory=self.dir)
         if shell_edges or all_:
-            if self.edges is None:
-                self.get_edges()
+            self.get_edges()
             if self.layer_edges is None:
-                self.get_layers(max_layers=1)
+                self.get_layers(max_layers=1, build_surfs=False)
             write_edges(self.layer_edges[0], file_name=self.name + "_shell_edges", directory=self.dir)
         os.chdir("..")
         # Change back to the system directory
