@@ -1,7 +1,4 @@
-import os
-
 from System.system import *
-from Visualize.commands.build import *
 from Visualize.commands.export import *
 from Visualize.commands.load import *
 from Visualize.commands.set import *
@@ -200,8 +197,8 @@ def vorpy():
     while True:
         my_group = create_group(usr_npt)
         if my_group is not None:
-            print("{} group created - {} atoms, {} residues, {} chains".format(my_group.name, len(my_group.atoms),
-                                                                               len(my_group.resids), len(my_group.mols)))
+            # print("{} group created - {} atoms, {} residues, {} chains".format(my_group.name, len(my_group.atoms),
+            #                                                                    len(my_group.resids), len(my_group.mols)))
             break
     # Check if the network has been loaded
     if sys.net_file is None and sys.vert_file is None:
