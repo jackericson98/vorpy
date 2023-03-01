@@ -4,6 +4,7 @@ from itertools import chain as chain
 from System.Network.net_funcs.find_verts import find_verts
 from System.Network.net_funcs.build_net import build, get_time
 from Visualize.mpl_visualize import *
+from System.sys_funcs.output import write_verts
 
 
 class Network:

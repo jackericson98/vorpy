@@ -14,7 +14,7 @@ def set_output_dir(sys, dir_name=None):
     :param dir_name: Name for the directory
     :return:
     """
-    if not os.path.exists("/Data/User_data"):
+    if not os.path.exists("./Data/User_data"):
         os.mkdir("./Data/User_data")
     # If no outer directory was specified use the directory outside the current one
     if dir_name is None:
@@ -133,7 +133,6 @@ def write_verts(verts, file_name, atom_type=None, directory=None, pdb=False, sph
         # Write the pdb with the atom objects from the verts
         write_pdb(atoms=vert_atoms, name=file_name, directory=directory)
     else:
-
         num_verts, num_tris = 0, 0
         for vert in verts:
             draw_vert(vert, sphere=spheres)
@@ -143,7 +142,7 @@ def write_verts(verts, file_name, atom_type=None, directory=None, pdb=False, sph
                     num_verts += len(verts[i].loc_points) + len(vert.sphere_points)
                     num_tris += len(verts[i].loc_tris) + len(vert.sphere_tris)
             else:
-                num_verts = 8 * len(verts)
+                num_verts = 6 * len(verts)
                 num_tris = 8 * len(verts)
         # Create the file
         with open(file_name + ".off", 'w') as file:
