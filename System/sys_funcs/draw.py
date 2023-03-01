@@ -2,7 +2,7 @@ import numpy as np
 
 
 # Draw Edge Function. Takes in an edge and updates its attributes draw_points, draw_tris
-def draw_edge(edge, radius=0.005):
+def draw_edge(edge, radius=0.01):
     # Make sure the edge is built already
     if edge.points is None:
         edge.build()
