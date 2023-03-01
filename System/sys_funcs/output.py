@@ -230,7 +230,7 @@ def write_edges(edges, file_name, color=None, directory=None):
             num_verts += len(edge.draw_points)
 
 
-def write_surfs(surfs, file_name, color=False, directory=None):
+def write_surfs(surfs, file_name, color_map='inferno', color_scheme='dist', color=False, directory=None):
     """
     Writes files given a list of surfaces into the current directory or the given one
     :param surfs: Surface object
@@ -255,6 +255,8 @@ def write_surfs(surfs, file_name, color=False, directory=None):
         for i in range(len(surfs)):
             if surfs[i].points is None:
                 surfs[i].build()
+            if color_map != surfs[i].color_map or color_scheme != surfs[i].color_scheme:
+                surfs[i].color_tris(color_map=color_map, color_scheme=color_scheme)
             num_verts += len(surfs[i].points)
             num_tris += len(surfs[i].tris)
         # Write the numbers into the file
