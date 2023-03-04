@@ -1,21 +1,17 @@
 import numpy as np
 
 
-# Draw Edge Function. Takes in an edge and updates its attributes draw_points, draw_tris
-def draw_edge(edge, radius=0.01):
-    # Make sure the edge is built already
-    if edge.points is None:
-        edge.build()
+def draw_line(points, radius):
     # Initiate the draw attributes
-    edge.draw_points, edge.draw_tris = [], []
+    draw_points, draw_tris = [], []
     # Go through the points
-    for i in range(len(edge.points)):
+    for i in range(len(points)):
         # If we are at the end of the points list, use the previous point for calibration
-        if i == len(edge.points) - 1:
-            p0, p1 = np.array(edge.points[i]), np.array(edge.points[i - 1])
+        if i == len(points) - 1:
+            p0, p1 = np.array(points[i]), np.array(points[i - 1])
             r = p0 - p1
         else:
-            p0, p1 = np.array(edge.points[i]), np.array(edge.points[i + 1])
+            p0, p1 = np.array(points[i]), np.array(points[i + 1])
             r = p1 - p0
         # Find the vector and its normal between the two points
         rn = r / np.linalg.norm(r)
@@ -36,15 +32,31 @@ def draw_edge(edge, radius=0.01):
         v0_2 = - 0.5 * radius * v0_0n - 0.5 * np.sqrt(3) * radius * v0_1nx
         # Get the points and add them to the list of draw points
         p0_1, p0_2 = v0_1 + p0, v0_2 + p0
-        edge.draw_points += [p0_0, p0_1, p0_2]
+        draw_points += [p0_0, p0_1, p0_2]
     # Go through the points
-    for i in range(len(edge.points) - 1):
+    for i in range(len(points) - 1):
         # List the points
         p0_0, p0_1, p0_2, p1_0, p1_1, p1_2 = range(3 * i, 3 * (i + 2))
         # Create the triangles
-        edge.draw_tris += [[p0_0, p0_1, p1_0], [p1_0, p1_1, p0_1],
+        draw_tris += [[p0_0, p0_1, p1_0], [p1_0, p1_1, p0_1],
                            [p0_1, p0_2, p1_1], [p1_1, p1_2, p0_2],
                            [p0_2, p0_0, p1_2], [p1_2, p1_0, p0_0]]
+    # Return the points and triangles
+    return draw_points, draw_tris
+
+
+def draw_grid(net):
+    # Set up the grid of points
+    grid_points = [[[]]]
+
+
+# Draw Edge Function. Takes in an edge and updates its attributes draw_points, draw_tris
+def draw_edge(edge, radius=0.01):
+    # Make sure the edge is built already
+    if edge.points is None:
+        edge.build()
+    # Calculate the lines
+    edge.draw_points, edge.draw_tris = draw_line(edge.points, radius)
 
 
 # Draw Vertices Function. Takes in a vertex and updates the loc_points, loc_tris, sphere_points, sphere_points attribute
