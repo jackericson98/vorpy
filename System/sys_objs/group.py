@@ -5,41 +5,87 @@ import os
 
 class Group:
     """Group class. Used to hold selections of atoms and do analysis on it"""
-    def __init__(self, sys, atoms=None, name=None, mols=None, residues=None, indices=None, bff=None, color='plasma', scheme='dist'):
+    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, name=None, mols=None, residues=None,
+                 indices=None, bff=None, vert_color='Reds', vert_scheme='shell', edge_color='white', edge_scheme=None,
+                 surf_color='plasma', surf_scheme='dist'):
 
-        self.sys = sys                 # Network            :    Network of the System
-        self.atoms = None              # Atoms              :    List of Atom type objects in the group
-        self.mols = None               # Molecules          :    List of molecule objects in the group
-        self.resids = None             # Residues           :    List of residue objects in the group
-        self.ndxs = None               # Indices            :    List of index objects in the group
-        self.atom_ndxs = []            # Atom indices       :    List of atom indices for checking against
-        self.name = name               # Name               :    Name of the group
-        self.dir = None                # Directory          :    Directory holding the group export info
+        # System attributes
+        self.sys = sys                  # Network            :    Network of the System
+        self.name = name                # Name               :    Name of the group
+        self.dir = None                 # Directory          :    Directory holding the group export info
 
-        self.surfs = None              # Surfaces           :    All surfaces associated with the group
-        self.surf_ndxs = []            # Surface indices    :    Atom indices of the surfaces associated with the group
-        self.edges = None
-        self.edge_ndxs = []
-        self.verts = None
-        self.vert_ndxs = None
-        self.sa = None                 # Surface area       :    The surface area of the outer surfaces of the body
-        self.vol = None                # Volume             :    The volume of the group's atom's cells
-        self.layer_atoms = None        # Layer atoms        :    List of lists of atoms corresponding to layers
-        self.layer_surfs = None        # Layer Surfaces     :    List of lists of surfaces corresponding to layers
-        self.layer_verts = None
-        self.layer_edges = None
-        self.layer_info = None         # Layer Information  :    List of information (atoms, SA, vol) for each layer
+        # Network objects attributes
+        self.atoms = atoms              # Atoms              :    List of Atom type objects in the group
+        self.verts = verts              # Vertices           :    Vertex objects involved in the group
+        self.edges = edges              # Edges              :    Edge objects involved in the group's network
+        self.surfs = surfs              # Surfaces           :    All surfaces associated with the group
 
-        self.surf_color = color
-        self.surf_scheme = scheme
-        self.surf_res = None
+        # Network object tracking attributes
+        self.atom_ndxs = []             # Atom indices       :    List of atom indices for checking against (sorted)
+        self.vert_ndxs = []             # Vertex indices     :    Tracks the vertices in the group (sorted)
+        self.edge_ndxs = []             # Edge indices       :    Tracks the edges in a group (sorted)
+        self.surf_ndxs = []             # Surface indices    :    Atom indices of the surfaces associated with the group
 
+        # System level classifications involved in the group (must be full)
+        self.mols = mols                # Molecules          :    List of molecule objects in the group
+        self.resids = residues          # Residues           :    List of residue objects in the group
+        self.ndxs = indices             # Indices            :    List of index objects in the group
+
+        # Analysis attributes
+        self.sa = None                  # Surface Area       :    The surface area of the outer surfaces of the body
+        self.vol = None                 # Volume             :    The volume of the group's atom's cells
+
+        # Layer attributes
+        self.layer_atoms = None         # Layer Atoms        :    List of lists of atoms corresponding to layers
+        self.layer_verts = None         # Layer Vertices     :    List of lists of vertices arranged by layer
+        self.layer_edges = None         # Layer Edges        :    List of lists of edges arranged by layer
+        self.layer_surfs = None         # Layer Surfaces     :    List of lists of surfaces corresponding to layers
+        self.layer_info = None          # Layer Information  :    List of information (atoms, SA, vol) for each layer
+
+        # Coloring schemes and maps
+        self.vert_color = vert_color    # Vertex coloring    :    Color map for vertices in the group
+        self.vert_scheme = vert_scheme  # Vertex Scheme      :    Color Scheme for vertex coloring in the group
+        self.edge_color = edge_color    # Edge Coloring      :    Color map for the edges in the group
+        self.edge_scheme = edge_scheme  # Edge Scheme        :    Color scheme for the edges in the group
+        self.surf_color = surf_color    # Surface Coloring   :    Color map for the surfaces in the group
+        self.surf_scheme = surf_scheme  # Surface Scheme     :    Color Scheme for the surfaces in the group
+        self.surf_res = None            # Surface resolution :    Surface resolution for the surfaces in the group
+
+        # Interface attributes
         self.bff = bff                 # BFF                :    Other group used for comparison
         self.iface_surfs = None        # Interface surfaces :    Surfaces that make the interface
         self.iface_atoms = None        # Interface atoms    :    Atoms in the group in the interface
         self.iface_sa = None           # Surface area       :    Surface area of the interface
 
-        self.process_inputs(atoms=atoms, mols=mols, resids=residues)
+        self.process_inputs()
+
+    # Process inputs method. Goes through the atoms, residues and molecules provided in the group
+    def process_inputs(self, atoms=None, mols=None, resids=None):
+        # Set up the atoms list if needed
+        if self.atoms is None:
+            self.atoms = []
+        # Add the provided atoms to the self.atoms list
+        if atoms is not None:
+            self.add_atoms(atoms)
+        # If mols were provided and not entered into the group add them
+        if mols is not None and (self.mols is None or len(self.mols) < mols):
+            self.mols = mols
+        elif self.mols is None:
+            self.mols = []
+        # Add the molecule atoms
+        for mol in self.mols:
+            self.add_atoms(mol.atoms)
+        # If residues were provided and not entered into the group add them
+        if resids is not None and (self.resids is None or len(self.resids) < resids):
+            self.resids = resids
+        elif self.resids is None:
+            self.resids = []
+        # Add the residue atoms
+        for residue in self.resids:
+            self.add_atoms(residue.atoms)
+        # Get the surfaces
+        self.get_surfs()
+
 
     # Get surfaces method. Finds and sorts all surfaces in the group without needing to calculate them
     def get_surfs(self):
@@ -157,33 +203,6 @@ class Group:
             if atom_ndx >= len(self.atom_ndxs) or self.atoms[atom_ndx] != atom.num:
                 self.atoms.insert(atom_ndx, atom)
                 self.atom_ndxs.insert(atom_ndx, atom.num)
-
-    # Process inputs method. Goes through the atoms, residues and molecules provided in the group
-    def process_inputs(self, atoms=None, mols=None, resids=None):
-        # Set up the atoms list if needed
-        if self.atoms is None:
-            self.atoms = []
-        # Add the provided atoms to the self.atoms list
-        if atoms is not None:
-            self.add_atoms(atoms)
-        # If mols were provided and not entered into the group add them
-        if mols is not None and (self.mols is None or len(self.mols) < mols):
-            self.mols = mols
-        elif self.mols is None:
-            self.mols = []
-        # Add the molecule atoms
-        for mol in self.mols:
-            self.add_atoms(mol.atoms)
-        # If residues were provided and not entered into the group add them
-        if resids is not None and (self.resids is None or len(self.resids) < resids):
-            self.resids = resids
-        elif self.resids is None:
-            self.resids = []
-        # Add the residue atoms
-        for residue in self.resids:
-            self.add_atoms(residue.atoms)
-        # Get the surfaces
-        self.get_surfs()
 
     # Get information method. Gathers information about the group and stores it in a dictionary
     def get_info(self, iface_info=True):
