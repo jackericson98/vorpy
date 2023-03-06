@@ -1,7 +1,7 @@
-from System.system import *
 from Visualize.commands.export import *
 from Visualize.commands.load import *
 from Visualize.commands.set import *
+from System.sys_objs.group import Group
 
 
 def load_atom_file():
@@ -32,8 +32,6 @@ def load_atom_file():
         # Create the system and return
         sys = System(file=file_path)
         sys.net = Network(sys=sys, atoms=sys.atoms)
-        print(sys.name + " loaded - {} atoms, {} chains, {} residues"
-              .format(len(sys.atoms), len(sys.mols), len(sys.residues)))
         return
 
 
@@ -207,9 +205,8 @@ def vorpy():
             # Print the default settings
             print(
                 u"{} Build Settings - surf_res = {:.2f} \u208B,  max_vert  = {:.2f} \u208B,  box_multi = {:.2f} x,  build_surfs = {}, "
-                u"flat_surfs = {}".format(my_group.name, sys.net.surf_res, sys.net.max_vert, sys.net.box_size,
-                                          sys.net.build_surfs,
-                                          sys.net.flat_Del))
+                u"surf_type = {}".format(my_group.name, sys.net.surf_res, sys.net.max_vert, sys.net.box_size,
+                                          sys.net.build_surfs, 'voronoi' if sys.net.type == 'vor' else 'flat'))
             # Print the build settings and see if the user wants to change anything
             change_settings = input("change settings? (y/n) >>>   ")
             change_settings = change_settings.split()
@@ -228,10 +225,13 @@ def vorpy():
     elif sys.ball_file is not None and sys.vert_file is not None:
         sys.load_verts(file=sys.vert_file, vta_ball_file=sys.ball_file)
 
+    # Export
+    export(sys, usr_npt="e", my_group=my_group)
+
     # Exporting process
     while True:
         # Check if the user wants to export files
-        export_files = input("export files for {}? (y/n) >>>   ".format(my_group.name))
+        export_files = input("export more files for {}? (y/n) >>>   ".format(my_group.name))
         # If the user wants to export files for the given group start the export process for the current group
         if export_files.lower() in ys:
             # Export
