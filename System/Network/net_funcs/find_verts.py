@@ -1,7 +1,7 @@
 from System.sys_funcs.calcs import ndx_search
 from System.Network.net_objs.vertex import Vertex
 from System.Network.net_objs.edge import Edge
-import numpy as np
+from numpy import sqrt, array, square
 
 
 # Find v0 function. Uses the atom finding functions to find a real verified site in the network
@@ -77,8 +77,6 @@ def verify_site(vert, net):
         return False
     # Checked atoms list
     checked_atoms = [_ for _ in vert.ndx]
-    # Set up the numpy checks for faster reference
-    sqrt, array, square = np.sqrt, np.array, np.square
     # Quick check to see if any atoms exist inside the vertex's box
     quick_atoms = net.sub_boxes[vi][vj][vk]
     for atom in quick_atoms:
@@ -93,7 +91,7 @@ def verify_site(vert, net):
     inc = 1
     # Get the number of boxes that an overlapping atom could possibly be away from the vertex sub-box
     min_sub_box_size = min(net.sub_box_size)
-    atom_range = int(rad / min_sub_box_size + net.max_atom_rad / min_sub_box_size) + 2
+    atom_range = int(rad / min_sub_box_size + net.sys.max_atom_rad / min_sub_box_size) + 2
     while inc <= atom_range:
         # Get the atoms in that range
         overlap_test_atoms = net.get_atoms([[vi, vj, vk]], inc)
@@ -103,11 +101,18 @@ def verify_site(vert, net):
             if atom.num in checked_atoms:
                 continue
             my_radius = atom.rad
-            if net.flat_Del:
-                my_radius = 0
+            if net.type == 'del':
+                if sqrt(sum(square(array(atom.loc) - array(loc)))) < rad:
+                    return False
+            # I don't know how to verify power yet
+            elif net.type == 'pow':
+                pass
+            # Verification for a voronoi network
+            elif net.type == 'vor':
+                if sqrt(sum(square(array(atom.loc) - array(loc)))) < my_radius + rad:
+                    return False
             # If the distance between the vertex and the test atom is less than the sum of their radii, they overlap
-            if sqrt(sum(square(array(atom.loc) - array(loc)))) < my_radius + rad:
-                return False
+
             checked_atoms.append(atom.num)
         inc += 1
     # If we make it all the way through the list of close atoms without overlapping it is a viable vertex
@@ -132,7 +137,7 @@ def find_site(net, edge_atoms, vn_1=None, first=False, group_atoms=None):
     # Set up a list of atoms to test our edge atoms with
     test_atoms = []
     inc = 0
-    max_inc = int(net.max_vert / min(net.sub_box_size) - net.max_atom_rad) + 1
+    max_inc = int(net.max_vert / min(net.sub_box_size) - net.sys.max_atom_rad) + 1
     if first:
         max_inc = 5
     # Grab the atoms we want to test against
@@ -163,9 +168,9 @@ def find_site(net, edge_atoms, vn_1=None, first=False, group_atoms=None):
         # Create the vertex and calculate its value
         vert = Vertex(edge_atoms + [atom], net=net)
         # Calculate the correct vertex values
-        if net.flat_pow:
+        if net.type == 'pow':
             vert.calc_flat_vert(power=True)
-        elif net.flat_Del:
+        elif net.type == 'del':
             vert.calc_flat_vert(power=False)
         else:
             vert.calc_vert()
@@ -211,7 +216,7 @@ def find_verts(net, a0=None, group=None):
     elif group is not None:
         group_atoms = group.atom_ndxs
         # Calculate the number of vertices
-        tot_verts = 7 * len(group_atoms) + int(120 * np.sqrt(len(group_atoms)))
+        tot_verts = 7 * len(group_atoms) + int(120 * sqrt(len(group_atoms)))
     else:
         return
     # Find the first verified vertex
