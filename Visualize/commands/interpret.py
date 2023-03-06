@@ -178,9 +178,15 @@ def get_val(setting=None, val=None):
         # Test the validity of the user's true and false skills
         if setting in build_surfses + flat_surfses:
             if val.lower() in ['t', 'true', 'tr'] + ys:
-                val = True
+                val = 'del'
             elif val.lower() in ['f', 'false', 'flse', 'fl', 'fa', 'fs', 'fls'] + ns:
-                val = False
+                val = 'vor'
+            elif val.lower() in {'voronoi', 'vor', 'curved', 'v'}:
+                val = 'vor'
+            elif val.lower() in {'delaunay', 'del', 'd', 'flat'}:
+                val = 'del'
+            elif val.lower() in {'power', 'pow', 'p'}:
+                val = 'pow'
         # Test for a float value
         elif setting in surf_reses + max_verts + box_sizes:
             try:
