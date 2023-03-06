@@ -186,8 +186,7 @@ class Vertex:
         x, y, z = x_numerator / disc, y_numerator / disc, z_numerator / disc
         # Get the radius
         if power:
-            rads = [calc_dist([x, y, z], _.loc) - _.rad for _ in atom_rads]
-            rad = max(rads)
+            rad = calc_dist([x, y, z], atom_rads[0].loc) ** 2 - atom_rads[0].rad ** 2
         else:
             rad = calc_dist([x, y, z], atom_rads[0].loc)
         self.loc, self.rad = [x, y, z], rad
