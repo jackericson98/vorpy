@@ -191,3 +191,6 @@ class Vertex:
         else:
             rad = calc_dist([x, y, z], atom_rads[0].loc)
         self.loc, self.rad = [x, y, z], rad
+
+    def add_vert_info(self, vert):
+        pass
