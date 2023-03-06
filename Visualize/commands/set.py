@@ -83,9 +83,9 @@ def sett(sys, usr_npt, vorpy2_set=False):
     elif my_set in flat_surfses:
         # Check to see if the value is correct
         try:
-            sys.net.flat_Del = bool(my_val)
+            sys.net.type = my_val
             if not vorpy2_set:
-                print("flat surfaces set to {}".format(sys.net.flat_Del))
+                print("flat surfaces set to {}".format(sys.net.type))
         except ValueError:
             print("\"{}\" is an invalid input for the flat surfaces setting. Enter a True/False value (From 1.0 to 10.0 X, recommended 1.5 X)".format(my_val))
     # Check for a quit request
