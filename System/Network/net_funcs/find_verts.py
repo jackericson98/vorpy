@@ -1,4 +1,4 @@
-from System.sys_funcs.calcs import ndx_search
+from System.sys_funcs.calcs import ndx_search, calc_dist
 from System.Network.net_objs.vertex import Vertex
 from System.Network.net_objs.edge import Edge
 from numpy import sqrt, array, square
@@ -83,9 +83,18 @@ def verify_site(vert, net):
         # If the atom is one of the vertex atoms move on
         if atom.num in checked_atoms:
             continue
-        # If the distance between the vertex and the test atom is less than the sum of their radii, they overlap
-        if sqrt(sum(square(array(atom.loc) - array(loc)))) < atom.rad + rad:
-            return False
+        my_radius = atom.rad
+        if net.type == 'del':
+            if sqrt(sum(square(array(atom.loc) - array(loc)))) < rad:
+                return False
+        # I don't know how to verify power yet
+        elif net.type == 'pow':
+            if sqrt(sum(square(array(atom.loc) - array(loc)))) ** 2 - my_radius ** 2 < rad:
+                return False
+        # Verification for a voronoi network
+        elif net.type == 'vor':
+            if sqrt(sum(square(array(atom.loc) - array(loc)))) < my_radius + rad:
+                return False
         # Add the atom to the checked atoms list
         checked_atoms.append(atom.num)
     inc = 1
@@ -106,7 +115,8 @@ def verify_site(vert, net):
                     return False
             # I don't know how to verify power yet
             elif net.type == 'pow':
-                pass
+                if sqrt(sum(square(array(atom.loc) - array(loc)))) ** 2 - my_radius ** 2 < rad:
+                    return False
             # Verification for a voronoi network
             elif net.type == 'vor':
                 if sqrt(sum(square(array(atom.loc) - array(loc)))) < my_radius + rad:
@@ -206,15 +216,15 @@ def find_site(net, edge_atoms, vn_1=None, first=False, group_atoms=None):
 
 
 # Find network function. Keeps searching the network until all verts are found
-def find_verts(net, a0=None, group=None):
+def find_verts(net, a0=None, my_group=None):
     # Get the group atoms from which to check vertices against
-    if group is None or (group is not None and len(group.atoms) == len(net.atoms)):
+    if my_group is None or (my_group is not None and len(my_group.atoms) == len(net.atoms)):
         group_atoms = [i for i in range(len(net.atoms))]
         # Calculate the rough number of vertices
         tot_verts = 7 * len(net.atoms)
     # If a group was provided make sure to get its indices
-    elif group is not None:
-        group_atoms = group.atom_ndxs
+    elif my_group is not None:
+        group_atoms = my_group.atom_ndxs
         # Calculate the number of vertices
         tot_verts = 7 * len(group_atoms) + int(120 * sqrt(len(group_atoms)))
     else:
