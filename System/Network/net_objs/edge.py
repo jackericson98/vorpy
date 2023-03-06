@@ -186,3 +186,6 @@ class Edge:
             self.points.append(surf_point)
         # Add the end point
         self.points.append(self.pv1)
+
+    def add_edge_info(self, edge):
+        pass
