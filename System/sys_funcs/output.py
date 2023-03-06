@@ -464,7 +464,7 @@ def export_sys(sys, network=False, pdb=False, surfaces=False, full_network_objec
             os.mkdir(sys.dir + "/surfs")
         # Export a pdb file for the system
         for surf in sys.net.surfs:
-            write_surfs(surfs=[surf], file_name="_".join(surf.ndx), directory=sys.dir + "/surfs")
+            write_surfs(surfs=[surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=sys.dir + "/surfs")
         os.chdir(sys.dir)
     if full_network_object and sys.net.build_surfs:
         if not os.path.exists(sys.dir + '/sys'):
