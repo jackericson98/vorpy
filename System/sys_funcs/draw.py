@@ -10,7 +10,7 @@ def draw_line(points, radius=0.02, color=None):
     for i in range(len(points)):
         # If we are at the end of the points list, use the previous point for calibration
         if i == len(points) - 1:
-            p0 = np.array(points[i]), r + np.array(points[i])
+            p0, p1 = np.array(points[i]), r + np.array(points[i])
         else:
             p0, p1 = np.array(points[i]), np.array(points[i + 1])
             r = p1 - p0
@@ -61,7 +61,7 @@ def draw_edge(edge, radius=0.02, color=None):
 
 
 # Draw Vertices Function. Takes in a vertex and updates the loc_points, loc_tris, sphere_points, sphere_points attribute
-def draw_vert(vert, radius=0.05, resolution=0.1, color=None, diamond=False, edge_segs=True, sphere=False):
+def draw_vert(vert, radius=0.05, resolution=0.1, color=None, diamond=True, edge_segs=False, sphere=False):
     # Get the location of the vertex
     loc = np.array(vert.loc)
     vert.loc_points = []
