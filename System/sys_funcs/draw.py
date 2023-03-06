@@ -1,15 +1,16 @@
 import numpy as np
+from System.sys_funcs.calcs import calc_dist
 
 
-def draw_line(points, radius):
+def draw_line(points, radius=0.02, color=None):
     # Initiate the draw attributes
     draw_points, draw_tris = [], []
+    r = None
     # Go through the points
     for i in range(len(points)):
         # If we are at the end of the points list, use the previous point for calibration
         if i == len(points) - 1:
-            p0, p1 = np.array(points[i]), np.array(points[i - 1])
-            r = p0 - p1
+            p0 = np.array(points[i]), r + np.array(points[i])
         else:
             p0, p1 = np.array(points[i]), np.array(points[i + 1])
             r = p1 - p0
@@ -45,32 +46,51 @@ def draw_line(points, radius):
     return draw_points, draw_tris
 
 
-def draw_grid(net):
+def draw_grid(net, color=None):
     # Set up the grid of points
     grid_points = [[[]]]
 
 
 # Draw Edge Function. Takes in an edge and updates its attributes draw_points, draw_tris
-def draw_edge(edge, radius=0.01):
+def draw_edge(edge, radius=0.02, color=None):
     # Make sure the edge is built already
     if edge.points is None:
         edge.build()
     # Calculate the lines
-    edge.draw_points, edge.draw_tris = draw_line(edge.points, radius)
+    edge.draw_points, edge.draw_tris = draw_line(edge.points, radius, color=color)
 
 
 # Draw Vertices Function. Takes in a vertex and updates the loc_points, loc_tris, sphere_points, sphere_points attribute
-def draw_vert(vert, sphere=False, radius=0.05, resolution=0.1):
+def draw_vert(vert, radius=0.05, resolution=0.1, color=None, diamond=False, edge_segs=True, sphere=False):
+    # Get the location of the vertex
     loc = np.array(vert.loc)
-    # Draw the point
-    xp, xn = loc + np.array([radius, 0, 0]), loc - np.array([radius, 0, 0])
-    yp, yn = loc + np.array([0, radius, 0]), loc - np.array([0, radius, 0])
-    zp, zn = loc + np.array([0, 0, radius]), loc - np.array([0, 0, radius])
-    # Connect the points
-    vert.loc_points = [xp, xn, yp, yn, zp, zn]
-    vert.loc_tris = [[0, 2, 4], [0, 2, 5], [0, 3, 4], [0, 3, 5], [1, 2, 4], [1, 2, 5], [1, 3, 4], [1, 3, 5]]
-    # If th user wants a sphere
-    if sphere:
+    vert.loc_points = []
+    vert.loc_tris = []
+    # If a diamond was requested
+    if diamond:
+        # Draw the point
+        xp, xn = loc + np.array([radius, 0, 0]), loc - np.array([radius, 0, 0])
+        yp, yn = loc + np.array([0, radius, 0]), loc - np.array([0, radius, 0])
+        zp, zn = loc + np.array([0, 0, radius]), loc - np.array([0, 0, radius])
+        # Connect the points
+        vert.loc_points = [xp, xn, yp, yn, zp, zn]
+        vert.loc_tris = [[0, 2, 4], [0, 2, 5], [0, 3, 4], [0, 3, 5], [1, 2, 4], [1, 2, 5], [1, 3, 4], [1, 3, 5]]
+    # If a vertex object of the edge segments was requested
+    elif edge_segs:
+        segs = []
+        for edge in vert.edges:
+            if calc_dist(loc, edge.points[0]) < calc_dist(loc, edge.points[-1]):
+                segs.append(edge.points[:2])
+            else:
+                segs.append(edge.points[-2:])
+        # Go through the segments in the list and draw them
+        for seg in segs:
+            segment = draw_line(seg, radius=radius, color=color)
+            vert.loc_points += segment[0]
+            vert.loc_tris += segment[1]
+
+    # If the user wants a sphere
+    elif sphere:
         # Set the resolution of the spheres
         circ = 2 * np.pi * vert.rad
         f = max(int(circ / resolution), 3)
