@@ -57,7 +57,7 @@ class Group:
         self.iface_atoms = None        # Interface atoms    :    Atoms in the group in the interface
         self.iface_sa = None           # Surface area       :    Surface area of the interface
 
-        self.process_inputs()
+        self.process_inputs(atoms=atoms)
 
     # Process inputs method. Goes through the atoms, residues and molecules provided in the group
     def process_inputs(self, atoms=None, mols=None, resids=None):
@@ -66,7 +66,7 @@ class Group:
             self.atoms = []
         # Add the provided atoms to the self.atoms list
         if atoms is not None:
-            self.add_atoms(atoms)
+            self.add_atoms(self.atoms)
         # If mols were provided and not entered into the group add them
         if mols is not None and (self.mols is None or len(self.mols) < mols):
             self.mols = mols
@@ -85,7 +85,6 @@ class Group:
             self.add_atoms(residue.atoms)
         # Get the surfaces
         self.get_surfs()
-
 
     # Get surfaces method. Finds and sorts all surfaces in the group without needing to calculate them
     def get_surfs(self):
@@ -199,8 +198,8 @@ class Group:
         # Go through the atom_list
         for atom in atom_list:
             atom_ndx = ndx_search(self.atom_ndxs, atom.num)
-            # Check to see if we have found this surface before
-            if atom_ndx >= len(self.atom_ndxs) or self.atoms[atom_ndx] != atom.num:
+            # Check to see if we have found this atom before
+            if atom_ndx >= len(self.atom_ndxs) or self.atoms[atom_ndx] == atom.num:
                 self.atoms.insert(atom_ndx, atom)
                 self.atom_ndxs.insert(atom_ndx, atom.num)
 
