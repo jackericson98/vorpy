@@ -1,9 +1,6 @@
 from System.sys_funcs.calcs import *
-# from System.atom import Atom
-# from System.Network.vertex import Vertex
 from System.Network.net_objs.edge import Edge
 from System.Network.net_objs.surface import Surface
-# from Visualize.visualize import *
 
 
 ############################################## Doublets ################################################################
@@ -92,21 +89,21 @@ def doublify(net, get_edges=True):
         dub.doublet.edges += edges
 
 
-def build(net, get_edges=True, get_surfs=True):
+def build(net, from_scratch=True):
     """
     Checks the atoms of the vertices for patterns and creates edges and surfaces
-    :param get_surfs:
-    :param get_edges:
+    :param from_scratch:
     :param net: Network object to pull information from
     """
     # Reset the network's list of edges and surfaces for a clean slate
-    if get_edges and (net.edges is None or len(net.edges) == 0):
+    if from_scratch or (net.edges is None or len(net.edges) == 0):
         net.edges = []
-    if get_surfs and (net.surfs is None or len(net.surfs) == 0):
+    if from_scratch or (net.surfs is None or len(net.surfs) == 0):
         net.surfs = []
 
     # Fill in the doublets and set their outer edges
-    doublify(net, get_edges=get_edges)
+    doublify(net)
+
     # Add the vertices to the atoms
     for vert in net.verts:
         for atom in vert.atoms:
@@ -114,9 +111,6 @@ def build(net, get_edges=True, get_surfs=True):
 
     ################################################# Create the edges #################################################
 
-    # Escape if only finding the vertices
-    if not get_edges:
-        return
     # Go through the vertices in the network searching for potential edges
     for i in range(len(net.verts)):
         print("\rConnecting Network: {:.2f} %".format(min(100.0, 100 * (len(net.edges)) / (2 * len(net.verts)))), end="")
@@ -139,8 +133,10 @@ def build(net, get_edges=True, get_surfs=True):
             verts = []
             # Find the possible verts (the original vert and the new vert)
             for vert2 in net.verts:
-                if vert2.doublet is None and len([0 for _ in atom_ndxs if _ in vert2.ndx]) == 3 and vert2.ndx not in [_.ndx for _ in verts]:
+                check_ndx = set(vert2.ndx)
+                if vert2.doublet is None and len([0 for _ in atom_ndxs if _ in check_ndx]) == 3 and vert2.ndx not in [_.ndx for _ in verts]:
                     verts.append(vert2)
+
             # If the number of valid vertices for the edge is 1
             if len(verts) == 1:
                 continue
@@ -156,10 +152,6 @@ def build(net, get_edges=True, get_surfs=True):
                 vert.edges.append(my_edge)
 
     ################################################### Create the surfaces ############################################
-
-    # Escape if only connecting the edges
-    if not get_surfs:
-        return
 
     # Go through the edges in the network
     for i in range(len(net.edges)):
