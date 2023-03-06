@@ -279,6 +279,8 @@ class VorpyT:
         # Header
         tk.Label(self.export_selections_subfrm, text="Export Selections", font=("underlined bold", 20))\
             .grid(columnspan=3)
+        if self.sys.vpy_dir is None:
+            self.sys.vpy_dir = ""
         vpy_out_dir = self.sys.vpy_dir + "/Data/User_data/"
         self.output_dir_str = tk.StringVar(self.main, vpy_out_dir[:12] + ' ... ' + vpy_out_dir[-12:])
         tk.Label(self.export_selections_subfrm, textvariable=self.output_dir_str).grid(row=1, columnspan=3, sticky="w")
@@ -532,8 +534,8 @@ class VorpyT:
         self.cell_atoms_names.set(self.selected_atoms_str.get())
         self.cell_group.get_info()
         self.selection_analysis_prompts.set("Cell Volume:\nOuter Surface Area:\nNumber of Atoms:")
-        self.selection_analysis_info.set("\n".join(["{:.2f}".format(self.cell_group.body_vol),
-                                                    "{:.2f}".format(self.cell_group.body_sa),
+        self.selection_analysis_info.set("\n".join(["{:.2f}".format(self.cell_group.vol),
+                                                    "{:.2f}".format(self.cell_group.sa),
                                                     str(len(self.cell_group.atoms))]))
 
     # noinspection PyUnresolvedReferences
@@ -566,10 +568,10 @@ class VorpyT:
         self.iface_groups[1].get_info()
 
     def export_cell(self):
-        export_body(self.cell_group, info_file=self.export_cell_info.get())
+        write_surfs(self.cell_group, file_name="Cell")
 
     def export_iface(self):
-        export_iface(groups=self.iface_groups, info_file=self.export_iface_info.get())
+        write_surfs(self.g1.surfs, file_name="Interface")
 
 
 VorpyT()
