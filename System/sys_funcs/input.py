@@ -1,24 +1,8 @@
-import csv
-import os.path
+import os.path as path
 
 from System.sys_objs.atom import Atom, get_radius
 from System.Network.network import Network
 from System.Network.net_objs.vertex import Vertex
-from System.Network.net_objs.edge import Edge
-from System.Network.net_objs.surface import Surface
-
-
-# Get name method. Strips the location and extension from the file
-def get_name(file):
-    # Set up the file name variable
-    filename = ""
-    i = -1
-    # Go through each char in the path from the back and stop at the first slash
-    while file[i] != "/":
-        filename = filename + file[i]
-        i -= 1
-    # Reverse to normal and trim the extension and the dot
-    return filename[::-1][:-4]
 
 
 # Read pdb function. Interprets pdb data into a system of atom objects
@@ -27,15 +11,15 @@ def read_pdb(sys, file=None):
     # Check to see if the file is provided and use the base file if not
     if file is None and sys.base_file[-3:] == 'pdb':
         file = sys.base_file
-    if os.path.exists(file) and file[0] == '.' and sys.vpy_dir is not None:
+    if path.exists(file) and file[0] == '.' and sys.vpy_dir is not None:
         file_address = sys.vpy_dir + file[1:]
-    elif os.path.exists(file):
+    elif path.exists(file):
         file_address = file
-    elif sys.vpy_dir is not None and os.path.exists(sys.vpy_dir + file):
+    elif sys.vpy_dir is not None and path.exists(sys.vpy_dir + file):
         file_address = sys.vpy_dir + file
-    elif sys.dir is not None and os.path.exists(sys.dir + file):
+    elif sys.dir is not None and path.exists(sys.dir + file):
         file_address = sys.dir + file
-    elif sys.dir is not None and os.path.exists(sys.dir + file[1:]):
+    elif sys.dir is not None and path.exists(sys.dir + file[1:]):
         file_address = sys.dir + file[1:]
     else:
         return
@@ -43,7 +27,7 @@ def read_pdb(sys, file=None):
     with open(file_address, 'r') as f:
         my_file = f.readlines()
     # Add the system name and reset the atoms and data lists
-    sys.name = get_name(sys.base_file)
+    sys.name = path.basename(sys.base_file)[:-4]
     # Set up the atom and the data lists
     atoms, data, atom_count = [], [], 0
     # Go through each line in the file and check if the first word is the word we are looking for
@@ -73,7 +57,7 @@ def read_pdb(sys, file=None):
         else:
             data.append(my_file[i].split())
     # Return the atoms and the data
-    return atoms, data
+    sys.atoms, sys.data = atoms, data
 
 
 # Read cif function. Interprets the data in a cif file
@@ -226,95 +210,4 @@ def read_verts(net, file=None):
     net.verts = verts
 
 
-def read_net(sys, file=None):
-    # Open the file
-    if file is None:
-        file = sys.net_file
-        if sys.net_file is None:
-            return
-    # Get the directory for the surfaces
-    net_dir = os.path.dirname(file)
-    # Keep using the same directory, this will cut down on clutter
-    sys.dir = net_dir
-    # Open the file
-    with open(file, 'r') as my_file:
-        # Get the file element array to read
-        read_file = list(csv.reader(my_file, delimiter=","))
-        # Get the network information
-        net_verts, net_edges, net_surfs = [int(_) for _ in read_file[1][5:8]]
-        # Create the network if needed
-        if sys.net is None:
-            sys.net = Network(sys=sys, atoms=sys.atoms)
-        # Create the blank objects
-        sys.net.verts = [Vertex(net=sys.net) for _ in range(net_verts)]
-        sys.net.edges = [Edge(net=sys.net) for _ in range(net_edges)]
-        sys.net.surfs = [Surface(net=sys.net) for _ in range(net_surfs)]
-        # Add the settings
-        sys.net.surf_res, sys.net.max_vert, sys.net.box_size = [float(_) for _ in read_file[1][1:4]]
-        sys.net.build_surfs = bool(read_file[1][4])
-        sys.net.calc_box()
-        # Add the vertices
-        for i in range(net_verts):
-            print("\rloading vertices - {}%".format(round(100 * i / net_verts, 2)), end="")
-            vert = sys.net.verts[i]
-            line = read_file[i + 3]
-            vert.loc = [float(_) for _ in line[1:4]]
-            vert.rad = float(line[4])
-            vert.atoms = [sys.atoms[int(_)] for _ in line[5:9]]
-            vert.ndx = [int(_) for _ in line[5:9]]
-            vert.edges = [sys.net.edges[int(_)] for _ in line[9:14] if _ != '']
-            surf_ndxs = [int(_) for _ in line[14:] if _ != '']
-            vert.surfs = [sys.net.surfs[_] for _ in surf_ndxs]
-            if i >= 1 and vert.ndx == sys.net.verts[i - 1].ndx:
-                vert.doublet = sys.net.verts[i - 4]
-                sys.net.verts[i - 4].doublet = vert
-            for atom in vert.atoms:
-                atom.verts.append(vert)
-            for surf in vert.surfs:
-                if surf.verts is None:
-                    surf.verts = []
-                surf.verts.append(vert)
-        # Add the edges
-        for i in range(net_edges):
-            print("\rloading edges - {}%".format(round(100 * i / net_edges, 2)), end="")
-            edge = sys.net.edges[i]
-            line = read_file[i + 4 + net_verts]
-            edge.point_refs = [int(_) for _ in line[1:4] if _ != '']
-            edge.atoms = [sys.atoms[int(_)] for _ in line[4:7]]
-            edge.ndx = [int(_) for _ in line[4:7]]
-            edge.verts = [sys.net.verts[int(_)] for _ in line[7:9]]
-            edge.surfs = [sys.net.surfs[int(_)] for _ in line[9:] if _ != '']
-            for atom in edge.atoms:
-                atom.edges.append(edge)
-            for surf in edge.surfs:
-                if surf.edges is None:
-                    surf.edges = []
-                surf.edges.append(edge)
-        # Add the surfaces
-        # noinspection PyTypeChecker
-        for i in range(net_surfs):
-            print("\rloading surfaces - {}%".format(round(100 * i / net_surfs, 2)), end="")
-            surf = sys.net.surfs[i]
-            line = read_file[i + 5 + net_verts + net_edges]
-            surf.atoms = [sys.atoms[int(_)] for _ in line[5:7]]
-            if surf.atoms[0].rad > surf.atoms[1].rad:
-                surf.atoms[0], surf.atoms[1] = surf.atoms[1], surf.atoms[0]
-            surf.ndx = [int(_) for _ in line[5:7]]
-            if line[1] != '':
-                surf.file = line[1]
-            if line[2] != '':
-                surf.res = float(line[2])
-            if line[3] != '':
-                surf.sa = float(line[3])
-            if line[4].isdigit():
-                surf.curv = float(line[4])
-            if isinstance(line[16], tuple):
-                surf.func = [float(_) for _ in line[7:16]] + [float(_) for _ in line[16:]]
-            else:
-                surf.func = [float(_) for _ in line[7:]]
-            for atom in surf.atoms:
-                atom.surfs.append(surf)
-        if surf.atoms[0].rad > surf.atoms[1].rad:
-            surf.atoms[0], surf.atoms[1] = surf.atoms[1], surf.atoms[0]
-    # Set the network to connected
-    sys.net.connect_net = False
+
