@@ -208,10 +208,10 @@ class Network:
         # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
         self.atom_ndxs = [_ for _ in atom_nums]
         # Do an initial sweep
-        find_verts(self, group=my_group)
+        find_verts(self, my_group=my_group)
         # Check for disconnects in the network
         while len(self.atom_ndxs) > 0:
-            find_verts(self, a0=self.atoms[self.atom_ndxs.pop()], group=my_group)
+            find_verts(self, a0=self.atoms[self.atom_ndxs.pop()], my_group=my_group)
         # Clear the print statement
         print("\r                                        ", end="")
         # Bit of code for timing the vertex building process
@@ -269,10 +269,11 @@ class Network:
         # # Get the solute layers
         # self.sol_layers, self.sol_layer_atoms = find_sol_layers(self)
 
-    def build(self, output=True, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type='vor',
-              calc_verts=None, my_group=None):
+    def build(self, output=True, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
+              calc_verts=None, my_group=None, print_actions=None):
         """
         Build network function used to calculate the voronoi
+        :param print_actions: Print the network building actions
         :param net_type: Describes the network construction type ('curv', 'del', 'pow')
         :param my_group: Describes the group of atoms (mols, resids, etc) for network construction
         :param output: Output information for the group? If yes all gets outputted
@@ -286,6 +287,8 @@ class Network:
         # If the system has no name, one needs top be set
         if self.sys.name is None:
             self.sys.name = "User_Atoms"
+        if print_actions is not None:
+            self.sys.print_actions = print_actions
         # Check for input values for the network build
         if surf_res is not None:
             self.surf_res = surf_res
