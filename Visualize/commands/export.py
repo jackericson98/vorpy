@@ -1,10 +1,9 @@
 from Visualize.commands.interpret import *
 from Visualize.commands.group import group
+from System.sys_funcs.output import *
 
 
 def change_surf_setting(my_group):
-    if my_group.surf_res is None:
-        my_group.surf_res = my_group.sys.net.surf_res
     while True:
         # Print the main prompt
         print("{} Surface Settings: 1. Color Scheme = {} 2. Color Map = {} 3. resolution = {} (type \'q\' to quit)"
@@ -38,8 +37,7 @@ def change_surf_setting(my_group):
         if surf_set_npt.lower() in ['3', '3.', 'three', 'surfs', 'surfaces']:
             print("Surface Resolution - Current Resolution = {}".format(my_group.surf_res))
             change_npt = input("change resolution >>>   ")
-            change_npt.strip()
-            if change_npt.isdigit():
+            if change_npt.isdecimal():
                 my_group.surf_res = float(change_npt)
             elif change_npt.lower() in ys:
                 resolution = input("resolution >>>   ")
@@ -51,10 +49,10 @@ def change_surf_setting(my_group):
 
 
 def export_surfs(my_group):
-
     while True:
         # Main prompt
-        print("{} Surface Exports: 1. Shell 2. Filled Body 3. Separate Surfaces 4. All (type \'q\' to quit)".format(my_group.name))
+        print("{} Surface Exports: 1. Shell 2. Filled Body 3. Separate Surfaces 4. All (type \'q\' to quit)".format(
+            my_group.name))
         # Input
         surf_npt = input("surface exports (1-4) >>>   ")
         surf_npt.strip()
@@ -107,9 +105,7 @@ def export_surfs(my_group):
             break
 
 
-
 def export_atoms(my_group=None):
-
     while True:
         # Main prompt
         print("{} Atoms Exports 1. All Atoms 2. Surrounding Atoms 3. Exterior Atoms 4. All (type \'q\' to quit)".format(
@@ -133,7 +129,6 @@ def export_atoms(my_group=None):
 
 
 def export_info(my_group=None):
-
     while True:
         # Main prompt
         print("{} Information 1. Show Info 2. Info Export (type \'q\' to quit)".format(my_group.name))
@@ -143,7 +138,7 @@ def export_info(my_group=None):
         alls = ['4', '4.', 'four', 'all', 'a']
         if nfo_npt.lower() in ['1', '1.', 'one', 'show', 'sh'] + alls:
             my_group.get_info()
-            print("Volume:", my_group.vol, "Surface Area:", my_group.sa)
+            print("Volume:", round(my_group.vol, 3), round("Surface Area:", 3), my_group.sa)
         if nfo_npt.lower() in ['2', '2.', 'two'] + alls:
             my_group.exports(info=True)
             print("\r{} information file exported to {}".format(my_group.name, my_group.dir))
@@ -152,10 +147,10 @@ def export_info(my_group=None):
 
 
 def export_verts(my_group=None):
-
     while True:
         # Main prompt
-        print("{} Network Exports 1. Vertices 2. Edges 3. Shell Vertices 4. Shell Edges (type \'q\' to quit)".format(my_group.name))
+        print("{} Network Exports 1. Vertices 2. Edges 3. Shell Vertices 4. Shell Edges (type \'q\' to quit)".format(
+            my_group.name))
         # Input
         verts_npt = input("network (1-4) >>>   ")
         if verts_npt.lower() in ['1', '1.', 'one', 'verts', 'vertices']:
@@ -186,10 +181,13 @@ def export(sys, usr_npt, my_group=None):
         my_group = group(sys, usr_npt)
     if sys.dir is None:
         sys.set_output_directory()
+    if my_group.surf_res is None:
+        my_group.surf_res = my_group.sys.net.surf_res
 
     while True:
         # Main prompt
-        print("Exports 1. Surfaces and interfaces 2. Atoms 3. Information 4. Vertices and Edges 5. All (type \'q\' to quit)")
+        print(
+            "Exports 1. Surfaces and interfaces 2. Atoms 3. Information 4. Vertices and Edges 5. All (type \'q\' to quit)")
         # Export the group exports
         xpt_npt = input("export type (1-5) >>>   ")
         xpt_npt = xpt_npt.strip()
