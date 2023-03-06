@@ -1,5 +1,5 @@
 from System.sys_funcs.calcs import *
-from System.sys_objs.atom import Atom, get_radius
+from System.sys_objs.atom import Atom
 from System.sys_funcs.draw import draw_edge, draw_vert
 import os
 import csv
@@ -111,6 +111,9 @@ def write_pdb(atoms, name, sys=None, directory=None):
 def write_verts(verts, file_name, atom_type=None, directory=None, pdb=False, spheres=False, color=None):
     """
     Creates a pdb file for vertex representation
+    :param color:
+    :param spheres:
+    :param pdb:
     :param verts:
     :param file_name:
     :param atom_type:
@@ -142,8 +145,8 @@ def write_verts(verts, file_name, atom_type=None, directory=None, pdb=False, sph
                     num_verts += len(verts[i].loc_points) + len(vert.sphere_points)
                     num_tris += len(verts[i].loc_tris) + len(vert.sphere_tris)
             else:
-                num_verts = 6 * len(verts)
-                num_tris = 8 * len(verts)
+                num_verts += len(vert.loc_points)
+                num_tris += len(vert.loc_tris)
         # Create the file
         with open(file_name + ".off", 'w') as file:
             # Count the number of triangles and vertices there are
@@ -234,6 +237,8 @@ def write_edges(edges, file_name, color=None, directory=None):
 def write_surfs(surfs, file_name, color_map='inferno', color_scheme='dist', color=False, directory=None):
     """
     Writes files given a list of surfaces into the current directory or the given one
+    :param color_scheme:
+    :param color_map:
     :param surfs: Surface object
     :param file_name: Name of the output file for the surfaces
     :param color: Color of the output surface
@@ -429,3 +434,56 @@ def set_pymol_atoms(sys):
     # Rebuild the system
     file.write("\nrebuild")
     file.close()
+
+
+def export_sys(sys, network=False, pdb=False, surfaces=False, full_network_object=False, no_sol_network_object=False,
+               alter_atoms_script=False, info=False):
+    """
+        Prepares the output directory and system for output. Keeps things consistent
+        :return:
+        """
+    # Check to see if the pdb directory is suitable
+    if sys.dir is None:
+        if os.path.dirname(sys.base_file)[-9:] != 'test_data':
+            sys.dir = os.path.dirname(sys.base_file)
+        else:
+            sys.set_output_directory()
+    if network:
+        os.chdir(sys.dir)
+        # Export the network
+        sys.export_net()
+    if pdb:
+        if not os.path.exists(sys.dir + '/sys'):
+            os.mkdir(sys.dir + "/sys")
+        os.chdir(sys.dir + "/sys")
+        # Export a pdb file for the system
+        write_pdb(sys.atoms, sys.name, sys)
+        os.chdir(sys.dir)
+    if surfaces:
+        if not os.path.exists(sys.dir + '/surfs'):
+            os.mkdir(sys.dir + "/surfs")
+        # Export a pdb file for the system
+        for surf in sys.net.surfs:
+            write_surfs(surfs=[surf], file_name="_".join(surf.ndx), directory=sys.dir + "/surfs")
+        os.chdir(sys.dir)
+    if full_network_object and sys.net.build_surfs:
+        if not os.path.exists(sys.dir + '/sys'):
+            os.mkdir(sys.dir + "/sys")
+        os.chdir(sys.dir + "/sys")
+        # Export a full system
+        export_mySys(sys)
+    # Write the alter atoms script
+    if alter_atoms_script:
+        if not os.path.exists(sys.dir + '/sys'):
+            os.mkdir(sys.dir + "/sys")
+        os.chdir(sys.dir + "/sys")
+        set_pymol_atoms(sys)
+    # If the user wants the surfaces of the system without the SOL
+    if no_sol_network_object:
+        # Create the group
+        sys.sol.exports(shell=True, info=True)
+    # If the information is requested, export it
+    if info:
+        os.chdir(sys.dir + "/sys")
+        export_net_info(sys.net)
+    os.chdir(sys.dir)
