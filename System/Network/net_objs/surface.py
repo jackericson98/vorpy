@@ -1,5 +1,5 @@
 import os.path
-import matplotlib
+from matplotlib import cm
 from System.sys_funcs.calcs import calc_tri
 from System.Network.net_funcs.build_surf import *
 import csv
@@ -220,7 +220,7 @@ class Surface:
     # Color points method. Returns a list of colors corresponding to values at that point.
     def color_tris(self, color_scheme='dist', color_map='inferno'):
         # Set up the color map
-        my_cmap = matplotlib.colormaps[color_map]
+        my_cmap = cm.get_cmap(color_map)
         self.color_map = color_map
         # Default is distance based color map
         if color_scheme == 'dist':
