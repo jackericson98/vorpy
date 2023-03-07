@@ -1,5 +1,5 @@
 import os.path
-from matplotlib import cm
+import matplotlib.cm as cm
 from System.sys_funcs.calcs import calc_tri
 from System.Network.net_funcs.build_surf import *
 import csv

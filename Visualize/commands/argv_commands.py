@@ -2,13 +2,46 @@ from Visualize.commands.load import load
 from Visualize.commands.set import sett
 from Visualize.commands.group import group
 from System.sys_objs.group import Group
+from System.Network.network import Network
+import sys
+
+"""
+Argv rules: 
+1. Space delimited
+2. flags (-l: load, -s: set, -g: group, -e: export)
+3. For multiple inputs use &&
+4. Defaults to no sol, default settings, export all
+"""
+
+
+
+
+def print_error():
+    pass
+
+def load_argv(my_sys, input):
+    pass
+
+def set_argv(my_sys, input):
+    # Check that the object is real
+    pass
+
+
+def group_argv(my_sys, input):
+    pass
+
+def export_argv(my_sys):
+    pass
+
 
 
 def interpret_argvs(my_sys):
     # Load the atom file
-    load(my_sys, ["", my_sys.argv[1]])
+    load(my_sys, ["", sys.argv[1]])
+    if my_sys.net is None:
+        my_sys.net = Network(my_sys, my_sys.atoms)
     # Separate the rest of the argv args
-    my_args = my_sys.argv[2:]
+    my_args = sys.argv[2:]
     my_group = None
     while my_args:
         arg = my_args.pop(0)
