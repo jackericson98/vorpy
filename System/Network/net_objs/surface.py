@@ -143,6 +143,14 @@ class Surface:
         """
         # Create the surface area variable
         sa = 0
+        if self.flat:
+            for edge in self.edges:
+                if edge.straight:
+                    sa += calc_tri([edge.pv0, edge.pv1, self.com])
+                else:
+                    for i in range(len(edge.points) - 1):
+                        p0, p1 = edge.points[i:i + 2]
+                        sa += calc_tri([p0, p1, self.com])
         # Go through the triangles in the surface
         for tri in self.tris:
             p0, p1, p2 = self.points[tri[0]], self.points[tri[1]], self.points[tri[2]]
@@ -179,8 +187,6 @@ class Surface:
         find_simps(self)
         # Filter out the bad triangles
         filter_tris(self)
-        # Calculate the surface area
-        self.calc_sa()
         if color:
             self.color_tris()
 
