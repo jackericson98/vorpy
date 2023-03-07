@@ -96,7 +96,7 @@ def interpret_argvs(my_sys):
         cmnd_args = [arg]
         while True:
             arg = my_args.pop(0)
-            if arg[0] == '-':
+            if arg[0] == '-' or len(my_args) == 0:
                 break
             cmnd_args.append(arg)
         # Execute the commands
@@ -108,10 +108,12 @@ def interpret_argvs(my_sys):
             export_argv(my_sys, my_group, cmnd_args[1:])
     if my_group is None:
         my_group = Group(sys=my_sys, mols=my_sys.mols[:-1], name=my_sys.name + "_no_SOL")
-    print(
-        u"{} Build Settings - surf_res = {:.2f} \u208B,  max_vert  = {:.2f} \u208B,  box_multi = {:.2f} x,  build_surfs = {}, "
-        u"surf_type = {}".format(my_group.name, my_sys.net.surf_res, my_sys.net.max_vert, my_sys.net.box_size,
-                                 my_sys.net.build_surfs, 'voronoi' if my_sys.net.type == 'vor' else 'flat'))
+    net = my_sys.net
+    print(u"{} Build Settings - surf_res = {:.2f} \u208B,  max_vert  = {:.2f} \u208B,  box_multi = {:.2f} x,  "
+          u"build_surfs = {}, surf_type = {}"
+          .format(my_group.name, net.surf_res, net.max_vert, net.box_size, net.build_surfs,
+                  {'vor': 'Voronoi', 'del': 'Delaunay', 'pow': 'Power'}[net.type]))
 
     my_sys.net.build(my_group=my_group, build_surfs=True, output=True, print_actions=True)
+    export_argv(my_sys, my_group, None)
 
