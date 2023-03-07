@@ -264,3 +264,4 @@ if __name__ == '__main__':
     else:
         # Run vorpy
         vorpy()
+    print("\n\n\n\n\n\n\n-----------------------------Goodbye!---------------------------------------\n\n\n\n\n\n\n")

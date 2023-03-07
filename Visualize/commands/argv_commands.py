@@ -2,6 +2,7 @@ from Visualize.commands.load import load
 from Visualize.commands.set import sett
 from Visualize.commands.group import group
 from Visualize.commands.commands import *
+from Visualize.commands.export import export
 from System.sys_objs.group import Group
 from System.Network.network import Network
 import sys
@@ -67,19 +68,10 @@ def group_argv(my_sys, usr_npt):
         # Load the file
         my_group = group(my_sys, [descriptor, usr_npt.pop(0)], my_group)
         # If the next value is && go again
-        if len(usr_npt) > 0 and usr_npt[0] == '&&':
+        if len(usr_npt) > 0 and usr_npt[0] == '+':
             usr_npt.pop(0)
     # Return the group object
     return my_group
-
-
-def export_argv(my_sys, my_group, usr_npt):
-    my_group.exports(all_=True)
-    # # Go through the user inputs loading files
-    # while usr_npt:
-    #     # If the next value is && go again
-    #     if len(usr_npt) > 0 and usr_npt[0] == '&&':
-    #         usr_npt.pop(0)
 
 
 def interpret_argvs(my_sys):
@@ -91,6 +83,7 @@ def interpret_argvs(my_sys):
     my_args = sys.argv[2:]
     my_group = None
     arg = my_args.pop(0)
+    export_commands = []
     while my_args:
         # Gather the commands and the flag
         cmnd_args = [arg]
@@ -105,7 +98,7 @@ def interpret_argvs(my_sys):
         elif cmnd_args[0].lower() == '-g' and len(cmnd_args) >= 2:
             my_group = group_argv(my_sys, cmnd_args[1:])
         elif cmnd_args[0].lower() == '-e' and len(cmnd_args) >= 2:
-            export_argv(my_sys, my_group, cmnd_args[1:])
+            export_commands.append(cmnd_args)
     if my_group is None:
         my_group = Group(sys=my_sys, mols=my_sys.mols[:-1], name=my_sys.name + "_no_SOL")
     net = my_sys.net
@@ -115,5 +108,5 @@ def interpret_argvs(my_sys):
                   {'vor': 'Voronoi', 'del': 'Delaunay', 'pow': 'Power'}[net.type]))
 
     my_sys.net.build(my_group=my_group, build_surfs=True, output=True, print_actions=True)
-    export_argv(my_sys, my_group, None)
+    export(my_sys, my_group=my_group, usr_npt=[])
 

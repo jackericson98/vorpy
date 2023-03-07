@@ -256,18 +256,19 @@ class Network:
         i = 0
         for i in range(len(self.surfs)):
             percentage = int((i + 1) / tot_num * 100)
+            # If the surface area is None calculate it
+            if self.surfs[i].sa is None or self.surfs[i].sa == 0:
+                # Get the surface area of the surface
+                self.surfs[i].calc_sa()
             if self.sys.print_actions:
                 print("\ranalyzing: {} %            ".format(percentage), end="")
-            # Get the surface area of the surface
-            self.surfs[i].calc_sa()
         # Go through each atom in the system and find the volume
         for j in range(len(self.atoms)):
             percentage = int((i + j + 2) / tot_num * 100)
+            if self.atoms[j].vol is None or self.atoms[j].vol == 0:
+                self.atoms[j].calc_vol()
             if self.sys.print_actions:
                 print("\ranalyzing: {} %          ".format(percentage), end="")
-            self.atoms[j].calc_vol()
-        # # Get the solute layers
-        # self.sol_layers, self.sol_layer_atoms = find_sol_layers(self)
 
     def build(self, output=True, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
               calc_verts=None, my_group=None, print_actions=None):
