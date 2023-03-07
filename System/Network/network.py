@@ -230,7 +230,7 @@ class Network:
         # Go through the edges in the network
         for edge in self.edges:
             # Build the edge depending on if it is straight or not
-            edge.build(straight=True if self.type in ['pow', 'flat', 'Del'] else False)
+            edge.build(straight=True if self.type in ['pow', 'flat', 'del'] else False)
 
     def build_surfaces(self):
         """
