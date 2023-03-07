@@ -2,7 +2,7 @@ from System.sys_objs.group import Group
 from Visualize.commands.interpret import *
 
 
-def group(sys, usr_npt):
+def group(sys, usr_npt, group_2=None):
     # Create the object and index variables
     my_obj, my_ndx = None, None
     # User only input "export"
@@ -36,4 +36,7 @@ def group(sys, usr_npt):
     # Create the group
     npt_list = [None] * 4
     npt_list[obj_ndx] = my_list
-    return Group(sys=sys, mols=npt_list[0], residues=npt_list[1], atoms=npt_list[2], indices=npt_list[3], name=name)
+    my_group = Group(sys=sys, mols=npt_list[0], residues=npt_list[1], atoms=npt_list[2], indices=npt_list[3], name=name)
+    if group_2 is not None:
+        my_group.add_atoms(group_2.atoms)
+    return my_group
