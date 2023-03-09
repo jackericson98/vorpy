@@ -261,7 +261,7 @@ def write_surfs(surfs, file_name, color_map='inferno', color_scheme='dist', colo
         for i in range(len(surfs)):
             if surfs[i].points is None:
                 surfs[i].build()
-            if color_map != surfs[i].color_map or color_scheme != surfs[i].color_scheme:
+            if color_map != surfs[i].color_map or color_scheme != surfs[i].scheme:
                 surfs[i].color_tris(color_map=color_map, color_scheme=color_scheme)
             num_verts += len(surfs[i].points)
             num_tris += len(surfs[i].tris)
