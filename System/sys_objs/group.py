@@ -61,6 +61,13 @@ class Group:
 
     # Process inputs method. Goes through the atoms, residues and molecules provided in the group
     def process_inputs(self, atoms=None, mols=None, resids=None):
+        """
+        Processes the inputs to the group and interprets them into atoms
+        :param atoms: List of atom objects to be added to the group
+        :param mols: List of molecule objects to be added to the group
+        :param resids: List of residue objects to be added to the group
+        :return: Sets uo the group for interpretation
+        """
         # Set up the atoms list if needed
         if self.atoms is None:
             self.atoms = []
@@ -86,8 +93,11 @@ class Group:
         # Get the surfaces
         self.get_surfs()
 
-    # Get surfaces method. Finds and sorts all surfaces in the group without needing to calculate them
     def get_surfs(self):
+        """
+        Finds and sorts all surfaces in the group without calculating them
+        :return: The group will have its surfaces sorted and non-redundant
+        """
         # Reset the surfaces lists
         self.surfs, self.surf_ndxs = [], []
         # Go through the atoms in the group
@@ -103,16 +113,14 @@ class Group:
                     self.surf_ndxs.insert(surf_ndx, surf.ndx)
 
     def get_edges(self):
+        """
+        Finds and sorts the edges in group
+        :return: The group will have all edge objects associated with it sirted and non-redundant
+        """
         # Reset the surfaces lists
         self.edges, self.edge_ndxs = [], []
         # Go through the surfaces in the atoms list of surfaces
         for edge in self.sys.net.edges:
-            good = False
-            for ndx in edge.ndx:
-                if ndx in self.atom_ndxs:
-                    good = True
-            if not good:
-                continue
             # Get the index of the edge
             edge_ndx = ndx_search(self.edge_ndxs, edge.ndx)
             # Check if the edge has been added yet or not
@@ -122,18 +130,16 @@ class Group:
                 self.edge_ndxs.insert(edge_ndx, edge.ndx)
 
     def get_verts(self):
+        """
+        Finds and sorts all the vertices in the group
+        :return: The groups vertices are sorted and non-redundant
+        """
         # Reset the surfaces lists
         self.verts, self.vert_ndxs = [], []
         self.atom_ndxs = [_.num for _ in self.atoms]
         self.atom_ndxs.sort()
         # Go through the surfaces in the atoms list of surfaces
         for vert in self.sys.net.verts:
-            good = False
-            for ndx in vert.ndx:
-                if ndx in self.atom_ndxs:
-                    good = True
-            if not good:
-                continue
             # Get the index of the edge
             vert_ndx = ndx_search(self.vert_ndxs, vert.ndx)
             # Check if the edge has been added yet or not
@@ -142,17 +148,12 @@ class Group:
                 self.verts.insert(vert_ndx, vert)
                 self.vert_ndxs.insert(vert_ndx, vert.ndx)
 
-    # Build surfaces method. Checks the surfaces for points and allows for rebuilds surfaces with incorrect resolutions
-    def build_surfs(self, resolution=None, surfs=None, name=""):
-        # Get the list of surfaces
-        if surfs is not None:
-            group_surfs = surfs
-        # Build all surfaces in the group
-        else:
-            # Get the surfaces
-            if self.surfs is None:
-                self.get_surfs()
-            group_surfs = self.surfs
+    def build_surfs(self, resolution=None):
+        """
+        Checks the surfaces for points and allows for rebuilds surfaces with incorrect resolutions
+        :param resolution: If not None all surfs without this resolution will be rebuilt
+        :return: All surfaces in the group will be constructed
+        """
         # Get the resolution
         if resolution is None:
             resolution = self.sys.net.surf_res
@@ -160,11 +161,10 @@ class Group:
         # Set up the build surfaces list
         build_surfs = []
         # Go through the list of build surfaces checking for
-        for surf in group_surfs:
+        for surf in self.surfs:
             # Check if the resolution is different from the set resolution or the surface has no points
             if surf.res != resolution:
                 build_surfs.append(surf)
-
             # Check if there is any sign of missing points or triangles
             elif surf.points is None or surf.tris is None or len(surf.points) <= 2 or len(surf.tris) == 0:
                 # If it is possible to load the file
@@ -181,17 +181,21 @@ class Group:
             os.chdir(self.sys.dir + '/surfs')
         # Build the surfaces
         for i in range(len(build_surfs)):
-
-            print("\rbuilding " + name + " surfaces " + " " * (len(str(len(group_surfs) - 1)) - len(str(i + 1))) + str(i + 1)
-                  + "/" + str(len(group_surfs)) + "                   ", end="")
+            # Print the status of the surfaces being built
+            print("\rbuilding " + self.name + " surfaces " + " " * (len(str(len(self.surfs) - 1)) - len(str(i + 1))) +
+                  str(i + 1) + "/" + str(len(self.surfs)) + "                   ", end="")
             build_surfs[i].build(res=resolution, flat=self.sys.net.flat_Del)
             if build_surfs[i].file is None:
                 write_surfs([build_surfs[i]], "_".join([str(_) for _ in build_surfs[i].ndx]), )
         # Change back
         os.chdir(self.sys.dir)
 
-    # Add atoms method. Adds the atoms from a list (mol.atoms, res.atoms, atoms, etc) to the group checking duplicates
     def add_atoms(self, atom_list):
+        """
+        Adds the atoms from a list (mol.atoms, res.atoms, atoms, etc) to the group checking duplicates
+        :param atom_list: List of atom objects expected to be added to the group
+        :return: The group will have the new atoms integrated
+        """
         # Check to see if the atoms list has been instantiated
         if self.atoms is None:
             self.atoms = []
@@ -203,28 +207,30 @@ class Group:
                 self.atoms.insert(atom_ndx, atom)
                 self.atom_ndxs.insert(atom_ndx, atom.num)
 
-    # Get information method. Gathers information about the group and stores it in a dictionary
     def get_info(self, iface_info=True):
+        """
+        Gathers information about the group and stores it in a dictionary
+        :param iface_info:
+        :return:
+        """
         # Reset the group's data attributes
         self.sa, self.vol = 0, 0
         # Get the volume of the group
         for atom in self.atoms:
             # Check to see that the atom's volume is not 0
             if atom.vol is None or atom.vol == 0:
+                # Calculate the volume of the atom
                 atom.calc_vol()
+            # Add the volume to that of the group
             self.vol += atom.vol
         # Check to see if the first layer has been calculated
-        if self.layer_surfs is None or self.layer_surfs == []:
-            # Calculate the first layer
-            self.get_layers(max_layers=1)
-        if self.layer_surfs is not None and len(self.layer_surfs) > 0:
-            # Go through the surfaces in the first layer
-            for surf in self.layer_surfs[0]:
-                # Add the surface area
-                self.sa += surf.sa
-        # Check to see if there is an interface in play
-        if self.bff is not None and iface_info:
-            self.get_iface()
+        for surf in self.layer_surfs[0]:
+            # Check that the surface has a surface area
+            if surf.sa is None or surf.sa == 0:
+                # Get the surface area for the surface
+                surf.calc_sa()
+            # Add the surface area
+            self.sa += surf.sa
 
     def get_iface(self, bff=None):
         # Set the bff
@@ -255,8 +261,14 @@ class Group:
         # Set the bff's surface area
         self.bff.iface_sa = self.iface_sa
 
-    # Get layers method. Gets the surrounding layers of the group
     def get_layers(self, max_layers=50, group_resids=True, build_surfs=True):
+        """
+        Gets the surrounding layers of the group. Requires the whole network be built
+        :param max_layers: The number of layers to go out into the SOL
+        :param group_resids: Bool determining whether to keep residues together or not
+        :param build_surfs: Bool determining whether to build the surfaces in the network
+        :return: All layers with vertices less than the maximum number of layers will be bintegrated
+        """
         # Make sure that the group has atoms
         if self.atoms is None:
             return
@@ -303,7 +315,7 @@ class Group:
                         layer_atoms_ndxs[-1].append(surf.ndx[0])
             if build_surfs:
                 # Check to make sure the surfaces are built in the layer
-                self.build_surfs(surfs=self.layer_surfs[-1], name="layer {}".format(counter))
+                self.build_surfs()
             # Check to see if the residues are supposed to stay together
             if group_resids:
                 for atom in self.layer_atoms[-1]:
@@ -343,7 +355,6 @@ class Group:
         :return:
         """
         # Check to see if there is a bff or not
-        # Set the bff
         if bff is not None:
             self.bff = bff
         # Check to see that the interface has been calculated
@@ -374,6 +385,25 @@ class Group:
     def exports(self, all_=False, atoms=False, shell=False, fill=False, surfaces=False, layers=False, num_layers=50,
                 info=False, iface=False, verts=False, surr_atoms=False, ext_atoms=False, shell_edges=False,
                 shell_verts=False, edges=False):
+        """
+        Exports specified export types for the group
+        :param all_: All possible exports for the group will be exported to the group directory
+        :param atoms: Exports a new pdb file contasining only the atoms of the group
+        :param shell: Exports the outer surfaces of the group
+        :param fill: Exports all surfaces in the group as one object
+        :param surfaces: Exports all surfaces in the group as seperate files, named by their atoms
+        :param layers: Exports all layers surrounding the group, unless num_layers is specified
+        :param num_layers: Controls the number of exported layers for the group
+        :param info: Exports the information for the group
+        :param iface: Exports the interface for the group, bff must be specified first
+        :param verts: Exports the vertices of the group as an off file
+        :param surr_atoms: Exports the atoms directly surrounding the group (residues intact)
+        :param ext_atoms: Exports the outermost atoms in the group's set of atoms (must be a part of shell)
+        :param shell_edges: Exports only the outermost edges for the group as an OFF file
+        :param shell_verts: Exports the outermost vertices for the group
+        :param edges: Exports all edges for the group
+        :return: The specified export is placed in the group's directory
+        """
         # Get the surfaces if they haven't been got
         if self.surfs is None or len(self.surfs) == 0:
             self.build_surfs()
