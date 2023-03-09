@@ -212,8 +212,6 @@ def fill_mesh(surf):
             step = norm / num_steps
             surf.points += [paths[i][0] + rn * j * step for j in range(1, num_steps + 1)]
         return
-    # For each ring toward the center of the surface record a list
-    surf.rings = [surf.perimeter]
     # Grab the smallest of the 2 surface atoms' location
     pa = surf.atoms[0].loc
     # Get the angles between the edge points and the end points
@@ -265,8 +263,6 @@ def fill_mesh(surf):
                 pn_1 = pn
                 paths[i].append(pn)
                 i += 1
-        # Add the ring to the list of rings
-        surf.rings.append(ring)
 
     # Add the remaining paths to the surface excluding the first point in the path (i.e. the edge point)
     for path in paths:
@@ -274,103 +270,6 @@ def fill_mesh(surf):
 
 
 ############################################## Triangulate Surface Points  #############################################
-
-
-def triangulate_rings(surf):
-    """
-    Finds the triangulation of the surface points by triangulating point rings
-    :param surf: Surface object to triangulate
-    :return: None
-    """
-    # Check to see if the surface is flat or not.
-    if surf.flat:
-        surf.tris = [[i, (i + 1) % len(surf.perimeter), len(surf.points) - 1] for i in range(len(surf.perimeter))]
-        return
-    # Check to see if the surface has flat points or not
-    if surf.flat_points is None or len(surf.flat_points) < len(surf.points):
-        surf.find_flat_points()
-    # Go through the rings until the last one is used
-    ring_num = 0
-    surf.ring_tris, surf.tris = [], []
-    # Get the point tracking indices for making the triangles
-    outer_ndx, inner_ndx = 0, len(surf.rings[0])
-    # Loop through the rings
-    while ring_num < len(surf.rings) - 1:
-        # Set up the ring triangles list variable
-        ring_tris = []
-        # Copy the rings
-        outer_ring, inner_ring = surf.rings[ring_num].copy(), surf.rings[ring_num + 1].copy()
-        # Find 2 points in the rings that are close
-        min_dist = np.inf
-        inner_start = 0
-        for k in range(len(inner_ring)):
-            if calc_dist(inner_ring[k], outer_ring[0]) < min_dist:
-                inner_start = k
-        inner_ring = inner_ring[inner_start:] + inner_ring[:inner_start]
-        # Tracker variables for the points in the ring lists
-        i, j = 0, 0
-        # Go through the points in the two lists and get the set of triangles between
-        while i + 1 < len(outer_ring) and j + 1 < len(inner_ring):
-            # Calculate the circumference of the two new triangles
-            oc = calc_dist(inner_ring[j], outer_ring[i + 1])
-            ic = calc_dist(outer_ring[i], inner_ring[j + 1])
-            # Check to see which of the triangles has the smaller circumference
-            if oc < ic:
-                tri = [i + outer_ndx, j + inner_ndx, i + outer_ndx + 1]
-                i += 1
-            else:
-                tri = [i + outer_ndx, j + inner_ndx, j + inner_ndx + 1]
-                j += 1
-            # Add the triangle to the list of triangles
-            ring_tris.append(tri)
-        # Get the last couple triangles
-        last_tris = []
-        if i + 1 == len(outer_ring):
-            # Keep looping until the points have all been used
-            # Once we move past the end point all other triangles are with the starting point
-            p1 = True
-            while j + 1 < len(inner_ring) and p1:
-                # Find the smallest circle (circle end, circle beginning)
-                oc = calc_dist(inner_ring[j], outer_ring[0])
-                ic = calc_dist(outer_ring[i], inner_ring[j + 1])
-                # If the circle made with the next outer ring
-                if oc < ic:
-                    last_tris.append([inner_ndx + j, outer_ndx + i, outer_ndx])
-                    last_tris += [[outer_ndx, inner_ndx + j + k, inner_ndx + j + k + 1] for k in range(len(inner_ring) - j - 1)]
-                    p1 = False
-                else:
-                    last_tris.append([inner_ndx + j, outer_ndx + i, inner_ndx + j + 1])
-                j += 1
-
-        elif j + 1 == len(inner_ring):
-            # Keep looping until the points have all been used
-            # Once we move past the end point all other triangles are with the starting point
-            p1 = True
-            while i + 1 < len(outer_ring) and p1:
-                # Find the smallest circle (circle end, circle beginning)
-                oc = calc_dist(outer_ring[i], inner_ring[0])
-                ic = calc_dist(inner_ring[j], outer_ring[i + 1])
-                # If the circle made with the next outer ring
-                if ic < oc:
-                    last_tris.append([inner_ndx + j, outer_ndx + i, inner_ndx])
-                    last_tris += [[inner_ndx, outer_ndx + i + k, outer_ndx + i + k + 1] for k in
-                                  range(len(outer_ring) - i - 1)]
-                    p1 = False
-                else:
-                    last_tris.append([outer_ndx + i, inner_ndx + j, outer_ndx + i + 1])
-                i += 1
-        else:
-            return
-        #
-        # # Add the triangles to the ring's list
-        # ring_tris += last_tris
-        # Add the triangles to the surfaces list of triangles and the surfaces list of triangle rings
-        surf.tris += ring_tris
-        surf.ring_tris.append(ring_tris)
-        # Set the indices for the next ring if needed
-        outer_ndx, inner_ndx = outer_ndx + len(outer_ring), inner_ndx + len(inner_ring)
-        ring_num += 1
-
 
 def tri_within(surf, myTri=None, point=None):
     """
