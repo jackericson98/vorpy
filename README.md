@@ -5,8 +5,6 @@
 
 Vorpy is a comprehensive Voronoi cell network generator for 3D spheres designed with simulated molecular dynamics (md) analysis in mind. It works by partitioning the space between simulated atoms and using these partitions to calculate volumes and surface areas of bodies and interfaces of interest (residue, protein/DNA, etc.). By probing inter-atomic partitions it is possible to better understand a number of features of simulated molecules ranging inter-atomic influence in different chemical bonds to the evolution of a protein-DNA complex. 
 
-Created by Jack Ericson - Georgia State University 
-
 ## Prerequisites
 
 - Dependencies: >= python 3.9
