@@ -119,7 +119,7 @@ def get_file(file=None):
 def get_set(usr_npt=None):
     """
     Makes the user type a proper Value
-    :return: base versions of the settings ('sr', 'mv', 'bm', 'bs', 'fs')
+    :return: base versions of the settings ('sr', 'mv', 'bm', 'bs', 'nt')
     """
     # Keep asking the user to choose an object to export
     while True:
@@ -145,9 +145,9 @@ def get_set(usr_npt=None):
         elif usr_npt.lower() in build_surfses:
             # Return the base setting
             return 'bs'
-        elif usr_npt.lower() in flat_surfses:
+        elif usr_npt.lower() in net_types:
             # Return the base setting
-            return 'fs'
+            return 'nt'
         else:
             # Tell the user they suck and try again
             print("\"{}\" is not a valid input. Enter a correct value (\'surf_res\', \'max_vert\', \'box_size\', or \'calc_surfs\')".format(usr_npt))
@@ -175,8 +175,13 @@ def get_val(setting=None, val=None):
         # Give help if needed
         elif val.lower() in helps:
             help_()
+        if setting in build_surfses:
+            if val.lower() in ['t', 'true', 'tr'] + ys:
+                val = True
+            elif val.lower() in ['f', 'false', 'flse', 'fl', 'fa', 'fs', 'fls'] + ns:
+                val = False
         # Test the validity of the user's true and false skills
-        if setting in build_surfses + flat_surfses:
+        if setting in net_types:
             if val.lower() in ['t', 'true', 'tr'] + ys:
                 val = 'del'
             elif val.lower() in ['f', 'false', 'flse', 'fl', 'fa', 'fs', 'fls'] + ns:

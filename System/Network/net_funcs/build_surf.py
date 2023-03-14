@@ -193,7 +193,8 @@ def fill_mesh(surf):
     # Get the atoms
     a0, a1 = surf.atoms[0], surf.atoms[1]
     # Get the center of mass
-    com = get_com(surf)
+    surf.com = get_com(surf)
+    com = surf.com
     # For each path toward the center of the surface, set up a path list.
     paths = [[surf.perimeter[i]] for i in range(len(surf.perimeter))]
     # Check to see if the atoms have equal radii

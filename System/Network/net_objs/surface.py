@@ -158,6 +158,14 @@ class Surface:
         """
         # Create the surface area variable
         sa = 0
+        if self.flat:
+            for edge in self.edges:
+                if edge.straight:
+                    sa += calc_tri([edge.pv0, edge.pv1, self.com])
+                else:
+                    for i in range(len(edge.points) - 1):
+                        p0, p1 = edge.points[i:i + 2]
+                        sa += calc_tri([p0, p1, self.com])
         # Go through the triangles in the surface
         for tri in self.tris:
             p0, p1, p2 = self.points[tri[0]], self.points[tri[1]], self.points[tri[2]]
@@ -194,8 +202,6 @@ class Surface:
         find_simps(self)
         # Filter out the bad triangles
         filter_tris(self)
-        # Calculate the surface area
-        self.calc_sa()
         if color:
             self.color_tris()
 
@@ -210,52 +216,57 @@ class Surface:
         # Set up the color map
         my_cmap = cm.get_cmap(color_map)
         self.color_map = color_map
+        # Set the color scheme for the surface
+        self.color_scheme = color_scheme
         # Default is distance based color map
         if color_scheme == 'dist':
-            self.scheme = color_scheme
-            # Set up the distances
-            dists = []
-            tri_dists = []
-            max_dist, min_dist = 0, np.inf
-            # Provide value for the points
-            for point in self.points:
-                # Calculate the distance
-                my_dist = calc_dist(point, self.loc)
-                dists.append(my_dist)
-                # Record the minimum and maximum distances
-                if my_dist < min_dist:
-                    min_dist = my_dist
-                elif my_dist > max_dist:
-                    max_dist = my_dist
-            # Go through the triangles in the surface
-            for i in range(len(self.tris)):
-                # Find the maximum distance point of the triangles
-                tri_dists.append(min([dists[_] for _ in self.tris[i]]))
-            if inverse:
-                my_dists = [1 - ((_ - min_dist) / (max_dist - min_dist)) for _ in tri_dists]
-            else:
-                my_dists = [(_ - min_dist) / (max_dist - min_dist) for _ in tri_dists]
-            self.tri_colors = [my_cmap(_) for _ in my_dists]
+
+            # Check if the tri_dists have been calculated before
+            if self.tri_dists is None or len(self.tri_dists) == 0 or len(self.tri_dists) != len(self.tris):
+                # Set up the distances
+                dists = []
+                self.tri_dists = []
+                max_dist, min_dist = 0, np.inf
+                # Provide value for the points
+                for point in self.points:
+                    # Calculate the distance
+                    my_dist = calc_dist(point, self.loc)
+                    dists.append(my_dist)
+                    # Record the minimum and maximum distances
+                    if my_dist < min_dist:
+                        min_dist = my_dist
+                    elif my_dist > max_dist:
+                        max_dist = my_dist
+                # Go through the triangles in the surface
+                for i in range(len(self.tris)):
+                    # Find the maximum distance point of the triangles
+                    self.tri_dists.append(min([dists[_] for _ in self.tris[i]]))
+                # Normalize the tri_dists
+                self.tri_dists = [(_ - min_dist) / (max_dist - min_dist) for _ in self.tri_dists]
+            self.tri_colors = [my_cmap(_) for _ in self.tri_dists]
+
         elif color_scheme == 'ins_out':
-            self.scheme = color_scheme
-            # Set up a list of tracking
-            inside_array = []
-            # Go through the points in the surface
-            for point in self.points:
-                # Calculate the distance between the point and the atom
-                my_dist = calc_dist(point, self.atoms[0].loc)
-                if my_dist < self.atoms[0].rad:
-                    inside_array.append(True)
-                else:
-                    inside_array.append(False)
-            # Now add the triangles
-            my_map = []
-            for tri in self.tris:
-                if inside_array[tri[0]] and inside_array[tri[1]] and inside_array[tri[2]]:
-                    my_map.append(my_cmap(0.25))
-                else:
-                    my_map.append(my_cmap(0.75))
-            self.tri_colors = my_map
+
+            # Check if the tri_dists have been calculated before
+            if self.tri_ins_out is None or len(self.tri_ins_out) == 0 or len(self.tri_ins_out) != len(self.tris):
+                # Set up a list of tracking
+                inside_array = []
+                # Go through the points in the surface
+                for point in self.points:
+                    # Calculate the distance between the point and the atom
+                    my_dist = calc_dist(point, self.atoms[0].loc)
+                    if my_dist < self.atoms[0].rad:
+                        inside_array.append(True)
+                    else:
+                        inside_array.append(False)
+                # Now add the triangles
+                self.tri_ins_out = []
+                for tri in self.tris:
+                    if inside_array[tri[0]] and inside_array[tri[1]] and inside_array[tri[2]]:
+                        self.tri_ins_out.append(my_cmap(0.25))
+                    else:
+                        self.tri_ins_out.append(my_cmap(0.75))
+            self.tri_colors = self.tri_ins_out
         elif color_scheme == 'curv':
-            self.scheme = color_scheme
+            self.color_scheme = color_scheme
             pass

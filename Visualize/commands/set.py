@@ -80,7 +80,7 @@ def sett(sys, usr_npt, vorpy2_set=False):
         except ValueError:
             print("\"{}\" is an invalid input for the build surfaces setting. Enter a True/False value (From 1.0 to 10.0 X, recommended 1.5 X)".format(my_val))
     # Set the flat surfaces
-    elif my_set in flat_surfses:
+    elif my_set in net_types:
         # Check to see if the value is correct
         try:
             sys.net.type = my_val

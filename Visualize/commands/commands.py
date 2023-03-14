@@ -36,10 +36,18 @@ surf_reses = ['surf_res', 'sr', 'surface_resolution', 'surface_res', 'surf_resol
 max_verts = ['max_vert', 'mv', 'maximum_vertex', 'max_vertex', 'maximum_vert', 'verts', 'vs', 'vert_size', 'max_vert_size', 'mvs', 'vert_max', 'vertex_max', 'vertex_maximum']
 box_sizes = ['box_size', 'bm', 'box', 'bx_sz', 'size_box', 'containing_box', 'containing_box_size', 'box_multi', 'box_multiplier']
 build_surfses = ['build_surfs', 'build_surfaces', 'bs', 'bld_srfs', 'cs', 'calc_surfs', 'surfs_build', 'surfaces_build', 'build_surf', 'build_surf']
-flat_surfses = ['flat_surfs', 'flat_surfaces', 'fs', 'flt_srfs', 'surfaces_flat', 'surfs_flat', 'flat_surf', 'flat_surface', 'ff', 'st', 'surf_type', 'net_type']
+net_types = ['st', 'surf_type', 'net_type', 'nt']
+file_types = ['net', 'vert', 'ball', 'ndx']
 
-my_settings = surf_reses + max_verts + box_sizes + build_surfses + flat_surfses
-settings_dict = {'sr' : 'Surface Resolution', 'mv' : 'Maximum Vertex', 'bm' : 'Box Multiplier', 'bs': 'Build Surfaces?', 'fs': 'Flat Surfaces?'}
+power_vals = ['pow', 'power', 'p', 'pwr']
+voronoi_vals = ['vor', 'voronoi', 'vnoi', 'voron', 'vn']
+delaunay_vals = ['del', 'dl', 'delaunay', 'dlny', 'dny']
+
+
+my_settings_vals = power_vals + voronoi_vals + delaunay_vals
+my_settings = surf_reses + max_verts + box_sizes + build_surfses + net_types
+settings_dict = {'sr': 'Surface Resolution', 'mv': 'Maximum Vertex', 'bm': 'Box Multiplier', 'bs': 'Build Surfaces?',
+                 'nt': 'Network Type'}
 
 
 def are_you_sure():
@@ -186,7 +194,6 @@ def print_list(names, list_name=None, width=150, height=30, cutoff=15):
                 return
         else:
             invalid_input(my_response)
-
 
 
 def get_obj(sys, obj=None, return_ndx=True):
