@@ -243,7 +243,7 @@ class Network:
             if self.sys.print_actions:
                 print("\rbuilding surfaces " + " " * (len(str(len(self.surfs) - 1)) - len(str(i + 1))) + str(i + 1) + "/" +
                       str(len(self.surfs)) + "                   ", end="")
-            self.surfs[i].build(flat=False if self.type == 'vor' else True, color=False)
+            self.surfs[i].build(color=False)
 
     def analyze(self):
         """
