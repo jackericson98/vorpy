@@ -19,7 +19,8 @@ Vorpy is a comprehensive Voronoi cell network generator for 3D spheres designed 
    ```
    Install the requirements
    ```
-   pip install requirements.txt
+   python3 -m pip install numpy
+   python3 -m pip install matplotlib
    ```
    Note: If installing the requirements.txt fails, retry with just numpy and matplotlib (ex: pip install matplotlib) and only use the command prompt, jupyter notebook     or script provided below
 
