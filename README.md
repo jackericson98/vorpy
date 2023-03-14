@@ -9,9 +9,6 @@ Vorpy is a comprehensive Voronoi cell network generator for 3D spheres designed 
 
 - Dependencies: >= python 3.9
 - Basic Dependencies: Numpy, Matplotlib
-   ```
-   pip install requirements.txt
-   ```
 - Instalation:
    Move to the vorpy directory in a shell or command prompt:
    ```
