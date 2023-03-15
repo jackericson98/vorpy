@@ -30,6 +30,9 @@ class Surface:
         self.tris = tris                # Triangles       : A list of connections between the points
 
         # Coloring attributes
+        self.tri_dists = None
+        self.tri_curvs = None
+        self.tri_ins_out = None
         self.tri_colors = tri_colors    # Tri colors      : Holds the color mapped color for each triangle
         self.scheme = color_scheme      # Color Scheme    : Holds the method by which the color map is mapped
         self.color_map = color_map      # Color Map       : Holds the map applied to the triangles on the surface
@@ -180,6 +183,8 @@ class Surface:
         :param color: Bool to color the surf or not
         :return: The surfaces points and triangles are filled
         """
+        if self.net.type in {'pow', 'del'}:
+            self.flat = True
         # Check to see if the file exists
         if self.file is not None:
             self.read_file()
