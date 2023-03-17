@@ -407,6 +407,10 @@ class Group:
         # Get the surfaces if they haven't been got
         if self.surfs is None or len(self.surfs) == 0:
             self.build_surfs()
+        # Get the surface coloring scheme
+        scheme = ""
+        if self.surf_scheme is not None:
+            scheme = "_" + self.surf_scheme
         # Create the output directory inside the system's directory
         if self.dir is None:
             i = 1
@@ -431,11 +435,11 @@ class Group:
                 self.get_layers(max_layers=1)
             # noinspection PyUnresolvedReferences
             if self.layer_surfs is not None and len(self.layer_surfs) > 0:
-                write_surfs(surfs=self.layer_surfs[0], file_name=self.name + "_shell", directory=self.dir, color_map=self.surf_color, color_scheme=self.surf_scheme)
+                write_surfs(surfs=self.layer_surfs[0], file_name=self.name + "_shell" + scheme, directory=self.dir, color_map=self.surf_color, color_scheme=self.surf_scheme)
         # If the user wants a filled shell for the group
         if fill or all_:
             self.build_surfs()
-            write_surfs(surfs=self.surfs, file_name=self.name + "_fill", directory=self.dir, color_map=self.surf_color, color_scheme=self.surf_scheme)
+            write_surfs(surfs=self.surfs, file_name=self.name + "_fill" + scheme, directory=self.dir, color_map=self.surf_color, color_scheme=self.surf_scheme)
         # If the user wants separate surfaces for the group
         if surfaces or all_:
             i = 1

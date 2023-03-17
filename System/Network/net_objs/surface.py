@@ -188,7 +188,7 @@ class Surface:
         :param color: Bool to color the surf or not
         :return: The surfaces points and triangles are filled
         """
-        if self.net.type in {'pow', 'del'}:
+        if self.net.type in {'pow', 'del'} or self.atoms[0].element == self.atoms[1].element:
             self.flat = True
         # Check to see if the file exists
         if self.file is not None:
@@ -227,7 +227,7 @@ class Surface:
         my_cmap = mpl.colormaps.get_cmap(color_map)
         self.color_map = color_map
         # Set the color scheme for the surface
-        self.color_scheme = color_scheme
+        self.scheme = color_scheme
         # Default is distance based color map
         if color_scheme == 'dist':
 
@@ -278,5 +278,46 @@ class Surface:
                         self.tri_ins_out.append(my_cmap(0.75))
             self.tri_colors = self.tri_ins_out
         elif color_scheme == 'curv':
-            self.scheme = color_scheme
-            pass
+            # Check if the surface is flat
+            if self.flat:
+                self.tri_curvs = [0] * len(self.tris)
+            elif self.tri_curvs is None or len(self.tri_curvs) == 0 or len(self.tri_curvs) != len(self.tris):
+                # Get the function coeficients
+                A, B, C, D, E, F, G, H, I, J = self.func[:10]
+                curvs = []
+                min_curv, max_curv = np.inf, 0
+                # Get the curvature for each point
+                for point in self.points:
+                    # Label the points
+                    x, y, z = point
+                    # Get the gradient of the surface at the point
+                    delf = [2 * A * x + D * y + F * z + G, 2 * B * y + D * x + E * z + H, 2 * C * z + E * y + F * x + I]
+                    # Calculate the norm of the gradient
+                    denominator = np.linalg.norm(delf) ** 4
+                    # Calculate the determinant of the hessian matrix and the gradient matrix
+                    numerator = np.linalg.det([[2 * A, D, F, delf[0]], [D, 2 * B, E, delf[1]], [F, E, 2 * C, delf[2]], delf + [0]])
+                    # Get the curvature
+                    curv = - numerator / denominator
+                    if curv > max_curv:
+                        max_curv = curv
+                    if curv < min_curv:
+                        min_curv = curv
+                    curvs.append(curv)
+                # Set up the tri_curvs list
+                self.tri_curvs = []
+                # Go through the curvature values for each point
+                for i in range(len(self.tris)):
+                    # Get the triangle
+                    tri = self.tris[i]
+                    # Get the curvatures
+                    my_curvs = [curvs[_] for _ in tri]
+                    # Find the maximum curvature point
+                    curv_val = max(my_curvs)
+                    # Add the curve value to the surface's list of curvatures
+                    self.tri_curvs.append(curv_val)
+                # Normalize the tri_curvs
+                self.tri_curvs = [(_ - min_curv) / (max_curv - min_curv) for _ in self.tri_curvs]
+                # Set the curvature for the surface
+                self.curv = max_curv
+            # Set the colors
+            self.tri_colors = [my_cmap(_) for _ in self.tri_curvs]
