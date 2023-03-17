@@ -1,6 +1,5 @@
-from System.sys_funcs.calcs import calc_angle, calc_com, rotate_points, calc_dist
-from Visualize.mpl_visualize import plot_surfs
-import matplotlib.tri as mtri
+from System.sys_funcs.calcs import calc_angle, calc_com, rotate_points
+from scipy.spatial import Delaunay
 import numpy as np
 
 
@@ -366,11 +365,11 @@ def find_simps(surf):
     nps = rotate_points(surf.norm, points)
 
     # Get the 2d version of the points and their Delaunay tesselation
-    nps = np.array(nps)
-    tris = mtri.Triangulation(nps[:, 0], nps[:, 1])
+    surf.flat_points = [_[:2] for _ in nps]
+
+    tris = Delaunay(surf.flat_points)
     # Add the flat points to the surface's list of flat points
-    surf.flat_points = [nps[i, :2] for i in range(len(surf.points))]
-    surf.tris = tris.triangles.tolist()
+    surf.tris = tris.simplices.tolist()
 
 
 def filter_tris(surf):

@@ -1,6 +1,6 @@
 import os.path
-from matplotlib import cm
-from System.sys_funcs.calcs import calc_tri
+import matplotlib as mpl
+from System.sys_funcs.calcs import calc_tri, calc_dist
 from System.Network.net_funcs.build_surf import *
 import csv
 
@@ -21,6 +21,7 @@ class Surface:
         self.ndx = ndx                  # Index           : Indices of the atoms of the surface
         self.file = file                # File            : File address for the reference file holding points and tris
         self.func = function            # Function        : Holds the coefficients of the function describing the surf
+        self.res = resolution           # Resolution      : The resolution with which to build the surface
 
         # Points and tris
         self.points = points            # Points          : The points that make up the surface
@@ -29,14 +30,18 @@ class Surface:
         self.pflat_points = []          # Flat perimeter  : Flattened points around the perimeter
         self.tris = tris                # Triangles       : A list of connections between the points
 
-        # Coloring attributes
+        # Coloring values
+        self.tri_dists = None           # Distances       : List corresponding to the distance from the center
+        self.tri_ins_out = None         # Inside Outside  : List corresponding to inside or outside the atoms
+        self.tri_curvs = None           # Curvature       : List corresponding to curvature value for each point
+
+        # Current coloring
         self.tri_dists = None
         self.tri_curvs = None
         self.tri_ins_out = None
         self.tri_colors = tri_colors    # Tri colors      : Holds the color mapped color for each triangle
         self.scheme = color_scheme      # Color Scheme    : Holds the method by which the color map is mapped
         self.color_map = color_map      # Color Map       : Holds the map applied to the triangles on the surface
-        self.res = resolution           # Resolution      : The resolution with which to build the surface
 
         # Calculation attributes
         self.sa = sa                    # Surface Area    : The surface area of the
@@ -215,11 +220,11 @@ class Surface:
         Colors the triangles in the surface based on the specified coloring scheme and map
         :param inverse: Inverts the color of the color map
         :param color_scheme: Determines how the colors will be mapped
-        :param color_map: Determines the actual colors of the triangles
+        :param color_map: Determines the actual colors of triangles
         :return: The triangles in the surface are colored
         """
         # Set up the color map
-        my_cmap = cm.get_cmap(color_map)
+        my_cmap = mpl.colormaps.get_cmap(color_map)
         self.color_map = color_map
         # Set the color scheme for the surface
         self.color_scheme = color_scheme
@@ -245,7 +250,7 @@ class Surface:
                 # Go through the triangles in the surface
                 for i in range(len(self.tris)):
                     # Find the maximum distance point of the triangles
-                    self.tri_dists.append(min([dists[_] for _ in self.tris[i]]))
+                    self.tri_dists.append(max([dists[_] for _ in self.tris[i]]))
                 # Normalize the tri_dists
                 self.tri_dists = [(_ - min_dist) / (max_dist - min_dist) for _ in self.tri_dists]
             self.tri_colors = [my_cmap(_) for _ in self.tri_dists]
@@ -273,5 +278,5 @@ class Surface:
                         self.tri_ins_out.append(my_cmap(0.75))
             self.tri_colors = self.tri_ins_out
         elif color_scheme == 'curv':
-            self.color_scheme = color_scheme
+            self.scheme = color_scheme
             pass
