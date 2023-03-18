@@ -1,7 +1,7 @@
-from Visualize.commands.commands import *
-from Visualize.commands.set import sett
+from Visualize.cmnd.commands import *
+from Visualize.cmnd.set import sett
 from System.Network.network import Network
-from Visualize.commands.group import group
+from Visualize.cmnd.group import group
 
 
 def build(sys, usr_npt=None):
