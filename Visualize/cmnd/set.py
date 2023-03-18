@@ -88,6 +88,8 @@ def sett(sys, usr_npt, vorpy2_set=False):
                 print("flat surfaces set to {}".format(sys.net.type))
         except ValueError:
             print("\"{}\" is an invalid input for the flat surfaces setting. Enter a True/False value (From 1.0 to 10.0 X, recommended 1.5 X)".format(my_val))
+    elif my_set in surf_colors:
+        sys.net.surf_col = my_val
     # Check for a quit request
     elif my_set.lower() in quits:
         return
