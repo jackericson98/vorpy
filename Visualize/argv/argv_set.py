@@ -2,7 +2,6 @@ from Visualize.cmnd.set import sett, my_settings
 
 
 def argv_sett(my_sys, usr_npt):
-    print(usr_npt)
     # Go through the user inputs loading files
     while usr_npt:
         my_npt = usr_npt.pop(0)
