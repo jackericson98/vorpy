@@ -1,5 +1,5 @@
-from Visualize.commands.interpret import *
-from Visualize.commands.group import group
+from Visualize.cmnd.interpret import *
+from Visualize.cmnd.group import group
 from System.sys_funcs.output import *
 
 
