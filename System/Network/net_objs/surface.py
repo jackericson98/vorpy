@@ -212,10 +212,8 @@ class Surface:
         find_simps(self)
         # Filter out the bad triangles
         filter_tris(self)
-        if color:
-            self.color_tris()
 
-    def color_tris(self, color_scheme='dist', color_map='inferno', inverse=False):
+    def color_tris(self, color_scheme=None, color_map=None, inverse=False):
         """
         Colors the triangles in the surface based on the specified coloring scheme and map
         :param inverse: Inverts the color of the color map
@@ -223,6 +221,10 @@ class Surface:
         :param color_map: Determines the actual colors of triangles
         :return: The triangles in the surface are colored
         """
+        if color_scheme is None:
+            color_scheme = self.net.surf_scm
+        if color_scheme is None:
+            color_map = self.net.surf_col
         # Set up the color map
         my_cmap = mpl.colormaps.get_cmap(color_map)
         self.color_map = color_map
@@ -316,7 +318,7 @@ class Surface:
                     # Add the curve value to the surface's list of curvatures
                     self.tri_curvs.append(curv_val)
                 # Normalize the tri_curvs
-                self.tri_curvs = [(_ - min_curv) / (max_curv - min_curv) for _ in self.tri_curvs]
+                self.tri_curvs = [1 - (_ - min_curv) / (max_curv - min_curv) for _ in self.tri_curvs]
                 # Set the curvature for the surface
                 self.curv = max_curv
             # Set the colors
