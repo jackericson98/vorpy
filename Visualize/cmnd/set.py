@@ -1,4 +1,4 @@
-from Visualize.commands.interpret import *
+from Visualize.cmnd.interpret import *
 from System.Network.network import Network
 
 
