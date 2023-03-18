@@ -4,7 +4,7 @@ from vispy import scene
 from vispy.visuals.transforms import STTransform
 from System.system import System
 
-canvas = scene.SceneCanvas(keys='interactive', bgcolor='white',
+canvas = scene.SceneCanvas(keys='interactive', bgcolor='black',
                            size=(800, 600), show=True)
 
 view = canvas.central_widget.add_view()
