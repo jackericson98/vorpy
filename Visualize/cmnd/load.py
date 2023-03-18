@@ -1,5 +1,5 @@
-from Visualize.commands.interpret import get_file
-from Visualize.commands.commands import *
+from Visualize.cmnd.interpret import get_file
+from Visualize.cmnd.commands import *
 from System.system import System
 
 
