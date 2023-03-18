@@ -164,8 +164,7 @@ def get_val(setting=None, val=None):
     if setting is None or setting.lower() not in my_settings:
         setting = get_set()
     # Find the value for the setting
-    asking = True
-    while asking:
+    while True:
         # If no val has been provided
         if val is None:
             prompt_str = "Enter {} value \nvalue >>>   ".format(settings_dict[setting])
@@ -199,7 +198,14 @@ def get_val(setting=None, val=None):
                 val = float(val)
             except ValueError:
                 val = None
+        elif setting in surf_colors:
+            if val in ["viridis", "plasma", "inferno", "cividis", "Greys", "Reds", "Greens", "Blues"]:
+                break
+        elif setting in surf_schemes:
+            if val in ['dist', 'ins_out', 'curv']:
+                break
         # Check if we cool
         if val is not None:
-            asking = False
+            break
+
     return val
