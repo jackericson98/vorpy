@@ -90,6 +90,8 @@ class Group:
         # Add the residue atoms
         for residue in self.resids:
             self.add_atoms(residue.atoms)
+        if self.name is None:
+            self.name = '{}_group{}'.format(self.sys.name, self.sys.groups.index(self))
         # Get the surfaces
         self.get_surfs()
 
