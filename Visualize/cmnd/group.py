@@ -9,21 +9,21 @@ def group(sys, usr_npt, group_2=None):
         my_obj = 'm'
         my_ndx = [0, len(sys.mols) - 2]
     # User only input "export"
-    elif len(usr_npt) <= 1:
+    elif len(usr_npt) == 0:
         # Tell the user to pick an object and an index
         my_obj = get_obj(sys=sys)
         my_ndx = get_ndx(sys=sys, obj=my_obj)
     # User entered "export obj" and needs an index
-    elif len(usr_npt) == 2:
+    elif len(usr_npt) == 1:
         # Add a check for system
         # Check the object provided by the user
-        my_obj = get_obj(sys=sys, obj=usr_npt[1])
+        my_obj = get_obj(sys=sys, obj=usr_npt[0])
         my_ndx = get_ndx(sys=sys, obj=my_obj)
     # If the user input an object and an index of their own
-    elif len(usr_npt) >= 3:
+    elif len(usr_npt) >= 2:
         # Check the object
-        my_obj = get_obj(sys=sys, obj=usr_npt[1])
-        my_ndx = get_ndx(sys=sys, obj=my_obj, ndx_npt=usr_npt[2])
+        my_obj = get_obj(sys=sys, obj=usr_npt[0])
+        my_ndx = get_ndx(sys=sys, obj=my_obj, ndx_npt=usr_npt[1])
     # Get the group information
     obj_ndx = ['m', 'r', 'a', 'n'].index(my_obj)
     obj_list = [sys.mols, sys.residues, sys.atoms, sys.ndxs][obj_ndx]
