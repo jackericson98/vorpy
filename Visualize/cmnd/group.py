@@ -1,12 +1,15 @@
 from System.sys_objs.group import Group
-from Visualize.commands.interpret import *
+from Visualize.cmnd.interpret import *
 
 
 def group(sys, usr_npt, group_2=None):
     # Create the object and index variables
     my_obj, my_ndx = None, None
+    if usr_npt[0] == 'ns':
+        my_obj = 'm'
+        my_ndx = [0, len(sys.mols) - 2]
     # User only input "export"
-    if len(usr_npt) <= 1:
+    elif len(usr_npt) <= 1:
         # Tell the user to pick an object and an index
         my_obj = get_obj(sys=sys)
         my_ndx = get_ndx(sys=sys, obj=my_obj)
