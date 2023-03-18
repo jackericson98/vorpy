@@ -9,7 +9,7 @@ def argv_group(my_sys, usr_npt, add_more=False):
     else:
         my_group = None
         for grouping in usr_npt:
-            group(sys=my_sys, usr_npt=grouping, group_2=my_group)
+            my_sys.groups.append(group(sys=my_sys, usr_npt=grouping, group_2=my_group))
 
 
 def group_argv(my_sys, usr_npt):
