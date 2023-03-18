@@ -7,7 +7,7 @@ class Group:
     """Group class. Used to hold selections of atoms and do analysis on it"""
     def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, name=None, mols=None, residues=None,
                  indices=None, bff=None, vert_color='Reds', vert_scheme='shell', edge_color='white', edge_scheme=None,
-                 surf_color='plasma', surf_scheme='dist'):
+                 surf_color=None, surf_scheme=None):
 
         # System attributes
         self.sys = sys                  # Network            :    Network of the System
@@ -90,6 +90,7 @@ class Group:
         # Add the residue atoms
         for residue in self.resids:
             self.add_atoms(residue.atoms)
+        # Add a Name If none was provided
         if self.name is None:
             self.name = '{}_group{}'.format(self.sys.name, self.sys.groups.index(self))
         # Get the surfaces
@@ -406,6 +407,11 @@ class Group:
         :param edges: Exports all edges for the group
         :return: The specified export is placed in the group's directory
         """
+        # Set the surface colors and scheme
+        if self.surf_color is None:
+            self.surf_color = self.sys.net.surf_col
+        if self.surf_scheme is None:
+            self.surf_scheme = self.sys.net.surf_scm
         # Get the surfaces if they haven't been got
         if self.surfs is None or len(self.surfs) == 0:
             self.build_surfs()
