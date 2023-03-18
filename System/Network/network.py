@@ -240,9 +240,8 @@ class Network:
         # Make each surface
         for i in range(len(self.surfs)):
             # Build the surfaces and print the progress
-            if self.sys.print_actions:
-                print("\rbuilding surfaces " + " " * (len(str(len(self.surfs) - 1)) - len(str(i + 1))) + str(i + 1) + "/" +
-                      str(len(self.surfs)) + "                   ", end="")
+            print("\rbuilding surfaces " + " " * (len(str(len(self.surfs) - 1)) - len(str(i + 1))) + str(i + 1) + "/" +
+                  str(len(self.surfs)) + "                   ", end="")
             self.surfs[i].build(color=False)
 
     def analyze(self):
@@ -334,8 +333,7 @@ class Network:
         self.cpu_time = time.process_time() - process_start
         # Export the network
         if output:
-            self.sys.exports(network=True, pdb=True, info=self.build_surfs, alter_atoms_script=True)
+            self.sys.exports(network=True, pdb=True, info=self.build_surfs, set_atoms=True)
         h, m, s = get_time(self.my_time)
-        if self.sys.print_actions:
-            print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s, cpu time = {}\n".format(len(self.verts), len(self.surfs),
-                                                                                int(h), int(m), s, self.cpu_time), end="")
+        print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s, cpu time = {}\n".format(len(self.verts), len(self.surfs),
+                                                                            int(h), int(m), s, self.cpu_time), end="")
