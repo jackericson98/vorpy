@@ -8,7 +8,7 @@ from numpy import seterr, random
 
 class System:
     def __init__(self, file=None, atoms=None, verts_file=None, network_file=None, index_file=None, frame_files=None,
-                 output_directory=None, gui=None, root_dir=None):
+                 output_directory=None, gui=None, root_dir=None, print_actions=False):
         """
         Class used to import files of all types and return a System
         :param file: Base system file address
@@ -56,7 +56,7 @@ class System:
 
         # Gui
         self.gui = gui                      # GUI                 :   GUI Vorpy object that can be updated through sys
-        self.print_actions = False          # Print actions Bool  :   Tells the system to print or not
+        self.print_actions = print_actions  # Print actions Bool  :   Tells the system to print or not
 
         # # Initiate the system
         self.__load_files__()
@@ -117,6 +117,10 @@ class System:
         # Read MOL file
         elif self.base_file[-3:] == "mol":
             read_mol(self)
+
+        # Name the system
+        if self.name is None:
+            self.name = os.path.basename(self.base_file)[:-4]
 
         # Sort the atoms
         sort_atoms(self)
@@ -252,15 +256,15 @@ class System:
         """
         set_output_dir(self, dir_name=directory)
 
-    def exports(self, network=False, pdb=False, surfaces=False, full_network_object=False, no_sol_network_object=False,
-                alter_atoms_script=False, info=False):
+    def exports(self, network=False, pdb=False, surfaces=False, full_network_object=False, no_sol_shell=False,
+                set_atoms=False, info=False):
         """
         Prepares the output directory and system for output. Keeps things consistent
         :return:
         """
         # Export the system (/System/sys_funcs/output)
         export_sys(self, network=network, pdb=pdb, surfaces=surfaces, full_network_object=full_network_object,
-                   no_sol_network_object=no_sol_network_object, alter_atoms_script=alter_atoms_script, info=info)
+                   no_sol_network_object=no_sol_shell, alter_atoms_script=set_atoms, info=info)
 
     def show_net(self, info=True, full_net=False, verts=False, edges=False, surfs=False, system=False):
         # Empty Network
