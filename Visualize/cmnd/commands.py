@@ -37,6 +37,8 @@ max_verts = ['max_vert', 'mv', 'maximum_vertex', 'max_vertex', 'maximum_vert', '
 box_sizes = ['box_size', 'bm', 'box', 'bx_sz', 'size_box', 'containing_box', 'containing_box_size', 'box_multi', 'box_multiplier']
 build_surfses = ['build_surfs', 'build_surfaces', 'bs', 'bld_srfs', 'cs', 'calc_surfs', 'surfs_build', 'surfaces_build', 'build_surf', 'build_surf']
 net_types = ['st', 'surf_type', 'net_type', 'nt']
+surf_colors = ['sc']
+surf_schemes = ['ss']
 file_types = ['net', 'vert', 'ball', 'ndx']
 
 power_vals = ['pow', 'power', 'p', 'pwr']
