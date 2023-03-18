@@ -8,7 +8,7 @@ from Visualize.mpl_visualize import *
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
     def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.1, box_size=1.25, max_vert=7,
-                 calc_verts=True, connect_net=True, build_surfs=True, net_type='vor'):
+                 calc_verts=True, connect_net=True, build_surfs=True, net_type='vor', surf_col='plasma', surf_scheme='curv'):
 
         # Main network defining objects
         self.sys = sys                    # System            : Route back to outer system for system attribute access
@@ -41,6 +41,8 @@ class Network:
 
         # Build settings
         self.surf_res = surf_res           # Resolution       :    How small the triangles in the surfaces are
+        self.surf_col = surf_col           # Color map        :    How the surfaces are colored
+        self.surf_scm = surf_scheme        # Coloring scheme  :    How the surfaces will be colored
         self.max_vert = max_vert           # Max vert rad     :    The maximum vertex radius for the network
         self.box_size = box_size           # Box size         :    Retaining box multiplier
         self.calc_verts = calc_verts       # Calc Verts       :    Calculate the vertices
@@ -242,7 +244,7 @@ class Network:
             # Build the surfaces and print the progress
             print("\rbuilding surfaces " + " " * (len(str(len(self.surfs) - 1)) - len(str(i + 1))) + str(i + 1) + "/" +
                   str(len(self.surfs)) + "                   ", end="")
-            self.surfs[i].build(color=False)
+            self.surfs[i].build(color=True)
 
     def analyze(self):
         """
