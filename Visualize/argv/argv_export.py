@@ -31,7 +31,6 @@ def export_npt(my_sys, usr_npt):
     """
     _____________________________________Default____________________________________________
     """
-    print(usr_npt)
     # If nothing is specified export the defaults
     if usr_npt.lower() == 'default':
         # Export the system's network, information file, the
@@ -39,7 +38,7 @@ def export_npt(my_sys, usr_npt):
         # Go through each of the system's groups
         for grouping in my_sys.groups:
             # Export the atoms, shell and info file
-            grouping.exports(shell=True, atoms=True, info=True)
+            grouping.exports(shell=True, atoms=True, info=True, surr_atoms=True)
 
     """
     ____________________________________All__________________________________________________________
