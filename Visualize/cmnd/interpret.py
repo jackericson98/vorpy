@@ -1,4 +1,4 @@
-from Visualize.commands.commands import *
+from Visualize.cmnd.commands import *
 import os
 from os import path
 
@@ -74,6 +74,7 @@ def get_obj(sys, obj=None):
             return 'a'
         elif obj[0].lower() in ndx_objs:
             return 'n'
+
 
 
 def get_file(file=None):
