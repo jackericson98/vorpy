@@ -1,0 +1,45 @@
+import os
+from System.sys_funcs.output import write_surfs
+
+
+def build_surfs(grp, resolution=None):
+    """
+    Checks the surfaces for points and allows for rebuilds surfaces with incorrect resolutions
+    :param resolution: If not None all surfs without this resolution will be rebuilt
+    :return: All surfaces in the group will be constructed
+    """
+    # Get the resolution
+    if resolution is None:
+        resolution = grp.sys.net.surf_res
+        grp.surf_res = resolution
+    # Set up the build surfaces list
+    build_surfs = []
+    # Go through the list of build surfaces checking for
+    for surf in grp.surfs:
+        # Check if the resolution is different from the set resolution or the surface has no points
+        if surf.res != resolution:
+            build_surfs.append(surf)
+        # Check if there is any sign of missing points or triangles
+        elif surf.points is None or surf.tris is None or len(surf.points) <= 2 or len(surf.tris) == 0:
+            # If it is possible to load the file
+            if surf.file is not None and surf.file not in ["", " "]:
+                test = surf.read_file()
+                if test is None:
+                    build_surfs.append(surf)
+            # Worst case, add the surface to the list of surfaces to be built
+            else:
+                build_surfs.append(surf)
+    # Create the system's surface's file if needed
+    if len(build_surfs) > 0 and not os.path.exists(grp.sys.dir + "/surfs"):
+        os.mkdir(grp.sys.dir + "/surfs")
+        os.chdir(grp.sys.dir + '/surfs')
+    # Build the surfaces
+    for i in range(len(build_surfs)):
+        # Print the status of the surfaces being built
+        print("\rbuilding " + grp.name + " surfaces " + " " * (len(str(len(grp.surfs) - 1)) - len(str(i + 1))) +
+              str(i + 1) + "/" + str(len(grp.surfs)) + "                   ", end="")
+        build_surfs[i].build(res=resolution, flat=grp.sys.net.flat_Del)
+        if build_surfs[i].file is None:
+            write_surfs([build_surfs[i]], "_".join([str(_) for _ in build_surfs[i].ndx]), )
+    # Change back
+    os.chdir(grp.sys.dir)
