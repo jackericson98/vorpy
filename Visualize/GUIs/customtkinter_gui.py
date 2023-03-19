@@ -4,7 +4,8 @@ import tkinter.ttk as ttk
 from tkinter import filedialog
 from System.system import System, Network
 from System.sys_funcs.output import *
-from System.sys_objs.group import *
+from System.Group.group import *
+from System.Group.export import *
 
 
 class VorpyC(ctk.CTk):
@@ -665,10 +666,10 @@ class VorpyC(ctk.CTk):
         self.g2_sele_str.set("")
 
     def export_g1_button(self):
-        export_body(self.g1, info_file=True, outer_atoms=False)
+        self.g1.exports(shell=True, info=True, surr_atoms=True)
 
     def export_g2_button(self):
-        export_body(self.g2, info_file=True, outer_atoms=False)
+        self.g1.exports(shell=True, info=True, surr_atoms=True)
 
     def export_iface_button(self):
         export_iface([self.g1, self.g2], info_file=True, interface_atoms=False)
