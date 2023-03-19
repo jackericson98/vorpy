@@ -114,6 +114,8 @@ class Edge:
 
     # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
     def build(self, surf=None, res=None, straight=False):
+        # Set the self defining straight value
+        self.straight = straight
         # Get the location and radius of the circle inscribed between the edge atoms
         self.get_loc()
         # Get the pvals
