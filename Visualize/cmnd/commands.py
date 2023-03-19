@@ -37,8 +37,9 @@ max_verts = ['max_vert', 'mv', 'maximum_vertex', 'max_vertex', 'maximum_vert', '
 box_sizes = ['box_size', 'bm', 'box', 'bx_sz', 'size_box', 'containing_box', 'containing_box_size', 'box_multi', 'box_multiplier']
 build_surfses = ['build_surfs', 'build_surfaces', 'bs', 'bld_srfs', 'cs', 'calc_surfs', 'surfs_build', 'surfaces_build', 'build_surf', 'build_surf']
 net_types = ['st', 'surf_type', 'net_type', 'nt']
-surf_colors = ['sc']
-surf_schemes = ['ss']
+surf_colors = ['sc', 'surf_colors', 'surf_color_map', 'surf_col', "scm"]
+surf_schemes = ['ss', 'sirf_scheme', 'surf_scm']
+atom_radii = ['ar', 'atom_radius', 'element_radius']
 file_types = ['net', 'vert', 'ball', 'ndx']
 
 power_vals = ['pow', 'power', 'p', 'pwr']
@@ -47,9 +48,9 @@ delaunay_vals = ['del', 'dl', 'delaunay', 'dlny', 'dny']
 
 
 my_settings_vals = power_vals + voronoi_vals + delaunay_vals
-my_settings = surf_reses + max_verts + box_sizes + build_surfses + net_types
+my_settings = surf_reses + max_verts + box_sizes + build_surfses + net_types + surf_schemes + surf_colors + atom_radii
 settings_dict = {'sr': 'Surface Resolution', 'mv': 'Maximum Vertex', 'bm': 'Box Multiplier', 'bs': 'Build Surfaces?',
-                 'nt': 'Network Type'}
+                 'nt': 'Network Type', 'sc': 'Surface Color Map', 'ss': 'Surface Coloring Scheme'}
 
 
 def are_you_sure():
