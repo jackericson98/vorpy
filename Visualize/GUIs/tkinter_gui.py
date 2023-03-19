@@ -2,7 +2,7 @@ import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import filedialog
 from System.system import System, Network
-from System.sys_objs.group import Group
+from System.Group.group import Group
 from System.sys_funcs.output import *
 
 
