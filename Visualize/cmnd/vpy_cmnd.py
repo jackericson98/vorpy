@@ -1,6 +1,6 @@
 from Visualize.cmnd.export import *
 from Visualize.cmnd.set import *
-from System.sys_objs.group import Group
+from System.Group.group import Group
 
 
 def load_atom_file(my_sys):

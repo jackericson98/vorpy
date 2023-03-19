@@ -1,4 +1,4 @@
-from System.sys_objs.group import Group
+from System.Group.group import Group
 from Visualize.cmnd.interpret import *
 
 

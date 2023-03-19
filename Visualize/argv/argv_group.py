@@ -1,6 +1,6 @@
 from Visualize.cmnd.group import group
 from Visualize.cmnd.commands import *
-from System.sys_objs.group import Group
+from System.Group.group import Group
 
 
 def argv_group(my_sys, usr_npt, add_more=False):
