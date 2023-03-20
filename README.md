@@ -1,14 +1,20 @@
+![image](https://user-images.githubusercontent.com/62311229/226451994-de2cd30f-4ee9-4d09-87f3-2fd2c1573b35.png)
+
+
+
 # Vorpy
 
 ## Description
 
 
-Vorpy is a comprehensive Voronoi cell network generator for 3D spheres designed with simulated molecular dynamics (md) analysis in mind. It works by partitioning the space between simulated atoms and using these partitions to calculate volumes and surface areas of bodies and interfaces of interest (residue, protein/DNA, etc.). By probing inter-atomic partitions it is possible to better understand a number of features of simulated molecules ranging inter-atomic influence in different chemical bonds to the evolution of a protein-DNA complex. 
+The first comprehensive Voronoi cell network generator for 3D spheres designed with simulated molecular dynamics (md) analysis in mind. It takes in text files containing the locations of atoms in simulated molecules and creates individually partitioned atomic Voronoi cells for analysis. Atoms are partitioned by sampling points along the Voronoi surfaces of neigboring atoms. Using these partitions, the volumes and surface areas of bodies and interfaces of interest (residue, protein/DNA, etc.) can be more accurately analyzed and visualized. 
+
+# Usage
 
 ## Prerequisites
 
 - Dependencies: >= python 3.9
-- Basic Dependencies: Numpy, Matplotlib
+- Basic Dependencies: numpy, scipy, matplotlib
 - Instalation:
    Move to the vorpy directory in a shell or command prompt:
    ```
@@ -16,14 +22,13 @@ Vorpy is a comprehensive Voronoi cell network generator for 3D spheres designed 
    ```
    Install the requirements
    ```
-   python3 -m pip install numpy
-   python3 -m pip install matplotlib
+   python3 -m pip install requirements.txt
    ```
    Note: If installing the requirements.txt fails, retry with just numpy and matplotlib (ex: pip install matplotlib) and only use the command prompt, jupyter notebook     or script provided below
 
-## Usage
 
-### Command Line 
+
+## Command Line 
 
 1. Move to the main vorpy directory in a shell or command prompt
 2. Run the following
@@ -31,12 +36,6 @@ Vorpy is a comprehensive Voronoi cell network generator for 3D spheres designed 
    py vorpy.py
    ```
 3. Follow the prompts
-
-### Script
-
-1. Open vorpy_script.py in an ide
-2. Change the load/build/output settings following the provided comments for instruction
-3. Run the script
 
 ### Jupyter Notebook
 
