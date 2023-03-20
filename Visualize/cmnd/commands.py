@@ -232,7 +232,7 @@ def get_obj(sys, obj=None, return_ndx=True):
         objs = [mol_objs, res_objs, atom_objs, ndx_objs]
         for i in range(4):
             if my_input.lower() in objs[i]:
-                if len([sys.mols, sys.residues, sys.atoms, sys.ndxs][i]) > 0:
+                if len([sys.chains, sys.residues, sys.atoms, sys.ndxs][i]) > 0:
                     return i + 1
                 else:
                     print("no {} in the system. try again or typ \'h\' for help"

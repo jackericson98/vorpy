@@ -32,7 +32,7 @@ def load(sys, usr_npt):
                 if reset_sys.lower() in ys:
                     sys = System(file)
                     print(sys.name + " loaded - {} atoms, {} molecules, solute: {}"
-                          .format(len(sys.atoms), len(sys.mols), sys.sol_name))
+                          .format(len(sys.atoms), len(sys.chains), sys.sol.name))
                     return sys
                 elif reset_sys.lower() in helps:
                     help_()
@@ -41,8 +41,7 @@ def load(sys, usr_npt):
             else:
                 sys.load_sys(file=file)
                 # noinspection PyUnresolvedReferences
-                print(sys.name + " loaded - {} atoms, {} molecules, solute: {}"
-                      .format(len(sys.atoms), len(sys.mols), sys.sol_name))
+                sys.print_info()
                 return sys
         # If the loaded file is a vertex or network file load them accordingly
         elif file[-3:] == 'txt':

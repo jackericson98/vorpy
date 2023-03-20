@@ -439,7 +439,7 @@ class VorpyC(ctk.CTk):
         self.sys.load_sys(file_path)
         # Set the system information
         # We want to get the number of atoms, the number of molecules, etc
-        myStr = str(len(self.sys.atoms)) + '\n' + str(len(self.sys.mols)) + '\n' + str(len(self.sys.residues)) + \
+        myStr = str(len(self.sys.atoms)) + '\n' + str(len(self.sys.chains)) + '\n' + str(len(self.sys.residues)) + \
                 "\n   ~   \n   ~   \n   ~   "
         # Set the variables
         self.sys_data.set(myStr)
@@ -594,7 +594,7 @@ class VorpyC(ctk.CTk):
         :return:
         """
         if self.choose_mol_bool.get():
-            self.current_selection_atoms = self.sys.mols[self.sys.mol_names.index(self.current_selection.get())]
+            self.current_selection_atoms = self.sys.chains[self.sys.mol_names.index(self.current_selection.get())]
         elif self.choose_res_bool.get():
             self.current_selection_atoms = self.sys.residues[self.sys.res_names.index(self.current_selection.get())]
         elif self.choose_ndx_bool.get():

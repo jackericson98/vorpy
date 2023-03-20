@@ -15,7 +15,7 @@ def get_ndx(sys, obj, ndx_npt=None):
     # Get the list
     obj_list = []
     if obj == 'm':
-        obj_list, obj_num = sys.mols, 0
+        obj_list, obj_num = sys.chains, 0
     elif obj == 'r':
         obj_list, obj_num = sys.residues, 1
     elif obj == 'a':

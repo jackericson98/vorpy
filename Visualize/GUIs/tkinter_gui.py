@@ -368,15 +368,15 @@ class VorpyT:
         self.sys.load_sys(file_path)
         # Set the system information
         # We want to get the number of atoms, the number of molecules, etc
-        myStr = str(len(self.sys.atoms)) + '\n' + str(len(self.sys.mols)) + '\n' + str(len(self.sys.residues)) + \
+        myStr = str(len(self.sys.atoms)) + '\n' + str(len(self.sys.chains)) + '\n' + str(len(self.sys.residues)) + \
                 "\n   ~   \n   ~   \n   ~   "
         # Set the variables
         self.sys_pros.set(myStr)
         # Set the molecule names
-        for mol in self.sys.mols:
+        for mol in self.sys.chains:
             self.mol_list.append(mol[0].mol)
         for res in self.sys.residues:
-            self.res_list.append(res[0].res + " " + res[0].res_seq)
+            self.res_list.append(res[0].name + " " + res[0].res_seq)
         for atom in self.sys.atoms:
 
             self.atom_list.append(str(self.sys.atoms.index(atom)) + " " + atom.element)
@@ -490,7 +490,7 @@ class VorpyT:
 
     def add_mol_button(self):
         mol_ndx = self.sys.mol_names.index(self.current_mol_selection.get())
-        self.selected_atoms.append(self.sys.mols[mol_ndx])
+        self.selected_atoms.append(self.sys.chains[mol_ndx])
         self.selected_atoms_names.append(self.sys.mol_names[mol_ndx])
         if len(self.selected_atoms_names) > 3:
             sele_str = self.selected_atoms_names[0] + "\n:\n" + self.selected_atoms_names[2]

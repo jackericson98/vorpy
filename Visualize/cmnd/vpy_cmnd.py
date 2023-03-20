@@ -109,7 +109,7 @@ def create_group(my_sys, usr_npt):
         return Group(sys=my_sys, atoms=my_sys.atoms, name="{}_full".format(my_sys.name))
     # Check for no sol
     elif usr_npt[0].lower() == 'ns':
-        return Group(sys=my_sys, mols=my_sys.mols[:-1], name=my_sys.name + "_no_SOL")
+        return Group(sys=my_sys, chains=my_sys.chains, name=my_sys.name + "_no_SOL")
 
     # Create the object and index variables
     my_obj, my_ndx = None, None
@@ -131,7 +131,7 @@ def create_group(my_sys, usr_npt):
         my_ndx = get_ndx(sys=my_sys, obj=my_obj, ndx_npt=usr_npt[1])
     # Get the group information
     obj_ndx = ['m', 'r', 'a', 'n'].index(my_obj)
-    obj_list = [my_sys.mols, my_sys.residues, my_sys.atoms, my_sys.ndxs][obj_ndx]
+    obj_list = [my_sys.chains, my_sys.residues, my_sys.atoms, my_sys.ndxs][obj_ndx]
     name_prfx = ['mol', 'resid', 'atom', 'ndx'][obj_ndx]
     my_list, name = None, None
     # Get the slice and name of the group
@@ -146,7 +146,7 @@ def create_group(my_sys, usr_npt):
     # Create the group
     npt_list = [None] * 4
     npt_list[obj_ndx] = my_list
-    return Group(sys=my_sys, mols=npt_list[0], residues=npt_list[1], atoms=npt_list[2], indices=npt_list[3], name=name)
+    return Group(sys=my_sys, chains=npt_list[0], residues=npt_list[1], atoms=npt_list[2], indices=npt_list[3], name=name)
 
 
 def vorpy(my_sys):
@@ -189,7 +189,7 @@ def vorpy(my_sys):
         my_group = create_group(my_sys=my_sys, usr_npt=usr_npt)
         if my_group is not None:
             print("{} group created - {} atoms, {} residues, {} chains".format(my_group.name, len(my_group.atoms),
-                                                                               len(my_group.resids), len(my_group.mols)))
+                                                                               len(my_group.resids), len(my_group.chains)))
             break
     # Check if the network has been loaded
     if my_sys.net_file is None and my_sys.vert_file is None:
