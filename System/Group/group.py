@@ -187,6 +187,8 @@ class Group:
             # Add the volume to that of the group
             self.vol += atom.vol
         # Check to see if the first layer has been calculated
+        if len(self.layer_surfs) == 0:
+            return
         for surf in self.layer_surfs[0]:
             # Check that the surface has a surface area
             if surf.sa is None or surf.sa == 0:
