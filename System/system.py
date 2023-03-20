@@ -266,15 +266,16 @@ class System:
         """
         set_output_dir(self, dir_name=directory)
 
-    def exports(self, network=False, pdb=False, surfaces=False, full_network_object=False, no_sol_shell=False,
-                set_atoms=False, info=False):
+    def exports(self, all_=False, network=False, pdb=False, surfaces=False, full_network_object=False, set_atoms=False,
+                info=False):
         """
         Prepares the output directory and system for output. Keeps things consistent
         :return:
         """
         # Export the system (/System/sys_funcs/output)
-        export_sys(self, network=network, pdb=pdb, surfaces=surfaces, full_network_object=full_network_object,
-                   no_sol_network_object=no_sol_shell, alter_atoms_script=set_atoms, info=info)
+        export_sys(self, all_=all_, network=network, pdb=pdb, surfaces=surfaces,
+                   full_network_object=full_network_object,
+                   alter_atoms_script=set_atoms, info=info)
 
     def show_net(self, info=True, full_net=False, verts=False, edges=False, surfs=False, system=False):
         # Empty Network
