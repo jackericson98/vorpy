@@ -506,8 +506,8 @@ class VorpyC(ctk.CTk):
 
     def change_atom_radius(self):
         # When pressed, the current atom selection's radius changes
-        old_rad = self.sys.radii[1][self.sys.radii[0].index(self.cur_elem.get())]
-        self.sys.radii[1][self.sys.radii[0].index(self.cur_elem.get())] = self.cur_elem_rad.get()
+        old_rad = self.sys.radii[self.cur_elem.get()]
+        self.sys.radii[self.cur_elem.get()] = self.cur_elem_rad.get()
         # print an update
         my_elem = self.cur_elem.get() + " "
         my_elem = my_elem[0].upper() + my_elem[1:]
