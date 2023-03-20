@@ -13,9 +13,10 @@ def add_atoms(grp, atom_list):
         grp.atoms = []
     # Go through the atom_list
     for atom in atom_list:
+        # Get the atom's location
         atom_ndx = ndx_search(grp.atom_ndxs, atom.num)
         # Check to see if we have found this atom before
-        if atom_ndx >= len(grp.atom_ndxs) or grp.atoms[atom_ndx] == atom.num:
+        if atom_ndx >= len(grp.atom_ndxs) or grp.atoms[atom_ndx].num != atom.num:
             grp.atoms.insert(atom_ndx, atom)
             grp.atom_ndxs.insert(atom_ndx, atom.num)
 
