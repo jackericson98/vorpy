@@ -137,7 +137,7 @@ class VorpyT:
         tk.Label(bld_sbfrm, text="Change Atom Radius").grid(row=5, column=3)
         self.current_elem_selection = tk.StringVar(self.main)
         self.current_rad_set = tk.DoubleVar(self.main)
-        self.elem_rad_options = tk.OptionMenu(bld_sbfrm, self.current_elem_selection, " ", *self.sys.radii[0])
+        self.elem_rad_options = tk.OptionMenu(bld_sbfrm, self.current_elem_selection, " ", *[_ for _ in self.sys.radii])
         self.elem_rad_options.grid(row=6, column=3)
         tk.Entry(bld_sbfrm, textvariable=self.current_rad_set, width=20).grid(row=6, column=4)
         tk.Button(bld_sbfrm, text="Change", command=self.change_radius_button).grid(row=6, column=5)
@@ -438,9 +438,9 @@ class VorpyT:
             self.analysis_frame.pack()
 
     def change_radius_button(self):
-        old_rad = self.sys.radii[1][self.sys.radii[0].index(self.current_elem_selection.get())]
+        old_rad = self.sys.radii[self.current_elem_selection.get()]
         # When pressed, the current atom selection's radius changes
-        self.sys.radii[1][self.sys.radii[0].index(self.current_elem_selection.get())] = self.current_rad_set.get()
+        self.sys.radii[self.current_elem_selection.get()] = self.current_rad_set.get()
         # print an update
         print("\r{} radius changed from {} to {}".format(self.current_elem_selection.get(), old_rad,
                                                          self.current_rad_set.get()), end="")
