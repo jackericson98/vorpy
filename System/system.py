@@ -8,7 +8,7 @@ from numpy import seterr, random
 
 class System:
     def __init__(self, file=None, atoms=None, verts_file=None, network_file=None, index_file=None, frame_files=None,
-                 output_directory=None, gui=None, root_dir=None, print_actions=False):
+                 output_directory=None, gui=None, root_dir=None, print_actions=False, residues=None, chains=None, segments=None):
         """
         Class used to import files of all types and return a System
         :param file: Base system file address
@@ -31,12 +31,15 @@ class System:
 
         # Data
         self.net = None                     # Network             :   Network object holding the primary network
-        self.atoms = atoms                  # Atoms               :   List holding the atom objects
         self.user_atoms = atoms             # User Atoms          :   User provided locations and radii
-        self.mols = None                    # Molecules           :   Molecule objects from the system
-        self.residues = None                # Residues            :   List of residues (lists of atoms)
+
+        # Loadable objects
+        self.atoms = atoms                  # Atoms               :   List holding the atom objects
+        self.residues = residues            # Residues            :   List of residues (lists of atoms)
+        self.chains = chains
+        self.segments = segments
         self.sol = None                     # Solution            :   List of solution molecules (lists of atoms)
-        self.sol_name = "None"              # Solute Name         :   Name for the solute from the atoms
+
         self.groups = []                    # Groups              :   List of groups in the system
         self.ndxs = []                      # Indices             :   List of lists indices of atoms
         self.radii = my_radii               # Radii               :   List of atomic radii
@@ -59,11 +62,11 @@ class System:
         self.print_actions = print_actions  # Print actions Bool  :   Tells the system to print or not
 
         # # Initiate the system
-        self.__load_files__()
+        self.load_files()
 
         seterr(divide='ignore', invalid='ignore')
 
-    def __load_files__(self):
+    def load_files(self):
         """
         Create the system and make sure the files added in __init__ are added to the system
         :return:
@@ -128,7 +131,7 @@ class System:
         # If the system wants its actions printed
         if self.print_actions:
             print("{} loaded - {} atoms, {} chains, {} residues"
-                  .format(self.name, len(self.atoms), len(self.mols), len(self.residues)))
+                  .format(self.name, len(self.atoms), len(self.chains), len(self.residues)))
 
     def load_verts(self, file=None, vta_ball_file=None):
         """
@@ -202,11 +205,10 @@ class System:
             else:
                 if type(atom[1]) == str:
                     self.atoms.append(Atom([float(atom[0][0]), float(atom[0][1]), float(atom[0][2])],
-                                           get_radius(self, atom[1]), element=atom[1], chain="None", index=i))
+                                           element=atom[1], chain="None", index=i))
                 else:
                     self.atoms.append(Atom([float(atom[0][0]), float(atom[0][1]), float(atom[0][2])], float(atom[1]),
-                                           element=get_radius(atom[1], system=self, return_symbol=True), chain="None",
-                                           index=i))
+                                           chain="None", index=i))
 
     def random_system(self, anums=30, dmax=15, rmax=1):
         """
@@ -220,6 +222,14 @@ class System:
         for i in range(anums):
             # Choose a random set of 3 numbers between dmax and -dmax. Choose a random radius between 0 and rmax
             self.atoms.append(Atom(location=random.rand(3)*2*dmax - dmax, radius=random.rand()*rmax, index=i))
+
+    def print_info(self):
+        atoms_var = str(len(self.atoms)) + " Atoms"
+        resids_var = str(len(self.residues)) + " Residues"
+        chains_var = str(len(self.chains)) + " Chains: " + ", ".join(["{} - {} atoms, {} residues"
+                            .format(_.name, len(_.atoms), len(_.residues)) for _ in self.chains])
+        sol_var = self.sol.name + " - " + str(len(self.sol.residues)) + " residues"
+        print(atoms_var, resids_var, chains_var, sol_var)
 
     def build_network(self, surf_res=None, max_vert=None, box_size=None, sol_verts=True, output=True,
                       calc_verts=True):
@@ -308,17 +318,8 @@ class System:
 ##################################################### Atomic Radii #####################################################
 
 
-my_radii = [['h' , 'he', 'li', 'be', 'b' , 'c' , 'n' , 'o' , 'f' , 'ne', 'na', 'mg', 'al', 'si', 'p' , 's' , 'cl', 'ar',
-             'k' , 'ca', 'sc', 'ti', 'v' , 'cr', 'mn', 'fe', 'co', 'ni', 'cu', 'zn', 'ga', 'ge', 'as', 'se', 'br', 'kr',
-             'rb', 'sr', 'y' , 'zr', 'nb', 'mo', 'tc', 'ru', 'rh', 'pd', 'ag', 'cd', 'in', 'sn', 'sb', 'te', 'i' , 'xe',
-             'cs', 'ba', 'la', 'hf', 'ta', 'w' , 're', 'os', 'ir', 'pt', 'au', 'hg', 'tl', 'pb', 'bi', 'po', 'at', 'rn',
-             'fr', 'ra', 'ac', 'rf', 'db', 'sg', 'bh', 'hs', 'mt', 'ds', 'rg', 'cn', 'nh', 'fl', 'mc', 'lv', 'ts', 'og',
-             'ce', 'pr', 'nd', 'pm', 'sm', 'eu', 'gd', 'tb', 'dy', 'ho', 'er', 'tm', 'yb', 'lu',
-             'th', 'pa', 'u' , 'np', 'pu', 'am', 'cm', 'bk', 'cf', 'es', 'fm', 'md', 'no', 'lr'],
-            [1.30, 1.40, 0.76, 0.45, 1.92, 1.80, 1.60, 1.50, 1.33, 1.54, 1.02, 0.72, 0.60, 2.10, 1.90, 1.90, 1.81, 1.88,
-             1.38, 1.00, None, None, None, None, None, None, None, None, None, None, 0.62, 0.73, 0.58, 1.90, 1.83, 2.02,
-             1.52, 1.18, None, None, None, None, None, None, None, None, None, None, 1.93, 2.17, 2.06, 2.06, 2.20, 2.16,
-             1.67, 1.35, None, None, None, None, None, None, None, None, None, None, 1.96, 2.02, 2.07, 1.97, 2.02, 2.20,
-             3.48, 2.83, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-             None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-             None, None, None, None, None, None, None, None, None, None, None, None, None, None]]
+my_radii = {'h': 1.30, 'he': 1.40, 'li': 0.76, 'be': 0.45, 'b': 1.92, 'c': 1.80, 'n': 1.60, 'o': 1.50, 'f': 1.33,
+            'ne': 1.54, 'na': 1.02, 'mg': 0.72, 'al': 0.60, 'si': 2.10, 'p': 1.90, 's': 1.90, 'cl': 1.81, 'ar': 1.88,
+            'k': 1.38, 'ca': 1.00, 'ga': 0.62, 'ge': 0.73, 'as': 0.58, 'se': 1.90, 'br': 1.83, 'kr': 2.02, 'rb': 1.52,
+            'sr': 1.18, 'in': 1.93, 'sn': 2.17, 'sb': 2.06, 'te': 2.06, 'i': 2.20, 'xe': 2.16, 'cs': 1.67, 'ba': 1.35,
+            'tl': 1.96, 'pb': 2.02, 'bi': 2.07, 'po': 1.97, 'at': 2.02, 'rn': 2.20, 'fr': 3.48, 'ra': 2.83}
