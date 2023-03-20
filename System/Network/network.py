@@ -7,7 +7,7 @@ from Visualize.mpl_visualize import *
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
-    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.3, box_size=1.25, max_vert=7,
+    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.2, box_size=1.25, max_vert=9,
                  calc_verts=True, connect_net=True, build_surfs=True, net_type='vor', surf_col='plasma', surf_scheme='curv'):
 
         # Main network defining objects
