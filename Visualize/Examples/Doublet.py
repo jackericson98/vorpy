@@ -1,5 +1,5 @@
-from System.system import System, Atom, get_radius
-from Visualize.visualize import *
+from System.system import System, Atom
+from Visualize.mpl_visualize import *
 
 # Create the outer atoms
 d, r = 30, 1
