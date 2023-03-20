@@ -7,7 +7,7 @@ import os
 
 class Group:
     """Group class. Used to hold selections of atoms and do analysis on it"""
-    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, name=None, mols=None, residues=None,
+    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, name=None, chains=None, residues=None,
                  indices=None, bff=None, vert_color='Reds', vert_scheme='shell', edge_color='white', edge_scheme=None,
                  surf_color=None, surf_scheme=None):
 
@@ -29,7 +29,7 @@ class Group:
         self.surf_ndxs = []             # Surface indices    :    Atom indices of the surfaces associated with the group
 
         # System level classifications involved in the group (must be full)
-        self.mols = mols                # Molecules          :    List of molecule objects in the group
+        self.chains = chains                # Molecules          :    List of molecule objects in the group
         self.resids = residues          # Residues           :    List of residue objects in the group
         self.ndxs = indices             # Indices            :    List of index objects in the group
 
@@ -62,36 +62,37 @@ class Group:
         self.process_inputs(atoms=atoms)
 
     # Process inputs method. Goes through the atoms, residues and molecules provided in the group
-    def process_inputs(self, atoms=None, mols=None, resids=None):
+    def process_inputs(self, atoms=None, chains=None, resids=None):
         """
         Processes the inputs to the group and interprets them into atoms
         :param atoms: List of atom objects to be added to the group
-        :param mols: List of molecule objects to be added to the group
+        :param chains: List of molecule objects to be added to the group
         :param resids: List of residue objects to be added to the group
         :return: Sets uo the group for interpretation
         """
+        # Set the atoms
+        atoms = self.atoms if self.atoms is not None else []
+        resids = self.resids if self.resids is not None else []
+        chains = self.chains if self.chains is not None else []
         # Set up the atoms list if needed
         if self.atoms is None:
             self.atoms = []
-        # Add the provided atoms to the self.atoms list
-        if atoms is not None:
-            self.add_atoms(self.atoms)
-        # If mols were provided and not entered into the group add them
-        if mols is not None and (self.mols is None or len(self.mols) < mols):
-            self.mols = mols
-        elif self.mols is None:
-            self.mols = []
-        # Add the molecule atoms
-        for mol in self.mols:
-            self.add_atoms(mol.atoms)
-        # If residues were provided and not entered into the group add them
-        if resids is not None and (self.resids is None or len(self.resids) < resids):
-            self.resids = resids
-        elif self.resids is None:
+        if self.resids is None:
             self.resids = []
-        # Add the residue atoms
-        for residue in self.resids:
-            self.add_atoms(residue.atoms)
+        if self.chains is None:
+            self.chains = []
+        # Add the provided atoms to the self.atoms list
+        self.add_atoms(atoms)
+        for resid in resids:
+            self.add_atoms(resid.atoms)
+        for chain in chains:
+            self.add_atoms(chain.atoms)
+        # Add the residues and chains to the group
+        for atom in self.atoms:
+            if atom.res not in self.resids:
+                self.resids.append(atom.res)
+            if atom.chn not in self.chains:
+                self.chains.append(atom.chn)
         # Add a Name If none was provided
         if self.name is None:
             self.name = '{}_group{}'.format(self.sys.name, self.sys.groups.index(self))
@@ -134,7 +135,7 @@ class Group:
         # Go through the list of build surfaces checking for
         for surf in self.surfs:
             # Check if the resolution is different from the set resolution or the surface has no points
-            if surf.res != resolution:
+            if surf.residue != resolution:
                 build_surfs.append(surf)
             # Check if there is any sign of missing points or triangles
             elif surf.points is None or surf.tris is None or len(surf.points) <= 2 or len(surf.tris) == 0:
