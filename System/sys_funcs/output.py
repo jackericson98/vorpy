@@ -434,7 +434,7 @@ def set_pymol_atoms(sys):
     file.close()
 
 
-def export_sys(sys, network=False, pdb=False, surfaces=False, full_network_object=False, no_sol_network_object=False,
+def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_network_object=False, no_sol_network_object=False,
                alter_atoms_script=False, info=False):
     """
         Prepares the output directory and system for output. Keeps things consistent
@@ -446,42 +446,38 @@ def export_sys(sys, network=False, pdb=False, surfaces=False, full_network_objec
             sys.dir = os.path.dirname(sys.base_file)
         else:
             sys.set_output_directory()
-    if network:
+    if network or all_:
         os.chdir(sys.dir)
         # Export the network
         sys.export_net()
-    if pdb:
+    if pdb or all_:
         if not os.path.exists(sys.dir + '/sys'):
             os.mkdir(sys.dir + "/sys")
         os.chdir(sys.dir + "/sys")
         # Export a pdb file for the system
         write_pdb(sys.atoms, sys.name, sys)
         os.chdir(sys.dir)
-    if surfaces:
+    if surfaces or all_:
         if not os.path.exists(sys.dir + '/surfs'):
             os.mkdir(sys.dir + "/surfs")
         # Export a pdb file for the system
         for surf in sys.net.surfs:
             write_surfs(surfs=[surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=sys.dir + "/surfs")
         os.chdir(sys.dir)
-    if full_network_object and sys.net.build_surfs:
+    if (full_network_object or all_) and sys.net.build_surfs:
         if not os.path.exists(sys.dir + '/sys'):
             os.mkdir(sys.dir + "/sys")
         os.chdir(sys.dir + "/sys")
         # Export a full system
         export_mySys(sys)
     # Write the alter atoms script
-    if alter_atoms_script:
+    if alter_atoms_script or all_:
         if not os.path.exists(sys.dir + '/sys'):
             os.mkdir(sys.dir + "/sys")
         os.chdir(sys.dir + "/sys")
         set_pymol_atoms(sys)
-    # If the user wants the surfaces of the system without the SOL
-    if no_sol_network_object:
-        # Create the group
-        sys.sol.exports(shell=True, info=True)
     # If the information is requested, export it
-    if info:
+    if info or all_:
         os.chdir(sys.dir + "/sys")
         export_net_info(sys.net)
     os.chdir(sys.dir)
