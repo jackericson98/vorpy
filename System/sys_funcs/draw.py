@@ -9,12 +9,12 @@ def draw_line(points, radius=0.02, color=None):
     # Go through the points
     for i in range(len(points)):
         # If we are at the end of the points list, use the previous point for calibration
+        p0 = np.array(points[i])
         if i == len(points) - 1:
             p1 = np.array(points[i - 1])
         else:
             p1 = np.array(points[i + 1])
-        p0 = np.array(points[i])
-        r = p1 - p0
+            r = p1 - p0
         # Find the vector and its normal between the two points
         rn = r / np.linalg.norm(r)
         # In the case that the vector between the points is in the z direction only, move it
@@ -34,10 +34,7 @@ def draw_line(points, radius=0.02, color=None):
         v0_2 = - 0.5 * radius * v0_0n - 0.5 * np.sqrt(3) * radius * v0_1nx
         # Get the points and add them to the list of draw points
         p0_1, p0_2 = v0_1 + p0, v0_2 + p0
-        if i == len(points) - 1:
-            draw_points += [p0_0, p0_2, p0_1]
-        else:
-            draw_points += [p0_0, p0_1, p0_2]
+        draw_points += [p0_0, p0_1, p0_2]
     # Go through the points
     for i in range(len(points) - 1):
         # List the points
