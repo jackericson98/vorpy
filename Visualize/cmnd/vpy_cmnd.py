@@ -36,13 +36,14 @@ def load_atom_file(my_sys):
 def load_another_file(my_sys):
     # Ask the usr what type of file they want to load
     file_type = input(
-        "Enter file type: 1. Network (.csv)  2. Voronota Balls (.txt)  3. Voronota Vertices (.txt)  4. GROMACS index (.ndx)\nfile type (1-4) >>>   ")
+        "Enter file type: 1. Network (.csv)  2. Voronota Balls (.txt)  3. Voronota Vertices (.txt)  "
+        "4. GROMACS index (.ndx)\nfile type (1-4) >>>   ")
     # If the input is a network file load it into the system
     if file_type.lower() in {"1", "1.", "one", "un", "uno", "1 "}:
         # Print the message that the network file type has been chosen
         print(
-            "Network file type selected. Please enter a vorpy generated network file address (extension .csv) for \'{}\'".format(
-                my_sys.name))
+            "Network file type selected. Please enter a vorpy generated network file address "
+            "(extension .csv) for \'{}\'".format(my_sys.name))
         # Ask the user to add the input file for the system name
         my_net_file = input("file address (.csv) >>>   ")
         # Check that the file is correct
@@ -55,9 +56,8 @@ def load_another_file(my_sys):
     # If the input is to load a ball file
     elif file_type.lower() in {"2", "2.", "two", "to", "too", "dos", "du", "due"}:
         # Print the message that the voronota balls file type has been chosen
-        print(
-            "Voronota balls file type selected. Please enter a Voronota generated balls full file address (extension .txt) for \'{}\'".format(
-                my_sys.name))
+        print("Voronota balls file type selected. Please enter a Voronota generated balls full file address "
+              "(extension .txt) for \'{}\'".format(my_sys.name))
         # Ask the user to add the input file for the system name
         my_ball_file = input("file address (.txt) >>>   ".format(my_sys.name))
         # Check that the file is correct
@@ -70,9 +70,8 @@ def load_another_file(my_sys):
     # If the input is to load a ball file
     elif file_type.lower() in {"3", "3.", "three", "tre", "tres"}:
         # Print the message that the voronota balls file type has been chosen
-        print(
-            "Voronota vertices file type selected. Please enter a Voronota generated vertices file address (extension .txt) for \'{}\'".format(
-                my_sys.name))
+        print("Voronota vertices file type selected. Please enter a Voronota generated vertices file address "
+              "(extension .txt) for \'{}\'".format(my_sys.name))
         # Ask the user to add the input file for the system name
         my_vert_file = input("file address (.txt) >>>   ".format(my_sys.name))
         # Check that the file is correct
@@ -85,9 +84,8 @@ def load_another_file(my_sys):
     # If the input is to load a ball file
     elif file_type.lower() in {"4", "4.", "four", "quattro", "for", "4 "}:
         # Print the message that the voronota balls file type has been chosen
-        print(
-            "GROMACS index file type selected. Please enter a GROMACS generated index file address (extension .ndx) for \'{}\'".format(
-                my_sys.name))
+        print("GROMACS index file type selected. Please enter a GROMACS generated index file address "
+              "(extension .ndx) for \'{}\'".format(my_sys.name))
         # Ask the user to add the input file for the system name
         my_ndx_file = input("file address (.ndx) >>>   ".format(my_sys.name))
         # Check that the file is correct
@@ -146,7 +144,8 @@ def create_group(my_sys, usr_npt):
     # Create the group
     npt_list = [None] * 4
     npt_list[obj_ndx] = my_list
-    return Group(sys=my_sys, chains=npt_list[0], residues=npt_list[1], atoms=npt_list[2], indices=npt_list[3], name=name)
+    return Group(sys=my_sys, chains=npt_list[0], residues=npt_list[1], atoms=npt_list[2], indices=npt_list[3],
+                 name=name)
 
 
 def vorpy(my_sys):
@@ -173,7 +172,8 @@ def vorpy(my_sys):
     while True:
         # Get an initial grouping input
         usr_npt = input(
-            "Create a group. (Full = \'f\', No SOL = \'ns\', mol = \'m\', res = \'r\', atom = \'a\', index = \'i\')\ngroup >>>   ")
+            "Create a group. (Full = \'f\', No SOL = \'ns\', mol = \'m\', res = \'r\', atom = \'a\', index = \'i\')\n"
+            "group >>>   ")
         # Split the user input
         usr_npt = usr_npt.split()
         # Check that the user's input is valid
@@ -189,7 +189,7 @@ def vorpy(my_sys):
         my_group = create_group(my_sys=my_sys, usr_npt=usr_npt)
         if my_group is not None:
             print("{} group created - {} atoms, {} residues, {} chains".format(my_group.name, len(my_group.atoms),
-                                                                               len(my_group.resids), len(my_group.chains)))
+                                                                               len(my_group.residues), len(my_group.chains)))
             break
     # Check if the network has been loaded
     if my_sys.net_file is None and my_sys.vert_file is None:
