@@ -226,7 +226,7 @@ def find_verts(net, a0=None, my_group=None):
     elif my_group is not None:
         group_atoms = my_group.atom_ndxs
         # Calculate the number of vertices
-        tot_verts = 7 * len(group_atoms) + int(120 * sqrt(len(group_atoms)))
+        tot_verts = 7 * len(group_atoms) + int(60 * sqrt(len(group_atoms)))
     else:
         return
     # Find the first verified vertex

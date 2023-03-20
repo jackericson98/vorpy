@@ -158,7 +158,7 @@ class Group:
                   str(i + 1) + "/" + str(len(self.surfs)) + "                   ", end="")
             build_surfs[i].build(res=resolution, flat=self.sys.net.flat_Del)
             if build_surfs[i].file is None:
-                write_surfs([build_surfs[i]], "_".join([str(_) for _ in build_surfs[i].ndx]), )
+                write_surfs([build_surfs[i]], "_".join([str(_) for _ in build_surfs[i].ndx]))
         # Change back
         os.chdir(self.sys.dir)
 

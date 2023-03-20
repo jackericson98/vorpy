@@ -90,10 +90,11 @@ def write_pdb(atoms, name, sys=None, directory=None):
                 # Get the information from the atom in writable format
                 ser_num = " " * (5 - len(str(i+1))) + str(i + 1)
                 name = a.name + " " * (4 - len(a.name))
-                res = " " * (3 - len(a.mol_class)) + a.mol_class
-                chain = str(a.chain) + " " * (1 - len(a.chain))
-                if chain == "ZZ" or chain == 'MOL':
-                    chain = "  "
+                res = " " * (3 - len(a.residue)) + a.residue
+                if a.chain == "ZZ" or a.chain == 'MOL' or a.chain == 'SOL':
+                    chain = " "
+                else:
+                    chain = str(a.chain)
                 res_seq = " " * (3 - len(a.res_seq)) + a.res_seq
                 loc_strs = [" " * (7 - len(_)) + _ for _ in loc]
                 occupancy = " " * (5 - len(a.occupancy)) + a.occupancy
@@ -102,8 +103,8 @@ def write_pdb(atoms, name, sys=None, directory=None):
                 symbol = a.element
                 charge = a.charge
                 # Write the atom information
-                write_file.write("ATOM  " + ser_num + " " + name + " " + res + " " + chain + res_seq + "    " + " ".join(loc_strs) +
-                           occupancy + t_fact + "      " + seg_id + symbol + charge + "\n")
+                write_file.write("ATOM  " + ser_num + " " + name + " " + res + " " + chain + res_seq + "    " +
+                                 " ".join(loc_strs) + occupancy + t_fact + "      " + seg_id + symbol + charge + "\n")
     if start_dir is not None:
         os.chdir(start_dir)
 
@@ -132,7 +133,7 @@ def write_verts(verts, file_name, atom_type=None, directory=None, pdb=False, sph
     if verts is None or len(verts) == 0:
         return
     if pdb:
-        vert_atoms = [Atom(location=verts[i].loc, element=atom_type, mol_class="SOL", res_seq=str(i), name=atom_type, ) for i in range(len(verts))]
+        vert_atoms = [Atom(location=verts[i].loc, element=atom_type, res="SOL", res_seq=str(i), name=atom_type, ) for i in range(len(verts))]
         # Write the pdb with the atom objects from the verts
         write_pdb(atoms=vert_atoms, name=file_name, directory=directory)
     else:
@@ -234,7 +235,7 @@ def write_edges(edges, file_name, color=None, directory=None):
             num_verts += len(edge.draw_points)
 
 
-def write_surfs(surfs, file_name, color_map='inferno', color_scheme='dist', color=False, directory=None):
+def write_surfs(surfs, file_name, color=False, directory=None):
     """
     Writes files given a list of surfaces into the current directory or the given one
     :param surfs: Surface object
@@ -407,7 +408,7 @@ def export_net_info(net):
     file.write(net.sys.name + " Network")
     # Write the atom information
     for i in range(len(net.atoms)):
-        file.write("{} - cell volume = {}, cell surface area {}\n".format(net.sys.atom_names[i], net.atoms[i].vol, net.atoms[i].sa))
+        file.write("{} - cell volume = {}, cell surface area {}\n".format(net.atoms[i].name, net.atoms[i].vol, net.atoms[i].sa))
     # write the surface information
     for i in range(len(net.surfs)):
         file.write("Surface {}-{} - Surface area = {}\n".format(net.surfs[i].ndx[0], net.surfs[i].ndx[1], net.surfs[i].sa))
@@ -426,9 +427,8 @@ def set_pymol_atoms(sys):
     # Create the file
     file = open('set_atoms.pml', 'w')
     # Write the change radii script for the system's set atomic radii
-    for i in range(len(sys.radii[0])):
-        if sys.radii[1] is not None:
-            file.write("alter (elem {}), vdw={}\n".format(sys.radii[0][i], sys.radii[1][i]))
+    for radius in sys.radii:
+        file.write("alter (elem {}), vdw={}\n".format(radius, sys.radii[radius]))
     # Rebuild the system
     file.write("\nrebuild")
     file.close()

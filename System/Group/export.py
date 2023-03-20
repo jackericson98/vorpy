@@ -98,11 +98,11 @@ def group_exports(grp, all_=False, atoms=False, shell=False, fill=False, surface
             grp.get_layers(max_layers=1)
         # noinspection PyUnresolvedReferences
         if grp.layer_surfs is not None and len(grp.layer_surfs) > 0:
-            write_surfs(surfs=grp.layer_surfs[0], file_name=grp.name + "_shell" + scheme, directory=grp.dir, color_map=grp.surf_color, color_scheme=grp.surf_scheme)
+            write_surfs(surfs=grp.layer_surfs[0], file_name=grp.name + "_shell" + scheme, directory=grp.dir)
     # If the user wants a filled shell for the group
     if fill or all_:
         grp.build_surfs()
-        write_surfs(surfs=grp.surfs, file_name=grp.name + "_fill" + scheme, directory=grp.dir, color_map=grp.surf_color, color_scheme=grp.surf_scheme)
+        write_surfs(surfs=grp.surfs, file_name=grp.name + "_fill" + scheme, directory=grp.dir)
     # If the user wants separate surfaces for the group
     if surfaces or all_:
         i = 1
@@ -115,7 +115,7 @@ def group_exports(grp, all_=False, atoms=False, shell=False, fill=False, surface
         os.mkdir(my_dir)
         os.chdir(my_dir)
         for surf in grp.surfs:
-            write_surfs([surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=my_dir, color_map=grp.surf_color, color_scheme=grp.surf_scheme)
+            write_surfs([surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=my_dir)
         os.chdir(grp.dir)
     # If the user wants layers
     if layers or all_:
@@ -135,7 +135,7 @@ def group_exports(grp, all_=False, atoms=False, shell=False, fill=False, surface
         # Create the layer and atoms files
         for i in range(len(grp.layer_surfs)):
             write_pdb(grp.layer_atoms[i + 1], name=str(i) + "_atoms", sys=grp.sys)
-            write_surfs(grp.layer_surfs[i], file_name=str(i) + "_surfs", color_map=grp.surf_color, color_scheme=grp.surf_scheme)
+            write_surfs(grp.layer_surfs[i], file_name=str(i) + "_surfs")
         # If the user wants info and layers create a layers info file
         if info or all_:
             grp.get_info()
