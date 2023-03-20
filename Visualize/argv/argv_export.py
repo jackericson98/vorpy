@@ -20,10 +20,10 @@ def argv_export(my_sys, usr_npt):
 
     # Go through each of the inputs in the exports
     if len(usr_npt) == 0:
-        usr_npt.append('default')
+        usr_npt.append(['default'])
     # Export the specified exports
     for npt in usr_npt:
-        export_npt(my_sys, npt)
+        export_npt(my_sys, npt[0])
 
 
 def export_npt(my_sys, usr_npt):
@@ -38,7 +38,7 @@ def export_npt(my_sys, usr_npt):
         # Go through each of the system's groups
         for grouping in my_sys.groups:
             # Export the atoms, shell and info file
-            grouping.exports(shell=True, atoms=True, info=True, surr_atoms=True)
+            grouping.exports(shell=True, atoms=True, info=True, surr_atoms=True, shell_edges=True)
 
     """
     ____________________________________All__________________________________________________________
@@ -72,7 +72,7 @@ def export_npt(my_sys, usr_npt):
     # If nothing is specified export the defaults
     if usr_npt.lower() == 'surfs':
         # Export the system's network, information file, the
-        my_sys.exports(surfaces=True, set_atoms=True, pdb=True, no_sol_shell=True, network=True)
+        my_sys.exports(surfaces=True, set_atoms=True, pdb=True, network=True)
         # Go through each of the system's groups
         for grouping in my_sys.groups:
             # Export the atoms, shell and info file
