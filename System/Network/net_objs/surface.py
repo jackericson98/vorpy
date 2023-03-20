@@ -46,6 +46,7 @@ class Surface:
         # Calculation attributes
         self.sa = sa                    # Surface Area    : The surface area of the
         self.curv = curvature           # Curvature       : The curvature of the surface between the
+        self.vols = [0, 0]              # Volumes         : The volume contributions from each of the atom
         self.norm = normal              # Surface Normal  : Normal to the center of the surface
         self.loc = center               # Location        : Center point of the hyperboloid the surface is made from
         self.com = None                 # Center of mass  : The point toward which all building paths travel
@@ -284,7 +285,7 @@ class Surface:
             if self.flat:
                 self.tri_curvs = [0] * len(self.tris)
             elif self.tri_curvs is None or len(self.tri_curvs) == 0 or len(self.tri_curvs) != len(self.tris):
-                # Get the function coeficients
+                # Get the function coefficients
                 A, B, C, D, E, F, G, H, I, J = self.func[:10]
                 curvs = []
                 min_curv, max_curv = np.inf, 0
@@ -297,7 +298,8 @@ class Surface:
                     # Calculate the norm of the gradient
                     denominator = np.linalg.norm(delf) ** 4
                     # Calculate the determinant of the hessian matrix and the gradient matrix
-                    numerator = np.linalg.det([[2 * A, D, F, delf[0]], [D, 2 * B, E, delf[1]], [F, E, 2 * C, delf[2]], delf + [0]])
+                    numerator = np.linalg.det([[2 * A, D, F, delf[0]], [D, 2 * B, E, delf[1]], [F, E, 2 * C, delf[2]],
+                                               delf + [0]])
                     # Get the curvature
                     curv = - numerator / denominator
                     if curv > max_curv:
