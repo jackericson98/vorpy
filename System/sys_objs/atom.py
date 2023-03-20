@@ -2,92 +2,42 @@ from System.sys_funcs.calcs import *
 
 
 class Atom:
-    """
-    Atom object class used to represent loaded atoms
+    def __init__(self, system=None, location=None, radius=None, index='', name='', residue='', chain='', res_seq="",
+                 ocp="", t_fact="", seg_id="", element="", charge="", load_ndxs="", surf_bank="", bonds=None,
+                 chn=None, res=None):
 
-    location: list
-        set the location of the center of the sphere
-    radius : float
-        set the radius for the sphere object. Default is 1
-    system : System object
-        set the atom's system attribute
-    element : str
-        element of the atom
-    chain : str
-        molecule chain the atom is a part of
-    residue : str
-        residue of the molecule that the atom is a part of
-    res_seq : int
-        sequence of the residue that the atom is a part of
-    name : str
-        name retrieved from pdb file
-    ocp : str
-        Occupancy of the atom
-    t_fact : str
-        Temperature factor for the atom
-    seg_id : str
-        Segment identifier for the atom
-    charge : float
-        Charge of the atom
-    verts : list
-        Vertex objects connected to the atom
-    surfs : list
-        Surface objects connected to the atom
-    edges : list
-        Edge objects connected to the atom
-    load_ndxs : list
-        Holds the object indices for when the system is loaded back in
-    cell_vol : float
-        Volume of the voronoi cell for the atom
-    box : list
-        The grid location of the atom
+        # System groups
+        self.sys = system           # System       :   Main system object
+        self.res = res              # Residue      :   Residue object of which the atom is a part
+        self.chn = chn              # Chain        :   Chain object of which the atom is a part
 
-    """
-    def __init__(self, location=None, radius=None, system=None, element="", chain="", mol_class=None, residue="",
-                 molecule="", res_seq="", name="", ocp="", t_fact="", seg_id="", charge="", load_ndxs="", index="",
-                 surf_bank=""):
-
-        # Calculated Traits
         self.loc = location         # Location     :   Set the location of the center of the sphere
         self.rad = radius           # Radius       :   Set the radius for the sphere object. Default is 1
+
+        # Calculated Traits
         self.vol = 0                # Cell Volume  :   Volume of the voronoi cell for the atom
         self.sa = 0                 # Surface Area :   Surface area of the atom's cell
         self.box = []               # Box          :   The grid location of the atom
 
-        # Network connections
-        self.sys = system           # System       :   Set the atom's system attribute
-        self.res = residue          # Residue      :   The residue of the atom
-        self.mol = molecule         # Molecule     :   The molecule that the atom is a part of
+        # Network objects
         self.verts = []             # Vertices     :   List of Vertex type objects
         self.surfs = []             # Surfaces     :   List of Surface type objects
         self.edges = []             # Edges        :   List of Edge type objects
-        self.surf_bank = surf_bank  # Surf Bank    :   List of surfaces within range in order to add
-        self.load_ndxs = load_ndxs  # Load indices :   Holds the object indices for when the system is loaded back in
 
-        # Inherent traits
-        self.num = index
-        self.element = element      # Symbol       :   Element of the atom
-        self.chain = chain          # Chain        :   Molecule chain the atom is a part of
-        self.mol_class = mol_class  # Mol Class    :   Class of molecule that the atom is a part of
-        self.res_seq = res_seq      # Sequence     :   Sequence of the residue that the atom is a part of
+        # Input traits
+        self.num = index            # Number       :   The index from the initial atom file
         self.name = name            # Name         :   Name retrieved from pdb file
+        self.chain = chain          # Chain        :   Molecule chain the atom is a part of
+        self.residue = residue      # Residue      :   Class of molecule that the atom is a part of
+        self.res_seq = res_seq      # Sequence     :   Sequence of the residue that the atom is a part of
         self.occupancy = ocp        # Occupancy    :   Occupancy of the atom
         self.t_fact = t_fact        # Temp Factor  :   Temperature factor for the atom
         self.seg_id = seg_id        # Segment ID   :   Segment identifier for the atom
+        self.element = element      # Symbol       :   Element of the atom
         self.charge = charge        # Charge       :   Charge of the atom
+        self.bonds = bonds          # Bonds        :   Bonds to other atoms
 
-        self.sort_()
-
-        # Calculated traits
-    def sort_(self):
-        """
-        Puts the atom in the correct spot in the system
-        :return:
-        """
-        # If no system exists, there is no place to be sorted to
-        if self.sys is None:
-            return
-        # Find the molecule
+        self.get_radius()
 
     def calc_vol(self):
         # Create the volume variable
@@ -98,42 +48,31 @@ class Atom:
                 surf.build()
             self.sa += surf.sa
             for tri in surf.tris:
-                if tri is None:
-                    print(surf.tris)
                 p0, p1, p2, p3 = self.loc, surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
                 vol += calc_tetra_vol(p0, p1, p2, p3)
         # Return the volume
         self.vol = vol
         return vol
 
+    def get_radius(self):
+        """
+            Finds the radius of the atom from the symbol or vice versa
 
-def get_radius(radius, system, return_symbol=False):
-    """
-        Finds the radius of the atom from the symbol or vice versa
-
-    :param radius: Either the elemental symbol for the atom or it's radius
-    :param system: System to reference radii from
-    :param return_symbol: Boolean for whether to return the symbol or not
-    :return: The radius of the atom from the symbol or vice versa
-    """
-    radii = system.radii
-    # If indicated we return the symbol of atom that the radius indicates
-    if return_symbol:
-        # Set the atom type to nothing
-        atom_type = ""
-        # Check to see if the radius is in the system
-        if radius in radii[1]:
-            return radii[0][radii[1].index(radius)]
-        else:
-            # Get the closest atom to it
-            min_diff = np.inf
-            # Go through the radii in the system looking for the smallest difference
-            for i in range(len(radii[1])):
-                if radii[1][i] is not None and radii[1][i] - radius < min_diff:
-                    atom_type = radii[0][i]
-    # If we have the type and just want the radius, keep scanning until we find the radius
-    else:
-        radius = radius.strip()
-        return radii[1][radii[0].index(radius.lower())]
-    # If nothing is found to be exact return the closest atom type
-    return atom_type
+        :return: The radius of the atom from the symbol or vice versa
+        """
+        radii = self.sys.radii
+        # If indicated we return the symbol of atom that the radius indicates
+        if self.element is None:
+            # Check to see if the radius is in the system
+            if self.rad in {radii[_] for _ in radii[1]}:
+                self.element = radii[self.rad]
+            else:
+                # Get the closest atom to it
+                min_diff = np.inf
+                # Go through the radii in the system looking for the smallest difference
+                for radius in radii:
+                    if radii[radius] - self.rad < min_diff:
+                        self.element = radii[radius]
+        # If we have the type and just want the radius, keep scanning until we find the radius
+        elif self.rad is None:
+            self.rad = radii[self.element.lower()]
