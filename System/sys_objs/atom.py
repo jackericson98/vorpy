@@ -3,8 +3,7 @@ from System.sys_funcs.calcs import *
 
 class Atom:
     def __init__(self, system=None, location=None, radius=None, index='', name='', residue='', chain='', res_seq="",
-                 ocp="", t_fact="", seg_id="", element="", charge="", load_ndxs="", surf_bank="", bonds=None,
-                 chn=None, res=None):
+                 ocp="", t_fact="", seg_id="", element="", charge="", bonds=None, chn=None, res=None):
 
         # System groups
         self.sys = system           # System       :   Main system object
@@ -44,12 +43,20 @@ class Atom:
         vol = 0
         # Go through each surface on the atom
         for surf in self.surfs:
+            # If the surface hasn't been constructed yet, construct it
             if surf.points is None or surf.tris is None:
                 surf.build()
             self.sa += surf.sa
-            for tri in surf.tris:
-                p0, p1, p2, p3 = self.loc, surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
-                vol += calc_tetra_vol(p0, p1, p2, p3)
+            # Check to see if the surface's volume has been calculated already
+            if surf.vols[surf.ndx.index(self.num)] != 0:
+                vol += surf.vols[surf.ndx.index(self.num)]
+            else:
+                # Calculate the volume of the
+                for tri in surf.tris:
+                    p0, p1, p2, p3 = self.loc, surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
+                    my_vol = calc_tetra_vol(p0, p1, p2, p3)
+                    surf.vols[surf.ndx.index(self.num)] = my_vol
+                    vol += my_vol
         # Return the volume
         self.vol = vol
         return vol
