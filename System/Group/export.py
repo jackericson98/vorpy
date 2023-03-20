@@ -39,9 +39,50 @@ def export_iface(grp, bff=None, info_file=False, interface_atoms=False):
         info.close()
 
 
+def export_info(my_group):
+    os.chdir(my_group.dir)
+    my_group.get_info()
+    # Open the export information file
+    with open("cell_" + my_group.name + "_info.txt", 'w', encoding="utf-8") as info:
+        # Write the main header
+        info.write("{} - {}\n\n".format(my_group.name, my_group.sys.name))
+        # System counts header
+        info.write("Group system information:\n")
+        # System counts
+        info.write("  {} Atoms, {} Residues, {} Chains\n\n".format(len(my_group.atoms), len(my_group.residues), len(my_group.chains)))
+        # Network counts header
+        info.write("Group Network information:\n")
+        # Network counts
+        info.write("  {} Vertices, {} Edges, {} Surfaces\n\n".format(len(my_group.verts), len(my_group.edges), len(my_group.surfs)))
+        # Analysis header
+        info.write("Analysis:\n")
+        # Analysis information
+        info.write(u"  Surface Area: {:.5f} \u212B\u00B2, Volume: {:.5f} \u212B\u00B3\n\n".format(my_group.sa, my_group.vol))
+        # Atoms header
+        info.write("Atoms:\n\n")
+        # Go through each of the atoms
+        print(len(my_group.atoms))
+        for atom in my_group.atoms:
+            # Write the atom's header
+            info.write("  Atom {} -\n".format(atom.num))
+            info.write(u"    Volume = {:.5f} \u212B \u00B3\n".format(atom.vol))
+            info.write(u"    Surface Area = {:.5f} \u212B \u00B2\n".format(atom.sa))
+            info.write("    {} Surfaces {}\n".format(len(atom.surfs), *[_.ndx for _ in atom.surfs]))
+            info.write("    {} Edges {}\n".format(len(atom.edges), *[_.ndx for _ in atom.edges]))
+            info.write("    {} Vertices {}\n".format(len(atom.verts), *[_.ndx for _ in atom.verts]))
+        # Surfaces header
+        info.write("\nSurfaces:\n\n")
+        # Go through each of the surfaces in the group
+        for surf in my_group.surfs:
+            info.write("  Surface {} - \n".format(surf.ndx))
+            info.write("    Surface Area = {:.5f} \u212B\u00B2\n".format(surf.sa))
+            info.write("    Volume contributions (respectively) = {:.5f}, {:.5f} \u212B\u00B3\n".format(surf.vols[0], surf.vols[1]))
+            info.write("    Gaussian Curvature = {:.5f}\n".format(surf.curv))
+
+
 def group_exports(grp, all_=False, atoms=False, shell=False, fill=False, surfaces=False, layers=False, num_layers=50,
-            info=False, iface=False, verts=False, surr_atoms=False, ext_atoms=False, shell_edges=False,
-            shell_verts=False, edges=False):
+                  info=False, iface=False, verts=False, surr_atoms=False, ext_atoms=False, shell_edges=False,
+                  shell_verts=False, edges=False):
     """
     Exports specified export types for the group
     :param grp:
@@ -156,14 +197,7 @@ def group_exports(grp, all_=False, atoms=False, shell=False, fill=False, surface
         export_iface(grp, [grp, grp.bff], info_file=info)
     # If the user wants a full information file on the group
     if info or all_:
-        os.chdir(grp.dir)
-        grp.get_info()
-        info = open("cell_" + grp.name + "_info.txt", 'w')
-        info.write(grp.name + " body: \n")
-        info.write("Number of atoms: " + str(len(grp.atoms)) + "\n")
-        info.write("Volume: " + str(grp.vol) + "\n")
-        info.write("Surface Area: " + str(grp.sa) + "\n")
-        info.close()
+        export_info(grp)
     if verts or all_:
         if grp.verts is None:
             grp.get_verts()
