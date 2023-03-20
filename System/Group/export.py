@@ -61,7 +61,6 @@ def export_info(my_group):
         # Atoms header
         info.write("Atoms:\n\n")
         # Go through each of the atoms
-        print(len(my_group.atoms))
         for atom in my_group.atoms:
             # Write the atom's header
             info.write("  Atom {} -\n".format(atom.num))
@@ -87,10 +86,10 @@ def group_exports(grp, all_=False, atoms=False, shell=False, fill=False, surface
     Exports specified export types for the group
     :param grp:
     :param all_: All possible exports for the group will be exported to the group directory
-    :param atoms: Exports a new pdb file contasining only the atoms of the group
+    :param atoms: Exports a new pdb file containing only the atoms of the group
     :param shell: Exports the outer surfaces of the group
     :param fill: Exports all surfaces in the group as one object
-    :param surfaces: Exports all surfaces in the group as seperate files, named by their atoms
+    :param surfaces: Exports all surfaces in the group as separate files, named by their atoms
     :param layers: Exports all layers surrounding the group, unless num_layers is specified
     :param num_layers: Controls the number of exported layers for the group
     :param info: Exports the information for the group
