@@ -7,7 +7,7 @@ from Visualize.mpl_visualize import *
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
-    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.1, box_size=1.25, max_vert=7,
+    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.3, box_size=1.25, max_vert=7,
                  calc_verts=True, connect_net=True, build_surfs=True, net_type='vor', surf_col='plasma', surf_scheme='curv'):
 
         # Main network defining objects
@@ -121,7 +121,8 @@ class Network:
         :return: Places the vertices into their correct sub_boxes
         """
         # Instantiate the grid structure of lists is locations representing a grid
-        self.vert_sub_boxes = [[[[] for _ in range(self.box_max[2] + 1)] for _ in range(self.box_max[1] + 1)] for _ in range(self.box_max[0] + 1)]
+        self.vert_sub_boxes = [[[[] for _ in range(self.box_max[2] + 1)]
+                                for _ in range(self.box_max[1] + 1)] for _ in range(self.box_max[0] + 1)]
         # Sort the atoms
         for vert in self.verts:
             # Adjust the maximum radius
@@ -183,7 +184,8 @@ class Network:
         xs = [x for x in range(max(0, -reach + ndx_min[0] + 1), reach + ndx_max[0])]
         ys = [y for y in range(max(0, -reach + ndx_min[1] + 1), reach + ndx_max[1])]
         zs = [z for z in range(max(0, -reach + ndx_min[2] + 1), reach + ndx_max[2])]
-        verts = [self.vert_sub_boxes[i][j][k] for k in zs for j in ys for i in xs if 0 < k < self.box_max[2] and 0 < j < self.box_max[1] and 0 < i < self.box_max[0]]
+        verts = [self.vert_sub_boxes[i][j][k] for k in zs for j in ys for i in xs if 0 < k < self.box_max[2]
+                 and 0 < j < self.box_max[1] and 0 < i < self.box_max[0]]
         verts = list(chain.from_iterable(verts))
 
         return verts
@@ -222,7 +224,8 @@ class Network:
             process_time = time.process_time() - process_time_start
             h, m, s = get_time(self.my_time)
             if self.sys.print_actions:
-                print("\rvertex process ({} verts) = {}:{}:{:.2f} s, cpu time = {}".format(len(self.verts), int(h), int(m), s, process_time))
+                print("\rvertex process ({} verts) = {}:{}:{:.2f} s, cpu time = {}"
+                      .format(len(self.verts), int(h), int(m), s, process_time))
 
     def build_edges(self):
         """
@@ -337,5 +340,5 @@ class Network:
         if output:
             self.sys.exports(network=True, pdb=True, info=self.build_surfs, set_atoms=True)
         h, m, s = get_time(self.my_time)
-        print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s, cpu time = {}\n".format(len(self.verts), len(self.surfs),
-                                                                            int(h), int(m), s, self.cpu_time), end="")
+        print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s, cpu time = {}\n"
+              .format(len(self.verts), len(self.surfs), int(h), int(m), s, self.cpu_time), end="")
