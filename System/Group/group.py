@@ -1,4 +1,4 @@
-from System.sys_funcs.output import write_surfs, write_pdb
+from System.sys_funcs.output import write_surfs
 from System.Group.layers import get_layers
 from System.Group.sort import get_surfs, get_edges, get_verts, add_atoms
 from System.Group.export import group_exports
@@ -29,8 +29,8 @@ class Group:
         self.surf_ndxs = []             # Surface indices    :    Atom indices of the surfaces associated with the group
 
         # System level classifications involved in the group (must be full)
-        self.chains = chains                # Molecules          :    List of molecule objects in the group
-        self.resids = residues          # Residues           :    List of residue objects in the group
+        self.chains = chains            # Molecules          :    List of molecule objects in the group
+        self.residues = residues        # Residues           :    List of residue objects in the group
         self.ndxs = indices             # Indices            :    List of index objects in the group
 
         # Analysis attributes
@@ -59,26 +59,22 @@ class Group:
         self.iface_atoms = None        # Interface atoms    :    Atoms in the group in the interface
         self.iface_sa = None           # Surface area       :    Surface area of the interface
 
-        self.process_inputs(atoms=atoms)
+        self.process_inputs()
 
     # Process inputs method. Goes through the atoms, residues and molecules provided in the group
-    def process_inputs(self, atoms=None, chains=None, resids=None):
+    def process_inputs(self):
         """
         Processes the inputs to the group and interprets them into atoms
-        :param atoms: List of atom objects to be added to the group
-        :param chains: List of molecule objects to be added to the group
-        :param resids: List of residue objects to be added to the group
         :return: Sets uo the group for interpretation
         """
         # Set the atoms
         atoms = self.atoms if self.atoms is not None else []
-        resids = self.resids if self.resids is not None else []
+        resids = self.residues if self.residues is not None else []
         chains = self.chains if self.chains is not None else []
         # Set up the atoms list if needed
-        if self.atoms is None:
-            self.atoms = []
-        if self.resids is None:
-            self.resids = []
+        self.atoms = []
+        if self.residues is None:
+            self.residues = []
         if self.chains is None:
             self.chains = []
         # Add the provided atoms to the self.atoms list
@@ -89,8 +85,8 @@ class Group:
             self.add_atoms(chain.atoms)
         # Add the residues and chains to the group
         for atom in self.atoms:
-            if atom.res not in self.resids:
-                self.resids.append(atom.res)
+            if atom.res not in self.residues:
+                self.residues.append(atom.res)
             if atom.chn not in self.chains:
                 self.chains.append(atom.chn)
         # Add a Name If none was provided
@@ -109,7 +105,7 @@ class Group:
     def get_edges(self):
         """
         Finds and sorts the edges in group
-        :return: The group will have all edge objects associated with it sirted and non-redundant
+        :return: The group will have all edge objects associated with it sorted and non-redundant
         """
         get_edges(self)
 
@@ -170,12 +166,15 @@ class Group:
         """
         add_atoms(self, atom_list)
 
-    def get_info(self, iface_info=True):
+    def get_info(self):
         """
         Gathers information about the group and stores it in a dictionary
-        :param iface_info:
         :return:
         """
+        # Get the group objects
+        self.get_surfs()
+        self.get_edges()
+        self.get_verts()
         # Reset the group's data attributes
         self.sa, self.vol = 0, 0
         # Get the volume of the group
@@ -203,7 +202,7 @@ class Group:
         :param max_layers: The number of layers to go out into the SOL
         :param group_resids: Bool determining whether to keep residues together or not
         :param build_surfs: Bool determining whether to build the surfaces in the network
-        :return: All layers with vertices less than the maximum number of layers will be bintegrated
+        :return: All layers with vertices less than the maximum number of layers will be integrated
         """
         get_layers(self, max_layers, group_resids, build_surfs)
 
@@ -213,10 +212,10 @@ class Group:
         """
         Exports specified export types for the group
         :param all_: All possible exports for the group will be exported to the group directory
-        :param atoms: Exports a new pdb file contasining only the atoms of the group
+        :param atoms: Exports a new pdb file containing only the atoms of the group
         :param shell: Exports the outer surfaces of the group
         :param fill: Exports all surfaces in the group as one object
-        :param surfaces: Exports all surfaces in the group as seperate files, named by their atoms
+        :param surfaces: Exports all surfaces in the group as separate files, named by their atoms
         :param layers: Exports all layers surrounding the group, unless num_layers is specified
         :param num_layers: Controls the number of exported layers for the group
         :param info: Exports the information for the group
