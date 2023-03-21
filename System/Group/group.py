@@ -54,10 +54,13 @@ class Group:
         self.surf_res = None            # Surface resolution :    Surface resolution for the surfaces in the group
 
         # Interface attributes
-        self.bff = bff                 # BFF                :    Other group used for comparison
-        self.iface_surfs = None        # Interface surfaces :    Surfaces that make the interface
-        self.iface_atoms = None        # Interface atoms    :    Atoms in the group in the interface
-        self.iface_sa = None           # Surface area       :    Surface area of the interface
+        self.bff = bff                 # BFF                 :   Other group used for comparison
+        self.iface_surfs = None        # Interface Surfaces  :   Surfaces that make the interface
+        self.iface_edges = None        # Interface Edges     :   Interfacial edges list
+        self.iface_verts = None        # Interface Vertices  :   Interfacial vertices list
+        self.iface_atoms = None        # Interface atoms     :   Atoms in the group in the interface
+        self.iface_sa = None           # Surface area        :   Surface area of the interface
+        self.iface_curv = None         # Interface Curvature :   Average curvature from the interface
 
         self.process_inputs()
 
