@@ -164,19 +164,17 @@ def get_com(surf):
     :param surf: Surface object holding the perimeter points
     :return: Center of mass
     """
-    # First try the center of mass of the 3d points projected onto the surface
-    my_com = calc_com(points=surf.perimeter[::5])
     # If the surface is flat, the center of mass will not need to be projected
-    if surf.flat:
-        return calc_com(points=surf.perimeter)
-    if not surf.flat:
-        my_com = calc_surf_point(surf, my_com)
-    if my_com is not None and tri_within(surf, point=my_com) and surf.atoms[0].rad != surf.atoms[1].rad:
-        return my_com
-    # Get the center of the surface
     if tri_within(surf, point=surf.loc):
         return surf.loc
+    if surf.flat:
+        return calc_com(points=surf.perimeter)
+    # First try the center of mass of the 3d points projected onto the surface
+    my_com = calc_surf_point(surf=surf, point=calc_com(points=surf.perimeter[::5]))
+    if my_com is not None and tri_within(surf, point=my_com) and surf.atoms[0].rad != surf.atoms[1].rad:
+        return my_com
     # If nothing else set the center of mass to the first point in the perimeter
+    surf.filter_hard = True
     return surf.perimeter[len(surf.perimeter)//2]
 
 
@@ -380,8 +378,6 @@ def filter_tris(surf):
     :return:
     """
     # Check to see if the surface is flat or not
-    if surf.flat:
-        return
     # Set up a list of indices to remove for the triangles
     remove_ndxs = []
     # Go through the triangles in the surface
@@ -390,9 +386,10 @@ def filter_tris(surf):
         tri = surf.tris[i]
         circ = calc_tri_circ(surf, tri)
         # If the circumference of the triangle is less than x times the min_dist check to see if tri is within
-        if circ > 5 * surf.res and not tri_within(surf, tri):
-            remove_ndxs.append(surf.tris.index(tri))
-
+        if circ > 3 * surf.res and not tri_within(surf, tri):
+            remove_ndxs.append(i)
+        elif surf.filter_hard and not tri_within(surf, tri):
+            remove_ndxs.append(i)
     # Remove the outer triangles
     remove_ndxs.sort()
     for i in range(len(remove_ndxs)):
