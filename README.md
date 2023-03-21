@@ -6,12 +6,23 @@
 
 ## Description
 
+A comprehensive Voronoi cell network generator for 3D spheres designed with simulated molecular dynamics (md) analysis in mind. It takes in text files containing the locations of atoms in simulated molecules and creates individually partitioned atomic Voronoi cells for analysis. Atoms are partitioned by sampling points along the Voronoi surfaces of neigboring atoms. Using these partitions, the volumes and surface areas of bodies and interfaces of interest (residue, protein/DNA, etc.) can be more accurately analyzed and visualized. 
 
-The first comprehensive Voronoi cell network generator for 3D spheres designed with simulated molecular dynamics (md) analysis in mind. It takes in text files containing the locations of atoms in simulated molecules and creates individually partitioned atomic Voronoi cells for analysis. Atoms are partitioned by sampling points along the Voronoi surfaces of neigboring atoms. Using these partitions, the volumes and surface areas of bodies and interfaces of interest (residue, protein/DNA, etc.) can be more accurately analyzed and visualized. 
+why
 
-# Usage
+When studying macro 
 
-## Prerequisites
+
+This allows chemistst to gather more accurate volume and area measurements. Visualitions of the range of influence of the Van der Waals radius can show the effect of 
+Jack Ericson
+Chemistry Department 
+Georgia State University
+
+
+
+## Usage
+
+### Prerequisites
 
 - Dependencies: >= python 3.9
 - Basic Dependencies: numpy, scipy, matplotlib
@@ -28,7 +39,7 @@ The first comprehensive Voronoi cell network generator for 3D spheres designed w
 
 
 
-## Command Line 
+### Command Line 
 
 1. Move to the main vorpy directory in a shell or command prompt
 2. Run the following
@@ -49,17 +60,12 @@ The first comprehensive Voronoi cell network generator for 3D spheres designed w
 
 ## Visualization
 
-Once built the network can be viewed in a number of ways. The first being trough vorpy's built in visualization functions (plot_atoms, plot_verts, plot_edges, plot_surfs) or one of the following
-
 ### Pymol
 
-Pymol is currently the best way to view the data produced from vorpy and can be downloaded here: https://pymol.org/2/ . Once downloaded run the software through one of the processes above and drag the output files (.off) and the system files (.pdb) into the pymol frame. Be sure to use the "set_pymol_atoms.pml" script to get accurately set atom radii.
+[Pymol](https://pymol.org/2/) is one of the best ways to view the data produced from vorpy and can be downloaded here:  . Once downloaded run the software through one of the processes above and drag the output files (.off) and the system files (.pdb) into the pymol frame. Be sure to use the "set_pymol_atoms.pml" script to get accurately set atom radii.
 
-### plot_net
 
-For small systems, the plot_net function in Visualize.mpl_visualize can be used
-
-## Documentation
+## Theory
 
 Full documentation can be found in the docs.md file
 
