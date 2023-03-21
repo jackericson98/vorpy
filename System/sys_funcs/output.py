@@ -133,7 +133,8 @@ def write_verts(verts, file_name, atom_type=None, directory=None, pdb=False, sph
     if verts is None or len(verts) == 0:
         return
     if pdb:
-        vert_atoms = [Atom(location=verts[i].loc, element=atom_type, res="SOL", res_seq=str(i), name=atom_type, ) for i in range(len(verts))]
+        vert_atoms = [Atom(location=verts[i].loc, element=atom_type, res="SOL", res_seq=str(i), name=atom_type, )
+                      for i in range(len(verts))]
         # Write the pdb with the atom objects from the verts
         write_pdb(atoms=vert_atoms, name=file_name, directory=directory)
     else:
@@ -197,7 +198,7 @@ def write_edges(edges, file_name, color=None, directory=None):
         return
     # If no color is given, make the color random
     if color is None:
-        color = [1, 1, 1]
+        color = [0.5, 0.5, 0.5]
     # Check that the edge has been drawn
     for edge in edges:
         if edge.draw_points is None or edge.draw_tris is None:
@@ -293,7 +294,7 @@ def write_surfs(surfs, file_name, color=False, directory=None):
             num_verts += len(surfs[i].points)
 
 
-def export_mySys(sys):
+def export_full_sys(sys):
     """
     Used to create and export the surfaces of a system as one file
     :param sys: System object
@@ -342,11 +343,11 @@ def export_net(net, output_surfs=True):
         writer.writerow(["Network", "Surface Resolution", "Maximum Vertex Resolution", "Box Size Multiplier",
                          "Calculate Surfaces?", "# of Vertices", "# of Edges", "# of Surfaces", "Surfaces Folder"])
         writer.writerow([net.sys.name] + [net.surf_res, net.max_vert, net.box_size, net.build_surfs,
-                                       len(net.verts), len(net.edges), len(net.surfs), output_surfs])
+                        len(net.verts), len(net.edges), len(net.surfs), output_surfs])
         # Create a vertices header
         writer.writerow(["Vertex", "Loc - X", "Loc - Y", "Loc - Z", "Radius", "Atom 1", "Atom 2", "Atom 3", "Atom 4",
-                         "Edge 1", "Edge 2", "Edge 3", "Edge 4", "Edge 5 (incorrect)", "Surface 1", "Surface 2", "Surface 3", "Surface 4",
-                         "Surface 5", "Surface 6"])
+                         "Edge 1", "Edge 2", "Edge 3", "Edge 4", "Edge 5 (incorrect)", "Surface 1", "Surface 2",
+                         "Surface 3", "Surface 4", "Surface 5", "Surface 6"])
         # Write the connections and location and radius for each vertex in the network
         for i in range(len(net.verts)):
             vert = net.verts[i]
@@ -358,20 +359,21 @@ def export_net(net, output_surfs=True):
         writer.writerow(["Edge", "Reference Surface", "Start Index", "End Index", "Atom 1", "Atom 2", "Atom 3",
                          "Vertex 1", "Vertex 2", "Surface 1", "Surface 2", "Surface 3"])
         # Write the connections and surface and points range information for each edge in the network
+        edge_ref = [None, None, None]
         for i in range(len(net.edges)):
             # Get the edge
             edge = net.edges[i]
             # Get the reference value for the edge
-            edge_ref = [None, None, None]
             e_verts, e_surfs = [net.verts.index(_) for _ in edge.verts], [net.surfs.index(_) for _ in edge.surfs]
             # Write the edge information in the file
             writer.writerow([i] + edge_ref + edge.ndx + e_verts + [None] * (2 - len(e_verts)) + e_surfs +
                             [None] * (3 - len(e_surfs)))
 
         # Create a surfaces header
-        writer.writerow(["Surface", "File", "Resolution", "Surface Area", "Curvature", "Atom 1", "Atom 2", "Function A", "Function B",
-                         "Function C", "Function D", "Function E", "Function F", "Function G", "Function H",
-                         "Function I", "Function J", "Function K", "Function d1", "Function d2", "Function d3"])
+        writer.writerow(["Surface", "File", "Resolution", "Surface Area", "Curvature", "Atom 1", "Atom 2", "Function A",
+                         "Function B", "Function C", "Function D", "Function E", "Function F", "Function G",
+                         "Function H", "Function I", "Function J", "Function K", "Function d1", "Function d2",
+                         "Function d3"])
         # Write the connections and surface and points range information for each edge in the network
         for i in range(len(net.surfs)):
             # Get the surface
@@ -408,10 +410,12 @@ def export_net_info(net):
     file.write(net.sys.name + " Network")
     # Write the atom information
     for i in range(len(net.atoms)):
-        file.write("{} - cell volume = {}, cell surface area {}\n".format(net.atoms[i].name, net.atoms[i].vol, net.atoms[i].sa))
+        file.write("{} - cell volume = {}, cell surface area {}\n"
+                   .format(net.atoms[i].name, net.atoms[i].vol, net.atoms[i].sa))
     # write the surface information
     for i in range(len(net.surfs)):
-        file.write("Surface {}-{} - Surface area = {}\n".format(net.surfs[i].ndx[0], net.surfs[i].ndx[1], net.surfs[i].sa))
+        file.write("Surface {}-{} - Surface area = {}\n"
+                   .format(net.surfs[i].ndx[0], net.surfs[i].ndx[1], net.surfs[i].sa))
     file.close()
 
 
@@ -434,7 +438,7 @@ def set_pymol_atoms(sys):
     file.close()
 
 
-def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_network_object=False, no_sol_network_object=False,
+def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_network_object=False,
                alter_atoms_script=False, info=False):
     """
         Prepares the output directory and system for output. Keeps things consistent
@@ -469,7 +473,7 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
             os.mkdir(sys.dir + "/sys")
         os.chdir(sys.dir + "/sys")
         # Export a full system
-        export_mySys(sys)
+        export_full_sys(sys)
     # Write the alter atoms script
     if alter_atoms_script or all_:
         if not os.path.exists(sys.dir + '/sys'):
