@@ -672,4 +672,4 @@ class VorpyC(ctk.CTk):
         self.g1.exports(shell=True, info=True, surr_atoms=True)
 
     def export_iface_button(self):
-        export_iface([self.g1, self.g2], info_file=True, interface_atoms=False)
+        export_iface(self.g1, self.g2, info_file=True, interface_atoms=False)
