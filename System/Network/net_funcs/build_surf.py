@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+
 from System.sys_funcs.calcs import calc_angle, calc_com, rotate_points
 from scipy.spatial import Delaunay
 import numpy as np
@@ -253,7 +255,7 @@ def fill_mesh(surf):
                 surf.in_box = False
             # Check to see of the new point is too close to the previous point and the path has to end
             if pn is None or (np.sqrt(sum(np.square(np.array(pn) - np.array(pn_1)))) < 0.5 * res and not
-            np.sqrt(sum(np.square(np.array(paths[i - 1][-1]) - np.array(pn)))) > res):
+               np.sqrt(sum(np.square(np.array(paths[i - 1][-1]) - np.array(pn)))) > res):
                 # Add the path to the surfaces points and remove it from the paths list
                 surf.points += paths.pop(i)[1:]
                 dthetas.pop(i)
@@ -263,7 +265,6 @@ def fill_mesh(surf):
                 pn_1 = pn
                 paths[i].append(pn)
                 i += 1
-
     # Add the remaining paths to the surface excluding the first point in the path (i.e. the edge point)
     for path in paths:
         surf.points += path[1:]
