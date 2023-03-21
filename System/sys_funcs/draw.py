@@ -2,7 +2,9 @@ import numpy as np
 from System.sys_funcs.calcs import calc_dist
 
 
-def draw_line(points, radius=0.02, color=None):
+def draw_line(points, radius=0.02, color=None, edge_org=None):
+    if edge_org is None:
+        edge_org = [0, 0, 1]
     # Initiate the draw attributes
     draw_points, draw_tris = [], []
     r = None
@@ -10,9 +12,7 @@ def draw_line(points, radius=0.02, color=None):
     for i in range(len(points)):
         # If we are at the end of the points list, use the previous point for calibration
         p0 = np.array(points[i])
-        if i == len(points) - 1:
-            p1 = np.array(points[i - 1])
-        else:
+        if i < len(points) - 1:
             p1 = np.array(points[i + 1])
             r = p1 - p0
         # Find the vector and its normal between the two points
@@ -22,7 +22,7 @@ def draw_line(points, radius=0.02, color=None):
             r = r + np.array([0.001, 0.001, 0])
             rn = r / np.linalg.norm(r)
         # Take the cross product with the +z direction and normalize it
-        v0_0x = np.cross(rn, [0, 0, 1])
+        v0_0x = np.cross(rn, np.array(p0 - edge_org))
         v0_0n = v0_0x / np.linalg.norm(v0_0x)
         # Calculate the location of the first point
         p0_0 = v0_0n * radius + p0
@@ -57,8 +57,13 @@ def draw_edge(edge, radius=0.02, color=None):
     # Make sure the edge is built already
     if edge.points is None:
         edge.build()
+
+    # Get the edge direction to point away from
+    rads = [_.rad for _ in edge.atoms]
+    min_atom = edge.atoms[rads.index(min(rads))]
+
     # Calculate the lines
-    edge.draw_points, edge.draw_tris = draw_line(edge.points, radius, color=color)
+    edge.draw_points, edge.draw_tris = draw_line(edge.points, radius, color=color, edge_org=min_atom.loc)
 
 
 # Draw Vertices Function. Takes in a vertex and updates the loc_points, loc_tris, sphere_points, sphere_points attribute
