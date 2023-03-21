@@ -113,7 +113,8 @@ def build(net, from_scratch=True):
 
     # Go through the vertices in the network searching for potential edges
     for i in range(len(net.verts)):
-        print("\rConnecting Network: {:.2f} %".format(min(100.0, 100 * (len(net.edges)) / (2 * len(net.verts)))), end="")
+        print("\rConnecting Network: {:.2f} %"
+              .format(min(100.0, 100 * (len(net.edges)) / (2 * len(net.verts)))), end="")
         vert1 = net.verts[i]
         if vert1.doublet is not None:
             continue
@@ -134,7 +135,8 @@ def build(net, from_scratch=True):
             # Find the possible verts (the original vert and the new vert)
             for vert2 in net.verts:
                 check_ndx = set(vert2.ndx)
-                if vert2.doublet is None and len([0 for _ in atom_ndxs if _ in check_ndx]) == 3 and vert2.ndx not in [_.ndx for _ in verts]:
+                if vert2.doublet is None and len([0 for _ in atom_ndxs if _ in check_ndx]) == 3 and \
+                        vert2.ndx not in [_.ndx for _ in verts]:
                     verts.append(vert2)
 
             # If the number of valid vertices for the edge is 1
@@ -155,7 +157,8 @@ def build(net, from_scratch=True):
 
     # Go through the edges in the network
     for i in range(len(net.edges)):
-        print("\rConnecting Network: {:.2f} %".format(min(100.0, 100 * (i + len(net.edges) - 1) / (2 * len(net.verts)))), end="")
+        print("\rConnecting Network: {:.2f} %"
+              .format(min(100.0, 100 * (i + len(net.edges) - 1) / (2 * len(net.verts)))), end="")
         edge1 = net.edges[i]
         # Go through the edge's atoms combinations
         for j in range(3):
