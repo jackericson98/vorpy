@@ -19,7 +19,7 @@ Argv rules:
 def interpret_argvs(my_sys):
     # Separate the rest of the argv args
     my_args = sys.argv[2:]
-    npt_cmnds, set_cmnds, grp_cmnds, bld_cmnds, xpt_cmnds = [], [], [], [], []
+    npt_cmnds, set_cmnds, grp_cmnds, bld_cmnds, xpt_cmnds, ifc_cmnds = [], [], [], [], [], []
     # Go through the arguments
     while my_args:
         # Remove the first argument flag
@@ -43,19 +43,22 @@ def interpret_argvs(my_sys):
             bld_cmnds.append(arg_cmnds)
         elif arg.lower() == '-e':
             xpt_cmnds.append(arg_cmnds)
+        elif arg.lower() == '-i':
+            ifc_cmnds.append(arg_cmnds)
     # Return the lists
-    return npt_cmnds, set_cmnds, grp_cmnds, bld_cmnds, xpt_cmnds
+    return npt_cmnds, set_cmnds, grp_cmnds, bld_cmnds, xpt_cmnds, ifc_cmnds
 
 
 def argv(my_sys):
     # Load the atom file
     argv_load(my_sys, ["", sys.argv[1]])
     # Interpret the commands
-    files, settings, groups, builds, exports = interpret_argvs(my_sys)
+    files, settings, groups, builds, exports, ifaces = interpret_argvs(my_sys)
     # Go through each of the ls
     argv_load(my_sys, files)
+
     argv_sett(my_sys, settings)
-    argv_group(my_sys, groups)
+    argv_group(my_sys, groups, bff=ifaces)
     argv_build(my_sys, builds)
     argv_export(my_sys, exports)
 
