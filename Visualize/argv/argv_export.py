@@ -17,7 +17,6 @@ def argv_export(my_sys, usr_npt):
     :param usr_npt:
     :return:
     """
-
     # Go through each of the inputs in the exports
     if len(usr_npt) == 0:
         usr_npt.append(['default'])
@@ -86,10 +85,6 @@ def export_npt(my_sys, usr_npt):
     _______________________________________verts_________________________________________________________
     """
 
-
-    """
-    ________________________________interface__________________________________________________________
-    """
     """
     ________________________________simple export______________________________________________________
     """
