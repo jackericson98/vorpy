@@ -44,7 +44,7 @@ def get_surfs(grp):
 def get_edges(grp):
     """
     Finds and sorts the edges in group
-    :return: The group will have all edge objects associated with it sirted and non-redundant
+    :return: The group will have all edge objects associated with it sorted and non-redundant
     """
     # Reset the surfaces lists
     grp.edges, grp.edge_ndxs = [], []
@@ -84,8 +84,10 @@ def get_iface(grp, bff=None):
     if bff is not None:
         grp.bff = bff
     # Reset the interface attributes for the group, and it's bff
-    grp.iface_atoms, grp.bff.iface_atoms, grp.iface_surfs, grp.bff.iface_surfs = [], [], [], []
+    grp.iface_atoms, grp.bff.iface_atoms, grp.iface_surfs, grp.iface_edges, grp.iface_verts = [], [], [], [], []
+    ie_ndxs, iv_ndxs = [], []
     grp.iface_sa = 0
+
     # Go through the atoms in the group
     for atom in grp.atoms:
         # Check to see if the atom is in the bff's list of atoms
@@ -103,7 +105,30 @@ def get_iface(grp, bff=None):
                 grp.bff.iface_atoms.append(other_atom)
                 # Add the surface to the list of interface surfs and add the surface area of the surface
                 grp.iface_surfs.append(surf)
-                grp.bff.iface_surfs.append(surf)
                 grp.iface_sa += surf.sa
+                # Add the edges to the interface
+                for edge in surf.edges:
+                    # Get the index of the edge
+                    edge_ndx = ndx_search(ie_ndxs, edge.ndx)
+                    # Check if the edge is in there or not
+                    if len(ie_ndxs) <= edge_ndx or edge.ndx != ie_ndxs[edge_ndx]:
+                        # Add the index and edge to the correct lists
+                        ie_ndxs.insert(edge_ndx, edge.ndx)
+                        grp.iface_edges.insert(edge_ndx, edge)
+                # Add the verts to the interface
+                for vert in surf.verts:
+                    # Get the index of the vert
+                    vert_ndx = ndx_search(iv_ndxs, vert.ndx)
+                    # Check if the vert is in there or not
+                    if len(ie_ndxs) <= vert_ndx or vert.ndx != ie_ndxs[vert_ndx]:
+                        # Add the index and vert to the correct lists
+                        ie_ndxs.insert(vert_ndx, vert.ndx)
+                        grp.iface_verts.insert(vert_ndx, vert)
+    # Get the curvature
+    grp.iface_curv = sum([_.curv for _ in grp.iface_surfs]) / len(grp.iface_surfs)
     # Set the bff's surface area
+    grp.bff.iface_atoms = grp.iface_atoms
+    grp.bff.iface_surfs = grp.iface_surfs
+    grp.bff.iface_edges = grp.iface_edges
+    grp.bff.iface_verts = grp.iface_verts
     grp.bff.iface_sa = grp.iface_sa
