@@ -3,13 +3,17 @@ from Visualize.cmnd.commands import *
 from System.Group.group import Group
 
 
-def argv_group(my_sys, usr_npt, add_more=False):
+def argv_group(my_sys, usr_npt, add_more=False, bff=None):
+    # Check if a bff was specified
+    if bff is not None:
+        bff = group(sys=my_sys, usr_npt=bff[0])
+
+
     if len(usr_npt) == 0 or usr_npt[0][0] == 'ns':
         my_sys.groups.append(Group(sys=my_sys, chains=my_sys.chains, name="no_SOL"))
     else:
-        my_group = None
         for grouping in usr_npt:
-            my_sys.groups.append(group(sys=my_sys, usr_npt=grouping, group_2=my_group))
+            my_sys.groups.append(group(sys=my_sys, usr_npt=grouping, bff=bff))
 
 
 def group_argv(my_sys, usr_npt):
