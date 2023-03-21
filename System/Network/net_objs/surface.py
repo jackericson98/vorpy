@@ -29,6 +29,7 @@ class Surface:
         self.perimeter = perimeter      # Perimeter       : The points around the edges of the surface (IN ORDER)
         self.pflat_points = []          # Flat perimeter  : Flattened points around the perimeter
         self.tris = tris                # Triangles       : A list of connections between the points
+        self.filter_hard = False        # Filter hard     : Whether to filter the triangles extra hard
 
         # Coloring values
         self.tri_dists = None           # Distances       : List corresponding to the distance from the center
@@ -224,7 +225,7 @@ class Surface:
         """
         if color_scheme is None:
             color_scheme = self.net.surf_scm
-        if color_scheme is None:
+        if color_map is None:
             color_map = self.net.surf_col
         # Set up the color map
         my_cmap = mpl.colormaps.get_cmap(color_map)
