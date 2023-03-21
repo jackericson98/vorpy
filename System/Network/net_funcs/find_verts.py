@@ -59,10 +59,10 @@ def find_v0(net, a0=None, group_atoms=None):
         # Try to make a verified v0 site with the verified circles
         for circle in verified_circles:
             # Try to create a vertex
-            myVert = find_site(net, circle, group_atoms=group_atoms)
+            my_vert = find_site(net, circle, group_atoms=group_atoms)
             # Check for a real site
-            if myVert is not None and myVert[0].loc is not None:
-                return myVert[0]
+            if my_vert is not None and my_vert[0].loc is not None:
+                return my_vert[0]
         j += 1
 
 
@@ -87,7 +87,7 @@ def verify_site(vert, net):
         if net.type == 'del':
             if sqrt(sum(square(array(atom.loc) - array(loc)))) < rad:
                 return False
-        # I don't know how to verify power yet
+        # Verify power
         elif net.type == 'pow':
             if sqrt(sum(square(array(atom.loc) - array(loc)))) ** 2 - my_radius ** 2 < rad:
                 return False
@@ -216,7 +216,7 @@ def find_site(net, edge_atoms, vn_1=None, first=False, group_atoms=None):
 
 
 # Find network function. Keeps searching the network until all verts are found
-def find_verts(net, a0=None, my_group=None):
+def find_verts(net, a0=None, my_group=None, sniff=False):
     # Get the group atoms from which to check vertices against
     if my_group is None or (my_group is not None and len(my_group.atoms) == len(net.atoms)):
         group_atoms = [i for i in range(len(net.atoms))]
@@ -238,6 +238,8 @@ def find_verts(net, a0=None, my_group=None):
     # If no v0 is possible (e.g., a lone atom) return
     if v0 is None:
         return
+    elif sniff:
+        return True
     # Check if this is the first go around
     if net.verts is None:
         net.verts = [v0]
@@ -263,18 +265,18 @@ def find_verts(net, a0=None, my_group=None):
             # Get the edge from the top of the stack
             edge_atoms, vert = e_stack.pop()
             # Find the next site in the network
-            myVert = find_site(net=net, edge_atoms=edge_atoms, vn_1=vert, group_atoms=group_atoms)
+            vert_ndx_pr = find_site(net=net, edge_atoms=edge_atoms, vn_1=vert, group_atoms=group_atoms)
             # If the vertex is none continue
-            if myVert is None:
+            if vert_ndx_pr is None:
                 continue
             # Set the vertex and its index
-            myVert, myVert_ndx = myVert
+            my_vert, my_vert_ndx = vert_ndx_pr
             # Add the vertex to the stack and the network
-            vert_stack.append(myVert)
+            vert_stack.append(my_vert)
             # Insert the vertices in order of increasing atom indices
-            net.verts.insert(myVert_ndx, myVert)
-            net.vert_ndxs.insert(myVert_ndx, myVert.ndx)
+            net.verts.insert(my_vert_ndx, my_vert)
+            net.vert_ndxs.insert(my_vert_ndx, my_vert.ndx)
             # Remove the atoms from the
-            for atom in myVert.atoms:
+            for atom in my_vert.atoms:
                 if atom.num in net.atom_ndxs:
                     net.atom_ndxs.remove(atom.num)
