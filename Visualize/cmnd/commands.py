@@ -22,7 +22,7 @@ export_cmds = ['e', 'export', 'xport', 'xprt', 'xpt', 'xp', 'expt', 'ext']
 my_commands = quits + helps + show_cmds + load_cmds + set_cmds + build_cmds + group_cmds + export_cmds
 
 # Objects
-full_objs = ['f', 'full', 'fl', 'ful']
+full_objs = ['f', 'full', 'fl', 'ful', 'fs']
 noSOL_objs = ['ns', 'nosol', 'no_sol', 'nos', 'nsol']
 mol_objs = ['m', 'ms', 'molecule', 'molecules', 'mol', 'mols', 'ml', 'mls']
 atom_objs = ['a', 'as', 'atom', 'atoms', 'at', 'ats', 'am', 'ams']
