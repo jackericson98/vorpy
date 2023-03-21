@@ -10,7 +10,7 @@ def argv_export(my_sys, usr_npt):
                     surrounding atoms, shell, info from each group
         'all' - exports everything from the full system and each group, needs a warning first
         'info' - exports only the information files for the system and each group
-        'surfs' - exports the the built surfaces individually from the system and all group surfaces + verts and edges
+        'surfs' - exports the built surfaces individually from the system and all group surfaces + verts and edges
 
 
     :param my_sys:
@@ -77,4 +77,24 @@ def export_npt(my_sys, usr_npt):
         for grouping in my_sys.groups:
             # Export the atoms, shell and info file
             grouping.exports(shell=True, atoms=True, fill=True, surfaces=True, verts=True, edges=True)
+
+    """
+    _______________________________________edges_________________________________________________________
+    """
+
+    """
+    _______________________________________verts_________________________________________________________
+    """
+
+
+    """
+    ________________________________interface__________________________________________________________
+    """
+    """
+    ________________________________simple export______________________________________________________
+    """
+    """
+    _____________________________________________heavy export__________________________________________
+    """
+
 

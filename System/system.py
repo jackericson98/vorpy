@@ -228,7 +228,9 @@ class System:
         resids_var = str(len(self.residues)) + " Residues"
         chains_var = str(len(self.chains)) + " Chains: " + ", ".join(["{} - {} atoms, {} residues"
                             .format(_.name, len(_.atoms), len(_.residues)) for _ in self.chains])
-        sol_var = self.sol.name + " - " + str(len(self.sol.residues)) + " residues"
+        sol_var = ""
+        if self.sol is not None:
+            sol_var = self.sol.name + " - " + str(len(self.sol.residues)) + " residues"
         print(atoms_var, resids_var, chains_var, sol_var)
 
     def build_network(self, surf_res=None, max_vert=None, box_size=None, sol_verts=True, output=True,
