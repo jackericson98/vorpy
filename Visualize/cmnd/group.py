@@ -2,7 +2,7 @@ from System.Group.group import Group
 from Visualize.cmnd.interpret import *
 
 
-def group(sys, usr_npt, group_2=None):
+def group(sys, usr_npt, bff=None):
     # Create the object and index variables
     my_obj, my_ndx = None, None
     if usr_npt[0] == 'ns':
@@ -39,7 +39,5 @@ def group(sys, usr_npt, group_2=None):
     # Create the group
     npt_list = [None] * 4
     npt_list[obj_ndx] = my_list
-    my_group = Group(sys=sys, chains=npt_list[0], residues=npt_list[1], atoms=npt_list[2], indices=npt_list[3], name=name)
-    if group_2 is not None:
-        my_group.add_atoms(group_2.atoms)
+    my_group = Group(sys=sys, chains=npt_list[0], residues=npt_list[1], atoms=npt_list[2], indices=npt_list[3], name=name, bff=bff)
     return my_group
