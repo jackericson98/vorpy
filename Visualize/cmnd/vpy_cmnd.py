@@ -1,3 +1,4 @@
+import System.sys_objs.residue
 from Visualize.cmnd.export import *
 from Visualize.cmnd.set import *
 from System.Group.group import Group
@@ -12,8 +13,11 @@ def load_atom_file(my_sys):
         usr_file = usr_file.split()
         if len(usr_file) > 1:
             usr_file = usr_file[1]
-        else:
+        elif len(usr_file) == 1:
             usr_file = usr_file[0]
+        else:
+            my_num = np.random.randint(8)
+            usr_file = ['Na5', 'EDTA_Mg', 'cambrin', 'hairpin', 'DB1976', 'Na7', 'protein_ligand_complex', 'Complex_frame1'][my_num]
         # Check if the full path was loaded
         if os.path.exists(usr_file) and usr_file[-3:] in {"pdb", "gro", "mol", "cif"}:
             file_path = usr_file
@@ -159,59 +163,61 @@ def vorpy(my_sys):
     # Allow the user to keep loading files
     while True:
         # Ask the user if they have another file to load
-        load_another = input("load another file? (y/n) >>>   ")
+        load_another = input("add files >>>   ")
         # Check if load another is requested
-        if load_another.lower() in ys:
-            # Give the user the interface to load files
-            good_file = load_another_file(my_sys=my_sys)
-            if good_file:
-                continue
-        elif load_another.lower() in ns:
+        if load_another.lower() in ns + dones + ['']:
             break
+        # Give the user the interface to load files
+        good_file = load_another_file(my_sys=my_sys)
+        if good_file:
+            continue
+    # Get the number of atoms in the default grouping (if sol dne all atoms)
+    atom_len = len(my_sys.atoms) - len(my_sys.sol.atoms) if my_sys.sol is not None else len(my_sys.atoms)
+    # Print the default grouping information for the system
+    print("Default group: {} atoms, {} residue{}, {} chain{}".format(atom_len, len(my_sys.residues), 's' if len(my_sys.residues) > 1 else '', len(my_sys.chains), 's' if (len(my_sys.chains) > 1) else ''))
     # Start the grouping loop
     while True:
         # Get an initial grouping input
-        usr_npt = input(
-            "Create a group. (Full = \'f\', No SOL = \'ns\', mol = \'m\', res = \'r\', atom = \'a\', index = \'i\')\n"
-            "group >>>   ")
+        usr_npt = input("new group >>>   ")
         # Split the user input
         usr_npt = usr_npt.split()
         # Check that the user's input is valid
-        if usr_npt[0].lower() in my_objects:
+        if len(usr_npt) == 0 or usr_npt[0].lower() in my_objects:
             break
         elif usr_npt[0].lower() in show_cmds:
             show(my_sys, usr_npt)
             continue
         # Tell the user they f'd up
         print("Bad input")
-    # Create the group
-    while True:
+    if len(usr_npt) == 0 or usr_npt[0] in ns:
+        my_group = Group(sys=my_sys, residues=my_sys.residues, name=my_sys.name)
+    else:
+        # Create the group
         my_group = create_group(my_sys=my_sys, usr_npt=usr_npt)
         if my_group is not None:
             print("{} group created - {} atoms, {} residues, {} chains".format(my_group.name, len(my_group.atoms),
-                                                                               len(my_group.residues), len(my_group.chains)))
-            break
+                                                                           len(my_group.residues), len(my_group.chains)))
     # Check if the network has been loaded
     if my_sys.net_file is None and my_sys.vert_file is None:
         net = my_sys.net
         # Keep asking for a setting to change
         while True:
             # Print the default settings
-            print(u"{} Build Settings - surf_res = {:.2f} \u208B,  max_vert  = {:.2f} \u208B,  box_multi = {:.2f} x,  "
-                  u"build_surfs = {}, net_type = {}"
-                  .format(my_group.name, net.surf_res, net.max_vert, net.box_size, net.build_surfs,
-                          {'vor': 'Voronoi', 'del': 'Delaunay', 'pow': 'Power'}[net.type]))
+            print(u"Default settings: net type = {}, surf res = {:.2f} \u208B,  max vert  = {:.2f} \u208B,  "
+                  u"box multiplier = {:.2f} x".format(my_group.sys.net.type, net.surf_res, net.max_vert, net.box_size))
             # Print the build settings and see if the user wants to change anything
-            change_settings = input("change settings? (y/n) >>>   ")
+            change_settings = input("alter set >>>   ")
             change_settings = change_settings.split()
             # If the user wants to change the settings:
-            if len(change_settings) == 0 or change_settings[0].lower() in ys:
+            if len(usr_npt) == 0:
+                break
+            elif change_settings[0].lower() in ys:
                 sett(my_sys, ["set"], vorpy2_set=True)
             # If the user changes the settings here, insert the inp-ut into the sett function
             elif change_settings[0].lower() in my_settings:
                 sett(my_sys, change_settings, vorpy2_set=True)
             # If the user input is not a good one let them go again
-            elif change_settings[0].lower() in ns:
+            elif change_settings[0].lower() in ns + [""] + dones:
                 break
         # Build the group
         my_sys.net.build(my_group=my_group, print_actions=True)
