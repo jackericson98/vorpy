@@ -1,6 +1,6 @@
 
 
-def argv_export(my_sys, usr_npt):
+def argv_export(my_sys, usr_npt, interfaces=False):
     """
     Exports the specified elements from the system.
 
@@ -13,10 +13,17 @@ def argv_export(my_sys, usr_npt):
         'surfs' - exports the built surfaces individually from the system and all group surfaces + verts and edges
 
 
+    :param interfaces:
     :param my_sys:
     :param usr_npt:
     :return:
     """
+    # Check for interfaces
+    if interfaces:
+        for group in my_sys.groups:
+            group.exports(iface=True)
+        if len(usr_npt) == 0:
+            return
     # Go through each of the inputs in the exports
     if len(usr_npt) == 0:
         usr_npt.append(['default'])
@@ -26,6 +33,12 @@ def argv_export(my_sys, usr_npt):
 
 
 def export_npt(my_sys, usr_npt):
+    """
+    Exports the selection from the usr_npts
+    :param my_sys:
+    :param usr_npt:
+    :return:
+    """
 
     """
     _____________________________________Default____________________________________________
@@ -51,6 +64,19 @@ def export_npt(my_sys, usr_npt):
         for grouping in my_sys.groups:
             # Export everything from the group
             grouping.exports(all_=True)
+
+    """
+    ____________________________________Medium_____________________________________________________________
+    """
+    # if medium export is specified
+    if usr_npt.lower() == 'med':
+        # Export everything from the system
+        my_sys.exports(network=True, pdb=True, set_atoms=True, info=True)
+        # Go through each of the system's groups
+        for grouping in my_sys.groups:
+            # Export a medium amount of things from the group
+            grouping.exports(shell=True, edges=True, verts=True, info=True)
+
 
     """
     ____________________________________info_________________________________________________________
@@ -91,5 +117,3 @@ def export_npt(my_sys, usr_npt):
     """
     _____________________________________________heavy export__________________________________________
     """
-
-
