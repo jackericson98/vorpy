@@ -1,6 +1,4 @@
-![image](https://user-images.githubusercontent.com/62311229/226451994-de2cd30f-4ee9-4d09-87f3-2fd2c1573b35.png)
-
-
+![image](https://user-images.githubusercontent.com/62311229/226769798-5c1247aa-2bb6-4581-b3d5-ec334a92d28f.png)
 
 # Vorpy
 
