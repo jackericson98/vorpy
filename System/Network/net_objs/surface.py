@@ -29,17 +29,12 @@ class Surface:
         self.perimeter = perimeter      # Perimeter       : The points around the edges of the surface (IN ORDER)
         self.pflat_points = []          # Flat perimeter  : Flattened points around the perimeter
         self.tris = tris                # Triangles       : A list of connections between the points
-        self.filter_hard = False        # Filter hard     : Whether to filter the triangles extra hard
+        self.filter_hard = False        # Filter hard     : Whether to filter the triangles extra extra extra hard UWU
 
         # Coloring values
         self.tri_dists = None           # Distances       : List corresponding to the distance from the center
         self.tri_ins_out = None         # Inside Outside  : List corresponding to inside or outside the atoms
         self.tri_curvs = None           # Curvature       : List corresponding to curvature value for each point
-
-        # Current coloring
-        self.tri_dists = None
-        self.tri_curvs = None
-        self.tri_ins_out = None
         self.tri_colors = tri_colors    # Tri colors      : Holds the color mapped color for each triangle
         self.scheme = color_scheme      # Color Scheme    : Holds the method by which the color map is mapped
         self.color_map = color_map      # Color Map       : Holds the map applied to the triangles on the surface
@@ -212,8 +207,10 @@ class Surface:
         fill_mesh(self)
         # Find the simplices of the surface
         find_simps(self)
-        # Filter out the bad triangles
-        filter_tris(self)
+        # If the network type is voronoi the edges could be curved allowing for triangulations outside the edges
+        if self.net.type == 'vor':
+            # Filter out the bad triangles
+            filter_tris(self)
 
     def color_tris(self, color_scheme=None, color_map=None, inverse=False):
         """

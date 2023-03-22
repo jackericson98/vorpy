@@ -227,10 +227,10 @@ class VorpyT:
         self.select_atoms_subfrm.grid(row=1, column=1, sticky='nsew')
 
         # Molecule Dropdown
-        self.sys.mol_names, self.sys.res_names, self.sys.atom_names = [["o", "sdds", "s", "G"] for _ in range(3)]
-        tk.Label(self.select_atoms_subfrm, text="Molecules").grid(row=0)
+        self.sys.chn_names, self.sys.res_names, self.sys.atom_names = [["o", "sdds", "s", "G"] for _ in range(3)]
+        tk.Label(self.select_atoms_subfrm, text="Chains").grid(row=0)
         self.current_mol_selection = tk.StringVar(self.main)
-        self.mol_options = tk.OptionMenu(self.select_atoms_subfrm, self.current_mol_selection, "", *self.sys.mol_names)
+        self.mol_options = tk.OptionMenu(self.select_atoms_subfrm, self.current_mol_selection, "", *self.sys.chn_names)
         self.mol_options.grid(row=1)
         tk.Button(self.select_atoms_subfrm, text="Add", command=self.add_mol_button).grid(row=1, column=1)
 
@@ -382,7 +382,7 @@ class VorpyT:
             self.atom_list.append(str(self.sys.atoms.index(atom)) + " " + atom.element)
         # Set up the molecules list
         self.mol_options.destroy()
-        self.mol_options = tk.OptionMenu(self.select_atoms_subfrm, self.current_mol_selection, *self.sys.mol_names)
+        self.mol_options = tk.OptionMenu(self.select_atoms_subfrm, self.current_mol_selection, *self.sys.chn_names)
         self.mol_options.grid(row=1)
         # Set up the residues list
         self.res_options.destroy()
@@ -489,9 +489,9 @@ class VorpyT:
         self.selected_atoms_str.set("\n".join(self.selected_atoms_names))
 
     def add_mol_button(self):
-        mol_ndx = self.sys.mol_names.index(self.current_mol_selection.get())
-        self.selected_atoms.append(self.sys.chains[mol_ndx])
-        self.selected_atoms_names.append(self.sys.mol_names[mol_ndx])
+        chn_ndx = self.sys.chn_names.index(self.current_mol_selection.get())
+        self.selected_atoms.append(self.sys.chains[chn_ndx])
+        self.selected_atoms_names.append(self.sys.chn_names[chn_ndx])
         if len(self.selected_atoms_names) > 3:
             sele_str = self.selected_atoms_names[0] + "\n:\n" + self.selected_atoms_names[2]
         else:

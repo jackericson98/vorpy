@@ -8,7 +8,8 @@ from numpy import seterr, random
 
 class System:
     def __init__(self, file=None, atoms=None, verts_file=None, network_file=None, index_file=None, frame_files=None,
-                 output_directory=None, gui=None, root_dir=None, print_actions=False, residues=None, chains=None, segments=None):
+                 output_directory=None, gui=None, root_dir=None, print_actions=False, residues=None, chains=None,
+                 segments=None):
         """
         Class used to import files of all types and return a System
         :param file: Base system file address
@@ -24,7 +25,7 @@ class System:
         # Names
         self.name = None                    # Name                :   Name describing the system
         self.atom_names = []                # Atom Names          :   List holding the names of the atoms in the system
-        self.mol_names = []                 # Residue Names       :   List of molecule names
+        self.chn_names = []                 # Chain Names         :   List of chain names
         self.res_names = []                 # Residue Names       :   List of residue names
         self.ndx_names = []                 # Index Names         :   List of names of indices corresponding to ndxs
         self.group_names = []               # Group Names         :   List of names of user groups for to self.groups
@@ -130,8 +131,8 @@ class System:
 
         # If the system wants its actions printed
         if self.print_actions:
-            print("{} loaded - {} atoms, {} chains, {} residues"
-                  .format(self.name, len(self.atoms), len(self.chains), len(self.residues)))
+            print("{} loaded - {} atoms, {} residues, {} chain{}, ".format(self.name, len(self.atoms),
+                  len(self.residues), len(self.chains), 's' if len(self.chains) > 1 else ''))
 
     def load_verts(self, file=None, vta_ball_file=None):
         """
@@ -233,8 +234,8 @@ class System:
             sol_var = self.sol.name + " - " + str(len(self.sol.residues)) + " residues"
         print(atoms_var, resids_var, chains_var, sol_var)
 
-    def build_network(self, surf_res=None, max_vert=None, box_size=None, sol_verts=True, output=True,
-                      calc_verts=True):
+    def build_network(self, output=True, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
+                      calc_verts=None, my_group=None, print_actions=None):
         """
         Allows user to build the network from the system object.
         :return:
@@ -243,8 +244,8 @@ class System:
         if self.net is None:
             self.net = Network(self, atoms=self.atoms)
         # Build the network
-        self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=sol_verts, output=output,
-                       calc_verts=calc_verts)
+        self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs, output=output,
+                       calc_verts=calc_verts, net_type=net_type, my_group=my_group, print_actions=print_actions)
 
     def export_verts(self):
         """

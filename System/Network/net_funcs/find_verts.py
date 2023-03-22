@@ -83,17 +83,17 @@ def verify_site(vert, net):
         # If the atom is one of the vertex atoms move on
         if atom.num in checked_atoms:
             continue
-        my_radius = atom.rad
+        arad = atom.rad
         if net.type == 'del':
             if sqrt(sum(square(array(atom.loc) - array(loc)))) < rad:
                 return False
         # Verify power
         elif net.type == 'pow':
-            if sqrt(sum(square(array(atom.loc) - array(loc)))) ** 2 - my_radius ** 2 < rad:
+            if sqrt(sum(square(array(atom.loc) - array(loc)))) ** 2 - arad ** 2 < rad:
                 return False
         # Verification for a voronoi network
         elif net.type == 'vor':
-            if sqrt(sum(square(array(atom.loc) - array(loc)))) < my_radius + rad:
+            if sqrt(sum(square(array(atom.loc) - array(loc)))) < arad + rad:
                 return False
         # Add the atom to the checked atoms list
         checked_atoms.append(atom.num)
@@ -109,17 +109,17 @@ def verify_site(vert, net):
             # If the atom is one of the vertex atoms move on
             if atom.num in checked_atoms:
                 continue
-            my_radius = atom.rad
+            arad = atom.rad
             if net.type == 'del':
                 if sqrt(sum(square(array(atom.loc) - array(loc)))) < rad:
                     return False
             # I don't know how to verify power yet
             elif net.type == 'pow':
-                if sqrt(sum(square(array(atom.loc) - array(loc)))) ** 2 - my_radius ** 2 < rad:
+                if sqrt(sum(square(array(atom.loc) - array(loc)))) ** 2 - arad ** 2 < rad:
                     return False
             # Verification for a voronoi network
             elif net.type == 'vor':
-                if sqrt(sum(square(array(atom.loc) - array(loc)))) < my_radius + rad:
+                if sqrt(sum(square(array(atom.loc) - array(loc)))) - arad < rad:
                     return False
             # If the distance between the vertex and the test atom is less than the sum of their radii, they overlap
 

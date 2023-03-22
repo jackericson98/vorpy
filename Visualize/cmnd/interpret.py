@@ -66,7 +66,7 @@ def get_obj(sys, obj=None):
             obj = None
             continue
         # Otherwise, we have a success
-        elif obj[0].lower() in mol_objs:
+        elif obj[0].lower() in chn_objs:
             return 'm'
         elif obj[0].lower() in res_objs:
             return 'r'

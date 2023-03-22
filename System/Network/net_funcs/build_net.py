@@ -113,8 +113,8 @@ def build(net, from_scratch=True):
 
     # Go through the vertices in the network searching for potential edges
     for i in range(len(net.verts)):
-        print("\rConnecting Network: {:.2f} %"
-              .format(min(100.0, 100 * (len(net.edges)) / (2 * len(net.verts)))), end="")
+        print("\rconnecting network: {:.2f} %"
+              .format(min(100.0, 100 * (0.5 * len(net.edges)) / (3/2 * len(net.verts)))), end="")
         vert1 = net.verts[i]
         if vert1.doublet is not None:
             continue
@@ -157,8 +157,8 @@ def build(net, from_scratch=True):
 
     # Go through the edges in the network
     for i in range(len(net.edges)):
-        print("\rConnecting Network: {:.2f} %"
-              .format(min(100.0, 100 * (i + len(net.edges) - 1) / (2 * len(net.verts)))), end="")
+        print("\rbuilding network: {:.2f} %"
+              .format(min(100.0, 100 * (len(net.surfs) + 0.5 * (len(net.edges))) / ((3/2) * len(net.verts)))), end="")
         edge1 = net.edges[i]
         # Go through the edge's atoms combinations
         for j in range(3):

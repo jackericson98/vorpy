@@ -158,6 +158,7 @@ class Vertex:
         :param power:
         :return:
         """
+        # Get the radii of the atoms in the vertex
         rads = [_.rad for _ in self.atoms]
         atom_rads = [x for _, x in sorted(zip(rads, self.atoms), key=lambda pair: pair[0])]
         # Get the plane equations
@@ -175,14 +176,14 @@ class Vertex:
                 center = 0.5 * r + np.array(atom_rads[0].loc)
             coeffs.append(rn.tolist() + [np.dot(rn, center)])
 
-        a, b, c, d = coeffs[0]
-        e, f, g, h = coeffs[1]
-        i, j, k, m = coeffs[2]
+        x1, y1, z1, c1 = coeffs[0]
+        x2, y2, z2, c2 = coeffs[1]
+        x3, y3, z3, c3 = coeffs[2]
 
-        disc = c * f * i - b * g * i - c * e * j + a * g * j + b * e * k - a * f * k
-        x_numerator = d * g * j - c * h * j - d * f * k + b * h * k + c * f * m - b * g * m
-        y_numerator = - d * g * i + c * h * i + d * e * k - a * h * k - c * e * m + a * g * m
-        z_numerator = d * f * i - b * h * i - d * e * j + a * h * j + b * e * m - a * f * m
+        disc = z1 * y2 * x3 - y1 * z2 * x3 - z1 * x2 * y3 + x1 * z2 * y3 + y1 * x2 * z3 - x1 * y2 * z3
+        x_numerator = c1 * z2 * y3 - z1 * c2 * y3 - c1 * y2 * z3 + y1 * c2 * z3 + z1 * y2 * c3 - y1 * z2 * c3
+        y_numerator = - c1 * z2 * x3 + z1 * c2 * x3 + c1 * x2 * z3 - x1 * c2 * z3 - z1 * x2 * c3 + x1 * z2 * c3
+        z_numerator = c1 * y2 * x3 - y1 * c2 * x3 - c1 * x2 * y3 + x1 * c2 * y3 + y1 * x2 * c3 - x1 * y2 * c3
         x, y, z = x_numerator / disc, y_numerator / disc, z_numerator / disc
         # Get the radius
         if power:

@@ -5,9 +5,8 @@ from System.Group.group import Group
 
 def argv_group(my_sys, usr_npt, add_more=False, bff=None):
     # Check if a bff was specified
-    if bff is not None:
+    if bff is not None and len(bff) >= 1:
         bff = group(sys=my_sys, usr_npt=bff[0])
-
 
     if len(usr_npt) == 0 or usr_npt[0][0] == 'ns':
         my_sys.groups.append(Group(sys=my_sys, chains=my_sys.chains, name="no_SOL"))

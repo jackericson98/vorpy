@@ -195,8 +195,6 @@ class Network:
         Connects the network using the functions in the build_net.py file
         :return:
         """
-        if self.sys.print_actions:
-            print("\rconnecting network", end="")
         build(self)
 
     def find_verts(self, time_start=None, process_time_start=None, my_group=None):
@@ -218,14 +216,14 @@ class Network:
             find_verts(self, a0=self.atoms[self.atom_ndxs.pop()], my_group=my_group)
         # Clear the print statement
         print("\r                                        ", end="")
-        # Bit of code for timing the vertex building process
-        if time_start is not None:
-            self.my_time = time.time() - time_start
-            process_time = time.process_time() - process_time_start
-            h, m, s = get_time(self.my_time)
-            if self.sys.print_actions:
-                print("\rvertex process ({} verts) = {}:{}:{:.2f} s, cpu time = {}"
-                      .format(len(self.verts), int(h), int(m), s, process_time))
+        # # Bit of code for timing the vertex building process
+        # if time_start is not None:
+        #     self.my_time = time.time() - time_start
+        #     process_time = time.process_time() - process_time_start
+        #     h, m, s = get_time(self.my_time)
+        #     if self.sys.print_actions:
+        #         print("\rvertex process ({} verts) = {}:{}:{:.2f} s, cpu time = {}"
+        #               .format(len(self.verts), int(h), int(m), s, process_time))
 
     def build_edges(self):
         """

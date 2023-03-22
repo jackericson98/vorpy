@@ -1,9 +1,8 @@
 # Responses
-ys = ['y', 'yes', 'ya', 'yeet', 'yur', 'yoint', 'uhu', 'yup', 'jess', 'affirmative', 'yass', '', 'yuss', 'yess',
+ys = ['y', 'yes', 'ya', 'yeet', 'yur', 'yoint', 'uhu', 'yup', 'jess', 'affirmative', 'yuss', 'yess',
       'yesss', 'yessss', 'yar', 'yuh', 'mhm']
 ns = ['n', 'no', 'naur', 'nope', 'nonya', 'nope', 'nien', 'nada']
-dones = ['done', 'd', 'finished', 'finito', 'complete', 'doneso', 'don', 'fin', 'keep movin bruh',
-         'you still here?', 'go on', 'goo\'oon']
+dones = ['done', 'd', 'finished', 'finito', 'complete', 'doneso', 'don', 'fin']
 ands = ['&', 'and', 'nd', 'also', '+', '&&']
 splitters = ['/', '-']
 
@@ -24,12 +23,12 @@ my_commands = quits + helps + show_cmds + load_cmds + set_cmds + build_cmds + gr
 # Objects
 full_objs = ['f', 'full', 'fl', 'ful', 'fs']
 noSOL_objs = ['ns', 'nosol', 'no_sol', 'nos', 'nsol']
-mol_objs = ['m', 'ms', 'molecule', 'molecules', 'mol', 'mols', 'ml', 'mls']
+chn_objs = ['m', 'ms', 'molecule', 'molecules', 'mol', 'mols', 'ml', 'mls', 'c', 'cs', "chain"]
 atom_objs = ['a', 'as', 'atom', 'atoms', 'at', 'ats', 'am', 'ams']
 res_objs = ['r', 'rs', 'residue', 'residues', 'resid', 'resids', 'res', 'ress', 'reses', 'rdue', 'rdues']
 ndx_objs = ['i', 'is',  'index', 'indexs', 'indexes', 'indices', 'ndx', 'ndxs', 'ndex', 'group', 'g', 'grp', 'n']
 
-my_objects = full_objs + noSOL_objs + mol_objs + res_objs + atom_objs + ndx_objs
+my_objects = full_objs + noSOL_objs + chn_objs + res_objs + atom_objs + ndx_objs
 
 # Settings
 surf_reses = ['surf_res', 'sr', 'surface_resolution', 'surface_res', 'surf_resolution', 'surfs', 'surf', 'surfs_res', 'surfs_resolution', 'surfaces_resolution', 'surfaces_res']
@@ -45,6 +44,8 @@ file_types = ['net', 'vert', 'ball', 'ndx']
 power_vals = ['pow', 'power', 'p', 'pwr']
 voronoi_vals = ['vor', 'voronoi', 'vnoi', 'voron', 'vn']
 delaunay_vals = ['del', 'dl', 'delaunay', 'dlny', 'dny']
+
+net_type_dict = {'pow': "Power", 'del': "Delaunay",'vor': "Voronoi"}
 
 
 my_settings_vals = power_vals + voronoi_vals + delaunay_vals
@@ -229,7 +230,7 @@ def get_obj(sys, obj=None, return_ndx=True):
         if type(my_input) is int and my_input <= 4:
             return my_input
         # Go through and find the type of object we are getting
-        objs = [mol_objs, res_objs, atom_objs, ndx_objs]
+        objs = [chn_objs, res_objs, atom_objs, ndx_objs]
         for i in range(4):
             if my_input.lower() in objs[i]:
                 if len([sys.chains, sys.residues, sys.atoms, sys.ndxs][i]) > 0:
@@ -258,14 +259,14 @@ def show(sys, usr_npt=None):
         return
 
     # Get the correct list to show the user
-    if show_var in mol_objs:
-        show_name = "{} Molecules".format(sys.name)
-        show_list = sys.mol_names
+    if show_var in chn_objs:
+        show_name = "{} Chains".format(sys.name)
+        show_list = sys.chn_names
     elif show_var in res_objs:
-        show_name = "{}".format(sys.name)
+        show_name = "{} Residues".format(sys.name)
         show_list = sys.res_names
     elif show_var in atom_objs:
-        show_name = "{}".format(sys.name)
+        show_name = "{} Atoms".format(sys.name)
         show_list = sys.atom_names
     elif show_var in ndx_objs:
         show_name = "{}".format(sys.name)
