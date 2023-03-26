@@ -1,7 +1,8 @@
-from System.sys_funcs.calcs import ndx_search, calc_dist
+from System.sys_funcs.calcs import ndx_search, get_time
 from System.Network.net_objs.vertex import Vertex
 from System.Network.net_objs.edge import Edge
 from numpy import sqrt, array, square
+import time
 
 
 # Find v0 function. Uses the atom finding functions to find a real verified site in the network
@@ -261,7 +262,9 @@ def find_verts(net, a0=None, my_group=None, sniff=False):
         while e_stack:
             # Get the percentage and print it
             percentage = min((len(net.verts) / tot_verts) * 100, 100)
-            print("\rfinding vertices: {:.2f} %".format(percentage), end="")
+            my_time = time.perf_counter() - net.my_time
+            h, m, s = get_time(my_time)
+            print("\rRun Time = {}:{}:{:.2f} - Process: finding vertices: {:.2f} %".format(int(h), int(m), round(s, 2), percentage), end="")
             # Get the edge from the top of the stack
             edge_atoms, vert = e_stack.pop()
             # Find the next site in the network
