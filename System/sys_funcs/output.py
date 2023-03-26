@@ -403,20 +403,29 @@ def export_net(net, output_surfs=True):
     os.chdir(net.sys.dir)
 
 
-def export_net_info(net):
+def export_sys_info(sys):
     # Open the file
-    file = open(net.sys.name + "_net_info.txt", 'w')
-    # Write the header
-    file.write(net.sys.name + " Network")
-    # Write the atom information
-    for i in range(len(net.atoms)):
-        file.write("{} - cell volume = {}, cell surface area {}\n"
-                   .format(net.atoms[i].name, net.atoms[i].vol, net.atoms[i].sa))
-    # write the surface information
-    for i in range(len(net.surfs)):
-        file.write("Surface {}-{} - Surface area = {}\n"
-                   .format(net.surfs[i].ndx[0], net.surfs[i].ndx[1], net.surfs[i].sa))
-    file.close()
+    with open(sys.name + "_net_info.txt", 'w') as info:
+        # Write the header
+        info.write(sys.name + " Network\n\n")
+        # Write the chain header
+        info.write("Chains:\n\n")
+        # Go through the chains in the system
+        for chain in sys.chns:
+            # Write the chain header
+            info.write("Chain {} - {} atoms, {} residues".format(chain.name, len(chain.atoms), len(chain.residues)))
+        # Write the atom header
+        info.write("Atoms:\n\n")
+        # Go through the atoms in the system
+        for i in range(len(sys.atoms)):
+            info.write("    {} - cell volume = {}, cell surface area {}\n"
+                       .format(sys.atoms[i].name, sys.atoms[i].vol, sys.atoms[i].sa))
+        # Write the surfaces header
+        info.write("Surfaces:\n\n")
+        # Go through the surfaces in the system and write their information
+        for i in range(len(sys.surfs)):
+            info.write("    Surface {}-{} - Surface area = {}\n"
+                       .format(sys.surfs[i].ndx[0], sys.surfs[i].ndx[1], sys.surfs[i].sa))
 
 
 ############################################ Pymol Scripts #############################################################
@@ -483,5 +492,5 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
     # If the information is requested, export it
     if info or all_:
         os.chdir(sys.dir + "/sys")
-        export_net_info(sys.net)
+        export_sys_info(sys)
     os.chdir(sys.dir)
