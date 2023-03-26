@@ -35,7 +35,6 @@ class Network:
         self.atoms_box = []                # Atoms box        :    min/max vals for the box containing the atoms
 
         # Diagnostic variables
-        self.cpu_time = None               # CPU time         :    CPU time taken to calculate the network
         self.my_time = None                # My time          :    Time taken to calculate the network
         self.max_vert_rad = 0              # Max Vertex Rad   :    Maximum real vertex recorded
 
@@ -215,7 +214,7 @@ class Network:
         while len(self.atom_ndxs) > 0:
             find_verts(self, a0=self.atoms[self.atom_ndxs.pop()], my_group=my_group)
         # Clear the print statement
-        print("\r                                        ", end="")
+        print("\r                                                                  ", end="")
         # # Bit of code for timing the vertex building process
         # if time_start is not None:
         #     self.my_time = time.time() - time_start
@@ -243,9 +242,12 @@ class Network:
         # Make each surface
         for i in range(len(self.surfs)):
             # Build the surfaces and print the progress
-            print("\rbuilding surfaces " + " " * (len(str(len(self.surfs) - 1)) - len(str(i + 1))) + str(i + 1) + "/" +
-                  str(len(self.surfs)) + "                   ", end="")
+            my_time = time.perf_counter() - self.my_time
+            h, m, s = get_time(my_time)
+            print("\rRun Time = {}:{}:{:.2f} - Process: building surfaces {} %                                       "
+                  .format(int(h), int(m), round(s, 2), min(100.0, 100 * round(i/len(self.surfs), 2))), end="")
             self.surfs[i].build(color=True)
+        print("\r                                                                                             ", end='')
 
     def analyze(self):
         """
@@ -263,14 +265,18 @@ class Network:
                 # Get the surface area of the surface
                 self.surfs[i].calc_sa()
             if self.sys.print_actions:
-                print("\ranalyzing: {} %            ".format(percentage), end="")
+                my_time = time.perf_counter() - self.my_time
+                h, m, s = get_time(my_time)
+                print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                  ".format(int(h), int(m), round(s, 2), percentage), end="")
         # Go through each atom in the system and find the volume
         for j in range(len(self.atoms)):
             percentage = int((i + j + 2) / tot_num * 100)
             if self.atoms[j].vol is None or self.atoms[j].vol == 0:
                 self.atoms[j].calc_vol()
             if self.sys.print_actions:
-                print("\ranalyzing: {} %          ".format(percentage), end="")
+                my_time = time.perf_counter() - self.my_time
+                h, m, s = get_time(my_time)
+                print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                 ".format(int(h), int(m), round(s, 2), percentage), end="")
 
     def build(self, output=True, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
               calc_verts=None, my_group=None, print_actions=None):
@@ -306,16 +312,15 @@ class Network:
         if calc_verts is not None:
             self.calc_verts = calc_verts
         # Instantiate the timer variables
-        self.my_time, self.cpu_time = 0, 0
+        self.my_time = 0
         # Start the timer
-        start = time.time()
-        process_start = time.process_time()
+        self.my_time = time.perf_counter()
         # Sort the atoms in the network
         self.sort_atoms()
         # Check to see if there are vertices loaded
         if self.calc_verts:
             # Find the vertices
-            self.find_verts(start, process_time_start=process_start, my_group=my_group)
+            self.find_verts(my_group=my_group)
             # Check to see if there are vertices
             if self.verts is None or len(self.verts) == 0:
                 return
@@ -332,11 +337,10 @@ class Network:
             for surf in self.surfs:
                 surf.calc_func()
         # Stop the timer and measure the time
-        self.my_time = time.time() - start
-        self.cpu_time = time.process_time() - process_start
+        self.my_time = time.process_time() - self.my_time
         # Export the network
         if output:
             self.sys.exports(network=True, pdb=True, info=self.build_surfs, set_atoms=True)
         h, m, s = get_time(self.my_time)
-        print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s, cpu time = {}\n"
-              .format(len(self.verts), len(self.surfs), int(h), int(m), s, self.cpu_time), end="")
+        print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s\n"
+              .format(len(self.verts), len(self.surfs), int(h), int(m), s), end="")
