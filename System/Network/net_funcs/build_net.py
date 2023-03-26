@@ -1,3 +1,5 @@
+import time
+
 from System.sys_funcs.calcs import *
 from System.Network.net_objs.edge import Edge
 from System.Network.net_objs.surface import Surface
@@ -113,8 +115,10 @@ def build(net, from_scratch=True):
 
     # Go through the vertices in the network searching for potential edges
     for i in range(len(net.verts)):
-        print("\rconnecting network: {:.2f} %"
-              .format(min(100.0, 100 * (0.5 * len(net.edges)) / (3/2 * len(net.verts)))), end="")
+        my_time = time.perf_counter() - net.my_time
+        h, m, s = get_time(my_time)
+        print("\rRun Time = {}:{}:{:.2f} - Process: connecting network: {:.2f} %"
+              .format(int(h), int(m), round(s, 2), min(100.0, 100 * (0.5 * len(net.edges)) / (3/2 * len(net.verts)))), end="")
         vert1 = net.verts[i]
         if vert1.doublet is not None:
             continue
@@ -157,8 +161,10 @@ def build(net, from_scratch=True):
 
     # Go through the edges in the network
     for i in range(len(net.edges)):
-        print("\rbuilding network: {:.2f} %"
-              .format(min(100.0, 100 * (len(net.surfs) + 0.5 * (len(net.edges))) / ((3/2) * len(net.verts)))), end="")
+        my_time = time.perf_counter() - net.my_time
+        h, m, s = get_time(my_time)
+        print("\rRun Time = {}:{}:{:.2f} - Process: connecting network: {:.2f} %"
+              .format(int(h), int(m), round(s, 2), min(100.0, 100 * (len(net.surfs) + 0.5 * (len(net.edges))) / ((3/2) * len(net.verts)))), end="")
         edge1 = net.edges[i]
         # Go through the edge's atoms combinations
         for j in range(3):
