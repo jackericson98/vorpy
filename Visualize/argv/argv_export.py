@@ -106,14 +106,22 @@ def export_npt(my_sys, usr_npt):
     """
     _______________________________________edges_________________________________________________________
     """
-
+    if usr_npt.lower() == 'e':
+        for grouping in my_sys.groups:
+            grouping.exports(edges=True)
     """
     _______________________________________verts_________________________________________________________
     """
+    if usr_npt.lower() == 'v':
+        for grouping in my_sys.groups:
+            grouping.exports(verts=True)
 
     """
     ________________________________simple export______________________________________________________
     """
+    if usr_npt.lower() == 'simple':
+        for grouping in my_sys.groups:
+            grouping.exports(atoms=True, info=True, shell=True)
     """
     _____________________________________________heavy export__________________________________________
     """
