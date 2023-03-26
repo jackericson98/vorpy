@@ -20,16 +20,10 @@ class Vertex:
         self.sphere_points = None
         self.sphere_tris = None
         self.box = None               # Box index     :   Sub box index for sorting
-        self.dist = distance
-        self.load_ndxs = load_ndxs    # Load indices  :   List of object load indices
 
         self.doublet = doublet        # Doublet       :   Whether the vertex is a doublet
-        self.d_type = None            # Doublet type  :   Doublet type it is: 3 edges, 3 surfs or two edges, one surf
         self.loc2 = loc2              # Location 2    :   Location of the doublet site
         self.rad2 = rad2              # Radius 2      :   Radius of the doublet site's tangential sphere
-
-        self.flat_faced = flat_faces  # Flat Faced?   :   Was this vertex constructed with flat faces in mind?
-        self.num_edges = 0
 
         # If the vertex is mature enough to be calculated, create and sort its indices
         if self.net is not None and self.atoms is not None:
