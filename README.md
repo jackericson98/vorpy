@@ -74,6 +74,11 @@ A 2D depiction of the differences between the partitioning schemes can be seen b
 **Figure 1:**
 Different partitioning schemes for two circles with radii 1 and 2. Delaunay (left, red) Power Distance (left middle, blue) Voronoi (right middle, purple) all three (right). Solid green lines represent vectors that are equal in size. Dashed lines represent the projections to the atoms centers. 
 
+![image](https://user-images.githubusercontent.com/62311229/228373404-15fa0a1d-6e3a-456f-8e68-919291615b37.png)
+
+**Figure 2:**
+Different partitioning schemes for 5 circles with radii (top to bottom) 2, 1.5, 0.5, 1, 0.5. Delaunay (left, red) Power Distance (left middle, blue) Voronoi (right middle, purple) all three (right).
+
 
 
 
