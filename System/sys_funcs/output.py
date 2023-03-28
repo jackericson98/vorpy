@@ -411,7 +411,7 @@ def export_sys_info(sys):
         # Write the chain header
         info.write("Chains:\n\n")
         # Go through the chains in the system
-        for chain in sys.chns:
+        for chain in sys.chains:
             # Write the chain header
             info.write("Chain {} - {} atoms, {} residues".format(chain.name, len(chain.atoms), len(chain.residues)))
         # Write the atom header
@@ -423,9 +423,9 @@ def export_sys_info(sys):
         # Write the surfaces header
         info.write("Surfaces:\n\n")
         # Go through the surfaces in the system and write their information
-        for i in range(len(sys.surfs)):
-            info.write("    Surface {}-{} - Surface area = {}\n"
-                       .format(sys.surfs[i].ndx[0], sys.surfs[i].ndx[1], sys.surfs[i].sa))
+        for i in range(len(sys.net.surfs)):
+            surf = sys.net.surfs[i]
+            info.write("    Surface {}-{} - Surface area = {}\n".format(surf.ndx[0], surf.ndx[1], surf.sa))
 
 
 ############################################ Pymol Scripts #############################################################
