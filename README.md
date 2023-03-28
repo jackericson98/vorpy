@@ -34,7 +34,7 @@ In this example the EDTA_Mg.pdb file was loaded from the ./Data/test_data folder
 
 Use these (separated by spaces) after the atom file
 
-![image](https://user-images.githubusercontent.com/62311229/226766636-6a8d8656-a8c1-41b0-ada9-f9777ea9e937.png)
+![image](https://user-images.githubusercontent.com/62311229/228362286-d19bb842-d1b5-40e9-9270-20b2ed666366.png)
 
 
 
