@@ -79,6 +79,7 @@ Different partitioning schemes for two circles with radii 1 and 2. Delaunay (lef
 **Figure 2:**
 Different partitioning schemes for 5 circles with radii (top to bottom) 2, 1.5, 0.5, 1, 0.5. Delaunay (left, red) Power Distance (left middle, blue) Voronoi (right middle, purple) all three (right).
 
+In the power distance and weighted voronoi digrams, smaller atoms bend partitionings toward themselves and create smaller cells. Due to the radial nature of atomic forces, these partitionings represent a better picture of reality for intera-atomnic interaction thresholds.   
 
 
 
