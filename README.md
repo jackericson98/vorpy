@@ -68,6 +68,9 @@ In a Weighted 3D Voronoi S-Network (Medvedev et al, 2006) the partitioning surfa
 
 ![image](https://user-images.githubusercontent.com/62311229/228361460-0cfd983a-a8d7-4eab-824d-c81fa9694ada.png)
 
+**Figure:**
+Two atoms with radii 1, 2, with three partitioning schemes: Delaunay (left) Power Distance (left middle) Voronoi (right middle) all three (right)
+
 
 ### Process outline
 
