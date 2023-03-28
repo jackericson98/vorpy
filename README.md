@@ -66,10 +66,13 @@ In a weighted Delaunay 3D partitioning, the radii of the atoms are considered. F
 
 In a Weighted 3D Voronoi S-Network (Medvedev et al, 2006) the partitioning surfaces are curved hyperboloidal surfaces whose curvature is determined by proximity and the relative radii of neighboring atoms. The program is designed to take in files containing atom location (centers) and radii and return a weighted 3D Voronoi S-Network partitioning of all points in space closest to each atom.
 
-![image](https://user-images.githubusercontent.com/62311229/228361460-0cfd983a-a8d7-4eab-824d-c81fa9694ada.png)
+A 2D depiction of the differences between the partitioning schemes can be seen below:
+
+![image](https://user-images.githubusercontent.com/62311229/228368891-b6af041c-b264-4be2-b233-547d3aa7cf30.png)
+
 
 **Figure:**
-Two atoms with radii 1, 2, with three partitioning schemes: Delaunay (left) Power Distance (left middle) Voronoi (right middle) all three (right)
+Different partitioning schemes for two circles with radii 1 and 2. Delaunay (left, red) Power Distance (left middle, blue) Voronoi (right middle, purple) all three (right). Solid green lines represent vectors that are equal in size. Dashed lines represent the projections to the atoms centers. 
 
 
 ### Process outline
