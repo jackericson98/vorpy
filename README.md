@@ -34,7 +34,7 @@ In this example the EDTA_Mg.pdb file was loaded from the ./Data/test_data folder
 
 Use these (separated by spaces) after the atom file
 
-![image](https://user-images.githubusercontent.com/62311229/226766636-6a8d8656-a8c1-41b0-ada9-f9777ea9e937.png)
+![image](https://user-images.githubusercontent.com/62311229/228362286-d19bb842-d1b5-40e9-9270-20b2ed666366.png)
 
 
 
@@ -65,6 +65,23 @@ In a simple Delaunay 3D partitioning the partitioned atomic cells would be const
 In a weighted Delaunay 3D partitioning, the radii of the atoms are considered. For example, if Atoms 1 and 2 from the above example have radii 0.5 and 1, the partitioning plane would remain normal to the x-axis but would be closer to Atom 1’s location containing the point (0.75, 0, 0). 
 
 In a Weighted 3D Voronoi S-Network (Medvedev et al, 2006) the partitioning surfaces are curved hyperboloidal surfaces whose curvature is determined by proximity and the relative radii of neighboring atoms. The program is designed to take in files containing atom location (centers) and radii and return a weighted 3D Voronoi S-Network partitioning of all points in space closest to each atom.
+
+A 2D depiction of the differences between the partitioning schemes can be seen below:
+
+![image](https://user-images.githubusercontent.com/62311229/228368891-b6af041c-b264-4be2-b233-547d3aa7cf30.png)
+
+
+**Figure 1:**
+Different partitioning schemes for two circles with radii 1 and 2. Delaunay (left, red) Power Distance (left middle, blue) Voronoi (right middle, purple) all three (right). Solid green lines represent vectors that are equal in size. Dashed lines represent the projections to the atoms centers. 
+
+![image](https://user-images.githubusercontent.com/62311229/228373404-15fa0a1d-6e3a-456f-8e68-919291615b37.png)
+
+**Figure 2:**
+Different partitioning schemes for 5 circles with radii (top to bottom) 2, 1.5, 0.5, 1, 0.5. Delaunay (left, red) Power Distance (left middle, blue) Voronoi (right middle, purple) all three (right).
+
+In the power distance and weighted voronoi digrams, smaller atoms bend partitionings toward themselves and create smaller cells. Due to the radial nature of atomic forces, these partitionings represent a better picture of reality for intera-atomnic interaction thresholds.   
+
+
 
 ### Process outline
 
