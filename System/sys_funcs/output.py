@@ -1,6 +1,7 @@
 from System.sys_funcs.calcs import *
 from System.sys_objs.atom import Atom
-from System.sys_funcs.draw import draw_edge, draw_vert
+from System.sys_funcs.draw import draw_edge, color_tris
+from System.Network.net_funcs.build_surf import build_surf
 import os
 import csv
 
@@ -91,17 +92,17 @@ def write_pdb(atoms, name, sys=None, directory=None):
                 ser_num = " " * (5 - len(str(i+1))) + str(i + 1)
                 name = a.name + " " * (4 - len(a.name))
                 res = " " * (3 - len(a.residue)) + a.residue
-                if a.chain == "ZZ" or a.chain == 'MOL' or a.chain == 'SOL':
+                if a.chn.name.lower() == "zz" or a.chn.name.lower() == 'mol' or a.chn.name.lower() == 'sol':
                     chain = " "
                 else:
-                    chain = str(a.chain)
+                    chain = str(a.chn.name)
                 res_seq = " " * (3 - len(a.res_seq)) + a.res_seq
                 loc_strs = [" " * (7 - len(_)) + _ for _ in loc]
-                occupancy = " " * (5 - len(a.occupancy)) + a.occupancy
-                t_fact = " " * (5 - len(a.t_fact)) + a.t_fact
+                occupancy = " " * 5
+                t_fact = " " * 5
                 seg_id = a.seg_id + " " * (3 - len(a.seg_id))
                 symbol = a.element
-                charge = a.charge
+                charge = ''
                 # Write the atom information
                 write_file.write("ATOM  " + ser_num + " " + name + " " + res + " " + chain + res_seq + "    " +
                                  " ".join(loc_strs) + occupancy + t_fact + "      " + seg_id + symbol + charge + "\n")
@@ -109,7 +110,7 @@ def write_pdb(atoms, name, sys=None, directory=None):
         os.chdir(start_dir)
 
 
-def write_verts(verts, file_name, atom_type=None, directory=None, pdb=False, spheres=False, color=None):
+def write_verts(verts, file_name, atom_type=None, directory=None, pdb=False, color=None, vert_rad=0.05):
     """
     Creates a pdb file for vertex representation
     :param color:
@@ -138,17 +139,17 @@ def write_verts(verts, file_name, atom_type=None, directory=None, pdb=False, sph
         # Write the pdb with the atom objects from the verts
         write_pdb(atoms=vert_atoms, name=file_name, directory=directory)
     else:
-        num_verts, num_tris = 0, 0
+        loc_points, loc_tris = [], []
         for vert in verts:
-            draw_vert(vert, sphere=spheres)
-            if spheres:
-                # Go through and create each edge
-                for i in range(len(verts)):
-                    num_verts += len(verts[i].loc_points) + len(vert.sphere_points)
-                    num_tris += len(verts[i].loc_tris) + len(vert.sphere_tris)
-            else:
-                num_verts += len(vert.loc_points)
-                num_tris += len(vert.loc_tris)
+            loc = np.array(vert.loc)
+            # Draw the point
+            xp, xn = loc + np.array([vert_rad, 0, 0]), loc - np.array([vert_rad, 0, 0])
+            yp, yn = loc + np.array([0, vert_rad, 0]), loc - np.array([0, vert_rad, 0])
+            zp, zn = loc + np.array([0, 0, vert_rad]), loc - np.array([0, 0, vert_rad])
+            # Connect the points
+            loc_points.append([xp, xn, yp, yn, zp, zn])
+            loc_tris.append([[0, 2, 4], [0, 2, 5], [0, 3, 4], [0, 3, 5], [1, 2, 4], [1, 2, 5], [1, 3, 4], [1, 3, 5]])
+        num_verts, num_tris = 8 * len(loc_points), 6 * len(loc_tris)
         # Create the file
         with open(file_name + ".off", 'w') as file:
             # Count the number of triangles and vertices there are
@@ -156,23 +157,15 @@ def write_verts(verts, file_name, atom_type=None, directory=None, pdb=False, sph
             file.write("OFF\n" + str(num_verts) + " " + str(num_tris) + " 0\n\n\n")
             # Go through the surfaces and add the points
             for i in range(len(verts)):
-                sphere_points = []
-                if spheres:
-                    sphere_points = verts[i].sphere_points
                 # Go through the points on the surface
-                for point in verts[i].loc_points + sphere_points:
+                for point in loc_points[i]:
                     # Add the point to the system file and the surface's file (rounded to 4 decimal points)
                     str_point = [str(round(float(point[_]), 4)) for _ in range(3)]
                     file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
-
             num_verts, tri_count = 0, 0
             # Go through each surface and add the faces
             for i in range(len(verts)):
-                vert = verts[i]
-                sphere_tris = []
-                if spheres:
-                    sphere_tris = verts[i].sphere_tris
-                tri_list = vert.loc_tris + sphere_tris
+                tri_list = loc_tris[i]
                 # Go through the triangles in the surface
                 for j in range(len(tri_list)):
                     # Get the triangle and colors
@@ -182,11 +175,7 @@ def write_verts(verts, file_name, atom_type=None, directory=None, pdb=False, sph
                     file.write("3 " + str_tri[0] + " " + str_tri[1] + " " + str_tri[2] + " " + str(color[0]) + " " +
                                str(color[1]) + " " + str(color[2]) + "\n")
                 # Keep counting triangles for the system file
-                if vert.sphere_points is None:
-                    sphere_points_len = 0
-                else:
-                    sphere_points_len = len(vert.sphere_points)
-                num_verts += len(vert.loc_points) + sphere_points_len
+                num_verts += len(loc_points[i])
 
 
 def write_edges(edges, file_name, color=None, directory=None):
@@ -260,9 +249,9 @@ def write_surfs(surfs, file_name, color=False, directory=None):
         num_verts, num_tris = 0, 0
         for i in range(len(surfs)):
             if surfs[i].points is None:
-                surfs[i].build()
+                build_surf(surfs[i])
             if surfs[i].tri_colors is None:
-                surfs[i].color_tris(color_map=surfs[i].color_map, color_scheme=surfs[i].scheme)
+                color_tris(surf=surfs[i], color_map=surfs[i].color_map, color_scheme=surfs[i].scheme)
             num_verts += len(surfs[i].points)
             num_tris += len(surfs[i].tris)
         # Write the numbers into the file
