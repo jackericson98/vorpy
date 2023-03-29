@@ -1,6 +1,7 @@
 import os
 from System.sys_funcs.output import write_surfs
 from System.sys_funcs.input import read_surf_file
+from System.Network.net_funcs.build_surf import build_surf
 
 
 def build_surfs(grp, resolution=None):
@@ -40,7 +41,7 @@ def build_surfs(grp, resolution=None):
         # Print the status of the surfaces being built
         print("\rbuilding " + grp.name + " surfaces " + " " * (len(str(len(grp.surfs) - 1)) - len(str(i + 1))) +
               str(i + 1) + "/" + str(len(grp.surfs)) + "                   ", end="")
-        bld_surfs[i].build(res=resolution, flat=grp.sys.net.flat_Del)
+        build_surf(bld_surfs[i], res=resolution)
         if bld_surfs[i].file is None:
             write_surfs([bld_surfs[i]], "_".join([str(_) for _ in bld_surfs[i].ndx]))
     # Change back
