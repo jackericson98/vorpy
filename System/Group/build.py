@@ -1,5 +1,6 @@
 import os
 from System.sys_funcs.output import write_surfs
+from System.sys_funcs.input import read_surf_file
 
 
 def build_surfs(grp, resolution=None):
@@ -24,7 +25,7 @@ def build_surfs(grp, resolution=None):
         elif surf.points is None or surf.tris is None or len(surf.points) <= 2 or len(surf.tris) == 0:
             # If it is possible to load the file
             if surf.file is not None and surf.file not in ["", " "]:
-                test = surf.read_file()
+                test = read_surf_file(surf)
                 if test is None:
                     bld_surfs.append(surf)
             # Worst case, add the surface to the list of surfaces to be built
