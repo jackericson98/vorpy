@@ -1,6 +1,5 @@
 from System.sys_funcs.input import *
 from System.sys_funcs.read_net import read_net
-from System.sys_funcs.sort_atoms import sort_atoms
 from System.sys_funcs.output import *
 from Visualize.mpl_visualize import *
 from numpy import seterr, random
@@ -92,6 +91,8 @@ class System:
         # Get the name
         self.name = os.path.basename(self.base_file)[:-4]
 
+
+
     def load_sys(self, file=None):
         """
         Sets the base file for the system using one of the import file functions
@@ -125,9 +126,6 @@ class System:
         # Name the system
         if self.name is None:
             self.name = os.path.basename(self.base_file)[:-4]
-
-        # Sort the atoms
-        sort_atoms(self)
 
         # If the system wants its actions printed
         if self.print_actions:
