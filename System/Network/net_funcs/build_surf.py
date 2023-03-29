@@ -1,6 +1,5 @@
-import matplotlib.pyplot as plt
-
-from System.sys_funcs.calcs import calc_angle, calc_com, rotate_points
+from System.sys_funcs.calcs import calc_angle, calc_com, rotate_points, calc_surf_func, calc_surf_curv
+from System.Network.net_funcs.build_edge import build_edge
 from scipy.spatial import Delaunay
 import numpy as np
 
@@ -17,7 +16,7 @@ def calc_surf_point(surf, point):
     """
     # Check to see if the surface's function has been calculated
     if surf.func is None:
-        surf.calc_func()
+        calc_surf_func(surf)
     # Grab the surfaces function and atoms
     f, a0, a1 = surf.func, surf.atoms[0], surf.atoms[1]
     # Set up the unit vector
@@ -102,7 +101,7 @@ def build_perimeter(surf):
     # Check to see if the edges have been built yet
     for edge in surf.edges:
         if edge.points is None:
-            edge.build(res=surf.res, straight=surf.flat)
+            build_edge(res=surf.res, straight=surf.flat)
     # Set the edge's reference surface and range (overwrite the ref in place, to ensure a lighter storage with an e0)
     e0.ref = [surf.net.surfs.index(surf), 0, len(e0.points) - 1]
     # Add the first edge's vertex location and set of points to the perimeter points list
@@ -128,14 +127,14 @@ def build_perimeter(surf):
             elif d1 < d:
                 d, ndx, reverse = d1, i, True
         # Pull the edge from the list of edges
-        myEdge = edges.pop(ndx)
+        my_edge = edges.pop(ndx)
         # Add the edge's point in the right order and then add the correct vertex
         if not reverse:  # In order
-            surf.perimeter += myEdge.points
+            surf.perimeter += my_edge.points
         else:  # Reverse order
-            surf.perimeter += myEdge.points[::-1]
-        if myEdge.ref is None:
-            myEdge.ref = [surf.net.surfs.index(surf), len(surf.perimeter) - len(e0.points), len(surf.perimeter)]
+            surf.perimeter += my_edge.points[::-1]
+        if my_edge.ref is None:
+            my_edge.ref = [surf.net.surfs.index(surf), len(surf.perimeter) - len(e0.points), len(surf.perimeter)]
 
     # Add the perimeter points to the whole set of points
     surf.points += surf.perimeter
@@ -236,8 +235,6 @@ def fill_mesh(surf):
     for j in range(num_rings):
         # Go through each of the remaining paths
         i = 0
-        # Reset the ring variable
-        ring = []
         # Keep going through the points until the tracker is out
         while i < num_paths:
             # Get the next point along the path
@@ -270,11 +267,11 @@ def fill_mesh(surf):
 
 ############################################## Triangulate Surface Points  #############################################
 
-def tri_within(surf, myTri=None, point=None):
+def tri_within(surf, my_tri=None, point=None):
     """
     Checks to see if a triangle lies within the perimeter of a surface
     :param surf: Surface object to check against
-    :param myTri: Triangle to test insideness
+    :param my_tri: Triangle to test insideness
     :param point: point to test insideness
     :return: Bool
     """
@@ -284,9 +281,9 @@ def tri_within(surf, myTri=None, point=None):
         return False
     center = calc_com(points=perimeter)
     # If we are given a triangle determine the center of mass and use that point
-    if myTri is not None:
+    if my_tri is not None:
         # Copy the triangle, retrieve its points and calculate the center of mass
-        tri = myTri.copy()
+        tri = my_tri.copy()
         # Get the triangles points
         points = [surf.flat_points[tri[i]] for i in range(len(tri))]
         # Calculate the triangle's center of mass
@@ -394,3 +391,34 @@ def filter_tris(surf):
     remove_ndxs.sort()
     for i in range(len(remove_ndxs)):
         surf.tris.pop(remove_ndxs[-(i + 1)])
+
+
+# Build method. Makes the mesh for the surface and calculates the simplices between them
+def build_surf(surf, res=None, color=False):
+    """
+    Main build method for constructing surfaces
+    :param res: Specifies the resolution the surface is to be constructed with
+    :param color: Bool to color the surf or not
+    :return: The surfaces points and triangles are filled
+    """
+    if surf.net.type in {'pow', 'del'} or surf.atoms[0].element == surf.atoms[1].element:
+        surf.flat = True
+    # Set the resolution value that the surface is built with
+    if res is None:
+        res = surf.net.surf_res
+    surf.res = res
+    # Check to see if the function or curvature have been calculated and calculate them if not
+    if surf.curv is None:
+        calc_surf_curv(surf)
+    # Reset the surface's list of points to empty list and reset the vertex indices list
+    surf.points = []
+    # Build the perimeter of the surface
+    build_perimeter(surf)
+    # Fill the mesh
+    fill_mesh(surf)
+    # Find the simplices of the surface
+    find_simps(surf)
+    # If the network type is voronoi the edges could be curved allowing for triangulations outside the edges
+    if surf.net.type == 'vor':
+        # Filter out the bad triangles
+        filter_tris(surf)
