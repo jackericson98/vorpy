@@ -1,8 +1,11 @@
 import os.path as path
-
+import os
+import csv
 from System.sys_objs.atom import Atom
 from System.Network.network import Network
 from System.Network.net_objs.vertex import Vertex
+from System.sys_objs.residue import Residue
+from System.sys_objs.chain import Chain, Sol
 
 
 # Read pdb function. Interprets pdb data into a system of atom objects
@@ -30,6 +33,8 @@ def read_pdb(sys, file=None):
     sys.name = path.basename(sys.base_file)[:-4]
     # Set up the atom and the data lists
     atoms, data, atom_count = [], [], 0
+    sys.chains, sys.residues = [], []
+    chains, resids = {}, {}
     # Go through each line in the file and check if the first word is the word we are looking for
     for i in range(len(my_file)):
         # Check to make sure the line isn't empty
@@ -45,17 +50,52 @@ def read_pdb(sys, file=None):
                 continue
             # Create the atom
             atom = Atom(location=[float(line[30:38]), float(line[38:46]), float(line[46:54])], system=sys,
-                        element=line[76:78].strip(), residue=line[17:20], chain=line[21], res_seq=line[22:26], name=line[12:16],
-                        ocp=line[54:60], t_fact=line[60:66], seg_id=line[72:76], charge=line[78:80], index=atom_count)
-            # If no chain is specified, set the chain to 'None'
-            if atom.chain == ' ':
-                if atom.residue.lower() == 'sol':
-                    atom.chain = 'SOL'
-                else:
-                    atom.chain = 'A'
-            # Add the atom to the
+                        element=line[76:78].strip(), res_seq=line[22:26], name=line[12:16], seg_id=line[72:76],
+                        index=atom_count)
+            # Add the atom to the atoms list
             atoms.append(atom)
             atom_count += 1
+            # If no chain is specified, set the chain to 'None'
+            res_str, chain_str = line[17:20], line[21]
+            if chain_str == ' ':
+                if res_str.lower() in {'sol', 'hoh', 'na', 'mg'}:
+                    chain_str = 'SOL'
+                else:
+                    chain_str = 'A'
+            # Create the chain and residue dictionaries
+            res_name, chn_name = line[17:20] + atom.res_seq, chain_str
+            # If the chain has been made before
+            if chn_name in chains:
+                # Get the chain from the dictionary and add the atom
+                my_chn = chains[chn_name]
+                my_chn.add_atom(atom)
+                atom.chn = my_chn
+            # Create the chain
+            else:
+                # If the chain is the sol chain
+                if res_str.lower() == 'sol':
+                    my_chn = Sol(atoms=[atom], residues=[], name=chn_name)
+                    sys.sol = my_chn
+                # If the chain is not sol create a regular chain object
+                else:
+                    my_chn = Chain(atoms=[atom], residues=[], name=chn_name)
+                    sys.chains.append(my_chn)
+                # Set the chain in the dictionary and give the atom it's chain
+                chains[chn_name] = my_chn
+                atom.chn = my_chn
+
+            # Assign the atoms and create the residues
+            if res_name in resids:
+                my_res = resids[res_name]
+                my_res.atoms.append(atom)
+            else:
+                my_res = Residue(atoms=[atom], name=res_str, sequence=atom.res_seq, chain=atom.chn)
+                atom.chn.residues.append(my_res)
+                resids[res_name] = my_res
+                if res_str.lower() != 'sol':
+                    sys.residues.append(my_res)
+                else:
+                    sys.sol.residues.append(my_res)
         # If the line is not an atom line store the other data
         else:
             data.append(my_file[i].split())
@@ -93,7 +133,7 @@ def read_gro(sys, file=None):
     # Go through each line in the file and create an atom object
     for i in range(2, len(my_file) - 2):
         line = my_file[i]
-        sys.atoms.append(Atom([line[3], line[4], line[5]], system=sys, element=line[1][0], index=i))
+        sys.atoms.append(Atom(location=[line[3], line[4], line[5]], system=sys, element=line[1][0], index=i))
 
 
 # Read mol method. Interprets the data from a .mol file type
@@ -143,8 +183,8 @@ def read_vta_data(sys, ball_file, vert_file):
         atoms = [balls[int(data[0])], balls[int(data[1])], balls[int(data[2])], balls[int(data[3])]]
         ndx = [sys.atoms.index(atom) for atom in atoms]
         ndx.sort()
-        myVert = Vertex(atoms=atoms, net=sys.net, ndx=ndx, location=loc, radius=rad)
-        sys.net.verts.append(myVert)
+        my_vert = Vertex(atoms=atoms, net=sys.net, ndx=ndx, location=loc, radius=rad)
+        sys.net.verts.append(my_vert)
 
 
 # Input index function. Takes in an index file and loads it into the list of indices
@@ -211,4 +251,56 @@ def read_verts(net, file=None):
     net.verts = verts
 
 
-
+def read_surf_file(surf, file=None):
+    """
+    Reads the file holding the points and the triangles for the surface
+    :param surf:
+    :param file: Specifies the address for the build file
+    :return: The surfaces points and triangles are set
+    """
+    # Check to see if the file exists
+    if file is None and surf.file is not None:
+        file = surf.file
+    # Check that the provided file works as an address on its own
+    if os.path.exists(file):
+        file_address = file
+    # Check that the file name is a relative location to the system directory
+    elif os.path.exists(surf.net.sys.dir + file):
+        file_address = surf.net.sys.dir + file
+    # Last brute force a location if the file name is incorrect
+    else:
+        return
+    # Read an off file
+    if file_address[-3:].lower() == 'off':
+        # Open the file
+        with open(file_address, 'r') as my_file:
+            # Read the lines
+            file_array = my_file.readlines()
+            # Get the number of points and triangles
+            num_points, num_tris = [int(_) for _ in file_array[1].split()[:2]]
+            # Add the points
+            surf.points = []
+            for i in range(4, num_points + 4):
+                line = file_array[i].split()
+                surf.points.append([float(_) for _ in line])
+            # Add the tris
+            surf.tris = []
+            for i in range(4 + num_points, 4 + num_points + num_tris):
+                line = file_array[i].split()
+                surf.tris.append([int(_) for _ in line[1:4]])
+    # Read a comma separated file surface file
+    elif file_address[-3:].lower() == 'csv':
+        # Open the file
+        with open(file_address, 'r') as my_file:
+            # Get the file element array to read
+            read_file = list(csv.reader(my_file, delimiter=","))
+            # Get the number of points and triangles
+            num_points, num_tris = [int(_) for _ in read_file[1][1:]]
+            # Go through the points lines of the file
+            surf.points = []
+            for i in range(3, num_points + 3):
+                surf.points.append([float(_) for _ in read_file[i][1:]])
+            # Go through the triangles lines of the file
+            surf.tris = []
+            for i in range(4 + num_points, 4 + num_points + num_tris):
+                surf.tris.append([int(_) for _ in read_file[i][1:]])
