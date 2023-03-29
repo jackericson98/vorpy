@@ -2,6 +2,9 @@ import time
 from itertools import chain as chain
 from System.Network.net_funcs.find_verts import find_verts
 from System.Network.net_funcs.build_net import build, get_time
+from System.Network.net_funcs.build_edge import build_edge
+from System.Network.net_funcs.build_surf import build_surf
+from System.sys_funcs.calcs import calc_vol, calc_surf_func, calc_surf_sa
 from Visualize.mpl_visualize import *
 
 
@@ -232,7 +235,7 @@ class Network:
         # Go through the edges in the network
         for edge in self.edges:
             # Build the edge depending on if it is straight or not
-            edge.build(straight=True if self.type in ['pow', 'flat', 'del'] else False)
+            build_edge(edge, straight=True if self.type in ['pow', 'flat', 'del'] else False)
 
     def build_surfaces(self):
         """
@@ -246,7 +249,7 @@ class Network:
             h, m, s = get_time(my_time)
             print("\rRun Time = {}:{}:{:.2f} - Process: building surfaces {} %                                       "
                   .format(int(h), int(m), round(s, 2), min(100.0, 100 * round(i/len(self.surfs), 2))), end="")
-            self.surfs[i].build(color=True)
+            build_surf(self.surfs[i], color=True)
         print("\r                                                                                             ", end='')
 
     def analyze(self):
@@ -263,7 +266,7 @@ class Network:
             # If the surface area is None calculate it
             if self.surfs[i].sa is None or self.surfs[i].sa == 0:
                 # Get the surface area of the surface
-                self.surfs[i].calc_sa()
+                calc_surf_sa(self.surfs[i])
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
                 h, m, s = get_time(my_time)
@@ -272,7 +275,7 @@ class Network:
         for j in range(len(self.atoms)):
             percentage = int((i + j + 2) / tot_num * 100)
             if self.atoms[j].vol is None or self.atoms[j].vol == 0:
-                self.atoms[j].calc_vol()
+                calc_vol(self.atoms[j])
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
                 h, m, s = get_time(my_time)
@@ -335,7 +338,7 @@ class Network:
             self.analyze()
         else:
             for surf in self.surfs:
-                surf.calc_func()
+                calc_surf_func(surf)
         # Stop the timer and measure the time
         self.my_time = time.process_time() - self.my_time
         # Export the network
