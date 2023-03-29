@@ -4,6 +4,39 @@ import warnings
 warnings.filterwarnings("error")
 
 
+def calc_surf_func(surf):
+    """
+    Calculates the coefficients for the surface between the two atoms
+    :return: The surface has the correct self.func attribute
+    """
+    # Make sure that a0 is the atom with the smaller radius
+    if surf.atoms[0].rad > surf.atoms[1].rad:
+        surf.atoms[0], surf.atoms[1] = surf.atoms[1], surf.atoms[0]
+    # Create a0, a1 variables
+    a0, a1 = surf.atoms
+    # Set the rn vector for the surface since the atoms are sorted
+    l0, l1 = np.array(a0.loc), np.array(a1.loc)
+    r = l1 - l0
+    surf.norm = r / np.linalg.norm(r)
+    # Grab the centers of the spheres
+    x1, y1, z1 = l0
+    x2, y2, z2 = l1
+    # Calculate the major coefficients (pg. 574 Z. Hu)
+    R = a0.rad - a1.rad
+    K = (x2 ** 2 - x1 ** 2) + (y2 ** 2 - y1 ** 2) + (z2 ** 2 - z1 ** 2) - R ** 2
+    d = x1 - x2, y1 - y2, z1 - z2
+    J = 4 * R ** 2 * (x1 ** 2 + y1 ** 2 + z1 ** 2) - K ** 2
+    # Instantiate/reset the hyperboloid coefficient vector lists
+    ABC, DEF, GHI = [], [], []
+    # Calculate hyperboloid coefficients
+    for i in range(3):
+        ABC.append(4 * R ** 2 - 4 * d[i] ** 2)
+        DEF.append(-8 * d[i] * d[(i + 1) % 3])  # The equation asks for D_y, D_z, D_x in that order, hence modulus
+        GHI.append(-8 * R ** 2 * l0[i] - 4 * K * d[i])
+    # Set the function attribute
+    surf.func = ABC + DEF + GHI + [J] + [K] + list(d)
+
+
 def calc_dist(l0, l1):
     """
     Calculate distance function used to simplify code
@@ -224,3 +257,84 @@ def get_time(seconds):
     seconds = seconds - hours * 3600 - minutes * 60
     # Return the values
     return hours, minutes, seconds
+
+
+def calc_vol(self):
+    # Create the volume variable
+    vol = 0
+    # Go through each surface on the atom
+    for surf in self.surfs:
+        # Set the surface area
+        self.sa += surf.sa
+        # Check to see if the surface's volume has been calculated already
+        if surf.vols[surf.ndx.index(self.num)] != 0:
+            vol += surf.vols[surf.ndx.index(self.num)]
+        else:
+            # Calculate the volume of the
+            for tri in surf.tris:
+                p0, p1, p2, p3 = self.loc, surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
+                my_vol = calc_tetra_vol(p0, p1, p2, p3)
+                surf.vols[surf.ndx.index(self.num)] = my_vol
+                vol += my_vol
+    # Return the volume
+    self.vol = vol
+    return vol
+
+
+def get_radius(self):
+    """
+        Finds the radius of the atom from the symbol or vice versa
+
+    :return: The radius of the atom from the symbol or vice versa
+    """
+    radii = self.sys.radii
+    # If indicated we return the symbol of atom that the radius indicates
+    if self.element is None:
+        # Check to see if the radius is in the system
+        if self.rad in {radii[_] for _ in radii[1]}:
+            self.element = radii[self.rad]
+        else:
+            # Get the closest atom to it
+            min_diff = np.inf
+            # Go through the radii in the system looking for the smallest difference
+            for radius in radii:
+                if radii[radius] - self.rad < min_diff:
+                    self.element = radii[radius]
+    # If we have the type and just want the radius, keep scanning until we find the radius
+    elif self.rad is None:
+        self.rad = radii[self.element.lower()]
+
+
+# Calculate curvature method
+def calc_surf_curv(self):
+    """
+    Calculates the curvature of the surface
+    :return: The curvature attribute is filled
+    """
+    # Check to see that the function has been calculated or not
+    if self.func is None:
+        calc_surf_func(self)
+    # Made up function to calculate the general curvature of the hyperboloid
+    self.curv = np.sqrt(self.func[0]**2 + self.func[1]**2 + self.func[2]**2)
+
+
+def calc_surf_sa(self):
+    """
+    Calculates the surface area of the input surface
+    :return: Surface area of the surface
+    """
+    # Create the surface area variable
+    sa = 0
+    if self.flat:
+        for edge in self.edges:
+            if edge.straight:
+                sa += calc_tri([edge.pv0, edge.pv1, self.com])
+            else:
+                for i in range(len(edge.points) - 1):
+                    p0, p1 = edge.points[i:i + 2]
+                    sa += calc_tri([p0, p1, self.com])
+    # Go through the triangles in the surface
+    for tri in self.tris:
+        p0, p1, p2 = self.points[tri[0]], self.points[tri[1]], self.points[tri[2]]
+        sa += calc_tri([p0, p1, p2])
+    self.sa = sa
