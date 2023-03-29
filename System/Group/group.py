@@ -2,6 +2,9 @@ from System.sys_funcs.output import write_surfs
 from System.Group.layers import get_layers
 from System.Group.sort import get_surfs, get_edges, get_verts, add_atoms
 from System.Group.export import group_exports
+from System.sys_funcs.calcs import calc_vol
+from System.sys_funcs.input import read_surf_file
+from System.Network.net_funcs.build_surf import build_surf
 import os
 
 
@@ -140,7 +143,7 @@ class Group:
             elif surf.points is None or surf.tris is None or len(surf.points) <= 2 or len(surf.tris) == 0:
                 # If it is possible to load the file
                 if surf.file is not None and surf.file not in ["", " "]:
-                    test = surf.read_file()
+                    test = read_surf_file(surf)
                     if test is None:
                         build_surfs.append(surf)
                 # Worst case, add the surface to the list of surfaces to be built
@@ -155,7 +158,7 @@ class Group:
             # Print the status of the surfaces being built
             print("\rbuilding " + self.name + " surfaces " + " " * (len(str(len(self.surfs) - 1)) - len(str(i + 1))) +
                   str(i + 1) + "/" + str(len(self.surfs)) + "                   ", end="")
-            build_surfs[i].build(res=resolution, flat=self.sys.net.flat_Del)
+            build_surf(build_surfs[i], res=resolution, flat=self.sys.net.flat_Del)
             if build_surfs[i].file is None:
                 write_surfs([build_surfs[i]], "_".join([str(_) for _ in build_surfs[i].ndx]))
         # Change back
@@ -185,7 +188,7 @@ class Group:
             # Check to see that the atom's volume is not 0
             if atom.vol is None or atom.vol == 0:
                 # Calculate the volume of the atom
-                atom.calc_vol()
+                calc_vol(atom)
             # Add the volume to that of the group
             self.vol += atom.vol
         # Check to see if the first layer has been calculated
