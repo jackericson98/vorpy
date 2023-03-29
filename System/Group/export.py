@@ -279,7 +279,7 @@ def group_exports(grp, all_=False, atoms=False, shell=False, fill=False, surface
             # Get the first layer
             grp.get_layers(max_layers=1)
         # write the surrounding atoms
-        write_pdb(atoms=grp.layer_atoms[1], name="surr_atoms", directory=grp.dir)
+        write_pdb(atoms=grp.layer_atoms[1], name="surr_atoms", directory=grp.dir, sys=grp.sys)
     if (ext_atoms or all_) and len(grp.atoms) > 15:
         if grp.layer_surfs is None:
             # Get the first layer
