@@ -17,7 +17,7 @@ def load_atom_file(my_sys):
             usr_file = usr_file[0]
         else:
             my_num = np.random.randint(8)
-            usr_file = ['Na5', 'EDTA_Mg', 'cambrin', 'hairpin', 'DB1976', 'Na7', 'protein_ligand_complex', 'Complex_frame1'][my_num]
+            usr_file = ['Na5', 'EDTA_Mg', 'cambrin', 'hairpin', 'DB1976', 'Na7', 'protein_ligand_complex', 'Complex1_frame1'][my_num]
         # Check if the full path was loaded
         if os.path.exists(usr_file) and usr_file[-3:] in {"pdb", "gro", "mol", "cif"}:
             file_path = usr_file
