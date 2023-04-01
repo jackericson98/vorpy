@@ -18,10 +18,9 @@ class Surface:
 
         # Points and tris
         self.points = points            # Points          : The points that make up the surface
+        self.tris = tris                # Triangles       : A list of connections between the points
         self.flat_points = []           # Flat points     : Points projected into 2d based off of the surface normal
         self.perimeter = perimeter      # Perimeter       : The points around the edges of the surface (IN ORDER)
-        self.pflat_points = []          # Flat perimeter  : Flattened points around the perimeter
-        self.tris = tris                # Triangles       : A list of connections between the points
         self.filter_hard = False        # Filter hard     : Whether to filter the triangles extra extra extra hard UWU
 
         # Coloring values
@@ -39,7 +38,6 @@ class Surface:
         self.norm = normal              # Surface Normal  : Normal to the center of the surface
         self.loc = center               # Location        : Center point of the hyperboloid the surface is made from
         self.com = None                 # Center of mass  : The point toward which all building paths travel
-        self.doublet = doublet          # Doublet         : Indicates whether a surface is a part of a doublet or not
         self.flat = False               # Is Flat?        : Whether the surface is flat or not
 
         # Make sure that a0 is the atom with the smaller radius
