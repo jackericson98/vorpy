@@ -33,12 +33,12 @@ def find_edge_pvals(edge):
         dr = -1
 
     # Find the vector normal to the projection plane
-    P_norm = dr * np.cross(np.array(edge.loc) - np.array(pc01), np.array(edge.pv1) - np.array(pc01))
+    p_norm = dr * np.cross(np.array(edge.loc) - np.array(pc01), np.array(edge.pv1) - np.array(pc01))
     # Find the vector perpendicular to the plane's normal (i.e. in the plane) and the vector between vertices
-    rpcr = - np.cross(P_norm, rn01)
-    rnpcr = rpcr / np.linalg.norm(rpcr)
+    r_pcr = - np.cross(p_norm, rn01)
+    rn_pcr = r_pcr / np.linalg.norm(r_pcr)
     # Calculate the reference point
-    edge.pa = pc01 + 0.5 * r_mag * rnpcr
+    edge.pa = pc01 + 0.5 * r_mag * rn_pcr
 
 
 # Project method. Projects a point onto the surface using a reference point
@@ -83,9 +83,10 @@ def edge_project(edge, rn, pa, surf):
 
 
 # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
-def build_edge(edge, surf=None, res=None, straight=False):
+def build_edge(edge, surf=None, res=None, straight=None):
     # Set the self defining straight value
-    edge.straight = straight
+    if straight is None:
+        edge.straight = False
     # Get the location and radius of the circle inscribed between the edge atoms
     get_edge_loc(edge)
     # Get the pvals
@@ -149,16 +150,12 @@ def build_edge(edge, surf=None, res=None, straight=False):
         # Use that distance to project rn01 from pb to find our projection point or pc
         pc = pb + a * rn01
         # Get the vector from pa to pc
-        rac = np.array(pc) - np.array(edge.pa)
-        rnac = rac / np.linalg.norm(rac)
+        r_ac = np.array(pc) - np.array(edge.pa)
+        r_nac = r_ac / np.linalg.norm(r_ac)
         # Project the vector onto the surface
-        surf_point = edge_project(edge, rnac, edge.pa, surf)
+        surf_point = edge_project(edge, r_nac, edge.pa, surf)
         if surf_point is None:
             break
         edge.points.append(surf_point)
     # Add the end point
     edge.points.append(edge.pv1)
-
-
-def add_edge_info(self, edge):
-    pass
