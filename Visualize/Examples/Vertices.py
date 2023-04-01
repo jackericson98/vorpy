@@ -1,5 +1,7 @@
-from Visualize.visualize import *
-from System.Network.network import Vertex, Atom
+from Visualize.mpl_visualize import *
+from System.sys_objs.atom import Atom
+from System.Network.net_objs.vertex import Vertex
+from System.Network.net_funcs.find_verts import calc_vert
 """Example for vertices"""
 
 # With vertices, we have __ different cases
@@ -19,7 +21,7 @@ cases.append([Atom([0, 1, 1], 1.3), Atom([0, 1, 0], 1.3), Atom([-1, 0, 0], 1.1),
 verts = []
 for i in range(len(cases)):
     myVert = Vertex(atoms=cases[i])
-    myVert.calc_vert()
+    calc_vert(myVert.atoms)
 
     verts.append(myVert)
 
