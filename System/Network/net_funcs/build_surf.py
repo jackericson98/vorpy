@@ -7,35 +7,31 @@ import numpy as np
 ################################################# Find Surface Points  #################################################
 
 
-def calc_surf_point(surf, point):
+def calc_surf_point(point, func, a0_loc):
     """
     Projects a vector through the reference point and the smaller surface atom's center onto the surface
-    :param surf: Surface object to project the point onto
+    :param func: Implicit function for the hyperboloid surface betwen the atoms
+    :param a0_loc: Smaller atom's location used for projection onto the surface
     :param point: Reference point to be projected through
     :return: The point on the surface
     """
-    # Check to see if the surface's function has been calculated
-    if surf.func is None:
-        calc_surf_func(surf)
-    # Grab the surfaces function and atoms
-    f, a0, a1 = surf.func, surf.atoms[0], surf.atoms[1]
     # Set up the unit vector
-    vi = np.array(point) - np.array(a0.loc)
+    vi = np.array(point) - np.array(a0_loc)
     vn = vi / np.linalg.norm(vi)
     # Set the atom's location as the root
-    vi = a0.loc
+    vi = a0_loc
 
     # Solve the surface function's equation for the vector through the given point from the atom's location:
 
     # Get the a/b/c values for the point(s) that lies on the surface and along the vector from a0 to the given point
-    a = f[0] * vn[0] ** 2 + f[1] * vn[1] ** 2 + f[2] * vn[2] ** 2 + f[3] * vn[0] * vn[1] + f[4] * vn[1] * vn[2] + f[
+    a = func[0] * vn[0] ** 2 + func[1] * vn[1] ** 2 + func[2] * vn[2] ** 2 + func[3] * vn[0] * vn[1] + func[4] * vn[1] * vn[2] + func[
         5] \
         * vn[2] * vn[0]
-    b = 2 * f[0] * vn[0] * vi[0] + 2 * f[1] * vn[1] * vi[1] + 2 * f[2] * vn[2] * vi[2] + f[3] \
-        * (vn[0] * vi[1] + vn[1] * vi[0]) + f[4] * (vn[1] * vi[2] + vn[2] * vi[1]) + f[5] \
-        * (vn[2] * vi[0] + vn[0] * vi[2]) + f[6] * vn[0] + f[7] * vn[1] + f[8] * vn[2]
-    c = f[0] * vi[0] ** 2 + f[1] * vi[1] ** 2 + f[2] * vi[2] ** 2 + f[3] * vi[0] * vi[1] + f[4] * vi[1] * vi[2] + \
-        f[5] * vi[2] * vi[0] + f[6] * vi[0] + f[7] * vi[1] + f[8] * vi[2] + f[9]
+    b = 2 * func[0] * vn[0] * vi[0] + 2 * func[1] * vn[1] * vi[1] + 2 * func[2] * vn[2] * vi[2] + func[3] \
+        * (vn[0] * vi[1] + vn[1] * vi[0]) + func[4] * (vn[1] * vi[2] + vn[2] * vi[1]) + func[5] \
+        * (vn[2] * vi[0] + vn[0] * vi[2]) + func[6] * vn[0] + func[7] * vn[1] + func[8] * vn[2]
+    c = func[0] * vi[0] ** 2 + func[1] * vi[1] ** 2 + func[2] * vi[2] ** 2 + func[3] * vi[0] * vi[1] + func[4] * vi[1] * vi[2] + \
+        func[5] * vi[2] * vi[0] + func[6] * vi[0] + func[7] * vi[1] + func[8] * vi[2] + func[9]
 
     # Choose the correct root:
 
@@ -48,9 +44,9 @@ def calc_surf_point(surf, point):
             return vi + roots[0] * vn
         # If the smallest root is negative (i.e. incorrect) return the other root
         if min(roots) < 0:
-            return a0.loc + vn * max(roots)
+            return a0_loc + vn * max(roots)
         # Otherwise, return the smaller of the two
-        return a0.loc + min(roots) * vn
+        return a0_loc + min(roots) * vn
 
 
 def find_next_point(surf, pn_1, end, d_theta):
@@ -86,7 +82,7 @@ def find_next_point(surf, pn_1, end, d_theta):
     # Find the next projection point by adding the vector with 'a' magnitude and rn_hat direction
     pc = pb + rn_hat * a
     # Calculate where the point intercepts the surface and return it
-    return calc_surf_point(surf, pc)
+    return calc_surf_point(point=pc, func=surf.func, a0_loc=surf.atoms[0].loc)
 
 
 def build_perimeter(surf):
@@ -95,17 +91,14 @@ def build_perimeter(surf):
     :param surf: Surface object for perimeter building
     :return: None
     """
-    # Reset the surface's perimeter points list
-    surf.perimeter = []
+    # Randomly select the first edge
     e0 = surf.edges[0]
+    # Add the first edge's vertex location and set of points to the perimeter points list
+    perimeter = e0.points.copy()
     # Check to see if the edges have been built yet
     for edge in surf.edges:
         if edge.points is None:
-            build_edge(res=surf.res, straight=surf.flat)
-    # Set the edge's reference surface and range (overwrite the ref in place, to ensure a lighter storage with an e0)
-    e0.ref = [surf.net.surfs.index(surf), 0, len(e0.points) - 1]
-    # Add the first edge's vertex location and set of points to the perimeter points list
-    surf.perimeter = e0.points.copy()
+            build_edge(edge, res=surf.res, straight=surf.flat)
     # Make a copy of the edges to organize excluding the first edge
     edges = surf.edges[1:].copy()
 
@@ -118,8 +111,8 @@ def build_perimeter(surf):
         # Go through each of the remaining edges in the list
         for i in range(len(edges)):
             # Calculate the distance between the most recently recorded point and the first/last points in the edge
-            d0 = np.sqrt(sum(np.square(np.array(surf.perimeter[-1]) - np.array(edges[i].points[0]))))
-            d1 = np.sqrt(sum(np.square(np.array(surf.perimeter[-1]) - np.array(edges[i].points[-1]))))
+            d0 = np.sqrt(sum(np.square(np.array(perimeter[-1]) - np.array(edges[i].points[0]))))
+            d1 = np.sqrt(sum(np.square(np.array(perimeter[-1]) - np.array(edges[i].points[-1]))))
             # If the first edge point is closer to the last perimeter point and the last isn't closer add that edge
             if d0 < d and d0 < d1:
                 d, ndx, reverse = d0, i, False
@@ -130,16 +123,14 @@ def build_perimeter(surf):
         my_edge = edges.pop(ndx)
         # Add the edge's point in the right order and then add the correct vertex
         if not reverse:  # In order
-            surf.perimeter += my_edge.points
+            perimeter += my_edge.points
         else:  # Reverse order
-            surf.perimeter += my_edge.points[::-1]
-        if my_edge.ref is None:
-            my_edge.ref = [surf.net.surfs.index(surf), len(surf.perimeter) - len(e0.points), len(surf.perimeter)]
+            perimeter += my_edge.points[::-1]
 
     # Add the perimeter points to the whole set of points
-    surf.points += surf.perimeter
+    surf.points += perimeter
     # Get the perimeter flat points
-    surf.pflat_points = surf.perimeter.copy()
+    surf.pflat_points = perimeter.copy()
     # Get the atoms
     a0, a1 = surf.atoms[0], surf.atoms[1]
     d = np.sqrt(sum(np.square(np.array(a0.loc) - np.array(a1.loc))))
@@ -155,6 +146,7 @@ def build_perimeter(surf):
     surf.pflat_points = rotate_points(surf.norm, surf.pflat_points)
     # Get the 2d version
     surf.pflat_points = [point[:2] for point in surf.pflat_points]
+    return perimeter
 
 
 def get_com(surf):
@@ -169,7 +161,7 @@ def get_com(surf):
     if surf.flat:
         return calc_com(points=surf.perimeter)
     # First try the center of mass of the 3d points projected onto the surface
-    my_com = calc_surf_point(surf=surf, point=calc_com(points=surf.perimeter[::5]))
+    my_com = calc_surf_point(point=calc_com(points=surf.perimeter[::5]), func=surf.func, a0_loc=surf.atoms[0].loc)
     if my_com is not None and tri_within(surf, point=my_com) and surf.atoms[0].rad != surf.atoms[1].rad:
         return my_com
     # If nothing else set the center of mass to the first point in the perimeter
@@ -185,7 +177,7 @@ def fill_mesh(surf):
     """
     # Check to see that the surface has perimeter points
     if len(surf.perimeter) == 0:
-        build_perimeter(surf)
+        surf.perimeter = build_perimeter(surf)
     # Get the resolution
     res = surf.res
     # Get the atoms
@@ -276,7 +268,9 @@ def tri_within(surf, my_tri=None, point=None):
     :return: Bool
     """
     # Get the perimeter of the translated and rotated surface
-    perimeter = surf.pflat_points
+    perimeter = [surf.perimeter[i] - surf.loc for i in range(len(surf.perimeter))]
+    # Rotate the point
+    perimeter = [point[:2] for point in rotate_points(surf.norm, perimeter)]
     if len(perimeter) == 0:
         return False
     center = calc_com(points=perimeter)
@@ -321,15 +315,13 @@ def tri_within(surf, my_tri=None, point=None):
         return True
 
 
-def calc_tri_circ(surf, tri):
+def calc_tri_circ(points):
     """
     Finds the circumference of the circumscribed circle for the triangle
-    :param surf: Surface from which the triangle was created
-    :param tri: Triangle to test
     :return: Circumference of the circle circumscribing the triangle
     """
     # Get the points of the triangle
-    pa, pb, pc = surf.flat_points[tri[0]], surf.flat_points[tri[1]], surf.flat_points[tri[2]]
+    pa, pb, pc = points
     # Get their squared differences
     a = np.sqrt((pa[0] - pb[0]) ** 2 + (pa[1] - pb[1]) ** 2)
     b = np.sqrt((pb[0] - pc[0]) ** 2 + (pb[1] - pc[1]) ** 2)
@@ -381,7 +373,7 @@ def filter_tris(surf):
     for i in range(len(surf.tris)):
         # Grab the triangle and calculate its circumference
         tri = surf.tris[i]
-        circ = calc_tri_circ(surf, tri)
+        circ = calc_tri_circ(points=[surf.flat_points[_] for _ in tri])
         # If the circumference of the triangle is less than x times the min_dist check to see if tri is within
         if circ > 3 * surf.res and not tri_within(surf, tri):
             remove_ndxs.append(i)
@@ -397,6 +389,7 @@ def filter_tris(surf):
 def build_surf(surf, res=None, color=False):
     """
     Main build method for constructing surfaces
+    :param surf:
     :param res: Specifies the resolution the surface is to be constructed with
     :param color: Bool to color the surf or not
     :return: The surfaces points and triangles are filled
@@ -413,7 +406,7 @@ def build_surf(surf, res=None, color=False):
     # Reset the surface's list of points to empty list and reset the vertex indices list
     surf.points = []
     # Build the perimeter of the surface
-    build_perimeter(surf)
+    surf.perimeter = build_perimeter(surf)
     # Fill the mesh
     fill_mesh(surf)
     # Find the simplices of the surface
