@@ -58,7 +58,9 @@ def read_pdb(sys, file=None):
             # If no chain is specified, set the chain to 'None'
             res_str, chain_str = line[17:20], line[21]
             if chain_str == ' ':
-                if res_str.lower() in {'sol', 'hoh', 'na', 'mg'}:
+                if res_str.lower() in {'sol', 'hoh'}:
+                    chain_str = 'SOL'
+                elif res_str.lower() in {'cl', 'mg', 'na', 'k'} and 'SOL' in chains:
                     chain_str = 'SOL'
                 else:
                     chain_str = 'A'
