@@ -110,11 +110,32 @@ def write_pdb(atoms, name, sys=None, directory=None):
         os.chdir(start_dir)
 
 
+def write_gro(atoms, name, sys, directory=None):
+    # Change to the directory of specified
+    if directory is not None and os.path.exists(directory):
+        os.chdir(directory)
+    # Create the title
+    sys_name = sys.name
+    # Open the file
+    with open(name + '.gro', 'w') as f:
+        # Write the header
+        f.write("{}\n{:5d}\n".format(sys_name, len(atoms)))
+        # Write the atoms information
+        for atom in atoms:
+            f.write("{:5d}{:5s}{:5s}{:5d}{:8.3f}{:8.3f}{:8.3f}\n".format(atom.res_seq, atom.res.name, atom.name,
+                                                                         atom.num + 1, atom.loc[0], atom.loc[1],
+                                                                         atom.loc[2]))
+        # Write the box
+        box = sys.net.box
+        f.write("{:10.5f}{:10.5f}{:10.5f}{:10.5f}{:10.5f}{:10.5f}\n".format(box[0][0], box[0][1], box[0][2], box[1][0],
+                                                                            box[1][1], box[1][2]))
+
+
 def write_verts(verts, file_name, atom_type=None, directory=None, pdb=False, color=None, vert_rad=0.05):
     """
     Creates a pdb file for vertex representation
+    :param vert_rad:
     :param color:
-    :param spheres:
     :param pdb:
     :param verts:
     :param file_name:
