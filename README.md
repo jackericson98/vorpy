@@ -23,12 +23,31 @@ Install the requirements
 python3 -m pip install requirements.txt
 ```
 
-### Basic Useage example
+### Basic Example
 
 ```
-C:/.../vorpy> python3 vorpy.py EDTA_Mg.pdb -g a 1 -s sr 0.1 -e all
+C:/.../vorpy> python3 vorpy.py EDTA_Mg.pdb
 ```
-In this example the EDTA_Mg.pdb file was loaded from the ./Data/test_data folder. Next, the first atom in the file is made into a group (-g). Then surface resolution is set (-s) to 0.1. Last the export flag (-e) is set to all
+When just an atom file is provided, the program runs with the defaults for the flags.
+
+### Change Group
+
+```
+C:/.../vorpy> python3 vorpy.py EDTA_Mg.pdb -g a 5
+```
+In this example the 5th atom is selected for construction
+
+### Change Setting
+```
+C:/.../vorpy> python3 vorpy.py EDTA_Mg.pdb -s ar c 2
+```
+In this example all carbon atoms raddi are changed to 2 angstroms
+
+### Specify exports
+```
+C:/.../vorpy> python3 vorpy.py EDTA_Mg.pdb -e v -e e -e i
+```
+In this example, the vertices, edges and information for the load file are exported
 
 ### Commands
 
