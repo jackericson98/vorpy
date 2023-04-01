@@ -85,9 +85,10 @@ def find_next_point(surf, pn_1, end, d_theta):
     return calc_surf_point(point=pc, func=surf.func, a0_loc=surf.atoms[0].loc)
 
 
-def build_perimeter(surf):
+def build_perimeter(surf, net_type='vor'):
     """
     Sorts the edges of the surface to create a list of points in order around the perimeter
+    :param net_type:
     :param surf: Surface object for perimeter building
     :return: None
     """
@@ -138,7 +139,12 @@ def build_perimeter(surf):
     if surf.norm is None:
         r = np.array(a1.loc) - np.array(a0.loc)
         surf.norm = r / np.linalg.norm(r)
-    surf.loc = np.array(a0.loc) + (a0.rad + 0.5 * (d - (a0.rad + a1.rad))) * surf.norm
+    if net_type == 'vor':
+        surf.loc = np.array(a0.loc) + (a0.rad + 0.5 * (d - (a0.rad + a1.rad))) * surf.norm
+    elif net_type == 'del':
+        surf.loc = np.array(a0.loc) + 0.5 * d * surf.norm
+    elif net_type == 'pow':
+        surf.loc = np.array(a0.loc) + 0.5 * (surf.norm ** 2 + a0.rad ** 2 - a1.rad ** 2) / surf.norm
     for i in range(len(surf.pflat_points)):
         # Move the points
         surf.pflat_points[i] = surf.pflat_points[i] - surf.loc
@@ -149,17 +155,17 @@ def build_perimeter(surf):
     return perimeter
 
 
-def get_com(surf):
+def get_com(surf, net_type='vor'):
     """
     Finds the center of mass of a surface's perimeter points
     :param surf: Surface object holding the perimeter points
     :return: Center of mass
     """
-    # If the surface is flat, the center of mass will not need to be projected
+    if surf.flat or net_type in {'del', 'pow'}:
+        return calc_com(points=surf.perimeter)
+        # If the surface is flat, the center of mass will not need to be projected
     if tri_within(surf, point=surf.loc):
         return surf.loc
-    if surf.flat:
-        return calc_com(points=surf.perimeter)
     # First try the center of mass of the 3d points projected onto the surface
     my_com = calc_surf_point(point=calc_com(points=surf.perimeter[::5]), func=surf.func, a0_loc=surf.atoms[0].loc)
     if my_com is not None and tri_within(surf, point=my_com) and surf.atoms[0].rad != surf.atoms[1].rad:
@@ -183,7 +189,7 @@ def fill_mesh(surf):
     # Get the atoms
     a0, a1 = surf.atoms[0], surf.atoms[1]
     # Get the center of mass
-    surf.com = get_com(surf)
+    surf.com = get_com(surf, surf.net.type)
     com = surf.com
     # For each path toward the center of the surface, set up a path list.
     paths = [[surf.perimeter[i]] for i in range(len(surf.perimeter))]
@@ -406,7 +412,7 @@ def build_surf(surf, res=None, color=False):
     # Reset the surface's list of points to empty list and reset the vertex indices list
     surf.points = []
     # Build the perimeter of the surface
-    surf.perimeter = build_perimeter(surf)
+    surf.perimeter = build_perimeter(surf, surf.net.type)
     # Fill the mesh
     fill_mesh(surf)
     # Find the simplices of the surface
