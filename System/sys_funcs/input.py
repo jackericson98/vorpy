@@ -8,9 +8,13 @@ from System.sys_objs.residue import Residue
 from System.sys_objs.chain import Chain, Sol
 
 
-# Read pdb function. Interprets pdb data into a system of atom objects
 def read_pdb(sys, file=None):
-
+    """
+    Interprets pdb data into a system of atom objects
+    :param sys: System to add the pdb information to
+    :param file: .pdb file to be added to the system
+    :return: list of tuples of locations and radii
+    """
     # Check to see if the file is provided and use the base file if not
     if file is None and sys.base_file[-3:] == 'pdb':
         file = sys.base_file
@@ -50,7 +54,7 @@ def read_pdb(sys, file=None):
                 continue
             # Create the atom
             atom = Atom(location=[float(line[30:38]), float(line[38:46]), float(line[46:54])], system=sys,
-                        element=line[76:78].strip(), res_seq=line[22:26], name=line[12:16], seg_id=line[72:76],
+                        element=line[76:78].strip(), res_seq=int(line[22:26]), name=line[12:16], seg_id=line[72:76],
                         index=atom_count)
             # Add the atom to the atoms list
             atoms.append(atom)
@@ -65,7 +69,7 @@ def read_pdb(sys, file=None):
                 else:
                     chain_str = 'A'
             # Create the chain and residue dictionaries
-            res_name, chn_name = line[17:20] + atom.res_seq, chain_str
+            res_name, chn_name = line[17:20] + str(atom.res_seq), chain_str
             # If the chain has been made before
             if chn_name in chains:
                 # Get the chain from the dictionary and add the atom
@@ -98,10 +102,12 @@ def read_pdb(sys, file=None):
                     sys.residues.append(my_res)
                 else:
                     sys.sol.residues.append(my_res)
+            # Assign the residue to the atom
+            atom.res = my_res
         # If the line is not an atom line store the other data
         else:
             data.append(my_file[i].split())
-    # Return the atoms and the data
+    # Set the atoms and the data
     sys.atoms, sys.data = atoms, data
 
 
@@ -129,13 +135,16 @@ def read_gro(sys, file=None):
     # Check to see if the file is provided and use the bse file if not
     if file is None and sys.base_file[-3:] == 'gro':
         file = sys.base_file
+    # Check that the system atoms list has been created
+    if sys.atoms is None:
+        sys.atoms = []
     # Get the file information and make sure to close the file when done
     with open(file, 'r') as f:
         my_file = f.readlines()
-    # Go through each line in the file and create an atom object
-    for i in range(2, len(my_file) - 2):
-        line = my_file[i]
-        sys.atoms.append(Atom(location=[line[3], line[4], line[5]], system=sys, element=line[1][0], index=i))
+        for i, line in enumerate(my_file):
+            line.split()
+            if 2 <= i < len(my_file):
+                sys.atoms.append(Atom(location=[line[3], line[4], line[5]], system=sys, index=i, name=line[1]))
 
 
 # Read mol method. Interprets the data from a .mol file type
