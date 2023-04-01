@@ -1,5 +1,3 @@
-from System.sys_funcs.calcs import *
-
 
 class Vertex:
     """Vertex object. Used to build the network and calculate the surfaces"""
