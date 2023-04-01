@@ -6,9 +6,9 @@ from numpy import seterr, random
 
 
 class System:
-    def __init__(self, file=None, atoms=None, verts_file=None, network_file=None, index_file=None, frame_files=None,
-                 output_directory=None, gui=None, root_dir=None, print_actions=False, residues=None, chains=None,
-                 segments=None):
+    def __init__(self, file=None, atoms=None, verts_file=None, balls_file=None, network_file=None, index_file=None,
+                 frame_files=None, output_directory=None, gui=None, root_dir=None, print_actions=False, residues=None,
+                 chains=None, segments=None):
         """
         Class used to import files of all types and return a System
         :param file: Base system file address
@@ -43,12 +43,13 @@ class System:
         self.groups = []                    # Groups              :   List of groups in the system
         self.ndxs = []                      # Indices             :   List of lists indices of atoms
         self.radii = my_radii               # Radii               :   List of atomic radii
+        self.special_radii = special_radii  # Special Radii       :   List of special radius situations. Helpful for gro
         self.decimals = None                # Decimals            :   Decimals setting for the whole system
 
         # Set up the file attributes
         self.data = None                    # Data                :   Additional data provided by the base file
         self.base_file = file               # Base file           :   Primary file address
-        self.ball_file = None               # Ball file           :   Balls used to create vertices from Voronota
+        self.ball_file = balls_file         # Ball file           :   Balls used to create vertices from Voronota
         self.vert_file = verts_file         # Vertex file         :   Address to the vertices of the primary system
         self.net_file = network_file        # Network files       :   Network files for multiple frames
         self.ndx_file = index_file          # Index file          :   File addresses for index file in GROMACS format
@@ -90,8 +91,6 @@ class System:
 
         # Get the name
         self.name = os.path.basename(self.base_file)[:-4]
-
-
 
     def load_sys(self, file=None):
         """
@@ -325,3 +324,4 @@ my_radii = {'h': 1.30, 'he': 1.40, 'li': 0.76, 'be': 0.45, 'b': 1.92, 'c': 1.80,
             'k': 1.38, 'ca': 1.00, 'ga': 0.62, 'ge': 0.73, 'as': 0.58, 'se': 1.90, 'br': 1.83, 'kr': 2.02, 'rb': 1.52,
             'sr': 1.18, 'in': 1.93, 'sn': 2.17, 'sb': 2.06, 'te': 2.06, 'i': 2.20, 'xe': 2.16, 'cs': 1.67, 'ba': 1.35,
             'tl': 1.96, 'pb': 2.02, 'bi': 2.07, 'po': 1.97, 'at': 2.02, 'rn': 2.20, 'fr': 3.48, 'ra': 2.83}
+special_radii = {}
