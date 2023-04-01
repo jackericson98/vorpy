@@ -8,11 +8,11 @@ import time
 
 
 # Calculate vertex function. Takes in 4 atoms, calculates the loc and rad of the inscribed sphere and adds the
-def calc_vert(vert):
+def calc_vert(locs, rads):
     # The real location and radius of the base sphere
-    locs = np.array(vert.atoms[0].loc), np.array(vert.atoms[1].loc), np.array(vert.atoms[2].loc), \
-        np.array(vert.atoms[3].loc)
-    r0, r1, r2, r3 = vert.atoms[0].rad, vert.atoms[1].rad, vert.atoms[2].rad, vert.atoms[3].rad
+    if type(locs[0]) == list:
+        locs = [np.array(_) for _ in locs]
+    r0, r1, r2, r3 = rads
     r0_2 = r0 ** 2
     # Find the recalculated location of the atoms
     l0, l1, l2, l3 = locs[0], locs[1] - locs[0], locs[2] - locs[0], locs[3] - locs[0]
@@ -114,32 +114,32 @@ def calc_vert(vert):
         # If both radii are positive we have a doublet. Choose the smaller vertex to be the lead vertex and set loc2
         else:
             loc, loc2, rad, rad2 = locs[0], locs[1], rads[0], rads[1]
-    vert.loc, vert.rad, vert.loc2, vert.rad2 = loc, rad, loc2, rad2
+    return loc, rad, loc2, rad2
 
 
-def calc_flat_vert(self, power=False):
+def calc_flat_vert(locs, rads, power=False):
     """
     Calculates the flat vertex between 4 atoms by finding the intersection of the mid-point planes between the first
     atom and the others
+    :param rads:
+    :param locs:
     :param power:
     :return:
     """
-    # Get the radii of the atoms in the vertex
-    rads = [_.rad for _ in self.atoms]
-    atom_rads = [x for _, x in sorted(zip(rads, self.atoms), key=lambda pair: pair[0])]
+    atom_rads = [(x, _) for _, x in sorted(zip(rads, locs), key=lambda pair: pair[0])]
     # Get the plane equations
     coeffs = []
     # Go through the atoms to make the planes
     for an in atom_rads[1:]:
         # Get the point between the atoms
-        r = np.array(an.loc) - np.array(atom_rads[0].loc)
+        r = np.array(an[0]) - np.array(atom_rads[0][0])
         norm = np.linalg.norm(r)
         rn = r / norm
         if power:
-            d0 = 0.5 * (norm ** 2 + atom_rads[0].rad ** 2 - an.rad ** 2) / norm
-            center = atom_rads[0].loc + d0 * rn
+            d0 = 0.5 * (norm ** 2 + atom_rads[0][1] ** 2 - an[1] ** 2) / norm
+            center = atom_rads[0][0] + d0 * rn
         else:
-            center = 0.5 * r + np.array(atom_rads[0].loc)
+            center = 0.5 * r + np.array(atom_rads[0][0])
         coeffs.append(rn.tolist() + [np.dot(rn, center)])
 
     x1, y1, z1, c1 = coeffs[0]
@@ -153,10 +153,10 @@ def calc_flat_vert(self, power=False):
     x, y, z = x_numerator / disc, y_numerator / disc, z_numerator / disc
     # Get the radius
     if power:
-        rad = np.sqrt(sum(np.square(np.array([x, y, z]) - np.array(atom_rads[0].loc)))) ** 2 - atom_rads[0].rad ** 2
+        rad = np.sqrt(sum(np.square(np.array([x, y, z]) - np.array(atom_rads[0][0])))) ** 2 - atom_rads[0][1] ** 2
     else:
-        rad = np.sqrt(sum(np.square(np.array([x, y, z]) - np.array(atom_rads[0].loc))))
-    self.loc, self.rad = [x, y, z], rad
+        rad = np.sqrt(sum(np.square(np.array([x, y, z]) - np.array(atom_rads[0][0]))))
+    return [x, y, z], rad
 
 
 # Find v0 function. Uses the atom finding functions to find a real verified site in the network
@@ -334,11 +334,11 @@ def find_site(net, edge_atoms, vn_1=None, first=False, group_atoms=None):
         vert = Vertex(edge_atoms + [atom], net=net)
         # Calculate the correct vertex values
         if net.type == 'pow':
-            calc_flat_vert(vert, power=True)
+            vert.loc, vert.rad = calc_flat_vert(locs=[_.loc for _ in vert.atoms], rads=[_.rad for _ in vert.atoms], power=True)
         elif net.type == 'del':
-            calc_flat_vert(vert, power=False)
+            vert.loc, vert.rad = calc_flat_vert(locs=[_.loc for _ in vert.atoms], rads=[_.rad for _ in vert.atoms], power=False)
         else:
-            calc_vert(vert)
+            vert.loc, vert.rad, vert.loc2, vert.rad2 = calc_vert(locs=[_.loc for _ in vert.atoms], rads=[_.rad for _ in vert.atoms])
         # Catch the none location case
         if vert.loc is None:
             continue
@@ -371,7 +371,7 @@ def find_site(net, edge_atoms, vn_1=None, first=False, group_atoms=None):
 
 
 # Find network function. Keeps searching the network until all verts are found
-def find_verts(net, a0=None, my_group=None, sniff=False):
+def find_verts(net, a0=None, my_group=None):
     # Get the group atoms from which to check vertices against
     if my_group is None or (my_group is not None and len(my_group.atoms) == len(net.atoms)):
         group_atoms = [i for i in range(len(net.atoms))]
@@ -387,14 +387,12 @@ def find_verts(net, a0=None, my_group=None, sniff=False):
     # Find the first verified vertex
     if len(group_atoms) == 4:
         v0 = Vertex(net.atoms, net)
-        calc_vert(v0)
+        v0.loc, v0.rad, v0.loc2, v0.rad2 = calc_vert(locs=[_.loc for _ in v0.atoms], rads=[_.rad for _ in v0.atoms])
     else:
         v0 = find_v0(net, a0, group_atoms)
     # If no v0 is possible (e.g., a lone atom) return
     if v0 is None:
         return
-    elif sniff:
-        return True
     # Check if this is the first go around
     if net.verts is None:
         net.verts = [v0]
