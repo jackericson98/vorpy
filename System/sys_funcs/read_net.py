@@ -102,7 +102,6 @@ def read_net(sys, file=None, integrate=False):
             print("\rloading edges - {}%".format(round(100 * i / net_edges, 2)), end="")
             edge = my_edges[i]
             line = read_file[i + 4 + net_verts]
-            edge.point_refs = [int(_) for _ in line[1:4] if _ != '']
             edge.atoms = [sys.atoms[int(_)] for _ in line[4:7]]
             edge.ndx = [int(_) for _ in line[4:7]]
             edge.verts = [my_verts[int(_)] for _ in line[7:9]]
