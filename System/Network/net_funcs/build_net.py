@@ -78,7 +78,7 @@ def doublify(net, get_edges=True):
         # Get the connecting edge
         known_edges_ndxs = [edge.ndx for edge in dub.edges + dub.doublet.edges]
         # Gather the other combinations of atoms and create the remaining inner atoms
-        edges = [Edge(atoms=[net.atoms[_] for _ in ndx], net=net, verts=[dub, dub.doublet], doublet=True, surfs=[])
+        edges = [Edge(atoms=[net.atoms[_] for _ in ndx], net=net, verts=[dub, dub.doublet], surfs=[])
                  for ndx in potential_edges if ndx not in known_edges_ndxs]
 
         # Add the edges to the network and the doublet vertices
