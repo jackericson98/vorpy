@@ -288,8 +288,11 @@ def get_radius(self):
     :return: The radius of the atom from the symbol or vice versa
     """
     radii = self.sys.radii
+    # Get the radius and the element from the name of the atom
+    if self.name is not None and self.name in self.sys.special_radii:
+        self.element, self.rad = self.sys.special_radii[self.name]
     # If indicated we return the symbol of atom that the radius indicates
-    if self.element is None:
+    elif self.element is None:
         # Check to see if the radius is in the system
         if self.rad in {radii[_] for _ in radii[1]}:
             self.element = radii[self.rad]
