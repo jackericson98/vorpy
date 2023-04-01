@@ -247,7 +247,7 @@ class Network:
             # Build the surfaces and print the progress
             my_time = time.perf_counter() - self.my_time
             h, m, s = get_time(my_time)
-            print("\rRun Time = {}:{}:{:.2f} - Process: building surfaces {} %                                       "
+            print("\rRun Time = {:2}:{:2}:{:.2f} - Process: building surfaces {:.2f} %                                 "
                   .format(int(h), int(m), round(s, 2), min(100.0, 100 * round(i/len(self.surfs), 2))), end="")
             build_surf(self.surfs[i], color=True)
         print("\r                                                                                             ", end='')
