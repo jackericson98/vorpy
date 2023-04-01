@@ -96,7 +96,7 @@ def write_pdb(atoms, name, sys=None, directory=None):
                     chain = " "
                 else:
                     chain = str(a.chn.name)
-                res_seq = " " * (3 - len(a.res_seq)) + a.res_seq
+                res_seq = " " * (3 - len(str(a.res_seq))) + str(a.res_seq)
                 loc_strs = [" " * (7 - len(_)) + _ for _ in loc]
                 occupancy = " " * 5
                 t_fact = " " * 5
