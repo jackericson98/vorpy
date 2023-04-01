@@ -76,7 +76,7 @@ class Network:
             if r_box[i] == 0 or abs(r_box[i]) == np.inf:
                 r_box[i], min_vert[i], max_vert[i] = 4 * self.atoms[0].rad, self.atoms[0].loc[i], self.atoms[0].loc[i]
         # Set the atoms box value
-        self.atoms_box = [min_vert, max_vert]
+        self.atoms_box = [min_vert.tolist(), max_vert.tolist()]
         # Set the new vertices to the x factor times the vector between them added to their complimentary vertices
         min_vert, max_vert = max_vert - r_box * self.box_size, min_vert + r_box * self.box_size
         # Return the list of array turned list vertices
