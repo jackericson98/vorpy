@@ -138,6 +138,7 @@ def build_perimeter(surf, net_type='vor'):
     # Get the center of the surface
     if surf.norm is None:
         r = np.array(a1.loc) - np.array(a0.loc)
+        r = [_ if _ != 0 else 0.0001 for _ in r]
         surf.norm = r / np.linalg.norm(r)
     if net_type == 'vor':
         surf.loc = np.array(a0.loc) + (a0.rad + 0.5 * (d - (a0.rad + a1.rad))) * surf.norm
@@ -354,13 +355,10 @@ def find_simps(surf):
     # Move all surf points toward the origin via center point
     for i in range(len(points)):
         points[i] = np.array(points[i]) - np.array(surf.loc)
-
     # Calculate the angles to rotate the center point around
     nps = rotate_points(surf.norm, points)
-
     # Get the 2d version of the points and their Delaunay tesselation
     surf.flat_points = [_[:2] for _ in nps]
-
     tris = Delaunay(surf.flat_points)
     # Add the flat points to the surface's list of flat points
     surf.tris = tris.simplices.tolist()
