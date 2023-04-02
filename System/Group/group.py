@@ -97,7 +97,16 @@ class Group:
                 self.chains.append(atom.chn)
         # Add a Name If none was provided
         if self.name is None:
-            self.name = '{}_group{}'.format(self.sys.name, self.sys.groups.index(self))
+            # If no system is given
+            if self.sys is not None:
+                # Or if the group is not in the systems list of groups
+                if self not in self.sys.groups:
+                    # Add the group
+                    self.sys.groups.append(self)
+                # Set the name
+                self.name = '{}_group{}'.format(self.sys.name, self.sys.groups.index(self))
+            else:
+                self.name = self.atoms[0].name + "_" + self.atoms[-1].name
         # Get the surfaces
         self.get_surfs()
 
