@@ -4,7 +4,7 @@ from Visualize.cmnd.commands import my_settings
 
 def argv_sett(my_sys, usr_npt):
     # Go through the user inputs loading files
-    while usr_npt:
+    while usr_npt and len(usr_npt) > 0:
         my_npt = usr_npt.pop(0)
         # Pop the file descriptor
         descriptor = my_npt[0]
