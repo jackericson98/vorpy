@@ -131,6 +131,10 @@ class System:
             print("{} loaded - {} atoms, {} residues, {} chain{}, ".format(self.name, len(self.atoms),
                   len(self.residues), len(self.chains), 's' if len(self.chains) > 1 else ''))
 
+        # Set up the network
+        if self.net is None:
+            self.net = Network(self, self.atoms)
+
     def load_verts(self, file=None, vta_ball_file=None):
         """
         Loads vorpy specific vertices file from the system level
