@@ -1,5 +1,36 @@
+import pytest
+
 from System.sys_funcs.input import *
 from System.system import System
+
+
+"""
+__________________________________________________Fixtures______________________________________________________________
+"""
+
+
+@pytest.fixture(scope='session')
+def pdb_sys():
+    my_sys = System('../Data/test_data/EDTA_Mg.pdb')
+    return my_sys
+
+
+@pytest.fixture(scope='module')
+def gro_sys():
+    my_sys = System('../Data/test_data/EDTA_Mg.gro')
+    return my_sys
+
+
+@pytest.fixture(scope='module')
+def mol_sys():
+    my_sys = System('../Data/test_data/EDTA_Mg.mol')
+    return my_sys
+
+
+@pytest.fixture(scope='module')
+def cif_sys():
+    my_sys = System('../Data/test_data/EDTA_Mg.cif')
+    return my_sys
 
 
 """
@@ -9,37 +40,25 @@ Test the functionality of read_pdb, read_gro, read_mol, read_cif
 
 
 # Load Pdb
-def test_read_pdb():
-    sys = System('../Data/test_data/Na5.pdb')
-    read_pdb(sys)
-    assert len(sys.atoms) == 61 and sys.atoms[30].loc == [28.854, 34.009, 7.627]
+def test_read_pdb(pdb_sys):
+    assert len(pdb_sys.atoms) == 612
+    assert pdb_sys.atoms[30].loc == [20.39, 18.3, 8.23]
 
 #
 # # Load GRO
-# def test_read_gro():
-#     sys = System('../Data/test_data/Na5.gro')
-#     read_gro(sys)
+# def test_read_gro(gro_sys):
 #     assert len(sys.atoms) == 61 and sys.atoms[30].loc == [28.854, 34.009, 7.627]
 #
 #
 # # Load MOL
-# def test_read_mol():
-#     sys = System('../Data/test_data/Na5.mol')
-#     read_mol(sys)
+# def test_read_mol(mol_sys):
 #     assert len(sys.atoms) == 61 and sys.atoms[30].loc == [28.854, 34.009, 7.627]
 #
 #
 # # Load CIF
-# def test_read_cif():
-#     sys = System('../Data/test_data/Na5.cif')
-#     read_cif(sys)
+# def test_read_cif(cif_sys):
 #     assert len(sys.atoms) == 61 and sys.atoms[30].loc == [28.854, 34.009, 7.627]
-#
-#
-# # Load System
-# def test_read_full_sys():
-#     sys = System('../Data/test_data/test_sys.pdb')
-#     assert len(sys.atoms) == 20
+
 
 """
 ___________________________________________________Network File_________________________________________________________
@@ -47,9 +66,9 @@ Load a network file for a large atom file and test the number of network element
 """
 
 
-# def test_load_net():
-#     my_sys = System("../Data/test_data/cambrin.pdb", network_file="../Data/test_data/cambrin_net.csv")
-#     assert len(my_sys.net.verts) == 0
+# def test_load_net(pdb_sys):
+#     pdb_sys.load_net(file="../Data/test_data/cambrin_net.csv")
+#     assert len(pdb_sys.net.verts) == 4679
 
 """
 ____________________________________________________Index File__________________________________________________________
@@ -57,16 +76,33 @@ Load a GROMACS index file and test that the groupings are correct
 """
 
 
-# def test_read_ndx():
-#     my_sys = System("../Data/test_data/cambrin.pdb", index_file="../Data/test_data/cambrin_ndx.ndx")
-#     assert len(my_sys.groups[0].atoms) == 45
+# def test_read_ndx(pdb_sys):
+#     pdb_sys.load_ndx(file="../Data/test_data/cambrin_ndx.ndx")
+#     assert len(pdb_sys.groups[0].atoms) == 45
 
 
 """
 _____________________________________________________Voronota Files_____________________________________________________
 """
 
-# def test_read_vta_data():
-#     my_sys = System("../Data/test_data/cambrin.pdb", verts_file="../Data/test_data/cambrin_verts.txt",
-#                     balls_file="../Data/test_data/cambrin_balls.txt")
-#     assert my_sys.verts is not None
+# def test_read_vta_data(pdb_sys):
+#     pdb_sys.load_verts(verts_file="../Data/test_data/cambrin_verts.txt",
+#                        balls_file="../Data/test_data/cambrin_balls.txt")
+#     assert pdb_sys.verts is not None
+
+
+"""
+____________________________________________Atom Sorting________________________________________________________________
+Tests the atom sorting schemes for a loaded network
+"""
+
+
+def test_net_calc_box(pdb_sys):
+    assert pdb_sys.net.box == [[4.754, 2.664, -5.988], [36.891, 38.341, 25.568]]
+    assert pdb_sys.net.atoms_box == [[10.11, 8.61, -0.729], [31.535, 32.395, 20.309]]
+
+
+def test_net_sort_atoms(pdb_sys):
+    assert pdb_sys.net.atoms[45].box == [14, 8, 14]
+    assert pdb_sys.net.sub_box_size == [1.285, 1.427, 1.262]
+    assert len(pdb_sys.net.sub_boxes) == 25
