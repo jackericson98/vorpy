@@ -209,7 +209,7 @@ def find_v0(net, a0=None, group_atoms=None):
             edge = Edge(atoms=[a0, a1, a2], net=net)
             get_edge_loc(edge)
             # If a circle can be made and the site does not overlap with any other atoms, add it to the list
-            if edge.loc is not None and edge.rad < net.max_vert and verify_site(edge, net):
+            if edge.loc is not None and edge.rad < net.max_vert and verify_site(edge.loc, edge.rad, edge.ndx, net):
                 verified_circles.append(edge.atoms)
         # Try to make a verified v0 site with the verified circles
         for circle in verified_circles:
@@ -222,16 +222,14 @@ def find_v0(net, a0=None, group_atoms=None):
 
 
 # Verify site function. Compares a vertex to the atoms around to see if they overlap
-def verify_site(vert, net):
-    # Grad the location and radius of the check vertex
-    loc, rad = vert.loc, vert.rad
+def verify_site(loc, rad, ndx, net):
     # Find the indices of the sub-box for the vertex
     vi, vj, vk = [int((loc[i] - net.box[0][i]) / net.sub_box_size[i]) for i in range(3)]
     # Check to see if the sub box even exists
     if vi > net.box_max[0] or vj > net.box_max[1] or vk > net.box_max[2] or vi < 0 or vj < 0 or vk < 0:
         return False
     # Checked atoms list
-    checked_atoms = [_ for _ in vert.ndx]
+    checked_atoms = [_ for _ in ndx]
     # Quick check to see if any atoms exist inside the vertex's box
     quick_atoms = net.sub_boxes[vi][vj][vk]
     for atom in quick_atoms:
@@ -348,16 +346,16 @@ def find_site(net, edge_atoms, vn_1=None, first=False, group_atoms=None):
             doublet = Vertex(location=vert.loc2, radius=vert.rad2, atoms=vert.atoms, net=net, doublet=vert,
                              loc2=vert.loc, rad2=vert.rad, ndx=vert.ndx)
         # Filter the vertex out if it is too large or not able to be made
-        if abs(vert.rad) < net.max_vert and verify_site(vert, net):
+        if abs(vert.rad) < net.max_vert and verify_site(vert.loc, vert.rad, vert.ndx, net):
             if len(verts) > 0 and verts[0].rad < vert.rad:
                 return verts[0], vert_ndx_list_locs[0]
             verts.append(vert)
             vert_ndx_list_locs.append(vert_ndx)
             # If the first vertex site is a valid site add it to the list of check vertices and add its index
-            if doublet is not None and verify_site(doublet, net):
+            if doublet is not None and verify_site(doublet.loc, doublet.rad, doublet.ndx, net):
                 vert.doublet = doublet
         # Check to see if the doublet's site is verified
-        elif doublet is not None and verify_site(doublet, net):
+        elif doublet is not None and verify_site(doublet.loc, doublet.rad, doublet.ndx, net):
             doublet.doublet = None
             verts.append(doublet)
             vert_ndx_list_locs.append(vert_ndx)
