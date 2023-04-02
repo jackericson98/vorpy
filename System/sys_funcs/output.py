@@ -15,14 +15,14 @@ def set_output_dir(sys, dir_name=None):
     :param dir_name: Name for the directory
     :return:
     """
-    if not os.path.exists("./Data/User_data"):
-        os.mkdir("./Data/User_data")
+    if not os.path.exists("./Data/user_data"):
+        os.mkdir("./Data/user_data")
     # If no outer directory was specified use the directory outside the current one
     if dir_name is None:
         if sys.vpy_dir is not None:
-            dir_name = sys.vpy_dir + "/Data/User_data/" + sys.name
+            dir_name = sys.vpy_dir + "/Data/user_data/" + sys.name
         else:
-            dir_name = os.getcwd() + "/Data/User_data/" + sys.name
+            dir_name = os.getcwd() + "/Data/user_data/" + sys.name
     # Catch for existing directories. Keep trying out directories until one doesn't exist
     i = 0
     while True:
