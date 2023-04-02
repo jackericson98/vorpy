@@ -384,7 +384,7 @@ def find_verts(net, a0=None, my_group=None):
         return
     # Find the first verified vertex
     if len(group_atoms) == 4:
-        v0 = Vertex(net.atoms, net)
+        v0 = Vertex([net.atoms[_] for _ in group_atoms], net)
         v0.loc, v0.rad, v0.loc2, v0.rad2 = calc_vert(locs=[_.loc for _ in v0.atoms], rads=[_.rad for _ in v0.atoms])
     else:
         v0 = find_v0(net, a0, group_atoms)
