@@ -82,7 +82,7 @@ class Network:
         # Set the new vertices to the x factor times the vector between them added to their complimentary vertices
         min_vert, max_vert = max_vert - r_box * self.box_size, min_vert + r_box * self.box_size
         # Return the list of array turned list vertices
-        self.box = [min_vert.tolist(), max_vert.tolist()]
+        self.box = [[round(_, 3) for _ in min_vert], [round(_, 3) for _ in max_vert]]
 
     def sort_atoms(self, num_boxes=None):
         """
@@ -104,7 +104,7 @@ class Network:
         # Instantiate the grid structure of lists is locations representing a grid
         self.sub_boxes = [[[[] for _ in range(n)] for _ in range(n)] for _ in range(n)]
         # Get the cell size
-        self.sub_box_size = [(self.box[1][i] - self.box[0][i]) / n for i in range(3)]
+        self.sub_box_size = [round((self.box[1][i] - self.box[0][i]) / n, 3) for i in range(3)]
         # Sort the atoms
         for atom in self.atoms:
             # Adjust the maximum radius
@@ -298,6 +298,8 @@ class Network:
         :param calc_verts: Calculate Vertices? Skips vertex calculations if a network or vertex file is loaded
         :return: Builds the network based on the above specifications
         """
+        # Reset the network variables in case of rebuild
+        self.verts, self.vert_ndxs, self.edges, self.edge_ndxs, self.surfs, self.surf_ndxs, self.atom_ndxs = [], [], [], [], [], [], []
         # If the system has no name, one needs top be set
         if self.sys.name is None:
             self.sys.name = "User_Atoms"
