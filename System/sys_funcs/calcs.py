@@ -17,6 +17,7 @@ def calc_surf_func(surf):
     # Set the rn vector for the surface since the atoms are sorted
     l0, l1 = np.array(a0.loc), np.array(a1.loc)
     r = l1 - l0
+    r = [_ if _ != 0 else 0.0001 for _ in r]
     surf.norm = r / np.linalg.norm(r)
     # Grab the centers of the spheres
     x1, y1, z1 = l0
