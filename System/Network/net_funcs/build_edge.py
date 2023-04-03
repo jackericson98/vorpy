@@ -3,22 +3,13 @@ from System.sys_funcs.calcs import calc_circ, calc_angle, calc_surf_func
 from System.Network.net_objs.surface import Surface
 
 
-# Get location method. Calculates the circle made between the atoms
-def get_edge_loc(edge):
-    # Get the center point of the edge and the bottleneck
-    circ = calc_circ(edge.atoms)
-    if circ is not None:
-        edge.loc, edge.rad = circ
-
-
 # Find projection values. Calculates the correct end and projection points for the edge
 def find_edge_pvals(edge):
     # Typical case, no doublets
     edge.pv0, edge.pv1 = np.array(edge.verts[0].loc), np.array(edge.verts[1].loc)
-
+    # No projection needed for straight edges
     if edge.straight:
         return
-
     # Get the projection point
     # Find the point in between the two vertex points
     r01 = edge.pv1 - edge.pv0  # Vector between vertices
@@ -88,7 +79,7 @@ def build_edge(edge, surf=None, res=None, straight=None):
     if straight is None:
         edge.straight = False
     # Get the location and radius of the circle inscribed between the edge atoms
-    get_edge_loc(edge)
+    edge.loc, edge.rad = calc_circ(edge.atoms)
     # Get the pvals
     find_edge_pvals(edge)
     # Reset the edges points
