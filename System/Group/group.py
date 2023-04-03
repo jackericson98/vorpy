@@ -146,7 +146,7 @@ class Group:
         # Go through the list of build surfaces checking for
         for surf in self.surfs:
             # Check if the resolution is different from the set resolution or the surface has no points
-            if surf.residue != resolution:
+            if surf.res != resolution:
                 build_surfs.append(surf)
             # Check if there is any sign of missing points or triangles
             elif surf.points is None or surf.tris is None or len(surf.points) <= 2 or len(surf.tris) == 0:
@@ -159,7 +159,7 @@ class Group:
                 else:
                     build_surfs.append(surf)
         # Create the system's surface's file if needed
-        if len(build_surfs) > 0 and not os.path.exists(self.sys.dir + "/surfs"):
+        if len(build_surfs) > 0 and os.path.exists(self.sys.dir) and not os.path.exists(self.sys.dir + "/surfs"):
             os.mkdir(self.sys.dir + "/surfs")
             os.chdir(self.sys.dir + '/surfs')
         # Build the surfaces
@@ -167,11 +167,9 @@ class Group:
             # Print the status of the surfaces being built
             print("\rbuilding " + self.name + " surfaces " + " " * (len(str(len(self.surfs) - 1)) - len(str(i + 1))) +
                   str(i + 1) + "/" + str(len(self.surfs)) + "                   ", end="")
-            build_surf(build_surfs[i], res=resolution, flat=self.sys.net.flat_Del)
+            build_surf(build_surfs[i], res=resolution)
             if build_surfs[i].file is None:
                 write_surfs([build_surfs[i]], "_".join([str(_) for _ in build_surfs[i].ndx]))
-        # Change back
-        os.chdir(self.sys.dir)
 
     def add_atoms(self, atom_list):
         """
@@ -201,8 +199,8 @@ class Group:
             # Add the volume to that of the group
             self.vol += atom.vol
         # Check to see if the first layer has been calculated
-        if len(self.layer_surfs) == 0:
-            return
+        if self.layer_surfs is None or len(self.layer_surfs) == 0:
+            self.get_layers(max_layers=1)
         for surf in self.layer_surfs[0]:
             # Check that the surface has a surface area
             if surf.sa is None or surf.sa == 0:
