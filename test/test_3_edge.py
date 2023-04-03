@@ -1,5 +1,5 @@
 from test.test_2_vert import vor_net, pow_net, del_net
-from test.test_1_load import pdb_sys
+from test.test_1_load import pdb_sys_vor, pdb_sys_pow, pdb_sys_del
 
 
 """
@@ -21,7 +21,7 @@ def test_vor_edge_loc(vor_net):
 
 
 def test_pow_edge_length(pow_net):
-    assert len(pow_net.edges[0].points) == 5
+    assert len(pow_net.edges[0].points) == 6
 
 
 def test_del_edge_length(del_net):
@@ -34,4 +34,4 @@ _______________________________________Network Connections______________________
 
 
 def test_num_vor_edges(vor_net):
-    assert len(vor_net.edges) == 48
+    assert len(vor_net.edges) == 49

@@ -1,8 +1,8 @@
 import pytest
 
 from System.Group.group import Group
-from System.Network.net_funcs.find_verts import *
-from test.test_1_load import pdb_sys
+from System.Network.net_funcs.find_verts import verify_site
+from test.test_1_load import pdb_sys_vor, pdb_sys_pow, pdb_sys_del
 
 
 """
@@ -12,10 +12,8 @@ Tests: calc_vert, verify_site, find_verts
 
 
 @pytest.fixture(scope='session')
-def vor_net(pdb_sys):
-    my_group = Group(sys=pdb_sys, atoms=[pdb_sys.atoms[15]])
-    pdb_sys.net.build(output=False, my_group=my_group, surf_res=0.5)
-    return pdb_sys.net
+def vor_net(pdb_sys_vor):
+    return pdb_sys_vor.net
 
 
 # Test the calculate voronoi vertex functionality
@@ -44,10 +42,8 @@ ________________________________________________________Delaunay Calculations___
 
 
 @pytest.fixture(scope='session')
-def del_net(pdb_sys):
-    my_group = Group(sys=pdb_sys, atoms=[pdb_sys.atoms[0]])
-    pdb_sys.net.build(output=False, my_group=my_group, net_type='del')
-    return pdb_sys.net
+def del_net(pdb_sys_del):
+    return pdb_sys_del.net
 
 
 def test_calc_del_vert(del_net):
@@ -69,10 +65,8 @@ __________________________________________________________Power Calculations____
 
 
 @pytest.fixture(scope='session')
-def pow_net(pdb_sys):
-    pdb_sys.create_group(atoms=[pdb_sys.atoms[0]])
-    pdb_sys.net.build(output=False, my_group=pdb_sys.groups[0], net_type='pow')
-    return pdb_sys.net
+def pow_net(pdb_sys_pow):
+    return pdb_sys_pow.net
 
 
 def test_calc_pow_vert(pow_net):
