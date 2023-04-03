@@ -42,3 +42,11 @@ ______________________________________________Network Connections_______________
 
 def test_vor_num_surfs(vor_net):
     assert len(vor_net.surfs) == 18
+
+
+def test_pow_num_surfs(pow_net):
+    assert len(pow_net.surfs) == 12
+
+
+def test_del_num_surfs(del_net):
+    assert len(del_net.surfs) == 18
