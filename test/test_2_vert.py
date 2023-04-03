@@ -70,8 +70,8 @@ __________________________________________________________Power Calculations____
 
 @pytest.fixture(scope='session')
 def pow_net(pdb_sys):
-    my_group = Group(sys=pdb_sys, atoms=[pdb_sys.atoms[0]])
-    pdb_sys.net.build(output=False, my_group=my_group, net_type='pow')
+    pdb_sys.create_group(atoms=[pdb_sys.atoms[0]])
+    pdb_sys.net.build(output=False, my_group=pdb_sys.groups[0], net_type='pow')
     return pdb_sys.net
 
 
