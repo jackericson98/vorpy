@@ -1,6 +1,7 @@
 from System.sys_funcs.input import *
 from System.sys_funcs.read_net import read_net
 from System.sys_funcs.output import *
+from System.Group.group import Group
 from Visualize.mpl_visualize import *
 from numpy import seterr, random
 
@@ -234,6 +235,10 @@ class System:
         if self.sol is not None:
             sol_var = self.sol.name + " - " + str(len(self.sol.residues)) + " residues"
         print(atoms_var, resids_var, chains_var, sol_var)
+
+    def create_group(self, atoms=None, residues=None, chains=None):
+        # Create the group
+        self.groups.append(Group(sys=self, atoms=atoms, residues=residues, chains=chains))
 
     def build_network(self, output=True, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
                       calc_verts=None, my_group=None, print_actions=None):
