@@ -1,7 +1,6 @@
-from System.sys_funcs.calcs import ndx_search, get_time
+from System.sys_funcs.calcs import ndx_search, get_time, calc_circ
 from System.Network.net_objs.vertex import Vertex
 from System.Network.net_objs.edge import Edge
-from System.Network.net_funcs.build_edge import get_edge_loc
 from numpy import sqrt, array, square
 import numpy as np
 import time
@@ -207,7 +206,9 @@ def find_v0(net, a0=None, group_atoms=None):
         for a2 in a2s[j]:
             # Use an edge object as a vehicle for calculating and verifying the inscribed circle
             edge = Edge(atoms=[a0, a1, a2], net=net)
-            get_edge_loc(edge)
+            circ = calc_circ(edge.atoms)
+            if circ is not None:
+                edge.loc, edge.rad = circ
             # If a circle can be made and the site does not overlap with any other atoms, add it to the list
             if edge.loc is not None and edge.rad < net.max_vert and verify_site(edge.loc, edge.rad, edge.ndx, net):
                 verified_circles.append(edge.atoms)
