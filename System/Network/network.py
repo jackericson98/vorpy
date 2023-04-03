@@ -343,6 +343,8 @@ class Network:
         else:
             for surf in self.surfs:
                 calc_surf_func(surf)
+        # Load the elements to the group
+        my_group.get_info()
         # Stop the timer and measure the time
         self.my_time = time.process_time() - self.my_time
         # Export the network
