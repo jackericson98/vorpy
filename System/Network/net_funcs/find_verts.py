@@ -206,7 +206,7 @@ def find_v0(net, a0=None, group_atoms=None):
         for a2 in a2s[j]:
             # Use an edge object as a vehicle for calculating and verifying the inscribed circle
             edge = Edge(atoms=[a0, a1, a2], net=net)
-            circ = calc_circ(edge.atoms)
+            circ = calc_circ(*[_.loc for _ in edge.atoms], *[_.rad for _ in edge.atoms])
             if circ is not None:
                 edge.loc, edge.rad = circ
             # If a circle can be made and the site does not overlap with any other atoms, add it to the list

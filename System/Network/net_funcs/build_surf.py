@@ -1,4 +1,4 @@
-from System.sys_funcs.calcs import calc_angle, calc_com, rotate_points, calc_surf_func, calc_surf_curv
+from System.sys_funcs.calcs import calc_angle, calc_com, rotate_points, calc_surf_func, calc_surf_tri_curvs
 from System.Network.net_funcs.build_edge import build_edge
 from scipy.spatial import Delaunay
 import numpy as np
@@ -49,10 +49,11 @@ def calc_surf_point(point, func, a0_loc):
         return a0_loc + min(roots) * vn
 
 
-def find_next_point(surf, pn_1, end, d_theta):
+def find_next_point(a0_loc, func, pn_1, end, d_theta):
     """
     Finds the next point along the given path by projecting a reference point onto the surface
-    :param surf: Surface object holding the paths
+    :param func: Surface's function coefficients
+    :param a0_loc: Surface's smaller atom's location
     :param pn_1: Previous path point
     :param end: End path point being moved towards by a d_theta amount
     :param d_theta: Angular increment to move towards the end point
@@ -61,7 +62,7 @@ def find_next_point(surf, pn_1, end, d_theta):
     # Get the A angle
     A = d_theta
     # Get the smaller atom's location
-    pa = surf.atoms[0].loc
+    pa = a0_loc
     # Get the location of point b
     pb = np.array(pn_1)
     # Get the distance between pb and pa
@@ -82,7 +83,7 @@ def find_next_point(surf, pn_1, end, d_theta):
     # Find the next projection point by adding the vector with 'a' magnitude and rn_hat direction
     pc = pb + rn_hat * a
     # Calculate where the point intercepts the surface and return it
-    return calc_surf_point(point=pc, func=surf.func, a0_loc=surf.atoms[0].loc)
+    return calc_surf_point(point=pc, func=func, a0_loc=a0_loc)
 
 
 def build_perimeter(surf, net_type='vor'):
@@ -159,6 +160,7 @@ def build_perimeter(surf, net_type='vor'):
 def get_com(surf, net_type='vor'):
     """
     Finds the center of mass of a surface's perimeter points
+    :param net_type:
     :param surf: Surface object holding the perimeter points
     :return: Center of mass
     """
@@ -237,7 +239,7 @@ def fill_mesh(surf):
         # Keep going through the points until the tracker is out
         while i < num_paths:
             # Get the next point along the path
-            pn = find_next_point(surf, paths[i][-1], com, dthetas[i])
+            pn = find_next_point(surf.atoms[0].loc, surf.func, paths[i][-1], com, dthetas[i])
             # Check for edges that start by going outside
             if j == 0 and pn is not None and not tri_within(surf, point=pn):
                 paths.pop(i)
@@ -390,12 +392,11 @@ def filter_tris(surf):
 
 
 # Build method. Makes the mesh for the surface and calculates the simplices between them
-def build_surf(surf, res=None, color=False):
+def build_surf(surf, res=None):
     """
     Main build method for constructing surfaces
     :param surf:
     :param res: Specifies the resolution the surface is to be constructed with
-    :param color: Bool to color the surf or not
     :return: The surfaces points and triangles are filled
     """
     if surf.net.type in {'pow', 'del'} or surf.atoms[0].element == surf.atoms[1].element:
@@ -403,10 +404,9 @@ def build_surf(surf, res=None, color=False):
     # Set the resolution value that the surface is built with
     if res is None:
         res = surf.net.surf_res
+    if surf.func is None:
+        surf.func = calc_surf_func(surf.atoms[0].loc, surf.atoms[0].rad, surf.atoms[1].loc, surf.atoms[1].rad)
     surf.res = res
-    # Check to see if the function or curvature have been calculated and calculate them if not
-    if surf.curv is None:
-        calc_surf_curv(surf)
     # Reset the surface's list of points to empty list and reset the vertex indices list
     surf.points = []
     # Build the perimeter of the surface
@@ -419,3 +419,5 @@ def build_surf(surf, res=None, color=False):
     if surf.net.type == 'vor':
         # Filter out the bad triangles
         filter_tris(surf)
+        # Calculate the curvature of the triangles and the surface
+        surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris)

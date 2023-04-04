@@ -36,7 +36,7 @@ def find_edge_pvals(edge):
 def edge_project(edge, rn, pa, surf):
     # Check to see if the surface has its function values
     if surf.func is None:
-        calc_surf_func(surf)
+        surf.func = calc_surf_func(surf.atoms[0].loc, surf.atoms[0].rad, surf.atoms[1].loc, surf.atoms[1].rad)
     # Get the function values
     f, a0, a1 = surf.func, surf.atoms[0], surf.atoms[1]
     # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
@@ -79,7 +79,7 @@ def build_edge(edge, surf=None, res=None, straight=None):
     if straight is None:
         edge.straight = False
     # Get the location and radius of the circle inscribed between the edge atoms
-    edge.loc, edge.rad = calc_circ(edge.atoms)
+    edge.loc, edge.rad = calc_circ(*[_.loc for _ in edge.atoms], *[_.rad for _ in edge.atoms])
     # Get the pvals
     find_edge_pvals(edge)
     # Reset the edges points

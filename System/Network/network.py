@@ -251,7 +251,7 @@ class Network:
             h, m, s = get_time(my_time)
             print("\rRun Time = {:2}:{:2}:{:.2f} - Process: building surfaces {:.2f} %                                 "
                   .format(int(h), int(m), round(s, 2), min(100.0, 100 * round(i/len(self.surfs), 2))), end="")
-            build_surf(self.surfs[i], color=True)
+            build_surf(self.surfs[i])
         print("\r                                                                                             ", end='')
 
     def analyze(self):
@@ -342,7 +342,7 @@ class Network:
             self.analyze()
         else:
             for surf in self.surfs:
-                calc_surf_func(surf)
+                surf.func = calc_surf_func(surf.atoms[0].loc, surf.atoms[0].rad, surf.atoms[1].loc, surf.atoms[1].rad)
         # Load the elements to the group
         my_group.get_info()
         # Stop the timer and measure the time

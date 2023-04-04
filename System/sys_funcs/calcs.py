@@ -4,40 +4,6 @@ import warnings
 warnings.filterwarnings("error")
 
 
-def calc_surf_func(surf):
-    """
-    Calculates the coefficients for the surface between the two atoms
-    :return: The surface has the correct self.func attribute
-    """
-    # Make sure that a0 is the atom with the smaller radius
-    if surf.atoms[0].rad > surf.atoms[1].rad:
-        surf.atoms[0], surf.atoms[1] = surf.atoms[1], surf.atoms[0]
-    # Create a0, a1 variables
-    a0, a1 = surf.atoms
-    # Set the rn vector for the surface since the atoms are sorted
-    l0, l1 = np.array(a0.loc), np.array(a1.loc)
-    r = l1 - l0
-    r = [_ if _ != 0 else 0.0001 for _ in r]
-    surf.norm = r / np.linalg.norm(r)
-    # Grab the centers of the spheres
-    x1, y1, z1 = l0
-    x2, y2, z2 = l1
-    # Calculate the major coefficients (pg. 574 Z. Hu)
-    R = a0.rad - a1.rad
-    K = (x2 ** 2 - x1 ** 2) + (y2 ** 2 - y1 ** 2) + (z2 ** 2 - z1 ** 2) - R ** 2
-    d = x1 - x2, y1 - y2, z1 - z2
-    J = 4 * R ** 2 * (x1 ** 2 + y1 ** 2 + z1 ** 2) - K ** 2
-    # Instantiate/reset the hyperboloid coefficient vector lists
-    ABC, DEF, GHI = [], [], []
-    # Calculate hyperboloid coefficients
-    for i in range(3):
-        ABC.append(4 * R ** 2 - 4 * d[i] ** 2)
-        DEF.append(-8 * d[i] * d[(i + 1) % 3])  # The equation asks for D_y, D_z, D_x in that order, hence modulus
-        GHI.append(-8 * R ** 2 * l0[i] - 4 * K * d[i])
-    # Set the function attribute
-    surf.func = ABC + DEF + GHI + [J] + [K] + list(d)
-
-
 def calc_dist(l0, l1):
     """
     Calculate distance function used to simplify code
@@ -104,16 +70,12 @@ def calc_tri(points):
     return 0.5 * np.linalg.norm((np.cross(AB, AC)))
 
 
-def calc_com(atoms=None, points=None):
+def calc_com(points):
     """
     Takes in a set of points and returns the coordinates of the center of mass
-    :param atoms: Atom objects
     :param points: lists or arrays
     :return: Center of mass of the inputs
     """
-    # If the function was given atoms, get their points
-    if atoms:
-        points = [atoms[i].loc for i in range(len(atoms))]
     # Set the running sum for the x, y, z values to 0
     tots = [0 for _ in range(len(points[0]))]
     for point in points:
@@ -123,21 +85,18 @@ def calc_com(atoms=None, points=None):
     return [tots[i]/len(points) for i in range(len(points[0]))]
 
 
-def calc_circ(atoms):
+def calc_circ(l0, l1, l2, r0, r1, r2):
     """
     Takes in 3 atoms, calculates the center and radius of inscribed circle
-    :param atoms: vorPy Atom objects
+    :param :
     :return: Center and radius of the inscribed circle
     """
-    # The real location and radius of the base sphere
-    l1, R1 = atoms[0].loc, atoms[0].rad
-    # Get the relevant variables
-    R2, R3 = atoms[1].rad, atoms[2].rad
-    x2, y2, z2 = atoms[1].loc[0] - l1[0], atoms[1].loc[1] - l1[1], atoms[1].loc[2] - l1[2]
-    x3, y3, z3 = atoms[2].loc[0] - l1[0], atoms[2].loc[1] - l1[1], atoms[2].loc[2] - l1[2]
+    # Move the other atoms to the location of the first
+    x2, y2, z2 = l1[0] - l0[0], l1[1] - l0[1], l1[2] - l0[2]
+    x3, y3, z3 = l2[0] - l0[0], l2[1] - l0[1], l2[2] - l0[2]
     # Calculate coefficients
-    a1, b1, c1, d1, f1 = 2 * x2, 2 * y2, 2 * z2, 2 * (R1 - R2), R1 ** 2 - R2 ** 2 + x2 ** 2 + y2 ** 2 + z2 ** 2
-    a2, b2, c2, d2, f2 = 2 * x3, 2 * y3, 2 * z3, 2 * (R1 - R3), R1 ** 2 - R3 ** 2 + x3 ** 2 + y3 ** 2 + z3 ** 2
+    a1, b1, c1, d1, f1 = 2 * x2, 2 * y2, 2 * z2, 2 * (r0 - r1), r0 ** 2 - r1 ** 2 + x2 ** 2 + y2 ** 2 + z2 ** 2
+    a2, b2, c2, d2, f2 = 2 * x3, 2 * y3, 2 * z3, 2 * (r0 - r2), r0 ** 2 - r2 ** 2 + x3 ** 2 + y3 ** 2 + z3 ** 2
     a3, b3, c3 = y2*z3 - z2*y3, z2*x3 - x2*z3, x2*y3 - y2*x3
     # More coefficients
     F = a3*b2*c1 - a2*b3*c1 - a3*b1*c2 + a1*b3*c2 + a2*b1*c3 - a1*b2*c3
@@ -152,33 +111,64 @@ def calc_circ(atoms):
         return
     # Find the radius of the tangential circle using the quadratic formula
     a = (Fx1 ** 2 + Fy1 ** 2 + Fz1 ** 2) / F ** 2 - 1
-    b = 2 * (Fx0 * Fx1 + Fy0 * Fy1 + Fz0 * Fz1) / F ** 2 - 2 * R1
-    c = (Fx0 ** 2 + Fy0 ** 2 + Fz0 ** 2) / F ** 2 - R1 ** 2
+    b = 2 * (Fx0 * Fx1 + Fy0 * Fy1 + Fz0 * Fz1) / F ** 2 - 2 * r0
+    c = (Fx0 ** 2 + Fy0 ** 2 + Fz0 ** 2) / F ** 2 - r0 ** 2
     # Calculate the discriminant.
     disc = b ** 2 - 4 * a * c
     # If the discriminant is negative then the tangential circle does not exist.
     if round(disc, 10) > 0:
         # Grab the two roots
-        Rs = [R for R in np.roots([a, b, c]) if np.isreal(R)]
+        rs = [_ for _ in np.roots([a, b, c]) if np.isreal(_)]
         # If there is only one root return it
-        if len(Rs) == 1:
-            R = Rs[0]
+        if len(rs) == 1:
+            r = rs[0]
         # If there are 2 roots choose between them
         else:
             # If the smaller of the two roots is negative return the other root
-            if min(Rs) < 0:
-                R = max(Rs)
+            if min(rs) < 0:
+                r = max(rs)
             # If they're both positive, return the smaller of the two
-            elif Rs[0] > 0 and Rs[1] > 0:
-                R = min(Rs)
+            elif rs[0] > 0 and rs[1] > 0:
+                r = min(rs)
             # If they're both negative return
             else:
                 return
         # Calculate the vertex based off of our coefficient values and the sphere's radius
-        x = Fx0 / F + R * Fx1 / F + l1[0]
-        y = Fy0 / F + R * Fy1 / F + l1[1]
-        z = Fz0 / F + R * Fz1 / F + l1[2]
-        return [[x, y, z], R]
+        x = Fx0 / F + r * Fx1 / F + l0[0]
+        y = Fy0 / F + r * Fy1 / F + l0[1]
+        z = Fz0 / F + r * Fz1 / F + l0[2]
+        return [[x, y, z], r]
+
+
+def calc_surf_norm(l0, l1):
+    # Get the vector from l0 to l1
+    r = np.array(l1) - np.array(l0)
+    r = [_ if _ != 0 else 0.00001 for _ in r]
+    return r / np.linalg.norm(r)
+
+
+def calc_surf_func(l0, r0, l1, r1):
+    """
+    Calculates the coefficients for the surface between the two atoms
+    :return: The surface has the correct self.func attribute
+    """
+    # Grab the centers of the spheres
+    x1, y1, z1 = l0
+    x2, y2, z2 = l1
+    # Calculate the major coefficients (pg. 574 Z. Hu)
+    R = r0 - r1
+    K = (x2 ** 2 - x1 ** 2) + (y2 ** 2 - y1 ** 2) + (z2 ** 2 - z1 ** 2) - R ** 2
+    d = x1 - x2, y1 - y2, z1 - z2
+    J = 4 * R ** 2 * (x1 ** 2 + y1 ** 2 + z1 ** 2) - K ** 2
+    # Instantiate/reset the hyperboloid coefficient vector lists
+    ABC, DEF, GHI = [], [], []
+    # Calculate hyperboloid coefficients
+    for i in range(3):
+        ABC.append(4 * R ** 2 - 4 * d[i] ** 2)
+        DEF.append(-8 * d[i] * d[(i + 1) % 3])  # The equation asks for D_y, D_z, D_x in that order, hence modulus
+        GHI.append(-8 * R ** 2 * l0[i] - 4 * K * d[i])
+    # Return the function coefficients
+    return ABC + DEF + GHI + [J] + [K] + list(d)
 
 
 def rotate_points(vec, points, reverse=False):
@@ -216,6 +206,111 @@ def rotate_points(vec, points, reverse=False):
         nps.append([npx, npy, npz])
     return nps
 
+
+def calc_surf_sa(surf):
+    """
+    Calculates the surface area of the input surface
+    :return: Surface area of the surface
+    """
+    # Create the surface area variable
+    sa = 0
+    if surf.flat:
+        for edge in surf.edges:
+            if edge.straight:
+                sa += calc_tri([edge.pv0, edge.pv1, surf.com])
+            else:
+                for i in range(len(edge.points) - 1):
+                    p0, p1 = edge.points[i:i + 2]
+                    sa += calc_tri([p0, p1, surf.com])
+    # Go through the triangles in the surface
+    for tri in surf.tris:
+        p0, p1, p2 = surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
+        sa += calc_tri([p0, p1, p2])
+    surf.sa = sa
+
+
+def calc_surf_tri_dists(points, tris, loc):
+    # Set up the distances
+    dists = []
+    tri_dists = []
+    max_dist, min_dist = 0, np.inf
+    # Provide value for the points
+    for point in points:
+        # Calculate the distance
+        my_dist = calc_dist(point, loc)
+        dists.append(my_dist)
+        # Record the minimum and maximum distances
+        if my_dist < min_dist:
+            min_dist = my_dist
+        elif my_dist > max_dist:
+            max_dist = my_dist
+    # Go through the triangles in the surface
+    for i in range(len(tris)):
+        # Find the maximum distance point of the triangles
+        tri_dists.append(max([dists[_] for _ in tris[i]]))
+    # Normalize the tri_dists
+    return [(_ - min_dist) / (max_dist - min_dist) for _ in tri_dists]
+
+
+def calc_surf_tri_curvs(func, points, tris):
+    # Get the function coefficients
+    A, B, C, D, E, F, G, H, I, J = func[:10]
+    curvs = []
+    min_curv, max_curv = np.inf, 0
+    # Get the curvature for each point
+    for point in points:
+        # Label the points
+        x, y, z = point
+        # Get the gradient of the surface at the point
+        delf = [2 * A * x + D * y + F * z + G, 2 * B * y + D * x + E * z + H, 2 * C * z + E * y + F * x + I]
+        # Calculate the norm of the gradient
+        denominator = np.linalg.norm(delf) ** 4
+        # Calculate the determinant of the hessian matrix and the gradient matrix
+        numerator = np.linalg.det([[2 * A, D, F, delf[0]], [D, 2 * B, E, delf[1]], [F, E, 2 * C, delf[2]],
+                                   delf + [0]])
+        # Get the curvature
+        curv = - numerator / denominator
+        if curv > max_curv:
+            max_curv = curv
+        if curv < min_curv:
+            min_curv = curv
+        curvs.append(curv)
+    # Set up the tri_curvs list
+    tri_curvs = []
+    # Go through the curvature values for each point
+    for i in range(len(tris)):
+        # Get the triangle
+        tri = tris[i]
+        # Get the curvatures
+        my_curvs = [curvs[_] for _ in tri]
+        # Find the maximum curvature point
+        curv_val = max(my_curvs)
+        # Add the curve value to the surface's list of curvatures
+        tri_curvs.append(curv_val)
+    # Normalize the tri_curvs
+    tri_curvs = [1 - (_ - min_curv) / (max_curv - min_curv) for _ in tri_curvs]
+    # Return the values
+    return tri_curvs, max_curv
+
+
+def calc_surf_tri_ins_out(surf):
+    # Set up a list of tracking
+    inside_array = []
+    # Go through the points in the surface
+    for point in surf.points:
+        # Calculate the distance between the point and the atom
+        my_dist = calc_dist(point, surf.atoms[0].loc)
+        if my_dist < surf.atoms[0].rad:
+            inside_array.append(True)
+        else:
+            inside_array.append(False)
+    # Now add the triangles
+    surf.tri_ins_out = []
+    for tri in surf.tris:
+        if inside_array[tri[0]] and inside_array[tri[1]] and inside_array[tri[2]]:
+            surf.tri_ins_out.append(0.25)
+        else:
+            surf.tri_ins_out.append(0.75)
 
 def ndx_search(ndxs_list, ndxs):
     """
@@ -308,37 +403,3 @@ def get_radius(self):
     elif self.rad is None:
         self.rad = radii[self.element.lower()]
 
-
-# Calculate curvature method
-def calc_surf_curv(self):
-    """
-    Calculates the curvature of the surface
-    :return: The curvature attribute is filled
-    """
-    # Check to see that the function has been calculated or not
-    if self.func is None:
-        calc_surf_func(self)
-    # Made up function to calculate the general curvature of the hyperboloid
-    self.curv = np.sqrt(self.func[0]**2 + self.func[1]**2 + self.func[2]**2)
-
-
-def calc_surf_sa(self):
-    """
-    Calculates the surface area of the input surface
-    :return: Surface area of the surface
-    """
-    # Create the surface area variable
-    sa = 0
-    if self.flat:
-        for edge in self.edges:
-            if edge.straight:
-                sa += calc_tri([edge.pv0, edge.pv1, self.com])
-            else:
-                for i in range(len(edge.points) - 1):
-                    p0, p1 = edge.points[i:i + 2]
-                    sa += calc_tri([p0, p1, self.com])
-    # Go through the triangles in the surface
-    for tri in self.tris:
-        p0, p1, p2 = self.points[tri[0]], self.points[tri[1]], self.points[tri[2]]
-        sa += calc_tri([p0, p1, p2])
-    self.sa = sa

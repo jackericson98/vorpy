@@ -16,7 +16,7 @@ def test_vor_surf_sa(vor_net):
 
 
 def test_vor_surf_curve(vor_net):
-    assert round(vor_net.surfs[0].curv, 3) == 21.367
+    assert round(vor_net.surfs[0].curv, 7) == 0.0005749
 
 
 def test_del_surf_num_points(del_net):
