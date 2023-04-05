@@ -272,7 +272,8 @@ class Network:
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
                 h, m, s = get_time(my_time)
-                print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                  ".format(int(h), int(m), round(s, 2), percentage), end="")
+                print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                  "
+                      .format(int(h), int(m), round(s, 2), percentage), end="")
         # Go through each atom in the system and find the volume
         for j in range(len(self.atoms)):
             percentage = int((i + j + 2) / tot_num * 100)
@@ -298,8 +299,9 @@ class Network:
         :param calc_verts: Calculate Vertices? Skips vertex calculations if a network or vertex file is loaded
         :return: Builds the network based on the above specifications
         """
-        # Reset the network variables in case of rebuild
-        self.verts, self.vert_ndxs, self.edges, self.edge_ndxs, self.surfs, self.surf_ndxs, self.atom_ndxs = [], [], [], [], [], [], []
+        if self.sys.ball_file is None:
+            # Reset the network variables in case of rebuild
+            self.verts, self.vert_ndxs, self.edges, self.edge_ndxs, self.surfs, self.surf_ndxs, self.atom_ndxs = [], [], [], [], [], [], []
         # If the system has no name, one needs top be set
         if self.sys.name is None:
             self.sys.name = "User_Atoms"
@@ -325,7 +327,7 @@ class Network:
         # Sort the atoms in the network
         self.sort_atoms()
         # Check to see if there are vertices loaded
-        if self.calc_verts:
+        if self.calc_verts and self.sys.ball_file is None:
             # Find the vertices
             self.find_verts(my_group=my_group)
             # Check to see if there are vertices
