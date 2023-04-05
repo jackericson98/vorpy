@@ -46,7 +46,7 @@ def load(sys, usr_npt):
         # If the loaded file is a vertex or network file load them accordingly
         elif file[-3:] == 'txt':
             # If the new file is a vertex file load it
-            if file[-9:-4] == 'verts' or file[-12:-4] == 'vertices':
+            if file[-9:-4].lower() == 'verts' or file[-12:-4].lower() == 'vertices':
                 # If a vertex file has already been loaded make sure the user wants to load it if not load it
                 if sys.vert_file is not None and sys.vert_file != "":
                     replace_vert_file = input("replacing {} with {}\n "
@@ -63,10 +63,10 @@ def load(sys, usr_npt):
                     sys.load_verts(file, vta_ball_file=sys.ball_file)
                     print("{} vertices loaded - {} vertices, maximum vertex radius: {} \u208B, box size: {} x\n"
                           .format(sys.name, len(sys.net.verts), sys.net.max_vert, sys.net.box_size))
-            elif file[-9:-4] == 'balls':
+            elif file[-9:-4].lower() == 'balls':
                 sys.ball_file = file
             # If the new file is a network file load it
-            elif file[-11:-4] == 'network':
+            elif file[-11:-4].lower() in 'network':
                 # If a vertex file has already been loaded make sure the user wants to load it if not load it
                 if sys.net_file is not None or sys.net_file != "":
                     replace_net_file = input("replacing {} with {}\n "
