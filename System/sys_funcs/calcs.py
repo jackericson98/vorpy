@@ -312,6 +312,7 @@ def calc_surf_tri_ins_out(surf):
         else:
             surf.tri_ins_out.append(0.75)
 
+
 def ndx_search(ndxs_list, ndxs):
     """
      Searches a list of indices of atoms sorted by smallest atom and where the vertex would be
@@ -355,51 +356,56 @@ def get_time(seconds):
     return hours, minutes, seconds
 
 
-def calc_vol(self):
+def calc_vol(atom):
     # Create the volume variable
     vol = 0
     # Go through each surface on the atom
-    for surf in self.surfs:
+    for surf in atom.surfs:
         # Set the surface area
-        self.sa += surf.sa
+        atom.sa += surf.sa
         # Check to see if the surface's volume has been calculated already
-        if surf.vols[surf.ndx.index(self.num)] != 0:
-            vol += surf.vols[surf.ndx.index(self.num)]
+        if surf.vols[surf.ndx.index(atom.num)] != 0:
+            vol += surf.vols[surf.ndx.index(atom.num)]
         else:
             # Calculate the volume of the
             for tri in surf.tris:
-                p0, p1, p2, p3 = self.loc, surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
+                p0, p1, p2, p3 = atom.loc, surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
                 my_vol = calc_tetra_vol(p0, p1, p2, p3)
-                surf.vols[surf.ndx.index(self.num)] = my_vol
+                surf.vols[surf.ndx.index(atom.num)] = my_vol
                 vol += my_vol
     # Return the volume
-    self.vol = vol
+    atom.vol = vol
     return vol
 
 
-def get_radius(self):
+def get_radius(atom):
     """
         Finds the radius of the atom from the symbol or vice versa
 
     :return: The radius of the atom from the symbol or vice versa
     """
-    radii = self.sys.radii
+    radii, special_radii = atom.sys.radii, atom.sys.special_radii
     # Get the radius and the element from the name of the atom
-    if self.name is not None and self.name in self.sys.special_radii:
-        self.element, self.rad = self.sys.special_radii[self.name]
+    if atom.res is not None and atom.res.name in atom.sys.special_radii:
+        # Check if no atom name exists or its empty
+        if atom.name is not None and atom.name != '':
+            for i in range(len(atom.name)):
+                name = atom.name[:-i]
+                # Check the residue name
+                if name in special_radii[atom.res.name]:
+                    atom.rad = special_radii[atom.res.name][name]
+    # If we have the type and just want the radius, keep scanning until we find the radius
+    if atom.rad is None and atom.element.lower() in radii:
+        atom.rad = radii[atom.element.lower()]
     # If indicated we return the symbol of atom that the radius indicates
-    elif self.element is None:
+    if atom.rad is None or atom.rad == 0:
         # Check to see if the radius is in the system
-        if self.rad in {radii[_] for _ in radii[1]}:
-            self.element = radii[self.rad]
+        if atom.rad in {radii[_] for _ in radii[1]}:
+            atom.element = radii[atom.rad]
         else:
             # Get the closest atom to it
             min_diff = np.inf
             # Go through the radii in the system looking for the smallest difference
             for radius in radii:
-                if radii[radius] - self.rad < min_diff:
-                    self.element = radii[radius]
-    # If we have the type and just want the radius, keep scanning until we find the radius
-    elif self.rad is None:
-        self.rad = radii[self.element.lower()]
-
+                if radii[radius] - atom.rad < min_diff:
+                    atom.element = radii[radius]
