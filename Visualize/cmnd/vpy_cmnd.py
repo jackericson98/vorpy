@@ -224,6 +224,7 @@ def vorpy(my_sys):
     # Check if both voronota files have been loaded
     elif my_sys.ball_file is not None and my_sys.vert_file is not None:
         my_sys.load_verts(file=my_sys.vert_file, vta_ball_file=my_sys.ball_file)
+        my_sys.net.build(calc_verts=False, my_group=my_group)
 
     # Export
     export(my_sys, usr_npt="e", my_group=my_group)
