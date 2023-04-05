@@ -1,4 +1,4 @@
-from Visualize.argv.argv_load import argv_load
+from Visualize.argv.argv_load import argv_load, argv_load_atoms
 from Visualize.argv.argv_set import argv_sett
 from Visualize.argv.argv_group import argv_group
 from Visualize.argv.argv_build import argv_build
@@ -51,7 +51,7 @@ def interpret_argvs(my_sys):
 
 def argv(my_sys):
     # Load the atom file
-    argv_load(my_sys, ["", sys.argv[1]])
+    argv_load_atoms(my_sys, ["", sys.argv[1]])
     # Interpret the commands
     files, settings, groups, builds, exports, ifaces = interpret_argvs(my_sys)
     # Go through each of the ls
