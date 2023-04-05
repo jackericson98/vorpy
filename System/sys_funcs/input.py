@@ -181,12 +181,14 @@ def read_vta_data(sys, ball_file, vert_file):
     # Interpret the balls
     balls = []
     for i in range(len(b_file)):
+        print("\rLoading Balls - {:.2f}%".format(100 * i/len(b_file)), end='')
         # Split the data
         data = b_file[i].split(" ")
         # Grab the data reference for the atoms
         balls.append(sys.atoms[int(data[5]) - 1])
     # Interpret the vertices
     for i in range(len(v_file)):
+        print("\rLoading verts - {:.2f}%".format(100 * i/len(v_file)), end='')
         # Split the data
         data = v_file[i].split(" ")
         # Add the vertex data
