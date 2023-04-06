@@ -167,11 +167,11 @@ def get_com(surf, net_type='vor'):
     if surf.flat or net_type in {'del', 'pow'}:
         return calc_com(points=surf.perimeter)
         # If the surface is flat, the center of mass will not need to be projected
-    if tri_within(surf, point=surf.loc):
+    if tri_within(surf.perimeter, surf.flat_points, surf.loc, surf.norm, point=surf.loc):
         return surf.loc
     # First try the center of mass of the 3d points projected onto the surface
     my_com = calc_surf_point(point=calc_com(points=surf.perimeter[::5]), func=surf.func, a0_loc=surf.atoms[0].loc)
-    if my_com is not None and tri_within(surf, point=my_com) and surf.atoms[0].rad != surf.atoms[1].rad:
+    if my_com is not None and tri_within(surf.perimeter, surf.flat_points, surf.loc, surf.norm, point=my_com) and surf.atoms[0].rad != surf.atoms[1].rad:
         return my_com
     # If nothing else set the center of mass to the first point in the perimeter
     surf.filter_hard = True
@@ -241,7 +241,7 @@ def fill_mesh(surf):
             # Get the next point along the path
             pn = find_next_point(surf.atoms[0].loc, surf.func, paths[i][-1], com, dthetas[i])
             # Check for edges that start by going outside
-            if j == 0 and pn is not None and not tri_within(surf, point=pn):
+            if j == 0 and pn is not None and not tri_within(surf.perimeter, surf.flat_points, surf.loc, surf.norm, point=pn):
                 paths.pop(i)
                 dthetas.pop(i)
                 num_paths -= 1
@@ -268,7 +268,7 @@ def fill_mesh(surf):
 
 ############################################## Triangulate Surface Points  #############################################
 
-def tri_within(surf, my_tri=None, point=None):
+def tri_within(perimeter, flat_points, loc, norm, my_tri=None, point=None):
     """
     Checks to see if a triangle lies within the perimeter of a surface
     :param surf: Surface object to check against
@@ -277,9 +277,9 @@ def tri_within(surf, my_tri=None, point=None):
     :return: Bool
     """
     # Get the perimeter of the translated and rotated surface
-    perimeter = [surf.perimeter[i] - surf.loc for i in range(len(surf.perimeter))]
+    perimeter = [perimeter[i] - loc for i in range(len(perimeter))]
     # Rotate the point
-    perimeter = [point[:2] for point in rotate_points(surf.norm, perimeter)]
+    perimeter = [point[:2] for point in rotate_points(norm, perimeter)]
     if len(perimeter) == 0:
         return False
     center = calc_com(points=perimeter)
@@ -288,14 +288,14 @@ def tri_within(surf, my_tri=None, point=None):
         # Copy the triangle, retrieve its points and calculate the center of mass
         tri = my_tri.copy()
         # Get the triangles points
-        points = [surf.flat_points[tri[i]] for i in range(len(tri))]
+        points = [flat_points[tri[i]] for i in range(len(tri))]
         # Calculate the triangle's center of mass
         point = calc_com(points=points)
     else:
         # Move the point
-        point = point - surf.loc
+        point = point - loc
         # Rotate the point
-        new_point = rotate_points(surf.norm, [point])[0]
+        new_point = rotate_points(norm, [point])[0]
         # Get the 2d version
         point = new_point[:2]
     # Get the projected point
@@ -346,27 +346,27 @@ def calc_tri_circ(points):
     return circum_r
 
 
-def find_simps(surf):
+def find_simps(points, loc, norm):
     """
     Transforms and rotates surface points to xy-plane and returns the Delaunay simplices
     :param surf: Surface object holding the points
     :return: None
     """
     # Copy the surface points
-    points = surf.points.copy()
+    points = points.copy()
     # Move all surf points toward the origin via center point
     for i in range(len(points)):
-        points[i] = np.array(points[i]) - np.array(surf.loc)
+        points[i] = np.array(points[i]) - np.array(loc)
     # Calculate the angles to rotate the center point around
-    nps = rotate_points(surf.norm, points)
+    nps = rotate_points(norm, points)
     # Get the 2d version of the points and their Delaunay tesselation
-    surf.flat_points = [_[:2] for _ in nps]
-    tris = Delaunay(surf.flat_points)
+    flat_points = [_[:2] for _ in nps]
+    tris = Delaunay(flat_points)
     # Add the flat points to the surface's list of flat points
-    surf.tris = tris.simplices.tolist()
+    return tris.simplices.tolist(), flat_points
 
 
-def filter_tris(surf):
+def filter_tris(tris, flat_points, res, perimeter, loc, norm, filter_hard):
     """
     Goes through the triangles on the surface measuring the circumference & testing if inside
     :param surf: Surface object holding the triangles for filtration
@@ -376,19 +376,21 @@ def filter_tris(surf):
     # Set up a list of indices to remove for the triangles
     remove_ndxs = []
     # Go through the triangles in the surface
-    for i in range(len(surf.tris)):
+    for i in range(len(tris)):
         # Grab the triangle and calculate its circumference
-        tri = surf.tris[i]
-        circ = calc_tri_circ(points=[surf.flat_points[_] for _ in tri])
+        tri = tris[i]
+        circ = calc_tri_circ(points=[flat_points[_] for _ in tri])
         # If the circumference of the triangle is less than x times the min_dist check to see if tri is within
-        if circ > 3 * surf.res and not tri_within(surf, tri):
+        if circ > 3 * res and not tri_within(perimeter, flat_points, loc, norm, tri):
             remove_ndxs.append(i)
-        elif surf.filter_hard and not tri_within(surf, tri):
+        elif filter_hard and not tri_within(perimeter, flat_points, loc, norm, tri):
             remove_ndxs.append(i)
     # Remove the outer triangles
     remove_ndxs.sort()
     for i in range(len(remove_ndxs)):
-        surf.tris.pop(remove_ndxs[-(i + 1)])
+        tris.pop(remove_ndxs[-(i + 1)])
+    # Return the surface's triangles
+    return tris
 
 
 # Build method. Makes the mesh for the surface and calculates the simplices between them
@@ -414,10 +416,10 @@ def build_surf(surf, res=None):
     # Fill the mesh
     fill_mesh(surf)
     # Find the simplices of the surface
-    find_simps(surf)
+    surf.tris, surf.flat_points = find_simps(surf.points, surf.loc, surf.norm)
     # If the network type is voronoi the edges could be curved allowing for triangulations outside the edges
     if surf.net.type == 'vor':
         # Filter out the bad triangles
-        filter_tris(surf)
+        filter_tris(surf.tris, surf.flat_points, surf.res, surf.perimeter, surf.loc, surf.norm, surf.filter_hard)
         # Calculate the curvature of the triangles and the surface
         surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris)
