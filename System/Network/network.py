@@ -268,7 +268,8 @@ class Network:
             # If the surface area is None calculate it
             if self.surfs[i].sa is None or self.surfs[i].sa == 0:
                 # Get the surface area of the surface
-                calc_surf_sa(self.surfs[i])
+                surf = self.surfs[i]
+                surf.sa = calc_surf_sa(edges=surf.edges, com=surf.com, tris=surf.tris, points=surf.points, flat=surf.flat)
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
                 h, m, s = get_time(my_time)
