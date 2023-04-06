@@ -4,41 +4,33 @@ from System.Network.net_objs.surface import Surface
 
 
 # Find projection values. Calculates the correct end and projection points for the edge
-def find_edge_pvals(edge):
-    # Typical case, no doublets
-    edge.pv0, edge.pv1 = np.array(edge.verts[0].loc), np.array(edge.verts[1].loc)
-    # No projection needed for straight edges
-    if edge.straight:
-        return
+def calc_edge_proj_pt(pv0, pv1, loc):
     # Get the projection point
     # Find the point in between the two vertex points
-    r01 = edge.pv1 - edge.pv0  # Vector between vertices
+    r01 = pv1 - pv0  # Vector between vertices
     r_mag = np.linalg.norm(r01)  # Magnitude of the vector between the two vertex points
     rn01 = r01 / r_mag  # Normal to the vector between the vertices
-    pc01 = edge.pv0 + 0.5 * rn01 * r_mag  # Center point
+    pc01 = pv0 + 0.5 * rn01 * r_mag  # Center point
 
     # Determine if the theoretical center of the edge is inside the vertices or not
     dr = 1
-    if np.sqrt(sum(np.square(np.array(edge.loc) - np.array(edge.pv0)))) < r_mag or \
-            np.sqrt(sum(np.square(np.array(edge.loc) - np.array(edge.pv1)))) < r_mag:
+    if np.sqrt(sum(np.square(np.array(loc) - np.array(pv0)))) < r_mag or \
+            np.sqrt(sum(np.square(np.array(loc) - np.array(pv1)))) < r_mag:
         dr = -1
 
     # Find the vector normal to the projection plane
-    p_norm = dr * np.cross(np.array(edge.loc) - np.array(pc01), np.array(edge.pv1) - np.array(pc01))
+    p_norm = dr * np.cross(np.array(loc) - np.array(pc01), np.array(pv1) - np.array(pc01))
     # Find the vector perpendicular to the plane's normal (i.e. in the plane) and the vector between vertices
     r_pcr = - np.cross(p_norm, rn01)
     rn_pcr = r_pcr / np.linalg.norm(r_pcr)
     # Calculate the reference point
-    edge.pa = pc01 + 0.5 * r_mag * rn_pcr
+    return pc01 + 0.5 * r_mag * rn_pcr
 
 
 # Project method. Projects a point onto the surface using a reference point
-def edge_project(edge, rn, pa, surf):
-    # Check to see if the surface has its function values
-    if surf.func is None:
-        surf.func = calc_surf_func(surf.atoms[0].loc, surf.atoms[0].rad, surf.atoms[1].loc, surf.atoms[1].rad)
+def edge_project(rn, pa, func, ep_1, ep_2=None):
     # Get the function values
-    f, a0, a1 = surf.func, surf.atoms[0], surf.atoms[1]
+    f = func
     # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
     a = f[0] * rn[0] ** 2 + f[1] * rn[1] ** 2 + f[2] * rn[2] ** 2 + f[3] * rn[0] * rn[1] + f[4] * rn[
         1] * rn[2] + f[5] * rn[2] * rn[0]
@@ -59,15 +51,15 @@ def edge_project(edge, rn, pa, surf):
             p1 = pa + min(roots) * rn
             p2 = pa + max(roots) * rn
         # If the point we are calculating is the first in the edge choose the one closest to the vertex
-        if len(edge.points) == 1:
+        if ep_2 is None:
             point = p1
-            if np.sqrt(sum(np.square(np.array(p2) - np.array(edge.points[0])))) <= \
-                    np.sqrt(sum(np.square(np.array(p1) - np.array(edge.points[0])))):
+            if np.sqrt(sum(np.square(np.array(p2) - np.array(ep_1)))) <= \
+                    np.sqrt(sum(np.square(np.array(p1) - np.array(ep_1)))):
                 point = p2
         # If we have 2 points to choose from, choose the one that makes the angle closer to 180
         else:
             point = p1
-            if calc_angle(edge.points[-1], edge.points[-2], p2) >= calc_angle(edge.points[-1], edge.points[-2], p1):
+            if calc_angle(ep_1, ep_2, p2) >= calc_angle(ep_1, ep_2, p1):
                 point = p2
         # Return the point we choose
         return point
@@ -81,7 +73,10 @@ def build_edge(edge, surf=None, res=None, straight=None):
     # Get the location and radius of the circle inscribed between the edge atoms
     edge.loc, edge.rad = calc_circ(*[_.loc for _ in edge.atoms], *[_.rad for _ in edge.atoms])
     # Get the pvals
-    find_edge_pvals(edge)
+    # Typical case, no doublets
+    edge.pv0, edge.pv1 = np.array(edge.verts[0].loc), np.array(edge.verts[1].loc)
+    if not edge.straight:
+        edge.pa = calc_edge_proj_pt(edge.pv0, edge.pv1, edge.loc)
     # Reset the edges points
     edge.points = []
     # Check to see if a minimum distance has been provided
@@ -95,6 +90,9 @@ def build_edge(edge, surf=None, res=None, straight=None):
             surf = Surface(edge.atoms[1:], edge.net)
         else:
             surf = Surface(edge.atoms[:2], edge.net)
+    # Check to see if the surface has its function values
+    if surf.func is None:
+        surf.func = calc_surf_func(surf.atoms[0].loc, surf.atoms[0].rad, surf.atoms[1].loc, surf.atoms[1].rad)
 
     ################################################# Fill Edge ####################################################
 
@@ -144,7 +142,8 @@ def build_edge(edge, surf=None, res=None, straight=None):
         r_ac = np.array(pc) - np.array(edge.pa)
         r_nac = r_ac / np.linalg.norm(r_ac)
         # Project the vector onto the surface
-        surf_point = edge_project(edge, r_nac, edge.pa, surf)
+        surf_point = edge_project(r_nac, edge.pa, surf.func, edge.points[-1],
+                                  edge.points[-2] if len(edge.points) > 1 else None)
         if surf_point is None:
             break
         edge.points.append(surf_point)
