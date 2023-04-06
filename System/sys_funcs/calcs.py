@@ -207,26 +207,25 @@ def rotate_points(vec, points, reverse=False):
     return nps
 
 
-def calc_surf_sa(surf):
+def calc_surf_sa(edges, com, tris, points, flat):
     """
     Calculates the surface area of the input surface
     :return: Surface area of the surface
     """
     # Create the surface area variable
     sa = 0
-    if surf.flat:
-        for edge in surf.edges:
+    if flat:
+        for edge in edges:
             if edge.straight:
-                sa += calc_tri([edge.pv0, edge.pv1, surf.com])
+                sa += calc_tri([edge.pv0, edge.pv1, com])
             else:
                 for i in range(len(edge.points) - 1):
                     p0, p1 = edge.points[i:i + 2]
-                    sa += calc_tri([p0, p1, surf.com])
+                    sa += calc_tri([p0, p1, com])
     # Go through the triangles in the surface
-    for tri in surf.tris:
-        p0, p1, p2 = surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
-        sa += calc_tri([p0, p1, p2])
-    surf.sa = sa
+    for tri in tris:
+        sa += calc_tri([points[tri[_]] for _ in range(3)])
+    return sa
 
 
 def calc_surf_tri_dists(points, tris, loc):
