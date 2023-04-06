@@ -2,7 +2,7 @@ from System.sys_funcs.output import write_surfs
 from System.Group.layers import get_layers
 from System.Group.sort import get_surfs, get_edges, get_verts, add_atoms
 from System.Group.export import group_exports
-from System.sys_funcs.calcs import calc_vol
+from System.sys_funcs.calcs import calc_vol, calc_surf_sa
 from System.sys_funcs.input import read_surf_file
 from System.Network.net_funcs.build_surf import build_surf
 import os
@@ -205,7 +205,7 @@ class Group:
             # Check that the surface has a surface area
             if surf.sa is None or surf.sa == 0:
                 # Get the surface area for the surface
-                surf.calc_sa()
+                surf.sa = calc_surf_sa(edges=surf.edges, com=surf.com, tris=surf.tris, points=surf.points, flat=surf.flat)
             # Add the surface area
             self.sa += surf.sa
 
