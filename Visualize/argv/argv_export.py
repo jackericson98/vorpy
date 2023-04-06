@@ -50,7 +50,7 @@ def export_npt(my_sys, usr_npt):
         # Go through each of the system's groups
         for grouping in my_sys.groups:
             # Export the atoms, shell and info file
-            grouping.exports(shell=True, atoms=True, info=True, surr_atoms=True, shell_edges=True)
+            grouping.exports(shell=True, atoms=True, info=True, surr_atoms=True, shell_edges=True, shell_verts=True)
 
     """
     ____________________________________All__________________________________________________________
