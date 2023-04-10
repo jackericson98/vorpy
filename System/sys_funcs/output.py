@@ -448,13 +448,18 @@ def set_pymol_atoms(sys):
     :return:
     """
     # Create the file
-    file = open('set_atoms.pml', 'w')
-    # Write the change radii script for the system's set atomic radii
-    for radius in sys.radii:
-        file.write("alter (elem {}), vdw={}\n".format(radius, sys.radii[radius]))
-    # Rebuild the system
-    file.write("\nrebuild")
-    file.close()
+    with open('set_atoms.pml', 'w') as file:
+        # Write the change radii script for the system's set atomic radii
+        for radius in sys.radii:
+            if radius != '':
+                file.write("alter (elem {}), vdw={}\n".format(radius, sys.radii[radius]))
+        # Change the radii for special atoms
+        for res in sys.special_radii:
+            for atom in sys.special_radii[res]:
+                res_str = "residue {} ".format(res) if res != "" else ""
+                file.write("alter ({}name {}), vdw={}\n".format(res_str, atom, sys.special_radii[res][atom]))
+        # Rebuild the system
+        file.write("\nrebuild")
 
 
 def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_network_object=False,
