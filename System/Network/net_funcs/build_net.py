@@ -8,6 +8,14 @@ from System.Network.net_objs.surface import Surface
 ############################################## Doublets ################################################################
 
 
+def connect_vert(net, vert):
+    con_verts = []
+    for vert1 in net.verts:
+        if len([0 for _ in vert.ndx if _ in vert1.ndx]) == 3:
+            con_verts.append(vert1)
+    return con_verts
+
+
 def doublify(net, get_edges=True):
     """
     Finds all doublet edges throughout the network and adds them
@@ -16,6 +24,7 @@ def doublify(net, get_edges=True):
     """
     # Find the doublets, separate them and connect their edges
     doublets = []
+    net.dub_ndxs = []
     for vert in net.verts:
         # If we come across a doublet add it to the list
         if vert.doublet is not None:
@@ -23,9 +32,10 @@ def doublify(net, get_edges=True):
     # Go through the doublets
     for dub in doublets:
         # Add the doublet to the network
-        dub_ndx = net.verts.index(dub)
+        dub_ndx = ndx_search(net.vert_ndxs, dub.ndx)
         net.verts.insert(dub_ndx + 1, dub.doublet)
         net.vert_ndxs.insert(dub_ndx + 1, dub.ndx)
+        net.dub_ndxs += [dub_ndx, dub_ndx + 1]
 
         if not get_edges:
             return
@@ -33,10 +43,7 @@ def doublify(net, get_edges=True):
         ################################################ Create the outer edges ########################################
 
         # Find all vertices that match edges with the doublet's atoms
-        con_verts = []
-        for vert in net.verts:
-            if len([0 for _ in dub.ndx if _ in vert.ndx]) == 3:
-                con_verts.append(vert)
+        con_verts = connect_vert(net, dub)
         # Divide the connecting outer vertices between the two doublet vertices
         dub_verts, dub_dub_verts = [], []
         for vert in con_verts:
@@ -114,12 +121,11 @@ def build(net, from_scratch=True):
     ################################################# Create the edges #################################################
 
     # Go through the vertices in the network searching for potential edges
-    for i in range(len(net.verts)):
+    for i, vert1 in enumerate(net.verts):
         my_time = time.perf_counter() - net.my_time
         h, m, s = get_time(my_time)
         print("\rRun Time = {}:{}:{:.2f} - Process: connecting network: {:.2f} %"
               .format(int(h), int(m), round(s, 2), min(100.0, 100 * (0.5 * len(net.edges)) / (3/2 * len(net.verts)))), end="")
-        vert1 = net.verts[i]
         if vert1.doublet is not None:
             continue
         # Check every combination of vert atoms as a potential edge
@@ -160,12 +166,11 @@ def build(net, from_scratch=True):
     ################################################### Create the surfaces ############################################
 
     # Go through the edges in the network
-    for i in range(len(net.edges)):
+    for i, edge1 in enumerate(net.edges):
         my_time = time.perf_counter() - net.my_time
         h, m, s = get_time(my_time)
         print("\rRun Time = {}:{}:{:.2f} - Process: connecting network: {:.2f} %"
               .format(int(h), int(m), round(s, 2), min(100.0, 100 * (len(net.surfs) + 0.5 * (len(net.edges))) / ((3/2) * len(net.verts)))), end="")
-        edge1 = net.edges[i]
         # Go through the edge's atoms combinations
         for j in range(3):
             # Get the atoms and their sorted list of ndxs
