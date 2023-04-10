@@ -28,6 +28,7 @@ class Network:
         self.vert_ndxs = []                # Vert indices     :    Sorted atom indices defining all net verts
         self.edge_ndxs = []                # Edge indices     :    Sorted atom indices defining all net edges
         self.surf_ndxs = []                # Surf indices     :    Sorted atom indices defining all net surfs
+        self.dub_ndxs = []                 # Doublet indices  :    Holds the vertex indices of the doublets
 
         # Tools for splitting up the atoms
         self.box = None                    # Box              :    Holds a max and min vertex for the retaining box
