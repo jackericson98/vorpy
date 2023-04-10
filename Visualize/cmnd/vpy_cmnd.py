@@ -1,4 +1,3 @@
-import System.sys_objs.residue
 from Visualize.cmnd.export import *
 from Visualize.cmnd.set import *
 from System.Group.group import Group
@@ -209,7 +208,7 @@ def vorpy(my_sys):
             change_settings = input("alter set >>>   ")
             change_settings = change_settings.split()
             # If the user wants to change the settings:
-            if len(usr_npt) == 0:
+            if len(change_settings) == 0:
                 break
             elif change_settings[0].lower() in ys:
                 sett(my_sys, ["set"], vorpy2_set=True)
