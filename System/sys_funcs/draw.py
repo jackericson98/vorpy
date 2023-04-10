@@ -7,6 +7,7 @@ import matplotlib as mpl
 def color_tris(surf, color_scheme=None, color_map=None, inverse=False):
     """
     Colors the triangles in the surface based on the specified coloring scheme and map
+    :param surf:
     :param inverse: Inverts the color of the color map
     :param color_scheme: Determines how the colors will be mapped
     :param color_map: Determines the actual colors of triangles
@@ -35,13 +36,12 @@ def color_tris(surf, color_scheme=None, color_map=None, inverse=False):
             calc_surf_tri_ins_out(surf)
         surf.tri_colors = [my_cmap(_) for _ in surf.tri_ins_out]
     elif color_scheme == 'curv':
+        # First check if the surface is flat
+        if surf.flat:
+            surf.tri_curvs = [0] * len(surf.tris)
         # Check if the tri_dists have been calculated before
         if surf.tri_curvs is None or len(surf.tri_curvs) == 0 or len(surf.tri_curvs) != len(surf.tris):
-            # Check if the surface is flat
-            if surf.flat:
-                surf.tri_curvs = [0] * len(surf.tris)
-            else:
-                surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris)
+            surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris)
         # Set the colors
         surf.tri_colors = [my_cmap(_) for _ in surf.tri_curvs]
 
