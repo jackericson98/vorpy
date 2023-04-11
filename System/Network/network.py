@@ -4,7 +4,7 @@ from System.Network.net_funcs.find_verts import find_verts
 from System.Network.net_funcs.build_net import build, get_time
 from System.Network.net_funcs.build_edge import build_edge
 from System.Network.net_funcs.build_surf import build_surf
-from System.sys_funcs.calcs import calc_vol, calc_surf_func, calc_surf_sa
+from System.sys_funcs.calcs import calc_vol, calc_surf_func, calc_surf_sa, ndx_search
 from Visualize.mpl_visualize import *
 
 
@@ -120,26 +120,47 @@ class Network:
         # Get the number of rows columns and aisles
         self.box_max = len(self.sub_boxes) - 1, len(self.sub_boxes[0]) - 1, len(self.sub_boxes[0][0]) - 1
 
-    def sort_verts(self):
+    def sort_verts(self, my_group=None):
         """
         Puts the vertices in the network in their respective grid sections
         :return: Places the vertices into their correct sub_boxes
         """
+        # Check to see if a group is provided
+        if my_group is not None:
+            atom_ndxs = [_.num for _ in my_group.atoms]
+        else:
+            atom_ndxs = [_.num for _ in self.atoms]
+        atom_ndxs.sort()
         # Instantiate the grid structure of lists is locations representing a grid
         self.vert_sub_boxes = [[[[] for _ in range(self.box_max[2] + 1)]
-                                for _ in range(self.box_max[1] + 1)] for _ in range(self.box_max[0] + 1)]
+                               for _ in range(self.box_max[1] + 1)] for _ in range(self.box_max[0] + 1)]
+
         # Sort the atoms
-        for vert in self.verts:
+        drop_verts = []
+        for i, vert in enumerate(self.verts):
+            # Check that the vertex has at least one atom of interest
+            for ndx in vert.ndx:
+                search_ndx = ndx_search(atom_ndxs, ndx)
+                if atom_ndxs[search_ndx] == ndx:
+                    break
+            else:
+                drop_verts.append(i)
             # Adjust the maximum radius
             if vert.rad > self.max_vert_rad:
                 self.max_vert_rad = vert.rad
             # Find the box they belong to
             box_ndxs = [int((vert.loc[i] - self.box[0][i]) / self.sub_box_size[i]) for i in range(3)]
             # Add the atom to the box
-            self.vert_sub_boxes[box_ndxs[0]][box_ndxs[1]][box_ndxs[2]].append(vert)
+            try:
+                self.vert_sub_boxes[box_ndxs[0]][box_ndxs[1]][box_ndxs[2]].append(vert)
+            except IndexError:
+                drop_verts.append(i)
             # Add the box to the atom
             vert.box = box_ndxs
-        self.box_max = len(self.sub_boxes) - 1, len(self.sub_boxes[0]) - 1, len(self.sub_boxes[0][0]) - 1
+        # Drop the vertices outside the box
+        for vert_num in reversed(drop_verts):
+            self.verts.pop(vert_num)
+            self.vert_ndxs.pop(vert_num)
 
     def get_atoms(self, cells, reach=0):
         """
@@ -148,6 +169,9 @@ class Network:
         :param reach: The number of cells out from the initial set of cells to search
         :return:
         """
+        # If a single cell is entered
+        if type(cells[0]) is int:
+            cells = [cells]
         # Get the min and max of the cells
         ndx_min = [np.inf, np.inf, np.inf]
         ndx_max = [-np.inf, -np.inf, -np.inf]
@@ -175,6 +199,9 @@ class Network:
         :param reach: The number of cells out from the initial set of cells to search
         :return:
         """
+        # If a single cell is entered
+        if type(cells[0]) is int:
+            cells = [cells]
         # Get the min and max of the cells
         ndx_min = [np.inf, np.inf, np.inf]
         ndx_max = [-np.inf, -np.inf, -np.inf]
@@ -195,12 +222,12 @@ class Network:
 
         return verts
 
-    def connect(self):
+    def connect(self, my_group):
         """
         Connects the network using the functions in the build_net.py file
         :return:
         """
-        build(self)
+        build(self, my_group)
 
     def find_verts(self, time_start=None, process_time_start=None, my_group=None):
         """
@@ -246,13 +273,13 @@ class Network:
         :return:
         """
         # Make each surface
-        for i in range(len(self.surfs)):
+        for i, surf in enumerate(self.surfs):
             # Build the surfaces and print the progress
             my_time = time.perf_counter() - self.my_time
             h, m, s = get_time(my_time)
             print("\rRun Time = {:2}:{:2}:{:.2f} - Process: building surfaces {:.2f} %                                 "
                   .format(int(h), int(m), round(s, 2), min(100.0, 100 * round(i/len(self.surfs), 2))), end="")
-            build_surf(self.surfs[i])
+            build_surf(surf)
         print("\r                                                                                             ", end='')
 
     def analyze(self):
@@ -301,9 +328,6 @@ class Network:
         :param calc_verts: Calculate Vertices? Skips vertex calculations if a network or vertex file is loaded
         :return: Builds the network based on the above specifications
         """
-        if self.sys.ball_file is None:
-            # Reset the network variables in case of rebuild
-            self.verts, self.vert_ndxs, self.edges, self.edge_ndxs, self.surfs, self.surf_ndxs, self.atom_ndxs = [], [], [], [], [], [], []
         # If the system has no name, one needs top be set
         if self.sys.name is None:
             self.sys.name = "User_Atoms"
@@ -336,7 +360,7 @@ class Network:
             if self.verts is None or len(self.verts) == 0:
                 return
         # Connect the network
-        self.connect()
+        self.connect(my_group)
         # Build the edges in the network
         self.build_edges()
         if self.build_surfs:
