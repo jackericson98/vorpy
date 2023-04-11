@@ -98,9 +98,10 @@ def doublify(net, get_edges=True):
         dub.doublet.edges += edges
 
 
-def build(net, from_scratch=True):
+def build(net, my_group, from_scratch=True):
     """
     Checks the atoms of the vertices for patterns and creates edges and surfaces
+    :param my_group:
     :param from_scratch:
     :param net: Network object to pull information from
     """
@@ -112,7 +113,7 @@ def build(net, from_scratch=True):
 
     # Fill in the doublets and set their outer edges
     doublify(net)
-
+    net.sort_verts(my_group)
     # Add the vertices to the atoms
     for vert in net.verts:
         for atom in vert.atoms:
@@ -182,19 +183,22 @@ def build(net, from_scratch=True):
             # If the edge has been found before, continue
             if len(net.surf_ndxs) > surf_ndx and atom_ndxs == net.surf_ndxs[surf_ndx]:
                 continue
-            # Put together a list of edges that have our atoms
-            edges = []
-            # Go through the edges in the system
-            for edge2 in net.edges:
-                # If the surface's atoms are in the edge add it
-                if len([0 for ndx in atom_ndxs if ndx in edge2.ndx]) == 2:
-                    edges.append(edge2)
             # Put together a list of verts that have our atoms
             verts = []
             for vert2 in net.verts:
                 # If the surface's atoms are shared with the vertex, add it to the list
                 if len([0 for ndx in atom_ndxs if ndx in vert2.ndx]) == 2:
                     verts.append(vert2)
+            # Put together a list of edges that have our atoms
+            edges = []
+            # Go through the edges in the system
+            for vert in verts:
+                for edge2 in vert.edges:
+                    if edge2 in edges:
+                        continue
+                    # If the surface's atom s are in the edge add it
+                    if len([0 for ndx in atom_ndxs if ndx in edge2.ndx]) == 2:
+                        edges.append(edge2)
             # In order to be a true surface the number of edges need to be equal to the number of verts
             if len(verts) == len(edges):
                 # Create the surface
