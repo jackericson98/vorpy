@@ -4,6 +4,14 @@ import warnings
 warnings.filterwarnings("error")
 
 
+def round_func(round_to):
+    def round_(val, new_num=None):
+        if new_num is None:
+            new_num = round_to
+        return round(val, new_num)
+    return round_
+
+
 def calc_dist(l0, l1):
     """
     Calculate distance function used to simplify code
@@ -384,11 +392,12 @@ def calc_vol(atom):
             vol += surf.vols[surf.ndx.index(atom.num)]
         else:
             # Calculate the volume of the
+            surf_vol = 0
             for tri in surf.tris:
                 p0, p1, p2, p3 = atom.loc, surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
-                my_vol = calc_tetra_vol(p0, p1, p2, p3)
-                surf.vols[surf.ndx.index(atom.num)] = my_vol
-                vol += my_vol
+                surf_vol += calc_tetra_vol(p0, p1, p2, p3)
+            vol += surf_vol
+            surf.vols[surf.ndx.index(atom.num)] = surf_vol
     # Return the volume
     atom.vol = vol
     return vol
