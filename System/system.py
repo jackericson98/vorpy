@@ -1,6 +1,6 @@
 from System.sys_funcs.input.input import *
 from System.sys_funcs.input.read_net import read_net
-from System.sys_funcs.output.system import set_sys_dir, export_sys
+from System.sys_funcs.output.output import set_sys_dir, export_sys
 from System.sys_funcs.output.net import export_net, export_verts
 from System.Group.group import Group
 from Visualize.mpl_visualize import *
@@ -241,7 +241,7 @@ class System:
         # Create the group
         self.groups.append(Group(sys=self, atoms=atoms, residues=residues, chains=chains))
 
-    def build_network(self, output=True, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
+    def build_network(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
                       calc_verts=None, my_group=None, print_actions=None):
         """
         Allows user to build the network from the system object.
@@ -251,7 +251,7 @@ class System:
         if self.net is None:
             self.net = Network(self, atoms=self.atoms)
         # Build the network
-        self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs, output=output,
+        self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs,
                        calc_verts=calc_verts, net_type=net_type, my_group=my_group, print_actions=print_actions)
 
     def export_verts(self):
@@ -277,7 +277,7 @@ class System:
         set_sys_dir(self, dir_name=directory)
 
     def exports(self, all_=False, network=False, pdb=False, surfaces=False, full_network_object=False, set_atoms=False,
-                info=False):
+                info=False, logs=False):
         """
         Prepares the output directory and system for output. Keeps things consistent
         :return:
@@ -285,7 +285,7 @@ class System:
         # Export the system (/System/sys_funcs/output)
         export_sys(self, all_=all_, network=network, pdb=pdb, surfaces=surfaces,
                    full_network_object=full_network_object,
-                   alter_atoms_script=set_atoms, info=info)
+                   alter_atoms_script=set_atoms, info=info, logs=logs)
 
     def show_net(self, info=True, full_net=False, verts=False, edges=False, surfs=False, system=False):
         # Empty Network
