@@ -85,6 +85,23 @@ def calc_com(points):
     return [tots[i]/len(points) for i in range(len(points[0]))]
 
 
+def calc_length(points):
+    """
+    Calculates the total length of the points assuming they are in order
+    :param points:
+    :return: float total length between consecutive points
+    """
+    # Reset the length
+    length = 0
+    # Go through the points in the list
+    for m, point in enumerate(points):
+        # Make sure not to index error
+        if m + 1 < len(points):
+            # Add the length to the total
+            length += calc_dist(point, points[m + 1])
+    return length
+
+
 def calc_circ(l0, l1, l2, r0, r1, r2):
     """
     Takes in 3 atoms, calculates the center and radius of inscribed circle
