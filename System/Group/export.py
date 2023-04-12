@@ -1,4 +1,4 @@
-from System.sys_funcs.output.system import *
+from System.sys_funcs.output.output import *
 from System.Group.sort import get_iface
 from System.sys_funcs.output.verts import write_verts
 from System.sys_funcs.output.edges import write_edges
@@ -137,41 +137,40 @@ def export_info(my_group, directory=None):
         # Analysis information
         info.write(u"  Surface Area: {:.5f} \u212B\u00B2, Volume: {:.5f} \u212B\u00B3\n\n".format(my_group.sa,
                                                                                                   my_group.vol))
-        # Atoms header
-        info.write("Atoms:\n\n")
-        # Go through each of the atoms
-        for atom in my_group.atoms:
-            # Write the atom's header
-            info.write("  Atom {} -\n".format(atom.num))
-            info.write(u"    Volume = {:.5f} \u212B \u00B3\n".format(atom.vol))
-            info.write(u"    Surface Area = {:.5f} \u212B \u00B2\n".format(atom.sa))
-            info.write("    {} Surfaces {}\n".format(len(atom.surfs), [_.ndx for _ in atom.surfs]))
-            info.write("    {} Edges {}\n".format(len(atom.edges), [_.ndx for _ in atom.edges]))
-            info.write("    {} Vertices {}\n".format(len(atom.verts), [_.ndx for _ in atom.verts]))
-        # Surfaces header
-        info.write("\nSurfaces:\n\n")
-        # Go through each of the surfaces in the group
-        for surf in my_group.surfs:
-            info.write("  Surface {} - \n".format(surf.ndx))
-            info.write("    Surface Area = {:.5f} \u212B\u00B2\n".format(surf.sa))
-            info.write("    Volume contributions = {:.5f}, {:.5f} \u212B\u00B3\n".format(surf.vols[0],
-                                                                                                        surf.vols[1]))
-            info.write("    Gaussian Curvature = {:.5f}\n".format(surf.curv))
+        # # Atoms header
+        # info.write("Atoms:\n\n")
+        # # Go through each of the atoms
+        # for atom in my_group.atoms:
+        #     # Write the atom's header
+        #     info.write("  Atom {} -\n".format(atom.num))
+        #     info.write(u"    Volume = {:.5f} \u212B \u00B3\n".format(atom.vol))
+        #     info.write(u"    Surface Area = {:.5f} \u212B \u00B2\n".format(atom.sa))
+        #     info.write("    {} Surfaces {}\n".format(len(atom.surfs), [_.ndx for _ in atom.surfs]))
+        #     info.write("    {} Edges {}\n".format(len(atom.edges), [_.ndx for _ in atom.edges]))
+        #     info.write("    {} Vertices {}\n".format(len(atom.verts), [_.ndx for _ in atom.verts]))
+        # # Surfaces header
+        # info.write("\nSurfaces:\n\n")
+        # # Go through each of the surfaces in the group
+        # for surf in my_group.surfs:
+        #     info.write("  Surface {} - \n".format(surf.ndx))
+        #     info.write("    Surface Area = {:.5f} \u212B\u00B2\n".format(surf.sa))
+        #     info.write("    Volume contributions = {:.5f}, {:.5f} \u212B\u00B3\n".format(surf.vols[0],
+        #                                                                                                 surf.vols[1]))
+        #     info.write("    Gaussian Curvature = {:.5f}\n".format(surf.curv))
 
 
-def group_exports(grp, all_=False, atoms=False, shell=False, fill=False, surfaces=False, layers=False, num_layers=50,
-                  info=False, iface=False, verts=False, surr_atoms=False, ext_atoms=False, shell_edges=False,
-                  shell_verts=False, edges=False):
+def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_surfs=False, edges=False,
+                  sep_edges=False, verts=False, sep_verts=False, layers=-1, info=False, surr_atoms=False,
+                  ext_atoms=False, shell=False):
     """
     Exports specified export types for the group
     :param grp:
     :param all_: All possible exports for the group will be exported to the group directory
     :param atoms: Exports a new pdb file containing only the atoms of the group
-    :param shell: Exports the outer surfaces of the group
-    :param fill: Exports all surfaces in the group as one object
-    :param surfaces: Exports all surfaces in the group as separate files, named by their atoms
+    :param shell_surfs: Exports the outer surfaces of the group
+    :param surfs: Exports all surfaces in the group as one object
+    :param sep_surfs: Exports all surfaces in the group as separate files, named by their atoms
     :param layers: Exports all layers surrounding the group, unless num_layers is specified
-    :param num_layers: Controls the number of exported layers for the group
     :param info: Exports the information for the group
     :param iface: Exports the interface for the group, bff must be specified first
     :param verts: Exports the vertices of the group as an off file
@@ -215,12 +214,40 @@ def group_exports(grp, all_=False, atoms=False, shell=False, fill=False, surface
         # noinspection PyUnresolvedReferences
         if grp.layer_surfs is not None and len(grp.layer_surfs) > 0:
             write_surfs(surfs=grp.layer_surfs[0], file_name="shell", directory=grp.dir)
+        if edges:
+            if grp.edges is None:
+                grp.get_edges()
+            if grp.layer_edges is None:
+                grp.get_layers(max_layers=1, build_surfs=False)
+            write_edges(grp.layer_edges[0], file_name="shell_edges", directory=grp.dir)
+        if verts:
+            if grp.layer_verts is None:
+                # Get the first layer
+                grp.get_layers(max_layers=1, build_surfs=False)
+            write_verts(grp.layer_verts[0], file_name="shell_verts", directory=grp.dir)
+    if edges or all_:
+        if grp.edges is None:
+            grp.get_edges()
+        write_edges(edges=grp.edges, file_name="edges", directory=grp.dir)
+    if sep_verts:
+        os.mkdir(grp.dir + "/verts")
+        if grp.layer_verts is None:
+            # Get the first layer
+            grp.get_layers(max_layers=1, build_surfs=False)
+        for i, vert in enumerate(grp.layer_verts[0]):
+            write_verts([vert], str(i), directory=grp.dir + "/verts")
+    if sep_edges:
+        os.mkdir(grp.dir + "/edges")
+        if grp.layer_edges is None:
+            grp.get_layers(max_layers=1, build_surfs=False)
+        for i, edge in enumerate(grp.layer_edges[0]):
+            write_edges([edge], str(i), directory=grp.dir + "/edges")
     # If the user wants a filled shell for the group
-    if fill or all_:
+    if surfs or all_:
         grp.build_surfs()
         write_surfs(surfs=grp.surfs, file_name="fill", directory=grp.dir)
     # If the user wants separate surfaces for the group
-    if surfaces or all_:
+    if sep_surfs or all_:
         i = 1
         my_dir = grp.dir + "/surfaces"
         while os.path.exists(my_dir):
@@ -232,10 +259,10 @@ def group_exports(grp, all_=False, atoms=False, shell=False, fill=False, surface
         for surf in grp.surfs:
             write_surfs([surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=my_dir)
     # If the user wants layers
-    if layers or all_:
+    if layers > 0 or all_:
         # First check to see if the number of layers is greater than 1
         if grp.layer_atoms is None or len(grp.layer_atoms) <= 1:
-            grp.get_layers(max_layers=num_layers)
+            grp.get_layers(max_layers=layers)
         # Create the layers directory
         i = 1
         my_dir = os.getcwd() + "/layers"
@@ -288,21 +315,7 @@ def group_exports(grp, all_=False, atoms=False, shell=False, fill=False, surface
             grp.get_layers(max_layers=1)
         # write the surrounding atoms
         write_pdb(atoms=grp.layer_atoms[0], name="ext_atoms", directory=grp.dir)
-    if shell_verts or all_:
-        if grp.layer_verts is None:
-            # Get the first layer
-            grp.get_layers(max_layers=1, build_surfs=False)
-        write_verts(grp.layer_verts[0], file_name="shell_verts", directory=grp.dir)
-    if edges or all_:
-        if grp.edges is None:
-            grp.get_edges()
-        write_edges(edges=grp.edges, file_name="edges", directory=grp.dir)
-    if shell_edges or all_:
-        if grp.edges is None:
-            grp.get_edges()
-        if grp.layer_edges is None:
-            grp.get_layers(max_layers=1, build_surfs=False)
-        write_edges(grp.layer_edges[0], file_name="shell_edges", directory=grp.dir)
+
     os.chdir("..")
     # Change back to the system directory
     os.chdir(grp.sys.dir)
