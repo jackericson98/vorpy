@@ -5,6 +5,8 @@ class Chain:
         self.name = name
         self.atoms = atoms
         self.residues = residues
+        self.vol = 0
+        self.sa = 0
 
     def add_atom(self, atom):
         self.atoms.append(atom)
@@ -16,3 +18,5 @@ class Sol(Chain):
         self.atoms = atoms
         self.residues = residues
         self.name = name
+        self.vol = 0
+        self.sa = 0
