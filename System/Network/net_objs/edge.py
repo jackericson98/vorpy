@@ -24,3 +24,4 @@ class Edge:
         self.draw_points = None
         self.draw_tris = None
         self.straight = straight         # Straight edge :   Straight edge or not
+        self.length = None
