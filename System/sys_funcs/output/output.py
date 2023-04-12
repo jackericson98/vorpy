@@ -49,11 +49,12 @@ def other_exports(sys, usr_npt):
     :param usr_npt:
     :return:
     """
-    # Split the words in the input
-    usr_npt.split()
     # If the first word is atom
-    if usr_npt[0].lower() in {"a", "atoms"}:
+    if usr_npt.lower() in {"a", "atoms"}:
         write_atom_cells(sys.atoms, sys.dir)
+    # If the first word is logs
+    elif usr_npt.lower() in {'logs', 'lgs'}:
+        sys.exports(logs=True)
 
 
 ####################################################### Main Funcs #####################################################
@@ -137,10 +138,14 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
         set_pymol_atoms(sys)
     # If the information is requested, export it
     if info or all_:
+        if not os.path.exists(sys.dir + "/sys"):
+            os.mkdir(sys.dir + "/sys")
         os.chdir(sys.dir + "/sys")
         export_sys_info(sys)
     # Export the log file
     if logs or all_:
+        if not os.path.exists(sys.dir + "/sys"):
+            os.mkdir(sys.dir + "/sys")
         os.chdir((sys.dir + "/sys"))
         export_net_logs(sys.net)
     os.chdir(sys.dir)
@@ -170,7 +175,7 @@ def set_pymol_atoms(sys):
 
 def export_sys_info(sys):
     # Open the file
-    with open(sys.name + "info.txt", 'w') as info:
+    with open(sys.name + "_info.txt", 'w') as info:
         # Write the header
         info.write(sys.name + " Network")
         # Write the chain header
@@ -178,16 +183,16 @@ def export_sys_info(sys):
         # Go through the chains in the system
         for chain in sys.chains:
             # Write the chain header
-            info.write("Chain {} - {} atoms, {} residues\n".format(chain.name, len(chain.atoms), len(chain.residues)))
+            info.write("Chain {} - {} atoms, {} residues\n\n".format(chain.name, len(chain.atoms), len(chain.residues)))
             # Quick check to see if the chain has been calculated
             if chain.vol is not None and chain.vol < 0:
                 # Write the chain information
-                info.write("  Volume = {}, Surface Area = {}\n\n".format(chain.vol, chain.sa))
+                info.write("  Volume = {}, Surface Area = {}\n\n\n".format(chain.vol, chain.sa))
         # Draw a separating line
         info.write("\n\n++++++++++++++++++++++++  Groups  +++++++++++++++++++++++++++++++\n\n")
         for group in sys.groups:
             # Write the group header
-            info.write("Group {} - {} atoms, {} residues, {} chains\n".format(group.name, len(group.atoms), len(group.residues), len(group.chains)))
+            info.write("Group {} - {} atoms, {} residues, {} chains\n\n".format(group.name, len(group.atoms), len(group.residues), len(group.chains)))
             # Write the group info
-            info.write("  Volume = {}, Surface Area = {}\n\n".format(group.vol, group.sa))
+            info.write("  Volume = {}, Surface Area = {}\n\n\n".format(group.vol, group.sa))
 
