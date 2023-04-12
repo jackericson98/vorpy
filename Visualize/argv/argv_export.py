@@ -1,3 +1,4 @@
+from System.sys_funcs.output.output import export_min1, export_min2, export_med, export_large, export_all, other_exports
 
 
 def argv_export(my_sys, usr_npt, interfaces=False):
@@ -32,7 +33,7 @@ def argv_export(my_sys, usr_npt, interfaces=False):
         export_npt(my_sys, npt[0])
 
 
-def export_npt(my_sys, usr_npt):
+def export_npt(my_sys, usr_npt=None):
     """
     Exports the selection from the usr_npts
     :param my_sys:
@@ -40,88 +41,25 @@ def export_npt(my_sys, usr_npt):
     :return:
     """
 
-    """
-    _____________________________________Default____________________________________________
-    """
     # If nothing is specified export the defaults
-    if usr_npt.lower() == 'default':
-        # Export the system's network, information file, the
-        my_sys.exports(network=True, pdb=True, set_atoms=True, info=True)
-        # Go through each of the system's groups
-        for grouping in my_sys.groups:
-            # Export the atoms, shell and info file
-            grouping.exports(shell=True, atoms=True, info=True, surr_atoms=True, shell_edges=True, shell_verts=True)
+    if usr_npt is None or usr_npt.lower() in {'default', '2', 'medium', '', 'med'}:
+        export_med(sys=my_sys)
 
-    """
-    ____________________________________All__________________________________________________________
-    """
+    # Small export
+    elif usr_npt.lower() in {"tiny", "i", "info", "0", "smallest"}:
+        export_min1(my_sys)
 
-    # If nothing is specified export the defaults
-    if usr_npt.lower() == 'all':
-        # Export everything from the system
-        my_sys.exports(all_=True)
-        # Go through each of the system's groups
-        for grouping in my_sys.groups:
-            # Export everything from the group
-            grouping.exports(all_=True)
+    # Medium small export
+    elif usr_npt.lower() in {"small", "s", "1"}:
+        export_min2(my_sys)
 
-    """
-    ____________________________________Medium_____________________________________________________________
-    """
-    # if medium export is specified
-    if usr_npt.lower() == 'med':
-        # Export everything from the system
-        my_sys.exports(network=True, pdb=True, set_atoms=True, info=True)
-        # Go through each of the system's groups
-        for grouping in my_sys.groups:
-            # Export a medium amount of things from the group
-            grouping.exports(shell=True, edges=True, verts=True, info=True)
+    # Large Export
+    elif usr_npt.lower() in {"large", "l", "3"}:
+        export_large(my_sys)
 
+    # Export all
+    elif usr_npt.lower() in {'all', 'a', 'everything'}:
+        export_all(my_sys)
 
-    """
-    ____________________________________info_________________________________________________________
-    """
-
-    # If nothing is specified export the defaults
-    if usr_npt.lower() == 'info':
-        # Export the system's network, information file, the
-        my_sys.exports(network=True, info=True)
-        # Go through each of the system's groups
-        for grouping in my_sys.groups:
-            # Export the atoms, shell and info file
-            grouping.exports(info=True)
-
-    """
-    ___________________________________surfs___________________________________________________________
-    """
-    # If nothing is specified export the defaults
-    if usr_npt.lower() == 'surfs':
-        # Export the system's network, information file, the
-        my_sys.exports(surfaces=True, set_atoms=True, pdb=True, network=True)
-        # Go through each of the system's groups
-        for grouping in my_sys.groups:
-            # Export the atoms, shell and info file
-            grouping.exports(shell=True, atoms=True, fill=True, surfaces=True, verts=True, edges=True)
-
-    """
-    _______________________________________edges_________________________________________________________
-    """
-    if usr_npt.lower() == 'e':
-        for grouping in my_sys.groups:
-            grouping.exports(edges=True)
-    """
-    _______________________________________verts_________________________________________________________
-    """
-    if usr_npt.lower() == 'v':
-        for grouping in my_sys.groups:
-            grouping.exports(verts=True)
-
-    """
-    ________________________________simple export______________________________________________________
-    """
-    if usr_npt.lower() == 'simple':
-        for grouping in my_sys.groups:
-            grouping.exports(atoms=True, info=True, shell=True)
-    """
-    _____________________________________________heavy export__________________________________________
-    """
+    else:
+        other_exports(my_sys, usr_npt)
