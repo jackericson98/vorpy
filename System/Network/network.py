@@ -1,7 +1,7 @@
 import time
 from itertools import chain as chain
 from System.Network.net_funcs.find_verts import find_verts
-from System.Network.net_funcs.build_net import build, get_time
+from System.Network.net_funcs.build_net import build, get_time, calc_length
 from System.Network.net_funcs.build_edge import build_edge
 from System.Network.net_funcs.build_surf import build_surf
 from System.sys_funcs.calcs.calcs import calc_vol, calc_surf_func, calc_surf_sa, ndx_search
@@ -288,39 +288,44 @@ class Network:
         :return:
         """
         # Get the percentage total number
-        tot_num = len(self.surfs) + len(self.atoms)
-        # Go through each surface in the system and find the simplices and the surface area
+        tot_num = len(self.edges) + len(self.surfs) + len(self.atoms)
+        # Go through the edges in the network
         i = 0
-        for i in range(len(self.surfs)):
-            percentage = int((i + 1) / tot_num * 100)
+        for i, edge in enumerate(self.edges):
+            percentage = int(i / tot_num * 100)
+            if edge.length is None or edge.length == 0:
+                edge.length = calc_length(edge.points)
+        # Go through each surface in the system and find the simplices and the surface area
+        for j, surf in enumerate(self.surfs):
+            percentage = int((i + j + 1) / tot_num * 100)
             # If the surface area is None calculate it
-            if self.surfs[i].sa is None or self.surfs[i].sa == 0:
+            if surf.sa is None or self.surfs[j].sa == 0:
                 # Get the surface area of the surface
-                surf = self.surfs[i]
+                surf = self.surfs[j]
                 surf.sa = calc_surf_sa(edges=surf.edges, com=surf.com, tris=surf.tris, points=surf.points, flat=surf.flat)
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
                 h, m, s = get_time(my_time)
                 print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                  "
                       .format(int(h), int(m), round(s, 2), percentage), end="")
+        j = 0
         # Go through each atom in the system and find the volume
-        for j in range(len(self.atoms)):
-            percentage = int((i + j + 2) / tot_num * 100)
-            if self.atoms[j].vol is None or self.atoms[j].vol == 0:
-                calc_vol(self.atoms[j])
+        for k in range(len(self.atoms)):
+            percentage = int((i + j + k + 2) / tot_num * 100)
+            if self.atoms[k].vol is None or self.atoms[k].vol == 0:
+                calc_vol(self.atoms[k])
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
                 h, m, s = get_time(my_time)
                 print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                 ".format(int(h), int(m), round(s, 2), percentage), end="")
 
-    def build(self, output=True, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
+    def build(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
               calc_verts=None, my_group=None, print_actions=None):
         """
         Build network function used to calculate the voronoi
         :param print_actions: Print the network building actions
         :param net_type: Describes the network construction type ('curv', 'del', 'pow')
         :param my_group: Describes the group of atoms (mols, resids, etc) for network construction
-        :param output: Output information for the group? If yes all gets outputted
         :param surf_res: Resolution for the surface construction
         :param max_vert: Maximum allowed vertex size in the network construciton
         :param box_size: Maximum box multiplier for the retaining box
@@ -375,9 +380,6 @@ class Network:
         my_group.get_info()
         # Stop the timer and measure the time
         self.my_time = time.process_time() - self.my_time
-        # Export the network
-        if output:
-            self.sys.exports(network=True, pdb=True, info=self.build_surfs, set_atoms=True)
         h, m, s = get_time(self.my_time)
         print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s\n"
               .format(len(self.verts), len(self.surfs), int(h), int(m), s), end="")
