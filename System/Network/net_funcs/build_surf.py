@@ -422,4 +422,7 @@ def build_surf(surf, res=None):
         # Filter out the bad triangles
         filter_tris(surf.tris, surf.flat_points, surf.res, surf.perimeter, surf.loc, surf.norm, surf.filter_hard)
         # Calculate the curvature of the triangles and the surface
-        surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris)
+        if not surf.flat:
+            surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris)
+        else:
+            surf.tri_curvs, surf.curv = [0 for _ in range(len(surf.tris))], 0
