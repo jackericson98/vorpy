@@ -1,4 +1,7 @@
 import os
+from System.sys_funcs.output.surfs import write_surfs
+from System.sys_funcs.output.edges import write_edges
+from System.sys_funcs.output.verts import write_verts
 
 
 def write_pdb(atoms, name, sys=None, directory=None):
@@ -87,3 +90,21 @@ def write_gro(atoms, name, sys, directory=None):
         box = sys.net.box
         f.write("{:10.5f}{:10.5f}{:10.5f}{:10.5f}{:10.5f}{:10.5f}\n".format(box[0][0], box[0][1], box[0][2], box[1][0],
                                                                             box[1][1], box[1][2]))
+
+
+def write_atom_cells(atoms, directory, surfs=True, edges=False, verts=False):
+    # Change to the directory
+    os.chdir(directory)
+    # Go through the atoms
+    for i, atom in atoms:
+        # Check if the surfaces should be exported
+        if surfs:
+            # Write the surfaces
+            write_surfs(atom.surfs, directory=directory, file_name=atom.num + "_" + atom.name)
+        # Check for verts
+        if verts:
+            write_verts(atom.verts, directory=directory, file_name=atom.num + "_" + atom.name + "_verts")
+
+        # Check for verts
+        if edges:
+            write_edges(atom.edges, directory=directory, file_name=atom.num + "_" + atom.name + "_edges")
