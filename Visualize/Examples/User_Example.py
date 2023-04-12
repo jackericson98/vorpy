@@ -12,7 +12,7 @@ for file in files:
     os.chdir(my_dir)
     # Get the System
     sys = System(os.getcwd() + "/Data/test_data/" + file)
-    sys.build_network(sol_verts=True, surf_res=0.02, max_vert=20, box_size=2.5)
+    sys.build_network(surf_res=0.02, max_vert=20, box_size=2.5)
     fig = plt.figure()
     ax = fig.add_subplot(projection="3d")
     plot_atoms(sys.atoms[0:4], fig=fig, ax=ax)

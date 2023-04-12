@@ -52,9 +52,11 @@ def read_pdb(sys, file=None):
             # Check for the "m" situation
             if line[76:78] == ' M':
                 continue
+            name = line[12:16]
+            name.strip()
             # Create the atom
             atom = Atom(location=[float(line[30:38]), float(line[38:46]), float(line[46:54])], system=sys,
-                        element=line[76:78].strip(), res_seq=int(line[22:26]), name=line[12:16], seg_id=line[72:76],
+                        element=line[76:78].strip(), res_seq=int(line[22:26]), name=name, seg_id=line[72:76],
                         index=atom_count)
             # Add the atom to the atoms list
             atoms.append(atom)

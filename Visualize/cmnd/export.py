@@ -1,6 +1,5 @@
 from Visualize.cmnd.interpret import *
 from Visualize.cmnd.group import group
-from System.sys_funcs.output.system import *
 
 
 def change_surf_setting(my_group):

@@ -3,7 +3,7 @@ import tkinter.ttk as ttk
 from tkinter import filedialog
 from System.system import System, Network
 from System.Group.group import Group
-from System.sys_funcs.output.system import *
+from System.sys_funcs.output.output import *
 
 
 # Loading gui class. Holds the settings for the load/settings gui

@@ -1,6 +1,6 @@
 import os
 from System.system import System, Atom
-from Visualize.visualize import *
+from Visualize.mpl_visualize import *
 os.chdir("../..")
 
 # cases = []
@@ -36,7 +36,7 @@ cases.append(System([Atom([-1.5, 0, 0], 1.5), Atom([-0.4, 0, 0], 0.5)] + vert_at
 for i in range(len(cases)):
     cases[i].net.box_size = 100
     cases[i].net.max_vert = 100
-    cases[i].build_network(output=False)
+    cases[i].build_network()
 
 
 fig = plt.figure(figsize=(20, 40))
