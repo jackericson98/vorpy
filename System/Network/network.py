@@ -40,6 +40,7 @@ class Network:
 
         # Diagnostic variables
         self.my_time = None                # My time          :    Time taken to calculate the network
+        self.metrics = {}                  # Build Metrics    :    Holds the time measurements for the build
         self.max_vert_rad = 0              # Max Vertex Rad   :    Maximum real vertex recorded
 
         # Build settings
@@ -228,6 +229,7 @@ class Network:
         :return:
         """
         build(self, my_group)
+        self.metrics['con'] = time.perf_counter() - self.my_time - self.metrics['vert']
 
     def find_verts(self, time_start=None, process_time_start=None, my_group=None):
         """
@@ -256,6 +258,7 @@ class Network:
         #     if self.sys.print_actions:
         #         print("\rvertex process ({} verts) = {}:{}:{:.2f} s, cpu time = {}"
         #               .format(len(self.verts), int(h), int(m), s, process_time))
+        self.metrics['vert'] = time.perf_counter() - self.my_time
 
     def build_edges(self):
         """
@@ -281,6 +284,7 @@ class Network:
                   .format(int(h), int(m), round(s, 2), min(100.0, 100 * round(i/len(self.surfs), 2))), end="")
             build_surf(surf)
         print("\r                                                                                             ", end='')
+        self.metrics['surf'] = time.perf_counter() - self.my_time - self.metrics['vert'] - self.metrics['con']
 
     def analyze(self):
         """
@@ -318,6 +322,7 @@ class Network:
                 my_time = time.perf_counter() - self.my_time
                 h, m, s = get_time(my_time)
                 print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                 ".format(int(h), int(m), round(s, 2), percentage), end="")
+        self.metrics['anal'] = time.perf_counter() - self.my_time - self.metrics['surf'] - self.metrics['con'] - self.metrics['vert']
 
     def build(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
               calc_verts=None, my_group=None, print_actions=None):
@@ -364,6 +369,8 @@ class Network:
             # Check to see if there are vertices
             if self.verts is None or len(self.verts) == 0:
                 return
+        else:
+            self.metrics['vert'] = 0
         # Connect the network
         self.connect(my_group)
         # Build the edges in the network
@@ -376,10 +383,11 @@ class Network:
         else:
             for surf in self.surfs:
                 surf.func = calc_surf_func(surf.atoms[0].loc, surf.atoms[0].rad, surf.atoms[1].loc, surf.atoms[1].rad)
+            self.metrics['surf'], self.metrics['anal'] = 0, 0
         # Load the elements to the group
         my_group.get_info()
         # Stop the timer and measure the time
-        self.my_time = time.process_time() - self.my_time
-        h, m, s = get_time(self.my_time)
+        self.metrics['tot'] = time.process_time() - self.my_time
+        h, m, s = get_time(self.metrics['tot'])
         print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s\n"
               .format(len(self.verts), len(self.surfs), int(h), int(m), s), end="")
