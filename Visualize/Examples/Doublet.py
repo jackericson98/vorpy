@@ -16,7 +16,7 @@ outer_atoms = [Atom(_, r) for _ in outer_atoms_locs]
 c1_atoms = [Atom([-1.01, -0.001, 0], 0.95), Atom([1, 0, 0], 0.95), Atom([0, 2, 0], 1.5), Atom([0, -2, 0], 1.5)]
 # c1_atoms = [Atom([19.710, 19.200, 11.260], 1.5), Atom([18.970, 17.660, 13.210], 1.5), Atom([19.210, 17.810, 12.290], 1.3), Atom([19.210, 19.680, 13.760], 1.3)]
 c1_sys = System(c1_atoms + outer_atoms)
-c1_sys.build_network(output=False, max_vert=100, box_size=100, surf_res=0.5)
+c1_sys.build_network(max_vert=100, box_size=100, surf_res=0.5)
 
 fig = plt.figure()
 ax = fig.add_subplot(projection="3d")
