@@ -3,6 +3,53 @@ import csv
 from System.sys_funcs.output.surfs import write_surfs
 
 
+def export_net_logs(net):
+    # Open the file
+    with open(net.sys.name + "_logs.csv", 'w') as l:
+        # Create the csv writer
+        logs = csv.writer(l)
+        # Write the atom header
+        logs.writerow(["Atoms"])
+        # Write the column labels
+        logs.writerow(["index", "name", "volume", "surface area", "neighbors"])
+        # Go through the atoms in the system
+        for i, atom in enumerate(net.atoms):
+            a_surfs = [_[0] if _[0] != atom.num else _[1] for _ in [_.ndx for _ in atom.surfs]]
+            logs.writerow([i, atom.name, atom.vol, atom.sa, *a_surfs])
+        # Write the surfaces header
+        logs.writerow(["Surfaces"])
+        # Write the surface column labels
+        logs.writerow(["index", "atom0", "atom1", "surface area", "curvature", "vol a0", "vol a1"])
+        # Go through the surfaces in the system and write their information
+        for i, surf in enumerate(net.surfs):
+            # Write the information for the surface
+            logs.writerow([i, *surf.ndx, surf.sa, surf.curv, *surf.vols])
+        # Write the edges header
+        logs.writerow(["Edges"])
+        # Write the edges headers
+        logs.writerow(["index", "atom0", "atom1", "atom2", "length"])
+        # Go through the edges in the network
+        for i, edge in enumerate(net.edges):
+            # Write the data for the edge
+            logs.writerow([i, *edge.ndx, edge.length])
+        # Write the vertices header
+        logs.writerow(["Vertices"])
+        # Write the vertices data labels
+        logs.writerow(["index", "atom0", "atom1", "atom2", "atom3", "x", "y", "z", "r"])
+        # Go through the vertices
+        for i, vert in enumerate(net.verts):
+            # Write the vertex information line
+            logs.writerow([i, *vert.atoms, *vert.loc, vert.rad])
+        # Write the connections header
+        logs.writerow(["Vertex Connections"])
+        # Write the connection data labels
+        logs.writerow(["index", "edge0", "edge1", "edge2", "edge3", "surf0", "surf1", "surf2", "surf3", "surf4", "surf5"])
+        # Go through the vertices
+        for i, vert in enumerate(net.verts):
+            # Write the data
+            logs.writerow([i] + vert.edges + [-1] * (4 - len(vert.edges)) + vert.surfs)
+
+
 def export_net(net, output_surfs=True):
     # Create the file for export
     if net.sys.net_file is None:
