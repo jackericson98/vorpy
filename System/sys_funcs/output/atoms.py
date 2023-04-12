@@ -96,15 +96,15 @@ def write_atom_cells(atoms, directory, surfs=True, edges=False, verts=False):
     # Change to the directory
     os.chdir(directory)
     # Go through the atoms
-    for i, atom in atoms:
+    for i, atom in enumerate(atoms):
         # Check if the surfaces should be exported
         if surfs:
             # Write the surfaces
-            write_surfs(atom.surfs, directory=directory, file_name=atom.num + "_" + atom.name)
+            write_surfs(atom.surfs, directory=directory, file_name=str(atom.num) + "_" + atom.name)
         # Check for verts
         if verts:
-            write_verts(atom.verts, directory=directory, file_name=atom.num + "_" + atom.name + "_verts")
+            write_verts(atom.verts, directory=directory, file_name=str(atom.num) + "_" + atom.name + "_verts")
 
         # Check for verts
         if edges:
-            write_edges(atom.edges, directory=directory, file_name=atom.num + "_" + atom.name + "_edges")
+            write_edges(atom.edges, directory=directory, file_name=str(atom.num) + "_" + atom.name + "_edges")
