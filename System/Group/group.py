@@ -219,28 +219,25 @@ class Group:
         """
         get_layers(self, max_layers, group_resids, build_surfs)
 
-    def exports(self, all_=False, atoms=False, shell=False, fill=False, surfaces=False, layers=False, num_layers=50,
-                info=False, iface=False, verts=False, surr_atoms=False, ext_atoms=False, shell_edges=False,
-                shell_verts=False, edges=False):
+    def exports(self, all_=False, iface=False, atoms=False, surfs=False, sep_surfs=False, edges=False,
+                sep_edges=False, verts=False, sep_verts=False, layers=-1, info=False, surr_atoms=False,
+                ext_atoms=False, shell=False):
         """
         Exports specified export types for the group
         :param all_: All possible exports for the group will be exported to the group directory
         :param atoms: Exports a new pdb file containing only the atoms of the group
         :param shell: Exports the outer surfaces of the group
-        :param fill: Exports all surfaces in the group as one object
-        :param surfaces: Exports all surfaces in the group as separate files, named by their atoms
+        :param surfs: Exports all surfaces in the group as one object
+        :param sep_surfs: Exports all surfaces in the group as separate files, named by their atoms
         :param layers: Exports all layers surrounding the group, unless num_layers is specified
-        :param num_layers: Controls the number of exported layers for the group
         :param info: Exports the information for the group
         :param iface: Exports the interface for the group, bff must be specified first
         :param verts: Exports the vertices of the group as an off file
         :param surr_atoms: Exports the atoms directly surrounding the group (residues intact)
         :param ext_atoms: Exports the outermost atoms in the group's set of atoms (must be a part of shell)
-        :param shell_edges: Exports only the outermost edges for the group as an OFF file
-        :param shell_verts: Exports the outermost vertices for the group
         :param edges: Exports all edges for the group
         :return: The specified export is placed in the group's directory
         """
-        group_exports(grp=self, all_=all_, atoms=atoms, shell=shell, fill=fill, surfaces=surfaces, layers=layers,
-                      num_layers=num_layers, info=info, iface=iface, verts=verts, surr_atoms=surr_atoms,
-                      ext_atoms=ext_atoms, shell_edges=shell_edges, shell_verts=shell_verts, edges=edges)
+        group_exports(grp=self, all_=all_, iface=iface, atoms=atoms, surfs=surfs, sep_surfs=sep_surfs, edges=edges,
+                      sep_edges=sep_edges, verts=verts, sep_verts=sep_verts, layers=layers, info=info,
+                      surr_atoms=surr_atoms, ext_atoms=ext_atoms,  shell=shell)
