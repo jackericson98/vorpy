@@ -1,6 +1,7 @@
-from System.sys_funcs.input import *
-from System.sys_funcs.read_net import read_net
-from System.sys_funcs.output import *
+from System.sys_funcs.input.input import *
+from System.sys_funcs.input.read_net import read_net
+from System.sys_funcs.output.system import set_sys_dir, export_sys
+from System.sys_funcs.output.net import export_net, export_verts
 from System.Group.group import Group
 from Visualize.mpl_visualize import *
 from numpy import seterr, random
@@ -273,7 +274,7 @@ class System:
         Links set output directory to the system
         :return:
         """
-        set_output_dir(self, dir_name=directory)
+        set_sys_dir(self, dir_name=directory)
 
     def exports(self, all_=False, network=False, pdb=False, surfaces=False, full_network_object=False, set_atoms=False,
                 info=False):

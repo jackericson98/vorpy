@@ -1,4 +1,4 @@
-from System.sys_funcs.calcs import *
+from System.sys_funcs.calcs.calcs import *
 
 
 class Atom:

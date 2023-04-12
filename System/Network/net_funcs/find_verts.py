@@ -1,4 +1,4 @@
-from System.sys_funcs.calcs import ndx_search, get_time, calc_circ
+from System.sys_funcs.calcs.calcs import ndx_search, get_time, calc_circ
 from System.Network.net_objs.vertex import Vertex
 from System.Network.net_objs.edge import Edge
 from numpy import sqrt, array, square

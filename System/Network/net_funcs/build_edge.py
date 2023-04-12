@@ -1,5 +1,5 @@
 import numpy as np
-from System.sys_funcs.calcs import calc_circ, calc_angle, calc_surf_func
+from System.sys_funcs.calcs.calcs import calc_circ, calc_angle, calc_surf_func
 from System.Network.net_objs.surface import Surface
 
 

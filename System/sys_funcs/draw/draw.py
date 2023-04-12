@@ -1,5 +1,5 @@
 import numpy as np
-from System.sys_funcs.calcs import calc_dist, calc_surf_tri_dists, calc_surf_tri_ins_out, calc_surf_tri_curvs
+from System.sys_funcs.calcs.calcs import calc_surf_tri_dists, calc_surf_tri_ins_out, calc_surf_tri_curvs
 from System.Network.net_funcs.build_edge import build_edge
 import matplotlib as mpl
 

@@ -1,4 +1,4 @@
-from System.sys_funcs.calcs import calc_angle, calc_com, rotate_points, calc_surf_func, calc_surf_tri_curvs
+from System.sys_funcs.calcs.calcs import calc_angle, calc_com, rotate_points, calc_surf_func, calc_surf_tri_curvs
 from System.Network.net_funcs.build_edge import build_edge
 from scipy.spatial import Delaunay
 import numpy as np

@@ -1,4 +1,4 @@
-from System.sys_funcs.calcs import ndx_search
+from System.sys_funcs.calcs.calcs import ndx_search
 
 
 def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):

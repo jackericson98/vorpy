@@ -1,6 +1,5 @@
 import pytest
 
-from System.sys_funcs.input import *
 from System.system import System
 
 

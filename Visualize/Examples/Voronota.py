@@ -1,7 +1,7 @@
 import os
 from System.system import System
 from Visualize.mpl_visualize import *
-from System.sys_funcs.input import read_vta_data
+from System.sys_funcs.input.input import read_vta_data
 
 os.chdir("../..")
 # Files

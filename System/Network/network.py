@@ -4,7 +4,7 @@ from System.Network.net_funcs.find_verts import find_verts
 from System.Network.net_funcs.build_net import build, get_time
 from System.Network.net_funcs.build_edge import build_edge
 from System.Network.net_funcs.build_surf import build_surf
-from System.sys_funcs.calcs import calc_vol, calc_surf_func, calc_surf_sa, ndx_search
+from System.sys_funcs.calcs.calcs import calc_vol, calc_surf_func, calc_surf_sa, ndx_search
 from Visualize.mpl_visualize import *
 
 

@@ -1,5 +1,7 @@
-from System.sys_funcs.output import *
+from System.sys_funcs.output.system import *
 from System.Group.sort import get_iface
+from System.sys_funcs.output.verts import write_verts
+from System.sys_funcs.output.edges import write_edges
 
 
 def export_iface_verts(grp, directory=None):

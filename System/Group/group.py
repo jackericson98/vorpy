@@ -1,9 +1,9 @@
-from System.sys_funcs.output import write_surfs
+from System.sys_funcs.output.surfs import write_surfs
 from System.Group.layers import get_layers
 from System.Group.sort import get_surfs, get_edges, get_verts, add_atoms
 from System.Group.export import group_exports
-from System.sys_funcs.calcs import calc_vol, calc_surf_sa
-from System.sys_funcs.input import read_surf_file
+from System.sys_funcs.calcs.calcs import calc_vol, calc_surf_sa
+from System.sys_funcs.input.input import read_surf_file
 from System.Network.net_funcs.build_surf import build_surf
 import os
 

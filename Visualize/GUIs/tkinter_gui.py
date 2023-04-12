@@ -3,7 +3,7 @@ import tkinter.ttk as ttk
 from tkinter import filedialog
 from System.system import System, Network
 from System.Group.group import Group
-from System.sys_funcs.output import *
+from System.sys_funcs.output.system import *
 
 
 # Loading gui class. Holds the settings for the load/settings gui
@@ -393,7 +393,7 @@ class VorpyT:
         self.atom_options = tk.OptionMenu(self.select_atoms_subfrm, self.current_atom_selection, *self.sys.atom_names)
         self.atom_options.grid(row=5)
         # Set the output directory
-        self.output_directory = set_output_dir(self.sys)
+        self.output_directory = set_sys_dir(self.sys)
         self.output_dir_str.set(self.output_directory)
 
     # Load frames function.

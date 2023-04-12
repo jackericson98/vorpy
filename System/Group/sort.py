@@ -1,4 +1,4 @@
-from System.sys_funcs.calcs import ndx_search
+from System.sys_funcs.calcs.calcs import ndx_search
 
 
 def add_atoms(grp, atom_list):

@@ -1,6 +1,6 @@
 import time
 
-from System.sys_funcs.calcs import *
+from System.sys_funcs.calcs.calcs import *
 from System.Network.net_objs.edge import Edge
 from System.Network.net_objs.surface import Surface
 

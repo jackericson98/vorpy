@@ -1,8 +1,3 @@
-from System.sys_funcs.calcs import calc_circ, calc_angle
-from System.Network.net_objs.surface import Surface
-import numpy as np
-
-
 class Edge:
     """Edge object. Used to build the network and calculate the surfaces"""
     def __init__(self, atoms=None, net=None, verts=None, surfs=None, points=None, center=None, rad=None, normal=None,
