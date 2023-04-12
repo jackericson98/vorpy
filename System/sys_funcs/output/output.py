@@ -1,6 +1,59 @@
 import os
-from System.sys_funcs.output.atoms import write_pdb
+from System.sys_funcs.output.atoms import write_pdb, write_atom_cells
 from System.sys_funcs.output.surfs import write_surfs
+from System.sys_funcs.output.net import export_net_logs
+
+###################################################### Export Functions ################################################
+
+
+def export_min1(sys):
+    sys.exports(info=True)
+    for group in sys.group:
+        group.exports(info=True)
+
+
+def export_min2(sys):
+    sys.exports(info=True, set_atoms=True)
+    for group in sys.groups:
+        group.export(info=True, shell=True)
+
+
+def export_med(sys):
+    sys.exports(pdb=True, set_atoms=True, info=True, network=True, logs=True)
+    for group in sys.groups:
+        group.exports(shell=True, info=True, edges=True, atoms=True)
+
+
+def export_large(sys):
+    sys.exports(pdb=True, set_atoms=True, info=True, logs=True, network=True)
+    for group in sys.groups:
+        group.exports(shell=True, info=True, edges=True, verts=True, atoms=True, surr_atoms=True)
+        os.mkdir(group.dir + "/atoms")
+        write_atom_cells(group.atoms, directory=group.dir + "/atoms")
+
+
+def export_all(sys):
+    sys.exports(pdb=True, info=True, network=True, logs=True, set_atoms=True)
+    for group in sys.groups:
+        group.exports(atoms=True, shell=True, surfs=True, info=True, ext_atoms=True, sep_surfs=True, sep_edges=True, sep_verts=True, verts=True, edges=True)
+    os.mkdir(sys.dir + "/atoms")
+    write_atom_cells(sys.atoms, directory=sys.dir + "/atoms", verts=True, edges=True)
+
+################################################ Other Exports #########################################################
+
+
+def other_exports(sys, usr_npt):
+    """
+
+    :param sys:
+    :param usr_npt:
+    :return:
+    """
+    # Split the words in the input
+    usr_npt.split()
+    # If the first word is atom
+    if usr_npt[0].lower() in {"a", "atoms"}:
+        write_atom_cells(sys.atoms, sys.dir)
 
 
 ####################################################### Main Funcs #####################################################
@@ -42,7 +95,7 @@ def set_sys_dir(sys, dir_name=None):
 
 
 def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_network_object=False,
-               alter_atoms_script=False, info=False):
+               alter_atoms_script=False, info=False, logs=False):
     """
         Prepares the output directory and system for output. Keeps things consistent
         :return:
@@ -86,6 +139,10 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
     if info or all_:
         os.chdir(sys.dir + "/sys")
         export_sys_info(sys)
+    # Export the log file
+    if logs or all_:
+        os.chdir((sys.dir + "/sys"))
+        export_net_logs(sys.net)
     os.chdir(sys.dir)
 
 
@@ -110,26 +167,27 @@ def set_pymol_atoms(sys):
         # Rebuild the system
         file.write("\nrebuild")
 
+
 def export_sys_info(sys):
     # Open the file
-    with open(sys.name + "_net_info.txt", 'w') as info:
+    with open(sys.name + "info.txt", 'w') as info:
         # Write the header
-        info.write(sys.name + " Network\n\n")
+        info.write(sys.name + " Network")
         # Write the chain header
-        info.write("Chains:\n\n")
+        info.write("\n\n++++++++++++++++++++++++  Chains  +++++++++++++++++++++++++++++++\n\n")
         # Go through the chains in the system
         for chain in sys.chains:
             # Write the chain header
-            info.write("Chain {} - {} atoms, {} residues".format(chain.name, len(chain.atoms), len(chain.residues)))
-        # Write the atom header
-        info.write("Atoms:\n\n")
-        # Go through the atoms in the system
-        for i in range(len(sys.atoms)):
-            info.write("    {} - cell volume = {}, cell surface area {}\n"
-                       .format(sys.atoms[i].name, sys.atoms[i].vol, sys.atoms[i].sa))
-        # Write the surfaces header
-        info.write("Surfaces:\n\n")
-        # Go through the surfaces in the system and write their information
-        for i in range(len(sys.net.surfs)):
-            surf = sys.net.surfs[i]
-            info.write("    Surface {}-{} - Surface area = {}\n".format(surf.ndx[0], surf.ndx[1], surf.sa))
+            info.write("Chain {} - {} atoms, {} residues\n".format(chain.name, len(chain.atoms), len(chain.residues)))
+            # Quick check to see if the chain has been calculated
+            if chain.vol is not None and chain.vol < 0:
+                # Write the chain information
+                info.write("  Volume = {}, Surface Area = {}\n\n".format(chain.vol, chain.sa))
+        # Draw a separating line
+        info.write("\n\n++++++++++++++++++++++++  Groups  +++++++++++++++++++++++++++++++\n\n")
+        for group in sys.groups:
+            # Write the group header
+            info.write("Group {} - {} atoms, {} residues, {} chains\n".format(group.name, len(group.atoms), len(group.residues), len(group.chains)))
+            # Write the group info
+            info.write("  Volume = {}, Surface Area = {}\n\n".format(group.vol, group.sa))
+
