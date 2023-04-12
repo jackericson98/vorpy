@@ -1,21 +1,42 @@
 import os
 import csv
 from System.sys_funcs.output.surfs import write_surfs
+from System.sys_funcs.calcs.calcs import round_func
 
 
-def export_net_logs(net):
+def export_net_logs(net, round_to=3):
+    r = round_func(round_to)
+
     # Open the file
     with open(net.sys.name + "_logs.csv", 'w') as l:
         # Create the csv writer
-        logs = csv.writer(l)
+        logs = csv.writer(l, lineterminator='\n')
+        # Write the build information header
+        logs.writerow(["build informaiton"])
+        # Write the build information labels
+        logs.writerow(["name", "network type", "surface resolution", "box size", "max vert", "Total Time", "vert time",
+                       "connect time", "surf time", "analysis time", "max vertex"])
+        # Write the build information
+        logs.writerow([net.sys.name, net.type, net.surf_res, net.box_size, net.max_vert, r(net.metrics['tot']),
+                       r(net.metrics['vert']), r(net.metrics['con']), r(net.metrics['surf']), r(net.metrics['anal']),
+                       r(net.max_vert_rad)])
+        # Write the group information header
+        logs.writerow(["group information"])
+        # Write the group information labels
+        logs.writerow(["index", "name", "volume", "surface area", "volume"])
+        for i, group in enumerate(net.sys.groups):
+            # Write the group information
+            logs.writerow([i, group.name, r(group.sa), r(group.vol)])
         # Write the atom header
         logs.writerow(["Atoms"])
         # Write the column labels
         logs.writerow(["index", "name", "volume", "surface area", "neighbors"])
         # Go through the atoms in the system
         for i, atom in enumerate(net.atoms):
+            if atom.sa == 0:
+                continue
             a_surfs = [_[0] if _[0] != atom.num else _[1] for _ in [_.ndx for _ in atom.surfs]]
-            logs.writerow([i, atom.name, atom.vol, atom.sa, *a_surfs])
+            logs.writerow([i, atom.name, r(atom.vol), r(atom.sa), *a_surfs])
         # Write the surfaces header
         logs.writerow(["Surfaces"])
         # Write the surface column labels
@@ -23,7 +44,7 @@ def export_net_logs(net):
         # Go through the surfaces in the system and write their information
         for i, surf in enumerate(net.surfs):
             # Write the information for the surface
-            logs.writerow([i, *surf.ndx, surf.sa, surf.curv, *surf.vols])
+            logs.writerow([i, *surf.ndx, r(surf.sa), r(surf.curv), r(surf.vols[0]), r(surf.vols[1])])
         # Write the edges header
         logs.writerow(["Edges"])
         # Write the edges headers
@@ -31,7 +52,7 @@ def export_net_logs(net):
         # Go through the edges in the network
         for i, edge in enumerate(net.edges):
             # Write the data for the edge
-            logs.writerow([i, *edge.ndx, edge.length])
+            logs.writerow([i, *edge.ndx, r(edge.length)])
         # Write the vertices header
         logs.writerow(["Vertices"])
         # Write the vertices data labels
@@ -39,7 +60,7 @@ def export_net_logs(net):
         # Go through the vertices
         for i, vert in enumerate(net.verts):
             # Write the vertex information line
-            logs.writerow([i, *vert.atoms, *vert.loc, vert.rad])
+            logs.writerow([i, *vert.ndx, *[r(_) for _ in vert.loc], r(vert.rad)])
         # Write the connections header
         logs.writerow(["Vertex Connections"])
         # Write the connection data labels
@@ -47,7 +68,8 @@ def export_net_logs(net):
         # Go through the vertices
         for i, vert in enumerate(net.verts):
             # Write the data
-            logs.writerow([i] + vert.edges + [-1] * (4 - len(vert.edges)) + vert.surfs)
+            logs.writerow([i] + [net.edges.index(_) for _ in vert.edges] + [-1] * (4 - len(vert.edges)) +
+                          [net.surfs.index(_) for _ in vert.surfs])
 
 
 def export_net(net, output_surfs=True):
