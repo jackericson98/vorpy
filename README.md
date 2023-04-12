@@ -4,15 +4,9 @@
 
 ## Description
 
-A comprehensive Voronoi cell network generator for 3D spheres designed for simulated molecular dynamics (md) analysis. Takes in text files containing the locations of atoms in simulated molecules and creates individually partitioned atomic Voronoi cells that can be used for visualization and analysis. The atoms are then partitioned by sampling points along the Voronoi surfaces of neigboring atoms. Using these partitions, data about atomic bodies and interfaces of interest (residue, protein/DNA, etc.) can be more accurately calculated. If specified, will output the network components in OFF data file format for visualization alongside the atoms. 
+Volumetric, Area, and distance calculator for analysis of simulated molecules. Using the locations and radii of atoms in simulated molecules individually partitioned atomic cells are created for visualization and comparison. The atoms are partitioned by sampling points along the Voronoi, Power, or Delaunay surfaces of neigboring atoms. Using these partitions, data about atomic bodies and interfaces of interest (residue, protein/DNA, etc.) can be more accurately calculated.
 
-Volume changes directly govern pressure-based technologies in microbiological sterilization and food processing. At the molecular level, the relative incompressibility of bulk water means that volume changes offer a sensitive window into the hydration and dynamic properties of macromolecular conformations in aqueous solution. In contrast, resolution of calorimetric observables such as entropy and heat capacity into hydration and dynamic components between solute and solvent remains theoretically challenging.3-7 Moreover, volumetric properties are directly amenable to modeling by molecular dynamics (MD) simulations. 
-
-Jack Ericson <br/>
-Chemistry Department <br/>
-Georgia State University
-
-
+Volume changes directly govern pressure-based technologies in microbiological sterilization and food processing. At the molecular level, the relative incompressibility of bulk water means that volume changes offer a sensitive window into the hydration and dynamic properties of macromolecular conformations in aqueous solution. In contrast, resolution of calorimetric observables such as entropy and heat capacity into hydration and dynamic components between solute and solvent remains theoretically challenging.
 
 ## Usage
 
