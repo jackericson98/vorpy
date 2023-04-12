@@ -33,7 +33,7 @@ class Surface:
 
         # Calculation attributes
         self.sa = sa                    # Surface Area    : The surface area of the
-        self.curv = curvature           # Curvature       : The curvature of the surface between the
+        self.curv = 0                   # Curvature       : The curvature of the surface between the
         self.vols = [0, 0]              # Volumes         : The volume contributions from each of the atom
         self.norm = normal              # Surface Normal  : Normal to the center of the surface
         self.loc = center               # Location        : Center point of the hyperboloid the surface is made from
