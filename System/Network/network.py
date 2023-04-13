@@ -314,10 +314,17 @@ class Network:
                       .format(int(h), int(m), round(s, 2), percentage), end="")
         j = 0
         # Go through each atom in the system and find the volume
-        for k in range(len(self.atoms)):
+        for k, atom in enumerate(self.atoms):
+            # Get the percentage for printing
             percentage = int((i + j + k + 2) / tot_num * 100)
-            if self.atoms[k].vol is None or self.atoms[k].vol == 0:
-                calc_vol(self.atoms[k])
+            if atom.vol is None or atom.vol == 0:
+                calc_vol(atom)
+            # Check that the curvature is None
+            if atom.curv is None or atom.curv == 0:
+                # Go through the atom's surfaces
+                for surf in atom.surfs:
+                    atom.curv += surf.curv
+            # Print the actions
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
                 h, m, s = get_time(my_time)

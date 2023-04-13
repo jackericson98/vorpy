@@ -16,6 +16,7 @@ class Atom:
         # Calculated Traits
         self.vol = 0                # Cell Volume  :   Volume of the voronoi cell for the atom
         self.sa = 0                 # Surface Area :   Surface area of the atom's cell
+        self.curv = 0
         self.box = []               # Box          :   The grid location of the atom
 
         # Network objects

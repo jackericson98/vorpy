@@ -30,13 +30,13 @@ def export_net_logs(net, round_to=3):
         # Write the atom header
         logs.writerow(["Atoms"])
         # Write the column labels
-        logs.writerow(["index", "name", "volume", "surface area", "neighbors"])
+        logs.writerow(["index", "name", "volume", "surface area", "max curvature", "neighbors"])
         # Go through the atoms in the system
         for i, atom in enumerate(net.atoms):
             if atom.sa == 0:
                 continue
             a_surfs = [_[0] if _[0] != atom.num else _[1] for _ in [_.ndx for _ in atom.surfs]]
-            logs.writerow([i, atom.name, r(atom.vol), r(atom.sa), *a_surfs])
+            logs.writerow([i, atom.name, r(atom.vol), r(atom.sa), atom.curv, *a_surfs])
         # Write the surfaces header
         logs.writerow(["Surfaces"])
         # Write the surface column labels
