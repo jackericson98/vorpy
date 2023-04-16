@@ -1,16 +1,22 @@
+import time
+import numpy as np
+from numpy import sqrt, array, square, dot, isreal, linalg
 from System.sys_funcs.calcs.calcs import ndx_search, get_time, calc_circ
 from System.Network.net_objs.vertex import Vertex
 from System.Network.net_objs.edge import Edge
-from numpy import sqrt, array, square
-import numpy as np
-import time
 
 
 # Calculate vertex function. Takes in 4 atoms, calculates the loc and rad of the inscribed sphere and adds the
 def calc_vert(locs, rads):
+    """
+    Calculates the voronoi vertex between the locations and radii provided
+    :param locs: Location lists
+    :param rads: Radius lists
+    :return: Vertex location, radius, second location, second radius
+    """
     # The real location and radius of the base sphere
     if type(locs[0]) == list:
-        locs = [np.array(_) for _ in locs]
+        locs = [array(_) for _ in locs]
     r0, r1, r2, r3 = rads
     r0_2 = r0 ** 2
     # Find the recalculated location of the atoms
@@ -35,9 +41,9 @@ def calc_vert(locs, rads):
     m_rank, f_rank = 3, 3
     if F == 0:
         my_mtx = [[a1, a2, a3], [b1, b2, b3], [c1, c2, c3], [d1, d2, d3], [f1, f2, f3]]
-        m_rank = np.linalg.matrix_rank(np.array(my_mtx[:-1]))
+        m_rank = linalg.matrix_rank(array(my_mtx[:-1]))
         if m_rank != 3:
-            f_rank = np.linalg.matrix_rank(np.array(my_mtx))
+            f_rank = linalg.matrix_rank(array(my_mtx))
     verts = []
     xs, ys, zs, Rs = [], [], [], []
     # Case 1:
@@ -48,7 +54,7 @@ def calc_vert(locs, rads):
         c = ((F10 ** 2 + F20 ** 2 + F30 ** 2) / F_2) - r0 ** 2
         # If the discriminant is positive, find the real positive roots of the quadratic
         if -4 * a * c + b ** 2 >= 0:
-            Rs = [R for R in np.roots([a, b, c]) if np.isreal(R)]
+            Rs = [R for R in np.roots([a, b, c]) if isreal(R)]
         # Instantiate the verts array
         verts = []
         # Go through each radius and calculate the vertex
@@ -66,7 +72,7 @@ def calc_vert(locs, rads):
         # Check the discriminant
         disc = -4 * a * c + b ** 2
         if disc > 0:
-            roots = [root for root in np.roots([a, b, c]) if np.isreal(root)]
+            roots = [root for root in np.roots([a, b, c]) if isreal(root)]
         # Case 2 subcases:
         # Case 2.1
         if F31 != 0:
@@ -120,10 +126,10 @@ def calc_flat_vert(locs, rads, power=False):
     """
     Calculates the flat vertex between 4 atoms by finding the intersection of the mid-point planes between the first
     atom and the others
-    :param rads:
-    :param locs:
-    :param power:
-    :return:
+    :param locs: List of atomic locations
+    :param rads: List of atomic radii
+    :param power: Whether to calculate the vertex as a power or Delaunay
+    :return: Location and radius tuple
     """
     atom_rads = [(x, _) for _, x in sorted(zip(rads, locs), key=lambda pair: pair[0])]
     # Get the plane equations
@@ -131,15 +137,15 @@ def calc_flat_vert(locs, rads, power=False):
     # Go through the atoms to make the planes
     for an in atom_rads[1:]:
         # Get the point between the atoms
-        r = np.array(an[0]) - np.array(atom_rads[0][0])
-        norm = np.linalg.norm(r)
+        r = array(an[0]) - array(atom_rads[0][0])
+        norm = linalg.norm(r)
         rn = r / norm
         if power:
             d0 = 0.5 * (norm ** 2 + atom_rads[0][1] ** 2 - an[1] ** 2) / norm
             center = atom_rads[0][0] + d0 * rn
         else:
-            center = 0.5 * r + np.array(atom_rads[0][0])
-        coeffs.append(rn.tolist() + [np.dot(rn, center)])
+            center = 0.5 * r + array(atom_rads[0][0])
+        coeffs.append(rn.tolist() + [dot(rn, center)])
 
     x1, y1, z1, c1 = coeffs[0]
     x2, y2, z2, c2 = coeffs[1]
@@ -152,14 +158,20 @@ def calc_flat_vert(locs, rads, power=False):
     x, y, z = x_numerator / disc, y_numerator / disc, z_numerator / disc
     # Get the radius
     if power:
-        rad = np.sqrt(sum(np.square(np.array([x, y, z]) - np.array(atom_rads[0][0])))) ** 2 - atom_rads[0][1] ** 2
+        rad = sqrt(sum(square(array([x, y, z]) - array(atom_rads[0][0])))) ** 2 - atom_rads[0][1] ** 2
     else:
-        rad = np.sqrt(sum(np.square(np.array([x, y, z]) - np.array(atom_rads[0][0]))))
+        rad = sqrt(sum(square(array([x, y, z]) - array(atom_rads[0][0]))))
     return [x, y, z], rad
 
 
-# Find v0 function. Uses the atom finding functions to find a real verified site in the network
 def find_v0(net, a0=None, group_atoms=None):
+    """
+    Finds v0 using the atom finding functions to find a real verified site
+    :param net: Network object to check from
+    :param a0: The atom to seed from
+    :param group_atoms: List of atoms for the building group based networks
+    :return: V0 vertex
+    """
     # Check to see if we need a group atom's box
     if a0 is not None:
         my_box = a0.box
@@ -207,10 +219,12 @@ def find_v0(net, a0=None, group_atoms=None):
             # Use an edge object as a vehicle for calculating and verifying the inscribed circle
             edge = Edge(atoms=[a0, a1, a2], net=net)
             circ = calc_circ(*[_.loc for _ in edge.atoms], *[_.rad for _ in edge.atoms])
+            eloc, erad = None, None
             if circ is not None:
-                edge.loc, edge.rad = circ
+                edge.vals['loc'], edge.vals['rad'] = circ
+                eloc, erad = edge.vals['loc'], edge.vals['rad']
             # If a circle can be made and the site does not overlap with any other atoms, add it to the list
-            if edge.loc is not None and edge.rad < net.max_vert and verify_site(edge.loc, edge.rad, edge.ndx, net):
+            if eloc is not None and erad < net.max_vert and verify_site(eloc, erad, edge.ndx, net, net.type):
                 verified_circles.append(edge.atoms)
         # Try to make a verified v0 site with the verified circles
         for circle in verified_circles:
@@ -222,8 +236,16 @@ def find_v0(net, a0=None, group_atoms=None):
         j += 1
 
 
-# Verify site function. Compares a vertex to the atoms around to see if they overlap
-def verify_site(loc, rad, ndx, net):
+def verify_site(loc, rad, ndx, net, net_type='vor'):
+    """
+    Compares a vertex to the atoms around to see if they overlap
+    :param loc: Location of the site to be verified
+    :param rad: Radius of the site to be verified
+    :param ndx: Index of the potential vertex
+    :param net: Network object for checking against
+    :param net_type: Network type
+    :return: Bool for if the vertex is good
+    """
     # Find the indices of the sub-box for the vertex
     vi, vj, vk = [int((loc[i] - net.box[0][i]) / net.sub_box_size[i]) for i in range(3)]
     # Check to see if the sub box even exists
@@ -238,15 +260,15 @@ def verify_site(loc, rad, ndx, net):
         if atom.num in checked_atoms:
             continue
         arad = atom.rad
-        if net.type == 'del':
+        if net_type == 'del':
             if sqrt(sum(square(array(atom.loc) - array(loc)))) < rad:
                 return False
         # Verify power
-        elif net.type == 'pow':
+        elif net_type == 'pow':
             if sqrt(sum(square(array(atom.loc) - array(loc)))) ** 2 - arad ** 2 < rad:
                 return False
         # Verification for a voronoi network
-        elif net.type == 'vor':
+        elif net_type == 'vor':
             if sqrt(sum(square(array(atom.loc) - array(loc)))) < arad + rad:
                 return False
         # Add the atom to the checked atoms list
@@ -283,8 +305,16 @@ def verify_site(loc, rad, ndx, net):
     return True
 
 
-# Find site function. Used a vertex and a combination of it's edge atoms to find the connecting vertex
 def find_site(net, edge_atoms, vn_1=None, first=False, group_atoms=None):
+    """
+    Used a vertex and a combination of it's edge atoms to find the connecting vertex
+    :param net: Network to search from
+    :param edge_atoms: Atoms to check against
+    :param vn_1: Previous vertex to check from
+    :param first: If this is the first site or not
+    :param group_atoms: The group atoms to check against
+    :return: The vertex
+    """
     # Get the atoms that should not ba a part of the new vertex
     edge_ndxs = [_.num for _ in edge_atoms]
     # Check if the edge contains a group atom or not
@@ -347,16 +377,16 @@ def find_site(net, edge_atoms, vn_1=None, first=False, group_atoms=None):
             doublet = Vertex(location=vert.loc2, radius=vert.rad2, atoms=vert.atoms, net=net, doublet=vert,
                              loc2=vert.loc, rad2=vert.rad, ndx=vert.ndx)
         # Filter the vertex out if it is too large or not able to be made
-        if abs(vert.rad) < net.max_vert and verify_site(vert.loc, vert.rad, vert.ndx, net):
+        if abs(vert.rad) < net.max_vert and verify_site(vert.loc, vert.rad, vert.ndx, net, net.type):
             if len(verts) > 0 and verts[0].rad < vert.rad:
                 return verts[0], vert_ndx_list_locs[0]
             verts.append(vert)
             vert_ndx_list_locs.append(vert_ndx)
             # If the first vertex site is a valid site add it to the list of check vertices and add its index
-            if doublet is not None and verify_site(doublet.loc, doublet.rad, doublet.ndx, net):
+            if doublet is not None and verify_site(doublet.loc, doublet.rad, doublet.ndx, net, net.type):
                 vert.doublet = doublet
         # Check to see if the doublet's site is verified
-        elif doublet is not None and verify_site(doublet.loc, doublet.rad, doublet.ndx, net):
+        elif doublet is not None and verify_site(doublet.loc, doublet.rad, doublet.ndx, net, net.type):
             doublet.doublet = None
             verts.append(doublet)
             vert_ndx_list_locs.append(vert_ndx)
@@ -371,6 +401,12 @@ def find_site(net, edge_atoms, vn_1=None, first=False, group_atoms=None):
 
 # Find network function. Keeps searching the network until all verts are found
 def find_verts(net, a0=None, my_group=None):
+    """
+    Used a vertex and a combination of it's edge atoms to find the connecting vertex
+    :param net: Network to check against and add to
+    :param a0: Seed first atom
+    :param my_group: Group to filter from
+    """
     # Get the group atoms from which to check vertices against
     if my_group is None or (my_group is not None and len(my_group.atoms) == len(net.atoms)):
         group_atoms = [i for i in range(len(net.atoms))]
