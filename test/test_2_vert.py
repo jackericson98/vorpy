@@ -29,7 +29,7 @@ def test_doublet(vor_net):
 
 # Test the ability to verify a vertex site
 def test_verify_vor_site(vor_net):
-    assert verify_site([18.695, 19.126, 12.54], 0.135, [15, 255, 256, 332], vor_net)
+    assert verify_site([18.695, 19.126, 12.54], 0.135, [15, 255, 256, 332], vor_net, vor_net.type)
 
 
 def test_find_vor_verts(vor_net):
@@ -52,7 +52,7 @@ def test_calc_del_vert(del_net):
 
 
 def test_verify_del_site(del_net):
-    assert verify_site([21.353, 21.368, 9.513], 1.449, [0, 1, 3, 4], del_net)
+    assert verify_site([21.353, 21.368, 9.513], 1.449, [0, 1, 3, 4], del_net, del_net.type)
 
 
 def test_find_del_verts(del_net):
@@ -74,7 +74,7 @@ def test_calc_pow_vert(pow_net):
 
 
 def test_verify_pow_site(pow_net):
-    assert verify_site([21.233, 21.301, 9.761], -0.372, [0, 1, 3, 4], pow_net)
+    assert verify_site([21.233, 21.301, 9.761], -0.372, [0, 1, 3, 4], pow_net, pow_net.type)
 
 
 def test_find_pow_verts(pow_net):

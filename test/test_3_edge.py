@@ -17,7 +17,7 @@ def test_vor_edge_length(vor_net):
 
 
 def test_vor_edge_loc(vor_net):
-    assert [round(_, 3) for _ in vor_net.edges[0].loc] == [20.007, 20.473, 10.206]
+    assert [round(_, 3) for _ in vor_net.edges[0].vals['loc']] == [20.007, 20.473, 10.206]
 
 
 def test_pow_edge_length(pow_net):

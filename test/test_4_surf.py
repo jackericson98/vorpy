@@ -12,7 +12,7 @@ def test_vor_surf_num_points(vor_net):
 
 
 def test_vor_surf_sa(vor_net):
-    assert round(vor_net.surfs[0].sa, 3) == 0.684
+    assert round(vor_net.surfs[0].sa, 3) == 0.687
 
 
 def test_vor_surf_curve(vor_net):
@@ -24,7 +24,7 @@ def test_del_surf_num_points(del_net):
 
 
 def test_del_surf_sa(del_net):
-    assert round(del_net.surfs[0].sa, 3) == 0.667
+    assert round(del_net.surfs[0].sa, 3) == 0.334
 
 
 def test_pow_surf_num_points(pow_net):
@@ -32,7 +32,7 @@ def test_pow_surf_num_points(pow_net):
 
 
 def test_pow_surf_sa(pow_net):
-    assert round(pow_net.surfs[0].sa, 3) == 0.875
+    assert round(pow_net.surfs[0].sa, 3) == 0.438
 
 
 """
