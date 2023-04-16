@@ -225,6 +225,9 @@ def vorpy(my_sys):
         my_sys.load_verts(file=my_sys.vert_file, vta_ball_file=my_sys.ball_file)
         my_sys.net.build(calc_verts=False, my_group=my_group)
 
+    # Export basic system elements
+    my_sys.exports(pdb=True, set_atoms=True, net=True, logs=True)
+
     # Export
     export(my_sys, usr_npt="e", my_group=my_group)
 
