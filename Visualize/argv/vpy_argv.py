@@ -56,10 +56,10 @@ def argv(my_sys):
     files, settings, groups, builds, exports, ifaces = interpret_argvs(my_sys)
     # Go through each of the ls
     argv_load(my_sys, files)
-
     argv_sett(my_sys, settings)
     argv_group(my_sys, groups, bff=ifaces)
-    argv_build(my_sys, builds)
+    if my_sys.net_file is None:
+        argv_build(my_sys, builds)
     argv_export(my_sys, exports)
 
 
