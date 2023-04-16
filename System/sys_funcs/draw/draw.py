@@ -1,5 +1,5 @@
 import numpy as np
-from System.sys_funcs.calcs.calcs import calc_surf_tri_dists, calc_surf_tri_ins_out, calc_surf_tri_curvs
+from System.sys_funcs.calcs.calcs import calc_surf_tri_dists, calc_surf_tri_ins_out, calc_surf_tri_curvs, calc_surf_func
 from System.Network.net_funcs.build_edge import build_edge
 import matplotlib as mpl
 
@@ -24,7 +24,6 @@ def color_tris(surf, color_scheme=None, color_map=None, inverse=False):
     surf.scheme = color_scheme
     # Default is distance based color map
     if color_scheme == 'dist':
-
         # Check if the tri_dists have been calculated before
         if surf.tri_dists is None or len(surf.tri_dists) == 0 or len(surf.tri_dists) != len(surf.tris):
             calc_surf_tri_dists(surf.points, surf.tris, surf.loc)
@@ -35,10 +34,15 @@ def color_tris(surf, color_scheme=None, color_map=None, inverse=False):
         if surf.tri_ins_out is None or len(surf.tri_ins_out) == 0 or len(surf.tri_ins_out) != len(surf.tris):
             calc_surf_tri_ins_out(surf)
         surf.tri_colors = [my_cmap(_) for _ in surf.tri_ins_out]
+
     elif color_scheme == 'curv':
         # First check if the surface is flat
         if surf.flat:
             surf.tri_curvs = [0] * len(surf.tris)
+        # Check if the function is None
+        if surf.func is None:
+            a0, a1 = surf.atoms
+            surf.func = calc_surf_func(a0.loc, a0.rad, a1.loc, a1.rad)
         # Check if the tri_dists have been calculated before
         if surf.tri_curvs is None or len(surf.tri_curvs) == 0 or len(surf.tri_curvs) != len(surf.tris):
             surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris)
@@ -47,6 +51,14 @@ def color_tris(surf, color_scheme=None, color_map=None, inverse=False):
 
 
 def draw_line(points, radius=0.02, color=None, edge_org=None):
+    """
+    Draws a line from point to points
+    :param points: two points
+    :param radius: Radius for the line to be drawn
+    :param color: Color of the line
+    :param edge_org: Vector for the edge orientation
+    :return: points and tris for drawing
+    """
     if edge_org is None:
         edge_org = [0, 0, 1]
     # Initiate the draw attributes
@@ -91,21 +103,19 @@ def draw_line(points, radius=0.02, color=None, edge_org=None):
     return draw_points, draw_tris
 
 
-def draw_grid(net, color=None):
-    # Set up the grid of points
-    grid_points = [[[]]]
-
-
 # Draw Edge Function. Takes in an edge and updates its attributes draw_points, draw_tris
 def draw_edge(edge, radius=0.02, color=None):
-    # Make sure the edge is built already
-    if edge.points is None:
-        build_edge(edge)
-
+    """
+    Draws an edge in triangles and points
+    :param edge: Edge object for exporting
+    :param radius: Radius of the edge to be drawn
+    :param color: Color for the edge drawing
+    :return: None
+    """
     # Get the edge direction to point away from
     rads = [_.rad for _ in edge.atoms]
     min_atom = edge.atoms[rads.index(min(rads))]
-
+    if edge.points is None or len(edge.points) <= 1:
+        edge.points, edge.vals = build_edge(edge.atoms, edge.verts, edge.net.surf_res)
     # Calculate the lines
     edge.draw_points, edge.draw_tris = draw_line(edge.points, radius, color=color, edge_org=min_atom.loc)
-
