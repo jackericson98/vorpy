@@ -4,18 +4,20 @@ from System.Network.net_funcs.find_verts import find_verts
 from System.Network.net_funcs.build_net import build, get_time, calc_length
 from System.Network.net_funcs.build_edge import build_edge
 from System.Network.net_funcs.build_surf import build_surf
-from System.sys_funcs.calcs.calcs import calc_vol, calc_surf_func, calc_surf_sa, ndx_search
+from System.sys_funcs.calcs.calcs import calc_vol, calc_surf_func, calc_surf_sa, ndx_search, calc_surf_tri_curvs
 from Visualize.mpl_visualize import *
 
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
     def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.2, box_size=1.25, max_vert=9,
-                 calc_verts=True, connect_net=True, build_surfs=True, net_type='vor', surf_col='plasma', surf_scheme='curv'):
+                 calc_verts=True, connect_net=True, build_surfs=True, net_type='vor', surf_col='plasma',
+                 surf_scheme='curv'):
 
         # Main network defining objects
-        self.sys = sys                    # System            : Route back to outer system for system attribute access
-        self.type = net_type              # Network Type      : String indicating network build type
+        self.sys = sys                    # System            :   Route back to outer system
+        self.type = net_type              # Network Type      :   String indicating network build type
+        self.id = 0                       # Network id #      :
 
         # Network element lists
         self.atoms = atoms                # Atoms             :    List of atom objects
@@ -58,7 +60,7 @@ class Network:
     def calc_box(self):
         """
         Determines the dimensions of a box x times the size of the atoms
-        :return: Sets the self.box attribute with the correct values as well as self.atoms_box
+        :return: Sets the box attribute with the correct values as well as atoms_box
         """
         # Set up the minimum and maximum x, y, z coordinates
         min_vert = np.array([np.inf, np.inf, np.inf])
@@ -168,7 +170,6 @@ class Network:
         Takes in the cells and the number of additional cells to search and returns an atom list
         :param cells: The initial boxes in the network to stem from
         :param reach: The number of cells out from the initial set of cells to search
-        :return:
         """
         # If a single cell is entered
         if type(cells[0]) is int:
@@ -198,7 +199,6 @@ class Network:
         Takes in the cells and the number of additional cells to search and returns an atom list
         :param cells: The initial boxes in the network to stem from
         :param reach: The number of cells out from the initial set of cells to search
-        :return:
         """
         # If a single cell is entered
         if type(cells[0]) is int:
@@ -226,7 +226,6 @@ class Network:
     def connect(self, my_group):
         """
         Connects the network using the functions in the build_net.py file
-        :return:
         """
         build(self, my_group)
         self.metrics['con'] = time.perf_counter() - self.my_time - self.metrics['vert']
@@ -234,7 +233,6 @@ class Network:
     def find_verts(self, time_start=None, process_time_start=None, my_group=None):
         """
         Using the functions in find_vertices.py finds the vertices in the network
-        :return:
         """
         # Check to see if a group has been provided
         if my_group is not None:
@@ -250,30 +248,21 @@ class Network:
             find_verts(self, a0=self.atoms[self.atom_ndxs.pop()], my_group=my_group)
         # Clear the print statement
         print("\r                                                                  ", end="")
-        # # Bit of code for timing the vertex building process
-        # if time_start is not None:
-        #     self.my_time = time.time() - time_start
-        #     process_time = time.process_time() - process_time_start
-        #     h, m, s = get_time(self.my_time)
-        #     if self.sys.print_actions:
-        #         print("\rvertex process ({} verts) = {}:{}:{:.2f} s, cpu time = {}"
-        #               .format(len(self.verts), int(h), int(m), s, process_time))
         self.metrics['vert'] = time.perf_counter() - self.my_time
 
     def build_edges(self):
         """
         Builds the edges in the network for use in the surfaces
-        :return:
         """
         # Go through the edges in the network
         for edge in self.edges:
             # Build the edge depending on if it is straight or not
-            build_edge(edge, straight=True if self.type in ['pow', 'flat', 'del'] else False)
+            straight = True if self.type in ['pow', 'flat', 'del'] else False
+            edge.points, edge.vals = build_edge(edge.atoms, edge.verts, res=self.surf_res, straight=straight)
 
     def build_surfaces(self):
         """
         Takes in a system and returns a fully connected network
-        :return:
         """
         # Make each surface
         for i, surf in enumerate(self.surfs):
@@ -289,8 +278,10 @@ class Network:
     def analyze(self):
         """
         Analyzes the output surfaces, cells and solute vertices for the network for later reference
-        :return:
         """
+        # Check to see if my_time has started
+        if self.my_time is None:
+            self.my_time = time.perf_counter()
         # Get the percentage total number
         tot_num = len(self.edges) + len(self.surfs) + len(self.atoms)
         # Go through the edges in the network
@@ -298,15 +289,27 @@ class Network:
         for i, edge in enumerate(self.edges):
             percentage = int(i / tot_num * 100)
             if edge.length is None or edge.length == 0:
+                if edge.points is None or len(edge.points) == 0:
+                    edge.points, edge.vals = build_edge(edge.atoms, edge.verts, self.surf_res)
                 edge.length = calc_length(edge.points)
+            if self.sys.print_actions:
+                my_time = time.perf_counter() - self.my_time
+                h, m, s = get_time(my_time)
+                print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                  "
+                      .format(int(h), int(m), round(s, 2), percentage), end="")
         # Go through each surface in the system and find the simplices and the surface area
         for j, surf in enumerate(self.surfs):
             percentage = int((i + j + 1) / tot_num * 100)
+            # If the surface's function is None calculate it
+            if surf.func is None:
+                surf.func = calc_surf_func(surf.atoms[0].loc, surf.atoms[0].rad, surf.atoms[1].loc, surf.atoms[1].rad)
             # If the surface area is None calculate it
             if surf.sa is None or self.surfs[j].sa == 0:
                 # Get the surface area of the surface
-                surf = self.surfs[j]
                 surf.sa = calc_surf_sa(edges=surf.edges, com=surf.com, tris=surf.tris, points=surf.points, flat=surf.flat)
+            # Get the curvature of the surface patch
+            if surf.curv is None or (surf.curv == 0 and not surf.flat):
+                surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris)
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
                 h, m, s = get_time(my_time)
@@ -343,7 +346,6 @@ class Network:
         :param box_size: Maximum box multiplier for the retaining box
         :param build_surfs: Build Surfaces? If yes, the surfaces in the group's network are constructed
         :param calc_verts: Calculate Vertices? Skips vertex calculations if a network or vertex file is loaded
-        :return: Builds the network based on the above specifications
         """
         # If the system has no name, one needs top be set
         if self.sys.name is None:
