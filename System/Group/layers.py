@@ -2,6 +2,13 @@ from System.sys_funcs.calcs.calcs import ndx_search
 
 
 def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
+    """
+    Gets the layers surrounding the group if they are calculated
+    :param grp: Group to find layers from
+    :param max_layers: Number of layers to go out
+    :param group_resids: Whether to group together surrounding residues for layers, i.e. keep waters together
+    :param build_surfs: To build the needed surfaces or not
+    """
     # Make sure that the group has atoms
     if grp.atoms is None:
         return
@@ -25,10 +32,14 @@ def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
                     continue
                 grp.layer_surfs[-1].append(surf)
                 # Add the vertices
+                if surf.verts is None:
+                    surf.verts = []
                 for vert in surf.verts:
                     if vert not in grp.layer_verts[-1]:
                         grp.layer_verts[-1].append(vert)
                 # Add the edges
+                if surf.edges is None:
+                    surf.edges = []
                 for edge in surf.edges:
                     if edge not in grp.layer_edges[-1]:
                         grp.layer_edges[-1].append(edge)
