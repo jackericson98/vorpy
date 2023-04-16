@@ -1,7 +1,7 @@
 from System.sys_funcs.input.input import *
-from System.sys_funcs.input.read_net import read_net
+from System.sys_funcs.input.net import read_net
 from System.sys_funcs.output.output import set_sys_dir, export_sys
-from System.sys_funcs.output.net import export_net, export_verts
+from System.sys_funcs.output.net import write_net, write_verts
 from System.Group.group import Group
 from Visualize.mpl_visualize import *
 from numpy import seterr, random
@@ -72,7 +72,6 @@ class System:
     def load_files(self):
         """
         Create the system and make sure the files added in __init__ are added to the system
-        :return:
         """
 
         # Load the system
@@ -98,7 +97,6 @@ class System:
         """
         Sets the base file for the system using one of the import file functions
         :param file: .pdb, .gro, .mol, .cif
-        :return:
         """
         # If a file is given read the file and set the system attributes
         if file is not None:
@@ -140,9 +138,8 @@ class System:
     def load_verts(self, file=None, vta_ball_file=None):
         """
         Loads vorpy specific vertices file from the system level
-        :param vta_ball_file: Voronota Ball file, triggers voronota reading of the verts file
-        :param file: Main verts file that could be vorpy generated or voronota generated
-        :return: Sets the vertex values for the network
+        :param vta_ball_file: Voronota Ball file, triggers Voronota reading of the verts file
+        :param file: Main verts file that could be vorpy generated or Voronota generated
         """
         # Check for a loaded vertex file
         if file is not None:
@@ -152,7 +149,7 @@ class System:
         if self.net is None:
             self.net = Network(atoms=self.atoms, sys=self)
 
-        # If a ball file is loaded as well, this is a voronota deal
+        # If a ball file is loaded as well, this is a Voronota deal
         if vta_ball_file is None:
             read_verts(self.net, self.vert_file)
         else:
@@ -171,7 +168,7 @@ class System:
         if file is not None:
             self.net_file = file
         # Read the network file
-        read_net(self, integrate=self.net is not None)
+        read_net(self.net, self.net_file)
 
         # Print if the system requires
         if self.print_actions:
@@ -181,7 +178,6 @@ class System:
     def load_ndx(self, file=None):
         """
         Reads GROMACS index files from the system level
-        :return: Creates group objects for the system
         """
         # Read the ndx file
         read_ndx(self, file=file)
@@ -220,7 +216,6 @@ class System:
         :param anums: Integer for the number of atoms in the system
         :param dmax: Maximum distance from the center for the atoms
         :param rmax: Maximum radius of an atom in the system
-        :return:
         """
         # Create the atoms
         for i in range(anums):
@@ -238,6 +233,9 @@ class System:
         print(atoms_var, resids_var, chains_var, sol_var)
 
     def create_group(self, atoms=None, residues=None, chains=None):
+        """
+        Creates a group for the system
+        """
         # Create the group
         self.groups.append(Group(sys=self, atoms=atoms, residues=residues, chains=chains))
 
@@ -245,7 +243,6 @@ class System:
                       calc_verts=None, my_group=None, print_actions=None):
         """
         Allows user to build the network from the system object.
-        :return:
         """
         # Check to see if a network exists
         if self.net is None:
@@ -257,22 +254,19 @@ class System:
     def export_verts(self):
         """
         Exports the vertices after they are calculated
-        :return:
         """
-        export_verts(self.net)
+        write_verts(self.net)
 
     def export_net(self):
         """
         Exports the values calculated by the network
-        :return:
         """
         # Export the network
-        export_net(self.net)
+        write_net(self.net)
 
     def set_output_directory(self, directory=None):
         """
         Links set output directory to the system
-        :return:
         """
         set_sys_dir(self, dir_name=directory)
 
@@ -280,7 +274,6 @@ class System:
                 info=False, logs=False):
         """
         Prepares the output directory and system for output. Keeps things consistent
-        :return:
         """
         # Export the system (/System/sys_funcs/output)
         export_sys(self, all_=all_, network=network, pdb=pdb, surfaces=surfaces,
@@ -288,6 +281,9 @@ class System:
                    alter_atoms_script=set_atoms, info=info, logs=logs)
 
     def show_net(self, info=True, full_net=False, verts=False, edges=False, surfs=False, system=False):
+        """
+        Shows the network for export
+        """
         # Empty Network
         if self.net is None:
             print("No network constructed")
