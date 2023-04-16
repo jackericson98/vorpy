@@ -1,7 +1,7 @@
 import os
 from System.sys_funcs.output.atoms import write_pdb, write_atom_cells
 from System.sys_funcs.output.surfs import write_surfs
-from System.sys_funcs.output.net import export_net_logs
+from System.sys_funcs.output.net import write_net_logs
 
 ###################################################### Export Functions ################################################
 
@@ -147,7 +147,7 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
         if not os.path.exists(sys.dir + "/sys"):
             os.mkdir(sys.dir + "/sys")
         os.chdir((sys.dir + "/sys"))
-        export_net_logs(sys.net)
+        write_net_logs(sys.net)
     os.chdir(sys.dir)
 
 
