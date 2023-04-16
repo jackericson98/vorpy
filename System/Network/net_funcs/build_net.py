@@ -201,6 +201,13 @@ def build(net, my_group, from_scratch=True):
                         edges.append(edge2)
             # In order to be a true surface the number of edges need to be equal to the number of verts
             if len(verts) == len(edges):
+                no_surf = False
+                # Check to see if the surface is worth adding
+                for vert in verts:
+                    if len(vert.edges) <= 2:
+                        no_surf = True
+                if no_surf:
+                    continue
                 # Create the surface
                 my_surf = Surface(atoms=atoms, verts=verts, net=net, edges=edges)
 
@@ -215,3 +222,27 @@ def build(net, my_group, from_scratch=True):
                     if edge.surfs is None:
                         edge.surfs = []
                     edge.surfs.append(my_surf)
+
+
+def filter_edges(net):
+    # Set up the edge list
+    bad_edges = []
+    # Go through the edges in the network
+    for i, edge in enumerate(net.edges):
+        # Check the number of surfaces and vertices
+        if len(edge.surfs) <= 1 or len(edge.verts) <= 1:
+            bad_edges.append(i)
+
+    # Carefully remove the edges from the network
+    for i in reversed(bad_edges):
+        # Get the edge from the network
+        edge = net.edges[i]
+        # Remove the edge from the edges vertices
+        for vert in edge.verts:
+            vert.edges.remove(edge)
+        # Remove the edge from the surfaces
+        for surf in edge.surfs:
+            surf.edges.remove(edge)
+        # Remove the edge from the network
+        net.edges.pop(i)
+        net.edge_ndxs.pop(i)
