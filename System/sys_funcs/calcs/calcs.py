@@ -1,14 +1,31 @@
 import numpy as np
 import warnings
-
 warnings.filterwarnings("error")
 
 
 def round_func(round_to):
+    """
+    Nested round function for defining round schemes and rounding multiple values
+    :param round_to: int - number of decimal places
+    :return: Round function set to round to value
+    """
+    # Define the inner round function
     def round_(val, new_num=None):
+        """
+        Inner round function operating on outer defined round to value
+        :param val: float/iterable - val(s) to be rounded
+        :param new_num: New round to value
+        :return: float/list - rounded values
+        """
+        # Set the new round to number if specified
         if new_num is None:
             new_num = round_to
-        return round(val, new_num)
+        # Return the values
+        try:
+            return round(val, new_num)
+        except TypeError:
+            return [round(_, new_num) for _ in val]
+    # Return the function for the outer function
     return round_
 
 
@@ -25,7 +42,7 @@ def calc_dist(l0, l1):
 
 def calc_angle(p0, p1, p2=None):
     """
-    Finds the angle (in rads) between three points. The first being the common point
+    Finds the angle (in rads) between three points
     :param p0: Point 0 list, array, n-dimensional must match points 1 and 2
     :param p1: Point 1 list, array, n-dimensional must match points 0 and 2
     :param p2: (optional) Point 2 list, array, n-dimensional must match points 0 and 1
@@ -50,45 +67,48 @@ def calc_angle(p0, p1, p2=None):
 def calc_tetra_vol(p0, p1, p2, p3):
     """
     Calculates the volume of a tetrahedron defined by its vertices
-    :param p0:
-    :param p1:
-    :param p2:
-    :param p3:
-    :return: Volume of the tetrahedron
+    :param p0: Point 0
+    :param p1: Point 1
+    :param p2: Point 2
+    :param p3: Point 3
+    :return: Volume of the tetrahedron made by the points
     """
     # Choose a base point (p0) and find the vectors between it and other points
     r01 = p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]
     r02 = p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]
     r03 = p3[0] - p0[0], p3[1] - p0[1], p3[2] - p0[2]
+
     # Formula for tetrahedron volume: 1/6 * r03 dot (r01 cross r02)
-    vol = (1/6)*abs(np.dot(r03, np.cross(r01, r02)))
-    return vol
+    return (1/6)*abs(np.dot(r03, np.cross(r01, r02)))
 
 
 def calc_tri(points):
     """
-    Takes in 3 points in 3 space and returns the area of the triangle created by them
-    :param points:
+    Takes in 3 points and returns the area of the triangle created by them
+    :param points: 3D points
     :return: Area of the triangle made by the three points
     """
     # Get the two triangles vectors
-    AB = np.array(points[0]) - np.array(points[1])
-    AC = np.array(points[0]) - np.array(points[2])
+    ab = np.array(points[0]) - np.array(points[1])
+    ac = np.array(points[0]) - np.array(points[2])
+
     # Return half the cross product between the two vectors
-    return 0.5 * np.linalg.norm((np.cross(AB, AC)))
+    return 0.5 * np.linalg.norm((np.cross(ab, ac)))
 
 
 def calc_com(points):
     """
     Takes in a set of points and returns the coordinates of the center of mass
-    :param points: lists or arrays
+    :param points: lists of locations in n-dimensions
     :return: Center of mass of the inputs
     """
+
     # Set the running sum for the x, y, z values to 0
     tots = [0 for _ in range(len(points[0]))]
     for point in points:
         for i in range(len(points[0])):
             tots[i] += point[i]
+
     # Return the center of mass of inputs
     return [tots[i]/len(points) for i in range(len(points[0]))]
 
@@ -96,7 +116,7 @@ def calc_com(points):
 def calc_length(points):
     """
     Calculates the total length of the points assuming they are in order
-    :param points:
+    :param points: Points for length calculations
     :return: float total length between consecutive points
     """
     # Reset the length
@@ -113,7 +133,7 @@ def calc_length(points):
 def calc_circ(l0, l1, l2, r0, r1, r2):
     """
     Takes in 3 atoms, calculates the center and radius of inscribed circle
-    :param :
+    :param : Locations and radii for the circle
     :return: Center and radius of the inscribed circle
     """
     # Move the other atoms to the location of the first
@@ -166,6 +186,12 @@ def calc_circ(l0, l1, l2, r0, r1, r2):
 
 
 def calc_surf_norm(l0, l1):
+    """
+    Calculates the normal between the atoms from small to large
+    :param l0: Location of the first atom
+    :param l1: Location of the second atom
+    :return: The normal to the vector between the atoms
+    """
     # Get the vector from l0 to l1
     r = np.array(l1) - np.array(l0)
     r = [_ if _ != 0 else 0.00001 for _ in r]
@@ -175,8 +201,11 @@ def calc_surf_norm(l0, l1):
 def calc_surf_func(l0, r0, l1, r1):
     """
     Calculates the coefficients for the surface between the two atoms
-    :return: The surface has the correct self.func attribute
+    :return: Returns a function for the hyperboloid between the atoms
     """
+    # Check the smaller atom is first
+    if r1 < r0:
+        l0, r0, l1, r1 = l1, r1, l0, r0
     # Grab the centers of the spheres
     x1, y1, z1 = l0
     x2, y2, z2 = l1
@@ -235,25 +264,35 @@ def rotate_points(vec, points, reverse=False):
 def calc_surf_sa(edges, com, tris, points, flat):
     """
     Calculates the surface area of the input surface
+    :param edges: Edges for the surface if the surface is flat
+    :param com: Center of mass point for the surface used for calculations
+    :param tris: Triangles for summing
+    :param points: Points for the surface
+    :param flat: Whether the surface is flat or not
     :return: Surface area of the surface
     """
     # Create the surface area variable
     sa = 0
     if flat:
         for edge in edges:
-            if edge.straight:
-                sa += calc_tri([edge.pv0, edge.pv1, com])
-            else:
-                for i in range(len(edge.points) - 1):
-                    p0, p1 = edge.points[i:i + 2]
-                    sa += calc_tri([p0, p1, com])
+            for i in range(len(edge.points) - 1):
+                sa += calc_tri([*edge.points[i:i + 2], com])
     # Go through the triangles in the surface
-    for tri in tris:
-        sa += calc_tri([points[tri[_]] for _ in range(3)])
+    else:
+        for tri in tris:
+            sa += calc_tri([points[tri[_]] for _ in range(3)])
+    # Return the surface area
     return sa
 
 
 def calc_surf_tri_dists(points, tris, loc):
+    """
+    Calculate the distances between each triangle and the provided location
+    :param points: points from the surface
+    :param tris: triangles from the
+    :param loc: location for the distance calculations
+    :return: List of distance corresponding to the triangles on a surface
+    """
     # Set up the distances
     dists = []
     tri_dists = []
@@ -277,6 +316,13 @@ def calc_surf_tri_dists(points, tris, loc):
 
 
 def calc_surf_tri_curvs(func, points, tris):
+    """
+    Calculates the curvature of the triangles
+    :param func: Surface function
+    :param points: points for the surface
+    :param tris: triangles in the surface
+    :return: A list of curvature values for the triangles
+    """
     # Get the function coefficients
     A, B, C, D, E, F, G, H, I, J = func[:10]
     curvs = []
@@ -318,18 +364,25 @@ def calc_surf_tri_curvs(func, points, tris):
 
 
 def calc_surf_tri_ins_out(surf):
+    """
+    Calculates whether the triangles in the surface are inside the overlapping atoms or not
+    :param surf: Surface for calculations
+    :return: List of bools for if the triangles in the surface are inside or out
+    """
     # Set up a list of tracking
     inside_array = []
     # Go through the points in the surface
     for point in surf.points:
         # Calculate the distance between the point and the atom
         my_dist = calc_dist(point, surf.atoms[0].loc)
+        # Check if the triangle is inside or not
         if my_dist < surf.atoms[0].rad:
             inside_array.append(True)
         else:
             inside_array.append(False)
     # Now add the triangles
     surf.tri_ins_out = []
+    # Color the tris
     for tri in surf.tris:
         if inside_array[tri[0]] and inside_array[tri[1]] and inside_array[tri[2]]:
             surf.tri_ins_out.append(0.25)
@@ -369,7 +422,7 @@ def ndx_search(ndxs_list, ndxs):
 def get_time(seconds):
     """
     Turns seconds into hours, minutes and seconds
-    :param seconds:
+    :param seconds: Number of seconds in the counter
     :return: hours, minutes, seconds
     """
     # Divide up the values
@@ -381,6 +434,11 @@ def get_time(seconds):
 
 
 def calc_vol(atom):
+    """
+    Calculates the volume of an atom using its surfaces
+    :param atom: Atom object for volume calculation
+    :return: returns the volume for the atom object
+    """
     # Create the volume variable
     vol = 0
     # Go through each surface on the atom
@@ -398,15 +456,14 @@ def calc_vol(atom):
                 surf_vol += calc_tetra_vol(p0, p1, p2, p3)
             vol += surf_vol
             surf.vols[surf.ndx.index(atom.num)] = surf_vol
-    # Return the volume
+    # Set the volume and return it
     atom.vol = vol
     return vol
 
 
 def get_radius(atom):
     """
-        Finds the radius of the atom from the symbol or vice versa
-
+    Finds the radius of the atom from the symbol or vice versa
     :return: The radius of the atom from the symbol or vice versa
     """
     radii, special_radii = atom.sys.radii, atom.sys.special_radii
