@@ -3,6 +3,14 @@ from System.sys_funcs.draw.draw import draw_edge
 
 
 def write_edges(edges, file_name, color=None, directory=None):
+    """
+    Writes an off file for the edges specified
+    :param edges: Edges to be output
+    :param file_name: Name for the output file
+    :param color: Color for the edges
+    :param directory: Output directory
+    :return: None
+    """
     # Check to see if a directory is given
     if directory is not None:
         os.chdir(directory)
