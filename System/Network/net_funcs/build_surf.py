@@ -273,13 +273,11 @@ def fill_mesh(surf):
 
 ############################################## Triangulate Surface Points  #############################################
 
+
 def tri_within(perimeter, flat_points, loc, norm, my_tri=None, point=None):
     """
     Checks to see if a triangle lies within the perimeter of a surface
-    :param norm:
-    :param loc:
-    :param flat_points:
-    :param perimeter:
+    :param surf: Surface object to check against
     :param my_tri: Triangle to test insideness
     :param point: point to test insideness
     :return: Bool
@@ -373,19 +371,14 @@ def find_simps(points, loc, norm):
     flat_points = [_[:2] for _ in nps]
     tris = Delaunay(flat_points)
     # Add the flat points to the surface's list of flat points
-    return tris.simplices.tolist(), flat_points
+    tris = tris.simplices.tolist()
+    return tris, flat_points
 
 
 def filter_tris(tris, flat_points, res, perimeter, loc, norm, filter_hard):
     """
     Goes through the triangles on the surface measuring the circumference & testing if inside
-    :param filter_hard:
-    :param norm:
-    :param loc:
-    :param perimeter:
-    :param res:
-    :param flat_points:
-    :param tris:
+    :param surf: Surface object holding the triangles for filtration
     :return:
     """
     # Check to see if the surface is flat or not
@@ -432,11 +425,11 @@ def build_surf(surf, res=None):
     # Fill the mesh
     fill_mesh(surf)
     # Find the simplices of the surface
-    surf.tris, surf.flat_points = find_simps(surf.points, surf.loc, surf.norm)
+    tris, surf.flat_points = find_simps(surf.points, surf.loc, surf.norm)
     # If the network type is voronoi the edges could be curved allowing for triangulations outside the edges
     if surf.net.type == 'vor':
         # Filter out the bad triangles
-        filter_tris(list(surf.tris), surf.flat_points, surf.res, surf.perimeter, surf.loc, surf.norm, surf.filter_hard)
+        surf.tris = filter_tris(tris, surf.flat_points, surf.res, surf.perimeter, surf.loc, surf.norm, surf.filter_hard)
         # Calculate the curvature of the triangles and the surface
         if not surf.flat:
             surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris)
