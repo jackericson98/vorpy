@@ -1,4 +1,5 @@
-from System.sys_funcs.calcs.calcs import calc_angle, calc_com, rotate_points, calc_surf_func, calc_surf_tri_curvs
+from System.sys_funcs.calcs.calcs import calc_angle, calc_com, rotate_points, calc_surf_func, calc_surf_tri_curvs, \
+    calc_surf_point_curv
 from System.Network.net_funcs.build_edge import build_edge
 from scipy.spatial import Delaunay
 import numpy as np
@@ -277,9 +278,6 @@ def fill_mesh(surf):
 def tri_within(perimeter, flat_points, loc, norm, my_tri=None, point=None):
     """
     Checks to see if a triangle lies within the perimeter of a surface
-    :param surf: Surface object to check against
-    :param my_tri: Triangle to test insideness
-    :param point: point to test insideness
     :return: Bool
     """
     # Get the perimeter of the translated and rotated surface
@@ -378,7 +376,6 @@ def find_simps(points, loc, norm):
 def filter_tris(tris, flat_points, res, perimeter, loc, norm, filter_hard):
     """
     Goes through the triangles on the surface measuring the circumference & testing if inside
-    :param surf: Surface object holding the triangles for filtration
     :return:
     """
     # Check to see if the surface is flat or not
@@ -428,10 +425,13 @@ def build_surf(surf, res=None):
     tris, surf.flat_points = find_simps(surf.points, surf.loc, surf.norm)
     # If the network type is voronoi the edges could be curved allowing for triangulations outside the edges
     if surf.net.type == 'vor':
+        # Add the normal curvature if possible
+        if tri_within(surf.perimeter, surf.flat_points, surf.loc, surf.norm, point=surf.loc):
+            surf.curv = calc_surf_point_curv(surf.func, surf.loc)
         # Filter out the bad triangles
         surf.tris = filter_tris(tris, surf.flat_points, surf.res, surf.perimeter, surf.loc, surf.norm, surf.filter_hard)
         # Calculate the curvature of the triangles and the surface
         if not surf.flat:
-            surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris)
+            surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris, max_curv=surf.curv)
         else:
             surf.tri_curvs, surf.curv = [0 for _ in range(len(list(surf.tris)))], 0
