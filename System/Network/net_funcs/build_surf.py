@@ -435,3 +435,5 @@ def build_surf(surf, res=None):
             surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris, max_curv=surf.curv)
         else:
             surf.tri_curvs, surf.curv = [0 for _ in range(len(list(surf.tris)))], 0
+    else:
+        surf.tris = tris
