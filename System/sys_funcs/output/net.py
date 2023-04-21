@@ -31,7 +31,7 @@ def write_net_logs(net, round_to=3):
             # Write the group information
             if group.sa is None:
                 group.get_info()
-            lg_fl.writerow([i, group.name, r(group.sa), r(group.vol)])
+            lg_fl.writerow([i, group.name, r(group.vol), r(group.sa)])
         # Write the atom header
         lg_fl.writerow(["Atoms"])
         # Write the column labels
