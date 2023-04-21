@@ -315,35 +315,42 @@ def calc_surf_tri_dists(points, tris, loc):
     return [(_ - min_dist) / (max_dist - min_dist) for _ in tri_dists]
 
 
-def calc_surf_tri_curvs(func, points, tris):
+def calc_surf_point_curv(func, point):
+    # Get the function coefficients
+    A, B, C, D, E, F, G, H, I, J = func[:10]
+    # Label the points
+    x, y, z = point
+    # Get the gradient of the surface at the point
+    delf = [2 * A * x + D * y + F * z + G, 2 * B * y + D * x + E * z + H, 2 * C * z + E * y + F * x + I]
+    # Calculate the norm of the gradient
+    denominator = np.linalg.norm(delf) ** 4
+    # Calculate the determinant of the hessian matrix and the gradient matrix
+    numerator = np.linalg.det([[2 * A, D, F, delf[0]], [D, 2 * B, E, delf[1]], [F, E, 2 * C, delf[2]],
+                               delf + [0]])
+    # Get the curvature
+    return - numerator / denominator
+
+
+def calc_surf_tri_curvs(func, points, tris, max_curv):
     """
     Calculates the curvature of the triangles
+    :param calc_max_curv:
     :param func: Surface function
     :param points: points for the surface
     :param tris: triangles in the surface
     :return: A list of curvature values for the triangles
     """
-    # Get the function coefficients
-    A, B, C, D, E, F, G, H, I, J = func[:10]
     curvs = []
-    min_curv, max_curv = np.inf, 0
+    min_curv = np.inf
+    # If the surface normal is within the surface,
     # Get the curvature for each point
     for point in points:
-        # Label the points
-        x, y, z = point
-        # Get the gradient of the surface at the point
-        delf = [2 * A * x + D * y + F * z + G, 2 * B * y + D * x + E * z + H, 2 * C * z + E * y + F * x + I]
-        # Calculate the norm of the gradient
-        denominator = np.linalg.norm(delf) ** 4
-        # Calculate the determinant of the hessian matrix and the gradient matrix
-        numerator = np.linalg.det([[2 * A, D, F, delf[0]], [D, 2 * B, E, delf[1]], [F, E, 2 * C, delf[2]],
-                                   delf + [0]])
-        # Get the curvature
-        curv = - numerator / denominator
-        if curv > max_curv:
-            max_curv = curv
+        curv = calc_surf_point_curv(func, point)
         if curv < min_curv:
             min_curv = curv
+        elif curv > max_curv:
+            max_curv = curv
+
         curvs.append(curv)
     # Set up the tri_curvs list
     tri_curvs = []
@@ -352,9 +359,7 @@ def calc_surf_tri_curvs(func, points, tris):
         # Get the triangle
         tri = tris[i]
         # Get the curvatures
-        my_curvs = [curvs[_] for _ in tri]
-        # Find the maximum curvature point
-        curv_val = max(my_curvs)
+        curv_val = sum([curvs[_] for _ in tri])/3
         # Add the curve value to the surface's list of curvatures
         tri_curvs.append(curv_val)
     # Normalize the tri_curvs
