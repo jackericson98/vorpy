@@ -45,7 +45,7 @@ def color_tris(surf, color_scheme=None, color_map=None, inverse=False):
             surf.func = calc_surf_func(a0.loc, a0.rad, a1.loc, a1.rad)
         # Check if the tri_dists have been calculated before
         if surf.tri_curvs is None or len(surf.tri_curvs) == 0 or len(surf.tri_curvs) != len(surf.tris):
-            surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris)
+            surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris, max_curv=surf.curv)
         # Set the colors
         surf.tri_colors = [my_cmap(_) for _ in surf.tri_curvs]
 

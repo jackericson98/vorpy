@@ -309,7 +309,7 @@ class Network:
                 surf.sa = calc_surf_sa(edges=surf.edges, com=surf.com, tris=surf.tris, points=surf.points, flat=surf.flat)
             # Get the curvature of the surface patch
             if surf.curv is None or (surf.curv == 0 and not surf.flat):
-                surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris)
+                surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris, surf.curv)
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
                 h, m, s = get_time(my_time)
@@ -324,9 +324,11 @@ class Network:
                 calc_vol(atom)
             # Check that the curvature is None
             if atom.curv is None or atom.curv == 0:
+                atom.curv = 0
                 # Go through the atom's surfaces
                 for surf in atom.surfs:
-                    atom.curv += surf.curv
+                    if surf.curv > atom.curv:
+                        atom.curv = surf.curv
             # Print the actions
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
