@@ -226,7 +226,7 @@ def vorpy(my_sys):
         my_sys.net.build(calc_verts=False, my_group=my_group)
 
     # Export basic system elements
-    my_sys.exports(pdb=True, set_atoms=True, net=True, logs=True)
+    my_sys.exports(pdb=True, set_atoms=True, network=True, logs=True)
 
     # Export
     export(my_sys, usr_npt="e", my_group=my_group)
