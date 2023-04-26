@@ -37,7 +37,7 @@ def read_pdb(sys, file=None):
     # Add the system name and reset the atoms and data lists
     sys.name = path.basename(sys.base_file)[:-4]
     # Set up the atom and the data lists
-    atoms, data, atom_count = np.array([]), [], 0
+    atoms, data, atom_count = [], [], 0
     sys.chains, sys.residues = [], []
     chains, resids = {}, {}
     # Go through each line in the file and check if the first word is the word we are looking for
@@ -60,7 +60,7 @@ def read_pdb(sys, file=None):
                         element=line[76:78].strip(), res_seq=int(line[22:26]), name=name, seg_id=line[72:76],
                         index=atom_count)
             # Add the atom to the atoms list
-            np.append(atoms, atom)
+            atoms.append(atom)
             atom_count += 1
             # If no chain is specified, set the chain to 'None'
             res_str, chain_str = line[17:20], line[21]
