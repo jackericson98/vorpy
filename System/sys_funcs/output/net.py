@@ -26,7 +26,7 @@ def write_net_logs(net, round_to=3):
         # Write the group information header
         lg_fl.writerow(["group information"])
         # Write the group information labels
-        lg_fl.writerow(["index", "name", "volume", "surface area", "volume"])
+        lg_fl.writerow(["index", "name", "volume", "surface area"])
         for i, group in enumerate(net.sys.groups):
             # Write the group information
             if group.sa is None:

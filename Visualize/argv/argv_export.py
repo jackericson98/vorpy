@@ -34,6 +34,8 @@ def argv_export(my_sys, usr_npt, interfaces=False):
         if npt[0].lower() in {'dir', 'directory'} and len(npt) == 2 and (os.path.isdir(npt[1]) or npt[1] == 'gsu_logs'):
             if npt[1] == 'gsu_logs':
                 set_sys_dir(my_sys, "C:/Users/jacke/OneDrive - Georgia State University/GSU NSC/Jack/Vorpy/test_data/{}/logs".format(my_sys.name))
+            elif npt[1] == 'gsu_logs1':
+                set_sys_dir(my_sys, "/Users/jackericson/Library/CloudStorage/OneDrive-GeorgiaStateUniversity/GSU NSC/Jack/Vorpy/test_data/{}/logs".format(my_sys.name))
             else:
                 my_sys.dir = npt[1]
     for npt in usr_npt:
