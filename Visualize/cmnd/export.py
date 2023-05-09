@@ -98,7 +98,7 @@ def export_surfs(my_group):
                 elif change_setting.lower() in ns + quits:
                     break
             # Export the surfaces
-            my_group.exports(surfaces=True)
+            my_group.exports(sep_surfs=True)
             print("\r{} surfaces exported to {}".format(my_group.name, my_group.dir))
         if surf_npt.lower() in quits:
             break
