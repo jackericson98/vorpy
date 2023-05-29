@@ -285,7 +285,7 @@ def calc_surf_sa(edges, com, tris, points, flat):
     return sa
 
 
-def calc_surf_tri_dists(points, tris, loc):
+def calc_surf_tri_dists(points, tris, loc, max_val=None):
     """
     Calculate the distances between each triangle and the provided location
     :param points: points from the surface
@@ -296,6 +296,8 @@ def calc_surf_tri_dists(points, tris, loc):
     # Set up the distances
     dists = []
     tri_dists = []
+    if max_val is not None:
+        max_dist = max_val
     max_dist, min_dist = 0, np.inf
     # Provide value for the points
     for point in points:
@@ -362,8 +364,6 @@ def calc_surf_tri_curvs(func, points, tris, max_curv):
         curv_val = sum([curvs[_] for _ in tri])/3
         # Add the curve value to the surface's list of curvatures
         tri_curvs.append(curv_val)
-    # Normalize the tri_curvs
-    tri_curvs = [1 - (_ - min_curv) / (max_curv - min_curv) for _ in tri_curvs]
     # Return the values
     return tri_curvs, max_curv
 

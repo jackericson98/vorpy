@@ -44,6 +44,7 @@ class Network:
         self.my_time = None                # My time          :    Time taken to calculate the network
         self.metrics = {}                  # Build Metrics    :    Holds the time measurements for the build
         self.max_vert_rad = 0              # Max Vertex Rad   :    Maximum real vertex recorded
+        self.max_curv = 0
 
         # Build settings
         self.surf_res = surf_res           # Resolution       :    How small the triangles in the surfaces are
@@ -299,6 +300,7 @@ class Network:
                       .format(int(h), int(m), round(s, 2), percentage), end="")
         # Go through each surface in the system and find the simplices and the surface area
         for j, surf in enumerate(self.surfs):
+            # Get the percentage
             percentage = int((i + j + 1) / tot_num * 100)
             # If the surface's function is None calculate it
             if surf.func is None:
@@ -310,6 +312,10 @@ class Network:
             # Get the curvature of the surface patch
             if surf.curv is None or (surf.curv == 0 and not surf.flat):
                 surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris, surf.curv)
+            # Set the maximum curvature for the network
+            if surf.curv > self.max_curv:
+                self.max_curv = surf.curv
+            # Print the analysis
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
                 h, m, s = get_time(my_time)

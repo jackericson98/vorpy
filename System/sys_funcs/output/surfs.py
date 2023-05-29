@@ -23,13 +23,14 @@ def write_surfs(surfs, file_name, color=False, directory=None):
         color = np.random.rand(3)
     # Create the file
     with open(file_name + ".off", 'w') as file:
+        # Get the maximum curvature of the
         # Count the number of triangles and vertices there are
         num_verts, num_tris = 0, 0
         for i, surf in enumerate(surfs):
             if surf.points is None:
                 continue
             if surf.tri_colors is None:
-                color_tris(surf=surf, color_map=surf.color_map, color_scheme=surf.scheme)
+                color_tris(surf=surf, color_map=surf.color_map, color_scheme=surf.scheme, max_val=surfs[0].net.max_curv)
             num_verts += len(surf.points)
             num_tris += len(surf.tris)
         # Write the numbers into the file

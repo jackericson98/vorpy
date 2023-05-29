@@ -124,6 +124,8 @@ def write_net(net, file_name=None, round_to=3):
         nt_fl.writerow(["e", "a0", "a1", "a2", "sa0", "sa1", "i_0", "i_n"])
         # Write the connections and surface and points range information for each edge in the network
         for i, edge in enumerate(net.edges):
+            if edge.ref is None or edge.ref == {} or 'surf' not in edge.ref:
+                edge.ref = {'surf': [-1, -1], 'i0': 0, 'i1': 0}
             # Write the edge information in the file
             nt_fl.writerow([i, *edge.ndx, *edge.ref['surf'], edge.ref['i0'], edge.ref['i1']])
 

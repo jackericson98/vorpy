@@ -4,7 +4,7 @@ from System.Network.net_funcs.build_edge import build_edge
 import matplotlib as mpl
 
 
-def color_tris(surf, color_scheme=None, color_map=None, inverse=False):
+def color_tris(surf, color_scheme=None, color_map=None, inverse=False, max_val=None):
     """
     Colors the triangles in the surface based on the specified coloring scheme and map
     :param surf:
@@ -26,7 +26,7 @@ def color_tris(surf, color_scheme=None, color_map=None, inverse=False):
     if color_scheme == 'dist':
         # Check if the tri_dists have been calculated before
         if surf.tri_dists is None or len(surf.tri_dists) == 0 or len(surf.tri_dists) != len(surf.tris):
-            calc_surf_tri_dists(surf.points, surf.tris, surf.loc)
+            calc_surf_tri_dists(surf.points, surf.tris, surf.loc, max_val)
         surf.tri_colors = [my_cmap(_) for _ in surf.tri_dists]
 
     elif color_scheme == 'ins_out':
@@ -46,8 +46,16 @@ def color_tris(surf, color_scheme=None, color_map=None, inverse=False):
         # Check if the tri_dists have been calculated before
         if surf.tri_curvs is None or len(surf.tri_curvs) == 0 or len(surf.tri_curvs) != len(surf.tris):
             surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris, max_curv=surf.curv)
+        # Normalize the curfavures to the maximum surface curvature in the network
+        if surf.flat:
+            my_curvs = surf.tri_curvs
+        else:
+            my_curvs = []
+            for curv in surf.tri_curvs:
+                my_curvs.append(curv/surf.net.max_curv)
+
         # Set the colors
-        surf.tri_colors = [my_cmap(_) for _ in surf.tri_curvs]
+        surf.tri_colors = [my_cmap(_) for _ in my_curvs]
 
 
 def draw_line(points, radius=0.02, color=None, edge_org=None):
