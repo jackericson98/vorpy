@@ -53,9 +53,9 @@ def color_tris(surf, color_scheme=None, color_map=None, inverse=False, max_val=N
             my_curvs = []
             for curv in surf.tri_curvs:
                 my_curvs.append(curv/surf.net.max_curv)
-
+        print(my_curvs)
         # Set the colors
-        surf.tri_colors = [my_cmap(_) for _ in my_curvs]
+        surf.tri_colors = [my_cmap(_*100) for _ in my_curvs]
 
 
 def draw_line(points, radius=0.02, color=None, edge_org=None):
