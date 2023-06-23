@@ -12,3 +12,7 @@ def argv_load(my_sys, usr_npt):
 def argv_load_atoms(my_sys, usr_npt):
     if len(usr_npt) > 0:
         load(my_sys, usr_npt)
+
+
+def argv_load_foam(my_sys, usr_npt):
+    load(my_sys, usr_npt)

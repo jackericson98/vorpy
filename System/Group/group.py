@@ -1,11 +1,9 @@
-from System.sys_funcs.output.surfs import write_surfs
+from System.Group.build import build_surfs
 from System.Group.layers import get_layers
 from System.Group.sort import get_surfs, get_edges, get_verts, add_atoms
 from System.Group.export import group_exports
-from System.sys_funcs.calcs.calcs import calc_vol, calc_surf_sa
-from System.sys_funcs.input.input import read_surf_file
-from System.Network.net_funcs.build_surf import build_surf
-import os
+from System.sys_funcs.calcs.calcs import calc_vol, calc_surf_sa, ndx_search
+import numpy as np
 
 
 class Group:
@@ -90,23 +88,22 @@ class Group:
         for chain in chains:
             self.add_atoms(chain.atoms)
         # Add the residues and chains to the group
-        for atom in self.atoms:
-            if atom.res not in self.residues:
-                self.residues.append(atom.res)
-            if atom.chn not in self.chains:
-                self.chains.append(atom.chn)
+        if self.sys.net is not None and 'res' in self.sys.net.atoms:
+            for atom in self.atoms:
+                if self.sys.net.atoms['res'][atom] not in self.residues:
+                    self.residues.append(self.sys.net.atoms['res'][atom])
+        if self.sys.net is not None and 'chn' in self.sys.net.atoms:
+            for atom in self.atoms:
+                if self.sys.net.atoms['chn'][atom] not in self.chains:
+                    self.chains.append(self.sys.net.atoms['chn'][atom])
         # Add a Name If none was provided
         if self.name is None:
-            # If no system is given
-            if self.sys is not None:
-                # Or if the group is not in the systems list of groups
-                if self not in self.sys.groups:
-                    # Add the group
-                    self.sys.groups.append(self)
-                # Set the name
-                self.name = '{}_group{}'.format(self.sys.name, self.sys.groups.index(self))
-            else:
-                self.name = self.atoms[0].name + "_" + self.atoms[-1].name
+            # Or if the group is not in the systems list of groups
+            if self not in self.sys.groups:
+                # Add the group
+                self.sys.groups.append(self)
+            # Set the name
+            self.name = '{}_group{}'.format(self.sys.name, self.sys.groups.index(self))
         # Get the surfaces
         self.get_surfs()
 
@@ -137,39 +134,7 @@ class Group:
         :param resolution: If not None all surfs without this resolution will be rebuilt
         :return: All surfaces in the group will be constructed
         """
-        # Get the resolution
-        if resolution is None:
-            resolution = self.sys.net.surf_res
-            self.surf_res = resolution
-        # Set up the build surfaces list
-        build_surfs = []
-        # Go through the list of build surfaces checking for
-        for surf in self.surfs:
-            # Check if the resolution is different from the set resolution or the surface has no points
-            if surf.res != resolution:
-                build_surfs.append(surf)
-            # Check if there is any sign of missing points or triangles
-            elif surf.points is None or surf.tris is None or len(surf.points) <= 2 or len(surf.tris) == 0:
-                # If it is possible to load the file
-                if surf.file is not None and surf.file not in ["", " "]:
-                    test = read_surf_file(surf)
-                    if test is None:
-                        build_surfs.append(surf)
-                # Worst case, add the surface to the list of surfaces to be built
-                else:
-                    build_surfs.append(surf)
-        # Create the system's surface's file if needed
-        if len(build_surfs) > 0 and os.path.exists(self.sys.dir) and not os.path.exists(self.sys.dir + "/surfs"):
-            os.mkdir(self.sys.dir + "/surfs")
-            os.chdir(self.sys.dir + '/surfs')
-        # Build the surfaces
-        for i in range(len(build_surfs)):
-            # Print the status of the surfaces being built
-            print("\rbuilding " + self.name + " surfaces " + " " * (len(str(len(self.surfs) - 1)) - len(str(i + 1))) +
-                  str(i + 1) + "/" + str(len(self.surfs)) + "                   ", end="")
-            build_surf(build_surfs[i], res=resolution)
-            if build_surfs[i].file is None:
-                write_surfs([build_surfs[i]], "_".join([str(_) for _ in build_surfs[i].ndx]))
+        build_surfs(self)
 
     def add_atoms(self, atom_list):
         """
@@ -184,6 +149,7 @@ class Group:
         Gathers information about the group and stores it in a dictionary
         :return:
         """
+        net = self.sys.net
         # Get the group objects
         self.get_surfs()
         self.get_edges()
@@ -191,23 +157,26 @@ class Group:
         # Reset the group's data attributes
         self.sa, self.vol = 0, 0
         # Get the volume of the group
-        for atom in self.atoms:
-            # Check to see that the atom's volume is not 0
-            if atom.vol is None or atom.vol == 0:
-                # Calculate the volume of the atom
-                calc_vol(atom)
+        for i in self.atoms:
+            atom = self.sys.net.atoms.iloc[i]
             # Add the volume to that of the group
-            self.vol += atom.vol
+            self.vol += atom['vol']
         # Check to see if the first layer has been calculated
         if self.layer_surfs is None or len(self.layer_surfs) == 0:
             self.get_layers(max_layers=1)
-        for surf in self.layer_surfs[0]:
-            # Check that the surface has a surface area
-            if surf.sa is None or surf.sa == 0:
-                # Get the surface area for the surface
-                surf.sa = calc_surf_sa(edges=surf.edges, com=surf.com, tris=surf.tris, points=surf.points, flat=surf.flat)
-            # Add the surface area
-            self.sa += surf.sa
+        if len(self.layer_surfs) > 0:
+            for i in self.layer_surfs[0]:
+                surf = self.sys.net.surfs.iloc[i]
+                # Check that the surface has a surface area
+                if surf['sa'] is None or surf['sa'] == 0:
+                    # Get the surface area for the surface
+                    edge_ndxss = [ndx_search(net.edge_ndxs, _) for _ in surf['sedges']]
+                    edges = np.array([net.edges.iloc[_] for _ in edge_ndxss])
+                    surf_sa = calc_surf_sa(edges=edges, com=np.array(surf['com']), tris=surf['tris'], points=surf['points'], flat=surf['flat'])
+                else:
+                    surf_sa = surf['sa']
+                # Add the surface area
+                self.sa += surf_sa
 
     def get_layers(self, max_layers=50, group_resids=True, build_surfs=True):
         """

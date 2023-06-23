@@ -84,7 +84,7 @@ def export_surfs(my_group):
                 elif change_setting.lower() in ns + quits:
                     break
             # Export the filled shell surfaces
-            my_group.exports(fill=True)
+            my_group.exports(surfs=True)
             print("\r{} filled surfaces exported to {}".format(my_group.name, my_group.dir))
         if surf_npt.lower() in ['3', '3.', 'three', 'surfs', 'surfaces'] + alls:
             # Surface setting loop
@@ -137,7 +137,7 @@ def export_info(my_group=None):
         alls = ['4', '4.', 'four', 'all', 'a']
         if nfo_npt.lower() in ['1', '1.', 'one', 'show', 'sh'] + alls:
             my_group.get_info()
-            print("Volume:", round(my_group.vol, 3), round("Surface Area:", 3), my_group.sa)
+            print("Volume:", round(my_group.vol, 3), "Surface Area:", round(my_group.sa, 3))
         if nfo_npt.lower() in ['2', '2.', 'two'] + alls:
             my_group.exports(info=True)
             print("\r{} information file exported to {}".format(my_group.name, my_group.dir))
@@ -159,10 +159,10 @@ def export_verts(my_group=None):
             my_group.exports(edges=True)
             print("\r{} edges exported to {}".format(my_group.name, my_group.dir))
         if verts_npt.lower() in ['3', '3.', 'three', 'sv', 'shell_verts']:
-            my_group.exports(shell_verts=True)
+            my_group.exports(verts=True, shell=True)
             print("\r{} shell vertices exported to {}".format(my_group.name, my_group.dir))
         if verts_npt.lower() in ['4', '4.', 'four', "se", "shell_edges"]:
-            my_group.exports(shell_edges=True)
+            my_group.exports(edges=True, shell=True)
             print("\r{} shell edges exported to {}".format(my_group.name, my_group.dir))
         if verts_npt.lower() in quits:
             break

@@ -1,4 +1,4 @@
-from Visualize.argv.argv_load import argv_load, argv_load_atoms
+from Visualize.argv.argv_load import argv_load, argv_load_atoms, argv_load_foam
 from Visualize.argv.argv_set import argv_sett
 from Visualize.argv.argv_group import argv_group
 from Visualize.argv.argv_build import argv_build
@@ -16,7 +16,7 @@ Argv rules:
 """
 
 
-def interpret_argvs(my_sys):
+def interpret_argvs():
     # Separate the rest of the argv args
     my_args = sys.argv[2:]
     npt_cmnds, set_cmnds, grp_cmnds, bld_cmnds, xpt_cmnds, ifc_cmnds = [], [], [], [], [], []
@@ -51,9 +51,12 @@ def interpret_argvs(my_sys):
 
 def argv(my_sys):
     # Load the atom file
-    argv_load_atoms(my_sys, ["", sys.argv[1]])
+    if sys.argv[1].lower() == 'foam':
+        argv_load_foam(my_sys, sys.argv)
+    else:
+        argv_load_atoms(my_sys, ["", sys.argv[1]])
     # Interpret the commands
-    files, settings, groups, builds, exports, ifaces = interpret_argvs(my_sys)
+    files, settings, groups, builds, exports, ifaces = interpret_argvs()
     # Go through each of the ls
     argv_load(my_sys, files)
     argv_sett(my_sys, settings)

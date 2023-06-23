@@ -139,10 +139,16 @@ def create_group(my_sys, usr_npt):
     if my_ndx is None:
         return
     elif len(my_ndx) == 1:
-        my_list = [obj_list[my_ndx[0]]]
+        if obj_ndx == 2:
+            my_list = [my_ndx[0]]
+        else:
+            my_list = [obj_list[my_ndx[0]]]
         name = name_prfx + '_' + str(my_ndx[0])
     elif len(my_ndx) <= 2:
-        my_list = obj_list[max(0, my_ndx[0]):min(len(obj_list), my_ndx[1] + 1)]
+        if obj_ndx == 2:
+            my_list = [_ for _ in range(max(0, my_ndx[0]), min(len(obj_list), my_ndx[1] + 1))]
+        else:
+            my_list = obj_list[max(0, my_ndx[0]):min(len(obj_list), my_ndx[1] + 1)]
         name = name_prfx + 's_' + str(my_ndx[0]) + '_' + str(my_ndx[1])
     # Create the group
     npt_list = [None] * 4

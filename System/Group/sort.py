@@ -1,4 +1,5 @@
 from System.sys_funcs.calcs.calcs import ndx_search
+import numpy as np
 
 
 def add_atoms(grp, atom_list):
@@ -14,11 +15,11 @@ def add_atoms(grp, atom_list):
     # Go through the atom_list
     for atom in atom_list:
         # Get the atom's location
-        atom_ndx = ndx_search(grp.atom_ndxs, atom.num)
+        atom_ndx = ndx_search(np.array(grp.atom_ndxs), atom)
         # Check to see if we have found this atom before
-        if atom_ndx >= len(grp.atom_ndxs) or grp.atoms[atom_ndx].num != atom.num:
+        if atom_ndx >= len(grp.atom_ndxs) or grp.atoms[atom_ndx] != atom:
             grp.atoms.insert(atom_ndx, atom)
-            grp.atom_ndxs.insert(atom_ndx, atom.num)
+            grp.atom_ndxs.insert(atom_ndx, atom)
 
 
 def get_surfs(grp):
@@ -26,19 +27,23 @@ def get_surfs(grp):
     Finds and sorts all surfaces in the group without calculating them
     :return: The group will have its surfaces sorted and non-redundant
     """
+    net = grp.sys.net
     # Reset the surfaces lists
     grp.surfs, grp.surf_ndxs = [], []
     # Go through the atoms in the group
-    for atom in grp.atoms:
+    for i in grp.atoms:
+        atom = net.atoms.iloc[i]
         # Go through the surfaces in the atoms list of surfaces
-        for surf in atom.surfs:
-            # Get the index of the surface
-            surf_ndx = ndx_search(grp.surf_ndxs, surf.ndx)
-            # Check if the surface has been added yet or not
-            if surf_ndx >= len(grp.surf_ndxs) or grp.surf_ndxs[surf_ndx] == surf.ndx:
-                # Insert the index and the surfaces in their correct place
-                grp.surfs.insert(surf_ndx, surf)
-                grp.surf_ndxs.insert(surf_ndx, surf.ndx)
+        if 'asurfs' in net.atoms:
+            for j in atom['asurfs']:
+                surf = net.surfs.iloc[j]
+                # Get the index of the surface
+                surf_ndx = ndx_search(grp.surf_ndxs, surf['satoms'])
+                # Check if the surface has been added yet or not
+                if surf_ndx >= len(grp.surf_ndxs) or grp.surf_ndxs[surf_ndx] == surf['satoms']:
+                    # Insert the index and the surfaces in their correct place
+                    grp.surfs.insert(surf_ndx, j)
+                    grp.surf_ndxs.insert(surf_ndx, surf['satoms'])
 
 
 def get_edges(grp):
@@ -49,14 +54,17 @@ def get_edges(grp):
     # Reset the surfaces lists
     grp.edges, grp.edge_ndxs = [], []
     # Go through the surfaces in the atoms list of surfaces
-    for edge in grp.sys.net.edges:
+    for i, edge in grp.sys.net.edges.iterrows():
+        # Check that the edge shares an atom with the group
+        if len([0 for _ in edge['eatoms'] if _ in grp.atom_ndxs]) == 0:
+            continue
         # Get the index of the edge
-        edge_ndx = ndx_search(grp.edge_ndxs, edge.ndx)
+        edge_ndx = ndx_search(grp.edge_ndxs, edge['eatoms'])
         # Check if the edge has been added yet or not
-        if edge_ndx >= len(grp.edge_ndxs) or grp.edge_ndxs[edge_ndx] == edge.ndx:
+        if edge_ndx >= len(grp.edge_ndxs) or grp.edge_ndxs[edge_ndx] == edge['eatoms']:
             # Insert the index and the surfaces in their correct place
-            grp.edges.insert(edge_ndx, edge)
-            grp.edge_ndxs.insert(edge_ndx, edge.ndx)
+            grp.edges.insert(edge_ndx, i)
+            grp.edge_ndxs.insert(edge_ndx, edge['eatoms'])
 
 
 def get_verts(grp):
@@ -66,17 +74,18 @@ def get_verts(grp):
     """
     # Reset the surfaces lists
     grp.verts, grp.vert_ndxs = [], []
-    grp.atom_ndxs = [_.num for _ in grp.atoms]
-    grp.atom_ndxs.sort()
     # Go through the surfaces in the atoms list of surfaces
-    for vert in grp.sys.net.verts:
+    for i, vert in grp.sys.net.verts.iterrows():
+        # Check that the edge shares an atom with the group
+        if len([0 for _ in vert['vatoms'] if _ in grp.atom_ndxs]) == 0:
+            continue
         # Get the index of the edge
-        vert_ndx = ndx_search(grp.vert_ndxs, vert.ndx)
+        vert_ndx = ndx_search(grp.vert_ndxs, vert['vatoms'])
         # Check if the edge has been added yet or not
-        if vert_ndx >= len(grp.vert_ndxs) or grp.vert_ndxs[vert_ndx] == vert.ndx:
+        if vert_ndx >= len(grp.vert_ndxs) or grp.vert_ndxs[vert_ndx] == vert['vatoms']:
             # Insert the index and the surfaces in their correct place
-            grp.verts.insert(vert_ndx, vert)
-            grp.vert_ndxs.insert(vert_ndx, vert.ndx)
+            grp.verts.insert(vert_ndx, i)
+            grp.vert_ndxs.insert(vert_ndx, vert['vatoms'])
 
 
 def get_iface(grp, bff=None):
@@ -87,45 +96,50 @@ def get_iface(grp, bff=None):
     grp.iface_atoms, grp.bff.iface_atoms, grp.iface_surfs, grp.iface_edges, grp.iface_verts = [], [], [], [], []
     ie_ndxs, iv_ndxs = [], []
     grp.iface_sa = 0
-
+    iface_curvs = []
     # Go through the atoms in the group
-    for atom in grp.atoms:
+    for i in grp.atoms:
         # Check to see if the atom is in the bff's list of atoms
-        if atom.num in grp.bff.atom_ndxs:
+        if i in grp.bff.atom_ndxs:
             continue
+        atom = grp.sys.net.iloc[i]
         # Go through the surfaces in the atom's list of surfaces
-        for surf in atom.surfs:
+        for j in atom['surfs']:
+            surf = grp.sys.net.surfs.iloc[j]
+            iface_curvs.append(surf['curv'])
             # Check for an interface surf
-            if (surf.ndx[0] in grp.atom_ndxs and surf.ndx[1] in grp.bff.atom_ndxs) or \
-               (surf.ndx[1] in grp.atom_ndxs and surf.ndx[0] in grp.bff.atom_ndxs):
+            if (surf['satoms'][0] in grp.atom_ndxs and surf['satoms'][1] in grp.bff.atom_ndxs) or \
+               (surf['satoms'][1] in grp.atom_ndxs and surf['satoms'][0] in grp.bff.atom_ndxs):
                 # Get the other atom from the surface's atoms
-                other_atom = [_ for _ in surf.atoms if _ != atom][0]
+                other_atom = [_ for _ in surf['atoms'] if _ != i][0]
                 # Add the first atom to the group's list of interface atoms
-                grp.iface_atoms.append(atom)
+                grp.iface_atoms.append(i)
                 grp.bff.iface_atoms.append(other_atom)
                 # Add the surface to the list of interface surfs and add the surface area of the surface
-                grp.iface_surfs.append(surf)
-                grp.iface_sa += surf.sa
+                grp.iface_surfs.append(j)
+                grp.iface_sa += surf['sa']
                 # Add the edges to the interface
-                for edge in surf.edges:
+                for k in surf['sedges']:
+                    edge = grp.sys.net.edges.iloc[k]
                     # Get the index of the edge
-                    edge_ndx = ndx_search(ie_ndxs, edge.ndx)
+                    edge_ndx = ndx_search(ie_ndxs, edge['eatoms'])
                     # Check if the edge is in there or not
-                    if len(ie_ndxs) <= edge_ndx or edge.ndx != ie_ndxs[edge_ndx]:
+                    if len(ie_ndxs) <= edge_ndx or edge['eatoms'] != ie_ndxs[edge_ndx]:
                         # Add the index and edge to the correct lists
-                        ie_ndxs.insert(edge_ndx, edge.ndx)
-                        grp.iface_edges.insert(edge_ndx, edge)
+                        ie_ndxs.insert(edge_ndx, edge['eatoms'])
+                        grp.iface_edges.insert(edge_ndx, k)
                 # Add the verts to the interface
-                for vert in surf.verts:
+                for k in surf['sverts']:
+                    vert = grp.sys.net.verts.iloc[k]
                     # Get the index of the vert
-                    vert_ndx = ndx_search(iv_ndxs, vert.ndx)
+                    vert_ndx = ndx_search(iv_ndxs, vert['vatoms'])
                     # Check if the vert is in there or not
                     if len(ie_ndxs) <= vert_ndx or vert.ndx != ie_ndxs[vert_ndx]:
                         # Add the index and vert to the correct lists
-                        ie_ndxs.insert(vert_ndx, vert.ndx)
-                        grp.iface_verts.insert(vert_ndx, vert)
+                        ie_ndxs.insert(vert_ndx, vert['vatoms'])
+                        grp.iface_verts.insert(vert_ndx, k)
     # Get the curvature
-    grp.iface_curv = sum([_.curv for _ in grp.iface_surfs]) / len(grp.iface_surfs)
+    grp.iface_curv = max(iface_curvs)
     # Set the bff's surface area
     grp.bff.iface_atoms = grp.iface_atoms
     grp.bff.iface_surfs = grp.iface_surfs

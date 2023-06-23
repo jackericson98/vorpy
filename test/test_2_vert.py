@@ -1,9 +1,6 @@
 import pytest
 
-from System.Group.group import Group
-from System.Network.net_funcs.find_verts import verify_site
-from test.test_1_load import pdb_sys_vor, pdb_sys_pow, pdb_sys_del
-
+from System.Network.verts.find_verts import verify_site
 
 """
 ___________________________________________________Voronoi Calculations_________________________________________________

@@ -1,6 +1,6 @@
+from System.sys_funcs.calcs.calcs import round_func
 import os
 import csv
-from System.sys_funcs.calcs.calcs import round_func
 
 
 def write_net_logs(net, round_to=3):
@@ -26,7 +26,7 @@ def write_net_logs(net, round_to=3):
         # Write the group information header
         lg_fl.writerow(["group information"])
         # Write the group information labels
-        lg_fl.writerow(["index", "name", "volume", "surface area"])
+        lg_fl.writerow(["index", "name", "volume", "surface area", "volume"])
         for i, group in enumerate(net.sys.groups):
             # Write the group information
             if group.sa is None:
@@ -37,35 +37,35 @@ def write_net_logs(net, round_to=3):
         # Write the column labels
         lg_fl.writerow(["index", "name", "volume", "surface area", "max curvature", "neighbors"])
         # Go through the atoms in the system
-        for i, atom in enumerate(net.atoms):
-            if atom.sa == 0:
+        for i, atom in net.atoms.iterrows():
+            if atom['sa'] == 0:
                 continue
-            a_surfs = [_[0] if _[0] != atom.num else _[1] for _ in [_.ndx for _ in atom.surfs]]
-            lg_fl.writerow([i, atom.name, r(atom.vol), r(atom.sa), r(atom.curv), *a_surfs])
+            nbrs = [satoms[0] if satoms[0] != atom['num'] else satoms[1] for satoms in [net.surfs['satoms'][_] for _ in atom['asurfs']]]
+            lg_fl.writerow([i, atom['name'], r(atom['vol']), r(atom['sa']), r(atom['curv']), *nbrs])
         # Write the surfaces header
         lg_fl.writerow(["Surfaces"])
         # Write the surface column labels
         lg_fl.writerow(["index", "atom0", "atom1", "surface area", "curvature", "vol a0", "vol a1"])
         # Go through the surfaces in the system and write their information
-        for i, surf in enumerate(net.surfs):
+        for i, surf in net.surfs.iterrows():
             # Write the information for the surface
-            lg_fl.writerow([i, *surf.ndx, r(surf.sa), r(surf.curv), r(surf.vols[0]), r(surf.vols[1])])
+            lg_fl.writerow([i, *surf['satoms'], r(surf['sa']), r(surf['curv']), r(surf['vols'][0]), r(surf['vols'][1])])
         # Write the edges header
         lg_fl.writerow(["Edges"])
         # Write the edges headers
         lg_fl.writerow(["index", "atom0", "atom1", "atom2", "length"])
         # Go through the edges in the network
-        for i, edge in enumerate(net.edges):
+        for i, edge in net.edges.iterrows():
             # Write the data for the edge
-            lg_fl.writerow([i, *edge.ndx, r(edge.length)])
+            lg_fl.writerow([i, *edge['eatoms'], r(edge['length'])])
         # Write the vertices header
         lg_fl.writerow(["Vertices"])
         # Write the vertices data labels
         lg_fl.writerow(["index", "atom0", "atom1", "atom2", "atom3", "x", "y", "z", "r"])
         # Go through the vertices
-        for i, vert in enumerate(net.verts):
+        for i, vert in net.verts.iterrows():
             # Write the vertex information line
-            lg_fl.writerow([i, *vert.ndx, *r(vert.loc), r(vert.rad)])
+            lg_fl.writerow([i, *vert['vatoms'], *r(vert['vloc']), r(vert['vrad'])])
 
 
 def write_net(net, file_name=None, round_to=3):
@@ -97,54 +97,52 @@ def write_net(net, file_name=None, round_to=3):
                         "e2a2", "e3a0", "e3a1", "e3a2", "s0a0", "s0a1", "s1a0", "s1a1", "s2a0", "s2a1", "s3a0", "s3a1",
                         "s4a0", "s4a1", "s5a0", "s5a1"])
         # Write the connections
-        for i, vert in enumerate(net.verts):
+        for i, vert in net.verts.iterrows():
             # Reset the tracking variables
             edge_ndxs, surf_ndxs = [], []
             # Stupid dumb way
             for j in range(4):
-                if j >= len(vert.edges):
+                if j >= len(vert['vedges']):
                     edge_ndxs += [-1, -1, -1]
                 else:
-                    edge_ndxs += vert.edges[j].ndx
+                    edge_ndxs += vert['vedges'][j]
             for j in range(6):
-                if j >= len(vert.surfs):
+                if j >= len(vert['vsurfs']):
                     surf_ndxs += [-1, -1]
                 else:
-                    surf_ndxs += vert.surfs[j].ndx
+                    surf_ndxs += vert['vsurfs'][j]
             # Write the vertex connection data
             nt_fl.writerow([i, *edge_ndxs, *surf_ndxs])
 
         # Create a vertices header
         nt_fl.writerow(["v", "a0", "a1", "a2", "a3", "x", "y", "z", "r"])
         # Write the connections and location and radius for each vertex in the network
-        for i, vert in enumerate(net.verts):
-            nt_fl.writerow([i, *vert.ndx, *r(vert.loc), r(vert.rad)])
+        for i, vert in net.verts.iterrows():
+            nt_fl.writerow([i, *vert['vatoms'], *r(vert['vloc']), r(vert['vrad'])])
 
         # Create an edges header
         nt_fl.writerow(["e", "a0", "a1", "a2", "sa0", "sa1", "i_0", "i_n"])
         # Write the connections and surface and points range information for each edge in the network
-        for i, edge in enumerate(net.edges):
-            if edge.ref is None or edge.ref == {} or 'surf' not in edge.ref:
-                edge.ref = {'surf': [-1, -1], 'i0': 0, 'i1': 0}
+        for i, edge in net.edges.iterrows():
             # Write the edge information in the file
-            nt_fl.writerow([i, *edge.ndx, *edge.ref['surf'], edge.ref['i0'], edge.ref['i1']])
+            nt_fl.writerow([i, *edge['eatoms'], *edge['ref']['surf'], edge['ref']['i0'], edge['ref']['i1']])
 
         # Create a surfaces header
         nt_fl.writerow(["s", "a0", "a1", "pts/tris"])
         # Write the connections and surface and points range information for each edge in the network
-        for i, surf in enumerate(net.surfs):
+        for i, surf in net.surfs.iterrows():
             # Combine the points
             surf_points = []
-            for point in surf.points:
+            for point in surf['points']:
                 surf_points += list(point)
             # Combine the tris
             surf_tris = []
-            for tri in surf.tris:
+            for tri in surf['tris']:
                 surf_tris += tri
             # Write the surface points
-            nt_fl.writerow(["pts", *surf.ndx, *[r(_) for _ in surf_points]])
+            nt_fl.writerow(["pts", *surf['satoms'], *[r(_) for _ in surf_points]])
             # Write the surface triangles
-            nt_fl.writerow(["tris", *surf.ndx, *surf_tris])
+            nt_fl.writerow(["tris", *surf['satoms'], *surf_tris])
 
     # Change back to the network file's directory
     os.chdir(net.sys.dir)
@@ -164,7 +162,7 @@ def write_verts(net):
         # Write the vertices
         for vert in net.verts:
             # Write the vertex
-            file.write("VERT " + " ".join([str(_) for _ in vert.ndx]) + " " + " ".join([str(_) for _ in vert.loc]) + " " +
-                       str(vert.rad) + "\n")
+            file.write("VERT " + " ".join([str(_) for _ in vert['vatoms']]) + " " + " ".join([str(_) for _ in vert['vloc']]) + " " +
+                       str(vert['vrad']) + "\n")
         # Write the end line for the file
         file.write("END")

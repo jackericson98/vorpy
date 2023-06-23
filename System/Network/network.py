@@ -1,10 +1,12 @@
 import time
-from itertools import chain as chain
-from System.Network.net_funcs.find_verts import find_verts
-from System.Network.net_funcs.build_net import build, get_time, calc_length
-from System.Network.net_funcs.build_edge import build_edge
-from System.Network.net_funcs.build_surf import build_surf
-from System.sys_funcs.calcs.calcs import calc_vol, calc_surf_func, calc_surf_sa, ndx_search, calc_surf_tri_curvs
+
+import pandas as pd
+
+from System.Network.verts.find_verts import find_verts
+from System.Network.build_net import build, get_time, calc_length
+from System.Network.edges.build_edge import build_edge
+from System.Network.surfs.build_surf import build_surf
+from System.sys_funcs.calcs.calcs import calc_vol, calc_surf_func, calc_surf_sa, ndx_search, calc_surf_tri_curvs, global_vars
 from Visualize.mpl_visualize import *
 
 
@@ -15,6 +17,7 @@ class Network:
                  surf_scheme='curv'):
 
         # Main network defining objects
+        self.num_splits = None
         self.sys = sys                    # System            :   Route back to outer system
         self.type = net_type              # Network Type      :   String indicating network build type
         self.id = 0                       # Network id #      :
@@ -30,7 +33,6 @@ class Network:
         self.vert_ndxs = []                # Vert indices     :    Sorted atom indices defining all net verts
         self.edge_ndxs = []                # Edge indices     :    Sorted atom indices defining all net edges
         self.surf_ndxs = []                # Surf indices     :    Sorted atom indices defining all net surfs
-        self.dub_ndxs = []                 # Doublet indices  :    Holds the vertex indices of the doublets
 
         # Tools for splitting up the atoms
         self.box = None                    # Box              :    Holds a max and min vertex for the retaining box
@@ -41,6 +43,7 @@ class Network:
         self.atoms_box = []                # Atoms box        :    min/max vals for the box containing the atoms
 
         # Diagnostic variables
+        self.start_time = None
         self.my_time = None                # My time          :    Time taken to calculate the network
         self.metrics = {}                  # Build Metrics    :    Holds the time measurements for the build
         self.max_vert_rad = 0              # Max Vertex Rad   :    Maximum real vertex recorded
@@ -58,7 +61,7 @@ class Network:
 
         self.sort_atoms()
 
-    def calc_box(self):
+    def calc_box(self, locs, rads):
         """
         Determines the dimensions of a box x times the size of the atoms
         :return: Sets the box attribute with the correct values as well as atoms_box
@@ -67,21 +70,21 @@ class Network:
         min_vert = np.array([np.inf, np.inf, np.inf])
         max_vert = np.array([-np.inf, -np.inf, -np.inf])
         # Loop through each atom in the network
-        for atom in self.atoms:
+        for loc in locs:
             # Loop through x, y, z
             for i in range(3):
                 # If x, y, z values are less replace the value in the mins list
-                if atom.loc[i] < min_vert[i]:
-                    min_vert[i] = atom.loc[i]
+                if loc[i] < min_vert[i]:
+                    min_vert[i] = loc[i]
                 # If x, y, z values are greater replace the value in the maxes list
-                if atom.loc[i] > max_vert[i]:
-                    max_vert[i] = atom.loc[i]
+                if loc[i] > max_vert[i]:
+                    max_vert[i] = loc[i]
         # Get the vector between the minimum and maximum vertices for the defining box
         r_box = max_vert - min_vert
         # If the atoms are in the same plane adjust the atoms
         for i in range(3):
             if r_box[i] == 0 or abs(r_box[i]) == np.inf:
-                r_box[i], min_vert[i], max_vert[i] = 4 * self.atoms[0].rad, self.atoms[0].loc[i], self.atoms[0].loc[i]
+                r_box[i], min_vert[i], max_vert[i] = 4 * rads[0], locs[0][i], locs[0][i]
         # Set the atoms box value
         self.atoms_box = [min_vert.tolist(), max_vert.tolist()]
         # Set the new vertices to the x factor times the vector between them added to their complimentary vertices
@@ -104,25 +107,36 @@ class Network:
             n = int(np.sqrt(len(self.atoms))) + 1
         else:
             n = int(np.cbrt(num_boxes)) + 1
+        self.num_splits = n
+        locs, rads = self.atoms['loc'], self.atoms['rad']
         # First get the box for the atoms to be sorted into
-        self.calc_box()
+        self.calc_box(locs, rads)
         # Instantiate the grid structure of lists is locations representing a grid
-        self.sub_boxes = [[[[] for _ in range(n)] for _ in range(n)] for _ in range(n)]
+        self.sub_boxes = {(-1, -1, -1): [n]}
         # Get the cell size
         self.sub_box_size = [round((self.box[1][i] - self.box[0][i]) / n, 3) for i in range(3)]
+        my_boxes = []
         # Sort the atoms
-        for atom in self.atoms:
+        for i, loc in enumerate(locs):
+            # Get the radius
+            rad = rads[i]
             # Adjust the maximum radius
-            if atom.rad > self.sys.max_atom_rad:
-                self.sys.max_atom_rad = atom.rad
+            if rad > self.sys.max_atom_rad:
+                self.sys.max_atom_rad = rad
             # Find the box they belong to
-            box_ndxs = [int((atom.loc[i] - self.box[0][i]) / self.sub_box_size[i]) for i in range(3)]
+            box_ndxs = [int((loc[j] - self.box[0][j]) / self.sub_box_size[j]) for j in range(3)]
+
             # Add the atom to the box
-            self.sub_boxes[box_ndxs[0]][box_ndxs[1]][box_ndxs[2]].append(atom)
+            try:
+                self.sub_boxes[box_ndxs[0], box_ndxs[1], box_ndxs[2]].append(i)
+            except KeyError:
+                self.sub_boxes[box_ndxs[0], box_ndxs[1], box_ndxs[2]] = [i]
             # Add the box to the atom
-            atom.box = box_ndxs
+            my_boxes.append(box_ndxs)
         # Get the number of rows columns and aisles
-        self.box_max = len(self.sub_boxes) - 1, len(self.sub_boxes[0]) - 1, len(self.sub_boxes[0][0]) - 1
+        self.box_max = n - 1, n - 1, n - 1
+        # set the box data
+        self.atoms['box'] = my_boxes
 
     def sort_verts(self, my_group=None):
         """
@@ -131,9 +145,9 @@ class Network:
         """
         # Check to see if a group is provided
         if my_group is not None:
-            atom_ndxs = [_.num for _ in my_group.atoms]
+            atom_ndxs = [_['num'] for _ in my_group.atoms]
         else:
-            atom_ndxs = [_.num for _ in self.atoms]
+            atom_ndxs = [_['num'] for _ in self.atoms]
         atom_ndxs.sort()
         # Instantiate the grid structure of lists is locations representing a grid
         self.vert_sub_boxes = [[[[] for _ in range(self.box_max[2] + 1)]
@@ -143,57 +157,28 @@ class Network:
         drop_verts = []
         for i, vert in enumerate(self.verts):
             # Check that the vertex has at least one atom of interest
-            for ndx in vert.ndx:
+            for ndx in vert['ndx']:
                 search_ndx = ndx_search(atom_ndxs, ndx)
                 if atom_ndxs[search_ndx] == ndx:
                     break
             else:
                 drop_verts.append(i)
             # Adjust the maximum radius
-            if vert.rad > self.max_vert_rad:
-                self.max_vert_rad = vert.rad
+            if vert['rad'] > self.max_vert_rad:
+                self.max_vert_rad = vert['rad']
             # Find the box they belong to
-            box_ndxs = [int((vert.loc[i] - self.box[0][i]) / self.sub_box_size[i]) for i in range(3)]
+            box_ndxs = [int((vert['loc'][i] - self.box[0][i]) / self.sub_box_size[i]) for i in range(3)]
             # Add the atom to the box
             try:
                 self.vert_sub_boxes[box_ndxs[0]][box_ndxs[1]][box_ndxs[2]].append(vert)
             except IndexError:
                 drop_verts.append(i)
             # Add the box to the atom
-            vert.box = box_ndxs
+            vert['box'] = box_ndxs
         # Drop the vertices outside the box
         for vert_num in reversed(drop_verts):
             self.verts.pop(vert_num)
             self.vert_ndxs.pop(vert_num)
-
-    def get_atoms(self, cells, reach=0):
-        """
-        Takes in the cells and the number of additional cells to search and returns an atom list
-        :param cells: The initial boxes in the network to stem from
-        :param reach: The number of cells out from the initial set of cells to search
-        """
-        # If a single cell is entered
-        if type(cells[0]) is int:
-            cells = [cells]
-        # Get the min and max of the cells
-        ndx_min = [np.inf, np.inf, np.inf]
-        ndx_max = [-np.inf, -np.inf, -np.inf]
-        # Go through the cells and set the minimum and maximum indexes for xyz for a rectangle containing the atoms
-        for cell in cells:
-            # Check each xyz index to see if they are larger or smaller than the max or min
-            for i in range(3):
-                if cell[i] < ndx_min[i]:
-                    ndx_min[i] = cell[i]
-                if cell[i] > ndx_max[i]:
-                    ndx_max[i] = cell[i]
-        xs = [x for x in range(max(0, -reach + ndx_min[0] + 1), reach + ndx_max[0])]
-        ys = [y for y in range(max(0, -reach + ndx_min[1] + 1), reach + ndx_max[1])]
-        zs = [z for z in range(max(0, -reach + ndx_min[2] + 1), reach + ndx_max[2])]
-        # Get atoms
-        atoms = [self.sub_boxes[i][j][k] for k in zs for j in ys for i in xs
-                 if 0 <= k <= self.box_max[2] and 0 <= j <= self.box_max[1] and 0 <= i <= self.box_max[0]]
-        atoms = list(chain.from_iterable(atoms))
-        return atoms
 
     def get_verts(self, cells, reach=0):
         """
@@ -220,7 +205,6 @@ class Network:
         zs = [z for z in range(max(0, -reach + ndx_min[2] + 1), reach + ndx_max[2])]
         verts = [self.vert_sub_boxes[i][j][k] for k in zs for j in ys for i in xs if 0 < k < self.box_max[2]
                  and 0 < j < self.box_max[1] and 0 < i < self.box_max[0]]
-        verts = list(chain.from_iterable(verts))
 
         return verts
 
@@ -228,25 +212,51 @@ class Network:
         """
         Connects the network using the functions in the build_net.py file
         """
-        build(self, my_group)
+        atom_lists, vert_lists, edge_lists, surf_lists = build(vatoms=self.verts['vatoms'], vlocs=self.verts['vloc'], vdubs=self.verts['vdub'], my_time=self.my_time, num_atoms=len(self.atoms))
+        self.atoms['averts'], self.atoms['aedges'], self.atoms['asurfs'] = atom_lists['averts'], atom_lists['aedges'], atom_lists['asurfs']
+        self.verts['vedges'], self.verts['vsurfs'] = vert_lists['vedges'], vert_lists['vsurfs']
+        self.edges = pd.DataFrame(edge_lists)
+        self.surfs = pd.DataFrame(surf_lists)
         self.metrics['con'] = time.perf_counter() - self.my_time - self.metrics['vert']
 
-    def find_verts(self, time_start=None, process_time_start=None, my_group=None):
+    def find_verts(self, my_group=None):
         """
         Using the functions in find_vertices.py finds the vertices in the network
         """
+        global_vars(self.sub_boxes, self.box, self.num_splits, self.sys.max_atom_rad, self.sub_box_size)
         # Check to see if a group has been provided
         if my_group is not None:
-            atom_nums = my_group.atom_ndxs
+            atom_nums = my_group.atom_ndxs[:]
         else:
             atom_nums = [i for i in range(len(self.atoms))]
         # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
         self.atom_ndxs = [_ for _ in atom_nums]
         # Do an initial sweep
-        find_verts(self, my_group=my_group)
+        my_guuy = find_verts(alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(), max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums, my_group=my_group, start_time=self.my_time, print_metrics=True)
+        vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = my_guuy
         # Check for disconnects in the network
-        while len(self.atom_ndxs) > 0:
-            find_verts(self, a0=self.atoms[self.atom_ndxs.pop()], my_group=my_group)
+        while len(atom_nums) > 0:
+            a0 = atom_nums.pop()
+            vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(), max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums, my_group=my_group, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads, vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.my_time, print_metrics=True)
+        # Create the doublets list
+        doublets = [0 for _ in range(len(vert_ndxs))]
+        # Incorporate the doublets into the vlocs, vatoms, vrads lists and lose the vloc2s and vrad2s
+        i = 0
+        while i < len(vlocs):
+            # Check for doubletness
+            if vrad2s[i] is not None:
+                # Insert the relevant information into their respective lists
+                vert_ndxs.insert(i + 1, vert_ndxs[i])
+                vlocs.insert(i + 1, vloc2s[i])
+                vrads.insert(i + 1, vrad2s[i])
+                doublets.insert(i + 1, 1)
+                # Preserve the relational aspects of vrad2s and vloc2s
+                vrad2s.insert(i + 1, None)
+                vloc2s.insert(i + 1, [None, None, None])
+            i += 1
+
+        # Make the dataframe
+        self.verts = pd.DataFrame({"vatoms": vert_ndxs, 'vloc': vlocs, 'vrad': vrads, 'vdub': doublets})
         # Clear the print statement
         print("\r                                                                  ", end="")
         self.metrics['vert'] = time.perf_counter() - self.my_time
@@ -255,24 +265,51 @@ class Network:
         """
         Builds the edges in the network for use in the surfaces
         """
+        # Set the edge points and vals lists
+        edges_points, edges_vals = [], []
         # Go through the edges in the network
-        for edge in self.edges:
+        for i, edge in self.edges.iterrows():
             # Build the edge depending on if it is straight or not
             straight = True if self.type in ['pow', 'flat', 'del'] else False
-            edge.points, edge.vals = build_edge(edge.atoms, edge.verts, res=self.surf_res, straight=straight)
+            edge_points, edge_vals = build_edge(alocs=[self.atoms['loc'][_] for _ in edge['eatoms']],
+                                                arads=[self.atoms['rad'][_] for _ in edge['eatoms']],
+                                                vlocs=[self.verts['vloc'][_] for _ in edge['everts']],
+                                                res=self.surf_res, straight=straight)
+            # Add them to the lists
+            edges_points.append(edge_points)
+            edges_vals.append(edge_vals)
+        # Set the dataframe values
+        self.edges['points'], self.edges['vals'] = edges_points, edges_vals
 
     def build_surfaces(self):
         """
         Takes in a system and returns a fully connected network
         """
         # Make each surface
-        for i, surf in enumerate(self.surfs):
+        points, tris, tri_curvs, curvs, funcs, coms, flats = [], [], [], [], [], [], []
+        for i, surf in self.surfs.iterrows():
             # Build the surfaces and print the progress
             my_time = time.perf_counter() - self.my_time
             h, m, s = get_time(my_time)
-            print("\rRun Time = {:2}:{:2}:{:.2f} - Process: building surfaces {:.2f} %"
+            print("\rRun Time = {:2}:{:2}:{:.2f} - Process: building surfaces {:.2f} %                                 "
                   .format(int(h), int(m), round(s, 2), min(100.0, 100 * round(i/len(self.surfs), 2))), end="")
-            build_surf(surf)
+            arads = [self.atoms['rad'][_] for _ in surf['satoms']]
+            alocs = [self.atoms['loc'][_] for _ in surf['satoms']]
+            if arads[0] > arads[1]:
+                arads, alocs = [arads[1], arads[0]], [alocs[1], alocs[0]]
+            surf_points, surf_tris, surf_tri_curvs, surf_curv, surf_func, surf_com, surf_flat = build_surf(alocs=alocs,
+                                           arads=arads,
+                                           epnts=[self.edges['points'][_] for _ in surf['sedges']],
+                                           res=self.surf_res, net_type=self.type)
+            points.append(surf_points)
+            tris.append(surf_tris)
+            tri_curvs.append(surf_tri_curvs)
+            curvs.append(surf_curv)
+            funcs.append(surf_func)
+            coms.append(surf_com)
+            flats.append(surf_flat)
+        # Set the dataframe elements
+        self.surfs['points'], self.surfs['tris'], self.surfs['tri_curvs'], self.surfs['curv'], self.surfs['func'], self.surfs['com'], self.surfs['flat'] = points, tris, tri_curvs, curvs, funcs, coms, flats
         print("\r                                                                                             ", end='')
         self.metrics['surf'] = time.perf_counter() - self.my_time - self.metrics['vert'] - self.metrics['con']
 
@@ -287,59 +324,76 @@ class Network:
         tot_num = len(self.edges) + len(self.surfs) + len(self.atoms)
         # Go through the edges in the network
         i = 0
-        for i, edge in enumerate(self.edges):
+        lengths = []
+        for i, edge in self.edges.iterrows():
             percentage = int(i / tot_num * 100)
-            if edge.length is None or edge.length == 0:
-                if edge.points is None or len(edge.points) == 0:
-                    edge.points, edge.vals = build_edge(edge.atoms, edge.verts, self.surf_res)
-                edge.length = calc_length(edge.points)
+            # Calculate the length of each edge
+            lengths.append(calc_length(np.array(edge['points'])))
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
                 h, m, s = get_time(my_time)
                 print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                  "
                       .format(int(h), int(m), round(s, 2), percentage), end="")
+        self.edges['length'] = lengths
         # Go through each surface in the system and find the simplices and the surface area
-        for j, surf in enumerate(self.surfs):
-            # Get the percentage
+        sas = []
+        surfs_tri_curvs, surfs_curvs = [], []
+        j = 0
+        for j, surf in self.surfs.iterrows():
             percentage = int((i + j + 1) / tot_num * 100)
-            # If the surface's function is None calculate it
-            if surf.func is None:
-                surf.func = calc_surf_func(surf.atoms[0].loc, surf.atoms[0].rad, surf.atoms[1].loc, surf.atoms[1].rad)
-            # If the surface area is None calculate it
-            if surf.sa is None or self.surfs[j].sa == 0:
-                # Get the surface area of the surface
-                surf.sa = calc_surf_sa(edges=surf.edges, com=surf.com, tris=surf.tris, points=surf.points, flat=surf.flat)
+            sas.append(calc_surf_sa(edges=[self.edges['points'][_] for _ in surf['sedges']], com=np.array(surf['com']), tris=surf['tris'], points=surf['points'], flat=surf['flat']))
             # Get the curvature of the surface patch
-            if surf.curv is None or (surf.curv == 0 and not surf.flat):
-                surf.tri_curvs, surf.curv = calc_surf_tri_curvs(surf.func, surf.points, surf.tris, surf.curv)
-            # Set the maximum curvature for the network
-            if surf.curv > self.max_curv:
-                self.max_curv = surf.curv
-            # Print the analysis
+            if surf['curv'] is None or (surf['curv'] == 0 and not surf['flat']):
+                surf_tri_curvs, scurvs = calc_surf_tri_curvs(surf['func'], surf['points'], surf['tris'], surf['curv'])
+                surfs_tri_curvs.append(surf_tri_curvs)
+                surfs_curvs.append(scurvs)
+            else:
+                surfs_tri_curvs.append(surf['tri_curvs'])
+                surfs_curvs.append(surf['curv'])
+            if surf['curv'] > self.max_curv:
+                self.max_curv = surf['curv']
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
                 h, m, s = get_time(my_time)
                 print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                  "
                       .format(int(h), int(m), round(s, 2), percentage), end="")
-        j = 0
+        self.surfs['sa'], self.surfs['curv'], self.surfs['tri_curvs'] = sas, surfs_curvs, surfs_tri_curvs
+        # Set up the atoms' volumes surface areas, curvatures vars
+        avols, asas, acurvs = [], [], []
+        asurfs_vols = [[] for _ in range(len(self.surfs))]
         # Go through each atom in the system and find the volume
-        for k, atom in enumerate(self.atoms):
+        for k, atom in self.atoms.iterrows():
             # Get the percentage for printing
             percentage = int((i + j + k + 2) / tot_num * 100)
-            if atom.vol is None or atom.vol == 0:
-                calc_vol(atom)
+            avol, asurf_vols = calc_vol(atom['loc'], [self.surfs['points'][_] for _ in atom['asurfs']],
+                                        [self.surfs['tris'][_] for _ in atom['asurfs']])
+            avols.append(avol)
+            for i, surf_vol in enumerate(asurf_vols):
+                asurfs_vols[atom['asurfs'][i]].append([k, surf_vol])
+            # Get/calculate the surface area
+            if 'sa' not in atom or atom['sa'] is None or atom['sa'] == 0:
+                asas.append(sum([self.surfs['sa'][_] for _ in atom['asurfs']]))
+            else:
+                asas.append(atom['sa'])
             # Check that the curvature is None
-            if atom.curv is None or atom.curv == 0:
-                atom.curv = 0
+            if 'curv' not in atom or atom['curv'] is None or atom['curv'] == 0:
+                atom_curv = 0
                 # Go through the atom's surfaces
-                for surf in atom.surfs:
-                    if surf.curv > atom.curv:
-                        atom.curv = surf.curv
+                for m in atom['asurfs']:
+                    surf = self.surfs.iloc[m]
+                    if surf['curv'] > atom_curv:
+                        atom_curv = surf['curv']
+                acurvs.append(atom_curv)
+
             # Print the actions
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
                 h, m, s = get_time(my_time)
-                print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                 ".format(int(h), int(m), round(s, 2), percentage), end="")
+                print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                 "
+                      .format(int(h), int(m), round(s, 2), percentage), end="")
+        self.surfs['vols'] = [[asurfs_vols[i][0][1], asurfs_vols[i][1][1]] if asurfs_vols[i][0][0] < asurfs_vols[i][1][0]
+                              else [asurfs_vols[i][1][1], asurfs_vols[i][0][1]] for i in range(len(self.surfs))]
+        self.atoms['vol'], self.atoms['sa'], self.atoms['curv'] = avols, asas, acurvs
         self.metrics['anal'] = time.perf_counter() - self.my_time - self.metrics['surf'] - self.metrics['con'] - self.metrics['vert']
 
     def build(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
@@ -355,6 +409,7 @@ class Network:
         :param build_surfs: Build Surfaces? If yes, the surfaces in the group's network are constructed
         :param calc_verts: Calculate Vertices? Skips vertex calculations if a network or vertex file is loaded
         """
+        self.start_time = time.perf_counter()
         # If the system has no name, one needs top be set
         if self.sys.name is None:
             self.sys.name = "User_Atoms"
@@ -399,12 +454,14 @@ class Network:
             self.analyze()
         else:
             for surf in self.surfs:
-                surf.func = calc_surf_func(surf.atoms[0].loc, surf.atoms[0].rad, surf.atoms[1].loc, surf.atoms[1].rad)
+                a0, a1 = self.atoms.iloc[surf['atoms'][0]], self.atoms.iloc[surf['atoms'][1]]
+                surf_atoms_vals = a0['loc'], a0['rad'], a1['loc'], a1['rad']
+                surf['func'] = calc_surf_func(*surf_atoms_vals)
             self.metrics['surf'], self.metrics['anal'] = 0, 0
         # Load the elements to the group
         my_group.get_info()
         # Stop the timer and measure the time
-        self.metrics['tot'] = time.process_time() - self.my_time
+        self.metrics['tot'] = time.perf_counter() - self.start_time
         h, m, s = get_time(self.metrics['tot'])
         print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s\n"
               .format(len(self.verts), len(self.surfs), int(h), int(m), s), end="")

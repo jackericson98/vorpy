@@ -1,8 +1,9 @@
 import os
 import numpy as np
+from System.sys_funcs.calcs.calcs import ndx_search
 
 
-def write_verts(verts, file_name, atom_type=None, directory=None, color=None, vert_rad=0.05):
+def write_verts(net, verts, file_name, atom_type=None, directory=None, color=None, vert_rad=0.05):
     """
     Creates a pdb file for vertex representation
     :param vert_rad:
@@ -27,7 +28,7 @@ def write_verts(verts, file_name, atom_type=None, directory=None, color=None, ve
         return
     loc_points, loc_tris = [], []
     for vert in verts:
-        loc = np.array(vert.loc)
+        loc = net.verts['vloc'][vert]
         # Draw the point
         xp, xn = loc + np.array([vert_rad, 0, 0]), loc - np.array([vert_rad, 0, 0])
         yp, yn = loc + np.array([0, vert_rad, 0]), loc - np.array([0, vert_rad, 0])

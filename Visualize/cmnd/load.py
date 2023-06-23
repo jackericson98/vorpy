@@ -10,12 +10,12 @@ def load(sys, usr_npt):
     :param usr_npt:
     :return:
     """
+
     my_files = []
     if len(usr_npt) == 1:
         my_files.append(get_file())
         if my_files[-1] is None or my_files[-1].lower() in quits:
             return
-
     else:
         for file in usr_npt[1::2]:
             my_file = get_file(file)

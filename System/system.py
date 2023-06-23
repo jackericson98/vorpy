@@ -1,10 +1,10 @@
 from System.sys_funcs.input.input import *
 from System.sys_funcs.input.net import read_net
 from System.sys_funcs.output.output import set_sys_dir, export_sys
-from System.sys_funcs.output.net import write_net, write_verts
+from System.sys_funcs.output.net import write_verts
 from System.Group.group import Group
 from Visualize.mpl_visualize import *
-from numpy import seterr, random
+from numpy import seterr
 
 
 class System:
@@ -34,6 +34,7 @@ class System:
         # Data
         self.net = None                     # Network             :   Network object holding the primary network
         self.user_atoms = atoms             # User Atoms          :   User provided locations and radii
+        self.foam = False
 
         # Loadable objects
         self.atoms = atoms                  # Atoms               :   List holding the atom objects
@@ -77,8 +78,8 @@ class System:
         # Load the system
         if self.base_file is not None:
             self.load_sys()
-        elif self.user_atoms is not None:
-            self.load_sys_atoms()
+        # elif self.user_atoms is not None:
+        #     self.load_sys_atoms()
         else:
             return
 
@@ -91,7 +92,7 @@ class System:
             self.load_ndx()
 
         # Get the name
-        self.name = os.path.basename(self.base_file)[:-4]
+        self.name = path.basename(self.base_file)[:-4]
 
     def load_sys(self, file=None):
         """
@@ -124,7 +125,7 @@ class System:
 
         # Name the system
         if self.name is None:
-            self.name = os.path.basename(self.base_file)[:-4]
+            self.name = path.basename(self.base_file)[:-4]
 
         # If the system wants its actions printed
         if self.print_actions:
@@ -150,10 +151,7 @@ class System:
             self.net = Network(atoms=self.atoms, sys=self)
 
         # If a ball file is loaded as well, this is a Voronota deal
-        if vta_ball_file is None:
-            read_verts(self.net, self.vert_file)
-        else:
-            read_vta_data(self, vert_file=file, ball_file=vta_ball_file)
+        read_vta_data(self, vert_file=file, ball_file=vta_ball_file)
 
         # If the system wants its actions printed
         if self.print_actions:
@@ -186,41 +184,41 @@ class System:
         if self.print_actions:
             print("{} indices loaded - {} indices total".format(self.name, len(self.ndxs)))
 
-    def load_sys_atoms(self):
-        """
-        Takes in a list of atomic values and creates atom objects for the system to interpret
-        """
-        # Disconnect atoms and user atoms
-        self.atoms = []
-        # Set the system Name
-        if self.name is None:
-            self.name = "User_Atoms"
-        # Go through each line in the input list
-        for i in range(len(self.user_atoms)):
-            # Get the atom
-            atom = self.user_atoms[i]
-            # If the radius is a string, convert the radius using the get_radius method
-            if isinstance(atom, Atom):
-                self.atoms.append(atom)
-            else:
-                if type(atom[1]) == str:
-                    self.atoms.append(Atom([float(atom[0][0]), float(atom[0][1]), float(atom[0][2])],
-                                           element=atom[1], chain="None", index=i))
-                else:
-                    self.atoms.append(Atom([float(atom[0][0]), float(atom[0][1]), float(atom[0][2])], float(atom[1]),
-                                           chain="None", index=i))
+    # def load_sys_atoms(self):
+    #     """
+    #     Takes in a list of atomic values and creates atom objects for the system to interpret
+    #     """
+    #     # Disconnect atoms and user atoms
+    #     self.atoms = []
+    #     # Set the system Name
+    #     if self.name is None:
+    #         self.name = "User_Atoms"
+    #     # Go through each line in the input list
+    #     for i in range(len(self.user_atoms)):
+    #         # Get the atom
+    #         atom = self.user_atoms[i]
+    #         # If the radius is a string, convert the radius using the get_radius method
+    #         if isinstance(atom, Atom):
+    #             self.atoms.append(atom)
+    #         else:
+    #             if type(atom[1]) == str:
+    #                 self.atoms.append(Atom([float(atom[0][0]), float(atom[0][1]), float(atom[0][2])],
+    #                                        element=atom[1], chain="None", index=i))
+    #             else:
+    #                 self.atoms.append(Atom([float(atom[0][0]), float(atom[0][1]), float(atom[0][2])], float(atom[1]),
+    #                                        chain="None", index=i))
 
-    def random_system(self, anums=30, dmax=15, rmax=1):
-        """
-        Creates a System with atoms placed in random locations with random radii
-        :param anums: Integer for the number of atoms in the system
-        :param dmax: Maximum distance from the center for the atoms
-        :param rmax: Maximum radius of an atom in the system
-        """
-        # Create the atoms
-        for i in range(anums):
-            # Choose a random set of 3 numbers between dmax and -dmax. Choose a random radius between 0 and rmax
-            self.atoms.append(Atom(location=random.rand(3)*2*dmax - dmax, radius=random.rand()*rmax, index=i))
+    # def random_system(self, anums=30, dmax=15, rmax=1):
+    #     """
+    #     Creates a System with atoms placed in random locations with random radii
+    #     :param anums: Integer for the number of atoms in the system
+    #     :param dmax: Maximum distance from the center for the atoms
+    #     :param rmax: Maximum radius of an atom in the system
+    #     """
+    #     # Create the atoms
+    #     for i in range(anums):
+    #         # Choose a random set of 3 numbers between dmax and -dmax. Choose a random radius between 0 and rmax
+    #         self.atoms.append(Atom(location=random.rand(3)*2*dmax - dmax, radius=random.rand()*rmax, index=i))
 
     def print_info(self):
         atoms_var = str(len(self.atoms)) + " Atoms"
@@ -262,7 +260,8 @@ class System:
         Exports the values calculated by the network
         """
         # Export the network
-        write_net(self.net)
+        # write_net(self.net)
+        pass
 
     def set_output_directory(self, directory=None):
         """

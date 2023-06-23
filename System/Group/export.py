@@ -14,7 +14,7 @@ def export_iface_verts(grp, directory=None):
     if directory is not None and os.path.exists(directory):
         os.chdir(directory)
     # write the vertices
-    write_verts(grp.iface_verts, directory=directory, file_name=grp.sys.net.type + "_verts")
+    write_verts(grp.sys.net, grp.iface_verts, directory=directory, file_name=grp.sys.net.type + "_verts")
 
 
 def export_iface_edges(grp, directory=None):
@@ -27,7 +27,7 @@ def export_iface_edges(grp, directory=None):
     if directory is not None and os.path.exists(directory):
         os.chdir(directory)
     # write the vertices
-    write_edges(grp.iface_edges, directory=directory, file_name=grp.sys.net.type + "_edges")
+    write_edges(grp.sys.net, grp.iface_edges, directory=directory, file_name=grp.sys.net.type + "_edges")
 
 
 def export_iface(grp, info_file=True, interface_atoms=False, directory=None):
@@ -52,9 +52,9 @@ def export_iface(grp, info_file=True, interface_atoms=False, directory=None):
     os.mkdir(os.getcwd() + "/" + interface_name)
     os.chdir(os.getcwd() + "/" + interface_name)
     # Write the surfaces for the interface
-    write_surfs(grp.iface_surfs, interface_name)
-    write_verts(grp.iface_verts, file_name=interface_name + "_verts")
-    write_edges(grp.iface_edges, file_name=interface_name + "_edges")
+    write_surfs(grp.sys.net, grp.iface_surfs, interface_name)
+    write_verts(grp.sys.net, grp.iface_verts, file_name=interface_name + "_verts")
+    write_edges(grp.sys.net, grp.iface_edges, file_name=interface_name + "_edges")
     # Check to see of the user wants to export the interface's atoms
     if interface_atoms:
         # Get the two sets of interface atoms
@@ -95,11 +95,11 @@ def export_iface_info(grp, directory=None):
         info.write("\nSurfaces:\n\n")
         # Go through each of the surfaces in the group
         for surf in grp.iface_surfs:
-            info.write("  Surface {} - \n".format(surf.ndx))
-            info.write("    Surface Area = {:.5f} \u212B\u00B2\n".format(surf.sa))
-            info.write("    Volume contributions = {:.5f}, {:.5f} \u212B\u00B3\n".format(surf.vols[0],
-                                                                                                        surf.vols[1]))
-            info.write("    Gaussian Curvature = {:.5f}\n".format(surf.curv))
+            info.write("  Surface {} - \n".format(grp.sys.net.surfs['satoms'][surf]))
+            info.write("    Surface Area = {:.5f} \u212B\u00B2\n".format(grp.sys.net.surfs['sa'][surf]))
+            info.write("    Volume contributions = {:.5f}, {:.5f} \u212B\u00B3\n"
+                       .format(grp.sys.net.surfs['vols'][surf][0], grp.sys.net.surfs['vols'][surf][0]))
+            info.write("    Gaussian Curvature = {:.5f}\n".format(grp.sys.net.surfs['curv'][surf]))
 
 
 def export_info(grp, directory=None):
@@ -122,18 +122,15 @@ def export_info(grp, directory=None):
         # System counts header
         info.write("Group system information:\n")
         # System counts
-        info.write("  {} Atoms, {} Residues, {} Chains\n\n".format(len(grp.atoms), len(grp.residues),
-                                                                   len(grp.chains)))
+        info.write("  {} Atoms, {} Residues, {} Chains\n\n".format(len(grp.atoms), len(grp.residues), len(grp.chains)))
         # Network counts header
         info.write("Group Network information:\n")
         # Network counts
-        info.write("  {} Vertices, {} Edges, {} Surfaces\n\n".format(len(grp.verts), len(grp.edges),
-                                                                     len(grp.surfs)))
+        info.write("  {} Vertices, {} Edges, {} Surfaces\n\n".format(len(grp.verts), len(grp.edges), len(grp.surfs)))
         # Analysis header
         info.write("Analysis:\n")
         # Analysis information
-        info.write(u"  Surface Area: {:.5f} \u212B\u00B2, Volume: {:.5f} \u212B\u00B3\n\n".format(grp.sa,
-                                                                                                  grp.vol))
+        info.write(u"  Surface Area: {:.5f} \u212B\u00B2, Volume: {:.5f} \u212B\u00B3\n\n".format(grp.sa, grp.vol))
 
 
 def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_surfs=False, edges=False,
@@ -189,39 +186,35 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
             grp.get_layers(max_layers=1)
         # noinspection PyUnresolvedReferences
         if grp.layer_surfs is not None and len(grp.layer_surfs) > 0:
-            write_surfs(surfs=grp.layer_surfs[0], file_name="shell", directory=grp.dir)
-        if edges:
+            write_surfs(net=grp.sys.net, surfs=grp.layer_surfs[0], file_name="shell", directory=grp.dir)
+    if edges or all_:
+        if shell:
             if grp.edges is None:
                 grp.get_edges()
             if grp.layer_edges is None:
                 grp.get_layers(max_layers=1, build_surfs=False)
-            write_edges(grp.layer_edges[0], file_name="shell_edges", directory=grp.dir)
-        if verts:
-            if grp.layer_verts is None:
-                # Get the first layer
-                grp.get_layers(max_layers=1, build_surfs=False)
-            write_verts(grp.layer_verts[0], file_name="shell_verts", directory=grp.dir)
-    if edges or all_:
-        if grp.edges is None:
-            grp.get_edges()
-        write_edges(edges=grp.edges, file_name="edges", directory=grp.dir)
+            write_edges(grp.sys.net, grp.layer_edges[0], file_name="shell_edges", directory=grp.dir)
+        else:
+            if grp.edges is None:
+                grp.get_edges()
+            write_edges(grp.sys.net, edges=grp.edges, file_name="edges", directory=grp.dir)
     if sep_verts:
         os.mkdir(grp.dir + "/verts")
         if grp.layer_verts is None:
             # Get the first layer
             grp.get_layers(max_layers=1, build_surfs=False)
         for i, vert in enumerate(grp.layer_verts[0]):
-            write_verts([vert], str(i), directory=grp.dir + "/verts")
+            write_verts(grp.sys.net, [vert], str(i), directory=grp.dir + "/verts")
     if sep_edges:
         os.mkdir(grp.dir + "/edges")
         if grp.layer_edges is None:
             grp.get_layers(max_layers=1, build_surfs=False)
         for i, edge in enumerate(grp.layer_edges[0]):
-            write_edges([edge], str(i), directory=grp.dir + "/edges")
+            write_edges(grp.sys.net, [edge], str(i), directory=grp.dir + "/edges")
     # If the user wants a filled shell for the group
     if surfs or all_:
         grp.build_surfs()
-        write_surfs(surfs=grp.surfs, file_name="fill", directory=grp.dir)
+        write_surfs(grp.sys.net, surfs=grp.surfs, file_name="fill", directory=grp.dir)
     # If the user wants separate surfaces for the group
     if sep_surfs or all_:
         i = 1
@@ -233,7 +226,7 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
             i += 1
         os.mkdir(my_dir)
         for surf in grp.surfs:
-            write_surfs([surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=my_dir)
+            write_surfs(grp.sys.net, [surf], file_name="_".join([str(_) for _ in grp.sys.net.surfs['satoms'][surf]]), directory=my_dir)
     # If the user wants layers
     if layers > 0 or all_:
         # First check to see if the number of layers is greater than 1
@@ -252,7 +245,7 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
         # Create the layer and atoms files
         for i in range(len(grp.layer_surfs)):
             write_pdb(grp.layer_atoms[i + 1], file_name=str(i) + "_atoms", sys=grp.sys)
-            write_surfs(grp.layer_surfs[i], file_name=str(i) + "_surfs")
+            write_surfs(grp.sys.net, grp.layer_surfs[i], file_name=str(i) + "_surfs")
         # If the user wants info and layers create a layers info file
         if info or all_:
             grp.get_info()
@@ -276,9 +269,16 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
     if info or all_:
         export_info(grp)
     if verts or all_:
-        if grp.verts is None:
-            grp.get_verts()
-        write_verts(verts=grp.verts, file_name="verts", directory=grp.dir)
+        if shell:
+            if verts:
+                if grp.layer_verts is None:
+                    # Get the first layer
+                    grp.get_layers(max_layers=1, build_surfs=False)
+                write_verts(grp.sys.net, grp.layer_verts[0], file_name="shell_verts", directory=grp.dir)
+        else:
+            if grp.verts is None:
+                grp.get_verts()
+            write_verts(grp.sys.net, verts=grp.verts, file_name="verts", directory=grp.dir)
     if surr_atoms or all_:
         if grp.layer_surfs is None:
             # Get the first layer

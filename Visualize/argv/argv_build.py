@@ -7,4 +7,5 @@ def argv_build(my_sys, usr_npt):
         my_sys.net = Network(sys=my_sys, atoms=my_sys.atoms)
 
     for my_group in my_sys.groups:
-        my_sys.net.build(my_group=my_group)
+        if len(my_group.atoms) > 0:
+            my_sys.net.build(my_group=my_group)

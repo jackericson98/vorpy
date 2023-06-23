@@ -1,7 +1,7 @@
-import os
 from System.sys_funcs.output.atoms import write_pdb, write_atom_cells
 from System.sys_funcs.output.surfs import write_surfs
 from System.sys_funcs.output.net import write_net_logs
+import os
 
 ###################################################### Export Functions ################################################
 
@@ -29,7 +29,7 @@ def export_large(sys):
     for group in sys.groups:
         group.exports(shell=True, info=True, edges=True, verts=True, atoms=True, surr_atoms=True)
         os.mkdir(group.dir + "/atoms")
-        write_atom_cells(group.atoms, directory=group.dir + "/atoms")
+        write_atom_cells(sys.net, group.atoms, directory=group.dir + "/atoms")
 
 
 def export_all(sys):
@@ -37,7 +37,7 @@ def export_all(sys):
     for group in sys.groups:
         group.exports(atoms=True, shell=True, surfs=True, info=True, ext_atoms=True, sep_surfs=True, sep_edges=True, sep_verts=True, verts=True, edges=True)
     os.mkdir(sys.dir + "/atoms")
-    write_atom_cells(sys.atoms, directory=sys.dir + "/atoms", verts=True, edges=True)
+    write_atom_cells(sys.net, sys.net.atoms['num'], directory=sys.dir + "/atoms", verts=True, edges=True)
 
 ################################################ Other Exports #########################################################
 
@@ -51,7 +51,7 @@ def other_exports(sys, usr_npt):
     """
     # If the first word is atom
     if usr_npt.lower() in {"a", "atoms"}:
-        write_atom_cells(sys.atoms, sys.dir)
+        write_atom_cells(sys.net.atoms['num'], sys.dir)
     # If the first word is logs
     elif usr_npt.lower() in {'logs', 'lgs'}:
         sys.exports(logs=True)
@@ -109,7 +109,7 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
         """
     # Check to see if the pdb directory is suitable
     if sys.dir is None:
-        if os.path.dirname(sys.base_file)[-9:] != 'test_data':
+        if sys.base_file is not None and os.path.dirname(sys.base_file)[-9:] != 'test_data':
             sys.dir = os.path.dirname(sys.base_file)
         else:
             sys.set_output_directory()
@@ -122,7 +122,7 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
             os.mkdir(sys.dir + "/sys")
         os.chdir(sys.dir + "/sys")
         # Export a pdb file for the system
-        write_pdb(sys.atoms, sys.name, sys)
+        write_pdb([_ for i, _ in sys.net.atoms.iterrows()], sys.name, sys)
         os.chdir(sys.dir)
     if surfaces or all_:
         if not os.path.exists(sys.dir + '/surfs'):
@@ -164,6 +164,10 @@ def set_pymol_atoms(sys):
     :param sys:
     :return:
     """
+    # Check to see if the atoms in the system are all accounted for
+    for i, res in enumerate(sys.net.atoms['residue']):
+        if res not in sys.special_radii:
+            sys.special_radii[res] = {sys.atoms['name'][i]: round(sys.atoms['rad'][i], 2)}
     # Create the file
     with open('set_atoms.pml', 'w') as file:
         # Write the change radii script for the system's set atomic radii
@@ -187,13 +191,14 @@ def export_sys_info(sys):
         # Write the chain header
         info.write("\n\n++++++++++++++++++++++++  Chains  +++++++++++++++++++++++++++++++\n\n")
         # Go through the chains in the system
-        for chain in sys.chains:
-            # Write the chain header
-            info.write("Chain {} - {} atoms, {} residues\n\n".format(chain.name, len(chain.atoms), len(chain.residues)))
-            # Quick check to see if the chain has been calculated
-            if chain.vol is not None and chain.vol < 0:
-                # Write the chain information
-                info.write("  Volume = {}, Surface Area = {}\n\n\n".format(chain.vol, chain.sa))
+        if sys.chains is not None:
+            for chain in sys.chains:
+                # Write the chain header
+                info.write("Chain {} - {} atoms, {} residues\n\n".format(chain.name, len(chain.atoms), len(chain.residues)))
+                # Quick check to see if the chain has been calculated
+                if chain.vol is not None and chain.vol < 0:
+                    # Write the chain information
+                    info.write("  Volume = {}, Surface Area = {}\n\n\n".format(chain.vol, chain.sa))
         # Draw a separating line
         info.write("\n\n++++++++++++++++++++++++  Groups  +++++++++++++++++++++++++++++++\n\n")
         for group in sys.groups:

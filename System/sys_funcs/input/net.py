@@ -1,10 +1,8 @@
+from pandas import DataFrame
+from System.sys_funcs.calcs.calcs import ndx_search
 import csv
 import os.path
-
-from System.Network.net_objs.vertex import Vertex
-from System.Network.net_objs.edge import Edge
-from System.Network.net_objs.surface import Surface
-from System.sys_funcs.calcs.calcs import ndx_search
+import numpy as np
 
 
 def read_net(net, file_name):
@@ -20,12 +18,11 @@ def read_net(net, file_name):
     else:
         return
     # Set up the data lists
-    verts, edges, surfs, cons = [], [], [], []
+    verts, edges, surfs, cons = np.array([]), np.array([]), np.array([]), np.array([])
     # Open the file
     with open(file, 'r') as net_file:
         # Get the file element array to read
         nt_fl = csv.reader(net_file, delimiter=",")
-        net_verts, net_edges, net_surfs = 0, 0, 0
         # Set the read type to header
         reading = ""
         # Go through the lines in the read_file
@@ -40,16 +37,16 @@ def read_net(net, file_name):
                 # Read the verts
             elif reading == 'v':
                 # Add the data
-                verts.append(line)
+                np.append(verts, line)
             # Read the edges
             elif reading == 'e':
                 # Add the edge data
-                edges.append(line)
+                np.append(edges, line)
             # Read the surfaces
             elif reading == 's':
                 # Surface points
                 if line[0] == 'pts':
-                    surfs.append({"atoms": {*line[1:3]}})
+                    np.append(surfs, ({"atoms": {*line[1:3]}}))
                     surfs[-1]['points'] = line[3:]
                 # Triangles
                 elif line[0] == 'tris':
@@ -57,7 +54,7 @@ def read_net(net, file_name):
             # Read the connections
             elif reading == 'c':
                 # Add the connections
-                cons.append(line)
+                np.append(cons, line)
     integrate_net(net, verts, edges, surfs, cons)
     return net
 
@@ -68,9 +65,9 @@ def integrate_verts(net, verts):
     :param net: The network to be integrated into
     :param verts: Vertices to add
     """
-    # Set up the network lists
-    if net.verts is None:
+    if net.vertsa is None:
         net.verts = []
+    # Set up the vertex ndxs
     if net.vert_ndxs is None:
         net.vert_ndxs = []
     # Go through the vertices
@@ -81,12 +78,14 @@ def integrate_verts(net, verts):
         # Check if the vertex exists
         if vert_ndx >= len(net.vert_ndxs) or net.vert_ndxs[vert_ndx] != ndx:
             # Create the vertex
-            my_vert = Vertex(net=net, location=[float(_) for _ in vert[5:8]], radius=float(vert[8]), ndx=ndx,
-                             atoms=[net.atoms[_] for _ in ndx])
+            my_vert = make_vert(net=net, location=np.array([float(_) for _ in vert[5:8]]), radius=float(vert[8]),
+                                ndx=ndx, atoms=np.array([net.atoms[_] for _ in ndx]))
             net.verts.insert(vert_ndx, my_vert)
             net.vert_ndxs.insert(vert_ndx, ndx)
             for j in ndx:
-                net.atoms[j].verts.append(my_vert)
+                np.append(net.atoms[j]['verts'], my_vert)
+    # Make a dataframe out of the vertices
+    net.verts = DataFrame(net.verts)
 
 
 def integrate_edges(net, edges):
@@ -116,11 +115,13 @@ def integrate_edges(net, edges):
             else:
                 points = None
             ref = {'surf': [int(_) for _ in edge[4:6]], 'i0': int(edge[6]), 'i1': int(edge[7])}
-            my_edge = Edge(net=net, atoms=atoms, ndx=ndx, points=points, ref=ref)
+            my_edge = make_edge(net=net, atoms=atoms, ndx=ndx, points=points, ref=ref)
             net.edges.insert(edge_ndx, my_edge)
             net.edge_ndxs.insert(edge_ndx, ndx)
             for j in ndx:
                 net.atoms[j].edges.append(my_edge)
+    # Set the DataFrame
+    net.edges = DataFrame(net.edges)
 
 
 def integrate_surfs(net, surfs):
@@ -144,13 +145,15 @@ def integrate_surfs(net, surfs):
             # Create the Surface
             points = [[float(_) for _ in point] for point in [surf['points'][a:a+3] for a in range(0, len(surf['points']), 3)]]
             tris = [[int(_) for _ in tri] for tri in [surf['tris'][a:a+3] for a in range(0, len(surf['tris']), 3)]]
-            my_surf = Surface(net=net, atoms=[net.atoms[_] for _ in ndx], ndx=ndx, points=points, tris=tris,
-                              resolution=net.surf_res)
+            my_surf = make_surf(net=net, atoms=[net.atoms[_] for _ in ndx], ndx=ndx, points=points, tris=tris,
+                                resolution=net.surf_res)
             net.surfs.insert(surf_ndx, my_surf)
             net.surf_ndxs.insert(surf_ndx, ndx)
             # Add the atoms to the surface
             for j in ndx:
                 net.atoms[j].surfs.append(my_surf)
+    # Set up the dataframe
+    net.surfs = DataFrame(net.surfs)
 
 
 def integrate_net(net, verts, edges, surfs, cons):
@@ -169,18 +172,16 @@ def integrate_net(net, verts, edges, surfs, cons):
     # Go through the vertices and interpret everything
     for i, vcon in enumerate(cons):
         # Get the atoms
-        vert_ndx = ndx_search(net.vert_ndxs, [int(_) for _ in verts[i][1:5]])
+        vert_ndx = ndx_search(net.vert_ndxs, np.array([int(_) for _ in verts[i][1:5]]))
         vert = net.verts[vert_ndx]
         # Get the edge indices
         my_edges = [vcon[a:a+3] for a in range(1, 11, 3)]
         v_edge_atoms = [[int(_) for _ in edge] for edge in my_edges if int(edge[0]) != -1]
-        vert.edges = [net.edges[ndx_search(net.edge_ndxs, _)] for _ in v_edge_atoms]
+        vert['edges'] = [net.edges[ndx_search(net.edge_ndxs, _)] for _ in v_edge_atoms]
         # Get the surface indices
         my_surfs = [vcon[a:a+2] for a in range(13, 24, 2)]
-        # print(my_surfs)
         v_surf_atoms = [[int(_) for _ in surf] for surf in my_surfs if int(surf[0]) != -1]
         vert.surfs = [net.surfs[ndx_search(net.surf_ndxs, _)] for _ in v_surf_atoms]
-        # print(vert.ndx, *[_.ndx for _ in vert.edges], *[_.ndx for _ in vert.surfs])
         # Add the edges and surfaces together
         for edge in vert.edges:
             if edge.verts is None:

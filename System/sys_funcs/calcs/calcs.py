@@ -1,6 +1,16 @@
 import numpy as np
 import warnings
+from numba import jit
 warnings.filterwarnings("error")
+
+
+def global_vars(sub_boxes, my_box_verts, my_num_splits, my_max_atom_rad, my_sub_box_size):
+    global atoms_matrix, box_verts, num_splits, max_atom_rad, sub_box_size
+    atoms_matrix = sub_boxes
+    box_verts = my_box_verts
+    num_splits = my_num_splits
+    max_atom_rad = my_max_atom_rad
+    sub_box_size = my_sub_box_size
 
 
 def round_func(round_to):
@@ -29,6 +39,7 @@ def round_func(round_to):
     return round_
 
 
+@jit(nopython=True)
 def calc_dist(l0, l1):
     """
     Calculate distance function used to simplify code
@@ -37,9 +48,10 @@ def calc_dist(l0, l1):
     :return: float distance between the two points
     """
     # Pythagorean theorem
-    return np.sqrt(sum(np.square(np.array(l0) - np.array(l1))))
+    return np.sqrt(sum(np.square(l0 - l1)))
 
 
+@jit(nopython=True)
 def calc_angle(p0, p1, p2=None):
     """
     Finds the angle (in rads) between three points
@@ -50,19 +62,21 @@ def calc_angle(p0, p1, p2=None):
     """
     # If no p2 is given, use the origin
     if p2 is None:
-        v0, v1 = np.array(p0), np.array(p1)
+        v0, v1 = p0, p1
     else:
-        v0, v1 = np.array(p1) - np.array(p0), np.array(p2) - np.array(p0)
-    # Get the unit vectors
-    try:
-        n0, n1 = v0/np.linalg.norm(v0), v1/np.linalg.norm(v1)
-        # Calculate the angle between the two vectors with catches for 180 and 0
-        angle = np.arccos(np.clip(np.dot(n0, n1), -1.0, 1.0))
-    except RuntimeWarning:
-        angle = 0.000001
+        v0, v1 = p1 - p0, p2 - p0
+    n0, n1 = v0/np.linalg.norm(v0), v1/np.linalg.norm(v1)
+    # Calculate the angle between the two vectors with catches for 180 and 0
+    my_dot = np.dot(n0, n1)
+    if my_dot <= -1.0:
+        my_dot = -1.0
+    elif my_dot >= 1.0:
+        my_dot = 1.0
+    angle = np.arccos(my_dot)
     return angle
 
 
+@jit(nopython=True)
 # Calculate tetrahedron volume function.
 def calc_tetra_vol(p0, p1, p2, p3):
     """
@@ -76,12 +90,13 @@ def calc_tetra_vol(p0, p1, p2, p3):
     # Choose a base point (p0) and find the vectors between it and other points
     r01 = p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]
     r02 = p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]
-    r03 = p3[0] - p0[0], p3[1] - p0[1], p3[2] - p0[2]
+    r03 = np.array([p3[0] - p0[0], p3[1] - p0[1], p3[2] - p0[2]])
 
     # Formula for tetrahedron volume: 1/6 * r03 dot (r01 cross r02)
     return (1/6)*abs(np.dot(r03, np.cross(r01, r02)))
 
 
+@jit(nopython=True)
 def calc_tri(points):
     """
     Takes in 3 points and returns the area of the triangle created by them
@@ -89,8 +104,8 @@ def calc_tri(points):
     :return: Area of the triangle made by the three points
     """
     # Get the two triangles vectors
-    ab = np.array(points[0]) - np.array(points[1])
-    ac = np.array(points[0]) - np.array(points[2])
+    ab = [points[0][0] - points[1][0], points[0][1] - points[1][1], points[0][2] - points[1][2]]
+    ac = [points[0][0] - points[2][0], points[0][1] - points[2][1], points[0][2] - points[2][2]]
 
     # Return half the cross product between the two vectors
     return 0.5 * np.linalg.norm((np.cross(ab, ac)))
@@ -113,6 +128,7 @@ def calc_com(points):
     return [tots[i]/len(points) for i in range(len(points[0]))]
 
 
+@jit(nopython=True)
 def calc_length(points):
     """
     Calculates the total length of the points assuming they are in order
@@ -130,40 +146,56 @@ def calc_length(points):
     return length
 
 
-def calc_circ(l0, l1, l2, r0, r1, r2):
-    """
-    Takes in 3 atoms, calculates the center and radius of inscribed circle
-    :param : Locations and radii for the circle
-    :return: Center and radius of the inscribed circle
-    """
+@jit(nopython=True)
+def calc_circ_coefs(l0, l1, l2, r0, r1, r2):
     # Move the other atoms to the location of the first
     x2, y2, z2 = l1[0] - l0[0], l1[1] - l0[1], l1[2] - l0[2]
     x3, y3, z3 = l2[0] - l0[0], l2[1] - l0[1], l2[2] - l0[2]
     # Calculate coefficients
     a1, b1, c1, d1, f1 = 2 * x2, 2 * y2, 2 * z2, 2 * (r0 - r1), r0 ** 2 - r1 ** 2 + x2 ** 2 + y2 ** 2 + z2 ** 2
     a2, b2, c2, d2, f2 = 2 * x3, 2 * y3, 2 * z3, 2 * (r0 - r2), r0 ** 2 - r2 ** 2 + x3 ** 2 + y3 ** 2 + z3 ** 2
-    a3, b3, c3 = y2*z3 - z2*y3, z2*x3 - x2*z3, x2*y3 - y2*x3
+    a3, b3, c3 = y2 * z3 - z2 * y3, z2 * x3 - x2 * z3, x2 * y3 - y2 * x3
+    abcs = [[a1, a1, a3], [b1, b2, b3], [c1, c2, c3]]
     # More coefficients
-    F = a3*b2*c1 - a2*b3*c1 - a3*b1*c2 + a1*b3*c2 + a2*b1*c3 - a1*b2*c3
-    Fx0 = b3*c2*f1 - b2*c3*f1 - b3*c1*f2 + b1*c3*f2
-    Fx1 = b3*c2*d1 - b2*c3*d1 - b3*c1*d2 + b1*c3*d2
-    Fy0 = - a3*c2*f1 + a2*c3*f1 + a3*c1*f2 - a1*c3*f2
-    Fy1 = - a3*c2*d1 + a2*c3*d1 + a3*c1*d2 - a1*c3*d2
-    Fz0 = a3*b2*f1 - a2*b3*f1 - a3*b1*f2 + a1*b3*f2
-    Fz1 = a3*b2*d1 - a2*b3*d1 - a3*b1*d2 + a1*b3*d2
-    # Catch for F=0 (i.e. no circle exists)
-    if F == 0:
-        return
+    F = a3 * b2 * c1 - a2 * b3 * c1 - a3 * b1 * c2 + a1 * b3 * c2 + a2 * b1 * c3 - a1 * b2 * c3
+    Fx0 = b3 * c2 * f1 - b2 * c3 * f1 - b3 * c1 * f2 + b1 * c3 * f2
+    Fx1 = b3 * c2 * d1 - b2 * c3 * d1 - b3 * c1 * d2 + b1 * c3 * d2
+    Fy0 = - a3 * c2 * f1 + a2 * c3 * f1 + a3 * c1 * f2 - a1 * c3 * f2
+    Fy1 = - a3 * c2 * d1 + a2 * c3 * d1 + a3 * c1 * d2 - a1 * c3 * d2
+    Fz0 = a3 * b2 * f1 - a2 * b3 * f1 - a3 * b1 * f2 + a1 * b3 * f2
+    Fz1 = a3 * b2 * d1 - a2 * b3 * d1 - a3 * b1 * d2 + a1 * b3 * d2
+    Fs = F, Fx0, Fx1, Fy0, Fy1, Fz0, Fz1
+
+    return Fs, abcs
+
+
+@jit(nopython=True)
+def calc_circ_abcs(Fs, r0):
+    F, Fx0, Fx1, Fy0, Fy1, Fz0, Fz1 = Fs
     # Find the radius of the tangential circle using the quadratic formula
     a = (Fx1 ** 2 + Fy1 ** 2 + Fz1 ** 2) / F ** 2 - 1
     b = 2 * (Fx0 * Fx1 + Fy0 * Fy1 + Fz0 * Fz1) / F ** 2 - 2 * r0
     c = (Fx0 ** 2 + Fy0 ** 2 + Fz0 ** 2) / F ** 2 - r0 ** 2
+    return a, b, c
+
+
+def calc_circ(l0, l1, l2, r0, r1, r2):
+    """
+    Takes in 3 atoms, calculates the center and radius of inscribed circle
+    :param : Locations and radii for the circle
+    :return: Center and radius of the inscribed circle
+    """
+    Fs, abcs = calc_circ_coefs(l0, l1, l2, r0, r1, r2)
+    # Catch for F=0 (i.e. no circle exists)
+    if Fs[0] == 0:
+        return
+    a, b, c = calc_circ_abcs(Fs, r0)
     # Calculate the discriminant.
     disc = b ** 2 - 4 * a * c
     # If the discriminant is negative then the tangential circle does not exist.
     if round(disc, 10) > 0:
         # Grab the two roots
-        rs = [_ for _ in np.roots([a, b, c]) if np.isreal(_)]
+        rs = [_ for _ in np.roots(np.array([a, b, c])) if np.isreal(_)]
         # If there is only one root return it
         if len(rs) == 1:
             r = rs[0]
@@ -178,6 +210,7 @@ def calc_circ(l0, l1, l2, r0, r1, r2):
             # If they're both negative return
             else:
                 return
+        F, Fx0, Fx1, Fy0, Fy1, Fz0, Fz1 = Fs
         # Calculate the vertex based off of our coefficient values and the sphere's radius
         x = Fx0 / F + r * Fx1 / F + l0[0]
         y = Fy0 / F + r * Fy1 / F + l0[1]
@@ -185,19 +218,7 @@ def calc_circ(l0, l1, l2, r0, r1, r2):
         return [[x, y, z], r]
 
 
-def calc_surf_norm(l0, l1):
-    """
-    Calculates the normal between the atoms from small to large
-    :param l0: Location of the first atom
-    :param l1: Location of the second atom
-    :return: The normal to the vector between the atoms
-    """
-    # Get the vector from l0 to l1
-    r = np.array(l1) - np.array(l0)
-    r = [_ if _ != 0 else 0.00001 for _ in r]
-    return r / np.linalg.norm(r)
-
-
+@jit(nopython=True)
 def calc_surf_func(l0, r0, l1, r1):
     """
     Calculates the coefficients for the surface between the two atoms
@@ -212,7 +233,7 @@ def calc_surf_func(l0, r0, l1, r1):
     # Calculate the major coefficients (pg. 574 Z. Hu)
     R = r0 - r1
     K = (x2 ** 2 - x1 ** 2) + (y2 ** 2 - y1 ** 2) + (z2 ** 2 - z1 ** 2) - R ** 2
-    d = x1 - x2, y1 - y2, z1 - z2
+    d = [x1 - x2, y1 - y2, z1 - z2]
     J = 4 * R ** 2 * (x1 ** 2 + y1 ** 2 + z1 ** 2) - K ** 2
     # Instantiate/reset the hyperboloid coefficient vector lists
     ABC, DEF, GHI = [], [], []
@@ -222,9 +243,10 @@ def calc_surf_func(l0, r0, l1, r1):
         DEF.append(-8 * d[i] * d[(i + 1) % 3])  # The equation asks for D_y, D_z, D_x in that order, hence modulus
         GHI.append(-8 * R ** 2 * l0[i] - 4 * K * d[i])
     # Return the function coefficients
-    return ABC + DEF + GHI + [J] + [K] + list(d)
+    return ABC + DEF + GHI + [J] + [K] + d
 
 
+@jit(nopython=True)
 def rotate_points(vec, points, reverse=False):
     """
     Takes in a set of points and a vector and rotates the points and the vector so the v = [0,0,1]
@@ -275,17 +297,19 @@ def calc_surf_sa(edges, com, tris, points, flat):
     sa = 0
     if flat:
         for edge in edges:
-            for i in range(len(edge.points) - 1):
-                sa += calc_tri([*edge.points[i:i + 2], com])
+            for i in range(len(edge) - 1):
+                tri = np.array([edge[i], edge[i + 1], com])
+                sa += calc_tri(tri)
     # Go through the triangles in the surface
     else:
         for tri in tris:
-            sa += calc_tri([points[tri[_]] for _ in range(3)])
+            tri1 = np.array([points[tri[_]] for _ in range(3)])
+            sa += calc_tri(tri1)
     # Return the surface area
     return sa
 
 
-def calc_surf_tri_dists(points, tris, loc, max_val=None):
+def calc_surf_tri_dists(points, tris, loc):
     """
     Calculate the distances between each triangle and the provided location
     :param points: points from the surface
@@ -296,8 +320,6 @@ def calc_surf_tri_dists(points, tris, loc, max_val=None):
     # Set up the distances
     dists = []
     tri_dists = []
-    if max_val is not None:
-        max_dist = max_val
     max_dist, min_dist = 0, np.inf
     # Provide value for the points
     for point in points:
@@ -395,6 +417,69 @@ def calc_surf_tri_ins_out(surf):
             surf.tri_ins_out.append(0.75)
 
 
+@jit(nopython=True)
+def box_search_numba(loc, num_splits, box_verts):
+    # Calculate the size of the sub boxes
+    sub_box_size = [round((box_verts[1][i] - box_verts[0][i]) / num_splits, 3) for i in range(3)]
+    # Find the sub box for the atom
+    box_ndxs = [int((loc[j] - box_verts[0][j]) / sub_box_size[j]) for j in range(3)]
+    if box_ndxs[0] >= num_splits or box_ndxs[1] >= num_splits or box_ndxs[2] >= num_splits:
+        return
+    # Return the box indices
+    return box_ndxs
+
+
+def box_search(loc):
+    """
+    Locates the sub box indices for a given location
+    """
+    return box_search_numba(loc, num_splits, np.array(box_verts))
+
+
+def get_atoms(cells, dist=0, my_atoms_matrix=None, my_sub_box_size=None, my_max_atom_rad=None):
+    """
+    Takes in the cells and the number of additional cells to search and returns an atom list
+    :param cells: The initial boxes in the network to stem from
+    :param dist: The number of cells out from the initial set of cells to search
+    """
+    global atoms_matrix, sub_box_size, max_atom_rad
+    if my_atoms_matrix is not None:
+        atoms_matrix, sub_box_size, max_atom_rad = my_atoms_matrix, my_sub_box_size, my_max_atom_rad
+
+    reach = int(dist / min(sub_box_size) - max_atom_rad) + 1
+    n = atoms_matrix[-1, -1, -1][0]
+    # If a single cell is entered
+    if type(cells[0]) is int:
+        cells = [cells]
+    # Get the min and max of the cells
+    ndx_min = [np.inf, np.inf, np.inf]
+    ndx_max = [-np.inf, -np.inf, -np.inf]
+    # Go through the cells and set the minimum and maximum indexes for xyz for a rectangle containing the atoms
+    for cell in cells:
+        # Check each xyz index to see if they are larger or smaller than the max or min
+        for i in range(3):
+            if cell[i] < ndx_min[i]:
+                ndx_min[i] = cell[i]
+            if cell[i] > ndx_max[i]:
+                ndx_max[i] = cell[i]
+    xs = [x for x in range(max(0, -reach + ndx_min[0] + 1), reach + ndx_max[0])]
+    ys = [y for y in range(max(0, -reach + ndx_min[1] + 1), reach + ndx_max[1])]
+    zs = [z for z in range(max(0, -reach + ndx_min[2] + 1), reach + ndx_max[2])]
+    atoms = []
+    # Get atoms
+    for i in xs:
+        if 0 <= i < n:
+            for j in ys:
+                if 0 <= j < n:
+                    for k in zs:
+                        if 0 <= k < n:
+                            try:
+                                atoms += atoms_matrix[i, j, k]
+                            except KeyError:
+                                pass
+    return atoms
+
+
 def ndx_search(ndxs_list, ndxs):
     """
      Searches a list of indices of atoms sorted by smallest atom and where the vertex would be
@@ -424,6 +509,7 @@ def ndx_search(ndxs_list, ndxs):
         return mid_list_ndx
 
 
+@jit(nopython=True)
 def get_time(seconds):
     """
     Turns seconds into hours, minutes and seconds
@@ -438,32 +524,27 @@ def get_time(seconds):
     return hours, minutes, seconds
 
 
-def calc_vol(atom):
+def calc_vol(aloc, surfs_points, surfs_tris):
     """
     Calculates the volume of an atom using its surfaces
     :param atom: Atom object for volume calculation
     :return: returns the volume for the atom object
     """
     # Create the volume variable
-    vol = 0
+    surf_vols = []
     # Go through each surface on the atom
-    for surf in atom.surfs:
-        # Set the surface area
-        atom.sa += surf.sa
-        # Check to see if the surface's volume has been calculated already
-        if surf.vols[surf.ndx.index(atom.num)] != 0:
-            vol += surf.vols[surf.ndx.index(atom.num)]
-        else:
-            # Calculate the volume of the
-            surf_vol = 0
-            for tri in surf.tris:
-                p0, p1, p2, p3 = atom.loc, surf.points[tri[0]], surf.points[tri[1]], surf.points[tri[2]]
-                surf_vol += calc_tetra_vol(p0, p1, p2, p3)
-            vol += surf_vol
-            surf.vols[surf.ndx.index(atom.num)] = surf_vol
+    for i in range(len(surfs_points)):
+        # Calculate the volume of the
+        surf_vol = 0
+        for tri in surfs_tris[i]:
+            # Calculate the tetrahedron volume between the atoms' location and the surface triangle's points
+            surf_vol += calc_tetra_vol(aloc, surfs_points[i][tri[0]], surfs_points[i][tri[1]], surfs_points[i][tri[2]])
+        # Add the surface's volume to the list
+        surf_vols.append(surf_vol)
+    # Get the total volume by summing the surfaces volumes
+    vol = sum(surf_vols)
     # Set the volume and return it
-    atom.vol = vol
-    return vol
+    return vol, surf_vols
 
 
 def get_radius(atom):
@@ -471,28 +552,28 @@ def get_radius(atom):
     Finds the radius of the atom from the symbol or vice versa
     :return: The radius of the atom from the symbol or vice versa
     """
-    radii, special_radii = atom.sys.radii, atom.sys.special_radii
+    radii, special_radii = atom['sys'].radii, atom['sys'].special_radii
     # Get the radius and the element from the name of the atom
-    if atom.res is not None and atom.res.name in atom.sys.special_radii:
+    if atom['res'] is not None and atom['res'].name in special_radii:
         # Check if no atom name exists or its empty
-        if atom.name is not None and atom.name != '':
-            for i in range(len(atom.name)):
-                name = atom.name[:-i]
+        if atom['name'] is not None and atom['name'] != '':
+            for i in range(len(atom['name'])):
+                name = atom['name'][:-i]
                 # Check the residue name
-                if name in special_radii[atom.res.name]:
-                    atom.rad = special_radii[atom.res.name][name]
+                if name in special_radii[atom['res'].name]:
+                    atom['rad'] = special_radii[atom['res'].name][name]
     # If we have the type and just want the radius, keep scanning until we find the radius
-    if atom.rad is None and atom.element.lower() in radii:
-        atom.rad = radii[atom.element.lower()]
+    if atom['rad'] is None and atom['element'].lower() in radii:
+        atom['rad'] = radii[atom['element'].lower()]
     # If indicated we return the symbol of atom that the radius indicates
-    if atom.rad is None or atom.rad == 0:
+    if atom['rad'] is None or atom['rad'] == 0:
         # Check to see if the radius is in the system
-        if atom.rad in {radii[_] for _ in radii[1]}:
-            atom.element = radii[atom.rad]
+        if atom['rad'] in {radii[_] for _ in radii[1]}:
+            atom['element'] = radii[atom['rad']]
         else:
             # Get the closest atom to it
             min_diff = np.inf
             # Go through the radii in the system looking for the smallest difference
             for radius in radii:
-                if radii[radius] - atom.rad < min_diff:
-                    atom.element = radii[radius]
+                if radii[radius] - atom['rad'] < min_diff:
+                    atom['element'] = radii[radius]

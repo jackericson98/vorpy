@@ -1,7 +1,7 @@
 from Visualize.mpl_visualize import *
 from System.sys_objs.atom import Atom
 from System.Network.net_objs.vertex import Vertex
-from System.Network.net_funcs.find_verts import calc_vert
+from System.Network.verts.find_verts import calc_vert
 """Example for vertices"""
 
 # With vertices, we have __ different cases

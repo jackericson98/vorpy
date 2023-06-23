@@ -1,7 +1,7 @@
 
 
 class Chain:
-    def __init__(self, atoms=None, residues=None, name=None):
+    def __init__(self, sys=None, atoms=None, residues=None, name=None):
         self.name = name
         self.atoms = atoms
         self.residues = residues
@@ -13,7 +13,7 @@ class Chain:
 
 
 class Sol(Chain):
-    def __init__(self, atoms=None, residues=None, name="H2O"):
+    def __init__(self, sys=None, atoms=None, residues=None, name="H2O"):
         super().__init__()
         self.atoms = atoms
         self.residues = residues
