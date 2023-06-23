@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/vorpy_df.iml" filepath="$PROJECT_DIR$/.idea/vorpy_df.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/vorpy.iml" filepath="$PROJECT_DIR$/.idea/vorpy.iml" />
     </modules>
   </component>
 </project>
