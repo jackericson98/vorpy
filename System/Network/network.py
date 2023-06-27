@@ -3,11 +3,11 @@ import time
 import pandas as pd
 
 from System.Network.verts.find_verts import find_verts
-from System.Network.build_net import build, get_time, calc_length
+from System.Network.build_net import build, get_time, calc_length, calc_dist
 from System.Network.edges.build_edge import build_edge
 from System.Network.surfs.build_surf import build_surf
 from System.sys_funcs.calcs.calcs import calc_vol, calc_surf_func, calc_surf_sa, ndx_search, calc_surf_tri_curvs, global_vars
-from Visualize.mpl_visualize import *
+from numpy import array, inf, cbrt, sqrt, pi, linalg
 
 
 class Network:
@@ -67,8 +67,8 @@ class Network:
         :return: Sets the box attribute with the correct values as well as atoms_box
         """
         # Set up the minimum and maximum x, y, z coordinates
-        min_vert = np.array([np.inf, np.inf, np.inf])
-        max_vert = np.array([-np.inf, -np.inf, -np.inf])
+        min_vert = array([inf, inf, inf])
+        max_vert = array([-inf, -inf, -inf])
         # Loop through each atom in the network
         for loc in locs:
             # Loop through x, y, z
@@ -83,7 +83,7 @@ class Network:
         r_box = max_vert - min_vert
         # If the atoms are in the same plane adjust the atoms
         for i in range(3):
-            if r_box[i] == 0 or abs(r_box[i]) == np.inf:
+            if r_box[i] == 0 or abs(r_box[i]) == inf:
                 r_box[i], min_vert[i], max_vert[i] = 4 * rads[0], locs[0][i], locs[0][i]
         # Set the atoms box value
         self.atoms_box = [min_vert.tolist(), max_vert.tolist()]
@@ -104,9 +104,9 @@ class Network:
             return
         # Set the number of boxes to roughly 5x the number of atoms must be a cube for the of cells per row/column/aisle
         elif num_boxes is None:
-            n = int(np.sqrt(len(self.atoms))) + 1
+            n = int(sqrt(len(self.atoms))) + 1
         else:
-            n = int(np.cbrt(num_boxes)) + 1
+            n = int(cbrt(num_boxes)) + 1
         self.num_splits = n
         locs, rads = self.atoms['loc'], self.atoms['rad']
         # First get the box for the atoms to be sorted into
@@ -190,8 +190,8 @@ class Network:
         if type(cells[0]) is int:
             cells = [cells]
         # Get the min and max of the cells
-        ndx_min = [np.inf, np.inf, np.inf]
-        ndx_max = [-np.inf, -np.inf, -np.inf]
+        ndx_min = [inf, inf, inf]
+        ndx_max = [-inf, -inf, -inf]
         # Go through the cells and set the minimum and maximum indexes for xyz for a rectangle containing the atoms
         for cell in cells:
             # Check each xyz index to see if they are larger or smaller than the max or min
@@ -328,7 +328,7 @@ class Network:
         for i, edge in self.edges.iterrows():
             percentage = int(i / tot_num * 100)
             # Calculate the length of each edge
-            lengths.append(calc_length(np.array(edge['points'])))
+            lengths.append(calc_length(array(edge['points'])))
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
                 h, m, s = get_time(my_time)
@@ -341,7 +341,8 @@ class Network:
         j = 0
         for j, surf in self.surfs.iterrows():
             percentage = int((i + j + 1) / tot_num * 100)
-            sas.append(calc_surf_sa(edges=[self.edges['points'][_] for _ in surf['sedges']], com=np.array(surf['com']), tris=surf['tris'], points=surf['points'], flat=surf['flat']))
+            sas.append(calc_surf_sa(edges=[self.edges['points'][_] for _ in surf['sedges']], com=array(surf['com'])
+                                    , tris=surf['tris'], points=surf['points'], flat=surf['flat']))
             # Get the curvature of the surface patch
             if surf['curv'] is None or (surf['curv'] == 0 and not surf['flat']):
                 surf_tri_curvs, scurvs = calc_surf_tri_curvs(surf['func'], surf['points'], surf['tris'], surf['curv'])
