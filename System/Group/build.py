@@ -23,13 +23,14 @@ def build_surfs(grp, resolution=None):
               str(i + 1) + "/" + str(len(grp.surfs)) + "                   ", end="")
         # Check if there is any sign of missing points or triangles
         if surf['points'] is None or surf['tris'] is None or len(surf['points']) <= 2 or len(surf['tris']) == 0:
-            new_surf = build_surf(
+            print(surf['satoms'], surf['points'], surf['tris'])
+            spoints, surf_tris, tri_curvs, surf_curv, sfunc, surf_com, flat = build_surf(
                 alocs=[grp.sys.net.atoms['loc'][_] for _ in surf['satoms']],
                 arads=[grp.sys.net.atoms['rad'][_] for _ in surf['satoms']],
                 epnts=[grp.sys.net.edges['points'][_] for _ in surf['sedges']], res=grp.surf_res,
                 net_type=grp.sys.net.type)
             # Set the value in sht dataframe
-            grp.sys.net.surfs.loc[i, ['points', 'tris', 'tri_curvs', 'curv', 'func', 'com', 'flat']] = new_surf
+            grp.sys.net.surfs.loc[i:i, ['points', 'tris', 'tri_curvs', 'curv', 'func', 'com', 'flat']] = spoints, surf_tris, tri_curvs, surf_curv, sfunc, surf_com, flat
     # Change back
     if grp.sys.dir is not None:
         os.chdir(grp.sys.dir)

@@ -1,6 +1,6 @@
 from System.Network.verts.calc_vert import calc_flat_vert, calc_vert
 from System.Network.verts.verify_site import verify_site
-from System.sys_funcs.calcs.calcs import box_search, get_atoms, ndx_search
+from System.sys_funcs.calcs.calcs import box_search, get_atoms, ndx_search, calc_circ, calc_dist
 import numpy as np
 import time
 
@@ -23,8 +23,6 @@ def find_site(edge_atoms, alocs, arads, vert_ndxs, max_vert, net_type, vn_1=None
     if vn_1 is None:
         vert_atom_ndxs = edge_ndxs
 
-    # Set up a list of atoms to test our edge atoms with
-    # max_inc = int(max_vert / min(sub_box_size) - max_atom_rad) + 1
     # Time printing metrics <-- Delete later
     start = time.perf_counter()
     # Grab the atoms we want to test against
@@ -35,13 +33,22 @@ def find_site(edge_atoms, alocs, arads, vert_ndxs, max_vert, net_type, vn_1=None
         start = time.perf_counter()
 
     test_atoms = get_atoms(cells=my_boxes, dist=max_vert)
+
+    # Get the center of the inscribed circle
+    edge_center, edge_radius = calc_circ(alocs[edge_ndxs[0]], alocs[edge_ndxs[1]], alocs[edge_ndxs[2]], arads[edge_ndxs[0]], arads[edge_ndxs[1]], arads[edge_ndxs[2]])
+    test_atom_tuples = []
+    for atom in test_atoms:
+        test_atom_tuples.append((atom, calc_dist(alocs[atom], np.array(edge_center)) - arads[atom]))
+    test_atom_tuples.sort(key=lambda a: a[1])
+    sorted_atoms = [_[0] for _ in test_atom_tuples]
+
     if metrics is not None:
         metrics['gather_atoms'] += time.perf_counter() - start
     # First look for vertices that have been found before
     vert_ndx_list_locs = []
     new_test_atoms = []
     start = time.perf_counter()
-    for atom in test_atoms:
+    for atom in sorted_atoms:
         # If the atom is in the previous vertex move on
         if atom in vert_atom_ndxs:
             continue
@@ -85,7 +92,7 @@ def find_site(edge_atoms, alocs, arads, vert_ndxs, max_vert, net_type, vn_1=None
             continue
         start = time.perf_counter()
         # Filter the vertex out if it is too large or not able to be made
-        filtered_test_atoms = [_ for _ in test_atoms if _ not in vert_atoms]
+        filtered_test_atoms = [_ for _ in sorted_atoms if _ not in vert_atoms]
         test_locs = np.array([alocs[_] for _ in filtered_test_atoms])
         test_rads = np.array([arads[_] for _ in filtered_test_atoms])
         if abs(vert_rad) < max_vert and verify_site(loc=np.array(vert_loc), rad=vert_rad, test_locs=test_locs, test_rads=test_rads, net_type=net_type):

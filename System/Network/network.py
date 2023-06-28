@@ -104,7 +104,7 @@ class Network:
             return
         # Set the number of boxes to roughly 5x the number of atoms must be a cube for the of cells per row/column/aisle
         elif num_boxes is None:
-            n = int(sqrt(len(self.atoms))) + 1
+            n = int(0.5 * sqrt(len(self.atoms))) + 1
         else:
             n = int(cbrt(num_boxes)) + 1
         self.num_splits = n

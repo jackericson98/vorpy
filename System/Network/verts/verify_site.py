@@ -46,4 +46,3 @@ def verify_site(loc, rad, test_locs, test_rads, net_type='vor'):
     # Verify power network
     elif net_type == 'pow':
         return verify_pow(loc, rad, test_locs, test_rads)
-
