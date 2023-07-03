@@ -177,7 +177,6 @@ def get_build_surfs1(vatoms, vedges, eatoms, start_time):
                 if len([0 for ndx in atom_ndxs if ndx in edge2]) == 2:
                     edges.append(k)
 
-
             # In order to be a true surface the number of edges need to be equal to the number of verts
             if len(verts) == len(edges):
 
@@ -187,6 +186,12 @@ def get_build_surfs1(vatoms, vedges, eatoms, start_time):
                     if len(vedges[vert_ndx]) <= 2:
                         no_surf = True
                 if no_surf:
+                    continue
+                incomplete = False
+                for vert in verts:
+                    if len(vedges[vert]) > 3:
+                        incomplete = True
+                if incomplete:
                     continue
 
                 satoms.insert(surf_ndx, atom_ndxs)
