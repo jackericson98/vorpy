@@ -32,48 +32,29 @@ def setup_plot(fig=None, ax=None, dfo=None, grid=False, bg_color=None):
 
 
 # Plot spheres function. Plots the spheres specified
-def plot_atoms(atoms=None, atom_list=None, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=None,
+def plot_atoms(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=None,
                bg_color=None, res=4):
 
-    # Give an option for not atom objects (lists) to be plotted
-    locs, rads = [], []
-    if atom_list is None:
-        for i in range(len(atoms)):
-            locs.append(atoms[i].loc)
-            rads.append(atoms[i].rad)
-    else:
-        for i in range(len(atom_list)):
-            locs.append(atom_list[i][0])
-            rads.append(atom_list[i][1])
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Get the atoms colors
-    if colors is None:
-        atom_colors = {1.2: 'w', 1.52: 'r', 2.29: 'g', 1.55: 'b', 1.7: 'grey', 1.8: 'y'}
-        colors = []
-        for atom in atoms:
-            try:
-                colors.append(atom_colors[atom.rad])
-            except KeyError:
-                colors.append('pink')
-    else:
-        colors = colors + ['pink'for _ in range(abs(len(locs) - len(colors)))]
+    colors = ['pink'for _ in range(abs(len(alocs)))]
     # If the number of atoms to plot is more than 80, then plot them as points rather than spheres.
-    if len(locs) > 80:
-        for i in range(len(locs)):
-            ax.scatter(locs[i][0], locs[i][1], locs[i][2], s=20, c=colors[i], alpha=alpha)
+    if len(alocs) > 80:
+        for i in range(len(alocs)):
+            ax.scatter(alocs[i][0], alocs[i][1], alocs[i][2], s=20, c=colors[i], alpha=alpha)
     # Plot the spheres as wireframes
     else:
         # Set the resolution of the spheres
-        f = max(3 - len(locs) // 40, 1)
+        f = max(3 - len(alocs) // 40, 1)
         # Find u, v values that span phi and theta
         u, v = np.mgrid[0:2 * np.pi:f*res*2j, 0:np.pi:f*res*1j]
         # Plot each sphere
-        for i in range(len(locs)):
+        for i in range(len(alocs)):
             # Get x, y, z data for the wireframe
-            x = rads[i] * np.cos(u) * np.sin(v) + locs[i][0]
-            y = rads[i] * np.sin(u) * np.sin(v) + locs[i][1]
-            z = rads[i] * np.cos(v) + locs[i][2]
+            x = arads[i] * np.cos(u) * np.sin(v) + alocs[i][0]
+            y = arads[i] * np.sin(u) * np.sin(v) + alocs[i][1]
+            z = arads[i] * np.cos(v) + alocs[i][2]
             # Plot the sphere
             ax.plot_wireframe(x, y, z, color=colors[i], alpha=alpha)
     # Show the figure if need be
@@ -82,47 +63,41 @@ def plot_atoms(atoms=None, atom_list=None, colors=None, fig=None, ax=None, Show=
 
 
 # Plot vertices function. Plots the vertices of a network.
-def plot_verts(verts, spheres=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None,
+def plot_verts(vlocs, vrads, spheres=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None,
                bg_color=None):
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Default color is red
     if colors is None:
-        colors = ['r' for _ in range(len(verts))]
+        colors = ['r' for _ in range(len(vlocs))]
     # Plot each vertex
-    for i in range(len(verts)):
+    for i in range(len(vlocs)):
         # Plot the point
-        ax.scatter(verts[i].loc[0], verts[i].loc[1], verts[i].loc[2], c=colors[i])
+        ax.scatter(vlocs[i][0], vlocs[i][1], vlocs[i][2], c=colors[i])
     # Plot the inscribed spheres
     if spheres:
-        spheres = []
-        for i in range(len(verts)):
-            spheres.append([verts[i].loc, verts[i].rad])
-        plot_atoms(atom_list=spheres, fig=fig, ax=ax, colors=colors, alpha=alpha)
+        plot_atoms(alocs=vlocs, arads=vrads, fig=fig, ax=ax, colors=colors, alpha=alpha)
     # Show if the plot needs to be shown
     if Show:
         plt.show()
 
 
 # Plot edges function. Plots the edges given as lines
-def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None, bg_color=None):
+def plot_edges(epnts, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None, bg_color=None):
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Set the color if it is not indicated already
     if colors is None:
-        colors = ['grey' for _ in range(len(edges))]
-    elif len(colors) < len(edges):
-        colors = colors + ['grey' for _ in range(len(edges) - len(colors))]
+        colors = ['grey' for _ in range(len(epnts))]
+    elif len(colors) < len(epnts):
+        colors = colors + ['grey' for _ in range(len(epnts) - len(colors))]
     # Plot the edges
-    for i in range(len(edges)):
-        xs, ys, zs = [edges[i].pv0[0]], [edges[i].pv0[1]], [edges[i].pv0[2]]
-        for point in edges[i].points:
+    for i in range(len(epnts)):
+        xs, ys, zs = [], [], []
+        for point in epnts[i]:
             xs.append(point[0])
             ys.append(point[1])
             zs.append(point[2])
-        xs.append(edges[i].pv1[0])
-        ys.append(edges[i].pv1[1])
-        zs.append(edges[i].pv1[2])
 
         # Plot the points
         ax.plot(xs, ys, zs, c=colors[i])
@@ -132,26 +107,26 @@ def plot_edges(edges, fig=None, ax=None, Show=False, dfo=None, grid=False, color
 
 
 # Plot surfaces function. Plots the surfaces given
-def plot_surfs(surfs, simps=True, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None,
+def plot_surfs(spnts, stris, simps=True, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None,
                bg_color=None):
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Set up the colors
     if colors is None:
-        colors = ['w' for _ in range(len(surfs))]
-    elif len(colors) < len(surfs):
-        colors = colors + ['w' for _ in range(len(surfs) - len(colors))]
+        colors = ['w' for _ in range(len(spnts))]
+    elif len(colors) < len(spnts):
+        colors = colors + ['w' for _ in range(len(spnts) - len(colors))]
     # Plot the surfaces
-    for i in range(len(surfs)):
+    for i in range(len(spnts)):
         x, y, z = [], [], []
-        for point in surfs[i].points:
+        for point in spnts[i]:
             x.append(point[0])
             y.append(point[1])
             z.append(point[2])
         # If simplices are requested get them or make them
         if simps:
             # Plot the simps using matplotlib tri_surf
-            ax.plot_trisurf(x, y, z, triangles=surfs[i].tris, alpha=alpha, color=colors[i])
+            ax.plot_trisurf(x, y, z, triangles=stris[i], alpha=alpha, color=colors[i])
         # Otherwise, plot the points
         else:
             ax.scatter(x, y, z, s=[0.1 for _ in range(len(x))], alpha=alpha, c=[colors[i] for _ in range(len(x))])
@@ -161,12 +136,12 @@ def plot_surfs(surfs, simps=True, fig=None, ax=None, Show=False, dfo=None, grid=
 
 
 # Plot simplices function.
-def plot_simps(surf, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=None, bg_color=None):
+def plot_simps(spnts, stris, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=None, bg_color=None):
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Go through each triangle in the surfaces list of simplices
-    for simp in surf.simps.triangles:
-        p0, p1, p2 = surf.points[simp[0]], surf.points[simp[1]], surf.points[simp[2]]
+    for tri in stris:
+        p0, p1, p2 = spnts[tri[0]], spnts[tri[1]], spnts[tri[2]]
         ax.plot([p0[0], p1[0]], [p0[1], p1[1]], [p0[2], p1[2]], c='w', linewidth=.1)
         ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], c='w', linewidth=.1)
         ax.plot([p2[0], p0[0]], [p2[1], p0[1]], [p2[2], p0[2]], c='w', linewidth=.1)
@@ -176,7 +151,7 @@ def plot_simps(surf, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=
 
 
 # Plot network function. Plots the network items
-def plot_net(net, plot_all=False, atoms=False, verts=False, edges=False, surfs=False, fig=None, ax=None, grid=False,
+def plot_net(net, group=None, plot_all=False, atoms=False, verts=False, edges=False, surfs=False, fig=None, ax=None, grid=False,
              bg_color='white', dfo=None, Show=True, a_alpha=1, v_alpha=1, e_alpha=1, s_alpha=1):
     # Check for a figure or an ax
     if fig is None:
@@ -184,18 +159,25 @@ def plot_net(net, plot_all=False, atoms=False, verts=False, edges=False, surfs=F
         ax = fig.add_subplot(projection="3d")
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
+    # Check to see if the group is availible
+    if group is not None:
+        my_atoms = group.atoms
+    else:
+        my_atoms = net.atoms['num']
     # Atoms
     if atoms or plot_all:
-        plot_atoms(net.atoms, fig=fig, ax=ax, alpha=a_alpha)
+        alocs = [net.atoms['loc'][i] for i in my_atoms]
+        arads = [net.atoms['rad'][i] for i in my_atoms]
+        plot_atoms(alocs=alocs, arads=arads, fig=fig, ax=ax, alpha=a_alpha)
     # Vertices
     if verts or plot_all:
-        plot_verts(net.verts, fig=fig, ax=ax, colors=['r' for _ in range(len(net.verts))], alpha=v_alpha, spheres=True)
+        plot_verts(net.verts['vloc'], net.verts['vrad'], fig=fig, ax=ax, colors=['r' for _ in range(len(net.verts))], alpha=v_alpha, spheres=True)
     # Edges
     if edges or plot_all:
-        plot_edges(net.edges, fig=fig, ax=ax, colors=['w' for _ in range(len(net.edges))], alpha=e_alpha)
+        plot_edges(net.edges['points'], fig=fig, ax=ax, colors=['w' for _ in range(len(net.edges))], alpha=e_alpha)
     # Surfaces
     if surfs or plot_all:
-        plot_surfs(net.surfs, fig=fig, ax=ax, colors=[np.random.rand(3) for _ in range(len(net.surfs))], alpha=s_alpha)
+        plot_surfs(net.surfs['points'], net.surfs['tris'], fig=fig, ax=ax, colors=[np.random.rand(3) for _ in range(len(net.surfs))], alpha=s_alpha)
     # Show the plot
     if Show:
         plt.show()
