@@ -1,11 +1,11 @@
 from System.Network.verts.calc_vert import calc_flat_vert, calc_vert
 from System.Network.verts.verify_site import verify_site
-from System.sys_funcs.calcs.calcs import box_search, get_atoms, ndx_search, calc_circ, calc_dist
+from System.sys_funcs.calcs.calcs import box_search, get_atoms, calc_circ, calc_dist
 import numpy as np
 import time
 
 
-def find_site(edge_atoms, alocs, arads, vert_ndxs, max_vert, net_type, vn_1=None, group_atoms=None, metrics=None):
+def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, vn_1=None, group_atoms=None, metrics=None):
     """
     Used a vertex and a combination of it's edge atoms to find the connecting vertex
     """
@@ -17,7 +17,6 @@ def find_site(edge_atoms, alocs, arads, vert_ndxs, max_vert, net_type, vn_1=None
         if group_atoms is not None and ndx in group_atoms:
             check_atoms = False
             break
-
     # If the previous vertex has been provided, add the other atom to the not allowed atoms
     vert_atom_ndxs = vn_1
     if vn_1 is None:
@@ -45,7 +44,6 @@ def find_site(edge_atoms, alocs, arads, vert_ndxs, max_vert, net_type, vn_1=None
     if metrics is not None:
         metrics['gather_atoms'] += time.perf_counter() - start
     # First look for vertices that have been found before
-    vert_ndx_list_locs = []
     new_test_atoms = []
     start = time.perf_counter()
     for atom in sorted_atoms:
@@ -59,18 +57,18 @@ def find_site(edge_atoms, alocs, arads, vert_ndxs, max_vert, net_type, vn_1=None
         atom_ndxs = edge_ndxs + [atom]
         atom_ndxs.sort()
         # Get the vertex's index/insert index
-        vert_ndx = ndx_search(vert_ndxs, atom_ndxs)
-        # If the vertex has been found before return
-        if vert_ndx < len(vert_ndxs) and vert_ndxs[vert_ndx] == atom_ndxs:
+        found = False
+        for atom1 in atom_ndxs:
+            for vert in averts[atom1]:
+                if atom_ndxs == vert_ndxs[vert]:
+                    found = True
+        if found:
             return
-        # else add the vert_ndx to the list
-        vert_ndx_list_locs.append(vert_ndx)
         new_test_atoms.append(atom)
     if metrics is not None:
         metrics['ndx_search'] += time.perf_counter() - start
     # Instantiate the vertex list and the size limit for vertices found
     verts = []
-    new_vert_ndx_list_locs = []
     # Go through each atom in the given test atoms. Extremely optimized
     for i, atom in enumerate(new_test_atoms):
         # Create the vertex and calculate its value
@@ -97,17 +95,14 @@ def find_site(edge_atoms, alocs, arads, vert_ndxs, max_vert, net_type, vn_1=None
         test_rads = np.array([arads[_] for _ in filtered_test_atoms])
         if abs(vert_rad) < max_vert and verify_site(loc=np.array(vert_loc), rad=vert_rad, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
             if len(verts) > 0 and verts[0]['rad'] < vert_rad:
-                return verts[0], vert_ndx_list_locs[0], metrics
+                return verts[0], metrics
             verts.append({'atoms': vert_atoms, 'loc': vert_loc, 'rad': vert_rad})
-            new_vert_ndx_list_locs.append(vert_ndx_list_locs[i])
             # If the first vertex site is a valid site add it to the list of check vertices and add its index
             if vert_loc2 is not None and abs(vert_rad2) < max_vert and verify_site(loc=np.array(vert_loc2), rad=vert_rad2, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
                 verts[-1]['loc2'], verts[-1]['rad2'] = vert_loc2, vert_rad2
-                new_vert_ndx_list_locs.append(vert_ndx_list_locs[i] + 1)
         # Check to see if the doublet's site is verified
         elif vert_loc2 is not None and verify_site(loc=np.array(vert_loc2), rad=vert_rad2, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
             verts.append({'atoms': vert_atoms, 'loc': vert_loc2, 'rad': vert_rad2})
-            new_vert_ndx_list_locs.append(vert_ndx_list_locs[i])
         if metrics is not None:
             metrics['verify_site'] += time.perf_counter() - start
     # If no verts have been found return
@@ -115,11 +110,11 @@ def find_site(edge_atoms, alocs, arads, vert_ndxs, max_vert, net_type, vn_1=None
         return
     # If we find only 1 vertex, return it
     elif len(verts) == 1 or verts[0]['rad'] < verts[1]['rad']:
-        return verts[0], new_vert_ndx_list_locs[0], metrics
-    return verts[1], new_vert_ndx_list_locs[1], metrics
+        return verts[0], metrics
+    return verts[1], metrics
 
 
-def find_site_fast(edge_atoms, alocs, arads, vert_ndxs, max_vert, net_type, vn_1, group_atoms=None, metrics=None):
+def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, vn_1, group_atoms=None, metrics=None):
     """
     Used a vertex and a combination of it's edge atoms to find the connecting vertex
     """
@@ -181,13 +176,13 @@ def find_site_fast(edge_atoms, alocs, arads, vert_ndxs, max_vert, net_type, vn_1
         # If we have found the vertex before it is not the previous vertex return
         atom_ndxs = edge_ndxs + [atom]
         atom_ndxs.sort()
-        # Get the vertex's index/insert index
-        vert_ndx = ndx_search(vert_ndxs, atom_ndxs)
-        # If the vertex has been found before return
-        if vert_ndx < len(vert_ndxs) and vert_ndxs[vert_ndx] == atom_ndxs:
+        found = False
+        for atom1 in atom_ndxs:
+            for vert in averts[atom1]:
+                if atom_ndxs == vert_ndxs[vert]:
+                    found = True
+        if found:
             return
-        # else add the vert_ndx to the list
-        vert_ndx_list_locs.append(vert_ndx)
         new_test_atoms.append(atom)
     if metrics is not None:
         metrics['ndx_search'] += time.perf_counter() - start

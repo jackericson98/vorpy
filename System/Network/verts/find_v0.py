@@ -4,7 +4,7 @@ from System.Network.verts.verify_site import verify_site
 import numpy as np
 
 
-def find_v0(alocs, arads, max_vert, net_type, a0=None, group_atoms=None, metrics=None):
+def find_v0(alocs, arads, averts, max_vert, net_type, a0=None, group_atoms=None, metrics=None):
     """
     Finds v0 using the atom finding functions to find a real verified site
     """
@@ -78,7 +78,7 @@ def find_v0(alocs, arads, max_vert, net_type, a0=None, group_atoms=None, metrics
         # Try to make a verified v0 site with the verified circles
         for circle in verified_circles:
             # Try to create a vertex
-            my_vert = find_site(circle, alocs=alocs, arads=arads, vert_ndxs=[], max_vert=max_vert, net_type=net_type, group_atoms=group_atoms, metrics=metrics)
+            my_vert = find_site(circle, alocs=alocs, arads=arads, averts=averts, vert_ndxs=[], max_vert=max_vert, net_type=net_type, group_atoms=group_atoms, metrics=metrics)
             # Check for a real site
             if my_vert is not None and my_vert[0]['loc'] is not None:
                 return my_vert[0]
