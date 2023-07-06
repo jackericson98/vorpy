@@ -1,7 +1,7 @@
 from System.Network.verts.calc_vert import calc_vert
 from System.Network.verts.find_v0 import find_v0
 from System.Network.verts.find_site import find_site
-from System.sys_funcs.calcs.calcs import get_time
+from System.sys_funcs.calcs.calcs import get_time, ndx_search
 import time
 from numpy import sqrt
 
@@ -55,7 +55,8 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
             vrad2s = [None]
     else:
         for atom in v0['atoms']:
-            averts[atom].append(len(vert_ndxs))
+            avert_ndxs = [vert_ndxs[_] for _ in averts[atom]]
+            averts[atom].insert(ndx_search(avert_ndxs, v0['atoms']), len(vert_ndxs))
         vert_ndxs.append(v0['atoms'])
         vlocs.append(v0['loc'])
         vrads.append(v0['rad'])
@@ -104,7 +105,8 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
                 vrad2s.append(None)
             # Remove the atoms from the
             for atom in my_vert['atoms']:
-                averts[atom].append(len(vert_ndxs) - 1)
+                avert_ndxs = [vert_ndxs[_] for _ in averts[atom]]
+                averts[atom].insert(ndx_search(avert_ndxs, my_vert['atoms']), len(vert_ndxs) - 1)
                 if atom in check_atoms:
                     check_atoms.remove(atom)
     # Printing out metrics < --- Delete later

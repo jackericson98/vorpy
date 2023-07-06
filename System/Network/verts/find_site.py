@@ -1,6 +1,6 @@
 from System.Network.verts.calc_vert import calc_flat_vert, calc_vert
 from System.Network.verts.verify_site import verify_site
-from System.sys_funcs.calcs.calcs import box_search, get_atoms, calc_circ, calc_dist
+from System.sys_funcs.calcs.calcs import box_search, get_atoms, calc_circ, calc_dist, ndx_search
 import numpy as np
 import time
 
@@ -57,12 +57,9 @@ def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, v
         atom_ndxs = edge_ndxs + [atom]
         atom_ndxs.sort()
         # Get the vertex's index/insert index
-        found = False
-        for atom1 in atom_ndxs:
-            for vert in averts[atom1]:
-                if atom_ndxs == vert_ndxs[vert]:
-                    found = True
-        if found:
+        check_verts = [vert_ndxs[_] for _ in averts[atom_ndxs[0]]]
+        my_vert_ndx = ndx_search(check_verts, atom_ndxs)
+        if my_vert_ndx < len(check_verts) and atom_ndxs == check_verts[my_vert_ndx]:
             return
         new_test_atoms.append(atom)
     if metrics is not None:
@@ -176,12 +173,9 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
         # If we have found the vertex before it is not the previous vertex return
         atom_ndxs = edge_ndxs + [atom]
         atom_ndxs.sort()
-        found = False
-        for atom1 in atom_ndxs:
-            for vert in averts[atom1]:
-                if atom_ndxs == vert_ndxs[vert]:
-                    found = True
-        if found:
+        check_verts = [vert_ndxs[_] for _ in averts[atom_ndxs[0]]]
+        my_vert_ndx = ndx_search(check_verts, atom_ndxs)
+        if my_vert_ndx < len(check_verts) and atom_ndxs == check_verts[my_vert_ndx]:
             return
         new_test_atoms.append(atom)
     if metrics is not None:
