@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from System.sys_funcs.calcs.calcs import calc_circ
 import numpy as np
 
 
@@ -38,7 +39,8 @@ def plot_atoms(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=Non
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Get the atoms colors
-    colors = ['pink'for _ in range(abs(len(alocs)))]
+    if colors is None:
+        colors = ['pink'for _ in range(abs(len(alocs)))]
     # If the number of atoms to plot is more than 80, then plot them as points rather than spheres.
     if len(alocs) > 80:
         for i in range(len(alocs)):
@@ -69,7 +71,7 @@ def plot_verts(vlocs, vrads, spheres=False, fig=None, ax=None, Show=False, dfo=N
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Default color is red
     if colors is None:
-        colors = ['r' for _ in range(len(vlocs))]
+        colors = ['b' for _ in range(len(vlocs))]
     # Plot each vertex
     for i in range(len(vlocs)):
         # Plot the point
@@ -83,7 +85,7 @@ def plot_verts(vlocs, vrads, spheres=False, fig=None, ax=None, Show=False, dfo=N
 
 
 # Plot edges function. Plots the edges given as lines
-def plot_edges(epnts, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None, bg_color=None):
+def plot_edges(epnts, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None, bg_color=None, center=None):
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Set the color if it is not indicated already
@@ -100,7 +102,9 @@ def plot_edges(epnts, fig=None, ax=None, Show=False, dfo=None, grid=False, color
             zs.append(point[2])
 
         # Plot the points
-        ax.plot(xs, ys, zs, c=colors[i])
+        ax.plot(xs, ys, zs, c=colors[i], linewidth=5)
+    if center is not None:
+        ax.plot(center[0], center[1], center[2], c='r', marker='x', markersize=20)
     # Show the figure
     if Show:
         plt.show()
