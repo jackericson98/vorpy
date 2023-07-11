@@ -215,7 +215,7 @@ def calc_circ(l0, l1, l2, r0, r1, r2):
         x = Fx0 / F + r * Fx1 / F + l0[0]
         y = Fy0 / F + r * Fy1 / F + l0[1]
         z = Fz0 / F + r * Fz1 / F + l0[2]
-        return [[x, y, z], r]
+        return np.array([x, y, z]), r
 
 
 @jit(nopython=True)
