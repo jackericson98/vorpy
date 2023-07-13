@@ -246,7 +246,7 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
             filtered_verts_right.append(vert)
 
     # Check that we have vertices left after filtering
-    if len(filtered_verts_left) == 0 and len(filtered_verts_right):
+    if len(filtered_verts_left) == 0 and len(filtered_verts_right) == 0:
         return
     # Sort the filtered vertices by distance to the previous vertex
     filtered_verts_left.sort(key=lambda my_vert: my_vert['d2pv'])

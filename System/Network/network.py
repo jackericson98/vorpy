@@ -214,7 +214,7 @@ class Network:
         """
         Connects the network using the functions in the build_net.py file
         """
-        my_lists = build(self.verts['vatoms'], self.verts['vloc'], self.verts['vdub'], self.my_time, len(self.atoms))
+        my_lists = build(self.verts['vatoms'], self.verts['vloc'], self.verts['vdub'], len(self.atoms), self.my_time)
         atom_lists, vert_lists, edge_lists, surf_lists = my_lists
         self.atoms['averts'], self.atoms['aedges'], self.atoms['asurfs'] = atom_lists['averts'], atom_lists['aedges'], \
             atom_lists['asurfs']
@@ -236,12 +236,12 @@ class Network:
         # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
         self.atom_ndxs = [_ for _ in atom_nums]
         # Do an initial sweep
-        my_guuy = find_verts(alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(), max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums, my_group=my_group, start_time=self.my_time, print_metrics=True, fast=self.fast)
+        my_guuy = find_verts(alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(), max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums, my_group=my_group, start_time=self.my_time, print_metrics=True)
         vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = my_guuy
         # Check for disconnects in the network
         while len(atom_nums) > 0:
             a0 = atom_nums.pop()
-            vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(), max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums, my_group=my_group, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads, vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.my_time, print_metrics=True, fast=self.fast)
+            vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(), max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums, my_group=my_group, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads, vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.my_time, print_metrics=True)
         # Create the doublets list
         doublets = [0 for _ in range(len(vert_ndxs))]
         # Incorporate the doublets into the vlocs, vatoms, vrads lists and lose the vloc2s and vrad2s
