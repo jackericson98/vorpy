@@ -4,11 +4,12 @@ from _datetime import datetime
 import pandas as pd
 
 from System.Network.verts.find_verts import find_verts
-from System.Network.build_net import build, get_time, calc_length, calc_dist
+from System.Network.build_net import build, get_time, calc_length
 from System.Network.edges.build_edge import build_edge
 from System.Network.surfs.build_surf import build_surf
-from System.sys_funcs.calcs.calcs import calc_vol, calc_surf_func, calc_surf_sa, ndx_search, calc_surf_tri_curvs, global_vars
-from numpy import array, inf, cbrt, sqrt, pi, linalg
+from System.sys_funcs.calcs.calcs import calc_vol, calc_surf_func, calc_surf_sa, ndx_search, calc_surf_tri_curvs, \
+    global_vars
+from numpy import array, inf, cbrt, sqrt
 
 
 class Network:
@@ -209,12 +210,14 @@ class Network:
 
         return verts
 
-    def connect(self, my_group):
+    def connect(self):
         """
         Connects the network using the functions in the build_net.py file
         """
-        atom_lists, vert_lists, edge_lists, surf_lists = build(vatoms=self.verts['vatoms'], vlocs=self.verts['vloc'], vdubs=self.verts['vdub'], my_time=self.my_time, num_atoms=len(self.atoms))
-        self.atoms['averts'], self.atoms['aedges'], self.atoms['asurfs'] = atom_lists['averts'], atom_lists['aedges'], atom_lists['asurfs']
+        my_lists = build(self.verts['vatoms'], self.verts['vloc'], self.verts['vdub'], self.my_time, len(self.atoms))
+        atom_lists, vert_lists, edge_lists, surf_lists = my_lists
+        self.atoms['averts'], self.atoms['aedges'], self.atoms['asurfs'] = atom_lists['averts'], atom_lists['aedges'], \
+            atom_lists['asurfs']
         self.verts['vedges'], self.verts['vsurfs'] = vert_lists['vedges'], vert_lists['vsurfs']
         self.edges = pd.DataFrame(edge_lists)
         self.surfs = pd.DataFrame(surf_lists)
@@ -233,12 +236,12 @@ class Network:
         # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
         self.atom_ndxs = [_ for _ in atom_nums]
         # Do an initial sweep
-        my_guuy = find_verts(alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(), max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums, my_group=my_group, start_time=self.my_time, print_metrics=True)
+        my_guuy = find_verts(alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(), max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums, my_group=my_group, start_time=self.my_time, print_metrics=True, fast=self.fast)
         vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = my_guuy
         # Check for disconnects in the network
         while len(atom_nums) > 0:
             a0 = atom_nums.pop()
-            vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(), max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums, my_group=my_group, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads, vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.my_time, print_metrics=True)
+            vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(), max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums, my_group=my_group, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads, vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.my_time, print_metrics=True, fast=self.fast)
         # Create the doublets list
         doublets = [0 for _ in range(len(vert_ndxs))]
         # Incorporate the doublets into the vlocs, vatoms, vrads lists and lose the vloc2s and vrad2s
@@ -298,10 +301,9 @@ class Network:
             alocs = [self.atoms['loc'][_] for _ in surf['satoms']]
             if arads[0] > arads[1]:
                 arads, alocs = [arads[1], arads[0]], [alocs[1], alocs[0]]
-            surf_points, surf_tris, surf_tri_curvs, surf_curv, surf_func, surf_com, surf_flat = build_surf(alocs=alocs,
-                                           arads=arads,
-                                           epnts=[self.edges['points'][_] for _ in surf['sedges']],
-                                           res=self.surf_res, net_type=self.type)
+            my_surf = build_surf(alocs=alocs, arads=arads, epnts=[self.edges['points'][_] for _ in surf['sedges']],
+                                 res=self.surf_res, net_type=self.type)
+            surf_points, surf_tris, surf_tri_curvs, surf_curv, surf_func, surf_com, surf_flat = my_surf
             points.append(surf_points)
             tris.append(surf_tris)
             tri_curvs.append(surf_tri_curvs)
@@ -310,7 +312,8 @@ class Network:
             coms.append(surf_com)
             flats.append(surf_flat)
         # Set the dataframe elements
-        self.surfs['points'], self.surfs['tris'], self.surfs['tri_curvs'], self.surfs['curv'], self.surfs['func'], self.surfs['com'], self.surfs['flat'] = points, tris, tri_curvs, curvs, funcs, coms, flats
+        self.surfs['points'], self.surfs['tris'], self.surfs['tri_curvs'], self.surfs['curv'], self.surfs['func'], \
+            self.surfs['com'], self.surfs['flat'] = points, tris, tri_curvs, curvs, funcs, coms, flats
         print("\r                                                                                             ", end='')
         self.metrics['surf'] = time.perf_counter() - self.my_time - self.metrics['vert'] - self.metrics['con']
 
@@ -342,8 +345,8 @@ class Network:
         j = 0
         for j, surf in self.surfs.iterrows():
             percentage = int((i + j + 1) / tot_num * 100)
-            sas.append(calc_surf_sa(edges=[self.edges['points'][_] for _ in surf['sedges']], com=array(surf['com'])
-                                    , tris=surf['tris'], points=surf['points'], flat=surf['flat']))
+            sas.append(calc_surf_sa(edges=[self.edges['points'][_] for _ in surf['sedges']], com=array(surf['com']),
+                                    tris=surf['tris'], points=surf['points'], flat=surf['flat']))
             # Get the curvature of the surface patch
             if surf['curv'] is None or (surf['curv'] == 0 and not surf['flat']):
                 surf_tri_curvs, scurvs = calc_surf_tri_curvs(surf['func'], surf['points'], surf['tris'], surf['curv'])
@@ -393,7 +396,7 @@ class Network:
                 h, m, s = get_time(my_time)
                 print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                 "
                       .format(int(h), int(m), round(s, 2), percentage), end="")
-        self.surfs['vols'] = [[asurfs_vols[i][0][1], asurfs_vols[i][1][1]] if asurfs_vols[i][0][0] < asurfs_vols[i][1][0]
+        self.surfs['vols'] = [[asurfs_vols[i][0][1], asurfs_vols[i][1][1]] if asurfs_vols[i][0][0]<asurfs_vols[i][1][0]
                               else [asurfs_vols[i][1][1], asurfs_vols[i][0][1]] for i in range(len(self.surfs))]
         self.atoms['vol'], self.atoms['sa'], self.atoms['curv'] = avols, asas, acurvs
         self.metrics['anal'] = time.perf_counter() - self.my_time - self.metrics['surf'] - self.metrics['con'] - self.metrics['vert']
@@ -446,7 +449,7 @@ class Network:
         else:
             self.metrics['vert'] = 0
         # Connect the network
-        self.connect(my_group)
+        self.connect()
         # Build the edges in the network
         self.build_edges()
         if self.build_surfs:
