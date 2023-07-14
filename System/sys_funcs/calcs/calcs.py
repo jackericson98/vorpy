@@ -577,3 +577,4 @@ def get_radius(atom):
             for radius in radii:
                 if radii[radius] - atom['rad'] < min_diff:
                     atom['element'] = radii[radius]
+    return atom['rad']
