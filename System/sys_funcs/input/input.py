@@ -40,6 +40,10 @@ def read_pdb(sys, file=None):
     atoms, data, atom_count = [], [], 0
     sys.chains, sys.residues = [], []
     chains, resids = {}, {}
+    read_foam = False
+    # Check if the file is a foam file
+    if my_file[0].split()[1] == 'foam_gen':
+        read_foam = True
     # Go through each line in the file and check if the first word is the word we are looking for
     for i in range(len(my_file)):
         # Check to make sure the line isn't empty
@@ -55,9 +59,12 @@ def read_pdb(sys, file=None):
                 continue
             name = line[12:16]
             name.strip()
+            res_seq = line[22:26]
+            if line[22:26] == '    ':
+                res_seq = 0
             # Create the atom
             atom = make_atom(location=np.array([float(line[30:38]), float(line[38:46]), float(line[46:54])]), system=sys,
-                             element=line[76:78].strip(), res_seq=int(line[22:26]), name=name, seg_id=line[72:76],
+                             element=line[76:78].strip(), res_seq=int(res_seq), name=name, seg_id=line[72:76],
                              index=atom_count)
             # Add the atom to the atoms list
             atoms.append(atom)
@@ -107,8 +114,13 @@ def read_pdb(sys, file=None):
                     sys.sol.residues.append(my_res)
             # Assign the residue to the atom
             atom['res'] = my_res
+
             # Assign the radius
-            get_radius(atom)
+            if read_foam:
+                atom['rad'] = float(line[57:63])
+                print(atom['rad'])
+            else:
+                get_radius(atom)
         # If the line is not an atom line store the other data
         else:
             data.append(my_file[i].split())
