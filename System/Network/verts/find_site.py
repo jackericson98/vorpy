@@ -1,6 +1,7 @@
 from System.Network.verts.calc_vert import calc_flat_vert, calc_vert
 from System.Network.verts.verify_site import verify_site
-from System.sys_funcs.calcs.calcs import box_search, get_atoms, calc_circ, calc_dist, ndx_search
+from System.sys_funcs.calcs.calcs import box_search, get_atoms, calc_circ, calc_dist, ndx_search, rotate_points
+import matplotlib.pyplot as plt
 import numpy as np
 import time
 
@@ -214,6 +215,13 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
         metrics['calc_vert'] += time.perf_counter() - start
         start = time.perf_counter()
 
+    # If no vertices survived return
+    if len(calculated_verts) == 0:
+        return
+    # If there is only one vertex left, no need to sort. Just verify it
+    elif len(calculated_verts) == 1:
+        return choose_vert(calculated_verts, test_atoms, alocs, arads, metrics, start, net_type)
+
     # Instantiate the left and right vertex lists
     filtered_verts_left, filtered_verts_right = [], []
     # Get the centers of the edge atoms
@@ -245,25 +253,116 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
             # Add the vertex to the list of filtered vertices
             filtered_verts_right.append(vert)
 
-    # Check that we have vertices left after filtering
-    if len(filtered_verts_left) == 0 and len(filtered_verts_right) == 0:
-        return
     # Sort the filtered vertices by distance to the previous vertex
     filtered_verts_left.sort(key=lambda my_vert: my_vert['d2pv'])
     filtered_verts_right.sort(key=lambda my_vert: my_vert['d2pv'])
 
-    # Check if the left most vertex is verified
-    if len(filtered_verts_left) > 0:
-        my_vert = choose_vert(filtered_verts_left, test_atoms, alocs, arads, metrics, start, net_type)
+    # If all vertices lie on the left side of the previous vertex
+    if len(filtered_verts_right) == 0:
+        # Get the leftmost vertex and the rightmost vertex
+        vl, vr = filtered_verts_left[-1]['loc'], vn_1_loc
+        # Set up the left neighbor and the right neighbor variables for assignment
+        left_neighbor, right_neighbor = None, None
+        # Counter variable
+        i = 0
+        # Loop through the vertices looking for the left and right neighbor
+        while (left_neighbor is None or right_neighbor is None) and i < len(filtered_verts_left) - 1:
+            # Grab the current vertex in the loop
+            vi = filtered_verts_left[i]
+            # Calculate the determinant of the vertex and the left most and right most vertices
+            my_det = np.linalg.det([vl, vr, vi['loc']])
+            # If the edge is straight, verify/return the leftmost vertex on the right
+            if my_det == 0:
+                # Verification
+                return choose_vert([filtered_verts_left[0]], test_atoms, alocs, arads, metrics, start, net_type)
+            # If the vertex falls in the lower hull it is the left neighbor
+            elif my_det > 0 and left_neighbor is None:
+                left_neighbor = vi
+            # If the vertex falls in the upper hull it is the right neighbor
+            elif my_det < 0 and right_neighbor is None:
+                right_neighbor = vi
+            # Increment the counter
+            i += 1
+        if left_neighbor is None:
+            left_neighbor = filtered_verts_left[-1]
+        elif right_neighbor is None:
+            right_neighbor = filtered_verts_left[-1]
+    # If all vertices lie on the right side of the previous vertex
+    elif len(filtered_verts_left) == 0:
+        # Get the leftmost vertex and the rightmost vertex
+        vr, vl = filtered_verts_right[-1]['loc'], vn_1_loc
+        # Set up the left neighbor and the right neighbor variables for assignment
+        left_neighbor, right_neighbor = None, None
+        # Counter variable
+        i = 0
+        # Loop through the vertices looking for the left and right neighbor
+        while (left_neighbor is None or right_neighbor is None) and i < len(filtered_verts_right) - 1:
+            # Grab the current vertex in the loop
+            vi = filtered_verts_right[i]
+            # Calculate the determinant of the vertex and the left most and right most vertices
+            my_det = np.linalg.det([vl, vr, vi['loc']])
+            # If the edge is straight, verify/return the leftmost vertex on the right
+            if my_det == 0:
+                # Verification
+                return choose_vert([filtered_verts_right[0]], test_atoms, alocs, arads, metrics, start, net_type)
+            # If the vertex falls in the upper hull it is the left neighbor
+            elif my_det < 0 and left_neighbor is None:
+                left_neighbor = vi
+            # If the vertex falls in the lower hull it is the right neighbor
+            elif my_det > 0 and right_neighbor is None:
+                right_neighbor = vi
+            # Increment the counter
+            i += 1
+        if left_neighbor is None:
+            left_neighbor = filtered_verts_right[-1]
+        elif right_neighbor is None:
+            right_neighbor = filtered_verts_right[-1]
+    # If there are vertices on either side
+    else:
+        # Find the left most and right most vertices
+        vl, vr = filtered_verts_left[-1], filtered_verts_right[-1]
+        vert_det = np.linalg.det([vl['loc'], vr['loc'], vn_1_loc])
+        # Assign the left and right neighbor variables
+        left_neighbor, right_neighbor = None, None
+        # Counter variable
+        i = 0
+        # Go through the vertices on the left og the vertex
+        while left_neighbor is None and i < len(filtered_verts_left):
+            # Get the current vertex in the loop
+            vi = filtered_verts_left[i]
+            # Calculate the determinant of the left most, right most and current vertex
+            my_det = np.linalg.det([vl['loc'], vr['loc'], vi['loc']])
+            # If they share a sign, we have found the vertex
+            if my_det < 0 and vert_det <= 0 or my_det > 0 and vert_det >= 0:
+                left_neighbor = vi
+            # Increment the counter
+            i += 1
+        # Reset the counter variable
+        i = 0
+        # Go through the vertices on the right of the previous vertex
+        while right_neighbor is None and i < len(filtered_verts_right):
+            # Get the current vertex in the loop
+            vi = filtered_verts_right[i]
+            # Calculate the determinant of the left most, right most and current vertex
+            my_det = np.linalg.det([vl['loc'], vr['loc'], vi['loc']])
+            # If they share a sign, we have found the vertex
+            if my_det < 0 and vert_det <= 0 or my_det > 0 and vert_det >= 0:
+                right_neighbor = vi
+            # Increment the counter
+            i += 1
+        if left_neighbor is None or right_neighbor is None:
+            print('doodoo')
+    # Check the left neighbor vertex
+    if left_neighbor is not None:
+        my_vert = choose_vert([left_neighbor], test_atoms, alocs, arads, metrics, start, net_type)
         if my_vert is not None:
             return my_vert
-
-    if len(filtered_verts_right) > 0:
-        my_vert = choose_vert(filtered_verts_right, test_atoms, alocs, arads, metrics, start, net_type)
+    # Check the right neighbor vertex
+    if right_neighbor is not None:
+        my_vert = choose_vert([right_neighbor], test_atoms, alocs, arads, metrics, start, net_type)
         if my_vert is not None:
             return my_vert
-
-    return find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, vn_1, vn_1_loc, group_atoms, metrics)
+    # print("Non-vert")
 
 
 def choose_vert(lr_verts, test_atoms, alocs, arads, metrics, start, net_type):
@@ -294,3 +393,23 @@ def choose_vert(lr_verts, test_atoms, alocs, arads, metrics, start, net_type):
         if metrics is not None:
             metrics['verify_site'] += time.perf_counter() - start
         return my_vert, metrics
+
+
+def plot_vertex_2d(calc_verts, oa, pv_loc, edge_atom_locs, edge_atom_rads, edge_normal, real_vert):
+    my_edge = calc_circ(*edge_atom_locs, *edge_atom_rads)
+    # Calculate the edge plane
+    ep_norm = np.cross(pv_loc - my_edge[0], edge_normal)
+    new_cv_points = rotate_points(ep_norm, np.array([_['loc'] for _ in calc_verts]))
+    print(len(new_cv_points))
+    new_pv_point = rotate_points(ep_norm, np.array([pv_loc]))
+    new_oa_point = rotate_points(ep_norm, np.array([oa]))
+    new_real_vert_loc = rotate_points(ep_norm, np.array([real_vert['loc']]))
+    plt.scatter([_[0] for _ in new_cv_points], [_[1] for _ in new_cv_points])
+    plt.scatter([new_pv_point[0][0]], [new_pv_point[0][1]], marker='o', s=20)
+    plt.scatter([new_oa_point[0][0]], [new_oa_point[0][1]])
+    plt.scatter([new_real_vert_loc[0][0]], [new_real_vert_loc[0][1]], marker='x', s=20)
+
+    plt.show()
+
+
+

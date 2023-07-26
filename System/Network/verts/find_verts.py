@@ -9,7 +9,7 @@ from numpy import sqrt
 
 # Find network function. Keeps searching the network until all verts are found
 def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=None, averts=None, vert_ndxs=None,
-               vlocs=None, vrads=None, vloc2s=None, vrad2s=None, start_time=0, print_metrics=False, fast=False):
+               vlocs=None, vrads=None, vloc2s=None, vrad2s=None, start_time=0, print_metrics=False, slow=False):
     """
     Used a vertex and a combination of it's edge atoms to find the connecting vertex
     """
@@ -90,9 +90,15 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
             # Get the edge from the top of the stack
             edge_atoms, vert = e_stack.pop()
             # Find the next site in the network
-            vert_ndx_pr = find_site_fast(edge_atoms=edge_atoms, alocs=alocs, arads=arads, averts=averts,
-                                         vert_ndxs=vert_ndxs, max_vert=max_vert, net_type=net_type, vn_1=vert['atoms'],
-                                         vn_1_loc=vert['loc'], group_atoms=group_atoms, metrics=metrics)
+            if slow:
+                vert_ndx_pr = find_site(edge_atoms=edge_atoms, alocs=alocs, arads=arads, averts=averts,
+                                             vert_ndxs=vert_ndxs, max_vert=max_vert, net_type=net_type,
+                                             vn_1=vert['atoms'],
+                                             vn_1_loc=vert['loc'], group_atoms=group_atoms, metrics=metrics)
+            else:
+                vert_ndx_pr = find_site_fast(edge_atoms=edge_atoms, alocs=alocs, arads=arads, averts=averts,
+                                             vert_ndxs=vert_ndxs, max_vert=max_vert, net_type=net_type, vn_1=vert['atoms'],
+                                             vn_1_loc=vert['loc'], group_atoms=group_atoms, metrics=metrics)
             # If the vertex is none continue
             if vert_ndx_pr is None:
                 continue

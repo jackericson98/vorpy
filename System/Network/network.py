@@ -236,16 +236,33 @@ class Network:
         # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
         self.atom_ndxs = [_ for _ in atom_nums]
         # Do an initial sweep
-        my_guuy = find_verts(alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(), max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums, my_group=my_group, start_time=self.my_time, print_metrics=True)
+        my_guuy = find_verts(alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(), max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums, my_group=my_group, start_time=self.my_time, print_metrics=True, slow=True)
         if my_guuy is not None:
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = my_guuy
         # Check for disconnects in the network
         while len(atom_nums) > 0:
             a0 = atom_nums.pop()
-            my_guuy = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(), max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums, my_group=my_group, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads, vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.my_time, print_metrics=True)
+            my_guuy = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(), max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums, my_group=my_group, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads, vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.my_time, print_metrics=True, slow=True)
+            if my_guuy is not None:
+                vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = my_guuy
+        vert_list_1 = vert_ndxs
+        my_guuy = find_verts(alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
+                             max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums,
+                             my_group=my_group, start_time=self.my_time, print_metrics=True)
+        if my_guuy is not None:
+            vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = my_guuy
+        # Check for disconnects in the network
+        while len(atom_nums) > 0:
+            a0 = atom_nums.pop()
+            my_guuy = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
+                                 max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums,
+                                 my_group=my_group, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
+                                 vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.my_time, print_metrics=True)
             if my_guuy is not None:
                 vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = my_guuy
                 # Create the doublets list
+        missing_verts = [_ for _ in vert_list_1 if _ not in vert_ndxs]
+        print(missing_verts)
         doublets = [0 for _ in range(len(vert_ndxs))]
         # Incorporate the doublets into the vlocs, vatoms, vrads lists and lose the vloc2s and vrad2s
         i = 0
