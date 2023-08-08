@@ -1,6 +1,7 @@
 from System.Network.verts.calc_vert import calc_flat_vert, calc_vert
 from System.Network.verts.verify_site import verify_site
 from System.sys_funcs.calcs.calcs import box_search, get_atoms, calc_circ, calc_dist, ndx_search, rotate_points
+from Visualize.mpl_visualize import plot_verts, plot_atoms
 import matplotlib.pyplot as plt
 import numpy as np
 import time
@@ -113,10 +114,11 @@ def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, v
 
 
 def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, vn_1, vn_1_loc, group_atoms=None,
-                   metrics=None):
+                   metrics=None, vn_1_rad=None):
     """
     Used a vertex and a combination of it's edge atoms to find the connecting vertex
     """
+
     # Get the atoms that should not ba a part of the new vertex
     edge_ndxs = edge_atoms[:]
 
@@ -235,13 +237,14 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
 
     # Calculate the projection of the previous vertex onto the edge normal (value) or edge_normal dot prev vert center
     pv_dist = np.dot(edge_normal, edge_center - vn_1_loc)
-
+    plotting = False
     # Go through the calculated vertices made by the edge atoms and the surrounding atoms - filtering process
+    printing = False
     for vert in calculated_verts:
-
+        if vert['atoms'] == [6, 3143, 3144, 3145]:
+            printing = True
         # Get the vertex's projected distance
         vert_proj_dist = np.dot(edge_normal, edge_center - vert['loc'])
-
         # Calculate the distance to the previous vertex and assign it as a value in the vertex dictionary
         vert['d2pv'] = abs(pv_dist - vert_proj_dist)
 
@@ -253,16 +256,31 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
             # Add the vertex to the list of filtered vertices
             filtered_verts_right.append(vert)
 
+        vert['d2pv2'] = None
+        if vert['loc2'] is not None:
+            vert_proj_dist = np.dot(edge_normal, edge_center - vert['loc2'])
+            flipped_vert = {'atoms': vert['atoms'], 'loc': vert['loc2'], 'rad': vert['rad'], 'd2pv': abs(pv_dist - vert_proj_dist), 'loc2': vert['loc'], 'rad2': vert['rad']}
+            # If the other atoms projection (value1) is less than the previous vertex's projection (value)
+            if pv_dist < vert_proj_dist:
+                # Add the vertex to the list of filtered vertices
+                filtered_verts_left.append(flipped_vert)
+            else:
+                # Add the vertex to the list of filtered vertices
+                filtered_verts_right.append(flipped_vert)
+
     # Sort the filtered vertices by distance to the previous vertex
     filtered_verts_left.sort(key=lambda my_vert: my_vert['d2pv'])
     filtered_verts_right.sort(key=lambda my_vert: my_vert['d2pv'])
+    if printing:
+        print([_['atoms'] for _ in filtered_verts_left])
+        print([_['atoms'] for _ in filtered_verts_right])
 
+    # Set up the left neighbor and the right neighbor variables for assignment
+    left_neighbor, right_neighbor = None, None
     # If all vertices lie on the left side of the previous vertex
     if len(filtered_verts_right) == 0:
         # Get the leftmost vertex and the rightmost vertex
         vl, vr = filtered_verts_left[-1]['loc'], vn_1_loc
-        # Set up the left neighbor and the right neighbor variables for assignment
-        left_neighbor, right_neighbor = None, None
         # Counter variable
         i = 0
         # Loop through the vertices looking for the left and right neighbor
@@ -291,8 +309,7 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
     elif len(filtered_verts_left) == 0:
         # Get the leftmost vertex and the rightmost vertex
         vr, vl = filtered_verts_right[-1]['loc'], vn_1_loc
-        # Set up the left neighbor and the right neighbor variables for assignment
-        left_neighbor, right_neighbor = None, None
+
         # Counter variable
         i = 0
         # Loop through the vertices looking for the left and right neighbor
@@ -350,11 +367,15 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
                 right_neighbor = vi
             # Increment the counter
             i += 1
-        if left_neighbor is None or right_neighbor is None:
-            print('doodoo')
+
     # Check the left neighbor vertex
     if left_neighbor is not None:
+        # if plotting:
+        #     print('left_neigbor atoms', left_neighbor['atoms'])
+        #     my_vert1 = choose_vert([actual_vert], test_atoms, alocs, arads, metrics, start, net_type)
+        #     print("actual vert", my_vert1)
         my_vert = choose_vert([left_neighbor], test_atoms, alocs, arads, metrics, start, net_type)
+
         if my_vert is not None:
             return my_vert
     # Check the right neighbor vertex
@@ -362,7 +383,27 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
         my_vert = choose_vert([right_neighbor], test_atoms, alocs, arads, metrics, start, net_type)
         if my_vert is not None:
             return my_vert
-    # print("Non-vert")
+    # if plotting:
+    #     missed_vert = left_neighbor
+    #     fig = plt.figure()
+    #     ax = fig.add_subplot(projection='3d')
+    #     # actual_vert_other_atom = [_ for _ in actual_vert['atoms'] if _ not in edge_ndxs][0]
+    #     # edge atoms
+    #     plot_atoms([alocs[_] for _ in [6, 3143, 3145]], [arads[_] for _ in [6, 3143, 3145]], fig=fig, ax=ax, colors=['r', 'r', 'r'])
+    #     # other atom
+    #     plot_atoms([alocs[1779]], [arads[1779]], fig=fig, ax=ax, colors=['pink'])
+    #     # interfering atom
+    #     plot_atoms([alocs[3144]], [arads[3144]], fig=fig, ax=ax, colors=['orange'])
+    #     # # actual vert other atom
+    #     plot_atoms([alocs[7]], [arads[7]], fig=fig, ax=ax, colors=['purple'])
+    #     # actual vert
+    #     plot_verts([actual_vert['loc2']], [actual_vert['rad2']], fig=fig, ax=ax, spheres=True, colors=['b'])
+    #     print(actual_vert)
+    #     # closest vert
+    #     plot_verts([missed_vert['loc']], [missed_vert['rad']], fig=fig, ax=ax, spheres=True, colors=['white'])
+    #     # previous vert
+    #     plot_verts([vn_1_loc], [vn_1_rad], fig=fig, ax=ax, spheres=True, colors=['green'], Show=True)
+    # return find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, vn_1, vn_1_loc, group_atoms, metrics)
 
 
 def choose_vert(lr_verts, test_atoms, alocs, arads, metrics, start, net_type):
@@ -373,6 +414,10 @@ def choose_vert(lr_verts, test_atoms, alocs, arads, metrics, start, net_type):
     # Gather the locations and radii of the atoms
     test_locs = np.array([alocs[_] for _ in my_check_atoms])
     test_rads = np.array([arads[_] for _ in my_check_atoms])
+    # printing = False
+    # if my_vert['atoms'] == [6, 7, 3143, 3145]:
+    #     printing = True
+    #     print(my_check_atoms[201])
     # Check the first location for the vertex
     if verify_site(np.array(my_vert['loc']), my_vert['rad'], test_locs, test_rads):
         # Check the second location if it exists, if it is within the allowed size range and if it is verified
@@ -397,10 +442,12 @@ def choose_vert(lr_verts, test_atoms, alocs, arads, metrics, start, net_type):
 
 def plot_vertex_2d(calc_verts, oa, pv_loc, edge_atom_locs, edge_atom_rads, edge_normal, real_vert):
     my_edge = calc_circ(*edge_atom_locs, *edge_atom_rads)
+    chosen_vert = [_ for _ in calc_verts if _['atoms'] == [6, 7, 3143, 3145]][0]
+
     # Calculate the edge plane
     ep_norm = np.cross(pv_loc - my_edge[0], edge_normal)
+    new_chosen_vert_point = rotate_points(ep_norm, np.array([chosen_vert['loc']]))
     new_cv_points = rotate_points(ep_norm, np.array([_['loc'] for _ in calc_verts]))
-    print(len(new_cv_points))
     new_pv_point = rotate_points(ep_norm, np.array([pv_loc]))
     new_oa_point = rotate_points(ep_norm, np.array([oa]))
     new_real_vert_loc = rotate_points(ep_norm, np.array([real_vert['loc']]))
@@ -408,6 +455,7 @@ def plot_vertex_2d(calc_verts, oa, pv_loc, edge_atom_locs, edge_atom_rads, edge_
     plt.scatter([new_pv_point[0][0]], [new_pv_point[0][1]], marker='o', s=20)
     plt.scatter([new_oa_point[0][0]], [new_oa_point[0][1]])
     plt.scatter([new_real_vert_loc[0][0]], [new_real_vert_loc[0][1]], marker='x', s=20)
+    plt.scatter([new_chosen_vert_point[0][0]], [new_chosen_vert_point[0][1]], marker='.', s=40)
 
     plt.show()
 

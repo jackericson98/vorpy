@@ -263,6 +263,8 @@ class Network:
                 # Create the doublets list
         missing_verts = [_ for _ in vert_list_1 if _ not in vert_ndxs]
         print(missing_verts)
+        extra_verts = [_ for _ in vert_ndxs if _ not in vert_list_1]
+        print(extra_verts)
         doublets = [0 for _ in range(len(vert_ndxs))]
         # Incorporate the doublets into the vlocs, vatoms, vrads lists and lose the vloc2s and vrad2s
         i = 0

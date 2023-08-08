@@ -98,7 +98,7 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
             else:
                 vert_ndx_pr = find_site_fast(edge_atoms=edge_atoms, alocs=alocs, arads=arads, averts=averts,
                                              vert_ndxs=vert_ndxs, max_vert=max_vert, net_type=net_type, vn_1=vert['atoms'],
-                                             vn_1_loc=vert['loc'], group_atoms=group_atoms, metrics=metrics)
+                                             vn_1_loc=vert['loc'], group_atoms=group_atoms, metrics=metrics, vn_1_rad=vert['rad'])
             # If the vertex is none continue
             if vert_ndx_pr is None:
                 continue
