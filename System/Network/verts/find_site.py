@@ -128,7 +128,8 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
         if group_atoms is not None and ndx in group_atoms:
             check_atoms = False
             break
-
+    #extra_verts = [[357, 373, 375, 1338], [417, 419, 444, 2349], [233, 253, 1305, 1306], [419, 438, 2350, 2351], [63, 819, 1013, 1031]]
+    extra_verts = [[311, 315, 316, 1379], [158, 207, 212, 225], [636, 644, 646, 824], [649, 650, 659, 668], [255, 257, 278, 284], [634, 636, 646, 824]]
     # Time printing metrics <-- Delete later
     start = time.perf_counter()
     # Grab the atoms we want to test against
@@ -174,9 +175,6 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
         metrics['ndx_search'] += time.perf_counter() - start
         start = time.perf_counter()
 
-    # Get the direction of the normal based on the previous atom
-    other_atom = [_ for _ in vn_1 if _ not in edge_ndxs][0]
-
     calculated_verts = []
     # Go through each atom in the given test atoms. Extremely optimized
     for i, vert in enumerate(test_verts):
@@ -204,9 +202,9 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
         if vert_rad2 is not None and vert_rad2 > max_vert:
             vert_loc2, vert_rad2 = None, None
 
-        # Check the vertex for overlap with the previous atom
-        if calc_dist(alocs[other_atom], np.array(vert_loc)) - arads[other_atom] - abs(vert_rad) < 0:
-            continue
+        # # Check the vertex for overlap with the previous atom
+        # if calc_dist(alocs[other_atom], np.array(vert_loc)) - arads[other_atom] - abs(vert_rad) < 0:
+        #     continue
 
         # Add the vertex to the list of calculated vertices
         calculated_verts.append({'atoms': vert, 'loc': np.array(vert_loc), 'rad': vert_rad, 'loc2': vert_loc2,
@@ -241,8 +239,6 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
     # Go through the calculated vertices made by the edge atoms and the surrounding atoms - filtering process
     printing = False
     for vert in calculated_verts:
-        if vert['atoms'] == [6, 3143, 3144, 3145]:
-            printing = True
         # Get the vertex's projected distance
         vert_proj_dist = np.dot(edge_normal, edge_center - vert['loc'])
         # Calculate the distance to the previous vertex and assign it as a value in the vertex dictionary
@@ -309,7 +305,6 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
     elif len(filtered_verts_left) == 0:
         # Get the leftmost vertex and the rightmost vertex
         vr, vl = filtered_verts_right[-1]['loc'], vn_1_loc
-
         # Counter variable
         i = 0
         # Loop through the vertices looking for the left and right neighbor
@@ -350,7 +345,7 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
             # Calculate the determinant of the left most, right most and current vertex
             my_det = np.linalg.det([vl['loc'], vr['loc'], vi['loc']])
             # If they share a sign, we have found the vertex
-            if my_det < 0 and vert_det <= 0 or my_det > 0 and vert_det >= 0:
+            if my_det <= 0 and vert_det <= 0 or my_det >= 0 and vert_det >= 0:
                 left_neighbor = vi
             # Increment the counter
             i += 1
@@ -363,47 +358,26 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
             # Calculate the determinant of the left most, right most and current vertex
             my_det = np.linalg.det([vl['loc'], vr['loc'], vi['loc']])
             # If they share a sign, we have found the vertex
-            if my_det < 0 and vert_det <= 0 or my_det > 0 and vert_det >= 0:
+            if my_det <= 0 and vert_det <= 0 or my_det >= 0 and vert_det >= 0:
                 right_neighbor = vi
             # Increment the counter
             i += 1
 
     # Check the left neighbor vertex
     if left_neighbor is not None:
-        # if plotting:
-        #     print('left_neigbor atoms', left_neighbor['atoms'])
-        #     my_vert1 = choose_vert([actual_vert], test_atoms, alocs, arads, metrics, start, net_type)
-        #     print("actual vert", my_vert1)
         my_vert = choose_vert([left_neighbor], test_atoms, alocs, arads, metrics, start, net_type)
 
         if my_vert is not None:
+            if my_vert[0]['atoms'] in extra_verts:
+                print('\n\nleft neighbor: {}, coming from: {}, test_atoms used: {}'.format(my_vert[0]['atoms'], vn_1, test_atoms))
             return my_vert
     # Check the right neighbor vertex
     if right_neighbor is not None:
         my_vert = choose_vert([right_neighbor], test_atoms, alocs, arads, metrics, start, net_type)
         if my_vert is not None:
+            if my_vert[0]['atoms'] in extra_verts:
+                print('\n\nright neighbor: {}, coming from: {}, test_atoms used: {}'.format(my_vert[0]['atoms'], vn_1, test_atoms))
             return my_vert
-    # if plotting:
-    #     missed_vert = left_neighbor
-    #     fig = plt.figure()
-    #     ax = fig.add_subplot(projection='3d')
-    #     # actual_vert_other_atom = [_ for _ in actual_vert['atoms'] if _ not in edge_ndxs][0]
-    #     # edge atoms
-    #     plot_atoms([alocs[_] for _ in [6, 3143, 3145]], [arads[_] for _ in [6, 3143, 3145]], fig=fig, ax=ax, colors=['r', 'r', 'r'])
-    #     # other atom
-    #     plot_atoms([alocs[1779]], [arads[1779]], fig=fig, ax=ax, colors=['pink'])
-    #     # interfering atom
-    #     plot_atoms([alocs[3144]], [arads[3144]], fig=fig, ax=ax, colors=['orange'])
-    #     # # actual vert other atom
-    #     plot_atoms([alocs[7]], [arads[7]], fig=fig, ax=ax, colors=['purple'])
-    #     # actual vert
-    #     plot_verts([actual_vert['loc2']], [actual_vert['rad2']], fig=fig, ax=ax, spheres=True, colors=['b'])
-    #     print(actual_vert)
-    #     # closest vert
-    #     plot_verts([missed_vert['loc']], [missed_vert['rad']], fig=fig, ax=ax, spheres=True, colors=['white'])
-    #     # previous vert
-    #     plot_verts([vn_1_loc], [vn_1_rad], fig=fig, ax=ax, spheres=True, colors=['green'], Show=True)
-    # return find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, vn_1, vn_1_loc, group_atoms, metrics)
 
 
 def choose_vert(lr_verts, test_atoms, alocs, arads, metrics, start, net_type):
@@ -431,7 +405,7 @@ def choose_vert(lr_verts, test_atoms, alocs, arads, metrics, start, net_type):
 
     # If the first site is unverified try the other vertex site
     elif my_vert['loc2'] is not None and verify_site(loc=np.array(my_vert['loc2']), rad=my_vert['rad2'],
-                                                        test_locs=test_locs, test_rads=test_rads, net_type=net_type):
+                                                     test_locs=test_locs, test_rads=test_rads, net_type=net_type):
         # Reset the left_vert variable with the other location and return it
         my_vert = {'atoms': my_vert['atoms'], 'loc': my_vert['loc2'], 'rad': my_vert['rad2'], 'loc2': None,
                       'rad2': None}
@@ -459,5 +433,28 @@ def plot_vertex_2d(calc_verts, oa, pv_loc, edge_atom_locs, edge_atom_rads, edge_
 
     plt.show()
 
+
+def plot_vert_situation(edge_atoms, my_vert, vn_1_loc, vn_1_rad, alocs, arads, a0=None, a1=None, a2=None, v0=None):
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        # actual_vert_other_atom = [_ for _ in actual_vert['atoms'] if _ not in edge_ndxs][0]
+        # edge atoms
+        plot_atoms([alocs[_] for _ in edge_atoms], [arads[_] for _ in edge_atoms], fig=fig, ax=ax, colors=['r', 'r', 'r'])
+        # other atom
+        if a0 is not None:
+            plot_atoms([alocs[a0]], [arads[1779]], fig=fig, ax=ax, colors=['pink'])
+        # interfering atom
+        if a1 is not None:
+            plot_atoms([alocs[3144]], [arads[3144]], fig=fig, ax=ax, colors=['orange'])
+        # # actual vert other atom
+        if a2 is not None:
+            plot_atoms([alocs[7]], [arads[7]], fig=fig, ax=ax, colors=['purple'])
+        # actual vert
+        plot_verts([my_vert['loc2']], [my_vert['rad2']], fig=fig, ax=ax, spheres=True, colors=['b'])
+        # closest vert
+        if v0 is not None:
+            plot_verts([v0['loc']], [v0['rad']], fig=fig, ax=ax, spheres=True, colors=['white'])
+        # previous vert
+        plot_verts([vn_1_loc], [vn_1_rad], fig=fig, ax=ax, spheres=True, colors=['green'], Show=True)
 
 

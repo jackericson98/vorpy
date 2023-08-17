@@ -258,3 +258,42 @@ def vorpy(my_sys):
                 return
             my_group = my_new_group
             my_sys.net.build(my_group=my_group, print_actions=True)
+
+
+
+def pre_run_display(sys_name=None, sys_file=None, sys_num_balls=None, sys_type=None, grp_name=None, grp_num_balls=None,
+                    grp_vol=None, grp_sa=None, set_net_type=None, set_surf_res=None, set_max_vert=None,
+                    net_num_verts=None, net_num_surfs=None, net_num_edges=None, out_type=None, out_descr=None,
+                    other_file1=None, other_file1_type=None, other_file2=None, other_file2_type=None, other_file3=None,
+                    other_file3_type=None):
+    if out_descr is None:
+        out_descr = ""
+    out_descr1 = ""
+    if len(out_descr) > 15:
+        out_descr1 = out_descr[15:min(len(out_descr), 30)]
+        out_descr = out_descr[:15]
+    var_list = []
+    for _ in [sys_name, grp_name, set_net_type, sys_file, grp_num_balls, set_surf_res, sys_num_balls, grp_vol,
+              set_max_vert, sys_type, net_num_verts, grp_sa, out_type, other_file1, other_file1_type, net_num_surfs,
+              out_descr, other_file2, other_file2_type, net_num_edges, out_descr1, other_file3, other_file3_type]:
+        if _ is None:
+            var_list.append("")
+        else:
+            var_list.append(_)
+
+    print(" _______________________________________________________________________________________________________\n"
+          "|                                              VORPY                                                    |\n"
+          "|            - System -             |            - Group -           |          - Settings -            |\n"
+          "|  Name:       {:>20s} |  Name:         {:>15s} |  Network Type:    {:9s} (nt) |\n"
+          "|  File:       {:.20s} |  # Balls:      {:>15s} |  Surf Resolution: {:9s} (sr) |\n"
+          "|  # Balls:    {:>20s} |  Volume:       {:>15s} |  Max Vertex:      {:9s} (mv) |\n"
+          "|  Type:       {:>20s} |  Surface Area: {:>15s} |                                  |\n"
+          "|___________________________________|________________________________|__________________________________|\n"
+          "|     - Network -     |             - Output -             |               - Other Files -               |\n"
+          "|  # Verts: {:9s} |   Type:      {:21s} |   1. {:24s}, {:11s} |\n"
+          "|  # Surfs: {:9s} |   Contents:  {:21s} |   2. {:24s}, {:11s} |\n"
+          "|  # Edges: {:9s} |                                    |   3. {:24s}, {:11s} |\n"
+          "|_____________________|____________________________________|____________________________________________|"
+          .format(*var_list))
+
+pre_run_display(sys_name='EDTA_Mg', sys_file='C:/files/jacke/EDTA_Mg.pdb', sys_num_balls='90,000', sys_type='PDB', grp_name="Molecule 1", grp_num_balls="4269", grp_vol='40 A', grp_sa='155 A', set_net_type='Voronoi', set_surf_res='0.2 A', set_max_vert='10 A')
