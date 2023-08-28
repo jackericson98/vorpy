@@ -128,8 +128,6 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
         if group_atoms is not None and ndx in group_atoms:
             check_atoms = False
             break
-    #extra_verts = [[357, 373, 375, 1338], [417, 419, 444, 2349], [233, 253, 1305, 1306], [419, 438, 2350, 2351], [63, 819, 1013, 1031]]
-    extra_verts = [[311, 315, 316, 1379], [158, 207, 212, 225], [636, 644, 646, 824], [649, 650, 659, 668], [255, 257, 278, 284], [634, 636, 646, 824]]
     # Time printing metrics <-- Delete later
     start = time.perf_counter()
     # Grab the atoms we want to test against
@@ -235,9 +233,7 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
 
     # Calculate the projection of the previous vertex onto the edge normal (value) or edge_normal dot prev vert center
     pv_dist = np.dot(edge_normal, edge_center - vn_1_loc)
-    plotting = False
     # Go through the calculated vertices made by the edge atoms and the surrounding atoms - filtering process
-    printing = False
     for vert in calculated_verts:
         # Get the vertex's projected distance
         vert_proj_dist = np.dot(edge_normal, edge_center - vert['loc'])
@@ -255,7 +251,7 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
         vert['d2pv2'] = None
         if vert['loc2'] is not None:
             vert_proj_dist = np.dot(edge_normal, edge_center - vert['loc2'])
-            flipped_vert = {'atoms': vert['atoms'], 'loc': vert['loc2'], 'rad': vert['rad'], 'd2pv': abs(pv_dist - vert_proj_dist), 'loc2': vert['loc'], 'rad2': vert['rad']}
+            flipped_vert = {'atoms': vert['atoms'], 'loc': vert['loc2'], 'rad': vert['rad2'], 'd2pv': abs(pv_dist - vert_proj_dist), 'loc2': vert['loc'], 'rad2': vert['rad']}
             # If the other atoms projection (value1) is less than the previous vertex's projection (value)
             if pv_dist < vert_proj_dist:
                 # Add the vertex to the list of filtered vertices
@@ -267,9 +263,6 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
     # Sort the filtered vertices by distance to the previous vertex
     filtered_verts_left.sort(key=lambda my_vert: my_vert['d2pv'])
     filtered_verts_right.sort(key=lambda my_vert: my_vert['d2pv'])
-    if printing:
-        print([_['atoms'] for _ in filtered_verts_left])
-        print([_['atoms'] for _ in filtered_verts_right])
 
     # Set up the left neighbor and the right neighbor variables for assignment
     left_neighbor, right_neighbor = None, None
@@ -368,15 +361,11 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
         my_vert = choose_vert([left_neighbor], test_atoms, alocs, arads, metrics, start, net_type)
 
         if my_vert is not None:
-            if my_vert[0]['atoms'] in extra_verts:
-                print('\n\nleft neighbor: {}, coming from: {}, test_atoms used: {}'.format(my_vert[0]['atoms'], vn_1, test_atoms))
             return my_vert
     # Check the right neighbor vertex
     if right_neighbor is not None:
         my_vert = choose_vert([right_neighbor], test_atoms, alocs, arads, metrics, start, net_type)
         if my_vert is not None:
-            if my_vert[0]['atoms'] in extra_verts:
-                print('\n\nright neighbor: {}, coming from: {}, test_atoms used: {}'.format(my_vert[0]['atoms'], vn_1, test_atoms))
             return my_vert
 
 

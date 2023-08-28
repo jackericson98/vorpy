@@ -42,7 +42,7 @@ def read_pdb(sys, file=None):
     chains, resids = {}, {}
     read_foam = False
     # Check if the file is a foam file
-    if my_file[0].split()[1] == 'foam_gen':
+    if my_file[0].split()[1] == 'foam_gen' or my_file[0].split()[1] == 'coarsify':
         read_foam = True
     # Go through each line in the file and check if the first word is the word we are looking for
     for i in range(len(my_file)):
