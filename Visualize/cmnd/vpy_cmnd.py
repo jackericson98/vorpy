@@ -296,4 +296,4 @@ def pre_run_display(sys_name=None, sys_file=None, sys_num_balls=None, sys_type=N
           "|_____________________|____________________________________|____________________________________________|"
           .format(*var_list))
 
-pre_run_display(sys_name='EDTA_Mg', sys_file='C:/files/jacke/EDTA_Mg.pdb', sys_num_balls='90,000', sys_type='PDB', grp_name="Molecule 1", grp_num_balls="4269", grp_vol='40 A', grp_sa='155 A', set_net_type='Voronoi', set_surf_res='0.2 A', set_max_vert='10 A')
+# pre_run_display(sys_name='EDTA_Mg', sys_file='C:/files/jacke/EDTA_Mg.pdb', sys_num_balls='90,000', sys_type='PDB', grp_name="Molecule 1", grp_num_balls="4269", grp_vol='40 A', grp_sa='155 A', set_net_type='Voronoi', set_surf_res='0.2 A', set_max_vert='10 A')
