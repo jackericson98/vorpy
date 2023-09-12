@@ -55,44 +55,16 @@ def write_pdb(atoms, file_name, sys, directory=None):
         # Open the file for writing
         with open(file_name + ".pdb", 'w') as pdb_file:
             # Go through each atom in the system
-            for i in atoms:
-                if type(i) == int:
-                    a = sys.net.atoms.iloc[i]
-                else:
-                    a = i
-                    i = a['num']
+            for i, a in enumerate(atoms):
                 # Get the location string
-                loc = ["{:.3f}".format(_) for _ in a['loc']]
+                x, y, z = a['loc']
                 # Get the information from the atom in writable format
-                ser_num = " " * (5 - len(str(i+1))) + str(i + 1)
-                file_name = a['name'] + " " * (4 - len(a['name']))
-                if 'residue' in a:
-                    res = " " * (3 - len(a['residue'])) + a['residue']
-                else:
-                    res = "   "
-                if 'chn' not in a or a['chn'].name.lower() == "zz" or a['chn'].name.lower() == 'mol' or a['chn'].name.lower() == 'sol':
-                    chain = " "
-                else:
-                    chain = str(a.chn.name)
-                if 'res_seq' in a:
-                    res_seq = " " * (3 - len(str(a['res_seq']))) + str(a['res_seq'])
-                else:
-                    res_seq = "   "
-                loc_strs = [" " * (7 - len(_)) + _ for _ in loc]
-                occupancy = " " * 5
-                t_fact = " " * 5
-                if 'seg_id' in a:
-                    seg_id = a['seg_id'] + " " * (3 - len(a['seg_id']))
-                else:
-                    seg_id = "   "
-                if 'element' in a:
-                    symbol = a['element']
-                else:
-                    symbol = 'h'
-                charge = ''
+                tfact = 0
+                if sys.coarse or sys.foam:
+                    tfact = a['rad']
                 # Write the atom information
-                pdb_file.write("ATOM  " + ser_num + " " + file_name + " " + res + " " + chain + res_seq + "    " +
-                               " ".join(loc_strs) + occupancy + t_fact + "      " + seg_id + symbol + charge + "\n")
+                pdb_file.write(pdb_line(ser_num=i, name=a['name'], res_name=a['res'].name, chain=a['chain'].name,
+                                        res_seq=a['res_seq'], x=x, y=y, z=z, tfact=tfact, elem=a['element']))
     # Change back to the starting directory
     os.chdir(start_dir)
 
@@ -161,3 +133,14 @@ def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=
         # Check for edges
         if edges:
             write_edges(net, atom['aedges'], directory=directory, file_name=str(atom['num']) + "_" + atom['name'] + "_edges")
+
+
+def pdb_line(atom="ATOM", ser_num=0, name="", alt_loc=" ", res_name="", chain="A", res_seq=0, cfir="", x=0, y=0, z=0,
+             occ=1, tfact=0, seg_id="", elem="", charge=""):
+    """
+    Takes in values for a line in a pdb file and places them in the correct locations
+    :return: String for each line
+    """
+    # Write the line for the file
+    return "{:<6}{:>5} {:<4}{:1}{:>3} {:^1}{:>4}{:1}   {:>8.3f}{:>8.3f}{:>8.3f}{:>6.2f}{:>6.2f}      {:<4}{:>2}{}\n"\
+        .format(atom, ser_num, name, alt_loc, res_name, chain, res_seq, cfir, x, y, z, occ, tfact, seg_id, elem, charge)

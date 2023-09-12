@@ -2,6 +2,8 @@ from System.sys_funcs.output.atoms import write_pdb, write_atom_cells
 from System.sys_funcs.output.surfs import write_surfs
 from System.sys_funcs.output.net import write_net_logs
 import os
+from os import path
+import shutil
 
 ###################################################### Export Functions ################################################
 
@@ -78,6 +80,7 @@ def set_sys_dir(sys, dir_name=None):
     # If no outer directory was specified use the directory outside the current one
     if dir_name is None:
         if sys.vpy_dir is not None:
+
             dir_name = sys.vpy_dir + "/Data/user_data/" + sys.name
         else:
             dir_name = os.getcwd() + "/Data/user_data/" + sys.name
@@ -109,10 +112,10 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
         """
     # Check to see if the pdb directory is suitable
     if sys.dir is None:
-        if sys.base_file is not None and os.path.dirname(sys.base_file)[-9:] != 'test_data':
-            sys.dir = os.path.dirname(sys.base_file)
-        else:
-            sys.set_output_directory()
+        # if sys.base_file is not None and os.path.dirname(sys.base_file)[-9:] != 'test_data':
+        #     sys.dir = os.path.dirname(sys.base_file)
+        # else:
+        sys.set_output_directory()
     if network or all_:
         os.chdir(sys.dir)
         # Export the network
@@ -164,6 +167,11 @@ def set_pymol_atoms(sys):
     :param sys:
     :return:
     """
+    # If we have special circumstances for the atoms in our base file, output the already created set pymol atoms
+    if sys.coarse or sys.foam:
+        # Get the directory for the base_file and copy the set atoms file
+        shutil.copyfile(path.dirname(sys.base_file) + '/set_atoms.pml', sys.dir + '/sys/set_atoms.pml')
+        return
     # Check to see if the atoms in the system are all accounted for
     for i, res in enumerate(sys.net.atoms['residue']):
         if res not in sys.special_radii:

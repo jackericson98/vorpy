@@ -35,6 +35,7 @@ class System:
         self.net = None                     # Network             :   Network object holding the primary network
         self.user_atoms = atoms             # User Atoms          :   User provided locations and radii
         self.foam = False
+        self.coarse = False
 
         # Loadable objects
         self.atoms = atoms                  # Atoms               :   List holding the atom objects
