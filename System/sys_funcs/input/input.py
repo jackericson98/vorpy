@@ -43,6 +43,8 @@ def read_pdb(sys, file=None):
     # Check if the file is a foam file
     if my_file[0].split()[1] == 'foam_gen':
         sys.foam = True
+        bw = my_file[0].split()[2]
+        sys.foam_box = [[0, 0, 0], [bw, bw, bw]]
     if my_file[0].split()[1] == 'coarsify':
         sys.coarse = True
     # Go through each line in the file and check if the first word is the word we are looking for
