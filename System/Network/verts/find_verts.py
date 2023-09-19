@@ -9,7 +9,7 @@ from numpy import sqrt
 
 # Find network function. Keeps searching the network until all verts are found
 def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=None, averts=None, vert_ndxs=None,
-               vlocs=None, vrads=None, vloc2s=None, vrad2s=None, start_time=0, print_metrics=False, slow=False):
+               vlocs=None, vrads=None, vloc2s=None, vrad2s=None, start_time=0, print_metrics=False, vert_box=None):
     """
     Used a vertex and a combination of it's edge atoms to find the connecting vertex
     """
@@ -107,6 +107,9 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
 
             # Set the vertex and its index
             my_vert, metrics = vert_ndx_pr
+            # Check if there is a retaining box for the vertices and if the vertex is outside the box
+            if vert_box is not None and any([vert_box[0][i] > my_vert[i] < vert_box[1][i] for i in range(3)]):
+                continue
             # Add the vertex to the stack and the network
             vert_stack.append(my_vert)
             # Insert the vertices in order of increasing atom indices
