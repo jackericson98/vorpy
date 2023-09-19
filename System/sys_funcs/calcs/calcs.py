@@ -442,11 +442,14 @@ def get_atoms(cells, dist=0, my_atoms_matrix=None, my_sub_box_size=None, my_max_
     :param cells: The initial boxes in the network to stem from
     :param dist: The number of cells out from the initial set of cells to search
     """
+    # Get the universal variables
     global atoms_matrix, sub_box_size, max_atom_rad
+    # If the three variables are not specified set them equal to the globals
     if my_atoms_matrix is not None:
         atoms_matrix, sub_box_size, max_atom_rad = my_atoms_matrix, my_sub_box_size, my_max_atom_rad
-
+    # Get the reach around the box to grab atoms from
     reach = int(dist / min(sub_box_size) - max_atom_rad) + 1
+    # Grab the number of cells in the grid
     n = atoms_matrix[-1, -1, -1][0]
     # If a single cell is entered
     if type(cells[0]) is int:
