@@ -253,9 +253,6 @@ class Network:
             atom_nums = [i for i in range(len(self.atoms))]
         # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
         self.atom_ndxs = [_ for _ in atom_nums]
-        #
-        # vert_list_real = self.get_real_verts()
-
         my_guuy = find_verts(alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
                              max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums,
                              my_group=my_group, start_time=self.my_time, print_metrics=True,
