@@ -259,7 +259,7 @@ class Network:
         if my_guuy is not None:
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = my_guuy
         # Check for disconnects in the network
-        if self.sys.foam_box is not None:
+        if self.sys.foam_box is None:
             while len(atom_nums) > 0:
                 a0 = atom_nums.pop()
                 my_guuy = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
