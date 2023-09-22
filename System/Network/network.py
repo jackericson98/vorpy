@@ -440,7 +440,7 @@ class Network:
                       .format(int(h), int(m), round(s, 2), percentage), end="")
         self.surfs['vols'] = [[asurfs_vols[i][0][1], asurfs_vols[i][1][1]] if asurfs_vols[i][0][0]<asurfs_vols[i][1][0]
                               else [asurfs_vols[i][1][1], asurfs_vols[i][0][1]] for i in range(len(self.surfs))]
-        self.atoms['vol'], self.atoms['sa'], self.atoms['curv'], self.atoms['cell'] = avols, asas, acurvs, acell
+        self.atoms['vol'], self.atoms['sa'], self.atoms['curv'], self.atoms['complete'] = avols, asas, acurvs, acell
         self.metrics['anal'] = time.perf_counter() - self.my_time - self.metrics['surf'] - self.metrics['con'] - self.metrics['vert']
 
     def build(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
