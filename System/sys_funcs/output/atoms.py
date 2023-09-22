@@ -124,6 +124,8 @@ def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=
     # Go through the atoms
     for i in atoms:
         atom = net.atoms.iloc[i]
+        if not atom['complete']:
+            continue
         # Check if the surfaces should be exported
         if surfs:
             write_surfs(net, atom['asurfs'], directory=directory, file_name=str(atom['num']) + "_" + atom['name'])
