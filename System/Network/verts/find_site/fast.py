@@ -7,112 +7,6 @@ import numpy as np
 import time
 
 
-def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, vn_1=None, vn_1_loc=None, group_atoms=None, metrics=None):
-    """
-    Used a vertex and a combination of it's edge atoms to find the connecting vertex
-    """
-    # Get the atoms that should not ba a part of the new vertex
-    edge_ndxs = edge_atoms[:]
-    # Check if the edge contains a group atom or not
-    check_atoms = True
-    for ndx in edge_ndxs:
-        if group_atoms is not None and ndx in group_atoms:
-            check_atoms = False
-            break
-    # If the previous vertex has been provided, add the other atom to the not allowed atoms
-    vert_atom_ndxs = vn_1
-    if vn_1 is None:
-        vert_atom_ndxs = edge_ndxs
-
-    # Time printing metrics <-- Delete later
-    start = time.perf_counter()
-    # Grab the atoms we want to test against
-    my_boxes = [box_search(loc=alocs[edge_atoms[_]]) for _ in range(3)]
-    # Time printing metrics <-- Delete later
-    if metrics is not None:
-        metrics['box_search'] += time.perf_counter() - start
-        start = time.perf_counter()
-
-    test_atoms = get_atoms(cells=my_boxes, dist=max_vert)
-
-    # Get the center of the inscribed circle
-    edge_center, edge_radius = calc_circ(alocs[edge_ndxs[0]], alocs[edge_ndxs[1]], alocs[edge_ndxs[2]], arads[edge_ndxs[0]], arads[edge_ndxs[1]], arads[edge_ndxs[2]])
-    test_atom_tuples = []
-    for atom in test_atoms:
-        test_atom_tuples.append((atom, calc_dist(alocs[atom], np.array(edge_center)) - arads[atom]))
-    test_atom_tuples.sort(key=lambda a: a[1])
-    sorted_atoms = [_[0] for _ in test_atom_tuples]
-
-    if metrics is not None:
-        metrics['gather_atoms'] += time.perf_counter() - start
-    # First look for vertices that have been found before
-    new_test_atoms = []
-    start = time.perf_counter()
-    for atom in sorted_atoms:
-        # If the atom is in the previous vertex move on
-        if atom in vert_atom_ndxs:
-            continue
-        # Check if we need to check and if so check for the atom in the list
-        if check_atoms and atom not in group_atoms:
-            continue
-        # If we have found the vertex before it is not the previous vertex return
-        atom_ndxs = edge_ndxs + [atom]
-        atom_ndxs.sort()
-        # Get the vertex's index/insert index
-        check_verts = [vert_ndxs[_] for _ in averts[atom_ndxs[0]]]
-        my_vert_ndx = ndx_search(check_verts, atom_ndxs)
-        if my_vert_ndx < len(check_verts) and atom_ndxs == check_verts[my_vert_ndx]:
-            return
-        new_test_atoms.append(atom)
-    if metrics is not None:
-        metrics['ndx_search'] += time.perf_counter() - start
-    # Instantiate the vertex list and the size limit for vertices found
-    verts = []
-    # Go through each atom in the given test atoms. Extremely optimized
-    for i, atom in enumerate(new_test_atoms):
-        # Create the vertex and calculate its value
-        vert_atoms = edge_atoms + [atom]
-        vert_atoms.sort()
-        vert_loc2, vert_rad2 = None, None
-        # Calculate the correct vertex values
-        start = time.perf_counter()
-        if net_type == 'pow':
-            vert_loc, vert_rad = calc_flat_vert(locs=[alocs[_] for _ in vert_atoms], rads=[arads[_] for _ in vert_atoms], power=True)
-        elif net_type == 'del':
-            vert_loc, vert_rad = calc_flat_vert(locs=[alocs[_] for _ in vert_atoms], rads=[arads[_] for _ in vert_atoms], power=False)
-        else:
-            vert_loc, vert_rad, vert_loc2, vert_rad2 = calc_vert(locs=[alocs[_] for _ in vert_atoms], rads=[arads[_] for _ in vert_atoms])
-        if metrics is not None:
-            metrics['calc_vert'] += time.perf_counter() - start
-        # Catch the none location case
-        if vert_loc is None:
-            continue
-        start = time.perf_counter()
-        # Filter the vertex out if it is too large or not able to be made
-        filtered_test_atoms = [_ for _ in sorted_atoms if _ not in vert_atoms]
-        test_locs = np.array([alocs[_] for _ in filtered_test_atoms])
-        test_rads = np.array([arads[_] for _ in filtered_test_atoms])
-        if abs(vert_rad) < max_vert and verify_site(loc=np.array(vert_loc), rad=vert_rad, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
-            if len(verts) > 0 and verts[0]['rad'] < vert_rad:
-                return verts[0], metrics
-            verts.append({'atoms': vert_atoms, 'loc': vert_loc, 'rad': vert_rad})
-            # If the first vertex site is a valid site add it to the list of check vertices and add its index
-            if vert_loc2 is not None and abs(vert_rad2) < max_vert and verify_site(loc=np.array(vert_loc2), rad=vert_rad2, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
-                verts[-1]['loc2'], verts[-1]['rad2'] = vert_loc2, vert_rad2
-        # Check to see if the doublet's site is verified
-        elif vert_loc2 is not None and verify_site(loc=np.array(vert_loc2), rad=vert_rad2, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
-            verts.append({'atoms': vert_atoms, 'loc': vert_loc2, 'rad': vert_rad2})
-        if metrics is not None:
-            metrics['verify_site'] += time.perf_counter() - start
-    # If no verts have been found return
-    if len(verts) == 0:
-        return
-    # If we find only 1 vertex, return it
-    elif len(verts) == 1 or verts[0]['rad'] < verts[1]['rad']:
-        return verts[0], metrics
-    return verts[1], metrics
-
-
 def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, vn_1, vn_1_loc, group_atoms=None,
                    metrics=None, vn_1_rad=None):
     """
@@ -200,10 +94,6 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
         if vert_rad2 is not None and vert_rad2 > max_vert:
             vert_loc2, vert_rad2 = None, None
 
-        # # Check the vertex for overlap with the previous atom
-        # if calc_dist(alocs[other_atom], np.array(vert_loc)) - arads[other_atom] - abs(vert_rad) < 0:
-        #     continue
-
         # Add the vertex to the list of calculated vertices
         calculated_verts.append({'atoms': vert, 'loc': np.array(vert_loc), 'rad': vert_rad, 'loc2': vert_loc2,
                                  'rad2': vert_rad2})
@@ -225,7 +115,14 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
     # Get the centers of the edge atoms
     c0, c1, c2 = [alocs[_] for _ in edge_ndxs]
     # Calculate the inscribed circle of the edge
-    edge_center, edge_radius = calc_circ(c0, c1, c2, *[arads[_] for _ in edge_ndxs])
+    # Get the center of the inscribed circle
+    try:
+        edge_center, edge_radius = calc_circ(alocs[edge_ndxs[0]], alocs[edge_ndxs[1]], alocs[edge_ndxs[2]],
+                                             arads[edge_ndxs[0]], arads[edge_ndxs[1]], arads[edge_ndxs[2]])
+    except TypeError:
+        print([alocs[_] for _ in edge_ndxs], [arads[_] for _ in edge_ndxs], edge_ndxs)
+        plot_atoms([alocs[_] for _ in edge_ndxs], [arads[_] for _ in edge_ndxs], Show=True)
+        return None
 
     # Calculate the edge normal  direction - take cross product of vector centers of edge atoms - a0 a1 X a1, a2
     edge_direction = np.cross(c0 - c1, c0 - c2)
@@ -401,49 +298,3 @@ def choose_vert(lr_verts, test_atoms, alocs, arads, metrics, start, net_type):
         if metrics is not None:
             metrics['verify_site'] += time.perf_counter() - start
         return my_vert, metrics
-
-
-def plot_vertex_2d(calc_verts, oa, pv_loc, edge_atom_locs, edge_atom_rads, edge_normal, real_vert):
-    my_edge = calc_circ(*edge_atom_locs, *edge_atom_rads)
-    chosen_vert = [_ for _ in calc_verts if _['atoms'] == [6, 7, 3143, 3145]][0]
-
-    # Calculate the edge plane
-    ep_norm = np.cross(pv_loc - my_edge[0], edge_normal)
-    new_chosen_vert_point = rotate_points(ep_norm, np.array([chosen_vert['loc']]))
-    new_cv_points = rotate_points(ep_norm, np.array([_['loc'] for _ in calc_verts]))
-    new_pv_point = rotate_points(ep_norm, np.array([pv_loc]))
-    new_oa_point = rotate_points(ep_norm, np.array([oa]))
-    new_real_vert_loc = rotate_points(ep_norm, np.array([real_vert['loc']]))
-    plt.scatter([_[0] for _ in new_cv_points], [_[1] for _ in new_cv_points])
-    plt.scatter([new_pv_point[0][0]], [new_pv_point[0][1]], marker='o', s=20)
-    plt.scatter([new_oa_point[0][0]], [new_oa_point[0][1]])
-    plt.scatter([new_real_vert_loc[0][0]], [new_real_vert_loc[0][1]], marker='x', s=20)
-    plt.scatter([new_chosen_vert_point[0][0]], [new_chosen_vert_point[0][1]], marker='.', s=40)
-
-    plt.show()
-
-
-def plot_vert_situation(edge_atoms, my_vert, vn_1_loc, vn_1_rad, alocs, arads, a0=None, a1=None, a2=None, v0=None):
-        fig = plt.figure()
-        ax = fig.add_subplot(projection='3d')
-        # actual_vert_other_atom = [_ for _ in actual_vert['atoms'] if _ not in edge_ndxs][0]
-        # edge atoms
-        plot_atoms([alocs[_] for _ in edge_atoms], [arads[_] for _ in edge_atoms], fig=fig, ax=ax, colors=['r', 'r', 'r'])
-        # other atom
-        if a0 is not None:
-            plot_atoms([alocs[a0]], [arads[1779]], fig=fig, ax=ax, colors=['pink'])
-        # interfering atom
-        if a1 is not None:
-            plot_atoms([alocs[3144]], [arads[3144]], fig=fig, ax=ax, colors=['orange'])
-        # # actual vert other atom
-        if a2 is not None:
-            plot_atoms([alocs[7]], [arads[7]], fig=fig, ax=ax, colors=['purple'])
-        # actual vert
-        plot_verts([my_vert['loc2']], [my_vert['rad2']], fig=fig, ax=ax, spheres=True, colors=['b'])
-        # closest vert
-        if v0 is not None:
-            plot_verts([v0['loc']], [v0['rad']], fig=fig, ax=ax, spheres=True, colors=['white'])
-        # previous vert
-        plot_verts([vn_1_loc], [vn_1_rad], fig=fig, ax=ax, spheres=True, colors=['green'], Show=True)
-
-

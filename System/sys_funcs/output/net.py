@@ -40,8 +40,9 @@ def write_net_logs(net, round_to=3):
         for i, atom in net.atoms.iterrows():
             if atom['sa'] == 0:
                 continue
-            nbrs = [satoms[0] if satoms[0] != atom['num'] else satoms[1] for satoms in [net.surfs['satoms'][_] for _ in atom['asurfs']]]
-            lg_fl.writerow([i, atom['name'], r(atom['vol']), r(atom['sa']), r(atom['curv']), *nbrs])
+            if atom['complete']:
+                nbrs = [satoms[0] if satoms[0] != atom['num'] else satoms[1] for satoms in [net.surfs['satoms'][_] for _ in atom['asurfs']]]
+                lg_fl.writerow([i, atom['name'], r(atom['vol']), r(atom['sa']), r(atom['curv']), *nbrs])
         # Write the surfaces header
         lg_fl.writerow(["Surfaces"])
         # Write the surface column labels
