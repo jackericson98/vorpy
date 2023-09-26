@@ -259,16 +259,17 @@ class Network:
                              vert_box=self.sys.foam_box)
         if my_guuy is not None:
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = my_guuy
-        # Check for disconnects in the network
-        while len(atom_nums) > 0:
-            a0 = atom_nums.pop()
-            my_guuy = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
-                                 max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums,
-                                 my_group=my_group, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
-                                 vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.my_time, print_metrics=True,
-                                 vert_box=self.sys.foam_box)
-            if my_guuy is not None:
-                vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = my_guuy
+        # Check for disconnects in the network, (but not if it is a foam system)
+        if self.sys.foam_box is None:
+            while len(atom_nums) > 0:
+                a0 = atom_nums.pop()
+                my_guuy = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
+                                     max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums,
+                                     my_group=my_group, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
+                                     vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.my_time, print_metrics=True,
+                                     vert_box=self.sys.foam_box)
+                if my_guuy is not None:
+                    vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = my_guuy
         # Create the doublets list
         # missing_verts = [_ for _ in vert_list_real if _ not in vert_ndxs]
         # print(missing_verts)
