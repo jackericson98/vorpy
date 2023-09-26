@@ -1,6 +1,5 @@
 import time
 from _datetime import datetime
-
 import pandas as pd
 import csv
 import os
@@ -259,7 +258,7 @@ class Network:
                              vert_box=self.sys.foam_box)
         if my_guuy is not None:
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = my_guuy
-        # Check for disconnects in the network, (but not if it is a foam system)
+        # Check for disconnects in the network
         if self.sys.foam_box is None:
             while len(atom_nums) > 0:
                 a0 = atom_nums.pop()
@@ -396,7 +395,7 @@ class Network:
                       .format(int(h), int(m), round(s, 2), percentage), end="")
         self.surfs['sa'], self.surfs['curv'], self.surfs['tri_curvs'] = sas, surfs_curvs, surfs_tri_curvs
         # Set up the atoms' volumes surface areas, curvatures vars
-        avols, asas, acurvs = [], [], []
+        avols, asas, acurvs, acell = [], [], [], []
         asurfs_vols = [[] for _ in range(len(self.surfs))]
         # Go through each atom in the system and find the volume
         for k, atom in self.atoms.iterrows():
@@ -421,7 +420,18 @@ class Network:
                     if surf['curv'] > atom_curv:
                         atom_curv = surf['curv']
                 acurvs.append(atom_curv)
-
+            # Check for complete cells in the atoms
+            complete = True
+            # Go through each of the vertices in the in the atom
+            for vert in atom['averts']:
+                # Check the number of edges from the vertex that hold
+                if len([_ for _ in [self.edges['eatoms'][_] for _ in self.verts['vedges'][vert]] if k in _]) != 3:
+                    complete = False
+            # Additional catch for any atom that doesn't have any vertices associated with it
+            if len(atom['averts']) == 0:
+                complete = False
+            # Add the complete designation for the cell
+            acell.append(complete)
             # Print the actions
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
@@ -430,7 +440,7 @@ class Network:
                       .format(int(h), int(m), round(s, 2), percentage), end="")
         self.surfs['vols'] = [[asurfs_vols[i][0][1], asurfs_vols[i][1][1]] if asurfs_vols[i][0][0]<asurfs_vols[i][1][0]
                               else [asurfs_vols[i][1][1], asurfs_vols[i][0][1]] for i in range(len(self.surfs))]
-        self.atoms['vol'], self.atoms['sa'], self.atoms['curv'] = avols, asas, acurvs
+        self.atoms['vol'], self.atoms['sa'], self.atoms['curv'], self.atoms['complete'] = avols, asas, acurvs, acell
         self.metrics['anal'] = time.perf_counter() - self.my_time - self.metrics['surf'] - self.metrics['con'] - self.metrics['vert']
 
     def build(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
