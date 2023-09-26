@@ -108,7 +108,8 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
             # Set the vertex and its index
             my_vert, metrics = vert_ndx_pr
             # Check if there is a retaining box for the vertices and if the vertex is outside the box
-            if vert_box is not None and any([vert_box[0][i] > my_vert['loc'][i] < vert_box[1][i] for i in range(3)]):
+            if vert_box is not None and (any([vert_box[0][i] > my_vert['loc'][i] for i in range(3)]) or
+                                         any([vert_box[1][i] < my_vert['loc'][i] for i in range(3)])):
                 continue
             # Add the vertex to the stack and the network
             vert_stack.append(my_vert)
