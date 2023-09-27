@@ -60,9 +60,40 @@ def argv(my_sys):
     # Go through each of the ls
     argv_load(my_sys, files)
     argv_sett(my_sys, settings)
+    max_vert = my_sys.net.max_vert
     argv_group(my_sys, groups, bff=ifaces)
-    if my_sys.net_file is None:
+    if my_sys.net2:
+        my_sys.net = Network(sys=my_sys, atoms=my_sys.atoms, net_type='vor')
+        atoms2 = my_sys.atoms.copy()
+        for my_group in my_sys.groups:
+            if len(my_group.atoms) > 0:
+                my_sys.net.build(my_group=my_group, max_vert=max_vert)
+        atom_vals_vor = []
+        atom_nums_vor = []
+        for i, atom in my_sys.net.atoms.iterrows():
+            if atom['complete']:
+                atom_vals_vor.append({'num': i, 'vol': atom['vol'], 'sa': atom['sa']})
+                atom_nums_vor.append(i)
+            else:
+                atom_vals_vor.append({})
+        my_sys.net2 = my_sys.net
+        my_sys.net = Network(sys=my_sys, atoms=atoms2, net_type='pow')
+        for my_group in my_sys.groups:
+            if len(my_group.atoms) > 0:
+                my_sys.net.build(my_group=my_group, max_vert=max_vert)
+        atom_vals = []
+        for i, atom in my_sys.net.atoms.iterrows():
+            if atom['complete'] and i in atom_nums_vor:
+                atom_vals.append({'num': i, 'vol_pow': atom['vol'], 'vol_vor': atom_vals_vor[i]['vol'],
+                                  'sa': atom['sa'], 'sa_vor': atom_vals_vor[i]['sa'],
+                                  'vol_diff': abs(atom['vol'] - atom_vals_vor[i]['vol']) / atom_vals_vor[i]['vol'],
+                                  'sa_diff': abs(atom['sa'] - atom_vals_vor[i]['sa']) / atom_vals_vor[i]['sa']})
+        print('vol avg diff', sum([_['vol_diff'] for _ in atom_vals]) / len(atom_vals), 'sa avg diff', sum([_['sa_diff'] for _ in atom_vals]) / len(atom_vals), 'num cells', len(atom_vals))
+        return
+
+    elif my_sys.net_file is None:
         argv_build(my_sys, builds)
+
     argv_export(my_sys, exports)
 
 

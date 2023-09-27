@@ -241,7 +241,7 @@ class Network:
                     vert_ndxs.append([int(_) for _ in line[1:5]])
         return vert_ndxs
 
-    def find_verts(self, my_group=None):
+    def find_verts(self, my_group=None, print_metrics=False):
         """
         Using the functions in find_vertices.py finds the vertices in the network
         """
@@ -447,7 +447,7 @@ class Network:
         self.metrics['anal'] = time.perf_counter() - self.my_time - self.metrics['surf'] - self.metrics['con'] - self.metrics['vert']
 
     def build(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
-              calc_verts=None, my_group=None, print_actions=None):
+              calc_verts=None, my_group=None, print_actions=None, print_vert_metrics=False):
         """
         Build network function used to calculate the voronoi
         :param print_actions: Print the network building actions
@@ -487,7 +487,7 @@ class Network:
         # Check to see if there are vertices loaded
         if self.calc_verts and self.sys.ball_file is None:
             # Find the vertices
-            self.find_verts(my_group=my_group)
+            self.find_verts(my_group=my_group, print_metrics=print_vert_metrics)
             # Check to see if there are vertices
             if self.verts is None or len(self.verts) == 0:
                 return

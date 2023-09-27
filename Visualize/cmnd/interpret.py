@@ -223,6 +223,8 @@ def get_val(my_sys, setting=None, val=None):
                 val = 'del'
             elif val.lower() in {'power', 'pow', 'p'}:
                 val = 'pow'
+            elif val.lower() in {'compare', 'comp', 'c'}:
+                val = 'com'
         # Test for a float value
         elif type(val) == str and setting in surf_reses + max_verts + box_sizes:
             try:

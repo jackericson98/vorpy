@@ -1,5 +1,5 @@
 from System.sys_funcs.calcs.calcs import calc_circ, box_search, get_atoms
-from System.Network.verts.find_site import find_site
+from System.Network.verts.find_site.slow import find_site
 from System.Network.verts.verify_site import verify_site
 import numpy as np
 
