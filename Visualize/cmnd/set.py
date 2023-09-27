@@ -84,6 +84,10 @@ def sett(sys, usr_npt, vorpy2_set=False):
                   "(From 1.0 to 10.0 X, recommended 1.5 X)".format(my_val))
     # Set the flat surfaces
     elif my_set in net_types:
+        # If the net type is compare, create a second network
+        if my_val == 'com':
+            sys.net2 = True
+            my_val = 'vor'
         # Check to see if the value is correct
         try:
             sys.net.type = my_val
@@ -92,6 +96,7 @@ def sett(sys, usr_npt, vorpy2_set=False):
         except ValueError:
             print("\"{}\" is an invalid input for the flat surfaces setting. Enter a True/False value "
                   "(From 1.0 to 10.0 X, recommended 1.5 X)".format(my_val))
+
     elif my_set in surf_colors:
         sys.net.surf_col = my_val
         print("surface color set to {}".format(my_val))
