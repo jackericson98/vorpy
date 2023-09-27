@@ -223,22 +223,23 @@ class Network:
         self.surfs = pd.DataFrame(surf_lists)
         self.metrics['con'] = time.perf_counter() - self.my_time - self.metrics['vert']
 
-    # def get_real_verts(self):
-    #     my_name = os.getcwd() + '/Data/user_data/' + self.sys.name + '_Correct/sys/' + self.sys.name + '_logs.csv'
-    #
-    #     with open(my_name) as csvfile:
-    #         my_logs = csv.reader(csvfile, delimiter=',')
-    #         at_verts = False
-    #         vert_ndxs = []
-    #         my_i = 0
-    #         for i, line in enumerate(my_logs):
-    #             if line[0] == 'Vertices':
-    #                 at_verts = True
-    #                 my_i = i
-    #                 continue
-    #             if at_verts and i > my_i + 1:
-    #                 vert_ndxs.append([int(_) for _ in line[1:5]])
-    #     return vert_ndxs
+    def get_real_verts(self):
+        my_name = os.getcwd() + '/Data/user_data/' + self.sys.name + '_Correct/sys/' + self.sys.name + '_logs.csv'
+        if not os.path.exists(my_name):
+            return
+        with open(my_name) as csvfile:
+            my_logs = csv.reader(csvfile, delimiter=',')
+            at_verts = False
+            vert_ndxs = []
+            my_i = 0
+            for i, line in enumerate(my_logs):
+                if line[0] == 'Vertices':
+                    at_verts = True
+                    my_i = i
+                    continue
+                if at_verts and i > my_i + 1:
+                    vert_ndxs.append([int(_) for _ in line[1:5]])
+        return vert_ndxs
 
     def find_verts(self, my_group=None):
         """
@@ -250,6 +251,7 @@ class Network:
             atom_nums = my_group.atom_ndxs[:]
         else:
             atom_nums = [i for i in range(len(self.atoms))]
+        vert_list_real = self.get_real_verts()
         # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
         self.atom_ndxs = [_ for _ in atom_nums]
         my_guuy = find_verts(alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
@@ -270,10 +272,11 @@ class Network:
                 if my_guuy is not None:
                     vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = my_guuy
         # Create the doublets list
-        # missing_verts = [_ for _ in vert_list_real if _ not in vert_ndxs]
-        # print(missing_verts)
-        # extra_verts = [_ for _ in vert_ndxs if _ not in vert_list_real]
-        # print(extra_verts)
+        if vert_list_real is not None:
+            missing_verts = [_ for _ in vert_list_real if _ not in vert_ndxs]
+            print(missing_verts)
+            extra_verts = [_ for _ in vert_ndxs if _ not in vert_list_real]
+            print(extra_verts)
         doublets = [0 for _ in range(len(vert_ndxs))]
         # Incorporate the doublets into the vlocs, vatoms, vrads lists and lose the vloc2s and vrad2s
         i = 0
