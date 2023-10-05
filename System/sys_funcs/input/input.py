@@ -45,6 +45,7 @@ def read_pdb(sys, file=None):
         sys.foam = True
         bw = float(my_file[0].split()[2])
         sys.foam_box = [[0, 0, 0], [bw, bw, bw]]
+        sys.foam_data = my_file[0].split()[2:]
     if my_file[0].split()[1] == 'coarsify':
         sys.coarse = True
     # Go through each line in the file and check if the first word is the word we are looking for
@@ -76,7 +77,7 @@ def read_pdb(sys, file=None):
             if chain_str == ' ':
                 if res_str.lower() in {'sol', 'hoh', 'sod'}:
                     chain_str = 'SOL'
-                elif res_str.lower() in {'cl', 'mg', 'na', 'k'} and 'SOL' in chains:
+                elif res_str.lower() in {'cl', 'mg', 'na', 'k', 'ion'} and 'SOL' in chains:
                     chain_str = 'SOL'
                 else:
                     chain_str = 'A'
@@ -120,6 +121,8 @@ def read_pdb(sys, file=None):
             # Assign the radius
             if sys.foam or sys.coarse:
                 atom['rad'] = float(line[60:65])
+                if atom['rad'] == 0:
+                    atom['rad'] = 0.001
             else:
                 atom['rad'] = get_radius(atom)
             # Add the atom to the atoms list

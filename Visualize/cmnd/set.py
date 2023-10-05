@@ -58,8 +58,8 @@ def sett(sys, usr_npt, vorpy2_set=False):
         # Check to see if the value is correct
         try:
             sys.net.max_vert = float(my_val)
-            if not vorpy2_set:
-                print(u"maximum vertex radius set to {} \u212B".format(my_val))
+            # if not vorpy2_set:
+            #     print(u"maximum vertex radius set to {} \u212B".format(my_val))
         except ValueError:
             print("\"{}\" is an invalid input for the maximum vertex radius setting. Enter a float value "
                   "(From 0.10 to 20 A, recommended 7 A)".format(my_val))
@@ -91,7 +91,7 @@ def sett(sys, usr_npt, vorpy2_set=False):
         # Check to see if the value is correct
         try:
             sys.net.type = my_val
-            if not vorpy2_set:
+            if not vorpy2_set and not sys.net2:
                 print("network type set to {}".format(sys.net.type))
         except ValueError:
             print("\"{}\" is an invalid input for the flat surfaces setting. Enter a True/False value "

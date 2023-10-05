@@ -38,8 +38,7 @@ def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, v
     try:
         edge_center, edge_radius = calc_circ(alocs[edge_ndxs[0]], alocs[edge_ndxs[1]], alocs[edge_ndxs[2]], arads[edge_ndxs[0]], arads[edge_ndxs[1]], arads[edge_ndxs[2]])
     except TypeError:
-        print([alocs[_] for _ in edge_ndxs], [arads[_] for _ in edge_ndxs], edge_ndxs)
-        plot_atoms([alocs[_] for _ in edge_ndxs], [arads[_] for _ in edge_ndxs], Show=True)
+        pass
 
     test_atom_tuples = []
     for atom in test_atoms:

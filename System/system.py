@@ -37,6 +37,7 @@ class System:
         self.user_atoms = atoms             # User Atoms          :   User provided locations and radii
         self.foam = False
         self.foam_box = None
+        self.foam_data = None
         self.coarse = False
 
         # Loadable objects
@@ -231,7 +232,7 @@ class System:
         sol_var = ""
         if self.sol is not None:
             sol_var = self.sol.name + " - " + str(len(self.sol.residues)) + " residues"
-        print(atoms_var, resids_var, chains_var, sol_var)
+        # print(atoms_var, resids_var, chains_var, sol_var)
 
     def create_group(self, atoms=None, residues=None, chains=None):
         """

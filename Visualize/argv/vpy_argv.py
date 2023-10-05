@@ -6,6 +6,7 @@ from Visualize.argv.argv_export import argv_export
 from System.Network.network import Network
 from System.system import System
 import sys
+import os
 
 """
 Argv rules: 
@@ -50,6 +51,7 @@ def interpret_argvs():
 
 
 def argv(my_sys):
+    my_sys.print_actions = False
     # Load the atom file
     if sys.argv[1].lower() == 'foam':
         argv_load_foam(my_sys, sys.argv)
@@ -67,7 +69,7 @@ def argv(my_sys):
         atoms2 = my_sys.atoms.copy()
         for my_group in my_sys.groups:
             if len(my_group.atoms) > 0:
-                my_sys.net.build(my_group=my_group, max_vert=max_vert)
+                my_sys.net.build(my_group=my_group, max_vert=max_vert, print_vert_metrics=False, print_actions=False)
         atom_vals_vor = []
         atom_nums_vor = []
         for i, atom in my_sys.net.atoms.iterrows():
@@ -80,15 +82,18 @@ def argv(my_sys):
         my_sys.net = Network(sys=my_sys, atoms=atoms2, net_type='pow')
         for my_group in my_sys.groups:
             if len(my_group.atoms) > 0:
-                my_sys.net.build(my_group=my_group, max_vert=max_vert)
+                my_sys.net.build(my_group=my_group, max_vert=max_vert, print_vert_metrics=False, print_actions=False)
         atom_vals = []
         for i, atom in my_sys.net.atoms.iterrows():
             if atom['complete'] and i in atom_nums_vor:
                 atom_vals.append({'num': i, 'vol_pow': atom['vol'], 'vol_vor': atom_vals_vor[i]['vol'],
                                   'sa': atom['sa'], 'sa_vor': atom_vals_vor[i]['sa'],
-                                  'vol_diff': abs(atom['vol'] - atom_vals_vor[i]['vol']) / atom_vals_vor[i]['vol'],
-                                  'sa_diff': abs(atom['sa'] - atom_vals_vor[i]['sa']) / atom_vals_vor[i]['sa']})
-        print('vol avg diff', sum([_['vol_diff'] for _ in atom_vals]) / len(atom_vals), 'sa avg diff', sum([_['sa_diff'] for _ in atom_vals]) / len(atom_vals), 'num cells', len(atom_vals))
+                                  'vol_diff_vor': abs(atom['vol'] - atom_vals_vor[i]['vol']) / atom_vals_vor[i]['vol'],
+                                  'sa_diff_vor': abs(atom['sa'] - atom_vals_vor[i]['sa']) / atom_vals_vor[i]['sa'],
+                                  'vol_diff_pow': abs(atom['vol'] - atom_vals_vor[i]['vol']) / atom['vol'],
+                                  'sa_diff_pow': abs(atom['sa'] - atom_vals_vor[i]['sa']) / atom['sa']})
+        folder = os.path.dirname(my_sys.base_file)
+        print("\rfoam{}".format(folder[-3:]), *my_sys.foam_data, 'vol_avg_diff_vor', sum([_['vol_diff_vor'] for _ in atom_vals]) / len(atom_vals), 'sa_avg_diff_vor', sum([_['sa_diff_vor'] for _ in atom_vals]) / len(atom_vals), 'vol_avg_diff_pow', sum([_['vol_diff_pow'] for _ in atom_vals]) / len(atom_vals), 'sa_avg_diff_pow', sum([_['sa_diff_pow'] for _ in atom_vals]) / len(atom_vals), 'num_cells', len(atom_vals), end="")
         return
 
     elif my_sys.net_file is None:
