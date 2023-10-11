@@ -391,13 +391,16 @@ class Network:
             else:
                 surfs_tri_curvs.append(surf['tri_curvs'])
                 surfs_curvs.append(surf['curv'])
-            if surf['curv'] > self.max_curv:
-                self.max_curv = surf['curv']
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
                 h, m, s = get_time(my_time)
                 print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                  "
                       .format(int(h), int(m), round(s, 2), percentage), end="")
+        # Get the curvature in the 95th percentile
+        my_surf_curvs = surfs_curvs.copy()
+        my_surf_curvs.sort()
+        self.max_curv = my_surf_curvs[min(int(0.99 * len(my_surf_curvs)), len(my_surf_curvs) - 1)]
+        # Assign the values
         self.surfs['sa'], self.surfs['curv'], self.surfs['tri_curvs'] = sas, surfs_curvs, surfs_tri_curvs
         # Set up the atoms' volumes surface areas, curvatures vars
         avols, asas, acurvs, acell = [], [], [], []
@@ -515,6 +518,5 @@ class Network:
         # Stop the timer and measure the time
         self.metrics['tot'] = time.perf_counter() - self.start_time
         h, m, s = get_time(self.metrics['tot'])
-        if self.sys.print_actions:
-            print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
-                  .format(len(self.verts), len(self.surfs), int(h), int(m), s, datetime.now()), end="")
+        print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
+              .format(len(self.verts), len(self.surfs), int(h), int(m), s, datetime.now()), end="")
