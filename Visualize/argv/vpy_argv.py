@@ -93,7 +93,7 @@ def argv(my_sys):
                                   'vol_diff_pow': abs(atom['vol'] - atom_vals_vor[i]['vol']) / atom['vol'],
                                   'sa_diff_pow': abs(atom['sa'] - atom_vals_vor[i]['sa']) / atom['sa']})
         folder = os.path.dirname(my_sys.base_file)
-        print("\rfoam{}".format(folder[-3:]), *my_sys.foam_data, 'vol_avg_diff_vor', sum([_['vol_diff_vor'] for _ in atom_vals]) / len(atom_vals), 'sa_avg_diff_vor', sum([_['sa_diff_vor'] for _ in atom_vals]) / len(atom_vals), 'vol_avg_diff_pow', sum([_['vol_diff_pow'] for _ in atom_vals]) / len(atom_vals), 'sa_avg_diff_pow', sum([_['sa_diff_pow'] for _ in atom_vals]) / len(atom_vals), 'num_cells', len(atom_vals), end="")
+        print("\rfoam{}".format(folder[-3:]), my_sys.foam_data, 'vol_avg_diff_vor', sum([_['vol_diff_vor'] for _ in atom_vals]) / len(atom_vals), 'sa_avg_diff_vor', sum([_['sa_diff_vor'] for _ in atom_vals]) / len(atom_vals), 'vol_avg_diff_pow', sum([_['vol_diff_pow'] for _ in atom_vals]) / len(atom_vals), 'sa_avg_diff_pow', sum([_['sa_diff_pow'] for _ in atom_vals]) / len(atom_vals), 'num_cells', len(atom_vals), end="")
         return
 
     elif my_sys.net_file is None:
