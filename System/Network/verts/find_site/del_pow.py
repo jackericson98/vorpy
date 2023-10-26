@@ -16,7 +16,7 @@ def find_site_pd_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert
     invalid_atoms = []
     vert = None
     # Se the initial vert size
-    mv_inc = 0.15
+    mv_inc = 0.3
     # Look for the vert and keep increasing box size until the vert is found
     while vert is None and mv_inc < max_vert:
         vert = find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, vn_1, vn_1_loc, group_atoms=group_atoms,
@@ -88,35 +88,40 @@ def find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, 
         metrics['ndx_search'] += time.perf_counter() - start
     # Instantiate the vertex list and the size limit for vertices found
     verts = []
+    start = time.perf_counter()
     # Go through each atom in the given test atoms. Extremely optimized
     for i, atom in enumerate(new_test_atoms):
         # Create the vertex and calculate its value
         vert_atoms = edge_atoms + [atom]
         vert_atoms.sort()
         # Calculate the correct vertex values
-        start = time.perf_counter()
         if net_type == 'pow':
             vert_loc, vert_rad = calc_flat_vert(locs=[alocs[_] for _ in vert_atoms], rads=[arads[_] for _ in vert_atoms], power=True)
         elif net_type == 'del':
             vert_loc, vert_rad = calc_flat_vert(locs=[alocs[_] for _ in vert_atoms], rads=[arads[_] for _ in vert_atoms], power=False)
         else:
             vert_loc, vert_rad, vert_loc2, vert_rad2 = calc_vert(locs=[alocs[_] for _ in vert_atoms], rads=[arads[_] for _ in vert_atoms])
-        if metrics is not None:
-            metrics['calc_vert'] += time.perf_counter() - start
         # Catch the none location case
-        if vert_loc is None:
+        if vert_loc is None or vert_rad > max_vert:
             invalid_atoms.append(atom)
             continue
-        verts.append({'atoms': vert_atoms, 'loc': vert_loc, 'rad': vert_rad})
-        start = time.perf_counter()
+        # Add the vertex to the list of vertices
+        verts.append({'atoms': vert_atoms, 'loc': vert_loc, 'rad': vert_rad, 'new atom': atom, 'dist': calc_dist(np.array(vert_loc), np.array(vn_1_loc))})
+    if metrics is not None:
+        metrics['calc_vert'] += time.perf_counter() - start
+    start = time.perf_counter()
+    # Sort the verts by distance from the previous vertex
+    verts.sort(key=lambda myVert: myVert['dist'])
+    # Cycle through the sorted vertices list
+    for vert in verts:
         # Filter the vertex out if it is too large or not able to be made
-        filtered_test_atoms = [_ for _ in surr_atoms if _ not in vert_atoms]
+        filtered_test_atoms = [_ for _ in surr_atoms if _ not in vert['atoms']]
         test_locs = np.array([alocs[_] for _ in filtered_test_atoms])
         test_rads = np.array([arads[_] for _ in filtered_test_atoms])
-        if vert_rad < max_vert and verify_site(loc=np.array(vert_loc), rad=vert_rad, test_locs=test_locs,
+        if verify_site(loc=np.array(vert['loc']), rad=vert['rad'], test_locs=test_locs,
                                                     test_rads=test_rads, net_type=net_type):
             if metrics is not None:
                 metrics['verify_site'] += time.perf_counter() - start
-            return {'atoms': vert_atoms, 'loc': vert_loc, 'rad': vert_rad}, metrics
+            return vert, metrics
         else:
-            invalid_atoms.append(atom)
+            invalid_atoms.append(vert['new atom'])
