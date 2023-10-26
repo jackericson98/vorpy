@@ -399,7 +399,10 @@ class Network:
         # Get the curvature in the 95th percentile
         my_surf_curvs = surfs_curvs.copy()
         my_surf_curvs.sort()
-        self.max_curv = my_surf_curvs[min(int(0.99 * len(my_surf_curvs)), len(my_surf_curvs) - 1)]
+        try:
+            self.max_curv = my_surf_curvs[min(int(0.99 * len(my_surf_curvs)), len(my_surf_curvs) - 1)]
+        except IndexError:
+            self.max_curv = 0
         # Assign the values
         self.surfs['sa'], self.surfs['curv'], self.surfs['tri_curvs'] = sas, surfs_curvs, surfs_tri_curvs
         # Set up the atoms' volumes surface areas, curvatures vars
