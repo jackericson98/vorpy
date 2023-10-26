@@ -6,10 +6,36 @@ import numpy as np
 import time
 
 
-def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, vn_1=None, vn_1_loc=None, group_atoms=None, metrics=None):
+def find_site_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, vn_1, vn_1_loc, group_atoms=None,
+                             metrics=None, vn_1_rad=None):
+    """
+    Cycles through larger and larger areas searching for
+    """
+    # Define the global variables for the other functions to tap into
+    global invalid_atoms, edge_anums
+    edge_anums = edge_atoms
+    invalid_atoms = []
+    vert = None
+    # Se the initial vert size
+    mv_inc = 0.15
+    # Look for the vert and keep increasing box size until the vert is found
+    while vert is None and mv_inc < max_vert:
+        vert = find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, vn_1, vn_1_loc, group_atoms=group_atoms,
+                              metrics=metrics)
+        mv_inc *= 5
+    # Las step find the vertex using the maximum size
+    if vert is None:
+        vert = find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, max_vert, net_type, vn_1, vn_1_loc,
+                              group_atoms=group_atoms, metrics=metrics)
+    # Return the vertex if found
+    return vert
+
+
+def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, vn_1=None, vn_1_loc=None, group_atoms=None, metrics=None):
     """
     Used a vertex and a combination of it's edge atoms to find the connecting vertex
     """
+    global invalid_atoms
     # Get the atoms that should not ba a part of the new vertex
     edge_ndxs = edge_atoms[:]
     # Check if the edge contains a group atom or not
@@ -31,12 +57,17 @@ def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, v
     if metrics is not None:
         metrics['box_search'] += time.perf_counter() - start
         start = time.perf_counter()
-
-    test_atoms = get_atoms(cells=my_boxes, dist=max_vert)
+    try:
+        test_atoms = [_ for _ in get_atoms(cells=my_boxes, dist=mv_inc) if _ not in invalid_atoms]
+    except NameError:
+        invalid_atoms = []
+        test_atoms = get_atoms(cells=my_boxes, dist=max_vert)
+    surr_atoms = get_atoms(cells=my_boxes, dist=max_vert)
 
     # Get the center of the inscribed circle
     try:
-        edge_center, edge_radius = calc_circ(alocs[edge_ndxs[0]], alocs[edge_ndxs[1]], alocs[edge_ndxs[2]], arads[edge_ndxs[0]], arads[edge_ndxs[1]], arads[edge_ndxs[2]])
+        edge_center, edge_radius = calc_circ(alocs[edge_ndxs[0]], alocs[edge_ndxs[1]], alocs[edge_ndxs[2]],
+                                             arads[edge_ndxs[0]], arads[edge_ndxs[1]], arads[edge_ndxs[2]])
     except TypeError:
         pass
 
@@ -89,10 +120,11 @@ def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, v
             metrics['calc_vert'] += time.perf_counter() - start
         # Catch the none location case
         if vert_loc is None:
+            invalid_atoms.append([_ for _ in vert_atoms if _ not in edge_ndxs])
             continue
         start = time.perf_counter()
         # Filter the vertex out if it is too large or not able to be made
-        filtered_test_atoms = [_ for _ in sorted_atoms if _ not in vert_atoms]
+        filtered_test_atoms = [_ for _ in surr_atoms if _ not in vert_atoms]
         test_locs = np.array([alocs[_] for _ in filtered_test_atoms])
         test_rads = np.array([arads[_] for _ in filtered_test_atoms])
         if abs(vert_rad) < max_vert and verify_site(loc=np.array(vert_loc), rad=vert_rad, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
@@ -107,6 +139,8 @@ def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, v
             verts.append({'atoms': vert_atoms, 'loc': vert_loc2, 'rad': vert_rad2})
         if metrics is not None:
             metrics['verify_site'] += time.perf_counter() - start
+        else:
+            invalid_atoms.append([_ for _ in vert_atoms if _ not in edge_ndxs])
     # If no verts have been found return
     if len(verts) == 0:
         return
