@@ -84,6 +84,10 @@ def sett(sys, usr_npt, vorpy2_set=False):
                   "(From 1.0 to 10.0 X, recommended 1.5 X)".format(my_val))
     # Set the flat surfaces
     elif my_set in net_types:
+        # If the net type is compare, create a second network
+        if my_val == 'com':
+            sys.net2 = True
+            my_val = 'vor'
         # Check to see if the value is correct
         try:
             sys.net.type = my_val
