@@ -1,7 +1,7 @@
 from System.Network.verts.calc_vert import calc_vert
 from System.Network.verts.find_v0 import find_v0
 from System.Network.verts.find_site.slow import find_site
-from System.Network.verts.find_site.fast import find_site_fast
+from System.Network.verts.find_site.fast import find_site_fast_container
 from System.Network.verts.find_site.del_pow import find_site_pow_del
 from System.sys_funcs.calcs.calcs import get_time, ndx_search
 import time
@@ -92,7 +92,7 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
             edge_atoms, vert = e_stack.pop()
             # Find the next site in the network
             if net_type == 'vor':
-                vert_ndx_pr = find_site_fast(edge_atoms=edge_atoms, alocs=alocs, arads=arads, averts=averts,
+                vert_ndx_pr = find_site_fast_container(edge_atoms=edge_atoms, alocs=alocs, arads=arads, averts=averts,
                                              vert_ndxs=vert_ndxs, max_vert=max_vert, net_type=net_type,
                                              vn_1=vert['atoms'],
                                              vn_1_loc=vert['loc'], group_atoms=group_atoms, metrics=metrics)

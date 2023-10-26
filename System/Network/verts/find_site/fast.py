@@ -7,11 +7,38 @@ import numpy as np
 import time
 
 
-def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, vn_1, vn_1_loc, group_atoms=None,
+def find_site_fast_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, vn_1, vn_1_loc, group_atoms=None,
+                             metrics=None, vn_1_rad=None):
+    """
+    Cycles through larger and larger areas searching for
+    """
+    # Define the global variables for the other functions to tap into
+    global invalid_atoms, edge_anums
+    edge_anums = edge_atoms
+    invalid_atoms = []
+    vert = None
+    # Se the initial vert size
+    mv_inc = 0.15
+    # Look for the vert and keep increasing box size until the vert is found
+    while vert is None and mv_inc < max_vert:
+        vert = find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, vn_1, vn_1_loc, group_atoms=group_atoms,
+                              metrics=metrics, vn_1_rad=vn_1_rad)
+        mv_inc *= 3
+    # Las step find the vertex using the maximum size
+    if vert is None:
+        vert = find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, max_vert, net_type, vn_1, vn_1_loc,
+                              group_atoms=group_atoms, metrics=metrics, vn_1_rad=vn_1_rad)
+    # Return the vertex if found
+    return vert
+
+
+def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, vn_1, vn_1_loc, group_atoms=None,
                    metrics=None, vn_1_rad=None):
     """
     Used a vertex and a combination of it's edge atoms to find the connecting vertex
     """
+
+    global invalid_atoms
 
     # Get the atoms that should not ba a part of the new vertex
     edge_ndxs = edge_atoms[:]
@@ -32,7 +59,8 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
         start = time.perf_counter()
 
     # Gather the atoms surrounding the edge atoms
-    test_atoms = get_atoms(cells=my_boxes, dist=max_vert)
+    test_atoms = [_ for _ in get_atoms(cells=my_boxes, dist=mv_inc) if _ not in invalid_atoms]
+    surr_atoms = get_atoms(cells=my_boxes, dist=max_vert)
 
     # Gather atoms metrics <-- Delete later
     if metrics is not None:
@@ -108,7 +136,7 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
         return
     # If there is only one vertex left, no need to sort. Just verify it
     elif len(calculated_verts) == 1:
-        return choose_vert(calculated_verts, test_atoms, alocs, arads, metrics, start, net_type)
+        return choose_vert(calculated_verts, surr_atoms, alocs, arads, metrics, start, net_type)
 
     # Instantiate the left and right vertex lists
     filtered_verts_left, filtered_verts_right = [], []
@@ -178,7 +206,7 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
             # If the edge is straight, verify/return the leftmost vertex on the right
             if my_det == 0:
                 # Verification
-                return choose_vert([filtered_verts_left[0]], test_atoms, alocs, arads, metrics, start, net_type)
+                return choose_vert([filtered_verts_left[0]], surr_atoms, alocs, arads, metrics, start, net_type)
             # If the vertex falls in the lower hull it is the left neighbor
             elif my_det > 0 and left_neighbor is None:
                 left_neighbor = vi
@@ -206,7 +234,7 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
             # If the edge is straight, verify/return the leftmost vertex on the right
             if my_det == 0:
                 # Verification
-                return choose_vert([filtered_verts_right[0]], test_atoms, alocs, arads, metrics, start, net_type)
+                return choose_vert([filtered_verts_right[0]], surr_atoms, alocs, arads, metrics, start, net_type)
             # If the vertex falls in the upper hull it is the left neighbor
             elif my_det < 0 and left_neighbor is None:
                 left_neighbor = vi
@@ -255,18 +283,20 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_ty
 
     # Check the left neighbor vertex
     if left_neighbor is not None:
-        my_vert = choose_vert([left_neighbor], test_atoms, alocs, arads, metrics, start, net_type)
+        my_vert = choose_vert([left_neighbor], surr_atoms, alocs, arads, metrics, start, net_type)
 
         if my_vert is not None:
             return my_vert
     # Check the right neighbor vertex
     if right_neighbor is not None:
-        my_vert = choose_vert([right_neighbor], test_atoms, alocs, arads, metrics, start, net_type)
+        my_vert = choose_vert([right_neighbor], surr_atoms, alocs, arads, metrics, start, net_type)
         if my_vert is not None:
             return my_vert
 
 
 def choose_vert(lr_verts, test_atoms, alocs, arads, metrics, start, net_type):
+
+    global invalid_atoms, edge_anums
     # Get the first vertex in the sorted list
     my_vert = lr_verts.pop(0)
     # Get the atoms surrounding the vertex, not including the vertex atoms
@@ -298,3 +328,6 @@ def choose_vert(lr_verts, test_atoms, alocs, arads, metrics, start, net_type):
         if metrics is not None:
             metrics['verify_site'] += time.perf_counter() - start
         return my_vert, metrics
+    else:
+        invalid_atoms.append([_ for _ in my_vert['atoms'] if _ not in edge_anums][0])
+
