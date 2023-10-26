@@ -14,7 +14,7 @@ from numpy import array, inf, cbrt, sqrt
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
-    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.2, box_size=1.25, max_vert=10,
+    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.2, box_size=1.25, max_vert=40,
                  calc_verts=True, connect_net=True, build_surfs=True, net_type='vor', surf_col='plasma',
                  surf_scheme='curv'):
 
@@ -518,5 +518,5 @@ class Network:
         # Stop the timer and measure the time
         self.metrics['tot'] = time.perf_counter() - self.start_time
         h, m, s = get_time(self.metrics['tot'])
-        print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
-              .format(len(self.verts), len(self.surfs), int(h), int(m), s, datetime.now()), end="")
+        # print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
+        #       .format(len(self.verts), len(self.surfs), int(h), int(m), s, datetime.now()), end="")
