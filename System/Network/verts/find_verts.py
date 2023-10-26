@@ -41,6 +41,10 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
     else:
         v0 = find_v0(alocs=alocs, arads=arads, averts=averts, max_vert=max_vert, net_type=net_type, a0=a0,
                      group_atoms=group_atoms, metrics=metrics)
+        j = 1
+        while v0 is None and j < len(group_atoms):
+            v0 = find_v0(alocs=alocs, arads=arads, averts=averts, max_vert=max_vert, net_type=net_type, a0=group_atoms[j],
+                         group_atoms=group_atoms, metrics=metrics)
     # If no v0 is possible (e.g., a lone atom) return
     if v0 is None:
         return
@@ -100,7 +104,7 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
                 vert_ndx_pr = find_site(edge_atoms=edge_atoms, alocs=alocs, arads=arads, averts=averts,
                                                 vert_ndxs=vert_ndxs, max_vert=max_vert, net_type=net_type,
                                                 vn_1=vert['atoms'],
-                                                vn_1_loc=vert['loc'], group_atoms=group_atoms, metrics=metrics,)
+                                                vn_1_loc=vert['loc'], group_atoms=group_atoms, metrics=metrics)
             # If the vertex is none continue
             if vert_ndx_pr is None:
                 continue
