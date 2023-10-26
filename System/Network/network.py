@@ -272,7 +272,7 @@ class Network:
                 if my_guuy is not None:
                     vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = my_guuy
         # Create the doublets list
-        if vert_list_real is not None:
+        if vert_list_real is not None and self.type == 'vor':
             missing_verts = [_ for _ in vert_list_real if _ not in vert_ndxs]
             print(missing_verts)
             extra_verts = [_ for _ in vert_ndxs if _ not in vert_list_real]
