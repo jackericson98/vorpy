@@ -521,5 +521,5 @@ class Network:
         # Stop the timer and measure the time
         self.metrics['tot'] = time.perf_counter() - self.start_time
         h, m, s = get_time(self.metrics['tot'])
-        # print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
-        #       .format(len(self.verts), len(self.surfs), int(h), int(m), s, datetime.now()), end="")
+        print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
+              .format(len(self.verts), len(self.surfs), int(h), int(m), s, datetime.now()), end="")
