@@ -16,12 +16,12 @@ def find_site_pd_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert
     invalid_atoms = []
     vert = None
     # Se the initial vert size
-    mv_inc = 0.3
+    mv_inc = 0.02
     # Look for the vert and keep increasing box size until the vert is found
     while vert is None and mv_inc < max_vert:
         vert = find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, vn_1, vn_1_loc, group_atoms=group_atoms,
                               metrics=metrics)
-        mv_inc *= 5
+        mv_inc *= 12
     # Las step find the vertex using the maximum size
     if vert is None:
         vert = find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, max_vert, net_type, vn_1, vn_1_loc,
