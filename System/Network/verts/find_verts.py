@@ -19,31 +19,32 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
     if print_metrics:
         metrics = {'ndx_search': 0, 'box_search': 0, 'gather_atoms': 0, 'verify_site': 0, 'calc_vert': 0, 'other': 0}
     # Get the group atoms from which to check vertices against
-    if my_group is None or (my_group is not None and len(my_group.atoms) == len(alocs)):
-        group_atoms = [i for i in range(len(alocs))]
+    if my_group is None or len(my_group) == len(alocs):
+        # Set the group atoms to just the integers in up to the number of atoms
+        my_group = [_ for _ in range(len(alocs))]
         # Calculate the rough number of vertices
         tot_verts = 7 * len(alocs)
     # If a group was provided make sure to get its indices
     elif my_group is not None:
-        group_atoms = my_group.atom_ndxs
         # Calculate the number of vertices
-        tot_verts = 7 * len(group_atoms) + int(60 * sqrt(len(group_atoms)))
+        tot_verts = 7 * len(my_group) + int(60 * sqrt(len(my_group)))
     else:
         return
     if averts is None:
         averts = [[] for _ in range(len(alocs))]
     # Find the first verified vertex
-    if len(group_atoms) == 4:
-        v0_loc, v0_rad, v0_loc2, v0_rad2 = calc_vert(locs=[alocs[_] for _ in group_atoms],
-                                                     rads=[arads[_] for _ in group_atoms])
-        v0 = {'atoms': group_atoms, 'loc': v0_loc, 'rad': v0_rad, 'loc2': v0_loc2, 'rad2': v0_rad2}
+    if len(my_group) == 4:
+        v0_loc, v0_rad, v0_loc2, v0_rad2 = calc_vert(locs=[alocs[_] for _ in my_group],
+                                                     rads=[arads[_] for _ in my_group])
+        v0 = {'atoms': my_group, 'loc': v0_loc, 'rad': v0_rad, 'loc2': v0_loc2, 'rad2': v0_rad2}
     else:
         v0 = find_v0(alocs=alocs, arads=arads, averts=averts, max_vert=max_vert, net_type=net_type, a0=a0,
-                     group_atoms=group_atoms, metrics=metrics)
+                     group_atoms=my_group, metrics=metrics)
         j = 1
-        while v0 is None and j < len(group_atoms):
-            v0 = find_v0(alocs=alocs, arads=arads, averts=averts, max_vert=max_vert, net_type=net_type, a0=group_atoms[j],
-                         group_atoms=group_atoms, metrics=metrics)
+        while v0 is None and j < len(check_atoms):
+            v0 = find_v0(alocs=alocs, arads=arads, averts=averts, max_vert=max_vert, net_type=net_type, a0=check_atoms[j],
+                         group_atoms=my_group, metrics=metrics)
+            j += 1
     # If no v0 is possible (e.g., a lone atom) return
     if v0 is None:
         return
@@ -98,12 +99,12 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
                 vert_ndx_pr = find_site_fast_container(edge_atoms=edge_atoms, alocs=alocs, arads=arads, averts=averts,
                                                        vert_ndxs=vert_ndxs, max_vert=max_vert, net_type=net_type,
                                                        vn_1=vert['atoms'], vn_1_loc=vert['loc'],
-                                                       group_atoms=group_atoms, metrics=metrics)
+                                                       group_atoms=my_group, metrics=metrics)
             else:
                 vert_ndx_pr = find_site_pd_container(edge_atoms=edge_atoms, alocs=alocs, arads=arads,
                                                      averts=averts, vert_ndxs=vert_ndxs, max_vert=max_vert,
                                                      net_type=net_type, vn_1=vert['atoms'], vn_1_loc=vert['loc'],
-                                                     group_atoms=group_atoms, metrics=metrics)
+                                                     group_atoms=my_group, metrics=metrics)
             # If the vertex is none continue
             if vert_ndx_pr is None:
                 continue
@@ -150,4 +151,4 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
               .format(metrics['ndx_search'], metrics['box_search'], metrics['gather_atoms'], metrics['verify_site'],
                       metrics['calc_vert'], metrics['other'], metrics['total']))
     # Return the values of the vertices
-    return vert_ndxs, vlocs, vrads, vloc2s, vrad2s, check_atoms
+    return vert_ndxs, vlocs, vrads, vloc2s, vrad2s, check_atoms, averts
