@@ -17,22 +17,32 @@ def find_site_fast_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_ve
     edge_anums = edge_atoms
     invalid_atoms = []
     vert = None
+    # Check if the edge contains a group atom or not. If not each atom paired with the edge atoms needs to be checked
+    check_atoms = True
+    for ndx in edge_atoms:
+        if group_atoms is not None and ndx in group_atoms:
+            check_atoms = False
+            break
+    # Grab the atoms we want to test against
+    my_boxes = [box_search(loc=alocs[edge_atoms[_]]) for _ in range(3)]
+    # Gather the surrounding atoms from
+    surr_atoms = get_atoms(cells=my_boxes, dist=max_vert)
     # Se the initial vert size
-    mv_inc = 0.15
+    mv_inc = 0.45
     # Look for the vert and keep increasing box size until the vert is found
     while vert is None and mv_inc < max_vert:
-        vert = find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, vn_1, vn_1_loc, group_atoms=group_atoms,
+        vert = find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, vn_1, vn_1_loc, check_atoms, my_boxes, surr_atoms, group_atoms=group_atoms,
                               metrics=metrics, vn_1_rad=vn_1_rad)
-        mv_inc *= 3
+        mv_inc *= 12
     # Las step find the vertex using the maximum size
     if vert is None:
-        vert = find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, max_vert, net_type, vn_1, vn_1_loc,
+        vert = find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, max_vert, net_type, vn_1, vn_1_loc, check_atoms, my_boxes, surr_atoms,
                               group_atoms=group_atoms, metrics=metrics, vn_1_rad=vn_1_rad)
     # Return the vertex if found
     return vert
 
 
-def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, vn_1, vn_1_loc, group_atoms=None,
+def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, vn_1, vn_1_loc, check_atoms, my_boxes, surr_atoms, group_atoms=None,
                    metrics=None, vn_1_rad=None):
     """
     Used a vertex and a combination of it's edge atoms to find the connecting vertex
@@ -43,16 +53,9 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc
     # Get the atoms that should not ba a part of the new vertex
     edge_ndxs = edge_atoms[:]
 
-    # Check if the edge contains a group atom or not. If not each atom paired with the edge atoms needs to be checked
-    check_atoms = True
-    for ndx in edge_ndxs:
-        if group_atoms is not None and ndx in group_atoms:
-            check_atoms = False
-            break
     # Time printing metrics <-- Delete later
     start = time.perf_counter()
-    # Grab the atoms we want to test against
-    my_boxes = [box_search(loc=alocs[edge_atoms[_]]) for _ in range(3)]
+
     # Box search metrics <-- Delete later
     if metrics is not None:
         metrics['box_search'] += time.perf_counter() - start
@@ -60,7 +63,6 @@ def find_site_fast(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc
 
     # Gather the atoms surrounding the edge atoms
     test_atoms = [_ for _ in get_atoms(cells=my_boxes, dist=mv_inc) if _ not in invalid_atoms]
-    surr_atoms = get_atoms(cells=my_boxes, dist=max_vert)
 
     # Gather atoms metrics <-- Delete later
     if metrics is not None:
