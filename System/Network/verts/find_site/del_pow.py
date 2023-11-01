@@ -10,58 +10,55 @@ def find_site_pd_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert
     """
     Cycles through larger and larger areas searching for
     """
-    # Define the global variables for the other functions to tap into
-    global invalid_atoms, edge_anums
-    edge_anums = edge_atoms
-    invalid_atoms = []
-    vert = None
+    # Set up the vert and invalid atoms elements
+    invalid_atoms, vert = [], None
+    # If the previous vertex has been provided, add the other atom to the not allowed atoms
+    vert_atom_ndxs = vn_1
+    if vn_1 is None:
+        vert_atom_ndxs = edge_atoms
+    # Check if the edge contains a group atom or not
+    check_atoms = True
+    for ndx in edge_atoms:
+        if group_atoms is not None and ndx in group_atoms:
+            check_atoms = False
+            break
+    # Grab the atoms we want to test against
+    my_boxes = [box_search(loc=alocs[edge_atoms[_]]) for _ in range(3)]
+    surr_atoms = get_atoms(cells=my_boxes, dist=max_vert)
     # Se the initial vert size
     mv_inc = 0.15
     # Look for the vert and keep increasing box size until the vert is found
     while vert is None and mv_inc < max_vert:
-        vert = find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, vn_1, vn_1_loc, group_atoms=group_atoms,
-                              metrics=metrics)
-        mv_inc *= 5
+        vert, invalid_atoms = find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type,
+                                           check_atoms, surr_atoms, my_boxes, invalid_atoms, vert_atom_ndxs,
+                                           group_atoms=group_atoms, metrics=metrics)
+        mv_inc *= 10
     # Las step find the vertex using the maximum size
     if vert is None:
-        vert = find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, max_vert, net_type, vn_1, vn_1_loc,
-                              group_atoms=group_atoms, metrics=metrics)
+        vert, invalid_atoms = find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, max_vert, net_type,
+                                           check_atoms, surr_atoms, my_boxes, invalid_atoms, vert_atom_ndxs,
+                                           group_atoms=group_atoms, metrics=metrics)
     # Return the vertex if found
     return vert
 
 
-def find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, vn_1=None, vn_1_loc=None, group_atoms=None, metrics=None):
+def find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, check_atoms, surr_atoms, my_boxes, invalid_atoms, vert_atom_ndxs, group_atoms=None, metrics=None):
     """
     Used a vertex and a combination of it's edge atoms to find the connecting vertex
     """
-    global invalid_atoms
     # Get the atoms that should not ba a part of the new vertex
     edge_ndxs = edge_atoms[:]
-    # Check if the edge contains a group atom or not
-    check_atoms = True
-    for ndx in edge_ndxs:
-        if group_atoms is not None and ndx in group_atoms:
-            check_atoms = False
-            break
-    # If the previous vertex has been provided, add the other atom to the not allowed atoms
-    vert_atom_ndxs = vn_1
-    if vn_1 is None:
-        vert_atom_ndxs = edge_ndxs
 
     # Time printing metrics <-- Delete later
     start = time.perf_counter()
-    # Grab the atoms we want to test against
-    my_boxes = [box_search(loc=alocs[edge_atoms[_]]) for _ in range(3)]
+
     # Time printing metrics <-- Delete later
     if metrics is not None:
         metrics['box_search'] += time.perf_counter() - start
         start = time.perf_counter()
-    try:
-        test_atoms = [_ for _ in get_atoms(cells=my_boxes, dist=mv_inc) if _ not in invalid_atoms]
-    except NameError:
-        invalid_atoms = []
-        test_atoms = get_atoms(cells=my_boxes, dist=max_vert)
-    surr_atoms = get_atoms(cells=my_boxes, dist=max_vert)
+
+    # Get the atoms not in the invalid atoms that are within the range specified
+    test_atoms = [_ for _ in get_atoms(cells=my_boxes, dist=mv_inc) if _ not in invalid_atoms]
 
     if metrics is not None:
         metrics['gather_atoms'] += time.perf_counter() - start
@@ -82,7 +79,7 @@ def find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, 
         check_verts = [vert_ndxs[_] for _ in averts[atom_ndxs[0]]]
         my_vert_ndx = ndx_search(check_verts, atom_ndxs)
         if my_vert_ndx < len(check_verts) and atom_ndxs == check_verts[my_vert_ndx]:
-            return
+            return None, invalid_atoms
         new_test_atoms.append(atom)
     if metrics is not None:
         metrics['ndx_search'] += time.perf_counter() - start
@@ -117,6 +114,7 @@ def find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, 
                                                     test_rads=test_rads, net_type=net_type):
             if metrics is not None:
                 metrics['verify_site'] += time.perf_counter() - start
-            return {'atoms': vert_atoms, 'loc': vert_loc, 'rad': vert_rad}, metrics
+            return [{'atoms': vert_atoms, 'loc': vert_loc, 'rad': vert_rad}, metrics], invalid_atoms
         else:
             invalid_atoms.append(atom)
+    return None, invalid_atoms
