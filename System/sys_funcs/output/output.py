@@ -11,24 +11,32 @@ import shutil
 def export_min1(sys):
     sys.exports(info=True)
     for group in sys.group:
+        group.dir = sys.dir + '/' + group.name
+        os.mkdir(group.dir)
         group.exports(info=True)
 
 
 def export_min2(sys):
     sys.exports(info=True, set_atoms=True)
     for group in sys.groups:
+        group.dir = sys.dir + '/' + group.name
+        os.mkdir(group.dir)
         group.export(info=True, shell=True)
 
 
 def export_med(sys):
     sys.exports(pdb=True, set_atoms=True, info=True, network=True, logs=True)
     for group in sys.groups:
+        group.dir = sys.dir + '/' + group.name
+        os.mkdir(group.dir)
         group.exports(shell=True, info=True, edges=True, atoms=True)
 
 
 def export_large(sys):
     sys.exports(pdb=True, set_atoms=True, info=True, logs=True, network=True)
     for group in sys.groups:
+        group.dir = sys.dir + '/' + group.name
+        os.mkdir(group.dir)
         group.exports(shell=True, info=True, edges=True, verts=True, atoms=True, surr_atoms=True)
         os.mkdir(group.dir + "/atoms")
         write_atom_cells(sys.net, group.atoms, directory=group.dir + "/atoms")
@@ -37,6 +45,8 @@ def export_large(sys):
 def export_all(sys):
     sys.exports(pdb=True, info=True, network=True, logs=True, set_atoms=True)
     for group in sys.groups:
+        group.dir = sys.dir + '/' + group.name
+        os.mkdir(group.dir)
         group.exports(atoms=True, shell=True, surfs=True, info=True, ext_atoms=True, sep_surfs=True, sep_edges=True, sep_verts=True, verts=True, edges=True)
     os.mkdir(sys.dir + "/atoms")
     write_atom_cells(sys.net, sys.net.atoms['num'], directory=sys.dir + "/atoms", verts=True, edges=True)
