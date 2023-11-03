@@ -48,7 +48,7 @@ def sett(sys, usr_npt, vorpy2_set=False):
         # Check to see if the value is correct
         try:
             sys.net.surf_res = float(my_val)
-            if not vorpy2_set:
+            if not vorpy2_set and not sys.net2:
                 print(u"surface resolution set to {} \u212B".format(my_val))
         except ValueError:
             print("\"{}\" is an invalid input for the surface resolution setting. Enter a float value "
