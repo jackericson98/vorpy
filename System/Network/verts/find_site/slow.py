@@ -93,10 +93,11 @@ def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net
         atom_ndxs = edge_ndxs + [atom]
         atom_ndxs.sort()
         # Get the vertex's index/insert index
-        check_verts = [vert_ndxs[_] for _ in averts[atom_ndxs[0]]]
-        my_vert_ndx = ndx_search(check_verts, atom_ndxs)
-        if my_vert_ndx < len(check_verts) and atom_ndxs == check_verts[my_vert_ndx]:
-            return
+        if vert_ndxs is not None and len(vert_ndxs) > 0:
+            check_verts = [vert_ndxs[_] for _ in averts[atom_ndxs[0]]]
+            my_vert_ndx = ndx_search(check_verts, atom_ndxs)
+            if my_vert_ndx < len(check_verts) and atom_ndxs == check_verts[my_vert_ndx]:
+                return
         new_test_atoms.append(atom)
     if metrics is not None:
         metrics['ndx_search'] += time.perf_counter() - start
