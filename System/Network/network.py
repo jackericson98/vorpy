@@ -256,21 +256,22 @@ class Network:
         self.atom_ndxs = [_ for _ in atom_nums]
         my_guuy = find_verts(alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
                              max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums,
-                             my_group=my_group, start_time=self.my_time, print_metrics=print_metrics,
+                             my_group=my_group.atom_ndxs, start_time=self.my_time, print_metrics=print_metrics,
                              vert_box=self.sys.foam_box)
         if my_guuy is not None:
-            vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = my_guuy
+            vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = my_guuy
         # Check for disconnects in the network
-        if self.sys.foam_box is None:
-            while len(atom_nums) > 0:
-                a0 = atom_nums.pop()
-                my_guuy = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
-                                     max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums,
-                                     my_group=my_group, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
-                                     vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.my_time, print_metrics=print_metrics,
-                                     vert_box=self.sys.foam_box)
-                if my_guuy is not None:
-                    vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums = my_guuy
+        while len(atom_nums) > 0:
+            a0 = atom_nums.pop()
+            my_guuy = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
+                                 max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums,
+                                 my_group=my_group.atom_ndxs, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
+                                 vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.my_time, print_metrics=print_metrics,
+                                 vert_box=self.sys.foam_box, averts=averts)
+            if my_guuy is not None:
+                vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = my_guuy
+            if self.sys.foam_box is not None and len(atom_nums) <= 0.25*len(self.atoms['loc']):
+                break
         # Create the doublets list
         if vert_list_real is not None and self.type == 'vor':
             missing_verts = [_ for _ in vert_list_real if _ not in vert_ndxs]
@@ -521,5 +522,5 @@ class Network:
         # Stop the timer and measure the time
         self.metrics['tot'] = time.perf_counter() - self.start_time
         h, m, s = get_time(self.metrics['tot'])
-        # print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
-        #       .format(len(self.verts), len(self.surfs), int(h), int(m), s, datetime.now()), end="")
+        print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
+              .format(len(self.verts), len(self.surfs), int(h), int(m), s, datetime.now()), end="")
