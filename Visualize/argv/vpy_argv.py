@@ -1,3 +1,5 @@
+import time
+
 from Visualize.argv.argv_load import argv_load, argv_load_atoms, argv_load_foam
 from Visualize.argv.argv_set import argv_sett
 from Visualize.argv.argv_group import argv_group
@@ -7,6 +9,7 @@ from System.Network.network import Network
 from System.system import System
 import sys
 import os
+import csv
 
 """
 Argv rules: 
@@ -64,7 +67,9 @@ def argv(my_sys):
     argv_sett(my_sys, settings)
     max_vert = my_sys.net.max_vert
     argv_group(my_sys, groups, bff=ifaces)
+    # If we are comparing two network types
     if my_sys.net2:
+        start = time.perf_counter()
         my_sys.net = Network(sys=my_sys, atoms=my_sys.atoms, net_type='pow')
         atoms2 = my_sys.atoms.copy()
         for my_group in my_sys.groups:
@@ -81,9 +86,12 @@ def argv(my_sys):
                 atom_vals_pow.append({})
         my_sys.net2 = my_sys.net
         my_sys.net = Network(sys=my_sys, atoms=atoms2, net_type='vor')
+        os.mkdir(my_sys.dir + '_vor')
+        my_sys.dir = my_sys.dir + '_vor'
+        os.chdir(my_sys.dir)
         for my_group in my_sys.groups:
             if len(my_group.atoms) > 0:
-                my_sys.net.build(my_group=my_group, max_vert=max_vert, print_vert_metrics=False, print_actions=False)
+                my_sys.net.build(my_group=my_group, max_vert=max_vert, print_vert_metrics=False, print_actions=False, surf_res=0.7)
         atom_vals = []
         for i, atom in my_sys.net.atoms.iterrows():
             if atom['complete'] and i in atom_nums_pow:
