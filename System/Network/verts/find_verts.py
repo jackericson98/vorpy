@@ -2,9 +2,9 @@ from System.Network.verts.calc_vert import calc_vert
 from System.Network.verts.find_v0 import find_v0
 from System.Network.verts.find_site.fast import find_site_fast_container
 from System.Network.verts.find_site.del_pow import find_site_pd_container
-from System.sys_funcs.calcs.calcs import get_time, ndx_search
+from System.sys_funcs.calcs.calcs import get_time, ndx_search, calc_dist
 import time
-from numpy import sqrt
+from numpy import sqrt, array
 
 
 # Find network function. Keeps searching the network until all verts are found
@@ -18,6 +18,13 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
     start = time.perf_counter()
     if print_metrics:
         metrics = {'ndx_search': 0, 'box_search': 0, 'gather_atoms': 0, 'verify_site': 0, 'calc_vert': 0, 'other': 0}
+    if vert_box is not None and a0 is None:
+        vert_mid = [_ / 2 for _ in vert_box[1]]
+        a_rad_dists = [calc_dist(array(_), array(vert_mid)) for _ in alocs]
+        ndx_holds = [_ for _ in range(len(alocs))]
+        sorted_dists, sorted_ndxs = zip(*sorted(zip(a_rad_dists, ndx_holds)))
+        a0 = sorted_ndxs.pop()
+
     # Get the group atoms from which to check vertices against
     if my_group is None or len(my_group) == len(alocs):
         # Set the group atoms to just the integers in up to the number of atoms
@@ -42,7 +49,11 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
                      group_atoms=my_group, metrics=metrics)
         j = 1
         while v0 is None and j < len(check_atoms):
-            v0 = find_v0(alocs=alocs, arads=arads, averts=averts, max_vert=max_vert, net_type=net_type, a0=check_atoms[j],
+            if vert_box is not None:
+                new_a0 = check_atoms[sorted_ndxs.pop()]
+            else:
+                new_a0 = check_atoms[j]
+            v0 = find_v0(alocs=alocs, arads=arads, averts=averts, max_vert=max_vert, net_type=net_type, a0=new_a0,
                          group_atoms=my_group, metrics=metrics)
             j += 1
     # If no v0 is possible (e.g., a lone atom) return
