@@ -260,7 +260,6 @@ def vorpy(my_sys):
             my_sys.net.build(my_group=my_group, print_actions=True)
 
 
-
 def pre_run_display(sys_name=None, sys_file=None, sys_num_balls=None, sys_type=None, grp_name=None, grp_num_balls=None,
                     grp_vol=None, grp_sa=None, set_net_type=None, set_surf_res=None, set_max_vert=None,
                     net_num_verts=None, net_num_surfs=None, net_num_edges=None, out_type=None, out_descr=None,
