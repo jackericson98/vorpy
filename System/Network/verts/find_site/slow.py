@@ -11,39 +11,42 @@ def find_site_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, n
     """
     Cycles through larger and larger areas searching for
     """
-    # Define the global variables for the other functions to tap into
-    global invalid_atoms, edge_anums
-    edge_anums = edge_atoms
+
     invalid_atoms = []
     vert = None
+    # Check if the edge contains a group atom or not
+    check_atoms = True
+    for ndx in edge_atoms:
+        if group_atoms is not None and ndx in group_atoms:
+            check_atoms = False
+            break
     # Se the initial vert size
     mv_inc = 0.15
     # Look for the vert and keep increasing box size until the vert is found
     while vert is None and mv_inc < max_vert:
-        vert = find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, vn_1, vn_1_loc, group_atoms=group_atoms,
-                              metrics=metrics)
+        vert, invalid_atoms = find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type,
+                                        invalid_atoms=invalid_atoms, check_atoms=check_atoms, vn_1=vn_1,
+                                        vn_1_loc=vn_1_loc, group_atoms=group_atoms, metrics=metrics)
         mv_inc *= 5
     # Las step find the vertex using the maximum size
     if vert is None:
-        vert = find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, max_vert, net_type, vn_1, vn_1_loc,
-                              group_atoms=group_atoms, metrics=metrics)
+        vert, invalid_atoms = find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, max_vert, net_type,
+                                        invalid_atoms=invalid_atoms, check_atoms=check_atoms, vn_1=vn_1,
+                                        vn_1_loc=vn_1_loc, group_atoms=group_atoms, metrics=metrics)
     # Return the vertex if found
     return vert
 
 
-def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, vn_1=None, vn_1_loc=None, group_atoms=None, metrics=None):
+def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, invalid_atoms=None,
+              check_atoms=True, vn_1=None, vn_1_loc=None, group_atoms=None, metrics=None):
     """
     Used a vertex and a combination of it's edge atoms to find the connecting vertex
     """
-    global invalid_atoms
+    if invalid_atoms is None:
+        invalid_atoms = []
     # Get the atoms that should not ba a part of the new vertex
     edge_ndxs = edge_atoms[:]
-    # Check if the edge contains a group atom or not
-    check_atoms = True
-    for ndx in edge_ndxs:
-        if group_atoms is not None and ndx in group_atoms:
-            check_atoms = False
-            break
+
     # If the previous vertex has been provided, add the other atom to the not allowed atoms
     vert_atom_ndxs = vn_1
     if vn_1 is None:
@@ -57,32 +60,17 @@ def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net
     if metrics is not None:
         metrics['box_search'] += time.perf_counter() - start
         start = time.perf_counter()
-    try:
-        test_atoms = [_ for _ in get_atoms(cells=my_boxes, dist=mv_inc) if _ not in invalid_atoms]
-    except NameError:
-        invalid_atoms = []
-        test_atoms = get_atoms(cells=my_boxes, dist=max_vert)
+
+    test_atoms = [_ for _ in get_atoms(cells=my_boxes, dist=mv_inc) if _ not in invalid_atoms]
+
     surr_atoms = get_atoms(cells=my_boxes, dist=max_vert)
-
-    # Get the center of the inscribed circle
-    try:
-        edge_center, edge_radius = calc_circ(alocs[edge_ndxs[0]], alocs[edge_ndxs[1]], alocs[edge_ndxs[2]],
-                                             arads[edge_ndxs[0]], arads[edge_ndxs[1]], arads[edge_ndxs[2]])
-    except TypeError:
-        pass
-
-    test_atom_tuples = []
-    for atom in test_atoms:
-        test_atom_tuples.append((atom, calc_dist(alocs[atom], np.array(edge_center)) - arads[atom]))
-    test_atom_tuples.sort(key=lambda a: a[1])
-    sorted_atoms = [_[0] for _ in test_atom_tuples]
 
     if metrics is not None:
         metrics['gather_atoms'] += time.perf_counter() - start
     # First look for vertices that have been found before
     new_test_atoms = []
     start = time.perf_counter()
-    for atom in sorted_atoms:
+    for atom in test_atoms:
         # If the atom is in the previous vertex move on
         if atom in vert_atom_ndxs:
             continue
@@ -97,7 +85,7 @@ def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net
             check_verts = [vert_ndxs[_] for _ in averts[atom_ndxs[0]]]
             my_vert_ndx = ndx_search(check_verts, atom_ndxs)
             if my_vert_ndx < len(check_verts) and atom_ndxs == check_verts[my_vert_ndx]:
-                return
+                return None, invalid_atoms
         new_test_atoms.append(atom)
     if metrics is not None:
         metrics['ndx_search'] += time.perf_counter() - start
@@ -130,7 +118,7 @@ def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net
         test_rads = np.array([arads[_] for _ in filtered_test_atoms])
         if abs(vert_rad) < max_vert and verify_site(loc=np.array(vert_loc), rad=vert_rad, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
             if len(verts) > 0 and verts[0]['rad'] < vert_rad:
-                return verts[0], metrics
+                return [verts[0], metrics], invalid_atoms
             verts.append({'atoms': vert_atoms, 'loc': vert_loc, 'rad': vert_rad})
             # If the first vertex site is a valid site add it to the list of check vertices and add its index
             if vert_loc2 is not None and abs(vert_rad2) < max_vert and verify_site(loc=np.array(vert_loc2), rad=vert_rad2, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
@@ -144,8 +132,8 @@ def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net
             invalid_atoms.append([_ for _ in vert_atoms if _ not in edge_ndxs])
     # If no verts have been found return
     if len(verts) == 0:
-        return
+        return None, invalid_atoms
     # If we find only 1 vertex, return it
     elif len(verts) == 1 or verts[0]['rad'] < verts[1]['rad']:
-        return verts[0], metrics
-    return verts[1], metrics
+        return [verts[0], metrics], invalid_atoms
+    return [verts[1], metrics], invalid_atoms
