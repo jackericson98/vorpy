@@ -102,7 +102,19 @@ def argv(my_sys):
                                   'vol_diff_vor': abs(atom['vol'] - atom_vals_pow[i]['vol']) / atom['vol'],
                                   'sa_diff_vor': abs(atom['sa'] - atom_vals_pow[i]['sa']) / atom['sa']})
         folder = os.path.dirname(my_sys.base_file)
-        print("\rfoam{}".format(folder[-3:]), my_sys.foam_data, 'vol_avg_diff_vor', sum([_['vol_diff_vor'] for _ in atom_vals]) / len(atom_vals), 'sa_avg_diff_vor', sum([_['sa_diff_vor'] for _ in atom_vals]) / len(atom_vals), 'vol_avg_diff_pow', sum([_['vol_diff_pow'] for _ in atom_vals]) / len(atom_vals), 'sa_avg_diff_pow', sum([_['sa_diff_pow'] for _ in atom_vals]) / len(atom_vals), 'num_cells', len(atom_vals), end="")
+
+        if len(atom_vals) > 0:
+            my_line = "\r{}".format(folder[-4:]), my_sys.foam_data,
+                       sum([_['vol_diff_vor'] for _ in atom_vals]) / len(atom_vals),
+                       sum([_['sa_diff_vor'] for _ in atom_vals]) / len(atom_vals),
+                       sum([_['vol_diff_pow'] for _ in atom_vals]) / len(atom_vals),
+                       sum([_['sa_diff_pow'] for _ in atom_vals]) / len(atom_vals), len(atom_vals),
+                       round((time.perf_counter() - start), 3)
+        else:
+            my_line = "\r{}".format(folder[-4:]), my_sys.foam_data, 0, 0, 0, 0, len(atom_vals),
+                       round((time.perf_counter() - start), 3)
+        print(*my_line, end="")
+
 
     elif my_sys.net_file is None:
         argv_build(my_sys, builds)
