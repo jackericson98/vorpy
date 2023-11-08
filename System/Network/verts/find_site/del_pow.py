@@ -5,8 +5,8 @@ import numpy as np
 import time
 
 
-def find_site_pd_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, vn_1, vn_1_loc, group_atoms=None,
-                             metrics=None, vn_1_rad=None):
+def find_site_pd_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, vn_1=None, vn_1_loc=None,
+                           group_atoms=None, metrics=None, vn_1_rad=None):
     """
     Cycles through larger and larger areas searching for
     """
