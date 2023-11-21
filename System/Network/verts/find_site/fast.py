@@ -337,7 +337,7 @@ def choose_vert(my_vert, edge_ndxs, test_atoms, alocs, arads, metrics, start, ne
                       'rad2': None}
         if metrics is not None:
             metrics['verify_site'] += time.perf_counter() - start
-        return my_vert, metrics
+        return [my_vert, metrics], extra_atom
     # We still need to return invalid atoms if they are not included
     return None, [_ for _ in my_vert['atoms'] if _ not in edge_ndxs][0]
 
