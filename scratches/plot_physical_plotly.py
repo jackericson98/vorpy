@@ -4,7 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 
-plot_type = 'physical1'
+plot_type = 'physical3'
 
 with open('C:/Users/jacke/PycharmProjects/vorpy/Data/user_data/foam_data.csv', 'r') as my_foam_data:
     my_data = []
@@ -41,18 +41,22 @@ averages = [
     [sum(set_values[i]) / len(set_values[i]) for set_values in lists.values()]
     for i in range(len(lists[0.025]))
 ]
+std_errs = [[np.std(set_values[i]) / np.sqrt(len(set_values[i])) for set_values in lists.values()]
+            for i in range(len(lists[0.025]))]
+
 
 # Extract x values for plotting
 x_values = list(lists.keys())
 
 # Create traces for each line
 trace_names = ['Volume', 'Surface Area']
-traces = [go.Scatter(x=x_values, y=avg, mode='lines', name=trace_names[i]) for i, avg in enumerate(averages)]
+traces = [go.Scatter(x=x_values, y=avg, mode='lines', name=trace_names[i], error_y=dict(type='data', array=std_errs[i], visible=True)) for i, avg in enumerate(averages)]
 
 # Create layout for the plot
-layout = go.Layout(title='Devries Percent Difference AWVd vs. Power for Densities',
-                   xaxis=dict(title='Density'),
-                   yaxis=dict(title='Percent Difference'))
+layout = go.Layout(title=dict(text='Gal-Or & Hoelsher AWVd vs. Power for Densities', font=dict(size=40)),
+                   xaxis=dict(title='Density', tickfont=dict(size=16), titlefont=dict(size=30)),
+                   yaxis=dict(title='Percent Difference', tickfont=dict(size=16), titlefont=dict(size=30)),
+                   legend=dict(font=dict(size=30)))
 
 # Create figure
 fig = go.Figure(data=traces, layout=layout)

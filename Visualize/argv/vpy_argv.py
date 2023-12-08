@@ -71,10 +71,11 @@ def argv(my_sys):
     if my_sys.net2:
         start = time.perf_counter()
         my_sys.net = Network(sys=my_sys, atoms=my_sys.atoms, net_type='pow')
+        my_sys.name = my_sys.name + '_pow'
         atoms2 = my_sys.atoms.copy()
         for my_group in my_sys.groups:
             if len(my_group.atoms) > 0:
-                my_sys.net.build(my_group=my_group, max_vert=max_vert, print_vert_metrics=False, print_actions=False)
+                my_sys.net.build(my_group=my_group, max_vert=max_vert, print_vert_metrics=False, print_actions=False, surf_res=0.7)
         argv_export(my_sys, exports)
         atom_vals_pow = []
         atom_nums_pow = []
@@ -102,20 +103,20 @@ def argv(my_sys):
                                   'vol_diff_vor': abs(atom['vol'] - atom_vals_pow[i]['vol']) / atom['vol'],
                                   'sa_diff_vor': abs(atom['sa'] - atom_vals_pow[i]['sa']) / atom['sa']})
         folder = os.path.dirname(my_sys.base_file)
-
+        if my_sys.foam_data is None:
+            my_sys.foam_data = [0, 0, 0, 0, 0]
         if len(atom_vals) > 0:
-            my_line = "\r{}".format(folder[-4:]), my_sys.foam_data,
-                       sum([_['vol_diff_vor'] for _ in atom_vals]) / len(atom_vals),
-                       sum([_['sa_diff_vor'] for _ in atom_vals]) / len(atom_vals),
-                       sum([_['vol_diff_pow'] for _ in atom_vals]) / len(atom_vals),
-                       sum([_['sa_diff_pow'] for _ in atom_vals]) / len(atom_vals), len(atom_vals),
-                       round((time.perf_counter() - start), 3)
+            my_line = "\r{}".format(folder), *my_sys.foam_data, sum([_['vol_diff_vor'] for _ in atom_vals]) / len(atom_vals), sum([_['sa_diff_vor'] for _ in atom_vals]) / len(atom_vals), sum([_['vol_diff_pow'] for _ in atom_vals]) / len(atom_vals), sum([_['sa_diff_pow'] for _ in atom_vals]) / len(atom_vals), len(atom_vals), round((time.perf_counter() - start), 3)
         else:
-            my_line = "\r{}".format(folder[-4:]), my_sys.foam_data, 0, 0, 0, 0, len(atom_vals),
-                       round((time.perf_counter() - start), 3)
+            my_line = "\r{}".format(folder), *my_sys.foam_data, 0, 0, 0, 0, len(atom_vals), round((time.perf_counter() - start), 3)
         print(*my_line, end="")
 
-
+        current_dir = os.getcwd()
+        os.chdir('..')
+        with open('foam_data.csv', 'a') as foam_file:
+            foam_writer = csv.writer(foam_file)
+            foam_writer.writerow(my_line)
+        os.chdir(current_dir)
     elif my_sys.net_file is None:
         argv_build(my_sys, builds)
 

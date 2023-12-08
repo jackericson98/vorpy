@@ -96,6 +96,9 @@ class System:
             self.load_ndx()
 
         # Get the name
+        if self.foam:
+            fd = self.foam_data
+            self.name = self.foam_data
         self.name = path.basename(self.base_file)[:-4]
 
     def load_sys(self, file=None):

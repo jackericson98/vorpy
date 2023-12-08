@@ -9,12 +9,12 @@ from System.Network.edges.build_edge import build_edge
 from System.Network.surfs.build_surf import build_surf
 from System.sys_funcs.calcs.calcs import calc_vol, calc_surf_func, calc_surf_sa, ndx_search, calc_surf_tri_curvs, \
     global_vars
-from numpy import array, inf, cbrt, sqrt
+from numpy import array, inf, cbrt, sqrt, pi
 
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
-    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.2, box_size=1.25, max_vert=40,
+    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.2, box_size=1.1, max_vert=40,
                  calc_verts=True, connect_net=True, build_surfs=True, net_type='vor', surf_col='plasma',
                  surf_scheme='curv'):
 
@@ -369,7 +369,8 @@ class Network:
         for i, edge in self.edges.iterrows():
             percentage = int(i / tot_num * 100)
             # Calculate the length of each edge
-            lengths.append(calc_length(array(edge['points'])))
+            length = calc_length(array(edge['points']))
+            lengths.append(length)
             if self.sys.print_actions:
                 my_time = time.perf_counter() - self.my_time
                 h, m, s = get_time(my_time)
@@ -415,6 +416,9 @@ class Network:
             percentage = int((i + j + k + 2) / tot_num * 100)
             avol, asurf_vols = calc_vol(atom['loc'], [self.surfs['points'][_] for _ in atom['asurfs']],
                                         [self.surfs['tris'][_] for _ in atom['asurfs']])
+            bad_atom = False
+            if avol > 15 * 4/3 * atom['rad'] ** 3 * pi:
+                bad_atom = True
             avols.append(avol)
             for i, surf_vol in enumerate(asurf_vols):
                 asurfs_vols[atom['asurfs'][i]].append([k, surf_vol])
@@ -437,10 +441,10 @@ class Network:
             # Go through each of the vertices in the in the atom
             for vert in atom['averts']:
                 # Check the number of edges from the vertex that hold
-                if len([_ for _ in [self.edges['eatoms'][_] for _ in self.verts['vedges'][vert]] if k in _]) != 3:
+                if len([_ for _ in [self.edges['eatoms'][_] for _ in self.verts['vedges'][vert]] if k in _]) != 3 and not bad_atom:
                     complete = False
-            # Additional catch for any atom that doesn't have any vertices associated with it
-            if len(atom['averts']) == 0:
+            # Additional catch for any atom that doesn't have the correct number of network elements associated with it
+            if len(atom['averts']) < 3 or len(atom['aedges']) < 4 or len(atom['asurfs']) < 3:
                 complete = False
             # Add the complete designation for the cell
             acell.append(complete)
@@ -522,5 +526,5 @@ class Network:
         # Stop the timer and measure the time
         self.metrics['tot'] = time.perf_counter() - self.start_time
         h, m, s = get_time(self.metrics['tot'])
-        print("\rnetwork built - {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
-              .format(len(self.verts), len(self.surfs), int(h), int(m), s, datetime.now()), end="")
+        print("\rnetwork built - {} atoms, {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
+              .format(len([_ for _ in self.atoms['complete'] if _]), len(self.verts), len(self.surfs), int(h), int(m), s, datetime.now()), end="")
