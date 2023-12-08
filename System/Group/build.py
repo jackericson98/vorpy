@@ -19,8 +19,8 @@ def build_surfs(grp, resolution=None):
     for i in grp.surfs:
         surf = grp.sys.net.surfs.iloc[i]
         # Print the status of the surfaces being built
-        print("\rbuilding " + grp.name + " surfaces " + " " * (len(str(len(grp.surfs) - 1)) - len(str(int(i) + 1))) +
-              str(i + 1) + "/" + str(len(grp.surfs)) + "                   ", end="")
+        # print("\rbuilding " + grp.name + " surfaces " + " " * (len(str(len(grp.surfs) - 1)) - len(str(int(i) + 1))) +
+        #       str(i + 1) + "/" + str(len(grp.surfs)) + "                   ", end="")
         # Check if there is any sign of missing points or triangles
         if surf['points'] is None or surf['tris'] is None or len(surf['points']) <= 2 or len(surf['tris']) == 0:
             spoints, surf_tris, tri_curvs, surf_curv, sfunc, surf_com, flat = build_surf(
