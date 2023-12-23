@@ -1,8 +1,7 @@
 from System.sys_funcs.calcs.calcs import calc_circ, box_search, get_atoms
 from System.Network.verts.find_site.slow import find_site
-from System.Network.verts.find_site.del_pow import find_site_pd_container
+from System.Network.verts.find_site.fast import find_site_container
 from System.Network.verts.verify_site import verify_site
-from Visualize.mpl_visualize import plot_atoms, plt
 import numpy as np
 
 
@@ -82,8 +81,8 @@ def find_v0(alocs, arads, averts, max_vert, net_type, a0=None, group_atoms=None,
         # Try to make a verified v0 site with the verified circles
         for circle in verified_circles:
             # Try to create a vertex
-            if net_type in ['del','pow']:
-                my_vert = find_site_pd_container(circle, alocs=alocs, arads=arads, averts=averts, vert_ndxs=vert_ndxs,
+            if net_type in ['del', 'pow']:
+                my_vert = find_site_container(circle, alocs=alocs, arads=arads, averts=averts, vert_ndxs=vert_ndxs,
                                                  max_vert=max_vert, net_type=net_type, group_atoms=group_atoms,
                                                  metrics=metrics)
             else:

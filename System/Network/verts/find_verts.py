@@ -1,8 +1,8 @@
 from System.Network.verts.calc_vert import calc_vert
 from System.Network.verts.find_v0 import find_v0
-from System.Network.verts.find_site.fast import find_site_fast_container
-from System.Network.verts.find_site.del_pow import find_site_pd_container
-from System.sys_funcs.calcs.calcs import get_time, ndx_search, calc_dist
+from System.Network.verts.find_site.fast import find_site_container
+from System.sys_funcs.calcs.calcs import get_time, ndx_search, box_search, get_atoms
+import bisect
 import time
 from numpy import sqrt, array
 
@@ -97,16 +97,10 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
             # Get the edge from the top of the stack
             edge_atoms, vert = e_stack.pop()
             # Find the next site in the network
-            if net_type == 'vor':
-                vert_ndx_pr = find_site_fast_container(edge_atoms=edge_atoms, alocs=alocs, arads=arads, averts=averts,
-                                                       vert_ndxs=vert_ndxs, max_vert=max_vert, net_type=net_type,
-                                                       vn_1=vert['atoms'], vn_1_loc=vert['loc'],
-                                                       group_atoms=my_group, metrics=metrics)
-            else:
-                vert_ndx_pr = find_site_pd_container(edge_atoms=edge_atoms, alocs=alocs, arads=arads,
-                                                     averts=averts, vert_ndxs=vert_ndxs, max_vert=max_vert,
-                                                     net_type=net_type, vn_1=vert['atoms'], vn_1_loc=vert['loc'],
-                                                     group_atoms=my_group, metrics=metrics)
+            vert_ndx_pr = find_site_container(edge_atoms=edge_atoms, alocs=alocs, arads=arads, averts=averts,
+                                              vert_ndxs=vert_ndxs, max_vert=max_vert, net_type=net_type,
+                                              vn_1=vert['atoms'], vn_1_loc=vert['loc'],
+                                              group_atoms=my_group, metrics=metrics)
             # If the vertex is none continue
             if vert_ndx_pr is None:
                 continue
