@@ -53,7 +53,7 @@ trace_names = ['Volume', 'Surface Area']
 traces = [go.Scatter(x=x_values, y=avg, mode='lines', name=trace_names[i], error_y=dict(type='data', array=std_errs[i], visible=True)) for i, avg in enumerate(averages)]
 
 # Create layout for the plot
-layout = go.Layout(title=dict(text='Gal-Or & Hoelsher AWVd vs. Power for Densities', font=dict(size=40)),
+layout = go.Layout(title=dict(text='Gal-Or & Hoelsher AWVd_vs_Power for Densities', font=dict(size=40)),
                    xaxis=dict(title='Density', tickfont=dict(size=16), titlefont=dict(size=30)),
                    yaxis=dict(title='Percent Difference', tickfont=dict(size=16), titlefont=dict(size=30)),
                    legend=dict(font=dict(size=30)))
