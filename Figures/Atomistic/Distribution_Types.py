@@ -2,8 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-names =        ['Na5',  'EDTA_Mg', 'DB1976', 'Hairpin', 'Cambrin', '1BNA',    'Hammerhead',       'p53tet',  'NCP']
-types =        ['Poly', 'Poly',    'Poly',   'Nucleic', 'Nucleic', 'Poly',    'Poly',             'Nucleic', 'Poly']
+names =        ['Na5',  'EDTA_Mg',  'DB1976',     'Hairpin', 'Cambrin', '1BNA',    'Hammerhead',       'p53tet',  'NCP']
+types =        ['Ion',  'Molecule', 'Molecule',   'Nucleic', 'Protein', 'Nucleic', 'Nucleic',          'Protein', 'Complex']
 poly_cnt =     [1,       32,        41,       570,       674,       773,       2032,      2088,               25086]
 ion_cnt =      [0,       1,         10,       0,         11,        0,         30,        8,                  62]
 tot_cnt =      [61,      612,       4440,     3518,      4897,      2965,      52879,     26069,              92704]
@@ -20,7 +20,7 @@ sorted_types = [types[i] for i in sort_indices]
 sorted_poly_cnt = [poly_cnt[i] for i in sort_indices]
 
 # Color mapping
-colors = {'Poly': 'blue', 'Nucleic': 'green'}
+colors = {'Protein': 'blue', 'Nucleic': 'green', 'Complex': 'orange', 'Ion': 'black', 'Molecule': 'grey'}
 
 # Plotting
 fig, ax = plt.subplots()
