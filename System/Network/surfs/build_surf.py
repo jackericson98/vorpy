@@ -38,7 +38,7 @@ def build_surf(alocs, arads, epnts, res, net_type, sfunc=None):
     """
     # Get the surface function if not already calculated
     if sfunc is None:
-        sfunc = calc_surf_func(alocs[0], arads[0], alocs[1], arads[1])
+        sfunc = calc_surf_func(np.array(alocs[0]), arads[0], np.array(alocs[1]), arads[1])
     # Check if the surface is flat
     flat = False
     if net_type in {'del', 'pow'} or arads[0] == arads[1]:

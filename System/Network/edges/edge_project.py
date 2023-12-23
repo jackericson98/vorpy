@@ -1,5 +1,5 @@
 import numpy as np
-from System.sys_funcs.calcs.calcs import calc_circ, calc_angle, calc_surf_func
+from System.sys_funcs.calcs.calcs import calc_circ, calc_angle_jit, calc_surf_func
 from numba import jit
 
 
@@ -59,7 +59,7 @@ def edge_project(rn, pa, func, ep_1, ep_2=None):
         # If we have 2 points to choose from, choose the one that makes the angle closer to 180
         else:
             point = p1
-            if calc_angle(ep_1, ep_2, p2) >= calc_angle(ep_1, ep_2, p1):
+            if calc_angle_jit(ep_1, ep_2, p2) >= calc_angle_jit(ep_1, ep_2, p1):
                 point = p2
         # Return the point we choose
         return point

@@ -1,6 +1,6 @@
 import numpy as np
 from System.Network.edges.edge_project import edge_project, calc_edge_proj_pt
-from System.sys_funcs.calcs.calcs import calc_surf_func, calc_circ, calc_angle
+from System.sys_funcs.calcs.calcs import calc_surf_func, calc_circ, calc_angle_jit
 
 
 # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
@@ -45,7 +45,7 @@ def build_edge(alocs, arads, vlocs, res, straight=None):
     # Find the number of points
     n = max(int(r_mag / res), 4)
     # Calculate the angle between the vertices and the reference point
-    theta = calc_angle(pa, pv0, pv1)
+    theta = calc_angle_jit(pa, pv0, pv1)
     # Add the first vertex to the list of points
     points = [pv0]
     # Find the edges points. Don't count the vertex
@@ -61,7 +61,7 @@ def build_edge(alocs, arads, vlocs, res, straight=None):
         # Get the distance between pb and pa for c
         c = np.sqrt(sum(np.square(np.array(pb) - np.array(pa))))
         # Get the angle between pb, pa and pb + rno1
-        B = calc_angle(pb, pb + rn01, pa)
+        B = calc_angle_jit(pb, pb + rn01, pa)
         # Get the last angle
         C = np.pi - B - A
         # Get the distance to our projection point or 'a' on our triangle

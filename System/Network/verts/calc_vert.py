@@ -7,6 +7,42 @@ from numba import jit
 
 # Speed Boost decorator
 @jit(nopython=True)
+def calc_vert_abcfs_jit(locs, rads):
+    """
+    Calculate the fs, abcfs, rs and l0 for an additively weighted vertex (set) from the locations and radii of 4 spheres
+    """
+    # Unpack the atom radii
+    r0, r1, r2, r3 = rads
+    # Calculate the square of the base sphere's radius
+    r0_2 = r0 ** 2
+    # Move all atoms' locations to the base sphere for simpler calculation
+    l0, l1, l2, l3 = locs[0], locs[1] - locs[0], locs[2] - locs[0], locs[3] - locs[0]
+    # Calculate our System of linear equations coefficients
+    a1, b1, c1, d1, f1 = 2 * l1[0], 2 * l1[1], 2 * l1[2], 2 * (r1 - r0), r0_2 - r1 ** 2 + l1[0] ** 2 + l1[
+        1] ** 2 + l1[2] ** 2
+    a2, b2, c2, d2, f2 = 2 * l2[0], 2 * l2[1], 2 * l2[2], 2 * (r2 - r0), r0_2 - r2 ** 2 + l2[0] ** 2 + l2[
+        1] ** 2 + l2[2] ** 2
+    a3, b3, c3, d3, f3 = 2 * l3[0], 2 * l3[1], 2 * l3[2], 2 * (r3 - r0), r0_2 - r3 ** 2 + l3[0] ** 2 + l3[
+        1] ** 2 + l3[2] ** 2
+    # Calculate the F values
+    F = a1 * b2 * c3 - a1 * b3 * c2 - a2 * b1 * c3 + a2 * b3 * c1 + a3 * b1 * c2 - a3 * b2 * c1
+    F_2 = F ** 2
+    F10 = b1 * c2 * f3 - b1 * c3 * f2 - b2 * c1 * f3 + b2 * c3 * f1 + b3 * c1 * f2 - b3 * c2 * f1
+    F11 = -b1 * c2 * d3 + b1 * c3 * d2 + b2 * c1 * d3 - b2 * c3 * d1 - b3 * c1 * d2 + b3 * c2 * d1
+    F20 = -a1 * c2 * f3 + a1 * c3 * f2 + a2 * c1 * f3 - a2 * c3 * f1 - a3 * c1 * f2 + a3 * c2 * f1
+    F21 = a1 * c2 * d3 - a1 * c3 * d2 - a2 * c1 * d3 + a2 * c3 * d1 + a3 * c1 * d2 - a3 * c2 * d1
+    F30 = a1 * b2 * f3 - a1 * b3 * f2 - a2 * b1 * f3 + a2 * b3 * f1 + a3 * b1 * f2 - a3 * b2 * f1
+    F31 = -a1 * b2 * d3 + a1 * b3 * d2 + a2 * b1 * d3 - a2 * b3 * d1 - a3 * b1 * d2 + a3 * b2 * d1
+    # Place the F values in an array
+    fs = array([F, F_2, F10, F11, F20, F21, F30, F31])
+    # Place the abcdfs in an array
+    abcdfs = array([[a1, a2, a3], [b1, b2, b3], [c1, c2, c3], [d1, d2, d3], [f1, f2, f3]])
+    # Place the radii in an array
+    rs = array([r0, r1, r2, r3])
+    # Return values needed for further calculation
+    return fs, abcdfs, rs, l0
+
+
 def calc_vert_abcfs(locs, rads):
     """
     Calculate the fs, abcfs, rs and l0 for an additively weighted vertex (set) from the locations and radii of 4 spheres
@@ -169,7 +205,10 @@ def calc_vert(locs, rads):
     """
 
     # Get the first set of major coefficients
-    Fs, abcdfs, rs, l0 = calc_vert_abcfs(array(locs), array(rads))
+    try:
+        Fs, abcdfs, rs, l0 = calc_vert_abcfs_jit(array(locs), array(rads))
+    except AssertionError:
+        Fs, abcdfs, rs, l0 = calc_vert_abcfs(array(locs), array(rads))
 
     # Calculate the ranks of the coefficient matrices to determine which vert calculation case to use. F != 0 means 3, 3
     m_rank, f_rank = 3, 3

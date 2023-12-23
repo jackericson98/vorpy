@@ -1,4 +1,4 @@
-from System.sys_funcs.calcs.calcs import rotate_points, calc_com, calc_angle
+from System.sys_funcs.calcs.calcs import rotate_points, calc_com, calc_angle_jit
 from scipy.spatial import Delaunay
 import numpy as np
 
@@ -64,9 +64,9 @@ def tri_within(perimeter, loc, norm, flat_points=None, my_tri=None, point=None):
         p1 = np.array(perimeter[i])
         p2 = np.array(perimeter[(i + 1) % len(perimeter)])
         # Get the angles
-        theta = calc_angle(point, p1, p2)
-        theta_n = calc_angle(point, p1, proj_point)
-        theta_n1 = calc_angle(point, p2, proj_point)
+        theta = calc_angle_jit(point, p1, p2)
+        theta_n = calc_angle_jit(point, p1, proj_point)
+        theta_n1 = calc_angle_jit(point, p2, proj_point)
         # If we have a crossing
         if 0 < theta_n < theta and theta_n1 < theta:
             xings += 1

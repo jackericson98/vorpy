@@ -1,5 +1,7 @@
+import numba.core.errors
+
 from System.Network.surfs.triangulate import tri_within
-from System.sys_funcs.calcs.calcs import calc_angle
+from System.sys_funcs.calcs.calcs import calc_angle_jit, calc_angle
 import numpy as np
 
 
@@ -63,7 +65,10 @@ def find_next_point(alocs, func, pn_1, end, d_theta):
     # Get the distance between pb and pa
     s2 = np.sqrt(sum(np.square(np.array(pa) - np.array(pb))))
     # Get the angle between pa, pb and pv1
-    a1 = calc_angle(pb, pa, end)
+    try:
+        a1 = calc_angle_jit(pb, pa, end)
+    except numba.core.errors.TypingError:
+        a1 = calc_angle(pb, pa, end)
     # Get the last angle
     a2 = np.pi - a0 - a1
     # Find a using the law of sines
@@ -111,7 +116,10 @@ def fill_mesh(alocs, arads, func, surf_loc, surf_norm, perimeter, com, res, flat
     angs = []
     for i in range(len(paths)):
         # Calculate the angle for each path
-        angs.append(calc_angle(pa, paths[i][0], com))
+        try:
+            angs.append(calc_angle_jit(pa, paths[i][0], com))
+        except numba.core.errors.TypingError:
+            angs.append(calc_angle(pa, paths[i][0], com))
         # Get the dists from the com to the path
         dists.append(np.sqrt(sum(np.square(np.array(paths[i][0]) - np.array(com)))))
     # Get the maximum path

@@ -52,6 +52,30 @@ def calc_dist(l0, l1):
 
 
 @jit(nopython=True)
+def calc_angle_jit(p0, p1, p2=None):
+    """
+    Finds the angle (in rads) between three points
+    :param p0: Point 0 list, array, n-dimensional must match points 1 and 2
+    :param p1: Point 1 list, array, n-dimensional must match points 0 and 2
+    :param p2: (optional) Point 2 list, array, n-dimensional must match points 0 and 1
+    :return: Angle between (p0, O) and (p1, O) or (p0, p1) and (p0, p2)
+    """
+    # If no p2 is given, use the origin
+    if p2 is None:
+        v0, v1 = p0, p1
+    else:
+        v0, v1 = p1 - p0, p2 - p0
+    n0, n1 = v0/np.linalg.norm(v0), v1/np.linalg.norm(v1)
+    # Calculate the angle between the two vectors with catches for 180 and 0
+    my_dot = np.dot(n0, n1)
+    if my_dot <= -1.0:
+        my_dot = -1.0
+    elif my_dot >= 1.0:
+        my_dot = 1.0
+    angle = np.arccos(my_dot)
+    return angle
+
+
 def calc_angle(p0, p1, p2=None):
     """
     Finds the angle (in rads) between three points
@@ -185,6 +209,9 @@ def calc_circ(l0, l1, l2, r0, r1, r2):
     :param : Locations and radii for the circle
     :return: Center and radius of the inscribed circle
     """
+    # Make sure the locations are arrays
+    l0, l1, l2 = np.array(l0), np.array(l1), np.array(l2)
+
     Fs, abcs = calc_circ_coefs(l0, l1, l2, r0, r1, r2)
     # Catch for F=0 (i.e. no circle exists)
     if Fs[0] == 0:
@@ -433,6 +460,7 @@ def box_search(loc):
     """
     Locates the sub box indices for a given location
     """
+    loc = np.array(loc)
     return box_search_numba(loc, num_splits, np.array(box_verts))
 
 
@@ -541,7 +569,7 @@ def calc_vol(aloc, surfs_points, surfs_tris):
         surf_vol = 0
         for tri in surfs_tris[i]:
             # Calculate the tetrahedron volume between the atoms' location and the surface triangle's points
-            surf_vol += calc_tetra_vol(aloc, surfs_points[i][tri[0]], surfs_points[i][tri[1]], surfs_points[i][tri[2]])
+            surf_vol += calc_tetra_vol(np.array(aloc), surfs_points[i][tri[0]], surfs_points[i][tri[1]], surfs_points[i][tri[2]])
         # Add the surface's volume to the list
         surf_vols.append(surf_vol)
     # Get the total volume by summing the surfaces volumes
