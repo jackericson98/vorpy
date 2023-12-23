@@ -254,9 +254,12 @@ class Network:
         vert_list_real = self.get_real_verts()
         # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
         self.atom_ndxs = [_ for _ in atom_nums]
+        my_group_atom_ndxs = None
+        if my_group is not None:
+            my_group_atom_ndxs = my_group.atom_ndxs
         my_guuy = find_verts(alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
                              max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums,
-                             my_group=my_group.atom_ndxs, start_time=self.my_time, print_metrics=print_metrics,
+                             my_group=my_group_atom_ndxs, start_time=self.my_time, print_metrics=print_metrics,
                              vert_box=self.sys.foam_box)
         if my_guuy is not None:
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = my_guuy
@@ -311,9 +314,9 @@ class Network:
         for i, edge in self.edges.iterrows():
             # Build the edge depending on if it is straight or not
             straight = True if self.type in ['pow', 'flat', 'del'] else False
-            edge_points, edge_vals = build_edge(alocs=[self.atoms['loc'][_] for _ in edge['eatoms']],
+            edge_points, edge_vals = build_edge(alocs=[array(self.atoms['loc'][_]) for _ in edge['eatoms']],
                                                 arads=[self.atoms['rad'][_] for _ in edge['eatoms']],
-                                                vlocs=[self.verts['vloc'][_] for _ in edge['everts']],
+                                                vlocs=[array(self.verts['vloc'][_]) for _ in edge['everts']],
                                                 res=self.surf_res, straight=straight)
             # Add them to the lists
             edges_points.append(edge_points)
@@ -522,7 +525,8 @@ class Network:
                 surf['func'] = calc_surf_func(*surf_atoms_vals)
             self.metrics['surf'], self.metrics['anal'] = 0, 0
         # Load the elements to the group
-        my_group.get_info()
+        if my_group is not None:
+            my_group.get_info()
         # Stop the timer and measure the time
         self.metrics['tot'] = time.perf_counter() - self.start_time
         h, m, s = get_time(self.metrics['tot'])
