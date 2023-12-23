@@ -134,6 +134,10 @@ class System:
         if self.name is None:
             self.name = path.basename(self.base_file)[:-4]
 
+        # Make a group if no others are made
+        if self.groups is None:
+            self.groups = [Group(self, atoms=self.atoms)]
+
         # If the system wants its actions printed
         if self.print_actions:
             print("{} loaded - {} atoms, {} residues, {} chain{}, ".format(self.name, len(self.atoms),
