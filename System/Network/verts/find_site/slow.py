@@ -1,40 +1,8 @@
 from System.sys_funcs.calcs.calcs import box_search, get_atoms, calc_circ, calc_dist, ndx_search
 from System.Network.verts.verify_site import verify_site
 from System.Network.verts.calc_vert import calc_flat_vert, calc_vert
-from Visualize.mpl_visualize import plot_atoms
 import numpy as np
 import time
-
-
-def find_site_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, vn_1, vn_1_loc, group_atoms=None,
-                             metrics=None, vn_1_rad=None):
-    """
-    Cycles through larger and larger areas searching for
-    """
-
-    invalid_atoms = []
-    vert = None
-    # Check if the edge contains a group atom or not
-    check_atoms = True
-    for ndx in edge_atoms:
-        if group_atoms is not None and ndx in group_atoms:
-            check_atoms = False
-            break
-    # Se the initial vert size
-    mv_inc = 0.15
-    # Look for the vert and keep increasing box size until the vert is found
-    while vert is None and mv_inc < max_vert:
-        vert, invalid_atoms = find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type,
-                                        invalid_atoms=invalid_atoms, check_atoms=check_atoms, vn_1=vn_1,
-                                        vn_1_loc=vn_1_loc, group_atoms=group_atoms, metrics=metrics)
-        mv_inc *= 5
-    # Las step find the vertex using the maximum size
-    if vert is None:
-        vert, invalid_atoms = find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, max_vert, net_type,
-                                        invalid_atoms=invalid_atoms, check_atoms=check_atoms, vn_1=vn_1,
-                                        vn_1_loc=vn_1_loc, group_atoms=group_atoms, metrics=metrics)
-    # Return the vertex if found
-    return vert
 
 
 def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, invalid_atoms=None,
