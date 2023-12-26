@@ -28,7 +28,7 @@ def setup_plot(fig=None, ax=None, dfo=None, grid=False, bg_color=None):
         if bg_color:
             ax.set_facecolor(bg_color)
         else:
-            ax.set_facecolor('k')
+            ax.set_facecolor('w')
     return fig, ax
 
 
