@@ -4,7 +4,7 @@ import numpy as np
 
 
 # Set up plot function. Used to set the parameters for the plot
-def setup_plot(fig=None, ax=None, dfo=None, grid=False, bg_color=None):
+def setup_plot(fig=None, ax=None, dfo=None, grid=False, bg_color=None, axes_equal=True):
     # Create a new subplot if one isn't specified
     if ax is None:
         # Create new figure if one isn't specified
@@ -29,12 +29,14 @@ def setup_plot(fig=None, ax=None, dfo=None, grid=False, bg_color=None):
             ax.set_facecolor(bg_color)
         else:
             ax.set_facecolor('w')
+    if axes_equal:
+        ax.set_box_aspect([1, 1, 1])
     return fig, ax
 
 
 # Plot spheres function. Plots the spheres specified
 def plot_atoms(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=None,
-               bg_color=None, res=4):
+               bg_color=None, res=4, axes_scale='equal'):
 
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
@@ -58,7 +60,9 @@ def plot_atoms(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=Non
             y = arads[i] * np.sin(u) * np.sin(v) + alocs[i][1]
             z = arads[i] * np.cos(v) + alocs[i][2]
             # Plot the sphere
-            ax.plot_wireframe(x, y, z, color=colors[i], alpha=alpha)
+            ax.plot_surface(x, y, z, color=colors[i], alpha=alpha)
+    if axes_scale == 'equal':
+        ax.set_box_aspect([1, 1, 1])
     # Show the figure if need be
     if Show:
         plt.show()
@@ -66,7 +70,7 @@ def plot_atoms(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=Non
 
 # Plot vertices function. Plots the vertices of a network.
 def plot_verts(vlocs, vrads, spheres=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None,
-               bg_color=None):
+               bg_color=None, axes_scale='equal', res=4):
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Default color is red
@@ -78,14 +82,17 @@ def plot_verts(vlocs, vrads, spheres=False, fig=None, ax=None, Show=False, dfo=N
         ax.scatter(vlocs[i][0], vlocs[i][1], vlocs[i][2], c=colors[i])
     # Plot the inscribed spheres
     if spheres:
-        plot_atoms(alocs=vlocs, arads=vrads, fig=fig, ax=ax, colors=colors, alpha=alpha)
+        plot_atoms(alocs=vlocs, arads=vrads, fig=fig, ax=ax, colors=colors, alpha=alpha, res=res)
+    if axes_scale == 'equal':
+        ax.set_box_aspect([1, 1, 1])
     # Show if the plot needs to be shown
     if Show:
         plt.show()
 
 
 # Plot edges function. Plots the edges given as lines
-def plot_edges(epnts, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None, bg_color=None, center=None):
+def plot_edges(epnts, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None, bg_color=None,
+               center=None, thickness=5, axes_scale='equal'):
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Set the color if it is not indicated already
@@ -102,9 +109,11 @@ def plot_edges(epnts, fig=None, ax=None, Show=False, dfo=None, grid=False, color
             zs.append(point[2])
 
         # Plot the points
-        ax.plot(xs, ys, zs, c=colors[i], linewidth=5)
+        ax.plot(xs, ys, zs, c=colors[i], linewidth=thickness)
     if center is not None:
-        ax.plot(center[0], center[1], center[2], c='r', marker='x', markersize=20)
+        ax.plot(center[0], center[1], center[2], c='r', marker='x', markersize=thickness*4)
+    if axes_scale == 'equal':
+        ax.set_box_aspect([1, 1, 1])
     # Show the figure
     if Show:
         plt.show()
@@ -112,7 +121,7 @@ def plot_edges(epnts, fig=None, ax=None, Show=False, dfo=None, grid=False, color
 
 # Plot surfaces function. Plots the surfaces given
 def plot_surfs(spnts, stris, simps=True, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None,
-               bg_color=None):
+               bg_color=None, axes_scale='equal'):
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Set up the colors
@@ -134,6 +143,8 @@ def plot_surfs(spnts, stris, simps=True, fig=None, ax=None, Show=False, dfo=None
         # Otherwise, plot the points
         else:
             ax.scatter(x, y, z, s=[0.1 for _ in range(len(x))], alpha=alpha, c=[colors[i] for _ in range(len(x))])
+    if axes_scale == 'equal':
+        ax.set_box_aspect([1, 1, 1])
     # Show the figure
     if Show:
         plt.show()
