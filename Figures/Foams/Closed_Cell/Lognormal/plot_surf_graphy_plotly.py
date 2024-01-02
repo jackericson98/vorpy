@@ -1,12 +1,15 @@
 import csv
+import os
+
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
 
 plot_type = 'lognormal'
-
-with open('C:/Users/jacke/PycharmProjects/vorpy/Data/user_data/foam_data.csv', 'r') as my_foam_data:
+for i in range(4):
+    os.chdir('..')
+with open(os.getcwd() + '/Data/user_data/foam_data.csv', 'r') as my_foam_data:
 
     my_data = []
     # x, y, z1, z2 = [], [], [], []
@@ -39,7 +42,6 @@ for dp in my_data:
         lists[dp['rad std']] = {
             dp['density']: [[dp['vol diff vor']], [dp['sa diff vor']], [dp['vol diff pow']], [dp['sa diff pow']]]}
 
-# print(lists)
 
 if plot_type == 'gamma':
     my_densities = np.arange(0.025, 0.45, 0.45)
@@ -51,8 +53,6 @@ if plot_type == 'lognormal':
 
 my_densities = [round(_, 3) for _ in my_densities]
 my_sds = [round(_, 3) for _ in my_sds]
-
-import numpy as np
 
 # Initialize lists using list comprehensions
 datavvm, datavsm, datapvm, datapsm = [[] for _ in my_sds], [[] for _ in my_sds], [[] for _ in my_sds], [[] for _ in my_sds]
