@@ -71,3 +71,4 @@ for i, num in enumerate(my_sds):
         datapvm[i].append(means[2]); datapvms[i].append(means[2] - sds[2]); datapvps[i].append(means[2] + sds[2])
         datapsm[i].append(means[3]); datapsms[i].append(means[3] - sds[3]); datapsps[i].append(means[3] + sds[3])
 
+print(datavvm)
