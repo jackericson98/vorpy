@@ -22,7 +22,7 @@ Vertex Plotting: Set the 'vertex_type' Variable From the list below
 """
 
 # Choose Vertex Type Below
-vertex_type = 1
+vertex_type = 4
 
 # Other settings
 atom_alpha = 0.5
