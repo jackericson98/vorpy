@@ -18,7 +18,7 @@ Edge plotting code. Choose an edge type below.
 """
 
 # Choose here
-edge_choice = 5
+edge_choice = 4
 
 # Additional Settings
 atom_alpha = 0.4
