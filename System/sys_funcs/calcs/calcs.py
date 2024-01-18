@@ -679,11 +679,12 @@ def divide_box(net_box, divisions):
     for i in range(xyz_divs[0] + 1):
         for j in range(xyz_divs[1] + 1):
             for k in range(xyz_divs[2] + 1):
+                print(i, j, k)
                 # Create the vertices for the sub net
                 my_sub_boxes.append([[net_box[0][0] + i * dims[0] / (xyz_divs[0] + 1),
                                       net_box[0][1] + j * dims[1] / (xyz_divs[1] + 1),
                                       net_box[0][2] + k * dims[2] / (xyz_divs[2] + 1)],
                                      [net_box[0][0] + (i + 1) * dims[0] / (xyz_divs[0] + 1),
-                                      net_box[0][0] + (j + 1) * dims[1] / (xyz_divs[1] + 1),
-                                      net_box[0][0] + (k + 1) * dims[2] / (xyz_divs[2] + 1)]])
+                                      net_box[0][1] + (j + 1) * dims[1] / (xyz_divs[1] + 1),
+                                      net_box[0][2] + (k + 1) * dims[2] / (xyz_divs[2] + 1)]])
     return my_sub_boxes
