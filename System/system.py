@@ -1,5 +1,6 @@
 from System.sys_funcs.input.input import *
 from System.sys_funcs.input.net import read_net
+from System.sys_funcs.calcs.calcs import get_atoms, global_vars, divide_box
 from System.sys_funcs.output.output import set_sys_dir, export_sys
 from System.sys_funcs.output.net import write_verts
 from System.Group.group import Group
@@ -34,6 +35,7 @@ class System:
         # Data
         self.net = None                     # Network             :   Network object holding the primary network
         self.net2 = None                    # Auxiliary Networks  :   Additional networks to the primary network
+        self.sub_nets = None                # Sub Networks        :   Holds the small networks to be combined
         self.user_atoms = atoms             # User Atoms          :   User provided locations and radii
         self.foam = False
         self.foam_box = None
@@ -249,16 +251,55 @@ class System:
         self.groups.append(Group(sys=self, atoms=atoms, residues=residues, chains=chains))
 
     def build_network(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
-                      calc_verts=None, my_group=None, print_actions=None):
+                      calc_verts=None, my_group=None, print_actions=None, num_atoms_sub_net=500, no_split=False):
         """
         Allows user to build the network from the system object.
         """
+
         # Check to see if a network exists
         if self.net is None:
             self.net = Network(self, atoms=self.atoms)
-        # Build the network
-        self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs,
-                       calc_verts=calc_verts, net_type=net_type, my_group=my_group, print_actions=print_actions)
+
+        # Small networks and no split option
+        if len(self.atoms) < num_atoms_sub_net or no_split:
+            # Build the network
+            self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs,
+                           calc_verts=calc_verts, net_type=net_type, my_group=my_group, print_actions=print_actions)
+            return
+
+        # Sort the atoms in the main network
+        print('sorting')
+        self.net.sort_atoms()
+
+        # Get the sub boxes
+        sub_boxes = divide_box(self.net.box, round(len(self.atoms)/num_atoms_sub_net))
+        plot_rects(sub_boxes + [self.net.box], colors=['k' for _ in sub_boxes] + ['r'], Show=True)
+        # Check for a max_vert that isn't defined
+        if max_vert is None:
+            max_vert = self.net.max_vert
+
+        # Sort the atoms into their sub_boxes
+        atoms_lists = [[] for _ in range(len(sub_boxes))]
+        atom_locs = self.atoms['loc']
+        atom_rads = self.atoms['rad']
+        for i, loc in enumerate(atom_locs):
+            print(i/len(self.atoms) * 100)
+            for j, sub_box in enumerate(sub_boxes):
+                if all([sub_box[0][k] - max_vert <= loc[k] <= sub_box[1][k] + max_vert for k in range(3)]):
+                    atoms_lists[j].append(i)
+
+        print("Split Info: num splits = {}, atoms per split = {}, total atoms = {}, sub_box proportions = {}, box proportions = {}"
+              .format(len(sub_boxes), [len(_) for _ in atoms_lists], len(self.atoms),
+                      [abs(sub_boxes[0][1][i] - sub_boxes[0][0][i]) for i in range(3)],
+                      [abs(self.net.box[1][i] - self.net.box[0][i]) for i in range(3)]))
+
+        # Instantiate the subnets
+        self.sub_nets = []
+        # Create the subnetworks
+        for i, atom_list in enumerate(atoms_lists):
+            subnet = Network(self, self.atoms.loc[atom_list], box=sub_boxes[i], sub_boxes=None)
+            subnet.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs,
+                         calc_verts=calc_verts, net_type=net_type, my_group=my_group, print_actions=print_actions, )
 
     def export_verts(self):
         """
