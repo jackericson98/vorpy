@@ -609,3 +609,81 @@ def get_radius(atom):
                 if radii[radius] - atom['rad'] < min_diff:
                     atom['element'] = radii[radius]
     return atom['rad']
+
+
+def divide_box(net_box, divisions):
+    # Convert the divisions to two_pow
+    two_pow = 0
+    while True:
+        def poly(x):
+            return 0.03704228 * x ** 3 + 0.33267327 * x ** 2 + 0.94711614 * x + 0.65148515
+        my_divs = poly(two_pow)
+        if my_divs >= divisions:
+            break
+        two_pow += 1
+    print(two_pow, divisions)
+    # Find the order of dimensional subdivisions
+    dims = [abs(net_box[0][i] - net_box[1][i]) for i in range(3)]
+    sorted_dims, sorted_dim_ndxs = zip(*sorted(zip(dims, [0, 1, 2]), key=lambda x: x[0], reverse=True))
+
+    # Determines the number of divisions per dimension
+    num_divs = [two_pow // 3 + (1 if two_pow % 3 > i else 0) for i in range(3)]
+    print(num_divs)
+    # Create the list of sub boxes
+    my_sub_boxes = []
+
+    # Get the divisions
+    _, xyz_divs = zip(*sorted(zip(sorted_dim_ndxs, num_divs), key=lambda x: x[0]))
+
+    # If one division
+    if two_pow == 1:
+        if xyz_divs[0] == 1:
+            my_sub_boxes = [[[net_box[0][0], net_box[0][1], net_box[0][2]],
+                             [net_box[0][0] + dims[0] / 2, net_box[1][1], net_box[1][2]]],
+                            [[net_box[0][0] + dims[0] / 2, net_box[0][1], net_box[0][2]],
+                             [net_box[1][0], net_box[1][1], net_box[1][2]]]]
+        elif xyz_divs[1] == 1:
+            my_sub_boxes = [[[net_box[0][0], net_box[0][1], net_box[0][2]],
+                             [net_box[1][0], net_box[0][1] + dims[1] / 2, net_box[1][2]]],
+                            [[net_box[0][0], net_box[0][1] + dims[1] / 2, net_box[0][2]],
+                             [net_box[1][0], net_box[1][1], net_box[1][2]]]]
+        elif xyz_divs[2] == 1:
+            my_sub_boxes = [[[net_box[0][0], net_box[0][1], net_box[0][2]],
+                             [net_box[1][0], net_box[1][1], net_box[0][2] + dims[2] / 2]],
+                            [[net_box[0][0], net_box[0][1], net_box[0][2] + dims[2] / 2],
+                             [net_box[1][0], net_box[1][1], net_box[1][2]]]]
+        return my_sub_boxes
+
+    elif two_pow == 2:
+        xs, ys, zs = net_box[0]
+        xm, ym, zm = [net_box[0][i] + dims[i] / 2 for i in range(3)]
+        xe, ye, ze = net_box[1]
+        if xyz_divs[0] == 0:
+            my_sub_boxes = [[[xs, ys, zs], [xe, ym, zm]],
+                             [[xs, ym, zs], [xe, ye, zm]],
+                             [[xs, ys, zm], [xe, ym, ze]],
+                             [[xs, ym, zm], [xe, ye, ze]]]
+        elif xyz_divs[1] == 0:
+            my_sub_boxes = [[[xs, ys, zs], [xm, ye, zm]],
+                            [[xm, ys, zs], [xe, ye, zm]],
+                            [[xs, ys, zm], [xm, ye, ze]],
+                            [[xm, ys, zm], [xe, ye, ze]]]
+        elif xyz_divs[2] == 0:
+            my_sub_boxes = [[[xs, ys, zs], [xm, ym, ze]],
+                            [[xm, ys, zs], [xe, ym, ze]],
+                            [[xs, ym, zs], [xm, ye, ze]],
+                            [[xm, ym, zs], [xe, ye, ze]]]
+        return my_sub_boxes
+    print(xyz_divs)
+    # Create the subnets
+    for i in range(xyz_divs[0] + 1):
+        for j in range(xyz_divs[1] + 1):
+            for k in range(xyz_divs[2] + 1):
+                # Create the vertices for the sub net
+                my_sub_boxes.append([[net_box[0][0] + i * dims[0] / (xyz_divs[0] + 1),
+                                      net_box[0][1] + j * dims[1] / (xyz_divs[1] + 1),
+                                      net_box[0][2] + k * dims[2] / (xyz_divs[2] + 1)],
+                                     [net_box[0][0] + (i + 1) * dims[0] / (xyz_divs[0] + 1),
+                                      net_box[0][0] + (j + 1) * dims[1] / (xyz_divs[1] + 1),
+                                      net_box[0][0] + (k + 1) * dims[2] / (xyz_divs[2] + 1)]])
+    return my_sub_boxes
