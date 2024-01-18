@@ -1,4 +1,4 @@
-from System.sys_funcs.calcs.calcs import calc_circ, box_search, get_atoms
+from System.sys_funcs.calcs.calcs import calc_circ, box_search, get_atoms, calc_com, calc_dist
 from System.Network.verts.find_site.slow import find_site
 from System.Network.verts.find_site.fast import find_site_container
 from System.Network.verts.verify_site import verify_site
@@ -16,14 +16,11 @@ def find_v0(alocs, arads, averts, max_vert, net_type, a0=None, group_atoms=None,
         my_box = box_search(alocs[a0])
     elif group_atoms is not None:
         # Get the box for the
-        my_box = box_search(alocs[group_atoms[0]])
+        a0 = group_atoms[0]
     else:
         # Find the middle sub_box of the set of boxes and
         my_box = box_search(alocs[0])
-    # Get the atoms in the given box and see if it's empty
-    atoms = get_atoms([my_box])
-    if len(atoms) > 0:
-        a0 = atoms[0]
+    my_box = box_search(alocs[a0])
     # If we still haven't found an a0
     if a0 is None:
         # Reset the a0 variables
@@ -42,44 +39,33 @@ def find_v0(alocs, arads, averts, max_vert, net_type, a0=None, group_atoms=None,
     while len(a1s) < 5:
         a1s = get_atoms([my_box], inc)
         inc += 1
+    # Sort the a1s
+    a1_dists = [calc_dist(alocs[a1], alocs[a0]) - (arads[a0] + arads[a1]) for a1 in a1s]
+    _, a1s_sorted = zip(*sorted(zip(a1_dists, a1s), key=lambda x: x[0]))
+    a1s_sorted = [_ for _ in a1s_sorted if _ != a0]
     # Set up the a2s lists
     a2s, j = [], 0
     # Check the a1s for verifiable
-    while len(a1s) > 0:
+    while len(a1s_sorted) > 0:
         # Get the a1
-        a1 = a1s.pop()
-        # Add the circle check
-        a2s.append([])
+        a1 = a1s_sorted.pop(0)
+        # Find the center of mass for a0 and a1 locations
+        a0_a1_com = calc_com([alocs[a0], alocs[a1]])
+
         inc = 0
-        # Get the 20 closest atoms to a0 and the current a1
-        if len(alocs) < 20:
-            a2s[j] = [_ for _ in range(len(alocs))]
-        else:
-            while len(a2s[j]) < 20:
-                a2s[j] = get_atoms([my_box], inc)
-                inc += 1
-        # Set up verified circles list for this a1
-        verified_circles = []
+        # Find a2s near a0 and a1
+        while len(a2s) < 20:
+            a2s = get_atoms(box_search(a0_a1_com), inc)
+            inc += 1
+        a2s = [_ for _ in a2s if _ not in {a0, a1}]
+        # Find the a2s' distances from the center of mass of a0 and a1
+        a2_dists = [calc_dist(np.array(a0_a1_com), alocs[a2]) for a2 in a2s]
+        # Sort the a2s by their distance from the center of mass of a0 and a1
+        sorted_dists, a2s_sorted = zip(*sorted(zip(a2_dists, a2s), key=lambda x: x[0]))
         # Check each of the combinations for this a1
-        for a2 in a2s[j]:
-            # Use an edge object as a vehicle for calculating and verifying the inscribed circle
-            circ = calc_circ(alocs[a0], alocs[a1], alocs[a2], arads[a0], arads[a1], arads[a2])
-            eloc, erad = None, None
-            if circ is not None:
-                eloc, erad = circ
-            # Set up a list of atoms to test our edge atoms with
-            # max_inc = int(max_vert / min(sub_box_size) - max_atom_rad) + 1
-            # Grab the atoms we want to test against
-            my_boxes = [box_search(loc=alocs[a2])]
-            test_atoms = get_atoms(cells=my_boxes, dist=max_vert)
-            # If a circle can be made and the site does not overlap with any other atoms, add it to the list
-            filtered_test_atoms = [_ for _ in test_atoms if _ not in [a0, a1, a2]]
-            test_locs = [alocs[_] for _ in filtered_test_atoms]
-            test_rads = [arads[_] for _ in filtered_test_atoms]
-            if eloc is not None and erad < max_vert and verify_site(loc=np.array(eloc), rad=erad, test_locs=np.array(test_locs), test_rads=np.array(test_rads), net_type=net_type):
-                verified_circles.append([a0, a1, a2])
-        # Try to make a verified v0 site with the verified circles
-        for circle in verified_circles:
+        for a2 in a2s_sorted:
+            # Set up the circle
+            circle = [a0, a1, a2]
             # Try to create a vertex
             if net_type in ['del', 'pow']:
                 my_vert = find_site_container(circle, alocs=alocs, arads=arads, averts=averts, vert_ndxs=vert_ndxs,
