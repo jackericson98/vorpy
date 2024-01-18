@@ -16,13 +16,14 @@ class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
     def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.2, box_size=1.1, max_vert=40,
                  calc_verts=True, connect_net=True, build_surfs=True, net_type='vor', surf_col='plasma',
-                 surf_scheme='curv'):
+                 surf_scheme='curv', sub_net=False, box=None, sub_boxes=None):
 
         # Main network defining objects
         self.num_splits = None
         self.sys = sys                    # System            :   Route back to outer system
         self.type = net_type              # Network Type      :   String indicating network build type
         self.id = 0                       # Network id #      :
+        self.sub_net = sub_net
 
         # Network element lists
         self.atoms = atoms                # Atoms             :    List of atom objects
@@ -37,7 +38,7 @@ class Network:
         self.surf_ndxs = []                # Surf indices     :    Sorted atom indices defining all net surfs
 
         # Tools for splitting up the atoms
-        self.box = None                    # Box              :    Holds a max and min vertex for the retaining box
+        self.box = box                     # Box              :    Holds a max and min vertex for the retaining box
         self.sub_boxes = None              # Sub boxes        :    3D array holding atoms relative locations
         self.vert_sub_boxes = None         # Vert Sub Boxes   :    Holds the vertices of the network by their location
         self.sub_box_size = None           # Sub box size     :    Holds the size of each sub box
