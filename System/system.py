@@ -1,6 +1,7 @@
 from System.sys_funcs.input.input import *
 from System.sys_funcs.input.net import read_net
 from System.sys_funcs.calcs.calcs import get_atoms, global_vars, divide_box
+from System.Network.verts.find_verts import find_verts
 from System.sys_funcs.output.output import set_sys_dir, export_sys
 from System.sys_funcs.output.net import write_verts
 from System.Group.group import Group
@@ -251,7 +252,7 @@ class System:
         self.groups.append(Group(sys=self, atoms=atoms, residues=residues, chains=chains))
 
     def build_network(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
-                      calc_verts=None, my_group=None, print_actions=None, num_atoms_sub_net=500, no_split=False):
+                      calc_verts=None, my_group=None, print_actions=None, num_atoms_sub_net=1000, no_split=False):
         """
         Allows user to build the network from the system object.
         """
@@ -268,12 +269,11 @@ class System:
             return
 
         # Sort the atoms in the main network
-        print('sorting')
         self.net.sort_atoms()
 
         # Get the sub boxes
         sub_boxes = divide_box(self.net.box, round(len(self.atoms)/num_atoms_sub_net))
-        plot_rects(sub_boxes + [self.net.box], colors=['k' for _ in sub_boxes] + ['r'], Show=True)
+
         # Check for a max_vert that isn't defined
         if max_vert is None:
             max_vert = self.net.max_vert
@@ -281,25 +281,51 @@ class System:
         # Sort the atoms into their sub_boxes
         atoms_lists = [[] for _ in range(len(sub_boxes))]
         atom_locs = self.atoms['loc']
-        atom_rads = self.atoms['rad']
-        for i, loc in enumerate(atom_locs):
-            print(i/len(self.atoms) * 100)
+        # Loop through the atom locations and sort the atoms
+        for atom in my_group.atoms:
+            loc = self.atoms['loc'][atom]
+            # Loop through the sub boxes to find the placement of the atom
             for j, sub_box in enumerate(sub_boxes):
-                if all([sub_box[0][k] - max_vert <= loc[k] <= sub_box[1][k] + max_vert for k in range(3)]):
-                    atoms_lists[j].append(i)
+                if [sub_box[0][k] <= loc[k] <= sub_box[1][k] for k in range(3)] == [True, True, True]:
+                    atoms_lists[j].append(atom)
 
-        print("Split Info: num splits = {}, atoms per split = {}, total atoms = {}, sub_box proportions = {}, box proportions = {}"
-              .format(len(sub_boxes), [len(_) for _ in atoms_lists], len(self.atoms),
-                      [abs(sub_boxes[0][1][i] - sub_boxes[0][0][i]) for i in range(3)],
-                      [abs(self.net.box[1][i] - self.net.box[0][i]) for i in range(3)]))
+        # Instantiate the global variables
+        global_vars(self.net.sub_boxes, self.net.box, self.net.num_splits, self.max_atom_rad, self.net.sub_box_size)
 
-        # Instantiate the subnets
-        self.sub_nets = []
+        print(len(sub_boxes), [len(_) for _ in atoms_lists], )
         # Create the subnetworks
         for i, atom_list in enumerate(atoms_lists):
-            subnet = Network(self, self.atoms.loc[atom_list], box=sub_boxes[i], sub_boxes=None)
-            subnet.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs,
-                         calc_verts=calc_verts, net_type=net_type, my_group=my_group, print_actions=print_actions, )
+            # Get the atoms we are tying to find vertices for
+            check_atoms = [_ for _ in atom_list if _ in my_group.atoms]
+            atom_nums = check_atoms[:]
+            # Find the initial vertices for the vertex group
+            init_verts = find_verts(alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
+                                    max_vert=max_vert, net_type=net_type, check_atoms=check_atoms,
+                                    my_group=atom_nums, start_time=self.net.my_time,
+                                    vert_box=self.foam_box)
+            # Check to see if find_verts fails
+            if init_verts is not None:
+                vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = init_verts
+
+            # Check for disconnects in the network
+            while len(atom_nums) > 0:
+                # Grab the initial atom for the next search
+                a0 = atom_nums.pop()
+
+                # Find verts again
+                more_verts = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
+                                        max_vert=max_vert, net_type=net_type, check_atoms=atom_nums,
+                                        my_group=atom_nums, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
+                                        vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.my_time,
+                                        vert_box=self.sys.foam_box, averts=averts)
+                # Check to see if find_verts fails
+                if more_verts is not None:
+                    vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = more_verts
+
+                # Every sphere needs a vert
+                if self.foam_box is not None and len(atom_nums) <= 0.25 * len(self.atoms['loc']):
+                    break
+            print(vert_ndxs)
 
     def export_verts(self):
         """

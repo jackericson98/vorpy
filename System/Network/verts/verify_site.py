@@ -1,4 +1,4 @@
-from System.sys_funcs.calcs.calcs import calc_dist
+from System.sys_funcs.calcs.calcs import calc_dist_numba
 from numba import jit
 
 
@@ -8,7 +8,7 @@ def verify_vor(loc, rad, test_locs, test_rads):
     for i, aloc in enumerate(test_locs):
         # Get the atom's location and radius
         arad = test_rads[i]
-        if calc_dist(aloc, loc) - arad < rad:
+        if calc_dist_numba(aloc, loc) - arad < rad:
             return False
     return True
 

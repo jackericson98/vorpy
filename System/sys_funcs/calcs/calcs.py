@@ -1,6 +1,7 @@
 import numpy as np
 import warnings
 from numba import jit
+from numba.core.errors import TypingError
 warnings.filterwarnings("error")
 
 
@@ -39,8 +40,12 @@ def round_func(round_to):
     return round_
 
 
-@jit(nopython=True)
 def calc_dist(l0, l1):
+    return np.sqrt(sum(np.square(l0 - l1)))
+
+
+@jit(nopython=True)
+def calc_dist_numba(l0, l1):
     """
     Calculate distance function used to simplify code
     :param l0: Point 0 list, array, n-dimensional must match point 1
@@ -166,7 +171,7 @@ def calc_length(points):
         # Make sure not to index error
         if m + 1 < len(points):
             # Add the length to the total
-            length += calc_dist(point, points[m + 1])
+            length += calc_dist_numba(point, points[m + 1])
     return length
 
 
@@ -464,7 +469,7 @@ def box_search(loc):
     return box_search_numba(loc, num_splits, np.array(box_verts))
 
 
-def get_atoms(cells, dist=0, my_atoms_matrix=None, my_sub_box_size=None, my_max_atom_rad=None):
+def get_atoms(cells, dist=0, cell_reach=0, my_atoms_matrix=None, my_sub_box_size=None, my_max_atom_rad=None):
     """
     Takes in the cells and the number of additional cells to search and returns an atom list
     :param cells: The initial boxes in the network to stem from
@@ -493,9 +498,9 @@ def get_atoms(cells, dist=0, my_atoms_matrix=None, my_sub_box_size=None, my_max_
                 ndx_min[i] = cell[i]
             if cell[i] > ndx_max[i]:
                 ndx_max[i] = cell[i]
-    xs = [x for x in range(max(0, -reach + ndx_min[0] + 1), reach + ndx_max[0])]
-    ys = [y for y in range(max(0, -reach + ndx_min[1] + 1), reach + ndx_max[1])]
-    zs = [z for z in range(max(0, -reach + ndx_min[2] + 1), reach + ndx_max[2])]
+    xs = [x for x in range(max(0, -reach + ndx_min[0] - cell_reach), reach + ndx_max[0] + cell_reach)]
+    ys = [y for y in range(max(0, -reach + ndx_min[1] - cell_reach), reach + ndx_max[1] + cell_reach)]
+    zs = [z for z in range(max(0, -reach + ndx_min[2] - cell_reach), reach + ndx_max[2] + cell_reach)]
     atoms = []
     # Get atoms
     for i in xs:
@@ -621,14 +626,14 @@ def divide_box(net_box, divisions):
         if my_divs >= divisions:
             break
         two_pow += 1
-    print(two_pow, divisions)
+
     # Find the order of dimensional subdivisions
     dims = [abs(net_box[0][i] - net_box[1][i]) for i in range(3)]
     sorted_dims, sorted_dim_ndxs = zip(*sorted(zip(dims, [0, 1, 2]), key=lambda x: x[0], reverse=True))
 
     # Determines the number of divisions per dimension
     num_divs = [two_pow // 3 + (1 if two_pow % 3 > i else 0) for i in range(3)]
-    print(num_divs)
+
     # Create the list of sub boxes
     my_sub_boxes = []
 
@@ -654,6 +659,7 @@ def divide_box(net_box, divisions):
                              [net_box[1][0], net_box[1][1], net_box[1][2]]]]
         return my_sub_boxes
 
+    # If two divisions
     elif two_pow == 2:
         xs, ys, zs = net_box[0]
         xm, ym, zm = [net_box[0][i] + dims[i] / 2 for i in range(3)]
@@ -674,7 +680,6 @@ def divide_box(net_box, divisions):
                             [[xs, ym, zs], [xm, ye, ze]],
                             [[xm, ym, zs], [xe, ye, ze]]]
         return my_sub_boxes
-    print(xyz_divs)
     # Create the subnets
     for i in range(xyz_divs[0] + 1):
         for j in range(xyz_divs[1] + 1):
