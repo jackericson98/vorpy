@@ -8,4 +8,4 @@ def argv_build(my_sys, usr_npt):
 
     for my_group in my_sys.groups:
         if len(my_group.atoms) > 0:
-            my_sys.net.build(my_group=my_group)
+            my_sys.build_network(my_group=my_group)
