@@ -196,3 +196,54 @@ def plot_net(net, group=None, plot_all=False, atoms=False, verts=False, edges=Fa
     # Show the plot
     if Show:
         plt.show()
+
+
+def plot_rects(rects, fig=None, ax=None, show_axes=True, colors=None, Show=False):
+    # Check for a figure or an ax
+    if fig is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(projection="3d")
+
+    if colors is None:
+        colors = ['k' for _ in rects]
+    for i, rect in enumerate(rects):
+        xs, ys, zs = rect[0]
+        xe, ye, ze = rect[1]
+
+        lines = [[[xs, ys, zs], [xs, ys, ze]],
+                 [[xs, ys, zs], [xs, ye, zs]],
+                 [[xs, ye, zs], [xs, ye, ze]],
+                 [[xs, ys, ze], [xs, ye, ze]],
+                 [[xs, ys, zs], [xe, ys, zs]],
+                 [[xs, ye, zs], [xe, ye, zs]],
+                 [[xs, ye, ze], [xe, ye, ze]],
+                 [[xs, ys, ze], [xe, ys, ze]],
+                 [[xe, ys, zs], [xe, ys, ze]],
+                 [[xe, ys, zs], [xe, ye, zs]],
+                 [[xe, ye, zs], [xe, ye, ze]],
+                 [[xe, ys, ze], [xe, ye, ze]]]
+
+        for line in lines:
+            ax.plot([line[0][0], line[1][0]], [line[0][1], line[1][1]], [line[0][2], line[1][2]], c=colors[i])
+
+        # Set the axes lines
+        if show_axes:
+            ax.plot([-3, -2], [-3, -3], [0, 0])
+            ax.plot([-3, -3], [-2, -3], [0, 0])
+            ax.plot([-3, -3], [-3, -3], [0, 1])
+
+            # Set the axes labels
+            ax.text(x=-2, y=-3, z=-0.25, s='x')
+            ax.text(x=-3, y=-2, z=-0.25, s='y')
+            ax.text(x=-3, y=-3, z=1, s='z')
+
+    xyz_min, xyz_max = -5, 5
+    # Set the scales for the figure
+    ax.set_xlim(xyz_min, xyz_max)
+    ax.set_ylim(xyz_min, xyz_max)
+    ax.set_zlim(xyz_min, xyz_max)
+
+    ax.axis('off')
+    # Show the plot
+    if Show:
+        plt.show()
