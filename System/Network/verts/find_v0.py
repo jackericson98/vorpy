@@ -1,4 +1,5 @@
-from System.sys_funcs.calcs.calcs import calc_circ, box_search, get_atoms, calc_com, calc_dist
+from System.sys_funcs.calcs.calcs import box_search, get_atoms, calc_com, calc_dist
+from System.sys_funcs.calcs.circle import calc_circ
 from System.Network.verts.find_site.slow import find_site
 from System.Network.verts.find_site.fast import find_site_container
 from System.Network.verts.verify_site import verify_site

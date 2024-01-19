@@ -1,6 +1,7 @@
 from System.Network.verts.calc_vert import calc_flat_vert, calc_vert
 from System.Network.verts.verify_site import verify_site
-from System.sys_funcs.calcs.calcs import box_search, get_atoms, calc_circ, calc_dist
+from System.sys_funcs.calcs.calcs import box_search, get_atoms, calc_dist
+from System.sys_funcs.calcs.circle import calc_circ
 import bisect
 import numpy as np
 import time

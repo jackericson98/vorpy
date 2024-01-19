@@ -1,5 +1,6 @@
 import numpy as np
-from System.sys_funcs.calcs.calcs import calc_surf_tri_dists, calc_surf_tri_ins_out, calc_surf_tri_curvs, calc_surf_func
+from System.sys_funcs.calcs.calcs import calc_surf_tri_dists, calc_surf_tri_ins_out, calc_surf_tri_curvs
+from System.sys_funcs.calcs.surf import calc_surf_func
 import matplotlib as mpl
 
 

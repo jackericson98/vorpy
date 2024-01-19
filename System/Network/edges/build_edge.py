@@ -1,6 +1,8 @@
 import numpy as np
 from System.Network.edges.edge_project import edge_project, calc_edge_proj_pt
-from System.sys_funcs.calcs.calcs import calc_surf_func, calc_circ, calc_angle_jit
+from System.sys_funcs.calcs.calcs import calc_angle_jit
+from System.sys_funcs.calcs.surf import calc_surf_func
+from System.sys_funcs.calcs.circle import calc_circ
 
 
 # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
