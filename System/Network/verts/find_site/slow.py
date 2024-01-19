@@ -1,4 +1,5 @@
-from System.sys_funcs.calcs.calcs import box_search, get_atoms, calc_circ, calc_dist, ndx_search
+from System.sys_funcs.calcs.calcs import box_search, get_atoms, calc_dist, ndx_search
+from System.sys_funcs.calcs.circle import calc_circ
 from System.Network.verts.verify_site import verify_site
 from System.Network.verts.calc_vert import calc_flat_vert, calc_vert
 import numpy as np
@@ -87,13 +88,13 @@ def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net
         if abs(vert_rad) < max_vert and verify_site(loc=np.array(vert_loc), rad=vert_rad, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
             if len(verts) > 0 and verts[0]['rad'] < vert_rad:
                 return [verts[0], metrics], invalid_atoms
-            verts.append({'atoms': vert_atoms, 'loc': vert_loc, 'rad': vert_rad})
+            verts.append({'atoms': vert_atoms, 'loc': vert_loc, 'rad': vert_rad, 'loc2': None, 'rad2': None})
             # If the first vertex site is a valid site add it to the list of check vertices and add its index
             if vert_loc2 is not None and abs(vert_rad2) < max_vert and verify_site(loc=np.array(vert_loc2), rad=vert_rad2, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
                 verts[-1]['loc2'], verts[-1]['rad2'] = vert_loc2, vert_rad2
         # Check to see if the doublet's site is verified
         elif vert_loc2 is not None and verify_site(loc=np.array(vert_loc2), rad=vert_rad2, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
-            verts.append({'atoms': vert_atoms, 'loc': vert_loc2, 'rad': vert_rad2})
+            verts.append({'atoms': vert_atoms, 'loc': vert_loc2, 'rad': vert_rad2, 'loc2': None, 'rad2': None})
         if metrics is not None:
             metrics['verify_site'] += time.perf_counter() - start
         else:

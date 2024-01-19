@@ -1,3 +1,6 @@
+from numba import jit
+import numpy as np
+from System.sys_funcs.calcs.calcs import calc_tri, calc_dist
 
 
 @jit(nopython=True)
@@ -82,3 +85,82 @@ def calc_surf_tri_dists(points, tris, loc):
         tri_dists.append(max([dists[_] for _ in tris[i]]))
     # Normalize the tri_dists
     return [(_ - min_dist) / (max_dist - min_dist) for _ in tri_dists]
+
+
+def calc_surf_point_curv(func, point):
+    # Get the function coefficients
+    A, B, C, D, E, F, G, H, I, J = func[:10]
+    # Label the points
+    x, y, z = point
+    # Get the gradient of the surface at the point
+    delf = [2 * A * x + D * y + F * z + G, 2 * B * y + D * x + E * z + H, 2 * C * z + E * y + F * x + I]
+    # Calculate the norm of the gradient
+    denominator = np.linalg.norm(delf) ** 4
+    # Calculate the determinant of the hessian matrix and the gradient matrix
+    numerator = np.linalg.det([[2 * A, D, F, delf[0]], [D, 2 * B, E, delf[1]], [F, E, 2 * C, delf[2]],
+                               delf + [0]])
+    # Get the curvature
+    return - numerator / denominator
+
+
+def calc_surf_tri_curvs(func, points, tris, max_curv):
+    """
+    Calculates the curvature of the triangles
+    :param calc_max_curv:
+    :param func: Surface function
+    :param points: points for the surface
+    :param tris: triangles in the surface
+    :return: A list of curvature values for the triangles
+    """
+    curvs = []
+    min_curv = np.inf
+    # If the surface normal is within the surface,
+    # Get the curvature for each point
+    for point in points:
+        curv = calc_surf_point_curv(func, point)
+        if curv < min_curv:
+            min_curv = curv
+        elif curv > max_curv:
+            max_curv = curv
+
+        curvs.append(curv)
+    # Set up the tri_curvs list
+    tri_curvs = []
+    # Go through the curvature values for each point
+    for i in range(len(tris)):
+        # Get the triangle
+        tri = tris[i]
+        # Get the curvatures
+        curv_val = sum([curvs[_] for _ in tri])/3
+        # Add the curve value to the surface's list of curvatures
+        tri_curvs.append(curv_val)
+    # Return the values
+    return tri_curvs, max_curv
+
+
+def calc_surf_tri_ins_out(surf):
+    """
+    Calculates whether the triangles in the surface are inside the overlapping atoms or not
+    :param surf: Surface for calculations
+    :return: List of bools for if the triangles in the surface are inside or out
+    """
+    # Set up a list of tracking
+    inside_array = []
+    # Go through the points in the surface
+    for point in surf.points:
+        # Calculate the distance between the point and the atom
+        my_dist = calc_dist(point, surf.atoms[0].loc)
+        # Check if the triangle is inside or not
+        if my_dist < surf.atoms[0].rad:
+            inside_array.append(True)
+        else:
+            inside_array.append(False)
+    # Now add the triangles
+    surf.tri_ins_out = []
+    # Color the tris
+    for tri in surf.tris:
+        if inside_array[tri[0]] and inside_array[tri[1]] and inside_array[tri[2]]:
+            surf.tri_ins_out.append(0.25)
+        else:
+            surf.tri_ins_out.append(0.75)
+

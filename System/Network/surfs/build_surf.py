@@ -1,5 +1,4 @@
-from System.sys_funcs.calcs.calcs import calc_surf_tri_curvs, calc_surf_point_curv
-from System.sys_funcs.calcs.surf import calc_surf_func
+from System.sys_funcs.calcs.surf import calc_surf_func, calc_surf_tri_curvs, calc_surf_point_curv
 from System.Network.surfs.perimeter import build_perimeter
 from System.Network.surfs.fill import fill_mesh, calc_surf_point
 from System.Network.surfs.triangulate import find_simps, tri_within, filter_tris
