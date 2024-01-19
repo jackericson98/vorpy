@@ -9,7 +9,8 @@ from numpy import sqrt, array
 
 # Find network function. Keeps searching the network until all verts are found
 def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=None, averts=None, vert_ndxs=None,
-               vlocs=None, vrads=None, vloc2s=None, vrad2s=None, start_time=0, print_metrics=False, vert_box=None):
+               vlocs=None, vrads=None, vloc2s=None, vrad2s=None, start_time=0, print_metrics=False, vert_box=None,
+               group_box=None, tot_atom_num=None):
     """
     Used a vertex and a combination of it's edge atoms to find the connecting vertex
     """
@@ -24,13 +25,18 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
         # Set the group atoms to just the integers in up to the number of atoms
         my_group = [_ for _ in range(len(alocs))]
         # Calculate the rough number of vertices
-        tot_verts = 7 * len(alocs)
+        if tot_atom_num is None:
+            tot_verts = 7 * len(alocs)
     # If a group was provided make sure to get its indices
     elif my_group is not None:
         # Calculate the number of vertices
-        tot_verts = 7 * len(my_group) + int(60 * sqrt(len(my_group)))
+        if tot_atom_num is None:
+            tot_verts = 7 * len(my_group) + int(60 * sqrt(len(my_group)))
     else:
         return
+
+    if tot_atom_num is not None:
+        tot_verts = 7 * tot_atom_num + int(60 * sqrt(tot_atom_num))
     if averts is None:
         averts = [[] for _ in range(len(alocs))]
     # Find the first verified vertex
@@ -40,12 +46,12 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
         v0 = {'atoms': my_group, 'loc': v0_loc, 'rad': v0_rad, 'loc2': v0_loc2, 'rad2': v0_rad2}
     else:
         v0 = find_v0(alocs=alocs, arads=arads, averts=averts, max_vert=max_vert, net_type=net_type, a0=a0,
-                     group_atoms=my_group, metrics=metrics, vert_ndxs=vert_ndxs)
+                     group_atoms=my_group, metrics=metrics, vert_ndxs=vert_ndxs, group_box=group_box)
         j = 1
         while v0 is None and j < len(check_atoms):
 
             v0 = find_v0(alocs=alocs, arads=arads, averts=averts, max_vert=max_vert, net_type=net_type, a0=check_atoms[j],
-                         group_atoms=my_group, metrics=metrics, vert_ndxs=vert_ndxs)
+                         group_atoms=my_group, metrics=metrics, vert_ndxs=vert_ndxs, group_box=group_box)
             j += 1
     # If no v0 is possible (e.g., a lone atom) return
     if v0 is None:
