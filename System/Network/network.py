@@ -46,7 +46,7 @@ class Network:
         self.atoms_box = []                # Atoms box        :    min/max vals for the box containing the atoms
 
         # Diagnostic variables
-        self.start_time = None
+        self.start_time = time.perf_counter()
         self.my_time = None                # My time          :    Time taken to calculate the network
         self.metrics = {}                  # Build Metrics    :    Holds the time measurements for the build
         self.max_vert_rad = 0              # Max Vertex Rad   :    Maximum real vertex recorded
@@ -64,7 +64,7 @@ class Network:
 
         self.sort_atoms()
 
-    def calc_box(self, locs, rads):
+    def calc_box(self, locs, rads, return_val=False, box_size=None):
         """
         Determines the dimensions of a box x times the size of the atoms
         :return: Sets the box attribute with the correct values as well as atoms_box
@@ -72,6 +72,8 @@ class Network:
         # Set up the minimum and maximum x, y, z coordinates
         min_vert = array([inf, inf, inf])
         max_vert = array([-inf, -inf, -inf])
+        if box_size is None:
+            box_size = self.box_size
         # Loop through each atom in the network
         for loc in locs:
             # Loop through x, y, z
@@ -89,11 +91,15 @@ class Network:
             if r_box[i] == 0 or abs(r_box[i]) == inf:
                 r_box[i], min_vert[i], max_vert[i] = 4 * rads[0], locs[0][i], locs[0][i]
         # Set the atoms box value
-        self.atoms_box = [min_vert.tolist(), max_vert.tolist()]
+        atoms_box = [min_vert.tolist(), max_vert.tolist()]
         # Set the new vertices to the x factor times the vector between them added to their complimentary vertices
-        min_vert, max_vert = max_vert - r_box * self.box_size, min_vert + r_box * self.box_size
+        min_vert, max_vert = max_vert - r_box * box_size, min_vert + r_box * box_size
         # Return the list of array turned list vertices
-        self.box = [[round(_, 3) for _ in min_vert], [round(_, 3) for _ in max_vert]]
+        box = [[round(_, 3) for _ in min_vert], [round(_, 3) for _ in max_vert]]
+        # If the values are to be returned
+        if return_val:
+            return box
+        self.atoms_box, self.box = atoms_box, box
 
     def sort_atoms(self, num_boxes=None):
         """
