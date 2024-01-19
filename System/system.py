@@ -1,3 +1,5 @@
+import time
+import pandas as pd
 from System.sys_funcs.input.input import *
 from System.sys_funcs.input.net import read_net
 from System.sys_funcs.calcs.calcs import get_atoms, global_vars, divide_box
@@ -252,7 +254,7 @@ class System:
         self.groups.append(Group(sys=self, atoms=atoms, residues=residues, chains=chains))
 
     def build_network(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
-                      calc_verts=None, my_group=None, print_actions=None, num_atoms_sub_net=1000, no_split=False):
+                      calc_verts=None, my_group=None, print_actions=None, num_atoms_sub_net=100, no_split=False):
         """
         Allows user to build the network from the system object.
         """
@@ -260,19 +262,23 @@ class System:
         # Check to see if a network exists
         if self.net is None:
             self.net = Network(self, atoms=self.atoms)
-
+        if net_type is None:
+            net_type = self.net.type
         # Small networks and no split option
-        if len(self.atoms) < num_atoms_sub_net or no_split:
+        if len(my_group.atoms) < num_atoms_sub_net or no_split:
             # Build the network
             self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs,
                            calc_verts=calc_verts, net_type=net_type, my_group=my_group, print_actions=print_actions)
             return
-
+        # Start the timer
+        self.net.my_time = time.perf_counter()
         # Sort the atoms in the main network
         self.net.sort_atoms()
-
+        # Calculate the group box
+        group_box = self.net.calc_box([self.atoms['loc'][_] for _ in my_group.atoms],
+                                      [self.atoms['rad'][_] for _ in my_group.atoms], return_val=True, box_size=1.0)
         # Get the sub boxes
-        sub_boxes = divide_box(self.net.box, round(len(self.atoms)/num_atoms_sub_net))
+        sub_boxes = divide_box(group_box, round(len(my_group.atoms)/num_atoms_sub_net))
 
         # Check for a max_vert that isn't defined
         if max_vert is None:
@@ -283,7 +289,7 @@ class System:
         atom_locs = self.atoms['loc']
         # Loop through the atom locations and sort the atoms
         for atom in my_group.atoms:
-            loc = self.atoms['loc'][atom]
+            loc = atom_locs[atom]
             # Loop through the sub boxes to find the placement of the atom
             for j, sub_box in enumerate(sub_boxes):
                 if [sub_box[0][k] <= loc[k] <= sub_box[1][k] for k in range(3)] == [True, True, True]:
@@ -291,8 +297,7 @@ class System:
 
         # Instantiate the global variables
         global_vars(self.net.sub_boxes, self.net.box, self.net.num_splits, self.max_atom_rad, self.net.sub_box_size)
-
-        print(len(sub_boxes), [len(_) for _ in atoms_lists], )
+        vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = None, None, None, None, None, None, None
         # Create the subnetworks
         for i, atom_list in enumerate(atoms_lists):
             # Get the atoms we are tying to find vertices for
@@ -302,7 +307,9 @@ class System:
             init_verts = find_verts(alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
                                     max_vert=max_vert, net_type=net_type, check_atoms=check_atoms,
                                     my_group=atom_nums, start_time=self.net.my_time,
-                                    vert_box=self.foam_box)
+                                    vert_box=self.foam_box, group_box=sub_boxes[i], vert_ndxs=vert_ndxs, vlocs=vlocs,
+                                    vrads=vrads, vloc2s=vloc2s, vrad2s=vrad2s, averts=averts,
+                                    tot_atom_num=len(my_group.atoms))
             # Check to see if find_verts fails
             if init_verts is not None:
                 vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = init_verts
@@ -315,17 +322,39 @@ class System:
                 # Find verts again
                 more_verts = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
                                         max_vert=max_vert, net_type=net_type, check_atoms=atom_nums,
-                                        my_group=atom_nums, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
-                                        vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.my_time,
-                                        vert_box=self.sys.foam_box, averts=averts)
+                                        my_group=check_atoms, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
+                                        vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.net.my_time,
+                                        vert_box=self.foam_box, averts=averts, group_box=sub_boxes[i], tot_atom_num=len(my_group.atoms))
                 # Check to see if find_verts fails
                 if more_verts is not None:
                     vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = more_verts
-
                 # Every sphere needs a vert
                 if self.foam_box is not None and len(atom_nums) <= 0.25 * len(self.atoms['loc']):
                     break
-            print(vert_ndxs)
+        # Create the doublets list
+        doublets = [0 for _ in range(len(vert_ndxs))]
+        # Incorporate the doublets into the vlocs, vatoms, vrads lists and lose the vloc2s and vrad2s
+        i = 0
+        while i < len(vlocs):
+            # Check for doubletness
+            if vrad2s[i] is not None:
+                # Insert the relevant information into their respective lists
+                vert_ndxs.insert(i + 1, vert_ndxs[i])
+                vlocs.insert(i + 1, vloc2s[i])
+                vrads.insert(i + 1, vrad2s[i])
+                doublets.insert(i + 1, 1)
+                # Preserve the relational aspects of vrad2s and vloc2s
+                vrad2s.insert(i + 1, None)
+                vloc2s.insert(i + 1, [None, None, None])
+            i += 1
+        # Make the dataframe
+        self.net.verts = pd.DataFrame({"vatoms": vert_ndxs, 'vloc': vlocs, 'vrad': vrads, 'vdub': doublets})
+        # Clear the print statement
+        if self.print_actions:
+            print("\r                                                                  ", end="")
+        self.net.metrics['vert'] = time.perf_counter() - self.net.my_time
+        self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs,
+                       calc_verts=False, net_type=net_type, my_group=my_group, print_actions=print_actions)
 
     def export_verts(self):
         """
