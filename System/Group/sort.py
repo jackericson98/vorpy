@@ -1,4 +1,4 @@
-from System.sys_funcs.calcs.calcs import ndx_search
+from System.sys_funcs.calcs.sorting import ndx_search
 import numpy as np
 
 

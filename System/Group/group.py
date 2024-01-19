@@ -2,7 +2,7 @@ from System.Group.build import build_surfs
 from System.Group.layers import get_layers
 from System.Group.sort import get_surfs, get_edges, get_verts, add_atoms
 from System.Group.export import group_exports
-from System.sys_funcs.calcs.calcs import calc_vol, ndx_search
+from System.sys_funcs.calcs.sorting import ndx_search
 from System.sys_funcs.calcs.surf import calc_surf_sa
 import numpy as np
 

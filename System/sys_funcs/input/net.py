@@ -1,5 +1,5 @@
 from pandas import DataFrame
-from System.sys_funcs.calcs.calcs import ndx_search
+from System.sys_funcs.calcs.sorting import ndx_search
 import csv
 import os.path
 import numpy as np

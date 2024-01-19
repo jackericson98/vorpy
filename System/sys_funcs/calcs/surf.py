@@ -163,4 +163,3 @@ def calc_surf_tri_ins_out(surf):
             surf.tri_ins_out.append(0.25)
         else:
             surf.tri_ins_out.append(0.75)
-

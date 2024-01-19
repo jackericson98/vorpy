@@ -4,10 +4,11 @@ import pandas as pd
 import csv
 import os
 from System.Network.verts.find_verts import find_verts
-from System.Network.build_net import build, get_time, calc_length
+from System.Network.build_net import build
 from System.Network.edges.build_edge import build_edge
 from System.Network.surfs.build_surf import build_surf
-from System.sys_funcs.calcs.calcs import calc_vol, ndx_search, global_vars
+from System.sys_funcs.calcs.calcs import calc_vol, calc_length, get_time
+from System.sys_funcs.calcs.sorting import ndx_search, global_vars
 from System.sys_funcs.calcs.surf import calc_surf_func, calc_surf_sa, calc_surf_tri_curvs
 from numpy import array, inf, cbrt, sqrt, pi
 

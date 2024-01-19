@@ -1,7 +1,8 @@
 from System.Network.verts.calc_vert import calc_vert
 from System.Network.verts.find_v0 import find_v0
 from System.Network.verts.find_site.fast import find_site_container
-from System.sys_funcs.calcs.calcs import get_time, ndx_search, box_search, get_atoms
+from System.sys_funcs.calcs.calcs import get_time
+from System.sys_funcs.calcs.sorting import ndx_search, box_search, get_atoms
 import bisect
 import time
 from numpy import sqrt, array

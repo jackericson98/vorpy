@@ -1,5 +1,7 @@
 import time
-from System.sys_funcs.calcs.calcs import *
+import numpy as np
+from System.sys_funcs.calcs.calcs import calc_dist, get_time
+from System.sys_funcs.calcs.sorting import ndx_search
 
 
 ############################################## Doublets ################################################################

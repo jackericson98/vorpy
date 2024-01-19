@@ -1,5 +1,4 @@
-from System.sys_funcs.calcs.calcs import box_search, get_atoms, calc_dist, ndx_search
-from System.sys_funcs.calcs.circle import calc_circ
+from System.sys_funcs.calcs.sorting import box_search, get_atoms, ndx_search
 from System.Network.verts.verify_site import verify_site
 from System.Network.verts.calc_vert import calc_flat_vert, calc_vert
 import numpy as np

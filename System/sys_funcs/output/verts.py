@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from System.sys_funcs.calcs.calcs import ndx_search
+from System.sys_funcs.calcs.sorting import ndx_search
 
 
 def write_verts(net, verts, file_name, atom_type=None, directory=None, color=None, vert_rad=0.05):

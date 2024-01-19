@@ -2,7 +2,7 @@ import time
 import pandas as pd
 from System.sys_funcs.input.input import *
 from System.sys_funcs.input.net import read_net
-from System.sys_funcs.calcs.calcs import get_atoms, global_vars, divide_box
+from System.sys_funcs.calcs.sorting import get_atoms, global_vars, divide_box
 from System.Network.verts.find_verts import find_verts
 from System.sys_funcs.output.output import set_sys_dir, export_sys
 from System.sys_funcs.output.net import write_verts
