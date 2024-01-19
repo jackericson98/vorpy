@@ -167,3 +167,8 @@ def write_verts(net):
                        str(vert['vrad']) + "\n")
         # Write the end line for the file
         file.write("END")
+
+def add_metrics(my_sys):
+    keep_lines = []
+    with open(my_sys.vpy_dir + '/Data/user_data/metrics.csv', 'r') as metrics_file:
+        pass
