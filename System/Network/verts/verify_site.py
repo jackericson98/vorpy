@@ -17,7 +17,7 @@ def verify_vor(loc, rad, test_locs, test_rads):
 def verify_del(loc, rad, test_locs):
     # Go through the atoms in the overlap test atom list
     for i, aloc in enumerate(test_locs):
-        if calc_dist(aloc, loc) < rad:
+        if calc_dist_numba(aloc, loc) < rad:
             return False
     return True
 
@@ -28,7 +28,7 @@ def verify_pow(loc, rad, test_locs, test_rads):
     for i, aloc in enumerate(test_locs):
         # Get the atom's location and radius
         arad = test_rads[i]
-        if calc_dist(aloc, loc) ** 2 - arad ** 2 < rad:
+        if calc_dist_numba(aloc, loc) ** 2 - arad ** 2 < rad:
             return False
     return True
 
