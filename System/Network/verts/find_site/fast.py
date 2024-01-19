@@ -171,7 +171,10 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
     """
     # Get the atoms that should not ba a part of the new vertex
     edge_ndxs = edge_atoms[:]
-
+    # missing_hpin_verts = [[139, 148, 427, 434], [139, 148, 427, 434], [77, 78, 1690, 1691], [78, 1690, 1691, 2855],
+    #                       [78, 1246, 1691, 2855], [78, 689, 1246, 1691], [77, 78, 689, 1691], [81, 687, 689, 1690],
+    #                       [77, 689, 1690, 1691]]
+    missing_hpin_verts = [[474, 475, 483, 491], [474, 475, 483, 491], [99, 1505, 2066, 2067], [99, 1505, 2066, 2067], [508, 2018, 2020, 2958], [383, 390, 1617, 2291], [383, 390, 1617, 2291], [662, 663, 665, 671], [350, 358, 359, 360], [350, 358, 359, 360]]
     # Time printing metrics <-- Delete later
     start = time.perf_counter()
 
@@ -231,7 +234,9 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
         vert_atoms.sort()
         # Make sure the vertex values are defined
         vert_loc, vert_rad, vert_loc2, vert_rad2 = None, None, None, None
-
+        printing = False
+        if vert_atoms in missing_hpin_verts:
+            printing = True
         # If the network type is power
         if net_type == 'pow':
             # Calculate the power vertex values
@@ -244,7 +249,8 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
         elif net_type == 'vor':
             # Calculate the Voronoi vertex values
             vert_loc, vert_rad, vert_loc2, vert_rad2 = calc_vert(locs=[alocs[_] for _ in vert_atoms], rads=[arads[_] for _ in vert_atoms])
-
+        if printing:
+            print('location calced', vert_atoms, vert_loc, vert_loc2)
         # Catch the none location and the too large vertex cases
         if vert_loc is None or vert_rad > max_vert:
             continue
@@ -285,6 +291,10 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
     pv_dist = np.dot(edge_normal, edge_center - vn_1_loc)
     # Go through the calculated vertices made by the edge atoms and the surrounding atoms - filtering process
     for vert in calculated_verts:
+        printing = False
+        if vert['atoms'] in missing_hpin_verts:
+            print('vert calced and looking to be sorted', vert['atoms'])
+            printing = True
         # Get the vertex's projected distance
         vert_proj_dist = np.dot(edge_normal, edge_center - vert['loc'])
         # Calculate the distance to the previous vertex and assign it as a value in the vertex dictionary
@@ -300,6 +310,8 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
 
         vert['d2pv2'] = None
         if vert['loc2'] is not None:
+            if printing:
+                print('loc2 is not None')
             vert_proj_dist = np.dot(edge_normal, edge_center - vert['loc2'])
             flipped_vert = {'atoms': vert['atoms'], 'loc': vert['loc2'], 'rad': vert['rad2'], 'd2pv': abs(pv_dist - vert_proj_dist), 'loc2': vert['loc'], 'rad2': vert['rad']}
             # If the other atoms projection (value1) is less than the previous vertex's projection (value)

@@ -48,7 +48,6 @@ class Network:
 
         # Diagnostic variables
         self.start_time = time.perf_counter()
-        self.my_time = None                # My time          :    Time taken to calculate the network
         self.metrics = {}                  # Build Metrics    :    Holds the time measurements for the build
         self.max_vert_rad = 0              # Max Vertex Rad   :    Maximum real vertex recorded
         self.max_curv = 0
@@ -222,14 +221,14 @@ class Network:
         """
         Connects the network using the functions in the build_net.py file
         """
-        my_lists = build(self.verts['vatoms'], self.verts['vloc'], self.verts['vdub'], len(self.atoms), self.my_time)
+        my_lists = build(self.verts['vatoms'], self.verts['vloc'], self.verts['vdub'], len(self.atoms), self.start_time)
         atom_lists, vert_lists, edge_lists, surf_lists = my_lists
         self.atoms['averts'], self.atoms['aedges'], self.atoms['asurfs'] = atom_lists['averts'], atom_lists['aedges'], \
             atom_lists['asurfs']
         self.verts['vedges'], self.verts['vsurfs'] = vert_lists['vedges'], vert_lists['vsurfs']
         self.edges = pd.DataFrame(edge_lists)
         self.surfs = pd.DataFrame(surf_lists)
-        self.metrics['con'] = time.perf_counter() - self.my_time - self.metrics['vert']
+        self.metrics['con'] = time.perf_counter() - self.start_time - self.metrics['vert']
 
     def get_real_verts(self):
         my_name = os.getcwd() + '/Data/user_data/' + self.sys.name + '_Correct/sys/' + self.sys.name + '_logs.csv'
@@ -267,7 +266,7 @@ class Network:
             my_group_atom_ndxs = my_group.atom_ndxs
         my_guuy = find_verts(alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
                              max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums,
-                             my_group=my_group_atom_ndxs, start_time=self.my_time, print_metrics=print_metrics,
+                             my_group=my_group_atom_ndxs, start_time=self.start_time, print_metrics=print_metrics,
                              vert_box=self.sys.foam_box)
         if my_guuy is not None:
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = my_guuy
@@ -277,7 +276,7 @@ class Network:
             my_guuy = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
                                  max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums,
                                  my_group=my_group.atom_ndxs, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
-                                 vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.my_time, print_metrics=print_metrics,
+                                 vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.start_time, print_metrics=print_metrics,
                                  vert_box=self.sys.foam_box, averts=averts)
             if my_guuy is not None:
                 vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = my_guuy
@@ -310,7 +309,7 @@ class Network:
         # Clear the print statement
         if self.sys.print_actions:
             print("\r                                                                  ", end="")
-        self.metrics['vert'] = time.perf_counter() - self.my_time
+        self.metrics['vert'] = time.perf_counter() - self.start_time
 
     def build_edges(self):
         """
@@ -340,7 +339,7 @@ class Network:
         points, tris, tri_curvs, curvs, funcs, coms, flats = [], [], [], [], [], [], []
         for i, surf in self.surfs.iterrows():
             # Build the surfaces and print the progress
-            my_time = time.perf_counter() - self.my_time
+            my_time = time.perf_counter() - self.start_time
             h, m, s = get_time(my_time)
             print("\rRun Time = {:2}:{:2}:{:.2f} - Process: building surfaces {:.2f} %                                 "
                   .format(int(h), int(m), round(s, 2), min(100.0, 100 * round(i/len(self.surfs), 4))), end="")
@@ -363,15 +362,12 @@ class Network:
             self.surfs['com'], self.surfs['flat'] = points, tris, tri_curvs, curvs, funcs, coms, flats
         if self.sys.print_actions:
             print("\r                                                                                             ", end='')
-        self.metrics['surf'] = time.perf_counter() - self.my_time - self.metrics['vert'] - self.metrics['con']
+        self.metrics['surf'] = time.perf_counter() - self.start_time - self.metrics['vert'] - self.metrics['con']
 
     def analyze(self):
         """
         Analyzes the output surfaces, cells and solute vertices for the network for later reference
         """
-        # Check to see if my_time has started
-        if self.my_time is None:
-            self.my_time = time.perf_counter()
         # Get the percentage total number
         tot_num = len(self.edges) + len(self.surfs) + len(self.atoms)
         # Go through the edges in the network
@@ -383,7 +379,7 @@ class Network:
             length = calc_length(array(edge['points']))
             lengths.append(length)
             if self.sys.print_actions:
-                my_time = time.perf_counter() - self.my_time
+                my_time = time.perf_counter() - self.start_time
                 h, m, s = get_time(my_time)
                 print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                  "
                       .format(int(h), int(m), round(s, 2), percentage), end="")
@@ -405,7 +401,7 @@ class Network:
                 surfs_tri_curvs.append(surf['tri_curvs'])
                 surfs_curvs.append(surf['curv'])
             if self.sys.print_actions:
-                my_time = time.perf_counter() - self.my_time
+                my_time = time.perf_counter() - self.start_time
                 h, m, s = get_time(my_time)
                 print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                  "
                       .format(int(h), int(m), round(s, 2), percentage), end="")
@@ -461,17 +457,17 @@ class Network:
             acell.append(complete)
             # Print the actions
             if self.sys.print_actions:
-                my_time = time.perf_counter() - self.my_time
+                my_time = time.perf_counter() - self.start_time
                 h, m, s = get_time(my_time)
                 print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                 "
                       .format(int(h), int(m), round(s, 2), percentage), end="")
         self.surfs['vols'] = [[asurfs_vols[i][0][1], asurfs_vols[i][1][1]] if asurfs_vols[i][0][0]<asurfs_vols[i][1][0]
                               else [asurfs_vols[i][1][1], asurfs_vols[i][0][1]] for i in range(len(self.surfs))]
         self.atoms['vol'], self.atoms['sa'], self.atoms['curv'], self.atoms['complete'] = avols, asas, acurvs, acell
-        self.metrics['anal'] = time.perf_counter() - self.my_time - self.metrics['surf'] - self.metrics['con'] - self.metrics['vert']
+        self.metrics['anal'] = time.perf_counter() - self.start_time - self.metrics['surf'] - self.metrics['con'] - self.metrics['vert']
 
     def build(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
-              calc_verts=None, my_group=None, print_actions=None, print_vert_metrics=False):
+              calc_verts=None, my_group=None, print_actions=None, print_vert_metrics=False, curr_time=None):
         """
         Build network function used to calculate the voronoi
         :param print_actions: Print the network building actions
@@ -502,10 +498,6 @@ class Network:
             self.type = net_type
         if calc_verts is not None:
             self.calc_verts = calc_verts
-        # Instantiate the timer variables
-        self.my_time = 0
-        # Start the timer
-        self.my_time = time.perf_counter()
         # Sort the atoms in the network
         self.sort_atoms()
         # Check to see if there are vertices loaded

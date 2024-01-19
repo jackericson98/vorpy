@@ -2,10 +2,11 @@ import time
 import pandas as pd
 from System.sys_funcs.input.input import *
 from System.sys_funcs.input.net import read_net
-from System.sys_funcs.calcs.sorting import get_atoms, global_vars, divide_box
+from System.sys_funcs.calcs.calcs import calc_com, calc_dist
+from System.sys_funcs.calcs.sorting import global_vars, divide_box
 from System.Network.verts.find_verts import find_verts
 from System.sys_funcs.output.output import set_sys_dir, export_sys
-from System.sys_funcs.output.net import write_verts
+from System.sys_funcs.output.net import write_verts, add_metrics
 from System.Group.group import Group
 from Visualize.mpl_visualize import *
 from numpy import seterr
@@ -254,7 +255,8 @@ class System:
         self.groups.append(Group(sys=self, atoms=atoms, residues=residues, chains=chains))
 
     def build_network(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
-                      calc_verts=None, my_group=None, print_actions=None, num_atoms_sub_net=100, no_split=False):
+                      calc_verts=None, my_group=None, print_actions=None, num_atoms_sub_net=100, no_split=False,
+                      add_net_metrics=True, min_atom_split=30):
         """
         Allows user to build the network from the system object.
         """
@@ -267,19 +269,21 @@ class System:
         # Small networks and no split option
         if len(my_group.atoms) < num_atoms_sub_net or no_split:
             # Build the network
+            print('reg')
             self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs,
                            calc_verts=calc_verts, net_type=net_type, my_group=my_group, print_actions=print_actions)
+            self.net.metrics['splits'] = 1
+            if add_net_metrics:
+                add_metrics(self.net)
             return
-        # Start the timer
-        self.net.my_time = time.perf_counter()
         # Sort the atoms in the main network
         self.net.sort_atoms()
         # Calculate the group box
         group_box = self.net.calc_box([self.atoms['loc'][_] for _ in my_group.atoms],
-                                      [self.atoms['rad'][_] for _ in my_group.atoms], return_val=True, box_size=1.0)
+                                      [self.atoms['rad'][_] for _ in my_group.atoms], return_val=True, box_size=1.1)
         # Get the sub boxes
-        sub_boxes = divide_box(group_box, round(len(my_group.atoms)/num_atoms_sub_net))
-
+        sub_boxes = divide_box(group_box, round(len(my_group.atoms)/num_atoms_sub_net), c=0)
+        print('num splits', len(sub_boxes))
         # Check for a max_vert that isn't defined
         if max_vert is None:
             max_vert = self.net.max_vert
@@ -294,19 +298,49 @@ class System:
             for j, sub_box in enumerate(sub_boxes):
                 if [sub_box[0][k] <= loc[k] <= sub_box[1][k] for k in range(3)] == [True, True, True]:
                     atoms_lists[j].append(atom)
-
+        # If a list of atoms is too small add it to another
+        skip_boxes = []
+        for i, atoms_list in enumerate(atoms_lists):
+            # If no atoms exist nothing to deal with
+            if len(atoms_list) == 0:
+                skip_boxes.append(i)
+                continue
+            if len(atoms_list) < min_atom_split:
+                # Get the com of the atoms to find the closes sub_box to add to
+                atoms_com = calc_com([atom_locs[_] for _ in atoms_list])
+                min_dist = np.inf
+                closest_sub_box = None
+                for j, sub_box in enumerate(sub_boxes):
+                    # Make sure we aren't adding to a sub_box scheduled for deletion
+                    if j in skip_boxes or j == i:
+                        continue
+                    # Calculate the distance of the com of the sub_box from the atoms_com
+                    my_dist = calc_dist(calc_com(sub_box), atoms_com)
+                    # Replace the variables if they are closer
+                    if my_dist < min_dist:
+                        closest_sub_box, min_dist = j, my_dist
+                # Add the atoms to the new sub_box
+                atoms_lists[closest_sub_box] += atoms_list
+                skip_boxes.append(i)
+        for i, atom_list in enumerate(atoms_lists):
+            # Skip the boxes to be skipped
+            if i in skip_boxes:
+                continue
         # Instantiate the global variables
         global_vars(self.net.sub_boxes, self.net.box, self.net.num_splits, self.max_atom_rad, self.net.sub_box_size)
         vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = None, None, None, None, None, None, None
         # Create the subnetworks
         for i, atom_list in enumerate(atoms_lists):
+            # Skip the boxes to be skipped
+            if i in skip_boxes:
+                continue
             # Get the atoms we are tying to find vertices for
             check_atoms = [_ for _ in atom_list if _ in my_group.atoms]
             atom_nums = check_atoms[:]
             # Find the initial vertices for the vertex group
             init_verts = find_verts(alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
                                     max_vert=max_vert, net_type=net_type, check_atoms=check_atoms,
-                                    my_group=atom_nums, start_time=self.net.my_time,
+                                    my_group=atom_nums, start_time=self.net.start_time,
                                     vert_box=self.foam_box, group_box=sub_boxes[i], vert_ndxs=vert_ndxs, vlocs=vlocs,
                                     vrads=vrads, vloc2s=vloc2s, vrad2s=vrad2s, averts=averts,
                                     tot_atom_num=len(my_group.atoms))
@@ -323,7 +357,7 @@ class System:
                 more_verts = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
                                         max_vert=max_vert, net_type=net_type, check_atoms=atom_nums,
                                         my_group=check_atoms, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
-                                        vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.net.my_time,
+                                        vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.net.start_time,
                                         vert_box=self.foam_box, averts=averts, group_box=sub_boxes[i], tot_atom_num=len(my_group.atoms))
                 # Check to see if find_verts fails
                 if more_verts is not None:
@@ -352,9 +386,12 @@ class System:
         # Clear the print statement
         if self.print_actions:
             print("\r                                                                  ", end="")
-        self.net.metrics['vert'] = time.perf_counter() - self.net.my_time
+        self.net.metrics['vert'] = time.perf_counter() - self.net.start_time
         self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs,
                        calc_verts=False, net_type=net_type, my_group=my_group, print_actions=print_actions)
+        self.net.metrics['splits'] = len(sub_boxes)
+        if add_net_metrics:
+            add_metrics(self.net)
 
     def export_verts(self):
         """

@@ -168,7 +168,23 @@ def write_verts(net):
         # Write the end line for the file
         file.write("END")
 
-def add_metrics(my_sys):
+
+def add_metrics(net):
     keep_lines = []
-    with open(my_sys.vpy_dir + '/Data/user_data/metrics.csv', 'r') as metrics_file:
-        pass
+    with open(net.sys.vpy_dir + '/Data/user_data/metrics.csv', 'a') as metrics_file:
+        # Write name, # atoms, # verts, # edges, # surfs, # grp atoms, grp vol, grp sa, doublets, type, surf_res, max_vert
+        metrics_file.write('\n{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}'
+                           .format(net.sys.name,
+                                   net.metrics['tot'],
+                                   len(net.atoms['num']),
+                                   len(net.verts['vatoms']),
+                                   len(net.edges['eatoms']),
+                                   len(net.surfs['satoms']),
+                                   len(net.sys.groups[0].atoms),
+                                   net.sys.groups[0].vol,
+                                   net.sys.groups[0].sa,
+                                   sum(net.verts['vdub']),
+                                   net.type,
+                                   net.surf_res,
+                                   net.max_vert,
+                                   net.metrics['splits']))

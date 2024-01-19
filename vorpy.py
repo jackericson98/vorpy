@@ -1,3 +1,4 @@
+import os
 from Visualize.cmnd.load import *
 from Visualize.argv.vpy_argv import argv
 from Visualize.cmnd.vpy_cmnd import vorpy
@@ -6,7 +7,7 @@ import sys
 # Main run
 if __name__ == '__main__':
     # Welcome introduction
-    my_sys = System()
+    my_sys = System(root_dir=os.getcwd())
     # Check to see if the user input argvs
     if len(sys.argv) > 1:
         argv(my_sys)

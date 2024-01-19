@@ -36,7 +36,7 @@ def find_v0(alocs, arads, averts, max_vert, net_type, a0=None, group_atoms=None,
         while len(a0s) < 1:
             a0s = get_atoms([my_box], inc)
             if group_atoms is not None:
-                a0s = [_ for _ in a0s if _ in group_atoms]
+                a0s = [_ for _ in a0s if _ in group_atoms and len(averts[_]) == 0]
             inc += 1
         # Pull an atom from the atoms list
         a0 = a0s[0]

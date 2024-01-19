@@ -32,7 +32,8 @@ def round_func(round_to):
 
 
 def calc_dist(l0, l1):
-    return np.sqrt(sum(np.square(l0 - l1)))
+
+    return np.sqrt(sum(np.square(np.array(l0) - np.array(l1))))
 
 
 @jit(nopython=True)
