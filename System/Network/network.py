@@ -15,7 +15,7 @@ from numpy import array, inf, cbrt, sqrt, pi
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
-    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.2, box_size=1.1, max_vert=40,
+    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.2, box_size=1.5, max_vert=40,
                  calc_verts=True, connect_net=True, build_surfs=True, net_type='vor', surf_col='plasma',
                  surf_scheme='curv', sub_net=False, box=None, sub_boxes=None):
 
@@ -347,6 +347,7 @@ class Network:
             alocs = [self.atoms['loc'][_] for _ in surf['satoms']]
             if arads[0] > arads[1]:
                 arads, alocs = [arads[1], arads[0]], [alocs[1], alocs[0]]
+
             my_surf = build_surf(alocs=alocs, arads=arads, epnts=[self.edges['points'][_] for _ in surf['sedges']],
                                  res=self.surf_res, net_type=self.type)
             surf_points, surf_tris, surf_tri_curvs, surf_curv, surf_func, surf_com, surf_flat = my_surf

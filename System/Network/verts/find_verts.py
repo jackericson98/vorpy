@@ -11,7 +11,7 @@ from numpy import sqrt, array
 # Find network function. Keeps searching the network until all verts are found
 def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=None, averts=None, vert_ndxs=None,
                vlocs=None, vrads=None, vloc2s=None, vrad2s=None, start_time=0, print_metrics=False, vert_box=None,
-               group_box=None, tot_atom_num=None):
+               group_box=None, tot_atom_num=None, printing=False):
     """
     Used a vertex and a combination of it's edge atoms to find the connecting vertex
     """
@@ -107,11 +107,13 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
             vert_ndx_pr = find_site_container(edge_atoms=edge_atoms, alocs=alocs, arads=arads, averts=averts,
                                               vert_ndxs=vert_ndxs, max_vert=max_vert, net_type=net_type,
                                               vn_1=vert['atoms'], vn_1_loc=vert['loc'],
-                                              group_atoms=my_group, metrics=metrics)
+                                              group_atoms=my_group, metrics=metrics, printing=printing)
             # If the vertex is none continue
             if vert_ndx_pr is None:
                 continue
-
+            if printing:
+                print(edge_atoms)
+                print(vert_ndx_pr)
             # Set the vertex and its index
             my_vert, metrics = vert_ndx_pr
             # Check if there is a retaining box for the vertices and if the vertex is outside the box

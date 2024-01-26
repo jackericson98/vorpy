@@ -17,7 +17,7 @@ def split_net(sys, surf_res=None, max_vert=None, box_size=None, build_surfs=None
     group_box = sys.net.calc_box([sys.atoms['loc'][_] for _ in my_group.atoms],
                                  [sys.atoms['rad'][_] for _ in my_group.atoms], return_val=True, box_size=1.1)
     # Get the sub boxes
-    sub_boxes = divide_box(group_box, round(len(my_group.atoms) / num_atoms_sub_net), c=0)
+    sub_boxes = divide_box(group_box, round(len(my_group.atoms) / num_atoms_sub_net), c=0.1)
     print('num splits', len(sub_boxes))
     # Check for a max_vert that isn't defined
     if max_vert is None:
@@ -142,7 +142,7 @@ def split_net_slow(sys, surf_res=None, max_vert=None, box_size=None, build_surfs
     group_box = sys.net.calc_box([sys.atoms['loc'][_] for _ in my_group.atoms],
                                  [sys.atoms['rad'][_] for _ in my_group.atoms], return_val=True, box_size=1.1)
     # Get the sub boxes
-    sub_boxes = divide_box(group_box, round(len(my_group.atoms) / num_atoms_sub_net), c=0)
+    sub_boxes = divide_box(group_box, round(len(my_group.atoms) / num_atoms_sub_net), c=1)
     print('num splits', len(sub_boxes))
     # Check for a max_vert that isn't defined
     if max_vert is None:
@@ -185,7 +185,8 @@ def split_net_slow(sys, surf_res=None, max_vert=None, box_size=None, build_surfs
     # Instantiate the global variables
     global_vars(sys.net.sub_boxes, sys.net.box, sys.net.num_splits, sys.max_atom_rad, sys.net.sub_box_size)
     # Create the vertices file
-    with open(sys.dir + '/verts/verts.txt', 'w') as verts_file, open(sys.dir + '/verts/averts.txt', 'w') as averts_file:
+    vert_file_name = sys.dir + '/verts/verts.txt'
+    with open(vert_file_name, 'w') as verts_file, open(sys.dir + '/verts/averts.txt', 'w') as averts_file:
         # Header
         verts_file.write(sys.name + " vertices")
         averts_file.write((sys.name + ' atom vertices by box'))
@@ -212,7 +213,6 @@ def split_net_slow(sys, surf_res=None, max_vert=None, box_size=None, build_surfs
             # Check to see if find_verts fails
             if init_verts is not None:
                 vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = init_verts
-
             # Check for disconnects in the network
             while len(atom_nums) > 0:
                 # Grab the initial atom for the next search
@@ -224,7 +224,7 @@ def split_net_slow(sys, surf_res=None, max_vert=None, box_size=None, build_surfs
                                         my_group=check_atoms, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
                                         vloc2s=vloc2s, vrad2s=vrad2s, start_time=sys.net.start_time,
                                         vert_box=sys.foam_box, averts=averts, group_box=sub_boxes[i],
-                                        tot_atom_num=len(my_group.atoms))
+                                        tot_atom_num=len(my_group.atoms), printing=True if i == 5 else False)
                 # Check to see if find_verts fails
                 if more_verts is not None:
                     vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = more_verts
@@ -235,74 +235,103 @@ def split_net_slow(sys, surf_res=None, max_vert=None, box_size=None, build_surfs
             # Write the vertex information into the vert file
             for j, vert in enumerate(vert_ndxs):
                 # Write the line
-                verts_file.write('\n' + str(j) + ',' + str(vert) + ',' + str(vlocs[i]) + ',' + str(vrads[i]) + ',' +
-                                 str(vloc2s[i]) + ',' + str(vrad2s[i]))
-            # Write the averts information
-            for j, atom in enumerate(averts):
-                # Write the atom verts line
-                averts_file.write('\n' + str(j) + ',' + str(averts[j])[1:-1])
+                loc2 = 'None'
+                if vloc2s[j] is not None:
+                    loc2 = str([_ for _ in vloc2s[j]])
+                verts_file.write('\n' + str(j) + ';' + str(vert) + ';' + str([_ for _ in vlocs[j]]) + ';' + str(vrads[j]) + ';' +
+                                 loc2 + ';' + str(vrad2s[j]))
+
+    # Combine the subnetworks
+    vert_ndxs, vlocs, vrads, vloc2s, vrad2s, averts = combine_nets(vert_file_name, len(sys.atoms['loc']))
+    # Create the doublets list
+    doublets = [0 for _ in range(len(vert_ndxs))]
+    # Incorporate the doublets into the vlocs, vatoms, vrads lists and lose the vloc2s and vrad2s
+    i = 0
+    while i < len(vlocs):
+        # Check for doubletness
+        if vrad2s[i] is not None:
+            # Insert the relevant information into their respective lists
+            vert_ndxs.insert(i + 1, vert_ndxs[i])
+            vlocs.insert(i + 1, vloc2s[i])
+            vrads.insert(i + 1, vrad2s[i])
+            doublets.insert(i + 1, 1)
+            # Preserve the relational aspects of vrad2s and vloc2s
+            vrad2s.insert(i + 1, None)
+            vloc2s.insert(i + 1, [None, None, None])
+        i += 1
+    # Make the dataframe
+    sys.net.verts = pd.DataFrame({"vatoms": vert_ndxs, 'vloc': vlocs, 'vrad': vrads, 'vdub': doublets})
+    # Clear the print statement
+    if sys.print_actions:
+        print("\r                                                                  ", end="")
+    sys.net.metrics['vert'] = time.perf_counter() - sys.net.start_time
+    sys.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs,
+                  calc_verts=False, net_type=net_type, my_group=my_group, print_actions=print_actions)
+    sys.net.metrics['splits'] = len(sub_boxes)
+    if add_net_metrics:
+        add_metrics(sys.net)
 
 
 def combine_nets(verts, num_atoms):
     # Create the dictionary based on the sub_boxes
-    averts_by_sub_box = {}
-    verts_by_sub_box = {}
-    box_dims = []
-    # Get the averts first
-    # with open(averts, 'r') as averts_file:
-    #     # Go through the atom vert
-    #     for line in averts_file:
-    #         # If line is a new sub_box start a new list
-    #         if line[:3] == 'Box':
-    #             current_box = int(line[3:])
-    #             averts_by_sub_box[current_box] = {}
-    #             continue
-    #         # Split the line
-    #         line.split(',')
-    #         # Add the averts to each sub_box
-    #         if len(line) > 1:
-    #             averts_by_sub_box[current_box][int(line[0])] = [int(_) for _ in line[1:]]
+    file_verts = []
     # Go through the regular vertices
     with open(verts, 'r') as verts_file:
         # Go through the vertices
-        for line in verts_file:
-            # Check to see if we hit a new sub box or not
-            if line[:3] == 'Box':
-                line.split('-')
-                current_box = int(line[0][3:])
-                verts_by_sub_box[current_box] = {}
-                box_dims.append(line[1])
+        for i, line in enumerate(verts_file):
+            if i == 0 or line[:3] == 'Box':
                 continue
             # Split the line
-            line.split(',')
-            verts_by_sub_box[current_box][int(line[0])] = {'atoms': line[1], 'loc': line[2], 'rad': line[3],
-                                                           'loc2': line[4], 'rad2': line[5]}
+            line = line.split(';')
+            atoms = line[1][1:-1].split(',')
+            loc = line[2][1:-1].split(',')
+            if line[4][0] == 'N':
+                loc2 = None
+            else:
+                loc2 = line[4][1:-1].split(',')
+                loc2 = [float(_) for _ in loc2]
+            if line[5][0] == 'N':
+                rad2 = None
+            else:
+                rad2 = float(line[5])
+            my_vert = {'atoms': [int(_) for _ in atoms if _ != ''], 'loc': [float(_) for _ in loc if _ != ''], 'rad': float(line[3]),
+                               'loc2': loc2, 'rad2': rad2}
+            if my_vert['atoms'] == []:
+                print(my_vert)
+            file_verts.append(my_vert)
     # Go through the sub_boxes one by one
-    count = 0
     averts = [[] for _ in range(num_atoms)]
     verts = []
-    for i in range(len(averts_by_sub_box)):
-        # averts_sub_box = averts_by_sub_box[i]
-        verts_sub_box = verts_by_sub_box[i]
-        # Go through the vertices in the current sub box to see if they have been added already
-        for vert in verts_sub_box:
-            # Create a tracking variable for whether the vertex has been found or not
-            vert_found = False
-            # Go through the atom vertices for the first atom in the vertex
-            for my_vert in averts[vert['atoms'][0]]:
-                if verts[my_vert]['atoms'] == vert['atoms']:
-                    vert_found = True
-                    break
-            if vert_found:
-                continue
-            else:
-                # Add the vertex to the list of atoms
 
+    for vert in file_verts:
+        # Create a tracking variable for whether the vertex has been found or not
+        vert_found = False
+        if vert['atoms'] == []:
+            print(vert)
+        # Go through the atom vertices for the first atom in the vertex
+        for my_vert in averts[vert['atoms'][0]]: ## This is where ndx search comes in
+            if my_vert < len(verts) and verts[my_vert]['atoms'] == vert['atoms']:
+                vert_found = True
+                break
+        if vert_found:
+            continue
+        else:
+            # Add the vertex to the list of atoms
+            verts.append(vert)
+            vert_ndx = len(verts) - 1
+            # Add the vertex to each atom in the vertex:
+            for ndx in vert['atoms']:
+                # Get the list of vertex indices
 
-
-
-
-
-
-
-
+                atom_vert_ndxs = [verts[_]['atoms'] for _ in averts[ndx]]
+                # find the place where to insert the vertex
+                my_ndx = ndx_search(atom_vert_ndxs, vert['atoms'])
+                averts[ndx].insert(my_ndx, vert_ndx)
+    vert_ndxs, vlocs, vrads, vloc2s, vrad2s = [], [], [], [], []
+    for i in range(len(verts)):
+        vert_ndxs.append(verts[i]['atoms'])
+        vlocs.append(verts[i]['loc'])
+        vrads.append(verts[i]['rad'])
+        vloc2s.append(verts[i]['loc2'])
+        vrad2s.append(verts[i]['rad2'])
+    return vert_ndxs, vlocs, vrads, vloc2s, vrad2s, averts

@@ -9,7 +9,7 @@ import time
 
 
 def find_site_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, vn_1=None, vn_1_loc=None,
-                        group_atoms=None, metrics=None, vn_1_rad=None):
+                        group_atoms=None, metrics=None, vn_1_rad=None, printing=False):
     """
     Cycles through larger and larger areas searching for
     """
@@ -48,7 +48,7 @@ def find_site_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, n
         if net_type == 'vor':
             vert, invalid_atoms = find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type,
                                              check_atoms, surr_atoms, my_boxes, invalid_atoms, vn_1,
-                                             vn_1_loc, group_atoms=group_atoms, metrics=metrics)
+                                             vn_1_loc, group_atoms=group_atoms, metrics=metrics, printing=printing)
         else:
             vert, invalid_atoms = find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
                                                  net_type,
@@ -165,7 +165,7 @@ def find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, 
 
 
 def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, check_atoms, surr_atoms,
-                   my_boxes, invalid_atoms, vn_1, vn_1_loc, group_atoms=None, metrics=None):
+                   my_boxes, invalid_atoms, vn_1, vn_1_loc, group_atoms=None, metrics=None, printing=False):
     """
     Used a vertex and a combination of it's edge atoms to find the connecting vertex
     """
@@ -273,7 +273,10 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
         return None, invalid_atoms
     # If there is only one vertex left, no need to sort. Just verify it
     elif len(calculated_verts) == 1:
-        return choose_vert(calculated_verts[0], edge_ndxs, surr_atoms, alocs, arads, metrics, start, net_type)[0], invalid_atoms
+        my_doopy = choose_vert(calculated_verts[0], edge_ndxs, surr_atoms, alocs, arads, metrics, start, net_type)[0], invalid_atoms
+        if printing:
+            print(my_doopy)
+        return my_doopy
 
     # Instantiate the left and right vertex lists
     filtered_verts_left, filtered_verts_right = [], []
@@ -291,10 +294,6 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
     pv_dist = np.dot(edge_normal, edge_center - vn_1_loc)
     # Go through the calculated vertices made by the edge atoms and the surrounding atoms - filtering process
     for vert in calculated_verts:
-        printing = False
-        if vert['atoms'] in missing_hpin_verts:
-            print('vert calced and looking to be sorted', vert['atoms'])
-            printing = True
         # Get the vertex's projected distance
         vert_proj_dist = np.dot(edge_normal, edge_center - vert['loc'])
         # Calculate the distance to the previous vertex and assign it as a value in the vertex dictionary
@@ -310,8 +309,6 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
 
         vert['d2pv2'] = None
         if vert['loc2'] is not None:
-            if printing:
-                print('loc2 is not None')
             vert_proj_dist = np.dot(edge_normal, edge_center - vert['loc2'])
             flipped_vert = {'atoms': vert['atoms'], 'loc': vert['loc2'], 'rad': vert['rad2'], 'd2pv': abs(pv_dist - vert_proj_dist), 'loc2': vert['loc'], 'rad2': vert['rad']}
             # If the other atoms projection (value1) is less than the previous vertex's projection (value)
@@ -343,7 +340,10 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
             # If the edge is straight, verify/return the leftmost vertex on the right
             if my_det == 0:
                 # Verification
-                return choose_vert(filtered_verts_left[0], edge_ndxs, surr_atoms, alocs, arads, metrics, start, net_type)[0], invalid_atoms
+                my_doopy =choose_vert(filtered_verts_left[0], edge_ndxs, surr_atoms, alocs, arads, metrics, start, net_type)[0], invalid_atoms
+                if printing:
+                    print(my_doopy, '1')
+                return my_doopy
             # If the vertex falls in the lower hull it is the left neighbor
             elif my_det > 0 and left_neighbor is None:
                 left_neighbor = vi
@@ -424,12 +424,16 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
         my_vert, extra_atom = choose_vert(left_neighbor, edge_ndxs, surr_atoms, alocs, arads, metrics, start, net_type)
 
         if my_vert is not None:
+            if printing:
+                print(my_vert, '2')
             return my_vert, invalid_atoms
         invalid_atoms.append(extra_atom)
     # Check the right neighbor vertex
     if right_neighbor is not None:
         my_vert, extra_atom = choose_vert(right_neighbor, edge_ndxs, surr_atoms, alocs, arads, metrics, start, net_type)
         if my_vert is not None:
+            if printing:
+                print(my_vert, '3')
             return my_vert, invalid_atoms
         invalid_atoms.append(extra_atom)
     return None, invalid_atoms
