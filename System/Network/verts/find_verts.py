@@ -11,7 +11,7 @@ from numpy import sqrt, array
 # Find network function. Keeps searching the network until all verts are found
 def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=None, averts=None, vert_ndxs=None,
                vlocs=None, vrads=None, vloc2s=None, vrad2s=None, start_time=0, print_metrics=False, vert_box=None,
-               group_box=None, tot_atom_num=None, printing=False):
+               group_box=None, tot_atom_num=None, printing=False, start_vert=0, split=False):
     """
     Used a vertex and a combination of it's edge atoms to find the connecting vertex
     """
@@ -89,7 +89,7 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
     vert_stack = [v0]
     # While the verts stack is not empty
     while vert_stack:
-        # Get the vertex from the top of the stack
+        # Get the vertex from the bottom of the stack
         vert = vert_stack.pop()
         # Set up the edge stack
         e_stack = [[[vert['atoms'][i], vert['atoms'][(i + 1) % 4], vert['atoms'][(i + 2) % 4]], vert] for i in range(4)]
@@ -100,7 +100,7 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
             my_time = time.perf_counter() - start_time
             h, m, s = get_time(my_time)
             print("\rRun Time = {}:{:02d}:{:2.2f} - Process: finding vertices: {} verts - {:.2f} %"
-                  .format(int(h), int(m), round(s, 2), len(vert_ndxs), percentage), end="")
+                  .format(int(h), int(m), round(s, 2), len(vert_ndxs) + start_vert, percentage), end="")
             # Get the edge from the top of the stack
             edge_atoms, vert = e_stack.pop()
             # Find the next site in the network
@@ -111,14 +111,13 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
             # If the vertex is none continue
             if vert_ndx_pr is None:
                 continue
-            if printing:
-                print(edge_atoms)
-                print(vert_ndx_pr)
             # Set the vertex and its index
             my_vert, metrics = vert_ndx_pr
             # Check if there is a retaining box for the vertices and if the vertex is outside the box
             if vert_box is not None and (any([vert_box[0][i] > my_vert['loc'][i] for i in range(3)]) or
                                          any([vert_box[1][i] < my_vert['loc'][i] for i in range(3)])):
+                continue
+            if my_vert['loc'] is None:
                 continue
             # Add the vertex to the stack and the network
             vert_stack.append(my_vert)
