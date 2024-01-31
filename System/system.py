@@ -251,7 +251,7 @@ class System:
         self.groups.append(Group(sys=self, atoms=atoms, residues=residues, chains=chains))
 
     def build_network(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
-                      calc_verts=None, my_group=None, print_actions=None, num_atoms_sub_net=5, no_split=False,
+                      calc_verts=None, my_group=None, print_actions=None, num_atoms_sub_net=10, no_split=False,
                       add_net_metrics=True, min_atom_split=10):
         """
         Allows user to build the network from the system object.
@@ -272,7 +272,7 @@ class System:
             if add_net_metrics:
                 add_metrics(self.net)
         else:
-            split_net_slow(sys=self, surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs,
+            split_net(sys=self, surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs,
                            net_type=net_type, my_group=my_group, print_actions=print_actions,
                            num_atoms_sub_net=num_atoms_sub_net, add_net_metrics=add_net_metrics,
                            min_atom_split=min_atom_split)
