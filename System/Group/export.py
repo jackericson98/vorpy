@@ -290,7 +290,7 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
             # Get the first layer
             grp.get_layers(max_layers=1)
         # write the surrounding atoms
-        write_pdb(atoms=grp.layer_atoms[0], file_name="ext_atoms", directory=grp.dir)
+        write_pdb(sys=grp.sys, atoms=grp.layer_atoms[0], file_name="ext_atoms", directory=grp.dir)
 
     os.chdir("..")
     # Change back to the system directory
