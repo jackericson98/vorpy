@@ -171,10 +171,6 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
     """
     # Get the atoms that should not ba a part of the new vertex
     edge_ndxs = edge_atoms[:]
-    # missing_hpin_verts = [[139, 148, 427, 434], [139, 148, 427, 434], [77, 78, 1690, 1691], [78, 1690, 1691, 2855],
-    #                       [78, 1246, 1691, 2855], [78, 689, 1246, 1691], [77, 78, 689, 1691], [81, 687, 689, 1690],
-    #                       [77, 689, 1690, 1691]]
-    missing_hpin_verts = [[474, 475, 483, 491], [474, 475, 483, 491], [99, 1505, 2066, 2067], [99, 1505, 2066, 2067], [508, 2018, 2020, 2958], [383, 390, 1617, 2291], [383, 390, 1617, 2291], [662, 663, 665, 671], [350, 358, 359, 360], [350, 358, 359, 360]]
     # Time printing metrics <-- Delete later
     start = time.perf_counter()
 
@@ -234,9 +230,6 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
         vert_atoms.sort()
         # Make sure the vertex values are defined
         vert_loc, vert_rad, vert_loc2, vert_rad2 = None, None, None, None
-        printing = False
-        if vert_atoms in missing_hpin_verts:
-            printing = True
         # If the network type is power
         if net_type == 'pow':
             # Calculate the power vertex values
@@ -249,8 +242,6 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
         elif net_type == 'vor':
             # Calculate the Voronoi vertex values
             vert_loc, vert_rad, vert_loc2, vert_rad2 = calc_vert(locs=[alocs[_] for _ in vert_atoms], rads=[arads[_] for _ in vert_atoms])
-        if printing:
-            print('location calced', vert_atoms, vert_loc, vert_loc2)
         # Catch the none location and the too large vertex cases
         if vert_loc is None or vert_rad > max_vert:
             continue
@@ -274,8 +265,6 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
     # If there is only one vertex left, no need to sort. Just verify it
     elif len(calculated_verts) == 1:
         my_doopy = choose_vert(calculated_verts[0], edge_ndxs, surr_atoms, alocs, arads, metrics, start, net_type)[0], invalid_atoms
-        if printing:
-            print(my_doopy)
         return my_doopy
 
     # Instantiate the left and right vertex lists
@@ -341,8 +330,6 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
             if my_det == 0:
                 # Verification
                 my_doopy =choose_vert(filtered_verts_left[0], edge_ndxs, surr_atoms, alocs, arads, metrics, start, net_type)[0], invalid_atoms
-                if printing:
-                    print(my_doopy, '1')
                 return my_doopy
             # If the vertex falls in the lower hull it is the left neighbor
             elif my_det > 0 and left_neighbor is None:
@@ -424,16 +411,12 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
         my_vert, extra_atom = choose_vert(left_neighbor, edge_ndxs, surr_atoms, alocs, arads, metrics, start, net_type)
 
         if my_vert is not None:
-            if printing:
-                print(my_vert, '2')
             return my_vert, invalid_atoms
         invalid_atoms.append(extra_atom)
     # Check the right neighbor vertex
     if right_neighbor is not None:
         my_vert, extra_atom = choose_vert(right_neighbor, edge_ndxs, surr_atoms, alocs, arads, metrics, start, net_type)
         if my_vert is not None:
-            if printing:
-                print(my_vert, '3')
             return my_vert, invalid_atoms
         invalid_atoms.append(extra_atom)
     return None, invalid_atoms
