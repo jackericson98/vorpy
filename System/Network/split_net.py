@@ -17,7 +17,7 @@ def split_net(sys, surf_res=None, max_vert=None, box_size=None, build_surfs=None
     group_box = sys.net.calc_box([sys.atoms['loc'][_] for _ in my_group.atoms],
                                  [sys.atoms['rad'][_] for _ in my_group.atoms], return_val=True, box_size=1.1)
     # Get the sub boxes
-    sub_boxes = divide_box(group_box, round(len(my_group.atoms) / num_atoms_sub_net), c=0.1)
+    sub_boxes = divide_box(group_box, round(len(my_group.atoms) / num_atoms_sub_net), c=1.2)
     print('num splits', len(sub_boxes))
     # Check for a max_vert that isn't defined
     if max_vert is None:
@@ -142,7 +142,7 @@ def split_net_slow(sys, surf_res=None, max_vert=None, box_size=None, build_surfs
     group_box = sys.net.calc_box([sys.atoms['loc'][_] for _ in my_group.atoms],
                                  [sys.atoms['rad'][_] for _ in my_group.atoms], return_val=True, box_size=1.1)
     # Get the sub boxes
-    sub_boxes = divide_box(group_box, round(len(my_group.atoms) / num_atoms_sub_net), c=1)
+    sub_boxes = divide_box(group_box, round(len(my_group.atoms) / num_atoms_sub_net), c=1.5)
     print('num splits', len(sub_boxes))
     # Check for a max_vert that isn't defined
     if max_vert is None:
@@ -186,17 +186,16 @@ def split_net_slow(sys, surf_res=None, max_vert=None, box_size=None, build_surfs
     global_vars(sys.net.sub_boxes, sys.net.box, sys.net.num_splits, sys.max_atom_rad, sys.net.sub_box_size)
     # Create the vertices file
     vert_file_name = sys.dir + '/verts/verts.txt'
-    with open(vert_file_name, 'w') as verts_file, open(sys.dir + '/verts/averts.txt', 'w') as averts_file:
+    with open(vert_file_name, 'w') as verts_file:
         # Header
         verts_file.write(sys.name + " vertices")
-        averts_file.write((sys.name + ' atom vertices by box'))
+        count = 0
         # Vertices
         for i, atom_list in enumerate(atoms_lists):
             # Reset the variables
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = None, None, None, None, None, None, None
             # Write the box info
             verts_file.write('\nBox {} - {}'.format(i, sub_boxes[i]))
-            averts_file.write('\nBox {}'.format(i))
             # Skip the boxes to be skipped
             if i in skip_boxes:
                 continue
@@ -209,10 +208,11 @@ def split_net_slow(sys, surf_res=None, max_vert=None, box_size=None, build_surfs
                                     my_group=atom_nums, start_time=sys.net.start_time,
                                     vert_box=sys.foam_box, group_box=sub_boxes[i], vert_ndxs=vert_ndxs, vlocs=vlocs,
                                     vrads=vrads, vloc2s=vloc2s, vrad2s=vrad2s, averts=averts,
-                                    tot_atom_num=len(my_group.atoms))
+                                    tot_atom_num=len(my_group.atoms), start_vert=count, split=True)
             # Check to see if find_verts fails
             if init_verts is not None:
                 vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = init_verts
+                count += len(vert_ndxs)
             # Check for disconnects in the network
             while len(atom_nums) > 0:
                 # Grab the initial atom for the next search
@@ -224,10 +224,12 @@ def split_net_slow(sys, surf_res=None, max_vert=None, box_size=None, build_surfs
                                         my_group=check_atoms, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
                                         vloc2s=vloc2s, vrad2s=vrad2s, start_time=sys.net.start_time,
                                         vert_box=sys.foam_box, averts=averts, group_box=sub_boxes[i],
-                                        tot_atom_num=len(my_group.atoms), printing=True if i == 5 else False)
+                                        tot_atom_num=len(my_group.atoms), printing=True if i == 5 else False,
+                                        start_vert=count, split=True)
                 # Check to see if find_verts fails
                 if more_verts is not None:
                     vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = more_verts
+                    count += len(vert_ndxs)
                 # Every sphere needs a vert
                 if sys.foam_box is not None and len(atom_nums) <= 0.25 * len(sys.atoms['loc']):
                     break
@@ -296,8 +298,6 @@ def combine_nets(verts, num_atoms):
                 rad2 = float(line[5])
             my_vert = {'atoms': [int(_) for _ in atoms if _ != ''], 'loc': [float(_) for _ in loc if _ != ''], 'rad': float(line[3]),
                                'loc2': loc2, 'rad2': rad2}
-            if my_vert['atoms'] == []:
-                print(my_vert)
             file_verts.append(my_vert)
     # Go through the sub_boxes one by one
     averts = [[] for _ in range(num_atoms)]
@@ -306,8 +306,6 @@ def combine_nets(verts, num_atoms):
     for vert in file_verts:
         # Create a tracking variable for whether the vertex has been found or not
         vert_found = False
-        if vert['atoms'] == []:
-            print(vert)
         # Go through the atom vertices for the first atom in the vertex
         for my_vert in averts[vert['atoms'][0]]: ## This is where ndx search comes in
             if my_vert < len(verts) and verts[my_vert]['atoms'] == vert['atoms']:
