@@ -126,6 +126,18 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
         #     sys.dir = os.path.dirname(sys.base_file)
         # else:
         sys.set_output_directory()
+    # If the information is requested, export it
+    if info or all_:
+        if not os.path.exists(sys.dir + "/sys"):
+            os.mkdir(sys.dir + "/sys")
+        os.chdir(sys.dir + "/sys")
+        export_sys_info(sys)
+    # Export the log file
+    if logs or all_:
+        if not os.path.exists(sys.dir + "/sys"):
+            os.mkdir(sys.dir + "/sys")
+        os.chdir((sys.dir + "/sys"))
+        write_net_logs(sys.net)
     if network or all_:
         os.chdir(sys.dir)
         # Export the network
@@ -142,7 +154,7 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
             os.mkdir(sys.dir + "/surfs")
         # Export a pdb file for the system
         for surf in sys.net.surfs:
-            write_surfs(surfs=[surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=sys.dir + "/surfs")
+            write_surfs(net=sys.net, surfs=[surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=sys.dir + "/surfs")
         os.chdir(sys.dir)
     if (full_network_object or all_) and sys.net.build_surfs:
         if not os.path.exists(sys.dir + '/sys'):
@@ -155,22 +167,10 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
             os.mkdir(sys.dir + "/sys")
         os.chdir(sys.dir + "/sys")
         set_pymol_atoms(sys)
-    # If the information is requested, export it
-    if info or all_:
-        if not os.path.exists(sys.dir + "/sys"):
-            os.mkdir(sys.dir + "/sys")
-        os.chdir(sys.dir + "/sys")
-        export_sys_info(sys)
-    # Export the log file
-    if logs or all_:
-        if not os.path.exists(sys.dir + "/sys"):
-            os.mkdir(sys.dir + "/sys")
-        os.chdir((sys.dir + "/sys"))
-        write_net_logs(sys.net)
     os.chdir(sys.dir)
 
 
-def set_pymol_atoms(sys):
+def set_pymol_atoms(sys, no_file=False):
 
     """
     Creates a script to set the radii of the spheres in pymol
@@ -178,9 +178,12 @@ def set_pymol_atoms(sys):
     :return:
     """
     # If we have special circumstances for the atoms in our base file, output the already created set pymol atoms
-    if sys.coarse or sys.foam:
+    if (sys.coarse or sys.foam) and not no_file:
         # Get the directory for the base_file and copy the set atoms file
-        shutil.copyfile(path.dirname(sys.base_file) + '/set_atoms.pml', sys.dir + '/sys/set_atoms.pml')
+        try:
+            shutil.copyfile(path.dirname(sys.base_file) + '/set_atoms.pml', sys.dir + '/sys/set_atoms.pml')
+        except FileNotFoundError:
+            set_pymol_atoms(sys, True)
         return
     # Check to see if the atoms in the system are all accounted for
     for i, res in enumerate(sys.net.atoms['residue']):
