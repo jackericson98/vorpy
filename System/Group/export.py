@@ -130,7 +130,8 @@ def export_info(grp, directory=None):
         # Analysis header
         info.write("Analysis:\n")
         # Analysis information
-        info.write(u"  Surface Area: {:.5f} \u212B\u00B2, Volume: {:.5f} \u212B\u00B3\n\n".format(grp.sa, grp.vol))
+        info.write(u"  Surface Area: {:.5f} \u212B\u00B2, Volume: {:.5f} \u212B\u00B3, Density: {:.5f}\n\n"
+                   .format(grp.sa, grp.vol, grp.density))
 
 
 def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_surfs=False, edges=False,

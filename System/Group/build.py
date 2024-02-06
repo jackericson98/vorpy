@@ -1,5 +1,5 @@
 import os
-from System.sys_funcs.input.input import read_surf_file
+from System.sys_funcs.input.surfs import read_surf_file
 from System.Network.surfs.build_surf import build_surf
 
 

@@ -197,3 +197,34 @@ def integrate_net(net, verts, edges, surfs, cons):
                     surf.edges.append(edge)
     net.metrics = {'tot': 0, 'vert': 0, 'con': 0, 'surf': 0, 'anal': 0}
     net.analyze()
+
+
+# Input index function. Takes in an index file and loads it into the list of indices
+def read_ndx(sys, file=None):
+    # If no file is provided, check the system
+    if file is None:
+        file = sys.ndx_file
+    # Get the file information and make sure to close the file when done
+    try:
+        with open(file, 'r') as f:
+            my_file = f.readlines()
+    except FileNotFoundError:
+        return
+    # Set up the indices lists and the current index
+    curr_ndx = -1
+    indices = []
+    names = []
+    # Go through the lines in the file
+    for line in my_file:
+        # Split the line into
+        line = line.split()
+        # Add the
+        if line[0] == "[":
+            curr_ndx += 1
+            names.append([line[1]])
+        else:
+            for i in range(len(line)):
+                indices[curr_ndx].append(line[i])
+    # Set the systems indices
+    sys.ndx_names = names
+    sys.ndxs = [[sys.atoms[ndx] for ndx in indices[i]] for i in range(len(indices))]

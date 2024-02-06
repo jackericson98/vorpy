@@ -1,5 +1,11 @@
-from System.sys_funcs.input.input import *
-from System.sys_funcs.input.net import read_net
+from os import path
+from System.sys_funcs.input.pdb import read_pdb
+from System.sys_funcs.input.cif import read_cif
+from System.sys_funcs.input.gro import read_gro
+from System.sys_funcs.input.mol import read_mol
+from System.sys_funcs.input.net import read_net, read_ndx
+from System.sys_funcs.input.vta import read_vta_data
+from System.Network.network import Network
 from System.Network.split_net import split_net_slow, split_net
 from System.sys_funcs.output.output import set_sys_dir, export_sys
 from System.sys_funcs.output.net import write_verts, add_metrics

@@ -424,6 +424,7 @@ class Network:
             percentage = int((i + j + k + 2) / tot_num * 100)
             avol, asurf_vols = calc_vol(atom['loc'], [self.surfs['points'][_] for _ in atom['asurfs']],
                                         [self.surfs['tris'][_] for _ in atom['asurfs']])
+            # Exclude atoms that have super large volumes (weird edge error)
             bad_atom = False
             if avol > 15 * 4/3 * atom['rad'] ** 3 * pi:
                 bad_atom = True

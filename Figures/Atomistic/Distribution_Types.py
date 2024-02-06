@@ -4,11 +4,11 @@ import numpy as np
 
 names =        ['Na5',  'EDTA_Mg',  'DB1976',     'Hairpin', 'Cambrin', '1BNA',    'Hammerhead',       'p53tet',  'NCP']
 types =        ['Ion',  'Molecule', 'Molecule',   'Nucleic', 'Protein', 'Nucleic', 'Nucleic',          'Protein', 'Complex']
-poly_cnt =     [1,       32,        41,       570,       674,       773,       2032,      2088,               25086]
-ion_cnt =      [0,       1,         10,       0,         11,        0,         30,        8,                  62]
-tot_cnt =      [61,      612,       4440,     3518,      4897,      2965,      52879,     26069,              92704]
-poly_res_cnt = [1,       2,         1,        46,        18,        24,        20,        355,                1262]
-sol_res_cnt =  [20,      192,       1463,     948,       1439,      730,       16939,     7991,               22539]
+poly_cnt =     [1,       32,         41,           570,       674,       773,       2032,      2088,               25086]
+ion_cnt =      [0,       1,          10,           0,         11,        0,         30,        8,                  62]
+tot_cnt =      [61,      612,        4440,         3518,      4897,      2965,      52879,     26069,              92704]
+poly_res_cnt = [1,       2,          1,            46,        18,        24,        20,        355,                1262]
+sol_res_cnt =  [20,      192,        1463,         948,       1439,      730,       16939,     7991,               22539]
 
 
 # Sort indices based on poly_cnt

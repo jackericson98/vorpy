@@ -170,10 +170,9 @@ def write_verts(net):
 
 
 def add_metrics(net):
-    keep_lines = []
     with open(net.sys.vpy_dir + '/Data/user_data/metrics.csv', 'a') as metrics_file:
-        # Write name, # atoms, # verts, # edges, # surfs, # grp atoms, grp vol, grp sa, doublets, type, surf_res, max_vert
-        metrics_file.write('\n{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}'
+        # name, # atoms, # verts, # edges, # surfs, # grp atoms, grp vol, grp sa, doublets, type, surf_res, max_vert, grp dsty
+        metrics_file.write('\n{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}'
                            .format(net.sys.name,
                                    net.metrics['tot'],
                                    len(net.atoms['num']),
@@ -187,4 +186,5 @@ def add_metrics(net):
                                    net.type,
                                    net.surf_res,
                                    net.max_vert,
-                                   net.metrics['splits']))
+                                   net.metrics['splits'],
+                                   net.sys.groups[0].density))

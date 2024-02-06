@@ -38,6 +38,7 @@ class Group:
         # Analysis attributes
         self.sa = None                  # Surface Area       :    The surface area of the outer surfaces of the body
         self.vol = None                 # Volume             :    The volume of the group's atom's cells
+        self.density = None             # Atom vol/space     :    The sum of all the atoms volumes / the total space
 
         # Layer attributes
         self.layer_atoms = None         # Layer Atoms        :    List of lists of atoms corresponding to layers
@@ -157,11 +158,14 @@ class Group:
         self.get_verts()
         # Reset the group's data attributes
         self.sa, self.vol = 0, 0
+        tot_atom_vol = 0
         # Get the volume of the group
         for i in self.atoms:
             atom = self.sys.net.atoms.iloc[i]
             # Add the volume to that of the group
             self.vol += atom['vol']
+            tot_atom_vol += (4/3)*np.pi*atom['rad']**3
+        self.density = tot_atom_vol/self.vol
         # Check to see if the first layer has been calculated
         if self.layer_surfs is None or len(self.layer_surfs) == 0:
             self.get_layers(max_layers=1)
