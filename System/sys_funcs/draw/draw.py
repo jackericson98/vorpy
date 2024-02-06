@@ -1,6 +1,10 @@
+import warnings
 import numpy as np
 from System.sys_funcs.calcs.surf import calc_surf_func, calc_surf_tri_dists, calc_surf_tri_ins_out, calc_surf_tri_curvs
 import matplotlib as mpl
+from matplotlib._api.deprecation import MatplotlibDeprecationWarning as MPLDepWarn
+
+warnings.filterwarnings('error')
 
 
 def color_tris(surf, color_scheme, color_map, max_val=None):
@@ -14,7 +18,10 @@ def color_tris(surf, color_scheme, color_map, max_val=None):
     # Set up the variable tri_colors for recording the colordesignations for
     tri_colors = None
     # Set up the color map
-    my_cmap = mpl.cm.get_cmap(color_map)
+    try:
+        my_cmap = mpl.cm.get_cmap(color_map)
+    except MPLDepWarn:
+        my_cmap = mpl.colormaps.get_cmap(color_map)
     # Default is distance based color map
     if color_scheme == 'dist':
         # Check if the tri_dists have been calculated before
