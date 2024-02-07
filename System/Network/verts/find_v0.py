@@ -87,6 +87,9 @@ def find_v0(alocs, arads, averts, max_vert, net_type, a0=None, group_atoms=None,
                                                    max_vert=max_vert, mv_inc=max_vert, net_type=net_type,
                                                    group_atoms=group_atoms, metrics=metrics)
             # Check for a real site that is not a doublet
-            if my_vert is not None and my_vert[0]['loc'] is not None and my_vert[0]['loc2'] is None:
+            if my_vert is not None:
+                if net_type == 'vor':
+                    if my_vert[0]['loc'] is not None and my_vert[0]['loc2'] is None:
+                        return my_vert[0]
                 return my_vert[0]
         j += 1
