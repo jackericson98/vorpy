@@ -10,6 +10,7 @@ from System.Network.surfs.build_surf import build_surf
 from System.sys_funcs.calcs.calcs import calc_vol, calc_length, get_time
 from System.sys_funcs.calcs.sorting import ndx_search, global_vars
 from System.sys_funcs.calcs.surf import calc_surf_func, calc_surf_sa, calc_surf_tri_curvs
+from System.sys_funcs.output.net import write_verts
 from numpy import array, inf, cbrt, sqrt, pi
 
 
@@ -17,7 +18,7 @@ class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
     def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.2, box_size=1.5, max_vert=40,
                  calc_verts=True, connect_net=True, build_surfs=True, net_type='vor', surf_col='plasma',
-                 surf_scheme='curv', sub_net=False, box=None, sub_boxes=None):
+                 surf_scheme='curv', sub_net=False, box=None, sub_boxes=None, vta_verts=None):
 
         # Main network defining objects
         self.num_splits = None
@@ -29,6 +30,7 @@ class Network:
         # Network element lists
         self.atoms = atoms                # Atoms             :    List of atom objects
         self.verts = verts                # Vertices          :    List of vertex objects
+        self.vta_verts = vta_verts        # Voronota Vertices :    List of Voronota vertices
         self.edges = edges                # Edges             :    List of edge objects
         self.surfs = surfs                # Surfaces          :    List of surface objects
 
@@ -310,6 +312,7 @@ class Network:
         if self.sys.print_actions:
             print("\r                                                                  ", end="")
         self.metrics['vert'] = time.perf_counter() - self.start_time
+        write_verts(self)
 
     def build_edges(self):
         """
@@ -347,7 +350,6 @@ class Network:
             alocs = [self.atoms['loc'][_] for _ in surf['satoms']]
             if arads[0] > arads[1]:
                 arads, alocs = [arads[1], arads[0]], [alocs[1], alocs[0]]
-
             my_surf = build_surf(alocs=alocs, arads=arads, epnts=[self.edges['points'][_] for _ in surf['sedges']],
                                  res=self.surf_res, net_type=self.type)
             surf_points, surf_tris, surf_tri_curvs, surf_curv, surf_func, surf_com, surf_flat = my_surf
@@ -511,6 +513,14 @@ class Network:
                 return
         else:
             self.metrics['vert'] = 0
+            # Filter out the vertices that don't pertain to the group in question
+            verts = []
+            for i, vert in self.vta_verts.iterrows():
+                if any([True if _ in my_group.atoms else False for _ in vert['vatoms']]):
+                    verts.append(vert)
+            print(len(verts))
+            self.verts = pd.DataFrame(verts)
+
         # Connect the network
         self.connect()
         # Build the edges in the network
