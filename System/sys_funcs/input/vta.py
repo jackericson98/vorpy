@@ -34,4 +34,4 @@ def read_vta_data(sys, ball_file, vert_file):
         if i > 0 and atoms == verts[-1]['vatoms']:
             dub = 1
         verts.append({'vatoms': atoms, 'vloc': loc, 'vrad': rad, 'vdub': dub})
-    sys.net.verts = DataFrame(verts)
+    sys.net.vta_verts = DataFrame(verts)
