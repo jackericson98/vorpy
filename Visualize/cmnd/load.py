@@ -62,7 +62,7 @@ def load(sys, usr_npt):
                 else:
                     sys.load_verts(file, vta_ball_file=sys.ball_file)
                     print("{} vertices loaded - {} vertices, maximum vertex radius: {} \u208B, box size: {} x\n"
-                          .format(sys.name, len(sys.net.verts), sys.net.max_vert, sys.net.box_size))
+                          .format(sys.name, len(sys.net.vta_verts), sys.net.max_vert, sys.net.box_size))
             elif file[-9:-4].lower() == 'balls':
                 sys.ball_file = file
             # If the new file is a network file load it
