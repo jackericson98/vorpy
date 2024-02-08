@@ -41,7 +41,11 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
     if averts is None:
         averts = [[] for _ in range(len(alocs))]
     # Find the first verified vertex
-    if len(my_group) == 4:
+    if len(my_group) == 1:
+        v0 = find_v0(alocs=alocs, arads=arads, averts=averts, max_vert=max_vert, net_type=net_type, a0=my_group[0],
+                     group_atoms=my_group, metrics=metrics, vert_ndxs=vert_ndxs, group_box=group_box)
+
+    elif len(my_group) == 4:
         v0_loc, v0_rad, v0_loc2, v0_rad2 = calc_vert(locs=[alocs[_] for _ in my_group],
                                                      rads=[arads[_] for _ in my_group])
         v0 = {'atoms': my_group, 'loc': v0_loc, 'rad': v0_rad, 'loc2': v0_loc2, 'rad2': v0_rad2}
