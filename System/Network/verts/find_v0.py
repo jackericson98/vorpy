@@ -93,3 +93,77 @@ def find_v0(alocs, arads, averts, max_vert, net_type, a0=None, group_atoms=None,
                         return my_vert[0]
                 return my_vert[0]
         j += 1
+
+
+# still needs work
+
+
+def find_v0_old(net, alocs, arads, a0=None, group_atoms=None):
+    """
+    Finds v0 using the atom finding functions to find a real verified site
+    :param net: Network object to check from
+    :param a0: The atom to seed from
+    :param group_atoms: List of atoms for the building group based networks
+    :return: V0 vertex
+    """
+    # Check to see if we need a group atom's box
+    if a0 is not None:
+        my_box = box_search(alocs[a0])
+    elif group_atoms is not None:
+        my_box = box_search(alocs[group_atoms[0]])
+    else:
+        # Find the middle sub_box of the set of boxes and
+        mid = len(net.sub_boxes) // 2
+        my_box = [mid, mid, mid]
+    if a0 is None:
+        a0s = []
+        inc = 0
+        # Keep grabbing atoms until we have enough to get the current a0 increment
+        while len(a0s) < 5:
+            a0s = get_atoms([my_box], inc)
+            inc += 1
+        # Pull an atom from the atoms list
+        a0 = a0s[0]
+    a1s = []
+    inc = 0
+    # Get the 5 closest atoms to a0
+    while len(a1s) < 5:
+        a1s = get_atoms([my_box], inc)
+        inc += 1
+    # Set up the a2s lists
+    a2s, j = [], 0
+    # Check the a1s for verifiable
+    while len(a1s) > 0:
+        # Get the a1
+        a1 = a1s.pop()
+        # Add the circle check
+        a2s.append([])
+        inc = 0
+        # Get the 20 closest atoms to a0 and the current a1
+        if len(alocs) < 20:
+            a2s[j] = [i for i in range(len(alocs))]
+        else:
+            while len(a2s[j]) < 20:
+                a2s[j] = get_atoms([my_box], inc)
+                inc += 1
+        # Set up verified circles list for this a1
+        verified_circles = []
+        # Check each of the combinations for this a1
+        for a2 in a2s[j]:
+            # Use an edge object as a vehicle for calculating and verifying the inscribed circle
+            circ = calc_circ(*[_.loc for _ in [a0, a1, a2]], *[_.rad for _ in [a0, a1, a2]])
+            eloc, erad = None, None
+            if circ is not None:
+                eloc, erad = circ
+            # If a circle can be made and the site does not overlap with any other atoms, add it to the list
+            if eloc is not None and erad < net.max_vert and verify_site(eloc, erad, [a0, a1, a2], net, net.type):
+                verified_circles.append([a0, a1, a2])
+        # Try to make a verified v0 site with the verified circles
+        for circle in verified_circles:
+            # Try to create a vertex
+            my_vert = find_site(net, circle, group_atoms=group_atoms)
+            # Check for a real site
+            if my_vert is not None and my_vert[0].loc is not None:
+                return my_vert[0]
+        j += 1
+
