@@ -2,7 +2,7 @@ import os
 import shutil
 from System.sys_funcs.output.surfs import write_surfs
 from System.sys_funcs.output.edges import write_edges
-from System.sys_funcs.output.verts import write_verts
+from System.sys_funcs.output.verts import write_off_verts
 
 
 def write_pdb(atoms, file_name, sys, directory=None):
@@ -131,7 +131,7 @@ def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=
             write_surfs(net, atom['asurfs'], directory=directory, file_name='atom' + "_" + atom['name'])
         # Check for verts
         if verts:
-            write_verts(net, atom['averts'], directory=directory, file_name=str(atom['num']) + "_" + atom['name'] + "_verts")
+            write_off_verts(net, atom['averts'], directory=directory, file_name=str(atom['num']) + "_" + atom['name'] + "_verts")
         # Check for edges
         if edges:
             write_edges(net, atom['aedges'], directory=directory, file_name=str(atom['num']) + "_" + atom['name'] + "_edges")

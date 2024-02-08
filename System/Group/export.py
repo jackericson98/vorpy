@@ -1,6 +1,6 @@
 from System.sys_funcs.output.output import *
 from System.Group.sort import get_iface
-from System.sys_funcs.output.verts import write_verts
+from System.sys_funcs.output.verts import write_off_verts
 from System.sys_funcs.output.edges import write_edges
 
 
@@ -14,7 +14,7 @@ def export_iface_verts(grp, directory=None):
     if directory is not None and os.path.exists(directory):
         os.chdir(directory)
     # write the vertices
-    write_verts(grp.sys.net, grp.iface_verts, directory=directory, file_name=grp.sys.net.type + "_verts")
+    write_off_verts(grp.sys.net, grp.iface_verts, directory=directory, file_name=grp.sys.net.type + "_verts")
 
 
 def export_iface_edges(grp, directory=None):
@@ -53,7 +53,7 @@ def export_iface(grp, info_file=True, interface_atoms=False, directory=None):
     os.chdir(os.getcwd() + "/" + interface_name)
     # Write the surfaces for the interface
     write_surfs(grp.sys.net, grp.iface_surfs, interface_name)
-    write_verts(grp.sys.net, grp.iface_verts, file_name=interface_name + "_verts")
+    write_off_verts(grp.sys.net, grp.iface_verts, file_name=interface_name + "_verts")
     write_edges(grp.sys.net, grp.iface_edges, file_name=interface_name + "_edges")
     # Check to see of the user wants to export the interface's atoms
     if interface_atoms:
@@ -205,7 +205,7 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
             # Get the first layer
             grp.get_layers(max_layers=1, build_surfs=False)
         for i, vert in enumerate(grp.layer_verts[0]):
-            write_verts(grp.sys.net, [vert], str(i), directory=grp.dir + "/verts")
+            write_off_verts(grp.sys.net, [vert], str(i), directory=grp.dir + "/verts")
     if sep_edges:
         os.mkdir(grp.dir + "/edges")
         if grp.layer_edges is None:
@@ -275,11 +275,11 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
                 if grp.layer_verts is None:
                     # Get the first layer
                     grp.get_layers(max_layers=1, build_surfs=False)
-                write_verts(grp.sys.net, grp.layer_verts[0], file_name="shell_verts", directory=grp.dir)
+                write_off_verts(grp.sys.net, grp.layer_verts[0], file_name="shell_verts", directory=grp.dir)
         else:
             if grp.verts is None:
                 grp.get_verts()
-            write_verts(grp.sys.net, verts=grp.verts, file_name="verts", directory=grp.dir)
+            write_off_verts(grp.sys.net, verts=grp.verts, file_name="verts", directory=grp.dir)
     if surr_atoms or all_:
         if grp.layer_surfs is None:
             # Get the first layer
