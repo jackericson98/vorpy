@@ -155,15 +155,19 @@ def write_verts(net):
     :param net: The network to interpret the vertex data from
     """
     # Move to the correct output directory
+    if net.sys.dir is None:
+        net.sys.set_output_directory()
     os.chdir(net.sys.dir)
+
     # Open the file for the vertices
     with open(net.sys.name + "_verts.txt", 'w') as file:
         # Create a header for the vertices file
-        file.write(net.sys.name + " Vertices: \n")
+        file.write(net.sys.name + " Vertices - {} vertices, {} atoms, max vert = {}\n"
+                   .format(len(net.verts['vatoms']), len(net.sys.groups[0].atoms), max(net.verts['vrad'])))
         # Write the vertices
-        for vert in net.verts:
+        for i, vert in net.verts.iterrows():
             # Write the vertex
-            file.write("VERT " + " ".join([str(_) for _ in vert['vatoms']]) + " " + " ".join([str(_) for _ in vert['vloc']]) + " " +
+            file.write(" ".join([str(_) for _ in vert['vatoms']]) + " " + " ".join([str(_) for _ in vert['vloc']]) + " " +
                        str(vert['vrad']) + "\n")
         # Write the end line for the file
         file.write("END")
