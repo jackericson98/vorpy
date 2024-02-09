@@ -43,7 +43,7 @@ def get_atoms(cells, dist=0, cell_reach=0, my_atoms_matrix=None, my_sub_box_size
     if my_atoms_matrix is not None:
         atoms_matrix, sub_box_size, max_atom_rad = my_atoms_matrix, my_sub_box_size, my_max_atom_rad
     # Get the reach around the box to grab atoms from
-    reach = int((dist + max_atom_rad) / min(sub_box_size)) + 2
+    reach = int(dist / min(sub_box_size)) + 2
     # Grab the number of cells in the grid
     n = atoms_matrix[-1, -1, -1][0]
     # If a single cell is entered

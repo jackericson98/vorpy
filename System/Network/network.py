@@ -64,8 +64,6 @@ class Network:
         self.connect_net = connect_net     # Connect net      :    Connect the network's objects
         self.build_surfs = build_surfs     # Calc Surfs       :    Calculate the network's surfaces
 
-        self.sort_atoms()
-
     def calc_box(self, locs, rads, return_val=False, box_size=None):
         """
         Determines the dimensions of a box x times the size of the atoms
