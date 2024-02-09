@@ -128,7 +128,7 @@ def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=
             continue
         # Check if the surfaces should be exported
         if surfs:
-            write_surfs(net, atom['asurfs'], directory=directory, file_name='atom' + "_" + atom['name'])
+            write_surfs(net, atom['asurfs'], directory=directory, file_name='atom' + "_" + atom['name'].strip() + '_' + str(atom['num']))
         # Check for verts
         if verts:
             write_off_verts(net, atom['averts'], directory=directory, file_name=str(atom['num']) + "_" + atom['name'] + "_verts")
