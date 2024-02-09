@@ -1,6 +1,6 @@
 from System.Network.verts.calc_vert import calc_flat_vert, calc_vert
 from System.Network.verts.verify_site import verify_site
-from System.sys_funcs.calcs.calcs import calc_dist
+from System.sys_funcs.calcs.calcs import calc_dist, calc_com
 from System.sys_funcs.calcs.sorting import box_search, get_atoms
 from System.sys_funcs.calcs.circle import calc_circ
 import bisect
@@ -47,13 +47,12 @@ def find_site_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, n
         # Search for the vertx in the current range
         if net_type == 'vor':
             vert, invalid_atoms = find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type,
-                                             check_atoms, surr_atoms, my_boxes, invalid_atoms, vn_1,
-                                             vn_1_loc, group_atoms=group_atoms, metrics=metrics, printing=printing)
+                                                check_atoms, surr_atoms, my_boxes, invalid_atoms, vn_1,
+                                                vn_1_loc, group_atoms=group_atoms, metrics=metrics, printing=printing)
         else:
             vert, invalid_atoms = find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
-                                                 net_type,
-                                                 check_atoms, surr_atoms, my_boxes, invalid_atoms, vn_1,
-                                                 vn_1_loc, group_atoms=group_atoms, metrics=metrics)
+                                               net_type, check_atoms, surr_atoms, my_boxes, invalid_atoms, vn_1,
+                                               vn_1_loc, group_atoms=group_atoms, metrics=metrics)
         # If a vertex is found exit the loop
         if vert is not None:
             break
@@ -78,14 +77,14 @@ def find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, 
     if metrics is not None:
         metrics['box_search'] += time.perf_counter() - start
         start = time.perf_counter()
-
     # Get the atoms not in the invalid atoms that are within the range specified
     test_atoms = [_ for _ in get_atoms(cells=my_boxes, dist=mv_inc) if _ not in invalid_atoms]
-
     # Sort the test atoms to be in order by distance from the previous vert location
-    if vn_1_loc is not None:
-        dists = [calc_dist(np.array(alocs[_]), np.array(vn_1_loc)) for _ in test_atoms]
-        test_atoms = [_ for x, _ in sorted(zip(dists, test_atoms))]
+    if vn_1_loc is None:
+        vn_1_loc = calc_com([alocs[_] for _ in edge_ndxs])
+
+    dists = [calc_dist(np.array(alocs[_]), np.array(vn_1_loc)) for _ in test_atoms]
+    test_atoms = [_ for x, _ in sorted(zip(dists, test_atoms))]
 
     # Gather atoms metrics <-- Delete later
     if metrics is not None:
@@ -114,7 +113,6 @@ def find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, 
             return None, invalid_atoms
         # Add the vertex indices to the test_vertices for calculation
         test_verts.append((atom_ndxs, atom))
-
     # Index search metrics <-- Delete later
     if metrics is not None:
         metrics['ndx_search'] += time.perf_counter() - start
@@ -165,7 +163,7 @@ def find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, 
 
 
 def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, check_atoms, surr_atoms,
-                   my_boxes, invalid_atoms, vn_1, vn_1_loc, group_atoms=None, metrics=None, printing=False):
+                  my_boxes, invalid_atoms, vn_1, vn_1_loc, group_atoms=None, metrics=None, printing=False):
     """
     Used a vertex and a combination of it's edge atoms to find the connecting vertex
     """
