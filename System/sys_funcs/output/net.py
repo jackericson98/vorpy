@@ -162,13 +162,13 @@ def write_verts(net):
     # Open the file for the vertices
     with open(net.sys.name + "_verts.txt", 'w') as file:
         # Create a header for the vertices file
-        file.write(net.sys.name + " Vertices - {} vertices, {} atoms, max vert = {}\n"
-                   .format(len(net.verts['vatoms']), len(net.sys.groups[0].atoms), max(net.verts['vrad'])))
+        file.write(net.sys.name + " Vertices - {} vertices, {} atoms, max vert = {}, Net type = {}\n"
+                   .format(len(net.verts['vatoms']), len(net.sys.groups[0].atoms), max(net.verts['vrad']), net.type))
         # Write the vertices
         for i, vert in net.verts.iterrows():
             # Write the vertex
-            file.write(" ".join([str(_) for _ in vert['vatoms']]) + " " + " ".join([str(_) for _ in vert['vloc']]) + " " +
-                       str(vert['vrad']) + "\n")
+            file.write(" ".join([str(_) for _ in vert['vatoms']]) + " " + " ".join([str(_) for _ in vert['vloc']]) +
+                       " " + str(vert['vrad']) + " " + str(vert['vdub']) + "\n")
         # Write the end line for the file
         file.write("END")
 
