@@ -1,5 +1,11 @@
-from Visualize.cmnd.export import *
-from Visualize.cmnd.set import *
+import os
+import numpy as np
+from System.Network.network import Network
+from Visualize.cmnd.export import export
+from Visualize.cmnd.set import get_ndx, get_obj
+from Visualize.cmnd.commands import *
+from Visualize.cmnd.set import sett
+from Visualize.cmnd.group import group
 from System.Group.group import Group
 
 
@@ -67,8 +73,17 @@ def load_another_file(my_sys):
         if my_ball_file[-3:] == 'txt' and os.path.exists(my_ball_file):
             # Load the network file
             my_sys.ball_file = my_ball_file
+            print("Ball File Loaded")
+        # Check if the ball file is in the current directory
+        elif my_ball_file[-3:] == 'txt' and my_sys.vpy_dir is not None and os.path.exists(my_sys.vpy_dir + my_ball_file):
+            # Load the network file
+            my_sys.ball_file = my_sys.vpy_dir + my_ball_file
+            print("Ball File Loaded")
         else:
-            print("Bad file")
+            if os.path.exists(my_ball_file):
+                print("Bad File: Wrong file type")
+            else:
+                print("File does not exist")
             return False
     # If the input is to load a ball file
     elif file_type.lower() in {"3", "3.", "three", "tre", "tres"}:
