@@ -72,7 +72,9 @@ def find_v0(alocs, arads, averts, max_vert, net_type, a0=None, group_atoms=None,
         for a2 in a2s:
             # Set up the circle
             circle = [a0, a1, a2]
-            my_circs.append((circle, calc_circ(*[alocs[_] for _ in circle], *[arads[_] for _ in circle])))
+            circy_werky = (circle, calc_circ(*[alocs[_] for _ in circle], *[arads[_] for _ in circle]))
+            if circy_werky[1] is not None:
+                my_circs.append(circy_werky)
         my_circs.sort(key=lambda x: abs(x[1][1]))
         for circ in my_circs:
             circ[0].sort()
