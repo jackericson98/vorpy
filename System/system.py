@@ -173,6 +173,7 @@ class System:
         # If just verts we are loading vorpy verts
         if vta_ball_file is None:
             self.net.verts = read_verts(file)
+            self.ball_file = "deez nuts"
         else:
             # If a ball file is loaded as well, this is a Voronota deal
             read_vta_data(self, vert_file=file, ball_file=vta_ball_file)
@@ -262,8 +263,8 @@ class System:
         self.groups.append(Group(sys=self, atoms=atoms, residues=residues, chains=chains))
 
     def build_network(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
-                      calc_verts=None, my_group=None, print_actions=None, num_atoms_sub_net=10, no_split=True,
-                      add_net_metrics=True, min_atom_split=10):
+                      calc_verts=None, my_group=None, print_actions=None, num_atoms_sub_net=1000, no_split=True,
+                      add_net_metrics=True, min_atom_split=1000):
         """
         Allows user to build the network from the system object.
         """
@@ -283,7 +284,7 @@ class System:
             if add_net_metrics:
                 add_metrics(self.net)
         else:
-            split_net(sys=self, surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs,
+            split_net_slow(sys=self, surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs,
                            net_type=net_type, my_group=my_group, print_actions=print_actions,
                            num_atoms_sub_net=num_atoms_sub_net, add_net_metrics=add_net_metrics,
                            min_atom_split=min_atom_split)
@@ -367,7 +368,8 @@ my_radii = {'h': 1.30, 'he': 1.40, 'li': 0.76, 'be': 0.45, 'b': 1.92, 'c': 1.80,
             'ne': 1.54, 'na': 1.02, 'mg': 0.72, 'al': 0.60, 'si': 2.10, 'p': 1.90, 's': 1.90, 'cl': 1.81, 'ar': 1.88,
             'k': 1.38, 'ca': 1.00, 'ga': 0.62, 'ge': 0.73, 'as': 0.58, 'se': 1.90, 'br': 1.83, 'kr': 2.02, 'rb': 1.52,
             'sr': 1.18, 'in': 1.93, 'sn': 2.17, 'sb': 2.06, 'te': 2.06, 'i': 2.20, 'xe': 2.16, 'cs': 1.67, 'ba': 1.35,
-            'tl': 1.96, 'pb': 2.02, 'bi': 2.07, 'po': 1.97, 'at': 2.02, 'rn': 2.20, 'fr': 3.48, 'ra': 2.83, '': 1.80}
+            'tl': 1.96, 'pb': 2.02, 'bi': 2.07, 'po': 1.97, 'at': 2.02, 'rn': 2.20, 'fr': 3.48, 'ra': 2.83, '': 1.80,
+            'zn': 1.39}
 special_radii = {''   : {'C': 1.75, 'CA': 1.90, 'N': 1.70, 'O': 1.49, 'F': 1.33, 'CL': 1.81, 'BR': 1.96, 'I': 2.20},
                  'ALA': {'CB': 1.92},
                  'ARB': {'CB': 1.91, 'CD': 1.88, 'CG': 1.92, 'CZ': 1.80, 'NE': 1.62, 'NH1': 1.62, 'NH2': 1.67},
