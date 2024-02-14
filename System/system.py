@@ -5,6 +5,7 @@ from System.sys_funcs.input.gro import read_gro
 from System.sys_funcs.input.mol import read_mol
 from System.sys_funcs.input.net import read_net, read_ndx
 from System.sys_funcs.input.vta import read_vta_data
+from System.sys_funcs.input.verts import read_verts
 from System.Network.network import Network
 from System.Network.split_net import split_net_slow, split_net
 from System.sys_funcs.output.output import set_sys_dir, export_sys
@@ -169,8 +170,12 @@ class System:
         if self.net is None:
             self.net = Network(atoms=self.atoms, sys=self)
 
-        # If a ball file is loaded as well, this is a Voronota deal
-        read_vta_data(self, vert_file=file, ball_file=vta_ball_file)
+        # If just verts we are loading vorpy verts
+        if vta_ball_file is None:
+            self.net.verts = read_verts(file)
+        else:
+            # If a ball file is loaded as well, this is a Voronota deal
+            read_vta_data(self, vert_file=file, ball_file=vta_ball_file)
 
         # If the system wants its actions printed
         if self.print_actions:
