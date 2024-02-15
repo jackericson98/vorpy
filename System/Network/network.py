@@ -4,11 +4,12 @@ import pandas as pd
 import csv
 import os
 from System.Network.verts.find_verts import find_verts
+from System.Network.verts.mark_doublets import mark_doublets
 from System.Network.build_net import build
 from System.Network.edges.build_edge import build_edge
 from System.Network.surfs.build_surf import build_surf
-from System.sys_funcs.calcs.calcs import calc_vol, calc_length, get_time
-from System.sys_funcs.calcs.sorting import ndx_search, global_vars
+from System.sys_funcs.calcs.calcs import calc_vol, calc_length, get_time, calc_dist
+from System.sys_funcs.calcs.sorting import ndx_search, global_vars, box_search, get_atoms
 from System.sys_funcs.calcs.surf import calc_surf_func, calc_surf_sa, calc_surf_tri_curvs
 from System.sys_funcs.output.net import write_verts
 from numpy import array, inf, cbrt, sqrt, pi
@@ -270,6 +271,22 @@ class Network:
                              vert_box=self.sys.foam_box)
         if my_guuy is not None:
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = my_guuy
+        # Check to see if any of the atoms are encapsulated
+        if len(atom_nums) > 0:
+            skip_nums = []
+            for atom in atom_nums:
+                atom_rad, atom_loc = self.atoms['rad'][atom], self.atoms['loc'][atom]
+                atom_box = box_search(atom_loc)
+                near_atoms = get_atoms(atom_box, dist=self.sys.max_atom_rad - atom_rad)
+                for atom2 in near_atoms:
+                    if calc_dist(atom_loc, self.atoms['loc'][atom2]) < abs(self.atoms['rad'][atom2] - atom_rad):
+                        print("\nUh oh! Ball # {} is fully encapsulated by ball # {}! Skipping {}"
+                              .format(atom, atom2, atom))
+                        skip_nums.append(atom)
+                        break
+            for _ in skip_nums:
+                atom_nums.pop(atom_nums.index(_))
+
         # Check for disconnects in the network
         while len(atom_nums) > 0:
             a0 = atom_nums.pop()
@@ -307,8 +324,7 @@ class Network:
         # Make the dataframe
         self.verts = pd.DataFrame({"vatoms": vert_ndxs, 'vloc': vlocs, 'vrad': vrads, 'vdub': doublets})
         # Clear the print statement
-        if self.sys.print_actions:
-            print("\r                                                                  ", end="")
+        print("\r                                                                  ", end="")
         self.metrics['vert'] = time.perf_counter() - self.start_time
         write_verts(self)
 
@@ -361,8 +377,7 @@ class Network:
         # Set the dataframe elements
         self.surfs['points'], self.surfs['tris'], self.surfs['tri_curvs'], self.surfs['curv'], self.surfs['func'], \
             self.surfs['com'], self.surfs['flat'] = points, tris, tri_curvs, curvs, funcs, coms, flats
-        if self.sys.print_actions:
-            print("\r                                                                                             ", end='')
+        print("\r                                                                                             ", end='')
         self.metrics['surf'] = time.perf_counter() - self.start_time - self.metrics['vert'] - self.metrics['con']
 
     def analyze(self):
@@ -379,11 +394,10 @@ class Network:
             # Calculate the length of each edge
             length = calc_length(array(edge['points']))
             lengths.append(length)
-            if self.sys.print_actions:
-                my_time = time.perf_counter() - self.start_time
-                h, m, s = get_time(my_time)
-                print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                  "
-                      .format(int(h), int(m), round(s, 2), percentage), end="")
+            my_time = time.perf_counter() - self.start_time
+            h, m, s = get_time(my_time)
+            print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                  "
+                  .format(int(h), int(m), round(s, 2), percentage), end="")
         self.edges['length'] = lengths
         # Go through each surface in the system and find the simplices and the surface area
         sas = []
@@ -401,11 +415,10 @@ class Network:
             else:
                 surfs_tri_curvs.append(surf['tri_curvs'])
                 surfs_curvs.append(surf['curv'])
-            if self.sys.print_actions:
-                my_time = time.perf_counter() - self.start_time
-                h, m, s = get_time(my_time)
-                print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                  "
-                      .format(int(h), int(m), round(s, 2), percentage), end="")
+            my_time = time.perf_counter() - self.start_time
+            h, m, s = get_time(my_time)
+            print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                  "
+                  .format(int(h), int(m), round(s, 2), percentage), end="")
         # Get the curvature in the 95th percentile
         my_surf_curvs = surfs_curvs.copy()
         my_surf_curvs.sort()
@@ -458,11 +471,10 @@ class Network:
             # Add the complete designation for the cell
             acell.append(complete)
             # Print the actions
-            if self.sys.print_actions:
-                my_time = time.perf_counter() - self.start_time
-                h, m, s = get_time(my_time)
-                print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                 "
-                      .format(int(h), int(m), round(s, 2), percentage), end="")
+            my_time = time.perf_counter() - self.start_time
+            h, m, s = get_time(my_time)
+            print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                 "
+                  .format(int(h), int(m), round(s, 2), percentage), end="")
         self.surfs['vols'] = [[asurfs_vols[i][0][1], asurfs_vols[i][1][1]] if asurfs_vols[i][0][0]<asurfs_vols[i][1][0]
                               else [asurfs_vols[i][1][1], asurfs_vols[i][0][1]] for i in range(len(self.surfs))]
         self.atoms['vol'], self.atoms['sa'], self.atoms['curv'], self.atoms['complete'] = avols, asas, acurvs, acell
@@ -509,15 +521,19 @@ class Network:
             # Check to see if there are vertices
             if self.verts is None or len(self.verts) == 0:
                 return
-        else:
+        elif self.sys.ball_file != 'deez nuts':
             self.metrics['vert'] = 0
             # Filter out the vertices that don't pertain to the group in question
             verts = []
             for i, vert in self.vta_verts.iterrows():
                 if any([True if _ in my_group.atoms else False for _ in vert['vatoms']]):
                     verts.append(vert)
-            print(len(verts))
             self.verts = pd.DataFrame(verts)
+        elif 'vdub' not in self.verts:
+            self.metrics['vert'] = 0
+            self.verts['vdub'] = mark_doublets(self.verts)
+        else:
+            self.metrics['vert'] = 0
 
         # Connect the network
         self.connect()
