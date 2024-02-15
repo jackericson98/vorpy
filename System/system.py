@@ -172,7 +172,7 @@ class System:
 
         # If just verts we are loading vorpy verts
         if vta_ball_file is None:
-            self.net.verts = read_verts(file)
+            self.net.verts = read_verts(self.net, file)
             self.ball_file = "deez nuts"
         else:
             # If a ball file is loaded as well, this is a Voronota deal
