@@ -1,6 +1,6 @@
 import numpy as np
 from System.Network.edges.edge_project import edge_project, calc_edge_proj_pt
-from System.sys_funcs.calcs.calcs import calc_angle_jit
+from System.sys_funcs.calcs.calcs import calc_angle_jit, calc_com, calc_dist
 from System.sys_funcs.calcs.surf import calc_surf_func
 from System.sys_funcs.calcs.circle import calc_circ
 
@@ -21,7 +21,11 @@ def build_edge(alocs, arads, vlocs, res, straight=None):
     ################################################# Fill Edge ####################################################
 
     # Get the location and radius of the circle inscribed between the edge atoms
-    loc, rad = calc_circ(alocs[0], alocs[1], alocs[2], arads[0], arads[1], arads[2])
+    try:
+        loc, rad = calc_circ(alocs[0], alocs[1], alocs[2], arads[0], arads[1], arads[2])
+    except TypeError:
+        loc = calc_com([alocs[0], alocs[1], alocs[2]])
+        rad = calc_dist(loc, alocs[0]) - arads[0]
     loc = np.array(loc)
     vals = {'loc': loc, 'rad': rad}
     # Reset the edges points
