@@ -18,10 +18,7 @@ def color_tris(surf, color_scheme, color_map, max_val=None):
     # Set up the variable tri_colors for recording the colordesignations for
     tri_colors = None
     # Set up the color map
-    try:
-        my_cmap = mpl.cm.get_cmap(color_map)
-    except MPLDepWarn:
-        my_cmap = mpl.colormaps.get_cmap(color_map)
+    my_cmap = mpl.colormaps.get_cmap(color_map)
     # Default is distance based color map
     if color_scheme == 'dist':
         # Check if the tri_dists have been calculated before

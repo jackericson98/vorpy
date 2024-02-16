@@ -17,13 +17,17 @@ for subdir, dirs, files in os.walk(rootdir):
             my_file_types[dir_string] += 1
         else:
             my_file_types[dir_string] = 1
-
+count = 0
+reverse_list = []
 for _ in my_file_types:
     for i in range(20 - my_file_types[_]):
+        count += 1
         poopy = _.split('_')
         print('python3 foam_gen.py', *poopy)
-
-
+        reverse_list.insert(0, ['python3 foam_gen.py', *poopy])
+# for _ in reverse_list:
+#     print(*_)
+print("{} Runs Left".format(count))
 
 
 cvs = {}

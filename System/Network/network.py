@@ -338,10 +338,13 @@ class Network:
         for i, edge in self.edges.iterrows():
             # Build the edge depending on if it is straight or not
             straight = True if self.type in ['pow', 'flat', 'del'] else False
-            edge_points, edge_vals = build_edge(alocs=[array(self.atoms['loc'][_]) for _ in edge['eatoms']],
+            try:
+                edge_points, edge_vals = build_edge(alocs=[array(self.atoms['loc'][_]) for _ in edge['eatoms']],
                                                 arads=[self.atoms['rad'][_] for _ in edge['eatoms']],
                                                 vlocs=[array(self.verts['vloc'][_]) for _ in edge['everts']],
                                                 res=self.surf_res, straight=straight)
+            except TypeError:
+                print('\n\n\n', edge, '\n\n\n\n')
             # Add them to the lists
             edges_points.append(edge_points)
             edges_vals.append(edge_vals)

@@ -73,6 +73,5 @@ def read_logs(log_files):
                 else:
                     break
                 index += 1
-            print(file_name)
             file_info[file_name] = {'data': data, 'group data': group_data, 'atoms': atoms, 'surfs': surfs, 'edges': edges, 'verts': verts}
     return file_info
