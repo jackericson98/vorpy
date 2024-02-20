@@ -6,7 +6,9 @@ import matplotlib.pyplot as plt
 
 
 if __name__ == '__main__':
-    prefix = 'C:/Users/jacke/Documents/data/'
+    # prefix = 'C:/Users/jacke/Documents/data/'
+
+    prefix = 'C:/Users/i7-8700/Documents/logs_pdbs/'
     # my_info = compare_files(pdb_files=[prefix + '181L_coarse_ad.pdb'],
     #                         log_files=[prefix + '181L_coarse_ad_logs.csv'], avg_distros=True, by_residues=True)
     # my_info = compare_files(pdb_files=[prefix + '181L.pdb',
@@ -84,10 +86,10 @@ if __name__ == '__main__':
 
 
     # Sample data
-    labels = ['Atomistic', 'Average Distance', 'Encapsulate', 'Side-Chain/Backbone AD', 'Side-Chain/Backbone Encap', 'CG Martini']
-    print(vols)
+    labels = ['Atoms', 'Avg Dist', 'Encapsulate', 'SC/BB AD', 'SC/BB Encap.', 'Martini']
+
     # Get the percent difference for each residue and average
-    data = [0]
+    means, std_errs = [0], [0]
     for file in vols:
         if file == '181L':
             continue
@@ -96,36 +98,51 @@ if __name__ == '__main__':
         for res_name in vols[file]['amines']:
             for i in range(len(vols[file]['amines'][res_name])):
                 my_perc_diff.append(abs(float(vols['181L']['amines'][res_name][i]) - float(vols[file]['amines'][res_name][i]))/float(vols['181L']['amines'][res_name][i]))
-        data.append(round(sum(my_perc_diff)/len(my_perc_diff), 4) * 100)
+        means.append(np.mean(my_perc_diff) * 100)
+        std_errs.append(np.std(my_perc_diff)/np.sqrt(len(my_perc_diff)) * 100)
 
-
-    data1 = data[::2]
-    data2 = data[1::2]
-    ymax = max(data)
-    # Bar width
+    # Your existing code
+    std1s = std_errs[::2]
+    std2s = std_errs[1::2]
+    mean1s = means[::2]
+    mean2s = means[1::2]
+    ymax = max(means)
     bar_width = 0.35
-
-    # Index for the x-axis
     x = range(len(labels))
 
     # Create the bar graph
-    plt.bar(x, data1, width=bar_width, label='Additively Weighted')
-    plt.bar([i + bar_width for i in x], data2, width=bar_width, label='Power')
+    bar1 = plt.bar(x, mean1s, width=bar_width, label='Additively Weighted', color='skyblue', edgecolor='black')
+    bar2 = plt.bar([i + bar_width for i in x], mean2s, width=bar_width, label='Power', color='orange',
+                   edgecolor='black')
+
+    # Add error bars with custom style
+    for i, bar in enumerate(bar1):
+        plt.errorbar(bar.get_x() + bar.get_width() / 2, mean1s[i], yerr=std1s[i], capsize=5, capthick=2,
+                     color='black', alpha=0.8)
+    for i, bar in enumerate(bar2):
+        plt.errorbar(bar.get_x() + bar.get_width() / 2, mean2s[i], yerr=std2s[i], capsize=5, capthick=2,
+                     color='black', alpha=0.8)
 
     # Add labels and title
-    plt.ylabel('% Difference Volume')
-    plt.title('181L Average Residue % Difference (SA)')
+    plt.ylabel('% Difference Volume', fontdict=dict(size=15))
+    plt.title('181L Average Residue Variance (Volume)', fontdict=dict(size=20))
 
     # Angle the labels and add values at the top of the bars
-    plt.xticks([i + bar_width / 2 for i in x], labels, rotation=45, ha='right')
-    for i, v in enumerate(data1):
-        plt.text(i, v / 2, str(round(v, 2)) + ' %', ha='center', va='center', rotation=90)
-    for i, v in enumerate(data2):
-        plt.text(i + bar_width, v / 2, str(round(v, 2)) + ' %', ha='center', va='center', rotation=90)
-    plt.ylim(0, 1.25 * ymax)
+    plt.xticks([i + bar_width / 2 for i in x], labels, rotation=45, ha='right', font=dict(size=10))
+    for i, v in enumerate(mean1s):
+        my_height = v / 2
+        if i in {0, 1, 3}:
+            my_height = v + 12
+        plt.text(i, my_height, str(round(v, 2)) + ' %', ha='center', va='center', rotation=90, font=dict(size=12))
+    for i, v in enumerate(mean2s):
+        my_height = v / 2
+        if i in {0, 1, 3}:
+            my_height = v + 12
+        plt.text(i + bar_width, my_height, str(round(v, 2)) + ' %', ha='center', va='center', rotation=90, fontdict=dict(size=12))
+    plt.ylim(0, 1.3 * ymax)
+
     # Add legend with appropriate layout
     plt.legend(loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=2)
-
 
     # Show the plot
     plt.tight_layout()

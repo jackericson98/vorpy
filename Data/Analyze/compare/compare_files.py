@@ -1,6 +1,4 @@
 import csv
-from rich.console import Console
-from rich.table import Table
 
 
 from System.system import System

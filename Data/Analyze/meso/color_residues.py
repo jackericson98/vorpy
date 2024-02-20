@@ -1,8 +1,5 @@
-import csv
-import numpy as np
-
 from Data.Analyze.compare.compare_files import compare_files
-import matplotlib.pyplot as plt
+import csv
 
 
 if __name__ == '__main__':
@@ -34,15 +31,6 @@ if __name__ == '__main__':
     #                                    prefix + '181L_coarse_scbb_ncap_pow_logs.csv',
     #                                    prefix + '181L_martini_vor_logs.csv',
     #                                    prefix + '181L_martini_pow_logs.csv'], avg_distros=True, by_residues=True)
-    #
-    # with open(prefix + '181L_residue_data.csv', 'w') as res_file:
-    #     res_fl = csv.writer(res_file)
-    #     res_fl.writerow(['file', 'residue type', 'name', 'residue', 'volume', 'surface area'])
-    #     for file in my_info['residues']:
-    #         for res_type in my_info['residues'][file]:
-    #             for res_name in my_info['residues'][file][res_type]:
-    #                 for res in my_info['residues'][file][res_type][res_name]:
-    #                     res_fl.writerow([file, res_type, res_name, res] + [my_info['residues'][file][res_type][res_name][res][_] for _ in my_info['residues'][file][res_type][res_name][res]])
 
     vols, sas = {}, {}
     with open(prefix + '181L_residue_data.csv', 'r') as res_file:
@@ -66,42 +54,4 @@ if __name__ == '__main__':
                 sas[line[0]][line[1]][line[2]] = []
             vols[line[0]][line[1]][line[2]].append(line[4])
             sas[line[0]][line[1]][line[2]].append(line[5])
-
-    vol_res_data = {}
-    sa_res_data = {}
-    res_names = []
-    for file in vols:
-        vol_res_data[file] = {}
-        sa_res_data[file] = {}
-        for res_type in vols[file]:
-            for res_name in vols[file][res_type]:
-                res_names.append(res_name)
-                vol_by_type = [float(_) for _ in vols[file][res_type][res_name]]
-                vol_res_data[file][res_name] = {'avg': np.mean(vol_by_type), 'max': max(vol_by_type),
-                                                'min': min(vol_by_type), 'sd': np.std(vol_by_type), 'data': vol_by_type}
-                sa_by_type = [float(_) for _ in sas[file][res_type][res_name]]
-                sa_res_data[file][res_name] = {'avg': np.mean(sa_by_type), 'max': max(sa_by_type),
-                                               'min': min(sa_by_type), 'sd': np.std(sa_by_type), 'data': sa_by_type}
-    titles = ['Atomistic', "Average Distance", 'Encapsulate', 'Sidechain/Backbone - Average Distance', 'Sidechain/Backbone - Encapsulate', 'CG Martini']
-
-    for i, file in enumerate(sas):
-        labels = [_ for _ in sas[file]['amines']]
-        my_data = [[float(__) for __ in sas[file]['amines'][_]] for _ in labels]
-        # Create box and whisker plot
-        plt.figure(figsize=(8, 6))
-        plt.boxplot(my_data, labels=labels, showmeans=True, vert=True, patch_artist=True, widths=0.6)
-
-        # Add labels and title
-        plt.xlabel('Residues')
-        plt.ylabel('Surface Area \u212B\u00B2')
-        if i % 2 == 0:
-            pow_vor_desi = 'AW'
-        else:
-            pow_vor_desi = 'Pow'
-        my_title = '181L ' + titles[i // 2] + ' - ' + pow_vor_desi
-        plt.title(my_title)
-
-        # Show the plot
-        plt.tight_layout()
-    plt.show()
 

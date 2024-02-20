@@ -18,29 +18,35 @@ for subdir, dirs, files in os.walk(rootdir):
         else:
             my_file_types[dir_string] = 1
 count = 0
-reverse_list = []
+reverse_list, my_list = [], []
 for _ in my_file_types:
     for i in range(20 - my_file_types[_]):
         count += 1
         poopy = _.split('_')
-        print('python3 foam_gen.py', *poopy)
-        reverse_list.insert(0, ['python3 foam_gen.py', *poopy])
+        my_list.append((['python3 foam_gen.py', *poopy], float(poopy[3]) / float(poopy[1])))
+        # print('python3 foam_gen.py', *poopy)
+        # reverse_list.insert(0, ['python3 foam_gen.py', *poopy])
 # for _ in reverse_list:
 #     print(*_)
+my_strs = [x for x, _ in sorted(my_list, key=lambda x: x[1])]
+
+for srt in my_strs:
+    print(*srt)
+
 print("{} Runs Left".format(count))
 
 
-cvs = {}
-for _ in my_file_types:
-    name = _.split('_')
-    cv = name[1]
-    dens = name[3]
-    if cv in cvs:
-        if dens in cvs[cv]:
-            cvs[cv][dens] += my_file_types[_]
-        else:
-            cvs[cv][dens] = my_file_types[_]
-    else:
-        cvs[cv] = {dens: my_file_types[_]}
-
-print()
+# cvs = {}
+# for _ in my_file_types:
+#     name = _.split('_')
+#     cv = name[1]
+#     dens = name[3]
+#     if cv in cvs:
+#         if dens in cvs[cv]:
+#             cvs[cv][dens] += my_file_types[_]
+#         else:
+#             cvs[cv][dens] = my_file_types[_]
+#     else:
+#         cvs[cv] = {dens: my_file_types[_]}
+#
+# print()
