@@ -45,6 +45,6 @@ def check_verts(complete_logs, test_logs):
 
 
 if __name__ == '__main__':
-    check_verts(complete_logs='/Users/jackericson/PycharmProjects/vorpy/Data/user_data/cambrin_Complete/sys/cambrin_logs.csv',
-                test_logs='/Users/jackericson/PycharmProjects/vorpy/Data/user_data/cambrin_19/sys/cambrin_logs.csv')
+    check_verts(complete_logs='C:/Users/jacke/PycharmProjects/vorpy/Data/user_data/cambrin_10/sys/cambrin_logs.csv',
+                test_logs='C:/Users/jacke/PycharmProjects/vorpy/Data/user_data/cambrin_11/sys/cambrin_logs.csv')
 

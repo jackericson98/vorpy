@@ -1,15 +1,17 @@
 import csv
 
+import pandas as pd
+
 
 def read_atom(atom_line):
-    atom = {'num': int(atom_line[0]), 'name': atom_line[1], 'volume': float(atom_line[1]), 'sa': float(atom_line[2]),
-            'max curvature': float(atom_line[3]), 'neighbors': [int(_) for _ in atom_line[4:]]}
+    atom = {'num': int(atom_line[0]), 'name': atom_line[1], 'volume': float(atom_line[2]), 'sa': float(atom_line[3]),
+            'max curv': float(atom_line[4]), 'neighbors': [int(_) for _ in atom_line[5:] if _ != '']}
     return atom
 
 
 def read_surf(surf_line):
     surf = {'index': int(surf_line[0]), 'atoms': [int(_) for _ in surf_line[1:3]], 'sa': float(surf_line[3]),
-            'curvature': float(surf_line[4]), 'atom vols': [float(_) for _ in surf_line[5:]]}
+            'curvature': float(surf_line[4]), 'atom vols': [float(_) for _ in surf_line[5:] if _ != '']}
     return surf
 
 
@@ -46,14 +48,14 @@ def read_logs(log_files):
                 elif i == 5:
                     group_data = {'index': int(line[0]), 'name': line[1], 'volume': float(line[2]), 'sa': float(line[3])}
                     continue
-                if len(line) == 1:
+                if line[0] in {'build information', 'group information', 'Atoms', 'Edges', 'Surfaces', 'Vertices'}:
                     data_type = line[0]
                     skip_next = True
                     continue
                 if skip_next:
                     skip_next = False
                     continue
-                elif data_type == 'Atom':
+                elif data_type == 'Atoms':
                     atoms.append(read_atom(line))
                 elif data_type == 'Surfaces':
                     surfs.append(read_surf(line))
@@ -73,5 +75,7 @@ def read_logs(log_files):
                 else:
                     break
                 index += 1
-            file_info[file_name] = {'data': data, 'group data': group_data, 'atoms': atoms, 'surfs': surfs, 'edges': edges, 'verts': verts}
+            file_info[file_name] = {'data': data, 'group data': group_data, 'atoms': pd.DataFrame(atoms),
+                                    'surfs': pd.DataFrame(surfs), 'edges': pd.DataFrame(edges),
+                                    'verts': pd.DataFrame(verts)}
     return file_info
