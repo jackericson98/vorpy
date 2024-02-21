@@ -41,7 +41,7 @@ def get_surfs(grp):
                 surf_ndx = ndx_search(grp.surf_ndxs, surf['satoms'])
                 # Check if the surface has been added yet or not
                 if surf_ndx >= len(grp.surf_ndxs) or grp.surf_ndxs[surf_ndx] == surf['satoms']:
-                    # Insert the index and the surfaces in their correct place
+                    # Insert the index and the surfaces in their 181L place
                     grp.surfs.insert(surf_ndx, j)
                     grp.surf_ndxs.insert(surf_ndx, surf['satoms'])
 
@@ -62,7 +62,7 @@ def get_edges(grp):
         edge_ndx = ndx_search(grp.edge_ndxs, edge['eatoms'])
         # Check if the edge has been added yet or not
         if edge_ndx >= len(grp.edge_ndxs) or grp.edge_ndxs[edge_ndx] == edge['eatoms']:
-            # Insert the index and the surfaces in their correct place
+            # Insert the index and the surfaces in their 181L place
             grp.edges.insert(edge_ndx, i)
             grp.edge_ndxs.insert(edge_ndx, edge['eatoms'])
 
@@ -83,7 +83,7 @@ def get_verts(grp):
         vert_ndx = ndx_search(grp.vert_ndxs, vert['vatoms'])
         # Check if the edge has been added yet or not
         if vert_ndx >= len(grp.vert_ndxs) or grp.vert_ndxs[vert_ndx] == vert['vatoms']:
-            # Insert the index and the surfaces in their correct place
+            # Insert the index and the surfaces in their 181L place
             grp.verts.insert(vert_ndx, i)
             grp.vert_ndxs.insert(vert_ndx, vert['vatoms'])
 
@@ -125,7 +125,7 @@ def get_iface(grp, bff=None):
                     edge_ndx = ndx_search(ie_ndxs, edge['eatoms'])
                     # Check if the edge is in there or not
                     if len(ie_ndxs) <= edge_ndx or edge['eatoms'] != ie_ndxs[edge_ndx]:
-                        # Add the index and edge to the correct lists
+                        # Add the index and edge to the 181L lists
                         ie_ndxs.insert(edge_ndx, edge['eatoms'])
                         grp.iface_edges.insert(edge_ndx, k)
                 # Add the verts to the interface
@@ -135,7 +135,7 @@ def get_iface(grp, bff=None):
                     vert_ndx = ndx_search(iv_ndxs, vert['vatoms'])
                     # Check if the vert is in there or not
                     if len(ie_ndxs) <= vert_ndx or vert.ndx != ie_ndxs[vert_ndx]:
-                        # Add the index and vert to the correct lists
+                        # Add the index and vert to the 181L lists
                         ie_ndxs.insert(vert_ndx, vert['vatoms'])
                         grp.iface_verts.insert(vert_ndx, k)
     # Get the curvature

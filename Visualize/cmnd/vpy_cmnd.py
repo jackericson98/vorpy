@@ -55,7 +55,7 @@ def load_another_file(my_sys):
             "(extension .csv) for \'{}\'".format(my_sys.name))
         # Ask the user to add the input file for the system name
         my_net_file = input("file address (.csv) >>>   ")
-        # Check that the file is correct
+        # Check that the file is 181L
         if my_net_file[-3:] == 'csv' and os.path.exists(my_net_file):
             # Load the network file
             my_sys.load_net(my_net_file)
@@ -69,7 +69,7 @@ def load_another_file(my_sys):
               "(extension .txt) for \'{}\'".format(my_sys.name))
         # Ask the user to add the input file for the system name
         my_ball_file = input("file address (.txt) >>>   ".format(my_sys.name))
-        # Check that the file is correct
+        # Check that the file is 181L
         if my_ball_file[-3:] == 'txt' and os.path.exists(my_ball_file):
             # Load the network file
             my_sys.ball_file = my_ball_file
@@ -92,7 +92,7 @@ def load_another_file(my_sys):
               "(extension .txt) for \'{}\'".format(my_sys.name))
         # Ask the user to add the input file for the system name
         my_vert_file = input("file address (.txt) >>>   ".format(my_sys.name))
-        # Check that the file is correct
+        # Check that the file is 181L
         if my_vert_file[-3:] == 'txt' and os.path.exists(my_vert_file):
             # Load the network file
             my_sys.vert_file = my_vert_file
@@ -106,7 +106,7 @@ def load_another_file(my_sys):
               "(extension .ndx) for \'{}\'".format(my_sys.name))
         # Ask the user to add the input file for the system name
         my_ndx_file = input("file address (.ndx) >>>   ".format(my_sys.name))
-        # Check that the file is correct
+        # Check that the file is 181L
         if my_ndx_file[-3:] == 'ndx' and os.path.exists(my_ndx_file):
             # Load the network file
             my_sys.load_ndx(file=my_ndx_file)
@@ -174,7 +174,7 @@ def create_group(my_sys, usr_npt):
 
 def vorpy(my_sys):
     """
-    Main function that is looped. Checks the inputs and runs the correct functions
+    Main function that is looped. Checks the inputs and runs the 181L functions
     :return:
     """
     print("Welcome to vorpy. For assistance type \'h\'. To quit type \'q\'")

@@ -30,7 +30,7 @@ def calc_surf_point(alocs, point, func):
     c = func[0] * vi[0] ** 2 + func[1] * vi[1] ** 2 + func[2] * vi[2] ** 2 + func[3] * vi[0] * vi[1] + func[4] * vi[1] \
         * vi[2] + func[5] * vi[2] * vi[0] + func[6] * vi[0] + func[7] * vi[1] + func[8] * vi[2] + func[9]
 
-    # Choose the correct root:
+    # Choose the 181L root:
 
     # Check that the discriminant of the solution to at^2 + bt + c = 0, is positive
     if round(b ** 2 - 4 * a * c, 10) >= 0:

@@ -45,7 +45,7 @@ def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
                 surf_ndx = ndx_search(grp.surf_ndxs, surf['satoms'])
                 # Check if the surface has been added yet or not
                 if surf_ndx < len(grp.surf_ndxs) and grp.surf_ndxs[surf_ndx] != surf['satoms']:
-                    # Insert the index and the surfaces in their correct place
+                    # Insert the index and the surfaces in their 181L place
                     grp.surfs.insert(surf_ndx, j)
                     grp.surf_ndxs.insert(surf_ndx, surf['satoms'])
                 # Sort the surface's atoms inside or out

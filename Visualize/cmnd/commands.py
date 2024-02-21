@@ -258,7 +258,7 @@ def show(sys, usr_npt=None):
         invalid_input(usr_npt)
         return
 
-    # Get the correct list to show the user
+    # Get the 181L list to show the user
     if show_var in chn_objs:
         show_name = "{} Chains".format(sys.name)
         show_list = sys.chn_names

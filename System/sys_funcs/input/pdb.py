@@ -130,3 +130,24 @@ def read_pdb(sys, file=None):
             data.append(my_file[i].split())
     # Set the atoms and the data
     sys.atoms, sys.data = DataFrame(atoms), data
+
+
+def read_pdb_line(pdb_line):
+    return {
+        "record_type": pdb_line[0:6].strip(),
+        "atom_serial_number": int(pdb_line[6:11].strip()),
+        "atom_name": pdb_line[12:16].strip(),
+        "alternate_location": pdb_line[16].strip(),
+        "residue_name": pdb_line[17:20].strip(),
+        "chain_identifier": pdb_line[21].strip(),
+        "residue_sequence_number": int(pdb_line[22:26].strip()),
+        "insertion_code": pdb_line[26].strip(),
+        "x_coordinate": float(pdb_line[30:38].strip()),
+        "y_coordinate": float(pdb_line[38:46].strip()),
+        "z_coordinate": float(pdb_line[46:54].strip()),
+        "occupancy": float(pdb_line[54:60].strip()),
+        "temperature_factor": float(pdb_line[60:66].strip()),
+        "segment_identifier": pdb_line[72:76].strip(),
+        "element_symbol": pdb_line[76:78].strip(),
+        "charge": pdb_line[78:80].strip()
+        }

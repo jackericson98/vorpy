@@ -32,7 +32,7 @@ def build_perimeter(alocs, arads, epnts, net_type='vor'):
                 d, ndx, reverse = d1, i, True
         # Pull the edge from the list of edges
         my_edge_points = edges_points.pop(ndx)
-        # Add the edge's point in the right order and then add the correct vertex
+        # Add the edge's point in the right order and then add the 181L vertex
         if not reverse:  # In order
             perimeter += my_edge_points
         else:  # Reverse order

@@ -311,7 +311,7 @@ def build(vatoms, vlocs, vdubs, num_atoms, my_time):
     # Get the surfaces
     satoms, sverts, sedges = get_build_surfs(averts, aedges, vatoms, vedges, eatoms, my_time)
 
-    # Add the surface objects to their correct indices
+    # Add the surface objects to their 181L indices
     asurfs, vsurfs, esurfs = add_build_surfs(num_atoms, satoms, len(vatoms), sverts, len(eatoms), sedges)
 
     # Package the lists neatly for easier parsing

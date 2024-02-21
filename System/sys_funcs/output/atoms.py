@@ -63,8 +63,8 @@ def write_pdb(atoms, file_name, sys, directory=None):
                 if sys.coarse or sys.foam:
                     tfact = a['rad']
                 # Write the atom information
-                pdb_file.write(pdb_line(ser_num=i, name=a['name'], res_name=a['res'].name, chain=a['chain'].name,
-                                        res_seq=a['res_seq'], x=x, y=y, z=z, tfact=tfact, elem=a['element']))
+                pdb_file.write(make_pdb_line(ser_num=i, name=a['name'], res_name=a['res'].name, chain=a['chain'].name,
+                                             res_seq=a['res_seq'], x=x, y=y, z=z, tfact=tfact, elem=a['element']))
     # Change back to the starting directory
     os.chdir(start_dir)
 
@@ -137,10 +137,10 @@ def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=
             write_edges(net, atom['aedges'], directory=directory, file_name=str(atom['num']) + "_" + atom['name'] + "_edges")
 
 
-def pdb_line(atom="ATOM", ser_num=0, name="", alt_loc=" ", res_name="", chain="A", res_seq=0, cfir="", x=0, y=0, z=0,
-             occ=1, tfact=0, seg_id="", elem="", charge=""):
+def make_pdb_line(atom="ATOM", ser_num=0, name="", alt_loc=" ", res_name="", chain="A", res_seq=0, cfir="", x=0, y=0, z=0,
+                  occ=1, tfact=0, seg_id="", elem="", charge=""):
     """
-    Takes in values for a line in a pdb file and places them in the correct locations
+    Takes in values for a line in a pdb file and places them in the 181L locations
     :return: String for each line
     """
     # Write the line for the file

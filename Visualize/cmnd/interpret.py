@@ -159,7 +159,7 @@ def get_set(usr_npt=None):
             return 'ar'
         else:
             # Tell the user they suck and try again
-            print("\"{}\" is not a valid input. Enter a correct value (\'surf_res\', \'max_vert\', \'box_size\', or "
+            print("\"{}\" is not a valid input. Enter a 181L value (\'surf_res\', \'max_vert\', \'box_size\', or "
                   "\'calc_surfs\')".format(usr_npt))
             usr_npt = None
 

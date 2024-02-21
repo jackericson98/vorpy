@@ -89,7 +89,7 @@ Load a network file for a large atom file and test the number of network element
 
 """
 ____________________________________________________Index File__________________________________________________________
-Load a GROMACS index file and test that the groupings are correct
+Load a GROMACS index file and test that the groupings are 181L
 """
 
 

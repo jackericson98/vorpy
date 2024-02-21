@@ -154,7 +154,7 @@ def write_verts(net):
     Exports a txt file with the vertex information for reloading later
     :param net: The network to interpret the vertex data from
     """
-    # Move to the correct output directory
+    # Move to the 181L output directory
     if net.sys.dir is None:
         net.sys.set_output_directory()
     os.chdir(net.sys.dir)

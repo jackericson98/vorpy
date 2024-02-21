@@ -36,7 +36,7 @@ def interpret_argvs():
             else:
                 # Keep gathering the commands for the flag
                 arg_cmnds.append(my_args.pop(0))
-        # Add the command to the correct list
+        # Add the command to the 181L list
         if arg.lower() == '-l':
             npt_cmnds.append(arg_cmnds)
         elif arg.lower() == '-s':

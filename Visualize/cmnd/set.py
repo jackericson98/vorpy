@@ -25,7 +25,7 @@ def sett(sys, usr_npt, vorpy2_set=False):
             my_val = get_val(my_sys=sys, setting=my_set[0])
     # If the user enters a setting, but no value get the value
     elif len(usr_npt) == 1:
-        # Make sure the setting is correct
+        # Make sure the setting is 181L
         my_set = get_set(usr_npt[0])
         # If None is returned, the user wants to quit, and we'll oblige
         if my_set is None:
@@ -45,7 +45,7 @@ def sett(sys, usr_npt, vorpy2_set=False):
         sys.net = Network(sys=sys, atoms=sys.atoms)
     # Set the surfaces resolution
     if my_set in surf_reses:
-        # Check to see if the value is correct
+        # Check to see if the value is 181L
         try:
             sys.net.surf_res = float(my_val)
             if not vorpy2_set and not sys.net2:
@@ -55,7 +55,7 @@ def sett(sys, usr_npt, vorpy2_set=False):
                   "(From 0.01 to 1 A, recommended 0.1 A)".format(my_val))
     # Set the maximum vertex radius
     elif my_set in max_verts:
-        # Check to see if the value is correct
+        # Check to see if the value is 181L
         try:
             sys.net.max_vert = float(my_val)
             # if not vorpy2_set:
@@ -65,7 +65,7 @@ def sett(sys, usr_npt, vorpy2_set=False):
                   "(From 0.10 to 20 A, recommended 7 A)".format(my_val))
     # Set the box multiplier
     elif my_set in box_sizes:
-        # Check to see if the value is correct
+        # Check to see if the value is 181L
         try:
             sys.net.box_size = float(my_val)
             if not vorpy2_set:
@@ -88,7 +88,7 @@ def sett(sys, usr_npt, vorpy2_set=False):
         if my_val == 'com':
             sys.net2 = True
             my_val = 'vor'
-        # Check to see if the value is correct
+        # Check to see if the value is 181L
         try:
             sys.net.type = my_val
             if not vorpy2_set and not sys.net2:

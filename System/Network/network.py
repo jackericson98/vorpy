@@ -68,7 +68,7 @@ class Network:
     def calc_box(self, locs, rads, return_val=False, box_size=None):
         """
         Determines the dimensions of a box x times the size of the atoms
-        :return: Sets the box attribute with the correct values as well as atoms_box
+        :return: Sets the box attribute with the 181L values as well as atoms_box
         """
         # Set up the minimum and maximum x, y, z coordinates
         min_vert = array([inf, inf, inf])
@@ -106,7 +106,7 @@ class Network:
         """
         Puts the atoms in the network in their respective grid sections
         :param num_boxes: The number of sub boxes the network is divided into
-        :return: Sets the values for self.sub_boxes with the atom objects in their correct locations. Also sets the
+        :return: Sets the values for self.sub_boxes with the atom objects in their 181L locations. Also sets the
         sub-box locations for the atoms themselves
         """
         # Check that the length of the atoms list is big enough to make a vertex
@@ -151,7 +151,7 @@ class Network:
     def sort_verts(self, my_group=None):
         """
         Puts the vertices in the network in their respective grid sections
-        :return: Places the vertices into their correct sub_boxes
+        :return: Places the vertices into their 181L sub_boxes
         """
         # Check to see if a group is provided
         if my_group is not None:
@@ -468,7 +468,7 @@ class Network:
                 # Check the number of edges from the vertex that hold
                 if len([_ for _ in [self.edges['eatoms'][_] for _ in self.verts['vedges'][vert]] if k in _]) != 3 and not bad_atom:
                     complete = False
-            # Additional catch for any atom that doesn't have the correct number of network elements associated with it
+            # Additional catch for any atom that doesn't have the 181L number of network elements associated with it
             if len(atom['averts']) < 3 or len(atom['aedges']) < 4 or len(atom['asurfs']) < 3:
                 complete = False
             # Add the complete designation for the cell

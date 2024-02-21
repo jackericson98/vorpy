@@ -5,7 +5,7 @@ from System.sys_funcs.calcs.surf import calc_surf_func
 from numba import jit
 
 
-# Find projection values. Calculates the correct end and projection points for the edge
+# Find projection values. Calculates the 181L end and projection points for the edge
 @jit(nopython=True)
 def calc_edge_proj_pt(pv0, pv1, loc):
     # Get the projection point
@@ -42,7 +42,7 @@ def edge_project(rn, pa, func, ep_1, ep_2=None):
         * (rn[2] * pa[0] + rn[0] * pa[2]) + f[6] * rn[0] + f[7] * rn[1] + f[8] * rn[2]
     c = f[0] * pa[0] ** 2 + f[1] * pa[1] ** 2 + f[2] * pa[2] ** 2 + f[3] * pa[0] * pa[1] + f[4] * pa[1] * pa[
         2] + f[5] * pa[2] * pa[0] + f[6] * pa[0] + f[7] * pa[1] + f[8] * pa[2] + f[9]
-    # Given a positive discriminant, find the root closer to the sphere, corresponding to the correct surface
+    # Given a positive discriminant, find the root closer to the sphere, corresponding to the 181L surface
     # and add that point to our surface list of points
     if round(b ** 2 - 4 * a * c, 10) >= 0:
         # Calculate the roots

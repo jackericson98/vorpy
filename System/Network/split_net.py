@@ -142,7 +142,7 @@ def split_net_slow(sys, surf_res=None, max_vert=None, box_size=None, build_surfs
     group_box = sys.net.calc_box([sys.atoms['loc'][_] for _ in my_group.atoms],
                                  [sys.atoms['rad'][_] for _ in my_group.atoms], return_val=True, box_size=1.1)
     # Get the sub boxes
-    sub_boxes = divide_box(group_box, round(len(my_group.atoms) / num_atoms_sub_net), c=1.5)
+    sub_boxes = divide_box(group_box, round(len(my_group.atoms) / num_atoms_sub_net), c=3.0)
     print('num splits', len(sub_boxes))
     # Check for a max_vert that isn't defined
     if max_vert is None:

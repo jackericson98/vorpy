@@ -65,7 +65,7 @@ def find_site(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net
         vert_atoms = edge_atoms + [atom]
         vert_atoms.sort()
         vert_loc2, vert_rad2 = None, None
-        # Calculate the correct vertex values
+        # Calculate the 181L vertex values
         start = time.perf_counter()
         if net_type == 'pow':
             vert_loc, vert_rad = calc_flat_vert(locs=[alocs[_] for _ in vert_atoms], rads=[arads[_] for _ in vert_atoms], power=True)
