@@ -26,8 +26,8 @@ if __name__ == '__main__':
                                        prefix + '1BNA_coarse_scbb_ncap_pow_logs.csv'], totals=True)
 
     # Sample data
-    labels = ['Atomistic', 'Average Distance', 'Encapsulate', 'Side-Chain/Backbone AD', 'Side-Chain/Backbone Encap']
-    data = [round(my_info['totals'][_]['vol']) for _ in my_info['totals']]  # Sample data for the first set
+    labels = ['Atoms', 'Avg Dist', 'Encapsulate', 'SC/BB AD', 'SC/BB Encap.']
+    data = [round(my_info['totals'][_]['vol'], 2) for _ in my_info['totals']]  # Sample data for the first set
     data1 = data[::2]
     data2 = data[1::2]
     ymax = max(data)
@@ -38,12 +38,12 @@ if __name__ == '__main__':
     x = range(len(labels))
 
     # Create the bar graph
-    plt.bar(x, data1, width=bar_width, label='Additively Weighted')
-    plt.bar([i + bar_width for i in x], data2, width=bar_width, label='Power')
+    plt.bar(x, data1, width=bar_width, label='Additively Weighted', color='skyblue', edgecolor='black')
+    plt.bar([i + bar_width for i in x], data2, width=bar_width, label='Power', color='orange', edgecolor='black')
 
     # Add labels and title
-    plt.ylabel('Volume')
-    plt.title('1BNA Volume by Scheme')
+    plt.ylabel('Volume', fontdict=dict(size=15))
+    plt.title('1BNA Volume by Scheme', fontdict=dict(size=20))
 
     # Angle the labels and add values at the top of the bars
     plt.xticks([i + bar_width / 2 for i in x], labels, rotation=45, ha='right')
@@ -54,7 +54,6 @@ if __name__ == '__main__':
     plt.ylim(0, 1.25 * ymax)
     # Add legend with appropriate layout
     plt.legend(loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=2)
-
 
     # Show the plot
     plt.tight_layout()

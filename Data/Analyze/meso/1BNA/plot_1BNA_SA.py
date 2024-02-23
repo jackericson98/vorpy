@@ -43,8 +43,8 @@ if __name__ == '__main__':
     plt.bar([i + bar_width for i in x], data2, width=bar_width, label='Power', color='orange', edgecolor='black')
 
     # Add labels and title
-    plt.ylabel('Surface Area')
-    plt.title('1BNA Surface Area by Scheme')
+    plt.ylabel('Surface Area', fontdict=dict(size=15))
+    plt.title('1BNA Surface Area by Scheme', fontdict=dict(size=20))
 
     # Angle the labels and add values at the top of the bars
     plt.xticks([i + bar_width / 2 for i in x], labels, rotation=45, ha='right')

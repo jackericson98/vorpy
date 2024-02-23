@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 
 
 if __name__ == '__main__':
-    prefix1 = 'C:/Users/jacke/Documents/data/'
-    prefix = 'C:/Users/i7-8700/Documents/logs_pdbs/'
+    prefix = 'C:/Users/jacke/Documents/data/'
+    # prefix = 'C:/Users/i7-8700/Documents/logs_pdbs/'
     # my_info = compare_files(pdb_files=[prefix + '181L_coarse_ad.pdb'],
     #                         log_files=[prefix + '181L_coarse_ad_logs.csv'], avg_distros=True, by_residues=True)
     # my_info = compare_files(pdb_files=[prefix + '181L.pdb',

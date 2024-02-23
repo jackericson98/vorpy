@@ -9,39 +9,39 @@ if __name__ == '__main__':
     prefix = 'C:/Users/jacke/Documents/data/'
     # my_info = compare_files(pdb_files=[prefix + '181L_coarse_ad.pdb'],
     #                         log_files=[prefix + '181L_coarse_ad_logs.csv'], avg_distros=True, by_residues=True)
-    my_info = compare_files(pdb_files=[prefix + '181L.pdb',
-                                       prefix + '181L.pdb',
-                                       prefix + '181L_coarse_ad.pdb',
-                                       prefix + '181L_coarse_ad.pdb',
-                                       prefix + '181L_coarse_ncap.pdb',
-                                       prefix + '181L_coarse_ncap.pdb',
-                                       prefix + '181L_coarse_scbb_ad.pdb',
-                                       prefix + '181L_coarse_scbb_ad.pdb',
-                                       prefix + '181L_coarse_scbb_ncap.pdb',
-                                       prefix + '181L_coarse_scbb_ncap.pdb',
-                                       prefix + '181L_martini.pdb',
-                                       prefix + '181L_martini.pdb'],
-                            log_files=[prefix + '181L_atom_vor_logs.csv',
-                                       prefix + '181L_atom_pow_logs.csv',
-                                       prefix + '181L_coarse_ad_logs.csv',
-                                       prefix + '181L_coarse_ad_pow_logs.csv',
-                                       prefix + '181L_coarse_ncap_vor_logs.csv',
-                                       prefix + '181L_coarse_ncap_pow_logs.csv',
-                                       prefix + '181L_coarse_scbb_ad_vor_logs.csv',
-                                       prefix + '181L_coarse_scbb_ad_pow_logs.csv',
-                                       prefix + '181L_coarse_scbb_ncap_vor_logs.csv',
-                                       prefix + '181L_coarse_scbb_ncap_pow_logs.csv',
-                                       prefix + '181L_martini_vor_logs.csv',
-                                       prefix + '181L_martini_pow_logs.csv'], avg_distros=True, by_residues=True)
-
-    with open(prefix + '181L_residue_data.csv', 'w') as res_file:
-        res_fl = csv.writer(res_file)
-        res_fl.writerow(['file', 'residue type', 'name', 'residue', 'volume', 'surface area'])
-        for file in my_info['residues']:
-            for res_type in my_info['residues'][file]:
-                for res_name in my_info['residues'][file][res_type]:
-                    for res in my_info['residues'][file][res_type][res_name]:
-                        res_fl.writerow([file, res_type, res_name, res] + [my_info['residues'][file][res_type][res_name][res][_] for _ in my_info['residues'][file][res_type][res_name][res]])
+    # my_info = compare_files(pdb_files=[prefix + '181L.pdb',
+    #                                    prefix + '181L.pdb',
+    #                                    prefix + '181L_coarse_ad.pdb',
+    #                                    prefix + '181L_coarse_ad.pdb',
+    #                                    prefix + '181L_coarse_ncap.pdb',
+    #                                    prefix + '181L_coarse_ncap.pdb',
+    #                                    prefix + '181L_coarse_scbb_ad.pdb',
+    #                                    prefix + '181L_coarse_scbb_ad.pdb',
+    #                                    prefix + '181L_coarse_scbb_ncap.pdb',
+    #                                    prefix + '181L_coarse_scbb_ncap.pdb',
+    #                                    prefix + '181L_martini.pdb',
+    #                                    prefix + '181L_martini.pdb'],
+    #                         log_files=[prefix + '181L_atom_vor_logs.csv',
+    #                                    prefix + '181L_atom_pow_logs.csv',
+    #                                    prefix + '181L_coarse_ad_logs.csv',
+    #                                    prefix + '181L_coarse_ad_pow_logs.csv',
+    #                                    prefix + '181L_coarse_ncap_vor_logs.csv',
+    #                                    prefix + '181L_coarse_ncap_pow_logs.csv',
+    #                                    prefix + '181L_coarse_scbb_ad_vor_logs.csv',
+    #                                    prefix + '181L_coarse_scbb_ad_pow_logs.csv',
+    #                                    prefix + '181L_coarse_scbb_ncap_vor_logs.csv',
+    #                                    prefix + '181L_coarse_scbb_ncap_pow_logs.csv',
+    #                                    prefix + '181L_martini_vor_logs.csv',
+    #                                    prefix + '181L_martini_pow_logs.csv'], avg_distros=True, by_residues=True)
+    #
+    # with open(prefix + '181L_residue_data.csv', 'w') as res_file:
+    #     res_fl = csv.writer(res_file)
+    #     res_fl.writerow(['file', 'residue type', 'name', 'residue', 'volume', 'surface area'])
+    #     for file in my_info['residues']:
+    #         for res_type in my_info['residues'][file]:
+    #             for res_name in my_info['residues'][file][res_type]:
+    #                 for res in my_info['residues'][file][res_type][res_name]:
+    #                     res_fl.writerow([file, res_type, res_name, res] + [my_info['residues'][file][res_type][res_name][res][_] for _ in my_info['residues'][file][res_type][res_name][res]])
 
     vols, sas = {}, {}
     with open(prefix + '181L_residue_data.csv', 'r') as res_file:
