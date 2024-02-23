@@ -3,7 +3,7 @@ from Data.Analyze.compare_files import compare_files
 
 
 def curvature_by_file():
-
+    pass
 
 
 if __name__ == '__main__':
