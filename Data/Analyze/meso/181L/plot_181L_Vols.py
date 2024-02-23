@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from Data.Analyze.compare.compare_files import compare_files
+from Data.Analyze.compare_files import compare_files
 
 
 if __name__ == '__main__':
