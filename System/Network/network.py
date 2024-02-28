@@ -297,7 +297,7 @@ class Network:
                                  vert_box=self.sys.foam_box, averts=averts)
             if my_guuy is not None:
                 vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = my_guuy
-            if self.sys.foam_box is not None and len(atom_nums) <= 0.25*len(self.atoms['loc']):
+            if self.sys.type == 'foam' and len(atom_nums) <= 0.25*len(self.atoms['loc']):
                 break
         # Create the doublets list
         if vert_list_real is not None and self.type == 'vor':

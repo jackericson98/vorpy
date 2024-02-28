@@ -41,26 +41,28 @@ class System:
 
         # Data
         self.net = None                     # Network             :   Network object holding the primary network
-        self.net2 = None                    # Auxiliary Networks  :   Additional networks to the primary network
+        self.net2 = None                    # Auxiliary Network   :   Additional network to the primary network
         self.sub_nets = None                # Sub Networks        :   Holds the small networks to be combined
         self.user_atoms = atoms             # User Atoms          :   User provided locations and radii
-        self.foam = False
+        self.type = 'mol'                   # Type of file        :   Holds the type of file loaded (mol, coarse, foam)
         self.foam_box = None
         self.foam_data = None
-        self.coarse = False
 
         # Loadable objects
         self.atoms = atoms                  # Atoms               :   List holding the atom objects
         self.residues = residues            # Residues            :   List of residues (lists of atoms)
-        self.chains = chains
-        self.segments = segments
+        self.chains = chains                # Chains              :   List of the chains that make up the molecule
+        self.segments = segments            # Segments            :   List of segments in the molecule
         self.sol = None                     # Solution            :   List of solution molecules (lists of atoms)
 
+        # Settings
         self.groups = []                    # Groups              :   List of groups in the system
         self.ndxs = []                      # Indices             :   List of lists indices of atoms
         self.radii = my_radii               # Radii               :   List of atomic radii
         self.special_radii = special_radii  # Special Radii       :   List of special radius situations. Helpful for gro
         self.decimals = None                # Decimals            :   Decimals setting for the whole system
+        self.export_type = 'large'          # Export type         :   Holds the type of objects that come out
+        self.net_type = 'vor'               # Network Type        :   Holds the network type associated with the build
 
         # Set up the file attributes
         self.data = None                    # Data                :   Additional data provided by the base file
@@ -105,7 +107,7 @@ class System:
             self.load_ndx()
 
         # Get the name
-        if self.foam:
+        if self.type == 'foam':
             fd = self.foam_data
             self.name = self.foam_data
         self.name = path.basename(self.base_file)[:-4]

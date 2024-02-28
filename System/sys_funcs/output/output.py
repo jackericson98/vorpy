@@ -178,7 +178,7 @@ def set_pymol_atoms(sys, no_file=False):
     :return:
     """
     # If we have special circumstances for the atoms in our base file, output the already created set pymol atoms
-    if (sys.coarse or sys.foam) and not no_file:
+    if (sys.type == 'foam' or sys.type == 'coarse') and not no_file:
         # Get the directory for the base_file and copy the set atoms file
         try:
             shutil.copyfile(path.dirname(sys.base_file) + '/set_atoms.pml', sys.dir + '/sys/set_atoms.pml')

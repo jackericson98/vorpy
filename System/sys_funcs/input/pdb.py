@@ -40,12 +40,12 @@ def read_pdb(sys, file=None):
     chains, resids = {}, {}
     # Check if the file is a foam file
     if my_file[0].split()[1] == 'foam_gen':
-        sys.foam = True
+        sys.type = 'foam'
         bw = float(my_file[0].split()[2])
         sys.foam_box = [[0, 0, 0], [bw, bw, bw]]
         sys.foam_data = my_file[0].split()[2:]
     if my_file[0].split()[1] == 'coarsify':
-        sys.coarse = True
+        sys.type = 'coarse'
     # Go through each line in the file and check if the first word is the word we are looking for
     for i in range(len(my_file)):
         # Check to make sure the line isn't empty
@@ -117,7 +117,7 @@ def read_pdb(sys, file=None):
             atom['res'] = my_res
 
             # Assign the radius
-            if sys.foam or sys.coarse:
+            if sys.type == 'foam' or sys.type == 'coarse':
                 atom['rad'] = float(line[60:65])
                 if atom['rad'] == 0:
                     atom['rad'] = 0.001

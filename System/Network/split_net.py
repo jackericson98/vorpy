@@ -99,7 +99,7 @@ def split_net(sys, surf_res=None, max_vert=None, box_size=None, build_surfs=None
             if more_verts is not None:
                 vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = more_verts
             # Every sphere needs a vert
-            if sys.foam_box is not None and len(atom_nums) <= 0.25 * len(sys.atoms['loc']):
+            if sys.type == 'foam' and len(atom_nums) <= 0.25 * len(sys.atoms['loc']):
                 break
     # Create the doublets list
     doublets = [0 for _ in range(len(vert_ndxs))]
@@ -231,7 +231,7 @@ def split_net_slow(sys, surf_res=None, max_vert=None, box_size=None, build_surfs
                     vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = more_verts
                     count += len(vert_ndxs)
                 # Every sphere needs a vert
-                if sys.foam_box is not None and len(atom_nums) <= 0.25 * len(sys.atoms['loc']):
+                if sys.type == 'foam' and len(atom_nums) <= 0.25 * len(sys.atoms['loc']):
                     break
 
             # Write the vertex information into the vert file

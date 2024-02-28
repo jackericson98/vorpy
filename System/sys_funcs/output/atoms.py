@@ -60,7 +60,7 @@ def write_pdb(atoms, file_name, sys, directory=None):
                 x, y, z = a['loc']
                 # Get the information from the atom in writable format
                 tfact = 0
-                if sys.coarse or sys.foam:
+                if sys.type == 'foam' or sys.type == 'coarse':
                     tfact = a['rad']
                 # Write the atom information
                 pdb_file.write(make_pdb_line(ser_num=i, name=a['name'], res_name=a['res'].name, chain=a['chain'].name,
