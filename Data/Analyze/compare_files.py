@@ -1,10 +1,6 @@
-import csv
-
-
 from System.system import System
 from Data.Analyze.read_logs import read_logs
-from Data.Analyze.compare.in_out import in_out_data
-from Data.Analyze.compare.residue import residue_data
+from Data.Analyze.residue import residue_data
 
 
 def compare_files(pdb_files, log_files, build_data=False, totals=False, avg_distros=False, compare_in_out=False,

@@ -1,7 +1,6 @@
 import csv
 import numpy as np
 
-from Data.Analyze.compare.compare_files import compare_files
 import matplotlib.pyplot as plt
 
 

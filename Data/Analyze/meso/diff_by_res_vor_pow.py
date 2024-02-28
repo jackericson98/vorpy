@@ -1,50 +1,40 @@
 import csv
+import os.path
+
 import numpy as np
 
-from Data.Analyze.compare.compare_files import compare_files
+from Data.Analyze.compare_files import compare_files
 import matplotlib.pyplot as plt
 
 
-if __name__ == '__main__':
-    prefix = 'C:/Users/jacke/Documents/data1/'
-    # my_info = compare_files(pdb_files=[prefix + '1BNA_coarse_ad.pdb'],
-    #                         log_files=[prefix + '1BNA_coarse_ad_logs.csv'], avg_distros=True, by_residues=True)
-    # my_info = compare_files(pdb_files=[prefix + '1BNA.pdb',
-    #                                    prefix + '1BNA.pdb',
-    #                                    prefix + '1BNA_coarse_ad.pdb',
-    #                                    prefix + '1BNA_coarse_ad.pdb',
-    #                                    prefix + '1BNA_coarse_ncap.pdb',
-    #                                    prefix + '1BNA_coarse_ncap.pdb',
-    #                                    prefix + '1BNA_coarse_scbb_ad.pdb',
-    #                                    prefix + '1BNA_coarse_scbb_ad.pdb',
-    #                                    prefix + '1BNA_coarse_scbb_ncap.pdb',
-    #                                    prefix + '1BNA_coarse_scbb_ncap.pdb',
-    #                                    prefix + '1BNA_martini.pdb',
-    #                                    prefix + '1BNA_martini.pdb'],
-    #                         log_files=[prefix + '1BNA_atom_vor_logs.csv',
-    #                                    prefix + '1BNA_atom_pow_logs.csv',
-    #                                    prefix + '1BNA_coarse_ad_logs.csv',
-    #                                    prefix + '1BNA_coarse_ad_pow_logs.csv',
-    #                                    prefix + '1BNA_coarse_ncap_vor_logs.csv',
-    #                                    prefix + '1BNA_coarse_ncap_pow_logs.csv',
-    #                                    prefix + '1BNA_coarse_scbb_ad_vor_logs.csv',
-    #                                    prefix + '1BNA_coarse_scbb_ad_pow_logs.csv',
-    #                                    prefix + '1BNA_coarse_scbb_ncap_vor_logs.csv',
-    #                                    prefix + '1BNA_coarse_scbb_ncap_pow_logs.csv',
-    #                                    prefix + '1BNA_martini_vor_logs.csv',
-    #                                    prefix + '1BNA_martini_pow_logs.csv'], avg_distros=True, by_residues=True)
-
-    # with open(prefix + '1BNA_residue_data.csv', 'w') as res_file:
-    #     res_fl = csv.writer(res_file)
-    #     res_fl.writerow(['file', 'residue type', 'name', 'residue', 'volume', 'surface area'])
-    #     for file in my_info['residues']:
-    #         for res_type in my_info['residues'][file]:
-    #             for res_name in my_info['residues'][file][res_type]:
-    #                 for res in my_info['residues'][file][res_type][res_name]:
-    #                     res_fl.writerow([file, res_type, res_name, res] + [my_info['residues'][file][res_type][res_name][res][_] for _ in my_info['residues'][file][res_type][res_name][res]])
-
+def percent_diff(pdb_log_dir, file_name, sa_vol='vol', martini=False):
+    # Set up the martini variable so that if it is needed we can add it
+    martini_list, martini_name = [], []
+    if martini:
+        martini_list = ['_martini']
+        martini_name = ['Martini']
+    # Create the list of names
+    names = ['', '_ad', '_ncap', '_scbb_ad', '_scbb_ncap'] + martini_list
+    # Create the directories and duplicate them for the vor and power logs
+    pdb_files = [pdb_log_dir + file_name + name + '.pdb' for name in names for _ in range(2)]
+    # Create the log files lists
+    log_files = [pdb_log_dir + file_name + name + _ + '_logs.csv' for name in names for _ in ['_vor', '_pow']]
+    # Check to see if the data has been processed yet
+    if not os.path.exists(pdb_log_dir + file_name + '_residue_data.csv'):
+        # Get the data from the log files and sort it
+        my_info = compare_files(pdb_files, log_files, avg_distros=True, by_residues=True)
+        # Put the data into a csv file for later access
+        with open(pdb_log_dir + file_name + '_residue_data.csv', 'w') as res_file:
+            res_fl = csv.writer(res_file)
+            res_fl.writerow(['file', 'residue type', 'name', 'residue', 'volume', 'surface area'])
+            for file in my_info['residues']:
+                for res_type in my_info['residues'][file]:
+                    for res_name in my_info['residues'][file][res_type]:
+                        for res in my_info['residues'][file][res_type][res_name]:
+                            res_fl.writerow([file, res_type, res_name, res] + [my_info['residues'][file][res_type][res_name][res][_] for _ in my_info['residues'][file][res_type][res_name][res]])
+    # Start re-sorting the data
     vols, sas = {}, {}
-    with open(prefix + '1BNA_residue_data.csv', 'r') as res_file:
+    with open(pdb_log_dir + file_name + '_residue_data.csv', 'r') as res_file:
         res_reader = csv.reader(res_file)
         for i, line in enumerate(res_reader):
             if i == 0:
@@ -83,19 +73,24 @@ if __name__ == '__main__':
                                                'min': min(sa_by_type), 'sd': np.std(sa_by_type), 'data': sa_by_type}
 
     # Sample data
-    labels = ['Atoms', 'Avg Dist', 'Encapsulate', 'SC/BB AD', 'SC/BB Encap.']
+    labels = ['Atoms', 'Avg Dist', 'Encapsulate', 'SC/BB AD', 'SC/BB Encap.'] + martini_name
 
     # Get the percent difference for each residue and average
     means, std_errs = [0], [0]
     for file in sas:
-        if file == '1BNA':
+        if file == file_name:
             continue
         my_perc_diff = []
-
-        for res_name in vols[file]['nucs']:
-            for i in range(len(vols[file]['nucs'][res_name])):
-                my_perc_diff.append(abs(float(vols['1BNA']['nucs'][res_name][i]) - float(
-                    vols[file]['nucs'][res_name][i])) / float(vols['1BNA']['nucs'][res_name][i]))
+        try:
+            for res_name in vols[file]['nucs']:
+                for i in range(len(vols[file]['nucs'][res_name])):
+                    my_perc_diff.append(abs(float(vols[file_name]['nucs'][res_name][i]) - float(
+                        vols[file]['nucs'][res_name][i])) / float(vols[file_name]['nucs'][res_name][i]))
+        except KeyError:
+            for res_name in vols[file]['amines']:
+                for i in range(len(vols[file]['amines'][res_name])):
+                    my_perc_diff.append(abs(float(vols[file_name]['amines'][res_name][i]) - float(
+                        vols[file]['amines'][res_name][i])) / float(vols[file_name]['amines'][res_name][i]))
         means.append(np.mean(my_perc_diff) * 100)
         std_errs.append(np.std(my_perc_diff) / np.sqrt(len(my_perc_diff)) * 100)
 
@@ -121,9 +116,12 @@ if __name__ == '__main__':
         plt.errorbar(bar.get_x() + bar.get_width() / 2, mean2s[i], yerr=std2s[i], capsize=5, capthick=2,
                      color='black', alpha=0.8)
 
+    value = 'Volume'
+    if sa_vol == 'sa':
+        value = 'Surface Area'
     # Add labels and title
-    plt.ylabel('% Difference Volume', fontdict=dict(size=15))
-    plt.title('1BNA Average Residue Variance (SA)', fontdict=dict(size=20))
+    plt.ylabel('% Difference ' + value, fontdict=dict(size=15))
+    plt.title(file_name + 'Average Residue Variance ({})'.format(sa_vol.upper()), fontdict=dict(size=20))
 
     # Angle the labels and add values at the top of the bars
     plt.xticks([i + bar_width / 2 for i in x], labels, rotation=45, ha='right', font=dict(size=10))
@@ -146,3 +144,7 @@ if __name__ == '__main__':
     # Show the plot
     plt.tight_layout()
     plt.show()
+
+
+if __name__ == '__main__':
+    percent_diff('C:/Users/i7-8700/Documents/1BNA/', '1BNA', 'vol', False)

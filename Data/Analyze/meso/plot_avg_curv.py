@@ -2,6 +2,10 @@ import matplotlib.pyplot as plt
 from Data.Analyze.compare_files import compare_files
 
 
+def curvature_by_file():
+    pass
+
+
 if __name__ == '__main__':
     prefix = 'C:/Users/jacke/Documents/data1/'
     my_info = compare_files(pdb_files=[prefix + '1BNA.pdb',
