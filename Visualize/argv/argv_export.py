@@ -2,7 +2,7 @@ import os.path
 from System.sys_funcs.output.output import export_min1, export_min2, export_med, export_large, export_all, other_exports, set_sys_dir
 
 
-def argv_export(my_sys, usr_npt, interfaces=False):
+def argv_export(my_sys, usr_npt, interfaces=False, add_on=None):
     """
     Exports the specified elements from the system.
 
@@ -35,7 +35,10 @@ def argv_export(my_sys, usr_npt, interfaces=False):
             if npt[1] == 'gsu_logs':
                 set_sys_dir(my_sys, "C:/Users/jacke/OneDrive - Georgia State University/GSU NSC/Jack/Vorpy/test_data/{}/logs".format(my_sys.name))
             else:
-                my_sys.dir = npt[1]
+                if add_on is None:
+                    my_sys.dir = npt[1]
+                else:
+                    my_sys.dir = npt[1] + add_on
     for npt in usr_npt:
         if npt[0].lower() in {'dir', 'directory'}:
             continue
@@ -49,7 +52,7 @@ def export_npt(my_sys, usr_npt=None):
     :param usr_npt:
     :return:
     """
-
+    print(my_sys.dir)
     # If nothing is specified export the defaults
     if usr_npt is None or usr_npt.lower() in {'default', '2', 'medium', '', 'med'}:
         export_large(sys=my_sys)
