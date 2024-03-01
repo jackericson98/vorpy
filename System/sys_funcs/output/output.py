@@ -85,8 +85,13 @@ def set_sys_dir(sys, dir_name=None):
     :param dir_name: Name for the directory
     :return:
     """
-    if not os.path.exists("./Data/user_data"):
+
+    # Make sure a user_data path exists
+    if sys.vpy_dir is not None and not os.path.exists(sys.vpy_dir + "/Data/user_data"):
+        os.mkdir(sys.vpy_dir + "/Data/user_data")
+    elif sys.vpy_dir is None and not os.path.exists("./Data/user_data"):
         os.mkdir("./Data/user_data")
+
     # If no outer directory was specified use the directory outside the current one
     if dir_name is None:
         if sys.vpy_dir is not None:
