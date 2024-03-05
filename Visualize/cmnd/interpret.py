@@ -81,15 +81,13 @@ def get_file(file=None):
     if file is None:
         print("enter a file address. (Use \'./\' to load a file from the \'.../vorpy\' directory):")
     # Check the file
-    checking_file = True
-    while checking_file:
+    while True:
         # Get the file if None was specified
         if file is None:
             file = input("file >>>   ")
             if file.lower() in quits:
                 return
             elif len(file) == 0:
-                checking_file = True
                 continue
             elif file.lower() in helps:
                 help_()
@@ -98,15 +96,15 @@ def get_file(file=None):
                 file = file[len(test_file[0]) + 1:]
         # Check if the initial file works
         if path.exists(file) and len(file) > 0:
-            checking_file = False
+            break
         # Check if the file is in the ./Data/test_data folder
         elif path.exists("./Data/test_data/" + file) and len(file) > 0:
             file = os.getcwd() + "/Data/test_data/" + file
-            checking_file = False
+            break
         # Check if it is just the raw name
         elif path.exists("./Data/test_data/" + file + ".pdb") and len(file) > 0:
             file = os.getcwd() + "/Data/test_data/" + file + ".pdb"
-            checking_file = False
+            break
         # Otherwise, tell the user to try again
         else:
             invalid_input(file)
