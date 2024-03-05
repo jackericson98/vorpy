@@ -6,7 +6,7 @@ radius = 1
 distance_between_circles = 3
 
 # Generate points around the circles
-num_points = 100
+num_points = 1000
 theta = np.linspace(0, 2*np.pi, num_points)
 x_circle1 = radius * np.cos(theta)
 y_circle1 = radius * np.sin(theta)
@@ -37,25 +37,25 @@ ax.plot(x_circle1, y_circle1, 'r')
 ax.plot(x_circle2, y_circle2, 'b')
 
 # Plot random points inside and outside the circles
-ax.scatter(x_rand_inside, y_rand_inside, color='blue', label='Points Closer to Blue Circle')
-ax.scatter(x_rand_outside, y_rand_outside, color='red', label='Points Closer to Red Circle')
+# ax.scatter(x_rand_inside, y_rand_inside, color='blue', label='Points Closer to Blue Circle')
+# ax.scatter(x_rand_outside, y_rand_outside, color='red', label='Points Closer to Red Circle')
 
 # Color the points based on the closest circle
 for x, y in zip(x_rand_inside, y_rand_inside):
     distance_to_circle1 = np.sqrt((x - x_circle1)**2 + (y - y_circle1)**2)
     distance_to_circle2 = np.sqrt((x - x_circle2)**2 + (y - y_circle2)**2)
     if np.min(distance_to_circle1) < np.min(distance_to_circle2):
-        ax.scatter(x, y, color='r')
+        ax.scatter(x, y, color='r', marker='.')
     else:
-        ax.scatter(x, y, color='b')
+        ax.scatter(x, y, color='b', marker='.')
 
 for x, y in zip(x_rand_outside, y_rand_outside):
     distance_to_circle1 = np.sqrt((x - x_circle1)**2 + (y - y_circle1)**2)
     distance_to_circle2 = np.sqrt((x - x_circle2)**2 + (y - y_circle2)**2)
     if np.min(distance_to_circle1) < np.min(distance_to_circle2):
-        ax.scatter(x, y, color='r')
+        ax.scatter(x, y, color='r', marker='.')
     else:
-        ax.scatter(x, y, color='b')
+        ax.scatter(x, y, color='b', marker='.')
 
 # Set aspect ratio to equal and add legend
 ax.set_aspect('equal', 'box')
