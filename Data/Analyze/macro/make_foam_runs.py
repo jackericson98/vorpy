@@ -32,7 +32,7 @@ with open('C:/Users/i7-8700/PycharmProjects/vorpy/foam_runs.bat', 'w') as foam_f
         tot += 1
         run_dir = file_directory + '/' + my_dir +'/' + new_file + '.pdb'
         export_dir = file_directory + '/' + my_dir
-        if os.path.exists(run_dir) and not os.path.exists(run_dir + '/vor'):
+        if os.path.exists(export_dir) and not os.path.exists(export_dir + '/vor'):
             foam_file.write('\npython3 vorpy.py {} -s nt compare -e dir {} -e large'.format(run_dir, export_dir))
         else:
             num_done += 1

@@ -52,7 +52,6 @@ def export_npt(my_sys, usr_npt=None):
     :param usr_npt:
     :return:
     """
-    print(my_sys.dir)
     # If nothing is specified export the defaults
     if usr_npt is None or usr_npt.lower() in {'default', '2', 'medium', '', 'med'}:
         export_large(sys=my_sys)

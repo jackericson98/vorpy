@@ -279,7 +279,6 @@ class System:
         # Small networks and no split option
         if len(my_group.atoms) < num_atoms_sub_net or no_split:
             # Build the network
-            print('reg')
             self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs,
                            calc_verts=calc_verts, net_type=net_type, my_group=my_group, print_actions=print_actions)
             self.net.metrics['splits'] = 1
