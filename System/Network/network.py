@@ -7,7 +7,7 @@ from System.Network.verts.find_verts import find_verts
 from System.Network.verts.mark_doublets import mark_doublets
 from System.Network.build_net import build
 from System.Network.edges.build_edge import build_edge
-from System.Network.surfs.build_surf import build_surf
+from System.Network.surfs.build_surfs import build_surfs
 from System.sys_funcs.calcs.calcs import calc_vol, calc_length, get_time, calc_dist
 from System.sys_funcs.calcs.sorting import ndx_search, global_vars, box_search, get_atoms
 from System.sys_funcs.calcs.surf import calc_surf_func, calc_surf_sa, calc_surf_tri_curvs
@@ -355,33 +355,7 @@ class Network:
         """
         Takes in a system and returns a fully connected network
         """
-        # Make each surface
-        points, tris, tri_curvs, curvs, funcs, coms, flats = [], [], [], [], [], [], []
-        for i, surf in self.surfs.iterrows():
-            # Build the surfaces and print the progress
-            my_time = time.perf_counter() - self.start_time
-            h, m, s = get_time(my_time)
-            print("\rRun Time = {:2}:{:2}:{:.2f} - Process: building surfaces {:.2f} %                                 "
-                  .format(int(h), int(m), round(s, 2), min(100.0, 100 * round(i/len(self.surfs), 4))), end="")
-            arads = [self.atoms['rad'][_] for _ in surf['satoms']]
-            alocs = [self.atoms['loc'][_] for _ in surf['satoms']]
-            if arads[0] > arads[1]:
-                arads, alocs = [arads[1], arads[0]], [alocs[1], alocs[0]]
-            my_surf = build_surf(alocs=alocs, arads=arads, epnts=[self.edges['points'][_] for _ in surf['sedges']],
-                                 res=self.surf_res, net_type=self.type)
-            surf_points, surf_tris, surf_tri_curvs, surf_curv, surf_func, surf_com, surf_flat = my_surf
-            points.append(surf_points)
-            tris.append(surf_tris)
-            tri_curvs.append(surf_tri_curvs)
-            curvs.append(surf_curv)
-            funcs.append(surf_func)
-            coms.append(surf_com)
-            flats.append(surf_flat)
-        # Set the dataframe elements
-        self.surfs['points'], self.surfs['tris'], self.surfs['tri_curvs'], self.surfs['curv'], self.surfs['func'], \
-            self.surfs['com'], self.surfs['flat'] = points, tris, tri_curvs, curvs, funcs, coms, flats
-        print("\r                                                                                             ", end='')
-        self.metrics['surf'] = time.perf_counter() - self.start_time - self.metrics['vert'] - self.metrics['con']
+        build_surfs(self)
 
     def analyze(self):
         """
@@ -403,41 +377,20 @@ class Network:
                   .format(int(h), int(m), round(s, 2), percentage), end="")
         self.edges['length'] = lengths
         # Go through each surface in the system and find the simplices and the surface area
-        sas = []
-        surfs_tri_curvs, surfs_curvs = [], []
-        j = 0
-        for j, surf in self.surfs.iterrows():
-            percentage = int((i + j + 1) / tot_num * 100)
-            sas.append(calc_surf_sa(edges=[self.edges['points'][_] for _ in surf['sedges']], com=array(surf['com']),
-                                    tris=surf['tris'], points=surf['points'], flat=surf['flat']))
-            # Get the curvature of the surface patch
-            if surf['curv'] is None or (surf['curv'] == 0 and not surf['flat']):
-                surf_tri_curvs, scurvs = calc_surf_tri_curvs(surf['func'], surf['points'], surf['tris'], surf['curv'])
-                surfs_tri_curvs.append(surf_tri_curvs)
-                surfs_curvs.append(scurvs)
-            else:
-                surfs_tri_curvs.append(surf['tri_curvs'])
-                surfs_curvs.append(surf['curv'])
-            my_time = time.perf_counter() - self.start_time
-            h, m, s = get_time(my_time)
-            print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                  "
-                  .format(int(h), int(m), round(s, 2), percentage), end="")
         # Get the curvature in the 95th percentile
-        my_surf_curvs = surfs_curvs.copy()
+        my_surf_curvs = self.surfs['curv'].to_list()
         my_surf_curvs.sort()
         try:
             self.max_curv = my_surf_curvs[min(int(0.99 * len(my_surf_curvs)), len(my_surf_curvs) - 1)]
         except IndexError:
             self.max_curv = 0
-        # Assign the values
-        self.surfs['sa'], self.surfs['curv'], self.surfs['tri_curvs'] = sas, surfs_curvs, surfs_tri_curvs
         # Set up the atoms' volumes surface areas, curvatures vars
         avols, asas, acurvs, acell = [], [], [], []
         asurfs_vols = [[] for _ in range(len(self.surfs))]
         # Go through each atom in the system and find the volume
         for k, atom in self.atoms.iterrows():
             # Get the percentage for printing
-            percentage = int((i + j + k + 2) / tot_num * 100)
+            percentage = int((i + k + 2) / tot_num * 100)
             avol, asurf_vols = calc_vol(atom['loc'], [self.surfs['points'][_] for _ in atom['asurfs']],
                                         [self.surfs['tris'][_] for _ in atom['asurfs']])
             # Exclude atoms that have super large volumes (weird edge error)

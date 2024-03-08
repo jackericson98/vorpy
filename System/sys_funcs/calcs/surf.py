@@ -103,7 +103,7 @@ def calc_surf_point_curv(func, point):
     return - numerator / denominator
 
 
-def calc_surf_tri_curvs(func, points, tris, max_curv):
+def calc_surf_tri_curvs(func, points, tris, max_curv=0):
     """
     Calculates the curvature of the triangles
     :param calc_max_curv:
