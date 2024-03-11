@@ -50,7 +50,7 @@ def write_net_logs(net, round_to=3):
         # Go through the surfaces in the system and write their information
         for i, surf in net.surfs.iterrows():
             # Write the information for the surface
-            lg_fl.writerow([i, *surf['satoms'], r(surf['sa']), r(surf['curv']), r(surf['vols'][0]), r(surf['vols'][1])])
+            lg_fl.writerow([i, *surf['satoms'], r(surf['sa']), r(surf['curv']), r(surf['vols'][surf['satoms'][0]]), r(surf['vols'][surf['satoms'][1]])])
         # Write the edges header
         lg_fl.writerow(["Edges"])
         # Write the edges headers

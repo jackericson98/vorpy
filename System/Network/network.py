@@ -3,15 +3,14 @@ from _datetime import datetime
 import pandas as pd
 import csv
 import os
-from System.Network.verts.find_verts import find_verts
 from System.Network.verts.mark_doublets import mark_doublets
+from System.Network.verts.find_net_verts import find_net_verts
 from System.Network.build_net import build
 from System.Network.edges.build_edge import build_edge
 from System.Network.surfs.build_surfs import build_surfs
-from System.sys_funcs.calcs.calcs import calc_vol, calc_length, get_time, calc_dist
-from System.sys_funcs.calcs.sorting import ndx_search, global_vars, box_search, get_atoms
-from System.sys_funcs.calcs.surf import calc_surf_func, calc_surf_sa, calc_surf_tri_curvs
-from System.sys_funcs.output.net import write_verts
+from System.sys_funcs.calcs.calcs import calc_vol, calc_length, get_time, calc_tetra_vol
+from System.sys_funcs.calcs.sorting import ndx_search
+from System.sys_funcs.calcs.surf import calc_surf_func
 from numpy import array, inf, cbrt, sqrt, pi
 
 
@@ -253,103 +252,28 @@ class Network:
         """
         Using the functions in find_vertices.py finds the vertices in the network
         """
-        global_vars(self.sub_boxes, self.box, self.num_splits, self.sys.max_atom_rad, self.sub_box_size)
-        # Check to see if a group has been provided
-        if my_group is not None:
-            atom_nums = my_group.atom_ndxs[:]
-        else:
-            atom_nums = [i for i in range(len(self.atoms))]
-        vert_list_real = self.get_real_verts()
-        # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
-        self.atom_ndxs = [_ for _ in atom_nums]
-        my_group_atom_ndxs = None
-        if my_group is not None:
-            my_group_atom_ndxs = my_group.atom_ndxs
-        my_guuy = find_verts(alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
-                             max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums,
-                             my_group=my_group_atom_ndxs, start_time=self.start_time, print_metrics=print_metrics,
-                             vert_box=self.sys.foam_box)
-        if my_guuy is not None:
-            vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = my_guuy
-        # Check to see if any of the atoms are encapsulated
-        if len(atom_nums) > 0:
-            skip_nums = []
-            for atom in atom_nums:
-                atom_rad, atom_loc = self.atoms['rad'][atom], self.atoms['loc'][atom]
-                atom_box = box_search(atom_loc)
-                near_atoms = get_atoms(atom_box, dist=self.sys.max_atom_rad - atom_rad)
-                for atom2 in near_atoms:
-                    if calc_dist(atom_loc, self.atoms['loc'][atom2]) < abs(self.atoms['rad'][atom2] - atom_rad):
-                        print("\nUh oh! Ball # {} is fully encapsulated by ball # {}! Skipping {}"
-                              .format(atom, atom2, atom))
-                        skip_nums.append(atom)
-                        break
-            for _ in skip_nums:
-                atom_nums.pop(atom_nums.index(_))
-
-        # Check for disconnects in the network
-        while len(atom_nums) > 0:
-            a0 = atom_nums.pop()
-            my_guuy = find_verts(a0=a0, alocs=self.atoms['loc'].to_numpy(), arads=self.atoms['rad'].to_numpy(),
-                                 max_vert=self.max_vert, net_type=self.type, check_atoms=atom_nums,
-                                 my_group=my_group.atom_ndxs, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
-                                 vloc2s=vloc2s, vrad2s=vrad2s, start_time=self.start_time, print_metrics=print_metrics,
-                                 vert_box=self.sys.foam_box, averts=averts)
-            if my_guuy is not None:
-                vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = my_guuy
-            if self.sys.type == 'foam' and len(atom_nums) <= 0.25*len(self.atoms['loc']):
-                break
-        # Create the doublets list
-        if vert_list_real is not None and self.type == 'vor':
-            missing_verts = [_ for _ in vert_list_real if _ not in vert_ndxs]
-            print(missing_verts)
-            extra_verts = [_ for _ in vert_ndxs if _ not in vert_list_real]
-            print(extra_verts)
-        doublets = [0 for _ in range(len(vert_ndxs))]
-        # Incorporate the doublets into the vlocs, vatoms, vrads lists and lose the vloc2s and vrad2s
-        i = 0
-        while i < len(vlocs):
-            # Check for doubletness
-            if vrad2s[i] is not None:
-                # Insert the relevant information into their respective lists
-                vert_ndxs.insert(i + 1, vert_ndxs[i])
-                vlocs.insert(i + 1, vloc2s[i])
-                vrads.insert(i + 1, vrad2s[i])
-                doublets.insert(i + 1, 1)
-                # Preserve the relational aspects of vrad2s and vloc2s
-                vrad2s.insert(i + 1, None)
-                vloc2s.insert(i + 1, [None, None, None])
-            i += 1
-
-        # Make the dataframe
-        self.verts = pd.DataFrame({"vatoms": vert_ndxs, 'vloc': vlocs, 'vrad': vrads, 'vdub': doublets})
-        # Clear the print statement
-        print("\r                                                                  ", end="")
-        self.metrics['vert'] = time.perf_counter() - self.start_time
-        write_verts(self)
+        find_net_verts(self, my_group=my_group, print_metrics=print_metrics)
 
     def build_edges(self):
         """
         Builds the edges in the network for use in the surfaces
         """
         # Set the edge points and vals lists
-        edges_points, edges_vals = [], []
+        edges_points, edges_vals, edges_lengths = [], [], []
         # Go through the edges in the network
         for i, edge in self.edges.iterrows():
             # Build the edge depending on if it is straight or not
             straight = True if self.type in ['pow', 'flat', 'del'] else False
-            try:
-                edge_points, edge_vals = build_edge(alocs=[array(self.atoms['loc'][_]) for _ in edge['eatoms']],
+            edge_points, edge_vals = build_edge(alocs=[array(self.atoms['loc'][_]) for _ in edge['eatoms']],
                                                 arads=[self.atoms['rad'][_] for _ in edge['eatoms']],
                                                 vlocs=[array(self.verts['vloc'][_]) for _ in edge['everts']],
                                                 res=self.surf_res, straight=straight)
-            except TypeError:
-                print('\n\n\n', edge, '\n\n\n\n')
             # Add them to the lists
+            edges_lengths.append(calc_length(array(edge_points)))
             edges_points.append(edge_points)
             edges_vals.append(edge_vals)
         # Set the dataframe values
-        self.edges['points'], self.edges['vals'] = edges_points, edges_vals
+        self.edges['points'], self.edges['vals'], self.edges['length'] = edges_points, edges_vals, edges_lengths
 
     def build_surfaces(self):
         """
@@ -361,59 +285,23 @@ class Network:
         """
         Analyzes the output surfaces, cells and solute vertices for the network for later reference
         """
-        # Get the percentage total number
-        tot_num = len(self.edges) + len(self.surfs) + len(self.atoms)
-        # Go through the edges in the network
-        i = 0
-        lengths = []
-        for i, edge in self.edges.iterrows():
-            percentage = int(i / tot_num * 100)
-            # Calculate the length of each edge
-            length = calc_length(array(edge['points']))
-            lengths.append(length)
-            my_time = time.perf_counter() - self.start_time
-            h, m, s = get_time(my_time)
-            print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                  "
-                  .format(int(h), int(m), round(s, 2), percentage), end="")
-        self.edges['length'] = lengths
-        # Go through each surface in the system and find the simplices and the surface area
-        # Get the curvature in the 95th percentile
-        my_surf_curvs = self.surfs['curv'].to_list()
-        my_surf_curvs.sort()
-        try:
-            self.max_curv = my_surf_curvs[min(int(0.99 * len(my_surf_curvs)), len(my_surf_curvs) - 1)]
-        except IndexError:
-            self.max_curv = 0
         # Set up the atoms' volumes surface areas, curvatures vars
         avols, asas, acurvs, acell = [], [], [], []
-        asurfs_vols = [[] for _ in range(len(self.surfs))]
         # Go through each atom in the system and find the volume
         for k, atom in self.atoms.iterrows():
             # Get the percentage for printing
-            percentage = int((i + k + 2) / tot_num * 100)
-            avol, asurf_vols = calc_vol(atom['loc'], [self.surfs['points'][_] for _ in atom['asurfs']],
-                                        [self.surfs['tris'][_] for _ in atom['asurfs']])
+            percentage = int(k / len(self.atoms['loc']) * 100)
+            # Calculate the surface area of the atom by summing the surface areas of all it's surfaces
+            asas.append(sum([self.surfs['sa'][_] for _ in atom['asurfs']]))
+            # Go through the atom's surfaces
+            acurvs.append(max([self.surfs['curv'][_] for _ in atom['asurfs']]))
+            # Calculate the volume of the atom by the previouslty stored volume data
+            avol = sum([self.surfs['vols'][_][atom['num']] for _ in atom['asurfs']])
             # Exclude atoms that have super large volumes (weird edge error)
             bad_atom = False
             if avol > 15 * 4/3 * atom['rad'] ** 3 * pi:
                 bad_atom = True
             avols.append(avol)
-            for i, surf_vol in enumerate(asurf_vols):
-                asurfs_vols[atom['asurfs'][i]].append([k, surf_vol])
-            # Get/calculate the surface area
-            if 'sa' not in atom or atom['sa'] is None or atom['sa'] == 0:
-                asas.append(sum([self.surfs['sa'][_] for _ in atom['asurfs']]))
-            else:
-                asas.append(atom['sa'])
-            # Check that the curvature is None
-            if 'curv' not in atom or atom['curv'] is None or atom['curv'] == 0:
-                atom_curv = 0
-                # Go through the atom's surfaces
-                for m in atom['asurfs']:
-                    surf = self.surfs.iloc[m]
-                    if surf['curv'] > atom_curv:
-                        atom_curv = surf['curv']
-                acurvs.append(atom_curv)
             # Check for complete cells in the atoms
             complete = True
             # Go through each of the vertices in the in the atom
@@ -431,8 +319,6 @@ class Network:
             h, m, s = get_time(my_time)
             print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                 "
                   .format(int(h), int(m), round(s, 2), percentage), end="")
-        self.surfs['vols'] = [[asurfs_vols[i][0][1], asurfs_vols[i][1][1]] if asurfs_vols[i][0][0]<asurfs_vols[i][1][0]
-                              else [asurfs_vols[i][1][1], asurfs_vols[i][0][1]] for i in range(len(self.surfs))]
         self.atoms['vol'], self.atoms['sa'], self.atoms['curv'], self.atoms['complete'] = avols, asas, acurvs, acell
         self.metrics['anal'] = time.perf_counter() - self.start_time - self.metrics['surf'] - self.metrics['con'] - self.metrics['vert']
 
