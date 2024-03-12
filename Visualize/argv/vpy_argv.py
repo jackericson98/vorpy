@@ -23,7 +23,8 @@ Argv rules:
 def interpret_argvs():
     # Separate the rest of the argv args
     my_args = sys.argv[2:]
-    npt_cmnds, set_cmnds, grp_cmnds, bld_cmnds, xpt_cmnds, ifc_cmnds = [], [], [], [], [], []
+    # Set up the commands dictionary
+    cmnds = {'npt': [], 'set': [], 'grp': [], 'bld': [], 'xpt': [], 'ifc': []}
     # Go through the arguments
     while my_args:
         # Remove the first argument flag
@@ -38,19 +39,19 @@ def interpret_argvs():
                 arg_cmnds.append(my_args.pop(0))
         # Add the command to the 181L list
         if arg.lower() == '-l':
-            npt_cmnds.append(arg_cmnds)
+            cmnds['npt'].append(arg_cmnds)
         elif arg.lower() == '-s':
-            set_cmnds.append(arg_cmnds)
+            cmnds['set'].append(arg_cmnds)
         elif arg.lower() == '-g':
-            grp_cmnds.append(arg_cmnds)
+            cmnds['grp'].append(arg_cmnds)
         elif arg.lower() == '-b':
-            bld_cmnds.append(arg_cmnds)
+            cmnds['bld'].append(arg_cmnds)
         elif arg.lower() == '-e':
-            xpt_cmnds.append(arg_cmnds)
+            cmnds['xpt'].append(arg_cmnds)
         elif arg.lower() == '-i':
-            ifc_cmnds.append(arg_cmnds)
+            cmnds['ifc'].append(arg_cmnds)
     # Return the lists
-    return npt_cmnds, set_cmnds, grp_cmnds, bld_cmnds, xpt_cmnds, ifc_cmnds
+    return cmnds
 
 
 def argv(my_sys):
@@ -61,23 +62,24 @@ def argv(my_sys):
     else:
         argv_load_atoms(my_sys, ["", sys.argv[1]])
     # Interpret the commands
-    files, settings, groups, builds, exports, ifaces = interpret_argvs()
+    cmnds = interpret_argvs()
+    my_sys.cmnds = cmnds
     # Go through each of the ls
-    argv_load(my_sys, files)
-    argv_sett(my_sys, settings)
+    argv_load(my_sys, cmnds['npt'])
+    argv_sett(my_sys, cmnds['set'])
     max_vert = my_sys.net.max_vert
-    argv_group(my_sys, groups, bff=ifaces)
+    argv_group(my_sys, cmnds['grp'], bff=cmnds['ifc'])
     # If we are comparing two network types
     if my_sys.net2:
         start = time.perf_counter()
         my_sys.net = Network(sys=my_sys, atoms=my_sys.atoms, net_type='pow')
         my_sys.name = my_sys.name + '_pow'
         atoms2 = my_sys.atoms.copy()
-        my_sys.set_output_directory(exports[0][1] + '/pow')
+        my_sys.set_output_directory(cmnds['xpt'][0][1] + '/pow')
         for my_group in my_sys.groups:
             if len(my_group.atoms) > 0:
                 my_sys.net.build(my_group=my_group, max_vert=max_vert, print_vert_metrics=False, print_actions=False, surf_res=0.7)
-        argv_export(my_sys, exports, add_on='/pow')
+        argv_export(my_sys, cmnds['xpt'], add_on='/pow')
         atom_vals_pow = []
         atom_nums_pow = []
         for i, atom in my_sys.net.atoms.iterrows():
@@ -88,7 +90,7 @@ def argv(my_sys):
                 atom_vals_pow.append({})
         my_sys.net2 = my_sys.net
         my_sys.net = Network(sys=my_sys, atoms=atoms2, net_type='vor')
-        my_sys.set_output_directory(exports[0][1] + '/vor')
+        my_sys.set_output_directory(cmnds['xpt'][0][1] + '/vor')
         os.chdir(my_sys.dir)
         for my_group in my_sys.groups:
             if len(my_group.atoms) > 0:
@@ -117,12 +119,12 @@ def argv(my_sys):
             foam_writer = csv.writer(foam_file)
             foam_writer.writerow(my_line)
         os.chdir(current_dir)
-        argv_export(my_sys, exports, add_on='/vor')
+        argv_export(my_sys, cmnds['xpt'], add_on='/vor')
         return
     elif my_sys.net_file is None:
-        argv_build(my_sys, builds)
+        argv_build(my_sys, cmnds['bld'])
 
-    argv_export(my_sys, exports)
+    argv_export(my_sys, cmnds['xpt'])
 
 
 if __name__ == '__main__':

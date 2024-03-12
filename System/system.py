@@ -63,6 +63,7 @@ class System:
         self.decimals = None                # Decimals            :   Decimals setting for the whole system
         self.export_type = 'large'          # Export type         :   Holds the type of objects that come out
         self.net_type = 'vor'               # Network Type        :   Holds the network type associated with the build
+        self.cmnds = None                   # Commands            :   All of the input commands for the sytem to be run
 
         # Set up the file attributes
         self.data = None                    # Data                :   Additional data provided by the base file

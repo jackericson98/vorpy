@@ -147,75 +147,11 @@ class Network:
         # set the box data
         self.atoms['box'] = my_boxes
 
-    def sort_verts(self, my_group=None):
+    def find_verts(self, my_group=None, print_metrics=False):
         """
-        Puts the vertices in the network in their respective grid sections
-        :return: Places the vertices into their 181L sub_boxes
+        Using the functions in find_vertices.py finds the vertices in the network
         """
-        # Check to see if a group is provided
-        if my_group is not None:
-            atom_ndxs = [_['num'] for _ in my_group.atoms]
-        else:
-            atom_ndxs = [_['num'] for _ in self.atoms]
-        atom_ndxs.sort()
-        # Instantiate the grid structure of lists is locations representing a grid
-        self.vert_sub_boxes = [[[[] for _ in range(self.box_max[2] + 1)]
-                               for _ in range(self.box_max[1] + 1)] for _ in range(self.box_max[0] + 1)]
-
-        # Sort the atoms
-        drop_verts = []
-        for i, vert in enumerate(self.verts):
-            # Check that the vertex has at least one atom of interest
-            for ndx in vert['ndx']:
-                search_ndx = ndx_search(atom_ndxs, ndx)
-                if atom_ndxs[search_ndx] == ndx:
-                    break
-            else:
-                drop_verts.append(i)
-            # Adjust the maximum radius
-            if vert['rad'] > self.max_vert_rad:
-                self.max_vert_rad = vert['rad']
-            # Find the box they belong to
-            box_ndxs = [int((vert['loc'][i] - self.box[0][i]) / self.sub_box_size[i]) for i in range(3)]
-            # Add the atom to the box
-            try:
-                self.vert_sub_boxes[box_ndxs[0]][box_ndxs[1]][box_ndxs[2]].append(vert)
-            except IndexError:
-                drop_verts.append(i)
-            # Add the box to the atom
-            vert['box'] = box_ndxs
-        # Drop the vertices outside the box
-        for vert_num in reversed(drop_verts):
-            self.verts.pop(vert_num)
-            self.vert_ndxs.pop(vert_num)
-
-    def get_verts(self, cells, reach=0):
-        """
-        Takes in the cells and the number of additional cells to search and returns an atom list
-        :param cells: The initial boxes in the network to stem from
-        :param reach: The number of cells out from the initial set of cells to search
-        """
-        # If a single cell is entered
-        if type(cells[0]) is int:
-            cells = [cells]
-        # Get the min and max of the cells
-        ndx_min = [inf, inf, inf]
-        ndx_max = [-inf, -inf, -inf]
-        # Go through the cells and set the minimum and maximum indexes for xyz for a rectangle containing the atoms
-        for cell in cells:
-            # Check each xyz index to see if they are larger or smaller than the max or min
-            for i in range(3):
-                if cell[i] < ndx_min[i]:
-                    ndx_min[i] = cell[i]
-                if cell[i] > ndx_max[i]:
-                    ndx_max[i] = cell[i]
-        xs = [x for x in range(max(0, -reach + ndx_min[0] + 1), reach + ndx_max[0])]
-        ys = [y for y in range(max(0, -reach + ndx_min[1] + 1), reach + ndx_max[1])]
-        zs = [z for z in range(max(0, -reach + ndx_min[2] + 1), reach + ndx_max[2])]
-        verts = [self.vert_sub_boxes[i][j][k] for k in zs for j in ys for i in xs if 0 < k < self.box_max[2]
-                 and 0 < j < self.box_max[1] and 0 < i < self.box_max[0]]
-
-        return verts
+        find_net_verts(self, my_group=my_group, print_metrics=print_metrics)
 
     def connect(self):
         """
@@ -248,12 +184,6 @@ class Network:
                     vert_ndxs.append([int(_) for _ in line[1:5]])
         return vert_ndxs
 
-    def find_verts(self, my_group=None, print_metrics=False):
-        """
-        Using the functions in find_vertices.py finds the vertices in the network
-        """
-        find_net_verts(self, my_group=my_group, print_metrics=print_metrics)
-
     def build_edges(self):
         """
         Builds the edges in the network for use in the surfaces
@@ -275,11 +205,11 @@ class Network:
         # Set the dataframe values
         self.edges['points'], self.edges['vals'], self.edges['length'] = edges_points, edges_vals, edges_lengths
 
-    def build_surfaces(self):
+    def build_surfaces(self, store_points=True):
         """
         Takes in a system and returns a fully connected network
         """
-        build_surfs(self)
+        build_surfs(self, store_points=store_points)
 
     def analyze(self):
         """
@@ -291,6 +221,12 @@ class Network:
         for k, atom in self.atoms.iterrows():
             # Get the percentage for printing
             percentage = int(k / len(self.atoms['loc']) * 100)
+            if len(atom['asurfs']) == 0:
+                avols.append(0)
+                asas.append(0)
+                acurvs.append(0)
+                acell.append(False)
+                continue
             # Calculate the surface area of the atom by summing the surface areas of all it's surfaces
             asas.append(sum([self.surfs['sa'][_] for _ in atom['asurfs']]))
             # Go through the atom's surfaces
@@ -354,6 +290,10 @@ class Network:
             self.type = net_type
         if calc_verts is not None:
             self.calc_verts = calc_verts
+        # Check to see if the only output for the exports is logs
+        limit_mem = False
+        if self.sys.cmnds['xpt'] == [['logs']]:
+            limit_mem = True
         # Sort the atoms in the network
         self.sort_atoms()
         # Check to see if there are vertices loaded
@@ -383,7 +323,7 @@ class Network:
         self.build_edges()
         if self.build_surfs:
             # Build the network
-            self.build_surfaces()
+            self.build_surfaces(not limit_mem)
             # Analyze the network
             self.analyze()
         else:
