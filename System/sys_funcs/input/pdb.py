@@ -64,14 +64,15 @@ def read_pdb(sys, file=None):
             res_seq = line[22:26]
             if line[22:26] == '    ':
                 res_seq = 0
+            # If no chain is specified, set the chain to 'None'
+            res_str, chain_str = line[17:20].strip(), line[21]
             # Create the atom
             atom = make_atom(location=np.array([float(line[30:38]), float(line[38:46]), float(line[46:54])]), system=sys,
-                             element=line[76:78].strip(), res_seq=int(res_seq), name=name, seg_id=line[72:76],
+                             element=line[76:78].strip(), res_seq=int(res_seq), res_name=res_str, chn_name=chain_str, name=name, seg_id=line[72:76],
                              index=atom_count)
 
             atom_count += 1
-            # If no chain is specified, set the chain to 'None'
-            res_str, chain_str = line[17:20].strip(), line[21]
+
             if chain_str == ' ':
                 if res_str.lower() in {'sol', 'hoh', 'sod'}:
                     chain_str = 'SOL'
