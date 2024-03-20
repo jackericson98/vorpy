@@ -27,8 +27,12 @@ def read_vert(vert_line):
 
 
 #
-def read_logs(log_files):
+def read_logs(log_files, return_dict=False, no_sol=False):
     file_info = {}
+    one_file = False
+    if type(log_files) == str:
+        one_file = True
+        log_files = [log_files]
     for file in log_files:
         with open(file, 'r') as logs:
             log_reader = csv.reader(logs)
@@ -56,7 +60,11 @@ def read_logs(log_files):
                     skip_next = False
                     continue
                 elif data_type == 'Atoms':
-                    atoms.append(read_atom(line))
+                    my_atom = read_atom(line)
+                    if no_sol and my_atom['name'].strip().lower() in {'hw1', 'hw2', 'ow', 'h02', 'h01', 'na', 'cl', 'mg', 'k'}:
+                        continue
+                    else:
+                        atoms.append(my_atom)
                 elif data_type == 'Surfaces':
                     surfs.append(read_surf(line))
                 elif data_type == 'Edges':
@@ -75,7 +83,14 @@ def read_logs(log_files):
                 else:
                     break
                 index += 1
-            file_info[file_name] = {'data': data, 'group data': group_data, 'atoms': pd.DataFrame(atoms),
-                                    'surfs': pd.DataFrame(surfs), 'edges': pd.DataFrame(edges),
-                                    'verts': pd.DataFrame(verts)}
+            if return_dict:
+                file_info[file_name] = {'data': data, 'group data': group_data, 'atoms': atoms,'surfs': surfs,
+                                        'edges': edges, 'verts': verts}
+            else:
+                file_info[file_name] = {'data': data, 'group data': group_data, 'atoms': pd.DataFrame(atoms),
+                                        'surfs': pd.DataFrame(surfs), 'edges': pd.DataFrame(edges),
+                                        'verts': pd.DataFrame(verts)}
+    if one_file:
+        my_file = [_ for _ in file_info][0]
+        return file_info[my_file]
     return file_info
