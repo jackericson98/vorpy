@@ -1,4 +1,4 @@
-from System.sys_funcs.calcs.calcs import *
+from System.sys_funcs.calcs.sorting import get_radius
 
 
 class Atom:
@@ -36,8 +36,8 @@ class Atom:
         get_radius(self)
 
 
-def make_atom(system=None, location=None, radius=None, index='', name='', residue='', chain='', res_seq="", seg_id="",
-              element="", chn=None, res=None):
+def make_atom(system=None, location=None, radius=None, index='', name='', residue='', chain='', chn_name='',
+              res_name='', res_seq="", seg_id="", element="", chn=None, res=None):
     atom = {
         # System groups
         'sys': system,           # System       :   Main system object
@@ -62,7 +62,9 @@ def make_atom(system=None, location=None, radius=None, index='', name='', residu
         'num': index,            # Number       :   The index from the initial atom file
         'name': name,            # Name         :   Name retrieved from pdb file
         'chain': chain,          # Chain        :   Molecule chain the atom is a part of
+        'chain_name': chn_name,
         'residue': residue,      # Residue      :   Class of molecule that the atom is a part of
+        'res_name': res_name,
         'res_seq': res_seq,      # Sequence     :   Sequence of the residue that the atom is a part of
         'seg_id': seg_id,        # Segment ID   :   Segment identifier for the atom
         'element': element,      # Symbol       :   Element of the atom
