@@ -106,6 +106,7 @@ def ndx_search(ndxs_list, ndxs):
     elif ndxs == ndxs_list[mid_list_ndx]:
         return mid_list_ndx
 
+
 def get_radius(atom):
     """
     Finds the radius of the atom from the symbol or vice versa
