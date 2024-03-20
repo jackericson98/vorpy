@@ -1,6 +1,7 @@
 import csv
 import os.path
-
+import tkinter as tk
+from tkinter import filedialog
 import numpy as np
 
 from Data.Analyze.compare_files import compare_files
@@ -147,4 +148,8 @@ def percent_diff(pdb_log_dir, file_name, sa_vol='vol', martini=False):
 
 
 if __name__ == '__main__':
-    percent_diff('C:/Users/i7-8700/Documents/1BNA/', '1BNA', 'vol', False)
+    root = tk.Tk()
+    root.withdraw()
+    root.wm_attributes('-topmost', 1)
+    my_pdb_folder = filedialog.askdirectory()
+    percent_diff(my_pdb_folder + '/', '1BNA', 'vol', False)
