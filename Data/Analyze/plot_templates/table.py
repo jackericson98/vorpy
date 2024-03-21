@@ -32,16 +32,29 @@ def color_cells(rows, header_color, color_cols=None, color_map='RdYlGn'):
         return colors
 
 
-def table(rows, column_names, color_cols=None, Show=False, header_color=(0.9, 0.9, 0.9)):
+def table(rows, column_names, color_cols=None, Show=False, header_color=(0.9, 0.9, 0.9), transpose=False):
 
     # Create figure and axis
     fig, ax = plt.subplots()
 
-    # Get the colors for the cells
-    cell_colors = color_cells(rows, header_color, color_cols)
+    # If the user wants to transpose the table
+    if transpose:
+        new_table = []
+        for i in range(len(column_names)):
+            row = [column_names[i]]
+            for j in range(len(rows)):
+                row.append(rows[j][i])
+            new_table.append(row)
+    else:
+        new_table = [column_names] + rows
 
+    # Get the colors for the cells
+    cell_colors = color_cells(new_table[1:], header_color, color_cols)
+
+    print(new_table)
     # Create table
-    my_table = ax.table(cellText=[column_names] + rows, loc='center', cellLoc='center', colLabels=None, cellColours=cell_colors)
+    my_table = ax.table(cellText=new_table, loc='center', cellLoc='center', colLabels=None,
+                        cellColours=cell_colors)
 
     # Hide axes
     ax.axis('off')
