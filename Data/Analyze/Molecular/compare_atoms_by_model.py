@@ -37,11 +37,12 @@ def atoms_per_diff(systems, logs, val='volume', title=''):
 
 
 if __name__ == '__main__':
-    # root = tk.Tk()
-    # root.withdraw()
-    # root.wm_attributes('-topmost', 1)
-    # folder = filedialog.askdirectory()
-    folder = '/Users/jackericson/Documents/logs'
+    # Get the dropbox folder
+    root = tk.Tk()
+    root.withdraw()
+    root.wm_attributes('-topmost', 1)
+    drop_box_folder = filedialog.askdirectory()
+    folder = drop_box_folder + '/Jack/Vorpy/Data/Molecular/logs_and_pdbs/'
     systems = []
     for root, dir, files in os.walk(folder):
         for file in files:
@@ -62,7 +63,7 @@ if __name__ == '__main__':
             if file[-3:] == 'csv':
                 my_logs[file[:-13]][file[-12:-9]] = folder + '/' + file
 
-    atoms_per_diff(systems, my_logs, title='Average Surface Area Difference', val='sa')
+    atoms_per_diff(systems, my_logs, title='Average Surface Area % Difference', val='sa')
 
 
 
