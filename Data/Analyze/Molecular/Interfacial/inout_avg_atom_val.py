@@ -5,8 +5,10 @@ from System.system import System
 import matplotlib.pyplot as plt
 from Data.Analyze.read_logs import read_logs
 from System.Group.group import Group
+from Data.Analyze.plot_templates.bar import bar
 
 
+# Function to determine if an atom is inside the given group or not
 def inside(atom_neighbors, group_nums):
     for num in atom_neighbors:
         if num not in group_nums:
@@ -15,9 +17,10 @@ def inside(atom_neighbors, group_nums):
         return True
 
 
-def inside_out(systems, logs, val='volume', title=''):
+# Function for plotting the
+def inside_out(my_systems, logs, val='volume', title=''):
     sys_data = {}
-    for system in systems:
+    for system in my_systems:
         sys_name = system.name
         vor_atoms = read_logs(logs[sys_name]['vor'], True, True)['atoms']
         pow_atoms = read_logs(logs[sys_name]['pow'], True, True)['atoms']
@@ -44,7 +47,7 @@ def inside_out(systems, logs, val='volume', title=''):
                 out_del.append(da[val])
         sys_data[system.name] = {'in_vor': in_vor, 'out_vor': out_vor, 'in_pow': in_pow, 'out_pow': out_pow,
                                  'in_del': in_del, 'out_del': out_del}
-    sys_names = [_.name for _ in systems if all([len(sys_data[_.name][__]) > 0 for __ in sys_data[systems[0].name]])]
+    sys_names = [_.name for _ in my_systems if all([len(sys_data[_.name][__]) > 0 for __ in sys_data[my_systems[0].name]])]
 
     data_wata = [([sum(sys_data[_]['in_vor']) / len(sys_data[_]['in_vor']) for _ in sys_names],
                   [sum(sys_data[_]['out_vor']) / len(sys_data[_]['out_vor']) for _ in sys_names]),
@@ -52,34 +55,23 @@ def inside_out(systems, logs, val='volume', title=''):
                   [sum(sys_data[_]['out_pow']) / len(sys_data[_]['out_pow']) for _ in sys_names]),
                  ([sum(sys_data[_]['in_del']) / len(sys_data[_]['in_del']) for _ in sys_names],
                   [sum(sys_data[_]['out_del']) / len(sys_data[_]['out_del']) for _ in sys_names])]
+    # Plot the data
     for i in range(3):
         # Choose the data and title based on the scheme
         scheme = ['Additively Weighted', 'Power', 'Primitive'][i]
         val_name = {'volume': 'Volume', 'sa': 'Surface Area', 'max curv': 'Curvature'}[val]
-        inside_vals, outside_vals = data_wata[i]
-        ymax = max(inside_vals + outside_vals)
-        # Set the bar width
-        bar_width = 0.35
-        x = range(len(sys_names))
-        plt.bar(x, [_ for _ in inside_vals], width=bar_width, label='Inside', color='skyblue', edgecolor='black')
-        plt.bar([i + bar_width for i in x], [_ for _ in outside_vals], width=bar_width, label='Outside',
-                color='orange',
-                edgecolor='black')
-        plt.ylabel('Average ' + val_name, fontdict=dict(size=15))
-
-        plt.title('Average {} {}'.format(val_name, scheme), fontdict=dict(size=20))
-        plt.xticks([i + bar_width / 2 for i in x], sys_names, rotation=45, ha='right', font=dict(size=10))
-        plt.legend()
-        plt.ylim(0, 1.3 * ymax)
-        plt.show()
+        # Plot using the bar function
+        bar(data_wata[i], x_names=sys_names, legend_names=['Inside', 'Outside'],
+            title='Average {} {}'.format(val_name, scheme), x_axis_title='System', y_axis_title='Average ' + val_name,
+            Show=True)
 
 
 if __name__ == '__main__':
-    # root = tk.Tk()
-    # root.withdraw()
-    # root.wm_attributes('-topmost', 1)
-    # folder = filedialog.askdirectory()
-    folder = '/Users/jackericson/Documents/logs'
+    root = tk.Tk()
+    root.withdraw()
+    root.wm_attributes('-topmost', 1)
+    drop_box_folder = filedialog.askdirectory()
+    folder = drop_box_folder + '/Jack/Vorpy/Data/Molecular/test_logs_and_pdbs/'
     systems = []
     for root, dir, files in os.walk(folder):
         for file in files:
@@ -100,5 +92,5 @@ if __name__ == '__main__':
             if file[-3:] == 'csv':
                 my_logs[file[:-13]][file[-12:-9]] = folder + '/' + file
 
-    inside_out(systems, my_logs, val='sa')
+    inside_out(systems, my_logs, val='volume')
 
