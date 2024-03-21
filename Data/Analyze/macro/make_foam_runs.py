@@ -14,7 +14,8 @@ my_dirs_unfiltered = []
 for my_dir in os.listdir(file_directory):
     my_dirs_unfiltered.append(my_dir)
 
-with open('C:/Users/i7-8700/PycharmProjects/vorpy/foam_runs.bat', 'w') as foam_file:
+strings = []
+with open('C:/Users/jacke/PycharmProjects/vorpy/foam_runs.bat', 'w') as foam_file:
     # We want to create a script to run all of these
     num_done = 0
     tot = 0
@@ -33,8 +34,20 @@ with open('C:/Users/i7-8700/PycharmProjects/vorpy/foam_runs.bat', 'w') as foam_f
         run_dir = file_directory + '/' + my_dir +'/' + new_file + '.pdb'
         export_dir = file_directory + '/' + my_dir
         if os.path.exists(export_dir) and not os.path.exists(export_dir + '/vor'):
-            foam_file.write('\npython3 vorpy.py {} -s nt compare -e dir {} -e large'.format(run_dir, export_dir))
+            foam_file.write('\npy vorpy.py {} -s nt compare -e dir {} -e large'.format(run_dir, export_dir))
+            strings.append('\npy vorpy.py {} -s nt compare -e dir {} -e large'.format(run_dir, export_dir))
         else:
             num_done += 1
+
+j = 0
+for i in range(len(strings)):
+    if j < i // 500 or i == 0:
+        j = i // 500
+        with open('C:/Users/jacke/PycharmProjects/vorpy/foam_runs_{}.bat'.format(j), 'w') as foam_write:
+            foam_write.write(strings[i])
+    else:
+        with open('C:/Users/jacke/PycharmProjects/vorpy/foam_runs_{}.bat'.format(j), 'a') as foam_write:
+            foam_write.write(strings[i])
+
 
 print('{}/{} finished'.format(num_done, tot))
