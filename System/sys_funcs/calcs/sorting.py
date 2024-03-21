@@ -216,3 +216,22 @@ def divide_box(net_box, divisions, c=0):
                                       net_box[0][1] + (j + 1) * dims[1] / (xyz_divs[1] + 1) + c,
                                       net_box[0][2] + (k + 1) * dims[2] / (xyz_divs[2] + 1) + c]])
     return my_sub_boxes
+
+
+def get_sys_type(my_sys):
+    # Get the type of system it is (poly, nucleic, both, other)
+    sys_type = 'Molecule'
+    nucs = {'T', 'DT', 'G', 'DG', 'A', 'DA', 'C', 'DC', 'U', 'DU'}
+    if len(my_sys.residues) > 0:
+        for res in my_sys.residues:
+            if res.name in my_sys.special_radii:
+                if sys_type == 'Nucleic':
+                    sys_type = 'Complex'
+                    break
+                sys_type = 'Protein'
+            elif res.name in nucs:
+                if sys_type == 'Protein':
+                    sys_type = 'Complex'
+                    break
+                sys_type = 'Nucleic'
+    return sys_type
