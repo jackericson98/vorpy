@@ -45,8 +45,8 @@ class System:
         self.sub_nets = None                # Sub Networks        :   Holds the small networks to be combined
         self.user_atoms = atoms             # User Atoms          :   User provided locations and radii
         self.type = 'mol'                   # Type of file        :   Holds the type of file loaded (mol, coarse, foam)
-        self.foam_box = None
-        self.foam_data = None
+        self.foam_box = None                # Foam Retaining Box  :   Indicated in file the box that contains all balls
+        self.foam_data = None               # Foam Data Info      :   Holds general information from the foam generation
 
         # Loadable objects
         self.atoms = atoms                  # Atoms               :   List holding the atom objects
