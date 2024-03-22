@@ -42,7 +42,8 @@ def find_net_verts(net, my_group=None, print_metrics=False):
             atom_nums.pop(atom_nums.index(_))
 
     # Check for disconnects in the network
-    while len(atom_nums) > 0:
+    while len(atom_nums) > 2:
+        print("Atoms Disconnected: {}".format(atom_nums))
         a0 = atom_nums.pop()
         my_guuy = find_verts(a0=a0, alocs=net.atoms['loc'].to_numpy(), arads=net.atoms['rad'].to_numpy(),
                              max_vert=net.max_vert, net_type=net.type, check_atoms=atom_nums,
@@ -53,12 +54,12 @@ def find_net_verts(net, my_group=None, print_metrics=False):
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = my_guuy
         if net.sys.type == 'foam' and len(atom_nums) <= 0.25 * len(net.atoms['loc']):
             break
-    # Create the doublets list
-    if vert_list_real is not None and net.type == 'vor':
-        missing_verts = [_ for _ in vert_list_real if _ not in vert_ndxs]
-        print(missing_verts)
-        extra_verts = [_ for _ in vert_ndxs if _ not in vert_list_real]
-        print(extra_verts)
+    # # Create the doublets list
+    # if vert_list_real is not None and net.type == 'vor':
+    #     missing_verts = [_ for _ in vert_list_real if _ not in vert_ndxs]
+    #     print(missing_verts)
+    #     extra_verts = [_ for _ in vert_ndxs if _ not in vert_list_real]
+    #     print(extra_verts)
     doublets = [0 for _ in range(len(vert_ndxs))]
     # Incorporate the doublets into the vlocs, vatoms, vrads lists and lose the vloc2s and vrad2s
     i = 0
