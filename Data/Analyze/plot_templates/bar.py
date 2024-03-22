@@ -26,7 +26,7 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
         x_names = ['' for _ in range(len(data[0]))]
 
     # Set the colors
-    colors = ['skyblue', 'lavender', 'mintgreen', 'peach', 'goldenrod', 'slategray', 'rose', 'coral', 'periwinkle',
+    colors = ['skyblue', 'orange', 'lavender', 'mintgreen', 'peach', 'goldenrod', 'slategray', 'rose', 'coral', 'periwinkle',
               'turquoise']
 
     # Plot the bars
