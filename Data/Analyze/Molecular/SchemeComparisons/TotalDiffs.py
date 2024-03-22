@@ -1,5 +1,6 @@
 import csv
 import os
+import numpy as np
 import tkinter as tk
 from tkinter import filedialog
 from System.system import System
@@ -12,8 +13,7 @@ if __name__ == '__main__':
     root = tk.Tk()
     root.withdraw()
     root.wm_attributes('-topmost', 1)
-    drop_box_folder = filedialog.askdirectory()
-    folder = drop_box_folder + '/Jack/Vorpy/Data/Molecular/logs_and_pdbs/'
+    folder = filedialog.askdirectory()
     # Get the systems in the designated folder
     systems = []
     for root, directory, files in os.walk(folder):
@@ -31,25 +31,31 @@ if __name__ == '__main__':
     my_logs = {_: {'vor': None, 'pow': None, 'del': None} for _ in my_sys_names}
 
     # Choose what we are plotting Vol or SA
-    plotting = 'Volume'
+    plotting = ''
 
     for root, dir, files in os.walk(folder):
         for file in files:
             if file[-3:] == 'csv':
                 with open(folder + '/' + file, 'r') as my_file:
                     my_reader = csv.reader(my_file)
+                    print(file)
                     for i, line in enumerate(my_reader):
                         if i == 5:
                             if plotting == '':
+                                print(line[2])
                                 my_logs[file[:-13]][file[-12:-9]] = float(line[2])
                             else:
+                                print(line[3])
                                 my_logs[file[:-13]][file[-12:-9]] = float(line[3])
     vor_vals = [my_logs[_]['vor'] for _ in my_sys_names]
     pow_vals = [my_logs[_]['pow'] for _ in my_sys_names]
     del_vals = [my_logs[_]['del'] for _ in my_sys_names]
+    graph_labels = [{'EDTA_Mg': 'EDTA', 'cambrin': 'Cambrin', 'hairpin': 'Hairpin', 'p53tet': 'p53tet',
+                     'streptavidin': 'STVDN', '3zp8_hammerhead': 'H-head', 'NCP': 'NCP'}[_] for _ in my_sys_names]
 
     pow_diff = [100 * abs(vor_vals[i] - pow_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
     del_diff = [100 * abs(vor_vals[i] - del_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
-    bar([pow_diff, del_diff], x_names=my_sys_names, legend_names=['Power Difference', 'Primitive Difference'],
-        Show=True, y_axis_title='% Difference', x_axis_title='Model', title='Total Molecule Surface Area')
+    # Create the
+    bar([pow_diff, del_diff], x_names=graph_labels, legend_names=['Power', 'Primitive'],
+        Show=True, y_axis_title='% Difference', x_axis_title='Model', title='Total Volume Difference')
 
