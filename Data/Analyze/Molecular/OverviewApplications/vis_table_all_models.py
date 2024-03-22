@@ -17,6 +17,7 @@ def get_system_data(systems):
         # Create the system dictionary to add stuff to
         sys_data.append([sys.name, get_sys_type(sys), len(sys.groups[0].atoms), len(sys.residues), len(sys.chains),
                          len(sys.sol.atoms)])
+
     # Create the table
     table(column_names=columns, rows=sys_data, Show=True, transpose=True)
 
@@ -26,9 +27,7 @@ if __name__ == '__main__':
     root = tk.Tk()
     root.withdraw()
     root.wm_attributes('-topmost', 1)
-    drop_box_folder = filedialog.askdirectory()
-    # Go to the data folder
-    folder = drop_box_folder + '/Jack/Vorpy/Data/Molecular/logs_and_pdbs/'
+    folder = filedialog.askdirectory()
     # Go through the folder and collect the information
     my_systems = []
     for root, directory, files in os.walk(folder):
