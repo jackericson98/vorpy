@@ -41,11 +41,11 @@ surf_schemes = ['ss', 'sirf_scheme', 'surf_scm']
 atom_radii = ['ar', 'atom_radius', 'element_radius']
 file_types = ['net', 'vert', 'ball', 'ndx']
 
-power_vals = ['pow', 'power', 'p', 'pwr']
-voronoi_vals = ['vor', 'voronoi', 'vnoi', 'voron', 'vn']
-delaunay_vals = ['del', 'dl', 'delaunay', 'dlny', 'dny']
+power_vals = ['pow', 'power', 'p', 'pwr', 'pwizzle']
+voronoi_vals = ['vor', 'voronoi', 'vnoi', 'voron', 'vn', 'aw', 'additively_weighted', 'add_weight', 'awizzle']
+delaunay_vals = ['del', 'dl', 'delaunay', 'dlny', 'dny', 'prm', 'primitive' 'prim', 'ptiv', 'ptizzle']
 
-net_type_dict = {'pow': "Power", 'del': "Delaunay",'vor': "Voronoi"}
+net_type_dict = {'pow': "Power", 'del': "Delaunay", 'vor': "Voronoi"}
 
 
 my_settings_vals = power_vals + voronoi_vals + delaunay_vals
