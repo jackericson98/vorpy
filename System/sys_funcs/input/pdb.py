@@ -76,7 +76,7 @@ def read_pdb(sys, file=None):
             if chain_str == ' ':
                 if res_str.lower() in {'sol', 'hoh', 'sod'}:
                     chain_str = 'SOL'
-                elif res_str.lower() in {'cl', 'mg', 'na', 'k', 'ion'} and 'SOL' in chains:
+                elif res_str.lower() in {'cl', 'mg', 'na', 'k', 'ion', 'cla'} and 'SOL' in chains:
                     chain_str = 'SOL'
                 else:
                     chain_str = 'A'
