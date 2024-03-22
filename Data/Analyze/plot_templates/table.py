@@ -47,11 +47,13 @@ def table(rows, column_names, color_cols=None, Show=False, header_color=(0.9, 0.
             new_table.append(row)
     else:
         new_table = [column_names] + rows
+    graph_labels = {'EDTA_Mg': 'EDTA', 'cambrin': 'Cambrin', 'hairpin': 'Hairpin', 'p53tet': 'p53tet',
+                     'streptavidin': 'STVDN', '3zp8_hammerhead': 'H-head', 'NCP': 'NCP'}
+    new_table = [graph_labels[_] for _ in new_table[0]] + new_table[1:]
 
     # Get the colors for the cells
     cell_colors = color_cells(new_table[1:], header_color, color_cols)
 
-    print(new_table)
     # Create table
     my_table = ax.table(cellText=new_table, loc='center', cellLoc='center', colLabels=None,
                         cellColours=cell_colors)
@@ -65,7 +67,6 @@ def table(rows, column_names, color_cols=None, Show=False, header_color=(0.9, 0.
 
     # Auto-size columns to fit the largest member
     for col in range(len(column_names)):
-        col_width = max([len(str(row[col])) for row in rows])
         my_table.auto_set_column_width(col)
 
     # Adjust layout
