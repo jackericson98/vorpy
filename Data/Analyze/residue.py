@@ -54,5 +54,5 @@ def residue_data(sys, logs, sa=False, vol=False, curv=False, dists=False):
                 other[res.name][res.seq] = res_info
             else:
                 other[res.name] = {res.seq: res_info}
-    return {'amines': amino_acids, 'nucs': nucleic_acids, 'ions': ions, 'other': other}
+    return {'aminos': amino_acids, 'nucs': nucleic_acids, 'ions': ions, 'other': other}
 
