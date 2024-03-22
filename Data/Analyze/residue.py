@@ -1,6 +1,6 @@
 
 
-def residue_data(sys, logs, sa=False, vol=False, curv=False, dists=False):
+def residue_data(sys, logs):
     # We need to sort the atoms into their respective residues
     amino_acids = {'ALA': {}, 'ARB': {}, 'ASN': {}, 'ASP': {}, 'CYS': {}, 'GLN': {}, 'GLU': {}, 'HIS': {}, 'ILE': {},
                    'LEU': {}, 'LYS': {}, 'MET': {}, 'PHE': {}, 'PRO': {}, 'SER': {}, 'THR': {}, 'TRP': {}, 'TYR': {},
@@ -11,25 +11,47 @@ def residue_data(sys, logs, sa=False, vol=False, curv=False, dists=False):
     ions = {}
 
     other = {}
+
+    # Check to see what form the logs are in
+    checking_list = False
+    if type(logs['atoms']) is list:
+        checking_list = True
     # We want to collect data from this: Residue volume, residue surface area, residue average curvature,
     # residue maximum curvature, inter-residue sa
 
     for res in sys.residues:
         # Get the logs atoms for the residue
         res_atoms, res_surfs = [], {'in': [], 'out': []}
-        for i, atom_info_line in logs['atoms'].iterrows():
-            # Get the residue atoms information
-            if atom_info_line['num'] in res.atoms:
-                res_atoms.append(atom_info_line)
-        # Get the residue surfaces
-        for i, surf_info_line in logs['surfs'].iterrows():
-            # Check of one of the surfaces atoms is in the residue
-            if surf_info_line['atoms'][0] in res.atoms:
-                # Check for the other surface
-                if surf_info_line['atoms'][1] in res.atoms:
-                    res_surfs['in'].append(surf_info_line)
-                else:
-                    res_surfs['out'].append(surf_info_line)
+        if checking_list:
+            for atom_info_line in logs['atoms']:
+                # Get the residue atoms information
+                if atom_info_line['num'] in res.atoms:
+                    res_atoms.append(atom_info_line)
+        else:
+            for i, atom_info_line in logs['atoms'].iterrows():
+                # Get the residue atoms information
+                if atom_info_line['num'] in res.atoms:
+                    res_atoms.append(atom_info_line)
+        if checking_list:
+            # Get the residue surfaces
+            for surf_info_line in logs['surfs']:
+                # Check of one of the surfaces atoms is in the residue
+                if surf_info_line['atoms'][0] in res.atoms:
+                    # Check for the other surface
+                    if surf_info_line['atoms'][1] in res.atoms:
+                        res_surfs['in'].append(surf_info_line)
+                    else:
+                        res_surfs['out'].append(surf_info_line)
+        else:
+            # Get the residue surfaces
+            for i, surf_info_line in logs['surfs'].iterrows():
+                # Check of one of the surfaces atoms is in the residue
+                if surf_info_line['atoms'][0] in res.atoms:
+                    # Check for the other surface
+                    if surf_info_line['atoms'][1] in res.atoms:
+                        res_surfs['in'].append(surf_info_line)
+                    else:
+                        res_surfs['out'].append(surf_info_line)
         # Calculate the volume and surface area
         vol = sum([_['volume'] for _ in res_atoms])
         sa = sum([_['sa'] for _ in res_surfs['out']])
