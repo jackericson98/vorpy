@@ -66,6 +66,12 @@ if __name__ == '__main__':
                     del_sas.append(
                         abs(vor_reses[_][__][___]['sa'] - del_reses[_][__][___]['sa']) / vor_reses[_][__][___]['sa'])
         # Get the averages
+        print(system.name)
+        print(100 * sum(pow_vols)/len(pow_vols), np.std(pow_vols)/np.sqrt(len(pow_vols)))
+        print(100 * sum(del_vols)/len(del_vols), np.std(pow_vols)/np.sqrt(len(pow_vols)))
+        print(100 * sum(pow_sas)/len(pow_sas), np.std(pow_sas)/np.sqrt(len(pow_sas)))
+        print(100 * sum(del_sas)/len(del_sas), (np.std(del_sas)/np.sqrt(len(del_sas))))
+        # Get the standard Errors
         pow_vol_avg_diff.append(100 * sum(pow_vols)/len(pow_vols))
         del_vol_avg_diff.append(100 * sum(del_vols)/len(del_vols))
         pow_sa_avg_diff.append(100 * sum(pow_sas)/len(pow_sas))

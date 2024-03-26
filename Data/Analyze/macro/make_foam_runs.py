@@ -15,7 +15,11 @@ for my_dir in os.listdir(file_directory):
     my_dirs_unfiltered.append(my_dir)
 
 strings = []
-with open('C:/Users/jacke/PycharmProjects/vorpy/foam_runs.bat', 'w') as foam_file:
+
+
+
+
+with open('C:/Users/i7-8700/PycharmProjects/vorpy/foam_runs.bat', 'w') as foam_file:
     # We want to create a script to run all of these
     num_done = 0
     tot = 0
@@ -43,10 +47,10 @@ j = 0
 for i in range(len(strings)):
     if j < i // 500 or i == 0:
         j = i // 500
-        with open('C:/Users/jacke/PycharmProjects/vorpy/foam_runs_{}.bat'.format(j), 'w') as foam_write:
+        with open('C:/Users/i7-8700/PycharmProjects/vorpy/foam_runs_{}.bat'.format(j), 'w') as foam_write:
             foam_write.write(strings[i])
     else:
-        with open('C:/Users/jacke/PycharmProjects/vorpy/foam_runs_{}.bat'.format(j), 'a') as foam_write:
+        with open('C:/Users/i7-8700/PycharmProjects/vorpy/foam_runs_{}.bat'.format(j), 'a') as foam_write:
             foam_write.write(strings[i])
 
 
