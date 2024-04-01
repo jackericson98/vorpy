@@ -55,8 +55,6 @@ def residue_data(sys, logs):
         # Calculate the volume and surface area
         vol = sum([_['volume'] for _ in res_atoms])
         sa = sum([_['sa'] for _ in res_surfs['out']])
-        if sys.name == 'EDTA_Mg':
-            print('EDTA_Mg: ', res.name, '\nVolume: ', vol, '\nSurface Area: ', sa)
         # Get the curvatures
         # max_curv = max([_['max curv'] for _ in res_atoms])
         # avg_curv = sum([_['curvature'] for _ in res_surfs['out'] + res_surfs['in']])/len(res_surfs)

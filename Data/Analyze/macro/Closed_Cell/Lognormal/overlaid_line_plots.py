@@ -12,7 +12,7 @@ with open('C:/Users/i7-8700/PycharmProjects/foam_gen/Data/user_data/foam_data.cs
     # x, y, z1, z2 = [], [], [], []
     foam_data = csv.reader(my_foam_data)
     for my_line in foam_data:
-        if len(my_line) <= 1 or plot_type not in my_line[0] or int(my_line[4]) < 100:
+        if len(my_line) <= 1:
             continue
         my_data.append({'num': my_line[0], 'avg rad size': float(my_line[2]), 'box size': float(my_line[1]),
                         'rad std': float(my_line[3]), 'num balls': int(my_line[4]),
@@ -45,8 +45,8 @@ if plot_type == 'gamma':
     my_sds = np.arange(1.5, 6.5, 0.25)
 
 if plot_type == 'lognormal':
-    my_densities = np.arange(0.025, 0.475, 0.025)
-    my_sds = np.arange(0.1, 0.525, 0.025)
+    my_densities = np.arange(0.025, 0.525, 0.025)
+    my_sds = np.arange(0.1, 0.5, 0.025)
 
 my_densities = [round(_, 3) for _ in my_densities]
 my_sds = [round(_, 3) for _ in my_sds]
@@ -56,13 +56,19 @@ datavvm, datavsm, datapvm, datapsm = [[] for _ in my_sds], [[] for _ in my_sds],
 datavvms, datavsms, datapvms, datapsms = [[] for _ in my_sds], [[] for _ in my_sds], [[] for _ in my_sds], [[] for _ in my_sds]
 datavvps, datavsps, datapvps, datapsps = [[] for _ in my_sds], [[] for _ in my_sds], [[] for _ in my_sds], [[] for _ in my_sds]
 
+
 # Iterate over my_sds and my_densities using nested loops
 for i, num in enumerate(my_sds):
     for j, num2 in enumerate(my_densities):
         means = []
         sds = []
         # Get the current Data
-        curr_data = lists[num][num2]
+        try:
+            curr_data = lists[num][num2]
+        except KeyError:
+            print(num, num2)
+            continue
+
         for data1 in curr_data:
             # Calculate the Z-scores
             z_scores = np.abs((data1 - np.mean(data1)) / np.std(data1))
@@ -132,16 +138,16 @@ print(len(my_sds), len(my_densities))
 fig, ax = plt.subplots(figsize=(8, 6))
 
 for i in range(len(datavvm)):
-    ax.plot(my_densities, datavvm[i], label=str(my_sds[i]))
+    ax.plot(my_densities[1:], datavvm[i][1:], label=str(my_sds[i]))
 
 # Set plot title and legend
-ax.set_xticks(np.arange(my_densities[1], my_densities[-1], 0.05))
+ax.set_xticks(np.arange(my_densities[1], my_densities[-1] + 0.05, 0.05))
 ax.set_title('AW vs Power % Difference Volume', fontsize=30)
 ax.set_xlabel('Density', fontsize=20)
 ax.set_ylabel('% Difference', fontsize=20)
 ax.tick_params(axis='both', which='major', labelsize=15)
 legend = ax.legend(loc='upper right', bbox_to_anchor=(1.25, 1))
-legend.set_title('Beta')
+legend.set_title('CV')
 
 # Adjust the right margin to make room for the legend
 plt.subplots_adjust(right=0.8)
