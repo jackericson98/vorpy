@@ -1,3 +1,15 @@
+# We need to sort the atoms into their respective residues
+proteins = {'ALA': {}, 'ARB': {}, 'ASN': {}, 'ASP': {}, 'CYS': {}, 'GLN': {}, 'GLU': {}, 'HIS': {}, 'ILE': {},
+               'LEU': {}, 'LYS': {}, 'MET': {}, 'PHE': {}, 'PRO': {}, 'SER': {}, 'THR': {}, 'TRP': {}, 'TYR': {},
+               'VAL': {}, 'GLY': {}, 'ARG': {}}
+
+nucleics = {'DT': {}, 'DA': {}, 'DG': {}, 'DC': {}, 'DU': {}, 'U': {}, 'G': {}, 'A': {}, 'T': {}, 'C': {}}
+
+ions = {'cl', 'mg', 'na', 'k', 'ion', 'cla'}
+
+other = {'mol', ''}
+
+sols = {'sol', 'sod', 'hoh'}
 
 
 def residue_data(sys, logs):
