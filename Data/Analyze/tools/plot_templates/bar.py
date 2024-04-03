@@ -14,8 +14,11 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
     # Set the bar width
     bar_width = 0.35
 
+    # Get the number of bars to plot
+    num_bars = len(data)
+
     # Get the number of bar groups to plot
-    x = range(len(data[0]))
+    num_groups = range(len(data[0]))
 
     # Get the names for the individual bars
     if legend_names is None or len(legend_names) != len(data):
@@ -31,7 +34,8 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
 
     # Plot the bars
     for i in range(len(data)):
-        my_bars = plt.bar([j + i*bar_width for j in x], data[i], width=bar_width, label=legend_names[i], color=colors[i], edgecolor='black')
+        x_locs = [i * bar_width + j * bar_width * (num_bars + 1) for j in num_groups]
+        my_bars = plt.bar(x_locs, data[i], width=bar_width, label=legend_names[i], color=colors[i], edgecolor='black')
 
         # Plot the error bars
         if errors is not None:
@@ -45,7 +49,8 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
     plt.xlabel(x_axis_title, fontdict=dict(size=15))
 
     # Label the bar groups
-    plt.xticks([i + bar_width / len(data[0]) for i in x], x_names, rotation=45, ha='right', font=dict(size=10))
+    x_locs = [j * bar_width * (num_bars + 1) + num_bars * bar_width / 2 for j in num_groups]
+    plt.xticks(x_locs, x_names, rotation=45, ha='right', font=dict(size=10))
 
     # Add the legend
     if legend_title is not None:

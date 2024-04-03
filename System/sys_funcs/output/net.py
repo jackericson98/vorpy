@@ -35,14 +35,14 @@ def write_net_logs(net, round_to=3):
         # Write the atom header
         lg_fl.writerow(["Atoms"])
         # Write the column labels
-        lg_fl.writerow(["index", "name", "volume", "surface area", "max curvature", "neighbors"])
+        lg_fl.writerow(["index", "name", "volume", "surface area", "max curvature", 'complete', "neighbors"])
         # Go through the atoms in the system
         for i, atom in net.atoms.iterrows():
             if atom['sa'] == 0:
                 continue
             if atom['complete']:
                 nbrs = [satoms[0] if satoms[0] != atom['num'] else satoms[1] for satoms in [net.surfs['satoms'][_] for _ in atom['asurfs']]]
-                lg_fl.writerow([i, atom['name'], r(atom['vol']), r(atom['sa']), r(atom['curv']), *nbrs])
+                lg_fl.writerow([i, atom['name'], r(atom['vol']), r(atom['sa']), r(atom['curv']), atom['complete'], *nbrs])
         # Write the surfaces header
         lg_fl.writerow(["Surfaces"])
         # Write the surface column labels

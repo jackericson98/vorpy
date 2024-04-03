@@ -74,3 +74,8 @@ if __name__ == '__main__':
     for my_sys in systems:
         # Read the logs
         my_log_vals = read_logs(folder + '/' + my_sys.name + '_vor_logs.csv', return_dict=True)
+        # Sort the surfaces
+        for surf in my_log_vals['surfs']:
+            # Classification
+            sclass = classify_surf(my_sys, )
+
