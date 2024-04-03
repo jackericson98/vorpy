@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import tkinter as tk
 from tkinter import filedialog
 from System.system import System
@@ -32,6 +33,9 @@ def inside_out(my_systems, logs, val='volume', title=''):
             va, pa, da = vor_atoms[i], pow_atoms[i], del_atoms[i]
             # First we need to know if the atom is inside or outside
             vor_in, pow_in, del_in = inside(va['neighbors'], grp_atms), inside(pa['neighbors'], grp_atms), inside(pa['neighbors'], grp_atms)
+            # if the atom isn't similarly on the inside and outside skip it
+            if not all([vor_in, pow_in, del_in]) and not all([not vor_in, not pow_in, not del_in]):
+                continue
             if vor_in:
                 in_vor.append(va[val])
             else:
@@ -46,31 +50,56 @@ def inside_out(my_systems, logs, val='volume', title=''):
                 out_del.append(da[val])
         sys_data[system.name] = {'in_vor': in_vor, 'out_vor': out_vor, 'in_pow': in_pow, 'out_pow': out_pow,
                                  'in_del': in_del, 'out_del': out_del}
+
     sys_names = [_.name for _ in my_systems if all([len(sys_data[_.name][__]) > 0 for __ in sys_data[my_systems[0].name]])]
 
-    data_wata = [([sum(sys_data[_]['in_vor']) / len(sys_data[_]['in_vor']) for _ in sys_names],
+    # Create the labels manually for the systems in question
+    graph_labels = [{'EDTA_Mg': 'EDTA', 'cambrin': 'Cambrin', 'hairpin': 'Hairpin', 'p53tet': 'p53tet',
+                     'streptavidin': 'STVDN', '3zp8_hammerhead': 'H-head', 'NCP': 'NCP', 'pl_complex': 'Prot-Lig'}[_] for _ in sys_names]
+
+    # Get the average volume for an inside and outside bulk for each scheme
+    bulk_avgs = [([sum(sys_data[_]['in_vor']) / len(sys_data[_]['in_vor']) for _ in sys_names],
                   [sum(sys_data[_]['out_vor']) / len(sys_data[_]['out_vor']) for _ in sys_names]),
                  ([sum(sys_data[_]['in_pow']) / len(sys_data[_]['in_pow']) for _ in sys_names],
                   [sum(sys_data[_]['out_pow']) / len(sys_data[_]['out_pow']) for _ in sys_names]),
                  ([sum(sys_data[_]['in_del']) / len(sys_data[_]['in_del']) for _ in sys_names],
                   [sum(sys_data[_]['out_del']) / len(sys_data[_]['out_del']) for _ in sys_names])]
+
+    # Get the percent differences of the bulks
+    pow_in_bulk_pds = [100 * abs(bulk_avgs[1][0][i] - bulk_avgs[0][0][i]) / bulk_avgs[0][0][i] for i in range(len(bulk_avgs[0][0]))]
+    pow_out_bulk_pds = [100 * abs(bulk_avgs[1][1][i] - bulk_avgs[0][1][i]) / bulk_avgs[0][1][i] for i in range(len(bulk_avgs[0][0]))]
+    del_in_bulk_pds = [100 * abs(bulk_avgs[2][0][i] - bulk_avgs[0][0][i]) / bulk_avgs[0][0][i] for i in range(len(bulk_avgs[0][0]))]
+    del_out_bulk_pds = [100 * abs(bulk_avgs[2][1][i] - bulk_avgs[0][1][i]) / bulk_avgs[0][1][i] for i in range(len(bulk_avgs[0][0]))]
+
+    # Get the percent difference by atom
+    atom_diffs = []
+    atom_ses = []
+    for my_str in {'in', 'out'}:
+        for comp_type in {'_pow', '_del'}:
+            atom_diffs.append([])
+            atom_ses.append([])
+            for sys_name in sys_names:
+                # Average it all out by volume
+                vals = [abs(sys_data[sys_name]['{}_vor'.format(my_str)][i] - sys_data[sys_name][my_str + comp_type][i]) / sys_data[sys_name]['{}_vor'.format(my_str)][i] for i in range(len(sys_data[sys_name]['in_pow']))]
+                atom_diffs[-1].append(100 * sum(vals)/len(vals))
+                atom_ses[-1].append(100 * np.std(vals) / np.sqrt(len(vals)))
     # Plot the data
-    for i in range(3):
-        # Choose the data and title based on the scheme
-        scheme = ['Additively Weighted', 'Power', 'Primitive'][i]
-        val_name = {'volume': 'Volume', 'sa': 'Surface Area', 'max curv': 'Curvature'}[val]
+    # for i in range(3):
+        # # Choose the data and title based on the scheme
+        # scheme = ['Additively Weighted', 'Power', 'Primitive'][i]
+        # val_name = {'volume': 'Volume', 'sa': 'Surface Area', 'max curv': 'Curvature'}[val]
         # Plot using the bar function
-        bar(data_wata[i], x_names=sys_names, legend_names=['Inside', 'Outside'],
-            title='Average {} {}'.format(val_name, scheme), x_axis_title='System', y_axis_title='Average ' + val_name,
-            Show=True)
+    bar(atom_diffs, x_names=graph_labels, errors=atom_ses,
+        legend_names=['Inside Power', 'Inside Primitive', 'Outside Power', 'Outside Primitive'], legend_title='Scheme',
+        title='Average Volume % Difference By Atom', x_axis_title='Model', y_axis_title='% Difference',
+        Show=True)
 
 
 if __name__ == '__main__':
     root = tk.Tk()
     root.withdraw()
     root.wm_attributes('-topmost', 1)
-    drop_box_folder = filedialog.askdirectory()
-    folder = drop_box_folder + '/Jack/Vorpy/Data/IV_Molecular/test_logs_and_pdbs/'
+    folder = filedialog.askdirectory()
     systems = []
     for root, dir, files in os.walk(folder):
         for file in files:
