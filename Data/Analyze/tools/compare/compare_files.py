@@ -1,6 +1,6 @@
 from System.system import System
 from Data.Analyze.tools.compare.read_logs import read_logs
-from Data.Analyze.tools.compare.residue import residue_data
+from Data.Analyze.tools.compare.get_res_data import residue_data
 
 
 def compare_files(pdb_files, log_files, build_data=False, totals=False, avg_distros=False, compare_in_out=False,
