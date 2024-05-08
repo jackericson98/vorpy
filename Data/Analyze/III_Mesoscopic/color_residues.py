@@ -1,9 +1,7 @@
-from System.sys_funcs.output.atoms import make_pdb_line
-from System.sys_funcs.input.pdb import read_pdb_line
+import tkinter as tk
+from tkinter.filedialog import askopenfilename
 from os import path
-import matplotlib.pyplot as plt
 import csv
-import numpy as np
 
 
 """
@@ -42,14 +40,23 @@ def color_pdb_by_res(pdb, values, output_pdb=None):
 
 
 if __name__ == '__main__':
-    prefix = 'C:/Users/jacke/Documents/data/'
-    pdb_files = [prefix + '181L.pdb', prefix + '181L_coarse_ad.pdb', prefix + '181L_coarse_ad.pdb',
-                 prefix + '181L_coarse_ncap.pdb', prefix + '181L_coarse_ncap.pdb', prefix + '181L_coarse_scbb_ad.pdb',
-                 prefix + '181L_coarse_scbb_ad.pdb', prefix + '181L_coarse_scbb_ncap.pdb', prefix + '181L_coarse_scbb_ncap.pdb',
-                 prefix + '181L_martini.pdb', prefix + '181L_martini.pdb']
+    # prefix = 'C:/Users/jacke/Documents/data/'
+    # pdb_files = [prefix + '181L.pdb', prefix + '181L_coarse_ad.pdb', prefix + '181L_coarse_ad.pdb',
+    #              prefix + '181L_coarse_ncap.pdb', prefix + '181L_coarse_ncap.pdb', prefix + '181L_coarse_scbb_ad.pdb',
+    #              prefix + '181L_coarse_scbb_ad.pdb', prefix + '181L_coarse_scbb_ncap.pdb', prefix + '181L_coarse_scbb_ncap.pdb',
+    #              prefix + '181L_martini.pdb', prefix + '181L_martini.pdb']
+    my_pdb_file = askopenfilename()
+    my_log_file = askopenfilename()
+
+    if path.exists(path.dirname(my_pdb_file[:4] + '_residue_data.csv')):
+        residue_csv = my_pdb_file[:4] + '_residue_data.csv'
+    elif path.exists(path.dirname(my_log_file[:4] + '_residue_data.csv')):
+        residue_csv = my_log_file[:4] + '_residue_data.csv'
+    else:
+        residue_csv = None
 
     vols, sas = {}, {}
-    with open(prefix + '181L_residue_data.csv', 'r') as res_file:
+    with open(residue_csv, 'r') as res_file:
         res_reader = csv.reader(res_file)
         for i, line in enumerate(res_reader):
             if i == 0:
@@ -102,11 +109,5 @@ if __name__ == '__main__':
                         # sa_act = float(vor_atom_vals_sa['181L'][res_name][res])
                         # sa_res_data[file][res_name][res] = abs(float(sas[file][res_type][res_name][res]) - sa_act) / sa_act
 
-
-    for i, file in enumerate(vols):
-        if file == '181L':
-            mypdb = pdb_files[i]
-            continue
-
-        color_pdb_by_res(mypdb, vol_res_data[file], path.dirname(mypdb) + '/' + file + '_colorized.pdb')
+    color_pdb_by_res(my_pdb_file, vol_res_data[file], path.dirname(my_pdb_file) + '/' + file + '_colorized.pdb')
 

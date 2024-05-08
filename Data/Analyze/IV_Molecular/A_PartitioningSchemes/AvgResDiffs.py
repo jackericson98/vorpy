@@ -6,7 +6,7 @@ from System.system import System
 from System.Group.group import Group
 from Data.Analyze.tools.plot_templates.bar import bar
 from Data.Analyze.tools.compare.read_logs import read_logs
-from Data.Analyze.tools.compare.residue import residue_data
+from Data.Analyze.tools.compare.get_res_data import residue_data
 
 
 if __name__ == '__main__':

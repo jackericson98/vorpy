@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import filedialog
 from System.system import System
 from System.Group.group import Group
-from Data.Analyze.tools.compare.residue import nucleics, proteins, ions, sols
+from Data.Analyze.tools.compare.get_res_data import nucleics, proteins, ions, sols
 from Data.Analyze.tools.compare.read_logs import read_logs
 from Data.Analyze.tools.plot_templates.bar import bar
 
