@@ -54,7 +54,7 @@ def plot_function(function, function_name="", p1=None, p2=None):
         fig.update_layout(dict1=dict(xaxis=dict(title='Bubble Radius', tickfont=dict(size=25), titlefont=dict(size=30)),
                                      yaxis=dict(title='Probability Distribution', tickfont=dict(size=25), titlefont=dict(size=30))),
                           title=dict(font=dict(size=50)),
-                          legend=dict(title='CV', font=dict(size=25)))
+                          legend=dict(title='\u03B2', font=dict(size=25)))
         fig.show()
     else:
         my_x = np.linspace(0, 10, 1000)
@@ -73,7 +73,7 @@ betas = [0.00010, 0.00024, 0.00051, 0.00094, 0.00160, 0.00256, 0.00391, 0.00572,
 
 
 # plot_function(lognormal, 'Lognormal Distributions by Sigma Value', 1, [round((i+4)*0.025, 3) for i in range(17)])
-plot_function(gamma, 'Gamma Distributions by Beta Value - Alpha = 4', alphas, betas)
+plot_function(gamma, 'Gamma Distributions by Beta Value - \u03B1 = 4', 4, [round((i+4)*0.5, 3) for i in range(17)])
 # plot_function(physical_DeVries, "De Vries")
 # plot_function(physical_Ranadive_Lemlich, "Ranadive Lemlich")
 # plot_function(physical_GalOr_Hoelscher, "Gal-Or Hoelscher")
