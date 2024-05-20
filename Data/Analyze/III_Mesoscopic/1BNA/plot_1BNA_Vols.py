@@ -1,5 +1,8 @@
 import matplotlib.pyplot as plt
 from Data.Analyze.tools.compare.compare_files import compare_files
+import tkinter as tk
+from tkinter import
+
 
 
 if __name__ == '__main__':

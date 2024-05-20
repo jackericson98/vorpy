@@ -41,7 +41,7 @@ def inverse_transform_sampling(pdf, x_values, n_samples):
     return inverse_cdf(u)
 
 
-plot_num = 3
+plot_num = 2
 num_samples = 5000
 
 x_values = np.linspace(0, 5, num_samples)

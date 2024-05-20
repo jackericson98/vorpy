@@ -2,10 +2,17 @@ import csv
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import tkinter as tk
+from tkinter import filedialog
+
+root = tk.Tk()
+root.withdraw()
+root.wm_attributes('-topmost', 1)
+foam_data = filedialog.askopenfilename()
 
 
 plot_type = 'physical1'
-with open('C:/Users/jacke/PycharmProjects/vorpy/Data/user_data/foam_data.csv', 'r') as my_foam_data:
+with open(foam_data, 'r') as my_foam_data:
     my_data = []
     # x, y, z1, z2 = [], [], [], []
     foam_data = csv.reader(my_foam_data)
