@@ -135,14 +135,17 @@ yi = my_densities
 #
 # print(len(datavvm1), [len(_) for _ in datavvm1])
 # # Convert the matrix to a NumPy array
-matrix_array = np.array(datavvm)
-print(matrix_array)
+matrix_array1 = np.array(datavvm)
+matrix_array2 = np.array(datavvms)
+matrix_array3 = np.array(datavvps)
 
 # Create x and y coordinates
 x_coords, y_coords = np.meshgrid(my_sds, my_densities)
 
 # Create a surface plot
-fig = go.Figure(data=[go.Surface(z=matrix_array, x=x_coords, y=y_coords)])
+fig = go.Figure(data=[go.Surface(z=matrix_array1, x=x_coords, y=y_coords),
+                      go.Surface(z=matrix_array2, x=x_coords, y=y_coords, opacity=0.2, showscale=False),
+                      go.Surface(z=matrix_array3, x=x_coords, y=y_coords, opacity=0.2, showscale=False)])
 
 fig.update_layout(
     scene=dict(
@@ -162,12 +165,15 @@ fig.update_layout(
             titlefont=dict(size=25)
         )
     ),
-    title=dict(text='Power vs AW % Difference', font=dict(size=40))
+    title=dict(text='Power vs AW % Difference Volume', font=dict(size=40))
 )
 
 # Show the plot
 fig.show()
-#
+
+
+
+# #
 # df_vvm = pd.DataFrame(datavvm, xi, xi)
 # df_vsm = pd.DataFrame(datavsm, xi, xi)
 #
