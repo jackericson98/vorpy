@@ -4,12 +4,19 @@ import os
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import tkinter as tk
+from tkinter.filedialog import askopenfilename
 
+
+root = tk.Tk()
+root.withdraw()
+root.wm_attributes('-topmost', 1)
+my_foams_file = askopenfilename()
 
 plot_type = 'lognormal'
 for i in range(4):
     os.chdir('..')
-with open(os.getcwd() + '/Data/user_data/foam_data.csv', 'r') as my_foam_data:
+with open(my_foams_file, 'r') as my_foam_data:
 
     my_data = []
     # x, y, z1, z2 = [], [], [], []

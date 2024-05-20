@@ -26,7 +26,7 @@ def physical_GalOr_Hoelscher(r, p1=None, p2=None):
 
 
 def plot_function(function, function_name="", p1=None, p2=None):
-    my_x = np.linspace(0, 10, 10000)[1:]
+    my_x = np.linspace(0, 5, 10000)[1:]
     my_y = []
     if p1 is not None and type(p1) == list and p2 is not None and type(p2) == list:
         for i in range(len(p1)):
