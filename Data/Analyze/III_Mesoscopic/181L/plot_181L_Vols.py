@@ -1,12 +1,18 @@
 import matplotlib.pyplot as plt
 from Data.Analyze.tools.compare.compare_files import compare_files
+import tkinter as tk
+from tkinter import filedialog
 
+root = tk.Tk()
+root.withdraw()
+root.wm_attributes('-topmost', 1)
+logs_folder = filedialog.askdirectory()
 
 if __name__ == '__main__':
     # Windows Home
     # prefix = 'C:/Users/jacke/Documents/data/'
     # Mac
-    prefix = '/Users/jackericson/Documents/logs_pdbs/'
+    prefix = logs_folder + '/'
     my_info = compare_files(pdb_files=[prefix + '181L.pdb',
                                        prefix + '181L.pdb',
                                        prefix + '181L_coarse_ad.pdb',
