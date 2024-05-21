@@ -5,6 +5,7 @@ import os
 from os import path
 import tkinter as tk
 from tkinter import filedialog
+import datetime
 
 
 root = tk.Tk()
@@ -33,14 +34,14 @@ for directory in os.listdir(folder):
 
         num_needed += 1
         # Generate the pdb file by separating the number if there is one.
-        try:
-            int(my_dir_split[-1])
-            pdb_file = '_'.join(my_dir_split[:-1]) + '.pdb'
-        except ValueError:
-            pdb_file = directory + '.pdb'
-        pdb_file = folder + '/' + directory + '/' + pdb_file
-        with open('foam_runs_' + str(run_file_num) + '.bat', 'a') as write_file:
-            write_file.write('py vorpy.py {} -s nt compare -e dir {} -e large\n'.format(pdb_file, folder + '/' + directory))
+        # try:
+        #     int(my_dir_split[-1])
+        #     pdb_file = '_'.join(my_dir_split[:-1]) + '.pdb'
+        # except ValueError:
+        #     pdb_file = directory + '.pdb'
+        # pdb_file = folder + '/' + directory + '/' + pdb_file
+        # with open('foam_runs_' + str(run_file_num) + '.bat', 'a') as write_file:
+        #     write_file.write('py vorpy.py {} -s nt compare -e dir {} -e large\n'.format(pdb_file, folder + '/' + directory))
         # print('py vorpy.py {} -s nt compare -e dir {} -e large'.format(pdb_file, folder + '/' + directory))
 
-print('Number of directories solved: {}/{}'.format(num_tot - num_needed, num_tot))
+print('Number of directories solved: {}/{} at {}'.format(num_tot - num_needed, num_tot, datetime.datetime.now()))
