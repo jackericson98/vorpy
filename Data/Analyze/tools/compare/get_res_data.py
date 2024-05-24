@@ -6,12 +6,11 @@ def residue_data(sys, logs, get_all=False, get_vol=False, get_sa=False, get_curv
     """
     Function that takes in a system and logs and creates a list of sorted residues that can be analyzed for the values
     """
-
     # Check to see that type of logs it is
     if type(logs) is dict:
         pass
     elif type(logs) is str and logs[-3:] == 'csv':
-        logs = read_logs(logs)
+        logs = read_logs(logs, new_logs=True)
     else:
         print("Log File Error: Logs must be in the form of a dictionary from \'read_logs()\' or a \'.csv\' log file "
               "address")
@@ -52,10 +51,16 @@ def residue_data(sys, logs, get_all=False, get_vol=False, get_sa=False, get_curv
             sa = sum([_['sa'] for _ in res_surfs['out']])
         # Get the curvatures
         if get_all or get_curv:
-            max_curv = max([_['max curv'] for _ in res_atoms])
-            avg_curv = sum([_['curvature'] for _ in res_surfs['out'] + res_surfs['in']])/len(res_surfs)
-            # Get the maximum curvature between residue and other atom
-            max_surf = max(res_surfs['out'], key=lambda x: x['curvature'])
+            if len(res_atoms) == 0:
+                max_curv, max_surf, avg_curv = 0, 0, 0
+            else:
+                max_curv = max([_['max curv'] for _ in res_atoms])
+                avg_curv = sum([_['curvature'] for _ in res_surfs['out'] + res_surfs['in']])/len(res_surfs)
+                # Get the maximum curvature between residue and other atom
+                try:
+                    max_surf = max(res_surfs['out'], key=lambda x: x['curvature'])
+                except ValueError:
+                    max_surf = 0
 
         # Add the res info for analysis
         res_info = {'vol': vol, 'sa': sa, 'max_surf': max_surf, 'max_curv': max_curv, 'avg_curv': avg_curv}
