@@ -25,7 +25,10 @@ def compare_files(pdb_files, log_files, build_data=False, totals=False, avg_dist
                 break
         names.append(my_sys.name)
         systems.append(my_sys)
-        my_logs = read_logs([log_files[i]])
+        try:
+            my_logs = read_logs([log_files[i]], return_dict=True)
+        except ValueError:
+            my_logs = read_logs([log_files[i]], new_logs=True, return_dict=True)
         logs.append([my_logs[_] for _ in my_logs][0])
         line = {'num': (i + 1), 'name': systems[-1].name, 'net type': logs[-1]['data']['network_type']}
         info['files'].append(line)
@@ -53,8 +56,7 @@ def compare_files(pdb_files, log_files, build_data=False, totals=False, avg_dist
         if by_residues:
             info['residues'] = {}
             for i, sys in enumerate(systems):
-                print(i)
-                line = residue_data(sys, logs[i], True, True, True, dists=True)
+                line = residue_data(sys, logs[i], True, True, True)
                 info['residues'][sys.name] = line
 
     # Get the average Curvature
