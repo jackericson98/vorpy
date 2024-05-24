@@ -15,11 +15,11 @@ def percent_diff(pdb_log_dir, file_name, sa_vol='vol', martini=False):
         martini_list = ['_martini']
         martini_name = ['Martini']
     # Create the list of names
-    names = ['', '_ad', '_ncap', '_scbb_ad', '_scbb_ncap'] + martini_list
+    names = ['_atom', '_ad', '_ncap', '_scbb_ad', '_scbb_ncap'] + martini_list
     # Create the directories and duplicate them for the vor and power logs
     pdb_files = [pdb_log_dir + file_name + name + '.pdb' for name in names for _ in range(2)]
     # Create the log files lists
-    log_files = [pdb_log_dir + file_name + name + _ + '_logs.csv' for name in names for _ in ['_vor', '_pow']]
+    log_files = [pdb_log_dir + file_name + name + _ + '_logs.csv' for name in names for _ in ['_aw', '_pow']]
     # Check to see if the data has been processed yet
     if not os.path.exists(pdb_log_dir + file_name + '_residue_data.csv'):
         # Get the data from the log files and sort it
@@ -31,6 +31,7 @@ def percent_diff(pdb_log_dir, file_name, sa_vol='vol', martini=False):
             for file in my_info['residues']:
                 for res_type in my_info['residues'][file]:
                     for res_name in my_info['residues'][file][res_type]:
+                        print(res_name, res_type, file, my_info['residues'][file][res_type][res_name])
                         for res in my_info['residues'][file][res_type][res_name]:
                             res_fl.writerow([file, res_type, res_name, res] + [my_info['residues'][file][res_type][res_name][res][_] for _ in my_info['residues'][file][res_type][res_name][res]])
     # Start re-sorting the data
@@ -152,4 +153,4 @@ if __name__ == '__main__':
     root.withdraw()
     root.wm_attributes('-topmost', 1)
     my_pdb_folder = filedialog.askdirectory()
-    percent_diff(my_pdb_folder + '/', '1BNA', 'vol', False)
+    percent_diff(my_pdb_folder + '/', 'BSA_5ORF', 'vol', False)
