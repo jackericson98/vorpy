@@ -20,14 +20,17 @@ with open(my_foams_file, 'r') as my_foam_data:
     # x, y, z1, z2 = [], [], [], []
     foam_data = csv.reader(my_foam_data)
     for my_line in foam_data:
-        if len(my_line) <= 1:
+        try:
+            if len(my_line) <= 1:
+                continue
+            my_data.append({'num': my_line[0], 'avg rad size': float(my_line[2]), 'box size': float(my_line[1]),
+                            'rad std': float(my_line[3]), 'num balls': int(my_line[4]),
+                            'density': float(my_line[5]), 'vol diff vor': float(my_line[6]),
+                            'sa diff vor': float(my_line[7]),
+                            'vol diff pow': float(my_line[8]), 'sa diff pow': float(my_line[9]),
+                            'num cells': int(my_line[10])})
+        except ValueError:
             continue
-        my_data.append({'num': my_line[0], 'avg rad size': float(my_line[2]), 'box size': float(my_line[1]),
-                        'rad std': float(my_line[3]), 'num balls': int(my_line[4]),
-                        'density': float(my_line[5]), 'vol diff vor': float(my_line[6]),
-                        'sa diff vor': float(my_line[7]),
-                        'vol diff pow': float(my_line[8]), 'sa diff pow': float(my_line[9]),
-                        'num cells': int(my_line[10])})
 
 
 lists = {}
@@ -96,16 +99,14 @@ for i, num in enumerate(my_sds):
         datapsm[i].append(means[3]); datapsms[i].append(means[3] - sds[3]); datapsps[i].append(means[3] + sds[3])
 
 
-print(len(my_sds), len(my_densities))
-
 # Coefficient of Variation (CV) and Density values
 
 # Create a single plot
 fig, ax = plt.subplots(figsize=(8, 6))
-print(datavvm)
 for i in range(len(datavvm)):
-    print(len(datavvm[i]), datavvm[i])
-    # ax.plot(my_densities[2:], datavvm[i][1:], label=str(my_sds[i]))
+    ax.plot(my_densities[2:], datavvm[i][2:], label=str(my_sds[i]))
+    ax.fill_between(my_densities[2:], datavvms[i][2:], datavvps[i][2:], alpha=0.2)
+
 
 # Set plot title and legend
 ax.set_xticks(np.arange(my_densities[1], my_densities[-1] + 0.05, 0.05))
