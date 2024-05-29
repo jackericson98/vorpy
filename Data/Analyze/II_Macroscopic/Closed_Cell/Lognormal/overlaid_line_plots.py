@@ -110,7 +110,7 @@ for i in range(len(datavvm)):
 
 # Set plot title and legend
 ax.set_xticks(np.arange(my_densities[1], my_densities[-1] + 0.05, 0.05))
-ax.set_title('AW vs Power % Difference Volume', fontsize=30)
+ax.set_title('Power Volume Deviation (Closed)', fontsize=30)
 ax.set_xlabel('Density', fontsize=20)
 ax.set_ylabel('% Difference', fontsize=20)
 ax.tick_params(axis='both', which='major', labelsize=15)

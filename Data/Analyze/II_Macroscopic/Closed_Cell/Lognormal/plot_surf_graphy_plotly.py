@@ -4,12 +4,20 @@ import os
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import tkinter as tk
+from tkinter import filedialog
+
+root = tk.Tk()
+root.withdraw()
+root.wm_attributes('-topmost', 1)
+my_file = filedialog.askopenfilename()
+
 
 
 plot_type = 'lognormal'
 for i in range(4):
     os.chdir('..')
-with open(os.getcwd() + '/Data/user_data/foam_data.csv', 'r') as my_foam_data:
+with open(my_file, 'r') as my_foam_data:
 
     my_data = []
     # x, y, z1, z2 = [], [], [], []
@@ -48,8 +56,8 @@ if plot_type == 'gamma':
     my_sds = np.arange(1.5, 6.5, 0.25)
 
 if plot_type == 'lognormal':
-    my_densities = np.arange(0.025, 0.475, 0.025)
-    my_sds = np.arange(0.1, 0.525, 0.025)
+    my_densities = np.arange(0.025, 0.5, 0.025)
+    my_sds = np.arange(0.1, 0.5, 0.025)
 
 my_densities = [round(_, 3) for _ in my_densities]
 my_sds = [round(_, 3) for _ in my_sds]
