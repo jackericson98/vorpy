@@ -14,7 +14,7 @@ my_file = filedialog.askopenfilename()
 
 
 
-plot_type = 'lognormal'
+plot_type = 'gamma'
 for i in range(4):
     os.chdir('..')
 with open(my_file, 'r') as my_foam_data:
@@ -52,8 +52,8 @@ for dp in my_data:
 
 
 if plot_type == 'gamma':
-    my_densities = np.arange(0.025, 0.45, 0.025)
-    my_sds = np.arange(1.5, 6.5, 0.25)
+    my_densities = np.arange(0.025, 0.5, 0.025)
+    my_sds = np.arange(2.0, 10.0, 0.5)
 
 if plot_type == 'lognormal':
     my_densities = np.arange(0.025, 0.5, 0.025)
