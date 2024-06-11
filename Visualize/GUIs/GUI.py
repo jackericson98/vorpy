@@ -1,81 +1,75 @@
+from tkinterdnd2 import DND_FILES, TkinterDnD
 import tkinter as tk
 from tkinter import ttk
 
-data = False
+
+setting = False
 
 
-def settings_gui():
-    # Function to collect values and print dictionary
-    global data
+def my_GUI():
+    global settings
 
-    def apply_values():
-        global data
-        data = {
-            "bubble size": float(avg_bubble_size_var.get()),
-            "bubble sd": float(std_deviation_var.get()),
-            "bubble num": int(num_bubbles_var.get()),
-            "bubble density": float(density_var.get()),
-            "open cell": open_cell_var.get(),
-            "distribution": distribution_var.get().lower()
+    def drop(event):
+        file_path.set(event.data)  # Set the file path in the Label
+
+    def update_variables():
+        global settings
+        settings = {
+            # Files
+            'base file': file_path.get(),
+            # Settings
+            # 'mv':
         }
         root.destroy()
-        return data  # Or replace this with return data if using within another function or script
+        return settings
 
-    # Function to handle cancel
+    root = TkinterDnD.Tk()
+    root.title('Vorpy')
+
+    # Variable to store the path of the dragged file
+    file_path = tk.StringVar()
+    file_path.set('Drag and drop your file here.')
+
+    # Create a label to display the file path or instructions
+    label = tk.Label(root, textvariable=file_path, width=80, height=4, relief='sunken')
+    label.grid(row=0, column=0, columnspan=5, padx=10, pady=10)
+
+    # Configure the label to accept dragged files
+    label.drop_target_register(DND_FILES)
+    label.dnd_bind('<<Drop>>', drop)
+
+    # Add a run button
+    tk.Button(root, command=update_variables, text='Run').grid(row=4, column=4, padx=10, pady=10)
+
+    # Add a cancel function and button
     def cancel():
         root.destroy()
 
-    # Main window
-    root = tk.Tk()
-    root.title("Foam Settings")
+    tk.Button(root, command=cancel, text='Cancel').grid(row=4, column=3, padx=10, pady=10)
 
-    # Variables for storing input
-    avg_bubble_size_var = tk.StringVar(value='1.0')
-    std_deviation_var = tk.StringVar(value='0.1')
-    num_bubbles_var = tk.StringVar(value='100')
-    density_var = tk.StringVar(value='0.25')
-    open_cell_var = tk.BooleanVar(value=False)
-    distribution_var = tk.StringVar(value='Lognormal')
+    # Network Type
+    net_type = tk.StringVar(value='Additively Weighted')
+    (ttk.Combobox(root, textvariable=net_type, values=['Additively Weighted', 'Power', 'Primitive'])
+     .grid(row=2, column=3, padx=10, pady=10))
 
-    # Average Bubble Size Entry
-    tk.Label(root, text="Avg Bubble Size").grid(row=0, column=0)
-    tk.Entry(root, textvariable=avg_bubble_size_var).grid(row=0, column=1)
-    tk.Label(root, text='(0.001 - 1000 \u212B)').grid(row=0, column=2)
 
-    # Standard Deviation Entry
-    tk.Label(root, text="Standard Deviation").grid(row=1, column=0)
-    tk.Entry(root, textvariable=std_deviation_var).grid(row=1, column=1)
-    tk.Label(root, text='(0 - 1000)').grid(row=1, column=2)
+    # Maximum Vertex Size
+    max_vert = tk.StringVar(value='40')
+    tk.Entry(root, textvariable=max_vert).grid(row=1, column=0, padx=10, pady=10)
 
-    # Number of bubbles entry
-    tk.Label(root, text="Number of Bubbles").grid(row=2, column=0)
-    tk.Entry(root, textvariable=num_bubbles_var).grid(row=2, column=1)
-    tk.Label(root, text='(10 - 100,000)').grid(row=2, column=2)
+    # Surface Resolution
+    surf_res = tk.StringVar(value='0.2')
+    tk.Entry(root, textvariable=surf_res).grid(row=2, column=0, padx=10, pady=10)
 
-    #
-    tk.Label(root, text="Density").grid(row=3, column=0)
-    tk.Entry(root, textvariable=density_var).grid(row=3, column=1)
-    tk.Label(root, text='(0.001 - 0.6)').grid(row=3, column=2)
+    # Export type
+    exp_type = tk.StringVar(value='Large')
+    ttk.Combobox(root, textvariable=exp_type, values=['Logs', 'Small', 'Medium', 'Large', 'All']).grid(padx=10, pady=10)
 
-    # Checkbox
-    tk.Checkbutton(root, text="Open Cell?", variable=open_cell_var).grid(row=4, column=0, columnspan=3)
 
-    # Dropdown
-    tk.Label(root, text="Distribution").grid(row=5, column=0)
-    distribution_menu = ttk.Combobox(root, textvariable=distribution_var, values=["Lognormal", "Gamma", "Real"])
-    distribution_menu.grid(row=5, column=1)
-    distribution_menu.current(0)  # Set the default value
-
-    # Buttons
-    tk.Button(root, text="Apply", command=apply_values).grid(row=6, column=1)
-    tk.Button(root, text="Cancel", command=cancel).grid(row=6, column=2)
-
-    # Run the GUI
+    # End the main loop
     root.mainloop()
-
-    if not data:
-        data = {'bubble size': 1, 'bubble sd': 0.1, 'bubble num': 100, 'bubble density': 0.25,
-                'open cell': False, 'distribution': 'lognormal'}
-    return data
+    return settings
 
 
+if __name__ == '__main__':
+    my_GUI()
