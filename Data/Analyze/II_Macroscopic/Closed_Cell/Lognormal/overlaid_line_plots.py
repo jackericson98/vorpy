@@ -11,7 +11,7 @@ root.wm_attributes('-topmost', 1)
 my_foams_file = askopenfilename()
 
 
-plot_type = 'lognormal'
+plot_type = 'gamma'
 
 
 with open(my_foams_file, 'r') as my_foam_data:
