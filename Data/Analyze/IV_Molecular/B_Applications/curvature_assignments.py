@@ -28,4 +28,5 @@ for i, surf in my_logs_info['surfs'].iterrows():
         surf_type_dict[combined_names] = [surf['curvature']]
 
 for _ in surf_type_dict:
-    print(_, surf_type_dict[_])
+    if sum(surf_type_dict[_]) != 0 and len(surf_type_dict[_]) > 10:
+        print(_, surf_type_dict[_])
