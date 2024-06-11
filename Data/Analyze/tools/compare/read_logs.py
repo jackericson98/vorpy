@@ -3,11 +3,11 @@ import csv
 import pandas as pd
 
 
-def read_atom(atom_line, new=False):
-    if not new:
+def read_atom(atom_line):
+    try:
         atom = {'num': int(atom_line[0]), 'name': atom_line[1], 'volume': float(atom_line[2]), 'sa': float(atom_line[3]),
                 'max curv': float(atom_line[4]), 'neighbors': [int(_) for _ in atom_line[5:] if _ != '']}
-    else:
+    except ValueError:
         atom = {'num': int(atom_line[0]), 'name': atom_line[1], 'volume': float(atom_line[2]),
                 'sa': float(atom_line[3]), 'max curv': float(atom_line[4]), 'complete': atom_line[5],
                 'neighbors': [int(_) for _ in atom_line[6:] if _ != '']}
@@ -32,7 +32,7 @@ def read_vert(vert_line):
 
 
 #
-def read_logs(log_files, return_dict=False, no_sol=False, new_logs=False):
+def read_logs(log_files, return_dict=False, no_sol=False):
     file_info = {}
     one_file = False
     if type(log_files) == str:
@@ -65,7 +65,7 @@ def read_logs(log_files, return_dict=False, no_sol=False, new_logs=False):
                     skip_next = False
                     continue
                 elif data_type == 'Atoms':
-                    my_atom = read_atom(line, new=new_logs)
+                    my_atom = read_atom(line)
                     if no_sol and my_atom['name'].strip().lower() in {'hw1', 'hw2', 'ow', 'h02', 'h01', 'na', 'cl', 'mg', 'k'}:
                         continue
                     else:
