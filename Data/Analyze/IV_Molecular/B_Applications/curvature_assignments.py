@@ -6,6 +6,7 @@ Outputs a list plot of the different atomic curvature assignments
 import tkinter as tk
 from tkinter import filedialog
 from Data.Analyze.tools.compare.read_logs import read_logs
+import matplotlib.pyplot as plt
 
 root = tk.Tk()
 root.withdraw()
@@ -27,6 +28,26 @@ for i, surf in my_logs_info['surfs'].iterrows():
     else:
         surf_type_dict[combined_names] = [surf['curvature']]
 
+new_surf_dict = {}
 for _ in surf_type_dict:
-    if sum(surf_type_dict[_]) != 0 and len(surf_type_dict[_]) > 10:
-        print(_, surf_type_dict[_])
+    if sum(surf_type_dict[_]) / len(surf_type_dict[_]) >= 0.01 and len(surf_type_dict[_]) > 10:
+        new_surf_dict[_] = surf_type_dict[_]
+
+# Prepare data for plotting
+labels, values = zip(*new_surf_dict.items())
+
+# Create the boxplot
+fig, ax = plt.subplots(figsize=(12, 8))
+ax.boxplot(values, labels=labels, patch_artist=True)
+
+# Set plot title and labels
+ax.set_title('Distribution of Curvature Types')
+ax.set_xlabel('Curvature Type')
+ax.set_ylabel('Curvature Value')
+
+# Rotate x-axis labels for better readability
+plt.xticks(rotation=45)
+plt.tight_layout()
+
+# Display the plot
+plt.show()
