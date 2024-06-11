@@ -12,8 +12,8 @@ logs_folder = filedialog.askdirectory()
 
 my_logs = []
 for file, directory, x in os.walk(logs_folder):
-    print(file, directory, x)
-    my_logs.append(read_logs(file, return_dict=True))
+    for my_file in x:
+        my_logs.append(read_logs(file + '/' + my_file, return_dict=True))
 
 # Get the totals
 vols, sas = [], []
