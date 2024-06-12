@@ -1,8 +1,9 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
 
-def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_title='', y_axis_title='', bar_width=0.35, Show=False,
-        save=None, legend_title=None):
+def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_title='', y_axis_title='', bar_width=0.35,
+        Show=False, save=None, legend_title=None, print_vals_on_bars=False, unit=''):
 
     # Check how the data is set up and make sure it is a list of lists
     if type(data[0]) is not list:
@@ -33,9 +34,9 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
               'turquoise']
 
     # Plot the bars
+    xlocs = [[i * bar_width + j * bar_width * (num_bars + 1) for j in num_groups] for i in range(len(data))]
     for i in range(len(data)):
-        x_locs = [i * bar_width + j * bar_width * (num_bars + 1) for j in num_groups]
-        my_bars = plt.bar(x_locs, data[i], width=bar_width, label=legend_names[i], color=colors[i], edgecolor='black')
+        my_bars = plt.bar(xlocs[i], data[i], width=bar_width, label=legend_names[i], color=colors[i], edgecolor='black')
 
         # Plot the error bars
         if errors is not None:
@@ -49,17 +50,26 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
     plt.xlabel(x_axis_title, fontdict=dict(size=15))
 
     # Label the bar groups
-    x_locs = [j * bar_width * (num_bars + 1) + num_bars * bar_width / 2 for j in num_groups]
-    plt.xticks(x_locs, x_names, rotation=45, ha='right', font=dict(size=10))
+    x_tick_locs = [np.mean([xlocs[j][i] for j in range(len(data))]) for i in range(len(data[0]))]
+    plt.xticks(x_tick_locs, x_names, rotation=45, ha='right', font=dict(size=10))
+    plt.tick_params(axis='both', width=2, length=15)
 
+    # Plot the data on the bars
+    if print_vals_on_bars:
+        for j in range(len(data)):
+            for i, v in enumerate(data[j]):
+                plt.text(xlocs[j][i] + 0.03, v / 2, str(v) + unit, ha='center', va='center', rotation=90)
     # Add the legend
     if legend_title is not None:
-        plt.legend(title=legend_title)
+        plt.legend(title=legend_title, loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=len(data))
     elif len(data) > 1:
-        plt.legend()
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=len(data))
 
     # Set the y limit
     plt.ylim(0, 1.3 * ymax)
+
+    # Set the figure size
+    plt.tight_layout()
 
     # Show the plot if chosen to
     if Show:
