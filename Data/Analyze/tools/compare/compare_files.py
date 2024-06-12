@@ -26,9 +26,9 @@ def compare_files(pdb_files, log_files, build_data=False, totals=False, avg_dist
         names.append(my_sys.name)
         systems.append(my_sys)
         try:
-            my_logs = read_logs([log_files[i]], return_dict=True)
+            my_logs = read_logs([log_files[i]])
         except ValueError:
-            my_logs = read_logs([log_files[i]], new_logs=True, return_dict=True)
+            my_logs = read_logs([log_files[i]], new_logs=True)
         logs.append([my_logs[_] for _ in my_logs][0])
         line = {'num': (i + 1), 'name': systems[-1].name, 'net type': logs[-1]['data']['network_type']}
         info['files'].append(line)
@@ -43,6 +43,7 @@ def compare_files(pdb_files, log_files, build_data=False, totals=False, avg_dist
     if totals:
         info['totals'] = {}
         for i, sys in enumerate(systems):
+            print(sys.name)
             avg_curv = 0
             if curv:
                 avg_curv = sum(logs[i]['surfs']['curvature']) / len(logs[i]['surfs'])
