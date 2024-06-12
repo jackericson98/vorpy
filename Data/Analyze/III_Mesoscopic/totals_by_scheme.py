@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from Data.Analyze.tools.compare.compare_files import compare_files
 import tkinter as tk
 from tkinter import filedialog
+from Data.Analyze.tools.plot_templates.bar import bar
 
 """
 Plotting the totals for different schemes
@@ -30,18 +31,18 @@ if __name__ == '__main__':
     log_files, pdb_files = [], []
     for file in os.listdir(logs_pdb_folder):
         filename = os.fsdecode(file)
-        if filename.endswith('atom.pdb'):
+        if filename.endswith('a.pdb'):
             pdb_files.append(os.path.join(logs_pdb_folder, filename))
             pdb_files.append(os.path.join(logs_pdb_folder, filename))
             # Get the name of the model
-            my_model_name = filename[:-9]
-        elif filename.endswith('.csv') and 'atom' in filename:
+            my_model_name = filename[:-6]
+        elif filename.endswith('.csv') and '_a_logs' in filename:
             log_files.append(os.path.join(logs_pdb_folder, filename))
 
     # Go through the files in the folder sorting them
     for file in os.listdir(logs_pdb_folder):
         filename = os.fsdecode(file)
-        if 'atom' in filename:
+        if '_a.pdb' in filename or '_a_logs' in filename:
             continue
         if filename.endswith('.pdb'):
             pdb_files.append(os.path.join(logs_pdb_folder, filename))
@@ -53,11 +54,14 @@ if __name__ == '__main__':
 
     # Sample data
     # Get the labels
-    labels_dict = {'atom': 'Atoms', 'ad': 'Avg Dist', 'ncap': 'Encapsulate', 'scbb_ad': 'SC/BB AD', 'scbb_ncap': 'SC/BB Encap.', 'martini': 'Martini'}
+    labels_dict = {'a': 'Atoms', 'ad_mw': 'Avg Dist (mw)', 'ad': 'Avg Dist', 'ncap': 'Encapsulate',
+                   'scbb_ad': 'SC/BB AD', 'scbb_ncap': 'SC/BB Encap.', 'scbb_ad_mw': 'SC/BB AD (mw)',
+                   'martini': 'Martini', }
     labels = []
     for file in pdb_files[::2]:
         labels.append(labels_dict[file[len(logs_pdb_folder) + len(my_model_name) + 2:-4]])
     data = [round(my_info['totals'][_][metric], 2) for _ in my_info['totals']]  # Sample data for the first set
+
     data1 = data[::2]
     data2 = data[1::2]
     ymax = max(data)
@@ -67,30 +71,17 @@ if __name__ == '__main__':
     # Index for the x-axis
     x = range(len(labels))
 
-    # Create the bar graph
-    plt.bar(x, data1, width=bar_width, label='Additively Weighted', color='skyblue', edgecolor='black')
-    plt.bar([i + bar_width for i in x], data2, width=bar_width, label='Power', color='orange', edgecolor='black')
-
+    # Set the title
     # Add labels and title
     if metric == 'sa':
-        plt.ylabel('Surface Area', fontdict=dict(size=15))
-        plt.title('{} Surface Area by Scheme'.format(my_model_name), fontdict=dict(size=20))
         unit = ' \u212B\u00B2'
+        ylabel = 'Surface Area' + unit
+        title = '{} Total Surface Area'.format(my_model_name.capitalize())
     elif metric == 'vol':
-        plt.ylabel('Volume', fontdict=dict(size=15))
-        plt.title('{} Volume by Scheme'.format(my_model_name), fontdict=dict(size=20))
         unit = ' \u212B\u00B3'
+        ylabel = 'Volume' + unit
+        title = '{} Total Volume'.format(my_model_name.capitalize())
 
-    # Angle the labels and add values at the top of the bars
-    plt.xticks([i + bar_width / 2 for i in x], labels, rotation=45, ha='right')
-    for i, v in enumerate(data1):
-        plt.text(i, v / 2, str(v) + unit, ha='center', va='center', rotation=90)
-    for i, v in enumerate(data2):
-        plt.text(i + bar_width, v / 2, str(v) + unit, ha='center', va='center', rotation=90)
-    plt.ylim(0, 1.25 * ymax)
-    # Add legend with appropriate layout
-    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=2)
-
-    # Show the plot
-    plt.tight_layout()
-    plt.show()
+    # Plot the bar graph
+    bar([data1, data2], x_names=labels, legend_names=['Additively Weighted', 'Power'], title=title,
+        x_axis_title='Scheme', y_axis_title=ylabel, Show=True, print_vals_on_bars=True, unit=unit)
