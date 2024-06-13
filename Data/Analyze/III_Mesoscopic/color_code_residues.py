@@ -18,7 +18,6 @@ def color_pdb_by_res(pdb, values, output_pdb=None):
     pdb_name = path.basename(pdb)
     if output_pdb is None:
         output_pdb = pdb_dir + pdb_name[:-4] +'_colorized.pdb'
-    print(output_pdb)
     with open(pdb, 'r') as read_pdb, open(output_pdb, 'w') as write_pdb:
         for line in read_pdb:
             if line[:4] == 'ATOM':
