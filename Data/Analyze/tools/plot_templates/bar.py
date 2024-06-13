@@ -58,7 +58,12 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
     if print_vals_on_bars:
         for j in range(len(data)):
             for i, v in enumerate(data[j]):
-                plt.text(xlocs[j][i] + 0.03, v / 2, str(v) + unit, ha='center', va='center', rotation=90)
+                if v < 0.5 * ymax * 1.25:
+                    height = 0.5 * (ymax + v)
+                else:
+                    height = v / 2
+                plt.text(xlocs[j][i] + 0.03, height, str(v) + unit, ha='center', va='center', rotation=90)
+
     # Add the legend
     if legend_title is not None:
         plt.legend(title=legend_title, loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=len(data))
