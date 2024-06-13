@@ -10,7 +10,7 @@ def residue_data(sys, logs, get_all=False, get_vol=False, get_sa=False, get_curv
     if type(logs) is dict:
         pass
     elif type(logs) is str and logs[-3:] == 'csv':
-        logs = read_logs(logs, new_logs=True)
+        logs = read_logs(logs, return_dict=True)
     else:
         print("Log File Error: Logs must be in the form of a dictionary from \'read_logs()\' or a \'.csv\' log file "
               "address")
@@ -27,12 +27,12 @@ def residue_data(sys, logs, get_all=False, get_vol=False, get_sa=False, get_curv
         # Create the list of atoms and a surface dictionary lists separated into exterior and interior
         res_atoms, res_surfs = [], {'in': [], 'out': []}
 
-        for atom_info_line in logs['atoms']:
+        for i, atom_info_line in logs['atoms'].iterrows():
             # Get the residue atoms information
             if atom_info_line['num'] in res.atoms:
                 res_atoms.append(atom_info_line)
 
-        for surf_info_line in logs['surfs']:
+        for i, surf_info_line in logs['surfs'].iterrows():
             # Check of one of the surfaces atoms is in the residue
             if surf_info_line['atoms'][0] in res.atoms:
                 # Check for the other surface
@@ -64,19 +64,17 @@ def residue_data(sys, logs, get_all=False, get_vol=False, get_sa=False, get_curv
 
         # Add the res info for analysis
         res_info = {'vol': vol, 'sa': sa, 'max_surf': max_surf, 'max_curv': max_curv, 'avg_curv': avg_curv}
-
         # Add the information into the appropriate residue dictionary
-        if res.name in protein_dict:
-            protein_dict[res.name][res.seq] = res_info
-        elif res.name in nucleic_dict:
-            nucleic_dict[res.name][res.seq] = res_info
-        elif res.name in ion_dict:
-            ion_dict[res.name][res.seq] = res_info
-        elif res.name in other_dict:
-            other_dict[res.name][res.seq] = res_info
+        if res.name.lower() in protein_dict:
+            protein_dict[res.name.lower()][res.seq] = res_info
+        elif res.name.lower() in nucleic_dict:
+            nucleic_dict[res.name.lower()][res.seq] = res_info
+        elif res.name.lower() in ion_dict:
+            ion_dict[res.name.lower()][res.seq] = res_info
+        elif res.name.lower() in other_dict:
+            other_dict[res.name.lower()][res.seq] = res_info
         else:
-            other_dict[res.name] = {res.seq: res_info}
-
+            other_dict[res.name.lower()] = {res.seq: res_info}
     # Return the sorted dictionary with the values
-    return {'aminos': protein_dict, 'nucs': nucleic_dict, 'ions': ions, 'other': other}
+    return {'aminos': protein_dict, 'nucs': nucleic_dict, 'ions': ion_dict, 'other': other_dict}
 
