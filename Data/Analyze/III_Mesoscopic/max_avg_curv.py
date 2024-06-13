@@ -6,6 +6,8 @@ import os
 
 
 if __name__ == '__main__':
+    # Choose between max and avg
+    value = 'avg'
     # Go to the logs and pdbs folder
     root = tk.Tk()
     root.withdraw()
@@ -45,7 +47,7 @@ if __name__ == '__main__':
     for file in pdb_files[::2]:
         labels.append(labels_dict[file[len(logs_pdb_folder) + len(my_model_name) + 2:-4]])
 
-    data = [round(my_info['totals'][_]['avg curv'], 3) for _ in my_info['totals']]  # Sample data for the first set
+    data = [round(my_info['totals'][_]['{} curv'.format(value)], 3) for _ in my_info['totals']]  # Sample data for the first set
     data1 = data[::2]
     data2 = data[1::2]
     max_height = max(data1)
@@ -57,21 +59,19 @@ if __name__ == '__main__':
 
     # Create the bar graph
     plt.bar(x, data1, width=bar_width, label='Additively Weighted')
-    # plt.bar([i + bar_width for i in x], data2, width=bar_width, label='Power')
 
     # Add labels and title
-    plt.ylabel('Average Curvature (Gaussian)')
-    plt.title('1BNA Average Curvature by Scheme')
+    if value == 'avg':
+        plt.ylabel('Average Curvature (Gaussian)')
+        plt.title('{} Average Curvature by Scheme'.format(my_model_name.capitalize()))
+    else:
+        plt.ylabel('Average Curvature (Gaussian)')
+        plt.title('{} Max Curvature by Scheme'.format(my_model_name.capitalize()))
 
     # Angle the labels and add values at the top of the bars
     plt.xticks([i + bar_width / 2 for i in x], labels, rotation=45, ha='right')
     for i, v in enumerate(data1):
         plt.text(i, max_height / 2, str(v), ha='center', va='center', rotation=90)
-    # for i, v in enumerate(data2):
-    #     plt.text(i + bar_width, v / 2, str(v), ha='center', va='center', rotation=90)
-
-    # Add legend
-    # plt.legend()
 
     # Show the plot
     plt.tight_layout()
