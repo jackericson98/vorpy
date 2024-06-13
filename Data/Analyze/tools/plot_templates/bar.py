@@ -10,7 +10,10 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
         data = [data]
 
     # Get the total maximum for the list of lists
-    ymax = max([max(_) for _ in data])
+    err_max = 0
+    if errors is not None:
+        err_max = max([max(_) for _ in errors])
+    ymax = max([max(_) for _ in data]) + err_max
 
     # Set the bar width
     bar_width = 0.35
@@ -58,8 +61,8 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
     if print_vals_on_bars:
         for j in range(len(data)):
             for i, v in enumerate(data[j]):
-                if v < 0.5 * ymax * 1.25:
-                    height = 0.5 * (ymax + v)
+                if v < 0.3 * ymax:
+                    height = 0.5 * ymax
                 else:
                     height = v / 2
                 plt.text(xlocs[j][i] + 0.03, height, str(v) + unit, ha='center', va='center', rotation=90)
