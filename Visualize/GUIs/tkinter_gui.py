@@ -4,6 +4,7 @@ from tkinter import filedialog
 from System.system import System, Network
 from System.Group.group import Group
 from System.sys_funcs.output.output import *
+from Visualize.GUIs.periodic_table_GUI import periodic_table
 
 
 # Loading gui class. Holds the settings for the load/settings gui
@@ -135,12 +136,7 @@ class VorpyT:
 
         # Change Radius
         tk.Label(bld_sbfrm, text="Change Atom Radius").grid(row=5, column=3)
-        self.current_elem_selection = tk.StringVar(self.main)
-        self.current_rad_set = tk.DoubleVar(self.main)
-        self.elem_rad_options = tk.OptionMenu(bld_sbfrm, self.current_elem_selection, " ", *[_ for _ in self.sys.radii])
-        self.elem_rad_options.grid(row=6, column=3)
-        tk.Entry(bld_sbfrm, textvariable=self.current_rad_set, width=20).grid(row=6, column=4)
-        tk.Button(bld_sbfrm, text="Change", command=self.change_radius_button).grid(row=6, column=5)
+        tk.Button(bld_sbfrm, text="Change", command=periodic_table).grid(row=5, column=5, columnspan=2)
 
         # Parallelize check
         self.parallelize = tk.BooleanVar(self.main)
@@ -438,12 +434,9 @@ class VorpyT:
             self.analysis_frame.pack()
 
     def change_radius_button(self):
-        old_rad = self.sys.radii[self.current_elem_selection.get()]
-        # When pressed, the current atom selection's radius changes
-        self.sys.radii[self.current_elem_selection.get()] = self.current_rad_set.get()
-        # print an update
-        print("\r{} radius changed from {} to {}".format(self.current_elem_selection.get(), old_rad,
-                                                         self.current_rad_set.get()), end="")
+        new_elements = periodic_table()
+        if new_elements is not None:
+            self.sys.elements = new_elements
 
     # Load index file method. Allows the user to load
     def load_ndx(self):
@@ -476,7 +469,6 @@ class VorpyT:
         if file_path:
             self.output_directory = file_path
             self.output_dir_str.set(file_path[:12] + ' ... ' + file_path[-12:])
-
 
     def reset_all(self):
         self.selected_atoms = []
