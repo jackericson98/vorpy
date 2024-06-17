@@ -2,9 +2,8 @@ import tkinter as tk
 from tkinter import simpledialog
 
 
-def periodic_table():
-    # Define basic properties of elements (symbol, atomic number, atomic mass, atomic radius)
-    elements = {
+# Define basic properties of elements (symbol, atomic number, atomic mass, atomic radius)
+elements = {
         'H': {'name': 'Hydrogen', 'number': 1, 'mass': 1.008, 'radius': 1.30, 'row': 1, 'column': 1,
               'group': 'Nonmetal'},
         'He': {'name': 'Helium', 'number': 2, 'mass': 4.003, 'radius': 1.40, 'row': 1, 'column': 18,
@@ -97,6 +96,9 @@ def periodic_table():
                'group': 'Transition Metal'}
     }
 
+
+def periodic_table():
+
     def update_properties(element):
         # Open a dialog to change mass and radius
         new_mass = simpledialog.askfloat("Input", f"Enter new mass for {element['name']}",
@@ -114,9 +116,9 @@ def periodic_table():
 
     def create_button(element, color):
         # Button to represent an element
-        btn = tk.Button(root, text=f"{element['name']}\n{element['mass']} u\n{element['radius']} \u212B",
-                        command=lambda e=element: update_properties(e), padx=10, pady=10, bg=color)
-        return btn
+        my_btn = tk.Button(root, text=f"{element['name']}\n{element['mass']} u\n{element['radius']} \u212B",
+                           command=lambda e=element: update_properties(e), padx=10, pady=10, bg=color)
+        return my_btn
 
     root = tk.Tk()
     root.title("Editable Periodic Table")
@@ -133,13 +135,13 @@ def periodic_table():
 
     buttons = {}
     max_row = 0
-    for symbol, element in elements.items():
-        btn = create_button(element, color_scheme[element['group']])
-        buttons[element['name']] = btn
+    for symbol, my_element in elements.items():
+        btn = create_button(my_element, color_scheme[my_element['group']])
+        buttons[my_element['name']] = btn
         # Arrange buttons in grid (simplified for a few elements)
-        row, col = element['row'], element['column']
+        row, col = my_element['row'], my_element['column']
         btn.grid(row=row, column=col, sticky='nsew')
-        max_row = max(max_row, element['row'])
+        max_row = max(max_row, my_element['row'])
 
     # Adjust grid configuration for uniform button sizing
     for i in range(18):
@@ -166,4 +168,3 @@ def periodic_table():
 
 if __name__ == '__main__':
     print(periodic_table())
-
