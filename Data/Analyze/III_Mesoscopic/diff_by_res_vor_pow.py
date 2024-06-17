@@ -79,8 +79,11 @@ def percent_diff(residue_file, file_name):
         try:
             for res_name in sas[file]['nucs']:
                 for i in range(len(sas[file]['nucs'][res_name])):
-                    my_perc_diff.append(abs(float(sas[file_name]['nucs'][res_name][i]) - float(
-                        sas[file]['nucs'][res_name][i])) / float(sas[file_name]['nucs'][res_name][i]))
+                    try:
+                        my_perc_diff.append(abs(float(sas[file_name]['nucs'][res_name][i]) - float(
+                            sas[file]['nucs'][res_name][i])) / float(sas[file_name]['nucs'][res_name][i]))
+                    except ZeroDivisionError:
+                        continue
         except KeyError:
             pass
         try:
