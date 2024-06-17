@@ -211,17 +211,17 @@ def get_val(my_sys, setting=None, val=None):
                     val = None
             val = [val, val1]
         elif type(val) == str and setting in net_types:
-            if val.lower() in ['t', 'true', 'tr'] + ys:
+            if val.lower() in trues + ys:
                 val = 'del'
-            elif val.lower() in ['f', 'false', 'flse', 'fl', 'fa', 'fs', 'fls'] + ns:
+            elif val.lower() in falses + ns:
                 val = 'vor'
-            elif val.lower() in {'voronoi', 'vor', 'curved', 'v'}:
+            elif val.lower() in voronoi_vals:
                 val = 'vor'
-            elif val.lower() in {'delaunay', 'del', 'd', 'flat'}:
+            elif val.lower() in delaunay_vals:
                 val = 'del'
-            elif val.lower() in {'power', 'pow', 'p'}:
+            elif val.lower() in power_vals:
                 val = 'pow'
-            elif val.lower() in {'compare', 'comp', 'c'}:
+            elif val.lower() in compare_vals:
                 val = 'com'
         # Test for a float value
         elif type(val) == str and setting in surf_reses + max_verts + box_sizes:
