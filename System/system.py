@@ -13,6 +13,7 @@ from System.sys_funcs.output.net import write_verts, add_metrics
 from System.Group.group import Group
 from Visualize.mpl_visualize import *
 from numpy import seterr
+from Visualize.GUIs.periodic_table_GUI import elements
 
 
 class System:
@@ -58,6 +59,7 @@ class System:
         # Settings
         self.groups = []                    # Groups              :   List of groups in the system
         self.ndxs = []                      # Indices             :   List of lists indices of atoms
+        self.elements = elements            # Elements            :   List of elements with mass, number, radius, group
         self.radii = my_radii               # Radii               :   List of atomic radii
         self.special_radii = special_radii  # Special Radii       :   List of special radius situations. Helpful for gro
         self.decimals = None                # Decimals            :   Decimals setting for the whole system
