@@ -1,7 +1,9 @@
 # Responses
 ys = ['y', 'yes', 'ya', 'yeet', 'yur', 'yoint', 'uhu', 'yup', 'jess', 'affirmative', 'yuss', 'yess',
-      'yesss', 'yessss', 'yar', 'yuh', 'mhm']
+      'yesss', 'yessss', 'yar', 'yuh', 'mhm', 'crabsolutely', 'dolphinitely', 'shell ya', 'whale of course']
 ns = ['n', 'no', 'naur', 'nope', 'nonya', 'nope', 'nien', 'nada']
+trues = ['t', 'true', 'tr', 'tru', 'truth', 'tu']
+falses = ['f', 'false', 'flse', 'fl', 'fa', 'fs', 'fls']
 dones = ['done', 'd', 'finished', 'finito', 'complete', 'doneso', 'don', 'fin']
 ands = ['&', 'and', 'nd', 'also', '+', '&&']
 splitters = ['/', '-']
@@ -44,11 +46,12 @@ file_types = ['net', 'vert', 'ball', 'ndx']
 power_vals = ['pow', 'power', 'p', 'pwr', 'pwizzle']
 voronoi_vals = ['vor', 'voronoi', 'vnoi', 'voron', 'vn', 'aw', 'additively_weighted', 'add_weight', 'awizzle']
 delaunay_vals = ['del', 'dl', 'delaunay', 'dlny', 'dny', 'prm', 'primitive' 'prim', 'ptiv', 'ptizzle']
+compare_vals = ['c', 'com', 'compare', 'cpr', 'compar', 'cum']
 
-net_type_dict = {'pow': "Power", 'del': "Delaunay", 'vor': "Voronoi"}
+net_type_dict = {'pow': "Power", 'del': "Primitive", 'vor': "Additively Weighted"}
 
 
-my_settings_vals = power_vals + voronoi_vals + delaunay_vals
+my_settings_vals = power_vals + voronoi_vals + delaunay_vals + compare_vals
 my_settings = surf_reses + max_verts + box_sizes + build_surfses + net_types + surf_schemes + surf_colors + atom_radii
 settings_dict = {'sr': 'Surface Resolution', 'mv': 'Maximum Vertex', 'bm': 'Box Multiplier', 'bs': 'Build Surfaces?',
                  'nt': 'Network Type', 'sc': 'Surface Color Map', 'ss': 'Surface Coloring Scheme'}
