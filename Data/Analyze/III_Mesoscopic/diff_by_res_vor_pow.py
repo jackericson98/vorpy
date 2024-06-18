@@ -100,7 +100,6 @@ def percent_diff(residue_file, file_name):
     vol_data = (vol_means[::2], vol_means[1::2], vol_std_errs[::2], vol_std_errs[1::2])
     sa_data = (sa_means[::2], sa_means[1::2], sa_std_errs[::2], sa_std_errs[1::2])
 
-
     return vol_data, sa_data
 
 
