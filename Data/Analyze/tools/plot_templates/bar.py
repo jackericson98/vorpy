@@ -14,6 +14,7 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
     if errors is not None:
         err_max = max([max(_) for _ in errors])
     ymax = max([max(_) for _ in data]) + err_max
+    ymin = min([min(_) for _ in data]) - err_max
 
     # Set the bar width
     bar_width = 0.35
@@ -74,7 +75,10 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
         plt.legend(loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=len(data))
 
     # Set the y limit
-    plt.ylim(0, 1.3 * ymax)
+    multiplier = 1.3
+    if ymin < 0:
+        multiplier = 1.5
+    plt.ylim(ymin * 1.1, multiplier * ymax)
 
     # Set the figure size
     plt.tight_layout()
