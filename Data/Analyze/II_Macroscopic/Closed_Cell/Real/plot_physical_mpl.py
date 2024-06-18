@@ -86,4 +86,4 @@ x_values = np.arange(0.025, 0.525, 0.025)
 trace_names = ['Devries', 'Renedive & Lemilch', 'Gal-Or & & Hoelsher']
 
 print(x_values, vol_avgs[0])
-line_plot([x_values, x_values, x_values], vol_avgs, vol_std_errs, trace_names, 0.2, 'Volume Deviation Plot Real', 'Density', '% Difference', 'Scheme')
+line_plot([x_values, x_values, x_values], SA_avgs, SA_std_errs, trace_names, 0.2, 'Surface Area Deviation Plot Real', 'Density', '% Difference', 'Scheme')

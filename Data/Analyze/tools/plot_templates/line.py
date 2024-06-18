@@ -28,7 +28,7 @@ def line_plot(xs, ys, errors=None, labels=None, error_alpha=0.2, title=None, x_l
 
     # Adjust the right margin to make room for the legend
     plt.subplots_adjust(right=0.8)
-
+    plt.tight_layout()
     # Show the plot
     if Show:
         plt.show()
