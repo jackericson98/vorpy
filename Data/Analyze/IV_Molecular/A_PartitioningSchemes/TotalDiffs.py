@@ -8,6 +8,13 @@ from Data.Analyze.tools.plot_templates.bar import bar
 
 
 if __name__ == '__main__':
+
+    # Choices
+    # Choose what we are plotting Vol or SA
+    plotting = 'Vol'
+    # Choose to make it abs difference or total difference
+    diff = 'tot'
+
     # Get the dropbox folder
     root = tk.Tk()
     root.withdraw()
@@ -29,9 +36,6 @@ if __name__ == '__main__':
     my_sys_names = [__.name for __ in systems]
     my_logs = {_: {'vor': None, 'pow': None, 'del': None} for _ in my_sys_names}
 
-    # Choose what we are plotting Vol or SA
-    plotting = 'SA'
-
     for root, dir, files in os.walk(folder):
         for file in files:
             if file[-3:] == 'csv':
@@ -47,22 +51,44 @@ if __name__ == '__main__':
     pow_vals = [my_logs[_]['pow'] for _ in my_sys_names]
     del_vals = [my_logs[_]['del'] for _ in my_sys_names]
     graph_labels = [{'EDTA_Mg': 'EDTA', 'cambrin': 'Cambrin', 'hairpin': 'Hairpin', 'p53tet': 'p53tet',
-                     'streptavidin': 'STVDN', '3zp8_hammerhead': 'H-head', 'NCP': 'NCP', 'pl_complex': 'Prot-Lig'}
+                     'streptavidin': 'STVDN', '3zp8_hammerhead': 'H-head', 'NCP': 'NCP', 'pl_complex': 'Prot-Lig',
+                     'BSA': 'BSA', 'hammerhead': 'H-Head'}
                     [_] for _ in my_sys_names]
-    rb_vals = [{'EDTA_Mg': 290.72, 'cambrin': 3180.126, '1BNA': 4665.118, '181L': 10085.962, 'DB1976': 1732.180,
-                'p53tet': 9387.583, 'streptavidin': 19044.982, '3zp8_hammerhead': 13868.580, 'NCP': 86372.086,
-                'pl_complex': 9678.118, 'hairpin': 4410.125}[_] for _ in my_sys_names]
-    print(my_sys_names)
-    print(vor_vals)
-    print(rb_vals)
-    pow_diff = [100 * abs(vor_vals[i] - pow_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
-    del_diff = [100 * abs(vor_vals[i] - del_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
-    rb_diff = [100 * abs(vor_vals[i] - rb_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
+    rb_sa_vals_pymol = [{'EDTA_Mg': 290.72, 'cambrin': 3180.126, '1BNA': 4665.118, '181L': 10085.962, 'DB1976': 1732.180,
+                         'p53tet': 9387.583, 'streptavidin': 19044.982, 'hammerhead': 13868.580, 'NCP': 86372.086,
+                         'pl_complex': 9678.118, 'hairpin': 4410.125, 'BSA': 104827.703}[_] for _ in my_sys_names]
+
+    #
+    #
+    rb_sa_vals = [{'EDTA_Mg': 449.840784, 'cambrin': 3172.407028, '1BNA': 4633.077172, '181L': 9118.281616,
+                   'DB1976': 683.894436, 'p53tet': 8613.472816, 'streptavidin': 18483.418668,
+                   'hammerhead': 10496.329656, 'NCP': 80066.345331, 'pl_complex': 8770.004628, 'hairpin': 3742.351508,
+                   'BSA': 96167.953541}[_] for _ in my_sys_names]
+
+    rb_vol_vals = [{'EDTA_Mg': 271.496, 'cambrin': 5814.376, '1BNA': 6716.032, '181L': 22995.384, 'DB1976': 369.488,
+                    'p53tet': 18731.216, 'streptavidin': 63989.128, 'hammerhead': 18939.936, 'NCP': 228134.552,
+                    'pl_complex': 23138.856, 'hairpin': 5132.768, 'BSA': 339343.08}[_] for _ in my_sys_names]
+    if diff == 'abs':
+        pow_diff = [100 * abs(vor_vals[i] - pow_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
+        del_diff = [100 * abs(vor_vals[i] - del_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
+        rb_sa_diff = [100 * abs(vor_vals[i] - rb_sa_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
+        rb_vol_diff = [100 * abs(vor_vals[i] - rb_vol_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
+    else:
+        pow_diff = [100 * (vor_vals[i] - pow_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
+        del_diff = []
+        for i in range(len(vor_vals)):
+            try:
+                del_diff.append(100 * (vor_vals[i] - del_vals[i])/vor_vals[i])
+            except TypeError:
+                del_diff.append(0)
+        rb_sa_diff = [100 * (vor_vals[i] - rb_sa_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
+        rb_vol_diff = [100 * (vor_vals[i] - rb_vol_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
+
     # Create the
     if plotting == 'Vol':
-        bar([pow_diff, del_diff], x_names=graph_labels, legend_names=['Power', 'Primitive'],
+        bar([pow_diff, del_diff, rb_vol_diff], x_names=graph_labels, legend_names=['Power', 'Primitive', 'Rolling Ball'],
             Show=True, y_axis_title='% Difference', x_axis_title='Model', title='Total Volume % Difference')
     elif plotting == 'SA':
-        bar([pow_diff, del_diff, rb_diff], x_names=graph_labels, legend_names=['Power', 'Primitive', 'Rolling Ball'],
+        bar([pow_diff, del_diff, rb_sa_diff], x_names=graph_labels, legend_names=['Power', 'Primitive', 'Rolling Ball'],
             Show=True, y_axis_title='% Difference', x_axis_title='Model', title='Total Surface Area % Difference')
 
