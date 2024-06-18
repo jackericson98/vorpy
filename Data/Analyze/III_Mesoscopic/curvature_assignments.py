@@ -12,6 +12,10 @@ from System.system import System
 
 
 if __name__ == '__main__':
+
+    # Check to see if the user wants to include the SOL values
+    include_SOL = True
+
     root = tk.Tk()
     root.withdraw()
     root.wm_attributes('-topmost', 1)
@@ -19,7 +23,6 @@ if __name__ == '__main__':
     my_logs_info = read_logs(filedialog.askopenfilename(title='Choose Logs'))
     # Assign the atoms in the logs to the specific aspects of the pdb
     my_coarse_sys = System(file=filedialog.askopenfilename(title='Choose Coarse PDB'))
-
 
     surf_type_dict = {}
     for i, surf in my_logs_info['surfs'].iterrows():
@@ -32,13 +35,19 @@ if __name__ == '__main__':
         except IndexError:
             continue
         if 'sc' in my_coarse_sys.name:
-            seq_dic = {0: ' BB', 1: ' SC'}
-            atom_names = [sys_a1['res'].name + ' SC' if atom1['name'].strip() == 'pb' else sys_a1['res'].name + ' BB',
-                          sys_a0['res'].name + ' SC' if atom0['name'].strip() == 'pb' else sys_a0['res'].name + ' BB']
+            atom_names = []
+            for i, name in enumerate([sys_a1['res'].name, sys_a0['res'].name]):
+                if [atom1['name'].strip(), atom0['name'].strip()][i] == 'pb':
+                    atom_names.append(name + ' SC')
+                elif name == 'SOL':
+                    atom_names.append(name)
+                else:
+                    atom_names.append(name + ' BB')
         else:
             atom_names = [sys_a1['res'].name, sys_a0['res'].name]
         if 'H' in atom_names[0] or 'SOL' in atom_names[0]:
-            continue
+            if not include_SOL:
+                continue
             atom_names = [atom_names[1], atom_names[0]]
         elif 'H' not in atom_names[1]:
             atom_names.sort()
@@ -69,7 +78,7 @@ if __name__ == '__main__':
 
     # Create the boxplot
     fig, ax = plt.subplots(figsize=(12, 8))
-    ax.boxplot(values[:min(35, len(values))], labels=labels[:min(35, len(values))], patch_artist=True)
+    ax.boxplot(values[:min(25, len(values))], labels=labels[:min(25, len(values))], patch_artist=True)
 
     # Set plot title and labels
     ax.set_title('Distribution of Curvatures ({})'.format(my_logs_info['data']['name'].capitalize()), fontdict=dict(size=30))
