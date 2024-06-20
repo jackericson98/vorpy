@@ -11,7 +11,7 @@ if __name__ == '__main__':
 
     # Choices
     # Choose what we are plotting Vol or SA
-    plotting = 'Vol'
+    plotting = 'SA'
     # Choose to make it abs difference or total difference
     diff = 'tot'
 
@@ -68,14 +68,14 @@ if __name__ == '__main__':
     # rb_vol_vals = [{'EDTA_Mg': 271.496, 'cambrin': 5814.376, '1BNA': 6716.032, '181L': 22995.384, 'DB1976': 369.488,
     #                 'p53tet': 18731.216, 'streptavidin': 63989.128, 'hammerhead': 18939.936, 'NCP': 228134.552,
     #                 'pl_complex': 23138.856, 'hairpin': 5132.768, 'BSA': 339343.08}[_] for _ in my_sys_names]
-    rb_sa_vals = [{'EDTA_Mg': 433.839, 'cambrin': 3125.924744, '1BNA': 0, '181L': 0,
-                   'DB1976': 0, 'p53tet': 0, 'streptavidin': 0,
-                   'hammerhead': 0, 'NCP': 0, 'pl_complex': 0, 'hairpin': 0,
-                   'BSA': 0}[_] for _ in my_sys_names]
+    rb_sa_vals = [{'EDTA_Mg': 433.839, 'cambrin': 3125.924744, '1BNA': 4616.918620, '181L': 9176.314456,
+                   'DB1976': 662.105696, 'p53tet': 8743.906396, 'streptavidin': 18822.882868,
+                   'hammerhead': 10531.117348, 'NCP': 82304.614883, 'pl_complex': 8809.698816, 'hairpin': 3709.187016,
+                   'BSA': 99064.141949}[_] for _ in my_sys_names]
 
-    rb_vol_vals = [{'EDTA_Mg': 270.376, 'cambrin': 5548.656, '1BNA': 0, '181L': 0, 'DB1976': 0,
-                    'p53tet': 0, 'streptavidin': 0, 'hammerhead': 0, 'NCP': 0,
-                    'pl_complex': 0, 'hairpin': 0, 'BSA': 0}[_] for _ in my_sys_names]
+    rb_vol_vals = [{'EDTA_Mg': 270.376, 'cambrin': 5548.656, '1BNA': 6627.4, '181L': 22658.264, 'DB1976': 365.328,
+                    'p53tet': 18364.912, 'streptavidin': 62884.944, 'hammerhead': 18625.552, 'NCP': 223831.0240,
+                    'pl_complex': 22842.08, 'hairpin': 5059.176, 'BSA': 332509.296}[_] for _ in my_sys_names]
     if diff == 'abs':
         pow_diff = [100 * abs(vor_vals[i] - pow_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
         del_diff = [100 * abs(vor_vals[i] - del_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
