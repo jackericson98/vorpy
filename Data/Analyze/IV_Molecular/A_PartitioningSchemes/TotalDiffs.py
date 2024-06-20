@@ -60,14 +60,22 @@ if __name__ == '__main__':
 
     #
     #
-    rb_sa_vals = [{'EDTA_Mg': 449.840784, 'cambrin': 3172.407028, '1BNA': 4633.077172, '181L': 9118.281616,
-                   'DB1976': 683.894436, 'p53tet': 8613.472816, 'streptavidin': 18483.418668,
-                   'hammerhead': 10496.329656, 'NCP': 80066.345331, 'pl_complex': 8770.004628, 'hairpin': 3742.351508,
-                   'BSA': 96167.953541}[_] for _ in my_sys_names]
+    # rb_sa_vals = [{'EDTA_Mg': 449.840784, 'cambrin': 3172.407028, '1BNA': 4633.077172, '181L': 9118.281616,
+    #                'DB1976': 683.894436, 'p53tet': 8613.472816, 'streptavidin': 18483.418668,
+    #                'hammerhead': 10496.329656, 'NCP': 80066.345331, 'pl_complex': 8770.004628, 'hairpin': 3742.351508,
+    #                'BSA': 96167.953541}[_] for _ in my_sys_names]
+    #
+    # rb_vol_vals = [{'EDTA_Mg': 271.496, 'cambrin': 5814.376, '1BNA': 6716.032, '181L': 22995.384, 'DB1976': 369.488,
+    #                 'p53tet': 18731.216, 'streptavidin': 63989.128, 'hammerhead': 18939.936, 'NCP': 228134.552,
+    #                 'pl_complex': 23138.856, 'hairpin': 5132.768, 'BSA': 339343.08}[_] for _ in my_sys_names]
+    rb_sa_vals = [{'EDTA_Mg': 433.839, 'cambrin': 3125.924744, '1BNA': 0, '181L': 0,
+                   'DB1976': 0, 'p53tet': 0, 'streptavidin': 0,
+                   'hammerhead': 0, 'NCP': 0, 'pl_complex': 0, 'hairpin': 0,
+                   'BSA': 0}[_] for _ in my_sys_names]
 
-    rb_vol_vals = [{'EDTA_Mg': 271.496, 'cambrin': 5814.376, '1BNA': 6716.032, '181L': 22995.384, 'DB1976': 369.488,
-                    'p53tet': 18731.216, 'streptavidin': 63989.128, 'hammerhead': 18939.936, 'NCP': 228134.552,
-                    'pl_complex': 23138.856, 'hairpin': 5132.768, 'BSA': 339343.08}[_] for _ in my_sys_names]
+    rb_vol_vals = [{'EDTA_Mg': 270.376, 'cambrin': 5548.656, '1BNA': 0, '181L': 0, 'DB1976': 0,
+                    'p53tet': 0, 'streptavidin': 0, 'hammerhead': 0, 'NCP': 0,
+                    'pl_complex': 0, 'hairpin': 0, 'BSA': 0}[_] for _ in my_sys_names]
     if diff == 'abs':
         pow_diff = [100 * abs(vor_vals[i] - pow_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
         del_diff = [100 * abs(vor_vals[i] - del_vals[i])/vor_vals[i] for i in range(len(vor_vals))]

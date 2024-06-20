@@ -17,7 +17,7 @@ def export_min1(sys):
 
 
 def export_min2(sys):
-    sys.exports(info=True, set_atoms=True)
+    sys.exports(info=True, set_atoms=True, pbd=True, logs=True)
     for group in sys.groups:
         group.dir = sys.dir + '/' + group.name
         os.mkdir(group.dir)
@@ -66,7 +66,7 @@ def other_exports(sys, usr_npt):
         write_atom_cells(sys.net.atoms['num'], sys.dir)
     # If the first word is logs
     elif usr_npt.lower() in {'logs', 'lgs'}:
-        sys.exports(logs=True)
+        sys.exports(logs=True, pdb=True, set_atoms=True)
     # If the first word is shell
     elif usr_npt.lower() in {'shell', 'shl'}:
         for grp in sys.groups:
