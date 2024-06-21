@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tkinter as tk
 from tkinter.filedialog import askopenfilename
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize
 
 root = tk.Tk()
 root.withdraw()
@@ -12,6 +14,7 @@ my_foams_file = askopenfilename()
 
 
 plot_type = 'gamma'
+value = 'sa'
 
 
 with open(my_foams_file, 'r') as my_foam_data:
@@ -100,25 +103,61 @@ for i, num in enumerate(my_sds):
 
 
 # Coefficient of Variation (CV) and Density values
-
-# Create a single plot
+cmap = plt.cm.rainbow  # Choose a colormap that does not have yellow and works well in grayscale
+norm = Normalize(vmin=min(my_sds), vmax=max(my_sds))
+sm = ScalarMappable(norm=norm, cmap=cmap)
 fig, ax = plt.subplots(figsize=(8, 6))
-for i in range(len(datavvm)):
-    ax.plot(my_densities[2:], datavvm[i][2:], label=str(my_sds[i]))
-    ax.fill_between(my_densities[2:], datavvms[i][2:], datavvps[i][2:], alpha=0.2)
+if value == 'vol':
+    for i, sd in enumerate(my_sds):
+        # Colors for each line based on 'sd' which is used as an index into the colormap
+        color = cmap(norm(sd))
+        ax.plot(my_densities[2:], datavvm[i][2:], color=color)
+        ax.fill_between(my_densities[2:], datavvms[i][2:], datavvps[i][2:], color=color, alpha=0.2)
+elif value == 'sa':
+    for i, sd in enumerate(my_sds):
+        # Colors for each line based on 'sd' which is used as an index into the colormap
+        color = cmap(norm(sd))
+        ax.plot(my_densities[2:], datavsm[i][2:], color=color)
+        ax.fill_between(my_densities[2:], datavsms[i][2:], datavsps[i][2:], color=color, alpha=0.2)
+
+# Adding a color bar that uses the created ScalarMappable
+sm.set_array([])
+cbar = plt.colorbar(sm, ax=ax)
+if plot_type == 'lognormal':
+    cbar.set_label('Coefficient of Variation (CV)', fontdict=dict(size=20))
+elif plot_type == 'gamma':
+    cbar.set_label('\u03b2 Value', fontdict=dict(size=20))
 
 
-# Set plot title and legend
+# Set plot titles and labels
 ax.set_xticks(np.arange(my_densities[1], my_densities[-1] + 0.05, 0.05))
-ax.set_title('Power Volume Deviation (Closed)', fontsize=30)
+ax.set_title('{} Open Power {} % Diff'.format(plot_type.capitalize(), {'sa': 'Surface Area', 'vol': 'Volume'}[value]), fontsize=20)
 ax.set_xlabel('Density', fontsize=20)
 ax.set_ylabel('% Difference', fontsize=20)
 ax.tick_params(axis='both', which='major', labelsize=15)
-legend = ax.legend(loc='upper right', bbox_to_anchor=(1.25, 1))
-legend.set_title('CV')
-
-# Adjust the right margin to make room for the legend
-plt.subplots_adjust(right=0.8)
+plt.tight_layout()
 
 # Show the plot
 plt.show()
+
+# Create a single plot
+# fig, ax = plt.subplots(figsize=(8, 6))
+# for i in range(len(datavvm)):
+#     ax.plot(my_densities[2:], datavvm[i][2:], label=str(my_sds[i]))
+#     ax.fill_between(my_densities[2:], datavvms[i][2:], datavvps[i][2:], alpha=0.2)
+#
+#
+# # Set plot title and legend
+# ax.set_xticks(np.arange(my_densities[1], my_densities[-1] + 0.05, 0.05))
+# ax.set_title('Power Volume Deviation (Closed)', fontsize=30)
+# ax.set_xlabel('Density', fontsize=20)
+# ax.set_ylabel('% Difference', fontsize=20)
+# ax.tick_params(axis='both', which='major', labelsize=15)
+# legend = ax.legend(loc='upper right', bbox_to_anchor=(1.25, 1))
+# legend.set_title('CV')
+#
+# # Adjust the right margin to make room for the legend
+# plt.subplots_adjust(right=0.8)
+#
+# # Show the plot
+# plt.show()
