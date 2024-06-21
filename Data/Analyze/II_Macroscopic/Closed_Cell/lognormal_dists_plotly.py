@@ -2,6 +2,9 @@ import plotly.express as px
 import numpy as np
 import scipy.stats as stats
 from pandas import DataFrame as df
+import matplotlib.pyplot as plt
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize
 
 
 def lognormal(r, mu, sd):
@@ -10,7 +13,7 @@ def lognormal(r, mu, sd):
 
 
 def gamma(r, a, B):
-    return 0.5*stats.gamma.pdf(r, a, scale=1/B)
+    return 0.25*stats.gamma.pdf(r, a, scale=1/B)
 
 
 def physical_DeVries(r, p1=None, p2=None):
@@ -25,7 +28,7 @@ def physical_GalOr_Hoelscher(r, p1=None, p2=None):
     return (16/np.pi)*r**2*np.exp(-(16/np.pi)**0.5*r**2)
 
 
-def plot_function(function, function_name="", p1=None, p2=None):
+def plot_function1(function, function_name="", p1=None, p2=None):
     my_x = np.linspace(0, 5, 10000)[1:]
     my_y = []
     if p1 is not None and type(p1) == list and p2 is not None and type(p2) == list:
@@ -67,13 +70,71 @@ def plot_function(function, function_name="", p1=None, p2=None):
                           title=dict(font=dict(size=40)))
         fig.show()
 
+
+def plot_function(function, p1=None, p2=None, title='', x_label='', y_label='', legend_title='', max_x=5):
+    my_x = np.linspace(0, max_x, 10000)[1:]  # Avoiding zero if function undefined at zero
+    fig, ax = plt.subplots()
+
+    # Determine the parameter array and colormap
+    cmap = plt.cm.rainbow  # You can choose any colormap (e.g., viridis, plasma, inferno, magma)
+
+    if p1 is not None and isinstance(p1, list) and p2 is not None and isinstance(p2, list):
+        # Assuming p1 and p2 are related and both need gradient representation
+        # For simplicity, we'll only create a gradient based on p2 values here
+        norm = Normalize(vmin=min(p2), vmax=max(p2))
+        sm = ScalarMappable(norm=norm, cmap=cmap)
+
+        for i in range(len(p1)):
+            my_y = [function(x, p1[i], p2[i]) for x in my_x]
+            ax.plot(my_x, my_y, color=sm.to_rgba(p2[i]))
+
+    elif p1 is not None and isinstance(p1, list):
+        # Only p1 has multiple values, color gradient by p1
+        norm = Normalize(vmin=min(p1), vmax=max(p1))
+        sm = ScalarMappable(norm=norm, cmap=cmap)
+
+        for val in p1:
+            my_y = [function(x, val, p2) for x in my_x]
+            ax.plot(my_x, my_y, color=sm.to_rgba(val))
+
+    elif p2 is not None and isinstance(p2, list):
+        # Only p2 has multiple values, color gradient by p2
+        norm = Normalize(vmin=min(p2), vmax=max(p2))
+        sm = ScalarMappable(norm=norm, cmap=cmap)
+
+        for val in p2:
+            my_y = [function(x, p1, val) for x in my_x]
+            ax.plot(my_x, my_y, color=sm.to_rgba(val))
+
+    else:
+        # Both p1 and p2 are single parameters, plot a single line
+        my_y = [function(x, p1, p2) for x in my_x]
+        ax.plot(my_x, my_y, color='blue')  # Default color
+
+    ax.set_title(title)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    ax.set_yticks([])
+    #
+    # # Create colorbar
+    sm.set_array([])
+    cbar = plt.colorbar(sm, ax=ax)
+    cbar.set_label(legend_title)
+    # ax.axis('off')
+    plt.show()
+
+
 alphas = [100, 64, 44.4444, 32.65306, 25, 19.75309, 16, 13.22314, 11.11111, 9.46746, 8.16327, 7.11111, 6.25, 5.53633, 4.93827, 4.43213, 4]
 betas = [0.00010, 0.00024, 0.00051, 0.00094, 0.00160, 0.00256, 0.00391, 0.00572, 0.00810, 0.01116, 0.01501, 0.01978, 0.02560, 0.03263, 0.04101, 0.05091, 0.06250]
 
 
 
-# plot_function(lognormal, 'Lognormal Distributions by Sigma Value', 1, [round((i+4)*0.025, 3) for i in range(17)])
-plot_function(gamma, 'Gamma Distributions by Beta Value - \u03B1 = 4', 4, [round((i+4)*0.5, 3) for i in range(17)])
+# plot_function(lognormal, 1, [round((i+4)*0.025, 3) for i in range(17)], 'Lognormal Distributions',
+#               x_label='Bubble Radius', y_label='Probability', legend_title='Coefficient of Variation')
+# plot_function(lognormal, 1, [0.45], 'Lognormal Distributions',
+#               x_label='Bubble Radius', y_label='Probability', legend_title='Coefficient of Variation', max_x=20)
+plot_function(gamma, 10, [round((i+4)*0.5, 3) for i in range(17)], title='Gamma Distributions (\u03B1 = 4)',
+              x_label='Bubble Radius', y_label='Probability', legend_title='\u03b2 Value', max_x=10)
 # plot_function(physical_DeVries, "De Vries")
 # plot_function(physical_Ranadive_Lemlich, "Ranadive Lemlich")
 # plot_function(physical_GalOr_Hoelscher, "Gal-Or Hoelscher")
