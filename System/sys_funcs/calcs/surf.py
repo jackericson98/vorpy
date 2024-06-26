@@ -1,10 +1,46 @@
 from numba import jit
 import numpy as np
 from System.sys_funcs.calcs.calcs import calc_tri, calc_dist
+from numba.core.errors import NumbaPendingDeprecationWarning as numba_err
+
+
+def calc_surf_func(l0, r0, l1, r1):
+    try:
+        vals = calc_surf_func_jit(l0, r0, l1, r1)
+    except numba_err:
+        vals = calc_surf_func_reg(l0, r0, l1, r1)
+    return vals
 
 
 @jit(nopython=True)
-def calc_surf_func(l0, r0, l1, r1):
+def calc_surf_func_jit(l0, r0, l1, r1):
+    """
+    Calculates the coefficients for the surface between the two atoms
+    :return: Returns a function for the hyperboloid between the atoms
+    """
+    # Check the smaller atom is first
+    if r1 < r0:
+        l0, r0, l1, r1 = l1, r1, l0, r0
+    # Grab the centers of the spheres
+    x1, y1, z1 = l0
+    x2, y2, z2 = l1
+    # Calculate the major coefficients (pg. 574 Z. Hu)
+    R = r0 - r1
+    K = (x2 ** 2 - x1 ** 2) + (y2 ** 2 - y1 ** 2) + (z2 ** 2 - z1 ** 2) - R ** 2
+    d = [x1 - x2, y1 - y2, z1 - z2]
+    J = 4 * R ** 2 * (x1 ** 2 + y1 ** 2 + z1 ** 2) - K ** 2
+    # Instantiate/reset the hyperboloid coefficient vector lists
+    ABC, DEF, GHI = [], [], []
+    # Calculate hyperboloid coefficients
+    for i in range(3):
+        ABC.append(4 * R ** 2 - 4 * d[i] ** 2)
+        DEF.append(-8 * d[i] * d[(i + 1) % 3])  # The equation asks for D_y, D_z, D_x in that order, hence modulus
+        GHI.append(-8 * R ** 2 * l0[i] - 4 * K * d[i])
+    # Return the function coefficients
+    return ABC + DEF + GHI + [J] + [K] + d
+
+
+def calc_surf_func_reg(l0, r0, l1, r1):
     """
     Calculates the coefficients for the surface between the two atoms
     :return: Returns a function for the hyperboloid between the atoms
