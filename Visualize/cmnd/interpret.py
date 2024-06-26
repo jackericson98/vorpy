@@ -230,7 +230,7 @@ def get_val(my_sys, setting=None, val=None):
             except ValueError:
                 val = None
         elif type(val) == str and setting in surf_colors:
-            if val not in ["viridis", "plasma", "inferno", "cividis", "Greys", "Reds", "Greens", "Blues"]:
+            if val not in ["viridis", "plasma", "inferno", "cividis", "Greys", "Reds", "Greens", "Blues", 'rainbow']:
                 val = None
         elif type(val) == str and setting in surf_schemes:
             if val not in ['dist', 'ins_out', 'curv']:
