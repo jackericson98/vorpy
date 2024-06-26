@@ -18,7 +18,7 @@ Edge plotting code. Choose an edge type below.
 """
 
 # Choose here
-edge_choice = 4
+edge_choice = 6
 
 # Additional Settings
 atom_alpha = 0.4
@@ -62,6 +62,12 @@ elif edge_choice == 5:
     rads = 2.0, 2.0, 2.5
     title = 'Curved Edge - All Atoms Overlap'
 
+
+# Semi Curved Edge 5
+elif edge_choice == 6:
+    locs = [1.5, np.sqrt(3)/2, 0.0], [-1.5, np.sqrt(3)/2, 0.0], [0.0, -np.sqrt(3), 0.0]
+    rads = 1.65, 1.65, 3.2
+    title = 'Curved Edge - All Atoms Overlap'
 
 # Set the radii and distances for the surrounding atoms
 r, d = 0.5, 15.0
