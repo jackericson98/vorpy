@@ -42,7 +42,10 @@ def find_net_verts(net, my_group=None, print_metrics=False):
             atom_nums.pop(atom_nums.index(_))
 
     # Check for disconnects in the network
-    while len(atom_nums) > 2:
+    threshold = 2
+    if len(my_group.atoms) <= 2:
+        threshold = 0
+    while len(atom_nums) > threshold:
         print("Atoms Disconnected: {}".format(atom_nums))
         a0 = atom_nums.pop()
         my_guuy = find_verts(a0=a0, alocs=net.atoms['loc'].to_numpy(), arads=net.atoms['rad'].to_numpy(),
