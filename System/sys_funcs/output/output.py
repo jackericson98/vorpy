@@ -47,9 +47,11 @@ def export_all(sys):
     for group in sys.groups:
         group.dir = sys.dir + '/' + group.name
         os.mkdir(group.dir)
-        group.exports(atoms=True, shell=True, surfs=True, info=True, ext_atoms=True, sep_surfs=True, sep_edges=True, sep_verts=True, verts=True, edges=True)
+        group.exports(atoms=True, shell=True, surfs=True, info=True, ext_atoms=True, sep_surfs=True, sep_edges=True,
+                      sep_verts=True, verts=True, edges=True, surr_atoms=True)
     os.mkdir(sys.dir + "/atoms")
     write_atom_cells(sys.net, sys.net.atoms['num'], directory=sys.dir + "/atoms", verts=True, edges=True)
+
 
 ################################################ Other Exports #########################################################
 
@@ -74,6 +76,7 @@ def other_exports(sys, usr_npt):
     # If the first word is network
     elif usr_npt.lower() in {'net', 'network'}:
         sys.exports(network=True)
+
 
 ####################################################### Main Funcs #####################################################
 
