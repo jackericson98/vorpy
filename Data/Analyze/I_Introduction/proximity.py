@@ -3,10 +3,11 @@ import matplotlib.pyplot as plt
 
 # Define circle parameters
 radius1 = 1
-radius2 = 2
-distance_between_circles = 4
+radius2 = 3
+distance_between_circles = 5
 
-num_points = 1000
+num_points = 2000
+markersize = 1
 
 # Sort the radii
 if radius1 > radius2:
@@ -40,7 +41,7 @@ y1_rand_inside = np.concatenate([radius_rand_inside * np.sin(angle_rand_inside),
                                 radius_rand_inside * np.sin(angle_rand_inside)])
 
 angle_rand_outside = np.random.uniform(0, 2 * np.pi, small_out_num)
-radius_rand_outside = np.random.uniform(radius1, 2 * radius2, small_out_num)
+radius_rand_outside = np.random.uniform(radius1, 3 * radius2, small_out_num)
 x1_rand_outside = np.concatenate([radius_rand_outside * np.cos(angle_rand_outside),
                                  distance_between_circles + radius_rand_outside * np.cos(angle_rand_outside)])
 y1_rand_outside = np.concatenate([radius_rand_outside * np.sin(angle_rand_outside),
@@ -56,7 +57,7 @@ y2_rand_inside = np.concatenate([radius_rand_inside * np.sin(angle_rand_inside),
                                 radius_rand_inside * np.sin(angle_rand_inside)])
 
 angle_rand_outside = np.random.uniform(0, 2 * np.pi, large_out_num)
-radius_rand_outside = np.random.uniform(radius1, 2 * radius2, large_out_num)
+radius_rand_outside = np.random.uniform(radius1, 3 * radius2, large_out_num)
 x2_rand_outside = np.concatenate([radius_rand_outside * np.cos(angle_rand_outside),
                                  distance_between_circles + radius_rand_outside * np.cos(angle_rand_outside)])
 y2_rand_outside = np.concatenate([radius_rand_outside * np.sin(angle_rand_outside),
@@ -78,17 +79,17 @@ for x, y in zip(x1_rand_inside, y1_rand_inside):
     distance_to_circle1 = np.sqrt((x - x_circle1)**2 + (y - y_circle1)**2)
     distance_to_circle2 = np.sqrt((x - x_circle2)**2 + (y - y_circle2)**2)
     if np.min(distance_to_circle1) < np.min(distance_to_circle2):
-        ax.scatter(x, y, color='r', marker='.')
+        ax.scatter(x, y, color='r', marker='.', s=markersize)
     else:
-        ax.scatter(x, y, color='b', marker='.')
+        ax.scatter(x, y, color='b', marker='.', s=markersize)
 
 for x, y in zip(x2_rand_outside, y2_rand_outside):
     distance_to_circle1 = np.sqrt((x - x_circle1)**2 + (y - y_circle1)**2)
     distance_to_circle2 = np.sqrt((x - x_circle2)**2 + (y - y_circle2)**2)
     if np.min(distance_to_circle1) < np.min(distance_to_circle2):
-        ax.scatter(x, y, color='r', marker='.')
+        ax.scatter(x, y, color='r', marker='.', s=markersize)
     else:
-        ax.scatter(x, y, color='b', marker='.')
+        ax.scatter(x, y, color='b', marker='.', s=markersize)
 
 # Set aspect ratio to equal and add legend
 ax.set_aspect('equal', 'box')
