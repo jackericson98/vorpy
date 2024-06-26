@@ -7,6 +7,8 @@ from System.sys_funcs.calcs.circle import calc_circ
 
 # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
 def build_edge(alocs, arads, vlocs, res, straight=None):
+    # To ensure a better edge we cut the resolution in quarters
+    res = res / 4
     # Check for straightness
     if straight is None:
         straight = False
@@ -84,4 +86,7 @@ def build_edge(alocs, arads, vlocs, res, straight=None):
         points.append(surf_point)
     # Add the end point
     points.append(pv1)
+    # Now that the edge is built, we need to cut the points down again so as to not slow th surface building
+    points = [points[0]] + points[1:-1:4] + [points[-1]]
+    # Finally return the points
     return points, vals
