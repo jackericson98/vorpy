@@ -13,16 +13,13 @@ root.wm_attributes('-topmost', 1)
 my_foams_file = askopenfilename()
 
 
-plot_type = 'gamma'
-value = 'sa'
-
-
 with open(my_foams_file, 'r') as my_foam_data:
 
     my_data = []
     # x, y, z1, z2 = [], [], [], []
     foam_data = csv.reader(my_foam_data)
     for my_line in foam_data:
+
         try:
             if len(my_line) <= 1:
                 continue
@@ -34,7 +31,20 @@ with open(my_foams_file, 'r') as my_foam_data:
                             'num cells': int(my_line[10])})
         except ValueError:
             continue
+print(my_data[0]['num'])
 
+if 'log' in my_data[0]['num'].lower():
+    plot_type = 'lognormal'
+else:
+    plot_type = 'gamma'
+
+if 'closed' in my_data[0]['num'].lower() or 'false' in my_data[0]['num'].lower():
+    cell_type = 'Closed'
+else:
+    cell_type = 'Open'
+
+
+print(plot_type)
 
 lists = {}
 
@@ -80,7 +90,6 @@ for i, num in enumerate(my_sds):
         try:
             curr_data = lists[num][num2]
         except KeyError:
-            print(num, num2)
             continue
 
         for data1 in curr_data:
@@ -102,43 +111,41 @@ for i, num in enumerate(my_sds):
         datapsm[i].append(means[3]); datapsms[i].append(means[3] - sds[3]); datapsps[i].append(means[3] + sds[3])
 
 
-# Coefficient of Variation (CV) and Density values
-cmap = plt.cm.rainbow  # Choose a colormap that does not have yellow and works well in grayscale
-norm = Normalize(vmin=min(my_sds), vmax=max(my_sds))
-sm = ScalarMappable(norm=norm, cmap=cmap)
-fig, ax = plt.subplots(figsize=(8, 6))
-if value == 'vol':
-    for i, sd in enumerate(my_sds):
-        # Colors for each line based on 'sd' which is used as an index into the colormap
-        color = cmap(norm(sd))
-        ax.plot(my_densities[2:], datavvm[i][2:], color=color)
-        ax.fill_between(my_densities[2:], datavvms[i][2:], datavvps[i][2:], color=color, alpha=0.2)
-elif value == 'sa':
+for value in {'vol', 'sa'}:
+    # Coefficient of Variation (CV) and Density values
+    cmap = plt.cm.rainbow  # Choose a colormap that does not have yellow and works well in grayscale
+    norm = Normalize(vmin=min(my_sds), vmax=max(my_sds))
+    sm = ScalarMappable(norm=norm, cmap=cmap)
+    fig, ax = plt.subplots(figsize=(8, 6))
+
     for i, sd in enumerate(my_sds):
         # Colors for each line based on 'sd' which is used as an index into the colormap
         color = cmap(norm(sd))
         ax.plot(my_densities[2:], datavsm[i][2:], color=color)
         ax.fill_between(my_densities[2:], datavsms[i][2:], datavsps[i][2:], color=color, alpha=0.2)
 
-# Adding a color bar that uses the created ScalarMappable
-sm.set_array([])
-cbar = plt.colorbar(sm, ax=ax)
-if plot_type == 'lognormal':
-    cbar.set_label('Coefficient of Variation (CV)', fontdict=dict(size=20))
-elif plot_type == 'gamma':
-    cbar.set_label('\u03b2 Value', fontdict=dict(size=20))
+    # Adding a color bar that uses the created ScalarMappable
+    sm.set_array([])
+    cbar = plt.colorbar(sm, ax=ax)
+    if plot_type == 'lognormal':
+        cbar.set_label('Coefficient of Variation (CV)', fontdict=dict(size=25))
+    elif plot_type == 'gamma':
+        cbar.set_label('\u03b2 Value', fontdict=dict(size=20))
 
 
-# Set plot titles and labels
-ax.set_xticks(np.arange(my_densities[1], my_densities[-1] + 0.05, 0.05))
-ax.set_title('{} Open Power {} % Diff'.format(plot_type.capitalize(), {'sa': 'Surface Area', 'vol': 'Volume'}[value]), fontsize=20)
-ax.set_xlabel('Density', fontsize=20)
-ax.set_ylabel('% Difference', fontsize=20)
-ax.tick_params(axis='both', which='major', labelsize=15)
-plt.tight_layout()
+    # Set plot titles and labels
+    ax.set_xticks(np.arange(my_densities[1] + 0.05, my_densities[-1] + 0.05, 0.1))
+    ax.set_ylim([0, 50])
+    # ax.set_title('{} {} Power {} % Diff'.format(plot_type.capitalize(), cell_type, {'sa': 'Surface Area', 'vol': 'Volume'}[value]), fontsize=20)
+    ax.set_xlabel('Density', fontsize=25)
+    ax.set_ylabel('% Difference', fontsize=25)
+    ax.tick_params(axis='both', which='major', labelsize=20, width=2, length=12)
 
-# Show the plot
-plt.show()
+    cbar.ax.tick_params(labelsize=20, size=10, width=2, length=12)
+    plt.tight_layout()
+
+    # Show the plot
+    plt.show()
 
 # Create a single plot
 # fig, ax = plt.subplots(figsize=(8, 6))

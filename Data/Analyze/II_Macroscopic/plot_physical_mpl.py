@@ -83,7 +83,7 @@ SA_std_errs = [phys1_std_errs_1000[1], phys2_std_errs_1000[1], phys3_std_errs_10
 x_values = np.arange(0.025, 0.525, 0.025)
 
 # Create traces for each line
-trace_names = ['Devries', 'Renedive & Lemilch', 'Gal-Or & & Hoelsher']
+trace_names = ['Devries', 'Renedive &\nLemilch', 'Gal-Or &\nHoelsher']
 
-print(x_values, vol_avgs[0])
-line_plot([x_values, x_values, x_values], SA_avgs, SA_std_errs, trace_names, 0.2, 'Surface Area Deviation Plot Real', 'Density', '% Difference', 'Scheme')
+line_plot([x_values, x_values, x_values], vol_avgs, vol_std_errs, trace_names, 0.2, x_label='Density',
+          y_label='% Difference', legend_title='Scheme')

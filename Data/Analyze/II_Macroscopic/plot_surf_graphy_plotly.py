@@ -16,7 +16,7 @@ my_file = filedialog.askopenfilename()
 
 plot_type = 'gamma'
 for i in range(4):
-    os.chdir('..')
+    os.chdir('')
 with open(my_file, 'r') as my_foam_data:
 
     my_data = []
