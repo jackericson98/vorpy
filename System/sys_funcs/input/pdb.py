@@ -119,7 +119,7 @@ def read_pdb(sys, file=None):
 
             # Assign the radius
             if sys.type == 'foam' or sys.type == 'coarse':
-                atom['rad'] = float(line[60:65])
+                atom['rad'] = float(line[60:66])
                 if atom['rad'] == 0:
                     atom['rad'] = 0.001
             else:
