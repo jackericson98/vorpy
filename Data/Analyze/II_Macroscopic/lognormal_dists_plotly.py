@@ -29,7 +29,7 @@ def physical_GalOr_Hoelscher(r, p1=None, p2=None):
 
 
 def plot_function1(function, function_name="", p1=None, p2=None):
-    my_x = np.linspace(0, 5, 10000)[1:]
+    my_x = np.linspace(0, 5, 1000)[1:]
     my_y = []
     if p1 is not None and type(p1) == list and p2 is not None and type(p2) == list:
         for i in range(len(p1)):
@@ -112,14 +112,20 @@ def plot_function(function, p1=None, p2=None, title='', x_label='', y_label='', 
         ax.plot(my_x, my_y, color='blue')  # Default color
 
     ax.set_title(title)
-    ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label)
+    axis_font = {'fontname': 'Arial', 'size': '20'}
+    ax.set_xlabel(x_label, **axis_font)
+    ax.set_ylabel(y_label, **axis_font)
+    ax.tick_params(axis='both', which='major', width=2, length=12, labelsize=15)
     ax.set_yticks([])
-    #
+
+    size = 20
+
     # # Create colorbar
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax)
-    cbar.set_label(legend_title)
+    cbar.set_label(legend_title, **axis_font)
+    cbar.ax.tick_params(labelsize=15, size=10, width=2, length=12)
+    plt.tight_layout()
     # ax.axis('off')
     plt.show()
 
@@ -129,12 +135,12 @@ betas = [0.00010, 0.00024, 0.00051, 0.00094, 0.00160, 0.00256, 0.00391, 0.00572,
 
 
 
-# plot_function(lognormal, 1, [round((i+4)*0.025, 3) for i in range(17)], 'Lognormal Distributions',
+# plot_function(lognormal, 1, [round((i+4)*0.025, 3) for i in range(17)],
 #               x_label='Bubble Radius', y_label='Probability', legend_title='Coefficient of Variation')
 # plot_function(lognormal, 1, [0.45], 'Lognormal Distributions',
 #               x_label='Bubble Radius', y_label='Probability', legend_title='Coefficient of Variation', max_x=20)
-plot_function(gamma, 10, [round((i+4)*0.5, 3) for i in range(17)], title='Gamma Distributions (\u03B1 = 4)',
-              x_label='Bubble Radius', y_label='Probability', legend_title='\u03b2 Value', max_x=10)
+plot_function(gamma, 10, [round((i+4)*0.5, 3) for i in range(17)],
+              x_label='Bubble Radius', y_label='Probability', legend_title='\u03b2 Value', max_x=5)
 # plot_function(physical_DeVries, "De Vries")
 # plot_function(physical_Ranadive_Lemlich, "Ranadive Lemlich")
 # plot_function(physical_GalOr_Hoelscher, "Gal-Or Hoelscher")
