@@ -98,12 +98,18 @@ def argv(my_sys):
         atom_vals = []
         for i, atom in my_sys.net.atoms.iterrows():
             if atom['complete'] and i in atom_nums_pow:
+
+                vdp = abs(atom['vol'] - atom_vals_pow[i]['vol']) / atom_vals_pow[i]['vol']
+                sdp = abs(atom['sa'] - atom_vals_pow[i]['sa']) / atom_vals_pow[i]['sa']
+                vdv = abs(atom['vol'] - atom_vals_pow[i]['vol']) / atom['vol']
+                sdv = abs(atom['sa'] - atom_vals_pow[i]['sa']) / atom['sa']
+
+                if vdp > 10 or sdp > 10 or vdv > 10 or sdv > 10:
+                    continue
+
                 atom_vals.append({'num': i, 'vol_vor': atom['vol'], 'vol_pow': atom_vals_pow[i]['vol'],
                                   'sa': atom['sa'], 'sa_pow': atom_vals_pow[i]['sa'],
-                                  'vol_diff_pow': abs(atom['vol'] - atom_vals_pow[i]['vol']) / atom_vals_pow[i]['vol'],
-                                  'sa_diff_pow': abs(atom['sa'] - atom_vals_pow[i]['sa']) / atom_vals_pow[i]['sa'],
-                                  'vol_diff_vor': abs(atom['vol'] - atom_vals_pow[i]['vol']) / atom['vol'],
-                                  'sa_diff_vor': abs(atom['sa'] - atom_vals_pow[i]['sa']) / atom['sa']})
+                                  'vol_diff_pow': vdp, 'sa_diff_pow': sdp, 'vol_diff_vor': vdv, 'sa_diff_vor': sdv})
         folder = os.path.dirname(my_sys.base_file)
         if my_sys.foam_data is None:
             my_sys.foam_data = [0, 0, 0, 0, 0]
