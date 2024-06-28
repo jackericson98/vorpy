@@ -63,5 +63,7 @@ def edge_project(rn, pa, func, ep_1, ep_2=None):
             point = p1
             if calc_angle_jit(ep_1, ep_2, p2) >= calc_angle_jit(ep_1, ep_2, p1):
                 point = p2
+            # if np.sqrt(sum(np.square(p2 - ep_2))) <= np.sqrt(sum(np.square(p1 - ep_2))):
+            #     point = p2
         # Return the point we choose
         return point
