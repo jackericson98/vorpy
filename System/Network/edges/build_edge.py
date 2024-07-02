@@ -5,6 +5,17 @@ from System.sys_funcs.calcs.surf import calc_surf_func
 from System.sys_funcs.calcs.circle import calc_circ
 
 
+def check_edge_point(point, locs, rads):
+    # Check 1: If a point is inside only one sphere.
+    overlap_count = 0
+    for i in range(3):
+        if calc_dist(point, locs[i]) < rads[i]:
+            overlap_count += 1
+    if overlap_count in {1, 2}:
+        return False
+    return True
+
+
 # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
 def build_edge(alocs, arads, vlocs, res, straight=None):
     # To ensure a better edge we cut the resolution in quarters
