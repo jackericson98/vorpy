@@ -8,7 +8,10 @@ def line_plot(xs, ys, errors=None, labels=None, error_alpha=0.2, title=None, x_l
     # Create a single plot
     fig, ax = plt.subplots(figsize=(8, 6))
     for i in range(len(xs)):
-        ax.plot(xs[i], ys[i], label=labels[i])
+        if labels is not None:
+            ax.plot(xs[i], ys[i], label=labels[i])
+        else:
+            ax.plot(xs[i], ys[i])
         if errors is not None:
             ax.fill_between(xs[i], [ys[i][j] - errors[i][j] for j in range(len(ys[i]))],
                             [ys[i][j] + errors[i][j] for j in range(len(ys[i]))], alpha=error_alpha)
@@ -28,9 +31,9 @@ def line_plot(xs, ys, errors=None, labels=None, error_alpha=0.2, title=None, x_l
             ncol = len(labels)
         legend = ax.legend(loc='upper right', bbox_to_anchor=(1.3, 1), prop={'size': legend_label_size}, ncol=ncol,
                            shadow=True)
-    if legend_title is not None:
-        legend.set_title(legend_title)
-        legend.get_title().set_fontsize(str(legend_title_size))
+        if legend_title is not None:
+            legend.set_title(legend_title)
+            legend.get_title().set_fontsize(str(legend_title_size))
 
     # Adjust the right margin to make room for the legend
     plt.subplots_adjust(right=0.8)
