@@ -8,7 +8,7 @@ from System.Group.group import Group
 from Data.Analyze.tools.plot_templates.bar import bar
 
 
-def atoms_per_diff(systems, logs, val='volume'):
+def atoms_per_diff(systems, logs, val='sa'):
     # Create the averages lists
     avg_pow_diffs, pow_ses, avg_del_diffs, del_ses = [], [], [], []
     # Go through the loaded systems
@@ -17,8 +17,6 @@ def atoms_per_diff(systems, logs, val='volume'):
         vor_atoms = read_logs(logs[sys_name]['vor'], True, True)['atoms']
         pow_atoms = read_logs(logs[sys_name]['pow'], True, True)['atoms']
         del_atoms = read_logs(logs[sys_name]['del'], True, True)['atoms']
-        print(system.name)
-        print(vor_atoms)
         # print(sys_name, len(vor_atoms), len(pow_atoms), len(del_atoms))
         pow_diffs, del_diffs = [], []
         for i in range(len(vor_atoms)):
@@ -60,12 +58,37 @@ if __name__ == '__main__':
             if file[-3:] == 'csv':
                 my_logs[file[:-13]][file[-12:-9]] = folder + '/' + file
     # Get the average differences and the standard errors
-    avg_pow_diffs, pow_ses, avg_del_diffs, del_ses = atoms_per_diff(systems, my_logs, val='sa')
+    avg_pow_diffs, pow_ses, avg_del_diffs, del_ses = atoms_per_diff(systems, my_logs)
     # Create the labels manually for the systems in question
     graph_labels = [{'EDTA_Mg': 'EDTA', 'cambrin': 'Cambrin', 'hairpin': 'Hairpin', 'p53tet': 'p53tet',
-                     'streptavidin': 'STVDN', '3zp8_hammerhead': 'H-head', 'NCP': 'NCP', 'pl_complex': 'Prot-Lig'}[_] for _ in my_sys_names]
+                     'streptavidin': 'STVDN', 'hammerhead': 'H-Head', 'NCP': 'NCP', 'pl_complex': 'Prot-Lig',
+                     '1BNA': '1BNA', 'DB1976': 'DB1976', 'BSA': 'BSA'}[_] for _ in my_sys_names]
+    code_dict = {'Na5': 'A', 'EDTA': 'B', 'Hairpin': 'C', 'Cambrin': 'D', 'H-Head': 'E', 'p53tet': 'F',
+                 'Prot-Lig': 'G', 'STVDN': 'H', 'NCP': 'I', 'BSA': 'J'}
+    new_graph_labels = [code_dict[_] for _ in graph_labels]
+
+    def sort_4_lists(lista, listb, listc, listd, liste):
+        # Zipping lists together and sorting by the first list
+        sorted_lists = sorted(zip(lista, listb, listc, listd, liste), key=lambda x: x[0])
+
+        # Unpacking the sorted lists
+        lista, listb, listc, listd, liste = zip(*sorted_lists)
+
+        # Converting tuples back to lists if needed
+        lista = list(lista)
+        listb = list(listb)
+        listc = list(listc)
+        listd = list(listd)
+        liste = list(liste)
+
+        # Return the lists
+        return lista, listb, listc, listd, liste
+
+    new_graph_labels, avg_pow_diffs, pow_ses, avg_del_diffs, del_ses = (
+        sort_4_lists(new_graph_labels, avg_pow_diffs, pow_ses, avg_del_diffs, del_ses))
+
     # Plot the Data
-    bar(data=[avg_pow_diffs, avg_del_diffs], title='Average Atom Surface Area % Difference', legend_title='Scheme',
-        y_axis_title='% Difference', x_names=graph_labels, legend_names=['Power', 'Primitive'], Show=True,
-        x_axis_title='Model', errors=[pow_ses, del_ses])
+    bar(data=[avg_pow_diffs, avg_del_diffs], legend_title='Scheme',
+        y_axis_title='% Difference', x_names=new_graph_labels, legend_names=['Power', 'Primitive'], Show=True,
+        x_axis_title='Model', errors=[pow_ses, del_ses], y_range=[0, 70])
 

@@ -29,6 +29,10 @@ def surfs_per_diff(systems, logs, val='sa'):
             if hsh_str in pow_surfs:
                 pow_diffs.append(abs(vor_surfs[i][val] - pow_surfs[hsh_str][val])/vor_surfs[i][val])
             if hsh_str in del_surfs:
+                if system.name == 'BSA' and abs(vor_surfs[i][val] - del_surfs[hsh_str][val])/vor_surfs[i][val] > 100:
+
+                    print(hsh_str, round(abs(vor_surfs[i][val] - del_surfs[hsh_str][val])/vor_surfs[i][val], 3))
+                    continue
                 del_diffs.append(abs(vor_surfs[i][val] - del_surfs[hsh_str][val])/vor_surfs[i][val])
         # Calculate the averages
         avg_pow_diffs.append(100*sum(pow_diffs)/len(pow_diffs))
@@ -69,9 +73,34 @@ if __name__ == '__main__':
     avg_pow_diffs, pow_ses, avg_del_diffs, del_ses = surfs_per_diff(systems, my_logs, val='sa')
     # Create the labels manually for the systems in question
     graph_labels = [{'EDTA_Mg': 'EDTA', 'cambrin': 'Cambrin', 'hairpin': 'Hairpin', 'p53tet': 'p53tet',
-                     'streptavidin': 'STVDN', '3zp8_hammerhead': 'H-head', 'NCP': 'NCP', 'pl_complex': 'Prot-Lig'}[_] for _ in my_sys_names]
+                     'streptavidin': 'STVDN', 'hammerhead': 'H-Head', 'NCP': 'NCP',
+                     'pl_complex': 'Prot-Lig', 'BSA': 'BSA'}[_] for _ in my_sys_names]
+    code_dict = {'Na5': 'A', 'EDTA': 'B', 'Hairpin': 'C', 'Cambrin': 'D', 'H-Head': 'E', 'p53tet': 'F',
+                 'Prot-Lig': 'G', 'STVDN': 'H', 'NCP': 'I', 'BSA': 'J'}
+    new_graph_labels = [code_dict[_] for _ in graph_labels]
+
+    def sort_4_lists(lista, listb, listc, listd, liste):
+        # Zipping lists together and sorting by the first list
+        sorted_lists = sorted(zip(lista, listb, listc, listd, liste), key=lambda x: x[0])
+
+        # Unpacking the sorted lists
+        lista, listb, listc, listd, liste = zip(*sorted_lists)
+
+        # Converting tuples back to lists if needed
+        lista = list(lista)
+        listb = list(listb)
+        listc = list(listc)
+        listd = list(listd)
+        liste = list(liste)
+
+        # Return the lists
+        return lista, listb, listc, listd, liste
+
+    new_graph_labels, avg_pow_diffs, pow_ses, avg_del_diffs, del_ses = (
+        sort_4_lists(new_graph_labels, avg_pow_diffs, pow_ses, avg_del_diffs, del_ses))
+
     # Plot the Data
-    bar(data=[avg_pow_diffs, avg_del_diffs], title='Average SA % Difference by Interface', legend_title='Scheme',
-        y_axis_title='% Difference', x_names=graph_labels, legend_names=['Power', 'Primitive'], Show=True,
+    bar(data=[avg_pow_diffs, avg_del_diffs], legend_title='Scheme',
+        y_axis_title='% Difference', x_names=new_graph_labels, legend_names=['Power', 'Primitive'], Show=True,
         x_axis_title='Model', errors=[pow_ses, del_ses])
 
