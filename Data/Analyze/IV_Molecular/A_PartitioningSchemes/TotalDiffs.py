@@ -79,8 +79,10 @@ if __name__ == '__main__':
     if diff == 'abs':
         pow_diff = [100 * abs(vor_vals[i] - pow_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
         del_diff = [100 * abs(vor_vals[i] - del_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
-        rb_sa_diff = [100 * abs(vor_vals[i] - rb_sa_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
-        rb_vol_diff = [100 * abs(vor_vals[i] - rb_vol_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
+        if plotting == 'SA':
+            rb_diff = [100 * abs(vor_vals[i] - rb_sa_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
+        elif plotting == 'Vol':
+            rb_diff = [100 * abs(vor_vals[i] - rb_vol_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
     else:
         pow_diff = [100 * (vor_vals[i] - pow_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
         del_diff = []
@@ -89,14 +91,35 @@ if __name__ == '__main__':
                 del_diff.append(100 * (vor_vals[i] - del_vals[i])/vor_vals[i])
             except TypeError:
                 del_diff.append(0)
-        rb_sa_diff = [100 * (vor_vals[i] - rb_sa_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
-        rb_vol_diff = [100 * (vor_vals[i] - rb_vol_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
+        if plotting == 'SA':
+            rb_diff = [100 * (vor_vals[i] - rb_sa_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
+        elif plotting == 'Vol':
+            rb_diff = [100 * (vor_vals[i] - rb_vol_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
+
+    # Set the label codes
+    code_dict = {'Na5': 'A', 'EDTA': 'B', 'Hairpin': 'C', 'Cambrin': 'D', 'H-Head': 'E', 'p53tet': 'F',
+                 'Prot-Lig': 'G', 'STVDN': 'H', 'NCP': 'I', 'BSA': 'J'}
+    new_graph_labels = [code_dict[_] for _ in graph_labels]
+
+    def sort_3_lists(lista, listb, listc, listd):
+        # Zipping lists together and sorting by the first list
+        sorted_lists = sorted(zip(lista, listb, listc, listd), key=lambda x: x[0])
+
+        # Unpacking the sorted lists
+        lista, listb, listc, listd = zip(*sorted_lists)
+
+        # Converting tuples back to lists if needed
+        lista = list(lista)
+        listb = list(listb)
+        listc = list(listc)
+        listd = list(listd)
+
+        # Return the lists
+        return lista, listb, listc, listd
+
+    new_graph_labels, pow_diff, del_diff, rb_diff = sort_3_lists(new_graph_labels, pow_diff, del_diff, rb_diff)
 
     # Create the
-    if plotting == 'Vol':
-        bar([pow_diff, del_diff, rb_vol_diff], x_names=graph_labels, legend_names=['Power', 'Primitive', 'Rolling Ball'],
-            Show=True, y_axis_title='% Difference', x_axis_title='Model', title='Total Volume % Difference')
-    elif plotting == 'SA':
-        bar([pow_diff, del_diff, rb_sa_diff], x_names=graph_labels, legend_names=['Power', 'Primitive', 'Rolling Ball'],
-            Show=True, y_axis_title='% Difference', x_axis_title='Model', title='Total Surface Area % Difference')
+    bar([pow_diff, del_diff, rb_diff], x_names=new_graph_labels, legend_names=['Power', 'Primitive'],
+        Show=True, y_axis_title='Difference', x_axis_title='Model')
 
