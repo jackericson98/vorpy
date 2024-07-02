@@ -3,7 +3,9 @@ import numpy as np
 
 
 def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_title='', y_axis_title='', bar_width=0.35,
-        Show=False, save=None, legend_title=None, print_vals_on_bars=False, unit=''):
+        Show=False, save=None, legend_title=None, print_vals_on_bars=False, unit='', title_size=25, tick_width=2,
+        tick_length=12, xlabel_size=20, ylabel_size=20, xtick_label_size=20, ytick_label_size=20, legend_entry_size=20,
+        x_range=None, y_range=None):
 
     # Check how the data is set up and make sure it is a list of lists
     if type(data[0]) is not list:
@@ -50,13 +52,14 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
 
     # Plot the title, ylabel and xlabel
     plt.title(title, fontdict=dict(size=20))
-    plt.ylabel(y_axis_title, fontdict=dict(size=15))
-    plt.xlabel(x_axis_title, fontdict=dict(size=15))
+    plt.ylabel(y_axis_title, fontdict=dict(size=ylabel_size))
+    plt.xlabel(x_axis_title, fontdict=dict(size=xlabel_size))
 
     # Label the bar groups
     x_tick_locs = [np.mean([xlocs[j][i] for j in range(len(data))]) for i in range(len(data[0]))]
-    plt.xticks(x_tick_locs, x_names, rotation=45, ha='right', font=dict(size=10))
-    plt.tick_params(axis='both', width=2, length=15)
+    plt.xticks(x_tick_locs, x_names, rotation=45, ha='right', font=dict(size=xtick_label_size))
+    plt.yticks(font=dict(size=ytick_label_size))
+    plt.tick_params(axis='both', width=tick_width, length=tick_length)
 
     # Plot the data on the bars
     if print_vals_on_bars:
@@ -72,13 +75,25 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
     if legend_title is not None:
         plt.legend(title=legend_title, loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=len(data))
     elif len(data) > 1:
-        plt.legend(loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=len(data))
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=len(data),
+                   prop={'size': legend_entry_size})
 
     # Set the y limit
-    multiplier = 1.3
-    if ymin < 0:
-        multiplier = 1.5
-    plt.ylim(ymin * 1.1, multiplier * ymax)
+    if y_range is None:
+        multiplier = 1.3
+        if ymin < 0:
+            multiplier = 1.5
+        plt.ylim(ymin * 1.1, multiplier * ymax)
+    else:
+        if y_range[0] is not None:
+            ymin = y_range[0]
+        if y_range[1] is not None:
+            ymax = y_range[1]
+        plt.ylim(ymin, ymax)
+
+    # Set the x limits
+    if x_range is not None:
+        plt.xlim(*x_range)
 
     # Set the figure size
     plt.tight_layout()
