@@ -8,6 +8,7 @@ from System.system import System
 from Data.Analyze.tools.compare.read_logs import read_logs
 from System.Group.group import Group
 from Data.Analyze.tools.plot_templates.box_whisker import box_whisker
+from Data.Analyze.tools.plot_templates.line import line_plot
 
 
 if __name__ == '__main__':
@@ -27,6 +28,7 @@ if __name__ == '__main__':
     # Sort atoms by number of atoms
     num_atoms = [len(_.atoms) for _ in systems]
     systems = [x for _, x in sorted(zip(num_atoms, systems))]
+    # print([_.name for _ in systems])
 
     # Create the logs dictionary
     my_sys_names = [__.name for __ in systems]
@@ -41,21 +43,33 @@ if __name__ == '__main__':
         vals.append([_['curvature'] for _ in logs['surfs']])
     # Create the labels manually for the systems in question
     graph_labels = [{'EDTA_Mg': 'EDTA', 'cambrin': 'Cambrin', 'hairpin': 'Hairpin', 'p53tet': 'p53tet',
-                     'streptavidin': 'STVDN', '3zp8_hammerhead': 'H-head', 'NCP': 'NCP', 'pl_complex': 'Prot-Lig'}[_] for _ in my_sys_names]
+                     'streptavidin': 'STVDN', 'hammerhead': 'H-head', 'NCP': 'NCP', 'pl_complex': 'Prot-Lig',
+                     'BSA': 'BSA', '1BNA': '1BNA'}[_] for _ in my_sys_names]
 
     # Bin the values
-    increments = np.linspace(0, max([max(_) for _ in vals]), 80)
-    for i, _ in enumerate(vals):
+    increments = np.linspace(0, max([max(_) for _ in vals]), 300)
+
+    # Set up the x values
+    # Set the label codes
+    code_dict = {'Na5': 'A', 'EDTA': 'B', 'Hairpin': 'C', 'Cambrin': 'D', 'H-head': 'E', 'p53tet': 'F',
+                 'Prot-Lig': 'G', 'STVDN': 'H', 'NCP': 'I', 'BSA': 'J', '1BNA': '1BNA'}
+    new_graph_labels = [code_dict[_] for _ in graph_labels]
+    scaled_bins = []
+    for _ in vals:
+
         # Scale the number of values by the size of the group
         bins = [[__ for __ in _ if increments[j] <= __ < increments[j + 1]] for j in range(len(increments[:-1]))]
         # Count the number based on the number of total values
-        scaled_bins = [len(__) / len(_) for __ in bins]
-        plt.plot([(increments[j] + increments[j + 1]) / 2 for j in range(len(increments[:-1]))][2:], [100* __ for __ in scaled_bins[2:]])
+        scaled_bins.append([len(__) / len(_) for __ in bins])
 
-    plt.legend(graph_labels)
-    plt.title('Surface Curvature Distributions By Model', fontdict=dict(size=20))
-    plt.ylabel('Percentage', fontdict=dict(size=15))
-    plt.xticks()
-    plt.xlabel('Curvature', fontdict=dict(size=15))
+    sorted_lists = sorted(zip(new_graph_labels, scaled_bins), key=lambda x: x[0])
+
+    # Unpacking the sorted lists
+    lista, listb = zip(*sorted_lists)
+    line_plot([[(increments[j] + increments[j + 1]) / 2 for j in range(len(increments[:-1]))][10:] for _ in range(len(scaled_bins))],
+              [_[10:] for _ in listb], title='Surface Curvature Distributions By Model',
+              x_label='Curvature', y_label='Distribution', legend_title='Model', labels=lista,
+              title_size=25, x_label_size=20, y_label_size=20)
+
     plt.show()
 
