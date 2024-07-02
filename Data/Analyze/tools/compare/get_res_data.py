@@ -10,12 +10,13 @@ def residue_data(sys, logs, get_all=False, get_vol=False, get_sa=False, get_curv
     if type(logs) is dict:
         pass
     elif type(logs) is str and logs[-3:] == 'csv':
-        logs = read_logs(logs, return_dict=True)
+        logs = read_logs(logs, return_dict=False)
+        # print(logs)
     else:
         print("Log File Error: Logs must be in the form of a dictionary from \'read_logs()\' or a \'.csv\' log file "
               "address")
         return
-
+    # print('get_res_data 19: {}'.format(logs))
     # Define the different residue types in their respective dictionary
     protein_dict = {_: {} for _ in proteins}
     nucleic_dict = {_: {} for _ in nucleics}
@@ -28,6 +29,7 @@ def residue_data(sys, logs, get_all=False, get_vol=False, get_sa=False, get_curv
         res_atoms, res_surfs = [], {'in': [], 'out': []}
 
         for i, atom_info_line in logs['atoms'].iterrows():
+            # print('get_res_data: 33 {}'.format(atom_info_line))
             # Get the residue atoms information
             if atom_info_line['num'] in res.atoms:
                 res_atoms.append(atom_info_line)
@@ -35,6 +37,7 @@ def residue_data(sys, logs, get_all=False, get_vol=False, get_sa=False, get_curv
         for i, surf_info_line in logs['surfs'].iterrows():
             # Check of one of the surfaces atoms is in the residue
             if surf_info_line['atoms'][0] in res.atoms:
+                # print('get_res_data 41: {}'.format(surf_info_line))
                 # Check for the other surface
                 if surf_info_line['atoms'][1] in res.atoms:
                     res_surfs['in'].append(surf_info_line)
@@ -46,6 +49,7 @@ def residue_data(sys, logs, get_all=False, get_vol=False, get_sa=False, get_curv
         # Calculate the volume
         if get_all or get_vol:
             vol = sum([_['volume'] for _ in res_atoms])
+            # print('get_res_data 53: {}'.format(vol))
         # Get the SA
         if get_all or get_sa:
             sa = sum([_['sa'] for _ in res_surfs['out']])
@@ -64,6 +68,7 @@ def residue_data(sys, logs, get_all=False, get_vol=False, get_sa=False, get_curv
 
         # Add the res info for analysis
         res_info = {'vol': vol, 'sa': sa, 'max_surf': max_surf, 'max_curv': max_curv, 'avg_curv': avg_curv}
+        # print('get_res_data 72: {}'.format(res_info))
         # Add the information into the appropriate residue dictionary
         if res.name.lower() in protein_dict:
             protein_dict[res.name.lower()][res.seq] = res_info
