@@ -82,6 +82,14 @@ if __name__ == '__main__':
         ylabel = 'Volume' + unit
         title = '{} Total Volume'.format(my_model_name.capitalize())
 
+    # Calculate the % difference
+    diff_data1 = [100 * (data1[0] - data1[i]) / data1[0] for i in range(len(data1))]
+    diff_data2 = [100 * (data1[0] - data2[i]) / data1[0] for i in range(len(data2))]
+
+    # Plot the difference data
+    bar([diff_data1, diff_data2], x_names=labels, legend_names=['Additively Weighted', 'Power'], x_axis_title='Scheme',
+        y_axis_title='% Difference', Show=True)
+
     # Plot the bar graph
-    bar([data1, data2], x_names=labels, legend_names=['Additively Weighted', 'Power'], title=title,
-        x_axis_title='Scheme', y_axis_title=ylabel, Show=True, print_vals_on_bars=True, unit=unit)
+    bar([data1, data2], x_names=labels, legend_names=['Additively Weighted', 'Power'],
+        x_axis_title='Scheme', y_axis_title=ylabel, Show=True, print_vals_on_bars=True, unit=unit, y_range=[0, None])
