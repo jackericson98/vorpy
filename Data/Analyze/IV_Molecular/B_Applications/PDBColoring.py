@@ -38,7 +38,7 @@ if __name__ == '__main__':
     root = tk.Tk()
     root.withdraw()
     root.wm_attributes('-topmost', 1)
-    folder = filedialog.askdirectory()
+    folder = filedialog.askdirectory(title='Choose Logs Pdbs Folder')
     # Create the systems
     systems = []
     for root, dir, files in os.walk(folder):
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     systems = [x for _, x in sorted(zip(num_atoms, systems))]
 
     # Set the output folder
-    output_folder = filedialog.askdirectory() + '/'
+    output_folder = filedialog.askdirectory(title='Choose Output Folder') + '/'
     # Create the outputs by system
     my_maxes = []
     for my_sys in systems:
