@@ -43,7 +43,6 @@ def compare_files(pdb_files, log_files, build_data=False, totals=False, avg_dist
     if totals:
         info['totals'] = {}
         for i, sys in enumerate(systems):
-            print(sys.name)
             avg_curv = 0
             if curv:
                 avg_curv = sum(logs[i]['surfs']['curvature']) / len(logs[i]['surfs'])
