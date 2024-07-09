@@ -314,12 +314,12 @@ class System:
         set_sys_dir(self, dir_name=directory)
 
     def exports(self, all_=False, network=False, pdb=False, surfaces=False, full_network_object=False, set_atoms=False,
-                info=False, logs=False):
+                info=False, logs=False, all_verts=False, all_edges=False):
         """
         Prepares the output directory and system for output. Keeps things consistent
         """
         # Export the system (/System/sys_funcs/output)
-        export_sys(self, all_=all_, network=network, pdb=pdb, surfaces=surfaces,
+        export_sys(self, all_=all_, network=network, pdb=pdb, surfaces=surfaces, verts=all_verts, edges=all_edges,
                    full_network_object=full_network_object,
                    alter_atoms_script=set_atoms, info=info, logs=logs)
 
