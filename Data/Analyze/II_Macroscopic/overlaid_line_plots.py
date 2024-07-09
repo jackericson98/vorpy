@@ -12,6 +12,16 @@ root.withdraw()
 root.wm_attributes('-topmost', 1)
 my_foams_file = askopenfilename()
 
+open_adjustments = {
+    '1000': [-0.42779658559670897, 0.9522701611684636, 0.003273616493599463],
+    '100': [-0.5121075296037707, 0.936176070116948, 0.004823092120831488],
+    '100000': [-0.3563740799873354, 0.9518810242087892, 0.0033141283705400313]
+}
+
+
+def invers_square(val, abc):
+    return abc[0] * val ** 2 + abc[1] * val + abc[2]
+
 
 with open(my_foams_file, 'r') as my_foam_data:
 
@@ -42,9 +52,6 @@ if 'closed' in my_data[0]['num'].lower() or 'false' in my_data[0]['num'].lower()
     cell_type = 'Closed'
 else:
     cell_type = 'Open'
-
-
-print(plot_type)
 
 lists = {}
 
@@ -110,7 +117,8 @@ for i, num in enumerate(my_sds):
         datapvm[i].append(means[2]); datapvms[i].append(means[2] - sds[2]); datapvps[i].append(means[2] + sds[2])
         datapsm[i].append(means[3]); datapsms[i].append(means[3] - sds[3]); datapsps[i].append(means[3] + sds[3])
 
-
+if cell_type == 'Open':
+    my_densities = [invers_square(_, open_adjustments['1000']) for _ in my_densities]
 for value in {'vol', 'sa'}:
     # Coefficient of Variation (CV) and Density values
     cmap = plt.cm.rainbow  # Choose a colormap that does not have yellow and works well in grayscale
@@ -121,8 +129,12 @@ for value in {'vol', 'sa'}:
     for i, sd in enumerate(my_sds):
         # Colors for each line based on 'sd' which is used as an index into the colormap
         color = cmap(norm(sd))
-        ax.plot(my_densities[2:], datavsm[i][2:], color=color)
-        ax.fill_between(my_densities[2:], datavsms[i][2:], datavsps[i][2:], color=color, alpha=0.2)
+
+        try:
+            ax.plot(my_densities[2:], datavsm[i][2:], color=color)
+            ax.fill_between(my_densities[2:], datavsms[i][2:], datavsps[i][2:], color=color, alpha=0.2)
+        except ValueError:
+            print(sd, my_densities[2:], datavsm[i][2:])
 
     # Adding a color bar that uses the created ScalarMappable
     sm.set_array([])
@@ -134,8 +146,10 @@ for value in {'vol', 'sa'}:
 
 
     # Set plot titles and labels
-    ax.set_xticks(np.arange(my_densities[1] + 0.05, my_densities[-1] + 0.05, 0.1))
-    ax.set_ylim([0, 50])
+
+    ax.set_xticks(np.arange(0, 0.55, 0.1))
+    ax.set_ylim([0, 60])
+    ax.set_xlim([0.05, 0.55])
     # ax.set_title('{} {} Power {} % Diff'.format(plot_type.capitalize(), cell_type, {'sa': 'Surface Area', 'vol': 'Volume'}[value]), fontsize=20)
     ax.set_xlabel('Density', fontsize=25)
     ax.set_ylabel('% Difference', fontsize=25)
