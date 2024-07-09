@@ -1,5 +1,7 @@
 from System.sys_funcs.output.atoms import write_pdb, write_atom_cells
 from System.sys_funcs.output.surfs import write_surfs
+from System.sys_funcs.output.verts import write_off_verts
+from System.sys_funcs.output.edges import write_edges
 from System.sys_funcs.output.net import write_net_logs
 import os
 from os import path
@@ -43,7 +45,7 @@ def export_large(sys):
 
 
 def export_all(sys):
-    sys.exports(pdb=True, info=True, network=True, logs=True, set_atoms=True)
+    sys.exports(pdb=True, info=True, network=True, logs=True, set_atoms=True, all_verts=True, all_edges=True)
     for group in sys.groups:
         group.dir = sys.dir + '/' + group.name
         os.mkdir(group.dir)
@@ -123,7 +125,7 @@ def set_sys_dir(sys, dir_name=None):
 
 
 def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_network_object=False,
-               alter_atoms_script=False, info=False, logs=False):
+               alter_atoms_script=False, info=False, logs=False, verts=False, edges=False):
     """
         Prepares the output directory and system for output. Keeps things consistent
         :return:
@@ -164,6 +166,21 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
         for surf in sys.net.surfs:
             write_surfs(net=sys.net, surfs=[surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=sys.dir + "/surfs")
         os.chdir(sys.dir)
+    if edges or all_:
+        if not os.path.exists(sys.dir + '/edges'):
+            os.mkdir(sys.dir + "/edges")
+        # Export a pdb file for the system
+        for i, edge in sys.net.edges.iterrows():
+            write_edges(net=sys.net, edges=[i], file_name="_".join([str(_) for _ in edge['eatoms']]), directory=sys.dir + "/edges")
+        os.chdir(sys.dir)
+    if verts or all_:
+        if not os.path.exists(sys.dir + '/verts'):
+            os.mkdir(sys.dir + "/verts")
+        # Export a pdb file for the system
+        for i, vert in sys.net.verts.iterrows():
+            write_off_verts(net=sys.net, verts=[i], file_name="_".join([str(_) for _ in vert['vatoms']]),
+                        directory=sys.dir + "/verts")
+        os.chdir(sys.dir)
     if (full_network_object or all_) and sys.net.build_surfs:
         if not os.path.exists(sys.dir + '/sys'):
             os.mkdir(sys.dir + "/sys")
@@ -175,6 +192,7 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
             os.mkdir(sys.dir + "/sys")
         os.chdir(sys.dir + "/sys")
         set_pymol_atoms(sys)
+    #
     os.chdir(sys.dir)
 
 
