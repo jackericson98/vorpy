@@ -54,6 +54,9 @@ if __name__ == '__main__':
     code_dict = {'Na5': 'A', 'EDTA': 'B', 'Hairpin': 'C', 'Cambrin': 'D', 'H-head': 'E', 'p53tet': 'F',
                  'Prot-Lig': 'G', 'STVDN': 'H', 'NCP': 'I', 'BSA': 'J', '1BNA': '1BNA'}
     new_graph_labels = [code_dict[_] for _ in graph_labels]
+    colors = {'Na5': 'k', 'EDTA': 'b', 'Hairpin': 'orange', 'Cambrin': 'green', 'H-head': 'pink', 'p53tet': 'purple',
+              'Prot-Lig': 'brown', 'STVDN': 'lavender', 'NCP': 'grey', 'BSA': 'red', '1BNA': '1BNA'}
+    my_colors = [colors[_] for _ in graph_labels]
     scaled_bins = []
     for _ in vals:
 
@@ -62,14 +65,27 @@ if __name__ == '__main__':
         # Count the number based on the number of total values
         scaled_bins.append([len(__) / len(_) for __ in bins])
 
-    sorted_lists = sorted(zip(new_graph_labels, scaled_bins), key=lambda x: x[0])
+    def sort_3_lists(lista, listb, listc):
+        # Zipping lists together and sorting by the first list
+        sorted_lists = sorted(zip(lista, listb, listc), key=lambda x: x[0])
+
+        # Unpacking the sorted lists
+        lista, listb, listc = zip(*sorted_lists)
+
+        # Converting tuples back to lists if needed
+        lista = list(lista)
+        listb = list(listb)
+        listc = list(listc)
+
+        # Return the lists
+        return lista, listb, listc
 
     # Unpacking the sorted lists
-    lista, listb = zip(*sorted_lists)
+    labels, values, colors = sort_3_lists(new_graph_labels, scaled_bins, my_colors)
     line_plot([[(increments[j] + increments[j + 1]) / 2 for j in range(len(increments[:-1]))][10:] for _ in range(len(scaled_bins))],
-              [_[10:] for _ in listb], title='Surface Curvature Distributions By Model',
-              x_label='Curvature', y_label='Distribution', legend_title='Model', labels=lista,
-              title_size=25, x_label_size=20, y_label_size=20)
+              [_[10:] for _ in values], title='Surface Curvature Distributions By Model',
+              x_label='Curvature', y_label='Distribution', legend_title='Model', labels=labels,
+              title_size=25, x_label_size=20, y_label_size=20, colors=colors)
 
     plt.show()
 
