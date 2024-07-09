@@ -5,7 +5,7 @@ import numpy as np
 def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_title='', y_axis_title='', bar_width=0.35,
         Show=False, save=None, legend_title=None, print_vals_on_bars=False, unit='', title_size=25, tick_width=2,
         tick_length=12, xlabel_size=20, ylabel_size=20, xtick_label_size=20, ytick_label_size=20, legend_entry_size=20,
-        x_range=None, y_range=None):
+        x_range=None, y_range=None, legend_orientation='Horizontal'):
 
     # Check how the data is set up and make sure it is a list of lists
     if type(data[0]) is not list:
@@ -17,9 +17,6 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
         err_max = max([max(_) for _ in errors])
     ymax = max([max(_) for _ in data]) + err_max
     ymin = min([min(_) for _ in data]) - err_max
-
-    # Set the bar width
-    bar_width = 0.35
 
     # Get the number of bars to plot
     num_bars = len(data)
@@ -51,7 +48,7 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
                              color='black', alpha=0.8)
 
     # Plot the title, ylabel and xlabel
-    plt.title(title, fontdict=dict(size=20))
+    plt.title(title, fontdict=dict(size=title_size))
     plt.ylabel(y_axis_title, fontdict=dict(size=ylabel_size))
     plt.xlabel(x_axis_title, fontdict=dict(size=xlabel_size))
 
@@ -72,24 +69,28 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
                 plt.text(xlocs[j][i] + 0.03, height, str(v) + unit, ha='center', va='center', rotation=90)
 
     # Add the legend
+    leg_col = 1
+    if legend_orientation == 'Horizontal':
+        leg_col = len(data)
+
     if legend_title is not None:
-        plt.legend(title=legend_title, loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=len(data))
+        plt.legend(title=legend_title, loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=leg_col)
     elif len(data) > 1:
-        plt.legend(loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=len(data),
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=leg_col,
                    prop={'size': legend_entry_size})
 
     # Set the y limit
+    multiplier = 1.3
+    if ymin < 0:
+        multiplier = 1.5
     if y_range is None:
-        multiplier = 1.3
-        if ymin < 0:
-            multiplier = 1.5
         plt.ylim(ymin * 1.1, multiplier * ymax)
     else:
         if y_range[0] is not None:
             ymin = y_range[0]
         if y_range[1] is not None:
             ymax = y_range[1]
-        plt.ylim(ymin, ymax)
+        plt.ylim(ymin, multiplier * ymax)
 
     # Set the x limits
     if x_range is not None:
