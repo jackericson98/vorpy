@@ -35,7 +35,7 @@ def read_vert(vert_line):
 def read_logs(log_files, return_dict=False, no_sol=False):
     file_info = {}
     one_file = False
-    if type(log_files) == str:
+    if type(log_files) is str:
         one_file = True
         log_files = [log_files]
     for file in log_files:
