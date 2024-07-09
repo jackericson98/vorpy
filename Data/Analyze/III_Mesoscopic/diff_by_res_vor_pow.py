@@ -151,15 +151,38 @@ if __name__ == '__main__':
                                                                    my_info['residues'][file][res_type][res_name][res]])
     vol_dat, sa_dat  = percent_diff(logs_pdb_folder + '/residue_data.csv', file_name=my_model_name + '_a')
     # Sample data
-    labels_dict = {'a': 'Atoms', 'ad_mw': 'Avg Dist (mw)', 'ad': 'Avg Dist', 'ncap': 'Encapsulate',
-                   'scbb_ad': 'SC/BB AD', 'scbb_ncap': 'SC/BB Encap.', 'scbb_ad_mw': 'SC/BB AD (mw)',
-                   'martini': 'Martini', }
+    labels_dict = {'a': '1', 'ad_mw': '6', 'ad': '4', 'ncap': '2',
+                   'scbb_ad': '5', 'scbb_ncap': '3', 'scbb_ad_mw': '7',
+                   'martini': '8'}
     labels = []
     for file in pdb_files[::2]:
         labels.append(labels_dict[file[len(logs_pdb_folder) + len(my_model_name) + 2:-4]])
+
+
+    def sort_5_lists(lista, listb, listc, listd, liste):
+        # Zipping lists together and sorting by the first list
+        sorted_lists = sorted(zip(lista, listb, listc, listd, liste), key=lambda x: x[0])
+
+        # Unpacking the sorted lists
+        lista, listb, listc, listd, liste = zip(*sorted_lists)
+
+        # Converting tuples back to lists if needed
+        lista = list(lista)
+        listb = list(listb)
+        listc = list(listc)
+        listd = list(listd)
+        liste = list(liste)
+
+        # Return the lists
+        return lista, listb, listc, listd, liste
+
+    labels1, volx1, volx2, voly1, voly2 = sort_5_lists(labels, *vol_dat)
+
+    labels2, sax1, sax2, say1, say2 = sort_5_lists(labels, *sa_dat)
+
     # Volume bar Plot
-    bar(vol_dat[:2], vol_dat[2:], labels, ['Additively Weighted', 'Power'], my_model_name + ' Residue Volume % Diff',
-        'CG Schemes', '% Difference', Show=True, print_vals_on_bars=True)
+    bar([volx1, volx2], [voly1, voly2], labels1, ['Additively Weighted', 'Power'], my_model_name + ' Residue Volume % Diff',
+        'CG Schemes', '% Difference', Show=True, print_vals_on_bars=True, unit='%')
     # Surface Area Plot
-    bar(sa_dat[:2], sa_dat[2:], labels, ['Additively Weighted', 'Power'], my_model_name + ' Residue SA % Diff',
-        'CG Schemes', '% Difference', Show=True, print_vals_on_bars=True)
+    bar([sax1, sax2], [say1, say2], labels2, ['Additively Weighted', 'Power'], my_model_name + ' Residue SA % Diff',
+        'CG Schemes', '% Difference', Show=True, print_vals_on_bars=True, unit='%')
