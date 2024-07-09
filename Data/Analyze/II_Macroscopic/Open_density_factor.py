@@ -37,16 +37,6 @@ def get_box_vols(foam_data_file):
                 cv, density = file_info[1], file_info[3]
             except IndexError:
                 continue
-    # for dir in os.listdir(directory):
-    #     for file in os.listdir(directory +'/' + dir):
-    #         pdb_vals = file.split('_')
-    #         cv, density = pdb_vals[1], pdb_vals[3]
-    #         if file[-4:] != '.pdb':
-    #             continue
-    #         with open(directory + '/' + dir + '/' + file, 'r') as pdb_file:
-    #             info_line = pdb_file.readlines()[0]
-    #             info_line = info_line.split(' ')
-    #             volume = float(info_line[2]) ** 3
 
             if cv in value_dict:
                 if density in value_dict[cv]:
@@ -103,8 +93,6 @@ for _ in open_dick:
 cvs = [_ for _ in closed_dick]
 cvs.sort()
 densities.sort()
-print(cvs, densities)
-print(combined_dick)
 x_vals, y_vals, err_vals = [], [], []
 for _ in cvs:
     y_vals.append([])
@@ -123,6 +111,4 @@ for _ in cvs:
 # err_vals = [[combined_dick[_][__]['tot_err'] for __ in densities] for _ in cvs]
 
 # Plot the
-print(x_vals)
-print(y_vals)
 line_plot(x_vals, y_vals)
