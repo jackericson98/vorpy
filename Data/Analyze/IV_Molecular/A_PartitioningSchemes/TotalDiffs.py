@@ -84,17 +84,12 @@ if __name__ == '__main__':
         elif plotting == 'Vol':
             rb_diff = [100 * abs(vor_vals[i] - rb_vol_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
     else:
-        pow_diff = [100 * (vor_vals[i] - pow_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
-        del_diff = []
-        for i in range(len(vor_vals)):
-            try:
-                del_diff.append(100 * (vor_vals[i] - del_vals[i])/vor_vals[i])
-            except TypeError:
-                del_diff.append(0)
+        pow_diff = [round(100 * (pow_vals[i] - vor_vals[i])/vor_vals[i], 3) for i in range(len(vor_vals))]
+        del_diff = [round(100 * (del_vals[i] - vor_vals[i])/vor_vals[i], 3) for i in range(len(vor_vals))]
         if plotting == 'SA':
-            rb_diff = [100 * (vor_vals[i] - rb_sa_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
+            rb_diff = [round(100 * (rb_sa_vals[i] - vor_vals[i])/vor_vals[i], 3) for i in range(len(vor_vals))]
         elif plotting == 'Vol':
-            rb_diff = [100 * (vor_vals[i] - rb_vol_vals[i])/vor_vals[i] for i in range(len(vor_vals))]
+            rb_diff = [round(100 * (rb_vol_vals[i] - vor_vals[i])/vor_vals[i], 3) for i in range(len(vor_vals))]
 
     # Set the label codes
     code_dict = {'Na5': 'A', 'EDTA': 'B', 'Hairpin': 'C', 'Cambrin': 'D', 'H-Head': 'E', 'p53tet': 'F',
@@ -120,6 +115,6 @@ if __name__ == '__main__':
     new_graph_labels, pow_diff, del_diff, rb_diff = sort_3_lists(new_graph_labels, pow_diff, del_diff, rb_diff)
 
     # Create the
-    bar([pow_diff, del_diff, rb_diff], x_names=new_graph_labels, legend_names=['Power', 'Primitive'],
-        Show=True, y_axis_title='Difference', x_axis_title='Model')
+    bar([pow_diff, del_diff, rb_diff], x_names=new_graph_labels, legend_names=['Power', 'Primitive', 'Rolling Ball'],
+        Show=True, y_axis_title='Difference', x_axis_title='Model', print_vals_on_bars=False, legend_orientation='Vertical')
 
