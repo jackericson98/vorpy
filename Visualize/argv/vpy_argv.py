@@ -121,9 +121,14 @@ def argv(my_sys):
 
         current_dir = os.getcwd()
         os.chdir('../..')
-        with open('foam_data.csv', 'a') as foam_file:
-            foam_writer = csv.writer(foam_file)
-            foam_writer.writerow(my_line)
+        try:
+            with open('foam_data.csv', 'a') as foam_file:
+                foam_writer = csv.writer(foam_file)
+                foam_writer.writerow(my_line)
+        except PermissionError:
+            with openn('foam_data1.csv', 'a') as foam_file:
+                foam_writer = csv.writer(foam_file)
+                foam_writer.writerow(my_line)
         os.chdir(current_dir)
         argv_export(my_sys, cmnds['xpt'], add_on='/vor')
         return
