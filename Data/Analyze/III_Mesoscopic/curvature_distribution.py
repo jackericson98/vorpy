@@ -41,7 +41,7 @@ if __name__ == '__main__':
         vals.append([_['curvature'] for _ in logs['surfs']])
     # Create the labels manually for the systems in question
     graph_labels = [{'EDTA_Mg': 'EDTA', 'cambrin': 'Cambrin', 'hairpin': 'Hairpin', 'p53tet': 'p53tet',
-                     'streptavidin': 'STVDN', '3zp8_hammerhead': 'H-head', 'NCP': 'NCP', 'pl_complex': 'Prot-Lig'}[_] for _ in my_sys_names]
+                     'streptavidin': 'STVDN', 'hammerhead': 'H-head', 'NCP': 'NCP', 'pl_complex': 'Prot-Lig'}[_] for _ in my_sys_names]
 
     # Bin the values
     increments = np.linspace(0, max([max(_) for _ in vals]), 80)
@@ -52,7 +52,7 @@ if __name__ == '__main__':
         scaled_bins = [len(__) / len(_) for __ in bins]
         plt.plot([(increments[j] + increments[j + 1]) / 2 for j in range(len(increments[:-1]))][2:], [100* __ for __ in scaled_bins[2:]])
 
-    plt.legend(graph_labels)
+    plt.legend(graph_labels, ncols=len(graph_labels))
     plt.title('Surface Curvature Distributions By Model', fontdict=dict(size=20))
     plt.ylabel('Percentage', fontdict=dict(size=15))
     plt.xticks()
