@@ -52,7 +52,7 @@ if __name__ == '__main__':
     del_vals = [my_logs[_]['del'] for _ in my_sys_names]
     graph_labels = [{'EDTA_Mg': 'EDTA', 'cambrin': 'Cambrin', 'hairpin': 'Hairpin', 'p53tet': 'p53tet',
                      'streptavidin': 'STVDN', '3zp8_hammerhead': 'H-head', 'NCP': 'NCP', 'pl_complex': 'Prot-Lig',
-                     'BSA': 'BSA', 'hammerhead': 'H-Head'}
+                     'BSA': 'BSA', 'hammerhead': 'H-Head', '1BNA': '1BNA', 'DB1976': 'DB1976'}
                     [_] for _ in my_sys_names]
     rb_sa_vals_pymol = [{'EDTA_Mg': 290.72, 'cambrin': 3180.126, '1BNA': 4665.118, '181L': 10085.962, 'DB1976': 1732.180,
                          'p53tet': 9387.583, 'streptavidin': 19044.982, 'hammerhead': 13868.580, 'NCP': 86372.086,
@@ -93,7 +93,7 @@ if __name__ == '__main__':
 
     # Set the label codes
     code_dict = {'Na5': 'A', 'EDTA': 'B', 'Hairpin': 'C', 'Cambrin': 'D', 'H-Head': 'E', 'p53tet': 'F',
-                 'Prot-Lig': 'G', 'STVDN': 'H', 'NCP': 'I', 'BSA': 'J'}
+                 'Prot-Lig': 'G', 'STVDN': 'H', 'NCP': 'I', 'BSA': 'J', '1BNA': '1BNA', 'DB1976': 'DB1976'}
     new_graph_labels = [code_dict[_] for _ in graph_labels]
 
     def sort_3_lists(lista, listb, listc, listd):
@@ -115,6 +115,8 @@ if __name__ == '__main__':
     new_graph_labels, pow_diff, del_diff, rb_diff = sort_3_lists(new_graph_labels, pow_diff, del_diff, rb_diff)
 
     # Create the
-    bar([pow_diff, del_diff, rb_diff], x_names=new_graph_labels, legend_names=['Power', 'Primitive', 'Rolling Ball'],
-        Show=True, y_axis_title='Difference', x_axis_title='Model', print_vals_on_bars=False, legend_orientation='Vertical')
+    bar([pow_diff, del_diff], x_names=new_graph_labels, legend_names=['Power', 'Primitive', 'Solvent Accessible'],
+        Show=True, y_axis_title='Difference', x_axis_title='Model', print_vals_on_bars=False,
+        legend_orientation='Vertical', xlabel_size=30, ylabel_size=30, tick_width=2, tick_length=12,
+        xtick_label_size=25, ytick_label_size=25)
 
