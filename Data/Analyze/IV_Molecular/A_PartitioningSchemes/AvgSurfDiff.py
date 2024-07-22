@@ -102,5 +102,5 @@ if __name__ == '__main__':
     # Plot the Data
     bar(data=[avg_pow_diffs, avg_del_diffs], legend_title='Scheme',
         y_axis_title='% Difference', x_names=new_graph_labels, legend_names=['Power', 'Primitive'], Show=True,
-        x_axis_title='Model', errors=[pow_ses, del_ses])
+        x_axis_title='Model', errors=[pow_ses, del_ses], xlabel_size=30, ylabel_size=30, ytick_label_size=25, xtick_label_size=25, tick_width=2, tick_length=12)
 
