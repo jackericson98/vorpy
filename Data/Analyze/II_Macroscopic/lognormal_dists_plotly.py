@@ -12,7 +12,9 @@ def lognormal(r, mu, sd):
     return -(1/(r*sd*np.sqrt(2*np.pi))) * np.exp(-((np.log(r) - mu)**2/(2*sd**2)))
 
 
-def gamma(r, a, B):
+def gamma(r, mu, cv):
+    a = 1/(cv)
+    B = a / mu
     return 0.25*stats.gamma.pdf(r, a, scale=1/B)
 
 
@@ -71,9 +73,10 @@ def plot_function1(function, function_name="", p1=None, p2=None):
         fig.show()
 
 
-def plot_function(function, p1=None, p2=None, title='', x_label='', y_label='', legend_title='', max_x=5):
+def plot_function(function, p1=None, p2=None, title='', x_label='', y_label='', legend_title='', max_x=5, color=None, ax=None):
     my_x = np.linspace(0, max_x, 10000)[1:]  # Avoiding zero if function undefined at zero
-    fig, ax = plt.subplots()
+    if ax is None:
+        fig, ax = plt.subplots()
 
     # Determine the parameter array and colormap
     cmap = plt.cm.rainbow  # You can choose any colormap (e.g., viridis, plasma, inferno, magma)
@@ -109,38 +112,43 @@ def plot_function(function, p1=None, p2=None, title='', x_label='', y_label='', 
     else:
         # Both p1 and p2 are single parameters, plot a single line
         my_y = [function(x, p1, p2) for x in my_x]
-        ax.plot(my_x, my_y, color='blue')  # Default color
+        ax.plot(my_x, my_y, color=color)  # Default color
 
     ax.set_title(title)
     axis_font = {'fontname': 'Arial', 'size': '20'}
     ax.set_xlabel(x_label, **axis_font)
     ax.set_ylabel(y_label, **axis_font)
     ax.tick_params(axis='both', which='major', width=2, length=12, labelsize=15)
-    ax.set_yticks([])
+
 
     size = 20
 
     # # Create colorbar
-    sm.set_array([])
-    cbar = plt.colorbar(sm, ax=ax)
-    cbar.set_label(legend_title, **axis_font)
-    cbar.ax.tick_params(labelsize=15, size=10, width=2, length=12)
+    # sm.set_array([])
+    # cbar = plt.colorbar(sm, ax=ax)
+    # cbar.set_label(legend_title, **axis_font)
+    # cbar.ax.tick_params(labelsize=15, size=10, width=2, length=12)
     plt.tight_layout()
     # ax.axis('off')
-    plt.show()
+    # plt.show()
 
 
 alphas = [100, 64, 44.4444, 32.65306, 25, 19.75309, 16, 13.22314, 11.11111, 9.46746, 8.16327, 7.11111, 6.25, 5.53633, 4.93827, 4.43213, 4]
 betas = [0.00010, 0.00024, 0.00051, 0.00094, 0.00160, 0.00256, 0.00391, 0.00572, 0.00810, 0.01116, 0.01501, 0.01978, 0.02560, 0.03263, 0.04101, 0.05091, 0.06250]
 
-
+print([0.05 + 0.025 * i for i in range(18)])
 
 # plot_function(lognormal, 1, [round((i+4)*0.025, 3) for i in range(17)],
 #               x_label='Bubble Radius', y_label='Probability', legend_title='Coefficient of Variation')
-# plot_function(lognormal, 1, [0.45], 'Lognormal Distributions',
-#               x_label='Bubble Radius', y_label='Probability', legend_title='Coefficient of Variation', max_x=20)
-plot_function(gamma, 10, [round((i+4)*0.5, 3) for i in range(17)],
-              x_label='Bubble Radius', y_label='Probability', legend_title='\u03b2 Value', max_x=5)
+# plot_function(gamma, 1, [round((i+4)*0.025, 3) for i in range(17)], 'Lognormal Distributions',
+#               x_label='Bubble Radius', y_label='Probability', legend_title='Coefficient of Variation', max_x=5)
+fig, ax = plt.subplots()
+for i, func in enumerate({physical_DeVries, physical_Ranadive_Lemlich, physical_GalOr_Hoelscher}):
+    color = ['r', 'g', 'b']
+    plot_function(func, 1,
+              x_label='Bubble Radius', y_label='Probability', legend_title='\u03b2 Value', max_x=5, color=color[i], ax=ax)
+# plt.show()
 # plot_function(physical_DeVries, "De Vries")
 # plot_function(physical_Ranadive_Lemlich, "Ranadive Lemlich")
 # plot_function(physical_GalOr_Hoelscher, "Gal-Or Hoelscher")
+plt.show()
