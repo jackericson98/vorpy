@@ -54,7 +54,7 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
 
     # Label the bar groups
     x_tick_locs = [np.mean([xlocs[j][i] for j in range(len(data))]) for i in range(len(data[0]))]
-    plt.xticks(x_tick_locs, x_names, rotation=45, ha='right', font=dict(size=xtick_label_size))
+    plt.xticks(x_tick_locs, x_names, font=dict(size=xtick_label_size))
     plt.yticks(font=dict(size=ytick_label_size))
     plt.tick_params(axis='both', width=tick_width, length=tick_length)
 
