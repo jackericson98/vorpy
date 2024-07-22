@@ -89,7 +89,7 @@ def read_logs(log_files, return_dict=False, no_sol=False):
                     break
                 index += 1
             if return_dict:
-                file_info[file_name] = {'data': data, 'group data': group_data, 'atoms': atoms,'surfs': surfs,
+                file_info[file_name] = {'data': data, 'group data': group_data, 'atoms': atoms, 'surfs': surfs,
                                         'edges': edges, 'verts': verts}
             else:
                 file_info[file_name] = {'data': data, 'group data': group_data, 'atoms': pd.DataFrame(atoms),
