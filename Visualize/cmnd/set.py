@@ -104,15 +104,25 @@ def sett(sys, usr_npt, vorpy2_set=False):
         sys.net.surf_scm = my_val
         print("surface scheme set to {}".format(my_val))
     elif my_set in atom_radii:
-        counter = 0
-        old_rad = None
-        for atom in sys.atoms:
-            if atom.element.lower() == my_val[0].lower():
-                old_rad = atom.rad
-                atom.rad = my_val[1]
-                counter += 1
-        sys.radii[my_val[0]] = my_val[1]
-        print(u"{} atoms changed from {} to {}".format(counter, old_rad, my_val[1]))
+        my_element, new_rad = my_val[0].strip().lower(), my_val[1]
+        # Normalize 'element' column for comparison
+        normalized_elements = sys.atoms['element'].str.strip().str.lower()
+        matching_indices = sys.atoms.index[normalized_elements == my_element].tolist()
+        count_changed = 0
+        if matching_indices:
+            # Record the old value of the first matching entry
+            old_value = sys.atoms.loc[matching_indices[0], 'rad']
+
+            # Replace 'rad' values where 'element' matches 'my_element'
+            sys.atoms.loc[normalized_elements == my_element, 'rad'] = new_rad
+
+            # Count and print the number of changed values
+            count_changed = len(matching_indices)
+
+            sys.radii[my_val[0]] = my_val[1]
+            print(u"{} atoms changed from {} to {}".format(count_changed, old_value, my_val[1]))
+        else:
+            print("No matching element found.")
     # Check for a quit request
     elif my_set.lower() in quits:
         return
