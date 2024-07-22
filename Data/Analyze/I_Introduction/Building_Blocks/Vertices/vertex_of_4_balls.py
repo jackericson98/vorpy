@@ -22,10 +22,10 @@ Vertex Plotting: Set the 'vertex_type' Variable From the list below
 """
 
 # Choose Vertex Type Below
-vertex_type = 4
+vertex_type = 12
 
 # Other settings
-atom_alpha = 0.5
+atom_alpha = .5
 show_axes = False
 
 # No Overlap Vertex 1
@@ -115,7 +115,7 @@ ax = fig.add_subplot(projection='3d')
 # Plot the atoms
 plot_atoms(locs, rads, fig=fig, ax=ax, res=10, alpha=atom_alpha)
 # Plot the vertices
-plot_verts([my_vert[0]], [abs(my_vert[1])], fig=fig, ax=ax, spheres=True, res=10)
+plot_verts([my_vert[0]], [abs(my_vert[1])], fig=fig, ax=ax, spheres=True, res=10, alpha=0.3, colors=['r'])
 
 
 # Set the axes lines
