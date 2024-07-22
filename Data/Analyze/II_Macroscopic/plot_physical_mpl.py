@@ -74,7 +74,7 @@ phys3_std_errs_1000 = [[0.3034413671203378, 0.29113329014513756, 0.8736799576919
 
 vol_avgs = [phys1_avgs_1000[0], phys2_avgs_1000[0], phys3_avgs_1000[0]]
 vol_std_errs = [phys1_std_errs_1000[0], phys2_std_errs_1000[0], phys3_std_errs_1000[0]]
-
+vol_std_errs = [[_ * len(__) ** 0.5 for _ in __] for __ in vol_std_errs]
 
 SA_avgs = [phys1_avgs_1000[1], phys2_avgs_1000[1], phys3_avgs_1000[1]]
 SA_std_errs = [phys1_std_errs_1000[1], phys2_std_errs_1000[1], phys3_std_errs_1000[1]]
@@ -85,5 +85,6 @@ x_values = np.arange(0.025, 0.525, 0.025)
 # Create traces for each line
 trace_names = ['Devries', 'Renedive &\nLemilch', 'Gal-Or &\nHoelsher']
 
-line_plot([x_values, x_values, x_values], vol_avgs, vol_std_errs, trace_names, 0.2, x_label='Density',
-          y_label='% Difference', legend_title='Scheme')
+line_plot([x_values, x_values, x_values], ys=vol_avgs, errors=vol_std_errs, labels=trace_names, error_alpha=.2, x_label='Density',
+          y_label='% Difference', legend_title='Scheme', y_label_size=30, x_label_size=30, tick_val_size=30,
+          legend_title_size=30, legend_label_size=25, x_ticks=[0.1, 0.3, 0.5])
