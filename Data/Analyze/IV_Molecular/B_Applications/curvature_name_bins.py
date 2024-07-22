@@ -72,7 +72,7 @@ if __name__ == '__main__':
                      'BSA': 'BSA', '1BNA': '1BNA'}[_] for _ in my_sys_names]
 
     # Bin the values
-    increments = np.linspace(0, max([_['curvature'] for _ in surfs]), 150)
+    increments = np.linspace(0, max([_['curvature'] for _ in surfs]), 300)
 
     # Set up the x values
     # Set the label codes
@@ -83,7 +83,7 @@ if __name__ == '__main__':
     all_sections = [0.01, 0.066, 0.131, 0.148, 0.195, 0.227, 0.342, 0.386, 0.427, 0.473, 0.967, 1.082, 1.145, 2]
     nucleic_sections = [0.01, 0.069, 0.112, 0.145, 0.171, 0.195, 0.226, 0.397, 0.455, 0.983, 1.18, 2.000]
     protein1_sections = [0.01, 0.020, 0.030, 0.045, 0.059, 0.068, 0.081, 0.091, 0.12, 0.2, 0.227, 0.342, 0.4, 0.5, 0.967, 1.09, 2]
-    protein2_sections = [0.01, 0.020, 0.030, 0.040, 0.059, 0.069, 0.091, 0.99, 0.12, 0.2, 0.227, 0.342, 0.4, 0.5, 0.967, 1.55, 1.123, 2]
+    protein2_sections = [0.01, 0.020, 0.030, 0.040, 0.059, 0.069, 0.091, 0.099, 0.12, 0.2, 0.227, 0.342, 0.4, 0.5, 0.967, 1.09, 1.123, 2]
     sections = [(protein1_sections[i], protein1_sections[i+1]) for i in range(len(protein1_sections) - 1)]
     surf_name_list = [{} for _ in range(len(sections))]
     for surf in surfs:
