@@ -1,8 +1,10 @@
+import csv
+
 from Data.Analyze.tools.compare.read_logs import read_logs
 from Data.Analyze.tools.compare.pdb_names import proteins, nucleics, ions, other, sols
 
 
-def residue_data(sys, logs, get_all=False, get_vol=False, get_sa=False, get_curv=False):
+def residue_data(sys, logs, get_all=False, get_vol=False, get_sa=False, get_curv=False, read_file=None, output_file=None):
     """
     Function that takes in a system and logs and creates a list of sorted residues that can be analyzed for the values
     """
@@ -22,7 +24,28 @@ def residue_data(sys, logs, get_all=False, get_vol=False, get_sa=False, get_curv
     nucleic_dict = {_: {} for _ in nucleics}
     ion_dict = {_: {} for _ in ions}
     other_dict = {_: {} for _ in other}
-
+    if read_file is not None:
+        # The lines will go: sys_name, res_name, res_seq, vol, sa, max_surf, max_curv, avg_curv
+        with open(read_file, 'r') as my_res_file:
+            res_reader = csv.reader(my_res_file)
+            for line in res_reader:
+                if len(line) == 0:
+                    continue
+                if sys.name != line[0]:
+                    continue
+                res_info = {'vol': float(line[3]), 'sa': float(line[4]), 'max_surf': line[5],
+                            'max_curv': float(line[6]), 'avg_curv': float(line[7])}
+                if line[1] in protein_dict:
+                    protein_dict[line[1]][line[2]] = res_info
+                elif line[1] in nucleic_dict:
+                    nucleic_dict[line[1]][line[2]] = res_info
+                elif line[1] in ion_dict:
+                    ion_dict[line[1]][line[2]] = res_info
+                else:
+                    if line[1] not in other_dict:
+                        other_dict[line[1]] = {}
+                    other_dict[line[1]][line[2]] = res_info
+        return {'aminos': protein_dict, 'nucs': nucleic_dict, 'ions': ion_dict, 'other': other_dict}
     # Go through the residues in the system and analyze what's inside.
     for res in sys.residues:
         # Create the list of atoms and a surface dictionary lists separated into exterior and interior
@@ -80,6 +103,11 @@ def residue_data(sys, logs, get_all=False, get_vol=False, get_sa=False, get_curv
             other_dict[res.name.lower()][res.seq] = res_info
         else:
             other_dict[res.name.lower()] = {res.seq: res_info}
+        # Write into the file
+        if output_file is not None:
+            with open(output_file, 'a') as res_writer:
+                my_res_writer = csv.writer(res_writer)
+                my_res_writer.writerow([sys.name, res.name.lower(), res.seq, vol, sa, max_surf, max_curv, avg_curv])
     # Return the sorted dictionary with the values
     return {'aminos': protein_dict, 'nucs': nucleic_dict, 'ions': ion_dict, 'other': other_dict}
 
