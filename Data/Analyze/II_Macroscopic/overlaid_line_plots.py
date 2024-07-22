@@ -41,7 +41,7 @@ with open(my_foams_file, 'r') as my_foam_data:
                             'num cells': int(my_line[10])})
         except ValueError:
             continue
-print(my_data[0]['num'])
+# print(my_data[0]['num'])
 
 if 'log' in my_data[0]['num'].lower():
     plot_type = 'lognormal'
@@ -70,7 +70,7 @@ for dp in my_data:
         lists[dp['rad std']] = {
             dp['density']: [[dp['vol diff vor']], [dp['sa diff vor']], [dp['vol diff pow']], [dp['sa diff pow']]]}
 
-
+# print([_ for _ in lists.values()])
 if plot_type == 'gamma':
     my_densities = np.arange(0.025, 0.525, 0.025)
     my_sds = np.arange(2.0, 10.5, 0.5)
@@ -78,6 +78,9 @@ if plot_type == 'gamma':
 if plot_type == 'lognormal':
     my_densities = np.arange(0.025, 0.525, 0.025)
     my_sds = np.arange(0.1, 0.5, 0.025)
+print(cell_type)
+if cell_type.lower() == 'open':
+    my_densities = 0.023, 0.050, 0.078, 0.107, 0.136, 0.167, 0.198, 0.231, 0.265, 0.300, 0.337, 0.375, 0.416, 0.459, 0.505, 0.555, 0.61, 0.671, 0.742, 0.83
 
 my_densities = [round(_, 3) for _ in my_densities]
 my_sds = [round(_, 3) for _ in my_sds]
@@ -91,12 +94,14 @@ datavvps, datavsps, datapvps, datapsps = [[] for _ in my_sds], [[] for _ in my_s
 # Iterate over my_sds and my_densities using nested loops
 for i, num in enumerate(my_sds):
     for j, num2 in enumerate(my_densities):
+        # print(num, num2)
         means = []
         sds = []
         # Get the current Data
         try:
             curr_data = lists[num][num2]
         except KeyError:
+            # print('Key error')
             continue
 
         for data1 in curr_data:
@@ -109,16 +114,17 @@ for i, num in enumerate(my_sds):
             # Exclude outliers based on the Z-score
             filtered_data = np.array(data1)[z_scores < z_score_threshold]
             means.append(100*np.mean(filtered_data))
-            sds.append(np.std([_ * 100 for _ in filtered_data]) / np.sqrt(len(filtered_data)))
+            sds.append(np.std([_ * 100 for _ in filtered_data]))
 
         # Append means and mean +/- SD to respective lists
         datavvm[i].append(means[0]); datavvms[i].append(means[0] - sds[0]); datavvps[i].append(means[0] + sds[0])
         datavsm[i].append(means[1]); datavsms[i].append(means[1] - sds[1]); datavsps[i].append(means[1] + sds[1])
         datapvm[i].append(means[2]); datapvms[i].append(means[2] - sds[2]); datapvps[i].append(means[2] + sds[2])
         datapsm[i].append(means[3]); datapsms[i].append(means[3] - sds[3]); datapsps[i].append(means[3] + sds[3])
-
+print(datavsm)
 if cell_type == 'Open':
     my_densities = [invers_square(_, open_adjustments['1000']) for _ in my_densities]
+print(my_densities)
 for value in {'vol', 'sa'}:
     # Coefficient of Variation (CV) and Density values
     cmap = plt.cm.rainbow  # Choose a colormap that does not have yellow and works well in grayscale
@@ -134,28 +140,30 @@ for value in {'vol', 'sa'}:
             ax.plot(my_densities[2:], datavsm[i][2:], color=color)
             ax.fill_between(my_densities[2:], datavsms[i][2:], datavsps[i][2:], color=color, alpha=0.2)
         except ValueError:
-            print(sd, my_densities[2:], datavsm[i][2:])
+            # print(sd, 'Value Error')
+            pass
+            # print(sd, my_densities[2:], datavsm[i][2:])
 
     # Adding a color bar that uses the created ScalarMappable
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax)
     if plot_type == 'lognormal':
-        cbar.set_label('Coefficient of Variation (CV)', fontdict=dict(size=25))
+        cbar.set_label('CV', fontdict=dict(size=30))
     elif plot_type == 'gamma':
-        cbar.set_label('\u03b2 Value', fontdict=dict(size=20))
+        cbar.set_label('\u03b2 Value', fontdict=dict(size=30))
 
 
     # Set plot titles and labels
 
-    ax.set_xticks(np.arange(0, 0.55, 0.1))
+    ax.set_xticks(np.arange(0.1, 0.55, 0.2))
     ax.set_ylim([0, 60])
     ax.set_xlim([0.05, 0.55])
     # ax.set_title('{} {} Power {} % Diff'.format(plot_type.capitalize(), cell_type, {'sa': 'Surface Area', 'vol': 'Volume'}[value]), fontsize=20)
-    ax.set_xlabel('Density', fontsize=25)
-    ax.set_ylabel('% Difference', fontsize=25)
-    ax.tick_params(axis='both', which='major', labelsize=20, width=2, length=12)
+    ax.set_xlabel('Density', fontsize=30)
+    ax.set_ylabel('% Difference', fontsize=30)
+    ax.tick_params(axis='both', which='major', labelsize=30, width=2, length=12)
 
-    cbar.ax.tick_params(labelsize=20, size=10, width=2, length=12)
+    cbar.ax.tick_params(labelsize=30, size=12, width=2, length=12)
     plt.tight_layout()
 
     # Show the plot
