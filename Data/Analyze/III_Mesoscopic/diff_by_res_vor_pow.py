@@ -57,43 +57,43 @@ def percent_diff(residue_file, file_name):
         # Volume data
         # Set up the percent difference list to get the mean and std error from later
         my_perc_diff = []
-        try:
-            for res_name in vols[file]['nucs']:
-                for i in range(len(vols[file]['nucs'][res_name])):
-                    my_perc_diff.append(abs(float(vols[file_name]['nucs'][res_name][i]) - float(
-                        vols[file]['nucs'][res_name][i])) / float(vols[file_name]['nucs'][res_name][i]))
-        except KeyError:
-            pass
+        # try:
+        #     for res_name in vols[file]['nucs']:
+        #         for i in range(len(vols[file]['nucs'][res_name])):
+        #             my_perc_diff.append((float(vols[file]['nucs'][res_name][i]) - float(
+        #                 vols[file_name]['nucs'][res_name][i])) / float(vols[file_name]['nucs'][res_name][i]))
+        # except KeyError:
+        #     pass
         try:
             for res_name in vols[file]['aminos']:
                 for i in range(len(vols[file]['aminos'][res_name])):
-                    my_perc_diff.append(abs(float(vols[file_name]['aminos'][res_name][i]) - float(
-                        vols[file]['aminos'][res_name][i])) / float(vols[file_name]['aminos'][res_name][i]))
+                    my_perc_diff.append((float(vols[file]['aminos'][res_name][i]) - float(
+                        vols[file_name]['aminos'][res_name][i])) / float(vols[file_name]['aminos'][res_name][i]))
         except KeyError:
             pass
-        vol_means.append(round(np.mean(my_perc_diff) * 100, 3))
+        vol_means.append(round(sum(my_perc_diff) * 100, 3))
         vol_std_errs.append(round(np.std(my_perc_diff) / np.sqrt(len(my_perc_diff)) * 100, 3))
 
         # Surface Area data
         my_perc_diff = []
-        try:
-            for res_name in sas[file]['nucs']:
-                for i in range(len(sas[file]['nucs'][res_name])):
-                    try:
-                        my_perc_diff.append(abs(float(sas[file_name]['nucs'][res_name][i]) - float(
-                            sas[file]['nucs'][res_name][i])) / float(sas[file_name]['nucs'][res_name][i]))
-                    except ZeroDivisionError:
-                        continue
-        except KeyError:
-            pass
+        # try:
+        #     for res_name in sas[file]['nucs']:
+        #         for i in range(len(sas[file]['nucs'][res_name])):
+        #             try:
+        #                 my_perc_diff.append((float(sas[file]['nucs'][res_name][i]) - float(
+        #                     sas[file_name]['nucs'][res_name][i])) / float(sas[file_name]['nucs'][res_name][i]))
+        #             except ZeroDivisionError:
+        #                 continue
+        # except KeyError:
+        #     pass
         try:
             for res_name in sas[file]['aminos']:
                 for i in range(len(sas[file]['aminos'][res_name])):
-                    my_perc_diff.append(abs(float(sas[file_name]['aminos'][res_name][i]) - float(
-                        sas[file]['aminos'][res_name][i])) / float(sas[file_name]['aminos'][res_name][i]))
+                    my_perc_diff.append((float(sas[file]['aminos'][res_name][i]) - float(
+                        sas[file_name]['aminos'][res_name][i])) / float(sas[file_name]['aminos'][res_name][i]))
         except KeyError:
             pass
-        sa_means.append(round(np.mean(my_perc_diff) * 100, 3))
+        sa_means.append(round(sum(my_perc_diff) * 100, 3))
         sa_std_errs.append(round(np.std(my_perc_diff) / np.sqrt(len(my_perc_diff)) * 100, 3))
 
     # Your existing code
@@ -104,7 +104,6 @@ def percent_diff(residue_file, file_name):
 
 
 if __name__ == '__main__':
-
     # Go to the logs and pdbs folder
     root = tk.Tk()
     root.withdraw()
@@ -149,7 +148,7 @@ if __name__ == '__main__':
                                 [file, res_type, res_name, res] + [my_info['residues'][file][res_type][res_name][res][_]
                                                                    for _ in
                                                                    my_info['residues'][file][res_type][res_name][res]])
-    vol_dat, sa_dat  = percent_diff(logs_pdb_folder + '/residue_data.csv', file_name=my_model_name + '_a')
+    vol_dat, sa_dat = percent_diff(logs_pdb_folder + '/residue_data.csv', file_name=my_model_name + '_a')
     # Sample data
     labels_dict = {'a': '1', 'ad_mw': '6', 'ad': '4', 'ncap': '2',
                    'scbb_ad': '5', 'scbb_ncap': '3', 'scbb_ad_mw': '7',
@@ -181,8 +180,10 @@ if __name__ == '__main__':
     labels2, sax1, sax2, say1, say2 = sort_5_lists(labels, *sa_dat)
 
     # Volume bar Plot
-    bar([volx1, volx2], [voly1, voly2], labels1, ['Additively Weighted', 'Power'], my_model_name + ' Residue Volume % Diff',
-        'CG Schemes', '% Difference', Show=True, print_vals_on_bars=True, unit='%')
+    bar([volx1, volx2], None, labels1, ['Additively Weighted', 'Power'], my_model_name + ' Residue Volume % Diff',
+        'CG Schemes', '% Difference', Show=True, print_vals_on_bars=True, unit='%', xtick_label_size=30, xlabel_size=30,
+        ylabel_size=30, ytick_label_size=30, tick_width=2, tick_length=12)
     # Surface Area Plot
-    bar([sax1, sax2], [say1, say2], labels2, ['Additively Weighted', 'Power'], my_model_name + ' Residue SA % Diff',
-        'CG Schemes', '% Difference', Show=True, print_vals_on_bars=True, unit='%')
+    bar([sax1, sax2], None, labels2, ['Additively Weighted', 'Power'], my_model_name + ' Residue SA % Diff',
+        'CG Schemes', '% Difference', Show=True, print_vals_on_bars=True, unit='%', xtick_label_size=30, xlabel_size=30,
+        ylabel_size=30, ytick_label_size=30, tick_width=2, tick_length=12)
