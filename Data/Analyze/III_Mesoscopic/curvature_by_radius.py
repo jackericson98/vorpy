@@ -24,7 +24,7 @@ if __name__ == '__main__':
             pdb_files.append(os.path.join(logs_pdb_folder, filename))
             # Get the name of the model
             my_model_name = filename[:-6]
-        elif filename.endswith('.csv') and '_a_logs' in filename:
+        elif filename.endswith('.csv') and '_a_logs' in filename and '_pow' not in filename:
             log_files.append(os.path.join(logs_pdb_folder, filename))
 
     # Go through the files in the folder sorting them
@@ -37,30 +37,106 @@ if __name__ == '__main__':
         elif filename.endswith('.csv') and 'logs' in filename and 'aw' in filename and 'martini' not in filename:
             log_files.append(os.path.join(logs_pdb_folder, filename))
 
+    amino_dict = {
+        "ala": "A",  # Alanine
+        "arg": "R",  # Arginine
+        "asn": "N",  # Asparagine
+        "asp": "D",  # Aspartic acid
+        "cys": "C",  # Cysteine
+        "gln": "Q",  # Glutamine
+        "glu": "E",  # Glutamic acid
+        "gly": "G",  # Glycine
+        "his": "H",  # Histidine
+        "ile": "I",  # Isoleucine
+        "leu": "L",  # Leucine
+        "lys": "K",  # Lysine
+        "met": "M",  # Methionine
+        "phe": "F",  # Phenylalanine
+        "pro": "P",  # Proline
+        "ser": "S",  # Serine
+        "thr": "T",  # Threonine
+        "trp": "W",  # Tryptophan
+        "tyr": "Y",  # Tyrosine
+        "val": "V"   # Valine
+    }
+    nucs_dict = {
+        'dc': 'C',   # Cytosine
+        'dg': 'G',   # Guanine
+        'dt': 'T',   # Tyrosine
+        'da': 'A',   # Adenine
+        'du': 'U',   # Uracil
+    }
     # Now that we have a list of logs and pdbs for each style, we need to read the logs and the pdbs
-    my_logs_list, my_systems, rad_datax, rad_datay = [], [], [], []
+    my_logs_list, my_systems, rad_datax, rad_datay, rad_datares = [], [], [], [], []
+    max_x, max_y = 0, 0
     for i, file in enumerate(pdb_files):
         my_system = System(file=file)
-        my_logs = read_logs(log_files[i])
+        my_logs = read_logs(log_files[i], no_sol=True)
         my_systems.append(my_system)
         my_logs_list.append(my_logs)
-
         # Get the data from curvature and sidechain size
         rad_dic = {}
         for j, atom in my_system.atoms.iterrows():
-            if atom['res'].name == 'SOL':
-                continue
             rad_dic[atom['num']] = atom['rad']
 
         rad_datax.append([])
         rad_datay.append([])
+        rad_datares.append([])
 
         for j, atom in my_logs['atoms'].iterrows():
+            sys_atom = my_system.atoms.loc[my_system.atoms['num'] == atom['num']].to_dict(orient='records')[0]
+
+            max_x, max_y = max(max_x, sys_atom['rad']), max(max_y, atom['max curv'])
             try:
-                rad_datax[-1].append(rad_dic[atom['num']])
-                rad_datay[-1].append(atom['max curv'])
-            except KeyError:
+                if sys_atom['res_name'].lower().strip() in {'sol', 'na'}:
+                    continue
+            except IndexError:
                 continue
+            except TypeError:
+                print(sys_atom)
+                continue
+            # If the system is a sidechain backbone system assign the appropriate modifier
+            if 'scbb' in my_system.name:
+                # Proteins
+                if sys_atom['res_name'].lower().strip() in amino_dict:
+                    try:
+                        rad_datax[-1].append(rad_dic[atom['num']])
+                        rad_datay[-1].append(atom['max curv'])
+                    except KeyError:
+                        print("CUM")
+                        continue
+
+                    if sys_atom['element'].lower().strip() == 'pb':
+                        rad_datares[-1].append('$' + amino_dict[sys_atom['res_name'].lower().strip()] + 'S$')
+                    else:
+                        rad_datares[-1].append('$' + amino_dict[sys_atom['res_name'].lower().strip()] + 'B$')
+
+                # Nucleics
+                else:
+                    continue
+                    try:
+                        rad_datax[-1].append(rad_dic[atom['num']])
+                        rad_datay[-1].append(atom['max curv'])
+                    except KeyError:
+                        continue
+                    if sys_atom['element'].strip().lower() == 'pb':
+                        rad_datares[-1].append('$' + nucs_dict[sys_atom['res_name'].lower().strip()] + 'S$')
+                    elif sys_atom['element'].strip().lower() == 'bi':
+                        rad_datares[-1].append('$' + nucs_dict[sys_atom['res_name'].lower().strip()] + 'N$')
+                    else:
+                        rad_datares[-1].append('$' + nucs_dict[sys_atom['res_name'].lower().strip()] + 'P$')
+            else:
+                try:
+                    rad_datax[-1].append(rad_dic[atom['num']])
+                    rad_datay[-1].append(atom['max curv'])
+                except KeyError:
+                    continue
+                if sys_atom['res_name'].lower().strip() in amino_dict:
+                    rad_datares[-1].append('$' + amino_dict[sys_atom['res_name'].lower().strip()] + '$')
+                else:
+                    continue
+                    rad_datares[-1].append('$' + nucs_dict[sys_atom['res_name'].lower().strip()] + '$')
+
 
     # Sample data
     # Get the labels
@@ -68,31 +144,39 @@ if __name__ == '__main__':
     labels_dict = {'a': '1', 'ad_mw': '6', 'ad': '4', 'ncap': '2',
                    'scbb_ad': '5', 'scbb_ncap': '3', 'scbb_ad_mw': '7',
                    'martini': '8'}
+
     labels = []
     for file in pdb_files:
         labels.append(labels_dict[file[len(logs_pdb_folder) + len(my_model_name) + 2:-4]])
 
 
-    def sort_3_lists(lista, listb, listc):
+    def sort_3_lists(lista, listb, listc, listd):
         # Zipping lists together and sorting by the first list
-        sorted_lists = sorted(zip(lista, listb, listc), key=lambda x: x[0])
+        sorted_lists = sorted(zip(lista, listb, listc, listd), key=lambda x: x[0])
 
         # Unpacking the sorted lists
-        lista, listb, listc = zip(*sorted_lists)
+        lista, listb, listc, listd = zip(*sorted_lists)
 
         # Converting tuples back to lists if needed
         lista = list(lista)
         listb = list(listb)
         listc = list(listc)
+        listd = list(listd)
 
         # Return the lists
-        return lista, listb, listc
+        return lista, listb, listc, listd
 
 
-    labels, rad_datax, rad_datay = sort_3_lists(labels, rad_datax, rad_datay)
+    labels, rad_datax, rad_datay, rad_datares = sort_3_lists(labels, rad_datax, rad_datay, rad_datares)
 
-    scatter(rad_datax, rad_datay, labels=labels, Show=True, y_range=[0, 1], legend_orientation='vertical',
+    # Bin the data by grid
+    # xs, ys, alphas, marker_sizes, markers = [], [], [], [], []
+    # x_num_bins, y_num_bins
+    # for i in range(len(rad_datax)):
+
+
+    scatter(rad_datax, rad_datay, Show=True, y_range=[0, 1], legend_orientation='Horizontal',
             x_axis_title='Ball Radius', y_axis_title='Curvature', title='{} Curvature Map'.format(my_model_name),
-            alpha=0.5, legend_title='Scheme', legend_title_size=15)
+            alpha=0.1, legend_title_size=25, legend_entry_size=25, markers=rad_datares)
 
 
