@@ -108,8 +108,10 @@ if __name__ == '__main__':
 
     # Plot the difference data
     bar([diff_data1, diff_data2], x_names=labels1, legend_names=['Additively Weighted', 'Power'], x_axis_title='Scheme',
-        y_axis_title='% Difference', Show=True, print_vals_on_bars=True, unit='%')
+        y_axis_title='% Difference', Show=True, print_vals_on_bars=True, unit='%', xtick_label_size=30, xlabel_size=30,
+        ylabel_size=30, ytick_label_size=30, tick_width=2, tick_length=12, bar_width=1)
 
     # Plot the bar graph
-    bar([data1, data2], x_names=labels, legend_names=['Additively Weighted', 'Power'],
-        x_axis_title='Scheme', y_axis_title=ylabel, Show=True, print_vals_on_bars=True, unit=unit, y_range=[0, None])
+    bar([data1, data2], x_names=labels1, legend_names=['Additively Weighted', 'Power'],
+        x_axis_title='Scheme', y_axis_title=ylabel, Show=True, print_vals_on_bars=True, unit=unit, y_range=[0, None],
+        xtick_label_size=30, xlabel_size=30, ylabel_size=30, ytick_label_size=30, tick_width=2, tick_length=12)
