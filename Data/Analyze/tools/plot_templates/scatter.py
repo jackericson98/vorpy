@@ -52,8 +52,9 @@ def scatter(xs, ys, labels=None, errors=None, title='', x_axis_title='', y_axis_
         my_alphas = alpha[i]
         if type(my_alphas) is not list:
             my_alphas = [alpha[i] for _ in xs[i]]
-
+        print([len(_) for _ in [xs[i], ys[i], my_markers, my_colors, my_marker_sizes]])
         for j in range(len(xs[i])):
+
             ax.scatter(xs[i][j], ys[i][j], marker=my_markers[j], label=my_label, c=my_colors[j], alpha=alpha,
                        s=my_marker_sizes[j])
             my_label = None
@@ -92,7 +93,7 @@ def scatter(xs, ys, labels=None, errors=None, title='', x_axis_title='', y_axis_
         legend = ax.legend(title=legend_title, loc='upper right', bbox_to_anchor=(1.25, 0.97), shadow=True, ncol=leg_col,
                   prop={'size': legend_entry_size})
         legend.get_title().set_fontsize(str(legend_title_size))
-    elif len(xs) > 1:
+    elif type(labels) is list and len(labels) > 1:
         legend = ax.legend(loc='upper right', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=leg_col,
                   prop={'size': legend_entry_size})
 

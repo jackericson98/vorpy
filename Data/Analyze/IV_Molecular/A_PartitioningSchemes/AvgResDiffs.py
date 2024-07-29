@@ -115,7 +115,7 @@ if __name__ == '__main__':
     # Create the dictionary for converting the labels
     graph_labels = [{'EDTA_Mg': 'EDTA', 'cambrin': 'Cambrin', 'hairpin': 'Hairpin', 'p53tet': 'p53tet', 'pl_complex': 'Prot-Lig',
                      'streptavidin': 'STVDN', 'hammerhead': 'H-Head', 'NCP': 'NCP', 'BSA': 'BSA', '1BNA': '1BNA',
-                     'DB1976': 'DB1976'}[_[0]] for _ in pre_made_data]
+                     'DB1976': 'DB1976'}[_] for _ in my_sys_names]
     # Set the label codes
     code_dict = {'Na5': 'A', 'EDTA': 'B', 'Hairpin': 'C', 'Cambrin': 'D', 'H-Head': 'E', 'p53tet': 'F',
                  'Prot-Lig': 'G', 'STVDN': 'H', 'NCP': 'I', 'BSA': 'J'}

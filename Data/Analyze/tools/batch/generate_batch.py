@@ -15,12 +15,12 @@ import os
 #     for j in range(21):
 #         j_val = round((j+6)*0.25, 3)
 #         print('python3 vorpy.py C:/Users/jacke/PycharmProjects/foam_gen/Data/user_data/1.0_{}_300_{}_False_gamma/1.0_{}_300_{}_False_gamma.pdb -s nt compare -s mv 1000'.format(j_val, i_val, j_val, i_val))
-
-
-for method in {'pow', 'del'}:
-    for i in range(1, 12):
-        with open('../../../../cambrin_frames.bat', 'a') as write_file:
-            write_file.write('py vorpy.py c{} -s nt {} -e dir C:/Users/jacke/GSU Dropbox Dropbox/John Ericson/GSU lab/Jack/Vorpy/Data/IV_Molecular/Cambrin/Frames/c_{}/atomistic\n'.format(i, method, i))
+#
+#
+# for method in {'pow', 'del'}:
+#     for i in range(1, 12):
+#         with open('../../../../cambrin_frames.bat', 'a') as write_file:
+#             write_file.write('py vorpy.py c{} -s nt {} -e dir C:/Users/jacke/GSU Dropbox Dropbox/John Ericson/GSU lab/Jack/Vorpy/Data/IV_Molecular/Cambrin/Frames/c_{}/atomistic\n'.format(i, method, i))
 
 
 
@@ -64,3 +64,8 @@ for method in {'pow', 'del'}:
 #         num2 = round((k+1)*0.025, 3)
 #         print('python3 vorpy.py C:/Users/jacke/PycharmProjects/foam_gen/Data/user_data/1.0_{}_300_{}_False_lognormal'.format(num1, num2) + extra + '/1.0_{}_300_{}_False_lognormal.pdb -s nt compare -s mv 1000'.format(num1, num2))
 # print("\n")
+
+for i in range(1, 12):
+    for net_type in ['vor', 'pow', 'del']:
+        print('py vorpy.py hairpin_0{} -s nt {}'.format(i, net_type))
+

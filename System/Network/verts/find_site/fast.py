@@ -327,7 +327,7 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
             # If the edge is straight, verify/return the leftmost vertex on the right
             if my_det == 0:
                 # Verification
-                my_doopy =choose_vert(filtered_verts_left[0], edge_ndxs, surr_atoms, alocs, arads, metrics, start, net_type)[0], invalid_atoms
+                my_doopy = choose_vert(filtered_verts_left[0], edge_ndxs, surr_atoms, alocs, arads, metrics, start, net_type)[0], invalid_atoms
                 return my_doopy
             # If the vertex falls in the lower hull it is the left neighbor
             elif my_det > 0 and left_neighbor is None:

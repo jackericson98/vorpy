@@ -72,7 +72,7 @@ def residue_per_diff(systems, logs, val='volume'):
                                  output_file=del_out)
 
         # print(sys_name, len(vor_atoms), len(pow_atoms), len(del_atoms))
-        res_types, vor_res_types, pow_res_types, del_res_types = [], [], []
+        res_types, vor_res_types, pow_res_types, del_res_types = [], [], [], []
 
         for _ in vor_reses:
             # Sub class level
@@ -103,7 +103,6 @@ def residue_per_diff(systems, logs, val='volume'):
     return all_vor_res_types, all_pow_res_types, all_del_res_types, all_res_types, miny, maxy
 
 
-
 if __name__ == '__main__':
     # Get the dropbox folder
     root = tk.Tk()
@@ -118,7 +117,7 @@ if __name__ == '__main__':
                 my_sys = System(file=folder + '/' + file)
                 my_sys.groups = [Group(sys=my_sys, residues=my_sys.residues)]
                 systems.append(my_sys)
-
+    print([_.name for _ in systems])
     # Sort atoms by number of atoms
     num_atoms = [len(_.atoms) for _ in systems]
     systems = [x for _, x in sorted(zip(num_atoms, systems))]
@@ -147,7 +146,7 @@ if __name__ == '__main__':
     y_diff = maxy - miny
     y_step = y_diff / num_bins
     # Set up the value, number and element lists for each scheme
-    vor_vals, pow_vals, del_vals, vor_nums, pow_nums, del_nums, vor_types, pow_types, del_types, vor_colors, pow_colors, del_colors = [], [], [], [], [], [], [], []
+    vor_vals, pow_vals, del_vals, vor_nums, pow_nums, del_nums, vor_ress, pow_ress, del_ress, vor_colors, pow_colors, del_colors = [], [], [], [], [], [], [], [], [], [], [], []
     # We are looking for each system to have a set of bins for power, primitive containing color, location & marker size
     for i in range(len(all_res_types)):
         # Get the number of atoms so we know how to scale everything
@@ -159,7 +158,7 @@ if __name__ == '__main__':
         # Go through each bin
         for j in range(len(all_res_types[i])):
             # Get the element, the power value and the del value
-            residue, pow_val, del_val = all_res_types[i][j], all_pow_diffs[i][j], all_del_diffs[i][j]
+            residue, vor_val, pow_val, del_val = all_res_types[i][j], all_vor_diffs[i][j], all_pow_diffs[i][j], all_del_diffs[i][j]
             # Assign the power bins
             try:
                 vor_bins[int((vor_val - miny) // y_step)][residue].append(vor_val)
@@ -168,51 +167,63 @@ if __name__ == '__main__':
             except KeyError:
                 print("No color for {}. Leaving out".format(residue))
         # Set up the value, number and element lists for each scheme
-        sys_pow_vals, sys_del_vals, sys_pow_nums, sys_del_nums, sys_pow_types, sys_del_types, sys_pow_colors, sys_del_colors = [], [], [], [], [], [], [], []
+        (sys_vor_vals, sys_pow_vals, sys_del_vals, sys_vor_nums, sys_pow_nums, sys_del_nums, sys_vor_ress,
+         sys_pow_ress, sys_del_ress, sys_vor_colors, sys_pow_colors, sys_del_colors) = (
+            [], [], [], [], [], [], [], [], [], [], [], [])
         # Now go through the bins taking the average for each element
         for j in range(num_bins):
-            for type in pow_bins[j]:
+            for residue in vor_bins[j]:
                 # Check if it is empty
-
-                if len(pow_bins[j][type])/my_num_ress > 0.001:
+                if len(vor_bins[j][residue])/my_num_ress > 0.001:
                     # Get the average for each bin
-                    sys_pow_vals.append(np.mean(pow_bins[j][type]))
-                    sys_pow_nums.append(10000 * len(pow_bins[j][type]) / my_num_ress)
-                    sys_pow_types.append(type)
-                    sys_pow_colors.append(color_dict[type])
+                    sys_vor_vals.append(np.mean(vor_bins[j][residue]))
+                    sys_vor_nums.append(10000 * len(vor_bins[j][residue]) / my_num_ress)
+                    sys_vor_ress.append(residue)
+                    print(residue)
+                    sys_vor_colors.append(color_dict[amino_dict[residue]['type']])
+                if len(pow_bins[j][residue])/my_num_ress > 0.001:
+                    # Get the average for each bin
+                    sys_pow_vals.append(np.mean(pow_bins[j][residue]))
+                    sys_pow_nums.append(10000 * len(pow_bins[j][residue]) / my_num_ress)
+                    sys_pow_ress.append(residue)
+                    sys_pow_colors.append(color_dict[amino_dict[residue]['type']])
                 # Check if the del is empty
-                if len(del_bins[j][type])/my_num_ress > 0.001:
+                if len(del_bins[j][residue])/my_num_ress > 0.001:
                     # Get the average for each bin
-                    sys_del_vals.append(np.mean(del_bins[j][type]))
-                    sys_del_nums.append(10000 * len(del_bins[j][type]) / my_num_ress)
-                    sys_del_types.append(type)
-                    sys_del_colors.append(color_dict[type])
+                    sys_del_vals.append(np.mean(del_bins[j][residue]))
+                    sys_del_nums.append(10000 * len(del_bins[j][residue]) / my_num_ress)
+                    sys_del_ress.append(residue)
+                    sys_del_colors.append(color_dict[amino_dict[residue]['type']])
+        vor_vals.append(sys_vor_vals)
         pow_vals.append(sys_pow_vals)
         del_vals.append(sys_del_vals)
+        vor_nums.append(sys_vor_nums)
         pow_nums.append(sys_pow_nums)
         del_nums.append(sys_del_nums)
-        pow_types.append(sys_pow_types)
-        del_types.append(sys_del_types)
+        vor_ress.append(sys_vor_ress)
+        pow_ress.append(sys_pow_ress)
+        del_ress.append(sys_del_ress)
+        vor_colors.append(sys_vor_colors)
         pow_colors.append(sys_pow_colors)
         del_colors.append(sys_del_colors)
-    print(new_graph_labels)
-    print(pow_vals)
-    print(del_vals)
+
     # Plot the data
-    scatter(xs=[[3 * i + 1 for _ in pow_vals[i]] for i in range(len(pow_vals))] +
-               [[3 * i + 2 for _ in del_vals[i]] for i in range(len(del_vals))],
-            ys=pow_vals + del_vals, Show=False,
-            markers='o',
+    scatter(xs=[[4 * i + 1 for _ in vor_vals[i]] for i in range(len(vor_vals))] +
+               [[4 * i + 2 for _ in pow_vals[i]] for i in range(len(pow_vals))] +
+               [[4 * i + 3 for _ in del_vals[i]] for i in range(len(del_vals))],
+            ys=vor_vals + pow_vals + del_vals, Show=False,
             alpha=0.3,
-            colors=pow_colors + del_colors,
+            colors=vor_colors + pow_colors + del_colors,
             x_tick_labels=new_graph_labels,
-            x_tick_label_locs=[3 * i + 1.5 for i in range(len(all_pow_diffs))],
+            x_tick_label_locs=[4 * i + 2 for i in range(len(all_pow_diffs))],
             xlabel_size=30,
             x_axis_title='Model',
             ylabel_size=30,
             y_axis_title='% Deviation',
-            marker_size=pow_nums + del_nums,
-            y_range=[-10, 10])
+            marker_size=vor_nums + pow_nums + del_nums,
+            markers=[['${}$'.format(amino_dict[_]['letter']) for _ in __] for __ in vor_ress] +
+                    [['${}$'.format(amino_dict[_]['letter']) for _ in __] for __ in pow_ress] +
+                    [['${}$'.format(amino_dict[_]['letter']) for _ in __] for __ in del_ress])
     # scatter(xs=[[i for _ in del_vals[i]] for i in range(len(del_vals))],
     #         ys=del_vals, Show=False,
     #         markers='o',

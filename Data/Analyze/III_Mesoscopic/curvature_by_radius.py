@@ -5,6 +5,7 @@ from tkinter import filedialog
 from Data.Analyze.tools.compare.read_logs import read_logs
 from System.system import System
 from Data.Analyze.tools.plot_templates.scatter import scatter
+from Data.Analyze.tools.calcs import sort_lists
 
 
 # Get the logs and pdbs folder
@@ -150,33 +151,18 @@ if __name__ == '__main__':
         labels.append(labels_dict[file[len(logs_pdb_folder) + len(my_model_name) + 2:-4]])
 
 
-    def sort_3_lists(lista, listb, listc, listd):
-        # Zipping lists together and sorting by the first list
-        sorted_lists = sorted(zip(lista, listb, listc, listd), key=lambda x: x[0])
+    labels, rad_datax, rad_datay, rad_datares = sort_lists(labels, rad_datax, rad_datay, rad_datares)
 
-        # Unpacking the sorted lists
-        lista, listb, listc, listd = zip(*sorted_lists)
-
-        # Converting tuples back to lists if needed
-        lista = list(lista)
-        listb = list(listb)
-        listc = list(listc)
-        listd = list(listd)
-
-        # Return the lists
-        return lista, listb, listc, listd
-
-
-    labels, rad_datax, rad_datay, rad_datares = sort_3_lists(labels, rad_datax, rad_datay, rad_datares)
-
-    # Bin the data by grid
+    # # Bin the data by grid
     # xs, ys, alphas, marker_sizes, markers = [], [], [], [], []
     # x_num_bins, y_num_bins
     # for i in range(len(rad_datax)):
 
 
-    scatter(rad_datax, rad_datay, Show=True, y_range=[0, 1], legend_orientation='Horizontal',
-            x_axis_title='Ball Radius', y_axis_title='Curvature', title='{} Curvature Map'.format(my_model_name),
-            alpha=0.1, legend_title_size=25, legend_entry_size=25, markers=rad_datares)
+    print(len(labels), labels)
+    print(len(rad_datax), rad_datax)
+    print(len(rad_datay), rad_datay)
+    scatter(rad_datax, rad_datay, Show=True, y_range=[0, 1], x_axis_title='Ball Radius', y_axis_title='Curvature',
+            title='{} Curvature Map'.format(my_model_name), alpha=0.1, markers=rad_datares)
 
 

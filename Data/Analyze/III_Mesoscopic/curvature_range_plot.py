@@ -41,6 +41,7 @@ for j in range(10):
 
 # Plot the data
 distance = [_ for _ in data]
+print(distance)
 radii = [_ for _ in data[-1.0]]
 
 cmap = plt.cm.rainbow

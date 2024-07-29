@@ -121,9 +121,9 @@ for i, num in enumerate(my_sds):
         datavsm[i].append(means[1]); datavsms[i].append(means[1] - sds[1]); datavsps[i].append(means[1] + sds[1])
         datapvm[i].append(means[2]); datapvms[i].append(means[2] - sds[2]); datapvps[i].append(means[2] + sds[2])
         datapsm[i].append(means[3]); datapsms[i].append(means[3] - sds[3]); datapsps[i].append(means[3] + sds[3])
-print(datavsm)
-if cell_type == 'Open':
-    my_densities = [invers_square(_, open_adjustments['1000']) for _ in my_densities]
+print(datavvm)
+# if cell_type == 'Open':
+#     my_densities = [invers_square(_, open_adjustments['1000']) for _ in my_densities]
 print(my_densities)
 for value in {'vol', 'sa'}:
     # Coefficient of Variation (CV) and Density values
@@ -133,6 +133,8 @@ for value in {'vol', 'sa'}:
     fig, ax = plt.subplots(figsize=(8, 6))
 
     for i, sd in enumerate(my_sds):
+        print(sd)
+        print(datavvm[i])
         # Colors for each line based on 'sd' which is used as an index into the colormap
         color = cmap(norm(sd))
 
@@ -140,7 +142,7 @@ for value in {'vol', 'sa'}:
             ax.plot(my_densities[2:], datavsm[i][2:], color=color)
             ax.fill_between(my_densities[2:], datavsms[i][2:], datavsps[i][2:], color=color, alpha=0.2)
         except ValueError:
-            # print(sd, 'Value Error')
+            print(sd, 'Value Error')
             pass
             # print(sd, my_densities[2:], datavsm[i][2:])
 

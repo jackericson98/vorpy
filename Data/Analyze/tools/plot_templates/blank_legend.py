@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 
 
 def legend_plot(labels, markers=None, label_colors=None, data_type='Line', legend_orientation='Vertical',
-                legend_title=None, legend_title_size=20, legend_entry_size=20, legend_loc='upper left', marker_size=None):
+                legend_title=None, legend_title_size=20, legend_entry_size=20, legend_loc='upper left',
+                marker_size=None, nrows=1, ncols=1):
 
     fig, ax = plt.subplots()
 
@@ -24,7 +25,9 @@ def legend_plot(labels, markers=None, label_colors=None, data_type='Line', legen
     # Add the legend
     leg_col = 1
     if legend_orientation == 'Horizontal':
-        leg_col = len(xs)
+        leg_col = len(labels)
+        if nrows > 1:
+            leg_col = leg_col // nrows + 1
 
     if legend_title is not None:
         legend = ax.legend(title=legend_title, loc=legend_loc, shadow=True,
@@ -45,4 +48,4 @@ if __name__ == '__main__':
     #             marker_size=[200 for _ in range(4)])
     legend_plot(['Carbon', 'Oxygen', 'Hydrogen', 'Nitrogen', 'Phosphorous', 'Sulfur', 'Selenium'], label_colors=['grey', 'r', 'pink', 'b', 'darkorange', 'y', 'sandybrown'],
                 markers=['o' for _ in range(7)], legend_title='Element Type', data_type='scatter',
-                marker_size=[200 for _ in range(7)])
+                marker_size=[200 for _ in range(7)], legend_orientation='Horizontal', nrows=2)
