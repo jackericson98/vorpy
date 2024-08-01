@@ -32,7 +32,7 @@ def read_net(net, file_name):
                 reading = line[0]
                 continue
             if reading == 'net':
-                net.id, net.type, net.surf_res, net.max_vert, net.box_size = \
+                net.id, net.settins['net_type'], net.settings['surf_res'], net.settings['max_vert'], net.settings['ox_sizeb'] = \
                     [int(line[0]), line[1], float(line[2]), float(line[3]), float(line[4])]
                 # Read the verts
             elif reading == 'v':
@@ -146,7 +146,7 @@ def integrate_surfs(net, surfs):
             points = [[float(_) for _ in point] for point in [surf['points'][a:a+3] for a in range(0, len(surf['points']), 3)]]
             tris = [[int(_) for _ in tri] for tri in [surf['tris'][a:a+3] for a in range(0, len(surf['tris']), 3)]]
             my_surf = make_surf(net=net, atoms=[net.atoms[_] for _ in ndx], ndx=ndx, points=points, tris=tris,
-                                resolution=net.surf_res)
+                                resolution=net.settings['surf_res'])
             net.surfs.insert(surf_ndx, my_surf)
             net.surf_ndxs.insert(surf_ndx, ndx)
             # Add the atoms to the surface

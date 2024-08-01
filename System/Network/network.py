@@ -8,8 +8,7 @@ from System.Network.verts.find_net_verts import find_net_verts
 from System.Network.build_net import build
 from System.Network.edges.build_edge import build_edge
 from System.Network.surfs.build_surfs import build_surfs
-from System.sys_funcs.calcs.calcs import calc_vol, calc_length, get_time, calc_tetra_vol
-from System.sys_funcs.calcs.sorting import ndx_search
+from System.sys_funcs.calcs.calcs import calc_length, get_time
 from System.sys_funcs.calcs.surf import calc_surf_func
 from numpy import array, inf, cbrt, sqrt, pi
 
@@ -18,7 +17,7 @@ class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
     def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, surf_res=0.2, box_size=1.5, max_vert=40,
                  calc_verts=True, connect_net=True, build_surfs=True, net_type='vor', surf_col='plasma',
-                 surf_scheme='curv', sub_net=False, box=None, sub_boxes=None, vta_verts=None):
+                 surf_scheme='curv', sub_net=False, box=None, vta_verts=None, settings=None):
 
         # Main network defining objects
         self.num_splits = None
@@ -26,6 +25,7 @@ class Network:
         self.type = net_type              # Network Type      :   String indicating network build type
         self.id = 0                       # Network id #      :
         self.sub_net = sub_net
+        self.settings = settings          # Settings          :    surf_res, surf_col, surf_schm, max_vert, net_type
 
         # Network element lists
         self.atoms = atoms                # Atoms             :    List of atom objects
@@ -55,14 +55,29 @@ class Network:
         self.max_curv = 0
 
         # Build settings
-        self.surf_res = surf_res           # Resolution       :    How small the triangles in the surfaces are
-        self.surf_col = surf_col           # Color map        :    How the surfaces are colored
-        self.surf_scm = surf_scheme        # Coloring scheme  :    How the surfaces will be colored
-        self.max_vert = max_vert           # Max vert rad     :    The maximum vertex radius for the network
-        self.box_size = box_size           # Box size         :    Retaining box multiplier
         self.calc_verts = calc_verts       # Calc Verts       :    Calculate the vertices
         self.connect_net = connect_net     # Connect net      :    Connect the network's objects
         self.build_surfs = build_surfs     # Calc Surfs       :    Calculate the network's surfaces
+
+        # Get the settings
+        self.get_settings(surf_res=surf_res, surf_col=surf_col, surf_scheme=surf_scheme, max_vert=max_vert,
+                          box_size=box_size, net_type=net_type)
+
+    def get_settings(self, surf_res=None, surf_col=None, surf_scheme=None, max_vert=None, box_size=None, net_type=None):
+        """
+        Sets the settings for the network building
+        """
+        # Set up the default values
+        defaults = {'surf_res': 0.2, 'surf_col': 'plasma', 'surf_scheme': 'curv', 'max_vert': 40, 'box_size': 1.5,
+                    'net_type': 'aw'}
+        # Create the settings dictionary
+        if self.settings is None:
+            self.settings = {'surf_res': None, 'surf_col': None, 'surf_scheme': None, 'max_vert': None, 'box_size': None,
+                             'net_type': None}
+        # Set the settings to their default values
+        for setting in self.settings:
+            if self.settings[setting] is None:
+                self.settings[setting] = defaults[setting]
 
     def calc_box(self, locs, rads, return_val=False, box_size=None):
         """
@@ -73,7 +88,7 @@ class Network:
         min_vert = array([inf, inf, inf])
         max_vert = array([-inf, -inf, -inf])
         if box_size is None:
-            box_size = self.box_size
+            box_size = self.settings['box_size']
         # Loop through each atom in the network
         for loc in locs:
             # Loop through x, y, z
@@ -193,11 +208,11 @@ class Network:
         # Go through the edges in the network
         for i, edge in self.edges.iterrows():
             # Build the edge depending on if it is straight or not
-            straight = True if self.type in ['pow', 'flat', 'del'] else False
+            straight = True if self.settings['net_type'] in ['pow', 'flat', 'del'] else False
             edge_points, edge_vals = build_edge(alocs=[array(self.atoms['loc'][_]) for _ in edge['eatoms']],
                                                 arads=[self.atoms['rad'][_] for _ in edge['eatoms']],
                                                 vlocs=[array(self.verts['vloc'][_]) for _ in edge['everts']],
-                                                res=self.surf_res, straight=straight)
+                                                res=self.settings['surf_res'], straight=straight)
             # Add them to the lists
             edges_lengths.append(calc_length(array(edge_points)))
             edges_points.append(edge_points)
@@ -279,15 +294,15 @@ class Network:
             self.sys.print_actions = print_actions
         # Check for input values for the network build
         if surf_res is not None:
-            self.surf_res = surf_res
+            self.settings['surf_res'] = surf_res
         if max_vert is not None:
-            self.max_vert = max_vert
+            self.settings['max_vert'] = max_vert
         if box_size is not None:
-            self.box_size = box_size
+            self.settings['box_size'] = box_size
         if build_surfs is not None:
             self.build_surfs = build_surfs
         if net_type is not None:
-            self.type = net_type
+            self.settings['net_type'] = net_type
         if calc_verts is not None:
             self.calc_verts = calc_verts
         # Check to see if the only output for the exports is logs

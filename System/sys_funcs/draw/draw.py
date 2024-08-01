@@ -53,10 +53,10 @@ def color_tris(surf, color_scheme, color_map, max_val=None):
         if surf['flat'] or surf['curv'] == 0:
             my_curvs = [0] * len(surf['tris'])
         else:
-            my_curvs = [100 * curv/max_val for curv in tri_curvs]
+            my_curvs = [curv/max_val for curv in tri_curvs]
 
         # Set the colors
-        tri_colors = [my_cmap(_ / max_val) for _ in my_curvs]
+        tri_colors = [my_cmap(_) for _ in my_curvs]
 
     return tri_colors
 

@@ -341,7 +341,7 @@ class System:
 
             # Print the build parameters
             print("\nBuild parameters:\n  Surface Resolution: {}\n  Maximum Vertex Radius: {}\n  Retaining Box Size: {}"
-                  .format(self.net.surf_res, self.net.max_vert, self.net.box_size))
+                  .format(self.net.settings['surf_res'], self.net.settings['max_vert'], self.net.settings['box_size']))
 
         # Show section
         if full_net or verts or edges or surfs or system:

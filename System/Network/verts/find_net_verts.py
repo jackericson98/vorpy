@@ -20,7 +20,7 @@ def find_net_verts(net, my_group=None, print_metrics=False):
     if my_group is not None:
         my_group_atom_ndxs = my_group.atom_ndxs
     my_guuy = find_verts(alocs=net.atoms['loc'].to_numpy(), arads=net.atoms['rad'].to_numpy(),
-                         max_vert=net.max_vert, net_type=net.type, check_atoms=atom_nums,
+                         max_vert=net.settings['max_vert'], net_type=net.settings['net_type'], check_atoms=atom_nums,
                          my_group=my_group_atom_ndxs, start_time=net.start_time, print_metrics=print_metrics,
                          vert_box=net.sys.foam_box)
     if my_guuy is not None:
@@ -49,7 +49,7 @@ def find_net_verts(net, my_group=None, print_metrics=False):
         print("Atoms Disconnected: {}".format(atom_nums))
         a0 = atom_nums.pop()
         my_guuy = find_verts(a0=a0, alocs=net.atoms['loc'].to_numpy(), arads=net.atoms['rad'].to_numpy(),
-                             max_vert=net.max_vert, net_type=net.type, check_atoms=atom_nums,
+                             max_vert=net.settings['max_vert'], net_type=net.settins['net_type'], check_atoms=atom_nums,
                              my_group=my_group.atom_ndxs, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
                              vloc2s=vloc2s, vrad2s=vrad2s, start_time=net.start_time, print_metrics=print_metrics,
                              vert_box=net.sys.foam_box, averts=averts)

@@ -67,7 +67,7 @@ def argv(my_sys):
     # Go through each of the ls
     argv_load(my_sys, cmnds['npt'])
     argv_sett(my_sys, cmnds['set'])
-    max_vert = my_sys.net.max_vert
+    max_vert = my_sys.net.settings['max_vert']
     argv_group(my_sys, cmnds['grp'], bff=cmnds['ifc'])
     # If we are comparing two network types
     if my_sys.net2:

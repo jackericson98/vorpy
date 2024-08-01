@@ -14,7 +14,7 @@ def build_surfs(grp, resolution=None):
     if resolution is not None:
         grp.surf_res = resolution
     else:
-        grp.surf_res = grp.sys.net.surf_res
+        grp.surf_res = grp.sys.net.settings['surf_res']
     # Go through the list of build surfaces checking for
     for i in grp.surfs:
         surf = grp.sys.net.surfs.iloc[i]

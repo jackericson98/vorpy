@@ -224,7 +224,8 @@ def vorpy(my_sys):
         while True:
             # Print the default settings
             print(u"Default settings: net type = {}, surf res = {:.2f} \u208B,  max vert  = {:.2f} \u208B,  "
-                  u"box multiplier = {:.2f} x".format(my_group.sys.net.type, net.surf_res, net.max_vert, net.box_size))
+                  u"box multiplier = {:.2f} x".format(my_group.sys.net.settings['net_type'], net.settings['surf_res'],
+                                                      net.settings['max_vert'], net.settings['box_size']))
             # Print the build settings and see if the user wants to change anything
             change_settings = input("alter set >>>   ")
             change_settings = change_settings.split()

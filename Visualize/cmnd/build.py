@@ -33,7 +33,7 @@ def build(sys, usr_npt=None):
         my_group = group(sys, usr_npt)
     # Once the build command is used, the user is greeted with the build settings and asked if they are ready to build
     print(u"settings - surf_res = {:.2f} \u208B,  max_vert  = {:.2f} \u208B,  box_size = {:.2f} x,  build_surfs = {}, net_type = {}"
-          .format(sys.net.surf_res, sys.net.max_vert, sys.net.box_size, sys.net.build_surfs, sys.net.type))
+          .format(sys.net.settings['surf_res'], sys.net.settings['max_vert'], sys.net.settings['box_size'], sys.net.build_surfs, sys.net.settings['net_type']))
     # The user is prompted to start the build - This could say eta and other build qualities
     pre_build_confirmation = input("confirm >>>   ")
     # If the user is ready to build, build the system

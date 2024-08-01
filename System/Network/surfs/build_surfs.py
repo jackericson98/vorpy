@@ -26,7 +26,7 @@ def build_surfs1(net):
         if arads[0] > arads[1]:
             arads, alocs, anums = [arads[1], arads[0]], [alocs[1], alocs[0]], [anums[1], anums[0]]
         my_surf = build_surf(alocs=alocs, arads=arads, epnts=[net.edges['points'][_] for _ in surf['sedges']],
-                             res=net.surf_res, net_type=net.type)
+                             res=net.settings['surf_res'], net_type=net.settings['net_type'])
         surf_points, surf_tris, surf_tri_curvs, surf_curv, surf_func, surf_com, surf_flat = my_surf
         # Get the surface Volumes
         sv0 = sum([calc_tetra_vol(alocs[0], surf_points[tri[0]], surf_points[tri[1]], surf_points[tri[2]]) for tri in
@@ -70,7 +70,7 @@ def build_surfs(net, store_points=True):
         if arads[0] > arads[1]:
             arads, alocs, anums = [arads[1], arads[0]], [alocs[1], alocs[0]], [anums[1], anums[0]]
         my_surf = build_surf(alocs=alocs, arads=arads, epnts=[net.edges['points'][_] for _ in surf['sedges']],
-                             res=net.surf_res, net_type=net.type)
+                             res=net.settings['surf_res'], net_type=net.settings['net_type'])
         surf_points, surf_tris, surf_tri_curvs, surf_curv, surf_func, surf_com, surf_flat = my_surf
         # Get the surface Volumes
         sv0 = sum([calc_tetra_vol(alocs[0], surf_points[tri[0]], surf_points[tri[1]], surf_points[tri[2]]) for tri in

@@ -54,7 +54,7 @@ def load(sys, usr_npt):
                     if replace_vert_file.lower() in ys or replace_vert_file.lower() in dones:
                         sys.load_verts(file, vta_ball_file=sys.ball_file)
                         print("{} vertices loaded - {} vertices, maximum vertex radius: {} \u208B, box size: {} x\n"
-                              .format(sys.name, len(sys.net.verts), sys.net.max_vert, sys.net.box_size))
+                              .format(sys.name, len(sys.net.verts), sys.net.settings['max_vert'], sys.net.settings['box_size']))
                     elif replace_vert_file.lower() in helps:
                         help_()
                     elif replace_vert_file.lower() in quits:
@@ -74,7 +74,8 @@ def load(sys, usr_npt):
                     if replace_net_file in ys:
                         sys.load_net(file)
                         print("{} network loaded - surface resolution: {}\u208B, maximum vertex radius: {} \u208B, box"
-                              " size: {} x\n".format(sys.name, len(sys.net.verts), sys.net.max_vert, sys.net.box_size))
+                              " size: {} x\n".format(sys.name, len(sys.net.verts), sys.net.settings['max_vert'],
+                                                     sys.net.settings['box_size']))
                     elif replace_net_file in helps:
                         help_()
                     else:
@@ -84,10 +85,10 @@ def load(sys, usr_npt):
                     sys.load_net(file)
                     if len(sys.net.surfs) > 0:
                         print("{} network loaded - surface resolution: {}\u208B, maximum vertex radius: {} \u208B, box size: {} x\n"
-                              .format(sys.name, len(sys.net.verts), sys.net.max_vert, sys.net.box_size))
+                              .format(sys.name, len(sys.net.verts), sys.net.settings['max_vert'], sys.net.settings['box_size']))
                     else:
                         print("{} vertices loaded - {} vertices, maximum vertex radius: {} \u208B, box size: {} x\n"
-                              .format(sys.name, len(sys.net.verts), sys.net.max_vert, sys.net.box_size))
+                              .format(sys.name, len(sys.net.verts), sys.net.settings['max_vert'], sys.net.settings['box_size']))
         # Check to see if it is a new network file
         elif file[-3:] == 'csv':
             # Check to see that this is a network file

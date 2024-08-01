@@ -157,9 +157,9 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
     """
     # Set the surface colors and scheme
     if grp.surf_color is None:
-        grp.surf_color = grp.sys.net.surf_col
+        grp.surf_color = grp.sys.net.settings['surf_col']
     if grp.surf_scheme is None:
-        grp.surf_scheme = grp.sys.net.surf_scm
+        grp.surf_scheme = grp.sys.net.settings['surf_scheme']
     # Get the surfaces if they haven't been got
     if grp.surfs is None or len(grp.surfs) == 0:
         grp.build_surfs()

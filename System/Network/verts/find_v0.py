@@ -158,7 +158,8 @@ def find_v0_old(net, alocs, arads, a0=None, group_atoms=None):
             if circ is not None:
                 eloc, erad = circ
             # If a circle can be made and the site does not overlap with any other atoms, add it to the list
-            if eloc is not None and erad < net.max_vert and verify_site(eloc, erad, [a0, a1, a2], net, net.type):
+            if eloc is not None and erad < net.settings['max_vert'] and verify_site(eloc, erad, [a0, a1, a2], net,
+                                                                                    net.settings['net_type']):
                 verified_circles.append([a0, a1, a2])
         # Try to make a verified v0 site with the verified circles
         for circle in verified_circles:

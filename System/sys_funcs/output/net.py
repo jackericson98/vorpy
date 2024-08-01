@@ -20,9 +20,9 @@ def write_net_logs(net, round_to=3):
         # Write the build information labels
         lg_fl.writerow(["name", "network type", "surface resolution", "box size", "max vert", "Total Time", "vert time",
                        "connect time", "surf time", "analysis time", "max vertex"])
-        lg_fl.writerow([net.sys.name, net.type, net.surf_res, net.box_size, net.max_vert, r(net.metrics['tot']),
-                       r(net.metrics['vert']), r(net.metrics['con']), r(net.metrics['surf']), r(net.metrics['anal']),
-                       r(net.max_vert_rad)])
+        lg_fl.writerow([net.sys.name, net.settings['net_type'], net.settings['surf_res'], net.settings['box_size'],
+                        net.settings['max_vert'], r(net.metrics['tot']), r(net.metrics['vert']), r(net.metrics['con']),
+                        r(net.metrics['surf']), r(net.metrics['anal']), r(net.max_vert_rad)])
         # Write the group information header
         lg_fl.writerow(["group information"])
         # Write the group information labels
@@ -90,8 +90,8 @@ def write_net(net, file_name=None, round_to=3):
         nt_fl = csv.writer(f)
         # Write a separating line for the info and the surfaces points and tris
         nt_fl.writerow(["n", "nt", "sr", "mv", "bm", "vs", "es", "ss"])
-        nt_fl.writerow([net.id, net.type, net.surf_res, net.max_vert, net.box_size, len(net.verts), len(net.edges),
-                        len(net.surfs)])
+        nt_fl.writerow([net.id, net.settings['net_type'], net.settings['surf_res'], net.settings['max_vert'],
+                        net.settings['box_size'], len(net.verts), len(net.edges), len(net.surfs)])
 
         # Write the connections header
         nt_fl.writerow(["c", "e0a0", "e0a1", "e0a2", "e1a0", "e1a1", "e1a2", "e2a0", "e2a1",
@@ -187,8 +187,8 @@ def add_metrics(net):
                                    net.sys.groups[0].vol,
                                    net.sys.groups[0].sa,
                                    sum(net.verts['vdub']),
-                                   net.type,
-                                   net.surf_res,
-                                   net.max_vert,
+                                   net.settings['net_type'],
+                                   net.settings['surf_res'],
+                                   net.settings['max_vert'],
                                    net.metrics['splits'],
                                    net.sys.groups[0].density))

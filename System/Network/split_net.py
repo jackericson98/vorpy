@@ -21,7 +21,7 @@ def split_net(sys, surf_res=None, max_vert=None, box_size=None, build_surfs=None
     print('num splits', len(sub_boxes))
     # Check for a max_vert that isn't defined
     if max_vert is None:
-        max_vert = sys.net.max_vert
+        max_vert = sys.net.settings['max_vert']
 
     # Sort the atoms into their sub_boxes
     atoms_lists = [[] for _ in range(len(sub_boxes))]
@@ -146,7 +146,7 @@ def split_net_slow(sys, surf_res=None, max_vert=None, box_size=None, build_surfs
     print('num splits', len(sub_boxes))
     # Check for a max_vert that isn't defined
     if max_vert is None:
-        max_vert = sys.net.max_vert
+        max_vert = sys.net.settings['max_vert']
 
     # Sort the atoms into their sub_boxes
     atoms_lists = [[] for _ in range(len(sub_boxes))]
