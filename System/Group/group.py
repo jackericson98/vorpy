@@ -9,9 +9,8 @@ import numpy as np
 
 class Group:
     """Group class. Used to hold selections of atoms and do analysis on it"""
-    def __init__(self, sys, atoms=None, verts=None, edges=None, surfs=None, name=None, chains=None, residues=None,
-                 indices=None, bff=None, vert_color='Reds', vert_scheme='shell', edge_color='white', edge_scheme=None,
-                 surf_color=None, surf_scheme=None):
+    def __init__(self, sys, atoms=None, name=None, chains=None, residues=None, bff=None, surf_color=None,
+                 surf_scheme=None, nets=None, settings=None, molecules=None):
 
         # System attributes
         self.sys = sys                  # Network            :    Network of the System
@@ -20,9 +19,8 @@ class Group:
 
         # Network objects attributes
         self.atoms = atoms              # Atoms              :    List of Atom type objects in the group
-        self.verts = verts              # Vertices           :    Vertex objects involved in the group
-        self.edges = edges              # Edges              :    Edge objects involved in the group's network
-        self.surfs = surfs              # Surfaces           :    All surfaces associated with the group
+        self.nets = nets                # Networks           :    List of Network type objects in the group
+        self.settings = settings        # Settings           :    List of network settings corresponding to the networks
 
         # Network object tracking attributes
         self.atom_ndxs = []             # Atom indices       :    List of atom indices for checking against (sorted)
@@ -31,9 +29,9 @@ class Group:
         self.surf_ndxs = []             # Surface indices    :    Atom indices of the surfaces associated with the group
 
         # System level classifications involved in the group (must be full)
-        self.chains = chains            # Molecules          :    List of molecule objects in the group
+        self.mols = molecules           # Molecule           :    List of Molecules in the group
+        self.chains = chains            # Chains             :    List of molecule objects in the group
         self.residues = residues        # Residues           :    List of residue objects in the group
-        self.ndxs = indices             # Indices            :    List of index objects in the group
 
         # Analysis attributes
         self.sa = None                  # Surface Area       :    The surface area of the outer surfaces of the body
@@ -47,15 +45,6 @@ class Group:
         self.layer_surfs = None         # Layer Surfaces     :    List of lists of surfaces corresponding to layers
         self.layer_info = None          # Layer Information  :    List of information (atoms, SA, vol) for each layer
 
-        # Coloring schemes and maps
-        self.vert_color = vert_color    # Vertex coloring    :    Color map for vertices in the group
-        self.vert_scheme = vert_scheme  # Vertex Scheme      :    Color Scheme for vertex coloring in the group
-        self.edge_color = edge_color    # Edge Coloring      :    Color map for the edges in the group
-        self.edge_scheme = edge_scheme  # Edge Scheme        :    Color scheme for the edges in the group
-        self.surf_color = surf_color    # Surface Coloring   :    Color map for the surfaces in the group
-        self.surf_scheme = surf_scheme  # Surface Scheme     :    Color Scheme for the surfaces in the group
-        self.surf_res = None            # Surface resolution :    Surface resolution for the surfaces in the group
-
         # Interface attributes
         self.bff = bff                 # BFF                 :   Other group used for comparison
         self.iface_surfs = None        # Interface Surfaces  :   Surfaces that make the interface
@@ -65,7 +54,11 @@ class Group:
         self.iface_sa = None           # Surface area        :   Surface area of the interface
         self.iface_curv = None         # Interface Curvature :   Average curvature from the interface
 
+        # Process the inputs
         self.process_inputs()
+
+        # Make the Networks
+        self.make_nets()
 
     # Process inputs method. Goes through the atoms, residues and molecules provided in the group
     def process_inputs(self):
@@ -105,9 +98,12 @@ class Group:
                 # Add the group
                 self.sys.groups.append(self)
             # Set the name
-            self.name = '{}_group{}'.format(self.sys.name, self.sys.groups.index(self))
+            self.name = '{}_group_{}'.format(self.sys.name, self.sys.groups.index(self))
         # Get the surfaces
         self.get_surfs()
+
+    def make_nets(self):
+        pass
 
     def get_surfs(self):
         """

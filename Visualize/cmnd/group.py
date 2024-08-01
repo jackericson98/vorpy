@@ -45,5 +45,5 @@ def group(sys, usr_npt, bff=None):
     # Create the group
     npt_list = [None] * 4
     npt_list[obj_ndx] = my_list
-    my_group = Group(sys=sys, chains=npt_list[0], residues=npt_list[1], atoms=npt_list[2], indices=npt_list[3], name=name, bff=bff)
+    my_group = Group(sys=sys, chains=npt_list[0], residues=npt_list[1], atoms=npt_list[2], name=name, bff=bff)
     return my_group

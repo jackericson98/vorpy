@@ -278,7 +278,7 @@ class System:
         if self.net is None:
             self.net = Network(self, atoms=self.atoms)
         if net_type is None:
-            net_type = self.net.type
+            net_type = self.net.settings['net_type']
         # Small networks and no split option
         if len(my_group.atoms) < num_atoms_sub_net or no_split:
             # Build the network

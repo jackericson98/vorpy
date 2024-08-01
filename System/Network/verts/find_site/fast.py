@@ -45,10 +45,10 @@ def find_site_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, n
     # Look for the vert and keep increasing box size until the vert is found
     while vert is None and mv_inc < max_vert:
         # Search for the vertx in the current range
-        if net_type == 'vor':
-            vert, invalid_atoms = find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type,
-                                                check_atoms, surr_atoms, my_boxes, invalid_atoms, vn_1,
-                                                vn_1_loc, group_atoms=group_atoms, metrics=metrics, printing=printing)
+        if net_type == 'aw':
+            vert, invalid_atoms = find_site_aw(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type,
+                                               check_atoms, surr_atoms, my_boxes, invalid_atoms, vn_1,
+                                               vn_1_loc, group_atoms=group_atoms, metrics=metrics, printing=printing)
         else:
             vert, invalid_atoms = find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
                                                net_type, check_atoms, surr_atoms, my_boxes, invalid_atoms, vn_1,
@@ -162,8 +162,8 @@ def find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, 
     return None, invalid_atoms
 
 
-def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, check_atoms, surr_atoms,
-                  my_boxes, invalid_atoms, vn_1, vn_1_loc, group_atoms=None, metrics=None, printing=False):
+def find_site_aw(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type, check_atoms, surr_atoms,
+                 my_boxes, invalid_atoms, vn_1, vn_1_loc, group_atoms=None, metrics=None, printing=False):
     """
     Used a vertex and a combination of it's edge atoms to find the connecting vertex
     """
@@ -181,7 +181,7 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
     test_atoms = [_ for _ in get_atoms(cells=my_boxes, dist=mv_inc) if _ not in invalid_atoms]
 
     # Sort the test atoms to be in order by distance from the previous vert location
-    if net_type != 'vor' and vn_1_loc is not None:
+    if net_type != 'aw' and vn_1_loc is not None:
         dists = [calc_dist(np.array(alocs[_]), np.array(vn_1_loc)) for _ in test_atoms]
         test_atoms = [_ for x, _ in sorted(zip(dists, test_atoms))]
 
@@ -237,7 +237,7 @@ def find_site_vor(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
             # Calculate the Delaunay vertex values
             vert_loc, vert_rad = calc_flat_vert(locs=[alocs[_] for _ in vert_atoms], rads=[arads[_] for _ in vert_atoms], power=False)
         # If the network type is Voronoi
-        elif net_type == 'vor':
+        elif net_type == 'aw':
             # Calculate the Voronoi vertex values
             vert_loc, vert_rad, vert_loc2, vert_rad2 = calc_vert(locs=[alocs[_] for _ in vert_atoms], rads=[arads[_] for _ in vert_atoms])
         # Catch the none location and the too large vertex cases

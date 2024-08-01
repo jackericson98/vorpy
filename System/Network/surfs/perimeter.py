@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def build_perimeter(alocs, arads, epnts, net_type='vor'):
+def build_perimeter(alocs, arads, epnts, net_type='aw'):
     """
     Sorts the edges of the surface to create a list of points in order around the perimeter
     :param net_type:
@@ -43,7 +43,7 @@ def build_perimeter(alocs, arads, epnts, net_type='vor'):
     r = [_ if _ != 0 else 0.0001 for _ in r]
     surf_norm = r / np.linalg.norm(r)
     surf_loc = None
-    if net_type == 'vor':
+    if net_type == 'aw':
         surf_loc = np.array(alocs[0]) + (arads[0] + 0.5 * (d - (arads[0] + arads[1]))) * surf_norm
     elif net_type == 'del':
         surf_loc = np.array(alocs[0]) + 0.5 * d * surf_norm

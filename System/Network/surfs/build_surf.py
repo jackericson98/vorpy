@@ -8,7 +8,7 @@ import numpy as np
 
 ############################################## Triangulate Surface Points  #############################################
 
-def get_com(alocs, arads, perimeter, surf_loc, surf_norm, func, flat, net_type='vor'):
+def get_com(alocs, arads, perimeter, surf_loc, surf_norm, func, flat, net_type='aw'):
     """
     Finds the center of mass of a surface's perimeter points
     :param net_type:
@@ -54,7 +54,7 @@ def build_surf(alocs, arads, epnts, res, net_type, sfunc=None):
     # Set the surface curvature to 0
     surf_curv = 0
     # If the network type is voronoi the edges could be curved allowing for triangulations outside the edges
-    if net_type == 'vor':
+    if net_type == 'aw':
         # Add the normal curvature if possible
         if tri_within(perimeter=perimeter,  loc=surf_loc, norm=surf_norm, flat_points=flat_points, point=surf_loc):
             surf_curv = calc_surf_point_curv(sfunc, surf_loc)

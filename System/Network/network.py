@@ -22,7 +22,6 @@ class Network:
         # Main network defining objects
         self.num_splits = None
         self.sys = sys                    # System            :   Route back to outer system
-        self.type = net_type              # Network Type      :   String indicating network build type
         self.id = 0                       # Network id #      :
         self.sub_net = sub_net
         self.settings = settings          # Settings          :    surf_res, surf_col, surf_schm, max_vert, net_type

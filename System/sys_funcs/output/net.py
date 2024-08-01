@@ -163,7 +163,8 @@ def write_verts(net):
     with open(net.sys.name + "_verts.txt", 'w') as file:
         # Create a header for the vertices file
         file.write(net.sys.name + " Vertices - {} vertices, {} atoms, max vert = {}, Net type = {}\n"
-                   .format(len(net.verts['vatoms']), len(net.sys.groups[0].atoms), max(net.verts['vrad']), net.type))
+                   .format(len(net.verts['vatoms']), len(net.sys.groups[0].atoms), max(net.verts['vrad']),
+                           net.settings['net_type']))
         # Write the vertices
         for i, vert in net.verts.iterrows():
             # Write the vertex
