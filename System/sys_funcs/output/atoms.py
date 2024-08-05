@@ -24,18 +24,18 @@ def write_pdb(atoms, file_name, sys, directory=None):
         os.chdir(directory)
 
     # Check to see if a system was provided
-    if sys.base_file is not None:
+    if sys.files['base_file'] is not None:
 
         # If the output is all atoms just copy the pdb
-        if len(atoms) == len(sys.atoms):
-            shutil.copy(sys.base_file, os.getcwd() + '/' + file_name + '.pdb')
+        if len(atoms) == len(sys.spheres):
+            shutil.copy(sys.files['base_file'], os.getcwd() + '/' + file_name + '.pdb')
             return
 
         # Open the file for writing
         with open(file_name + ".pdb", 'w') as pdb_file:
 
             # Open the base file and read the lines
-            with open(sys.base_file, 'r') as f:
+            with open(sys.files['base_file'], 'r') as f:
                 read_file = f.readlines()
 
             # Write a header for the pdb
@@ -46,8 +46,8 @@ def write_pdb(atoms, file_name, sys, directory=None):
                 offset += 1
 
             # Grab the lines from the initial pdb
-            for j in range(len(sys.atoms)):
-                if sys.atoms.iloc[j]['num'] in atoms:
+            for j in range(len(sys.spheres)):
+                if sys.spheres.iloc[j]['num'] in atoms:
                     pdb_file.write(read_file[j + offset])
 
     # Manually write the pdb file
@@ -87,11 +87,11 @@ def write_gro(atoms, file_name, sys=None, directory=None):
 
     # Copy the
     # Check to see if a system was provided
-    if sys is not None and sys.base_file is not None:
+    if sys is not None and sys.files['base_file'] is not None:
 
         # If the output is all atoms just copy the pdb
         if len(atoms) == len(sys.atoms):
-            shutil.copy(sys.base_file, os.getcwd() + file_name)
+            shutil.copy(sys.files['base_file'], os.getcwd() + file_name)
             return
 
     # Open the file
@@ -123,7 +123,7 @@ def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=
         os.chdir(directory)
     # Go through the atoms
     for i in atoms:
-        atom = net.atoms.iloc[i]
+        atom = net.spheres.iloc[i]
         if not atom['complete']:
             continue
         # Check if the surfaces should be exported

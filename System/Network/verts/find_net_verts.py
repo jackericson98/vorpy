@@ -6,34 +6,30 @@ from System.Network.verts.find_verts import find_verts
 from System.sys_funcs.output.net import write_verts
 
 
-def find_net_verts(net, my_group=None, print_metrics=False):
-    global_vars(net.sub_boxes, net.box, net.num_splits, net.sys.max_atom_rad, net.sub_box_size)
-    # Check to see if a group has been provided
-    if my_group is not None:
-        atom_nums = my_group.atom_ndxs[:]
-    else:
-        atom_nums = [i for i in range(len(net.atoms))]
-    vert_list_real = net.get_real_verts()
+def find_net_verts(net):
+    # Get the global variables
+    global_vars(net.sub_boxes, net.box, net.settings['num_splits'], net.group.sys.max_atom_rad, net.sub_box_size)
+
+    # Not sure what this does
+    # vert_list_real = net.get_real_verts()
+    # Create the group indices
+    atom_nums = net.group.group_ndxs.copy()
     # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
-    net.atom_ndxs = [_ for _ in atom_nums]
-    my_group_atom_ndxs = None
-    if my_group is not None:
-        my_group_atom_ndxs = my_group.atom_ndxs
-    my_guuy = find_verts(alocs=net.atoms['loc'].to_numpy(), arads=net.atoms['rad'].to_numpy(),
+    my_guuy = find_verts(alocs=net.spheres['loc'].to_numpy(), arads=net.spheres['rad'].to_numpy(),
                          max_vert=net.settings['max_vert'], net_type=net.settings['net_type'], check_atoms=atom_nums,
-                         my_group=my_group_atom_ndxs, start_time=net.start_time, print_metrics=print_metrics,
-                         vert_box=net.sys.foam_box)
+                         my_group=net.group.group_ndxs, start_time=net.start_time, print_metrics=net.settings['print_metrics'],
+                         vert_box=net.group.sys.foam_box)
     if my_guuy is not None:
         vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = my_guuy
     # Check to see if any of the atoms are encapsulated
     if len(atom_nums) > 0:
         skip_nums = []
         for atom in atom_nums:
-            atom_rad, atom_loc = net.atoms['rad'][atom], net.atoms['loc'][atom]
+            atom_rad, atom_loc = net.spheres['rad'][atom], net.spheres['loc'][atom]
             atom_box = box_search(atom_loc)
-            near_atoms = get_atoms(atom_box, dist=net.sys.max_atom_rad - atom_rad)
+            near_atoms = get_atoms(atom_box, dist=net.group.sys.max_atom_rad - atom_rad)
             for atom2 in near_atoms:
-                if calc_dist(atom_loc, net.atoms['loc'][atom2]) < abs(net.atoms['rad'][atom2] - atom_rad):
+                if calc_dist(atom_loc, net.spheres['loc'][atom2]) < abs(net.spheres['rad'][atom2] - atom_rad):
                     print("\nUh oh! Ball # {} is fully encapsulated by ball # {}! Skipping {}"
                           .format(atom, atom2, atom))
                     skip_nums.append(atom)
@@ -43,22 +39,22 @@ def find_net_verts(net, my_group=None, print_metrics=False):
 
     # Check for disconnects in the network
     threshold = 2
-    if len(my_group.atoms) <= 2:
+    if len(net.group.group_ndxs) <= 2:
         threshold = 0
     while len(atom_nums) > threshold:
         print("Atoms Disconnected: {}".format(atom_nums))
         a0 = atom_nums.pop()
-        my_guuy = find_verts(a0=a0, alocs=net.atoms['loc'].to_numpy(), arads=net.atoms['rad'].to_numpy(),
+        my_guuy = find_verts(a0=a0, alocs=net.spheres['loc'].to_numpy(), arads=net.spheres['rad'].to_numpy(),
                              max_vert=net.settings['max_vert'], net_type=net.settins['net_type'], check_atoms=atom_nums,
-                             my_group=my_group.atom_ndxs, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
+                             my_group=net.group.group_ndxs, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
                              vloc2s=vloc2s, vrad2s=vrad2s, start_time=net.start_time, print_metrics=print_metrics,
-                             vert_box=net.sys.foam_box, averts=averts)
+                             vert_box=net.group.sys.foam_box, averts=averts)
         if my_guuy is not None:
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = my_guuy
-        if net.sys.type == 'foam' and len(atom_nums) <= 0.25 * len(net.atoms['loc']):
+        if net.group.sys.type == 'foam' and len(atom_nums) <= 0.25 * len(net.atoms['loc']):
             break
     # # Create the doublets list
-    # if vert_list_real is not None and net.type == 'vor':
+    # if vert_list_real is not None and net.type == 'aw':
     #     missing_verts = [_ for _ in vert_list_real if _ not in vert_ndxs]
     #     print(missing_verts)
     #     extra_verts = [_ for _ in vert_ndxs if _ not in vert_list_real]

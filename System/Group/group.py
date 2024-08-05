@@ -1,25 +1,28 @@
 from System.Group.build import build_surfs
 from System.Group.layers import get_layers
-from System.Group.sort import get_surfs, get_edges, get_verts, add_atoms
+from System.Group.sort import get_surfs, get_edges, get_verts, add_spheres
 from System.Group.export import group_exports
+from System.Network.network import Network
 from System.sys_funcs.calcs.sorting import ndx_search
 from System.sys_funcs.calcs.surf import calc_surf_sa
+from System.sys_funcs.output.net import add_metrics
 import numpy as np
 
 
 class Group:
     """Group class. Used to hold selections of atoms and do analysis on it"""
-    def __init__(self, sys, atoms=None, name=None, chains=None, residues=None, bff=None, surf_color=None,
-                 surf_scheme=None, nets=None, settings=None, molecules=None):
-
+    def __init__(self, sys, spheres=None, group_ndxs=None, atoms=None, name=None, molecules=None, chains=None, residues=None, bff=None,
+                 settings=None, build_net=False, surf_res=0.2, box_size=1.5, max_vert=40, build_type='all', net=None,
+                 net_type='aw', surf_col='plasma', surf_scheme='curv', num_splits=None, print_metrics=True):
         # System attributes
         self.sys = sys                  # Network            :    Network of the System
         self.name = name                # Name               :    Name of the group
         self.dir = None                 # Directory          :    Directory holding the group export info
 
         # Network objects attributes
-        self.atoms = atoms              # Atoms              :    List of Atom type objects in the group
-        self.nets = nets                # Networks           :    List of Network type objects in the group
+        self.net = net                  # Networks           :    List of Network type objects in the group
+        self.spheres = spheres          # Spheres            :    List of all spheres to be able to pull from
+        self.group_ndxs = group_ndxs    # Group indexes      :    List of the indices that are included in the solve
         self.settings = settings        # Settings           :    List of network settings corresponding to the networks
 
         # Network object tracking attributes
@@ -29,9 +32,10 @@ class Group:
         self.surf_ndxs = []             # Surface indices    :    Atom indices of the surfaces associated with the group
 
         # System level classifications involved in the group (must be full)
+        self.atms = atoms               # Atoms              :    List of Atoms in the group (Basically spheres)
         self.mols = molecules           # Molecule           :    List of Molecules in the group
-        self.chains = chains            # Chains             :    List of molecule objects in the group
-        self.residues = residues        # Residues           :    List of residue objects in the group
+        self.chns = chains              # Chains             :    List of molecule objects in the group
+        self.rsds = residues            # Residues           :    List of residue objects in the group
 
         # Analysis attributes
         self.sa = None                  # Surface Area       :    The surface area of the outer surfaces of the body
@@ -54,11 +58,34 @@ class Group:
         self.iface_sa = None           # Surface area        :   Surface area of the interface
         self.iface_curv = None         # Interface Curvature :   Average curvature from the interface
 
+        # Get the settings
+        self.get_settings(surf_res=surf_res, surf_col=surf_col, surf_scheme=surf_scheme, max_vert=max_vert,
+                          box_size=box_size, net_type=net_type, build_type=build_type, num_splits=num_splits,
+                          print_metrics=print_metrics)
+
         # Process the inputs
         self.process_inputs()
 
         # Make the Networks
-        self.make_nets()
+        if build_net:
+            self.build_network()
+
+    def get_settings(self, surf_res=0.2, surf_col='plasma', surf_scheme='curv', max_vert=40, box_size=1.5, net_type='aw',
+                     build_type='all', num_splits=1, print_metrics=True):
+        """
+        Sets the settings for the network building
+        """
+        # Set up the default values
+        defaults = {'surf_res': surf_res, 'surf_col': surf_col, 'surf_scheme': surf_scheme, 'max_vert': max_vert,
+                    'box_size': box_size, 'net_type': net_type, 'build_type': build_type, 'num_splits': num_splits,
+                    'print_metrics': print_metrics}
+        # Create the settings dictionary
+        if self.settings is None:
+            self.settings = defaults
+        # Set the settings to their default values
+        for setting in self.settings:
+            if self.settings[setting] is None:
+                self.settings[setting] = defaults[setting]
 
     # Process inputs method. Goes through the atoms, residues and molecules provided in the group
     def process_inputs(self):
@@ -67,43 +94,56 @@ class Group:
         :return: Sets uo the group for interpretation
         """
         # Set the atoms
-        atoms = self.atoms if self.atoms is not None else []
-        resids = self.residues if self.residues is not None else []
-        chains = self.chains if self.chains is not None else []
-        # Set up the atoms list if needed
-        self.atoms = []
-        if self.residues is None:
-            self.residues = []
-        if self.chains is None:
-            self.chains = []
+        self.atms = self.atms if self.atms is not None else []
+        self.rsds = self.rsds if self.rsds is not None else []
+        self.chns = self.chns if self.chns is not None else []
+        self.mols = self.mols if self.mols is not None else []
         # Add the provided atoms to the self.atoms list
-        self.add_atoms(atoms)
-        for resid in resids:
+        self.add_atoms(self.atms)
+        for resid in self.rsds:
             self.add_atoms(resid.atoms)
-        for chain in chains:
+        for chain in self.chns:
             self.add_atoms(chain.atoms)
         # Add the residues and chains to the group
-        if self.sys.net is not None and 'res' in self.sys.net.atoms:
-            for atom in self.atoms:
-                if self.sys.net.atoms['res'][atom] not in self.residues:
-                    self.residues.append(self.sys.net.atoms['res'][atom])
-        if self.sys.net is not None and 'chn' in self.sys.net.atoms:
-            for atom in self.atoms:
-                if self.sys.net.atoms['chn'][atom] not in self.chains:
-                    self.chains.append(self.sys.net.atoms['chn'][atom])
+        if self.net is not None and 'res' in self.net.atoms:
+            for atom in self.atms:
+                if self.net.atoms['res'][atom] not in self.rsds:
+                    self.rsds.append(self.net.atoms['res'][atom])
+        if self.net is not None and 'chn' in self.net.atoms:
+            for atom in self.atms:
+                if self.sys.net.atoms['chn'][atom] not in self.chns:
+                    self.chns.append(self.net.atoms['chn'][atom])
         # Add a Name If none was provided
         if self.name is None:
+            # If the system Groups attribute is None
+            if self.sys.groups is None:
+                self.sys.groups = []
             # Or if the group is not in the systems list of groups
             if self not in self.sys.groups:
                 # Add the group
                 self.sys.groups.append(self)
             # Set the name
             self.name = '{}_group_{}'.format(self.sys.name, self.sys.groups.index(self))
-        # Get the surfaces
-        self.get_surfs()
 
-    def make_nets(self):
-        pass
+    def build_network(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
+                      calc_verts=None, my_group=None, print_actions=None, num_atoms_sub_net=1000, no_split=True,
+                      add_net_metrics=True, min_atom_split=1000):
+        """
+        Allows user to build the network from the system object.
+        """
+        if self.net is None:
+            self.net = Network(self, self.settings, spheres=self.sys.spheres)
+        # Small networks and no split option
+        if len(self.group_ndxs) < num_atoms_sub_net or no_split:
+            # Build the network
+            self.net.build()
+            # Add the metrics
+            self.net.metrics['splits'] = 1
+            if add_net_metrics:
+                add_metrics(self.net)
+        else:
+            split_net_slow(sys=self, num_atoms_sub_net=num_atoms_sub_net, add_net_metrics=add_net_metrics,
+                           min_atom_split=min_atom_split)
 
     def get_surfs(self):
         """
@@ -140,34 +180,37 @@ class Group:
         :param atom_list: List of atom objects expected to be added to the group
         :return: The group will have the new atoms integrated
         """
-        add_atoms(self, atom_list)
+        add_spheres(self, atom_list)
 
     def get_info(self):
         """
         Gathers information about the group and stores it in a dictionary
         :return:
         """
-        net = self.sys.net
+        net = self.net
         # Get the group objects
         self.get_surfs()
         self.get_edges()
         self.get_verts()
         # Reset the group's data attributes
-        self.sa, self.vol = 0, 0
+        self.sa, self.vol, self.density = 0, 0, 0
         tot_atom_vol = 0
         # Get the volume of the group
-        for i in self.atoms:
-            atom = self.sys.net.atoms.iloc[i]
+        for i in self.group_ndxs:
+            atom = self.net.spheres.iloc[i]
+            if not atom['complete']:
+                continue
             # Add the volume to that of the group
             self.vol += atom['vol']
             tot_atom_vol += (4/3)*np.pi*atom['rad']**3
-        self.density = tot_atom_vol/self.vol
+        if self.vol > 0:
+            self.density = tot_atom_vol/self.vol
         # Check to see if the first layer has been calculated
         if self.layer_surfs is None or len(self.layer_surfs) == 0:
             self.get_layers(max_layers=1)
         if len(self.layer_surfs) > 0:
             for i in self.layer_surfs[0]:
-                surf = self.sys.net.surfs.iloc[i]
+                surf = self.net.surfs.iloc[i]
                 # Check that the surface has a surface area
                 if surf['sa'] is None or surf['sa'] == 0:
                     # Get the surface area for the surface

@@ -144,19 +144,19 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
                 if atom in check_atoms:
                     check_atoms.remove(atom)
     # Printing out metrics < --- Delete later
-    if print_metrics:
-        metrics['total'] = time.perf_counter() - start
-        metrics['other'] = metrics['total'] - (metrics['ndx_search'] + metrics['box_search'] + metrics['gather_atoms'] +
-                                               metrics['verify_site'] + metrics['calc_vert'])
-        print('\n\nVertex Finding Time Metrics: \n'
-              '  Index Search      = {:.3f} s\n'
-              '  Box Search        = {:.3f} s\n'
-              '  Get Atoms         = {:.3f} s\n'
-              '  Verify Site       = {:.3f} s\n'
-              '  Calculate Vertex  = {:.3f} s\n'
-              '  Other             = {:.3f} s\n'
-              '  Total             = {:.3f} s\n\n'
-              .format(metrics['ndx_search'], metrics['box_search'], metrics['gather_atoms'], metrics['verify_site'],
-                      metrics['calc_vert'], metrics['other'], metrics['total']))
+    # if print_metrics:
+    #     metrics['total'] = time.perf_counter() - start
+    #     metrics['other'] = metrics['total'] - (metrics['ndx_search'] + metrics['box_search'] + metrics['gather_atoms'] +
+    #                                            metrics['verify_site'] + metrics['calc_vert'])
+    #     print('\n\nVertex Finding Time Metrics: \n'
+    #           '  Index Search      = {:.3f} s\n'
+    #           '  Box Search        = {:.3f} s\n'
+    #           '  Get Atoms         = {:.3f} s\n'
+    #           '  Verify Site       = {:.3f} s\n'
+    #           '  Calculate Vertex  = {:.3f} s\n'
+    #           '  Other             = {:.3f} s\n'
+    #           '  Total             = {:.3f} s\n\n'
+    #           .format(metrics['ndx_search'], metrics['box_search'], metrics['gather_atoms'], metrics['verify_site'],
+    #                   metrics['calc_vert'], metrics['other'], metrics['total']))
     # Return the values of the vertices
     return vert_ndxs, vlocs, vrads, vloc2s, vrad2s, check_atoms, averts

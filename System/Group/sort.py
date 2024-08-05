@@ -2,24 +2,25 @@ from System.sys_funcs.calcs.sorting import ndx_search
 import numpy as np
 
 
-def add_atoms(grp, atom_list):
+def add_spheres(grp, sphere_list):
     """
     Adds the atoms from a list (mol.atoms, res.atoms, atoms, etc) to the group checking duplicates
     :param grp:
-    :param atom_list: List of atom objects expected to be added to the group
+    :param sphere_list: List of atom objects expected to be added to the group
     :return: The group will have the new atoms integrated
     """
-    # Check to see if the atoms list has been instantiated
-    if grp.atoms is None:
-        grp.atoms = []
+    # Check to see if the index list has been instantiated
+    if grp.group_ndxs is None:
+        grp.group_ndxs = []
+    print("ehehe", sphere_list, grp.group_ndxs)
     # Go through the atom_list
-    for atom in atom_list:
+    for sphere in sphere_list:
         # Get the atom's location
-        atom_ndx = ndx_search(np.array(grp.atom_ndxs), atom)
+        sphere_ndx = ndx_search(np.array(grp.group_ndxs), sphere)
         # Check to see if we have found this atom before
-        if atom_ndx >= len(grp.atom_ndxs) or grp.atoms[atom_ndx] != atom:
-            grp.atoms.insert(atom_ndx, atom)
-            grp.atom_ndxs.insert(atom_ndx, atom)
+        if sphere_ndx >= len(grp.group_ndxs) or grp.group_ndxs[sphere_ndx] != sphere:
+            grp.group_ndxs.insert(sphere_ndx, sphere)
+            grp.atms.insert(sphere_ndx, sphere)
 
 
 def get_surfs(grp):
@@ -27,23 +28,22 @@ def get_surfs(grp):
     Finds and sorts all surfaces in the group without calculating them
     :return: The group will have its surfaces sorted and non-redundant
     """
-    net = grp.sys.net
+    net = grp.net
     # Reset the surfaces lists
     grp.surfs, grp.surf_ndxs = [], []
     # Go through the atoms in the group
-    for i in grp.atoms:
-        atom = net.atoms.iloc[i]
+    for i in grp.group_ndxs:
+        sphere = net.spheres.iloc[i]
         # Go through the surfaces in the atoms list of surfaces
-        if 'asurfs' in net.atoms:
-            for j in atom['asurfs']:
-                surf = net.surfs.iloc[j]
-                # Get the index of the surface
-                surf_ndx = ndx_search(grp.surf_ndxs, surf['satoms'])
-                # Check if the surface has been added yet or not
-                if surf_ndx >= len(grp.surf_ndxs) or grp.surf_ndxs[surf_ndx] == surf['satoms']:
-                    # Insert the index and the surfaces in their 181L place
-                    grp.surfs.insert(surf_ndx, j)
-                    grp.surf_ndxs.insert(surf_ndx, surf['satoms'])
+        for j in sphere['asurfs']:
+            surf = net.surfs.iloc[j]
+            # Get the index of the surface
+            surf_ndx = ndx_search(grp.surf_ndxs, surf['satoms'])
+            # Check if the surface has been added yet or not
+            if surf_ndx >= len(grp.surf_ndxs) or grp.surf_ndxs[surf_ndx] == surf['satoms']:
+                # Insert the index and the surfaces in their 181L place
+                grp.surfs.insert(surf_ndx, j)
+                grp.surf_ndxs.insert(surf_ndx, surf['satoms'])
 
 
 def get_edges(grp):
@@ -54,7 +54,7 @@ def get_edges(grp):
     # Reset the surfaces lists
     grp.edges, grp.edge_ndxs = [], []
     # Go through the surfaces in the atoms list of surfaces
-    for i, edge in grp.sys.net.edges.iterrows():
+    for i, edge in grp.net.edges.iterrows():
         # Check that the edge shares an atom with the group
         if len([0 for _ in edge['eatoms'] if _ in grp.atom_ndxs]) == 0:
             continue
@@ -75,7 +75,7 @@ def get_verts(grp):
     # Reset the surfaces lists
     grp.verts, grp.vert_ndxs = [], []
     # Go through the surfaces in the atoms list of surfaces
-    for i, vert in grp.sys.net.verts.iterrows():
+    for i, vert in grp.net.verts.iterrows():
         # Check that the edge shares an atom with the group
         if len([0 for _ in vert['vatoms'] if _ in grp.atom_ndxs]) == 0:
             continue

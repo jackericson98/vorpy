@@ -122,7 +122,7 @@ def export_info(grp, directory=None):
         # System counts header
         info.write("Group system information:\n")
         # System counts
-        info.write("  {} Atoms, {} Residues, {} Chains\n\n".format(len(grp.atoms), len(grp.residues), len(grp.chains)))
+        info.write("  {} Atoms, {} Residues, {} Chains\n\n".format(len(grp.atms), len(grp.rsds), len(grp.chns)))
         # Network counts header
         info.write("Group Network information:\n")
         # Network counts
@@ -156,10 +156,10 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
     :param shell: Whether to do the shell objects or the full object
     """
     # Set the surface colors and scheme
-    if grp.surf_color is None:
-        grp.surf_color = grp.sys.net.settings['surf_col']
-    if grp.surf_scheme is None:
-        grp.surf_scheme = grp.sys.net.settings['surf_scheme']
+    if grp.settings['surf_col'] is None:
+        grp.settings['surf_col'] = grp.net.settings['surf_col']
+    if grp.settings['surf_scheme'] is None:
+        grp.settings['surf_scheme'] = grp.net.settings['surf_scheme']
     # Get the surfaces if they haven't been got
     if grp.surfs is None or len(grp.surfs) == 0:
         grp.build_surfs()
@@ -179,7 +179,7 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
     os.chdir(grp.dir)
     # If the user wants to export the atoms for the group
     if atoms or all_:
-        write_pdb(atoms=grp.atoms, file_name="atoms", sys=grp.sys)
+        write_pdb(atoms=grp.atms, file_name="atoms", sys=grp.sys)
     # If the user wants to export the shell for the group
     if shell or all_:
         if grp.layer_surfs is None:
@@ -187,35 +187,35 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
             grp.get_layers(max_layers=1)
         # noinspection PyUnresolvedReferences
         if grp.layer_surfs is not None and len(grp.layer_surfs) > 0:
-            write_surfs(net=grp.sys.net, surfs=grp.layer_surfs[0], file_name="shell", directory=grp.dir)
+            write_surfs(net=grp.net, surfs=grp.layer_surfs[0], file_name="shell", directory=grp.dir)
     if edges or all_:
         if shell:
             if grp.edges is None:
                 grp.get_edges()
             if grp.layer_edges is None:
                 grp.get_layers(max_layers=1, build_surfs=False)
-            write_edges(grp.sys.net, grp.layer_edges[0], file_name="shell_edges", directory=grp.dir)
+            write_edges(grp.net, grp.layer_edges[0], file_name="shell_edges", directory=grp.dir)
         else:
             if grp.edges is None:
                 grp.get_edges()
-            write_edges(grp.sys.net, edges=grp.edges, file_name="edges", directory=grp.dir)
+            write_edges(grp.net, edges=grp.edges, file_name="edges", directory=grp.dir)
     if sep_verts:
         os.mkdir(grp.dir + "/verts")
         if grp.layer_verts is None:
             # Get the first layer
             grp.get_layers(max_layers=1, build_surfs=False)
         for i, vert in enumerate(grp.layer_verts[0]):
-            write_off_verts(grp.sys.net, [vert], str(i), directory=grp.dir + "/verts")
+            write_off_verts(grp.net, [vert], str(i), directory=grp.dir + "/verts")
     if sep_edges:
         os.mkdir(grp.dir + "/edges")
         if grp.layer_edges is None:
             grp.get_layers(max_layers=1, build_surfs=False)
         for i, edge in enumerate(grp.layer_edges[0]):
-            write_edges(grp.sys.net, [edge], str(i), directory=grp.dir + "/edges")
+            write_edges(grp.net, [edge], str(i), directory=grp.dir + "/edges")
     # If the user wants a filled shell for the group
     if surfs or all_:
         grp.build_surfs()
-        write_surfs(grp.sys.net, surfs=grp.surfs, file_name="fill", directory=grp.dir)
+        write_surfs(grp.net, surfs=grp.surfs, file_name="fill", directory=grp.dir)
     # If the user wants separate surfaces for the group
     if sep_surfs or all_:
         i = 1
@@ -227,7 +227,7 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
             i += 1
         os.mkdir(my_dir)
         for surf in grp.surfs:
-            write_surfs(grp.sys.net, [surf], file_name="_".join([str(_) for _ in grp.sys.net.surfs['satoms'][surf]]), directory=my_dir)
+            write_surfs(grp.net, [surf], file_name="_".join([str(_) for _ in grp.net.surfs['satoms'][surf]]), directory=my_dir)
     # If the user wants layers
     if layers > 0 or all_:
         # First check to see if the number of layers is greater than 1
@@ -246,7 +246,7 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
         # Create the layer and atoms files
         for i in range(len(grp.layer_surfs)):
             write_pdb(grp.layer_atoms[i + 1], file_name=str(i) + "_atoms", sys=grp.sys)
-            write_surfs(grp.sys.net, grp.layer_surfs[i], file_name=str(i) + "_surfs")
+            write_surfs(grp.net, grp.layer_surfs[i], file_name=str(i) + "_surfs")
         # If the user wants info and layers create a layers info file
         if info or all_:
             grp.get_info()
@@ -275,11 +275,11 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
                 if grp.layer_verts is None:
                     # Get the first layer
                     grp.get_layers(max_layers=1, build_surfs=False)
-                write_off_verts(grp.sys.net, grp.layer_verts[0], file_name="shell_verts", directory=grp.dir)
+                write_off_verts(grp.net, grp.layer_verts[0], file_name="shell_verts", directory=grp.dir)
         else:
             if grp.verts is None:
                 grp.get_verts()
-            write_off_verts(grp.sys.net, verts=grp.verts, file_name="verts", directory=grp.dir)
+            write_off_verts(grp.net, verts=grp.verts, file_name="verts", directory=grp.dir)
     if surr_atoms or all_:
         if grp.layer_surfs is None:
             # Get the first layer
@@ -295,4 +295,4 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
 
     os.chdir("..")
     # Change back to the system directory
-    os.chdir(grp.sys.dir)
+    os.chdir(grp.sys.files['dir'])

@@ -15,8 +15,8 @@ def read_pdb(sys, file=None):
     :return: list of tuples of locations and radii
     """
     # Check to see if the file is provided and use the base file if not
-    if file is None and sys.base_file[-3:] == 'pdb':
-        file = sys.base_file
+    if file is None and sys.files['base_file'][-3:] == 'pdb':
+        file = sys.files['base_file']
     if path.exists(file) and file[0] == '.' and sys.vpy_dir is not None:
         file_address = sys.vpy_dir + file[1:]
     elif path.exists(file):
@@ -33,7 +33,7 @@ def read_pdb(sys, file=None):
     with open(file_address, 'r') as f:
         my_file = f.readlines()
     # Add the system name and reset the atoms and data lists
-    sys.name = path.basename(sys.base_file)[:-4]
+    sys.name = path.basename(sys.files['base_file'])[:-4]
     # Set up the atom and the data lists
     atoms, data, atom_count = [], [], 0
     sys.chains, sys.residues = [], []
@@ -130,7 +130,7 @@ def read_pdb(sys, file=None):
         else:
             data.append(my_file[i].split())
     # Set the atoms and the data
-    sys.atoms, sys.data = DataFrame(atoms), data
+    sys.spheres, sys.data = DataFrame(atoms), data
 
 
 def read_pdb_line(pdb_line):

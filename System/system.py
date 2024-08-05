@@ -17,9 +17,9 @@ from Visualize.GUIs.periodic_table_GUI import elements
 
 
 class System:
-    def __init__(self, file=None, atoms=None, verts_file=None, balls_file=None, network_file=None, index_file=None,
-                 frame_files=None, output_directory=None, gui=None, root_dir=None, print_actions=False, residues=None,
-                 chains=None, segments=None):
+    def __init__(self, file=None, files=None, spheres=None, verts_file=None, balls_file=None, network_file=None,
+                 index_file=None, frame_files=None, output_directory=None, gui=None, root_dir=None, print_actions=False,
+                 atoms=None, residues=None, chains=None, segments=None, groups=None):
         """
         Class used to import files of all types and return a System
         :param file: Base system file address
@@ -41,52 +41,58 @@ class System:
         self.group_names = []               # Group Names         :   List of names of user groups for to self.groups
 
         # Data
-        self.net = None                     # Network             :   Network object holding the primary network
-        self.net2 = None                    # Auxiliary Network   :   Additional network to the primary network
-        self.sub_nets = None                # Sub Networks        :   Holds the small networks to be combined
-        self.user_atoms = atoms             # User Atoms          :   User provided locations and radii
+        self.user_atoms = spheres             # User Atoms          :   User provided locations and radii
         self.type = 'mol'                   # Type of file        :   Holds the type of file loaded (mol, coarse, foam)
         self.foam_box = None                # Foam Retaining Box  :   Indicated in file the box that contains all balls
         self.foam_data = None               # Foam Data Info      :   Holds general information from the foam generation
 
         # Loadable objects
-        self.atoms = atoms                  # Atoms               :   List holding the atom objects
+        self.spheres = spheres              # Spheres             :   List holding the atom objects
+        self.atoms = atoms                  # Atoms
         self.residues = residues            # Residues            :   List of residues (lists of atoms)
         self.chains = chains                # Chains              :   List of the chains that make up the molecule
         self.segments = segments            # Segments            :   List of segments in the molecule
         self.sol = None                     # Solution            :   List of solution molecules (lists of atoms)
 
         # Settings
-        self.groups = []                    # Groups              :   List of groups in the system
-        self.ndxs = []                      # Indices             :   List of lists indices of atoms
+        self.groups = groups                # Groups              :   List of groups in the system
+        self.ndxs = None                    # Indices             :   List of indices used to create groups
         self.elements = elements            # Elements            :   List of elements with mass, number, radius, group
         self.radii = my_radii               # Radii               :   List of atomic radii
         self.special_radii = special_radii  # Special Radii       :   List of special radius situations. Helpful for gro
         self.decimals = None                # Decimals            :   Decimals setting for the whole system
         self.export_type = 'large'          # Export type         :   Holds the type of objects that come out
-        self.net_type = 'vor'               # Network Type        :   Holds the network type associated with the build
         self.cmnds = None                   # Commands            :   All of the input commands for the sytem to be run
 
         # Set up the file attributes
-        self.data = None                    # Data                :   Additional data provided by the base file
-        self.base_file = file               # Base file           :   Primary file address
-        self.ball_file = balls_file         # Ball file           :   Balls used to create vertices from Voronota
-        self.vert_file = verts_file         # Vertex file         :   Address to the vertices of the primary system
-        self.net_file = network_file        # Network files       :   Network files for multiple frames
-        self.ndx_file = index_file          # Index file          :   File addresses for index file in GROMACS format
-        self.frame_files = frame_files      # Frame files         :   Files storing atom movements
-        self.dir = output_directory         # Output Directory    :   Output directory for the export files
-        self.vpy_dir = root_dir             # Vorpy Directory     :   Directory that vorpy is running out of
         self.max_atom_rad = 0               # Max atom rad        :   Largest radius of the system for reference
+        self.files = files                  # Files               :   Files dictionary referenced for
 
         # Gui
         self.gui = gui                      # GUI                 :   GUI Vorpy object that can be updated through sys
         self.print_actions = print_actions  # Print actions Bool  :   Tells the system to print or not
 
+        # Set the files
+        self.set_files(base_file=file, ball_file=balls_file, verts_file=verts_file, ndx_file=index_file,
+                       net_file=network_file, file_dir=output_directory, frame_files=frame_files, root_dir=root_dir)
+
         # # Initiate the system
         self.load_files()
 
         seterr(divide='ignore', invalid='ignore')
+
+    def set_files(self, base_file=None, ball_file=None, verts_file=None, net_file=None, ndx_file=None, file_dir=None,
+                  frame_files=None, root_dir=None):
+        # Set the defaults
+        defaults = {'base_file': base_file, 'ball_file': ball_file, 'verts_file': verts_file, 'net_file': net_file,
+                    'ndx_file': ndx_file, 'dir': file_dir, 'frame_files': frame_files, 'root_dir': root_dir}
+        # Set the files if they arent set yet
+        if self.files is None:
+            self.files = defaults
+        # Go through the files and see if they need to be set
+        for file in self.files:
+            if self.files[file] is None:
+                self.files[file] = defaults[file]
 
     def load_files(self):
         """
@@ -94,7 +100,7 @@ class System:
         """
 
         # Load the system
-        if self.base_file is not None:
+        if self.files['base_file'] is not None:
             self.load_sys()
         # elif self.user_atoms is not None:
         #     self.load_sys_atoms()
@@ -102,17 +108,19 @@ class System:
             return
 
         # Load the network
-        if self.net_file is not None:
+        if self.files['net_files'] is not None:
             self.load_net()
 
         # Load the index file
-        if self.ndx_file is not None:
+        if self.files['ndx_file'] is not None:
             self.load_ndx()
 
         # Get the name
         if self.type == 'foam':
             fd = self.foam_data
             self.name = self.foam_data
+
+        # Set the name for the system
         self.name = path.basename(self.base_file)[:-4]
 
     def load_sys(self, file=None):
@@ -123,43 +131,35 @@ class System:
         # If a file is given read the file and set the system attributes
         if file is not None:
             # Set the file
-            self.base_file = file
+            self.files['base_file'] = file
 
         # Set the name of the system
-        self.name = path.basename(self.base_file)[:-4]
+        self.name = path.basename(self.files['base_file'])[:-4]
 
         # Read PDB file
-        if self.base_file[-3:] == "pdb":
+        if self.files['base_file'][-3:] == "pdb":
             read_pdb(self)
 
         # Read CIF file
-        elif self.base_file[-3:] == "cif":
+        elif self.files['base_file'][-3:] == "cif":
             read_cif(self)
 
         # Read GRO file
-        elif self.base_file[-3:] == "gro":
+        elif self.files['base_file'][-3:] == "gro":
             read_gro(self)
 
         # Read MOL file
-        elif self.base_file[-3:] == "mol":
+        elif self.files['base_files'][-3:] == "mol":
             read_mol(self)
 
         # Name the system
         if self.name is None:
-            self.name = path.basename(self.base_file)[:-4]
-
-        # Make a group if no others are made
-        if self.groups is None:
-            self.groups = [Group(self, atoms=self.atoms)]
+            self.name = path.basename(self.files['base_file'])[:-4]
 
         # If the system wants its actions printed
         if self.print_actions:
             print("{} loaded - {} atoms, {} residues, {} chain{}, ".format(self.name, len(self.atoms),
                   len(self.residues), len(self.chains), 's' if len(self.chains) > 1 else ''))
-
-        # Set up the network
-        if self.net is None:
-            self.net = Network(self, self.atoms)
 
     def load_verts(self, file=None, vta_ball_file=None):
         """
@@ -170,10 +170,6 @@ class System:
         # Check for a loaded vertex file
         if file is not None:
             self.vert_file = file
-
-        # Check to see if the network has been created yet or not
-        if self.net is None:
-            self.net = Network(atoms=self.atoms, sys=self)
 
         # If just verts we are loading vorpy verts
         if vta_ball_file is None:
@@ -251,7 +247,7 @@ class System:
     #         self.atoms.append(Atom(location=random.rand(3)*2*dmax - dmax, radius=random.rand()*rmax, index=i))
 
     def print_info(self):
-        atoms_var = str(len(self.atoms)) + " Atoms"
+        atoms_var = str(len(self.spheres)) + " Atoms"
         resids_var = str(len(self.residues)) + " Residues"
         chains_var = str(len(self.chains)) + " Chains: " + ", ".join(["{} - {} atoms, {} residues"
                             .format(_.name, len(_.atoms), len(_.residues)) for _ in self.chains])
@@ -265,33 +261,8 @@ class System:
         Creates a group for the system
         """
         # Create the group
+        print("create group")
         self.groups.append(Group(sys=self, atoms=atoms, residues=residues, chains=chains))
-
-    def build_network(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
-                      calc_verts=None, my_group=None, print_actions=None, num_atoms_sub_net=1000, no_split=True,
-                      add_net_metrics=True, min_atom_split=1000):
-        """
-        Allows user to build the network from the system object.
-        """
-
-        # Check to see if a network exists
-        if self.net is None:
-            self.net = Network(self, atoms=self.atoms)
-        if net_type is None:
-            net_type = self.net.settings['net_type']
-        # Small networks and no split option
-        if len(my_group.atoms) < num_atoms_sub_net or no_split:
-            # Build the network
-            self.net.build(surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs,
-                           calc_verts=calc_verts, net_type=net_type, my_group=my_group, print_actions=print_actions)
-            self.net.metrics['splits'] = 1
-            if add_net_metrics:
-                add_metrics(self.net)
-        else:
-            split_net_slow(sys=self, surf_res=surf_res, max_vert=max_vert, box_size=box_size, build_surfs=build_surfs,
-                           net_type=net_type, my_group=my_group, print_actions=print_actions,
-                           num_atoms_sub_net=num_atoms_sub_net, add_net_metrics=add_net_metrics,
-                           min_atom_split=min_atom_split)
 
     def export_verts(self):
         """

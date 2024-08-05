@@ -8,7 +8,6 @@ from System.sys_funcs.calcs.surf import calc_surf_sa
 from System.sys_funcs.calcs.calcs import calc_tetra_vol
 
 
-
 # Putting a pause on this but should be much faster
 def build_surfs1(net):
     output = StringIO()
@@ -20,9 +19,9 @@ def build_surfs1(net):
         h, m, s = get_time(my_time)
         print("\rRun Time = {:2}:{:2}:{:.2f} - Process: building surfaces {:.2f} %                                 "
               .format(int(h), int(m), round(s, 2), min(100.0, 100 * round(i / len(net.surfs), 4))), end="")
-        arads = [net.atoms['rad'][_] for _ in surf['satoms']]
-        alocs = [net.atoms['loc'][_] for _ in surf['satoms']]
-        anums = [net.atoms['num'][_] for _ in surf['satoms']]
+        arads = [net.spheres['rad'][_] for _ in surf['satoms']]
+        alocs = [net.spheres['loc'][_] for _ in surf['satoms']]
+        anums = [net.spheres['num'][_] for _ in surf['satoms']]
         if arads[0] > arads[1]:
             arads, alocs, anums = [arads[1], arads[0]], [alocs[1], alocs[0]], [anums[1], anums[0]]
         my_surf = build_surf(alocs=alocs, arads=arads, epnts=[net.edges['points'][_] for _ in surf['sedges']],
@@ -35,7 +34,7 @@ def build_surfs1(net):
                    surf_tris])
 
         sa = calc_surf_sa(edges=[net.edges['points'][_] for _ in surf['sedges']], com=surf_com, tris=surf_tris,
-                                points=surf_points, flat=surf_flat)
+                          points=surf_points, flat=surf_flat)
         csv_writer.writerow([surf_points, surf_tris, surf_tri_curvs, surf_curv, surf_func, surf_com, surf_flat, sa,
                              {anums[0]: sv0, anums[1]: sv1}])
 
@@ -64,9 +63,9 @@ def build_surfs(net, store_points=True):
         h, m, s = get_time(my_time)
         print("\rRun Time = {:2}:{:2}:{:.2f} - Process: building surfaces {:.2f} %                                 "
               .format(int(h), int(m), round(s, 2), min(100.0, 100 * round(i / len(net.surfs), 4))), end="")
-        arads = [net.atoms['rad'][_] for _ in surf['satoms']]
-        alocs = [net.atoms['loc'][_] for _ in surf['satoms']]
-        anums = [net.atoms['num'][_] for _ in surf['satoms']]
+        arads = [net.spheres['rad'][_] for _ in surf['satoms']]
+        alocs = [net.spheres['loc'][_] for _ in surf['satoms']]
+        anums = [net.spheres['num'][_] for _ in surf['satoms']]
         if arads[0] > arads[1]:
             arads, alocs, anums = [arads[1], arads[0]], [alocs[1], alocs[0]], [anums[1], anums[0]]
         my_surf = build_surf(alocs=alocs, arads=arads, epnts=[net.edges['points'][_] for _ in surf['sedges']],

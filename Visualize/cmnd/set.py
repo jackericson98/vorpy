@@ -4,7 +4,7 @@ from System.Network.network import Network
 
 def sett(sys, usr_npt, vorpy2_set=False):
     """
-    Set the network parameters
+    Take in the user inputs and return the system, the group and the network settings
     :param vorpy2_set:
     :param sys: System object holding all values
     :param usr_npt:

@@ -9,14 +9,16 @@ def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
     :param group_resids: Whether to group together surrounding residues for layers, i.e. keep waters together
     :param build_surfs: To build the needed surfaces or not
     """
-    net = grp.sys.net
+
+    net = grp.net
     # Make sure that the group has atoms
-    if grp.atoms is None:
+    if grp.atms is None:
         return
     # Set up the layer surfs and layer atoms list variables
     counter = 0
-    grp.layer_atoms = [grp.atoms[:], []]
-    layer_atoms_ndxs = [grp.atoms[:], []]
+    grp.layer_atoms = [grp.atms[:], []]
+
+    layer_atoms_ndxs = [grp.atms[:], []]
     grp.layer_surfs = [[]]
     grp.layer_verts = [[]]
     grp.layer_edges = [[]]
@@ -25,10 +27,10 @@ def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
     while counter < max_layers:
         # Go through the atoms in the last layer
         for i in grp.layer_atoms[-2]:
-            atom = net.atoms.iloc[i]
+            atom = net.spheres.iloc[i]
             # Go through the surfaces in the atom's list of surfaces
             for j in atom['asurfs']:
-                surf = grp.sys.net.surfs.iloc[j]
+                surf = grp.net.surfs.iloc[j]
                 if j in grp.layer_surfs[-1] or (len(grp.layer_surfs) >= 2 and j in grp.layer_surfs[-2]):
                     continue
                 elif surf['satoms'][0] in layer_atoms_ndxs[-2] and surf['satoms'][1] in layer_atoms_ndxs[-2]:
@@ -61,7 +63,7 @@ def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
         # Check to see if the residues are supposed to stay together
         if group_resids:
             for my_atom in grp.layer_atoms[-1]:
-                atom = net.atoms.iloc[my_atom]
+                atom = net.spheres.iloc[my_atom]
                 if atom['res'] is not None:
                     # Get the atoms in the residue that are not already in the layer
                     for resid_atom in atom['res'].atoms:
@@ -70,7 +72,7 @@ def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
                             grp.layer_atoms[-1].append(resid_atom)
         # Get the surface area and volume for the layer
         for my_atom in grp.layer_atoms[-1]:
-            atom = net.atoms.iloc[my_atom]
+            atom = net.spheres.iloc[my_atom]
             # Add the volume to the current layer's volume
             grp.layer_info[-1][0] += atom['vol']
         # Get the surface area of the layer

@@ -13,7 +13,7 @@ import shutil
 def export_min1(sys):
     sys.exports(info=True)
     for group in sys.group:
-        group.dir = sys.dir + '/' + group.name
+        group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
         group.exports(info=True)
 
@@ -21,7 +21,7 @@ def export_min1(sys):
 def export_min2(sys):
     sys.exports(info=True, set_atoms=True, pbd=True, logs=True)
     for group in sys.groups:
-        group.dir = sys.dir + '/' + group.name
+        group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
         group.export(info=True, shell=True)
 
@@ -29,7 +29,7 @@ def export_min2(sys):
 def export_med(sys):
     sys.exports(pdb=True, set_atoms=True, info=True, network=True, logs=True)
     for group in sys.groups:
-        group.dir = sys.dir + '/' + group.name
+        group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
         group.exports(shell=True, info=True, edges=True, atoms=True)
 
@@ -37,22 +37,22 @@ def export_med(sys):
 def export_large(sys):
     sys.exports(pdb=True, set_atoms=True, info=True, logs=True, network=True)
     for group in sys.groups:
-        group.dir = sys.dir + '/' + group.name
+        group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
         group.exports(shell=True, info=True, edges=True, verts=True, atoms=True, surr_atoms=True)
         os.mkdir(group.dir + "/atoms")
-        write_atom_cells(sys.net, group.atoms, directory=group.dir + "/atoms")
+        write_atom_cells(group.net, group.atms, directory=group.dir + "/atoms")
 
 
 def export_all(sys):
     sys.exports(pdb=True, info=True, network=True, logs=True, set_atoms=True, all_verts=True, all_edges=True)
     for group in sys.groups:
-        group.dir = sys.dir + '/' + group.name
+        group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
         group.exports(atoms=True, shell=True, surfs=True, info=True, ext_atoms=True, sep_surfs=True, sep_edges=True,
                       sep_verts=True, verts=True, edges=True, surr_atoms=True)
-    os.mkdir(sys.dir + "/atoms")
-    write_atom_cells(sys.net, sys.net.atoms['num'], directory=sys.dir + "/atoms", verts=True, edges=True)
+    os.mkdir(sys.files['dir'] + "/atoms")
+    write_atom_cells(sys.net, sys.net.atoms['num'], directory=sys.files['dir'] + "/atoms", verts=True, edges=True)
 
 
 ################################################ Other Exports #########################################################
@@ -67,7 +67,7 @@ def other_exports(sys, usr_npt):
     """
     # If the first word is atom
     if usr_npt.lower() in {"a", "atoms"}:
-        write_atom_cells(sys.net.atoms['num'], sys.dir)
+        write_atom_cells(sys.net.atoms['num'], sys.files['dir'])
     # If the first word is logs
     elif usr_npt.lower() in {'logs', 'lgs'}:
         sys.exports(logs=True, pdb=True, set_atoms=True)
@@ -92,16 +92,16 @@ def set_sys_dir(sys, dir_name=None):
     """
 
     # Make sure a user_data path exists
-    if sys.vpy_dir is not None and not os.path.exists(sys.vpy_dir + "/Data/user_data"):
+    if sys.files['root_dir'] is not None and not os.path.exists(sys.files['root_dir'] + "/Data/user_data"):
         os.mkdir(sys.vpy_dir + "/Data/user_data")
-    elif sys.vpy_dir is None and not os.path.exists("./Data/user_data"):
+    elif sys.files['root_dir'] is None and not os.path.exists("./Data/user_data"):
         os.mkdir("./Data/user_data")
 
     # If no outer directory was specified use the directory outside the current one
     if dir_name is None:
-        if sys.vpy_dir is not None:
+        if sys.files['root_dir'] is not None:
 
-            dir_name = sys.vpy_dir + "/Data/user_data/" + sys.name
+            dir_name = sys.files['root_dir'] + "/Data/user_data/" + sys.name
         else:
             dir_name = os.getcwd() + "/Data/user_data/" + sys.name
     # Catch for existing directories. Keep trying out directories until one doesn't exist
@@ -121,7 +121,7 @@ def set_sys_dir(sys, dir_name=None):
         except FileExistsError:
             i += 1
     # Set the output directory for the system
-    sys.dir = dir_name + i_str
+    sys.files['dir'] = dir_name + i_str
 
 
 def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_network_object=False,
@@ -131,69 +131,70 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
         :return:
         """
     # Check to see if the pdb directory is suitable
-    if sys.dir is None:
+    if sys.files['dir'] is None:
         # if sys.base_file is not None and os.path.dirname(sys.base_file)[-9:] != 'test_data':
-        #     sys.dir = os.path.dirname(sys.base_file)
+        #     sys.files['dir'] = os.path.dirname(sys.base_file)
         # else:
         sys.set_output_directory()
     # If the information is requested, export it
     if info or all_:
-        if not os.path.exists(sys.dir + "/sys"):
-            os.mkdir(sys.dir + "/sys")
-        os.chdir(sys.dir + "/sys")
+        if not os.path.exists(sys.files['dir'] + "/sys"):
+            os.mkdir(sys.files['dir'] + "/sys")
+        os.chdir(sys.files['dir'] + "/sys")
         export_sys_info(sys)
     # Export the log file
     if logs or all_:
-        if not os.path.exists(sys.dir + "/sys"):
-            os.mkdir(sys.dir + "/sys")
-        os.chdir((sys.dir + "/sys"))
-        write_net_logs(sys.net)
+        if not os.path.exists(sys.files['dir'] + "/sys"):
+            os.mkdir(sys.files['dir'] + "/sys")
+        os.chdir((sys.files['dir'] + "/sys"))
+        write_net_logs([group.net for group in sys.groups], [group.name for group in sys.groups])
     if network or all_:
-        os.chdir(sys.dir)
+        os.chdir(sys.files['dir'])
         # Export the network
         sys.export_net()
     if pdb or all_:
-        if not os.path.exists(sys.dir + '/sys'):
-            os.mkdir(sys.dir + "/sys")
-        os.chdir(sys.dir + "/sys")
+        if not os.path.exists(sys.files['dir'] + '/sys'):
+            os.mkdir(sys.files['dir'] + "/sys")
+        os.chdir(sys.files['dir'] + "/sys")
         # Export a pdb file for the system
-        write_pdb([_ for i, _ in sys.net.atoms.iterrows()], sys.name, sys)
-        os.chdir(sys.dir)
+        write_pdb([_ for i, _ in sys.spheres.iterrows()], sys.name, sys)
+        os.chdir(sys.files['dir'])
     if surfaces or all_:
-        if not os.path.exists(sys.dir + '/surfs'):
-            os.mkdir(sys.dir + "/surfs")
+        if not os.path.exists(sys.files['dir'] + '/surfs'):
+            os.mkdir(sys.files['dir'] + "/surfs")
         # Export a pdb file for the system
         for surf in sys.net.surfs:
-            write_surfs(net=sys.net, surfs=[surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=sys.dir + "/surfs")
-        os.chdir(sys.dir)
+            write_surfs(net=sys.net, surfs=[surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=sys.files['dir'] + "/surfs")
+        os.chdir(sys.files['dir'])
     if edges or all_:
-        if not os.path.exists(sys.dir + '/edges'):
-            os.mkdir(sys.dir + "/edges")
+        if not os.path.exists(sys.files['dir'] + '/edges'):
+            os.mkdir(sys.files['dir'] + "/edges")
         # Export a pdb file for the system
         for i, edge in sys.net.edges.iterrows():
-            write_edges(net=sys.net, edges=[i], file_name="_".join([str(_) for _ in edge['eatoms']]), directory=sys.dir + "/edges")
-        os.chdir(sys.dir)
+            write_edges(net=sys.net, edges=[i], file_name="_".join([str(_) for _ in edge['eatoms']]), directory=sys.files['dir'] + "/edges")
+        os.chdir(sys.files['dir'])
     if verts or all_:
-        if not os.path.exists(sys.dir + '/verts'):
-            os.mkdir(sys.dir + "/verts")
+        if not os.path.exists(sys.files['dir'] + '/verts'):
+            os.mkdir(sys.files['dir'] + "/verts")
         # Export a pdb file for the system
         for i, vert in sys.net.verts.iterrows():
             write_off_verts(net=sys.net, verts=[i], file_name="_".join([str(_) for _ in vert['vatoms']]),
-                        directory=sys.dir + "/verts")
-        os.chdir(sys.dir)
+                        directory=sys.files['dir'] + "/verts")
+        os.chdir(sys.files['dir'])
     if (full_network_object or all_) and sys.net.build_surfs:
-        if not os.path.exists(sys.dir + '/sys'):
-            os.mkdir(sys.dir + "/sys")
+        if not os.path.exists(sys.files['dir'] + '/sys'):
+            os.mkdir(sys.files['dir'] + "/sys")
         # Export a full system
-        write_surfs(sys.net.surfs, "full_sys", directory=sys.dir + "/sys")
+        write_surfs(sys.net.surfs, "full_sys", directory=sys.files['dir'] + "/sys")
     # Write the alter atoms script
     if alter_atoms_script or all_:
-        if not os.path.exists(sys.dir + '/sys'):
-            os.mkdir(sys.dir + "/sys")
-        os.chdir(sys.dir + "/sys")
-        set_pymol_atoms(sys)
+        pass
+        # if not os.path.exists(sys.files['dir'] + '/sys'):
+        #     os.mkdir(sys.files['dir'] + "/sys")
+        # os.chdir(sys.files['dir'] + "/sys")
+        # set_pymol_atoms(sys)
     #
-    os.chdir(sys.dir)
+    os.chdir(sys.files['dir'])
 
 
 def set_pymol_atoms(sys, no_file=False):
@@ -207,12 +208,12 @@ def set_pymol_atoms(sys, no_file=False):
     if (sys.type == 'foam' or sys.type == 'coarse') and not no_file:
         # Get the directory for the base_file and copy the set atoms file
         try:
-            shutil.copyfile(path.dirname(sys.base_file) + '/set_atoms.pml', sys.dir + '/sys/set_atoms.pml')
+            shutil.copyfile(path.dirname(sys.base_file) + '/set_atoms.pml', sys.files['dir'] + '/sys/set_atoms.pml')
         except FileNotFoundError:
             set_pymol_atoms(sys, True)
         return
     # Check to see if the atoms in the system are all accounted for
-    for i, res in enumerate(sys.net.atoms['residue']):
+    for i, res in enumerate(sys.residues):
         if res not in sys.special_radii:
             sys.special_radii[res] = {sys.atoms['name'][i]: round(sys.atoms['rad'][i], 2)}
     # Create the file
@@ -250,7 +251,7 @@ def export_sys_info(sys):
         info.write("\n\n++++++++++++++++++++++++  Groups  +++++++++++++++++++++++++++++++\n\n")
         for group in sys.groups:
             # Write the group header
-            info.write("Group {} - {} atoms, {} residues, {} chains\n\n".format(group.name, len(group.atoms), len(group.residues), len(group.chains)))
+            info.write("Group {} - {} atoms, {} residues, {} chains\n\n".format(group.name, len(group.atms), len(group.rsds), len(group.chns)))
             # Write the group info
             info.write("  Volume = {}, Surface Area = {}\n\n\n".format(group.vol, group.sa))
 

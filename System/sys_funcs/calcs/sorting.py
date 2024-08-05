@@ -27,8 +27,7 @@ def box_search(loc):
     """
     Locates the sub box indices for a given location
     """
-    loc = np.array(loc)
-    return box_search_numba(loc, num_splits, np.array(box_verts))
+    return box_search_numba(np.array(loc), num_splits, np.array(box_verts))
 
 
 def get_atoms(cells, dist=0, cell_reach=0, my_atoms_matrix=None, my_sub_box_size=None, my_max_atom_rad=None):

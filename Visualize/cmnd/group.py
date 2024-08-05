@@ -25,9 +25,9 @@ def group(sys, usr_npt, bff=None):
         my_obj = get_obj(sys=sys, obj=usr_npt[0])
         my_ndx = get_ndx(sys=sys, obj=my_obj, ndx_npt=usr_npt[1])
     # Get the group information
-    obj_ndx = ['m', 'r', 'a', 'n'].index(my_obj)
-    obj_list = [sys.chains, sys.residues, sys.atoms, sys.ndxs][obj_ndx]
-    name_prfx = ['mol', 'resid', 'atom', 'ndx'][obj_ndx]
+    obj_ndx = ['c', 'r', 'a', 'n'].index(my_obj)
+    obj_list = [sys.chains, sys.residues, sys.spheres, sys.ndxs][obj_ndx]
+    name_prfx = ['chn', 'resid', 'atom', 'ndx'][obj_ndx]
     my_list, name = None, None
     # Get the slice and name of the group
     if len(my_ndx) == 1 and my_ndx[0] < len(obj_list):
@@ -45,5 +45,7 @@ def group(sys, usr_npt, bff=None):
     # Create the group
     npt_list = [None] * 4
     npt_list[obj_ndx] = my_list
-    my_group = Group(sys=sys, chains=npt_list[0], residues=npt_list[1], atoms=npt_list[2], name=name, bff=bff)
+    print()
+    my_group = Group(sys=sys, chains=npt_list[0], residues=npt_list[1], atoms=npt_list[2], spheres=sys.spheres,
+                     name=name, bff=bff)
     return my_group

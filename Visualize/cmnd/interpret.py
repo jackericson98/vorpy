@@ -19,7 +19,7 @@ def get_ndx(sys, obj, ndx_npt=None):
     elif obj == 'r':
         obj_list, obj_num = sys.residues, 1
     elif obj == 'a':
-        obj_list, obj_num = sys.atoms, 2
+        obj_list, obj_num = sys.spheres, 2
     elif obj == 'n':
         obj_list, obj_num = sys.ndxs, 3
     # Start the ndx checking loop

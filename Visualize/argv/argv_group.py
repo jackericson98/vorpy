@@ -4,12 +4,16 @@ from System.Group.group import Group
 
 
 def argv_group(my_sys, usr_npt, add_more=False, bff=None):
+    # Make sure that the the group list is not None
+    if my_sys.groups is None:
+        my_sys.groups = []
     # Check if a bff was specified
     if bff is not None and len(bff) >= 1:
         bff = group(sys=my_sys, usr_npt=bff[0])
-
+    # If the group is simple and we are just looking at no sol
     if len(usr_npt) == 0 or usr_npt[0][0] == 'ns':
         my_sys.groups.append(Group(sys=my_sys, chains=my_sys.chains, name="no_SOL"))
+    # if there is an input group
     else:
         for grouping in usr_npt:
             my_sys.groups.append(group(sys=my_sys, usr_npt=grouping, bff=bff))
