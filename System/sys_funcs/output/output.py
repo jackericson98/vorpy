@@ -163,8 +163,8 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
         if not os.path.exists(sys.files['dir'] + '/surfs'):
             os.mkdir(sys.files['dir'] + "/surfs")
         # Export a pdb file for the system
-        for surf in sys.net.surfs:
-            write_surfs(net=sys.net, surfs=[surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=sys.files['dir'] + "/surfs")
+            for surf in sys.net.surfs:
+                write_surfs(net=sys.net, surfs=[surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=sys.files['dir'] + "/surfs")
         os.chdir(sys.files['dir'])
     if edges or all_:
         if not os.path.exists(sys.files['dir'] + '/edges'):
@@ -179,7 +179,7 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
         # Export a pdb file for the system
         for i, vert in sys.net.verts.iterrows():
             write_off_verts(net=sys.net, verts=[i], file_name="_".join([str(_) for _ in vert['vatoms']]),
-                        directory=sys.files['dir'] + "/verts")
+                            directory=sys.files['dir'] + "/verts")
         os.chdir(sys.files['dir'])
     if (full_network_object or all_) and sys.net.build_surfs:
         if not os.path.exists(sys.files['dir'] + '/sys'):

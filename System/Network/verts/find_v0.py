@@ -80,9 +80,9 @@ def find_v0(alocs, arads, averts, max_vert, net_type, a0=None, group_atoms=None,
             circ[0].sort()
             # Try to create a vertex
             if net_type in ['del', 'pow']:
-                my_vert = find_site_container(circ[0], alocs=alocs, arads=arads, averts=averts, vert_ndxs=vert_ndxs,
-                                                 max_vert=max_vert, net_type=net_type, group_atoms=group_atoms,
-                                                 metrics=metrics)
+                my_vert = find_site_container(circ[0], locs=alocs, rads=arads, averts=averts, vert_ndxs=vert_ndxs,
+                                              max_vert=max_vert, net_type=net_type, group_atoms=group_atoms,
+                                              metrics=metrics)
             else:
 
                 my_vert, invalid_atoms = find_site(circ[0], alocs=alocs, arads=arads, averts=averts, vert_ndxs=vert_ndxs,

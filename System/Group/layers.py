@@ -27,7 +27,7 @@ def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
     while counter < max_layers:
         # Go through the atoms in the last layer
         for i in grp.layer_atoms[-2]:
-            atom = net.spheres.iloc[i]
+            atom = net.balls.iloc[i]
             # Go through the surfaces in the atom's list of surfaces
             for j in atom['asurfs']:
                 surf = grp.net.surfs.iloc[j]
@@ -63,7 +63,7 @@ def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
         # Check to see if the residues are supposed to stay together
         if group_resids:
             for my_atom in grp.layer_atoms[-1]:
-                atom = net.spheres.iloc[my_atom]
+                atom = net.balls.iloc[my_atom]
                 if atom['res'] is not None:
                     # Get the atoms in the residue that are not already in the layer
                     for resid_atom in atom['res'].atoms:
@@ -72,7 +72,7 @@ def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
                             grp.layer_atoms[-1].append(resid_atom)
         # Get the surface area and volume for the layer
         for my_atom in grp.layer_atoms[-1]:
-            atom = net.spheres.iloc[my_atom]
+            atom = net.balls.iloc[my_atom]
             # Add the volume to the current layer's volume
             grp.layer_info[-1][0] += atom['vol']
         # Get the surface area of the layer

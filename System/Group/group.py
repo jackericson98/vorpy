@@ -3,6 +3,7 @@ from System.Group.layers import get_layers
 from System.Group.sort import get_surfs, get_edges, get_verts, add_spheres
 from System.Group.export import group_exports
 from System.Network.network import Network
+from System.Network.split_net import split_net_slow
 from System.sys_funcs.calcs.sorting import ndx_search
 from System.sys_funcs.calcs.surf import calc_surf_sa
 from System.sys_funcs.output.net import add_metrics
@@ -11,7 +12,7 @@ import numpy as np
 
 class Group:
     """Group class. Used to hold selections of atoms and do analysis on it"""
-    def __init__(self, sys, spheres=None, group_ndxs=None, atoms=None, name=None, molecules=None, chains=None, residues=None, bff=None,
+    def __init__(self, sys, spheres=None, atoms=None, name=None, molecules=None, chains=None, residues=None, bff=None,
                  settings=None, build_net=False, surf_res=0.2, box_size=1.5, max_vert=40, build_type='all', net=None,
                  net_type='aw', surf_col='plasma', surf_scheme='curv', num_splits=None, print_metrics=True):
         # System attributes
@@ -22,11 +23,10 @@ class Group:
         # Network objects attributes
         self.net = net                  # Networks           :    List of Network type objects in the group
         self.spheres = spheres          # Spheres            :    List of all spheres to be able to pull from
-        self.group_ndxs = group_ndxs    # Group indexes      :    List of the indices that are included in the solve
+        self.ball_ndxs = []            # Group indexes      :    List of the indices that are included in the solve
         self.settings = settings        # Settings           :    List of network settings corresponding to the networks
 
         # Network object tracking attributes
-        self.atom_ndxs = []             # Atom indices       :    List of atom indices for checking against (sorted)
         self.vert_ndxs = []             # Vertex indices     :    Tracks the vertices in the group (sorted)
         self.edge_ndxs = []             # Edge indices       :    Tracks the edges in a group (sorted)
         self.surf_ndxs = []             # Surface indices    :    Atom indices of the surfaces associated with the group
@@ -132,9 +132,9 @@ class Group:
         Allows user to build the network from the system object.
         """
         if self.net is None:
-            self.net = Network(self, self.settings, spheres=self.sys.spheres)
+            self.net = Network(self, self.settings, balls=self.sys.spheres)
         # Small networks and no split option
-        if len(self.group_ndxs) < num_atoms_sub_net or no_split:
+        if len(self.ball_ndxs) < num_atoms_sub_net or no_split:
             # Build the network
             self.net.build()
             # Add the metrics
@@ -196,8 +196,8 @@ class Group:
         self.sa, self.vol, self.density = 0, 0, 0
         tot_atom_vol = 0
         # Get the volume of the group
-        for i in self.group_ndxs:
-            atom = self.net.spheres.iloc[i]
+        for i in self.ball_ndxs:
+            atom = self.net.balls.iloc[i]
             if not atom['complete']:
                 continue
             # Add the volume to that of the group

@@ -123,7 +123,7 @@ def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=
         os.chdir(directory)
     # Go through the atoms
     for i in atoms:
-        atom = net.spheres.iloc[i]
+        atom = net.balls.iloc[i]
         if not atom['complete']:
             continue
         # Check if the surfaces should be exported

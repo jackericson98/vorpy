@@ -15,7 +15,7 @@ from numpy import array, inf, cbrt, sqrt, pi
 
 class Network:
     """Network object. Graph that holds the elements of the Voronoi S-Network."""
-    def __init__(self, group, settings, spheres=None, verts=None, edges=None, surfs=None, sub_net=False, box=None,
+    def __init__(self, group, settings, balls=None, verts=None, edges=None, surfs=None, sub_net=False, box=None,
                  vta_verts=None):
 
         # Main network defining objects
@@ -24,7 +24,7 @@ class Network:
         self.settings = settings          # Settings          :    surf_res, surf_col, surf_schm, max_vert, net_type
 
         # Network element lists
-        self.spheres = spheres            # Spheres           :    List of atom objects
+        self.balls = balls              # Spheres           :    List of atom objects
         self.verts = verts                # Vertices          :    List of vertex objects
         self.vta_verts = vta_verts        # Voronota Vertices :    List of Voronota vertices
         self.edges = edges                # Edges             :    List of edge objects
@@ -95,15 +95,15 @@ class Network:
         sub-box locations for the atoms themselves
         """
         # Check that the length of the spheres list is big enough to make a vertex
-        if len(self.spheres) < 4:
+        if len(self.balls) < 4:
             return
         # Set the number of boxes to roughly 5x the number of atoms must be a cube for the of cells per row/column/aisle
         elif num_boxes is None:
-            n = int(0.5 * sqrt(len(self.spheres))) + 1
+            n = int(0.5 * sqrt(len(self.balls))) + 1
         else:
             n = int(cbrt(num_boxes)) + 1
         self.settings['num_splits'] = n
-        locs, rads = self.spheres['loc'], self.spheres['rad']
+        locs, rads = self.balls['loc'], self.balls['rad']
         # First get the box for the atoms to be sorted into
         self.calc_box(locs, rads)
         # Instantiate the grid structure of lists is locations representing a grid
@@ -131,7 +131,7 @@ class Network:
         # Get the number of rows columns and aisles
         self.box_max = n - 1, n - 1, n - 1
         # set the box data
-        self.spheres['box'] = my_boxes
+        self.balls['box'] = my_boxes
 
     def find_verts(self):
         """
@@ -143,9 +143,9 @@ class Network:
         """
         Connects the network using the functions in the build_net.py file
         """
-        my_lists = build(self.verts['vatoms'], self.verts['vloc'], self.verts['vdub'], len(self.spheres), self.start_time)
+        my_lists = build(self.verts['vatoms'], self.verts['vloc'], self.verts['vdub'], len(self.balls), self.start_time)
         atom_lists, vert_lists, edge_lists, surf_lists = my_lists
-        self.spheres['averts'], self.spheres['aedges'], self.spheres['asurfs'] = atom_lists['averts'], atom_lists['aedges'], \
+        self.balls['averts'], self.balls['aedges'], self.balls['asurfs'] = atom_lists['averts'], atom_lists['aedges'], \
             atom_lists['asurfs']
         self.verts['vedges'], self.verts['vsurfs'] = vert_lists['vedges'], vert_lists['vsurfs']
         self.edges = pd.DataFrame(edge_lists)
@@ -180,8 +180,8 @@ class Network:
         for i, edge in self.edges.iterrows():
             # Build the edge depending on if it is straight or not
             straight = True if self.settings['net_type'] in ['pow', 'flat', 'del'] else False
-            edge_points, edge_vals = build_edge(alocs=[array(self.spheres['loc'][_]) for _ in edge['eatoms']],
-                                                arads=[self.spheres['rad'][_] for _ in edge['eatoms']],
+            edge_points, edge_vals = build_edge(alocs=[array(self.balls['loc'][_]) for _ in edge['eatoms']],
+                                                arads=[self.balls['rad'][_] for _ in edge['eatoms']],
                                                 vlocs=[array(self.verts['vloc'][_]) for _ in edge['everts']],
                                                 res=self.settings['surf_res'], straight=straight)
             # Add them to the lists
@@ -204,9 +204,9 @@ class Network:
         # Set up the atoms' volumes surface areas, curvatures vars
         avols, asas, acurvs, acell = [], [], [], []
         # Go through each atom in the system and find the volume
-        for k, atom in self.spheres.iterrows():
+        for k, atom in self.balls.iterrows():
             # Get the percentage for printing
-            percentage = int(k / len(self.spheres['loc']) * 100)
+            percentage = int(k / len(self.balls['loc']) * 100)
             if len(atom['asurfs']) == 0:
                 avols.append(0)
                 asas.append(0)
@@ -241,7 +241,7 @@ class Network:
             h, m, s = get_time(my_time)
             print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                 "
                   .format(int(h), int(m), round(s, 2), percentage), end="")
-        self.spheres['vol'], self.spheres['sa'], self.spheres['curv'], self.spheres['complete'] = avols, asas, acurvs, acell
+        self.balls['vol'], self.balls['sa'], self.balls['curv'], self.balls['complete'] = avols, asas, acurvs, acell
         self.metrics['anal'] = time.perf_counter() - self.start_time - self.metrics['surf'] - self.metrics['con'] - self.metrics['vert']
 
     def build(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
@@ -306,4 +306,4 @@ class Network:
         self.metrics['tot'] = time.perf_counter() - self.start_time
         h, m, s = get_time(self.metrics['tot'])
         print("\rnetwork built - {} complete cells, {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
-              .format(len([_ for _ in self.spheres['complete'] if _]), len(self.verts), len(self.surfs), int(h), int(m), s, datetime.now()), end="")
+              .format(len([_ for _ in self.balls['complete'] if _]), len(self.verts), len(self.surfs), int(h), int(m), s, datetime.now()), end="")

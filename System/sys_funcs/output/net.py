@@ -51,7 +51,7 @@ def write_net_logs_single(net, net_name=None, round_to=3):
         # Write the column labels
         lg_fl.writerow(["index", "name", "volume", "surface area", "max curvature", 'complete', "neighbors"])
         # Go through the atoms in the system
-        for i, atom in net.spheres.iterrows():
+        for i, atom in net.balls.iterrows():
             if atom['sa'] == 0:
                 continue
             if atom['complete']:
@@ -177,7 +177,7 @@ def write_verts(net):
     with open(net.group.sys.name + "_verts.txt", 'w') as file:
         # Create a header for the vertices file
         file.write(net.group.sys.name + " Vertices - {} vertices, {} atoms, max vert = {}, Net type = {}\n"
-                   .format(len(net.verts['vatoms']), len(net.group.group_ndxs), max(net.verts['vrad']),
+                   .format(len(net.verts['vatoms']), len(net.group.ball_ndxs), max(net.verts['vrad']),
                            net.settings['net_type']))
         # Write the vertices
         for i, vert in net.verts.iterrows():
@@ -194,7 +194,7 @@ def add_metrics(net):
         metrics_file.write('\n{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}'
                            .format(net.group.sys.name,
                                    net.metrics['tot'],
-                                   len(net.spheres['num']),
+                                   len(net.balls['num']),
                                    len(net.verts['vatoms']),
                                    len(net.edges['eatoms']),
                                    len(net.surfs['satoms']),

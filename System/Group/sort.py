@@ -10,16 +10,15 @@ def add_spheres(grp, sphere_list):
     :return: The group will have the new atoms integrated
     """
     # Check to see if the index list has been instantiated
-    if grp.group_ndxs is None:
-        grp.group_ndxs = []
-    print("ehehe", sphere_list, grp.group_ndxs)
+    if grp.ball_ndxs is None:
+        grp.ball_ndxs = []
     # Go through the atom_list
     for sphere in sphere_list:
         # Get the atom's location
-        sphere_ndx = ndx_search(np.array(grp.group_ndxs), sphere)
+        sphere_ndx = ndx_search(np.array(grp.ball_ndxs), sphere)
         # Check to see if we have found this atom before
-        if sphere_ndx >= len(grp.group_ndxs) or grp.group_ndxs[sphere_ndx] != sphere:
-            grp.group_ndxs.insert(sphere_ndx, sphere)
+        if sphere_ndx >= len(grp.ball_ndxs) or grp.ball_ndxs[sphere_ndx] != sphere:
+            grp.ball_ndxs.insert(sphere_ndx, sphere)
             grp.atms.insert(sphere_ndx, sphere)
 
 
@@ -32,8 +31,8 @@ def get_surfs(grp):
     # Reset the surfaces lists
     grp.surfs, grp.surf_ndxs = [], []
     # Go through the atoms in the group
-    for i in grp.group_ndxs:
-        sphere = net.spheres.iloc[i]
+    for i in grp.ball_ndxs:
+        sphere = net.balls.iloc[i]
         # Go through the surfaces in the atoms list of surfaces
         for j in sphere['asurfs']:
             surf = net.surfs.iloc[j]
@@ -56,7 +55,7 @@ def get_edges(grp):
     # Go through the surfaces in the atoms list of surfaces
     for i, edge in grp.net.edges.iterrows():
         # Check that the edge shares an atom with the group
-        if len([0 for _ in edge['eatoms'] if _ in grp.atom_ndxs]) == 0:
+        if len([0 for _ in edge['eatoms'] if _ in grp.ball_ndxs]) == 0:
             continue
         # Get the index of the edge
         edge_ndx = ndx_search(grp.edge_ndxs, edge['eatoms'])
@@ -77,7 +76,7 @@ def get_verts(grp):
     # Go through the surfaces in the atoms list of surfaces
     for i, vert in grp.net.verts.iterrows():
         # Check that the edge shares an atom with the group
-        if len([0 for _ in vert['vatoms'] if _ in grp.atom_ndxs]) == 0:
+        if len([0 for _ in vert['vatoms'] if _ in grp.ball_ndxs]) == 0:
             continue
         # Get the index of the edge
         vert_ndx = ndx_search(grp.vert_ndxs, vert['vatoms'])
@@ -100,7 +99,7 @@ def get_iface(grp, bff=None):
     # Go through the atoms in the group
     for i in grp.atoms:
         # Check to see if the atom is in the bff's list of atoms
-        if i in grp.bff.atom_ndxs:
+        if i in grp.bff.group_ndxs:
             continue
         atom = grp.sys.net.iloc[i]
         # Go through the surfaces in the atom's list of surfaces
@@ -108,8 +107,8 @@ def get_iface(grp, bff=None):
             surf = grp.sys.net.surfs.iloc[j]
             iface_curvs.append(surf['curv'])
             # Check for an interface surf
-            if (surf['satoms'][0] in grp.atom_ndxs and surf['satoms'][1] in grp.bff.atom_ndxs) or \
-               (surf['satoms'][1] in grp.atom_ndxs and surf['satoms'][0] in grp.bff.atom_ndxs):
+            if (surf['satoms'][0] in grp.group_ndxs and surf['satoms'][1] in grp.bff.group_ndxs) or \
+               (surf['satoms'][1] in grp.group_ndxs and surf['satoms'][0] in grp.bff.group_ndxs):
                 # Get the other atom from the surface's atoms
                 other_atom = [_ for _ in surf['atoms'] if _ != i][0]
                 # Add the first atom to the group's list of interface atoms

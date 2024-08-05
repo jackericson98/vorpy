@@ -8,7 +8,7 @@ import numpy as np
 import time
 
 
-def find_site_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, net_type, vn_1=None, vn_1_loc=None,
+def find_site_container(edge_spheres, locs, rads, averts, vert_ndxs, max_vert, net_type, vn_1=None, vn_1_loc=None,
                         group_atoms=None, metrics=None, vn_1_rad=None, printing=False):
     """
     Cycles through larger and larger areas searching for
@@ -18,7 +18,7 @@ def find_site_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, n
 
     # If no vn_1 is provided set it to the edge_atoms
     if vn_1 is None:
-        vn_1 = edge_atoms
+        vn_1 = edge_spheres
 
     # Check if the edge contains a group atom, to see if the next atom needs to be checked or not
     # Start with check atoms as false if no group is defined
@@ -27,7 +27,7 @@ def find_site_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, n
         # If a group exists default to checking each atom
         check_atoms = True
         # Go through the edge atoms checking if they are in the group --> any vert found from another atom is included
-        for atom in edge_atoms:
+        for atom in edge_spheres:
             # Take the potential index of the atom in group
             my_index = bisect.bisect_left(group_atoms, atom)
             # If the index is in the list check if the atom matches the index's element
@@ -37,7 +37,7 @@ def find_site_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, n
                 break
 
     # Find the 3 boxes the edge atoms are in
-    my_boxes = [box_search(loc=alocs[edge_atoms[_]]) for _ in range(3)]
+    my_boxes = [box_search(loc=locs[edge_spheres[_]]) for _ in range(3)]
     # Gather the surrounding atoms or the entire list of atoms we could be comparing to
     surr_atoms = get_atoms(cells=my_boxes, dist=max_vert)
     # Se the initial vert size
@@ -46,11 +46,11 @@ def find_site_container(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, n
     while vert is None and mv_inc < max_vert:
         # Search for the vertx in the current range
         if net_type == 'aw':
-            vert, invalid_atoms = find_site_aw(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc, net_type,
+            vert, invalid_atoms = find_site_aw(edge_spheres, locs, rads, averts, vert_ndxs, max_vert, mv_inc, net_type,
                                                check_atoms, surr_atoms, my_boxes, invalid_atoms, vn_1,
                                                vn_1_loc, group_atoms=group_atoms, metrics=metrics, printing=printing)
         else:
-            vert, invalid_atoms = find_site_pd(edge_atoms, alocs, arads, averts, vert_ndxs, max_vert, mv_inc,
+            vert, invalid_atoms = find_site_pd(edge_spheres, locs, rads, averts, vert_ndxs, max_vert, mv_inc,
                                                net_type, check_atoms, surr_atoms, my_boxes, invalid_atoms, vn_1,
                                                vn_1_loc, group_atoms=group_atoms, metrics=metrics)
         # If a vertex is found exit the loop
