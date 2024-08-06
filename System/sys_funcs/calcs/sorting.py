@@ -30,7 +30,7 @@ def box_search(loc):
     return box_search_numba(np.array(loc), num_splits, np.array(box_verts))
 
 
-def get_atoms(cells, dist=0, cell_reach=0, my_atoms_matrix=None, my_sub_box_size=None, my_max_atom_rad=None):
+def get_balls(cells, dist=0, cell_reach=0, my_atoms_matrix=None, my_sub_box_size=None, my_max_atom_rad=None):
     """
     Takes in the cells and the number of additional cells to search and returns an atom list
     :param cells: The initial boxes in the network to stem from

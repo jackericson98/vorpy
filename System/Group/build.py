@@ -24,8 +24,8 @@ def build_surfs(grp, resolution=None):
         # Check if there is any sign of missing points or triangles
         if surf['points'] is None or surf['tris'] is None or len(surf['points']) <= 2 or len(surf['tris']) == 0:
             spoints, surf_tris, tri_curvs, surf_curv, sfunc, surf_com, flat = build_surf(
-                alocs=[grp.net.atoms['loc'][_] for _ in surf['satoms']],
-                arads=[grp.net.atoms['rad'][_] for _ in surf['satoms']],
+                locs=[grp.net.atoms['loc'][_] for _ in surf['satoms']],
+                rads=[grp.net.atoms['rad'][_] for _ in surf['satoms']],
                 epnts=[grp.net.edges['points'][_] for _ in surf['sedges']], res=grp.surf_res,
                 net_type=grp.net.type)
             # Set the value in sht dataframe

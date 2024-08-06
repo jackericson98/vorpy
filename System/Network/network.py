@@ -24,14 +24,14 @@ class Network:
         self.settings = settings          # Settings          :    surf_res, surf_col, surf_schm, max_vert, net_type
 
         # Network element lists
-        self.balls = balls              # Spheres           :    List of atom objects
+        self.balls = balls                # Spheres           :    List of atom objects
         self.verts = verts                # Vertices          :    List of vertex objects
         self.vta_verts = vta_verts        # Voronota Vertices :    List of Voronota vertices
         self.edges = edges                # Edges             :    List of edge objects
         self.surfs = surfs                # Surfaces          :    List of surface objects
 
         # Index tracking for network elements
-        self.atom_ndxs = []                # Atom indices     :    Atom visitation ledger for network building
+        self.ball_ndxs = []                # Ball indices     :    Atom visitation ledger for network building
         self.vert_ndxs = []                # Vert indices     :    Sorted atom indices defining all net verts
         self.edge_ndxs = []                # Edge indices     :    Sorted atom indices defining all net edges
         self.surf_ndxs = []                # Surf indices     :    Sorted atom indices defining all net surfs
@@ -42,7 +42,7 @@ class Network:
         self.vert_sub_boxes = None         # Vert Sub Boxes   :    Holds the vertices of the network by their location
         self.sub_box_size = None           # Sub box size     :    Holds the size of each sub box
         self.box_max = None                # Box maxes        :    number of x, y, z boxes or rows, columns, aisles
-        self.atoms_box = []                # Atoms box        :    min/max vals for the box containing the atoms
+        self.ball_box = []                 # Ball box         :    min/max vals for the box containing the atoms
 
         # Diagnostic variables
         self.start_time = time.perf_counter()
@@ -77,7 +77,7 @@ class Network:
             if r_box[i] == 0 or abs(r_box[i]) == inf:
                 r_box[i], min_vert[i], max_vert[i] = 4 * rads[0], locs[0][i], locs[0][i]
         # Set the atoms box value
-        atoms_box = [min_vert.tolist(), max_vert.tolist()]
+        ball_box = [min_vert.tolist(), max_vert.tolist()]
         # Set the new vertices to the x factor times the vector between them added to their complimentary vertices
         min_vert, max_vert = max_vert - r_box * box_size, min_vert + r_box * box_size
         # Return the list of array turned list vertices
@@ -85,9 +85,9 @@ class Network:
         # If the values are to be returned
         if return_val:
             return box
-        self.atoms_box, self.box = atoms_box, box
+        self.ball_box, self.box = ball_box, box
 
-    def sort_spheres(self, num_boxes=None):
+    def sort_balls(self, num_boxes=None):
         """
         Puts the atoms in the network in their respective grid sections
         :param num_boxes: The number of sub boxes the network is divided into
@@ -144,9 +144,9 @@ class Network:
         Connects the network using the functions in the build_net.py file
         """
         my_lists = build(self.verts['vatoms'], self.verts['vloc'], self.verts['vdub'], len(self.balls), self.start_time)
-        atom_lists, vert_lists, edge_lists, surf_lists = my_lists
-        self.balls['averts'], self.balls['aedges'], self.balls['asurfs'] = atom_lists['averts'], atom_lists['aedges'], \
-            atom_lists['asurfs']
+        ball_lists, vert_lists, edge_lists, surf_lists = my_lists
+        self.balls['averts'], self.balls['aedges'], self.balls['asurfs'] = ball_lists['averts'], ball_lists['aedges'], \
+            ball_lists['asurfs']
         self.verts['vedges'], self.verts['vsurfs'] = vert_lists['vedges'], vert_lists['vsurfs']
         self.edges = pd.DataFrame(edge_lists)
         self.surfs = pd.DataFrame(surf_lists)
@@ -180,8 +180,8 @@ class Network:
         for i, edge in self.edges.iterrows():
             # Build the edge depending on if it is straight or not
             straight = True if self.settings['net_type'] in ['pow', 'flat', 'del'] else False
-            edge_points, edge_vals = build_edge(alocs=[array(self.balls['loc'][_]) for _ in edge['eatoms']],
-                                                arads=[self.balls['rad'][_] for _ in edge['eatoms']],
+            edge_points, edge_vals = build_edge(locs=[array(self.balls['loc'][_]) for _ in edge['eatoms']],
+                                                rads=[self.balls['rad'][_] for _ in edge['eatoms']],
                                                 vlocs=[array(self.verts['vloc'][_]) for _ in edge['everts']],
                                                 res=self.settings['surf_res'], straight=straight)
             # Add them to the lists
@@ -202,46 +202,46 @@ class Network:
         Analyzes the output surfaces, cells and solute vertices for the network for later reference
         """
         # Set up the atoms' volumes surface areas, curvatures vars
-        avols, asas, acurvs, acell = [], [], [], []
+        b_vols, b_sas, b_curvs, b_cell = [], [], [], []
         # Go through each atom in the system and find the volume
-        for k, atom in self.balls.iterrows():
+        for k, ball in self.balls.iterrows():
             # Get the percentage for printing
             percentage = int(k / len(self.balls['loc']) * 100)
-            if len(atom['asurfs']) == 0:
-                avols.append(0)
-                asas.append(0)
-                acurvs.append(0)
-                acell.append(False)
+            if len(ball['asurfs']) == 0:
+                b_vols.append(0)
+                b_sas.append(0)
+                b_curvs.append(0)
+                b_cell.append(False)
                 continue
             # Calculate the surface area of the atom by summing the surface areas of all it's surfaces
-            asas.append(sum([self.surfs['sa'][_] for _ in atom['asurfs']]))
+            b_sas.append(sum([self.surfs['sa'][_] for _ in ball['asurfs']]))
             # Go through the atom's surfaces
-            acurvs.append(max([self.surfs['curv'][_] for _ in atom['asurfs']]))
+            b_curvs.append(max([self.surfs['curv'][_] for _ in ball['asurfs']]))
             # Calculate the volume of the atom by the previouslty stored volume data
-            avol = sum([self.surfs['vols'][_][atom['num']] for _ in atom['asurfs']])
+            b_vol = sum([self.surfs['vols'][_][ball['num']] for _ in ball['asurfs']])
             # Exclude atoms that have super large volumes (weird edge error)
-            bad_atom = False
-            if avol > 15 * 4/3 * atom['rad'] ** 3 * pi:
-                bad_atom = True
-            avols.append(avol)
+            bad_ball = False
+            if b_vol > 15 * 4/3 * ball['rad'] ** 3 * pi:
+                bad_ball = True
+            b_vols.append(b_vol)
             # Check for complete cells in the atoms
             complete = True
             # Go through each of the vertices in the in the atom
-            for vert in atom['averts']:
+            for vert in ball['averts']:
                 # Check the number of edges from the vertex that hold
-                if len([_ for _ in [self.edges['eatoms'][_] for _ in self.verts['vedges'][vert]] if k in _]) != 3 and not bad_atom:
+                if len([_ for _ in [self.edges['eatoms'][_] for _ in self.verts['vedges'][vert]] if k in _]) != 3 and not bad_ball:
                     complete = False
             # Additional catch for any atom that doesn't have the 181L number of network elements associated with it
-            if len(atom['averts']) < 3 or len(atom['aedges']) < 4 or len(atom['asurfs']) < 3:
+            if len(ball['averts']) < 3 or len(ball['aedges']) < 4 or len(ball['asurfs']) < 3:
                 complete = False
             # Add the complete designation for the cell
-            acell.append(complete)
+            b_cell.append(complete)
             # Print the actions
             my_time = time.perf_counter() - self.start_time
             h, m, s = get_time(my_time)
             print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                 "
                   .format(int(h), int(m), round(s, 2), percentage), end="")
-        self.balls['vol'], self.balls['sa'], self.balls['curv'], self.balls['complete'] = avols, asas, acurvs, acell
+        self.balls['vol'], self.balls['sa'], self.balls['curv'], self.balls['complete'] = b_vols, b_sas, b_curvs, b_cell
         self.metrics['anal'] = time.perf_counter() - self.start_time - self.metrics['surf'] - self.metrics['con'] - self.metrics['vert']
 
     def build(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
@@ -263,7 +263,7 @@ class Network:
         if self.settings['build_type'] == 'logs':
             limit_mem = True
         # Sort the atoms in the network
-        self.sort_spheres()
+        self.sort_balls()
         # Check to see if there are vertices loaded
         if self.group.sys.files['ball_file'] is None:
             # Find the vertices
@@ -271,12 +271,12 @@ class Network:
             # Check to see if there are vertices
             if self.verts is None or len(self.verts) == 0:
                 return
-        elif self.sys.ball_file != 'deez nuts':
+        elif self.group.sys.files['ball_file'] != 'deez nuts':
             self.metrics['vert'] = 0
             # Filter out the vertices that don't pertain to the group in question
             verts = []
             for i, vert in self.vta_verts.iterrows():
-                if any([True if _ in my_group.atoms else False for _ in vert['vatoms']]):
+                if any([True if _ in my_group.group_ndxs else False for _ in vert['vatoms']]):
                     verts.append(vert)
             self.verts = pd.DataFrame(verts)
         elif 'vdub' not in self.verts:
@@ -305,5 +305,7 @@ class Network:
         # Stop the timer and measure the time
         self.metrics['tot'] = time.perf_counter() - self.start_time
         h, m, s = get_time(self.metrics['tot'])
-        print("\rnetwork built - {} complete cells, {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
-              .format(len([_ for _ in self.balls['complete'] if _]), len(self.verts), len(self.surfs), int(h), int(m), s, datetime.now()), end="")
+        num_complete = len([_ for _ in self.balls['complete'] if _])
+        print("\rnetwork built - {} complete cell{}, {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
+              .format(num_complete, '' if num_complete == 1 else 's', len(self.verts), len(self.surfs), int(h), int(m),
+                      s, datetime.now()), end="")

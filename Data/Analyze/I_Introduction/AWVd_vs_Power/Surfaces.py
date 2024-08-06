@@ -106,7 +106,7 @@ my_verts = [calc_vert(ar([_[0] for _ in my_atoms]), ar([_[1] for _ in my_atoms])
 # Calculate the Edges
 edge_atoms = [[_ for _ in my_surf_atoms] + [my_vert_atoms[(i + 1) % 4]] for i in range(4)]
 my_edge_verts = [(my_verts[j], my_verts[(j + 1) % 4]) for j in range(4)]
-my_edges = [build_edge(alocs=ar([_[0] for _ in edge_atoms[i]]), arads=ar([_[1] for _ in edge_atoms[i]]),
+my_edges = [build_edge(locs=ar([_[0] for _ in edge_atoms[i]]), rads=ar([_[1] for _ in edge_atoms[i]]),
                        vlocs=ar([_[0] for _ in my_edge_verts[i]]), res=0.5) for i in range(4)]
 
 # Plot the edges and their atoms
@@ -118,7 +118,7 @@ my_edges = [build_edge(alocs=ar([_[0] for _ in edge_atoms[i]]), arads=ar([_[1] f
 #     plot_verts([_[0] for _ in my_edge_verts[i]], [_[1] for _ in my_edge_verts[i]], fig=fig, ax=ax, Show=True)
 
 # Calculate the surfaces
-my_surf = build_surf(alocs=[_[0] for _ in my_surf_atoms], arads=[_[1] for _ in my_surf_atoms],
+my_surf = build_surf(locs=[_[0] for _ in my_surf_atoms], rads=[_[1] for _ in my_surf_atoms],
                      epnts=[_[0] for _ in my_edges], res=res, net_type=net_type)
 
 # Plot everything

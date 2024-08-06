@@ -1,6 +1,6 @@
 import time
 import pandas as pd
-from System.sys_funcs.calcs.sorting import global_vars, box_search, get_atoms
+from System.sys_funcs.calcs.sorting import global_vars, box_search, get_balls
 from System.sys_funcs.calcs.calcs import calc_dist
 from System.Network.verts.find_verts import find_verts
 from System.sys_funcs.output.net import write_verts
@@ -15,8 +15,8 @@ def find_net_verts(net):
     # Create the group indices
     sphere_check_list = net.group.ball_ndxs.copy()
     # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
-    my_guuy = find_verts(alocs=net.balls['loc'].to_numpy(), arads=net.balls['rad'].to_numpy(),
-                         max_vert=net.settings['max_vert'], net_type=net.settings['net_type'], check_atoms=sphere_check_list,
+    my_guuy = find_verts(locs=net.balls['loc'].to_numpy(), rads=net.balls['rad'].to_numpy(),
+                         max_vert=net.settings['max_vert'], net_type=net.settings['net_type'], check_ndxs=sphere_check_list,
                          my_group=net.group.ball_ndxs, start_time=net.start_time, print_metrics=net.settings['print_metrics'],
                          vert_box=net.group.sys.foam_box)
     if my_guuy is not None:
@@ -27,7 +27,7 @@ def find_net_verts(net):
         for sphere in sphere_check_list:
             sphere_rad, sphere_loc = net.balls['rad'][sphere], net.balls['loc'][sphere]
             sphere_box = box_search(sphere_loc)
-            close_spheres = get_atoms(sphere_box, dist=net.group.sys.max_atom_rad - sphere_rad)
+            close_spheres = get_balls(sphere_box, dist=net.group.sys.max_atom_rad - sphere_rad)
             for sphere2 in close_spheres:
                 if calc_dist(sphere_loc, net.balls['loc'][sphere2]) < abs(net.balls['rad'][sphere2] - sphere_rad):
                     print("\nUh oh! Ball # {} is fully encapsulated by ball # {}! Skipping {}"
@@ -44,11 +44,11 @@ def find_net_verts(net):
     while len(sphere_check_list) > threshold:
         print("Atoms Disconnected: {}".format(sphere_check_list))
         a0 = sphere_check_list.pop()
-        my_guuy = find_verts(a0=a0, alocs=net.balls['loc'].to_numpy(), arads=net.balls['rad'].to_numpy(),
-                             max_vert=net.settings['max_vert'], net_type=net.settins['net_type'], check_atoms=sphere_check_list,
+        my_guuy = find_verts(b0=a0, locs=net.balls['loc'].to_numpy(), rads=net.balls['rad'].to_numpy(),
+                             max_vert=net.settings['max_vert'], net_type=net.settins['net_type'], check_ndxs=sphere_check_list,
                              my_group=net.group.ball_ndxs, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
                              vloc2s=vloc2s, vrad2s=vrad2s, start_time=net.start_time, print_metrics=print_metrics,
-                             vert_box=net.group.sys.foam_box, averts=averts)
+                             vert_box=net.group.sys.foam_box, b_verts=averts)
         if my_guuy is not None:
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
         if net.group.sys.type == 'foam' and len(sphere_check_list) <= 0.25 * len(net.atoms['loc']):

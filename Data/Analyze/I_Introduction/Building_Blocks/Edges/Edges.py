@@ -82,7 +82,7 @@ vert_atoms = [edge_atoms + [_] for _ in my_vert_atoms]
 my_verts = [calc_vert(ar([_[0] for _ in my_atoms]), ar([_[1] for _ in my_atoms])) for my_atoms in vert_atoms]
 
 # Calculate the Edge
-my_edge = build_edge(alocs=ar([_[0] for _ in edge_atoms]), arads=ar([_[1] for _ in edge_atoms]),
+my_edge = build_edge(locs=ar([_[0] for _ in edge_atoms]), rads=ar([_[1] for _ in edge_atoms]),
                      vlocs=ar([_[0] for _ in my_verts]), res=0.5)
 
 

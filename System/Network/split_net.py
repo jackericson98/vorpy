@@ -10,39 +10,39 @@ from System.sys_funcs.output.net import add_metrics
 
 
 def split_net(sys, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None, my_group=None,
-              print_actions=None, num_atoms_sub_net=100, add_net_metrics=True, min_atom_split=30):
+              print_actions=None, num_balls_sub_net=100, add_net_metrics=True, min_ball_split=30):
     # Sort the atoms in the main network
     sys.net.sort_atoms()
     # Calculate the group box
-    group_box = sys.net.calc_box([sys.atoms['loc'][_] for _ in my_group.atoms],
-                                 [sys.atoms['rad'][_] for _ in my_group.atoms], return_val=True, box_size=1.1)
+    group_box = sys.net.calc_box([sys.balls['loc'][_] for _ in my_group.group_ndxs],
+                                 [sys.balls['rad'][_] for _ in my_group.group_ndxs], return_val=True, box_size=1.1)
     # Get the sub boxes
-    sub_boxes = divide_box(group_box, round(len(my_group.atoms) / num_atoms_sub_net), c=1.2)
+    sub_boxes = divide_box(group_box, round(len(my_group.group_ndxs) / num_balls_sub_net), c=1.2)
     print('num splits', len(sub_boxes))
     # Check for a max_vert that isn't defined
     if max_vert is None:
         max_vert = sys.net.settings['max_vert']
 
     # Sort the atoms into their sub_boxes
-    atoms_lists = [[] for _ in range(len(sub_boxes))]
-    atom_locs = sys.atoms['loc']
+    balls_lists = [[] for _ in range(len(sub_boxes))]
+    ball_locs = sys.atoms['loc']
     # Loop through the atom locations and sort the atoms
-    for atom in my_group.atoms:
-        loc = atom_locs[atom]
+    for ball in my_group.group_ndxs:
+        loc = ball_locs[ball]
         # Loop through the sub boxes to find the placement of the atom
         for j, sub_box in enumerate(sub_boxes):
             if [sub_box[0][k] <= loc[k] <= sub_box[1][k] for k in range(3)] == [True, True, True]:
-                atoms_lists[j].append(atom)
+                balls_lists[j].append(ball)
     # If a list of atoms is too small add it to another
     skip_boxes = []
-    for i, atoms_list in enumerate(atoms_lists):
+    for i, balls_list in enumerate(balls_lists):
         # If no atoms exist nothing to deal with
-        if len(atoms_list) == 0:
+        if len(balls_list) == 0:
             skip_boxes.append(i)
             continue
-        if len(atoms_list) < min_atom_split:
+        if len(balls_list) < min_ball_split:
             # Get the com of the atoms to find the closes sub_box to add to
-            atoms_com = calc_com([atom_locs[_] for _ in atoms_list])
+            balls_com = calc_com([ball_locs[_] for _ in balls_list])
             min_dist = np.inf
             closest_sub_box = None
             for j, sub_box in enumerate(sub_boxes):
@@ -50,75 +50,75 @@ def split_net(sys, surf_res=None, max_vert=None, box_size=None, build_surfs=None
                 if j in skip_boxes or j == i:
                     continue
                 # Calculate the distance of the com of the sub_box from the atoms_com
-                my_dist = calc_dist(calc_com(sub_box), atoms_com)
+                my_dist = calc_dist(calc_com(sub_box), balls_com)
                 # Replace the variables if they are closer
                 if my_dist < min_dist:
                     closest_sub_box, min_dist = j, my_dist
             # Add the atoms to the new sub_box
-            atoms_lists[closest_sub_box] += atoms_list
+            balls_lists[closest_sub_box] += balls_list
             skip_boxes.append(i)
-    for i, atom_list in enumerate(atoms_lists):
+    for i, ball_list in enumerate(balls_lists):
         # Skip the boxes to be skipped
         if i in skip_boxes:
             continue
     # Instantiate the global variables
     global_vars(sys.net.sub_boxes, sys.net.box, sys.net.num_splits, sys.max_atom_rad, sys.net.sub_box_size)
-    vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = None, None, None, None, None, None, None
+    vert_ndxs, v_locs, v_rads, v_loc2s, v_rad2s, ball_nums, b_verts = None, None, None, None, None, None, None
     # Create the subnetworks
-    for i, atom_list in enumerate(atoms_lists):
+    for i, ball_list in enumerate(balls_lists):
         # Skip the boxes to be skipped
         if i in skip_boxes:
             continue
         # Get the atoms we are tying to find vertices for
-        check_atoms = [_ for _ in atom_list if _ in my_group.atoms]
-        atom_nums = check_atoms[:]
+        check_balls = [_ for _ in ball_list if _ in my_group.group_ndxs]
+        ball_nums = check_balls[:]
         # Find the initial vertices for the vertex group
-        init_verts = find_verts(alocs=sys.atoms['loc'].to_numpy(), arads=sys.atoms['rad'].to_numpy(),
-                                max_vert=max_vert, net_type=net_type, check_atoms=check_atoms,
-                                my_group=atom_nums, start_time=sys.net.start_time,
-                                vert_box=sys.foam_box, group_box=sub_boxes[i], vert_ndxs=vert_ndxs, vlocs=vlocs,
-                                vrads=vrads, vloc2s=vloc2s, vrad2s=vrad2s, averts=averts,
-                                tot_atom_num=len(my_group.atoms))
+        init_verts = find_verts(locs=sys.balls['loc'].to_numpy(), rads=sys.balls['rad'].to_numpy(),
+                                max_vert=max_vert, net_type=net_type, check_ndxs=check_balls,
+                                my_group=ball_nums, start_time=sys.net.start_time,
+                                vert_box=sys.foam_box, group_box=sub_boxes[i], vert_ndxs=vert_ndxs, vlocs=v_locs,
+                                vrads=v_rads, vloc2s=v_loc2s, vrad2s=v_rad2s, b_verts=b_verts,
+                                tot_ball_num=len(my_group.group_ndxs))
         # Check to see if find_verts fails
         if init_verts is not None:
-            vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = init_verts
+            vert_ndxs, v_locs, v_rads, v_loc2s, v_rad2s, ball_nums, b_verts = init_verts
 
         # Check for disconnects in the network
-        while len(atom_nums) > 0:
+        while len(ball_nums) > 0:
             # Grab the initial atom for the next search
-            a0 = atom_nums.pop()
+            b0 = ball_nums.pop()
 
             # Find verts again
-            more_verts = find_verts(a0=a0, alocs=sys.atoms['loc'].to_numpy(), arads=sys.atoms['rad'].to_numpy(),
-                                    max_vert=max_vert, net_type=net_type, check_atoms=atom_nums,
-                                    my_group=check_atoms, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
-                                    vloc2s=vloc2s, vrad2s=vrad2s, start_time=sys.net.start_time,
-                                    vert_box=sys.foam_box, averts=averts, group_box=sub_boxes[i],
-                                    tot_atom_num=len(my_group.atoms))
+            more_verts = find_verts(b0=b0, locs=sys.balls['loc'].to_numpy(), rads=sys.balls['rad'].to_numpy(),
+                                    max_vert=max_vert, net_type=net_type, check_ndxs=ball_nums,
+                                    my_group=check_balls, vert_ndxs=vert_ndxs, vlocs=v_locs, vrads=v_rads,
+                                    vloc2s=v_loc2s, vrad2s=v_rad2s, start_time=sys.net.start_time,
+                                    vert_box=sys.foam_box, b_verts=b_verts, group_box=sub_boxes[i],
+                                    tot_ball_num=len(my_group.atoms))
             # Check to see if find_verts fails
             if more_verts is not None:
-                vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = more_verts
+                vert_ndxs, v_locs, v_rads, v_loc2s, v_rad2s, ball_nums, b_verts = more_verts
             # Every sphere needs a vert
-            if sys.type == 'foam' and len(atom_nums) <= 0.25 * len(sys.atoms['loc']):
+            if sys.type == 'foam' and len(ball_nums) <= 0.25 * len(sys.atoms['loc']):
                 break
     # Create the doublets list
     doublets = [0 for _ in range(len(vert_ndxs))]
     # Incorporate the doublets into the vlocs, vatoms, vrads lists and lose the vloc2s and vrad2s
     i = 0
-    while i < len(vlocs):
+    while i < len(v_locs):
         # Check for doubletness
-        if vrad2s[i] is not None:
+        if v_rad2s[i] is not None:
             # Insert the relevant information into their respective lists
             vert_ndxs.insert(i + 1, vert_ndxs[i])
-            vlocs.insert(i + 1, vloc2s[i])
-            vrads.insert(i + 1, vrad2s[i])
+            v_locs.insert(i + 1, v_loc2s[i])
+            v_rads.insert(i + 1, v_rad2s[i])
             doublets.insert(i + 1, 1)
             # Preserve the relational aspects of vrad2s and vloc2s
-            vrad2s.insert(i + 1, None)
-            vloc2s.insert(i + 1, [None, None, None])
+            v_rad2s.insert(i + 1, None)
+            v_loc2s.insert(i + 1, [None, None, None])
         i += 1
     # Make the dataframe
-    sys.net.verts = pd.DataFrame({"vatoms": vert_ndxs, 'vloc': vlocs, 'vrad': vrads, 'vdub': doublets})
+    sys.net.verts = pd.DataFrame({"vatoms": vert_ndxs, 'vloc': v_locs, 'vrad': v_rads, 'vdub': doublets})
     # Clear the print statement
     if sys.print_actions:
         print("\r                                                                  ", end="")
@@ -203,12 +203,12 @@ def split_net_slow(sys, surf_res=None, max_vert=None, box_size=None, build_surfs
             check_atoms = [_ for _ in atom_list if _ in my_group.atoms]
             atom_nums = check_atoms[:]
             # Find the initial vertices for the vertex group
-            init_verts = find_verts(alocs=sys.atoms['loc'].to_numpy(), arads=sys.atoms['rad'].to_numpy(),
-                                    max_vert=max_vert, net_type=net_type, check_atoms=check_atoms,
+            init_verts = find_verts(locs=sys.atoms['loc'].to_numpy(), rads=sys.atoms['rad'].to_numpy(),
+                                    max_vert=max_vert, net_type=net_type, check_ndxs=check_atoms,
                                     my_group=atom_nums, start_time=sys.net.start_time,
                                     vert_box=sys.foam_box, group_box=sub_boxes[i], vert_ndxs=vert_ndxs, vlocs=vlocs,
-                                    vrads=vrads, vloc2s=vloc2s, vrad2s=vrad2s, averts=averts,
-                                    tot_atom_num=len(my_group.atoms), start_vert=count, split=True)
+                                    vrads=vrads, vloc2s=vloc2s, vrad2s=vrad2s, b_verts=averts,
+                                    tot_ball_num=len(my_group.atoms), start_vert=count, split=True)
             # Check to see if find_verts fails
             if init_verts is not None:
                 vert_ndxs, vlocs, vrads, vloc2s, vrad2s, atom_nums, averts = init_verts
@@ -219,12 +219,12 @@ def split_net_slow(sys, surf_res=None, max_vert=None, box_size=None, build_surfs
                 a0 = atom_nums.pop()
 
                 # Find verts again
-                more_verts = find_verts(a0=a0, alocs=sys.atoms['loc'].to_numpy(), arads=sys.atoms['rad'].to_numpy(),
-                                        max_vert=max_vert, net_type=net_type, check_atoms=atom_nums,
+                more_verts = find_verts(b0=a0, locs=sys.atoms['loc'].to_numpy(), rads=sys.atoms['rad'].to_numpy(),
+                                        max_vert=max_vert, net_type=net_type, check_ndxs=atom_nums,
                                         my_group=check_atoms, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
                                         vloc2s=vloc2s, vrad2s=vrad2s, start_time=sys.net.start_time,
-                                        vert_box=sys.foam_box, averts=averts, group_box=sub_boxes[i],
-                                        tot_atom_num=len(my_group.atoms), printing=True if i == 5 else False,
+                                        vert_box=sys.foam_box, b_verts=averts, group_box=sub_boxes[i],
+                                        tot_ball_num=len(my_group.atoms), printing=True if i == 5 else False,
                                         start_vert=count, split=True)
                 # Check to see if find_verts fails
                 if more_verts is not None:

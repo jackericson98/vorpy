@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def build_perimeter(alocs, arads, epnts, net_type='aw'):
+def build_perimeter(locs, rads, epnts, net_type='aw'):
     """
     Sorts the edges of the surface to create a list of points in order around the perimeter
     :param net_type:
@@ -37,16 +37,16 @@ def build_perimeter(alocs, arads, epnts, net_type='aw'):
             perimeter += my_edge_points
         else:  # Reverse order
             perimeter += my_edge_points[::-1]
-    d = np.sqrt(sum(np.square(np.array(alocs[1]) - np.array(alocs[0]))))
+    d = np.sqrt(sum(np.square(np.array(locs[1]) - np.array(locs[0]))))
     # Get the center of the surface
-    r = np.array(alocs[1]) - np.array(alocs[0])
+    r = np.array(locs[1]) - np.array(locs[0])
     r = [_ if _ != 0 else 0.0001 for _ in r]
     surf_norm = r / np.linalg.norm(r)
     surf_loc = None
     if net_type == 'aw':
-        surf_loc = np.array(alocs[0]) + (arads[0] + 0.5 * (d - (arads[0] + arads[1]))) * surf_norm
+        surf_loc = np.array(locs[0]) + (rads[0] + 0.5 * (d - (rads[0] + rads[1]))) * surf_norm
     elif net_type == 'del':
-        surf_loc = np.array(alocs[0]) + 0.5 * d * surf_norm
+        surf_loc = np.array(locs[0]) + 0.5 * d * surf_norm
     elif net_type == 'pow':
-        surf_loc = np.array(alocs[0]) + 0.5 * (surf_norm ** 2 + arads[0] ** 2 - arads[1] ** 2) / surf_norm
+        surf_loc = np.array(locs[0]) + 0.5 * (surf_norm ** 2 + rads[0] ** 2 - rads[1] ** 2) / surf_norm
     return perimeter, surf_loc, surf_norm

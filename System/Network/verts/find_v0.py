@@ -1,5 +1,5 @@
 from System.sys_funcs.calcs.calcs import calc_com, calc_dist
-from System.sys_funcs.calcs.sorting import box_search, get_atoms
+from System.sys_funcs.calcs.sorting import box_search, get_balls
 from System.sys_funcs.calcs.circle import calc_circ
 from System.Network.verts.find_site.slow import find_site
 from System.Network.verts.find_site.fast import find_site_container
@@ -7,7 +7,7 @@ from System.Network.verts.verify_site import verify_site
 import numpy as np
 
 
-def find_v0(alocs, arads, averts, max_vert, net_type, a0=None, group_atoms=None, metrics=None, vert_ndxs=None,
+def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, metrics=None, vert_ndxs=None,
             group_box=None):
     """
     Finds v0 using the atom finding functions to find a real verified site
@@ -15,64 +15,64 @@ def find_v0(alocs, arads, averts, max_vert, net_type, a0=None, group_atoms=None,
     if vert_ndxs is None:
         vert_ndxs = []
     # Check to see if we need a group atom's box
-    if a0 is not None:
-        my_box = box_search(alocs[a0])
+    if b0 is not None:
+        my_box = box_search(locs[b0])
     elif group_box is not None:
         # Get the center of the group_box
         my_box = box_search([0.5 * abs(group_box[1][i] - group_box[0][i]) + group_box[0][i] for i in range(3)])
-    elif group_atoms is not None:
+    elif group_ndxs is not None:
         # Get the box for the
-        my_box = box_search(alocs[group_atoms[int(len(group_atoms) / 2)]])
+        my_box = box_search(locs[group_ndxs[int(len(group_ndxs) / 2)]])
     else:
         # Find the middle sub_box of the set of boxes and
-        my_box = box_search(alocs[int(len(alocs) / 2)])
+        my_box = box_search(locs[int(len(locs) / 2)])
 
     # If we still haven't found an a0
-    if a0 is None:
+    if b0 is None:
         # Reset the a0 variables
-        a0s = []
+        b0s = []
         inc = 0
         # Keep searching boxes until we find an atom
-        while len(a0s) < 1:
-            a0s = get_atoms([my_box], inc)
-            if group_atoms is not None:
-                a0s = [_ for _ in a0s if _ in group_atoms and len(averts[_]) == 0]
+        while len(b0s) < 1:
+            b0s = get_balls([my_box], inc)
+            if group_ndxs is not None:
+                b0s = [_ for _ in b0s if _ in group_ndxs and len(b_verts[_]) == 0]
             inc += 1
         # Pull an atom from the atoms list
-        a0 = a0s[0]
+        b0 = b0s[0]
     # Reset the a1 variables
-    a1s = []
+    b1s = []
     inc = 0
     # Get the 5 closest atoms to a0
-    while len(a1s) < 5:
-        a1s = get_atoms([my_box], inc)
+    while len(b1s) < 5:
+        b1s = get_balls([my_box], inc)
         inc += 1
     # Sort the a1s
-    a1_dists = [calc_dist(alocs[a1], alocs[a0]) - (arads[a0] + arads[a1]) for a1 in a1s]
-    _, a1s_sorted = zip(*sorted(zip(a1_dists, a1s), key=lambda x: x[0]))
-    a1s_sorted = [_ for _ in a1s_sorted if _ != a0][:5]
+    b1_dists = [calc_dist(locs[b1], locs[b0]) - (rads[b0] + rads[b1]) for b1 in b1s]
+    _, b1s_sorted = zip(*sorted(zip(b1_dists, b1s), key=lambda x: x[0]))
+    b1s_sorted = [_ for _ in b1s_sorted if _ != b0][:5]
     # Set up the a2s lists
-    a2s, j = [], 0
+    b2s, j = [], 0
     # Check the a1s for verifiable
-    while len(a1s_sorted) > 0:
+    while len(b1s_sorted) > 0:
         # Get the a1
-        a1 = a1s_sorted.pop(0)
+        b1 = b1s_sorted.pop(0)
         # Find the center of mass for a0 and a1 locations
-        a0_a1_com = calc_com([alocs[a0], alocs[a1]])
+        b0_b1_com = calc_com([locs[b0], locs[b1]])
 
         inc = 0
         # Find a2s near a0 and a1
-        while len(a2s) < 5:
-            a2s = get_atoms(box_search(a0_a1_com), inc)
+        while len(b2s) < 5:
+            b2s = get_balls(box_search(b0_b1_com), inc)
             inc += 1
-        a2s = [_ for _ in a2s if _ not in {a0, a1}]
+        b2s = [_ for _ in b2s if _ not in {b0, b1}]
 
         my_circs = []
         # Check each of the combinations for this a1
-        for a2 in a2s:
+        for b2 in b2s:
             # Set up the circle
-            circle = [a0, a1, a2]
-            circy_werky = (circle, calc_circ(*[alocs[_] for _ in circle], *[arads[_] for _ in circle]))
+            circle = [b0, b1, b2]
+            circy_werky = (circle, calc_circ(*[locs[_] for _ in circle], *[rads[_] for _ in circle]))
             if circy_werky[1] is not None:
                 my_circs.append(circy_werky)
         my_circs.sort(key=lambda x: abs(x[1][1]))
@@ -80,14 +80,14 @@ def find_v0(alocs, arads, averts, max_vert, net_type, a0=None, group_atoms=None,
             circ[0].sort()
             # Try to create a vertex
             if net_type in ['del', 'pow']:
-                my_vert = find_site_container(circ[0], locs=alocs, rads=arads, averts=averts, vert_ndxs=vert_ndxs,
-                                              max_vert=max_vert, net_type=net_type, group_atoms=group_atoms,
+                my_vert = find_site_container(circ[0], locs=locs, rads=rads, b_verts=b_verts, vert_ndxs=vert_ndxs,
+                                              max_vert=max_vert, net_type=net_type, group_ndxs=group_ndxs,
                                               metrics=metrics)
             else:
 
-                my_vert, invalid_atoms = find_site(circ[0], alocs=alocs, arads=arads, averts=averts, vert_ndxs=vert_ndxs,
+                my_vert, invalid_atoms = find_site(circ[0], locs=locs, rads=rads, b_verts=b_verts, vert_ndxs=vert_ndxs,
                                                    max_vert=max_vert, mv_inc=max_vert, net_type=net_type,
-                                                   group_atoms=group_atoms, metrics=metrics, check_atoms=False)
+                                                   group_ndxs=group_ndxs, metrics=metrics, check_balls=False)
             # Check for a real site that is not a doublet
             if my_vert is not None:
                 if net_type == 'aw':
@@ -122,7 +122,7 @@ def find_v0_old(net, alocs, arads, a0=None, group_atoms=None):
         inc = 0
         # Keep grabbing atoms until we have enough to get the current a0 increment
         while len(a0s) < 5:
-            a0s = get_atoms([my_box], inc)
+            a0s = get_balls([my_box], inc)
             inc += 1
         # Pull an atom from the atoms list
         a0 = a0s[0]
@@ -130,7 +130,7 @@ def find_v0_old(net, alocs, arads, a0=None, group_atoms=None):
     inc = 0
     # Get the 5 closest atoms to a0
     while len(a1s) < 5:
-        a1s = get_atoms([my_box], inc)
+        a1s = get_balls([my_box], inc)
         inc += 1
     # Set up the a2s lists
     a2s, j = [], 0
@@ -146,7 +146,7 @@ def find_v0_old(net, alocs, arads, a0=None, group_atoms=None):
             a2s[j] = [i for i in range(len(alocs))]
         else:
             while len(a2s[j]) < 20:
-                a2s[j] = get_atoms([my_box], inc)
+                a2s[j] = get_balls([my_box], inc)
                 inc += 1
         # Set up verified circles list for this a1
         verified_circles = []
@@ -164,7 +164,7 @@ def find_v0_old(net, alocs, arads, a0=None, group_atoms=None):
         # Try to make a verified v0 site with the verified circles
         for circle in verified_circles:
             # Try to create a vertex
-            my_vert = find_site(net, circle, group_atoms=group_atoms)
+            my_vert = find_site(net, circle, group_ndxs=group_atoms)
             # Check for a real site
             if my_vert is not None and my_vert[0].loc is not None:
                 return my_vert[0]

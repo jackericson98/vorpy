@@ -116,7 +116,7 @@ Tests the atom sorting schemes for a loaded network
 
 def test_net_calc_box(pdb_sys_vor):
     assert pdb_sys_vor.net.box == [[4.754, 2.664, -5.988], [36.891, 38.341, 25.568]]
-    assert pdb_sys_vor.net.atoms_box == [[10.11, 8.61, -0.729], [31.535, 32.395, 20.309]]
+    assert pdb_sys_vor.net.ball_box == [[10.11, 8.61, -0.729], [31.535, 32.395, 20.309]]
 
 
 def test_net_sort_atoms(pdb_sys_vor):

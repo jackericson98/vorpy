@@ -1,23 +1,22 @@
 import numba.core.errors
-
 from System.Network.surfs.triangulate import tri_within
 from System.sys_funcs.calcs.calcs import calc_angle_jit, calc_angle
 import numpy as np
 
 
-def calc_surf_point(alocs, point, func):
+def calc_surf_point(locs, point, func):
     """
     Projects a vector through the reference point and the smaller surface atom's center onto the surface
     :param func: Implicit function for the hyperboloid surface between the atoms
-    :param a0_loc: Smaller atom's location used for projection onto the surface
+    :param locs: Smaller atom's location used for projection onto the surface
     :param point: Reference point to be projected through
     :return: The point on the surface
     """
     # Set up the unit vector
-    vi = np.array(point) - np.array(alocs[0])
+    vi = np.array(point) - np.array(locs[0])
     vn = vi / np.linalg.norm(vi)
     # Set the atom's location as the root
-    vi = alocs[0]
+    vi = locs[0]
 
     # Solve the surface function's equation for the vector through the given point from the atom's location:
 
@@ -41,12 +40,12 @@ def calc_surf_point(alocs, point, func):
             return vi + roots[0] * vn
         # If the smallest root is negative (i.e. incorrect) return the other root
         if min(roots) < 0:
-            return alocs[0] + vn * max(roots)
+            return locs[0] + vn * max(roots)
         # Otherwise, return the smaller of the two
-        return alocs[0] + min(roots) * vn
+        return locs[0] + min(roots) * vn
 
 
-def find_next_point(alocs, func, pn_1, end, d_theta):
+def find_next_point(locs, func, pn_1, end, d_theta):
     """
     Finds the next point along the given path by projecting a reference point onto the surface
     :param func: Surface's function coefficients
@@ -59,7 +58,7 @@ def find_next_point(alocs, func, pn_1, end, d_theta):
     # Get the first angle
     a0 = d_theta
     # Get the smaller atom's location
-    pa = alocs[0]
+    pa = locs[0]
     # Get the location of point b
     pb = np.array(pn_1)
     # Get the distance between pb and pa
@@ -83,10 +82,10 @@ def find_next_point(alocs, func, pn_1, end, d_theta):
     # Find the next projection point by adding the vector with 'a' magnitude and rn_hat direction
     pc = pb + rn_hat * s0
     # Calculate where the point intercepts the surface and return it
-    return calc_surf_point(alocs, point=pc, func=func)
+    return calc_surf_point(locs, point=pc, func=func)
 
 
-def fill_mesh(alocs, arads, func, surf_loc, surf_norm, perimeter, com, res, flat):
+def fill_mesh(locs, rads, func, surf_loc, surf_norm, perimeter, com, res, flat):
     """
     Works inward from a set of perimeter points toward a center point filling in equally spaced points
     :param surf: Surface object being filled
@@ -96,7 +95,7 @@ def fill_mesh(alocs, arads, func, surf_loc, surf_norm, perimeter, com, res, flat
     paths = [[_] for _ in perimeter]
     spoints = perimeter[:]
     # Check to see if the atoms have equal radii
-    if arads[0] == arads[1] or flat:
+    if rads[0] == rads[1] or flat:
         # Go through the paths
         for i in range(len(paths)):
             # Get the
@@ -110,7 +109,7 @@ def fill_mesh(alocs, arads, func, surf_loc, surf_norm, perimeter, com, res, flat
             spoints += [paths[i][0] + rn * j * step for j in range(1, num_steps + 1)]
         return spoints
     # Grab the smallest of the 2 surface atoms' location
-    pa = alocs[0]
+    pa = locs[0]
     # Get the angles between the edge points and the end points
     dists = []
     angs = []
@@ -139,7 +138,7 @@ def fill_mesh(alocs, arads, func, surf_loc, surf_norm, perimeter, com, res, flat
         # Keep going through the points until the tracker is out
         while i < num_paths:
             # Get the next point along the path
-            pn = find_next_point(alocs, func, paths[i][-1], com, dthetas[i])
+            pn = find_next_point(locs, func, paths[i][-1], com, dthetas[i])
             # Check for edges that start by going outside
             if j == 0 and pn is not None and not tri_within(perimeter, surf_loc, surf_norm, point=pn):
                 paths.pop(i)

@@ -17,28 +17,28 @@ def check_edge_point(point, locs, rads):
 
 
 # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
-def build_edge(alocs, arads, vlocs, res, straight=None):
+def build_edge(locs, rads, vlocs, res, straight=None):
     # To ensure a better edge we cut the resolution in quarters
     res = res / 4
     # Check for straightness
     if straight is None:
         straight = False
-        if arads[0] == arads[1] and arads[1] == arads[2]:
+        if rads[0] == rads[1] and rads[1] == rads[2]:
             straight = True
     # Choose a curved one to project onto. If the edge isn't straight 2 surfs are curved.
-    if round(arads[0], 10) == round(arads[1], 10):
-        func = calc_surf_func(alocs[1], arads[1], alocs[2], arads[2])
+    if round(rads[0], 10) == round(rads[1], 10):
+        func = calc_surf_func(locs[1], rads[1], locs[2], rads[2])
     else:
-        func = calc_surf_func(alocs[0], arads[0], alocs[1], arads[1])
+        func = calc_surf_func(locs[0], rads[0], locs[1], rads[1])
 
     ################################################# Fill Edge ####################################################
 
     # Get the location and radius of the circle inscribed between the edge atoms
     try:
-        loc, rad = calc_circ(alocs[0], alocs[1], alocs[2], arads[0], arads[1], arads[2])
+        loc, rad = calc_circ(locs[0], locs[1], locs[2], rads[0], rads[1], rads[2])
     except TypeError:
-        loc = calc_com([alocs[0], alocs[1], alocs[2]])
-        rad = calc_dist(loc, alocs[0]) - arads[0]
+        loc = calc_com([locs[0], locs[1], locs[2]])
+        rad = calc_dist(loc, locs[0]) - rads[0]
     loc = np.array(loc)
     vals = {'loc': loc, 'rad': rad}
     # Reset the edges points
@@ -46,7 +46,7 @@ def build_edge(alocs, arads, vlocs, res, straight=None):
     # Typical case, no doublets
     pv0, pv1 = np.array(vlocs[0]), np.array(vlocs[1])
     # If the edge is completely straight add points in a line from pv0 to pv0 and return
-    if straight or (arads[0] == arads[1] and arads[1] == arads[2]):
+    if straight or (rads[0] == rads[1] and rads[1] == rads[2]):
         # Get the vector between the two vectors and the number of point in the edge
         r = pv1 - pv0
         num_points = max(int(np.linalg.norm(r) / res), 4)

@@ -5,10 +5,10 @@ from numba import jit
 @jit(nopython=True)
 def verify_aw(loc, rad, test_locs, test_rads):
     # Go through the atoms in the overlap test atom list
-    for i, aloc in enumerate(test_locs):
+    for i, b_loc in enumerate(test_locs):
         # Get the atom's location and radius
-        arad = test_rads[i]
-        if calc_dist_numba(aloc, loc) - arad < rad:
+        b_rad = test_rads[i]
+        if calc_dist_numba(b_loc, loc) - b_rad < rad:
             return False
     return True
 
@@ -16,8 +16,8 @@ def verify_aw(loc, rad, test_locs, test_rads):
 @jit(nopython=True)
 def verify_del(loc, rad, test_locs):
     # Go through the atoms in the overlap test atom list
-    for i, aloc in enumerate(test_locs):
-        if calc_dist_numba(aloc, loc) < rad:
+    for i, b_loc in enumerate(test_locs):
+        if calc_dist_numba(b_loc, loc) < rad:
             return False
     return True
 
@@ -25,10 +25,10 @@ def verify_del(loc, rad, test_locs):
 @jit(nopython=True)
 def verify_pow(loc, rad, test_locs, test_rads):
     # Go through the atoms in the overlap test atom list
-    for i, aloc in enumerate(test_locs):
+    for i, b_loc in enumerate(test_locs):
         # Get the atom's location and radius
-        arad = test_rads[i]
-        if calc_dist_numba(aloc, loc) ** 2 - arad ** 2 < rad:
+        b_rad = test_rads[i]
+        if calc_dist_numba(b_loc, loc) ** 2 - b_rad ** 2 < rad:
             return False
     return True
 

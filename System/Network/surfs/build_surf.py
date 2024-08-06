@@ -8,28 +8,29 @@ import numpy as np
 
 ############################################## Triangulate Surface Points  #############################################
 
-def get_com(alocs, arads, perimeter, surf_loc, surf_norm, func, flat, net_type='aw'):
+def get_com(locs, rads, perimeter, surf_loc, surf_norm, func, flat, net_type='aw'):
     """
     Finds the center of mass of a surface's perimeter points
     :param net_type:
     :param surf: Surface object holding the perimeter points
     :return: Center of mass
     """
+    # If the surface is flat just get the center of mass
     if flat or net_type in {'del', 'pow'}:
         return calc_com(points=np.array(perimeter)), False
         # If the surface is flat, the center of mass will not need to be projected
     if tri_within(perimeter, loc=surf_loc, norm=surf_norm, point=surf_loc):
         return surf_loc, False
     # First try the center of mass of the 3d points projected onto the surface
-    my_com = calc_surf_point(alocs, point=calc_com(points=np.array(perimeter[::5])), func=func)
-    if my_com is not None and tri_within(perimeter, surf_loc, surf_norm, point=my_com) and arads[0] != arads[1]:
+    my_com = calc_surf_point(locs, point=calc_com(points=np.array(perimeter[::5])), func=func)
+    if my_com is not None and tri_within(perimeter, surf_loc, surf_norm, point=my_com) and rads[0] != rads[1]:
         return my_com, False
     # If nothing else set the center of mass to the first point in the perimeter
     return perimeter[len(perimeter)//2], True
 
 
 # Build method. Makes the mesh for the surface and calculates the simplices between them
-def build_surf(alocs, arads, epnts, res, net_type, sfunc=None):
+def build_surf(locs, rads, epnts, res, net_type, sfunc=None):
     """
     Main build method for constructing surfaces
     :param surf:
@@ -38,17 +39,19 @@ def build_surf(alocs, arads, epnts, res, net_type, sfunc=None):
     """
     # Get the surface function if not already calculated
     if sfunc is None:
-        sfunc = calc_surf_func(np.array(alocs[0]), arads[0], np.array(alocs[1]), arads[1])
+        sfunc = calc_surf_func(np.array(locs[0]), rads[0], np.array(locs[1]), rads[1])
     # Check if the surface is flat
     flat = False
-    if net_type in {'del', 'pow'} or arads[0] == arads[1]:
+    if net_type in {'del', 'pow'} or rads[0] == rads[1]:
         flat = True
     # Build the perimeter of the surface
-    perimeter, surf_loc, surf_norm = build_perimeter(alocs, arads, epnts=epnts, net_type=net_type)
+    perimeter, surf_loc, surf_norm = build_perimeter(locs, rads, epnts=epnts, net_type=net_type)
     # Get the center of mass for the surface
-    surf_com, filter_hard = get_com(alocs, arads, perimeter=perimeter, surf_loc=surf_loc, surf_norm=surf_norm, flat=flat, func=sfunc)
+    surf_com, filter_hard = get_com(locs, rads, perimeter=perimeter, surf_loc=surf_loc, surf_norm=surf_norm, flat=flat,
+                                    func=sfunc)
     # Fill the mesh
-    spoints = fill_mesh(alocs, arads, func=sfunc, surf_loc=surf_loc, surf_norm=surf_norm, perimeter=perimeter, com=surf_com, flat=flat, res=res)
+    spoints = fill_mesh(locs, rads, func=sfunc, surf_loc=surf_loc, surf_norm=surf_norm, perimeter=perimeter,
+                        com=surf_com, flat=flat, res=res)
     # Find the simplices of the surface
     tris, flat_points = find_simps(points=spoints, loc=surf_loc, norm=surf_norm)
     # Set the surface curvature to 0
@@ -59,7 +62,8 @@ def build_surf(alocs, arads, epnts, res, net_type, sfunc=None):
         if tri_within(perimeter=perimeter,  loc=surf_loc, norm=surf_norm, flat_points=flat_points, point=surf_loc):
             surf_curv = calc_surf_point_curv(sfunc, surf_loc)
         # Filter out the bad triangles
-        surf_tris = filter_tris(tris=tris, flat_points=flat_points, res=res, perimeter=perimeter, loc=surf_loc, norm=surf_norm, filter_hard=filter_hard)
+        surf_tris = filter_tris(tris=tris, flat_points=flat_points, res=res, perimeter=perimeter, loc=surf_loc,
+                                norm=surf_norm, filter_hard=filter_hard)
         # Calculate the curvature of the triangles and the surface
         if not flat:
             tri_curvs, surf_curv = calc_surf_tri_curvs(sfunc, spoints, surf_tris, max_curv=surf_curv)
@@ -68,4 +72,5 @@ def build_surf(alocs, arads, epnts, res, net_type, sfunc=None):
     else:
         surf_tris = tris
         tri_curvs, surf_curv = [0 for _ in range(len(surf_tris))], 0
+    # Return the surface points, triangles, triangle curvatures, total curvature, surface function, com, and flatness
     return spoints, surf_tris, tri_curvs, surf_curv, sfunc, surf_com, flat

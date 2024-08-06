@@ -9,9 +9,9 @@ from numpy import sqrt, array
 
 
 # Find network function. Keeps searching the network until all verts are found
-def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=None, averts=None, vert_ndxs=None,
+def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=None, b_verts=None, vert_ndxs=None,
                vlocs=None, vrads=None, vloc2s=None, vrad2s=None, start_time=0, print_metrics=False, vert_box=None,
-               group_box=None, tot_atom_num=None, printing=False, start_vert=0, split=False):
+               group_box=None, tot_ball_num=None, printing=False, start_vert=0, split=False):
     """
     Used a vertex and a combination of it's edge atoms to find the connecting vertex
     """
@@ -22,50 +22,50 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
         metrics = {'ndx_search': 0, 'box_search': 0, 'gather_atoms': 0, 'verify_site': 0, 'calc_vert': 0, 'other': 0}
 
     # Get the group atoms from which to check vertices against
-    if my_group is None or len(my_group) == len(alocs):
+    if my_group is None or len(my_group) == len(locs):
         # Set the group atoms to just the integers in up to the number of atoms
-        my_group = [_ for _ in range(len(alocs))]
+        my_group = [_ for _ in range(len(locs))]
         # Calculate the rough number of vertices
-        if tot_atom_num is None:
-            tot_verts = 7 * len(alocs)
+        if tot_ball_num is None:
+            tot_verts = 7 * len(locs)
     # If a group was provided make sure to get its indices
     elif my_group is not None:
         # Calculate the number of vertices
-        if tot_atom_num is None:
+        if tot_ball_num is None:
             tot_verts = 7 * len(my_group) + int(60 * sqrt(len(my_group)))
     else:
         return
 
-    if tot_atom_num is not None:
-        tot_verts = 7 * tot_atom_num + int(60 * sqrt(tot_atom_num))
-    if averts is None:
-        averts = [[] for _ in range(len(alocs))]
+    if tot_ball_num is not None:
+        tot_verts = 7 * tot_ball_num + int(60 * sqrt(tot_ball_num))
+    if b_verts is None:
+        b_verts = [[] for _ in range(len(locs))]
     # Find the first verified vertex
     if len(my_group) == 1:
-        v0 = find_v0(alocs=alocs, arads=arads, averts=averts, max_vert=max_vert, net_type=net_type, a0=my_group[0],
-                     group_atoms=my_group, metrics=metrics, vert_ndxs=vert_ndxs, group_box=group_box)
+        v0 = find_v0(locs=locs, rads=rads, b_verts=b_verts, max_vert=max_vert, net_type=net_type, b0=my_group[0],
+                     group_ndxs=my_group, metrics=metrics, vert_ndxs=vert_ndxs, group_box=group_box)
 
     elif len(my_group) == 4:
-        v0_loc, v0_rad, v0_loc2, v0_rad2 = calc_vert(locs=[alocs[_] for _ in my_group],
-                                                     rads=[arads[_] for _ in my_group])
+        v0_loc, v0_rad, v0_loc2, v0_rad2 = calc_vert(locs=[locs[_] for _ in my_group],
+                                                     rads=[rads[_] for _ in my_group])
         v0 = {'atoms': my_group, 'loc': v0_loc, 'rad': v0_rad, 'loc2': v0_loc2, 'rad2': v0_rad2}
     else:
-        v0 = find_v0(alocs=alocs, arads=arads, averts=averts, max_vert=max_vert, net_type=net_type, a0=a0,
-                     group_atoms=my_group, metrics=metrics, vert_ndxs=vert_ndxs, group_box=group_box)
+        v0 = find_v0(locs=locs, rads=rads, b_verts=b_verts, max_vert=max_vert, net_type=net_type, b0=b0,
+                     group_ndxs=my_group, metrics=metrics, vert_ndxs=vert_ndxs, group_box=group_box)
         j = 1
-        while v0 is None and j < len(check_atoms):
+        while v0 is None and j < len(check_ndxs):
 
-            v0 = find_v0(alocs=alocs, arads=arads, averts=averts, max_vert=max_vert, net_type=net_type, a0=check_atoms[j],
-                         group_atoms=my_group, metrics=metrics, vert_ndxs=vert_ndxs, group_box=group_box)
+            v0 = find_v0(locs=locs, rads=rads, b_verts=b_verts, max_vert=max_vert, net_type=net_type, b0=check_ndxs[j],
+                         group_ndxs=my_group, metrics=metrics, vert_ndxs=vert_ndxs, group_box=group_box)
             j += 1
     # If no v0 is possible (e.g., a lone atom) return
     if v0 is None:
         return
     # Check if this is the first go around
     if vert_ndxs is None:
-        for atom in v0['atoms']:
+        for ball in v0['atoms']:
             # noinspection PyTypeChecker
-            averts[atom].append(0)
+            b_verts[ball].append(0)
         vert_ndxs = [v0['atoms']]
         vlocs = [v0['loc']]
         vrads = [v0['rad']]
@@ -76,10 +76,10 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
             vloc2s = [[None, None, None]]
             vrad2s = [None]
     else:
-        for atom in v0['atoms']:
-            avert_ndxs = [vert_ndxs[_] for _ in averts[atom]]
+        for ball in v0['atoms']:
+            b_vert_ndxs = [vert_ndxs[_] for _ in b_verts[ball]]
             # noinspection PyTypeChecker
-            averts[atom].insert(ndx_search(avert_ndxs, v0['atoms']), len(vert_ndxs))
+            b_verts[ball].insert(ndx_search(b_vert_ndxs, v0['atoms']), len(vert_ndxs))
         vert_ndxs.append(v0['atoms'])
         vlocs.append(v0['loc'])
         vrads.append(v0['rad'])
@@ -108,10 +108,10 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
             # Get the edge from the top of the stack
             edge_atoms, vert = e_stack.pop()
             # Find the next site in the network
-            vert_ndx_pr = find_site_container(edge_spheres=edge_atoms, locs=alocs, rads=arads, averts=averts,
+            vert_ndx_pr = find_site_container(edge_balls=edge_atoms, locs=locs, rads=rads, b_verts=b_verts,
                                               vert_ndxs=vert_ndxs, max_vert=max_vert, net_type=net_type,
                                               vn_1=vert['atoms'], vn_1_loc=vert['loc'],
-                                              group_atoms=my_group, metrics=metrics, printing=printing)
+                                              group_ndxs=my_group, metrics=metrics, printing=printing)
             # If the vertex is none continue
             if vert_ndx_pr is None:
                 continue
@@ -136,13 +136,13 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
                 vloc2s.append([None, None, None])
                 vrad2s.append(None)
             # Remove the atoms from the
-            for atom in my_vert['atoms']:
+            for ball in my_vert['atoms']:
                 # noinspection PyTypeChecker
-                avert_ndxs = [vert_ndxs[_] for _ in averts[atom]]
+                b_vert_ndxs = [vert_ndxs[_] for _ in b_verts[ball]]
                 # noinspection PyTypeChecker
-                averts[atom].insert(ndx_search(avert_ndxs, my_vert['atoms']), len(vert_ndxs) - 1)
-                if atom in check_atoms:
-                    check_atoms.remove(atom)
+                b_verts[ball].insert(ndx_search(b_vert_ndxs, my_vert['atoms']), len(vert_ndxs) - 1)
+                if ball in check_ndxs:
+                    check_ndxs.remove(ball)
     # Printing out metrics < --- Delete later
     # if print_metrics:
     #     metrics['total'] = time.perf_counter() - start
@@ -159,4 +159,4 @@ def find_verts(alocs, arads, max_vert, net_type, check_atoms, a0=None, my_group=
     #           .format(metrics['ndx_search'], metrics['box_search'], metrics['gather_atoms'], metrics['verify_site'],
     #                   metrics['calc_vert'], metrics['other'], metrics['total']))
     # Return the values of the vertices
-    return vert_ndxs, vlocs, vrads, vloc2s, vrad2s, check_atoms, averts
+    return vert_ndxs, vlocs, vrads, vloc2s, vrad2s, check_ndxs, b_verts

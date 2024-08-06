@@ -24,7 +24,7 @@ def build_surfs1(net):
         anums = [net.balls['num'][_] for _ in surf['satoms']]
         if arads[0] > arads[1]:
             arads, alocs, anums = [arads[1], arads[0]], [alocs[1], alocs[0]], [anums[1], anums[0]]
-        my_surf = build_surf(alocs=alocs, arads=arads, epnts=[net.edges['points'][_] for _ in surf['sedges']],
+        my_surf = build_surf(locs=alocs, rads=arads, epnts=[net.edges['points'][_] for _ in surf['sedges']],
                              res=net.settings['surf_res'], net_type=net.settings['net_type'])
         surf_points, surf_tris, surf_tri_curvs, surf_curv, surf_func, surf_com, surf_flat = my_surf
         # Get the surface Volumes
@@ -63,22 +63,22 @@ def build_surfs(net, store_points=True):
         h, m, s = get_time(my_time)
         print("\rRun Time = {:2}:{:2}:{:.2f} - Process: building surfaces {:.2f} %                                 "
               .format(int(h), int(m), round(s, 2), min(100.0, 100 * round(i / len(net.surfs), 4))), end="")
-        arads = [net.balls['rad'][_] for _ in surf['satoms']]
-        alocs = [net.balls['loc'][_] for _ in surf['satoms']]
-        anums = [net.balls['num'][_] for _ in surf['satoms']]
-        if arads[0] > arads[1]:
-            arads, alocs, anums = [arads[1], arads[0]], [alocs[1], alocs[0]], [anums[1], anums[0]]
-        my_surf = build_surf(alocs=alocs, arads=arads, epnts=[net.edges['points'][_] for _ in surf['sedges']],
+        rads = [net.balls['rad'][_] for _ in surf['satoms']]
+        locs = [net.balls['loc'][_] for _ in surf['satoms']]
+        nums = [net.balls['num'][_] for _ in surf['satoms']]
+        if rads[0] > rads[1]:
+            rads, locs, nums = [rads[1], rads[0]], [locs[1], locs[0]], [nums[1], nums[0]]
+        my_surf = build_surf(locs=locs, rads=rads, epnts=[net.edges['points'][_] for _ in surf['sedges']],
                              res=net.settings['surf_res'], net_type=net.settings['net_type'])
         surf_points, surf_tris, surf_tri_curvs, surf_curv, surf_func, surf_com, surf_flat = my_surf
         # Get the surface Volumes
-        sv0 = sum([calc_tetra_vol(alocs[0], surf_points[tri[0]], surf_points[tri[1]], surf_points[tri[2]]) for tri in
+        sv0 = sum([calc_tetra_vol(locs[0], surf_points[tri[0]], surf_points[tri[1]], surf_points[tri[2]]) for tri in
                    surf_tris])
-        sv1 = sum([calc_tetra_vol(alocs[1], surf_points[tri[0]], surf_points[tri[1]], surf_points[tri[2]]) for tri in
+        sv1 = sum([calc_tetra_vol(locs[1], surf_points[tri[0]], surf_points[tri[1]], surf_points[tri[2]]) for tri in
                    surf_tris])
-
+        # Calculate the surface area of the surface
         sa = calc_surf_sa(edges=[net.edges['points'][_] for _ in surf['sedges']], com=surf_com, tris=surf_tris,
-                                points=surf_points, flat=surf_flat)
+                          points=surf_points, flat=surf_flat)
         # If we are doing a large export and will need the points later in the process for export and such
         if store_points:
             points.append(surf_points)
@@ -93,9 +93,8 @@ def build_surfs(net, store_points=True):
         coms.append(surf_com)
         flats.append(surf_flat)
         sas.append(sa)
-        vols.append({anums[0]: sv0, anums[1]: sv1})
-    net.surfs['points'], net.surfs['tris'], net.surfs['tri_curvs'], net.surfs['curv'], net.surfs['func'], \
-    net.surfs['com'], net.surfs['flat'], net.surfs['sa'], net.surfs['vols'] = \
+        vols.append({nums[0]: sv0, nums[1]: sv1})
+    net.surfs['points'], net.surfs['tris'], net.surfs['tri_curvs'], net.surfs['curv'], net.surfs['func'], net.surfs['com'], net.surfs['flat'], net.surfs['sa'], net.surfs['vols'] = \
         points, tris, tri_curvs, curvs, funcs, coms, flats, sas, vols
     # Set the dataframe elements
     # Get the curvature in the 95th percentile
