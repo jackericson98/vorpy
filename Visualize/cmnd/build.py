@@ -1,6 +1,5 @@
 from Visualize.cmnd.commands import *
 from Visualize.cmnd.set import sett
-from System.Network.network import Network
 from Visualize.cmnd.group import group
 
 
@@ -14,19 +13,6 @@ def build(sys, usr_npt=None):
     if len(sys.atoms) == 0:
         print("no atoms in the system. use the \'load\' command or type \'h\' for help")
         return
-    # Check to see if a network has been added
-    if sys.net is None:
-        sys.net = Network(sys=sys, atoms=sys.atoms)
-    # Check to see if the network has been built before
-    build_vta = False
-    if sys.ball_file is not None:
-        build_vta = True
-        # rebuild_npt = input("{} network already constructed. would you like to rebuild?\nconfirm >>>   ".format(sys.name))
-        # if rebuild_npt.lower() in ys:
-        #     sys.net = Network(sys=sys, atoms=sys.atoms, surf_res=sys.net.surf_res, max_vert=sys.net.max_vert,
-        #                       box_size=sys.net.box_size, build_surfs=sys.net.build_surfs, flat_surfs=sys.net.flat_surfs)
-        # else:
-        #     return
     # Check to see if a group was specified
     my_group = None
     if usr_npt is not None:

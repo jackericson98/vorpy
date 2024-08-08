@@ -61,7 +61,8 @@ class Group:
         # Get the settings
         self.get_settings(surf_res=surf_res, surf_col=surf_col, surf_scheme=surf_scheme, max_vert=max_vert,
                           box_size=box_size, net_type=net_type, build_type=build_type, num_splits=num_splits,
-                          print_metrics=print_metrics)
+                          print_metrics=print_metrics, ball_type=sys.type, sys_dir=sys.files['dir'],
+                          foam_box=sys.foam_box)
 
         # Process the inputs
         self.process_inputs()
@@ -71,14 +72,15 @@ class Group:
             self.build_network()
 
     def get_settings(self, surf_res=0.2, surf_col='plasma', surf_scheme='curv', max_vert=40, box_size=1.5, net_type='aw',
-                     build_type='all', num_splits=1, print_metrics=True):
+                     build_type='all', num_splits=1, print_metrics=True, ball_type=None,
+                     sys_dir=None, foam_box=None):
         """
         Sets the settings for the network building
         """
         # Set up the default values
         defaults = {'surf_res': surf_res, 'surf_col': surf_col, 'surf_scheme': surf_scheme, 'max_vert': max_vert,
                     'box_size': box_size, 'net_type': net_type, 'build_type': build_type, 'num_splits': num_splits,
-                    'print_metrics': print_metrics}
+                    'print_metrics': print_metrics, 'ball_type': ball_type, 'sys_dir': sys_dir, 'foam_box': foam_box}
         # Create the settings dictionary
         if self.settings is None:
             self.settings = defaults
@@ -132,7 +134,8 @@ class Group:
         Allows user to build the network from the system object.
         """
         if self.net is None:
-            self.net = Network(self, self.settings, balls=self.sys.spheres)
+            self.net = Network(locs=self.sys.spheres['loc'], rads=self.sys.spheres['rad'], group=self.ball_ndxs,
+                               settings=self.settings)
         # Small networks and no split option
         if len(self.ball_ndxs) < num_atoms_sub_net or no_split:
             # Build the network
@@ -140,7 +143,7 @@ class Group:
             # Add the metrics
             self.net.metrics['splits'] = 1
             if add_net_metrics:
-                add_metrics(self.net)
+                add_metrics(self)
         else:
             split_net_slow(sys=self, num_atoms_sub_net=num_atoms_sub_net, add_net_metrics=add_net_metrics,
                            min_atom_split=min_atom_split)

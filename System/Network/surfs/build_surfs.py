@@ -15,7 +15,7 @@ def build_surfs1(net):
     # Make each surface
     for i, surf in net.surfs.iterrows():
         # Build the surfaces and print the progress
-        my_time = time.perf_counter() - net.start_time
+        my_time = time.perf_counter() - net.metrics['start']
         h, m, s = get_time(my_time)
         print("\rRun Time = {:2}:{:2}:{:.2f} - Process: building surfaces {:.2f} %                                 "
               .format(int(h), int(m), round(s, 2), min(100.0, 100 * round(i / len(net.surfs), 4))), end="")
@@ -50,7 +50,7 @@ def build_surfs1(net):
     except IndexError:
         net.max_curv = 0
     print("\r                                                                                             ", end='')
-    net.metrics['surf'] = time.perf_counter() - net.start_time - net.metrics['vert'] - net.metrics['con']
+    net.metrics['surf'] = time.perf_counter() - net.metrics['start'] - net.metrics['vert'] - net.metrics['con']
 
 
 def build_surfs(net, store_points=True):
@@ -59,7 +59,7 @@ def build_surfs(net, store_points=True):
     # Make each surface
     for i, surf in net.surfs.iterrows():
         # Build the surfaces and print the progress
-        my_time = time.perf_counter() - net.start_time
+        my_time = time.perf_counter() - net.metrics['start']
         h, m, s = get_time(my_time)
         print("\rRun Time = {:2}:{:2}:{:.2f} - Process: building surfaces {:.2f} %                                 "
               .format(int(h), int(m), round(s, 2), min(100.0, 100 * round(i / len(net.surfs), 4))), end="")
@@ -94,7 +94,8 @@ def build_surfs(net, store_points=True):
         flats.append(surf_flat)
         sas.append(sa)
         vols.append({nums[0]: sv0, nums[1]: sv1})
-    net.surfs['points'], net.surfs['tris'], net.surfs['tri_curvs'], net.surfs['curv'], net.surfs['func'], net.surfs['com'], net.surfs['flat'], net.surfs['sa'], net.surfs['vols'] = \
+    (net.surfs['points'], net.surfs['tris'], net.surfs['tri_curvs'], net.surfs['curv'], net.surfs['func'],
+     net.surfs['com'], net.surfs['flat'], net.surfs['sa'], net.surfs['vols']) = \
         points, tris, tri_curvs, curvs, funcs, coms, flats, sas, vols
     # Set the dataframe elements
     # Get the curvature in the 95th percentile
@@ -105,4 +106,4 @@ def build_surfs(net, store_points=True):
     except IndexError:
         net.max_curv = 0
     print("\r                                                                                             ", end='')
-    net.metrics['surf'] = time.perf_counter() - net.start_time - net.metrics['vert'] - net.metrics['con']
+    net.metrics['surf'] = time.perf_counter() - net.metrics['start'] - net.metrics['vert'] - net.metrics['con']

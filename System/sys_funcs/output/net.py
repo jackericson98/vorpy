@@ -3,31 +3,19 @@ import os
 import csv
 
 
-def write_net_logs(networks, network_names=None, round_to=3):
-    # If the networks list is not a list make it easy
-    if type(networks) is not list:
-        write_net_logs_single(networks)
-        return
-    # Otherwise check for the names
-    if network_names is None:
-        network_names = [i for i in range(len(networks))]
-    # Make the logs
-    for i in range(len(networks)):
-        write_net_logs_single(networks[i], network_names[i])
-
-
-def write_net_logs_single(net, net_name=None, round_to=3):
+def write_net_logs(group, net_name=None, round_to=3):
     """
     Writes a file for the networks logs
     :param net: Network for logs
     :param round_to: Where to round to
     """
+    net = group.net
     # Set the network name for the logs file to be exported
     net_name = '' if net_name is None else '_' + str(net_name)
     # Create the round function
     r = round_func(round_to)
     # Open the file
-    with open(net.group.sys.name + net_name + "_logs.csv", 'w') as log_file:
+    with open(group.sys.name + net_name + "_logs.csv", 'w') as log_file:
         # Create the csv writer
         lg_fl = csv.writer(log_file, lineterminator='\n')
         # Write the build information header
@@ -35,17 +23,17 @@ def write_net_logs_single(net, net_name=None, round_to=3):
         # Write the build information labels
         lg_fl.writerow(["name", "network type", "surface resolution", "box size", "max vert", "Total Time", "vert time",
                        "connect time", "surf time", "analysis time", "max vertex"])
-        lg_fl.writerow([net.group.sys.name, net.settings['net_type'], net.settings['surf_res'], net.settings['box_size'],
+        lg_fl.writerow([group.sys.name, net.settings['net_type'], net.settings['surf_res'], net.settings['box_size'],
                         net.settings['max_vert'], r(net.metrics['tot']), r(net.metrics['vert']), r(net.metrics['con']),
-                        r(net.metrics['surf']), r(net.metrics['anal']), r(net.max_vert_rad)])
+                        r(net.metrics['surf']), r(net.metrics['anal']), r(max(net.verts['vrad']))])
         # Write the group information header
         lg_fl.writerow(["group information"])
         # Write the group information labels
         lg_fl.writerow(["index", "name", "volume", "surface area", "volume"])
         # Write the group information
-        if net.group.sa is None:
-            net.group.get_info()
-        lg_fl.writerow([net.group.name, r(net.group.vol), r(net.group.sa)])
+        if group.sa is None:
+            group.get_info()
+        lg_fl.writerow([group.name, r(group.vol), r(group.sa)])
         # Write the atom header
         lg_fl.writerow(["Atoms"])
         # Write the column labels
@@ -83,7 +71,7 @@ def write_net_logs_single(net, net_name=None, round_to=3):
             lg_fl.writerow([i, *vert['vatoms'], *r(vert['vloc']), r(vert['vrad'])])
 
 
-def write_net(net, file_name=None, round_to=3):
+def write_net(group, file_name=None, round_to=3):
     """
     Exports a network checkpoint file to be loaded later
     :param net: Network object for export
@@ -91,12 +79,13 @@ def write_net(net, file_name=None, round_to=3):
     :param round_to: Number of decimal places to round the values of the network to
     :return: Outputs a .csv network file
     """
+    net = group.net
     # Set up the round function
     r = round_func(round_to)
     # Create the file for export
     if file_name is None:
-        file_name = net.group.sys.files['dir'] + "/" + net.group.sys.name + "_net.csv"
-    net.group.sys.files['net_file'] = file_name
+        file_name = group.sys.files['dir'] + "/" + group.sys.name + "_net.csv"
+    group.sys.files['net_file'] = file_name
     # Create the file
     with open(file_name, 'w', newline='') as f:
 
@@ -104,7 +93,7 @@ def write_net(net, file_name=None, round_to=3):
         nt_fl = csv.writer(f)
         # Write a separating line for the info and the surfaces points and tris
         nt_fl.writerow(["n", "nt", "sr", "mv", "bm", "vs", "es", "ss"])
-        nt_fl.writerow([net.id, net.settings['net_type'], net.settings['surf_res'], net.settings['max_vert'],
+        nt_fl.writerow([net.settings['net_type'], net.settings['surf_res'], net.settings['max_vert'],
                         net.settings['box_size'], len(net.verts), len(net.edges), len(net.surfs)])
 
         # Write the connections header
@@ -160,7 +149,7 @@ def write_net(net, file_name=None, round_to=3):
             nt_fl.writerow(["tris", *surf['satoms'], *surf_tris])
 
     # Change back to the network file's directory
-    os.chdir(net.group.sys.files['dir'])
+    os.chdir(group.sys.files['dir'])
 
 
 def write_verts(net):
@@ -169,15 +158,13 @@ def write_verts(net):
     :param net: The network to interpret the vertex data from
     """
     # Move to the 181L output directory
-    if net.group.sys.files['dir'] is None:
-        net.group.sys.set_output_directory()
-    os.chdir(net.group.sys.files['dir'])
+    os.chdir(net.settings['sys_dir'])
 
     # Open the file for the vertices
-    with open(net.group.sys.name + "_verts.txt", 'w') as file:
+    with open(net.settings['sys_dir'] + "/verts.txt", 'w') as file:
         # Create a header for the vertices file
-        file.write(net.group.sys.name + " Vertices - {} vertices, {} atoms, max vert = {}, Net type = {}\n"
-                   .format(len(net.verts['vatoms']), len(net.group.ball_ndxs), max(net.verts['vrad']),
+        file.write("Vertices - {} vertices, {} atoms, max vert = {}, Net type = {}\n"
+                   .format(len(net.verts['vatoms']), len(net.group), max(net.verts['vrad']),
                            net.settings['net_type']))
         # Write the vertices
         for i, vert in net.verts.iterrows():
@@ -188,22 +175,23 @@ def write_verts(net):
         file.write("END")
 
 
-def add_metrics(net):
-    with open(net.group.sys.files['root_dir'] + '/Data/user_data/metrics.csv', 'a') as metrics_file:
+def add_metrics(group):
+    net = group.net
+    with open(group.sys.files['root_dir'] + '/Data/user_data/metrics.csv', 'a') as metrics_file:
         # name, # atoms, # verts, # edges, # surfs, # grp atoms, grp vol, grp sa, doublets, type, surf_res, max_vert, grp dsty
         metrics_file.write('\n{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}'
-                           .format(net.group.sys.name,
+                           .format(group.sys.name,
                                    net.metrics['tot'],
                                    len(net.balls['num']),
                                    len(net.verts['vatoms']),
                                    len(net.edges['eatoms']),
                                    len(net.surfs['satoms']),
-                                   len(net.group.atms),
-                                   net.group.vol,
-                                   net.group.sa,
+                                   len(group.atms),
+                                   group.vol,
+                                   group.sa,
                                    sum(net.verts['vdub']),
                                    net.settings['net_type'],
                                    net.settings['surf_res'],
                                    net.settings['max_vert'],
                                    net.metrics['splits'],
-                                   net.group.density))
+                                   group.density))

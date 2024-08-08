@@ -64,7 +64,7 @@ def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
         if group_resids:
             for my_atom in grp.layer_atoms[-1]:
                 atom = net.balls.iloc[my_atom]
-                if atom['res'] is not None:
+                if 'res' in atom and atom['res'] is not None:
                     # Get the atoms in the residue that are not already in the layer
                     for resid_atom in atom['res'].atoms:
                         # Check if the atom is in the layer or not

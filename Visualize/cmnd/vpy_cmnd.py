@@ -1,6 +1,5 @@
 import os
 import numpy as np
-from System.Network.network import Network
 from Visualize.cmnd.export import export
 from Visualize.cmnd.set import get_ndx, get_obj
 from Visualize.cmnd.commands import *
@@ -38,7 +37,6 @@ def load_atom_file(my_sys):
             continue
         # Create the system and return
         my_sys.load_sys(file=file_path)
-        my_sys.net = Network(sys=my_sys, atoms=my_sys.atoms)
         return
 
 

@@ -1,4 +1,3 @@
-from System.Network.network import Network
 
 
 def argv_build(my_sys, usr_npt):

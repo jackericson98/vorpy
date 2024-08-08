@@ -1,5 +1,4 @@
 import pandas as pd
-from System.Network.network import Network
 
 
 def read_verts(net, file):

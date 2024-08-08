@@ -1,4 +1,4 @@
-import time
+from time import perf_counter as now
 from _datetime import datetime
 import pandas as pd
 import csv
@@ -14,41 +14,29 @@ from numpy import array, inf, cbrt, sqrt, pi
 
 
 class Network:
-    """Network object. Graph that holds the elements of the Voronoi S-Network."""
-    def __init__(self, group, settings, balls=None, verts=None, edges=None, surfs=None, sub_net=False, box=None,
-                 vta_verts=None):
+    """Network object."""
+    def __init__(self, locs, rads, names=None, group=None, settings=None, balls=None, verts=None, edges=None,
+                 surfs=None, box=None):
 
         # Main network defining objects
-        self.group = group                # Group             :    Group that made this, references back to the system
-        self.id = 0                       # Network id #      :
-        self.settings = settings          # Settings          :    surf_res, surf_col, surf_schm, max_vert, net_type
+        self.group = group                # Group         : List of loc and rad indices for calculation
+        self.settings = settings          # Settings      : surf_res, surf_col, surf_schm, max_vert, net_type
+        self.metrics = {'start': now()}   # Metrics       : Holds the time measurements for the build
 
         # Network element lists
-        self.balls = balls                # Spheres           :    List of atom objects
-        self.verts = verts                # Vertices          :    List of vertex objects
-        self.vta_verts = vta_verts        # Voronota Vertices :    List of Voronota vertices
-        self.edges = edges                # Edges             :    List of edge objects
-        self.surfs = surfs                # Surfaces          :    List of surface objects
+        self.balls = balls                # Balls         : Ball DF    - (loc, rad, verts, edges, surfs, vol)
+        self.verts = verts                # Vertices      : Vertex DF  - (loc, rad, balls, edges, surfs)
+        self.edges = edges                # Edges         : Edge DF    - (center, points, balls, verts, surfs, length)
+        self.surfs = surfs                # Surfaces      : Surface DF - (center, points, tris, balls, verts, edges, sa)
 
-        # Index tracking for network elements
-        self.ball_ndxs = []                # Ball indices     :    Atom visitation ledger for network building
-        self.vert_ndxs = []                # Vert indices     :    Sorted atom indices defining all net verts
-        self.edge_ndxs = []                # Edge indices     :    Sorted atom indices defining all net edges
-        self.surf_ndxs = []                # Surf indices     :    Sorted atom indices defining all net surfs
+        # Tool for splitting up the atoms
+        self.box = box                    # Box           : Dictionary: Ball box, sub_boxes, and
 
-        # Tools for splitting up the atoms
-        self.box = box                     # Box              :    Holds a max and min vertex for the retaining box
-        self.sub_boxes = None              # Sub boxes        :    3D array holding atoms relative locations
-        self.vert_sub_boxes = None         # Vert Sub Boxes   :    Holds the vertices of the network by their location
-        self.sub_box_size = None           # Sub box size     :    Holds the size of each sub box
-        self.box_max = None                # Box maxes        :    number of x, y, z boxes or rows, columns, aisles
-        self.ball_box = []                 # Ball box         :    min/max vals for the box containing the atoms
-
-        # Diagnostic variables
-        self.start_time = time.perf_counter()
-        self.metrics = {}                  # Build Metrics    :    Holds the time measurements for the build
-        self.max_vert_rad = 0              # Max Vertex Rad   :    Maximum real vertex recorded
-        self.max_curv = 0
+        # Set up the balls
+        if names is None:
+            names = [str(i) for i in range(len(locs))]
+        if self.balls is None:
+            self.balls = pd.DataFrame({'loc': locs, 'rad': rads, 'num': [i for i in range(len(locs))], 'name': names})
 
     def calc_box(self, locs, rads, return_val=False, box_size=None):
         """
@@ -76,8 +64,6 @@ class Network:
         for i in range(3):
             if r_box[i] == 0 or abs(r_box[i]) == inf:
                 r_box[i], min_vert[i], max_vert[i] = 4 * rads[0], locs[0][i], locs[0][i]
-        # Set the atoms box value
-        ball_box = [min_vert.tolist(), max_vert.tolist()]
         # Set the new vertices to the x factor times the vector between them added to their complimentary vertices
         min_vert, max_vert = max_vert - r_box * box_size, min_vert + r_box * box_size
         # Return the list of array turned list vertices
@@ -85,7 +71,9 @@ class Network:
         # If the values are to be returned
         if return_val:
             return box
-        self.ball_box, self.box = ball_box, box
+        if self.box is None:
+            self.box = {}
+        self.box['verts'] = box
 
     def sort_balls(self, num_boxes=None):
         """
@@ -107,29 +95,22 @@ class Network:
         # First get the box for the atoms to be sorted into
         self.calc_box(locs, rads)
         # Instantiate the grid structure of lists is locations representing a grid
-        self.sub_boxes = {(-1, -1, -1): [n]}
+        self.box['sub_boxes'] = {(-1, -1, -1): [n]}
         # Get the cell size
-        self.sub_box_size = [round((self.box[1][i] - self.box[0][i]) / n, 3) for i in range(3)]
+        self.box['sub_size'] = [round((self.box['verts'][1][i] - self.box['verts'][0][i]) / n, 3) for i in range(3)]
         my_boxes = []
         # Sort the atoms
         for i, loc in enumerate(locs):
-            # Get the radius
-            rad = rads[i]
-            # Adjust the maximum radius
-            if rad > self.group.sys.max_atom_rad:
-                self.group.sys.max_atom_rad = rad
             # Find the box they belong to
-            box_ndxs = [int((loc[j] - self.box[0][j]) / self.sub_box_size[j]) for j in range(3)]
+            box_ndxs = [int((loc[j] - self.box['verts'][0][j]) / self.box['sub_size'][j]) for j in range(3)]
 
             # Add the atom to the box
             try:
-                self.sub_boxes[box_ndxs[0], box_ndxs[1], box_ndxs[2]].append(i)
+                self.box['sub_boxes'][box_ndxs[0], box_ndxs[1], box_ndxs[2]].append(i)
             except KeyError:
-                self.sub_boxes[box_ndxs[0], box_ndxs[1], box_ndxs[2]] = [i]
+                self.box['sub_boxes'][box_ndxs[0], box_ndxs[1], box_ndxs[2]] = [i]
             # Add the box to the atom
             my_boxes.append(box_ndxs)
-        # Get the number of rows columns and aisles
-        self.box_max = n - 1, n - 1, n - 1
         # set the box data
         self.balls['box'] = my_boxes
 
@@ -143,14 +124,14 @@ class Network:
         """
         Connects the network using the functions in the build_net.py file
         """
-        my_lists = build(self.verts['vatoms'], self.verts['vloc'], self.verts['vdub'], len(self.balls), self.start_time)
+        my_lists = build(self.verts['vatoms'], self.verts['vloc'], self.verts['vdub'], len(self.balls), self.metrics['start'])
         ball_lists, vert_lists, edge_lists, surf_lists = my_lists
         self.balls['averts'], self.balls['aedges'], self.balls['asurfs'] = ball_lists['averts'], ball_lists['aedges'], \
             ball_lists['asurfs']
         self.verts['vedges'], self.verts['vsurfs'] = vert_lists['vedges'], vert_lists['vsurfs']
         self.edges = pd.DataFrame(edge_lists)
         self.surfs = pd.DataFrame(surf_lists)
-        self.metrics['con'] = time.perf_counter() - self.start_time - self.metrics['vert']
+        self.metrics['con'] = now() - self.metrics['start'] - self.metrics['vert']
 
     def get_real_verts(self):
         my_name = os.getcwd() + '/Data/user_data/' + self.group.sys.name + '_Correct/sys/' + self.group.sys.name + '_logs.csv'
@@ -237,12 +218,12 @@ class Network:
             # Add the complete designation for the cell
             b_cell.append(complete)
             # Print the actions
-            my_time = time.perf_counter() - self.start_time
+            my_time = now() - self.metrics['start']
             h, m, s = get_time(my_time)
             print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                 "
                   .format(int(h), int(m), round(s, 2), percentage), end="")
         self.balls['vol'], self.balls['sa'], self.balls['curv'], self.balls['complete'] = b_vols, b_sas, b_curvs, b_cell
-        self.metrics['anal'] = time.perf_counter() - self.start_time - self.metrics['surf'] - self.metrics['con'] - self.metrics['vert']
+        self.metrics['anal'] = now() - self.metrics['start'] - self.metrics['surf'] - self.metrics['con'] - self.metrics['vert']
 
     def build(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
               calc_verts=None, my_group=None, print_actions=None, print_vert_metrics=False, curr_time=None):
@@ -257,7 +238,6 @@ class Network:
         :param build_surfs: Build Surfaces? If yes, the surfaces in the group's network are constructed
         :param calc_verts: Calculate Vertices? Skips vertex calculations if a network or vertex file is loaded
         """
-        self.start_time = time.perf_counter()
         # Check to see if the only output for the exports is logs
         limit_mem = False
         if self.settings['build_type'] == 'logs':
@@ -265,20 +245,12 @@ class Network:
         # Sort the atoms in the network
         self.sort_balls()
         # Check to see if there are vertices loaded
-        if self.group.sys.files['ball_file'] is None:
+        if self.verts is None:
             # Find the vertices
             self.find_verts()
             # Check to see if there are vertices
             if self.verts is None or len(self.verts) == 0:
                 return
-        elif self.group.sys.files['ball_file'] != 'deez nuts':
-            self.metrics['vert'] = 0
-            # Filter out the vertices that don't pertain to the group in question
-            verts = []
-            for i, vert in self.vta_verts.iterrows():
-                if any([True if _ in my_group.group_ndxs else False for _ in vert['vatoms']]):
-                    verts.append(vert)
-            self.verts = pd.DataFrame(verts)
         elif 'vdub' not in self.verts:
             self.metrics['vert'] = 0
             self.verts['vdub'] = mark_doublets(self.verts)
@@ -303,7 +275,7 @@ class Network:
         if my_group is not None:
             my_group.get_info()
         # Stop the timer and measure the time
-        self.metrics['tot'] = time.perf_counter() - self.start_time
+        self.metrics['tot'] = now() - self.metrics['start']
         h, m, s = get_time(self.metrics['tot'])
         num_complete = len([_ for _ in self.balls['complete'] if _])
         print("\rnetwork built - {} complete cell{}, {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"

@@ -6,7 +6,6 @@ from System.sys_funcs.input.mol import read_mol
 from System.sys_funcs.input.net import read_net, read_ndx
 from System.sys_funcs.input.vta import read_vta_data
 from System.sys_funcs.input.verts import read_verts
-from System.Network.network import Network
 from System.Network.split_net import split_net_slow, split_net
 from System.sys_funcs.output.output import set_sys_dir, export_sys
 from System.sys_funcs.output.net import write_verts, add_metrics
@@ -155,6 +154,10 @@ class System:
         # Name the system
         if self.name is None:
             self.name = path.basename(self.files['base_file'])[:-4]
+
+        # Set the system directory
+        if self.files['dir'] is None:
+            self.set_output_directory()
 
         # If the system wants its actions printed
         if self.print_actions:

@@ -1,11 +1,9 @@
 import time
-
 from Visualize.argv.argv_load import argv_load, argv_load_atoms, argv_load_foam
 from Visualize.argv.argv_set import argv_sett
 from Visualize.argv.argv_group import argv_group
 from Visualize.argv.argv_build import argv_build
 from Visualize.argv.argv_export import argv_export
-from System.Network.network import Network
 from System.system import System
 import sys
 import os

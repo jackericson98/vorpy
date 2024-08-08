@@ -104,7 +104,7 @@ def write_gro(atoms, file_name, sys=None, directory=None):
             f.write("{:5d}{:5s}{:5s}{:5d}{:8.3f}{:8.3f}{:8.3f}\n"
                     .format(atom['res_seq'], atom['res'].name, atom['name'], atom['num'] + 1, *atom['loc']))
         # Write the box
-        box = sys.net.box
+        box = sys.net.box['verts']
         f.write("{:10.5f}{:10.5f}{:10.5f}{:10.5f}{:10.5f}{:10.5f}\n".format(*box[0], *box[1]))
 
 

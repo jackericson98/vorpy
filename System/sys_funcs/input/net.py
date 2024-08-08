@@ -32,7 +32,7 @@ def read_net(net, file_name):
                 reading = line[0]
                 continue
             if reading == 'net':
-                net.id, net.settins['net_type'], net.settings['surf_res'], net.settings['max_vert'], net.settings['ox_sizeb'] = \
+                net.settins['net_type'], net.settings['surf_res'], net.settings['max_vert'], net.settings['ox_sizeb'] = \
                     [int(line[0]), line[1], float(line[2]), float(line[3]), float(line[4])]
                 # Read the verts
             elif reading == 'v':

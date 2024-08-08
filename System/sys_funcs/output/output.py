@@ -93,7 +93,7 @@ def set_sys_dir(sys, dir_name=None):
 
     # Make sure a user_data path exists
     if sys.files['root_dir'] is not None and not os.path.exists(sys.files['root_dir'] + "/Data/user_data"):
-        os.mkdir(sys.vpy_dir + "/Data/user_data")
+        os.mkdir(sys.files['root_dir'] + "/Data/user_data")
     elif sys.files['root_dir'] is None and not os.path.exists("./Data/user_data"):
         os.mkdir("./Data/user_data")
 
@@ -147,7 +147,8 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
         if not os.path.exists(sys.files['dir'] + "/sys"):
             os.mkdir(sys.files['dir'] + "/sys")
         os.chdir((sys.files['dir'] + "/sys"))
-        write_net_logs([group.net for group in sys.groups], [group.name for group in sys.groups])
+        for grp in sys.groups:
+            write_net_logs(grp)
     if network or all_:
         os.chdir(sys.files['dir'])
         # Export the network

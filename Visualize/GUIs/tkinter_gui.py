@@ -1,7 +1,7 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import filedialog
-from System.system import System, Network
+from System.system import System
 from System.Group.group import Group
 from System.sys_funcs.output.output import *
 from Visualize.GUIs.periodic_table_GUI import periodic_table
@@ -409,9 +409,6 @@ class VorpyT:
 
     # Load network button function. Pulls up the file browser and lets the user select their vorpy saved system
     def load_net(self):
-        # Check to see if a network exists already
-        if self.sys.net is None:
-            self.sys.net = Network(self, self.sys.atoms)
         # File grabber pop up
         file_path = filedialog.askopenfilename()
         self.net_file = file_path

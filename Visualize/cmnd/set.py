@@ -1,5 +1,4 @@
 from Visualize.cmnd.interpret import *
-from System.Network.network import Network
 
 
 def sett(sys, usr_npt, vorpy2_set=False):
@@ -40,9 +39,6 @@ def sett(sys, usr_npt, vorpy2_set=False):
     else:
         invalid_input(usr_npt)
         return
-    # Check to see if a network has been created yet
-    if sys.net is None:
-        sys.net = Network(sys=sys, atoms=sys.atoms)
     # Set the surfaces resolution
     if my_set in surf_reses:
         # Check to see if the value is 181L

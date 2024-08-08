@@ -3,18 +3,13 @@ from System.Network.network import Network
 
 
 # Add Voronota data method. Takes in voronota data and adds it to the System
-def read_vta_data(sys, ball_file, vert_file):
-    # If no network has been created, make one
-    if sys.net is None:
-        sys.net = Network(sys, sys.atoms)
+def read_vta_data(grp, ball_file, vert_file):
+
     # Create the System and load the files
-    with open(ball_file, 'r') as b:
-        b_file = b.readlines()
-    with open(vert_file, 'r') as v:
-        v_file = v.readlines()
-    verts = []
-    # Interpret the balls
-    balls = []
+    with open(ball_file, 'r') as b, open(vert_file, 'r') as v:
+        b_file, v_file = b.readlines(), v.readlines()
+    # Create the ball and vert lists
+    verts, balls = [], []
     for i in range(len(b_file)):
         print("\rLoading Balls - {:.2f}%".format(100 * i/len(b_file)), end='')
         # Split the data
@@ -34,4 +29,8 @@ def read_vta_data(sys, ball_file, vert_file):
         if i > 0 and atoms == verts[-1]['vatoms']:
             dub = 1
         verts.append({'vatoms': atoms, 'vloc': loc, 'vrad': rad, 'vdub': dub})
-    sys.net.vta_verts = DataFrame(verts)
+    # Check to see if there is anetwork associated with the group
+    if grp.net is None:
+        grp.net = Network(locs=grp.sys.spheres['loc'], rads=grp.sys.spheres['rad'], group=grp.ball_ndxs,
+                          settings=grp.settings)
+    grp.net.verts = DataFrame(verts)
