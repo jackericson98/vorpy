@@ -22,14 +22,8 @@ class Group:
 
         # Network objects attributes
         self.net = net                  # Networks           :    List of Network type objects in the group
-        self.spheres = spheres          # Spheres            :    List of all spheres to be able to pull from
-        self.ball_ndxs = []            # Group indexes      :    List of the indices that are included in the solve
+        self.ball_ndxs = []             # Group indexes      :    List of the indices that are included in the solve
         self.settings = settings        # Settings           :    List of network settings corresponding to the networks
-
-        # Network object tracking attributes
-        self.vert_ndxs = []             # Vertex indices     :    Tracks the vertices in the group (sorted)
-        self.edge_ndxs = []             # Edge indices       :    Tracks the edges in a group (sorted)
-        self.surf_ndxs = []             # Surface indices    :    Atom indices of the surfaces associated with the group
 
         # System level classifications involved in the group (must be full)
         self.atms = atoms               # Atoms              :    List of Atoms in the group (Basically spheres)
