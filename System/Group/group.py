@@ -117,9 +117,6 @@ class Group:
                     self.chns.append(self.net.atoms['chn'][atom])
         # Add a Name If none was provided
         if self.name is None:
-            # If the system Groups attribute is None
-            if self.sys.groups is None:
-                self.sys.groups = []
             # Or if the group is not in the systems list of groups
             if self not in self.sys.groups:
                 # Add the group

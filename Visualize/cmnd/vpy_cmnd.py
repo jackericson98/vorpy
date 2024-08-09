@@ -123,7 +123,7 @@ def create_group(my_sys, usr_npt):
         return Group(sys=my_sys, atoms=my_sys.atoms, name="{}_full".format(my_sys.name))
     # Check for no sol
     elif usr_npt[0].lower() == 'ns':
-        return Group(sys=my_sys, chains=my_sys.chains, name=my_sys.name + "_no_SOL")
+        return Group(sys=my_sys, chains=my_sys.chains, name=my_sys.name)
 
     # Create the object and index variables
     my_obj, my_ndx = None, None
@@ -166,8 +166,7 @@ def create_group(my_sys, usr_npt):
     # Create the group
     npt_list = [None] * 4
     npt_list[obj_ndx] = my_list
-    return Group(sys=my_sys, chains=npt_list[0], residues=npt_list[1], atoms=npt_list[2], indices=npt_list[3],
-                 name=name)
+    return Group(sys=my_sys, chains=npt_list[0], residues=npt_list[1], atoms=npt_list[2])
 
 
 def vorpy(my_sys):
