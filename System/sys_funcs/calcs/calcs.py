@@ -219,21 +219,21 @@ def get_time(seconds):
     return hours, minutes, seconds
 
 
-def calc_vol(aloc, surfs_points, surfs_tris):
+def calc_vol(a_loc, surfs_points, surfs_tris):
     """
-    Calculates the volume of an atom using its surfaces
-    :param atom: Atom object for volume calculation
-    :return: returns the volume for the atom object
+    Calculates the volume of an ball using its surfaces
+    :param ball: ball object for volume calculation
+    :return: returns the volume for the ball object
     """
     # Create the volume variable
     surf_vols = []
-    # Go through each surface on the atom
+    # Go through each surface on the ball
     for i in range(len(surfs_points)):
         # Calculate the volume of the
         surf_vol = 0
         for tri in surfs_tris[i]:
-            # Calculate the tetrahedron volume between the atoms' location and the surface triangle's points
-            surf_vol += calc_tetra_vol(np.array(aloc), surfs_points[i][tri[0]], surfs_points[i][tri[1]], surfs_points[i][tri[2]])
+            # Calculate the tetrahedron volume between the balls' location and the surface triangle's points
+            surf_vol += calc_tetra_vol(np.array(a_loc), surfs_points[i][tri[0]], surfs_points[i][tri[1]], surfs_points[i][tri[2]])
         # Add the surface's volume to the list
         surf_vols.append(surf_vol)
     # Get the total volume by summing the surfaces volumes

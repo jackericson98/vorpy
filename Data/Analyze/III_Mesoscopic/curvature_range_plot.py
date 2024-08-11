@@ -1,6 +1,6 @@
 from System.sys_funcs.calcs.surf import calc_surf_point_curv, calc_surf_func
 from Data.Analyze.tools.plot_templates.line import line_plot
-from Visualize.mpl_visualize import plot_atoms
+from Visualize.mpl_visualize import plot_balls
 from System.sys_funcs.output.atoms import make_pdb_line
 import matplotlib.pyplot as plt
 from matplotlib.cm import ScalarMappable

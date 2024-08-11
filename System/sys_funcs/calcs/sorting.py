@@ -2,12 +2,12 @@ from numba import jit
 import numpy as np
 
 
-def global_vars(sub_boxes, my_box_verts, my_num_splits, my_max_atom_rad, my_sub_box_size):
-    global atoms_matrix, box_verts, num_splits, max_atom_rad, sub_box_size
-    atoms_matrix = sub_boxes
+def global_vars(sub_boxes, my_box_verts, my_num_splits, my_max_ball_rad, my_sub_box_size):
+    global balls_matrix, box_verts, num_splits, max_ball_rad, sub_box_size
+    balls_matrix = sub_boxes
     box_verts = my_box_verts
     num_splits = my_num_splits
-    max_atom_rad = my_max_atom_rad
+    max_ball_rad = my_max_ball_rad
     sub_box_size = my_sub_box_size
 
 
@@ -15,7 +15,7 @@ def global_vars(sub_boxes, my_box_verts, my_num_splits, my_max_atom_rad, my_sub_
 def box_search_numba(loc, num_splits, box_verts):
     # Calculate the size of the sub boxes
     sub_box_size = [round((box_verts[1][i] - box_verts[0][i]) / num_splits, 3) for i in range(3)]
-    # Find the sub box for the atom
+    # Find the sub box for the ball
     box_ndxs = [int((loc[j] - box_verts[0][j]) / sub_box_size[j]) for j in range(3)]
     if box_ndxs[0] >= num_splits or box_ndxs[1] >= num_splits or box_ndxs[2] >= num_splits:
         return
@@ -30,28 +30,28 @@ def box_search(loc):
     return box_search_numba(np.array(loc), num_splits, np.array(box_verts))
 
 
-def get_balls(cells, dist=0, cell_reach=0, my_atoms_matrix=None, my_sub_box_size=None, my_max_atom_rad=None):
+def get_balls(cells, dist=0, cell_reach=0, my_balls_matrix=None, my_sub_box_size=None, my_max_ball_rad=None):
     """
-    Takes in the cells and the number of additional cells to search and returns an atom list
+    Takes in the cells and the number of additional cells to search and returns an ball list
     :param cells: The initial boxes in the network to stem from
     :param dist: The number of cells out from the initial set of cells to search
     """
     # Get the universal variables
-    global atoms_matrix, sub_box_size, max_atom_rad
+    global balls_matrix, sub_box_size, max_ball_rad
     # If the three variables are not specified set them equal to the globals
-    if my_atoms_matrix is not None:
-        atoms_matrix, sub_box_size, max_atom_rad = my_atoms_matrix, my_sub_box_size, my_max_atom_rad
-    # Get the reach around the box to grab atoms from
+    if my_balls_matrix is not None:
+        balls_matrix, sub_box_size, max_ball_rad = my_balls_matrix, my_sub_box_size, my_max_ball_rad
+    # Get the reach around the box to grab balls from
     reach = int(dist / min(sub_box_size)) + 2
     # Grab the number of cells in the grid
-    n = atoms_matrix[-1, -1, -1][0]
+    n = balls_matrix[-1, -1, -1][0]
     # If a single cell is entered
     if type(cells[0]) is int:
         cells = [cells]
     # Get the min and max of the cells
     ndx_min = [np.inf, np.inf, np.inf]
     ndx_max = [-np.inf, -np.inf, -np.inf]
-    # Go through the cells and set the minimum and maximum indexes for xyz for a rectangle containing the atoms
+    # Go through the cells and set the minimum and maximum indexes for xyz for a rectangle containing the balls
     for cell in cells:
         # Check each xyz index to see if they are larger or smaller than the max or min
         for i in range(3):
@@ -62,8 +62,8 @@ def get_balls(cells, dist=0, cell_reach=0, my_atoms_matrix=None, my_sub_box_size
     xs = [x for x in range(max(0, -reach + ndx_min[0] - cell_reach), reach + ndx_max[0] + cell_reach)]
     ys = [y for y in range(max(0, -reach + ndx_min[1] - cell_reach), reach + ndx_max[1] + cell_reach)]
     zs = [z for z in range(max(0, -reach + ndx_min[2] - cell_reach), reach + ndx_max[2] + cell_reach)]
-    atoms = []
-    # Get atoms
+    balls = []
+    # Get balls
     for i in xs:
         if 0 <= i < n:
             for j in ys:
@@ -71,15 +71,15 @@ def get_balls(cells, dist=0, cell_reach=0, my_atoms_matrix=None, my_sub_box_size
                     for k in zs:
                         if 0 <= k < n:
                             try:
-                                atoms += atoms_matrix[i, j, k]
+                                balls += balls_matrix[i, j, k]
                             except KeyError:
                                 pass
-    return atoms
+    return balls
 
 
 def ndx_search(ndxs_list, ndxs):
     """
-     Searches a list of indices of atoms sorted by smallest atom and where the vertex would be
+     Searches a list of indices of balls sorted by smallest ball and where the vertex would be
     :param ndxs_list: The index for checking
     :param ndxs: The indices to check against
     :return: The vertex index of the vertex or where the vertex should be inserted
@@ -106,37 +106,37 @@ def ndx_search(ndxs_list, ndxs):
         return mid_list_ndx
 
 
-def get_radius(atom):
+def get_radius(ball):
     """
-    Finds the radius of the atom from the symbol or vice versa
-    :return: The radius of the atom from the symbol or vice versa
+    Finds the radius of the ball from the symbol or vice versa
+    :return: The radius of the ball from the symbol or vice versa
     """
-    radii, special_radii = atom['sys'].radii, atom['sys'].special_radii
-    # Get the radius and the element from the name of the atom
-    if atom['res'] is not None and atom['res'].name in special_radii:
-        # Check if no atom name exists or its empty
-        if atom['name'] is not None and atom['name'] != '':
-            for i in range(len(atom['name'])):
-                name = atom['name'][:-i]
+    radii, special_radii = ball['sys'].radii, ball['sys'].special_radii
+    # Get the radius and the element from the name of the ball
+    if ball['res'] is not None and ball['res'].name in special_radii:
+        # Check if no ball name exists or its empty
+        if ball['name'] is not None and ball['name'] != '':
+            for i in range(len(ball['name'])):
+                name = ball['name'][:-i]
                 # Check the residue name
-                if name in special_radii[atom['res'].name]:
-                    atom['rad'] = special_radii[atom['res'].name][name]
+                if name in special_radii[ball['res'].name]:
+                    ball['rad'] = special_radii[ball['res'].name][name]
     # If we have the type and just want the radius, keep scanning until we find the radius
-    if atom['rad'] is None and atom['element'].lower() in radii:
-        atom['rad'] = radii[atom['element'].lower()]
-    # If indicated we return the symbol of atom that the radius indicates
-    if atom['rad'] is None or atom['rad'] == 0:
+    if ball['rad'] is None and ball['element'].lower() in radii:
+        ball['rad'] = radii[ball['element'].lower()]
+    # If indicated we return the symbol of ball that the radius indicates
+    if ball['rad'] is None or ball['rad'] == 0:
         # Check to see if the radius is in the system
-        if atom['rad'] in {radii[_] for _ in radii[1]}:
-            atom['element'] = radii[atom['rad']]
+        if ball['rad'] in {radii[_] for _ in radii[1]}:
+            ball['element'] = radii[ball['rad']]
         else:
-            # Get the closest atom to it
+            # Get the closest ball to it
             min_diff = np.inf
             # Go through the radii in the system looking for the smallest difference
             for radius in radii:
-                if radii[radius] - atom['rad'] < min_diff:
-                    atom['element'] = radii[radius]
-    return atom['rad']
+                if radii[radius] - ball['rad'] < min_diff:
+                    ball['element'] = radii[radius]
+    return ball['rad']
 
 
 def divide_box(net_box, divisions, c=0):

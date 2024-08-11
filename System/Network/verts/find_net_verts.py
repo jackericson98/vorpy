@@ -15,14 +15,14 @@ def find_net_verts(net):
     # vert_list_real = net.get_real_verts()
     # Create the group indices
     sphere_check_list = net.group.copy()
-    # Get the indices of the atoms in the network to keep track of the atoms that haven't been visited
+    # Get the indices of the balls in the network to keep track of the balls that haven't been visited
     my_guuy = find_verts(locs=net.balls['loc'].to_numpy(), rads=net.balls['rad'].to_numpy(),
                          max_vert=net.settings['max_vert'], net_type=net.settings['net_type'], check_ndxs=sphere_check_list,
                          my_group=net.group, start_time=net.metrics['start'], print_metrics=net.settings['print_metrics'],
                          vert_box=net.settings['foam_box'])
     if my_guuy is not None:
         vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
-    # Check to see if any of the atoms are encapsulated
+    # Check to see if any of the balls are encapsulated
     if len(sphere_check_list) > 0:
         skip_nums = []
         for sphere in sphere_check_list:
@@ -43,16 +43,16 @@ def find_net_verts(net):
     if len(net.group) <= 2:
         threshold = 0
     while len(sphere_check_list) > threshold:
-        print("Atoms Disconnected: {}".format(sphere_check_list))
+        print("Balls Disconnected: {}".format(sphere_check_list))
         a0 = sphere_check_list.pop()
         my_guuy = find_verts(b0=a0, locs=net.balls['loc'].to_numpy(), rads=net.balls['rad'].to_numpy(),
                              max_vert=net.settings['max_vert'], net_type=net.settins['net_type'], check_ndxs=sphere_check_list,
                              my_group=net.group, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
-                             vloc2s=vloc2s, vrad2s=vrad2s, start_time=net.metrics['start'], print_metrics=print_metrics,
+                             vloc2s=vloc2s, vrad2s=vrad2s, start_time=net.metrics['start'],
                              vert_box=net.settings['foam_box'], b_verts=averts)
         if my_guuy is not None:
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
-        if net.settings['ball_type'] == 'foam' and len(sphere_check_list) <= 0.25 * len(net.atoms['loc']):
+        if net.settings['ball_type'] == 'foam' and len(sphere_check_list) <= 0.25 * len(net.balls['loc']):
             break
     # # Create the doublets list
     # if vert_list_real is not None and net.type == 'aw':
@@ -61,7 +61,7 @@ def find_net_verts(net):
     #     extra_verts = [_ for _ in vert_ndxs if _ not in vert_list_real]
     #     print(extra_verts)
     doublets = [0 for _ in range(len(vert_ndxs))]
-    # Incorporate the doublets into the vlocs, vatoms, vrads lists and lose the vloc2s and vrad2s
+    # Incorporate the doublets into the v_locs, balls, v_rads lists and lose the v_loc2s and v_rad2s
     i = 0
     while i < len(vlocs):
         # Check for doubletness
@@ -77,7 +77,7 @@ def find_net_verts(net):
         i += 1
 
     # Make the dataframe
-    net.verts = pd.DataFrame({"vatoms": vert_ndxs, 'vloc': vlocs, 'vrad': vrads, 'vdub': doublets})
+    net.verts = pd.DataFrame({"balls": vert_ndxs, 'loc': vlocs, 'rad': vrads, 'dub': doublets})
     # Clear the print statement
     print("\r                                                                  ", end="")
     net.metrics['vert'] = time.perf_counter() - net.metrics['start']

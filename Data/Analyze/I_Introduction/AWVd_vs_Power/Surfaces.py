@@ -1,6 +1,6 @@
 from numpy import array as ar
 import matplotlib.pyplot as plt
-from Visualize.mpl_visualize import plot_atoms, plot_verts, plot_edges, plot_surfs
+from Visualize.mpl_visualize import plot_balls, plot_verts, plot_edges, plot_surfs
 from System.Network.verts.calc_vert import calc_vert
 from System.Network.edges.build_edge import build_edge
 from System.Network.surfs.build_surf import build_surf
@@ -135,7 +135,7 @@ if show_edges:
 if show_verts:
     plot_verts([_[0] for _ in my_verts], [_[1] for _ in my_verts], fig=fig, ax=ax, colors=['r'] * 4)
 # Plot the atoms
-plot_atoms(alocs=[_[0] for _ in my_surf_atoms], arads=[_[1] for _ in my_surf_atoms], alpha=0.2, fig=fig, ax=ax, res=10)
+plot_balls(alocs=[_[0] for _ in my_surf_atoms], arads=[_[1] for _ in my_surf_atoms], alpha=0.2, fig=fig, ax=ax, res=10)
 
 # Set the scales for the figure
 ax.set_xlim(-5, 5)

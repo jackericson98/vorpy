@@ -7,5 +7,5 @@ my_sys = System()
 
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
-plot_atoms()
+plot_balls()
 

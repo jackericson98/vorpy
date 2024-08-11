@@ -35,7 +35,7 @@ def setup_plot(fig=None, ax=None, dfo=None, grid=False, bg_color=None, axes_equa
 
 
 # Plot spheres function. Plots the spheres specified
-def plot_atoms(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=None,
+def plot_balls(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=None,
                bg_color=None, res=4, axes_scale='equal'):
 
     # Set up the plot
@@ -82,7 +82,7 @@ def plot_verts(vlocs, vrads, spheres=False, fig=None, ax=None, Show=False, dfo=N
         ax.scatter(vlocs[i][0], vlocs[i][1], vlocs[i][2], c=colors[i])
     # Plot the inscribed spheres
     if spheres:
-        plot_atoms(alocs=vlocs, arads=vrads, fig=fig, ax=ax, colors=colors, alpha=alpha, res=res)
+        plot_balls(alocs=vlocs, arads=vrads, fig=fig, ax=ax, colors=colors, alpha=alpha, res=res)
     if axes_scale == 'equal':
         ax.set_box_aspect([1, 1, 1])
     # Show if the plot needs to be shown
@@ -183,7 +183,7 @@ def plot_net(net, group=None, plot_all=False, atoms=False, verts=False, edges=Fa
     if atoms or plot_all:
         alocs = [net.atoms['loc'][i] for i in my_atoms]
         arads = [net.atoms['rad'][i] for i in my_atoms]
-        plot_atoms(alocs=alocs, arads=arads, fig=fig, ax=ax, alpha=a_alpha)
+        plot_balls(alocs=alocs, arads=arads, fig=fig, ax=ax, alpha=a_alpha)
     # Vertices
     if verts or plot_all:
         plot_verts(net.verts['vloc'], net.verts['vrad'], fig=fig, ax=ax, colors=['r' for _ in range(len(net.verts))], alpha=v_alpha, spheres=True)

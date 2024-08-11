@@ -324,7 +324,7 @@ class System:
             ax = fig.add_subplot(projection="3d")
             # If the full network is expected to be shown
             if full_net:
-                plot_atoms(self.atoms, fig=fig, ax=ax)
+                plot_balls(self.atoms, fig=fig, ax=ax)
                 plot_verts(self.net.verts, fig=fig, ax=ax)
                 plot_surfs(self.net.surfs, fig=fig, ax=ax)
                 plot_edges(self.net.edges, fig=fig, ax=ax, Show=True)

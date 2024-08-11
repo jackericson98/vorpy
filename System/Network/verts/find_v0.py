@@ -10,11 +10,11 @@ import numpy as np
 def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, metrics=None, vert_ndxs=None,
             group_box=None):
     """
-    Finds v0 using the atom finding functions to find a real verified site
+    Finds v0 using the ball finding functions to find a real verified site
     """
     if vert_ndxs is None:
         vert_ndxs = []
-    # Check to see if we need a group atom's box
+    # Check to see if we need a group ball's box
     if b0 is not None:
         my_box = box_search(locs[b0])
     elif group_box is not None:
@@ -32,18 +32,18 @@ def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, m
         # Reset the a0 variables
         b0s = []
         inc = 0
-        # Keep searching boxes until we find an atom
+        # Keep searching boxes until we find an ball
         while len(b0s) < 1:
             b0s = get_balls([my_box], inc)
             if group_ndxs is not None:
                 b0s = [_ for _ in b0s if _ in group_ndxs and len(b_verts[_]) == 0]
             inc += 1
-        # Pull an atom from the atoms list
+        # Pull an ball from the balls list
         b0 = b0s[0]
     # Reset the a1 variables
     b1s = []
     inc = 0
-    # Get the 5 closest atoms to a0
+    # Get the 5 closest balls to a0
     while len(b1s) < 5:
         b1s = get_balls([my_box], inc)
         inc += 1
@@ -85,7 +85,7 @@ def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, m
                                               metrics=metrics)
             else:
 
-                my_vert, invalid_atoms = find_site(circ[0], locs=locs, rads=rads, b_verts=b_verts, vert_ndxs=vert_ndxs,
+                my_vert, invalid_balls = find_site(circ[0], locs=locs, rads=rads, b_verts=b_verts, vert_ndxs=vert_ndxs,
                                                    max_vert=max_vert, mv_inc=max_vert, net_type=net_type,
                                                    group_ndxs=group_ndxs, metrics=metrics, check_balls=False)
             # Check for a real site that is not a doublet
@@ -100,19 +100,19 @@ def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, m
 # still needs work
 
 
-def find_v0_old(net, alocs, arads, a0=None, group_atoms=None):
+def find_v0_old(net, b_locs, b_rads, a0=None, group_balls=None):
     """
-    Finds v0 using the atom finding functions to find a real verified site
+    Finds v0 using the ball finding functions to find a real verified site
     :param net: Network object to check from
-    :param a0: The atom to seed from
-    :param group_atoms: List of atoms for the building group based networks
+    :param a0: The ball to seed from
+    :param group_balls: List of balls for the building group based networks
     :return: V0 vertex
     """
-    # Check to see if we need a group atom's box
+    # Check to see if we need a group ball's box
     if a0 is not None:
-        my_box = box_search(alocs[a0])
-    elif group_atoms is not None:
-        my_box = box_search(alocs[group_atoms[0]])
+        my_box = box_search(b_locs[a0])
+    elif group_balls is not None:
+        my_box = box_search(b_locs[group_balls[0]])
     else:
         # Find the middle sub_box of the set of boxes and
         mid = len(net.sub_boxes) // 2
@@ -120,15 +120,15 @@ def find_v0_old(net, alocs, arads, a0=None, group_atoms=None):
     if a0 is None:
         a0s = []
         inc = 0
-        # Keep grabbing atoms until we have enough to get the current a0 increment
+        # Keep grabbing balls until we have enough to get the current a0 increment
         while len(a0s) < 5:
             a0s = get_balls([my_box], inc)
             inc += 1
-        # Pull an atom from the atoms list
+        # Pull an ball from the balls list
         a0 = a0s[0]
     a1s = []
     inc = 0
-    # Get the 5 closest atoms to a0
+    # Get the 5 closest balls to a0
     while len(a1s) < 5:
         a1s = get_balls([my_box], inc)
         inc += 1
@@ -141,9 +141,9 @@ def find_v0_old(net, alocs, arads, a0=None, group_atoms=None):
         # Add the circle check
         a2s.append([])
         inc = 0
-        # Get the 20 closest atoms to a0 and the current a1
-        if len(alocs) < 20:
-            a2s[j] = [i for i in range(len(alocs))]
+        # Get the 20 closest balls to a0 and the current a1
+        if len(b_locs) < 20:
+            a2s[j] = [i for i in range(len(b_locs))]
         else:
             while len(a2s[j]) < 20:
                 a2s[j] = get_balls([my_box], inc)
@@ -157,14 +157,14 @@ def find_v0_old(net, alocs, arads, a0=None, group_atoms=None):
             eloc, erad = None, None
             if circ is not None:
                 eloc, erad = circ
-            # If a circle can be made and the site does not overlap with any other atoms, add it to the list
+            # If a circle can be made and the site does not overlap with any other balls, add it to the list
             if eloc is not None and erad < net.settings['max_vert'] and verify_site(eloc, erad, [a0, a1, a2], net,
                                                                                     net.settings['net_type']):
                 verified_circles.append([a0, a1, a2])
         # Try to make a verified v0 site with the verified circles
         for circle in verified_circles:
             # Try to create a vertex
-            my_vert = find_site(net, circle, group_ndxs=group_atoms)
+            my_vert = find_site(net, circle, group_ndxs=group_balls)
             # Check for a real site
             if my_vert is not None and my_vert[0].loc is not None:
                 return my_vert[0]

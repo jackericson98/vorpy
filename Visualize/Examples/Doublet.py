@@ -21,7 +21,7 @@ c1_sys.build_network(max_vert=100, box_size=100, surf_res=0.5)
 fig = plt.figure()
 ax = fig.add_subplot(projection="3d")
 
-plot_atoms(c1_sys.atoms, fig=fig, ax=ax)
+plot_balls(c1_sys.atoms, fig=fig, ax=ax)
 plot_surfs(c1_sys.net.surfs, fig=fig, ax=ax, simps=True)
 
 plot_verts(c1_sys.net.verts, fig=fig, ax=ax)

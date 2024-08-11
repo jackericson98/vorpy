@@ -25,7 +25,7 @@ def write_net_logs(group, net_name=None, round_to=3):
                        "connect time", "surf time", "analysis time", "max vertex"])
         lg_fl.writerow([group.sys.name, net.settings['net_type'], net.settings['surf_res'], net.settings['box_size'],
                         net.settings['max_vert'], r(net.metrics['tot']), r(net.metrics['vert']), r(net.metrics['con']),
-                        r(net.metrics['surf']), r(net.metrics['anal']), r(max(net.verts['vrad']))])
+                        r(net.metrics['surf']), r(net.metrics['anal']), r(max(net.verts['rad']))])
         # Write the group information header
         lg_fl.writerow(["group information"])
         # Write the group information labels
@@ -43,7 +43,7 @@ def write_net_logs(group, net_name=None, round_to=3):
             if atom['sa'] == 0:
                 continue
             if atom['complete']:
-                nbrs = [satoms[0] if satoms[0] != atom['num'] else satoms[1] for satoms in [net.surfs['satoms'][_] for _ in atom['asurfs']]]
+                nbrs = [satoms[0] if satoms[0] != atom['num'] else satoms[1] for satoms in [net.surfs['balls'][_] for _ in atom['surfs']]]
                 lg_fl.writerow([i, atom['name'], r(atom['vol']), r(atom['sa']), r(atom['curv']), atom['complete'], *nbrs])
         # Write the surfaces header
         lg_fl.writerow(["Surfaces"])
@@ -52,7 +52,8 @@ def write_net_logs(group, net_name=None, round_to=3):
         # Go through the surfaces in the system and write their information
         for i, surf in net.surfs.iterrows():
             # Write the information for the surface
-            lg_fl.writerow([i, *surf['satoms'], r(surf['sa']), r(surf['curv']), r(surf['vols'][surf['satoms'][0]]), r(surf['vols'][surf['satoms'][1]])])
+            lg_fl.writerow([i, *surf['balls'], r(surf['sa']), r(surf['curv']), r(surf['vols'][surf['balls'][0]]),
+                            r(surf['vols'][surf['balls'][1]])])
         # Write the edges header
         lg_fl.writerow(["Edges"])
         # Write the edges headers
@@ -60,7 +61,7 @@ def write_net_logs(group, net_name=None, round_to=3):
         # Go through the edges in the network
         for i, edge in net.edges.iterrows():
             # Write the data for the edge
-            lg_fl.writerow([i, *edge['eatoms'], r(edge['length'])])
+            lg_fl.writerow([i, *edge['balls'], r(edge['length'])])
         # Write the vertices header
         lg_fl.writerow(["Vertices"])
         # Write the vertices data labels
@@ -68,7 +69,7 @@ def write_net_logs(group, net_name=None, round_to=3):
         # Go through the vertices
         for i, vert in net.verts.iterrows():
             # Write the vertex information line
-            lg_fl.writerow([i, *vert['vatoms'], *r(vert['vloc']), r(vert['vrad'])])
+            lg_fl.writerow([i, *vert['balls'], *r(vert['loc']), r(vert['rad'])])
 
 
 def write_net(group, file_name=None, round_to=3):
@@ -106,15 +107,15 @@ def write_net(group, file_name=None, round_to=3):
             edge_ndxs, surf_ndxs = [], []
             # Stupid dumb way
             for j in range(4):
-                if j >= len(vert['vedges']):
+                if j >= len(vert['edges']):
                     edge_ndxs += [-1, -1, -1]
                 else:
-                    edge_ndxs += vert['vedges'][j]
+                    edge_ndxs += vert['edges'][j]
             for j in range(6):
-                if j >= len(vert['vsurfs']):
+                if j >= len(vert['surfs']):
                     surf_ndxs += [-1, -1]
                 else:
-                    surf_ndxs += vert['vsurfs'][j]
+                    surf_ndxs += vert['surfs'][j]
             # Write the vertex connection data
             nt_fl.writerow([i, *edge_ndxs, *surf_ndxs])
 
@@ -122,14 +123,14 @@ def write_net(group, file_name=None, round_to=3):
         nt_fl.writerow(["v", "a0", "a1", "a2", "a3", "x", "y", "z", "r"])
         # Write the connections and location and radius for each vertex in the network
         for i, vert in net.verts.iterrows():
-            nt_fl.writerow([i, *vert['vatoms'], *r(vert['vloc']), r(vert['vrad'])])
+            nt_fl.writerow([i, *vert['balls'], *r(vert['loc']), r(vert['rad'])])
 
         # Create an edges header
         nt_fl.writerow(["e", "a0", "a1", "a2", "sa0", "sa1", "i_0", "i_n"])
         # Write the connections and surface and points range information for each edge in the network
         for i, edge in net.edges.iterrows():
             # Write the edge information in the file
-            nt_fl.writerow([i, *edge['eatoms'], *edge['ref']['surf'], edge['ref']['i0'], edge['ref']['i1']])
+            nt_fl.writerow([i, *edge['balls'], *edge['ref']['surf'], edge['ref']['i0'], edge['ref']['i1']])
 
         # Create a surfaces header
         nt_fl.writerow(["s", "a0", "a1", "pts/tris"])
@@ -144,9 +145,9 @@ def write_net(group, file_name=None, round_to=3):
             for tri in surf['tris']:
                 surf_tris += tri
             # Write the surface points
-            nt_fl.writerow(["pts", *surf['satoms'], *[r(_) for _ in surf_points]])
+            nt_fl.writerow(["pts", *surf['balls'], *[r(_) for _ in surf_points]])
             # Write the surface triangles
-            nt_fl.writerow(["tris", *surf['satoms'], *surf_tris])
+            nt_fl.writerow(["tris", *surf['balls'], *surf_tris])
 
     # Change back to the network file's directory
     os.chdir(group.sys.files['dir'])
@@ -164,13 +165,13 @@ def write_verts(net):
     with open(net.settings['sys_dir'] + "/verts.txt", 'w') as file:
         # Create a header for the vertices file
         file.write("Vertices - {} vertices, {} atoms, max vert = {}, Net type = {}\n"
-                   .format(len(net.verts['vatoms']), len(net.group), max(net.verts['vrad']),
+                   .format(len(net.verts['balls']), len(net.group), max(net.verts['rad']),
                            net.settings['net_type']))
         # Write the vertices
         for i, vert in net.verts.iterrows():
             # Write the vertex
-            file.write(" ".join([str(_) for _ in vert['vatoms']]) + " " + " ".join([str(_) for _ in vert['vloc']]) +
-                       " " + str(vert['vrad']) + " " + str(vert['vdub']) + "\n")
+            file.write(" ".join([str(_) for _ in vert['balls']]) + " " + " ".join([str(_) for _ in vert['loc']]) +
+                       " " + str(vert['rad']) + " " + str(vert['dub']) + "\n")
         # Write the end line for the file
         file.write("END")
 
@@ -183,13 +184,13 @@ def add_metrics(group):
                            .format(group.sys.name,
                                    net.metrics['tot'],
                                    len(net.balls['num']),
-                                   len(net.verts['vatoms']),
-                                   len(net.edges['eatoms']),
-                                   len(net.surfs['satoms']),
+                                   len(net.verts['balls']),
+                                   len(net.edges['balls']),
+                                   len(net.surfs['balls']),
                                    len(group.atms),
                                    group.vol,
                                    group.sa,
-                                   sum(net.verts['vdub']),
+                                   sum(net.verts['dub']),
                                    net.settings['net_type'],
                                    net.settings['surf_res'],
                                    net.settings['max_vert'],

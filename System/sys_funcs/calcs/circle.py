@@ -4,7 +4,7 @@ import numpy as np
 
 @jit(nopython=True)
 def calc_circ_coefs(l0, l1, l2, r0, r1, r2):
-    # Move the other atoms to the location of the first
+    # Move the other balls to the location of the first
     x2, y2, z2 = l1[0] - l0[0], l1[1] - l0[1], l1[2] - l0[2]
     x3, y3, z3 = l2[0] - l0[0], l2[1] - l0[1], l2[2] - l0[2]
     # Calculate coefficients
@@ -37,7 +37,7 @@ def calc_circ_abcs(Fs, r0):
 
 def calc_circ(l0, l1, l2, r0, r1, r2):
     """
-    Takes in 3 atoms, calculates the center and radius of inscribed circle
+    Takes in 3 balls, calculates the center and radius of inscribed circle
     :param : Locations and radii for the circle
     :return: Center and radius of the inscribed circle
     """

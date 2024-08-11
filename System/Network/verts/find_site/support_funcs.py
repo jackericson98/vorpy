@@ -6,7 +6,7 @@ from Visualize.mpl_visualize import *
 
 def plot_vertex_2d(calc_verts, ob, pv_loc, edge_ball_locs, edge_ball_rads, edge_normal, real_vert):
     my_edge = calc_circ(*edge_ball_locs, *edge_ball_rads)
-    chosen_vert = [_ for _ in calc_verts if _['atoms'] == [6, 7, 3143, 3145]][0]
+    chosen_vert = [_ for _ in calc_verts if _['balls'] == [6, 7, 3143, 3145]][0]
 
     # Calculate the edge plane
     ep_norm = np.cross(pv_loc - my_edge[0], edge_normal)
@@ -24,21 +24,21 @@ def plot_vertex_2d(calc_verts, ob, pv_loc, edge_ball_locs, edge_ball_rads, edge_
     plt.show()
 
 
-def plot_vert_situation(edge_atoms, my_vert, vn_1_loc, vn_1_rad, alocs, arads, a0=None, a1=None, a2=None, v0=None):
+def plot_vert_situation(edge_balls, my_vert, vn_1_loc, vn_1_rad, b_locs, b_rads, a0=None, a1=None, a2=None, v0=None):
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
-    # actual_vert_other_atom = [_ for _ in actual_vert['atoms'] if _ not in edge_ndxs][0]
-    # edge atoms
-    plot_atoms([alocs[_] for _ in edge_atoms], [arads[_] for _ in edge_atoms], fig=fig, ax=ax, colors=['r', 'r', 'r'])
-    # other atom
+    # actual_vert_other_ball = [_ for _ in actual_vert['balls'] if _ not in edge_ndxs][0]
+    # edge balls
+    plot_balls([b_locs[_] for _ in edge_balls], [b_rads[_] for _ in edge_balls], fig=fig, ax=ax, colors=['r', 'r', 'r'])
+    # other ball
     if a0 is not None:
-        plot_atoms([alocs[a0]], [arads[1779]], fig=fig, ax=ax, colors=['pink'])
-    # interfering atom
+        plot_balls([b_locs[a0]], [b_rads[1779]], fig=fig, ax=ax, colors=['pink'])
+    # interfering ball
     if a1 is not None:
-        plot_atoms([alocs[3144]], [arads[3144]], fig=fig, ax=ax, colors=['orange'])
-    # # actual vert other atom
+        plot_balls([b_locs[3144]], [b_rads[3144]], fig=fig, ax=ax, colors=['orange'])
+    # # actual vert other ball
     if a2 is not None:
-        plot_atoms([alocs[7]], [arads[7]], fig=fig, ax=ax, colors=['purple'])
+        plot_balls([b_locs[7]], [b_rads[7]], fig=fig, ax=ax, colors=['purple'])
     # actual vert
     plot_verts([my_vert['loc2']], [my_vert['rad2']], fig=fig, ax=ax, spheres=True, colors=['b'])
     # closest vert

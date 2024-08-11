@@ -1,7 +1,7 @@
 from numpy import array as ar
 import numpy as np
 import matplotlib.pyplot as plt
-from Visualize.mpl_visualize import plot_atoms, plot_verts, plot_edges, plot_surfs
+from Visualize.mpl_visualize import plot_balls, plot_verts, plot_edges, plot_surfs
 from System.Network.verts.calc_vert import calc_vert, calc_flat_vert
 from System.Network.edges.build_edge import build_edge
 from System.Network.surfs.build_surf import build_surf
@@ -155,7 +155,7 @@ if show_verts:
                spheres=show_vert_balls, alpha=vert_alpha)
 # Plot the atoms
 if show_atoms:
-    plot_atoms(alocs=[_[0] for _ in my_surf_atoms], arads=[_[1] for _ in my_surf_atoms], alpha=atom_alpha, fig=fig, ax=ax,
+    plot_balls(alocs=[_[0] for _ in my_surf_atoms], arads=[_[1] for _ in my_surf_atoms], alpha=atom_alpha, fig=fig, ax=ax,
                res=10)
 
 # Set the scales for the figure

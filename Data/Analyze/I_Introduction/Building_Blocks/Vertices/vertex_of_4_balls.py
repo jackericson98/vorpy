@@ -1,7 +1,7 @@
 import numpy as np
 from numpy import array as ar, sqrt as sqrt
 import matplotlib.pyplot as plt
-from Visualize.mpl_visualize import plot_atoms, plot_verts
+from Visualize.mpl_visualize import plot_balls, plot_verts
 from System.Network.verts.calc_vert import calc_vert
 
 """
@@ -113,7 +113,7 @@ ax = fig.add_subplot(projection='3d')
 
 
 # Plot the atoms
-plot_atoms(locs, rads, fig=fig, ax=ax, res=10, alpha=atom_alpha)
+plot_balls(locs, rads, fig=fig, ax=ax, res=10, alpha=atom_alpha)
 # Plot the vertices
 plot_verts([my_vert[0]], [abs(my_vert[1])], fig=fig, ax=ax, spheres=True, res=10, alpha=0.3, colors=['r'])
 

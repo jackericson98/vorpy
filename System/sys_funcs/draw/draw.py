@@ -40,7 +40,7 @@ def color_tris(surf, color_scheme, color_map, max_val=None):
     elif color_scheme == 'curv':
         # Check if the function is None
         if surf['func'] is None:
-            a0, a1 = [surf['net'].atoms.iloc[_] for _ in surf['atoms']]
+            a0, a1 = [surf['net'].balls.iloc[_] for _ in surf['balls']]
             func = calc_surf_func(a0['loc'], a0['rad'], a1['loc'], a1['rad'])
         else:
             func = surf['func']
@@ -124,9 +124,9 @@ def draw_edge(edge, radius=0.02, color=None):
     :return: None
     """
     # # Get the edge direction to point away from
-    # rads = [_.rad for _ in edge.atoms]
-    # min_atom = edge.atoms[rads.index(min(rads))]
+    # rads = [_.rad for _ in edge.balls]
+    # min_ball = edge['balls'][rads.index(min(rads))]
     # if edge.points is None or len(edge.points) <= 1:
-    #     edge.points, edge.vals = build_edge(edge.atoms, edge.verts, edge.net.surf_res)
+    #     edge.points, edge.vals = build_edge(edge['balls'], edge['verts'], edge.net.surf_res)
     # Calculate the lines
     return draw_line(edge.points, radius, color=color)

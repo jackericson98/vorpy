@@ -13,32 +13,32 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, ne
     """
     Cycles through larger and larger areas searching for
     """
-    # Set up the vert and invalid atoms parameters
+    # Set up the vert and invalid indices parameters
     invalid_ndxs, vert = [], None
 
-    # If no vn_1 is provided set it to the edge_atoms
+    # If no vn_1 is provided set it to the edge_balls
     if vn_1 is None:
         vn_1 = edge_balls
 
-    # Check if the edge contains a group atom, to see if the next atom needs to be checked or not
-    # Start with check atoms as false if no group is defined
+    # Check if the edge contains a group ball, to see if the next ball needs to be checked or not
+    # Start with check balls as false if no group is defined
     check_ndxs = False
     if group_ndxs is not None:
-        # If a group exists default to checking each atom
+        # If a group exists default to checking each ball
         check_ndxs = True
-        # Go through the edge atoms checking if they are in the group --> any vert found from another atom is included
+        # Go through the edge balls checking if they are in the group --> any vert found from another ball is included
         for ball in edge_balls:
-            # Take the potential index of the atom in group
+            # Take the potential index of the ball in group
             my_index = bisect.bisect_left(group_ndxs, ball)
-            # If the index is in the list check if the atom matches the index's element
+            # If the index is in the list check if the ball matches the index's element
             if my_index != len(group_ndxs) and group_ndxs[my_index] == ball:
-                # If the element is found no need to check the atoms and break the for loop
+                # If the element is found no need to check the balls and break the for loop
                 check_ndxs = False
                 break
 
-    # Find the 3 boxes the edge atoms are in
+    # Find the 3 boxes the edge balls are in
     my_boxes = [box_search(loc=locs[edge_balls[_]]) for _ in range(3)]
-    # Gather the surrounding atoms or the entire list of atoms we could be comparing to
+    # Gather the surrounding balls or the entire list of balls we could be comparing to
     surr_balls = get_balls(cells=my_boxes, dist=max_vert)
     # Se the initial vert size
     mv_inc = 0.45
@@ -65,9 +65,9 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, ne
 def find_site_pd(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_type, check_ndxs, surr_balls,
                  my_boxes, invalid_ndxs, vn_1, vn_1_loc=None, group_ndxs=None, metrics=None):
     """
-    Used a vertex and a combination of it's edge atoms to find the connecting vertex
+    Used a vertex and a combination of it's edge balls to find the connecting vertex
     """
-    # Get the atoms that should not ba a part of the new vertex
+    # Get the balls that should not ba a part of the new vertex
     edge_ndxs = edge_balls[:]
 
     # Time printing metrics <-- Delete later
@@ -77,28 +77,28 @@ def find_site_pd(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, n
     if metrics is not None:
         metrics['box_search'] += time.perf_counter() - start
         start = time.perf_counter()
-    # Get the atoms not in the invalid atoms that are within the range specified
+    # Get the balls not in the invalid balls that are within the range specified
     test_balls = [_ for _ in get_balls(cells=my_boxes, dist=mv_inc) if _ not in invalid_ndxs]
-    # Sort the test atoms to be in order by distance from the previous vert location
+    # Sort the test balls to be in order by distance from the previous vert location
     if vn_1_loc is None:
         vn_1_loc = calc_com([locs[_] for _ in edge_ndxs])
 
     dists = [calc_dist(np.array(locs[_]), np.array(vn_1_loc)) for _ in test_balls]
     test_balls = [_ for x, _ in sorted(zip(dists, test_balls))]
 
-    # Gather atoms metrics <-- Delete later
+    # Gather balls metrics <-- Delete later
     if metrics is not None:
-        metrics['gather_atoms'] += time.perf_counter() - start
+        metrics['gather_balls'] += time.perf_counter() - start
         start = time.perf_counter()
 
-    # Instantiate the list for test vertices to be calculated later. This saves us from sorting the vertices atoms twice
+    # Instantiate the list for test vertices to be calculated later. This saves us from sorting the vertices balls twice
     test_verts = []
-    # Go through the surrounding atoms to look for vertices that have been found before and filter out edge atoms
+    # Go through the surrounding balls to look for vertices that have been found before and filter out edge balls
     for ball in test_balls:
-        # If the atom is in the previous vertex move on
+        # If the ball is in the previous vertex move on
         if ball in vn_1:
             continue
-        # Check if we need to check and if so check for the atom in the list
+        # Check if we need to check and if so check for the ball in the list
         if check_ndxs and ball not in group_ndxs:
             continue
         # If we have found the vertex before it is not the previous vertex return
@@ -106,9 +106,9 @@ def find_site_pd(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, n
         ball_ndxs.sort()
         # Get the vertex's index/insert index
         check_verts = [vert_ndxs[_] for _ in b_verts[ball_ndxs[0]]]
-        # Take the potential index of the atom in group
+        # Take the potential index of the ball in group
         my_vert_ndx = bisect.bisect_left(check_verts, ball_ndxs)
-        # If the index returned is larger than the list or the vertex at the index is not equal to the atom_ndxs were ok
+        # If the index returned is larger than the list or the vertex at the index is not equal to the ball_ndxs were ok
         if my_vert_ndx < len(check_verts) and ball_ndxs == check_verts[my_vert_ndx]:
             return None, invalid_ndxs
         # Add the vertex indices to the test_vertices for calculation
@@ -117,10 +117,10 @@ def find_site_pd(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, n
     if metrics is not None:
         metrics['ndx_search'] += time.perf_counter() - start
 
-    # Go through each atom in the given test atoms. Extremely optimized
+    # Go through each ball in the given test balls. Extremely optimized
     for i, vert in enumerate(test_verts):
 
-        # Add the vertex atom to the
+        # Add the vertex ball to the
         vert_balls, ball = vert
         # Calculate the 181L vertex values
         start = time.perf_counter()
@@ -144,7 +144,7 @@ def find_site_pd(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, n
         start = time.perf_counter()
         # Filter the vertex out if it is too large or not able to be made
         filtered_test_balls = [_ for _ in surr_balls if _ not in vert_balls]
-        # Get the locations from the test atoms
+        # Get the locations from the test balls
         test_locs = np.array([locs[_] for _ in filtered_test_balls])
         test_rads = np.array([rads[_] for _ in filtered_test_balls])
         # Compare the vertex to the maximum allowed vertex and verify it
@@ -153,21 +153,21 @@ def find_site_pd(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, n
             # Add the time for verification to the verify_site metrics
             if metrics is not None:
                 metrics['verify_site'] += time.perf_counter() - start
-            # Return the validated atom and the invalidated ist
-            return [{'atoms': vert_balls, 'loc': vert_loc, 'rad': vert_rad}, metrics], invalid_ndxs
+            # Return the validated ball and the invalidated ist
+            return [{'balls': vert_balls, 'loc': vert_loc, 'rad': vert_rad}, metrics], invalid_ndxs
         else:
-            # Add the atom to the invalid atoms list if it isn't verified
+            # Add the ball to the invalid balls list if it isn't verified
             invalid_ndxs.append(ball)
-    # Return the non-vertex and invalid atoms
+    # Return the non-vertex and invalid balls
     return None, invalid_ndxs
 
 
 def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_type, check_ndxs, surr_balls,
                  my_boxes, invalid_ndxs, vn_1, vn_1_loc, group_balls=None, metrics=None, printing=False):
     """
-    Used a vertex and a combination of it's edge atoms to find the connecting vertex
+    Used a vertex and a combination of it's edge balls to find the connecting vertex
     """
-    # Get the atoms that should not ba a part of the new vertex
+    # Get the balls that should not ba a part of the new vertex
     edge_ndxs = edge_balls[:]
     # Time printing metrics <-- Delete later
     start = time.perf_counter()
@@ -177,37 +177,37 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, n
         metrics['box_search'] += time.perf_counter() - start
         start = time.perf_counter()
 
-    # Get the atoms not in the invalid atoms that are within the range specified
+    # Get the balls not in the invalid balls that are within the range specified
     test_balls = [_ for _ in get_balls(cells=my_boxes, dist=mv_inc) if _ not in invalid_ndxs]
 
-    # Sort the test atoms to be in order by distance from the previous vert location
+    # Sort the test balls to be in order by distance from the previous vert location
     if net_type != 'aw' and vn_1_loc is not None:
         dists = [calc_dist(np.array(locs[_]), np.array(vn_1_loc)) for _ in test_balls]
         test_balls = [_ for x, _ in sorted(zip(dists, test_balls))]
 
-    # Gather atoms metrics <-- Delete later
+    # Gather balls metrics <-- Delete later
     if metrics is not None:
-        metrics['gather_atoms'] += time.perf_counter() - start
+        metrics['gather_balls'] += time.perf_counter() - start
         start - time.perf_counter()
 
-    # Instantiate the list for test vertices to be calculated later. This saves us from sorting the vertices atoms twice
+    # Instantiate the list for test vertices to be calculated later. This saves us from sorting the vertices balls twice
     new_test_balls = []
-    # Go through the surrounding atoms to look for vertices that have been found before and filter out edge atoms
+    # Go through the surrounding balls to look for vertices that have been found before and filter out edge balls
     for ball in test_balls:
-        # If the atom is in the previous vertex move on
+        # If the ball is in the previous vertex move on
         if ball in vn_1:
             continue
-        # Check if we need to check and if so check for the atom in the list
+        # Check if we need to check and if so check for the ball in the list
         if check_ndxs and ball not in group_balls:
             continue
         # If we have found the vertex before it is not the previous vertex return
         ball_ndxs = edge_ndxs + [ball]
         ball_ndxs.sort()
-        # Get the vertices for the first atom. All atoms will contain the vertex so only one atom needs to be checked
+        # Get the vertices for the first ball. All balls will contain the vertex so only one ball needs to be checked
         check_verts = [vert_ndxs[_] for _ in b_verts[ball_ndxs[0]]]
         # Use the ndx_search function to quickly search the list of sorted vertices
         my_vert_ndx = bisect.bisect_left(check_verts, ball_ndxs)
-        # If the index returned is larger than the list or the vertex at the index is not equal to the atom_ndxs were ok
+        # If the index returned is larger than the list or the vertex at the index is not equal to the ball_ndxs were ok
         if my_vert_ndx < len(check_verts) and ball_ndxs == check_verts[my_vert_ndx]:
             return None, invalid_ndxs
         # Add the vertex indices to the test_vertices for calculation
@@ -220,10 +220,10 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, n
 
     # Instantiate the calculated vertices list
     calc_verts = []
-    # Go through each atom in the given test atoms. Extremely optimized
+    # Go through each ball in the given test balls. Extremely optimized
     for i, ball in enumerate(new_test_balls):
 
-        # Combine the new atom with the edge atoms and sort
+        # Combine the new ball with the edge balls and sort
         vert_balls = edge_balls + [ball]
         vert_balls.sort()
         # Make sure the vertex values are defined
@@ -249,7 +249,7 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, n
             v_loc2, v_rad2 = None, None
 
         # Add the vertex to the list of calculated vertices
-        calc_verts.append({'atoms': vert_balls, 'loc': np.array(v_loc), 'rad': v_rad, 'loc2': v_loc2, 'rad2': v_rad2})
+        calc_verts.append({'balls': vert_balls, 'loc': np.array(v_loc), 'rad': v_rad, 'loc2': v_loc2, 'rad2': v_rad2})
 
     # Calculate vertices metrics <-- Delete later
     if metrics is not None:
@@ -265,26 +265,26 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, n
 
     # Instantiate the left and right vertex lists
     left_verts, right_verts = [], []
-    # Get the centers of the edge atoms
+    # Get the centers of the edge balls
     c0, c1, c2 = [locs[_] for _ in edge_ndxs]
     # Get the center of the inscribed circle
     edge_center, edge_radius = calc_circ(locs[edge_ndxs[0]], locs[edge_ndxs[1]], locs[edge_ndxs[2]],
                                          rads[edge_ndxs[0]], rads[edge_ndxs[1]], rads[edge_ndxs[2]])
 
-    # Calculate the edge normal  direction - take cross product of vector centers of edge atoms - a0 a1 X a1, a2
+    # Calculate the edge normal  direction - take cross product of vector centers of edge balls - a0 a1 X a1, a2
     edge_direction = np.cross(c0 - c1, c0 - c2)
     edge_normal = edge_direction / np.linalg.norm(edge_direction)
 
     # Calculate the projection of the previous vertex onto the edge normal (value) or edge_normal dot prev vert center
     pv_dist = np.dot(edge_normal, edge_center - vn_1_loc)
-    # Go through the calculated vertices made by the edge atoms and the surrounding atoms - filtering process
+    # Go through the calculated vertices made by the edge balls and the surrounding balls - filtering process
     for vert in calc_verts:
         # Get the vertex's projected distance
         vert_proj_dist = np.dot(edge_normal, edge_center - vert['loc'])
         # Calculate the distance to the previous vertex and assign it as a value in the vertex dictionary
         vert['d2pv'] = abs(pv_dist - vert_proj_dist)
 
-        # If the other atoms projection (value1) is less than the previous vertex's projection (value)
+        # If the other balls projection (value1) is less than the previous vertex's projection (value)
         if pv_dist < vert_proj_dist:
             # Add the vertex to the list of filtered vertices
             left_verts.append(vert)
@@ -295,8 +295,8 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, n
         vert['d2pv2'] = None
         if vert['loc2'] is not None:
             vert_proj_dist = np.dot(edge_normal, edge_center - vert['loc2'])
-            flipped_vert = {'atoms': vert['atoms'], 'loc': vert['loc2'], 'rad': vert['rad2'], 'd2pv': abs(pv_dist - vert_proj_dist), 'loc2': vert['loc'], 'rad2': vert['rad']}
-            # If the other atoms projection (value1) is less than the previous vertex's projection (value)
+            flipped_vert = {'balls': vert['balls'], 'loc': vert['loc2'], 'rad': vert['rad2'], 'd2pv': abs(pv_dist - vert_proj_dist), 'loc2': vert['loc'], 'rad2': vert['rad']}
+            # If the other balls projection (value1) is less than the previous vertex's projection (value)
             if pv_dist < vert_proj_dist:
                 # Add the vertex to the list of filtered vertices
                 left_verts.append(flipped_vert)
@@ -417,14 +417,14 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, n
     return None, invalid_ndxs
 
 
-def choose_vert(my_vert, edge_ndxs, test_atoms, alocs, arads, metrics, start, net_type):
-    # Create the extra atom variable
+def choose_vert(my_vert, edge_ndxs, test_balls, b_locs, b_rads, metrics, start, net_type):
+    # Create the extra ball variable
     extra_ball = None
-    # Get the atoms surrounding the vertex, not including the vertex atoms
-    my_check_balls = [_ for _ in test_atoms if _ not in my_vert['atoms']]
-    # Gather the locations and radii of the atoms
-    test_locs = np.array([alocs[_] for _ in my_check_balls])
-    test_rads = np.array([arads[_] for _ in my_check_balls])
+    # Get the balls surrounding the vertex, not including the vertex balls
+    my_check_balls = [_ for _ in test_balls if _ not in my_vert['balls']]
+    # Gather the locations and radii of the balls
+    test_locs = np.array([b_locs[_] for _ in my_check_balls])
+    test_rads = np.array([b_rads[_] for _ in my_check_balls])
     # Check the first location for the vertex
     if verify_site(np.array(my_vert['loc']), my_vert['rad'], test_locs, test_rads):
         # Check the second location if it exists, if it is within the allowed size range and if it is verified
@@ -440,11 +440,11 @@ def choose_vert(my_vert, edge_ndxs, test_atoms, alocs, arads, metrics, start, ne
     elif my_vert['loc2'] is not None and verify_site(loc=np.array(my_vert['loc2']), rad=my_vert['rad2'],
                                                      test_locs=test_locs, test_rads=test_rads, net_type=net_type):
         # Reset the left_vert variable with the other location and return it
-        my_vert = {'atoms': my_vert['atoms'], 'loc': my_vert['loc2'], 'rad': my_vert['rad2'], 'loc2': None,
+        my_vert = {'balls': my_vert['balls'], 'loc': my_vert['loc2'], 'rad': my_vert['rad2'], 'loc2': None,
                       'rad2': None}
         if metrics is not None:
             metrics['verify_site'] += time.perf_counter() - start
         return [my_vert, metrics], extra_ball
-    # We still need to return invalid atoms if they are not included
-    return None, [_ for _ in my_vert['atoms'] if _ not in edge_ndxs][0]
+    # We still need to return invalid balls if they are not included
+    return None, [_ for _ in my_vert['balls'] if _ not in edge_ndxs][0]
 

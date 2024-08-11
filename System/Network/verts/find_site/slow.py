@@ -8,21 +8,21 @@ import time
 def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_type, invalid_ndxs=None,
               check_balls=True, vn_1=None, vn_1_loc=None, group_ndxs=None, metrics=None):
     """
-    Used a vertex and a combination of it's edge atoms to find the connecting vertex
+    Used a vertex and a combination of it's edge balls to find the connecting vertex
     """
     if invalid_ndxs is None:
         invalid_ndxs = []
-    # Get the atoms that should not ba a part of the new vertex
+    # Get the balls that should not ba a part of the new vertex
     edge_ndxs = edge_balls[:]
 
-    # If the previous vertex has been provided, add the other atom to the not allowed atoms
-    vert_atom_ndxs = vn_1
+    # If the previous vertex has been provided, add the other  to the not allowed balls
+    vert_ball_ndxs = vn_1
     if vn_1 is None:
-        vert_atom_ndxs = edge_ndxs
+        vert_ball_ndxs = edge_ndxs
 
     # Time printing metrics <-- Delete later
     start = time.perf_counter()
-    # Grab the atoms we want to test against
+    # Grab the balls we want to test against
     my_boxes = [box_search(loc=locs[edge_balls[_]]) for _ in range(3)]
     # Time printing metrics <-- Delete later
     if metrics is not None:
@@ -34,15 +34,15 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
     surr_balls = get_balls(cells=my_boxes, dist=max_vert)
 
     if metrics is not None:
-        metrics['gather_atoms'] += time.perf_counter() - start
+        metrics['gather_balls'] += time.perf_counter() - start
     # First look for vertices that have been found before
     new_test_balls = []
     start = time.perf_counter()
     for ball in test_balls:
-        # If the atom is in the previous vertex move on
-        if ball in vert_atom_ndxs:
+        # If the ball is in the previous vertex move on
+        if ball in vert_ball_ndxs:
             continue
-        # Check if we need to check and if so check for the atom in the list
+        # Check if we need to check and if so check for the ball in the list
         if check_balls and ball not in group_ndxs:
             continue
         # If we have found the vertex before it is not the previous vertex return
@@ -59,7 +59,7 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
         metrics['ndx_search'] += time.perf_counter() - start
     # Instantiate the vertex list and the size limit for vertices found
     verts = []
-    # Go through each atom in the given test atoms. Extremely optimized
+    # Go through each ball in the given test balls. Extremely optimized
     for i, ball in enumerate(new_test_balls):
         # Create the vertex and calculate its value
         vert_balls = edge_balls + [ball]
@@ -87,13 +87,13 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
         if abs(vert_rad) < max_vert and verify_site(loc=np.array(vert_loc), rad=vert_rad, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
             if len(verts) > 0 and verts[0]['rad'] < vert_rad:
                 return [verts[0], metrics], invalid_ndxs
-            verts.append({'atoms': vert_balls, 'loc': vert_loc, 'rad': vert_rad, 'loc2': None, 'rad2': None})
+            verts.append({'balls': vert_balls, 'loc': vert_loc, 'rad': vert_rad, 'loc2': None, 'rad2': None})
             # If the first vertex site is a valid site add it to the list of check vertices and add its index
             if vert_loc2 is not None and abs(vert_rad2) < max_vert and verify_site(loc=np.array(vert_loc2), rad=vert_rad2, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
                 verts[-1]['loc2'], verts[-1]['rad2'] = vert_loc2, vert_rad2
         # Check to see if the doublet's site is verified
         elif vert_loc2 is not None and verify_site(loc=np.array(vert_loc2), rad=vert_rad2, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
-            verts.append({'atoms': vert_balls, 'loc': vert_loc2, 'rad': vert_rad2, 'loc2': None, 'rad2': None})
+            verts.append({'balls': vert_balls, 'loc': vert_loc2, 'rad': vert_rad2, 'loc2': None, 'rad2': None})
         if metrics is not None:
             metrics['verify_site'] += time.perf_counter() - start
         else:

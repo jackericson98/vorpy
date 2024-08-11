@@ -15,10 +15,10 @@ def calc_surf_func(l0, r0, l1, r1):
 @jit(nopython=True)
 def calc_surf_func_jit(l0, r0, l1, r1):
     """
-    Calculates the coefficients for the surface between the two atoms
-    :return: Returns a function for the hyperboloid between the atoms
+    Calculates the coefficients for the surface between the two balls
+    :return: Returns a function for the hyperboloid between the balls
     """
-    # Check the smaller atom is first
+    # Check the smaller ball is first
     if r1 < r0:
         l0, r0, l1, r1 = l1, r1, l0, r0
     # Grab the centers of the spheres
@@ -42,10 +42,10 @@ def calc_surf_func_jit(l0, r0, l1, r1):
 
 def calc_surf_func_reg(l0, r0, l1, r1):
     """
-    Calculates the coefficients for the surface between the two atoms
-    :return: Returns a function for the hyperboloid between the atoms
+    Calculates the coefficients for the surface between the two balls
+    :return: Returns a function for the hyperboloid between the balls
     """
-    # Check the smaller atom is first
+    # Check the smaller ball is first
     if r1 < r0:
         l0, r0, l1, r1 = l1, r1, l0, r0
     # Grab the centers of the spheres
@@ -176,18 +176,18 @@ def calc_surf_tri_curvs(func, points, tris, max_curv=0):
 
 def calc_surf_tri_ins_out(surf):
     """
-    Calculates whether the triangles in the surface are inside the overlapping atoms or not
+    Calculates whether the triangles in the surface are inside the overlapping balls or not
     :param surf: Surface for calculations
     :return: List of bools for if the triangles in the surface are inside or out
     """
     # Set up a list of tracking
     inside_array = []
     # Go through the points in the surface
-    for point in surf.points:
-        # Calculate the distance between the point and the atom
-        my_dist = calc_dist(point, surf.atoms[0].loc)
+    for point in surf['points']:
+        # Calculate the distance between the point and the ball
+        my_dist = calc_dist(point, surf['balls'][0].loc)
         # Check if the triangle is inside or not
-        if my_dist < surf.atoms[0].rad:
+        if my_dist < surf['balls'][0].rad:
             inside_array.append(True)
         else:
             inside_array.append(False)

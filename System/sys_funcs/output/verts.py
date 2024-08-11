@@ -28,7 +28,7 @@ def write_off_verts(net, verts, file_name, atom_type=None, directory=None, color
         return
     loc_points, loc_tris = [], []
     for vert in verts:
-        loc = net.verts['vloc'][vert]
+        loc = net.verts['loc'][vert]
         # Draw the point
         xp, xn = loc + np.array([vert_rad, 0, 0]), loc - np.array([vert_rad, 0, 0])
         yp, yn = loc + np.array([0, vert_rad, 0]), loc - np.array([0, vert_rad, 0])

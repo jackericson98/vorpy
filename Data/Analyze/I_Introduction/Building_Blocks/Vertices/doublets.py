@@ -1,7 +1,7 @@
 import numpy as np
 from numpy import array as ar
 import matplotlib.pyplot as plt
-from Visualize.mpl_visualize import plot_atoms, plot_verts, plot_edges, plot_surfs
+from Visualize.mpl_visualize import plot_balls, plot_verts, plot_edges, plot_surfs
 from System.Network.verts.calc_vert import calc_vert
 from System.Network.edges.build_edge import build_edge
 from System.Network.surfs.build_surf import build_surf
@@ -85,7 +85,7 @@ ax = fig.add_subplot(projection='3d')
 
 
 # Plot the atoms
-plot_atoms(locs, rads, fig=fig, ax=ax, res=10, colors=['pink' for _ in range(len(locs))], alpha=atom_alpha)
+plot_balls(locs, rads, fig=fig, ax=ax, res=10, colors=['pink' for _ in range(len(locs))], alpha=atom_alpha)
 # Plot the vertices
 plot_verts([my_vert[0]], [abs(my_vert[1])], fig=fig, ax=ax, spheres=True, res=10, colors=['r'], alpha=0.3)
 plot_verts([my_vert[2]], [abs(my_vert[3])], fig=fig, ax=ax, spheres=True, res=10, colors=['r'], alpha=0.3)

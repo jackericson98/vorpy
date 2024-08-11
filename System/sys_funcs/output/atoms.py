@@ -128,13 +128,13 @@ def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=
             continue
         # Check if the surfaces should be exported
         if surfs:
-            write_surfs(net, atom['asurfs'], directory=directory, file_name='atom' + "_" + atom['name'].strip() + '_' + str(atom['num']))
+            write_surfs(net, atom['surfs'], directory=directory, file_name='atom' + "_" + atom['name'].strip() + '_' + str(atom['num']))
         # Check for verts
         if verts:
-            write_off_verts(net, atom['averts'], directory=directory, file_name=str(atom['num']) + "_" + atom['name'] + "_verts")
+            write_off_verts(net, atom['verts'], directory=directory, file_name=str(atom['num']) + "_" + atom['name'] + "_verts")
         # Check for edges
         if edges:
-            write_edges(net, atom['aedges'], directory=directory, file_name=str(atom['num']) + "_" + atom['name'] + "_edges")
+            write_edges(net, atom['edges'], directory=directory, file_name=str(atom['num']) + "_" + atom['name'] + "_edges")
 
 
 def make_pdb_line(atom="ATOM", ser_num=0, name="", alt_loc=" ", res_name="", chain="A", res_seq=0, cfir="", x=0, y=0, z=0,

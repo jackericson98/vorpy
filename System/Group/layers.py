@@ -29,34 +29,34 @@ def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
         for i in grp.layer_atoms[-2]:
             atom = net.balls.iloc[i]
             # Go through the surfaces in the atom's list of surfaces
-            for j in atom['asurfs']:
+            for j in atom['surfs']:
                 surf = grp.net.surfs.iloc[j]
                 if j in grp.layer_surfs[-1] or (len(grp.layer_surfs) >= 2 and j in grp.layer_surfs[-2]):
                     continue
-                elif surf['satoms'][0] in layer_atoms_ndxs[-2] and surf['satoms'][1] in layer_atoms_ndxs[-2]:
+                elif surf['balls'][0] in layer_atoms_ndxs[-2] and surf['balls'][1] in layer_atoms_ndxs[-2]:
                     continue
                 grp.layer_surfs[-1].append(j)
                 # Add the vertices
-                for k in surf['sverts']:
+                for k in surf['verts']:
                     if k not in grp.layer_verts[-1]:
                         grp.layer_verts[-1].append(k)
-                for edge in surf['sedges']:
+                for edge in surf['edges']:
                     if edge not in grp.layer_edges[-1]:
                         grp.layer_edges[-1].append(edge)
                 # Get the index of the surface
-                surf_ndx = ndx_search(grp.surf_ndxs, surf['satoms'])
+                surf_ndx = ndx_search(grp.surf_ndxs, surf['balls'])
                 # Check if the surface has been added yet or not
-                if surf_ndx < len(grp.surf_ndxs) and grp.surf_ndxs[surf_ndx] != surf['satoms']:
+                if surf_ndx < len(grp.surf_ndxs) and grp.surf_ndxs[surf_ndx] != surf['balls']:
                     # Insert the index and the surfaces in their 181L place
                     grp.surfs.insert(surf_ndx, j)
-                    grp.surf_ndxs.insert(surf_ndx, surf['satoms'])
+                    grp.surf_ndxs.insert(surf_ndx, surf['balls'])
                 # Sort the surface's atoms inside or out
-                if surf['satoms'][0] in layer_atoms_ndxs[-2] and surf['satoms'][1] not in layer_atoms_ndxs[-2]:
-                    grp.layer_atoms[-1].append(surf['satoms'][1])
-                    layer_atoms_ndxs[-1].append(surf['satoms'][1])
-                if surf['satoms'][1] in layer_atoms_ndxs[-2] and surf['satoms'][0] not in layer_atoms_ndxs[-2]:
-                    grp.layer_atoms[-1].append(surf['satoms'][0])
-                    layer_atoms_ndxs[-1].append(surf['satoms'][0])
+                if surf['balls'][0] in layer_atoms_ndxs[-2] and surf['balls'][1] not in layer_atoms_ndxs[-2]:
+                    grp.layer_atoms[-1].append(surf['balls'][1])
+                    layer_atoms_ndxs[-1].append(surf['balls'][1])
+                if surf['balls'][1] in layer_atoms_ndxs[-2] and surf['balls'][0] not in layer_atoms_ndxs[-2]:
+                    grp.layer_atoms[-1].append(surf['balls'][0])
+                    layer_atoms_ndxs[-1].append(surf['balls'][0])
         if build_surfs and grp.sys.cmnds['xpt'] != [['logs']]:
             # Check to make sure the surfaces are built in the layer
             grp.build_surfs()

@@ -11,7 +11,7 @@ vert1.calc_vert()
 vert1.doublet = Vertex(atoms=vert1.atoms, location=vert1.loc2, radius=vert1.rad2)
 
 doublet.set_title("Two Vertices")
-plot_atoms(atoms1, fig=fig, ax=doublet, colors=['blue']*4)
+plot_balls(atoms1, fig=fig, ax=doublet, colors=['blue'] * 4)
 plot_verts([vert1, vert1.doublet], fig=fig, ax=doublet, spheres=True, colors=['g', 'g'])
 
 singlet = fig.add_subplot(132, projection='3d')
@@ -21,7 +21,7 @@ vert2 = Vertex(atoms=atoms2)
 vert2.calc_vert()
 
 singlet.set_title("Single Vertex")
-plot_atoms(atoms2, fig=fig, ax=singlet, colors=['blue']*4)
+plot_balls(atoms2, fig=fig, ax=singlet, colors=['blue'] * 4)
 plot_verts([vert2], fig=fig, ax=singlet, spheres=True, colors=['g', 'g'])
 
 nonelet = fig.add_subplot(133, projection='3d')
@@ -33,4 +33,4 @@ vert3.calc_vert()
 # Add the plot information
 nonelet.set_title("No vertices")
 
-plot_atoms(atoms3, fig=fig, ax=nonelet, colors=['blue']*4, Show=True)
+plot_balls(atoms3, fig=fig, ax=nonelet, colors=['blue'] * 4, Show=True)

@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from System.Network.edges.build_edge import build_edge
-from Visualize.mpl_visualize import plot_atoms, plot_edges, plot_verts
+from Visualize.mpl_visualize import plot_balls, plot_edges, plot_verts
 
 
 atoms = [([0, 0, 10.25], 10), ([0, 0, -10.25], 10), ([0, 0, 0], 0.25)]
@@ -17,7 +17,7 @@ fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
 
 
-plot_atoms([_[0] for _ in atoms], [_[1] for _ in atoms], fig=fig, ax=ax, alpha=0.2, res=8)
+plot_balls([_[0] for _ in atoms], [_[1] for _ in atoms], fig=fig, ax=ax, alpha=0.2, res=8)
 # plot_verts(verts1, [0.1, 0.1, 0.1], spheres=True, fig=fig, ax=ax)
 plot_edges([_[0] for _ in edges], fig=fig, ax=ax, thickness=2)
 

@@ -15,7 +15,7 @@ for file in files:
     sys.build_network(surf_res=0.02, max_vert=20, box_size=2.5)
     fig = plt.figure()
     ax = fig.add_subplot(projection="3d")
-    plot_atoms(sys.atoms[0:4], fig=fig, ax=ax)
+    plot_balls(sys.atoms[0:4], fig=fig, ax=ax)
 
     plot_verts(sys.net.verts, fig=fig, ax=ax)
     plot_edges(sys.net.edges, fig=fig, ax=ax, Show=True)

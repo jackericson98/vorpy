@@ -49,7 +49,7 @@ for i in range(len(cases)):
     axn = fig.add_subplot(int("23" + str(i + 1)), projection="3d", xlim=10)
     axn.set_title(titles[i])
     plot_verts(verts[i], fig=fig, ax=axn, grid=True)
-    plot_atoms(cases[i], fig=fig, ax=axn, colors=['b', 'b', 'b'], alpha=.1, dfo=3, grid=True, res=6)
+    plot_balls(cases[i], fig=fig, ax=axn, colors=['b', 'b', 'b'], alpha=.1, dfo=3, grid=True, res=6)
     plot_edges([edges[i]], fig=fig, ax=axn, dfo=3, grid=False, alpha=1)
 fig.suptitle('Edges', fontsize=20)
 plt.show()

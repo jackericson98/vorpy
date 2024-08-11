@@ -1,7 +1,5 @@
 import numpy as np
 from System.sys_funcs.calcs.calcs import calc_angle_jit
-from System.sys_funcs.calcs.circle import calc_circ
-from System.sys_funcs.calcs.surf import calc_surf_func
 from numba import jit
 
 
