@@ -5,6 +5,7 @@ from Visualize.cmnd.interpret import *
 def group(sys, usr_npt, bff=None):
     # Create the object and index variables
     my_obj, my_ndx = None, None
+    # Go through the different info things
     if usr_npt[0] == 'ns':
         my_obj = 'm'
         my_ndx = [0, len(sys.chains) - 2]
@@ -29,12 +30,28 @@ def group(sys, usr_npt, bff=None):
             name = obj_list[obj_ndx].name + '_' + obj_list[obj_ndx].seq
         elif my_obj == 'a':
             name = obj_list.iloc[obj_ndx].res.name + '_' + str(obj_list.iloc[obj_ndx].res.seq) + '_' + \
-                   obj_list.iloc[obj_ndx].name
+                   str(obj_list.iloc[obj_ndx].name)
     # If the user input an object and an index of their own
-    elif len(usr_npt) >= 2:
+    elif len(usr_npt) == 2:
         # Check the object
         my_obj = get_obj(sys=sys, obj=usr_npt[0])
         my_ndx = get_ndx(sys=sys, obj=my_obj, ndx_npt=usr_npt[1])
+        # Get the group information
+        obj_ndx = ['c', 'r', 'a', 'n'].index(my_obj)
+        obj_list = [sys.chains, sys.residues, sys.spheres, sys.ndxs][obj_ndx]
+        # set up the name
+        if my_obj == 'c':
+            name = 'Chain_' + obj_list[obj_ndx].name
+        elif my_obj == 'r':
+            name = obj_list[obj_ndx].name + '_' + obj_list[obj_ndx].seq
+        elif my_obj == 'a':
+            name = obj_list.iloc[obj_ndx].res.name + '_' + str(obj_list.iloc[obj_ndx].res.seq) + '_' + \
+                   str(obj_list.iloc[obj_ndx].name)
+    elif len(usr_npt) > 2:
+        # Check the object
+        my_obj = get_obj(sys=sys, obj=usr_npt[0])
+        my_ndx = get_ndx(sys=sys, obj=my_obj, ndx_npt=usr_npt[1:])
+        # Get the group information
         name = my_obj + '_' + str(my_ndx[0]) + '_' + str(my_ndx[1])
     # Get the group information
     obj_ndx = ['c', 'r', 'a', 'n'].index(my_obj)

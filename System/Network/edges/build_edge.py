@@ -49,7 +49,7 @@ def build_edge(locs, rads, vlocs, res, straight=None):
     if straight or (rads[0] == rads[1] and rads[1] == rads[2]):
         # Get the vector between the two vectors and the number of point in the edge
         r = pv1 - pv0
-        num_points = max(int(np.linalg.norm(r) / res), 4)
+        num_points = max(int(np.linalg.norm(r) / (4 * res)), 4)
         # Add the points
         for i in range(num_points + 1):
             points.append(pv0 + r * (i / num_points))

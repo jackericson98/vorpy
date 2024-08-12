@@ -167,7 +167,10 @@ def calc_surf_tri_curvs(func, points, tris, max_curv=0):
         # Get the triangle
         tri = tris[i]
         # Get the curvatures
-        curv_val = sum([curvs[_] for _ in tri])/3
+        try:
+            curv_val = sum([curvs[_] for _ in tri])/3
+        except IndexError:
+            print(len(points), tri)
         # Add the curve value to the surface's list of curvatures
         tri_curvs.append(curv_val)
     # Return the values

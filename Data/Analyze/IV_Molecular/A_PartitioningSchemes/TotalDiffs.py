@@ -11,7 +11,7 @@ if __name__ == '__main__':
 
     # Choices
     # Choose what we are plotting Vol or SA
-    plotting = 'SA'
+    plotting = 'Vol'
     # Choose to make it abs difference or total difference
     diff = 'tot'
 

@@ -168,7 +168,7 @@ def calc_length(points):
 
 
 @jit(nopython=True)
-def rotate_points(vec, points, reverse=False):
+def rotate_points1(vec, points, reverse=False):
     """
     Takes in a set of points and a vector and rotates the points and the vector so the v = [0,0,1]
     :param vec: The vector about which the surface is rotated
@@ -202,6 +202,33 @@ def rotate_points(vec, points, reverse=False):
         # Add the new points to the list
         nps.append([npx, npy, npz])
     return nps
+
+
+def rotate_points(vec, points, reverse=False):
+    if reverse:
+        vec = - vec
+    vx, vy, vz = vec
+    mag = np.sqrt(vx**2 + vy**2 + vz**2)
+    phi = np.arctan2(vy, vx)
+    theta = np.arccos(vz / mag)
+    if reverse:
+        theta, phi = -theta, -phi
+
+    # Forward rotations to align with z-axis
+    Rz = np.array([[np.cos(phi), -np.sin(phi), 0], [np.sin(phi), np.cos(phi), 0], [0, 0, 1]])
+    Ry = np.array([[np.cos(theta), 0, np.sin(theta)], [0, 1, 0], [-np.sin(theta), 0, np.cos(theta)]])
+
+    # Combine rotations to align vector with +z direction
+    if reverse:
+        # Correct sequence for inverse rotation
+        rotation_matrix = np.dot(Rz, Ry)
+    else:
+        # Correct sequence for forward rotation
+        rotation_matrix = np.dot(Ry, Rz)
+
+    # Apply rotation to all points
+    rotated_points = [np.dot(rotation_matrix, p) for p in points]
+    return rotated_points
 
 
 @jit(nopython=True)

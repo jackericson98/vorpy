@@ -118,26 +118,14 @@ class Group:
             # Set the name
             self.name = '{}_group_{}'.format(self.sys.name, self.sys.groups.index(self))
 
-    def build_network(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
-                      calc_verts=None, my_group=None, print_actions=None, num_atoms_sub_net=1000, no_split=True,
-                      add_net_metrics=True, min_atom_split=1000):
+    def build_network(self):
         """
         Allows user to build the network from the system object.
         """
         if self.net is None:
             self.net = Network(locs=self.sys.spheres['loc'], rads=self.sys.spheres['rad'], group=self.ball_ndxs,
                                settings=self.settings)
-        # Small networks and no split option
-        if len(self.ball_ndxs) < num_atoms_sub_net or no_split:
-            # Build the network
-            self.net.build()
-            # Add the metrics
-            self.net.metrics['splits'] = 1
-            if add_net_metrics:
-                add_metrics(self)
-        else:
-            split_net_slow(sys=self, num_atoms_sub_net=num_atoms_sub_net, add_net_metrics=add_net_metrics,
-                           min_atom_split=min_atom_split)
+        self.net.build()
 
     def get_surfs(self):
         """
