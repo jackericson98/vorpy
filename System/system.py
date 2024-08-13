@@ -59,8 +59,6 @@ class System:
         self.groups = groups                # Groups              :   List of groups in the system
         self.ndxs = None                    # Indices             :   List of indices used to create groups
         self.elements = elements            # Elements            :   List of elements with mass, number, radius, group
-        self.radii = my_radii               # Radii               :   List of atomic radii
-        self.special_radii = special_radii  # Special Radii       :   List of special radius situations. Helpful for gro
         self.decimals = None                # Decimals            :   Decimals setting for the whole system
         self.export_type = 'large'          # Export type         :   Holds the type of objects that come out
         self.cmnds = None                   # Commands            :   All of the input commands for the sytem to be run
