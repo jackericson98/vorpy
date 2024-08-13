@@ -2,6 +2,7 @@
 ys = ['y', 'yes', 'ya', 'yeet', 'yur', 'yoint', 'uhu', 'yup', 'jess', 'affirmative', 'yuss', 'yess',
       'yesss', 'yessss', 'yar', 'yuh', 'mhm', 'crabsolutely', 'dolphinitely', 'shell ya', 'whale of course']
 ns = ['n', 'no', 'naur', 'nope', 'nonya', 'nope', 'nien', 'nada']
+nones = ['none', 'noneya']
 trues = ['t', 'true', 'tr', 'tru', 'truth', 'tu']
 falses = ['f', 'false', 'flse', 'fl', 'fa', 'fs', 'fls']
 dones = ['done', 'd', 'finished', 'finito', 'complete', 'doneso', 'don', 'fin']
@@ -36,18 +37,26 @@ my_objects = full_objs + noSOL_objs + chn_objs + res_objs + atom_objs + ndx_objs
 surf_reses = ['surf_res', 'sr', 'surface_resolution', 'surface_res', 'surf_resolution', 'surfs', 'surf', 'surfs_res', 'surfs_resolution', 'surfaces_resolution', 'surfaces_res']
 max_verts = ['max_vert', 'mv', 'maximum_vertex', 'max_vertex', 'maximum_vert', 'verts', 'vs', 'vert_size', 'max_vert_size', 'mvs', 'vert_max', 'vertex_max', 'vertex_maximum']
 box_sizes = ['box_size', 'bm', 'box', 'bx_sz', 'size_box', 'containing_box', 'containing_box_size', 'box_multi', 'box_multiplier']
-build_surfses = ['build_surfs', 'build_surfaces', 'bs', 'bld_srfs', 'cs', 'calc_surfs', 'surfs_build', 'surfaces_build', 'build_surf', 'build_surf']
 net_types = ['st', 'surf_type', 'net_type', 'nt']
 surf_colors = ['sc', 'surf_colors', 'surf_color_map', 'surf_col', "scm"]
-color_vals = ["viridis", "plasma", "inferno", "cividis", "Greys", "Reds", "Greens", "Blues", 'rainbow']
 surf_schemes = ['ss', 'sirf_scheme', 'surf_scm']
 atom_radii = ['ar', 'atom_radius', 'element_radius']
-file_types = ['net', 'vert', 'ball', 'ndx']
+surf_factors = ['sf', 'surf_factor', 'surf_fac', 'surff']
 
+# Settings vals
 power_vals = ['pow', 'power', 'p', 'pwr', 'pwizzle']
 voronoi_vals = ['vor', 'voronoi', 'vnoi', 'voron', 'vn', 'aw', 'additively_weighted', 'add_weight', 'awizzle']
 delaunay_vals = ['del', 'dl', 'delaunay', 'dlny', 'dny', 'prm', 'primitive' 'prim', 'ptiv', 'ptizzle']
 compare_vals = ['c', 'com', 'compare', 'cpr', 'compar', 'cum']
+
+surf_scheme_curv_vals = ['curv', 'c', 'curvature']
+surf_scheme_dist_vals = ['distance', 'dist', 'd']
+surf_scheme_nout_vals = ['in_out', 'nout', 'no']
+
+
+file_types = ['net', 'vert', 'ball', 'ndx']
+
+
 
 net_type_dict = {'pow': "Power", 'del': "Primitive", 'vor': "Additively Weighted"}
 
