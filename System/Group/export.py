@@ -1,5 +1,4 @@
 from System.sys_funcs.output.output import *
-from System.Group.sort import get_iface
 from System.sys_funcs.output.verts import write_off_verts
 from System.sys_funcs.output.edges import write_edges
 
