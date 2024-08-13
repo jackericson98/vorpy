@@ -1,14 +1,7 @@
-import time
-import os
-import numpy as np
 from System.Group.layers import get_layers
 from System.Group.sort import get_surfs, get_edges, get_verts, add_balls, get_info
 from System.Group.export import group_exports
 from System.Network.network import Network
-from System.Network.split_net import split_net_slow
-from System.sys_funcs.calcs.sorting import ndx_search
-from System.sys_funcs.calcs.surf import calc_surf_sa
-from System.sys_funcs.output.net import add_metrics
 
 
 class Group:
