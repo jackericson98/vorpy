@@ -57,6 +57,8 @@ def color_tris(surf, color_scheme, color_map, max_val=None):
 
         # Set the colors
         tri_colors = [my_cmap(_) for _ in my_curvs]
+    else:
+        tri_colors = [np.random.randint(0, 256, size=3) for _ in range(len(surf['tris']))]
 
     return tri_colors
 
