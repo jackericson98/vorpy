@@ -136,15 +136,14 @@ def argv(my_sys):
     print(cmnds)
     load(my_sys, cmnds['npt'])
     # Go through the user inputs loading files
-    while cmnds['set'] and len(cmnds['set']) > 0:
-        my_npt = cmnds['set'].pop(0)
+    for my_set in cmnds['set']:
         # Pop the file descriptor
-        descriptor = my_npt[0]
+        descriptor = my_sys[0]
         # Check to see that it is a descriptor
-        if descriptor.lower() not in my_settings or len(my_npt) == 0:
-            return
-        # Load the file
-        sett(my_sys, my_npt, vorpy2_set=False)
+        if descriptor.lower() not in my_settings or len(my_set) == 0:
+            continue
+        # Alter the settings
+        sett(my_sys, my_set, vorpy2_set=False)
 
     # Make sure that the the group list is not None
     if my_sys.groups is None:
