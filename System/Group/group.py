@@ -1,18 +1,19 @@
-from System.Group.build import build_surfs
+import time
+import os
+import numpy as np
 from System.Group.layers import get_layers
-from System.Group.sort import get_surfs, get_edges, get_verts, add_spheres
+from System.Group.sort import get_surfs, get_edges, get_verts, add_balls, get_info
 from System.Group.export import group_exports
 from System.Network.network import Network
 from System.Network.split_net import split_net_slow
 from System.sys_funcs.calcs.sorting import ndx_search
 from System.sys_funcs.calcs.surf import calc_surf_sa
 from System.sys_funcs.output.net import add_metrics
-import numpy as np
 
 
 class Group:
     """Group class. Used to hold selections of atoms and do analysis on it"""
-    def __init__(self, sys, spheres=None, atoms=None, name=None, molecules=None, chains=None, residues=None, bff=None,
+    def __init__(self, sys, name=None, atoms=None, molecules=None, chains=None, residues=None, bff=None,
                  settings=None, build_net=False, surf_res=0.2, box_size=1.5, max_vert=40, build_type='all', net=None,
                  net_type='aw', surf_col='plasma', surf_scheme='curv', num_splits=None, print_metrics=True):
         # System attributes
@@ -95,11 +96,11 @@ class Group:
         self.chns = self.chns if self.chns is not None else []
         self.mols = self.mols if self.mols is not None else []
         # Add the provided atoms to the self.atoms list
-        self.add_atoms(self.atms)
+        self.add_balls(self.atms)
         for resid in self.rsds:
-            self.add_atoms(resid.atoms)
+            self.add_balls(resid.atoms)
         for chain in self.chns:
-            self.add_atoms(chain.atoms)
+            self.add_balls(chain.atoms)
         # Add the residues and chains to the group
         if self.net is not None and 'res' in self.net.atoms:
             for atom in self.atms:
@@ -118,7 +119,7 @@ class Group:
             # Set the name
             self.name = '{}_group_{}'.format(self.sys.name, self.sys.groups.index(self))
 
-    def build_network(self):
+    def build(self):
         """
         Allows user to build the network from the system object.
         """
@@ -148,61 +149,19 @@ class Group:
         """
         get_verts(self)
 
-    def build_surfs(self, resolution=None):
-        """
-        Checks the surfaces for points and allows for rebuilds surfaces with incorrect resolutions
-        :param resolution: If not None all surfs without this resolution will be rebuilt
-        :return: All surfaces in the group will be constructed
-        """
-        build_surfs(self)
-
-    def add_atoms(self, atom_list):
+    def add_balls(self, ball_list):
         """
         Adds the atoms from a list (mol.atoms, res.atoms, atoms, etc) to the group checking duplicates
-        :param atom_list: List of atom objects expected to be added to the group
+        :param ball_list: List of atom objects expected to be added to the group
         :return: The group will have the new atoms integrated
         """
-        add_spheres(self, atom_list)
+        add_balls(self, ball_list)
 
     def get_info(self):
         """
-        Gathers information about the group and stores it in a dictionary
-        :return:
+        Gets the info for the group to be able to make an output file with said information and also sorts the network
         """
-        net = self.net
-        # Get the group objects
-        self.get_surfs()
-        self.get_edges()
-        self.get_verts()
-        # Reset the group's data attributes
-        self.sa, self.vol, self.density = 0, 0, 0
-        tot_atom_vol = 0
-        # Get the volume of the group
-        for i in self.ball_ndxs:
-            atom = self.net.balls.iloc[i]
-            if not atom['complete']:
-                continue
-            # Add the volume to that of the group
-            self.vol += atom['vol']
-            tot_atom_vol += (4/3)*np.pi*atom['rad']**3
-        if self.vol > 0:
-            self.density = tot_atom_vol/self.vol
-        # Check to see if the first layer has been calculated
-        if self.layer_surfs is None or len(self.layer_surfs) == 0:
-            self.get_layers(max_layers=1)
-        if len(self.layer_surfs) > 0:
-            for i in self.layer_surfs[0]:
-                surf = self.net.surfs.iloc[i]
-                # Check that the surface has a surface area
-                if surf['sa'] is None or surf['sa'] == 0:
-                    # Get the surface area for the surface
-                    edge_ndxss = [ndx_search(net.edge_ndxs, _) for _ in surf['sedges']]
-                    edges = np.array([net.edges.iloc[_] for _ in edge_ndxss])
-                    surf_sa = calc_surf_sa(edges=edges, com=np.array(surf['com']), tris=surf['tris'], points=surf['points'], flat=surf['flat'])
-                else:
-                    surf_sa = surf['sa']
-                # Add the surface area
-                self.sa += surf_sa
+        get_info(group)
 
     def get_layers(self, max_layers=50, group_resids=True, build_surfs=True):
         """
@@ -233,6 +192,6 @@ class Group:
         :param edges: Exports all edges for the group
         :return: The specified export is placed in the group's directory
         """
-        group_exports(grp=self, all_=all_, iface=iface, atoms=atoms, surfs=surfs, sep_surfs=sep_surfs, edges=edges,
+        group_exports(grp=self, all_=all_, atoms=atoms, surfs=surfs, sep_surfs=sep_surfs, edges=edges,
                       sep_edges=sep_edges, verts=verts, sep_verts=sep_verts, layers=layers, info=info,
                       surr_atoms=surr_atoms, ext_atoms=ext_atoms,  shell=shell)
