@@ -4,104 +4,6 @@ from System.sys_funcs.output.verts import write_off_verts
 from System.sys_funcs.output.edges import write_edges
 
 
-def export_iface_verts(grp, directory=None):
-    """
-    Exports the interfacial vertices between the group and its bff
-    :param grp: Group object for exporting
-    :param directory: Directory to export to
-    """
-    # Move to the directory
-    if directory is not None and os.path.exists(directory):
-        os.chdir(directory)
-    # write the vertices
-    write_off_verts(grp.sys.net, grp.iface_verts, directory=directory, file_name=grp.sys.net.type + "_verts")
-
-
-def export_iface_edges(grp, directory=None):
-    """
-    Exports the edges of the interface
-    :param grp: Group to pull the interface from
-    :param directory: Output directory for the interface
-    """
-    # Move to the directory
-    if directory is not None and os.path.exists(directory):
-        os.chdir(directory)
-    # write the vertices
-    write_edges(grp.sys.net, grp.iface_edges, directory=directory, file_name=grp.sys.net.type + "_edges")
-
-
-def export_iface(grp, info_file=True, interface_atoms=False, directory=None):
-    """
-    Exports the information from the given interface as a txt file
-    :param grp: Group object for interface
-    :param info_file: Whether to export a txt file with info on the interface or not
-    :param interface_atoms: Whether to export a pdb file with the atoms around the interface or not
-    :param directory: Output directory for the interface stuff
-    """
-    # Move to the directory
-    if directory is not None and os.path.exists(directory):
-        os.chdir(directory)
-    # Check to see that the interface has been calculated
-    if grp.iface_surfs is None or grp.iface_atoms is None:
-        get_iface(grp)
-    # Set the interface name
-    interface_name = grp.name + "_" + grp.bff.name + "_interface"
-    # Move to the output directory
-    os.chdir(grp.sys.dir)
-    # Create and move to the interface directory
-    os.mkdir(os.getcwd() + "/" + interface_name)
-    os.chdir(os.getcwd() + "/" + interface_name)
-    # Write the surfaces for the interface
-    write_surfs(grp.sys.net, grp.iface_surfs, interface_name)
-    write_off_verts(grp.sys.net, grp.iface_verts, file_name=interface_name + "_verts")
-    write_edges(grp.sys.net, grp.iface_edges, file_name=interface_name + "_edges")
-    # Check to see of the user wants to export the interface's atoms
-    if interface_atoms:
-        # Get the two sets of interface atoms
-        write_pdb(grp.iface_atoms, interface_name + "_" + grp.name + "_atoms", grp.sys)
-        write_pdb(grp.bff.iface_atoms, interface_name + "_" + grp.bff.name + "_atoms", grp.bff.sys)
-    # Check to see if the user wants to export the interface's information
-    if info_file:
-        export_iface_info(grp=grp, directory=directory)
-
-
-def export_iface_info(grp, directory=None):
-    """
-    Exports the information for an interface
-    :param grp: The group that holds the interface information
-    :param directory: Output directory for the group interface info
-    """
-    # Move to the directory
-    if directory is not None and os.path.exists(directory):
-        os.chdir(directory)
-    # Create the file
-    with open("info.txt", 'w', encoding='utf-8') as info:
-        # Write the main header
-        info.write(grp.name + " - " + grp.bff.name + " interface \n\n")
-        # Information sub header
-        info.write("Interface:\n\n")
-        # Write the information
-        info.write("  {} Surfaces, {} {} atoms, {} {} atoms\n".format(len(grp.iface_surfs), len(grp.atoms), grp.name,
-                                                                      len(grp.bff.atoms), grp.bff.name))
-        # Network counts
-        info.write("  {} Vertices, {} Edges\n\n".format(len(grp.iface_verts), len(grp.iface_edges),
-                                                        len(grp.iface_surfs)))
-        # Write the analysis header
-        info.write("\nAnalysis:\n\n")
-        # Write the analysis
-        info.write(u"  Surface Area = {:.5f} \u212B\u00B2, Average Curvature = {:.5}\n\n"
-                   .format(grp.iface_sa, grp.iface_curv))
-        # Surfaces header
-        info.write("\nSurfaces:\n\n")
-        # Go through each of the surfaces in the group
-        for surf in grp.iface_surfs:
-            info.write("  Surface {} - \n".format(grp.sys.net.surfs['satoms'][surf]))
-            info.write("    Surface Area = {:.5f} \u212B\u00B2\n".format(grp.sys.net.surfs['sa'][surf]))
-            info.write("    Volume contributions = {:.5f}, {:.5f} \u212B\u00B3\n"
-                       .format(grp.sys.net.surfs['vols'][surf][0], grp.sys.net.surfs['vols'][surf][0]))
-            info.write("    Gaussian Curvature = {:.5f}\n".format(grp.sys.net.surfs['curv'][surf]))
-
-
 def export_info(grp, directory=None):
     """
     Exports the information for a group
@@ -134,7 +36,7 @@ def export_info(grp, directory=None):
                    .format(grp.sa, grp.vol, grp.density))
 
 
-def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_surfs=False, edges=False,
+def group_exports(grp, all_=False, atoms=False, surfs=False, sep_surfs=False, edges=False,
                   sep_edges=False, verts=False, sep_verts=False, layers=-1, info=False, surr_atoms=False,
                   ext_atoms=False, shell=False):
     """
@@ -162,7 +64,7 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
         grp.settings['surf_scheme'] = grp.net.settings['surf_scheme']
     # Get the surfaces if they haven't been got
     if grp.surfs is None or len(grp.surfs) == 0:
-        grp.build_surfs()
+        return
     # Create the output directory inside the system's directory
     if grp.dir is None:
         i = 1
@@ -214,7 +116,6 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
             write_edges(grp.net, [edge], str(i), directory=grp.dir + "/edges")
     # If the user wants a filled shell for the group
     if surfs or all_:
-        grp.build_surfs()
         write_surfs(grp.net, surfs=grp.surfs, file_name="fill", directory=grp.dir)
     # If the user wants separate surfaces for the group
     if sep_surfs or all_:
@@ -261,11 +162,6 @@ def group_exports(grp, all_=False, iface=False, atoms=False, surfs=False, sep_su
             info.close()
         # Change back to the group directory
         os.chdir(grp.dir)
-    # If the user wants to export the interface
-    if (iface or all_) and grp.bff is not None and grp.bff != []:
-        get_iface(grp)
-        if len(grp.iface_surfs) > 0:
-            export_iface(grp, info_file=info)
     # If the user wants a full information file on the group
     if info or all_:
         export_info(grp)
