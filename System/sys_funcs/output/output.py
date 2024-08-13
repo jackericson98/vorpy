@@ -3,6 +3,7 @@ from System.sys_funcs.output.surfs import write_surfs
 from System.sys_funcs.output.verts import write_off_verts
 from System.sys_funcs.output.edges import write_edges
 from System.sys_funcs.output.net import write_net_logs
+from System.sys_objs.atom import special_radii
 import os
 from os import path
 import shutil
@@ -149,10 +150,6 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
         os.chdir((sys.files['dir'] + "/sys"))
         for grp in sys.groups:
             write_net_logs(grp)
-    if network or all_:
-        os.chdir(sys.files['dir'])
-        # Export the network
-        sys.export_net()
     if pdb or all_:
         if not os.path.exists(sys.files['dir'] + '/sys'):
             os.mkdir(sys.files['dir'] + "/sys")
@@ -209,14 +206,14 @@ def set_pymol_atoms(sys, no_file=False):
     if (sys.type == 'foam' or sys.type == 'coarse') and not no_file:
         # Get the directory for the base_file and copy the set atoms file
         try:
-            shutil.copyfile(path.dirname(sys.base_file) + '/set_atoms.pml', sys.files['dir'] + '/sys/set_atoms.pml')
+            shutil.copyfile(path.dirname(sys.files['base_file']) + '/set_atoms.pml', sys.files['dir'] + '/sys/set_atoms.pml')
         except FileNotFoundError:
             set_pymol_atoms(sys, True)
         return
     # Check to see if the atoms in the system are all accounted for
     for i, res in enumerate(sys.residues):
-        if res not in sys.special_radii:
-            sys.special_radii[res] = {sys.atoms['name'][i]: round(sys.atoms['rad'][i], 2)}
+        if res not in special_radii:
+            special_radii[res] = {sys.atoms['name'][i]: round(sys.atoms['rad'][i], 2)}
     # Create the file
     with open('set_atoms.pml', 'w') as file:
         # Write the change radii script for the system's set atomic radii
@@ -224,10 +221,10 @@ def set_pymol_atoms(sys, no_file=False):
             if radius != '':
                 file.write("alter (elem {}), vdw={}\n".format(radius, sys.radii[radius]))
         # Change the radii for special atoms
-        for res in sys.special_radii:
-            for atom in sys.special_radii[res]:
+        for res in special_radii:
+            for atom in special_radii[res]:
                 res_str = "residue {} ".format(res) if res != "" else ""
-                file.write("alter ({}name {}), vdw={}\n".format(res_str, atom, sys.special_radii[res][atom]))
+                file.write("alter ({}name {}), vdw={}\n".format(res_str, atom, special_radii[res][atom]))
         # Rebuild the system
         file.write("\nrebuild")
 

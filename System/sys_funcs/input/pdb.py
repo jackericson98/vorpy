@@ -1,4 +1,3 @@
-from System.sys_funcs.calcs.sorting import get_radius
 from System.sys_objs.atom import make_atom
 from System.sys_objs.residue import Residue
 from System.sys_objs.chain import Chain, Sol
@@ -122,8 +121,6 @@ def read_pdb(sys, file=None):
                 atom['rad'] = float(line[60:66])
                 if atom['rad'] == 0:
                     atom['rad'] = 0.001
-            else:
-                atom['rad'] = get_radius(atom)
             # Add the atom to the atoms list
             atoms.append(atom)
         # If the line is not an atom line store the other data

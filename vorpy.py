@@ -1,6 +1,6 @@
 import os
 from Visualize.cmnd.load import *
-from Visualize.argv.vpy_argv import argv
+from Visualize.cmnd.argv import argv
 from Visualize.cmnd.vpy_cmnd import vorpy
 import sys
 

@@ -19,9 +19,9 @@ def sett(sys, usr_npt, vorpy2_set=False):
         if my_set is None:
             return
         if len(my_set) == 2:
-            my_val = get_val(my_sys=sys, setting=my_set[0], val=my_set[1:])
+            my_val = get_val(setting=my_set[0], val=my_set[1:])
         else:
-            my_val = get_val(my_sys=sys, setting=my_set[0])
+            my_val = get_val( setting=my_set[0])
     # If the user enters a setting, but no value get the value
     elif len(usr_npt) == 1:
         # Make sure the setting is 181L
@@ -29,13 +29,13 @@ def sett(sys, usr_npt, vorpy2_set=False):
         # If None is returned, the user wants to quit, and we'll oblige
         if my_set is None:
             return
-        my_val = get_val(my_sys=sys, setting=my_set)
+        my_val = get_val(setting=my_set)
     # If the user enters a setting and a value
     elif len(usr_npt) >= 2:
         my_set = get_set(usr_npt[0])
         if my_set is None:
             return
-        my_val = get_val(my_sys=sys, setting=my_set, val=usr_npt[1:])
+        my_val = get_val(setting=my_set, val=usr_npt[1:])
     else:
         invalid_input(usr_npt)
         return

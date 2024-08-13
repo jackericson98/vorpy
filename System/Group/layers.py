@@ -57,9 +57,6 @@ def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
                 if surf['balls'][1] in layer_atoms_ndxs[-2] and surf['balls'][0] not in layer_atoms_ndxs[-2]:
                     grp.layer_atoms[-1].append(surf['balls'][0])
                     layer_atoms_ndxs[-1].append(surf['balls'][0])
-        if build_surfs and grp.sys.cmnds['xpt'] != [['logs']]:
-            # Check to make sure the surfaces are built in the layer
-            grp.build_surfs()
         # Check to see if the residues are supposed to stay together
         if group_resids:
             for my_atom in grp.layer_atoms[-1]:

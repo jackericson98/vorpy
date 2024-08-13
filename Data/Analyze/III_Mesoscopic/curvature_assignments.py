@@ -1,14 +1,10 @@
-"""
-Outputs a list plot of the different atomic curvature assignments
-
-"""
-
 import tkinter as tk
 from tkinter import filedialog
 from Data.Analyze.tools.compare.read_logs import read_logs
 import matplotlib.pyplot as plt
 import numpy as np
-from System.system import System, nucleic_acids, amino_acids
+from System.sys_objs.residue import nucleic_acids, amino_acids
+from System.system import System
 
 
 if __name__ == '__main__':

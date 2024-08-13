@@ -1,4 +1,5 @@
 from Visualize.cmnd.commands import *
+from System.sys_objs.atom import element_radii
 import os
 from os import path
 
@@ -162,7 +163,7 @@ def get_set(usr_npt=None):
             usr_npt = None
 
 
-def get_val(my_sys, setting=None, val=None):
+def get_val(setting=None, val=None):
     """
         Asks the user for the index of the object they specified
         :return:
@@ -192,7 +193,7 @@ def get_val(my_sys, setting=None, val=None):
                 val = False
         # Test the validity of the user's true and false skills
         if setting in atom_radii:
-            if val not in my_sys.radii:
+            if val not in element_radii:
                 val = None
             else:
                 try:
@@ -201,7 +202,7 @@ def get_val(my_sys, setting=None, val=None):
                     val.append(None)
                     while True:
                         val1 = input("enter new radius for {} (current radius = {})".format(val[0].upper(),
-                                                                                            my_sys.radii[val[0]]))
+                                                                                            element_radii[val[0]]))
                         try:
                             val1 = float(val1)
                             break

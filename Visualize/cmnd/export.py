@@ -68,7 +68,6 @@ def export_surfs(my_group):
                     change_surf_setting(my_group)
                 elif change_setting.lower() in ns + quits:
                     break
-            my_group.build_surfs(resolution=my_group.surf_res)
             # Export the shell
             my_group.exports(shell=True)
             print("\r{} shell surfaces exported to {}".format(my_group.name, my_group.dir))

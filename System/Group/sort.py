@@ -1,19 +1,61 @@
 from System.sys_funcs.calcs.sorting import ndx_search
+from System.sys_funcs.calcs.surf import calc_surf_sa
 import numpy as np
 
 
-def add_spheres(grp, sphere_list):
+def get_info(group):
+    """
+        Gathers information about the group and stores it in a dictionary
+    """
+    net = group.net
+    # Get the group objects
+    group.get_surfs()
+    group.get_edges()
+    group.get_verts()
+    # Reset the group's data attributes
+    group.sa, group.vol, group.density = 0, 0, 0
+    tot_atom_vol = 0
+    # Get the volume of the group
+    for i in group.ball_ndxs:
+        atom = group.net.balls.iloc[i]
+        if not atom['complete']:
+            continue
+        # Add the volume to that of the group
+        group.vol += atom['vol']
+        tot_atom_vol += (4 / 3) * np.pi * atom['rad'] ** 3
+    if group.vol > 0:
+        group.density = tot_atom_vol / group.vol
+    # Check to see if the first layer has been calculated
+    if group.layer_surfs is None or len(group.layer_surfs) == 0:
+        group.get_layers(max_layers=1)
+    if len(group.layer_surfs) > 0:
+        for i in group.layer_surfs[0]:
+            surf = group.net.surfs.iloc[i]
+            # Check that the surface has a surface area
+            if surf['sa'] is None or surf['sa'] == 0:
+                # Get the surface area for the surface
+                edge_ndxss = [ndx_search(net.edge_ndxs, _) for _ in surf['sedges']]
+                edges = np.array([net.edges.iloc[_] for _ in edge_ndxss])
+                surf_sa = calc_surf_sa(edges=edges, com=np.array(surf['com']), tris=surf['tris'], points=surf['points'],
+                                       flat=surf['flat'])
+            else:
+                surf_sa = surf['sa']
+            # Add the surface area
+            group.sa += surf_sa
+
+
+def add_balls(grp, ball_list):
     """
     Adds the atoms from a list (mol.atoms, res.atoms, atoms, etc) to the group checking duplicates
     :param grp:
-    :param sphere_list: List of atom objects expected to be added to the group
+    :param ball_list: List of atom objects expected to be added to the group
     :return: The group will have the new atoms integrated
     """
     # Check to see if the index list has been instantiated
     if grp.ball_ndxs is None:
         grp.ball_ndxs = []
     # Go through the atom_list
-    for sphere in sphere_list:
+    for sphere in ball_list:
         # Get the atom's location
         sphere_ndx = ndx_search(np.array(grp.ball_ndxs), sphere)
         # Check to see if we have found this atom before
@@ -85,63 +127,3 @@ def get_verts(grp):
             # Insert the index and the surfaces in their 181L place
             grp.verts.insert(vert_ndx, i)
             grp.vert_ndxs.insert(vert_ndx, vert['balls'])
-
-
-def get_iface(grp, bff=None):
-    # Set the bff
-    if bff is not None:
-        grp.bff = bff
-    # Reset the interface attributes for the group, and it's bff
-    grp.iface_atoms, grp.bff.iface_atoms, grp.iface_surfs, grp.iface_edges, grp.iface_verts = [], [], [], [], []
-    ie_ndxs, iv_ndxs = [], []
-    grp.iface_sa = 0
-    iface_curvs = []
-    # Go through the atoms in the group
-    for i in grp.atoms:
-        # Check to see if the atom is in the bff's list of atoms
-        if i in grp.bff.group_ndxs:
-            continue
-        atom = grp.sys.net.iloc[i]
-        # Go through the surfaces in the atom's list of surfaces
-        for j in atom['surfs']:
-            surf = grp.sys.net.surfs.iloc[j]
-            iface_curvs.append(surf['curv'])
-            # Check for an interface surf
-            if (surf['balls'][0] in grp.group_ndxs and surf['balls'][1] in grp.bff.group_ndxs) or \
-               (surf['balls'][1] in grp.group_ndxs and surf['balls'][0] in grp.bff.group_ndxs):
-                # Get the other atom from the surface's atoms
-                other_atom = [_ for _ in surf['balls'] if _ != i][0]
-                # Add the first atom to the group's list of interface atoms
-                grp.iface_atoms.append(i)
-                grp.bff.iface_atoms.append(other_atom)
-                # Add the surface to the list of interface surfs and add the surface area of the surface
-                grp.iface_surfs.append(j)
-                grp.iface_sa += surf['sa']
-                # Add the edges to the interface
-                for k in surf['edges']:
-                    edge = grp.sys.net.edges.iloc[k]
-                    # Get the index of the edge
-                    edge_ndx = ndx_search(ie_ndxs, edge['balls'])
-                    # Check if the edge is in there or not
-                    if len(ie_ndxs) <= edge_ndx or edge['balls'] != ie_ndxs[edge_ndx]:
-                        # Add the index and edge to the 181L lists
-                        ie_ndxs.insert(edge_ndx, edge['balls'])
-                        grp.iface_edges.insert(edge_ndx, k)
-                # Add the verts to the interface
-                for k in surf['verts']:
-                    vert = grp.sys.net.verts.iloc[k]
-                    # Get the index of the vert
-                    vert_ndx = ndx_search(iv_ndxs, vert['balls'])
-                    # Check if the vert is in there or not
-                    if len(ie_ndxs) <= vert_ndx or vert.ndx != ie_ndxs[vert_ndx]:
-                        # Add the index and vert to the 181L lists
-                        ie_ndxs.insert(vert_ndx, vert['balls'])
-                        grp.iface_verts.insert(vert_ndx, k)
-    # Get the curvature
-    grp.iface_curv = max(iface_curvs)
-    # Set the bff's surface area
-    grp.bff.iface_atoms = grp.iface_atoms
-    grp.bff.iface_surfs = grp.iface_surfs
-    grp.bff.iface_edges = grp.iface_edges
-    grp.bff.iface_verts = grp.iface_verts
-    grp.bff.iface_sa = grp.iface_sa

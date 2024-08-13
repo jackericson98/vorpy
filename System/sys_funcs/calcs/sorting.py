@@ -1,5 +1,6 @@
 from numba import jit
 import numpy as np
+from System.sys_objs.atom import special_radii
 
 
 def global_vars(sub_boxes, my_box_verts, my_num_splits, my_max_ball_rad, my_sub_box_size):
@@ -106,39 +107,6 @@ def ndx_search(ndxs_list, ndxs):
         return mid_list_ndx
 
 
-def get_radius(ball):
-    """
-    Finds the radius of the ball from the symbol or vice versa
-    :return: The radius of the ball from the symbol or vice versa
-    """
-    radii, special_radii = ball['sys'].radii, ball['sys'].special_radii
-    # Get the radius and the element from the name of the ball
-    if ball['res'] is not None and ball['res'].name in special_radii:
-        # Check if no ball name exists or its empty
-        if ball['name'] is not None and ball['name'] != '':
-            for i in range(len(ball['name'])):
-                name = ball['name'][:-i]
-                # Check the residue name
-                if name in special_radii[ball['res'].name]:
-                    ball['rad'] = special_radii[ball['res'].name][name]
-    # If we have the type and just want the radius, keep scanning until we find the radius
-    if ball['rad'] is None and ball['element'].lower() in radii:
-        ball['rad'] = radii[ball['element'].lower()]
-    # If indicated we return the symbol of ball that the radius indicates
-    if ball['rad'] is None or ball['rad'] == 0:
-        # Check to see if the radius is in the system
-        if ball['rad'] in {radii[_] for _ in radii[1]}:
-            ball['element'] = radii[ball['rad']]
-        else:
-            # Get the closest ball to it
-            min_diff = np.inf
-            # Go through the radii in the system looking for the smallest difference
-            for radius in radii:
-                if radii[radius] - ball['rad'] < min_diff:
-                    ball['element'] = radii[radius]
-    return ball['rad']
-
-
 def divide_box(net_box, divisions, c=0):
     # Convert the divisions to two_pow
     two_pow = 0
@@ -223,7 +191,7 @@ def get_sys_type(my_sys):
     nucs = {'T', 'DT', 'G', 'DG', 'A', 'DA', 'C', 'DC', 'U', 'DU'}
     if len(my_sys.residues) > 0:
         for res in my_sys.residues:
-            if res.name in my_sys.special_radii:
+            if res.name in special_radii:
                 if sys_type == 'Nucleic':
                     sys_type = 'Complex'
                     break

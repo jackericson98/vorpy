@@ -22,3 +22,8 @@ class Residue:
 
     def add_atom(self, atom):
         self.atoms.append(atom)
+
+
+nucleic_acids = {'DT', 'DA', 'DG', 'DC', 'DU', 'U', 'G', 'A', 'T', 'C', 'GDP', 'OMC'}
+amino_acids = {'ALA', 'ARB', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'HIS', 'ILE', 'LEU', 'LYS', 'MET', 'PHE', 'PRO', 'SER',
+               'THR', 'TRP', 'TYR', 'VAL', 'GLY', 'ARG'}
