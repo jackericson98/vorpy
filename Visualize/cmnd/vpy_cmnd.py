@@ -8,7 +8,7 @@ from Visualize.cmnd.group import group
 from System.Group.group import Group
 
 
-def load_atom_file(my_sys):
+def load_base_file(my_sys):
     # Keep asking for an atom file till one is loaded
     while True:
         # Set up the prompt
@@ -176,7 +176,7 @@ def vorpy(my_sys):
     """
     print("Welcome to vorpy. For assistance type \'h\'. To quit type \'q\'")
     # Load the initial input file
-    load_atom_file(my_sys)
+    load_base_file(my_sys)
     # Allow the user to keep loading files
     while True:
         # Ask the user if they have another file to load
