@@ -1,10 +1,4 @@
-from System.sys_funcs.calcs.sorting import get_radius
 from System.sys_objs.atom import make_atom
-from System.sys_objs.residue import Residue
-from System.sys_objs.chain import Chain, Sol
-import os.path as path
-import csv
-import numpy as np
 from pandas import DataFrame
 
 
