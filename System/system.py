@@ -15,6 +15,7 @@ from System.Group.group import Group
 from Visualize.mpl_visualize import *
 from numpy import seterr
 from Visualize.GUIs.periodic_table_GUI import elements
+from System.radii import special_radii, element_radii
 
 
 class System:
@@ -42,7 +43,7 @@ class System:
         self.group_names = []               # Group Names         :   List of names of user groups for to self.groups
 
         # Data
-        self.user_atoms = spheres             # User Atoms          :   User provided locations and radii
+        self.user_atoms = spheres           # User Atoms          :   User provided locations and radii
         self.type = 'mol'                   # Type of file        :   Holds the type of file loaded (mol, coarse, foam)
         self.foam_box = None                # Foam Retaining Box  :   Indicated in file the box that contains all balls
         self.foam_data = None               # Foam Data Info      :   Holds general information from the foam generation
@@ -53,15 +54,17 @@ class System:
         self.residues = residues            # Residues            :   List of residues (lists of atoms)
         self.chains = chains                # Chains              :   List of the chains that make up the molecule
         self.segments = segments            # Segments            :   List of segments in the molecule
-        self.sol = None                     # Solution            :   List of solution molecules (lists of atoms)
+        self.sol = None                     # Solute              :   List of solute molecules (lists of atoms)
 
         # Settings
         self.groups = groups                # Groups              :   List of groups in the system
         self.ndxs = None                    # Indices             :   List of indices used to create groups
         self.elements = elements            # Elements            :   List of elements with mass, number, radius, group
+        self.element_radii = element_radii  # Element Radii       :   Dictionary of elements and their radii
+        self.special_radii = special_radii  # Special Radii       :   Dictionary of residues and their atomic radii
         self.decimals = None                # Decimals            :   Decimals setting for the whole system
         self.export_type = 'large'          # Export type         :   Holds the type of objects that come out
-        self.cmnds = None                   # Commands            :   All of the input commands for the sytem to be run
+        self.cmnds = None                   # Commands            :   Input commands for the system to be run
 
         # Set up the file attributes
         self.max_atom_rad = 0               # Max atom rad        :   Largest radius of the system for reference
@@ -163,6 +166,35 @@ class System:
         if self.print_actions:
             print("{} loaded - {} atoms, {} residues, {} chain{}, ".format(self.name, len(self.atoms),
                   len(self.residues), len(self.chains), 's' if len(self.chains) > 1 else ''))
+
+    def set_radii(self, my_element_radii=None, my_special_radii=None):
+        """
+        Sets the atom radii in the spheres dataframe based on the element radii and special radii
+        """
+        test_time = time.perf_counter()
+        # First check to see of the spheres actually exist
+        if self.spheres is None or len(self.spheres) == 0 or self.type != 'mol':
+            return
+        # Check if the user has identified some element radii they want to assign
+        if my_element_radii is not None:
+            # Go through the basic elemental radii to cover all atoms
+            for element in my_element_radii:
+                self.spheres.loc[self.spheres['element'] == element, 'rad'] = my_element_radii[element]
+            # Check if we need to return
+            if my_special_radii is None:
+                return
+        # Check if the user set the special radii
+        if my_special_radii is not None:
+            # Go through the special radii and assign radii based on the residue and name of the atom.
+            for residue in my_special_radii:
+                for name in my_special_radii['residue']:
+                    self.spheres.loc[(self.spheres['res_name'] == residue) & (self.spheres['name'] == name), 'rad'] \
+                        = my_special_radii[residue][name]
+        # If no special or element radii were specified, call the method with the system's special and element radii
+        if my_special_radii is None and my_element_radii is None:
+            self.set_radii(my_element_radii=self.element_radii, my_special_radii=self.special_radii)
+
+        print('Set radii takes {} seconds'.format(time.perf_counter() - test_time))
 
     def load_verts(self, file=None, vta_ball_file=None):
         """
