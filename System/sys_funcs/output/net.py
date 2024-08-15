@@ -187,7 +187,7 @@ def add_metrics(group):
                                    len(net.verts['balls']),
                                    len(net.edges['balls']),
                                    len(net.surfs['balls']),
-                                   len(group.atms),
+                                   len(group.ball_ndxs),
                                    group.vol,
                                    group.sa,
                                    sum(net.verts['dub']),
