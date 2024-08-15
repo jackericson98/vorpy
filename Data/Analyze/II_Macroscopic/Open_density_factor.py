@@ -52,24 +52,24 @@ def get_box_vols(foam_data_file):
 
 
 # for each cv we need to plot the percentage
-open_dick = get_box_vols(open_logs)
-closed_dick = get_box_vols(closed_logs)
+open_dict = get_box_vols(open_logs)
+closed_dict = get_box_vols(closed_logs)
 
-combined_dick = {}
+combined_dict = {}
 densities = []
 # Go through the two dictionaries and combine the data for comparison
-for _ in open_dick:
-    if _ not in closed_dick:
+for _ in open_dict:
+    if _ not in closed_dict:
         continue
-    for __ in open_dick[_]:
+    for __ in open_dict[_]:
         if __ not in densities:
             densities.append(__)
-        if __ not in closed_dick[_]:
-            closed_dick[_][__] = [np.mean(open_dick[_][__])]
-        open_avg = np.mean(open_dick[_][__])
-        closed_avg = np.mean(closed_dick[_][__])
-        open_std_err = np.std(open_dick[_][__]) / np.sqrt(len(open_dick[_][__]))
-        closed_std_err = np.std(closed_dick[_][__]) / np.sqrt(len(closed_dick[_][__]))
+        if __ not in closed_dict[_]:
+            closed_dict[_][__] = [np.mean(open_dict[_][__])]
+        open_avg = np.mean(open_dict[_][__])
+        closed_avg = np.mean(closed_dict[_][__])
+        open_std_err = np.std(open_dict[_][__]) / np.sqrt(len(open_dict[_][__]))
+        closed_std_err = np.std(closed_dict[_][__]) / np.sqrt(len(closed_dict[_][__]))
 
         diff = closed_avg - open_avg
         tot_err = closed_std_err + open_std_err
@@ -81,16 +81,16 @@ for _ in open_dick:
 
 
 
-        add_dick = {'open': open_dick[_][__], 'closed': closed_dick[_][__], 'open_avg': open_avg,
+        add_dick = {'open': open_dict[_][__], 'closed': closed_dict[_][__], 'open_avg': open_avg,
                     'closed_avg': closed_avg, 'open_err': open_std_err, 'closed_err': closed_std_err, 'diff': diff,
                     'per_diff': per_diff, 'tot_std_err': new_std_err, 'tot_err': tot_err}
-        if _ in combined_dick:
-            combined_dick[_][__] = add_dick
+        if _ in combined_dict:
+            combined_dict[_][__] = add_dick
         else:
-            combined_dick[_] = {__: add_dick}
+            combined_dict[_] = {__: add_dick}
 
 # Sort the dictionary
-cvs = [_ for _ in closed_dick]
+cvs = [_ for _ in closed_dict]
 cvs.sort()
 densities.sort()
 x_vals, y_vals, err_vals = [], [], []
@@ -100,8 +100,8 @@ for _ in cvs:
     x_vals.append([])
     for __ in densities:
         try:
-            y_vals[-1].append(combined_dick[_][__]['diff'] if combined_dick[_][__]['diff'] != 0 else np.nan)
-            err_vals[-1].append(combined_dick[_][__]['tot_err'])
+            y_vals[-1].append(combined_dict[_][__]['diff'] if combined_dict[_][__]['diff'] != 0 else np.nan)
+            err_vals[-1].append(combined_dict[_][__]['tot_err'])
             x_vals[-1].append(__)
         except KeyError:
             continue
