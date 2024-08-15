@@ -6,7 +6,7 @@ from System.Network.network import Network
 
 class Group:
     """Group class. Used to hold selections of atoms and do analysis on it"""
-    def __init__(self, sys, name=None, atoms=None, molecules=None, chains=None, residues=None, bff=None,
+    def __init__(self, sys, name=None, atoms=None, molecules=None, chains=None, residues=None,
                  settings=None, build_net=False, surf_res=0.2, box_size=1.5, max_vert=40, build_type='all', net=None,
                  net_type='aw', surf_col='plasma', surf_scheme='curv', num_splits=None, print_metrics=True):
         # System attributes
@@ -37,27 +37,22 @@ class Group:
         self.layer_surfs = None         # Layer Surfaces     :    List of lists of surfaces corresponding to layers
         self.layer_info = None          # Layer Information  :    List of information (atoms, SA, vol) for each layer
 
-        # Interface attributes
-        self.bff = bff                 # BFF                 :   Other group used for comparison
-        self.iface_surfs = None        # Interface Surfaces  :   Surfaces that make the interface
-        self.iface_edges = None        # Interface Edges     :   Interfacial edges list
-        self.iface_verts = None        # Interface Vertices  :   Interfacial vertices list
-        self.iface_atoms = None        # Interface atoms     :   Atoms in the group in the interface
-        self.iface_sa = None           # Surface area        :   Surface area of the interface
-        self.iface_curv = None         # Interface Curvature :   Average curvature from the interface
-
         # Get the settings
         self.get_settings(surf_res=surf_res, surf_col=surf_col, surf_scheme=surf_scheme, max_vert=max_vert,
                           box_size=box_size, net_type=net_type, build_type=build_type, num_splits=num_splits,
                           print_metrics=print_metrics, ball_type=sys.type, sys_dir=sys.files['dir'],
                           foam_box=sys.foam_box)
 
+        # Set the name
+        if self.name is None:
+            self.set_name()
+
         # Process the inputs
         self.process_inputs()
 
         # Make the Networks
         if build_net:
-            self.build_network()
+            self.build()
 
     def get_settings(self, surf_res=0.2, surf_col='plasma', surf_scheme='curv', max_vert=40, box_size=1.5, net_type='aw',
                      build_type='all', num_splits=1, print_metrics=True, ball_type=None,
@@ -68,7 +63,8 @@ class Group:
         # Set up the default values
         defaults = {'surf_res': surf_res, 'surf_col': surf_col, 'surf_scheme': surf_scheme, 'max_vert': max_vert,
                     'box_size': box_size, 'net_type': net_type, 'build_type': build_type, 'num_splits': num_splits,
-                    'print_metrics': print_metrics, 'ball_type': ball_type, 'sys_dir': sys_dir, 'foam_box': foam_box}
+                    'print_metrics': print_metrics, 'ball_type': ball_type, 'sys_dir': sys_dir, 'foam_box': foam_box,
+                    'atom_rad': None}
         # Create the settings dictionary
         if self.settings is None:
             self.settings = defaults
@@ -76,6 +72,20 @@ class Group:
         for setting in self.settings:
             if self.settings[setting] is None:
                 self.settings[setting] = defaults[setting]
+
+    def set_name(self):
+        """
+        We are looking for a name that adequately describes the group. For lists of elements > 1, they get a list of
+        indices rather than their actual names
+        """
+        # Set up the names list that is going to be combined
+        names = []
+        # Get the residue names
+        if len(self.rsds) <= 2:
+            for res in self.rsds:
+                names.append(res.name + str(res.seq))
+        elif len(self.rsds) == 2:
+            pass
 
     # Process inputs method. Goes through the atoms, residues and molecules provided in the group
     def process_inputs(self):
