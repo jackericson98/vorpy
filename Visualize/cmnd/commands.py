@@ -36,7 +36,7 @@ my_objects = full_objs + noSOL_objs + chn_objs + res_objs + atom_objs + ndx_objs
 # Settings
 surf_reses = ['surf_res', 'sr', 'surface_resolution', 'surface_res', 'surf_resolution', 'surfs', 'surf', 'surfs_res', 'surfs_resolution', 'surfaces_resolution', 'surfaces_res']
 max_verts = ['max_vert', 'mv', 'maximum_vertex', 'max_vertex', 'maximum_vert', 'verts', 'vs', 'vert_size', 'max_vert_size', 'mvs', 'vert_max', 'vertex_max', 'vertex_maximum']
-box_sizes = ['box_size', 'bm', 'box', 'bx_sz', 'size_box', 'containing_box', 'containing_box_size', 'box_multi', 'box_multiplier']
+box_sizes = ['box_size', 'bm', 'box', 'bx_sz', 'size_box', 'containing_box', 'containing_box_size', 'box_multi', 'box_multiplier', 'bs']
 net_types = ['st', 'surf_type', 'net_type', 'nt']
 surf_colors = ['sc', 'surf_colors', 'surf_color_map', 'surf_col', "scm"]
 surf_schemes = ['ss', 'sirf_scheme', 'surf_scm']
@@ -60,9 +60,6 @@ file_types = ['net', 'vert', 'ball', 'ndx']
 
 net_type_dict = {'pow': "Power", 'del': "Primitive", 'vor': "Additively Weighted"}
 
-
-my_settings_vals = power_vals + voronoi_vals + delaunay_vals + compare_vals
-my_settings = surf_reses + max_verts + box_sizes + build_surfses + net_types + surf_schemes + surf_colors + atom_radii
 settings_dict = {'sr': 'Surface Resolution', 'mv': 'Maximum Vertex', 'bm': 'Box Multiplier', 'bs': 'Build Surfaces?',
                  'nt': 'Network Type', 'sc': 'Surface Color Map', 'ss': 'Surface Coloring Scheme'}
 
