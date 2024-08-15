@@ -5,23 +5,46 @@ from pandas import DataFrame as df
 import matplotlib.pyplot as plt
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
+from scipy.special import gamma as gamma_func
+from scipy.optimize import fsolve
 
 
-def lognormal(r, cv):
-    # Lognormal parameters
-    sigma = np.sqrt(np.log(cv ** 2 + 1))
-    mu = -sigma ** 2 / 2
-    lognormal_dist = stats.lognorm(s=sigma, scale=np.exp(mu))
+def lognormal(r, cv, mu=1):
+    sigma = np.sqrt(np.log(cv**2 + 1))
+    mu_log = np.log(mu / np.sqrt(1 + cv**2))  # Adjusted to incorporate mu
+    lognormal_dist = stats.lognorm(s=sigma, scale=np.exp(mu_log))
     return lognormal_dist.pdf(r)
 
 
-def gamma(r, cv):
+def gamma(r, cv, mu=1):
     # Gamma parameters
     alpha = 1 / cv ** 2
-    beta = alpha  # To keep mean = 1
+    beta = alpha / mu  # To keep mean = 1
     gamma_dist = stats.gamma(a=alpha, scale=1 / beta)
     # Compute PDFs
     return gamma_dist.pdf(r)
+
+
+def weibull(r, cv, mu=1):
+
+
+    # Define equations to solve for kappa and lambda
+    def equations(p):
+        kappa, lambda_ = p
+        mean_eq = lambda_ * gamma_func(1 + 1/kappa) - mu
+        var_eq = lambda_**2 * (gamma_func(1 + 2/kappa) - gamma_func(1 + 1/kappa)**2) - (cv * mu)**2
+        return (mean_eq, var_eq)
+
+    # Initial guesses for kappa and lambda
+    kappa_initial = 0.75
+    lambda_initial = mu
+
+    # Solve for kappa and lambda
+    kappa, lambda_ = fsolve(equations, (kappa_initial, lambda_initial))
+
+    # Create Weibull distribution
+    weibull_dist = stats.weibull_min(c=kappa, scale=lambda_)
+    return weibull_dist.pdf(r)
 
 
 def physical_DeVries(r, p1=None, p2=None):
@@ -130,6 +153,9 @@ def plot_function(function, p2=None, title='', x_label='', y_label='', legend_ti
 plot_function(lognormal, np.linspace(0.1, 2.0, 20), 'Lognormal Distributions',
               x_label='Bubble Radius', y_label='Probability', legend_title='Coefficient of Variation', max_x=5, ylims=[0, 4])
 plot_function(gamma, np.linspace(0.1, 2.0, 20), 'Gamma Distributions',
+              x_label='Bubble Radius', y_label='Probability', legend_title='Coefficient of Variation', max_x=5, ylims=[0, 4])
+print(np.linspace(0.1, 2.0, 20))
+plot_function(weibull, np.linspace(0.1, 2.0, 20), 'Weibull Distributions',
               x_label='Bubble Radius', y_label='Probability', legend_title='Coefficient of Variation', max_x=5, ylims=[0, 4])
 # fig, ax = plt.subplots()
 # for i, func in enumerate({physical_DeVries, physical_Ranadive_Lemlich, physical_GalOr_Hoelscher}):
