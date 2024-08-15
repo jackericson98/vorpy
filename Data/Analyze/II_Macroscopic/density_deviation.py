@@ -83,7 +83,7 @@ sorted_data = {key: data[key] for key in sorted(data)}
 cmap = plt.cm.get_cmap('rainbow')
 
 for i, _ in enumerate(sorted_data):
-    xs, ys = sorted_data[_]['xs'], sorted_data[_]['ys']
+    xs, ys = sorted_data[_]['ys'], sorted_data[_]['xs']
     colors1 = [cmap(_) for _ in sorted_data[_]['cv']]
     # Perform the curve fitting
     params, cov = curve_fit(sqrt_model, xs, ys)
