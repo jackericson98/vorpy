@@ -4,7 +4,6 @@ from System.radii import element_radii, special_radii
 from matplotlib._api.deprecation import MatplotlibDeprecationWarning as MPLDepWarn
 
 
-
 def set_sr(surf_res, settings):
     # Quick catch if the max_vert value is in the form of a list
     if type(surf_res) is list:
@@ -94,23 +93,41 @@ def set_nt(net_type, settings):
 
 
 def set_sc(surface_color, settings):
+    # First extract the value from the list if it is in fact a list
+    if type(surface_color) is list:
+        surface_color = surface_color[0]
+    # Try each of the three possible options for surface coloring
     try:
         my_cmap = mpl.colormaps.get_cmap(surface_color)
-    except MPLDepWarn:
-        my_cmap = mpl.cm.get_cmap(surface_color)
-    except AttributeError:
-        my_cmap = mpl.cm.get_cmap(surface_color)
+        print("surface color set to {}".format(surface_color))
+        return surface_color
     except Exception as e:
-        print('{} is not a matplotlib colormap. Please choose a valid matplot lib color map (e.g. \"viridis\", '
-              '\"plasma\", \"inferno\", \"cividis\", \"Greys\", \"Reds\", \"Greens\", \"Blues\", \"rainbow\"'
-              .format(surface_color))
-        return settings['surf_col']
-    # Check that the surface color is in the possible lists of matplotlib colormaps
-    print("surface color set to {}".format(surface_color))
-    return surface_color
+        pass
+    # Try each of the three possible options for surface coloring
+    try:
+        my_cmap = mpl.cm.get_cmap(surface_color)
+        print("surface color set to {}".format(surface_color))
+        return surface_color
+    except Exception as e:
+        pass
+    # Try each of the three possible options for surface coloring
+    try:
+        my_cmap = mpl.cm.get_cmap(surface_color)
+        print("surface color set to {}".format(surface_color))
+        return surface_color
+    except Exception as e:
+        pass
+    # If none of the formatting options work print the error and return
+    print('{} is not a matplotlib colormap. Please choose a valid matplotlib colormap (e.g. \"viridis\", '
+          '\"plasma\", \"inferno\", \"cividis\", \"Greys\", \"Reds\", \"Greens\", \"Blues\", \"rainbow\"'
+          .format(surface_color))
+    return settings['surf_col']
 
 
 def set_ss(surf_scheme, settings):
+    # Make sure to extrac the surface scheme from the value
+    if type(surf_scheme) is list:
+        surf_scheme = surf_scheme[0]
     # Set up the list of different dictionaries
     all_dicts = [{_: 'curv' for _ in surf_scheme_curv_vals}, {_: 'dist' for _ in surf_scheme_dist_vals},
                  {_: 'ins_out' for _ in surf_scheme_nout_vals}, {_: 'none' for _ in nones}]
@@ -130,37 +147,70 @@ def set_sf():
 
 
 def set_ar(element_radius, settings):
+
+    # Create the changes list
+    change_settings = {'element': {}, 'special': {}}
+    if settings['atom_rad'] is not None:
+        change_settings = settings['atom_rad']
+
     # Separate the element from the radius
     if len(element_radius) >= 3:
-        residue = element
+        # Get the residue
+        residue, name, radius = element_radius[:3]
+        # Check that this exists
+        if residue.upper() in special_radii:
+            if name.upper() in special_radii[residue.upper()]:
+                try:
+                    my_radius = float(radius)
+                    print('All {} {} atoms radii changed from {} \u212B to {} \u212B'
+                          .format(residue, name, special_radii[residue.upper()][name.upper()], radius))
+                    # Add the radius
+                    if residue.upper() in change_settings['special']:
+                        change_settings['special'][residue.upper()][name.upper()] = my_radius
+                        return change_settings
+                    change_settings['special'][residue.upper()] = {name.upper(): my_radius}
+                    return change_settings
+                except ValueError:
+                    print('{} is not a valid entry for radius. Please try a valid float entry')
+                    return
+            print('{} is not an atom in {}. Please try one of the following names: {}'
+                  .format(name, residue, [_ for _ in special_radii[residue.upper()]]))
+            return
+        print('{} is not a valid residue name.'.format(residue))
+        return
 
-
-
+    # The case where the user wants to change just the element or all atoms with a certain name
     elif len(element_radius) == 2:
-        element = element_radius
-    else:
-
-
-
-    my_element, new_rad = my_val[0].strip().lower(), my_val[1]
-    # Normalize 'element' column for comparison
-    normalized_elements = sys.atoms['element'].str.strip().str.lower()
-    matching_indices = sys.atoms.index[normalized_elements == my_element].tolist()
-    count_changed = 0
-    if matching_indices:
-        # Record the old value of the first matching entry
-        old_value = sys.atoms.loc[matching_indices[0], 'rad']
-
-        # Replace 'rad' values where 'element' matches 'my_element'
-        sys.atoms.loc[normalized_elements == my_element, 'rad'] = new_rad
-
-        # Count and print the number of changed values
-        count_changed = len(matching_indices)
-
-        element_radii[my_val[0]] = my_val[1]
-        print(u"{} atoms changed from {} to {}".format(count_changed, old_value, my_val[1]))
-    else:
-        print("No matching element found.")
+        # If the changed name is in the regular elements use that
+        if element_radius[0].upper() in element_radii:
+            # Check the value and that it is a float
+            try:
+                # Try creating a float value for the new radius
+                my_radius = float(element_radius[1])
+                print('All {} atoms radii changed from {} \u212B to {} \u212B.'
+                      .format(element_radius[0], element_radii[element_radius[0].upper], element_radius[1]))
+                change_settings['element'][element_radius[0].upper()] = my_radius
+                return change_settings
+            except ValueError:
+                # Print the error saying the value is wrong
+                print('{} is not a valid entry for radius'.format(element_radius[1]))
+                return
+        # Check special radii for specific changes (e.g. all alpha carbons)
+        elif any([element_radius[0].upper() in special_radii[_] for _ in special_radii]):
+            try:
+                my_radius = float(element_radius[1])
+            except ValueError:
+                print('{} is not a valid entry for radius'.format(element_radius[1]))
+                return
+            # Loop through the special radii
+            for residue in special_radii:
+                if element_radius[0].upper() in residue:
+                    if residue in change_settings['special']:
+                        change_settings['special'][residue][element_radius[0].upper()] = my_radius
+                    else:
+                        change_settings['special'][residue] = {element_radius[0].upper(): my_radius}
+            print('All {} radii changed to {}'.format(element_radius[0], element_radius[1]))
+            return change_settings
 
 
 def sett(setting, value, settings=None):
@@ -170,7 +220,7 @@ def sett(setting, value, settings=None):
     # Set the default settings
     if settings is None:
         settings = {'surf_res': 0.2, 'max_vert': 40, 'box_size': 1.25, 'net_type': 'aw', 'surf_col': 'plasma',
-                    'surf_scheme': 'curv', 'scheme_factor': 'log', 'atom_rad': element_radii}
+                    'surf_scheme': 'curv', 'scheme_factor': 'log', 'atom_rad': None}
     # Set up the functions dictionary to return the value
     func_dict = {'surf_res': set_sr, 'max_vert': set_mv, 'box_size': set_bs, 'net_type': set_nt, 'surf_col': set_sc,
                  'surf_scheme': set_ss, 'scheme_factor': set_sf, 'atom_rad': set_ar}
@@ -179,13 +229,13 @@ def sett(setting, value, settings=None):
     all_dicts = [{_: 'surf_res' for _ in surf_reses}, {_: 'max_vert' for _ in max_verts},
                  {_: 'box_size' for _ in box_sizes}, {_: 'net_type' for _ in net_types},
                  {_: 'surf_col' for _ in surf_colors}, {_: 'surf_scheme' for _ in surf_schemes},
-                 {_: 'scheme_factor' for _ in surf_schemes}, {_: 'atom_rad' for _ in atom_radii}]
+                 {_: 'scheme_factor' for _ in surf_factors}, {_: 'atom_rad' for _ in atom_radii}]
 
     # Put all interpretations into one dictionary for convenience
     interpreter = {k: v for d in all_dicts for k, v in d.items()}
 
     # Set the setting
-    settings[interpreter[setting]] = func_dict[interpreter[setting]](value)
+    settings[interpreter[setting]] = func_dict[interpreter[setting]](value, settings)
 
     # Return the settings
     return settings
