@@ -258,7 +258,6 @@ class Network:
             self.verts['dub'] = mark_doublets(self.verts)
         else:
             self.metrics['vert'] = 0
-
         # Connect the network
         self.connect()
         # Build the edges in the network
@@ -267,15 +266,6 @@ class Network:
         self.build_surfaces(not limit_mem)
         # Analyze the network
         self.analyze()
-        # else:
-            # for surf in self.surfs:
-            #     a0, a1 = self.balls.iloc[surf['balls'][0]], self.balls.iloc[surf['balls'][1]]
-            #     surf_balls_vals = a0['loc'], a0['rad'], a1['loc'], a1['rad']
-            #     surf['func'] = calc_surf_func(*surf_balls_vals)
-            # self.metrics['surf'], self.metrics['anal'] = 0, 0
-        # Load the elements to the group
-        if my_group is not None:
-            my_group.get_info()
         # Stop the timer and measure the time
         self.metrics['tot'] = now() - self.metrics['start']
         h, m, s = get_time(self.metrics['tot'])
