@@ -1,5 +1,7 @@
 import os
 import shutil
+from datetime import datetime
+
 from System.sys_funcs.output.surfs import write_surfs
 from System.sys_funcs.output.edges import write_edges
 from System.sys_funcs.output.verts import write_off_verts
@@ -146,3 +148,28 @@ def make_pdb_line(atom="ATOM", ser_num=0, name="", alt_loc=" ", res_name="", cha
     # Write the line for the file
     return "{:<6}{:>5} {:<4}{:1}{:>3} {:^1}{:>4}{:1}   {:>8.3f}{:>8.3f}{:>8.3f}{:>6.2f}{:>6.2f}      {:<4}{:>2}{}\n"\
         .format(atom, ser_num, name, alt_loc, res_name, chain, res_seq, cfir, x, y, z, occ, tfact, seg_id, elem, charge)
+
+
+def write_atom_radii(my_sys, directory=None, file_name=None):
+    # Check if a directory has been identified
+    if directory is None:
+        directory = my_sys.files['dir']
+    # Check if the file_name has been specified
+    if file_name is None:
+        file_name = my_sys.name + '_atom_radii'
+    # Open the file
+    with open(directory + '/' + file_name + '.txt', 'w') as radii_file:
+        # Write the header
+        radii_file.write('{} solved at: {}\n\n'.format(my_sys.name, datetime.now()))
+        # Write the elements header
+        radii_file.write('Default Element Radii\n')
+        # Loop through the elements
+        for element in my_sys.element_radii:
+            # Write the name of the element and the
+            radii_file.write('{} = {} \u212B\n'.format(element, my_sys.element_radii[element]))
+        # Write the special radii header
+        radii_file.write('\nResidue Specific Radii\n')
+        # Loop through the special radii
+        for residue in my_sys.special_radii:
+            for name in my_sys.special_radii[residue]:
+                radii_file.write('{} {} = {} \u212B\n'.format(residue, name, my_sys.special_radii[residue][name]))
