@@ -1,12 +1,12 @@
 import sys
 import os
 from Visualize.cmnd.load import load
-from Visualize.cmnd.set import sett
-from Visualize.cmnd.group import group
-from Visualize.cmnd.commands import my_settings
+from Visualize.cmnd.set2 import sett
+from Visualize.cmnd.group import ggroup
 from System.system import System
 from System.Group.group import Group
 from System.sys_funcs.output.output import export_min1, export_min2, export_med, export_large, export_all, other_exports, set_sys_dir
+from Visualize.cmnd.commands import ands
 
 
 """
@@ -96,15 +96,24 @@ def interpret_argvs():
     # Separate the rest of the argv args
     my_args = sys.argv[2:]
     # Set up the commands dictionary
-    cmnds = {'npt': [], 'set': [], 'grp': [], 'bld': [], 'xpt': [], 'ifc': []}
+    cmnds = {'npt': [], 'set': [], 'grp': {}, 'bld': [], 'xpt': [], 'ifc': []}
+    # Set the arg to load as a default
+    arg = '-l'
+    group_counter = -1
     # Go through the arguments
     while my_args:
         # Remove the first argument flag
-        arg = my_args.pop(0)
+        if my_args[0] in ands:
+            my_args.pop(0)
+        else:
+            arg = my_args.pop(0)
+            if arg == '-g':
+                group_counter += 1
+                cmnds['grp'][group_counter] = []
         # Gather the cmnd and the flag
         arg_cmnds = []
         while True:
-            if len(my_args) == 0 or my_args[0][0] == '-':
+            if len(my_args) == 0 or my_args[0][0] == '-' or my_args[0] in ands:
                 break
             else:
                 # Keep gathering the commands for the flag
@@ -115,7 +124,7 @@ def interpret_argvs():
         elif arg.lower() == '-s':
             cmnds['set'].append(arg_cmnds)
         elif arg.lower() == '-g':
-            cmnds['grp'].append(arg_cmnds)
+            cmnds['grp'][group_counter].append(arg_cmnds)
         elif arg.lower() == '-b':
             cmnds['bld'].append(arg_cmnds)
         elif arg.lower() == '-e':
@@ -129,39 +138,29 @@ def interpret_argvs():
 def argv(my_sys):
     # Load the atom file
     load(my_sys, ["", sys.argv[1]])
+
     # Interpret the commands
     cmnds = interpret_argvs()
+    # Set the system commands
     my_sys.cmnds = cmnds
     # Go through each of the ls
-    print(cmnds)
     load(my_sys, cmnds['npt'])
+
+    print(cmnds)
+    # Declare the settings variable
+    settings = None
     # Go through the user inputs loading files
     for my_set in cmnds['set']:
-        # Pop the file descriptor
-        descriptor = my_sys[0]
-        # Check to see that it is a descriptor
-        if descriptor.lower() not in my_settings or len(my_set) == 0:
-            continue
         # Alter the settings
-        sett(my_sys, my_set, vorpy2_set=False)
+        settings = sett(my_set[0], my_set[1:], settings)
+    # Update the sphere radii in the system
+    if settings is not None and settings['atom_rad'] is not None:
+        my_sys.set_radii(settings['atom_rad']['element'], settings['atom_rad']['special'])
 
-    # Make sure that the the group list is not None
-    if my_sys.groups is None:
-        my_sys.groups = []
-    # Check if a bff was specified
-    if cmnds['ifc'] is not None and len(cmnds['ifc']) >= 1:
-        bff = group(sys=my_sys, usr_npt=cmnds['ifc'][0])
-    # If the group is simple and we are just looking at no sol
-    if len(cmnds['grp']) == 0 or cmnds['grp'][0][0] == 'ns':
-        my_sys.groups.append(Group(sys=my_sys, chains=my_sys.chains, name=my_sys.name))
-    # if there is an input group
-    else:
-        for grouping in cmnds['grp']:
-            my_sys.groups.append(group(sys=my_sys, usr_npt=grouping, bff=bff))
-    # Check for a group network
-    for my_group in my_sys.groups:
-        if len(my_group.ball_ndxs) > 0:
-            my_group.build_network()
+    # Process the groups
+    ggroup(my_sys, cmnds['grp'], settings)
+
+    print('my_sys.groups = ', my_sys.groups)
 
     argv_export(my_sys, cmnds['xpt'])
 
