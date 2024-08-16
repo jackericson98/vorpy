@@ -1,7 +1,7 @@
 from System.sys_funcs.calcs.calcs import calc_com, calc_dist
 from System.sys_funcs.calcs.sorting import box_search, get_balls
 from System.sys_funcs.calcs.circle import calc_circ
-from System.Network.verts.find_site.slow import find_site
+from System.Network.verts.find_site.slow import find_site_container_slow
 from System.Network.verts.find_site.fast import find_site_container
 from System.Network.verts.verify_site import verify_site
 import numpy as np
@@ -77,17 +77,15 @@ def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, m
                 my_circs.append(circy_werky)
         my_circs.sort(key=lambda x: abs(x[1][1]))
         for circ in my_circs:
-            circ[0].sort()
             # Try to create a vertex
             if net_type in ['del', 'pow']:
                 my_vert = find_site_container(circ[0], locs=locs, rads=rads, b_verts=b_verts, vert_ndxs=vert_ndxs,
                                               max_vert=max_vert, net_type=net_type, group_ndxs=group_ndxs,
                                               metrics=metrics)
             else:
-
-                my_vert, invalid_balls = find_site(circ[0], locs=locs, rads=rads, b_verts=b_verts, vert_ndxs=vert_ndxs,
-                                                   max_vert=max_vert, mv_inc=max_vert, net_type=net_type,
-                                                   group_ndxs=group_ndxs, metrics=metrics, check_balls=False)
+                my_vert = find_site_container_slow(circ[0], locs=locs, rads=rads, b_verts=b_verts, vert_ndxs=vert_ndxs,
+                                                   max_vert=max_vert, net_type=net_type, group_ndxs=group_ndxs,
+                                                   metrics=metrics)
             # Check for a real site that is not a doublet
             if my_vert is not None:
                 if net_type == 'aw':
