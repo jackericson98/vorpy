@@ -23,6 +23,8 @@ def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
     grp.layer_verts = [[]]
     grp.layer_edges = [[]]
     grp.layer_info = [[0, 0]]
+    # Get the surface index series
+    surf_ndxs = grp.net.surfs['balls']
     # Set up the loop to keep adding layers
     while counter < max_layers:
         # Go through the atoms in the last layer
@@ -43,13 +45,13 @@ def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
                 for edge in surf['edges']:
                     if edge not in grp.layer_edges[-1]:
                         grp.layer_edges[-1].append(edge)
-                # Get the index of the surface
-                surf_ndx = ndx_search(grp.surf_ndxs, surf['balls'])
-                # Check if the surface has been added yet or not
-                if surf_ndx < len(grp.surf_ndxs) and grp.surf_ndxs[surf_ndx] != surf['balls']:
-                    # Insert the index and the surfaces in their 181L place
-                    grp.surfs.insert(surf_ndx, j)
-                    grp.surf_ndxs.insert(surf_ndx, surf['balls'])
+                # # Get the index of the surface
+                # surf_ndx = ndx_search(surf_ndxs, surf['balls'])
+                # # Check if the surface has been added yet or not
+                # if surf_ndx < len(surf_ndxs) and grp.surf_ndxs[surf_ndx] != surf['balls']:
+                #     # Insert the index and the surfaces in their 181L place
+                #     grp.surfs.insert(surf_ndx, j)
+                #     grp.surf_ndxs.insert(surf_ndx, surf['balls'])
                 # Sort the surface's atoms inside or out
                 if surf['balls'][0] in layer_atoms_ndxs[-2] and surf['balls'][1] not in layer_atoms_ndxs[-2]:
                     grp.layer_atoms[-1].append(surf['balls'][1])
