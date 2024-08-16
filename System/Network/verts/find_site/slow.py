@@ -1,12 +1,58 @@
 from System.sys_funcs.calcs.sorting import box_search, get_balls, ndx_search
 from System.Network.verts.verify_site import verify_site
 from System.Network.verts.calc_vert import calc_flat_vert, calc_vert
+import bisect
 import numpy as np
 import time
 
 
+def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, net_type, group_ndxs=None, metrics=None,
+                             printing=False):
+    """
+    Cycles through larger and larger areas searching for
+    """
+    # Set up the vert and invalid indices parameters
+    invalid_ndxs, vert = [], None
+
+    # Check if the edge contains a group ball, to see if the next ball needs to be checked or not
+    # Start with check balls as false if no group is defined
+    check_ndxs = False
+    if group_ndxs is not None:
+        # If a group exists default to checking each ball
+        check_ndxs = True
+        # Go through the edge balls checking if they are in the group --> any vert found from another ball is included
+        for ball in edge_balls:
+            # Take the potential index of the ball in group
+            my_index = bisect.bisect_left(group_ndxs, ball)
+            # If the index is in the list check if the ball matches the index's element
+            if my_index != len(group_ndxs) and group_ndxs[my_index] == ball:
+                # If the element is found no need to check the balls and break the for loop
+                check_ndxs = False
+                break
+
+    # Find the 3 boxes the edge balls are in
+    my_boxes = [box_search(loc=locs[edge_balls[_]]) for _ in range(3)]
+    # Gather the surrounding balls or the entire list of balls we could be comparing to
+    surr_balls = get_balls(cells=my_boxes, dist=max_vert)
+    # Se the initial vert size
+    mv_inc = 0.45
+    # Look for the vert and keep increasing box size until the vert is found
+    while vert is None and mv_inc < max_vert:
+        vert, invalid_ndxs = find_site(edge_balls=edge_balls, locs=locs, rads=rads, b_verts=b_verts,
+                                       vert_ndxs=vert_ndxs, max_vert=max_vert, mv_inc=mv_inc, net_type=net_type,
+                                       invalid_ndxs=invalid_ndxs, check_balls=check_ndxs, surr_balls=surr_balls,
+                                       my_boxes=my_boxes, group_ndxs=group_ndxs, metrics=metrics)
+        # If a vertex is found exit the loop
+        if vert is not None:
+            break
+        # Increment the range for the search
+        mv_inc *= 10
+    # Return the vertex if found
+    return vert
+
+
 def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_type, invalid_ndxs=None,
-              check_balls=True, vn_1=None, vn_1_loc=None, group_ndxs=None, metrics=None):
+              check_balls=True, surr_balls=None, vn_1=None, vn_1_loc=None, group_ndxs=None, metrics=None, my_boxes=None):
     """
     Used a vertex and a combination of it's edge balls to find the connecting vertex
     """
@@ -23,15 +69,16 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
     # Time printing metrics <-- Delete later
     start = time.perf_counter()
     # Grab the balls we want to test against
-    my_boxes = [box_search(loc=locs[edge_balls[_]]) for _ in range(3)]
+    if my_boxes is None:
+        my_boxes = [box_search(loc=locs[edge_balls[_]]) for _ in range(3)]
     # Time printing metrics <-- Delete later
     if metrics is not None:
         metrics['box_search'] += time.perf_counter() - start
         start = time.perf_counter()
 
     test_balls = [_ for _ in get_balls(cells=my_boxes, dist=mv_inc) if _ not in invalid_ndxs]
-
-    surr_balls = get_balls(cells=my_boxes, dist=max_vert)
+    if surr_balls is not None:
+        surr_balls = get_balls(cells=my_boxes, dist=max_vert)
 
     if metrics is not None:
         metrics['gather_balls'] += time.perf_counter() - start
@@ -59,8 +106,10 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
         metrics['ndx_search'] += time.perf_counter() - start
     # Instantiate the vertex list and the size limit for vertices found
     verts = []
-    # Go through each ball in the given test balls. Extremely optimized
+    new_start = time.perf_counter()
+    # Go through each ball in the given test balls
     for i, ball in enumerate(new_test_balls):
+        ball_new_star = time.perf_counter()
         # Create the vertex and calculate its value
         vert_balls = edge_balls + [ball]
         vert_balls.sort()
