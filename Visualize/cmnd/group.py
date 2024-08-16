@@ -1,6 +1,7 @@
 from System.Group.group import Group
 from Visualize.cmnd.interpret import *
 from Visualize.cmnd.commands import *
+from System.chemisrty_interpreter import *
 
 
 def group(sys, usr_npt, settings=None):
@@ -146,6 +147,13 @@ def get_group_resids(resids, identifier):
 
 
 def get_group_chains(chains, identifier):
+    # First try the index option
+    try:
+        chain_index = float(identifier[0])
+        if chain_index < len(chains):
+            return [chains[chain_index]]
+    except ValueError:
+        pass
     # Loop through the chains and see if any have the identifier as their name
     for chain in chains:
         if chain.name == identifier[0].upper():
@@ -161,7 +169,7 @@ def interpret_group_commands(my_sys, group_dict, command):
     # Set the identifier on em
     type_dict = {k: v for d in all_dicts for k, v in d.items()}
     # Check if the command is an atom command
-    if type_dict[command[0]] == 'a':
+    if command[0].lower() in type_dict and type_dict[command[0].lower()] == 'a':
         # interpret the command
         my_atoms = get_group_atoms(my_sys.atoms, command[1:])
         # Check that the get_group_atoms function actually returned something
@@ -169,7 +177,7 @@ def interpret_group_commands(my_sys, group_dict, command):
             # Add the atoms to the group dict
             group_dict['atoms'] += my_atoms
             return group_dict
-    elif type_dict[command[0]] == 'r':
+    elif command[0].lower() in type_dict and type_dict[command[0].lower()] == 'r':
         # interpret the command
         my_resids = get_group_resids(my_sys.residues, command[1:])
         # Check that the get_group_atoms function actually returned something
@@ -177,7 +185,7 @@ def interpret_group_commands(my_sys, group_dict, command):
             # Add the atoms to the group dict
             group_dict['residues'] += my_resids
             return group_dict
-    elif type_dict[command[0]] == 'c':
+    elif command[0].lower() in type_dict and type_dict[command[0].lower()] == 'c':
         # interpret the command
         my_chains = get_group_chains(my_sys.chains, command[1:])
         # Check that the get_group_atoms function actually returned something
@@ -185,6 +193,24 @@ def interpret_group_commands(my_sys, group_dict, command):
             # Add the atoms to the group dict
             group_dict['chains'] += my_chains
             return group_dict
+    elif command[0].lower() in residue_names and len(command) >= 2:
+        # First try the possibility of a number
+        try:
+            res_seq = float(command[1])
+            for res in my_sys.residues:
+                if res.name == residue_names[command[0].lower()] and res.seq == res_seq:
+                    # Check for an atom identifier
+                    if len(command) == 3 and command[2].upper() in residue_atoms[residue_names[command[0].lower()]]:
+                        for atom_ndx in res.atoms:
+                            atom = my_sys.spheres.iloc[atom_ndx]
+
+                            if atom['name'].strip() == command[2].upper().strip():
+                                group_dict['atoms'].append(atom_ndx)
+                                return group_dict
+                    group_dict['residues'].append(res)
+                    return group_dict
+        except ValueError:
+            pass
 
 
 def ggroup(my_sys, group_commands, settings=None):
@@ -218,13 +244,12 @@ def ggroup(my_sys, group_commands, settings=None):
     if group_commands[0][0] in full_objs:
         my_sys.groups = [Group(my_sys, name=my_sys.name + '_all_atoms_network', atoms=my_sys.spheres.copy(), settings=settings)]
         return
-    if len(group_commands[0]) == 1:
+    if len(group_commands[0][0]) == 1:
         print('{} is not a valid entry for a group identifier'.format(group_commands[0]))
         return
     my_sys.groups = []
     # Loop through the names and identifiers
     for _ in group_commands:
-        print(_, group_commands[_])
         # Get the list of lists of groups
         my_grp_cmnds = group_commands[_]
         # Make a dictionary of items to add to
@@ -233,7 +258,6 @@ def ggroup(my_sys, group_commands, settings=None):
         for sub_group in my_grp_cmnds:
             # Interpret the sub_group
             group_dict = interpret_group_commands(my_sys, group_dict, sub_group)
-        print([(_.name, _.seq) for _ in group_dict['residues']])
         name = '_and_'.join(['_'.join(_) for _ in my_grp_cmnds])
         # Finally make the group
         my_sys.groups.append(Group(my_sys, name=name, settings=settings, residues=group_dict['residues'],
