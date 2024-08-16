@@ -128,6 +128,8 @@ def interpret_argvs():
         elif arg.lower() == '-b':
             cmnds['bld'].append(arg_cmnds)
         elif arg.lower() == '-e':
+            if arg_cmnds == 'logs':
+                cmnds['set'].append(['bt', 'logs'])
             cmnds['xpt'].append(arg_cmnds)
         elif arg.lower() == '-i':
             cmnds['ifc'].append(arg_cmnds)
@@ -146,7 +148,6 @@ def argv(my_sys):
     # Go through each of the ls
     load(my_sys, cmnds['npt'])
 
-    print(cmnds)
     # Declare the settings variable
     settings = None
     # Go through the user inputs loading files
@@ -159,9 +160,11 @@ def argv(my_sys):
 
     # Process the groups
     ggroup(my_sys, cmnds['grp'], settings)
+    # Build the groups
+    for grp in my_sys.groups:
+        grp.build()
 
-    print('my_sys.groups = ', my_sys.groups)
-
+    # Export everything
     argv_export(my_sys, cmnds['xpt'])
 
 
