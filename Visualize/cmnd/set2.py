@@ -213,6 +213,11 @@ def set_ar(element_radius, settings):
             return change_settings
 
 
+def set_bt(build_type, settings):
+    if build_type == 'logs':
+        return 'logs'
+
+
 def sett(setting, value, settings=None):
     """
     Take in all information after '-s' and return an updated dictionary
@@ -220,10 +225,10 @@ def sett(setting, value, settings=None):
     # Set the default settings
     if settings is None:
         settings = {'surf_res': 0.2, 'max_vert': 40, 'box_size': 1.25, 'net_type': 'aw', 'surf_col': 'plasma',
-                    'surf_scheme': 'curv', 'scheme_factor': 'log', 'atom_rad': None}
+                    'surf_scheme': 'curv', 'scheme_factor': 'log', 'atom_rad': None, 'bld_type': None}
     # Set up the functions dictionary to return the value
     func_dict = {'surf_res': set_sr, 'max_vert': set_mv, 'box_size': set_bs, 'net_type': set_nt, 'surf_col': set_sc,
-                 'surf_scheme': set_ss, 'scheme_factor': set_sf, 'atom_rad': set_ar}
+                 'surf_scheme': set_ss, 'scheme_factor': set_sf, 'atom_rad': set_ar, 'bld_type': set_bt}
 
     # Set up the interpretation dictionary
     all_dicts = [{_: 'surf_res' for _ in surf_reses}, {_: 'max_vert' for _ in max_verts},
