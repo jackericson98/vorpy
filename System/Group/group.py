@@ -69,8 +69,8 @@ class Group:
         if self.settings is None:
             self.settings = defaults
         # Set the settings to their default values
-        for setting in self.settings:
-            if self.settings[setting] is None:
+        for setting in defaults:
+            if setting not in self.settings or self.settings[setting] is None:
                 self.settings[setting] = defaults[setting]
 
     def set_name(self):
@@ -126,6 +126,7 @@ class Group:
         """
         Allows user to build the network from the system object.
         """
+        self.get_settings()
         if self.net is None:
             self.net = Network(locs=self.sys.spheres['loc'], rads=self.sys.spheres['rad'], group=self.ball_ndxs,
                                settings=self.settings)
@@ -164,7 +165,7 @@ class Group:
         """
         Gets the info for the group to be able to make an output file with said information and also sorts the network
         """
-        get_info(group)
+        get_info(self)
 
     def get_layers(self, max_layers=50, group_resids=True, build_surfs=True):
         """
