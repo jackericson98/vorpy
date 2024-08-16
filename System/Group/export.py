@@ -35,8 +35,8 @@ def export_info(grp, directory=None):
                    .format(grp.sa, grp.vol, grp.density))
 
 
-def group_exports(grp, all_=False, atoms=False, surfs=False, sep_surfs=False, edges=False,
-                  sep_edges=False, verts=False, sep_verts=False, layers=-1, info=False, surr_atoms=False,
+def group_exports(grp, all_=False, atoms=False, surfs=False, sep_surfs=False, edges=False, sep_edges=False,
+                  verts=False, sep_verts=False, layers=-1, info=False, surr_atoms=False, logs=False,
                   ext_atoms=False, shell=False):
     """
     Exports specified export types for the group using bools
@@ -62,7 +62,7 @@ def group_exports(grp, all_=False, atoms=False, surfs=False, sep_surfs=False, ed
     if grp.settings['surf_scheme'] is None:
         grp.settings['surf_scheme'] = grp.net.settings['surf_scheme']
     # Get the surfaces if they haven't been got
-    if grp.surfs is None or len(grp.surfs) == 0:
+    if grp.net.surfs is None or len(grp.net.surfs) == 0:
         return
     # Create the output directory inside the system's directory
     if grp.dir is None:
@@ -81,6 +81,9 @@ def group_exports(grp, all_=False, atoms=False, surfs=False, sep_surfs=False, ed
     # If the user wants to export the atoms for the group
     if atoms or all_:
         write_pdb(atoms=grp.atms, file_name="atoms", sys=grp.sys)
+    # Export the log file
+    if logs or all_:
+        write_net_logs(grp)
     # If the user wants to export the shell for the group
     if shell or all_:
         if grp.layer_surfs is None:
@@ -91,13 +94,13 @@ def group_exports(grp, all_=False, atoms=False, surfs=False, sep_surfs=False, ed
             write_surfs(net=grp.net, surfs=grp.layer_surfs[0], file_name="shell", directory=grp.dir)
     if edges or all_:
         if shell:
-            if grp.edges is None:
+            if grp.net.edges is None:
                 grp.get_edges()
             if grp.layer_edges is None:
                 grp.get_layers(max_layers=1, build_surfs=False)
             write_edges(grp.net, grp.layer_edges[0], file_name="shell_edges", directory=grp.dir)
         else:
-            if grp.edges is None:
+            if grp.net.edges is None:
                 grp.get_edges()
             write_edges(grp.net, edges=grp.edges, file_name="edges", directory=grp.dir)
     if sep_verts:
@@ -115,7 +118,7 @@ def group_exports(grp, all_=False, atoms=False, surfs=False, sep_surfs=False, ed
             write_edges(grp.net, [edge], str(i), directory=grp.dir + "/edges")
     # If the user wants a filled shell for the group
     if surfs or all_:
-        write_surfs(grp.net, surfs=grp.surfs, file_name="fill", directory=grp.dir)
+        write_surfs(grp.net, surfs=grp.net.surfs, file_name="fill", directory=grp.dir)
     # If the user wants separate surfaces for the group
     if sep_surfs or all_:
         i = 1
