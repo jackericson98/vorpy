@@ -187,7 +187,7 @@ class System:
         if my_special_radii is not None:
             # Go through the special radii and assign radii based on the residue and name of the atom.
             for residue in my_special_radii:
-                for name in my_special_radii['residue']:
+                for name in my_special_radii[residue]:
                     self.spheres.loc[(self.spheres['res_name'] == residue) & (self.spheres['name'] == name), 'rad'] \
                         = my_special_radii[residue][name]
         # If no special or element radii were specified, call the method with the system's special and element radii
