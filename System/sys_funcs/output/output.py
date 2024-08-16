@@ -36,7 +36,7 @@ def export_med(sys):
 
 
 def export_large(sys):
-    sys.exports(pdb=True, set_atoms=True, info=True, logs=True, network=True)
+    sys.exports(pdb=True, set_atoms=True, info=True)
     for group in sys.groups:
         group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
@@ -125,8 +125,8 @@ def set_sys_dir(sys, dir_name=None):
     sys.files['dir'] = dir_name + i_str
 
 
-def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_network_object=False,
-               alter_atoms_script=False, info=False, logs=False, verts=False, edges=False):
+def export_sys(sys, all_=False, pdb=False, surfaces=False, full_network_object=False,
+               alter_atoms_script=False, info=False, verts=False, edges=False):
     """
         Prepares the output directory and system for output. Keeps things consistent
         :return:
@@ -143,13 +143,6 @@ def export_sys(sys, all_=False, network=False, pdb=False, surfaces=False, full_n
             os.mkdir(sys.files['dir'] + "/sys")
         os.chdir(sys.files['dir'] + "/sys")
         export_sys_info(sys)
-    # Export the log file
-    if logs or all_:
-        if not os.path.exists(sys.files['dir'] + "/sys"):
-            os.mkdir(sys.files['dir'] + "/sys")
-        os.chdir((sys.files['dir'] + "/sys"))
-        for grp in sys.groups:
-            write_net_logs(grp)
     if pdb or all_:
         if not os.path.exists(sys.files['dir'] + '/sys'):
             os.mkdir(sys.files['dir'] + "/sys")
