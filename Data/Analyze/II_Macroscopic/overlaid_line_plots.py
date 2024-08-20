@@ -12,16 +12,6 @@ root.withdraw()
 root.wm_attributes('-topmost', 1)
 my_foams_file = askopenfilename()
 
-open_adjustments = {
-    '1000': [-0.42779658559670897, 0.9522701611684636, 0.003273616493599463],
-    '100': [-0.5121075296037707, 0.936176070116948, 0.004823092120831488],
-    '100000': [-0.3563740799873354, 0.9518810242087892, 0.0033141283705400313]
-}
-
-
-def invers_square(val, abc):
-    return abc[0] * val ** 2 + abc[1] * val + abc[2]
-
 
 with open(my_foams_file, 'r') as my_foam_data:
 
@@ -36,13 +26,9 @@ with open(my_foams_file, 'r') as my_foam_data:
             my_data.append({'num': my_line[0], 'avg rad size': float(my_line[2]), 'box size': float(my_line[1]),
                             'rad std': float(my_line[3]), 'num balls': int(my_line[4]),
                             'density': float(my_line[5]), 'vol diff vor': float(my_line[6]),
-                            'sa diff vor': float(my_line[7]),
-                            'vol diff pow': float(my_line[8]), 'sa diff pow': float(my_line[9]),
-                            'num cells': int(my_line[10])})
+                            'sa diff vor': float(my_line[7]), 'vol diff pow': float(my_line[8]), 'sa diff pow': float(my_line[9])})
         except ValueError:
             continue
-# print(my_data[0]['num'])
-
 if 'log' in my_data[0]['num'].lower():
     plot_type = 'lognormal'
 else:
@@ -52,6 +38,9 @@ if 'closed' in my_data[0]['num'].lower() or 'false' in my_data[0]['num'].lower()
     cell_type = 'Closed'
 else:
     cell_type = 'Open'
+
+
+print(plot_type, cell_type)
 
 lists = {}
 
@@ -70,20 +59,11 @@ for dp in my_data:
         lists[dp['rad std']] = {
             dp['density']: [[dp['vol diff vor']], [dp['sa diff vor']], [dp['vol diff pow']], [dp['sa diff pow']]]}
 
-# print([_ for _ in lists.values()])
-if plot_type == 'gamma':
-    my_densities = np.arange(0.025, 0.525, 0.025)
-    my_sds = np.arange(2.0, 10.5, 0.5)
+for _ in lists:
+    print(_, [__ for __ in lists[_]])
 
-if plot_type == 'lognormal':
-    my_densities = np.arange(0.025, 0.525, 0.025)
-    my_sds = np.arange(0.1, 0.5, 0.025)
-print(cell_type)
-if cell_type.lower() == 'open':
-    my_densities = 0.023, 0.050, 0.078, 0.107, 0.136, 0.167, 0.198, 0.231, 0.265, 0.300, 0.337, 0.375, 0.416, 0.459, 0.505, 0.555, 0.61, 0.671, 0.742, 0.83
-
-my_densities = [round(_, 3) for _ in my_densities]
-my_sds = [round(_, 3) for _ in my_sds]
+my_densities = [round(_, 3) for _ in np.linspace(0.05, 0.5, 10)]
+my_sds = [round(_, 3) for _ in np.linspace(0.05, 0.5, 10)]
 
 # Initialize lists using list comprehensions
 datavvm, datavsm, datapvm, datapsm = [[] for _ in my_sds], [[] for _ in my_sds], [[] for _ in my_sds], [[] for _ in my_sds]
@@ -94,14 +74,14 @@ datavvps, datavsps, datapvps, datapsps = [[] for _ in my_sds], [[] for _ in my_s
 # Iterate over my_sds and my_densities using nested loops
 for i, num in enumerate(my_sds):
     for j, num2 in enumerate(my_densities):
-        # print(num, num2)
         means = []
         sds = []
         # Get the current Data
         try:
             curr_data = lists[num][num2]
         except KeyError:
-            # print('Key error')
+            curr_data = np.nan
+            print(num, num2)
             continue
 
         for data1 in curr_data:
@@ -121,10 +101,9 @@ for i, num in enumerate(my_sds):
         datavsm[i].append(means[1]); datavsms[i].append(means[1] - sds[1]); datavsps[i].append(means[1] + sds[1])
         datapvm[i].append(means[2]); datapvms[i].append(means[2] - sds[2]); datapvps[i].append(means[2] + sds[2])
         datapsm[i].append(means[3]); datapsms[i].append(means[3] - sds[3]); datapsps[i].append(means[3] + sds[3])
+
 print(datavvm)
-# if cell_type == 'Open':
-#     my_densities = [invers_square(_, open_adjustments['1000']) for _ in my_densities]
-print(my_densities)
+
 for value in {'vol', 'sa'}:
     # Coefficient of Variation (CV) and Density values
     cmap = plt.cm.rainbow  # Choose a colormap that does not have yellow and works well in grayscale
@@ -134,38 +113,29 @@ for value in {'vol', 'sa'}:
 
     for i, sd in enumerate(my_sds):
         print(sd)
-        print(datavvm[i])
         # Colors for each line based on 'sd' which is used as an index into the colormap
         color = cmap(norm(sd))
-
-        try:
-            ax.plot(my_densities[2:], datavsm[i][2:], color=color)
-            ax.fill_between(my_densities[2:], datavsms[i][2:], datavsps[i][2:], color=color, alpha=0.2)
-        except ValueError:
-            print(sd, 'Value Error')
-            pass
-            # print(sd, my_densities[2:], datavsm[i][2:])
+        ax.plot(my_densities, datavsm[i], color=color)
+        ax.fill_between(my_densities, datavsms[i], datavsps[i], color=color, alpha=0.2)
 
     # Adding a color bar that uses the created ScalarMappable
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax)
     if plot_type == 'lognormal':
-        cbar.set_label('CV', fontdict=dict(size=30))
+        cbar.set_label('Coefficient of Variation (CV)', fontdict=dict(size=25))
     elif plot_type == 'gamma':
-        cbar.set_label('\u03b2 Value', fontdict=dict(size=30))
+        cbar.set_label('\u03b2 Value', fontdict=dict(size=20))
 
 
     # Set plot titles and labels
-
-    ax.set_xticks(np.arange(0.1, 0.55, 0.2))
-    ax.set_ylim([0, 60])
-    ax.set_xlim([0.05, 0.55])
+    ax.set_xticks(np.arange(my_densities[0] + 0.05, my_densities[-1] + 0.05, 0.1))
+    ax.set_ylim([0, 80])
     # ax.set_title('{} {} Power {} % Diff'.format(plot_type.capitalize(), cell_type, {'sa': 'Surface Area', 'vol': 'Volume'}[value]), fontsize=20)
-    ax.set_xlabel('Density', fontsize=30)
-    ax.set_ylabel('% Difference', fontsize=30)
-    ax.tick_params(axis='both', which='major', labelsize=30, width=2, length=12)
+    ax.set_xlabel('Density', fontsize=25)
+    ax.set_ylabel('% Difference', fontsize=25)
+    ax.tick_params(axis='both', which='major', labelsize=20, width=2, length=12)
 
-    cbar.ax.tick_params(labelsize=30, size=12, width=2, length=12)
+    cbar.ax.tick_params(labelsize=20, size=10, width=2, length=12)
     plt.tight_layout()
 
     # Show the plot
