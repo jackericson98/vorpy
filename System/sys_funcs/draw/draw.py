@@ -7,7 +7,7 @@ from matplotlib._api.deprecation import MatplotlibDeprecationWarning as MPLDepWa
 warnings.filterwarnings('error')
 
 
-def color_tris(surf, color_scheme, color_map, max_val=None):
+def color_tris(net, surf, color_scheme, color_map, max_val=None):
     """
     Colors the triangles in the surface based on the specified coloring scheme and map
     :param surf:
@@ -33,9 +33,13 @@ def color_tris(surf, color_scheme, color_map, max_val=None):
 
     elif color_scheme == 'ins_out':
         # Check if the tri_dists have been calculated before
-        if surf['tri_ins_out'] is None or len(surf['tri_ins_out']) == 0 or len(surf['tri_ins_out']) != len(surf['tris']):
-            calc_surf_tri_ins_out(surf)
-        tri_colors = [my_cmap(_) for _ in surf['tri_ins_out']]
+        if ('tri_ins_out' not in surf or surf['tri_ins_out'] is None or len(surf['tri_ins_out']) == 0 or
+                len(surf['tri_ins_out']) != len(surf['tris'])):
+            b0_loc, b0_rad = net.balls['loc'][surf['balls'][0]], net.balls['rad'][surf['balls'][0]]
+            tri_ins_out = calc_surf_tri_ins_out(b0_loc, b0_rad, surf)
+            tri_colors = [my_cmap(_) for _ in tri_ins_out]
+        else:
+            tri_colors = [my_cmap(_) for _ in surf['tris_ins_out']]
 
     elif color_scheme == 'curv':
         # Check if the function is None
