@@ -31,6 +31,62 @@ def round_func(round_to):
     return round_
 
 
+def project_to_plane(points, plane_point, plane_normal):
+    # Normalize the normal vector
+    plane_normal = plane_normal / np.linalg.norm(plane_normal)
+
+    # Create an orthogonal basis for the plane
+    if (plane_normal == np.array([1.0, 0.0, 0.0])).all() or (plane_normal == np.array([-1.0, 0.0, 0.0])).all():
+        # Handle the case where the normal is along the x-axis
+        u = np.array([0, 1, 0])
+    else:
+        u = np.cross(plane_normal, [1, 0, 0])
+    u = u / np.linalg.norm(u)
+    v = np.cross(plane_normal, u)
+    v = v / np.linalg.norm(v)
+
+    # Project points onto the plane
+    projected_points = []
+    for point in points:
+        # Vector from point on plane to the point in space
+        point_vector = point - plane_point
+        # Distance from point to plane
+        distance = np.dot(point_vector, plane_normal)
+        # Projection of point onto plane
+        projection = point - distance * plane_normal
+        # Convert projection to 2D coordinates
+        u_coord = np.dot(projection - plane_point, u)
+        v_coord = np.dot(projection - plane_point, v)
+        projected_points.append((u_coord, v_coord))
+
+    return projected_points
+
+
+def map_to_plane(points_2d, plane_point, plane_normal):
+    # Normalize the normal vector
+    plane_normal = plane_normal / np.linalg.norm(plane_normal)
+
+    # Create an orthogonal basis for the plane
+    if (plane_normal == np.array([1.0, 0.0, 0.0])).all() or (plane_normal == np.array([-1.0, 0.0, 0.0])).all():
+        # Handle the case where the normal is along the x-axis
+        u = np.array([0, 1, 0])
+    else:
+        u = np.cross(plane_normal, [1, 0, 0])
+    u = u / np.linalg.norm(u)
+    v = np.cross(plane_normal, u)
+    v = v / np.linalg.norm(v)
+
+    # Map 2D points to the 3D plane
+    mapped_points = []
+    for point_2d in points_2d:
+        u_coord, v_coord = point_2d
+        # Calculate the corresponding 3D point
+        point_3d = plane_point + u_coord * u + v_coord * v
+        mapped_points.append(point_3d)
+
+    return mapped_points
+
+
 def calc_dist(l0, l1):
 
     return np.sqrt(sum(np.square(np.array(l0) - np.array(l1))))
