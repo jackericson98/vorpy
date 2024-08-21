@@ -7,6 +7,7 @@ from System.system import System
 from System.Group.group import Group
 from System.sys_funcs.output.output import export_min1, export_min2, export_med, export_large, export_all, other_exports, set_sys_dir
 from Visualize.cmnd.commands import ands
+from copy import deepcopy
 
 
 """
@@ -158,12 +159,24 @@ def argv(my_sys):
     if settings is not None and settings['atom_rad'] is not None:
         my_sys.set_radii(settings['atom_rad']['element'], settings['atom_rad']['special'])
 
-    # Process the groups
+    # compare the groups
     ggroup(my_sys, cmnds['grp'], settings)
     # Build the groups
-    for grp in my_sys.groups:
-        grp.build()
-
+    if settings is not None and len(settings['net_type']) > 1 and settings['net_type'][0] == 'com':
+        new_groups = []
+        for grp in my_sys.groups:
+            copy_group = deepcopy(grp)
+            copy_group.name = copy_group.name + '_' + settings['net_type'][1]
+            copy_group.settings['net_type'] = settings['net_type'][1]
+            grp.settings['net_type'] = settings['net_type'][2]
+            grp.name = grp.name + '_' + settings['net_type'][2]
+            copy_group.build()
+            grp.build()
+            new_groups.append(copy_group)
+        my_sys.groups += new_groups
+    else:
+        for grp in my_sys.groups:
+            grp.build()
     # Export everything
     argv_export(my_sys, cmnds['xpt'])
 
