@@ -179,7 +179,7 @@ class Group:
 
     def exports(self, all_=False, iface=False, atoms=False, surfs=False, sep_surfs=False, edges=False,
                 sep_edges=False, verts=False, sep_verts=False, layers=-1, info=False, surr_atoms=False,
-                ext_atoms=False, shell=False):
+                ext_atoms=False, shell=False, logs=False):
         """
         Exports specified export types for the group
         :param all_: All possible exports for the group will be exported to the group directory
@@ -198,4 +198,4 @@ class Group:
         """
         group_exports(grp=self, all_=all_, atoms=atoms, surfs=surfs, sep_surfs=sep_surfs, edges=edges,
                       sep_edges=sep_edges, verts=verts, sep_verts=sep_verts, layers=layers, info=info,
-                      surr_atoms=surr_atoms, ext_atoms=ext_atoms,  shell=shell)
+                      surr_atoms=surr_atoms, ext_atoms=ext_atoms,  shell=shell, logs=logs)
