@@ -7,7 +7,6 @@ def get_info(group):
     """
         Gathers information about the group and stores it in a dictionary
     """
-    net = group.net
     # Get the group objects
     group.get_surfs()
     group.get_edges()
@@ -33,11 +32,7 @@ def get_info(group):
             surf = group.net.surfs.iloc[i]
             # Check that the surface has a surface area
             if surf['sa'] is None or surf['sa'] == 0:
-                # Get the surface area for the surface
-                edge_ndxss = [ndx_search(net.edge_ndxs, _) for _ in surf['sedges']]
-                edges = np.array([net.edges.iloc[_] for _ in edge_ndxss])
-                surf_sa = calc_surf_sa(edges=edges, com=np.array(surf['com']), tris=surf['tris'], points=surf['points'],
-                                       flat=surf['flat'])
+                surf_sa = calc_surf_sa(tris=surf['tris'], points=surf['points'])
             else:
                 surf_sa = surf['sa']
             # Add the surface area
