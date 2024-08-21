@@ -78,13 +78,13 @@ def group(sys, usr_npt, settings=None):
     return my_group
 
 
-def get_group_atoms(atoms, identifier):
+def get_group_spheres(atoms, identifier):
     """
     Takes in the atoms dataframe and the identifiers and returns a list of atom objects
     """
     # First see if the identifier is an atom index
     try:
-        my_atoms = atoms.iloc[int(identifier[0])]
+        my_atoms = atoms[int(identifier[0])]
         return [my_atoms]
     except ValueError:
         pass
@@ -171,7 +171,7 @@ def interpret_group_commands(my_sys, group_dict, command):
     # Check if the command is an atom command
     if command[0].lower() in type_dict and type_dict[command[0].lower()] == 'a':
         # interpret the command
-        my_atoms = get_group_atoms(my_sys.atoms, command[1:])
+        my_atoms = get_group_spheres(my_sys.spheres['num'].to_list(), command[1:])
         # Check that the get_group_atoms function actually returned something
         if my_atoms is not None:
             # Add the atoms to the group dict
@@ -232,7 +232,7 @@ def ggroup(my_sys, group_commands, settings=None):
         # Given a foam, the group is going to be the whole set of spheres
         if my_sys.type == 'foam':
             # Make the foam group
-            my_sys.groups = [Group(my_sys, name=my_sys.name + '_Network', atoms=my_sys.spheres.copy(), settings=settings)]
+            my_sys.groups = [Group(my_sys, name=my_sys.name + '_Network', atoms=my_sys.spheres['num'].to_list(), settings=settings)]
         # If the given system is not a foam add only the residues to hold out the sol atoms
         else:
             my_sys.groups = [Group(my_sys, name=my_sys.name + '_Network', residues=my_sys.residues.copy(), settings=settings)]
@@ -242,7 +242,7 @@ def ggroup(my_sys, group_commands, settings=None):
         my_sys.groups = [Group(my_sys, name=my_sys.name + '_Network', residues=my_sys.residues.copy(), settings=settings)]
         return
     if group_commands[0][0] in full_objs:
-        my_sys.groups = [Group(my_sys, name=my_sys.name + '_all_atoms_network', atoms=my_sys.spheres.copy(), settings=settings)]
+        my_sys.groups = [Group(my_sys, name=my_sys.name + '_all_atoms_network', atoms=my_sys.spheres['num'].to_list(), settings=settings)]
         return
     if len(group_commands[0][0]) == 1:
         print('{} is not a valid entry for a group identifier'.format(group_commands[0]))
