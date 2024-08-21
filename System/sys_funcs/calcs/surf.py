@@ -67,7 +67,7 @@ def calc_surf_func_reg(l0, r0, l1, r1):
     return ABC + DEF + GHI + [J] + [K] + d
 
 
-def calc_surf_sa(edges, com, tris, points, flat):
+def calc_surf_sa(tris, points):
     """
     Calculates the surface area of the input surface
     :param edges: Edges for the surface if the surface is flat
@@ -79,16 +79,15 @@ def calc_surf_sa(edges, com, tris, points, flat):
     """
     # Create the surface area variable
     sa = 0
-    if flat:
-        for edge in edges:
-            for i in range(len(edge) - 1):
-                tri = np.array([edge[i], edge[i + 1], com])
-                sa += calc_tri(tri)
+    # if flat:
+    #     for edge in edges:
+    #         for i in range(len(edge) - 1):
+    #             tri = np.array([edge[i], edge[i + 1], com])
+    #             sa += calc_tri(tri)
     # Go through the triangles in the surface
-    else:
-        for tri in tris:
-            tri1 = np.array([points[tri[_]] for _ in range(3)])
-            sa += calc_tri(tri1)
+    for tri in tris:
+        tri1 = np.array([points[tri[_]] for _ in range(3)])
+        sa += calc_tri(tri1)
     # Return the surface area
     return sa
 
@@ -177,7 +176,7 @@ def calc_surf_tri_curvs(func, points, tris, max_curv=0):
     return tri_curvs, max_curv
 
 
-def calc_surf_tri_ins_out(surf):
+def calc_surf_tri_ins_out(b0_loc, b0_rad, surf):
     """
     Calculates whether the triangles in the surface are inside the overlapping balls or not
     :param surf: Surface for calculations
@@ -188,17 +187,18 @@ def calc_surf_tri_ins_out(surf):
     # Go through the points in the surface
     for point in surf['points']:
         # Calculate the distance between the point and the ball
-        my_dist = calc_dist(point, surf['balls'][0].loc)
+        my_dist = calc_dist(point, b0_loc)
         # Check if the triangle is inside or not
-        if my_dist < surf['balls'][0].rad:
+        if my_dist < b0_rad:
             inside_array.append(True)
         else:
             inside_array.append(False)
     # Now add the triangles
-    surf.tri_ins_out = []
+    tri_ins_out = []
     # Color the tris
     for tri in surf.tris:
         if inside_array[tri[0]] and inside_array[tri[1]] and inside_array[tri[2]]:
-            surf.tri_ins_out.append(0.25)
+            tri_ins_out.append(0.25)
         else:
-            surf.tri_ins_out.append(0.75)
+            tri_ins_out.append(0.75)
+    return tri_ins_out
