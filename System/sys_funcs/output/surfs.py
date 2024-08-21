@@ -48,7 +48,7 @@ def write_surfs(net, surfs, file_name, color=False, directory=None):
             tri_colors = [color for _ in range(len(surf['tris']))]
             if net.settings['net_type'] == 'aw':
                 max_val = max(net.surfs['curv'])
-                tri_colors = color_tris(surf=surf, color_map=net.settings['surf_col'],
+                tri_colors = color_tris(net=net, surf=surf, color_map=net.settings['surf_col'],
                                         color_scheme=net.settings['surf_scheme'], max_val=max_val)
 
             # Go through the triangles in the surface
