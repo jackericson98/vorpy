@@ -24,7 +24,7 @@ def export_min2(sys):
     for group in sys.groups:
         group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
-        group.export(info=True, shell=True)
+        group.export(info=True, shell=True, logs=True)
 
 
 def export_med(sys):
@@ -32,7 +32,7 @@ def export_med(sys):
     for group in sys.groups:
         group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
-        group.exports(shell=True, info=True, edges=True, atoms=True)
+        group.exports(shell=True, info=True, edges=True, atoms=True, logs=True)
 
 
 def export_large(sys):
@@ -40,7 +40,7 @@ def export_large(sys):
     for group in sys.groups:
         group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
-        group.exports(shell=True, info=True, edges=True, verts=True, atoms=True, surr_atoms=True)
+        group.exports(shell=True, info=True, edges=True, verts=True, atoms=True, surr_atoms=True, logs=True)
         os.mkdir(group.dir + "/atoms")
         write_atom_cells(group.net, group.atms, directory=group.dir + "/atoms")
 
@@ -51,7 +51,7 @@ def export_all(sys):
         group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
         group.exports(atoms=True, shell=True, surfs=True, info=True, ext_atoms=True, sep_surfs=True, sep_edges=True,
-                      sep_verts=True, verts=True, edges=True, surr_atoms=True)
+                      sep_verts=True, verts=True, edges=True, surr_atoms=True, logs=True)
     os.mkdir(sys.files['dir'] + "/atoms")
     write_atom_cells(sys.net, sys.net.atoms['num'], directory=sys.files['dir'] + "/atoms", verts=True, edges=True)
 
@@ -125,67 +125,31 @@ def set_sys_dir(sys, dir_name=None):
     sys.files['dir'] = dir_name + i_str
 
 
-def export_sys(sys, all_=False, pdb=False, surfaces=False, full_network_object=False,
-               alter_atoms_script=False, info=False, verts=False, edges=False):
+def export_sys(sys, all_=False, pdb=False, full_network_object=False, alter_atoms_script=False, info=False):
     """
         Prepares the output directory and system for output. Keeps things consistent
         :return:
         """
     # Check to see if the pdb directory is suitable
     if sys.files['dir'] is None:
-        # if sys.base_file is not None and os.path.dirname(sys.base_file)[-9:] != 'test_data':
-        #     sys.files['dir'] = os.path.dirname(sys.base_file)
-        # else:
         sys.set_output_directory()
     # If the information is requested, export it
     if info or all_:
-        if not os.path.exists(sys.files['dir'] + "/sys"):
-            os.mkdir(sys.files['dir'] + "/sys")
-        os.chdir(sys.files['dir'] + "/sys")
+        os.chdir(sys.files['dir'])
         export_sys_info(sys)
     if pdb or all_:
-        if not os.path.exists(sys.files['dir'] + '/sys'):
-            os.mkdir(sys.files['dir'] + "/sys")
-        os.chdir(sys.files['dir'] + "/sys")
+        os.chdir(sys.files['dir'])
         # Export a pdb file for the system
         write_pdb([_ for i, _ in sys.spheres.iterrows()], sys.name, sys)
         os.chdir(sys.files['dir'])
-    if surfaces or all_:
-        if not os.path.exists(sys.files['dir'] + '/surfs'):
-            os.mkdir(sys.files['dir'] + "/surfs")
-        # Export a pdb file for the system
-            for surf in sys.net.surfs:
-                write_surfs(net=sys.net, surfs=[surf], file_name="_".join([str(_) for _ in surf.ndx]), directory=sys.files['dir'] + "/surfs")
-        os.chdir(sys.files['dir'])
-    if edges or all_:
-        if not os.path.exists(sys.files['dir'] + '/edges'):
-            os.mkdir(sys.files['dir'] + "/edges")
-        # Export a pdb file for the system
-        for i, edge in sys.net.edges.iterrows():
-            write_edges(net=sys.net, edges=[i], file_name="_".join([str(_) for _ in edge['eatoms']]), directory=sys.files['dir'] + "/edges")
-        os.chdir(sys.files['dir'])
-    if verts or all_:
-        if not os.path.exists(sys.files['dir'] + '/verts'):
-            os.mkdir(sys.files['dir'] + "/verts")
-        # Export a pdb file for the system
-        for i, vert in sys.net.verts.iterrows():
-            write_off_verts(net=sys.net, verts=[i], file_name="_".join([str(_) for _ in vert['vatoms']]),
-                            directory=sys.files['dir'] + "/verts")
-        os.chdir(sys.files['dir'])
     if (full_network_object or all_) and sys.net.build_surfs:
-        if not os.path.exists(sys.files['dir'] + '/sys'):
-            os.mkdir(sys.files['dir'] + "/sys")
         # Export a full system
-        write_surfs(sys.net.surfs, "full_sys", directory=sys.files['dir'] + "/sys")
+        write_surfs(sys.net.surfs, "full_sys", directory=sys.files['dir'])
     # Write the alter atoms script
     if alter_atoms_script or all_:
         pass
-        # if not os.path.exists(sys.files['dir'] + '/sys'):
-        #     os.mkdir(sys.files['dir'] + "/sys")
-        # os.chdir(sys.files['dir'] + "/sys")
-        # set_pymol_atoms(sys)
-    #
-    os.chdir(sys.files['dir'])
+        os.chdir(sys.files['dir'])
+        set_pymol_atoms(sys)
 
 
 def set_pymol_atoms(sys, no_file=False):
@@ -206,13 +170,13 @@ def set_pymol_atoms(sys, no_file=False):
     # Check to see if the atoms in the system are all accounted for
     for i, res in enumerate(sys.residues):
         if res not in special_radii:
-            special_radii[res] = {sys.atoms['name'][i]: round(sys.atoms['rad'][i], 2)}
+            special_radii[res] = {sys.spheres['name'][i]: round(sys.spheres['rad'][i], 2)}
     # Create the file
     with open('set_atoms.pml', 'w') as file:
         # Write the change radii script for the system's set atomic radii
-        for radius in sys.radii:
+        for radius in sys.element_radii:
             if radius != '':
-                file.write("alter (elem {}), vdw={}\n".format(radius, sys.radii[radius]))
+                file.write("alter (elem {}), vdw={}\n".format(radius, sys.element_radii[radius]))
         # Change the radii for special atoms
         for res in special_radii:
             for atom in special_radii[res]:
