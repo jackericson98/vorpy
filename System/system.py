@@ -171,7 +171,6 @@ class System:
         """
         Sets the atom radii in the spheres dataframe based on the element radii and special radii
         """
-        test_time = time.perf_counter()
         # First check to see of the spheres actually exist
         if self.spheres is None or len(self.spheres) == 0 or self.type != 'mol':
             return
@@ -193,8 +192,6 @@ class System:
         # If no special or element radii were specified, call the method with the system's special and element radii
         if my_special_radii is None and my_element_radii is None:
             self.set_radii(my_element_radii=self.element_radii, my_special_radii=self.special_radii)
-
-        print('Set radii takes {} seconds'.format(time.perf_counter() - test_time))
 
     def load_verts(self, file=None, vta_ball_file=None):
         """
