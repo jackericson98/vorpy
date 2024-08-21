@@ -51,7 +51,7 @@ compare_vals = ['c', 'com', 'compare', 'cpr', 'compar', 'cum']
 
 surf_scheme_curv_vals = ['curv', 'c', 'curvature']
 surf_scheme_dist_vals = ['distance', 'dist', 'd']
-surf_scheme_nout_vals = ['in_out', 'nout', 'no']
+surf_scheme_nout_vals = ['in_out', 'nout', 'no', 'ins_out']
 
 
 file_types = ['net', 'vert', 'ball', 'ndx']
