@@ -33,8 +33,7 @@ def build_surfs1(net):
         sv1 = sum([calc_tetra_vol(alocs[1], surf_points[tri[0]], surf_points[tri[1]], surf_points[tri[2]]) for tri in
                    surf_tris])
 
-        sa = calc_surf_sa(edges=[net.edges['points'][_] for _ in surf['edges']], com=surf_com, tris=surf_tris,
-                          points=surf_points, flat=surf_flat)
+        sa = calc_surf_sa(tris=surf_tris, points=surf_points)
         csv_writer.writerow([surf_points, surf_tris, surf_tri_curvs, surf_curv, surf_func, surf_com, surf_flat, sa,
                              {anums[0]: sv0, anums[1]: sv1}])
 
@@ -77,8 +76,7 @@ def build_surfs(net, store_points=True):
         sv1 = sum([calc_tetra_vol(locs[1], surf_points[tri[0]], surf_points[tri[1]], surf_points[tri[2]]) for tri in
                    surf_tris])
         # Calculate the surface area of the surface
-        sa = calc_surf_sa(edges=[net.edges['points'][_] for _ in surf['edges']], com=surf_com, tris=surf_tris,
-                          points=surf_points, flat=surf_flat)
+        sa = calc_surf_sa(tris=surf_tris, points=surf_points)
         # If we are doing a large export and will need the points later in the process for export and such
         if store_points:
             points.append(surf_points)
