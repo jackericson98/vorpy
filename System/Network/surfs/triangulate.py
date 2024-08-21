@@ -1,5 +1,6 @@
-from System.sys_funcs.calcs.calcs import rotate_points, calc_com, calc_angle_jit
+from System.sys_funcs.calcs.calcs import rotate_points, calc_com, calc_angle_jit, project_to_plane
 from scipy.spatial import Delaunay
+from matplotlib import pyplot as plt
 import numpy as np
 
 
@@ -23,6 +24,34 @@ def calc_tri_circ(points):
     # Else, return the circumference of the circle that the triangle inscribes
     circum_r = a * b * c / (4.0 * area)
     return circum_r
+
+
+def tri_within2(flat_perim, flat_point):
+    # Get a projection point
+    center = calc_com(flat_perim)
+    # Get the projected point
+    proj_vec = np.array(center) - np.array(flat_point)
+    proj_point = np.array(flat_point) + np.array(proj_vec)
+    # Reset the number of intersections
+    xings = 0
+    # Go through each line segments around the perimeter
+    for i in range(len(flat_perim)):
+        # Get the line segment's points
+        p1 = np.array(flat_perim[i])
+        p2 = np.array(flat_perim[(i + 1) % len(flat_perim)])
+        # Get the angles
+        theta = calc_angle_jit(flat_point, p1, p2)
+        theta_n = calc_angle_jit(flat_point, p1, proj_point)
+        theta_n1 = calc_angle_jit(flat_point, p2, proj_point)
+        # If we have a crossing
+        if 0 < theta_n < theta and theta_n1 < theta:
+            xings += 1
+
+    # If we have an even number of intersections
+    if xings % 2 == 0:
+        return False
+    else:
+        return True
 
 
 def tri_within(perimeter, loc, norm, flat_points=None, my_tri=None, point=None):
@@ -88,20 +117,21 @@ def find_simps(points, loc, norm):
     """
     # Copy the surface points
     points = points.copy()
-    # Move all surf points toward the origin via center point
-    for i in range(len(points)):
-        points[i] = np.array(points[i]) - np.array(loc)
+    # # Move all surf points toward the origin via center point
+    # for i in range(len(points)):
+    #     points[i] = np.array(points[i]) - np.array(loc)
     # Calculate the angles to rotate the center point around
-    nps = rotate_points(np.array(norm), np.array(points))
+    flat_points = project_to_plane(np.array(points), plane_normal=norm, plane_point=loc)
     # Get the 2d version of the points and their Delaunay tesselation
-    flat_points = [_[:2] for _ in nps]
+    # flat_points = [_[:2] for _ in nps]
     tris = Delaunay(flat_points)
     # Add the flat points to the surface's list of flat points
     tris = tris.simplices.tolist()
+    plt.scatter([_[0] for _ in flat_points], [_[1] for _ in flat_points])
     return tris, flat_points
 
 
-def filter_tris(tris, flat_points, res, perimeter, loc, norm, filter_hard):
+def filter_tris(tris, flat_points, res, perimeter, loc, norm, filter_hard, check=False):
     """
     Goes through the triangles on the surface measuring the circumference & testing if inside
     :return:
