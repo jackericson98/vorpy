@@ -85,7 +85,7 @@ def find_next_point(locs, func, pn_1, end, d_theta):
     return calc_surf_point(locs, point=pc, func=func)
 
 
-def fill_mesh(locs, rads, func, surf_loc, surf_norm, perimeter, com, res, flat):
+def fill_mesh(locs, rads, func, surf_loc, surf_norm, perimeter, com, res, flat, check=False):
     """
     Works inward from a set of perimeter points toward a center point filling in equally spaced points
     :param surf: Surface object being filled

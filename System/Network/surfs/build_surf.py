@@ -34,7 +34,7 @@ def get_com(locs, rads, perimeter, surf_loc, surf_norm, func, flat, net_type='aw
 
 
 # Build method. Makes the mesh for the surface and calculates the simplices between them
-def build_surf(locs, rads, epnts, res, net_type, sfunc=None):
+def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False):
     """
     Main build method for constructing surfaces
     :param surf:
@@ -55,7 +55,7 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None):
                                     func=sfunc)
     # Fill the mesh
     spoints = fill_mesh(locs, rads, func=sfunc, surf_loc=surf_loc, surf_norm=surf_norm, perimeter=perimeter,
-                        com=surf_com, flat=flat, res=res)
+                        com=surf_com, flat=flat, res=res, check=check)
     # Find the simplices of the surface
     tris, flat_points = find_simps(points=spoints, loc=surf_loc, norm=surf_norm)
     # Set the surface curvature to 0
