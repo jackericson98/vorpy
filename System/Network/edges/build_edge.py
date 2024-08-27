@@ -25,14 +25,6 @@ def build_edge(locs, rads, vlocs, res, straight=None):
         straight = False
         if rads[0] == rads[1] and rads[1] == rads[2]:
             straight = True
-    # Choose a curved one to project onto. If the edge isn't straight 2 surfs are curved.
-    if round(rads[0], 10) == round(rads[1], 10):
-        func = calc_surf_func(locs[1], rads[1], locs[2], rads[2])
-    else:
-        func = calc_surf_func(locs[0], rads[0], locs[1], rads[1])
-
-    ################################################# Fill Edge ####################################################
-
     # Get the location and radius of the circle inscribed between the edge atoms
     try:
         loc, rad = calc_circ(locs[0], locs[1], locs[2], rads[0], rads[1], rads[2])
@@ -41,6 +33,18 @@ def build_edge(locs, rads, vlocs, res, straight=None):
         rad = calc_dist(loc, locs[0]) - rads[0]
     loc = np.array(loc)
     vals = {'loc': loc, 'rad': rad}
+    # If the edge is straight return the bare minimum
+    if straight:
+        return vlocs, vals
+    # Choose a curved one to project onto. If the edge isn't straight 2 surfs are curved.
+    if round(rads[0], 10) == round(rads[1], 10):
+        func = calc_surf_func(locs[1], rads[1], locs[2], rads[2])
+    else:
+        func = calc_surf_func(locs[0], rads[0], locs[1], rads[1])
+
+    ################################################# Fill Edge ####################################################
+
+
     # Reset the edges points
     points = []
     # Typical case, no doublets
