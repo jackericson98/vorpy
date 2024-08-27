@@ -1,6 +1,7 @@
 from System.sys_funcs.output.output import *
 from System.sys_funcs.output.verts import write_off_verts
 from System.sys_funcs.output.edges import write_edges
+from System.sys_funcs.output.net import write_net_logs
 
 
 def export_info(grp, directory=None):
