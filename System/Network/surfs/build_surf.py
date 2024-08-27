@@ -7,6 +7,8 @@ from Visualize.mpl_visualize import plot_balls, plot_surfs, plot_edges
 import numpy as np
 import triangle as tri
 import matplotlib.pyplot as plt
+from shapely import Polygon, Point
+from System.Network.surfs.ConstrainedDelaunayTriangulation1 import triangulate_2D_Surface
 
 
 ############################################## Triangulate Surface Points  #############################################
@@ -20,15 +22,31 @@ def get_com(locs, rads, perimeter, surf_loc, surf_norm, func, flat, net_type='aw
     :return: Center of mass
     """
     # If the surface is flat just get the center of mass
-    if flat or net_type in {'del', 'pow'}:
+    if net_type in {'del', 'pow'}:
         return calc_com(points=np.array(perimeter)), False
-        # If the surface is flat, the center of mass will not need to be projected
-    if tri_within(perimeter, loc=surf_loc, norm=surf_norm, point=surf_loc):
+    # Next create the polygon so that we can tell if the center of mass is within the perimeter
+    flat_perim = project_to_plane(np.array(perimeter), plane_normal=surf_norm, plane_point=surf_loc)
+    perim_poly = Polygon(flat_perim)
+    # If the surface is flat, the center of mass will not need to be projected
+    if perim_poly.contains(Point([0, 0])):
         return surf_loc, False
     # First try the center of mass of the 3d points projected onto the surface
     my_com = calc_surf_point(locs, point=calc_com(points=np.array(perimeter[::5])), func=func)
-    if my_com is not None and tri_within(perimeter, surf_loc, surf_norm, point=my_com) and rads[0] != rads[1]:
-        return my_com, False
+    if my_com is not None:
+        flat_com = project_to_plane(np.array([my_com]), plane_normal=surf_norm, plane_point=surf_loc)
+        if perim_poly.contains(Point(flat_com[0])):
+            return my_com, False
+    # Next choose a point within the flat perimeter
+    point_within = perim_poly.point_on_surface()
+    # Project onto the surface
+    plane_point_mapped = map_to_plane([point_within], plane_normal=surf_norm, plane_point=surf_loc)
+    # Calculate the surface point
+    on_surface_point_within = calc_surf_point_curv(func, plane_point_mapped)
+    # Project back onto the plane
+    back_on_plane = project_to_plane([on_surface_point_within], surf_loc, surf_norm)
+    # See if it is inside or not
+    if perim_poly.contains(Point(back_on_plane[0])):
+        return on_surface_point_within, False
     # If nothing else set the center of mass to the first point in the perimeter
     return perimeter[len(perimeter)//2], True
 
@@ -56,26 +74,28 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False):
     # Fill the mesh
     spoints = fill_mesh(locs, rads, func=sfunc, surf_loc=surf_loc, surf_norm=surf_norm, perimeter=perimeter,
                         com=surf_com, flat=flat, res=res, check=check)
-    # Find the simplices of the surface
-    tris, flat_points = find_simps(points=spoints, loc=surf_loc, norm=surf_norm)
+
+    # Calculate the angles to rotate the center point around
+    flat_points = project_to_plane(np.array(spoints), plane_normal=surf_norm, plane_point=surf_loc)
+
+    # Create the polygon from the flat perimeter
+    flat_perim = flat_points[:len(perimeter)]
+    perim_poly = Polygon(flat_perim)
+
     # Set the surface curvature to 0
     surf_curv = 0
     # If the network type is voronoi the edges could be curved allowing for triangulations outside the edges
-    if net_type == 'aw':
-        # Add the normal curvature if possible
-        if tri_within(perimeter=perimeter,  loc=surf_loc, norm=surf_norm, flat_points=flat_points, point=surf_loc):
-            surf_curv = calc_surf_point_curv(sfunc, surf_loc)
-        # Filter out the bad triangles
-        surf_tris = filter_tris(tris=tris, flat_points=flat_points, res=res, perimeter=perimeter, loc=surf_loc,
-                                norm=surf_norm, filter_hard=filter_hard)
-        # Calculate the curvature of the triangles and the surface
-        if not flat:
-            tri_curvs, surf_curv = calc_surf_tri_curvs(sfunc, spoints, surf_tris, max_curv=surf_curv)
-        else:
-            tri_curvs, surf_curv = [0 for _ in range(len(list(surf_tris)))], 0
+    # Add the normal curvature if possible
+    if net_type == 'aw' and not flat and perim_poly.contains(Point(surf_loc)):
+        surf_curv = calc_surf_point_curv(sfunc, surf_loc)
+    # Filter out the bad triangles
+    surf_points, surf_tris = triangulate_2D_Surface(flat_perim, flat_points, res, surf_loc)
+    # plot_surfs([spoints], [surf_tris], True, Show=True)
+    # Calculate the curvature of the triangles and the surface
+    if not flat:
+        tri_curvs, surf_curv = calc_surf_tri_curvs(sfunc, spoints, surf_tris, max_curv=surf_curv)
     else:
-        surf_tris = tris
-        tri_curvs, surf_curv = [0 for _ in range(len(surf_tris))], 0
+        tri_curvs, surf_curv = [0 for _ in range(len(list(surf_tris)))], 0
     # Return the surface points, triangles, triangle curvatures, total curvature, surface function, com, and flatness
     return spoints, surf_tris, tri_curvs, surf_curv, sfunc, surf_com, flat
 
