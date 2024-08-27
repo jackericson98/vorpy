@@ -173,7 +173,9 @@ def argv(my_sys):
             copy_group.build()
             grp.build()
             new_groups.append(copy_group)
+            my_sys.compare_networks(group1=copy_group, group2=grp)
         my_sys.groups += new_groups
+
     else:
         for grp in my_sys.groups:
             grp.build()
