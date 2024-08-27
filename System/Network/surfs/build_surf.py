@@ -9,6 +9,7 @@ import triangle as tri
 import matplotlib.pyplot as plt
 from shapely import Polygon, Point
 from System.Network.surfs.ConstrainedDelaunayTriangulation1 import triangulate_2D_Surface
+from scipy.spatial import Delaunay
 
 
 ############################################## Triangulate Surface Points  #############################################
@@ -31,22 +32,35 @@ def get_com(locs, rads, perimeter, surf_loc, surf_norm, func, flat, net_type='aw
     if perim_poly.contains(Point([0, 0])):
         return surf_loc, False
     # First try the center of mass of the 3d points projected onto the surface
+    my_com = calc_surf_point(locs, point=calc_com(points=np.array(perimeter)), func=func)
+    if my_com is not None:
+        flat_com = project_to_plane(np.array([my_com]), plane_normal=surf_norm, plane_point=surf_loc)
+        try:
+            if perim_poly.contains(Point(flat_com[0])):
+                return my_com, False
+        except TypeError:
+            pass
+    # Next try to calculate a center of mass of some of the points
     my_com = calc_surf_point(locs, point=calc_com(points=np.array(perimeter[::5])), func=func)
     if my_com is not None:
         flat_com = project_to_plane(np.array([my_com]), plane_normal=surf_norm, plane_point=surf_loc)
-        if perim_poly.contains(Point(flat_com[0])):
-            return my_com, False
-    # Next choose a point within the flat perimeter
-    point_within = perim_poly.point_on_surface()
-    # Project onto the surface
-    plane_point_mapped = map_to_plane([point_within], plane_normal=surf_norm, plane_point=surf_loc)
-    # Calculate the surface point
-    on_surface_point_within = calc_surf_point_curv(func, plane_point_mapped)
-    # Project back onto the plane
-    back_on_plane = project_to_plane([on_surface_point_within], surf_loc, surf_norm)
-    # See if it is inside or not
-    if perim_poly.contains(Point(back_on_plane[0])):
-        return on_surface_point_within, False
+        try:
+            if perim_poly.contains(Point(flat_com[0])):
+                return my_com, False
+        except TypeError:
+            pass
+
+    # # Next choose a point within the flat perimeter
+    # point_within = perim_poly.point_on_surface()
+    # # Project onto the surface
+    # plane_point_mapped = map_to_plane([[point_within.x, point_within.y]], plane_normal=surf_norm, plane_point=surf_loc)
+    # # Calculate the surface point
+    # on_surface_point_within = calc_surf_point(locs, func=func, point=plane_point_mapped)
+    # # Project back onto the plane
+    # back_on_plane = project_to_plane([on_surface_point_within], surf_loc, surf_norm)
+    # # See if it is inside or not
+    # if perim_poly.contains(Point(back_on_plane[0])):
+    #     return on_surface_point_within, False
     # If nothing else set the center of mass to the first point in the perimeter
     return perimeter[len(perimeter)//2], True
 
@@ -70,7 +84,11 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False):
     perimeter, surf_loc, surf_norm = build_perimeter(locs, rads, epnts=epnts, net_type=net_type)
     # Get the center of mass for the surface
     surf_com, filter_hard = get_com(locs, rads, perimeter=perimeter, surf_loc=surf_loc, surf_norm=surf_norm, flat=flat,
-                                    func=sfunc)
+                                    func=sfunc, net_type=net_type)
+    if net_type in {'del', 'pow'}:
+        flat_points = project_to_plane(np.array(perimeter + [surf_com]), plane_normal=surf_norm, plane_point=surf_loc)
+        triangles = Delaunay(flat_points).simplices
+        return np.array(perimeter + [surf_com]), triangles, [0 for _ in range(len(triangles))], 0.0, None, surf_com, True
     # Fill the mesh
     spoints = fill_mesh(locs, rads, func=sfunc, surf_loc=surf_loc, surf_norm=surf_norm, perimeter=perimeter,
                         com=surf_com, flat=flat, res=res, check=check)
