@@ -127,7 +127,6 @@ def find_simps(points, loc, norm):
     tris = Delaunay(flat_points)
     # Add the flat points to the surface's list of flat points
     tris = tris.simplices.tolist()
-    plt.scatter([_[0] for _ in flat_points], [_[1] for _ in flat_points])
     return tris, flat_points
 
 
