@@ -1,8 +1,5 @@
 from System.sys_funcs.output.atoms import write_pdb, write_atom_cells
 from System.sys_funcs.output.surfs import write_surfs
-from System.sys_funcs.output.verts import write_off_verts
-from System.sys_funcs.output.edges import write_edges
-from System.sys_funcs.output.net import write_net_logs
 from System.sys_objs.atom import special_radii
 import os
 from os import path
@@ -20,7 +17,7 @@ def export_min1(sys):
 
 
 def export_min2(sys):
-    sys.exports(info=True, set_atoms=True, pbd=True, logs=True)
+    sys.exports(info=True, set_atoms=True, pbd=True)
     for group in sys.groups:
         group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
@@ -28,7 +25,7 @@ def export_min2(sys):
 
 
 def export_med(sys):
-    sys.exports(pdb=True, set_atoms=True, info=True, network=True, logs=True)
+    sys.exports(pdb=True, set_atoms=True, info=True)
     for group in sys.groups:
         group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
@@ -46,7 +43,7 @@ def export_large(sys):
 
 
 def export_all(sys):
-    sys.exports(pdb=True, info=True, network=True, logs=True, set_atoms=True, all_verts=True, all_edges=True)
+    sys.exports(pdb=True, info=True, set_atoms=True)
     for group in sys.groups:
         group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
@@ -71,7 +68,9 @@ def other_exports(sys, usr_npt):
         write_atom_cells(sys.net.atoms['num'], sys.files['dir'])
     # If the first word is logs
     elif usr_npt.lower() in {'logs', 'lgs'}:
-        sys.exports(logs=True, pdb=True, set_atoms=True)
+        for group in sys.groups:
+            group.exports(logs=True)
+        sys.exports(pdb=True, set_atoms=True)
     # If the first word is shell
     elif usr_npt.lower() in {'shell', 'shl'}:
         for grp in sys.groups:
