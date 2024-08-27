@@ -97,7 +97,5 @@ def build_edge(locs, rads, vlocs, res, straight=None):
         points.append(surf_point)
     # Add the end point
     points.append(pv1)
-    # Now that the edge is built, we need to cut the points down again so as to not slow th surface building
-    points = [points[0]] + points[1:-1:4] + [points[-1]]
     # Finally return the points
     return points, vals
