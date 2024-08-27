@@ -255,37 +255,23 @@ class System:
         # Create the group
         self.groups.append(Group(sys=self, atoms=atoms, residues=residues, chains=chains))
 
-    def compare_networks(self, group=None, net1='aw', net2='pow', export_nets=True, data_file=None):
+    def compare_networks(self, group1, group2, data_file=None):
         """
         The goal is to take the comparison instructions and make two separate groups with their networks and compare
         their results
         """
-
-        # If we are comparing two network types
         start = time.perf_counter()
-
-        # Check to see if the group has been chosen, if none identified just use the first one
-        if group is None:
-            group = self.groups[0]
-        group1, group2 = group, group.copy()
-        # Set the names for each
-        group1.name, group2.name = group1.name + '_' + net1, group2.name + '_' + net2
-        # Change the settings in the groups
-        group1.settings['net_type'], group2.settings['net_type'] = net1, net2
-        # Build the two groups' networks
-        group1.build()
-        group2.build()
 
         # Create the data storage
         data = {'vdn1': [], 'sdn1': [], 'vdn2': [], 'sdn2': [], 'rads': []}
         # Compare the networks
         for i, ball1 in group1.net.balls.iterrows():
             # Get the equivalent ball from the second group
-            ball2 = group2.balls.iloc[i]
+            ball2 = group2.net.balls.iloc[i]
             # Make sure both cells are complete
             if ball1['complete'] and ball2['complete']:
                 # Calculate the differences in volume and surface area for each network as the standard
-                data['vdn1'].append((ball2['vol'] - ball1['vol']) / ball1[i]['vol'])
+                data['vdn1'].append((ball2['vol'] - ball1['vol']) / ball1['vol'])
                 data['sdn1'].append((ball2['sa'] - ball1['sa']) / ball1['sa'])
                 data['vdn2'].append((ball1['vol'] - ball2['vol']) / ball2['vol'])
                 data['sdn2'].append((ball1['sa'] - ball2['sa']) / ball2['sa'])
@@ -306,10 +292,10 @@ class System:
                        round(sum(data['sdn1']) / nbs, 5),  # Percent Difference
                        round(sum(data['vdn2']) / nbs, 5),  # Percent Difference
                        round(sum(data['sdn2']) / nbs, 5),  # Percent Difference
-                       round(np.polyfit(data['rads'], data['vdn1'], 1)[0], 5),  # Slope of the val by radius
-                       round(np.polyfit(data['rads'], data['sdn1'], 1)[0], 5),  # Slope of the val by radius
-                       round(np.polyfit(data['rads'], data['vdn2'], 1)[0], 5),  # Slope of the val by radius
-                       round(np.polyfit(data['rads'], data['sdn2'], 1)[0], 5),  # Slope of the val by radius
+                       # round(np.polyfit(data['rads'], data['vdn1'], 1)[0], 5),  # Slope of the val by radius
+                       # round(np.polyfit(data['rads'], data['sdn1'], 1)[0], 5),  # Slope of the val by radius
+                       # round(np.polyfit(data['rads'], data['vdn2'], 1)[0], 5),  # Slope of the val by radius
+                       # round(np.polyfit(data['rads'], data['sdn2'], 1)[0], 5),  # Slope of the val by radius
                        nbs, round((time.perf_counter() - start), 3))
         print(*my_line, end="")
 
@@ -325,10 +311,6 @@ class System:
             with open(data_file[:-4] + '1.csv', 'a') as foam_file:
                 foam_writer = csv.writer(foam_file)
                 foam_writer.writerow(my_line)
-        # Check of the groups need to be exported
-        if export_nets:
-            group1.export()
-            group2.export()
 
     def export_verts(self):
         """
