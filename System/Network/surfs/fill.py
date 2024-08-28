@@ -1,7 +1,29 @@
 import numba.core.errors
-from System.Network.surfs.triangulate import tri_within
-from System.sys_funcs.calcs.calcs import calc_angle_jit, calc_angle
+from System.Network.surfs.triangulate import test_within
+from System.sys_funcs.calcs.calcs import calc_angle_jit, calc_angle, calc_dist
 import numpy as np
+from numba import jit
+
+
+@jit(nopython=True)
+def calc_surf_point_abcs(locs, point, func):
+    # Set up the unit vector
+    vi = point - locs[0]
+    vn = vi / np.linalg.norm(vi)
+    # Set the atom's location as the root
+    vi = locs[0]
+
+    # Solve the surface function's equation for the vector through the given point from the atom's location:
+
+    # Get the a/b/c values for the point(s) that lies on the surface and along the vector from a0 to the given point
+    a = func[0] * vn[0] ** 2 + func[1] * vn[1] ** 2 + func[2] * vn[2] ** 2 + func[3] * vn[0] * vn[1] + func[4] * vn[1] \
+        * vn[2] + func[5] * vn[2] * vn[0]
+    b = 2 * func[0] * vn[0] * vi[0] + 2 * func[1] * vn[1] * vi[1] + 2 * func[2] * vn[2] * vi[2] + func[3] \
+        * (vn[0] * vi[1] + vn[1] * vi[0]) + func[4] * (vn[1] * vi[2] + vn[2] * vi[1]) + func[5] \
+        * (vn[2] * vi[0] + vn[0] * vi[2]) + func[6] * vn[0] + func[7] * vn[1] + func[8] * vn[2]
+    c = func[0] * vi[0] ** 2 + func[1] * vi[1] ** 2 + func[2] * vi[2] ** 2 + func[3] * vi[0] * vi[1] + func[4] * vi[1] \
+        * vi[2] + func[5] * vi[2] * vi[0] + func[6] * vi[0] + func[7] * vi[1] + func[8] * vi[2] + func[9]
+    return vi, vn, a, b, c
 
 
 def calc_surf_point(locs, point, func):
@@ -12,22 +34,7 @@ def calc_surf_point(locs, point, func):
     :param point: Reference point to be projected through
     :return: The point on the surface
     """
-    # Set up the unit vector
-    vi = np.array(point) - np.array(locs[0])
-    vn = vi / np.linalg.norm(vi)
-    # Set the atom's location as the root
-    vi = locs[0]
-
-    # Solve the surface function's equation for the vector through the given point from the atom's location:
-
-    # Get the a/b/c values for the point(s) that lies on the surface and along the vector from a0 to the given point
-    a = func[0] * vn[0] ** 2 + func[1] * vn[1] ** 2 + func[2] * vn[2] ** 2 + func[3] * vn[0] * vn[1] + func[4] * vn[1]\
-        * vn[2] + func[5] * vn[2] * vn[0]
-    b = 2 * func[0] * vn[0] * vi[0] + 2 * func[1] * vn[1] * vi[1] + 2 * func[2] * vn[2] * vi[2] + func[3] \
-        * (vn[0] * vi[1] + vn[1] * vi[0]) + func[4] * (vn[1] * vi[2] + vn[2] * vi[1]) + func[5] \
-        * (vn[2] * vi[0] + vn[0] * vi[2]) + func[6] * vn[0] + func[7] * vn[1] + func[8] * vn[2]
-    c = func[0] * vi[0] ** 2 + func[1] * vi[1] ** 2 + func[2] * vi[2] ** 2 + func[3] * vi[0] * vi[1] + func[4] * vi[1] \
-        * vi[2] + func[5] * vi[2] * vi[0] + func[6] * vi[0] + func[7] * vi[1] + func[8] * vi[2] + func[9]
+    vi, vn, a, b, c = calc_surf_point_abcs(np.array(locs), np.array(point), np.array(func))
 
     # Choose the 181L root:
 
@@ -140,14 +147,14 @@ def fill_mesh(locs, rads, func, surf_loc, surf_norm, perimeter, com, res, flat, 
             # Get the next point along the path
             pn = find_next_point(locs, func, paths[i][-1], com, dthetas[i])
             # Check for edges that start by going outside
-            if j == 0 and pn is not None and not tri_within(perimeter, surf_loc, surf_norm, point=pn):
-                paths.pop(i)
-                dthetas.pop(i)
-                num_paths -= 1
-                continue
+            if j == 0 and pn is not None:
+                if not test_within(perimeter, pn, surf_loc, surf_norm):
+                    paths.pop(i)
+                    dthetas.pop(i)
+                    num_paths -= 1
+                    continue
             # Check to see of the new point is too close to the previous point and the path has to end
-            if pn is None or (np.sqrt(sum(np.square(np.array(pn) - np.array(pn_1)))) < 0.5 * res and not
-               np.sqrt(sum(np.square(np.array(paths[i - 1][-1]) - np.array(pn)))) > res):
+            if pn is None or calc_dist(pn, pn_1) < 0.5 * res:
                 # Add the path to the surfaces points and remove it from the paths list
                 spoints += paths.pop(i)[1:]
                 dthetas.pop(i)
