@@ -46,7 +46,7 @@ def find_net_verts(net):
         print("Balls Disconnected: {}".format(sphere_check_list))
         a0 = sphere_check_list.pop()
         my_guuy = find_verts(b0=a0, locs=net.balls['loc'].to_numpy(), rads=net.balls['rad'].to_numpy(),
-                             max_vert=net.settings['max_vert'], net_type=net.settins['net_type'], check_ndxs=sphere_check_list,
+                             max_vert=net.settings['max_vert'], net_type=net.settings['net_type'], check_ndxs=sphere_check_list,
                              my_group=net.group, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
                              vloc2s=vloc2s, vrad2s=vrad2s, start_time=net.metrics['start'],
                              vert_box=net.settings['foam_box'], b_verts=averts)
