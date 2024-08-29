@@ -68,7 +68,7 @@ def group_exports(grp, all_=False, atoms=False, surfs=False, sep_surfs=False, ed
     # Create the output directory inside the system's directory
     if grp.dir is None:
         i = 1
-        my_dir = grp.sys.dir + "/" + grp.name
+        my_dir = grp.sys.files['dir'] + "/" + grp.name
         first = True
         while os.path.exists(my_dir):
             if first:
