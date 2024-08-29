@@ -104,15 +104,15 @@ def sort_tris(perimeter, tris, polygon, points):
 
     # Loop through the triangles
     for tri in tris:
-
         # Create the list of designations
-        tri_point_desigs = {point_desigs[_] for _ in tri}
+        tri_point_desigs = [point_desigs[_] for _ in tri]
+
         # First check that all 3 points are within the perimeter
-        if tri_point_desigs == {'i', 'i', 'i'}:
+        if tri_point_desigs == ['i', 'i', 'i']:
             # Add to the in list
             in_.append(tri)
         # If all three points are edges this will need to be checked
-        elif tri_point_desigs == {'e', 'e', 'e'}:
+        elif tri_point_desigs == ['e', 'e', 'e']:
             # Check the center of mass
             com = calc_com([[points[_].x, points[_].y] for _ in tri])
             # Check if the polygon contains this center of mass
@@ -125,8 +125,12 @@ def sort_tris(perimeter, tris, polygon, points):
                 out.append(tri)
         # Contain at least 1 point inside the perimeter means middle
         elif 'i' in tri_point_desigs:
-            # Add to the mids
-            mid.append(tri)
+            # Check if the other two are sides
+            if 'o' in tri_point_desigs:
+                mid.append(tri)
+            else:
+                # Add to the mids
+                in_.append(tri)
         # Last if there is a mixture of edges and outs it is an out triangle
         else:
             # Check the center of mass

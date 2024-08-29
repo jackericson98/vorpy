@@ -19,7 +19,7 @@ def check_edge_point(point, locs, rads):
 # Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
 def build_edge(locs, rads, vlocs, res, straight=None):
     # To ensure a better edge we cut the resolution in quarters
-    res = res / 2
+    # res = res / 2
     # Check for straightness
     if straight is None:
         straight = False

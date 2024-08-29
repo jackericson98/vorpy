@@ -103,8 +103,11 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
         return np.array(perimeter + [surf_com]), triangles, [0 for _ in range(len(triangles))], 0.0, None, surf_com, True
 
     # Fill the mesh
-    spoints = fill_mesh(locs, rads, func=sfunc, surf_loc=surf_loc, surf_norm=surf_norm, perimeter=perimeter,
-                        com=surf_com, flat=flat, res=res, check=check)
+    if not flat:
+        spoints = fill_mesh(locs, rads, func=sfunc, surf_loc=surf_loc, surf_norm=surf_norm, perimeter=perimeter,
+                            com=surf_com, flat=flat, res=res, check=check)
+    else:
+        spoints = perimeter + [surf_com]
 
     # if timer:
     #     clocck['fill_mesh'] = time.perf_counter() - start
