@@ -37,7 +37,7 @@ vor_logs = filedialog.askopenfilename(title='Get the vor logs mf')
 pow_ = read_logs(pow_logs)
 vor_ = read_logs(vor_logs)
 
-rads, diffs = [], []
+rads, diffs, names = [], [], []
 # Loop through the pdb file
 with (open(pdb, 'r') as pdb_reader, open(pdb[:-4] + '_vor_diff_colored.pdb', 'w') as pdb_writer):
     mini, maxi = np.inf, -np.inf
@@ -62,6 +62,7 @@ with (open(pdb, 'r') as pdb_reader, open(pdb[:-4] + '_vor_diff_colored.pdb', 'w'
                 print("not triggering a value error")
             diffs.append(vol_diff)
             rads.append(npl['temperature_factor'])
+            names.append(npl['atom_name'])
             if vol_diff < mini:
                 mini = vol_diff
             if vol_diff > maxi:
@@ -96,7 +97,8 @@ with open(pdb[:-4] + '_set_diff.txt', 'w') as set_color:
     set_color.write('spectrum q, green_yellow_red, minimum={}, maximum={}\n'.format(mini, maxi))
     # Select the group to not be colored
     set_color.write('color white, chain Z')
-
+print('diff = ', sum([abs(_) for _ in diffs]) / len(diffs))
+print(max(diffs), diffs.index(max(diffs)))
 # Plot the radius to difference values
 plt.scatter(rads, diffs)
 plt.plot([min(rads), max(rads)], [0, 0])
