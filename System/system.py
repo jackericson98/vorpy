@@ -261,7 +261,6 @@ class System:
         their results
         """
         start = time.perf_counter()
-
         # Create the data storage
         data = {'vdn1': [], 'sdn1': [], 'vdn2': [], 'sdn2': [], 'rads': []}
         # Compare the networks
@@ -270,15 +269,26 @@ class System:
             ball2 = group2.net.balls.iloc[i]
             # Make sure both cells are complete
             if ball1['complete'] and ball2['complete']:
+
                 # Calculate the differences in volume and surface area for each network as the standard
-                data['vdn1'].append((ball2['vol'] - ball1['vol']) / ball1['vol'])
-                data['sdn1'].append((ball2['sa'] - ball1['sa']) / ball1['sa'])
-                data['vdn2'].append((ball1['vol'] - ball2['vol']) / ball2['vol'])
-                data['sdn2'].append((ball1['sa'] - ball2['sa']) / ball2['sa'])
+                vdn1, sdn1, vdn2, sdn2, rads = ((ball2['vol'] - ball1['vol']) / ball1['vol'],
+                                                (ball2['sa'] - ball1['sa']) / ball1['sa'],
+                                                (ball1['vol'] - ball2['vol']) / ball2['vol'],
+                                                (ball1['sa'] - ball2['sa']) / ball2['sa'], ball1['rad'])
+                # Check for outliers
+                if any([_ > 10 for _ in [vdn1, sdn1, vdn2, sdn2]]):
+                    print('Outlier in comparison detected: {}'.format(ball1['name']))
+                    continue
+                # Add the data
+                data['vdn1'].append(vdn1)
+                data['sdn1'].append(sdn2)
+                data['vdn2'].append(vdn2)
+                data['sdn2'].append(sdn2)
                 data['rads'].append(ball1['rad'])
 
                 # Filter for radicals
                 if any([data[_][-1] > 10 for _ in data]):
+                    print(ball1['name'])
                     continue
         # Create the data line to be added to the data file
         nbs, my_line = len(data['vdn1']), []
