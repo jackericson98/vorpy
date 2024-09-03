@@ -5,13 +5,25 @@ from System.Network.surfs.perimeter import build_perimeter
 from System.Network.surfs.fill import fill_mesh, calc_surf_point
 from System.sys_funcs.calcs.calcs import calc_com, project_to_plane
 import numpy as np
+from shapely.plotting import plot_polygon
 from shapely import Polygon, Point
 from System.Network.surfs.triangulate import triangulate_2D_Surface, test_within
 from scipy.spatial import Delaunay
+import matplotlib.pyplot as plt
 
 
 ############################################## Triangulate Surface Points  #############################################
 
+def plot_points_and_tris(pnts=None, trs=None, pcol=None, tcol=None, plot_points=True, Show=False):
+
+    if trs is not None:
+        for tri in trs:
+            p0, p1, p2 = [pnts[_] for _ in tri]
+            plt.plot([p0[0], p1[0], p2[0], p0[0]], [p0[1], p1[1], p2[1], p0[1]], c=tcol)
+    if pnts is not None and plot_points:
+        plt.scatter([_[0] for _ in pnts], [_[1] for _ in pnts], c=pcol)
+    if Show:
+        plt.show()
 
 def get_com(locs, rads, perimeter, surf_loc, surf_norm, func, flat, net_type='aw'):
     """
@@ -83,7 +95,8 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
 
     # Build the perimeter of the surface
     perimeter, surf_loc, surf_norm = build_perimeter(locs, rads, epnts=epnts, net_type=net_type)
-
+    # if check:
+    #     print("Flat = {}".format(flat))
 
     # if timer:
     #     clocck['perimeter'] = time.perf_counter() - start
@@ -97,6 +110,8 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
     if net_type in {'del', 'pow'}:
         flat_points = project_to_plane(np.array(perimeter + [surf_com]), plane_normal=surf_norm, plane_point=surf_loc)
         triangles = Delaunay(flat_points).simplices
+
+
         # if timer:
         #     clocck['fill_mesh'] = time.perf_counter() - start
         #     return np.array(perimeter + [surf_com]), triangles, [0 for _ in range(len(triangles))], 0.0, None, surf_com, True, clocck
@@ -128,6 +143,8 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
         surf_curv = calc_surf_point_curv(sfunc, surf_loc)
     # Filter out the bad triangles
     surf_points, surf_tris = triangulate_2D_Surface(flat_perim, flat_points, res, surf_loc)
+    # plot_polygon(perim_poly)
+    # plot_points_and_tris(surf_points, surf_tris, plot_points=False, Show=True)
     # if timer:
     #     for _ in slimer:
     #         clocck[_] = slimer[_]
