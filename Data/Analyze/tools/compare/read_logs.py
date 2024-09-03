@@ -55,7 +55,8 @@ def read_logs(log_files, return_dict=False, no_sol=False):
                             'analysis_time': float(line[9]), 'max_vertex': float(line[10])}
                     continue
                 elif i == 5:
-                    group_data = {'index': int(line[0]), 'name': line[1], 'volume': float(line[2]), 'sa': float(line[3])}
+                    # group_data = {'name': line[0], 'volume': float(line[2]), 'sa': float(line[3])}
+                    group_data = {}
                     continue
                 if line[0] in {'build information', 'group information', 'Atoms', 'Edges', 'Surfaces', 'Vertices'}:
                     data_type = line[0]
