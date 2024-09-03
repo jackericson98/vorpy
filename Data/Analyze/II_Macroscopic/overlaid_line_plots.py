@@ -82,6 +82,18 @@ for i, num in enumerate(my_sds):
         except KeyError:
             curr_data = np.nan
             print(num, num2)
+            datavvm[i].append(np.nan);
+            datavvms[i].append(np.nan);
+            datavvps[i].append(np.nan)
+            datavsm[i].append(np.nan);
+            datavsms[i].append(np.nan);
+            datavsps[i].append(np.nan)
+            datapvm[i].append(np.nan);
+            datapvms[i].append(np.nan);
+            datapvps[i].append(np.nan)
+            datapsm[i].append(np.nan);
+            datapsms[i].append(np.nan);
+            datapsps[i].append(np.nan)
             continue
 
         for data1 in curr_data:
@@ -129,7 +141,7 @@ for value in {'vol', 'sa'}:
 
     # Set plot titles and labels
     ax.set_xticks(np.arange(my_densities[0] + 0.05, my_densities[-1] + 0.05, 0.1))
-    ax.set_ylim([0, 80])
+    ax.set_ylim([0, 45])
     # ax.set_title('{} {} Power {} % Diff'.format(plot_type.capitalize(), cell_type, {'sa': 'Surface Area', 'vol': 'Volume'}[value]), fontsize=20)
     ax.set_xlabel('Density', fontsize=25)
     ax.set_ylabel('% Difference', fontsize=25)
