@@ -3,6 +3,9 @@ from _datetime import datetime
 import pandas as pd
 import csv
 import os
+
+from matplotlib import pyplot as plt
+
 from System.Network.verts.mark_doublets import mark_doublets
 from System.Network.verts.find_net_verts import find_net_verts
 from System.Network.build_net import build
@@ -11,6 +14,7 @@ from System.Network.surfs.build_surfs import build_surfs
 from System.sys_funcs.calcs.calcs import calc_length, get_time, calc_dist, calc_com
 from System.sys_funcs.calcs.circle import calc_circ
 from numpy import array, inf, cbrt, sqrt, pi
+from Visualize.mpl_visualize import plot_surfs, plot_balls, plot_verts
 
 
 class Network:
@@ -119,6 +123,16 @@ class Network:
         Using the functions in find_vertices.py finds the vertices in the network
         """
         find_net_verts(self)
+        # fig = plt.figure()
+        # ax = fig.add_subplot(projection='3d')
+        # v_balls = []
+        # for vert_balls in self.verts['balls']:
+        #     for vert_ball in vert_balls:
+        #         if vert_ball not in v_balls and vert_ball != 921:
+        #             v_balls.append(vert_ball)
+        # plot_balls([self.balls['loc'][_] for _ in v_balls], [self.balls['rad'][_] for _ in v_balls], fig=fig, ax=ax)
+        # plot_balls([self.balls['loc'][921]], [self.balls['rad'][921]], colors=['r'], fig=fig, ax=ax)
+        # plot_verts(self.verts['loc'], self.verts['rad'], spheres=False, Show=True, fig=fig, ax=ax)
 
     def connect(self):
         """
