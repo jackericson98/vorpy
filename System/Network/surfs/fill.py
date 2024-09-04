@@ -1,5 +1,5 @@
 import numba.core.errors
-from System.Network.surfs.triangulate import test_within
+from System.Network.surfs.triangulate import is_within
 from System.sys_funcs.calcs.calcs import calc_angle_jit, calc_angle, calc_dist
 import numpy as np
 from numba import jit
@@ -148,7 +148,7 @@ def fill_mesh(locs, rads, func, surf_loc, surf_norm, perimeter, com, res, flat, 
             pn = find_next_point(locs, func, paths[i][-1], com, dthetas[i])
             # Check for edges that start by going outside
             if j == 0 and pn is not None:
-                if not test_within(perimeter, pn, surf_loc, surf_norm):
+                if not is_within(perimeter, pn, surf_loc, surf_norm):
                     paths.pop(i)
                     dthetas.pop(i)
                     num_paths -= 1
