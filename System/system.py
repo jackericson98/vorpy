@@ -292,6 +292,8 @@ class System:
                     continue
         # Create the data line to be added to the data file
         nbs, my_line = len(data['vdn1']), []
+        if self.foam_data is None:
+            self.foam_data = []
         if nbs > 0:
             my_line = ("\r{}".format(self.files['dir']), *self.foam_data,
                        round(sum([abs(_) for _ in data['vdn1']]) / nbs, 5),  # Mean absolute difference
