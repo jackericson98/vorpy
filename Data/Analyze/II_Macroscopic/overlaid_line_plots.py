@@ -133,10 +133,7 @@ for value in {'vol', 'sa'}:
     # Adding a color bar that uses the created ScalarMappable
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax)
-    if plot_type == 'lognormal':
-        cbar.set_label('Coefficient of Variation (CV)', fontdict=dict(size=25))
-    elif plot_type == 'gamma':
-        cbar.set_label('\u03b2 Value', fontdict=dict(size=20))
+    cbar.set_label('Coefficient of Variation (CV)', fontdict=dict(size=25))
 
 
     # Set plot titles and labels
