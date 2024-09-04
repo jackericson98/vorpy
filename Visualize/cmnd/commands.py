@@ -129,6 +129,61 @@ def help_():
     print(splitting_line, "\n")
 
 
+def print_help_screen():
+    print("""
+Vorpy Command Line Interface Help
+---------------------------------
+
+Usage:
+  python vorpy.py <file> [options]
+
+File:
+  The first argument after 'vorpy.py' should be the ball or atom file name.
+  If the file is located in the 'Data/test_data' folder, specify the file name without the path or extension.
+  Accepted file extensions: .pdb, .mol, .gro, .cif.
+
+Options:
+  -l <file>
+    Load additional files of various types such as vertex files from previous runs, log files, Voronota vertex files, or GROMACS index files.
+
+  -s <setting=value>
+    Set various simulation parameters:
+      sr (Surface Resolution)
+      nt (Network Type: 'aw', 'pow', 'prm', or 'com' 'type1' 'type2')
+      mv (Maximum Vertex)
+      bm (Box Multiplier)
+      sc (Surface Color - any matplotlib colormap)
+      ss (Surface Scheme - 'curvature', 'inside vs out', 'distance from center')
+      sf (Surface Factor - 'linear', 'log', 'square', 'cube')
+
+  -g <identifier>
+    Select specific balls or atoms to solve for:
+      Use atom name (a 'name'), residue name (r 'name'), or chain name (c 'name').
+      Specify indices or ranges (e.g., 'num1-num2').
+      Use combined identifiers for residue name and sequence number or atom specifics.
+
+  -c <calculation_type>
+    Specify additional calculations:
+      iface, ifc, i (Calculate interfaces between all combinations of groups)
+      layers (Calculate vertices until the specified number of layers)
+
+  -e <export_type>
+    Specify the intensity and type of exports:
+      Options: 'small', 'medium', 'large', 'all'
+      Exportables include: 'pdb', 'set_atoms', 'info', 'logs', 'surfaces',
+      'separate surfaces', 'edges', 'separate edges', 'vertices', 'separate vertices',
+      'shell', 'shell_edges', 'shell_verts', 'atoms', 'surr_atoms'.
+
+Example:
+  python vorpy.py example.mol -s sr 0.2 -g a 'CA' -c iface -e medium
+
+Note:
+  Each option flag and its arguments must be separated by spaces.
+  To use multiple commands for a single option, repeat the flag (except for groups to avoid creating multiple groups).
+    """)
+
+
+
 def print_list(names, list_name=None, width=150, height=30, cutoff=15):
     """
     Prints a long list in columns with numbers and allows the user to scroll through the list
