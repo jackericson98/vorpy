@@ -7,9 +7,10 @@ from System.sys_funcs.calcs.calcs import calc_com, project_to_plane
 import numpy as np
 from shapely.plotting import plot_polygon
 from shapely import Polygon, Point
-from System.Network.surfs.triangulate import triangulate_2D_Surface, test_within
+from System.Network.surfs.triangulate import triangulate_2D_Surface, is_within
 from scipy.spatial import Delaunay
 import matplotlib.pyplot as plt
+from Visualize.mpl_visualize import plot_balls, plot_surfs, plot_edges
 
 
 ############################################## Triangulate Surface Points  #############################################
@@ -25,6 +26,7 @@ def plot_points_and_tris(pnts=None, trs=None, pcol=None, tcol=None, plot_points=
     if Show:
         plt.show()
 
+
 def get_com(locs, rads, perimeter, surf_loc, surf_norm, func, flat, net_type='aw'):
     """
     Finds the center of mass of a surface's perimeter points
@@ -36,17 +38,17 @@ def get_com(locs, rads, perimeter, surf_loc, surf_norm, func, flat, net_type='aw
     if net_type in {'del', 'pow'}:
         return calc_com(points=np.array(perimeter)), False
     # Next create the polygon so that we can tell if the center of mass is within the perimeter
-    if test_within(perimeter, surf_loc, surf_loc, surf_norm):
+    if is_within(perimeter, surf_loc, surf_loc, surf_norm):
         return surf_loc, False
     # First try the center of mass of the 3d points projected onto the surface
     my_com = calc_surf_point(locs, point=calc_com(points=np.array(perimeter)), func=func)
     if my_com is not None:
-        if test_within(perimeter, my_com, surf_loc, surf_norm):
+        if is_within(perimeter, my_com, surf_loc, surf_norm):
             return my_com, False
     # Next try to calculate a center of mass of some of the points
     my_com = calc_surf_point(locs, point=calc_com(points=np.array(perimeter[::5])), func=func)
     if my_com is not None:
-        if test_within(perimeter, my_com, surf_loc, surf_norm):
+        if is_within(perimeter, my_com, surf_loc, surf_norm):
             return my_com, False
 
     # # Next choose a point within the flat perimeter
@@ -65,7 +67,7 @@ def get_com(locs, rads, perimeter, surf_loc, surf_norm, func, flat, net_type='aw
 
 
 # Build method. Makes the mesh for the surface and calculates the simplices between them
-def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=False):
+def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=False, plotting=False):
     """
     Main build method for constructing surfaces
     :param surf:
@@ -129,7 +131,28 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
     #     start = time.perf_counter()
     # Calculate the angles to rotate the center point around
 
-    flat_points = project_to_plane(np.array(spoints), plane_normal=surf_norm, plane_point=surf_loc)
+    flat_points, proj_pts = project_to_plane(np.array(spoints), plane_normal=surf_norm, plane_point=surf_loc, return_3d_proj_pts=True)
+    if plotting:
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        plot_balls(locs, rads, colors=['k', 'k'], fig=fig, ax=ax, alpha=0.3)
+        plot_edges(epnts, fig=fig, ax=ax, alpha=0.8, Show=True, thickness=2)
+
+    if plotting:
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        ax.scatter([_[0] for _ in spoints], [_[1] for _ in spoints], [_[2] for _ in spoints])
+        plot_balls(locs, rads, colors=['k', 'k'], fig=fig, ax=ax, alpha=0.3)
+        plot_edges(epnts, fig=fig, ax=ax, alpha=0.8, Show=True, thickness=2)
+
+    # if plotting:
+    #     fig = plt.figure()
+    #     ax = fig.add_subplot(projection='3d')
+    #     for i in range(len(spoints)):
+    #         ax.plot([spoints[i][0], proj_pts[i][0]], [spoints[i][1], proj_pts[i][1]], [spoints[i][2], proj_pts[i][1]], linewidth=0.5)
+    #     plot_balls(locs, rads, colors=['k', 'k'], fig=fig, ax=ax, alpha=0.3)
+    #     plot_edges(epnts, fig=fig, ax=ax, alpha=0.8, Show=True, thickness=2)
+
 
     # Create the polygon from the flat perimeter
     flat_perim = flat_points[:len(perimeter)]
@@ -142,9 +165,9 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
     if net_type == 'aw' and not flat and perim_poly.contains(Point(surf_loc)):
         surf_curv = calc_surf_point_curv(sfunc, surf_loc)
     # Filter out the bad triangles
-    surf_points, surf_tris = triangulate_2D_Surface(flat_perim, flat_points, res, surf_loc)
+    surf_points, surf_tris = triangulate_2D_Surface(flat_perim, flat_points, res, surf_loc, plotting=plotting)
     # plot_polygon(perim_poly)
-    # plot_points_and_tris(surf_points, surf_tris, plot_points=False, Show=True)
+    # plot_points_and_tris(surf_points, surf_tris, tcol='r', plot_points=False, Show=True)
     # if timer:
     #     for _ in slimer:
     #         clocck[_] = slimer[_]
@@ -154,5 +177,11 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
         tri_curvs, surf_curv = calc_surf_tri_curvs(sfunc, spoints, surf_tris, max_curv=surf_curv)
     else:
         tri_curvs, surf_curv = [0 for _ in range(len(list(surf_tris)))], 0
+    if plotting:
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        plot_balls(locs, rads, fig=fig, ax=ax, alpha=0.1, colors=['k', 'k'])
+        plot_edges(epnts, fig=fig, ax=ax, alpha=0.8, thickness=2)
+        plot_surfs([spoints], [surf_tris], simps=True, fig=fig, ax=ax, alpha=0.8, colors=['r'], Show=True)
     # Return the surface points, triangles, triangle curvatures, total curvature, surface function, com, and flatness
     return spoints, surf_tris, tri_curvs, surf_curv, sfunc, surf_com, flat
