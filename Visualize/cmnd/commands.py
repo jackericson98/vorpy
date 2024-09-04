@@ -26,7 +26,7 @@ my_commands = quits + helps + show_cmds + load_cmds + set_cmds + build_cmds + gr
 # Objects
 full_objs = ['f', 'full', 'fl', 'ful', 'fs']
 noSOL_objs = ['ns', 'nosol', 'no_sol', 'nos', 'nsol']
-chn_objs = ['m', 'ms', 'molecule', 'molecules', 'mol', 'mols', 'ml', 'mls', 'c', 'cs', "chain"]
+chn_objs = ['m', 'ms', 'molecule', 'molecules', 'mols', 'ml', 'mls', 'c', 'cs', "chain"]
 atom_objs = ['a', 'as', 'atom', 'atoms', 'at', 'ats', 'am', 'ams']
 res_objs = ['r', 'rs', 'residue', 'residues', 'resid', 'resids', 'res', 'ress', 'reses', 'rdue', 'rdues']
 ndx_objs = ['i', 'is',  'index', 'indexs', 'indexes', 'indices', 'ndx', 'ndxs', 'ndex', 'group', 'g', 'grp', 'n']
