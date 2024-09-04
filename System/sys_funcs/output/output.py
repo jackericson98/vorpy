@@ -139,7 +139,7 @@ def export_sys(sys, all_=False, pdb=False, full_network_object=False, alter_atom
     if pdb or all_:
         os.chdir(sys.files['dir'])
         # Export a pdb file for the system
-        write_pdb([_ for i, _ in sys.spheres.iterrows()], sys.name, sys)
+        write_pdb([_ for i, _ in sys.balls.iterrows()], sys.name, sys)
         os.chdir(sys.files['dir'])
     if (full_network_object or all_) and sys.net.build_surfs:
         # Export a full system
@@ -151,7 +151,7 @@ def export_sys(sys, all_=False, pdb=False, full_network_object=False, alter_atom
         set_pymol_atoms(sys)
 
 
-def set_pymol_atoms(sys, no_file=False):
+def set_pymol_atoms(sys):
 
     """
     Creates a script to set the radii of the spheres in pymol
@@ -159,17 +159,22 @@ def set_pymol_atoms(sys, no_file=False):
     :return:
     """
     # If we have special circumstances for the atoms in our base file, output the already created set pymol atoms
-    if (sys.type == 'foam' or sys.type == 'coarse') and not no_file:
+    if sys.type == 'foam' or sys.type == 'coarse':
         # Get the directory for the base_file and copy the set atoms file
         try:
             shutil.copyfile(path.dirname(sys.files['base_file']) + '/set_atoms.pml', sys.files['dir'] + '/sys/set_atoms.pml')
         except FileNotFoundError:
-            set_pymol_atoms(sys, True)
+            # Create the file
+            with open('set_atoms.pml', 'w') as file:
+                for i, ball in sys.balls.iterrows():
+                    file.write(
+                        "alter (residue {} name {}), vdw={}\n".format(ball['residue'], ball['name'], ball['rad']))
+                file.write("\nrebuild")
         return
     # Check to see if the atoms in the system are all accounted for
     for i, res in enumerate(sys.residues):
         if res not in special_radii:
-            special_radii[res] = {sys.spheres['name'][i]: round(sys.spheres['rad'][i], 2)}
+            special_radii[res] = {sys.balls['name'][i]: round(sys.balls['rad'][i], 2)}
     # Create the file
     with open('set_atoms.pml', 'w') as file:
         # Write the change radii script for the system's set atomic radii

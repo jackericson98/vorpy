@@ -49,7 +49,7 @@ class System:
         self.foam_data = None               # Foam Data Info      :   Holds general information from the foam generation
 
         # Loadable objects
-        self.spheres = spheres              # Spheres             :   List holding the atom objects
+        self.balls = spheres              # Spheres             :   List holding the atom objects
         self.atoms = atoms                  # Atoms
         self.residues = residues            # Residues            :   List of residues (lists of atoms)
         self.chains = chains                # Chains              :   List of the chains that make up the molecule
@@ -172,13 +172,13 @@ class System:
         Sets the atom radii in the spheres dataframe based on the element radii and special radii
         """
         # First check to see of the spheres actually exist
-        if self.spheres is None or len(self.spheres) == 0 or self.type != 'mol':
+        if self.balls is None or len(self.balls) == 0 or self.type != 'mol':
             return
         # Check if the user has identified some element radii they want to assign
         if my_element_radii is not None:
             # Go through the basic elemental radii to cover all atoms
             for element in my_element_radii:
-                self.spheres.loc[self.spheres['element'] == element, 'rad'] = my_element_radii[element]
+                self.balls.loc[self.balls['element'] == element, 'rad'] = my_element_radii[element]
             # Check if we need to return
             if my_special_radii is None:
                 return
@@ -187,7 +187,7 @@ class System:
             # Go through the special radii and assign radii based on the residue and name of the atom.
             for residue in my_special_radii:
                 for name in my_special_radii[residue]:
-                    self.spheres.loc[(self.spheres['res_name'] == residue) & (self.spheres['name'] == name), 'rad'] \
+                    self.balls.loc[(self.balls['res_name'] == residue) & (self.balls['name'] == name), 'rad'] \
                         = my_special_radii[residue][name]
         # If no special or element radii were specified, call the method with the system's special and element radii
         if my_special_radii is None and my_element_radii is None:
@@ -239,7 +239,7 @@ class System:
             print("{} indices loaded - {} indices total".format(self.name, len(self.ndxs)))
 
     def print_info(self):
-        atoms_var = str(len(self.spheres)) + " Atoms"
+        atoms_var = str(len(self.balls)) + " Atoms"
         resids_var = str(len(self.residues)) + " Residues"
         chains_var = str(len(self.chains)) + " Chains: " + ", ".join(["{} - {} atoms, {} residues"
                             .format(_.name, len(_.atoms), len(_.residues)) for _ in self.chains])

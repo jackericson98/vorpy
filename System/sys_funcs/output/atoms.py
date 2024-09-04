@@ -29,7 +29,7 @@ def write_pdb(atoms, file_name, sys, directory=None):
     if sys.files['base_file'] is not None:
 
         # If the output is all atoms just copy the pdb
-        if len(atoms) == len(sys.spheres):
+        if len(atoms) == len(sys.balls):
             shutil.copy(sys.files['base_file'], os.getcwd() + '/' + file_name + '.pdb')
             return
 
@@ -48,8 +48,8 @@ def write_pdb(atoms, file_name, sys, directory=None):
                 offset += 1
 
             # Grab the lines from the initial pdb
-            for j in range(len(sys.spheres)):
-                if sys.spheres.iloc[j]['num'] in atoms:
+            for j in range(len(sys.balls)):
+                if sys.balls.iloc[j]['num'] in atoms:
                     pdb_file.write(read_file[j + offset])
 
     # Manually write the pdb file

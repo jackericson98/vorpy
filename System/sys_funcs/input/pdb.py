@@ -127,7 +127,7 @@ def read_pdb(sys, file=None):
         else:
             data.append(my_file[i].split())
     # Set the atoms and the data
-    sys.spheres, sys.data = DataFrame(atoms), data
+    sys.balls, sys.data = DataFrame(atoms), data
 
 
 def read_pdb_line(pdb_line):

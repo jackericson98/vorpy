@@ -128,7 +128,7 @@ class Group:
         """
         self.get_settings()
         if self.net is None:
-            self.net = Network(locs=self.sys.spheres['loc'], rads=self.sys.spheres['rad'], group=self.ball_ndxs,
+            self.net = Network(locs=self.sys.balls['loc'], rads=self.sys.balls['rad'], group=self.ball_ndxs,
                                settings=self.settings)
         self.net.build()
 
