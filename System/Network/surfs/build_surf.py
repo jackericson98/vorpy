@@ -131,7 +131,7 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
     #     start = time.perf_counter()
     # Calculate the angles to rotate the center point around
 
-    flat_points, proj_pts = project_to_plane(np.array(spoints), plane_normal=surf_norm, plane_point=surf_loc, return_3d_proj_pts=True)
+    flat_points = project_to_plane(np.array(spoints), plane_normal=surf_norm, plane_point=surf_loc)
     if plotting:
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
