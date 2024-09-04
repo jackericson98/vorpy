@@ -210,7 +210,22 @@ def interpret_group_commands(my_sys, group_dict, command):
                     group_dict['residues'].append(res)
                     return group_dict
         except ValueError:
-            pass
+            # If no residue identifier is given and the
+            if command[1].upper() in residue_atoms[residue_names[command[0].lower()]]:
+                # Go through the residues in the system
+                for res in my_sys.residues:
+                    if res.name == residue_names[command[0].lower()]:
+                        # Check for the atom name within the residue
+                        for atom in res.atoms:
+                            if my_sys.balls['name'][atom].upper() == command[1].upper():
+                                group_dict['atoms'].append(atom)
+                return group_dict
+    elif command[0].lower() in residue_names:
+        # Loop through the residues
+        for res in my_sys.residues:
+            if res.name == residue_names[command[0].lower()]:
+                group_dict['residues'].append(res)
+        return group_dict
 
 
 def ggroup(my_sys, group_commands, settings=None):
@@ -243,9 +258,6 @@ def ggroup(my_sys, group_commands, settings=None):
         return
     if group_commands[0][0] in full_objs:
         my_sys.groups = [Group(my_sys, name=my_sys.name + '_all_atoms_network', atoms=my_sys.balls['num'].to_list(), settings=settings)]
-        return
-    if len(group_commands[0][0]) == 1:
-        print('{} is not a valid entry for a group identifier'.format(group_commands[0]))
         return
     my_sys.groups = []
     # Loop through the names and identifiers
