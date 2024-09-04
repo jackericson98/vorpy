@@ -32,12 +32,64 @@ residue_names = {
     **{_: 'C' for _ in {'dc', 'c', 'cytosine', 'cytosin', 'cyto'}},                     # Cytosine
     **{_: 'G' for _ in {'dg', 'g', 'guanine', 'guanin', 'guan'}},                       # Guanine
     **{_: 'T' for _ in {'dt', 't', 'thymine', 'thymi', 'thym'}},                        # Thymine
-    **{_: 'U' for _ in {'du', 'u', 'uracil', 'uraci', 'ura'}}                           # Uracil
+    **{_: 'U' for _ in {'du', 'u', 'uracil', 'uraci', 'ura'}},                          # Uracil
+    # Ions
+    **{_: 'NA' for _ in {'na', 'sodium', 'natrium'}},                                   # Sodium
+    **{_: 'K' for _ in {'k', 'potassium', 'kalium'}},                                   # Potassium
+    **{_: 'CA' for _ in {'ca', 'calcium'}},                                             # Calcium
+    **{_: 'MG' for _ in {'mg', 'magnesium'}},                                           # Magnesium
+    **{_: 'MN' for _ in {'mn', 'manganese'}},                                           # Manganese
+    **{_: 'FE' for _ in {'fe', 'iron', 'ferrum'}},                                      # Iron
+    **{_: 'CO' for _ in {'co', 'cobalt'}},                                              # Cobalt
+    **{_: 'NI' for _ in {'ni', 'nickel'}},                                              # Nickel
+    **{_: 'CU' for _ in {'cu', 'copper', 'cuprum'}},                                    # Copper
+    **{_: 'ZN' for _ in {'zn', 'zinc'}},                                                # Zinc
+    **{_: 'CD' for _ in {'cd', 'cadmium'}},                                             # Cadmium
+    **{_: 'HG' for _ in {'hg', 'mercury', 'hydrargyrum'}},                              # Mercury
+    **{_: 'PB' for _ in {'pb', 'lead', 'plumbum'}},                                     # Lead
+    **{_: 'CL' for _ in {'cl', 'chloride', 'chlorine'}},                                # Chloride
+    **{_: 'BR' for _ in {'br', 'bromide', 'bromine'}},                                  # Bromide
+    **{_: 'I' for _ in {'i', 'iodide', 'iodine'}},                                      # Iodide
+    **{_: 'SO4' for _ in {'so4', 'sulfate', 'sulphate'}},                               # Sulfate
+    **{_: 'PO4' for _ in {'po4', 'phosphate'}},                                         # Phosphate
+    **{_: 'C2H3O2' for _ in {'acetate', 'c2h3o2', 'ethanoate'}},                        # Acetate
+    **{_: 'NO3' for _ in {'no3', 'nitrate'}},                                           # Nitrate
+    **{_: 'NH4' for _ in {'nh4', 'ammonium'}},                                          # Ammonium
+    **{_: 'H3O' for _ in {'h3o', 'hydronium'}},                                         # Hydronium
+    **{_: 'MOO4' for _ in {'moo4', 'molybdate'}},                                       # Molybdate
+    **{_: 'SEO4' for _ in {'seo4', 'selenate'}},                                        # Selenate
+    **{_: 'VO4' for _ in {'vo4', 'vanadate'}},                                          # Vanadate
+    **{_: 'WO4' for _ in {'wo4', 'tungstate'}}                                          # Tungstate
 }
 
 residue_atoms = {
     'SOL': {'HW1', 'HW2', 'OW'},
-    'NA': {'NA'},
+    'NA':      {'NA'},                    # Sodium
+    'K':       {'K'},                     # Potassium
+    'CA':      {'CA'},                    # Calcium
+    'MG':      {'MG'},                    # Magnesium
+    'MN':      {'MN'},                    # Manganese
+    'FE':      {'FE'},                    # Iron
+    'CO':      {'CO'},                    # Cobalt
+    'NI':      {'NI'},                    # Nickel
+    'CU':      {'CU'},                    # Copper
+    'ZN':      {'ZN'},                    # Zinc
+    'CD':      {'CD'},                    # Cadmium
+    'HG':      {'HG'},                    # Mercury
+    'PB':      {'PB'},                    # Lead
+    'CL':      {'CL'},                    # Chloride
+    'BR':      {'BR'},                    # Bromide
+    'I':       {'I'},                     # Iodide
+    'SO4':     {'S', 'O'},                # Sulfate (SO4)
+    'PO4':     {'P', 'O'},                # Phosphate (PO4)
+    'C2H3O2':  {'C', 'H', 'O'},           # Acetate (C2H3O2)
+    'NO3':     {'N', 'O'},                # Nitrate (NO3)
+    'NH4':     {'N', 'H'},                # Ammonium
+    'H3O':     {'H', 'O'},                # Hydronium
+    'MoO4':    {'MO', 'O'},               # Molybdate (MoO4)
+    'SEO4':    {'SE', 'O'},               # Selenate (SeO4)
+    'VO4':     {'V', 'O'},                # Vanadate (VO4)
+    'WO4':     {'W', 'O'},                # Tungstate (WO4)
     'ALA': {'C', 'CA', 'CB', 'H', 'H1', 'H2', 'H3', 'HA', 'HB1', 'HB2', 'HB3', 'N', 'O', 'OC1', 'OC2'},
     'ARG': {'C', 'CA', 'CB', 'CD', 'CG', 'CZ', 'H', 'HA', 'HB1', 'HB2', 'HD1', 'HD2', 'HE', 'HG1', 'HG2', 'HH11', 'HH12', 'HH21', 'HH22', 'N', 'NE', 'NH1', 'NH2', 'O'},
     'THR': {'C', 'CA', 'CB', 'CG2', 'H', 'HA', 'HB', 'HG1', 'HG21', 'HG22', 'HG23', 'N', 'O', 'OG1'},
