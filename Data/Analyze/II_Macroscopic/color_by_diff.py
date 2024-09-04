@@ -9,6 +9,7 @@ from Data.Analyze.tools.compare.read_logs import read_logs
 from System.sys_funcs.input.pdb import read_pdb_line
 from System.sys_funcs.output.atoms import make_pdb_line
 import numpy as np
+from scipy.optimize import curve_fit
 
 
 root = tk.Tk()
@@ -39,7 +40,7 @@ vor_ = read_logs(vor_logs)
 
 rads, diffs, names = [], [], []
 # Loop through the pdb file
-with (open(pdb, 'r') as pdb_reader, open(pdb[:-4] + '_vor_diff_colored.pdb', 'w') as pdb_writer):
+with open(pdb, 'r') as pdb_reader, open(pdb[:-4] + '_vor_diff_colored.pdb', 'w') as pdb_writer:
     mini, maxi = np.inf, -np.inf
     # Loop through the lines
     for i, line in enumerate(pdb_reader.readlines()):
@@ -97,11 +98,23 @@ with open(pdb[:-4] + '_set_diff.txt', 'w') as set_color:
     set_color.write('spectrum q, green_yellow_red, minimum={}, maximum={}\n'.format(mini, maxi))
     # Select the group to not be colored
     set_color.write('color white, chain Z')
-print('diff = ', sum([abs(_) for _ in diffs]) / len(diffs))
-print(max(diffs), diffs.index(max(diffs)))
+
+
+def func(x, a, b, c):
+    return a * np.exp(-b * x) + c
+
+
 # Plot the radius to difference values
-plt.scatter(rads, diffs)
-plt.plot([min(rads), max(rads)], [0, 0])
-slope, intercept, r_value, p_value, std_err = stats.linregress(rads, diffs)
-plt.plot([min(rads), max(rads)], [min(rads) * slope + intercept, max(rads) * slope + intercept])
+plt.scatter(rads, diffs, s=2)
+plt.plot([min(rads), max(rads)], [0, 0], c='k')
+popt, pcov = curve_fit(func, np.array(rads), np.array(diffs))
+plt.text(s='y = {:.2f} * exp(-{:.2f} * x) + {:.2f}'.format(*popt), x=1.5, y=1.5, font=dict(size=10))
+plt.plot(rads, func(np.array(rads), *popt), c='orange')
+plt.xlabel('Ball Radius', fontdict=dict(size=25))
+plt.ylabel('% Difference', fontdict=dict(size=25))
+plt.title('CV: {}, Density: {}'.format(pdb[-28:-25], pdb[-19:-16]), font=dict(size=25))
+plt.xticks(font=dict(size=20))
+plt.yticks(font=dict(size=20))
+plt.tight_layout()
+# plt.plot([min(rads), max(rads)], [min(rads) * slope + intercept, max(rads) * slope + intercept])
 plt.show()
