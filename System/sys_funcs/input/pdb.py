@@ -1,6 +1,7 @@
 from System.sys_objs.atom import make_atom
 from System.sys_objs.residue import Residue
 from System.sys_objs.chain import Chain, Sol
+from System.chemisrty_interpreter import residue_names, residue_atoms
 import os.path as path
 import numpy as np
 from pandas import DataFrame
@@ -125,6 +126,10 @@ def read_pdb(sys, file=None):
         # If the line is not an atom line store the other data
         else:
             data.append(my_file[i].split())
+    for res in sys.residues:
+        if res.name.lower() not in residue_names:
+            residue_names[res.name.lower()] = res.name.upper()
+            residue_atoms[res.name.upper()] = {atoms[_]['name'] for _ in res.atoms}
     # Set the atoms and the data
     sys.balls, sys.data = DataFrame(atoms), data
 
