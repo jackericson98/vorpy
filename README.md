@@ -130,3 +130,70 @@ provides a general function for a hyperboloid of the form:
 - Email: jericson1@gsu.edu
 - Site: https://cas.gsu.edu/profile/greg-poon/
 - Phone: (404)-413-5491
+
+
+# Vorpy CLI Tool
+
+## Overview
+Vorpy is a command line interface tool designed to process molecular files for computational chemistry and visualization tasks. It supports a variety of file formats and offers extensive options for loading files, setting simulation parameters, selecting specific molecular structures, conducting specialized calculations, and configuring output details.
+
+## Installation
+Download the Vorpy tool from the repository and ensure you have Python installed on your system.
+
+## Usage
+The basic command structure for running Vorpy is:
+
+    python vorpy.py <file> [options]
+
+### File
+- The first argument after `vorpy.py` should be the name of the ball or atom file.
+- If the file is located in the `Data/test_data` folder, specify the file name without the path or extension.
+- Accepted file extensions include `.pdb`, `.mol`, `.gro`, `.cif`.
+
+### Options
+#### Load Flag `-l`
+    -l <file>
+Load additional files like vertex files from previous runs, log files, Voronota vertex files, or GROMACS index files.
+
+#### Settings Flag `-s`
+    -s <setting=value>
+Adjust various simulation parameters:
+- `sr` (Surface Resolution)
+- `nt` (Network Type: 'aw', 'pow', 'prm', or 'com' 'type1' 'type2')
+- `mv` (Maximum Vertex)
+- `bm` (Box Multiplier)
+- `sc` (Surface Color - any matplotlib colormap)
+- `ss` (Surface Scheme - 'curvature', 'inside vs out', 'distance from center')
+- `sf` (Surface Factor - 'linear', 'log', 'square', 'cube')
+
+#### Group Flag `-g`
+    -g <identifier>
+Select specific balls or atoms:
+- Atom name (a 'name'), residue name (r 'name'), or chain name (c 'name').
+- Indices or ranges (e.g., 'num1-num2').
+
+#### Calculate Flag `-c`
+    -c <calculation_type>
+Identify additional calculations:
+- Interfaces between all combinations of groups (iface, ifc, i)
+- Calculate vertices up to the specified number of layers (layers)
+
+#### Exports Flag `-e`
+    -e <export_type>
+Specify the intensity and type of exports:
+- Options: 'small', 'medium', 'large', 'all'
+- Exportables: 'pdb', 'set_atoms', 'info', 'logs', 'surfaces', 'separate surfaces', 'edges', 'separate edges', 'vertices', 'separate vertices', 'shell', 'shell_edges', 'shell_verts', 'atoms', 'surr_atoms'
+
+### Example
+    python vorpy.py example.mol -s sr=high -g a 'CA' -c iface -e medium
+
+## Notes
+- Each option flag and its arguments must be separated by spaces.
+- To use multiple commands for a single option, repeat the flag (except for groups to avoid creating multiple groups).
+
+## License
+Include your licensing information here.
+
+## Contact
+For support or to report issues, contact [your-email@example.com](mailto:your-email@example.com).
+
