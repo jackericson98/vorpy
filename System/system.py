@@ -1,5 +1,4 @@
 import time
-import os
 import csv
 from os import path
 from System.sys_funcs.input.pdb import read_pdb
@@ -12,10 +11,9 @@ from System.sys_funcs.input.verts import read_verts
 from System.sys_funcs.output.output import set_sys_dir, export_sys
 from System.sys_funcs.output.net import write_verts
 from System.Group.group import Group
-from Visualize.mpl_visualize import *
 from numpy import seterr
 from Visualize.GUIs.periodic_table_GUI import elements
-from System.radii import special_radii, element_radii
+from radii import special_radii, element_radii
 
 
 class System:

@@ -1,5 +1,5 @@
 import numpy as np
-from System.radii import element_radii, special_radii
+from radii import element_radii, special_radii
 
 
 def get_radius(atom, my_radii=None):
@@ -21,8 +21,8 @@ def get_radius(atom, my_radii=None):
                 if name in specials_radii[atom['res'].name]:
                     atom['rad'] = specials_radii[atom['res'].name][name]
     # If we have the type and just want the radius, keep scanning until we find the radius
-    if atom['rad'] is None and atom['element'].lower() in elements_radii:
-        atom['rad'] = elements_radii[atom['element'].lower()]
+    if atom['rad'] is None and atom['element'].upper() in elements_radii:
+        atom['rad'] = elements_radii[atom['element'].upper()]
     # If indicated we return the symbol of ball that the radius indicates
     if atom['rad'] is None or atom['rad'] == 0:
         # Check to see if the radius is in the system
