@@ -161,6 +161,9 @@ def argv(my_sys):
 
     # compare the groups
     ggroup(my_sys, cmnds['grp'], settings)
+    if my_sys.groups is None or len(my_sys.groups) == 0:
+        print('{} not a valid group command. Calculating whole molecule'.format(cmnds['grp']))
+        ggroup(my_sys, [['ns']])
     # Build the groups
     if settings is not None and len(settings['net_type']) > 1 and settings['net_type'][0] == 'com':
         new_groups = []

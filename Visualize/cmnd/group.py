@@ -108,11 +108,14 @@ def get_group_spheres(atoms, identifier):
         # Return the atom in atoms that has both the residue name and the residue sequence number and the atom name
         try:
             res_name, res_seq, atom_name = residue_names[identifier[0].lower()], int(identifier[1]), identifier[2]
-            return [atoms.loc[(atoms['res_name'] == res_name) &
+            return atoms.loc[(atoms['res_name'] == res_name) &
                               (atoms['res_seq'] == res_seq) &
-                              (atoms['name'] == atom_name.upper()), 'num']].to_lost()
+                              (atoms['name'] == atom_name.upper()), 'num'].to_lost()
         except Exception as e:
             pass
+    # Check if the identifier is in the atom names
+    if identifier[0].upper() in atoms['name'].values:
+        return atoms.loc[atoms['name'] == identifier[0].upper(), 'num'].to_list()
     # Check if the identifier is an element
     if identifier[0].lower() in element_names:
 
@@ -281,6 +284,6 @@ def ggroup(my_sys, group_commands, settings=None):
             group_dict = interpret_group_commands(my_sys, group_dict, sub_group)
         name = '_and_'.join(['_'.join(_) for _ in my_grp_cmnds])
         # Finally make the group
-        if group_dict is not None:
+        if group_dict is not None and sum([len(group_dict[_]) for _ in group_dict]) > 0:
             my_sys.groups.append(Group(my_sys, name=name, settings=settings, residues=group_dict['residues'],
                                        atoms=group_dict['atoms'], chains=group_dict['chains']))
