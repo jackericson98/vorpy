@@ -1,7 +1,7 @@
 from System.sys_objs.atom import make_atom
 from System.sys_objs.residue import Residue
 from System.sys_objs.chain import Chain, Sol
-from System.chemisrty_interpreter import residue_names, residue_atoms
+from System.chemistry_interpreter import residue_names, residue_atoms
 import os.path as path
 import numpy as np
 from pandas import DataFrame
