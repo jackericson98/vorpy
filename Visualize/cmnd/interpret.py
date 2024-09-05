@@ -34,7 +34,7 @@ def get_ndx(sys, obj, ndx_npt=None):
             return
         # Check for helps
         elif ndx_npt.lower in helps:
-            help_()
+            print_help()
             continue
         # Check the input
         ndx_npt = ndx_npt.split("-")
@@ -61,7 +61,7 @@ def get_obj(sys, obj=None):
         if obj[0].lower() in quits:
             return
         elif obj[0].lower() in helps:
-            help_()
+            print_help()
         elif obj[0].lower() not in my_objects:
             # Tell the user they suck and try again
             invalid_input(obj)
@@ -92,7 +92,7 @@ def get_file(file=None):
             elif len(file) == 0:
                 continue
             elif file.lower() in helps:
-                help_()
+                print_help()
             test_file = file.split()
             if test_file[0] in load_cmds:
                 file = file[len(test_file[0]) + 1:]
@@ -131,7 +131,7 @@ def get_set(usr_npt=None):
         if usr_npt.lower() in quits:
             return
         elif usr_npt.lower() in helps:
-            help_()
+            print_help()
         # Check to see if the user gave a valid response or not
         if usr_npt.lower() in surf_reses:
             # Return the base setting

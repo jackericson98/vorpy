@@ -194,7 +194,7 @@ def export(sys, usr_npt, my_group=None):
             return
         # Check for help request
         elif xpt_npt.lower() in helps:
-            help_()
+            print_help()
             continue
         all_strs = ['5', '5.', 'five', 'all', 'a']
         # Export the shell:

@@ -136,59 +136,64 @@ def help_():
     print(splitting_line, "\n")
 
 
-def print_help_screen():
+def print_help():
     print("""
-Vorpy Command Line Interface Help
+Vorpy Help
 ---------------------------------
 
 Usage:
   python vorpy.py <file> [options]
 
 File:
-  The first argument after 'vorpy.py' should be the ball or atom file name.
+  The first argument after 'vorpy.py' should be the file address of the ball or atom file.
   If the file is located in the 'Data/test_data' folder, specify the file name without the path or extension.
-  Accepted file extensions: .pdb, .mol, .gro, .cif.
+  Accepted file extensions include .pdb, .mol, .gro, .cif.
 
 Options:
   -l <file>
-    Load additional files of various types such as vertex files from previous runs, log files, Voronota vertex files, or GROMACS index files.
+    Load additional files like vertex files from previous runs, log files, Voronota vertex files, or GROMACS index files.
 
-  -s <setting=value>
-    Set various simulation parameters:
-      sr (Surface Resolution)
-      nt (Network Type: 'aw', 'pow', 'prm', or 'com' 'type1' 'type2')
-      mv (Maximum Vertex)
-      bm (Box Multiplier)
-      sc (Surface Color - any matplotlib colormap)
-      ss (Surface Scheme - 'curvature', 'inside vs out', 'distance from center')
-      sf (Surface Factor - 'linear', 'log', 'square', 'cube')
+  -s <setting value>
+    Adjust various simulation parameters:
+      sr - Surface Resolution: Default = 0.2
+      nt - Network Type: Default = Additively Weighted 'aw', Power 'pow', Primitive 'prm', or Compare 'com 'type1' 'type2''
+      mv - Maximum Vertex: Default = 40
+      bm - Box Multiplier: Default = 1.25
+      sc - Surface Color: Default = 'viridis', 'plasma', 'rainbow', or any other matplotlib colormap
+      ss - Surface Scheme: Default = curvature 'curv', inside vs outside spheres 'nout', distance from center 'dist'
+      sf - Surface Coloring Scale: Default = linear 'lin', log 'log', squared 'square', cube 'cube'
+      ar - Adjust Radii: 'element' 'value' or 'atom name' 'value' or 'residue' 'atom name' 'value'
 
   -g <identifier>
-    Select specific balls or atoms to solve for:
-      Use atom name (a 'name'), residue name (r 'name'), or chain name (c 'name').
-      Specify indices or ranges (e.g., 'num1-num2').
-      Use combined identifiers for residue name and sequence number or atom specifics.
+    Select specific balls or molecular elements using identifiers such as:
+      b - Ball Identifier with index or range 'index1-index2'
+      a - Atom Identifier with element, name, index, or range 'index1-index2'
+      r - Residue Identifier with name, sequence number, index, or range 'index1-index2'
+      c - Chain Identifier with name, index, or range 'index1-index2'
+    Note: Use 'and' to combine components within the same group. Use multiple -g flags for multiple groups.
 
   -c <calculation_type>
-    Specify additional calculations:
-      iface, ifc, i (Calculate interfaces between all combinations of groups)
-      layers (Calculate vertices until the specified number of layers)
+    Identify additional calculations like interfaces between groups (iface, ifc, i) or calculating vertices up to specified layers (layers)
 
   -e <export_type>
     Specify the intensity and type of exports:
-      Options: 'small', 'medium', 'large', 'all'
-      Exportables include: 'pdb', 'set_atoms', 'info', 'logs', 'surfaces',
-      'separate surfaces', 'edges', 'separate edges', 'vertices', 'separate vertices',
-      'shell', 'shell_edges', 'shell_verts', 'atoms', 'surr_atoms'.
+      Options include: small, medium, large, all
+      Export choices: pdb, mol, cif, gro, set_atoms, info, logs, surfs, sep_surfs, edges, sep_edges, verts, sep_verts, shell, shell_edges, shell_verts, atoms, surr_atoms
 
-Example:
-  python vorpy.py example.mol -s sr 0.2 -g a 'CA' -c iface -e medium
+Examples:
+  Solve the network for tyrosine 2 and methionine 1 in the cambrin molecule, calculate their interface, and export large type results:
+    python vorpy.py cambrin -s sr 0.05 and mv 80 -g tyr 2 -g met 1 -c iface -e large
+
+  Calculate the primitive and power networks for the mg atom in the EDTA_Mg molecule and compare the difference:
+    python vorpy.py EDTA_Mg -s nt compare prm pow -g mg
+
+  Solve the network for hairpin and export the shell with inside and outside parts of the surfaces highlighted at high resolution:
+    python vorpy.py hairpin -s ss nout and sr 0.01 -e shell and pdb
 
 Note:
   Each option flag and its arguments must be separated by spaces.
-  To use multiple commands for a single option, repeat the flag (except for groups to avoid creating multiple groups).
-    """)
-
+  To use multiple commands for a single option, use 'and' or repeat the flag (except for groups to avoid creating multiple groups).
+""")
 
 
 def print_list(names, list_name=None, width=150, height=30, cutoff=15):
@@ -238,7 +243,7 @@ def print_list(names, list_name=None, width=150, height=30, cutoff=15):
         if my_response.lower() in quits:
             return 'q'
         elif my_response.lower() in helps:
-            help_()
+            print_help()
         nums = None
         for i in range(len(my_response)):
             if my_response[i] in splitters:
@@ -289,7 +294,7 @@ def get_obj(sys, obj=None, return_ndx=True):
         if my_input.lower() in quits:
             return
         elif my_input.lower() in helps:
-            help_()
+            print_help()
         elif my_input.lower() not in my_objects:
             # Tell the user they suck and try again
             invalid_input(my_input)

@@ -6,7 +6,7 @@ from Visualize.cmnd.group import ggroup
 from System.system import System
 from System.Group.group import Group
 from System.sys_funcs.output.output import export_min1, export_min2, export_med, export_large, export_all, other_exports, set_sys_dir
-from Visualize.cmnd.commands import ands
+from Visualize.cmnd.commands import ands, helps, print_help
 from copy import deepcopy
 
 
@@ -139,6 +139,10 @@ def interpret_argvs():
 
 
 def argv(my_sys):
+    # First check if the argv value is in helps
+    if sys.argv[1].lower() in helps:
+        print_help()
+        return
     # Load the atom file
     load(my_sys, ["", sys.argv[1]])
 

@@ -35,6 +35,6 @@ def build(sys, usr_npt=None):
             print("use the \'set\' command to change a setting and a value or type \'h\' for help")
             return
     elif pre_build_confirmation.lower() in helps:
-        help_()
+        print_help()
     elif pre_build_confirmation.lower() in quits:
         return
