@@ -9,12 +9,17 @@ Vorpy is a command line interface tool designed to process molecular files for c
 Download the Vorpy tool from the repository and ensure you have Python installed on your system.
 
 ## Usage
+
+For first time users or virtual environment users check to see you have the requirements installed for python
+
+    python -m pip install -r requirements.txt
+
 The basic command structure for running Vorpy is:
 
     python vorpy.py <file> [options]
 
 ### File
-- The first argument after `vorpy.py` should be the name of the ball or atom file.
+- The first argument after `vorpy.py` should be the file address of the ball or atom file.
 - If the file is located in the `Data/test_data` folder, specify the file name without the path or extension.
 - Accepted file extensions include `.pdb`, `.mol`, `.gro`, `.cif`.
 
@@ -30,7 +35,7 @@ Adjust various simulation parameters:
 - `nt` - Network Type: Default = Additively Weighted `aw`, Power `pow`, Primitive `prm`, or Compare `com 'type1' 'type2'`
 - `mv` - Maximum Vertex: Default = `40`
 - `bm` - Box Multiplier: Default = `1.25`
-- `sc` - Surface Color: Default = `viridis`, `plasma`, `rainbow`, or any other [matplotlib colormap](https://matplotlib.org/stable/gallery/color/colormap_reference.html)
+- `sc` - Surface Color: Default = `viridis`, `plasma`, `rainbow`, or any other [matplotlib colormap](https://matplotlib.org/stable/gallery/color/colormap_reference.html) (note: adding '_r' inverts the color scheme)
 - `ss` - Surface Scheme: Default = curvature `curv`, inside vs outside spheres `nout`, distance from center `dist`
 - `sf` - Surface Coloring Scale: Default = linear `lin`, log `log`, squared `square`, cube `cube`
 - `ar` - Adjust Radii: `'element' 'value'` or `'atom name' 'value'` or `'residue' 'atom name' 'value'`. To see the current values for defaults for atomic radii go to the radii file (radii.py) or enter the radii flag`-r`
