@@ -83,8 +83,9 @@ def get_group_spheres(atoms, identifier):
     Takes in the atoms dataframe and the identifiers and returns a list of atom objects
     """
     # First see if the identifier is an atom index
+    atom_indices = atoms['num'].to_list()
     try:
-        my_atoms = atoms[int(identifier[0])]
+        my_atoms = atom_indices[int(identifier[0])]
         return [my_atoms]
     except ValueError:
         pass
@@ -103,15 +104,22 @@ def get_group_spheres(atoms, identifier):
             my_atoms.append(atoms.iloc[i])
         return my_atoms
     # Next check to see if the identifier is a residue
-    if identifier[0] in atoms['res_name'] and len(identifier) == 3:
+    if identifier[0].lower() in residue_names and len(identifier) == 3:
         # Return the atom in atoms that has both the residue name and the residue sequence number and the atom name
         try:
-            res_name, res_seq, atom_name = identifier[0], int(identifier[1]), identifier[2]
-            return [atoms.loc[(atoms['res_name'] == res_name.upper()) &
+            res_name, res_seq, atom_name = residue_names[identifier[0].lower()], int(identifier[1]), identifier[2]
+            return [atoms.loc[(atoms['res_name'] == res_name) &
                               (atoms['res_seq'] == res_seq) &
-                              (atoms['name'] == atom_name.upper())]]
+                              (atoms['name'] == atom_name.upper()), 'num']].to_lost()
         except Exception as e:
             pass
+    # Check if the identifier is an element
+    if identifier[0].lower() in element_names:
+
+        # Return the atoms in the atoms dataframe with the same name as the atom we want
+        my_atoms = atoms.loc[atoms['element'] == element_names[identifier[0].lower()], 'num'].to_list()
+
+        return my_atoms
 
 
 def get_group_resids(resids, identifier):
@@ -171,7 +179,7 @@ def interpret_group_commands(my_sys, group_dict, command):
     # Check if the command is an atom command
     if command[0].lower() in type_dict and type_dict[command[0].lower()] == 'a':
         # interpret the command
-        my_atoms = get_group_spheres(my_sys.balls['num'].to_list(), command[1:])
+        my_atoms = get_group_spheres(my_sys.balls, command[1:])
         # Check that the get_group_atoms function actually returned something
         if my_atoms is not None:
             # Add the atoms to the group dict
@@ -226,6 +234,7 @@ def interpret_group_commands(my_sys, group_dict, command):
             if res.name == residue_names[command[0].lower()]:
                 group_dict['residues'].append(res)
         return group_dict
+    return group_dict
 
 
 def ggroup(my_sys, group_commands, settings=None):
@@ -272,5 +281,6 @@ def ggroup(my_sys, group_commands, settings=None):
             group_dict = interpret_group_commands(my_sys, group_dict, sub_group)
         name = '_and_'.join(['_'.join(_) for _ in my_grp_cmnds])
         # Finally make the group
-        my_sys.groups.append(Group(my_sys, name=name, settings=settings, residues=group_dict['residues'],
-                                   atoms=group_dict['atoms'], chains=group_dict['chains']))
+        if group_dict is not None:
+            my_sys.groups.append(Group(my_sys, name=name, settings=settings, residues=group_dict['residues'],
+                                       atoms=group_dict['atoms'], chains=group_dict['chains']))
