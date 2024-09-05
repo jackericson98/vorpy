@@ -53,6 +53,13 @@ surf_scheme_curv_vals = ['curv', 'c', 'curvature']
 surf_scheme_dist_vals = ['distance', 'dist', 'd']
 surf_scheme_nout_vals = ['in_out', 'nout', 'no', 'ins_out']
 
+surf_factor_vals = {
+    **{_: 'lin' for _ in {'linear', 'lin', 'line'}},
+    **{_: 'log' for _ in {'log', 'logarithmic', 'log'}},
+    **{_: 'sqr' for _ in {'sqr', 'square', 'sq', 'squared'}},
+    **{_: 'cub' for _ in {'cub', 'cube', 'cubed', 'cubaroonski'}}
+}
+
 
 file_types = ['net', 'vert', 'ball', 'ndx']
 
