@@ -1,7 +1,7 @@
 from System.Group.group import Group
 from Visualize.cmnd.interpret import *
 from Visualize.cmnd.commands import *
-from System.chemisrty_interpreter import *
+from System.chemistry_interpreter import *
 
 
 def group(sys, usr_npt, settings=None):
