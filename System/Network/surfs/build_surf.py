@@ -184,4 +184,4 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
         plot_edges(epnts, fig=fig, ax=ax, alpha=0.8, thickness=2)
         plot_surfs([spoints], [surf_tris], simps=True, fig=fig, ax=ax, alpha=0.8, colors=['r'], Show=True)
     # Return the surface points, triangles, triangle curvatures, total curvature, surface function, com, and flatness
-    return spoints, surf_tris, tri_curvs, surf_curv, sfunc, surf_com, flat
+    return spoints, surf_tris, tri_curvs, surf_curv, sfunc, surf_com, flat, surf_loc
