@@ -31,12 +31,12 @@ Load additional files like vertex files from previous runs, log files, Voronota 
 #### Settings Flag `-s`
     -s <setting value>
 Adjust various simulation parameters:
-- `sr` - Surface Resolution: Default = `0.2` 
 - `nt` - Network Type: Default = Additively Weighted `aw`, Power `pow`, Primitive `prm`, or Compare `com 'type1' 'type2'`
 - `mv` - Maximum Vertex: Default = `40`
 - `bm` - Box Multiplier: Default = `1.25`
-- `sc` - Surface Color: Default = `viridis`, `plasma`, `rainbow`, or any other [matplotlib colormap](https://matplotlib.org/stable/gallery/color/colormap_reference.html) (note: adding '_r' inverts the color scheme)
-- `ss` - Surface Scheme: Default = curvature `curv`, inside vs outside spheres `nout`, distance from center `dist`
+- `sr` - Surface Resolution: Default = `0.2` 
+- `sc` - Surface Color Map: Default = `viridis`, `plasma`, `rainbow`, or any other [matplotlib colormap](https://matplotlib.org/stable/gallery/color/colormap_reference.html) (note: '_r' inverts the scheme)
+- `ss` - Surface Coloring Scheme: Default = curvature `curv`, inside vs outside spheres `nout`, distance from center `dist`
 - `sf` - Surface Coloring Scale: Default = linear `lin`, log `log`, squared `square`, cube `cube`
 - `ar` - Adjust Radii: `'element' 'value'` or `'atom name' 'value'` or `'residue' 'atom name' 'value'`. To see the current values for defaults for atomic radii go to the radii file (radii.py) or enter the radii flag`-r`
 
