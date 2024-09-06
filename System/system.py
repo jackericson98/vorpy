@@ -108,7 +108,7 @@ class System:
             return
 
         # Load the network
-        if self.files['net_files'] is not None:
+        if self.files['net_file'] is not None:
             self.load_net()
 
         # Load the index file
