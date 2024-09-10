@@ -8,7 +8,8 @@ class Group:
     """Group class. Used to hold selections of atoms and do analysis on it"""
     def __init__(self, sys, name=None, atoms=None, molecules=None, chains=None, residues=None,
                  settings=None, build_net=False, surf_res=0.2, box_size=1.5, max_vert=40, build_type='all', net=None,
-                 net_type='aw', surf_col='plasma', surf_scheme='curv', num_splits=None, print_metrics=True):
+                 net_type='aw', surf_col='plasma', surf_scheme='curv', num_splits=None, print_metrics=True,
+                 scheme_factor='log'):
         # System attributes
         self.sys = sys                  # Network            :    Network of the System
         self.name = name                # Name               :    Name of the group
@@ -40,8 +41,8 @@ class Group:
         # Get the settings
         self.get_settings(surf_res=surf_res, surf_col=surf_col, surf_scheme=surf_scheme, max_vert=max_vert,
                           box_size=box_size, net_type=net_type, build_type=build_type, num_splits=num_splits,
-                          print_metrics=print_metrics, ball_type=sys.type, sys_dir=sys.files['dir'],
-                          foam_box=sys.foam_box)
+                          scheme_factor=scheme_factor, print_metrics=print_metrics, ball_type=sys.type,
+                          sys_dir=sys.files['dir'], foam_box=sys.foam_box)
 
         # Set the name
         if self.name is None:
@@ -54,8 +55,8 @@ class Group:
         if build_net:
             self.build()
 
-    def get_settings(self, surf_res=0.2, surf_col='plasma', surf_scheme='curv', max_vert=40, box_size=1.5, net_type='aw',
-                     build_type='all', num_splits=1, print_metrics=True, ball_type=None,
+    def get_settings(self, surf_res=0.2, surf_col='plasma', surf_scheme='curv', scheme_factor='log', max_vert=40,
+                     box_size=1.5, net_type='aw', build_type='all', num_splits=1, print_metrics=True, ball_type=None,
                      sys_dir=None, foam_box=None):
         """
         Sets the settings for the network building
@@ -64,7 +65,7 @@ class Group:
         defaults = {'surf_res': surf_res, 'surf_col': surf_col, 'surf_scheme': surf_scheme, 'max_vert': max_vert,
                     'box_size': box_size, 'net_type': net_type, 'build_type': build_type, 'num_splits': num_splits,
                     'print_metrics': print_metrics, 'ball_type': ball_type, 'sys_dir': sys_dir, 'foam_box': foam_box,
-                    'atom_rad': None}
+                    'atom_rad': None, 'scheme_factor': scheme_factor}
         # Create the settings dictionary
         if self.settings is None:
             self.settings = defaults
