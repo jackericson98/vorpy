@@ -56,15 +56,20 @@ elif edge_choice == 4:
     rads = 1.0, 2.0, 2.0
     title = 'Curved Edge - Two Overlapping Atoms'
 
-# Semi Curved Edge 4
 elif edge_choice == 5:
+    locs = [-5.0, 0.0, 0.0], [5.0, 0.0, 0.0], [0.0, 1.0, 0.0]
+    rads = 4.0, 4.0, 2.0
+    title = ''
+
+# Semi Curved Edge 4
+elif edge_choice == 6:
     locs = [1.5, np.sqrt(3)/2, 0.0], [-1.5, np.sqrt(3)/2, 0.0], [0.0, -np.sqrt(3), 0.0]
-    rads = 2.0, 2.0, 2.5
+    rads = 1.0, 1.0, 2.5
     title = 'Curved Edge - All Atoms Overlap'
 
 
-# Semi Curved Edge 5
-elif edge_choice == 6:
+# Semi Curved Edge 6
+elif edge_choice == 7:
     locs = [1.5, np.sqrt(3)/2, 0.0], [-1.5, np.sqrt(3)/2, 0.0], [0.0, -np.sqrt(3), 0.0]
     rads = 1.65, 1.65, 3.2
     title = 'Curved Edge - All Atoms Overlap'
