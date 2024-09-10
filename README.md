@@ -41,7 +41,7 @@ Adjust various simulation parameters:
 - `ar` - Adjust Radii: `'element' 'value'` or `'atom name' 'value'` or `'residue' 'atom name' 'value'`. To see the current values for defaults for atomic radii go to the radii file (radii.py) or enter the radii flag`-r`
 
 #### Group Flag `-g`
-    -g <identifier1>
+    -g <identifier>
 Select specific balls or molecular elements:
 - `b` - Ball Identifier. Used with a ball index `'index'` or range of indices `'index1'-'index2'`.
 - `a` - Atom Identifier. Used with an atom element `'element'`, element name `'element name'`, index `'index'`, or range of indices `'index1'-'index2'`.
