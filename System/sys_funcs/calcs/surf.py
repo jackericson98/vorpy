@@ -67,6 +67,18 @@ def calc_surf_func_reg(l0, r0, l1, r1):
     return ABC + DEF + GHI + [J] + [K] + d
 
 
+def calc_2d_surf_sa(tris, points):
+    # Set up the sa variable
+    sa = 0
+    # Loop through the triangles
+    for tri in tris:
+        x1, x2, x3 = [points[_][0] for _ in tri]
+        y1, y2, y3 = [points[_][1] for _ in tri]
+
+        sa += 0.5 * abs(x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
+    return sa
+
+
 def calc_surf_sa(tris, points):
     """
     Calculates the surface area of the input surface
@@ -79,11 +91,6 @@ def calc_surf_sa(tris, points):
     """
     # Create the surface area variable
     sa = 0
-    # if flat:
-    #     for edge in edges:
-    #         for i in range(len(edge) - 1):
-    #             tri = np.array([edge[i], edge[i + 1], com])
-    #             sa += calc_tri(tri)
     # Go through the triangles in the surface
     for tri in tris:
         tri1 = np.array([points[tri[_]] for _ in range(3)])
