@@ -284,7 +284,7 @@ def triangulate_2D_Surface(perimeter, all_points=None, res=0.2, center=None, tim
     #     make_polygon_time = time.perf_counter() - start
     #     start = time.perf_counter()
     # Step 6: Check the triangles for the ones that are in and the ones that are out
-    in_tris, out_tris, mid_tris, mid_tri_designations = sort_tris(perimeter, triangles, poly, my_points, filter_hard)
+    in_tris, out_tris, mid_tris, mid_tri_designations = sort_tris(perimeter, triangles, poly, my_points)
 
     if plotting:
         plot_points_and_tris(all_points, in_tris, tcol='g')
