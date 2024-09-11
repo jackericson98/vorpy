@@ -170,6 +170,9 @@ def argv(my_sys):
         ggroup(my_sys, [['ns']])
     # Build the groups
     if settings is not None and len(settings['net_type']) > 1 and settings['net_type'][0] == 'com':
+        for commandaroonski in cmnds['xpt']:
+            if commandaroonski[0] == 'dir' and os.path.isdir(commandaroonski[1]):
+                my_sys.files['dir'] = commandaroonski[1]
         new_groups = []
         for grp in my_sys.groups:
             copy_group = deepcopy(grp)

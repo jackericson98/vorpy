@@ -158,7 +158,7 @@ def set_ar(element_radius, settings):
         change_settings = settings['atom_rad']
 
     # Separate the element from the radius
-    if len(element_radius) >= 3:
+    if len(element_radius) >= 3 and element_radius[0] not in atom_objs:
         # Get the residue
         residue, name, radius = element_radius[:3]
         # Check that this exists
@@ -180,11 +180,14 @@ def set_ar(element_radius, settings):
             print('{} is not an atom in {}. Please try one of the following names: {}'
                   .format(name, residue, [_ for _ in special_radii[residue.upper()]]))
             return
-        print('{} is not a valid residue name.'.format(residue))
-        return
+        new_elem_rad = input('{} contains an invalid entry. Please re-enter your atom radius changing setting >>>   '.format(element_radius))
+        new_elem_rad = new_elem_rad.split(' ')
+        return set_ar(new_elem_rad, settings)
 
     # The case where the user wants to change just the element or all atoms with a certain name
-    elif len(element_radius) == 2:
+    elif len(element_radius) == 2 or element_radius[0] in atom_objs:
+        if element_radius[0] in atom_objs:
+            element_radius = element_radius[1:]
         # If the changed name is in the regular elements use that
         if element_names[element_radius[0].lower()] in element_radii:
             # Check the value and that it is a float
