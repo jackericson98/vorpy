@@ -1,6 +1,7 @@
 import os
 import shutil
 from datetime import datetime
+from shutil import SameFileError
 
 from System.sys_funcs.output.surfs import write_surfs
 from System.sys_funcs.output.edges import write_edges
@@ -30,7 +31,10 @@ def write_pdb(atoms, file_name, sys, directory=None):
 
         # If the output is all atoms just copy the pdb
         if len(atoms) == len(sys.balls):
-            shutil.copy(sys.files['base_file'], os.getcwd() + '/' + file_name + '.pdb')
+            try:
+                shutil.copy(sys.files['base_file'], os.getcwd() + '/' + file_name + '.pdb')
+            except SameFileError:
+                pass
             return
 
         # Open the file for writing
