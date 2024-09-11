@@ -35,7 +35,7 @@ def calc_circ_abcs(Fs, r0):
     return a, b, c
 
 
-def calc_circ(l0, l1, l2, r0, r1, r2):
+def calc_circ(l0, l1, l2, r0, r1, r2, return_both=False):
     """
     Takes in 3 balls, calculates the center and radius of inscribed circle
     :param : Locations and radii for the circle
@@ -51,6 +51,7 @@ def calc_circ(l0, l1, l2, r0, r1, r2):
     a, b, c = calc_circ_abcs(Fs, r0)
     # Calculate the discriminant.
     disc = b ** 2 - 4 * a * c
+    r2 = None
     # If the discriminant is negative then the tangential circle does not exist.
     if round(disc, 10) > 0:
         # Grab the two roots
@@ -65,6 +66,8 @@ def calc_circ(l0, l1, l2, r0, r1, r2):
                 r = max(rs)
             # If they're both positive, return the smaller of the two
             elif rs[0] > 0 and rs[1] > 0:
+                if return_both:
+                    r2 = max(rs)
                 r = min(rs)
             # If they're both negative return
             else:
@@ -74,4 +77,10 @@ def calc_circ(l0, l1, l2, r0, r1, r2):
         x = Fx0 / F + r * Fx1 / F + l0[0]
         y = Fy0 / F + r * Fy1 / F + l0[1]
         z = Fz0 / F + r * Fz1 / F + l0[2]
-        return np.array([x, y, z]), r
+        if not return_both or r2 is None:
+            return np.array([x, y, z]), r
+        # Calculate the second circle
+        x2 = Fx0 / F + r2 * Fx1 / F + l0[0]
+        y2 = Fy0 / F + r2 * Fy1 / F + l0[1]
+        z2 = Fz0 / F + r2 * Fz1 / F + l0[2]
+        return np.array([x, y, z]), r, np.array([x2, y2, z2]), r2

@@ -1,5 +1,6 @@
 from Visualize.cmnd.commands import *
 from System.sys_objs.atom import element_radii
+from System.chemistry_interpreter import element_names
 import os
 from os import path
 
@@ -20,7 +21,7 @@ def get_ndx(sys, obj, ndx_npt=None):
     elif obj == 'r':
         obj_list, obj_num = sys.residues, 1
     elif obj == 'a':
-        obj_list, obj_num = sys.spheres, 2
+        obj_list, obj_num = sys.balls, 2
     elif obj == 'n':
         obj_list, obj_num = sys.ndxs, 3
     # Start the ndx checking loop
@@ -33,7 +34,7 @@ def get_ndx(sys, obj, ndx_npt=None):
             return
         # Check for helps
         elif ndx_npt.lower in helps:
-            help_()
+            print_help()
             continue
         # Check the input
         ndx_npt = ndx_npt.split("-")
@@ -60,7 +61,7 @@ def get_obj(sys, obj=None):
         if obj[0].lower() in quits:
             return
         elif obj[0].lower() in helps:
-            help_()
+            print_help()
         elif obj[0].lower() not in my_objects:
             # Tell the user they suck and try again
             invalid_input(obj)
@@ -91,7 +92,7 @@ def get_file(file=None):
             elif len(file) == 0:
                 continue
             elif file.lower() in helps:
-                help_()
+                print_help()
             test_file = file.split()
             if test_file[0] in load_cmds:
                 file = file[len(test_file[0]) + 1:]
@@ -130,7 +131,7 @@ def get_set(usr_npt=None):
         if usr_npt.lower() in quits:
             return
         elif usr_npt.lower() in helps:
-            help_()
+            print_help()
         # Check to see if the user gave a valid response or not
         if usr_npt.lower() in surf_reses:
             # Return the base setting
@@ -147,9 +148,6 @@ def get_set(usr_npt=None):
         elif usr_npt.lower() in box_sizes:
             # Return the base setting
             return 'bm'
-        elif usr_npt.lower() in build_surfses:
-            # Return the base setting
-            return 'bs'
         elif usr_npt.lower() in net_types:
             # Return the base setting
             return 'nt'
@@ -169,7 +167,7 @@ def get_val(setting=None, val=None):
         :return:
         """
     # If the setting is not in the settingsd
-    if setting is None or setting.lower() not in my_settings:
+    if setting is None or setting.lower() not in settings_dict:
         setting = get_set()
     # Find the value for the setting
     while True:
@@ -186,14 +184,9 @@ def get_val(setting=None, val=None):
         # Quit if asked
         if val.lower() in quits or val.lower() in dones:
             return
-        if setting in build_surfses:
-            if val.lower() in ['t', 'true', 'tr'] + ys:
-                val = True
-            elif val.lower() in ['f', 'false', 'flse', 'fl', 'fa', 'fs', 'fls'] + ns:
-                val = False
         # Test the validity of the user's true and false skills
         if setting in atom_radii:
-            if val not in element_radii:
+            if element_names[val.lower()] not in element_radii:
                 val = None
             else:
                 try:
@@ -202,7 +195,7 @@ def get_val(setting=None, val=None):
                     val.append(None)
                     while True:
                         val1 = input("enter new radius for {} (current radius = {})".format(val[0].upper(),
-                                                                                            element_radii[val[0]]))
+                                                                                            element_radii[element_names[val[0].lower()]]))
                         try:
                             val1 = float(val1)
                             break

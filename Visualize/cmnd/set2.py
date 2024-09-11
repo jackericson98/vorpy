@@ -1,7 +1,7 @@
 import matplotlib as mpl
 from Visualize.cmnd.interpret import *
-from System.radii import element_radii, special_radii
-from matplotlib._api.deprecation import MatplotlibDeprecationWarning as MPLDepWarn
+from radii import element_radii, special_radii
+from System.chemistry_interpreter import element_names, residue_names
 
 
 def set_sr(surf_res, settings):
@@ -142,8 +142,12 @@ def set_ss(surf_scheme, settings):
     return interpreter[surf_scheme]
 
 
-def set_sf():
-    pass
+def set_sf(surface_factor, settings):
+    if surface_factor[0].lower() in surf_factor_vals:
+        return surf_factor_vals[surface_factor[0].lower()]
+    print('{} is not a valid entry for surface coloring scale. Please enter one of the following \"lin\", \"log\", '
+          '\"sqr\", \"cub\"'.format(surface_factor[0]))
+    return settings['surf_factor']
 
 
 def set_ar(element_radius, settings):
@@ -158,17 +162,17 @@ def set_ar(element_radius, settings):
         # Get the residue
         residue, name, radius = element_radius[:3]
         # Check that this exists
-        if residue.upper() in special_radii:
-            if name.upper() in special_radii[residue.upper()]:
+        if residue.lower() in residue_names and residue_names[residue.lower()] in special_radii:
+            if name.upper() in special_radii[residue_names[residue.lower()]]:
                 try:
                     my_radius = float(radius)
                     print('All {} {} atoms radii changed from {} \u212B to {} \u212B'
                           .format(residue, name, special_radii[residue.upper()][name.upper()], radius))
                     # Add the radius
-                    if residue.upper() in change_settings['special']:
-                        change_settings['special'][residue.upper()][name.upper()] = my_radius
+                    if residue_names[residue.lower()] in change_settings['special']:
+                        change_settings['special'][residue_names[residue.lower()]][name.upper()] = my_radius
                         return change_settings
-                    change_settings['special'][residue.upper()] = {name.upper(): my_radius}
+                    change_settings['special'][residue_names[residue.lower()]] = {name.upper(): my_radius}
                     return change_settings
                 except ValueError:
                     print('{} is not a valid entry for radius. Please try a valid float entry')
@@ -182,13 +186,13 @@ def set_ar(element_radius, settings):
     # The case where the user wants to change just the element or all atoms with a certain name
     elif len(element_radius) == 2:
         # If the changed name is in the regular elements use that
-        if element_radius[0].upper() in element_radii:
+        if element_names[element_radius[0].lower()] in element_radii:
             # Check the value and that it is a float
             try:
                 # Try creating a float value for the new radius
                 my_radius = float(element_radius[1])
                 print('All {} atoms radii changed from {} \u212B to {} \u212B.'
-                      .format(element_radius[0], element_radii[element_radius[0].upper], element_radius[1]))
+                      .format(element_names[element_radius[0].lower()], element_radii[element_names[element_radius[0].lower()]], element_radius[1]))
                 change_settings['element'][element_radius[0].upper()] = my_radius
                 return change_settings
             except ValueError:
@@ -224,8 +228,8 @@ def sett(setting, value, settings=None):
     """
     # Set the default settings
     if settings is None:
-        settings = {'surf_res': 0.2, 'max_vert': 40, 'box_size': 1.25, 'net_type': 'aw', 'surf_col': 'plasma',
-                    'surf_scheme': 'curv', 'scheme_factor': 'log', 'atom_rad': None, 'bld_type': None}
+        settings = {'surf_res': 0.2, 'max_vert': 40, 'box_size': 1.25, 'net_type': 'aw', 'surf_col': 'plasma_r',
+                    'surf_scheme': 'curv', 'scheme_factor': 'lin', 'atom_rad': None, 'bld_type': None}
     # Set up the functions dictionary to return the value
     func_dict = {'surf_res': set_sr, 'max_vert': set_mv, 'box_size': set_bs, 'net_type': set_nt, 'surf_col': set_sc,
                  'surf_scheme': set_ss, 'scheme_factor': set_sf, 'atom_rad': set_ar, 'bld_type': set_bt}

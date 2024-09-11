@@ -31,6 +31,6 @@ def read_vta_data(grp, ball_file, vert_file):
         verts.append({'vatoms': atoms, 'vloc': loc, 'vrad': rad, 'vdub': dub})
     # Check to see if there is anetwork associated with the group
     if grp.net is None:
-        grp.net = Network(locs=grp.sys.spheres['loc'], rads=grp.sys.spheres['rad'], group=grp.ball_ndxs,
+        grp.net = Network(locs=grp.sys.balls['loc'], rads=grp.sys.balls['rad'], group=grp.ball_ndxs,
                           settings=grp.settings)
     grp.net.verts = DataFrame(verts)

@@ -6,7 +6,7 @@ from Visualize.cmnd.group import ggroup
 from System.system import System
 from System.Group.group import Group
 from System.sys_funcs.output.output import export_min1, export_min2, export_med, export_large, export_all, other_exports, set_sys_dir
-from Visualize.cmnd.commands import ands
+from Visualize.cmnd.commands import ands, helps, print_help
 from copy import deepcopy
 
 
@@ -139,6 +139,10 @@ def interpret_argvs():
 
 
 def argv(my_sys):
+    # First check if the argv value is in helps
+    if sys.argv[1].lower() in helps:
+        print_help()
+        return
     # Load the atom file
     load(my_sys, ["", sys.argv[1]])
 
@@ -161,6 +165,9 @@ def argv(my_sys):
 
     # compare the groups
     ggroup(my_sys, cmnds['grp'], settings)
+    if my_sys.groups is None or len(my_sys.groups) == 0:
+        print('{} not a valid group command. Calculating whole molecule'.format(cmnds['grp']))
+        ggroup(my_sys, [['ns']])
     # Build the groups
     if settings is not None and len(settings['net_type']) > 1 and settings['net_type'][0] == 'com':
         new_groups = []

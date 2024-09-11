@@ -39,11 +39,7 @@ def find_net_verts(net):
             sphere_check_list.pop(sphere_check_list.index(_))
 
     # Check for disconnects in the network
-    threshold = 2
-    if len(net.group) <= 2:
-        threshold = 0
-    while len(sphere_check_list) > threshold:
-        print("Balls Disconnected: {}".format(sphere_check_list))
+    while len(sphere_check_list) > 0:
         a0 = sphere_check_list.pop()
         my_guuy = find_verts(b0=a0, locs=net.balls['loc'].to_numpy(), rads=net.balls['rad'].to_numpy(),
                              max_vert=net.settings['max_vert'], net_type=net.settings['net_type'], check_ndxs=sphere_check_list,

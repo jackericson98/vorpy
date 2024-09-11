@@ -1,5 +1,5 @@
 import numba.core.errors
-from System.Network.surfs.triangulate import test_within
+from System.Network.surfs.triangulate import is_within
 from System.sys_funcs.calcs.calcs import calc_angle_jit, calc_angle, calc_dist
 import numpy as np
 from numba import jit
@@ -101,6 +101,7 @@ def fill_mesh(locs, rads, func, surf_loc, surf_norm, perimeter, com, res, flat, 
     # For each path toward the center of the surface, set up a path list.
     paths = [[_] for _ in perimeter]
     spoints = perimeter[:]
+
     # Check to see if the atoms have equal radii
     if rads[0] == rads[1] or flat:
         # Go through the paths
@@ -138,19 +139,28 @@ def fill_mesh(locs, rads, func, surf_loc, surf_norm, perimeter, com, res, flat, 
     # Set the pn_1 point to infinity
     pn_1 = [np.inf, np.inf, np.inf]
     num_paths = len(paths)
+    skips = [[False] for _ in paths]
     # Go through ring by ring
     for j in range(num_rings):
         # Go through each of the remaining paths
         i = 0
         # Keep going through the points until the tracker is out
         while i < num_paths:
+            # Find the number of previously skipped points
+            num_prev_skips = 1
+            while True:
+                if skips[i][- num_prev_skips]:
+                    num_prev_skips += 1
+                else:
+                    break
             # Get the next point along the path
-            pn = find_next_point(locs, func, paths[i][-1], com, dthetas[i])
+            pn = find_next_point(locs, func, paths[i][-1], com, num_prev_skips * dthetas[i])
             # Check for edges that start by going outside
             if j == 0 and pn is not None:
-                if not test_within(perimeter, pn, surf_loc, surf_norm):
+                if not is_within(perimeter, pn, surf_loc, surf_norm):
                     paths.pop(i)
                     dthetas.pop(i)
+                    skips.pop(i)
                     num_paths -= 1
                     continue
             # Check to see of the new point is too close to the previous point and the path has to end
@@ -158,11 +168,16 @@ def fill_mesh(locs, rads, func, surf_loc, surf_norm, perimeter, com, res, flat, 
                 # Add the path to the surfaces points and remove it from the paths list
                 spoints += paths.pop(i)[1:]
                 dthetas.pop(i)
+                skips.pop(i)
                 num_paths -= 1
             else:
                 # Set the pn_1 to pn and add it to the path
-                pn_1 = pn
-                paths[i].append(pn)
+                if not calc_dist(pn, paths[i][-1]) < 0.5 * res:
+                    pn_1 = pn
+                    paths[i].append(pn)
+                    skips[i].append(False)
+                else:
+                    skips[i].append(True)
                 i += 1
     # Add the remaining paths to the surface excluding the first point in the path (i.e. the edge point)
     for path in paths:

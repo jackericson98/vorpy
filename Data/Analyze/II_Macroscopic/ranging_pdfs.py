@@ -124,7 +124,7 @@ def plot_function(function, p2=None, title='', x_label='', y_label='', legend_ti
     #     my_y = [function(x, p2) for x in my_x]
     #     ax.plot(my_x, my_y, color=color)  # Default color
 
-    ax.set_title(title)
+    ax.set_title(title, font=dict(size=30))
     axis_font = {'fontname': 'Arial', 'size': '20'}
     if ylims is not None:
         ax.set_ylim(ylims)
@@ -139,7 +139,7 @@ def plot_function(function, p2=None, title='', x_label='', y_label='', legend_ti
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax)
     cbar.set_label(legend_title, **axis_font)
-    cbar.ax.tick_params(labelsize=15, size=10, width=2, length=12)
+    cbar.ax.tick_params(labelsize=20, size=10, width=2, length=12)
     plt.tight_layout()
     # ax.axis('off')
     # plt.show()
@@ -150,13 +150,13 @@ def plot_function(function, p2=None, title='', x_label='', y_label='', legend_ti
 #
 # print([0.05 + 0.025 * i for i in range(18)])
 
-plot_function(lognormal, np.linspace(0.1, 2.0, 20), 'Lognormal Distributions',
-              x_label='Bubble Radius', y_label='Probability', legend_title='Coefficient of Variation', max_x=5, ylims=[0, 4])
-plot_function(gamma, np.linspace(0.1, 2.0, 20), 'Gamma Distributions',
-              x_label='Bubble Radius', y_label='Probability', legend_title='Coefficient of Variation', max_x=5, ylims=[0, 4])
+plot_function(lognormal, np.linspace(0.1, 0.5, 20), 'Lognormal Distributions',
+              x_label='Ball Radius', y_label='Probability', legend_title='Coefficient of Variation', max_x=5, ylims=[0, 4])
+plot_function(gamma, np.linspace(0.1, 0.5, 20), 'Gamma Distributions',
+              x_label='Ball Radius', y_label='Probability', legend_title='Coefficient of Variation', max_x=5, ylims=[0, 4])
 print(np.linspace(0.1, 2.0, 20))
-plot_function(weibull, np.linspace(0.1, 2.0, 20), 'Weibull Distributions',
-              x_label='Bubble Radius', y_label='Probability', legend_title='Coefficient of Variation', max_x=5, ylims=[0, 4])
+plot_function(weibull, np.linspace(0.1, 0.5, 20), 'Weibull Distributions',
+              x_label='Ball Radius', y_label='Probability', legend_title='Coefficient of Variation', max_x=5, ylims=[0, 4])
 # fig, ax = plt.subplots()
 # for i, func in enumerate({physical_DeVries, physical_Ranadive_Lemlich, physical_GalOr_Hoelscher}):
 #     color = ['r', 'g', 'b']

@@ -1,6 +1,7 @@
 from System.sys_objs.atom import make_atom
 from System.sys_objs.residue import Residue
 from System.sys_objs.chain import Chain, Sol
+from System.chemistry_interpreter import residue_names, residue_atoms
 import os.path as path
 import numpy as np
 from pandas import DataFrame
@@ -59,7 +60,6 @@ def read_pdb(sys, file=None):
             if line[76:78] == ' M':
                 continue
             name = line[12:16]
-            name.strip()
             res_seq = line[22:26]
             if line[22:26] == '    ':
                 res_seq = 0
@@ -68,7 +68,7 @@ def read_pdb(sys, file=None):
             # Create the atom
             atom = make_atom(location=np.array([float(line[30:38]), float(line[38:46]), float(line[46:54])]), system=sys,
                              element=line[76:78].strip(), res_seq=int(res_seq), res_name=res_str, chn_name=chain_str,
-                             name=name, seg_id=line[72:76], index=atom_count)
+                             name=name.strip(), seg_id=line[72:76], index=atom_count)
 
             atom_count += 1
 
@@ -126,8 +126,12 @@ def read_pdb(sys, file=None):
         # If the line is not an atom line store the other data
         else:
             data.append(my_file[i].split())
+    for res in sys.residues:
+        if res.name.lower() not in residue_names:
+            residue_names[res.name.lower()] = res.name.upper()
+            residue_atoms[res.name.upper()] = {atoms[_]['name'] for _ in res.atoms}
     # Set the atoms and the data
-    sys.spheres, sys.data = DataFrame(atoms), data
+    sys.balls, sys.data = DataFrame(atoms), data
 
 
 def read_pdb_line(pdb_line):

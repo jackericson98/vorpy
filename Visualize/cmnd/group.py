@@ -1,7 +1,7 @@
 from System.Group.group import Group
 from Visualize.cmnd.interpret import *
 from Visualize.cmnd.commands import *
-from System.chemisrty_interpreter import *
+from System.chemistry_interpreter import *
 
 
 def group(sys, usr_npt, settings=None):
@@ -24,7 +24,7 @@ def group(sys, usr_npt, settings=None):
         my_ndx = get_ndx(sys=sys, obj=my_obj)
         # Get the group information
         obj_ndx = ['c', 'r', 'a', 'n'].index(my_obj)
-        obj_list = [sys.chains, sys.residues, sys.spheres, sys.ndxs][obj_ndx]
+        obj_list = [sys.chains, sys.residues, sys.balls, sys.ndxs][obj_ndx]
         # set up the name
         if my_obj == 'c':
             name = 'Chain_' + obj_list[obj_ndx].name
@@ -40,7 +40,7 @@ def group(sys, usr_npt, settings=None):
         my_ndx = get_ndx(sys=sys, obj=my_obj, ndx_npt=usr_npt[1])
         # Get the group information
         obj_ndx = ['c', 'r', 'a', 'n'].index(my_obj)
-        obj_list = [sys.chains, sys.residues, sys.spheres, sys.ndxs][obj_ndx]
+        obj_list = [sys.chains, sys.residues, sys.balls, sys.ndxs][obj_ndx]
         # set up the name
         if my_obj == 'c':
             name = 'Chain_' + obj_list[obj_ndx].name
@@ -57,7 +57,7 @@ def group(sys, usr_npt, settings=None):
         name = my_obj + '_' + str(my_ndx[0]) + '_' + str(my_ndx[1])
     # Get the group information
     obj_ndx = ['c', 'r', 'a', 'n'].index(my_obj)
-    obj_list = [sys.chains, sys.residues, sys.spheres, sys.ndxs][obj_ndx]
+    obj_list = [sys.chains, sys.residues, sys.balls, sys.ndxs][obj_ndx]
 
     my_list = None
     # Get the slice and name of the group
@@ -83,8 +83,9 @@ def get_group_spheres(atoms, identifier):
     Takes in the atoms dataframe and the identifiers and returns a list of atom objects
     """
     # First see if the identifier is an atom index
+    atom_indices = atoms['num'].to_list()
     try:
-        my_atoms = atoms[int(identifier[0])]
+        my_atoms = atom_indices[int(identifier[0])]
         return [my_atoms]
     except ValueError:
         pass
@@ -103,15 +104,25 @@ def get_group_spheres(atoms, identifier):
             my_atoms.append(atoms.iloc[i])
         return my_atoms
     # Next check to see if the identifier is a residue
-    if identifier[0] in atoms['res_name'] and len(identifier) == 3:
+    if identifier[0].lower() in residue_names and len(identifier) == 3:
         # Return the atom in atoms that has both the residue name and the residue sequence number and the atom name
         try:
-            res_name, res_seq, atom_name = identifier[0], int(identifier[1]), identifier[2]
-            return [atoms.loc[(atoms['res_name'] == res_name.upper()) &
+            res_name, res_seq, atom_name = residue_names[identifier[0].lower()], int(identifier[1]), identifier[2]
+            return atoms.loc[(atoms['res_name'] == res_name) &
                               (atoms['res_seq'] == res_seq) &
-                              (atoms['name'] == atom_name.upper())]]
+                              (atoms['name'] == atom_name.upper()), 'num'].to_lost()
         except Exception as e:
             pass
+    # Check if the identifier is in the atom names
+    if identifier[0].upper() in atoms['name'].values:
+        return atoms.loc[atoms['name'] == identifier[0].upper(), 'num'].to_list()
+    # Check if the identifier is an element
+    if identifier[0].lower() in element_names:
+
+        # Return the atoms in the atoms dataframe with the same name as the atom we want
+        my_atoms = atoms.loc[atoms['element'] == element_names[identifier[0].lower()], 'num'].to_list()
+
+        return my_atoms
 
 
 def get_group_resids(resids, identifier):
@@ -171,7 +182,7 @@ def interpret_group_commands(my_sys, group_dict, command):
     # Check if the command is an atom command
     if command[0].lower() in type_dict and type_dict[command[0].lower()] == 'a':
         # interpret the command
-        my_atoms = get_group_spheres(my_sys.spheres['num'].to_list(), command[1:])
+        my_atoms = get_group_spheres(my_sys.balls, command[1:])
         # Check that the get_group_atoms function actually returned something
         if my_atoms is not None:
             # Add the atoms to the group dict
@@ -202,7 +213,7 @@ def interpret_group_commands(my_sys, group_dict, command):
                     # Check for an atom identifier
                     if len(command) == 3 and command[2].upper() in residue_atoms[residue_names[command[0].lower()]]:
                         for atom_ndx in res.atoms:
-                            atom = my_sys.spheres.iloc[atom_ndx]
+                            atom = my_sys.balls.iloc[atom_ndx]
 
                             if atom['name'].strip() == command[2].upper().strip():
                                 group_dict['atoms'].append(atom_ndx)
@@ -210,7 +221,23 @@ def interpret_group_commands(my_sys, group_dict, command):
                     group_dict['residues'].append(res)
                     return group_dict
         except ValueError:
-            pass
+            # If no residue identifier is given and the
+            if command[1].upper() in residue_atoms[residue_names[command[0].lower()]]:
+                # Go through the residues in the system
+                for res in my_sys.residues:
+                    if res.name == residue_names[command[0].lower()]:
+                        # Check for the atom name within the residue
+                        for atom in res.atoms:
+                            if my_sys.balls['name'][atom].upper() == command[1].upper():
+                                group_dict['atoms'].append(atom)
+                return group_dict
+    elif command[0].lower() in residue_names:
+        # Loop through the residues
+        for res in my_sys.residues:
+            if res.name == residue_names[command[0].lower()]:
+                group_dict['residues'].append(res)
+        return group_dict
+    return group_dict
 
 
 def ggroup(my_sys, group_commands, settings=None):
@@ -232,7 +259,7 @@ def ggroup(my_sys, group_commands, settings=None):
         # Given a foam, the group is going to be the whole set of spheres
         if my_sys.type == 'foam':
             # Make the foam group
-            my_sys.groups = [Group(my_sys, name=my_sys.name + '_Network', atoms=my_sys.spheres['num'].to_list(), settings=settings)]
+            my_sys.groups = [Group(my_sys, name=my_sys.name + '_Network', atoms=my_sys.balls['num'].to_list(), settings=settings)]
         # If the given system is not a foam add only the residues to hold out the sol atoms
         else:
             my_sys.groups = [Group(my_sys, name=my_sys.name + '_Network', residues=my_sys.residues.copy(), settings=settings)]
@@ -242,10 +269,7 @@ def ggroup(my_sys, group_commands, settings=None):
         my_sys.groups = [Group(my_sys, name=my_sys.name + '_Network', residues=my_sys.residues.copy(), settings=settings)]
         return
     if group_commands[0][0] in full_objs:
-        my_sys.groups = [Group(my_sys, name=my_sys.name + '_all_atoms_network', atoms=my_sys.spheres['num'].to_list(), settings=settings)]
-        return
-    if len(group_commands[0][0]) == 1:
-        print('{} is not a valid entry for a group identifier'.format(group_commands[0]))
+        my_sys.groups = [Group(my_sys, name=my_sys.name + '_all_atoms_network', atoms=my_sys.balls['num'].to_list(), settings=settings)]
         return
     my_sys.groups = []
     # Loop through the names and identifiers
@@ -260,5 +284,6 @@ def ggroup(my_sys, group_commands, settings=None):
             group_dict = interpret_group_commands(my_sys, group_dict, sub_group)
         name = '_and_'.join(['_'.join(_) for _ in my_grp_cmnds])
         # Finally make the group
-        my_sys.groups.append(Group(my_sys, name=name, settings=settings, residues=group_dict['residues'],
-                                   atoms=group_dict['atoms'], chains=group_dict['chains']))
+        if group_dict is not None and sum([len(group_dict[_]) for _ in group_dict]) > 0:
+            my_sys.groups.append(Group(my_sys, name=name, settings=settings, residues=group_dict['residues'],
+                                       atoms=group_dict['atoms'], chains=group_dict['chains']))

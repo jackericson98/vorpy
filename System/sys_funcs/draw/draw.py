@@ -7,7 +7,7 @@ from matplotlib._api.deprecation import MatplotlibDeprecationWarning as MPLDepWa
 warnings.filterwarnings('error')
 
 
-def color_tris(net, surf, color_scheme, color_map, max_val=None):
+def color_tris(net, surf, color_scheme, color_map, color_factor, max_val=None):
     """
     Colors the triangles in the surface based on the specified coloring scheme and map
     :param surf:
@@ -15,7 +15,7 @@ def color_tris(net, surf, color_scheme, color_map, max_val=None):
     :param color_map: Determines the actual colors of triangles
     :return: The triangles in the surface are colored
     """
-    # Set up the variable tri_colors for recording the colordesignations for
+    # Set up the variable tri_colors for recording the color designations for
     tri_colors = None
     # Set up the color map
     try:
@@ -24,12 +24,28 @@ def color_tris(net, surf, color_scheme, color_map, max_val=None):
         my_cmap = mpl.cm.get_cmap(color_map)
     except AttributeError:
         my_cmap = mpl.cm.get_cmap(color_map)
+    # Create the surface value multiplier
+    if color_factor == 'log':
+        def multi(val):
+            return np.log(val + 1)
+    elif color_factor == 'sqr':
+        def multi(val):
+            return val ** 2
+    elif color_factor == 'cub':
+        def multi(val):
+            return val ** 3
+    else:
+        def multi(val):
+            return val
+
     # Default is distance based color map
     if color_scheme == 'dist':
         # Check if the tri_dists have been calculated before
-        if surf['tri_dists'] is None or len(surf['tri_dists']) == 0 or len(surf['tri_dists']) != len(surf['tris']):
-            calc_surf_tri_dists(surf['points'], surf['tris'], surf['loc'])
-        tri_colors = [my_cmap(_) for _ in surf['tri_dists']]
+        if 'tri_dists' not in surf or surf['tri_dists'] is None or len(surf['tri_dists']) == 0 or len(surf['tri_dists']) != len(surf['tris']):
+            tri_dists = calc_surf_tri_dists(surf['points'], surf['tris'], surf['loc'])
+            tri_colors = [my_cmap(multi(_)) for _ in tri_dists]
+        else:
+            tri_colors = [my_cmap(multi(_)) for _ in surf['tri_dists']]
 
     elif color_scheme == 'ins_out':
         # Check if the tri_dists have been calculated before
@@ -37,9 +53,9 @@ def color_tris(net, surf, color_scheme, color_map, max_val=None):
                 len(surf['tri_ins_out']) != len(surf['tris'])):
             b0_loc, b0_rad = net.balls['loc'][surf['balls'][0]], net.balls['rad'][surf['balls'][0]]
             tri_ins_out = calc_surf_tri_ins_out(b0_loc, b0_rad, surf)
-            tri_colors = [my_cmap(_) for _ in tri_ins_out]
+            tri_colors = [my_cmap(multi(_)) for _ in tri_ins_out]
         else:
-            tri_colors = [my_cmap(_) for _ in surf['tris_ins_out']]
+            tri_colors = [my_cmap(multi(_)) for _ in surf['tris_ins_out']]
 
     elif color_scheme == 'curv':
         # Check if the function is None
@@ -60,7 +76,7 @@ def color_tris(net, surf, color_scheme, color_map, max_val=None):
             my_curvs = [curv/max_val for curv in tri_curvs]
 
         # Set the colors
-        tri_colors = [my_cmap(_) for _ in my_curvs]
+        tri_colors = [my_cmap(multi(_)) for _ in my_curvs]
     else:
         tri_colors = [np.random.randint(0, 256, size=3) for _ in range(len(surf['tris']))]
 

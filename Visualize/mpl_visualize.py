@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from System.sys_funcs.calcs.circle import calc_circ
 import numpy as np
+from matplotlib.patches import Circle
 
 
 # Set up plot function. Used to set the parameters for the plot
@@ -64,6 +65,44 @@ def plot_balls(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=Non
     if axes_scale == 'equal':
         ax.set_box_aspect([1, 1, 1])
     # Show the figure if need be
+    if Show:
+        plt.show()
+
+
+def plot_circles(locations, radii, colors=None, fig=None, ax=None, Show=False, grid=False, alpha=None,
+                    bg_color=None):
+    # Set up the plot
+    if not ax:
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+    # Set the background color if provided
+    if bg_color:
+        ax.set_facecolor(bg_color)
+
+    # Default colors to 'pink' if none are provided
+    if colors is None:
+        colors = ['pink' for _ in range(len(locations))]
+
+    # Plot each circle
+    for loc, rad, color in zip(locations, radii, colors):
+        # Parametric equation of a circle
+        theta = np.linspace(0, 2 * np.pi, 100)
+        x = rad * np.cos(theta) + loc[0]
+        y = rad * np.sin(theta) + loc[1]
+        z = np.full_like(x, loc[2])  # z is constant for each circle since it's 2D in 3D space
+
+        # Plot the circle
+        ax.plot(x, y, z, color=color, alpha=alpha)
+
+    # Setting the aspect ratio to be equal
+    ax.set_box_aspect([1, 1, 1])  # For equal aspect ratio
+
+    # Grid and other display options
+    if grid:
+        ax.grid(True)
+
+    # Show the plot if requested
     if Show:
         plt.show()
 

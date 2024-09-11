@@ -35,7 +35,7 @@ def load(sys, usr_npt):
                           .format(len(sys.atoms), len(sys.chains), sys.sol.name))
                     return sys
                 elif reset_sys.lower() in helps:
-                    help_()
+                    print_help()
                 elif reset_sys.lower() in quits:
                     return
             else:
@@ -56,7 +56,7 @@ def load(sys, usr_npt):
                         print("{} vertices loaded - {} vertices, maximum vertex radius: {} \u208B, box size: {} x\n"
                               .format(sys.name, len(sys.net.verts), sys.net.settings['max_vert'], sys.net.settings['box_size']))
                     elif replace_vert_file.lower() in helps:
-                        help_()
+                        print_help()
                     elif replace_vert_file.lower() in quits:
                         return
                 else:
@@ -77,7 +77,7 @@ def load(sys, usr_npt):
                               " size: {} x\n".format(sys.name, len(sys.net.verts), sys.net.settings['max_vert'],
                                                      sys.net.settings['box_size']))
                     elif replace_net_file in helps:
-                        help_()
+                        print_help()
                     else:
                         return
                 else:

@@ -26,7 +26,7 @@ my_commands = quits + helps + show_cmds + load_cmds + set_cmds + build_cmds + gr
 # Objects
 full_objs = ['f', 'full', 'fl', 'ful', 'fs']
 noSOL_objs = ['ns', 'nosol', 'no_sol', 'nos', 'nsol']
-chn_objs = ['m', 'ms', 'molecule', 'molecules', 'mol', 'mols', 'ml', 'mls', 'c', 'cs', "chain"]
+chn_objs = ['m', 'ms', 'molecule', 'molecules', 'mols', 'ml', 'mls', 'c', 'cs', "chain"]
 atom_objs = ['a', 'as', 'atom', 'atoms', 'at', 'ats', 'am', 'ams']
 res_objs = ['r', 'rs', 'residue', 'residues', 'resid', 'resids', 'res', 'ress', 'reses', 'rdue', 'rdues']
 ndx_objs = ['i', 'is',  'index', 'indexs', 'indexes', 'indices', 'ndx', 'ndxs', 'ndex', 'group', 'g', 'grp', 'n']
@@ -52,6 +52,13 @@ compare_vals = ['c', 'com', 'compare', 'cpr', 'compar', 'cum']
 surf_scheme_curv_vals = ['curv', 'c', 'curvature']
 surf_scheme_dist_vals = ['distance', 'dist', 'd']
 surf_scheme_nout_vals = ['in_out', 'nout', 'no', 'ins_out']
+
+surf_factor_vals = {
+    **{_: 'lin' for _ in {'linear', 'lin', 'line'}},
+    **{_: 'log' for _ in {'log', 'logarithmic', 'log'}},
+    **{_: 'sqr' for _ in {'sqr', 'square', 'sq', 'squared'}},
+    **{_: 'cub' for _ in {'cub', 'cube', 'cubed', 'cubaroonski'}}
+}
 
 
 file_types = ['net', 'vert', 'ball', 'ndx']
@@ -129,6 +136,66 @@ def help_():
     print(splitting_line, "\n")
 
 
+def print_help():
+    print("""
+Vorpy Help
+---------------------------------
+
+Usage:
+  python vorpy.py <file> [options]
+
+File:
+  The first argument after 'vorpy.py' should be the file address of the ball or atom file.
+  If the file is located in the 'Data/test_data' folder, specify the file name without the path or extension.
+  Accepted file extensions include .pdb, .mol, .gro, .cif.
+
+Options:
+  -l <file>
+    Load additional files like vertex files from previous runs, log files, Voronota vertex files, or GROMACS index files.
+
+  -s <setting value>
+    Adjust various simulation parameters:
+      sr - Surface Resolution: Default = 0.2
+      nt - Network Type: Default = Additively Weighted 'aw', Power 'pow', Primitive 'prm', or Compare 'com 'type1' 'type2''
+      mv - Maximum Vertex: Default = 40
+      bm - Box Multiplier: Default = 1.25
+      sc - Surface Color: Default = 'viridis', 'plasma', 'rainbow', or any other matplotlib colormap
+      ss - Surface Scheme: Default = curvature 'curv', inside vs outside spheres 'nout', distance from center 'dist'
+      sf - Surface Coloring Scale: Default = linear 'lin', log 'log', squared 'square', cube 'cube'
+      ar - Adjust Radii: 'element' 'value' or 'atom name' 'value' or 'residue' 'atom name' 'value'
+
+  -g <identifier>
+    Select specific balls or molecular elements using identifiers such as:
+      b - Ball Identifier with index or range 'index1-index2'
+      a - Atom Identifier with element, name, index, or range 'index1-index2'
+      r - Residue Identifier with name, sequence number, index, or range 'index1-index2'
+      c - Chain Identifier with name, index, or range 'index1-index2'
+    Note: Use 'and' to combine components within the same group. Use multiple -g flags for multiple groups.
+
+  -c <calculation_type>
+    Identify additional calculations like interfaces between groups (iface, ifc, i) or calculating vertices up to specified layers (layers)
+
+  -e <export_type>
+    Specify the intensity and type of exports:
+      Options include: small, medium, large, all
+      Export choices: pdb, mol, cif, gro, set_atoms, info, logs, surfs, sep_surfs, edges, sep_edges, verts, sep_verts, shell, shell_edges, shell_verts, atoms, surr_atoms
+
+Examples:
+  Solve the network for tyrosine 2 and methionine 1 in the cambrin molecule, calculate their interface, and export large type results:
+    python vorpy.py cambrin -s sr 0.05 and mv 80 -g tyr 2 -g met 1 -c iface -e large
+
+  Calculate the primitive and power networks for the mg atom in the EDTA_Mg molecule and compare the difference:
+    python vorpy.py EDTA_Mg -s nt compare prm pow -g mg
+
+  Solve the network for hairpin and export the shell with inside and outside parts of the surfaces highlighted at high resolution:
+    python vorpy.py hairpin -s ss nout and sr 0.01 -e shell and pdb
+
+Note:
+  Each option flag and its arguments must be separated by spaces.
+  To use multiple commands for a single option, use 'and' or repeat the flag (except for groups to avoid creating multiple groups).
+""")
+
+
 def print_list(names, list_name=None, width=150, height=30, cutoff=15):
     """
     Prints a long list in columns with numbers and allows the user to scroll through the list
@@ -176,7 +243,7 @@ def print_list(names, list_name=None, width=150, height=30, cutoff=15):
         if my_response.lower() in quits:
             return 'q'
         elif my_response.lower() in helps:
-            help_()
+            print_help()
         nums = None
         for i in range(len(my_response)):
             if my_response[i] in splitters:
@@ -227,7 +294,7 @@ def get_obj(sys, obj=None, return_ndx=True):
         if my_input.lower() in quits:
             return
         elif my_input.lower() in helps:
-            help_()
+            print_help()
         elif my_input.lower() not in my_objects:
             # Tell the user they suck and try again
             invalid_input(my_input)

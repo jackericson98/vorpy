@@ -2,124 +2,111 @@
 
 # Vorpy
 
-## Description
+## Overview
+Vorpy is a command line interface tool designed to process molecular files for computational chemistry and visualization tasks. It supports a variety of file formats and offers extensive options for loading files, setting simulation parameters, selecting specific molecular structures, conducting specialized calculations, and configuring output details.
 
-Volumetric, Area, and distance calculator for analysis of simulated molecules. Using the locations and radii of atoms in simulated molecules individually partitioned atomic cells are created for visualization and comparison. The atoms are partitioned by sampling points along the Voronoi, Power, or Delaunay surfaces of neigboring atoms. Using these partitions, data about atomic bodies and interfaces of interest (residue, protein/DNA, etc.) can be more accurately calculated.
-
-Volume changes directly govern pressure-based technologies in microbiological sterilization and food processing. At the molecular level, the relative incompressibility of bulk water means that volume changes offer a sensitive window into the hydration and dynamic properties of macromolecular conformations in aqueous solution. In contrast, resolution of calorimetric observables such as entropy and heat capacity into hydration and dynamic components between solute and solvent remains theoretically challenging.
+## Installation
+Download the Vorpy tool from the repository and ensure you have Python installed on your system.
 
 ## Usage
 
-### Prerequisites
+For first time users or virtual environment users check to see you have the requirements installed for python
 
-Install the requirements
-```
-python3 -m pip install requirements.txt
-```
+    python -m pip install -r requirements.txt
 
-### Basic Example
+The basic command structure for running Vorpy is:
 
-```
-C:/.../vorpy> python3 vorpy.py EDTA_Mg.pdb
-```
-When just an atom file is provided, the program runs with the defaults for the flags.
+    python vorpy.py <file> [options]
 
-### Change Group
+### File
+- The first argument after `vorpy.py` should be the file address of the ball or atom file.
+- If the file is located in the `Data/test_data` folder, specify the file name without the path or extension.
+- Accepted file extensions include `.pdb`, `.mol`, `.gro`, `.cif`.
 
-```
-C:/.../vorpy> python3 vorpy.py EDTA_Mg.pdb -g a 5
-```
-In this example the 5th atom is selected for construction
+### Options
+#### Load Flag `-l`
+    -l <file>
+Load additional files like vertex files from previous runs, log files, Voronota vertex files, or GROMACS index files.
 
-### Change Setting
-```
-C:/.../vorpy> python3 vorpy.py EDTA_Mg.pdb -s ar c 2
-```
-In this example all carbon atoms raddi are changed to 2 angstroms
+#### Settings Flag `-s`
+    -s <setting value>
+Adjust various simulation parameters:
+- `nt` - Network Type: Default = Additively Weighted `aw`, Power `pow`, Primitive `prm`, or Compare `com 'type1' 'type2'`
+- `mv` - Maximum Vertex: Default = `40`
+- `bm` - Box Multiplier: Default = `1.25`
+- `sr` - Surface Resolution: Default = `0.2` 
+- `sc` - Surface Color Map: Default = `viridis`, `plasma`, `rainbow`, or any other [matplotlib colormap](https://matplotlib.org/stable/gallery/color/colormap_reference.html) (note: '_r' inverts the scheme)
+- `ss` - Surface Coloring Scheme: Default = curvature `curv`, inside vs outside spheres `nout`, distance from center `dist`
+- `sf` - Surface Coloring Scale: Default = linear `lin`, log `log`, squared `square`, cube `cube`
+- `ar` - Adjust Radii: `'element' 'value'` or `'atom name' 'value'` or `'residue' 'atom name' 'value'`. To see the current values for defaults for atomic radii go to the radii file (radii.py) or enter the radii flag`-r`
 
-### Specify exports
-```
-C:/.../vorpy> python3 vorpy.py EDTA_Mg.pdb -e v -e e -e i
-```
-In this example, the vertices, edges and information for the load file are exported
+#### Group Flag `-g`
+    -g <identifier>
+Select specific balls or molecular elements:
+- `b` - Ball Identifier. Used with a ball index `'index'` or range of indices `'index1'-'index2'`.
+- `a` - Atom Identifier. Used with an atom element `'element'`, element name `'element name'`, index `'index'`, or range of indices `'index1'-'index2'`.
+- `r` - Residue Identifier. Used with a residue name `'residue name'` and sequence number `'sequence number'` (optional), index `'index'`, or range of indices `'index1'-'index2'`.
+- `c` - Chain Identifier. Used with a chain name `'chain name'`, index `'index'`, or range of indices `'index1'-'index2'`.
 
-### Commands
+Note: If multiple of the above components are desired in the same group use the `and` qualifier between components. If multiple groups are desired use multiple group flags.  
 
-Use these (separated by spaces) after the atom file
+#### Calculate Flag `-c`
+    -c <calculation_type>
+Identify additional calculations:
+- Interfaces between all combinations of groups (iface, ifc, i)
+- Calculate vertices up to the specified number of layers (layers)
 
-![image](https://user-images.githubusercontent.com/62311229/228362286-d19bb842-d1b5-40e9-9270-20b2ed666366.png)
+#### Exports Flag `-e`
+    -e <export_type>
+Specify the intensity and type of exports:
+- Groups of Exports: Default = `large`, `small`, `medium`, `all`
+- Export choices : 
 
-
-
-### Command Line 
-
-1. Move to the main vorpy directory in a shell or command prompt
-2. Run the following
-   ```
-   py vorpy.py
-   ```
-3. Follow the prompts
-
-### Jupyter Notebook
-
-Run the User_Example.ipynb file from the ./Visualize/Notebooks folder
-
-## Visualization
-
-### Pymol
-
-[Pymol](https://pymol.org/2/) is one of the best ways to view the data produced from vorpy and can be downloaded here:  . Once downloaded run the software through one of the processes above and drag the output files (.off) and the system files (.pdb) into the pymol frame. Be sure to use the "set_pymol_atoms.pml" script to get accurately set atom radii.
+   Molecule File - `pdb`, `mol`, `cif`, `gro`, Set Atoms Radii PyMol Script - `set_atoms`, Group Information - `info`, Network Logs - `logs`, All Surfaces in One File - `surfs`, All Surfaces in Separate Files - `sep_surfs`, All Edges in One File - `edges`, All Edges in Separate Files - `sep_edges`, All Vertices in One File - `verts`, All Vertices in Separate Files - `sep_verts`, Surrounding Surfaces - `shell`, Surrounding Edges - `shell_edges`, Surrounding Vertices - `shell_verts`, Group Atoms - `atoms`, Atoms Surrounding Group - `surr_atoms`
 
 
-## Theory
+## Notes
+- Each option flag and its arguments must be separated by spaces.
+- To use multiple commands for a single option use 'and' or repeat the flag (except for groups to avoid creating multiple groups).
+- Any range can be set with a hyphen and no space (e.g. `-g a 0-100` is a group of the first 101 atoms) 
 
-In a simple Delaunay 3D partitioning the partitioned atomic cells would be constructed using a network of intersecting planes from neighboring atoms. For example, Atom 1 at (0, 0, 0) and Atom 2 at (2, 0, 0) would have a partitioning plane between them, normal to the x-axis including the point (1, 0, 0). 
+### Examples
 
-In a weighted Delaunay 3D partitioning, the radii of the atoms are considered. For example, if Atoms 1 and 2 from the above example have radii 0.5 and 1, the partitioning plane would remain normal to the x-axis but would be closer to Atom 1’s location containing the point (0.75, 0, 0). 
+Separately solve the tyrosine 2 and methionine 1 residues of the cambrin molecule, calculate their interface, and export the large export type of the results
 
-In a Weighted 3D Voronoi S-Network (Medvedev et al, 2006) the partitioning surfaces are curved hyperboloidal surfaces whose curvature is determined by proximity and the relative radii of neighboring atoms. The program is designed to take in files containing atom location (centers) and radii and return a weighted 3D Voronoi S-Network partitioning of all points in space closest to each atom.
+    python vorpy.py cambrin -s sr 0.05 and mv 80 -g tyr 2 -g met 1 -c iface -e large
 
-A 2D depiction of the differences between the partitioning schemes can be seen below:
+Calculate the primitive and power networks for the mg atom in the EDTA_Mg molecule and compare the difference
 
-![image](https://user-images.githubusercontent.com/62311229/228368891-b6af041c-b264-4be2-b233-547d3aa7cf30.png)
+    python vorpy.py EDTA_Mg -s nt compare prm pow -g mg
 
+Solve the network for hairpin and export the shell with the inside and outside parts of the surfaces highlighted at a high resolution
 
-**Figure 1:**
-Different partitioning schemes for two circles with radii 1 and 2. Delaunay (left, red) Power Distance (left middle, blue) Voronoi (right middle, purple) all three (right). Solid green lines represent vectors that are equal in size. Dashed lines represent the projections to the atoms centers. 
-
-![image](https://user-images.githubusercontent.com/62311229/228373404-15fa0a1d-6e3a-456f-8e68-919291615b37.png)
-
-**Figure 2:**
-Different partitioning schemes for 5 circles with radii (top to bottom) 2, 1.5, 0.5, 1, 0.5. Delaunay (left, red) Power Distance (left middle, blue) Voronoi (right middle, purple) all three (right).
-
-In the power distance and weighted voronoi digrams, smaller atoms bend partitionings toward themselves and create smaller cells. Due to the radial nature of atomic forces, these partitionings represent a better picture of reality for intera-atomnic interaction thresholds.   
+    python vorpy.py hairpin -s ss nout and sr 0.01 -e shell and pdb
 
 
+## License
+MIT License
 
-### Process outline
+Copyright (c) 2022 John Ericson
 
-The general overview of how the Voronoi S network is calculated is as follows:
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-![image](https://user-images.githubusercontent.com/62311229/226765763-623c310f-4ff0-4dee-98af-8e078c6c950c.png)
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-First, an atom file is loaded, the information is sorted (location, element, chain, residue, etc.), and the atom objects are created. Next, each vertex (point in space equidistant to the surfaces of 4 neighboring atoms) is found. Shared atoms between vertices are used to determine valid edges and valid surfaces. If two vertices share 3 atoms, we know there exists an edge (hyperbolic curve equidistant to the surfaces of 3 neighboring atoms). If the number of edges with a pair of atom matches the number of vertices with the same pair, there exists a surface (surface equidistant to the surfaces of 2 neighboring atoms). These possible surfaces are then constructed and used for determining surface area, volume, and curvature of these inter-atomic partitions. Lastly, different combinations of surfaces (in the form of .off files), selected atoms (in the form of .pdb files), a network checkpoint (in the form of .csv file), and network information (in the form of .txt files) are then exported at the user’s request.
-
-### Vertex Calculation
-
-Calculating the vertex made by four neighboring atoms is the foundation of the entire vertex finding process. The Voronoi-vertex is the center of a sphere which is tangential to the four input atoms. We want to determine (x, y, z, R) such that:
-
-![image](https://user-images.githubusercontent.com/62311229/226765948-b57d697b-24de-4cd1-89f0-ce48db6dcdef.png)
-
-### Surface Calcuation
-
-The surface between two atoms can be represented as a hyperboloid, ranging from flat to elliptical in the extreme cases of equal radii atoms and enveloped atoms respectively. The calculation of the bisector function between two atoms followed the methods provided in (Hu et al, 2017) in which the solution to the equations for two spheres:
-
-![image](https://user-images.githubusercontent.com/62311229/226766149-3a4a7fdd-db77-4921-a638-ac81b0d74334.png)
-
-provides a general function for a hyperboloid of the form:
-
-![image](https://user-images.githubusercontent.com/62311229/226766198-e5fc6201-504e-4bd6-8ddd-687c7f1be4ac.png)
-
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ## Citation
 
@@ -127,6 +114,6 @@ provides a general function for a hyperboloid of the form:
 
 
 ## Contact
-- Email: jericson1@gsu.edu
+- Email: [jericson1@gsu.edu](mailto:jericson1@gsu.edu)
 - Site: https://cas.gsu.edu/profile/greg-poon/
-- Phone: (404)-413-5491
+- Phone: +1 (404)-413-5491
