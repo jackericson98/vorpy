@@ -266,8 +266,6 @@ def triangulate_2D_Surface(perimeter, all_points=None, res=0.2, center=None, tim
     triangles = Delaunay(good_points).simplices
 
     if filter_hard:
-        plot_polygon(poly)
-        plot_points_and_tris(good_points, )
         new_triangles = []
         for tri in triangles:
             new_triangles.append([re_ass_dict[_] for _ in tri])
@@ -276,21 +274,21 @@ def triangulate_2D_Surface(perimeter, all_points=None, res=0.2, center=None, tim
     #     delaunay_time = time.perf_counter() - start
     #     start = time.perf_counter()
     # Step 5: Make the points and polygon objects
-    if plotting:
-        plot_points_and_tris(all_points, triangles, tcol='r', plot_points=True, Show=False)
-        plot_polygon(poly)
-        plt.show()
+    # if plotting:
+    #     plot_points_and_tris(all_points, triangles, tcol='r', plot_points=True, Show=False)
+    #     plot_polygon(poly)
+    #     plt.show()
     # if timer:
     #     make_polygon_time = time.perf_counter() - start
     #     start = time.perf_counter()
     # Step 6: Check the triangles for the ones that are in and the ones that are out
     in_tris, out_tris, mid_tris, mid_tri_designations = sort_tris(perimeter, triangles, poly, my_points)
 
-    if plotting:
-        plot_points_and_tris(all_points, in_tris, tcol='g')
-        plot_points_and_tris(all_points, mid_tris, tcol='y')
-        plot_polygon(poly)
-        plt.show()
+    # if plotting:
+    #     plot_points_and_tris(all_points, in_tris, tcol='g')
+    #     plot_points_and_tris(all_points, mid_tris, tcol='y')
+    #     plot_polygon(poly)
+    #     plt.show()
 
     # if timer:
     #     tri_desig_time = time.perf_counter() - start
@@ -302,10 +300,10 @@ def triangulate_2D_Surface(perimeter, all_points=None, res=0.2, center=None, tim
     #     tri_reassignment = time.perf_counter() - start
     #
     # spoints, stris = filter_points_and_tris(all_points, in_tris + mid_tris)
-    if plotting:
-        plot_polygon(poly)
-        plot_points_and_tris(all_points, in_tris, tcol='b', plot_points=False, Show=False)
-        plot_points_and_tris(all_points, mid_tris, tcol='r', plot_points=False, Show=True)
+    # if plotting:
+    #     plot_polygon(poly)
+    #     plot_points_and_tris(all_points, in_tris, tcol='b', plot_points=False, Show=False)
+    #     plot_points_and_tris(all_points, mid_tris, tcol='r', plot_points=False, Show=True)
     # plot_points_and_tris(spoints, stris, tcol='r', plot_points=True, Show=True)
     # if timer:
     #     time_vals = {'spider': spider_time, 'Delaunay': delaunay_time, 'designations': tri_desig_time, 'reassign': tri_reassignment}
@@ -313,7 +311,7 @@ def triangulate_2D_Surface(perimeter, all_points=None, res=0.2, center=None, tim
     # Final check to see if we have triangulated correctly
     my_area, poly_area = calc_2d_surf_sa(in_tris + mid_tris, all_points), poly.area
     if round(my_area, 4) != round(poly_area, 4) and not filter_hard:
-        return triangulate_2D_Surface(perimeter, all_points, res, center, timer, True, filter_hard=True)
+        return triangulate_2D_Surface(perimeter, all_points, res, center, timer, False, filter_hard=True)
     return all_points, in_tris + mid_tris
 
 
