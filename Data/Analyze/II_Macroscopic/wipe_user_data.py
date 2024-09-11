@@ -12,7 +12,7 @@ removal_directories = []
 for roott, folders, files in os.walk(user_data):
     for folder in folders:
         for new_roott, sub_folders, filess in os.walk(roott + '/' + folder):
-            if new_roott[-3:] == 'vor' or new_roott[-3:] == 'pow':
+            if new_roott[-3:] == 'vor' or new_roott[-3:] == 'pow' or new_roott[-2:] == 'aw':
                 print(new_roott)
                 removal_directories.append(new_roott)
 
