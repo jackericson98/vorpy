@@ -28,6 +28,8 @@ show_edge = True
 show_verts = True
 show_vert_spheres = False
 show_atoms = True
+edge_color = 'red'
+atom_color = 'blue'
 
 # Declare variables
 title = ''
@@ -97,13 +99,13 @@ ax = fig.add_subplot(projection='3d')
 
 # Plot the edge
 if show_edge:
-    plot_edges([my_edge[0]], fig=fig, ax=ax, colors=['k'], thickness=edge_thickness)
+    plot_edges([my_edge[0]], fig=fig, ax=ax, colors=[edge_color], thickness=edge_thickness)
 # Plot the vertices
 if show_verts:
     plot_verts([_[0] for _ in my_verts], [_[1] for _ in my_verts], fig=fig, ax=ax, spheres=show_vert_spheres, alpha=vert_alpha)
 # Plot the atoms
 if show_atoms:
-    plot_balls(alocs=[_[0] for _ in edge_atoms], arads=[_[1] for _ in edge_atoms], alpha=atom_alpha, fig=fig, ax=ax)
+    plot_balls(alocs=[_[0] for _ in edge_atoms], arads=[_[1] for _ in edge_atoms], colors=[atom_color for _ in edge_atoms], alpha=atom_alpha, fig=fig, ax=ax)
 
 # Set the scales for the figure
 ax.set_xlim(-5, 5)
