@@ -22,6 +22,7 @@ fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
 
 plot_circles([my_circ[0], my_circ[2]], [my_circ[1], my_circ[3]], fig=fig, ax=ax, colors=['k', 'k'])
+ax.scatter([my_circ[0][0], my_circ[2][0]], [my_circ[0][1], my_circ[2][1]], [my_circ[0][2], my_circ[2][2]], c='k', alpha=0.5)
 
 plot_balls(locs, rads, fig=fig, ax=ax, colors=['b', 'b', 'b'], res=10, alpha=0.5)
 
