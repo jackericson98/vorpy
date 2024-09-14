@@ -1,3 +1,4 @@
+import os
 import time
 import csv
 from os import path
@@ -311,7 +312,13 @@ class System:
 
         # Make the data file location
         if data_file is None or not path.exists(data_file):
-            data_file = self.files['root_dir'] + '/Data/user_data/foam_data.csv'
+
+            cwd = os.getcwd()
+            os.chdir(self.files['dir'])
+            os.chdir('..')
+            data_file = os.getcwd() + '/foam_data.csv'
+            os.chdir(cwd)
+            # data_file = self.files['root_dir'] + '/Data/user_data/foam_data.csv'
 
         try:
             with open(data_file, 'a') as foam_file:
