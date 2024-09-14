@@ -36,14 +36,14 @@ def setup_plot(fig=None, ax=None, dfo=None, grid=False, bg_color=None, axes_equa
 
 
 # Plot spheres function. Plots the spheres specified
-def plot_balls(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=None,
-               bg_color=None, res=4, axes_scale='equal'):
+def plot_balls(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=0.5,
+               bg_color=None, res=10, axes_scale='equal'):
 
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Get the atoms colors
     if colors is None:
-        colors = ['pink'for _ in range(abs(len(alocs)))]
+        colors = ['k'for _ in range(abs(len(alocs)))]
     # If the number of atoms to plot is more than 80, then plot them as points rather than spheres.
     if len(alocs) > 80:
         for i in range(len(alocs)):
@@ -69,8 +69,8 @@ def plot_balls(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=Non
         plt.show()
 
 
-def plot_circles(locations, radii, colors=None, fig=None, ax=None, Show=False, grid=False, alpha=None,
-                    bg_color=None):
+def plot_circles(locations, radii, colors=None, fig=None, ax=None, Show=False, grid=False, alpha=0.5,
+                    bg_color=None, linewidth=2):
     # Set up the plot
     if not ax:
         fig = plt.figure()
@@ -82,7 +82,7 @@ def plot_circles(locations, radii, colors=None, fig=None, ax=None, Show=False, g
 
     # Default colors to 'pink' if none are provided
     if colors is None:
-        colors = ['pink' for _ in range(len(locations))]
+        colors = ['k' for _ in range(len(locations))]
 
     # Plot each circle
     for loc, rad, color in zip(locations, radii, colors):
@@ -93,7 +93,7 @@ def plot_circles(locations, radii, colors=None, fig=None, ax=None, Show=False, g
         z = np.full_like(x, loc[2])  # z is constant for each circle since it's 2D in 3D space
 
         # Plot the circle
-        ax.plot(x, y, z, color=color, alpha=alpha)
+        ax.plot(x, y, z, color=color, alpha=alpha, linewidth=linewidth)
 
     # Setting the aspect ratio to be equal
     ax.set_box_aspect([1, 1, 1])  # For equal aspect ratio
@@ -165,7 +165,7 @@ def plot_surfs(spnts, stris, simps=True, fig=None, ax=None, Show=False, dfo=None
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Set up the colors
     if colors is None:
-        colors = ['w' for _ in range(len(spnts))]
+        colors = ['b' for _ in range(len(spnts))]
     elif len(colors) < len(spnts):
         colors = colors + ['w' for _ in range(len(spnts) - len(colors))]
     # Plot the surfaces
