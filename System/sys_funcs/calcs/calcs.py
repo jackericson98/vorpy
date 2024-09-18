@@ -223,6 +223,25 @@ def calc_length(points):
     return length
 
 
+def calc_sphericity(volume, surface_area):
+    """
+    Calculate the sphericity of a geometric object based on its volume and surface area.
+
+    Parameters:
+    - volume (float): The volume of the object.
+    - surface_area (float): The surface area of the object.
+
+    Returns:
+    - float: The sphericity of the object.
+    """
+    if volume <= 0 or surface_area <= 0:
+        raise ValueError("Volume and surface area must be positive numbers.")
+
+    # Calculate sphericity using the geometric formula
+    sphericity = (np.pi ** (1/3) * (6 * volume) ** (2/3)) / surface_area
+    return sphericity
+
+
 @jit(nopython=True)
 def rotate_points1(vec, points, reverse=False):
     """
