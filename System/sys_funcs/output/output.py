@@ -14,6 +14,9 @@ def export_min1(sys):
         group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
         group.exports(info=True)
+    if sys.ifaces is not None:
+        for iface in sys.ifaces:
+            iface.export(info=True)
 
 
 def export_min2(sys):
@@ -22,6 +25,9 @@ def export_min2(sys):
         group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
         group.export(info=True, shell=True, logs=True)
+    if sys.ifaces is not None:
+        for iface in sys.ifaces:
+            iface.export(info=True)
 
 
 def export_med(sys):
@@ -30,6 +36,9 @@ def export_med(sys):
         group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
         group.exports(shell=True, info=True, edges=True, atoms=True, logs=True)
+    if sys.ifaces is not None:
+        for iface in sys.ifaces:
+            iface.export(surfs=True, atoms=True, info=True)
 
 
 def export_large(sys):
@@ -40,6 +49,9 @@ def export_large(sys):
         group.exports(shell=True, info=True, edges=True, verts=True, atoms=True, surr_atoms=True, logs=True)
         os.mkdir(group.dir + "/atoms")
         write_atom_cells(group.net, group.atms, directory=group.dir + "/atoms")
+    if sys.ifaces is not None:
+        for iface in sys.ifaces:
+            iface.export(balls=True, surfs=True, edges=True, verts=True, info=True)
 
 
 def export_all(sys):
@@ -51,6 +63,9 @@ def export_all(sys):
                       sep_verts=True, verts=True, edges=True, surr_atoms=True, logs=True)
     os.mkdir(sys.files['dir'] + "/atoms")
     write_atom_cells(sys.net, sys.net.atoms['num'], directory=sys.files['dir'] + "/atoms", verts=True, edges=True)
+    if sys.ifaces is not None:
+        for iface in sys.ifaces:
+            iface.export(all=True)
 
 
 ################################################ Other Exports #########################################################
@@ -95,7 +110,10 @@ def set_sys_dir(sys, dir_name=None):
     if sys.files['root_dir'] is not None and not os.path.exists(sys.files['root_dir'] + "/Data/user_data"):
         os.mkdir(sys.files['root_dir'] + "/Data/user_data")
     elif sys.files['root_dir'] is None and not os.path.exists("./Data/user_data"):
-        os.mkdir("./Data/user_data")
+        if not os.path.exists('./Data'):
+            os.mkdir(os.path.abspath('.') + '/Data/user_data')
+        else:
+            os.mkdir(os.path.abspath('./Data') + '/user_data')
 
     # If no outer directory was specified use the directory outside the current one
     if dir_name is None:
