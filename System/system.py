@@ -1,6 +1,3 @@
-import os
-import time
-import csv
 from os import path
 from System.sys_funcs.input.pdb import read_pdb
 from System.sys_funcs.input.cif import read_cif
@@ -15,12 +12,13 @@ from System.Group.group import Group
 from numpy import seterr
 from Visualize.GUIs.periodic_table_GUI import elements
 from radii import special_radii, element_radii
+from System.sys_funcs.calcs.compare import compare_networks, make_interfaces
 
 
 class System:
     def __init__(self, file=None, files=None, spheres=None, verts_file=None, balls_file=None, network_file=None,
                  index_file=None, frame_files=None, output_directory=None, gui=None, root_dir=None, print_actions=False,
-                 atoms=None, residues=None, chains=None, segments=None, groups=None):
+                 atoms=None, residues=None, chains=None, segments=None, groups=None, ifaces=None):
         """
         Class used to import files of all types and return a System
         :param file: Base system file address
@@ -57,6 +55,7 @@ class System:
 
         # Settings
         self.groups = groups                # Groups              :   List of groups in the system
+        self.ifaces = ifaces                # Interfaces          :   List of interface objects between groups
         self.ndxs = None                    # Indices             :   List of indices used to create groups
         self.elements = elements            # Elements            :   List of elements with mass, number, radius, group
         self.element_radii = element_radii  # Element Radii       :   Dictionary of elements and their radii
@@ -150,7 +149,7 @@ class System:
             read_gro(self)
 
         # Read MOL file
-        elif self.files['base_files'][-3:] == "mol":
+        elif self.files['base_file'][-3:] == "mol":
             read_mol(self)
 
         # Name the system
@@ -256,84 +255,15 @@ class System:
 
     def compare_networks(self, group1, group2, data_file=None):
         """
-        The goal is to take the comparison instructions and make two separate groups with their networks and compare
-        their results
+
         """
-        start = time.perf_counter()
-        # Create the data storage
-        data = {'vdn1': [], 'sdn1': [], 'vdn2': [], 'sdn2': [], 'rads': []}
-        # Compare the networks
-        for i, ball1 in group1.net.balls.iterrows():
-            # Get the equivalent ball from the second group
-            ball2 = group2.net.balls.iloc[i]
-            # Make sure both cells are complete
-            if ball1['complete'] and ball2['complete']:
+        compare_networks(self, group1, group2, data_file)
 
-                # Calculate the differences in volume and surface area for each network as the standard
-                vdn1, sdn1, vdn2, sdn2, rads = ((ball2['vol'] - ball1['vol']) / ball1['vol'],
-                                                (ball2['sa'] - ball1['sa']) / ball1['sa'],
-                                                (ball1['vol'] - ball2['vol']) / ball2['vol'],
-                                                (ball1['sa'] - ball2['sa']) / ball2['sa'], ball1['rad'])
-                # Check for outliers
-                if any([_ > 10 for _ in [vdn1, sdn1, vdn2, sdn2]]):
-                    print('Outlier in comparison detected: {}'.format(ball1['name']))
-                    continue
-                # Add the data
-                data['vdn1'].append(vdn1)
-                data['sdn1'].append(sdn2)
-                data['vdn2'].append(vdn2)
-                data['sdn2'].append(sdn2)
-                data['rads'].append(ball1['rad'])
-
-                # Filter for radicals
-                if any([data[_][-1] > 10 for _ in data]):
-                    print(ball1['name'])
-                    continue
-        # Create the data line to be added to the data file
-        nbs, my_line = len(data['vdn1']), []
-        if self.foam_data is None:
-            self.foam_data = []
-        if nbs > 0:
-            my_line = ("\r{}".format(self.files['dir']), *self.foam_data,
-                       round(sum([abs(_) for _ in data['vdn1']]) / nbs, 5),  # Mean absolute difference
-                       round(sum([abs(_) for _ in data['sdn1']]) / nbs, 5),  # Mean absolute difference
-                       round(sum([abs(_) for _ in data['vdn2']]) / nbs, 5),  # Mean absolute difference
-                       round(sum([abs(_) for _ in data['sdn2']]) / nbs, 5),  # Mean absolute difference
-                       round(sum(data['vdn1']) / nbs, 5),  # Percent Difference
-                       round(sum(data['sdn1']) / nbs, 5),  # Percent Difference
-                       round(sum(data['vdn2']) / nbs, 5),  # Percent Difference
-                       round(sum(data['sdn2']) / nbs, 5),  # Percent Difference
-                       # round(np.polyfit(data['rads'], data['vdn1'], 1)[0], 5),  # Slope of the val by radius
-                       # round(np.polyfit(data['rads'], data['sdn1'], 1)[0], 5),  # Slope of the val by radius
-                       # round(np.polyfit(data['rads'], data['vdn2'], 1)[0], 5),  # Slope of the val by radius
-                       # round(np.polyfit(data['rads'], data['sdn2'], 1)[0], 5),  # Slope of the val by radius
-                       nbs, round((time.perf_counter() - start), 3))
-        print(*my_line, end="")
-
-        # Make the data file location
-        if data_file is None or not path.exists(data_file):
-
-            cwd = os.getcwd()
-            os.chdir(self.files['dir'])
-            os.chdir('..')
-            data_file = os.getcwd() + '/foam_data.csv'
-            os.chdir(cwd)
-            # data_file = self.files['root_dir'] + '/Data/user_data/foam_data.csv'
-
-        try:
-            with open(data_file, 'a') as foam_file:
-                foam_writer = csv.writer(foam_file)
-                foam_writer.writerow(my_line)
-        except PermissionError:
-            with open(data_file[:-4] + '1.csv', 'a') as foam_file:
-                foam_writer = csv.writer(foam_file)
-                foam_writer.writerow(my_line)
-
-    def export_verts(self):
+    def make_interfaces(self):
         """
-        Exports the vertices after they are calculated
+
         """
-        write_verts(self.net)
+        make_interfaces(self)
 
     def set_output_directory(self, directory=None):
         """
