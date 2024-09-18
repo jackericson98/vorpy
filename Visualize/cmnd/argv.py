@@ -19,7 +19,7 @@ Argv rules:
 """
 
 
-def argv_export(my_sys, usr_npt, interfaces=False, add_on=None):
+def argv_export(my_sys, usr_npt, add_on=None):
     """
     Exports the specified elements from the system.
 
@@ -31,18 +31,10 @@ def argv_export(my_sys, usr_npt, interfaces=False, add_on=None):
         'info' - exports only the information files for the system and each group
         'surfs' - exports the built surfaces individually from the system and all group surfaces + verts and edges
 
-
-    :param interfaces:
     :param my_sys:
     :param usr_npt:
     :return:
     """
-    # Check for interfaces
-    if interfaces:
-        for my_group in my_sys.groups:
-            my_group.exports(iface=True)
-        if len(usr_npt) == 0:
-            return
     # Go through each of the inputs in the exports
     if len(usr_npt) == 0:
         usr_npt.append(['default'])
@@ -189,6 +181,8 @@ def argv(my_sys):
     else:
         for grp in my_sys.groups:
             grp.build()
+    # Make the system's interfaces
+    my_sys.make_interfaces()
     # Export everything
     argv_export(my_sys, cmnds['xpt'])
 
