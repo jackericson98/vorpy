@@ -124,11 +124,10 @@ for value in {'vol', 'sa'}:
     fig, ax = plt.subplots(figsize=(8, 6))
 
     for i, sd in enumerate(my_sds):
-        print(sd)
         # Colors for each line based on 'sd' which is used as an index into the colormap
         color = cmap(norm(sd))
-        ax.plot(my_densities, datavsm[i], color=color)
-        ax.fill_between(my_densities, datavsms[i], datavsps[i], color=color, alpha=0.2)
+        ax.plot(my_densities, datavvm[i], color=color)
+        ax.fill_between(my_densities, datavvms[i], datavvps[i], color=color, alpha=0.2)
 
     # Adding a color bar that uses the created ScalarMappable
     sm.set_array([])
@@ -138,10 +137,10 @@ for value in {'vol', 'sa'}:
 
     # Set plot titles and labels
     ax.set_xticks(np.arange(my_densities[0] + 0.05, my_densities[-1] + 0.05, 0.1))
-    ax.set_ylim([0, 45])
-    # ax.set_title('{} {} Power {} % Diff'.format(plot_type.capitalize(), cell_type, {'sa': 'Surface Area', 'vol': 'Volume'}[value]), fontsize=20)
+    ax.set_ylim([0, 50])
+    ax.set_title('{} {} Power {}\nAbsolute Difference'.format('Gamma', cell_type, {'sa': 'Surface Area', 'vol': 'Volume'}[value]), fontsize=20)
     ax.set_xlabel('Density', fontsize=25)
-    ax.set_ylabel('% Difference', fontsize=25)
+    ax.set_ylabel('Absolute Difference', fontsize=25)
     ax.tick_params(axis='both', which='major', labelsize=20, width=2, length=12)
 
     cbar.ax.tick_params(labelsize=20, size=10, width=2, length=12)
