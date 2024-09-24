@@ -70,7 +70,7 @@ def plot_balls(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=Non
 
 
 def plot_circles(locations, radii, colors=None, fig=None, ax=None, Show=False, grid=False, alpha=0.5,
-                    bg_color=None, linewidth=2):
+                 bg_color=None, linewidth=2, center_point=False):
     # Set up the plot
     if not ax:
         fig = plt.figure()
@@ -94,6 +94,10 @@ def plot_circles(locations, radii, colors=None, fig=None, ax=None, Show=False, g
 
         # Plot the circle
         ax.plot(x, y, z, color=color, alpha=alpha, linewidth=linewidth)
+
+        # If the center point is requested
+        if center_point:
+            ax.scatter([loc[0]], [loc[1]], [loc[2]], c=color, s=linewidth)
 
     # Setting the aspect ratio to be equal
     ax.set_box_aspect([1, 1, 1])  # For equal aspect ratio
