@@ -268,15 +268,15 @@ def calc_flat_vert(locs, rads, power=False):
             center = 0.5 * r + array(ball_rads[0][0])
         coeffs.append(rn.tolist() + [dot(rn, center)])
     # Unpack the coefficients for the planes
-    x1, y1, z1, c1 = coeffs[0]
-    x2, y2, z2, c2 = coeffs[1]
-    x3, y3, z3, c3 = coeffs[2]
+    a1, b1, c1, d1 = coeffs[0]
+    a2, b2, c2, d2 = coeffs[1]
+    a3, b3, c3, d3 = coeffs[2]
     # Find the discriminant?
-    disc = z1 * y2 * x3 - y1 * z2 * x3 - z1 * x2 * y3 + x1 * z2 * y3 + y1 * x2 * z3 - x1 * y2 * z3
+    disc = c1 * b2 * a3 - b1 * c2 * a3 - c1 * a2 * b3 + a1 * c2 * b3 + b1 * a2 * c3 - a1 * b2 * c3
     # Calculate the intersection numerators
-    x_numerator = c1 * z2 * y3 - z1 * c2 * y3 - c1 * y2 * z3 + y1 * c2 * z3 + z1 * y2 * c3 - y1 * z2 * c3
-    y_numerator = - c1 * z2 * x3 + z1 * c2 * x3 + c1 * x2 * z3 - x1 * c2 * z3 - z1 * x2 * c3 + x1 * z2 * c3
-    z_numerator = c1 * y2 * x3 - y1 * c2 * x3 - c1 * x2 * y3 + x1 * c2 * y3 + y1 * x2 * c3 - x1 * y2 * c3
+    x_numerator = d1 * c2 * b3 - c1 * d2 * b3 - d1 * b2 * c3 + b1 * d2 * c3 + c1 * b2 * d3 - b1 * c2 * d3
+    y_numerator = - d1 * c2 * a3 + c1 * d2 * a3 + d1 * a2 * c3 - a1 * d2 * c3 - c1 * a2 * d3 + a1 * c2 * d3
+    z_numerator = d1 * b2 * a3 - b1 * d2 * a3 - d1 * a2 * b3 + a1 * d2 * b3 + b1 * a2 * d3 - a1 * b2 * d3
     # Calculate the location of the intersection of the planes
     x, y, z = x_numerator / disc, y_numerator / disc, z_numerator / disc
     # Get the radius
