@@ -64,12 +64,17 @@ with open(os.getcwd() + '/density_adjustments.txt', 'r') as density_adjustments:
         num_balls = split_line[3]
         # if split_line[5] == 'lognormal':
         #     continue
+
+        ball_dens, act_dens = float(split_line[4]), float(split_line[0])
+        if ball_dens < act_dens:
+            continue
         if num_balls in data:
             data[num_balls]['xs'].append(float(split_line[4]))
-            data[num_balls]['ys'].append(float(split_line[0]))
+            data[num_balls]['ys'].append(1 - (act_dens/ball_dens))
             data[num_balls]['cv'].append(float(split_line[2]))
         else:
-            data[num_balls] = {'xs': [float(split_line[4])], 'ys': [float(split_line[0])], 'cv': [float(split_line[2])]}
+            data[num_balls] = {'xs': [float(split_line[4])],
+                               'ys': [1 - (act_dens/ball_dens)], 'cv': [float(split_line[2])]}
 
 
 # Define the model function
@@ -83,28 +88,28 @@ sorted_data = {key: data[key] for key in sorted(data)}
 cmap = plt.cm.get_cmap('rainbow')
 
 for i, _ in enumerate(sorted_data):
-    xs, ys = sorted_data[_]['ys'], sorted_data[_]['xs']
+    xs, ys = sorted_data[_]['xs'], [100 * __ for __ in sorted_data[_]['ys']]
     colors1 = [cmap(_) for _ in sorted_data[_]['cv']]
     # Perform the curve fitting
-    params, cov = curve_fit(sqrt_model, xs, ys)
+    slope, intercept = np.polyfit(xs, ys, 1)
 
     # Extract the parameters
-    a, b, c = params
-    print('{} Balls - y = {}x^2 + {}x + {}'.format(_, a, b, c))
+
+    print('{} Balls - y = {}x + {}'.format(_, slope, intercept))
     x_fit = np.linspace(min(xs), max(xs), 100)
-    y_fit = [a * x ** 2 + b * x + c for x in x_fit]
+    y_fit = [slope * x + intercept for x in x_fit]
     ten_factor = {'10': '\u00B9', '100': '\u00B2', '1000': '\u00B3', '10000': '\u2074', '100000': '\u2075'}
     plt.plot(x_fit, y_fit, c=colors[i], label='10{}'.format(ten_factor[_]))
     plt.scatter(xs, ys, c=colors[i], alpha=0.1)
 
-plt.ylabel("Non-Overlap\nDensity", fontdict=dict(size=25))
-plt.xlabel('Overlap\nDensity', fontdict=dict(size=25))
+plt.ylabel("% Overlap", fontdict=dict(size=25))
+plt.xlabel('Non-Overlap Density', fontdict=dict(size=25))
 # plt.xticks(rotation=45, ha='right', font=dict(size=xtick_label_size))
-plt.yticks([0.1, 0.3, 0.5], font=dict(size=20))
+plt.yticks(font=dict(size=20))
 plt.xticks([0.10, 0.30, 0.50, 0.70], font=dict(size=20))
 plt.tick_params(axis='both', width=2, length=12)
 legend = plt.legend(title='# of Balls', loc='upper left', shadow=True, ncol=1, prop={'size': 12})
 legend.get_title().set_fontsize(str(15))
-plt.title('Overlap vs Non-Overlap\nDensity', fontsize=25)
+plt.title('% Overlap vs Non-Overlap\nDensity', fontsize=25)
 plt.tight_layout()
 plt.show()
