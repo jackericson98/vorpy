@@ -7,7 +7,7 @@ from System.Group.group import Group
 from Data.Analyze.tools.plot_templates.scatter import scatter
 from Data.Analyze.tools.compare.read_logs import read_logs
 from Data.Analyze.tools.compare.get_res_data import residue_data
-from Data.Analyze.tools.calcs import sort_lists
+from System.sys_funcs.calcs.sorting import sort_lists
 import matplotlib.pyplot as plt
 
 amino_dict = {

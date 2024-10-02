@@ -1,7 +1,7 @@
 from System.Network.verts.calc_vert import calc_flat_vert, calc_vert
 from System.Network.verts.verify_site import verify_site
 from System.sys_funcs.calcs.calcs import calc_dist, calc_com
-from System.sys_funcs.calcs.sorting import box_search, get_balls
+from System.sys_funcs.calcs.sorting import box_search, get_balls, sort_lists
 from System.sys_funcs.calcs.circle import calc_circ
 import bisect
 import numpy as np
@@ -40,6 +40,12 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, ne
     my_boxes = [box_search(loc=locs[edge_balls[_]]) for _ in range(3)]
     # Gather the surrounding balls or the entire list of balls we could be comparing to
     surr_balls = get_balls(cells=my_boxes, dist=max_vert)
+    # Calculate the edge balls' com
+    edge_com = calc_com([locs[_] for _ in edge_balls])
+    # Get the distance from the edge com for each of the surr balls
+    dists = [calc_dist(edge_com, locs[_]) for _ in surr_balls]
+    # Sort the distances and surr balls
+    dists, surr_balls = sort_lists(dists, surr_balls)
     # Se the initial vert size
     mv_inc = 0.45
     # Look for the vert and keep increasing box size until the vert is found

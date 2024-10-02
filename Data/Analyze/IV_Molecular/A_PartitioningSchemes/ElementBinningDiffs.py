@@ -9,7 +9,7 @@ from System.Group.group import Group
 from Data.Analyze.tools.plot_templates.bar import bar
 from Data.Analyze.tools.plot_templates.scatter import scatter
 import matplotlib.pyplot as plt
-from Data.Analyze.tools.calcs import sort_lists
+from System.sys_funcs.calcs.sorting import sort_lists
 
 amino_bbs = ['CA', 'HA', 'HA1', 'HA2', 'N', 'HN', 'H', 'C', 'O', 'OC1', 'OC2', 'OT1', 'OT2', 'H1', 'H2', 'H3']
 amino_scs = ['CB', 'HB', 'HB1', 'HB2', 'HB3',

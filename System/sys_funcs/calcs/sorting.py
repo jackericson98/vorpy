@@ -33,7 +33,7 @@ def box_search(loc):
 
 def get_balls(cells, dist=0, cell_reach=0, my_balls_matrix=None, my_sub_box_size=None, my_max_ball_rad=None):
     """
-    Takes in the cells and the number of additional cells to search and returns an ball list
+    Takes in the cells and the number of additional cells to search and returns a ball list
     :param cells: The initial boxes in the network to stem from
     :param dist: The number of cells out from the initial set of cells to search
     """
@@ -202,3 +202,21 @@ def get_sys_type(my_sys):
                     break
                 sys_type = 'Nucleic'
     return sys_type
+
+
+def sort_lists(*lists, reverse=False):
+    if not lists:
+        return []
+
+    # Ensure that all lists have the same length as the first list
+    if not all(len(lst) == len(lists[0]) for lst in lists):
+        raise ValueError("All lists must have the same length")
+
+    # Combine the lists into a list of tuples for sorting
+    combined = list(zip(*lists))
+
+    # Sort based on the elements of the first list
+    sorted_combined = sorted(combined, key=lambda x: x[0], reverse=reverse)
+
+    # Unzip the sorted tuples back into separate lists
+    return list(map(list, zip(*sorted_combined)))
