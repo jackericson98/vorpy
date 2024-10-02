@@ -9,7 +9,7 @@ class Group:
     def __init__(self, sys, name=None, atoms=None, molecules=None, chains=None, residues=None,
                  settings=None, build_net=False, surf_res=0.2, box_size=1.5, max_vert=40, build_type='all', net=None,
                  net_type='aw', surf_col='plasma', surf_scheme='curv', num_splits=None, print_metrics=True,
-                 scheme_factor='log'):
+                 scheme_factor='log', make_net=False):
         # System attributes
         self.sys = sys                  # Network            :    Network of the System
         self.name = name                # Name               :    Name of the group
@@ -51,7 +51,11 @@ class Group:
         # Process the inputs
         self.process_inputs()
 
-        # Make the Networks
+        # Make the network
+        if make_net:
+            self.make_net()
+
+        # Build the Networks
         if build_net:
             self.build()
 
@@ -82,11 +86,12 @@ class Group:
         # Set up the names list that is going to be combined
         names = []
         # Get the residue names
-        if len(self.rsds) <= 2:
+        if self.rsds is not None and len(self.rsds) <= 2:
             for res in self.rsds:
                 names.append(res.name + str(res.seq))
-        elif len(self.rsds) == 2:
-            pass
+            self.name = '_'.join(names)
+        else:
+            self.name = self.sys.name + '_group_0'
 
     # Process inputs method. Goes through the atoms, residues and molecules provided in the group
     def process_inputs(self):
@@ -99,6 +104,9 @@ class Group:
         self.rsds = self.rsds if self.rsds is not None else []
         self.chns = self.chns if self.chns is not None else []
         self.mols = self.mols if self.mols is not None else []
+        # Check for empty groups
+        if len(self.atms + self.rsds + self.chns + self.mols) == 0:
+            self.atms = [i for i in range(len(self.sys.balls))]
         # Add the provided atoms to the self.atoms list
         self.add_balls(self.atms)
         for resid in self.rsds:
@@ -122,6 +130,13 @@ class Group:
                 self.sys.groups.append(self)
             # Set the name
             self.name = '{}_group_{}'.format(self.sys.name, self.sys.groups.index(self))
+
+    def make_net(self):
+        """
+        Creates the network without an obligation to necessarily make it
+        """
+        self.net = Network(locs=self.sys.balls['loc'], rads=self.sys.balls['rad'], group=self.ball_ndxs,
+                           settings=self.settings, sort_balls=True)
 
     def build(self):
         """
