@@ -7,9 +7,6 @@ from System.sys_funcs.output.net import write_verts
 
 
 def find_net_verts(net):
-    # Get the global variables
-    global_vars(net.box['sub_boxes'], net.box['verts'], net.settings['num_splits'], max(net.balls['rad']),
-                net.box['sub_size'])
 
     # Not sure what this does
     # vert_list_real = net.get_real_verts()

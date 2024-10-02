@@ -13,6 +13,7 @@ from System.Network.edges.build_edge import build_edge
 from System.Network.surfs.build_surfs import build_surfs
 from System.sys_funcs.calcs.calcs import calc_length, get_time, calc_dist, calc_com
 from System.sys_funcs.calcs.circle import calc_circ
+from System.sys_funcs.calcs.sorting import global_vars
 from numpy import array, inf, cbrt, sqrt, pi
 from Visualize.mpl_visualize import plot_surfs, plot_balls, plot_verts
 
@@ -20,7 +21,7 @@ from Visualize.mpl_visualize import plot_surfs, plot_balls, plot_verts
 class Network:
     """Network object."""
     def __init__(self, locs, rads, names=None, group=None, settings=None, balls=None, verts=None, edges=None,
-                 surfs=None, box=None):
+                 surfs=None, box=None, sort_balls=False, build_net=False):
 
         # Main network defining objects
         self.group = group                # Group         : List of loc and rad indices for calculation
@@ -41,6 +42,9 @@ class Network:
             names = [str(i) for i in range(len(locs))]
         if self.balls is None:
             self.balls = pd.DataFrame({'loc': locs, 'rad': rads, 'num': [i for i in range(len(locs))], 'name': names})
+        # Sort the balls if need be
+        if sort_balls:
+            self.sort_balls()
 
     def calc_box(self, locs, rads, return_val=False, box_size=None):
         """
@@ -117,6 +121,9 @@ class Network:
             my_boxes.append(box_ndxs)
         # set the box data
         self.balls['box'] = my_boxes
+        # Set the global variables
+        global_vars(self.box['sub_boxes'], self.box['verts'], self.settings['num_splits'], max(self.balls['rad']),
+                    self.box['sub_size'])
 
     def find_verts(self):
         """
@@ -270,7 +277,8 @@ class Network:
         if self.settings['build_type'] == 'logs':
             limit_mem = True
         # Sort the balls in the network
-        self.sort_balls()
+        if self.box is None:
+            self.sort_balls()
         # Check to see if there are vertices loaded
         if self.verts is None:
             # Find the vertices
