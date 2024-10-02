@@ -7,12 +7,12 @@ from System.sys_funcs.input.net import read_net, read_ndx
 from System.sys_funcs.input.vta import read_vta_data
 from System.sys_funcs.input.verts import read_verts
 from System.sys_funcs.output.output import set_sys_dir, export_sys
-from System.sys_funcs.output.net import write_verts
 from System.Group.group import Group
 from numpy import seterr
 from Visualize.GUIs.periodic_table_GUI import elements
 from radii import special_radii, element_radii
 from System.sys_funcs.calcs.compare import compare_networks, make_interfaces
+from System.sys_funcs.calcs.sorting import get_balls, box_search
 
 
 class System:
@@ -246,12 +246,15 @@ class System:
             sol_var = self.sol.name + " - " + str(len(self.sol.residues)) + " residues"
         print(atoms_var, resids_var, chains_var, sol_var)
 
-    def create_group(self, atoms=None, residues=None, chains=None):
+    def create_group(self, atoms=None, residues=None, chains=None, make_net=False):
         """
         Creates a group for the system
         """
+        # Check to see of any groups have been made
+        if self.groups is None:
+            self.groups = []
         # Create the group
-        self.groups.append(Group(sys=self, atoms=atoms, residues=residues, chains=chains))
+        self.groups.append(Group(sys=self, atoms=atoms, residues=residues, chains=chains, make_net=make_net))
 
     def compare_networks(self, group1, group2, data_file=None):
         """
