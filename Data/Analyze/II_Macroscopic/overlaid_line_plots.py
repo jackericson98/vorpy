@@ -43,11 +43,15 @@ else:
 print(plot_type, cell_type)
 
 lists = {}
-
+my_densities, my_sds = [], []
 for dp in my_data:
     # Check if the data has been added before
     if dp['rad std'] in lists:
+        if dp['rad std'] not in my_sds:
+            my_sds.append(dp['rad std'])
         if dp['density'] in lists[dp['rad std']]:
+            if dp['density'] not in my_densities:
+                my_densities.append(dp['density'])
             lists[dp['rad std']][dp['density']][0].append(dp['vol diff vor'])
             lists[dp['rad std']][dp['density']][1].append(dp['sa diff vor'])
             lists[dp['rad std']][dp['density']][2].append(dp['vol diff pow'])
@@ -59,11 +63,13 @@ for dp in my_data:
         lists[dp['rad std']] = {
             dp['density']: [[dp['vol diff vor']], [dp['sa diff vor']], [dp['vol diff pow']], [dp['sa diff pow']]]}
 
-for _ in lists:
-    print(_, [__ for __ in lists[_]])
+# for _ in lists:
+#     print(_, [__ for __ in lists[_]])
 
-my_densities = [round(_, 3) for _ in np.linspace(0.05, 0.5, 10)]
-my_sds = [round(_, 3) for _ in np.linspace(0.05, 0.5, 10)]
+# my_densities = [round(_, 3) for _ in np.linspace(0.05, 0.5, 10)]
+# my_sds = [round(_, 3) for _ in np.linspace(0.05, 0.5, 10)]
+my_densities.sort()
+my_sds.sort()
 
 # Initialize lists using list comprehensions
 datavvm, datavsm, datapvm, datapsm = [[] for _ in my_sds], [[] for _ in my_sds], [[] for _ in my_sds], [[] for _ in my_sds]
@@ -116,7 +122,7 @@ for i, num in enumerate(my_sds):
 
 print(datavvm)
 
-for value in {'vol', 'sa'}:
+for value in ['vol', 'sa']:
     # Coefficient of Variation (CV) and Density values
     cmap = plt.cm.rainbow  # Choose a colormap that does not have yellow and works well in grayscale
     norm = Normalize(vmin=min(my_sds), vmax=max(my_sds))
@@ -126,8 +132,12 @@ for value in {'vol', 'sa'}:
     for i, sd in enumerate(my_sds):
         # Colors for each line based on 'sd' which is used as an index into the colormap
         color = cmap(norm(sd))
-        ax.plot(my_densities, datavvm[i], color=color)
-        ax.fill_between(my_densities, datavvms[i], datavvps[i], color=color, alpha=0.2)
+        if value == 'vol':
+            ax.plot(my_densities, datavvm[i], color=color)
+            ax.fill_between(my_densities, datavvms[i], datavvps[i], color=color, alpha=0.2)
+        elif value == 'sa':
+            ax.plot(my_densities, datavsm[i], color=color)
+            ax.fill_between(my_densities, datavsms[i], datavsps[i], color=color, alpha=0.2)
 
     # Adding a color bar that uses the created ScalarMappable
     sm.set_array([])
@@ -137,7 +147,10 @@ for value in {'vol', 'sa'}:
 
     # Set plot titles and labels
     ax.set_xticks(np.arange(my_densities[0] + 0.05, my_densities[-1] + 0.05, 0.1))
-    ax.set_ylim([0, 50])
+    # if value == 'vol':
+    #     ax.set_ylim([0, 50])
+    # elif value == 'sa':
+    #     ax.set_ylim([0, 35])
     ax.set_title('{} {} Power {}\nAbsolute Difference'.format('Gamma', cell_type, {'sa': 'Surface Area', 'vol': 'Volume'}[value]), fontsize=20)
     ax.set_xlabel('Density', fontsize=25)
     ax.set_ylabel('Absolute Difference', fontsize=25)
