@@ -151,7 +151,7 @@ for value in ['vol', 'sa']:
     #     ax.set_ylim([0, 50])
     # elif value == 'sa':
     #     ax.set_ylim([0, 35])
-    ax.set_title('{} {} Power {}\nAbsolute Difference'.format('Gamma', cell_type, {'sa': 'Surface Area', 'vol': 'Volume'}[value]), fontsize=20)
+    ax.set_title('Power {}\nAbsolute Difference'.format({'sa': 'Surface Area', 'vol': 'Volume'}[value]), fontsize=20)
     ax.set_xlabel('Density', fontsize=25)
     ax.set_ylabel('Absolute Difference', fontsize=25)
     ax.tick_params(axis='both', which='major', labelsize=20, width=2, length=12)
