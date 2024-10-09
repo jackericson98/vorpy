@@ -1,4 +1,5 @@
 import csv
+import os
 from os import path
 import tkinter as tk
 from tkinter import filedialog
@@ -15,106 +16,116 @@ from scipy.optimize import curve_fit
 root = tk.Tk()
 root.withdraw()
 root.wm_attributes('-topmost', 1)
+sets = {}
+while True:
+    folder = filedialog.askdirectory(title='Choose the folder mf')
+    for rroot, directys, files in os.walk(folder):
+        for file in files:
+            if file[-3:] == 'pdb':
+                pdb = rroot + '/' + file
+        for dirry in directys:
+            if 'aw' in dirry:
+                vor_logs = rroot + '/' + dirry + '/' + dirry[:-11] + '_logs.csv'
+                print(vor_logs)
+            elif 'pow' in dirry:
+                pow_logs = rroot + '/' + dirry + '/' + dirry[:-12] + '_logs.csv'
+    # Take in the PDB
+    # pdb = filedialog.askopenfilename(title='Get the pdb file mf')
+    my_split_pdb = pdb.split('/')[-1]
+    density = my_split_pdb.split('_')[3]
+    cv = my_split_pdb.split('_')[1]
+    # Get the power logs
+    # pow_logs = filedialog.askopenfilename(title='Get the pow logs mf')
+    # Get the Voronoit Logs
+    # vor_logs = filedialog.askopenfilename(title='Get the vor logs mf')
+    sets[density] = {'pdb': pdb, 'pow_logs': pow_logs, 'vor_logs': vor_logs}
 
-# Take in the PDB
-pdb = filedialog.askopenfilename(title='Get the pdb file mf')
-# Get the power logs
-pow_logs = filedialog.askopenfilename(title='Get the pow logs mf')
-# Get the Voronoit Logs
-vor_logs = filedialog.askopenfilename(title='Get the vor logs mf')
+    pow_ = read_logs(pow_logs)
+    vor_ = read_logs(vor_logs)
 
-# def make_logs_dict(logs):
-#     # Open the file
-#     with open(logs, 'r') as my_logs:
-#         # Make the csv_reader
-#         lgs = csv.reader(my_logs)
-#         # Set up the reading
-#         reading = True
-#         # Loop through the rows
-#         for i, row in enumerate(lgs):
-#             # Check if it is an atom line
-#             if row[0] == 'Atoms':
+    rads, diffs, names = [], [], []
+    # Loop through the pdb file
+    with open(pdb, 'r') as pdb_reader, open(pdb[:-4] + '_vor_diff_colored.pdb', 'w') as pdb_writer:
+        mini, maxi = np.inf, -np.inf
+        # Loop through the lines
+        for i, line in enumerate(pdb_reader.readlines()):
 
-pow_ = read_logs(pow_logs)
-vor_ = read_logs(vor_logs)
+            if i == 0:
+                pdb_writer.write(line)
+                continue
+            npl = read_pdb_line(line)
+            # Check that the number is actually in the dataframe
+            try:
+                # Get the pow atom and the vor atom
+                pow_atom, vor_atom = pow_['atoms'].loc[pow_['atoms']['num'] == i - 1].to_dict('records')[0], vor_['atoms'].loc[vor_['atoms']['num'] == i - 1].to_dict('records')[0]
 
-rads, diffs, names = [], [], []
-# Loop through the pdb file
-with open(pdb, 'r') as pdb_reader, open(pdb[:-4] + '_vor_diff_colored.pdb', 'w') as pdb_writer:
-    mini, maxi = np.inf, -np.inf
-    # Loop through the lines
-    for i, line in enumerate(pdb_reader.readlines()):
+                # Calculate the difference in volume
+                vol_diff = (pow_atom['volume'] - vor_atom['volume']) / vor_atom['volume']
 
-        if i == 0:
-            pdb_writer.write(line)
-            continue
-        npl = read_pdb_line(line)
-        # Check that the number is actually in the dataframe
-        try:
-            # Get the pow atom and the vor atom
-            pow_atom, vor_atom = pow_['atoms'].loc[pow_['atoms']['num'] == i - 1].to_dict('records')[0], vor_['atoms'].loc[vor_['atoms']['num'] == i - 1].to_dict('records')[0]
+                # Check for crazy volume difference and trigger a volume difference
+                if vol_diff >= 10:
+                    print(npl['atom_serial_number'], 'Off by {} %'.format(100 * vol_diff))
+                    _ = float('')
+                diffs.append(vol_diff)
+                rads.append(npl['temperature_factor'])
+                names.append(npl['atom_name'])
+                if vol_diff < mini:
+                    mini = vol_diff
+                if vol_diff > maxi:
+                    maxi = vol_diff
 
-            # Calculate the difference in volume
-            vol_diff = (pow_atom['volume'] - vor_atom['volume']) / vor_atom['volume']
+                new_pdb_line = make_pdb_line(ser_num=int(npl['atom_serial_number']), name=npl['atom_name'],
+                                             res_name=npl['residue_name'], res_seq=int(npl['residue_sequence_number']),
+                                             x=float(npl['x_coordinate']), y=float(npl['y_coordinate']),
+                                             z=float(npl['z_coordinate']), occ=vol_diff,
+                                             tfact=float(npl['temperature_factor']), elem=npl['element_symbol'])
+                pdb_writer.write(new_pdb_line)
 
-            # Check for crazy volume difference and trigger a volume difference
-            if vol_diff >= 10:
-                float('poo')
-                print("not triggering a value error")
-            diffs.append(vol_diff)
-            rads.append(npl['temperature_factor'])
-            names.append(npl['atom_name'])
-            if vol_diff < mini:
-                mini = vol_diff
-            if vol_diff > maxi:
-                maxi = vol_diff
+            except IndexError:
+                new_pdb_line = make_pdb_line(ser_num=int(npl['atom_serial_number']), name=npl['atom_name'], chain='Z',
+                                             res_name=npl['residue_name'], res_seq=int(npl['residue_sequence_number']),
+                                             x=float(npl['x_coordinate']), y=float(npl['y_coordinate']),
+                                             z=float(npl['z_coordinate']), occ=0.0,
+                                             tfact=float(npl['temperature_factor']), elem=npl['element_symbol'])
+                pdb_writer.write(new_pdb_line)
+            except ValueError:
+                new_pdb_line = make_pdb_line(ser_num=int(npl['atom_serial_number']), name=npl['atom_name'], chain='Z',
+                                             res_name=npl['residue_name'], res_seq=int(npl['residue_sequence_number']),
+                                             x=float(npl['x_coordinate']), y=float(npl['y_coordinate']),
+                                             z=float(npl['z_coordinate']), occ=0.0,
+                                             tfact=float(npl['temperature_factor']), elem=npl['element_symbol'])
+                pdb_writer.write(new_pdb_line)
 
-            new_pdb_line = make_pdb_line(ser_num=int(npl['atom_serial_number']), name=npl['atom_name'],
-                                         res_name=npl['residue_name'], res_seq=int(npl['residue_sequence_number']),
-                                         x=float(npl['x_coordinate']), y=float(npl['y_coordinate']),
-                                         z=float(npl['z_coordinate']), occ=vol_diff,
-                                         tfact=float(npl['temperature_factor']), elem=npl['element_symbol'])
-            pdb_writer.write(new_pdb_line)
-
-        except IndexError:
-            new_pdb_line = make_pdb_line(ser_num=int(npl['atom_serial_number']), name=npl['atom_name'], chain='Z',
-                                         res_name=npl['residue_name'], res_seq=int(npl['residue_sequence_number']),
-                                         x=float(npl['x_coordinate']), y=float(npl['y_coordinate']),
-                                         z=float(npl['z_coordinate']), occ=0.0,
-                                         tfact=float(npl['temperature_factor']), elem=npl['element_symbol'])
-            pdb_writer.write(new_pdb_line)
-        except ValueError:
-            new_pdb_line = make_pdb_line(ser_num=int(npl['atom_serial_number']), name=npl['atom_name'], chain='Z',
-                                         res_name=npl['residue_name'], res_seq=int(npl['residue_sequence_number']),
-                                         x=float(npl['x_coordinate']), y=float(npl['y_coordinate']),
-                                         z=float(npl['z_coordinate']), occ=0.0,
-                                         tfact=float(npl['temperature_factor']), elem=npl['element_symbol'])
-            pdb_writer.write(new_pdb_line)
-            print(npl['atom_serial_number'])
-
-# Write the set code
-with open(pdb[:-4] + '_set_diff.txt', 'w') as set_color:
-    # Write the first line
-    set_color.write('spectrum q, green_yellow_red, minimum={}, maximum={}\n'.format(mini, maxi))
-    # Select the group to not be colored
-    set_color.write('color white, chain Z')
+    # Write the set code
+    with open(pdb[:-4] + '_set_diff.txt', 'w') as set_color:
+        # Write the first line
+        set_color.write('spectrum q, green_yellow_red, minimum={}, maximum={}\n'.format(mini, maxi))
+        # Select the group to not be colored
+        set_color.write('color white, chain Z')
 
 
-def func(x, a, b, c):
-    return a * np.exp(-b * x) + c
+    def func(x, a, b, c):
+        return a * np.exp(-b * x) + c
 
+    # Plot the radius to difference values
+    plt.scatter(rads, [100 * _ for _ in diffs], s=2, alpha=0.3)
+    plt.plot([min(rads), max(rads)], [0, 0], c='k')
+    popt, pcov = curve_fit(func, np.array(rads), np.array(diffs))
+    # plt.text(s='y = {:.2f} * exp(-{:.2f} * x) + {:.2f}'.format(*popt), x=1.5, y=1.5, font=dict(size=10))
+    plt.plot(rads, [100 * _ for _ in func(np.array(rads), *popt)], label=density)
 
-# Plot the radius to difference values
-plt.scatter(rads, diffs, s=2)
-plt.plot([min(rads), max(rads)], [0, 0], c='k')
-popt, pcov = curve_fit(func, np.array(rads), np.array(diffs))
-plt.text(s='y = {:.2f} * exp(-{:.2f} * x) + {:.2f}'.format(*popt), x=1.5, y=1.5, font=dict(size=10))
-plt.plot(rads, func(np.array(rads), *popt), c='orange')
+    plot_another = input('Plot Another?    ')
+    if plot_another == 'n':
+        break
+
 plt.xlabel('Ball Radius', fontdict=dict(size=25))
 plt.ylabel('% Difference', fontdict=dict(size=25))
-plt.title('CV: {}, Density: {}'.format(pdb[-28:-25], pdb[-19:-16]), font=dict(size=25))
+# plt.ti
 plt.xticks(font=dict(size=20))
 plt.yticks(font=dict(size=20))
+plt.title('% Difference by Radii\n(Non-Overlapping, CV {})'.format(cv), font=dict(size=20))
+plt.tick_params(axis='both', width=2, length=12)
+plt.legend(fontsize=15)
+
 plt.tight_layout()
-# plt.plot([min(rads), max(rads)], [min(rads) * slope + intercept, max(rads) * slope + intercept])
 plt.show()
