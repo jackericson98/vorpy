@@ -27,7 +27,7 @@ def compare_networks(sys, group1, group2, data_file=None):
                                             (ball1['sa'] - ball2['sa']) / ball2['sa'], ball1['rad'])
             # Check for outliers
             if any([_ > 10 for _ in [vdn1, sdn1, vdn2, sdn2]]):
-                print('Outlier in comparison detected: {}'.format(ball1['name']))
+                print('Outlier in comparison detected: {} - Off by {} %'.format(ball1['name'], 100 * vdn1))
                 continue
             # Add the data
             data['vdn1'].append(vdn1)
