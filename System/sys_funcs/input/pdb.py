@@ -17,16 +17,16 @@ def read_pdb(sys, file=None):
     # Check to see if the file is provided and use the base file if not
     if file is None and sys.files['base_file'][-3:] == 'pdb':
         file = sys.files['base_file']
-    if path.exists(file) and file[0] == '.' and sys.vpy_dir is not None:
-        file_address = sys.vpy_dir + file[1:]
+    if path.exists(file) and file[0] == '.' and sys.files['vpy_dir'] is not None:
+        file_address = sys.files['vpy_dir'] + file[1:]
     elif path.exists(file):
         file_address = file
-    elif sys.vpy_dir is not None and path.exists(sys.vpy_dir + file):
-        file_address = sys.vpy_dir + file
-    elif sys.dir is not None and path.exists(sys.dir + file):
-        file_address = sys.dir + file
+    elif sys.files['vpy_dir'] is not None and path.exists(sys.files['vpy_dir'] + file):
+        file_address = sys.files['vpy_dir'] + file
+    elif sys.files['dir'] is not None and path.exists(sys.files['dir'] + file):
+        file_address = sys.files['dir'] + file
     elif sys.dir is not None and path.exists(sys.dir + file[1:]):
-        file_address = sys.dir + file[1:]
+        file_address = sys.files['dir'] + file[1:]
     else:
         return
     # Get the file information and make sure to close the file when done
