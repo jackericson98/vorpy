@@ -101,7 +101,7 @@ def get_group_spheres(atoms, identifier):
         # Get all the atoms in the list
         my_atoms = []
         for i in range(index1, index2 + 1):
-            my_atoms.append(atoms.iloc[i])
+            my_atoms.append(i)
         return my_atoms
     # Next check to see if the identifier is a residue
     if identifier[0].lower() in residue_names and len(identifier) == 3:
