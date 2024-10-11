@@ -136,7 +136,7 @@ class Group:
         Creates the network without an obligation to necessarily make it
         """
         self.net = Network(locs=self.sys.balls['loc'], rads=self.sys.balls['rad'], group=self.ball_ndxs,
-                           settings=self.settings, sort_balls=True)
+                           settings=self.settings, sort_balls=True, masses=self.sys.balls['mass'])
 
     def build(self):
         """
@@ -145,7 +145,7 @@ class Group:
         self.get_settings()
         if self.net is None:
             self.net = Network(locs=self.sys.balls['loc'], rads=self.sys.balls['rad'], group=self.ball_ndxs,
-                               settings=self.settings)
+                               settings=self.settings, masses=self.sys.balls['mass'])
         self.net.build()
 
     def get_surfs(self):
