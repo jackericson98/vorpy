@@ -3,7 +3,7 @@ import os
 import csv
 
 
-def write_net_logs(group, net_name=None, round_to=3):
+def write_logs(group, net_name=None, round_to=3):
     """
     Writes a file for the networks logs
     :param net: Network for logs
@@ -29,26 +29,43 @@ def write_net_logs(group, net_name=None, round_to=3):
         # Write the group information header
         lg_fl.writerow(["group information"])
         # Write the group information labels
-        lg_fl.writerow(["index", "name", "volume", "surface area"])
+        lg_fl.writerow(["Name", "Volume", "Surface Area", "Density", "Center of Mass", "VDW Volume",
+                        "VDW Center of Mass"])
         # Write the group information
         if group.sa is None:
             group.get_info()
-        lg_fl.writerow([0, group.name, r(group.vol), r(group.sa)])
+        lg_fl.writerow([group.name, r(group.vol), r(group.sa), r(group.density), [r(_) for _ in group.com],
+                        r(group.vdw_vol), [r(_) for _ in group.vdw_com]])
         # Write the atom header
         lg_fl.writerow(["Atoms"])
         # Write the column labels
-        lg_fl.writerow(["index", "name", "volume", "surface area", "max curvature", 'complete', "neighbors"])
+        lg_fl.writerow(["Index", "Name", "X", "Y", "Z", "Radius", "Volume", "Surface Area", "Complete Cell?",
+                        "Maximum Curvature", "Average Surface Curvature", "Sphericity", "Isometric Quotient",
+                        "Number of Neighbors", "Closest Neighbor", "Closest Neighbor Distance",
+                        "Neighbor Distance Average", "Neighbor Distance RMSD", "Minimum Point Distance",
+                        "Maximum Point Distance", "Number of Overlaps", "Contact Area", "Non-Overlap Volume",
+                        "Overlap Volume", "Center of Mass", "Moment of Inertia Tensor", "Bounding Box", "neighbors"])
         # Go through the atoms in the system
         for i, atom in net.balls.iterrows():
             if atom['sa'] == 0:
                 continue
             if atom['complete']:
+                print(atom['moi'])
                 nbrs = [satoms[0] if satoms[0] != atom['num'] else satoms[1] for satoms in [net.surfs['balls'][_] for _ in atom['surfs']]]
-                lg_fl.writerow([i, atom['name'], r(atom['vol']), r(atom['sa']), r(atom['max_curv']), atom['complete'], *nbrs])
+                lg_fl.writerow([i, atom['name'], atom['loc'][0], atom['loc'][1], atom['loc'][2], atom['rad'],
+                                r(atom['vol']), r(atom['sa']), atom['complete'], r(atom['max_curv']),
+                                r(atom['avg_surf_curv']), r(atom['sphericity']), r(atom['isometric_quotient']),
+                                atom['neighbor_number'], atom['near_neighbor'], atom['near_neighbor_distance'],
+                                r(atom['neighbor_distance_average']), r(atom['neighbor_distance_rmsd']),
+                                r(atom['min_spike']), r(atom['max_spike']), atom['num_olaps'], r(atom['contact_area']),
+                                r(atom['non_olap_vol']), r(atom['vdw_vol']), [r(_) for _ in atom['com']],
+                                r(atom['moi']), [[r(_) for _ in atom['b_box'][0]], [r(_) for _ in atom['b_box'][1]]],
+                                *nbrs])
         # Write the surfaces header
         lg_fl.writerow(["Surfaces"])
         # Write the surface column labels
-        lg_fl.writerow(["index", "atom0", "atom1", "surface area", "curvature", "vol a0", "vol a1"])
+        lg_fl.writerow(["Index", "Ball 1", "Ball 2", "Surface Area", "Curvature", "Ball 1 Volume Contribution",
+                        "Ball 2 Volume Contribution"])
         # Go through the surfaces in the system and write their information
         for i, surf in net.surfs.iterrows():
             # Write the information for the surface
