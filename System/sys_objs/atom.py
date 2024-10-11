@@ -74,13 +74,12 @@ class Atom:
 
 
 def make_atom(system=None, location=None, radius=None, index='', name='', residue='', chain='', chn_name='',
-              res_name='', res_seq="", seg_id="", element="", chn=None, res=None):
+              res_name='', res_seq="", seg_id="", element="", chn=None, res=None, mass=None):
     atom = {
         # System groups
         'sys': system,           # System       :   Main system object
-        'res': res,              # Residue      :   Residue object of which the atom is a part
-        'chn': chn,              # Chain        :   Chain object of which the atom is a part
 
+        'num': index,            # Number       :   The index from the initial atom file
         'loc': location,         # Location     :   Set the location of the center of the sphere
         'rad': radius,           # Radius       :   Set the radius for the sphere object. Default is 1
 
@@ -91,20 +90,22 @@ def make_atom(system=None, location=None, radius=None, index='', name='', residu
         'box': [],               # Box          :   The grid location of the atom
 
         # Network objects
-        'averts': [],             # Vertices     :   List of Vertex type objects
-        'asurfs': [],             # Surfaces     :   List of Surface type objects
-        'aedges': [],             # Edges        :   List of Edge type objects
+        'verts': [],             # Vertices     :   List of Vertex type objects
+        'surfs': [],             # Surfaces     :   List of Surface type objects
+        'edges': [],             # Edges        :   List of Edge type objects
 
-        # Input traits
-        'num': index,            # Number       :   The index from the initial atom file
+        # Molecule traits
         'name': name,            # Name         :   Name retrieved from pdb file
+        'res': res,              # Residue      :   Residue object of which the atom is a part
+        'chn': chn,              # Chain        :   Chain object of which the atom is a part
         'chain': chain,          # Chain        :   Molecule chain the atom is a part of
-        'chain_name': chn_name,
+        'chain_name': chn_name,  # Chain Name   :   Name of the chain that the ball is a part of
         'residue': residue,      # Residue      :   Class of molecule that the atom is a part of
-        'res_name': res_name,
+        'res_name': res_name,    # Residue Name :   Name of the residue the ball is a part of
         'res_seq': res_seq,      # Sequence     :   Sequence of the residue that the atom is a part of
         'seg_id': seg_id,        # Segment ID   :   Segment identifier for the atom
         'element': element,      # Symbol       :   Element of the atom
+        'mass': mass             # Mass         :   Mass of the atom
     }
     if atom['rad'] is None:
         atom['rad'] = get_radius(atom)
