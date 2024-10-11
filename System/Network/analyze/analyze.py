@@ -27,7 +27,7 @@ def analyze(net, complicated=True):
     # Set up the spike variables
     b_min_spikes, b_max_spikes = [], []
     # Set up the contacts lists
-    contact_areas, vdw_vols = [], []
+    contact_areas, non_olap_vols, olap_vols, num_olaps = [], [], [], []
     # Physical values
     coms, mois = [], []
     # Bounding boxes
@@ -39,6 +39,9 @@ def analyze(net, complicated=True):
 
         # Get the percentage for printing
         percentage = int(k / len(net.balls['loc']) * 100)
+        # Print the actions
+        my_time = now() - net.metrics['start']
+        h, m, s = get_time(my_time)
         print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                 "
               .format(int(h), int(m), round(s, 2), percentage), end="")
 
@@ -48,10 +51,11 @@ def analyze(net, complicated=True):
         # Initial test for completeness
         if len(ball['surfs']) == 0:
             (b_vols, b_sas, b_cell, b_max_curvs, b_avg_surf_curvs, b_sphrctys, b_isopmqs, num_nbors, near_nbors,
-             near_nbor_dists, nbor_dst_rmsds, nbor_dst_avgs, b_min_spikes, b_max_spikes, contact_areas, vdw_vols, coms,
-             mois, b_boxs) = append_0(b_vols, b_sas, b_cell, b_max_curvs, b_avg_surf_curvs, b_sphrctys, b_isopmqs,
-                                      num_nbors, near_nbors, near_nbor_dists, nbor_dst_rmsds, nbor_dst_avgs,
-                                      b_min_spikes, b_max_spikes, contact_areas, vdw_vols, coms, mois, b_boxs)
+             near_nbor_dists, nbor_dst_rmsds, num_olaps, nbor_dst_avgs, b_min_spikes, b_max_spikes, contact_areas,
+             olap_vols, non_olap_vols, coms, mois, b_boxs) = (
+                append_0(b_vols, b_sas, b_cell, b_max_curvs, b_avg_surf_curvs, b_sphrctys, b_isopmqs, num_nbors,
+                         near_nbors, near_nbor_dists, nbor_dst_rmsds, num_olaps, nbor_dst_avgs, b_min_spikes,
+                         b_max_spikes, contact_areas, olap_vols, non_olap_vols, coms, mois, b_boxs))
             continue
 
         time1 = time.perf_counter()
@@ -126,8 +130,10 @@ def analyze(net, complicated=True):
 
             # Get the contact information
             contact_area, vdw_vol = calc_contacts(ball['loc'], ball['rad'], ball_surfs)
+            num_olaps.append(len(contact_area))
             contact_areas.append(sum(contact_area))
-            vdw_vols.append(vdw_vol)
+            non_olap_vols.append(vdw_vol)
+            olap_vols.append((4/3) * pi * ball['rad'] ** 3 - vdw_vol)
 
             time7 = time.perf_counter()
             timer['contacts'] += time7 - time6
@@ -149,21 +155,18 @@ def analyze(net, complicated=True):
             b_min_spikes.append(0)
             b_max_spikes.append(0)
             contact_areas.append(0)
-            vdw_vols.append(0)
+            non_olap_vols.append(0)
             coms.append(0)
             mois.append(0)
             b_boxs.append(0)
-
-        # Print the actions
-        my_time = now() - net.metrics['start']
-        h, m, s = get_time(my_time)
 
     net.balls = net.balls.assign(vol=b_vols, sa=b_sas, max_curv=b_max_curvs, complete=b_cell,
                                  avg_surf_curv=b_avg_surf_curvs, sphericity=b_sphrctys, isometric_quotient=b_isopmqs,
                                  neighbor_number=num_nbors, near_neighbor=near_nbors,
                                  near_neighbor_distance=near_nbor_dists, neighbor_distance_average=nbor_dst_avgs,
-                                 neighbor_distance_rmsd=nbor_dst_rmsds, min_spike=b_min_spikes, max_spike=b_max_spikes,
-                                 contact_area=contact_areas, vdw_vol=vdw_vols, com=coms, moi=mois, b_box=b_boxs)
+                                 neighbor_distance_rmsd=nbor_dst_rmsds, num_olaps=num_olaps, min_spike=b_min_spikes,
+                                 max_spike=b_max_spikes, contact_area=contact_areas, non_olap_vol=non_olap_vols,
+                                 vdw_vol=olap_vols, com=coms, moi=mois, b_box=b_boxs)
 
     for _ in timer:
         print(_, timer[_])
