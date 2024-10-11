@@ -151,10 +151,10 @@ def plot_function(function, p2=None, title='', x_label='', y_label='', legend_ti
 #
 # print([0.05 + 0.025 * i for i in range(18)])
 
-# plot_function(lognormal, np.linspace(0.05, 0.5, 10), 'Lognormal Distributions',
-#               x_label='Ball Radius', y_label='Probability Density', legend_title='Coefficient of Variation', max_x=3, ylims=[0, 8])
-# plot_function(gamma, np.linspace(0.05, 0.5, 10), 'Gamma Distributions',
-#               x_label='Ball Radius', y_label='Probability Density', legend_title='Coefficient of Variation', max_x=3, ylims=[0, 8])
+plot_function(lognormal, np.linspace(0.05, 1.0, 20), 'Lognormal Distributions',
+              x_label='Ball Radius', y_label='Probability Density', legend_title='Coefficient of Variation', max_x=20)
+plot_function(gamma, np.linspace(0.05, 1.0, 20), 'Gamma Distributions',
+              x_label='Ball Radius', y_label='Probability Density', legend_title='Coefficient of Variation', max_x=20)
 # print(np.linspace(0.1, 2.0, 20))
 # plot_function(weibull, np.linspace(0.05, 0.5, 10), 'Weibull Distributions',
 #               x_label='Ball Radius', y_label='Probability Density', legend_title='Coefficient of Variation', max_x=3, ylims=[0, 8])
@@ -163,8 +163,8 @@ def plot_function(function, p2=None, title='', x_label='', y_label='', legend_ti
 #     color = ['r', 'g', 'b']
 #     plot_function(func, 1,
 #               x_label='Bubble Radius', y_label='Probability', legend_title='\u03b2 Value', max_x=5, color=color[i], ax=ax)
-# plt.show()
-plot_function(physical_DeVries, "De Vries")
-plot_function(physical_Ranadive_Lemlich, "Ranadive Lemlich")
-plot_function(physical_GalOr_Hoelscher, "Gal-Or Hoelscher")
+# # plt.show()
+# plot_function(physical_DeVries, "De Vries")
+# plot_function(physical_Ranadive_Lemlich, "Ranadive Lemlich")
+# plot_function(physical_GalOr_Hoelscher, "Gal-Or Hoelscher")
 plt.show()

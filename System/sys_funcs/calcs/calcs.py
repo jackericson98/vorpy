@@ -173,6 +173,37 @@ def calc_tetra_vol(p0, p1, p2, p3):
     return (1/6)*abs(np.dot(r03, np.cross(r01, r02)))
 
 
+def calc_tetra_inertia(ps, mass):
+    """
+    Calculate the moment of inertia tensor of a tetrahedron about its centroid.
+    This formula assumes uniform density and calculates the inertia tensor.
+    :param ps: List of four vertices of the tetrahedron.
+    :param mass: Mass of the tetrahedron.
+    :return: 3x3 inertia tensor of the tetrahedron.
+    """
+    # Placeholder for inertia tensor calculation.
+    # For simplicity, this uses an approximate inertia formula for a solid tetrahedron.
+    # More accurate calculations can be done by integrating over the volume.
+    inertia_tensor = np.zeros((3, 3))
+
+    # Sum contributions from the vertices
+    for i in range(4):
+        x, y, z = ps[i]
+        inertia_tensor[0, 0] += mass * (y ** 2 + z ** 2) / 10.0
+        inertia_tensor[1, 1] += mass * (x ** 2 + z ** 2) / 10.0
+        inertia_tensor[2, 2] += mass * (x ** 2 + y ** 2) / 10.0
+        inertia_tensor[0, 1] -= mass * x * y / 10.0
+        inertia_tensor[0, 2] -= mass * x * z / 10.0
+        inertia_tensor[1, 2] -= mass * y * z / 10.0
+
+    # Symmetric tensor: fill in the other values
+    inertia_tensor[1, 0] = inertia_tensor[0, 1]
+    inertia_tensor[2, 0] = inertia_tensor[0, 2]
+    inertia_tensor[2, 1] = inertia_tensor[1, 2]
+
+    return inertia_tensor
+
+
 @jit(nopython=True)
 def calc_tri(points):
     """
@@ -240,6 +271,179 @@ def calc_sphericity(volume, surface_area):
     # Calculate sphericity using the geometric formula
     sphericity = (np.pi ** (1/3) * (6 * volume) ** (2/3)) / surface_area
     return sphericity
+
+
+def calc_isoperimetric_quotient(volume, surface_area):
+    """
+    Calculate the isoperimetric quotient
+
+    Parameters:
+        - volume (float): The volume of the object.
+        - surface_area (float): The surface area of the object.
+
+    Returns:
+        - isoperimetric quotient (float): The isoperimetric quotient of the object
+    """
+    if volume <= 0 or surface_area <= 0:
+        raise ValueError("Volume and surface area must be positive numbers.")
+
+    return (36 * np.pi * volume ** 2) / (surface_area ** 3)
+
+
+def calc_spikes(ball_loc, surfs):
+    # Create the spike list
+    spikes = []
+    # Loop through the surfaces
+    for surf in surfs:
+        for point in surf['points']:
+            spikes.append(calc_dist(ball_loc, point))
+
+    # Return the minimum, average and maximum spike dist
+    return min(spikes), max(spikes)
+
+
+def calc_cell_box(surfs):
+    # Create the mins and maxs varaibles
+    mins, maxs = [np.inf, np.inf, np.inf], [-np.inf, -np.inf, -np.inf]
+    # Loop through the surfaces
+    for surf in surfs:
+        for point in surf['points']:
+            for i in range(3):
+                if point[i] < mins[i]:
+                    mins[i] = point[i]
+                if point[i] > maxs[i]:
+                    maxs[i] = point[i]
+    # Return the bounding box for the cell
+    return [mins, maxs]
+
+
+def calc_cell_com(ball_loc, surfs, volume):
+    # Create the mass_locs list
+    mass_locs = []
+    for surf in surfs:
+        for tri in surf['tris']:
+            # Get the points of the tetrahedron
+            ps = [ball_loc, *[surf['points'][_] for _ in tri]]
+            # Calculate the centroid of the tetrahedron
+            tet_com = [sum([ps[j][i] for j in range(4)]) / 4 for i in range(3)]
+            # Calculate the volume of the tetrahedron
+            tet_vol = calc_tetra_vol(*ps)
+            # Append the volume-weighted centroid
+            mass_locs.append([tet_vol * coord for coord in tet_com])
+
+    # Calculate the total center of mass by normalizing with the cell volume
+    return [sum(coords) / volume for coords in zip(*mass_locs)]
+
+
+def calc_cell_moi(ball_loc, surfs, volume, density=1.0):
+    """
+    Calculate the moment of inertia of a cell with respect to `ball_loc` using tetrahedrons.
+    :param ball_loc: Center location of the cell.
+    :param surfs: List of surfaces, each containing points and tris (triangles).
+    :param volume: Total volume of the cell.
+    :param density: Density of the material (default is 1.0).
+    :return: 3x3 Moment of inertia tensor of the cell.
+    """
+    # Create an inertia tensor initialized to zero
+    inertia_tensor = np.zeros((3, 3))
+
+    # Iterate through each surface and triangle to calculate the tetrahedron MOI contributions
+    for surf in surfs:
+        for tri in surf['tris']:
+            # Get the points of the tetrahedron
+            ps = [ball_loc, *[surf['points'][_] for _ in tri]]
+
+            # Calculate the centroid of the tetrahedron
+            tet_com = [sum([ps[j][i] for j in range(4)]) / 4 for i in range(3)]
+
+            # Calculate the volume of the tetrahedron
+            tet_vol = calc_tetra_vol(*ps)
+
+            # Calculate the mass of the tetrahedron
+            tet_mass = density * tet_vol
+
+            # Calculate the inertia tensor of the tetrahedron about its centroid
+            tet_inertia_tensor = calc_tetra_inertia(ps, tet_mass)
+
+            # Calculate the distance vector from the tetrahedron centroid to the cell's center (`ball_loc`)
+            r = np.array(tet_com) - np.array(ball_loc)
+            r_squared = np.dot(r, r)
+
+            # Use the parallel axis theorem to adjust the inertia tensor to the cell's center
+            shift_tensor = tet_mass * (r_squared * np.identity(3) - np.outer(r, r))
+
+            # Add the adjusted tensor to the total inertia tensor
+            inertia_tensor += tet_inertia_tensor + shift_tensor
+
+    return inertia_tensor
+
+
+def calc_contacts(loc, rad, surfs):
+    """
+    Calculate the contact areas and contribution volume for a given sphere.
+    :param loc: Center location of the sphere.
+    :param rad: Radius of the sphere.
+    :param surfs: List of surfaces with points and triangles.
+    :return: A list of contact areas for each surface and the total contribution volume.
+    """
+    # Create the area and volume vals
+    contact_areas, contribution_vol = [], 0
+
+    # Loop through the surfaces
+    for surf in surfs:
+        # Initialize contact area for this surface
+        contact_area = 0
+        new_points = []
+        point_inside = []
+
+        # Loop through the points to determine if inside or outside
+        for point in surf['points']:
+            distance = calc_dist(point, loc)
+            if distance <= rad:
+                point_inside.append(True)
+                new_points.append(point)
+            else:
+                point_inside.append(False)
+                # Get the direction and normalize it
+                direction = point - loc
+                norm = np.linalg.norm(direction)
+                if norm > 0:
+                    # Project the point onto the sphere's surface
+                    new_points.append(rad * (direction / norm) + loc)
+                else:
+                    new_points.append(point)  # If the point coincides with the center (rare edge case)
+
+        # Loop through the triangles
+        for tri in surf['tris']:
+            triangle_points = [surf['points'][index] for index in tri]
+            projected_points = [new_points[index] for index in tri]
+            inside_flags = [point_inside[index] for index in tri]
+
+            # Determine if the triangle is fully inside, fully outside, or mixed
+            all_inside = all(inside_flags)
+            all_outside = not any(inside_flags)
+            mixed = not all_inside and not all_outside
+
+            if all_inside:
+                # Triangle is fully inside the sphere
+                contact_area += calc_tri(np.array(triangle_points))
+                contribution_vol += calc_tetra_vol(loc, *triangle_points)
+            elif all_outside:
+                # Triangle is fully outside the sphere
+                contribution_vol += calc_tetra_vol(loc, *projected_points)
+            elif mixed:
+                # Triangle is partially inside and outside
+                # We add the volume using a mix of inside and projected points
+                mixed_points = [triangle_points[i] if inside_flags[i] else projected_points[i] for i in range(3)]
+                contribution_vol += calc_tetra_vol(loc, *mixed_points)
+                # Count the triangle as outside for contact area if any point is outside
+                if inside_flags.count(True) < 3:
+                    contact_area += calc_tri(np.array(triangle_points))
+
+        # Append the contact area for this surface
+        contact_areas.append(contact_area)
+
+    return contact_areas, contribution_vol
 
 
 @jit(nopython=True)

@@ -11,6 +11,7 @@ from System.Network.verts.find_net_verts import find_net_verts
 from System.Network.build_net import build
 from System.Network.edges.build_edge import build_edge
 from System.Network.surfs.build_surfs import build_surfs
+from System.Network.analyze.analyze import analyze
 from System.sys_funcs.calcs.calcs import calc_length, get_time, calc_dist, calc_com
 from System.sys_funcs.calcs.circle import calc_circ
 from System.sys_funcs.calcs.sorting import global_vars
@@ -211,53 +212,7 @@ class Network:
         build_surfs(self, store_points=store_points)
 
     def analyze(self):
-        """
-        Analyzes the output surfaces, cells and solute vertices for the network for later reference
-        """
-        # Set up the balls' volumes surface areas, curvatures vars
-        b_vols, b_sas, b_curvs, b_cell = [], [], [], []
-        # Go through each ball in the system and find the volume
-        for k, ball in self.balls.iterrows():
-            # Get the percentage for printing
-            percentage = int(k / len(self.balls['loc']) * 100)
-            if len(ball['surfs']) == 0:
-                b_vols.append(0)
-                b_sas.append(0)
-                b_curvs.append(0)
-                b_cell.append(False)
-                continue
-            # Calculate the surface area of the ball by summing the surface areas of all it's surfaces
-            b_sas.append(sum([self.surfs['sa'][_] for _ in ball['surfs']]))
-            # Go through the ball's surfaces
-            b_curvs.append(max([self.surfs['curv'][_] for _ in ball['surfs']]))
-            # Calculate the volume of the ball by the previouslty stored volume data
-            b_vol = sum([self.surfs['vols'][_][ball['num']] for _ in ball['surfs']])
-            # Exclude balls that have super large volumes (weird edge error)
-            bad_ball = False
-            if b_vol > 15 * 4/3 * ball['rad'] ** 3 * pi:
-                bad_ball = True
-            b_vols.append(b_vol)
-            # Check for complete cells in the balls
-            complete = True
-            # Go through each of the vertices in the in the ball
-            for vert in ball['verts']:
-                # Check the number of edges from the vertex that hold
-                if len([_ for _ in [self.edges['balls'][_] for _ in self.verts['edges'][vert]] if k in _]) != 3 and \
-                        not bad_ball:
-                    complete = False
-            # Additional catch for any ball that doesn't have the 181L number of network elements associated with it
-            if len(ball['verts']) < 3 or len(ball['edges']) < 4 or len(ball['surfs']) < 3:
-                complete = False
-            # Add the complete designation for the cell
-            b_cell.append(complete)
-            # Print the actions
-            my_time = now() - self.metrics['start']
-            h, m, s = get_time(my_time)
-            print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                 "
-                  .format(int(h), int(m), round(s, 2), percentage), end="")
-        self.balls['vol'], self.balls['sa'], self.balls['curv'], self.balls['complete'] = b_vols, b_sas, b_curvs, b_cell
-        self.metrics['anal'] = now() - self.metrics['start'] - self.metrics['surf'] - self.metrics['con'] - \
-                               self.metrics['vert']
+        analyze(self)
 
     def build(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
               calc_verts=None, my_group=None, print_actions=None, print_vert_metrics=False, curr_time=None):
