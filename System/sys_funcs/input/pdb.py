@@ -1,7 +1,7 @@
 from System.sys_objs.atom import make_atom
 from System.sys_objs.residue import Residue
 from System.sys_objs.chain import Chain, Sol
-from System.chemistry_interpreter import residue_names, residue_atoms
+from System.chemistry_interpreter import residue_names, residue_atoms, my_masses
 import os.path as path
 import numpy as np
 from pandas import DataFrame
@@ -65,10 +65,27 @@ def read_pdb(sys, file=None):
                 res_seq = 0
             # If no chain is specified, set the chain to 'None'
             res_str, chain_str = line[17:20].strip(), line[21]
+            # Assign the radius
+            rad = None
+            if sys.type == 'foam' or sys.type == 'coarse':
+                rad = float(line[60:66])
+                if rad == 0:
+                    rad = 0.001
+            # Get the mass for the atom:
+            if sys.type == 'mol' and line[76:78].strip().lower() in my_masses:
+                mass = my_masses[line[76:78].strip().lower()]
+            elif sys.type == 'foam':
+                mass = (4 / 3) * np.pi * rad ** 3
+            elif sys.type == 'coarse':
+                mass = float(line[54:60])
+            else:
+                mass = 1
+
             # Create the atom
-            atom = make_atom(location=np.array([float(line[30:38]), float(line[38:46]), float(line[46:54])]), system=sys,
+            atom = make_atom(location=np.array([float(line[30:38]), float(line[38:46]), float(line[46:54])]),
+                             system=sys,
                              element=line[76:78].strip(), res_seq=int(res_seq), res_name=res_str, chn_name=chain_str,
-                             name=name.strip(), seg_id=line[72:76], index=atom_count)
+                             name=name.strip(), seg_id=line[72:76], index=atom_count, mass=mass, radius=rad)
 
             atom_count += 1
 
@@ -106,7 +123,8 @@ def read_pdb(sys, file=None):
                 my_res = resids[res_name]
                 my_res.atoms.append(atom['num'])
             else:
-                my_res = Residue(sys=sys, atoms=[atom['num']], name=res_str, sequence=atom['res_seq'], chain=atom['chn'])
+                my_res = Residue(sys=sys, atoms=[atom['num']], name=res_str, sequence=atom['res_seq'],
+                                 chain=atom['chn'])
                 atom['chn'].residues.append(my_res)
                 resids[res_name] = my_res
                 if res_str.lower() != 'sol':
@@ -116,11 +134,6 @@ def read_pdb(sys, file=None):
             # Assign the residue to the atom
             atom['res'] = my_res
 
-            # Assign the radius
-            if sys.type == 'foam' or sys.type == 'coarse':
-                atom['rad'] = float(line[60:66])
-                if atom['rad'] == 0:
-                    atom['rad'] = 0.001
             # Add the atom to the atoms list
             atoms.append(atom)
         # If the line is not an atom line store the other data
@@ -152,4 +165,4 @@ def read_pdb_line(pdb_line):
         "segment_identifier": pdb_line[72:76].strip(),
         "element_symbol": pdb_line[76:78].strip(),
         "charge": pdb_line[78:80].strip()
-        }
+    }
