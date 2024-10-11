@@ -1,3 +1,4 @@
+from System.sys_funcs.calcs.calcs import combine_inertia_tensors, calc_total_inertia_tensor
 from System.sys_funcs.calcs.sorting import ndx_search
 from System.sys_funcs.calcs.surf import calc_surf_sa
 import numpy as np
@@ -12,23 +13,31 @@ def get_info(group):
     group.get_edges()
     group.get_verts()
     # Reset the group's data attributes
-    group.sa, group.vol, group.vdw_vol, group.density = 0, 0, 0, 0
+    group.sa, group.vol, group.vdw_vol, group.density, group.mass = 0, 0, 0, 0, 0
     com, vdw_com = [0, 0, 0], [0, 0, 0]
+    # Get the balls in the group
+    group_balls = group.net.balls.iloc[group.ball_ndxs].to_dict(orient='records')
     # Get the volume of the group
-    for i in group.ball_ndxs:
-        atom = group.net.balls.iloc[i]
-        if not atom['complete']:
+    for i, ball in enumerate(group_balls):
+        # Check for the ball to be complets
+        if not ball['complete']:
             continue
         # Add the volume to that of the group
-        group.vol += atom['vol']
-        group.vdw_vol += atom['vdw_vol']
+        group.vol += ball['vol']
+        group.vdw_vol += ball['vdw_vol']
+        group.mass += ball['mass']
         # Add to the coms
-        com = [com[j] + atom['com'][j] * atom['vol'] for j in range(3)]
-        vdw_com = [vdw_com[j] + atom['loc'] * atom['vdw_vol'] for j in range(3)]
+        com = [com[j] + ball['com'][j] * ball['vol'] for j in range(3)]
+        vdw_com = [vdw_com[j] + ball['loc'][j] * ball['mass'] for j in range(3)]
     if group.vol > 0:
         group.density = group.vdw_vol / group.vol
-        group.com = [com[j] / group.vol for j in range(3)]
+        group.com = np.array([com[j] / group.vol for j in range(3)])
         group.vdw_com = [vdw_com[j] / group.vdw_vol for j in range(3)]
+    if 'moi' in group.net.balls.iloc[group.ball_ndxs[0]]:
+        group.spatial_moment = combine_inertia_tensors([_['moi'] for _ in group_balls], [_['com'] for _ in group_balls],
+                                                       group.com, [_['vol'] for _ in group_balls])
+    if group.vdw_vol > 0:
+        group.moi = calc_total_inertia_tensor(group_balls, group.vdw_com)
     # Check to see if the first layer has been calculated
     if group.layer_surfs is None or len(group.layer_surfs) == 0:
         group.get_layers(max_layers=1)
