@@ -1,7 +1,7 @@
 from System.sys_funcs.output.output import *
 from System.sys_funcs.output.verts import write_off_verts
 from System.sys_funcs.output.edges import write_edges
-from System.sys_funcs.output.net import write_net_logs
+from System.sys_funcs.output.net import write_logs
 
 
 def export_info(grp, directory=None):
@@ -84,7 +84,7 @@ def group_exports(grp, all_=False, atoms=False, surfs=False, sep_surfs=False, ed
         write_pdb(atoms=grp.atms, file_name="atoms", sys=grp.sys)
     # Export the log file
     if logs or all_:
-        write_net_logs(grp)
+        write_logs(grp)
     # If the user wants to export the shell for the group
     if shell or all_:
         if grp.layer_surfs is None:
