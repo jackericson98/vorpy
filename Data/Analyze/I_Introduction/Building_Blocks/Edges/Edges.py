@@ -19,7 +19,7 @@ Edge plotting code. Choose an edge type below.
 """
 
 # Choose here
-edge_choice = 8
+edge_choice = 1
 
 # Additional Settings
 atom_alpha = 0.4
@@ -27,7 +27,7 @@ vert_alpha = 0.1
 edge_thickness = 2
 
 show_edge = True
-show_verts = True
+show_verts = False
 show_vert_spheres = False
 show_atoms = True
 show_circs = True
@@ -119,9 +119,9 @@ if show_atoms:
 # Plot the circs
 if show_circs and edge_choice < 8:
     my_circ = calc_circ(*locs, *rads, return_both=True)
-    plot_circles([my_circ[0]], [my_circ[1]], fig=fig, ax=ax, center_point=True)
+    plot_balls([my_circ[0]], [my_circ[1]], fig=fig, ax=ax, alpha=0.1)
     if len(my_circ) == 4:
-        plot_circles([my_circ[2]], [my_circ[3]], fig=fig, ax=ax, center_point=True)
+        plot_balls([my_circ[2]], [my_circ[3]], fig=fig, ax=ax, alpha=0.1)
 # Set the scales for the figure
 ax.set_xlim(-5, 5)
 ax.set_ylim(-5, 5)
