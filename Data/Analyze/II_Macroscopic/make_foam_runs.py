@@ -19,9 +19,8 @@ strings = []
 # Get the directory that this is in
 
 thine_dir = os.getcwd()
-print(my_dir)
 
-OS = 'linux'
+OS = 'windows'
 
 if OS == 'linux':
     # We want to create a script to run all of these
@@ -32,7 +31,7 @@ if OS == 'linux':
         settings = my_dir.split('_')
         try:
             dinky_winky = int(settings[-1])
-            if dinky_winky >= 19:
+            if dinky_winky > 19:
                 continue
             new_file = '_'.join(settings[:-1])
 
@@ -68,7 +67,7 @@ elif OS == 'windows':
         settings = my_dir.split('_')
         try:
             dinky_winky = int(settings[-1])
-            if dinky_winky >= 19:
+            if dinky_winky > 19:
                 continue
             new_file = '_'.join(settings[:-1])
 
@@ -77,15 +76,15 @@ elif OS == 'windows':
         tot += 1
         run_dir = file_directory + '/' + my_dir + '/' + new_file + '.pdb'
         export_dir = file_directory + '/' + my_dir
-        if os.path.exists(export_dir) and not os.path.exists(export_dir + '/vor'):
-            strings.append('\npy vorpy.py {} -s nt compare -e dir {} -e large'.format(run_dir, export_dir))
+        if os.path.exists(export_dir) and not os.path.exists(export_dir + '/' + new_file + '_Network_aw'):
+            strings.append('\npy vorpy.py {} -s nt compare -e dir {} -e logs'.format(run_dir, export_dir))
         else:
             num_done += 1
 
     j = 0
     for i in range(len(strings)):
-        if j < i // 500 or i == 0:
-            j = i // 500
+        if j < i // 200 or i == 0:
+            j = i // 200
             with open(thine_dir + '/foam_runs_{}.bat'.format(j), 'w') as foam_write:
                 foam_write.write(strings[i])
         else:
