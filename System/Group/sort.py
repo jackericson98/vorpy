@@ -12,8 +12,8 @@ def get_info(group):
     group.get_edges()
     group.get_verts()
     # Reset the group's data attributes
-    group.sa, group.vol, group.density = 0, 0, 0
-    tot_atom_vol = 0
+    group.sa, group.vol, group.vdw_vol, group.density = 0, 0, 0, 0
+    com, vdw_com = [0, 0, 0], [0, 0, 0]
     # Get the volume of the group
     for i in group.ball_ndxs:
         atom = group.net.balls.iloc[i]
@@ -21,9 +21,14 @@ def get_info(group):
             continue
         # Add the volume to that of the group
         group.vol += atom['vol']
-        tot_atom_vol += (4 / 3) * np.pi * atom['rad'] ** 3
+        group.vdw_vol += atom['vdw_vol']
+        # Add to the coms
+        com = [com[j] + atom['com'][j] * atom['vol'] for j in range(3)]
+        vdw_com = [vdw_com[j] + atom['loc'] * atom['vdw_vol'] for j in range(3)]
     if group.vol > 0:
-        group.density = tot_atom_vol / group.vol
+        group.density = group.vdw_vol / group.vol
+        group.com = [com[j] / group.vol for j in range(3)]
+        group.vdw_com = [vdw_com[j] / group.vdw_vol for j in range(3)]
     # Check to see if the first layer has been calculated
     if group.layer_surfs is None or len(group.layer_surfs) == 0:
         group.get_layers(max_layers=1)
