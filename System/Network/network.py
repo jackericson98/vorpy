@@ -22,7 +22,7 @@ from Visualize.mpl_visualize import plot_surfs, plot_balls, plot_verts
 class Network:
     """Network object."""
     def __init__(self, locs, rads, names=None, group=None, settings=None, balls=None, verts=None, edges=None,
-                 surfs=None, box=None, sort_balls=False, build_net=False):
+                 surfs=None, box=None, sort_balls=False, build_net=False, masses=None):
 
         # Main network defining objects
         self.group = group                # Group         : List of loc and rad indices for calculation
@@ -42,7 +42,8 @@ class Network:
         if names is None:
             names = [str(i) for i in range(len(locs))]
         if self.balls is None:
-            self.balls = pd.DataFrame({'loc': locs, 'rad': rads, 'num': [i for i in range(len(locs))], 'name': names})
+            self.balls = pd.DataFrame({'loc': locs, 'rad': rads, 'num': [i for i in range(len(locs))], 'name': names,
+                                       'mass': masses})
         # Sort the balls if need be
         if sort_balls:
             self.sort_balls()
