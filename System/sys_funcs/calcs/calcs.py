@@ -332,7 +332,7 @@ def calc_cell_com(ball_loc, surfs, volume):
             mass_locs.append([tet_vol * coord for coord in tet_com])
 
     # Calculate the total center of mass by normalizing with the cell volume
-    return [sum(coords) / volume for coords in zip(*mass_locs)]
+    return np.array([sum(coords) / volume for coords in zip(*mass_locs)])
 
 
 def calc_cell_moi(ball_loc, surfs, volume, density=1.0):
@@ -378,7 +378,72 @@ def calc_cell_moi(ball_loc, surfs, volume, density=1.0):
     return inertia_tensor
 
 
-def calc_contacts(loc, rad, surfs):
+def combine_inertia_tensors(inertia_tensors, centroids, common_centroid, masses):
+    """
+    Combine a list of inertia tensors into a single inertia tensor.
+
+    :param inertia_tensors: List of 3x3 inertia tensors (numpy arrays) for each element.
+    :param centroids: List of centroid coordinates (numpy arrays) for each element.
+    :param common_centroid: The centroid to which all tensors should be shifted (numpy array).
+    :param masses: List of masses (or volumes, assuming uniform density) for each element.
+    :return: Combined 3x3 inertia tensor.
+    """
+    # Initialize the total inertia tensor as a zero matrix
+    I_total = np.zeros((3, 3))
+
+    # Loop over each element
+    for I_i, C_i, m_i in zip(inertia_tensors, centroids, masses):
+        # Calculate the displacement vector from the element's centroid to the common centroid
+        d = C_i - common_centroid
+        d_squared = np.dot(d, d)  # Squared magnitude of the displacement vector
+
+        # Compute the parallel axis theorem adjustment term
+        shift_tensor = m_i * (d_squared * np.eye(3) - np.outer(d, d))
+
+        # Shift the inertia tensor of the element to the common centroid and add to total
+        I_shifted = I_i + shift_tensor
+        I_total += I_shifted
+
+    return I_total
+
+
+def calc_total_inertia_tensor(spheres, common_point):
+    """
+    Calculate the combined moment of inertia tensor of a set of spheres.
+
+    :param spheres: List of dictionaries with 'mass', 'radius' (as 'rad'), and 'location' (as 'loc', numpy array).
+    :param common_point: The point to which all moments of inertia are shifted (numpy array).
+    :return: Total moment of inertia tensor (3x3 numpy array).
+    """
+    # Initialize the total inertia tensor as a 3x3 zero matrix
+    I_total = np.zeros((3, 3))
+
+    # Iterate through each sphere
+    for sphere in spheres:
+        m = sphere['mass']
+        r = sphere['rad']
+        loc = sphere['loc']
+
+        # Moment of inertia tensor of the sphere about its own center (3x3 identity scaled by (2/5) * m * r^2)
+        I_center = (2 / 5) * m * r**2 * np.eye(3)
+
+        # Calculate the displacement vector from the sphere's center to the common point
+        d = loc - common_point
+        d_squared = np.dot(d, d)  # Squared magnitude of the displacement vector
+
+        # Calculate the parallel axis shift tensor: m * (d^2 * I3 - d * d^T)
+        shift_tensor = m * (d_squared * np.eye(3) - np.outer(d, d))
+
+        # Shift the inertia tensor to the common reference point
+        I_shifted = I_center + shift_tensor
+
+        # Add the shifted inertia tensor to the total inertia tensor
+        I_total += I_shifted
+
+    return I_total
+
+
+def calc_contacts(loc, rad, surfs, surf_ndxs):
     """
     Calculate the contact areas and contribution volume for a given sphere.
     :param loc: Center location of the sphere.
@@ -387,10 +452,10 @@ def calc_contacts(loc, rad, surfs):
     :return: A list of contact areas for each surface and the total contribution volume.
     """
     # Create the area and volume vals
-    contact_areas, contribution_vol = [], 0
+    contact_areas, contribution_vol = {}, 0
 
     # Loop through the surfaces
-    for surf in surfs:
+    for i, surf in enumerate(surfs):
         # Initialize contact area for this surface
         contact_area = 0
         new_points = []
@@ -441,7 +506,7 @@ def calc_contacts(loc, rad, surfs):
                     contact_area += calc_tri(np.array(triangle_points))
 
         # Append the contact area for this surface
-        contact_areas.append(contact_area)
+        contact_areas[surf_ndxs[i]] = contact_area
 
     return contact_areas, contribution_vol
 
