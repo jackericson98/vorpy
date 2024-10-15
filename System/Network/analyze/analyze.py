@@ -31,6 +31,8 @@ def analyze(net, complicated=True):
     """
      Analyzes the output surfaces, cells and solute vertices for the network for later reference
      """
+    # Create the group set for the group indexes
+    group_set = set(net.group)
     # Set up the balls' volumes, surface areas, and completion variables
     b_vols, b_sas, b_cell = [], [], []
     # Set up the curvature variables
@@ -38,7 +40,7 @@ def analyze(net, complicated=True):
     # Set up the geometric variables
     b_sphrctys, b_isopmqs = [], []
     # Set up the neighbors variables
-    num_nbors, near_nbors, near_nbor_dists, nbor_lyr_rmsds, nbor_dst_avgs = [], [], [], [], []
+    num_nbors, near_nbors, near_nbor_dists, nbor_lyr_rmsds, nbor_dst_avgs, b_inner = [], [], [], [], [], []
     # Set up the spike variables
     b_min_spikes, b_max_spikes = [], []
     # Set up the contacts lists
@@ -48,7 +50,8 @@ def analyze(net, complicated=True):
     # Bounding boxes
     b_boxs = []
     # Set up the timer
-    timer = {'basic': 0, 'curvs': 0, 'geometric': 0, 'nbors': 0, 'spikes': 0, 'contacts': 0, 'physical': 0, 'b_box': 0}
+    timer = {'basic': 0, 'curvs': 0, 'geometric': 0, 'nbors': 0, 'spikes': 0, 'contacts': 0, 'com': 0, 'moi': 0, 'b_box': 0}
+    time_start = time.perf_counter()
     # Set up the surfaces tracker
     surfaces_tracker = {}
     # Go through each ball in the system and find the volume
@@ -66,12 +69,12 @@ def analyze(net, complicated=True):
         ball_surfs = net.surfs.iloc[ball['surfs']].to_dict(orient='records')
 
         # Initial test for completeness
-        if len(ball['surfs']) == 0:
-            (b_vols, b_sas, b_cell, b_max_curvs, b_avg_surf_curvs, b_sphrctys, b_isopmqs, num_nbors, near_nbors,
-             near_nbor_dists, nbor_lyr_rmsds, num_olaps, nbor_dst_avgs, b_min_spikes, b_max_spikes, contact_areas,
-             olap_vols, non_olap_vols, coms, mois, b_boxs) = (
-                append_0(b_vols, b_sas, b_cell, b_max_curvs, b_avg_surf_curvs, b_sphrctys, b_isopmqs, num_nbors,
-                         near_nbors, near_nbor_dists, nbor_lyr_rmsds, num_olaps, nbor_dst_avgs, b_min_spikes,
+        if len(ball['surfs']) == 0 or sum([_['sa'] for _ in ball_surfs]) == 0:
+            (b_vols, b_sas, b_cell, b_max_curvs, b_avg_surf_curvs, b_sphrctys, b_isopmqs, b_inner, num_nbors,
+             near_nbors, near_nbor_dists, nbor_lyr_rmsds, num_olaps, nbor_dst_avgs, b_min_spikes, b_max_spikes,
+             contact_areas, olap_vols, non_olap_vols, coms, mois, b_boxs) = (
+                append_0(b_vols, b_sas, b_cell, b_max_curvs, b_avg_surf_curvs, b_sphrctys, b_isopmqs, b_inner,
+                         num_nbors, near_nbors, near_nbor_dists, nbor_lyr_rmsds, num_olaps, nbor_dst_avgs, b_min_spikes,
                          b_max_spikes, contact_areas, olap_vols, non_olap_vols, coms, mois, b_boxs))
             continue
 
@@ -125,6 +128,11 @@ def analyze(net, complicated=True):
             neighbors.append(neighbor)
             if ball['surfs'][i] not in surfaces_tracker:
                 surfaces_tracker[ball['surfs'][i]] = {'olap_dist': max(-neighbor_dist, 0)}
+        # Check to see if the ball is inside or outside
+        if group_set.issuperset(set(neighbors)):
+            b_inner.append(True)
+        else:
+            b_inner.append(False)
 
         # Add the number of neighbors and the nearest neighbor
         num_nbors.append(len(neighbors))
@@ -186,11 +194,14 @@ def analyze(net, complicated=True):
 
             # get the center of mass
             coms.append(calc_cell_com(ball['loc'], ball_surfs, volume))
+
+            time7a = time.perf_counter()
+            timer['com'] += time7a - time7
             # Get the Moment of inertia
             mois.append(calc_cell_moi(ball['loc'], ball_surfs, volume))
 
             time8 = time.perf_counter()
-            timer['physical'] += time8 - time7
+            timer['moi'] += time8 - time7a
 
             # Get the bounding box
             b_boxs.append(calc_cell_box(ball_surfs))
@@ -208,7 +219,7 @@ def analyze(net, complicated=True):
     # Assign the balls values
     net.balls = net.balls.assign(vol=b_vols, sa=b_sas, max_curv=b_max_curvs, complete=b_cell,
                                  avg_surf_curv=b_avg_surf_curvs, sphericity=b_sphrctys, isometric_quotient=b_isopmqs,
-                                 number_of_neighbors=num_nbors, nearest_neighbor=near_nbors,
+                                 ball_inside=b_inner, number_of_neighbors=num_nbors, nearest_neighbor=near_nbors,
                                  nearest_neighbor_distance=near_nbor_dists, neighbor_distance_average=nbor_dst_avgs,
                                  neighbor_distance_rmsd=nbor_lyr_rmsds, number_of_olaps=num_olaps,
                                  min_spike=b_min_spikes, max_spike=b_max_spikes, contact_area=contact_areas,
@@ -222,5 +233,6 @@ def analyze(net, complicated=True):
 
     for _ in timer:
         print(_, timer[_])
+    print('total = {} s\n'.format(time.perf_counter() - time_start))
 
     net.metrics['anal'] = now() - net.metrics['start'] - net.metrics['surf'] - net.metrics['con'] - net.metrics['vert']
