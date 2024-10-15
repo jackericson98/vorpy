@@ -179,8 +179,6 @@ def export(sys, usr_npt, my_group=None):
         my_group = group(sys, usr_npt)
     if sys.dir is None:
         sys.set_output_directory()
-    if my_group.surf_res is None:
-        my_group.surf_res = my_group.sys.net.settings['surf_res']
 
     while True:
         # Main prompt
