@@ -120,16 +120,19 @@ def analyze(net, complicated=True):
         timer['geometric'] += time4 - time3
 
         # Gather the neighbors
-        neighbors, neighbor_dists = [], []
+        neighbors, neighbors_nums, neighbor_dists = [], [], []
         for i, surf in enumerate(ball_surfs):
-            neighbor = net.balls.iloc[[_ for _ in surf['balls'] if _ != ball['num']][0]]
+            neighbor_num = [_ for _ in surf['balls'] if _ != ball['num']][0]
+
+            neighbors_nums.append(neighbor_num)
+            neighbor = net.balls.iloc[neighbor_num]
             neighbor_dist = calc_dist(ball['loc'], neighbor['loc']) - ball['rad'] - neighbor['rad']
             neighbor_dists.append(neighbor_dist)
             neighbors.append(neighbor)
             if ball['surfs'][i] not in surfaces_tracker:
                 surfaces_tracker[ball['surfs'][i]] = {'olap_dist': max(-neighbor_dist, 0)}
         # Check to see if the ball is inside or outside
-        if group_set.issuperset(set(neighbors)):
+        if group_set.issuperset(neighbors_nums):
             b_inner.append(True)
         else:
             b_inner.append(False)
