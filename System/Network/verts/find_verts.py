@@ -117,10 +117,10 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
                 continue
             # Set the vertex and its index
             my_vert, metrics = vert_ndx_pr
-            # Check if there is a retaining box for the vertices and if the vertex is outside the box
-            if vert_box is not None and (any([vert_box[0][i] > my_vert['loc'][i] for i in range(3)]) or
-                                         any([vert_box[1][i] < my_vert['loc'][i] for i in range(3)])):
-                continue
+            # # Check if there is a retaining box for the vertices and if the vertex is outside the box
+            # if vert_box is not None and (any([vert_box[0][i] > my_vert['loc'][i] for i in range(3)]) or
+            #                              any([vert_box[1][i] < my_vert['loc'][i] for i in range(3)])):
+            #     continue
             if my_vert['loc'] is None:
                 continue
             # Add the vertex to the stack and the network
