@@ -165,7 +165,10 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
     if net_type == 'aw' and not flat and perim_poly.contains(Point(surf_loc)):
         surf_curv = calc_surf_point_curv(sfunc, surf_loc)
     # Filter out the bad triangles
-    surf_points, surf_tris = triangulate_2D_Surface(flat_perim, flat_points, res, surf_loc, plotting=plotting)
+    my_triangles = triangulate_2D_Surface(flat_perim, flat_points, res, surf_loc, plotting=plotting)
+    if len(my_triangles) == 1:
+        return
+    surf_points, surf_tris = my_triangles
     # plot_polygon(perim_poly)
     # plot_points_and_tris(surf_points, surf_tris, tcol='r', plot_points=False, Show=True)
     # if timer:

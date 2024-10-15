@@ -27,6 +27,9 @@ def build_surfs(net, store_points=True):
             rads, locs, nums = [rads[1], rads[0]], [locs[1], locs[0]], [nums[1], nums[0]]
         my_surf = build_surf(locs=locs, rads=rads, epnts=[net.edges['points'][_] for _ in surf['edges']],
                              res=net.settings['surf_res'], net_type=net.settings['net_type'], timer=True)
+        if my_surf is None:
+            net.surfs.drop(index=i, inplace=True)
+            continue
         surf_points, surf_tris, surf_tri_curvs, surf_curv, surf_func, surf_com, surf_flat, surf_loc = my_surf
         # full_count = {_: full_count[_] + timer[_] for _ in full_count}
         # Get the surface Volumes

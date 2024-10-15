@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from System.sys_funcs.calcs.calcs import calc_dist, calc_tri, calc_com, project_to_plane
 from System.sys_funcs.calcs.surf import calc_2d_surf_sa
+from scipy.spatial._qhull import QhullError
 
 
 def plot_points_and_tris(pnts=None, trs=None, pcol=None, tcol=None, plot_points=True, Show=False):
@@ -262,8 +263,13 @@ def triangulate_2D_Surface(perimeter, all_points=None, res=0.2, center=None, tim
 
     else:
         good_points, good_point_points = all_points, my_points
-
-    triangles = Delaunay(good_points).simplices
+    try:
+        triangles = Delaunay(good_points).simplices
+    except QhullError as e:
+        try:
+            triangles = Delaunay(good_points, qhull_options='QJ').simplices
+        except QhullError as e2:
+            return all_points, []
 
     if filter_hard:
         new_triangles = []
