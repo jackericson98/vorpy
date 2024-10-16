@@ -180,7 +180,8 @@ def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         metrics['box_search'] += time.perf_counter() - start
         start = time.perf_counter()
     # Get the balls not in the invalid balls that are within the range specified
-    test_balls = [_ for _ in get_balls(cells=my_boxes, dist=mv_inc) if _ not in invalid_ndxs]
+    invalid_ndxs_set = set(invalid_ndxs)
+    test_balls = [_ for _ in get_balls(cells=my_boxes, dist=mv_inc) if _ not in invalid_ndxs_set]
     # Sort the test balls to be in order by distance from the previous vert location
     if vn_1_loc is None:
         vn_1_loc = calc_com([locs[_] for _ in edge_ndxs])
@@ -244,7 +245,8 @@ def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         test_locs = np.array([locs[_] for _ in filtered_test_balls])
         test_rads = np.array([rads[_] for _ in filtered_test_balls])
         # Compare the vertex to the maximum allowed vertex and verify it
-        if vert_rad < max_vert and verify_pow(loc=np.array(vert_loc), rad=vert_rad, test_locs=test_locs, test_rads=test_rads):
+        if (vert_rad < max_vert ** 2 - min([rads[_] for _ in vert_balls]) ** 2 and
+                verify_pow(loc=np.array(vert_loc), rad=vert_rad, test_locs=test_locs, test_rads=test_rads)):
             # Add the time for verification to the verify_site metrics
             if metrics is not None:
                 metrics['verify_site'] += time.perf_counter() - start
@@ -273,7 +275,8 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
         start = time.perf_counter()
 
     # Get the balls not in the invalid balls that are within the range specified
-    test_balls = [_ for _ in get_balls(cells=my_boxes, dist=mv_inc) if _ not in invalid_ndxs]
+    invalid_ndxs_set = set(invalid_ndxs)
+    test_balls = [_ for _ in get_balls(cells=my_boxes, dist=mv_inc) if _ not in invalid_ndxs_set]
 
     # Gather balls metrics <-- Delete later
     if metrics is not None:
