@@ -55,10 +55,11 @@ def analyze(net, complicated=True):
     # Set up the surfaces tracker
     surfaces_tracker = {}
     # Go through each ball in the system and find the volume
+    count = 0
     for k, ball in net.balls.iterrows():
 
         # Get the percentage for printing
-        percentage = int(k / len(net.balls['loc']) * 100)
+        percentage = int(count / len(net.group) * 100)
         # Print the actions
         my_time = now() - net.metrics['start']
         h, m, s = get_time(my_time)
@@ -69,7 +70,7 @@ def analyze(net, complicated=True):
         ball_surfs = net.surfs.iloc[ball['surfs']].to_dict(orient='records')
 
         # Initial test for completeness
-        if len(ball['surfs']) == 0 or sum([_['sa'] for _ in ball_surfs]) == 0:
+        if len(ball['surfs']) == 0 or sum([_['sa'] for _ in ball_surfs]) == 0 or ball['num'] not in group_set:
             (b_vols, b_sas, b_cell, b_max_curvs, b_avg_surf_curvs, b_sphrctys, b_isopmqs, b_inner, num_nbors,
              near_nbors, near_nbor_dists, nbor_lyr_rmsds, num_olaps, nbor_dst_avgs, b_min_spikes, b_max_spikes,
              contact_areas, olap_vols, non_olap_vols, coms, mois, b_boxs) = (
@@ -77,7 +78,7 @@ def analyze(net, complicated=True):
                          num_nbors, near_nbors, near_nbor_dists, nbor_lyr_rmsds, num_olaps, nbor_dst_avgs, b_min_spikes,
                          b_max_spikes, contact_areas, olap_vols, non_olap_vols, coms, mois, b_boxs))
             continue
-
+        count += 1
         time1 = time.perf_counter()
         # Check for complete cells in the balls
         complete = True
