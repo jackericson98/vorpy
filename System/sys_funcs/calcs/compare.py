@@ -26,7 +26,7 @@ def compare_networks(sys, group1, group2, data_file=None):
                                             (ball1['vol'] - ball2['vol']) / ball2['vol'],
                                             (ball1['sa'] - ball2['sa']) / ball2['sa'], ball1['rad'])
             # Check for outliers
-            if any([_ > 10 for _ in [vdn1, sdn1, vdn2, sdn2]]):
+            if any([_ > 20 for _ in [vdn1, sdn1, vdn2, sdn2]]):
                 print('Outlier in comparison detected: {} - Off by {} %'.format(ball1['name'], 100 * vdn1))
                 continue
             # Add the data
@@ -36,10 +36,6 @@ def compare_networks(sys, group1, group2, data_file=None):
             data['sdn2'].append(sdn2)
             data['rads'].append(ball1['rad'])
 
-            # Filter for radicals
-            if any([data[_][-1] > 10 for _ in data]):
-                print(ball1['name'])
-                continue
     # Create the data line to be added to the data file
     nbs, my_line = len(data['vdn1']), []
     if sys.foam_data is None:
