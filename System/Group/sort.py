@@ -11,7 +11,7 @@ def get_info(group):
     # Get the group objects
     group.get_surfs()
     group.get_edges()
-    group.get_verts()
+    group.verts = [i for i, vert in group.net.verts.iterrows()]
     # Reset the group's data attributes
     group.sa, group.vol, group.vdw_vol, group.density, group.mass = 0, 0, 0, 0, 0
     com, vdw_com = [0, 0, 0], [0, 0, 0]
@@ -122,17 +122,20 @@ def get_verts(grp):
     Finds and sorts all the vertices in the group
     :return: The groups vertices are sorted and non-redundant
     """
+    # Create the group set
+    group_set = set(grp.ball_ndxs)
     # Reset the surfaces lists
     grp.verts, grp.vert_ndxs = [], []
     # Go through the surfaces in the atoms list of surfaces
     for i, vert in grp.net.verts.iterrows():
         # Check that the edge shares an atom with the group
-        if len([0 for _ in vert['balls'] if _ in grp.ball_ndxs]) == 0:
+        if not all([ball in group_set for ball in vert['balls']]):
             continue
-        # Get the index of the edge
+        # Get the index of the vertex
         vert_ndx = ndx_search(grp.vert_ndxs, vert['balls'])
-        # Check if the edge has been added yet or not
+        # Check if the vertex has been added yet or not
         if vert_ndx >= len(grp.vert_ndxs) or grp.vert_ndxs[vert_ndx] == vert['balls']:
-            # Insert the index and the surfaces in their 181L place
+            # Insert the index
             grp.verts.insert(vert_ndx, i)
             grp.vert_ndxs.insert(vert_ndx, vert['balls'])
+    print('Group verts complete = ', len(grp.net.verts), grp.verts)
