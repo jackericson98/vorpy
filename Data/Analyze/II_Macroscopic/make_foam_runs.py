@@ -40,13 +40,6 @@ if OS == 'linux':
         tot += 1
         run_dir = file_directory + '/' + my_dir +'/' + new_file + '.pdb'
         export_dir = file_directory + '/' + my_dir
-        if settings[3] == '0.05':
-            print('I am counting these')
-            mv = 200
-        elif settings[3] == '0.1':
-            mv = 100
-        else:
-            mv = 50
         if os.path.exists(export_dir) and not os.path.exists(export_dir + '/' + new_file + '_Network_aw'):
 
             strings.append('\npython3 vorpy.py {} -s mv {}} -s nt compare -e dir {} -e logs -g chain a'.format(run_dir, mv, export_dir))
@@ -84,15 +77,8 @@ elif OS == 'windows':
         tot += 1
         run_dir = file_directory + '/' + my_dir + '/' + new_file + '.pdb'
         export_dir = file_directory + '/' + my_dir
-        if settings[3] == '0.05':
-            print('I am counting these')
-            mv = 200
-        elif settings[3] == '0.1':
-            mv = 100
-        else:
-            mv = 50
         if os.path.exists(export_dir) and not os.path.exists(export_dir + '/' + new_file + '_Network_aw'):
-            strings.append('\npy vorpy.py {} -s nt compare -e dir {} -s mv {} -g chain a'.format(run_dir, export_dir, mv))
+            strings.append('\npy vorpy.py {} -s nt compare -e dir {} -s mv 20 -g chain a'.format(run_dir, export_dir))
         else:
             num_done += 1
 
