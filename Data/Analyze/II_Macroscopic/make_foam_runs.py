@@ -47,7 +47,7 @@ if OS == 'linux':
             mv = 100
         else:
             mv = 50
-        if os.path.exists(export_dir) and not os.path.exists(export_dir + '/vor'):
+        if os.path.exists(export_dir) and not os.path.exists(export_dir + '/' + new_file + '_Network_aw'):
 
             strings.append('\npython3 vorpy.py {} -s mv {}} -s nt compare -e dir {} -e logs -g chain a'.format(run_dir, mv, export_dir))
         else:
