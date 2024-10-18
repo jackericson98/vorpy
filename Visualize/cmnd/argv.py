@@ -161,6 +161,10 @@ def argv(my_sys):
     # compare the groups
     if my_sys.groups is None or len(my_sys.groups) == 0:
         ggroup(my_sys, cmnds['grp'], settings)
+    else:
+        verts = my_sys.groups[0].verts
+        ggroup(my_sys, cmnds['grp'], settings)
+        my_sys.groups[0].verts = verts
     if my_sys.groups is None or len(my_sys.groups) == 0:
         print('{} not a valid group command. Calculating whole molecule'.format(cmnds['grp']))
         ggroup(my_sys, [['ns']])
@@ -173,9 +177,12 @@ def argv(my_sys):
             copy_group.settings['net_type'] = settings['net_type'][1]
             grp.settings['net_type'] = settings['net_type'][2]
             grp.name = grp.name + '_' + settings['net_type'][2]
+            # Delete the vertices from the grp group because they are only aw
+            grp.verts = None
             copy_group.build()
             grp.build()
             new_groups.append(copy_group)
+            # Compare the two networks
             my_sys.compare_networks(group1=copy_group, group2=grp)
         my_sys.groups += new_groups
 
