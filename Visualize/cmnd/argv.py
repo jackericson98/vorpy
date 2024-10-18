@@ -136,7 +136,7 @@ def argv(my_sys):
         print_help()
         return
     # Load the atom file
-    load(my_sys, ["", sys.argv[1]])
+    load(my_sys, [["", sys.argv[1]]])
 
     # Interpret the commands
     cmnds = interpret_argvs()
@@ -159,7 +159,8 @@ def argv(my_sys):
         my_sys.set_radii(settings['atom_rad']['element'], settings['atom_rad']['special'])
 
     # compare the groups
-    ggroup(my_sys, cmnds['grp'], settings)
+    if my_sys.groups is None or len(my_sys.groups) == 0:
+        ggroup(my_sys, cmnds['grp'], settings)
     if my_sys.groups is None or len(my_sys.groups) == 0:
         print('{} not a valid group command. Calculating whole molecule'.format(cmnds['grp']))
         ggroup(my_sys, [['ns']])
