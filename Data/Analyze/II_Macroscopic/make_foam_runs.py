@@ -40,10 +40,9 @@ if OS == 'linux':
         tot += 1
         run_dir = file_directory + '/' + my_dir +'/' + new_file + '.pdb'
         export_dir = file_directory + '/' + my_dir
+        if os.path.exists(export_dir) and not os.path.exists(export_dir + '/' + new_file + '_Network_aw'):
 
-        if os.path.exists(export_dir) and not os.path.exists(export_dir + '/vor'):
-
-            strings.append('\npython3 vorpy.py {} -s mv 20 -s nt compare -e dir {} -e logs -g chain a'.format(run_dir, export_dir))
+            strings.append('\npython3 vorpy.py {} -s mv {}} -s nt compare -e dir {} -e logs -g chain a'.format(run_dir, mv, export_dir))
         else:
             num_done += 1
 

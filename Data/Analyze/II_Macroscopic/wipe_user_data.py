@@ -19,9 +19,6 @@ for roott, folders, files in os.walk(user_data):
                 if file == 'verts.txt':
                     print(file)
                     removal_directories.append(roott + '/' + folder + '/' + file)
-                elif 'info.txt' in file:
-                    print(file)
-                    removal_directories.append(roott + '/' + folder + '/' + file)
 
 for dinkleschmitt in removal_directories:
     try:
