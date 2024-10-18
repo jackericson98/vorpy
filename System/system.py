@@ -199,12 +199,13 @@ class System:
         """
         # Check for a loaded vertex file
         if file is not None:
-            self.files['vert_file'] = file
+            self.files['verts_file'] = file
 
         # If just verts we are loading vorpy verts
         if vta_ball_file is None:
-            read_verts(self.net, file)
-            self.files['vert_file'] = "deez nuts"
+            if self.groups is None:
+                self.create_group()
+            self.groups[0].verts = read_verts(self.groups[0], file)
         else:
             # If a ball file is loaded as well, this is a Voronota deal
             read_vta_data(self, vert_file=file, ball_file=vta_ball_file)
