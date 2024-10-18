@@ -10,18 +10,18 @@ def load(sys, usr_npt):
     :param usr_npt:
     :return:
     """
-
     my_files = []
-    if len(usr_npt) == 1:
-        my_files.append(get_file())
-        if my_files[-1] is None or my_files[-1].lower() in quits:
-            return
-    else:
-        for file in usr_npt[1::2]:
-            my_file = get_file(file)
-            if my_file is None or my_file.lower() in quits:
+    for npt in usr_npt:
+        if len(npt) == 1:
+            my_files.append(get_file())
+            if my_files[-1] is None or my_files[-1].lower() in quits:
                 return
-            my_files.append(my_file)
+        else:
+            for file in npt[1::2]:
+                my_file = get_file(file)
+                if my_file is None or my_file.lower() in quits:
+                    return
+                my_files.append(my_file)
     for file in my_files:
         # Check to see what type of file it is
         if file[-3:] == 'pdb' or file[-3:] == 'mol' or file[-3:] == 'gro' or file[-3:] == 'cif':
@@ -48,9 +48,9 @@ def load(sys, usr_npt):
             # If the new file is a vertex file load it
             if file[-9:-4].lower() == 'verts' or file[-12:-4].lower() == 'vertices':
                 # If a vertex file has already been loaded make sure the user wants to load it if not load it
-                if sys.vert_file is not None and sys.vert_file != "":
+                if sys.files['verts_file'] is not None and sys.vert_file != "":
                     replace_vert_file = input("replacing {} with {}\n "
-                                              "confirm >>>   ".format(sys.vert_file, file))
+                                              "confirm >>>   ".format(sys.files['verts_file'], file))
                     if replace_vert_file.lower() in ys or replace_vert_file.lower() in dones:
                         sys.load_verts(file, vta_ball_file=sys.ball_file)
                         print("{} vertices loaded - {} vertices, maximum vertex radius: {} \u208B, box size: {} x\n"
@@ -60,7 +60,7 @@ def load(sys, usr_npt):
                     elif replace_vert_file.lower() in quits:
                         return
                 else:
-                    sys.load_verts(file, vta_ball_file=sys.ball_file)
+                    sys.load_verts(file, vta_ball_file=sys.files['ball_file'])
                     # print("{} vertices loaded - {} vertices, maximum vertex radius: {} \u208B, box size: {} x\n"
                     #       .format(sys.name, len(sys.net.vta_verts), sys.net.max_vert, sys.net.box_size))
             elif file[-9:-4].lower() == 'balls':
