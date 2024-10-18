@@ -45,10 +45,10 @@ for my_dir in my_dirs_unfiltered:
     if not os.path.exists(export_dir + '/chain_a_aw') and '.csv' not in export_dir:
         # Check if the vertices have been solved
         if os.path.exists(export_dir + '/verts.txt'):
-            strings.append('\npy vorpy.py {} -s mv 30 -s nt compare -e dir {} -e {} -g chain a, -l verts {}'
+            strings.append('\npy vorpy.py {} -s mv 30 -s nt compare -e dir {} -e {} -l verts {}'
                            .format(run_dir, export_dir, export_type, export_dir + '/verts.txt'))
         else:
-            strings.append(  '\npy vorpy.py {} -s mv 30 -s nt compare -e dir {} -e {} -g chain a'.format(run_dir, export_dir, export_type))
+            strings.append('\npy vorpy.py {} -s mv 30 -s nt compare -e dir {} -e {}'.format(run_dir, export_dir, export_type))
     else:
         num_done += 1
 

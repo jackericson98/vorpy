@@ -163,6 +163,7 @@ def argv(my_sys):
         ggroup(my_sys, cmnds['grp'], settings)
     else:
         verts = my_sys.groups[0].verts
+        my_sys.groups = None
         ggroup(my_sys, cmnds['grp'], settings)
         my_sys.groups[0].verts = verts
     if my_sys.groups is None or len(my_sys.groups) == 0:
