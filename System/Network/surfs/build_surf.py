@@ -10,7 +10,7 @@ from shapely import Polygon, Point
 from System.Network.surfs.triangulate import triangulate_2D_Surface, is_within
 from scipy.spatial import Delaunay
 import matplotlib.pyplot as plt
-from Visualize.mpl_visualize import plot_balls, plot_surfs, plot_edges
+from Visualize.mpl_visualize import plot_balls, plot_surfs, plot_edges, setup_plot, plot_verts
 
 
 ############################################## Triangulate Surface Points  #############################################
@@ -97,6 +97,13 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
 
     # Build the perimeter of the surface
     perimeter, surf_loc, surf_norm = build_perimeter(locs, rads, epnts=epnts, net_type=net_type)
+
+    if plotting:
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        plot_balls(locs, rads, fig=fig, ax=ax, alpha=0.1)
+        ax.scatter([_[0] for _ in perimeter], [_[1] for _ in perimeter], [_[2] for _ in perimeter])
+        plt.show()
     # if check:
     #     print("Flat = {}".format(flat))
 
@@ -106,6 +113,14 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
     # Get the center of mass for the surface
     surf_com, filter_hard = get_com(locs, rads, perimeter=perimeter, surf_loc=surf_loc, surf_norm=surf_norm, flat=flat,
                                     func=sfunc, net_type=net_type)
+
+    if plotting:
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        plot_balls(locs, rads, fig=fig, ax=ax, alpha=0.1)
+        ax.scatter([_[0] for _ in perimeter], [_[1] for _ in perimeter], [_[2] for _ in perimeter])
+        ax.scatter([surf_com[0]], [surf_com[1]], [surf_com[2]], c=['r'])
+        plt.show()
     # if timer:
     #     clocck['com'] = time.perf_counter() - start
     #     start = time.perf_counter()
@@ -132,18 +147,54 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
     # Calculate the angles to rotate the center point around
 
     flat_points = project_to_plane(np.array(spoints), plane_normal=surf_norm, plane_point=surf_loc)
-    if plotting:
-        fig = plt.figure()
-        ax = fig.add_subplot(projection='3d')
-        plot_balls(locs, rads, colors=['k', 'k'], fig=fig, ax=ax, alpha=0.3)
-        plot_edges(epnts, fig=fig, ax=ax, alpha=0.8, Show=True, thickness=2)
-
+    # if plotting:
+    #     fig = plt.figure()
+    #     ax = fig.add_subplot(projection='3d')
+    #     plot_balls(locs, rads, colors=['k', 'k'], fig=fig, ax=ax, alpha=0.3)
+    #     plot_edges(epnts, fig=fig, ax=ax, alpha=0.8, Show=True, thickness=2)
+    #
     if plotting:
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
         ax.scatter([_[0] for _ in spoints], [_[1] for _ in spoints], [_[2] for _ in spoints])
-        plot_balls(locs, rads, colors=['k', 'k'], fig=fig, ax=ax, alpha=0.3)
-        plot_edges(epnts, fig=fig, ax=ax, alpha=0.8, Show=True, thickness=2)
+        ax.scatter([surf_com[0]], [surf_com[1]], [surf_com[2]], c='r')
+        plot_balls(locs, rads, colors=['k', 'k'], fig=fig, ax=ax, alpha=0.1, Show=True)
+
+    if plotting:
+        # Normalize the normal vector
+        plane_normal = surf_norm / np.linalg.norm(surf_norm)
+
+        # Create an orthogonal basis for the plane
+        if (plane_normal == np.array([1.0, 0.0, 0.0])).all() or (plane_normal == np.array([-1.0, 0.0, 0.0])).all():
+            # Handle the case where the normal is along the x-axis
+            u = np.array([0, 1, 0])
+        else:
+            u = np.cross(plane_normal, [1, 0, 0])
+        u = u / np.linalg.norm(u)
+        v = np.cross(plane_normal, u)
+        v = v / np.linalg.norm(v)
+
+        # Project points onto the plane
+        projected_points = []
+        for point in spoints:
+            # Vector from point on plane to the point in space
+            point_vector = point - surf_loc + plane_normal
+            # Distance from point to plane
+            distance = np.dot(point_vector, plane_normal)
+            # Projection of point onto plane
+            projected_points.append(point - distance * plane_normal)
+
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        setup_plot(fig=fig, ax=ax)
+        ax.scatter([_[0] for _ in spoints], [_[1] for _ in spoints], [_[2] for _ in spoints])
+        ax.scatter([_[0] for _ in projected_points], [_[1] for _ in projected_points], [_[2] for _ in projected_points])
+        for i, point in enumerate(spoints):
+            ax.plot([spoints[i][0], projected_points[i][0]], [spoints[i][1], projected_points[i][1]], [spoints[i][2], projected_points[i][2]], c='k', linewidth=0.1)
+
+        plt.show()
+
+
 
     # if plotting:
     #     fig = plt.figure()
@@ -185,6 +236,7 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
         ax = fig.add_subplot(projection='3d')
         plot_balls(locs, rads, fig=fig, ax=ax, alpha=0.1, colors=['k', 'k'])
         plot_edges(epnts, fig=fig, ax=ax, alpha=0.8, thickness=2)
-        plot_surfs([spoints], [surf_tris], simps=True, fig=fig, ax=ax, alpha=0.8, colors=['r'], Show=True)
+        plot_surfs([spoints], [surf_tris], simps=True, fig=fig, ax=ax, alpha=0.8, colors=['b'], Show=True)
+        # plot_edges(epnts=epnts, fig=fig, ax=ax, thickness=2, colors=['k' for _ in epnts], Show=True)
     # Return the surface points, triangles, triangle curvatures, total curvature, surface function, com, and flatness
     return spoints, surf_tris, tri_curvs, surf_curv, sfunc, surf_com, flat, surf_loc
