@@ -127,7 +127,7 @@ def read_pdb(sys, file=None):
                                  chain=atom['chn'])
                 atom['chn'].residues.append(my_res)
                 resids[res_name] = my_res
-                if res_str.lower() != 'sol':
+                if res_str.lower() != 'sol' or res_str.lower() != 'out':
                     sys.residues.append(my_res)
                 else:
                     sys.sol.residues.append(my_res)
