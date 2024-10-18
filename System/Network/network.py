@@ -216,7 +216,7 @@ class Network:
         analyze(self)
 
     def build(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
-              calc_verts=None, my_group=None, print_actions=None, print_vert_metrics=False, curr_time=None):
+              calc_verts=None, my_group=None, print_actions=None, print_vert_metrics=False, curr_time=None, verts=None):
         """
         Build network function used to calculate the voronoi
         :param print_actions: Print the network building actions
@@ -235,6 +235,8 @@ class Network:
         # Sort the balls in the network
         if self.box is None:
             self.sort_balls()
+        if verts is not None:
+            self.verts = verts
         # Check to see if there are vertices loaded
         if self.verts is None:
             # Find the vertices
