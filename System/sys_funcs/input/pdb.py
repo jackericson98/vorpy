@@ -107,7 +107,7 @@ def read_pdb(sys, file=None):
             # Create the chain
             else:
                 # If the chain is the sol chain
-                if res_str.lower() == 'sol':
+                if res_str.lower() == 'sol' or res_str.lower() == 'out':
                     my_chn = Sol(atoms=[atom['num']], residues=[], name=chn_name, sys=sys)
                     sys.sol = my_chn
                 # If the chain is not sol create a regular chain object
@@ -127,7 +127,7 @@ def read_pdb(sys, file=None):
                                  chain=atom['chn'])
                 atom['chn'].residues.append(my_res)
                 resids[res_name] = my_res
-                if res_str.lower() != 'sol' or res_str.lower() != 'out':
+                if res_str.lower() != 'sol' and res_str.lower() != 'out':
                     sys.residues.append(my_res)
                 else:
                     sys.sol.residues.append(my_res)
