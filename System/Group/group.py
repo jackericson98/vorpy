@@ -9,7 +9,7 @@ class Group:
     def __init__(self, sys, name=None, atoms=None, molecules=None, chains=None, residues=None,
                  settings=None, build_net=False, surf_res=0.2, box_size=1.5, max_vert=40, build_type='all', net=None,
                  net_type='aw', surf_col='plasma', surf_scheme='curv', num_splits=None, print_metrics=True,
-                 scheme_factor='log', make_net=False):
+                 scheme_factor='log', make_net=False, verts=None):
         # System attributes
         self.sys = sys                  # Network            :    Network of the System
         self.name = name                # Name               :    Name of the group
@@ -17,6 +17,7 @@ class Group:
 
         # Network objects attributes
         self.net = net                  # Networks           :    List of Network type objects in the group
+        self.verts = verts
         self.ball_ndxs = []             # Group indexes      :    List of the indices that are included in the solve
         self.settings = settings        # Settings           :    List of network settings corresponding to the networks
 
@@ -145,8 +146,8 @@ class Group:
         self.get_settings()
         if self.net is None:
             self.net = Network(locs=self.sys.balls['loc'], rads=self.sys.balls['rad'], group=self.ball_ndxs,
-                               settings=self.settings, masses=self.sys.balls['mass'])
-        self.net.build()
+                               settings=self.settings, masses=self.sys.balls['mass'], verts=self.verts)
+        self.net.build(verts=self.verts)
 
     def get_surfs(self):
         """
