@@ -9,7 +9,7 @@ def build_perimeter(locs, rads, epnts, net_type='aw'):
     :return: None
     """
     # Add the first edge's vertex location and set of points to the perimeter points list
-    perimeter = epnts[0][:]
+    perimeter = epnts[0][1:]
     # Make a copy of the edges to organize excluding the first edge
     edges_points = epnts[1:]
 
@@ -33,10 +33,10 @@ def build_perimeter(locs, rads, epnts, net_type='aw'):
         # Pull the edge from the list of edges
         my_edge_points = edges_points.pop(ndx)
         # Add the edge's point in the right order and then add the 181L vertex
-        if not reverse:  # In order
-            perimeter += my_edge_points
-        else:  # Reverse order
-            perimeter += my_edge_points[::-1]
+        if reverse:  # In reverse order
+            my_edge_points = my_edge_points[::-1]
+        my_edge_points = my_edge_points[1:]
+        perimeter += my_edge_points
     d = np.sqrt(sum(np.square(np.array(locs[1]) - np.array(locs[0]))))
     # Get the center of the surface
     r = np.array(locs[1]) - np.array(locs[0])
