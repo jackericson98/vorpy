@@ -235,8 +235,8 @@ def analyze(net, complicated=True):
         net.surfs.loc[surf, 'contact_area'] = surfaces_tracker[surf]['contact_area']
         net.surfs.loc[surf, 'overlap'] = surfaces_tracker[surf]['olap_dist']
 
-    for _ in timer:
-        print(_, timer[_])
-    print('total = {} s\n'.format(time.perf_counter() - time_start))
+    # for _ in timer:
+    #     print(_, timer[_])
+    # print('total = {} s\n'.format(time.perf_counter() - time_start))
 
     net.metrics['anal'] = now() - net.metrics['start'] - net.metrics['surf'] - net.metrics['con'] - net.metrics['vert']
