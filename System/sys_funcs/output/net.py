@@ -41,7 +41,7 @@ def write_logs(group, net_name=None, round_to=3):
         lg_fl.writerow(["Atoms"])
         # Write the column labels
         lg_fl.writerow(["Index", "Name", "Residue", "Residue Sequence", "Chain", "Mass", "X", "Y", "Z", "Radius",
-                        "Volume", "Surface Area", "Complete Cell?",
+                        "Volume", "Van Der Waals Volume", "Surface Area", "Complete Cell?",
                         "Maximum Curvature", "Average Surface Curvature", "Sphericity", "Isometric Quotient",
                         "Inner Ball?", "Number of Neighbors", "Closest Neighbor", "Closest Neighbor Distance",
                         "Layer Distance Average", "Layer Distance RMSD", "Minimum Point Distance",
@@ -57,7 +57,7 @@ def write_logs(group, net_name=None, round_to=3):
                 nbrs = [satoms[0] if satoms[0] != atom['num'] else satoms[1] for satoms in [net.surfs['balls'][_] for _ in atom['surfs']]]
                 lg_fl.writerow([i, sys_ball['name'], sys_ball['res_name'], sys_ball['res_seq'], sys_ball['chain_name'],
                                 sys_ball['mass'], atom['loc'][0], atom['loc'][1], atom['loc'][2], atom['rad'],
-                                r(atom['vol']), r(atom['sa']), atom['complete'], r(atom['max_curv']),
+                                r(atom['vol']), r(atom['vdw_vol']), r(atom['sa']), atom['complete'], r(atom['max_curv']),
                                 r(atom['avg_surf_curv']), r(atom['sphericity']), r(atom['isometric_quotient']),
                                 atom['ball_inside'], atom['number_of_neighbors'], atom['nearest_neighbor'],
                                 atom['nearest_neighbor_distance'], r(atom['neighbor_distance_average']),
