@@ -28,9 +28,15 @@ class Group:
         self.rsds = residues            # Residues           :    List of residue objects in the group
 
         # Analysis attributes
-        self.sa = None                  # Surface Area       :    The surface area of the outer surfaces of the body
-        self.vol = None                 # Volume             :    The volume of the group's atom's cells
-        self.density = None             # Atom vol/space     :    The sum of all the atoms volumes / the total space
+        self.sa = 0                     # Surface Area       :    The surface area of the outer surfaces of the body
+        self.vol = 0                    # Volume             :    The volume of the group's atom's cells
+        self.density = 0                # Atom vol/space     :    The sum of all the atoms volumes / the total space
+        self.mass = 0                   # Mass               :    Mass of the atoms in the group, if foam mass=1 for r=1
+        self.com = [0, 0, 0]            # Center of Mass     :
+        self.vdw_vol = 0
+        self.vdw_com = [0, 0, 0]
+        self.spatial_moment = [[0]]
+        self.moi = [[0]]
 
         # Layer attributes
         self.layer_atoms = None         # Layer Atoms        :    List of lists of atoms corresponding to layers

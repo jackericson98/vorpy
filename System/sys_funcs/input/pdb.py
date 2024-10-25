@@ -90,7 +90,7 @@ def read_pdb(sys, file=None):
             atom_count += 1
 
             if chain_str == ' ':
-                if res_str.lower() in {'sol', 'hoh', 'sod'}:
+                if res_str.lower() in {'sol', 'hoh', 'sod', 'out'}:
                     chain_str = 'SOL'
                 elif res_str.lower() in {'cl', 'mg', 'na', 'k', 'ion', 'cla'} and 'SOL' in chains:
                     chain_str = 'SOL'
