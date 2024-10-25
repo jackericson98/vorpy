@@ -194,9 +194,10 @@ class Group:
         """
         get_layers(self, max_layers, group_resids, build_surfs)
 
-    def exports(self, all_=False, iface=False, atoms=False, surfs=False, sep_surfs=False, edges=False,
-                sep_edges=False, verts=False, sep_verts=False, layers=-1, info=False, surr_atoms=False,
-                ext_atoms=False, shell=False, logs=False):
+    def exports(self, all_=False, atoms=False, atom_surfs=False, atom_edges=False, atom_verts=False, surfs=False,
+                sep_surfs=False, shell_surfs=False, edges=False, sep_edges=False, shell_edges=False, verts=False,
+                sep_verts=False, shell_verts=False, layers=-1, info=False, surr_atoms=False, logs=False,
+                ext_atoms=False):
         """
         Exports specified export types for the group
         :param all_: All possible exports for the group will be exported to the group directory
@@ -213,6 +214,7 @@ class Group:
         :param edges: Exports all edges for the group
         :return: The specified export is placed in the group's directory
         """
-        group_exports(grp=self, all_=all_, atoms=atoms, surfs=surfs, sep_surfs=sep_surfs, edges=edges,
-                      sep_edges=sep_edges, verts=verts, sep_verts=sep_verts, layers=layers, info=info,
-                      surr_atoms=surr_atoms, ext_atoms=ext_atoms,  shell=shell, logs=logs)
+        group_exports(self, all_=all_, atoms=atoms, atom_surfs=atom_surfs, atom_edges=atom_edges, atom_verts=atom_verts,
+                      surfs=surfs, sep_surfs=sep_surfs, shell_surfs=shell_surfs, edges=edges, sep_edges=sep_edges,
+                      shell_edges=shell_edges, verts=verts, sep_verts=sep_verts, shell_verts=shell_verts, layers=layers,
+                      info=info, surr_atoms=surr_atoms, logs=logs, ext_atoms=ext_atoms)

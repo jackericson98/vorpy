@@ -36,9 +36,10 @@ def export_info(grp, directory=None):
                    .format(grp.sa, grp.vol, grp.density))
 
 
-def group_exports(grp, all_=False, atoms=False, surfs=False, sep_surfs=False, edges=False, sep_edges=False,
-                  verts=False, sep_verts=False, layers=-1, info=False, surr_atoms=False, logs=False,
-                  ext_atoms=False, shell=False):
+def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=False, atom_verts=False, surfs=False,
+                  sep_surfs=False, shell_surfs=False, edges=False, sep_edges=False, shell_edges=False,
+                  verts=False, sep_verts=False, shell_verts=False, layers=-1, info=False, surr_atoms=False, logs=False,
+                  ext_atoms=False):
     """
     Exports specified export types for the group using bools
     :param grp: Group object for export
@@ -78,60 +79,78 @@ def group_exports(grp, all_=False, atoms=False, surfs=False, sep_surfs=False, ed
             i += 1
         grp.dir = my_dir
         os.mkdir(grp.dir)
+    # Go back to the group directory
     os.chdir(grp.dir)
     # If the user wants to export the atoms for the group
     if atoms or all_:
-        write_pdb(atoms=grp.atms, file_name="atoms", sys=grp.sys)
+        write_pdb(atoms=grp.atms, file_name="atoms".format(grp.name), sys=grp.sys)
+    # If the atoms surfaces are selected go for it
+    if atom_verts or atom_edges or atom_surfs or all_:
+        if not path.exists(grp.dir + '/atoms'):
+            os.mkdir(grp.dir + '/atoms')
+        write_atom_cells(grp.net, atoms=grp.ball_ndxs, directory=grp.dir + '/atoms', surfs=atom_surfs or all_,
+                         edges=atom_edges or all_, verts=atom_verts or all_)
+        os.chdir(grp.dir)
     # Export the log file
     if logs or all_:
         write_logs(grp)
     # If the user wants to export the shell for the group
-    if shell or all_:
+    if shell_surfs or all_:
         if grp.layer_surfs is None:
             # Get the first layer
             grp.get_layers(max_layers=1)
         # noinspection PyUnresolvedReferences
         if grp.layer_surfs is not None and len(grp.layer_surfs) > 0:
             write_surfs(net=grp.net, surfs=grp.layer_surfs[0], file_name="shell", directory=grp.dir)
-    if edges or all_:
-        if shell:
-            if grp.net.edges is None:
-                grp.get_edges()
-            if grp.layer_edges is None:
-                grp.get_layers(max_layers=1, build_surfs=False)
-            write_edges(grp.net, grp.layer_edges[0], file_name="shell_edges", directory=grp.dir)
-        else:
-            if grp.net.edges is None:
-                grp.get_edges()
-            write_edges(grp.net, edges=grp.edges, file_name="edges", directory=grp.dir)
-    if sep_verts:
-        os.mkdir(grp.dir + "/verts")
-        if grp.layer_verts is None:
-            # Get the first layer
-            grp.get_layers(max_layers=1, build_surfs=False)
-        for i, vert in enumerate(grp.layer_verts[0]):
-            write_off_verts(grp.net, [vert], str(i), directory=grp.dir + "/verts")
-    if sep_edges:
-        os.mkdir(grp.dir + "/edges")
+    # If the user wants all of the surfaces in one file
+    if surfs or all_:
+        if grp.surfs is None:
+            grp.get_surfs()
+        write_surfs(grp.net, grp.net.surfs, grp.name + '_surfs')
+    # Separate surfaces
+    if sep_surfs or all_:
+        # Make the surfaces directory
+        if not os.path.exists(grp.dir + '/surfs'):
+            os.mkdir(grp.dir + '/surfs')
+        # Create the surfaces' files
+        for j, my_surf in grp.net.surfs.iterrows():
+            write_surfs(grp.net, [j], file_name='b{}_b{}'.format(*my_surf['balls']), directory=grp.dir + '/surfs')
+    # Shell edges
+    if shell_edges or all_:
+        if grp.edges is None:
+            grp.get_edges()
         if grp.layer_edges is None:
             grp.get_layers(max_layers=1, build_surfs=False)
-        for i, edge in enumerate(grp.layer_edges[0]):
-            write_edges(grp.net, [edge], str(i), directory=grp.dir + "/edges")
-    # If the user wants a filled shell for the group
-    if surfs or all_:
-        write_surfs(grp.net, surfs=grp.net.surfs, file_name="fill", directory=grp.dir)
-    # If the user wants separate surfaces for the group
-    if sep_surfs or all_:
-        i = 1
-        my_dir = grp.dir + "/surfaces"
-        while os.path.exists(my_dir):
-            if my_dir[-1] == 's':
-                my_dir += '__'
-            my_dir = my_dir[:-2] + str(i)
-            i += 1
-        os.mkdir(my_dir)
-        for surf in grp.surfs:
-            write_surfs(grp.net, [surf], file_name="_".join([str(_) for _ in grp.net.surfs['satoms'][surf]]), directory=my_dir)
+        write_edges(grp.net, grp.layer_edges[0], file_name="shell_edges", directory=grp.dir)
+    # All one big edge file
+    if edges or all_:
+        if grp.edges is None:
+            grp.get_edges()
+        write_edges(grp.net, edges=grp.edges, file_name="edges", directory=grp.dir)
+    # If the separate edges are called
+    if sep_edges or all_:
+        # Make the edges directory
+        if not os.path.exists(grp.dir + '/edges'):
+            os.mkdir(grp.dir + '/edges')
+        for j, my_edge in grp.net.edges.iterrows():
+            write_edges(grp.net, [j], 'b{}_b{}_b{}'.format(*my_edge['balls']), directory=grp.dir + '/edges')
+    # Run the separate vertices
+    if sep_verts:
+        # Make the vertices directory
+        if not path.exists(grp.dir + '/verts'):
+            os.mkdir(grp.dir + "/verts")
+        for j, vert in grp.net.verts.iterrows():
+            write_off_verts(grp.net, [j], 'b{}_b{}_b{}_b{}'.format(*vert['balls']), directory=grp.dir + "/verts")
+    # Export all the vertices in one file
+    if verts or all_:
+        write_off_verts(grp.net, grp.verts, directory=grp.dir, file_name=grp.name + '_verts')
+    # Export the shell vertices
+    if shell_verts or all_:
+        if grp.verts is None:
+            grp.get_verts()
+        if grp.layer_verts is None:
+            grp.get_layers(max_layers=1, build_surfs=False)
+        write_off_verts(grp.net, grp.layer_verts[0], file_name="shell_verts", directory=grp.dir)
     # If the user wants layers
     if layers > 0 or all_:
         # First check to see if the number of layers is greater than 1
@@ -168,17 +187,7 @@ def group_exports(grp, all_=False, atoms=False, surfs=False, sep_surfs=False, ed
     # If the user wants a full information file on the group
     if info or all_:
         export_info(grp)
-    if verts or all_:
-        if shell:
-            if verts:
-                if grp.layer_verts is None:
-                    # Get the first layer
-                    grp.get_layers(max_layers=1, build_surfs=False)
-                write_off_verts(grp.net, grp.layer_verts[0], file_name="shell_verts", directory=grp.dir)
-        else:
-            if grp.verts is None:
-                grp.get_verts()
-            write_off_verts(grp.net, verts=grp.verts, file_name="verts", directory=grp.dir)
+    # Surrounding atoms
     if surr_atoms or all_:
         if grp.layer_surfs is None:
             # Get the first layer

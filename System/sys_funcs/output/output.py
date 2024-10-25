@@ -44,11 +44,9 @@ def export_med(sys):
 def export_large(sys):
     sys.exports(pdb=True, set_atoms=True, info=True)
     for group in sys.groups:
-        group.dir = sys.files['dir'] + '/' + group.name
-        os.mkdir(group.dir)
-        group.exports(shell=True, info=True, edges=True, verts=True, atoms=True, surr_atoms=True, logs=True)
-        os.mkdir(group.dir + "/atoms")
-        write_atom_cells(group.net, group.atms, directory=group.dir + "/atoms")
+        group.exports(shell_verts=True, shell_edges=True, shell_surfs=True, info=True, edges=True, verts=True,
+                      atoms=True, surr_atoms=True, logs=True, atom_surfs=True, atom_edges=True, atom_verts=True)
+
     if sys.ifaces is not None:
         for iface in sys.ifaces:
             iface.export(balls=True, surfs=True, edges=True, verts=True, info=True)
