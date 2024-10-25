@@ -59,7 +59,7 @@ def analyze(net, complicated=True):
     for k, ball in net.balls.iterrows():
 
         # Get the percentage for printing
-        percentage = int(count / len(net.group) * 100)
+        percentage = round(count / len(net.group), 4) * 100
         # Print the actions
         my_time = now() - net.metrics['start']
         h, m, s = get_time(my_time)
