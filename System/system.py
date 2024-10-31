@@ -1,3 +1,4 @@
+import time
 from os import path
 from System.sys_funcs.input.pdb import read_pdb
 from System.sys_funcs.input.cif import read_cif
@@ -46,7 +47,7 @@ class System:
         self.foam_data = None               # Foam Data Info      :   Holds general information from the foam generation
 
         # Loadable objects
-        self.balls = spheres              # Spheres             :   List holding the atom objects
+        self.balls = spheres                # Spheres             :   List holding the atom objects
         self.atoms = atoms                  # Atoms
         self.residues = residues            # Residues            :   List of residues (lists of atoms)
         self.chains = chains                # Chains              :   List of the chains that make up the molecule
@@ -77,6 +78,7 @@ class System:
                        net_file=network_file, file_dir=output_directory, frame_files=frame_files, root_dir=root_dir)
 
         # # Initiate the system
+        self.start = time.perf_counter()
         self.load_files()
 
         seterr(divide='ignore', invalid='ignore')
