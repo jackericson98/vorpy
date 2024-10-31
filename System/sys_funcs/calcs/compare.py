@@ -14,13 +14,14 @@ def compare_networks(sys, group1, group2, data_file=None):
     start = time.perf_counter()
     # Create the data storage
     data = {'vdn1': [], 'sdn1': [], 'vdn2': [], 'sdn2': [], 'rads': []}
+    com_counter = 0
     # Compare the networks
     for i, ball1 in group1.net.balls.iterrows():
         # Get the equivalent ball from the second group
         ball2 = group2.net.balls.iloc[i]
         # Make sure both cells are complete
         if ball1['complete'] and ball2['complete']:
-
+            com_counter += 1
             # Calculate the differences in volume and surface area for each network as the standard
             vdn1, sdn1, vdn2, sdn2, rads = ((ball2['vol'] - ball1['vol']) / ball1['vol'],
                                             (ball2['sa'] - ball1['sa']) / ball1['sa'],
@@ -77,8 +78,9 @@ def compare_networks(sys, group1, group2, data_file=None):
                    # round(np.polyfit(data['rads'], data['sdn1'], 1)[0], 5),  # Slope of the val by radius
                    # round(np.polyfit(data['rads'], data['vdn2'], 1)[0], 5),  # Slope of the val by radius
                    # round(np.polyfit(data['rads'], data['sdn2'], 1)[0], 5),  # Slope of the val by radius
-                   nbs, round((time.perf_counter() - start), 3))
+                   nbs, round((time.perf_counter() - sys.start), 3), com_counter, group1.settings['max_vert'])
     print(*my_line, end="")
+    print('\n')
 
     # Make the data file location
     if data_file is None or not path.exists(data_file):
