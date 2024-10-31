@@ -3,6 +3,7 @@ import csv
 import time
 from os import path
 from System.sys_objs.interface import Interface
+from System.sys_funcs.calcs.calcs import calc_dist
 
 
 def compare_networks(sys, group1, group2, data_file=None):
@@ -29,6 +30,28 @@ def compare_networks(sys, group1, group2, data_file=None):
             if any([_ > 25 for _ in [vdn1, sdn1, vdn2, sdn2]]):
                 print('Outlier in comparison detected: {} - Off by {} %'.format(ball1['name'], 100 * vdn1))
                 continue
+
+            overlaps = []
+            for surf in ball1['surfs']:
+                surfster = group1.net.surfs.iloc[surf]
+                neighbor = group1.net.balls.iloc[[_ for _ in surfster['balls'] if _ != ball1['num']]].to_dict(orient='records')[0]
+                # print(neighbor)
+                overlap_distance = calc_dist(ball1['loc'], neighbor['loc']) - ball1['rad'] - neighbor['rad']
+                if overlap_distance < 0:
+                    percenty = abs(overlap_distance) / min(neighbor['rad'], ball1['rad'])
+                else:
+                    percenty = 0.0
+                overlaps.append(percenty)
+            cwd = os.getcwd()
+            os.chdir(sys.files['dir'])
+            os.chdir('..')
+
+            with open(os.getcwd() + '/overlaps.csv', 'a') as poopster_mccalister:
+                livvydunne = csv.writer(poopster_mccalister)
+                livvydunne.writerow([sys.files['dir'], ball1['num']] + overlaps)
+            os.chdir(cwd)
+
+            # Record the overlaps per ball
             # Add the data
             data['vdn1'].append(vdn1)
             data['sdn1'].append(sdn2)
