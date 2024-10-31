@@ -40,15 +40,24 @@ for my_dir in my_dirs_unfiltered:
     tot += 1
     run_dir = file_directory + '/' + my_dir + '/' + new_file + '.pdb'
     export_dir = file_directory + '/' + my_dir
-
+    if float(settings[3]) == 0.05:
+        max_vert = 30
+    elif float(settings[3]) <= 0.25:
+        max_vert = 20
+    elif float(settings[3]) <= 0.35:
+        max_vert = 15
+    elif float(settings[3]) <= 0.45:
+        max_vert = 10
+    else:
+        max_vert = 7
     # Check if the folder for AW exists, aka the network is Done
     if not os.path.exists(export_dir + '/chain_a_aw') and '.csv' not in export_dir:
         # Check if the vertices have been solved
         if os.path.exists(export_dir + '/verts.txt'):
-            strings.append('\npy vorpy.py {} -s mv 30 -s nt compare -e dir {} -e {} -l verts {}'
-                           .format(run_dir, export_dir, export_type, export_dir + '/verts.txt'))
+            strings.append('\npy vorpy.py {} -s mv {} -s nt compare -e dir {} -e {} -l verts {}'
+                           .format(run_dir, max_vert, export_dir, export_type, export_dir + '/verts.txt'))
         else:
-            strings.append('\npy vorpy.py {} -s mv 30 -s nt compare -e dir {} -e {}'.format(run_dir, export_dir, export_type))
+            strings.append('\npy vorpy.py {} -s mv {} -s nt compare -e dir {} -e {} -g chain a'.format(run_dir, max_vert, export_dir, export_type))
     else:
         num_done += 1
 
