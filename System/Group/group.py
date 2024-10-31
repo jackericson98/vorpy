@@ -1,5 +1,5 @@
 from System.Group.layers import get_layers
-from System.Group.sort import get_surfs, get_edges, get_verts, add_balls, get_info
+from System.Group.sort import add_balls, get_info
 from System.Group.export import group_exports
 from System.Network.network import Network
 
@@ -60,7 +60,7 @@ class Group:
 
         # Make the network
         if make_net:
-            self.make_net()
+            self.make_net(verts)
 
         # Build the Networks
         if build_net:
@@ -138,43 +138,21 @@ class Group:
             # Set the name
             self.name = '{}_group_{}'.format(self.sys.name, self.sys.groups.index(self))
 
-    def make_net(self):
+    def make_net(self, verts=None):
         """
         Creates the network without an obligation to necessarily make it
         """
         self.net = Network(locs=self.sys.balls['loc'], rads=self.sys.balls['rad'], group=self.ball_ndxs,
-                           settings=self.settings, sort_balls=True, masses=self.sys.balls['mass'])
+                           settings=self.settings, sort_balls=True, masses=self.sys.balls['mass'], verts=verts)
 
-    def build(self):
+    def build(self, verts=None):
         """
         Allows user to build the network from the system object.
         """
         self.get_settings()
         if self.net is None:
-            self.net = Network(locs=self.sys.balls['loc'], rads=self.sys.balls['rad'], group=self.ball_ndxs,
-                               settings=self.settings, masses=self.sys.balls['mass'], verts=self.verts)
-        self.net.build(verts=self.verts)
-
-    def get_surfs(self):
-        """
-        Finds and sorts all surfaces in the group without calculating them
-        :return: The group will have its surfaces sorted and non-redundant
-        """
-        get_surfs(self)
-
-    def get_edges(self):
-        """
-        Finds and sorts the edges in group
-        :return: The group will have all edge objects associated with it sorted and non-redundant
-        """
-        get_edges(self)
-
-    def get_verts(self):
-        """
-        Finds and sorts all the vertices in the group
-        :return: The groups vertices are sorted and non-redundant
-        """
-        get_verts(self)
+            self.make_net(verts)
+        self.net.build()
 
     def add_balls(self, ball_list):
         """
