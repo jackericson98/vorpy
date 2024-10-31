@@ -63,7 +63,7 @@ def analyze(net, complicated=True):
         # Print the actions
         my_time = now() - net.metrics['start']
         h, m, s = get_time(my_time)
-        print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {} %                 "
+        print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {:.2f} %                 "
               .format(int(h), int(m), round(s, 2), percentage), end="")
 
         # Get the ball surfs
@@ -227,7 +227,7 @@ def analyze(net, complicated=True):
                                  nearest_neighbor_distance=near_nbor_dists, neighbor_distance_average=nbor_dst_avgs,
                                  neighbor_distance_rmsd=nbor_lyr_rmsds, number_of_olaps=num_olaps,
                                  min_spike=b_min_spikes, max_spike=b_max_spikes, contact_area=contact_areas,
-                                 non_olap_vol=non_olap_vols, vdw_vol=olap_vols, com=coms, moi=mois, bounding_box=b_boxs)
+                                 olap_vol=olap_vols, vdw_vol=non_olap_vols, com=coms, moi=mois, bounding_box=b_boxs)
     # First make the surfaces columns for contact area and overlap volume
     net.surfs = net.surfs.assign(contact_area=[0.0 for _ in range(len(net.surfs))],
                                  overlap=[0.0 for _ in range(len(net.surfs))])
