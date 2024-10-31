@@ -15,7 +15,7 @@ def write_logs(group, net_name=None, round_to=3):
     # Create the round function
     r = round_func(round_to)
     # Open the file
-    with open(group.sys.name + net_name + "_logs.csv", 'w') as log_file:
+    with open(group.sys.name + '_' + group.name + "_logs.csv", 'w') as log_file:
         # Create the csv writer
         lg_fl = csv.writer(log_file, lineterminator='\n')
         # Write the build information header
@@ -32,11 +32,10 @@ def write_logs(group, net_name=None, round_to=3):
         lg_fl.writerow(["Name", "Volume", "Surface Area", "Mass", "Density", "Center of Mass", "VDW Volume",
                         "VDW Center of Mass", "Moment of Inertia", 'Spatial Moment of Inertia'])
         # Write the group information
-        if group.sa is None:
-            group.get_info()
-        lg_fl.writerow([group.name, r(group.vol), r(group.sa), group.mass, r(group.density), [r(_) for _ in group.com],
-                        r(group.vdw_vol), [r(_) for _ in group.vdw_com], [[r(__) for __ in _] for _ in group.moi],
-                        [[r(__) for __ in _] for _ in group.spatial_moment]])
+        group.get_info()
+        lg_fl.writerow([group.name, r(group.vol), r(group.sa), float(group.mass), r(group.density), [float(r(_)) for _ in group.com],
+                        r(group.vdw_vol), [float(r(_)) for _ in group.vdw_com], [[float(r(__)) for __ in _] for _ in group.moi],
+                        [[float(r(__)) for __ in _] for _ in group.spatial_moment]])
         # Write the atom header
         lg_fl.writerow(["Atoms"])
         # Write the column labels
@@ -62,7 +61,7 @@ def write_logs(group, net_name=None, round_to=3):
                                 atom['ball_inside'], atom['number_of_neighbors'], atom['nearest_neighbor'],
                                 atom['nearest_neighbor_distance'], r(atom['neighbor_distance_average']),
                                 r(atom['neighbor_distance_rmsd']), r(atom['min_spike']), r(atom['max_spike']),
-                                atom['number_of_olaps'], r(atom['contact_area']), r(atom['non_olap_vol']),
+                                atom['number_of_olaps'], r(atom['contact_area']), r(atom['olap_vol']),
                                 r(atom['vdw_vol']), [r(_) for _ in atom['com']],
                                 [[r(__) for __ in _] for _ in atom['moi']],
                                 [[r(_) for _ in atom['bounding_box'][0]], [r(_) for _ in atom['bounding_box'][1]]],
