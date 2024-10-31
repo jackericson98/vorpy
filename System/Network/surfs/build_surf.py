@@ -3,7 +3,7 @@ import time
 from System.sys_funcs.calcs.surf import calc_surf_func, calc_surf_tri_curvs, calc_surf_point_curv
 from System.Network.surfs.perimeter import build_perimeter
 from System.Network.surfs.fill import fill_mesh, calc_surf_point
-from System.sys_funcs.calcs.calcs import calc_com, project_to_plane
+from System.sys_funcs.calcs.calcs import calc_com, project_to_plane, calc_dist
 import numpy as np
 from shapely.plotting import plot_polygon
 from shapely import Polygon, Point
@@ -41,7 +41,8 @@ def get_com(locs, rads, perimeter, surf_loc, surf_norm, func, flat, net_type='aw
     if is_within(perimeter, surf_loc, surf_loc, surf_norm):
         return surf_loc, False
     # First try the center of mass of the 3d points projected onto the surface
-    my_com = calc_surf_point(locs, point=calc_com(points=np.array(perimeter)), func=func)
+    true_com = calc_com(points=np.array(perimeter))
+    my_com = calc_surf_point(locs, point=true_com, func=func)
     if my_com is not None:
         if is_within(perimeter, my_com, surf_loc, surf_norm):
             return my_com, False
@@ -63,7 +64,14 @@ def get_com(locs, rads, perimeter, surf_loc, surf_norm, func, flat, net_type='aw
     # if perim_poly.contains(Point(back_on_plane[0])):
     #     return on_surface_point_within, False
     # If nothing else set the center of mass to the first point in the perimeter
-    return perimeter[len(perimeter)//2], True
+    # Loop through the points in the perimeter and choose the point that is the closest to the true center of mass
+    min_dist, my_point = np.inf, None
+    for point in perimeter:
+        dist = calc_dist(point, true_com)
+        if dist < min_dist:
+            my_point = point
+            min_dist = dist
+    return my_point, True
 
 
 # Build method. Makes the mesh for the surface and calculates the simplices between them
@@ -74,21 +82,18 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
     :param res: Specifies the resolution the surface is to be constructed with
     :return: The surfaces points and triangles are filled
     """
-    # if timer:
-    #     start = time.perf_counter()
-    #     clocck = {'calc_func': 0, 'perimeter': 0, 'com': 0, 'fill_mesh': 0, 'spider': 0, 'Delaunay': 0,
-    #               'designations': 0, 'reassign': 0}
-
+    if timer:
+        start = time.perf_counter()
+        clocck = {'calc_func': 0, 'perimeter': 0, 'com': 0, 'fill_mesh': 0, 'spider': 0, 'Delaunay': 0,
+                  'designations': 0, 'reassign': 0}
 
     # Get the surface function if not already calculated
     if sfunc is None:
         sfunc = calc_surf_func(np.array(locs[0]), rads[0], np.array(locs[1]), rads[1])
 
-
-    # if timer:
-    #     clocck['calc_func'] = time.perf_counter() - start
-    #     start = time.perf_counter()
-
+    if timer:
+        clocck['calc_func'] = time.perf_counter() - start
+        start = time.perf_counter()
 
     # Check if the surface is flat
     flat = False
@@ -104,12 +109,11 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
         plot_balls(locs, rads, fig=fig, ax=ax, alpha=0.1)
         ax.scatter([_[0] for _ in perimeter], [_[1] for _ in perimeter], [_[2] for _ in perimeter])
         plt.show()
-    # if check:
-    #     print("Flat = {}".format(flat))
 
-    # if timer:
-    #     clocck['perimeter'] = time.perf_counter() - start
-    #     start = time.perf_counter()
+    if timer:
+        clocck['perimeter'] = time.perf_counter() - start
+        start = time.perf_counter()
+
     # Get the center of mass for the surface
     surf_com, filter_hard = get_com(locs, rads, perimeter=perimeter, surf_loc=surf_loc, surf_norm=surf_norm, flat=flat,
                                     func=sfunc, net_type=net_type)
@@ -117,36 +121,39 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
     if plotting:
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
-        plot_balls(locs, rads, fig=fig, ax=ax, alpha=0.1)
+        # plot_balls(locs, rads, fig=fig, ax=ax, alpha=0.1)
+        setup_plot(fig, ax)
         ax.scatter([_[0] for _ in perimeter], [_[1] for _ in perimeter], [_[2] for _ in perimeter])
         ax.scatter([surf_com[0]], [surf_com[1]], [surf_com[2]], c=['r'])
         plt.show()
-    # if timer:
-    #     clocck['com'] = time.perf_counter() - start
-    #     start = time.perf_counter()
-    if net_type in {'del', 'pow'}:
-        flat_points = project_to_plane(np.array(perimeter + [surf_com]), plane_normal=surf_norm, plane_point=surf_loc)
-        triangles = Delaunay(flat_points).simplices
 
+    if timer:
+        clocck['com'] = time.perf_counter() - start
+        start = time.perf_counter()
 
-        # if timer:
-        #     clocck['fill_mesh'] = time.perf_counter() - start
-        #     return np.array(perimeter + [surf_com]), triangles, [0 for _ in range(len(triangles))], 0.0, None, surf_com, True, clocck
-        return np.array(perimeter + [surf_com]), triangles, [0 for _ in range(len(triangles))], 0.0, None, surf_com, True, surf_loc
+    # if net_type in {'del', 'pow'}:
+    #     flat_points = project_to_plane(np.array(perimeter + [surf_com]), plane_normal=surf_norm, plane_point=surf_loc)
+    #     triangles = Delaunay(flat_points).simplices
+    #
+    #     if timer:
+    #         clocck['fill_mesh'] = time.perf_counter() - start
+    #         return np.array(perimeter + [surf_com]), triangles, [0 for _ in range(len(triangles))], 0.0, None, surf_com, True, surf_loc, clocck
+    #
+    #     return np.array(perimeter + [surf_com]), triangles, [0 for _ in range(len(triangles))], 0.0, None, surf_com, True, surf_loc
 
     # Fill the mesh
-    if not flat:
-        spoints = fill_mesh(locs, rads, func=sfunc, surf_loc=surf_loc, surf_norm=surf_norm, perimeter=perimeter,
+    spoints = fill_mesh(locs, rads, func=sfunc, surf_loc=surf_loc, surf_norm=surf_norm, perimeter=perimeter,
                             com=surf_com, flat=flat, res=res, check=check)
-    else:
-        spoints = perimeter + [surf_com]
+    # else:
+    #     spoints = perimeter + [surf_com]
 
-    # if timer:
-    #     clocck['fill_mesh'] = time.perf_counter() - start
-    #     start = time.perf_counter()
+    if timer:
+        clocck['fill_mesh'] = time.perf_counter() - start
+        start = time.perf_counter()
+
     # Calculate the angles to rotate the center point around
-
     flat_points = project_to_plane(np.array(spoints), plane_normal=surf_norm, plane_point=surf_loc)
+
     # if plotting:
     #     fig = plt.figure()
     #     ax = fig.add_subplot(projection='3d')
@@ -156,9 +163,11 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
     if plotting:
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
+        setup_plot(fig, ax)
         ax.scatter([_[0] for _ in spoints], [_[1] for _ in spoints], [_[2] for _ in spoints])
         ax.scatter([surf_com[0]], [surf_com[1]], [surf_com[2]], c='r')
-        plot_balls(locs, rads, colors=['k', 'k'], fig=fig, ax=ax, alpha=0.1, Show=True)
+        plt.show()
+        # plot_balls(locs, rads, colors=['k', 'k'], fig=fig, ax=ax, alpha=0.1, Show=True)
 
     if plotting:
         # Normalize the normal vector
@@ -193,7 +202,6 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, check=False, timer=
             ax.plot([spoints[i][0], projected_points[i][0]], [spoints[i][1], projected_points[i][1]], [spoints[i][2], projected_points[i][2]], c='k', linewidth=0.1)
 
         plt.show()
-
 
 
     # if plotting:
