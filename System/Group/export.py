@@ -28,7 +28,7 @@ def export_info(grp, directory=None):
         # Network counts header
         info.write("Group Network information:\n")
         # Network counts
-        info.write("  {} Vertices, {} Edges, {} Surfaces\n\n".format(len(grp.verts), len(grp.edges), len(grp.surfs)))
+        info.write("  {} Vertices, {} Edges, {} Surfaces\n\n".format(len(grp.net.verts), len(grp.net.edges), len(grp.net.surfs)))
         # Analysis header
         info.write("Analysis:\n")
         # Analysis information
@@ -104,9 +104,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             write_surfs(net=grp.net, surfs=grp.layer_surfs[0], file_name="shell", directory=grp.dir)
     # If the user wants all of the surfaces in one file
     if surfs or all_:
-        if grp.surfs is None:
-            grp.get_surfs()
-        write_surfs(grp.net, grp.net.surfs, grp.name + '_surfs')
+        write_surfs(grp.net, [i for i in range(len(grp.net.surfs))], grp.name + '_surfs')
     # Separate surfaces
     if sep_surfs or all_:
         # Make the surfaces directory
@@ -117,16 +115,12 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             write_surfs(grp.net, [j], file_name='b{}_b{}'.format(*my_surf['balls']), directory=grp.dir + '/surfs')
     # Shell edges
     if shell_edges or all_:
-        if grp.edges is None:
-            grp.get_edges()
         if grp.layer_edges is None:
             grp.get_layers(max_layers=1, build_surfs=False)
         write_edges(grp.net, grp.layer_edges[0], file_name="shell_edges", directory=grp.dir)
     # All one big edge file
     if edges or all_:
-        if grp.edges is None:
-            grp.get_edges()
-        write_edges(grp.net, edges=grp.edges, file_name="edges", directory=grp.dir)
+        write_edges(grp.net, edges=[i for i in range(len(grp.net.edges))], file_name="edges", directory=grp.dir)
     # If the separate edges are called
     if sep_edges or all_:
         # Make the edges directory
@@ -143,11 +137,9 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             write_off_verts(grp.net, [j], 'b{}_b{}_b{}_b{}'.format(*vert['balls']), directory=grp.dir + "/verts")
     # Export all the vertices in one file
     if verts or all_:
-        write_off_verts(grp.net, grp.verts, directory=grp.dir, file_name=grp.name + '_verts')
+        write_off_verts(grp.net, [i for i in range(len(grp.net.verts))], directory=grp.dir, file_name=grp.name + '_verts')
     # Export the shell vertices
     if shell_verts or all_:
-        if grp.verts is None:
-            grp.get_verts()
         if grp.layer_verts is None:
             grp.get_layers(max_layers=1, build_surfs=False)
         write_off_verts(grp.net, grp.layer_verts[0], file_name="shell_verts", directory=grp.dir)
@@ -172,7 +164,6 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             write_surfs(grp.net, grp.layer_surfs[i], file_name=str(i) + "_surfs")
         # If the user wants info and layers create a layers info file
         if info or all_:
-            grp.get_info()
             # Create the information file
             info = open(grp.name + "_layer_info.txt", 'w')
             info.write(grp.name + " body: \n")
