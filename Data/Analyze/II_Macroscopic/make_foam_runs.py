@@ -41,15 +41,15 @@ for my_dir in my_dirs_unfiltered:
     run_dir = file_directory + '/' + my_dir + '/' + new_file + '.pdb'
     export_dir = file_directory + '/' + my_dir
     if float(settings[3]) == 0.05:
-        max_vert = 30
+        max_vert = 35
     elif float(settings[3]) <= 0.25:
-        max_vert = 20
+        max_vert = 25
     elif float(settings[3]) <= 0.35:
-        max_vert = 15
+        max_vert = 20
     elif float(settings[3]) <= 0.45:
-        max_vert = 10
+        max_vert = 15
     else:
-        max_vert = 7
+        max_vert = 12
     # Check if the folder for AW exists, aka the network is Done
     if not os.path.exists(export_dir + '/chain_a_aw') and '.csv' not in export_dir:
         # Check if the vertices have been solved
