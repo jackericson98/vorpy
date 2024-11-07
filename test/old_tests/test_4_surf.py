@@ -1,7 +1,3 @@
-from test.test_2_vert import vor_net, pow_net, del_net
-from test.test_1_load import pdb_sys_vor, pdb_sys_pow, pdb_sys_del
-
-
 """
 ______________________________________________Surface Values____________________________________________________________
 """

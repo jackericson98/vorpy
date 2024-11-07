@@ -10,7 +10,7 @@ __________________________________________________Fixtures______________________
 
 @pytest.fixture(scope='session')
 def pdb_sys_vor():
-    my_sys = System('../Data/test_data/EDTA_Mg.pdb')
+    my_sys = System('../../Data/test_data/EDTA_Mg.pdb')
     my_sys.create_group(atoms=[my_sys.atoms[15]])
     my_sys.net.build(my_group=my_sys.groups[0], surf_res=0.5)
     return my_sys
@@ -18,7 +18,7 @@ def pdb_sys_vor():
 
 @pytest.fixture(scope='session')
 def pdb_sys_pow():
-    my_sys = System('../Data/test_data/EDTA_Mg.pdb')
+    my_sys = System('../../Data/test_data/EDTA_Mg.pdb')
     my_sys.create_group(atoms=[my_sys.atoms[0]])
     my_sys.net.build(my_group=my_sys.groups[0], net_type='pow')
     return my_sys
@@ -26,7 +26,7 @@ def pdb_sys_pow():
 
 @pytest.fixture(scope='session')
 def pdb_sys_del():
-    my_sys = System('../Data/test_data/EDTA_Mg.pdb')
+    my_sys = System('../../Data/test_data/EDTA_Mg.pdb')
     my_sys.create_group(atoms=[my_sys.atoms[0]])
     my_sys.net.build(my_group=my_sys.groups[0], net_type='del')
     return my_sys

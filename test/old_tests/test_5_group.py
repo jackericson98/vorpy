@@ -1,4 +1,4 @@
-from test.test_1_load import pdb_sys_vor
+from test.old_tests.test_1_load import pdb_sys_vor
 
 
 def test_group_atoms(pdb_sys_vor):
