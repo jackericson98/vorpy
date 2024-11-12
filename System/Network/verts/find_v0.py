@@ -1,9 +1,9 @@
 from System.sys_funcs.calcs.calcs import calc_com, calc_dist
 from System.sys_funcs.calcs.sorting import box_search, get_balls
-from System.sys_funcs.calcs.circle import calc_circ
+from System.sys_funcs.calcs.edge import calc_circ
 from System.Network.verts.find_site.slow import find_site_container_slow
 from System.Network.verts.find_site.fast import find_site_container
-from System.Network.verts.verify_site import verify_site
+from System.sys_funcs.calcs.vert import verify_site
 import numpy as np
 
 
