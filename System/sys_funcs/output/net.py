@@ -184,7 +184,7 @@ def write_verts(net):
     os.chdir(net.settings['sys_dir'])
 
     # Open the file for the vertices
-    with open(net.settings['sys_dir'] + "/verts.txt", 'w') as file:
+    with open(net.settings['sys_dir'] + "/{}_verts.txt".format(net.settings['net_type']), 'w') as file:
         # Create a header for the vertices file
         file.write("Vertices - {} vertices, {} atoms, max vert = {}, Net type = {}\n"
                    .format(len(net.verts['balls']), len(net.group), max(net.verts['rad']),
