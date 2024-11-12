@@ -1,6 +1,6 @@
 from System.sys_funcs.calcs.sorting import box_search, get_balls, ndx_search
-from System.Network.verts.verify_site import verify_site
-from System.Network.verts.calc_vert import calc_flat_vert, calc_vert
+from System.sys_funcs.calcs.vert import verify_site
+from System.sys_funcs.calcs.vert import calc_flat_vert, calc_vert
 import bisect
 import numpy as np
 import time

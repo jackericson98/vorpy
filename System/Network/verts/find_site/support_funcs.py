@@ -1,6 +1,6 @@
 import numpy as np
 from System.sys_funcs.calcs.calcs import rotate_points
-from System.sys_funcs.calcs.circle import calc_circ
+from System.sys_funcs.calcs.edge import calc_circ
 from Visualize.mpl_visualize import *
 
 

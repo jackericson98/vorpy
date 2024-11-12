@@ -1,4 +1,4 @@
-from System.sys_funcs.calcs.circle import calc_circ
+from System.sys_funcs.calcs.edge import calc_circ
 from Visualize.mpl_visualize import plot_balls, plot_circles
 import matplotlib.pyplot as plt
 
