@@ -184,7 +184,7 @@ def set_pymol_atoms(sys):
             with open('set_atoms.pml', 'w') as file:
                 for i, ball in sys.balls.iterrows():
                     file.write(
-                        "alter (residue {} name {}), vdw={}\n".format(ball['res_name'], ball['name'], ball['rad']))
+                        "alter r. {} and n. {}, vdw={}\n".format(ball['res_name'], ball['name'], ball['rad']))
                 file.write("\nrebuild")
         return
     # Check to see if the atoms in the system are all accounted for
@@ -196,12 +196,12 @@ def set_pymol_atoms(sys):
         # Write the change radii script for the system's set atomic radii
         for radius in sys.element_radii:
             if radius != '':
-                file.write("alter (elem {}), vdw={}\n".format(radius, sys.element_radii[radius]))
+                file.write("alter {} and e. {}, vdw={}\n".format(sys.name, radius, sys.element_radii[radius]))
         # Change the radii for special atoms
         for res in special_radii:
             for atom in special_radii[res]:
-                res_str = "residue {} ".format(res) if res != "" else ""
-                file.write("alter ({}name {}), vdw={}\n".format(res_str, atom, special_radii[res][atom]))
+                res_str = "r. {} ".format(res) if res != "" else ""
+                file.write("alter {} and {}and n. {}, vdw={}\n".format(sys.name, res_str, atom, special_radii[res][atom]))
         # Rebuild the system
         file.write("\nrebuild")
 
