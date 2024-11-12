@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from System.sys_funcs.calcs.circle import calc_circ
+# from System.sys_funcs.calcs.edge import calc_circ
 import numpy as np
 from matplotlib.patches import Circle
 
