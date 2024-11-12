@@ -9,11 +9,11 @@ from matplotlib import pyplot as plt
 from System.Network.verts.mark_doublets import mark_doublets
 from System.Network.verts.find_net_verts import find_net_verts
 from System.Network.build_net import build
-from System.Network.edges.build_edge import build_edge
+from System.Network.edges.build_edge import build_edge_better, build_edge
 from System.Network.surfs.build_surfs import build_surfs
 from System.Network.analyze.analyze import analyze
 from System.sys_funcs.calcs.calcs import calc_length, get_time, calc_dist, calc_com
-from System.sys_funcs.calcs.circle import calc_circ
+from System.sys_funcs.calcs.edge import calc_circ
 from System.sys_funcs.calcs.sorting import global_vars
 from numpy import array, inf, cbrt, sqrt, pi
 from Visualize.mpl_visualize import plot_surfs, plot_balls, plot_verts
@@ -92,6 +92,8 @@ class Network:
         :return: Sets the values for self.sub_boxes with the ball objects in their 181L locations. Also sets the
         sub-box locations for the balls themselves
         """
+        # Print the sorting balls prompt
+        print("\rRun Time = 0:00:00.00 - Sorting Balls 0.0 %", end="")
         # Check that the length of the spheres list is big enough to make a vertex
         if len(self.balls) < 4:
             return
@@ -111,6 +113,12 @@ class Network:
         my_boxes = []
         # Sort the balls
         for i, loc in enumerate(locs):
+            # Print the sorting balls prompt
+            percentage = min(i + 1 / len(locs) * 100, 100)
+            my_time = now() - self.metrics['start']
+            h, m, s = get_time(my_time)
+            print("\rRun Time = {}:{:02d}:{:2.2f} - Process: Sorting Balls - {:.2f} %"
+                  .format(int(h), int(m), round(s, 2), percentage), end="")
             # Find the box they belong to
             box_ndxs = [int((loc[j] - self.box['verts'][0][j]) / self.box['sub_size'][j]) for j in range(3)]
 
@@ -132,16 +140,6 @@ class Network:
         Using the functions in find_vertices.py finds the vertices in the network
         """
         find_net_verts(self)
-        # fig = plt.figure()
-        # ax = fig.add_subplot(projection='3d')
-        # v_balls = []
-        # for vert_balls in self.verts['balls']:
-        #     for vert_ball in vert_balls:
-        #         if vert_ball not in v_balls and vert_ball != 921:
-        #             v_balls.append(vert_ball)
-        # plot_balls([self.balls['loc'][_] for _ in v_balls], [self.balls['rad'][_] for _ in v_balls], fig=fig, ax=ax)
-        # plot_balls([self.balls['loc'][921]], [self.balls['rad'][921]], colors=['r'], fig=fig, ax=ax)
-        # plot_verts(self.verts['loc'], self.verts['rad'], spheres=False, Show=True, fig=fig, ax=ax)
 
     def connect(self):
         """
@@ -195,6 +193,9 @@ class Network:
                     rad = calc_dist(loc, locs[0]) - rads[0]
                 edge_vals = {'loc': loc, 'rad': rad}
             else:
+                # edge_points, edge_vals = build_edge_better(locs=self.balls['loc'], rads=self.balls['rad'],
+                #                                            eballs=edge['balls'], res=self.settings['surf_res'],
+                #                                            vlocs=[array(self.verts['loc'][_]) for _ in edge['verts']])
                 edge_points, edge_vals = build_edge(locs=[array(self.balls['loc'][_]) for _ in edge['balls']],
                                                     rads=[self.balls['rad'][_] for _ in edge['balls']],
                                                     vlocs=[array(self.verts['loc'][_]) for _ in edge['verts']],
