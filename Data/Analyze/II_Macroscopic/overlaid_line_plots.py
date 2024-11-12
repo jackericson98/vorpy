@@ -52,6 +52,8 @@ for dp in my_data:
         if dp['density'] in lists[dp['rad std']]:
             if dp['density'] not in my_densities:
                 my_densities.append(dp['density'])
+            # if len(lists[dp['rad std']][dp['density']][0]) >=15:
+            #     continue
             lists[dp['rad std']][dp['density']][0].append(dp['vol diff vor'])
             lists[dp['rad std']][dp['density']][1].append(dp['sa diff vor'])
             lists[dp['rad std']][dp['density']][2].append(dp['vol diff pow'])
