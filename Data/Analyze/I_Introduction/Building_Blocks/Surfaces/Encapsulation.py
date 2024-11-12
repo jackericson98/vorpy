@@ -1,9 +1,5 @@
-from numpy import array as ar
 import matplotlib.pyplot as plt
-from Visualize.mpl_visualize import plot_balls, plot_verts, plot_edges, plot_surfs
-from System.Network.verts.calc_vert import calc_vert, calc_flat_vert
-from System.Network.edges.build_edge import build_edge
-from System.Network.surfs.build_surf import build_surf
+from Visualize.mpl_visualize import plot_balls
 
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')

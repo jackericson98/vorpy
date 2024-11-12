@@ -1,8 +1,8 @@
 import numpy as np
-from numpy import array as ar, sqrt as sqrt
+from numpy import array as ar
 import matplotlib.pyplot as plt
 from Visualize.mpl_visualize import plot_balls, plot_verts
-from System.Network.verts.calc_vert import calc_vert
+from System.sys_funcs.calcs.vert import calc_vert
 
 """
 Vertex Plotting: Set the 'vertex_type' Variable From the list below

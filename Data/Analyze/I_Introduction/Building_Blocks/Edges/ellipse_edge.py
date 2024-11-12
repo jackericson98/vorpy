@@ -1,6 +1,6 @@
 from Visualize.mpl_visualize import plot_balls, plot_circles, plot_edges, plot_surfs
 import matplotlib.pyplot as plt
-from System.sys_funcs.calcs.circle import calc_circ
+from System.sys_funcs.calcs.edge import calc_circ
 from System.Network.edges.build_edge import build_edge
 import numpy as np
 
