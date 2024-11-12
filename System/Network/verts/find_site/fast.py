@@ -1,8 +1,7 @@
-from System.Network.verts.calc_vert import calc_flat_vert, calc_vert
-from System.Network.verts.verify_site import verify_aw, verify_pow, verify_del
+from System.sys_funcs.calcs.vert import calc_flat_vert, calc_vert, verify_aw, verify_pow, verify_del
 from System.sys_funcs.calcs.calcs import calc_dist, calc_com
 from System.sys_funcs.calcs.sorting import box_search, get_balls, sort_lists
-from System.sys_funcs.calcs.circle import calc_circ
+from System.sys_funcs.calcs.edge import calc_circ
 import bisect
 import numpy as np
 import time
