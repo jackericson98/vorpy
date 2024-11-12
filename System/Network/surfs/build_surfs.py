@@ -18,7 +18,7 @@ def build_surfs(net, store_points=True):
         # Build the surfaces and print the progress
         my_time = time.perf_counter() - net.metrics['start']
         h, m, s = get_time(my_time)
-        print("\rRun Time = {:2}:{:2}:{:.2f} - Process: building surfaces {:.2f} %                                 "
+        print("\rRun Time = {:2}:{:2}:{:.2f} - Process: building surfaces {:.2f} %"
               .format(int(h), int(m), round(s, 2), min(100.0, 100 * round(i / len(net.surfs), 4))), end="")
         rads = [net.balls['rad'][_] for _ in surf['balls']]
         locs = [net.balls['loc'][_] for _ in surf['balls']]
