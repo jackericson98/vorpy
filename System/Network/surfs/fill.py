@@ -6,6 +6,48 @@ from numba import jit
 
 
 @jit(nopython=True)
+def calc_surf_point_abcs_from_plane(vi, vn, func):
+
+    # Solve the surface function's equation for the vector through the given point from the atom's location:
+
+    # Get the a/b/c values for the point(s) that lies on the surface and along the vector from a0 to the given point
+    a = func[0] * vn[0] ** 2 + func[1] * vn[1] ** 2 + func[2] * vn[2] ** 2 + func[3] * vn[0] * vn[1] + func[4] * vn[1] \
+        * vn[2] + func[5] * vn[2] * vn[0]
+    b = 2 * func[0] * vn[0] * vi[0] + 2 * func[1] * vn[1] * vi[1] + 2 * func[2] * vn[2] * vi[2] + func[3] \
+        * (vn[0] * vi[1] + vn[1] * vi[0]) + func[4] * (vn[1] * vi[2] + vn[2] * vi[1]) + func[5] \
+        * (vn[2] * vi[0] + vn[0] * vi[2]) + func[6] * vn[0] + func[7] * vn[1] + func[8] * vn[2]
+    c = func[0] * vi[0] ** 2 + func[1] * vi[1] ** 2 + func[2] * vi[2] ** 2 + func[3] * vi[0] * vi[1] + func[4] * vi[1] \
+        * vi[2] + func[5] * vi[2] * vi[0] + func[6] * vi[0] + func[7] * vi[1] + func[8] * vi[2] + func[9]
+    return vi, vn, a, b, c
+
+
+def calc_surf_point_from_plane(point, norm, func, small_loc):
+    """
+    Projects a vector through the reference point and the smaller surface atom's center onto the surface
+    :param func: Implicit function for the hyperboloid surface between the atoms
+    :param locs: Smaller atom's location used for projection onto the surface
+    :param point: Reference point to be projected through
+    :return: The point on the surface
+    """
+    vi, vn, a, b, c = calc_surf_point_abcs_from_plane(np.array(point), norm, np.array(func))
+
+    # Check that the discriminant of the solution to at^2 + bt + c = 0, is positive
+    if round(b ** 2 - 4 * a * c, 10) >= 0:
+        # Calculate the roots of the factoring equation
+        roots = np.roots([a, b, c])
+        # If one root exists return it
+        if len(roots) == 1:
+            return vi + roots[0] * vn
+        # Calculate the two point options
+        r1, r2 = vi + roots[0] * vn, vi + roots[1] * vn
+        # Calculate the distance between the two points and the
+        d1 = calc_dist(r1, small_loc)
+        d2 = calc_dist(r2, small_loc)
+        # Return the closer one
+        return r1 if d1 < d2 else r2
+
+
+@jit(nopython=True)
 def calc_surf_point_abcs(locs, point, func):
     # Set up the unit vector
     vi = point - locs[0]
@@ -35,8 +77,6 @@ def calc_surf_point(locs, point, func):
     :return: The point on the surface
     """
     vi, vn, a, b, c = calc_surf_point_abcs(np.array(locs), np.array(point), np.array(func))
-
-    # Choose the 181L root:
 
     # Check that the discriminant of the solution to at^2 + bt + c = 0, is positive
     if round(b ** 2 - 4 * a * c, 10) >= 0:

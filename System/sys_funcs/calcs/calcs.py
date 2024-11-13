@@ -62,6 +62,30 @@ def project_to_plane(points, plane_point, plane_normal):
     return projected_points
 
 
+def unproject_to_3d(projected_points, plane_point, plane_normal):
+    # Normalize the normal vector
+    plane_normal = plane_normal / np.linalg.norm(plane_normal)
+
+    # Create an orthogonal basis for the plane
+    if (plane_normal == np.array([1.0, 0.0, 0.0])).all() or (plane_normal == np.array([-1.0, 0.0, 0.0])).all():
+        # Handle the case where the normal is along the x-axis
+        u = np.array([0, 1, 0])
+    else:
+        u = np.cross(plane_normal, [1, 0, 0])
+    u = u / np.linalg.norm(u)
+    v = np.cross(plane_normal, u)
+    v = v / np.linalg.norm(v)
+
+    # Map 2D coordinates back to 3D plane
+    reconstructed_points = []
+    for u_coord, v_coord in projected_points:
+        # Reconstruct 3D point on the plane using the basis vectors and plane point
+        point_3d = plane_point + u_coord * u + v_coord * v
+        reconstructed_points.append(point_3d)
+
+    return reconstructed_points
+
+
 def map_to_plane(points_2d, plane_point, plane_normal):
     # Normalize the normal vector
     plane_normal = plane_normal / np.linalg.norm(plane_normal)
