@@ -182,24 +182,10 @@ class Network:
         # Go through the edges in the network
         for i, edge in self.edges.iterrows():
             # Build the edge depending on if it is straight or not
-            if self.settings['net_type'] in {'del', 'pow', 'flat'}:
-                edge_points = [array(self.verts['loc'][_]) for _ in edge['verts']]
-                locs = [array(self.balls['loc'][_]) for _ in edge['balls']]
-                rads = [self.balls['rad'][_] for _ in edge['balls']]
-                try:
-                    loc, rad = calc_circ(locs[0], rads[0], locs[1], rads[1], locs[2], rads[2])
-                except Exception:
-                    loc = calc_com([locs[0], locs[1], locs[2]])
-                    rad = calc_dist(loc, locs[0]) - rads[0]
-                edge_vals = {'loc': loc, 'rad': rad}
-            else:
-                # edge_points, edge_vals = build_edge_better(locs=self.balls['loc'], rads=self.balls['rad'],
-                #                                            eballs=edge['balls'], res=self.settings['surf_res'],
-                #                                            vlocs=[array(self.verts['loc'][_]) for _ in edge['verts']])
-                edge_points, edge_vals = build_edge(locs=[array(self.balls['loc'][_]) for _ in edge['balls']],
-                                                    rads=[self.balls['rad'][_] for _ in edge['balls']],
-                                                    vlocs=[array(self.verts['loc'][_]) for _ in edge['verts']],
-                                                    res=self.settings['surf_res'])
+            edge_points, edge_vals = build_edge(locs=[array(self.balls['loc'][_]) for _ in edge['balls']],
+                                                rads=[self.balls['rad'][_] for _ in edge['balls']],
+                                                vlocs=[array(self.verts['loc'][_]) for _ in edge['verts']],
+                                                res=self.settings['surf_res'])
             # Add them to the lists
             edges_lengths.append(calc_length(array(edge_points)))
             edges_points.append(edge_points)
