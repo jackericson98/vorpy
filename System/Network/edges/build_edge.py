@@ -35,7 +35,17 @@ def build_edge(locs, rads, vlocs, res, straight=None):
     vals = {'loc': loc, 'rad': rad}
     # If the edge is straight return the bare minimum
     if straight:
-        return vlocs, vals
+        edge_dist = calc_dist(vlocs[0], vlocs[1])
+        num_points = max(int(edge_dist / res) + 1, 3)
+        new_res = edge_dist / num_points
+        edge_dir = vlocs[1] - vlocs[0]
+        e_hat = edge_dir / np.linalg.norm(edge_dir)
+        e_points = [vlocs[0]]
+        last_point = vlocs[0]
+        for i in range(1, num_points):
+            last_point = last_point + e_hat * new_res
+            e_points.append(last_point)
+        return e_points, vals
     # Choose a curved one to project onto. If the edge isn't straight 2 surfs are curved.
     if round(rads[0], 10) == round(rads[1], 10):
         func = calc_surf_func(locs[1], rads[1], locs[2], rads[2])
