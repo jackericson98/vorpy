@@ -321,6 +321,54 @@ def triangulate_2D_Surface(perimeter, all_points=None, res=0.2, center=None, tim
     return all_points, in_tris + mid_tris
 
 
+def triangulate_2D_Surface1(perimeter, res=0.2, center=None, filter_hard=False):
+    """
+    takes in 2d perimeter points and returns an evenly filled and triangulated 2d surface
+    1. Get the maximum and minimum possible x and y values for the perimeter
+    2. Make a pre_triangulated grid based of a set resolution and these parameters
+    3. Make the Polygon, LinearRing, and Point objects for the grid
+    4. Record the points within the polygon and map their original indices to the new point_indices
+    """
+
+    # Step 1: Get the maximum and minimum values for the perimeter with an additional cushion
+    px, py = [_[0] for _ in perimeter], [_[1] for _ in perimeter]
+    box = [[min(px), min(py)], [max(px), max(py)]]
+
+    # Step 2: Create the grid for mapping to the surface with the given triangles
+    grid_points = generate_spiderweb(box, res, center)
+
+    # Step 3: Add the perimeter points to the grid points
+    all_points = np.concatenate((perimeter, grid_points), axis=0)
+
+    # Step 4: Make the polygon
+    poly, my_points = Polygon(perimeter), [Point(_) for _ in all_points]
+    good_points, good_point_points = all_points, my_points
+
+    # Step 5: Create the triangulation of the points
+    try:
+        triangles = Delaunay(good_points).simplices
+    except QhullError as e:
+        try:
+            triangles = Delaunay(good_points, qhull_options='QJ').simplices
+        except QhullError as e2:
+            return all_points, []
+
+    # Step 6: Sort the triangles and reassign the points
+    in_tris, out_tris, mid_tris, mid_tri_designations = sort_tris(perimeter, triangles, poly, my_points)
+    plot_polygon(poly)
+    plot_points_and_tris(good_points, in_tris, tcol='g', plot_points=False)
+    plot_points_and_tris(good_points, out_tris, tcol='r', plot_points=False)
+    plot_points_and_tris(good_points, mid_tris, tcol='y', plot_points=False, Show=True)
+
+    mid_tris = reassign_tri_points(perimeter, mid_tris, poly, all_points)
+    my_area, poly_area = calc_2d_surf_sa(in_tris + mid_tris, all_points), poly.area
+    if round(my_area, 4) != round(poly_area, 4) and not filter_hard:
+        return triangulate_2D_Surface1(perimeter, res, center, True)
+    # Step 7: Return the values
+    return all_points, in_tris + mid_tris
+
+
+
 if __name__ == '__main__':
     # Real perimeter points we are testing
     perimeter = np.array([[ 0.63663669, -1.22153212], [ 0.63619087, -1.22091145], [ 0.47012759, -0.99400362], [ 0.32167774, -0.7997529 ], [ 0.18484762, -0.62957204], [ 0.05502084, -0.47715853], [-0.07129593, -0.33795481], [-0.19689486, -0.2084431 ], [-0.32416444, -0.08569257], [-0.45534415, 0.03294308], [-0.59277716, 0.15004052], [-0.73918503, 0.26828829], [-0.89799568, 0.3906871 ], [-1.07378565,  0.52082571], [-1.27295209,  0.66331013], [-1.50483439,  0.82448172], [-1.63723295,  0.91482777], [-1.63723295,  0.91482777], [-1.63799014,  0.91414042], [-1.83616539,  0.73860756], [-1.83616539,  0.73860756], [-1.83616539,  0.73860756], [-1.84656425,  0.67033029], [-1.87993191,  0.46297227], [-1.88007721,  0.46210507], [-1.88007721,  0.46210507], [-1.87934367,  0.461845  ], [-1.60765386,  0.36232849], [-1.36896132,  0.26817206], [-1.15470852,  0.17596575], [-0.95871494,  0.08255767], [-0.77693182, -0.0149893 ], [-0.60685917, -0.11951755], [-0.44708807, -0.23372636], [-0.29678835, -0.36000575], [-0.1551099 , -0.50031552], [-0.02065755, -0.65633335], [ 0.10876597, -0.82995915], [ 0.23616031, -1.02405134], [ 0.36528648, -1.24326412], [ 0.39836064, -1.30278741], [ 0.39836064, -1.30278741], [ 0.39836064, -1.30278741], [ 0.62952189, -1.22766827], [ 0.63042709, -1.2273798 ], [ 0.63042709, -1.2273798 ], [ 0.63045137, -1.22735692], [ 0.63663669, -1.22153212], [ 0.63663669, -1.22153212]])
