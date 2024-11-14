@@ -42,7 +42,7 @@ def build_edge(locs, rads, vlocs, res, straight=None):
         e_hat = edge_dir / np.linalg.norm(edge_dir)
         e_points = [vlocs[0]]
         last_point = vlocs[0]
-        for i in range(1, num_points):
+        for i in range(num_points):
             last_point = last_point + e_hat * new_res
             e_points.append(last_point)
         return e_points, vals
@@ -54,41 +54,24 @@ def build_edge(locs, rads, vlocs, res, straight=None):
 
     ################################################# Fill Edge ####################################################
 
-
-    # Reset the edges points
-    points = []
     # Typical case, no doublets
     pv0, pv1 = np.array(vlocs[0]), np.array(vlocs[1])
     # If the edge is completely straight add points in a line from pv0 to pv0 and return
-    if straight or (rads[0] == rads[1] and rads[1] == rads[2]):
-        # Get the vector between the two vectors and the number of point in the edge
-        r = pv1 - pv0
-        num_points = max(int(np.linalg.norm(r) / (4 * res)), 4)
-        # Add the points
-        for i in range(num_points + 1):
-            points.append(pv0 + r * (i / num_points))
-        return points, vals
-    else:
-        pa = calc_edge_proj_pt(pv0, pv1, loc)
+    pa = calc_edge_proj_pt(pv0, pv1, loc)
 
     # Find the point in between the two vertex points
     r01 = pv1 - pv0  # Vector between vertices
     r_mag = np.linalg.norm(r01)  # Magnitude of the vector between the two vertex points
     rn01 = r01 / r_mag  # Normal to the vector between the vertices
     # Find the number of points
-    n = max(int(r_mag / res), 4)
+    n = max(int(r_mag / res), 2)
     # Calculate the angle between the vertices and the reference point
     theta = calc_angle_jit(pa, pv0, pv1)
     # Add the first vertex to the list of points
     points = [pv0]
     # Find the edges points. Don't count the vertex
-    for i in range(n + 1):
-        if i == 0:
-            A = 0.01 * theta / n
-        elif i == 1:
-            A = 0.99 * theta / n
-        else:
-            A = theta / n
+    for i in range(n):
+        A = theta / n
         # Set pb to the previous point
         pb = points[-1]
         # Get the distance between pb and pa for c

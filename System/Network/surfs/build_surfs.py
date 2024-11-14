@@ -1,12 +1,8 @@
 import time
-import pandas as pd
-from io import StringIO
-from csv import writer
 from System.sys_funcs.calcs.calcs import get_time
-from System.Network.surfs.build_surf import build_surf, build_surf1
+from System.Network.surfs.build_surf import build_surf
 from System.sys_funcs.calcs.surf import calc_surf_sa
 from System.sys_funcs.calcs.calcs import calc_tetra_vol
-from Visualize.mpl_visualize import plot_surfs
 
 
 def build_surfs(net, store_points=True):
@@ -26,14 +22,13 @@ def build_surfs(net, store_points=True):
         nums = [net.balls['num'][_] for _ in surf['balls']]
         if rads[0] > rads[1]:
             rads, locs, nums = [rads[1], rads[0]], [locs[1], locs[0]], [nums[1], nums[0]]
-        my_surf = build_surf1(locs=locs, rads=rads, epnts=[net.edges['points'][_] for _ in surf['edges']],
-                             res=net.settings['surf_res'], net_type=net.settings['net_type'], timer=True)
+        my_surf = build_surf(locs=locs, rads=rads, epnts=[net.edges['points'][_] for _ in surf['edges']],
+                             res=net.settings['surf_res'], net_type=net.settings['net_type'])
 
         if my_surf is None:
             net.surfs.drop(index=i, inplace=True)
             continue
         surf_points, surf_tris, surf_tri_curvs, surf_curv, surf_func, surf_com, surf_flat, surf_loc = my_surf
-        plot_surfs([surf_points], [surf_tris], Show=True)
         # full_count = {_: full_count[_] + timer[_] for _ in full_count}
         # Get the surface Volumes
         sv0 = sum([calc_tetra_vol(locs[0], surf_points[tri[0]], surf_points[tri[1]], surf_points[tri[2]]) for tri in

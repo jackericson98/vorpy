@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def build_perimeter(locs, rads, epnts, net_type='aw'):
@@ -9,7 +10,7 @@ def build_perimeter(locs, rads, epnts, net_type='aw'):
     :return: None
     """
     # Add the first edge's vertex location and set of points to the perimeter points list
-    perimeter = epnts[0][1:]
+    perimeter = epnts[0][:]
     # Make a copy of the edges to organize excluding the first edge
     edges_points = epnts[1:]
 
@@ -35,7 +36,6 @@ def build_perimeter(locs, rads, epnts, net_type='aw'):
         # Add the edge's point in the right order and then add the 181L vertex
         if reverse:  # In reverse order
             my_edge_points = my_edge_points[::-1]
-        my_edge_points = my_edge_points[1:]
         perimeter += my_edge_points
     d = np.sqrt(sum(np.square(np.array(locs[1]) - np.array(locs[0]))))
     # Get the center of the surface
