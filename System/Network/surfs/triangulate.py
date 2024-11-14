@@ -337,33 +337,38 @@ def triangulate_2D_Surface1(perimeter, res=0.2, center=None, filter_hard=False):
     # Step 2: Create the grid for mapping to the surface with the given triangles
     grid_points = generate_spiderweb(box, res, center)
 
-    # Step 3: Add the perimeter points to the grid points
-    all_points = np.concatenate((perimeter, grid_points), axis=0)
+    # Step 3: Set up the shapely objects and test for insideness
+    poly, all_ppoints = Polygon(perimeter), [Point(_) for _ in perimeter]
+    # Create a list of all points
+    all_points = perimeter.copy()
+    # Loop through the grid points
+    for point in grid_points:
+        # Create the shapely point object
+        test_point = Point(point)
+        # Check for insideness of the point and add the objects if it is
+        if poly.contains(test_point):
+            all_points.append(point)
+            all_ppoints.append(test_point)
 
-    # Step 4: Make the polygon
-    poly, my_points = Polygon(perimeter), [Point(_) for _ in all_points]
-    good_points, good_point_points = all_points, my_points
 
     # Step 5: Create the triangulation of the points
     try:
-        triangles = Delaunay(good_points).simplices
+        triangles = Delaunay(all_points).simplices
     except QhullError as e:
         try:
-            triangles = Delaunay(good_points, qhull_options='QJ').simplices
+            triangles = Delaunay(all_points, qhull_options='QJ').simplices
         except QhullError as e2:
             return all_points, []
 
     # Step 6: Sort the triangles and reassign the points
-    in_tris, out_tris, mid_tris, mid_tri_designations = sort_tris(perimeter, triangles, poly, my_points)
-    plot_polygon(poly)
-    plot_points_and_tris(good_points, in_tris, tcol='g', plot_points=False)
-    plot_points_and_tris(good_points, out_tris, tcol='r', plot_points=False)
-    plot_points_and_tris(good_points, mid_tris, tcol='y', plot_points=False, Show=True)
+    in_tris, out_tris, mid_tris, mid_tri_designations = sort_tris(perimeter, triangles, poly, all_ppoints)
+    # plot_polygon(poly)
+    # plot_points_and_tris(all_points, mid_tris, tcol='y', plot_points=False)
+    # plot_points_and_tris(all_points, out_tris, tcol='r', plot_points=False)
+    # plot_points_and_tris(all_points, in_tris, tcol='g', plot_points=False, Show=True)
 
     mid_tris = reassign_tri_points(perimeter, mid_tris, poly, all_points)
-    my_area, poly_area = calc_2d_surf_sa(in_tris + mid_tris, all_points), poly.area
-    if round(my_area, 4) != round(poly_area, 4) and not filter_hard:
-        return triangulate_2D_Surface1(perimeter, res, center, True)
+
     # Step 7: Return the values
     return all_points, in_tris + mid_tris
 

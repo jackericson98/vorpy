@@ -40,6 +40,8 @@ for my_dir in my_dirs_unfiltered:
     tot += 1
     run_dir = file_directory + '/' + my_dir + '/' + new_file + '.pdb'
     export_dir = file_directory + '/' + my_dir
+    if len(settings) < 4:
+        continue
     if float(settings[3]) == 0.05:
         max_vert = 35
     elif float(settings[3]) <= 0.25:
@@ -51,7 +53,7 @@ for my_dir in my_dirs_unfiltered:
     else:
         max_vert = 12
     # Check if the folder for AW exists, aka the network is Done
-    if not os.path.exists(export_dir + '/chain_a_aw') and '.csv' not in export_dir:
+    if (not os.path.exists(export_dir + '/chain_a_aw') and '.csv' not in export_dir) and not os.path.exists(export_dir + '/' + new_file + '_Network_aw'):
         # Check if the vertices have been solved
         if os.path.exists(export_dir + '/verts.txt'):
             strings.append('\npy vorpy.py {} -s mv {} -s nt compare -e dir {} -e {} -l verts {}'
@@ -61,30 +63,30 @@ for my_dir in my_dirs_unfiltered:
     else:
         num_done += 1
 
-if OS == 'linux':
-    j = 0
-    for i in range(len(strings)):
-        pass
-        if j < i // 400 or i == 0:
-            j = i // 400
-            with open(thine_dir + '/foam_runs_{}.sh'.format(j), 'w') as foam_write:
-                foam_write.write('#!/bin/sh\n')
-                foam_write.write(strings[i])
-        else:
-            with open(thine_dir + '/foam_runs_{}.sh'.format(j), 'a') as foam_write:
-                foam_write.write(strings[i])
-
-elif OS == 'windows':
-
-    j = 0
-    for i in range(len(strings)):
-        if j < i // 200 or i == 0:
-            j = i // 200
-            with open(thine_dir + '/foam_runs_{}.bat'.format(j), 'w') as foam_write:
-                foam_write.write(strings[i])
-        else:
-            with open(thine_dir + '/foam_runs_{}.bat'.format(j), 'a') as foam_write:
-                foam_write.write(strings[i])
+# if OS == 'linux':
+#     j = 0
+#     for i in range(len(strings)):
+#         pass
+#         if j < i // 400 or i == 0:
+#             j = i // 400
+#             with open(thine_dir + '/foam_runs_{}.sh'.format(j), 'w') as foam_write:
+#                 foam_write.write('#!/bin/sh\n')
+#                 foam_write.write(strings[i])
+#         else:
+#             with open(thine_dir + '/foam_runs_{}.sh'.format(j), 'a') as foam_write:
+#                 foam_write.write(strings[i])
+#
+# elif OS == 'windows':
+#
+#     j = 0
+#     for i in range(len(strings)):
+#         if j < i // 220 or i == 0:
+#             j = i // 220
+#             with open(thine_dir + '/foam_runs_{}.bat'.format(j), 'w') as foam_write:
+#                 foam_write.write(strings[i])
+#         else:
+#             with open(thine_dir + '/foam_runs_{}.bat'.format(j), 'a') as foam_write:
+#                 foam_write.write(strings[i])
 
 
 print('{}/{} finished'.format(num_done, tot))

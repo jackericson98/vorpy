@@ -26,7 +26,7 @@ def build_surfs(net, store_points=True):
         nums = [net.balls['num'][_] for _ in surf['balls']]
         if rads[0] > rads[1]:
             rads, locs, nums = [rads[1], rads[0]], [locs[1], locs[0]], [nums[1], nums[0]]
-        my_surf = build_surf(locs=locs, rads=rads, epnts=[net.edges['points'][_] for _ in surf['edges']],
+        my_surf = build_surf1(locs=locs, rads=rads, epnts=[net.edges['points'][_] for _ in surf['edges']],
                              res=net.settings['surf_res'], net_type=net.settings['net_type'], timer=True)
 
         if my_surf is None:
