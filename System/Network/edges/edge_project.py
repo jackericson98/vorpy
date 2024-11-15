@@ -1,35 +1,10 @@
 import numpy as np
-from System.sys_funcs.calcs.calcs import calc_angle_jit
+from System.sys_funcs.calcs.calcs import calc_dist
 from numba import jit
 
 
-# Find projection values. Calculates the 181L end and projection points for the edge
-@jit(nopython=True)
-def calc_edge_proj_pt(pv0, pv1, loc):
-    # Get the projection point
-    # Find the point in between the two vertex points
-    r01 = pv1 - pv0  # Vector between vertices
-    r_mag = np.linalg.norm(r01)  # Magnitude of the vector between the two vertex points
-    rn01 = r01 / r_mag  # Normal to the vector between the vertices
-    pc01 = pv0 + 0.5 * rn01 * r_mag  # Center point
-
-    # Determine if the theoretical center of the edge is inside the vertices or not
-    dr = 1
-    if np.sqrt(sum(np.square(loc - pv0))) < r_mag or np.sqrt(sum(np.square(loc - pv1))) < r_mag:
-        dr = -1
-
-    # Find the vector normal to the projection plane
-    p_norm = dr * np.cross(loc - pc01, pv1 - pc01)
-    # Find the vector perpendicular to the plane's normal (i.e. in the plane) and the vector between vertices
-    r_pcr = - np.cross(p_norm, rn01)
-    rn_pcr = r_pcr / np.linalg.norm(r_pcr)
-    # Calculate the reference point
-    return pc01 + 0.5 * r_mag * rn_pcr
-
-
-# Project method. Projects a point onto the surface using a reference point
-@jit(nopython=True)
-def edge_project(rn, pa, func, ep_1, ep_2=None):
+# @jit(nopython=True)
+def edge_project(rn, pa, func, elocs, erads, ep_1, ep_2=None):
     # Get the function values
     f = func
     # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
@@ -51,17 +26,20 @@ def edge_project(rn, pa, func, ep_1, ep_2=None):
         else:
             p1 = pa + min(roots) * rn
             p2 = pa + max(roots) * rn
-        # If the point we are calculating is the first in the edge choose the one closest to the vertex
-        if ep_2 is None:
-            point = p1
-            if np.sqrt(sum(np.square(p2 - ep_1))) <= np.sqrt(sum(np.square(p1 - ep_1))):
-                point = p2
-        # If we have 2 points to choose from, choose the one that makes the angle closer to 180
-        else:
-            point = p1
-            if calc_angle_jit(ep_1, ep_2, p2) >= calc_angle_jit(ep_1, ep_2, p1):
-                point = p2
-            # if np.sqrt(sum(np.square(p2 - ep_2))) <= np.sqrt(sum(np.square(p1 - ep_2))):
-            #     point = p2
-        # Return the point we choose
-        return point
+        # Check the distance from the edge balls
+        d11 = round(calc_dist(p1, elocs[0]) - erads[0], 5)
+        d12 = round(calc_dist(p1, elocs[1]) - erads[1], 5)
+        d13 = round(calc_dist(p1, elocs[2]) - erads[2], 5)
+        d21 = round(calc_dist(p2, elocs[0]) - erads[0], 5)
+        d22 = round(calc_dist(p2, elocs[1]) - erads[1], 5)
+        d23 = round(calc_dist(p2, elocs[2]) - erads[2], 5)
+        # vest case one of them is bad
+        if d11 == d12 == d13 and d21 == d22 == d23:
+            pass
+        elif d11 == d12 == d13:
+            return p1
+        elif d21 == d22 == d23:
+            return p2
+        if d11 < d22:
+            return p1
+        return p2
