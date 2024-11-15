@@ -9,14 +9,14 @@ from matplotlib import pyplot as plt
 from System.Network.verts.mark_doublets import mark_doublets
 from System.Network.verts.find_net_verts import find_net_verts
 from System.Network.build_net import build
-from System.Network.edges.build_edge import build_edge_better, build_edge
+from System.Network.edges.build_edge import build_edge
 from System.Network.surfs.build_surfs import build_surfs
 from System.Network.analyze.analyze import analyze
 from System.sys_funcs.calcs.calcs import calc_length, get_time, calc_dist, calc_com
 from System.sys_funcs.calcs.edge import calc_circ
 from System.sys_funcs.calcs.sorting import global_vars
 from numpy import array, inf, cbrt, sqrt, pi
-from Visualize.mpl_visualize import plot_surfs, plot_balls, plot_verts
+from Visualize.mpl_visualize import plot_surfs, plot_balls, plot_verts, plot_edges
 
 
 class Network:
@@ -185,8 +185,8 @@ class Network:
             edge_points, edge_vals = build_edge(locs=[array(self.balls['loc'][_]) for _ in edge['balls']],
                                                 rads=[self.balls['rad'][_] for _ in edge['balls']],
                                                 vlocs=[array(self.verts['loc'][_]) for _ in edge['verts']],
+                                                blocs=self.balls['loc'], brads=self.balls['rad'], eballs=edge['balls'],
                                                 res=self.settings['surf_res'])
-            # Add them to the lists
             edges_lengths.append(calc_length(array(edge_points)))
             edges_points.append(edge_points)
             edges_vals.append(edge_vals)
