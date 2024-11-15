@@ -137,14 +137,14 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
     # Normalize the vertex vector
     vnorm = vdir / vdist
     # Get the halfway point
-    vmid = vlocs[0] + 0.5 * vdist * vdir
+    vmid = vlocs[0] + 0.5 * vdist * vnorm
     # Find the plane normal direction
     pprime = np.cross(loc - vlocs[0], loc - vlocs[1])
     # Normalize this direction
     pnorm = pprime / np.linalg.norm(pprime)
     # Create the edge info dictionary
     edge_info = {'loc': loc, 'rad': rad, 'loc2': loc2, 'rad2': rad2, 'vdist': vdist, 'vnorm': vnorm, 'vmid': vmid,
-                 'pnorm': pnorm, 'check': False, 'outside': False}
+                 'pnorm': pnorm, 'check': False, 'outside': False, 'case': None}
     # Find the vector perpendicular to the plane normal and the normal of the two vertex points
     dnorm = np.cross(vnorm, pnorm)
 
@@ -155,11 +155,17 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
             # The center is outside so we need to set the direction opposite the direction of the center
             if np.dot(dnorm, loc - vmid) > 0:
                 dnorm = - dnorm
+                edge_info['case'] = '1a'
+            else:
+                edge_info['case'] = '1b'
             edge_info['outside'] = True
         # The center is inside the vertices we want to point dnorm towards the center
         else:
             if np.dot(dnorm, loc - vmid) < 0:
+                edge_info['case'] = '1c'
                 dnorm = - dnorm
+            else:
+                edge_info['case'] = '1d'
         # Set the edge info values
         edge_info['dnorm'] = dnorm
         # Return the information
@@ -170,7 +176,10 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
         # If both locs are outside the vertices we point away from the loc
         if np.dot(dnorm, loc - vmid) > 0:
             # Flip the dnorm value
+            edge_info['case'] = '2a'
             dnorm = - dnorm
+        else:
+            edge_info['case'] = '2b'
         # Set the edge info values
         edge_info['dnorm'], edge_info['outside'] = dnorm, True
         # Calculate the distance between the middle of the vertices and the two locs
@@ -193,7 +202,12 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
         # If dnorm is facing loc, return it as normal because it cant be facing loc2
         if np.dot(dnorm, loc - vmid) < 0:
             # Flip the dnorm value because it is facing away from loc
+            edge_info['case'] = '3a'
+            print("Case 3a: {}".format(eballs))
             dnorm = - dnorm
+        else:
+            edge_info['case'] = '3b'
+            print("Case 3b: {}".format(eballs))
         # Set the edge info values
         edge_info['dnorm'] = dnorm
         # Return the information
@@ -208,8 +222,14 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
     if not verify_site(loc, rad2, [locs[_] for _ in loc_balls], [rads[_] for _ in loc_balls]):
         # If dnorm is facing loc, flip dnorm since loc is not verified and therefore not in the edge
         if np.dot(dnorm, loc - vmid) > 0:
+            edge_info['case'] = '4a'
+            print("Case 4a: {}".format(eballs))
             # Flip the dnorm value because it is facing away from loc
             dnorm = - dnorm
+        else:
+            edge_info['case'] = '4b'
+            print("Case 4b: {}".format(eballs))
+
         # Set the edge info values
         edge_info['dnorm'] = dnorm
         # If the loc2 distance is closer swap them boys
@@ -223,8 +243,13 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
     # the smaller of the two locs, because that is more likely to be the case. We will add a flag to check some points
     # along the way
     if np.dot(dnorm, loc - vmid) < 0:
+        edge_info['case'] = '5a'
+        print("Case 5a: {}".format(eballs))
         # Flip dnorm
         dnorm = - dnorm
+    else:
+        edge_info['case'] = '5b'
+        print("Case 5b: {}".format(eballs))
     # set the edge info values
     edge_info['dnorm'], edge_info['check'] = dnorm, True
     # Return the information
