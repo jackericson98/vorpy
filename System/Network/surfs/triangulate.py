@@ -247,5 +247,13 @@ def triangulate_2D_Surface(perimeter, res=0.2, center=None):
     if len(mid_tris) > 0:
         mid_tris = reassign_tri_points(perimeter, mid_tris, poly, all_points)
 
+    # Step 8: Verify the surface
+    # my_sa = calc_2d_surf_sa(in_tris + mid_tris, all_points)
+    # poly_sa = poly.area
+    # if round(my_sa, 5) != round(poly_sa, 5):
+    #     print(my_sa, poly_sa)
+    #     plot_polygon(poly, add_points=False)
+    #     plot_points_and_tris(all_points, in_tris + mid_tris, tcol='grey', plot_points=False, Show=True)
+
     # Step 7: Return the values
     return all_points, in_tris + mid_tris
