@@ -144,7 +144,8 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
     pnorm = pprime / np.linalg.norm(pprime)
     # Create the edge info dictionary
     edge_info = {'loc': loc, 'rad': rad, 'loc2': loc2, 'rad2': rad2, 'vdist': vdist, 'vnorm': vnorm, 'vmid': vmid,
-                 'pnorm': pnorm, 'check': False, 'outside': False, 'case': None}
+                 'pnorm': pnorm, 'check': False, 'outside': False, 'case': None, 'dnorm': None, 'dnorm0': None,
+                 'dnorm1': None, 'vmid0': None, 'vmid1': None, 'pa': None, 'pa0': None, 'pa1': None}
     # Find the vector perpendicular to the plane normal and the normal of the two vertex points
     dnorm = np.cross(vnorm, pnorm)
 
@@ -168,6 +169,8 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
                 edge_info['case'] = '1d'
         # Set the edge info values
         edge_info['dnorm'] = dnorm
+        # Set the pa
+        edge_info['pa'] = vmid - 0.5 * vdist * dnorm
         # Return the information
         return edge_info
 
@@ -189,6 +192,8 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
         if loc2_vmid_dist < loc_vmid_dist:
             edge_info['loc'], edge_info['rad'], edge_info['loc2'], edge_info['rad2'] = (
                 edge_info['loc2'], edge_info['rad2'], edge_info['loc'], edge_info['rad'])
+        # Set the pa
+        edge_info['pa'] = vmid - 0.5 * vdist * dnorm
         # Return the information
         return edge_info
 
@@ -210,6 +215,8 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
             print("Case 3b: {}".format(eballs))
         # Set the edge info values
         edge_info['dnorm'] = dnorm
+        # Set the pa
+        edge_info['pa'] = vmid - 0.5 * vdist * dnorm
         # Return the information
         return edge_info
 
@@ -236,24 +243,108 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
         if loc2_vmid_dist < loc_vmid_dist:
             edge_info['loc'], edge_info['rad'], edge_info['loc2'], edge_info['rad2'] = (
                 edge_info['loc2'], edge_info['rad2'], edge_info['loc'], edge_info['rad'])
+        # Set the pa
+        edge_info['pa'] = vmid - 0.5 * vdist * dnorm
         # Return the information
         return edge_info
 
-    # At this point we have an ellipse edge and we have both locs verifiable. This means we need to just point toward
-    # the smaller of the two locs, because that is more likely to be the case. We will add a flag to check some points
-    # along the way
-    if np.dot(dnorm, loc - vmid) < 0:
-        edge_info['case'] = '5a'
-        print("Case 5a: {}".format(eballs))
-        # Flip dnorm
+    # At this point we have an ellipse edge and we have both locs verifiable. This is worst case and the edge will need
+    # to be split into thirds. The first will be between the vertex closest to ec1 and ec1, the next will be between ec1
+    # and ec2 and the last will be between ec2 and the vertex closest to ec2
+
+    # Mark the case
+    edge_info['case'] = '5'
+
+    # First swap the locs if needed
+    if calc_dist(edge_info['loc'], vlocs[1]) < calc_dist(edge_info['loc'], vlocs[0]):
+        edge_info['loc'], edge_info['loc2'] = edge_info['loc2'], edge_info['loc']
+
+    # Get the direction for the first sub_edge
+    vdir0 = edge_info['loc'] - vlocs[0]
+    # calculate the distance between the points
+    vdist0 = np.linalg.norm(vdir0)
+    # Get the normal to this
+    vnorm0 = vdir0 / vdist0
+    # Get the perpendicular guy to this and the plane
+    dnorm0 = np.cross(vnorm0, pnorm)
+    # Get the middle of the two
+    vmid0 = vlocs[0] + 0.5 * vdist0 * vnorm0
+    # Check the direction
+    if np.dot(edge_info['loc2'] - vmid0, dnorm0) > 0:
+        dnorm0 = - dnorm0
+    # Set the edge_info values
+    edge_info['dnorm0'], edge_info['vmid0'], edge_info['vnorm0'], edge_info['vdist0'] = dnorm0, vmid0, vnorm0, vdist0
+    # Set the pa
+    edge_info['pa0'] = vmid0 - 0.5 * vdist0 * dnorm0
+
+    # Get the direction for the first sub_edge
+    vdir = edge_info['loc2'] - edge_info['loc']
+    # calculate the distance between the points
+    vdist = np.linalg.norm(vdir)
+    # Get the normal to this
+    vnorm = vdir / vdist
+    # Get the perpendicular guy to this and the plane
+    dnorm = np.cross(vnorm, pnorm)
+    # Get the middle of the two
+    vmid = edge_vals['loc'] + 0.5 * vdist * vnorm
+    # Check the direction
+    if np.dot(vlocs[0] - vmid, dnorm) > 0:
         dnorm = - dnorm
-    else:
-        edge_info['case'] = '5b'
-        print("Case 5b: {}".format(eballs))
-    # set the edge info values
-    edge_info['dnorm'], edge_info['check'] = dnorm, True
+    # Set the edge_info values
+    edge_info['dnorm'], edge_info['vmid'], edge_info['vnorm'], edge_info['vdist'] = dnorm, vmid, vnorm, vdist
+    # Set the pa
+    edge_info['pa'] = vmid - 0.5 * vdist * dnorm
+
+    # Get the direction for the first sub_edge
+    vdir1 = vlocs[1] - edge_info['loc2']
+    # calculate the distance between the points
+    vdist1 = np.linalg.norm(vdir1)
+    # Get the normal to this
+    vnorm1 = vdir1 / vdist1
+    # Get the perpendicular guy to this and the plane
+    dnorm1 = np.cross(vnorm1, pnorm)
+    # Get the middle of the two
+    vmid1 = edge_info['loc2'] + 0.5 * vdist1 * vnorm1
+    # Check the direction
+    if np.dot(edge_info['loc'] - vmid1, dnorm1) > 0:
+        dnorm1 = - dnorm1
+    # Set the edge_info values
+    edge_info['dnorm1'], edge_info['vmid1'], edge_info['vnorm1'], edge_info['vdist1'] = dnorm1, vmid1, vnorm1, vdist1
+    # Set the pa
+    edge_info['pa1'] = vmid1 - 0.5 * vdist1 * dnorm1
+
     # Return the information
     return edge_info
+
+
+# def check_edge_loop(locs, rads, blocs, brads):
+#     """
+#     Looking for the edge plane, then looking for the edge sphere thats larger, then looking for any intersecting balls
+#     """
+#     # First determine the middle ball
+#     # Compute pairwise distances
+#     distances = np.zeros(3)
+#     for i in range(3):
+#         for j in range(3):
+#             if i != j:
+#                 distances[i] += np.linalg.norm(np.array(locs[i]) - np.array(locs[j]))
+#
+#     # Find the point with the smallest summed distance
+#     middle = np.argmin(distances)
+#
+#     # Next make sure the three locations aren't in line
+#     # if np.linalg.norm(np.cross(locs[1] - locs[0], locs[2] - locs[0])) == 0:
+#     #     return
+#
+#     circ = calc_circ(*locs, *rads, return_both=True)
+#
+#     if len(circ) < 4:
+#         return False
+#
+#     # Big circle
+#     verify_site()
+
+
 
 
 if __name__ == '__main__':
