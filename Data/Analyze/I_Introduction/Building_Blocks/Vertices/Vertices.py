@@ -22,11 +22,18 @@ Vertex Plotting: Set the 'vertex_type' Variable From the list below
 """
 
 # Choose Vertex Type Below
-vertex_type = 12
+vertex_type = 8
 
 # Other settings
 atom_alpha = .5
 show_axes = False
+
+# Whether or not to plot the inscribed sphere
+plot_vert_balls = True
+# Whether or not to plot the distance lines
+plot_distance_lines = True
+# Whether to plot the title
+plot_title = False
 
 # No Overlap Vertex 1
 if vertex_type == 1:
@@ -105,7 +112,8 @@ elif vertex_type == 12:
 
 
 # Calculate the vertex
-my_vert = calc_vert(locs=ar([ar(_) for _ in locs]), rads=ar(rads))
+locs = ar([ar(_) for _ in locs])
+my_vert = calc_vert(locs=locs, rads=ar(rads))
 
 # Make the plot
 fig = plt.figure()
@@ -115,7 +123,15 @@ ax = fig.add_subplot(projection='3d')
 # Plot the atoms
 plot_balls(locs, rads, fig=fig, ax=ax, res=10, alpha=atom_alpha)
 # Plot the vertices
-plot_verts([my_vert[0]], [abs(my_vert[1])], fig=fig, ax=ax, spheres=True, res=10, alpha=0.3, colors=['r'])
+plot_verts([my_vert[0]], [abs(my_vert[1])], fig=fig, ax=ax, spheres=plot_vert_balls, res=10, alpha=0.3, colors=['r'])
+# plot the distance lines
+if plot_distance_lines:
+    for i, loc in enumerate(locs):
+        print("testtst")
+        v_dir = loc - my_vert[0]
+        vnorm = v_dir / np.linalg.norm(v_dir)
+        vvec = my_vert[0] + my_vert[1] * vnorm
+        ax.plot([my_vert[0][0], vvec[0]], [my_vert[0][1], vvec[1]], [my_vert[0][2], vvec[2]], c='g')
 
 
 # Set the axes lines
@@ -135,7 +151,8 @@ ax.set_ylim(-5, 5)
 ax.set_zlim(-5, 5)
 
 # Set the title
-ax.set_title(title, font=dict(size=20, family='serif'))
+if plot_title:
+    ax.set_title(title, font=dict(size=20, family='serif'))
 
 # Show the plot
 plt.show()
