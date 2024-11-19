@@ -145,11 +145,11 @@ def plot_proximity(radius1=1, radius2=3, distance_between_circles=5, num_points=
 
     # Define the distance calculation based on selected type
     def calc_distance(x, y, x_circle, y_circle, radius):
-        if distance_type == "surface":
+        if distance_type == "aw":
             return np.sqrt((x - x_circle) ** 2 + (y - y_circle) ** 2) - radius
-        elif distance_type == "center":
+        elif distance_type == "prm":
             return np.sqrt((x - x_circle) ** 2 + (y - y_circle) ** 2)
-        elif distance_type == "power":
+        elif distance_type == "pow":
             return (x - x_circle) ** 2 + (y - y_circle) ** 2 - radius ** 2
         else:
             raise ValueError("Invalid distance type. Choose 'surface', 'center', or 'power'.")
@@ -166,13 +166,12 @@ def plot_proximity(radius1=1, radius2=3, distance_between_circles=5, num_points=
     plt.xticks([])
     plt.yticks([])
     plt.axis('off')
-    plt.show()
     my_input = input('Save figure? (y/n)  >>>>    ')
     if my_input.lower() in {'y', 'yes'}:
         plt.savefig('C:/Users/Optiplex_7060/OneDrive - Georgia State University/GSU NSC/Manuscripts/'
-                    'Ericson Voronoi DNA/Figures/P1/Figure1_Concepts_and_Scheme_Comparisons/PointProximity/PointProximityAW1.png', format='png', dpi=1200)
+                    'Ericson Voronoi DNA/Figures/P1/Figure1_Concepts_and_Scheme_Comparisons/PointProximity/PointProximityPow1.png', format='png', dpi=1200)
 
 
 # Example usage:
-plot_proximity(distance_type="surface", num_points=10000, alpha=0.6, markersize=0.6, radius1=1, radius2=np.sqrt(5),
+plot_proximity(distance_type="pow", num_points=10000, alpha=0.6, markersize=0.6, radius1=1, radius2=np.sqrt(5),
                distance_between_circles=4, bounding_box=[[-5, -4], [5, 4]])
