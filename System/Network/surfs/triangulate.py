@@ -64,7 +64,7 @@ def generate_spiderweb(box, res, center=None, ring_scaler=None):
 
 def is_within(perimeter, point, surf_loc, surf_norm):
     # First see if the perimeter is a list
-    if type(perimeter) is list:
+    if type(perimeter) is list or isinstance(perimeter, np.ndarray):
         # Check if we need to project to the plane
         if len(perimeter[0]) == 3:
             # We need to map to plane
@@ -252,8 +252,8 @@ def triangulate_2D_Surface(perimeter, res=0.2, center=None):
     # poly_sa = poly.area
     # if round(my_sa, 5) != round(poly_sa, 5):
     #     print(my_sa, poly_sa)
-    #     plot_polygon(poly, add_points=False)
-    #     plot_points_and_tris(all_points, in_tris + mid_tris, tcol='grey', plot_points=False, Show=True)
+    # plot_polygon(poly, add_points=False)
+    # plot_points_and_tris(all_points, in_tris + mid_tris, tcol='grey', plot_points=False, Show=True)
 
     # Step 7: Return the values
     return all_points, in_tris + mid_tris
