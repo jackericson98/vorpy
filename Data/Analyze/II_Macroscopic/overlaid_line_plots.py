@@ -45,6 +45,8 @@ print(plot_type, cell_type)
 lists = {}
 my_densities, my_sds = [], []
 for dp in my_data:
+    if dp['density'] == 0.05:
+        continue
     # Check if the data has been added before
     if dp['rad std'] in lists:
         if dp['rad std'] not in my_sds:
@@ -149,10 +151,10 @@ for value in ['vol', 'sa']:
 
     # Set plot titles and labels
     ax.set_xticks(np.arange(my_densities[0] + 0.05, my_densities[-1] + 0.05, 0.1))
-    # if value == 'vol':
-    ax.set_ylim([0, 200])
-    # elif value == 'sa':
-    #     ax.set_ylim([0, 35])
+    if value == 'vol':
+        ax.set_ylim([0, 175])
+    elif value == 'sa':
+        ax.set_ylim([0, 50])
     ax.set_title('{} Power {}\nAbsolute % Difference'
                  .format('Overlapping' if cell_type == 'Open' else 'Non-Overlapping',
                          {'sa': 'Surface Area', 'vol': 'Volume'}[value]), fontsize=20)
