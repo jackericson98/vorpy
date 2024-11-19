@@ -244,6 +244,17 @@ class Network:
         self.build_surfaces(not limit_mem)
         # Analyze the network
         self.analyze()
+        # for i, ball in self.balls.iterrows():
+        #     fig = plt.figure()
+        #     ax = fig.add_subplot(projection='3d')
+        #     surfs = self.surfs.iloc[ball['surfs']].to_dict(orient='records')
+        #     plot_surfs(spnts=[_['points'] for _ in surfs], stris=[_['tris'] for _ in surfs],
+        #                fig=fig, ax=ax, simps=True, alpha=0.5, colors=['gray' for _ in surfs])
+        #
+        #     edges = self.edges.iloc[ball['edges']].to_dict(orient='records')
+        #     plot_edges(epnts=[_['points'] for _ in edges], fig=fig, ax=ax)
+        #     plt.show()
+
         # Stop the timer and measure the time
         self.metrics['tot'] = now() - self.metrics['start']
         h, m, s = get_time(self.metrics['tot'])
