@@ -2,7 +2,7 @@ from numpy import array as ar
 import matplotlib.pyplot as plt
 from Visualize.mpl_visualize import plot_balls, plot_verts, plot_edges, plot_surfs
 from System.sys_funcs.calcs.vert import calc_vert, calc_flat_vert
-from System.Network.edges.build_edge import build_edge
+from System.Network.edges.build_edge import build_edge_old
 from System.Network.surfs.build_surf import build_surf
 
 
@@ -22,14 +22,14 @@ Plotting Surfaces. Choose a surface type from below
 """
 
 """Set the Surface number from above here"""
-surface_type = 7
+surface_type = 1
 
 
 """ Other Settings """
 
 # Atoms
 show_atoms = True
-atom_alpha = 0.2
+atom_alpha = 0.4
 
 # Vertices
 show_verts = True
@@ -43,24 +43,23 @@ edge_thickness = 2
 # Surfaces
 show_surf = True
 surf_res = 0.5
-surf_alpha = 0.2
+surf_alpha = 0.4
 
 # Plot
-show_title = True
+show_title = False
 show_axes = False
 xyz_min, xyz_max = -5, 5
 
 
 # Different surface types
-net_type = 'vor'
+net_type = 'aw'
 xlocs, rads, title = None, None, None
 
 
 # 1. Flat Surface
 if surface_type == 1:
-    rads = 1.0, 1.0
-    xlocs = -5.0, 5.0
-    net_type = 'pow'
+    rads = 0.5, 0.5
+    xlocs = -1.0, 1.0
     title = 'Flat Surface - Equally Sized Balls'
 
 # 2. Curved Surface 1
@@ -112,14 +111,14 @@ elif surface_type == 9:
     title = 'Curved Surface - Ball Size Ratio 1:2, Balls Overlapping'
 
 # Set the radii and distances for the surrounding atoms
-r, d = 0.5, 20.0
+r, d = 0.5, 2.0
 my_vert_atoms = [(ar([0.0, d, d]), r), (ar([0.0, -d, d]), r), (ar([0.0, -d, -d]), r), (ar([0.0, d, -d]), r)]
 # Create the Surface Atoms
 my_surf_atoms = [(ar([xlocs[0], 0.0, 0.0]), rads[0]), (ar([xlocs[1], 0.0, 0.0]), rads[1])]
 
 # Calculate the vertices
 vert_atoms = [[_ for _ in my_surf_atoms] + [my_vert_atoms[i], my_vert_atoms[(i+1) % 4]] for i in range(4)]
-if net_type == 'vor':
+if net_type == 'aw':
     my_verts = [calc_vert(ar([_[0] for _ in my_atoms]), ar([_[1] for _ in my_atoms])) for my_atoms in vert_atoms]
 else:
     my_verts = [calc_flat_vert(ar([_[0] for _ in my_atoms]), ar([_[1] for _ in my_atoms]),
@@ -127,10 +126,9 @@ else:
 
 # Calculate the Edges
 edge_atoms = [[_ for _ in my_surf_atoms] + [my_vert_atoms[(i+1)%4]] for i in range(4)]
-my_edge_verts = [(my_verts[j], my_verts[(j+1)%4]) for j in range(4)]
-my_edges = [build_edge(locs=ar([_[0] for _ in edge_atoms[i]]), rads=ar([_[1] for _ in edge_atoms[i]]),
-                       vlocs=ar([_[0] for _ in my_edge_verts[i]]), res=0.5,
-                       straight=False if net_type == 'vor' else True) for i in range(4)]
+my_edge_verts = [(my_verts[j], my_verts[(j+1) % 4]) for j in range(4)]
+my_edges = [build_edge_old(locs=ar([_[0] for _ in edge_atoms[i]]), rads=ar([_[1] for _ in edge_atoms[i]]),
+                           vlocs=ar([_[0] for _ in my_edge_verts[i]]), res=0.2) for i in range(4)]
 
 # Calculate the surfaces
 my_surf = build_surf(locs=[_[0] for _ in my_surf_atoms], rads=[_[1] for _ in my_surf_atoms],
@@ -142,11 +140,11 @@ ax = fig.add_subplot(projection='3d')
 
 # Plot the surfaces
 if show_surf:
-    plot_surfs([my_surf[0]], [my_surf[1]], fig=fig, ax=ax, alpha=surf_alpha)
+    plot_surfs([my_surf[0]], [my_surf[1]], fig=fig, ax=ax, alpha=surf_alpha, colors=['grey'])
 
 # Plot the edges
 if show_edges:
-    plot_edges([_[0] for _ in my_edges], fig=fig, ax=ax, colors=['k'] * 4, thickness=edge_thickness)
+    plot_edges([_[0] for _ in my_edges], fig=fig, ax=ax, colors=['b'] * 4, thickness=edge_thickness)
 
 # Plot the vertices
 if show_verts:
