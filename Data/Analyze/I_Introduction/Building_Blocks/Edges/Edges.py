@@ -3,7 +3,7 @@ from numpy import array as ar
 import matplotlib.pyplot as plt
 from Visualize.mpl_visualize import plot_balls, plot_verts, plot_edges
 from System.sys_funcs.calcs.vert import calc_vert
-from System.Network.edges.build_edge import build_edge
+from System.Network.edges.build_edge import build_edge_old
 from System.sys_funcs.calcs.edge import calc_circ
 
 
@@ -19,21 +19,23 @@ Edge plotting code. Choose an edge type below.
 """
 
 # Choose here
-edge_choice = 1
+edge_choice = 8
 
 # Additional Settings
-atom_alpha = 0.4
+atom_alpha = 0.3
 vert_alpha = 0.1
 edge_thickness = 2
 
 show_edge = True
-show_verts = False
+show_verts = True
 show_vert_spheres = False
 show_atoms = True
-show_circs = True
+show_circs = False
+plot_title = False
 
-edge_color = 'red'
-atom_color = 'blue'
+edge_color = 'blue'
+atom_color = 'k'
+vert_color = 'r'
 
 # Declare variables
 title = ''
@@ -80,12 +82,18 @@ elif edge_choice == 7:
     rads = 1.65, 1.65, 3.2
     title = 'Curved Edge - All Atoms Overlap'
 
+
 elif edge_choice == 8:
+    locs = [1.0, np.sqrt(3)/3, 0.0], [-1.0, np.sqrt(3)/3, 0.0], [0.0, -np.sqrt(3), 0.0]
+    rads = 1.75, 1.95, 2.5
+    title = 'Curved Edge - All Atoms Overlap Heavily'
+
+elif edge_choice == 9:
     locs = [0.0, 0.0, 0.0], [5.0, 0.1, 0.0], [-5.0, 0.2, 0.0]
     rads = 3.0, 1.1, 0.9
 
 # Set the radii and distances for the surrounding atoms
-r, d = 0.5, 15.0
+r, d = 0.5, 5.0
 my_vert_atoms = [(ar([0.0, 0.0, d]), r), (ar([0.0, 0.0, -d]), r)]
 
 # Create the edge atoms
@@ -97,8 +105,8 @@ vert_atoms = [edge_atoms + [_] for _ in my_vert_atoms]
 my_verts = [calc_vert(ar([_[0] for _ in my_atoms]), ar([_[1] for _ in my_atoms])) for my_atoms in vert_atoms]
 
 # Calculate the Edge
-if edge_choice < 8:
-    my_edge = build_edge(locs=ar([_[0] for _ in edge_atoms]), rads=ar([_[1] for _ in edge_atoms]),
+if edge_choice < 9:
+    my_edge = build_edge_old(locs=ar([_[0] for _ in edge_atoms]), rads=ar([_[1] for _ in edge_atoms]),
                          vlocs=ar([_[0] for _ in my_verts]), res=0.5)
 
 
@@ -107,17 +115,17 @@ fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
 
 # Plot the edge
-if show_edge and edge_choice < 8:
+if show_edge and edge_choice < 9:
     plot_edges([my_edge[0]], fig=fig, ax=ax, colors=[edge_color], thickness=edge_thickness)
 # Plot the vertices
-if show_verts and edge_choice < 8:
-    plot_verts([_[0] for _ in my_verts], [_[1] for _ in my_verts], fig=fig, ax=ax, spheres=show_vert_spheres, alpha=vert_alpha)
+if show_verts and edge_choice < 9:
+    plot_verts([_[0] for _ in my_verts], [_[1] for _ in my_verts], fig=fig, ax=ax, spheres=show_vert_spheres, alpha=vert_alpha, colors=[vert_color for _ in my_verts])
 # Plot the atoms
 if show_atoms:
     plot_balls(alocs=[_[0] for _ in edge_atoms], arads=[_[1] for _ in edge_atoms], colors=[atom_color for _ in edge_atoms], alpha=atom_alpha, fig=fig, ax=ax)
 
 # Plot the circs
-if show_circs and edge_choice < 8:
+if show_circs and edge_choice < 9:
     my_circ = calc_circ(*locs, *rads, return_both=True)
     plot_balls([my_circ[0]], [my_circ[1]], fig=fig, ax=ax, alpha=0.1)
     if len(my_circ) == 4:
@@ -128,5 +136,6 @@ ax.set_ylim(-5, 5)
 ax.set_zlim(-5, 5)
 
 # Set the title for the plot
-ax.set_title(title, font=dict(size=20, family='serif'))
+if plot_title:
+    ax.set_title(title, font=dict(size=20, family='serif'))
 plt.show()
