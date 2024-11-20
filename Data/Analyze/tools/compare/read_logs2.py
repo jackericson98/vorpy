@@ -80,7 +80,7 @@ def sort_bool(stringy):
     return True if stringy == 'True' else False
 
 
-def read_logs2(log_files, return_dict=False, no_sol=False):
+def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=False, surfs=False, edges=False, verts=False):
     file_info = {}
     one_file = False
     atom_vals = {'Index': int, 'Name': str, 'Residue': str, 'Residue Sequence': int, 'Chain': str, 'Mass': float,
@@ -92,7 +92,7 @@ def read_logs2(log_files, return_dict=False, no_sol=False):
                  'Minimum Point Distance': float, 'Maximum Point Distance': float, 'Number of Overlaps': int,
                  'Contact Area': float, 'Non - Overlap Volume': float, 'Overlap Volume': float,
                  'Center of Mass': parse_string_lists, 'Moment of Inertia Tensor': parse_string_lists,
-                 'Bounding Box': parse_string_lists, 'neighbors': parse_string_lists_int}
+                 'Bounding Box': parse_string_lists, 'Neighbors': parse_string_lists_int}
     if type(log_files) is str:
         one_file = True
         log_files = [log_files]
@@ -128,17 +128,17 @@ def read_logs2(log_files, return_dict=False, no_sol=False):
                 if skip_next:
                     skip_next = False
                     continue
-                elif data_type == 'Atoms':
+                elif data_type == 'Atoms' and (all_ or atoms):
                     my_atom = read_atom(line, atom_vals)
                     if no_sol and my_atom['name'].strip().lower() in {'hw1', 'hw2', 'ow', 'h02', 'h01', 'na', 'cl', 'mg', 'k'}:
                         continue
                     else:
                         atoms.append(my_atom)
-                elif data_type == 'Surfaces':
+                elif data_type == 'Surfaces' and (all_ or surfs):
                     surfs.append(read_surf(line))
-                elif data_type == 'Edges':
+                elif data_type == 'Edges' and (all_ or edges):
                     edges.append(read_edge(line))
-                elif data_type == 'Vertices':
+                elif data_type == 'Vertices' and (all_ or verts):
                     verts.append(read_vert(line))
                 else:
                     continue
