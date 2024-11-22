@@ -24,7 +24,7 @@ def get_logs_and_pdbs(make_file=True, output_file_name=None):
             logs_pdbs[directory] = {}
             for rrooot, dircs, filese in os.walk(rroot + '/' + directory):
                 for file in filese:
-                    if file[-3:] == 'pdb':
+                    if file[-3:] == 'pdb' and 'atoms' not in file:
                         logs_pdbs[directory]['pdb'] = rrooot + '/' + file
                 # print(filese)
                 for dircy_dirc in dircs:
