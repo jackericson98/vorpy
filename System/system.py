@@ -19,7 +19,7 @@ from System.sys_funcs.calcs.sorting import get_balls, box_search
 class System:
     def __init__(self, file=None, files=None, spheres=None, verts_file=None, balls_file=None, network_file=None,
                  index_file=None, frame_files=None, output_directory=None, gui=None, root_dir=None, print_actions=False,
-                 atoms=None, residues=None, chains=None, segments=None, groups=None, ifaces=None):
+                 atoms=None, residues=None, chains=None, segments=None, groups=None, ifaces=None, simple=False):
         """
         Class used to import files of all types and return a System
         :param file: Base system file address
@@ -79,7 +79,7 @@ class System:
 
         # # Initiate the system
         self.start = time.perf_counter()
-        self.load_files()
+        self.load_files(simple=simple)
 
         seterr(divide='ignore', invalid='ignore')
 
@@ -96,14 +96,16 @@ class System:
             if self.files[file] is None:
                 self.files[file] = defaults[file]
 
-    def load_files(self):
+    def load_files(self, simple=False):
         """
         Create the system and make sure the files added in __init__ are added to the system
         """
 
         # Load the system
         if self.files['base_file'] is not None:
-            self.load_sys()
+            self.load_sys(simple=simple)
+            if simple:
+                return
         # elif self.user_atoms is not None:
         #     self.load_sys_atoms()
         else:
@@ -125,7 +127,7 @@ class System:
         # Set the name for the system
         self.name = path.basename(self.files['base_file'])[:-4]
 
-    def load_sys(self, file=None):
+    def load_sys(self, file=None, simple=False):
         """
         Sets the base file for the system using one of the import file functions
         :param file: .pdb, .gro, .mol, .cif
@@ -159,7 +161,7 @@ class System:
             self.name = path.basename(self.files['base_file'])[:-4]
 
         # Set the system directory
-        if self.files['dir'] is None:
+        if self.files['dir'] is None and not simple:
             self.set_output_directory()
 
         # If the system wants its actions printed
