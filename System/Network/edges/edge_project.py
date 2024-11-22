@@ -4,7 +4,7 @@ from numba import jit
 
 
 # @jit(nopython=True)
-def edge_project(rn, pa, func, elocs, erads, ep_1, ep_2=None):
+def edge_project(rn, pa, func, elocs, erads, direction=None):
     # Get the function values
     f = func
     # Finding the a, b, c, values that satisfy at**2 + bt + c = 0
@@ -33,13 +33,23 @@ def edge_project(rn, pa, func, elocs, erads, ep_1, ep_2=None):
         d21 = round(calc_dist(p2, elocs[0]) - erads[0], 5)
         d22 = round(calc_dist(p2, elocs[1]) - erads[1], 5)
         d23 = round(calc_dist(p2, elocs[2]) - erads[2], 5)
-        # vest case one of them is bad
+        # First test for the distance between the points and the surfaces of the edge balls
         if d11 == d12 == d13 and d21 == d22 == d23:
             pass
         elif d11 == d12 == d13:
             return p1
         elif d21 == d22 == d23:
             return p2
+        # Next test to see if either of the points is heading the wrong direction
+        if direction is not None:
+            # Calculate the dot product of the vectors between the middle point and the direction
+            p1_dot = np.dot(p1 - pa, direction)
+            p2_dot = np.dot(p2 - pa, direction)
+            if p1_dot > 0 > p2_dot:
+                return p1
+            elif p2_dot > 0 > p1_dot:
+                return p2
+        # Last go with the smaller of the two distances to the balls
         if d11 < d22:
             return p1
         return p2
