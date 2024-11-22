@@ -6,7 +6,7 @@ import pandas as pd
 def read_atom(atom_line, titles):
     atom = {}
     for i, title in enumerate(titles):
-        atom[titles] = titles[title](atom_line[i])
+        atom[title] = titles[title](atom_line[i])
     return atom
 
 
@@ -88,11 +88,12 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
                  'Surface Area': float, 'Complete Cell?': sort_bool, 'Maximum Curvature': float,
                  'Average Surface Curvature': float, 'Sphericity': float, 'Isometric Quotient': float,
                  'Inner Ball?': sort_bool, 'Number of Neighbors': int, 'Closest Neighbor': int,
-                 'Closest Neighbor Distance': float, 'Layer Distance Average': float, 'Layer Distance RMSD': float,
-                 'Minimum Point Distance': float, 'Maximum Point Distance': float, 'Number of Overlaps': int,
-                 'Contact Area': float, 'Non - Overlap Volume': float, 'Overlap Volume': float,
-                 'Center of Mass': parse_string_lists, 'Moment of Inertia Tensor': parse_string_lists,
-                 'Bounding Box': parse_string_lists, 'Neighbors': parse_string_lists_int}
+                 'Closest Neighbor Distance': float, 'Layer Distance Average': parse_string_lists,
+                 'Layer Distance RMSD': parse_string_lists, 'Minimum Point Distance': float,
+                 'Maximum Point Distance': float, 'Number of Overlaps': int, 'Contact Area': float,
+                 'Non - Overlap Volume': float, 'Overlap Volume': float, 'Center of Mass': parse_string_lists,
+                 'Moment of Inertia Tensor': parse_string_lists, 'Bounding Box': parse_string_lists,
+                 'Neighbors': parse_string_lists_int}
     if type(log_files) is str:
         one_file = True
         log_files = [log_files]
@@ -128,8 +129,9 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
                 if skip_next:
                     skip_next = False
                     continue
-                elif data_type == 'Atoms' and (all_ or atoms):
+                elif data_type == 'Atoms' and (all_ or balls):
                     my_atom = read_atom(line, atom_vals)
+                    my_atom['rad'], my_atom['loc'] = my_atom['Radius'], [my_atom['X'], my_atom['Y'], my_atom['Z']]
                     if no_sol and my_atom['name'].strip().lower() in {'hw1', 'hw2', 'ow', 'h02', 'h01', 'na', 'cl', 'mg', 'k'}:
                         continue
                     else:

@@ -257,7 +257,7 @@ def calc_com(points):
             tots[i] += point[i]
 
     # Return the center of mass of inputs
-    return [tots[i]/len(points) for i in range(len(points[0]))]
+    return np.array([tots[i]/len(points) for i in range(len(points[0]))])
 
 
 @jit(nopython=True)
