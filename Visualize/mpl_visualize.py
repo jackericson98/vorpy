@@ -1,7 +1,28 @@
 import matplotlib.pyplot as plt
-# from System.sys_funcs.calcs.edge import calc_circ
 import numpy as np
-from matplotlib.patches import Circle
+import random
+
+
+# Generate a random RGB color
+def random_color_rgb():
+    """
+    Generate a random RGB color.
+
+    Returns:
+        tuple: A tuple representing the RGB color (R, G, B), with values between 0 and 255.
+    """
+    return random.random(), random.random(), random.random()
+
+
+# Generate a random HEX color
+def random_color_hex():
+    """
+    Generate a random HEX color.
+
+    Returns:
+        str: A string representing the HEX color (e.g., "#RRGGBB").
+    """
+    return "#{:02X}{:02X}{:02X}".format(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
 
 # Set up plot function. Used to set the parameters for the plot
@@ -37,13 +58,15 @@ def setup_plot(fig=None, ax=None, dfo=None, grid=False, bg_color=None, axes_equa
 
 # Plot spheres function. Plots the spheres specified
 def plot_balls(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=0.5,
-               bg_color=None, res=10, axes_scale='equal'):
+               bg_color=None, res=10, axes_scale='equal', random_colors=False):
 
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Get the atoms colors
-    if colors is None:
-        colors = ['k'for _ in range(abs(len(alocs)))]
+    if colors is None and not random_colors:
+        colors = ['k' for _ in range(abs(len(alocs)))]
+    elif colors is None:
+        colors = [random_color_rgb() for _ in range(abs(len(alocs)))]
     # If the number of atoms to plot is more than 80, then plot them as points rather than spheres.
     if len(alocs) > 80:
         for i in range(len(alocs)):
@@ -70,7 +93,7 @@ def plot_balls(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=Non
 
 
 def plot_circles(locations, radii, colors=None, fig=None, ax=None, Show=False, grid=False, alpha=0.5,
-                 bg_color=None, linewidth=2, center_point=False):
+                 bg_color=None, linewidth=2, center_point=False, random_colors=False):
     # Set up the plot
     if not ax:
         fig = plt.figure()
@@ -82,7 +105,10 @@ def plot_circles(locations, radii, colors=None, fig=None, ax=None, Show=False, g
 
     # Default colors to 'pink' if none are provided
     if colors is None:
-        colors = ['k' for _ in range(len(locations))]
+        if random_colors:
+            colors = [random_color_rgb() for _ in range(len(locations))]
+        else:
+            colors = ['k' for _ in range(len(locations))]
 
     # Plot each circle
     for loc, rad, color in zip(locations, radii, colors):
@@ -113,12 +139,15 @@ def plot_circles(locations, radii, colors=None, fig=None, ax=None, Show=False, g
 
 # Plot vertices function. Plots the vertices of a network.
 def plot_verts(vlocs, vrads, spheres=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None,
-               bg_color=None, axes_scale='equal', res=4):
+               bg_color=None, axes_scale='equal', res=4, random_colors=None):
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Default color is red
     if colors is None:
-        colors = ['b' for _ in range(len(vlocs))]
+        if random_colors:
+            colors = [random_color_rgb() for _ in range(len(vlocs))]
+        else:
+            colors = ['b' for _ in range(len(vlocs))]
     # Plot each vertex
     for i in range(len(vlocs)):
         # Plot the point
@@ -135,12 +164,15 @@ def plot_verts(vlocs, vrads, spheres=False, fig=None, ax=None, Show=False, dfo=N
 
 # Plot edges function. Plots the edges given as lines
 def plot_edges(epnts, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None, bg_color=None,
-               center=None, thickness=5, axes_scale='equal'):
+               center=None, thickness=5, axes_scale='equal', random_colors=False):
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Set the color if it is not indicated already
     if colors is None:
-        colors = ['grey' for _ in range(len(epnts))]
+        if random_colors:
+            colors = [random_color_rgb() for _ in range(len(epnts))]
+        else:
+            colors = ['grey' for _ in range(len(epnts))]
     elif len(colors) < len(epnts):
         colors = colors + ['grey' for _ in range(len(epnts) - len(colors))]
     # Plot the edges
@@ -164,12 +196,15 @@ def plot_edges(epnts, fig=None, ax=None, Show=False, dfo=None, grid=False, color
 
 # Plot surfaces function. Plots the surfaces given
 def plot_surfs(spnts, stris, simps=True, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None,
-               bg_color=None, axes_scale='equal'):
+               bg_color=None, axes_scale='equal', random_colors=False):
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Set up the colors
     if colors is None:
-        colors = ['b' for _ in range(len(spnts))]
+        if random_colors:
+            colors = [random_color_rgb() for _ in range(len(spnts))]
+        else:
+            colors = ['b' for _ in range(len(spnts))]
     elif len(colors) < len(spnts):
         colors = colors + ['w' for _ in range(len(spnts) - len(colors))]
     # Plot the surfaces
@@ -210,7 +245,7 @@ def plot_simps(spnts, stris, fig=None, ax=None, Show=False, dfo=None, grid=False
 
 # Plot network function. Plots the network items
 def plot_net(net, group=None, plot_all=False, atoms=False, verts=False, edges=False, surfs=False, fig=None, ax=None, grid=False,
-             bg_color='white', dfo=None, Show=True, a_alpha=1, v_alpha=1, e_alpha=1, s_alpha=1):
+             bg_color='white', dfo=None, Show=True, a_alpha=1, v_alpha=1, e_alpha=1, s_alpha=1, random_colors=False):
     # Check for a figure or an ax
     if fig is None:
         fig = plt.figure()
@@ -226,16 +261,20 @@ def plot_net(net, group=None, plot_all=False, atoms=False, verts=False, edges=Fa
     if atoms or plot_all:
         alocs = [net.atoms['loc'][i] for i in my_atoms]
         arads = [net.atoms['rad'][i] for i in my_atoms]
-        plot_balls(alocs=alocs, arads=arads, fig=fig, ax=ax, alpha=a_alpha)
+        plot_balls(alocs=alocs, arads=arads, fig=fig, ax=ax, alpha=a_alpha, random_colors=random_colors)
     # Vertices
     if verts or plot_all:
-        plot_verts(net.verts['vloc'], net.verts['vrad'], fig=fig, ax=ax, colors=['r' for _ in range(len(net.verts))], alpha=v_alpha, spheres=True)
+        plot_verts(net.verts['vloc'], net.verts['vrad'], fig=fig, ax=ax, colors=['r' for _ in range(len(net.verts))],
+                   alpha=v_alpha, spheres=True, random_colors=random_colors)
     # Edges
     if edges or plot_all:
-        plot_edges(net.edges['points'], fig=fig, ax=ax, colors=['w' for _ in range(len(net.edges))], alpha=e_alpha)
+        plot_edges(net.edges['points'], fig=fig, ax=ax, colors=['w' for _ in range(len(net.edges))], alpha=e_alpha,
+                   random_colors=random_colors)
     # Surfaces
     if surfs or plot_all:
-        plot_surfs(net.surfs['points'], net.surfs['tris'], fig=fig, ax=ax, colors=[np.random.rand(3) for _ in range(len(net.surfs))], alpha=s_alpha)
+        plot_surfs(net.surfs['points'], net.surfs['tris'], fig=fig, ax=ax,
+                   colors=[np.random.rand(3) for _ in range(len(net.surfs))], alpha=s_alpha,
+                   random_colors=random_colors)
     # Show the plot
     if Show:
         plt.show()
