@@ -30,7 +30,7 @@ def build_straight_edge(locs, rads, vlocs, res):
     return e_points, vals
 
 
-def mid_edge_point(ep1, ep2, func, vmid, elocs, erads, direction, new_direction=True):
+def mid_edge_point(ep1, ep2, func, vmid, direction, new_direction=True):
     """
     Calculates the middle point between two edge points
     """
@@ -49,7 +49,7 @@ def mid_edge_point(ep1, ep2, func, vmid, elocs, erads, direction, new_direction=
         # Normalize it
         direction = rn / np.linalg.norm(rn)
     # Project the point toward the projection point
-    return edge_project(direction, vmid, func, elocs, erads, direction)
+    return edge_project(np.array(direction), np.array(vmid), np.array(func))
 
 
 def build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight=False, vmid=None, dnorm=None):
@@ -98,7 +98,7 @@ def build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight=False, vmi
             # Check if the distance is greater than the resolution
             if calc_dist(ep1, ep2) > res:
                 # Get the middle point
-                mid_point = mid_edge_point(ep1, ep2, func, vmid, locs, rads, dnorm, new_direction=len(e_points) > 2)
+                mid_point = mid_edge_point(ep1, ep2, func, vmid, dnorm, new_direction=len(e_points) > 2)
 
                 e_points.insert(i + 1, mid_point)  # Add the new midpoint
                 new_points_added = True  # Mark that we added a new point
