@@ -1,66 +1,44 @@
+import numpy as np
+
 from System.sys_funcs.calcs.calcs import calc_dist, calc_dist_numba
 from numpy import array, dot, isreal, linalg, roots
 from numba import jit
 
-################################## Calc vert functions #################################################################
 
-
-# Speed Boost decorator
 @jit(nopython=True)
-def calc_vert_abcfs_jit(locs, rads):
-    """
-    Calculate the fs, abcfs, rs and l0 for an additively weighted vertex (set) from the locations and radii of 4 spheres
-    """
-    # Unpack the ball radii
-    r0, r1, r2, r3 = rads
-    # Calculate the square of the base sphere's radius
-    r0_2 = r0 ** 2
-    # Move all balls' locations to the base sphere for simpler calculation
-    l0, l1, l2, l3 = locs[0], locs[1] - locs[0], locs[2] - locs[0], locs[3] - locs[0]
-    # Calculate our System of linear equations coefficients
-    a1, b1, c1, d1, f1 = 2 * l1[0], 2 * l1[1], 2 * l1[2], 2 * (r1 - r0), r0_2 - r1 ** 2 + l1[0] ** 2 + l1[
-        1] ** 2 + l1[2] ** 2
-    a2, b2, c2, d2, f2 = 2 * l2[0], 2 * l2[1], 2 * l2[2], 2 * (r2 - r0), r0_2 - r2 ** 2 + l2[0] ** 2 + l2[
-        1] ** 2 + l2[2] ** 2
-    a3, b3, c3, d3, f3 = 2 * l3[0], 2 * l3[1], 2 * l3[2], 2 * (r3 - r0), r0_2 - r3 ** 2 + l3[0] ** 2 + l3[
-        1] ** 2 + l3[2] ** 2
-    # Calculate the F values
-    F = a1 * b2 * c3 - a1 * b3 * c2 - a2 * b1 * c3 + a2 * b3 * c1 + a3 * b1 * c2 - a3 * b2 * c1
-    F_2 = F ** 2
-    F10 = b1 * c2 * f3 - b1 * c3 * f2 - b2 * c1 * f3 + b2 * c3 * f1 + b3 * c1 * f2 - b3 * c2 * f1
-    F11 = -b1 * c2 * d3 + b1 * c3 * d2 + b2 * c1 * d3 - b2 * c3 * d1 - b3 * c1 * d2 + b3 * c2 * d1
-    F20 = -a1 * c2 * f3 + a1 * c3 * f2 + a2 * c1 * f3 - a2 * c3 * f1 - a3 * c1 * f2 + a3 * c2 * f1
-    F21 = a1 * c2 * d3 - a1 * c3 * d2 - a2 * c1 * d3 + a2 * c3 * d1 + a3 * c1 * d2 - a3 * c2 * d1
-    F30 = a1 * b2 * f3 - a1 * b3 * f2 - a2 * b1 * f3 + a2 * b3 * f1 + a3 * b1 * f2 - a3 * b2 * f1
-    F31 = -a1 * b2 * d3 + a1 * b3 * d2 + a2 * b1 * d3 - a2 * b3 * d1 - a3 * b1 * d2 + a3 * b2 * d1
-    # Place the F values in an array
-    fs = array([F, F_2, F10, F11, F20, F21, F30, F31])
-    # Place the abcdfs in an array
-    abcdfs = array([[a1, a2, a3], [b1, b2, b3], [c1, c2, c3], [d1, d2, d3], [f1, f2, f3]])
-    # Place the radii in an array
-    rs = array([r0, r1, r2, r3])
-    # Return values needed for further calculation
-    return fs, abcdfs, rs, l0
-
-
 def calc_vert_abcfs(locs, rads):
     """
-    Calculate the fs, abcfs, rs and l0 for an additively weighted vertex (set) from the locations and radii of 4 spheres
+    Calculates and organizes the coefficients necessary for solving the system of equations that determine the
+    additively weighted vertices from the locations and radii of four spheres. This setup is crucial for subsequent
+    geometric calculations, such as finding vertices of the inscribed sphere.
+
+    Args:
+        locs (numpy.ndarray of arrays): Coordinates of the centers of the four spheres.
+        rads (numpy.ndarray of floats): Radii of the four spheres.
+
+    Returns:
+        tuple: Contains arrays of calculated coefficients (fs, abcdfs), an array of radii (rs), and the base location (l0).
+
+    Notes:
+        - The function adjusts all sphere locations relative to the first sphere's location for simpler calculation.
+        - It then calculates the coefficients of a system of linear equations derived from the geometric properties of the spheres.
     """
-    # Unpack the ball radii
+
+    # Unpack the radii of the four spheres
     r0, r1, r2, r3 = rads
-    # Calculate the square of the base sphere's radius
+
+    # Calculate the square of the first sphere's radius for use in equations
     r0_2 = r0 ** 2
-    # Move all balls' locations to the base sphere for simpler calculation
+
+    # Adjust locations relative to the first sphere's location to simplify the system of equations
     l0, l1, l2, l3 = locs[0], locs[1] - locs[0], locs[2] - locs[0], locs[3] - locs[0]
-    # Calculate our System of linear equations coefficients
-    a1, b1, c1, d1, f1 = 2 * l1[0], 2 * l1[1], 2 * l1[2], 2 * (r1 - r0), r0_2 - r1 ** 2 + l1[0] ** 2 + l1[
-        1] ** 2 + l1[2] ** 2
-    a2, b2, c2, d2, f2 = 2 * l2[0], 2 * l2[1], 2 * l2[2], 2 * (r2 - r0), r0_2 - r2 ** 2 + l2[0] ** 2 + l2[
-        1] ** 2 + l2[2] ** 2
-    a3, b3, c3, d3, f3 = 2 * l3[0], 2 * l3[1], 2 * l3[2], 2 * (r3 - r0), r0_2 - r3 ** 2 + l3[0] ** 2 + l3[
-        1] ** 2 + l3[2] ** 2
-    # Calculate the F values
+
+    # Calculate the coefficients for the system of linear equations
+    a1, b1, c1, d1, f1 = 2 * l1[0], 2 * l1[1], 2 * l1[2], 2 * (r1 - r0), r0_2 - r1 ** 2 + l1[0] ** 2 + l1[1] ** 2 + l1[2] ** 2
+    a2, b2, c2, d2, f2 = 2 * l2[0], 2 * l2[1], 2 * l2[2], 2 * (r2 - r0), r0_2 - r2 ** 2 + l2[0] ** 2 + l2[1] ** 2 + l2[2] ** 2
+    a3, b3, c3, d3, f3 = 2 * l3[0], 2 * l3[1], 2 * l3[2], 2 * (r3 - r0), r0_2 - r3 ** 2 + l3[0] ** 2 + l3[1] ** 2 + l3[2] ** 2
+
+    # Calculate determinant and other coefficients for solving the vertex positions
     F = a1 * b2 * c3 - a1 * b3 * c2 - a2 * b1 * c3 + a2 * b3 * c1 + a3 * b1 * c2 - a3 * b2 * c1
     F_2 = F ** 2
     F10 = b1 * c2 * f3 - b1 * c3 * f2 - b2 * c1 * f3 + b2 * c3 * f1 + b3 * c1 * f2 - b3 * c2 * f1
@@ -69,267 +47,430 @@ def calc_vert_abcfs(locs, rads):
     F21 = a1 * c2 * d3 - a1 * c3 * d2 - a2 * c1 * d3 + a2 * c3 * d1 + a3 * c1 * d2 - a3 * c2 * d1
     F30 = a1 * b2 * f3 - a1 * b3 * f2 - a2 * b1 * f3 + a2 * b3 * f1 + a3 * b1 * f2 - a3 * b2 * f1
     F31 = -a1 * b2 * d3 + a1 * b3 * d2 + a2 * b1 * d3 - a2 * b3 * d1 - a3 * b1 * d2 + a3 * b2 * d1
-    # Place the F values in an array
+
+    # Store the calculated coefficients in arrays for easy access
     fs = array([F, F_2, F10, F11, F20, F21, F30, F31])
-    # Place the abcdfs in an array
     abcdfs = array([[a1, a2, a3], [b1, b2, b3], [c1, c2, c3], [d1, d2, d3], [f1, f2, f3]])
-    # Place the radii in an array
     rs = array([r0, r1, r2, r3])
-    # Return values needed for further calculation
+
+    # Return the necessary values for vertex calculation
     return fs, abcdfs, rs, l0
 
 
-# @jit(nopython=True)   <---  Throws error in large systems for the roots call. Negative discriminant, though filtered
 def calc_vert_case_1(Fs, l0, r0):
     """
-    Calculates the case 1 vertices from Fs, r0 and l0
+    Calculates vertices for Case 1 in a vertex calculation scenario involving spheres. This case involves solving a
+    quadratic equation to determine possible radii (R values) and their corresponding vertex coordinates.
+
+    Args:
+        Fs (list): List of polynomial coefficients F, F_2, F10, F11, etc., that define the conditions for vertex calculation.
+        l0 (array): The original location of the sphere center used to adjust the calculated vertices back to the actual position.
+        r0 (float): The radius component used in the calculation of polynomial coefficients.
+
+    Returns:
+        list: A list of vertices, where each vertex is represented as a list containing its x, y, z coordinates and the radius R.
+
+    Notes:
+        - The function solves a quadratic equation to determine valid radii and uses these radii to compute vertex coordinates.
+        - Only real and positive roots of the quadratic equation are considered for vertex calculation.
     """
-    # Unwrap the F values
+
+    # Unwrap the polynomial coefficients from Fs for convenience
     F, F_2, F10, F11, F20, F21, F30, F31 = Fs
-    # Calculate the radius polynomial coefficients
-    a = ((F11 ** 2 + F21 ** 2 + F31 ** 2) / F_2) - 1
-    b = 2 * (((F10 * F11 + F20 * F21 + F30 * F31) / F_2) - r0)
-    c = ((F10 ** 2 + F20 ** 2 + F30 ** 2) / F_2) - r0 ** 2
-    # Set up the list of vertices (0, 1, or 2)
+
+    # Compute the coefficients of the quadratic equation for the radius R
+    a = ((F11 ** 2 + F21 ** 2 + F31 ** 2) / F_2) - 1  # Quadratic term
+    b = 2 * (((F10 * F11 + F20 * F21 + F30 * F31) / F_2) - r0)  # Linear term
+    c = ((F10 ** 2 + F20 ** 2 + F30 ** 2) / F_2) - r0 ** 2  # Constant term
+
+    # Initialize an empty list to store the vertices
     verts = []
-    # If the discriminant is positive, find the real positive roots of the quadratic
+
+    # Check if the quadratic equation has real solutions (discriminant >= 0)
     if -4 * a * c + b ** 2 >= 0:
+        # Solve the quadratic equation and filter real roots
         Rs = [R for R in roots(array([a, b, c])) if isreal(R)]
     else:
-        return
-    # Ensure that a valid R is available
+        return  # Exit if the discriminant is negative (no real solutions)
+
+    # Ensure there are valid roots to process
     if Rs is not None and len(Rs) > 0:
-        # Go through each radius and calculate the vertex
+        # Loop through each valid radius (R) and calculate the corresponding vertex coordinates
         for R in Rs:
-            x = F10 / F + R * F11 / F + l0[0]
-            y = F20 / F + R * F21 / F + l0[1]
-            z = F30 / F + R * F31 / F + l0[2]
-            # Move the vertex back to the actual location of the balls
+            x = F10 / F + R * F11 / F + l0[0]  # x-coordinate of the vertex
+            y = F20 / F + R * F21 / F + l0[1]  # y-coordinate of the vertex
+            z = F30 / F + R * F31 / F + l0[2]  # z-coordinate of the vertex
+            # Append the calculated vertex (including radius R) to the list
             verts.append([x, y, z, R])
-    # Return all calculated roots
+
+    # Return the list of vertices
     return verts
 
 
 @jit(nopython=True)
 def calc_vert_case_2(Fs, r0, l0):
     """
-    Calculates the case 2 vertices from Fs, r0 and l0
+    Calculates vertices for Case 2 in a vertex calculation scenario involving spheres. This function computes
+    vertices based on polynomial roots derived from given coefficients, which describe the geometric and algebraic
+    conditions for sphere intersections.
+
+    Args:
+        Fs (list): List of polynomial coefficients F, F_2, F10, F11, etc., that define the conditions for vertex calculation.
+        r0 (float): The radius component used in the calculation of polynomial coefficients.
+        l0 (array): The original location of the sphere center used to adjust the calculated vertices back to the actual position.
+
+    Returns:
+        list: A list of vertices, each represented as a tuple containing the vertex coordinates and a corresponding radius.
+
+    Notes:
+        - This function handles three subcases within Case 2 based on the values of the coefficients F31, F21, and F11.
+        - It checks for real roots of the polynomial defined by the coefficients a, b, and c, calculated from the input Fs.
     """
-    # Unpack the F values
+
+    # Unpack the F values for easier handling
     F, F_2, F10, F11, F20, F21, F30, F31 = Fs
 
-    # Calculate the _ polynomial coefficients
+    # Calculate polynomial coefficients for the vertex equation
     a = F_2 + F11 ** 2 + F21 ** 2 - F31 ** 2
     b = 2 * (F10 * F11 + F20 * F21 - F30 * F31 - F * F31 * r0)
-    c = F10 ** 2 + F20 ** 2 - (F30 + F * r0)
-    # Instantiate the roots and verts lists
-    verts = []
-    # Check the discriminant
-    disc = -4 * a * c + b ** 2
-    # If the discriminant is negative escape, we don't want complex roots
-    if disc <= 0:
-        return
+    c = F10 ** 2 + F20 ** 2 - (F30 + F * r0)**2
 
-    # Get the roots of the abc values
+    # Initialize list to store vertices
+    verts = []
+
+    # Calculate the discriminant to check for real roots
+    disc = b**2 - 4 * a * c
+
+    # Proceed only if the discriminant is non-negative, indicating real roots
+    if disc < 0:
+        return  # Exit if roots would be complex
+
+    # Solve the quadratic equation to find potential z, y, or x values (roots)
     rts = [root for root in roots([a, b, c]) if isreal(root)]
 
-    # Case 2 subcases:
-    # Case 2.1
-    if F31 != 0:
-        # Go through each radius and calculate the vertex
+    # Handle different subcases based on the non-zero coefficient
+    if F31 != 0:  # Case 2.1
         for z in rts:
-            x, y, R = F10 / F + z * F11 / F, F20 / F + z * F21 / F, F30 / F + z * F31 / F
-            # Move the vertex back to the actual location of the balls
+            x = F10 / F + z * F11 / F
+            y = F20 / F + z * F21 / F
+            R = F30 / F + z * F31 / F
             verts.append([[x + l0[0], y + l0[1], z + l0[2]], R])
-    # Case 2.2
-    elif F21 != 0:
-        # Go through each radius and calculate the vertex
+
+    elif F21 != 0:  # Case 2.2
         for y in rts:
-            x, R, z = F10 / F + y * F11 / F, F20 / F + y * F21 / F, F30 / F + y * F31 / F
-            # Move the vertex back to the actual location of the balls
+            x = F10 / F + y * F11 / F
+            R = F20 / F + y * F21 / F
+            z = F30 / F + y * F31 / F
             verts.append([[x + l0[0], y + l0[1], z + l0[2]], R])
-    # Case 2.3
-    elif F11 != 0:
-        # Go through each radius and calculate the vertex
+
+    elif F11 != 0:  # Case 2.3
         for x in rts:
-            R, y, z = F10 / F + x * F11 / F, F20 / F + x * F21 / F, F30 / F + x * F31 / F
-            # Move the vertex back to the actual location of the balls
+            R = F10 / F + x * F11 / F
+            y = F20 / F + x * F21 / F
+            z = F30 / F + x * F31 / F
             verts.append([[x + l0[0], y + l0[1], z + l0[2]], R])
+
     return verts
 
 
 def filter_vert_locrads(verts, rs):
     """
-    Filters and sorts additively weighted vertex pairs removing encapsulating verts and returning the smaller vert first
+    Filters and sorts vertices based on their radii, ensuring that encapsulating vertices are removed and the smallest vertex is listed first. This function is typically used in geometric processing where vertices represent possible solutions that need to be validated based on physical or geometric constraints.
+
+    Args:
+        verts (list of tuples): Each tuple represents a vertex and consists of the vertex's location and a radius or distance measure.
+        rs (list of floats): List of radii corresponding to the original spheres from which the vertices were derived.
+
+    Returns:
+        tuple: Returns a tuple containing up to two sets of locations and their corresponding radii. The first set is always the smaller, valid vertex.
     """
-    # Returning these four variables either way, so defining them here makes that easier if no vertices result
+
+    # Initialize return variables for location and radii
     loc, rad, loc2, rad2 = None, None, None, None
 
-    # If one root exists return it
+    # Handle the case with a single vertex
     if len(verts) == 1:
-        loc, rad = verts[0][0], verts[0][1]
+        loc, rad = verts[0][0], verts[0][1]  # Directly assign the location and radius
 
-    # If two roots exist, we need to return the locs and rads with most likely (smaller) vert first
+    # Handle the case with two vertices
     elif len(verts) == 2:
+        max_ball_rad = max(rs)  # Determine the largest radius from the original spheres for comparison
 
-        # Get the largest ball's radius to rule out negative encapsulating vertices
-        max_ball_rad = max(rs)
-        # Set the locations and radii, so that the smaller vertex is first
+        # Ensure the smaller vertex is listed first based on absolute radius
         if abs(verts[0][1]) > abs(verts[1][1]):
-            verts[0], verts[1] = verts[1], verts[0]
-        # Set the locations and radii variables
+            verts[0], verts[1] = verts[1], verts[0]  # Swap if necessary
+
+        # Extract locations and radii after potential swap
         locs, rads = [verts[0][0], verts[1][0]], [verts[0][1], verts[1][1]]
 
-        # If either radii are negative we need to check them
+        # Validate vertices based on their radii
         if rads[0] < 0 or rads[1] < 0:
-            # Check the first vert for validity. Positive verts are ok and negative verts under max_ball_rad are ok
+            # Check first vertex
             if rads[0] > 0 or abs(rads[0]) < max_ball_rad:
-                loc, rad = locs[0], rads[0]
-                # Check for a possible second root under the same criteria
+                loc, rad = locs[0], rads[0]  # Assign if valid
+                # Check second vertex
                 if rads[1] > 0 or abs(rads[1]) < max_ball_rad:
-                    loc2, rad2 = locs[1], rads[1]
-            # If vert 1 is bad, check vert2 for positiveness or negative relative size
+                    loc2, rad2 = locs[1], rads[1]  # Assign if also valid
+            # If first vertex wasn't valid, check the second
             elif rads[1] > 0 or abs(rads[1]) < max_ball_rad:
                 loc, rad = locs[1], rads[1]
-        # If both radii are positive we have a doublet. Choose the smaller vertex to be the lead vertex and set loc2
         else:
+            # If both radii are positive, assign both with the smallest listed first
             loc, loc2, rad, rad2 = locs[0], locs[1], rads[0], rads[1]
-    # Return the sorted filtered vert values
+
+    # Return sorted and validated vertex information
     return loc, loc2, rad, rad2
 
 
-# Calculate vertex function. Takes in 4 balls, calculates the loc and rad of the inscribed sphere and adds the
 def calc_vert(locs, rads):
     """
-    Calculates the additively weighted vertex between the locations and radii of four spheres
+    Calculates the geometrically inscribed or additively weighted vertex between four spheres based on their
+    locations and radii. The function handles different geometrical configurations by applying appropriate
+    computational cases.
+
+    Args:
+        locs (list of arrays): A list of coordinates for the centers of the four spheres.
+        rads (list of floats): A list of radii for the four spheres.
+
+    Returns:
+        tuple: Returns a tuple of vertices locations and their respective radii calculated for the inscribed sphere.
     """
 
-    # Get the first set of major coefficients
-    try:
-        Fs, abcdfs, rs, l0 = calc_vert_abcfs_jit(array(locs), array(rads))
-    except AssertionError:
-        Fs, abcdfs, rs, l0 = calc_vert_abcfs(array(locs), array(rads))
+    # Attempt to calculate vertex coefficients using a JIT-accelerated function
+    Fs, abcdfs, rs, l0 = calc_vert_abcfs(array(locs), array(rads))
 
-    # Calculate the ranks of the coefficient matrices to determine which vert calculation case to use. F != 0 means 3, 3
-    m_rank, f_rank = 3, 3
+    # Initialize matrix ranks needed for determining the computational case
+    m_rank, f_rank = 3, 3  # Default ranks if F != 0
 
-    # Other rank cases
+    # Adjust ranks based on the coefficients if the first F coefficient is zero
     if Fs[0] == 0:
-        my_mtx = [abcdfs]
-        m_rank = linalg.matrix_rank(array(my_mtx[:-1]))
+        my_mtx = [abcdfs]  # Construct matrix from coefficients
+        m_rank = linalg.matrix_rank(array(my_mtx[:-1]))  # Calculate rank excluding the last element
         if m_rank != 3:
-            f_rank = linalg.matrix_rank(array(my_mtx))
+            f_rank = linalg.matrix_rank(array(my_mtx))  # Calculate full matrix rank
 
-    # Instantiate the vertices list
+    # Initialize a list to store vertices
     verts = []
 
-    # Case 1:
+    # Case 1: Standard case where the first coefficient of F is non-zero
     if Fs[0] != 0:
-        verts = calc_vert_case_1(Fs, l0, rs[0])
+        verts = calc_vert_case_1(Fs, l0, rs[0])  # Calculate vertices for case 1
         if verts is not None:
-            verts = [[vert[:3], vert[3]] for vert in verts]
+            verts = [[vert[:3], vert[3]] for vert in verts]  # Format vertices
         else:
-            verts = []
+            verts = []  # Reset vertices if None found
 
-    # Case 2:
+    # Case 2: Special case based on matrix ranks and specific coefficient conditions
     elif abcdfs[0][0] * abcdfs[1][1] - abcdfs[0][1] * abcdfs[1][0] != 0 and m_rank == 3 and f_rank == 3 and Fs[0] > 0:
-        verts = calc_vert_case_2(Fs, rs[0], l0)
+        verts = calc_vert_case_2(Fs, rs[0], l0)  # Calculate vertices for case 2
 
-    # Filter out vertices that encapsulate and sort the smaller vertex first
+    # Filter and sort vertices to find the appropriate geometric solution
     loc, loc2, rad, rad2 = filter_vert_locrads(verts, rs)
 
-    # Return the locations and radii
+    # Return the first and second vertex locations and their corresponding radii
     return loc, rad, loc2, rad2
 
 
 def calc_flat_vert(locs, rads, power=False):
     """
-    Calculates the flat vertex between 4 balls by finding the intersection of the mid-point planes between the first
-    ball and the others
-    :param locs: List of ball locations
-    :param rads: List of ball radii
-    :param power: Whether to calculate the vertex as a power or Delaunay
-    :return: Location and radius tuple
+    Calculates the vertex at the intersection of the planes bisecting the line segments between the first ball and each of the other three balls. This vertex represents the geometric solution where these planes intersect, which can be interpreted as the center of a circumsphere in Delaunay triangulation or as a power center in Laguerre (power) diagrams.
+
+    Args:
+        locs (list of arrays): Coordinates of the centers of the four balls.
+        rads (list of floats): Radii of the four balls.
+        power (bool): If True, calculates using the power diagram method, which accounts for the radii differences; otherwise, uses the Delaunay triangulation method.
+
+    Returns:
+        tuple: A tuple containing the coordinates of the calculated vertex and its associated radius or power distance.
+
+    Notes:
+        - The function first sorts the balls by their radii to consistently define the plane equations.
+        - Plane equations are derived from the midpoints of the line segments (or their power equivalents).
+        - The intersection of these planes is found by solving a linear system derived from the plane equations.
     """
-    # Sort the locations and radii in terms of radii and retun a list of loc, rad tuples
-    ball_rads = [(x, _) for _, x in sorted(zip(rads, locs), key=lambda pair: pair[0])]
-    # Get the plane equations
+
+    # Sort the locations and radii based on radii, which simplifies finding the central vertex among the spheres
+    sorted_balls = sorted(zip(rads, locs), key=lambda pair: pair[0])
+    ball_rads = [(loc, rad) for rad, loc in sorted_balls]
+
     coeffs = []
-    # Go through the balls to make the planes
-    for an in ball_rads[1:]:
-        # Get the point between the balls
-        r = array(an[0]) - array(ball_rads[0][0])
-        norm = linalg.norm(r)
-        rn = r / norm
+    first_ball_loc, first_ball_rad = ball_rads[0]
+
+    # Generate plane equations for the spheres relative to the first one
+    for current_loc, current_rad in ball_rads[1:]:
+        # Calculate vector from first ball to current ball
+        vector = array(current_loc) - array(first_ball_loc)
+        norm = linalg.norm(vector)
+        normalized_vector = vector / norm
+
+        # Decide the plane's calculation based on the power diagram or Delaunay method
         if power:
-            d0 = 0.5 * (norm ** 2 + ball_rads[0][1] ** 2 - an[1] ** 2) / norm
-            center = ball_rads[0][0] + d0 * rn
+            # For power diagrams, compute using weights related to the radii
+            distance_factor = 0.5 * (norm ** 2 + first_ball_rad ** 2 - current_rad ** 2) / norm
+            plane_center = first_ball_loc + distance_factor * normalized_vector
         else:
-            center = 0.5 * r + array(ball_rads[0][0])
-        coeffs.append(rn.tolist() + [dot(rn, center)])
-    # Unpack the coefficients for the planes
+            # For Delaunay, the plane is determined simply by the midpoint of the segment
+            plane_center = 0.5 * vector + array(first_ball_loc)
+
+        # Append the normalized plane equation coefficients to the list
+        coeffs.append(normalized_vector.tolist() + [dot(normalized_vector, plane_center)])
+
+    # Solve the system of linear equations derived from the plane equations
     a1, b1, c1, d1 = coeffs[0]
     a2, b2, c2, d2 = coeffs[1]
     a3, b3, c3, d3 = coeffs[2]
-    # Find the discriminant?
+
+    # Calculate discriminant to determine the solvability of the system
     disc = c1 * b2 * a3 - b1 * c2 * a3 - c1 * a2 * b3 + a1 * c2 * b3 + b1 * a2 * c3 - a1 * b2 * c3
-    # Calculate the intersection numerators
-    x_numerator = d1 * c2 * b3 - c1 * d2 * b3 - d1 * b2 * c3 + b1 * d2 * c3 + c1 * b2 * d3 - b1 * c2 * d3
-    y_numerator = - d1 * c2 * a3 + c1 * d2 * a3 + d1 * a2 * c3 - a1 * d2 * c3 - c1 * a2 * d3 + a1 * c2 * d3
-    z_numerator = d1 * b2 * a3 - b1 * d2 * a3 - d1 * a2 * b3 + a1 * d2 * b3 + b1 * a2 * d3 - a1 * b2 * d3
-    # Calculate the location of the intersection of the planes
-    x, y, z = x_numerator / disc, y_numerator / disc, z_numerator / disc
-    # Get the radius
+
+    # Calculate coordinates using Cramer's rule
+    x_num = d1 * b2 * c3 - c1 * b2 * d3 - d1 * c2 * b3 + b1 * c2 * d3 + c1 * b2 * d3 - b1 * c2 * d3
+    y_num = -d1 * c2 * a3 + c1 * d2 * a3 + d1 * a2 * c3 - a1 * d2 * c3 - c1 * a2 * d3 + a1 * c2 * d3
+    z_num = d1 * b2 * a3 - b1 * d2 * a3 - d1 * a2 * b3 + a1 * d2 * b3 + b1 * a2 * d3 - a1 * b2 * d3
+
+    # Final vertex coordinates
+    x, y, z = x_num / disc, y_num / disc, z_num / disc
+
+    # Compute the radius or power distance, depending on the method
     if power:
-        # Calculate the power distance between the vertex and an arbitrary ball
-        rad = calc_dist(array([x, y, z]), array(ball_rads[0][0])) ** 2 - ball_rads[0][1] ** 2
+        # Power distance accounts for the differences in radii
+        radius = calc_dist(array([x, y, z]), array(first_ball_loc)) ** 2 - first_ball_rad ** 2
     else:
-        # Calculate the distance between the vertex and an arbitrary ball
-        rad = calc_dist(array([x, y, z]), array(ball_rads[0][0]))
-    return [x, y, z], rad
+        # Delaunay distance is the simple geometric distance
+        radius = calc_dist(array([x, y, z]), array(first_ball_loc))
+
+    return [x, y, z], radius
 
 
 @jit(nopython=True)
 def verify_aw(loc, rad, test_locs, test_rads):
-    # Go through the balls in the overlap test ball list
+    """
+    Determines if a given sphere (defined by its center 'loc' and radius 'rad') does not encroach within the radius
+    of any other spheres in a given list, adjusted for their radii. This function is tailored for applications in
+    atomic weaving network calculations and is optimized with Numba for high performance.
+
+    Args:
+        loc (numpy.ndarray): The center of the sphere to verify.
+        rad (float): The radius of the sphere to verify.
+        test_locs (numpy.ndarray): An array of centers of other spheres to check against.
+        test_rads (numpy.ndarray or list): An array or list of radii corresponding to the centers in 'test_locs'.
+
+    Returns:
+        bool: Returns True if the sphere does not encroach within the radii of any other spheres in the list, otherwise False.
+
+    Notes:
+        - The function checks for non-encroachment by ensuring the distance between 'loc' and each 'test_loc' minus the
+          respective 'test_rad' is greater than 'rad'.
+        - This method is suited for verifying spatial configurations in models where spheres represent atoms or particles
+          and their interactions or separations are critical.
+        - Optimized with Numba's nopython mode, which ensures the function is compiled to machine code for faster execution.
+    """
+
+    # Iterate through each sphere in the list to check for encroachment
     for i, b_loc in enumerate(test_locs):
-        # Get the ball's location and radius
-        b_rad = test_rads[i]
+        b_rad = test_rads[i]  # Get the radius for the current sphere
+        # Calculate if the center 'loc' encroaches within the adjusted radius of any sphere
         if calc_dist_numba(b_loc, loc) - b_rad < rad:
-            return False
-    return True
+            return False  # Encroachment detected, return False
+
+    return True  # No encroachments found, return True
 
 
 @jit(nopython=True)
-def verify_del(loc, rad, test_locs):
-    # Go through the balls in the overlap test ball list
+def verify_prm(loc, rad, test_locs):
+    """
+    Verifies if a given location 'loc' with a specified 'rad' does not fall within the power radius of any other
+    locations in 'test_locs'. This function is intended for use in solving the power diagram of a system of balls and is
+    optimized with Numba for high performance.
+
+    Args:
+        loc (numpy.ndarray): The center of the location to be verified.
+        rad (float): The radius within which no other centers should exist.
+        test_locs (numpy.ndarray): An array of centers to check against.
+
+    Returns:
+        bool: Returns True if no other centers are within the radius 'rad' from 'loc', otherwise returns False.
+
+    Notes:
+        - This function iterates over each center in 'test_locs' to check if 'loc' is outside the specified 'rad'
+          from all other centers.
+        - It uses a direct distance comparison rather than squared distances to determine proximity.
+        - Optimized with Numba's nopython mode for efficient execution in numerical computations involving large
+          arrays of coordinates.
+    """
+
+    # Iterate through each location in the list to check for proximity
     for i, b_loc in enumerate(test_locs):
+        # Check if the distance between 'loc' and the current location 'b_loc' is less than 'rad'
         if calc_dist_numba(b_loc, loc) < rad:
-            return False
-    return True
+            return False  # If within radius, return False indicating an invalid position
+
+    return True  # If no overlaps are found, return True indicating a valid position
 
 
 @jit(nopython=True)
 def verify_pow(loc, rad, test_locs, test_rads):
-    # Go through the balls in the overlap test ball list
+    """
+    Determines if a given sphere (defined by its center 'loc' and 'rad') does not overlap with any other spheres in a given list. This function is optimized for use in power diagram computations and is compiled with Numba for performance.
+
+    Args:
+        loc (numpy.ndarray): The center of the sphere to verify.
+        rad (float): The radius of the sphere to verify.
+        test_locs (numpy.ndarray): An array of centers of other spheres to check against.
+        test_rads (numpy.ndarray or list): An array or list of radii corresponding to the centers in 'test_locs'.
+
+    Returns:
+        bool: Returns True if the sphere does not overlap with any other spheres in the list, otherwise False.
+
+    Notes:
+        - The function iterates over a list of spheres defined by 'test_locs' and 'test_rads'.
+        - It checks for non-overlapping conditions by comparing the squared distance between sphere centers to the squared sum of radii.
+        - This function is suitable for high-performance computational needs due to its compilation with Numba, which translates Python functions to optimized machine code at runtime.
+    """
+
+    # Iterate through each sphere in the list to check for overlaps
     for i, b_loc in enumerate(test_locs):
-        # Get the ball's location and radius
-        b_rad = test_rads[i]
+        b_rad = test_rads[i]  # Get the radius for the current sphere
+        # Calculate the squared distance and compare it to the squared sum of radii
         if calc_dist_numba(b_loc, loc) ** 2 - b_rad ** 2 < rad:
-            return False
-    return True
+            return False  # Overlap detected, return False
+
+    return True  # No overlaps found, return True
 
 
 def verify_site(loc, rad, test_locs, test_rads, net_type='aw'):
     """
-    Compares a vertex to the balls around to see if they overlap, balls pre-gathered
+    Checks if a given site (vertex) specified by its location and radius overlaps with other sites. This function can
+    adapt to different network types by selecting appropriate verification methods.
+
+    Args:
+        loc (array-like or numpy.ndarray): The location of the vertex as coordinates.
+        rad (float): The radius of the vertex.
+        test_locs (list or numpy.ndarray): A collection of locations for other sites to test against.
+        test_rads (list or float): Radii corresponding to each location in test_locs.
+        net_type (str): Type of network to use for verification. Options include 'aw' for atomic weaving,
+                        'prm' for probabilistic roadmaps, and 'pow' for power diagrams.
+
+    Returns:
+        bool: True if the site is verified (does not overlap or meets criteria specific to the network type),
+              False otherwise.
+
+    Notes:
+        - The function first ensures that the 'loc' parameter is a numpy.ndarray.
+        - It then delegates the actual overlap checking to specific functions based on the network type:
+          'aw' for atomic weaving networks, 'prm' for probabilistic roadmaps, and 'pow' for power diagrams.
+        - These specific functions are not detailed here but are assumed to check for conditions like overlapping
+          or proximity based on network-specific rules.
     """
-    # Verification for a voronoi network
+
+    # Ensure the location is in numpy array format for consistency in mathematical operations
+    if not isinstance(loc, np.ndarray):
+        loc = np.array(loc)
+
+    # Call the appropriate function to verify the site based on the type of network
     if net_type == 'aw':
         return verify_aw(loc, rad, test_locs, test_rads)
-    # Verify Delaunay
-    elif net_type == 'del':
-        return verify_del(loc, rad, test_locs)
-    # Verify power network
+    elif net_type == 'prm':
+        return verify_prm(loc, rad, test_locs)
     elif net_type == 'pow':
         return verify_pow(loc, rad, test_locs, test_rads)
