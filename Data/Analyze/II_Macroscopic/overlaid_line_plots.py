@@ -159,7 +159,7 @@ for value in ['vol', 'sa']:
                  .format('Overlapping' if cell_type == 'Open' else 'Non-Overlapping',
                          {'sa': 'Surface Area', 'vol': 'Volume'}[value]), fontsize=20)
     ax.set_xlabel('Density', fontsize=25)
-    ax.set_ylabel('Absolute Difference', fontsize=25)
+    ax.set_ylabel('Avg Abs % Diff', fontsize=25)
     ax.tick_params(axis='both', which='major', labelsize=20, width=2, length=12)
 
     cbar.ax.tick_params(labelsize=20, size=10, width=2, length=12)

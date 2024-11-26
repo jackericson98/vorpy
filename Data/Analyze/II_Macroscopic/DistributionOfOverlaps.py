@@ -5,7 +5,6 @@ from Data.Analyze.tools.plot_templates.histogram import histogram
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.transforms import blended_transform_factory as blend
-from matplotlib.ticker import LogLocator
 
 from matplotlib.ticker import LogLocator, FuncFormatter
 
@@ -72,12 +71,17 @@ def distribution_of_overlaps(file=None, output_folder=None, bins=10):
 
     density_vals.sort(reverse=True)
     cv_vals.sort()
+    print(density_vals, cv_vals)
 
     fig, axes = plt.subplots(10, 11, figsize=(20, 18), sharex='all', sharey='all')
 
     def format_ticks(val, pos):
-        """Convert ticks to plain numbers."""
-        return f"{float(val)}"
+        """Format tick labels as powers of ten."""
+        if val == 0:
+            return "$10^0$"
+        else:
+            exponent = int(np.log10(val))
+            return f"$10^{{{exponent}}}$"
 
     for i, density in enumerate(density_vals):
         for j, cv in enumerate(cv_vals):
@@ -85,8 +89,8 @@ def distribution_of_overlaps(file=None, output_folder=None, bins=10):
             data = new_data_dict[cv][density]
 
             my_data = ax.hist(data, bins, range=(0, olap_value), density=False, log=True, color='cyan', edgecolor='k')
-            print(my_data)
             ax.set_yscale('log')
+            ax.set_ylim([1, 1000000])
             if j == 0:  # Far-left subplots
                 ax.yaxis.set_major_locator(LogLocator(base=10.0, numticks=6))  # Half number of ticks
                 ax.yaxis.set_minor_formatter(FuncFormatter(format_ticks))  # Remove scientific notation
@@ -94,7 +98,7 @@ def distribution_of_overlaps(file=None, output_folder=None, bins=10):
             else:
                 ax.yaxis.set_major_locator(LogLocator(base=10.0, subs=[], numticks=6))
                 ax.yaxis.set_major_formatter(FuncFormatter(format_ticks))
-            ax.set_ylim(0, 150000)
+
 
     for ax, col in zip(axes[-1], cv_vals):
         ax.set_xlabel("")  # Remove direct subplot labels, handled below
@@ -107,16 +111,16 @@ def distribution_of_overlaps(file=None, output_folder=None, bins=10):
         fig.text(0.13 + i * (0.815 / len(cv_vals)), 0.05, col, ha='center', fontsize=15)
 
     for i, row in enumerate(density_vals[::-1]):
-        fig.text(0.05, 0.125 + i * (0.875 / len(density_vals)), row, va='center', rotation='horizontal', fontsize=15)
+        fig.text(0.05, 0.125 + i * (0.825 / len(density_vals)), row, va='center', rotation='horizontal', fontsize=15)
 
-    fig.text(0.5, 0.02, 'CV Values', ha='center', fontsize=15)  # X-axis label for the figure
-    fig.text(0.02, 0.5, 'Density Values', va='center', rotation='vertical', fontsize=15)  # Y-axis label for the figure
+    fig.text(0.5, 0.02, 'CV Values', ha='center', fontsize=20)  # X-axis label for the figure
+    fig.text(0.02, 0.5, 'Density Values', va='center', rotation='vertical', fontsize=20)  # Y-axis label for the figure
 
     # Add a main title for the entire figure
     fig.suptitle("Distribution of Overlaps by CV and Density", fontsize=20)
 
     # Adjust layout to prevent overlapping labels
-    plt.subplots_adjust(left=0.1, bottom=0.1, top=0.95)
+    plt.subplots_adjust(left=0.1, bottom=0.1, top=0.9)
     # plt.tight_layout()
 
     plt.show()
