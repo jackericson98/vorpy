@@ -1,4 +1,4 @@
-from System.sys_funcs.calcs.vert import calc_flat_vert, calc_vert, verify_aw, verify_pow, verify_del
+from System.sys_funcs.calcs.vert import calc_flat_vert, calc_vert, verify_aw, verify_pow, verify_prm
 from System.sys_funcs.calcs.calcs import calc_dist, calc_com
 from System.sys_funcs.calcs.sorting import box_search, get_balls, sort_lists
 from System.sys_funcs.calcs.edge import calc_circ
@@ -58,7 +58,7 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, ne
             vert, invalid_ndxs = find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
                                                check_ndxs, surr_balls, my_boxes, invalid_ndxs, vn_1, vn_1_loc,
                                                group_ndxs=group_ndxs, metrics=metrics)
-        elif net_type == 'del':
+        elif net_type == 'prm':
             vert, invalid_ndxs = find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
                                                check_ndxs, surr_balls, my_boxes, invalid_ndxs, vn_1, vn_1_loc,
                                                group_ndxs=group_ndxs, metrics=metrics)
@@ -150,7 +150,7 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         # Get the locations from the test balls
         test_locs = np.array([locs[_] for _ in filtered_test_balls])
         # Compare the vertex to the maximum allowed vertex and verify it
-        if vert_rad < max_vert and verify_del(loc=np.array(vert_loc), rad=vert_rad, test_locs=test_locs):
+        if vert_rad < max_vert and verify_prm(loc=np.array(vert_loc), rad=vert_rad, test_locs=test_locs):
             # Add the time for verification to the verify_site metrics
             if metrics is not None:
                 metrics['verify_site'] += time.perf_counter() - start
