@@ -118,7 +118,7 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
         start = time.perf_counter()
         if net_type == 'pow':
             vert_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=True)
-        elif net_type == 'del':
+        elif net_type == 'prm':
             vert_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=False)
         else:
             vert_loc, vert_rad, vert_loc2, vert_rad2 = calc_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls])
