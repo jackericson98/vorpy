@@ -1,7 +1,7 @@
 from System.sys_funcs.calcs.calcs import calc_com, calc_dist
 from System.sys_funcs.calcs.sorting import box_search, get_balls
 from System.sys_funcs.calcs.edge import calc_circ
-from System.Network.verts.find_site.slow import find_site_container_slow
+from System.Network.verts.find_site.slow import find_site_container_slow, find_site
 from System.Network.verts.find_site.fast import find_site_container
 from System.sys_funcs.calcs.vert import verify_site
 import numpy as np
@@ -78,7 +78,7 @@ def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, m
         my_circs.sort(key=lambda x: abs(x[1][1]))
         for circ in my_circs:
             # Try to create a vertex
-            if net_type in ['del', 'pow']:
+            if net_type in ['prm', 'pow']:
                 my_vert = find_site_container(circ[0], locs=locs, rads=rads, b_verts=b_verts, vert_ndxs=vert_ndxs,
                                               max_vert=max_vert, net_type=net_type, group_ndxs=group_ndxs,
                                               metrics=metrics)
