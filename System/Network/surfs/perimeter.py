@@ -40,15 +40,16 @@ def build_perimeter(locs, rads, epnts, net_type='aw'):
     d = np.sqrt(sum(np.square(np.array(locs[1]) - np.array(locs[0]))))
     # Get the center of the surface
     r = np.array(locs[1]) - np.array(locs[0])
-    r = [_ if _ != 0 else 0.0001 for _ in r]
+    r = np.array([_ if _ != 0 else 0.0001 for _ in r])
     surf_norm = r / np.linalg.norm(r)
     surf_loc = None
     if net_type == 'aw':
         surf_loc = np.array(locs[0]) + (rads[0] + 0.5 * (d - (rads[0] + rads[1]))) * surf_norm
-    elif net_type == 'del':
+    elif net_type == 'prm':
         surf_loc = np.array(locs[0]) + 0.5 * d * surf_norm
     elif net_type == 'pow':
-        surf_loc = np.array(locs[0]) + 0.5 * (surf_norm ** 2 + rads[0] ** 2 - rads[1] ** 2) / surf_norm
+        d0 = 0.5 * (d ** 2 + rads[0] ** 2 - rads[1] ** 2) / d
+        surf_loc = np.array(locs[0]) + d0 * surf_norm
     return perimeter, surf_loc, surf_norm
 
 
