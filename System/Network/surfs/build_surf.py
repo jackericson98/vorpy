@@ -72,7 +72,7 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None):
 
     # Check if the surface is flat
     flat = False
-    if net_type in {'del', 'pow'} or rads[0] == rads[1]:
+    if net_type in {'prm', 'pow'} or rads[0] == rads[1]:
         flat = True
 
     # Build the perimeter of the surface
