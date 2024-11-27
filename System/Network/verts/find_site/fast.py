@@ -59,7 +59,7 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, ne
                                                check_ndxs, surr_balls, my_boxes, invalid_ndxs, vn_1, vn_1_loc,
                                                group_ndxs=group_ndxs, metrics=metrics)
         elif net_type == 'prm':
-            vert, invalid_ndxs = find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
+            vert, invalid_ndxs = find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
                                                check_ndxs, surr_balls, my_boxes, invalid_ndxs, vn_1, vn_1_loc,
                                                group_ndxs=group_ndxs, metrics=metrics)
         # If a vertex is found exit the loop
