@@ -288,58 +288,42 @@ def calc_flat_vert(locs, rads, power=False):
         - Plane equations are derived from the midpoints of the line segments (or their power equivalents).
         - The intersection of these planes is found by solving a linear system derived from the plane equations.
     """
-
-    # Sort the locations and radii based on radii, which simplifies finding the central vertex among the spheres
-    sorted_balls = sorted(zip(rads, locs), key=lambda pair: pair[0])
-    ball_rads = [(loc, rad) for rad, loc in sorted_balls]
-
+    # Sort the locations and radii in terms of radii and retun a list of loc, rad tuples
+    ball_rads = [(x, _) for _, x in sorted(zip(rads, locs), key=lambda pair: pair[0])]
+    # Get the plane equations
     coeffs = []
-    first_ball_loc, first_ball_rad = ball_rads[0]
-
-    # Generate plane equations for the spheres relative to the first one
-    for current_loc, current_rad in ball_rads[1:]:
-        # Calculate vector from first ball to current ball
-        vector = array(current_loc) - array(first_ball_loc)
-        norm = linalg.norm(vector)
-        normalized_vector = vector / norm
-
-        # Decide the plane's calculation based on the power diagram or Delaunay method
+    # Go through the balls to make the planes
+    for an in ball_rads[1:]:
+        # Get the point between the balls
+        r = array(an[0]) - array(ball_rads[0][0])
+        norm = linalg.norm(r)
+        rn = r / norm
         if power:
-            # For power diagrams, compute using weights related to the radii
-            distance_factor = 0.5 * (norm ** 2 + first_ball_rad ** 2 - current_rad ** 2) / norm
-            plane_center = first_ball_loc + distance_factor * normalized_vector
+            d0 = 0.5 * (norm ** 2 + ball_rads[0][1] ** 2 - an[1] ** 2) / norm
+            center = ball_rads[0][0] + d0 * rn
         else:
-            # For Delaunay, the plane is determined simply by the midpoint of the segment
-            plane_center = 0.5 * vector + array(first_ball_loc)
-
-        # Append the normalized plane equation coefficients to the list
-        coeffs.append(normalized_vector.tolist() + [dot(normalized_vector, plane_center)])
-
-    # Solve the system of linear equations derived from the plane equations
+            center = 0.5 * r + array(ball_rads[0][0])
+        coeffs.append(rn.tolist() + [dot(rn, center)])
+    # Unpack the coefficients for the planes
     a1, b1, c1, d1 = coeffs[0]
     a2, b2, c2, d2 = coeffs[1]
     a3, b3, c3, d3 = coeffs[2]
-
-    # Calculate discriminant to determine the solvability of the system
+    # Find the discriminant?
     disc = c1 * b2 * a3 - b1 * c2 * a3 - c1 * a2 * b3 + a1 * c2 * b3 + b1 * a2 * c3 - a1 * b2 * c3
-
-    # Calculate coordinates using Cramer's rule
-    x_num = d1 * b2 * c3 - c1 * b2 * d3 - d1 * c2 * b3 + b1 * c2 * d3 + c1 * b2 * d3 - b1 * c2 * d3
-    y_num = -d1 * c2 * a3 + c1 * d2 * a3 + d1 * a2 * c3 - a1 * d2 * c3 - c1 * a2 * d3 + a1 * c2 * d3
-    z_num = d1 * b2 * a3 - b1 * d2 * a3 - d1 * a2 * b3 + a1 * d2 * b3 + b1 * a2 * d3 - a1 * b2 * d3
-
-    # Final vertex coordinates
-    x, y, z = x_num / disc, y_num / disc, z_num / disc
-
-    # Compute the radius or power distance, depending on the method
+    # Calculate the intersection numerators
+    x_numerator = d1 * c2 * b3 - c1 * d2 * b3 - d1 * b2 * c3 + b1 * d2 * c3 + c1 * b2 * d3 - b1 * c2 * d3
+    y_numerator = - d1 * c2 * a3 + c1 * d2 * a3 + d1 * a2 * c3 - a1 * d2 * c3 - c1 * a2 * d3 + a1 * c2 * d3
+    z_numerator = d1 * b2 * a3 - b1 * d2 * a3 - d1 * a2 * b3 + a1 * d2 * b3 + b1 * a2 * d3 - a1 * b2 * d3
+    # Calculate the location of the intersection of the planes
+    x, y, z = x_numerator / disc, y_numerator / disc, z_numerator / disc
+    # Get the radius
     if power:
-        # Power distance accounts for the differences in radii
-        radius = calc_dist(array([x, y, z]), array(first_ball_loc)) ** 2 - first_ball_rad ** 2
+        # Calculate the power distance between the vertex and an arbitrary ball
+        rad = calc_dist(array([x, y, z]), array(ball_rads[0][0])) ** 2 - ball_rads[0][1] ** 2
     else:
-        # Delaunay distance is the simple geometric distance
-        radius = calc_dist(array([x, y, z]), array(first_ball_loc))
-
-    return [x, y, z], radius
+        # Calculate the distance between the vertex and an arbitrary ball
+        rad = calc_dist(array([x, y, z]), array(ball_rads[0][0]))
+    return [x, y, z], rad
 
 
 @jit(nopython=True)
