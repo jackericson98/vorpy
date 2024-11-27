@@ -145,7 +145,44 @@ def calc_surf_point_curv(func, point):
     return - numerator / denominator
 
 
-def calc_surf_tri_curvs(func, points, tris, max_curv=0):
+def mean_curvature(func, point):
+    """
+    Compute the mean curvature for an implicit surface F(x, y, z) = 0.
+
+    Parameters:
+        func : function
+            A function representing the implicit surface F(x, y, z) = 0.
+        x, y, z : float
+            Coordinates at which to evaluate the curvature.
+
+    Returns:
+        float
+            The mean curvature at the point (x, y, z).
+    """
+    # Get the x, y, z, values
+    x, y, z = point
+    # Get the function coefficients
+    A, B, C, D, E, F, G, H, I, J = func[:10]
+    # Define the partial derivatives
+    Fx = 2 * A * x + D * y + F * z + G
+    Fy = 2 * B * y + D * x + E * z + H
+    Fz = 2 * C * z + E * y + F * x + I
+
+    # Get the second derivatives
+    Fxx, Fyy, Fzz = 2 * A, 2 * B, 2 * C
+    Fxy, Fyz, Fzx = D, E, F
+
+    # Gradient and Hessian matrix computation
+    grad = np.array([Fx, Fy, Fz])
+    He = np.array([[Fxx, Fxy, Fzx], [Fxy, Fyy, Fyz], [Fzx, Fyz, Fzz]])
+
+    # Mean curvature calculation
+    numerator = np.dot(grad, np.dot(He, grad)) - np.linalg.norm(grad)**2 * np.trace(He)
+    denominator = 2 * np.linalg.norm(grad)**3
+    return  - numerator / denominator
+
+
+def calc_surf_tri_curvs(func, points, tris, max_curv=0, curvature_type='gaussian'):
     """
     Calculates the curvature of the triangles
     :param calc_max_curv:
@@ -159,7 +196,10 @@ def calc_surf_tri_curvs(func, points, tris, max_curv=0):
     # If the surface normal is within the surface,
     # Get the curvature for each point
     for point in points:
-        curv = calc_surf_point_curv(func, point)
+        if curvature_type == 'gaussian':
+            curv = calc_surf_point_curv(func, point)
+        else:
+            curv = mean_curvature(func, point)
         if curv < min_curv:
             min_curv = curv
         elif curv > max_curv:
