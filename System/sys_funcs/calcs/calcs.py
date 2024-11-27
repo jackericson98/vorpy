@@ -36,11 +36,9 @@ def project_to_plane(points, plane_point, plane_normal):
     plane_normal = plane_normal / np.linalg.norm(plane_normal)
 
     # Create an orthogonal basis for the plane
-    if (plane_normal == np.array([1.0, 0.0, 0.0])).all() or (plane_normal == np.array([-1.0, 0.0, 0.0])).all():
-        # Handle the case where the normal is along the x-axis
-        u = np.array([0, 1, 0])
-    else:
-        u = np.cross(plane_normal, [1, 0, 0])
+    u = np.cross(plane_normal, np.array([1, 0, 0]))
+    if np.linalg.norm(u) < 1e-10:  # Check if cross product is almost zero
+        u = np.cross(plane_normal, np.array([0, 1, 0]))
     u = u / np.linalg.norm(u)
     v = np.cross(plane_normal, u)
     v = v / np.linalg.norm(v)
@@ -48,15 +46,9 @@ def project_to_plane(points, plane_point, plane_normal):
     # Project points onto the plane
     projected_points = []
     for point in points:
-        # Vector from point on plane to the point in space
         point_vector = point - plane_point
-        # Distance from point to plane
-        distance = np.dot(point_vector, plane_normal)
-        # Projection of point onto plane
-        projection = point - distance * plane_normal
-        # Convert projection to 2D coordinates
-        u_coord = np.dot(projection - plane_point, u)
-        v_coord = np.dot(projection - plane_point, v)
+        u_coord = np.dot(point_vector, u)
+        v_coord = np.dot(point_vector, v)
         projected_points.append((u_coord, v_coord))
 
     return projected_points
@@ -67,11 +59,9 @@ def unproject_to_3d(projected_points, plane_point, plane_normal):
     plane_normal = plane_normal / np.linalg.norm(plane_normal)
 
     # Create an orthogonal basis for the plane
-    if (plane_normal == np.array([1.0, 0.0, 0.0])).all() or (plane_normal == np.array([-1.0, 0.0, 0.0])).all():
-        # Handle the case where the normal is along the x-axis
-        u = np.array([0, 1, 0])
-    else:
-        u = np.cross(plane_normal, [1, 0, 0])
+    u = np.cross(plane_normal, np.array([1, 0, 0]))
+    if np.linalg.norm(u) < 1e-10:  # Check if cross product is almost zero
+        u = np.cross(plane_normal, np.array([0, 1, 0]))
     u = u / np.linalg.norm(u)
     v = np.cross(plane_normal, u)
     v = v / np.linalg.norm(v)
