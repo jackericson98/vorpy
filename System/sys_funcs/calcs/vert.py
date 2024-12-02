@@ -431,7 +431,7 @@ def verify_site(loc, rad, test_locs, test_rads, net_type='aw'):
         loc (array-like or numpy.ndarray): The location of the vertex as coordinates.
         rad (float): The radius of the vertex.
         test_locs (list or numpy.ndarray): A collection of locations for other sites to test against.
-        test_rads (list or float): Radii corresponding to each location in test_locs.
+        test_rads (list or numpy.ndarray): Radii corresponding to each location in test_locs.
         net_type (str): Type of network to use for verification. Options include 'aw' for atomic weaving,
                         'prm' for probabilistic roadmaps, and 'pow' for power diagrams.
 
