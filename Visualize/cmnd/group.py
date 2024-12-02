@@ -158,17 +158,26 @@ def get_group_resids(resids, identifier):
 
 
 def get_group_chains(chains, identifier):
-    # First try the index option
+    # First see if the identifier is an atom index
     try:
-        chain_index = float(identifier[0])
-        if chain_index < len(chains):
-            return [chains[chain_index]]
+        my_chain = chains[int(identifier[0])]
+        return [my_chain]
     except ValueError:
         pass
-    # Loop through the chains and see if any have the identifier as their name
-    for chain in chains:
-        if chain.name == identifier[0].upper():
-            return [chain]
+    # Next see if it is a range:
+    if '-' in identifier[0]:
+        # Split the indices
+        index1, index2 = identifier[0].split('-')
+        # Make sure the two indices are intable
+        try:
+            index1, index2 = int(index1), int(index2)
+        except ValueError:
+            pass
+        # Get all the atoms in the list
+        my_chains = []
+        for i in range(index1, index2 + 1):
+            my_chains.append(chains[i])
+        return my_chains
 
 
 def interpret_group_commands(my_sys, group_dict, command):
