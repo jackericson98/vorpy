@@ -39,6 +39,9 @@ def get_balls(cells, dist=0, cell_reach=0, my_balls_matrix=None, my_sub_box_size
     """
     # Get the universal variables
     global balls_matrix, sub_box_size, max_ball_rad
+    # If cells is none there is an issue with the box search and we need to return none
+    if cells is None:
+        return
     # If the three variables are not specified set them equal to the globals
     if my_balls_matrix is not None:
         balls_matrix, sub_box_size, max_ball_rad = my_balls_matrix, my_sub_box_size, my_max_ball_rad
