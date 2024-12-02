@@ -203,7 +203,7 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
     # Gather the balls within the range of the loc2
     loc2_balls = [_ for _ in get_balls(loc2_box, rad2) if _ not in eballs]
     # Verify the loc2. If the loc2 interacts with another ball, then the edge needs to be projected toward loc
-    if not verify_site(loc2, rad2, [locs[_] for _ in loc2_balls], [rads[_] for _ in loc2_balls]):
+    if not verify_site(loc2, rad2, np.array([locs[_] for _ in loc2_balls]), np.array([rads[_] for _ in loc2_balls])):
         # If dnorm is facing loc, return it as normal because it cant be facing loc2
         if np.dot(dnorm, loc - vmid) < 0:
             # Flip the dnorm value because it is facing away from loc
@@ -240,7 +240,7 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
         # Set the edge info values
         edge_info['dnorm'] = dnorm
         # If the loc2 distance is closer swap them boys
-        if loc2_vmid_dist < loc_vmid_dist:
+        if calc_dist(edge_info['loc'], vmid) < calc_dist(edge_info['loc2'], vmid):
             edge_info['loc'], edge_info['rad'], edge_info['loc2'], edge_info['rad2'] = (
                 edge_info['loc2'], edge_info['rad2'], edge_info['loc'], edge_info['rad'])
         # Set the pa
