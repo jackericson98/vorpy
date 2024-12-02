@@ -200,42 +200,37 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
     # First test loc2 to see if it overlaps with any other balls. Best case bc rad2 > rad so less likely
     # Get the loc2 box for getting ready to gather the balls around it
     loc2_box = box_search(loc2)
-    # Gather the balls within the range of the loc2
-    loc2_balls = [_ for _ in get_balls(loc2_box, rad2) if _ not in eballs]
-    # Verify the loc2. If the loc2 interacts with another ball, then the edge needs to be projected toward loc
-    if not verify_site(loc2, rad2, np.array([locs[_] for _ in loc2_balls]), np.array([rads[_] for _ in loc2_balls])):
-        # If dnorm is facing loc, return it as normal because it cant be facing loc2
-        if np.dot(dnorm, loc - vmid) < 0:
-            # Flip the dnorm value because it is facing away from loc
-            edge_info['case'] = '3a'
-            print("Case 3a: {}".format(eballs))
-            dnorm = - dnorm
-        else:
-            edge_info['case'] = '3b'
-            print("Case 3b: {}".format(eballs))
-        # Set the edge info values
-        edge_info['dnorm'] = dnorm
-        # Set the pa
-        edge_info['pa'] = vmid - 0.5 * vdist * dnorm
-        # Return the information
-        return edge_info
-
-    # Next test loc to see if it overlaps with any other balls. 2nd Best case
-    # Get the loc box for getting ready to gather the balls around it
-    loc_box = box_search(loc)
-    # Gather the balls within the range of the loc2
-    loc_balls = [_ for _ in get_balls(loc_box, rad2) if _ not in eballs]
-    # Verify the loc. If the loc2 interacts with another ball, then the edge needs to be projected toward loc
-    if not verify_site(loc, rad2, [locs[_] for _ in loc_balls], [rads[_] for _ in loc_balls]):
+    # If we dont get a box for loc2 its out of bounds
+    if loc2_box is not None:
+        # Gather the balls within the range of the loc2
+        loc2_balls = [_ for _ in get_balls(loc2_box, rad2) if _ not in eballs]
+        # Verify the loc2. If the loc2 interacts with another ball, then the edge needs to be projected toward loc
+        if not verify_site(loc2, rad2, np.array([locs[_] for _ in loc2_balls]), np.array([rads[_] for _ in loc2_balls])):
+            # If dnorm is facing loc, return it as normal because it cant be facing loc2
+            if np.dot(dnorm, loc - vmid) < 0:
+                # Flip the dnorm value because it is facing away from loc
+                edge_info['case'] = '3a'
+                print("Case 3a: {}".format(eballs))
+                dnorm = - dnorm
+            else:
+                edge_info['case'] = '3b'
+                print("Case 3b: {}".format(eballs))
+            # Set the edge info values
+            edge_info['dnorm'] = dnorm
+            # Set the pa
+            edge_info['pa'] = vmid - 0.5 * vdist * dnorm
+            # Return the information
+            return edge_info
+    else:
         # If dnorm is facing loc, flip dnorm since loc is not verified and therefore not in the edge
-        if np.dot(dnorm, loc - vmid) > 0:
-            edge_info['case'] = '4a'
-            print("Case 4a: {}".format(eballs))
+        if np.dot(dnorm, loc - vmid) < 0:
+            edge_info['case'] = '4a1'
+            print("Case 4a1: {}".format(eballs))
             # Flip the dnorm value because it is facing away from loc
             dnorm = - dnorm
         else:
-            edge_info['case'] = '4b'
-            print("Case 4b: {}".format(eballs))
+            edge_info['case'] = '4b1'
+            print("Case 4b1: {}".format(eballs))
 
         # Set the edge info values
         edge_info['dnorm'] = dnorm
@@ -248,12 +243,59 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
         # Return the information
         return edge_info
 
+    # Next test loc to see if it overlaps with any other balls. 2nd Best case
+    # Get the loc box for getting ready to gather the balls around it
+    loc_box = box_search(loc)
+    # If we dont get a box for loc it is out of bounds
+    if loc_box is not None:
+        # Gather the balls within the range of the loc2
+        loc_balls = [_ for _ in get_balls(loc_box, rad2) if _ not in eballs]
+        # Verify the loc. If the loc2 interacts with another ball, then the edge needs to be projected toward loc
+        if not verify_site(loc, rad2, np.array([locs[_] for _ in loc_balls]), np.array([rads[_] for _ in loc_balls])):
+            # If dnorm is facing loc, flip dnorm since loc is not verified and therefore not in the edge
+            if np.dot(dnorm, loc - vmid) > 0:
+                edge_info['case'] = '4a'
+                print("Case 4a: {}".format(eballs))
+                # Flip the dnorm value because it is facing away from loc
+                dnorm = - dnorm
+            else:
+                edge_info['case'] = '4b'
+                print("Case 4b: {}".format(eballs))
+
+            # Set the edge info values
+            edge_info['dnorm'] = dnorm
+            # If the loc2 distance is closer swap them boys
+            if calc_dist(edge_info['loc'], vmid) < calc_dist(edge_info['loc2'], vmid):
+                edge_info['loc'], edge_info['rad'], edge_info['loc2'], edge_info['rad2'] = (
+                    edge_info['loc2'], edge_info['rad2'], edge_info['loc'], edge_info['rad'])
+            # Set the pa
+            edge_info['pa'] = vmid - 0.5 * vdist * dnorm
+            # Return the information
+            return edge_info
+    else:
+        # If dnorm is facing loc, return it as normal because it cant be facing loc2
+        if np.dot(dnorm, loc - vmid) < 0:
+            # Flip the dnorm value because it is facing away from loc
+            edge_info['case'] = '3a1'
+            print("Case 3a1: {}".format(eballs))
+            dnorm = - dnorm
+        else:
+            edge_info['case'] = '3b1'
+            print("Case 3b1: {}".format(eballs))
+        # Set the edge info values
+        edge_info['dnorm'] = dnorm
+        # Set the pa
+        edge_info['pa'] = vmid - 0.5 * vdist * dnorm
+        # Return the information
+        return edge_info
+
     # At this point we have an ellipse edge and we have both locs verifiable. This is worst case and the edge will need
     # to be split into thirds. The first will be between the vertex closest to ec1 and ec1, the next will be between ec1
     # and ec2 and the last will be between ec2 and the vertex closest to ec2
 
     # Mark the case
     edge_info['case'] = '5'
+    print('case 5: {}'.format(eballs))
 
     # First swap the locs if needed
     if calc_dist(edge_info['loc'], vlocs[1]) < calc_dist(edge_info['loc'], vlocs[0]):
