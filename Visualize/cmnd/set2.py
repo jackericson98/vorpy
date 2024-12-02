@@ -1,6 +1,6 @@
 import matplotlib as mpl
 from Visualize.cmnd.interpret import *
-from radii import element_radii, special_radii
+from radii.Standard import element_radii, special_radii
 from System.chemistry_interpreter import element_names, residue_names
 
 
@@ -129,7 +129,8 @@ def set_ss(surf_scheme, settings):
     if type(surf_scheme) is list:
         surf_scheme = surf_scheme[0]
     # Set up the list of different dictionaries
-    all_dicts = [{_: 'curv' for _ in surf_scheme_curv_vals}, {_: 'dist' for _ in surf_scheme_dist_vals},
+    all_dicts = [{_: 'gauss' for _ in surf_scheme_gaus_vals}, {_: 'dist' for _ in surf_scheme_dist_vals},
+                 {_: 'mean' for _ in surf_scheme_mean_vals + surf_scheme_curv_vals},
                  {_: 'ins_out' for _ in surf_scheme_nout_vals}, {_: 'none' for _ in nones}]
     # Put all interpretations into one dictionary for convenience
     interpreter = {k: v for d in all_dicts for k, v in d.items()}
@@ -137,8 +138,9 @@ def set_ss(surf_scheme, settings):
     if surf_scheme not in interpreter:
         # Print a warning that the user has entered the wrong scheme
         print('{} is not a valid entry for surface coloring scheme. Please enter one of the following: \"curv\", '
-              '\"dist\", \"ins_out\", or \"none\"'.format(surf_scheme))
+              '\"mean\", \"gaussian\", \"dist\", \"ins_out\", or \"none\"'.format(surf_scheme))
         return settings['surf_scheme']
+    print('Surface Scheme set to {}'.format(interpreter[surf_scheme]))
     return interpreter[surf_scheme]
 
 

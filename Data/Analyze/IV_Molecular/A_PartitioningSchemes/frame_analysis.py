@@ -41,22 +41,22 @@ for i in range(len(pdb_paths)):
     aw_vol, pow_vol, prm_vol = aw_info['group data']['volume'], pow_info['group data']['volume'], prm_info['group data']['volume']
     aw_sa, pow_sa, prm_sa = aw_info['group data']['sa'], pow_info['group data']['sa'], prm_info['group data']['sa']
 
-    vols[0].append(pow_vol)
-    vols[1].append(prm_vol)
-    vols[2].append(aw_vol)
-    sas[0].append(pow_sa)
-    sas[1].append(prm_sa)
-    sas[2].append(aw_sa)
+    vols[0].append(aw_vol)
+    vols[1].append(pow_vol)
+    vols[2].append(prm_vol)
+    sas[0].append(aw_sa)
+    sas[1].append(pow_sa)
+    sas[2].append(prm_sa)
     vol_devs[0].append(100 * (pow_vol - aw_vol) / aw_vol)
     vol_devs[1].append(100 * (prm_vol - aw_vol) / aw_vol)
     sa_devs[0].append(100 * (pow_sa - aw_sa) / aw_sa)
     sa_devs[1].append(100 * (prm_sa - aw_sa) / aw_sa)
 
 
-frm_vol_devs = [[100 * (vols[j][i] - vols[j][0]) / vols[j][0] for i in range(1, len(vols[0]))] for j in range(3)]
-frm_sa_devs = [[100 * (sas[j][i] - sas[j][0]) / sas[j][0] for i in range(1, len(sas[0]))] for j in range(3)]
+frm_vol_devs = [[100 * (vols[j][i] - vols[j][0]) / vols[j][0] for i in range(len(vols[0]) - 1)] for j in range(3)]
+frm_sa_devs = [[100 * (sas[j][i] - sas[j][0]) / sas[j][0] for i in range(len(sas[0]) - 1)] for j in range(3)]
 
-x_data = [_ + 1 for _ in range(1, len(pdb_paths))]
+x_data = [_ + 1 for _ in range(len(pdb_paths) - 1)]
 
 x_data1 = [_ + 1 for _ in range(len(pdb_paths))]
 
