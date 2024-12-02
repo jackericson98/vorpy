@@ -70,7 +70,7 @@ elif doublet_type == 4:
     extendo_edges = [build_edge(locs[:3], rads[:3], [my_vert[0], [0, 0, 8]], res=0.2),
                      build_edge(locs[:3], rads[:3], [my_vert[2], [0, 0, -8]], res=0.2)]
 
-    surfs = [build_surf([locs[i], locs[3]], [rads[i], rads[3]], [my_edges[(i + 2) % 3][0], my_edges[i][0]], 0.2, 'vor') for i in range(3)]
+    surfs = [build_surf([locs[i], locs[3]], [rads[i], rads[3]], [my_edges[(i + 2) % 3][0], my_edges[i][0]], 0.2, 'aw') for i in range(3)]
     title = 'Doublet Type 2'
 
 
