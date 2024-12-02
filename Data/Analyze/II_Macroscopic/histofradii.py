@@ -25,7 +25,7 @@ def inverse_transform_sampling(pdf, x_values, n_samples):
     return inverse_cdf(u)
 
 
-def get_hist_of_radii(density=0.5, cv=1.0, bins=100):
+def get_hist_of_radii(density=0.5, cv=0.5, bins=100):
     # First pick the folder to find the cv and density
     # root = tk.Tk()
     # root.withdraw()
@@ -115,7 +115,10 @@ def get_hist_of_radii(density=0.5, cv=1.0, bins=100):
     # plt.title(title)
     plt.show()
 
-    plt.scatter(data1[1][1:], [diffs1[i] - diffs2[i] for i in range(len(diffs1))])
+    # plt.plot(x_values, [diffs2[i] - diffs2])
+
+    plt.plot(x_values, diffs2)
+    plt.plot(x_values, diffs1)
     plt.show()
 
 
