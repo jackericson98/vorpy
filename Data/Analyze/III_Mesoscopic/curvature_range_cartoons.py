@@ -4,7 +4,6 @@ from scipy.spatial import Voronoi, voronoi_plot_2d
 from System.Network.surfs.fill import calc_surf_point
 from System.sys_funcs.calcs.surf import calc_surf_func
 from System.sys_funcs.calcs.calcs import calc_dist
-from System.sys_funcs.calcs.surf import calc_surf_point_curv
 
 
 def get_vor_points(l1, r1, l2, r2, res=0.1, height=5):
@@ -16,7 +15,6 @@ def get_vor_points(l1, r1, l2, r2, res=0.1, height=5):
     x_center = l1[0] + 0.5 * (dist_between - r1 - r2) + r1
 
     if r1 == r2:
-        print(0)
         x_pts = [x_center, x_center]
         y_pts = [height, - height]
         proj_xs, proj_ys = x_pts, y_pts
@@ -24,8 +22,6 @@ def get_vor_points(l1, r1, l2, r2, res=0.1, height=5):
     direction = np.array([-r1, r1, 0])
     ray_hat = res * (direction / np.linalg.norm(direction))
     proj_xs, proj_ys = [], []
-    pt_curv = calc_surf_point_curv(func=func, point=[x_center, 0, 0])
-    print(pt_curv)
     my_pt = np.array([x_center, 0, 0])
     proj_pt = my_pt
     while my_pt[1] < height and len(x_pts) < 500:

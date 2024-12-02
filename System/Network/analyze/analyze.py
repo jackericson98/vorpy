@@ -36,7 +36,7 @@ def analyze(net, complicated=True):
     # Set up the balls' volumes, surface areas, and completion variables
     b_vols, b_sas, b_cell = [], [], []
     # Set up the curvature variables
-    b_max_curvs, b_avg_surf_curvs = [], []
+    b_max_mean_curvs, b_avg_mean_surf_curvs, b_max_gauss_curvs, b_avg_gauss_surf_curvs = [], [], [], []
     # Set up the geometric variables
     b_sphrctys, b_isopmqs = [], []
     # Set up the neighbors variables
@@ -71,12 +71,13 @@ def analyze(net, complicated=True):
 
         # Initial test for completeness
         if len(ball['surfs']) == 0 or sum([_['sa'] for _ in ball_surfs]) == 0 or ball['num'] not in group_set:
-            (b_vols, b_sas, b_cell, b_max_curvs, b_avg_surf_curvs, b_sphrctys, b_isopmqs, b_inner, num_nbors,
-             near_nbors, near_nbor_dists, nbor_lyr_rmsds, num_olaps, nbor_dst_avgs, b_min_spikes, b_max_spikes,
-             contact_areas, olap_vols, non_olap_vols, coms, mois, b_boxs) = (
-                append_0(b_vols, b_sas, b_cell, b_max_curvs, b_avg_surf_curvs, b_sphrctys, b_isopmqs, b_inner,
-                         num_nbors, near_nbors, near_nbor_dists, nbor_lyr_rmsds, num_olaps, nbor_dst_avgs, b_min_spikes,
-                         b_max_spikes, contact_areas, olap_vols, non_olap_vols, coms, mois, b_boxs))
+            (b_vols, b_sas, b_cell, b_max_mean_curvs, b_avg_mean_surf_curvs, b_max_gauss_curvs, b_avg_gauss_surf_curvs,
+             b_sphrctys, b_isopmqs, b_inner, num_nbors, near_nbors, near_nbor_dists, nbor_lyr_rmsds, num_olaps,
+             nbor_dst_avgs, b_min_spikes, b_max_spikes, contact_areas, olap_vols, non_olap_vols, coms, mois, b_boxs) = (
+                append_0(b_vols, b_sas, b_cell, b_max_mean_curvs, b_avg_mean_surf_curvs, b_max_gauss_curvs,
+                         b_avg_gauss_surf_curvs, b_sphrctys, b_isopmqs, b_inner, num_nbors, near_nbors, near_nbor_dists,
+                         nbor_lyr_rmsds, num_olaps, nbor_dst_avgs, b_min_spikes, b_max_spikes, contact_areas, olap_vols,
+                         non_olap_vols, coms, mois, b_boxs))
             continue
         count += 1
         time1 = time.perf_counter()
@@ -105,8 +106,10 @@ def analyze(net, complicated=True):
         timer['basic'] += time2 - time1
 
         # Go through the ball's surfaces
-        b_max_curvs.append(max([_['curv'] for _ in ball_surfs]))
-        b_avg_surf_curvs.append(sum(_['sa'] * _['curv'] for _ in ball_surfs) / sa)
+        b_max_mean_curvs.append(max([_['mean_curv'] for _ in ball_surfs]))
+        b_avg_mean_surf_curvs.append(sum(_['sa'] * _['mean_curv'] for _ in ball_surfs) / sa)
+        b_max_gauss_curvs.append(max([_['gauss_curv'] for _ in ball_surfs]))
+        b_avg_gauss_surf_curvs.append(sum(_['sa'] * _['gauss_curv'] for _ in ball_surfs) / sa)
 
         time3 = time.perf_counter()
         timer['curvs'] += time3 - time2
@@ -221,13 +224,15 @@ def analyze(net, complicated=True):
             mois.append(0)
             b_boxs.append(0)
     # Assign the balls values
-    net.balls = net.balls.assign(vol=b_vols, sa=b_sas, max_curv=b_max_curvs, complete=b_cell,
-                                 avg_surf_curv=b_avg_surf_curvs, sphericity=b_sphrctys, isometric_quotient=b_isopmqs,
-                                 ball_inside=b_inner, number_of_neighbors=num_nbors, nearest_neighbor=near_nbors,
-                                 nearest_neighbor_distance=near_nbor_dists, neighbor_distance_average=nbor_dst_avgs,
-                                 neighbor_distance_rmsd=nbor_lyr_rmsds, number_of_olaps=num_olaps,
-                                 min_spike=b_min_spikes, max_spike=b_max_spikes, contact_area=contact_areas,
-                                 olap_vol=olap_vols, vdw_vol=non_olap_vols, com=coms, moi=mois, bounding_box=b_boxs)
+    net.balls = net.balls.assign(vol=b_vols, sa=b_sas, max_mean_curv=b_max_mean_curvs, complete=b_cell,
+                                 max_gauss_curv=b_max_gauss_curvs, avg_mean_surf_curv=b_avg_mean_surf_curvs,
+                                 avg_gauss_surf_curv=b_avg_gauss_surf_curvs, sphericity=b_sphrctys,
+                                 isometric_quotient=b_isopmqs, ball_inside=b_inner, number_of_neighbors=num_nbors,
+                                 nearest_neighbor=near_nbors, nearest_neighbor_distance=near_nbor_dists,
+                                 neighbor_distance_average=nbor_dst_avgs, neighbor_distance_rmsd=nbor_lyr_rmsds,
+                                 number_of_olaps=num_olaps, min_spike=b_min_spikes, max_spike=b_max_spikes,
+                                 contact_area=contact_areas, olap_vol=olap_vols, vdw_vol=non_olap_vols, com=coms,
+                                 moi=mois, bounding_box=b_boxs)
     # First make the surfaces columns for contact area and overlap volume
     net.surfs = net.surfs.assign(contact_area=[0.0 for _ in range(len(net.surfs))],
                                  overlap=[0.0 for _ in range(len(net.surfs))])

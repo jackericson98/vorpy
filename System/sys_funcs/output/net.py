@@ -41,7 +41,8 @@ def write_logs(group, net_name=None, round_to=3):
         # Write the column labels
         lg_fl.writerow(["Index", "Name", "Residue", "Residue Sequence", "Chain", "Mass", "X", "Y", "Z", "Radius",
                         "Volume", "Van Der Waals Volume", "Surface Area", "Complete Cell?",
-                        "Maximum Curvature", "Average Surface Curvature", "Sphericity", "Isometric Quotient",
+                        "Maximum Mean Curvature", "Average Mean Surface Curvature", "Maximum Gaussian Curvature",
+                        "Average Gaussian Surface Curvature", "Sphericity", "Isometric Quotient",
                         "Inner Ball?", "Number of Neighbors", "Closest Neighbor", "Closest Neighbor Distance",
                         "Layer Distance Average", "Layer Distance RMSD", "Minimum Point Distance",
                         "Maximum Point Distance", "Number of Overlaps", "Contact Area", "Non-Overlap Volume",
@@ -56,8 +57,9 @@ def write_logs(group, net_name=None, round_to=3):
                 nbrs = [satoms[0] if satoms[0] != atom['num'] else satoms[1] for satoms in [net.surfs['balls'][_] for _ in atom['surfs']]]
                 lg_fl.writerow([i, sys_ball['name'], sys_ball['res_name'], sys_ball['res_seq'], sys_ball['chain_name'],
                                 sys_ball['mass'], atom['loc'][0], atom['loc'][1], atom['loc'][2], atom['rad'],
-                                r(atom['vol']), r(atom['vdw_vol']), r(atom['sa']), atom['complete'], r(atom['max_curv']),
-                                r(atom['avg_surf_curv']), r(atom['sphericity']), r(atom['isometric_quotient']),
+                                r(atom['vol']), r(atom['vdw_vol']), r(atom['sa']), atom['complete'],
+                                r(atom['max_mean_curv']), r(atom['avg_mean_surf_curv']), r(atom['max_gauss_curv']),
+                                r(atom['avg_gauss_surf_curv']), r(atom['sphericity']), r(atom['isometric_quotient']),
                                 atom['ball_inside'], atom['number_of_neighbors'], atom['nearest_neighbor'],
                                 atom['nearest_neighbor_distance'], r(atom['neighbor_distance_average']),
                                 r(atom['neighbor_distance_rmsd']), r(atom['min_spike']), r(atom['max_spike']),
@@ -69,13 +71,14 @@ def write_logs(group, net_name=None, round_to=3):
         # Write the surfaces header
         lg_fl.writerow(["Surfaces"])
         # Write the surface column labels
-        lg_fl.writerow(["Index", "Ball 1", "Ball 2", "Surface Area", "Curvature", "Ball 1 Volume Contribution",
-                        "Ball 2 Volume Contribution", 'Contact Area', 'Overlap'])
+        lg_fl.writerow(["Index", "Ball 1", "Ball 2", "Surface Area", "Mean Curvature", "Gaussian Curvature",
+                        "Ball 1 Volume Contribution", "Ball 2 Volume Contribution", 'Contact Area', 'Overlap'])
         # Go through the surfaces in the system and write their information
         for i, surf in net.surfs.iterrows():
             # Write the information for the surface
-            lg_fl.writerow([i, *surf['balls'], r(surf['sa']), r(surf['curv']), r(surf['vols'][surf['balls'][0]]),
-                            r(surf['vols'][surf['balls'][1]]), r(surf['contact_area']), r(surf['overlap'])])
+            lg_fl.writerow([i, *surf['balls'], r(surf['sa']), r(surf['mean_curv']), r(surf['gauss_curv']),
+                            r(surf['vols'][surf['balls'][0]]), r(surf['vols'][surf['balls'][1]]),
+                            r(surf['contact_area']), r(surf['overlap'])])
         # Write the edges header
         lg_fl.writerow(["Edges"])
         # Write the edges headers

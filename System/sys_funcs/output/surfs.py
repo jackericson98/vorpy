@@ -47,7 +47,10 @@ def write_surfs(net, surfs, file_name, color=False, directory=None):
             surf = net.surfs.iloc[ndx]
             tri_colors = [color for _ in range(len(surf['tris']))]
             if net.settings['net_type'] == 'aw':
-                max_val = max(net.surfs['curv'])
+                if net.settings['surf_scheme'] == 'gauss':
+                    max_val = max(net.surfs['gauss_curv'])
+                elif net.settings['surf_scheme'] == 'mean':
+                    max_val = max(net.surfs['mean_curv'])
                 tri_colors = color_tris(surf=surf, color_map=net.settings['surf_col'],
                                         color_scheme=net.settings['surf_scheme'],
                                         color_factor=net.settings['scheme_factor'], max_val=max_val)

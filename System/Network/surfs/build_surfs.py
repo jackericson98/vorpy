@@ -7,7 +7,7 @@ from System.sys_funcs.calcs.calcs import calc_tetra_vol
 
 def build_surfs(net, store_points=True):
     # Instantiate the lists for storage
-    points, tris, tri_curvs, curvs, funcs, coms, flats, sas, vols, surf_locs = [], [], [], [], [], [], [], [], [], []
+    points, tris, mean_tri_curvs, mean_curvs, gauss_tri_curvs, gauss_curvs, funcs, coms, flats, sas, vols, surf_locs = [], [], [], [], [], [], [], [], [], [], [], []
     # full_count = {'calc_func': 0, 'perimeter': 0, 'com': 0, 'fill_mesh': 0, 'spider': 0, 'Delaunay': 0,
     #               'designations': 0, 'reassign': 0}
     # Make each surface
@@ -28,7 +28,7 @@ def build_surfs(net, store_points=True):
         if my_surf is None:
             net.surfs.drop(index=i, inplace=True)
             continue
-        surf_points, surf_tris, surf_tri_curvs, surf_curv, surf_func, surf_com, surf_flat, surf_loc = my_surf
+        surf_points, surf_tris, mean_surf_tri_curvs, mean_surf_curv, gauss_surf_tri_curvs, gauss_surf_curv, surf_func, surf_com, surf_flat, surf_loc = my_surf
         # full_count = {_: full_count[_] + timer[_] for _ in full_count}
         # Get the surface Volumes
         sv0 = sum([calc_tetra_vol(locs[0], surf_points[tri[0]], surf_points[tri[1]], surf_points[tri[2]]) for tri in
@@ -41,24 +41,30 @@ def build_surfs(net, store_points=True):
         if store_points:
             points.append(surf_points)
             tris.append(surf_tris)
-            tri_curvs.append(surf_tri_curvs)
+            mean_tri_curvs.append(mean_surf_tri_curvs)
+            gauss_tri_curvs.append(gauss_surf_tri_curvs)
         else:
             points.append([])
             tris.append([])
-            tri_curvs.append([])
-        curvs.append(surf_curv)
+            mean_tri_curvs.append([])
+            gauss_tri_curvs.append([])
+        mean_curvs.append(mean_surf_curv)
+        gauss_curvs.append(gauss_surf_curv)
         funcs.append(surf_func)
         coms.append(surf_com)
         flats.append(surf_flat)
         sas.append(sa)
         vols.append({nums[0]: sv0, nums[1]: sv1})
         surf_locs.append(surf_loc)
-    (net.surfs['points'], net.surfs['tris'], net.surfs['tri_curvs'], net.surfs['curv'], net.surfs['func'],
-     net.surfs['com'], net.surfs['flat'], net.surfs['sa'], net.surfs['vols'], net.surfs['loc']) = \
-        points, tris, tri_curvs, curvs, funcs, coms, flats, sas, vols, surf_locs
+    (net.surfs['points'], net.surfs['tris'], net.surfs['mean_tri_curvs'], net.surfs['mean_curv'],
+     net.surfs['gauss_tri_curvs'], net.surfs['gauss_curv'], net.surfs['func'], net.surfs['com'], net.surfs['flat'],
+     net.surfs['sa'], net.surfs['vols'], net.surfs['loc']) = \
+        points, tris, mean_tri_curvs, mean_curvs, gauss_tri_curvs, gauss_curvs, funcs, coms, flats, sas, vols, surf_locs
     # Set the dataframe elements
     # Get the curvature in the 95th percentile
-    my_surf_curvs = net.surfs['curv'].to_list()
+    my_surf_curvs = net.surfs['mean_curv'].to_list()
+    if net.settings['surf_scheme'] == 'gauss':
+        my_surf_curvs = net.surfs['gauss_curv'].to_list()
     my_surf_curvs.sort()
     try:
         net.max_curv = my_surf_curvs[min(int(0.99 * len(my_surf_curvs)), len(my_surf_curvs) - 1)]

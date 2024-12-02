@@ -119,7 +119,8 @@ class Interface:
                 info.write("    Surface Area = {:.5f} \u212B\u00B2\n".format(grp.sys.net.surfs['sa'][surf]))
                 info.write("    Volume contributions = {:.5f}, {:.5f} \u212B\u00B3\n"
                            .format(grp.sys.net.surfs['vols'][surf][0], grp.sys.net.surfs['vols'][surf][0]))
-                info.write("    Gaussian Curvature = {:.5f}\n".format(grp.sys.net.surfs['curv'][surf]))
+                info.write("    Gaussian Curvature = {:.5f}\n".format(grp.sys.net.surfs['gauss_curv'][surf]))
+                info.write("    Mean Curvature = {:.5f}\n".format(grp.sys.net.surfs['mean_curv'][surf]))
 
     def export(self, balls=True, verts=True, edges=True, surfs=True, info=True, cells=True):
         pass

@@ -50,6 +50,8 @@ delaunay_vals = ['del', 'dl', 'delaunay', 'dlny', 'dny', 'prm', 'primitive' 'pri
 compare_vals = ['c', 'com', 'compare', 'cpr', 'compar', 'cum']
 
 surf_scheme_curv_vals = ['curv', 'c', 'curvature']
+surf_scheme_mean_vals = ['mean', 'mc', 'mean_curvature', 'm']
+surf_scheme_gaus_vals = ['gaussian', 'gc', 'gauss', 'g']
 surf_scheme_dist_vals = ['distance', 'dist', 'd']
 surf_scheme_nout_vals = ['in_out', 'nout', 'no', 'ins_out']
 
