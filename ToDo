@@ -1,0 +1,24 @@
+To Do List for VorPy
+
+1. Build out remaining import file types
+    a. .mol
+    b. .cif
+    c. .gro
+    d. Generic ball file
+    e. Network
+    f. Logs files
+
+2. Build out test infrastructure
+    a. System Testing
+        i. Create files
+        ii. Create test functions
+        iii. Pickle saved solved files to compare to
+    b. Integration Testing
+    c. Unit Testing
+    d. Acceptance Testing
+
+3. Work out loop edge issue
+
+4. Update radii pages
+
+5. Update the GUI
