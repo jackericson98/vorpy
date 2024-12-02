@@ -95,7 +95,7 @@ def read_pdb(sys, file=None):
                 else:
                     chain_str = 'A'
             # Create the chain and residue dictionaries
-            res_name, chn_name = line[17:20] + str(atom['res_seq']), chain_str
+            res_name, chn_name = chain_str + '_' + line[17:20] + str(atom['res_seq']), chain_str
             # If the chain has been made before
             if chn_name in chains:
                 # Get the chain from the dictionary and add the atom
@@ -142,6 +142,7 @@ def read_pdb(sys, file=None):
         if res.name.lower() not in residue_names:
             residue_names[res.name.lower()] = res.name.upper()
             residue_atoms[res.name.upper()] = {atoms[_]['name'] for _ in res.atoms}
+
     # Set the atoms and the data
     sys.balls, sys.data = DataFrame(atoms), data
 
