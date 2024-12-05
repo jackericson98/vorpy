@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "Thanks for using VorPy! Please offer any support questions or bug fixes"
+authors:
+  - family-names: Ericson
+    given-names: John
+    orcid: https://orcid.org/1234-5678-9101-1121
+title: "VorPy"
+version: 2.0.4
+identifiers:
+  - type: N/A
+    value: ...
+date-released: 2025-01-01
