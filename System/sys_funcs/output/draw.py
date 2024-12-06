@@ -60,7 +60,7 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None):
             func = surf['func']
         # Check if the tri_dists have been calculated before
         if surf['mean_tri_curvs'] is None or len(surf['mean_tri_curvs']) == 0 or len(surf['mean_tri_curvs']) != len(surf['tris']):
-            tri_curvs, _ = calc_surf_tri_curvs(func, surf['points'], surf['tris'], max_curv=surf['mean_curv'], curvature_type='mean')
+            tri_curvs, _ = calc_surf_tri_curvs(func, surf['points'], surf['tris'], curvature_type='mean')
         else:
             tri_curvs = surf['mean_tri_curvs']
         # First check if the surface is flat
@@ -80,7 +80,7 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None):
             func = surf['func']
         # Check if the tri_dists have been calculated before
         if surf['gauss_tri_curvs'] is None or len(surf['gauss_tri_curvs']) == 0 or len(surf['gauss_tri_curvs']) != len(surf['tris']):
-            tri_curvs, _ = calc_surf_tri_curvs(func, surf['points'], surf['tris'], max_curv=surf['gauss_curv'], curvature_type='gauss')
+            tri_curvs, _ = calc_surf_tri_curvs(func, surf['points'], surf['tris'], curvature_type='gauss')
         else:
             tri_curvs = surf['gauss_tri_curvs']
         # First check if the surface is flat
