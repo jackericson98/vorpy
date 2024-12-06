@@ -33,18 +33,19 @@ def fix_sol(sys, residue):
             oxy_res.append(Residue(sys=residue.sys, atoms=[a], name=atom['residue'],
                                    sequence=atom['res_seq'], chain=atom['chn']))
         elif atom['element'].lower() == 'h':
-            hydrogens.append(atom)
+            hydrogens.append(atom['num'])
 
     # Assign hydrogens to the nearest oxygen atom to form water molecules
     for h in hydrogens:
         closest_res, min_dist = None, np.inf
         for res in oxy_res:
-            dist = calc_dist(sys.balls['loc'][res.atoms[0]], h['loc'])
+            dist = calc_dist(sys.balls['loc'][res.atoms[0]], sys.balls['loc'][h])
             if dist < min_dist:
                 min_dist = dist
                 closest_res = res
-        if closest_res:
-            closest_res.atoms.append(h['num'])
+        if closest_res and min_dist < 1.5:
+            closest_res.atoms.append(h)
+            hydrogens.remove(h)
 
     # Check the integrity of newly formed residues
     good_resids = []
@@ -62,15 +63,34 @@ def fix_sol(sys, residue):
         if len(res.atoms) < 3:
             # This block tries to find hydrogens that can be moved to this residue
             for h in hydrogens:
-                dist = calc_dist(sys.balls['loc'][res.atoms[0]], h['loc'])
+                dist = calc_dist(sys.balls['loc'][res.atoms[0]], sys.balls['loc'][h])
                 if dist < 1.5:  # Assumed maximum bond length for O-H
-                    res.atoms.append(h['num'])
+                    res.atoms.append(h)
                     hydrogens.remove(h)
                 if len(res.atoms) == 3:
                     break
+            # print([(sys.balls['name'][_], sys.balls['res_seq'][_], sys.balls['loc'][_][0]) for _ in res.atoms])
         good_resids.append(res)
-        if len(res.atoms) > 3:
-            print(res.atoms)
+
+    # Las sort the hydrogens
+    if len(hydrogens) == 1:
+        h = hydrogens[0]
+        good_resids.append(Residue(sys=residue.sys, atoms=hydrogens, name=sys.balls['name'][h],
+                                   sequence=sys.balls['res_seq'][h], chain=sys.balls['chn'][h]))
+    elif len(hydrogens) == 2:
+        h1, h2 = sys.balls.iloc[hydrogens[0]], sys.balls.iloc[hydrogens[1]]
+        if calc_dist(h1['loc'], h2['loc']) < 2 and h1['name'] != h2['name']:
+            good_resids.append(Residue(sys=residue.sys, atoms=hydrogens, name=h1['residue'],
+                                       sequence=h1['res_seq'], chain=h1['chn']))
+        else:
+            for h in hydrogens:
+                good_resids.append(Residue(sys=residue.sys, atoms=hydrogens, name=sys.balls['name'][h],
+                                           sequence=sys.balls['res_seq'][h], chain=sys.balls['chn'][h]))
+    else:
+        for h in hydrogens:
+            good_resids.append(Residue(sys=residue.sys, atoms=hydrogens, name=sys.balls['name'][h],
+                                       sequence=sys.balls['res_seq'][h], chain=sys.balls['chn'][h]))
+    # print([(sys.balls['name'][_], sys.balls['res_seq'][_], sys.balls['loc'][_][0]) for _ in hydrogens])
 
     return good_resids
 
