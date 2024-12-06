@@ -123,7 +123,7 @@ def read_pdb(sys, file=None):
     # Add the system name and reset the atoms and data lists
     sys.name = path.basename(sys.files['base_file'])[:-4]
     # Set up the atom and the data lists
-    atoms, data, atom_count = [], [], 0
+    atoms, data, atom_count, reset_checker = [], [], 0, 0
     sys.chains, sys.residues = [], []
     chains, resids = {}, {}
     # Check if the file is a foam file
@@ -186,7 +186,7 @@ def read_pdb(sys, file=None):
                 chain_str = 'SOL'
 
             # Create the chain and residue dictionaries
-            res_name, chn_name = chain_str + '_' + line[17:20] + str(atom['res_seq']), chain_str
+            res_name, chn_name = chain_str + '_' + line[17:20] + str(atom['res_seq']) + '_' + str(reset_checker), chain_str
             # If the chain has been made before
             if chn_name in chains:
                 # Get the chain from the dictionary and add the atom
@@ -207,7 +207,6 @@ def read_pdb(sys, file=None):
                 chains[chn_name] = my_chn
                 atom['chn'] = my_chn
 
-
             # Assign the atoms and create the residues
             if res_name in resids:
                 my_res = resids[res_name]
@@ -226,6 +225,8 @@ def read_pdb(sys, file=None):
 
             # Add the atom to the atoms list
             atoms.append(atom)
+            if res_seq == 9999:
+                reset_checker += 1
         # If the line is not an atom line store the other data
         else:
             data.append(my_file[i].split())
