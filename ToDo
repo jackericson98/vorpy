@@ -27,3 +27,8 @@ To Do List for VorPy
     a. Scale with curvature
     b. Rings need to be sqrt(2)/2 apart
     c. Exclusion zone for filtering need to be sqrt(2)/4
+
+7. Revamp exports
+    a. Naming conventions for exports are way off and need to integrate into the interpreter
+
+8. Major overhaul of the code comments and efficiency
