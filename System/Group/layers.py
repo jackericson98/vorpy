@@ -11,14 +11,12 @@ def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
     """
 
     net = grp.net
-    # Make sure that the group has atoms
-    if grp.atms is None:
-        return
+
     # Set up the layer surfs and layer atoms list variables
     counter = 0
-    grp.layer_atoms = [grp.atms[:], []]
+    grp.layer_atoms = [grp.ball_ndxs[:], []]
 
-    layer_atoms_ndxs = [grp.atms[:], []]
+    layer_atoms_ndxs = [grp.ball_ndxs[:], []]
     grp.layer_surfs = [[]]
     grp.layer_verts = [[]]
     grp.layer_edges = [[]]
