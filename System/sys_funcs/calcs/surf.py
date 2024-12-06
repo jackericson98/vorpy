@@ -182,7 +182,7 @@ def mean_curvature(func, point):
     return  - numerator / denominator
 
 
-def calc_surf_tri_curvs(func, points, tris, max_curv=0, curvature_type='gauss'):
+def calc_surf_tri_curvs(func, points, tris, curvature_type='gauss'):
     """
     Calculates the curvature of the triangles
     :param calc_max_curv:
@@ -192,7 +192,7 @@ def calc_surf_tri_curvs(func, points, tris, max_curv=0, curvature_type='gauss'):
     :return: A list of curvature values for the triangles
     """
     curvs = []
-    min_curv = np.inf
+    min_curv, max_curv = np.inf, 0
     # If the surface normal is within the surface,
     # Get the curvature for each point
     for point in points:
