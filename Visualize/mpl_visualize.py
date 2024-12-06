@@ -195,7 +195,7 @@ def plot_edges(epnts, fig=None, ax=None, Show=False, dfo=None, grid=False, color
 
 
 # Plot surfaces function. Plots the surfaces given
-def plot_surfs(spnts, stris, simps=True, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None,
+def plot_surfs(spnts, stris, simps=True, simp_linewidth=1, simp_color='grey', fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None,
                bg_color=None, axes_scale='equal', random_colors=False):
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
@@ -209,15 +209,12 @@ def plot_surfs(spnts, stris, simps=True, fig=None, ax=None, Show=False, dfo=None
         colors = colors + ['w' for _ in range(len(spnts) - len(colors))]
     # Plot the surfaces
     for i in range(len(spnts)):
-        x, y, z = [], [], []
-        for point in spnts[i]:
-            x.append(point[0])
-            y.append(point[1])
-            z.append(point[2])
+        # Get the x, y, z vals
+        x, y, z = [_[0] for _ in spnts[i]], [_[1] for _ in spnts[i]], [_[2] for _ in spnts[i]]
         # If simplices are requested get them or make them
         if simps:
             # Plot the simps using matplotlib tri_surf
-            ax.plot_trisurf(x, y, z, triangles=stris[i], alpha=alpha, color=colors[i])
+            ax.plot_trisurf(x, y, z, triangles=stris[i], alpha=alpha, color=colors[i], linewidth=simp_linewidth, edgecolor=simp_color)
         # Otherwise, plot the points
         else:
             ax.scatter(x, y, z, s=[0.1 for _ in range(len(x))], alpha=alpha, c=[colors[i] for _ in range(len(x))])
