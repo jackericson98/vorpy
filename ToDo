@@ -22,3 +22,8 @@ To Do List for VorPy
 4. Update radii pages
 
 5. Update the GUI
+
+6. Set the resolution of the surface
+    a. Scale with curvature
+    b. Rings need to be sqrt(2)/2 apart
+    c. Exclusion zone for filtering need to be sqrt(2)/4
