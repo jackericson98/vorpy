@@ -48,7 +48,7 @@ def write_pdb(atoms, file_name, sys, directory=None):
             pdb_file.write("HEADER  vorpy output - " + sys.name + " group " + file_name + " atoms\n")
             # Figure out what lines the atoms start on
             offset = 0
-            while read_file[offset][:4].lower() != 'atom':
+            while read_file[offset][:6].lower().strip() not in {'atom', 'hetatm'}:
                 offset += 1
 
             # Grab the lines from the initial pdb
@@ -63,8 +63,8 @@ def write_pdb(atoms, file_name, sys, directory=None):
             # Go through each atom in the system
             for i, a in enumerate(atoms):
                 # Get the ball
-                if type(a, int):
-                    a = sys.balls.iloc[i]
+                if type(a) is int:
+                    a = sys.balls.iloc[a]
                 # Get the location string
                 x, y, z = a['loc']
                 # Get the information from the atom in writable format
@@ -72,7 +72,7 @@ def write_pdb(atoms, file_name, sys, directory=None):
                 if sys.type == 'foam' or sys.type == 'coarse':
                     tfact = a['rad']
                 # Write the atom information
-                pdb_file.write(make_pdb_line(ser_num=i, name=a['name'], res_name=a['res'].name, chain=a['chn'].name,
+                pdb_file.write(make_pdb_line(ser_num=a['num'], name=a['name'], res_name=a['res'].name, chain=a['chn'].name,
                                              res_seq=a['res_seq'], x=x, y=y, z=z, tfact=tfact, elem=a['element']))
     # Change back to the starting directory
     os.chdir(start_dir)
