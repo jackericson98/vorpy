@@ -39,7 +39,7 @@ def fix_sol(sys, residue):
     for h in hydrogens:
         closest_res, min_dist = None, np.inf
         for res in oxy_res:
-            dist = calc_dist(res.atoms[0]['loc'], h['loc'])
+            dist = calc_dist(sys.balls['loc'][res.atoms[0]], h['loc'])
             if dist < min_dist:
                 min_dist = dist
                 closest_res = res
@@ -53,7 +53,7 @@ def fix_sol(sys, residue):
         if len(res.atoms) == 3:  # A complete water molecule has 3 atoms: O and 2 H
             good_resids.append(res)
             for a in res.atoms:
-                sys.balls['res'][a] = res
+                sys.balls.loc[a, 'res'] = res
         else:
             incomplete_resids.append(res)
 
@@ -221,7 +221,10 @@ def read_pdb(sys, file=None):
     adjusted_residues = []
     for res in sys.sol.residues:
         if len(res.atoms) > 3:
-            adjusted_residues += fix_sol(sys, res)
+            try:
+                adjusted_residues += fix_sol(sys, res)
+            except TypeError:
+                print(res.atoms)
         else:
             adjusted_residues.append(res)
 
