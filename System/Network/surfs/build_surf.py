@@ -3,7 +3,6 @@ from System.Network.surfs.perimeter import build_perimeter
 from System.Network.surfs.fill import calc_surf_point, calc_surf_point_from_plane
 from System.sys_funcs.calcs.calcs import calc_com, project_to_plane, calc_dist, unproject_to_3d
 import numpy as np
-from shapely import Polygon, Point
 from System.Network.surfs.triangulate import triangulate_2D_Surface, is_within
 
 
@@ -88,14 +87,6 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None):
     # Calculate the flat COM
     flat_com, flat_loc = project_to_plane(np.array([surf_com, surf_loc]), plane_normal=surf_norm, plane_point=surf_loc)
 
-
-    perim_poly = Polygon(flat_points)
-    mean_surf_curv, gauss_surf_curv = 0, 0
-    # If the network type is voronoi the edges could be curved allowing for triangulations outside the edges
-    # Add the normal curvature if possible
-    if net_type == 'aw' and not flat and perim_poly.contains(Point(surf_loc)):
-        mean_surf_curv = mean_curvature(sfunc, surf_loc)
-        gauss_surf_curv = calc_surf_point_curv(sfunc, surf_loc)
     # Filter out the bad triangles
     my_2d_points, surf_tris = triangulate_2D_Surface(flat_points, res=res, center=flat_loc)
 
@@ -103,8 +94,8 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None):
     if not flat:
         # Project the points onto the surface again
         spoints = project_to_hyperboloid(my_2d_points, locs[0], sfunc, surf_norm, surf_loc)
-        mean_tri_curvs, mean_surf_curv = calc_surf_tri_curvs(sfunc, spoints, surf_tris, max_curv=mean_surf_curv, curvature_type='mean')
-        gauss_tri_curvs, gauss_surf_curv = calc_surf_tri_curvs(sfunc, spoints, surf_tris, max_curv=gauss_surf_curv, curvature_type='gauss')
+        mean_tri_curvs, mean_surf_curv = calc_surf_tri_curvs(sfunc, spoints, surf_tris, curvature_type='mean')
+        gauss_tri_curvs, gauss_surf_curv = calc_surf_tri_curvs(sfunc, spoints, surf_tris, curvature_type='gauss')
     else:
         spoints = unproject_to_3d(my_2d_points, surf_loc, surf_norm)
         mean_tri_curvs, mean_surf_curv = [0 for _ in range(len(list(surf_tris)))], 0
