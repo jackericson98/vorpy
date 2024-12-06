@@ -2,9 +2,77 @@ from System.sys_objs.atom import make_atom
 from System.sys_objs.residue import Residue
 from System.sys_objs.chain import Chain, Sol
 from System.chemistry_interpreter import residue_names, residue_atoms, my_masses
+from System.sys_funcs.calcs.calcs import calc_dist
 import os.path as path
 import numpy as np
 from pandas import DataFrame
+
+
+def fix_sol(sys, residue):
+    """
+    Reorganizes atoms within a residue to ensure oxygen and hydrogen atoms are correctly grouped into water molecules.
+    Handles cases where there are extra or missing hydrogens.
+
+    Parameters:
+    residue (Residue): The residue object containing atoms to be organized.
+
+    Returns:
+    list: A list of 'Residue' objects with correctly assigned atoms.
+    """
+
+    # Initialize containers for oxygen and hydrogen atoms
+    oxy_res = []
+    hydrogens = []
+
+    # Separate oxygen and hydrogen atoms into different lists
+    for a in residue.atoms:
+        atom = sys.balls.iloc[a]
+
+        if atom['element'].lower() == 'o':
+            # Create a new residue for each oxygen atom
+            oxy_res.append(Residue(sys=residue.sys, atoms=[a], name=atom['residue'],
+                                   sequence=atom['res_seq'], chain=atom['chn']))
+        elif atom['element'].lower() == 'h':
+            hydrogens.append(atom)
+
+    # Assign hydrogens to the nearest oxygen atom to form water molecules
+    for h in hydrogens:
+        closest_res, min_dist = None, np.inf
+        for res in oxy_res:
+            dist = calc_dist(res.atoms[0]['loc'], h['loc'])
+            if dist < min_dist:
+                min_dist = dist
+                closest_res = res
+        if closest_res:
+            closest_res.atoms.append(h['num'])
+
+    # Check the integrity of newly formed residues
+    good_resids = []
+    incomplete_resids = []
+    for res in oxy_res:
+        if len(res.atoms) == 3:  # A complete water molecule has 3 atoms: O and 2 H
+            good_resids.append(res)
+            for a in res.atoms:
+                sys.balls['res'][a] = res
+        else:
+            incomplete_resids.append(res)
+
+    # Attempt to correct incomplete residues
+    for res in incomplete_resids:
+        if len(res.atoms) < 3:
+            # This block tries to find hydrogens that can be moved to this residue
+            for h in hydrogens:
+                dist = calc_dist(sys.balls['loc'][res.atoms[0]], h['loc'])
+                if dist < 1.5:  # Assumed maximum bond length for O-H
+                    res.atoms.append(h['num'])
+                    hydrogens.remove(h)
+                if len(res.atoms) == 3:
+                    break
+        good_resids.append(res)
+        if len(res.atoms) > 3:
+            print(res.atoms)
+
+    return good_resids
 
 
 def read_pdb(sys, file=None):
@@ -53,9 +121,9 @@ def read_pdb(sys, file=None):
             continue
         # Pull the file line and first word
         line = my_file[i]
-        word = line[:4].lower()
+        word = line[:6].lower().strip()
         # Check to see if the line is an atom line
-        if line and word == 'atom':  # Check if the line starts with atom
+        if line and word in {'atom', 'hetatm'}:  # Check if the line starts with atom
             # Check for the "m" situation
             if line[76:78] == ' M':
                 continue
@@ -94,6 +162,9 @@ def read_pdb(sys, file=None):
                     chain_str = 'SOL'
                 else:
                     chain_str = 'A'
+            elif sys.type == 'foam' and res_str.lower() != 'bub' and chain_str != '0':
+                chain_str = 'SOL'
+
             # Create the chain and residue dictionaries
             res_name, chn_name = chain_str + '_' + line[17:20] + str(atom['res_seq']), chain_str
             # If the chain has been made before
@@ -105,7 +176,7 @@ def read_pdb(sys, file=None):
             # Create the chain
             else:
                 # If the chain is the sol chain
-                if res_str.lower() in {'sol', 'hoh', 'sod', 'out', 'cl', 'mg', 'na', 'k', 'ion', 'cla'}:
+                if res_str.lower() in {'sol', 'hoh', 'sod', 'out', 'cl', 'mg', 'na', 'k', 'ion', 'cla'} or chn_name == 'SOL':
                     my_chn = Sol(atoms=[atom['num']], residues=[], name=chn_name, sys=sys)
                     sys.sol = my_chn
                 # If the chain is not sol create a regular chain object
@@ -124,12 +195,12 @@ def read_pdb(sys, file=None):
             else:
                 my_res = Residue(sys=sys, atoms=[atom['num']], name=res_str, sequence=atom['res_seq'],
                                  chain=atom['chn'])
-                atom['chn'].residues.append(my_res)
                 resids[res_name] = my_res
-                if res_str.lower() not in {'sol', 'hoh', 'sod', 'out', 'cl', 'mg', 'na', 'k', 'ion', 'cla'}:
-                    sys.residues.append(my_res)
-                else:
+                if res_str.lower() in {'sol', 'hoh', 'sod', 'out', 'cl', 'mg', 'na', 'k', 'ion', 'cla'} or chain_str == 'SOL':
                     sys.sol.residues.append(my_res)
+                else:
+                    sys.residues.append(my_res)
+                    atom['chn'].residues.append(my_res)
             # Assign the residue to the atom
             atom['res'] = my_res
 
@@ -139,12 +210,22 @@ def read_pdb(sys, file=None):
         else:
             data.append(my_file[i].split())
     for res in sys.residues:
-        if res.name.lower() not in residue_names:
+        if res.name.lower() not in residue_names and res.chain.name != 'SOL':
             residue_names[res.name.lower()] = res.name.upper()
             residue_atoms[res.name.upper()] = {atoms[_]['name'] for _ in res.atoms}
 
+
     # Set the atoms and the data
     sys.balls, sys.data = DataFrame(atoms), data
+    # Adjust the SOL residues
+    adjusted_residues = []
+    for res in sys.sol.residues:
+        if len(res.atoms) > 3:
+            adjusted_residues += fix_sol(sys, res)
+        else:
+            adjusted_residues.append(res)
+
+    sys.sol.residues = adjusted_residues
 
 
 def read_pdb_line(pdb_line):
