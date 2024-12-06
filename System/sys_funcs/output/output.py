@@ -87,7 +87,7 @@ def other_exports(sys, usr_npt):
     # If the first word is shell
     elif usr_npt.lower() in {'shell', 'shl'}:
         for grp in sys.groups:
-            grp.exports(shell=True)
+            grp.exports(shell_surfs=True)
     # If the first word is network
     elif usr_npt.lower() in {'net', 'network'}:
         sys.exports(network=True)
