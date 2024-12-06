@@ -62,6 +62,9 @@ def write_pdb(atoms, file_name, sys, directory=None):
         with open(file_name + ".pdb", 'w') as pdb_file:
             # Go through each atom in the system
             for i, a in enumerate(atoms):
+                # Get the ball
+                if type(a, int):
+                    a = sys.balls.iloc[i]
                 # Get the location string
                 x, y, z = a['loc']
                 # Get the information from the atom in writable format
@@ -69,7 +72,7 @@ def write_pdb(atoms, file_name, sys, directory=None):
                 if sys.type == 'foam' or sys.type == 'coarse':
                     tfact = a['rad']
                 # Write the atom information
-                pdb_file.write(make_pdb_line(ser_num=i, name=a['name'], res_name=a['res'].name, chain=a['chain'].name,
+                pdb_file.write(make_pdb_line(ser_num=i, name=a['name'], res_name=a['res'].name, chain=a['chn'].name,
                                              res_seq=a['res_seq'], x=x, y=y, z=z, tfact=tfact, elem=a['element']))
     # Change back to the starting directory
     os.chdir(start_dir)
@@ -150,12 +153,12 @@ def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=
 def make_pdb_line(atom="ATOM", ser_num=0, name="", alt_loc=" ", res_name="", chain="A", res_seq=0, cfir="", x=0, y=0, z=0,
                   occ=1, tfact=0, seg_id="", elem="", charge=""):
     """
-    Takes in values for a line in a pdb file and places them in the 181L locations
+    Takes in values for a line in a pdb file and places them in the correct locations
     :return: String for each line
     """
     # Write the line for the file
     return "{:<6}{:>5} {:<4}{:1}{:>3} {:^1}{:>4}{:1}   {:>8.3f}{:>8.3f}{:>8.3f}{:>6.2f}{:>6.2f}      {:<4}{:>2}{}\n"\
-        .format(atom, ser_num, name, alt_loc, res_name, chain, res_seq, cfir, x, y, z, occ, tfact, seg_id, elem, charge)
+        .format(atom, ser_num, name, alt_loc, res_name, chain[0], res_seq, cfir, x, y, z, occ, tfact, seg_id, elem, charge)
 
 
 def write_atom_radii(my_sys, directory=None, file_name=None):
