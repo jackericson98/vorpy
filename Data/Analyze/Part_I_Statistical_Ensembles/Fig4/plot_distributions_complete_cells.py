@@ -90,7 +90,7 @@ for direct in directories_we_want:
 print(len(pdb_files), len(vor_logs), len(pow_logs))
 
 # Change the directory so the system doesn't crap
-os.chdir('../../..')
+os.chdir('../../../..')
 
 rads, complete_rads = [], []
 for i, pdb in enumerate(pdb_files):

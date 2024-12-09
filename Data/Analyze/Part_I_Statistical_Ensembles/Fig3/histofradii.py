@@ -41,7 +41,7 @@ def get_hist_of_radii(density=0.5, cv=0.5, bins=100):
         return gamma_dist.pdf(r)
     # # Look through the different folders to get all logs and pdbs that match the set cv and density
     # new_logs_pdbs = get_logs_and_pdbs(True, output_file_name='loggy_woggys_new.txt')
-    old_logs_pdbs = get_logs_and_pdbs(make_file=True, output_file_name='loggy_woggys_old.txt')
+    old_logs_pdbs = get_logs_and_pdbs(make_file=True, output_file_name='../../tools/batch/loggy_woggys_old.txt')
 
     # Loop through the new_logs
     # Record the radii

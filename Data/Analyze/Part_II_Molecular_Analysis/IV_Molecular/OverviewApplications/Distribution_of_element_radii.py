@@ -12,7 +12,7 @@ root.wm_attributes('-topmost', 1)
 my_pdb = filedialog.askopenfilename()
 
 # Load the system into the system using the system object
-os.chdir('../../../..')
+os.chdir('../../../../..')
 my_sys = System(my_pdb)
 
 

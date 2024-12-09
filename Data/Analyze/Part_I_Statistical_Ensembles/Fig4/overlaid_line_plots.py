@@ -83,6 +83,9 @@ datavvps, datavsps, datapvps, datapsps = [[] for _ in my_sds], [[] for _ in my_s
 
 # Iterate over my_sds and my_densities using nested loops
 for i, num in enumerate(my_sds):
+    # print(num, num )
+    # if num % 0.1 != 0:
+    #     continue
     for j, num2 in enumerate(my_densities):
         means = []
         sds = []

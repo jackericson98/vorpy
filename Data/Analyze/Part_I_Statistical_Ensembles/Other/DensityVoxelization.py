@@ -181,7 +181,7 @@ if __name__ == '__main__':
     We want to get the local density across a voxelized system, to know if there are pockets of extreme density and 
     pockets of low density
     """
-    os.chdir('../../..')
+    os.chdir('../../../..')
     root = tk.Tk()
     root.withdraw()
     root.wm_attributes('-topmost', 1)
