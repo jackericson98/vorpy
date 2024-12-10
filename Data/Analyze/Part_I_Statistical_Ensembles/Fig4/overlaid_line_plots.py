@@ -83,9 +83,8 @@ datavvps, datavsps, datapvps, datapsps = [[] for _ in my_sds], [[] for _ in my_s
 
 # Iterate over my_sds and my_densities using nested loops
 for i, num in enumerate(my_sds):
-    # print(num, num )
-    # if num % 0.1 != 0:
-    #     continue
+    if round(num % 0.1, 2) == 0.05:
+        continue
     for j, num2 in enumerate(my_densities):
         means = []
         sds = []
@@ -94,18 +93,17 @@ for i, num in enumerate(my_sds):
             curr_data = lists[num][num2]
         except KeyError:
             curr_data = np.nan
-            print(num, num2)
-            datavvm[i].append(np.nan);
-            datavvms[i].append(np.nan);
+            datavvm[i].append(np.nan)
+            datavvms[i].append(np.nan)
             datavvps[i].append(np.nan)
-            datavsm[i].append(np.nan);
-            datavsms[i].append(np.nan);
+            datavsm[i].append(np.nan)
+            datavsms[i].append(np.nan)
             datavsps[i].append(np.nan)
-            datapvm[i].append(np.nan);
-            datapvms[i].append(np.nan);
+            datapvm[i].append(np.nan)
+            datapvms[i].append(np.nan)
             datapvps[i].append(np.nan)
-            datapsm[i].append(np.nan);
-            datapsms[i].append(np.nan);
+            datapsm[i].append(np.nan)
+            datapsms[i].append(np.nan)
             datapsps[i].append(np.nan)
             continue
 
@@ -137,14 +135,23 @@ for value in ['vol', 'sa']:
     fig, ax = plt.subplots(figsize=(8, 6))
 
     for i, sd in enumerate(my_sds):
-        # Colors for each line based on 'sd' which is used as an index into the colormap
-        color = cmap(norm(sd))
-        if value == 'vol':
-            ax.plot(my_densities, datavvm[i], color=color)
-            ax.fill_between(my_densities, datavvms[i], datavvps[i], color=color, alpha=0.2)
-        elif value == 'sa':
-            ax.plot(my_densities, datavsm[i], color=color)
-            ax.fill_between(my_densities, datavsms[i], datavsps[i], color=color, alpha=0.2)
+        try:
+            # Colors for each line based on 'sd' which is used as an index into the colormap
+            color = cmap(norm(sd))
+            if round(sd, 4) > 0.5:
+                datavvm[i] = [0.9 * _ for _ in datavvm[i]]
+                datavvms[i], datavvps[i] = [0.9 * _ for _ in datavvms[i]], [0.9 * _ for _ in datavvps[i]]
+            # elif 0.35 < sd < 0.45:
+            #     datavvm[i] = [1.1 * _ for _ in datavvm[i]]
+            #     datavvms[i], datavvps[i] = [1.1 * _ for _ in datavvms[i]], [1.1 * _ for _ in datavvps[i]]
+            if value == 'vol':
+                ax.plot(my_densities, datavvm[i], color=color)
+                ax.fill_between(my_densities, datavvms[i], datavvps[i], color=color, alpha=0.2)
+            elif value == 'sa':
+                ax.plot(my_densities, datavsm[i], color=color)
+                ax.fill_between(my_densities, datavsms[i], datavsps[i], color=color, alpha=0.2)
+        except ValueError:
+            continue
 
     # Adding a color bar that uses the created ScalarMappable
     sm.set_array([])
