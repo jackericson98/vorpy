@@ -20,7 +20,7 @@ def write_surfs(net, surfs, file_name, color=False, directory=None):
         return
     # If no color is given, make the color random
     if color is False:
-        color = np.random.rand(3)
+        color = (1, 0, 0)
     if 'tri_colors' not in net.surfs:
         net.surfs['tri_colors'] = [[] for _ in range(len(net.surfs))]
     # Create the file
