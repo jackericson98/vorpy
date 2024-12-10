@@ -114,7 +114,7 @@ def calc_edge_proj_pt(pv0, pv1, loc):
     return pc01 + 0.5 * r_mag * rn_pcr
 
 
-def calc_edge_dir(locs, rads, eballs, vlocs):
+def calc_edge_dir(locs, rads, eballs, vlocs, edub=False):
     """
     The goal is to 1. check the edge type, 2. From the edge type calculate the direction the points need to be
     calculated
@@ -175,25 +175,35 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
 
     # If there is no 2nd location, we have a case 1 or 2.
     if loc2 is None:
+        # set the variable telling us if the edge is toward or away from the center
+        dir_away = False
+        # Check the direction of dnorm and if it is facing the edge center or not
+        if np.dot(dnorm, loc - vmid) < 0:
+            dir_away = True
+        # First check the doublet case
+        if edub:
+            # Revert to the location based checking where the edge loc is closer to the verts than they are to eachother
+            if calc_dist(loc, vlocs[0]) > vdist or calc_dist(loc, vlocs[1]) > vdist:
+                # Set the case
+                edge_info['case'] = '6'
+                # Turn the dnorm away from the center
+                if not dir_away:
+                    dnorm = -dnorm
         # If the location is verified it is a case 1 edge
-        if loc_verified:
+        elif loc_verified:
             # Set the case variable
             edge_info['case'] = '1'
-            # Check the direction of dnorm and if it is facing the edge center or not
-            if np.dot(dnorm, loc - vmid) < 0:
-                # Flip the dnorm if it is facing the wrong direction
-                dnorm = - dnorm
+            if dir_away:
+                dnorm = -dnorm
+
         else:
             # Set the case variable
             edge_info['case'], edge_info['outside'] = '2', True
             # The center is outside so we need to set the direction opposite the direction of the center
-            if np.dot(dnorm, loc - vmid) > 0:
-                # Flip the dnorm if it is facing the center
-                dnorm = - dnorm
+            if not dir_away:
+                dnorm = -dnorm
         # Set the edge info values
         edge_info['dnorm'] = dnorm
-        # Set the pa
-        edge_info['pa'] = vmid - 0.5 * vdist * dnorm
         # Return the information
         return edge_info
 
@@ -214,8 +224,6 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
             dnorm = -dnorm
         # Set the edge info values
         edge_info['dnorm'] = dnorm
-        # Set the pa
-        edge_info['pa'] = vmid - 0.5 * vdist * dnorm
         # Return the information
         return edge_info
 
@@ -229,8 +237,7 @@ def calc_edge_dir(locs, rads, eballs, vlocs):
             dnorm = - dnorm
         # Set the edge info values
         edge_info['dnorm'] = dnorm
-        # Set the pa
-        edge_info['pa'] = vmid - 0.5 * vdist * dnorm
+
         # Return the information
         return edge_info
 

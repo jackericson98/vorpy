@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 from System.Network.verts.mark_doublets import mark_doublets
 from System.Network.verts.find_net_verts import find_net_verts
 from System.Network.build_net import build
-from System.Network.edges.build_edge import build_edge
+from System.Network.edges.build_edge import build_edge, build_edge_old
 from System.Network.surfs.build_surfs import build_surfs
 from System.Network.analyze.analyze import analyze
 from System.sys_funcs.calcs.calcs import calc_length, get_time, calc_dist, calc_com
@@ -187,7 +187,8 @@ class Network:
                                                 vlocs=[array(self.verts['loc'][_]) for _ in edge['verts']],
                                                 blocs=self.balls['loc'], brads=self.balls['rad'], eballs=edge['balls'],
                                                 res=self.settings['surf_res'],
-                                                straight=self.settings['net_type'] in {'prm', 'pow'})
+                                                straight=self.settings['net_type'] in {'prm', 'pow'},
+                                                edub=any([self.verts['dub'][_] in {1, 2} for _ in edge['verts']]))
             edges_lengths.append(calc_length(array(edge_points)))
             edges_points.append(edge_points)
             edges_vals.append(edge_vals)

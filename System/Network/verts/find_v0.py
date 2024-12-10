@@ -8,7 +8,7 @@ import numpy as np
 
 
 def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, metrics=None, vert_ndxs=None,
-            group_box=None):
+            group_box=None, box=None):
     """
     Finds v0 using the ball finding functions to find a real verified site
     """
@@ -81,7 +81,7 @@ def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, m
             if net_type in ['prm', 'pow']:
                 my_vert = find_site_container(circ[0], locs=locs, rads=rads, b_verts=b_verts, vert_ndxs=vert_ndxs,
                                               max_vert=max_vert, net_type=net_type, group_ndxs=group_ndxs,
-                                              metrics=metrics)
+                                              metrics=metrics, box=box)
             else:
                 my_vert = find_site_container_slow(circ[0], locs=locs, rads=rads, b_verts=b_verts, vert_ndxs=vert_ndxs,
                                                    max_vert=max_vert, net_type=net_type, group_ndxs=group_ndxs,

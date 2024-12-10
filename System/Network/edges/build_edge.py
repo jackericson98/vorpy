@@ -3,6 +3,8 @@ from System.sys_funcs.calcs.calcs import calc_dist, calc_com, calc_angle_jit
 from System.sys_funcs.calcs.edge import calc_circ, calc_edge_dir
 from System.Network.edges.edge_project import edge_project
 from System.sys_funcs.calcs.surf import calc_surf_func
+from Visualize.mpl_visualize import plot_edges, plot_balls, plot_verts
+import matplotlib.pyplot as plt
 
 
 def build_straight_edge(locs, rads, vlocs, res):
@@ -52,7 +54,7 @@ def mid_edge_point(ep1, ep2, func, vmid, direction, new_direction=True):
     return edge_project(np.array(direction), np.array(vmid), np.array(func))
 
 
-def build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight=False, vmid=None, dnorm=None):
+def build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight=False, vmid=None, dnorm=None, edub=False):
     """
     Build edge function. Takes in the locations and radii of the input balls and the vertices bounding the edge and
     outputs a fully resolved edge.
@@ -70,8 +72,21 @@ def build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight=False, vmi
     # Get the edge direction
     edge_vals = None
     if vmid is None:
-        edge_vals = calc_edge_dir(blocs, brads, eballs, vlocs)
+        edge_vals = calc_edge_dir(blocs, brads, eballs, vlocs, edub=edub)
         vmid, dnorm = edge_vals['vmid'], edge_vals['dnorm']
+
+    # if edge_points1 is not None:
+    #     fig = plt.figure()
+    #     ax = fig.add_subplot(projection='3d')
+    #     plot_edges([edge_points1], fig, ax)
+    #     plot_balls([blocs[_] for _ in eballs], [brads[_] for _ in eballs], fig=fig, ax=ax)
+    #     ax.plot([edge_vals['vmid'][0], edge_vals['vmid'][0] + edge_vals['dnorm'][0]], [edge_vals['vmid'][1], edge_vals['vmid'][1] + edge_vals['dnorm'][1]], [edge_vals['vmid'][2], edge_vals['vmid'][2] + edge_vals['dnorm'][2]])
+    #     plot_balls([edge_vals['loc']], [edge_vals['rad']], fig=fig, ax=ax, colors=['red'])
+    #     plot_verts(vlocs, [1, 1], fig=fig, ax=ax, colors=['g', 'g'])
+    #     print(edge_vals)
+    #     print(vlocs)
+    #     print(edge_verts)
+    #     plt.show()
 
     # Check for the case 5
     if edge_vals is not None and edge_vals['case'] == 5:
@@ -212,7 +227,7 @@ def build_edge_old(locs, rads, vlocs, res, straight=None):
         r_ac = np.array(pc) - np.array(pa)
         r_nac = r_ac / np.linalg.norm(r_ac)
         # Project the vector onto the surface
-        surf_point = edge_project(r_nac, pa, np.array(func), points[-1], points[-2] if len(points) > 1 else None)
+        surf_point = edge_project(r_nac, pa, np.array(func))
         if surf_point is None:
             break
         points.append(surf_point)

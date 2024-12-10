@@ -16,7 +16,7 @@ def find_net_verts(net):
     my_guuy = find_verts(locs=net.balls['loc'].to_numpy(), rads=net.balls['rad'].to_numpy(),
                          max_vert=net.settings['max_vert'], net_type=net.settings['net_type'], check_ndxs=sphere_check_list,
                          my_group=net.group, start_time=net.metrics['start'], print_metrics=net.settings['print_metrics'],
-                         vert_box=net.settings['foam_box'])
+                         vert_box=net.settings['foam_box'], box=net.box['verts'])
     if my_guuy is not None:
         vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
     # Check to see if any of the balls are encapsulated
@@ -63,6 +63,7 @@ def find_net_verts(net):
             vert_ndxs.insert(i + 1, vert_ndxs[i])
             vlocs.insert(i + 1, vloc2s[i])
             vrads.insert(i + 1, vrad2s[i])
+            doublets[i] = 2
             doublets.insert(i + 1, 1)
             # Preserve the relational aspects of vrad2s and vloc2s
             vrad2s.insert(i + 1, None)

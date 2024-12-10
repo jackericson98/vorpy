@@ -7,7 +7,7 @@ import numpy as np
 import time
 
 
-def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, net_type, vn_1=None, vn_1_loc=None,
+def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, net_type, box=None, vn_1=None, vn_1_loc=None,
                         group_ndxs=None, metrics=None, printing=False):
     """
     Cycles through larger and larger areas searching for
@@ -52,15 +52,15 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, ne
         # Search for the vertx in the current range
         if net_type == 'aw':
             vert, invalid_ndxs = find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, check_ndxs,
-                                              surr_balls, my_boxes, invalid_ndxs, vn_1, vn_1_loc,
+                                              surr_balls, my_boxes, invalid_ndxs, vn_1, vn_1_loc, box=box,
                                               group_balls=group_ndxs, metrics=metrics, printing=printing)
         elif net_type == 'pow':
             vert, invalid_ndxs = find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
-                                               check_ndxs, surr_balls, my_boxes, invalid_ndxs, vn_1, vn_1_loc,
+                                               check_ndxs, surr_balls, my_boxes, invalid_ndxs, vn_1, vn_1_loc, box=box,
                                                group_ndxs=group_ndxs, metrics=metrics)
         elif net_type == 'prm':
             vert, invalid_ndxs = find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
-                                               check_ndxs, surr_balls, my_boxes, invalid_ndxs, vn_1, vn_1_loc,
+                                               check_ndxs, surr_balls, my_boxes, invalid_ndxs, vn_1, vn_1_loc, box=box,
                                                group_ndxs=group_ndxs, metrics=metrics)
         # If a vertex is found exit the loop
         if vert is not None:
@@ -72,7 +72,7 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, ne
 
 
 def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, check_ndxs, surr_balls,
-                  my_boxes, invalid_ndxs, vn_1, vn_1_loc=None, group_ndxs=None, metrics=None):
+                  my_boxes, invalid_ndxs, vn_1, box=None, vn_1_loc=None, group_ndxs=None, metrics=None):
     """
     Used a vertex and a combination of it's edge balls to find the connecting vertex
     """
@@ -133,13 +133,18 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         vert_balls, ball = vert
         # Calculate the 181L vertex values
         start = time.perf_counter()
-        vert_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=False)
+        v_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=False)
+
+        # Check if the vert is outside the box
+        if box is not None and any([box[0][k] > v_loc[k] > box[1][k] for k in range(3)]):
+            continue
+
         # Record the calculate vertex metrics
         if metrics is not None:
             metrics['calc_vert'] += time.perf_counter() - start
 
         # Catch the none location case
-        if vert_loc is None:
+        if v_loc is None:
             invalid_ndxs.append(ball)
             continue
 
@@ -150,12 +155,12 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         # Get the locations from the test balls
         test_locs = np.array([locs[_] for _ in filtered_test_balls])
         # Compare the vertex to the maximum allowed vertex and verify it
-        if vert_rad < max_vert and verify_prm(loc=np.array(vert_loc), rad=vert_rad, test_locs=test_locs):
+        if vert_rad < max_vert and verify_prm(loc=np.array(v_loc), rad=vert_rad, test_locs=test_locs):
             # Add the time for verification to the verify_site metrics
             if metrics is not None:
                 metrics['verify_site'] += time.perf_counter() - start
             # Return the validated ball and the invalidated ist
-            return [{'balls': vert_balls, 'loc': vert_loc, 'rad': vert_rad}, metrics], invalid_ndxs
+            return [{'balls': vert_balls, 'loc': v_loc, 'rad': vert_rad}, metrics], invalid_ndxs
         else:
             # Add the ball to the invalid balls list if it isn't verified
             invalid_ndxs.append(ball)
@@ -164,7 +169,7 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
 
 
 def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, check_ndxs, surr_balls,
-                  my_boxes, invalid_ndxs, vn_1, vn_1_loc=None, group_ndxs=None, metrics=None):
+                  my_boxes, invalid_ndxs, vn_1, box=None, vn_1_loc=None, group_ndxs=None, metrics=None):
     """
     Used a vertex and a combination of it's edge balls to find the connecting vertex
     """
@@ -226,13 +231,17 @@ def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         vert_balls, ball = vert
         # Calculate the 181L vertex values
         start = time.perf_counter()
-        vert_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=True)
+        v_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=True)
+        # Check if the vert is outside the box
+        if box is not None and any([box[0][k] > v_loc[k] > box[1][k] for k in range(3)]):
+            continue
+
         # Record the calculate vertex metrics
         if metrics is not None:
             metrics['calc_vert'] += time.perf_counter() - start
 
         # Catch the none location case
-        if vert_loc is None:
+        if v_loc is None:
             invalid_ndxs.append(ball)
             continue
 
@@ -245,12 +254,12 @@ def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         test_rads = np.array([rads[_] for _ in filtered_test_balls])
         # Compare the vertex to the maximum allowed vertex and verify it
         if (vert_rad < max_vert ** 2 - min([rads[_] for _ in vert_balls]) ** 2 and
-                verify_pow(loc=np.array(vert_loc), rad=vert_rad, test_locs=test_locs, test_rads=test_rads)):
+                verify_pow(loc=np.array(v_loc), rad=vert_rad, test_locs=test_locs, test_rads=test_rads)):
             # Add the time for verification to the verify_site metrics
             if metrics is not None:
                 metrics['verify_site'] += time.perf_counter() - start
             # Return the validated ball and the invalidated ist
-            return [{'balls': vert_balls, 'loc': vert_loc, 'rad': vert_rad}, metrics], invalid_ndxs
+            return [{'balls': vert_balls, 'loc': v_loc, 'rad': vert_rad}, metrics], invalid_ndxs
         else:
             # Add the ball to the invalid balls list if it isn't verified
             invalid_ndxs.append(ball)
@@ -259,7 +268,7 @@ def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
 
 
 def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, check_ndxs, surr_balls,
-                 my_boxes, invalid_ndxs, vn_1, vn_1_loc, group_balls=None, metrics=None, printing=False):
+                 my_boxes, invalid_ndxs, vn_1, vn_1_loc, box=None, group_balls=None, metrics=None, printing=False):
     """
     Used a vertex and a combination of it's edge balls to find the connecting vertex
     """
@@ -327,6 +336,10 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
         # Delete the second location for the vertex if it is too large
         if v_rad2 is not None and v_rad2 > max_vert:
             v_loc2, v_rad2 = None, None
+
+        # Check if the vert is outside the box
+        if box is not None and any([box[0][k] > v_loc[k] > box[1][k] for k in range(3)]):
+            continue
 
         # Add the vertex to the list of calculated vertices
         calc_verts.append({'balls': vert_balls, 'loc': np.array(v_loc), 'rad': v_rad, 'loc2': v_loc2, 'rad2': v_rad2})
