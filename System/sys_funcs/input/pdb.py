@@ -129,9 +129,16 @@ def read_pdb(sys, file=None):
     # Check if the file is a foam file
     if my_file[0].split()[1] == 'foam_gen':
         sys.type = 'foam'
-        bw = float(my_file[0].split()[2])
-        sys.foam_box = [[0, 0, 0], [bw, bw, bw]]
-        sys.foam_data = my_file[0].split()[2:]
+        try:
+            bw = float(my_file[0].split()[2])
+            sys.foam_box = [[0, 0, 0], [bw, bw, bw]]
+            sys.foam_data = my_file[0].split()[2:]
+        except ValueError:
+            bw = float(my_file[0].split()[5][:-1])
+            sys.foam_box = [[0, 0, 0], [bw, bw, bw]]
+            sys.foam_data = my_file[0].split()[5:]
+
+
     if my_file[0].split()[1] == 'coarsify':
         sys.type = 'coarse'
     # Go through each line in the file and check if the first word is the word we are looking for
@@ -152,7 +159,10 @@ def read_pdb(sys, file=None):
             if line[22:26] == '    ':
                 res_seq = 0
             # If no chain is specified, set the chain to 'None'
-            res_str, chain_str = line[17:20].strip(), line[21]
+            try:
+                res_str, chain_str = line[17:20].strip(), line[21]
+            except IndexError:
+                continue
             # Assign the radius
             rad = None
             if sys.type == 'foam' or sys.type == 'coarse':
@@ -176,7 +186,6 @@ def read_pdb(sys, file=None):
                              name=name.strip(), seg_id=line[72:76], index=atom_count, mass=mass, radius=rad)
 
             atom_count += 1
-
             if chain_str == ' ':
                 if res_str.lower() in {'sol', 'hoh', 'sod', 'out', 'cl', 'mg', 'na', 'k', 'ion', 'cla'}:
                     chain_str = 'SOL'
@@ -230,6 +239,10 @@ def read_pdb(sys, file=None):
         # If the line is not an atom line store the other data
         else:
             data.append(my_file[i].split())
+    # Check that the sys.sol is not Noner
+    if sys.sol is None:
+        sys.sol = Sol(sys, [], [])
+    # Set up the stuff
     for res in sys.residues:
         if res.name.lower() not in residue_names and res.chain.name != 'SOL':
             residue_names[res.name.lower()] = res.name.upper()
