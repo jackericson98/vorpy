@@ -23,13 +23,11 @@ p1 = normalize_pdf(p1_unnormalized, (0, np.inf))
 p2 = normalize_pdf(p2_unnormalized, (0, np.inf))
 p3 = normalize_pdf(p3_unnormalized, (0, np.inf))
 
-
 # Calculate the cumulative distribution function (CDF)
 def calculate_cdf(pdf, x_values):
     cdf_values = np.array([quad(pdf, 0, x)[0] for x in x_values])
     cdf_values /= cdf_values[-1]  # Normalize to [0, 1]
     return cdf_values
-
 
 # Generate random samples using inverse transform sampling
 def inverse_transform_sampling(pdf, x_values, n_samples):
@@ -38,65 +36,33 @@ def inverse_transform_sampling(pdf, x_values, n_samples):
     u = np.random.rand(n_samples)
     return inverse_cdf(u)
 
-
+# Parameters
 num_samples = 1000
 x_values = np.linspace(0, 3, num_samples)
-# Create a figure and axis
-fig, ax1 = plt.subplots(figsize=(8, 5))
 
-for plot_num in (1, 2, 3):
+# Plot setup
+fig, ax1 = plt.subplots(figsize=(7, 4))
+colors = ['purple', 'orange', 'green']  # Distinguishable colors
+titles = ['Dev', 'R & L', 'G & H']
+pdfs = [p1, p2, p3]
+alpha = 0.8
+for i, (pdf, title, color) in enumerate(zip(pdfs, titles, colors), 1):
+    alpha -= 0.2
+    # Generate random samples
+    random_numbers = inverse_transform_sampling(pdf, x_values, num_samples)
 
+    # Plot normalized PDF
+    ax1.plot(x_values, pdf(x_values), label=title, color=color, linewidth=4)
 
-    # Generate random numbers
-    random_numbers1 = inverse_transform_sampling(p1, x_values, num_samples)
-    random_numbers2 = inverse_transform_sampling(p2, x_values, num_samples)
-    random_numbers3 = inverse_transform_sampling(p3, x_values, num_samples)
+    # Plot histogram
+    plt.hist(random_numbers, bins=30, density=True, alpha=alpha, color=color, label=f'{title} Hist')
 
-
-    if plot_num == 1:
-        samples = random_numbers1
-        pdf = p1
-        title = 'Devries'.format(num_samples)
-    elif plot_num == 2:
-        samples = random_numbers2
-        pdf = p2
-        title = 'Ranadive & Lemilch'.format(num_samples)
-    elif plot_num == 3:
-        samples = random_numbers3
-        pdf = p3
-        title = 'Gal-Or & Hoelsher'.format(num_samples)
-
-
-
-
-    # Plot the PDF and the histogram on the primary y-axis
-    ax1.plot(x_values, pdf(x_values), label=title)
-
-
-    # Set the limits of the primary y-axis
-    # ax1.set_ylim()
-
-
-
-# Display the plot
-ax1.set_xlabel('Bubble Radius', fontsize=20)
-ax1.set_xticks(np.arange(0, 3, 0.5))
-ax1.set_ylabel('Probability Density', fontsize=20)
-ax1.tick_params('x', labelsize=20)
+# Finalize plot
+ax1.set_xlabel('Bubble Radius', fontsize=25)
+ax1.set_ylabel('Probability', fontsize=25)
+ax1.tick_params('both', labelsize=25)
 ax1.set_yticks([])
-plt.title('Physics-Based PDFs', fontsize=25)
+plt.title('Physics-Based PDFs', fontsize=30)
+plt.legend(fontsize=15)
 plt.tight_layout()
-plt.legend(fontsize=20)
 plt.show()
-#
-# # Plot the histogram of generated random numbers
-# plt.hist(random_numbers3, bins=50, density=True, alpha=0.5, label='Generated Data')
-#
-#
-# plt.plot(x_data, [p3(_) for _ in x_data])
-#
-# plt.xlabel('r')
-# plt.ylabel('Probability Density')
-# plt.title('Random Numbers from Given Distribution')
-# plt.legend()
-# plt.show()
