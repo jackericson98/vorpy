@@ -50,12 +50,13 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
         v0 = {'balls': my_group, 'loc': v0_loc, 'rad': v0_rad, 'loc2': v0_loc2, 'rad2': v0_rad2}
     else:
         v0 = find_v0(locs=locs, rads=rads, b_verts=b_verts, max_vert=max_vert, net_type=net_type, b0=b0,
-                     group_ndxs=my_group, metrics=metrics, vert_ndxs=vert_ndxs, group_box=group_box)
+                     group_ndxs=my_group, metrics=metrics, vert_ndxs=vert_ndxs, group_box=group_box, box=box)
         j = 1
         while v0 is None and j < len(check_ndxs):
 
             v0 = find_v0(locs=locs, rads=rads, b_verts=b_verts, max_vert=max_vert, net_type=net_type, b0=check_ndxs[j],
-                         group_ndxs=my_group, metrics=metrics, vert_ndxs=vert_ndxs, group_box=group_box)
+                         group_ndxs=my_group, metrics=metrics, vert_ndxs=vert_ndxs, group_box=group_box, box=box)
+
             j += 1
     # If no v0 is possible (e.g., a lone ball) return
     if v0 is None:
@@ -122,6 +123,11 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
             #     continue
             if my_vert['loc'] is None:
                 continue
+            # print(my_vert['balls'], box, my_vert['loc'], [box[0][k] > my_vert['loc'][k] or my_vert['loc'][k] > box[1][k] for k in range(3)])
+            if box is not None and any([box[0][k] > my_vert['loc'][k] or my_vert['loc'][k] > box[1][k] for k in range(3)]):
+                continue
+            if box is not None and 'loc2' in my_vert and my_vert['loc2'] is not None and any([box[0][k] > my_vert['loc2'][k] or my_vert['loc2'][k] > box[1][k] for k in range(3)]):
+                my_vert['loc2'], my_vert['rad2'] = None, None
             # Add the vertex to the stack and the network
             vert_stack.append(my_vert)
             # Insert the vertices in order of increasing ball indices

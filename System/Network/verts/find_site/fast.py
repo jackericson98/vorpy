@@ -56,11 +56,11 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, ne
                                               group_balls=group_ndxs, metrics=metrics, printing=printing)
         elif net_type == 'pow':
             vert, invalid_ndxs = find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
-                                               check_ndxs, surr_balls, my_boxes, invalid_ndxs, vn_1, vn_1_loc, box=box,
+                                               check_ndxs, surr_balls, my_boxes, invalid_ndxs, vn_1, box, vn_1_loc,
                                                group_ndxs=group_ndxs, metrics=metrics)
         elif net_type == 'prm':
             vert, invalid_ndxs = find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
-                                               check_ndxs, surr_balls, my_boxes, invalid_ndxs, vn_1, vn_1_loc, box=box,
+                                               check_ndxs, surr_balls, my_boxes, invalid_ndxs, vn_1, box, vn_1_loc,
                                                group_ndxs=group_ndxs, metrics=metrics)
         # If a vertex is found exit the loop
         if vert is not None:
@@ -136,7 +136,7 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         v_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=False)
 
         # Check if the vert is outside the box
-        if box is not None and any([box[0][k] > v_loc[k] > box[1][k] for k in range(3)]):
+        if box is not None and any([box[0][k] > v_loc[k] or v_loc[k] > box[1][k] for k in range(3)]):
             continue
 
         # Record the calculate vertex metrics
@@ -233,9 +233,8 @@ def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         start = time.perf_counter()
         v_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=True)
         # Check if the vert is outside the box
-        if box is not None and any([box[0][k] > v_loc[k] > box[1][k] for k in range(3)]):
+        if box is not None and any([box[0][k] > v_loc[k] or v_loc[k] > box[1][k] for k in range(3)]):
             continue
-
         # Record the calculate vertex metrics
         if metrics is not None:
             metrics['calc_vert'] += time.perf_counter() - start

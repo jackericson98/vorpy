@@ -6,7 +6,7 @@ import numpy as np
 import time
 
 
-def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, net_type, group_ndxs=None, metrics=None,
+def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, net_type, box=None, group_ndxs=None, metrics=None,
                              printing=False):
     """
     Cycles through larger and larger areas searching for
@@ -41,7 +41,7 @@ def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_ver
         vert, invalid_ndxs = find_site(edge_balls=edge_balls, locs=locs, rads=rads, b_verts=b_verts,
                                        vert_ndxs=vert_ndxs, max_vert=max_vert, mv_inc=mv_inc, net_type=net_type,
                                        invalid_ndxs=invalid_ndxs, check_balls=check_ndxs, surr_balls=surr_balls,
-                                       my_boxes=my_boxes, group_ndxs=group_ndxs, metrics=metrics)
+                                       my_boxes=my_boxes, group_ndxs=group_ndxs, metrics=metrics, box=box)
         # If a vertex is found exit the loop
         if vert is not None:
             break
@@ -52,7 +52,8 @@ def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_ver
 
 
 def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_type, invalid_ndxs=None,
-              check_balls=True, surr_balls=None, vn_1=None, vn_1_loc=None, group_ndxs=None, metrics=None, my_boxes=None):
+              check_balls=True, surr_balls=None, vn_1=None, vn_1_loc=None, group_ndxs=None, metrics=None, my_boxes=None,
+              box=None):
     """
     Used a vertex and a combination of it's edge balls to find the connecting vertex
     """
@@ -127,6 +128,8 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
         # Catch the none location case
         if vert_loc is None:
             invalid_ndxs.append([_ for _ in vert_balls if _ not in edge_ndxs])
+            continue
+        if box is not None and any([box[0][k] > vert_loc[k] or vert_loc[k] > box[1][k] for k in range(3)]):
             continue
         start = time.perf_counter()
         # Filter the vertex out if it is too large or not able to be made

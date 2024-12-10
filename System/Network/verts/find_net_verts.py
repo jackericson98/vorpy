@@ -42,7 +42,7 @@ def find_net_verts(net):
                              max_vert=net.settings['max_vert'], net_type=net.settings['net_type'], check_ndxs=sphere_check_list,
                              my_group=net.group, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
                              vloc2s=vloc2s, vrad2s=vrad2s, start_time=net.metrics['start'],
-                             vert_box=net.settings['foam_box'], b_verts=averts)
+                             vert_box=net.settings['foam_box'], b_verts=averts, box=net.box['verts'])
         if my_guuy is not None:
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
         if net.settings['ball_type'] == 'foam' and len(sphere_check_list) <= 0.25 * len(net.balls['loc']):
