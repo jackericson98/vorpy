@@ -189,6 +189,9 @@ def calc_edge_dir(locs, rads, eballs, vlocs, edub=False):
                 # Turn the dnorm away from the center
                 if not dir_away:
                     dnorm = -dnorm
+            else:
+                if dir_away:
+                    dnorm = -dnorm
         # If the location is verified it is a case 1 edge
         elif loc_verified:
             # Set the case variable
