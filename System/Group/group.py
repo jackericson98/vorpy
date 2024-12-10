@@ -66,7 +66,7 @@ class Group:
         if build_net:
             self.build()
 
-    def get_settings(self, surf_res=0.2, surf_col='plasma', surf_scheme='curv', scheme_factor='log', max_vert=40,
+    def get_settings(self, surf_res=0.2, surf_col='plasma', surf_scheme='mean', scheme_factor='log', max_vert=40,
                      box_size=1.5, net_type='aw', build_type='all', num_splits=1, print_metrics=True, ball_type=None,
                      sys_dir=None, foam_box=None):
         """
