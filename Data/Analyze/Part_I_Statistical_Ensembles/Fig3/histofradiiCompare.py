@@ -25,7 +25,7 @@ def inverse_transform_sampling(pdf, x_values, n_samples):
     return inverse_cdf(u)
 
 
-def get_hist_of_radii(density=0.5, cv=0.5, bins=100):
+def get_hist_of_radii(density=0.25, cv=0.5, bins=100):
     # First pick the folder to find the cv and density
     # root = tk.Tk()
     # root.withdraw()
@@ -54,9 +54,11 @@ def get_hist_of_radii(density=0.5, cv=0.5, bins=100):
         # Create the system
         my_sys = System(old_logs_pdbs[_]['pdb'], simple=True)
         # Get the logs
-        aw_logs = read_logs(old_logs_pdbs[_]['aw'])
-        pow_logs = read_logs(old_logs_pdbs[_]['pow'])
-
+        try:
+            aw_logs = read_logs(old_logs_pdbs[_]['aw'])
+            pow_logs = read_logs(old_logs_pdbs[_]['pow'])
+        except KeyError:
+            continue
         for i, ball in my_sys.balls.iterrows():
             if i > 999:
                 continue
