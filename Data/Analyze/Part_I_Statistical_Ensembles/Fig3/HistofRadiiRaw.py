@@ -47,10 +47,10 @@ file_attributes = file_attributes[-1].split('_')
 cv, den = float(file_attributes[1]), float(file_attributes[3])
 
 # Create a figure and axis
-fig, ax1 = plt.subplots(figsize=(10, 8))
+fig, ax1 = plt.subplots(figsize=(5, 4))
 
 # Real Radii
-radii = my_sys.balls['rad']
+radii = [_ for _ in my_sys.balls['rad'][:1000]]
 
 # Plot histogram
 data2 = ax1.hist(radii, bins=30, alpha=0.5, color='blue', edgecolor='k', density=False)
@@ -68,10 +68,11 @@ pdf_values = gamma(x_values, cv)
 scaled_pdf = pdf_values * total_area
 
 # Update plot formatting
-ax1.set_xlabel('Bubble Radius', fontsize=25)
+ax1.set_xlabel('Radius', fontsize=25)
 ax1.set_ylabel('Count', fontsize=25, color='blue')
-ax1.set_xticks(np.arange(0, 5, 0.5))
+ax1.set_xticks(np.arange(0, 3, 1))
 ax1.tick_params(axis='both', labelsize=20)
+ax1.tick_params(axis='y', colors='blue')
 ax1.set_ylim(bottom=0)
 
 # Create a secondary y-axis for the histogram
@@ -80,11 +81,12 @@ ax2 = ax1.twinx()
 # Plot the scaled gamma PDF
 ax1.plot(x_values, scaled_pdf, label='Scaled PDF', color='red', linewidth=2)
 ax2.set_ylabel('Probability', fontsize=25, color='red')
-ax2.tick_params(axis='both', labelsize=20)
+ax2.tick_params(axis='both', labelsize=20, colors='red')
 ax2.set_ylim(bottom=0, top=100)
+ax2.tick_params(axis='y', colors='red')
 
 # Add title
-plt.title(f"Distribution of Radii vs. PDF\nCV = {cv}, Density = {den}", fontsize=30)
+plt.title(f"Radii vs. PDF", fontsize=30)
 plt.tight_layout()
 # Display the plot
 plt.show()
