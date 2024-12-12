@@ -53,15 +53,16 @@ fig, ax1 = plt.subplots(figsize=(5, 4))
 radii = [_ for _ in my_sys.balls['rad'][:1000]]
 
 # Plot histogram
-data2 = ax1.hist(radii, bins=30, alpha=0.5, color='blue', edgecolor='k', density=False)
-
+data2 = ax1.hist(radii, bins=33, alpha=0.5, color='blue', edgecolor='k', density=False)
+min_rad = min(radii)
+max_rad = max(radii)
 # Calculate bin width
 bin_edges = data2[1]
 bin_width = bin_edges[1] - bin_edges[0]
 total_area = sum(data2[0]) * bin_width
 
 # Generate x values for the PDF
-x_values = np.linspace(0, 3.5, 100)
+x_values = np.linspace(min_rad, max_rad, 100)
 
 # Scale gamma PDF to match the histogram area
 pdf_values = gamma(x_values, cv)
@@ -70,7 +71,7 @@ scaled_pdf = pdf_values * total_area
 # Update plot formatting
 ax1.set_xlabel('Radius', fontsize=25)
 ax1.set_ylabel('Count', fontsize=25, color='blue')
-ax1.set_xticks(np.arange(0, 3, 1))
+ax1.set_xticks([round(_, 1) for _ in np.linspace(min_rad, max_rad, 4)])
 ax1.tick_params(axis='both', labelsize=20)
 ax1.tick_params(axis='y', colors='blue')
 ax1.set_ylim(bottom=0)
