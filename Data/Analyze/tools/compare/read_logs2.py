@@ -3,31 +3,6 @@ import csv
 import pandas as pd
 
 
-def read_atom(atom_line, titles):
-    atom = {}
-    for i, title in enumerate(titles):
-        atom[title] = titles[title](atom_line[i])
-    return atom
-
-
-def read_surf(surf_line):
-    surf = {'Index': int(surf_line[0]), 'Balls': [int(_) for _ in surf_line[1:3]], 'Surface Area': float(surf_line[3]),
-            'Curvature': float(surf_line[4]), 'Ball Volumes': [float(_) for _ in surf_line[5:7] if _ != ''],
-            'Contact Area': float(surf_line[7]), 'Overlap': float(surf_line[8])}
-    return surf
-
-
-def read_edge(edge_line):
-    edge = {'Index': int(edge_line[0]), 'Balls': [int(_) for _ in edge_line[1:4]], 'Length': float(edge_line[4])}
-    return edge
-
-
-def read_vert(vert_line):
-    vert = {'Index': int(vert_line[0]), 'Balls': [int(_) for _ in vert_line[1:5]],
-            'loc': [float(_) for _ in vert_line[5:8]], 'rad': float(vert_line[8])}
-    return vert
-
-
 def parse_string_lists_int(string_list, apply_type=int):
     # Test if it is just one single list
     if string_list[1] != '[':
@@ -80,10 +55,21 @@ def sort_bool(stringy):
     return True if stringy == 'True' else False
 
 
-def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=False, surfs=False, edges=False, verts=False):
-    file_info = {}
-    one_file = False
-    atom_vals = {'Index': int, 'Name': str, 'Residue': str, 'Residue Sequence': int, 'Chain': str, 'Mass': float,
+atom_vals = {'Index': int, 'Name': str, 'Residue': str, 'Residue Sequence': int, 'Chain': str, 'Mass': float,
+             'X': float, 'Y': float, 'Z': float, 'Radius': float, 'Volume': float, 'Van Der Waals Volume': float,
+             'Surface Area': float, 'Complete Cell?': sort_bool, 'Maximum Mean Curvature': float,
+             'Average Mean Surface Curvature': float, 'Maximum Gaussian Curvature': float,
+             'Average Gaussian Surface Curvature': float, 'Sphericity': float, 'Isometric Quotient': float,
+             'Inner Ball?': sort_bool, 'Number of Neighbors': int, 'Closest Neighbor': int,
+             'Closest Neighbor Distance': float, 'Layer Distance Average': parse_string_lists,
+             'Layer Distance RMSD': parse_string_lists, 'Minimum Point Distance': float,
+             'Maximum Point Distance': float, 'Number of Overlaps': int, 'Contact Area': float,
+             'Non - Overlap Volume': float, 'Overlap Volume': float, 'Center of Mass': parse_string_lists,
+             'Moment of Inertia Tensor': parse_string_lists, 'Bounding Box': parse_string_lists,
+             'Neighbors': parse_string_lists_int}
+
+
+atom_vals_old = {'Index': int, 'Name': str, 'Residue': str, 'Residue Sequence': int, 'Chain': str, 'Mass': float,
                  'X': float, 'Y': float, 'Z': float, 'Radius': float, 'Volume': float, 'Van Der Waals Volume': float,
                  'Surface Area': float, 'Complete Cell?': sort_bool, 'Maximum Curvature': float,
                  'Average Surface Curvature': float, 'Sphericity': float, 'Isometric Quotient': float,
@@ -94,6 +80,40 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
                  'Non - Overlap Volume': float, 'Overlap Volume': float, 'Center of Mass': parse_string_lists,
                  'Moment of Inertia Tensor': parse_string_lists, 'Bounding Box': parse_string_lists,
                  'Neighbors': parse_string_lists_int}
+
+
+def read_atom(atom_line):
+    atom = {}
+    try:
+        for i, title in enumerate(atom_vals):
+            atom[title] = atom_vals[title](atom_line[i])
+    except ValueError:
+        for i, title in enumerate(atom_vals_old):
+            atom[title] = atom_vals_old[title](atom_line[i])
+    return atom
+
+
+def read_surf(surf_line):
+    surf = {'Index': int(surf_line[0]), 'Balls': [int(_) for _ in surf_line[1:3]], 'Surface Area': float(surf_line[3]),
+            'Curvature': float(surf_line[4]), 'Ball Volumes': [float(_) for _ in surf_line[5:7] if _ != ''],
+            'Contact Area': float(surf_line[7]), 'Overlap': float(surf_line[8])}
+    return surf
+
+
+def read_edge(edge_line):
+    edge = {'Index': int(edge_line[0]), 'Balls': [int(_) for _ in edge_line[1:4]], 'Length': float(edge_line[4])}
+    return edge
+
+
+def read_vert(vert_line):
+    vert = {'Index': int(vert_line[0]), 'Balls': [int(_) for _ in vert_line[1:5]],
+            'loc': [float(_) for _ in vert_line[5:8]], 'rad': float(vert_line[8])}
+    return vert
+
+def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=False, surfs=False, edges=False, verts=False):
+    file_info = {}
+    one_file = False
+
     if type(log_files) is str:
         one_file = True
         log_files = [log_files]
@@ -130,7 +150,7 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
                     skip_next = False
                     continue
                 elif data_type == 'Atoms' and (all_ or balls):
-                    my_atom = read_atom(line, atom_vals)
+                    my_atom = read_atom(line)
                     my_atom['rad'], my_atom['loc'] = my_atom['Radius'], [my_atom['X'], my_atom['Y'], my_atom['Z']]
                     if no_sol and my_atom['name'].strip().lower() in {'hw1', 'hw2', 'ow', 'h02', 'h01', 'na', 'cl', 'mg', 'k'}:
                         continue
