@@ -66,7 +66,7 @@ for dp in my_data:
 
 my_densities = [round(_, 3) for _ in np.linspace(0.05, 0.5, 19)]
 my_sds = ['devries', 'lemlich', 'gal_or']
-
+colors = ['purple', 'orange', 'green']
 # Initialize lists using list comprehensions
 datavvm, datavsm, datapvm, datapsm = [[] for _ in my_sds], [[] for _ in my_sds], [[] for _ in my_sds], [[] for _ in my_sds]
 datavvms, datavsms, datapvms, datapsms = [[] for _ in my_sds], [[] for _ in my_sds], [[] for _ in my_sds], [[] for _ in my_sds]
@@ -130,14 +130,14 @@ for value in ['vol', 'sa']:
         # Colors for each line based on 'sd' which is used as an index into the colormap
         # color = cmap(norm(sd))
         if value == 'vol':
-            ax.plot(my_densities, datavvm[i], label=label_dict[sd])
-            ax.fill_between(my_densities, datavvms[i], datavvps[i], alpha=0.2)
+            ax.plot(my_densities, datavvm[i], label=label_dict[sd], color=colors[i])
+            ax.fill_between(my_densities, datavvms[i], datavvps[i], alpha=0.2, color=colors[i])
         elif value == 'sa':
-            ax.plot(my_densities, datavsm[i], label=label_dict[sd])
-            ax.fill_between(my_densities, datavsms[i], datavsps[i], alpha=0.2)
+            ax.plot(my_densities, datavsm[i], label=label_dict[sd], c=colors[i])
+            ax.fill_between(my_densities, datavsms[i], datavsps[i], alpha=0.2, color=colors[i])
 
 
-    plt.legend()
+    plt.legend(fontsize=25)
 
     # Adding a color bar that uses the created ScalarMappable
     # sm.set_array([])
