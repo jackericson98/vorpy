@@ -3,7 +3,7 @@ from _datetime import datetime
 import pandas as pd
 import csv
 import os
-
+import time
 from matplotlib import pyplot as plt
 
 from System.Network.verts.mark_doublets import mark_doublets
@@ -181,6 +181,11 @@ class Network:
         edges_points, edges_vals, edges_lengths = [], [], []
         # Go through the edges in the network
         for i, edge in self.edges.iterrows():
+            percentage = min(i / len(self.edges) * 100, 100)
+            my_time = time.perf_counter() - self.metrics['start']
+            h, m, s = get_time(my_time)
+            print("\rRun Time = {}:{:02d}:{:2.2f} - Process: building edges: edge {} - {} - {:.2f} %"
+                  .format(int(h), int(m), round(s, 2), i, edge['balls'], percentage), end="")
             # Build the edge depending on if it is straight or not
             edge_points, edge_vals = build_edge(locs=[array(self.balls['loc'][_]) for _ in edge['balls']],
                                                 rads=[self.balls['rad'][_] for _ in edge['balls']],
