@@ -40,12 +40,16 @@ def inverse_transform_sampling(pdf, x_values, n_samples):
 num_samples = 1000
 x_values = np.linspace(0, 3, num_samples)
 
+# Define common bins
+common_bins = np.linspace(0, 3, 31)  # 30 equally spaced bins
+
 # Plot setup
 fig, ax1 = plt.subplots(figsize=(7, 4))
 colors = ['purple', 'orange', 'green']  # Distinguishable colors
 titles = ['Dev', 'R & L', 'G & H']
 pdfs = [p1, p2, p3]
 alpha = 0.8
+
 for i, (pdf, title, color) in enumerate(zip(pdfs, titles, colors), 1):
     alpha -= 0.2
     # Generate random samples
@@ -54,10 +58,10 @@ for i, (pdf, title, color) in enumerate(zip(pdfs, titles, colors), 1):
     # Plot normalized PDF
     ax1.plot(x_values, pdf(x_values), label=title, color=color, linewidth=4)
 
-    # Plot histogram
-    plt.hist(random_numbers, bins=30, density=True, alpha=alpha, color=color, label=f'{title} Hist')
+    # Plot histogram with common bins
+    plt.hist(random_numbers, bins=common_bins, density=True, alpha=alpha, color=color, edgecolor='k', label=f'{title} Hist')
 
-# Finalize plot
+    # Finalize plot
 ax1.set_xlabel('Bubble Radius', fontsize=25)
 ax1.set_ylabel('Probability', fontsize=25)
 ax1.tick_params('both', labelsize=25)
