@@ -5,8 +5,8 @@ import tkinter as tk
 from tkinter import filedialog
 from scipy import stats
 from matplotlib import pyplot as plt
-
-from Data.Analyze.tools.compare.read_logs import read_logs
+from System.system import System
+from Data.Analyze.tools.compare.read_logs2 import read_logs2
 from System.sys_funcs.input.pdb import read_pdb_line
 from System.sys_funcs.output.atoms import make_pdb_line
 import numpy as np
@@ -17,18 +17,19 @@ root = tk.Tk()
 root.withdraw()
 root.wm_attributes('-topmost', 1)
 sets = {}
+fig = plt.figure(figsize=(7, 5))
 while True:
     folder = filedialog.askdirectory(title='Choose the folder mf')
     for rroot, directys, files in os.walk(folder):
         for file in files:
-            if file[-3:] == 'pdb':
+            if file[-3:] == 'pdb' and 'atoms' not in file and 'diff' not in file:
                 pdb = rroot + '/' + file
-        for dirry in directys:
-            if 'aw' in dirry:
-                vor_logs = rroot + '/' + dirry + '/' + dirry[:-11] + '_logs.csv'
-                print(vor_logs)
-            elif 'pow' in dirry:
-                pow_logs = rroot + '/' + dirry + '/' + dirry[:-12] + '_logs.csv'
+            if file[-3:] == 'csv' and 'aw' in file:
+                aw_logs = rroot + '/' + file
+            if file[-3:] == 'csv' and 'pow' in file:
+                pow_logs = rroot + '/' + file
+
+
     # Take in the PDB
     # pdb = filedialog.askopenfilename(title='Get the pdb file mf')
     my_split_pdb = pdb.split('/')[-1]
@@ -38,14 +39,15 @@ while True:
     # pow_logs = filedialog.askopenfilename(title='Get the pow logs mf')
     # Get the Voronoit Logs
     # vor_logs = filedialog.askopenfilename(title='Get the vor logs mf')
-    sets[density] = {'pdb': pdb, 'pow_logs': pow_logs, 'vor_logs': vor_logs}
+    sets[density] = {'pdb': pdb, 'pow_logs': pow_logs, 'vor_logs': aw_logs}
 
-    pow_ = read_logs(pow_logs)
-    vor_ = read_logs(vor_logs)
-
+    pow = read_logs2(pow_logs)
+    aw = read_logs2(aw_logs)
+    my_sys = System(pdb, simple=True)
     rads, diffs, names = [], [], []
+
     # Loop through the pdb file
-    with open(pdb, 'r') as pdb_reader, open(pdb[:-4] + '_vor_diff_colored.pdb', 'w') as pdb_writer:
+    with (open(pdb, 'r') as pdb_reader, open(pdb[:-4] + '_vor_diff_colored.pdb', 'w') as pdb_writer):
         mini, maxi = np.inf, -np.inf
         # Loop through the lines
         for i, line in enumerate(pdb_reader.readlines()):
@@ -57,13 +59,13 @@ while True:
             # Check that the number is actually in the dataframe
             try:
                 # Get the pow atom and the vor atom
-                pow_atom, vor_atom = pow_['atoms'].loc[pow_['atoms']['num'] == i - 1].to_dict('records')[0], vor_['atoms'].loc[vor_['atoms']['num'] == i - 1].to_dict('records')[0]
+                pow_atom, vor_atom = pow['atoms'].loc[pow['atoms']['Index'] == i - 1].to_dict('records')[0], aw['atoms'].loc[aw['atoms']['Index'] == i - 1].to_dict('records')[0]
 
                 # Calculate the difference in volume
-                vol_diff = (pow_atom['volume'] - vor_atom['volume']) / vor_atom['volume']
+                vol_diff = (pow_atom['Volume'] - vor_atom['Volume']) / vor_atom['Volume']
 
                 # Check for crazy volume difference and trigger a volume difference
-                if vol_diff >= 10:
+                if vol_diff >= 20:
                     print(npl['atom_serial_number'], 'Off by {} %'.format(100 * vol_diff))
                     _ = float('')
                 diffs.append(vol_diff)
@@ -99,7 +101,7 @@ while True:
     # Write the set code
     with open(pdb[:-4] + '_set_diff.txt', 'w') as set_color:
         # Write the first line
-        set_color.write('spectrum q, green_yellow_red, minimum={}, maximum={}\n'.format(mini, maxi))
+        set_color.write('spectrum q, blue_white_red, minimum={}, maximum={}\n'.format(-maxi, maxi))
         # Select the group to not be colored
         set_color.write('color white, chain Z')
 
@@ -121,8 +123,8 @@ while True:
 plt.xlabel('Ball Radius', fontdict=dict(size=25))
 plt.ylabel('% Difference', fontdict=dict(size=25))
 # plt.ti
-plt.xticks(font=dict(size=20))
-plt.yticks(font=dict(size=20))
+plt.xticks(font=dict(size=30))
+plt.yticks(font=dict(size=30))
 plt.title('% Difference by Radii\n(Non-Overlapping, CV {})'.format(cv), font=dict(size=20))
 plt.tick_params(axis='both', width=2, length=12)
 plt.legend(fontsize=15)
