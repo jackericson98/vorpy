@@ -71,6 +71,8 @@ for j in range(23):
                                 'density': float(my_vals[3]), 'val': float(my_line[plotting_choice])})
             except ValueError:
                 continue
+            except IndexError:
+                continue
     try:
         if 'log' in my_data[0]['num'].lower():
             plot_type = 'lognormal'
