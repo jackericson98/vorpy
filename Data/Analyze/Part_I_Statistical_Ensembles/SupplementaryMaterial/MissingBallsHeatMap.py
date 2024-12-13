@@ -58,7 +58,7 @@ def plot_heatmap(missing_balls, data=None, cv_values=None, density_values=None):
     if data is None:
         # Extract unique CV and density values from missing_balls
         cv_values = sorted({key[0] for key in missing_balls.keys()})
-        density_values = sorted({key[1] for key in missing_balls.keys()})
+        density_values = sorted({key[1] for key in missing_balls.keys()}, reverse=True)
 
         # Create a 2D array for percentages
         data = np.zeros((len(density_values), len(cv_values)))
@@ -81,19 +81,19 @@ def plot_heatmap(missing_balls, data=None, cv_values=None, density_values=None):
 
     # Add color bar
     cbar = plt.colorbar(heatmap)
-    cbar.set_label("Percentage (%)", fontsize=20)
-    cbar.ax.tick_params(labelsize=15, size=10, width=2, length=12)
+    cbar.set_label("Percentage (%)", fontsize=25)
+    cbar.ax.tick_params(labelsize=20, size=10, width=2, length=12)
 
     # Set axis labels and title
-    ax.set_xlabel("CV Values", fontsize=20)
-    ax.set_ylabel("Density Values", fontsize=20)
-    ax.set_title("Heatmap of Percentages Across Density and CV Values", fontsize=16)
+    ax.set_xlabel("CV Values", fontsize=30)
+    ax.set_ylabel("Density Values", fontsize=30)
+    ax.set_title("Percentage of Complete Cells", fontsize=30)
 
     # Set axis tick labels
     ax.set_xticks(np.arange(len(cv_values)), )
     ax.set_yticks(np.arange(len(density_values)))
-    ax.set_xticklabels([f"{v:.2f}" for v in cv_values], fontsize=15)
-    ax.set_yticklabels([f"{v:.2f}" for v in density_values], fontsize=15)
+    ax.set_xticklabels([f"{v:.2f}" for v in cv_values], fontsize=20)
+    ax.set_yticklabels([f"{v:.2f}" for v in density_values], fontsize=20)
 
     # Rotate x-axis tick labels for better readability
     plt.xticks(rotation=45)
@@ -116,6 +116,6 @@ if __name__ == '__main__':
     # m_blizzys = num_missing_balls()
     # cv_values, density_values, data = None, None, None
     cv_values = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-    density_values = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
+    density_values = [0.5, 0.45, 0.4, 0.35, 0.3, 0.25, 0.2, 0.15, 0.1, 0.05]
     data = np.array([[79.09473684, 78.95263158, 79.52105263, 79.24, 79.82, 79.355, 79.335, 79.17, 78.965   ,   78.76  ,     78.84      ], [78.12105263 ,78.05789474 ,78.3     ,   78.115   ,   78.17 ,      78.245 , 78.01    ,   77.97     ,  77.64   ,    77.22631579, 76.6       ] ,[76.83684211 ,76.77894737, 76.83157895, 76.76   ,    77.185  ,    77.035 , 76.89   ,    76.2 ,       75.85789474 ,75.7 ,       75.115     ], [74.96842105, 75.06842105, 75.07894737 ,74.965    ,  75.085   ,   75.335 , 75.245  ,    74.775  ,    74.17894737 ,73.43684211 ,73.465     ], [73.48421053 ,73.6   ,     73.42631579, 73.575  ,    73.485 ,     73.8 , 73.495    ,  72.61    ,   72.54   ,    71.82631579 ,71.535     ], [71.25789474 ,71.24736842, 70.91052632 ,71.055  ,    71.435     , 71.345  ,71.455  ,    71.28    ,   70.41    ,   69.87368421, 69.22      ], [69.58888889, 69.20526316 ,68.62105263 ,68.495 ,     68.99     ,  69.455,  68.9    ,    68.53    ,   67.945   ,   67.91052632 ,66.57      ] ,[ 0.   ,      66.48947368, 65.685    ,  65.645    ,  65.88    ,   66.125 , 66.11052632, 65.865   ,   65.42     ,  64.72105263 ,63.84      ] ,[ 0.    ,      0.  ,       63.08     ,  62.635    ,  62.84    ,   63.295 , 62.68     ,  62.7     ,   62.58   ,    61.93157895 ,60.405     ] ,[ 0.   ,       0.    ,      0.    ,     59.26666667 ,59.41,       59.595,  59.535,      59.29,       59.03,       58.1,        57.46315789]])
     plot_heatmap(None, cv_values=cv_values, density_values=density_values, data=data)

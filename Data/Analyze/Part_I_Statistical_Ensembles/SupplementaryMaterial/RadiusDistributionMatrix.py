@@ -18,6 +18,7 @@ def gamma(r, cv, mu=1):
     # Compute PDFs
     return gamma_dist.pdf(r)
 
+
 def get_syses(folder=None):
     # If the folder option isnt chosen prompt the user to choose a folder
     if folder is None:
@@ -64,7 +65,6 @@ def distribution_of_overlaps(my_dict=None):
 
     fig, axes = plt.subplots(10, 11, figsize=(20, 18), sharex='all', sharey='all')
 
-
     for i, density in enumerate(density_vals):
         for j, cv in enumerate(cv_vals):
             # if cv not in {0.05, 0.1}:
@@ -91,12 +91,6 @@ def distribution_of_overlaps(my_dict=None):
             pdf_values = gamma(x_values, cv)
             scaled_pdf = pdf_values * total_area
 
-            # Update plot formatting
-            # ax.set_xlabel('Radius', fontsize=25)
-            # ax.set_ylabel('Count', fontsize=25, color='blue')
-            # ax.set_xticks([round(_, 1) for _ in np.linspace(min_rad, max_rad, 4)])
-            # ax.tick_params(axis='both', labelsize=20)
-            # ax.tick_params(axis='y', colors='blue')
             ax.set_ylim(bottom=0)
 
             # Create a secondary y-axis for the histogram
@@ -114,7 +108,6 @@ def distribution_of_overlaps(my_dict=None):
             ax2.set_ylim(bottom=0, top=100)
             # ax2.tick_params(axis='y', colors='red')
 
-
     for ax, col in zip(axes[-1], cv_vals):
         ax.set_xlabel("")  # Remove direct subplot labels, handled below
 
@@ -123,16 +116,16 @@ def distribution_of_overlaps(my_dict=None):
 
     # Add CV values to the bottom of the figure
     for i, col in enumerate(cv_vals):
-        fig.text(0.13 + i * (0.815 / len(cv_vals)), 0.05, col, ha='center', fontsize=15)
+        fig.text(0.13 + i * (0.815 / len(cv_vals)), 0.05, col, ha='center', fontsize=20)
 
     for i, row in enumerate(density_vals[::-1]):
-        fig.text(0.05, 0.125 + i * (0.825 / len(density_vals)), row, va='center', rotation='horizontal', fontsize=15)
+        fig.text(0.05, 0.125 + i * (0.825 / len(density_vals)), row, va='center', rotation='horizontal', fontsize=20)
 
-    fig.text(0.5, 0.02, 'CV Values', ha='center', fontsize=20)  # X-axis label for the figure
-    fig.text(0.02, 0.5, 'Density Values', va='center', rotation='vertical', fontsize=20)  # Y-axis label for the figure
+    fig.text(0.5, 0.02, 'CV Values', ha='center', fontsize=25)  # X-axis label for the figure
+    fig.text(0.02, 0.5, 'Density Values', va='center', rotation='vertical', fontsize=25)  # Y-axis label for the figure
 
     # Add a main title for the entire figure
-    fig.suptitle("Distribution of radii by CV and Density", fontsize=20)
+    fig.suptitle("Distribution of Ball Radii", fontsize=30)
 
     # Adjust layout to prevent overlapping labels
     plt.subplots_adjust(left=0.1, bottom=0.1, top=0.9)
@@ -144,7 +137,5 @@ def distribution_of_overlaps(my_dict=None):
 if __name__ == '__main__':
     # Run the code
     os.chdir('../../../..')
-    print(os.getcwd())
     dicty = get_syses()
-    print(dicty)
     distribution_of_overlaps(dicty)
