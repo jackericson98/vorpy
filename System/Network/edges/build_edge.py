@@ -54,7 +54,7 @@ def mid_edge_point(ep1, ep2, func, vmid, direction, new_direction=True):
     return edge_project(np.array(direction), np.array(vmid), np.array(func))
 
 
-def build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight=False, vmid=None, dnorm=None, edub=False):
+def build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight=False, vmid=None, dnorm=None, edub=False, edge_points1=None, edge_verts=None):
     """
     Build edge function. Takes in the locations and radii of the input balls and the vertices bounding the edge and
     outputs a fully resolved edge.
@@ -75,18 +75,18 @@ def build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight=False, vmi
         edge_vals = calc_edge_dir(blocs, brads, eballs, vlocs, edub=edub)
         vmid, dnorm = edge_vals['vmid'], edge_vals['dnorm']
 
-    # if edge_points1 is not None:
-    #     fig = plt.figure()
-    #     ax = fig.add_subplot(projection='3d')
-    #     plot_edges([edge_points1], fig, ax)
-    #     plot_balls([blocs[_] for _ in eballs], [brads[_] for _ in eballs], fig=fig, ax=ax)
-    #     ax.plot([edge_vals['vmid'][0], edge_vals['vmid'][0] + edge_vals['dnorm'][0]], [edge_vals['vmid'][1], edge_vals['vmid'][1] + edge_vals['dnorm'][1]], [edge_vals['vmid'][2], edge_vals['vmid'][2] + edge_vals['dnorm'][2]])
-    #     plot_balls([edge_vals['loc']], [edge_vals['rad']], fig=fig, ax=ax, colors=['red'])
-    #     plot_verts(vlocs, [1, 1], fig=fig, ax=ax, colors=['g', 'g'])
-    #     print(edge_vals)
-    #     print(vlocs)
-    #     print(edge_verts)
-    #     plt.show()
+    if edge_points1 is not None:
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        plot_edges([edge_points1], fig, ax)
+        plot_balls([blocs[_] for _ in eballs], [brads[_] for _ in eballs], fig=fig, ax=ax)
+        ax.plot([edge_vals['vmid'][0], edge_vals['vmid'][0] + edge_vals['dnorm'][0]], [edge_vals['vmid'][1], edge_vals['vmid'][1] + edge_vals['dnorm'][1]], [edge_vals['vmid'][2], edge_vals['vmid'][2] + edge_vals['dnorm'][2]])
+        plot_balls([edge_vals['loc']], [edge_vals['rad']], fig=fig, ax=ax, colors=['red'])
+        plot_verts(vlocs, [1, 1], fig=fig, ax=ax, colors=['g', 'g'])
+        print(edge_vals)
+        print(vlocs)
+        print(edge_verts)
+        plt.show()
 
     # Check for the case 5
     if edge_vals is not None and edge_vals['case'] == 5:

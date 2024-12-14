@@ -114,7 +114,7 @@ def calc_edge_proj_pt(pv0, pv1, loc):
     return pc01 + 0.5 * r_mag * rn_pcr
 
 
-def calc_edge_dir(locs, rads, eballs, vlocs, edub=False):
+def calc_edge_dir1(locs, rads, eballs, vlocs, edub=False):
     """
     The goal is to 1. check the edge type, 2. From the edge type calculate the direction the points need to be
     calculated
@@ -148,6 +148,9 @@ def calc_edge_dir(locs, rads, eballs, vlocs, edub=False):
                  'dnorm1': None, 'vmid0': None, 'vmid1': None, 'pa': None, 'pa0': None, 'pa1': None}
     # Find the vector perpendicular to the plane normal and the normal of the two vertex points
     dnorm = np.cross(vnorm, pnorm)
+
+    # In the case that it is a case 1 or case 2 edge,
+
 
     # Set up the location verified variables
     loc_verified, loc2_verified = False, False
@@ -314,249 +317,256 @@ def calc_edge_dir(locs, rads, eballs, vlocs, edub=False):
     return edge_info
 
 
-# def calc_edge_dir1(locs, rads, eballs, vlocs):
-#     """
-#     The goal is to 1. check the edge type, 2. From the edge type calculate the direction the points need to be
-#     calculated
-#     """
-#     # Calculate the circle
-#     circ = calc_circ(*[locs[_] for _ in eballs], *[rads[_] for _ in eballs], return_both=True)
-#     # Set up the loc2 and rad2 variables
-#     loc2, rad2 = None, None
-#     # Check the number of returned items
-#     if len(circ) == 2:
-#         loc, rad = circ
-#     elif len(circ) == 4:
-#         loc, rad, loc2, rad2 = circ
-#     else:
-#         return None
-#     # Calculate the distance between the vertices
-#     vdist = np.sqrt(sum([np.square(vlocs[0][i] - vlocs[1][i]) for i in range(3)]))
-#     # Get the center point of the vertices
-#     vdir = vlocs[1] - vlocs[0]
-#     # Normalize the vertex vector
-#     vnorm = vdir / vdist
-#     # Get the halfway point
-#     vmid = vlocs[0] + 0.5 * vdist * vnorm
-#     # Find the plane normal direction
-#     pprime = np.cross(loc - vlocs[0], loc - vlocs[1])
-#     # Normalize this direction
-#     pnorm = pprime / np.linalg.norm(pprime)
-#     # Create the edge info dictionary
-#     edge_info = {'loc': loc, 'rad': rad, 'loc2': loc2, 'rad2': rad2, 'vdist': vdist, 'vnorm': vnorm, 'vmid': vmid,
-#                  'pnorm': pnorm, 'check': False, 'outside': False, 'case': None, 'dnorm': None, 'dnorm0': None,
-#                  'dnorm1': None, 'vmid0': None, 'vmid1': None, 'pa': None, 'pa0': None, 'pa1': None}
-#     # Find the vector perpendicular to the plane normal and the normal of the two vertex points
-#     dnorm = np.cross(vnorm, pnorm)
-#
-#     # Check the type of circle
-#     if loc2 is None:
-#         # Determine if the center is outside the vertices by checking the distance between the vertices and the center
-#         if any([np.sqrt(sum([np.square(vlocs[j][i] - loc[i]) for i in range(3)])) > vdist for j in range(2)]):
-#             # The center is outside so we need to set the direction opposite the direction of the center
-#             if np.dot(dnorm, loc - vmid) > 0:
-#                 dnorm = - dnorm
-#                 edge_info['case'] = '1a'
-#             else:
-#                 edge_info['case'] = '1b'
-#             edge_info['outside'] = True
-#         # The center is inside the vertices we want to point dnorm towards the center
-#         else:
-#             if np.dot(dnorm, loc - vmid) < 0:
-#                 edge_info['case'] = '1c'
-#                 dnorm = - dnorm
-#             else:
-#                 edge_info['case'] = '1d'
-#         # Set the edge info values
-#         edge_info['dnorm'] = dnorm
-#         # Set the pa
-#         edge_info['pa'] = vmid - 0.5 * vdist * dnorm
-#         # Return the information
-#         return edge_info
-#
-#     # If the locations of the circle are both outside the vertices we have a simple aim away case
-#     if all([any([np.sqrt(sum([np.square(vlocs[j][i] - _[i]) for i in range(3)])) > vdist for j in range(2)]) for _ in [loc, loc2]]):
-#         # If both locs are outside the vertices we point away from the loc
-#         if np.dot(dnorm, loc - vmid) > 0:
-#             # Flip the dnorm value
-#             edge_info['case'] = '2a'
-#             dnorm = - dnorm
-#         else:
-#             edge_info['case'] = '2b'
-#         # Set the edge info values
-#         edge_info['dnorm'], edge_info['outside'] = dnorm, True
-#         # Calculate the distance between the middle of the vertices and the two locs
-#         loc_vmid_dist = calc_dist(vmid, loc)
-#         loc2_vmid_dist = calc_dist(vmid, loc2)
-#         # If the loc2 distance is closer swap them boys
-#         if loc2_vmid_dist < loc_vmid_dist:
-#             edge_info['loc'], edge_info['rad'], edge_info['loc2'], edge_info['rad2'] = (
-#                 edge_info['loc2'], edge_info['rad2'], edge_info['loc'], edge_info['rad'])
-#         # Set the pa
-#         edge_info['pa'] = vmid - 0.5 * vdist * dnorm
-#         # Return the information
-#         return edge_info
-#
-#     # First test loc2 to see if it overlaps with any other balls. Best case bc rad2 > rad so less likely
-#     # Get the loc2 box for getting ready to gather the balls around it
-#     loc2_box = box_search(loc2)
-#     # If we dont get a box for loc2 its out of bounds
-#     if loc2_box is not None:
-#         # Gather the balls within the range of the loc2
-#         loc2_balls = [_ for _ in get_balls(loc2_box, rad2) if _ not in eballs]
-#         # Verify the loc2. If the loc2 interacts with another ball, then the edge needs to be projected toward loc
-#         if not verify_site(loc2, rad2, np.array([locs[_] for _ in loc2_balls]), np.array([rads[_] for _ in loc2_balls])):
-#             # If dnorm is facing loc, return it as normal because it cant be facing loc2
-#             if np.dot(dnorm, loc - vmid) < 0:
-#                 # Flip the dnorm value because it is facing away from loc
-#                 edge_info['case'] = '3a'
-#                 print("Case 3a: {}".format(eballs))
-#                 dnorm = - dnorm
-#             else:
-#                 edge_info['case'] = '3b'
-#                 print("Case 3b: {}".format(eballs))
-#             # Set the edge info values
-#             edge_info['dnorm'] = dnorm
-#             # Set the pa
-#             edge_info['pa'] = vmid - 0.5 * vdist * dnorm
-#             # Return the information
-#             return edge_info
-#     else:
-#         # If dnorm is facing loc, flip dnorm since loc is not verified and therefore not in the edge
-#         if np.dot(dnorm, loc - vmid) < 0:
-#             edge_info['case'] = '4a1'
-#             print("Case 4a1: {}".format(eballs))
-#             # Flip the dnorm value because it is facing away from loc
-#             dnorm = - dnorm
-#         else:
-#             edge_info['case'] = '4b1'
-#             print("Case 4b1: {}".format(eballs))
-#
-#         # Set the edge info values
-#         edge_info['dnorm'] = dnorm
-#         # If the loc2 distance is closer swap them boys
-#         if calc_dist(edge_info['loc'], vmid) < calc_dist(edge_info['loc2'], vmid):
-#             edge_info['loc'], edge_info['rad'], edge_info['loc2'], edge_info['rad2'] = (
-#                 edge_info['loc2'], edge_info['rad2'], edge_info['loc'], edge_info['rad'])
-#         # Set the pa
-#         edge_info['pa'] = vmid - 0.5 * vdist * dnorm
-#         # Return the information
-#         return edge_info
-#
-#     # Next test loc to see if it overlaps with any other balls. 2nd Best case
-#     # Get the loc box for getting ready to gather the balls around it
-#     loc_box = box_search(loc)
-#     # If we dont get a box for loc it is out of bounds
-#     if loc_box is not None:
-#         # Gather the balls within the range of the loc2
-#         loc_balls = [_ for _ in get_balls(loc_box, rad2) if _ not in eballs]
-#         # Verify the loc. If the loc2 interacts with another ball, then the edge needs to be projected toward loc
-#         if not verify_site(loc, rad2, np.array([locs[_] for _ in loc_balls]), np.array([rads[_] for _ in loc_balls])):
-#             # If dnorm is facing loc, flip dnorm since loc is not verified and therefore not in the edge
-#             if np.dot(dnorm, loc - vmid) > 0:
-#                 edge_info['case'] = '4a'
-#                 print("Case 4a: {}".format(eballs))
-#                 # Flip the dnorm value because it is facing away from loc
-#                 dnorm = - dnorm
-#             else:
-#                 edge_info['case'] = '4b'
-#                 print("Case 4b: {}".format(eballs))
-#
-#             # Set the edge info values
-#             edge_info['dnorm'] = dnorm
-#             # If the loc2 distance is closer swap them boys
-#             if calc_dist(edge_info['loc'], vmid) < calc_dist(edge_info['loc2'], vmid):
-#                 edge_info['loc'], edge_info['rad'], edge_info['loc2'], edge_info['rad2'] = (
-#                     edge_info['loc2'], edge_info['rad2'], edge_info['loc'], edge_info['rad'])
-#             # Set the pa
-#             edge_info['pa'] = vmid - 0.5 * vdist * dnorm
-#             # Return the information
-#             return edge_info
-#     else:
-#         # If dnorm is facing loc, return it as normal because it cant be facing loc2
-#         if np.dot(dnorm, loc - vmid) < 0:
-#             # Flip the dnorm value because it is facing away from loc
-#             edge_info['case'] = '3a1'
-#             print("Case 3a1: {}".format(eballs))
-#             dnorm = - dnorm
-#         else:
-#             edge_info['case'] = '3b1'
-#             print("Case 3b1: {}".format(eballs))
-#         # Set the edge info values
-#         edge_info['dnorm'] = dnorm
-#         # Set the pa
-#         edge_info['pa'] = vmid - 0.5 * vdist * dnorm
-#         # Return the information
-#         return edge_info
-#
-#     # At this point we have an ellipse edge and we have both locs verifiable. This is worst case and the edge will need
-#     # to be split into thirds. The first will be between the vertex closest to ec1 and ec1, the next will be between ec1
-#     # and ec2 and the last will be between ec2 and the vertex closest to ec2
-#
-#     # Mark the case
-#     edge_info['case'] = '5'
-#     print('case 5: {}'.format(eballs))
-#
-#     # First swap the locs if needed
-#     if calc_dist(edge_info['loc'], vlocs[1]) < calc_dist(edge_info['loc'], vlocs[0]):
-#         edge_info['loc'], edge_info['loc2'] = edge_info['loc2'], edge_info['loc']
-#
-#     # Get the direction for the first sub_edge
-#     vdir0 = edge_info['loc'] - vlocs[0]
-#     # calculate the distance between the points
-#     vdist0 = np.linalg.norm(vdir0)
-#     # Get the normal to this
-#     vnorm0 = vdir0 / vdist0
-#     # Get the perpendicular guy to this and the plane
-#     dnorm0 = np.cross(vnorm0, pnorm)
-#     # Get the middle of the two
-#     vmid0 = vlocs[0] + 0.5 * vdist0 * vnorm0
-#     # Check the direction
-#     if np.dot(edge_info['loc2'] - vmid0, dnorm0) > 0:
-#         dnorm0 = - dnorm0
-#     # Set the edge_info values
-#     edge_info['dnorm0'], edge_info['vmid0'], edge_info['vnorm0'], edge_info['vdist0'] = dnorm0, vmid0, vnorm0, vdist0
-#     # Set the pa
-#     edge_info['pa0'] = vmid0 - 0.5 * vdist0 * dnorm0
-#
-#     # Get the direction for the first sub_edge
-#     vdir = edge_info['loc2'] - edge_info['loc']
-#     # calculate the distance between the points
-#     vdist = np.linalg.norm(vdir)
-#     # Get the normal to this
-#     vnorm = vdir / vdist
-#     # Get the perpendicular guy to this and the plane
-#     dnorm = np.cross(vnorm, pnorm)
-#     # Get the middle of the two
-#     vmid = edge_vals['loc'] + 0.5 * vdist * vnorm
-#     # Check the direction
-#     if np.dot(vlocs[0] - vmid, dnorm) > 0:
-#         dnorm = - dnorm
-#     # Set the edge_info values
-#     edge_info['dnorm'], edge_info['vmid'], edge_info['vnorm'], edge_info['vdist'] = dnorm, vmid, vnorm, vdist
-#     # Set the pa
-#     edge_info['pa'] = vmid - 0.5 * vdist * dnorm
-#
-#     # Get the direction for the first sub_edge
-#     vdir1 = vlocs[1] - edge_info['loc2']
-#     # calculate the distance between the points
-#     vdist1 = np.linalg.norm(vdir1)
-#     # Get the normal to this
-#     vnorm1 = vdir1 / vdist1
-#     # Get the perpendicular guy to this and the plane
-#     dnorm1 = np.cross(vnorm1, pnorm)
-#     # Get the middle of the two
-#     vmid1 = edge_info['loc2'] + 0.5 * vdist1 * vnorm1
-#     # Check the direction
-#     if np.dot(edge_info['loc'] - vmid1, dnorm1) > 0:
-#         dnorm1 = - dnorm1
-#     # Set the edge_info values
-#     edge_info['dnorm1'], edge_info['vmid1'], edge_info['vnorm1'], edge_info['vdist1'] = dnorm1, vmid1, vnorm1, vdist1
-#     # Set the pa
-#     edge_info['pa1'] = vmid1 - 0.5 * vdist1 * dnorm1
-#
-#     # Return the information
-#     return edge_info
+def calc_edge_dir(locs, rads, eballs, vlocs):
+    """
+    The goal is to 1. check the edge type, 2. From the edge type calculate the direction the points need to be
+    calculated
+    """
+    # Calculate the circle
+    circ = calc_circ(*[locs[_] for _ in eballs], *[rads[_] for _ in eballs], return_both=True)
+    # Set up the loc2 and rad2 variables
+    loc2, rad2 = None, None
+    # Check the number of returned items
+    if len(circ) == 2:
+        loc, rad = circ
+    elif len(circ) == 4:
+        loc, rad, loc2, rad2 = circ
+    else:
+        return None
+    # Calculate the distance between the vertices
+    vdist = np.sqrt(sum([np.square(vlocs[0][i] - vlocs[1][i]) for i in range(3)]))
+    # Get the center point of the vertices
+    vdir = vlocs[1] - vlocs[0]
+    # Normalize the vertex vector
+    vnorm = vdir / vdist
+    # Get the halfway point
+    vmid = vlocs[0] + 0.5 * vdist * vnorm
+    # Find the plane normal direction
+    pprime = np.cross(loc - vlocs[0], loc - vlocs[1])
+    # Normalize this direction
+    pnorm = pprime / np.linalg.norm(pprime)
+    # Create the edge info dictionary
+    edge_info = {'loc': loc, 'rad': rad, 'loc2': loc2, 'rad2': rad2, 'vdist': vdist, 'vnorm': vnorm, 'vmid': vmid,
+                 'pnorm': pnorm, 'check': False, 'outside': False, 'case': None, 'dnorm': None, 'dnorm0': None,
+                 'dnorm1': None, 'vmid0': None, 'vmid1': None, 'pa': None, 'pa0': None, 'pa1': None}
+    # Find the vector perpendicular to the plane normal and the normal of the two vertex points
+    dnorm = np.cross(vnorm, pnorm)
+
+    # Check the type of circle
+    if loc2 is None:
+        # Calculate the relevant distances and sort them small to large
+        v0_dist, v1_dist = sorted([calc_dist(vlocs[0], loc), calc_dist(vlocs[1], loc)])
+        # Calculate the distance between the center to the edge center
+        # vmid_dist = calc_dist(vmid, loc)
+        # # Set up the tracking variables
+        # if v1_dist <
+        # Check the orientation
+        # Determine if the center is outside the vertices by checking the distance between the vertices and the center
+        if v1_dist > vdist :
+            # The center is outside so we need to set the direction opposite the direction of the center
+            if np.dot(dnorm, loc - vmid) > 0:
+                dnorm = - dnorm
+                edge_info['case'] = '1a'
+            else:
+                edge_info['case'] = '1b'
+            edge_info['outside'] = True
+        # The center is inside the vertices we want to point dnorm towards the center
+        else:
+            if np.dot(dnorm, loc - vmid) < 0:
+                edge_info['case'] = '1c'
+                dnorm = - dnorm
+            else:
+                edge_info['case'] = '1d'
+        # Set the edge info values
+        edge_info['dnorm'] = dnorm
+        # Set the pa
+        edge_info['pa'] = vmid - 0.5 * vdist * dnorm
+        # Return the information
+        return edge_info
+
+    # If the locations of the circle are both outside the vertices we have a simple aim away case
+    if all([any([np.sqrt(sum([np.square(vlocs[j][i] - _[i]) for i in range(3)])) > vdist for j in range(2)]) for _ in [loc, loc2]]):
+        # If both locs are outside the vertices we point away from the loc
+        if np.dot(dnorm, loc - vmid) > 0:
+            # Flip the dnorm value
+            edge_info['case'] = '2a'
+            dnorm = - dnorm
+        else:
+            edge_info['case'] = '2b'
+        # Set the edge info values
+        edge_info['dnorm'], edge_info['outside'] = dnorm, True
+        # Calculate the distance between the middle of the vertices and the two locs
+        loc_vmid_dist = calc_dist(vmid, loc)
+        loc2_vmid_dist = calc_dist(vmid, loc2)
+        # If the loc2 distance is closer swap them boys
+        if loc2_vmid_dist < loc_vmid_dist:
+            edge_info['loc'], edge_info['rad'], edge_info['loc2'], edge_info['rad2'] = (
+                edge_info['loc2'], edge_info['rad2'], edge_info['loc'], edge_info['rad'])
+        # Set the pa
+        edge_info['pa'] = vmid - 0.5 * vdist * dnorm
+        # Return the information
+        return edge_info
+
+    # First test loc2 to see if it overlaps with any other balls. Best case bc rad2 > rad so less likely
+    # Get the loc2 box for getting ready to gather the balls around it
+    loc2_box = box_search(loc2)
+    # If we dont get a box for loc2 its out of bounds
+    if loc2_box is not None:
+        # Gather the balls within the range of the loc2
+        loc2_balls = [_ for _ in get_balls(loc2_box, rad2) if _ not in eballs]
+        # Verify the loc2. If the loc2 interacts with another ball, then the edge needs to be projected toward loc
+        if not verify_site(loc2, rad2, np.array([locs[_] for _ in loc2_balls]), np.array([rads[_] for _ in loc2_balls])):
+            # If dnorm is facing loc, return it as normal because it cant be facing loc2
+            if np.dot(dnorm, loc - vmid) < 0:
+                # Flip the dnorm value because it is facing away from loc
+                edge_info['case'] = '3a'
+                # print("Case 3a: {}".format(eballs))
+                dnorm = - dnorm
+            else:
+                edge_info['case'] = '3b'
+                # print("Case 3b: {}".format(eballs))
+            # Set the edge info values
+            edge_info['dnorm'] = dnorm
+            # Set the pa
+            edge_info['pa'] = vmid - 0.5 * vdist * dnorm
+            # Return the information
+            return edge_info
+    else:
+        # If dnorm is facing loc, flip dnorm since loc is not verified and therefore not in the edge
+        if np.dot(dnorm, loc - vmid) < 0:
+            edge_info['case'] = '4a1'
+            # print("Case 4a1: {}".format(eballs))
+            # Flip the dnorm value because it is facing away from loc
+            dnorm = - dnorm
+        else:
+            edge_info['case'] = '4b1'
+            # print("Case 4b1: {}".format(eballs))
+
+        # Set the edge info values
+        edge_info['dnorm'] = dnorm
+        # If the loc2 distance is closer swap them boys
+        if calc_dist(edge_info['loc'], vmid) < calc_dist(edge_info['loc2'], vmid):
+            edge_info['loc'], edge_info['rad'], edge_info['loc2'], edge_info['rad2'] = (
+                edge_info['loc2'], edge_info['rad2'], edge_info['loc'], edge_info['rad'])
+        # Set the pa
+        edge_info['pa'] = vmid - 0.5 * vdist * dnorm
+        # Return the information
+        return edge_info
+
+    # Next test loc to see if it overlaps with any other balls. 2nd Best case
+    # Get the loc box for getting ready to gather the balls around it
+    loc_box = box_search(loc)
+    # If we dont get a box for loc it is out of bounds
+    if loc_box is not None:
+        # Gather the balls within the range of the loc2
+        loc_balls = [_ for _ in get_balls(loc_box, rad2) if _ not in eballs]
+        # Verify the loc. If the loc2 interacts with another ball, then the edge needs to be projected toward loc
+        if not verify_site(loc, rad2, np.array([locs[_] for _ in loc_balls]), np.array([rads[_] for _ in loc_balls])):
+            # If dnorm is facing loc, flip dnorm since loc is not verified and therefore not in the edge
+            if np.dot(dnorm, loc - vmid) > 0:
+                edge_info['case'] = '4a'
+                # print("Case 4a: {}".format(eballs))
+                # Flip the dnorm value because it is facing away from loc
+                dnorm = - dnorm
+            else:
+                edge_info['case'] = '4b'
+                # print("Case 4b: {}".format(eballs))
+
+            # Set the edge info values
+            edge_info['dnorm'] = dnorm
+            # If the loc2 distance is closer swap them boys
+            if calc_dist(edge_info['loc'], vmid) < calc_dist(edge_info['loc2'], vmid):
+                edge_info['loc'], edge_info['rad'], edge_info['loc2'], edge_info['rad2'] = (
+                    edge_info['loc2'], edge_info['rad2'], edge_info['loc'], edge_info['rad'])
+            # Set the pa
+            edge_info['pa'] = vmid - 0.5 * vdist * dnorm
+            # Return the information
+            return edge_info
+    else:
+        # If dnorm is facing loc, return it as normal because it cant be facing loc2
+        if np.dot(dnorm, loc - vmid) < 0:
+            # Flip the dnorm value because it is facing away from loc
+            edge_info['case'] = '3a1'
+            # print("Case 3a1: {}".format(eballs))
+            dnorm = - dnorm
+        else:
+            edge_info['case'] = '3b1'
+            # print("Case 3b1: {}".format(eballs))
+        # Set the edge info values
+        edge_info['dnorm'] = dnorm
+        # Set the pa
+        edge_info['pa'] = vmid - 0.5 * vdist * dnorm
+        # Return the information
+        return edge_info
+
+    # At this point we have an ellipse edge and we have both locs verifiable. This is worst case and the edge will need
+    # to be split into thirds. The first will be between the vertex closest to ec1 and ec1, the next will be between ec1
+    # and ec2 and the last will be between ec2 and the vertex closest to ec2
+
+    # Mark the case
+    edge_info['case'] = '5'
+    # print('case 5: {}'.format(eballs))
+
+    # First swap the locs if needed
+    if calc_dist(edge_info['loc'], vlocs[1]) < calc_dist(edge_info['loc'], vlocs[0]):
+        edge_info['loc'], edge_info['loc2'] = edge_info['loc2'], edge_info['loc']
+
+    # Get the direction for the first sub_edge
+    vdir0 = edge_info['loc'] - vlocs[0]
+    # calculate the distance between the points
+    vdist0 = np.linalg.norm(vdir0)
+    # Get the normal to this
+    vnorm0 = vdir0 / vdist0
+    # Get the perpendicular guy to this and the plane
+    dnorm0 = np.cross(vnorm0, pnorm)
+    # Get the middle of the two
+    vmid0 = vlocs[0] + 0.5 * vdist0 * vnorm0
+    # Check the direction
+    if np.dot(edge_info['loc2'] - vmid0, dnorm0) > 0:
+        dnorm0 = - dnorm0
+    # Set the edge_info values
+    edge_info['dnorm0'], edge_info['vmid0'], edge_info['vnorm0'], edge_info['vdist0'] = dnorm0, vmid0, vnorm0, vdist0
+    # Set the pa
+    edge_info['pa0'] = vmid0 - 0.5 * vdist0 * dnorm0
+
+    # Get the direction for the first sub_edge
+    vdir = edge_info['loc2'] - edge_info['loc']
+    # calculate the distance between the points
+    vdist = np.linalg.norm(vdir)
+    # Get the normal to this
+    vnorm = vdir / vdist
+    # Get the perpendicular guy to this and the plane
+    dnorm = np.cross(vnorm, pnorm)
+    # Get the middle of the two
+    vmid = edge_vals['loc'] + 0.5 * vdist * vnorm
+    # Check the direction
+    if np.dot(vlocs[0] - vmid, dnorm) > 0:
+        dnorm = - dnorm
+    # Set the edge_info values
+    edge_info['dnorm'], edge_info['vmid'], edge_info['vnorm'], edge_info['vdist'] = dnorm, vmid, vnorm, vdist
+    # Set the pa
+    edge_info['pa'] = vmid - 0.5 * vdist * dnorm
+
+    # Get the direction for the first sub_edge
+    vdir1 = vlocs[1] - edge_info['loc2']
+    # calculate the distance between the points
+    vdist1 = np.linalg.norm(vdir1)
+    # Get the normal to this
+    vnorm1 = vdir1 / vdist1
+    # Get the perpendicular guy to this and the plane
+    dnorm1 = np.cross(vnorm1, pnorm)
+    # Get the middle of the two
+    vmid1 = edge_info['loc2'] + 0.5 * vdist1 * vnorm1
+    # Check the direction
+    if np.dot(edge_info['loc'] - vmid1, dnorm1) > 0:
+        dnorm1 = - dnorm1
+    # Set the edge_info values
+    edge_info['dnorm1'], edge_info['vmid1'], edge_info['vnorm1'], edge_info['vdist1'] = dnorm1, vmid1, vnorm1, vdist1
+    # Set the pa
+    edge_info['pa1'] = vmid1 - 0.5 * vdist1 * dnorm1
+
+    # Return the information
+    return edge_info
 
 
 # def check_edge_loop(locs, rads, blocs, brads):

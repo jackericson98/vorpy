@@ -186,6 +186,13 @@ class Network:
             h, m, s = get_time(my_time)
             print("\rRun Time = {}:{:02d}:{:2.2f} - Process: building edges: edge {} - {} - {:.2f} %"
                   .format(int(h), int(m), round(s, 2), i, edge['balls'], percentage), end="")
+            edge_points, edge_vals = None, None
+            if False:
+                edge_points, edge_vals = build_edge_old(locs=[self.balls['loc'][_] for _ in edge['balls']],
+                                                        rads=[self.balls['rad'][_] for _ in edge['balls']],
+                                                        vlocs=[array(self.verts['loc'][_]) for _ in edge['verts']],
+                                                        res=self.settings['surf_res'])
+
             # Build the edge depending on if it is straight or not
             edge_points, edge_vals = build_edge(locs=[array(self.balls['loc'][_]) for _ in edge['balls']],
                                                 rads=[self.balls['rad'][_] for _ in edge['balls']],
@@ -193,7 +200,8 @@ class Network:
                                                 blocs=self.balls['loc'], brads=self.balls['rad'], eballs=edge['balls'],
                                                 res=self.settings['surf_res'],
                                                 straight=self.settings['net_type'] in {'prm', 'pow'},
-                                                edub=any([self.verts['dub'][_] in {1, 2} for _ in edge['verts']]))
+                                                edub=any([self.verts['dub'][_] in {1, 2} for _ in edge['verts']]),
+                                                edge_points1=edge_points, edge_verts=self.verts.iloc[edge['verts']])
             edges_lengths.append(calc_length(array(edge_points)))
             edges_points.append(edge_points)
             edges_vals.append(edge_vals)
