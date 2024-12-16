@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 from System.sys_funcs.calcs.calcs import calc_dist, calc_com, calc_angle_jit
 from System.sys_funcs.calcs.edge import calc_circ, calc_edge_dir
@@ -5,6 +7,13 @@ from System.Network.edges.edge_project import edge_project
 from System.sys_funcs.calcs.surf import calc_surf_func
 from Visualize.mpl_visualize import plot_edges, plot_balls, plot_verts
 import matplotlib.pyplot as plt
+
+
+def edge_bad(e_points):
+    """
+    We need to find out if the edge points are out of order
+    """
+
 
 
 def build_straight_edge(locs, rads, vlocs, res):
@@ -54,7 +63,8 @@ def mid_edge_point(ep1, ep2, func, vmid, direction, new_direction=True):
     return edge_project(np.array(direction), np.array(vmid), np.array(func))
 
 
-def build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight=False, vmid=None, dnorm=None, edub=False, edge_points1=None, edge_verts=None):
+def build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight=False, vmid=None, dnorm=None, edub=False,
+               edge_points1=None, edge_verts=None, redone_edge=False):
     """
     Build edge function. Takes in the locations and radii of the input balls and the vertices bounding the edge and
     outputs a fully resolved edge.
@@ -97,7 +107,8 @@ def build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight=False, vmi
         edge1 = build_edge(locs, rads, [edge_vals['loc2'], vlocs[1]], blocs, brads, eballs, res, straight,
                            edge_vals['vmid1'], edge_vals['dnorm1'])
         return edge0[0] + edge[0] + edge1[0], edge_vals
-
+    # Create a catch for the time
+    start = time.perf_counter()
     # Instantiate the edge points list with the vertices
     e_points = [*vlocs]
     # Main edge calculation loop
@@ -124,6 +135,17 @@ def build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight=False, vmi
         # If no new points were added, the refinement is complete
         if not new_points_added:
             return e_points, edge_vals
+        # Check the time
+        if time.perf_counter() - start > 1000:
+            # If the edge is already being redone it is bad and there needs to be checked
+            if redone_edge:
+                print(eballs)
+                raise ValueError
+
+            # Check the points
+            if edge_bad(e_points):
+                return build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight, vmid, -dnorm, edub,
+                                  redone_edge=True)
 
 
 # Find projection values. Calculates the 181L end and projection points for the edge

@@ -362,7 +362,7 @@ def calc_edge_dir(locs, rads, eballs, vlocs, edub=False):
         # if v1_dist <
         # Check the orientation
         # Determine if the center is outside the vertices by checking the distance between the vertices and the center
-        if v1_dist > vdist :
+        if v1_dist > vdist:
             # The center is outside so we need to set the direction opposite the direction of the center
             if np.dot(dnorm, loc - vmid) > 0:
                 dnorm = - dnorm
