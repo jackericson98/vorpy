@@ -317,7 +317,7 @@ def calc_edge_dir1(locs, rads, eballs, vlocs, edub=False):
     return edge_info
 
 
-def calc_edge_dir(locs, rads, eballs, vlocs):
+def calc_edge_dir(locs, rads, eballs, vlocs, edub=False):
     """
     The goal is to 1. check the edge type, 2. From the edge type calculate the direction the points need to be
     calculated
