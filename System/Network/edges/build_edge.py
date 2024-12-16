@@ -13,7 +13,11 @@ def edge_bad(e_points):
     """
     We need to find out if the edge points are out of order
     """
-
+    for i in range(len(e_points) - 2):
+        angle = calc_angle_jit(e_points[i + 1], e_points[i], e_points[i + 2])
+        if angle < np.pi / 3 or angle > 5 * np.pi / 3:
+            return False
+    return True
 
 
 def build_straight_edge(locs, rads, vlocs, res):
