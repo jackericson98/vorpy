@@ -13,11 +13,9 @@ for roott, folders, files in os.walk(user_data):
     for folder in folders:
         for new_roott, sub_folders, filess in os.walk(roott + '/' + folder):
             if new_roott[-3:] == 'vor' or new_roott[-3:] == 'pow' or new_roott[-2:] == 'aw':
-                print(new_roott)
                 removal_directories.append(new_roott)
             for file in filess:
-                if file == 'verts.txt':
-                    print(file)
+                if 'vert' in file:
                     removal_directories.append(roott + '/' + folder + '/' + file)
                 elif 'info.txt' in file:
                     removal_directories.append(roott + '/' + folder + '/' + file)
