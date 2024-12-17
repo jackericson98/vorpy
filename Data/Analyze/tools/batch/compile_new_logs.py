@@ -88,7 +88,7 @@ def make_new_logs(logs_pdbs_dict=None, logs_pdbs_file=None):
                          'abs diff max spike dist (pow base)', 'std diff max spike dist (pow base)'])
         for _ in logs_pdbs_dict:
             counter += 1
-            my_sys = System(logs_pdbs_dict[_]['pdb'])
+            my_sys = System(logs_pdbs_dict[_]['pdb'], simple=True)
             aw_logs = read_logs2(logs_pdbs_dict[_]['aw'])
             pow_logs = read_logs2(logs_pdbs_dict[_]['pow'])
             new_info_dict[_] = {'aw_neighbs': [], 'pow_neighbs': [], 'rads': [], 'aw_sphericity': [], 'pow_sphericity': [],
