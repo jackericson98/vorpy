@@ -1,4 +1,5 @@
 import tkinter as tk
+from datetime import datetime
 from tkinter import filedialog
 import os
 import platform
@@ -112,4 +113,4 @@ for foam_write in file_handles:
     foam_write.close()
 
 
-print('{}/{} finished'.format(num_done, tot))
+print(f"{num_done}/{tot} finished at {datetime.now().strftime('%Y-%m-%d %I:%M %p')}")
