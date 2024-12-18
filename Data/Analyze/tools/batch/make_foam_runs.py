@@ -1,4 +1,5 @@
 import tkinter as tk
+from datetime import datetime
 from tkinter import filedialog
 import os
 import platform
@@ -87,29 +88,32 @@ strings = [x for _, x in sorted(zip(numbers, strings), key=lambda _: _)]
 chunk_size = 400
 num_files = (len(strings) + chunk_size - 1) // chunk_size  # Calculate number of files
 
-# Initialize file writers and create the files
-file_handles = []
-for j in range(num_files):
-    file_name = f"{thine_dir}/foam_runs_{j}.{'sh' if OS == 'linux' else 'bat'}"
-    mode = 'w'  # Write mode for initial creation
-    file_handles.append(open(file_name, mode))
+# As if the user wants to make the files
+make_files = input('Make run files? (y/n)  >>>   ')
+if make_files.strip().lower() in {'y', 'yes'}:
+    # Initialize file writers and create the files
+    file_handles = []
+    for j in range(num_files):
+        file_name = f"{thine_dir}/foam_runs_{j}.{'sh' if OS == 'linux' else 'bat'}"
+        mode = 'w'  # Write mode for initial creation
+        file_handles.append(open(file_name, mode))
 
-# Write the strings evenly into the files
-for i, string in enumerate(strings):
-    # Distribute first 'important' strings sequentially across all files
-    file_index = i % num_files if i < num_files else i // chunk_size
-    foam_write = file_handles[file_index]
+    # Write the strings evenly into the files
+    for i, string in enumerate(strings):
+        # Distribute first 'important' strings sequentially across all files
+        file_index = i % num_files if i < num_files else i // chunk_size
+        foam_write = file_handles[file_index]
 
-    # For Linux files, add a header only once per file
-    if foam_write.tell() == 0 and OS == 'linux':
-        foam_write.write('#!/bin/sh\n')
+        # For Linux files, add a header only once per file
+        if foam_write.tell() == 0 and OS == 'linux':
+            foam_write.write('#!/bin/sh\n')
 
-    # Write the current string to the appropriate file
-    foam_write.write(string)
+        # Write the current string to the appropriate file
+        foam_write.write(string)
 
-# Close all file handles
-for foam_write in file_handles:
-    foam_write.close()
+    # Close all file handles
+    for foam_write in file_handles:
+        foam_write.close()
 
 
-print('{}/{} finished'.format(num_done, tot))
+print(f"{num_done}/{tot} finished at {datetime.now().strftime('%Y-%m-%d %I:%M %p')}")
