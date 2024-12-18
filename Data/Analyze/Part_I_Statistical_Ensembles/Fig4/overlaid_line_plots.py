@@ -27,6 +27,15 @@ with open(my_foams_file, 'r') as my_foam_data:
                             'rad std': float(my_line[3]), 'num balls': int(my_line[4]),
                             'density': float(my_line[5]), 'vol diff vor': float(my_line[6]),
                             'sa diff vor': float(my_line[7]), 'vol diff pow': float(my_line[8]), 'sa diff pow': float(my_line[9])})
+
+        except ValueError:
+            if len(my_line) <= 1:
+                continue
+            my_data.append({'num': my_line[0], 'avg rad size': float(my_line[5][:-1]), 'box size': float(my_line[1][:-1]),
+                            'rad std': float(my_line[8][:-1]), 'num balls': int(my_line[14][:-1]),
+                            'density': float(my_line[17][:-1]), 'vol diff vor': float(my_line[36]),
+                            'sa diff vor': float(my_line[37]), 'vol diff pow': float(my_line[38]),
+                            'sa diff pow': float(my_line[39])})
         except ValueError:
             continue
 if 'log' in my_data[0]['num'].lower():
@@ -83,8 +92,6 @@ datavvps, datavsps, datapvps, datapsps = [[] for _ in my_sds], [[] for _ in my_s
 
 # Iterate over my_sds and my_densities using nested loops
 for i, num in enumerate(my_sds):
-    if round(num % 0.1, 2) == 0.05:
-        continue
     for j, num2 in enumerate(my_densities):
         means = []
         sds = []
@@ -178,24 +185,3 @@ for value in ['vol', 'sa']:
     # Show the plot
     plt.show()
 
-# Create a single plot
-# fig, ax = plt.subplots(figsize=(8, 6))
-# for i in range(len(datavvm)):
-#     ax.plot(my_densities[2:], datavvm[i][2:], label=str(my_sds[i]))
-#     ax.fill_between(my_densities[2:], datavvms[i][2:], datavvps[i][2:], alpha=0.2)
-#
-#
-# # Set plot title and legend
-# ax.set_xticks(np.arange(my_densities[1], my_densities[-1] + 0.05, 0.05))
-# ax.set_title('Power Volume Deviation (Closed)', fontsize=30)
-# ax.set_xlabel('Density', fontsize=20)
-# ax.set_ylabel('% Difference', fontsize=20)
-# ax.tick_params(axis='both', which='major', labelsize=15)
-# legend = ax.legend(loc='upper right', bbox_to_anchor=(1.25, 1))
-# legend.set_title('CV')
-#
-# # Adjust the right margin to make room for the legend
-# plt.subplots_adjust(right=0.8)
-#
-# # Show the plot
-# plt.show()
