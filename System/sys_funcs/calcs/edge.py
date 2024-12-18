@@ -538,7 +538,7 @@ def calc_edge_dir(locs, rads, eballs, vlocs, edub=False):
     # Get the perpendicular guy to this and the plane
     dnorm = np.cross(vnorm, pnorm)
     # Get the middle of the two
-    vmid = edge_vals['loc'] + 0.5 * vdist * vnorm
+    vmid = edge_info['loc'] + 0.5 * vdist * vnorm
     # Check the direction
     if np.dot(vlocs[0] - vmid, dnorm) > 0:
         dnorm = - dnorm
