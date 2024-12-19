@@ -14,6 +14,30 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 
+def get_files(folder):
+    """Traverse the folder and extract required PDB and log files.
+    Logs are identified based on subfolder names containing 'aw' or 'pow'.
+    """
+    pdb_file, aw_logs, pow_logs = None, None, None
+
+    for root_dir, sub_dirs, files in os.walk(folder):
+        for file in files:
+            if file.endswith('.pdb') and 'atoms' not in file and 'diff' not in file:
+                pdb_file = path.join(root_dir, file)
+
+        # Check sub-subfolders for logs
+        for sub_dir in sub_dirs:
+            if 'aw' in sub_dir.lower():
+                for file in os.listdir(path.join(root_dir, sub_dir)):
+                    if file.endswith('.csv'):
+                        aw_logs = path.join(root_dir, sub_dir, file)
+            elif 'pow' in sub_dir.lower():
+                for file in os.listdir(path.join(root_dir, sub_dir)):
+                    if file.endswith('.csv'):
+                        pow_logs = path.join(root_dir, sub_dir, file)
+    return pdb_file, aw_logs, pow_logs
+
+
 root = tk.Tk()
 root.withdraw()
 root.wm_attributes('-topmost', 1)
@@ -21,14 +45,7 @@ sets = {}
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 5))
 while True:
     folder = filedialog.askdirectory(title='Choose the folder mf')
-    for rroot, directys, files in os.walk(folder):
-        for file in files:
-            if file[-3:] == 'pdb' and 'atoms' not in file and 'diff' not in file:
-                pdb = rroot + '/' + file
-            if file[-3:] == 'csv' and 'aw' in file:
-                aw_logs = rroot + '/' + file
-            if file[-3:] == 'csv' and 'pow' in file:
-                pow_logs = rroot + '/' + file
+    pdb, aw_logs, pow_logs = get_files(folder)
 
 
     # Take in the PDB
@@ -53,7 +70,7 @@ while True:
     rads, diffs, names = [], [], []
 
     # Loop through the pdb file
-    with (open(pdb, 'r') as pdb_reader, open(pdb[:-4] + '_vor_diff_colored.pdb', 'w') as pdb_writer):
+    with open(pdb, 'r') as pdb_reader, open(pdb[:-4] + '_vor_diff_colored.pdb', 'w') as pdb_writer:
         mini, maxi = np.inf, -np.inf
         # Loop through the lines
         for i, line in enumerate(pdb_reader.readlines()):
@@ -78,8 +95,8 @@ while True:
                     vol_diff = (pow_atom['volume'] - vor_atom['volume']) / vor_atom['volume']
                 # Check for crazy volume difference and trigger a volume difference
                 if vol_diff >= 30:
+                    vol_diff = 30
                     print(npl['atom_serial_number'], 'Off by {} %'.format(100 * vol_diff))
-                    _ = float('')
                 diffs.append(vol_diff)
                 rads.append(npl['temperature_factor'])
                 names.append(npl['atom_name'])
