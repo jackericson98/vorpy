@@ -134,30 +134,47 @@ class VorPyGUI(tk.Tk):
         presets_frame.pack(anchor="w")
 
         preset_var = tk.StringVar(value="Medium")
-        tk.Radiobutton(presets_frame, text="Small", variable=preset_var, value="Small").pack(side="left")
-        tk.Radiobutton(presets_frame, text="Medium", variable=preset_var, value="Medium").pack(side="left")
-        tk.Radiobutton(presets_frame, text="Large", variable=preset_var, value="Large").pack(side="left")
-        tk.Radiobutton(presets_frame, text="All", variable=preset_var, value="All").pack(side="left")
+
+        def update_checkboxes():
+            for checkbox, state in checkbox_states.items():
+                checkbox.set(state[preset_var.get()])
+
+        tk.Radiobutton(presets_frame, text="Small", variable=preset_var, value="Small", command=update_checkboxes).pack(side="left")
+        tk.Radiobutton(presets_frame, text="Medium", variable=preset_var, value="Medium", command=update_checkboxes).pack(side="left")
+        tk.Radiobutton(presets_frame, text="Large", variable=preset_var, value="Large", command=update_checkboxes).pack(side="left")
+        tk.Radiobutton(presets_frame, text="All", variable=preset_var, value="All", command=update_checkboxes).pack(side="left")
 
         # Checkboxes for Output Options
         tk.Label(export_settings_frame, text="System Outputs", font=self.fonts['class 2']).pack(anchor="w")
         system_outputs_frame = tk.Frame(export_settings_frame)
         system_outputs_frame.pack(anchor="w")
 
-        tk.Checkbutton(system_outputs_frame, text="PDB").pack(anchor="w")
-        tk.Checkbutton(system_outputs_frame, text="Set Ball Radius").pack(anchor="w")
-        tk.Checkbutton(system_outputs_frame, text="Info").pack(anchor="w")
+        checkbox_states = {
+            "PDB": {"Small": False, "Medium": True, "Large": True, "All": True},
+            "Set Ball Radius": {"Small": False, "Medium": True, "Large": True, "All": True},
+            "Info": {"Small": False, "Medium": True, "Large": True, "All": True},
+            "Logs": {"Small": True, "Medium": True, "Large": True, "All": True},
+            "Balls": {"Small": False, "Medium": True, "Large": True, "All": True},
+            "Surrounding Balls": {"Small": False, "Medium": False, "Large": True, "All": True},
+            "Shell: Surfaces": {"Small": False, "Medium": True, "Large": True, "All": True},
+            "Shell: Edges": {"Small": False, "Medium": False, "Large": True, "All": True},
+            "Shell: Vertices": {"Small": False, "Medium": False, "Large": True, "All": True},
+            "Cells: Surfaces": {"Small": False, "Medium": False, "Large": True, "All": True},
+            "Cells: Edges": {"Small": False, "Medium": False, "Large": True, "All": True},
+            "Cells: Vertices": {"Small": False, "Medium": False, "Large": True, "All": True},
+            "All: Surfaces": {"Small": False, "Medium": False, "Large": False, "All": True},
+            "All: Edges": {"Small": False, "Medium": False, "Large": False, "All": True},
+            "All: Vertices": {"Small": False, "Medium": False, "Large": False, "All": True}
+        }
 
-        tk.Label(export_settings_frame, text="Group Outputs", font=self.fonts['class 2']).pack(anchor="w")
-        group_outputs_frame = tk.Frame(export_settings_frame)
-        group_outputs_frame.pack(anchor="w")
+        checkboxes = {}
+        for label_text in checkbox_states.keys():
+            var = tk.BooleanVar()
+            checkbox = tk.Checkbutton(system_outputs_frame, text=label_text, variable=var, anchor="w")
+            checkbox.pack(anchor="w")
+            checkboxes[label_text] = var
 
-        tk.Checkbutton(group_outputs_frame, text="Balls").pack(anchor="w")
-        tk.Checkbutton(group_outputs_frame, text="Surrounding Balls").pack(anchor="w")
-        tk.Checkbutton(group_outputs_frame, text="Logs").pack(anchor="w")
-        tk.Checkbutton(group_outputs_frame, text="Shell: Surfaces, Edges, Vertices").pack(anchor="w")
-        tk.Checkbutton(group_outputs_frame, text="Cells: Surfaces, Edges, Vertices").pack(anchor="w")
-        tk.Checkbutton(group_outputs_frame, text="All: Surfaces, Edges, Vertices").pack(anchor="w")
+        update_checkboxes()
 
     def open_atomic_radii_gui(self):
         print("Opening Atomic Radii GUI...")
