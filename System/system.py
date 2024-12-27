@@ -1,3 +1,4 @@
+import os
 import time
 from os import path
 from System.sys_funcs.input.pdb import read_pdb
@@ -30,6 +31,9 @@ class System:
         :param output_directory: Directory for export files to be output to
         :param gui: The GUI object (tkinter) associated with loading the system and loading/creating the network
         """
+
+        # An initial default shell system
+        self.simple = simple                # Simple System       :   Indicates the system is simple and is only a shell
 
         # Names
         self.name = None                    # Name                :   Name describing the system
@@ -76,11 +80,31 @@ class System:
         self.set_files(base_file=file, ball_file=balls_file, verts_file=verts_file, ndx_file=index_file,
                        net_file=network_file, file_dir=output_directory, frame_files=frame_files, root_dir=root_dir)
 
+        # Check if the System is simple
+        if self.simple:
+            self.make_simple()
+            return
+
         # # Initiate the system
         self.start = time.perf_counter()
-        self.load_files(simple=simple)
+        self.load_files()
 
         seterr(divide='ignore', invalid='ignore')
+
+    def make_simple(self):
+        """
+        Makes the system work without doing all the hubub
+        """
+        # Set the type first
+        self.type = 'simple'
+        # Set everything to None
+        self.balls, self.groups, self.atoms, self.chains, self.residues = [], [], [], [], []
+        # Set the system name
+        self.name = 'Test'
+        # Set the root directory as the working directory
+        self.files['root_dir'] = os.getcwd()
+        # Set the output directory
+        self.set_output_directory()
 
     def set_files(self, base_file=None, ball_file=None, verts_file=None, net_file=None, ndx_file=None, file_dir=None,
                   frame_files=None, root_dir=None):
@@ -95,16 +119,15 @@ class System:
             if self.files[file] is None:
                 self.files[file] = defaults[file]
 
-    def load_files(self, simple=False):
+    def load_files(self):
         """
         Create the system and make sure the files added in __init__ are added to the system
         """
 
         # Load the system
         if self.files['base_file'] is not None:
-            self.load_sys(simple=simple)
-            if simple:
-                return
+            self.load_sys()
+
         # elif self.user_atoms is not None:
         #     self.load_sys_atoms()
         else:
@@ -126,7 +149,7 @@ class System:
         # Set the name for the system
         self.name = path.basename(self.files['base_file'])[:-4]
 
-    def load_sys(self, file=None, simple=False):
+    def load_sys(self, file=None):
         """
         Sets the base file for the system using one of the import file functions
         :param file: .pdb, .gro, .mol, .cif
@@ -160,7 +183,7 @@ class System:
             self.name = path.basename(self.files['base_file'])[:-4]
 
         # Set the system directory
-        if self.files['dir'] is None and not simple:
+        if self.files['dir'] is None:
             self.set_output_directory()
 
         # If the system wants its actions printed
