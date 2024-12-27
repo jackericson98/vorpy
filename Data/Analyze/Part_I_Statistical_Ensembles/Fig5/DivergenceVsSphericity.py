@@ -176,7 +176,7 @@ def plot_radii_vs_sphericity(rads, spcy_diffs, diffs, ax):
     ax.set_title('Radii vs \u03A8 Diff', fontsize=30)
 
 
-def display_metrics(ax, diffs, spcy_diffs, rads, aw_spcys, pow_spcys):
+def display_metrics(diffs, spcy_diffs, rads, aw_spcys, pow_spcys, ax=None):
     """Display text-based metrics on a subplot."""
     num_points = len(spcy_diffs)
     spcy_less_than_zero = len([s for s in spcy_diffs if s < 0]) / num_points * 100
@@ -189,10 +189,23 @@ def display_metrics(ax, diffs, spcy_diffs, rads, aw_spcys, pow_spcys):
     mean_radius_pos_sphericity = np.nanmean([r for r, s in zip(rads, spcy_diffs) if s > 0])
     mean_aw_sphericity = np.nanmean(aw_spcys)
     mean_pow_sphericity = np.nanmean(pow_spcys)
+    tot = len(spcy_diffs)
+    q1 = len([0 for d, s in zip(diffs, spcy_diffs) if d > 0 > s])
+    q2 = len([0 for d, s in zip(diffs, spcy_diffs) if d > 0 and s > 0])
+    q3 = len([0 for d, s in zip(diffs, spcy_diffs) if d < 0 < s])
+    q4 = len([0 for d, s in zip(diffs, spcy_diffs) if d < 0 and s < 0])
 
     metrics_text = (
         f"% \u03A8 < 0: {spcy_less_than_zero:.2f}%\n"
+        f"Quadrant Count: Top Left: {q1} {100*q1/tot:.3f} %, Top Right: {q2} {100*q2/tot:.3f} %, Bottom Right {q3} {100*q3/tot:.3f} %, Bottom Left: {q4} {100*q4/tot:.3f} %\n"
         f"Mean Vol Diff: {np.nanmean(diffs):.3f}\n"
+        f"Mean Abs Vol Diff: {np.nanmean([abs(_) for _ in diffs]):.3f}\n"
+        f"Mean Abs Vol Diff (\u03A8 < 0): {np.nanmean([abs(_) for _, s in zip(diffs, spcy_diffs) if s < 0]):.3f}\n"
+        f"Mean Abs Vol Diff (\u03A8 > 0): {np.nanmean([abs(_) for _, s in zip(diffs, spcy_diffs) if s > 0]):.3f}\n"
+        f"Mean Abs Vol Diff (\u03A8 q1): {np.nanmean([s for s, d in zip(spcy_diffs, diffs) if d > 0 > s]):.3f}\n"
+        f"Mean Abs Vol Diff (\u03A8 q2): {np.nanmean([s for s, d in zip(spcy_diffs, diffs) if d > 0 and s > 0]):.3f}\n"
+        f"Mean Abs Vol Diff (\u03A8 q3): {np.nanmean([s for s, d in zip(spcy_diffs, diffs) if d < 0 < s]):.3f}\n"
+        f"Mean Abs Vol Diff (\u03A8 q4): {np.nanmean([s for s, d in zip(spcy_diffs, diffs) if d < 0 and s < 0]):.3f}\n"
         f"Mean Vol Diff (r < 0): {np.nanmean([_ for _, s in zip(diffs, spcy_diffs) if s < 0]):.3f}\n"
         f"Mean Vol Diff (r > 0): {np.nanmean([_ for _, s in zip(diffs, spcy_diffs) if s > 0]):.3f}\n"
         
@@ -207,9 +220,11 @@ def display_metrics(ax, diffs, spcy_diffs, rads, aw_spcys, pow_spcys):
         f"Mean AW \u03A8: {mean_aw_sphericity:.3f}\n"
         f"Mean Power \u03A8: {mean_pow_sphericity:.3f}"
     )
-
-    ax.axis('off')
-    ax.text(0, 0.5, metrics_text, fontsize=20, ha='left', va='center', linespacing=1.5)
+    if ax is None:
+        print(metrics_text)
+    else:
+        ax.axis('off')
+        ax.text(0, 0.5, metrics_text, fontsize=20, ha='left', va='center', linespacing=1.5)
 
 
 def process_all_subfolders(base_folder):
@@ -243,11 +258,11 @@ def main():
     if not cum_rads:
         print("Error: No valid data found in the selected folder structure.")
         return
-
+    ax3 = None
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))
     plot_spcy_results(cum_rads, cum_diffs, cum_spcy_diffs, ax1)
     plot_radii_vs_sphericity(cum_rads, cum_spcy_diffs, cum_diffs, ax2)
-    display_metrics(ax3, cum_diffs, cum_spcy_diffs, cum_rads, cum_aw_spcys, cum_pow_spcys)
+    display_metrics(cum_diffs, cum_spcy_diffs, cum_rads, cum_aw_spcys, cum_pow_spcys, ax3)
 
     plt.tight_layout()
     plt.show()
