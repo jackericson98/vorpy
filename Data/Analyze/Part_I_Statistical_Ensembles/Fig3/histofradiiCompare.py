@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import tkinter as tk
 from tkinter import filedialog
 from Data.Analyze.tools.batch.compile_new_logs import get_logs_and_pdbs
-from Data.Analyze.tools.compare.read_logs import read_logs
+# from Data.Analyze.tools.compare.read_logs import read_logs
 from Data.Analyze.tools.compare.read_logs2 import read_logs2
 from System.system import System
 from scipy import stats
@@ -55,8 +55,8 @@ def get_hist_of_radii(density=0.25, cv=0.5, bins=100):
         my_sys = System(old_logs_pdbs[_]['pdb'], simple=True)
         # Get the logs
         try:
-            aw_logs = read_logs(old_logs_pdbs[_]['aw'])
-            pow_logs = read_logs(old_logs_pdbs[_]['pow'])
+            aw_logs = read_logs2(old_logs_pdbs[_]['aw'])
+            pow_logs = read_logs2(old_logs_pdbs[_]['pow'])
         except KeyError:
             continue
         for i, ball in my_sys.balls.iterrows():
@@ -65,8 +65,8 @@ def get_hist_of_radii(density=0.25, cv=0.5, bins=100):
             real_radii.append(ball['rad'])
             # Get the aw_ball and the pow ball
             try:
-                aw_ball = aw_logs['atoms'][aw_logs['atoms']['num'] == ball['num']].iloc[0].to_dict()
-                pow_ball = pow_logs['atoms'][pow_logs['atoms']['num'] == ball['num']].iloc[0].to_dict()
+                aw_ball = aw_logs['atoms'][aw_logs['atoms']['Index'] == ball['num']].iloc[0].to_dict()
+                pow_ball = pow_logs['atoms'][pow_logs['atoms']['Index'] == ball['num']].iloc[0].to_dict()
             except ValueError:
                 continue
             except IndexError:
