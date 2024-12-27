@@ -112,8 +112,10 @@ def make_new_logs(logs_pdbs_dict=None, logs_pdbs_file=None):
                       for i in range(len(dicty['isoq_aw']))]
             diffs2 = [abs(dicty['isoq_aw'][i] - dicty['isoq_pow'][i]) / dicty['isoq_pow'][i]
                       for i in range(len(dicty['isoq_aw']))]
-
-            line = [_, np.mean(dicty['isoq_aw']), np.mean(dicty['isoq_pow']), np.mean(diffs1), np.mean(diffs2)]
+            try:
+                line = [_, np.mean(dicty['isoq_aw']), np.mean(dicty['isoq_pow']), np.mean(diffs1), np.mean(diffs2)]
+            except:
+                continue
             timey_wimey = get_time(time.perf_counter() - start)
             print('{}/{} Done, {} %, Time elapsed = {}:{}:{}  -   Data ---->>>     '
                   .format(counter, length_of_dic, round(100 * counter / length_of_dic, 3), round(timey_wimey[0]),
