@@ -105,6 +105,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import random
+import tkinter as tk
+from tkinter import filedialog
+
+
+root = tk.Tk()
+root.withdraw()
+root.wm_attributes('-topmost', 1)
 
 
 def plot_proximity(radius1=1, radius2=3, distance_between_circles=5, num_points=2000, markersize=1,
@@ -166,12 +173,13 @@ def plot_proximity(radius1=1, radius2=3, distance_between_circles=5, num_points=
     plt.xticks([])
     plt.yticks([])
     plt.axis('off')
+    # plt.show()
     my_input = input('Save figure? (y/n)  >>>>    ')
     if my_input.lower() in {'y', 'yes'}:
-        plt.savefig('C:/Users/Optiplex_7060/OneDrive - Georgia State University/GSU NSC/Manuscripts/'
-                    'Ericson Voronoi DNA/Figures/P1/Figure1_Concepts_and_Scheme_Comparisons/PointProximity/PointProximityPow1.png', format='png', dpi=1200)
+        my_dir = filedialog
+        plt.savefig(my_dir + f'/{distance_type}_{num_points}', format='png', dpi=1200)
 
 
 # Example usage:
-plot_proximity(distance_type="pow", num_points=10000, alpha=0.6, markersize=0.6, radius1=1, radius2=np.sqrt(5),
+plot_proximity(distance_type="pow", num_points=10000, alpha=0.6, markersize=2, radius1=1, radius2=np.sqrt(5),
                distance_between_circles=4, bounding_box=[[-5, -4], [5, 4]])
