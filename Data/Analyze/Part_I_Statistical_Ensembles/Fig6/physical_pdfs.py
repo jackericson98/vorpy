@@ -37,7 +37,7 @@ def inverse_transform_sampling(pdf, x_values, n_samples):
     return inverse_cdf(u)
 
 # Parameters
-num_samples = 1000
+num_samples = 100000
 x_values = np.linspace(0, 3, num_samples)
 
 # Define common bins
@@ -54,7 +54,11 @@ for i, (pdf, title, color) in enumerate(zip(pdfs, titles, colors), 1):
     alpha -= 0.2
     # Generate random samples
     random_numbers = inverse_transform_sampling(pdf, x_values, num_samples)
-
+    mean = np.mean(random_numbers)
+    STD = np.std(random_numbers)
+    print(mean)
+    print(STD)
+    print(STD / mean)
     # Plot normalized PDF
     ax1.plot(x_values, pdf(x_values), label=title, color=color, linewidth=4)
 
@@ -64,6 +68,7 @@ for i, (pdf, title, color) in enumerate(zip(pdfs, titles, colors), 1):
         # Finalize plot
     ax1.set_xlabel('Bubble Radius', fontsize=25)
     ax1.set_ylabel('Probability', fontsize=25)
+    ax1.set_ylim([0, 1.4])
     ax1.tick_params('both', labelsize=25)
     ax1.set_yticks([])
     plt.title(f'{title} Distribution', fontsize=30)
