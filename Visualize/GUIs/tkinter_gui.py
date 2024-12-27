@@ -1,3 +1,4 @@
+import os
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import filedialog
@@ -275,9 +276,9 @@ class VorpyT:
         # Header
         tk.Label(self.export_selections_subfrm, text="Export Selections", font=("underlined bold", 20))\
             .grid(columnspan=3)
-        if self.sys.vpy_dir is None:
-            self.sys.vpy_dir = ""
-        vpy_out_dir = self.sys.vpy_dir + "/Data/user_data/"
+        if self.sys.files['root_dir'] is None:
+            self.sys.files['root_dir'] = ""
+        vpy_out_dir = self.sys.files['root_dir'] + "/Data/user_data/"
         self.output_dir_str = tk.StringVar(self.main, vpy_out_dir[:12] + ' ... ' + vpy_out_dir[-12:])
         tk.Label(self.export_selections_subfrm, textvariable=self.output_dir_str).grid(row=1, columnspan=3, sticky="w")
         tk.Button(self.export_selections_subfrm, text="Browse", command=self.change_output_directory)\
@@ -364,21 +365,20 @@ class VorpyT:
         self.sys.load_sys(file_path)
         # Set the system information
         # We want to get the number of atoms, the number of molecules, etc
-        myStr = str(len(self.sys.atoms)) + '\n' + str(len(self.sys.chains)) + '\n' + str(len(self.sys.residues)) + \
-                "\n   ~   \n   ~   \n   ~   "
+        myStr = (f"{len(self.sys.atoms) if self.sys.atoms is not None else '  ~  '}\n"
+                 f"{len(self.sys.chains) if self.sys.chains is not None else '  ~  '}\n"
+                 f"{len(self.sys.residues) if self.sys.residues is not None else '  ~  '}\n"
+                 f"\n   ~   \n   ~   \n   ~   ")
         # Set the variables
         self.sys_pros.set(myStr)
         # Set the molecule names
-        for mol in self.sys.chains:
-            self.mol_list.append(mol[0].mol)
-        for res in self.sys.residues:
-            self.res_list.append(res[0].name + " " + res[0].res_seq)
-        for atom in self.sys.atoms:
+        if self.sys.atoms is not None:
+            for atom in self.sys.atoms:
 
-            self.atom_list.append(str(self.sys.atoms.index(atom)) + " " + atom.element)
+                self.atom_list.append(str(self.sys.atoms.index(atom)) + " " + atom.element)
         # Set up the molecules list
         self.mol_options.destroy()
-        self.mol_options = tk.OptionMenu(self.select_atoms_subfrm, self.current_mol_selection, *self.sys.chn_names)
+        self.mol_options = tk.OptionMenu(self.select_atoms_subfrm, self.current_mol_selection, *self.sys.chn_names, value='')
         self.mol_options.grid(row=1)
         # Set up the residues list
         self.res_options.destroy()
@@ -563,4 +563,6 @@ class VorpyT:
         write_surfs(self.g1.surfs, file_name="Interface")
 
 
-VorpyT()
+if __name__ == '__main__':
+    os.chdir('../..')
+    VorpyT()
