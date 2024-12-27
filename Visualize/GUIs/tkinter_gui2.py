@@ -137,7 +137,7 @@ class VorPyGUI(tk.Tk):
 
         def update_checkboxes():
             for checkbox, state in checkbox_states.items():
-                checkbox.set(state[preset_var.get()])
+                checkboxes[checkbox].set(state[preset_var.get()])
 
         tk.Radiobutton(presets_frame, text="Small", variable=preset_var, value="Small", command=update_checkboxes).pack(side="left")
         tk.Radiobutton(presets_frame, text="Medium", variable=preset_var, value="Medium", command=update_checkboxes).pack(side="left")
