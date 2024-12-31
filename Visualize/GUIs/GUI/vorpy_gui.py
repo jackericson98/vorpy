@@ -3,6 +3,7 @@ from tkinter import ttk, filedialog
 from System.system import System
 import os
 
+
 class VorPyGUI(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -45,10 +46,8 @@ class VorPyGUI(tk.Tk):
 
     def create_information_section(self, parent):
         # System Information
-        sys_info_frame = ttk.LabelFrame(parent, text=" Information ")
+        sys_info_frame = ttk.LabelFrame(parent, text=" System Information ")
         sys_info_frame.pack(fill="both", padx=10, pady=5)
-
-        tk.Label(sys_info_frame, text="System Information", font=self.fonts['class 3'], anchor="w").grid(row=0, column=0, columnspan=3, sticky="w")
 
         # System Name
         tk.Label(sys_info_frame, text=self.sys.name, font=self.fonts['class 4']).grid(row=1, column=0, columnspan=2, sticky="w")
@@ -135,44 +134,54 @@ class VorPyGUI(tk.Tk):
 
         preset_var = tk.StringVar(value="Medium")
 
+        checkbox_states = {
+            "Small": {"Shell: Surfaces": False, "Shell: Edges": False, "Shell: Vertices": False,
+                      "Cells: Surfaces": False, "Cells: Edges": False, "Cells: Vertices": False,
+                      "All: Surfaces": False, "All: Edges": False, "All: Vertices": False},
+            "Medium": {"Shell: Surfaces": True, "Shell: Edges": False, "Shell: Vertices": False,
+                       "Cells: Surfaces": False, "Cells: Edges": False, "Cells: Vertices": False,
+                       "All: Surfaces": True, "All: Edges": False, "All: Vertices": False},
+            "Large": {"Shell: Surfaces": True, "Shell: Edges": True, "Shell: Vertices": True,
+                      "Cells: Surfaces": True, "Cells: Edges": True, "Cells: Vertices": True,
+                      "All: Surfaces": True, "All: Edges": True, "All: Vertices": True},
+            "All": {"Shell: Surfaces": True, "Shell: Edges": True, "Shell: Vertices": True,
+                    "Cells: Surfaces": True, "Cells: Edges": True, "Cells: Vertices": True,
+                    "All: Surfaces": True, "All: Edges": True, "All: Vertices": True}
+        }
+
         def update_checkboxes():
-            for checkbox, state in checkbox_states.items():
-                checkboxes[checkbox].set(state[preset_var.get()])
+            for checkbox, state in checkbox_states[preset_var.get()].items():
+                checkboxes[checkbox].set(state)
 
         tk.Radiobutton(presets_frame, text="Small", variable=preset_var, value="Small", command=update_checkboxes).pack(side="left")
         tk.Radiobutton(presets_frame, text="Medium", variable=preset_var, value="Medium", command=update_checkboxes).pack(side="left")
         tk.Radiobutton(presets_frame, text="Large", variable=preset_var, value="Large", command=update_checkboxes).pack(side="left")
         tk.Radiobutton(presets_frame, text="All", variable=preset_var, value="All", command=update_checkboxes).pack(side="left")
 
-        # Checkboxes for Output Options
-        tk.Label(export_settings_frame, text="System Outputs", font=self.fonts['class 2']).pack(anchor="w")
+        # System Outputs Section
+        tk.Label(export_settings_frame, text="System Outputs", font=self.fonts['class 2']).pack(anchor="w", pady=(10, 0))
         system_outputs_frame = tk.Frame(export_settings_frame)
-        system_outputs_frame.pack(anchor="w")
+        system_outputs_frame.pack(anchor="w", pady=(0, 10))
 
-        checkbox_states = {
-            "PDB": {"Small": False, "Medium": True, "Large": True, "All": True},
-            "Set Ball Radius": {"Small": False, "Medium": True, "Large": True, "All": True},
-            "Info": {"Small": False, "Medium": True, "Large": True, "All": True},
-            "Logs": {"Small": True, "Medium": True, "Large": True, "All": True},
-            "Balls": {"Small": False, "Medium": True, "Large": True, "All": True},
-            "Surrounding Balls": {"Small": False, "Medium": False, "Large": True, "All": True},
-            "Shell: Surfaces": {"Small": False, "Medium": True, "Large": True, "All": True},
-            "Shell: Edges": {"Small": False, "Medium": False, "Large": True, "All": True},
-            "Shell: Vertices": {"Small": False, "Medium": False, "Large": True, "All": True},
-            "Cells: Surfaces": {"Small": False, "Medium": False, "Large": True, "All": True},
-            "Cells: Edges": {"Small": False, "Medium": False, "Large": True, "All": True},
-            "Cells: Vertices": {"Small": False, "Medium": False, "Large": True, "All": True},
-            "All: Surfaces": {"Small": False, "Medium": False, "Large": False, "All": True},
-            "All: Edges": {"Small": False, "Medium": False, "Large": False, "All": True},
-            "All: Vertices": {"Small": False, "Medium": False, "Large": False, "All": True}
-        }
+        # Grid for Shell, Cells, All options
+        shell_cells_all_frame = ttk.LabelFrame(export_settings_frame, text=" Network Components ")
+        shell_cells_all_frame.pack(fill="both", padx=10, pady=10)
 
+        tk.Label(shell_cells_all_frame, text="", font=self.fonts['class 2'], width=15).grid(row=0, column=0)
+        tk.Label(shell_cells_all_frame, text="Surfaces", font=self.fonts['class 2'], width=15).grid(row=0, column=1)
+        tk.Label(shell_cells_all_frame, text="Edges", font=self.fonts['class 2'], width=15).grid(row=0, column=2)
+        tk.Label(shell_cells_all_frame, text="Vertices", font=self.fonts['class 2'], width=15).grid(row=0, column=3)
+
+        components = ["Shell", "Cells", "All"]
         checkboxes = {}
-        for label_text in checkbox_states.keys():
-            var = tk.BooleanVar()
-            checkbox = tk.Checkbutton(system_outputs_frame, text=label_text, variable=var, anchor="w")
-            checkbox.pack(anchor="w")
-            checkboxes[label_text] = var
+
+        for i, component in enumerate(components):
+            tk.Label(shell_cells_all_frame, text=component, font=self.fonts['class 2'], width=15).grid(row=i+1, column=0)
+            for j, sub_component in enumerate(["Surfaces", "Edges", "Vertices"]):
+                var = tk.BooleanVar()
+                checkbox = tk.Checkbutton(shell_cells_all_frame, variable=var)
+                checkbox.grid(row=i+1, column=j+1)
+                checkboxes[f"{component}: {sub_component}"] = var
 
         update_checkboxes()
 
@@ -196,8 +205,9 @@ class VorPyGUI(tk.Tk):
     def add_group(self):
         print("Adding a new group...")
 
+
 if __name__ == "__main__":
 
-    os.chdir('../..')
+    os.chdir('../../..')
     app = VorPyGUI()
     app.mainloop()

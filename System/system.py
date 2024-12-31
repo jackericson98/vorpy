@@ -11,7 +11,7 @@ from System.sys_funcs.input.verts import read_verts
 from System.sys_funcs.output.output import set_sys_dir, export_sys
 from System.Group.group import Group
 from numpy import seterr
-from Visualize.GUIs.periodic_table_GUI import elements
+from Visualize.GUIs.GUI.subsidiaries.periodic_table_GUI import elements
 from radii.Standard import special_radii, element_radii
 from System.sys_funcs.calcs.compare import compare_networks, make_interfaces
 
