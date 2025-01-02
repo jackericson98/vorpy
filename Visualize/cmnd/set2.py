@@ -110,13 +110,6 @@ def set_sc(surface_color, settings):
         return surface_color
     except Exception as e:
         pass
-    # Try each of the three possible options for surface coloring
-    try:
-        my_cmap = mpl.cm.get_cmap(surface_color)
-        print("surface color set to {}".format(surface_color))
-        return surface_color
-    except Exception as e:
-        pass
     # If none of the formatting options work print the error and return
     print('{} is not a matplotlib colormap. Please choose a valid matplotlib colormap (e.g. \"viridis\", '
           '\"plasma\", \"inferno\", \"cividis\", \"Greys\", \"Reds\", \"Greens\", \"Blues\", \"rainbow\"'
