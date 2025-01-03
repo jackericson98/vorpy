@@ -73,7 +73,7 @@ def distribution_of_overlaps(my_dict=None):
 
             radii = [_ for _ in my_sys.balls['rad'][:1000]]
             # Plot histogram
-            data2 = ax.hist(radii, bins=33, alpha=0.5, color='blue', edgecolor='k', density=False)
+            data2 = ax.hist(radii, bins=33, alpha=0.5, color='blue', edgecolor='k', density=True)
             min_rad = min(radii)
             max_rad = max(radii)
             # Calculate bin width
