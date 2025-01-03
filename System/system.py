@@ -98,7 +98,8 @@ class System:
         # Set the type first
         self.type = 'simple'
         # Set everything to None
-        self.balls, self.groups, self.atoms, self.chains, self.residues = [], [], [], [], []
+        self.load_sys(simple=True)
+        self.groups, self.atoms, self.chains, self.residues = [], [], [], []
         # Set the system name
         self.name = 'Test'
         # Set the root directory as the working directory
@@ -149,7 +150,7 @@ class System:
         # Set the name for the system
         self.name = path.basename(self.files['base_file'])[:-4]
 
-    def load_sys(self, file=None):
+    def load_sys(self, file=None, simple=False):
         """
         Sets the base file for the system using one of the import file functions
         :param file: .pdb, .gro, .mol, .cif
@@ -183,11 +184,11 @@ class System:
             self.name = path.basename(self.files['base_file'])[:-4]
 
         # Set the system directory
-        if self.files['dir'] is None:
+        if self.files['dir'] is None and not simple:
             self.set_output_directory()
 
         # If the system wants its actions printed
-        if self.print_actions:
+        if self.print_actions and not simple:
             print("{} loaded - {} atoms, {} residues, {} chain{}, ".format(self.name, len(self.atoms),
                   len(self.residues), len(self.chains), 's' if len(self.chains) > 1 else ''))
 
