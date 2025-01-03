@@ -96,7 +96,7 @@ def distribution_of_overlaps(my_dict=None, olap_value=0.5, bins=10):
             ax = axes[i, j]
             data = my_dict[(cv, density)]
             percent_olap = 100 * np.mean(data)
-            ax.pie([percent_olap, 100 - percent_olap])
+            ax.pie([min(percent_olap, 100), max(100 - percent_olap, 0.0)])
 
 
     for ax, col in zip(axes[-1], cv_vals):
