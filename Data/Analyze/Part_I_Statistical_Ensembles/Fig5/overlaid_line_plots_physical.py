@@ -35,9 +35,18 @@ with open(my_foams_file, 'r') as my_foam_data:
             if len(my_line) <= 1:
                 continue
             my_data.append({'num': my_line[0], 'avg rad size': float(my_line[2]), 'box size': float(my_line[1]),
-                            'type': phys_type, 'num balls': int(my_line[4]),
+                            'rad std': float(my_line[3]), 'num balls': int(my_line[4]), 'type': phys_type,
                             'density': float(my_line[5]), 'vol diff vor': float(my_line[6]),
                             'sa diff vor': float(my_line[7]), 'vol diff pow': float(my_line[8]), 'sa diff pow': float(my_line[9])})
+
+        except ValueError:
+            if len(my_line) <= 1:
+                continue
+            my_data.append({'num': my_line[0], 'avg rad size': float(my_line[5][:-1]), 'box size': float(my_line[1][:-1]),
+                            'rad std': float(my_line[8][:-1]), 'num balls': int(my_line[14][:-1]), 'type': phys_type,
+                            'density': float(my_line[17][:-1]), 'vol diff vor': float(my_line[36]),
+                            'sa diff vor': float(my_line[37]), 'vol diff pow': float(my_line[38]),
+                            'sa diff pow': float(my_line[39])})
         except ValueError:
             continue
 
