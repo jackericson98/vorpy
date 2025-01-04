@@ -43,9 +43,9 @@ def get_syses(folder=None):
         try:
             my_sys = System(pdb, simple=True)
             if (sf_cv, sf_den) in den_data:
-                den_data[(sf_cv, sf_den)].append(my_sys)
+                den_data[(sf_cv, sf_den)].append([_ for _ in my_sys.balls['rad']])
             else:
-                den_data[(sf_cv, sf_den)] = [my_sys]
+                den_data[(sf_cv, sf_den)] = [[_ for _ in my_sys.balls['rad']]]
         except TypeError:
             print(pdb, aw, pow)
     return den_data
@@ -67,13 +67,16 @@ def distribution_of_overlaps(my_dict=None):
 
     for i, density in enumerate(density_vals):
         for j, cv in enumerate(cv_vals):
+            # if cv not in {0.05, 0.1}:
+            #     continue
             ax = axes[i, j]
             # Real Radii
-            my_sys = my_dict[(cv, density)]
-
-            radii = [_ for _ in my_sys.balls['rad'][:1000]]
+            my_syses = my_dict[(cv, density)]
+            radii = []
+            for rads in my_syses:
+                radii += rads
             # Plot histogram
-            data2 = ax.hist(radii, bins=33, alpha=0.5, color='blue', edgecolor='k', density=True)
+            data2 = ax.hist(radii, bins=20, alpha=0.5, color='blue', edgecolor='k', density=True)
             min_rad = min(radii)
             max_rad = max(radii)
             # Calculate bin width
@@ -89,11 +92,11 @@ def distribution_of_overlaps(my_dict=None):
             scaled_pdf = pdf_values * total_area
 
             # Update plot formatting
-            ax.set_xlabel('Radius', fontsize=25)
-            ax.set_ylabel('Count', fontsize=25, color='blue')
-            ax.set_xticks([round(_, 1) for _ in np.linspace(min_rad, max_rad, 4)])
-            ax.tick_params(axis='both', labelsize=20)
-            ax.tick_params(axis='y', colors='blue')
+            # ax.set_xlabel('Radius', fontsize=25)
+            # ax.set_ylabel('Count', fontsize=25, color='blue')
+            # ax.set_xticks([round(_, 1) for _ in np.linspace(min_rad, max_rad, 4)])
+            # ax.tick_params(axis='both', labelsize=20)
+            # ax.tick_params(axis='y', colors='blue')
             ax.set_ylim(bottom=0)
 
             # Create a secondary y-axis for the histogram
@@ -101,10 +104,13 @@ def distribution_of_overlaps(my_dict=None):
 
             # Plot the scaled gamma PDF
             ax.plot(x_values, scaled_pdf, label='Scaled PDF', color='red', linewidth=2)
-            ax2.set_ylabel('Probability', fontsize=25, color='red')
-            ax2.tick_params(axis='both', labelsize=20, colors='red')
+            # ax2.set_ylabel('Probability', fontsize=25, color='red')
+            # ax2.tick_params(axis='both', labelsize=20, colors='red')
+            if cv != 1.0:
+                ax2.set_yticks([0, 100], [0, 20,000])
+            ax.set_yticks([])
             ax2.set_ylim(bottom=0, top=100)
-            ax2.tick_params(axis='y', colors='red')
+            # ax2.tick_params(axis='y', colors='red')
 
 
     for ax, col in zip(axes[-1], cv_vals):
