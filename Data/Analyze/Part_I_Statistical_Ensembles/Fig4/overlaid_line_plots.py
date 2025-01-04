@@ -169,7 +169,7 @@ for value in ['vol', 'sa']:
     # Set plot titles and labels
     ax.set_xticks(np.arange(my_densities[0] + 0.05, my_densities[-1] + 0.05, 0.1))
     if value == 'vol':
-        ax.set_ylim([0, 175])
+        ax.set_ylim([0, 200])
     elif value == 'sa':
         ax.set_ylim([0, 50])
     ax.set_title('{} Power {}\nAbsolute % Difference'
