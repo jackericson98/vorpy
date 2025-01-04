@@ -34,6 +34,8 @@ def get_syses(folder=None):
             sf_cv, sf_den = float(split_subfolder[1]), float(split_subfolder[3])
         except ValueError:
             continue
+        except IndexError:
+            continue
 
         # Get PDB, AW, and POW files
         pdb, aw, pow = get_files(os.path.join(folder, subfolder))
@@ -43,11 +45,16 @@ def get_syses(folder=None):
         except TypeError:
             print(f"Error loading system: {pdb}, {aw}, {pow}")
             continue
+        except IndexError:
+            print(pdb)
+            continue
 
-        foam_box = my_sys.data[0][2]
+        foam_box = float(my_sys.data[0][5][:-1])
         norm_locs = []
 
-        for _, ball in my_sys.balls.iterrows()[:1000]:
+        for _, ball in my_sys.balls.iterrows():
+            if _ >= 100:
+                break
             my_loc = ball['loc']
             norm_loc = [my_loc[i] / foam_box for i in range(3)]
             norm_locs.append(norm_loc)
