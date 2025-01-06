@@ -77,7 +77,8 @@ def distribution_of_overlaps(loc_data):
     cv_vals = sorted(set(key[0] for key in loc_data.keys()))
     density_vals = sorted(set(key[1] for key in loc_data.keys()), reverse=True)
 
-    fig, axes = plt.subplots(len(density_vals), len(cv_vals), figsize=(20, 18), sharex=True, sharey=True)
+    # Adjust the figure size for smaller subplots
+    fig, axes = plt.subplots(len(density_vals), len(cv_vals), figsize=(10, 9), sharex=True, sharey=True)
 
     for i, density in enumerate(density_vals):
         for j, cv in enumerate(cv_vals):
@@ -86,24 +87,36 @@ def distribution_of_overlaps(loc_data):
 
             if len(points) > 0:
                 scatter = ax.scatter(points[:, 0], points[:, 1], c=points[:, 2], cmap='gray', s=0.8, marker='x')
-                cbar = plt.colorbar(scatter, ax=ax)
-                cbar.set_ticks([0, 1])
-                cbar.ax.tick_params(labelsize=10)
 
             ax.set_xlim(0, 1)
             ax.set_ylim(0, 1)
             ax.set_xticks([0, 1])
             ax.set_yticks([0, 1])
 
-            if i == len(density_vals) - 1:
-                ax.set_xlabel(f"CV={cv:.2f}", fontsize=10)
-            if j == 0:
-                ax.set_ylabel(f"Density={density:.2f}", fontsize=10)
+            # Reduce font size for ticks to prevent overlap
+            ax.tick_params(axis='both', which='major', labelsize=8)
 
-    fig.text(0.5, 0.02, 'CV Values', ha='center', fontsize=20)
-    fig.text(0.02, 0.5, 'Density Values', va='center', rotation='vertical', fontsize=20)
-    fig.suptitle("Distribution of Normalized Locations by CV and Density", fontsize=24)
-    plt.tight_layout()
+    for ax, col in zip(axes[-1], cv_vals):
+        ax.set_xlabel("")  # Remove direct subplot labels, handled below
+
+    for ax, row in zip(axes[:, 0], density_vals):
+        ax.set_ylabel("")  # Remove direct subplot labels, handled below
+
+    # Add CV values to the bottom of the figure
+    for i, col in enumerate(cv_vals):
+        fig.text(0.15 + i * (0.7 / len(cv_vals)), 0.08, f"{col:.2f}", ha='center', fontsize=10)
+
+    for i, row in enumerate(density_vals[::-1]):
+        fig.text(0.07, 0.15 + i * (0.7 / len(density_vals)), f"{row:.2f}", va='center', rotation='horizontal', fontsize=10)
+
+    # Add overall axis labels
+    fig.text(0.5, 0.02, 'CV', ha='center', fontsize=14)
+    fig.text(0.02, 0.5, 'Density', va='center', rotation='vertical', fontsize=14)
+
+    # Adjust subplot spacing to prevent overlap
+    plt.tight_layout(pad=2.0, w_pad=1.0, h_pad=1.0)
+    fig.subplots_adjust(bottom=0.15, left=0.1, top=0.95, right=0.95)
+
     plt.show()
 
 

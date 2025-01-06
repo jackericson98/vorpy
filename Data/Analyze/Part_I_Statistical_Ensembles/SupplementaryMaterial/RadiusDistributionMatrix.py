@@ -106,8 +106,10 @@ def distribution_of_overlaps(my_dict=None):
             ax.plot(x_values, scaled_pdf, label='Scaled PDF', color='red', linewidth=2)
             # ax2.set_ylabel('Probability', fontsize=25, color='red')
             # ax2.tick_params(axis='both', labelsize=20, colors='red')
-            if cv != 1.0:
-                ax2.set_yticks([0, 100], [0, 20,000])
+            if cv == 1.0:
+                ax2.set_yticks([0, 100], [0, 20000])
+            else:
+                ax2.set_yticks([])
             ax.set_yticks([])
             ax2.set_ylim(bottom=0, top=100)
             # ax2.tick_params(axis='y', colors='red')
