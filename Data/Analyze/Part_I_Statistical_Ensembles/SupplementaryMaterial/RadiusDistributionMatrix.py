@@ -76,10 +76,14 @@ def distribution_of_overlaps(my_dict=None):
             #     continue
             ax = axes[i, j]
             # Real Radii
-            my_syses = my_dict[(cv, density)]
             radii = []
-            for rads in my_syses:
-                radii += rads
+            try:
+                my_syses = my_dict[(cv, density)]
+
+                for rads in my_syses:
+                    radii += rads
+            except KeyError:
+                pass
             # Plot histogram
             data2 = ax.hist(radii, bins=20, alpha=0.5, color='blue', edgecolor='k', density=True)
             min_rad = min(radii)
