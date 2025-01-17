@@ -51,6 +51,9 @@ def get_syses(folder=None):
                 den_data[(sf_cv, sf_den)] = [[_ for _ in my_sys.balls['rad']]]
         except TypeError:
             print(pdb, aw, pow)
+        except IndexError:
+            print(pdb, aw, pow, subfolder)
+    print(folder)
     return den_data
 
 
