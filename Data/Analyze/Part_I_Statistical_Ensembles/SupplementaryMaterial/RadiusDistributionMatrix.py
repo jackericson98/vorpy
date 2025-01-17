@@ -31,7 +31,9 @@ def get_syses(folder=None):
     # Create the densities data
     den_data = {}
     # Loop through the folders
-    for subfolder in os.listdir(folder):
+    num_folders = len(os.listdir(folder))
+    for k, subfolder in enumerate(os.listdir(folder)):
+        print(f"Folder {k}/{num_folders} - {100 * (k / num_folders)}%")
         # Get the cv and density values
         split_subfolder = subfolder.split("_")
         try:
