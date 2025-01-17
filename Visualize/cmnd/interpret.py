@@ -3,6 +3,8 @@ from System.sys_objs.atom import element_radii
 from System.chemistry_interpreter import element_names
 import os
 from os import path
+import tkinter as tk
+from tkinter import filedialog
 
 
 def get_ndx(sys, obj, ndx_npt=None):
@@ -107,6 +109,15 @@ def get_file(file=None):
         elif path.exists("./Data/test_data/" + file + ".pdb") and len(file) > 0:
             file = os.getcwd() + "/Data/test_data/" + file + ".pdb"
             break
+        # If the file is called as a browse keyword, launch a file browser
+        elif file.lower() in browse_names:
+            # Get the base file
+            root = tk.Tk()
+            root.withdraw()
+            root.wm_attributes('-topmost', 1)
+            file = filedialog.askopenfilename(title='Choose Ball File')
+            if file[:-3] in {'pdb', 'mol', 'cif', 'gro'} and path.exists(file):
+                break
         # Otherwise, tell the user to try again
         else:
             invalid_input(file)

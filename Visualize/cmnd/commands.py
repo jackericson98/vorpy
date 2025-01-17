@@ -64,6 +64,7 @@ surf_factor_vals = {
 
 
 file_types = ['net', 'vert', 'ball', 'ndx']
+browse_names = {'browse', 'choose', 'brwse', 'chse', 'get', 'find'}
 
 
 
