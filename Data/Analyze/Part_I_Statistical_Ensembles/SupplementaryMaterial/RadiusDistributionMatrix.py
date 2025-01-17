@@ -31,7 +31,9 @@ def get_syses(folder=None):
     # Create the densities data
     den_data = {}
     # Loop through the folders
-    for subfolder in os.listdir(folder):
+    num_folders = len(os.listdir(folder))
+    for k, subfolder in enumerate(os.listdir(folder)):
+        print(f"Folder {k}/{num_folders} - {100 * (k / num_folders)}%")
         # Get the cv and density values
         split_subfolder = subfolder.split("_")
         try:
@@ -49,6 +51,9 @@ def get_syses(folder=None):
                 den_data[(sf_cv, sf_den)] = [[_ for _ in my_sys.balls['rad']]]
         except TypeError:
             print(pdb, aw, pow)
+        except IndexError:
+            print(pdb, aw, pow, subfolder)
+    print(folder)
     return den_data
 
 
@@ -71,10 +76,14 @@ def distribution_of_overlaps(my_dict=None):
             #     continue
             ax = axes[i, j]
             # Real Radii
-            my_syses = my_dict[(cv, density)]
             radii = []
-            for rads in my_syses:
-                radii += rads
+            try:
+                my_syses = my_dict[(cv, density)]
+
+                for rads in my_syses:
+                    radii += rads
+            except KeyError:
+                pass
             # Plot histogram
             data2 = ax.hist(radii, bins=20, alpha=0.5, color='blue', edgecolor='k', density=True)
             min_rad = min(radii)
