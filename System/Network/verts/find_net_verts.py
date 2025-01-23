@@ -46,6 +46,7 @@ def find_net_verts(net):
         if my_guuy is not None:
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
         if net.settings['ball_type'] == 'foam' and len(sphere_check_list) <= 0.25 * len(net.balls['loc']):
+            print(f'Missing Ball Indices:\n{sphere_check_list}\n')
             break
     # # Create the doublets list
     # if vert_list_real is not None and net.type == 'aw':
