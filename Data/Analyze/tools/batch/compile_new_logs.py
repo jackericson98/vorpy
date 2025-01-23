@@ -85,7 +85,8 @@ def make_new_logs(logs_pdbs_dict=None, logs_pdbs_file=None):
                          'avg abs diff sphericity (pow base)', 'std abs diff sphericity (pow base)',
                          'avg max spike dist (aw)', 'avg max spike dist (pow)',
                          'avg abs diff max spike dist (aw base)', 'std abs diff max spike dist (aw base)',
-                         'abs diff max spike dist (pow base)', 'std diff max spike dist (pow base)'])
+                         'abs diff max spike dist (pow base)', 'std diff max spike dist (pow base)',
+                         '% Overlapping Balls'])
         for _ in logs_pdbs_dict:
             counter += 1
             my_sys = System(logs_pdbs_dict[_]['pdb'], simple=True)
@@ -147,6 +148,7 @@ def make_new_logs(logs_pdbs_dict=None, logs_pdbs_file=None):
                       for i in range(len(dicty['pow_sphericity']))]
             diffs6 = [abs(dicty['aw_max_spike_dist'][i] - dicty['pow_max_spike_dist'][i]) / dicty['pow_max_spike_dist'][i]
                       for i in range(len(dicty['pow_sphericity']))]
+            diffs7 = 100 * len([0 for olp_num in dicty['overlaps'] if olp_num > 0]) / len(dicty['overlaps'])
 
             line = [_, np.mean(dicty['overlaps']), np.std(dicty['overlaps']), min(dicty['overlaps']),
                     max(dicty['overlaps']), np.mean(dicty['aw_neighbs']), np.mean(dicty['pow_neighbs']),
@@ -154,7 +156,7 @@ def make_new_logs(logs_pdbs_dict=None, logs_pdbs_file=None):
                     np.mean(dicty['aw_sphericity']), np.mean(dicty['pow_sphericity']), np.mean(diffs3),
                     np.std(diffs3), np.mean(diffs4), np.std(diffs4), np.mean(dicty['aw_max_spike_dist']),
                     np.mean(dicty['pow_max_spike_dist']), np.mean(diffs5), np.std(diffs5), np.mean(diffs6),
-                    np.std(diffs6)
+                    np.std(diffs6), diffs7
             ]
             timey_wimey = get_time(time.perf_counter() - start)
             print('{}/{} Done, {} %, Time elapsed = {}:{}:{}  -   Data ---->>>     '
