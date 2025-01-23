@@ -266,4 +266,4 @@ class Network:
         num_complete = len([_ for _ in self.balls['complete'] if _])
         print("\rnetwork built - {} complete cell{}, {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\nMissing Group Indices = {}"
               .format(num_complete, '' if num_complete == 1 else 's', len(self.verts), len(self.surfs), int(h), int(m),
-                      s, datetime.now(), self), end="")
+                      s, datetime.now(), [_['num'] for j, _ in self.balls.iterrows() if not _['complete']], end=""))
