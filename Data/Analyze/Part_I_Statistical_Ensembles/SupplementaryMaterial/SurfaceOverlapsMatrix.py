@@ -30,11 +30,16 @@ def get_overlap_data(file_name):
         # Ge the cv and density
         cv, density = float(loggy_list[1]), float(loggy_list[3])
         # Get the files
-        pdb_file, aw_logs_file, pow_logs_file = [my_logs[loggy][_] for _ in ['pdb', 'aw', 'pow']]
+        try:
+            pdb_file, aw_logs_file, pow_logs_file = [my_logs[loggy][_] for _ in ['pdb', 'aw', 'pow']]
+        except KeyError:
+            continue
         # Get the logs dictionaries
         aw_logs = read_logs2(aw_logs_file, True, all_=False, balls=True)
         # System of balls
         my_sys = System(pdb_file, simple=True)
+        if 'rad' not in my_sys.balls:
+            continue
         # Create the dataframe for the logs
         aw_dataframe = pd.DataFrame(aw_logs['atoms'])
         # pow_logs = read_logs2(pow_logs_file, True, all_=False, balls=True)
