@@ -6,8 +6,10 @@ from Visualize.cmnd.group import ggroup
 from System.system import System
 from System.Group.group import Group
 from System.sys_funcs.output.output import export_min1, export_min2, export_med, export_large, export_all, other_exports, set_sys_dir
-from Visualize.cmnd.commands import ands, helps, print_help
+from Visualize.cmnd.commands import *
 from copy import deepcopy
+import tkinter as tk
+from tkinter import filedialog
 
 
 """
@@ -145,9 +147,21 @@ def argv(my_sys):
     # Go through each of the ls
     load(my_sys, cmnds['npt'])
     for commandaroonski in cmnds['xpt']:
-        if commandaroonski[0] == 'dir' and os.path.isdir(commandaroonski[1]):
-            my_sys.files['dir'] = commandaroonski[1]
+        if commandaroonski[0] == 'dir':
+            if os.path.isdir(commandaroonski[1]):
+                my_sys.files['dir'] = commandaroonski[1]
+            elif commandaroonski[1].lower() in browse_names:
+                my_root = tk.Tk()
+                my_root.withdraw()
+                my_root.wm_attributes('-topmost', 1)
+                folder = filedialog.askdirectory(title='Choose Output Folder')
+                if os.path.exists(folder):
+                    my_sys.files['dir'] = folder
+                else:
+                    print(f"{folder} is not a valid folder")
+
             cmnds['xpt'].pop(cmnds['xpt'].index(commandaroonski))
+
     # Declare the settings variable
     settings = None
     # Go through the user inputs loading files

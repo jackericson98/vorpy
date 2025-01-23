@@ -27,8 +27,10 @@ def get_syses(folder=None):
         folder = filedialog.askdirectory(title="Choose a data folder")
 
     loc_data = {}
+    num_folders = len(os.listdir(folder))
+    for k, subfolder in enumerate(os.listdir(folder)):
 
-    for subfolder in os.listdir(folder):
+        print(f"\rFolder {k}/{num_folders} - {100 * (k/num_folders)}%", end="")
         split_subfolder = subfolder.split("_")
         try:
             sf_cv, sf_den = float(split_subfolder[1]), float(split_subfolder[3])
@@ -48,6 +50,9 @@ def get_syses(folder=None):
         except IndexError:
             print(pdb)
             continue
+        except ValueError:
+            print(pdb)
+            continue
 
         foam_box = float(my_sys.data[0][5][:-1])
         norm_locs = []
@@ -63,7 +68,7 @@ def get_syses(folder=None):
             loc_data[(sf_cv, sf_den)] += norm_locs
         else:
             loc_data[(sf_cv, sf_den)] = norm_locs
-
+    print(folder)
     return loc_data
 
 
@@ -104,10 +109,10 @@ def distribution_of_overlaps(loc_data):
 
     # Add CV values to the bottom of the figure
     for i, col in enumerate(cv_vals):
-        fig.text(0.15 + i * (0.7 / len(cv_vals)), 0.08, f"{col:.2f}", ha='center', fontsize=10)
+        fig.text(0.12 + i * (0.88 / len(cv_vals)), 0.04, f"{col:.2f}", ha='center', fontsize=15)
 
     for i, row in enumerate(density_vals[::-1]):
-        fig.text(0.07, 0.15 + i * (0.7 / len(density_vals)), f"{row:.2f}", va='center', rotation='horizontal', fontsize=10)
+        fig.text(0.07, 0.2 + i * (0.85 / len(density_vals)), f"{row:.2f}", va='center', rotation='horizontal', fontsize=15)
 
     # Add overall axis labels
     fig.text(0.5, 0.02, 'CV', ha='center', fontsize=14)
