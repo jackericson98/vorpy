@@ -1,6 +1,7 @@
 from System.sys_funcs.calcs.calcs import round_func
 import os
 import csv
+from datetime import datetime
 
 
 def write_logs(group, net_name=None, round_to=3):
@@ -21,9 +22,9 @@ def write_logs(group, net_name=None, round_to=3):
         # Write the build information header
         lg_fl.writerow(["build informaiton"])
         # Write the build information labels
-        lg_fl.writerow(["name", "network type", "surface resolution", "box size", "max vert", "Total Time", "vert time",
-                       "connect time", "surf time", "analysis time", "max vertex"])
-        lg_fl.writerow([group.sys.name, net.settings['net_type'], net.settings['surf_res'], net.settings['box_size'],
+        lg_fl.writerow(["Name", "Location", "Completion Date", "Network Type", "Surface Resolution", "Box Size", "Maximum Allowable Vertex", "Total Time", "Vertex Time",
+                       "Connect Time", "Surface Building Time", "Analysis time", "Maximum Found Vertex", ])
+        lg_fl.writerow([group.sys.name, group.sys.files['base_file'], datetime.now(), net.settings['net_type'], net.settings['surf_res'], net.settings['box_size'],
                         net.settings['max_vert'], r(net.metrics['tot']), r(net.metrics['vert']), r(net.metrics['con']),
                         r(net.metrics['surf']), r(net.metrics['anal']), r(max(net.verts['rad']))])
         # Write the group information header
