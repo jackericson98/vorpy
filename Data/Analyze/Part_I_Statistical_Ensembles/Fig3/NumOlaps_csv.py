@@ -85,57 +85,57 @@ def plot_overlapping_line_plots(data):
             data_std_dn[i].append(mean - std)
             data_std_up[i].append(mean + std)
 
-        # Coefficient of Variation (CV) and Density values
-        cmap = plt.cm.rainbow  # Choose a colormap that does not have yellow and works well in grayscale
-        norm = Normalize(vmin=min(cvs), vmax=max(cvs))
-        sm = ScalarMappable(norm=norm, cmap=cmap)
-        fig, ax = plt.subplots(figsize=(8, 6))
+    # Coefficient of Variation (CV) and Density values
+    cmap = plt.cm.rainbow  # Choose a colormap that does not have yellow and works well in grayscale
+    norm = Normalize(vmin=min(cvs), vmax=max(cvs))
+    sm = ScalarMappable(norm=norm, cmap=cmap)
+    fig, ax = plt.subplots(figsize=(8, 6))
 
-        for i, sd in enumerate(cvs):
-            try:
-                # Colors for each line based on 'sd' which is used as an index into the colormap
-                color = cmap(norm(sd))
-                # if round(sd, 4) > 0.5:
-                #     datavvm[i] = [0.9 * _ for _ in datavvm[i]]
-                #     datavvms[i], datavvps[i] = [0.9 * _ for _ in datavvms[i]], [0.9 * _ for _ in datavvps[i]]
-                # elif 0.35 < sd < 0.45:
-                #     datavvm[i] = [1.1 * _ for _ in datavvm[i]]
-                #     datavvms[i], datavvps[i] = [1.1 * _ for _ in datavvms[i]], [1.1 * _ for _ in datavvps[i]]
-                # if round(sd, 4) <= 0.5:
-                #     datavsm[i] = [0.78 * _ for _ in datavsm[i]]
-                #     datavsms[i], datavsps[i] = [0.78 * _ for _ in datavsms[i]], [0.78 * _ for _ in datavsps[i]]
-                # # elif 0.35 < sd < 0.45:
-                # #     datavvm[i] = [1.1 * _ for _ in datavvm[i]]
-                # #     datavvms[i], datavvps[i] = [1.1 * _ for _ in datavvms[i]], [1.1 * _ for _ in datavvps[i]]
-                # if value == 'vol':
-                ax.plot(dens, data_means[i], color=color)
-                ax.fill_between(dens, data_std_dn[i], data_std_up[i], color=color, alpha=0.2)
-                # elif value == 'sa':
-                #     ax.plot(my_densities, datavsm[i], color=color)
-                #     ax.fill_between(my_densities, datavsms[i], datavsps[i], color=color, alpha=0.2)
-            except ValueError:
-                continue
+    for i, sd in enumerate(cvs):
+        try:
+            # Colors for each line based on 'sd' which is used as an index into the colormap
+            color = cmap(norm(sd))
+            # if round(sd, 4) > 0.5:
+            #     datavvm[i] = [0.9 * _ for _ in datavvm[i]]
+            #     datavvms[i], datavvps[i] = [0.9 * _ for _ in datavvms[i]], [0.9 * _ for _ in datavvps[i]]
+            # elif 0.35 < sd < 0.45:
+            #     datavvm[i] = [1.1 * _ for _ in datavvm[i]]
+            #     datavvms[i], datavvps[i] = [1.1 * _ for _ in datavvms[i]], [1.1 * _ for _ in datavvps[i]]
+            # if round(sd, 4) <= 0.5:
+            #     datavsm[i] = [0.78 * _ for _ in datavsm[i]]
+            #     datavsms[i], datavsps[i] = [0.78 * _ for _ in datavsms[i]], [0.78 * _ for _ in datavsps[i]]
+            # # elif 0.35 < sd < 0.45:
+            # #     datavvm[i] = [1.1 * _ for _ in datavvm[i]]
+            # #     datavvms[i], datavvps[i] = [1.1 * _ for _ in datavvms[i]], [1.1 * _ for _ in datavvps[i]]
+            # if value == 'vol':
+            ax.plot(dens, data_means[i], color=color)
+            ax.fill_between(dens, data_std_dn[i], data_std_up[i], color=color, alpha=0.2)
+            # elif value == 'sa':
+            #     ax.plot(my_densities, datavsm[i], color=color)
+            #     ax.fill_between(my_densities, datavsms[i], datavsps[i], color=color, alpha=0.2)
+        except ValueError:
+            continue
 
-        # Adding a color bar that uses the created ScalarMappable
-        sm.set_array([])
-        cbar = plt.colorbar(sm, ax=ax)
-        cbar.set_label('Coefficient of Variation (CV)', fontdict=dict(size=25))
+    # Adding a color bar that uses the created ScalarMappable
+    sm.set_array([])
+    cbar = plt.colorbar(sm, ax=ax)
+    cbar.set_label('Coefficient of Variation (CV)', fontdict=dict(size=25))
 
-        # Set plot titles and labels
-        ax.set_xticks(np.arange(dens[0] + 0.05, dens[-1] + 0.05, 0.1))
-        # if value == 'vol':
-        #     ax.set_ylim([0, 200])
-        # elif value == 'sa':
-        #     ax.set_ylim([0, 50])
-        # ax.set_title('{} Power {}\nAbsolute % Difference'
-        #              .format('Overlapping' if cell_type == 'Open' else 'Non-Overlapping',
-        #                      {'sa': 'Surface Area', 'vol': 'Volume'}[value]), fontsize=20)
-        ax.set_xlabel('Density', fontsize=25)
-        ax.set_ylabel('Avg Abs % Diff', fontsize=25)
-        ax.tick_params(axis='both', which='major', labelsize=20, width=2, length=12)
+    # Set plot titles and labels
+    ax.set_xticks(np.arange(dens[0] + 0.05, dens[-1] + 0.05, 0.1))
+    # if value == 'vol':
+    #     ax.set_ylim([0, 200])
+    # elif value == 'sa':
+    #     ax.set_ylim([0, 50])
+    # ax.set_title('{} Power {}\nAbsolute % Difference'
+    #              .format('Overlapping' if cell_type == 'Open' else 'Non-Overlapping',
+    #                      {'sa': 'Surface Area', 'vol': 'Volume'}[value]), fontsize=20)
+    ax.set_xlabel('Density', fontsize=25)
+    ax.set_ylabel('% Balls Overlapping', fontsize=25)
+    ax.tick_params(axis='both', which='major', labelsize=20, width=2, length=12)
 
-        cbar.ax.tick_params(labelsize=20, size=10, width=2, length=12)
-        plt.tight_layout()
+    cbar.ax.tick_params(labelsize=20, size=10, width=2, length=12)
+    plt.tight_layout()
 
         # Show the plot
     plt.show()
