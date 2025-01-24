@@ -1,4 +1,5 @@
 import os
+import time
 import tkinter as tk
 from tkinter import filedialog
 import matplotlib.pyplot as plt
@@ -8,6 +9,7 @@ from Data.Analyze.tools.batch.get_files import get_files
 from Data.Analyze.tools.compare.read_logs2 import read_logs2
 from System.sys_funcs.calcs.calcs import calc_dist
 from scipy import stats
+from System.sys_funcs.calcs.calcs import get_time
 
 
 def gamma(r, cv, mu=1):
@@ -19,7 +21,7 @@ def gamma(r, cv, mu=1):
     return gamma_dist.pdf(r)
 
 
-def get_syses(folder=None):
+def get_syses1(folder=None):
     # If the folder option isnt chosen prompt the user to choose a folder
     if folder is None:
         # Get the folder with all the logs
@@ -54,6 +56,63 @@ def get_syses(folder=None):
         except IndexError:
             print(pdb, aw, pow, subfolder)
     print(folder)
+    return den_data
+
+
+def get_syses(folder=None):
+    """
+    Efficiently process system data from a folder structure, organizing by cv and density.
+
+    Args:
+        folder (str, optional): The root folder containing subfolders with system data.
+                               If not provided, prompts the user to select a folder.
+
+    Returns:
+        dict: A dictionary with keys as (cv, density) tuples and values as lists of radii data.
+    """
+
+    # Prompt user to choose a folder if not provided
+    if folder is None:
+        root = tk.Tk()
+        root.withdraw()
+        folder = filedialog.askdirectory(title="Choose a data folder")
+
+    den_data = {}
+
+    # Get all subfolders once to avoid multiple calls to os.listdir
+    subfolders = os.listdir(folder)
+    num_folders = len(subfolders)
+    start = time.perf_counter()
+    for k, subfolder in enumerate(subfolders):
+        print(f"\rProcessing Folder {k + 1}/{num_folders} - {100 * (k / num_folders):.2f}% - Time Elapsed = "
+              f"{get_time(time.perf_counter() - start)}", end="")
+
+        # Extract cv and density values
+        split_subfolder = subfolder.split("_")
+        try:
+            sf_cv, sf_den = map(float, (split_subfolder[1], split_subfolder[3]))
+        except (IndexError, ValueError):
+            continue  # Skip invalid subfolders
+
+        # Get file paths
+        try:
+            pdb, aw, pow = get_files(os.path.join(folder, subfolder))
+        except Exception as e:
+            print(f"Error getting files in {subfolder}: {e}")
+            continue
+
+        # Load system and extract radii
+        try:
+            my_sys = System(pdb, simple=True)
+            radii = my_sys.balls['rad'].tolist()  # Efficiently convert column to list
+            if (sf_cv, sf_den) in den_data:
+                den_data[(sf_cv, sf_den)].append(radii)
+            else:
+                den_data[(sf_cv, sf_den)] = [radii]
+        except (TypeError, IndexError) as e:
+            print(f"Error processing system in {subfolder}: {e}")
+
+    print(f"Processed folder: {folder}")
     return den_data
 
 
