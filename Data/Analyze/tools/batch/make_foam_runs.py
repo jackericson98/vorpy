@@ -105,13 +105,14 @@ if yeses[make_files.strip().lower()]:
     # Set the default directory
     dft_dir = os.getcwd()
     # Change the destination
-    change_destination = yeses[input(f'Change the output directory from \"...{dft_dir[-10:]}\"?  (y/n)  >>>  ').lower()]
-    # If the change destination thing has been triggered start that process
-    while change_destination:
-        # Get the new directory
-        dft_dir = filedialog.askdirectory()
-        # Print that the directory has been changed to the new directory
-        change_destination = yeses[input(f'\nDirectory changed to:\n')]
+    change_destination = input(f'Change the output directory from \"...{dft_dir[-10:]}\"?  (y/n)  >>>  ').lower()
+    if change_destination in yeses:
+        # If the change destination thing has been triggered start that process
+        while change_destination:
+            # Get the new directory
+            dft_dir = filedialog.askdirectory()
+            # Print that the directory has been changed to the new directory
+            change_destination = yeses[input(f'\nDirectory changed to:\n')]
 
     # Ask the initial question
     num_files_npt = input(f'Change the number of output files (cores): {num_files} files?  (y/n)  >>>  ').lower()
