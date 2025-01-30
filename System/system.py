@@ -161,7 +161,11 @@ class System:
             self.files['base_file'] = file
 
         # Set the name of the system
-        self.name = path.basename(self.files['base_file'])[:-4]
+        if self.files['base_file'] is not None:
+            self.name = path.basename(self.files['base_file'])[:-4]
+        else:
+            self.files['base_file'] = 'No File Loaded'
+            self.name = self.files['base_file']
 
         # Read PDB file
         if self.files['base_file'][-3:] == "pdb":
