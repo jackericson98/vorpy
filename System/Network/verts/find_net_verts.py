@@ -11,6 +11,8 @@ def find_net_verts(net):
     # Not sure what this does
     # vert_list_real = net.get_real_verts()
     # Create the group indices
+    if net.group is None:
+        net.group = [_['num'] for i, _ in net.balls.iterrows()]
     sphere_check_list = net.group.copy()
     # Get the indices of the balls in the network to keep track of the balls that haven't been visited
     my_guuy = find_verts(locs=net.balls['loc'].to_numpy(), rads=net.balls['rad'].to_numpy(),
