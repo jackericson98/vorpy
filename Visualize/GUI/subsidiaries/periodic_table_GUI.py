@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import simpledialog
 
-
 # Define basic properties of elements (symbol, atomic number, atomic mass, atomic radius)
 elements = {
         'H': {'name': 'Hydrogen', 'number': 1, 'mass': 1.008, 'radius': 1.30, 'row': 1, 'column': 1,
@@ -97,31 +96,58 @@ elements = {
     }
 
 
+class ElementDialog(tk.Toplevel):
+    def __init__(self, parent, element, callback):
+        super().__init__(parent)
+        self.element = element
+        self.callback = callback
+        self.title(f"Edit Properties - {element['name']}")
+
+        tk.Label(self, text=f"Mass ({element['mass']} u):").grid(row=0, column=0)
+        self.mass_entry = tk.Entry(self)
+        self.mass_entry.insert(0, str(element['mass']))
+        self.mass_entry.grid(row=0, column=1)
+
+        tk.Label(self, text=f"Radius ({element['radius']} Å):").grid(row=1, column=0)
+        self.radius_entry = tk.Entry(self)
+        self.radius_entry.insert(0, str(element['radius']))
+        self.radius_entry.grid(row=1, column=1)
+
+        self.apply_button = tk.Button(self, text="Apply", command=self.apply)
+        self.apply_button.grid(row=2, column=0)
+
+        self.cancel_button = tk.Button(self, text="Cancel", command=self.destroy)
+        self.cancel_button.grid(row=2, column=1)
+
+    def apply(self):
+        try:
+            new_mass = float(self.mass_entry.get())
+            new_radius = float(self.radius_entry.get())
+            self.callback(new_mass, new_radius)
+        except ValueError:
+            pass  # Handle incorrect input gracefully
+        self.destroy()
+
+
+def update_properties(element, button, root):
+    def apply_changes(new_mass, new_radius):
+        element['mass'] = new_mass
+        element['radius'] = new_radius
+        button.config(text=f"{element['name']}\n{element['mass']} u\n{element['radius']} Å")
+
+    ElementDialog(root, element, apply_changes)
+
+
+def create_button(root, element, color, buttons):
+    button = tk.Button(root, text=f"{element['name']}\n{element['mass']} u\n{element['radius']} Å",
+                       command=lambda: update_properties(element, button, root), padx=10, pady=10, bg=color)
+    return button
+
+
 def periodic_table():
-
-    def update_properties(element):
-        # Open a dialog to change mass and radius
-        new_mass = simpledialog.askfloat("Input", f"Enter new mass for {element['name']}",
-                                         parent=root, minvalue=0, initialvalue=element['mass'])
-        if new_mass is not None:  # Check if user cancelled
-            element['mass'] = new_mass
-
-        new_radius = simpledialog.askfloat("Input", f"Enter new radius for {element['name']}",
-                                           parent=root, minvalue=0, initialvalue=element['radius'])
-        if new_radius is not None:  # Check if user cancelled
-            element['radius'] = new_radius
-
-        # Update button text to show new mass and radius
-        buttons[element['name']].config(text=f"{element['name']}\n{element['mass']} u\n{element['radius']} \u212B")
-
-    def create_button(element, color):
-        # Button to represent an element
-        my_btn = tk.Button(root, text=f"{element['name']}\n{element['mass']} u\n{element['radius']} \u212B",
-                           command=lambda e=element: update_properties(e), padx=10, pady=10, bg=color)
-        return my_btn
-
     root = tk.Tk()
     root.title("Editable Periodic Table")
+
     color_scheme = {
         'Nonmetal': '#FFD700',  # Gold
         'Noble Gas': '#FFC0CB',  # Pink
@@ -135,36 +161,22 @@ def periodic_table():
 
     buttons = {}
     max_row = 0
-    for symbol, my_element in elements.items():
-        btn = create_button(my_element, color_scheme[my_element['group']])
-        buttons[my_element['name']] = btn
-        # Arrange buttons in grid (simplified for a few elements)
-        row, col = my_element['row'], my_element['column']
+    for symbol, element in elements.items():
+        btn = create_button(root, element, color_scheme[element['group']], buttons)
+        buttons[element['name']] = btn
+        row, col = element['row'], element['column']
         btn.grid(row=row, column=col, sticky='nsew')
-        max_row = max(max_row, my_element['row'])
+        max_row = max(max_row, element['row'])
 
-    # Adjust grid configuration for uniform button sizing
     for i in range(18):
         root.grid_columnconfigure(i, weight=1)
         root.grid_rowconfigure(i, weight=1)
 
-    def cancel():
-        root.destroy()
-
-    # Add cancel buttons
-    tk.Button(root, command=cancel, text='Cancel').grid(row=max_row + 1, column=17)
-
-    def apply():
-        root.destroy()
-        return elements
-
-    # Add the apply button
-    tk.Button(root, command=apply, text='Apply').grid(row=max_row + 1, column=18)
+    tk.Button(root, text='Cancel', command=root.destroy).grid(row=max_row + 1, column=17)
+    tk.Button(root, text='Apply', command=root.destroy).grid(row=max_row + 1, column=18)
 
     root.mainloop()
 
-    return elements
-
 
 if __name__ == '__main__':
-    print(periodic_table())
+    periodic_table()
