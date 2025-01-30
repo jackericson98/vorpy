@@ -9,12 +9,12 @@ warnings.filterwarnings("ignore", category=MatplotlibDeprecationWarning)
 
 
 # Helper function to validate color maps
-def validate_colormap(self, name):
+def validate_colormap(colormap):
     try:
-        mpl.colormaps.get_cmap(name)
+        mpl.colormaps.get_cmap(colormap)
         return True
     except ValueError:
-        messagebox.showerror("Invalid Colormap", f"'{current_colormap}' is not a valid matplotlib colormap.")
+        messagebox.showerror("Invalid Colormap", f"'{colormap}' is not a valid matplotlib colormap.")
         return False
 
 
@@ -33,7 +33,7 @@ class SurfaceOptionsGUI:
                 raise ValueError("Surface Resolution must be between 0.001 and 5.")
 
             colormap = self.colormap_var.get()
-            if not self.validate_colormap(colormap):
+            if not validate_colormap(colormap):
                 raise ValueError(f"Invalid colormap: {colormap}.")
 
             shading = self.shading_var.get()
@@ -49,9 +49,6 @@ class SurfaceOptionsGUI:
             self.root.destroy()
         except ValueError as e:
             messagebox.showerror("Invalid Input", str(e))
-
-    def validate_colormap(self, colormap):
-        validate_colormap(self, colormap)
 
     def run(self):
 
@@ -83,7 +80,7 @@ class SurfaceOptionsGUI:
         colormap_combobox.grid(row=1, column=1, padx=10, pady=10)
         colormap_combobox.set("viridis")
 
-        verify_button = ttk.Button(self.root, text="Verify", command=self.verify_colormap)
+        verify_button = ttk.Button(self.root, text="Verify", command=validate_colormap(self.colormap_var.get()))
         verify_button.grid(row=1, column=2, padx=10, pady=10)
 
         # Shading Scheme
