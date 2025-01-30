@@ -47,6 +47,19 @@ class Network:
         # Sort the balls if need be
         if sort_balls:
             self.sort_balls()
+        # If the user wants to build the net
+        if build_net:
+            if self.settings is None:
+                self.default_settings()
+
+    def default_settings(self, surf_res=0.2, box_size=1.5, max_vert=40, build_type='all', net=None,
+                         net_type='aw', surf_col='plasma', surf_scheme='mean', num_splits=None, print_metrics=True,
+                         scheme_factor='log', make_net=False, verts=None):
+        self.settings = {'surf_res': surf_res, 'surf_col': surf_col, 'surf_scheme': surf_scheme, 'max_vert': max_vert,
+                         'box_size': box_size, 'net_type': net_type, 'build_type': build_type, 'num_splits': num_splits,
+                         'print_metrics': print_metrics, 'atom_rad': None, 'scheme_factor': scheme_factor,
+                         'foam_box': None, 'sys_dir': os.getcwd()}
+
 
     def calc_box(self, locs, rads, return_val=False, box_size=None):
         """
