@@ -1,5 +1,5 @@
 # Responses
-ys = ['y', 'yes', 'ya', 'yeet', 'yur', 'yoint', 'uhu', 'yup', 'jess', 'affirmative', 'yuss', 'yess',
+ys = ['y', 'yes', 'ya', 'yeet', 'yur', 'yoint', 'uhu', 'yup', 'jess', 'affirmative', 'yuss', 'yess', 'jeth',
       'yesss', 'yessss', 'yar', 'yuh', 'mhm', 'crabsolutely', 'dolphinitely', 'shell ya', 'whale of course']
 ns = ['n', 'no', 'naur', 'nope', 'nonya', 'nope', 'nien', 'nada']
 nones = ['none', 'noneya']
