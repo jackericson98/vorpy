@@ -83,7 +83,10 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     os.chdir(grp.dir)
     # If the user wants to export the atoms for the group
     if atoms or all_:
-        write_pdb(atoms=grp.ball_ndxs, file_name="{}_atoms".format(grp.name), sys=grp.sys)
+        if grp.sys.files['base_file'][-3:] == 'txt':
+            pass
+        else:
+            write_pdb(atoms=grp.ball_ndxs, file_name="{}_atoms".format(grp.name), sys=grp.sys)
     # If the atoms surfaces are selected go for it
     if atom_verts or atom_edges or atom_surfs or all_:
         if not path.exists(grp.dir + '/atoms'):
@@ -184,7 +187,10 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             # Get the first layer
             grp.get_layers(max_layers=1)
         # write the surrounding atoms
-        write_pdb(atoms=grp.layer_atoms[1], file_name="surr_atoms", directory=grp.dir, sys=grp.sys)
+        try:
+            write_pdb(atoms=grp.layer_atoms[1], file_name="surr_atoms", directory=grp.dir, sys=grp.sys)
+        except IndexError:
+            pass
     if (ext_atoms or all_) and len(grp.atoms) > 15:
         if grp.layer_surfs is None:
             # Get the first layer

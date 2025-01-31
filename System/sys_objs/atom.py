@@ -73,8 +73,8 @@ class Atom:
         self.rad = get_radius(self, my_radii=radii)
 
 
-def make_atom(system=None, location=None, radius=None, index='', name='', residue='', chain='', chn_name='',
-              res_name='', res_seq="", seg_id="", element="", chn=None, res=None, mass=None):
+def make_atom(system=None, location=None, radius=None, index='', name='ball', residue='', chain='', chn_name='',
+              res_name='', res_seq="0", seg_id="0", element="h", chn=None, res=None, mass=1.0):
     atom = {
         # System groups
         'sys': system,           # System       :   Main system object
