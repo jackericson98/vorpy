@@ -60,7 +60,6 @@ class Network:
                          'print_metrics': print_metrics, 'atom_rad': None, 'scheme_factor': scheme_factor,
                          'foam_box': None, 'sys_dir': os.getcwd()}
 
-
     def calc_box(self, locs, rads, return_val=False, box_size=None):
         """
         Determines the dimensions of a box x times the size of the balls
@@ -279,4 +278,4 @@ class Network:
         num_complete = len([_ for _ in self.balls['complete'] if _])
         print("\rnetwork built - {} complete cell{}, {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\nMissing Group Indices = {}"
               .format(num_complete, '' if num_complete == 1 else 's', len(self.verts), len(self.surfs), int(h), int(m),
-                      s, datetime.now(), [_['num'] for j, _ in self.balls.iterrows() if not _['complete']], end=""))
+                      s, datetime.now(), [_['num'] for j, _ in self.balls.iterrows() if not _['complete'] and _['num'] not in self.group], end=""))
