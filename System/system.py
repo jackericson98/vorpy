@@ -5,6 +5,7 @@ from System.sys_funcs.input.pdb import read_pdb
 from System.sys_funcs.input.cif import read_cif
 from System.sys_funcs.input.gro import read_gro
 from System.sys_funcs.input.mol import read_mol
+from System.sys_funcs.input.txt import read_txt
 from System.sys_funcs.input.net import read_net, read_ndx
 from System.sys_funcs.input.vta import read_vta_data
 from System.sys_funcs.input.verts import read_verts
@@ -182,6 +183,10 @@ class System:
         # Read MOL file
         elif self.files['base_file'][-3:] == "mol":
             read_mol(self)
+
+        # Read a txt file
+        elif self.files['base_file'][-3:] == 'txt':
+            read_txt(self)
 
         # Name the system
         if self.name is None:

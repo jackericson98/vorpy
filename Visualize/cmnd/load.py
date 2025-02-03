@@ -3,7 +3,7 @@ from Visualize.cmnd.commands import *
 from System.system import System
 
 
-def load(sys, usr_npt):
+def load(sys, usr_npt, balls_file=False):
     """
     Once one of the load commands is used try to load the rest of the string
     :param sys:
@@ -24,7 +24,7 @@ def load(sys, usr_npt):
                 my_files.append(my_file)
     for file in my_files:
         # Check to see what type of file it is
-        if file[-3:] == 'pdb' or file[-3:] == 'mol' or file[-3:] == 'gro' or file[-3:] == 'cif':
+        if file[-3:] == 'pdb' or file[-3:] == 'mol' or file[-3:] == 'gro' or file[-3:] == 'cif' or balls_file:
             if sys.name is not None and \
                     (sys.atoms is not None or sys.vert_file is not None or sys.net_file is not None):
                 reset_sys = input("replacing {} with {}\nconfirm >>>   "

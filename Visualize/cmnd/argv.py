@@ -138,7 +138,7 @@ def argv(my_sys):
         print_help()
         return
     # Load the atom file
-    load(my_sys, [["", sys.argv[1]]])
+    load(my_sys, [["", sys.argv[1]]], balls_file=True)
 
     # Interpret the commands
     cmnds = interpret_argvs()
