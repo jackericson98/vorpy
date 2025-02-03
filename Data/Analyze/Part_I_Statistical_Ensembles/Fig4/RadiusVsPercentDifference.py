@@ -12,6 +12,7 @@ from System.sys_funcs.input.pdb import read_pdb_line
 from System.sys_funcs.output.atoms import make_pdb_line
 import numpy as np
 from scipy.optimize import curve_fit
+from Data.Analyze.tools.batch.get_files import get_files
 
 
 root = tk.Tk()
@@ -33,18 +34,10 @@ Names = {'devries.pdb': 'A. DeVries', 'gal': 'B. Gal-Or', 'lemlich.pdb': 'R. Lem
 #         break
 
 counter = 0
-folders = ['C:/Users/Optiplex_7060/GSU Dropbox Dropbox/John Ericson/Data/II_Macroscopic/Real_foams/1.0_0.0_1000_0.5_False_devries',
-           'C:/Users\Optiplex_7060\GSU Dropbox Dropbox\John Ericson\Data\II_Macroscopic\Real_foams/1.0_0.0_1000_0.5_False_gal_or',
-           'C:/Users\Optiplex_7060\GSU Dropbox Dropbox\John Ericson\Data\II_Macroscopic\Real_foams/1.0_0.0_1000_0.5_False_lemlich']
-for folder in folders:
-    for rroot, directys, files in os.walk(folder):
-        for file in files:
-            if file[-3:] == 'pdb' and 'atoms' not in file and 'diff' not in file:
-                pdb = rroot + '/' + file
-            if file[-3:] == 'csv' and 'vor' in file:
-                aw_logs = rroot + '/' + file
-            if file[-3:] == 'csv' and 'pow' in file:
-                pow_logs = rroot + '/' + file
+folders = filedialog.askdirectory()
+for folder in os.listdir(folders):
+    pdb, aw_logs, pow_logs = get_files(folders + '/' + folder)
+    print(pdb)
 
     # Take in the PDB
     # pdb = filedialog.askopenfilename(title='Get the pdb file mf')
