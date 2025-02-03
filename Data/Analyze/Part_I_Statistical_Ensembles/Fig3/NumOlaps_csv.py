@@ -89,9 +89,11 @@ def plot_overlapping_line_plots(data):
     cmap = plt.cm.rainbow  # Choose a colormap that does not have yellow and works well in grayscale
     norm = Normalize(vmin=min(cvs), vmax=max(cvs))
     sm = ScalarMappable(norm=norm, cmap=cmap)
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(8, 12))
 
     for i, sd in enumerate(cvs):
+        if sd == 0.05:
+            continue
         try:
             # Colors for each line based on 'sd' which is used as an index into the colormap
             color = cmap(norm(sd))
