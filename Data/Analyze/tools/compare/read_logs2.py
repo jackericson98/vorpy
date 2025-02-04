@@ -128,11 +128,20 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
                     continue
                 elif i == 2:
                     line = line + [0 for _ in range(11 - len(line))]
-                    data = {'name': line[0], 'network_type': line[1], 'surface_resolution': float(line[2]),
-                            'box_size': float(line[3]), 'max_vert': float(line[4]), 'Total_Time': float(line[5]),
-                            'vert_time': float(line[6]), 'connect_time': float(line[7]), 'surf_time': float(line[8]),
-                            'analysis_time': float(line[9]), 'max_vertex': float(line[10])}
-                    continue
+                    try:
+                        data = {'name': line[0], 'network_type': line[1], 'surface_resolution': float(line[2]),
+                                'box_size': float(line[3]), 'max_vert': float(line[4]), 'Total_Time': float(line[5]),
+                                'vert_time': float(line[6]), 'connect_time': float(line[7]), 'surf_time': float(line[8]),
+                                'analysis_time': float(line[9]), 'max_vertex': float(line[10])}
+                        continue
+                    except ValueError:
+                        data = {'name': line[0], 'location': line[1], 'time': line[2],'network_type': line[3],
+                                'surface_resolution': float(line[4]), 'box_size': float(line[5]),
+                                'max_vert': float(line[6]), 'Total_Time': float(line[7]),
+                                'vert_time': float(line[8]), 'connect_time': float(line[9]),
+                                'surf_time': float(line[10]), 'analysis_time': float(line[11]),
+                                'max_vertex': float(line[12])}
+                        continue
                 elif i == 5:
                     # group_data = {'name': line[0], 'volume': float(line[2]), 'sa': float(line[3])}
                     group_data = {'Name': line[0], 'Volume': float(line[1]), 'Surface Area': float(line[2]),
