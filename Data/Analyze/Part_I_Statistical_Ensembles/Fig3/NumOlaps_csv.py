@@ -26,11 +26,10 @@ def parse_data(filepath):
             # Extract details from the filename
             try:
                 details = filename.split('_')
-
                 mean = float(details[0])
                 cv = float(details[1])
                 num_balls = int(details[2])
-                density = float(details[3].replace('_', '.'))
+                density = float(details[3])
             except IndexError:
                 print(line)
                 continue
@@ -89,7 +88,7 @@ def plot_overlapping_line_plots(data):
     cmap = plt.cm.rainbow  # Choose a colormap that does not have yellow and works well in grayscale
     norm = Normalize(vmin=min(cvs), vmax=max(cvs))
     sm = ScalarMappable(norm=norm, cmap=cmap)
-    fig, ax = plt.subplots(figsize=(8, 12))
+    fig, ax = plt.subplots(figsize=(6, 9))
 
     for i, sd in enumerate(cvs):
         if sd == 0.05:
