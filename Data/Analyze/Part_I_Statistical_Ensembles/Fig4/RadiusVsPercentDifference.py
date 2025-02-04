@@ -17,14 +17,16 @@ from Data.Analyze.tools.batch.get_files import get_files
 
 root = tk.Tk()
 root.withdraw()
+
 root.wm_attributes('-topmost', 1)
 sets = {}
-fig = plt.figure(figsize=(7, 5))
+fig = plt.figure(figsize=(8, 8))
 
 colors = ['purple', 'green', 'orange']
-Names = {'devries.pdb': 'A. DeVries', 'gal': 'B. Gal-Or', 'lemlich.pdb': 'R. Lemlich'}
+Names = {'devries': 'A. DeVries', 'gal': 'B. Gal-Or', 'lemlich': 'R. Lemlich'}
 # counter = 0
 # folders = []
+os.chdir('../../../..')
 
 #
 # while True:
@@ -100,8 +102,11 @@ for folder in os.listdir(folders):
     print(len(diffs))
     if counter == 0:
         max_rad = max(rads)
+    # def func(x, a, b, c):
+    #     return a * np.exp(-b * x) + c
+
     def func(x, a, b, c):
-        return a * np.exp(-b * x) + c
+        return a / x + b + c
     try:
         color = colors[counter]
     except IndexError:
@@ -114,9 +119,12 @@ for folder in os.listdir(folders):
     print(f"plot: {density} --- Mean = {mean}, Absolute Mean = {abs_mean}")
     # plt.plot([min(rads), max(rads)], [mean, mean], linestyle=':', c=color, linewidth=3)
     plt.plot([min(rads), max_rad], [abs_mean, abs_mean], linestyle='--', c=color, linewidth=1)
-    popt, pcov = curve_fit(func, np.array(rads), np.array(diffs))
+    popt, pcov = curve_fit(func, np.array(rads), np.array(diffs), sigma=rads)
     # plt.text(s='y = {:.2f} * exp(-{:.2f} * x) + {:.2f}'.format(*popt), x=1.5, y=1.5, font=dict(size=10))
-    plt.plot([max_rad] + rads, [100 * _ for _ in func(np.array([max_rad] + rads), *popt)], c=color, linewidth=1, label=density)
+    xs = [max_rad] + rads
+    ys = [100 * _ for _ in func(np.array([max_rad] + rads), *popt)]
+    # ys = [max(_, min([100 * _ for _ in diffs])) for _ in ys]
+    plt.plot(xs, ys, c=color, linewidth=1, label=density)
 
     plt.scatter(rads, [100 * _ for _ in diffs], s=2, alpha=0.3, c=color)
 
