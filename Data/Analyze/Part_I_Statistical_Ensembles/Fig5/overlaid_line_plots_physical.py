@@ -85,6 +85,8 @@ datavvps, datavsps, datapvps, datapsps = [[] for _ in my_sds], [[] for _ in my_s
 # Iterate over my_sds and my_densities using nested loops
 for i, num in enumerate(my_sds):
     for j, num2 in enumerate(my_densities):
+        # if num2 == 0.05:
+        #     continue
         means = []
         sds = []
         # Get the current Data
@@ -133,17 +135,17 @@ for value in ['vol', 'sa']:
     # cmap = plt.cm.rainbow  # Choose a colormap that does not have yellow and works well in grayscale
     # norm = Normalize(vmin=min(my_sds), vmax=max(my_sds))
     # sm = ScalarMappable(norm=norm, cmap=cmap)
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(6, 6))
 
     for i, sd in enumerate(my_sds):
         # Colors for each line based on 'sd' which is used as an index into the colormap
         # color = cmap(norm(sd))
         if value == 'vol':
-            ax.plot(my_densities, datavvm[i], label=label_dict[sd], color=colors[i])
-            ax.fill_between(my_densities, datavvms[i], datavvps[i], alpha=0.2, color=colors[i])
+            ax.plot(my_densities[1:], datavvm[i][1:], label=label_dict[sd], color=colors[i])
+            ax.fill_between(my_densities[1:], datavvms[i][1:], datavvps[i][1:], alpha=0.2, color=colors[i])
         elif value == 'sa':
-            ax.plot(my_densities, datavsm[i], label=label_dict[sd], c=colors[i])
-            ax.fill_between(my_densities, datavsms[i], datavsps[i], alpha=0.2, color=colors[i])
+            ax.plot(my_densities[1:], datavsm[i][1:], label=label_dict[sd], c=colors[i])
+            ax.fill_between(my_densities[1:], datavsms[i][1:], datavsps[i][1:], alpha=0.2, color=colors[i])
 
 
     plt.legend(fontsize=25)
