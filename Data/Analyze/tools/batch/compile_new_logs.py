@@ -159,9 +159,9 @@ def make_new_logs(logs_pdbs_dict=None, logs_pdbs_file=None):
                     np.std(diffs6), diffs7
             ]
             timey_wimey = get_time(time.perf_counter() - start)
-            print('{}/{} Done, {} %, Time elapsed = {}:{}:{}  -   Data ---->>>     '
+            print('\r{}/{} Done, {} %, Time elapsed = {}:{}:{}  -   Data ---->>>     '
                   .format(counter, length_of_dic, round(100 * counter / length_of_dic, 3), round(timey_wimey[0]),
-                          round(timey_wimey[1]), round(timey_wimey[2], 2)), line)
+                          round(timey_wimey[1]), round(timey_wimey[2], 2)), line, end="")
             n_logs.writerow(line)
 
     return new_info_dict
