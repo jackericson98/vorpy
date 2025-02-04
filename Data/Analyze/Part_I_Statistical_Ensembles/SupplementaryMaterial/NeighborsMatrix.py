@@ -28,6 +28,8 @@ def get_neighbors_data(folder=None):
             rads, pow_naybs, aw_naybs = [], [], []
         except TypeError:
             continue
+        except IndexError:
+            continue
         for i, aw_ball in aw_logs['atoms'].iterrows():
             try:
                 pow_ball = pow_logs['atoms'].iloc[i]
