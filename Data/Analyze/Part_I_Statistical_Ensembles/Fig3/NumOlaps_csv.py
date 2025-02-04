@@ -125,7 +125,7 @@ def plot_overlapping_line_plots(data):
     # Set plot titles and labels
     ax.set_xticks(np.arange(dens[0] + 0.05, dens[-1] + 0.05, 0.1))
     # if value == 'vol':
-    #     ax.set_ylim([0, 200])
+    ax.set_ylim([0, 100])
     # elif value == 'sa':
     #     ax.set_ylim([0, 50])
     # ax.set_title('{} Power {}\nAbsolute % Difference'
