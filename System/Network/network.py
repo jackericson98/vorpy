@@ -276,6 +276,6 @@ class Network:
         self.metrics['tot'] = now() - self.metrics['start']
         h, m, s = get_time(self.metrics['tot'])
         num_complete = len([_ for _ in self.balls['complete'] if _])
-        print("\rnetwork built - {} complete cell{}, {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\nMissing Group Indices = {}"
+        print("\rnetwork built - {} complete cell{}, {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}"
               .format(num_complete, '' if num_complete == 1 else 's', len(self.verts), len(self.surfs), int(h), int(m),
-                      s, datetime.now(), [_['num'] for j, _ in self.balls.iterrows() if not _['complete'] and _['num'] not in self.group], end=""))
+                      s, datetime.now()), end="")
