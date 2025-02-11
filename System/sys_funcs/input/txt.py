@@ -9,7 +9,10 @@ def read_txt(sys, file=None):
     with open(file, 'r') as read_file:
         balls = []
         for i, line in enumerate(read_file.readlines()):
-            line = line.split(" ")
+            if ',' in line:
+                line = line.split(',')
+            else:
+                line = line.split(" ")
             line = [_ for _ in line if _ != ""]
             loc = np.array([float(_) for _ in line[:3]])
             rad = float(line[3])
