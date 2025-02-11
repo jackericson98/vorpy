@@ -4,7 +4,6 @@ from System.sys_funcs.calcs.calcs import calc_dist, calc_dist_numba
 from numpy import array, dot, isreal, linalg, roots
 from numba import jit
 
-
 @jit(nopython=True)
 def calc_vert_abcfs(locs, rads):
     """
