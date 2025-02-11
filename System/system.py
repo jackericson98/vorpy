@@ -5,6 +5,7 @@ from System.sys_funcs.input.pdb import read_pdb
 from System.sys_funcs.input.cif import read_cif
 from System.sys_funcs.input.gro import read_gro
 from System.sys_funcs.input.mol import read_mol
+from System.sys_funcs.input.balls import load_balls
 from System.sys_funcs.input.txt import read_txt
 from System.sys_funcs.input.net import read_net, read_ndx
 from System.sys_funcs.input.vta import read_vta_data
@@ -132,7 +133,9 @@ class System:
 
         # elif self.user_atoms is not None:
         #     self.load_sys_atoms()
-        else:
+        elif self.atoms is not None:
+            load_balls(self)
+            self.set_output_directory()
             return
 
         # Load the network
