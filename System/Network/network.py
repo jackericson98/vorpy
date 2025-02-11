@@ -276,6 +276,6 @@ class Network:
         self.metrics['tot'] = now() - self.metrics['start']
         h, m, s = get_time(self.metrics['tot'])
         num_complete = len([_ for _ in self.balls['complete'] if _])
-        print("\rnetwork built - {} complete cell{}, {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}"
+        print("\rnetwork built - {} complete cell{}, {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
               .format(num_complete, '' if num_complete == 1 else 's', len(self.verts), len(self.surfs), int(h), int(m),
                       s, datetime.now()), end="")
