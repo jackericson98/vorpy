@@ -46,7 +46,7 @@ def get_balls(cells, dist=0, cell_reach=0, my_balls_matrix=None, my_sub_box_size
     if my_balls_matrix is not None:
         balls_matrix, sub_box_size, max_ball_rad = my_balls_matrix, my_sub_box_size, my_max_ball_rad
     # Get the reach around the box to grab balls from
-    reach = int(dist / min(sub_box_size)) + 2
+    reach = int(dist / min(sub_box_size)) + 3
     # Grab the number of cells in the grid
     n = balls_matrix[-1, -1, -1][0]
     # If a single cell is entered
