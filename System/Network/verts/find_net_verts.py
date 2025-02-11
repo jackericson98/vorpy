@@ -36,20 +36,22 @@ def find_net_verts(net):
                     break
         for _ in skip_nums:
             sphere_check_list.pop(sphere_check_list.index(_))
-
-    # Check for disconnects in the network
-    while len(sphere_check_list) > 0:
-        a0 = sphere_check_list.pop()
-        my_guuy = find_verts(b0=a0, locs=net.balls['loc'].to_numpy(), rads=net.balls['rad'].to_numpy(),
-                             max_vert=net.settings['max_vert'], net_type=net.settings['net_type'], check_ndxs=sphere_check_list,
-                             my_group=net.group, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
-                             vloc2s=vloc2s, vrad2s=vrad2s, start_time=net.metrics['start'],
-                             vert_box=net.settings['foam_box'], b_verts=averts, box=net.box['verts'])
-        if my_guuy is not None:
-            vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
-        if net.settings['ball_type'] == 'foam' and len(sphere_check_list) <= 0.25 * len(net.balls['loc']):
-            print(f'Missing Ball Indices:\n{sphere_check_list}\n')
-            break
+    if net.settings['ball_type'] == 'foam' and len(sphere_check_list) <= 0.25 * len(net.balls['loc']):
+        print(f'Missing Ball Indices:\n{sphere_check_list}\n')
+    else:
+        # Check for disconnects in the network
+        while len(sphere_check_list) > 0:
+            a0 = sphere_check_list.pop()
+            my_guuy = find_verts(b0=a0, locs=net.balls['loc'].to_numpy(), rads=net.balls['rad'].to_numpy(),
+                                 max_vert=net.settings['max_vert'], net_type=net.settings['net_type'], check_ndxs=sphere_check_list,
+                                 my_group=net.group, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
+                                 vloc2s=vloc2s, vrad2s=vrad2s, start_time=net.metrics['start'],
+                                 vert_box=net.settings['foam_box'], b_verts=averts, box=net.box['verts'])
+            if my_guuy is not None:
+                vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
+            if net.settings['ball_type'] == 'foam' and len(sphere_check_list) <= 0.25 * len(net.balls['loc']):
+                print(f'Missing Ball Indices:\n{sphere_check_list}\n')
+                break
     # # Create the doublets list
     # if vert_list_real is not None and net.type == 'aw':
     #     missing_verts = [_ for _ in vert_list_real if _ not in vert_ndxs]
