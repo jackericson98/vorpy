@@ -7,12 +7,31 @@ from time import perf_counter as now
 
 
 def append_0(*lists):
+    """
+    Appends a 0 to each list provided as an argument.
+
+    Parameters:
+        lists (list of lists): Variable number of list arguments.
+
+    Returns:
+        list: The tuple of lists with 0 appended to each.
+    """
     for my_list in lists:
         my_list.append(0)
     return lists
 
 
 def get_next_layer(net, prev_layer):
+    """
+    Identifies and returns the next layer of balls based on the previous layer within a network.
+
+    Parameters:
+        net (object): Network object containing balls and their surfaces.
+        prev_layer (list): List of previous layer's ball indices.
+
+    Returns:
+        list: List of indices representing the next layer of balls.
+    """
     # Set up the layer2 list
     layer2 = []
     # Gather the ball numbers for the previous layer
@@ -29,8 +48,17 @@ def get_next_layer(net, prev_layer):
 
 def analyze(net, complicated=True):
     """
-     Analyzes the output surfaces, cells and solute vertices for the network for later reference
-     """
+    Performs a comprehensive analysis of a network, calculating various physical, geometrical,
+    and topological properties of the cells (balls) within the network.
+
+    Parameters:
+        net (object): Network object containing details about cells, surfaces, vertices, etc.
+        complicated (bool): Flag to perform additional complex calculations.
+
+    This function processes each ball in the network, calculating properties such as volume,
+    surface area, sphericity, curvature, and neighbor relationships, among others. It also
+    handles conditions for incomplete cells and updates the network with the calculated metrics.
+    """
     # Create the group set for the group indexes
     group_set = set(net.group)
     # Set up the balls' volumes, surface areas, and completion variables
