@@ -152,7 +152,10 @@ class System:
             self.name = self.foam_data
 
         # Set the name for the system
-        self.name = path.basename(self.files['base_file'])[:-4]
+        try:
+            self.name = path.basename(self.files['base_file'])[:-4]
+        except TypeError:
+            self.name = "my_system"
 
     def load_sys(self, file=None, simple=False):
         """
@@ -201,8 +204,9 @@ class System:
 
         # If the system wants its actions printed
         if self.print_actions and not simple:
-            print("{} loaded - {} atoms, {} residues, {} chain{}, ".format(self.name, len(self.atoms),
-                  len(self.residues), len(self.chains), 's' if len(self.chains) > 1 else ''))
+            print("{} loaded - {} atoms, {} residues, {} chain{}, "
+                  .format(self.name, len(self.atoms) if self.atoms is not None else len(self.balls),
+                          len(self.residues), len(self.chains), 's' if len(self.chains) > 1 else ''))
 
     def set_radii(self, my_element_radii=None, my_special_radii=None):
         """
