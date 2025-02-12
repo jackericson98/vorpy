@@ -26,7 +26,7 @@ def load(sys, usr_npt, balls_file=False):
         # Check to see what type of file it is
         if file[-3:] == 'pdb' or file[-3:] == 'mol' or file[-3:] == 'gro' or file[-3:] == 'cif' or balls_file:
             if sys.name is not None and \
-                    (sys.atoms is not None or sys.vert_file is not None or sys.net_file is not None):
+                    (sys.atoms is not None or sys.files['verts_file'] is not None or sys.files['net_file'] is not None):
                 reset_sys = input("replacing {} with {}\nconfirm >>>   "
                                   .format(sys.name, file))
                 if reset_sys.lower() in ys:
