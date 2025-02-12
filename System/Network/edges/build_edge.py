@@ -11,7 +11,14 @@ import matplotlib.pyplot as plt
 
 def edge_bad(e_points):
     """
-    We need to find out if the edge points are out of order
+    Determine if the edge points are out of order based on their angular relationships.
+
+    Parameters:
+        e_points (list of tuples): List of coordinates for edge points.
+
+    Returns:
+        bool: True if all angles between consecutive triples of points are within
+              the specified range, False otherwise.
     """
     for i in range(len(e_points) - 2):
         angle = calc_angle_jit(e_points[i + 1], e_points[i], e_points[i + 2])
@@ -21,6 +28,19 @@ def edge_bad(e_points):
 
 
 def build_straight_edge(locs, rads, vlocs, res):
+    """
+    Construct a straight edge based on given locations and radii, resolving it into
+    multiple points along the edge based on the specified resolution.
+
+    Parameters:
+        locs (list of tuples): List of locations for the vertices.
+        rads (list of floats): Radii at each location.
+        vlocs (list of tuples): Vertex locations defining the edge endpoints.
+        res (float): Resolution determining the number of divisions along the edge.
+
+    Returns:
+        tuple: A tuple containing a list of points defining the edge and a dictionary with edge metadata.
+    """
     # Get the location and radius of the circle inscribed between the edge atoms
     try:
         loc, rad = calc_circ(locs[0], locs[1], locs[2], rads[0], rads[1], rads[2])
@@ -47,7 +67,17 @@ def build_straight_edge(locs, rads, vlocs, res):
 
 def mid_edge_point(ep1, ep2, func, vmid, direction, new_direction=True):
     """
-    Calculates the middle point between two edge points
+    Calculates a middle point on an edge based on provided edge points, function, and direction.
+
+    Parameters:
+        ep1, ep2 (tuple): Edge points between which to calculate the middle point.
+        func (function): Function describing the surface on which the edge lies.
+        vmid (tuple): Midpoint used for reference in calculations.
+        direction (tuple): Initial direction for edge calculation.
+        new_direction (bool, optional): Flag to indicate if direction calculation is required; default True.
+
+    Returns:
+        ndarray: New edge point projected onto the surface defined by 'func'.
     """
     # If the point is the first point we just need to move in the direction of the direction vector
     if new_direction:
@@ -70,8 +100,27 @@ def mid_edge_point(ep1, ep2, func, vmid, direction, new_direction=True):
 def build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight=False, vmid=None, dnorm=None, edub=False,
                edge_points1=None, edge_verts=None, redone_edge=False):
     """
-    Build edge function. Takes in the locations and radii of the input balls and the vertices bounding the edge and
-    outputs a fully resolved edge.
+    Constructs an edge based on various parameters describing the geometry and properties of the network elements.
+
+    Parameters:
+        locs (list): Locations of interest points.
+        rads (list): Radii corresponding to each location.
+        vlocs (list): Vertex locations defining the bounds of the edge.
+        blocs (list): The balls in the network's locations
+        brads (list): The balls in the network's radd
+        res (float): Resolution for determining the detail of the edge computation.
+        blocs, brads (list): Additional network-specific parameters, locations, and radii used in complex edge calculations.
+        eballs (list): Indices or identifiers for the balls involved in edge calculation.
+        straight (bool): Whether the edge should be constructed as a straight line.
+        vmid (tuple): Midpoint from which to project
+        dnorm (tuple): Normal direction for dynamic calculation segments.
+        edub (bool): Indicates whether to use a double precision or higher accuracy mode.
+        edge_points1 (list): Previously calculated edge points for visualization or debugging.
+        edge_verts (list): Vertices associated with the edge for visualization or debugging.
+        redone_edge (bool): Flag indicating whether the edge is being recalculated.
+
+    Returns:
+        tuple: A tuple containing the list of computed edge points and additional values for further processing.
     """
     # If the edge is straight build the straight edge
     if straight or round(rads[0], 3) == round(rads[1], 3) == round(rads[2], 3):
