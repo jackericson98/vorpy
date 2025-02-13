@@ -103,22 +103,23 @@ def plot_data(rads, net_nbors, cv, den):
     # Store the full sorted y_ticks for later access
     all_y_ticks = sorted([_ for _ in mean_rad_dict.keys() if _ not in excludes])
 
-    # Determine the range for symmetric ticks around 0
-    if len(all_y_ticks) > 1:
-        max_abs_tick = max(abs(min(all_y_ticks)), abs(max(all_y_ticks)))
-        num_ticks = min(5, len(all_y_ticks))  # Limit to a maximum of 5 ticks
-        step = (2 * max_abs_tick) // (num_ticks - 1) if num_ticks > 1 else 1
-
-        # Generate equal integer-spaced ticks symmetrically around 0
-        half_range = (num_ticks - 1) // 2
-        y_ticks = [i * step for i in range(-half_range, half_range + 1)]
-    else:
-        y_ticks = all_y_ticks  # If only one tick, keep it as is
+    # # Determine the range for symmetric ticks around 0
+    # if len(all_y_ticks) > 1:
+    #     max_abs_tick = max(abs(min(all_y_ticks)), abs(max(all_y_ticks)))
+    #     num_ticks = min(5, len(all_y_ticks))  # Limit to a maximum of 5 ticks
+    #     step = (2 * max_abs_tick) // (num_ticks - 1) if num_ticks > 1 else 1
+    #
+    #     # Generate equal integer-spaced ticks symmetrically around 0
+    #     half_range = (num_ticks - 1) // 2
+    #     y_ticks = [i * step for i in range(-half_range, half_range + 1)]
+    # else:
+    #     y_ticks = all_y_ticks  # If only one tick, keep it as is
 
     plt.xticks(ticks=x_ticks, font=dict(size=20))
-    plt.yticks(ticks=y_ticks, font=dict(size=20))
+    plt.yticks(ticks=[-10, -5, 0, 5, 10], font=dict(size=20))
     plt.xlim([x_ticks[0] - 0.5 * (x_ticks[1] - x_ticks[0]), x_ticks[-1] + 0.5 * (x_ticks[1] - x_ticks[0])])
-    plt.ylim([all_y_ticks[0] - 0.5 * (y_ticks[1] - y_ticks[0]), all_y_ticks[-1] + 0.5 * (y_ticks[1] - y_ticks[0])])
+    plt.ylim([-10, 10])
+
     plt.tick_params(axis='both', width=2, length=12)
     plt.tight_layout()
     # Show the plot
