@@ -72,15 +72,15 @@ def completeness_check(cv_vals, density_vals, number_of_files=20, folder=None):
     # Print the missing foam numbers from the data
     print("Missing Foams:\n")
     for cv in cv_vals:
-        print(cv, ": ", *[f"{den} - {foam_makes[(cv, den)]} | " if (cv, den) in foam_makes else f"{den} - Complete" for den in density_vals])
+        print(cv, ": ", *[f"{den} - {len(foam_makes[(cv, den)]):02d} | " if (cv, den) in foam_makes else f"{den} - 00 | " for den in density_vals])
 
     # Print the missing foam numbers from the data
-    print("Missing Foam Solves:\n")
+    print("\n\nMissing Foam Solves:\n")
     for cv in cv_vals:
-        print(cv, *[f"{den} - {vorpy_solves[(cv, den)].keys()} | " if (cv, den) in vorpy_solves else f"{den} - Complete" for den in density_vals])
+        print(cv, ": ", *[f"{den} - {len(vorpy_solves[(cv, den)]):02d} | " if (cv, den) in vorpy_solves else f"{den} - 00 | " for den in density_vals])
 
     # Print the full data information
-    print(f"Number complete = {num_complete}/{total_count}\nFoam Complete = {num_complete + foam_done}/{total_count}\n"
+    print(f"\n\nNumber complete = {num_complete}/{total_count}\nFoam Complete = {num_complete + foam_done}/{total_count}\n"
           f"Number not made = {incomplete} / {total_count}")
 
     # Return the information
