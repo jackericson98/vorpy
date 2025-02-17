@@ -118,7 +118,7 @@ def plot_data(rads, net_nbors, cv, den):
     plt.xticks(ticks=x_ticks, font=dict(size=20))
     plt.yticks(ticks=[-10, -5, 0, 5, 10], font=dict(size=20))
     plt.xlim([x_ticks[0] - 0.5 * (x_ticks[1] - x_ticks[0]), x_ticks[-1] + 0.5 * (x_ticks[1] - x_ticks[0])])
-    plt.ylim([-10, 10])
+    plt.ylim([-12, 12])
 
     plt.tick_params(axis='both', width=2, length=12)
     plt.tight_layout()
@@ -128,8 +128,8 @@ def plot_data(rads, net_nbors, cv, den):
 
 if __name__ == '__main__':
     # Set the density and cv that we want
-    my_cv = '0.05'
-    my_den = '0.05'
+    my_cv = '1.0'
+    my_den = '0.5'
 
     # Change the directoryh
     os.chdir('../../../..')
@@ -150,7 +150,10 @@ if __name__ == '__main__':
         # Get the files
         my_pdb, my_aw, my_pow = get_files(folder + '/' + subfolder)
         # Get the net neighbors and the corresponding radii
-        _rads, _nns, _npds = get_net_neighbors(my_pdb, my_aw, my_pow)
+        try:
+            _rads, _nns, _npds = get_net_neighbors(my_pdb, my_aw, my_pow)
+        except TypeError:
+            continue
         my_rads += _rads
         my_nns += _nns
         my_npds += _npds
