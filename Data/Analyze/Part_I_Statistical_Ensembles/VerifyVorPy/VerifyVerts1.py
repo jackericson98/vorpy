@@ -1,4 +1,5 @@
 import os
+import csv
 import tkinter as tk
 from tkinter import filedialog
 import pandas as pd
@@ -171,24 +172,30 @@ def compare_vertices(dic1, dic2, pdb, dic1_name='Vorpy', dic2_name=''):
         # Get the locations and radii
         loc1, rad1, dub1 = dic1[_]['loc'], dic1[_]['rad'], dic1[_]['dub']
         loc2, rad2, dub2 = dic2[_]['loc'], dic2[_]['rad'], dic2[_]['dub']
+
         # Get the location distance and radii difference
-        comparison['diffs'][_] = {'loc': calc_dist(loc1, loc2), 'rad': rad1 - rad2, 'dub': dub1 == dub2}
+        comparison['diffs'][_] = {'loc': calc_dist(loc1, loc2), 'rad': rad1 - rad2,
+                                  'rad percent': 100 * (rad1 - rad2) / rad2, 'dub': dub1 == dub2}
+
+        if comparison['diffs'][_]['rad percent'] > 100:
+            print(_, comparison['diffs'][_]['rad percent'], rad1, rad2, dub1, dub2)
     # Return the dictionary
     return comparison
 
 
-def plot_comparison(comparison_dictionary, folder=None):
+def plot_comparison(comparison_dictionary, folder=None, csv_file=None):
     """
     Plotting the difference in radius and location by vertex and place a venn diagram of the
     differences.
     """
 
-    loc_dist_y, rad_diff_y = [], []
+    loc_dist_y, rad_diff_y, rad_pcnt_y = [], [], []
     for ndxs in comparison_dictionary['diffs']:
         if comparison_dictionary['diffs'][ndxs]['loc'] > 1 or comparison_dictionary['diffs'][ndxs]['rad'] > 1:
             continue
         loc_dist_y.append(comparison_dictionary['diffs'][ndxs]['loc'])
         rad_diff_y.append(comparison_dictionary['diffs'][ndxs]['rad'])
+        rad_pcnt_y.append(comparison_dictionary['diffs'][ndxs]['rad percent'])
 
     # Create the x values
     xs = np.arange(0, len(loc_dist_y))
@@ -212,9 +219,10 @@ def plot_comparison(comparison_dictionary, folder=None):
 
     # Create Venn diagram in top right
     venn_ax = fig.add_axes([0.2, 0.55, 0.3, 0.3])  # [left, bottom, width, height]
-    venn = venn2(subsets=(np.log(comparison_dictionary['info']['dic1 extra verts']),
-                          np.log(comparison_dictionary['info']['dic2 extra verts']),
-                          np.log(len(loc_dist_y))),
+    num_shared = len(loc_dist_y)
+    dic1_xtra, dic2_xtra = comparison_dictionary['info']['dic1 extra verts'], comparison_dictionary['info']['dic2 extra verts']
+    tot_verts = num_shared + dic1_xtra + dic2_xtra
+    venn = venn2(subsets=(np.log(dic1_xtra), np.log(dic2_xtra), np.log(num_shared)),
                  set_labels=(comparison_dictionary['info']['dic1 name'],
                              comparison_dictionary['info']['dic2 name']),
                  ax=venn_ax)
@@ -230,10 +238,31 @@ def plot_comparison(comparison_dictionary, folder=None):
 
     # Check if we want to save or show the plot
     if folder is None:
-        plt.show()
+        subfolder = os.path.dirname(comparison_dictionary['pdb']['file'])
+        sub_info = subfolder.split('_')
+        cv, den, olap = sub_info[1], sub_info[3], sub_info[4]
+        try:
+            num = int(sub_info[-1])
+        except ValueError:
+            num = 0
+
+        mean_diff_loc, std_loc_diff = np.mean([_ if _ < 0.5 else 0.5 for _ in loc_dist_y]), np.std([_ if _ < 0.5 else 0.5 for _ in loc_dist_y])
+        mean_diff_pcnt_rad, std_diff_pcnt_rad = np.mean([abs(_) if abs(_) < 20 else 20 for _ in rad_pcnt_y]), np.std([abs(_) if abs(_) < 20 else 20 for _ in rad_pcnt_y])
+        if std_diff_pcnt_rad > 10:
+            print(max(rad_pcnt_y))
+        line = [comparison_dictionary['info']['dic1 name'], comparison_dictionary['info']['dic2 name'], cv, den, olap,
+                num, num_shared, (dic1_xtra, dic2_xtra), 100 * (1 - (num_shared / tot_verts)), mean_diff_loc,
+                std_loc_diff, mean_diff_pcnt_rad, std_diff_pcnt_rad]
+        if csv_file is not None:
+            with open(csv_file, 'a') as my_file:
+                csv_writer = csv.writer(my_file)
+                csv_writer.writerow(line)
+        else:
+            print(line)
+        plt.close()
+        # plt.show()
     else:
         subfolder = os.path.dirname(comparison_dictionary['pdb']['file'])
-        print(subfolder)
         plt.savefig(os.path.join(folder, f"{subfolder}_{comparison_dictionary['info']['dic1 name']}_{comparison_dictionary['info']['dic2 name']}.svg"), format='svg')
 
         plt.savefig(os.path.join(folder, f"{subfolder}_{comparison_dictionary['info']['dic1 name']}_{comparison_dictionary['info']['dic2 name']}.png"), format='png', dpi=600)
@@ -243,6 +272,8 @@ def plot_comparison(comparison_dictionary, folder=None):
 def run_it_all():
     # Get the folder that holds the subfolders
     folder = filedialog.askdirectory()
+
+    choice_csv_folder = filedialog.askdirectory()
     # Loop through the directory
     for subfolder in os.listdir(folder):
         # Get the aw verts
@@ -261,7 +292,10 @@ def run_it_all():
             print(os.path.join(folder, subfolder, 'V', 'V_Vertices.txt'))
             vvv_verts = None
         # Get the pdb file
-        pdb_file = [os.path.join(folder, subfolder, file) for file in os.listdir(os.path.join(folder, subfolder)) if file[-4:] == '.pdb'][0]
+        try:
+            pdb_file = [os.path.join(folder, subfolder, file) for file in os.listdir(os.path.join(folder, subfolder)) if file[-4:] == '.pdb'][0]
+        except IndexError:
+            continue
         if vpy_verts is None or vta_verts is None or vvv_verts is None:
             continue
         # Compare the files now
@@ -275,8 +309,7 @@ def run_it_all():
             # Compare the files
             comparison_dictionary = compare_vertices(file1, file2, pdb, name1, name2)
             # Plot the comparison
-            plot_comparison(comparison_dictionary)
-
+            plot_comparison(comparison_dictionary, csv_file=os.path.join(choice_csv_folder, 'all_info.csv'))
 
 
 
