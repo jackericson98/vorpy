@@ -110,6 +110,7 @@ def read_vert(vert_line):
             'loc': [float(_) for _ in vert_line[5:8]], 'rad': float(vert_line[8])}
     return vert
 
+
 def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=False, surfs=False, edges=False, verts=False):
     file_info = {}
     one_file = False
@@ -121,7 +122,7 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
         with open(file, 'r') as logs:
             log_reader = csv.reader(logs)
             data_type = 'data'
-            atoms, surfs, edges, verts = [], [], [], []
+            atoms, surf_list, edge_list, vert_list = [], [], [], []
             skip_next = False
             for i, line in enumerate(log_reader):
                 if i in {0, 1, 3, 4}:
@@ -151,6 +152,7 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
                                   'Moment of Inertia': parse_string_lists(line[8]),
                                   'Spatial Moment of Inertia': parse_string_lists(line[9])}
                     continue
+
                 if line[0] in {'build information', 'group information', 'Atoms', 'Edges', 'Surfaces', 'Vertices'}:
                     data_type = line[0]
                     skip_next = True
@@ -166,11 +168,12 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
                     else:
                         atoms.append(my_atom)
                 elif data_type == 'Surfaces' and (all_ or surfs):
-                    surfs.append(read_surf(line))
+                    surf_list.append(read_surf(line))
                 elif data_type == 'Edges' and (all_ or edges):
-                    edges.append(read_edge(line))
+                    edge_list.append(read_edge(line))
                 elif data_type == 'Vertices' and (all_ or verts):
-                    verts.append(read_vert(line))
+
+                    vert_list.append(read_vert(line))
                 else:
                     continue
             file_name = data['name']
@@ -184,12 +187,12 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
                     break
                 index += 1
             if return_dict:
-                file_info[file_name] = {'data': data, 'group data': group_data, 'atoms': atoms, 'surfs': surfs,
-                                        'edges': edges, 'verts': verts}
+                file_info[file_name] = {'data': data, 'group data': group_data, 'atoms': atoms, 'surfs': surf_list,
+                                        'edges': edge_list, 'verts': vert_list}
             else:
                 file_info[file_name] = {'data': data, 'group data': group_data, 'atoms': pd.DataFrame(atoms),
-                                        'surfs': pd.DataFrame(surfs), 'edges': pd.DataFrame(edges),
-                                        'verts': pd.DataFrame(verts)}
+                                        'surfs': pd.DataFrame(surf_list), 'edges': pd.DataFrame(edge_list),
+                                        'verts': pd.DataFrame(vert_list)}
     if one_file:
         my_file = [_ for _ in file_info][0]
         return file_info[my_file]
