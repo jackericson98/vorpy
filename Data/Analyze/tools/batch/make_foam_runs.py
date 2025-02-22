@@ -53,7 +53,7 @@ for my_dir in my_dirs_unfiltered:
         new_file = '_'.join(settings)
         number = 0
     tot += 1
-    run_dir = file_directory + '/' + my_dir + '/' + new_file + '.pdb'
+    run_dir = file_directory + '/' + my_dir + '/balls.pdb'
     export_dir = file_directory + '/' + my_dir
 
     if len(settings) < 4:
@@ -70,7 +70,7 @@ for my_dir in my_dirs_unfiltered:
     else:
         max_vert = 25
     # Check if the folder for AW exists, aka the network is Done
-    if (not os.path.exists(export_dir + '/chain_a_aw') and '.csv' not in export_dir) and not os.path.exists(export_dir + '/' + new_file + '_Network_aw'):
+    if (not os.path.exists(export_dir + '/chain_a_aw') and '.csv' not in export_dir) and not os.path.exists(export_dir + '/' + new_file + '_Network_aw') and not os.path.exists(export_dir + '/aw/aw_logs.csv'):
         # Check if the vertices have been solved
         if os.path.exists(export_dir + '/verts.txt'):
             strings.append('\npy vorpy.py {} -s mv {} -s nt compare -e dir {} -e {} -l verts {}'
