@@ -2,6 +2,7 @@ import os
 import tkinter as tk
 from tkinter import filedialog
 from Data.Analyze.tools.batch.get_files import get_files
+from Data.Analyze.tools.CleanData.VerifyFiles import verify_pdb, verify_logs
 
 
 def completeness_check(cv_vals, density_vals, number_of_files=20, folder=None):
@@ -20,11 +21,28 @@ def completeness_check(cv_vals, density_vals, number_of_files=20, folder=None):
 
         # Get the files from the subfolder
         pdb_fl, aw_fl, pow_fl = get_files(full_path)
-        # print(pdb_fl, aw_fl, pow_fl)
-
+        # Quick verification
+        pdb_fl = pdb_fl if pdb_fl is not None and verify_pdb(pdb_fl, simple=True) else None
+        aw_fl = aw_fl if aw_fl is not None and verify_logs(aw_fl, simple=True) else None
+        pow_fl = pow_fl if pow_fl is not None and verify_pdb(pow_fl, simple=True) else None
+        if aw_fl is None:
+            if os.path.exists(folder + '/' + subfolder + '/aw/aw_logs.pdb'):
+                os.rename(folder + '/' + subfolder + '/aw/aw_logs.pdb', folder + '/' + subfolder + '/aw/aw_logs.csv')
+                aw_fl = folder + '/' + subfolder + '/aw/aw_logs.csv'
+        if pow_fl is None:
+            if os.path.exists(folder + '/' + subfolder + '/pow/pow_logs.pdb'):
+                os.rename(folder + '/' + subfolder + '/pow/pow_logs.pdb', folder + '/' + subfolder + '/pow/pow_logs.csv')
+                pow_fl = folder + '/' + subfolder + '/pow/pow_logs.csv'
         # Get the subfolder information
         sub_info = subfolder.split('_')
-        cv, den = float(sub_info[1]), float(sub_info[3])
+        try:
+            cv, den = float(sub_info[1]), float(sub_info[3])
+        except ValueError:
+            print(sub_info)
+            continue
+        except IndexError:
+            print(sub_info)
+            continue
 
         # Get the number for the file
         try:
@@ -34,10 +52,31 @@ def completeness_check(cv_vals, density_vals, number_of_files=20, folder=None):
 
         # If the number is too high
         if num > 19:
+            while (cv, den, num) in extra_files:
+                num += 1
             extra_files[(cv, den, num)] = {'aw': aw_fl is not None, 'pow': pow_fl is not None,
                                            'pdb': pdb_fl is not None, 'exists': True,
                                            'complete': not (aw_fl is None or pow_fl is None or pdb_fl is None)}
+        # Check for repeats
+        elif (cv, den, num) in checklist and pdb_fl is not None:
+            while (cv, den, num) in checklist:
+                num += 1
+            if num > 19:
+                while (cv, den, num) in checklist:
+                    num += 1
+                extra_files[(cv, den, num)] = {'aw': aw_fl is not None, 'pow': pow_fl is not None,
+                                               'pdb': pdb_fl is not None, 'exists': True,
+                                               'complete': not (aw_fl is None or pow_fl is None or pdb_fl is None)}
+            else:
+                while (cv, den, num) in checklist:
+                    num += 1
+                # Checklist
+                checklist[(cv, den, num)] = {'aw': aw_fl is not None, 'pow': pow_fl is not None, 'pdb': pdb_fl is not None,
+                                             'exists': True,
+                                             'complete': not (aw_fl is None or pow_fl is None or pdb_fl is None)}
         else:
+            while (cv, den, num) in checklist:
+                num += 1
             # Checklist
             checklist[(cv, den, num)] = {'aw': aw_fl is not None, 'pow': pow_fl is not None, 'pdb': pdb_fl is not None,
                                          'exists': True,
@@ -81,7 +120,10 @@ def completeness_check(cv_vals, density_vals, number_of_files=20, folder=None):
 
     # Print the full data information
     print(f"\n\nNumber complete = {num_complete}/{total_count}\nFoam Complete = {num_complete + foam_done}/{total_count}\n"
-          f"Number not made = {incomplete} / {total_count}")
+          f"Number not made = {incomplete} / {total_count}\nNumber Extra = {len(extra_files)}")
+
+    # Create a ledger of the missing foam solves
+    # for
 
     # Return the information
     return foam_makes, vorpy_solves, extra_files
@@ -90,12 +132,14 @@ def completeness_check(cv_vals, density_vals, number_of_files=20, folder=None):
 
 
 if __name__ == '__main__':
+    os.chdir('../../../..')
     root = tk.Tk()
     root.withdraw()
     root.wm_attributes('-topmost', 1)
     my_folder = filedialog.askdirectory()
+    print(my_folder)
 
-    foams, vorpys, extras = completeness_check(cv_vals=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+    foams, vorpys, extras = completeness_check(cv_vals=[0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
                                                density_vals=[0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5],
                                                folder=my_folder)
 
