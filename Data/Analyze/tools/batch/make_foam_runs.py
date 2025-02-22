@@ -53,24 +53,29 @@ for my_dir in my_dirs_unfiltered:
         new_file = '_'.join(settings)
         number = 0
     tot += 1
-    run_dir = file_directory + '/' + my_dir + '/balls.pdb'
+    run_dir = file_directory + '/' + my_dir + '/' + 'balls.pdb'
+    if not os.path.exists(run_dir):
+        run_dir = run_dir[:-3] + 'txt'
+    if not os.path.exists(run_dir):
+        print(run_dir)
     export_dir = file_directory + '/' + my_dir
 
-    if len(settings) < 4:
-        print(settings)
-        continue
     if float(settings[3]) == 0.05:
-        max_vert = 150
+        max_vert = 50
     elif float(settings[3]) <= 0.25:
-        max_vert = 100
-    elif float(settings[3]) <= 0.35:
-        max_vert = 60
-    elif float(settings[3]) <= 0.45:
         max_vert = 30
+    elif float(settings[3]) <= 0.35:
+        max_vert = 25
+    elif float(settings[3]) <= 0.45:
+        max_vert = 25
     else:
         max_vert = 25
     # Check if the folder for AW exists, aka the network is Done
     if (not os.path.exists(export_dir + '/chain_a_aw') and '.csv' not in export_dir) and not os.path.exists(export_dir + '/' + new_file + '_Network_aw') and not os.path.exists(export_dir + '/aw/aw_logs.csv'):
+        for _, dirs, files in os.walk(export_dir):
+            for file in files:
+                if file[-3:] == 'pdb':
+                    run_dir = export_dir + '/' + file
         # Check if the vertices have been solved
         if os.path.exists(export_dir + '/verts.txt'):
             strings.append('\npy vorpy.py {} -s mv {} -s nt compare -e dir {} -e {} -l verts {}'
@@ -90,7 +95,8 @@ nos = {_: False for _ in {'n', 'no', 'false', 'f', ''}}
 strings = [x for _, x in sorted(zip(numbers, strings), key=lambda _: _)]
 
 # Define chunk size for how many strings per file
-chunk_size = 400
+chunk_size = 7
+
 num_files = (len(strings) + chunk_size - 1) // chunk_size  # Calculate number of files
 
 # Print the data for the making of foam file runs
