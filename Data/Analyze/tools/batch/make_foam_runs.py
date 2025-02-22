@@ -53,7 +53,7 @@ for my_dir in my_dirs_unfiltered:
         new_file = '_'.join(settings)
         number = 0
     tot += 1
-    run_dir = file_directory + '/' + my_dir + '/' + new_file + '.pdb'
+    run_dir = file_directory + '/' + my_dir + '/balls.pdb'
     export_dir = file_directory + '/' + my_dir
 
     if len(settings) < 4:
