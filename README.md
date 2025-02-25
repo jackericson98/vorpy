@@ -50,12 +50,6 @@ Select specific balls or molecular elements:
 
 Note: If multiple of the above components are desired in the same group use the `and` qualifier between components. If multiple groups are desired use multiple group flags.  
 
-#### Calculate Flag `-c`
-    -c <calculation_type>
-Identify additional calculations:
-- Interfaces between all combinations of groups (iface, ifc, i)
-- Calculate vertices up to the specified number of layers (layers)
-
 #### Exports Flag `-e`
     -e <export_type>
 Specify the intensity and type of exports:
