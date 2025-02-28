@@ -9,7 +9,7 @@ class Group:
     def __init__(self, sys, name=None, atoms=None, molecules=None, chains=None, residues=None,
                  settings=None, build_net=False, surf_res=0.2, box_size=1.5, max_vert=40, build_type='all', net=None,
                  net_type='aw', surf_col='plasma', surf_scheme='mean', num_splits=None, print_metrics=True,
-                 scheme_factor='log', make_net=False, verts=None):
+                 scheme_factor='log', make_net=True, verts=None):
         # System attributes
         self.sys = sys                  # Network            :    Network of the System
         self.name = name                # Name               :    Name of the group
