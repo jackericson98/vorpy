@@ -8,6 +8,7 @@ falses = ['f', 'false', 'flse', 'fl', 'fa', 'fs', 'fls']
 dones = ['done', 'd', 'finished', 'finito', 'complete', 'doneso', 'don', 'fin']
 ands = ['&', 'and', 'nd', 'also', '+', '&&']
 splitters = ['/', '-']
+browses = ['choose', 'select', 'browse', 'chs', 'brwse', 'brows', 'chose', 'get', 'file', 'folder']
 
 # General commands
 quits = ['quit', 'q', 'qt', 'exit', 'ext']
@@ -65,7 +66,6 @@ surf_factor_vals = {
 
 file_types = ['net', 'vert', 'ball', 'ndx']
 browse_names = {'browse', 'choose', 'brwse', 'chse', 'get', 'find'}
-
 
 
 net_type_dict = {'pow': "Power", 'del': "Primitive", 'vor': "Additively Weighted"}
