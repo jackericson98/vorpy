@@ -1,4 +1,5 @@
-![image](https://user-images.githubusercontent.com/62311229/226769798-5c1247aa-2bb6-4581-b3d5-ec334a92d28f.png)
+
+![TOC-page001](https://github.com/user-attachments/assets/acbdf9f5-3770-4c8c-b922-aeb681542c96)
 
 # Vorpy
 
@@ -50,12 +51,6 @@ Select specific balls or molecular elements:
 
 Note: If multiple of the above components are desired in the same group use the `and` qualifier between components. If multiple groups are desired use multiple group flags.  
 
-#### Calculate Flag `-c`
-    -c <calculation_type>
-Identify additional calculations:
-- Interfaces between all combinations of groups (iface, ifc, i)
-- Calculate vertices up to the specified number of layers (layers)
-
 #### Exports Flag `-e`
     -e <export_type>
 Specify the intensity and type of exports:
@@ -68,9 +63,26 @@ Specify the intensity and type of exports:
 ## Notes
 - Each option flag and its arguments must be separated by spaces.
 - To use multiple commands for a single option use 'and' or repeat the flag (except for groups to avoid creating multiple groups).
-- Any range can be set with a hyphen and no space (e.g. `-g a 0-100` is a group of the first 101 atoms) 
+- Any range can be set with a hyphen and no space (e.g. `-g a 0-100` is a group of the first 101 atoms)
+
+## Outputs
+
+The ouputs for the program are either informative or visualizations of the data. In 
+
+
 
 ### Examples
+
+
+Example 1: Simple Molecular Visualization
+In this example, we look at the molecule EDTA which binds to harmful magnesium ions in food to neutralize them. The EDTA/Mg complex is preloaded into vorPy and can be run simply with the following command:
+
+- python vorpy.py EDTA_Mg
+
+This will solve the additively weighted Voronoi diagram for the EDTA molecule and the Mg atom. Once solved, the program will output the default outputs (see outputs). 
+
+Example 2: 
+
 
 Separately solve the tyrosine 2 and methionine 1 residues of the cambrin molecule, calculate their interface, and export the large export type of the results
 
