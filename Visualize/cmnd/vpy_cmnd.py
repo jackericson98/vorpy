@@ -6,6 +6,8 @@ from Visualize.cmnd.commands import *
 from Visualize.cmnd.set import sett
 from Visualize.cmnd.group import group
 from System.Group.group import Group
+import tkinter as tk
+from tkinter import filedialog
 
 
 def load_base_file(my_sys):
@@ -15,7 +17,13 @@ def load_base_file(my_sys):
         usr_file = input("atom file >>>   ")
         # Check if the user entered load first
         usr_file = usr_file.split()
-        if len(usr_file) > 1:
+        if usr_file[0].lower() in browses:
+            root = tk.Tk()
+            root.withdraw()
+            root.wm_attributes('-topmost', 1)
+            usr_file = filedialog.askopenfilename(title='Select atom/ball file')
+
+        elif len(usr_file) > 1:
             usr_file = usr_file[1]
         elif len(usr_file) == 1:
             usr_file = usr_file[0]
@@ -23,7 +31,7 @@ def load_base_file(my_sys):
             my_num = np.random.randint(8)
             usr_file = ['Na5', 'EDTA_Mg', 'cambrin', 'hairpin', 'DB1976', 'Na7', 'protein_ligand_complex', 'Complex1_frame1'][my_num]
         # Check if the full path was loaded
-        if os.path.exists(usr_file) and usr_file[-3:] in {"pdb", "gro", "mol", "cif"}:
+        if os.path.exists(usr_file) and usr_file[-3:] in {"pdb", "gro", "mol", "cif", 'txt'}:
             file_path = usr_file
         # Check if the file was loaded without the directory
         elif os.path.exists("./Data/test_data/" + usr_file):
@@ -189,9 +197,9 @@ def vorpy(my_sys):
         if good_file:
             continue
     # Get the number of atoms in the default grouping (if sol dne all atoms)
-    atom_len = len(my_sys.atoms) - len(my_sys.sol.atoms) if my_sys.sol is not None else len(my_sys.atoms)
+    atom_len = len(my_sys.balls) - len(my_sys.sol.atoms) if my_sys.sol is not None else len(my_sys.atoms)
     # Print the default grouping information for the system
-    print("Default group: {} atoms, {} residue{}, {} chain{}".format(atom_len, len(my_sys.residues), 's' if len(my_sys.residues) > 1 else '', len(my_sys.chains), 's' if (len(my_sys.chains) > 1) else ''))
+    print("Default group (No Sol): {} atoms, {} residue{}, {} chain{}".format(atom_len, len(my_sys.residues), 's' if len(my_sys.residues) > 1 else '', len(my_sys.chains), 's' if (len(my_sys.chains) > 1) else ''))
     # Start the grouping loop
     while True:
         # Get an initial grouping input
@@ -214,17 +222,19 @@ def vorpy(my_sys):
         if my_group is not None:
             print("{} group created - {} atoms, {} residues, {} chains".format(my_group.name, len(my_group.atoms),
                                                                            len(my_group.residues), len(my_group.chains)))
+    # Add the group to the system
+    my_sys.groups = [my_group]
     # Check if the network has been loaded
-    if my_sys.net_file is None and my_sys.vert_file is None:
-        net = my_sys.net
+    if my_sys.files['net_file'] is None and my_sys.files['verts_file'] is None:
+        net = my_sys.groups[0].net
         # Keep asking for a setting to change
         while True:
             # Print the default settings
-            print(u"Default settings: net type = {}, surf res = {:.2f} \u208B,  max vert  = {:.2f} \u208B,  "
-                  u"box multiplier = {:.2f} x".format(my_group.sys.net.settings['net_type'], net.settings['surf_res'],
+            print(u"\nDefault settings: net type = {}, surf res = {:.2f} \u208B,  max vert  = {:.2f} \u208B,  "
+                  u"box multiplier = {:.2f} x".format(my_group.net.settings['net_type'], net.settings['surf_res'],
                                                       net.settings['max_vert'], net.settings['box_size']))
             # Print the build settings and see if the user wants to change anything
-            change_settings = input("alter set >>>   ")
+            change_settings = input("alter settings >>>   ")
             change_settings = change_settings.split()
             # If the user wants to change the settings:
             if len(change_settings) == 0:
@@ -232,13 +242,13 @@ def vorpy(my_sys):
             elif change_settings[0].lower() in ys:
                 sett(my_sys, ["set"], vorpy2_set=True)
             # If the user changes the settings here, insert the inp-ut into the sett function
-            elif change_settings[0].lower() in my_settings:
+            elif change_settings[0].lower() in settings_dict:
                 sett(my_sys, change_settings, vorpy2_set=True)
             # If the user input is not a good one let them go again
             elif change_settings[0].lower() in ns + [""] + dones:
                 break
         # Build the group
-        my_sys.net.build(my_group=my_group, print_actions=True)
+        my_group.net.build(my_group=my_group, print_actions=True)
     # Check if both voronota files have been loaded
     elif my_sys.ball_file is not None and my_sys.vert_file is not None:
         my_sys.load_verts(file=my_sys.vert_file, vta_ball_file=my_sys.ball_file)
