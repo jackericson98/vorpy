@@ -11,7 +11,6 @@ from System.Group.group import Group
 from System.Network.network import Network
 
 
-
 # Main run
 if __name__ == '__main__':
     # Welcome introduction
