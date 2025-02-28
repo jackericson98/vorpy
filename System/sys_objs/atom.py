@@ -2,6 +2,29 @@ import numpy as np
 from radii.Standard import element_radii, special_radii
 
 
+def get_element(atom):
+    """
+    Discerns the element from the atom name and the atom information
+    """
+    # Simple SOL
+    if atom['res_name'].lower() in {'sol', 'hoh'}:
+        if 'O' in atom['name']:
+            return 'O'
+        elif 'H' in atom['name']:
+            return 'H'
+
+    # Find the simple atom types:
+    for name in ['C', 'O', 'H', 'N', 'P', 'S']:
+        if atom['name'][0] == name:
+            return name
+
+    # Print the unknown atoms
+    print(f'Unknown atom name {atom['name']}')
+
+    # Otherwise just return h
+    return 'H'
+
+
 def get_radius(atom, my_radii=None):
     """
     Finds the radius of the ball from the symbol or vice versa
@@ -74,7 +97,9 @@ class Atom:
 
 
 def make_atom(system=None, location=None, radius=None, index='', name='ball', residue='', chain='', chn_name='',
-              res_name='', res_seq="0", seg_id="0", element="h", chn=None, res=None, mass=1.0):
+              res_name='', res_seq="0", seg_id="0", element=None, chn=None, res=None, mass=1.0, occ_choice='.',
+              chn_id='', pdb_ins_code='', occupancy="", b_factor="", charge="", auth_seq_id="", auth_comp_id="",
+              auth_asym_id="", auth_atom_id="", pdbx_PDB_model_num=""):
     atom = {
         # System groups
         'sys': system,           # System       :   Main system object
@@ -100,13 +125,29 @@ def make_atom(system=None, location=None, radius=None, index='', name='ball', re
         'chn': chn,              # Chain        :   Chain object of which the atom is a part
         'chain': chain,          # Chain        :   Molecule chain the atom is a part of
         'chain_name': chn_name,  # Chain Name   :   Name of the chain that the ball is a part of
+        'chain_id': chn_id,
         'residue': residue,      # Residue      :   Class of molecule that the atom is a part of
         'res_name': res_name,    # Residue Name :   Name of the residue the ball is a part of
         'res_seq': res_seq,      # Sequence     :   Sequence of the residue that the atom is a part of
         'seg_id': seg_id,        # Segment ID   :   Segment identifier for the atom
         'element': element,      # Symbol       :   Element of the atom
-        'mass': mass             # Mass         :   Mass of the atom
+        'mass': mass,             # Mass         :   Mass of the atom
+
+        # Other Values
+        'occupancy': occupancy,
+        'occ_choice': occ_choice,
+        'pdb_ins_code': pdb_ins_code,
+        'b_factor': b_factor,
+        'charge': charge,
+        'auth_seq_id': auth_seq_id,
+        'auth_comp_id': auth_comp_id,
+        'auth_asym_id': auth_asym_id,
+        'auth_atom_id': auth_atom_id,
+        'pdbx_PDB_model_num': pdbx_PDB_model_num
+
     }
+    if atom['element'] is None:
+        atom['element'] = get_element(atom)
     if atom['rad'] is None:
         atom['rad'] = get_radius(atom)
     return atom
