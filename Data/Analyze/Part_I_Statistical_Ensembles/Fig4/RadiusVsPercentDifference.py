@@ -102,11 +102,30 @@ for folder in os.listdir(folders):
     print(len(diffs))
     if counter == 0:
         max_rad = max(rads)
+    # def func(x, a, c):
+    #     return a / np.sin(x) + c
+    # def func(x, a, b, c, d):
+    #     return a / (b * x) ** d + c
+    #
+    # def func(x, a, b, c, d):
+        # return a - b / ((1 + c * x) ** d)
     # def func(x, a, b, c):
-    #     return a * np.exp(-b * x) + c
+    #     return np.power(x, a) * b + c
 
-    def func(x, a, b, c):
-        return a / x + b + c
+    # def func(x, a, b, c):
+        # return a / x + b + c
+    # def func(x, a, b, c, d, e):
+    #     return a / (x - d) ** 2 + b / (x - e) + c
+    #
+    # def func(x, a, b, c):
+    #     return
+
+    def func(x, a, b, c, d):
+        return a - b / ((1 + c * x) ** (1/d))
+
+    # func_vals = {'devries': (-0.16924, -10.84236, 2.41843, 0.3609), 'gal': (-0.19662, -14.17122, 4.40814, 0.43481),
+    #              'lemlich': (-0.14592, -27.43275, 9.36897, 0.44498)}
+
     try:
         color = colors[counter]
     except IndexError:
@@ -121,6 +140,10 @@ for folder in os.listdir(folders):
     plt.plot([min(rads), max_rad], [abs_mean, abs_mean], linestyle='--', c=color, linewidth=1)
     popt, pcov = curve_fit(func, np.array(rads), np.array(diffs), sigma=rads)
     # plt.text(s='y = {:.2f} * exp(-{:.2f} * x) + {:.2f}'.format(*popt), x=1.5, y=1.5, font=dict(size=10))
+    # with open(my_split_pdb.split('_')[5] + '.csv', 'w') as write_file:
+    #     my_writer = csv.writer(write_file)
+    #     for i, rad in enumerate(rads):
+    #         my_writer.writerow([rad, diffs[i]])
     xs = [max_rad] + rads
     ys = [100 * _ for _ in func(np.array([max_rad] + rads), *popt)]
     # ys = [max(_, min([100 * _ for _ in diffs])) for _ in ys]
