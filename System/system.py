@@ -107,7 +107,7 @@ class System:
         # Set the root directory as the working directory
         self.files['root_dir'] = os.getcwd()
         # Set the output directory
-        self.set_output_directory()
+        # self.set_output_directory()
 
     def set_files(self, base_file=None, ball_file=None, verts_file=None, net_file=None, ndx_file=None, file_dir=None,
                   frame_files=None, root_dir=None):
