@@ -266,14 +266,14 @@ def ggroup(my_sys, group_commands, settings=None):
     # First case: if no groups are entered, then make the standard group (no sol for 'mol' or coarse and all for 'foam')
     if len(group_commands) == 0:
         # If the given system is not a foam add only the residues to hold out the sol atoms
-        my_sys.groups = [Group(my_sys, name=my_sys.name + '_Network', residues=my_sys.residues.copy(), settings=settings)]
+        my_sys.groups = [Group(my_sys, name=my_sys.name, residues=my_sys.residues.copy(), settings=settings)]
         return
     # First check if there are specific names without identifiers, no sol, full
     if group_commands[0][0] in noSOL_objs:
-        my_sys.groups = [Group(my_sys, name=my_sys.name + '_Network', residues=my_sys.residues.copy(), settings=settings)]
+        my_sys.groups = [Group(my_sys, name=my_sys.name, residues=my_sys.residues.copy(), settings=settings)]
         return
     if group_commands[0][0] in full_objs:
-        my_sys.groups = [Group(my_sys, name=my_sys.name + '_all_atoms_network', atoms=my_sys.balls['num'].to_list(), settings=settings)]
+        my_sys.groups = [Group(my_sys, name=my_sys.name + '_all', atoms=my_sys.balls['num'].to_list(), settings=settings)]
         return
     my_sys.groups = []
     # Loop through the names and identifiers
