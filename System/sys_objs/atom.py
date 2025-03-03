@@ -19,7 +19,7 @@ def get_element(atom):
             return name
 
     # Print the unknown atoms
-    print(f'Unknown atom name {atom['name']}')
+    print(f"Unknown atom name: {atom['name']}")
 
     # Otherwise just return h
     return 'H'
