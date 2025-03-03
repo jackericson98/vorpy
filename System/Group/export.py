@@ -120,10 +120,10 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     if shell_edges or all_:
         if grp.layer_edges is None:
             grp.get_layers(max_layers=1, build_surfs=False)
-        write_edges(grp.net, grp.layer_edges[0], file_name="shell_edges", directory=grp.dir)
+        write_edges(grp.net, grp.layer_edges[0], file_name="shell_edges", directory=grp.dir, color=[1, 0, 0])
     # All one big edge file
     if edges or all_:
-        write_edges(grp.net, edges=[i for i in range(len(grp.net.edges))], file_name="edges", directory=grp.dir)
+        write_edges(grp.net, edges=[i for i in range(len(grp.net.edges))], file_name="edges", directory=grp.dir, color=[0, 1, 0])
     # If the separate edges are called
     if sep_edges or all_:
         # Make the edges directory
@@ -140,7 +140,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             write_off_verts(grp.net, [j], 'b{}_b{}_b{}_b{}'.format(*vert['balls']), directory=grp.dir + "/verts")
     # Export all the vertices in one file
     if verts or all_:
-        write_off_verts(grp.net, [i for i in range(len(grp.net.verts))], directory=grp.dir, file_name='verts')
+        write_off_verts(grp.net, [i for i in range(len(grp.net.verts))], directory=grp.dir, file_name='verts', color=[0, 0, 1])
     # Export the shell vertices
     if shell_verts or all_:
         if grp.layer_verts is None:
