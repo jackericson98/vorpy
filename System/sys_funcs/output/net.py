@@ -16,7 +16,7 @@ def write_logs(group, net_name=None, round_to=3):
     # Create the round function
     r = round_func(round_to)
     # Open the file
-    with open(group.name + "_logs.csv", 'w') as log_file:
+    with open(group.settings['net_type'] + "_logs.csv", 'w') as log_file:
         # Create the csv writer
         lg_fl = csv.writer(log_file, lineterminator='\n')
         # Write the build information header
