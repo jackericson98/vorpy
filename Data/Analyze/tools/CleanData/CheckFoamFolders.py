@@ -24,7 +24,7 @@ def completeness_check(cv_vals, density_vals, number_of_files=20, folder=None):
         # Quick verification
         pdb_fl = pdb_fl if pdb_fl is not None and verify_pdb(pdb_fl, simple=True) else None
         aw_fl = aw_fl if aw_fl is not None and verify_logs(aw_fl, simple=True) else None
-        pow_fl = pow_fl if pow_fl is not None and verify_pdb(pow_fl, simple=True) else None
+        pow_fl = pow_fl if pow_fl is not None and verify_logs(pow_fl, simple=True) else None
         if aw_fl is None:
             if os.path.exists(folder + '/' + subfolder + '/aw/aw_logs.pdb'):
                 os.rename(folder + '/' + subfolder + '/aw/aw_logs.pdb', folder + '/' + subfolder + '/aw/aw_logs.csv')
@@ -33,6 +33,7 @@ def completeness_check(cv_vals, density_vals, number_of_files=20, folder=None):
             if os.path.exists(folder + '/' + subfolder + '/pow/pow_logs.pdb'):
                 os.rename(folder + '/' + subfolder + '/pow/pow_logs.pdb', folder + '/' + subfolder + '/pow/pow_logs.csv')
                 pow_fl = folder + '/' + subfolder + '/pow/pow_logs.csv'
+
         # Get the subfolder information
         sub_info = subfolder.split('_')
         try:
@@ -56,7 +57,8 @@ def completeness_check(cv_vals, density_vals, number_of_files=20, folder=None):
                 num += 1
             extra_files[(cv, den, num)] = {'aw': aw_fl is not None, 'pow': pow_fl is not None,
                                            'pdb': pdb_fl is not None, 'exists': True,
-                                           'complete': not (aw_fl is None or pow_fl is None or pdb_fl is None)}
+                                           'complete': not (aw_fl is None or pow_fl is None or pdb_fl is None),
+                                           'subfolder': subfolder}
         # Check for repeats
         elif (cv, den, num) in checklist and pdb_fl is not None:
             while (cv, den, num) in checklist:
@@ -66,21 +68,24 @@ def completeness_check(cv_vals, density_vals, number_of_files=20, folder=None):
                     num += 1
                 extra_files[(cv, den, num)] = {'aw': aw_fl is not None, 'pow': pow_fl is not None,
                                                'pdb': pdb_fl is not None, 'exists': True,
-                                               'complete': not (aw_fl is None or pow_fl is None or pdb_fl is None)}
+                                               'complete': not (aw_fl is None or pow_fl is None or pdb_fl is None),
+                                               'subfolder': subfolder}
             else:
                 while (cv, den, num) in checklist:
                     num += 1
                 # Checklist
                 checklist[(cv, den, num)] = {'aw': aw_fl is not None, 'pow': pow_fl is not None, 'pdb': pdb_fl is not None,
                                              'exists': True,
-                                             'complete': not (aw_fl is None or pow_fl is None or pdb_fl is None)}
+                                             'complete': not (aw_fl is None or pow_fl is None or pdb_fl is None),
+                                             'subfolder': subfolder}
         else:
             while (cv, den, num) in checklist:
                 num += 1
             # Checklist
             checklist[(cv, den, num)] = {'aw': aw_fl is not None, 'pow': pow_fl is not None, 'pdb': pdb_fl is not None,
                                          'exists': True,
-                                         'complete': not (aw_fl is None or pow_fl is None or pdb_fl is None)}
+                                         'complete': not (aw_fl is None or pow_fl is None or pdb_fl is None),
+                                         'subfolder': subfolder}
 
     total_count = len(cv_vals) * len(density_vals) * number_of_files
     num_complete, foam_done, incomplete = 0, 0, 0
@@ -95,12 +100,14 @@ def completeness_check(cv_vals, density_vals, number_of_files=20, folder=None):
                     if checklist[(cv, den, i)]['complete']:
                         num_complete += 1
                     else:
+                        print(checklist[(cv, den, i)])
                         if (cv, den) in vorpy_solves:
                             vorpy_solves[(cv, den)][i] = checklist[(cv, den, i)]
                         else:
                             vorpy_solves[(cv, den)] = {i: checklist[(cv, den, i)]}
                         foam_done += 1
                 else:
+                    print()
                     # Add to the foam solves
                     if (cv, den) in foam_makes:
                         foam_makes[(cv, den)].append(i)
