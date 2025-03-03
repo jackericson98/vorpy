@@ -2,6 +2,7 @@ import os
 import numpy as np
 import tkinter as tk
 from tkinter import filedialog
+from Data.Analyze.tools.CleanData.CreateVertsFromLogs import write_log_to_vert
 
 
 root = tk.Tk()
@@ -44,11 +45,14 @@ def clean_folder(folder=None):
     if folder is None:
         folder = filedialog.askdirectory()
     # C
-    for subfolder in os.listdir(folder):
+    num_subs = len([_ for _ in os.listdir(folder)])
+    for i, subfolder in enumerate(os.listdir(folder)):
+        # Make a print
+        print(f"\r Folder {i + 1}/{num_subs}", end="")
         # Create a joined directory name for referencing
         sub = os.path.join(folder, subfolder)
         # Check that the aw and pow folder exist
-        if not os.path.exists(os.path.join(sub, 'aw')) or os.path.exists(os.path.join(sub, 'pow')):
+        if not os.path.exists(os.path.join(sub, 'aw')) or not os.path.exists(os.path.join(sub, 'pow')):
             print("No aw or pow folder - ", subfolder)
             continue
         # Check to see if the balls txt file is in the main directory
@@ -58,4 +62,43 @@ def clean_folder(folder=None):
             # Copy the pdb into the txt
             get_txt_from_pdb(os.path.join(sub, 'balls.pdb'), os.path.join(sub, 'balls.txt'))
 
+        # Check if the verts don't exist and if not make them exist
+        if not os.path.exists(sub + '/aw/aw_verts.txt'):
+            # Check if there are no logs
+            if not os.path.exists(sub + '/aw/aw_logs.csv'):
+                print("No aw logs - ", subfolder)
+                continue
+            # Get the verts
+            write_log_to_vert(sub + '/aw/aw_logs.csv', sub + '/aw/aw_verts.txt')
 
+        # Check if the pow verts don't exist
+        if not os.path.exists(sub + '/aw/aw_verts.txt'):
+            # Check if there are no logs
+            if not os.path.exists(sub + '/aw/aw_logs.csv'):
+                print("No pow logs - ", subfolder)
+                continue
+            # Get the verts
+            write_log_to_vert(sub + '/aw/aw_logs.csv', sub + '/aw/aw_verts.txt')
+
+        # Check for the set atoms file
+        if not os.path.exists(sub + '/set_balls.pml'):
+            # See if we can just rename the set atoms file
+            if os.path.exists(sub + '/set_atoms.pml'):
+                os.rename(sub + '/set_atoms.pml', sub + '/set_balls.pml')
+            # Otherwise let us know
+            else:
+                print("No set balls or set atoms - ", subfolder)
+                continue
+
+        # Make a list of the files we want
+        files_wanted = {'aw_verts.txt', 'aw_logs.csv', 'pow_verts.txt', 'pow_logs.csv', 'set_balls.pml',
+                        'retaining_box.off', 'set_balls.pml', 'balls.txt', 'balls.pdb'}
+        # Now delete all files that aren't correct
+        for rooot, direc, filess in os.walk(sub):
+            for my_file in filess:
+                if my_file not in files_wanted:
+                    os.remove(rooot + '/' + my_file)
+
+
+if __name__ == '__main__':
+    clean_folder()
