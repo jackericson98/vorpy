@@ -5,7 +5,7 @@ from Visualize.cmnd.set2 import sett
 from Visualize.cmnd.group import ggroup
 from System.system import System
 from System.Group.group import Group
-from System.sys_funcs.output.output import export_min1, export_min2, export_med, export_large, export_all, other_exports, set_sys_dir
+from System.sys_funcs.output.output import export_micro, export_tiny, export_med, export_large, export_all, other_exports, set_sys_dir
 from Visualize.cmnd.commands import *
 from copy import deepcopy
 import tkinter as tk
@@ -65,15 +65,15 @@ def export_npt(my_sys, usr_npt=None):
     """
     # If nothing is specified export the defaults
     if usr_npt is None or usr_npt.lower() in {'default', '2', 'medium', '', 'med'}:
-        export_large(sys=my_sys)
+        export_med(sys=my_sys)
 
     # Small export
     elif usr_npt.lower() in {"tiny", "i", "info", "0", "smallest"}:
-        export_min1(my_sys)
+        export_micro(my_sys)
 
     # Medium small export
     elif usr_npt.lower() in {"small", "s", "1"}:
-        export_min2(my_sys)
+        export_tiny(my_sys)
 
     # Large Export
     elif usr_npt.lower() in {"large", "l", "3"}:

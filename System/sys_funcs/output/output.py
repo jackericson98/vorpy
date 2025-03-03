@@ -8,19 +8,44 @@ import shutil
 ###################################################### Export Functions ################################################
 
 
-def export_min1(sys):
+def export_micro(sys):
+    """
+    Smallest output function. Outputs the information for the system, the groups, and the system's interfaces.
+    """
+    # Export the information for the system.
     sys.exports(info=True)
+    # Loop through the groups in the system
     for group in sys.group:
-        group.dir = sys.files['dir'] + '/' + group.name
-        os.mkdir(group.dir)
+        # Set up the group directory
+        if group.dir is None:
+            group.dir = sys.files['dir'] + '/' + group.name
+            os.mkdir(group.dir)
+        # Export the information for the group
         group.exports(info=True)
+    # Loop through the interfaces for the groups.
     if sys.ifaces is not None:
         for iface in sys.ifaces:
+            # Export the interface information
             iface.export(info=True)
 
 
-def export_min2(sys):
-    sys.exports(info=True, set_atoms=True, pbd=True)
+def export_tiny(sys):
+    """
+    Second smallest of the exports. Outputs are:
+
+    System:
+        1. General Information
+        2. Set balls script for pymol
+        4. The PDB file
+        5. The balls file
+    Groups:
+        1. General Information
+        2. Shell for the group
+        3. Logs for the group
+    Interfaces:
+        1.
+    """
+    sys.exports(info=True, set_atoms=True, pbd=True, balls=True)
     for group in sys.groups:
         group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
@@ -31,22 +56,53 @@ def export_min2(sys):
 
 
 def export_med(sys):
+    """
+    Medium export. Exports the pdb, the set atoms script and the general information for the system. The group gets the
+    logs, the shell for the group, the surfaces for the group, the full set of edges, the shell edges, and the vertices
+    """
+    # Export the system exports
     sys.exports(pdb=True, set_atoms=True, info=True)
+    # Loop through the groups and give their exports
     for group in sys.groups:
-        group.dir = sys.files['dir'] + '/' + group.name
-        os.mkdir(group.dir)
-        group.exports(shell=True, info=True, edges=True, atoms=True, logs=True)
+        # Set and make the group directory
+        if group.dir is None or not os.path.exists(sys.files['dir'] + '/' + group.name + '_' + group.settings['net_type'])
+            group.dir = sys.files['dir'] + '/' + group.name + '_' + group.settings['net_type']
+            os.mkdir(group.dir)
+        # Do the group exports
+        group.exports(shell_surfs=True, surfs=True, shell_edges=True, edges=True, shell_verts=True, verts=True,
+                      logs=True, atoms=True, surr_atoms=True)
+        # Check to see if the verts are in the system directory and if so move them to the group folder
+        if os.path.exists(sys.files['dir'] + group.settings['net_type'] + '_verts.txt'):
+            shutil.move(sys.files['dir'] + group.settings['net_type'] + '_verts.txt',
+                        group.dir + group.settings['net_type'] + '_verts.txt')
+    # Export the interfaces
     if sys.ifaces is not None:
         for iface in sys.ifaces:
             iface.export(surfs=True, atoms=True, info=True)
 
 
 def export_large(sys):
+    """
+    Large group exports. Exports the basic system files and the shell vertices, the shell surfaces, the information,
+    the edges, the vertices, the atosm the surrounding atoms, the logs, the atom surfaces, the atom edges, and the
+    atom vertices for each group
+    """
+    # Export the system exports
     sys.exports(pdb=True, set_atoms=True, info=True)
+    # Loop through the groups and export the listed items
     for group in sys.groups:
+        # Set and make the group directory
+        if group.dir is None or not os.path.exists(sys.files['dir'] + '/' + group.name + '_' + group.settings['net_type'])
+            group.dir = sys.files['dir'] + '/' + group.name + '_' + group.settings['net_type']
+            os.mkdir(group.dir)
+        # Export the group exports
         group.exports(shell_verts=True, shell_edges=True, shell_surfs=True, info=True, edges=True, verts=True,
                       atoms=True, surr_atoms=True, logs=True, atom_surfs=True, atom_edges=True, atom_verts=True)
-
+        # Check to see if the verts are in the system directory and if so move them to the group folder
+        if os.path.exists(sys.files['dir'] + group.settings['net_type'] + '_verts.txt'):
+            shutil.move(sys.files['dir'] + group.settings['net_type'] + '_verts.txt',
+                        group.dir + group.settings['net_type'] + '_verts.txt')
+    # Export the interfaces
     if sys.ifaces is not None:
         for iface in sys.ifaces:
             iface.export(balls=True, surfs=True, edges=True, verts=True, info=True)
