@@ -148,7 +148,7 @@ for value in ['vol', 'sa']:
             ax.fill_between(my_densities[1:], datavsms[i][1:], datavsps[i][1:], alpha=0.2, color=colors[i])
 
 
-    plt.legend(fontsize=25)
+    # plt.legend(fontsize=25)
 
     # Adding a color bar that uses the created ScalarMappable
     # sm.set_array([])
@@ -158,7 +158,7 @@ for value in ['vol', 'sa']:
 
     # Set plot titles and labels
     ax.set_xticks(np.arange(my_densities[0] + 0.05, my_densities[-1] + 0.05, 0.1))
-    # ax.set_ylim([0, 50])
+    ax.set_ylim([0, 100])
     ax.set_title('{} {}\nAbsolute % Difference'.format(plot_type, {'sa': 'Surface Area', 'vol': 'Volume'}[value]), fontsize=20)
     ax.set_xlabel('Density', fontsize=25)
     ax.set_ylabel('Absolute Difference', fontsize=25)
