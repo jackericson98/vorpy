@@ -62,19 +62,20 @@ def export_med(sys):
     """
     # Export the system exports
     sys.exports(pdb=True, set_atoms=True, info=True)
+
     # Loop through the groups and give their exports
     for group in sys.groups:
         # Set and make the group directory
-        if group.dir is None or not os.path.exists(sys.files['dir'] + '/' + group.name + '_' + group.settings['net_type'])
+        if group.dir is None or not os.path.exists(sys.files['dir'] + '/' + group.name + '_' + group.settings['net_type']):
             group.dir = sys.files['dir'] + '/' + group.name + '_' + group.settings['net_type']
             os.mkdir(group.dir)
         # Do the group exports
         group.exports(shell_surfs=True, surfs=True, shell_edges=True, edges=True, shell_verts=True, verts=True,
                       logs=True, atoms=True, surr_atoms=True)
         # Check to see if the verts are in the system directory and if so move them to the group folder
-        if os.path.exists(sys.files['dir'] + group.settings['net_type'] + '_verts.txt'):
-            shutil.move(sys.files['dir'] + group.settings['net_type'] + '_verts.txt',
-                        group.dir + group.settings['net_type'] + '_verts.txt')
+        if os.path.exists(sys.files['dir'] + '/' + group.settings['net_type'] + '_verts.txt'):
+            shutil.move(sys.files['dir'] + '/' + group.settings['net_type'] + '_verts.txt',
+                        group.dir + '/' + group.settings['net_type'] + '_verts.txt')
     # Export the interfaces
     if sys.ifaces is not None:
         for iface in sys.ifaces:
@@ -92,16 +93,16 @@ def export_large(sys):
     # Loop through the groups and export the listed items
     for group in sys.groups:
         # Set and make the group directory
-        if group.dir is None or not os.path.exists(sys.files['dir'] + '/' + group.name + '_' + group.settings['net_type'])
+        if group.dir is None or not os.path.exists(sys.files['dir'] + '/' + group.name + '_' + group.settings['net_type']):
             group.dir = sys.files['dir'] + '/' + group.name + '_' + group.settings['net_type']
             os.mkdir(group.dir)
         # Export the group exports
         group.exports(shell_verts=True, shell_edges=True, shell_surfs=True, info=True, edges=True, verts=True,
                       atoms=True, surr_atoms=True, logs=True, atom_surfs=True, atom_edges=True, atom_verts=True)
         # Check to see if the verts are in the system directory and if so move them to the group folder
-        if os.path.exists(sys.files['dir'] + group.settings['net_type'] + '_verts.txt'):
-            shutil.move(sys.files['dir'] + group.settings['net_type'] + '_verts.txt',
-                        group.dir + group.settings['net_type'] + '_verts.txt')
+        if os.path.exists(sys.files['dir'] + '/' + group.settings['net_type'] + '_verts.txt'):
+            shutil.move(sys.files['dir'] + '/' + group.settings['net_type'] + '_verts.txt',
+                        group.dir + '/' + group.settings['net_type'] + '_verts.txt')
     # Export the interfaces
     if sys.ifaces is not None:
         for iface in sys.ifaces:
@@ -109,14 +110,28 @@ def export_large(sys):
 
 
 def export_all(sys):
+    """
+    Export all. Exports everything there is to export and makes a massive comprehensive set of files that will take a
+    lot of space
+    """
+    # Export the system stuff
     sys.exports(pdb=True, info=True, set_atoms=True)
+    # For each group in the system export the
     for group in sys.groups:
+        # Set and make the group directory
+        if group.dir is None or not os.path.exists(sys.files['dir'] + '/' + group.name + '_' + group.settings['net_type']):
+            group.dir = sys.files['dir'] + '/' + group.name + '_' + group.settings['net_type']
+            os.mkdir(group.dir)
         group.dir = sys.files['dir'] + '/' + group.name
         os.mkdir(group.dir)
         group.exports(atoms=True, shell=True, surfs=True, info=True, ext_atoms=True, sep_surfs=True, sep_edges=True,
                       sep_verts=True, verts=True, edges=True, surr_atoms=True, logs=True)
-    os.mkdir(sys.files['dir'] + "/atoms")
-    write_atom_cells(sys.net, sys.net.atoms['num'], directory=sys.files['dir'] + "/atoms", verts=True, edges=True)
+
+        # Check to see if the verts are in the system directory and if so move them to the group folder
+        if os.path.exists(sys.files['dir'] + '/' + group.settings['net_type'] + '_verts.txt'):
+            shutil.move(sys.files['dir'] + '/' + group.settings['net_type'] + '_verts.txt',
+                        group.dir + '/' + group.settings['net_type'] + '_verts.txt')
+    # Make the
     if sys.ifaces is not None:
         for iface in sys.ifaces:
             iface.export(all=True)
@@ -171,7 +186,9 @@ def set_sys_dir(sys, dir_name=None):
 
     # If no outer directory was specified use the directory outside the current one
     if dir_name is None:
-        if sys.files['root_dir'] is not None:
+        if sys.files['dir'] is not None:
+            dir_name = sys.files['dir'] + '/' + sys.name
+        elif sys.files['root_dir'] is not None:
 
             dir_name = sys.files['root_dir'] + "/Data/user_data/" + sys.name
         else:
