@@ -100,6 +100,8 @@ def rename_folders(folder=None, include_mean=True, include_cv=True, include_ball
         # Get the information from the subfolder
         subfolder_info = subfolder.split('_')
         # Get the variables from the subfolder information
+        if subfolder[-3:] == 'csv':
+            continue
         mean, cv, num_balls, den = subfolder_info[:4]
         mean, cv, num_balls, den = float(mean), float(cv), int(num_balls), float(den)
         # Check for more information
