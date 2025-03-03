@@ -1,3 +1,5 @@
+import os
+
 from System.sys_objs.atom import make_atom
 from System.sys_objs.residue import Residue
 from System.sys_objs.chain import Chain, Sol
@@ -120,6 +122,10 @@ def read_pdb(sys, file=None):
     # Get the file information and make sure to close the file when done
     with open(file_address, 'r') as f:
         my_file = f.readlines()
+    if len(my_file) == 0:
+        with open(os.path.abspath(file_address), 'r') as f:
+            my_file = f.readlines()
+
     # Add the system name and reset the atoms and data lists
     sys.name = path.basename(sys.files['base_file'])[:-4]
     # Set up the atom and the data lists
