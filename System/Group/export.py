@@ -86,7 +86,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         if grp.sys.files['base_file'][-3:] == 'txt':
             pass
         else:
-            write_pdb(atoms=grp.ball_ndxs, file_name="{}_atoms".format(grp.name), sys=grp.sys)
+            write_pdb(atoms=grp.ball_ndxs, file_name="group_atoms", sys=grp.sys)
     # If the atoms surfaces are selected go for it
     if atom_verts or atom_edges or atom_surfs or all_:
         if not path.exists(grp.dir + '/atoms'):
@@ -104,10 +104,10 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             grp.get_layers(max_layers=1)
         # noinspection PyUnresolvedReferences
         if grp.layer_surfs is not None and len(grp.layer_surfs) > 0:
-            write_surfs(net=grp.net, surfs=grp.layer_surfs[0], file_name="shell", directory=grp.dir)
+            write_surfs(net=grp.net, surfs=grp.layer_surfs[0], file_name="shell_surfs", directory=grp.dir)
     # If the user wants all of the surfaces in one file
     if surfs or all_:
-        write_surfs(grp.net, [i for i in range(len(grp.net.surfs))], grp.name + '_surfs')
+        write_surfs(grp.net, [i for i in range(len(grp.net.surfs))], 'surfs')
     # Separate surfaces
     if sep_surfs or all_:
         # Make the surfaces directory
@@ -140,7 +140,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             write_off_verts(grp.net, [j], 'b{}_b{}_b{}_b{}'.format(*vert['balls']), directory=grp.dir + "/verts")
     # Export all the vertices in one file
     if verts or all_:
-        write_off_verts(grp.net, [i for i in range(len(grp.net.verts))], directory=grp.dir, file_name=grp.name + '_verts')
+        write_off_verts(grp.net, [i for i in range(len(grp.net.verts))], directory=grp.dir, file_name='verts')
     # Export the shell vertices
     if shell_verts or all_:
         if grp.layer_verts is None:
