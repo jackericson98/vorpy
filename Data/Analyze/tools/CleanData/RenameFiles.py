@@ -39,7 +39,10 @@ def rename_pdb(folder=None, rename_to=None):
                 os.rename(rooot + '/' + file, rooot + '/' + 'group_balls.pdb')
 
             elif file[-3:] == 'csv' and 'logs' in file and 'pow' in file:
-                os.rename(rooot + '/' + file, rooot + '/' + 'pow_logs.pdb')
+                os.rename(rooot + '/' + file, rooot + '/' + 'pow_logs.csv')
+
+            elif file[-3:] == 'csv' and 'logs' in file and 'aw' in file:
+                os.rename(rooot + '/' + file, rooot + '/' + 'aw_logs.csv')
 
             elif file[-3:] == 'txt' and 'info' in file:
                 os.rename(rooot + '/' + file, rooot + '/' + 'info.txt')
