@@ -37,7 +37,8 @@ def get_basic_files(folder=None):
     num_folders = len([_ for _ in os.listdir(folder)])
     i = 1
     for subfolder in os.listdir(folder):
-
+        if subfolder == 'foam_data.csv' or subfolder == 'overlaps.csv':
+            continue
         print(f"\rCopying folder {i}/{num_folders}", end="")
         i += 1
         os.mkdir(place_directory + '/' + subfolder)
@@ -46,10 +47,30 @@ def get_basic_files(folder=None):
 
         # if os.path.exists(folder + '/' + subfolder + '/aw/edges.off') or os.path.exists(folder + '/' + subfolder + '/aw/atoms'):
         #
-        for filename in ['balls.txt', 'balls.pdb', '/aw/aw_verts.txt', '/aw/aw_logs.csv', '/pow/pow_verts.txt', '/pow/pow_logs.csv', 'info.txt', 'retaining_box.off', 'set_atoms.pml', 'set_balls.pml']:
+        for filename in ['balls.txt', 'balls.pdb', 'info.txt', 'retaining_box.off', 'set_atoms.pml', 'set_balls.pml']:
             try:
                 shutil.copy2(folder + '/' + subfolder + '/' + filename, place_directory + '/' + subfolder + '/' + filename)
             except FileNotFoundError:
+                continue
+        for filename in ['/aw/aw_verts.txt', '/aw/aw_logs.csv']:
+            try:
+                shutil.copy2(folder + '/' + subfolder + '/' + filename, place_directory + '/' + subfolder + '/' + filename)
+            except FileNotFoundError:
+                try:
+                    shutil.copy2(folder + '/' + subfolder + '/' + filename[3:], place_directory + '/' + subfolder + '/' + filename)
+                except FileNotFoundError:
+                    continue
+            except:
+                continue
+        for filename in ['/pow/pow_verts.txt', '/pow/pow_logs.csv']:
+            try:
+                shutil.copy2(folder + '/' + subfolder + '/' + filename, place_directory + '/' + subfolder + '/' + filename)
+            except FileNotFoundError:
+                try:
+                    shutil.copy2(folder + '/' + subfolder + '/' + filename[4:], place_directory + '/' + subfolder + '/' + filename)
+                except FileNotFoundError:
+                    continue
+            except:
                 continue
 
 
