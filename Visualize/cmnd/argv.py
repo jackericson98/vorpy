@@ -140,7 +140,11 @@ def argv(my_sys):
         print_help()
         return
     # Load the atom file
-    if sys.argv[2][0] == '-':
+
+    if len(sys.argv) == 2:
+        load(my_sys, [["", sys.argv[1]]], balls_file=True)
+        counter = 0
+    elif sys.argv[2][0] == '-':
         load(my_sys, [["", sys.argv[1]]], balls_file=True)
         counter = 0
     else:
