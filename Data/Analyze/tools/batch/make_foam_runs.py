@@ -16,7 +16,7 @@ try:
 except:
     file_directory = filedialog.askdirectory()
 
-
+print(file_directory)
 my_dirs_unfiltered = []
 # Get the directories in the data directory
 for my_dir in os.listdir(file_directory):
@@ -49,13 +49,13 @@ for my_dir in my_dirs_unfiltered:
         new_file = '_'.join(settings[:-1])
         export_type = 'logs'
     except ValueError:
-        export_type = 'large'
+        export_type = 'logs'
         new_file = '_'.join(settings)
         number = 0
     tot += 1
     run_dir = file_directory + '/' + my_dir + '/' + 'balls.pdb'
     if not os.path.exists(run_dir):
-        run_dir = run_dir[:-3] + 'txt'
+        continue
     if not os.path.exists(run_dir):
         print(run_dir)
     export_dir = file_directory + '/' + my_dir
@@ -95,7 +95,9 @@ nos = {_: False for _ in {'n', 'no', 'false', 'f', ''}}
 strings = [x for _, x in sorted(zip(numbers, strings), key=lambda _: _)]
 
 # Define chunk size for how many strings per file
-chunk_size = 7
+chunk_size = 20
+
+
 
 num_files = (len(strings) + chunk_size - 1) // chunk_size  # Calculate number of files
 
