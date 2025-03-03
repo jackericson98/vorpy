@@ -6,6 +6,24 @@ from System.sys_funcs.output.net import write_verts
 from Data.Analyze.tools.compare.read_logs2 import read_logs2
 
 
+def write_log_to_vert(in_file, out_file):
+    # Get the logs
+    logs = read_logs2(in_file, verts=True)
+    # Write the aw_verts
+    with open(out_file, 'w') as file:
+        # Create a header for the vertices file
+        file.write("Vertices - {} vertices, {} atoms, max vert = {}, Net type = {}\n"
+                   .format(len(logs['verts']['Index']), 1000, max(logs['verts']['rad']),
+                           'aw'))
+        # Write the vertices
+        for i, vert in logs['verts'].iterrows():
+            # Write the vertex
+            file.write(" ".join([str(_) for _ in vert['Balls']]) + " " + " ".join([str(_) for _ in vert['loc']]) +
+                       " " + str(vert['rad']) + " \n")
+        # Write the end line for the file
+        file.write("END")
+
+
 def create_verts_from_logs(folder=None):
 
     if folder is None:
@@ -36,37 +54,9 @@ def create_verts_from_logs(folder=None):
             shutil.move(folder + '/' + subfolder + '/pow_logs.csv', folder + '/' + subfolder + '/pow/pow_logs.csv')
         except FileNotFoundError:
             pass
-        aw_logs = read_logs2(folder + '/' + subfolder + '/aw/aw_logs.csv', vert_list=True)
-        pow_logs = read_logs2(folder + '/' + subfolder + '/pow/pow_logs.csv', vert_list=True)
-        # Write the aw_verts
-        with open(folder + '/' + subfolder + '/aw/aw_verts.txt', 'w') as file:
-
-            # Create a header for the vertices file
-            file.write("Vertices - {} vertices, {} atoms, max vert = {}, Net type = {}\n"
-                       .format(len(aw_logs['verts']['Index']), 1000, max(aw_logs['verts']['rad']),
-                               'aw'))
-            # Write the vertices
-            for i, vert in aw_logs['verts'].iterrows():
-                # Write the vertex
-                file.write(" ".join([str(_) for _ in vert['Balls']]) + " " + " ".join([str(_) for _ in vert['loc']]) +
-                           " " + str(vert['rad']) + " \n")
-            # Write the end line for the file
-            file.write("END")
-
-        # Write the aw_verts
-        with open(folder + '/' + subfolder + '/pow/pow_verts.txt', 'w') as file:
-
-            # Create a header for the vertices file
-            file.write("Vertices - {} vertices, {} atoms, max vert = {}, Net type = {}\n"
-                       .format(len(pow_logs['verts']['Index']), 1000, max(pow_logs['verts']['rad']),
-                               'pow'))
-            # Write the vertices
-            for i, vert in pow_logs['verts'].iterrows():
-                # Write the vertex
-                file.write(" ".join([str(_) for _ in vert['Balls']]) + " " + " ".join([str(_) for _ in vert['loc']]) +
-                           " " + str(vert['rad']) + " \n")
-            # Write the end line for the file
-            file.write("END")
+        # Get the verts
+        write_log_to_vert(folder + '/' + subfolder + '/aw/aw_logs.csv', folder + '/' + subfolder + '/aw/aw_verts.txt')
+        write_log_to_vert(folder + '/' + subfolder + '/pow/pow_logs.csv', folder + '/' + subfolder + '/pow/pow_verts.txt')
 
 
 if __name__ == '__main__':
