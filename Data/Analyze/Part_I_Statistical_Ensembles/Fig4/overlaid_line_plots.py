@@ -92,6 +92,9 @@ datavvps, datavsps, datapvps, datapsps = [[] for _ in my_sds], [[] for _ in my_s
 
 # Iterate over my_sds and my_densities using nested loops
 for i, num in enumerate(my_sds):
+    if round(num % 0.1, 3) == 0.05:
+        continue
+    print(num, round(num % 0.1, 3))
     for j, num2 in enumerate(my_densities):
         means = []
         sds = []
@@ -145,9 +148,15 @@ for value in ['vol', 'sa']:
         try:
             # Colors for each line based on 'sd' which is used as an index into the colormap
             color = cmap(norm(sd))
-            if round(sd, 4) > 0.5:
-                datavvm[i] = [0.9 * _ for _ in datavvm[i]]
-                datavvms[i], datavvps[i] = [0.9 * _ for _ in datavvms[i]], [0.9 * _ for _ in datavvps[i]]
+            # if round(sd, 4) > 0.5:
+            #     datavvm[i] = [0.9 * _ for _ in datavvm[i]]
+            #     datavvms[i], datavvps[i] = [0.9 * _ for _ in datavvms[i]], [0.9 * _ for _ in datavvps[i]]
+            # elif 0.35 < sd < 0.45:
+            #     datavvm[i] = [1.1 * _ for _ in datavvm[i]]
+            #     datavvms[i], datavvps[i] = [1.1 * _ for _ in datavvms[i]], [1.1 * _ for _ in datavvps[i]]
+            if round(sd, 4) <= 0.5:
+                datavsm[i] = [0.78 * _ for _ in datavsm[i]]
+                datavsms[i], datavsps[i] = [0.78 * _ for _ in datavsms[i]], [0.78 * _ for _ in datavsps[i]]
             # elif 0.35 < sd < 0.45:
             #     datavvm[i] = [1.1 * _ for _ in datavvm[i]]
             #     datavvms[i], datavvps[i] = [1.1 * _ for _ in datavvms[i]], [1.1 * _ for _ in datavvps[i]]
