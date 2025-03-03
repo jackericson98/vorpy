@@ -87,9 +87,9 @@ def export_npt(my_sys, usr_npt=None):
         other_exports(my_sys, usr_npt)
 
 
-def interpret_argvs():
+def interpret_argvs(counter=0):
     # Separate the rest of the argv args
-    my_args = sys.argv[2:]
+    my_args = sys.argv[2 + counter:]
     # Set up the commands dictionary
     cmnds = {'npt': [], 'set': [], 'grp': {}, 'bld': [], 'xpt': [], 'ifc': []}
     # Set the arg to load as a default
@@ -125,6 +125,8 @@ def interpret_argvs():
         elif arg.lower() == '-e':
             if arg_cmnds == 'logs':
                 cmnds['set'].append(['bt', 'logs'])
+            if arg_cmnds[0] == 'dir':
+                arg_cmnds = ['dir', " ".join(arg_cmnds[1:])]
             cmnds['xpt'].append(arg_cmnds)
         elif arg.lower() == '-i':
             cmnds['ifc'].append(arg_cmnds)
@@ -138,10 +140,17 @@ def argv(my_sys):
         print_help()
         return
     # Load the atom file
-    load(my_sys, [["", sys.argv[1]]], balls_file=True)
-
+    if sys.argv[2][0] == '-':
+        load(my_sys, [["", sys.argv[1]]], balls_file=True)
+        counter = 0
+    else:
+        counter = 1
+        while '-' not in sys.argv[1 + counter]:
+            counter += 1
+        my_file = " ".join(sys.argv[1:1 + counter])
+        load(my_sys, [["", my_file]], balls_file=True)
     # Interpret the commands
-    cmnds = interpret_argvs()
+    cmnds = interpret_argvs(counter)
     # Set the system commands
     my_sys.cmnds = cmnds
     # Go through each of the ls
