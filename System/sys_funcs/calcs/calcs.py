@@ -233,21 +233,30 @@ def calc_tri(points):
     return 0.5 * np.linalg.norm((np.cross(ab, ac)))
 
 
-def calc_com(points):
+def calc_com(points, masses=None):
     """
-    Takes in a set of points and returns the coordinates of the center of mass
-    :param points: lists of locations in n-dimensions
-    :return: Center of mass of the inputs
+    Takes in a set of points and their respective masses and returns the coordinates of the center of mass.
+    :param points: List of locations in n-dimensions.
+    :param masses: List of masses corresponding to each point. If None, each point is considered to have equal mass.
+    :return: Center of mass of the inputs.
     """
+    # Default mass values if None provided
+    if masses is None:
+        masses = [1] * len(points)
 
-    # Set the running sum for the x, y, z values to 0
-    tots = [0 for _ in range(len(points[0]))]
-    for point in points:
-        for i in range(len(points[0])):
-            tots[i] += point[i]
+    # Initialize totals for each dimension to zero
+    total_mass = 0
+    tots = [0] * len(points[0])
 
-    # Return the center of mass of inputs
-    return np.array([tots[i]/len(points) for i in range(len(points[0]))])
+    # Calculate the weighted sum for each dimension
+    for point, mass in zip(points, masses):
+        for i in range(len(point)):
+            tots[i] += point[i] * mass
+        total_mass += mass
+
+    # Calculate the center of mass for each dimension
+    center_of_mass = [total / total_mass for total in tots]
+    return np.array(center_of_mass)
 
 
 @jit(nopython=True)
