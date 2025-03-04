@@ -3,75 +3,98 @@ import csv
 import tkinter as tk
 import datetime
 from tkinter import filedialog
+from System.sys_funcs.calcs.calcs import calc_com, round_func
 
 root = tk.Tk()
 root.withdraw()
 root.wm_attributes('-topmost', 1)
 
 
-def get_center_of_mass(masses, coms):
-    return None
+def parse_string_lists(string_list, apply_type=float):
+    # Test if it is just one single list
+    if string_list[1] != '[':
+        listy, current_number = [], ''
+        for letter in string_list:
+            if letter.isdigit() or letter == '.':
+                current_number += letter
+            elif letter == ',':
+                listy.append(apply_type(current_number))
+                current_number = ''
+    else:
+        listy, current_number = [[]], ''
+        for letter in string_list:
+            if letter.isdigit() or letter == '.':
+                current_number += letter
+            elif letter == ',' and len(current_number) > 0:
+                listy[-1].append(apply_type(current_number))
+                current_number = ''
+            elif letter == ']':
+                listy.append([])
+                current_number = ''
+    return listy
 
 
 def get_sa():
     return None
 
 
-
 def combine_build_information(output_file, build_logs):
-    # Open the file and write the headers
-    with open(output_file, 'w') as of:
-        # open the writer
-        of_csv = csv.writer(of)
-        # Write the first lines
-        of_csv.writerow(['build information'])
-        row_titles = ['Name', 'Location', 'Completion Date', 'Network Type', 'Surface Resolution', 'Box Size',
-                      'Maximum Allowable Vertex', 'Total Time', 'Vertex Time', 'Connect Time',
-                      'Surface Building Time', 'Analysis time', 'Maximum Found Vertex']
-        of_csv.writerow(row_titles)
-        # Create the dictionary
-        build_dict = {row_titles[i]: [] for i in range(len(row_titles))}
-        # Add the values for each of the build logs into the dictionary, so we can add them together
-        for logaroony in build_logs:
-            # Loop through the row titles adding stuff from each of the build logs
-            for i in range(len(row_titles)):
-                build_dict[row_titles[i]].append(build_logs[logaroony][i])
-        # Write the info
-        line = [build_dict[row_titles[0]][0], output_file, datetime.datetime.now(), build_dict[row_titles[3]][0],
-                build_dict[row_titles[4]][0], build_dict[row_titles[5]][0], build_dict[row_titles[6]][0],
-                sum(build_dict[row_titles[7]]), sum(build_dict[row_titles[8]]), sum(build_dict[row_titles[9]]),
-                sum(build_dict[row_titles[10]]), sum(build_dict[row_titles[11]]), max(build_dict[row_titles[12]])]
-        # Write the line
-        of_csv.writerow(line)
+    # Create the lines list
+    lines = [['build information']]
+    # Write the first lines
+    row_titles = ['Name', 'Location', 'Completion Date', 'Network Type', 'Surface Resolution', 'Box Size',
+                  'Maximum Allowable Vertex', 'Total Time', 'Vertex Time', 'Connect Time',
+                  'Surface Building Time', 'Analysis time', 'Maximum Found Vertex']
+    lines.append(row_titles)
+    # Create the dictionary
+    build_dict = {row_titles[i]: [] for i in range(len(row_titles))}
+    # Add the values for each of the build logs into the dictionary, so we can add them together
+    for logaroony in build_logs:
+        # Loop through the row titles adding stuff from each of the build logs
+        for i in range(len(row_titles)):
+            build_dict[row_titles[i]].append(build_logs[logaroony][i])
+    # Write the info
+    lines.append([build_dict[row_titles[0]][0], output_file, datetime.datetime.now(), build_dict[row_titles[3]][0],
+                  build_dict[row_titles[4]][0], build_dict[row_titles[5]][0], build_dict[row_titles[6]][0],
+                  sum(build_dict[row_titles[7]]), sum(build_dict[row_titles[8]]), sum(build_dict[row_titles[9]]),
+                  sum(build_dict[row_titles[10]]), sum(build_dict[row_titles[11]]), max(build_dict[row_titles[12]])])
+    # Return the lines
+    return lines
 
 
-def combine_group_information(output_file, group_logs):
-    # Open the file and start the writing process
-    with open(output_file, 'a') as of:
-        # Open the csv file
-        of_csv = csv.writer(of)
-        # Write the first line
-        of_csv.writerow(['group information'])
-        row_titles = ['Name', 'Volume', 'Surface Area', 'Mass', 'Density', 'Center of Mass', 'VDW Volume',
-                      'VDW Center of Mass', 'Moment of Inertia', 'Spatial Moment of Inertia']
-        of_csv.writerow(row_titles)
-        # Create the dictionary
-        build_dict = {row_titles[i]: [] for i in range(len(row_titles))}
-        # Add the values for each of the build logs into the dictionary, so we can add them together
-        for logaroony in group_logs:
-            # Loop through the row titles adding stuff from each of the build logs
-            for i in range(len(row_titles)):
-                build_dict[row_titles[i]].append(group_logs[logaroony][i])
-        # Get the center of mass
-        com = get_center_of_mass([float(_) for _ in build_dict[row_titles[4]]], [])
-        # Write the info
-        line = [build_dict[row_titles[0]][0],
-                sum([float(_) for _ in build_dict[row_titles[1]]]),
-                None,
-                sum([float(_) for _ in build_dict[row_titles[3]]]),
-                sum([float(_) for _ in build_dict[row_titles[6]]]) / sum([float(_) for _ in build_dict[row_titles[1]]]),
-                com]
-
+def combine_group_information(group_logs, sa, moi, spatial_moment, round_to=3):
+    # Get the round function
+    r = round_func(round_to)
+    # Write the first line
+    lines = [['group information']]
+    row_titles = ['Name', 'Volume', 'Surface Area', 'Mass', 'Density', 'Center of Mass', 'VDW Volume',
+                  'VDW Center of Mass', 'Moment of Inertia', 'Spatial Moment of Inertia']
+    lines.append(row_titles)
+    # Create the dictionary
+    build_dict = {row_titles[i]: [] for i in range(len(row_titles))}
+    # Add the values for each of the build logs into the dictionary, so we can add them together
+    for logaroony in group_logs:
+        # Loop through the row titles adding stuff from each of the build logs
+        for i in range(len(row_titles)):
+            build_dict[row_titles[i]].append(group_logs[logaroony][i])
+    # Get the total volume
+    vols = [float(_) for _ in build_dict[row_titles[1]]]
+    # Get the masses
+    masses = [float(_) for _ in build_dict[row_titles[3]]]
+    # Get the van der waals volumes
+    vdw_vols = [float(_) for _ in build_dict[row_titles[6]]]
+    # Get the center of mass
+    com = calc_com([parse_string_lists(_) for _ in build_dict[row_titles[5]]],
+                   vols)
+    # Get the vander waals com
+    vdw_com = calc_com([parse_string_lists(_) for _ in build_dict[row_titles[7]]],
+                       [float(_) for _ in build_dict[row_titles[3]]])
+    # Write the info
+    lines.append([build_dict[row_titles[0]][0], r(sum(vols)), r(sa), r(sum(masses)), r(sum(vdw_vols) / sum(vols)),
+                  [r(_) for _ in com], r(sum(vdw_vols)), [r(_) for _ in vdw_com],
+                  [[float(r(__)) for __ in _] for _ in moi], [[float(r(__)) for __ in _] for _ in spatial_moment]])
+    # Return the lines
+    return lines
 
 
 def combine_atoms_lines(output_file, atom_logs):
