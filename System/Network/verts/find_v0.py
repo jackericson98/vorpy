@@ -84,7 +84,7 @@ def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, m
                                               metrics=metrics, box=box)
             else:
                 my_vert = find_site_container_slow(circ[0], locs=locs, rads=rads, b_verts=b_verts, vert_ndxs=vert_ndxs,
-                                                   max_vert=max_vert, net_type=net_type, group_ndxs=group_ndxs,
+                                                   max_vert=max_vert / 10, net_type=net_type, group_ndxs=group_ndxs,
                                                    metrics=metrics, box=box)
             # Check for a real site that is not a doublet
             if my_vert is not None:
