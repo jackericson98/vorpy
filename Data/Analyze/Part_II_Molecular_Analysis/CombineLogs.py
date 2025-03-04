@@ -1,11 +1,21 @@
 import os
 import csv
 import tkinter as tk
+import datetime
 from tkinter import filedialog
 
 root = tk.Tk()
 root.withdraw()
 root.wm_attributes('-topmost', 1)
+
+
+def get_center_of_mass(masses, coms):
+    return None
+
+
+def get_sa():
+    return None
+
 
 
 def combine_build_information(output_file, build_logs):
@@ -20,17 +30,48 @@ def combine_build_information(output_file, build_logs):
                       'Surface Building Time', 'Analysis time', 'Maximum Found Vertex']
         of_csv.writerow(row_titles)
         # Create the dictionary
-        build_dict = {}
+        build_dict = {row_titles[i]: [] for i in range(len(row_titles))}
         # Add the values for each of the build logs into the dictionary, so we can add them together
         for logaroony in build_logs:
-            pass
-
-
-
+            # Loop through the row titles adding stuff from each of the build logs
+            for i in range(len(row_titles)):
+                build_dict[row_titles[i]].append(build_logs[logaroony][i])
+        # Write the info
+        line = [build_dict[row_titles[0]][0], output_file, datetime.datetime.now(), build_dict[row_titles[3]][0],
+                build_dict[row_titles[4]][0], build_dict[row_titles[5]][0], build_dict[row_titles[6]][0],
+                sum(build_dict[row_titles[7]]), sum(build_dict[row_titles[8]]), sum(build_dict[row_titles[9]]),
+                sum(build_dict[row_titles[10]]), sum(build_dict[row_titles[11]]), max(build_dict[row_titles[12]])]
+        # Write the line
+        of_csv.writerow(line)
 
 
 def combine_group_information(output_file, group_logs):
-    pass
+    # Open the file and start the writing process
+    with open(output_file, 'a') as of:
+        # Open the csv file
+        of_csv = csv.writer(of)
+        # Write the first line
+        of_csv.writerow(['group information'])
+        row_titles = ['Name', 'Volume', 'Surface Area', 'Mass', 'Density', 'Center of Mass', 'VDW Volume',
+                      'VDW Center of Mass', 'Moment of Inertia', 'Spatial Moment of Inertia']
+        of_csv.writerow(row_titles)
+        # Create the dictionary
+        build_dict = {row_titles[i]: [] for i in range(len(row_titles))}
+        # Add the values for each of the build logs into the dictionary, so we can add them together
+        for logaroony in group_logs:
+            # Loop through the row titles adding stuff from each of the build logs
+            for i in range(len(row_titles)):
+                build_dict[row_titles[i]].append(group_logs[logaroony][i])
+        # Get the center of mass
+        com = get_center_of_mass([float(_) for _ in build_dict[row_titles[4]]], [])
+        # Write the info
+        line = [build_dict[row_titles[0]][0],
+                sum([float(_) for _ in build_dict[row_titles[1]]]),
+                None,
+                sum([float(_) for _ in build_dict[row_titles[3]]]),
+                sum([float(_) for _ in build_dict[row_titles[6]]]) / sum([float(_) for _ in build_dict[row_titles[1]]]),
+                com]
+
 
 
 def combine_atoms_lines(output_file, atom_logs):
