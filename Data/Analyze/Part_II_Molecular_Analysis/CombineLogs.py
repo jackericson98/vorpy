@@ -1,9 +1,10 @@
 import os
 import csv
+import numpy as np
 import tkinter as tk
 import datetime
 from tkinter import filedialog
-from System.sys_funcs.calcs.calcs import calc_com, round_func
+from System.sys_funcs.calcs.calcs import calc_com, round_func, calc_total_inertia_tensor, combine_inertia_tensors
 
 root = tk.Tk()
 root.withdraw()
@@ -32,10 +33,6 @@ def parse_string_lists(string_list, apply_type=float):
                 listy.append([])
                 current_number = ''
     return listy
-
-
-def get_sa():
-    return None
 
 
 def combine_build_information(output_file, build_logs):
@@ -97,13 +94,51 @@ def combine_group_information(group_logs, sa, moi, spatial_moment, round_to=3):
     return lines
 
 
-def combine_atoms_lines(output_file, atom_logs):
-    pass
+def combine_atoms_lines(atom_logs):
+    # Get the initial two lines
+    lines = [['Atoms'],
+             ['Index', 'Name', 'Residue', 'Residue Sequence', 'Chain', 'Mass', 'X', 'Y', 'Z', 'Radius', 'Volume',
+              'Van Der Waals Volume', 'Surface Area', 'Complete Cell?', 'Maximum Mean Curvature',
+              'Average Mean Surface Curvature', 'Maximum Gaussian Curvature', 'Average Gaussian Surface Curvature',
+              'Sphericity', 'Isometric Quotient', 'Inner Ball?', 'Number of Neighbors', 'Closest Neighbor',
+              'Closest Neighbor Distance', 'Layer Distance Average', 'Layer Distance RMSD', 'Minimum Point Distance',
+              'Maximum Point Distance', 'Number of Overlaps', 'Contact Area', 'Non-Overlap Volume', 'Overlap Volume',
+              'Center of Mass', 'Moment of Inertia Tensor', 'Bounding Box', 'neighbors']]
+    atoms = {}
+    atoms_data = []
+    # Loop through the atom lines
+    for atom_log_set in atom_logs:
+        # Get the group's atoms
+        for atom in atom_logs[atom_log_set]:
+            # Get the values we want
+            index = int(atom[0])
+            location = np.array([float(_) for _ in atom[6:9]])
+            rad = float(atom[9])
+            mass = float(atom[5])
+            vdw_vol = float(atom[11])
+            # Check if the atom has been found before
+            if index in atoms:
+                print("Repeat Atom!!!!", atom_log_set, index)
+                continue
+            # Add the data
+            atoms[index] = atom
+            atoms_data.append({'mass': mass, 'loc': location, 'rad': rad, 'vdw_vol': vdw_vol, 'vol': float(10),
+                               'com': parse_string_lists(atom[32]), 'moi': parse_string_lists(atom[33])})
+    group = set(atoms.keys())
+    lines = lines + list(atoms.values())
+    # Get the vander waals com
+    vdw_com = calc_com([_['loc'] for _ in atoms_data], [_['vdw_vol'] for _ in atoms_data])
+    com = [sum([_['com'][i] * _['vol'] for _ in atoms_data]) / sum([_['vol'] for _ in atoms_data]) for i in range(3)]
+    moi = calc_total_inertia_tensor(atoms_data, vdw_com)
+    spatial_moment = combine_inertia_tensors([_['moi'] for _ in atoms_data], [_['com'] for _ in atoms_data], com,
+                                             [_['vol'] for _ in atoms_data])
+    return lines, group, com, vdw_com, moi, spatial_moment
 
 
-def combine_surface_lines(output_file, surface_logs):
+def combine_surface_lines(surface_logs, group):
     # Create the surfaces dictionary for later sorting
     surfaces = {}
+    sa = 0
     # Loop through the surface logs adding the surfaces that aren't repeats
     for file in surface_logs:
         # Get the dictionary from the surfaces dictionaries
@@ -113,25 +148,24 @@ def combine_surface_lines(output_file, surface_logs):
             if surf in surfaces:
                 # Check the values
                 if not all([surfaces[surf][j] == my_dict[surf][j] for j in range(len(my_dict[surf]))]):
-                    print(f"Bad edge match {surf}, {surfaces[surf]} != {my_dict[surf]}")
+                    print(f"Bad surf match {surf}, {surfaces[surf]} != {my_dict[surf]}")
                 continue
             else:
+                indices = int(my_dict[surf][1]), int(my_dict[surf][2])
+                # Check if both indices are in the group
+                if indices[0] not in group or indices[1] not in group:
+                    sa += float(3)
                 surfaces[surf] = my_dict[surf]
     # Sort the surfaces
     sorted_surfaces = [surfaces[key] for key in sorted(surfaces)]
-    # Add to the output file
-    with open(output_file, 'a') as of:
-        # Create the csv writer
-        of_csv = csv.writer(of)
-        # Write the header
-        of_csv.writerow(['Surfaces'])
-        of_csv.writerow(['Index', 'Ball 1', 'Ball 2', 'Surface Area', 'Mean Curvature', 'Gaussian Curvature',
-                         'Ball 1 Volume Contribution', 'Ball 2 Volume Contribution', 'Contact Area', 'Overlap'])
-        # Write the rows
-        for row in sorted_surfaces:
-            of_csv.writerow(row)
-    # Close the file
-    of.close()
+    # Create the list of lines
+    lines = [['Surfaces'], ['Index', 'Ball 1', 'Ball 2', 'Surface Area', 'Mean Curvature', 'Gaussian Curvature',
+                            'Ball 1 Volume Contribution', 'Ball 2 Volume Contribution', 'Contact Area', 'Overlap']]
+
+    # Write the rows
+    lines += sorted_surfaces
+    # Return the lines
+    return lines, sa
 
 
 def combine_edges_lines(output_file, edge_logs):
@@ -198,8 +232,6 @@ def combine_vertex_lines(output_file, vertex_logs):
     of.close()
 
 
-
-
 def combine_logs():
     """
     Combines the logs of separate split files.
@@ -221,3 +253,64 @@ def combine_logs():
             break
 
     # Go through the logs and
+    # Get the lines for each group: Build, Group, Atoms, Surfaces, Edges, Vertices
+    build, group, atoms, surfs, edges, verts = {}, {}, {}, {}, {}, {}
+    for file in list_of_logs:
+        build[file], group[file], atoms[file], surfs[file], edges[file], verts[file] = [], [], [], [], [], []
+
+        with open(file, 'r') as read_file:
+            rf = csv.reader(read_file)
+            skip = False
+            add_dict = None
+            for line in rf:
+                if skip:
+                    skip = False
+                    continue
+                if line[0] == 'build information':
+                    add_dict = build
+                    skip = True
+                    continue
+                if line[0] == 'group information':
+                    add_dict = group
+                    skip = True
+                    continue
+                if line[0] == 'Atoms':
+                    add_dict = atoms
+                    skip = True
+                    continue
+                if line[0] == 'Surfaces':
+                    add_dict = surfs
+                    skip = True
+                    continue
+                if line[0] == 'Edges':
+                    add_dict = edges
+                    skip = True
+                    continue
+                if line[0] == 'Vertices':
+                    add_dict = verts
+                    skip = True
+                    continue
+                add_dict[file].append(line)
+    # Choose the output directory for the final file
+    output_dir = filedialog.askdirectory(title="Choose the output folder for \'Total_logs.csv\'")
+    # Create the output file name
+    bld_lines = combine_build_information(output_dir + '/Total_logs.csv', build)
+    # Get the atoms
+    atm_lines, group_nums, com, vdw_com, moi, spatial_moment = combine_atoms_lines(atoms)
+    # Get the surfaces
+    srf_lines, sa = combine_surface_lines(surfs, group_nums)
+    # Group logs
+    grp_lines = combine_group_information(group, sa, moi, spatial_moment)
+    # Write
+    with open(output_dir + '/Total_logs.csv', 'w') as outpt_file:
+        of = csv.writer(outpt_file)
+        for line in bld_lines:
+            of.writerow(line)
+        for line in grp_lines:
+            of.writerow(line)
+        for line in atm_lines:
+            of.writerow(line)
+        for line in srf_lines:
+            of.writerow(line)
+    combine_edges_lines(output_dir + '/Total_logs.csv', edges)
+    combine_vertex_lines(output_dir + '/Total_logs.csv', verts)
