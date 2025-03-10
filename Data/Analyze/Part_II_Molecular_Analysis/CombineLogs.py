@@ -1,5 +1,6 @@
 import os
 import csv
+from curses.ascii import isdigit
 import numpy as np
 import tkinter as tk
 import datetime
@@ -11,28 +12,47 @@ root.withdraw()
 root.wm_attributes('-topmost', 1)
 
 
-def parse_string_lists(string_list, apply_type=float):
-    # Test if it is just one single list
-    if string_list[1] != '[':
-        listy, current_number = [], ''
-        for letter in string_list:
-            if letter.isdigit() or letter == '.':
-                current_number += letter
-            elif letter == ',':
-                listy.append(apply_type(current_number))
-                current_number = ''
+def parse_string_lists(string_list):
+    if 'np.float64' in string_list:
+        new_string_list = string_list.split('np.float64')
+        new_string = ''.join(new_string_list)
     else:
-        listy, current_number = [[]], ''
-        for letter in string_list:
-            if letter.isdigit() or letter == '.':
-                current_number += letter
-            elif letter == ',' and len(current_number) > 0:
-                listy[-1].append(apply_type(current_number))
-                current_number = ''
-            elif letter == ']':
-                listy.append([])
-                current_number = ''
-    return listy
+        new_string = string_list
+    my_string = ''
+    for letter in new_string:
+        if letter in {'(', ')'}:
+            continue
+        else:
+            my_string += letter
+    if '], [' in my_string:
+        new_vals = my_string.split('], [')
+        for i, val in enumerate(new_vals):
+            new_val = ''
+            for letter in val:
+                if letter in {'[', ']'}:
+                    continue
+                else:
+                    new_val += letter
+            new_vals[i] = [float(_) for _ in new_val.split(',')]
+    elif '] [' in my_string:
+        new_vals = my_string.split('] [')
+        for i, val in enumerate(new_vals):
+            new_val = ''
+            for letter in val:
+                if letter in {'[', ']'}:
+                    continue
+                else:
+                    new_val += letter
+            new_vals[i] = [float(_) for _ in new_val.split(',')]
+    else:
+        my_new_string = ''
+        for letter in my_string:
+            if letter in {'[', ']'}:
+                continue
+            else:
+                my_new_string += letter
+        new_vals = [float(_) for _ in my_new_string.split(',')]
+    return new_vals
 
 
 def combine_build_information(output_file, build_logs):
@@ -49,12 +69,14 @@ def combine_build_information(output_file, build_logs):
     for logaroony in build_logs:
         # Loop through the row titles adding stuff from each of the build logs
         for i in range(len(row_titles)):
-            build_dict[row_titles[i]].append(build_logs[logaroony][i])
+            build_dict[row_titles[i]].append(build_logs[logaroony][0][i])
+
     # Write the info
     lines.append([build_dict[row_titles[0]][0], output_file, datetime.datetime.now(), build_dict[row_titles[3]][0],
                   build_dict[row_titles[4]][0], build_dict[row_titles[5]][0], build_dict[row_titles[6]][0],
-                  sum(build_dict[row_titles[7]]), sum(build_dict[row_titles[8]]), sum(build_dict[row_titles[9]]),
-                  sum(build_dict[row_titles[10]]), sum(build_dict[row_titles[11]]), max(build_dict[row_titles[12]])])
+                  sum([float(_) for _ in build_dict[row_titles[7]]]), sum([float(_) for _ in build_dict[row_titles[8]]]),
+                  sum([float(_) for _ in build_dict[row_titles[9]]]), sum([float(_) for _ in build_dict[row_titles[10]]]),
+                  sum([float(_) for _ in build_dict[row_titles[11]]]), max([float(_) for _ in build_dict[row_titles[12]]])])
     # Return the lines
     return lines
 
@@ -73,7 +95,7 @@ def combine_group_information(group_logs, sa, moi, spatial_moment, round_to=3):
     for logaroony in group_logs:
         # Loop through the row titles adding stuff from each of the build logs
         for i in range(len(row_titles)):
-            build_dict[row_titles[i]].append(group_logs[logaroony][i])
+            build_dict[row_titles[i]].append(group_logs[logaroony][0][i])
     # Get the total volume
     vols = [float(_) for _ in build_dict[row_titles[1]]]
     # Get the masses
@@ -122,13 +144,14 @@ def combine_atoms_lines(atom_logs):
                 continue
             # Add the data
             atoms[index] = atom
+            print(parse_string_lists(atom[33]))
             atoms_data.append({'mass': mass, 'loc': location, 'rad': rad, 'vdw_vol': vdw_vol, 'vol': float(10),
-                               'com': parse_string_lists(atom[32]), 'moi': parse_string_lists(atom[33])})
+                               'com': np.array(parse_string_lists(atom[32])), 'moi': np.array(parse_string_lists(atom[33]))})
     group = set(atoms.keys())
     lines = lines + list(atoms.values())
     # Get the vander waals com
     vdw_com = calc_com([_['loc'] for _ in atoms_data], [_['vdw_vol'] for _ in atoms_data])
-    com = [sum([_['com'][i] * _['vol'] for _ in atoms_data]) / sum([_['vol'] for _ in atoms_data]) for i in range(3)]
+    com = [sum([_['com'][i] * _['vol'] for _ in atoms_data]) / sum([_['vol'] for _ in atoms_data]) for i in range(len(atoms_data[0]['com']))]
     moi = calc_total_inertia_tensor(atoms_data, vdw_com)
     spatial_moment = combine_inertia_tensors([_['moi'] for _ in atoms_data], [_['com'] for _ in atoms_data], com,
                                              [_['vol'] for _ in atoms_data])
@@ -139,23 +162,27 @@ def combine_surface_lines(surface_logs, group):
     # Create the surfaces dictionary for later sorting
     surfaces = {}
     sa = 0
+    ndx = 0
     # Loop through the surface logs adding the surfaces that aren't repeats
     for file in surface_logs:
         # Get the dictionary from the surfaces dictionaries
         my_dict = surface_logs[file]
+        print(surfaces)
         # Loop through each of the surfaces in the file's dictionary
         for surf in my_dict:
-            if surf in surfaces:
+            indices = tuple([int(_) for _ in surf[1:3]])
+            if indices in surfaces:
                 # Check the values
-                if not all([surfaces[surf][j] == my_dict[surf][j] for j in range(len(my_dict[surf]))]):
-                    print(f"Bad surf match {surf}, {surfaces[surf]} != {my_dict[surf]}")
+                # if not all([surfaces[surf][j] == my_dict[surf][j] for j in range(len(my_dict[surf]))]):
+                #     print(f"Bad surf match {surf}, {surfaces[surf]} != {my_dict[surf]}")
                 continue
             else:
-                indices = int(my_dict[surf][1]), int(my_dict[surf][2])
                 # Check if both indices are in the group
                 if indices[0] not in group or indices[1] not in group:
                     sa += float(3)
-                surfaces[surf] = my_dict[surf]
+                surf = [ndx] + surf[1:]
+                surfaces[indices] = surf
+                ndx += 1
     # Sort the surfaces
     sorted_surfaces = [surfaces[key] for key in sorted(surfaces)]
     # Create the list of lines
@@ -171,19 +198,23 @@ def combine_surface_lines(surface_logs, group):
 def combine_edges_lines(output_file, edge_logs):
     # Create the edges dictionary for later sorting
     edges = {}
+    ndx = 0
     # Loop through the edge logs adding the edges that aren't repeats
     for file in edge_logs:
         # Get the dictionary from the edges dictionaries
         my_dict = edge_logs[file]
         # Loop through each of the edges in the file's dictionary
         for edge in my_dict:
-            if edge in edges:
+            indices = tuple([int(_) for _ in edge[1:4]])
+            if indices in edges:
                 # Check the values
                 if not all([edges[edge][j] == my_dict[edge][j] for j in range(len(my_dict[edge]))]):
                     print(f"Bad edge match {edge}, {edges[edge]} != {my_dict[edge]}")
                 continue
             else:
-                edges[edge] = my_dict[edge]
+                edge = [ndx] + edge[1:]
+                edges[indices] = edge
+                ndx += 1
     # Sort the edges
     sorted_edges = [edges[key] for key in sorted(edges)]
     # Add to the output file
@@ -203,19 +234,23 @@ def combine_edges_lines(output_file, edge_logs):
 def combine_vertex_lines(output_file, vertex_logs):
     # Create the vertices dictionary for later sorting
     vertices = {}
+    ndx = 0
     # Loop through the vertex logs adding the vertices that aren't repeats
     for file in vertex_logs:
         # Get the dictionary from the vertices dictionaries
         my_dict = vertex_logs[file]
         # Loop through each of the vertices in the file's dictionary
         for vert in my_dict:
-            if vert in vertices:
+            indices = tuple([int(_) for _ in vert[1:5]])
+            if indices in vertices:
                 # Check the values
                 if not all([vertices[vert][j] == my_dict[vert][j] for j in range(len(my_dict[vert]))]):
                     print(f"Bad vertex match {vert}, {vertices[vert]} != {my_dict[vert]}")
                 continue
             else:
-                vertices[vert] = my_dict[vert]
+                vert = [ndx] + vert[1:]
+                vertices[indices] = vert
+                ndx += 1
     # Sort the vertices
     sorted_vertices = [vertices[key] for key in sorted(vertices)]
     # Add to the output file
@@ -232,7 +267,7 @@ def combine_vertex_lines(output_file, vertex_logs):
     of.close()
 
 
-def combine_logs():
+def combine_logs(list_of_logs=None, output_dir=None):
     """
     Combines the logs of separate split files.
     1. Get the files
@@ -240,17 +275,19 @@ def combine_logs():
         (build information, group information, Atoms, Edges, Surfaces, Vertices)
     3. Write the file
     """
-    # Create the list of log file addresses to be combined
-    list_of_logs = []
-    # Keep looping through until no file is selected
-    while True:
-        # Get the logs file
-        logs = filedialog.askopenfilename(title='Get new file')
-        # Check if it exists
-        if os.path.exists(logs) and logs != '':
-            list_of_logs.append(logs)
-        else:
-            break
+    # If files aren't loaded up
+    if list_of_logs is None:
+        # Create the list of log file addresses to be combined
+        list_of_logs = []
+        # Keep looping through until no file is selected
+        while True:
+            # Get the logs file
+            logs = filedialog.askopenfilename(title='Get new file')
+            # Check if it exists
+            if os.path.exists(logs) and logs != '':
+                list_of_logs.append(logs)
+            else:
+                break
 
     # Go through the logs and
     # Get the lines for each group: Build, Group, Atoms, Surfaces, Edges, Vertices
@@ -266,7 +303,7 @@ def combine_logs():
                 if skip:
                     skip = False
                     continue
-                if line[0] == 'build information':
+                if line[0] == 'build informaiton' or line[0] == 'build information':
                     add_dict = build
                     skip = True
                     continue
@@ -291,8 +328,10 @@ def combine_logs():
                     skip = True
                     continue
                 add_dict[file].append(line)
-    # Choose the output directory for the final file
-    output_dir = filedialog.askdirectory(title="Choose the output folder for \'Total_logs.csv\'")
+    # Check that the output dir is None
+    if output_dir is None:
+        # Choose the output directory for the final file
+        output_dir = filedialog.askdirectory(title="Choose the output folder for \'Total_logs.csv\'")
     # Create the output file name
     bld_lines = combine_build_information(output_dir + '/Total_logs.csv', build)
     # Get the atoms
@@ -314,3 +353,10 @@ def combine_logs():
             of.writerow(line)
     combine_edges_lines(output_dir + '/Total_logs.csv', edges)
     combine_vertex_lines(output_dir + '/Total_logs.csv', verts)
+
+
+if __name__ == '__main__':
+    combine_logs(list_of_logs=['/Users/jackericson/PycharmProjects/vorpy/Data/user_data/EDTA_Mg_2/a_1_aw/aw_logs.csv',
+                               '/Users/jackericson/PycharmProjects/vorpy/Data/user_data/EDTA_Mg_3/a_2_aw/aw_logs.csv'],
+                 output_dir='/Users/jackericson/PycharmProjects/vorpy/Data/user_data')
+    # combine_logs()
