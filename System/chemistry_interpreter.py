@@ -6,7 +6,7 @@ This file helps interpret different inputs for chemical classifiers
 
 """
 
-residue_names = {
+amino_names = {
     **{_: 'ARG' for _ in {'r', 'arginine', 'arg', 'argi', 'argin', 'arganine'}},        # Arginine
     **{_: 'ALA' for _ in {'alanine', 'ala', 'alan'}},                                   # Alanine
     **{_: 'ASN' for _ in {'n', 'asparagine', 'asn', 'aspar', 'asparagin'}},             # Asparagine
@@ -27,12 +27,18 @@ residue_names = {
     **{_: 'TRP' for _ in {'w', 'tryptophan', 'trp', 'trypto'}},                         # Tryptophan
     **{_: 'TYR' for _ in {'y', 'tyrosine', 'tyr', 'tyros'}},                            # Tyrosine
     **{_: 'VAL' for _ in {'v', 'valine', 'val', 'valin'}},                              # Valine
+}
+
+nucleo_names = {
     # Nucleo bases
     **{_: 'A' for _ in {'da', 'a', 'adenine', 'adenin', 'ade'}},                        # Adenine
     **{_: 'C' for _ in {'dc', 'c', 'cytosine', 'cytosin', 'cyto'}},                     # Cytosine
     **{_: 'G' for _ in {'dg', 'g', 'guanine', 'guanin', 'guan'}},                       # Guanine
     **{_: 'T' for _ in {'dt', 't', 'thymine', 'thymi', 'thym'}},                        # Thymine
     **{_: 'U' for _ in {'du', 'u', 'uracil', 'uraci', 'ura'}},                          # Uracil
+}
+
+ion_names = {
     # Ions
     **{_: 'NA' for _ in {'na', 'sodium', 'natrium'}},                                   # Sodium
     **{_: 'K' for _ in {'k', 'potassium', 'kalium'}},                                   # Potassium
@@ -61,6 +67,8 @@ residue_names = {
     **{_: 'VO4' for _ in {'vo4', 'vanadate'}},                                          # Vanadate
     **{_: 'WO4' for _ in {'wo4', 'tungstate'}}                                          # Tungstate
 }
+
+residue_names = amino_names | nucleo_names | ion_names
 
 residue_atoms = {
     'SOL': {'HW1', 'HW2', 'OW'},
