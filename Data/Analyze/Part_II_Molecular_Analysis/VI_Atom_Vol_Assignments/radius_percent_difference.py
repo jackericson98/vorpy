@@ -42,7 +42,20 @@ def get_group_info(logs):
 
 def get_atoms_info(aw_logs, pow_logs, classifs):
     """
-    Takes the location of the logs
+    Takes the logs from the aw and pow solve and returns for each atom:
+    1. Ball radius
+    2. aw volume
+    3. pow volume
+    4. aw sa
+    5. pow sa
+    6. aw sphericity
+    7. pow sphericity
+    8. aw sol facing
+    9. pow sol facing
+    10. aw protein facing
+    11. pow protein facing
+    12. aw. Nucleic facing
+    13. pow nucleic facing
     """
     # Get the power logs that are the atoms
     pow_logs_a = pow_logs['atoms']
@@ -51,9 +64,10 @@ def get_atoms_info(aw_logs, pow_logs, classifs):
     # Now loop through and classify the atoms in the group as
     for i, aw_atom in aw_logs.iterrows():
         # Get the power atom
-        pow_atom = pow_logs_a.loc[pow_logs_a['']]
+        pow_atom = pow_logs_a.loc[pow_logs_a['Index'] == aw_atom['Index']].iloc[0]
+        # Get the aw neighbors and the pow neighbors
         # Create the dictionary
-        atoms[]
+        atoms[aw_atom['Index']] = {}
 
 
 

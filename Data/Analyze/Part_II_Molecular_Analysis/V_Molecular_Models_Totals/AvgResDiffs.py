@@ -93,12 +93,12 @@ if __name__ == '__main__':
                     del_sas.append(del_sa_diff)
                     if abs(del_vol_diff) > 100:
                         print(__, ___, del_vol_diff, del_sa_diff)
-        # Get the averages
-        print('AvgResDiffs 73: ', system.name)
-        print('AvgResDiffs 74: ', 100 * sum(pow_vols)/len(pow_vols), 100 * np.std(pow_vols)/np.sqrt(len(pow_vols)))
-        print('AvgResDiffs 75: ', 100 * sum(del_vols)/len(del_vols), 100 * np.std(del_vols)/np.sqrt(len(del_vols)))
-        print('AvgResDiffs 76: ', 100 * sum(pow_sas)/len(pow_sas), 100 * np.std(pow_sas)/np.sqrt(len(pow_sas)))
-        print('AvgResDiffs 77: ', 100 * sum(del_sas)/len(del_sas), 100 * (np.std(del_sas)/np.sqrt(len(del_sas))))
+        # # Get the averages
+        # print('AvgResDiffs 73: ', system.name)
+        # print('AvgResDiffs 74: ', 100 * sum(pow_vols)/len(pow_vols), 100 * np.std(pow_vols)/np.sqrt(len(pow_vols)))
+        # print('AvgResDiffs 75: ', 100 * sum(del_vols)/len(del_vols), 100 * np.std(del_vols)/np.sqrt(len(del_vols)))
+        # print('AvgResDiffs 76: ', 100 * sum(pow_sas)/len(pow_sas), 100 * np.std(pow_sas)/np.sqrt(len(pow_sas)))
+        # print('AvgResDiffs 77: ', 100 * sum(del_sas)/len(del_sas), 100 * (np.std(del_sas)/np.sqrt(len(del_sas))))
 
 
         # Get the standard Errors
@@ -135,7 +135,7 @@ if __name__ == '__main__':
         # Return the lists
         return lista, listb
 
-    new_graph_labels, pre_made_data = sort_3_lists(new_graph_labels, pre_made_data)
+    new_graph_labels, pre_made_data = sort_3_lists(new_graph_labels, new_graph_labels)
 
     # Create the bar graph
     bar([[_[1] for _ in pre_made_data], [_[3] for _ in pre_made_data]], x_names=new_graph_labels, legend_names=['Power', 'Primitive'],

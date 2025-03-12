@@ -87,7 +87,7 @@ trace_names = ['Devries', 'Renedive & Lemilch', 'Gal-Or & & Hoelsher']
 traces = [go.Scatter(x=x_values, y=avg, mode='lines', name=trace_names[i], error_y=dict(type='data', array=vol_std_errs[i], visible=True)) for i, avg in enumerate(vol_avgs)]
 
 # Create layout for the plot
-layout = go.Layout(title=dict(text='AWVd_vs_Power for Volume % Difference - 1000 Balls', font=dict(size=50)),
+layout = go.Layout(title=dict(text='AWVd_vs_Power1 for Volume % Difference - 1000 Balls', font=dict(size=50)),
                    xaxis=dict(title='Density', tickfont=dict(size=25), titlefont=dict(size=30)),
                    yaxis=dict(title='Percent Difference', tickfont=dict(size=25), titlefont=dict(size=30)),
                    legend=dict(font=dict(size=30)))
