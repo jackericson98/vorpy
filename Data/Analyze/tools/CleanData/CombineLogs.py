@@ -1,6 +1,6 @@
 import os
 import csv
-from curses.ascii import isdigit
+# from curses.ascii import isdigit
 import numpy as np
 import tkinter as tk
 import datetime
@@ -62,6 +62,7 @@ def combine_build_information(output_file, build_logs):
     row_titles = ['Name', 'Location', 'Completion Date', 'Network Type', 'Surface Resolution', 'Box Size',
                   'Maximum Allowable Vertex', 'Total Time', 'Vertex Time', 'Connect Time',
                   'Surface Building Time', 'Analysis time', 'Maximum Found Vertex']
+
     lines.append(row_titles)
     # Create the dictionary
     build_dict = {row_titles[i]: [] for i in range(len(row_titles))}
@@ -144,11 +145,11 @@ def combine_atoms_lines(atom_logs):
                 continue
             # Add the data
             atoms[index] = atom
-            print(parse_string_lists(atom[33]))
             atoms_data.append({'mass': mass, 'loc': location, 'rad': rad, 'vdw_vol': vdw_vol, 'vol': float(10),
                                'com': np.array(parse_string_lists(atom[32])), 'moi': np.array(parse_string_lists(atom[33]))})
     group = set(atoms.keys())
-    lines = lines + list(atoms.values())
+    sorted_atoms = [atoms[key] for key in sorted(atoms)]
+    lines = lines + sorted_atoms
     # Get the vander waals com
     vdw_com = calc_com([_['loc'] for _ in atoms_data], [_['vdw_vol'] for _ in atoms_data])
     com = [sum([_['com'][i] * _['vol'] for _ in atoms_data]) / sum([_['vol'] for _ in atoms_data]) for i in range(len(atoms_data[0]['com']))]
@@ -162,12 +163,11 @@ def combine_surface_lines(surface_logs, group):
     # Create the surfaces dictionary for later sorting
     surfaces = {}
     sa = 0
-    ndx = 0
+    ndx = -2
     # Loop through the surface logs adding the surfaces that aren't repeats
     for file in surface_logs:
         # Get the dictionary from the surfaces dictionaries
         my_dict = surface_logs[file]
-        print(surfaces)
         # Loop through each of the surfaces in the file's dictionary
         for surf in my_dict:
             indices = tuple([int(_) for _ in surf[1:3]])
@@ -198,7 +198,7 @@ def combine_surface_lines(surface_logs, group):
 def combine_edges_lines(output_file, edge_logs):
     # Create the edges dictionary for later sorting
     edges = {}
-    ndx = 0
+    ndx = -2
     # Loop through the edge logs adding the edges that aren't repeats
     for file in edge_logs:
         # Get the dictionary from the edges dictionaries
@@ -208,11 +208,12 @@ def combine_edges_lines(output_file, edge_logs):
             indices = tuple([int(_) for _ in edge[1:4]])
             if indices in edges:
                 # Check the values
-                if not all([edges[edge][j] == my_dict[edge][j] for j in range(len(my_dict[edge]))]):
-                    print(f"Bad edge match {edge}, {edges[edge]} != {my_dict[edge]}")
+                # if not all([edges[edge][j] == my_dict[edge][j] for j in range(len(my_dict[edge]))]):
+                #     print(f"Bad edge match {edge}, {edges[edge]} != {my_dict[edge]}")
                 continue
             else:
-                edge = [ndx] + edge[1:]
+                if ndx >= 0:
+                    edge = [ndx] + edge[1:]
                 edges[indices] = edge
                 ndx += 1
     # Sort the edges
@@ -220,13 +221,15 @@ def combine_edges_lines(output_file, edge_logs):
     # Add to the output file
     with open(output_file, 'a') as of:
         # Create the csv writer
-        of_csv = csv.writer(of)
+        of_csv = csv.writer(of, lineterminator='\n')
         # Write the header
         of_csv.writerow(['Edges'])
         of_csv.writerow(['Index', 'Ball 1', 'Ball 2', 'Ball 3', 'Length'])
         # Write the rows
+        count = 0
         for row in sorted_edges:
-            of_csv.writerow(row)
+            of_csv.writerow([count] + row[1:])
+            count += 1
     # Close the file
     of.close()
 
@@ -234,7 +237,7 @@ def combine_edges_lines(output_file, edge_logs):
 def combine_vertex_lines(output_file, vertex_logs):
     # Create the vertices dictionary for later sorting
     vertices = {}
-    ndx = 0
+    ndx = -2
     # Loop through the vertex logs adding the vertices that aren't repeats
     for file in vertex_logs:
         # Get the dictionary from the vertices dictionaries
@@ -244,11 +247,12 @@ def combine_vertex_lines(output_file, vertex_logs):
             indices = tuple([int(_) for _ in vert[1:5]])
             if indices in vertices:
                 # Check the values
-                if not all([vertices[vert][j] == my_dict[vert][j] for j in range(len(my_dict[vert]))]):
-                    print(f"Bad vertex match {vert}, {vertices[vert]} != {my_dict[vert]}")
+                # if not all([vertices[vert][j] == my_dict[vert][j] for j in range(len(my_dict[vert]))]):
+                #     print(f"Bad vertex match {vert}, {vertices[vert]} != {my_dict[vert]}")
                 continue
             else:
-                vert = [ndx] + vert[1:]
+                if ndx >= 0:
+                    vert = [ndx] + vert[1:]
                 vertices[indices] = vert
                 ndx += 1
     # Sort the vertices
@@ -256,13 +260,15 @@ def combine_vertex_lines(output_file, vertex_logs):
     # Add to the output file
     with open(output_file, 'a') as of:
         # Create the csv writer
-        of_csv = csv.writer(of)
+        of_csv = csv.writer(of, lineterminator='\n')
         # Write the header
         of_csv.writerow(['Vertices'])
         of_csv.writerow(['Index', 'Ball 1', 'Ball 2', 'Ball 3', 'Ball 4', 'x', 'y', 'z', 'r'])
+        count = 0
         # Write the rows
         for row in sorted_vertices:
-            of_csv.writerow(row)
+            of_csv.writerow([count] + row[1:])
+            count += 1
     # Close the file
     of.close()
 
@@ -342,21 +348,26 @@ def combine_logs(list_of_logs=None, output_dir=None):
     grp_lines = combine_group_information(group, sa, moi, spatial_moment)
     # Write
     with open(output_dir + '/Total_logs.csv', 'w') as outpt_file:
-        of = csv.writer(outpt_file)
+        of = csv.writer(outpt_file, lineterminator='\n')
         for line in bld_lines:
             of.writerow(line)
         for line in grp_lines:
             of.writerow(line)
         for line in atm_lines:
             of.writerow(line)
+        count = -2
         for line in srf_lines:
-            of.writerow(line)
+            if count >= 0:
+                of.writerow([count] + line[1:])
+            else:
+                of.writerow(line)
+            count += 1
     combine_edges_lines(output_dir + '/Total_logs.csv', edges)
     combine_vertex_lines(output_dir + '/Total_logs.csv', verts)
 
 
 if __name__ == '__main__':
-    combine_logs(list_of_logs=['/Users/jackericson/PycharmProjects/vorpy/Data/user_data/EDTA_Mg_2/a_1_aw/aw_logs.csv',
-                               '/Users/jackericson/PycharmProjects/vorpy/Data/user_data/EDTA_Mg_3/a_2_aw/aw_logs.csv'],
-                 output_dir='/Users/jackericson/PycharmProjects/vorpy/Data/user_data')
-    # combine_logs()
+    # combine_logs(list_of_logs=['/Users/jackericson/PycharmProjects/vorpy/Data/user_data/EDTA_Mg_2/a_1_aw/aw_logs.csv',
+    #                            '/Users/jackericson/PycharmProjects/vorpy/Data/user_data/EDTA_Mg_3/a_2_aw/aw_logs.csv'],
+    #              output_dir='/Users/jackericson/PycharmProjects/vorpy/Data/user_data')
+    combine_logs()
