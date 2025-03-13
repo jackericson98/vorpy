@@ -1,11 +1,16 @@
 import os
+import sys
 import csv
+# Add the project root directory to the Python path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../"))
+sys.path.append(project_root)
 # from curses.ascii import isdigit
 import numpy as np
 import tkinter as tk
 import datetime
 from tkinter import filedialog
 from System.sys_funcs.calcs.calcs import calc_com, round_func, calc_total_inertia_tensor, combine_inertia_tensors
+
 
 root = tk.Tk()
 root.withdraw()
@@ -289,6 +294,7 @@ def combine_logs(list_of_logs=None, output_dir=None):
         while True:
             # Get the logs file
             logs = filedialog.askopenfilename(title='Get new file')
+            print(logs[len(os.path.dirname(os.path.dirname(logs))) + 1:])
             # Check if it exists
             if os.path.exists(logs) and logs != '':
                 list_of_logs.append(logs)
