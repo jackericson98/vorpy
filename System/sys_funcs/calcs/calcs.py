@@ -416,7 +416,6 @@ def combine_inertia_tensors(inertia_tensors, centroids, common_centroid, masses)
 
     # Loop over each element
     for I_i, C_i, m_i in zip(inertia_tensors, centroids, masses):
-        print(C_i, common_centroid)
         # Calculate the displacement vector from the element's centroid to the common centroid
         d = C_i - common_centroid
         d_squared = np.dot(d, d)  # Squared magnitude of the displacement vector

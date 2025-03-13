@@ -163,7 +163,7 @@ def get_rad_vals(aw_logs=None, pow_logs=None, output_folder=None, write_csv=Fals
                          'aw na facing', 'pow na facing', 'aw sep chain iface', 'pow sep chain iface',
                          'aw sep res iface', 'pow sep res iface'])
             for spleesh in my_dict:
-                wc.writerow(my_dict[spleesh])
+                wc.writerow(my_dict[spleesh].values())
 
     # return the dictionary
     return my_dict
@@ -217,6 +217,61 @@ def plot_my_stuff(dict_file=None):
                     [(my_dict[entry]['pow sphericity'] - my_dict[entry]['aw sphericity']) / my_dict[entry]['aw sphericity']], 
                     marker='x' if my_dict[entry]['aw sol facing'] else 'o', c=colors[i])
     plt.show()
+    return my_dict
+
+
+def plot_atom_sphericity_diff_by_classification(dict_file=None, my_dict=None):
+    """
+    Plots the atom's sphericity difference with the aw volume and colors based on if it is outside facing or not
+    """
+    # Check if a file is given to us
+    if dict_file is not None:
+        my_dict = get_dict_from_file(dict_file)
+    # If no file is specified
+    else:
+        my_dict = get_rad_vals(write_csv=True)
+    xs, ys, classifs = [], [], []
+    for atom in my_dict:
+        xs.append(my_dict[atom]['aw vol'])
+        ys.append((my_dict[atom]['pow sphericity'] - my_dict[atom]['aw sphericity']) / my_dict[atom]['aw sphericity'])
+        classifs.append(my_dict[atom]['association'])
+    plt.scatter(xs, ys, c=classifs)
+    plt.show()
+
+
+def plot_atom_vol_by_radius(dict_file=None):
+    """
+    Plots the atom's volume by the radius
+    """
+    # Check if a file is given to us
+    if dict_file is not None:
+        my_dict = get_dict_from_file(dict_file)
+    # If no file is specified
+    else:
+        my_dict = get_rad_vals(write_csv=True)
+    xs, ys = [], []
+    for atom in my_dict:
+        xs.append(my_dict[atom]['aw rad'])
+        ys.append(my_dict[atom]['aw vol'])
+    plt.scatter(xs, ys)
+    plt.show()  
+
+
+def plot_atom_by_ho_facing(dict_file=None):
+    """
+    Plots the atom's volume by the radius
+    """
+    # Check if a file is given to us
+    if dict_file is not None:
+        my_dict = get_dict_from_file(dict_file) 
+    else:
+        my_dict = get_rad_vals(write_csv=True)
+    xs, ys = [], []
+    for atom in my_dict:
+        xs.append(my_dict[atom]['aw rad'])
+        ys.append(my_dict[atom]['sol facing'])
+    plt.scatter(xs, ys)
+    plt.show()
 
 
 
@@ -224,4 +279,9 @@ if __name__ == '__main__':
     root = tk.Tk()
     root.withdraw()
     root.wm_attributes('-topmost', 1)
-    plot_my_stuff()
+    # my_file = filedialog.askopenfilename(title="Get CSV File")
+    my_file = None
+    plot_my_stuff(dict_file=my_file)
+    # plot_atom_sphericity_diff_by_classification()
+    # plot_atom_vol_by_radius()
+    # plot_atom_by_ho_facing()
