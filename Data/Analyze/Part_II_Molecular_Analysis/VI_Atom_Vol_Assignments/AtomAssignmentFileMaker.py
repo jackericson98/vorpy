@@ -1,3 +1,10 @@
+import os
+import sys
+
+# Add the project root directory to the Python path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../"))
+sys.path.append(project_root)
+
 import csv
 import tkinter as tk
 from tkinter import filedialog
@@ -40,14 +47,15 @@ def get_group_info(logs):
 
         elif atom['Residue'] in nucleo_names:
             # Classify the atom as a nucleo atom
-            classifs['Index'] = 'na'
+            classifs[atom['Index']] = 'na'
             # Add the index to the group list
             group.append(atom['Index'])
         else:
             # Classify the atom as sol
             classifs[atom['Index']] = 'ho'
+    
     # Return the stuff
-    return classifs, set(group), logs, chains, resies
+    return classifs, set(group), logs_info, chains, resies
 
 
 def get_atoms_info(aw_logs, pow_logs, classifs, chains, resies):
@@ -84,12 +92,21 @@ def get_atoms_info(aw_logs, pow_logs, classifs, chains, resies):
         # Get the power atom
         pow_atom = pow_logs_a.loc[pow_logs_a['Index'] == ndx].iloc[0]
         # Get the aw neighbors and the pow neighbors
-        aw_nbors_assns = [classifs[_] for _ in aw_atom['Neighbors']]
-        pow_nbors_assns = [classifs[_] for _ in pow_atom['Neighbors']]
+        aw_nbors_assns = []
+        pow_nbors_assns = []
+        for nbor in aw_atom['Neighbors']:
+            try:    
+                aw_nbors_assns.append(classifs[nbor])
+            except KeyError:
+                aw_nbors_assns.append('ho')
+        for nbor in pow_atom['Neighbors']:
+            try:
+                pow_nbors_assns.append(classifs[nbor])
+            except KeyError:
+                pow_nbors_assns.append('ho')
         # Get the chain and residue information
         chain = chains[ndx]
         res = resies[ndx]
-
         # Create the dictionary
         atoms[aw_atom['Index']] = {
             'Index': aw_atom['Index'],
@@ -107,10 +124,10 @@ def get_atoms_info(aw_logs, pow_logs, classifs, chains, resies):
             'pow aa facing': any([_ == 'aa' for _ in pow_nbors_assns]),
             'aw na facing': any([_ == 'na' for _ in aw_nbors_assns]),
             'pow na facing': any([_ == 'na' for _ in aw_nbors_assns]),
-            'aw sep chain iface': any([chain != chains[_] for _ in aw_nbors_assns]),
-            'pow sep chain iface': any([chain != chains[_] for _ in pow_nbors_assns]),
-            'aw sep res iface': any([res != resies[_] for _ in aw_nbors_assns]),
-            'pow sep res iface': any([res != resies[_] for _ in pow_nbors_assns])
+            'aw sep chain iface': any([chain != chains.get(_, chain) for _ in aw_atom['Neighbors']]),
+            'pow sep chain iface': any([chain != chains.get(_, chain) for _ in pow_atom['Neighbors']]),
+            'aw sep res iface': any([res != resies.get(_, res) for _ in aw_atom['Neighbors']]),
+            'pow sep res iface': any([res != resies.get(_, res) for _ in pow_atom['Neighbors']])
         }
     return atoms
 
@@ -189,34 +206,18 @@ def plot_my_stuff(dict_file=None):
         my_dict = get_dict_from_file(dict_file)
     # If no file is specified
     else:
-        my_dict = get_rad_vals()
+        my_dict = get_rad_vals(write_csv=True)
     # Get the color maps
     my_cmap = plt.cm.viridis
     my_max_guy = max([my_dict[_]['aw vol'] for _ in my_dict])
     colors = my_cmap([__ / my_max_guy for __ in [my_dict[_]['aw vol'] for _ in my_dict]])
-    # Set up the xs, ys and the colorings
-    xs, ys, coloring, markers = [], [], [], []
     # Now that we have everything information wise, we need to plot the stuff in a way that is good and we like to do
-    for entry in my_dict:
-        # Get the x values
-        xs.append(my_dict[entry]['aw rad'])
-        # get the ys
-        ys.append((my_dict[entry]['pow sphericity'] - my_dict[entry]['aw sphericity']) / my_dict[entry]['aw sphericity'])
-        # Get the markers
-        markers.append('x' if my_dict[entry]['aw sol facing'] else 'o')
-        # # Colors
-        # coloring.append()
-    plt.scatter(xs, ys, marker=markers, c=colors)
+    for i, entry in enumerate(my_dict):
+        plt.scatter([my_dict[entry]['aw rad']], 
+                    [(my_dict[entry]['pow sphericity'] - my_dict[entry]['aw sphericity']) / my_dict[entry]['aw sphericity']], 
+                    marker='x' if my_dict[entry]['aw sol facing'] else 'o', c=colors[i])
     plt.show()
 
-# def plot_atom_sphericity_diff_by_classification(my_dict):
-#     """
-#     Plots the atom's sphericity difference with the aw volume and colors based on if it is outside facing or not
-#     """
-#     xs, ys, classifs = [], [], []
-#     for atom in my_dict:
-#         xs.append(my_dict[atom]['aw vol'])
-#         ys.append()
 
 
 if __name__ == '__main__':
