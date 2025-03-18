@@ -206,7 +206,8 @@ class Network:
                                                         res=self.settings['surf_res'])
 
             # Build the edge depending on if it is straight or not
-            edge_points, edge_vals = build_edge(locs=[array(self.balls['loc'][_]) for _ in edge['balls']],
+            try:
+                edge_points, edge_vals = build_edge(locs=[array(self.balls['loc'][_]) for _ in edge['balls']],
                                                 rads=[self.balls['rad'][_] for _ in edge['balls']],
                                                 vlocs=[array(self.verts['loc'][_]) for _ in edge['verts']],
                                                 blocs=self.balls['loc'], brads=self.balls['rad'], eballs=edge['balls'],
@@ -214,6 +215,10 @@ class Network:
                                                 straight=self.settings['net_type'] in {'prm', 'pow'},
                                                 edub=any([self.verts['dub'][_] in {1, 2} for _ in edge['verts']]),
                                                 edge_points1=edge_points, edge_verts=self.verts.iloc[edge['verts']])
+            except TypeError:
+                print(f"Edge Error: Bad Value with edge {edge['balls']} in system {self.group.sys.name}")
+                edge_points = array([array(self.verts['loc'][_]) for _ in edge['verts']])
+                edge_vals = calc_edge_dir(blocs, brads, eballs, vlocs, edub=edub)
             edges_lengths.append(calc_length(array(edge_points)))
             edges_points.append(edge_points)
             edges_vals.append(edge_vals)
