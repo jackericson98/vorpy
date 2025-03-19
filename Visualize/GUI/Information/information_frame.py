@@ -1,9 +1,9 @@
 from Visualize.GUI.Information.group.GrpInfo import group_frame
-from Visualize.GUI.Information.System.SysInfo import system_frame
+from Visualize.GUI.Information.System.SysInfo import SystemFrame
 
 
 def create_information_section(gui, parent):
-    system_frame(gui, parent)
+    SystemFrame(gui, parent)
     group_frame(gui, parent)
 
 
