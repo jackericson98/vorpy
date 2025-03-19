@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from Data.Analyze.tools.compare.read_logs2 import read_logs2
 from System.chemistry_interpreter import amino_names, nucleo_names, ion_names
+from System.sys_objs.atom import get_element
 from matplotlib import colormaps
 
 
@@ -39,13 +40,13 @@ def get_group_info(logs):
         # Add the chain to the atom chain assignments
         chains[atom['Index']] = atom['Chain']
         # Get the name and the classification
-        if atom['Residue'] in amino_names:
+        if atom['Residue'].lower() in amino_names:
             # Classify the atom as an amino acid atom
             classifs[atom['Index']] = 'aa'
             # Add the index to the group list
             group.append(atom['Index'])
 
-        elif atom['Residue'] in nucleo_names:
+        elif atom['Residue'].lower() in nucleo_names:
             # Classify the atom as a nucleo atom
             classifs[atom['Index']] = 'na'
             # Add the index to the group list
@@ -110,6 +111,9 @@ def get_atoms_info(aw_logs, pow_logs, classifs, chains, resies):
         # Create the dictionary
         atoms[aw_atom['Index']] = {
             'Index': aw_atom['Index'],
+            'element': get_element(atom_name=aw_atom['Name']),
+            'residue': aw_atom['Residue'],
+            'residue sequence': aw_atom['Residue Sequence'],
             'aw rad': aw_atom['Radius'],
             'aw vol': aw_atom['Volume'],
             'pow vol': pow_atom['Volume'],
@@ -133,6 +137,9 @@ def get_atoms_info(aw_logs, pow_logs, classifs, chains, resies):
 
 
 def get_rad_vals(aw_logs=None, pow_logs=None, output_folder=None, write_csv=False):
+    #
+
+
     # Get the aw logs if none are specified
     if aw_logs is None:
         # Ask for the aw logs
@@ -158,10 +165,10 @@ def get_rad_vals(aw_logs=None, pow_logs=None, output_folder=None, write_csv=Fals
     if write_csv:
         with open(output_folder + '/atomic_comparisons.csv', 'w') as writing_file:
             wc = csv.writer(writing_file, lineterminator='\n')
-            wc.writerow(['Index', 'aw rad', 'aw vol', 'pow vol', 'aw sa', 'pow sa', 'association', 'aw sphericity',
-                         'pow sphericity', 'aw sol facing', 'pow sol facing', 'aw aa facing', 'pow aa facing',
-                         'aw na facing', 'pow na facing', 'aw sep chain iface', 'pow sep chain iface',
-                         'aw sep res iface', 'pow sep res iface'])
+            wc.writerow(['Index', 'element', 'residue', 'residue sequence', 'aw rad', 'aw vol', 'pow vol', 'aw sa',
+                         'pow sa', 'association', 'aw sphericity', 'pow sphericity', 'aw sol facing', 'pow sol facing',
+                         'aw aa facing', 'pow aa facing', 'aw na facing', 'pow na facing', 'aw sep chain iface',
+                         'pow sep chain iface', 'aw sep res iface', 'pow sep res iface'])
             for spleesh in my_dict:
                 wc.writerow(my_dict[spleesh].values())
 
@@ -170,20 +177,20 @@ def get_rad_vals(aw_logs=None, pow_logs=None, output_folder=None, write_csv=Fals
 
 
 def bool_assign(val):
-    return val.lower() == 'True'
+    return val.lower() == 'true'
 
 
 def get_dict_from_file(file):
     # Create the dictionary for the values
     my_dict = {}
     # Create the list of dictionary terms
-    my_vals = ['Index', 'aw rad', 'aw vol', 'pow vol', 'aw sa', 'pow sa', 'association', 'aw sphericity',
-               'pow sphericity', 'aw sol facing', 'pow sol facing', 'aw aa facing', 'pow aa facing', 'aw na facing',
-               'pow na facing', 'aw sep chain iface', 'pow sep chain iface', 'aw sep res iface',
-               'pow sep res iface']
+    my_vals = ['Index', 'element', 'residue', 'residue sequence', 'aw rad', 'aw vol', 'pow vol', 'aw sa',
+               'pow sa', 'association', 'aw sphericity', 'pow sphericity', 'aw sol facing', 'pow sol facing',
+               'aw aa facing', 'pow aa facing', 'aw na facing', 'pow na facing', 'aw sep chain iface',
+               'pow sep chain iface', 'aw sep res iface', 'pow sep res iface']
     # Create the assignments for the type of values that we are gonna get from the thing that we read
-    my_ass = [int, float, float, float, float, float, str, float, float, bool_assign, bool_assign, bool_assign,
-              bool_assign, bool_assign, bool_assign, bool_assign, bool_assign, bool_assign, bool_assign]
+    my_ass = [int, str, str, str, float, float, float, float, float, str, float, float, bool_assign, bool_assign,
+              bool_assign, bool_assign, bool_assign, bool_assign, bool_assign, bool_assign, bool_assign, bool_assign]
     # Open the file
     with open(file, 'r') as reading_file:
         rf = csv.reader(reading_file)
@@ -210,12 +217,16 @@ def plot_my_stuff(dict_file=None):
     # Get the color maps
     my_cmap = plt.cm.viridis
     my_max_guy = max([my_dict[_]['aw vol'] for _ in my_dict])
-    colors = my_cmap([__ / my_max_guy for __ in [my_dict[_]['aw vol'] for _ in my_dict]])
+    color_dict = {'C': 'grey', 'O': 'r', 'N': 'b', 'P': 'darkorange', 'H': 'pink', 'S': 'y', 'Se': 'sandybrown'}
+    colors = [color_dict[my_dict[entry]['element']] for entry in my_dict]
     # Now that we have everything information wise, we need to plot the stuff in a way that is good and we like to do
     for i, entry in enumerate(my_dict):
-        plt.scatter([my_dict[entry]['aw rad']], 
-                    [(my_dict[entry]['pow sphericity'] - my_dict[entry]['aw sphericity']) / my_dict[entry]['aw sphericity']], 
-                    marker='x' if my_dict[entry]['aw sol facing'] else 'o', c=colors[i])
+        plt.scatter([(my_dict[entry]['pow sphericity'] - my_dict[entry]['aw sphericity']) / my_dict[entry]['aw sphericity']],
+                    [(my_dict[entry]['pow vol'] - my_dict[entry]['aw vol']) / my_dict[entry]['aw vol']],
+                    marker='x' if my_dict[entry]['aw sol facing'] else 'o', c=colors[i], alpha=0.5)
+    plt.xlabel('Sphericity Difference (pow - aw) / aw')
+    plt.ylabel('Volume Difference (pow - aw) / aw')
+    plt.title(f"T4LP difference")
     plt.show()
     return my_dict
 
@@ -272,7 +283,6 @@ def plot_atom_by_ho_facing(dict_file=None):
         ys.append(my_dict[atom]['sol facing'])
     plt.scatter(xs, ys)
     plt.show()
-
 
 
 if __name__ == '__main__':
