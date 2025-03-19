@@ -2,20 +2,23 @@ import numpy as np
 from radii.Standard import element_radii, special_radii
 
 
-def get_element(atom):
+def get_element(atom=None, atom_name=None):
     """
     Discerns the element from the atom name and the atom information
     """
     # Simple SOL
-    if atom['res_name'].lower() in {'sol', 'hoh'}:
+    if atom is not None and atom['res_name'].lower() in {'sol', 'hoh'}:
         if 'O' in atom['name']:
             return 'O'
         elif 'H' in atom['name']:
             return 'H'
 
+    if atom_name is None:
+        atom_name = atom['name']
+
     # Find the simple atom types:
     for name in ['C', 'O', 'H', 'N', 'P', 'S']:
-        if atom['name'][0] == name:
+        if atom_name[0] == name:
             return name
 
     # Print the unknown atoms
