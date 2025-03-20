@@ -1,10 +1,20 @@
+import os
+import sys
+from pathlib import Path
+
+# Add the project root directory to the Python path
+project_root = Path(__file__).resolve().parents[2]
+sys.path.append(str(project_root))
+
 import tkinter as tk
 from tkinter import filedialog
 from System.system import System
 from System.Group.group import Group
-from Visualize.GUI.Information.information_frame import create_information_section
+from Visualize.GUI.info.info_frame import SystemFrame
+from Visualize.GUI.groups.groups_frame import GroupsFrame
 from Visualize.GUI.settings.settings_frame import create_settings_section
-import os
+from Visualize.GUI.settings.surface.surface_settings_window import SurfaceSettingsWindow
+from Visualize.GUI.help.help_window import HelpWindow
 
 """
 This GUI operates the whole VorPy interface. Once running, the command line that it was run out of will inform you on 
@@ -12,66 +22,90 @@ your progress. The GUI is only for launching the program.
 
 GUI Options:
 
-
-
 GUI returns
 """
 
 
 class VorPyGUI(tk.Tk):
     def __init__(self):
-
-        # Main Frame to replace notebook
-        main_frame = tk.Frame(self)
-        main_frame.pack(expand=True, fill="both")
+        # Initialize the parent class first
+        super().__init__()
+        
         # Create a default system
         self.sys = System(simple=True)
-
+        
+        # Set window title
         self.title("VorPy")
-
+        
         # Font classes
-        self.fonts = {'class 1': ("Arial", 16), 'class 2': ("Arial", 10), 'class 3': ("Arial", 12, "bold"),
-                      'class 4': ("Arial", 14)}
-
+        self.fonts = {
+            'title': ("Arial", 24, "bold"),
+            'subtitle': ("Arial", 12),
+            'class 1': ("Arial", 16),
+            'class 2': ("Arial", 10),
+            'class 3': ("Arial", 12, "bold"),
+            'class 4': ("Arial", 14)
+        }
+        
         # Title Section
-        title_label = tk.Label(self, text="VorPy", font=self.fonts['class 1'], pady=10)
+        title_frame = tk.Frame(self, pady=10)
+        title_frame.pack(fill="x")
+        
+        title_label = tk.Label(title_frame, text="VorPy", font=self.fonts['title'])
         title_label.pack()
-
-
-
-        # Information Section
-        self.info_frame = tk.Frame(main_frame, height=300, width=500)
-        self.info_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+        
+        subtitle_label = tk.Label(title_frame, text="Comprehensive Voronoi Diagram Calculation Tool", 
+                                font=self.fonts['subtitle'])
+        subtitle_label.pack(pady=(0, 10))
+        
+        # System Information Section (Full Width)
+        self.info_frame = tk.Frame(self, height=200)
+        self.info_frame.pack(fill="x", padx=10, pady=(0, 10))
         self.create_information_section(self.info_frame)
-
-        # Settings Section
-        settings_frame = tk.Frame(main_frame, height=300, width=500)
-        settings_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
-        self.create_settings_section(settings_frame)
-
-        # Configure equal sizing of columns and rows
-        main_frame.grid_columnconfigure(0, weight=1)
-        main_frame.grid_columnconfigure(1, weight=1)
-        main_frame.grid_rowconfigure(0, weight=1)
-
+        
+        # Selection Frame (Holds Groups and Settings)
+        selection_frame = tk.Frame(self)
+        selection_frame.pack(expand=True, fill="both", padx=10, pady=(0, 10))
+        
+        # Configure grid weights for selection frame
+        selection_frame.grid_columnconfigure(0, weight=1)  # Groups section
+        selection_frame.grid_columnconfigure(1, weight=1)  # Settings section
+        selection_frame.grid_rowconfigure(0, weight=1)
+        
+        # Groups Section (Left Column)
+        groups_frame = tk.Frame(selection_frame)
+        groups_frame.grid(row=0, column=0, padx=(0, 10), sticky="nsew")
+        self.groups_frame = GroupsFrame(self, groups_frame)
+        
+        # Settings Section (Right Column)
+        settings_frame = tk.Frame(selection_frame)
+        settings_frame.grid(row=0, column=1, sticky="nsew")
+        
+        # Create settings section
+        create_settings_section(self, settings_frame)
+        
         # Run and Cancel Buttons
         button_frame = tk.Frame(self, pady=10)
         button_frame.pack()
-
+        
         run_button = tk.Button(button_frame, text="Run", command=self.run_program, font=self.fonts['class 2'])
         run_button.pack(side="left", padx=5)
-
+        
         cancel_button = tk.Button(button_frame, text="Cancel", command=self.quit, font=self.fonts['class 2'])
         cancel_button.pack(side="left", padx=5)
+        
+        help_button = tk.Button(button_frame, text="Help", command=self.open_help, font=self.fonts['class 2'])
+        help_button.pack(side="left", padx=5)
 
     def create_information_section(self, frame):
-        create_information_section(self, frame)
+        SystemFrame(self, frame)
 
     def create_settings_section(self, frame):
         create_settings_section(self, frame)
 
     def open_surface_settings_gui(self):
-        print("Opening Surface Settings GUI...")
+        """Open the surface settings window."""
+        SurfaceSettingsWindow(self)
 
     def choose_ball_file(self):
         self.sys.files['base_file'] = filedialog.askopenfilename(title='Choose Base File')
@@ -89,9 +123,11 @@ class VorPyGUI(tk.Tk):
         """
         This sends a system to start running networks on all groups
         """
-
-        # We want the gui to return a set of instructions with the system
         return self.sys
+
+    def open_help(self):
+        """Open the help window."""
+        HelpWindow(self)
 
 
 if __name__ == "__main__":

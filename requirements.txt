@@ -1,7 +1,11 @@
-numpy~=1.24.2
+numpy~=1.26.4
 matplotlib~=3.7.1
-scipy~=1.10.1
-numba~=0.57.0
-pandas~=2.0.1
+scipy~=1.13.1
+numba~=0.60.0
+pandas~=2.2.2
 tkinterdnd2
-shapely
+shapely~=2.0.6
+future~=0.18.3
+plotly~=5.22.0
+sympy~=1.13.3
+PyQt5~=5.15.11
