@@ -33,14 +33,14 @@ class BuildFrame(ttk.LabelFrame):
         # Network Type
         ttk.Label(self, text="Network Type:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
         self.network_type = ttk.Combobox(self, values=["Delaunay", "Gabriel", "Relative Neighborhood", "Beta Skeleton"], 
-                                        state="readonly", width=16)
+                                        state="readonly", width=14, justify="right")
         self.network_type.set(self.gui.build_settings['net_type'])
-        self.network_type.grid(row=0, column=1, columnspan=2, sticky="e", padx=5, pady=2)
+        self.network_type.grid(row=0, column=1, columnspan=1, sticky="e", padx=5, pady=2)
         self.network_type.bind('<<ComboboxSelected>>', self._update_net_type)
         
         # Probe Radius
         ttk.Label(self, text="Probe Radius:").grid(row=1, column=0, sticky="w", padx=5, pady=2)
-        self.max_vert_rad = ttk.Entry(self, width=15)
+        self.max_vert_rad = ttk.Entry(self, width=17, justify="right")
         self.max_vert_rad.insert(0, self.gui.build_settings['max_vert'])
         self.max_vert_rad.grid(row=1, column=1, sticky="e", padx=5, pady=2)
         self.max_vert_rad.bind('<KeyRelease>', self._update_max_vert)
@@ -48,7 +48,7 @@ class BuildFrame(ttk.LabelFrame):
         
         # Outer Reach
         ttk.Label(self, text="Outer Reach:").grid(row=2, column=0, sticky="w", padx=5, pady=2)
-        self.max_box_multi = ttk.Entry(self, width=15)
+        self.max_box_multi = ttk.Entry(self, width=17, justify="right")
         self.max_box_multi.insert(0, self.gui.build_settings['box_size'])
         self.max_box_multi.grid(row=2, column=1, sticky="e", padx=5, pady=2)
         self.max_box_multi.bind('<KeyRelease>', self._update_max_box)
