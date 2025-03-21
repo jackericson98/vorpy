@@ -8,7 +8,7 @@ sys.path.append(str(project_root))
 
 import tkinter as tk
 from tkinter import ttk
-from Visualize.GUI.settings.surface.surface_settings_window import SurfaceSettingsWindow
+from Visualize.GUI.settings.surface.color_settings_window import ColorSettingsWindow
 
 
 class BuildFrame(ttk.LabelFrame):
@@ -27,55 +27,39 @@ class BuildFrame(ttk.LabelFrame):
         
     def _create_widgets(self):
         """Create and pack all widgets in the frame."""
-        # Max Vert Rad
-        ttk.Label(self, text="Probe Radius").grid(row=0, column=0, sticky="w", padx=5, pady=5)
-        self.max_vert_rad = ttk.Entry(self, width=15)
-        self.max_vert_rad.grid(row=0, column=1, sticky="e", padx=5, pady=5)
-        self.max_vert_rad.insert(0, str(self.settings['max_vert']))
-        self.max_vert_rad.bind('<KeyRelease>', self._update_max_vert)
-        
-        # Max Box Multi
-        ttk.Label(self, text="Outer Reach").grid(row=1, column=0, sticky="w", padx=5, pady=5)
-        self.max_box_multi = ttk.Entry(self, width=15)
-        self.max_box_multi.grid(row=1, column=1, sticky="e", padx=5, pady=5)
-        self.max_box_multi.insert(0, str(self.settings['box_size']))
-        self.max_box_multi.bind('<KeyRelease>', self._update_max_box)
+        # Configure grid weights for the frame
+        self.grid_columnconfigure(1, weight=1)  # Make the middle column expand
         
         # Network Type
-        ttk.Label(self, text="Network Type:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
-        self.network_type = ttk.Combobox(self, values=["1. Additively Weighted", "2. Power Diagram", "3. Primitive (Delaunay)", "4. Combo (1 & 2)", "5. Combo (1 & 3)", "6. Combo (2 & 3)", "7. All 3"], 
-                                       state="readonly", width=15)
-        self.network_type.grid(row=2, column=1, sticky="e", padx=5, pady=5)
-        self.network_type.set(self.settings['net_type'])
+        ttk.Label(self, text="Network Type:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
+        self.network_type = ttk.Combobox(self, values=["Delaunay", "Gabriel", "Relative Neighborhood", "Beta Skeleton"], 
+                                        state="readonly", width=16)
+        self.network_type.set(self.gui.build_settings['net_type'])
+        self.network_type.grid(row=0, column=1, columnspan=2, sticky="e", padx=5, pady=2)
         self.network_type.bind('<<ComboboxSelected>>', self._update_net_type)
         
+        # Probe Radius
+        ttk.Label(self, text="Probe Radius:").grid(row=1, column=0, sticky="w", padx=5, pady=2)
+        self.max_vert_rad = ttk.Entry(self, width=15)
+        self.max_vert_rad.insert(0, self.gui.build_settings['max_vert'])
+        self.max_vert_rad.grid(row=1, column=1, sticky="e", padx=5, pady=2)
+        self.max_vert_rad.bind('<KeyRelease>', self._update_max_vert)
+        ttk.Label(self, text=u"\u212b").grid(row=1, column=2, sticky="e", padx=5, pady=2)
+        
+        # Outer Reach
+        ttk.Label(self, text="Outer Reach:").grid(row=2, column=0, sticky="w", padx=5, pady=2)
+        self.max_box_multi = ttk.Entry(self, width=15)
+        self.max_box_multi.insert(0, self.gui.build_settings['box_size'])
+        self.max_box_multi.grid(row=2, column=1, sticky="e", padx=5, pady=2)
+        self.max_box_multi.bind('<KeyRelease>', self._update_max_box)
+        ttk.Label(self, text="x ").grid(row=2, column=2, sticky="e", padx=5, pady=2)
+        
         # Surface Settings
-        ttk.Label(self, text="Color Settings").grid(row=3, column=0, columnspan=1, sticky="w", padx=5, pady=5)
-        
-        # # Surface Values
-        # # Surface Color
-        # ttk.Label(self, text="Surf. Color:").grid(row=4, column=0, sticky="e", padx=5, pady=2)
-        # ttk.Label(self, text=self.settings['surf_col']).grid(row=4, column=1, sticky="w", padx=5, pady=2)
-        
-        # # Surface Scheme
-        # ttk.Label(self, text="Surf. Scheme:").grid(row=5, column=0, sticky="e", padx=5, pady=2)
-        # ttk.Label(self, text=self.settings['surf_scheme']).grid(row=5, column=1, sticky="w", padx=5, pady=2)
-        
-        # # Scheme Factor
-        # ttk.Label(self, text="Surf. Scheme Factor:").grid(row=6, column=0, sticky="e", padx=5, pady=2)
-        # ttk.Label(self, text=self.settings['scheme_factor']).grid(row=6, column=1, sticky="w", padx=5, pady=2)
-        
-        # # Edge Color
-        # ttk.Label(self, text="Edge Color:").grid(row=7, column=0, sticky="e", padx=5, pady=2)
-        # ttk.Label(self, text=self.settings['edge_col']).grid(row=7, column=1, sticky="w", padx=5, pady=2)
-        
-        # # Vertex Color
-        # ttk.Label(self, text="Vertex Color:").grid(row=8, column=0, sticky="e", padx=5, pady=2)
-        # ttk.Label(self, text=self.settings['vert_col']).grid(row=8, column=1, sticky="w", padx=5, pady=2)
+        ttk.Label(self, text="Color Settings").grid(row=3, column=0, sticky="w", padx=5, pady=5)
         
         # Change Button
         change_button = ttk.Button(self, text="Change", command=self.open_surface_settings_gui)
-        change_button.grid(row=3, column=1, columnspan=1, pady=5, sticky="e")
+        change_button.grid(row=3, column=1, columnspan=1, sticky="e", padx=5, pady=5)
         
     def _update_max_vert(self, event=None):
         """Update max_vert setting when entry changes."""
@@ -101,7 +85,18 @@ class BuildFrame(ttk.LabelFrame):
         
     def open_surface_settings_gui(self):
         """Open the surface settings window."""
-        SurfaceSettingsWindow(self.gui)
+        ColorSettingsWindow(self.gui)
+
+    def update_surface_settings_display(self):
+        """Update the display of surface settings."""
+        # Update the surface settings values
+        self.surface_values_label.config(
+            text=f"Surface Color: {self.gui.build_settings['color_settings']['surf_col']}\n"
+                 f"Surface Scheme: {self.gui.build_settings['color_settings']['surf_scheme']}\n"
+                 f"Scheme Factor: {self.gui.build_settings['color_settings']['surf_fact']}\n"
+                 f"Edge Color: {self.gui.build_settings['color_settings']['edge_col']}\n"
+                 f"Vertex Color: {self.gui.build_settings['color_settings']['vert_col']}"
+        )
 
 
 if __name__ == "__main__":

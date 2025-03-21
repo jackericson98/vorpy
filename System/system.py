@@ -114,15 +114,16 @@ class System:
                   frame_files=None, root_dir=None):
         # Set the defaults
         defaults = {'base_file': base_file, 'ball_file': ball_file, 'verts_file': verts_file, 'net_file': net_file,
-                    'ndx_file': ndx_file, 'dir': file_dir, 'frame_files': frame_files, 'root_dir': root_dir, 'vpy_dir': os.getcwd()}        # Set the files if they arent set yet
+                    'ndx_file': ndx_file, 'dir': file_dir, 'frame_files': frame_files, 'vpy_dir': os.getcwd()}        # Set the files if they arent set yet
         
         # Get the directory two levels up from this file
-        current_file_path = os.path.abspath(__file__)
-        two_dirs_up = os.path.dirname(os.path.dirname(current_file_path))
-        
-        # Update the vpy_dir and root_dir in defaults
-        defaults['vpy_dir'] = two_dirs_up
-        defaults['root_dir'] = two_dirs_up
+        if defaults['vpy_dir'] is None or defaults['vpy_dir'][-5:] != 'vorpy':
+            current_file_path = os.path.abspath(__file__)
+            two_dirs_up = os.path.dirname(os.path.dirname(current_file_path))
+            
+            # Update the vpy_dir and root_dir in defaults
+            defaults['vpy_dir'] = two_dirs_up
+            defaults['root_dir'] = two_dirs_up
 
         if self.files is None:
             self.files = defaults
@@ -325,6 +326,7 @@ class System:
         """
         Links set output directory to the system
         """
+        print('vorpy directory', self.files['vpy_dir'])
         set_sys_dir(self, dir_name=directory)
 
     def exports(self, all_=False, pdb=False, set_atoms=False, info=False):

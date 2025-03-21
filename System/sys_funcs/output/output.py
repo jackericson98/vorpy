@@ -174,11 +174,8 @@ def set_sys_dir(sys, dir_name=None):
     :param dir_name: Name for the directory
     :return:
     """
-
     # Make sure a user_data path exists
     if sys.files['vpy_dir'] is not None and not os.path.exists(sys.files['vpy_dir'] + "/Data/user_data"):
-        print(sys.files['vpy_dir'])
-        print(sys.files['root_dir'])
         os.mkdir(os.path.join(sys.files['vpy_dir'], "/Data/user_data"))
     elif sys.files['vpy_dir'] is None and not os.path.exists("./Data/user_data"):
         if not os.path.exists('./Data'):
@@ -190,9 +187,8 @@ def set_sys_dir(sys, dir_name=None):
     if dir_name is None:
         if sys.files['dir'] is not None:
             dir_name = sys.files['dir'] + '/' + sys.name
-        elif sys.files['root_dir'] is not None:
-
-            dir_name = sys.files['root_dir'] + "/Data/user_data/" + sys.name
+        elif sys.files['vpy_dir'] is not None:
+            dir_name = sys.files['vpy_dir'] + "/Data/user_data/" + sys.name
         else:
             dir_name = os.getcwd() + "/Data/user_data/" + sys.name
     # Catch for existing directories. Keep trying out directories until one doesn't exist

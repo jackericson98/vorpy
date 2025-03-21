@@ -15,7 +15,7 @@ from Visualize.GUI.info.info_frame import SystemFrame
 from Visualize.GUI.groups.groups_frame import GroupsFrame
 from Visualize.GUI.settings.build.build_frame import BuildFrame
 from Visualize.GUI.settings.export.export_frame import ExportFrame
-from Visualize.GUI.settings.surface.surface_settings_window import SurfaceSettingsWindow
+from Visualize.GUI.settings.surface.color_settings_window import ColorSettingsWindow
 from Visualize.GUI.settings.settings_frame import create_settings_section
 from Visualize.GUI.help.help_window import HelpWindow
 
@@ -51,9 +51,11 @@ class VorPyGUI(tk.Tk):
         }
 
         # Set up the dictionaries
-        self.files = {}
-        self.build_settings = {}
-        self.export_settings = {}
+        self.files = {'sys_name': 'No File Loaded', 'base_file': '', 'other_files': [], 'dir': '' }
+        self.build_settings = {'max_vert': 40, 'box_size': 1.25, 'net_type': 'aw', 'color_settings': {'surf_col': 'plasma', 'surf_scheme': 'mean_curv', 'surf_fact': 'log', 'vert_col': 'red', 'edge_col': 'grey'}}
+        self.export_settings = {'dir': None, 'type': 'med', 'other':{}}
+
+
         # Title Section
         title_frame = tk.Frame(self, pady=10)
         title_frame.pack(fill="x")
@@ -95,14 +97,17 @@ class VorPyGUI(tk.Tk):
         button_frame = tk.Frame(self, pady=10)
         button_frame.pack()
         
-        run_button = tk.Button(button_frame, text="Run", command=self.run_program, font=self.fonts['class 2'])
+        run_button = ttk.Button(button_frame, text="Run", command=self.run_program)
         run_button.pack(side="left", padx=5)
         
-        cancel_button = tk.Button(button_frame, text="Cancel", command=self.quit, font=self.fonts['class 2'])
+        cancel_button = ttk.Button(button_frame, text="Cancel", command=self.quit)
         cancel_button.pack(side="left", padx=5)
         
-        help_button = tk.Button(button_frame, text="Help", command=self.open_help, font=self.fonts['class 2'])
+        help_button = ttk.Button(button_frame, text="Help", command=self.open_help)
         help_button.pack(side="left", padx=5)
+
+        print_button = ttk.Button(button_frame, text="Print", command=self.print_system)
+        print_button.pack(side="left", padx=5)
 
     def create_information_section(self, frame):
         SystemFrame(self, frame)
@@ -123,12 +128,19 @@ class VorPyGUI(tk.Tk):
 
     def open_surface_settings_gui(self):
         """Open the surface settings window."""
-        SurfaceSettingsWindow(self)
+        ColorSettingsWindow(self)
 
     def choose_ball_file(self):
-        self.sys.files['base_file'] = filedialog.askopenfilename(title='Choose Base File')
-        self.info_frame.update()
-        print(f"Ball file selected: {self.sys.files['base_file']}")
+        """Open file dialog to select a ball file."""
+        filename = filedialog.askopenfilename(
+            title="Select Ball File",
+            filetypes=[("Ball files", "*.pdb"), ("All files", "*.*")]
+        )
+        if filename:
+            self.ball_file = filename
+            self.sys.ball_file = filename
+            self.sys.name = os.path.basename(filename)  # Update system name to filename
+            self.files['sys_name'].set(self.sys.name)  # Update the display
 
     def choose_output_directory(self):
         self.sys.files['dir'] = filedialog.askdirectory(title='Choose Output Directory')
@@ -146,6 +158,18 @@ class VorPyGUI(tk.Tk):
     def open_help(self):
         """Open the help window."""
         HelpWindow(self)
+
+    def print_system(self):
+        """Print the system."""
+        print(self.files)
+        print(self.build_settings)
+        print(self.export_settings)
+
+    def update_surface_settings_display(self):
+        """Update the display of surface settings in the main GUI."""
+        # Update the surface settings display in the build frame
+        if hasattr(self, 'build_frame'):
+            self.build_frame.update_surface_settings_display()
 
 
 if __name__ == "__main__":

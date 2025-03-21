@@ -41,7 +41,7 @@ class ExportFrame(ttk.LabelFrame):
         
         # Export Location
         ttk.Label(self, text="Location:").grid(row=2, column=0, sticky="e", padx=2, pady=2)
-        self.export_location = ttk.Entry(self, width=15)
+        self.export_location = ttk.Entry(self, width=25)
         self.export_location.grid(row=2, column=1, columnspan=3, sticky="w", padx=2, pady=2)
         self.export_location.insert(0, "Default Output Directory")
         
