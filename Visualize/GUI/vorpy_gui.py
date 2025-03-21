@@ -30,12 +30,12 @@ GUI returns
 
 
 class VorPyGUI(tk.Tk):
-    def __init__(self):
+    def __init__(self, system=None):
         # Initialize the parent class first
         super().__init__()
         
         # Create a default system
-        self.sys = System(simple=True)
+        self.sys = System(simple=True, name="No System Chosen")
         
         # Set window title
         self.title("VorPy")
@@ -49,7 +49,11 @@ class VorPyGUI(tk.Tk):
             'class 3': ("Arial", 12, "bold"),
             'class 4': ("Arial", 14)
         }
-        
+
+        # Set up the dictionaries
+        self.files = {}
+        self.build_settings = {}
+        self.export_settings = {}
         # Title Section
         title_frame = tk.Frame(self, pady=10)
         title_frame.pack(fill="x")
@@ -146,6 +150,8 @@ class VorPyGUI(tk.Tk):
 
 if __name__ == "__main__":
     os.chdir('../..')
-    app = VorPyGUI()
+    # create the system
+    sys = System(file="./Data/test_data/cambrin.pdb", name="Test System")
+    app = VorPyGUI(sys)
     app.mainloop()
 

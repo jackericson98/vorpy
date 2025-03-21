@@ -176,9 +176,11 @@ def set_sys_dir(sys, dir_name=None):
     """
 
     # Make sure a user_data path exists
-    if sys.files['root_dir'] is not None and not os.path.exists(sys.files['root_dir'] + "/Data/user_data"):
-        os.mkdir(sys.files['root_dir'] + "/Data/user_data")
-    elif sys.files['root_dir'] is None and not os.path.exists("./Data/user_data"):
+    if sys.files['vpy_dir'] is not None and not os.path.exists(sys.files['vpy_dir'] + "/Data/user_data"):
+        print(sys.files['vpy_dir'])
+        print(sys.files['root_dir'])
+        os.mkdir(os.path.join(sys.files['vpy_dir'], "/Data/user_data"))
+    elif sys.files['vpy_dir'] is None and not os.path.exists("./Data/user_data"):
         if not os.path.exists('./Data'):
             os.mkdir(os.path.abspath('.') + '/Data/user_data')
         else:

@@ -115,7 +115,7 @@ def read_pdb(sys, file=None):
         file_address = sys.files['vpy_dir'] + file
     elif sys.files['dir'] is not None and path.exists(sys.files['dir'] + file):
         file_address = sys.files['dir'] + file
-    elif sys.dir is not None and path.exists(sys.dir + file[1:]):
+    elif sys.files['dir'] is not None and path.exists(sys.files['dir'] + file[1:]):
         file_address = sys.files['dir'] + file[1:]
     else:
         return

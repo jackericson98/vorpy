@@ -21,7 +21,7 @@ from System.sys_funcs.calcs.compare import compare_networks, make_interfaces
 class System:
     def __init__(self, file=None, files=None, spheres=None, verts_file=None, balls_file=None, network_file=None,
                  index_file=None, frame_files=None, output_directory=None, gui=None, root_dir=None, print_actions=False,
-                 atoms=None, residues=None, chains=None, segments=None, groups=None, ifaces=None, simple=False):
+                 atoms=None, residues=None, chains=None, segments=None, groups=None, ifaces=None, simple=False, name=None):
         """
         Class used to import files of all types and return a System
         :param file: Base system file address
@@ -38,7 +38,7 @@ class System:
         self.simple = simple                # Simple System       :   Indicates the system is simple and is only a shell
 
         # Names
-        self.name = None                    # Name                :   Name describing the system
+        self.name = name                    # Name                :   Name describing the system
         self.atom_names = []                # Atom Names          :   List holding the names of the atoms in the system
         self.chn_names = []                 # Chain Names         :   List of chain names
         self.res_names = []                 # Residue Names       :   List of residue names
@@ -103,7 +103,8 @@ class System:
         self.load_sys(simple=True)
         self.groups, self.atoms, self.chains, self.residues = [], [], [], []
         # Set the system name
-        self.name = 'Test'
+        if self.name is None:
+            self.name = 'Test'
         # Set the root directory as the working directory
         self.files['root_dir'] = os.getcwd()
         # Set the output directory
@@ -113,8 +114,16 @@ class System:
                   frame_files=None, root_dir=None):
         # Set the defaults
         defaults = {'base_file': base_file, 'ball_file': ball_file, 'verts_file': verts_file, 'net_file': net_file,
-                    'ndx_file': ndx_file, 'dir': file_dir, 'frame_files': frame_files, 'root_dir': root_dir}
-        # Set the files if they arent set yet
+                    'ndx_file': ndx_file, 'dir': file_dir, 'frame_files': frame_files, 'root_dir': root_dir, 'vpy_dir': os.getcwd()}        # Set the files if they arent set yet
+        
+        # Get the directory two levels up from this file
+        current_file_path = os.path.abspath(__file__)
+        two_dirs_up = os.path.dirname(os.path.dirname(current_file_path))
+        
+        # Update the vpy_dir and root_dir in defaults
+        defaults['vpy_dir'] = two_dirs_up
+        defaults['root_dir'] = two_dirs_up
+
         if self.files is None:
             self.files = defaults
         # Go through the files and see if they need to be set
