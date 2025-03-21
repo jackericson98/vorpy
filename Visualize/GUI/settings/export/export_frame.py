@@ -1,68 +1,115 @@
+import os
+import sys
+from pathlib import Path
+
+# Add the project root directory to the Python path
+project_root = Path(__file__).resolve().parents[4]
+sys.path.append(str(project_root))
+
 import tkinter as tk
 from tkinter import ttk
+from tkinter import filedialog
 
 
-def export_frame(self, parent):
-    # Export Settings
-    export_settings_frame = ttk.LabelFrame(parent, text=" Export Settings ")
-    export_settings_frame.pack(fill="both", padx=10, pady=5)
+class ExportFrame(ttk.LabelFrame):
+    """
+    A frame for export settings configuration.
+    """
+    def __init__(self, parent, gui):
+        super().__init__(parent, text="Export Settings", padding="5")
+        self.gui = gui
+        
+        # Create and pack widgets
+        self._create_widgets()
+        
+    def _create_widgets(self):
+        """Create and pack all widgets in the frame."""
+        # Export Size Section
+        ttk.Label(self, text="Export Size:").grid(row=0, column=0, sticky="w", padx=2, pady=(2, 0))
+        
+        # Radio buttons for export size
+        self.export_size = tk.StringVar(value="Medium")
+        ttk.Radiobutton(self, text="Small", variable=self.export_size, value="Small").grid(row=1, column=0, sticky="w", padx=2, pady=1)
+        ttk.Radiobutton(self, text="Medium", variable=self.export_size, value="Medium").grid(row=1, column=1, sticky="w", padx=2, pady=1)
+        ttk.Radiobutton(self, text="Large", variable=self.export_size, value="Large").grid(row=1, column=2, sticky="w", padx=2, pady=1)
+        ttk.Radiobutton(self, text="All", variable=self.export_size, value="All").grid(row=1, column=3, sticky="w", padx=2, pady=1)
+        
+        # Custom Button
+        self.custom_button = ttk.Button(self, text="Custom", command=self.toggle_custom, width=8)
+        self.custom_button.grid(row=1, column=4, sticky="w", padx=2, pady=1)
+        self.is_custom = False
+        
+        # Export Location
+        ttk.Label(self, text="Location:").grid(row=2, column=0, sticky="e", padx=2, pady=2)
+        self.export_location = ttk.Entry(self, width=15)
+        self.export_location.grid(row=2, column=1, columnspan=3, sticky="w", padx=2, pady=2)
+        self.export_location.insert(0, "Default Output Directory")
+        
+        # Browse Button
+        browse_button = ttk.Button(self, text="Browse", command=self.choose_export_location, width=8)
+        browse_button.grid(row=2, column=4, sticky="w", padx=2, pady=2)
+        
+    def toggle_custom(self):
+        """Toggle custom mode and handle radio button selection."""
+        self.is_custom = not self.is_custom
+        if self.is_custom:
+            self.export_size.set("")  # Deselect all radio buttons
+            self.custom_button.state(['pressed'])  # Visual feedback
+            self.open_custom_settings()
+        else:
+            self.export_size.set("Medium")  # Reset to default
+            self.custom_button.state(['!pressed'])
+        
+    def choose_export_location(self):
+        """Open a directory chooser dialog for export location."""
+        directory = filedialog.askdirectory(title='Choose Export Location')
+        if directory:
+            self.export_location.delete(0, tk.END)
+            self.export_location.insert(0, directory)
+            
+    def open_custom_settings(self):
+        """Open the custom export settings window."""
+        CustomExportWindow(self.gui)
 
-    presets_frame = tk.Frame(export_settings_frame)
-    presets_frame.pack(anchor="w")
 
-    preset_var = tk.StringVar(value="Medium")
+class CustomExportWindow(tk.Toplevel):
+    """Window for custom export settings."""
+    def __init__(self, parent):
+        super().__init__(parent)
+        
+        # Configure window
+        self.title("Custom Export Settings")
+        self.geometry("300x250")
+        self.resizable(False, False)
+        
+        # Make window modal
+        self.transient(parent)
+        self.grab_set()
+        
+        # Create main frame
+        main_frame = ttk.Frame(self, padding="5")
+        main_frame.pack(fill="both", expand=True)
+        
+        # Add settings
+        ttk.Label(main_frame, text="Customize Export Settings", font=("Arial", 10, "bold")).pack(pady=(0, 5))
+        
+        # Add your custom settings widgets here
+        
+        # Close button
+        close_button = ttk.Button(main_frame, text="Close", command=self.destroy, width=8)
+        close_button.pack(pady=5)
+        
+        # Center the window
+        self.update_idletasks()
+        width = self.winfo_width()
+        height = self.winfo_height()
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f"{width}x{height}+{x}+{y}")
 
-    checkbox_states = {
-        "Small": {"Shell: Surfaces": False, "Shell: Edges": False, "Shell: Vertices": False,
-                  "Cells: Surfaces": False, "Cells: Edges": False, "Cells: Vertices": False,
-                  "All: Surfaces": False, "All: Edges": False, "All: Vertices": False},
-        "Medium": {"Shell: Surfaces": True, "Shell: Edges": False, "Shell: Vertices": False,
-                   "Cells: Surfaces": False, "Cells: Edges": False, "Cells: Vertices": False,
-                   "All: Surfaces": True, "All: Edges": False, "All: Vertices": False},
-        "Large": {"Shell: Surfaces": True, "Shell: Edges": True, "Shell: Vertices": True,
-                  "Cells: Surfaces": True, "Cells: Edges": True, "Cells: Vertices": True,
-                  "All: Surfaces": True, "All: Edges": True, "All: Vertices": True},
-        "All": {"Shell: Surfaces": True, "Shell: Edges": True, "Shell: Vertices": True,
-                "Cells: Surfaces": True, "Cells: Edges": True, "Cells: Vertices": True,
-                "All: Surfaces": True, "All: Edges": True, "All: Vertices": True}
-    }
 
-    def update_checkboxes():
-        for checkbox, state in checkbox_states[preset_var.get()].items():
-            checkboxes[checkbox].set(state)
-
-    tk.Radiobutton(presets_frame, text="Small", variable=preset_var, value="Small", command=update_checkboxes).pack(
-        side="left")
-    tk.Radiobutton(presets_frame, text="Medium", variable=preset_var, value="Medium", command=update_checkboxes).pack(
-        side="left")
-    tk.Radiobutton(presets_frame, text="Large", variable=preset_var, value="Large", command=update_checkboxes).pack(
-        side="left")
-    tk.Radiobutton(presets_frame, text="All", variable=preset_var, value="All", command=update_checkboxes).pack(
-        side="left")
-
-    # System Outputs Section
-    tk.Label(export_settings_frame, text="System Outputs", font=self.fonts['class 2']).pack(anchor="w", pady=(10, 0))
-    system_outputs_frame = tk.Frame(export_settings_frame)
-    system_outputs_frame.pack(anchor="w", pady=(0, 10))
-
-    # Grid for Shell, Cells, All options
-    shell_cells_all_frame = ttk.LabelFrame(export_settings_frame, text=" Network Components ")
-    shell_cells_all_frame.pack(fill="both", padx=10, pady=10)
-
-    tk.Label(shell_cells_all_frame, text="", font=self.fonts['class 2'], width=5).grid(row=0, column=0)
-    tk.Label(shell_cells_all_frame, text="Surfaces", font=self.fonts['class 2'], width=5).grid(row=0, column=1)
-    tk.Label(shell_cells_all_frame, text="Edges", font=self.fonts['class 2'], width=5).grid(row=0, column=2)
-    tk.Label(shell_cells_all_frame, text="Vertices", font=self.fonts['class 2'], width=5).grid(row=0, column=3)
-
-    components = ["Shell", "Cells", "All"]
-    checkboxes = {}
-
-    for i, component in enumerate(components):
-        tk.Label(shell_cells_all_frame, text=component, font=self.fonts['class 2'], width=15).grid(row=i + 1, column=0)
-        for j, sub_component in enumerate(["Surfaces", "Edges", "Vertices"]):
-            var = tk.BooleanVar()
-            checkbox = tk.Checkbutton(shell_cells_all_frame, variable=var)
-            checkbox.grid(row=i + 1, column=j + 1)
-            checkboxes[f"{component}: {sub_component}"] = var
-
-    update_checkboxes()
+if __name__ == "__main__":
+    root = tk.Tk()
+    export_frame = ExportFrame(root, None)
+    export_frame.pack(fill="both", expand=True)
+    root.mainloop()

@@ -7,13 +7,16 @@ project_root = Path(__file__).resolve().parents[2]
 sys.path.append(str(project_root))
 
 import tkinter as tk
+from tkinter import ttk
 from tkinter import filedialog
 from System.system import System
 from System.Group.group import Group
 from Visualize.GUI.info.info_frame import SystemFrame
 from Visualize.GUI.groups.groups_frame import GroupsFrame
-from Visualize.GUI.settings.settings_frame import create_settings_section
+from Visualize.GUI.settings.build.build_frame import BuildFrame
+from Visualize.GUI.settings.export.export_frame import ExportFrame
 from Visualize.GUI.settings.surface.surface_settings_window import SurfaceSettingsWindow
+from Visualize.GUI.settings.settings_frame import create_settings_section
 from Visualize.GUI.help.help_window import HelpWindow
 
 """
@@ -82,7 +85,7 @@ class VorPyGUI(tk.Tk):
         settings_frame.grid(row=0, column=1, sticky="nsew")
         
         # Create settings section
-        create_settings_section(self, settings_frame)
+        self.create_settings_section(settings_frame)
         
         # Run and Cancel Buttons
         button_frame = tk.Frame(self, pady=10)
@@ -101,7 +104,18 @@ class VorPyGUI(tk.Tk):
         SystemFrame(self, frame)
 
     def create_settings_section(self, frame):
-        create_settings_section(self, frame)
+        """Create the settings section with build and export settings."""
+        # Create settings container
+        settings_container = ttk.Frame(frame)
+        settings_container.grid(row=0, column=1, sticky="nsew", padx=10, pady=5)
+        
+        # Create build settings frame
+        build_frame = BuildFrame(settings_container, self)
+        build_frame.pack(fill="x", pady=(0, 10))
+        
+        # Create export settings frame
+        export_frame = ExportFrame(settings_container, self)
+        export_frame.pack(fill="x")
 
     def open_surface_settings_gui(self):
         """Open the surface settings window."""
