@@ -96,6 +96,21 @@ nucleic_pphte = ['P', 'O1P', 'O2P', 'OP1', 'OP2', 'PA', 'PB', 'O1A', 'O1B', 'O2A
 bb_sc_colors = {**{_: 'r' for _ in amino_bbs}, **{_: 'y' for _ in amino_scs}, **{_: 'blue' for _ in nucleic_nbase}, **{_: 'purple' for _ in nucleic_sugr}, **{_: 'maroon' for _ in nucleic_pphte}}
 
 
+def average_pairwise_distance(points):
+    # Convert list of points to a numpy array for efficient computation
+    points = np.array(points)
+
+    # Calculate the pairwise distances between all points
+    dist_matrix = np.sqrt(np.sum((points[:, np.newaxis, :] - points[np.newaxis, :, :]) ** 2, axis=-1))
+
+    # Since the distance matrix is symmetric and the diagonal is 0, we can extract the upper triangle excluding the diagonal
+    upper_triangle_indices = np.triu_indices_from(dist_matrix, k=1)
+    pairwise_distances = dist_matrix[upper_triangle_indices]
+
+    # Calculate the average of these distances
+    average_distance = np.mean(pairwise_distances)
+
+    return average_distance
 
 
 def get_group_info(logs):
@@ -245,22 +260,35 @@ def get_rad_vals(aw_logs=None, pow_logs=None, output_folder=None, write_csv=Fals
         with open(output_folder + '/atomic_comparisons.csv', 'w') as writing_file:
             wc = csv.writer(writing_file, lineterminator='\n')
             wc.writerow(['Index', 'element', 'name', 'residue', 'residue sequence', 'vdw vol', 'aw rad', 'aw vol',
-                         'pow vol', 'pow vol diff', 'aw vol diff', 'aw sa', 'pow sa', 'association', 'aw sphericity', 'pow sphericity', 'pow sphereicity diff', 'aw sphereicity diff',
-                         'aw sol facing', 'pow sol facing', 'aw aa facing', 'pow aa facing', 'aw na facing',
-                         'pow na facing', 'aw sep chain iface', 'pow sep chain iface', 'aw sep res iface',
-                         'pow sep res iface'])
+                         'pow vol', 'pow vol diff', 'aw vol diff', 'aw sa', 'pow sa', 'association', 'aw sphericity',
+                         'pow sphericity', 'pow sphereicity diff', 'aw sphereicity diff', 'aw sol facing',
+                         'pow sol facing', 'aw aa facing', 'pow aa facing', 'aw na facing', 'pow na facing',
+                         'aw sep chain iface', 'pow sep chain iface', 'aw sep res iface', 'pow sep res iface'])
             for spleesh in my_dict:
                 wc.writerow(my_dict[spleesh].values())
         with open(output_folder + '/atomic_comparisons_simple.csv', 'w') as writing_file:
             wc = csv.writer(writing_file, lineterminator='\n')
-            wc.writerow(['Index', 'name', 'residue', 'residue sequence', 'pow vol diff', 'aw vol diff', 'pow sphereicity diff', 'aw sphereicity diff'])
+            wc.writerow(['Index', 'name', 'residue', 'residue sequence', 'pow vol diff', 'aw vol diff',
+                         'pow sphereicity diff', 'aw sphereicity diff', 'vdw vol'])
             for spleesh in my_dict:
-                wc.writerow([my_dict[spleesh]['Index'], my_dict[spleesh]['name'], my_dict[spleesh]['residue'], my_dict[spleesh]['residue sequence'], my_dict[spleesh]['pow vol diff'], my_dict[spleesh]['aw vol diff'], my_dict[spleesh]['pow sphereicity diff'], my_dict[spleesh]['aw sphereicity diff']])
-
+                wc.writerow([my_dict[spleesh]['Index'], my_dict[spleesh]['name'], my_dict[spleesh]['residue'],
+                             my_dict[spleesh]['residue sequence'], my_dict[spleesh]['pow vol diff'],
+                             my_dict[spleesh]['aw vol diff'], my_dict[spleesh]['pow sphereicity diff'],
+                             my_dict[spleesh]['aw sphereicity diff'], my_dict[spleesh]['vdw vol']])
+        with open(output_folder + '/pow_model_training.csv', 'w') as writing_file:
+            wc = csv.writer(writing_file, lineterminator='\n')
+            wc.writerow(['pow vol diff', 'element', 'name', 'residue', 'rad', 'pow sa', 'association', 'pow sphericity',
+                         'pow sol facing', 'pow aa facing', 'pow na facing', 'pow sep chain iface', 'pow sep res iface'])
+            for spleesh in my_dict:
+                wc.writerow([my_dict[spleesh]['pow vol diff'], my_dict[spleesh]['element'], my_dict[spleesh]['name'],
+                             my_dict[spleesh]['residue'], my_dict[spleesh]['aw rad'], my_dict[spleesh]['pow sa'],
+                             my_dict[spleesh]['association'], my_dict[spleesh]['pow sphereicity'],
+                             my_dict[spleesh]['pow sol facing'], my_dict[spleesh]['pow aa facing'],
+                             my_dict[spleesh]['pow na facing'], my_dict[spleesh]['pow sep chain iface'],
+                             my_dict[spleesh]['pow sep res iface']])
 
     # return the dictionary
-    return my_dict
-
+    return my_dict, output_folder
 
 
 def bool_assign(val):
@@ -288,26 +316,25 @@ def get_dict_from_file(file):
                 counter += 1
                 continue
             my_dict[int(line[0])] = {my_vals[i]: my_ass[i](line[i]) for i in range(len(line))}
-    return my_dict
+    output_folder = os.path.dirname(file)
+    return my_dict, output_folder
 
 
-def plot_by_sphericity_diff(dict_file=None, color_by='element', x_val='vdw_volume', file_name=''):
+def plot_my_stuff(dict_file=None, file_name=''):
     """
     Plots my stuff
 
     """
     # Check if a file is given to us
     if dict_file is not None:
-        my_dict = get_dict_from_file(dict_file)
+        my_dict, output_folder = get_dict_from_file(dict_file)
     # If no file is specified
     else:
-        my_dict = get_rad_vals(write_csv=True)
+        my_dict, output_folder = get_rad_vals(write_csv=True)
     # create the groupings
     carbon_groupings = {0.025: {}, 0.05: {}, 0.075: {}, 0.1: {}, 0.125: {}, 0.157: {}, 0.2: {}, 0.5: {}}
     nitrogen_groupings = {-0.075: {}, -0.0325: {}, 0.05: {}, 0.5: {}}
     oxygen_groupings = {-0.04: {}, -0.01: {}, 0.05: {}, 0.5: {}}
-
-
 
     def add_key_grouping(entry, dictionary, s_diff):
         # Record the values
@@ -330,215 +357,145 @@ def plot_by_sphericity_diff(dict_file=None, color_by='element', x_val='vdw_volum
             colors = [bb_sc_colors[my_dict[entry]['name']] if my_dict[entry]['name'] in bb_sc_colors else 'black' for entry in my_dict]
 
         for x_val in ['sphericity', 'vdw_volume']:
-            # Now that we have everything information wise, we need to plot the stuff in a way that is good and we like to do
-            for i, entry in enumerate(my_dict):
+            my_res_dict, my_res_dict_no_h = {}, {}
+            for ass in ['na', 'aa']:
+                # Now that we have everything information wise, we need to plot the stuff in a way that is good and we like to do
+                for i, entry in enumerate(my_dict):
+                    if my_dict[entry]['association'] != ass:
+                        continue
+
+
+                    if x_val == 'sphericity':
+                        s_diff = (my_dict[entry]['pow sphericity'] - my_dict[entry]['aw sphericity']) / my_dict[entry]['aw sphericity']
+                    elif x_val == 'vdw_volume':
+                        s_diff = my_dict[entry]['vdw vol']
+                    vol_diff = (my_dict[entry]['pow vol'] - my_dict[entry]['aw vol']) / my_dict[entry]['aw vol']
+                    plt.scatter([s_diff], [vol_diff], marker='x' if my_dict[entry]['aw sol facing'] else 'o', c=colors[i],
+                                alpha=0.2)
+
+                    if my_dict[entry]['residue'] in my_res_dict:
+                        my_res_dict[my_dict[entry]['residue']].append((s_diff, vol_diff))
+                    else:
+                        my_res_dict[my_dict[entry]['residue']] = [(s_diff, vol_diff)]
+                    if my_dict[entry]['element'].lower() != 'h':
+                        if my_dict[entry]['residue'] in my_res_dict_no_h:
+                            my_res_dict_no_h[my_dict[entry]['residue']].append((s_diff, vol_diff))
+                        else:
+                            my_res_dict_no_h[my_dict[entry]['residue']] = [(s_diff, vol_diff)]
+
+                    if my_dict[entry]['element'] == 'C':
+                        carbon_groupings = add_key_grouping(my_dict[entry], carbon_groupings, s_diff)
+                    if my_dict[entry]['element'] == 'N':
+                        nitrogen_groupings = add_key_grouping(my_dict[entry], nitrogen_groupings, s_diff)
+                    if my_dict[entry]['element'] == 'O':
+                        oxygen_groupings = add_key_grouping(my_dict[entry], oxygen_groupings, s_diff)
+
                 if x_val == 'sphericity':
-                    s_diff = (my_dict[entry]['pow sphericity'] - my_dict[entry]['aw sphericity']) / my_dict[entry]['aw sphericity']
+                    plt.xlabel('Sphericity Difference')
                 elif x_val == 'vdw_volume':
-                    s_diff = my_dict[entry]['vdw vol']
-                vol_diff = (my_dict[entry]['pow vol'] - my_dict[entry]['aw vol']) / my_dict[entry]['aw vol']
-                plt.scatter([s_diff], [vol_diff], marker='x' if my_dict[entry]['aw sol facing'] else 'o', c=colors[i],
-                            alpha=0.5)
-                if my_dict[entry]['element'] == 'C':
-                    carbon_groupings = add_key_grouping(my_dict[entry], carbon_groupings, s_diff)
-                if my_dict[entry]['element'] == 'N':
-                    nitrogen_groupings = add_key_grouping(my_dict[entry], nitrogen_groupings, s_diff)
-                if my_dict[entry]['element'] == 'O':
-                    oxygen_groupings = add_key_grouping(my_dict[entry], oxygen_groupings, s_diff)
-            if x_val == 'sphericity':
-                print('\nCarbon')
-                for my_key in carbon_groupings:
-                    print(my_key)
-                    print([(key, carbon_groupings[my_key][key]) for key in carbon_groupings[my_key]])
+                    plt.xlabel('VDW Volume')
+                plt.ylabel('Volume Difference')
+                if color_by == 'element':
+                    # Get unique elements that appear in the data
+                    unique_elements = set(my_dict[entry]['element'] for entry in my_dict)
+                    # Add legend entries only for elements that appear, using 'Other' for unknown elements
+                    element_handles = []
+                    for elem in unique_elements:
+                        if elem in color_dict:
+                            element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
+                                                markerfacecolor=color_dict[elem], label=elem, markersize=8))
+                        else:
+                            element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
+                                                markerfacecolor='gray', label='Other', markersize=8))
+                elif color_by == 'residue':
+                    # Get unique residues that appear in the data
+                    unique_residues = set(my_dict[entry]['residue'] for entry in my_dict)
+                    # Add legend entries only for residues that appear, using 'Other' for unknown residues
+                    element_handles = []
+                    for res in unique_residues:
+                        if res in residue_colors:
+                            element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
+                                                markerfacecolor=residue_colors[res], label=res, markersize=8))
+                        else:
+                            print('New residue type: ', res)
+                            element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
+                                                markerfacecolor='gray', label='Other', markersize=8))
+                elif color_by == 'bb_sc':
+                    # Get unique atom names that appear in the data
+                    unique_names = set(my_dict[entry]['name'] for entry in my_dict)
+                    # Track which groups we've added to avoid duplicates
+                    added_groups = set()
+                    element_handles = []
 
-                print('\nNitrogen')
-                for my_key in nitrogen_groupings:
-                    print(my_key)
-                    print([(key, nitrogen_groupings[my_key][key]) for key in nitrogen_groupings[my_key]])
+                    for name in unique_names:
+                        if name in amino_bbs and 'Back Bone' not in added_groups:
+                            element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
+                                                markerfacecolor='r', label='Back Bone', markersize=8))
+                            added_groups.add('Back Bone')
+                        elif name in amino_scs and 'Side Chain' not in added_groups:
+                            element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
+                                                markerfacecolor='y', label='Side Chain', markersize=8))
+                            added_groups.add('Side Chain')
+                        elif name in nucleic_nbase and 'Nucleobase' not in added_groups:
+                            element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
+                                                markerfacecolor='blue', label='Nucleobase', markersize=8))
+                            added_groups.add('Nucleobase')
+                        elif name in nucleic_pphte and 'Phosphate' not in added_groups:
+                            element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
+                                                markerfacecolor='maroon', label='Phosphate', markersize=8))
+                            added_groups.add('Phosphate')
+                        elif name in nucleic_sugr and 'Sugar' not in added_groups:
+                            element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
+                                                markerfacecolor='purple', label='Sugar', markersize=8))
+                            added_groups.add('Sugar')
+                        elif name not in (amino_bbs + amino_scs + nucleic_nbase + nucleic_pphte + nucleic_sugr) and 'Other' not in added_groups:
+                            print(f'Unidentified atom name {name}\n')
+                            element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
+                                                markerfacecolor='gray', label='Other', markersize=8))
+                            added_groups.add('Other')
+                        else:
+                            print(f'Unidentified atom name {name}\n')
 
-                print('\nOxygen')
-                for my_key in oxygen_groupings:
-                    print(my_key)
-                    print([(key, oxygen_groupings[my_key][key]) for key in oxygen_groupings[my_key]])
-            if x_val == 'sphericity':
-                plt.xlabel('Sphericity Difference')
-            elif x_val == 'vdw_volume':
-                plt.xlabel('VDW Volume')
-            plt.ylabel('Volume Difference')
-            if color_by == 'element':
-                # Get unique elements that appear in the data
-                unique_elements = set(my_dict[entry]['element'] for entry in my_dict)
-                # Add legend entries only for elements that appear, using 'Other' for unknown elements
-                element_handles = []
-                for elem in unique_elements:
-                    if elem in color_dict:
-                        element_handles.append(plt.Line2D([0], [0], marker='o', color='w', 
-                                            markerfacecolor=color_dict[elem], label=elem, markersize=8))
-                    else:
-                        element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
-                                            markerfacecolor='gray', label='Other', markersize=8))
-            elif color_by == 'residue':
-                # Get unique residues that appear in the data
-                unique_residues = set(my_dict[entry]['residue'] for entry in my_dict)
-                # Add legend entries only for residues that appear, using 'Other' for unknown residues
-                element_handles = []
-                for res in unique_residues:
-                    if res in residue_colors:
-                        element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
-                                            markerfacecolor=residue_colors[res], label=res, markersize=8))
-                    else:
-                        element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
-                                            markerfacecolor='gray', label='Other', markersize=8))
-            elif color_by == 'bb_sc':
-                # Get unique atom names that appear in the data
-                unique_names = set(my_dict[entry]['name'] for entry in my_dict)
-                # Track which groups we've added to avoid duplicates
-                added_groups = set()
-                element_handles = []
-                
-                for name in unique_names:
-                    if name in amino_bbs and 'Back Bone' not in added_groups:
-                        element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
-                                            markerfacecolor='r', label='Back Bone', markersize=8))
-                        added_groups.add('Back Bone')
-                    elif name in amino_scs and 'Side Chain' not in added_groups:
-                        element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
-                                            markerfacecolor='y', label='Side Chain', markersize=8))
-                        added_groups.add('Side Chain')
-                    elif name in nucleic_nbase and 'Nucleobase' not in added_groups:
-                        element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
-                                            markerfacecolor='blue', label='Nucleobase', markersize=8))
-                        added_groups.add('Nucleobase')
-                    elif name in nucleic_pphte and 'Phosphate' not in added_groups:
-                        element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
-                                            markerfacecolor='maroon', label='Phosphate', markersize=8))
-                        added_groups.add('Phosphate')
-                    elif name in nucleic_sugr and 'Sugar' not in added_groups:
-                        element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
-                                            markerfacecolor='purple', label='Sugar', markersize=8))
-                        added_groups.add('Sugar')
-                    elif name not in (amino_bbs + amino_scs + nucleic_nbase + nucleic_pphte + nucleic_sugr) and 'Other' not in added_groups:
-                        element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
-                                            markerfacecolor='gray', label='Other', markersize=8))
-                        added_groups.add('Other')
+                # Get current figure and axes
+                fig = plt.gcf()
+                ax = plt.gca()
 
-            # Get current figure and axes
-            fig = plt.gcf()
-            ax = plt.gca()
-            
-            # Adjust the plot area to make room for legend
-            box = ax.get_position()
-            ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+                # Adjust the plot area to make room for legend
+                box = ax.get_position()
+                ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
 
-            # Place legend to the right of the plot
-            if len(element_handles) > 30:
-                ax.legend(handles=element_handles, loc='center left', bbox_to_anchor=(1, 0.5),
-                         fontsize='xx-small', ncol=1)
-            elif len(element_handles) > 20:
-                ax.legend(handles=element_handles, loc='center left', bbox_to_anchor=(1, 0.5),
-                         fontsize='x-small', ncol=1)
-            else:
-                ax.legend(handles=element_handles, loc='center left', bbox_to_anchor=(1, 0.5),
-                         fontsize='small', ncol=1)
-            # Add legend entries for markers
-            marker_handles = [
-                plt.scatter([], [], marker='x', color='black', label='Sol Facing', s=75),
-                plt.scatter([], [], marker='o', color='black', label='Not Sol Facing', s=75)
-            ]
-            # Increase font size of axis labels, ticks and title
-            plt.xlabel(plt.gca().get_xlabel(), fontsize=20)
-            plt.ylabel(plt.gca().get_ylabel(), fontsize=20)
-            plt.xticks(fontsize=12)
-            plt.yticks(fontsize=12)
-            # Create legend with two columns
-            plt.legend(handles=element_handles + marker_handles, ncol=2)
-            plt.title(f'{file_name}', fontsize=25)
-            plt.tight_layout()
-            plt.show()
+                # Place legend to the right of the plot
+                if len(element_handles) > 30:
+                    ax.legend(handles=element_handles, loc='center left', bbox_to_anchor=(1, 0.5),
+                             fontsize='xx-small', ncol=1)
+                elif len(element_handles) > 20:
+                    ax.legend(handles=element_handles, loc='center left', bbox_to_anchor=(1, 0.5),
+                             fontsize='x-small', ncol=1)
+                else:
+                    ax.legend(handles=element_handles, loc='center left', bbox_to_anchor=(1, 0.5),
+                             fontsize='small', ncol=1)
+                # Add legend entries for markers
+                marker_handles = [
+                    plt.scatter([], [], marker='x', color='black', label='Sol Facing', s=75),
+                    plt.scatter([], [], marker='o', color='black', label='Not Sol Facing', s=75)
+                ]
+                # Increase font size of axis labels, ticks and title
+                plt.xlabel(plt.gca().get_xlabel(), fontsize=20)
+                plt.ylabel(plt.gca().get_ylabel(), fontsize=20)
+                plt.xticks(fontsize=12)
+                plt.yticks(fontsize=12)
+                # Create legend with two columns
+                plt.legend(handles=element_handles + marker_handles, ncol=2)
+                plt.title(f'{file_name} {ass}', fontsize=25)
+                plt.tight_layout()
+                plt.show()
+            print("Average Pairwise Distance:\n")
+            for res in my_res_dict:
+                print(f"{res} = {average_pairwise_distance(my_res_dict[res])}")
+            print("Average Pairwise Distance (no H):\n")
+            for res in my_res_dict_no_h:
+                print(f"{res} = {average_pairwise_distance(my_res_dict_no_h[res])}")
     return my_dict
-
-
-def plot_vdw_vol_by_vol_diff(dict_file=None):
-    """
-    Plots the vdw vol vs the vol diff
-    """
-    # Check if a file is given to us
-    if dict_file is not None:
-        my_dict = get_dict_from_file(dict_file)
-    else:
-        my_dict = get_rad_vals(write_csv=True)
-    color_dict = {'C': 'grey', 'O': 'r', 'N': 'b', 'P': 'darkorange', 'H': 'pink', 'S': 'y', 'Se': 'sandybrown'}
-    colors = [color_dict[my_dict[entry]['element']] for entry in my_dict]
-    for i, atom in enumerate(my_dict):
-        plt.scatter([my_dict[atom]['vdw vol']], [(my_dict[atom]['pow vol'] - my_dict[atom]['aw vol']) / my_dict[atom]['aw vol']], c=colors[i], 
-                    marker='x' if my_dict[atom]['aw sol facing'] else 'o')
-    plt.xlabel('VDW Volume')
-    plt.ylabel('Volume Difference (pow - aw) / aw')
-
-    # Add legend entries for elements
-    element_handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=col, label=elem, markersize=10) 
-                      for elem, col in color_dict.items()]
-    # Add legend entries for markers
-    marker_handles = [
-        plt.Line2D([0], [0], marker='x', color='black', markerfacecolor='none', label='Sol Facing', markersize=7.5),
-        plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='black', label='Not Sol Facing', markersize=7.5)
-    ]
-    plt.legend(handles=element_handles + marker_handles, ncol=2)
-    plt.show()
-
-
-def plot_atom_sphericity_diff_by_classification(dict_file=None, my_dict=None):
-    """
-    Plots the atom's sphericity difference with the aw volume and colors based on if it is outside facing or not
-    """
-    # Check if a file is given to us
-    if dict_file is not None:
-        my_dict = get_dict_from_file(dict_file)
-    # If no file is specified
-    else:
-        my_dict = get_rad_vals(write_csv=True)
-    xs, ys, classifs = [], [], []
-    for atom in my_dict:
-        xs.append(my_dict[atom]['aw vol'])
-        ys.append((my_dict[atom]['pow sphericity'] - my_dict[atom]['aw sphericity']) / my_dict[atom]['aw sphericity'])
-        classifs.append(my_dict[atom]['association'])
-    plt.scatter(xs, ys, c=classifs)
-    plt.show()
-
-
-def plot_atom_vol_by_radius(dict_file=None):
-    """
-    Plots the atom's volume by the radius
-    """
-    # Check if a file is given to us
-    if dict_file is not None:
-        my_dict = get_dict_from_file(dict_file)
-    # If no file is specified
-    else:
-        my_dict = get_rad_vals(write_csv=True)
-    xs, ys = [], []
-    for atom in my_dict:
-        xs.append(my_dict[atom]['aw rad'])
-        ys.append(my_dict[atom]['aw vol'])
-    plt.scatter(xs, ys)
-    plt.show()  
-
-
-def plot_atom_by_ho_facing(dict_file=None):
-    """
-    Plots the atom's volume by the radius
-    """
-    # Check if a file is given to us
-    if dict_file is not None:
-        my_dict = get_dict_from_file(dict_file) 
-    else:
-        my_dict = get_rad_vals(write_csv=True)
-    xs, ys = [], []
-    for atom in my_dict:
-        xs.append(my_dict[atom]['aw rad'])
-        ys.append(my_dict[atom]['sol facing'])
-    plt.scatter(xs, ys)
-    plt.show()
 
 
 if __name__ == '__main__':
@@ -547,7 +504,4 @@ if __name__ == '__main__':
     root.wm_attributes('-topmost', 1)
     # my_file = filedialog.askopenfilename(title="Get CSV File")
     my_file = None
-    plot_by_sphericity_diff(dict_file=my_file, file_name='NCP')
-    # plot_atom_sphericity_diff_by_classification()
-    # plot_atom_vol_by_radius()
-    # plot_atom_by_ho_facing()
+    plot_my_stuff(dict_file=my_file, file_name='NCP')
