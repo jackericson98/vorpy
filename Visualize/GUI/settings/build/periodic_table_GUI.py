@@ -162,17 +162,21 @@ def periodic_table():
     buttons = {}
     max_row = 0
     for symbol, element in elements.items():
+        max_row = max(max_row, element['row'])
+
+    for symbol, element in elements.items():
         btn = create_button(root, element, color_scheme[element['group']], buttons)
         buttons[element['name']] = btn
         row, col = element['row'], element['column']
         btn.grid(row=row, column=col, sticky='nsew')
+
         max_row = max(max_row, element['row'])
 
     for i in range(18):
         root.grid_columnconfigure(i, weight=1)
         root.grid_rowconfigure(i, weight=1)
 
-    tk.Button(root, text='Cancel', command=root.destroy).grid(row=max_row + 1, column=17)
+    tk.Button(root, text='Cancel', command=root.destroy).grid(row=max_row + 1, column=17, pady=10)
     tk.Button(root, text='Apply', command=root.destroy).grid(row=max_row + 1, column=18)
 
     root.mainloop()

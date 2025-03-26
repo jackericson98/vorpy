@@ -63,7 +63,7 @@ class VorPyGUI(tk.Tk):
                 'edge_col': 'grey'
             }
         }
-        self.export_settings = {'dir': None, 'type': 'med', 'other':{}}
+        self.export_settings = {'dir': None, 'type': 'med', 'other': {}}
 
         # Title Section
         title_frame = tk.Frame(self, pady=10)
