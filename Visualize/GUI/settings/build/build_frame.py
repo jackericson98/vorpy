@@ -16,13 +16,24 @@ class BuildFrame(ttk.LabelFrame):
     A frame for build settings configuration.
     """
     def __init__(self, parent, gui):
-        super().__init__(parent, text="Build Settings", padding="10")
+        super().__init__(parent, text="Build Settings")
         self.gui = gui
-        self.settings = {'surf_res': 0.2, 'surf_col': 'plasma', 'surf_scheme': 'mean curvature', 'max_vert': 40, 'box_size': 1.25, 'net_type': 'additively weighted', 
-                         'build_type': 'all', 'num_splits': 0, 'print_metrics': True, 'ball_type': 'all', 'foam_box': False,'atom_rad': None, 'scheme_factor': 'log',
-                         'edge_col': 'grey', 'vert_col': 'red'}
         
-        # Create and pack widgets
+        # Initialize default settings for this group
+        self.settings = {
+            'max_vert': 40,
+            'box_size': 1.25,
+            'net_type': 'aw',
+            'color_settings': {
+                'surf_col': 'plasma',
+                'surf_scheme': 'mean_curv',
+                'surf_fact': 'log',
+                'vert_col': 'red',
+                'edge_col': 'grey'
+            }
+        }
+        
+        # Create widgets after settings are initialized
         self._create_widgets()
         
     def _create_widgets(self):
@@ -31,72 +42,61 @@ class BuildFrame(ttk.LabelFrame):
         self.grid_columnconfigure(1, weight=1)  # Make the middle column expand
         
         # Network Type
-        ttk.Label(self, text="Network Type:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
-        self.network_type = ttk.Combobox(self, values=["Delaunay", "Gabriel", "Relative Neighborhood", "Beta Skeleton"], 
-                                        state="readonly", width=14, justify="right")
-        self.network_type.set(self.gui.build_settings['net_type'])
-        self.network_type.grid(row=0, column=1, columnspan=1, sticky="e", padx=5, pady=2)
-        self.network_type.bind('<<ComboboxSelected>>', self._update_net_type)
+        network_frame = ttk.Frame(self)
+        network_frame.pack(fill="x", padx=5, pady=5)
         
-        # Probe Radius
-        ttk.Label(self, text="Probe Radius:").grid(row=1, column=0, sticky="w", padx=5, pady=2)
-        self.max_vert_rad = ttk.Entry(self, width=17, justify="right")
-        self.max_vert_rad.insert(0, self.gui.build_settings['max_vert'])
-        self.max_vert_rad.grid(row=1, column=1, sticky="e", padx=5, pady=2)
-        self.max_vert_rad.bind('<KeyRelease>', self._update_max_vert)
-        ttk.Label(self, text=u"\u212b").grid(row=1, column=2, sticky="e", padx=5, pady=2)
+        ttk.Label(network_frame, text="Network Type:").pack(side="left")
+        self.network_type = ttk.Combobox(network_frame, values=['aw', 'aw_vert', 'aw_edge'], state="readonly")
+        self.network_type.pack(side="left", padx=5)
+        self.network_type.set(self.settings['net_type'])
+        self.network_type.bind('<<ComboboxSelected>>', self._on_network_type_change)
         
-        # Outer Reach
-        ttk.Label(self, text="Outer Reach:").grid(row=2, column=0, sticky="w", padx=5, pady=2)
-        self.max_box_multi = ttk.Entry(self, width=17, justify="right")
-        self.max_box_multi.insert(0, self.gui.build_settings['box_size'])
-        self.max_box_multi.grid(row=2, column=1, sticky="e", padx=5, pady=2)
-        self.max_box_multi.bind('<KeyRelease>', self._update_max_box)
-        ttk.Label(self, text="x ").grid(row=2, column=2, sticky="e", padx=5, pady=2)
+        # Max Vertices Entry
+        vertices_frame = ttk.Frame(self)
+        vertices_frame.pack(fill="x", padx=5, pady=5)
         
-        # Surface Settings
-        ttk.Label(self, text="Color Settings").grid(row=3, column=0, sticky="w", padx=5, pady=5)
+        ttk.Label(vertices_frame, text="Max Vertices:").pack(side="left")
+        self.max_vertices = ttk.Entry(vertices_frame, width=10)
+        self.max_vertices.pack(side="left", padx=5)
+        self.max_vertices.insert(0, str(self.settings['max_vert']))
+        self.max_vertices.bind('<KeyRelease>', self._on_max_vertices_change)
         
-        # Change Button
-        change_button = ttk.Button(self, text="Change", command=self.open_surface_settings_gui)
-        change_button.grid(row=3, column=1, columnspan=1, sticky="e", padx=5, pady=5)
+        # Box Size Entry
+        box_frame = ttk.Frame(self)
+        box_frame.pack(fill="x", padx=5, pady=5)
         
-    def _update_max_vert(self, event=None):
-        """Update max_vert setting when entry changes."""
-        try:
-            value = float(self.max_vert_rad.get())
-            if 0.01 <= value <= 500:
-                self.settings['max_vert'] = value
-        except ValueError:
-            pass  # Ignore invalid input
-            
-    def _update_max_box(self, event=None):
-        """Update max_box setting when entry changes."""
-        try:
-            value = float(self.max_box_multi.get())
-            if 1 <= value <= 200:
-                self.settings['box_size'] = value
-        except ValueError:
-            pass  # Ignore invalid input
-            
-    def _update_net_type(self, event=None):
-        """Update net_type setting when combobox selection changes."""
+        ttk.Label(box_frame, text="Box Size:").pack(side="left")
+        self.box_size = ttk.Entry(box_frame, width=10)
+        self.box_size.pack(side="left", padx=5)
+        self.box_size.insert(0, str(self.settings['box_size']))
+        self.box_size.bind('<KeyRelease>', self._on_box_size_change)
+        
+        # Surface Settings Button
+        surface_button = ttk.Button(self, text="Surface Settings", command=self._open_surface_settings)
+        surface_button.pack(pady=5)
+        
+    def _on_network_type_change(self, event=None):
         self.settings['net_type'] = self.network_type.get()
-        
-    def open_surface_settings_gui(self):
+    
+    def _on_max_vertices_change(self, event=None):
+        try:
+            self.settings['max_vert'] = int(self.max_vertices.get())
+        except ValueError:
+            pass
+    
+    def _on_box_size_change(self, event=None):
+        try:
+            self.settings['box_size'] = float(self.box_size.get())
+        except ValueError:
+            pass
+    
+    def _open_surface_settings(self):
         """Open the surface settings window."""
         ColorSettingsWindow(self.gui)
-
-    def update_surface_settings_display(self):
-        """Update the display of surface settings."""
-        # Update the surface settings values
-        self.surface_values_label.config(
-            text=f"Surface Color: {self.gui.build_settings['color_settings']['surf_col']}\n"
-                 f"Surface Scheme: {self.gui.build_settings['color_settings']['surf_scheme']}\n"
-                 f"Scheme Factor: {self.gui.build_settings['color_settings']['surf_fact']}\n"
-                 f"Edge Color: {self.gui.build_settings['color_settings']['edge_col']}\n"
-                 f"Vertex Color: {self.gui.build_settings['color_settings']['vert_col']}"
-        )
+    
+    def get_settings(self):
+        """Return the current build settings."""
+        return self.settings
 
 
 if __name__ == "__main__":

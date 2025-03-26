@@ -22,6 +22,9 @@ class ExportFrame(ttk.LabelFrame):
         # Create and pack widgets
         self._create_widgets()
         
+        # Initialize custom mode flag
+        self.is_custom = False
+        
     def _create_widgets(self):
         """Create and pack all widgets in the frame."""
         # Export Size Section
@@ -37,7 +40,6 @@ class ExportFrame(ttk.LabelFrame):
         # Custom Button
         self.custom_button = ttk.Button(self, text="Custom", command=self.toggle_custom, width=8)
         self.custom_button.grid(row=1, column=4, sticky="w", padx=2, pady=1)
-        self.is_custom = False
         
         # Export Location
         ttk.Label(self, text="Location:").grid(row=2, column=0, sticky="e", padx=2, pady=2)
@@ -48,7 +50,7 @@ class ExportFrame(ttk.LabelFrame):
         # Browse Button
         browse_button = ttk.Button(self, text="Browse", command=self.choose_export_location, width=8)
         browse_button.grid(row=2, column=4, sticky="w", padx=2, pady=2)
-        
+    
     def toggle_custom(self):
         """Toggle custom mode and handle radio button selection."""
         self.is_custom = not self.is_custom
@@ -66,7 +68,7 @@ class ExportFrame(ttk.LabelFrame):
         if directory:
             self.export_location.delete(0, tk.END)
             self.export_location.insert(0, directory)
-            
+    
     def open_custom_settings(self):
         """Open the custom export settings window."""
         CustomExportWindow(self.gui)

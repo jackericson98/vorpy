@@ -12,11 +12,8 @@ from tkinter import filedialog
 from System.system import System
 from System.Group.group import Group
 from Visualize.GUI.info.info_frame import SystemFrame
-from Visualize.GUI.groups.groups_frame import GroupsFrame
-from Visualize.GUI.settings.build.build_frame import BuildFrame
-from Visualize.GUI.settings.export.export_frame import ExportFrame
+from Visualize.GUI.settings.group_settings_frame import GroupSettingsFrame
 from Visualize.GUI.settings.surface.color_settings_window import ColorSettingsWindow
-from Visualize.GUI.settings.settings_frame import create_settings_section
 from Visualize.GUI.help.help_window import HelpWindow
 
 """
@@ -50,11 +47,23 @@ class VorPyGUI(tk.Tk):
             'class 4': ("Arial", 14)
         }
 
-        # Set up the dictionaries
+        # Set up the files dictionary
         self.files = {'sys_name': 'No File Loaded', 'base_file': '', 'other_files': [], 'dir': '' }
-        self.build_settings = {'max_vert': 40, 'box_size': 1.25, 'net_type': 'aw', 'color_settings': {'surf_col': 'plasma', 'surf_scheme': 'mean_curv', 'surf_fact': 'log', 'vert_col': 'red', 'edge_col': 'grey'}}
+        
+        # Set up the dictionaries for build and export settings
+        self.build_settings = {
+            'max_vert': 40,
+            'box_size': 1.25,
+            'net_type': 'aw',
+            'color_settings': {
+                'surf_col': 'plasma',
+                'surf_scheme': 'mean_curv',
+                'surf_fact': 'log',
+                'vert_col': 'red',
+                'edge_col': 'grey'
+            }
+        }
         self.export_settings = {'dir': None, 'type': 'med', 'other':{}}
-
 
         # Title Section
         title_frame = tk.Frame(self, pady=10)
@@ -72,26 +81,13 @@ class VorPyGUI(tk.Tk):
         self.info_frame.pack(fill="x", padx=10, pady=(0, 10))
         self.create_information_section(self.info_frame)
         
-        # Selection Frame (Holds Groups and Settings)
-        selection_frame = tk.Frame(self)
-        selection_frame.pack(expand=True, fill="both", padx=10, pady=(0, 10))
+        # Settings Frame (Full Width)
+        settings_frame = tk.Frame(self)
+        settings_frame.pack(expand=True, fill="both", padx=10, pady=(0, 10))
         
-        # Configure grid weights for selection frame
-        selection_frame.grid_columnconfigure(0, weight=1)  # Groups section
-        selection_frame.grid_columnconfigure(1, weight=1)  # Settings section
-        selection_frame.grid_rowconfigure(0, weight=1)
-        
-        # Groups Section (Left Column)
-        groups_frame = tk.Frame(selection_frame)
-        groups_frame.grid(row=0, column=0, padx=(0, 10), sticky="nsew")
-        self.groups_frame = GroupsFrame(self, groups_frame)
-        
-        # Settings Section (Right Column)
-        settings_frame = tk.Frame(selection_frame)
-        settings_frame.grid(row=0, column=1, sticky="nsew")
-        
-        # Create settings section
-        self.create_settings_section(settings_frame)
+        # Create group settings section
+        self.group_settings_frame = GroupSettingsFrame(settings_frame, self)
+        self.group_settings_frame.pack(fill="both", expand=True)
         
         # Run and Cancel Buttons
         button_frame = tk.Frame(self, pady=10)
@@ -111,20 +107,6 @@ class VorPyGUI(tk.Tk):
 
     def create_information_section(self, frame):
         SystemFrame(self, frame)
-
-    def create_settings_section(self, frame):
-        """Create the settings section with build and export settings."""
-        # Create settings container
-        settings_container = ttk.Frame(frame)
-        settings_container.grid(row=0, column=1, sticky="nsew", padx=10, pady=5)
-        
-        # Create build settings frame
-        build_frame = BuildFrame(settings_container, self)
-        build_frame.pack(fill="x", pady=(0, 10))
-        
-        # Create export settings frame
-        export_frame = ExportFrame(settings_container, self)
-        export_frame.pack(fill="x")
 
     def open_surface_settings_gui(self):
         """Open the surface settings window."""
@@ -164,6 +146,7 @@ class VorPyGUI(tk.Tk):
         print(self.files)
         print(self.build_settings)
         print(self.export_settings)
+        print(self.group_settings_frame.get_current_group_settings())
 
     def update_surface_settings_display(self):
         """Update the display of surface settings in the main GUI."""
