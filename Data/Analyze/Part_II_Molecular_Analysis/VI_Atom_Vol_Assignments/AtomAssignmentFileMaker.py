@@ -11,9 +11,46 @@ from tkinter import filedialog
 import numpy as np
 import matplotlib.pyplot as plt
 from Data.Analyze.tools.compare.read_logs2 import read_logs2
-from System.chemistry_interpreter import amino_names, nucleo_names, ion_names
+from System.chemistry_interpreter import amino_names, nucleo_names, ion_names, sol_names
 from System.sys_objs.atom import get_element
 from matplotlib import colormaps
+from scipy.spatial import distance_matrix, ConvexHull
+from sklearn.metrics import silhouette_score
+
+
+def clustering_measures(full_coords, subsets, names, print_info=False):
+    results = {}
+
+    if len(full_coords) == 0:
+        return
+    total_volume = estimate_volume(full_coords)
+
+    for i, subset_coords in enumerate(subsets):
+        name = names[i]
+        subset_volume = estimate_volume(subset_coords)
+        density_ratio = (len(subset_coords) / subset_volume) / (
+                    len(full_coords) / total_volume) if subset_volume > 0 else np.inf
+
+        results[name] = density_ratio
+
+    if print_info:
+        for _ in results:
+            if _ == 'Silhouette Score':
+                continue
+            print(_, results[_])
+
+    return results
+
+
+def estimate_volume(coords):
+
+    if len(coords[0]) == 2:  # 2D case
+        hull = ConvexHull(coords)
+        return hull.area
+    elif len(coords[0]) == 3:  # 3D case
+        hull = ConvexHull(coords)
+        return hull.volume
+    return np.inf
 
 
 """
@@ -90,10 +127,13 @@ amino_scs = ['CB', 'HB', 'HB1', 'HB2', 'HB3',
              'CH2', 'NH1', 'OH', 'HH', 'HH1', 'HH2', 'HH11', 'HH12', 'NH2', 'HH21', 'HH22',
              'NZ', 'CZ', 'CZ1', 'CZ2', 'CZ3', 'NZ', 'HZ', 'HZ1', 'HZ2', 'HZ3']
 
-nucleic_nbase = ['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7', 'N8', 'N9', 'C2', 'C4', 'C5', 'C6', 'C7', 'C8', 'O2', 'O4', 'O6']
-nucleic_sugr = ['O3\'', 'O5\'', 'C5\'', 'C4\'', 'O4\'', 'C3\'', 'C2\'', 'C1\'', 'O2\'', 'CM2']
+nucleic_nbase = ['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7', 'N8', 'N9', 'C2', 'C4', 'C5', 'C6', 'C7', 'C8', 'O2', 'O4',
+                 'O6', 'H2', 'H21', 'H22', 'H3', 'H4', 'H41', 'H42', 'H5', 'H6', 'H61', 'H62', 'H8']
+nucleic_sugr = ['O3\'', 'O5\'', 'C5\'', 'C4\'', 'O4\'', 'C3\'', 'C2\'', 'C1\'', 'O2\'', 'CM2', 'H1\'', 'H2\'', 'H2\'\'',
+                'H3\'', 'H4\'', 'H5\'', 'H5\'\'', 'H3T', 'H5T']
 nucleic_pphte = ['P', 'O1P', 'O2P', 'OP1', 'OP2', 'PA', 'PB', 'O1A', 'O1B', 'O2A', 'O2B', 'O3A', 'O3B']
-bb_sc_colors = {**{_: 'r' for _ in amino_bbs}, **{_: 'y' for _ in amino_scs}, **{_: 'blue' for _ in nucleic_nbase}, **{_: 'purple' for _ in nucleic_sugr}, **{_: 'maroon' for _ in nucleic_pphte}}
+bb_sc_colors = {**{_: 'r' for _ in amino_bbs}, **{_: 'y' for _ in amino_scs}, **{_: 'blue' for _ in nucleic_nbase},
+                **{_: 'purple' for _ in nucleic_sugr}, **{_: 'maroon' for _ in nucleic_pphte}}
 
 
 def average_pairwise_distance(points):
@@ -142,9 +182,14 @@ def get_group_info(logs):
             classifs[atom['Index']] = 'na'
             # Add the index to the group list
             group.append(atom['Index'])
-        else:
+        elif atom['Residue'].lower() in sol_names:
             # Classify the atom as sol
             classifs[atom['Index']] = 'ho'
+        else:
+            # Classify the atom as other
+            classifs[atom['Index']] = 'other'
+            # Add the index to the group list
+            group.append(atom['Index'])
     
     # Return the stuff
     return classifs, set(group), logs_info, chains, resies
@@ -281,8 +326,8 @@ def get_rad_vals(aw_logs=None, pow_logs=None, output_folder=None, write_csv=Fals
                          'pow sol facing', 'pow aa facing', 'pow na facing', 'pow sep chain iface', 'pow sep res iface'])
             for spleesh in my_dict:
                 wc.writerow([my_dict[spleesh]['pow vol diff'], my_dict[spleesh]['element'], my_dict[spleesh]['name'],
-                             my_dict[spleesh]['residue'], my_dict[spleesh]['aw rad'], my_dict[spleesh]['pow sa'],
-                             my_dict[spleesh]['association'], my_dict[spleesh]['pow sphereicity'],
+                             my_dict[spleesh]['residue'], my_dict[spleesh]['rad'], my_dict[spleesh]['pow sa'],
+                             my_dict[spleesh]['association'], my_dict[spleesh]['pow sphericity'],
                              my_dict[spleesh]['pow sol facing'], my_dict[spleesh]['pow aa facing'],
                              my_dict[spleesh]['pow na facing'], my_dict[spleesh]['pow sep chain iface'],
                              my_dict[spleesh]['pow sep res iface']])
@@ -358,26 +403,27 @@ def plot_my_stuff(dict_file=None, file_name=''):
 
         for x_val in ['sphericity', 'vdw_volume']:
             my_res_dict, my_res_dict_no_h = {}, {}
-            for ass in ['na', 'aa']:
+            coords, coords_no_h = [], []
+            for ass in ['na', 'aa', 'other']:
                 # Now that we have everything information wise, we need to plot the stuff in a way that is good and we like to do
                 for i, entry in enumerate(my_dict):
                     if my_dict[entry]['association'] != ass:
                         continue
-
-
                     if x_val == 'sphericity':
                         s_diff = (my_dict[entry]['pow sphericity'] - my_dict[entry]['aw sphericity']) / my_dict[entry]['aw sphericity']
                     elif x_val == 'vdw_volume':
                         s_diff = my_dict[entry]['vdw vol']
                     vol_diff = (my_dict[entry]['pow vol'] - my_dict[entry]['aw vol']) / my_dict[entry]['aw vol']
-                    plt.scatter([s_diff], [vol_diff], marker='x' if my_dict[entry]['aw sol facing'] else 'o', c=colors[i],
-                                alpha=0.2)
+                    coords.append([s_diff, vol_diff])
+                    plt.scatter([s_diff], [vol_diff], marker='x' if my_dict[entry]['aw sol facing'] else 'o',
+                                c=colors[i], alpha=0.2)
 
                     if my_dict[entry]['residue'] in my_res_dict:
                         my_res_dict[my_dict[entry]['residue']].append((s_diff, vol_diff))
                     else:
                         my_res_dict[my_dict[entry]['residue']] = [(s_diff, vol_diff)]
                     if my_dict[entry]['element'].lower() != 'h':
+                        coords_no_h.append([s_diff, vol_diff])
                         if my_dict[entry]['residue'] in my_res_dict_no_h:
                             my_res_dict_no_h[my_dict[entry]['residue']].append((s_diff, vol_diff))
                         else:
@@ -448,13 +494,12 @@ def plot_my_stuff(dict_file=None, file_name=''):
                             element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
                                                 markerfacecolor='purple', label='Sugar', markersize=8))
                             added_groups.add('Sugar')
-                        elif name not in (amino_bbs + amino_scs + nucleic_nbase + nucleic_pphte + nucleic_sugr) and 'Other' not in added_groups:
-                            print(f'Unidentified atom name {name}\n')
-                            element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
-                                                markerfacecolor='gray', label='Other', markersize=8))
-                            added_groups.add('Other')
-                        else:
-                            print(f'Unidentified atom name {name}\n')
+                        elif name not in (amino_bbs + amino_scs + nucleic_nbase + nucleic_pphte + nucleic_sugr):
+                            print(f'Unidentified atom name {name}')
+                            if 'Other' not in added_groups:
+                                element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
+                                                    markerfacecolor='gray', label='Other', markersize=8))
+                                added_groups.add('Other')
 
                 # Get current figure and axes
                 fig = plt.gcf()
@@ -486,15 +531,36 @@ def plot_my_stuff(dict_file=None, file_name=''):
                 plt.yticks(fontsize=12)
                 # Create legend with two columns
                 plt.legend(handles=element_handles + marker_handles, ncol=2)
-                plt.title(f'{file_name} {ass}', fontsize=25)
+                plt.title(f'{file_name}', fontsize=25)
                 plt.tight_layout()
                 plt.show()
-            print("Average Pairwise Distance:\n")
-            for res in my_res_dict:
-                print(f"{res} = {average_pairwise_distance(my_res_dict[res])}")
-            print("Average Pairwise Distance (no H):\n")
-            for res in my_res_dict_no_h:
-                print(f"{res} = {average_pairwise_distance(my_res_dict_no_h[res])}")
+            if color_by == 'element':
+                my_residues = ['ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'GLY', 'HIS', 'ILE', 'LEU', 'LYS',
+                               'MET', 'PHE', 'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL', 'A', 'DA', 'T', 'DT', 'G', 'DG',
+                               'C', 'DC', 'U', 'DU', 'MOL']
+                print(ass)
+
+                for res in my_residues:
+                    if res in my_res_dict:
+                        print(res)
+                print("Average Pairwise Distance:")
+                for res in my_residues:
+                    if res in my_res_dict:
+                        print(f"{average_pairwise_distance(my_res_dict[res])}")
+                print("Average Pairwise Distance (no H):")
+                for res in my_residues:
+                    if res in my_res_dict:
+                        print(f"{average_pairwise_distance(my_res_dict_no_h[res])}")
+                den_rat = clustering_measures(coords, my_res_dict.values(), [_ for _ in my_res_dict], False)
+                print("Density Ratio")
+                for res in my_residues:
+                    if res in den_rat:
+                        print(f"{den_rat[res]}")
+                den_rat_no_h = clustering_measures(coords_no_h, my_res_dict_no_h.values(), [_ for _ in my_res_dict_no_h], False)
+                print("Density Ratio No H")
+                for res in my_residues:
+                    if res in den_rat_no_h:
+                        print(f"{den_rat_no_h[res]}")
     return my_dict
 
 
@@ -504,4 +570,4 @@ if __name__ == '__main__':
     root.wm_attributes('-topmost', 1)
     # my_file = filedialog.askopenfilename(title="Get CSV File")
     my_file = None
-    plot_my_stuff(dict_file=my_file, file_name='NCP')
+    plot_my_stuff(dict_file=my_file, file_name='Cambrin')

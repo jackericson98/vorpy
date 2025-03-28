@@ -70,6 +70,8 @@ ion_names = {
 
 residue_names = amino_names | nucleo_names | ion_names
 
+sol_names = {**{_: 'SOL' for _ in {'sol', 'hoh', 'h20'}}}
+
 residue_atoms = {
     'SOL': {'HW1', 'HW2', 'OW'},
     'NA':      {'NA'},                    # Sodium
