@@ -10,10 +10,9 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
 from System.system import System
-from System.Group.group import Group
-from Visualize.GUI.info.info_frame import SystemFrame
-from Visualize.GUI.settings.group_settings_frame import GroupSettingsFrame
-from Visualize.GUI.settings.surface.color_settings_window import ColorSettingsWindow
+from Visualize.GUI.system.info_frame import SystemFrame
+from Visualize.GUI.group.settings.group_settings_frame import GroupSettingsFrame
+from Visualize.GUI.group.settings.build.color_settings_window import ColorSettingsWindow
 from Visualize.GUI.help.help_window import HelpWindow
 
 """
