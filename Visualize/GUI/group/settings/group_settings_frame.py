@@ -1,7 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from Visualize.GUI.settings.build.build_frame import BuildFrame
-from Visualize.GUI.settings.export.export_frame import ExportFrame
+from Visualize.GUI.group.settings.build.build_frame import BuildFrame
+from Visualize.GUI.group.settings.export.export_frame import ExportFrame
+
 
 class GroupSettingsFrame(ttk.Frame):
     def __init__(self, parent, gui):
@@ -43,9 +44,9 @@ class GroupSettingsFrame(ttk.Frame):
         name_frame.grid_columnconfigure(2, weight=1)
         
         # Group name label and entry
-        ttk.Label(name_frame, text="Group Name:").grid(row=0, column=1, padx=5)
+        ttk.Label(name_frame, text="Group Name:").grid(row=0, column=0, padx=5, sticky='w')
         group_name_entry = ttk.Entry(name_frame, width=20)
-        group_name_entry.grid(row=0, column=2, padx=5)
+        group_name_entry.grid(row=0, column=1, columnspan=2, padx=5)
         group_name_entry.insert(0, group_name)
         
         # Save button
@@ -199,11 +200,7 @@ class GroupSettingsFrame(ttk.Frame):
                     tracking_text.insert(tk.END, f"{selection['type']}: {selection['start']}-{selection['end']}\n")
             
             tracking_text.config(state='disabled')
-            
-            # Clear entry boxes
-            start_entry.delete(0, tk.END)
-            end_entry.delete(0, tk.END)
-            
+
         except ValueError:
             messagebox.showerror("Invalid Input", "Please enter valid numbers for the range.")
     
@@ -260,4 +257,4 @@ class GroupSettingsFrame(ttk.Frame):
                 'selections': data['selections']
             }
             for group_name, data in self.group_settings.items()
-        } 
+        }

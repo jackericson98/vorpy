@@ -1,4 +1,3 @@
-import os
 import sys
 from pathlib import Path
 
@@ -8,7 +7,7 @@ sys.path.append(str(project_root))
 
 import tkinter as tk
 from tkinter import ttk
-from Visualize.GUI.settings.surface.color_settings_window import ColorSettingsWindow
+from Visualize.GUI.group.settings.build.color_settings_window import ColorSettingsWindow
 
 
 class BuildFrame(ttk.LabelFrame):
@@ -47,7 +46,7 @@ class BuildFrame(ttk.LabelFrame):
         
         ttk.Label(network_frame, text="Network Type:").pack(side="left")
         self.network_type = ttk.Combobox(network_frame, values=['aw', 'aw_vert', 'aw_edge'], state="readonly")
-        self.network_type.pack(side="left", padx=5)
+        self.network_type.pack(side="right", padx=5)
         self.network_type.set(self.settings['net_type'])
         self.network_type.bind('<<ComboboxSelected>>', self._on_network_type_change)
         
@@ -57,7 +56,7 @@ class BuildFrame(ttk.LabelFrame):
         
         ttk.Label(vertices_frame, text="Max Vertices:").pack(side="left")
         self.max_vertices = ttk.Entry(vertices_frame, width=10)
-        self.max_vertices.pack(side="left", padx=5)
+        self.max_vertices.pack(side="right", padx=5)
         self.max_vertices.insert(0, str(self.settings['max_vert']))
         self.max_vertices.bind('<KeyRelease>', self._on_max_vertices_change)
         
@@ -67,7 +66,7 @@ class BuildFrame(ttk.LabelFrame):
         
         ttk.Label(box_frame, text="Box Size:").pack(side="left")
         self.box_size = ttk.Entry(box_frame, width=10)
-        self.box_size.pack(side="left", padx=5)
+        self.box_size.pack(side="right", padx=5)
         self.box_size.insert(0, str(self.settings['box_size']))
         self.box_size.bind('<KeyRelease>', self._on_box_size_change)
         
