@@ -179,7 +179,7 @@ class System:
 
         # Set the name of the system
         if self.files['base_file'] is not None:
-            self.name = path.basename(self.files['base_file'])[:-4]
+            self.name = path.basename(self.files['base_file'])[:-4].capitalize()
         else:
             self.files['base_file'] = 'No File Loaded'
             self.name = self.files['base_file']
