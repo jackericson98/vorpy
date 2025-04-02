@@ -22,7 +22,7 @@ class BuildFrame(ttk.LabelFrame):
         self.settings = {
             'max_vert': 40,
             'box_size': 1.25,
-            'net_type': 'aw',
+            'net_type': 'Additively Weighted',
             'color_settings': {
                 'surf_col': 'plasma',
                 'surf_scheme': 'mean_curv',
@@ -45,7 +45,7 @@ class BuildFrame(ttk.LabelFrame):
         network_frame.pack(fill="x", padx=5, pady=5)
         
         ttk.Label(network_frame, text="Network Type:").pack(side="left")
-        self.network_type = ttk.Combobox(network_frame, values=['aw', 'aw_vert', 'aw_edge'], state="readonly")
+        self.network_type = ttk.Combobox(network_frame, values=['Additively Weighted', 'Power', 'Primitive'], state="readonly")
         self.network_type.pack(side="right", padx=5)
         self.network_type.set(self.settings['net_type'])
         self.network_type.bind('<<ComboboxSelected>>', self._on_network_type_change)

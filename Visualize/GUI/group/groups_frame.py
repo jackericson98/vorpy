@@ -84,28 +84,3 @@ class GroupsFrame:
         group_frame = ttk.Frame(self.group_notebook)
         self.group_notebook.add(group_frame, text=group.name)
 
-        # Network Type Dropdown
-        tk.Label(group_frame, text="Network Type", font=self.gui.fonts['class 2']).grid(row=0, column=0, sticky="w")
-        network_type = ttk.Combobox(group_frame, values=["Additively Weighted", "Power", "Primitive"])
-        network_type.set("Additively Weighted")
-        network_type.grid(row=0, column=1, sticky="w")
-
-        # Maximum Vertex
-        tk.Label(group_frame, text="Maximum Vertex", font=self.gui.fonts['class 2']).grid(row=1, column=0, sticky="w")
-        max_vertex = tk.Entry(group_frame)
-        max_vertex.insert(0, "15")
-        max_vertex.grid(row=1, column=1, sticky="w")
-
-        # Box Multiplier
-        tk.Label(group_frame, text="Box Multiplier", font=self.gui.fonts['class 2']).grid(row=2, column=0, sticky="w")
-        box_multiplier = tk.Entry(group_frame)
-        box_multiplier.insert(0, "1.25")
-        box_multiplier.grid(row=2, column=1, sticky="w")
-
-        # Atomic Radii/Masses Button
-        tk.Label(group_frame, text="Atomic Radii/Masses", font=self.gui.fonts['class 2']).grid(row=3, column=0, sticky="w")
-        tk.Button(group_frame, text="Open", command=self.gui.open_atomic_radii_gui).grid(row=3, column=1, sticky="w")
-
-        # Surface Settings Button
-        tk.Label(group_frame, text="Surface Settings", font=self.gui.fonts['class 2']).grid(row=4, column=0, sticky="w")
-        tk.Button(group_frame, text="Change", command=self.gui.open_surface_settings_gui).grid(row=4, column=1, sticky="w")

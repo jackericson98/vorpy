@@ -76,8 +76,8 @@ class SystemFrame:
         if filename:
             self.gui.ball_file = filename
             self.gui.sys.ball_file = filename
-            self.gui.sys.name = os.path.basename(filename)  # Update system name to filename
-            self.system_name.set(self.gui.sys.name)  # Update the display
+            self.gui.sys.load_sys(filename)
+            self.system_name.set(self.gui.sys.name.capitalize())  # Update the display
             
             # Truncate the filename display with ellipses in the middle
             if len(filename) > 50:
