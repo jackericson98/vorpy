@@ -1,21 +1,22 @@
 import os
 import sys
-
-# Add the project root directory to the Python path
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../"))
-sys.path.append(project_root)
-
 import csv
 import tkinter as tk
 from tkinter import filedialog
 import numpy as np
 import matplotlib.pyplot as plt
-from Data.Analyze.tools.compare.read_logs2 import read_logs2
-from System.chemistry_interpreter import amino_names, nucleo_names, ion_names, sol_names
-from System.sys_objs.atom import get_element
 from matplotlib import colormaps
 from scipy.spatial import distance_matrix, ConvexHull
 from sklearn.metrics import silhouette_score
+import matplotlib.patches as patches
+
+# Add the project root directory to the Python path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../"))
+sys.path.append(project_root)
+
+from Data.Analyze.tools.compare.read_logs2 import read_logs2
+from System.chemistry_interpreter import amino_names, nucleo_names, ion_names, sol_names
+from System.sys_objs.atom import get_element
 
 
 def clustering_measures(full_coords, subsets, names, print_info=False):
@@ -128,9 +129,9 @@ amino_scs = ['CB', 'HB', 'HB1', 'HB2', 'HB3',
              'NZ', 'CZ', 'CZ1', 'CZ2', 'CZ3', 'NZ', 'HZ', 'HZ1', 'HZ2', 'HZ3']
 
 nucleic_nbase = ['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7', 'N8', 'N9', 'C2', 'C4', 'C5', 'C6', 'C7', 'C8', 'O2', 'O4',
-                 'O6', 'H2', 'H21', 'H22', 'H3', 'H4', 'H41', 'H42', 'H5', 'H6', 'H61', 'H62', 'H8']
+                 'O6', 'H2', 'H21', 'H22', 'H3', 'H4', 'H41', 'H42', 'H5', 'H6', 'H61', 'H62', 'H8', 'H71', 'H72', 'H73']
 nucleic_sugr = ['O3\'', 'O5\'', 'C5\'', 'C4\'', 'O4\'', 'C3\'', 'C2\'', 'C1\'', 'O2\'', 'CM2', 'H1\'', 'H2\'', 'H2\'\'',
-                'H3\'', 'H4\'', 'H5\'', 'H5\'\'', 'H3T', 'H5T']
+                'H3\'', 'H4\'', 'H5\'', 'H5\'\'', 'H3T', 'H5T', 'H2\'1', 'H2\'2', 'H5\'1', 'H5\'2']
 nucleic_pphte = ['P', 'O1P', 'O2P', 'OP1', 'OP2', 'PA', 'PB', 'O1A', 'O1B', 'O2A', 'O2B', 'O3A', 'O3B']
 bb_sc_colors = {**{_: 'r' for _ in amino_bbs}, **{_: 'y' for _ in amino_scs}, **{_: 'blue' for _ in nucleic_nbase},
                 **{_: 'purple' for _ in nucleic_sugr}, **{_: 'maroon' for _ in nucleic_pphte}}
@@ -188,6 +189,7 @@ def get_group_info(logs):
         else:
             # Classify the atom as other
             classifs[atom['Index']] = 'other'
+            print(f"Other Atom - Res: {atom['Residue']}, Name: {atom['Name']}")
             # Add the index to the group list
             group.append(atom['Index'])
     
@@ -365,6 +367,53 @@ def get_dict_from_file(file):
     return my_dict, output_folder
 
 
+def get_rects(dictin, combine_per=95):
+    # Looking to put the coordinates in their bounding boxes and combine boxes if they overlap. We want to return three lists:
+    # names, coordinates, and bounding boxes.
+
+    for entry in dictin:
+        # Get the coords
+        coords = dictin[entry]
+        # Get the bounding box
+        bbox = [[min([_[0] for _ in coords]), min([_[1] for _ in coords])],
+                [max([_[0] for _ in coords]), max([_[1] for _ in coords])]]
+        # Add the box to the dictin
+        dictin[entry] = {'bbox': bbox, 'coords': coords, 'olap_keys': []}
+
+    # Create the is_inside function
+    def is_inside(point, my_bbox):
+        # Check if the point is inside
+        return my_bbox[0][0] <= point[0] <= my_bbox[1][0] and my_bbox[0][1] <= point[1] <= my_bbox[1][1]
+
+    # Loop through the entries again to find overlaps
+    for entry in dictin:
+        for entry2 in dictin:
+            if entry == entry2:
+                continue
+            per = 100 * len([_ for _ in dictin[entry2]['coords'] if is_inside(_, dictin[entry]['bbox'])]) / len(
+                dictin[entry2]['coords'])
+            if per > combine_per:
+                dictin[entry]['olap_keys'].append(entry2)
+
+    # Merge overlapping bounding boxes
+    merged_names = []
+    merged_coords = []
+    merged_bboxes = []
+    added_vals = []
+    for entry in dictin:
+        if entry in added_vals:
+            continue
+        new_addys = [_ for _ in dictin[entry]['olap_keys'] if _ not in added_vals]
+        added_vals += new_addys
+        merged_names.append([entry] + new_addys)
+        merged_coords.append([dictin[entry]['coords']] + [dictin[_]['coords'] for _ in new_addys])
+        all_bboxes = [dictin[entry]['bbox']] + [dictin[_]['bbox'] for _ in new_addys]
+        new_bbox = [[min([_[0][0] for _ in all_bboxes]), min([_[0][1] for _ in all_bboxes])], [max([_[1][0] for _ in all_bboxes]), max([_[1][1] for _ in all_bboxes])]]
+        merged_bboxes.append(new_bbox)
+
+    return merged_names, merged_coords, merged_bboxes
+
+
 def plot_my_stuff(dict_file=None, file_name=''):
     """
     Plots my stuff
@@ -376,22 +425,7 @@ def plot_my_stuff(dict_file=None, file_name=''):
     # If no file is specified
     else:
         my_dict, output_folder = get_rad_vals(write_csv=True)
-    # create the groupings
-    carbon_groupings = {0.025: {}, 0.05: {}, 0.075: {}, 0.1: {}, 0.125: {}, 0.157: {}, 0.2: {}, 0.5: {}}
-    nitrogen_groupings = {-0.075: {}, -0.0325: {}, 0.05: {}, 0.5: {}}
-    oxygen_groupings = {-0.04: {}, -0.01: {}, 0.05: {}, 0.5: {}}
 
-    def add_key_grouping(entry, dictionary, s_diff):
-        # Record the values
-        for grouping in dictionary:
-            if s_diff < grouping:
-                my_key = entry['name'] + '_' + entry['residue']
-                if my_key in dictionary[grouping]:
-                    dictionary[grouping][my_key] += 1
-                else:
-                    dictionary[grouping][my_key] = 1
-                return dictionary
-        return dictionary
     for color_by in ['element', 'residue', 'bb_sc']:
         if color_by == 'element':
             color_dict = {'C': 'grey', 'O': 'r', 'N': 'b', 'P': 'darkorange', 'H': 'pink', 'S': 'y', 'Se': 'sandybrown'}
@@ -400,11 +434,16 @@ def plot_my_stuff(dict_file=None, file_name=''):
             colors = [residue_colors[my_dict[entry]['residue']] for entry in my_dict]
         elif color_by == 'bb_sc':
             colors = [bb_sc_colors[my_dict[entry]['name']] if my_dict[entry]['name'] in bb_sc_colors else 'black' for entry in my_dict]
-
+        sphere_groupings = {}
+        vdw_groupings = {}
         for x_val in ['sphericity', 'vdw_volume']:
+            # Set up the res dictionaries
             my_res_dict, my_res_dict_no_h = {}, {}
             coords, coords_no_h = [], []
             for ass in ['na', 'aa', 'other']:
+
+                # Plot the rectangles
+                fig, ax = plt.subplots()
                 # Now that we have everything information wise, we need to plot the stuff in a way that is good and we like to do
                 for i, entry in enumerate(my_dict):
                     if my_dict[entry]['association'] != ass:
@@ -415,7 +454,16 @@ def plot_my_stuff(dict_file=None, file_name=''):
                         s_diff = my_dict[entry]['vdw vol']
                     vol_diff = (my_dict[entry]['pow vol'] - my_dict[entry]['aw vol']) / my_dict[entry]['aw vol']
                     coords.append([s_diff, vol_diff])
-                    plt.scatter([s_diff], [vol_diff], marker='x' if my_dict[entry]['aw sol facing'] else 'o',
+                    label = (my_dict[entry]['residue'], my_dict[entry]['name'])
+                    if x_val == 'sphericity':
+                        dictalonius = sphere_groupings
+                    else:
+                        dictalonius = vdw_groupings
+                    if label in dictalonius:
+                        dictalonius[label].append([s_diff, vol_diff])
+                    else:
+                        dictalonius[label] = [[s_diff, vol_diff]]
+                    ax.scatter([s_diff], [vol_diff], marker='x' if my_dict[entry]['aw sol facing'] else 'o',
                                 c=colors[i], alpha=0.2)
 
                     if my_dict[entry]['residue'] in my_res_dict:
@@ -428,13 +476,22 @@ def plot_my_stuff(dict_file=None, file_name=''):
                             my_res_dict_no_h[my_dict[entry]['residue']].append((s_diff, vol_diff))
                         else:
                             my_res_dict_no_h[my_dict[entry]['residue']] = [(s_diff, vol_diff)]
+                # Plot the rectangles
+                # to_merges, all_coordss, bboxs = get_rects(dictalonius)
+                umpsct = get_rects(dictalonius)
+                to_merges, all_coordss, bboxs = umpsct
 
-                    if my_dict[entry]['element'] == 'C':
-                        carbon_groupings = add_key_grouping(my_dict[entry], carbon_groupings, s_diff)
-                    if my_dict[entry]['element'] == 'N':
-                        nitrogen_groupings = add_key_grouping(my_dict[entry], nitrogen_groupings, s_diff)
-                    if my_dict[entry]['element'] == 'O':
-                        oxygen_groupings = add_key_grouping(my_dict[entry], oxygen_groupings, s_diff)
+                for i, bbox in enumerate(bboxs):
+                    xmin, xmax = bbox[0]
+                    ymin, ymax = bbox[1]
+                    print(bbox)
+
+                    width, height = xmax - xmin, ymax - ymin
+
+                    print(f"Cluster {i}, Names: {to_merges[i]}, Num Points = {len(all_coordss[i])}, Size (wxh) = {width}x{height}, Location = "
+                          f"{round(xmin + 0.5 * width, 2)}, {round(ymin + 0.5 * height)}")
+                    rect = patches.Rectangle((xmin, ymin), width, height, linewidth=1, facecolor='none')
+                    ax.add_patch(rect)
 
                 if x_val == 'sphericity':
                     plt.xlabel('Sphericity Difference')
@@ -570,4 +627,4 @@ if __name__ == '__main__':
     root.wm_attributes('-topmost', 1)
     # my_file = filedialog.askopenfilename(title="Get CSV File")
     my_file = None
-    plot_my_stuff(dict_file=my_file, file_name='Cambrin')
+    plot_my_stuff(dict_file=my_file, file_name='NCP')
