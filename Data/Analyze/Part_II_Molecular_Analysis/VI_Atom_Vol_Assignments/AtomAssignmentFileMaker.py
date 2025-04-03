@@ -189,7 +189,7 @@ def get_group_info(logs):
         else:
             # Classify the atom as other
             classifs[atom['Index']] = 'other'
-            print(f"Other Atom - Res: {atom['Residue']}, Name: {atom['Name']}")
+            # print(f"Other Atom - Res: {atom['Residue']}, Name: {atom['Name']}")
             # Add the index to the group list
             group.append(atom['Index'])
     
@@ -367,18 +367,36 @@ def get_dict_from_file(file):
     return my_dict, output_folder
 
 
-def get_rects(dictin, combine_per=95):
+def get_rects(dictin, combine_per=95, cushion_per=2, print_info=True, ):
     # Looking to put the coordinates in their bounding boxes and combine boxes if they overlap. We want to return three lists:
     # names, coordinates, and bounding boxes.
 
+    # Set up the initial bbox
+    my_bbox = [[np.inf, np.inf], [-np.inf, -np.inf]]
+    # Get the full bounding box
+    for entry in dictin:
+        # Loop through the coordinates in the entry
+        for coord in dictin[entry]:
+            # Set the bounding box
+            my_bbox = [[min(my_bbox[0][0], coord[0]), min(my_bbox[0][1], coord[1])],
+                       [max(my_bbox[1][0], coord[0]), max(my_bbox[1][1], coord[1])]]
+    # Get the total width and height of the bbox
+    fw, fh = my_bbox[1][0] - my_bbox[0][0], my_bbox[1][1] - my_bbox[0][1]
+
+    # Get the cushion
+    cush = (cushion_per / 100) * fw, (cushion_per / 100) * fh
+    # Create a new dictionary
+    new_dictin = {}
+    # Loop through the preset groups
     for entry in dictin:
         # Get the coords
         coords = dictin[entry]
-        # Get the bounding box
-        bbox = [[min([_[0] for _ in coords]), min([_[1] for _ in coords])],
-                [max([_[0] for _ in coords]), max([_[1] for _ in coords])]]
+        # Get the bounding box and add the cushion
+        bbox = [[min([_[0] for _ in coords]) - cush[0], min([_[1] for _ in coords]) - cush[0]],
+                [max([_[0] for _ in coords]) + cush[1], max([_[1] for _ in coords]) + cush[1]]]
+
         # Add the box to the dictin
-        dictin[entry] = {'bbox': bbox, 'coords': coords, 'olap_keys': []}
+        new_dictin[entry] = {'bbox': bbox, 'coords': coords, 'olap_keys': []}
 
     # Create the is_inside function
     def is_inside(point, my_bbox):
@@ -386,32 +404,133 @@ def get_rects(dictin, combine_per=95):
         return my_bbox[0][0] <= point[0] <= my_bbox[1][0] and my_bbox[0][1] <= point[1] <= my_bbox[1][1]
 
     # Loop through the entries again to find overlaps
-    for entry in dictin:
-        for entry2 in dictin:
+    for entry in new_dictin:
+        for entry2 in new_dictin:
             if entry == entry2:
                 continue
-            per = 100 * len([_ for _ in dictin[entry2]['coords'] if is_inside(_, dictin[entry]['bbox'])]) / len(
-                dictin[entry2]['coords'])
+            per = 100 * len([_ for _ in new_dictin[entry2]['coords'] if is_inside(_, new_dictin[entry]['bbox'])]) / len(
+                new_dictin[entry2]['coords'])
             if per > combine_per:
-                dictin[entry]['olap_keys'].append(entry2)
+                new_dictin[entry]['olap_keys'].append(entry2)
+
+    # Sort the dictin by the number of overlaps
+    nw_dictin = dict(sorted(new_dictin.items(), key=lambda item: len(item[1]['olap_keys']), reverse=True))
 
     # Merge overlapping bounding boxes
-    merged_names = []
-    merged_coords = []
-    merged_bboxes = []
-    added_vals = []
-    for entry in dictin:
+    merged_names, merged_coords, merged_bboxes, added_vals = [], [], [], []
+    # Loop through the new sorted dictionary
+    for entry in nw_dictin:
+        # Check to see if the group has been merged yet
         if entry in added_vals:
             continue
-        new_addys = [_ for _ in dictin[entry]['olap_keys'] if _ not in added_vals]
+        # Find the overlaps that arent in another group
+        new_addys = [_ for _ in nw_dictin[entry]['olap_keys'] if _ not in added_vals]
+        # Store the new values so we can know which groups to skip later
         added_vals += new_addys
+        # Make sure the group stores all names in the new dictionary
         merged_names.append([entry] + new_addys)
-        merged_coords.append([dictin[entry]['coords']] + [dictin[_]['coords'] for _ in new_addys])
-        all_bboxes = [dictin[entry]['bbox']] + [dictin[_]['bbox'] for _ in new_addys]
-        new_bbox = [[min([_[0][0] for _ in all_bboxes]), min([_[0][1] for _ in all_bboxes])], [max([_[1][0] for _ in all_bboxes]), max([_[1][1] for _ in all_bboxes])]]
+        # Merge the set of coordinates
+        merged_coords.append([nw_dictin[entry]['coords']] + [nw_dictin[_]['coords'] for _ in new_addys])
+        # Add the bboxes together to find the new bbox
+        all_bboxes = [nw_dictin[entry]['bbox']] + [nw_dictin[_]['bbox'] for _ in new_addys]
+        # Find the maximum of all the bboxes to get the new bounding box
+        new_bbox = [[min([_[0][0] for _ in all_bboxes]) + cush[0], min([_[0][1] for _ in all_bboxes]) + cush[1]],
+                    [max([_[1][0] for _ in all_bboxes]) - cush[0], max([_[1][1] for _ in all_bboxes]) - cush[1]]]
+        # Store the bbox
         merged_bboxes.append(new_bbox)
-
+    if print_info:
+        for i in range(len(merged_names)):
+            print(f"Cluster=r: {len(merged_names)}, Count: {len(merged_coords[i])}, Names: {merged_names[i]}")
+    # Return the bbox
     return merged_names, merged_coords, merged_bboxes
+
+
+def get_convex_hulls(dictin, combine_per=95, cushion_per=2, print_info=True, outlier_thresh=3.0):
+    my_bbox = [[np.inf, np.inf], [-np.inf, -np.inf]]
+    my_coords = []
+
+    for entry in dictin:
+        for coord in dictin[entry]:
+            my_bbox = [[min(my_bbox[0][0], coord[0]), min(my_bbox[0][1], coord[1])],
+                       [max(my_bbox[1][0], coord[0]), max(my_bbox[1][1], coord[1])]]
+            my_coords.append(coord)
+
+    fw, fh = my_bbox[1][0] - my_bbox[0][0], my_bbox[1][1] - my_bbox[0][1]
+    new_dictin = {}
+
+    for entry in dictin:
+        coords = np.array(dictin[entry])
+
+        if len(coords) >= 3:
+            center = np.mean(coords, axis=0)
+            dists = np.linalg.norm(coords - center, axis=1)
+            threshold = np.mean(dists) + outlier_thresh * np.std(dists)
+            coords = coords[dists <= threshold]
+
+        if len(coords) < 3:
+            hull_points = coords
+        else:
+            hull = ConvexHull(coords)
+            hull_points = coords[hull.vertices]
+            center = np.mean(hull_points, axis=0)
+            hull_points = center + (hull_points - center) * (1 + cushion_per / 100)
+            hull_points = np.vstack([hull_points, hull_points[0]])
+
+        new_dictin[entry] = {'hull': hull_points, 'coords': coords, 'olap_keys': []}
+
+    def is_inside(point, hull_points):
+        from matplotlib.path import Path
+        return Path(hull_points).contains_point(point)
+
+    for entry in new_dictin:
+        for entry2 in new_dictin:
+            if entry == entry2:
+                continue
+            per = 100 * len([_ for _ in new_dictin[entry2]['coords'] if is_inside(_, new_dictin[entry]['hull'])]) / len(
+                new_dictin[entry2]['coords'])
+            if per > combine_per:
+                new_dictin[entry]['olap_keys'].append(entry2)
+
+    nw_dictin = dict(sorted(new_dictin.items(), key=lambda item: len(item[1]['olap_keys']), reverse=True))
+    merged_names, merged_coords, merged_hulls, added_vals = [], [], [], []
+
+    for entry in nw_dictin:
+        if entry in added_vals:
+            continue
+        new_addys = [_ for _ in nw_dictin[entry]['olap_keys'] if _ not in added_vals]
+        added_vals += new_addys
+
+        merged_names.append([entry] + new_addys)
+        merged_coords.append(np.vstack([nw_dictin[entry]['coords']] + [nw_dictin[_]['coords'] for _ in new_addys]))
+        all_points = np.vstack([nw_dictin[entry]['coords']] + [nw_dictin[_]['coords'] for _ in new_addys])
+
+        if len(all_points) >= 3:
+            center = np.mean(all_points, axis=0)
+            dists = np.linalg.norm(all_points - center, axis=1)
+            threshold = np.mean(dists) + outlier_thresh * np.std(dists)
+            all_points = all_points[dists <= threshold]
+
+        if len(all_points) < 3:
+            merged_hull = all_points
+            area = 0
+        else:
+            hull = ConvexHull(all_points)
+            merged_hull = all_points[hull.vertices]
+            area = hull.volume
+            center = np.mean(merged_hull, axis=0)
+            merged_hull = center + (merged_hull - center) * (1 + cushion_per / 100)
+            merged_hull = np.vstack([merged_hull, merged_hull[0]])
+
+        merged_hulls.append(merged_hull)
+
+    if print_info:
+        for i in range(len(merged_names)):
+            name_counts = {name: len(dictin[name]) for name in merged_names[i]}
+            name_counts_str = ", ".join(f"{name} ({count})" for name, count in name_counts.items())
+            print(
+                f"Cluster: {i + 1}, Count: {len(merged_coords[i])}, Names: {name_counts_str}, Area: {ConvexHull(merged_coords[i]).volume if len(merged_coords[i]) >= 3 else 0}")
+
+    return merged_names, merged_coords, merged_hulls
 
 
 def plot_my_stuff(dict_file=None, file_name=''):
@@ -434,35 +553,44 @@ def plot_my_stuff(dict_file=None, file_name=''):
             colors = [residue_colors[my_dict[entry]['residue']] for entry in my_dict]
         elif color_by == 'bb_sc':
             colors = [bb_sc_colors[my_dict[entry]['name']] if my_dict[entry]['name'] in bb_sc_colors else 'black' for entry in my_dict]
-        sphere_groupings = {}
-        vdw_groupings = {}
+        # Create the dictionary for the sphericity and vdw vol groupings
+        sphere_groupings, vdw_groupings = {}, {}
+        # Go through the two different plotting x axes
         for x_val in ['sphericity', 'vdw_volume']:
-            # Set up the res dictionaries
-            my_res_dict, my_res_dict_no_h = {}, {}
-            coords, coords_no_h = [], []
+            # Set up the res dictionaries and the coordinates lists
+            my_res_dict, my_res_dict_no_h, coords, coords_no_h = {}, {}, [], []
+            # Plot the different types of possible assignments for the atoms
             for ass in ['na', 'aa', 'other']:
-
+                dictalonius = {}
                 # Plot the rectangles
                 fig, ax = plt.subplots()
-                # Now that we have everything information wise, we need to plot the stuff in a way that is good and we like to do
+                # Go through the entries in the dictionary to get the information to plot
                 for i, entry in enumerate(my_dict):
+                    # Check that the association makes sense
                     if my_dict[entry]['association'] != ass:
                         continue
+
+                    # Get the x value for the set plotting x axis and choose the correct dictionary
                     if x_val == 'sphericity':
                         s_diff = (my_dict[entry]['pow sphericity'] - my_dict[entry]['aw sphericity']) / my_dict[entry]['aw sphericity']
-                    elif x_val == 'vdw_volume':
-                        s_diff = my_dict[entry]['vdw vol']
-                    vol_diff = (my_dict[entry]['pow vol'] - my_dict[entry]['aw vol']) / my_dict[entry]['aw vol']
-                    coords.append([s_diff, vol_diff])
-                    label = (my_dict[entry]['residue'], my_dict[entry]['name'])
-                    if x_val == 'sphericity':
                         dictalonius = sphere_groupings
                     else:
+                        s_diff = my_dict[entry]['vdw vol']
                         dictalonius = vdw_groupings
+                    # Get the y value or the volume difference
+                    vol_diff = (my_dict[entry]['pow vol'] - my_dict[entry]['aw vol']) / my_dict[entry]['aw vol']
+                    # Add the coordinates to the list for later reference
+                    coords.append([s_diff, vol_diff])
+
+                    # Create a label for later grouping
+                    label = (my_dict[entry]['residue'], my_dict[entry]['name'])
+                    # Add the value to the high specificity group (res, name)
                     if label in dictalonius:
                         dictalonius[label].append([s_diff, vol_diff])
                     else:
                         dictalonius[label] = [[s_diff, vol_diff]]
+
+                    # Plot the values
                     ax.scatter([s_diff], [vol_diff], marker='x' if my_dict[entry]['aw sol facing'] else 'o',
                                 c=colors[i], alpha=0.2)
 
@@ -476,22 +604,6 @@ def plot_my_stuff(dict_file=None, file_name=''):
                             my_res_dict_no_h[my_dict[entry]['residue']].append((s_diff, vol_diff))
                         else:
                             my_res_dict_no_h[my_dict[entry]['residue']] = [(s_diff, vol_diff)]
-                # Plot the rectangles
-                # to_merges, all_coordss, bboxs = get_rects(dictalonius)
-                umpsct = get_rects(dictalonius)
-                to_merges, all_coordss, bboxs = umpsct
-
-                for i, bbox in enumerate(bboxs):
-                    xmin, xmax = bbox[0]
-                    ymin, ymax = bbox[1]
-                    print(bbox)
-
-                    width, height = xmax - xmin, ymax - ymin
-
-                    print(f"Cluster {i}, Names: {to_merges[i]}, Num Points = {len(all_coordss[i])}, Size (wxh) = {width}x{height}, Location = "
-                          f"{round(xmin + 0.5 * width, 2)}, {round(ymin + 0.5 * height)}")
-                    rect = patches.Rectangle((xmin, ymin), width, height, linewidth=1, facecolor='none')
-                    ax.add_patch(rect)
 
                 if x_val == 'sphericity':
                     plt.xlabel('Sphericity Difference')
@@ -557,14 +669,13 @@ def plot_my_stuff(dict_file=None, file_name=''):
                                 element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
                                                     markerfacecolor='gray', label='Other', markersize=8))
                                 added_groups.add('Other')
+                to_merges, all_coordss, bboxs = get_convex_hulls(dictalonius, cushion_per=10, combine_per=50)
 
-                # Get current figure and axes
-                fig = plt.gcf()
-                ax = plt.gca()
-
-                # Adjust the plot area to make room for legend
-                box = ax.get_position()
-                ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+                for i, bbox in enumerate(bboxs):
+                    #     # # plot the rectangle
+                    #     # verts = [bbox[0], [bbox[0][0], bbox[1][1]], bbox[1], [bbox[1][0], bbox[0][1]], bbox[0]]
+                    #     # ax.plot([_[0] for _ in verts], [_[1] for _ in verts])
+                    ax.plot([_[0] for _ in bbox], [_[1] for _ in bbox], linewidth=1)
 
                 # Place legend to the right of the plot
                 if len(element_handles) > 30:
@@ -581,6 +692,8 @@ def plot_my_stuff(dict_file=None, file_name=''):
                     plt.scatter([], [], marker='x', color='black', label='Sol Facing', s=75),
                     plt.scatter([], [], marker='o', color='black', label='Not Sol Facing', s=75)
                 ]
+
+
                 # Increase font size of axis labels, ticks and title
                 plt.xlabel(plt.gca().get_xlabel(), fontsize=20)
                 plt.ylabel(plt.gca().get_ylabel(), fontsize=20)
@@ -591,6 +704,7 @@ def plot_my_stuff(dict_file=None, file_name=''):
                 plt.title(f'{file_name}', fontsize=25)
                 plt.tight_layout()
                 plt.show()
+
             if color_by == 'element':
                 my_residues = ['ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'GLY', 'HIS', 'ILE', 'LEU', 'LYS',
                                'MET', 'PHE', 'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL', 'A', 'DA', 'T', 'DT', 'G', 'DG',
