@@ -445,7 +445,7 @@ def get_rects(dictin, combine_per=95, cushion_per=2, print_info=True, ):
     return merged_names, merged_coords, merged_bboxes
 
 
-def get_convex_hulls(dictin, combine_per=95, cushion_per=2, print_info=True, outlier_thresh=3.0):
+def get_convex_hulls(dictin, combine_per=95, cushion_per=2, print_info=True, outlier_thresh=3.0, make_csv=False):
     my_bbox = [[np.inf, np.inf], [-np.inf, -np.inf]]
     my_coords = []
 
@@ -527,8 +527,8 @@ def get_convex_hulls(dictin, combine_per=95, cushion_per=2, print_info=True, out
         for i in range(len(merged_names)):
             name_counts = {name: len(dictin[name]) for name in merged_names[i]}
             name_counts_str = ", ".join(f"{name} ({count})" for name, count in name_counts.items())
-            print(
-                f"Cluster: {i + 1}, Count: {len(merged_coords[i])}, Names: {name_counts_str}, Area: {ConvexHull(merged_coords[i]).volume if len(merged_coords[i]) >= 3 else 0}")
+            print(f"Cluster: {i + 1}, Count: {len(merged_coords[i])}, Names: {name_counts_str}, "
+                  f"Area: {ConvexHull(merged_coords[i]).volume if len(merged_coords[i]) >= 3 else 0}")
 
     return merged_names, merged_coords, merged_hulls
 
