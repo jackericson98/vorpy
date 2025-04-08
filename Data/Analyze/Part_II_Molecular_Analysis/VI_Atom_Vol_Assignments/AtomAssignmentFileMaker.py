@@ -17,6 +17,7 @@ sys.path.append(project_root)
 from Data.Analyze.tools.compare.read_logs2 import read_logs2
 from System.chemistry_interpreter import amino_names, nucleo_names, ion_names, sol_names
 from System.sys_objs.atom import get_element
+from System.sys_funcs.calcs.calcs import calc_com
 
 
 def clustering_measures(full_coords, subsets, names, print_info=False):
@@ -266,6 +267,7 @@ def get_atoms_info(aw_logs, pow_logs, classifs, chains, resies):
             'pow sphericity': pow_atom['Sphericity'],
             'pow sphereicity diff': (pow_atom['Sphericity'] - aw_atom['Sphericity']) / aw_atom['Sphericity'],
             'aw sphereicity diff': (aw_atom['Sphericity'] - pow_atom['Sphericity']) / pow_atom['Sphericity'],
+            'pow nbors': pow_atom['Neighbors'],
             'aw sol facing': any([_ == 'ho' for _ in aw_nbors_assns]),
             'pow sol facing': any([_ == 'ho' for _ in pow_nbors_assns]),
             'aw aa facing': any([_ == 'aa' for _ in aw_nbors_assns]),
@@ -301,18 +303,22 @@ def get_rad_vals(aw_logs=None, pow_logs=None, output_folder=None, write_csv=Fals
     # Get the atom dictionary
     my_dict = get_atoms_info(aw_logs_info, pow_logs_info, classifications, chains, resies)
     # Get information on the whole molecule
+    return my_dict, output_folder
 
+
+def write_files(my_dict, output_folder=None, write_csv=False, ):
     # If write csv is chosen do it in the output folder
     if write_csv:
         with open(output_folder + '/atomic_comparisons.csv', 'w') as writing_file:
             wc = csv.writer(writing_file, lineterminator='\n')
-            wc.writerow(['Index', 'element', 'name', 'residue', 'residue sequence', 'vdw vol', 'aw rad', 'aw vol',
-                         'pow vol', 'pow vol diff', 'aw vol diff', 'aw sa', 'pow sa', 'association', 'aw sphericity',
-                         'pow sphericity', 'pow sphereicity diff', 'aw sphereicity diff', 'aw sol facing',
-                         'pow sol facing', 'aw aa facing', 'pow aa facing', 'aw na facing', 'pow na facing',
-                         'aw sep chain iface', 'pow sep chain iface', 'aw sep res iface', 'pow sep res iface'])
+            labels = ['Index', 'vdw group', 'sphere group', 'element', 'name', 'residue', 'residue sequence', 'vdw vol',
+                      'rad', 'aw vol', 'pow vol', 'pow vol diff', 'aw vol diff', 'aw sa', 'pow sa', 'association',
+                      'aw sphericity', 'pow sphericity', 'pow sphereicity diff', 'aw sphereicity diff', 'aw sol facing',
+                      'pow sol facing', 'aw aa facing', 'pow aa facing', 'aw na facing', 'pow na facing',
+                      'aw sep chain iface', 'pow sep chain iface', 'aw sep res iface', 'pow sep res iface']
+            wc.writerow(labels)
             for spleesh in my_dict:
-                wc.writerow(my_dict[spleesh].values())
+                wc.writerow([my_dict[spleesh][_] for _ in labels])
         with open(output_folder + '/atomic_comparisons_simple.csv', 'w') as writing_file:
             wc = csv.writer(writing_file, lineterminator='\n')
             wc.writerow(['Index', 'name', 'residue', 'residue sequence', 'pow vol diff', 'aw vol diff',
@@ -324,15 +330,17 @@ def get_rad_vals(aw_logs=None, pow_logs=None, output_folder=None, write_csv=Fals
                              my_dict[spleesh]['aw sphereicity diff'], my_dict[spleesh]['vdw vol']])
         with open(output_folder + '/pow_model_training.csv', 'w') as writing_file:
             wc = csv.writer(writing_file, lineterminator='\n')
-            wc.writerow(['pow vol diff', 'element', 'name', 'residue', 'rad', 'pow sa', 'association', 'pow sphericity',
-                         'pow sol facing', 'pow aa facing', 'pow na facing', 'pow sep chain iface', 'pow sep res iface'])
+            wc.writerow(['aw vol', 'cluster', 'pow vol', 'vdw vol', 'element', 'name', 'pow nbors', 'residue', 'rad',
+                         'pow sa', 'association', 'pow sphericity', 'pow sol facing', 'pow aa facing', 'pow na facing',
+                         'pow sep chain iface', 'pow sep res iface'])
             for spleesh in my_dict:
-                wc.writerow([my_dict[spleesh]['pow vol diff'], my_dict[spleesh]['element'], my_dict[spleesh]['name'],
-                             my_dict[spleesh]['residue'], my_dict[spleesh]['rad'], my_dict[spleesh]['pow sa'],
-                             my_dict[spleesh]['association'], my_dict[spleesh]['pow sphericity'],
-                             my_dict[spleesh]['pow sol facing'], my_dict[spleesh]['pow aa facing'],
-                             my_dict[spleesh]['pow na facing'], my_dict[spleesh]['pow sep chain iface'],
-                             my_dict[spleesh]['pow sep res iface']])
+                wc.writerow([my_dict[spleesh]['aw vol'], my_dict[spleesh]['vdw group'], my_dict[spleesh]['pow vol'],
+                             my_dict[spleesh]['vdw vol'], my_dict[spleesh]['element'], my_dict[spleesh]['name'],
+                             len(my_dict[spleesh]['pow nbors']), my_dict[spleesh]['residue'], my_dict[spleesh]['rad'],
+                             my_dict[spleesh]['pow sa'], my_dict[spleesh]['association'],
+                             my_dict[spleesh]['pow sphericity'], my_dict[spleesh]['pow sol facing'],
+                             my_dict[spleesh]['pow aa facing'], my_dict[spleesh]['pow na facing'],
+                             my_dict[spleesh]['pow sep chain iface'], my_dict[spleesh]['pow sep res iface']])
 
     # return the dictionary
     return my_dict, output_folder
@@ -445,12 +453,12 @@ def get_rects(dictin, combine_per=95, cushion_per=2, print_info=True, ):
     return merged_names, merged_coords, merged_bboxes
 
 
-def get_convex_hulls(dictin, combine_per=95, cushion_per=2, print_info=True, outlier_thresh=3.0, make_csv=False):
+def get_convex_hulls(dictin, combine_per=95, cushion_per=2, print_info=True, outlier_thresh=3.0, make_csv=None, folder=None):
     my_bbox = [[np.inf, np.inf], [-np.inf, -np.inf]]
     my_coords = []
 
     for entry in dictin:
-        for coord in dictin[entry]:
+        for coord in dictin[entry]['coords']:
             my_bbox = [[min(my_bbox[0][0], coord[0]), min(my_bbox[0][1], coord[1])],
                        [max(my_bbox[1][0], coord[0]), max(my_bbox[1][1], coord[1])]]
             my_coords.append(coord)
@@ -459,7 +467,7 @@ def get_convex_hulls(dictin, combine_per=95, cushion_per=2, print_info=True, out
     new_dictin = {}
 
     for entry in dictin:
-        coords = np.array(dictin[entry])
+        coords = np.array(dictin[entry]['coords'])
 
         if len(coords) >= 3:
             center = np.mean(coords, axis=0)
@@ -476,7 +484,7 @@ def get_convex_hulls(dictin, combine_per=95, cushion_per=2, print_info=True, out
             hull_points = center + (hull_points - center) * (1 + cushion_per / 100)
             hull_points = np.vstack([hull_points, hull_points[0]])
 
-        new_dictin[entry] = {'hull': hull_points, 'coords': coords, 'olap_keys': []}
+        new_dictin[entry] = {'hull': hull_points, 'coords': coords, 'olap_keys': [], 'indexes': dictin[entry]['indexes']}
 
     def is_inside(point, hull_points):
         from matplotlib.path import Path
@@ -492,7 +500,7 @@ def get_convex_hulls(dictin, combine_per=95, cushion_per=2, print_info=True, out
                 new_dictin[entry]['olap_keys'].append(entry2)
 
     nw_dictin = dict(sorted(new_dictin.items(), key=lambda item: len(item[1]['olap_keys']), reverse=True))
-    merged_names, merged_coords, merged_hulls, added_vals = [], [], [], []
+    merged_names, merged_coords, merged_hulls, merged_ndxs, added_vals = [], [], [], [], []
 
     for entry in nw_dictin:
         if entry in added_vals:
@@ -501,8 +509,13 @@ def get_convex_hulls(dictin, combine_per=95, cushion_per=2, print_info=True, out
         added_vals += new_addys
 
         merged_names.append([entry] + new_addys)
+
         merged_coords.append(np.vstack([nw_dictin[entry]['coords']] + [nw_dictin[_]['coords'] for _ in new_addys]))
         all_points = np.vstack([nw_dictin[entry]['coords']] + [nw_dictin[_]['coords'] for _ in new_addys])
+        indexes = nw_dictin[entry]['indexes'].copy()
+        for addy in new_addys:
+            indexes += nw_dictin[addy]['indexes']
+        merged_ndxs.append(indexes)
 
         if len(all_points) >= 3:
             center = np.mean(all_points, axis=0)
@@ -527,10 +540,11 @@ def get_convex_hulls(dictin, combine_per=95, cushion_per=2, print_info=True, out
         for i in range(len(merged_names)):
             name_counts = {name: len(dictin[name]) for name in merged_names[i]}
             name_counts_str = ", ".join(f"{name} ({count})" for name, count in name_counts.items())
-            print(f"Cluster: {i + 1}, Count: {len(merged_coords[i])}, Names: {name_counts_str}, "
+            print(f"Cluster: {i + 1}, Count: {len(merged_coords[i])}, "
+                  f"COM: {[round(_, 4) for _ in calc_com(merged_coords[i])]}, Names: {name_counts_str}, "
                   f"Area: {ConvexHull(merged_coords[i]).volume if len(merged_coords[i]) >= 3 else 0}")
 
-    return merged_names, merged_coords, merged_hulls
+    return merged_names, merged_coords, merged_hulls, merged_ndxs
 
 
 def plot_my_stuff(dict_file=None, file_name=''):
@@ -586,9 +600,10 @@ def plot_my_stuff(dict_file=None, file_name=''):
                     label = (my_dict[entry]['residue'], my_dict[entry]['name'])
                     # Add the value to the high specificity group (res, name)
                     if label in dictalonius:
-                        dictalonius[label].append([s_diff, vol_diff])
+                        dictalonius[label]['coords'].append([s_diff, vol_diff])
+                        dictalonius[label]['indexes'].append(my_dict[entry]['Index'])
                     else:
-                        dictalonius[label] = [[s_diff, vol_diff]]
+                        dictalonius[label] = {'coords': [[s_diff, vol_diff]], 'indexes': [my_dict[entry]['Index']]}
 
                     # Plot the values
                     ax.scatter([s_diff], [vol_diff], marker='x' if my_dict[entry]['aw sol facing'] else 'o',
@@ -669,7 +684,23 @@ def plot_my_stuff(dict_file=None, file_name=''):
                                 element_handles.append(plt.Line2D([0], [0], marker='o', color='w',
                                                     markerfacecolor='gray', label='Other', markersize=8))
                                 added_groups.add('Other')
-                to_merges, all_coordss, bboxs = get_convex_hulls(dictalonius, cushion_per=10, combine_per=50)
+                to_merges, all_coordss, bboxs, indexes = (
+                    get_convex_hulls(dictalonius, cushion_per=10, combine_per=50, folder=output_folder, outlier_thresh=1.5))
+
+                for i in range(len(indexes)):
+                    for ndx in indexes[i]:
+                        if x_val == 'sphericity':
+                            my_dict[ndx]['sphere group'] = i
+                        else:
+                            my_dict[ndx]['vdw group'] = i
+                if x_val == 'vdw_volume' and ass == 'other' and color_by == 'bb_sc':
+                    for entry in my_dict:
+                        if 'sphere group' not in my_dict[entry]:
+                            my_dict[entry]['sphere group'] = -1
+                        if 'vdw group' not in my_dict[entry]:
+                            my_dict[entry]['vdw group'] = -1
+
+                    write_files(my_dict, output_folder, True)
 
                 for i, bbox in enumerate(bboxs):
                     #     # # plot the rectangle
@@ -741,4 +772,4 @@ if __name__ == '__main__':
     root.wm_attributes('-topmost', 1)
     # my_file = filedialog.askopenfilename(title="Get CSV File")
     my_file = None
-    plot_my_stuff(dict_file=my_file, file_name='NCP')
+    plot_my_stuff(dict_file=my_file, file_name='BSA')

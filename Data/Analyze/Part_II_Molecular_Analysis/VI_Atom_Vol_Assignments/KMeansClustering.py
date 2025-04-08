@@ -107,7 +107,7 @@ for cluster_id, group in df.groupby('cluster'):
     ax.add_patch(rect)
     ax.text(xmin, ymax, str(cluster_id), fontsize=9, color='black')
 
-plt.title(f'p53tet Clustering', fontsize=36)
+plt.title(f'T4LP Clustering', fontsize=36)
 plt.xlabel('Power Sphericity Difference', fontsize=36)
 plt.ylabel('Power Volume Difference', fontsize=36)
 handles, labels = ax.get_legend_handles_labels()
