@@ -8,62 +8,63 @@ class CustomExportWindow(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.title("Custom Export Settings")
-        self.geometry("600x400")  # Adjusted size for new layout
+        self.geometry("800x600")
         self.resizable(False, False)
-        self.transient(parent)
-        self.grab_set()
+        if not isinstance(parent, tk.Tk):
+            self.transient(parent)
+            self.grab_set()
 
         # Main frame
         main_frame = ttk.Frame(self)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # System frame
-        system_frame = ttk.LabelFrame(main_frame, text="System")
-        system_frame.pack(fill="x", padx=5, pady=5)
+        # Info Frame
+        info_frame = ttk.LabelFrame(main_frame, text="Info")
+        info_frame.pack(fill="x", padx=5, pady=5)
 
-        # Ball Files section
-        ttk.Label(system_frame, text="Ball Files:", font=('Helvetica', 10, 'bold')).grid(column=0, columnspan=5, row=0,
-                                                                                         padx=5, pady=5, sticky="e")
+        # Info checkbuttons
+        self.logs_var = tk.BooleanVar(value=True)
+        self.verts_var = tk.BooleanVar(value=False)
+        self.info_var = tk.BooleanVar(value=False)
 
-        self.pdb_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(system_frame, text="PDB", variable=self.pdb_var).grid(column=0, row=1, padx=5, pady=1)
+        ttk.Checkbutton(info_frame, text="Logs", variable=self.logs_var).pack(anchor="w", padx=5, pady=2)
+        ttk.Checkbutton(info_frame, text="Verts", variable=self.verts_var).pack(anchor="w", padx=5, pady=2)
+        ttk.Checkbutton(info_frame, text="Info", variable=self.info_var).pack(anchor="w", padx=5, pady=2)
 
-        self.cif_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(system_frame, text="CIF", variable=self.cif_var).grid(column=1, row=1, padx=5, pady=1)
+        # Balls Frame
+        balls_frame = ttk.LabelFrame(main_frame, text="Balls")
+        balls_frame.pack(fill="x", padx=5, pady=5)
 
-        self.mol_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(system_frame, text="MOL", variable=self.mol_var).grid(column=2, row=1, padx=5, pady=1)
+        # Create a frame for the column headers
+        header_frame = ttk.Frame(balls_frame)
+        header_frame.pack(fill="x", padx=5, pady=5)
 
-        self.gro_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(system_frame, text="GRO", variable=self.gro_var).grid(column=3, row=1, padx=5, pady=1)
+        # Column headers
+        ttk.Label(header_frame, text="Group\nBalls").grid(row=0, column=0, padx=20)
+        ttk.Label(header_frame, text="Surrounding\nBalls").grid(row=0, column=1, padx=20)
 
-        self.txt_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(system_frame, text="TXT", variable=self.txt_var).grid(column=4, row=1, padx=5, pady=1)
+        # Create a frame for the checkbuttons
+        checkbuttons_frame = ttk.Frame(balls_frame)
+        checkbuttons_frame.pack(fill="x", padx=5, pady=5)
 
-        # Other Files section
-        ttk.Label(system_frame, text="Other Files:", font=('Helvetica', 10, 'bold')).grid(column=0, columnspan=5, row=2,
-                                                                                          padx=5, pady=5, sticky="e")
+        # File format options
+        formats = ['.pdb', '.cif', '.mol', '.gro', '.xyz', '.txt']
 
-        self.pymol_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(system_frame, text="Set Balls PyMOL", variable=self.pymol_var).grid(column=0, row=3, padx=5,
-                                                                                            pady=1)
+        # Create variables for checkbuttons
+        self.group_vars = {}
+        self.surrounding_vars = {}
 
-        self.vmd_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(system_frame, text="Set Balls VMD", variable=self.vmd_var).grid(column=1, row=3, padx=5, pady=1)
+        # Create checkbuttons for each format
+        for i, fmt in enumerate(formats):
+            # Group balls checkbuttons
+            self.group_vars[fmt] = tk.BooleanVar(value=False)
+            ttk.Checkbutton(checkbuttons_frame, text=fmt, 
+                          variable=self.group_vars[fmt]).grid(row=i, column=0, padx=20, pady=2)
 
-        self.info_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(system_frame, text="Information", variable=self.info_var).grid(column=2, row=3, padx=5, pady=1)
-
-        # Group frame
-        group_frame = ttk.LabelFrame(main_frame, text="Group")
-        group_frame.pack(fill="x", padx=5, pady=5)
-
-        self.group_balls_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(group_frame, text="Group Balls", variable=self.group_balls_var).pack(anchor="w", padx=5, pady=2)
-
-        self.surrounding_balls_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(group_frame, text="Surrounding Balls", variable=self.surrounding_balls_var).pack(anchor="w",
-                                                                                                         padx=5, pady=2)
+            # Surrounding balls checkbuttons
+            self.surrounding_vars[fmt] = tk.BooleanVar(value=False)
+            ttk.Checkbutton(checkbuttons_frame, text=fmt, 
+                          variable=self.surrounding_vars[fmt]).grid(row=i, column=1, padx=20, pady=2)
 
         # Buttons frame
         button_frame = ttk.Frame(main_frame)
@@ -88,3 +89,9 @@ class CustomExportWindow(tk.Toplevel):
     def _on_cancel(self):
         """Handle Cancel button click."""
         self.destroy()
+
+
+if __name__ == '__main__':
+    root = tk.Tk()
+    app = CustomExportWindow(root)
+    root.mainloop()

@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 # Add the project root directory to the Python path
-project_root = Path(__file__).resolve().parents[4]
+project_root = Path(__file__).resolve().parents[5]
 sys.path.append(str(project_root))
 
 from Visualize.GUI.group.settings.export.custom_export_window import CustomExportWindow
