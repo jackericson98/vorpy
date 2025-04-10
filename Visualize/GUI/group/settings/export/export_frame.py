@@ -15,12 +15,12 @@ class ExportFrame(ttk.LabelFrame):
     """
     A frame for export settings configuration.
     """
-    def __init__(self, parent, gui):
+    def __init__(self, parent, gui, group_name_entry):
         super().__init__(parent, text="Export Settings", padding="5")
         self.gui = gui
-        
         # Create and pack widgets
         self._create_widgets()
+        self.group_name_entry = group_name_entry
         
         # Initialize custom mode flag
         self.is_custom = False
@@ -71,7 +71,7 @@ class ExportFrame(ttk.LabelFrame):
     
     def open_custom_settings(self):
         """Open the custom export settings window."""
-        CustomExportWindow(self.gui)
+        CustomExportWindow(self.gui, self.group_name_entry.get())
 
 
 if __name__ == "__main__":

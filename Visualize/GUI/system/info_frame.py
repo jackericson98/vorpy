@@ -1,6 +1,90 @@
 import tkinter as tk
 from tkinter import ttk, filedialog
 import os
+from Visualize.GUI.group.settings.build.periodic_table_GUI import ElementDialog
+
+
+class SystemExportsWindow:
+    """
+    Opens a new window to display system exports.
+    """
+    def __init__(self, gui):
+        """
+        Initializes the SystemExportsWindow.
+
+        Args:
+            gui: The main GUI application object.
+        """
+        self.gui = gui
+        self.window = tk.Toplevel(self.gui.root)
+        self.window.title("System Exports")
+        self.window.geometry("300x200") 
+
+        # Create a frame for the system exports
+        self.exports_frame = ttk.Frame(self.window)
+        self.exports_frame.pack(fill="both", padx=10, pady=5)
+
+        # Create a check box for the set atomic radii file
+        self.set_radii_var = tk.BooleanVar(value=False)
+        self.set_radii_check = ttk.Checkbutton(self.exports_frame, text="Set Atomic Radii", variable=self.set_radii_var)
+        self.set_radii_check.grid(row=0, column=0, padx=5, pady=5)
+
+        # Create a check box for the info file
+        self.info_var = tk.BooleanVar(value=False)
+        self.info_check = ttk.Checkbutton(self.exports_frame, text="Info File", variable=self.info_var)
+        self.info_check.grid(row=0, column=1, padx=5, pady=5)
+
+        # Create checkboxes for the different ball file types (pdb, mol, gro, xyz, cif, txt)
+        self.pdb_var = tk.BooleanVar(value=False)
+        self.pdb_check = ttk.Checkbutton(self.exports_frame, text="PDB", variable=self.pdb_var)
+        self.pdb_check.grid(row=0, column=2, padx=5, pady=5)
+
+        self.mol_var = tk.BooleanVar(value=False)
+        self.mol_check = ttk.Checkbutton(self.exports_frame, text="MOL", variable=self.mol_var) 
+        self.mol_check.grid(row=0, column=3, padx=5, pady=5)
+
+        self.gro_var = tk.BooleanVar(value=False)
+        self.gro_check = ttk.Checkbutton(self.exports_frame, text="GRO", variable=self.gro_var)
+        self.gro_check.grid(row=0, column=4, padx=5, pady=5)    
+
+        self.xyz_var = tk.BooleanVar(value=False)
+        self.xyz_check = ttk.Checkbutton(self.exports_frame, text="XYZ", variable=self.xyz_var)
+        self.xyz_check.grid(row=0, column=5, padx=5, pady=5)
+
+        self.cif_var = tk.BooleanVar(value=False)
+        self.cif_check = ttk.Checkbutton(self.exports_frame, text="CIF", variable=self.cif_var)
+        self.cif_check.grid(row=0, column=6, padx=5, pady=5)
+
+        self.txt_var = tk.BooleanVar(value=False)   
+        self.txt_check = ttk.Checkbutton(self.exports_frame, text="TXT", variable=self.txt_var)
+        self.txt_check.grid(row=0, column=7, padx=5, pady=5)
+
+        # Create an apply button and a cancel button
+        self.apply_button = ttk.Button(self.exports_frame, text="Apply", command=self.apply_exports)
+        self.apply_button.grid(row=0, column=8, padx=5, pady=5)
+
+        self.cancel_button = ttk.Button(self.exports_frame, text="Cancel", command=self.cancel_exports)
+        self.cancel_button.grid(row=0, column=9, padx=5, pady=5)
+        
+    def apply_exports(self):
+        """Apply the system exports. Update the gui.sys.exports dictionary."""
+        self.gui.sys.exports = {
+            'set_radii': self.set_radii_var.get(),
+            'info': self.info_var.get(),
+            'pdb': self.pdb_var.get(),
+            'mol': self.mol_var.get(),
+            'gro': self.gro_var.get(),
+            'xyz': self.xyz_var.get(),
+            'cif': self.cif_var.get(),
+            'txt': self.txt_var.get()
+        }
+        # Close the window
+        self.window.destroy()
+
+    def cancel_exports(self):
+        """Cancel the system exports."""
+        self.window.destroy()
+
 
 
 class SystemFrame:
@@ -16,9 +100,14 @@ class SystemFrame:
         The frame that gets the file
         """
         self.gui = gui
+        system_frame = ttk.LabelFrame(parent, text=" System ")
+        system_frame.pack(fill="both", padx=10, pady=5)
+
         # System info Frame
-        sys_info_frame = ttk.LabelFrame(parent, text=" System info ")
-        sys_info_frame.pack(fill="both", padx=10, pady=5)
+        sys_info_frame = ttk.LabelFrame(system_frame, text="Files")
+        sys_info_frame.grid(row=1, padx=10, pady=5, sticky="nsew")
+        system_frame.grid_rowconfigure(1, weight=0)
+        system_frame.grid_columnconfigure(0, weight=1)
 
         # Configure grid weights for centering
         sys_info_frame.grid_columnconfigure(0, weight=1)
@@ -28,7 +117,7 @@ class SystemFrame:
         # System Name in the top center
         self.system_name = tk.StringVar(value="System Name" if gui is None else gui.sys.name)
         font = ('Helvetica', 12) if gui is None else gui.fonts['class 1']
-        tk.Label(sys_info_frame, textvariable=self.system_name, font=font).grid(row=0, column=0, columnspan=3, pady=2)
+        tk.Label(system_frame, textvariable=self.system_name, font=font).grid(row=0, column=0, columnspan=3, pady=2)
 
         # Input File Section
         tk.Label(sys_info_frame, text="Input File:", font=('Helvetica', 10) if gui is None else gui.fonts['class 2']).grid(row=1, column=0, sticky="w", padx=5, pady=2)
@@ -66,6 +155,13 @@ class SystemFrame:
         self.output_dir_label = tk.Label(sys_info_frame, text="None", font=('Helvetica', 10) if gui is None else gui.fonts['class 2'])
         self.output_dir_label.grid(row=3, column=1, sticky="w")
         ttk.Button(sys_info_frame, text="Browse", command=self.choose_output_directory).grid(row=3, column=2, sticky="e", padx=5, pady=2)
+
+        # Create a frame for buttons to change the atomic radii and the system exports
+        self.radii_frame = ttk.LabelFrame(system_frame, text="Settings")
+        self.radii_frame.grid(row=1, column=1, rowspan=4, sticky="nsew", pady=5, padx=5)
+        ttk.Button(self.radii_frame, text="Radii", command=self.change_atomic_radii).grid(row=1, column=0, pady=2, padx=5, sticky="s")
+        ttk.Button(self.radii_frame, text="Exports", command=self.system_exports).grid(row=2, column=0, pady=2, padx=5, sticky="s")
+        ttk.Button(self.radii_frame, text="Reset", command=self.delete_system).grid(row=3, column=0, pady=2, padx=5, sticky="s")
 
     def choose_ball_file(self):
         """Open file dialog to select a ball file."""
@@ -143,6 +239,18 @@ class SystemFrame:
                 else:
                     truncated = directory
                 self.output_dir_label.config(text=truncated)
+
+    def change_atomic_radii(self):
+        """Open the atomic radii window."""
+        ElementDialog(self.gui)
+
+    def system_exports(self):
+        """Open the system exports window."""
+        SystemExportsWindow(self.gui)
+
+    def delete_system(self):
+        """Delete the system."""
+        self.gui.sys.delete()
 
 if __name__ == "__main__":
     root = tk.Tk()

@@ -23,8 +23,19 @@ class GroupSettingsFrame(ttk.Frame):
         button_frame = ttk.Frame(self)
         button_frame.pack(fill="x", pady=5)
         
+        # Add delete button for current group
+        delete_button = ttk.Button(button_frame, text="Delete Current Group", 
+                                 command=lambda: self.delete_current_group())
+        delete_button.pack(side="right", padx=5)
+        
+        # Add duplicate button
+        duplicate_button = ttk.Button(button_frame, text="Duplicate Group",
+                                    command=lambda: self.duplicate_current_group())
+        duplicate_button.pack(side="right", padx=5)
+        
         add_button = ttk.Button(button_frame, text="Add Group", command=self.add_group_tab)
         add_button.pack(side="right", padx=5)
+
     
     def add_group_tab(self, group_name=None):
         """Add a new group tab with build and export settings."""
@@ -34,6 +45,9 @@ class GroupSettingsFrame(ttk.Frame):
         # Create tab frame
         tab_frame = ttk.Frame(self.notebook)
         self.notebook.add(tab_frame, text=group_name)
+        
+        # Select the newly created tab
+        self.notebook.select(tab_frame)
         
         # Create group name entry frame at the top of the tab
         name_frame = ttk.Frame(tab_frame)
@@ -45,8 +59,8 @@ class GroupSettingsFrame(ttk.Frame):
         
         # Group name label and entry
         ttk.Label(name_frame, text="Group Name:").grid(row=0, column=0, padx=5, sticky='w')
-        group_name_entry = ttk.Entry(name_frame, width=20)
-        group_name_entry.grid(row=0, column=1, columnspan=2, padx=5)
+        group_name_entry = ttk.Entry(name_frame, width=40)
+        group_name_entry.grid(row=0, column=1, columnspan=2, padx=5, sticky='w')
         group_name_entry.insert(0, group_name)
         
         # Save button
@@ -63,7 +77,7 @@ class GroupSettingsFrame(ttk.Frame):
         
         # Create group selection frame (left column)
         selection_frame = ttk.LabelFrame(content_frame, text="Group Selection", padding="5")
-        selection_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        selection_frame.grid(row=0, column=0, columnspan=2, sticky="nsew", padx=(0, 10))
         
         # Create tracking frame at the top
         tracking_frame = ttk.LabelFrame(selection_frame, text="Current Selections", padding="5")
@@ -132,14 +146,14 @@ class GroupSettingsFrame(ttk.Frame):
         
         # Create settings container (right column)
         settings_container = ttk.Frame(content_frame)
-        settings_container.grid(row=0, column=1, sticky="nsew")
+        settings_container.grid(row=0, column=2, sticky="nsew")
         
         # Create build settings frame
         build_frame = BuildFrame(settings_container, self.gui)
         build_frame.pack(fill="x", pady=(0, 10))
         
         # Create export settings frame
-        export_frame = ExportFrame(settings_container, self.gui)
+        export_frame = ExportFrame(settings_container, self.gui, group_name_entry)
         export_frame.pack(fill="x")
         
         # Store settings for this group
@@ -258,3 +272,55 @@ class GroupSettingsFrame(ttk.Frame):
             }
             for group_name, data in self.group_settings.items()
         }
+
+    def delete_current_group(self):
+        """Delete the currently selected group."""
+        current_tab = self.notebook.select()
+        if current_tab:  # If there is a selected tab
+            group_name = self.notebook.tab(current_tab, "text")
+            self.delete_group(group_name)
+
+    def duplicate_current_group(self):
+        """Duplicate the currently selected group with all its settings."""
+        current_tab = self.notebook.select()
+        if current_tab:
+            # Get current group name
+            current_name = self.notebook.tab(current_tab, "text")
+            
+            # Find next available number for duplicate
+            base_name = current_name.split(" (")[0]  # Remove any existing (n) suffix
+            counter = 1
+            while f"{base_name} ({counter})" in self.group_settings:
+                counter += 1
+            new_name = f"{base_name} ({counter})"
+            
+            # Get current group's settings
+            current_settings = self.group_settings[current_name]
+            
+            # Create new tab
+            self.add_group_tab(new_name)
+            
+            # Copy settings
+            new_settings = self.group_settings[new_name]
+            
+            # Copy build settings
+            new_settings['build_settings'].copy_settings_from(current_settings['build_settings'])
+            
+            # Copy export settings
+            new_settings['export_settings'].copy_settings_from(current_settings['export_settings'])
+            
+            # Copy selections
+            new_settings['selections'] = current_settings['selections'].copy()
+            
+            # Update tracking text
+            new_settings['tracking_text'].config(state='normal')
+            new_settings['tracking_text'].delete(1.0, tk.END)
+            for selection in new_settings['selections']:
+                if selection['start'] == selection['end']:
+                    new_settings['tracking_text'].insert(tk.END, f"{selection['type']}: {selection['start']}\n")
+                else:
+                    new_settings['tracking_text'].insert(tk.END, f"{selection['type']}: {selection['start']}-{selection['end']}\n")
+            new_settings['tracking_text'].config(state='disabled')
+            
+            # Select the new tab
+            self.notebook.select(self.notebook.index('end')-1)
