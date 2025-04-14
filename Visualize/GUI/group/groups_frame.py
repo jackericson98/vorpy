@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from Visualize.GUI.group.build.build_frame import BuildFrame
 from Visualize.GUI.group.export.export_frame import ExportFrame
-
+from Visualize.GUI.group.selection.selection_frame import SelectionFrame
 
 """
 This file updates the group info. If you add more than one group, the gui will update it.
@@ -97,74 +97,9 @@ class GroupsFrame(ttk.Frame):
         content_frame.grid_columnconfigure(1, weight=1)  # Settings column takes most space
         
         # Create group selection frame (left column)
-        selection_frame = ttk.LabelFrame(content_frame, text="Group Selection", padding="5")
-        selection_frame.grid(row=0, column=0, columnspan=2, sticky="nsew", padx=(0, 10))
-        
-        # Create tracking frame at the top
-        tracking_frame = ttk.LabelFrame(selection_frame, text="Current Selections", padding="5")
-        tracking_frame.pack(fill="x", pady=(0, 5))
-        
-        # Create text widget for tracking
-        tracking_text = tk.Text(tracking_frame, height=4, width=30, wrap=tk.WORD)
-        tracking_text.pack(fill="x", padx=5, pady=5)
-        tracking_text.config(state='disabled')
-        
-        # Create frame for dropdown and entry boxes
-        selection_options_frame = ttk.Frame(selection_frame)
-        selection_options_frame.pack(fill="x", pady=(0, 5))
-        
-        # Dropdown menu for selection type
-        selection_type = tk.StringVar(value="Atoms")
-        selection_dropdown = ttk.Combobox(selection_options_frame, 
-                                        textvariable=selection_type,
-                                        values=["Atom(s) (or Ball(s))", "Residue(s)", "Chain(s)", "Molecule(s)"],
-                                        state="readonly",
-                                        width=10)
-        selection_dropdown.grid(row=1, column=0, padx=(0, 5))
-        
-        # Create frame for entry boxes and their labels
-        entries_frame = ttk.Frame(selection_options_frame)
-        entries_frame.grid(row=1, column=1, padx=5)
-        
-        # Entry boxes frame
-        entry_boxes_frame = ttk.Frame(entries_frame)
-        entry_boxes_frame.grid(row=0, column=0, padx=5)
-        
-        # Create frames for each entry box and its label
-        start_frame = ttk.Frame(entry_boxes_frame)
-        start_frame.grid(row=0, column=0, padx=5)
-        
-        end_frame = ttk.Frame(entry_boxes_frame)    
-        end_frame.grid(row=0, column=2, padx=5)
-        
-        # Index label above first entry
-        ttk.Label(selection_options_frame, text="Index").grid(row=0, column=1, padx=5)
+        selection_frame = SelectionFrame(content_frame, self.gui, group_name_entry)
+        selection_frame.grid(row=0, column=0, sticky="nsew", padx=5)
 
-        # Selection label
-        ttk.Label(selection_options_frame, text="Selection").grid(row=0, column=0, padx=5)
-        
-        # Entry box for start value
-        start_entry = ttk.Entry(selection_options_frame, width=5)
-        start_entry.grid(row=1, column=1, padx=5)
-        
-        # "to" label
-        ttk.Label(selection_options_frame, text="to").grid(row=1, column=2, padx=5)
-        
-        # Range label above second entry
-        ttk.Label(selection_options_frame, text="Range").grid(row=0, column=3, padx=5)
-        
-        # Entry box for end value
-        end_entry = ttk.Entry(selection_options_frame, width=5)
-        end_entry.grid(row=1, column=3, padx=5)
-        
-        # Create button frame for Add and Remove buttons
-        button_frame = ttk.Frame(selection_frame)
-        button_frame.pack(fill="x", pady=2)
-        
-        # Add and Remove buttons side by side
-        ttk.Button(button_frame, text="Remove", command=lambda: self.delete_group(group_name)).pack(side="left", expand=True, padx=2)
-        ttk.Button(button_frame, text="Add", command=lambda: self.add_selection(group_name, selection_type.get(), start_entry.get(), end_entry.get(), tracking_text)).pack(side="right", expand=True, padx=2)
-        
         # Create settings container (right column)
         settings_container = ttk.Frame(content_frame)
         settings_container.grid(row=0, column=2, sticky="nsew")
@@ -182,7 +117,7 @@ class GroupsFrame(ttk.Frame):
             'build_settings': build_frame.get_settings(),  # Store frame reference
             'export_settings': export_frame.get_settings(),  # Store frame reference
             'name_entry': group_name_entry.get(),
-            'tracking_text': tracking_text.get(1.0, tk.END),
+            'tracking_text': selection_frame.tracking_text.get(1.0, tk.END),
             'selections': []  # List to store all selections
         }
     
