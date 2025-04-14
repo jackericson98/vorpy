@@ -1,88 +1,120 @@
 import os
 import sys
+from pathlib import Path
+from typing import Optional, List, Union
+import logging
 
 # Add the project root directory to the Python path
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../"))
-sys.path.append(project_root)
+project_root = Path(__file__).resolve().parents[3]
+sys.path.append(str(project_root))
 
-import shutil
-import tkinter as tk
-from tkinter import filedialog
+from Data.Analyze.tools.CleanData.utils import (
+    get_directory,
+    safe_copy,
+    ensure_directory,
+    logger
+)
 
+# Configure file-specific logger
+logger = logging.getLogger(__name__)
 
-def copy_contents(source_folder, target_folder):
-    # Create the target folder if it doesn't exist
-    if not os.path.exists(target_folder):
-        os.makedirs(target_folder)
-
-    # List all the entries in the source folder
-    entries = os.listdir(source_folder)
-
-    for entry in entries:
-        source_path = os.path.join(source_folder, entry)
-        target_path = os.path.join(target_folder, entry)
-
-        # Check if the entry is a file or a folder
-        if os.path.isdir(source_path):
-            # Recursively copy an entire directory tree rooted at source_path
-            if os.path.exists(target_path):
-                # If the target directory already exists, shutil.copytree would raise an error
-                # so we delete the existing target directory
-                shutil.rmtree(target_path)
-            shutil.copytree(source_path, target_path)
-        else:
-            # Copy each file to the target folder
-            shutil.copy2(source_path, target_path)
-
-
-def get_basic_files(folder=None):
-    if folder is None:
-        folder = filedialog.askdirectory()
-    place_directory = os.path.dirname(folder) + '/Basic_Data'
-    os.mkdir(os.path.dirname(folder) + '/Basic_Data')
-    num_folders = len([_ for _ in os.listdir(folder)])
-    i = 1
-    for subfolder in os.listdir(folder):
-        if subfolder == 'foam_data.csv' or subfolder == 'overlaps.csv':
-            continue
-        print(f"\rCopying folder {i}/{num_folders}", end="")
-        i += 1
-        os.mkdir(place_directory + '/' + subfolder)
-        os.mkdir(place_directory + '/' + subfolder + '/aw')
-        os.mkdir(place_directory + '/' + subfolder + '/pow')
-
-        # if os.path.exists(folder + '/' + subfolder + '/aw/edges.off') or os.path.exists(folder + '/' + subfolder + '/aw/atoms'):
-        #
-        for filename in ['balls.txt', 'balls.pdb', 'info.txt', 'retaining_box.off', 'set_atoms.pml', 'set_balls.pml']:
+class BasicFileCollector:
+    """Collects and organizes basic files from a source directory structure."""
+    
+    REQUIRED_FILES = [
+        'balls.txt',
+        'balls.pdb',
+        'info.txt',
+        'retaining_box.off',
+        'set_atoms.pml',
+        'set_balls.pml'
+    ]
+    
+    AW_FILES = [
+        'aw/aw_verts.txt',
+        'aw/aw_logs.csv'
+    ]
+    
+    POW_FILES = [
+        'pow/pow_verts.txt',
+        'pow/pow_logs.csv'
+    ]
+    
+    def __init__(self, source_dir: Optional[Union[str, Path]] = None):
+        """
+        Initialize the collector with a source directory.
+        
+        Args:
+            source_dir: Path to source directory. If None, will prompt for selection.
+        """
+        self.source_dir = Path(source_dir) if source_dir else get_directory(title="Select Source Directory")
+        self.basic_data_dir = self.source_dir.parent / 'Basic_Data'
+        
+    def setup_basic_data_directory(self) -> None:
+        """Create the Basic_Data directory and required subdirectories."""
+        ensure_directory(self.basic_data_dir)
+        
+    def copy_files_for_subfolder(self, subfolder: Path) -> None:
+        """
+        Copy required files for a specific subfolder.
+        
+        Args:
+            subfolder: Path to the subfolder to process
+        """
+        if subfolder.name in {'foam_data.csv', 'overlaps.csv'}:
+            return
+            
+        target_subfolder = self.basic_data_dir / subfolder.name
+        ensure_directory(target_subfolder)
+        ensure_directory(target_subfolder / 'aw')
+        ensure_directory(target_subfolder / 'pow')
+        
+        # Copy main files
+        for filename in self.REQUIRED_FILES:
+            safe_copy(subfolder / filename, target_subfolder / filename)
+            
+        # Copy AW files
+        for filename in self.AW_FILES:
+            if not safe_copy(subfolder / filename, target_subfolder / filename):
+                # Try without subdirectory
+                safe_copy(subfolder / filename.split('/')[-1], 
+                         target_subfolder / filename)
+                
+        # Copy POW files
+        for filename in self.POW_FILES:
+            if not safe_copy(subfolder / filename, target_subfolder / filename):
+                # Try without subdirectory
+                safe_copy(subfolder / filename.split('/')[-1],
+                         target_subfolder / filename)
+    
+    def process_all(self) -> None:
+        """Process all subfolders in the source directory."""
+        self.setup_basic_data_directory()
+        
+        subfolders = [f for f in self.source_dir.iterdir() if f.is_dir()]
+        total = len(subfolders)
+        
+        logger.info(f"Processing {total} folders...")
+        
+        for i, subfolder in enumerate(subfolders, 1):
+            logger.info(f"Processing folder {i}/{total}: {subfolder.name}")
             try:
-                shutil.copy2(folder + '/' + subfolder + '/' + filename, place_directory + '/' + subfolder + '/' + filename)
-            except FileNotFoundError:
-                continue
-        for filename in ['/aw/aw_verts.txt', '/aw/aw_logs.csv']:
-            try:
-                shutil.copy2(folder + '/' + subfolder + '/' + filename, place_directory + '/' + subfolder + '/' + filename)
-            except FileNotFoundError:
-                try:
-                    shutil.copy2(folder + '/' + subfolder + '/' + filename[3:], place_directory + '/' + subfolder + '/' + filename)
-                except FileNotFoundError:
-                    continue
-            except:
-                continue
-        for filename in ['/pow/pow_verts.txt', '/pow/pow_logs.csv']:
-            try:
-                shutil.copy2(folder + '/' + subfolder + '/' + filename, place_directory + '/' + subfolder + '/' + filename)
-            except FileNotFoundError:
-                try:
-                    shutil.copy2(folder + '/' + subfolder + '/' + filename[4:], place_directory + '/' + subfolder + '/' + filename)
-                except FileNotFoundError:
-                    continue
-            except:
+                self.copy_files_for_subfolder(subfolder)
+            except Exception as e:
+                logger.error(f"Error processing {subfolder.name}: {str(e)}")
                 continue
 
+        logger.info("Processing complete!")
+
+def main():
+    """Main entry point for the script."""
+    try:
+        collector = BasicFileCollector()
+        collector.process_all()
+    except Exception as e:
+        logger.error(f"Error during execution: {str(e)}")
+        sys.exit(1)
 
 if __name__ == '__main__':
-    root = tk.Tk()
-    root.withdraw()
-    root.wm_attributes('-topmost', 1)
-    get_basic_files()
+    main()
 

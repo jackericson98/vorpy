@@ -10,9 +10,9 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
 from System.system import System
-from Visualize.GUI.system.info_frame import SystemFrame
-from Visualize.GUI.group.settings.group_settings_frame import GroupSettingsFrame
-from Visualize.GUI.group.settings.build.color_settings_window import ColorSettingsWindow
+from Visualize.GUI.system.system_frame import SystemFrame
+from Visualize.GUI.group.groups_frame import GroupsFrame
+from Visualize.GUI.group.build.color_settings_window import ColorSettingsWindow
 from Visualize.GUI.help.help_window import HelpWindow
 
 """
@@ -49,20 +49,7 @@ class VorPyGUI(tk.Tk):
         # Set up the files dictionary
         self.files = {'sys_name': 'No File Loaded', 'base_file': '', 'other_files': [], 'dir': '' }
         
-        # Set up the dictionaries for build and export settings
-        self.build_settings = {
-            'max_vert': 40,
-            'box_size': 1.25,
-            'net_type': 'aw',
-            'color_settings': {
-                'surf_col': 'plasma',
-                'surf_scheme': 'mean_curv',
-                'surf_fact': 'log',
-                'vert_col': 'red',
-                'edge_col': 'grey'
-            }
-        }
-        self.export_settings = {'dir': None, 'type': 'med', 'other': {}}
+        self.group_settings = {}
 
         # Title Section
         title_frame = tk.Frame(self, pady=10)
@@ -85,24 +72,26 @@ class VorPyGUI(tk.Tk):
         settings_frame.pack(expand=True, fill="both", padx=10, pady=(0, 10))
         
         # Create group settings section
-        self.group_settings_frame = GroupSettingsFrame(settings_frame, self)
+        self.group_settings_frame = GroupsFrame(settings_frame, self, self.group_settings)
         self.group_settings_frame.pack(fill="both", expand=True)
         
         # Run and Cancel Buttons
         button_frame = tk.Frame(self, pady=10)
         button_frame.pack()
         
-        run_button = ttk.Button(button_frame, text="Run", command=self.run_program)
-        run_button.pack(side="left", padx=5)
-        
-        cancel_button = ttk.Button(button_frame, text="Cancel", command=self.quit)
-        cancel_button.pack(side="left", padx=5)
         
         help_button = ttk.Button(button_frame, text="Help", command=self.open_help)
         help_button.pack(side="left", padx=5)
-
+        
         print_button = ttk.Button(button_frame, text="Print", command=self.print_system)
         print_button.pack(side="left", padx=5)
+
+        run_button = ttk.Button(button_frame, text="Run All", command=self.run_program)
+        run_button.pack(side="right", padx=5)
+
+        cancel_button = ttk.Button(button_frame, text="Cancel", command=self.quit)
+        cancel_button.pack(side="right", padx=5)
+
 
     def create_information_section(self, frame):
         SystemFrame(self, frame)
@@ -143,9 +132,10 @@ class VorPyGUI(tk.Tk):
     def print_system(self):
         """Print the system."""
         print(self.files)
-        print(self.build_settings)
-        print(self.export_settings)
-        print(self.group_settings_frame.get_current_group_settings())
+        for group in self.group_settings:
+            print(group)
+            print(self.group_settings[group]['build_settings'])
+            print(self.group_settings[group]['export_settings'])
 
     def update_surface_settings_display(self):
         """Update the display of surface settings in the main GUI."""
