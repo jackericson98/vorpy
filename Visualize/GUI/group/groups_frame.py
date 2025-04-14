@@ -25,15 +25,19 @@ class GroupsFrame(ttk.Frame):
         self.gui = gui
         self.settings = settings
 
+        # Create main container frame for notebook and buttons
+        main_container = ttk.LabelFrame(self, text="Groups")
+        main_container.pack(fill="both", expand=True, padx=5, pady=5)
+
         # Create notebook for tabs
-        self.notebook = ttk.Notebook(self)
+        self.notebook = ttk.Notebook(main_container)
         self.notebook.pack(fill="both", expand=True, padx=5, pady=5)
         
         # Add initial group tab
         self.add_group_tab("Group 1")
         
-        # Add button frame at bottom
-        button_frame = ttk.Frame(self)
+        # Add button frame at bottom of notebook
+        button_frame = ttk.Frame(main_container)
         button_frame.pack(fill="x", pady=5)
         
         # Create a run button for the current group

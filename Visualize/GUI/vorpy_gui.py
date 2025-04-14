@@ -78,8 +78,7 @@ class VorPyGUI(tk.Tk):
         # Run and Cancel Buttons
         button_frame = tk.Frame(self, pady=10)
         button_frame.pack()
-        
-        
+
         help_button = ttk.Button(button_frame, text="Help", command=self.open_help)
         help_button.pack(side="left", padx=5)
         
@@ -110,19 +109,20 @@ class VorPyGUI(tk.Tk):
             self.ball_file = filename
             self.sys.ball_file = filename
             self.sys.name = os.path.basename(filename)  # Update system name to filename
-            self.files['sys_name'].set(self.sys.name)  # Update the display
+            self.files['sys_name'].set(self.sys.name.upper())  # Update the display
+        
+        # We need to list the file's attributes: Number of balls (atoms), number of residues, number of chains
+
 
     def choose_output_directory(self):
         self.sys.files['dir'] = filedialog.askdirectory(title='Choose Output Directory')
         print(f"Output directory selected: {self.sys.files['dir']}")
 
-    def add_group(self):
-        print("Adding a new group...")
-
     def run_program(self):
         """
         This sends a system to start running networks on all groups
         """
+        self.sys.build_all_networks()
         return self.sys
 
     def open_help(self):
