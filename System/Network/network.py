@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 from System.Network.verts.mark_doublets import mark_doublets
 from System.Network.verts.find_net_verts import find_net_verts
 from System.Network.build_net import build
-from System.Network.edges.build_edge import build_edge, build_edge_old
+from System.Network.edges.build_edge import build_edge, build_edge_old, calc_edge_dir
 from System.Network.surfs.build_surfs import build_surfs
 from System.Network.analyze.analyze import analyze
 from System.sys_funcs.calcs.calcs import calc_length, get_time, calc_dist, calc_com
@@ -28,6 +28,7 @@ class Network:
         self.group = group                # Group         : List of loc and rad indices for calculation
         self.settings = settings          # Settings      : surf_res, surf_col, surf_schm, max_vert, net_type
         self.metrics = {'start': now()}   # Metrics       : Holds the time measurements for the build
+        self.progress_window = None       # Prog. Window  : Progress window for GUI updates
 
         # Network element lists
         self.balls = balls                # Balls         : Ball DF    - (loc, rad, verts, edges, surfs, vol)
@@ -96,6 +97,19 @@ class Network:
         if self.box is None:
             self.box = {}
         self.box['verts'] = box
+
+    def set_progress_window(self, progress_window):
+        """Set the progress window for GUI updates"""
+        self.progress_window = progress_window
+
+    def update_progress(self, step, progress):
+        """Update progress in GUI if available, otherwise print to console"""
+        if self.progress_window:
+            self.progress_window.update_progress(step, progress)
+        else:
+            my_time = now() - self.metrics['start']
+            h, m, s = get_time(my_time)
+            print(f"\rRun Time = {int(h)}:{int(m):02d}:{s:2.2f} - Process: {step} - {progress:.2f}%", end="")
 
     def sort_balls(self, num_boxes=None):
         """
@@ -206,19 +220,21 @@ class Network:
                                                         res=self.settings['surf_res'])
 
             # Build the edge depending on if it is straight or not
-            try:
-                edge_points, edge_vals = build_edge(locs=[array(self.balls['loc'][_]) for _ in edge['balls']],
-                                                rads=[self.balls['rad'][_] for _ in edge['balls']],
-                                                vlocs=[array(self.verts['loc'][_]) for _ in edge['verts']],
-                                                blocs=self.balls['loc'], brads=self.balls['rad'], eballs=edge['balls'],
-                                                res=self.settings['surf_res'],
-                                                straight=self.settings['net_type'] in {'prm', 'pow'},
-                                                edub=any([self.verts['dub'][_] in {1, 2} for _ in edge['verts']]),
-                                                edge_points1=edge_points, edge_verts=self.verts.iloc[edge['verts']])
-            except TypeError:
-                print(f"Edge Error: Bad Value with edge {edge['balls']} in system {self.group.sys.name}")
-                edge_points = array([array(self.verts['loc'][_]) for _ in edge['verts']])
-                edge_vals = calc_edge_dir(blocs, brads, eballs, vlocs, edub=edub)
+            # try:
+            edge_points, edge_vals = build_edge(locs=[array(self.balls['loc'][_]) for _ in edge['balls']],
+                                            rads=[self.balls['rad'][_] for _ in edge['balls']],
+                                            vlocs=[array(self.verts['loc'][_]) for _ in edge['verts']],
+                                            blocs=self.balls['loc'], brads=self.balls['rad'], eballs=edge['balls'],
+                                            res=self.settings['surf_res'],
+                                            straight=self.settings['net_type'] in {'prm', 'pow'},
+                                            edub=any([self.verts['dub'][_] in {1, 2} for _ in edge['verts']]),
+                                            edge_points1=edge_points, edge_verts=self.verts.iloc[edge['verts']])
+            # except TypeError:
+            #     print(f"Edge Error: Bad Value with edge {edge['balls']}")
+            #     edge_points = array([array(self.verts['loc'][_]) for _ in edge['verts']])
+            #     edge_vals = calc_edge_dir(locs=self.balls['loc'], rads=self.balls['rad'], eballs=edge['balls'], 
+            #                               vlocs=[array(self.verts['loc'][_]) for _ in edge['verts']], 
+            #                               edub=any([self.verts['dub'][_] in {1, 2} for _ in edge['verts']]))
             edges_lengths.append(calc_length(array(edge_points)))
             edges_points.append(edge_points)
             edges_vals.append(edge_vals)

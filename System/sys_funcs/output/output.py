@@ -211,7 +211,7 @@ def set_sys_dir(sys, dir_name=None):
     sys.files['dir'] = dir_name + i_str
 
 
-def export_sys(sys, all_=False, pdb=False, full_network_object=False, alter_atoms_script=False, info=False):
+def export_sys(sys, all_=False, pdb=False, full_network_object=False, alter_atoms_script=False, info=False, mol=False, cif=False, xyz=False, txt=False):
     """
         Prepares the output directory and system for output. Keeps things consistent
         :return:

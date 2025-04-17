@@ -9,11 +9,12 @@ class Group:
     def __init__(self, sys, name=None, atoms=None, molecules=None, chains=None, residues=None,
                  settings=None, build_net=False, surf_res=0.2, box_size=1.5, max_vert=40, build_type='all', net=None,
                  net_type='aw', surf_col='plasma', surf_scheme='mean', num_splits=None, print_metrics=True,
-                 scheme_factor='log', make_net=True, verts=None):
+                 scheme_factor='log', make_net=True, verts=None, vert_col='red', edge_col='grey',
+                 output_directory=None):
         # System attributes
         self.sys = sys                  # Network            :    Network of the System
         self.name = name                # Name               :    Name of the group
-        self.dir = None                 # Directory          :    Directory holding the group export info
+        self.dir = output_directory     # Directory          :    Directory holding the group export info
 
         # Network objects attributes
         self.net = net                  # Networks           :    List of Network type objects in the group
@@ -49,7 +50,7 @@ class Group:
         self.get_settings(surf_res=surf_res, surf_col=surf_col, surf_scheme=surf_scheme, max_vert=max_vert,
                           box_size=box_size, net_type=net_type, build_type=build_type, num_splits=num_splits,
                           scheme_factor=scheme_factor, print_metrics=print_metrics, ball_type=sys.type,
-                          sys_dir=sys.files['dir'], foam_box=sys.foam_box)
+                          sys_dir=sys.files['dir'], foam_box=sys.foam_box, vert_col=vert_col, edge_col=edge_col)
 
         # Set the name
         if self.name is None:
@@ -68,7 +69,7 @@ class Group:
 
     def get_settings(self, surf_res=0.2, surf_col='plasma', surf_scheme='mean', scheme_factor='log', max_vert=40,
                      box_size=1.5, net_type='aw', build_type='all', num_splits=1, print_metrics=True, ball_type=None,
-                     sys_dir=None, foam_box=None):
+                     sys_dir=None, foam_box=None, vert_col='red', edge_col='grey'):
         """
         Sets the settings for the network building
         """
@@ -76,7 +77,7 @@ class Group:
         defaults = {'surf_res': surf_res, 'surf_col': surf_col, 'surf_scheme': surf_scheme, 'max_vert': max_vert,
                     'box_size': box_size, 'net_type': net_type, 'build_type': build_type, 'num_splits': num_splits,
                     'print_metrics': print_metrics, 'ball_type': ball_type, 'sys_dir': sys_dir, 'foam_box': foam_box,
-                    'atom_rad': None, 'scheme_factor': scheme_factor}
+                    'atom_rad': None, 'scheme_factor': scheme_factor, 'vert_col': vert_col, 'edge_col': edge_col}
         # Create the settings dictionary
         if self.settings is None:
             self.settings = defaults
@@ -113,13 +114,19 @@ class Group:
         self.mols = self.mols if self.mols is not None else []
         # Check for empty groups
         if len(self.atms + self.rsds + self.chns + self.mols) == 0:
-            self.atms = [i for i in range(len(self.sys.balls))]
+            self.rsds = [i for i in range(len(self.sys.residues))]
         # Add the provided atoms to the self.atoms list
         self.add_balls(self.atms)
         for resid in self.rsds:
-            self.add_balls(resid.atoms)
+            if isinstance(resid, int):
+                self.add_balls(self.sys.residues[resid].atoms)
+            else:
+                self.add_balls(resid.atoms)
         for chain in self.chns:
-            self.add_balls(chain.atoms)
+            if isinstance(chain, int):
+                self.add_balls(self.sys.chains[chain].atoms)
+            else:
+                self.add_balls(chain.atoms)
         # Add the residues and chains to the group
         if self.net is not None and 'res' in self.net.atoms:
             for atom in self.atms:
@@ -137,6 +144,7 @@ class Group:
                 self.sys.groups.append(self)
             # Set the name
             self.name = '{}_group_{}'.format(self.sys.name, self.sys.groups.index(self))
+        print(self.atms)
 
     def make_net(self, verts=None):
         """
@@ -152,6 +160,7 @@ class Group:
         self.get_settings()
         if self.net is None:
             self.make_net(verts)
+        print(self.settings)
         self.net.build()
 
     def add_balls(self, ball_list):
