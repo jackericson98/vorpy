@@ -25,38 +25,13 @@ class GroupsFrame(ttk.Frame):
         self.gui = gui
         self.settings = settings
 
-        # Create main container frame for notebook and buttons
-        main_container = ttk.LabelFrame(self, text="Groups")
-        main_container.pack(fill="both", expand=True, padx=5, pady=5)
-
         # Create notebook for tabs
-        self.notebook = ttk.Notebook(main_container)
+        self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill="both", expand=True, padx=5, pady=5)
         
         # Add initial group tab
         self.add_group_tab("Group 1")
         
-        # Add button frame at bottom of notebook
-        button_frame = ttk.Frame(main_container)
-        button_frame.pack(fill="x", pady=5)
-        
-        # Create a run button for the current group
-        run_button = ttk.Button(button_frame, text="Run", command=lambda: self.run_current_group())
-        run_button.pack(side="right", padx=5)
-
-        # Add button for current group        
-        add_button = ttk.Button(button_frame, text="Add", command=self.add_group_tab)
-        add_button.pack(side="right", padx=5)
-        
-        # Add duplicate button
-        duplicate_button = ttk.Button(button_frame, text="Duplicate",
-                                    command=lambda: self.duplicate_current_group())
-        duplicate_button.pack(side="right", padx=5)
-
-        # Add delete button for current group
-        delete_button = ttk.Button(button_frame, text="Delete", 
-                                 command=lambda: self.delete_current_group())
-        delete_button.pack(side="right", padx=5)
     
     def add_group_tab(self, group_name=None):
         """Add a new group tab with build and export settings."""
@@ -97,82 +72,46 @@ class GroupsFrame(ttk.Frame):
         content_frame.grid_columnconfigure(1, weight=1)  # Settings column takes most space
         
         # Create group selection frame (left column)
-        selection_frame = SelectionFrame(content_frame, self.gui, group_name_entry)
-        selection_frame.grid(row=0, column=0, sticky="nsew", padx=5)
+        self.selection_frame = SelectionFrame(content_frame, self.gui, group_name_entry)
+        self.selection_frame.grid(row=0, column=0, sticky="nsew", padx=5)
 
         # Create settings container (right column)
         settings_container = ttk.Frame(content_frame)
         settings_container.grid(row=0, column=2, sticky="nsew")
         
         # Create build settings frame
-        build_frame = BuildFrame(settings_container, self.gui)
-        build_frame.pack(fill="x", pady=(0, 10))
+        self.build_frame = BuildFrame(settings_container, self.gui)
+        self.build_frame.pack(fill="x")
         
         # Create export settings frame
-        export_frame = ExportFrame(settings_container, self.gui, group_name_entry)
-        export_frame.pack(fill="x")
+        self.export_frame = ExportFrame(settings_container, self.gui, group_name_entry)
+        self.export_frame.pack(fill="x")
         
         # Store settings for this group
         self.settings[group_name] = {
-            'build_settings': build_frame.get_settings(),  # Store frame reference
-            'export_settings': export_frame.get_settings(),  # Store frame reference
-            'name_entry': group_name_entry.get(),
-            'tracking_text': selection_frame.tracking_text.get(1.0, tk.END),
-            'selections': []  # List to store all selections
+            'build_settings': self.build_frame,  # Store frame reference
+            'export_settings': self.export_frame,  # Store frame reference
+            'name_entry': group_name_entry,
+            'selections': self.selection_frame  # List to store all selections
         }
-    
-    def add_selection(self, group_name, selection_type, start_val, end_val, tracking_text):
-        """Add a new selection to the group and update the tracking display."""
-        try:
-            start = int(start_val)
-            
-            # If end_val is empty, treat as single index
-            if not end_val.strip():
-                end = start
-            else:
-                end = int(end_val)
-            
-            if start > end:
-                messagebox.showerror("Invalid Range", "Start value must be less than or equal to end value.")
-                return
-            
-            # Create new selection
-            new_selection = {
-                'type': selection_type,
-                'start': start,
-                'end': end
-            }
-            
-            # Get current selections
-            selections = self.settings[group_name]['selections']
-            
-            # Check for overlaps
-            for selection in selections:
-                if (selection['type'] == selection_type and
-                    ((start <= selection['end'] and end >= selection['start']) or
-                     (selection['start'] <= end and selection['end'] >= start))):
-                    # Merge overlapping ranges
-                    selection['start'] = min(selection['start'], start)
-                    selection['end'] = max(selection['end'], end)
-                    break
-            else:
-                # No overlap found, add new selection
-                selections.append(new_selection)
-            
-            # Update tracking display
-            tracking_text.config(state='normal')
-            tracking_text.delete(1.0, tk.END)
-            
-            for selection in selections:
-                if selection['start'] == selection['end']:
-                    tracking_text.insert(tk.END, f"{selection['type']}: {selection['start']}\n")
-                else:
-                    tracking_text.insert(tk.END, f"{selection['type']}: {selection['start']}-{selection['end']}\n")
-            
-            tracking_text.config(state='disabled')
+        
+        # Create a button frame for the buttons
+        button_frame = ttk.Frame(content_frame)
+        button_frame.grid(row=1, column=1, columnspan=2, sticky="ew", padx=5, pady=5)
 
-        except ValueError:
-            messagebox.showerror("Invalid Input", "Please enter valid numbers for the range.")
+        # Create a run button for the current group
+        run_button = ttk.Button(button_frame, text="Run", command=lambda: self.run_current_group())
+        run_button.pack(side="right", padx=5)
+
+        # Add button for current group        
+        add_button = ttk.Button(button_frame, text="Add", command=self.add_group_tab)
+        add_button.pack(side="right", padx=5)
+
+        # Add delete button for current group
+        delete_button = ttk.Button(button_frame, text="Delete", 
+                                 command=lambda: self.delete_current_group())
+        delete_button.pack(side="right", padx=5)
+    
     
     def delete_group(self, group_name):
         """Delete a group and its settings."""
@@ -211,12 +150,11 @@ class GroupsFrame(ttk.Frame):
         """Get the settings for the currently selected group."""
         current_tab = self.notebook.select()
         group_name = self.notebook.tab(current_tab, "text")
-        group_data = self.settings[group_name]
         return {
             'name': group_name,
-            'build_settings': group_data['build_settings'].get_settings(),
-            'export_settings': group_data['export_settings'].get_settings(),
-            'selections': group_data['selections']
+            'build_settings': self.settings[group_name]['build_settings'].get_settings(),
+            'export_settings': self.settings[group_name]['export_settings'].get_settings(),
+            'selections': self.settings[group_name]['selections'].selections
         }
     
     def get_all_group_settings(self):
@@ -226,7 +164,7 @@ class GroupsFrame(ttk.Frame):
                 'name': group_name,
                 'build_settings': data['build_settings'].get_settings(),
                 'export_settings': data['export_settings'].get_settings(),
-                'selections': data['selections']
+                'selections': data['selections'].selections
             }
             for group_name, data in self.settings.items()
         }
@@ -285,16 +223,5 @@ class GroupsFrame(ttk.Frame):
         if current_tab:
             group_name = self.notebook.tab(current_tab, "text")
             settings = self.get_current_group_settings()
-            if self.gui and self.gui.sys:
-                # Create a new group in the system
-                self.gui.sys.create_group()
-                # Apply the settings to the group
-                current_group = self.gui.sys.groups[-1]
-                current_group.name = settings['name']
-                
-                # Get settings from the frames
-                current_group.build_settings = settings['build_settings']
-                current_group.export_settings = settings['export_settings']
-                current_group.selections = settings['selections']
-                print(f"Running group: {group_name} with settings:", settings)
+            self.gui.run_group(group_name, settings)
 

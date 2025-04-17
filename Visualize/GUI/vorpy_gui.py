@@ -14,7 +14,8 @@ from Visualize.GUI.system.system_frame import SystemFrame
 from Visualize.GUI.group.groups_frame import GroupsFrame
 from Visualize.GUI.group.build.color_settings_window import ColorSettingsWindow
 from Visualize.GUI.help.help_window import HelpWindow
-
+from Visualize.GUI.progress_window import ProgressWindow
+from System.Group.group import Group
 """
 This GUI operates the whole VorPy interface. Once running, the command line that it was run out of will inform you on 
 your progress. The GUI is only for launching the program.
@@ -48,6 +49,8 @@ class VorPyGUI(tk.Tk):
 
         # Set up the files dictionary
         self.files = {'sys_name': 'No File Loaded', 'base_file': '', 'other_files': [], 'dir': '' }
+        self.exports = {'set_atoms': True, 'info': True, 'pdb': True, 'mol': False, 'cif': False, 'xyz': False, 'txt': False}
+        self.radii_changes = []
         
         self.group_settings = {}
 
@@ -64,12 +67,12 @@ class VorPyGUI(tk.Tk):
         
         # System Information Section (Full Width)
         self.info_frame = tk.Frame(self, height=200)
-        self.info_frame.pack(fill="x", padx=10, pady=(0, 10))
+        self.info_frame.pack(fill="x", padx=5)
         self.create_information_section(self.info_frame)
         
         # Settings Frame (Full Width)
         settings_frame = tk.Frame(self)
-        settings_frame.pack(expand=True, fill="both", padx=10, pady=(0, 10))
+        settings_frame.pack(expand=True, fill="both", padx=10)
         
         # Create group settings section
         self.group_settings_frame = GroupsFrame(settings_frame, self, self.group_settings)
@@ -118,12 +121,92 @@ class VorPyGUI(tk.Tk):
         self.sys.files['dir'] = filedialog.askdirectory(title='Choose Output Directory')
         print(f"Output directory selected: {self.sys.files['dir']}")
 
+    def run_group(self, group_name):
+        """
+        This runs a group from the group settings dictionary
+        """
+        settings = self.group_settings[group_name]
+        build_settings = settings['build_settings'].get_settings()
+        selections = settings['selections'].selections
+
+        # # Check if any selections have been made
+        # if 'selections' not in settings:
+        #     settings['selections'] = {'balls': None, 'residues': None, 'chains': None, 'molecules': None}
+        # Create a dictionary to convert the net type to something that can be interpreted
+        net_type_dict = {'Additively Weighted': 'aw', 'Power': 'pow', 'Primitive': 'prm'}
+
+        # Create the group
+        group = Group(
+            self.sys,
+            name=group_name,
+            atoms=settings['selections']['balls'],
+            residues=settings['selections']['residues'],
+            chains=settings['selections']['chains'],
+            molecules=settings['selections']['molecules'],
+            build_net=True,
+            surf_res=float(build_settings['color_settings']['surf_res']),
+            box_size=build_settings['box_size'],
+            max_vert=build_settings['max_vert'],
+            net_type=net_type_dict[build_settings['net_type']],
+            surf_col=build_settings['color_settings']['surf_col'],
+            surf_scheme=build_settings['color_settings']['surf_scheme'],
+            scheme_factor=build_settings['color_settings']['surf_fact'],
+            vert_col=build_settings['color_settings']['vert_col'],
+            edge_col=build_settings['color_settings']['edge_col']
+        )
+
+        # Export the group
+        exports = settings['export_settings'].get_settings()
+        # Check if the export directory is chosen
+        if exports['directory'] == 'Default Output Directory' or not os.path.exists(exports['directory']):
+            exports['directory'] = None
+        # Set the group's directory
+        group.dir = exports['directory']
+        print(exports)
+        # If the size is not custom export the given size information
+        if exports['size'] == 'Small':
+            group.exports(info=True, shell_surfs=True, logs=True)
+        elif exports['size'] == 'Medium':
+            group.exports(shell_surfs=True, surfs=True, shell_edges=True, edges=True, shell_verts=True, verts=True,
+                            logs=True, atoms=True, surr_atoms=True)
+        elif exports['size'] == 'Large':
+            # Export the group exports
+            group.exports(shell_verts=True, shell_edges=True, shell_surfs=True, info=True, edges=True, verts=True,
+                            atoms=True, surr_atoms=True, logs=True, atom_surfs=True, atom_edges=True, atom_verts=True)
+        else:
+            cust = exports['custom_settings']
+            group.exports(info=cust['info'], logs=cust['logs'], atoms=cust['group_vars']['pdb'],
+                            sep_surfs=cust['surfs_separate'], sep_edges=cust['edges_separate'],
+                            sep_verts=cust['verts_separate'], atom_surfs=cust['surfs_cell'],
+                            atom_edges=cust['edges_cell'], atom_verts=cust['verts_cell'], surfs=cust['surfs_all'],
+                            edges=cust['edges_all'], verts=['verts_all'], shell_surfs=cust['surfs_shell'],
+                            shell_edges=cust['edges_shell'], shell_verts=cust['verts_shell'],
+                            surr_atoms=cust['surrounding_vars']['pdb'])
+
     def run_program(self):
         """
         This sends a system to start running networks on all groups
         """
-        self.sys.build_all_networks()
+        # Create a progress window
+        # progress_window = ProgressWindow(self)
+
+        # Create a group if None exists
+        if len(self.group_settings) == 0:
+            self.sys.create_group()
+
+        # Create the groups with the correct settings
+        for i, (group_name, settings) in enumerate(self.group_settings.items()):
+            self.run_group(group_name, settings)
+        # Export the system exports
+        self.sys.exports(pdb=self.exports['pdb'], mol=self.exports['mol'], cif=self.exports['cif'], xyz=self.exports['xyz'], 
+                         txt=self.exports['txt'], info=self.exports['info'], set_atoms=self.exports['set_atoms'])
+
         return self.sys
+            
+        # except Exception as e:
+        #     progress_window.finish()
+        #     # messagebox.showerror("Error", f"An error occurred while running the program: {str(e)}")
+        #     raise
 
     def open_help(self):
         """Open the help window."""
@@ -132,11 +215,12 @@ class VorPyGUI(tk.Tk):
     def print_system(self):
         """Print the system."""
         print(self.files)
+        print(self.exports)
         for group in self.group_settings:
             print(group)
-            print(self.group_settings[group]['build_settings'])
-            print(self.group_settings[group]['export_settings'])
-
+            print(self.group_settings[group]['build_settings'].get_settings())
+            print(self.group_settings[group]['export_settings'].get_settings())
+            print(self.group_settings[group]['selections'].selections)
     def update_surface_settings_display(self):
         """Update the display of surface settings in the main GUI."""
         # Update the surface settings display in the build frame
