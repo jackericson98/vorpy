@@ -8,7 +8,7 @@ from matplotlib import pyplot as plt
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 from scipy.optimize import curve_fit
-from System.sys_funcs.input.pdb import read_pdb_line
+from System.sys_funcs.input.balls.pdb import read_pdb_line
 from System.sys_funcs.calcs.calcs import calc_sphericity, calc_isoperimetric_quotient
 from System.sys_funcs.calcs.sorting import sort_lists
 from Data.Analyze.tools.compare.read_logs import read_logs

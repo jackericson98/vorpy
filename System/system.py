@@ -1,12 +1,12 @@
 import os
 import time
 from os import path
-from System.sys_funcs.input.pdb import read_pdb
-from System.sys_funcs.input.cif import read_cif
-from System.sys_funcs.input.gro import read_gro
-from System.sys_funcs.input.mol import read_mol
-from System.sys_funcs.input.balls import load_balls
-from System.sys_funcs.input.txt import read_txt
+from System.sys_funcs.input.balls.pdb import read_pdb
+from System.sys_funcs.input.balls.cif import read_cif
+from System.sys_funcs.input.balls.gro import read_gro
+from System.sys_funcs.input.balls.mol import read_mol
+from System.sys_funcs.input.balls.balls import load_balls
+from System.sys_funcs.input.balls.txt import read_txt
 from System.sys_funcs.input.net import read_net, read_ndx
 from System.sys_funcs.input.vta import read_vta_data
 from System.sys_funcs.input.verts import read_verts
@@ -326,12 +326,11 @@ class System:
         """
         Links set output directory to the system
         """
-        print('vorpy directory', self.files['vpy_dir'])
         set_sys_dir(self, dir_name=directory)
 
-    def exports(self, all_=False, pdb=False, set_atoms=False, info=False):
+    def exports(self, all_=False, pdb=False, set_atoms=False, info=False, mol=False, cif=False, xyz=False, txt=False):
         """
         Prepares the output directory and system for output. Keeps things consistent
         """
         # Export the system (/System/sys_funcs/output)
-        export_sys(self, all_=all_, pdb=pdb, alter_atoms_script=set_atoms, info=info)
+        export_sys(self, all_=all_, pdb=pdb, alter_atoms_script=set_atoms, info=info, mol=mol, cif=cif, xyz=xyz, txt=txt)

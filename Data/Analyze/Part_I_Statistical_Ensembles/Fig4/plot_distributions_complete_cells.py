@@ -8,7 +8,7 @@ from scipy.optimize import fsolve
 import tkinter as tk
 from tkinter import filedialog
 from Data.Analyze.tools.compare.read_logs import read_logs
-from System.sys_funcs.input.pdb import read_pdb_line
+from System.sys_funcs.input.balls.pdb import read_pdb_line
 from System.system import System
 
 

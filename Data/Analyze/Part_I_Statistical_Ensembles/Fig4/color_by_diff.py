@@ -8,7 +8,7 @@ from matplotlib import pyplot as plt
 from System.system import System
 from Data.Analyze.tools.compare.read_logs2 import read_logs2
 from Data.Analyze.tools.compare.read_logs import read_logs
-from System.sys_funcs.input.pdb import read_pdb_line
+from System.sys_funcs.input.balls.pdb import read_pdb_line
 from System.sys_funcs.output.atoms import make_pdb_line
 from Data.Analyze.tools.batch.get_files import get_files
 import numpy as np

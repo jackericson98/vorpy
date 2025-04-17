@@ -1,5 +1,5 @@
 from System.sys_funcs.output.atoms import make_pdb_line
-from System.sys_funcs.input.pdb import read_pdb_line
+from System.sys_funcs.input.balls.pdb import read_pdb_line
 from os import path
 import matplotlib.pyplot as plt
 import csv
