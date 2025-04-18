@@ -177,7 +177,7 @@ class SystemFrame:
             
             # Truncate the filename display with ellipses in the middle
             if len(filename) > 50:
-                truncated = filename[:23] + "..." + filename[-23:]
+                truncated = filename[:20] + "..." + filename[-20:]
             else:
                 truncated = filename
             self.input_file_label.config(text=truncated)

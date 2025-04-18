@@ -100,7 +100,7 @@ class GroupsFrame(ttk.Frame):
         button_frame.grid(row=1, column=1, columnspan=2, sticky="ew", padx=5, pady=5)
 
         # Create a run button for the current group
-        run_button = ttk.Button(button_frame, text="Run", command=lambda: self.run_current_group())
+        run_button = ttk.Button(button_frame, text="Run", command=self.run_current_group)
         run_button.pack(side="right", padx=5)
 
         # Add button for current group        
@@ -222,6 +222,5 @@ class GroupsFrame(ttk.Frame):
         current_tab = self.notebook.select()
         if current_tab:
             group_name = self.notebook.tab(current_tab, "text")
-            settings = self.get_current_group_settings()
-            self.gui.run_group(group_name, settings)
+            self.gui.run_group(group_name)
 

@@ -98,10 +98,6 @@ class VorPyGUI(tk.Tk):
     def create_information_section(self, frame):
         SystemFrame(self, frame)
 
-    def open_surface_settings_gui(self):
-        """Open the surface settings window."""
-        ColorSettingsWindow(self)
-
     def choose_ball_file(self):
         """Open file dialog to select a ball file."""
         filename = filedialog.askopenfilename(
@@ -127,26 +123,25 @@ class VorPyGUI(tk.Tk):
         """
         settings = self.group_settings[group_name]
         build_settings = settings['build_settings'].get_settings()
-        selections = settings['selections'].selections
 
-        # # Check if any selections have been made
-        # if 'selections' not in settings:
-        #     settings['selections'] = {'balls': None, 'residues': None, 'chains': None, 'molecules': None}
         # Create a dictionary to convert the net type to something that can be interpreted
         net_type_dict = {'Additively Weighted': 'aw', 'Power': 'pow', 'Primitive': 'prm'}
+
+        print(settings['selections'].selections)
+        print(build_settings)
 
         # Create the group
         group = Group(
             self.sys,
             name=group_name,
-            atoms=settings['selections']['balls'],
-            residues=settings['selections']['residues'],
-            chains=settings['selections']['chains'],
-            molecules=settings['selections']['molecules'],
+            atoms=settings['selections'].selections['balls'],
+            residues=settings['selections'].selections['residues'],
+            chains=settings['selections'].selections['chains'],
+            molecules=settings['selections'].selections['molecules'],
             build_net=True,
             surf_res=float(build_settings['color_settings']['surf_res']),
-            box_size=build_settings['box_size'],
-            max_vert=build_settings['max_vert'],
+            box_size=float(build_settings['box_size']),
+            max_vert=float(build_settings['max_vert']),
             net_type=net_type_dict[build_settings['net_type']],
             surf_col=build_settings['color_settings']['surf_col'],
             surf_scheme=build_settings['color_settings']['surf_scheme'],
@@ -187,26 +182,19 @@ class VorPyGUI(tk.Tk):
         """
         This sends a system to start running networks on all groups
         """
-        # Create a progress window
-        # progress_window = ProgressWindow(self)
 
         # Create a group if None exists
         if len(self.group_settings) == 0:
             self.sys.create_group()
 
         # Create the groups with the correct settings
-        for i, (group_name, settings) in enumerate(self.group_settings.items()):
-            self.run_group(group_name, settings)
+        for group_name in self.group_settings:
+            self.run_group(group_name)
         # Export the system exports
         self.sys.exports(pdb=self.exports['pdb'], mol=self.exports['mol'], cif=self.exports['cif'], xyz=self.exports['xyz'], 
                          txt=self.exports['txt'], info=self.exports['info'], set_atoms=self.exports['set_atoms'])
 
         return self.sys
-            
-        # except Exception as e:
-        #     progress_window.finish()
-        #     # messagebox.showerror("Error", f"An error occurred while running the program: {str(e)}")
-        #     raise
 
     def open_help(self):
         """Open the help window."""
@@ -221,6 +209,9 @@ class VorPyGUI(tk.Tk):
             print(self.group_settings[group]['build_settings'].get_settings())
             print(self.group_settings[group]['export_settings'].get_settings())
             print(self.group_settings[group]['selections'].selections)
+        print(self.radii_changes)
+
+
     def update_surface_settings_display(self):
         """Update the display of surface settings in the main GUI."""
         # Update the surface settings display in the build frame
