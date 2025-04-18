@@ -27,7 +27,7 @@ GUI returns
 
 
 class VorPyGUI(tk.Tk):
-    def __init__(self, system=None):
+    def __init__(self):
         # Initialize the parent class first
         super().__init__()
         
@@ -94,7 +94,6 @@ class VorPyGUI(tk.Tk):
         cancel_button = ttk.Button(button_frame, text="Cancel", command=self.quit)
         cancel_button.pack(side="right", padx=5)
 
-
     def create_information_section(self, frame):
         SystemFrame(self, frame)
 
@@ -109,9 +108,6 @@ class VorPyGUI(tk.Tk):
             self.sys.ball_file = filename
             self.sys.name = os.path.basename(filename)  # Update system name to filename
             self.files['sys_name'].set(self.sys.name.upper())  # Update the display
-        
-        # We need to list the file's attributes: Number of balls (atoms), number of residues, number of chains
-
 
     def choose_output_directory(self):
         self.sys.files['dir'] = filedialog.askdirectory(title='Choose Output Directory')
@@ -126,9 +122,6 @@ class VorPyGUI(tk.Tk):
 
         # Create a dictionary to convert the net type to something that can be interpreted
         net_type_dict = {'Additively Weighted': 'aw', 'Power': 'pow', 'Primitive': 'prm'}
-
-        print(settings['selections'].selections)
-        print(build_settings)
 
         # Create the group
         group = Group(
@@ -157,7 +150,7 @@ class VorPyGUI(tk.Tk):
             exports['directory'] = None
         # Set the group's directory
         group.dir = exports['directory']
-        print(exports)
+
         # If the size is not custom export the given size information
         if exports['size'] == 'Small':
             group.exports(info=True, shell_surfs=True, logs=True)
@@ -171,12 +164,12 @@ class VorPyGUI(tk.Tk):
         else:
             cust = exports['custom_settings']
             group.exports(info=cust['info'], logs=cust['logs'], atoms=cust['group_vars']['pdb'],
-                            sep_surfs=cust['surfs_separate'], sep_edges=cust['edges_separate'],
-                            sep_verts=cust['verts_separate'], atom_surfs=cust['surfs_cell'],
-                            atom_edges=cust['edges_cell'], atom_verts=cust['verts_cell'], surfs=cust['surfs_all'],
-                            edges=cust['edges_all'], verts=['verts_all'], shell_surfs=cust['surfs_shell'],
-                            shell_edges=cust['edges_shell'], shell_verts=cust['verts_shell'],
-                            surr_atoms=cust['surrounding_vars']['pdb'])
+                          sep_surfs=cust['surfs_separate'], sep_edges=cust['edges_separate'],
+                          sep_verts=cust['verts_separate'], atom_surfs=cust['surfs_cell'],
+                          atom_edges=cust['edges_cell'], atom_verts=cust['verts_cell'], surfs=cust['surfs_all'],
+                          edges=cust['edges_all'], verts=['verts_all'], shell_surfs=cust['surfs_shell'],
+                          shell_edges=cust['edges_shell'], shell_verts=cust['verts_shell'],
+                          surr_atoms=cust['surrounding_vars']['pdb'])
 
     def run_program(self):
         """
@@ -211,7 +204,6 @@ class VorPyGUI(tk.Tk):
             print(self.group_settings[group]['selections'].selections)
         print(self.radii_changes)
 
-
     def update_surface_settings_display(self):
         """Update the display of surface settings in the main GUI."""
         # Update the surface settings display in the build frame
@@ -222,7 +214,6 @@ class VorPyGUI(tk.Tk):
 if __name__ == "__main__":
     os.chdir('../..')
     # create the system
-    sys = System(file="./Data/test_data/cambrin.pdb", name="Test System")
-    app = VorPyGUI(sys)
+    app = VorPyGUI()
     app.mainloop()
 

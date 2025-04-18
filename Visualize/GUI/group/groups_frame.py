@@ -4,20 +4,6 @@ from Visualize.GUI.group.build.build_frame import BuildFrame
 from Visualize.GUI.group.export.export_frame import ExportFrame
 from Visualize.GUI.group.selection.selection_frame import SelectionFrame
 
-"""
-This file updates the group info. If you add more than one group, the gui will update it.
-
-Options include:
-    Defaults:
-        Centered Text saying no molecule is loaded, but spaced out for options
-    Defaults Once a file is loaded:
-        1. Molecule: No Sol - this means as soon as a molecule file is loaded anything marked SOL,
-           HOH, WAT, etc... is excluded
-        2. Foam:
-
-
-"""
-
 
 class GroupsFrame(ttk.Frame):
     def __init__(self, parent, gui, settings):
@@ -31,7 +17,6 @@ class GroupsFrame(ttk.Frame):
         
         # Add initial group tab
         self.add_group_tab("Group 1")
-        
     
     def add_group_tab(self, group_name=None):
         """Add a new group tab with build and export settings."""
@@ -111,7 +96,6 @@ class GroupsFrame(ttk.Frame):
         delete_button = ttk.Button(button_frame, text="Delete", 
                                  command=lambda: self.delete_current_group())
         delete_button.pack(side="right", padx=5)
-    
     
     def delete_group(self, group_name):
         """Delete a group and its settings."""
@@ -223,4 +207,3 @@ class GroupsFrame(ttk.Frame):
         if current_tab:
             group_name = self.notebook.tab(current_tab, "text")
             self.gui.run_group(group_name)
-
