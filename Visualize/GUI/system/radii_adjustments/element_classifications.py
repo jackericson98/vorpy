@@ -97,113 +97,333 @@ elements = {
 
 special_radii = {
     'ALA': {
-        'C': 1.75, 'CA': 1.9, 'CB': 1.92, 'H': 1.3, 'HA': 1.3, 'HB1': 1.3, 'HB2': 1.3, 'HB3': 1.3, 'N': 1.7, 'O': 1.49,
-        'OC1': 1.5, 'OC2': 1.5
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 1.92, 'mass': 12.011}, 
+        'H': {'radius': 1.3, 'mass': 1.008}, 'HA': {'radius': 1.3, 'mass': 1.008}, 'HB1': {'radius': 1.3, 'mass': 1.008}, 
+        'HB2': {'radius': 1.3, 'mass': 1.008}, 'HB3': {'radius': 1.3, 'mass': 1.008}, 'N': {'radius': 1.7, 'mass': 14.007}, 
+        'O': {'radius': 1.49, 'mass': 15.999}, 'OC1': {'radius': 1.5, 'mass': 15.999}, 'OC2': {'radius': 1.5, 'mass': 15.999}
     },
     'ARG': {
-        'C': 1.75, 'CA': 1.9, 'CB': 1.91, 'CD': 1.88, 'CG': 1.92, 'CZ': 1.8, 'H': 1.3, 'HA': 1.3, 'HB1': 1.3,
-        'HB2': 1.3, 'HB3': 1.3, 'HD1': 1.3, 'HD2': 1.3, 'HD3': 1.3, 'HE': 1.3, 'HG1': 1.3, 'HG2': 1.3, 'HH11': 1.3,
-        'HH12': 1.3, 'HH21': 1.3, 'HH22': 1.3, 'N': 1.7, 'NE': 1.62, 'NH1': 1.62, 'NH2': 1.67, 'O': 1.49
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 1.91, 'mass': 12.011}, 
+        'CD': {'radius': 1.88, 'mass': 12.011}, 'CG': {'radius': 1.92, 'mass': 12.011}, 'CZ': {'radius': 1.8, 'mass': 12.011}, 
+        'H': {'radius': 1.3, 'mass': 1.008}, 'HA': {'radius': 1.3, 'mass': 1.008}, 'HB1': {'radius': 1.3, 'mass': 1.008}, 
+        'HB2': {'radius': 1.3, 'mass': 1.008}, 'HB3': {'radius': 1.3, 'mass': 1.008}, 'HD1': {'radius': 1.3, 'mass': 1.008}, 
+        'HD2': {'radius': 1.3, 'mass': 1.008}, 'HD3': {'radius': 1.3, 'mass': 1.008}, 'HE': {'radius': 1.3, 'mass': 1.008}, 
+        'HG1': {'radius': 1.3, 'mass': 1.008}, 'HG2': {'radius': 1.3, 'mass': 1.008}, 'HH11': {'radius': 1.3, 'mass': 1.008}, 
+        'HH12': {'radius': 1.3, 'mass': 1.008}, 'HH21': {'radius': 1.3, 'mass': 1.008}, 'HH22': {'radius': 1.3, 'mass': 1.008}, 
+        'N': {'radius': 1.7, 'mass': 14.007}, 'NE': {'radius': 1.62, 'mass': 14.007}, 'NH1': {'radius': 1.62, 'mass': 14.007}, 
+        'NH2': {'radius': 1.67, 'mass': 14.007}, 'O': {'radius': 1.49, 'mass': 15.999}
     },
     'ASN': {
-        'C': 1.75, 'CA': 1.9, 'CB': 1.91, 'CG': 1.81, 'H': 1.3, 'HA': 1.3, 'HB1': 1.3, 'HB2': 1.3, 'HD21': 1.3,
-        'HD22': 1.3, 'N': 1.7, 'ND2': 1.62, 'O': 1.49, 'OD1': 1.52
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 1.91, 'mass': 12.011}, 
+        'CG': {'radius': 1.81, 'mass': 12.011}, 'H': {'radius': 1.3, 'mass': 1.008}, 'HA': {'radius': 1.3, 'mass': 1.008}, 
+        'HB1': {'radius': 1.3, 'mass': 1.008}, 'HB2': {'radius': 1.3, 'mass': 1.008}, 'HD21': {'radius': 1.3, 'mass': 1.008},
+        'HD22': {'radius': 1.3, 'mass': 1.008}, 'N': {'radius': 1.7, 'mass': 14.007}, 'ND2': {'radius': 1.62, 'mass': 14.007}, 
+        'O': {'radius': 1.49, 'mass': 15.999}, 'OD1': {'radius': 1.52, 'mass': 15.999}
     },
     'ASP': {
-        'C': 1.75, 'CA': 1.9, 'CB': 1.91, 'CG': 1.76, 'H': 1.3, 'HA': 1.3, 'HB1': 1.3, 'HB2': 1.3, 'N': 1.7, 'O': 1.49,
-        'OD1': 1.49, 'OD2': 1.49
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 1.91, 'mass': 12.011}, 
+        'CG': {'radius': 1.76, 'mass': 12.011}, 'H': {'radius': 1.3, 'mass': 1.008}, 'HA': {'radius': 1.3, 'mass': 1.008}, 
+        'HB1': {'radius': 1.3, 'mass': 1.008}, 'HB2': {'radius': 1.3, 'mass': 1.008}, 'N': {'radius': 1.7, 'mass': 14.007}, 
+        'O': {'radius': 1.49, 'mass': 15.999}, 'OD1': {'radius': 1.49, 'mass': 15.999}, 'OD2': {'radius': 1.49, 'mass': 15.999}
     },
     'CYS': {
-        'C': 1.75, 'CA': 1.9, 'CB': 1.91, 'H': 1.3, 'HA': 1.3, 'HB1': 1.3, 'HB2': 1.3, 'HG': 1.3, 'N': 1.7, 'O': 1.49,
-        'S': 1.88, 'SG': 1.88
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 1.91, 'mass': 12.011}, 
+        'H': {'radius': 1.3, 'mass': 1.008}, 'HA': {'radius': 1.3, 'mass': 1.008}, 'HB1': {'radius': 1.3, 'mass': 1.008}, 
+        'HB2': {'radius': 1.3, 'mass': 1.008}, 'HG': {'radius': 1.3, 'mass': 1.008}, 'N': {'radius': 1.7, 'mass': 14.007}, 
+        'O': {'radius': 1.49, 'mass': 15.999}, 'S': {'radius': 1.88, 'mass': 32.06}, 'SG': {'radius': 1.88, 'mass': 32.06}
     },
     'GLN': {
-        'C': 1.75, 'CA': 1.9, 'CB': 1.91, 'CD': 1.81, 'CG': 1.8, 'H': 1.3, 'HA': 1.3, 'HB1': 1.3, 'HB2': 1.3,
-        'HE21': 1.3, 'HE22': 1.3, 'HG1': 1.3, 'HG2': 1.3, 'N': 1.7, 'NE2': 1.62, 'O': 1.49, 'OE1': 1.52
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 1.91, 'mass': 12.011}, 
+        'CD': {'radius': 1.81, 'mass': 12.011}, 'CG': {'radius': 1.8, 'mass': 12.011}, 'H': {'radius': 1.3, 'mass': 1.008}, 
+        'HA': {'radius': 1.3, 'mass': 1.008}, 'HB1': {'radius': 1.3, 'mass': 1.008}, 'HB2': {'radius': 1.3, 'mass': 1.008},
+        'HE21': {'radius': 1.3, 'mass': 1.008}, 'HE22': {'radius': 1.3, 'mass': 1.008}, 'HG1': {'radius': 1.3, 'mass': 1.008}, 
+        'HG2': {'radius': 1.3, 'mass': 1.008}, 'N': {'radius': 1.7, 'mass': 14.007}, 'NE2': {'radius': 1.62, 'mass': 14.007}, 
+        'O': {'radius': 1.49, 'mass': 15.999}, 'OE1': {'radius': 1.52, 'mass': 15.999}
     },
     'GLU': {
-        'C': 1.75, 'CA': 1.9, 'CB': 1.91, 'CD': 1.76, 'CG': 1.88, 'H': 1.3, 'HA': 1.3, 'HB1': 1.3, 'HB2': 1.3,
-        'HG1': 1.3, 'HG2': 1.3, 'N': 1.7, 'O': 1.49, 'OE1': 1.49, 'OE2': 1.49
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 1.91, 'mass': 12.011}, 
+        'CD': {'radius': 1.76, 'mass': 12.011}, 'CG': {'radius': 1.88, 'mass': 12.011}, 'H': {'radius': 1.3, 'mass': 1.008}, 
+        'HA': {'radius': 1.3, 'mass': 1.008}, 'HB1': {'radius': 1.3, 'mass': 1.008}, 'HB2': {'radius': 1.3, 'mass': 1.008},
+        'HG1': {'radius': 1.3, 'mass': 1.008}, 'HG2': {'radius': 1.3, 'mass': 1.008}, 'N': {'radius': 1.7, 'mass': 14.007}, 
+        'O': {'radius': 1.49, 'mass': 15.999}, 'OE1': {'radius': 1.49, 'mass': 15.999}, 'OE2': {'radius': 1.49, 'mass': 15.999}
     },
     'GLY': {
-        'C': 1.75, 'CA': 1.9, 'H': 1.3, 'HA1': 1.3, 'HA2': 1.3, 'N': 1.7, 'O': 1.49, 'OC1': 1.5, 'OC2': 1.5
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 
+        'H': {'radius': 1.3, 'mass': 1.008}, 'HA1': {'radius': 1.3, 'mass': 1.008}, 
+        'HA2': {'radius': 1.3, 'mass': 1.008}, 'N': {'radius': 1.7, 'mass': 14.007}, 
+        'O': {'radius': 1.49, 'mass': 15.999}, 'OC1': {'radius': 1.5, 'mass': 15.999}, 
+        'OC2': {'radius': 1.5, 'mass': 15.999}
     },
     'HIS': {
-        'C': 1.75, 'CA': 1.9, 'CB': 1.91, 'CD': 1.74, 'CE': 1.74, 'CD2': 1.74, 'CE1': 1.74, 'CG': 1.8, 'H': 1.3,
-        'HA': 1.3, 'HB1': 1.3, 'HB2': 1.3, 'HD2': 1.3, 'HE1': 1.3, 'HE2': 1.3, 'N': 1.7, 'ND1': 1.6, 'ND2': 1.6,
-        'NE2': 1.6, 'O': 1.49
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 1.91, 'mass': 12.011}, 
+        'CD': {'radius': 1.74, 'mass': 12.011}, 'CE': {'radius': 1.74, 'mass': 12.011}, 'CD2': {'radius': 1.74, 'mass': 12.011}, 
+        'CE1': {'radius': 1.74, 'mass': 12.011}, 'CG': {'radius': 1.8, 'mass': 12.011}, 'H': {'radius': 1.3, 'mass': 1.008}, 
+        'HA': {'radius': 1.3, 'mass': 1.008}, 'HB1': {'radius': 1.3, 'mass': 1.008}, 'HB2': {'radius': 1.3, 'mass': 1.008}, 
+        'HD2': {'radius': 1.3, 'mass': 1.008}, 'HE1': {'radius': 1.3, 'mass': 1.008}, 'HE2': {'radius': 1.3, 'mass': 1.008}, 
+        'N': {'radius': 1.7, 'mass': 14.007}, 'ND1': {'radius': 1.6, 'mass': 14.007}, 'ND2': {'radius': 1.6, 'mass': 14.007}, 
+        'NE2': {'radius': 1.6, 'mass': 14.007}, 'O': {'radius': 1.49, 'mass': 15.999}
     },
     'ILE': {
-        'C': 1.75, 'CA': 1.9, 'CB': 2.01, 'CD': 1.92, 'CD1': 1.92, 'CG1': 1.92, 'CG2': 1.92, 'H': 1.3, 'HA': 1.3,
-        'HB': 1.3, 'HD1': 1.3, 'HD2': 1.3, 'HD3': 1.3, 'HD11': 1.3, 'HD12': 1.3, 'HD13': 1.3, 'HG12': 1.3, 'HG13': 1.3,
-        'HG21': 1.3, 'HG22': 1.3, 'HG23': 1.3, 'N': 1.7, 'O': 1.49
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 2.01, 'mass': 12.011}, 
+        'CD': {'radius': 1.92, 'mass': 12.011}, 'CD1': {'radius': 1.92, 'mass': 12.011}, 'CG1': {'radius': 1.92, 'mass': 12.011}, 
+        'CG2': {'radius': 1.92, 'mass': 12.011}, 'H': {'radius': 1.3, 'mass': 1.008}, 'HA': {'radius': 1.3, 'mass': 1.008},
+        'HB': {'radius': 1.3, 'mass': 1.008}, 'HD1': {'radius': 1.3, 'mass': 1.008}, 'HD2': {'radius': 1.3, 'mass': 1.008}, 
+        'HD3': {'radius': 1.3, 'mass': 1.008}, 'HD11': {'radius': 1.3, 'mass': 1.008}, 'HD12': {'radius': 1.3, 'mass': 1.008}, 
+        'HD13': {'radius': 1.3, 'mass': 1.008}, 'HG12': {'radius': 1.3, 'mass': 1.008}, 'HG13': {'radius': 1.3, 'mass': 1.008},
+        'HG21': {'radius': 1.3, 'mass': 1.008}, 'HG22': {'radius': 1.3, 'mass': 1.008}, 'HG23': {'radius': 1.3, 'mass': 1.008}, 
+        'N': {'radius': 1.7, 'mass': 14.007}, 'O': {'radius': 1.49, 'mass': 15.999}
     },
     'LEU': {
-        'C': 1.75, 'CA': 1.9, 'CB': 1.91, 'CD1': 1.92, 'CD2': 1.92, 'CG': 2.01, 'H': 1.3, 'HA': 1.3, 'HB1': 1.3,
-        'HB2': 1.3, 'HD11': 1.3, 'HD12': 1.3, 'HD13': 1.3, 'HD21': 1.3, 'HD22': 1.3, 'HD23': 1.3, 'HG': 1.3, 'N': 1.7,
-        'O': 1.49
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 1.91, 'mass': 12.011}, 
+        'CD1': {'radius': 1.92, 'mass': 12.011}, 'CD2': {'radius': 1.92, 'mass': 12.011}, 'CG': {'radius': 2.01, 'mass': 12.011}, 
+        'H': {'radius': 1.3, 'mass': 1.008}, 'HA': {'radius': 1.3, 'mass': 1.008}, 'HB1': {'radius': 1.3, 'mass': 1.008},
+        'HB2': {'radius': 1.3, 'mass': 1.008}, 'HD11': {'radius': 1.3, 'mass': 1.008}, 'HD12': {'radius': 1.3, 'mass': 1.008}, 
+        'HD13': {'radius': 1.3, 'mass': 1.008}, 'HD21': {'radius': 1.3, 'mass': 1.008}, 'HD22': {'radius': 1.3, 'mass': 1.008}, 
+        'HD23': {'radius': 1.3, 'mass': 1.008}, 'HG': {'radius': 1.3, 'mass': 1.008}, 'N': {'radius': 1.7, 'mass': 14.007},
+        'O': {'radius': 1.49, 'mass': 15.999}
     },
     'LYS': {
-        'C': 1.75, 'CA': 1.9, 'CB': 1.91, 'CD': 1.92, 'CE': 1.88, 'CG': 1.92, 'H': 1.3, 'HA': 1.3, 'HB1': 1.3,
-        'HB2': 1.3, 'HD1': 1.3, 'HD2': 1.3, 'HE1': 1.3, 'HE2': 1.3, 'HG1': 1.3, 'HG2': 1.3, 'HZ1': 1.3, 'HZ2': 1.3,
-        'HZ3': 1.3, 'N': 1.7, 'NZ': 1.67, 'O': 1.49
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 1.91, 'mass': 12.011}, 
+        'CD': {'radius': 1.92, 'mass': 12.011}, 'CE': {'radius': 1.88, 'mass': 12.011}, 'CG': {'radius': 1.92, 'mass': 12.011}, 
+        'H': {'radius': 1.3, 'mass': 1.008}, 'HA': {'radius': 1.3, 'mass': 1.008}, 'HB1': {'radius': 1.3, 'mass': 1.008},
+        'HB2': {'radius': 1.3, 'mass': 1.008}, 'HD1': {'radius': 1.3, 'mass': 1.008}, 'HD2': {'radius': 1.3, 'mass': 1.008}, 
+        'HE1': {'radius': 1.3, 'mass': 1.008}, 'HE2': {'radius': 1.3, 'mass': 1.008}, 'HG1': {'radius': 1.3, 'mass': 1.008}, 
+        'HG2': {'radius': 1.3, 'mass': 1.008}, 'HZ1': {'radius': 1.3, 'mass': 1.008}, 'HZ2': {'radius': 1.3, 'mass': 1.008},
+        'HZ3': {'radius': 1.3, 'mass': 1.008}, 'N': {'radius': 1.7, 'mass': 14.007}, 'NZ': {'radius': 1.67, 'mass': 14.007}, 
+        'O': {'radius': 1.49, 'mass': 15.999}
     },
     'MET': {
-        'C': 1.75, 'CA': 1.9, 'CB': 1.91, 'CE': 1.8, 'CG': 1.92, 'H': 1.3, 'HA': 1.3, 'HB1': 1.3, 'HB2': 1.3,
-        'HE1': 1.3, 'HE2': 1.3, 'HE3': 1.3, 'HG1': 1.3, 'HG2': 1.3, 'N': 1.7, 'O': 1.49, 'SD': 1.94, 'S': 1.94
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 1.91, 'mass': 12.011}, 
+        'CE': {'radius': 1.8, 'mass': 12.011}, 'CG': {'radius': 1.92, 'mass': 12.011}, 'H': {'radius': 1.3, 'mass': 1.008}, 
+        'HA': {'radius': 1.3, 'mass': 1.008}, 'HB1': {'radius': 1.3, 'mass': 1.008}, 'HB2': {'radius': 1.3, 'mass': 1.008},
+        'HE1': {'radius': 1.3, 'mass': 1.008}, 'HE2': {'radius': 1.3, 'mass': 1.008}, 'HE3': {'radius': 1.3, 'mass': 1.008}, 
+        'HG1': {'radius': 1.3, 'mass': 1.008}, 'HG2': {'radius': 1.3, 'mass': 1.008}, 'N': {'radius': 1.7, 'mass': 14.007}, 
+        'O': {'radius': 1.49, 'mass': 15.999}, 'SD': {'radius': 1.94, 'mass': 32.06}, 'S': {'radius': 1.94, 'mass': 32.06}
     },
     'PHE': {
-        'C': 1.75, 'CA': 1.9, 'CB': 1.91, 'CD1': 1.82, 'CD2': 1.82, 'CD': 1.82, 'CE1': 1.82, 'CE2': 1.82, 'CG': 1.74,
-        'CZ': 1.82, 'H': 1.3, 'HA': 1.3, 'HB1': 1.3, 'HB2': 1.3, 'HD1': 1.3, 'HD2': 1.3, 'HE1': 1.3, 'HE2': 1.3,
-        'HZ': 1.3, 'N': 1.7, 'O': 1.49
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 1.91, 'mass': 12.011}, 
+        'CD1': {'radius': 1.82, 'mass': 12.011}, 'CD2': {'radius': 1.82, 'mass': 12.011}, 'CD': {'radius': 1.82, 'mass': 12.011}, 
+        'CE1': {'radius': 1.82, 'mass': 12.011}, 'CE2': {'radius': 1.82, 'mass': 12.011}, 'CG': {'radius': 1.74, 'mass': 12.011},
+        'CZ': {'radius': 1.82, 'mass': 12.011}, 'H': {'radius': 1.3, 'mass': 1.008}, 'HA': {'radius': 1.3, 'mass': 1.008}, 
+        'HB1': {'radius': 1.3, 'mass': 1.008}, 'HB2': {'radius': 1.3, 'mass': 1.008}, 'HD1': {'radius': 1.3, 'mass': 1.008}, 
+        'HD2': {'radius': 1.3, 'mass': 1.008}, 'HE1': {'radius': 1.3, 'mass': 1.008}, 'HE2': {'radius': 1.3, 'mass': 1.008},
+        'HZ': {'radius': 1.3, 'mass': 1.008}, 'N': {'radius': 1.7, 'mass': 14.007}, 'O': {'radius': 1.49, 'mass': 15.999}
     },
     'PRO': {
-        'C': 1.75, 'CA': 1.9, 'CB': 1.91, 'CD': 1.92, 'CG': 1.92, 'H': 1.3, 'HA': 1.3, 'HB1': 1.3, 'HB2': 1.3,
-        'HD1': 1.3, 'HD2': 1.3, 'HG1': 1.3, 'HG2': 1.3, 'N': 1.7, 'O': 1.49
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 1.91, 'mass': 12.011}, 
+        'CD': {'radius': 1.92, 'mass': 12.011}, 'CG': {'radius': 1.92, 'mass': 12.011}, 'H': {'radius': 1.3, 'mass': 1.008}, 
+        'HA': {'radius': 1.3, 'mass': 1.008}, 'HB1': {'radius': 1.3, 'mass': 1.008}, 'HB2': {'radius': 1.3, 'mass': 1.008},
+        'HD1': {'radius': 1.3, 'mass': 1.008}, 'HD2': {'radius': 1.3, 'mass': 1.008}, 'HG1': {'radius': 1.3, 'mass': 1.008}, 
+        'HG2': {'radius': 1.3, 'mass': 1.008}, 'N': {'radius': 1.7, 'mass': 14.007}, 'O': {'radius': 1.49, 'mass': 15.999}
     },
     'SER': {
-        'C': 1.75, 'CA': 1.9, 'CB': 1.91, 'H1': 1.3, 'H2': 1.3, 'H3': 1.3, 'H': 1.3, 'HA': 1.3, 'HB1': 1.3, 'HB2': 1.3,
-        'HG': 1.3, 'N': 1.7, 'O': 1.49, 'OG': 1.54
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 1.91, 'mass': 12.011}, 
+        'H1': {'radius': 1.3, 'mass': 1.008}, 'H2': {'radius': 1.3, 'mass': 1.008}, 'H3': {'radius': 1.3, 'mass': 1.008}, 
+        'H': {'radius': 1.3, 'mass': 1.008}, 'HA': {'radius': 1.3, 'mass': 1.008}, 'HB1': {'radius': 1.3, 'mass': 1.008}, 
+        'HB2': {'radius': 1.3, 'mass': 1.008}, 'HG': {'radius': 1.3, 'mass': 1.008}, 'N': {'radius': 1.7, 'mass': 14.007}, 
+        'O': {'radius': 1.49, 'mass': 15.999}, 'OG': {'radius': 1.54, 'mass': 15.999}
     },
     'THR': {
-        'C': 1.75, 'CA': 1.9, 'CB': 2.01, 'CG2': 1.92, 'H': 1.3, 'HA': 1.3, 'HB': 1.3, 'HG1': 1.3, 'HG21': 1.3,
-        'HG22': 1.3, 'HG23': 1.3, 'N': 1.7, 'O': 1.49, 'OG1': 1.54, 'OG': 1.54
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 2.01, 'mass': 12.011}, 
+        'CG2': {'radius': 1.92, 'mass': 12.011}, 'H': {'radius': 1.3, 'mass': 1.008}, 'HA': {'radius': 1.3, 'mass': 1.008}, 
+        'HB': {'radius': 1.3, 'mass': 1.008}, 'HG1': {'radius': 1.3, 'mass': 1.008}, 'HG21': {'radius': 1.3, 'mass': 1.008},
+        'HG22': {'radius': 1.3, 'mass': 1.008}, 'HG23': {'radius': 1.3, 'mass': 1.008}, 'N': {'radius': 1.7, 'mass': 14.007}, 
+        'O': {'radius': 1.49, 'mass': 15.999}, 'OG1': {'radius': 1.54, 'mass': 15.999}, 'OG': {'radius': 1.54, 'mass': 15.999}
     },
     'TRP': {
-        'C': 1.75, 'CA': 1.9, 'CB': 1.91, 'CD1': 1.82, 'CD2': 1.82, 'CD': 1.82, 'CE': 1.82, 'CE2': 1.74, 'CE3': 1.82,
-        'CG': 1.74, 'CH': 1.82, 'CH2': 1.82, 'CZ': 1.82, 'CZ1': 1.82, 'CZ2': 1.82, 'H': 1.3, 'HA': 1.3, 'HB1': 1.3,
-        'HB2': 1.3, 'HD1': 1.3, 'HE1': 1.3, 'HE3': 1.3, 'HZ1': 1.3, 'HZ2': 1.3, 'HH2': 1.3, 'N': 1.7, 'NE1': 1.66,
-        'O': 1.49
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 1.91, 'mass': 12.011}, 
+        'CD1': {'radius': 1.82, 'mass': 12.011}, 'CD2': {'radius': 1.82, 'mass': 12.011}, 'CD': {'radius': 1.82, 'mass': 12.011}, 
+        'CE': {'radius': 1.82, 'mass': 12.011}, 'CE2': {'radius': 1.74, 'mass': 12.011}, 'CE3': {'radius': 1.82, 'mass': 12.011},
+        'CG': {'radius': 1.74, 'mass': 12.011}, 'CH': {'radius': 1.82, 'mass': 12.011}, 'CH2': {'radius': 1.82, 'mass': 12.011}, 
+        'CZ': {'radius': 1.82, 'mass': 12.011}, 'CZ1': {'radius': 1.82, 'mass': 12.011}, 'CZ2': {'radius': 1.82, 'mass': 12.011}, 
+        'H': {'radius': 1.3, 'mass': 1.008}, 'HA': {'radius': 1.3, 'mass': 1.008}, 'HB1': {'radius': 1.3, 'mass': 1.008},
+        'HB2': {'radius': 1.3, 'mass': 1.008}, 'HD1': {'radius': 1.3, 'mass': 1.008}, 'HE1': {'radius': 1.3, 'mass': 1.008}, 
+        'HE3': {'radius': 1.3, 'mass': 1.008}, 'HZ1': {'radius': 1.3, 'mass': 1.008}, 'HZ2': {'radius': 1.3, 'mass': 1.008}, 
+        'HH2': {'radius': 1.3, 'mass': 1.008}, 'N': {'radius': 1.7, 'mass': 14.007}, 'NE1': {'radius': 1.66, 'mass': 14.007}, 
+        'O': {'radius': 1.49, 'mass': 15.999}
     },
     'TYR': {
-        'C': 1.75, 'CA': 1.9, 'CB': 1.91, 'CD': 1.82, 'CD1': 1.82, 'CD2': 1.82, 'CE': 1.82, 'CE1': 1.82, 'CE2': 1.82,
-        'CG': 1.74, 'CZ': 1.8, 'H': 1.3, 'HA': 1.3, 'HB1': 1.3, 'HB2': 1.3, 'HD1': 1.3, 'HD2': 1.3, 'HE1': 1.3,
-        'HE2': 1.3, 'HH': 1.3, 'N': 1.7, 'O': 1.49, 'OH': 1.54
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 1.91, 'mass': 12.011}, 
+        'CD': {'radius': 1.82, 'mass': 12.011}, 'CD1': {'radius': 1.82, 'mass': 12.011}, 'CD2': {'radius': 1.82, 'mass': 12.011}, 
+        'CE': {'radius': 1.82, 'mass': 12.011}, 'CE1': {'radius': 1.82, 'mass': 12.011}, 'CE2': {'radius': 1.82, 'mass': 12.011},
+        'CG': {'radius': 1.74, 'mass': 12.011}, 'CZ': {'radius': 1.8, 'mass': 12.011}, 'H': {'radius': 1.3, 'mass': 1.008}, 
+        'HA': {'radius': 1.3, 'mass': 1.008}, 'HB1': {'radius': 1.3, 'mass': 1.008}, 'HB2': {'radius': 1.3, 'mass': 1.008}, 
+        'HD1': {'radius': 1.3, 'mass': 1.008}, 'HD2': {'radius': 1.3, 'mass': 1.008}, 'HE1': {'radius': 1.3, 'mass': 1.008}, 
+        'HE2': {'radius': 1.3, 'mass': 1.008}, 'HH': {'radius': 1.3, 'mass': 1.008}, 'N': {'radius': 1.7, 'mass': 14.007}, 
+        'O': {'radius': 1.49, 'mass': 15.999}, 'OH': {'radius': 1.54, 'mass': 15.999}
     },
     'VAL': {
-        'C': 1.75, 'CA': 1.9, 'CB': 2.01, 'CG1': 1.92, 'CG2': 1.92, 'H': 1.3, 'HA': 1.3, 'HB': 1.3, 'HG11': 1.3,
-        'HG12': 1.3, 'HG13': 1.3, 'HG21': 1.3, 'HG22': 1.3, 'HG23': 1.3, 'N': 1.7, 'O': 1.49
-    }, 
+        'C': {'radius': 1.75, 'mass': 12.011}, 'CA': {'radius': 1.9, 'mass': 12.011}, 'CB': {'radius': 2.01, 'mass': 12.011}, 
+        'CG1': {'radius': 1.92, 'mass': 12.011}, 'CG2': {'radius': 1.92, 'mass': 12.011}, 'H': {'radius': 1.3, 'mass': 1.008}, 
+        'HA': {'radius': 1.3, 'mass': 1.008}, 'HB': {'radius': 1.3, 'mass': 1.008}, 'HG11': {'radius': 1.3, 'mass': 1.008},
+        'HG12': {'radius': 1.3, 'mass': 1.008}, 'HG13': {'radius': 1.3, 'mass': 1.008}, 'HG21': {'radius': 1.3, 'mass': 1.008}, 
+        'HG22': {'radius': 1.3, 'mass': 1.008}, 'HG23': {'radius': 1.3, 'mass': 1.008}, 'N': {'radius': 1.7, 'mass': 14.007}, 
+        'O': {'radius': 1.49, 'mass': 15.999}
+    },
         'DA': {  # Adenine
-        'C1\'', 'C2', 'C2\'', 'C3\'', 'C4', 'C4\'', 'C5', 'C5\'', 'C6', 'C8', 'H1\'', 'H2', 'H2\'1', 'H2\'2', 'H3\'',
-        'H4\'', 'H5\'1', 'H5\'2', 'H5T', 'H61', 'H62', 'H8', 'N1', 'N3', 'N6', 'N7', 'N9', 'O1P', 'O2P', 'O3\'',
-        'O4\'', 'O5\'', 'P'
+            'C1\'': {'radius': 1.75, 'mass': 12.011},
+            'C2': {'radius': 1.75, 'mass': 12.011},
+            'C2\'': {'radius': 1.75, 'mass': 12.011},
+            'C3\'': {'radius': 1.75, 'mass': 12.011},
+            'C4': {'radius': 1.75, 'mass': 12.011},
+            'C4\'': {'radius': 1.75, 'mass': 12.011},
+            'C5': {'radius': 1.75, 'mass': 12.011},
+            'C5\'': {'radius': 1.75, 'mass': 12.011},
+            'C6': {'radius': 1.75, 'mass': 12.011},
+            'C8': {'radius': 1.75, 'mass': 12.011},
+            'H1\'': {'radius': 1.3, 'mass': 1.008},
+            'H2': {'radius': 1.3, 'mass': 1.008},
+            'H2\'1': {'radius': 1.3, 'mass': 1.008},
+            'H2\'2': {'radius': 1.3, 'mass': 1.008},
+            'H3\'': {'radius': 1.3, 'mass': 1.008},
+            'H4\'': {'radius': 1.3, 'mass': 1.008},
+            'H5\'1': {'radius': 1.3, 'mass': 1.008},
+            'H5\'2': {'radius': 1.3, 'mass': 1.008},
+            'H5T': {'radius': 1.3, 'mass': 1.008},
+            'H61': {'radius': 1.3, 'mass': 1.008},
+            'H62': {'radius': 1.3, 'mass': 1.008},
+            'H8': {'radius': 1.3, 'mass': 1.008},
+            'N1': {'radius': 1.7, 'mass': 14.007},
+            'N3': {'radius': 1.7, 'mass': 14.007},
+            'N6': {'radius': 1.7, 'mass': 14.007},
+            'N7': {'radius': 1.7, 'mass': 14.007},
+            'N9': {'radius': 1.7, 'mass': 14.007},
+            'O1P': {'radius': 1.49, 'mass': 15.999},
+            'O2P': {'radius': 1.49, 'mass': 15.999},
+            'O3\'': {'radius': 1.49, 'mass': 15.999},
+            'O4\'': {'radius': 1.49, 'mass': 15.999},
+            'O5\'': {'radius': 1.49, 'mass': 15.999},
+            'P': {'radius': 1.8, 'mass': 30.974}
     },
     'DC': {  # Cytosine
-        'C1\'', 'C2', 'C2\'', 'C3\'', 'C4', 'C4\'', 'C5', 'C5\'', 'C6', 'H1\'', 'H2\'1', 'H2\'2', 'H3\'', 'H4\'', 'H41',
-        'H42', 'H5', 'H5\'1', 'H5\'2', 'H6', 'N1', 'N3', 'N4', 'O1P', 'O2', 'O2P', 'O3\'', 'O4\'', 'O5\'', 'P'
+        'C1\'': {'radius': 1.75, 'mass': 12.011},
+        'C2': {'radius': 1.75, 'mass': 12.011},
+        'C2\'': {'radius': 1.75, 'mass': 12.011},
+        'C3\'': {'radius': 1.75, 'mass': 12.011},
+        'C4': {'radius': 1.75, 'mass': 12.011},
+        'C4\'': {'radius': 1.75, 'mass': 12.011},
+        'C5': {'radius': 1.75, 'mass': 12.011},
+        'C5\'': {'radius': 1.75, 'mass': 12.011},
+        'C6': {'radius': 1.75, 'mass': 12.011},
+        'H1\'': {'radius': 1.3, 'mass': 1.008},
+        'H2\'1': {'radius': 1.3, 'mass': 1.008},
+        'H2\'2': {'radius': 1.3, 'mass': 1.008},
+        'H3\'': {'radius': 1.3, 'mass': 1.008},
+        'H4\'': {'radius': 1.3, 'mass': 1.008},
+        'H41': {'radius': 1.3, 'mass': 1.008},
+        'H42': {'radius': 1.3, 'mass': 1.008},
+        'H5': {'radius': 1.3, 'mass': 1.008},
+        'H5\'1': {'radius': 1.3, 'mass': 1.008},
+        'H5\'2': {'radius': 1.3, 'mass': 1.008},
+        'H6': {'radius': 1.3, 'mass': 1.008},
+        'N1': {'radius': 1.7, 'mass': 14.007},
+        'N3': {'radius': 1.7, 'mass': 14.007},
+        'N4': {'radius': 1.7, 'mass': 14.007},
+        'O1P': {'radius': 1.49, 'mass': 15.999},
+        'O2': {'radius': 1.49, 'mass': 15.999},
+        'O2P': {'radius': 1.49, 'mass': 15.999},
+        'O3\'': {'radius': 1.49, 'mass': 15.999},
+        'O4\'': {'radius': 1.49, 'mass': 15.999},
+        'O5\'': {'radius': 1.49, 'mass': 15.999},
+        'P': {'radius': 1.8, 'mass': 30.974}
     },
     'DT': {  # Thymine
-        'C1\'', 'C2', 'C2\'', 'C3\'', 'C4', 'C4\'', 'C5', 'C5\'', 'C6', 'C7', 'H1\'', 'H2\'1', 'H2\'2', 'H3', 'H3\'',
-        'H3T', 'H4\'', 'H5\'1', 'H5\'2', 'H6', 'H71', 'H72', 'H73', 'N1', 'N3', 'O1P', 'O2', 'O2P', 'O3\'', 'O4',
-        'O4\'', 'O5\'', 'P'
+        'C1\'': {'radius': 1.75, 'mass': 12.011},
+        'C2': {'radius': 1.75, 'mass': 12.011},
+        'C2\'': {'radius': 1.75, 'mass': 12.011},
+        'C3\'': {'radius': 1.75, 'mass': 12.011},
+        'C4': {'radius': 1.75, 'mass': 12.011},
+        'C4\'': {'radius': 1.75, 'mass': 12.011},
+        'C5': {'radius': 1.75, 'mass': 12.011},
+        'C5\'': {'radius': 1.75, 'mass': 12.011},
+        'C6': {'radius': 1.75, 'mass': 12.011},
+        'C7': {'radius': 1.75, 'mass': 12.011},
+        'H1\'': {'radius': 1.3, 'mass': 1.008},
+        'H2\'1': {'radius': 1.3, 'mass': 1.008},
+        'H2\'2': {'radius': 1.3, 'mass': 1.008},
+        'H3': {'radius': 1.3, 'mass': 1.008},
+        'H3\'': {'radius': 1.3, 'mass': 1.008},
+        'H3T': {'radius': 1.3, 'mass': 1.008},
+        'H4\'': {'radius': 1.3, 'mass': 1.008},
+        'H5\'1': {'radius': 1.3, 'mass': 1.008},
+        'H5\'2': {'radius': 1.3, 'mass': 1.008},
+        'H6': {'radius': 1.3, 'mass': 1.008},
+        'H71': {'radius': 1.3, 'mass': 1.008},
+        'H72': {'radius': 1.3, 'mass': 1.008},
+        'H73': {'radius': 1.3, 'mass': 1.008},
+        'N1': {'radius': 1.7, 'mass': 14.007},
+        'N3': {'radius': 1.7, 'mass': 14.007},
+        'O1P': {'radius': 1.49, 'mass': 15.999},
+        'O2': {'radius': 1.49, 'mass': 15.999},
+        'O2P': {'radius': 1.49, 'mass': 15.999},
+        'O3\'': {'radius': 1.49, 'mass': 15.999},
+        'O4': {'radius': 1.49, 'mass': 15.999},
+        'O4\'': {'radius': 1.49, 'mass': 15.999},
+        'O5\'': {'radius': 1.49, 'mass': 15.999},
+        'P': {'radius': 1.8, 'mass': 30.974}
     },
     'DG': {  # Guanine
-        'C1\'', 'C2', 'C2\'', 'C3\'', 'C4', 'C4\'', 'C5', 'C5\'', 'C6', 'C8', 'H1\'', 'H2\'1', 'H2\'2', 'H3\'', 'H4\'',
-        'H5\'1', 'H5\'2', 'H8', 'N1', 'N2', 'N3', 'N7', 'N9', 'O1P', 'O2P', 'O3\'', 'O4\'', 'O5\'', 'O6', 'P'
+        'C1\'': {'radius': 1.75, 'mass': 12.011},
+        'C2': {'radius': 1.75, 'mass': 12.011},
+        'C2\'': {'radius': 1.75, 'mass': 12.011},
+        'C3\'': {'radius': 1.75, 'mass': 12.011},
+        'C4': {'radius': 1.75, 'mass': 12.011},
+        'C4\'': {'radius': 1.75, 'mass': 12.011},
+        'C5': {'radius': 1.75, 'mass': 12.011},
+        'C5\'': {'radius': 1.75, 'mass': 12.011},
+        'C6': {'radius': 1.75, 'mass': 12.011},
+        'C8': {'radius': 1.75, 'mass': 12.011},
+        'H1\'': {'radius': 1.3, 'mass': 1.008},
+        'H2\'1': {'radius': 1.3, 'mass': 1.008},
+        'H2\'2': {'radius': 1.3, 'mass': 1.008},
+        'H3\'': {'radius': 1.3, 'mass': 1.008},
+        'H4\'': {'radius': 1.3, 'mass': 1.008},
+        'H5\'1': {'radius': 1.3, 'mass': 1.008},
+        'H5\'2': {'radius': 1.3, 'mass': 1.008},
+        'H8': {'radius': 1.3, 'mass': 1.008},
+        'N1': {'radius': 1.7, 'mass': 14.007},
+        'N2': {'radius': 1.7, 'mass': 14.007},
+        'N3': {'radius': 1.7, 'mass': 14.007},
+        'N7': {'radius': 1.7, 'mass': 14.007},
+        'N9': {'radius': 1.7, 'mass': 14.007},
+        'O1P': {'radius': 1.49, 'mass': 15.999},
+        'O2P': {'radius': 1.49, 'mass': 15.999},
+        'O3\'': {'radius': 1.49, 'mass': 15.999},
+        'O4\'': {'radius': 1.49, 'mass': 15.999},
+        'O5\'': {'radius': 1.49, 'mass': 15.999},
+        'O6': {'radius': 1.49, 'mass': 15.999},
+        'P': {'radius': 1.8, 'mass': 30.974}
     },
     'U': {   # Uracil
-        'C1\'', 'C2', 'C2\'', 'C3\'', 'C4', 'C4\'', 'C5', 'C5\'', 'C6', 'H1\'', 'H2\'', 'H2\'\'', 'H3', 'H3\'', 'H4\'',
-        'H5', 'H5\'', 'H5\'\'', 'H6', 'N1', 'N3', 'O1P', 'O2', 'O2\'', 'O2P', 'O3\'', 'O4', 'O4\'', 'O5\'', 'P'
+        'C1\'': {'radius': 1.75, 'mass': 12.011},
+        'C2': {'radius': 1.75, 'mass': 12.011},
+        'C2\'': {'radius': 1.75, 'mass': 12.011},
+        'C3\'': {'radius': 1.75, 'mass': 12.011},
+        'C4': {'radius': 1.75, 'mass': 12.011},
+        'C4\'': {'radius': 1.75, 'mass': 12.011},
+        'C5': {'radius': 1.75, 'mass': 12.011},
+        'C5\'': {'radius': 1.75, 'mass': 12.011},
+        'C6': {'radius': 1.75, 'mass': 12.011},
+        'H1\'': {'radius': 1.3, 'mass': 1.008},
+        'H2\'': {'radius': 1.3, 'mass': 1.008},
+        'H2\'\'': {'radius': 1.3, 'mass': 1.008},
+        'H3': {'radius': 1.3, 'mass': 1.008},
+        'H3\'': {'radius': 1.3, 'mass': 1.008},
+        'H4\'': {'radius': 1.3, 'mass': 1.008},
+        'H5': {'radius': 1.3, 'mass': 1.008},
+        'H5\'': {'radius': 1.3, 'mass': 1.008},
+        'H5\'\'': {'radius': 1.3, 'mass': 1.008},
+        'H6': {'radius': 1.3, 'mass': 1.008},
+        'N1': {'radius': 1.7, 'mass': 14.007},
+        'N3': {'radius': 1.7, 'mass': 14.007},
+        'O1P': {'radius': 1.49, 'mass': 15.999},
+        'O2': {'radius': 1.49, 'mass': 15.999},
+        'O2\'': {'radius': 1.49, 'mass': 15.999},
+        'O2P': {'radius': 1.49, 'mass': 15.999},
+        'O3\'': {'radius': 1.49, 'mass': 15.999},
+        'O4': {'radius': 1.49, 'mass': 15.999},
+        'O4\'': {'radius': 1.49, 'mass': 15.999},
+        'O5\'': {'radius': 1.49, 'mass': 15.999},
+        'P': {'radius': 1.8, 'mass': 30.974}
     }
 }
