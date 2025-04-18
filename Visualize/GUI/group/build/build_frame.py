@@ -7,12 +7,6 @@ sys.path.append(str(project_root))
 
 import tkinter as tk
 from tkinter import ttk
-import numpy as np
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
-import colorsys
 from Visualize.GUI.group.build.color_settings_window import ColorSettingsWindow
 
 
@@ -53,7 +47,8 @@ class BuildFrame(ttk.LabelFrame):
         network_frame.pack(fill="x", padx=5, pady=5)
         
         ttk.Label(network_frame, text="Network Type:").pack(side="left")
-        self.network_type = ttk.Combobox(network_frame, values=['Additively Weighted', 'Power', 'Primitive'], state="readonly")
+        self.network_type = ttk.Combobox(network_frame, values=['Additively Weighted', 'Power', 'Primitive'],
+                                         state="readonly")
         self.network_type.pack(side="right", padx=5)
         self.network_type.set(self.settings['net_type'])
         self.network_type.bind('<<ComboboxSelected>>', self._on_network_type_change)
@@ -126,6 +121,7 @@ class BuildFrame(ttk.LabelFrame):
         self.max_vertices.insert(0, str(self.settings['max_vert']))
         self.box_size.delete(0, tk.END)
         self.box_size.insert(0, str(self.settings['box_size']))
+
 
 if __name__ == "__main__":
     root = tk.Tk()

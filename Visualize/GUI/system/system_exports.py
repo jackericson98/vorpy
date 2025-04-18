@@ -2,8 +2,6 @@ import tkinter as tk
 from tkinter import ttk
 
 
-
-
 class SystemExportsWindow:
     """
     Opens a new window to display system exports.
@@ -31,7 +29,8 @@ class SystemExportsWindow:
 
         # Create a check box for the set atomic radii file
         self.set_radii_var = tk.BooleanVar(value=True)
-        self.set_radii_check = ttk.Checkbutton(self.system_files_frame, text="Set Atomic Radii", variable=self.set_radii_var)
+        self.set_radii_check = ttk.Checkbutton(self.system_files_frame, text="Set Atomic Radii",
+                                               variable=self.set_radii_var)
         self.set_radii_check.pack(padx=5, pady=5)
 
         # Create a check box for the info file
@@ -104,6 +103,8 @@ class SystemExportsWindow:
     def cancel_exports(self):
         """Cancel the system exports."""
         self.window.destroy()
+
+
 if __name__ == "__main__":
     root = tk.Tk()
     SystemExportsWindow(root)

@@ -38,13 +38,11 @@ class ColorSettingsWindow(tk.Toplevel):
         # Surface Settings
         settings_frame = ttk.LabelFrame(main_frame, text="Color Settings", padding="5")
         settings_frame.pack(fill="both", expand=True, padx=5, pady=5)
-        
-
 
         # Configure grid weights for better layout
         settings_frame.grid_columnconfigure(1, weight=1)
-        
 
+        # Surface resolution variable
         ttk.Label(settings_frame, text="Surface Resolution").grid(row=0, column=0, sticky="w", padx=5, pady=2)
         self.surf_res = ttk.Entry(settings_frame, width=15)
         self.surf_res.insert(0, default_settings['surf_res'])
@@ -66,7 +64,8 @@ class ColorSettingsWindow(tk.Toplevel):
         self.surf_fact.bind('<<ComboboxSelected>>')
 
         # Create dropdown for surface scheme with translations
-        self.surf_scheme = ttk.Combobox(settings_frame, values=['Mean Curvature', 'Gaussian Curvature', 'Distance', 'Overlapping', 'No Scheme'], state="readonly", width=15)
+        self.surf_scheme = ttk.Combobox(settings_frame, values=['Mean Curvature', 'Gaussian Curvature', 'Distance',
+                                                                'Overlapping', 'No Scheme'], state="readonly", width=15)
         # Set the initial value based on the current setting
         scheme_translations = {
             'mean_curv': 'Mean Curvature',
@@ -131,9 +130,3 @@ class ColorSettingsWindow(tk.Toplevel):
     def _on_cancel(self):
         """Handle Cancel button click."""
         self.destroy()
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    ColorSettingsWindow(root)
-    root.mainloop()
-

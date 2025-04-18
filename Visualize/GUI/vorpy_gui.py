@@ -1,29 +1,19 @@
 import os
 import sys
 from pathlib import Path
+import tkinter as tk
+from tkinter import ttk
+from tkinter import filedialog
 
 # Add the project root directory to the Python path
 project_root = Path(__file__).resolve().parents[2]
 sys.path.append(str(project_root))
 
-import tkinter as tk
-from tkinter import ttk
-from tkinter import filedialog
 from System.system import System
 from Visualize.GUI.system.system_frame import SystemFrame
 from Visualize.GUI.group.groups_frame import GroupsFrame
-from Visualize.GUI.group.build.color_settings_window import ColorSettingsWindow
 from Visualize.GUI.help.help_window import HelpWindow
-from Visualize.GUI.progress_window import ProgressWindow
 from System.Group.group import Group
-"""
-This GUI operates the whole VorPy interface. Once running, the command line that it was run out of will inform you on 
-your progress. The GUI is only for launching the program.
-
-GUI Options:
-
-GUI returns
-"""
 
 
 class VorPyGUI(tk.Tk):
@@ -33,6 +23,7 @@ class VorPyGUI(tk.Tk):
         
         # Create a default system
         self.sys = System(simple=True, name="No System Chosen")
+        self.ball_file = None
         
         # Set window title
         self.title("VorPy")
@@ -49,7 +40,8 @@ class VorPyGUI(tk.Tk):
 
         # Set up the files dictionary
         self.files = {'sys_name': 'No File Loaded', 'base_file': '', 'other_files': [], 'dir': '' }
-        self.exports = {'set_atoms': True, 'info': True, 'pdb': True, 'mol': False, 'cif': False, 'xyz': False, 'txt': False}
+        self.exports = {'set_atoms': True, 'info': True, 'pdb': True, 'mol': False, 'cif': False, 'xyz': False,
+                        'txt': False}
         self.radii_changes = []
         
         self.group_settings = {}
@@ -62,7 +54,7 @@ class VorPyGUI(tk.Tk):
         title_label.pack()
         
         subtitle_label = tk.Label(title_frame, text="Comprehensive Voronoi Diagram Calculation Tool", 
-                                font=self.fonts['subtitle'])
+                                  font=self.fonts['subtitle'])
         subtitle_label.pack(pady=(0, 10))
         
         # System Information Section (Full Width)
@@ -184,8 +176,9 @@ class VorPyGUI(tk.Tk):
         for group_name in self.group_settings:
             self.run_group(group_name)
         # Export the system exports
-        self.sys.exports(pdb=self.exports['pdb'], mol=self.exports['mol'], cif=self.exports['cif'], xyz=self.exports['xyz'], 
-                         txt=self.exports['txt'], info=self.exports['info'], set_atoms=self.exports['set_atoms'])
+        self.sys.exports(pdb=self.exports['pdb'], mol=self.exports['mol'], cif=self.exports['cif'],
+                         xyz=self.exports['xyz'], txt=self.exports['txt'], info=self.exports['info'],
+                         set_atoms=self.exports['set_atoms'])
 
         return self.sys
 

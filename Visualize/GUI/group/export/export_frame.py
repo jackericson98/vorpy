@@ -39,9 +39,12 @@ class ExportFrame(ttk.LabelFrame):
         self.export_size = tk.StringVar(value=self.settings['size'])
         self.export_size.trace_add('write', self._on_size_change)
         
-        ttk.Radiobutton(self, text="Small", variable=self.export_size, value="Small", command=self._on_size_change).grid(row=1, column=0, sticky="w", padx=2, pady=1)
-        ttk.Radiobutton(self, text="Medium", variable=self.export_size, value="Medium", command=self._on_size_change).grid(row=1, column=1, sticky="w", padx=2, pady=1)
-        ttk.Radiobutton(self, text="Large", variable=self.export_size, value="Large", command=self._on_size_change).grid(row=1, column=2, sticky="w", padx=2, pady=1)
+        (ttk.Radiobutton(self, text="Small", variable=self.export_size, value="Small", command=self._on_size_change)
+         .grid(row=1, column=0, sticky="w", padx=2, pady=1))
+        (ttk.Radiobutton(self, text="Medium", variable=self.export_size, value="Medium", command=self._on_size_change)
+         .grid(row=1, column=1, sticky="w", padx=2, pady=1))
+        (ttk.Radiobutton(self, text="Large", variable=self.export_size, value="Large", command=self._on_size_change)
+         .grid(row=1, column=2, sticky="w", padx=2, pady=1))
         
         # Custom Button
         self.custom_button = ttk.Button(self, text="Custom", command=self._open_custom_settings, width=8)

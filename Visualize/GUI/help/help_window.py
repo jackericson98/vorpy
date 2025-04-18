@@ -64,29 +64,33 @@ class HelpWindow(tk.Toplevel):
         
         # Content
         content = """
-VorPy is a comprehensive Voronoi diagram calculation tool designed for molecular analysis and network generation.
-
-Features:
-• Multiple network types support:
-  - Additively Weighted Voronoi
-  - Power Diagram
-  - Primitive (Delaunay) triangulation
-• Flexible group management for different molecular components
-• Customizable surface settings and parameters
-• Comprehensive export options for analysis results
-
-Purpose:
-This tool is designed to help researchers and scientists analyze molecular structures and generate various types of Voronoi networks for their analysis. It provides a user-friendly interface for managing complex calculations and visualizing results.
-
-Usage:
-1. Configure your system information
-2. Set up groups for different molecular components
-3. Adjust build settings for network generation
-4. Configure export settings for results
-5. Run the analysis
-
-The program will process your input and generate the requested networks, saving results according to your specified settings.
-"""
+        VorPy is a comprehensive Voronoi diagram calculation tool designed for molecular analysis and network 
+        generation.
+        
+        Features:
+        • Multiple network types support:
+          - Additively Weighted Voronoi
+          - Power Diagram
+          - Primitive (Delaunay) triangulation
+        • Flexible group management for different molecular components
+        • Customizable surface settings and parameters
+        • Comprehensive export options for analysis results
+        
+        Purpose:
+        This tool is designed to help researchers and scientists analyze molecular structures and generate various types 
+        of Voronoi networks for their analysis. It provides a user-friendly interface for managing complex calculations 
+        and visualizing results.
+        
+        Usage:
+        1. Configure your system information
+        2. Set up groups for different molecular components
+        3. Adjust build settings for network generation
+        4. Configure export settings for results
+        5. Run the analysis
+        
+        The program will process your input and generate the requested networks, saving results according to your 
+        specified settings.
+        """
         text = tk.Text(frame, wrap="word", width=70)
         text.insert("1.0", content)
         text.config(state="disabled")
@@ -107,15 +111,15 @@ The program will process your input and generate the requested networks, saving 
         
         # Content
         content = """
-The System Information frame displays and manages the basic system configuration:
-
-• System Name: Shows the name of the current system
-• Input File: Select the main input file for the system
-• Other Files: Shows any additional files associated with the system
-• Output Directory: Choose where to save the results
-
-Use the "Select File" and "Select Directory" buttons to choose your input and output locations.
-"""
+        The System Information frame displays and manages the basic system configuration:
+        
+        • System Name: Shows the name of the current system
+        • Input File: Select the main input file for the system
+        • Other Files: Shows any additional files associated with the system
+        • Output Directory: Choose where to save the results
+        
+        Use the "Select File" and "Select Directory" buttons to choose your input and output locations.
+        """
         text = tk.Text(frame, wrap="word", width=70)
         text.insert("1.0", content)
         text.config(state="disabled")
@@ -136,16 +140,16 @@ Use the "Select File" and "Select Directory" buttons to choose your input and ou
         
         # Content
         content = """
-The Groups frame manages different groups of molecules in your system:
-
-• Network Type: Choose the type of network to generate
-• Maximum Vertex: Set the maximum number of vertices
-• Box Multiplier: Adjust the size of the bounding box
-• Atomic Radii/Masses: Configure atomic properties
-• Surface Settings: Adjust surface parameters
-
-Each group can have its own settings and will be processed independently.
-"""
+        The Groups frame manages different groups of molecules in your system:
+        
+        • Network Type: Choose the type of network to generate
+        • Maximum Vertex: Set the maximum number of vertices
+        • Box Multiplier: Adjust the size of the bounding box
+        • Atomic Radii/Masses: Configure atomic properties
+        • Surface Settings: Adjust surface parameters
+        
+        Each group can have its own settings and will be processed independently.
+        """
         text = tk.Text(frame, wrap="word", width=70)
         text.insert("1.0", content)
         text.config(state="disabled")
@@ -166,19 +170,19 @@ Each group can have its own settings and will be processed independently.
         
         # Content
         content = """
-The Build Settings frame controls how the networks are generated:
-
-• Max Vert Rad: Maximum vertex radius (0.01-500)
-• Max Box Multi: Maximum box multiplier (1-200)
-• Network Type: Choose from various network types:
-  - Additively Weighted
-  - Power Diagram
-  - Primitive (Delaunay)
-  - Compare options for different network types
-• Surface Settings: Configure surface parameters
-
-These settings affect how the networks are constructed and analyzed.
-"""
+        The Build Settings frame controls how the networks are generated:
+        
+        • Max Vert Rad: Maximum vertex radius (0.01-500)
+        • Max Box Multi: Maximum box multiplier (1-200)
+        • Network Type: Choose from various network types:
+          - Additively Weighted
+          - Power Diagram
+          - Primitive (Delaunay)
+          - Compare options for different network types
+        • Surface Settings: Configure surface parameters
+        
+        These settings affect how the networks are constructed and analyzed.
+        """
         text = tk.Text(frame, wrap="word", width=70)
         text.insert("1.0", content)
         text.config(state="disabled")
@@ -199,20 +203,19 @@ These settings affect how the networks are constructed and analyzed.
         
         # Content
         content = """
-The Export Settings frame controls how results are saved:
-
-• Output Format: Choose the format for saving results
-• Data Selection: Select which data to export
-• File Options: Configure file naming and organization
-• Export Location: Choose where to save the results
-
-These settings determine how your analysis results are saved and organized.
-"""
+        The Export Settings frame controls how results are saved:
+        
+        • Output Format: Choose the format for saving results
+        • Data Selection: Select which data to export
+        • File Options: Configure file naming and organization
+        • Export Location: Choose where to save the results
+        
+        These settings determine how your analysis results are saved and organized.
+        """
         text = tk.Text(frame, wrap="word", width=70)
         text.insert("1.0", content)
         text.config(state="disabled")
         text.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
-
 
 
 if __name__ == "__main__":

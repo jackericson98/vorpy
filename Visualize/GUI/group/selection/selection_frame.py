@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 
+
 class SelectionFrame(ttk.LabelFrame):
     def __init__(self, parent, gui, group_name_entry):
         super().__init__(parent, text="Selection", padding=(5, 5))
@@ -16,16 +17,14 @@ class SelectionFrame(ttk.LabelFrame):
         self._create_widgets()
 
     def _create_widgets(self):
-        # # Create a centered and underlined label for the selection frame
-        # label = ttk.Label(self, text="Choose Group Members", font=('TkDefaultFont', 10, 'underline'))
-        # label.grid(row=0, column=0, columnspan=2, sticky='ew', pady=5)
 
         # Create frame for dropdown and entry boxes
         selection_options_frame = ttk.Frame(self)
         selection_options_frame.grid(row=1, column=0, columnspan=2, sticky='ew', pady=(0, 5))
 
         # Create a label for the added selections
-        ttk.Label(selection_options_frame, text="Add/Remove Selections", font=('TkDefaultFont', 10, 'underline')).grid(row=0, column=0, columnspan=4, sticky='n', pady=(5, 10))
+        (ttk.Label(selection_options_frame, text="Add/Remove Selections", font=('TkDefaultFont', 10, 'underline'))
+         .grid(row=0, column=0, columnspan=4, sticky='n', pady=(5, 10)))
 
         # Selection label
         ttk.Label(selection_options_frame, text="Selection").grid(row=1, column=0, padx=5)
@@ -68,8 +67,12 @@ class SelectionFrame(ttk.LabelFrame):
         button_frame.grid(row=2, column=0, columnspan=2, sticky='ew', pady=2)
         
         # Add and Remove buttons side by side
-        ttk.Button(button_frame, text="Add", command=lambda: self.add_selection(selection_type.get(), start_entry.get(), end_entry.get(), undo_command=False)).grid(row=0, column=3)
-        ttk.Button(button_frame, text="Remove", command=lambda: self.delete_selection(selection_type.get(), start_entry.get(), end_entry.get(), undo_command=False)).grid(row=0, column=2)
+        ttk.Button(button_frame, text="Add",
+                   command=lambda: self.add_selection(selection_type.get(), start_entry.get(), end_entry.get(),
+                                                      undo_command=False)).grid(row=0, column=3)
+        ttk.Button(button_frame, text="Remove",
+                   command=lambda: self.delete_selection(selection_type.get(), start_entry.get(), end_entry.get(),
+                                                         undo_command=False)).grid(row=0, column=2)
         # ttk.Button(button_frame, text="Undo", command=lambda: self.undo_selections()).grid(row=0, column=1, padx=2)
         ttk.Button(button_frame, text="Clear", command=lambda: self.clear_selections()).grid(row=0, column=0)
 
@@ -83,7 +86,8 @@ class SelectionFrame(ttk.LabelFrame):
         selections_container.grid_rowconfigure(0, weight=1)  # Allow vertical expansion
 
         # Create a label for the added selections
-        ttk.Label(selections_container, text="Selection Tracker", font=('TkDefaultFont', 10, 'underline')).grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky='n')
+        (ttk.Label(selections_container, text="Selection Tracker", font=('TkDefaultFont', 10, 'underline'))
+         .grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky='n'))
 
         # Create label frames for each selection type
         selection_types = ['Atoms/Balls', 'Residues', 'Chains', 'Molecules']
@@ -136,8 +140,9 @@ class SelectionFrame(ttk.LabelFrame):
         self.selection_labels['molecules'].config(text=self.tracking['molecules'] or "None")
 
     def add_selection(self, selection_type, start, end=None, undo_command=False):
-        """Goes through the selections added, checks the self.selections dictionary and only adds the selected indexes if they are not already in the 
-        dictionary. Once added, the text showing the current selections will be updated to show any index ranges, minimizing the amount of text listed"""
+        """Goes through the selections added, checks the self.selections dictionary and only adds the selected indexes
+        if they are not already in the dictionary. Once added, the text showing the current selections will be updated
+        to show any index ranges, minimizing the amount of text listed"""
         if start == '' or start is None or not start.isdigit():
             return
         # Check if the start and end indices are strings
@@ -243,20 +248,18 @@ class SelectionFrame(ttk.LabelFrame):
         self.selections = {'balls': [], 'residues': [], 'chains': [], 'molecules': []}
         self.tracking = {'balls': '', 'residues': '', 'chains': '', 'molecules': ''}
         self.update_tracking_text()
-        
 
     def undo_selections(self):
         """Undoes the last action in the undo stack"""
         if self.undo_stack:
             last_action = self.undo_stack.pop()
             if last_action['action'] == 'add':
-                self.delete_selection(last_action['selections'], last_action['start'], last_action['end'], undo_command=True)
+                self.delete_selection(last_action['selections'], last_action['start'], last_action['end'],
+                                      undo_command=True)
             elif last_action['action'] == 'remove':
-                self.add_selection(last_action['selections'], last_action['start'], last_action['end'], undo_command=True)
+                self.add_selection(last_action['selections'], last_action['start'], last_action['end'],
+                                   undo_command=True)
             elif last_action['action'] == 'clear':
                 self.selections = last_action['selections']
                 self.tracking = last_action['tracking']
             self.update_tracking_text()
-
-
-

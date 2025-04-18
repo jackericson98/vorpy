@@ -195,7 +195,8 @@ class GroupsFrame(ttk.Frame):
                 if selection['start'] == selection['end']:
                     new_settings['tracking_text'].insert(tk.END, f"{selection['type']}: {selection['start']}\n")
                 else:
-                    new_settings['tracking_text'].insert(tk.END, f"{selection['type']}: {selection['start']}-{selection['end']}\n")
+                    new_settings['tracking_text'].insert(tk.END, f"{selection['type']}: {selection['start']}-"
+                                                                 f"{selection['end']}\n")
             new_settings['tracking_text'].config(state='disabled')
             
             # Select the new tab

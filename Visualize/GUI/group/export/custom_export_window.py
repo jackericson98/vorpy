@@ -4,7 +4,6 @@ from tkinter import ttk
 
 class CustomExportWindow(tk.Toplevel):
     """Window for custom export settings."""
-
     def __init__(self, parent, group_name):
         super().__init__(parent)
         self.title(f"{group_name} Export Settings")
@@ -93,25 +92,27 @@ class CustomExportWindow(tk.Toplevel):
             ttk.Checkbutton(frame, text="Separate", variable=separate_var).pack(anchor="w", padx=5, pady=1)
             ttk.Checkbutton(frame, text="Cell", variable=cell_var).pack(anchor="w", padx=5, pady=1)
 
-
         # Create checkbuttons for each section
         self.surfs_all_var = tk.BooleanVar(value=False)
         self.surfs_shell_var = tk.BooleanVar(value=True)
         self.surfs_separate_var = tk.BooleanVar(value=False)
         self.surfs_cell_var = tk.BooleanVar(value=False)
-        create_section_checkbuttons(surfs_frame, self.surfs_all_var, self.surfs_shell_var, self.surfs_separate_var, self.surfs_cell_var)
+        create_section_checkbuttons(surfs_frame, self.surfs_all_var, self.surfs_shell_var, self.surfs_separate_var,
+                                    self.surfs_cell_var)
 
         self.edges_all_var = tk.BooleanVar(value=False)
         self.edges_shell_var = tk.BooleanVar(value=True)
         self.edges_separate_var = tk.BooleanVar(value=False)
         self.edges_cell_var = tk.BooleanVar(value=False)
-        create_section_checkbuttons(edges_frame, self.edges_all_var, self.edges_shell_var, self.edges_separate_var, self.edges_cell_var)
+        create_section_checkbuttons(edges_frame, self.edges_all_var, self.edges_shell_var, self.edges_separate_var,
+                                    self.edges_cell_var)
 
         self.verts_all_var = tk.BooleanVar(value=False)
         self.verts_shell_var = tk.BooleanVar(value=False)
         self.verts_separate_var = tk.BooleanVar(value=False)
         self.verts_cell_var = tk.BooleanVar(value=False)
-        create_section_checkbuttons(verts_frame, self.verts_all_var, self.verts_shell_var, self.verts_separate_var, self.verts_cell_var)
+        create_section_checkbuttons(verts_frame, self.verts_all_var, self.verts_shell_var, self.verts_separate_var,
+                                    self.verts_cell_var)
 
         # Buttons frame
         button_frame = ttk.Frame(main_frame)
@@ -155,9 +156,3 @@ class CustomExportWindow(tk.Toplevel):
     def _on_cancel(self):
         """Handle Cancel button click."""
         self.destroy()
-
-
-if __name__ == '__main__':
-    root = tk.Tk()
-    app = CustomExportWindow(root)
-    root.mainloop()

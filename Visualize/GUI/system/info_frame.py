@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import ttk, filedialog
-import os
 from Visualize.GUI.system.radii_adjustments.periodic_table_GUI import PeriodicTableGUI
 
 
@@ -86,7 +85,6 @@ class SystemExportsWindow:
         self.window.destroy()
 
 
-
 class SystemFrame:
     """
     Builds the system information frame with the specified layout.
@@ -120,13 +118,19 @@ class SystemFrame:
         tk.Label(system_frame, textvariable=self.system_name, font=font).grid(row=0, column=0, columnspan=3, pady=2)
 
         # Input File Section
-        tk.Label(sys_info_frame, text="Input File:", font=('Helvetica', 10) if gui is None else gui.fonts['class 2']).grid(row=1, column=0, sticky="w", padx=5, pady=2)
-        self.input_file_label = tk.Label(sys_info_frame, text="", font=('Helvetica', 10) if gui is None else gui.fonts['class 2'])
+        (tk.Label(sys_info_frame, text="Input File:",
+                 font=('Helvetica', 10) if gui is None else gui.fonts['class 2'])
+         .grid(row=1, column=0, sticky="w", padx=5, pady=2))
+        self.input_file_label = tk.Label(sys_info_frame, text="",
+                                         font=('Helvetica', 10) if gui is None else gui.fonts['class 2'])
         self.input_file_label.grid(row=1, column=1, sticky='w')
-        ttk.Button(sys_info_frame, text="Browse", command=self.choose_ball_file).grid(row=1, column=2, sticky="e", padx=5, pady=2)
+        (ttk.Button(sys_info_frame, text="Browse", command=self.choose_ball_file)
+         .grid(row=1, column=2, sticky="e", padx=5, pady=2))
 
         # Other Files Section
-        tk.Label(sys_info_frame, text="Other Files:", font=('Helvetica', 10) if gui is None else gui.fonts['class 2']).grid(row=2, column=0, sticky="w", padx=5, pady=2)
+        (tk.Label(sys_info_frame, text="Other Files:",
+                 font=('Helvetica', 10) if gui is None else gui.fonts['class 2'])
+         .grid(row=2, column=0, sticky="w", padx=5, pady=2))
         
         # Create a frame for the file display and dropdown
         self.files_frame = ttk.Frame(sys_info_frame)
@@ -137,7 +141,8 @@ class SystemFrame:
             gui.files['other_files'] = []
             
         # Create the file display widget
-        self.file_display = ttk.Label(self.files_frame, text="", font=('Helvetica', 10) if gui is None else gui.fonts['class 2'])
+        self.file_display = ttk.Label(self.files_frame, text="",
+                                      font=('Helvetica', 10) if gui is None else gui.fonts['class 2'])
         self.file_display.pack(side="left", fill="x", expand=True)
         
         # Create the dropdown (initially hidden)
@@ -148,20 +153,28 @@ class SystemFrame:
         # Update the display based on the number of files
         self._update_file_display()
         
-        ttk.Button(sys_info_frame, text="Add", command=self._browse_other_files).grid(row=2, column=2, sticky="e", padx=5, pady=2)
+        ttk.Button(sys_info_frame, text="Add", command=self._browse_other_files).grid(row=2, column=2, sticky="e",
+                                                                                      padx=5, pady=2)
 
         # Output Directory Section
-        tk.Label(sys_info_frame, text="Output Directory:", font=('Helvetica', 10) if gui is None else gui.fonts['class 2']).grid(row=3, column=0, sticky="w", padx=5, pady=2)
-        self.output_dir_label = tk.Label(sys_info_frame, text="None", font=('Helvetica', 10) if gui is None else gui.fonts['class 2'])
+        (tk.Label(sys_info_frame, text="Output Directory:",
+                  font=('Helvetica', 10) if gui is None else gui.fonts['class 2'])
+         .grid(row=3, column=0, sticky="w", padx=5, pady=2))
+        self.output_dir_label = tk.Label(sys_info_frame, text="None",
+                                         font=('Helvetica', 10) if gui is None else gui.fonts['class 2'])
         self.output_dir_label.grid(row=3, column=1, sticky="w")
-        ttk.Button(sys_info_frame, text="Browse", command=self.choose_output_directory).grid(row=3, column=2, sticky="e", padx=5, pady=2)
+        ttk.Button(sys_info_frame, text="Browse", command=self.choose_output_directory).grid(row=3, column=2,
+                                                                                             sticky="e", padx=5, pady=2)
 
         # Create a frame for buttons to change the atomic radii and the system exports
         self.radii_frame = ttk.LabelFrame(system_frame, text="Settings")
         self.radii_frame.grid(row=1, column=1, rowspan=4, sticky="nsew", pady=5, padx=5)
-        ttk.Button(self.radii_frame, text="Radii", command=self.change_atomic_radii).grid(row=1, column=0, pady=2, padx=5, sticky="s")
-        ttk.Button(self.radii_frame, text="Exports", command=self.system_exports).grid(row=2, column=0, pady=2, padx=5, sticky="s")
-        ttk.Button(self.radii_frame, text="Reset", command=self.delete_system).grid(row=3, column=0, pady=2, padx=5, sticky="s")
+        ttk.Button(self.radii_frame, text="Radii", command=self.change_atomic_radii).grid(row=1, column=0, pady=2,
+                                                                                          padx=5, sticky="s")
+        ttk.Button(self.radii_frame, text="Exports", command=self.system_exports).grid(row=2, column=0, pady=2, padx=5,
+                                                                                       sticky="s")
+        ttk.Button(self.radii_frame, text="Reset", command=self.delete_system).grid(row=3, column=0, pady=2, padx=5,
+                                                                                    sticky="s")
 
     def choose_ball_file(self):
         """Open file dialog to select a ball file."""
@@ -193,7 +206,7 @@ class SystemFrame:
                 self.gui.files['other_files'].append(filename)
                 self._update_file_display()
 
-    def _update_file_display(self, file_string_len=50):
+    def _update_file_display(self, file_string_len=46):
         """Update the display based on the number of files."""
         if self.gui is None or not self.gui.files['other_files']:
             self.file_display.config(text="None")
@@ -204,14 +217,17 @@ class SystemFrame:
         files = self.gui.files['other_files']
         if len(files) == 1:
             # Show first 100 characters of the single file
-            self.file_display.config(text=files[0][:int(file_string_len / 2) - 2] + "..." + files[0][-(int(file_string_len / 2) - 2):] if len(files[0]) > file_string_len else files[0])
+            self.file_display.config(text=files[0][:int(file_string_len / 2) - 2] + "..." +
+                                          files[0][-(int(file_string_len / 2) - 2):]
+                                          if len(files[0]) > file_string_len else files[0])
             self.file_dropdown.pack_forget()
             self.file_display.pack(side="left", fill="x", expand=True)
         else:
             # Show dropdown with all files
             self.file_display.pack_forget()
             # Create truncated versions of file paths for the dropdown
-            truncated_files = [f[:int(file_string_len / 2) - 2] + "..." + f[-(int(file_string_len / 2) - 2):] if len(f) > file_string_len else f for f in files]
+            truncated_files = [f[:int(file_string_len / 2) - 2] + "..." + f[-(int(file_string_len / 2) - 2):]
+                               if len(f) > file_string_len else f for f in files]
             self.file_dropdown['values'] = truncated_files
             self.file_dropdown.set(truncated_files[0])  # Set to first file
             self.file_dropdown.pack(side="left", fill="x", expand=True)
@@ -221,7 +237,9 @@ class SystemFrame:
         """Handle file selection from dropdown."""
         selected = self.file_dropdown.get()
         if selected:
-            self.file_display.config(text=selected[:int(file_string_len / 2) - 2] + "..." + selected[-(int(file_string_len / 2) - 2):] if len(selected) > file_string_len else selected)
+            self.file_display.config(text=selected[:int(file_string_len / 2) - 2] + "..." +
+                                          selected[-(int(file_string_len / 2) - 2):]
+                                          if len(selected) > file_string_len else selected)
 
     def choose_output_directory(self):
         """Open directory dialog to select output directory."""
@@ -251,6 +269,7 @@ class SystemFrame:
     def delete_system(self):
         """Delete the system."""
         self.gui.sys.delete()
+
 
 if __name__ == "__main__":
     root = tk.Tk()
