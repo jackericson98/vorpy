@@ -24,6 +24,35 @@ The basic command structure for running VorPy through the command line is:
 
 ### VorPy GUI:
 
+![VorpyGUIDescription-page001](https://github.com/user-attachments/assets/9a757534-0f76-49f7-876c-c1a9c808dd70)
+
+
+1. Input File Name: The name of the ball file with the extension and the folder stripped. This will be the name of the folder that will hold the output files and will hold each of the group folders.
+2. Input File Information: Displays the general information about the input file and the groupings within it.
+3. Input Locations: Shows where the input file, the output directory, and any other loaded files can be located.
+4. Radii/Mass Changing: Allows the user to adjust the radii and masses of any given element and/or specific atoms in set residues (see [Radii/Mass Adjustments](#radii-mass-adjustments)).
+5. System Exports: Shows the different options for exports at the system level. Launches another window with different options including logs, ball files, set atoms (see [System Exports](#system-exports))
+6. Reset: Clears the program of any system, files, and settings that have been added.
+7. Groups Section: Holds each of the groups to be built and all of the corresponding selections, settings, and exports (see [Groups](#groups-gui))
+8. Group Name: Changes the name for the current group. Works as the name for the sub-directory for the given group's output files
+9. Group Selections: Allows the user to add/delete atoms/balls, residues, chains, and molecules using and index or a range. If the range entry is unfilled only the single object's index identified in the index entry box will be chosen. The indices start at 0 and correspond to the oder in which they appear in the ball file.
+10. Group Selection Tracker: Tracks the selections that the the user has added to the group.
+11. Group Build Settings: Tracks the given settings the given group will be built with (see [Group Build Settings](#group-build-settings). 
+
+
+<a name="radii-mass-adjustments"></a> 
+#### Radii/Mass Adjustments:
+
+<a name="system-exports"></a>
+#### System Exports
+
+<a name="groups-gui"></a>
+#### Groups
+
+
+<a name="group-build-settings"></a>
+#### Group Build Settings
+
 
 ### Command line:
 
