@@ -25,18 +25,19 @@ The basic command structure for running VorPy through the command line is:
 ### VorPy GUI:
 
 
+### Command line:
 
-### File
+#### File
 - The first argument after `vorpy.py` should be the file address of the ball or atom file.
 - If the file is located in the `Data/test_data` folder, specify the file name without the path or extension.
 - Accepted file extensions include `.pdb`, `.mol`, `.gro`, `.cif`.
 
-### Options
-#### Load Flag `-l`
+#### Options
+##### Load Flag `-l`
     -l <file>
 Load additional files like vertex files from previous runs, log files, Voronota vertex files, or GROMACS index files.
 
-#### Settings Flag `-s`
+##### Settings Flag `-s`
     -s <setting value>
 Adjust various simulation parameters:
 - `nt` - Network Type: Default = Additively Weighted `aw`, Power `pow`, Primitive `prm`, or Compare `com 'type1' 'type2'`
@@ -48,7 +49,7 @@ Adjust various simulation parameters:
 - `sf` - Surface Coloring Scale: Default = linear `lin`, log `log`, squared `square`, cube `cube`
 - `ar` - Adjust Radii: `'element' 'value'` or `'atom name' 'value'` or `'residue' 'atom name' 'value'`. To see the current values for defaults for atomic radii go to the radii file (radii.py) or enter the radii flag`-r`
 
-#### Group Flag `-g`
+##### Group Flag `-g`
     -g <identifier>
 Select specific balls or molecular elements:
 - `b` - Ball Identifier. Used with a ball index `'index'` or range of indices `'index1'-'index2'`.
@@ -58,7 +59,7 @@ Select specific balls or molecular elements:
 
 Note: If multiple of the above components are desired in the same group use the `and` qualifier between components. If multiple groups are desired use multiple group flags.  
 
-#### Exports Flag `-e`
+##### Exports Flag `-e`
     -e <export_type>
 Specify the intensity and type of exports:
 - Groups of Exports: Default = `large`, `small`, `medium`, `all`
@@ -67,12 +68,12 @@ Specify the intensity and type of exports:
    Molecule File - `pdb`, `mol`, `cif`, `gro`, Set Atoms Radii PyMol Script - `set_atoms`, Group Information - `info`, Network Logs - `logs`, All Surfaces in One File - `surfs`, All Surfaces in Separate Files - `sep_surfs`, All Edges in One File - `edges`, All Edges in Separate Files - `sep_edges`, All Vertices in One File - `verts`, All Vertices in Separate Files - `sep_verts`, Surrounding Surfaces - `shell`, Surrounding Edges - `shell_edges`, Surrounding Vertices - `shell_verts`, Group Atoms - `atoms`, Atoms Surrounding Group - `surr_atoms`
 
 
-## Notes
+### Notes
 - Each option flag and its arguments must be separated by spaces.
 - To use multiple commands for a single option use 'and' or repeat the flag (except for groups to avoid creating multiple groups).
 - Any range can be set with a hyphen and no space (e.g. `-g a 0-100` is a group of the first 101 atoms)
 
-## Outputs
+### Outputs
 
 The ouputs for the program are either informative or visualizations of the data. In 
 
