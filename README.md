@@ -5,46 +5,50 @@
 
 ## Overview
 Vorpy is a spatial partitioning tool designed to solve, analyze, and export Additively Weighted, Power (Leguerre), and/or Primitive (Delaunay) Voronoi diagrams for systems of 3D spheres. This tool can accept atomic coordinate files of all major file extensions (or txt files in the right format), solve their Voronoi graphs and output visualizations and analysis of their geometry. With both a grapical user interface for simple cases and a command line interface for more complicated or cases VorPy has a robust input/output abilities. 
-## Installation
-Download the Vorpy tool from the repository and ensure you have Python installed on your system.
 
 ## Usage
 
-For first time users or virtual environment users check to see you have the requirements installed for python
+With python installed, make sure you have the required packages installed on your system of virtual environment (see [Requirements and Dependencies](requirements-and-dependencies)): 
 
     python -m pip install -r requirements.txt
 
-To run the VorPy GUI simply call the vorpy.py file in the command line:
+To run the VorPy GUI simply call the vorpy.py file in the command line (see [VorPy GUI](#vorpy-gui)):
 
     python vorpy.py
 
-The basic command structure for running VorPy through the command line is:
+To run VorPy through the command line follow the basic command line structure (see [Command Line](#command-line)):
 
     python vorpy.py <file> [options]
 
+
+<a name="vorpy-gui"></a>
 ### VorPy GUI:
 
 ![VorpyGUIDescription-page001](https://github.com/user-attachments/assets/9a757534-0f76-49f7-876c-c1a9c808dd70)
 
 
-1. Input File Name: The name of the ball file with the extension and the folder stripped. This will be the name of the folder that will hold the output files and will hold each of the group folders.
-2. Input File Information: Displays the general information about the input file and the groupings within it.
-3. Input Locations: Shows where the input file, the output directory, and any other loaded files can be located.
-4. Radii/Mass Changing: Allows the user to adjust the radii and masses of any given element and/or specific atoms in set residues (see [Radii/Mass Adjustments](#radii-mass-adjustments)).
-5. System Exports: Shows the different options for exports at the system level. Launches another window with different options including logs, ball files, set atoms (see [System Exports](#system-exports))
-6. Reset: Clears the program of any system, files, and settings that have been added.
-7. Groups Section: Holds each of the groups to be built and all of the corresponding selections, settings, and exports (see [Groups](#groups-gui))
-8. Group Name: Changes the name for the current group. Works as the name for the sub-directory for the given group's output files
-9. Group Selections: Allows the user to add/delete atoms/balls, residues, chains, and molecules using and index or a range. If the range entry is unfilled only the single object's index identified in the index entry box will be chosen. The indices start at 0 and correspond to the oder in which they appear in the ball file.
-10. Group Selection Tracker: Tracks the selections that the the user has added to the group.
-11. Group Build Settings: Tracks the given settings the given group will be built with (see [Group Build Settings](#group-build-settings). 
+1. **Input File Name**: The name of the ball file with the extension and the folder stripped. This will be the name of the folder that will hold the output files and will hold each of the group folders.
+2. **Input File Information**: Displays the general information about the input file and the groupings within it.
+3. **Input Locations**: Shows where the input file, the output directory, and any other loaded files can be located.
+4. **Radii/Mass Changing**: Allows the user to adjust the radii and masses of any given element and/or specific atoms in set residues (see [Radii/Mass Adjustments](#radii-mass-adjustments)).
+5. **System Exports**: Shows the different options for exports at the system level. Launches another window with different options including logs, ball files, set atoms (see [System Exports](#system-exports))
+6. **Reset**: Clears the program of any system, files, and settings that have been added.
+7. **Groups Section**: Holds each of the groups to be built and all of the corresponding selections, settings, and exports (see [Groups](#groups-gui))
+8. **Group Name**: Changes the name for the current group. Works as the name for the sub-directory for the given group's output files
+9. **Group Selections**: Allows the user to add/delete atoms/balls, residues, chains, and molecules using and index or a range. If the range entry is unfilled only the single object's index identified in the index entry box will be chosen. The indices start at 0 and correspond to the oder in which they appear in the ball file.
+10. **Group Selection Tracker**: Tracks the selections that the the user has added to the group.
+11. **Group Build Settings**: Tracks the given settings the given group will be built with (see [Group Build Settings](#group-build-settings).
+12. **Group Exports**: Holds the different exports for the given group. There are three default options: small, medium, and large exports (see [Group Exports](#group-exports)). If the user wants to export custom options, there is a custom exports button with all possible exports for the group (see [Group Exports](#group-exports)).
+13. 
 
 
 <a name="radii-mass-adjustments"></a> 
 #### Radii/Mass Adjustments:
 
+
 <a name="system-exports"></a>
 #### System Exports
+
 
 <a name="groups-gui"></a>
 #### Groups
@@ -54,19 +58,28 @@ The basic command structure for running VorPy through the command line is:
 #### Group Build Settings
 
 
+<a name="group-exports"></a>
+#### Group Exports
+
+
+<a name="command-line"></a>
 ### Command line:
+
+The general structure of the command line goes like below
+
+
 
 #### File
 - The first argument after `vorpy.py` should be the file address of the ball or atom file.
 - If the file is located in the `Data/test_data` folder, specify the file name without the path or extension.
 - Accepted file extensions include `.pdb`, `.mol`, `.gro`, `.cif`.
 
-#### Options
-##### Load Flag `-l`
+
+#### Load Options (Flag `-l`)
     -l <file>
 Load additional files like vertex files from previous runs, log files, Voronota vertex files, or GROMACS index files.
 
-##### Settings Flag `-s`
+#### Setting Options (Flag `-s`)
     -s <setting value>
 Adjust various simulation parameters:
 - `nt` - Network Type: Default = Additively Weighted `aw`, Power `pow`, Primitive `prm`, or Compare `com 'type1' 'type2'`
@@ -78,7 +91,7 @@ Adjust various simulation parameters:
 - `sf` - Surface Coloring Scale: Default = linear `lin`, log `log`, squared `square`, cube `cube`
 - `ar` - Adjust Radii: `'element' 'value'` or `'atom name' 'value'` or `'residue' 'atom name' 'value'`. To see the current values for defaults for atomic radii go to the radii file (radii.py) or enter the radii flag`-r`
 
-##### Group Flag `-g`
+#### Group Options (Flag `-g`)
     -g <identifier>
 Select specific balls or molecular elements:
 - `b` - Ball Identifier. Used with a ball index `'index'` or range of indices `'index1'-'index2'`.
@@ -88,7 +101,7 @@ Select specific balls or molecular elements:
 
 Note: If multiple of the above components are desired in the same group use the `and` qualifier between components. If multiple groups are desired use multiple group flags.  
 
-##### Exports Flag `-e`
+#### Export Options (Flag `-e`)
     -e <export_type>
 Specify the intensity and type of exports:
 - Groups of Exports: Default = `large`, `small`, `medium`, `all`
@@ -96,13 +109,18 @@ Specify the intensity and type of exports:
 
    Molecule File - `pdb`, `mol`, `cif`, `gro`, Set Atoms Radii PyMol Script - `set_atoms`, Group Information - `info`, Network Logs - `logs`, All Surfaces in One File - `surfs`, All Surfaces in Separate Files - `sep_surfs`, All Edges in One File - `edges`, All Edges in Separate Files - `sep_edges`, All Vertices in One File - `verts`, All Vertices in Separate Files - `sep_verts`, Surrounding Surfaces - `shell`, Surrounding Edges - `shell_edges`, Surrounding Vertices - `shell_verts`, Group Atoms - `atoms`, Atoms Surrounding Group - `surr_atoms`
 
-
-### Notes
+#### Command Line Notes
 - Each option flag and its arguments must be separated by spaces.
 - To use multiple commands for a single option use 'and' or repeat the flag (except for groups to avoid creating multiple groups).
 - Any range can be set with a hyphen and no space (e.g. `-g a 0-100` is a group of the first 101 atoms)
 
-### Outputs
+
+<a name="requirements-and-dependencies"></a>
+### Requirements and Dependencies
+
+
+
+### Output Examples
 
 The ouputs for the program are either informative or visualizations of the data. In 
 
