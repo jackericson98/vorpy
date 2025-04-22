@@ -39,7 +39,10 @@ To run VorPy through the command line follow the basic command line structure (s
 10. **Group Selection Tracker**: Tracks the selections that the the user has added to the group.
 11. **Group Build Settings**: Tracks the given settings the given group will be built with (see [Group Build Settings](#group-build-settings).
 12. **Group Exports**: Holds the different exports for the given group. There are three default options: small, medium, and large exports (see [Group Exports](#group-exports)). If the user wants to export custom options, there is a custom exports button with all possible exports for the group (see [Group Exports](#group-exports)).
-13. 
+13. **Run Group**: Solves the group and exports the given exports. Will only solve the current group and export the current selection.
+14. **Add/Delete Groups**: Adjusts the number of groups being solved. The delete button points to the current group and will ask for permission before deleting anything.
+15. **Help**: The help button launches a window that explains all of the functions of the program and the GUI and serves as a reminder for the user (see [Help Window](#help-window))
+16. **Run All Groups**: Solves and exports all groups as well as the system exports. The main run function for VorPy.
 
 
 <a name="radii-mass-adjustments"></a> 
@@ -60,6 +63,10 @@ To run VorPy through the command line follow the basic command line structure (s
 
 <a name="group-exports"></a>
 #### Group Exports
+
+
+<a name="help-window"></a>
+#### Help Window
 
 
 <a name="command-line"></a>
@@ -132,21 +139,21 @@ The ouputs for the program are either informative or visualizations of the data.
 Example 1: Simple Molecular Visualization
 In this example, we look at the molecule EDTA which binds to harmful magnesium ions in food to neutralize them. The EDTA/Mg complex is preloaded into vorPy and can be run simply with the following command:
 
-- python vorpy.py EDTA_Mg
+    python vorpy.py EDTA_Mg
 
 This will solve the additively weighted Voronoi diagram for the EDTA molecule and the Mg atom. Once solved, the program will output the default outputs (see outputs). 
 
 Example 2: 
-
-
 Separately solve the tyrosine 2 and methionine 1 residues of the cambrin molecule, calculate their interface, and export the large export type of the results
 
     python vorpy.py cambrin -s sr 0.05 and mv 80 -g tyr 2 -g met 1 -c iface -e large
 
+Example 3:
 Calculate the primitive and power networks for the mg atom in the EDTA_Mg molecule and compare the difference
 
     python vorpy.py EDTA_Mg -s nt compare prm pow -g mg
 
+Example 4:
 Solve the network for hairpin and export the shell with the inside and outside parts of the surfaces highlighted at a high resolution
 
     python vorpy.py hairpin -s ss nout and sr 0.01 -e shell and pdb
