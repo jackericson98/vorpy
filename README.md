@@ -4,8 +4,7 @@
 # Vorpy
 
 ## Overview
-Vorpy is a command line interface tool designed to process molecular files for computational chemistry and visualization tasks. It supports a variety of file formats and offers extensive options for loading files, setting simulation parameters, selecting specific molecular structures, conducting specialized calculations, and configuring output details.
-
+Vorpy is a spatial partitioning tool designed to solve, analyze, and export Additively Weighted, Power (Leguerre), and/or Primitive (Delaunay) Voronoi diagrams for systems of 3D spheres. This tool can accept atomic coordinate files of all major file extensions (or txt files in the right format), solve their Voronoi graphs and output visualizations and analysis of their geometry. With both a grapical user interface for simple cases and a command line interface for more complicated or cases VorPy has a robust input/output abilities. 
 ## Installation
 Download the Vorpy tool from the repository and ensure you have Python installed on your system.
 
@@ -15,9 +14,17 @@ For first time users or virtual environment users check to see you have the requ
 
     python -m pip install -r requirements.txt
 
-The basic command structure for running Vorpy is:
+To run the VorPy GUI simply call the vorpy.py file in the command line:
+
+    python vorpy.py
+
+The basic command structure for running VorPy through the command line is:
 
     python vorpy.py <file> [options]
+
+### VorPy GUI:
+
+
 
 ### File
 - The first argument after `vorpy.py` should be the file address of the ball or atom file.
