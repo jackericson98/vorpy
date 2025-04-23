@@ -57,7 +57,7 @@ class BuildFrame(ttk.LabelFrame):
         vertices_frame = ttk.Frame(self)
         vertices_frame.pack(fill="x", padx=5, pady=5)
         
-        ttk.Label(vertices_frame, text="Max Vertices:").pack(side="left")
+        ttk.Label(vertices_frame, text="Probe Distance:").pack(side="left")
         self.max_vertices = ttk.Entry(vertices_frame, width=10)
         self.max_vertices.pack(side="right", padx=5)
         self.max_vertices.insert(0, str(self.settings['max_vert']))
