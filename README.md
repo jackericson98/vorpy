@@ -48,6 +48,9 @@ To run VorPy through the command line follow the basic command line structure (s
 <a name="radii-mass-adjustments"></a> 
 #### Radii/Mass Adjustments:
 
+When selected, the radii adjustment window will launch:
+
+
 
 <a name="system-exports"></a>
 #### System Exports
