@@ -1,7 +1,8 @@
+# VOROPY
 
 ![TOC-page001](https://github.com/user-attachments/assets/acbdf9f5-3770-4c8c-b922-aeb681542c96)
 
-# Vorpy
+# Voropy
 
 ## Overview
 Vorpy is a spatial partitioning tool designed to solve, analyze, and export Additively Weighted, Power (Leguerre), and/or Primitive (Delaunay) Voronoi diagrams for systems of 3D spheres. This tool can accept atomic coordinate files of all major file extensions (or txt files in the right format), solve their Voronoi graphs and output visualizations and analysis of their geometry. With both a grapical user interface for simple cases and a command line interface for more complicated or cases VorPy has a robust input/output abilities. 
@@ -24,8 +25,9 @@ To run VorPy through the command line follow the basic command line structure (s
 <a name="vorpy-gui"></a>
 ### VorPy GUI:
 
-![VorpyGUIDescription-page001](https://github.com/user-attachments/assets/9a757534-0f76-49f7-876c-c1a9c808dd70)
+## Documentation
 
+For detailed documentation, please visit [the documentation website](https://jackericson98.github.io/voropy/).
 
 1. **Input File Name**: The name of the ball file with the extension and the folder stripped. This will be the name of the folder that will hold the output files and will hold each of the group folders.
 2. **Input File Information**: Displays the general information about the input file and the groupings within it.
@@ -163,32 +165,22 @@ Solve the network for hairpin and export the shell with the inside and outside p
 
 
 ## License
-MIT License
 
-Copyright (c) 2022 John Ericson
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Citation
 
-[![DOI](https://zenodo.org/badge/502126698.svg)](https://zenodo.org/badge/latestdoi/502126698)
+If you use VOROPY in your research, please cite:
 
+```bibtex
+@software{voropy2024,
+  author = {John Ericson},
+  title = {VOROPY: A Python package for Voronoi analysis of molecular structures},
+  year = {2024},
+  publisher = {GitHub},
+  url = {https://github.com/jackericson98/voropy}
+}
+```
 
 ## Contact
 - Email: [jericson1@gsu.edu](mailto:jericson1@gsu.edu)

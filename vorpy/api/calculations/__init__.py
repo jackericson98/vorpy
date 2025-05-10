@@ -1,0 +1,67 @@
+"""
+API for calculations module - Core mathematical and geometric calculations
+"""
+
+from vorpy.src.calculations.calcs import (
+    calc_dist,
+    calc_angle,
+    calc_tri,
+    calc_com,
+    calc_length,
+    calc_sphericity,
+    calc_isoperimetric_quotient,
+    calc_vol
+)
+
+from vorpy.src.calculations.curvature import (
+    gaussian_curvature,
+    mean_curvature,
+    calc_surf_tri_curvs
+)
+
+from vorpy.src.calculations.surf import (
+    calc_surf_sa,
+    calc_surf_func,
+    calc_2d_surf_sa,
+    calc_surf_tri_dists
+)
+
+from vorpy.src.calculations.vert import (
+    calc_flat_vert,
+    calc_vert,
+    verify_site,
+    verify_aw,
+    verify_pow,
+    verify_prm
+)
+
+__all__ = [
+    # Basic calculations
+    'calc_dist',
+    'calc_angle',
+    'calc_tri',
+    'calc_com',
+    'calc_length',
+    'calc_sphericity',
+    'calc_isoperimetric_quotient',
+    'calc_vol',
+    
+    # Curvature calculations
+    'gaussian_curvature',
+    'mean_curvature',
+    'calc_surf_tri_curvs',
+    
+    # Surface calculations
+    'calc_surf_sa',
+    'calc_surf_func',
+    'calc_2d_surf_sa',
+    'calc_surf_tri_dists',
+    
+    # Vertex calculations
+    'calc_flat_vert',
+    'calc_vert',
+    'verify_site',
+    'verify_aw',
+    'verify_pow',
+    'verify_prm'
+] 
