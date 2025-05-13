@@ -241,11 +241,12 @@ class SystemFrame:
                                           selected[-(int(file_string_len / 2) - 2):]
                                           if len(selected) > file_string_len else selected)
 
-    def choose_output_directory(self):
+    def choose_output_directory(self, directory=None):
         """Open directory dialog to select output directory."""
-        directory = filedialog.askdirectory(
-            title="Select Output Directory"
-        )
+        if directory is None:
+            directory = filedialog.askdirectory(
+                title="Select Output Directory"
+            )
         if directory:
             if self.gui is not None:
                 self.gui.output_dir = directory

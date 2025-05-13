@@ -3,6 +3,8 @@ from tkinter import ttk, filedialog
 import os
 from vorpy.src.GUI.system.radii_adjustments.periodic_table_GUI import PeriodicTableGUI
 from vorpy.src.GUI.system.system_exports import SystemExportsWindow
+from importlib import resources
+from vorpy.src.GUI.system.default_files import TestFileBrowserApp
 
 
 class SystemFrame:
@@ -122,19 +124,24 @@ class SystemFrame:
         # Create a frame for buttons to change the atomic radii and the system exports
         self.radii_frame = ttk.LabelFrame(system_frame, text="Settings")
         self.radii_frame.grid(row=2, column=1, rowspan=4, sticky="nsew", pady=5, padx=5)
-        (ttk.Button(self.radii_frame, text="Radii", command=self.open_periodic_table)
+        (ttk.Button(self.radii_frame, text="Defaults", command=lambda: self.choose_ball_file(default=True))
          .grid(row=1, column=0, pady=2, padx=5, sticky="s"))
-        (ttk.Button(self.radii_frame, text="Exports", command=self.system_exports)
+        (ttk.Button(self.radii_frame, text="Radii", command=self.open_periodic_table)
          .grid(row=2, column=0, pady=2, padx=5, sticky="s"))
-        (ttk.Button(self.radii_frame, text="Reset", command=self.delete_system)
+        (ttk.Button(self.radii_frame, text="Exports", command=self.system_exports)
          .grid(row=3, column=0, pady=2, padx=5, sticky="s"))
 
-    def choose_ball_file(self):
+    def choose_ball_file(self, default=False):
         """Open file dialog to select a ball file."""
-        filename = filedialog.askopenfilename(
-            title="Select Ball File",
-            filetypes=[("Ball files", "*.pdb"), ("All files", "*.*")]
-        )
+        if not default:
+            filename = filedialog.askopenfilename(
+                title="Select Ball File",
+                filetypes=[("Ball files", "*.pdb"), ("All files", "*.*")]
+            )
+        else:
+            test_browser = TestFileBrowserApp(self.gui, self.gui.sys)
+            self.gui.wait_window(test_browser.root)  # Wait for the window to close
+            filename = self.gui.sys.files['ball_file']
         if filename:
             self.gui.ball_file = filename
             self.gui.sys.ball_file = filename
@@ -152,6 +159,7 @@ class SystemFrame:
             self.num_balls.set(len(self.gui.sys.balls))
             self.num_residues.set(len(self.gui.sys.residues))
             self.num_chains.set(len(self.gui.sys.chains))
+        
 
     def _browse_other_files(self):
         """Open file dialog to select other files."""
@@ -199,11 +207,13 @@ class SystemFrame:
                                           selected[-(int(file_string_len / 2) - 2):]
                                           if len(selected) > file_string_len else selected)
 
-    def choose_output_directory(self):
+    def choose_output_directory(self, directory=None):
         """Open directory dialog to select output directory."""
-        directory = filedialog.askdirectory(
-            title="Select Output Directory"
-        )
+        if directory is None:
+            directory = filedialog.askdirectory(
+                title="Select Output Directory"
+            )
+        print(directory)
         if directory:
             if self.gui is not None:
                 self.gui.output_dir = directory
@@ -230,6 +240,7 @@ class SystemFrame:
 
 
 if __name__ == "__main__":
+
     root = tk.Tk()
     root.title("System Information")
     sys_info_frame = SystemFrame(None, root)

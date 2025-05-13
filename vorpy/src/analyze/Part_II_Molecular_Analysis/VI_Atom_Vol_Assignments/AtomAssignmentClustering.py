@@ -49,7 +49,7 @@ kmeans_final = KMeans(n_clusters=best_k, n_init=10, random_state=42)
 df['cluster'] = kmeans_final.fit_predict(X_scaled)
 
 # Step 5: Dimensionality reduction for visualization
-pca = PCA(n_components=)
+pca = PCA(n_components=2)
 X_pca = pca.fit_transform(X_scaled)
 df['pca1'] = X_pca[:, 0]
 df['pca2'] = X_pca[:, 1]

@@ -87,7 +87,8 @@ class VorPyGUI(tk.Tk):
         cancel_button.pack(side="right", padx=5)
 
     def create_information_section(self, frame):
-        SystemFrame(self, frame)
+        self.system_frame = SystemFrame(self, frame)
+        return self.system_frame
 
     def choose_ball_file(self):
         """Open file dialog to select a ball file."""
@@ -171,6 +172,9 @@ class VorPyGUI(tk.Tk):
         # Create a group if None exists
         if len(self.group_settings) == 0:
             self.sys.create_group()
+        
+        # Update the output directories in the gui
+        self.system_frame.choose_output_directory(self.sys.files['dir'])
 
         # Create the groups with the correct settings
         for group_name in self.group_settings:
@@ -180,6 +184,8 @@ class VorPyGUI(tk.Tk):
                          xyz=self.exports['xyz'], txt=self.exports['txt'], info=self.exports['info'],
                          set_atoms=self.exports['set_atoms'])
 
+        # Print where the files were exported to
+        print(f"Files were exported to: {self.sys.files['dir']}")
         return self.sys
 
     def open_help(self):

@@ -11,6 +11,8 @@ if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
 from vorpy import main
+from vorpy.src.GUI.vorpy_gui import VorPyGUI as run
 
 if __name__ == "__main__":
-    main() 
+    app = run()
+    app.mainloop()

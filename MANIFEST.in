@@ -10,6 +10,10 @@ recursive-include vorpy *.toml
 recursive-include vorpy *.json
 recursive-include vorpy *.yaml
 recursive-include vorpy *.yml
+recursive-include vorpy *.pdb
+recursive-include vorpy *.cif
+recursive-include vorpy *.mol
+recursive-include vorpy *.gro
 
 recursive-exclude * __pycache__
 recursive-exclude * *.py[cod]
