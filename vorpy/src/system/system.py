@@ -26,15 +26,72 @@ class System:
                  index_file=None, frame_files=None, output_directory=None, gui=None, root_dir=None, print_actions=False,
                  atoms=None, residues=None, chains=None, segments=None, groups=None, ifaces=None, simple=False, name=None):
         """
-        Class used to import files of all types and return a System
-        :param file: Base system file address
-        :param atoms: List holding the atom objects
-        :param verts_file: Vertex data file address in vorpy format
-        :param network_file: Network data file address in vorpy format
-        :param index_file: Index file address in GROMACS index format
-        :param frame_files: Files for atom movements
-        :param output_directory: Directory for export files to be output to
-        :param gui: The GUI object (tkinter) associated with loading the system and loading/creating the network
+        Initialize a new System object for managing molecular systems and networks.
+
+        Attributes
+        ----------
+        file : str, optional
+            Base system file address
+        files : dict, optional
+            Dictionary containing file paths for various system components
+        spheres : list, optional
+            List of sphere objects representing atoms or particles
+        verts_file : str, optional
+            Vertex data file address in vorpy format
+        balls_file : str, optional
+            Voronota Ball file, triggers Voronota reading of the verts file
+        network_file : str, optional
+            Network data file address in vorpy format
+        index_file : str, optional
+            Index file address in GROMACS index format
+        frame_files : list, optional
+            Files for atom movements
+        output_directory : str, optional
+            Directory for export files to be output to
+        gui : object, optional
+            The GUI object (tkinter) associated with loading the system
+        root_dir : str, optional
+            Root directory for the system
+        print_actions : bool, optional
+            Tells the system to print or not
+        atoms : list, optional
+            List holding the atom objects
+        residues : list, optional
+            List of residues (lists of atoms)
+        chains : list, optional
+            List of the chains that make up the molecule
+        segments : list, optional
+            List of segments in the molecule
+        groups : list, optional
+            List of groups in the system
+        ifaces : list, optional
+            List of interface objects between groups
+        simple : bool, optional
+            Indicates the system is simple and is only a shell
+        name : str, optional
+            Name describing the system
+
+        Methods
+        -------
+        make_simple(): 
+            Create a simple system with specified components.
+        set_files(): 
+            Set the file paths for the system components.
+        load_files(): 
+            Load and initialize all system files specified during initialization.
+        load_sys(): 
+            Load and set the base file for the system.
+        set_radii(): 
+            Set the atom radii in the spheres dataframe.
+        load_verts(): 
+            Load vertices from a file into the system.
+        load_net(): 
+            Load a previously calculated network into the system.
+            
+        Notes
+        -----
+        This initializes a new System object with the specified files and components.
+        If no files are provided, an empty system is created.
         """
 
         # An initial default shell system
@@ -98,7 +155,12 @@ class System:
 
     def make_simple(self):
         """
-        Makes the system work without doing all the hubub
+        Create a simple system with specified components.
+
+        Notes
+        -----
+        This method creates a simple system with the specified components.
+        All parameters are optional and can be added later.
         """
         # Set the type first
         self.type = 'simple'
@@ -113,8 +175,35 @@ class System:
         # Set the output directory
         # self.set_output_directory()
 
-    def set_files(self, base_file=None, ball_file=None, verts_file=None, net_file=None, ndx_file=None, file_dir=None,
+    def set_files(self, base_file=None, ball_file=None, verts_file=None, net_file=None, ndx_file=None, file_dir=None, 
                   frame_files=None, root_dir=None):
+        """
+        Set the file paths for the system components.
+
+        Parameters
+        ----------
+        base_file : str, optional
+            Base system file address
+        ball_file : str, optional
+            Ball file address
+        verts_file : str, optional
+            Vertex data file address in vorpy format
+        net_file : str, optional
+            Network data file address in vorpy format
+        ndx_file : str, optional
+            Index file address in GROMACS index format
+        file_dir : str, optional
+            Directory for export files to be output to
+        frame_files : list, optional
+            Files for atom movements
+        root_dir : str, optional
+            Root directory for the system
+
+        Notes
+        -----
+        This method updates the system's file paths dictionary with the provided values.
+        If a parameter is not provided, its corresponding entry in the dictionary remains unchanged.
+        """
         # Set the defaults
         defaults = {'base_file': base_file, 'ball_file': ball_file, 'verts_file': verts_file, 'net_file': net_file,
                     'ndx_file': ndx_file, 'dir': file_dir, 'frame_files': frame_files, 'vpy_dir': os.getcwd()}        # Set the files if they arent set yet
@@ -137,9 +226,12 @@ class System:
 
     def load_files(self):
         """
-        Create the system and make sure the files added in __init__ are added to the system
-        """
+        Load and initialize all system files specified during initialization.
 
+        Parameters
+        ----------
+        None
+        """
         # Load the system
         if self.files['base_file'] is not None:
             self.load_sys()
@@ -170,9 +262,15 @@ class System:
             self.name = "my_system"
 
     def load_sys(self, file=None, simple=False, make_dir=True):
-        """
-        Sets the base file for the system using one of the import file functions
-        :param file: .pdb, .gro, .mol, .cif
+        """Load and set the base file for the system.
+
+        This method loads a molecular structure file and sets up the system attributes.
+        It supports various file formats including PDB, GRO, MOL, and CIF.
+
+        Parameters
+        ----------
+        file : str, optional
+            Path to the molecular structure file (.pdb, .gro, .mol, .cif)
         """
         # If a file is given read the file and set the system attributes
         if file is not None:
@@ -221,8 +319,22 @@ class System:
                           len(self.residues), len(self.chains), 's' if len(self.chains) > 1 else ''))
 
     def set_radii(self, my_element_radii=None, my_special_radii=None):
-        """
-        Sets the atom radii in the spheres dataframe based on the element radii and special radii
+        """Set the atom radii in the spheres dataframe.
+
+        This function assigns radii to atoms in the spheres dataframe based on either
+        element-specific radii or special radii defined for specific residues and atoms.
+
+        Parameters
+        ----------
+        my_element_radii : dict, optional
+            Dictionary mapping element symbols to their radii
+        my_special_radii : dict, optional
+            Dictionary mapping residue names to dictionaries of atom names and their radii
+
+        Notes
+        -----
+        If both parameters are None, the function will use the system's default
+        element_radii and special_radii attributes.
         """
         # First check to see of the spheres actually exist
         if self.balls is None or len(self.balls) == 0 or self.type != 'mol':
@@ -247,10 +359,23 @@ class System:
             self.set_radii(my_element_radii=self.element_radii, my_special_radii=self.special_radii)
 
     def load_verts(self, file=None, vta_ball_file=None):
-        """
-        Loads vorpy specific vertices file from the system level
-        :param vta_ball_file: Voronota Ball file, triggers Voronota reading of the verts file
-        :param file: Main verts file that could be vorpy generated or Voronota generated
+        """Load vertices from a file into the system.
+
+        This function loads vertex data from either a vorpy-specific vertices file or a Voronota-generated file.
+        The function can handle both vorpy-generated vertices and Voronota-generated vertices when provided
+        with the appropriate ball file.
+
+        Parameters
+        ----------
+        file : str, optional
+            Path to the main vertices file. Can be either vorpy-generated or Voronota-generated.
+        vta_ball_file : str, optional
+            Path to the Voronota ball file. If provided, triggers Voronota-specific reading of the vertices file.
+
+        Notes
+        -----
+        If vta_ball_file is None, the function assumes a vorpy-specific vertices file and creates a group
+        if none exists. If vta_ball_file is provided, the function uses Voronota-specific reading methods.
         """
         # Check for a loaded vertex file
         if file is not None:
@@ -266,9 +391,17 @@ class System:
             read_vta(self, vert_file=file, ball_file=vta_ball_file)
 
     def load_net(self, file=None):
-        """
-        Used to load a network that was previously calculated
-        :param file: Network file for loading
+        """Load a previously calculated network into the system.
+
+        Parameters
+        ----------
+        file : str, optional
+            Path to the network file to be loaded.
+
+        Notes
+        -----
+        If a file is provided, it will be stored in the system's files dictionary
+        under the 'net_file' key. The network will be read using the read_net function.
         """
         # If no file has been loaded before, create the main network
         if file is not None:
@@ -282,8 +415,17 @@ class System:
                   .format(self.name, len(self.net.verts), len(self.net.surfs)), end="")
 
     def load_ndx(self, file=None):
-        """
-        Reads GROMACS index files from the system level
+        """Load GROMACS index files into the system.
+
+        Parameters
+        ----------
+        file : str, optional
+            Path to the GROMACS index file to be loaded.
+
+        Notes
+        -----
+        This method reads GROMACS index files and stores them in the system's ndxs attribute.
+        If print_actions is enabled, it will print confirmation of the loaded indices.
         """
         # Read the ndx file
         read_ndx(self, file=file)
@@ -293,6 +435,17 @@ class System:
             print("{} indices loaded - {} indices total".format(self.name, len(self.ndxs)))
 
     def print_info(self):
+        """
+        Print system information including atom, residue, and chain counts.
+
+        Notes
+        -----
+        Output includes:
+        - Total number of atoms
+        - Total number of residues
+        - Chain information with atom and residue counts
+        - Solute information if present
+        """
         atoms_var = str(len(self.balls)) + " Atoms"
         resids_var = str(len(self.residues)) + " Residues"
         chains_var = str(len(self.chains)) + " Chains: " + ", ".join(["{} - {} atoms, {} residues"
@@ -304,7 +457,28 @@ class System:
 
     def create_group(self, atoms=None, residues=None, chains=None, make_net=False):
         """
-        Creates a group for the system
+        Create a new group in the system.
+
+        Parameters
+        ----------
+        atoms : list, optional
+            List of atoms to include in the group
+        residues : list, optional
+            List of residues to include in the group
+        chains : list, optional
+            List of chains to include in the group
+        make_net : bool, optional
+            Whether to create a network for the group
+
+        Returns
+        -------
+        Group
+            The newly created group object
+
+        Notes
+        -----
+        If no groups exist, a new groups list will be created.
+        The group will be added to the system's groups list.
         """
         # Check to see of any groups have been made
         if self.groups is None:
@@ -313,26 +487,82 @@ class System:
         self.groups.append(Group(sys=self, atoms=atoms, residues=residues, chains=chains, make_net=make_net))
 
     def compare_networks(self, group1, group2, data_file=None):
-        """
+        """Compare two networks and analyze their differences.
 
+        Parameters
+        ----------
+        group1 : Group
+            First group containing a network to compare
+        group2 : Group
+            Second group containing a network to compare
+        data_file : str, optional
+            Path to file where comparison data should be saved
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        This method compares the networks of two groups and analyzes their structural
+        differences. The comparison can be saved to a data file if specified.
         """
         compare_networks(self, group1, group2, data_file)
 
     def make_interfaces(self):
         """
-
+        Create interfaces between groups in the system.
         """
         make_interfaces(self)
 
     def set_output_directory(self, directory=None):
         """
-        Links set output directory to the system
+        Set the output directory for system exports.
+
+        Parameters
+        ----------
+        directory : str, optional
+            Path to the directory where system files will be exported
+
+        Notes
+        -----
+        If no directory is specified, a default directory will be used.
+        The directory will be created if it doesn't exist.
         """
         set_sys_dir(self, dir_name=directory)
 
     def exports(self, all_=False, pdb=False, set_atoms=False, info=False, mol=False, cif=False, xyz=False, txt=False):
-        """
-        Prepares the output directory and system for output. Keeps things consistent
+        """Export system data in various formats.
+
+        This method prepares the output directory and system for export in the specified formats.
+        It ensures consistent output formatting across different export types.
+
+        Parameters
+        ----------
+        all_ : bool, optional
+            If True, export in all available formats
+        pdb : bool, optional
+            If True, export as PDB file
+        set_atoms : bool, optional
+            If True, modify atom properties before export
+        info : bool, optional
+            If True, export system information
+        mol : bool, optional
+            If True, export as MOL file
+        cif : bool, optional
+            If True, export as CIF file
+        xyz : bool, optional
+            If True, export as XYZ file
+        txt : bool, optional
+            If True, export as text file
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        The output directory must be set before calling this method.
         """
         # Export the system (/System/sys_funcs/output)
         export_sys(self, all_=all_, pdb=pdb, alter_atoms_script=set_atoms, info=info, mol=mol, cif=cif, xyz=xyz, txt=txt)

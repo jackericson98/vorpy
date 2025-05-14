@@ -10,17 +10,23 @@ def gaussian_curvature(func, point):
     by a quadratic function. The Gaussian curvature is a measure of the intrinsic curvature
     of the surface at that point.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     func : list
         List of coefficients defining the quadratic surface equation
     point : numpy.ndarray
         Point coordinates [x, y, z] where the curvature is to be calculated
 
-    Returns:
-    --------
+    Returns
+    -------
     float
         The Gaussian curvature at the specified point
+
+    Examples
+    --------
+    >>> func = [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # Example coefficients
+    >>> point = np.array([0, 0, 0])
+    >>> K = gaussian_curvature(func, point)
     """
     # Unpack the function coefficients
     A, B, C, D, E, F, G, H, I, J, K, dx, dy, dz = func
@@ -61,17 +67,23 @@ def mean_curvature(func, point):
     by a quadratic function. The mean curvature is a measure of the extrinsic curvature
     of the surface at that point.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     func : list
         List of coefficients defining the quadratic surface equation
     point : numpy.ndarray
         Point coordinates [x, y, z] where the curvature is to be calculated
 
-    Returns:
-    --------
+    Returns
+    -------
     float
         The mean curvature at the specified point
+
+    Examples
+    --------
+    >>> func = [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # Example coefficients
+    >>> point = np.array([0, 0, 0])
+    >>> H = mean_curvature(func, point)
     """
     # Unpack the function coefficients
     A, B, C, D, E, F, G, H, I, J, K, dx, dy, dz = func
@@ -110,8 +122,8 @@ def calc_surf_tri_curvs(func, points, tris, curvature_type='gauss'):
     This function computes either Gaussian or mean curvature values for each triangle
     in a surface by evaluating the curvature at the triangle's centroid.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     func : list
         List of coefficients defining the quadratic surface equation
     points : list of numpy.ndarray
@@ -119,15 +131,22 @@ def calc_surf_tri_curvs(func, points, tris, curvature_type='gauss'):
     tris : list of tuples
         List of triangles, where each triangle is represented as a tuple of three indices
         corresponding to points in the points array
-    curvature_type : str, optional
-        Type of curvature to calculate. Options are 'gauss' (default) or 'mean'
+    curvature_type : {'gauss', 'mean'}, optional
+        Type of curvature to calculate. Default is 'gauss'.
 
-    Returns:
-    --------
+    Returns
+    -------
     tuple
         A tuple containing:
         - List of curvature values for each triangle
-        - List of triangle centroids where the curvature was evaluated
+        - Maximum curvature value
+
+    Examples
+    --------
+    >>> func = [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    >>> points = [np.array([0, 0, 0]), np.array([1, 0, 0]), np.array([0, 1, 0])]
+    >>> tris = [(0, 1, 2)]
+    >>> curvs, max_curv = calc_surf_tri_curvs(func, points, tris)
     """
     # Initialize lists to store curvatures and centroids
     tri_curvs = []

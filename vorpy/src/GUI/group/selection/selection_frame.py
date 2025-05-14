@@ -67,7 +67,7 @@ class SelectionFrame(ttk.LabelFrame):
                 
         # Create button frame for Add and Remove buttons
         button_frame = ttk.Frame(self)
-        button_frame.grid(row=3, column=0, columnspan=2, sticky='ew', pady=2)
+        button_frame.grid(row=4, column=0, columnspan=2, sticky='ew', pady=2)
         
         # Add and Remove buttons side by side
         ttk.Button(button_frame, text="Add",
@@ -84,7 +84,7 @@ class SelectionFrame(ttk.LabelFrame):
 
         # Create selection display frames
         selections_container = ttk.Frame(self)
-        selections_container.grid(row=3, column=0, columnspan=2, sticky='nsew', padx=5, pady=5)
+        selections_container.grid(row=5, column=0, columnspan=2, sticky='nsew', padx=5, pady=5)
         selections_container.grid_columnconfigure((0, 1), weight=1)
         selections_container.grid_rowconfigure(0, weight=1)  # Allow vertical expansion
 

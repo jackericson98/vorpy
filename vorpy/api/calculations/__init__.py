@@ -6,11 +6,18 @@ from vorpy.src.calculations.calcs import (
     calc_dist,
     calc_angle,
     calc_tri,
+    calc_tetra_vol,
+    calc_cell_box,
+    calc_cell_com,
+    calc_cell_moi,
+    calc_tetra_inertia,
+    calc_spikes,
     calc_com,
     calc_length,
     calc_sphericity,
     calc_isoperimetric_quotient,
-    calc_vol
+    calc_vol, 
+    rotate_points
 )
 
 from vorpy.src.calculations.curvature import (
@@ -35,17 +42,27 @@ from vorpy.src.calculations.vert import (
     verify_prm
 )
 
+from vorpy.src.calculations.sorting import (
+    ndx_search
+)
+
 __all__ = [
     # Basic calculations
     'calc_dist',
     'calc_angle',
     'calc_tri',
     'calc_com',
+    'calc_spikes',
+    'calc_tetra_vol',
+    'calc_cell_box',
+    'calc_cell_com',
+    'calc_cell_moi',
+    'calc_tetra_inertia',
     'calc_length',
     'calc_sphericity',
     'calc_isoperimetric_quotient',
     'calc_vol',
-    
+    'rotate_points',
     # Curvature calculations
     'gaussian_curvature',
     'mean_curvature',
@@ -63,5 +80,8 @@ __all__ = [
     'verify_site',
     'verify_aw',
     'verify_pow',
-    'verify_prm'
+    'verify_prm',
+
+    # Sorting calculations
+    'ndx_search'
 ] 

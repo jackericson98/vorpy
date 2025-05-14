@@ -7,26 +7,30 @@ from vorpy.src.calculations.calcs import calc_dist, calc_dist_numba
 @jit(nopython=True)
 def calc_vert_abcfs(locs, rads):
     """
-    Calculates and organizes the coefficients necessary for solving the system of equations that determine the
-    additively weighted vertices from the locations and radii of four spheres. This setup is crucial for subsequent
-    geometric calculations, such as finding vertices of the inscribed sphere.
+    Calculate and organize coefficients for solving the system of equations that determine additively weighted vertices.
 
-    Parameters:
-    -----------
+    This function calculates the coefficients necessary for finding vertices of the inscribed sphere from the
+    locations and radii of four spheres. It adjusts all sphere locations relative to the first sphere's location
+    for simpler calculation and computes coefficients for a system of linear equations derived from geometric
+    properties.
+
+    Parameters
+    ----------
     locs : numpy.ndarray of arrays
-        Coordinates of the centers of the four spheres.
+        Coordinates of the centers of the four spheres
     rads : numpy.ndarray of floats
-        Radii of the four spheres.
+        Radii of the four spheres
 
-    Returns:
-    --------
+    Returns
+    -------
     tuple
-        Contains arrays of calculated coefficients (fs, abcdfs), an array of radii (rs), and the base location (l0).
+        Contains arrays of calculated coefficients (fs, abcdfs), an array of radii (rs), and the base location (l0)
 
-    Notes:
-    ------
-        - The function adjusts all sphere locations relative to the first sphere's location for simpler calculation.
-        - It then calculates the coefficients of a system of linear equations derived from the geometric properties of the spheres.
+    Notes
+    -----
+    The function adjusts all sphere locations relative to the first sphere's location for simpler calculation.
+    It then calculates the coefficients of a system of linear equations derived from the geometric properties
+    of the spheres.
     """
 
     # Unpack the radii of the four spheres
@@ -64,27 +68,30 @@ def calc_vert_abcfs(locs, rads):
 
 def calc_vert_case_1(Fs, l0, r0):
     """
-    Calculates vertices for Case 1 in a vertex calculation scenario involving spheres. This case involves solving a
-    quadratic equation to determine possible radii (R values) and their corresponding vertex coordinates.
+    Calculate vertices for Case 1 in a vertex calculation scenario involving spheres.
 
-    Parameters:
-    -----------
+    This function solves a quadratic equation to determine possible radii (R values) and their corresponding
+    vertex coordinates. It handles the case where the vertex calculation involves solving a quadratic equation
+    to determine valid radii and uses these radii to compute vertex coordinates.
+
+    Parameters
+    ----------
     Fs : list
-        List of polynomial coefficients F, F_2, F10, F11, etc., that define the conditions for vertex calculation.
+        List of polynomial coefficients F, F_2, F10, F11, etc., that define the conditions for vertex calculation
     l0 : array
-        The original location of the sphere center used to adjust the calculated vertices back to the actual position.
+        The original location of the sphere center used to adjust the calculated vertices back to the actual position
     r0 : float
-        The radius component used in the calculation of polynomial coefficients.
+        The radius component used in the calculation of polynomial coefficients
 
-    Returns:
-    --------
+    Returns
+    -------
     list
-        A list of vertices, where each vertex is represented as a list containing its x, y, z coordinates and the radius R.
+        A list of vertices, where each vertex is represented as a list containing its x, y, z coordinates and the radius R
 
-    Notes:
-    ------
-        - The function solves a quadratic equation to determine valid radii and uses these radii to compute vertex coordinates.
-        - Only real and positive roots of the quadratic equation are considered for vertex calculation.
+    Notes
+    -----
+    The function solves a quadratic equation to determine valid radii and uses these radii to compute vertex
+    coordinates. Only real and positive roots of the quadratic equation are considered for vertex calculation.
     """
 
     # Unwrap the polynomial coefficients from Fs for convenience
@@ -122,28 +129,30 @@ def calc_vert_case_1(Fs, l0, r0):
 @jit(nopython=True)
 def calc_vert_case_2(Fs, r0, l0):
     """
-    Calculates vertices for Case 2 in a vertex calculation scenario involving spheres. This function computes
-    vertices based on polynomial roots derived from given coefficients, which describe the geometric and algebraic
-    conditions for sphere intersections.
+    Calculate vertices for Case 2 in a vertex calculation scenario involving spheres.
 
-    Parameters:
-    -----------
+    This function computes vertices based on polynomial roots derived from given coefficients, which describe
+    the geometric and algebraic conditions for sphere intersections. It handles three subcases based on the
+    values of the coefficients F31, F21, and F11.
+
+    Parameters
+    ----------
     Fs : list
-        List of polynomial coefficients F, F_2, F10, F11, etc., that define the conditions for vertex calculation.
+        List of polynomial coefficients F, F_2, F10, F11, etc., that define the conditions for vertex calculation
     r0 : float
-        The radius component used in the calculation of polynomial coefficients.
+        The radius component used in the calculation of polynomial coefficients
     l0 : array
-        The original location of the sphere center used to adjust the calculated vertices back to the actual position.
+        The original location of the sphere center used to adjust the calculated vertices back to the actual position
 
-    Returns:
-    --------
+    Returns
+    -------
     list
-        A list of vertices, each represented as a tuple containing the vertex coordinates and a corresponding radius.
+        A list of vertices, each represented as a tuple containing the vertex coordinates and a corresponding radius
 
-    Notes:
-    ------
-        - This function handles three subcases within Case 2 based on the values of the coefficients F31, F21, and F11.
-        - It checks for real roots of the polynomial defined by the coefficients a, b, and c, calculated from the input Fs.
+    Notes
+    -----
+    This function handles three subcases within Case 2 based on the values of the coefficients F31, F21, and F11.
+    It checks for real roots of the polynomial defined by the coefficients a, b, and c, calculated from the input Fs.
     """
 
     # Unpack the F values for easier handling
@@ -194,19 +203,28 @@ def calc_vert_case_2(Fs, r0, l0):
 
 def filter_vert_locrads(verts, rs):
     """
-    Filters and sorts vertices based on their radii, ensuring that encapsulating vertices are removed and the smallest vertex is listed first. This function is typically used in geometric processing where vertices represent possible solutions that need to be validated based on physical or geometric constraints.
+    Filter and sort vertices based on their radii.
 
-    Parameters:
-    -----------
-    verts : list of tuples
-        Each tuple represents a vertex and consists of the vertex's location and a radius or distance measure.
-    rs : list of floats
-        List of radii corresponding to the original spheres from which the vertices were derived.
+    This function ensures that encapsulating vertices are removed and the smallest vertex is listed first.
+    It is typically used in geometric processing where vertices represent possible solutions that need to be
+    validated based on physical or geometric constraints.
 
-    Returns:
-    --------
-    tuple
-        Returns a tuple containing up to two sets of locations and their corresponding radii. The first set is always the smaller, valid vertex.
+    Parameters
+    ----------
+    verts : list
+        List of vertices to be filtered and sorted
+    rs : array-like
+        Array of radii corresponding to the vertices
+
+    Returns
+    -------
+    list
+        Filtered and sorted list of vertices, with encapsulating vertices removed and the smallest vertex first
+
+    Notes
+    -----
+    The function removes vertices that are completely encapsulated by other vertices and sorts the remaining
+    vertices by their radii in ascending order.
     """
 
     # Initialize return variables for location and radii
@@ -248,21 +266,28 @@ def filter_vert_locrads(verts, rs):
 
 def calc_vert(locs, rads):
     """
-    Calculates the geometrically inscribed or additively weighted vertex between four spheres based on their
-    locations and radii. The function handles different geometrical configurations by applying appropriate
-    computational cases.
+    Calculate the geometrically inscribed or additively weighted vertex between four spheres.
 
-    Parameters:
-    -----------
+    This function calculates the vertex between four spheres based on their locations and radii.
+    It handles different geometrical configurations by applying appropriate computational cases.
+
+    Parameters
+    ----------
     locs : list of arrays
-        A list of coordinates for the centers of the four spheres.
+        A list of coordinates for the centers of the four spheres
     rads : list of floats
-        A list of radii for the four spheres.
+        A list of radii for the four spheres
 
-    Returns:
-    --------
+    Returns
+    -------
     tuple
-        Returns a tuple of vertices locations and their respective radii calculated for the inscribed sphere.
+        Returns a tuple of vertices locations and their respective radii calculated for the inscribed sphere
+
+    Notes
+    -----
+    The function uses different computational cases based on the geometric configuration of the spheres.
+    It first calculates vertex coefficients using calc_vert_abcfs, then determines the appropriate case
+    based on matrix ranks and coefficient conditions.
     """
 
     # Attempt to calculate vertex coefficients using a JIT-accelerated function
@@ -302,27 +327,33 @@ def calc_vert(locs, rads):
 
 def calc_flat_vert(locs, rads, power=False):
     """
-    Calculates the vertex at the intersection of the planes bisecting the line segments between the first ball and each of the other three balls. This vertex represents the geometric solution where these planes intersect, which can be interpreted as the center of a circumsphere in Delaunay triangulation or as a power center in Laguerre (power) diagrams.
+    Calculate the vertex at the intersection of planes bisecting line segments between balls.
 
-    Parameters:
-    -----------
+    This function calculates the vertex at the intersection of the planes bisecting the line segments
+    between the first ball and each of the other three balls. This vertex represents the geometric
+    solution where these planes intersect, which can be interpreted as the center of a circumsphere
+    in Delaunay triangulation or as a power center in Laguerre (power) diagrams.
+
+    Parameters
+    ----------
     locs : list of arrays
-        Coordinates of the centers of the four balls.
+        Coordinates of the centers of the four balls
     rads : list of floats
-        Radii of the four balls.
-    power : bool
-        If True, calculates using the power diagram method, which accounts for the radii differences; otherwise, uses the Delaunay triangulation method.
+        Radii of the four balls
+    power : bool, optional
+        If True, calculates using the power diagram method, which accounts for the radii differences;
+        otherwise, uses the Delaunay triangulation method
 
-    Returns:
-    --------
+    Returns
+    -------
     tuple
-        A tuple containing the coordinates of the calculated vertex and its associated radius or power distance.
+        A tuple containing the coordinates of the calculated vertex and its associated radius or power distance
 
-    Notes:
-    ------
-        - The function first sorts the balls by their radii to consistently define the plane equations.
-        - Plane equations are derived from the midpoints of the line segments (or their power equivalents).
-        - The intersection of these planes is found by solving a linear system derived from the plane equations.
+    Notes
+    -----
+    The function first sorts the balls by their radii to consistently define the plane equations.
+    Plane equations are derived from the midpoints of the line segments (or their power equivalents).
+    The intersection of these planes is found by solving a linear system derived from the plane equations.
     """
     # Sort the locations and radii in terms of radii and retun a list of loc, rad tuples
     ball_rads = [(x, _) for _, x in sorted(zip(rads, locs), key=lambda pair: pair[0])]
@@ -365,33 +396,37 @@ def calc_flat_vert(locs, rads, power=False):
 @jit(nopython=True)
 def verify_aw(loc, rad, test_locs, test_rads):
     """
-    Determines if a given sphere (defined by its center 'loc' and radius 'rad') does not encroach within the radius
-    of any other spheres in a given list, adjusted for their radii. This function is tailored for applications in
-    atomic weaving network calculations and is optimized with Numba for high performance.
+    Verify if a sphere does not encroach within the radius of any other spheres.
 
-    Parameters:
-    -----------
+    This function determines if a given sphere (defined by its center 'loc' and radius 'rad') does not
+    encroach within the radius of any other spheres in a given list, adjusted for their radii. This
+    function is tailored for applications in atomic weaving network calculations and is optimized
+    with Numba for high performance.
+
+    Parameters
+    ----------
     loc : numpy.ndarray
-        The center of the sphere to verify.
+        The center of the sphere to verify
     rad : float
-        The radius of the sphere to verify.
+        The radius of the sphere to verify
     test_locs : numpy.ndarray
-        An array of centers of other spheres to check against.
+        An array of centers of other spheres to check against
     test_rads : numpy.ndarray or list
-        An array or list of radii corresponding to the centers in 'test_locs'.
+        An array or list of radii corresponding to the centers in 'test_locs'
 
-    Returns:
-    --------
+    Returns
+    -------
     bool
-        Returns True if the sphere does not encroach within the radii of any other spheres in the list, otherwise False.
+        Returns True if the sphere does not encroach within the radii of any other spheres in the list,
+        otherwise False
 
-    Notes:
-    ------
-        - The function checks for non-encroachment by ensuring the distance between 'loc' and each 'test_loc' minus the
-          respective 'test_rad' is greater than 'rad'.
-        - This method is suited for verifying spatial configurations in models where spheres represent atoms or particles
-          and their interactions or separations are critical.
-        - Optimized with Numba's nopython mode, which ensures the function is compiled to machine code for faster execution.
+    Notes
+    -----
+    The function checks for non-encroachment by ensuring the distance between 'loc' and each 'test_loc'
+    minus the respective 'test_rad' is greater than 'rad'. This method is suited for verifying spatial
+    configurations in models where spheres represent atoms or particles and their interactions or
+    separations are critical. The function is optimized with Numba's nopython mode, which ensures it
+    is compiled to machine code for faster execution.
     """
 
     # Iterate through each sphere in the list to check for encroachment
@@ -407,31 +442,30 @@ def verify_aw(loc, rad, test_locs, test_rads):
 @jit(nopython=True)
 def verify_prm(loc, rad, test_locs):
     """
-    Verifies if a given location 'loc' with a specified 'rad' does not fall within the power radius of any other
-    locations in 'test_locs'. This function is intended for use in solving the power diagram of a system of balls and is
-    optimized with Numba for high performance.
+    Verify if a location does not fall within the power radius of any other locations.
 
-    Parameters:
-    -----------
+    This function verifies if a given location 'loc' with a specified 'rad' does not fall within the
+    power radius of any other locations in 'test_locs'. This function is intended for use in solving
+    the power diagram of a system of balls and is optimized with Numba for high performance.
+
+    Parameters
+    ----------
     loc : numpy.ndarray
-        The center of the location to be verified.
+        The center of the location to be verified
     rad : float
-        The radius within which no other centers should exist.
+        The radius within which no other centers should exist
     test_locs : numpy.ndarray
-        An array of centers to check against.
+        An array of centers to check against
 
-    Returns:
-    --------
+    Returns
+    -------
     bool
-        Returns True if no other centers are within the radius 'rad' from 'loc', otherwise returns False.
+        Returns True if no other centers are within the radius 'rad' from 'loc', otherwise returns False
 
-    Notes:
-    ------
-        - This function iterates over each center in 'test_locs' to check if 'loc' is outside the specified 'rad'
-          from all other centers.
-        - It uses a direct distance comparison rather than squared distances to determine proximity.
-        - Optimized with Numba's nopython mode for efficient execution in numerical computations involving large
-          arrays of coordinates.
+    Notes
+    -----
+    This function iterates over each center in 'test_locs' to check if 'loc' is outside the specified
+    'rad'. The function is optimized with Numba's nopython mode for faster execution.
     """
 
     # Iterate through each location in the list to check for proximity
@@ -446,29 +480,34 @@ def verify_prm(loc, rad, test_locs):
 @jit(nopython=True)
 def verify_pow(loc, rad, test_locs, test_rads):
     """
-    Determines if a given sphere (defined by its center 'loc' and 'rad') does not overlap with any other spheres in a given list. This function is optimized for use in power diagram computations and is compiled with Numba for performance.
+    Verify if a sphere does not overlap with any other spheres.
 
-    Parameters:
-    -----------
+    This function determines if a given sphere (defined by its center 'loc' and 'rad') does not overlap
+    with any other spheres in a given list. This function is optimized for use in power diagram
+    computations and is compiled with Numba for performance.
+
+    Parameters
+    ----------
     loc : numpy.ndarray
-        The center of the sphere to verify.
+        The center of the sphere to verify
     rad : float
-        The radius of the sphere to verify.
+        The radius of the sphere to verify
     test_locs : numpy.ndarray
-        An array of centers of other spheres to check against.
+        An array of centers of other spheres to check against
     test_rads : numpy.ndarray or list
-        An array or list of radii corresponding to the centers in 'test_locs'.
+        An array or list of radii corresponding to the centers in 'test_locs'
 
-    Returns:
-    --------
+    Returns
+    -------
     bool
-        Returns True if the sphere does not overlap with any other spheres in the list, otherwise False.
+        Returns True if the sphere does not overlap with any other spheres in the list, otherwise False
 
-    Notes:
-    ------
-        - The function iterates over a list of spheres defined by 'test_locs' and 'test_rads'.
-        - It checks for non-overlapping conditions by comparing the squared distance between sphere centers to the squared sum of radii.
-        - This function is suitable for high-performance computational needs due to its compilation with Numba, which translates Python functions to optimized machine code at runtime.
+    Notes
+    -----
+    The function iterates over a list of spheres defined by 'test_locs' and 'test_rads'. It checks for
+    non-overlapping conditions by comparing the squared distance between sphere centers to the squared
+    sum of radii. This function is suitable for high-performance computational needs due to its
+    compilation with Numba, which translates Python functions to optimized machine code at runtime.
     """
 
     # Iterate through each sphere in the list to check for overlaps
@@ -483,36 +522,37 @@ def verify_pow(loc, rad, test_locs, test_rads):
 
 def verify_site(loc, rad, test_locs, test_rads, net_type='aw'):
     """
-    Checks if a given site (vertex) specified by its location and radius overlaps with other sites. This function can
-    adapt to different network types by selecting appropriate verification methods.
+    Check if a site (vertex) overlaps with other sites.
 
-    Parameters:
-    -----------
+    This function checks if a given site (vertex) specified by its location and radius overlaps with
+    other sites. It can adapt to different network types by selecting appropriate verification methods.
+
+    Parameters
+    ----------
     loc : array-like or numpy.ndarray
-        The location of the vertex as coordinates.
+        The location of the vertex as coordinates
     rad : float
-        The radius of the vertex.
+        The radius of the vertex
     test_locs : list or numpy.ndarray
-        A collection of locations for other sites to test against.
+        A collection of locations for other sites to test against
     test_rads : list or numpy.ndarray
-        Radii corresponding to each location in test_locs.
-    net_type : str
+        Radii corresponding to each location in test_locs
+    net_type : str, optional
         Type of network to use for verification. Options include 'aw' for atomic weaving,
-        'prm' for probabilistic roadmaps, and 'pow' for power diagrams.
+        'prm' for probabilistic roadmaps, and 'pow' for power diagrams
 
-    Returns:
-    --------
+    Returns
+    -------
     bool
         True if the site is verified (does not overlap or meets criteria specific to the network type),
-        False otherwise.
+        False otherwise
 
-    Notes:
-    ------
-        - The function first ensures that the 'loc' parameter is a numpy.ndarray.
-        - It then delegates the actual overlap checking to specific functions based on the network type:
-          'aw' for atomic weaving networks, 'prm' for probabilistic roadmaps, and 'pow' for power diagrams.
-        - These specific functions are not detailed here but are assumed to check for conditions like overlapping
-          or proximity based on network-specific rules.
+    Notes
+    -----
+    The function first ensures that the 'loc' parameter is a numpy.ndarray. It then delegates the
+    actual overlap checking to specific functions based on the network type: 'aw' for atomic weaving
+    networks, 'prm' for probabilistic roadmaps, and 'pow' for power diagrams. These specific functions
+    check for conditions like overlapping or proximity based on network-specific rules.
     """
 
     # Ensure the location is in numpy array format for consistency in mathematical operations

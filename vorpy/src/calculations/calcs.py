@@ -198,28 +198,27 @@ def map_to_plane(points_2d, plane_point, plane_normal):
 
 
 def calc_dist(l0, l1):
-    """
-    Calculate the Euclidean distance between two points in n-dimensional space.
+    """Calculate the Euclidean distance between two points in n-dimensional space.
 
-    This function computes the straight-line distance between two points using the
-    Pythagorean theorem generalized to n dimensions.
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     l0 : array-like
         First point coordinates as an n-dimensional array or list
     l1 : array-like
         Second point coordinates as an n-dimensional array or list with same dimensionality as l0
 
-    Returns:
-    --------
+    Returns
+    -------
     float
         The Euclidean distance between the two points
 
-    Notes:
-    ------
-    - Both input points must have the same dimensionality
-    - Uses numpy's square and sqrt functions for efficient computation
+    Examples
+    --------
+    >>> calc_dist([0, 0, 0], [1, 1, 1])
+    1.7320508075688772
+    >>> import numpy as np
+    >>> calc_dist(np.array([0, 0, 0]), np.array([1, 1, 1]))
+    1.7320508075688772
     """
 
     return np.sqrt(sum(np.square(np.array(l0) - np.array(l1))))
@@ -227,27 +226,26 @@ def calc_dist(l0, l1):
 
 @jit(nopython=True)
 def calc_dist_numba(l0, l1):
-    """
-    Calculate the Euclidean distance between two points in n-dimensional space.
+    """Calculate the Euclidean distance between two points in n-dimensional space.
 
     This function computes the straight-line distance between two points using the
     Pythagorean theorem generalized to n dimensions. The function is optimized with
     Numba's JIT compilation for improved performance.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     l0 : numpy.ndarray
         First point coordinates as an n-dimensional array
     l1 : numpy.ndarray
         Second point coordinates as an n-dimensional array with same dimensionality as l0
 
-    Returns:
-    --------
+    Returns
+    -------
     float
         The Euclidean distance between the two points
 
-    Notes:
-    ------
+    Notes
+    -----
     - Both input points must have the same dimensionality
     - Uses numpy's square and sqrt functions for efficient computation
     - JIT compiled for performance optimization
@@ -258,15 +256,14 @@ def calc_dist_numba(l0, l1):
 
 @jit(nopython=True)
 def calc_angle_jit(p0, p1, p2=None):
-    """
-    Calculates the angle between three points in radians using vector geometry.
+    """Calculates the angle between three points in radians using vector geometry.
 
     This function computes the angle between vectors formed by the points in two possible ways:
     1. If p2 is not provided: Angle between vectors from origin to p0 and p1
     2. If p2 is provided: Angle between vectors from p0 to p1 and p0 to p2
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     p0 : array-like
         First point coordinates [x, y, z, ...]
     p1 : array-like
@@ -275,13 +272,13 @@ def calc_angle_jit(p0, p1, p2=None):
         Third point coordinates [x, y, z, ...]
         If not provided, the origin (0,0,0) is used as the reference point
 
-    Returns:
-    --------
+    Returns
+    -------
     float
         The angle in radians between the vectors formed by the points
 
-    Notes:
-    ------
+    Notes
+    -----
     - All points must have the same dimensionality
     - Uses numpy's arccos function for angle calculation
     - Handles edge cases where vectors are parallel or antiparallel
@@ -303,15 +300,14 @@ def calc_angle_jit(p0, p1, p2=None):
 
 
 def calc_angle(p0, p1, p2=None):
-    """
-    Calculates the angle between three points in radians.
+    """Calculate the angle between three points in radians.
 
     This function computes the angle between vectors formed by the points in two possible ways:
     1. If p2 is not provided: Angle between vectors from origin to p0 and p1
     2. If p2 is provided: Angle between vectors from p0 to p1 and p0 to p2
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     p0 : array-like
         First point coordinates [x, y, z, ...]
     p1 : array-like
@@ -320,10 +316,18 @@ def calc_angle(p0, p1, p2=None):
         Third point coordinates [x, y, z, ...]
         If not provided, the origin (0,0,0) is used as the reference point
 
-    Returns:
-    --------
+    Returns
+    -------
     float
         The angle in radians between the vectors formed by the points
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> p0 = np.array([1, 0, 0])
+    >>> p1 = np.array([0, 1, 0])
+    >>> calc_angle(p0, p1)  # Angle between x and y axes
+    1.5707963267948966
     """
     # If no p2 is given, use the origin
     if p2 is None:
@@ -342,17 +346,15 @@ def calc_angle(p0, p1, p2=None):
 
 
 @jit(nopython=True)
-# Calculate tetrahedron volume function.
 def calc_tetra_vol(p0, p1, p2, p3):
-    """
-    Calculates the volume of a tetrahedron defined by four vertices in 3D space.
+    """Calculate the volume of a tetrahedron defined by four vertices in 3D space.
 
     This function uses the scalar triple product formula to compute the volume:
     V = (1/6) * |(p3-p0) · ((p1-p0) × (p2-p0))|
     where · denotes the dot product and × denotes the cross product.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     p0 : array-like
         First vertex of the tetrahedron [x, y, z]
     p1 : array-like
@@ -362,10 +364,20 @@ def calc_tetra_vol(p0, p1, p2, p3):
     p3 : array-like
         Fourth vertex of the tetrahedron [x, y, z]
 
-    Returns:
-    --------
+    Returns
+    -------
     float
         The volume of the tetrahedron formed by the four vertices
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> p0 = np.array([0, 0, 0])
+    >>> p1 = np.array([1, 0, 0])
+    >>> p2 = np.array([0, 1, 0])
+    >>> p3 = np.array([0, 0, 1])
+    >>> calc_tetra_vol(p0, p1, p2, p3)  # Volume of unit tetrahedron
+    0.16666666666666666
     """
     # Choose a base point (p0) and find the vectors between it and other points
     r01 = p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]
@@ -377,26 +389,40 @@ def calc_tetra_vol(p0, p1, p2, p3):
 
 
 def calc_tetra_inertia(ps, mass):
-    """
-    Calculates the moment of inertia tensor of a tetrahedron about its centroid.
+    """Calculate the moment of inertia tensor of a tetrahedron about its centroid.
 
     This function computes the inertia tensor for a tetrahedron with uniform density distribution.
     The calculation is based on the parallel axis theorem and the inertia tensor of a tetrahedron
     about its centroid.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ps : list of array-like
         List containing four vertices of the tetrahedron, each as [x, y, z] coordinates
     mass : float
         Total mass of the tetrahedron
 
-    Returns:
-    --------
+    Returns
+    -------
     numpy.ndarray
         A 3x3 inertia tensor matrix where:
         - Diagonal elements represent moments of inertia about x, y, and z axes
         - Off-diagonal elements represent products of inertia
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> ps = [
+    ...     np.array([0, 0, 0]),
+    ...     np.array([1, 0, 0]),
+    ...     np.array([0, 1, 0]),
+    ...     np.array([0, 0, 1])
+    ... ]
+    >>> mass = 1.0
+    >>> calc_tetra_inertia(ps, mass)
+    array([[ 0.1, -0.05, -0.05],
+           [-0.05,  0.1, -0.05],
+           [-0.05, -0.05,  0.1]])
     """
     # Placeholder for inertia tensor calculation.
     # For simplicity, this uses an approximate inertia formula for a solid tetrahedron.
@@ -422,108 +448,118 @@ def calc_tetra_inertia(ps, mass):
 
 
 @jit(nopython=True)
-def calc_tri(points):
-    """
-    Calculates the area of a triangle formed by three 3D points using the cross product method.
+def calc_tri(p0, p1, p2, return_normal=False):
+    """Calculate the area and normal vector of a triangle defined by three points.
 
-    This function computes the area of a triangle by:
-    1. Creating two vectors from the points
-    2. Taking their cross product to get a vector perpendicular to the triangle
-    3. Taking half the magnitude of this vector
+    This function computes both the area of a triangle and its unit normal vector.
+    The normal vector is calculated using the cross product of two edges of the triangle.
 
-    Parameters:
-    -----------
-    points : list of array-like
-        List containing three vertices of the triangle, each as [x, y, z] coordinates
+    Parameters
+    ----------
+    p0 : numpy.ndarray
+        First vertex of the triangle as [x, y, z] coordinates
+    p1 : numpy.ndarray
+        Second vertex of the triangle as [x, y, z] coordinates
+    p2 : numpy.ndarray
+        Third vertex of the triangle as [x, y, z] coordinates
+    return_normal : bool, optional
+        If True, return the unit normal vector of the triangle
 
-    Returns:
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - float: Area of the triangle
+        - numpy.ndarray: Unit normal vector of the triangle
+
+    Examples
     --------
-    float
-        The area of the triangle formed by the three input points
-
-    Notes:
-    ------
-    - The points should be provided in any order
-    - The result is always positive
-    - Uses the cross product formula: Area = 0.5 * |AB × AC|
+    >>> import numpy as np
+    >>> p0 = np.array([0, 0, 0])
+    >>> p1 = np.array([1, 0, 0])
+    >>> p2 = np.array([0, 1, 0])
+    >>> area, normal = calc_tri(p0, p1, p2, return_normal=True)
+    >>> print(f"Area: {area:.2f}")
+    Area: 0.50
+    >>> print(f"Normal: {normal}")
+    Normal: [0. 0. 1.]
     """
-    # Get the two triangles vectors
-    ab = [points[0][0] - points[1][0], points[0][1] - points[1][1], points[0][2] - points[1][2]]
-    ac = [points[0][0] - points[2][0], points[0][1] - points[2][1], points[0][2] - points[2][2]]
+    # Calculate two edges of the triangle
+    edge1 = p1 - p0
+    edge2 = p2 - p0
 
-    # Return half the cross product between the two vectors
-    return 0.5 * np.linalg.norm((np.cross(ab, ac)))
+    # Calculate the cross product to get the normal vector
+    normal = np.cross(edge1, edge2)
+    
+    # Calculate the area (half the magnitude of the cross product)
+    area = np.linalg.norm(normal) / 2.0
+
+    # Normalize the normal vector
+    if area > 0:
+        normal = normal / (2.0 * area)
+
+    # Return the area and normal vector if requested
+    if return_normal:
+        return area, normal
+    else:
+        return area
 
 
 def calc_com(points, masses=None):
-    """
-    Calculates the center of mass for a system of points in n-dimensional space.
+    """Calculate the center of mass for a set of points.
 
-    This function computes the center of mass by taking the weighted average of point positions,
-    where the weights are the masses of each point. If no masses are provided, all points are
-    treated as having equal mass.
+    This function computes the center of mass (centroid) for a collection of points in 3D space.
+    If masses are provided, the calculation is weighted by the masses. If no masses are provided,
+    all points are assumed to have equal mass.
 
-    Parameters:
-    -----------
-    points : list of array-like
-        List of point coordinates in n-dimensional space. Each point should be a list or array
-        of coordinates [x1, x2, ..., xn].
-    masses : list of float, optional
-        List of masses corresponding to each point. If None (default), all points are treated
-        as having unit mass.
+    Parameters
+    ----------
+    points : numpy.ndarray
+        Array of points, where each point is a [x, y, z] coordinate
+    masses : numpy.ndarray, optional
+        Array of masses corresponding to each point. If None, all points are assumed
+        to have equal mass.
 
-    Returns:
-    --------
+    Returns
+    -------
     numpy.ndarray
-        The center of mass coordinates as a numpy array of length n.
+        The center of mass coordinates [x, y, z]
 
-    Notes:
-    ------
-    - All points must have the same dimensionality
-    - If masses is provided, it must have the same length as points
-    - Returns a numpy array for consistency with other geometric calculations
+    Examples
+    --------
+    >>> import numpy as np
+    >>> points = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]])
+    >>> masses = np.array([1, 2, 1])
+    >>> calc_com(points, masses)
+    array([0.5, 0.25, 0.])
     """
-    # Default mass values if None provided
     if masses is None:
-        masses = [1] * len(points)
-
-    # Initialize totals for each dimension to zero
-    total_mass = 0
-    tots = [0] * len(points[0])
-
-    # Calculate the weighted sum for each dimension
-    for point, mass in zip(points, masses):
-        for i in range(len(point)):
-            tots[i] += point[i] * mass
-        total_mass += mass
-
-    # Calculate the center of mass for each dimension
-    center_of_mass = [total / total_mass for total in tots]
-    return np.array(center_of_mass)
+        return np.mean(points, axis=0)
+    else:
+        return np.average(points, weights=masses, axis=0)
 
 
 @jit(nopython=True)
 def calc_length(points):
-    """
-    Calculates the total length of a path defined by a sequence of points.
+    """Calculates the total length of a path defined by a sequence of points.
 
     This function computes the sum of Euclidean distances between consecutive points in the input sequence.
     The points are assumed to be ordered in the sequence they should be connected.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     points : list of array-like
         List of point coordinates in n-dimensional space. Each point should be a list or array
         of coordinates [x1, x2, ..., xn]. Points must be ordered in the sequence they should
         be connected.
 
-    Returns:
-    --------
+    Returns
+    -------
     float
         The total length of the path formed by connecting consecutive points in the input sequence.
 
-    Notes:
-    ------
+    Notes
+    -----
     - Points must be ordered in the sequence they should be connected
     - Uses Euclidean distance between consecutive points
     - Returns 0 if the input list contains fewer than 2 points
@@ -540,15 +576,19 @@ def calc_length(points):
 
 
 def calc_sphericity(volume, surface_area):
-    """
-    Calculate the sphericity of a geometric object based on its volume and surface area.
+    """Calculate the sphericity of a geometric object based on its volume and surface area.
 
-    Parameters:
-    - volume (float): The volume of the object.
-    - surface_area (float): The surface area of the object.
+    Parameters
+    ----------
+    volume : float
+        The volume of the object.
+    surface_area : float
+        The surface area of the object.
 
-    Returns:
-    - float: The sphericity of the object.
+    Returns
+    -------
+    float
+        The sphericity of the object.
     """
     if volume <= 0 or surface_area <= 0:
         raise ValueError("Volume and surface area must be positive numbers.")
@@ -559,15 +599,19 @@ def calc_sphericity(volume, surface_area):
 
 
 def calc_isoperimetric_quotient(volume, surface_area):
-    """
-    Calculate the isoperimetric quotient
+    """Calculate the isoperimetric quotient
 
-    Parameters:
-        - volume (float): The volume of the object.
-        - surface_area (float): The surface area of the object.
+    Parameters
+    ----------
+    volume : float
+        The volume of the object.
+    surface_area : float
+        The surface area of the object.
 
-    Returns:
-        - isoperimetric quotient (float): The isoperimetric quotient of the object
+    Returns
+    -------
+    float
+        The isoperimetric quotient of the object
     """
     if volume <= 0 or surface_area <= 0:
         raise ValueError("Volume and surface area must be positive numbers.")
@@ -576,29 +620,28 @@ def calc_isoperimetric_quotient(volume, surface_area):
 
 
 def calc_spikes(ball_loc, surfs):
-    """
-    Calculate the minimum and maximum distances (spikes) from a ball's center to all surface points.
+    """Calculate the minimum and maximum distances (spikes) from a ball's center to all surface points.
 
     This function measures the distances from a ball's center location to all points on its surrounding
     surfaces, which helps characterize the shape and extent of the ball's influence region.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ball_loc : list or numpy.ndarray
         The 3D coordinates of the ball's center location
     surfs : list of dict
         List of surface dictionaries, where each surface contains a 'points' key with
         a list of 3D coordinates representing surface points
 
-    Returns:
-    --------
+    Returns
+    -------
     tuple
         A tuple containing:
         - min_spike (float): The minimum distance from the ball center to any surface point
         - max_spike (float): The maximum distance from the ball center to any surface point
 
-    Notes:
-    ------
+    Notes
+    -----
     - Uses calc_dist function to compute Euclidean distances
     - Useful for analyzing the shape and extent of a ball's influence region
     """
@@ -609,29 +652,29 @@ def calc_spikes(ball_loc, surfs):
 
     return min(spikes), max(spikes)
 
+
 def calc_cell_box(surfs):
-    """
-    Calculate the bounding box of a cell defined by its surfaces.
+    """Calculate the bounding box of a cell defined by its surfaces.
 
     This function computes the minimum and maximum coordinates in each dimension
     (x, y, z) that fully enclose all points of the cell's surfaces, effectively
     creating a rectangular prism that bounds the cell.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     surfs : list of dict
         List of surface dictionaries, where each surface contains a 'points' key with
         a list of 3D coordinates representing surface points
 
-    Returns:
-    --------
+    Returns
+    -------
     list
         A list containing two 3D coordinate lists:
         - [0]: Minimum coordinates [x_min, y_min, z_min]
         - [1]: Maximum coordinates [x_max, y_max, z_max]
 
-    Notes:
-    ------
+    Notes
+    -----
     - Useful for determining the spatial extent of a cell
     - Can be used for visualization or spatial analysis
     - Returns a bounding box that may not be axis-aligned if the cell is rotated
@@ -651,15 +694,14 @@ def calc_cell_box(surfs):
 
 
 def calc_cell_com(ball_loc, surfs, volume):
-    """
-    Calculate the center of mass of a cell using tetrahedral decomposition.
+    """Calculate the center of mass of a cell using tetrahedral decomposition.
 
     This function computes the center of mass of a cell by decomposing it into tetrahedrons
     formed by the cell's center point and each triangular face of its surfaces. The center
     of mass is calculated as the volume-weighted average of the centroids of all tetrahedrons.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ball_loc : list or numpy.ndarray
         The center location of the cell (3D coordinates)
     surfs : list of dict
@@ -669,13 +711,13 @@ def calc_cell_com(ball_loc, surfs, volume):
     volume : float
         Total volume of the cell
 
-    Returns:
-    --------
+    Returns
+    -------
     numpy.ndarray
         The 3D coordinates of the cell's center of mass
 
-    Notes:
-    ------
+    Notes
+    -----
     - Uses tetrahedral decomposition to calculate the center of mass
     - Each tetrahedron is formed by the cell center and a triangular face
     - The result is normalized by the total cell volume
@@ -699,16 +741,15 @@ def calc_cell_com(ball_loc, surfs, volume):
 
 
 def calc_cell_moi(ball_loc, surfs, volume, density=1.0):
-    """
-    Calculate the moment of inertia tensor of a cell using tetrahedral decomposition.
+    """Calculate the moment of inertia tensor of a cell using tetrahedral decomposition.
 
     This function computes the moment of inertia tensor of a cell by decomposing it into tetrahedrons
     formed by the cell's center point and each triangular face of its surfaces. The total moment of inertia
     is calculated as the sum of individual tetrahedron contributions, using the parallel axis theorem to
     shift each contribution to the cell's center point.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ball_loc : numpy.ndarray or list
         The center location of the cell (3D coordinates)
     surfs : list of dict
@@ -720,13 +761,13 @@ def calc_cell_moi(ball_loc, surfs, volume, density=1.0):
     density : float, optional
         Density of the material (default is 1.0)
 
-    Returns:
-    --------
+    Returns
+    -------
     numpy.ndarray
         A 3x3 moment of inertia tensor of the cell with respect to ball_loc
 
-    Notes:
-    ------
+    Notes
+    -----
     - Uses tetrahedral decomposition to calculate individual contributions
     - Applies the parallel axis theorem to shift each tetrahedron's inertia tensor
     - Returns a symmetric 3x3 numpy array representing the inertia tensor
@@ -766,14 +807,13 @@ def calc_cell_moi(ball_loc, surfs, volume, density=1.0):
 
 
 def combine_inertia_tensors(inertia_tensors, centroids, common_centroid, masses):
-    """
-    Combines multiple inertia tensors into a single inertia tensor about a common reference point.
+    """Combines multiple inertia tensors into a single inertia tensor about a common reference point.
 
     This function implements the parallel axis theorem to shift each inertia tensor from its local
     centroid to a common reference point, then sums them to get the total inertia tensor.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     inertia_tensors : list of numpy.ndarray
         List of 3x3 inertia tensors for each element, where each tensor is about its local centroid
     centroids : list of numpy.ndarray
@@ -783,13 +823,13 @@ def combine_inertia_tensors(inertia_tensors, centroids, common_centroid, masses)
     masses : list of float
         List of masses (or volumes if uniform density) for each element
 
-    Returns:
-    --------
+    Returns
+    -------
     numpy.ndarray
         A 3x3 inertia tensor representing the combined moment of inertia about the common centroid
 
-    Notes:
-    ------
+    Notes
+    -----
     - Uses the parallel axis theorem: I_total = I_local + m(d^2*I - d*d^T)
     - All input arrays should be numpy arrays
     - The function assumes consistent units across all inputs
@@ -822,8 +862,8 @@ def calc_total_inertia_tensor(spheres, common_point):
     2. Using the parallel axis theorem to shift each tensor to the common reference point
     3. Summing all shifted tensors to obtain the total inertia tensor
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     spheres : list of dict
         List of sphere dictionaries containing:
         - 'mass' : float
@@ -835,13 +875,13 @@ def calc_total_inertia_tensor(spheres, common_point):
     common_point : numpy.ndarray
         3D coordinates of the reference point about which the total inertia tensor is calculated
 
-    Returns:
-    --------
+    Returns
+    -------
     numpy.ndarray
         3x3 inertia tensor representing the total moment of inertia about the common point
 
-    Notes:
-    ------
+    Notes
+    -----
     - Uses the parallel axis theorem for rigid body mechanics
     - Assumes uniform density spheres
     - All input arrays should be numpy arrays
@@ -883,8 +923,8 @@ def calc_contacts(loc, rad, surfs, surf_ndxs):
     contribution volume of the sphere to the total volume of the system. It handles cases where surfaces
     are fully inside, fully outside, or partially intersecting with the sphere.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     loc : numpy.ndarray
         Center coordinates of the sphere in 3D space
     rad : float
@@ -896,8 +936,8 @@ def calc_contacts(loc, rad, surfs, surf_ndxs):
     surf_ndxs : list of int
         Indices of surfaces to consider for contact calculations
 
-    Returns:
-    --------
+    Returns
+    -------
     tuple
         A tuple containing:
         - contact_areas : dict
@@ -905,8 +945,8 @@ def calc_contacts(loc, rad, surfs, surf_ndxs):
         - contribution_vol : float
             Total volume contribution of the sphere to the system
 
-    Notes:
-    ------
+    Notes
+    -----
     - Contact area is calculated for surfaces that intersect with the sphere
     - Volume contribution considers both internal and external portions of surfaces
     - Points inside the sphere are preserved, while points outside are projected onto the sphere's surface
@@ -1009,8 +1049,7 @@ def rotate_points1(vec, points, reverse=False):
 
 
 def rotate_points(vec, points, reverse=False):
-    """
-    Rotates a set of points around a given vector using rotation matrices.
+    """Rotates a set of points around a given vector using rotation matrices.
 
     This function performs a 3D rotation of points around a specified vector by:
     1. Calculating the rotation angles (phi and theta) needed to align the vector with the z-axis
@@ -1018,8 +1057,8 @@ def rotate_points(vec, points, reverse=False):
     3. Combining the rotations in the correct order
     4. Applying the combined rotation to all input points
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     vec : numpy.ndarray
         The vector about which to rotate the points
     points : list of numpy.ndarray
@@ -1027,13 +1066,13 @@ def rotate_points(vec, points, reverse=False):
     reverse : bool, optional
         If True, performs the inverse rotation (default: False)
 
-    Returns:
-    --------
+    Returns
+    -------
     list of numpy.ndarray
         List of rotated 3D points
 
-    Notes:
-    ------
+    Notes
+    -----
     - Uses standard rotation matrices for 3D transformations
     - Handles both forward and reverse rotations
     - Maintains point positions relative to the rotation vector
@@ -1066,23 +1105,22 @@ def rotate_points(vec, points, reverse=False):
 
 @jit(nopython=True)
 def get_time(seconds):
-    """
-    Converts a duration in seconds into hours, minutes, and remaining seconds.
+    """Converts a duration in seconds into hours, minutes, and remaining seconds.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     seconds : float
         Total duration in seconds to be converted
 
-    Returns:
-    --------
+    Returns
+    -------
     tuple
         A tuple containing (hours, minutes, seconds) where:
         - hours: Number of complete hours
         - minutes: Number of complete minutes after hours
         - seconds: Remaining seconds after hours and minutes
 
-    Examples:
+    Examples
     --------
     >>> get_time(3661)
     (1, 1, 1)  # 1 hour, 1 minute, 1 second
@@ -1096,12 +1134,10 @@ def get_time(seconds):
 
 
 def calc_vol(a_loc, surfs_points, surfs_tris):
-    """
-    Calculates the volume of a ball by summing the volumes of tetrahedrons formed between the ball's center
-    and the triangular faces of its surfaces.
+    """Calculates the volume of a ball by summing the volumes of tetrahedrons formed between the ball's center and the triangular faces of its surfaces.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     a_loc : numpy.ndarray
         The 3D coordinates of the ball's center point
     surfs_points : list of numpy.ndarray
@@ -1110,8 +1146,8 @@ def calc_vol(a_loc, surfs_points, surfs_tris):
         List of lists containing triangle indices for each surface, where each tuple contains
         three indices referencing points in the corresponding surfs_points array
 
-    Returns:
-    --------
+    Returns
+    -------
     tuple
         A tuple containing:
         - float: Total volume of the ball
@@ -1132,3 +1168,63 @@ def calc_vol(a_loc, surfs_points, surfs_tris):
     vol = sum(surf_vols)
     # Set the volume and return it
     return vol, surf_vols
+
+
+def calc_curvature(points, normals):
+    """Calculate the mean curvature at each point using neighboring points and normals.
+
+    This function computes the mean curvature at each point in a surface by analyzing
+    the local geometry defined by neighboring points and their surface normals.
+
+    Parameters
+    ----------
+    points : numpy.ndarray
+        Array of points on the surface, where each point is a [x, y, z] coordinate
+    normals : numpy.ndarray
+        Array of surface normals at each point, where each normal is a [nx, ny, nz] vector
+
+    Returns
+    -------
+    numpy.ndarray
+        Array of mean curvature values at each point
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> points = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]])
+    >>> normals = np.array([[0, 0, 1], [0, 0, 1], [0, 0, 1]])
+    >>> curvatures = calc_curvature(points, normals)
+    >>> print(f"Curvatures: {curvatures}")
+    Curvatures: [0. 0. 0.]
+    """
+    # Create the curvature variable
+    n_points = len(points)
+    curvatures = np.zeros(n_points)
+
+    for i in range(n_points):
+        # Find neighboring points (excluding self)
+        neighbors = [j for j in range(n_points) if j != i]
+        
+        if not neighbors:
+            continue
+
+        # Calculate curvature based on normal variations
+        normal_variations = []
+        for j in neighbors:
+            # Project the difference vector onto the normal plane
+            diff = points[j] - points[i]
+            proj_diff = diff - np.dot(diff, normals[i]) * normals[i]
+            
+            if np.linalg.norm(proj_diff) > 0:
+                # Calculate the angle between normals
+                cos_angle = np.dot(normals[i], normals[j])
+                angle = np.arccos(np.clip(cos_angle, -1.0, 1.0))
+                
+                # Add to variations list
+                normal_variations.append(angle / np.linalg.norm(proj_diff))
+
+        if normal_variations:
+            # Mean curvature is the average of normal variations
+            curvatures[i] = np.mean(normal_variations)
+
+    return curvatures

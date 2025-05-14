@@ -7,29 +7,34 @@ from vorpy.src.calculations.calcs import calc_tri
 
 @jit(nopython=True)
 def calc_tri(points):
-    """
-    Calculates the area of a triangle formed by three 3D points using the cross product method.
+    """Calculate the area of a triangle formed by three 3D points.
 
     This function computes the area of a triangle by:
     1. Creating two vectors from the points
     2. Taking their cross product to get a vector perpendicular to the triangle
     3. Taking half the magnitude of this vector
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     points : list of array-like
         List containing three vertices of the triangle, each as [x, y, z] coordinates
 
-    Returns:
-    --------
+    Returns
+    -------
     float
         The area of the triangle formed by the three input points
 
-    Notes:
-    ------
+    Notes
+    -----
     - The points should be provided in any order
     - The result is always positive
     - Uses the cross product formula: Area = 0.5 * |AB × AC|
+
+    Examples
+    --------
+    >>> points = [[0, 0, 0], [1, 0, 0], [0, 1, 0]]
+    >>> calc_tri(points)
+    0.5
     """
     # Get the two triangles vectors
     ab = [points[0][0] - points[1][0], points[0][1] - points[1][1], points[0][2] - points[1][2]]
@@ -40,15 +45,14 @@ def calc_tri(points):
 
 
 def calc_surf_func(l0, r0, l1, r1):
-    """
-    Calculates the coefficients for the surface between two balls.
+    """Calculate the coefficients for the surface between two balls.
 
     This function computes the mathematical coefficients needed to define the hyperboloid surface
     that represents the boundary between two spheres. The calculation is based on the relative
     positions and radii of the spheres, following the mathematical framework described in Z. Hu's work.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     l0 : numpy.ndarray
         Center coordinates of the first sphere [x, y, z]
     r0 : float
@@ -58,8 +62,8 @@ def calc_surf_func(l0, r0, l1, r1):
     r1 : float
         Radius of the second sphere
 
-    Returns:
-    --------
+    Returns
+    -------
     list
         A list containing the coefficients for the hyperboloid equation:
         - ABC: Coefficients for x², y², z² terms
@@ -68,6 +72,16 @@ def calc_surf_func(l0, r0, l1, r1):
         - J: Constant term
         - K: Additional constant term
         - d: Vector between sphere centers
+
+    Examples
+    --------
+    >>> l0 = np.array([0, 0, 0])
+    >>> r0 = 1.0
+    >>> l1 = np.array([2, 0, 0])
+    >>> r1 = 1.0
+    >>> coeffs = calc_surf_func(l0, r0, l1, r1)
+    >>> len(coeffs)
+    11
     """
     try:
         vals = calc_surf_func_jit(l0, r0, l1, r1)
@@ -78,16 +92,15 @@ def calc_surf_func(l0, r0, l1, r1):
 
 @jit(nopython=True)
 def calc_surf_func_jit(l0, r0, l1, r1):
-    """
-    Calculates the mathematical coefficients defining the hyperboloid surface between two spheres.
+    """Calculate the mathematical coefficients defining the hyperboloid surface between two spheres.
 
     This function computes the coefficients needed to define the quadratic surface equation
     that represents the boundary between two spheres. The calculation follows the mathematical
     framework described in Z. Hu's work, where the surface is defined by a hyperboloid equation
     of the form Ax² + By² + Cz² + Dxy + Eyz + Fzx + Gx + Hy + Iz + J = 0.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     l0 : numpy.ndarray
         Center coordinates of the first sphere [x, y, z]
     r0 : float
@@ -97,8 +110,8 @@ def calc_surf_func_jit(l0, r0, l1, r1):
     r1 : float
         Radius of the second sphere
 
-    Returns:
-    --------
+    Returns
+    -------
     list
         A list containing the coefficients for the hyperboloid equation:
         - ABC: Coefficients for x², y², z² terms
@@ -107,6 +120,16 @@ def calc_surf_func_jit(l0, r0, l1, r1):
         - J: Constant term
         - K: Additional constant term
         - d: Vector between sphere centers
+
+    Examples
+    --------
+    >>> l0 = np.array([0, 0, 0])
+    >>> r0 = 1.0
+    >>> l1 = np.array([2, 0, 0])
+    >>> r1 = 1.0
+    >>> coeffs = calc_surf_func_jit(l0, r0, l1, r1)
+    >>> len(coeffs)
+    11
     """
     # Check the smaller ball is first
     if r1 < r0:
@@ -131,16 +154,15 @@ def calc_surf_func_jit(l0, r0, l1, r1):
 
 
 def calc_surf_func_reg(l0, r0, l1, r1):
-    """
-    Calculates the mathematical coefficients defining the hyperboloid surface between two spheres.
+    """Calculate the mathematical coefficients defining the hyperboloid surface between two spheres.
 
     This function computes the coefficients needed to define the quadratic surface equation
     that represents the boundary between two spheres. The calculation follows the mathematical
     framework described in Z. Hu's work, where the surface is defined by a hyperboloid equation
     of the form Ax² + By² + Cz² + Dxy + Eyz + Fzx + Gx + Hy + Iz + J = 0.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     l0 : array-like
         Center coordinates of the first sphere [x, y, z]
     r0 : float
@@ -150,8 +172,8 @@ def calc_surf_func_reg(l0, r0, l1, r1):
     r1 : float
         Radius of the second sphere
 
-    Returns:
-    --------
+    Returns
+    -------
     list
         A list containing the coefficients for the hyperboloid equation:
         - ABC: Coefficients for x², y², z² terms
@@ -160,6 +182,16 @@ def calc_surf_func_reg(l0, r0, l1, r1):
         - J: Constant term
         - K: Additional constant term
         - d: Vector between sphere centers
+
+    Examples
+    --------
+    >>> l0 = [0, 0, 0]
+    >>> r0 = 1.0
+    >>> l1 = [2, 0, 0]
+    >>> r1 = 1.0
+    >>> coeffs = calc_surf_func_reg(l0, r0, l1, r1)
+    >>> len(coeffs)
+    11
     """
     # Check the smaller ball is first
     if r1 < r0:
@@ -184,26 +216,34 @@ def calc_surf_func_reg(l0, r0, l1, r1):
 
 
 def calc_2d_surf_sa(tris, points):
-    """
-    Calculates the surface area of a 2D surface defined by triangles and points.
+    """Calculate the surface area of a 2D surface defined by triangles and points.
 
     This function computes the total surface area of a 2D surface by summing the areas
     of individual triangles that make up the surface. The area calculation uses the
     shoelace formula (also known as the surveyor's formula) for computing the area of
     a triangle given its vertices in 2D space.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     tris : list of tuples
         List of triangles, where each triangle is represented as a tuple of three indices
         corresponding to points in the points array
     points : list of numpy.ndarray
-        List of 2D point coordinates [x, y] that form the vertices of the triangles
+        List of points, where each point is a numpy array of [x, y, z] coordinates
 
-    Returns:
-    --------
+    Returns
+    -------
     float
         The total surface area of the 2D surface
+
+    Examples
+    --------
+    >>> tris = [(0, 1, 2), (1, 3, 2)]
+    >>> points = [np.array([0, 0, 0]), np.array([1, 0, 0]),
+    ...          np.array([0, 1, 0]), np.array([1, 1, 0])]
+    >>> area = calc_2d_surf_sa(tris, points)
+    >>> area > 0
+    True
     """
     # Set up the sa variable
     sa = 0
@@ -217,23 +257,22 @@ def calc_2d_surf_sa(tris, points):
 
 
 def calc_surf_sa(tris, points):
-    """
-    Calculates the surface area of a 3D surface defined by triangles and points.
+    """Calculates the surface area of a 3D surface defined by triangles and points.
 
     This function computes the total surface area of a 3D surface by summing the areas
     of individual triangles that make up the surface. The area calculation uses the
     cross product method to compute the area of each triangle in 3D space.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     tris : list of tuples
         List of triangles, where each triangle is represented as a tuple of three indices
         corresponding to points in the points array
     points : list of numpy.ndarray
         List of 3D point coordinates [x, y, z] that form the vertices of the triangles
 
-    Returns:
-    --------
+    Returns
+    -------
     float
         The total surface area of the 3D surface
     """
@@ -248,15 +287,14 @@ def calc_surf_sa(tris, points):
 
 
 def calc_surf_tri_dists(points, tris, loc):
-    """
-    Calculates the normalized distances between each triangle in a surface and a reference location.
+    """Calculates the normalized distances between each triangle in a surface and a reference location.
 
     This function computes the distance between each triangle in a surface and a specified location,
     then normalizes these distances to a range between 0 and 1. The normalization is based on the
     minimum and maximum distances found across all points in the surface.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     points : list of numpy.ndarray
         List of 3D point coordinates [x, y, z] that form the vertices of the triangles
     tris : list of tuples
@@ -265,8 +303,8 @@ def calc_surf_tri_dists(points, tris, loc):
     loc : numpy.ndarray
         Reference location coordinates [x, y, z] for distance calculations
 
-    Returns:
-    --------
+    Returns
+    -------
     list of float
         List of normalized distances (0 to 1) corresponding to each triangle in the surface,
         where each distance represents the maximum distance between the triangle's vertices

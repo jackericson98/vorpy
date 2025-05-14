@@ -4,16 +4,15 @@ from vorpy.src.chemistry import special_radii
 
 
 def global_vars(sub_boxes, my_box_verts, my_num_splits, my_max_ball_rad, my_sub_box_size):
-    """
-    Sets global variables for box searching and ball sorting operations.
+    """Set global variables for box searching and ball sorting operations.
 
     This function initializes the global variables used throughout the sorting module
     for efficient spatial partitioning and ball retrieval operations. These variables
     define the spatial grid structure and parameters used for organizing and accessing
     balls in 3D space.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     sub_boxes : numpy.ndarray
         Matrix containing the spatial partitioning of balls into sub-boxes
     my_box_verts : list of numpy.ndarray
@@ -38,15 +37,14 @@ def global_vars(sub_boxes, my_box_verts, my_num_splits, my_max_ball_rad, my_sub_
 
 @jit(nopython=True)
 def box_search_numba(loc, num_splits, box_verts):
-    """
-    Finds the sub box indices for a given location in 3D space.
+    """Find the sub box indices for a given location in 3D space.
 
     This function calculates which sub-box a given point belongs to within a larger
     bounding box that has been divided into a grid of smaller sub-boxes. The function
     is optimized with Numba for performance.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     loc : numpy.ndarray
         The 3D coordinates [x, y, z] of the point to locate
     num_splits : int
@@ -55,8 +53,8 @@ def box_search_numba(loc, num_splits, box_verts):
         The vertices of the bounding box, where box_verts[0] is the minimum point
         and box_verts[1] is the maximum point
 
-    Returns:
-    --------
+    Returns
+    -------
     list or None
         A list of three integers [i, j, k] representing the sub-box indices,
         or None if the point lies outside the bounding box
@@ -72,20 +70,19 @@ def box_search_numba(loc, num_splits, box_verts):
 
 
 def box_search(loc):
-    """
-    Locates the sub box indices for a given location in 3D space.
+    """Locate the sub box indices for a given location in 3D space.
 
     This function serves as a wrapper for the Numba-optimized box_search_numba function,
     converting the input location to a numpy array and using the global variables
     num_splits and box_verts to determine which sub-box a point belongs to.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     loc : array-like
         The 3D coordinates [x, y, z] of the point to locate
 
-    Returns:
-    --------
+    Returns
+    -------
     list or None
         A list of three integers [i, j, k] representing the sub-box indices,
         or None if the point lies outside the bounding box
@@ -94,15 +91,14 @@ def box_search(loc):
 
 
 def get_balls(cells, dist=0, cell_reach=0, my_balls_matrix=None, my_sub_box_size=None, my_max_ball_rad=None):
-    """
-    Retrieves a list of balls from a 3D grid of cells based on specified search parameters.
+    """Retrieves a list of balls from a 3D grid of cells based on specified search parameters.
 
     This function searches for balls within a specified distance of given cells in a 3D grid.
     It expands the search area by a configurable number of cells and returns all balls found
     within the expanded search region.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     cells : list of list of int or list of int
         The initial set of cells to search from. Can be a single cell [i,j,k] or a list of cells.
     dist : float, optional
@@ -116,8 +112,8 @@ def get_balls(cells, dist=0, cell_reach=0, my_balls_matrix=None, my_sub_box_size
     my_max_ball_rad : float, optional
         Custom maximum ball radius for search optimization (default: None)
 
-    Returns:
-    --------
+    Returns
+    -------
     list or None
         A list of balls found within the search region, or None if the input cells are invalid
     """
@@ -169,21 +165,20 @@ def get_balls(cells, dist=0, cell_reach=0, my_balls_matrix=None, my_sub_box_size
 
 
 def ndx_search(ndxs_list, ndxs):
-    """
-    Performs a binary search on a sorted list of ball indices to find the insertion point for a new vertex.
+    """Performs a binary search on a sorted list of ball indices to find the insertion point for a new vertex.
 
     This function implements a binary search algorithm to efficiently locate where a new vertex index should be inserted
     into a sorted list of ball indices. The list is maintained in ascending order based on ball size.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     ndxs_list : list
         A sorted list of ball indices to search through
     ndxs : int
         The new vertex index to find the insertion point for
 
-    Returns:
-    --------
+    Returns
+    -------
     int
         The index position where the new vertex should be inserted to maintain sorted order
     """
@@ -210,15 +205,14 @@ def ndx_search(ndxs_list, ndxs):
 
 
 def divide_box(net_box, divisions, c=0):
-    """
-    Divides a bounding box into smaller sub-boxes based on the number of divisions.
+    """Divides a bounding box into smaller sub-boxes based on the number of divisions.
 
     This function takes a bounding box and recursively divides it into smaller sub-boxes
     based on the specified number of divisions. The division process prioritizes splitting
     along the longest dimension first to maintain balanced sub-box sizes.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     net_box : list of lists
         The bounding box to divide, represented as [[x_min, y_min, z_min], [x_max, y_max, z_max]]
     divisions : int
@@ -226,8 +220,8 @@ def divide_box(net_box, divisions, c=0):
     c : float, optional
         A small constant used to adjust box boundaries to prevent edge cases (default: 0)
 
-    Returns:
-    --------
+    Returns
+    -------
     list of lists
         A list of sub-boxes, where each sub-box is represented as [[x_min, y_min, z_min], [x_max, y_max, z_max]]
     """
@@ -320,8 +314,7 @@ def divide_box(net_box, divisions, c=0):
 
 
 def get_sys_type(my_sys):
-    """
-    Determines the type of molecular system based on its composition.
+    """Determines the type of molecular system based on its composition.
 
     This function analyzes the residues in a molecular system to classify it as one of:
     - 'Protein': Contains only protein residues
@@ -329,13 +322,13 @@ def get_sys_type(my_sys):
     - 'Complex': Contains both protein and nucleic acid residues
     - 'Molecule': Default type if no residues are present or if residues don't match known types
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     my_sys : object
         A molecular system object containing a residues attribute
 
-    Returns:
-    --------
+    Returns
+    -------
     str
         A string indicating the system type: 'Protein', 'Nucleic', 'Complex', or 'Molecule'
     """
@@ -358,28 +351,27 @@ def get_sys_type(my_sys):
 
 
 def sort_lists(*lists, reverse=False):
-    """
-    Sorts multiple lists based on the values in the first list.
+    """Sorts multiple lists based on the values in the first list.
 
     This function takes multiple lists and sorts them all based on the values in the first list.
     The sorting maintains the relative order between elements across all lists. For example,
     if the first list is [3, 1, 2] and the second list is ['c', 'a', 'b'], after sorting
     the first list to [1, 2, 3], the second list will be sorted to ['a', 'b', 'c'].
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     *lists : list
         Variable number of lists to be sorted. All lists must have the same length.
     reverse : bool, optional
         If True, sorts in descending order. Default is False.
 
-    Returns:
-    --------
+    Returns
+    -------
     list of lists
         The sorted lists in the same order as input.
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If the input lists have different lengths.
     """
