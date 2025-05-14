@@ -169,7 +169,7 @@ class System:
         except TypeError:
             self.name = "my_system"
 
-    def load_sys(self, file=None, simple=False):
+    def load_sys(self, file=None, simple=False, make_dir=True):
         """
         Sets the base file for the system using one of the import file functions
         :param file: .pdb, .gro, .mol, .cif
@@ -211,7 +211,7 @@ class System:
             self.name = path.basename(self.files['base_file'])[:-4]
 
         # Set the system directory
-        if self.files['dir'] is None and not simple:
+        if not simple and make_dir:
             self.set_output_directory()
 
         # If the system wants its actions printed

@@ -71,6 +71,7 @@ class ElementDialog(tk.Toplevel):
             new_mass = float(self.mass_entry.get())
             new_radius = float(self.radius_entry.get())
             self.callback(new_mass, new_radius)
+            print(f"{self.element['name']} changed - New mass: {new_mass}, New radius: {new_radius}")
         except ValueError:
             pass  # Handle incorrect input gracefully
         self.destroy()
@@ -134,11 +135,7 @@ class PeriodicTableGUI(tk.Toplevel):
                 # Update the parent GUI's radii_changes list
                 if not hasattr(self.parent, 'radii_changes'):
                     self.parent.radii_changes = []
-                self.parent.radii_changes.append({
-                    'element': element['name'],
-                    'radius': new_radius,
-                    'mass': new_mass
-                })
+                self.parent.radii_changes.append({element['name']: new_radius})
                 
             # Update the element properties
             element['mass'] = new_mass

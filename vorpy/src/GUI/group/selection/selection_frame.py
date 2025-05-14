@@ -24,19 +24,22 @@ class SelectionFrame(ttk.LabelFrame):
 
         # Create a label for the added selections
         (ttk.Label(selection_options_frame, text="Add/Remove Selections", font=('TkDefaultFont', 10, 'underline'))
-         .grid(row=0, column=0, columnspan=4, sticky='n', pady=(5, 10)))
+         .grid(row=0, column=0, columnspan=4, sticky='n', pady=(5, 0)))
+
+        # Create a note for the user to know that the indices start at 0
+        ttk.Label(selection_options_frame, text="(Indices start at 0)", font=('TkDefaultFont', 8)).grid(row=1, column=0, columnspan=4, padx=5, pady=(0, 5))
 
         # Selection label
-        ttk.Label(selection_options_frame, text="Selection").grid(row=1, column=0, padx=5)
+        ttk.Label(selection_options_frame, text="Selection").grid(row=2, column=0, padx=5)
 
         # Index label above first entry
-        ttk.Label(selection_options_frame, text="Index").grid(row=1, column=1, padx=5)
+        ttk.Label(selection_options_frame, text="Index").grid(row=2, column=1, padx=5)
                 
         # Or indicator for user to know that they can either do a single index or a range
-        ttk.Label(selection_options_frame, text="or").grid(row=1, column=2, padx=5)
+        ttk.Label(selection_options_frame, text="or").grid(row=2, column=2, padx=5)
         
         # Range label above second entry
-        ttk.Label(selection_options_frame, text="Range").grid(row=1, column=3, padx=5)
+        ttk.Label(selection_options_frame, text="Range").grid(row=2, column=3, padx=5)
 
         # Dropdown menu for selection type
         selection_type = tk.StringVar(value="Atoms/Balls")
@@ -45,26 +48,26 @@ class SelectionFrame(ttk.LabelFrame):
                                         values=["Atoms/Balls", "Residues", "Chains", "Molecules"],
                                         state="readonly",
                                         width=20, justify="center")
-        selection_dropdown.grid(row=2, column=0, padx=(5, 10))
+        selection_dropdown.grid(row=3, column=0, padx=(5, 10))
         
         # Create frame for entry boxes and their labels
         entries_frame = ttk.Frame(selection_options_frame)
-        entries_frame.grid(row=2, column=1, padx=5)
+        entries_frame.grid(row=3, column=1, padx=5)
 
         # Entry box for start value
         start_entry = ttk.Entry(selection_options_frame, width=5)
-        start_entry.grid(row=2, column=1, padx=5)
+        start_entry.grid(row=3, column=1, padx=5)
         
         # "to" label
-        ttk.Label(selection_options_frame, text="to").grid(row=2, column=2, padx=5)
+        ttk.Label(selection_options_frame, text="to").grid(row=3, column=2, padx=5)
         
         # Entry box for end value
         end_entry = ttk.Entry(selection_options_frame, width=5)
-        end_entry.grid(row=2, column=3, padx=5)
+        end_entry.grid(row=3, column=3, padx=5)
                 
         # Create button frame for Add and Remove buttons
         button_frame = ttk.Frame(self)
-        button_frame.grid(row=2, column=0, columnspan=2, sticky='ew', pady=2)
+        button_frame.grid(row=3, column=0, columnspan=2, sticky='ew', pady=2)
         
         # Add and Remove buttons side by side
         ttk.Button(button_frame, text="Add",

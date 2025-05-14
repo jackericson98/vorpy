@@ -175,10 +175,15 @@ class VorPyGUI(tk.Tk):
         
         # Update the output directories in the gui
         self.system_frame.choose_output_directory(self.sys.files['dir'])
+        
+        # Update the radii changes in the system
+        for change in self.radii_changes:
+            self.sys.set_radii(change)
 
         # Create the groups with the correct settings
         for group_name in self.group_settings:
             self.run_group(group_name)
+
         # Export the system exports
         self.sys.exports(pdb=self.exports['pdb'], mol=self.exports['mol'], cif=self.exports['cif'],
                          xyz=self.exports['xyz'], txt=self.exports['txt'], info=self.exports['info'],

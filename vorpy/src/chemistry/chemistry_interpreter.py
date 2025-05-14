@@ -68,7 +68,7 @@ ion_names = {
     **{_: 'WO4' for _ in {'wo4', 'tungstate'}}                                          # Tungstate
 }
 
-residue_names = amino_names | nucleo_names | ion_names
+residue_names = {**amino_names,  **nucleo_names, **ion_names}
 
 sol_names = {**{_: 'SOL' for _ in {'sol', 'hoh', 'h20'}}}
 

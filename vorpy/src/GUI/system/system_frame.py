@@ -5,6 +5,7 @@ from vorpy.src.GUI.system.radii_adjustments.periodic_table_GUI import PeriodicTa
 from vorpy.src.GUI.system.system_exports import SystemExportsWindow
 from importlib import resources
 from vorpy.src.GUI.system.default_files import TestFileBrowserApp
+from vorpy.src.system.system import System
 
 
 class SystemFrame:
@@ -76,9 +77,26 @@ class SystemFrame:
         (tk.Label(self.sys_files_frame, text="Input File:",
                   font=('Helvetica', 10) if gui is None else gui.fonts['class 2'])
          .grid(row=1, column=0, sticky="w", padx=5, pady=2))
-        self.input_file_label = tk.Label(self.sys_files_frame, text="",
-                                         font=('Helvetica', 10) if gui is None else gui.fonts['class 2'])
-        self.input_file_label.grid(row=1, column=1, sticky='w')
+        
+        # Create a frame for the input file dropdown and label
+        self.input_file_frame = ttk.Frame(self.sys_files_frame)
+        self.input_file_frame.grid(row=1, column=1, sticky='w')
+        
+        # Initialize the input file combobox
+        self.input_file_var = tk.StringVar()
+        self.input_file_combobox = ttk.Combobox(self.input_file_frame, textvariable=self.input_file_var,
+                                               state="readonly", width=50, justify="center")
+        self.input_file_combobox.pack(side="left", fill="x", expand=True)
+        
+        # Get default files and set them in the combobox
+        self.default_files = self.get_data_files()
+        if self.default_files:
+            self.input_file_combobox['values'] = self.default_files
+            self.input_file_combobox.set("(Select a file)")
+        
+        # Bind the combobox selection event
+        self.input_file_combobox.bind('<<ComboboxSelected>>', self.on_input_file_selected)
+        
         (ttk.Button(self.sys_files_frame, text="Browse", command=self.choose_ball_file)
          .grid(row=1, column=2, sticky="e", padx=5, pady=2))
 
@@ -124,12 +142,70 @@ class SystemFrame:
         # Create a frame for buttons to change the atomic radii and the system exports
         self.radii_frame = ttk.LabelFrame(system_frame, text="Settings")
         self.radii_frame.grid(row=2, column=1, rowspan=4, sticky="nsew", pady=5, padx=5)
-        (ttk.Button(self.radii_frame, text="Defaults", command=lambda: self.choose_ball_file(default=True))
-         .grid(row=1, column=0, pady=2, padx=5, sticky="s"))
         (ttk.Button(self.radii_frame, text="Radii", command=self.open_periodic_table)
-         .grid(row=2, column=0, pady=2, padx=5, sticky="s"))
+         .grid(row=1, column=0, pady=2, padx=5, sticky="s"))
         (ttk.Button(self.radii_frame, text="Exports", command=self.system_exports)
+         .grid(row=2, column=0, pady=2, padx=5, sticky="s"))
+        (ttk.Button(self.radii_frame, text="Reset", command=self.reset_system)
          .grid(row=3, column=0, pady=2, padx=5, sticky="s"))
+
+    def get_data_files(self):
+        """Get the list of files from vorpy.data."""
+        try:
+            # First try to get files from the development directory
+            data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'data')
+            if os.path.exists(data_dir):
+                files = [
+                    f for f in os.listdir(data_dir)
+                    if os.path.isfile(os.path.join(data_dir, f)) and f.endswith(('.pdb', '.gro'))
+                ]
+                if files:
+                    return sorted(files)
+            
+            # If no files found in development directory, try the package
+            with resources.path("vorpy.data", "") as data_path:
+                return sorted([
+                    f.name for f in data_path.iterdir()
+                    if f.is_file() and f.name.endswith(('.pdb', '.gro'))
+                ])
+        except Exception as e:
+            print(f"Error loading data files: {e}")
+            return []
+    
+    def on_input_file_selected(self, event=None):
+        """Handle selection of a default file from the combobox."""
+        selected = self.input_file_var.get()
+        if selected:
+            try:
+                # First try the development directory
+                data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'data')
+                file_path = os.path.join(data_dir, selected)
+                if os.path.exists(file_path):
+                    self.gui.ball_file = str(file_path)
+                    self.gui.sys.ball_file = str(file_path)
+                    self.gui.sys.load_sys(str(file_path))
+                    self.system_name.set(self.gui.sys.name.upper())
+                    
+                    # Update the system info
+                    self.num_balls.set(len(self.gui.sys.balls))
+                    self.num_residues.set(len(self.gui.sys.residues))
+                    self.num_chains.set(len(self.gui.sys.chains))
+                    return
+                
+                # If not found in development directory, try the package
+                with resources.path("vorpy.data", selected) as file_path:
+                    if file_path.exists():
+                        self.gui.ball_file = str(file_path)
+                        self.gui.sys.ball_file = str(file_path)
+                        self.gui.sys.load_sys(str(file_path))
+                        self.system_name.set(self.gui.sys.name.upper())
+                        
+                        # Update the system info
+                        self.num_balls.set(len(self.gui.sys.balls))
+                        self.num_residues.set(len(self.gui.sys.residues))
+                        self.num_chains.set(len(self.gui.sys.chains))
+            except Exception as e:
+                print(f"Error loading selected file: {e}")
 
     def choose_ball_file(self, default=False):
         """Open file dialog to select a ball file."""
@@ -138,28 +214,42 @@ class SystemFrame:
                 title="Select Ball File",
                 filetypes=[("Ball files", "*.pdb"), ("All files", "*.*")]
             )
+            if filename:
+                # Add the new file to the combobox values if it's not already there
+                current_values = list(self.input_file_combobox['values'])
+                if filename not in current_values:
+                    self.input_file_combobox['values'] = current_values + [filename]
+                self.input_file_combobox.set(filename)
+                
+                self.gui.ball_file = filename
+                self.gui.sys.ball_file = filename
+                self.gui.sys.load_sys(filename)
+                self.system_name.set(self.gui.sys.name.upper())
+                
+                # Update the system info
+                self.num_balls.set(len(self.gui.sys.balls))
+                self.num_residues.set(len(self.gui.sys.residues))
+                self.num_chains.set(len(self.gui.sys.chains))
         else:
             test_browser = TestFileBrowserApp(self.gui, self.gui.sys)
             self.gui.wait_window(test_browser.root)  # Wait for the window to close
             filename = self.gui.sys.files['ball_file']
-        if filename:
-            self.gui.ball_file = filename
-            self.gui.sys.ball_file = filename
-            self.gui.sys.load_sys(filename)
-            self.system_name.set(self.gui.sys.name.upper())  # Update the display
-            
-            # Truncate the filename display with ellipses in the middle
-            if len(filename) > 50:
-                truncated = filename[:23] + "..." + filename[-23:]
-            else:
-                truncated = filename
-            self.input_file_label.config(text=truncated)
-
-            # We need to list the file's attributes: Number of balls (atoms), number of residues, number of chains
-            self.num_balls.set(len(self.gui.sys.balls))
-            self.num_residues.set(len(self.gui.sys.residues))
-            self.num_chains.set(len(self.gui.sys.chains))
-        
+            if filename:
+                # Add the new file to the combobox values if it's not already there
+                current_values = list(self.input_file_combobox['values'])
+                if filename not in current_values:
+                    self.input_file_combobox['values'] = current_values + [filename]
+                self.input_file_combobox.set(filename)
+                
+                self.gui.ball_file = filename
+                self.gui.sys.ball_file = filename
+                self.gui.sys.load_sys(filename)
+                self.system_name.set(self.gui.sys.name.upper())
+                
+                # Update the system info
+                self.num_balls.set(len(self.gui.sys.balls))
+                self.num_residues.set(len(self.gui.sys.residues))
+                self.num_chains.set(len(self.gui.sys.chains))
 
     def _browse_other_files(self):
         """Open file dialog to select other files."""
@@ -234,13 +324,20 @@ class SystemFrame:
         """Open the system exports window."""
         SystemExportsWindow(self.gui)
 
-    def delete_system(self):
-        """Delete the system."""
-        self.gui.sys.delete()
+    def reset_system(self):
+        """Deletes the system, updates all of the labels in the GUI, and sets everything back to defaults"""
+        self.gui.sys = System(simple=True, name="No System Chosen")
+        self.gui.files = {}
+        self.gui.ball_file = None
+        self.gui.sys.ball_file = None
+        self.gui.sys.load_sys(None)
+        self.system_name.set("System Name")
+        self.num_balls.set("0")
+        self.num_residues.set("0")
+        self.num_chains.set("0")
 
 
 if __name__ == "__main__":
-
     root = tk.Tk()
     root.title("System Information")
     sys_info_frame = SystemFrame(None, root)

@@ -74,7 +74,7 @@ class BuildFrame(ttk.LabelFrame):
         self.box_size.bind('<KeyRelease>', self._on_box_size_change)
         
         # Surface Settings Button
-        surface_button = ttk.Button(self, text="Surface Settings", command=self._open_surface_settings)
+        surface_button = ttk.Button(self, text="Outputs Color Settings", command=self._open_surface_settings)
         surface_button.pack(pady=5)
         
     def _on_network_type_change(self, event=None):
