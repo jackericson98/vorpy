@@ -13,14 +13,14 @@ def round_func(round_to):
     reused for consistent rounding across multiple values. The returned function handles both
     single numeric values and iterables of values, applying the same rounding precision to all.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     round_to : int
         The number of decimal places to round to. A positive value rounds to that many decimal
         places, while a negative value rounds to the left of the decimal point.
 
-    Returns:
-    --------
+    Returns
+    -------
     function
         A closure that takes a value (or iterable) and optionally a new rounding precision,
         returning the rounded value(s) with the specified precision.
@@ -53,8 +53,8 @@ def project_to_plane(points, plane_point, plane_normal):
     a point on the plane and its normal vector. The projection is done by finding the closest
     point on the plane for each input point.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     points : list or numpy.ndarray
         Array of 3D points to be projected, where each point is a 3-element array
     plane_point : numpy.ndarray
@@ -62,14 +62,14 @@ def project_to_plane(points, plane_point, plane_normal):
     plane_normal : numpy.ndarray
         The normal vector of the plane, represented as a 3-element array
 
-    Returns:
-    --------
+    Returns
+    -------
     list
         A list of 2D coordinates representing the projected points on the plane,
         where each coordinate is a tuple of (u, v) values in the plane's coordinate system
 
-    Notes:
-    ------
+    Notes
+    -----
     - The plane's coordinate system is created using an orthogonal basis
     - The normal vector is automatically normalized
     - If the normal vector is parallel to the x-axis, an alternative basis vector is used
@@ -104,8 +104,8 @@ def unproject_to_3d(projected_points, plane_point, plane_normal):
     and reconstructs their original 3D positions on that plane. The reconstruction uses
     the plane's point and normal vector to establish the coordinate system.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     projected_points : list of tuple
         List of 2D coordinates (u, v) representing points projected onto the plane
     plane_point : numpy.ndarray
@@ -113,13 +113,13 @@ def unproject_to_3d(projected_points, plane_point, plane_normal):
     plane_normal : numpy.ndarray
         The normal vector of the plane, represented as a 3-element array
 
-    Returns:
-    --------
+    Returns
+    -------
     list of numpy.ndarray
         A list of 3D points reconstructed on the plane, where each point is a 3-element array
 
-    Notes:
-    ------
+    Notes
+    -----
     - The plane's coordinate system is recreated using an orthogonal basis
     - The normal vector is automatically normalized
     - This function is the inverse operation of project_to_plane
@@ -153,8 +153,8 @@ def map_to_plane(points_2d, plane_point, plane_normal):
     point and normal vector to establish the coordinate system. The mapping creates a
     one-to-one correspondence between 2D coordinates and points on the 3D plane.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     points_2d : list of tuple
         List of 2D coordinates (u, v) to be mapped onto the plane
     plane_point : numpy.ndarray
@@ -162,13 +162,13 @@ def map_to_plane(points_2d, plane_point, plane_normal):
     plane_normal : numpy.ndarray
         The normal vector of the plane, represented as a 3-element array
 
-    Returns:
-    --------
+    Returns
+    -------
     list of numpy.ndarray
         A list of 3D points mapped onto the plane, where each point is a 3-element array
 
-    Notes:
-    ------
+    Notes
+    -----
     - The plane's coordinate system is created using an orthogonal basis
     - The normal vector is automatically normalized
     - Special handling for cases where the normal vector is aligned with the x-axis
@@ -1009,43 +1009,6 @@ def calc_contacts(loc, rad, surfs, surf_ndxs):
         contact_areas[surf_ndxs[i]] = contact_area
 
     return contact_areas, contribution_vol
-
-
-@jit(nopython=True)
-def rotate_points1(vec, points, reverse=False):
-    """
-    Takes in a set of points and a vector and rotates the points and the vector so the v = [0,0,1]
-    :param vec: The vector about which the surface is rotated
-    :param points: the points of the surface
-    :param reverse: Bool for rotating the surface back
-    :return: List of rotated points
-    """
-    # Get the vx, vy, vz vector components
-    vx, vy, vz = vec
-    # If vy or vz are zero we need a catch for divide by zero error.
-    if round(vy, 2) == 0:
-        phi = np.pi / 2
-    else:
-        phi = np.arctan(vx / vy)
-    if round(vz, 2) == 0:
-        theta = np.pi / 2
-    else:
-        theta = np.arctan(vy / vz)
-    # If the points are to be sent back, provide the negative values for the angles
-    if reverse:
-        theta, phi = -theta, -phi
-    # Get variables for sin(theta), cos(theta), sin(phi), cos(phi)
-    st, ct, sp, cp = np.sin(theta), np.cos(theta), np.sin(phi), np.cos(phi)
-    nps = []
-    for p in points:
-        px, py, pz = np.round(p[0], 7), np.round(p[1], 7), np.round(p[2], 7)
-        # Multiplying the x, y rotation matrices gives the following:
-        npx = px * cp - py * sp
-        npy = px * ct * sp + py * ct * cp - pz * st
-        npz = px * st * sp + py * st * cp + pz * ct
-        # Add the new points to the list
-        nps.append([npx, npy, npz])
-    return nps
 
 
 def rotate_points(vec, points, reverse=False):
