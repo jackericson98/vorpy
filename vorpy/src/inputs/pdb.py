@@ -264,6 +264,24 @@ def read_pdb(sys, file=None):
     sys.sol.residues = adjusted_residues
 
 
+def read_pdb_simple(file):
+    """
+    Read a PDB file and return a list of atoms.
+    """
+    # Read the file
+    with open(file, 'r') as f:
+        my_file = f.readlines()
+    # Get the atoms
+    atoms = []
+    # Go through the file
+    for line in my_file:
+        # If the line is an atom line
+        if line[0:6].strip() in ['ATOM', 'HETATM']:
+            atoms.append(read_pdb_line(line))
+    # Return the atoms
+    return atoms
+
+
 def read_pdb_line(pdb_line):
     """
     Parse a PDB format line into a dictionary of atom information.
