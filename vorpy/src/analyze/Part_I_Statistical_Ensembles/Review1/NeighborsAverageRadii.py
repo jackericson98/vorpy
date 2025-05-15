@@ -32,6 +32,9 @@ def get_data(pdb, aw, pw):
     """
     We need dictionaries with ball index as the key and radius, neighbors, and average radius as the values.
     """
+    # Get the box size
+    with open(pdb, 'r') as f:
+        box_size = float(f.readline().split()[2])
     # Read the pdb file
     pdb_data = read_pdb_simple(pdb)
 
@@ -40,11 +43,13 @@ def get_data(pdb, aw, pw):
     pw_logs = read_logs2(pw, all_=False, balls=True)
     
     # Initialize the dictionary
-    ball_data = {}
+    ball_data = {'box_size': box_size}
 
 
     # Go through the balls in the dictionary
     for i, ball in aw_logs['atoms'].iterrows():
+        # Get the ball location
+        loc = np.array([ball['X'], ball['Y'], ball['Z']])
         # Get the ball index
         ball_index = ball['Index']
         # Get the radius
@@ -58,7 +63,7 @@ def get_data(pdb, aw, pw):
         # Get the average neighbor radius
         aw_avg_neighbor_radius = np.mean([pdb_data[neighbor]['temperature_factor'] for neighbor in neighbors])
         # Add the ball data to the dictionary
-        ball_data[ball_index] = {'radius': radius, 'aw_neighbors': neighbors, 'aw_volume': aw_volume, 'aw_sphericity': aw_sphericity, 'aw_avg_neighbor_radius': aw_avg_neighbor_radius}
+        ball_data[ball_index] = {'radius': radius, 'loc': loc, 'aw_neighbors': neighbors, 'aw_volume': aw_volume, 'aw_sphericity': aw_sphericity, 'aw_avg_neighbor_radius': aw_avg_neighbor_radius}
 
 
     # Go through the balls in the pw dictionary

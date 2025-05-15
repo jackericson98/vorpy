@@ -20,7 +20,6 @@ from vorpy.src.calculations.calcs import calc_cell_moi
 from vorpy.src.calculations.calcs import combine_inertia_tensors
 from vorpy.src.calculations.calcs import calc_total_inertia_tensor
 from vorpy.src.calculations.calcs import calc_contacts
-from vorpy.src.calculations.calcs import rotate_points1
 from vorpy.src.calculations.calcs import rotate_points
 from vorpy.src.calculations.calcs import get_time
 from vorpy.src.calculations.calcs import calc_vol
