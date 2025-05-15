@@ -1,7 +1,7 @@
 import csv
 
-from Data.Analyze.tools.compare.read_logs import read_logs
-from Data.Analyze.tools.compare.pdb_names import proteins, nucleics, ions, other, sols
+from vorpy.src.analyze.tools.compare.read_logs import read_logs
+from vorpy.src.analyze.tools.compare.pdb_names import proteins, nucleics, ions, other, sols
 
 
 def residue_data(sys, logs, get_all=False, get_vol=False, get_sa=False, get_curv=False, read_file=None, output_file=None):

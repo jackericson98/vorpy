@@ -100,6 +100,6 @@ def inline_plot(data, labels=None, axis_label='', orientation='vertical', log_sc
 
 
 # Test
-inline_plot([1, 10, 100, 1000, 10000, 100000], types=['gay', 'gay', 'straight', 'bi', 'trans', 'bi'],
-            log_scale=True, Show=True, orientation='horizontal',
-            labels=['aaaaaaaaa', 'bbbbbbbb', 'cccccccc', 'dddddddd', 'eeeeeeeeee', 'ffffffff'], title='num gays in sf', axis_label='num gays')
+# inline_plot([1, 10, 100, 1000, 10000, 100000], types=['gay', 'gay', 'straight', 'bi', 'trans', 'bi'],
+#             log_scale=True, Show=True, orientation='horizontal',
+#             labels=['aaaaaaaaa', 'bbbbbbbb', 'cccccccc', 'dddddddd', 'eeeeeeeeee', 'ffffffff'], title='num gays in sf', axis_label='num gays')

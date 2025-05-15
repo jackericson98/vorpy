@@ -2,7 +2,7 @@ import os
 import tkinter as tk
 from tkinter import filedialog
 from vorpy.src.system.system import System
-from System.Group.group import Group
+from vorpy.src.group.group import Group
 
 
 if __name__ == '__main__':

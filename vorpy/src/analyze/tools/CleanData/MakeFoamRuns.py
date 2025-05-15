@@ -10,11 +10,6 @@ from datetime import datetime
 from tkinter import filedialog
 import platform
 
-root = tk.Tk()
-root.withdraw()
-root.wm_attributes('-topmost', 1)
-
-
 
 def make_foam_runs(file_directory=None):
     if file_directory is None:
@@ -88,82 +83,86 @@ def make_foam_runs(file_directory=None):
             num_done += 1
 
 
-# Create the yesses and nos dictionary
-yeses = {_: True for _ in {'y', 'ys', 'yes', 'ya', 'yas', 'yess', 'yaur', 't', 'true', 'tru', 'affirmative'}}
-nos = {_: False for _ in {'n', 'no', 'false', 'f', ''}}
+if __name__ == '__main__':
+    root = tk.Tk()
+    root.withdraw()
+    root.wm_attributes('-topmost', 1)
+    # Create the yesses and nos dictionary
+    yeses = {_: True for _ in {'y', 'ys', 'yes', 'ya', 'yas', 'yess', 'yaur', 't', 'true', 'tru', 'affirmative'}}
+    nos = {_: False for _ in {'n', 'no', 'false', 'f', ''}}
 
-# Sort the strings by the las number on their
-strings = [x for _, x in sorted(zip(numbers, strings), key=lambda _: _)]
+    # Sort the strings by the las number on their
+    strings = [x for _, x in sorted(zip(numbers, strings), key=lambda _: _)]
 
-# Define chunk size for how many strings per file
-chunk_size = 75
+    # Define chunk size for how many strings per file
+    chunk_size = 75
 
-num_files = (len(strings) + chunk_size - 1) // chunk_size  # Calculate number of files
+    num_files = (len(strings) + chunk_size - 1) // chunk_size  # Calculate number of files
 
-# Print the data for the making of foam file runs
-print(f"{num_done}/{tot} finished at {datetime.now().strftime('%Y-%m-%d %I:%M %p')}")
+    # Print the data for the making of foam file runs
+    print(f"{num_done}/{tot} finished at {datetime.now().strftime('%Y-%m-%d %I:%M %p')}")
 
-# As if the user wants to make the files
-make_files = input('Make run files? (y/n)  >>>   ')
+    # As if the user wants to make the files
+    make_files = input('Make run files? (y/n)  >>>   ')
 
 
-if yeses[make_files.strip().lower()]:
+    if yeses[make_files.strip().lower()]:
 
-    # Set the default directory
-    dft_dir = os.getcwd()
-    # Change the destination
-    change_destination = input(f'Change the output directory from \"...{dft_dir[-10:]}\"?  (y/n)  >>>  ').lower()
-    if change_destination in yeses:
-        # If the change destination thing has been triggered start that process
-        while change_destination:
-            # Get the new directory
-            dft_dir = filedialog.askdirectory()
-            # Print that the directory has been changed to the new directory
-            change_destination = yeses[input(f'\nDirectory changed to:\n')]
+        # Set the default directory
+        dft_dir = os.getcwd()
+        # Change the destination
+        change_destination = input(f'Change the output directory from \"...{dft_dir[-10:]}\"?  (y/n)  >>>  ').lower()
+        if change_destination in yeses:
+            # If the change destination thing has been triggered start that process
+            while change_destination:
+                # Get the new directory
+                dft_dir = filedialog.askdirectory()
+                # Print that the directory has been changed to the new directory
+                change_destination = yeses[input(f'\nDirectory changed to:\n')]
 
-    # Ask the initial question
-    num_files_npt = input(f'Change the number of output files (cores): {num_files} files?  (y/n)  >>>  ').lower()
-    # Change the destination
-    while True:
+        # Ask the initial question
+        num_files_npt = input(f'Change the number of output files (cores): {num_files} files?  (y/n)  >>>  ').lower()
+        # Change the destination
+        while True:
 
-        # First see if the number is something to get out
-        if num_files_npt in nos:
-            break
-        # Next check if the input is a number
-        try:
-            num_files = int(num_files_npt)
-        except ValueError:
-            pass
-        # Next see if the user wants to change it
-        if num_files_npt in yeses:
-            # Change the number of files
+            # First see if the number is something to get out
+            if num_files_npt in nos:
+                break
+            # Next check if the input is a number
             try:
-                num_files = int(input("How many files?  >>>  ").lower())
+                num_files = int(num_files_npt)
             except ValueError:
                 pass
-        # Confirm this is the correct number of files
-        num_files_npt = input(f"Number of output file set to {num_files}. Change?  (y/n)  >>>>    ")
+            # Next see if the user wants to change it
+            if num_files_npt in yeses:
+                # Change the number of files
+                try:
+                    num_files = int(input("How many files?  >>>  ").lower())
+                except ValueError:
+                    pass
+            # Confirm this is the correct number of files
+            num_files_npt = input(f"Number of output file set to {num_files}. Change?  (y/n)  >>>>    ")
 
-    # Initialize file writers and create the files
-    file_handles = []
-    for j in range(num_files):
-        file_name = f"{thine_dir}/foam_runs_{j}.{'sh' if OS == 'linux' else 'bat'}"
-        mode = 'w'  # Write mode for initial creation
-        file_handles.append(open(file_name, mode))
+        # Initialize file writers and create the files
+        file_handles = []
+        for j in range(num_files):
+            file_name = f"{thine_dir}/foam_runs_{j}.{'sh' if OS == 'linux' else 'bat'}"
+            mode = 'w'  # Write mode for initial creation
+            file_handles.append(open(file_name, mode))
 
-    # Write the strings evenly into the files
-    for i, string in enumerate(strings):
-        # Distribute first 'important' strings sequentially across all files
-        file_index = i % num_files if i < num_files else i // chunk_size
-        foam_write = file_handles[file_index]
+        # Write the strings evenly into the files
+        for i, string in enumerate(strings):
+            # Distribute first 'important' strings sequentially across all files
+            file_index = i % num_files if i < num_files else i // chunk_size
+            foam_write = file_handles[file_index]
 
-        # For Linux files, add a header only once per file
-        if foam_write.tell() == 0 and OS == 'linux':
-            foam_write.write('#!/bin/sh\n')
+            # For Linux files, add a header only once per file
+            if foam_write.tell() == 0 and OS == 'linux':
+                foam_write.write('#!/bin/sh\n')
 
-        # Write the current string to the appropriate file
-        foam_write.write(string)
+            # Write the current string to the appropriate file
+            foam_write.write(string)
 
-    # Close all file handles
-    for foam_write in file_handles:
-        foam_write.close()
+        # Close all file handles
+        for foam_write in file_handles:
+            foam_write.close()

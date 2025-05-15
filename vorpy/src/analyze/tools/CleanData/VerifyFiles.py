@@ -7,12 +7,7 @@ sys.path.append(project_root)
 
 import tkinter as tk
 from tkinter import filedialog
-from Data.Analyze.tools.compare.read_logs2 import read_logs2
-
-
-root = tk.Tk()
-root.withdraw()
-root.wm_attributes('-topmost', 1)
+from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
 
 
 def verify_pdb(file=None, print_metadata=False, simple=False):
@@ -64,3 +59,10 @@ def verify_logs(file=None, print_metadata=False, simple=False):
 
     # We need to read the logs
     my_file_logs = read_logs2()
+
+
+if __name__ == '__main__':
+    
+    root = tk.Tk()
+    root.withdraw()
+    root.wm_attributes('-topmost', 1)

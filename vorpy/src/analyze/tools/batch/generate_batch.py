@@ -65,7 +65,7 @@ import os
 #         print('python3 vorpy.py C:/Users/jacke/PycharmProjects/foam_gen/Data/user_data/1.0_{}_300_{}_False_lognormal'.format(num1, num2) + extra + '/1.0_{}_300_{}_False_lognormal.pdb -s nt compare -s mv 1000'.format(num1, num2))
 # print("\n")
 
-for i in range(1, 12):
-    for net_type in ['vor', 'pow', 'del']:
-        print('py vorpy.py hairpin_0{} -s nt {}'.format(i, net_type))
+# for i in range(1, 12):
+#     for net_type in ['vor', 'pow', 'del']:
+#         print('py vorpy.py hairpin_0{} -s nt {}'.format(i, net_type))
 

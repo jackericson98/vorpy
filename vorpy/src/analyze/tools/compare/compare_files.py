@@ -1,6 +1,6 @@
 from vorpy.src.system.system import System
-from Data.Analyze.tools.compare.read_logs import read_logs
-from Data.Analyze.tools.compare.get_res_data import residue_data
+from vorpy.src.analyze.tools.compare.read_logs import read_logs
+from vorpy.src.analyze.tools.compare.get_res_data import residue_data
 
 
 def compare_files(pdb_files, log_files, build_data=False, totals=False, avg_distros=False, compare_in_out=False,

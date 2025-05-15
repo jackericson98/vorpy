@@ -6,8 +6,8 @@ import numpy as np
 import tkinter as tk
 from tkinter import filedialog
 from vorpy.src.system.system import System
-from Data.Analyze.tools.compare.read_logs import read_logs
-from System.sys_funcs.calcs.calcs import calc_sphericity, calc_dist, get_time
+from vorpy.src.analyze.tools.compare.read_logs import read_logs
+from vorpy.src.calculations import calc_sphericity, calc_dist, get_time
 
 
 def get_logs_and_pdbs(make_file=True, output_file_name=None):

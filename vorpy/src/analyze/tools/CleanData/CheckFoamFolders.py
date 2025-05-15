@@ -7,8 +7,8 @@ sys.path.append(project_root)
 
 import tkinter as tk
 from tkinter import filedialog
-from Data.Analyze.tools.batch.get_files import get_files
-from Data.Analyze.tools.CleanData.VerifyFiles import verify_pdb, verify_logs
+from vorpy.src.analyze.tools.batch.get_files import get_files
+from vorpy.src.analyze.tools.CleanData.VerifyFiles import verify_pdb, verify_logs
 
 
 def completeness_check(cv_vals, density_vals, number_of_files=20, folder=None):

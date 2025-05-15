@@ -8,12 +8,7 @@ sys.path.append(project_root)
 import numpy as np
 import tkinter as tk
 from tkinter import filedialog
-from Data.Analyze.tools.CleanData.CreateVertsFromLogs import write_log_to_vert
-
-
-root = tk.Tk()
-root.withdraw()
-root.wm_attributes('-topmost', 1)
+from vorpy.src.analyze.tools.CleanData.CreateVertsFromLogs import write_log_to_vert
 
 
 def get_txt_from_pdb(file, out_file):
@@ -107,4 +102,7 @@ def clean_folder(folder=None):
 
 
 if __name__ == '__main__':
+    root = tk.Tk()
+    root.withdraw()
+    root.wm_attributes('-topmost', 1)
     clean_folder()

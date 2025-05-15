@@ -8,8 +8,8 @@ sys.path.append(project_root)
 import shutil
 import tkinter as tk
 from tkinter import filedialog
-from System.sys_funcs.output.net import write_verts
-from Data.Analyze.tools.compare.read_logs2 import read_logs2
+from vorpy.src.output.net import write_verts
+from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
 
 
 def write_log_to_vert(in_file, out_file):

@@ -3,8 +3,8 @@ import os
 import shutil
 import tkinter as tk
 from tkinter import filedialog
-from Data.Analyze.tools.batch.get_files import get_files
-from Data.Analyze.tools.CleanData.VerifyFiles import verify_logs, verify_pdb
+from vorpy.src.analyze.tools.batch.get_files import get_files
+from vorpy.src.analyze.tools.CleanData.VerifyFiles import verify_logs, verify_pdb
 
 
 def get_the_best_folders(dict_list, num_needed=20):

@@ -9,12 +9,7 @@ import numpy as np
 import tkinter as tk
 import datetime
 from tkinter import filedialog
-from System.sys_funcs.calcs.calcs import calc_com, round_func, calc_total_inertia_tensor, combine_inertia_tensors
-
-
-root = tk.Tk()
-root.withdraw()
-root.wm_attributes('-topmost', 1)
+from vorpy.src.calculations import calc_com, round_func, calc_total_inertia_tensor, combine_inertia_tensors
 
 
 def parse_string_lists(string_list):
@@ -376,4 +371,7 @@ if __name__ == '__main__':
     # combine_logs(list_of_logs=['/Users/jackericson/PycharmProjects/vorpy/Data/user_data/EDTA_Mg_2/a_1_aw/aw_logs.csv',
     #                            '/Users/jackericson/PycharmProjects/vorpy/Data/user_data/EDTA_Mg_3/a_2_aw/aw_logs.csv'],
     #              output_dir='/Users/jackericson/PycharmProjects/vorpy/Data/user_data')
+    root = tk.Tk()
+    root.withdraw()
+    root.wm_attributes('-topmost', 1)
     combine_logs()
