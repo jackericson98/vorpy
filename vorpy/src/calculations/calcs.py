@@ -1191,3 +1191,73 @@ def calc_curvature(points, normals):
             curvatures[i] = np.mean(normal_variations)
 
     return curvatures
+
+
+def calc_aw_center(r1, r2, l1, l2):
+    """
+    Calculate the distance between two spheres using the AW method.
+
+    This function calculates the distance between two spheres based on their radii and locations.
+    It uses the formula:
+    
+    Parameters
+    ----------
+    r1 : float
+        The radius of the first sphere
+    r2 : float
+        The radius of the second sphere
+    l1 : numpy.ndarray
+        The location of the first sphere
+    l2 : numpy.ndarray
+        The location of the second sphere
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - float: The aw distance between the two spheres
+        - numpy.ndarray: The aw center point between the two spheres
+    """
+    # Calculate the distance between the two spheres
+    dist = np.linalg.norm(l1 - l2)
+    # Calculate the aw distance
+    aw_dist = dist / 2 - (r2 - r1) / 2
+    # Calculate the aw center point
+    aw_center = l1 + (l2 - l1) * (aw_dist / dist)
+    # Return the aw distance and center point
+    return aw_dist, aw_center
+
+
+def calc_pw_center(r1, r2, l1, l2):
+    """
+    Calculate the distance between two spheres using the PW method.
+
+    This function calculates the distance between two spheres based on their radii and locations.
+    It uses the formula:
+    
+    Parameters
+    ----------
+    r1 : float
+        The radius of the first sphere
+    r2 : float
+        The radius of the second sphere
+    l1 : numpy.ndarray
+        The location of the first sphere
+    l2 : numpy.ndarray
+        The location of the second sphere
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - float: The pw distance between the two spheres
+        - numpy.ndarray: The pw center point between the two spheres
+    """
+    # Calculate the distance between the two spheres
+    dist = np.linalg.norm(l1 - l2)
+    # Calculate the pw distance
+    pw_dist = dist / 2 - (r2 ** 2 - r1 ** 2) / (2 * dist)
+    # Calculate the pw center point
+    pw_center = l1 + (l2 - l1) * (pw_dist / dist)
+    # Return the pw distance and center point
+    return pw_dist, pw_center
