@@ -272,12 +272,14 @@ def read_pdb_simple(file):
     with open(file, 'r') as f:
         my_file = f.readlines()
     # Get the atoms
-    atoms = []
+    atoms = {}
     # Go through the file
     for line in my_file:
         # If the line is an atom line
         if line[0:6].strip() in ['ATOM', 'HETATM']:
-            atoms.append(read_pdb_line(line))
+            atom = read_pdb_line(line)
+            atoms[atom['atom_serial_number']] = atom
+            atoms[atom['atom_serial_number']]['radius'] = atom['temperature_factor']
     # Return the atoms
     return atoms
 
