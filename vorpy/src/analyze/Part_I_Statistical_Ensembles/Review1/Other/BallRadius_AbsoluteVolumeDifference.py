@@ -81,6 +81,8 @@ def get_data(pdb, aw, pw):
         vol_diff = 100 * (pw_volume - aw_volume) / aw_volume
         # Add the ball data to the dictionary
         ball_data[ball_index]['pw_neighbors'] = pw_neighbors
+        ball_data[ball_index]['pw_neighbor_cv'] = np.std(pw_neighbors) / np.mean(pw_neighbors)
+        ball_data[ball_index]['aw_neighbor_cv'] = np.std(ball_data[ball_index]['aw_neighbors']) / np.mean(ball_data[ball_index]['aw_neighbors'])
         ball_data[ball_index]['pw_volume'] = pw_volume
         ball_data[ball_index]['vol_diff'] = vol_diff
         ball_data[ball_index]['pw_sphericity'] = pw_sphericity
@@ -103,100 +105,39 @@ def plot_data(ball_data):
     
     # Extract x and y values
     x = [ball['radius'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])][::-1]
-    y = [ball['aw_avg_neighbor_radius'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])][::-1] 
-    colors = [np.log(abs(ball['vol_diff'])) for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])][::-1]
-
-        # Add curved line of best fit with smoothed local standard deviation interval
-    x_new = np.array(x)  # Convert lists to numpy arrays
-    y_new = np.array(y)
-    
-    # Sort data by x values to avoid interpolation issues
-    sort_idx = np.argsort(x_new)
-    x_new = x_new[sort_idx]
-    y_new = y_new[sort_idx]
-    
-    # Remove duplicate x values by averaging corresponding y values
-    unique_x_new, unique_indices_new = np.unique(x_new, return_index=True)
-    unique_y_new = np.array([np.mean(y_new[x_new == val]) for val in unique_x_new])
-    
-    z = np.polyfit(unique_x_new, unique_y_new, 2)  # Use 2nd degree polynomial for curved fit
-    p = np.poly1d(z)
-    
-    # Calculate local standard deviations using rolling window
-    window_size = 20  # Adjust window size as needed
-    y_pred_new = p(unique_x_new)
-    std_smooth_new = []
-    
-    # Calculate standard deviation every 5 points for smoother interval
-    step = 15
-    x_smooth_new = unique_x_new[::step]
-    
-    for i in range(0, len(unique_x_new), step):
-        # Get indices of points within window
-        window_indices_new = np.where(np.abs(unique_x_new - unique_x_new[i]) <= (np.max(unique_x_new) - np.min(unique_x_new))/window_size)[0]
-        # Calculate standard deviation of residuals in window
-        window_residuals_new = unique_y_new[window_indices_new] - y_pred_new[window_indices_new]
-        std_smooth_new.append(np.std(window_residuals_new))
-    
-    # Interpolate the standard deviations back to original x points
-    from scipy.interpolate import interp1d
-    f_new = interp1d(x_smooth_new, std_smooth_new, kind='cubic', bounds_error=False, fill_value=(std_smooth_new[0], std_smooth_new[-1]))
-    local_std_new = f_new(unique_x_new)
-    
-    # Plot the curved fit and smoothed local standard deviation interval
-    plt.plot(unique_x_new, p(unique_x_new), "r--", alpha=0.8, label='Curved Fit', linewidth=2)
-    plt.fill_between(unique_x_new, p(unique_x_new) - 2*local_std_new, p(unique_x_new) + 2*local_std_new, color='red', alpha=0.35, label='±2σ Local Interval', linewidth=2)
-    # plt.legend()
-
-    for i in range(len(x)):
-        print(x[i], y[i], colors[i])
-
-    for ball in data:
-        if not all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff']):
-            continue
-        print(ball['radius'], ball['aw_avg_neighbor_radius'], ball['vol_diff'], ball['aw_volume'], ball['pw_volume'])
-    
-    # Set font sizes
-    plt.rcParams.update({'font.size': 20})
-    min_val = np.min([np.log(abs(ball['vol_diff'])) for ball in data if all(key in ball for key in ['radius', 'vol_diff'])])
-    max_val = np.max([np.log(abs(ball['vol_diff'])) for ball in data if all(key in ball for key in ['radius', 'vol_diff'])])
+    y = [abs(ball['vol_diff']) for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])][::-1] 
     
     # Create scatter plot with colorbar
-    scatter = plt.scatter(x, y, c=colors, cmap='viridis', s=4, vmin=min_val, vmax=max_val)
-    cbar = plt.colorbar(scatter, label='Volume % Diff', extend='both')
-    
-    # Set custom ticks to show log scale
-    ticks = [-2, 0, 2, 4, 6]
-    cbar.set_ticks(ticks)
-    num_ticks = 5
-    tick_locs = np.linspace(-2, 6, num_ticks)
-    print(max_val, min_val)
-    
-    # Create labels with superscript for even indices
-    labels = []
-    uni_dict = {-3: '\u207B\u00B3', -2: '\u207B\u00B2', -1: '\u207B\u00B9', 0: '\u2070', 1: '\u00B9', 2: '\u00B2', 3: '\u00B3', 4: '\u2074', 5: '\u2075', 6: '\u2076', 7: '\u2077', 8: '\u2078', 9: '\u2079'}
-    for i, tick in enumerate(ticks):
-        labels.append(f'10{uni_dict[int(tick)]}')
-        # labels.append(f'{tick}')
-    cbar.set_ticks(tick_locs)
-    cbar.set_ticklabels(labels)
-    
+    plt.scatter(x, y, c='red', s=20, alpha=0.2)
+
+    # Fit the data for aw_y with quadratic curve
+    # aw_z = np.polyfit(x, aw_y, 2)
+    # aw_p = np.poly1d(aw_z)
+    # plt.plot(x, aw_p(x), 'r--', linewidth=2, label='AW fit')
+
+    # # Fit the data for pw_y with quadratic curve
+    # pw_z = np.polyfit(x, pw_y, 2)
+    # pw_p = np.poly1d(pw_z)
+    # plt.plot(x, pw_p(x), 'b--', linewidth=2, label='Pow fit')
 
     
     # Add labels with different font sizes
     plt.xlabel('Radius', fontsize=20)
-    plt.ylabel('Avg Neighbor Rad', fontsize=20)
+    plt.ylabel('Volume Difference', fontsize=20)
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
-    plt.ylim(0.5, 4.0)
-    plt.title('Avg Neighbor Rad', fontsize=30)
+    # plt.legend(fontsize=16)
+    plt.title('Volume Difference vs. Radius', fontsize=20)
     plt.tight_layout()
     # Show the plot
     plt.show()
 
 
 if __name__ == '__main__':
+    #get the folder they are in
+    folder = filedialog.askdirectory(title='Select the folder')
+
     # Get the data
-    data = get_data(select_file(title='Select the PDB file'), select_file(title='Select the AW log file'), select_file(title='Select the PW log file'))
+    data = get_data(folder + '/balls.pdb', folder + '/aw/aw_logs.csv', folder + '/pow/pow_logs.csv')
     # Plot the data
     plot_data(data)

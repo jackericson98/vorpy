@@ -23,6 +23,8 @@ from vorpy.src.calculations.calcs import calc_contacts
 from vorpy.src.calculations.calcs import rotate_points
 from vorpy.src.calculations.calcs import get_time
 from vorpy.src.calculations.calcs import calc_vol
+from vorpy.src.calculations.calcs import calc_aw_center
+from vorpy.src.calculations.calcs import calc_pw_center
 from vorpy.src.calculations.compare import compare_networks
 from vorpy.src.calculations.compare import make_interfaces
 from vorpy.src.calculations.edge import calc_edge_proj_pt
@@ -47,8 +49,3 @@ from vorpy.src.calculations.vert import verify_site
 from vorpy.src.calculations.vert import verify_aw
 from vorpy.src.calculations.vert import verify_pow
 from vorpy.src.calculations.vert import verify_prm
-
-
-
-
-
