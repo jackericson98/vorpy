@@ -107,39 +107,42 @@ def plot_data(ball_data):
     data = list(ball_data['balls'].values())
     
     # Extract x and y values
-    x = [ball['sphericity_diff'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
-    y = [ball['neighbor_cv_diff'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
-    colors = [ball['radius'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
+    x = [ball['sphericity_diff'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff']) and ball['sphericity_diff'] >= -0.2]
+    y = [ball['neighbor_cv_diff'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff']) and ball['sphericity_diff'] >= -0.2]
+    colors = [ball['radius'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff']) and ball['sphericity_diff'] >= -0.2]
     
+    # Create figure with consistent size before any plotting
+    plt.figure(figsize=(6, 5))
     # Plot the x and y axes
-    plt.axhline(0, color='black', linewidth=2, alpha=0.5)
-    plt.axvline(0, color='black', linewidth=2, alpha=0.5)
+    plt.axhline(0, color='black', linewidth=1, zorder=0)
+    plt.axvline(0, color='black', linewidth=1, zorder=0)
     
     # Create scatter plot with colorbar
-    scatter = plt.scatter(x, y, c=colors, cmap='viridis', s=20, alpha=1.0)
+    scatter = plt.scatter(x, y, c=colors, cmap='viridis', s=20, alpha=1.0, vmin=0, vmax=5)
+    # scatter = plt.scatter(x, y, c=colors, cmap='viridis', s=20, alpha=1.0, vmin=0.7, vmax=1.3)
     cb = plt.colorbar(scatter, label='Radius', alpha=1.0)
-    cb.ax.set_label('Radius')
-    cb.ax.tick_params(labelsize=16)
-    scatter.set_alpha(0.1)
-    # cbar.tick_params(labelsize=16)
+    cb.ax.tick_params(labelsize=25, length=10, width=2)
     
+    # cb.set_ticks([0.8, 1.0, 1.2], labels=['0.8', '1.0', '1.2'])
+    cb.set_ticks([1, 2.5, 4], labels=['1.0', '2.5', '4.0'])
+    scatter.set_alpha(0.1)
     # Create scatter plot with colorbar
     plt.scatter(x, y, c=colors, label='AW', s=20, alpha=0.2)
-    # plt.scatter(x, pw_y, c='blue', label='Pow', s=20, alpha=0.2)
 
     # Fit the data for aw_y with quadratic curve
     aw_z = np.polyfit(x, y, 1)
     aw_p = np.poly1d(aw_z)
-    plt.plot(x, aw_p(x), 'r-', linewidth=2, alpha=0.5)
-
+    plt.plot([-0.18] + x + [0.18], aw_p([-0.18] + x + [0.18]), 'r-', linewidth=4, alpha=0.5)
     
     # Add labels with different font sizes
-    plt.xlabel('Sphericity Diff (pow - aw)', fontsize=20)
-    plt.ylabel('Neighbor CV Diff (pow - aw)', fontsize=20)
-    plt.ylim(-1.5, 1.75)
-    plt.xticks(np.arange(-0.25, 0.25, 0.1)[1:], fontsize=16)
-    plt.yticks(np.arange(-1.5, 1.75, 0.5)[1:], fontsize=16)
-    plt.title('Sphericity Diff vs. Neighbor CV Diff', fontsize=20)
+    plt.xlabel('Sphericity Difference', fontsize=25)
+    plt.ylabel('Neighbor CV Difference', fontsize=25)
+    plt.ylim(-1.5, 1.5)
+    plt.xlim(-0.20, 0.20)
+    plt.xticks([-0.15, 0.0, 0.15], fontsize=25)
+    plt.tick_params(axis='both', width=2, length=10)
+    plt.yticks([-1.0, 0.0, 1.0], fontsize=25)
+    plt.title('Sphericity Difference vs.\nNeighbor CV Difference', fontsize=30)
     plt.tight_layout()
     # Show the plot
     plt.show()
@@ -148,7 +151,7 @@ def plot_data(ball_data):
 if __name__ == '__main__':
     #get the folder they are in
     folder = filedialog.askdirectory(title='Select the folder')
-
+    print(folder)
     # Get the data
     data = get_data(folder + '/balls.pdb', folder + '/aw/aw_logs.csv', folder + '/pow/pow_logs.csv')
     # Plot the data
