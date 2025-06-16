@@ -88,21 +88,9 @@ def get_data(pdb, aw, pw):
         ball_data[ball_index]['sphericity_diff'] = pw_sphericity - aw_sphericity
         exclusive_pw_neighbors = [neighbor for neighbor in pw_neighbors if neighbor not in ball_data[ball_index]['aw_neighbors']]
         exclusive_aw_neighbors = [neighbor for neighbor in ball_data[ball_index]['aw_neighbors'] if neighbor not in pw_neighbors]
-        shared_neighbors = [neighbor for neighbor in pw_neighbors if neighbor in ball_data[ball_index]['aw_neighbors']]
-        if len(exclusive_pw_neighbors) > 0:
-            ball_data[ball_index]['pw_avg_nbor_dist'] = np.mean([calc_pw_center(ball_data[ball_index]['radius'], ball_data[neighbor]['radius'], ball_data[ball_index]['loc'], ball_data[neighbor]['loc'])[0] for neighbor in exclusive_pw_neighbors])
-        else:
-            ball_data[ball_index]['pw_avg_nbor_dist'] = 0
-        if len(exclusive_aw_neighbors) > 0:
-            ball_data[ball_index]['aw_avg_nbor_dist'] = np.mean([calc_aw_center(ball_data[ball_index]['radius'], ball_data[neighbor]['radius'], ball_data[ball_index]['loc'], ball_data[neighbor]['loc'])[0] for neighbor in exclusive_aw_neighbors])
-        else:
-            ball_data[ball_index]['aw_avg_nbor_dist'] = 0
-        if len(shared_neighbors) > 0:
-            ball_data[ball_index]['shared_avg_nbor_pw_dist'] = np.mean([calc_pw_center(ball_data[ball_index]['radius'], ball_data[neighbor]['radius'], ball_data[ball_index]['loc'], ball_data[neighbor]['loc'])[0] for neighbor in shared_neighbors])
-            ball_data[ball_index]['shared_avg_nbor_aw_dist'] = np.mean([calc_aw_center(ball_data[ball_index]['radius'], ball_data[neighbor]['radius'], ball_data[ball_index]['loc'], ball_data[neighbor]['loc'])[0] for neighbor in shared_neighbors])
-        else:
-            ball_data[ball_index]['shared_avg_nbor_pw_dist'] = 0
-            ball_data[ball_index]['shared_avg_nbor_aw_dist'] = 0
+        ball_data[ball_index]['exclusive_neighbor_difference'] = len(exclusive_pw_neighbors) - len(exclusive_aw_neighbors)
+
+
         # Get the average neighbor radius
         pw_avg_neighbor_radius = np.mean([pdb_data[neighbor]['temperature_factor'] for neighbor in pw_neighbors])
         # Add the average neighbor radius to the dictionary
@@ -120,45 +108,34 @@ def plot_data(ball_data):
     data = list(ball_data['balls'].values())
     
     # Extract x and y values
-    x = [ball['radius'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
-    pw_avg_nbor_dist = [ball['pw_avg_nbor_dist'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])] 
-    aw_avg_nbor_dist = [ball['aw_avg_nbor_dist'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
-    shared_avg_nbor_pw_dist = [ball['shared_avg_nbor_pw_dist'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
-    shared_avg_nbor_aw_dist = [ball['shared_avg_nbor_aw_dist'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
+    x = [ball['exclusive_neighbor_difference'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
+    y = [ball['sphericity_diff'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
+    colors = [ball['radius'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
 
-    # Calculate lines of best fit for all 4 lists
-    z_pw = np.polyfit([_ for i, _ in enumerate(x) if pw_avg_nbor_dist[i] != 0], [_ for _ in pw_avg_nbor_dist if _ != 0], 1)
-    z_aw = np.polyfit([_ for i, _ in enumerate(x) if aw_avg_nbor_dist[i] != 0], [_ for _ in aw_avg_nbor_dist if _ != 0], 1)
-    z_shared_pw = np.polyfit([_ for i, _ in enumerate(x) if shared_avg_nbor_pw_dist[i] != 0], [_ for _ in shared_avg_nbor_pw_dist if _ != 0], 1)
-    z_shared_aw = np.polyfit([_ for i, _ in enumerate(x) if shared_avg_nbor_aw_dist[i] != 0], [_ for _ in shared_avg_nbor_aw_dist if _ != 0], 1)
+    # Create figure with consistent size before any plotting
+    plt.figure(figsize=(6, 5))
+    # Plot the x and y axes
+    plt.axhline(0, color='black', linewidth=1, zorder=0)
+    plt.axvline(0, color='black', linewidth=1, zorder=0)
 
-    # Create x values for the lines
-    x_line = np.linspace(min(x), max(x), 100)
-
-    # # Plot the lines of best fit    
-    plt.plot(x_line, np.polyval(z_shared_pw, x_line), 'b-', label='Pow Shared', alpha=0.8)
-    plt.plot(x_line, np.polyval(z_shared_aw, x_line), 'r-', label='AW Shared', alpha=0.8)
-    plt.plot(x_line, np.polyval(z_pw, x_line), 'b--', label='Pow Only', alpha=0.8)
-    plt.plot(x_line, np.polyval(z_aw, x_line), 'r--', label='AW Only', alpha=0.8)
-
-    plt.scatter(x, shared_avg_nbor_pw_dist, c='blue', marker='o', label='Pow Shared', alpha=0.2, s=20)
-    plt.scatter(x, shared_avg_nbor_aw_dist, c='red', marker='o', label='AW Shared', alpha=0.2, s=20)
-    plt.scatter([_ for i, _ in enumerate(x) if pw_avg_nbor_dist[i] != 0], [_ for _ in pw_avg_nbor_dist if _ != 0], c='blue', marker='x', label='Pow Only', alpha=0.3, s=45)
-    plt.scatter([_ for i, _ in enumerate(x) if aw_avg_nbor_dist[i] != 0], [_ for _ in aw_avg_nbor_dist if _ != 0], c='red', marker='x', label='AW Only', alpha=0.3, s=45)
-
-    # plt.text(0.5, 0.5, f'Average Ball Radius: {np.mean(x):.2f}', fontsize=16, ha='center', va='center')
+    # Create scatter plot with colorbar
+    scatter = plt.scatter(x, y, c=colors, cmap='viridis', s=20, alpha=1.0, vmin=0.7, vmax=1.3)
+    # scatter = plt.scatter(x, y, c=colors, cmap='viridis', s=20, alpha=1.0, vmin=0.7, vmax=1.3)
+    cb = plt.colorbar(scatter, label='Radius', alpha=1.0, ticks=[0.8, 1.0, 1.2])
+    cb.ax.tick_params(labelsize=25, length=10, width=2)
         
     # Add labels with different font sizes
-    plt.xlabel('Radius', fontsize=25)
-    plt.ylabel('Average Neighbor\nDistance', fontsize=25)
-    plt.ylim(-0.5, 9)
-    plt.xlim(-0.25, 5)
+    plt.xlabel('Exclusive Neighbor Difference', fontsize=25)
+    plt.ylabel('Sphericity Difference', fontsize=25)
+    plt.ylim(-0.15, 0.15)
+    plt.xlim(-7, 7)
     # plt.xlim(0.69, 1.35)
-    plt.xticks([1.0, 2.5, 4.0], fontsize=25)
-    # plt.xticks([0.8, 1.0, 1.2], fontsize=25)
-    plt.yticks([0.0, 4.0, 8.0], fontsize=25)
-
-    plt.title('Neighbor Subsets &\nAverage Distance', fontsize=30)
+    plt.xticks(fontsize=25, ticks=[-5, 0, 5])
+    # plt.xticks(ticks=[0.8, 1.0, 1.2], fontsize=25)
+    plt.yticks(fontsize=25, ticks=[-0.1, 0.0, 0.10])
+    # plt.tick_params(axis='both', length=10, width=2)
+    plt.title('Exclusive Neighbors vs\nSphericity Difference', fontsize=30)
+    # plt.legend(fontsize=25)
     # plt.legend(fontsize=16)
     plt.tight_layout()
     # Show the plot

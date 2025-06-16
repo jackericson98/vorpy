@@ -10,7 +10,7 @@ vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..',
 # Add the root vorpy folder to the system path
 sys.path.append(vorpy_root)
 
-from vorpy.src.analyze.Part_I_Statistical_Ensembles.Review1.NeighborsAverageRadii import get_data, select_file
+from vorpy.src.analyze.Part_I_Statistical_Ensembles.Review1.Other.NeighborsAverageRadii import get_data, select_file
 
 """
 Splits the main ball containers into subsections and calculates the local density and polydispersity of each and compares them to sphericity and volume difference.

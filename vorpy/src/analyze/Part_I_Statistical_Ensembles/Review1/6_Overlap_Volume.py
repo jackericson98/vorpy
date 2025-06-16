@@ -1,3 +1,4 @@
+"""Calculates the volume of overlap between the power and the additively weighted surfaces"""
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -17,10 +18,6 @@ from vorpy.src.analyze.tools import read_logs2
 from vorpy.src.inputs import read_pdb_simple
 from vorpy.src.calculations import calc_aw_center, calc_pw_center, calc_dist
 
-
-"""
-Plotting script for average neighbor radius, as a function of ball radius. Would also like to color by % difference in pow and aw volume
-"""
 
 def select_file(title=None):
     root = tk.Tk()
@@ -64,7 +61,13 @@ def get_data(pdb, aw, pw):
         aw_avg_neighbor_radius = np.mean([pdb_data[neighbor]['temperature_factor'] for neighbor in neighbors])
         # Add the ball data to the dictionary
         ball_data[ball_index] = {'radius': radius, 'loc': loc, 'aw_neighbors': neighbors, 'aw_volume': aw_volume, 'aw_sphericity': aw_sphericity, 'aw_avg_neighbor_radius': aw_avg_neighbor_radius}
-
+        # Get the closest neighbor
+        ball_data[ball_index]['closest_neighbor'] = ball['Closest Neighbor']
+        # Get the closest neighbor % overlap
+        cn_rad, cn_loc = ball_data[ball['Closest Neighbor']]['radius'], ball_data[ball['Closest Neighbor']]['loc']
+        cn_dist = calc_dist(loc, cn_loc)
+        cn_overlap = max(100 * (-cn_dist + cn_rad + radius) / radius, 0)
+        ball_data[ball_index]['cn_overlap'] = cn_overlap
 
     # Go through the balls in the pw dictionary
     for i, ball in pw_logs['atoms'].iterrows():
@@ -80,21 +83,12 @@ def get_data(pdb, aw, pw):
         aw_volume = ball_data[ball_index]['aw_volume']
         # Get the % difference in volume
         vol_diff = 100 * (pw_volume - aw_volume) / aw_volume
+        print(vol_diff)
         # Add the ball data to the dictionary
         ball_data[ball_index]['pw_neighbors'] = pw_neighbors
         ball_data[ball_index]['pw_volume'] = pw_volume
         ball_data[ball_index]['vol_diff'] = vol_diff
-        ball_data[ball_index]['pw_sphericity'] = pw_sphericity
-        ball_data[ball_index]['sphericity_diff'] = pw_sphericity - aw_sphericity
-        exclusive_pw_neighbors = [neighbor for neighbor in pw_neighbors if neighbor not in ball_data[ball_index]['aw_neighbors']]
-        exclusive_aw_neighbors = [neighbor for neighbor in ball_data[ball_index]['aw_neighbors'] if neighbor not in pw_neighbors]
-        ball_data[ball_index]['exclusive_pw_neighbors_percent'] = len(exclusive_pw_neighbors)
-        ball_data[ball_index]['exclusive_aw_neighbors_percent'] = len(exclusive_aw_neighbors)
-
-        # Get the average neighbor radius
-        pw_avg_neighbor_radius = np.mean([pdb_data[neighbor]['temperature_factor'] for neighbor in pw_neighbors])
-        # Add the average neighbor radius to the dictionary
-        ball_data[ball_index]['pw_avg_neighbor_radius'] = pw_avg_neighbor_radius
+        
         
     # Return the dictionary
     return {'box_size': box_size, 'balls': ball_data}
@@ -108,27 +102,62 @@ def plot_data(ball_data):
     data = list(ball_data['balls'].values())
     
     # Extract x and y values
-    x = [ball['radius'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
-    y_pw = [ball['exclusive_pw_neighbors_percent'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
-    y_aw = [-ball['exclusive_aw_neighbors_percent'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
+    rads = [ball['radius'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
+    cn_overlap = [ball['cn_overlap'] for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
+    vol_diff = [np.log10(abs(ball['vol_diff']) + 1e-10) for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
+    num_neighbors = [len(ball['pw_neighbors']) for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
+    # print(vol_diff)
+    # cn_overlap = [0 for ball in data if all(key in ball for key in ['radius', 'aw_avg_neighbor_radius', 'vol_diff'])]
+    # plt.figure(figsize=(5, 8))
+    # Calculate average vol_diff for each integer number of neighbors
+    # Count frequency of each neighbor number
+    neighbor_counts = {}
+    for n in num_neighbors:
+        neighbor_counts[n] = neighbor_counts.get(n, 0) + 1
+    
+    
+    # Plot histogram of neighbor counts on the second y-axis
+    plt.bar(neighbor_counts.keys(), [_ / 100 for _ in neighbor_counts.values()], 
+            alpha=0.5, color='gray', edgecolor='black', bottom=-1)
+    # plt.set_ylabel('Count', fontsize=25)
+    plt.tick_params(axis='y', labelsize=25, length=10, width=2)
+    # plt.set_ylim(0, 100)
 
-    plt.plot([0, 4.75], [0, 0], c='black')
+    
+    # Calculate and plot averages using a 5-point window
+    neighbor_avgs = {}
+    for i in range(0, 75, 5):  # Step by 5 from 0 to 70
+        # Get indices where num_neighbors is within the window
+        indices = [j for j, n in enumerate(num_neighbors) if i <= n < i + 5]
+        if indices:  # Only calculate if we have data for this window
+            avg_vol_diff = np.mean([vol_diff[j] for j in indices])
+            neighbor_avgs[i] = avg_vol_diff
 
-    plt.scatter(x, y_pw, c='blue', marker='x', alpha=0.3, s=40, label='Pow')
-    plt.scatter(x, y_aw, c='red', marker='x', alpha=0.3, s=40, label='AW')
-        
+    # Plot the averages
+    x_vals = list(neighbor_avgs.keys())
+    y_vals = list(neighbor_avgs.values())
+    plt.plot(x_vals, y_vals, 'k-', linewidth=2, alpha=0.8)
+    # plt.legend(fontsize=16)
+
+    # Plot the scatter plot with the radii as colors
+    scatter = plt.scatter(num_neighbors, vol_diff, c=cn_overlap, s=10, alpha=0.5, vmin=0, vmax=100)
+    cbar = plt.colorbar(scatter, label='Closest Neighbor\nOverlap %', alpha=1.0)
+    cbar.ax.tick_params(labelsize=25, length=10, width=2)
+    cbar.ax.set_yticks([20, 50, 80])
+
+    
     # Add labels with different font sizes
-    plt.xlabel('Radius', fontsize=25)
-    plt.ylabel('Exclusive Neighbors\n AW    |    Pow', fontsize=25)
-    plt.ylim(-15, 15)
-    plt.xlim(-0.25, 5)
+    plt.xlabel('Number of Neighbors', fontsize=25)
+    plt.ylabel('Abs Vol Diff', fontsize=25)
+    plt.ylim(-1, 4.5)
+    # # plt.xlim(-0.25, 5)
     # plt.xlim(0.69, 1.35)
-    plt.xticks(fontsize=25, ticks=[1.0, 2.5, 4.0])
-    # plt.xticks(ticks=[0.8, 1.0, 1.2], fontsize=25)
-    plt.yticks(fontsize=25, ticks=[-12, -6, 0, 6, 12], labels=[12, 6, 0, 6, 12])
+    plt.xticks([10, 30, 50], fontsize=25)
+    # plt.xticks([0.8, 1.0, 1.2], fontsize=25)
+    plt.yticks([0.0, 2.0, 4.0], [f'1', f'10\u00b3', f'10\u2075'], fontsize=25)
     plt.tick_params(axis='both', length=10, width=2)
-    plt.title('Exclusive Neighbors', fontsize=30)
-    plt.legend(fontsize=25)
+    plt.grid(True)
+    plt.title('Number of Neighbors &\nAverage Volume Difference', fontsize=30)
     # plt.legend(fontsize=16)
     plt.tight_layout()
     # Show the plot

@@ -99,6 +99,7 @@ def get_data(pdb, aw, pw):
         aw_nbor_dists = [calc_aw_center(ball_data[ball_index]['radius'], ball_data[neighbor]['radius'], ball_data[ball_index]['loc'], ball_data[neighbor]['loc'])[0] for neighbor in ball_data[ball_index]['aw_neighbors']]
         ball_data[ball_index]['pw_nbor_dist_cv'] = np.std(pw_nbor_dists) / np.mean(pw_nbor_dists)
         ball_data[ball_index]['aw_nbor_dist_cv'] = np.std(aw_nbor_dists) / np.mean(aw_nbor_dists)
+        ball_data[ball_index]['nbor_dist_cv_diff'] = ball_data[ball_index]['pw_nbor_dist_cv'] - ball_data[ball_index]['aw_nbor_dist_cv']
         
         # Get the average neighbor radius
         pw_avg_neighbor_radius = np.mean([pdb_data[neighbor]['temperature_factor'] for neighbor in pw_neighbors])
@@ -113,37 +114,80 @@ def plot_data(ball_data):
     """
     Plot the data with a line of best fit and points colored by volume difference.
     """
+
+    plt.figure(figsize=(6, 5))
+
     # Get the data
     data = list(ball_data['balls'].values())
     
     # Extract x and y values
-    x1 = [ball['aw_sphericity'] for ball in data if all(key in ball for key in ['aw_sphericity', 'pw_sphericity', 'pw_nbor_dist_cv', 'aw_nbor_dist_cv'])]
-    x2 = [ball['pw_sphericity'] for ball in data if all(key in ball for key in ['aw_sphericity', 'pw_sphericity', 'pw_nbor_dist_cv', 'aw_nbor_dist_cv'])]
-    y1 = [ball['aw_nbor_dist_cv'] for ball in data if all(key in ball for key in ['aw_sphericity', 'pw_sphericity', 'pw_nbor_dist_cv', 'aw_nbor_dist_cv'])]
-    y2 = [ball['pw_nbor_dist_cv'] for ball in data if all(key in ball for key in ['aw_sphericity', 'pw_sphericity', 'pw_nbor_dist_cv', 'aw_nbor_dist_cv'])]
+    y1 = [ball['sphericity_diff'] for ball in data if all(key in ball for key in ['aw_sphericity', 'pw_sphericity', 'pw_nbor_dist_cv', 'aw_nbor_dist_cv'])]
+    x1 = [ball['nbor_dist_cv_diff'] for ball in data if all(key in ball for key in ['aw_sphericity', 'pw_sphericity', 'pw_nbor_dist_cv', 'aw_nbor_dist_cv'])]
+    colors = [ball['radius'] for ball in data if all(key in ball for key in ['aw_sphericity', 'pw_sphericity', 'pw_nbor_dist_cv', 'aw_nbor_dist_cv'])]
 
-    plt.scatter(x1, y1, c='red', label='AW', alpha=0.3, s=10)
-    plt.scatter(x2, y2, c='blue', label='Pow', alpha=0.3, s=10)
+    plt.figure(figsize=(6, 5))
+
+    scatter1 = plt.scatter(x1, y1, c=colors, alpha=1.0, s=10)
+    
+    # Calculate and plot line of best fit
+    z = np.polyfit(x1, y1, 1)
+    p = np.poly1d(z)
+    x_line = np.linspace(-0.15, 0.15, 100)
+    plt.plot(x_line, p(x_line), 'r-', linewidth=2, alpha=0.8)
+    
+    # Calculate Spearman's rank correlation
+    from scipy import stats
+    spearman_corr, p_value = stats.spearmanr(x1, y1)
+    
+    # Add correlation coefficient to plot
+    plt.text(0.05, 0.95, f'Spearman ρ = {spearman_corr:.3f}\np = {p_value:.3e}', 
+             transform=plt.gca().transAxes, fontsize=16, 
+             verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+    scatter1.set_alpha(0.2)
 
     # Fit the data for aw_y with linear fit and plot it
-    z_aw = np.polyfit(x1, y1, 1)
-    aw_p = np.poly1d(z_aw)
-    plt.plot(x1, aw_p(x1), 'r-', linewidth=2, alpha=0.5)
+    # z_aw = np.polyfit(x1, y1, 1)
+    # aw_p = np.poly1d(z_aw)
+    
+    # window_size = 0.05
+    # min_num_points = 3
+    # x_fill = np.array([])
+    # means = np.array([])
+    # std_devs = np.array([])
 
-    # Fit the data for pw_y with linear fit and plot it
-    z_pw = np.polyfit(x2, y2, 1)
-    pw_p = np.poly1d(z_pw)
-    plt.plot(x2, pw_p(x2), 'b-', linewidth=2, alpha=0.5)
+    # # Loop through the data and get the standard deviations
+    # for i in np.arange(-0.18 - window_size/2, 0.18 + window_size/2, window_size):
+    #     # Get the window
+    #     window_mask = (x1 >= i - window_size/2) & (x1 <= i + window_size/2)
+    #     y_window_points = np.array(y1)[window_mask]
+
+    #     # Only process if we have enough points
+    #     if len(y_window_points) >= min_num_points:
+    #         # Get the x value for filling between
+    #         x_fill = np.append(x_fill, i + window_size/2)
+    #         # Get the mean and standard deviation
+    #         means = np.append(means, np.mean(y_window_points))
+    #         std_devs = np.append(std_devs, np.std(y_window_points))
+    # Plot the x and y axes
+    plt.axhline(0, color='black', linewidth=1, zorder=0)
+    plt.axvline(0, color='black', linewidth=1, zorder=0)
+
+    # Plot the line and confidence interval
+    # plt.plot(x_fill - window_size/2, means, 'r-', linewidth=4, alpha=0.5)
+    # plt.fill_between(x_fill - window_size/2, means - 2*std_devs, means + 2*std_devs, color='red', alpha=0.1)
+
 
     # Add labels with different font sizes
-    plt.xlabel('Sphericity', fontsize=20)
-    plt.ylabel('Neighbor Distance CV', fontsize=20)
-    plt.ylim(0, 0.75)
-    plt.xlim(0.5, 1.0)
-    plt.xticks(fontsize=16)
-    plt.yticks(fontsize=16)
-    plt.title('Sphericity vs. Neighbor Distance CV', fontsize=20)
-    plt.legend(fontsize=16)
+    plt.ylabel('Sphericity Difference', fontsize=25)
+    plt.xlabel('Neighbor Distance CV Difference', fontsize=25)
+    plt.xlim(-0.3, 0.3)
+    plt.ylim(-0.2, 0.2)
+    plt.yticks([-0.15, 0.0, 0.15], fontsize=25)
+    plt.xticks([-0.20, 0.0, 0.20], fontsize=25)
+    plt.tick_params(axis='both', width=2, length=10)
+    plt.title('Sphericity Difference vs.\nNeighbor Distance CV Difference', fontsize=30)
+    # plt.legend(fontsize=20, markerscale=3)
     plt.tight_layout()
     # Show the plot
     plt.show()
@@ -152,7 +196,7 @@ def plot_data(ball_data):
 if __name__ == '__main__':
     #get the folder they are in
     folder = filedialog.askdirectory(title='Select the folder')
-
+    print(folder)
     # Get the data
     data = get_data(folder + '/balls.pdb', folder + '/aw/aw_logs.csv', folder + '/pow/pow_logs.csv')
     # Plot the data
