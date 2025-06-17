@@ -120,7 +120,7 @@ def project_to_hyperboloid(twoD_points, small_ball_loc, surf_func, plane_normal,
 
 
 # Build method. Makes the mesh for the surface and calculates the simplices between them
-def build_surf(locs, rads, epnts, res, net_type, sfunc=None):
+def build_surf(locs, rads, epnts, res, net_type, sfunc=None, perimeter=None, surf_loc=None, surf_norm=None):
     """
     Main build method for constructing surfaces between two atoms/balls.
 
@@ -145,6 +145,12 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None):
         Type of network being constructed ('prm', 'pow', or other)
     sfunc : callable, optional
         Pre-calculated surface function. If None, will be calculated internally
+    perimeter : list, optional
+        Pre-calculated perimeter. If None, will be calculated internally
+    surf_loc : numpy.ndarray, optional
+        Location of the surface plane. If None, will be calculated internally
+    surf_norm : numpy.ndarray, optional
+        Normal vector of the surface plane. If None, will be calculated internally
 
     Returns
     -------
@@ -182,7 +188,12 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None):
         flat = True
 
     # Build the perimeter of the surface
-    perimeter, surf_loc, surf_norm = build_perimeter(locs, rads, epnts=epnts, net_type=net_type)
+    if perimeter is None:
+        perimeter, surf_loc, surf_norm = build_perimeter(locs, rads, epnts=epnts, net_type=net_type)
+    
+    # If the surface location and normal are not provided, calculate them
+    if surf_loc is None or surf_norm is None:
+        return
 
     # Get the center of mass for the surface
     surf_com, filter_hard = get_com(locs, rads, perimeter=perimeter, surf_loc=surf_loc, surf_norm=surf_norm, flat=flat,
