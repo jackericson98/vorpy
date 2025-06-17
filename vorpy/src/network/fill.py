@@ -73,9 +73,9 @@ def calc_surf_point_abcs(locs, point, func):
 def calc_surf_point(locs, point, func):
     """
     Projects a vector through the reference point and the smaller surface atom's center onto the surface
-    :param func: Implicit function for the hyperboloid surface between the atoms
-    :param locs: Smaller atom's location used for projection onto the surface
+    :param locs: Location of the balls used to construct the surface with the smaller ball first
     :param point: Reference point to be projected through
+    :param func: Implicit function for the hyperboloid surface between the atoms
     :return: The point on the surface
     """
     vi, vn, a, b, c = calc_surf_point_abcs(np.array(locs), np.array(point), np.array(func))
