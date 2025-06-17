@@ -448,61 +448,42 @@ def calc_tetra_inertia(ps, mass):
 
 
 @jit(nopython=True)
-def calc_tri(p0, p1, p2, return_normal=False):
-    """Calculate the area and normal vector of a triangle defined by three points.
+def calc_tri(points):
+    """Calculate the area of a triangle formed by three 3D points.
 
-    This function computes both the area of a triangle and its unit normal vector.
-    The normal vector is calculated using the cross product of two edges of the triangle.
+    This function computes the area of a triangle by:
+    1. Creating two vectors from the points
+    2. Taking their cross product to get a vector perpendicular to the triangle
+    3. Taking half the magnitude of this vector
 
     Parameters
     ----------
-    p0 : numpy.ndarray
-        First vertex of the triangle as [x, y, z] coordinates
-    p1 : numpy.ndarray
-        Second vertex of the triangle as [x, y, z] coordinates
-    p2 : numpy.ndarray
-        Third vertex of the triangle as [x, y, z] coordinates
-    return_normal : bool, optional
-        If True, return the unit normal vector of the triangle
+    points : list of array-like
+        List containing three vertices of the triangle, each as [x, y, z] coordinates
 
     Returns
     -------
-    tuple
-        A tuple containing:
-        - float: Area of the triangle
-        - numpy.ndarray: Unit normal vector of the triangle
+    float
+        The area of the triangle formed by the three input points
+
+    Notes
+    -----
+    - The points should be provided in any order
+    - The result is always positive
+    - Uses the cross product formula: Area = 0.5 * |AB × AC|
 
     Examples
     --------
-    >>> import numpy as np
-    >>> p0 = np.array([0, 0, 0])
-    >>> p1 = np.array([1, 0, 0])
-    >>> p2 = np.array([0, 1, 0])
-    >>> area, normal = calc_tri(p0, p1, p2, return_normal=True)
-    >>> print(f"Area: {area:.2f}")
-    Area: 0.50
-    >>> print(f"Normal: {normal}")
-    Normal: [0. 0. 1.]
+    >>> points = [[0, 0, 0], [1, 0, 0], [0, 1, 0]]
+    >>> calc_tri(points)
+    0.5
     """
-    # Calculate two edges of the triangle
-    edge1 = p1 - p0
-    edge2 = p2 - p0
+    # Get the two triangles vectors
+    ab = [points[0][0] - points[1][0], points[0][1] - points[1][1], points[0][2] - points[1][2]]
+    ac = [points[0][0] - points[2][0], points[0][1] - points[2][1], points[0][2] - points[2][2]]
 
-    # Calculate the cross product to get the normal vector
-    normal = np.cross(edge1, edge2)
-    
-    # Calculate the area (half the magnitude of the cross product)
-    area = np.linalg.norm(normal) / 2.0
-
-    # Normalize the normal vector
-    if area > 0:
-        normal = normal / (2.0 * area)
-
-    # Return the area and normal vector if requested
-    if return_normal:
-        return area, normal
-    else:
-        return area
+    # Return half the cross product between the two vectors
+    return 0.5 * np.linalg.norm((np.cross(ab, ac)))
 
 
 def calc_com(points, masses=None):
