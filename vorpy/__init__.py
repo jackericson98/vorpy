@@ -1,5 +1,5 @@
 """
-VOROPY - Voronoi analysis of molecular structures
+VORPY - Voronoi analysis of molecular structures
 """
 
 import os

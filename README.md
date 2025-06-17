@@ -27,7 +27,7 @@ To run VorPy through the command line follow the basic command line structure (s
 
 ## Documentation
 
-For detailed documentation, please visit [the documentation website](https://jackericson98.github.io/voropy/).
+For detailed documentation, please visit [the documentation website](https://jackericson98.github.io/vorpy/).
 
 1. **Input File Name**: The name of the ball file with the extension and the folder stripped. This will be the name of the folder that will hold the output files and will hold each of the group folders.
 2. **Input File Information**: Displays the general information about the input file and the groupings within it.
@@ -173,12 +173,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you use VORPY in your research, please cite:
 
 ```bibtex
-@software{voropy2024,
+@software{vorpy2024,
   author = {John Ericson},
-  title = {VOROPY: A Python package for Voronoi analysis of molecular structures},
+  title = {VORPY: A Python package for Voronoi analysis of molecular structures},
   year = {2024},
   publisher = {GitHub},
-  url = {https://github.com/jackericson98/voropy}
+  url = {https://github.com/jackericson98/vorpy}
 }
 ```
 

@@ -5,13 +5,13 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="vorpy3",
-    version="1.0.10",
+    version="3.0.0",
     author="John Ericson",
     author_email="jackericson98@gmail.com",
     description="A Python package for Voronoi analysis of molecular structures",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/jackericson98/voropy",
+    url="https://github.com/jackericson98/vorpy",
     packages=find_packages(),
     package_data={
         'vorpy': ['data/*.pdb', 'data/*.gro', 'data/*.txt'],
