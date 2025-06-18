@@ -3,10 +3,39 @@ import csv
 import tkinter as tk
 from tkinter import filedialog
 import pandas as pd
-from System.sys_funcs.calcs.calcs import calc_dist
+
+
+
 import numpy as np
 from matplotlib_venn import venn2
 import matplotlib.pyplot as plt
+
+
+def calc_dist(l0, l1):
+    """Calculate the Euclidean distance between two points in n-dimensional space.
+
+    Parameters
+    ----------
+    l0 : array-like
+        First point coordinates as an n-dimensional array or list
+    l1 : array-like
+        Second point coordinates as an n-dimensional array or list with same dimensionality as l0
+
+    Returns
+    -------
+    float
+        The Euclidean distance between the two points
+
+    Examples
+    --------
+    >>> calc_dist([0, 0, 0], [1, 1, 1])
+    1.7320508075688772
+    >>> import numpy as np
+    >>> calc_dist(np.array([0, 0, 0]), np.array([1, 1, 1]))
+    1.7320508075688772
+    """
+
+    return np.sqrt(sum(np.square(np.array(l0) - np.array(l1))))
 
 
 def get_information(vpy_fl=None, vta_fl=None, vvv_fl=None, pdb_fl=None):

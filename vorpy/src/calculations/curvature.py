@@ -168,5 +168,8 @@ def calc_surf_tri_curvs(func, points, tris, curvature_type='gauss'):
             curv = mean_curvature(func, centroid)
             
         tri_curvs.append(curv)
+    
+    # Calculate the max of the tri curves if it isn't empty
+    max_tcs = max(tri_curvs) if tri_curvs else None
 
-    return tri_curvs, max(tri_curvs)
+    return tri_curvs, max_tcs
