@@ -98,14 +98,14 @@ def calc_vert_case_1(Fs, l0, r0):
     F, F_2, F10, F11, F20, F21, F30, F31 = Fs
 
     # # Compute the coefficients of the quadratic equation for the radius R
-    a = ((F11 ** 2 + F21 ** 2 + F31 ** 2) / F_2) - 1  # Quadratic term
-    b = 2 * (((F10 * F11 + F20 * F21 + F30 * F31) / F_2) - r0)  # Linear term
-    c = ((F10 ** 2 + F20 ** 2 + F30 ** 2) / F_2) - r0 ** 2  # Constant term
+    # a = ((F11 ** 2 + F21 ** 2 + F31 ** 2) / F_2) - 1  # Quadratic term
+    # b = 2 * (((F10 * F11 + F20 * F21 + F30 * F31) / F_2) - r0)  # Linear term
+    # c = ((F10 ** 2 + F20 ** 2 + F30 ** 2) / F_2) - r0 ** 2  # Constant term
 
     # Compute the coefficients of the quadratic equation for the radius R
-    # a = (F11 ** 2 + F21 ** 2 + F31 ** 2) - F_2  # Quadratic term
-    # b = 2 * (((F10 * F11 + F20 * F21 + F30 * F31)) - r0 * F_2)  # Linear term
-    # c = (F10 ** 2 + F20 ** 2 + F30 ** 2) - F_2 *r0 ** 2  # Constant term
+    a = (F11 ** 2 + F21 ** 2 + F31 ** 2) - F_2  # Quadratic term
+    b = 2 * ((F10 * F11 + F20 * F21 + F30 * F31) - r0 * F_2)  # Linear term
+    c = (F10 ** 2 + F20 ** 2 + F30 ** 2) - F_2 * r0 ** 2  # Constant term
     # Initialize an empty list to store the vertices
     verts = []
 
