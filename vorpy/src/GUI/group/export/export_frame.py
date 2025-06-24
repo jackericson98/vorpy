@@ -64,8 +64,9 @@ class ExportFrame(ttk.LabelFrame):
         """Handle changes to the export size selection."""
         size = self.export_size.get()
         if size != "Custom":
-            self.gui.group_settings[self.group_name_entry.get()]['export_settings']['size'] = size
-            self.gui.group_settings[self.group_name_entry.get()]['export_settings']['custom_settings'] = None
+            # Update local settings
+            self.settings['size'] = size
+            self.settings['custom_settings'] = None
             self.custom_button.state(['!pressed'])
     
     def _choose_export_location(self):
@@ -74,14 +75,17 @@ class ExportFrame(ttk.LabelFrame):
         if directory:
             self.export_location.delete(0, tk.END)
             self.export_location.insert(0, directory)
-            self.gui.group_settings[self.group_name_entry.get()]['export_settings']['directory'] = directory
+            # Update local settings
+            self.settings['directory'] = directory
     
     def _open_custom_settings(self):
         """Open the custom export settings window."""
         custom_window = CustomExportWindow(self, self.group_name_entry.get())
         self.custom_button.state(['pressed'])
         self.export_size.set("")  # Deselect radio buttons
-        self.gui.group_settings[self.group_name_entry.get()]['export_settings']['size'] = "Custom"
+        
+        # Update local settings
+        self.settings['size'] = "Custom"
         
         # Wait for the window to close
         self.wait_window(custom_window)
