@@ -303,7 +303,6 @@ class SystemFrame:
             directory = filedialog.askdirectory(
                 title="Select Output Directory"
             )
-        print(directory)
         if directory:
             if self.gui is not None:
                 self.gui.output_dir = directory
