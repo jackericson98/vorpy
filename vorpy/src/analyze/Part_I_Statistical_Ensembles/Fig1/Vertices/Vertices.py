@@ -1,8 +1,18 @@
 import numpy as np
 from numpy import array as ar
 import matplotlib.pyplot as plt
-from Visualize.mpl_visualize import plot_balls, plot_verts
-from System.sys_funcs.calcs.vert import calc_vert
+import sys
+import os
+
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
+
+from vorpy.src.visualize.mpl_visualize import plot_balls, plot_verts
+from vorpy.src.calculations.vert import calc_vert
 
 """
 Vertex Plotting: Set the 'vertex_type' Variable From the list below
