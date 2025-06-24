@@ -23,11 +23,14 @@ def write_off_verts(net, verts, file_name, atom_type=None, directory=None, color
     Returns:
         None: Creates an OFF file with the specified vertex data
     """
+    
     # If no color is given, make the color random
     if color is None:
-        color = [1, 0, 0]
-    if color in color_dict:
+        color = 'red'
+    if color in color_dict.keys():
         color = color_dict[color]
+    else:
+        color = [1, 0, 0]
     # Check to see if a directory is given
     if directory is not None:
         os.chdir(directory)
