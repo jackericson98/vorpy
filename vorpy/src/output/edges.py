@@ -19,7 +19,7 @@ def write_edges(net, edges, file_name, color=None, directory=None):
         return
     # If no color is given, make the color random
     if color is None:
-        color = [0.5, 0.5, 0.5]
+        color = 'gray'
     if color in color_dict:
         color = color_dict[color]
     # Check that the edge has been drawn
