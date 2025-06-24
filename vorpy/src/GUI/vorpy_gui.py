@@ -39,7 +39,7 @@ class VorPyGUI(tk.Tk):
         }
 
         # Set up the files dictionary
-        self.files = {'sys_name': 'No File Loaded', 'base_file': '', 'other_files': [], 'dir': '' }
+        self.files = {'sys_name': 'No File Loaded', 'base_file': '', 'other_files': [], 'dir': ''}
         self.exports = {'set_atoms': True, 'info': True, 'pdb': True, 'mol': False, 'cif': False, 'xyz': False,
                         'txt': False}
         self.radii_changes = []
@@ -104,6 +104,7 @@ class VorPyGUI(tk.Tk):
 
     def choose_output_directory(self):
         self.sys.files['dir'] = filedialog.askdirectory(title='Choose Output Directory')
+        self.output_dir = self.sys.files['dir']
         print(f"Output directory selected: {self.sys.files['dir']}")
 
     def run_group(self, group_name):
@@ -172,10 +173,10 @@ class VorPyGUI(tk.Tk):
         # Create a group if None exists
         if len(self.group_settings) == 0:
             self.sys.create_group()
-        
-        # Update the output directories in the gui
-        self.system_frame.choose_output_directory(self.sys.files['dir'])
-        
+
+        # Set the output directory 
+        self.sys.files['dir'] = self.output_dir
+
         # Update the radii changes in the system
         for change in self.radii_changes:
             self.sys.set_radii(change)
