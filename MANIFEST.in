@@ -2,6 +2,8 @@ include LICENSE
 include README.md
 include pyproject.toml
 include requirements.txt
+include build.bat
+include build.sh
 
 recursive-include vorpy *.py
 recursive-include vorpy *.txt
