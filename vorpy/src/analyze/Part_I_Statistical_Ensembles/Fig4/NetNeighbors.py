@@ -2,12 +2,21 @@ import os
 import tkinter as tk
 from tkinter import filedialog
 import numpy as np
-from Data.Analyze.tools.batch.get_files import get_files
-from Data.Analyze.tools.compare.read_logs2 import read_logs2
-from Data.Analyze.tools.compare.read_logs import read_logs
-from vorpy.src.system.system import System
 import matplotlib.pyplot as plt
 import random
+
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
+from vorpy.src.analyze.tools.batch.get_files import get_files
+from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
+from vorpy.src.analyze.tools.compare.read_logs import read_logs
+from vorpy.src.system.system import System
 
 
 def get_net_neighbors(pdb, aw, pow):

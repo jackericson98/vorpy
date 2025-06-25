@@ -2,6 +2,7 @@ import csv
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 def convert_point(string_point):
     vals = string_point.split(',')
     return float(vals[0][1:]), float(vals[1]), float(vals[2][:-1])

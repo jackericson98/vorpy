@@ -2,7 +2,7 @@ import csv
 import tkinter as tk
 from tkinter import filedialog
 import matplotlib.pyplot as plt
-import numpy as np  # Ensure numpy is imported
+import numpy as np
 from matplotlib.ticker import LogLocator, FuncFormatter
 
 

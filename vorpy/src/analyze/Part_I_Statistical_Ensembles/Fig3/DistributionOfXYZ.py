@@ -1,5 +1,14 @@
-from Data.Analyze.tools.batch.compile_logs import get_logs_and_pdbs
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
+from vorpy.src.analyze.tools.batch.compile_logs import get_logs_and_pdbs
 from vorpy.src.system.system import System
+
 import csv
 
 

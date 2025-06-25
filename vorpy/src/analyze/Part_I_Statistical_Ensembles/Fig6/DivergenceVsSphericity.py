@@ -8,6 +8,14 @@ from matplotlib import pyplot as plt
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 from scipy.optimize import curve_fit
+
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
 from vorpy.src.inputs import read_pdb_line
 from vorpy.src.calculations import calc_sphericity, calc_isoperimetric_quotient
 from vorpy.src.calculations import sort_lists

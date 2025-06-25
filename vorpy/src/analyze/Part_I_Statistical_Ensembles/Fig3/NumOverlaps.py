@@ -4,10 +4,19 @@ import numpy as np
 import tkinter as tk
 from tkinter import filedialog
 import matplotlib.pyplot as plt
+
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
 from vorpy.src.system.system import System
-from System.sys_funcs.calcs.calcs import calc_dist
-from Data.Analyze.tools.batch.get_files import get_files
-from Data.Analyze.tools.compare.read_logs2 import read_logs2
+from vorpy.src.calculations.calcs import calc_dist
+from vorpy.src.analyze.tools.batch.get_files import get_files
+from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
 from scipy.optimize import curve_fit
 
 

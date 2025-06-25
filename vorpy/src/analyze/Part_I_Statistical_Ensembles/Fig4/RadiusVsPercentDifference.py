@@ -1,17 +1,25 @@
 import csv
-import os
+import numpy as np
 from os import path
 import tkinter as tk
 from tkinter import filedialog
 from scipy import stats
 from matplotlib import pyplot as plt
+from scipy.optimize import curve_fit
+
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
 from vorpy.src.system.system import System
 from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
 from vorpy.src.analyze.tools.compare.read_logs import read_logs
 from vorpy.src.inputs import read_pdb_line
-from vorpy.src.output import make_pdb_line
-import numpy as np
-from scipy.optimize import curve_fit
+from vorpy.src.output.pdb import make_pdb_line
 from vorpy.src.analyze.tools.batch.get_files import get_files
 
 
