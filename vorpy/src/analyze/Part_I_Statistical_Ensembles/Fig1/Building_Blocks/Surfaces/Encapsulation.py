@@ -1,5 +1,14 @@
 import matplotlib.pyplot as plt
-from Visualize.mpl_visualize import plot_balls
+
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
+from vorpy.src.visualize.mpl_visualize import plot_balls
 
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')

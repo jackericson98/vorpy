@@ -1,7 +1,16 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import random
-from System.sys_funcs.calcs.calcs import calc_dist
+
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
+from vorpy.src.calculations.calcs import calc_dist
 
 # Set grid and circle parameters
 grid_size = 5  # Grid dimensions

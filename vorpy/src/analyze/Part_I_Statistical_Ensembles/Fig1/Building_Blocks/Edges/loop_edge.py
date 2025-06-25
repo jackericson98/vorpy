@@ -1,8 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from System.Network.edges.build_edge import build_edge
-from Visualize.mpl_visualize import plot_balls, plot_edges, plot_verts
 
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
+from vorpy.src.visualize.mpl_visualize import plot_balls, plot_edges, plot_verts
+from vorpy.src.network.build_edge import build_edge
 
 atoms = [([0, 0, 10.25], 10), ([0, 0, -10.25], 10), ([0, 0, 0], 0.25)]
 # verts = [[0.5, 0.5, 0],
