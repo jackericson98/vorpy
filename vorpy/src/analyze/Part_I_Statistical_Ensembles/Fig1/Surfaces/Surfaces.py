@@ -10,6 +10,9 @@ vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..',
 sys.path.append(vorpy_root)
 
 from vorpy.src.visualize.mpl_visualize import plot_balls, plot_verts, plot_edges, plot_surfs
+from vorpy.src.calculations.vert import calc_vert, calc_flat_vert
+from vorpy.src.network.build_edge import build_edge, build_edge_old
+from vorpy.src.network.build_surf import build_surf
 
 """
 Plotting Surfaces. Choose a surface type from below
