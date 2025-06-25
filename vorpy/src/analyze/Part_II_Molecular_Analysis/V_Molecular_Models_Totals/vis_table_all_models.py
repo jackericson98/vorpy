@@ -1,10 +1,18 @@
-from Data.Analyze.tools.plot_templates.table import table
 import tkinter as tk
 from tkinter import filedialog
+
 import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
 from vorpy.src.system.system import System
-from System.Group.group import Group
-from System.sys_funcs.calcs.sorting import get_sys_type
+from vorpy.src.group.group import Group
+from vorpy.src.analyze.tools.plot_templates.table import table
+from vorpy.src.calculations.sorting import get_sys_type
 
 
 def get_system_data(systems):

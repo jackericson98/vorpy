@@ -1,5 +1,3 @@
-from vorpy.src.output import make_pdb_line
-from vorpy.src.inputs import read_pdb_line
 from os import path
 import matplotlib.pyplot as plt
 import csv

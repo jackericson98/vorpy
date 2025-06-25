@@ -1,9 +1,18 @@
 import tkinter as tk
 from tkinter import filedialog
-from Data.Analyze.tools.compare.read_logs import read_logs
 import matplotlib.pyplot as plt
 import numpy as np
-from System.sys_objs.residue import nucleic_acids, amino_acids
+
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
+from vorpy.src.analyze.tools.compare.read_logs import read_logs
+from vorpy.src.chemistry.chemistry_interpreter import nucleo_names, amino_names
 from vorpy.src.system.system import System
 
 
@@ -24,7 +33,7 @@ if __name__ == '__main__':
     res_count = 0
     assignments = {}
     for i, atom in my_coarse_sys.atoms.iterrows():
-        if atom['res'].name in nucleic_acids:
+        if atom['res'].name in nucleo_names:
             res_count += 1
             if atom['element'].strip() != 'pb':
                 res_count = 1
@@ -33,7 +42,7 @@ if __name__ == '__main__':
                 assignments[i] = ' Rib'
             else:
                 assignments[i] = ' Nuc'
-        elif atom['res'].name in amino_acids:
+        elif atom['res'].name in amino_names:
             if atom['element'].strip() == 'pb':
                 assignments[i] = ' SC'
             else:

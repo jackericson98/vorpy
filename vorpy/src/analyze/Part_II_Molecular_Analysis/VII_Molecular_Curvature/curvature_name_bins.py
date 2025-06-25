@@ -4,11 +4,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tkinter as tk
 from tkinter import filedialog
+
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
 from vorpy.src.system.system import System
-from Data.Analyze.tools.compare.read_logs import read_logs
-from System.Group.group import Group
-from Data.Analyze.tools.plot_templates.box_whisker import box_whisker
-from Data.Analyze.tools.plot_templates.line import line_plot
+from vorpy.src.group.group import Group
+from vorpy.src.analyze.tools.compare.read_logs import read_logs
 
 combos = {'HG22': 'HG', 'HG21': 'HG', 'HG23': 'HG', 'HD1': 'HD', 'HD2': 'HD', 'HB1': 'HB', 'HG11': 'HG', 'CG1': 'CG',
           'CG2': 'CG', 'HG12': 'HG', 'HG13': 'HG', 'HW1': 'HW', 'HW2': 'HW', 'HH12': 'HH1', 'HH11': 'HH1',

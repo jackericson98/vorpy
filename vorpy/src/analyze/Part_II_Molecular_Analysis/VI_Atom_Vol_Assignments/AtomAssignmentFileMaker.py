@@ -10,14 +10,14 @@ from scipy.spatial import distance_matrix, ConvexHull
 from sklearn.metrics import silhouette_score
 import matplotlib.patches as patches
 
-# Add the project root directory to the Python path
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../"))
-sys.path.append(project_root)
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
 
-from Data.Analyze.tools.compare.read_logs2 import read_logs2
+from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
 from vorpy.src.chemistry.chemistry_interpreter import amino_names, nucleo_names, ion_names, sol_names
-from System.sys_objs.atom import get_element
-from System.sys_funcs.calcs.calcs import calc_com
+from vorpy.src.objects.atom import get_element
+from vorpy.src.calculations.calcs import calc_com
 
 
 def clustering_measures(full_coords, subsets, names, print_info=False):

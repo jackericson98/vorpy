@@ -2,10 +2,18 @@ import tkinter as tk
 import os
 from tkinter import filedialog
 
-from Data.Analyze.tools.compare.read_logs import read_logs
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
+from vorpy.src.analyze.tools.compare.read_logs import read_logs
 from vorpy.src.system.system import System
-from Data.Analyze.tools.plot_templates.scatter import scatter
-from Data.Analyze.tools.calcs import sort_lists
+from vorpy.src.analyze.tools.plot_templates.scatter import scatter
+from vorpy.src.analyze.tools.calcs import sort_lists
 
 
 # Get the logs and pdbs folder

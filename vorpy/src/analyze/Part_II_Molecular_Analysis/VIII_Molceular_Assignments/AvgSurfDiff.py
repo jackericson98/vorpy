@@ -2,10 +2,20 @@ import os
 import numpy as np
 import tkinter as tk
 from tkinter import filedialog
+
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
+
 from vorpy.src.system.system import System
-from Data.Analyze.tools.compare.read_logs import read_logs
-from System.Group.group import Group
-from Data.Analyze.tools.plot_templates.bar import bar
+from vorpy.src.group.group import Group
+from vorpy.src.analyze.tools.compare.read_logs import read_logs
+from vorpy.src.analyze.tools.plot_templates.bar import bar
 
 
 def surfs_per_diff(systems, logs, val='sa'):

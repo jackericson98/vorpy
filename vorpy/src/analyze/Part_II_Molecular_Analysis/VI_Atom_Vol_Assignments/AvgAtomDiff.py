@@ -3,12 +3,21 @@ import numpy as np
 import scipy as sp
 import tkinter as tk
 from tkinter import filedialog
-from vorpy.src.system.system import System
-from Data.Analyze.tools.compare.read_logs import read_logs
-from System.Group.group import Group
-from Data.Analyze.tools.plot_templates.bar import bar
-from Data.Analyze.tools.plot_templates.scatter import scatter
 import matplotlib.pyplot as plt
+
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
+from vorpy.src.system.system import System
+from vorpy.src.group.group import Group
+from vorpy.src.analyze.tools.plot_templates.bar import bar
+from vorpy.src.analyze.tools.plot_templates.scatter import scatter
+from vorpy.src.analyze.tools.compare.read_logs import read_logs
 
 
 def atoms_per_diff(systems, logs, val='volume'):

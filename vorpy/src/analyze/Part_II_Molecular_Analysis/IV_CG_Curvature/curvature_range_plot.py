@@ -1,10 +1,18 @@
-from System.sys_funcs.calcs.surf import calc_surf_point_curv, calc_surf_func
-from Data.Analyze.tools.plot_templates.line import line_plot
-from Visualize.mpl_visualize import plot_balls
-from System.sys_funcs.output.atoms import make_pdb_line
 import matplotlib.pyplot as plt
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
+from vorpy.src.calculations.surf import calc_surf_func
+from vorpy.src.calculations.calcs import calc_curvature
+from vorpy.src.analyze.tools.plot_templates.line import line_plot
+from vorpy.src.output import make_pdb_line
 
 
 # Generate a range of ratios and distances
@@ -33,7 +41,7 @@ for j in range(10):
         if large_atom_rad == 1:
             curvature = 0
         else:
-            curvature = calc_surf_point_curv(func, [center_point, 0, 0])
+            curvature = calc_curvature(func, [center_point, 0, 0])
         # Record the data
         data[distance][large_atom_rad] = curvature
         count += 1

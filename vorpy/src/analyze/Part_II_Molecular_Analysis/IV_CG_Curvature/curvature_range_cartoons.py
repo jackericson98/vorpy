@@ -1,9 +1,17 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.spatial import Voronoi, voronoi_plot_2d
-from System.Network.surfs.fill import calc_surf_point
-from System.sys_funcs.calcs.surf import calc_surf_func
-from System.sys_funcs.calcs.calcs import calc_dist
+
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
+from vorpy.src.network.fill import calc_surf_point
+from vorpy.src.calculations.surf import calc_surf_func
+from vorpy.src.calculations.calcs import calc_dist
 
 
 def get_vor_points(l1, r1, l2, r2, res=0.1, height=5):

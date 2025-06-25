@@ -1,13 +1,17 @@
-"""
-Outputs a list plot of the different atomic curvature assignments
-
-"""
-
 import tkinter as tk
 from tkinter import filedialog
-from Data.Analyze.tools.compare.read_logs import read_logs
 import matplotlib.pyplot as plt
 import numpy as np
+
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
+from vorpy.src.analyze.tools.compare.read_logs import read_logs
 
 root = tk.Tk()
 root.withdraw()

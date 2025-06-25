@@ -1,9 +1,18 @@
 import os
 import matplotlib.pyplot as plt
-from Data.Analyze.tools.compare.compare_files import compare_files
 import tkinter as tk
 from tkinter import filedialog
-from Data.Analyze.tools.plot_templates.bar import bar
+
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
+from vorpy.src.analyze.tools.compare.compare_files import compare_files
+from vorpy.src.analyze.tools.plot_templates.bar import bar
 
 """
 Plotting the totals for different schemes

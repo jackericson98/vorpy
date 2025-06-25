@@ -2,11 +2,19 @@ import os
 import numpy as np
 import tkinter as tk
 from tkinter import filedialog
+
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
 from vorpy.src.system.system import System
-from System.Group.group import Group
-from Data.Analyze.tools.plot_templates.bar import bar
-from Data.Analyze.tools.compare.read_logs import read_logs
-from Data.Analyze.tools.compare.get_res_data import residue_data
+from vorpy.src.group.group import Group
+from vorpy.src.analyze.tools.plot_templates.bar import bar
+from vorpy.src.analyze.tools.compare.read_logs import read_logs
+from vorpy.src.analyze.tools.compare.get_res_data import residue_data
 
 # pre_made_data = [
 #     ['cambrin', 2.657358947567952, 0.1701522540304929, 2.59465391164789, 0.1701522540304929, 0.7071402007950848, 0.059791991731881135, 2.3096433988252345, 0.21297727309940268],

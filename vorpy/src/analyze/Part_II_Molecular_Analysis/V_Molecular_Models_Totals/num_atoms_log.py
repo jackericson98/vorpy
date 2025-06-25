@@ -1,10 +1,19 @@
 import os
 import tkinter as tk
 from tkinter import filedialog
+
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
 from vorpy.src.system.system import System
-from System.Group.group import Group
-from System.sys_funcs.calcs.sorting import get_sys_type
-from Data.Analyze.tools.plot_templates.inline_plot import inline_plot
+from vorpy.src.group.group import Group
+from vorpy.src.calculations.sorting import get_sys_type
+from vorpy.src.analyze.tools.plot_templates.inline_plot import inline_plot
 
 
 if __name__ == '__main__':

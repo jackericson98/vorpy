@@ -4,8 +4,17 @@ import matplotlib.pyplot as plt
 from matplotlib.transforms import Affine2D
 import tkinter as tk
 from tkinter import filedialog
+
+import os
+import sys
+
+# Get the path to the root vorpy folder
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+# Add the root vorpy folder to the system path
+sys.path.append(vorpy_root)
+
 from vorpy.src.system.system import System
-from System.Group.group import Group
+from vorpy.src.group.group import Group
 #
 # # Points and labels
 # points = [1, 2, 4, 5, 6, 6.5, 7, 7.1, 8.5, 9.2, 10]
