@@ -10,66 +10,60 @@ vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..',
 # Add the root vorpy folder to the system path
 sys.path.append(vorpy_root)
 
-from vorpy.src.system.system import System
-from vorpy.src.group.group import Group
-from vorpy.src.output.atoms import make_pdb_line
-from vorpy.src.analyze.tools.compare.read_logs import read_logs
+
+from vorpy.src.output.pdb import make_pdb_line
+from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
+from vorpy.src.inputs.pdb import read_pdb_line
+
+def get_atom_dict(logs_file):
+    atom_dict = {}
+    logs = read_logs2(logs_file)
+    # Get the atom dictionary
+    for i, _ in logs['atoms'].iterrows():
+        atom_dict[(_['Name'], _['Residue'], _['Residue Sequence'])] = (_['Maximum Mean Curvature'], _['Maximum Gaussian Curvature'], _['Average Mean Surface Curvature'], _['Average Gaussian Surface Curvature'])
+    return atom_dict
 
 
-# Step 1 get the systems
-# Step 2 get the logs
-# Step three output pdb with curvature at b-factor
-# Output pymol script for ease of use
-
-
-def assign_atom_color(system, values, val='curv', directory=None):
-    if directory is None:
-        directory = './'
-    with open(directory + system.name + '_colored_by_' + val + '.pdb', 'w') as my_pdb:
-        for i, a in system.atoms.iterrows():
-            # Get the location string
-            x, y, z = a['loc']
-            # Get the information from the atom in writable format
-            try:
-                tfact = values[a['num']]
-            except KeyError:
-                tfact = 0
-            chain_name = a['chn'].name
-            if a['chn'].name == 'SOL':
-                chain_name = 'Z'
-                tfact = 0
-            # Write the atom information
-            my_pdb.write(make_pdb_line(ser_num=i, name=a['name'], res_name=a['res'].name, chain=chain_name,
-                                       res_seq=a['res_seq'], x=x, y=y, z=z, tfact=tfact, elem=a['element']))
-
+def color_pdb_by_curvature(pdb, values, output_folder=None):
+    if output_folder is None:
+        output_folder = os.path.dirname(pdb)
+    output_pdb = output_folder + '/' + os.path.basename(pdb)[:-4] + '_colored_by_curvature.pdb'
+    with open(pdb, 'r') as read_pdb, open(output_pdb, 'w') as write_pdb:
+        for line in read_pdb:
+            if line[:4] == 'ATOM':
+                a = read_pdb_line(line)
+                if a['residue_name'] == 'SOL' or a['residue_name'] == 'CL':
+                    write_pdb.write(line)
+                    continue
+                if (a['atom_name'], a['residue_name'], a['residue_sequence_number']) in values:
+                    tfact = values[(a['atom_name'], a['residue_name'], a['residue_sequence_number'])][2]
+                else:
+                    tfact = 0
+                
+                # Handle empty chain identifier
+                chain_id = a['chain_identifier']
+                if not chain_id or chain_id.strip() == "":
+                    chain_id = "A"  # Default to chain A if no chain is specified
+                
+                write_pdb.write(make_pdb_line(ser_num=a['atom_serial_number'], name=a['atom_name'], res_name=a['residue_name'], chain=chain_id,
+                                       res_seq=a['residue_sequence_number'], x=a['x_coordinate'], y=a['y_coordinate'], z=a['z_coordinate'], tfact=tfact, elem=a['element_symbol']))
+    
+def write_pymol_script(output_folder, name, low_val=0, high_val=0):
+    with open(output_folder + '/' + name + '_set_colors.pml', 'w') as pymol_script:
+        pymol_script.write('spectrum b, red_green, minimum=0, maximum={}'.format(high_val))
 
 if __name__ == '__main__':
     # Get the dropbox folder
     root = tk.Tk()
     root.withdraw()
     root.wm_attributes('-topmost', 1)
-    folder = filedialog.askdirectory(title='Choose Logs Pdbs Folder')
-    # Create the systems
-    systems = []
-    for root, dir, files in os.walk(folder):
-        for file in files:
-            if file[-3:] == 'pdb':
-                my_sys = System(file=folder + '/' + file)
-                my_sys.groups = [Group(sys=my_sys, residues=my_sys.residues)]
-                systems.append(my_sys)
-    # Sort atoms by number of atoms
-    num_atoms = [len(_.atoms) for _ in systems]
-    systems = [x for _, x in sorted(zip(num_atoms, systems))]
+    pdb_file = filedialog.askopenfilename(title='Choose PDB File')
+    logs_file = filedialog.askopenfilename(title='Choose Logs File')
+    output_folder = filedialog.askdirectory(title='Choose Output Folder')
 
-    # Set the output folder
-    output_folder = filedialog.askdirectory(title='Choose Output Folder') + '/'
-    # Create the outputs by system
-    my_maxes = []
-    for my_sys in systems:
-        # Read the logs
-        my_log_vals = read_logs(folder + '/' + my_sys.name + '_vor_logs.csv', return_dict=True)
-        my_maxes.append(max([_['max curv'] for _ in my_log_vals['atoms']]))
-        assign_atom_color(my_sys, {_['num']: _['max curv'] for _ in my_log_vals['atoms']}, directory=output_folder)
-    # create the coloring script
-    with open(output_folder + 'set_colors.pml', 'w') as pymol_script:
-        pymol_script.write('spectrum b, green_yellow_red, minimum=0, maximum={}'.format(max(my_maxes)))
+    atom_dict = get_atom_dict(logs_file)
+    max_val = max(atom_dict.values())
+    color_pdb_by_curvature(pdb_file, atom_dict, output_folder)
+    write_pymol_script(output_folder, name=os.path.basename(pdb_file)[:-4], low_val=0, high_val=max_val)
+    print('Done!')
+
