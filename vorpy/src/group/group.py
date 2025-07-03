@@ -151,6 +151,10 @@ class Group:
         self.layer_surfs = None         # Layer Surfaces     :    List of lists of surfaces corresponding to layers
         self.layer_info = None          # Layer Information  :    List of information (atoms, SA, vol) for each layer
 
+        # Set the output directory
+        if self.sys.files['dir'] is None:
+            self.sys.set_output_directory()
+
         # Get the settings
         self.get_settings(surf_res=surf_res, surf_col=surf_col, surf_scheme=surf_scheme, max_vert=max_vert,
                           box_size=box_size, net_type=net_type, build_type=build_type, num_splits=num_splits,
