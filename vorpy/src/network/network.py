@@ -269,8 +269,8 @@ class Network:
             percentage = min(i / len(self.edges) * 100, 100)
             my_time = time.perf_counter() - self.metrics['start']
             h, m, s = get_time(my_time)
-            print("\rRun Time = {}:{:02d}:{:2.2f} - Process: building edges: edge {} - {} - {:.2f} %"
-                  .format(int(h), int(m), round(s, 2), i, edge['balls'], percentage), end="")
+            print("\rRun Time = {}:{:02d}:{:2.2f} - Process: building edges: edge {} - {:.2f} %"
+                  .format(int(h), int(m), round(s, 2), i, percentage), end="")
 
             # Build the edge depending on if it is straight or not
             # try:
