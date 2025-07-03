@@ -184,5 +184,5 @@ If you use VORPY in your research, please cite:
 
 ## Contact
 - Email: [jericson1@gsu.edu](mailto:jericson1@gsu.edu)
-- Site: https://cas.gsu.edu/profile/greg-poon/
+- Site: [ericsonlabs.com](ericsonlabs.com)
 - Phone: +1 (404)-413-5491
