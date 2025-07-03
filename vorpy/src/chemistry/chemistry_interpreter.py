@@ -31,11 +31,11 @@ amino_names = {
 
 nucleo_names = {
     # Nucleo bases
-    **{_: 'A' for _ in {'da', 'a', 'adenine', 'adenin', 'ade'}},                        # Adenine
-    **{_: 'C' for _ in {'dc', 'c', 'cytosine', 'cytosin', 'cyto'}},                     # Cytosine
-    **{_: 'G' for _ in {'dg', 'g', 'guanine', 'guanin', 'guan'}},                       # Guanine
-    **{_: 'T' for _ in {'dt', 't', 'thymine', 'thymi', 'thym'}},                        # Thymine
-    **{_: 'U' for _ in {'du', 'u', 'uracil', 'uraci', 'ura'}},                          # Uracil
+    **{_: 'A' for _ in {'da', 'a', 'adenine', 'adenin', 'ade', 'adn', 'ad'}},           # Adenine
+    **{_: 'C' for _ in {'dc', 'c', 'cytosine', 'cytosin', 'cyto', 'cyt', 'cy'}},        # Cytosine
+    **{_: 'G' for _ in {'dg', 'g', 'guanine', 'guanin', 'guan', 'gua', 'gu'}},          # Guanine
+    **{_: 'T' for _ in {'dt', 't', 'thymine', 'thymi', 'thym', 'th', 'th'}},            # Thymine
+    **{_: 'U' for _ in {'du', 'u', 'uracil', 'uraci', 'ura', 'ur'}},                    # Uracil
 }
 
 ion_names = {
