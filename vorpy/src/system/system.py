@@ -216,7 +216,7 @@ class System:
             # Update the vpy_dir and root_dir in defaults
             defaults['vpy_dir'] = two_dirs_up
             defaults['root_dir'] = two_dirs_up
-
+        # Set the files if they arent set yet
         if self.files is None:
             self.files = defaults
         # Go through the files and see if they need to be set
@@ -260,6 +260,10 @@ class System:
             self.name = path.basename(self.files['base_file'])[:-4]
         except TypeError:
             self.name = "my_system"
+
+        # Set the output directory 
+        if self.files['dir'] is None or 'No System Chosen' in self.files['dir']:
+            self.set_output_directory()
 
     def load_sys(self, file=None, simple=False, make_dir=True):
         """Load and set the base file for the system.
