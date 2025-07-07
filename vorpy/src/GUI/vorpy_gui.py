@@ -38,6 +38,9 @@ class VorPyGUI(tk.Tk):
             'class 4': ("Arial", 14)
         }
 
+        # Set the output directory
+        self.output_dir = None
+
         # Set up the files dictionary
         self.files = {'sys_name': 'No File Loaded', 'base_file': '', 'other_files': [], 'dir': ''}
         self.exports = {'set_atoms': True, 'info': True, 'pdb': True, 'mol': False, 'cif': False, 'xyz': False,
