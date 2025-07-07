@@ -217,7 +217,10 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None):
     # Create the surface value multiplier
     if color_factor == 'log':
         def multi(val):
-            return np.log(val + 1)
+            try:
+                return np.log(val + 1)
+            except RuntimeWarning:
+                return np.log(abs(val + 1))
     elif color_factor == 'sqr':
         def multi(val):
             return val ** 2
@@ -240,7 +243,7 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None):
         # Check if the tri_dists have been calculated before
         tri_colors = [my_cmap(multi(_)) for _ in surf['tris_ins_out']]
 
-    elif color_scheme == 'mean' or color_scheme == 'mean_curv':
+    elif color_scheme.lower() == 'mean' or color_scheme.lower() == 'mean_curv' or color_scheme.lower() == 'mean curvature':
         # Check if the function is None
         if surf['func'] is None:
             a0, a1 = [surf['net'].balls.iloc[_] for _ in surf['balls']]
@@ -260,7 +263,7 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None):
 
         # Set the colors
         tri_colors = [my_cmap(multi(_)) for _ in my_curvs]
-    elif color_scheme == 'gauss' or color_scheme == 'gauss_curv':
+    elif color_scheme.lower() == 'gauss' or color_scheme.lower() == 'gauss_curv' or color_scheme.lower() == 'gaussian curvature' or color_scheme.lower() == 'gaus':
         # Check if the function is None
         if surf['func'] is None:
             a0, a1 = [surf['net'].balls.iloc[_] for _ in surf['balls']]
@@ -275,6 +278,9 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None):
         # First check if the surface is flat
         if surf['flat'] or surf['gauss_curv'] == 0:
             my_curvs = [0] * len(surf['tris'])
+        elif max_val is None or max_val == 0:
+            max_val = max(tri_curvs)
+            my_curvs = [curv/max_val for curv in tri_curvs]
         else:
             my_curvs = [curv/max_val for curv in tri_curvs]
 
