@@ -68,16 +68,18 @@ class ColorSettingsWindow(tk.Toplevel):
                                                                 'Overlapping', 'No Scheme'], state="readonly", width=15)
         # Set the initial value based on the current setting
         scheme_translations = {
-            'mean_curv': 'Mean Curvature',
-            'mean curvature': 'Mean Curvature',
-            'gaus_curv': 'Gaussian Curvature',
-            'gaussian curvature': 'Gaussian Curvature',
-            'dist': 'Distance',
-            'distance': 'Distance',
-            'olap': 'Overlapping',
-            'overlapping': 'Overlapping',
-            'none': 'No Scheme',
-            'no scheme': 'No Scheme'
+            'mean': 'mean',
+            'mean_curv': 'mean',
+            'mean curvature': 'mean',
+            'gauss': 'gauss',
+            'gaus_curv': 'gauss',
+            'gaussian curvature': 'gauss',
+            'dist': 'dist',
+            'distance': 'dist',
+            'olap': 'olap',
+            'overlapping': 'olap',
+            'none': 'none',
+            'no scheme': 'none'
         }
         current_value = default_settings['surf_scheme']
         display_value = scheme_translations[current_value.lower()]
