@@ -214,6 +214,8 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None):
         my_cmap = mpl.cm.get_cmap(color_map)
     except AttributeError:
         my_cmap = mpl.cm.get_cmap(color_map)
+    except ValueError:
+        my_cmap = mpl.cm.get_cmap(color_map.capitalize())
     # Create the surface value multiplier
     if color_factor == 'log':
         def multi(val):
