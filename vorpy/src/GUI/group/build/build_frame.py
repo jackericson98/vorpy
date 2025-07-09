@@ -29,7 +29,8 @@ class BuildFrame(ttk.LabelFrame):
                 'surf_scheme': 'mean_curv',
                 'surf_fact': 'log',
                 'vert_col': 'red',
-                'edge_col': 'grey'
+                'edge_col': 'grey',
+                'conc_col': False
             }
         }
         self.color_settings = None
