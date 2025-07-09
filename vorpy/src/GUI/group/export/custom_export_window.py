@@ -150,7 +150,8 @@ class CustomExportWindow(tk.Toplevel):
             'group_vars': {fmt: self.group_vars[fmt].get() for fmt in self.formats},
             'surrounding_vars': {fmt: self.surrounding_vars[fmt].get() for fmt in self.formats},
         }
-        self.parent.gui.group_settings[self.group_name]['export_settings']['custom_settings'] = self.settings
+        # Update the export frame's settings directly
+        self.parent.settings['custom_settings'] = self.settings
         self.destroy()
 
     def _on_cancel(self):
