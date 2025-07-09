@@ -67,7 +67,7 @@ def export_info(grp, directory=None):
 def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=False, atom_verts=False, surfs=False,
                   sep_surfs=False, shell_surfs=False, edges=False, sep_edges=False, shell_edges=False,
                   verts=False, sep_verts=False, shell_verts=False, layers=-1, info=False, surr_atoms=False, logs=False,
-                  ext_atoms=False):
+                  ext_atoms=False, concave_colors=False):
     """
     Exports various components of a Group object to files based on specified parameters.
     This function provides flexible export options for different aspects of a molecular group,
@@ -115,7 +115,8 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         If True, exports log files. Default is False
     ext_atoms : bool, optional
         If True, exports the outermost atoms in the group's shell. Default is False
-
+    concave_colors : bool, optional
+        If True, exports the concave colors for the surfaces. Default is False
     Returns
     -------
     None
@@ -197,7 +198,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         if not path.exists(grp.dir + '/atoms'):
             os.mkdir(grp.dir + '/atoms')
         write_atom_cells(grp.net, atoms=grp.ball_ndxs, directory=grp.dir + '/atoms', surfs=atom_surfs or all_,
-                         edges=atom_edges or all_, verts=atom_verts or all_)
+                         edges=atom_edges or all_, verts=atom_verts or all_, concave_colors=concave_colors)
         os.chdir(grp.dir)
     # Export the log file
     if logs or all_:
@@ -209,7 +210,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             grp.get_layers(max_layers=1)
         # noinspection PyUnresolvedReferences
         if grp.layer_surfs is not None and len(grp.layer_surfs) > 0:
-            write_surfs(net=grp.net, surfs=grp.layer_surfs[0], file_name="shell_surfs", directory=grp.dir)
+            write_surfs(net=grp.net, surfs=grp.layer_surfs[0], file_name="shell_surfs", directory=grp.dir, concave_colors=concave_colors, ref_surfs=grp.ball_ndxs)
     # If the user wants all of the surfaces in one file
     if surfs or all_:
         write_surfs(grp.net, [i for i in range(len(grp.net.surfs))], 'surfs')
@@ -302,7 +303,11 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             grp.get_layers(max_layers=1)
         # write the surrounding atoms
         write_pdb(sys=grp.sys, atoms=grp.layer_atoms[0], file_name="ext_atoms", directory=grp.dir)
-
+    # Check to see if there is verts file in the system directory
+    for file in os.listdir(grp.sys.files['dir']):
+        # Move the verts file to the group directory
+        if file.endswith('_verts.txt'):
+            os.rename(grp.sys.files['dir'] + "/" + file, grp.dir + "/" + file)
     os.chdir("..")
     # Change back to the system directory
     os.chdir(grp.sys.files['dir'])
