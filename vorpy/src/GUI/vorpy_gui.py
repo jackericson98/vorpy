@@ -150,14 +150,15 @@ class VorPyGUI(tk.Tk):
 
         # If the size is not custom export the given size information
         if exports['size'] == 'Small':
-            group.exports(info=True, shell_surfs=True, logs=True)
+            group.exports(info=True, shell_surfs=True, logs=True, concave_colors=build_settings['color_settings']['conc_col'])
         elif exports['size'] == 'Medium':
             group.exports(shell_surfs=True, surfs=True, shell_edges=True, edges=True, shell_verts=True, verts=True,
-                            logs=True, atoms=True, surr_atoms=True)
+                            logs=True, atoms=True, surr_atoms=True, concave_colors=build_settings['color_settings']['conc_col'])
         elif exports['size'] == 'Large':
             # Export the group exports
             group.exports(shell_verts=True, shell_edges=True, shell_surfs=True, info=True, edges=True, verts=True,
-                            atoms=True, surr_atoms=True, logs=True, atom_surfs=True, atom_edges=True, atom_verts=True)
+                            atoms=True, surr_atoms=True, logs=True, atom_surfs=True, atom_edges=True, atom_verts=True,
+                            concave_colors=build_settings['color_settings']['conc_col'])
         else:
             cust = exports['custom_settings']
             group.exports(info=cust['info'], logs=cust['logs'], atoms=cust['group_vars']['pdb'],
@@ -166,7 +167,7 @@ class VorPyGUI(tk.Tk):
                           atom_edges=cust['edges_cell'], atom_verts=cust['verts_cell'], surfs=cust['surfs_all'],
                           edges=cust['edges_all'], verts=['verts_all'], shell_surfs=cust['surfs_shell'],
                           shell_edges=cust['edges_shell'], shell_verts=cust['verts_shell'],
-                          surr_atoms=cust['surrounding_vars']['pdb'])
+                          surr_atoms=cust['surrounding_vars']['pdb'], concave_colors=build_settings['color_settings']['conc_col'])
 
     def run_program(self):
         """
