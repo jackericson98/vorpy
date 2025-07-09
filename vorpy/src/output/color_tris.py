@@ -172,7 +172,7 @@ def calc_surf_tri_dists(points, tris, loc):
     return [(_ - min_dist) / (max_dist - min_dist) for _ in tri_dists]
 
 
-def color_tris(surf, color_scheme, color_map, color_factor, max_val=None):
+def color_tris(surf, color_scheme, color_map, color_factor, max_val=None, min_val=0, inverse=False):
     """
     Colors the triangles in a surface based on specified coloring scheme and map.
 
@@ -194,7 +194,9 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None):
             - None: No transformation
         max_val (float, optional): Maximum value for color normalization. If None, uses maximum
             value from the data.
-
+        min_val (float, optional): Minimum value for color normalization. If None, uses minimum
+            value from the data.
+        inverse (bool, optional): If True, the color scheme is inverted. Default is False
     Returns:
         None: The function modifies the surface data structure in place by adding color information
         to the triangles.
@@ -207,6 +209,10 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None):
     """
     # Set up the variable tri_colors for recording the color designations for
     tri_colors = None
+    # Set up the inverse multiplyer
+    inverse_mult = 1
+    if inverse:
+        inverse_mult = -1
     # Set up the color map
     try:
         my_cmap = mpl.colormaps.get_cmap(color_map)
@@ -237,13 +243,13 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None):
         # Check if the tri_dists have been calculated before
         if 'tri_dists' not in surf or surf['tri_dists'] is None or len(surf['tri_dists']) == 0 or len(surf['tri_dists']) != len(surf['tris']):
             tri_dists = calc_surf_tri_dists(surf['points'], surf['tris'], surf['loc'])
-            tri_colors = [my_cmap(multi(_)) for _ in tri_dists]
+            tri_colors = [my_cmap(multi(_)*inverse_mult) for _ in tri_dists]
         else:
-            tri_colors = [my_cmap(multi(_)) for _ in surf['tri_dists']]
+            tri_colors = [my_cmap(multi(_)*inverse_mult) for _ in surf['tri_dists']]
 
     elif color_scheme == 'ins_out':
         # Check if the tri_dists have been calculated before
-        tri_colors = [my_cmap(multi(_)) for _ in surf['tris_ins_out']]
+        tri_colors = [my_cmap(multi(_)*inverse_mult) for _ in surf['tris_ins_out']]
 
     elif color_scheme.lower() == 'mean' or color_scheme.lower() == 'mean_curv' or color_scheme.lower() == 'mean curvature':
         # Check if the function is None
@@ -261,10 +267,11 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None):
         if surf['flat'] or surf['mean_curv'] == 0:
             my_curvs = [0] * len(surf['tris'])
         else:
-            my_curvs = [curv/max_val for curv in tri_curvs]
+            my_curvs = [(inverse_mult*curv-min_val)/(max_val-min_val) for curv in tri_curvs]
 
         # Set the colors
         tri_colors = [my_cmap(multi(_)) for _ in my_curvs]
+
     elif color_scheme.lower() == 'gauss' or color_scheme.lower() == 'gauss_curv' or color_scheme.lower() == 'gaussian curvature' or color_scheme.lower() == 'gaus':
         # Check if the function is None
         if surf['func'] is None:
@@ -282,12 +289,13 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None):
             my_curvs = [0] * len(surf['tris'])
         elif max_val is None or max_val == 0:
             max_val = max(tri_curvs)
-            my_curvs = [curv/max_val for curv in tri_curvs]
+            my_curvs = [(inverse_mult*curv-min_val)/(max_val-min_val) for curv in tri_curvs]
         else:
-            my_curvs = [curv/max_val for curv in tri_curvs]
+            my_curvs = [(inverse_mult*curv-min_val)/(max_val-min_val) for curv in tri_curvs]
 
         # Set the colors
         tri_colors = [my_cmap(multi(_)) for _ in my_curvs]
     else:
         tri_colors = [np.random.randint(0, 256, size=3) for _ in range(len(surf['tris']))]
+
     return tri_colors
