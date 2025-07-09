@@ -11,7 +11,7 @@ class ColorSettingsWindow(tk.Toplevel):
         
         # Configure window
         self.title("Color Settings")
-        self.geometry("300x250")  # Adjusted size to fit content
+        self.geometry("300x280")  # Adjusted size to fit content (increased for checkbox)
         self.resizable(False, False)
         self.build_frame = build_frame
         
@@ -27,6 +27,8 @@ class ColorSettingsWindow(tk.Toplevel):
         self.surf_fact = tk.StringVar(value=color_settings['surf_fact'].capitalize())
         self.vert_col = tk.StringVar(value=color_settings['vert_col'].capitalize())
         self.edge_col = tk.StringVar(value=color_settings['edge_col'].capitalize())
+        # Add concave_colors variable
+        self.concave_colors = tk.BooleanVar(value=color_settings.get('concave_colors', False))
         
         # Store the current settings
         self.current_settings = color_settings.copy()
@@ -98,6 +100,12 @@ class ColorSettingsWindow(tk.Toplevel):
         self.edge_col = ttk.Entry(settings_frame, width=15)
         self.edge_col.insert(0, default_settings['edge_col'].capitalize())
         self.edge_col.grid(row=5, column=1, sticky="w", padx=5, pady=2)
+
+        # Add Concave Colors checkbox
+        self.concave_colors_checkbox = ttk.Checkbutton(
+            settings_frame, text="Concave Colors", variable=self.concave_colors
+        )
+        self.concave_colors_checkbox.grid(row=6, column=0, columnspan=2, sticky="w", padx=5, pady=2)
         
         # Buttons frame with proper spacing
         button_frame = ttk.Frame(main_frame)
@@ -116,7 +124,8 @@ class ColorSettingsWindow(tk.Toplevel):
             'surf_scheme': self.surf_scheme.get(),
             'surf_fact': self.surf_fact.get().lower(),
             'vert_col': self.vert_col.get().lower(),
-            'edge_col': self.edge_col.get().lower()
+            'edge_col': self.edge_col.get().lower(),
+            'conc_col': self.concave_colors.get()
         }
         
         # Update the build frame settings
