@@ -3,7 +3,7 @@ import numpy as np
 from vorpy.src.output.color_tris import color_tris
 
 
-def write_surfs(net, surfs, file_name, color=False, directory=None):
+def write_surfs(net, surfs, file_name, color=False, directory=None, concave_colors=False, ref_surfs=None, universal_max=True):
     """
     Exports surface data to an OFF (Object File Format) file for visualization.
 
@@ -18,7 +18,8 @@ def write_surfs(net, surfs, file_name, color=False, directory=None):
         file_name: Base name for the output OFF file
         color: Optional color tuple (R,G,B) for uniform coloring. If False, uses network settings
         directory: Optional output directory path. If None, uses current directory
-
+        concave_colors: If True, exports the concave colors for the surfaces. Default is False
+        ref_surfs: Reference surfaces for the concave colors. Default is None
     Returns:
         None: Creates an OFF file with the specified surface data
     """
@@ -43,9 +44,44 @@ def write_surfs(net, surfs, file_name, color=False, directory=None):
             num_tris += len(surf['tris'])
         # Write the numbers into the file
         file.write("OFF\n" + str(num_verts) + " " + str(num_tris) + " 0\n\n\n")
+        if universal_max:
+            if net.settings['surf_scheme'] == 'gauss':
+                max_val = max(net.surfs['gauss_curv'])
+            else:
+                max_val = max(net.surfs['mean_curv'])
+        else:
+            max_val = 0
+            for ndx in surfs:
+                surf = net.surfs.iloc[ndx]
+                if net.settings['surf_scheme'] == 'gauss':
+                    max_val = max(max_val, max(surf['gauss_curv']))
+                else:
+                    max_val = max(max_val, max(surf['mean_curv']))
         # Go through the surfaces and add the points
+        tri_colors = []
         for ndx in surfs:
             surf = net.surfs.iloc[ndx]
+            if net.settings['net_type'] == 'aw':
+                if concave_colors:
+                    # Check to see if the surface color needs to be flipped
+                    ref_ball = [ndx for ndx in surf['balls'] if ndx in ref_surfs][0]
+                    non_ref_ball = [ndx for ndx in surf['balls'] if ndx not in ref_surfs][0]
+                    # If the reference ball is smaller than the non-reference ball
+                    if net.balls.iloc[ref_ball]['rad'] > net.balls.iloc[non_ref_ball]['rad']:
+                        tri_colors.append(color_tris(surf=surf, color_map=net.settings['surf_col'],
+                                            color_scheme=net.settings['surf_scheme'],
+                                            color_factor=net.settings['scheme_factor'], max_val=max_val, min_val=-max_val))
+                    else:
+                        tri_colors.append(color_tris(surf=surf, color_map=net.settings['surf_col'],
+                                                color_scheme=net.settings['surf_scheme'],
+                                                color_factor=net.settings['scheme_factor'], max_val=max_val, min_val=-max_val, 
+                                                inverse=True))
+                else:
+                    tri_colors.append(color_tris(surf=surf, color_map=net.settings['surf_col'],
+                                        color_scheme=net.settings['surf_scheme'],
+                                        color_factor=net.settings['scheme_factor'], max_val=max_val))
+            else:            
+                tri_colors.append([color for _ in range(len(surf['tris']))])
             # Go through the points on the surface
             for point in surf['points']:
                 # Add the point to the system file and the surface's file (rounded to 4 decimal points)
@@ -53,22 +89,13 @@ def write_surfs(net, surfs, file_name, color=False, directory=None):
                 file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
         num_verts, tri_count = 0, 0
         # Go through each surface and add the faces
-        for ndx in surfs:
+        for k, ndx in enumerate(surfs):
             surf = net.surfs.iloc[ndx]
-            tri_colors = [color for _ in range(len(surf['tris']))]
-            if net.settings['net_type'] == 'aw':
-                if net.settings['surf_scheme'] == 'gauss':
-                    max_val = max(net.surfs['gauss_curv'])
-                else:
-                    max_val = max(net.surfs['mean_curv'])
-                tri_colors = color_tris(surf=surf, color_map=net.settings['surf_col'],
-                                        color_scheme=net.settings['surf_scheme'],
-                                        color_factor=net.settings['scheme_factor'], max_val=max_val)
-
+            my_tri_colors = tri_colors[k]
             # Go through the triangles in the surface
             for j, tri in enumerate(surf['tris']):
                 # Get the triangle and colors
-                color = tri_colors[j]
+                color = my_tri_colors[j]
                 # Add the triangle to the system file and the surface's file
                 str_tri = [str(tri[_] + num_verts) for _ in range(3)]
                 file.write("3 " + str_tri[0] + " " + str_tri[1] + " " + str_tri[2] + " " + str(color[0]) + " " +
