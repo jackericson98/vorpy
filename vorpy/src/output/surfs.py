@@ -49,14 +49,22 @@ def write_surfs(net, surfs, file_name, color=False, directory=None, concave_colo
                 max_val = max(net.surfs['gauss_curv'])
             else:
                 max_val = max(net.surfs['mean_curv'])
+        elif concave_colors:
+            max_val = 0
+            for ndx in surfs:
+                surf = net.surfs.iloc[ndx]
+                if net.settings['surf_scheme'] == 'gauss':
+                    max_val = max(max_val, surf['gauss_curv'])
+                else:
+                    max_val = max(max_val, surf['mean_curv'])
         else:
             max_val = 0
             for ndx in surfs:
                 surf = net.surfs.iloc[ndx]
                 if net.settings['surf_scheme'] == 'gauss':
-                    max_val = max(max_val, max(surf['gauss_curv']))
+                    max_val = max(max_val, surf['gauss_curv'])
                 else:
-                    max_val = max(max_val, max(surf['mean_curv']))
+                    max_val = max(max_val, surf['mean_curv'])
         # Go through the surfaces and add the points
         tri_colors = []
         for ndx in surfs:
