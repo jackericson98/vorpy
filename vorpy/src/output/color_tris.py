@@ -265,7 +265,7 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None, min_va
             tri_curvs = surf['mean_tri_curvs']
         # First check if the surface is flat
         if surf['flat'] or surf['mean_curv'] == 0:
-            my_curvs = [0] * len(surf['tris'])
+            my_curvs = [(0-min_val)/(max_val-min_val)] * len(surf['tris'])
         else:
             my_curvs = [(inverse_mult*curv-min_val)/(max_val-min_val) for curv in tri_curvs]
 
@@ -286,7 +286,7 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None, min_va
             tri_curvs = surf['gauss_tri_curvs']
         # First check if the surface is flat
         if surf['flat'] or surf['gauss_curv'] == 0:
-            my_curvs = [0] * len(surf['tris'])
+            my_curvs = [(0-min_val)/(max_val-min_val)] * len(surf['tris'])
         elif max_val is None or max_val == 0:
             max_val = max(tri_curvs)
             my_curvs = [(inverse_mult*curv-min_val)/(max_val-min_val) for curv in tri_curvs]

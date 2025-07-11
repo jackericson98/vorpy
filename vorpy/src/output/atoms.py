@@ -37,7 +37,7 @@ def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=
             write_surfs(net, atom['surfs'], directory=directory,
                         file_name='ball' + "_" + atom['name'].strip() + '_' + net.settings['net_type'],
                         color=(255, 0, 0) if net.settings['net_type'] == 'pow' else False,
-                        concave_colors=concave_colors, ref_surfs=[i])
+                        concave_colors=concave_colors, ref_surfs=[i], universal_max=False)
         # Check for verts
         if verts:
             write_off_verts(net, atom['verts'], directory=directory,

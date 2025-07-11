@@ -50,22 +50,8 @@ class ColorSettingsWindow(tk.Toplevel):
         self.surf_res.insert(0, default_settings['surf_res'])
         self.surf_res.grid(row=0, column=1, sticky="w", padx=5, pady=2)
 
-        # Create the surface colorway entry
-        ttk.Label(settings_frame, text="Surface Colorway").grid(row=1, column=0, sticky="w", padx=5, pady=2)
-        self.surf_col = ttk.Entry(settings_frame, width=15)
-        self.surf_col.insert(0, default_settings['surf_col'].capitalize())
-        self.surf_col.grid(row=1, column=1, sticky="w", padx=5, pady=2)
-
-        # Create settings rows
-        ttk.Label(settings_frame, text="Surface Coloring Factor").grid(row=2, column=0, sticky="w", padx=5, pady=2)
-        # Create dropdown for surface factor
-        self.surf_fact = ttk.Combobox(settings_frame, values=['Log', 'Linear', 'Exponential', 'Squared', 'Cubed'], 
-                                    state="readonly", width=15)
-        self.surf_fact.set(default_settings['surf_fact'].capitalize())
-        self.surf_fact.grid(row=2, column=1, sticky="w", padx=5, pady=2)
-        self.surf_fact.bind('<<ComboboxSelected>>')
-
         # Create dropdown for surface scheme with translations
+        ttk.Label(settings_frame, text="Coloring Scheme").grid(row=1, column=0, sticky="w", padx=5, pady=2)
         self.surf_scheme = ttk.Combobox(settings_frame, values=['Mean Curvature', 'Gaussian Curvature', 'Distance',
                                                                 'Overlapping', 'No Scheme'], state="readonly", width=15)
         # Set the initial value based on the current setting
@@ -86,26 +72,43 @@ class ColorSettingsWindow(tk.Toplevel):
         current_value = default_settings['surf_scheme']
         display_value = scheme_translations[current_value.lower()]
         self.surf_scheme.set(display_value)
-        self.surf_scheme.grid(row=3, column=1, sticky="w", padx=5, pady=2)
+        self.surf_scheme.grid(row=1, column=1, sticky="w", padx=5, pady=2)
         self.surf_scheme.bind('<<ComboboxSelected>>')
 
-        # Create the vertex colorway entry
-        ttk.Label(settings_frame, text="Vertex Color").grid(row=4, column=0, sticky="w", padx=5, pady=2)
-        self.vert_col = ttk.Entry(settings_frame, width=15)
-        self.vert_col.insert(0, default_settings['vert_col'].capitalize())
-        self.vert_col.grid(row=4, column=1, sticky="w", padx=5, pady=2)
 
-        # Create the edge colorway entry
-        ttk.Label(settings_frame, text="Edge Color").grid(row=5, column=0, sticky="w", padx=5, pady=2)
-        self.edge_col = ttk.Entry(settings_frame, width=15)
-        self.edge_col.insert(0, default_settings['edge_col'].capitalize())
-        self.edge_col.grid(row=5, column=1, sticky="w", padx=5, pady=2)
+        # Create the surface colorway entry
+        ttk.Label(settings_frame, text="Surface Colorway").grid(row=2, column=0, sticky="w", padx=5, pady=2)
+        self.surf_col = ttk.Entry(settings_frame, width=15)
+        self.surf_col.insert(0, default_settings['surf_col'].capitalize())
+        self.surf_col.grid(row=2, column=1, sticky="w", padx=5, pady=2)
+
+        # Create settings rows
+        ttk.Label(settings_frame, text="Surface Coloring Factor").grid(row=3, column=0, sticky="w", padx=5, pady=2)
+        # Create dropdown for surface factor
+        self.surf_fact = ttk.Combobox(settings_frame, values=['Log', 'Linear', 'Exponential', 'Squared', 'Cubed'], 
+                                    state="readonly", width=15)
+        self.surf_fact.set(default_settings['surf_fact'].capitalize())
+        self.surf_fact.grid(row=3, column=1, sticky="w", padx=5, pady=2)
+        self.surf_fact.bind('<<ComboboxSelected>>')
 
         # Add Concave Colors checkbox
+        ttk.Label(settings_frame, text="Concave Colors").grid(row=4, column=0, sticky="w", padx=5, pady=2)
         self.concave_colors_checkbox = ttk.Checkbutton(
-            settings_frame, text="Concave Colors", variable=self.concave_colors
+            settings_frame, variable=self.concave_colors
         )
-        self.concave_colors_checkbox.grid(row=6, column=0, columnspan=2, sticky="w", padx=5, pady=2)
+        self.concave_colors_checkbox.grid(row=4, column=1, columnspan=2, sticky="w", padx=5, pady=2)
+
+        # Create the vertex colorway entry
+        ttk.Label(settings_frame, text="Vertex Color").grid(row=5, column=0, sticky="w", padx=5, pady=2)
+        self.vert_col = ttk.Entry(settings_frame, width=15)
+        self.vert_col.insert(0, default_settings['vert_col'].capitalize())
+        self.vert_col.grid(row=5, column=1, sticky="w", padx=5, pady=2)
+
+        # Create the edge colorway entry
+        ttk.Label(settings_frame, text="Edge Color").grid(row=6, column=0, sticky="w", padx=5, pady=2)
+        self.edge_col = ttk.Entry(settings_frame, width=15)
+        self.edge_col.insert(0, default_settings['edge_col'].capitalize())
+        self.edge_col.grid(row=6, column=1, sticky="w", padx=5, pady=2)
         
         # Buttons frame with proper spacing
         button_frame = ttk.Frame(main_frame)
@@ -123,9 +126,9 @@ class ColorSettingsWindow(tk.Toplevel):
             'surf_col': self.surf_col.get().lower(),
             'surf_scheme': self.surf_scheme.get(),
             'surf_fact': self.surf_fact.get().lower(),
+            'conc_col': self.concave_colors.get(),
             'vert_col': self.vert_col.get().lower(),
-            'edge_col': self.edge_col.get().lower(),
-            'conc_col': self.concave_colors.get()
+            'edge_col': self.edge_col.get().lower()
         }
         
         # Update the build frame settings

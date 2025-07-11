@@ -210,7 +210,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             grp.get_layers(max_layers=1)
         # noinspection PyUnresolvedReferences
         if grp.layer_surfs is not None and len(grp.layer_surfs) > 0:
-            write_surfs(net=grp.net, surfs=grp.layer_surfs[0], file_name="shell_surfs", directory=grp.dir, concave_colors=concave_colors, ref_surfs=grp.ball_ndxs)
+            write_surfs(net=grp.net, surfs=grp.layer_surfs[0], file_name="shell_surfs", directory=grp.dir, concave_colors=concave_colors, ref_surfs=grp.ball_ndxs, universal_max=False)
     # If the user wants all of the surfaces in one file
     if surfs or all_:
         write_surfs(grp.net, [i for i in range(len(grp.net.surfs))], 'surfs')
