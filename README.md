@@ -3,7 +3,7 @@
   <img width="300" height="300" alt="VorpyIcon" src="https://github.com/user-attachments/assets/1a05cec4-6751-40ef-999f-702b8b629fdf" />
 </p>
 
-# VORPY
+# VorPy
 
 ![TOC-page001](https://github.com/user-attachments/assets/acbdf9f5-3770-4c8c-b922-aeb681542c96)
 
@@ -24,7 +24,7 @@ Vorpy is available as a PyPI package. After installing it with pip (`pip install
 <img width="1020" height="660" alt="VorpyGUIDescription-page001" src="https://github.com/user-attachments/assets/bcf0a5ae-6025-4832-844b-0be4236504c9" />
 
 
-## Documentation
+
 
 For detailed documentation, please visit [the documentation website](https://jackericson98.github.io/vorpy/).
 
@@ -32,14 +32,14 @@ For detailed documentation, please visit [the documentation website](https://jac
 2. **Input File Information**: Displays the general information about the input file and the groupings within it.
 3. **Input Locations**: Shows where the input file, the output directory, and any other loaded files can be located.
 4. **Radii/Mass Changing**: Allows the user to adjust the radii and masses of any given element and/or specific atoms in set residues (see [Radii/Mass Adjustments](#radii-mass-adjustments)).
-5. **System Exports**: Shows the different options for exports at the system level. Launches another window with different options including logs, ball files, set atoms (see [System Exports](#system-exports))
+5. **System Exports**: Shows the different options for exports at the system level. Launches another window with different options including logs, ball files, set atoms (see [System](#system))
 6. **Reset**: Clears the program of any system, files, and settings that have been added.
 7. **Groups Section**: Holds each of the groups to be built and all of the corresponding selections, settings, and exports (see [Groups](#groups-gui))
 8. **Group Name**: Changes the name for the current group. Works as the name for the sub-directory for the given group's output files
 9. **Group Selections**: Allows the user to add/delete atoms/balls, residues, chains, and molecules using and index or a range. If the range entry is unfilled only the single object's index identified in the index entry box will be chosen. The indices start at 0 and correspond to the oder in which they appear in the ball file.
 10. **Group Selection Tracker**: Tracks the selections that the the user has added to the group.
-11. **Group Build Settings**: Tracks the given settings the given group will be built with (see [Group Build Settings](#group-build-settings).
-12. **Group Exports**: Holds the different exports for the given group. There are three default options: small, medium, and large exports (see [Group Exports](#group-exports)). If the user wants to export custom options, there is a custom exports button with all possible exports for the group (see [Group Exports](#group-exports)).
+11. **Group Build Settings**: Tracks the given settings the given group will be built with
+12. **Group Exports**: Holds the different exports for the given group. There are three default options: small, medium, and large exports. If the user wants to export custom options, there is a custom exports button with all possible exports for the group.
 13. **Run Group**: Solves the group and exports the given exports. Will only solve the current group and export the current selection.
 14. **Add/Delete Groups**: Adjusts the number of groups being solved. The delete button points to the current group and will ask for permission before deleting anything.
 15. **Help**: The help button launches a window that explains all of the functions of the program and the GUI and serves as a reminder for the user (see [Help Window](#help-window))
@@ -49,40 +49,110 @@ For detailed documentation, please visit [the documentation website](https://jac
 <a name="radii-mass-adjustments"></a> 
 #### Radii/Mass Adjustments:
 
-When selected, the radii adjustment window will launch:
+When selected, the radii adjustment window will launch. 
 
 
 
-<a name="system-exports"></a>
+<a name="system"></a>
 #### System Exports
+
+ The System Information frame provides an overview and management interface for your 
+        system's core configuration:
+
+
+• System Name: Displays the current system's name, which is typically derived from 
+    the selected input file.
+
+• Input File: Allows you to select the primary structure file (e.g., PDB) that 
+    defines the molecular system to be analyzed.
+
+• Additional Files: Lists any supplementary files (such as radii, topology, or 
+    parameter files) associated with the system, if applicable.
+
+• Output Directory: Lets you specify the folder where all generated results and 
+    exports will be saved.
+
+    
+To configure your system, use the "Select File" button to choose your main input
+file, and the "Select Directory" button to set the output location. The frame 
+will update to reflect your selections and display relevant file information. This 
+ensures that all subsequent operations and exports are performed using the correct 
+files and directories.
 
 
 <a name="groups-gui"></a>
 #### Groups
 
+ The Groups frame provides a comprehensive interface for managing and configuring 
+distinct groups within your system. Groups allow you to organize atoms, residues, 
+chains, or molecules into logical sets, each of which can be processed independently 
+with its own settings.
 
-<a name="group-build-settings"></a>
-#### Group Build Settings
+• Group Selection: Select specific atoms/balls, residues, chains, or molecules from 
+    the input file to define the members of each group. This enables targeted analysis 
+    or export of particular regions or components of your system.
+
+Key features of the Groups frame include:
+
+• Group-Specific Build Settings: Each group contains its own build settings (see the 
+    "Build Settings" tab for details), allowing you to customize parameters such as 
+    network type, maximum vertex count, box size, and surface calculation options on a 
+    per-group basis.
+
+• Group Management: 
+    - Add or delete groups as needed to organize your workflow.
+    - Rename groups to provide meaningful identifiers for each set.
+    - Use the provided tabs to easily track, switch between, and manage multiple 
+    groups within your project.
 
 
-<a name="group-exports"></a>
-#### Group Exports
+• Group-Specific Export Settings: Configure export options for each group 
+    individually (see the "Export Settings" tab for more information). This includes 
+    selecting which data to export, output formats, and destination directories.
+
+• Run Controls: 
+    - Run calculations for all groups collectively, or execute only a specific group 
+    as needed.
+    - Each group can be processed independently, enabling flexible and efficient 
+    workflows.
+
+• Visual Tracking: The Groups frame uses tabs or a list to help you keep track of 
+    all defined groups, their settings, and their current status.
+
+    
+The Groups frame is central to organizing your analysis, enabling you to tailor 
+network construction and export options for different parts of your system. By 
+leveraging group-specific settings, you can perform detailed, customized analyses 
+and exports for each region of interest.
 
 
-<a name="help-window"></a>
-#### Help Window
+<a name="run-function"></a>
+### Run Function
+
+If the package was received using PyPi, and the user wants to run multiple files, operate the package outside of the GUI, or integrate the package into an existing script, they can use the same run funciton with a file location:
+
+    import vorpy as vp
+    my_data = vp.run('location_to_file')
+
+This allows the user to continue to perform operations on the data afterwords, loop through several files, change settings, change groups, or change exports without running multiple scripts. 
+
+The parameters for this operation are similar to what can be found in the GUI:
+
+1. file - The input ball/atom file holding the locations and radii of the 
+
 
 
 <a name="command-line"></a>
 ### Command line:
 
-The general structure of the command line goes like below
+If the package was downloaded over github or another repository and not prepackaged, as would be found in the The general structure of the command line follows the structure outlined below:
 
+    python vorpy/cmd.py <file>
 
 
 #### File
 - The first argument after `vorpy.py` should be the file address of the ball or atom file.
-- If the file is located in the `Data/test_data` folder, specify the file name without the path or extension.
+- If the file is located in the `vorpy/src/data` folder, specify the file name without the path or extension.
 - Accepted file extensions include `.pdb`, `.mol`, `.gro`, `.cif`.
 
 
