@@ -4,6 +4,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
+from PIL import Image, ImageTk
 
 # Add the project root directory to the Python path
 project_root = Path(__file__).resolve().parents[3]
@@ -49,12 +50,73 @@ class VorPyGUI(tk.Tk):
         
         self.group_settings = {}
 
-        # Title Section
+        # Title Section with Image Template
         title_frame = tk.Frame(self, pady=10)
         title_frame.pack(fill="x")
-        
-        title_label = tk.Label(title_frame, text="VorPy", font=self.fonts['title'])
-        title_label.pack()
+
+        # --- IMAGE TEMPLATE START ---
+        # To use an image, place your image file (e.g., 'VorpyIcon.png') in the appropriate directory.
+        # This template uses Pillow to allow resizing and background removal (transparency).
+        # Make sure to install Pillow: pip install pillow
+        try:
+            # Load the image
+            img_path = "vorpy/src/GUI/Images/VorpyIcon.png"
+            img = Image.open(img_path)
+
+            # Resize the image to be much smaller (e.g., 40x40 pixels)
+            img = img.resize((50, 50), Image.LANCZOS)
+
+            # If the image has a background and is PNG, try to remove it by converting white to transparent
+            if img.mode != "RGBA":
+                img = img.convert("RGBA")
+            datas = img.getdata()
+            newData = []
+            for item in datas:
+                # Detect white-ish pixels (tune threshold as needed)
+                if item[0] > 240 and item[1] > 240 and item[2] > 240:
+                    # Set alpha to 0 (transparent)
+                    newData.append((255, 255, 255, 0))
+                else:
+                    newData.append(item)
+            img.putdata(newData)
+
+            self.logo_img = ImageTk.PhotoImage(img)
+
+            # --- Set the window/taskbar icon ---
+            # Try to set the icon for the window and taskbar
+            # On Windows, .ico is best; on Linux, .png is usually fine
+            # We'll try to use the same image for both, but .ico is preferred for best compatibility
+            # If you have a .ico file, use it here
+            icon_path_ico = "vorpy/src/GUI/Images/VorpyIcon.ico"
+            
+            try:
+                if os.path.exists(icon_path_ico):
+                    self.iconbitmap(icon_path_ico)
+                else:
+                    # For Linux/Mac, or if .ico not available, use .png
+                    # Tkinter's iconphoto works cross-platform
+                    self.iconphoto(True, self.logo_img)
+                self.tray_icon = Image.open(icon_path_ico)
+            except Exception as e:
+                print("Could not set window/taskbar icon:", e)
+        except Exception as e:
+            # If Pillow is not available or image not found, just skip the image
+            print("Logo image could not be loaded:", e)
+        # --- IMAGE TEMPLATE END ---
+
+        # Title and subtitle in a vertical frame, next to the image
+        # Create a horizontal frame for logo and title
+        logo_title_frame = tk.Frame(title_frame)
+        logo_title_frame.pack(fill="x")
+        logo_title_frame.grid_columnconfigure(0, weight=9)
+        logo_title_frame.grid_columnconfigure(1, weight=10)
+
+        # Place logo (if loaded) on the left, then title on the right, on the same row
+        if hasattr(self, 'logo_img'):
+            logo_label = tk.Label(logo_title_frame, image=self.logo_img, bg=title_frame.cget("bg"))
+            logo_label.grid(row=0, column=0, padx=(0, 5), sticky="e")
+        title_label = tk.Label(logo_title_frame, text="VorPy", font=self.fonts['title'])
+        title_label.grid(row=0, column=1, sticky="w")
         
         subtitle_label = tk.Label(title_frame, text="Comprehensive Voronoi Diagram Calculation Tool", 
                                   font=self.fonts['subtitle'])
@@ -218,8 +280,6 @@ class VorPyGUI(tk.Tk):
         # Update the surface settings display in the build frame
         if hasattr(self, 'build_frame'):
             self.build_frame.update_surface_settings_display()
-
-
 if __name__ == "__main__":
     os.chdir('../..')
     # create the system
