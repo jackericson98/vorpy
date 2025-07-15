@@ -16,14 +16,16 @@ __path__.append(os.path.join(os.path.dirname(__file__), "api"))
 
 from .api import *
 from .src.version import __version__
+from .src.run import Run
 
 # Make VorPyGUI directly accessible from vorpy module
 from .src.GUI.vorpy_gui import VorPyGUI
 
-def run():
+
+def run(file=None, load_files=None, settings=None, groups=None, exports=None):
     """Run the VorPy GUI application."""
-    app = VorPyGUI()
-    app.mainloop()
+    app = Run(file=file, load_files=load_files, settings=settings, groups=groups, exports=exports)
+
 
 # Don't pollute namespace.
 del os, sys
