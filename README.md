@@ -21,7 +21,10 @@ Vorpy is available as a PyPI package. After installing it with pip (`pip install
 <a name="vorpy-gui"></a>
 ### VorPy GUI:
 
-<img width="1020" height="660" alt="VorpyGUIDescription-page001" src="https://github.com/user-attachments/assets/bcf0a5ae-6025-4832-844b-0be4236504c9" />
+
+<img width="2040" height="1320" alt="VorpyGUIDescription-page001" src="https://github.com/user-attachments/assets/43f33001-3ef3-427e-9293-eef0382d754c" />
+
+
 
 
 ## Documentation
