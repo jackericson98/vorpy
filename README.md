@@ -1,8 +1,11 @@
+
+<p align="center">
+  <img width="300" height="300" alt="VorpyIcon" src="https://github.com/user-attachments/assets/1a05cec4-6751-40ef-999f-702b8b629fdf" />
+</p>
+
 # VORPY
 
 ![TOC-page001](https://github.com/user-attachments/assets/acbdf9f5-3770-4c8c-b922-aeb681542c96)
-
-# Vorpy
 
 ## Overview
 Vorpy is a spatial partitioning tool designed to solve, analyze, and export Additively Weighted, Power (Leguerre), and/or Primitive (Delaunay) Voronoi diagrams for systems of 3D spheres. This tool can accept atomic coordinate files of all major file extensions (or txt files in the right format), solve their Voronoi graphs and output visualizations and analysis of their geometry. With both a grapical user interface for simple cases and a command line interface for more complicated or cases VorPy has a robust input/output abilities. 
@@ -17,6 +20,9 @@ Vorpy is available as a PyPI package. After installing it with pip (`pip install
 
 <a name="vorpy-gui"></a>
 ### VorPy GUI:
+
+<img width="1020" height="660" alt="VorpyGUIDescription-page001" src="https://github.com/user-attachments/assets/bcf0a5ae-6025-4832-844b-0be4236504c9" />
+
 
 ## Documentation
 
