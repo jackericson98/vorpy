@@ -9,17 +9,10 @@ Vorpy is a spatial partitioning tool designed to solve, analyze, and export Addi
 
 ## Usage
 
-With python installed, make sure you have the required packages installed on your system of virtual environment (see [Requirements and Dependencies](requirements-and-dependencies)): 
+Vorpy is available as a PyPI package. After installing it with pip (`pip install vorpy3`), you can launch the main GUI (see [VorPy GUI](#vorpy-gui)) by running the following in a Python interpreter:
 
-    python -m pip install -r requirements.txt
-
-To run the VorPy GUI simply call the vorpy.py file in the command line (see [VorPy GUI](#vorpy-gui)):
-
-    python vorpy.py
-
-To run VorPy through the command line follow the basic command line structure (see [Command Line](#command-line)):
-
-    python vorpy.py <file> [options]
+    import vorpy as vp
+    vp.run()
 
 
 <a name="vorpy-gui"></a>
