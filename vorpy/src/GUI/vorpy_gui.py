@@ -59,8 +59,10 @@ class VorPyGUI(tk.Tk):
         # This template uses Pillow to allow resizing and background removal (transparency).
         # Make sure to install Pillow: pip install pillow
         try:
-            # Load the image
-            img_path = "vorpy/src/GUI/Images/VorpyIcon.png"
+            # Load the image using a path relative to this file's location
+
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            img_path = os.path.join(script_dir, "Images", "VorpyIcon.png")
             img = Image.open(img_path)
 
             # Resize the image to be much smaller (e.g., 40x40 pixels)
@@ -87,7 +89,8 @@ class VorPyGUI(tk.Tk):
             # On Windows, .ico is best; on Linux, .png is usually fine
             # We'll try to use the same image for both, but .ico is preferred for best compatibility
             # If you have a .ico file, use it here
-            icon_path_ico = "vorpy/src/GUI/Images/VorpyIcon.ico"
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            icon_path_ico = os.path.join(script_dir, "Images", "VorpyIcon.ico")
             
             try:
                 if os.path.exists(icon_path_ico):
@@ -280,6 +283,9 @@ class VorPyGUI(tk.Tk):
         # Update the surface settings display in the build frame
         if hasattr(self, 'build_frame'):
             self.build_frame.update_surface_settings_display()
+
+
+            
 if __name__ == "__main__":
     os.chdir('../..')
     # create the system
