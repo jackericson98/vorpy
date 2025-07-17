@@ -28,7 +28,7 @@ class ColorSettingsWindow(tk.Toplevel):
         self.vert_col = tk.StringVar(value=color_settings['vert_col'].capitalize())
         self.edge_col = tk.StringVar(value=color_settings['edge_col'].capitalize())
         # Add concave_colors variable
-        self.concave_colors = tk.BooleanVar(value=color_settings.get('concave_colors', False))
+        self.concave_colors = tk.BooleanVar(value=color_settings.get('conc_col'))
         
         # Store the current settings
         self.current_settings = color_settings.copy()
@@ -53,9 +53,11 @@ class ColorSettingsWindow(tk.Toplevel):
         # Create dropdown for surface scheme with translations
         ttk.Label(settings_frame, text="Coloring Scheme").grid(row=1, column=0, sticky="w", padx=5, pady=2)
         self.surf_scheme = ttk.Combobox(settings_frame, values=['Mean Curvature', 'Gaussian Curvature', 'Distance',
-                                                                'Overlapping', 'No Scheme'], state="readonly", width=15)
+                                                                'Overlapping', 'No Scheme', 'Average Mean Curvature',
+                                                                'Average Gaussian Curvature', 'Maximum Mean Curvature',
+                                                                'Maximum Gaussian Curvature'], state="readonly", width=15)
         # Set the initial value based on the current setting
-        scheme_translations = {
+        self.scheme_translations = {
             'mean': 'mean',
             'mean_curv': 'mean',
             'mean curvature': 'mean',
@@ -67,10 +69,18 @@ class ColorSettingsWindow(tk.Toplevel):
             'olap': 'olap',
             'overlapping': 'olap',
             'none': 'none',
-            'no scheme': 'none'
+            'no scheme': 'none',
+            'avg_mean': 'avg_mean',
+            'average mean curvature': 'avg_mean',
+            'avg_gauss': 'avg_gauss',
+            'average gaussian curvature': 'avg_gauss',
+            'max_mean': 'max_mean',
+            'maximum mean curvature': 'max_mean',
+            'max_gauss': 'max_gauss',
+            'maximum gaussian curvature': 'max_gauss'
         }
         current_value = default_settings['surf_scheme']
-        display_value = scheme_translations[current_value.lower()]
+        display_value = current_value.lower()
         self.surf_scheme.set(display_value)
         self.surf_scheme.grid(row=1, column=1, sticky="w", padx=5, pady=2)
         self.surf_scheme.bind('<<ComboboxSelected>>')
@@ -124,13 +134,13 @@ class ColorSettingsWindow(tk.Toplevel):
         self.current_settings = {
             'surf_res': float(self.surf_res.get()),
             'surf_col': self.surf_col.get().lower(),
-            'surf_scheme': self.surf_scheme.get(),
+            'surf_scheme': self.scheme_translations[self.surf_scheme.get().lower()],
             'surf_fact': self.surf_fact.get().lower(),
             'conc_col': self.concave_colors.get(),
             'vert_col': self.vert_col.get().lower(),
             'edge_col': self.edge_col.get().lower()
         }
-        
+        print(self.current_settings)
         # Update the build frame settings
         self.build_frame.settings['color_settings'] = self.current_settings
         
