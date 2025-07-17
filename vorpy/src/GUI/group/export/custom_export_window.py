@@ -5,6 +5,7 @@ from tkinter import ttk
 class CustomExportWindow(tk.Toplevel):
     """Window for custom export settings."""
     def __init__(self, parent, group_name):
+        import os
         super().__init__(parent)
         self.title(f"{group_name} Export Settings")
         self.geometry("300x350")  # Reduced size
@@ -12,6 +13,15 @@ class CustomExportWindow(tk.Toplevel):
         if not isinstance(parent, tk.Tk):
             self.transient(parent)
             self.grab_set()
+
+        # Add icon in the same way as main frame
+        try:
+            vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+            icon_path = os.path.join(vorpy_root, "assets", "VorpyIcon.ico")
+            if os.path.exists(icon_path):
+                self.iconbitmap(icon_path)
+        except Exception:
+            pass
 
         self.parent = parent
         self.group_name = group_name
