@@ -76,7 +76,7 @@ class Network:
                 self.default_settings()
 
     def default_settings(self, surf_res=0.2, box_size=1.5, max_vert=40, build_type='all', net=None,
-                         net_type='aw', surf_col='plasma', surf_scheme='mean', num_splits=None, print_metrics=True,
+                         net_type='aw', surf_col='rainbow', surf_scheme='mean', num_splits=None, print_metrics=True,
                          scheme_factor='log', make_net=False, verts=None):
         """
         Set default settings for the network.
