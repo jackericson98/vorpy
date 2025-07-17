@@ -25,8 +25,8 @@ class BuildFrame(ttk.LabelFrame):
             'net_type': 'Additively Weighted',
             'color_settings': {
                 'surf_res': '0.2',
-                'surf_col': 'plasma',
-                'surf_scheme': 'mean_curv',
+                'surf_col': 'rainbow',
+                'surf_scheme': 'mean',
                 'surf_fact': 'log',
                 'vert_col': 'red',
                 'edge_col': 'grey',
