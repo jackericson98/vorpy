@@ -314,7 +314,6 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None, min_va
         mean_curv = my_cmap(multi(max(tri_curvs)))
         # Set all the colors to the mean of the tri_curvs
         tri_colors = [mean_curv] * len(surf['tris'])
-        print(tri_colors)
 
     elif color_scheme == 'max_gauss':
          # Check if the function is None

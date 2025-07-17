@@ -140,7 +140,6 @@ class ColorSettingsWindow(tk.Toplevel):
             'vert_col': self.vert_col.get().lower(),
             'edge_col': self.edge_col.get().lower()
         }
-        print(self.current_settings)
         # Update the build frame settings
         self.build_frame.settings['color_settings'] = self.current_settings
         
