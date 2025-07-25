@@ -11,8 +11,7 @@ if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
 # Add everything in /api/ to the module search path.
-__path__ = [os.path.dirname(__file__)]
-__path__.append(os.path.join(os.path.dirname(__file__), "api"))
+__path__ = [os.path.dirname(__file__), os.path.join(os.path.dirname(__file__), "api")]
 
 from .api import *
 from .src.version import __version__
