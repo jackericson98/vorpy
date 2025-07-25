@@ -24,7 +24,7 @@ and molecular modeling applications.
 # Default radii and other radii, excluding protein main chain and side chain radii
 element_radii = {
     'H': 1.30, 'HE': 1.40, 'LI': 0.76, 'BE': 0.45, 'B': 1.92, 'C': 1.80, 'N': 1.60, 'O': 1.50, 'P': 1.90,
-    'S': 1.90, 'F': 1.33, 'CL': 1.81, 'BR': 1.96, 'I': 2.20, 'AL': 0.60, 'AS': 0.58, 'AU': 1.37, 'BA': 1.35,
+    'S': 1.90, 'F': 1.33, 'CL': 1.81, 'BR': 1.96, 'I': 2.20, 'AL': 0.60, 'AS': 0.58, 'SE': 1.90, 'AU': 1.37, 'BA': 1.35,
     'BI': 1.03, 'CA': 1.00, 'CD': 0.95, 'CO': 0.65, 'CR': 0.73, 'CS': 1.67, 'CU': 0.73, 'FE': 0.61, 'GA': 0.62,
     'GE': 0.73, 'HG': 1.02, 'K': 1.38, 'MG': 0.72, 'MN': 0.83, 'MO': 0.69, 'NA': 1.02, 'NI': 0.69, 'PB': 1.19,
     'PD': 0.86, 'PT': 0.80, 'RB': 1.52, 'SB': 0.76, 'SC': 0.75, 'SN': 0.69, 'SR': 1.18, 'TC': 0.65, 'TI': 0.86,
