@@ -176,11 +176,24 @@ class SystemFrame:
         """Handle selection of a default file from the combobox."""
         selected = self.input_file_var.get()
         if selected:
-            try:
-                # First try the development directory
-                data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'data')
-                file_path = os.path.join(data_dir, selected)
-                if os.path.exists(file_path):
+            # First try the development directory
+            data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'data')
+            file_path = os.path.join(data_dir, selected)
+            if os.path.exists(file_path):
+                self.gui.ball_file = str(file_path)
+                self.gui.sys.ball_file = str(file_path)
+                self.gui.sys.load_sys(str(file_path))
+                self.system_name.set(self.gui.sys.name.upper())
+                
+                # Update the system info
+                self.num_balls.set(len(self.gui.sys.balls))
+                self.num_residues.set(len(self.gui.sys.residues))
+                self.num_chains.set(len(self.gui.sys.chains))
+                return
+            
+            # If not found in development directory, try the package
+            with resources.path("vorpy.data", selected) as file_path:
+                if file_path.exists():
                     self.gui.ball_file = str(file_path)
                     self.gui.sys.ball_file = str(file_path)
                     self.gui.sys.load_sys(str(file_path))
@@ -190,22 +203,8 @@ class SystemFrame:
                     self.num_balls.set(len(self.gui.sys.balls))
                     self.num_residues.set(len(self.gui.sys.residues))
                     self.num_chains.set(len(self.gui.sys.chains))
-                    return
-                
-                # If not found in development directory, try the package
-                with resources.path("vorpy.data", selected) as file_path:
-                    if file_path.exists():
-                        self.gui.ball_file = str(file_path)
-                        self.gui.sys.ball_file = str(file_path)
-                        self.gui.sys.load_sys(str(file_path))
-                        self.system_name.set(self.gui.sys.name.upper())
-                        
-                        # Update the system info
-                        self.num_balls.set(len(self.gui.sys.balls))
-                        self.num_residues.set(len(self.gui.sys.residues))
-                        self.num_chains.set(len(self.gui.sys.chains))
-            except Exception as e:
-                print(f"Error loading selected file: {e}")
+            # except Exception as e:
+            #     print(f"Error loading selected file: {e}")
 
     def choose_ball_file(self, default=False):
         """Open file dialog to select a ball file."""
