@@ -75,7 +75,7 @@ def get_radius(atom, my_radii=None):
     # If indicated we return the symbol of ball that the radius indicates
     if atom['rad'] is None or atom['rad'] == 0:
         # Check to see if the radius is in the system
-        if atom['rad'] in {elements_radii[_] for _ in elements_radii[1]}:
+        if atom['rad'] in {elements_radii[_] for _ in elements_radii}:
             atom['element'] = elements_radii[atom['rad']]
         else:
             # Get the closest ball to it
