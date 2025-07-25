@@ -251,8 +251,12 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None, min_va
             return val
     
     def remove_outlrs(tri_curvs):
-        # Find the values at the 95th percentile
-        perc_95 = np.percentile(tri_curvs, [remove_outliers, 100-remove_outliers])
+        try:
+            # Find the values at the 95th percentile
+            perc_95 = np.percentile(tri_curvs, [10, 90])
+        except IndexError:
+            # If the percentile fails, use the min and max
+            perc_95 = [min(tri_curvs), max(tri_curvs)]
         # Remove the outliers
         new_tri_curvs = []
         for i in range(len(tri_curvs)):
@@ -291,6 +295,11 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None, min_va
             tri_curvs, _ = calc_surf_tri_curvs(func, surf['points'], surf['tris'], curvature_type='mean')
         else:
             tri_curvs = surf['mean_tri_curvs']
+
+        # Check if tri curves are empty
+        if len(tri_curvs) == 0:
+            tri_colors = [np.random.rand(3) for _ in range(len(surf['tris']))]
+            return tri_colors
 
         # Remove the outliers
         if remove_outliers:
@@ -394,6 +403,11 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None, min_va
         else:
             tri_curvs = surf['mean_tri_curvs']
 
+        # Check if tri curves are empty
+        if len(tri_curvs) == 0:
+            tri_colors = [np.random.rand(3) for _ in range(len(surf['tris']))]
+            return tri_colors
+
         # Remove the outliers
         if remove_outliers:
             tri_curvs = remove_outlrs(tri_curvs)
@@ -415,10 +429,15 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None, min_va
         else:
             tri_curvs = surf['gauss_tri_curvs']
 
+        # Check if tri curves are empty
+        if len(tri_curvs) == 0:
+            tri_colors = [np.random.rand(3) for _ in range(len(surf['tris']))]
+            return tri_colors
+
         # Remove the outliers
         if remove_outliers:
             tri_curvs = remove_outlrs(tri_curvs)
-            
+
         # First check if the surface is flat
         if surf['flat'] or surf['mean_curv'] == 0:
             my_curvs = [(0-min_val)/(max_val-min_val)] * len(surf['tris'])
