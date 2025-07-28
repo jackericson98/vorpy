@@ -201,12 +201,33 @@ Specify the intensity and type of exports:
 
 <a name="requirements-and-dependencies"></a>
 ### Requirements and Dependencies
+#### Requirements
+
+- **Python 3.8+**  
+  vorPy is developed and tested with Python 3.8 and above.
+
+#### Python Dependencies
+
+The following Python packages are required to run vorPy:
+
+- `numpy`
+- `scipy`
+- `matplotlib`
+- `pandas`
+- `Pillow`
+- `tkinter` (for GUI)
+- `pytest` (for running tests, optional)
+
+You can install all dependencies using:
+
+    pip install -r requirements.txt
+
 
 
 
 ### Output Examples
 
-The ouputs for the program are either informative or visualizations of the data. In 
+The outputs for the program are either informative or visualizations of the data. In th
 
 
 
