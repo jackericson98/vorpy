@@ -112,29 +112,42 @@ def read_vert(vert_line):
 
 
 def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=False, surfs=False, edges=False, verts=False):
+    # Set up the dictionary to store the data
     file_info = {}
+    # Create the one_file variable to track this. 
     one_file = False
-
+    # Figure out if the log_files is a single file or a list of files and change the variable accordingly
     if type(log_files) is str:
         one_file = True
         log_files = [log_files]
+    # Loop through the files
     for file in log_files:
+        # Open the file
         with open(file, 'r') as logs:
+            # Create the log reader
             log_reader = csv.reader(logs)
+            # Set up the data type
             data_type = 'data'
+            # Set up the lists to store the data
             atoms, surf_list, edge_list, vert_list = [], [], [], []
+            # Set up the skip_next variable to track if the next line should be skipped
             skip_next = False
+            # Loop through the lines
             for i, line in enumerate(log_reader):
+                # Skip the first, the second, the fourth, and the fifth lines
                 if i in {0, 1, 3, 4}:
                     continue
+                # Get the main data from the logs file. 
                 elif i == 2:
                     line = line + [0 for _ in range(11 - len(line))]
+                    # Try to get the data from the line
                     try:
                         data = {'name': line[0], 'network_type': line[1], 'surface_resolution': float(line[2]),
                                 'box_size': float(line[3]), 'max_vert': float(line[4]), 'Total_Time': float(line[5]),
                                 'vert_time': float(line[6]), 'connect_time': float(line[7]), 'surf_time': float(line[8]),
                                 'analysis_time': float(line[9]), 'max_vertex': float(line[10])}
                         continue
+                    # If the data is not found, get the data from the new logs type
                     except ValueError:
                         data = {'name': line[0], 'location': line[1], 'time': line[2],'network_type': line[3],
                                 'surface_resolution': float(line[4]), 'box_size': float(line[5]),
@@ -143,8 +156,8 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
                                 'surf_time': float(line[10]), 'analysis_time': float(line[11]),
                                 'max_vertex': float(line[12])}
                         continue
+                # Get the group data
                 elif i == 5:
-                    # group_data = {'name': line[0], 'volume': float(line[2]), 'sa': float(line[3])}
                     group_data = {'Name': line[0], 'Volume': float(line[1]), 'Surface Area': float(line[2]),
                                   'Mass': float(line[3]), 'Density': float(line[4]),
                                   'Center of Mass': parse_string_lists(line[5]), 'VDW Volume': float(line[6]),
@@ -152,14 +165,16 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
                                   'Moment of Inertia': parse_string_lists(line[8]),
                                   'Spatial Moment of Inertia': parse_string_lists(line[9])}
                     continue
-
+                # If the line is a build information, group information, Atoms, Edges, Surfaces, or Vertices, set the data type and skip the next line
                 if line[0] in {'build information', 'group information', 'Atoms', 'Edges', 'Surfaces', 'Vertices'}:
                     data_type = line[0]
                     skip_next = True
                     continue
+                # If the skip_next variable is True, skip the next line
                 if skip_next:
                     skip_next = False
                     continue
+                # If the data type is Atoms and the all_ or balls variable is True, read the atom data
                 elif data_type == 'Atoms' and (all_ or balls):
                     my_atom = read_atom(line)
                     my_atom['rad'], my_atom['loc'] = my_atom['Radius'], [my_atom['X'], my_atom['Y'], my_atom['Z']]
@@ -167,18 +182,25 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
                         continue
                     else:
                         atoms.append(my_atom)
+                # If the data type is Surfaces and the all_ or surfs variable is True, read the surface data
                 elif data_type == 'Surfaces' and (all_ or surfs):
                     surf_list.append(read_surf(line))
+                # If the data type is Edges and the all_ or edges variable is True, read the edge data
                 elif data_type == 'Edges' and (all_ or edges):
                     edge_list.append(read_edge(line))
+                # If the data type is Vertices and the all_ or verts variable is True, read the vertex data
                 elif data_type == 'Vertices' and (all_ or verts):
-
                     vert_list.append(read_vert(line))
+                # If the data type is not one of the above, skip the line
                 else:
                     continue
+            # Get the file name
             file_name = data['name']
+            # Set up the index to track the number of files with the same name
             index = 0
+            # Loop through the file name
             while True:
+                # If the file name is already in the dictionary, add a number to the end of the file name
                 if file_name in file_info:
                     if index != 0:
                         file_name = file_name[:-len(str(index - 1))]
@@ -186,6 +208,7 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
                 else:
                     break
                 index += 1
+            # If the return_dict variable is True, add the data to the dictionary
             if return_dict:
                 file_info[file_name] = {'data': data, 'group data': group_data, 'atoms': atoms, 'surfs': surf_list,
                                         'edges': edge_list, 'verts': vert_list}
@@ -193,7 +216,10 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
                 file_info[file_name] = {'data': data, 'group data': group_data, 'atoms': pd.DataFrame(atoms),
                                         'surfs': pd.DataFrame(surf_list), 'edges': pd.DataFrame(edge_list),
                                         'verts': pd.DataFrame(vert_list)}
+    # If the one_file variable is True, return the first file in the dictionary
     if one_file:
+        # Get the first file in the dictionary
         my_file = [_ for _ in file_info][0]
         return file_info[my_file]
+    # If the one_file variable is False, return the dictionary
     return file_info

@@ -1,6 +1,8 @@
+import os
 from vorpy.src.system.system import System
 from vorpy.src.analyze.tools.compare.read_logs import read_logs
 from vorpy.src.analyze.tools.compare.get_res_data import residue_data
+from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
 
 
 def compare_files(pdb_files, log_files, build_data=False, totals=False, avg_distros=False, compare_in_out=False,
@@ -80,3 +82,47 @@ def compare_files(pdb_files, log_files, build_data=False, totals=False, avg_dist
     #     #         print(residue_data(sys, logs[i]))
     return info
 
+
+
+def compare_files2(log_files, by_residues=False):
+    # Loop through the log files and save the names
+    data = {}       
+    for file in log_files:
+        # Read the logs
+        my_logs = read_logs2(file, all_=False, balls=True)
+        # Get just file name
+        file_name = os.path.basename(file)
+        # Get the name of the model
+        model_name = tuple(file_name.split('_'))
+        # Add the data to the dictionary
+        data[model_name] = my_logs
+
+    if by_residues:
+        data['residues'] = {}
+        for file in data:
+            my_res_dict = {}
+            for i, atom in data[file]['atoms'].iterrows():
+                if (atom['Residue'], atom['Residue Sequence'], atom['Chain']) not in my_res_dict:
+                    my_res_dict[(atom['Residue'], atom['Residue Sequence'], atom['Chain'])] = {'vol': atom['volume'], 'sa': atom['surface area']}
+                else:
+                    my_res_dict[(atom['Residue'], atom['Residue Sequence'], atom['Chain'])]['vol'] += atom['volume']
+                    my_res_dict[(atom['Residue'], atom['Residue Sequence'], atom['Chain'])]['sa'] += atom['surface area']
+            data['residues'][file] = my_res_dict
+        # Now we need to compare the residues and only keep the ones that are in all of the files
+        complete_coverage_residues = []
+        # We need to chaeck each file for the residue to see if it is in all of the files
+        for file in data['residues']:
+            for res in data['residues'][file]:
+                for file2 in data['residues']:
+                    if res not in data['residues'][file2]:
+                        del data['residues'][file][res]
+                        break
+                complete_coverage_residues.append(res)
+        data['residues']['complete_coverage_residues'] = complete_coverage_residues
+        
+
+
+        # Now we need to compare the residues and only keep the ones that are in all of the files
+        
+    # Return the data
+    return data
