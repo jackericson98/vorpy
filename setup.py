@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="vorpy3",
-    version="3.0.6",
+    version="3.0.8",
     author="John Ericson",
     author_email="jackericson98@gmail.com",
     description="A Python package for Voronoi analysis of molecular structures",
@@ -26,13 +26,11 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Operating System :: OS Independent",
     ],
     python_requires=">=3.9",
     install_requires=[
         "numpy",
-        "scipy",
+        "scipy", 
         "matplotlib",
         "pandas",
         "numba",
@@ -40,7 +38,7 @@ setup(
         "plotly",
         "sympy",
         "Pillow",
-        "pystray"
+        "pystray",
     ],
     extras_require={
         "dev": [
