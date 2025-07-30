@@ -22,7 +22,7 @@ class ColorSettingsWindow(tk.Toplevel):
         # Set up the main settings
         color_settings = self.build_frame.settings['color_settings']
         self.surf_res = tk.StringVar(value=color_settings['surf_res'])
-        self.surf_col = tk.StringVar(value=color_settings['surf_col'].capitalize())
+        self.surf_col = tk.StringVar(value=color_settings['surf_col'])
         self.surf_scheme = tk.StringVar(value=color_settings['surf_scheme'].capitalize())
         self.surf_fact = tk.StringVar(value=color_settings['surf_fact'].capitalize())
         self.vert_col = tk.StringVar(value=color_settings['vert_col'].capitalize())
@@ -89,7 +89,7 @@ class ColorSettingsWindow(tk.Toplevel):
         # Create the surface colorway entry
         ttk.Label(settings_frame, text="Surface Colorway").grid(row=2, column=0, sticky="w", padx=5, pady=2)
         self.surf_col = ttk.Entry(settings_frame, width=15)
-        self.surf_col.insert(0, default_settings['surf_col'].capitalize())
+        self.surf_col.insert(0, default_settings['surf_col'])
         self.surf_col.grid(row=2, column=1, sticky="w", padx=5, pady=2)
 
         # Create settings rows
