@@ -14,8 +14,33 @@ sys.path.append(vorpy_root)
 
 from vorpy.src.system.system import System
 from vorpy.src.group.group import Group
-from vorpy.src.analyze.tools.compare.read_logs import read_logs
+from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
 from vorpy.src.analyze.tools.plot_templates.bar import bar
+
+from vorpy.src.analyze.tools.batch.get_files import get_all_files
+
+
+def per_diffs_surfs(skip_keys=[]):
+    """Plots the average percentage differences for the given systems"""
+    # Get the files
+    files = get_all_files()
+    # Loop through the files and get the surface data
+    for key, value in files.items():
+        if key in skip_keys:
+            continue
+        # Get the voronoi surface info
+        aw_logs = read_logs2(value['aw'], all_=False, surfs=True)
+        # Get the power surface info
+        pow_logs = read_logs2(value['pow'], all_=False, surfs=True)
+        # Get the primitive surface info
+        prm_logs = read_logs2(value['prm'], all_=False, surfs=True)
+        # add the logs to the files dictionary
+        files[key]['aw surfs'] = aw_logs['surfs']
+        files[key]['pow surfs'] = pow_logs['surfs']
+        files[key]['prm surfs'] = prm_logs['surfs']
+        
+    
+
 
 
 def surfs_per_diff(systems, logs, val='sa'):
