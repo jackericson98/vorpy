@@ -28,6 +28,11 @@ def parse_string_lists_int(string_list, apply_type=int):
 
 
 def parse_string_lists(string_list, apply_type=float):
+    # Check if the string list contains np.float64 values
+    if 'n' in string_list and 'p' in string_list:
+        remove_float_vals = True
+    else:
+        remove_float_vals = False
     # Test if it is just one single list
     if string_list[1] != '[':
         listy, current_number = [], ''
@@ -35,6 +40,8 @@ def parse_string_lists(string_list, apply_type=float):
             if letter.isdigit() or letter == '.':
                 current_number += letter
             elif letter == ',':
+                if remove_float_vals:
+                    current_number = current_number[2:]
                 listy.append(apply_type(current_number))
                 current_number = ''
     else:
@@ -43,6 +50,8 @@ def parse_string_lists(string_list, apply_type=float):
             if letter.isdigit() or letter == '.':
                 current_number += letter
             elif letter == ',' and len(current_number) > 0:
+                if remove_float_vals:
+                    current_number = current_number[2:]
                 listy[-1].append(apply_type(current_number))
                 current_number = ''
             elif letter == ']':
