@@ -14,7 +14,7 @@ def create_graph(title='', xlabel='', ylabel='', xtick_labels=[], ytick_labels=[
 
     # Setting the ticks on the x-axis
     ax.set_xticks(xtick_labels)
-    ax.set_xticklabels(np.arange(0, 1, len(xtick_labels)), fontsize=x_tick_label_size)
+    ax.set_xticklabels(np.arange(0, 1, len(xtick_labels)), fontsize=xtick_label_size)
     ax.tick_params(axis='x', length=tick_length, width=tick_width)
 
     # Setting labels for axes

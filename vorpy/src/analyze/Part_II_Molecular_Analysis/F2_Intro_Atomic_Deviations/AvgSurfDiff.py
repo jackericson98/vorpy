@@ -49,11 +49,11 @@ def surfs_per_diff(systems, logs, val='sa'):
     # Go through the loaded systems
     for system in systems:
         sys_name = system.name
-        vor_surfs = read_logs(logs[sys_name]['vor'], True, True)['surfs']
+        vor_surfs = read_logs2(logs[sys_name]['vor'], True, True)['surfs']
         pow_surfs = {str(_['atoms'][0]) + '_' + str(_['atoms'][1]): _
-                     for _ in read_logs(logs[sys_name]['pow'], True, True)['surfs']}
+                     for _ in read_logs2(logs[sys_name]['pow'], True, True)['surfs']}
         del_surfs = {str(_['atoms'][0]) + '_' + str(_['atoms'][1]): _
-                     for _ in read_logs(logs[sys_name]['del'], True, True)['surfs']}
+                     for _ in read_logs2(logs[sys_name]['del'], True, True)['surfs']}
         # print(sys_name, len(vor_atoms), len(pow_atoms), len(del_atoms))
         pow_diffs, del_diffs = [], []
         for i in range(len(vor_surfs)):

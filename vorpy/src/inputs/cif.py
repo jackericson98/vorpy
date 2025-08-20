@@ -79,6 +79,8 @@ def read_cif(sys, file):
                 res_seq = int(linfo[8])
                 # Increment the atom count
                 atom_count += 1
+                # Get the chain string from the ball object
+                chain_str = ball['chn_name']
                 # If the chain string is empty
                 if chain_str == ' ':
                     # If the residue string is a solvent

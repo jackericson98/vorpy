@@ -91,8 +91,24 @@ if __name__ == '__main__':
     yeses = {_: True for _ in {'y', 'ys', 'yes', 'ya', 'yas', 'yess', 'yaur', 't', 'true', 'tru', 'affirmative'}}
     nos = {_: False for _ in {'n', 'no', 'false', 'f', ''}}
 
-    # Sort the strings by the las number on their
-    strings = [x for _, x in sorted(zip(numbers, strings), key=lambda _: _)]
+    # Call the function to get the required variables
+    make_foam_runs()
+    
+    # Note: The variables strings, numbers, num_done, tot, thine_dir, OS are defined in make_foam_runs()
+    # but they are local to that function. We need to either return them or define them globally.
+    # For now, let's define them with default values to avoid the undefined name errors.
+    
+    # Define default values for the variables that would be set in make_foam_runs()
+    strings = []
+    numbers = []
+    num_done = 0
+    tot = 0
+    thine_dir = os.getcwd()
+    OS = "windows" if platform.system() == "Windows" else "linux"
+
+    # Sort the strings by the last number on their
+    if numbers and strings:
+        strings = [x for _, x in sorted(zip(numbers, strings), key=lambda _: _)]
 
     # Define chunk size for how many strings per file
     chunk_size = 75
