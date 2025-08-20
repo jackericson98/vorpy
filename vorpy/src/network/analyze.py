@@ -113,6 +113,7 @@ def analyze(net, complicated=True):
                          nbor_lyr_rmsds, num_olaps, nbor_dst_avgs, b_min_spikes, b_max_spikes, contact_areas, olap_vols,
                          non_olap_vols, coms, mois, b_boxs))
             continue
+
         # Increment the count
         count += 1
         # Start the timer
@@ -123,7 +124,16 @@ def analyze(net, complicated=True):
         for vert in ball['verts']:
             # Check the number of edges from the vertex that hold
             if len([_ for _ in [net.edges['balls'][__] for __ in net.verts['edges'][vert]] if k in _]) != 3:
-                complete = False
+                # Double check that we arent just missing a connection somewhere, but we only care if it is in the net group
+                if ball['num'] in net.group:
+                    new_count = 0
+                    for edge in ball['edges']:
+                        if set(net.edges['balls'][edge]).issubset(set(net.verts['balls'][vert])):
+                            new_count += 1
+                    if new_count < 3:
+                        complete = False
+                else:
+                    complete = False
         # Additional catch for any ball that doesn't have the 181L number of network elements associated with it
         if len(ball['verts']) < 3 or len(ball['edges']) < 4 or len(ball_surfs) < 3:
             complete = False
