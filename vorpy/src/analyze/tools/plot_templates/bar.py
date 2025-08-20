@@ -5,7 +5,7 @@ import numpy as np
 def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_title='', y_axis_title='', bar_width=0.35,
         Show=False, save=None, legend_title=None, print_vals_on_bars=False, unit='', title_size=25, tick_width=2,
         tick_length=12, xlabel_size=20, ylabel_size=20, xtick_label_size=20, ytick_label_size=20, legend_entry_size=20,
-        x_range=None, y_range=None, legend_orientation='Horizontal'):
+        x_range=None, y_range=None, legend_orientation='Horizontal', x_tick_rotation=0, y_tick_rotation=0):
 
     # Check how the data is set up and make sure it is a list of lists
     if type(data[0]) is not list:
@@ -54,8 +54,8 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
 
     # Label the bar groups
     x_tick_locs = [np.mean([xlocs[j][i] for j in range(len(data))]) for i in range(len(data[0]))]
-    plt.xticks(x_tick_locs, x_names, font=dict(size=xtick_label_size))
-    plt.yticks(font=dict(size=ytick_label_size))
+    plt.xticks(x_tick_locs, x_names, font=dict(size=xtick_label_size), rotation=x_tick_rotation)
+    plt.yticks(font=dict(size=ytick_label_size), rotation=y_tick_rotation)
     plt.tick_params(axis='both', width=tick_width, length=tick_length)
 
     # Plot the data on the bars
