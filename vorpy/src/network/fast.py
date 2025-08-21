@@ -1,6 +1,7 @@
 import bisect
 import numpy as np
 import time
+import warnings
 from vorpy.src.calculations import calc_flat_vert
 from vorpy.src.calculations import calc_vert
 from vorpy.src.calculations import verify_aw
@@ -12,6 +13,8 @@ from vorpy.src.calculations import box_search
 from vorpy.src.calculations import get_balls
 from vorpy.src.calculations import sort_lists
 from vorpy.src.calculations import calc_circ
+
+warnings.filterwarnings("error", category=RuntimeWarning)
 
 
 def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, net_type, box=None, vn_1=None, vn_1_loc=None,
@@ -237,8 +240,10 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         vert_balls, ball = vert
         # Calculate the 181L vertex values
         start = time.perf_counter()
-        v_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=False)
-
+        try:
+            v_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=False)
+        except RuntimeWarning:
+            continue
         # Check if the vert is outside the box
         if box is not None and any([box[0][k] > v_loc[k] or v_loc[k] > box[1][k] for k in range(3)]):
             continue
