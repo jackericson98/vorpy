@@ -204,7 +204,7 @@ def interpret_argvs(counter=0):
     return cmnds
 
 
-def argv(my_sys):
+def argv(my_sys=None):
     """
     Processes command line arguments for the VORPY program.
 
@@ -232,6 +232,8 @@ def argv(my_sys):
     --------
     None
     """
+    if my_sys is None:
+        my_sys = System()
     # First check if the argv value is in helps
     if sys.argv[1].lower() in helps:
         print_help()
