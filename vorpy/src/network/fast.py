@@ -240,10 +240,8 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         vert_balls, ball = vert
         # Calculate the 181L vertex values
         start = time.perf_counter()
-        try:
-            v_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=False)
-        except RuntimeWarning:
-            continue
+        v_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=False)
+
         # Check if the vert is outside the box
         if box is not None and any([box[0][k] > v_loc[k] or v_loc[k] > box[1][k] for k in range(3)]):
             continue
@@ -353,7 +351,12 @@ def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         vert_balls, ball = vert
         # Calculate the 181L vertex values
         start = time.perf_counter()
-        v_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=True)
+        try:
+            v_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=True)
+        except RuntimeWarning:
+            invalid_ndxs.append(ball)
+            continue
+        
         # Check if the vert is outside the box
         if box is not None and any([box[0][k] > v_loc[k] or v_loc[k] > box[1][k] for k in range(3)]):
             continue
