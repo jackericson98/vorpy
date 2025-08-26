@@ -6,7 +6,8 @@ def line_plot(xs, ys, errors=None, labels=None, error_alpha=0.2, title=None, x_l
               legend_title=None, Show=True, title_size=25, x_label_size=20, y_label_size=20, legend_title_size=20,
               legend_label_size=20, tick_width=2, tick_length=12, legend_orientation='vertical', colors=None,
               tick_val_size=15, linewidth=1, x_ticks=None, x_ticks2=None, y_ticks=None, y_ticks2=None, colorbar=None,
-              tight_layout=True, figsize=None):
+              tight_layout=True, figsize=None, ylim=None, xlim=None, axis_line_thickness=1.5, legend_loc='upper right', 
+              legend_bbox_to_anchor=(1.2, 1), alpha=1):
     # Set default colors if none provided
     if colors is None:
         colors = ['r', 'g', 'b', 'y', 'o', 'pink', 'purple', 'lavender']
@@ -21,9 +22,9 @@ def line_plot(xs, ys, errors=None, labels=None, error_alpha=0.2, title=None, x_l
     for i in range(len(xs)):
         # Plot the main line with or without labels
         if labels is not None:
-            ax.plot(xs[i], ys[i], label=labels[i], linewidth=linewidth, c=colors[i])
+            ax.plot(xs[i], ys[i], label=labels[i], linewidth=linewidth, c=colors[i], alpha=alpha)
         else:
-            ax.plot(xs[i], ys[i], linewidth=linewidth, c=colors[i])
+            ax.plot(xs[i], ys[i], linewidth=linewidth, c=colors[i], alpha=alpha)
         
         # Add error bars if provided
         if errors is not None:
@@ -37,7 +38,11 @@ def line_plot(xs, ys, errors=None, labels=None, error_alpha=0.2, title=None, x_l
         ax.set_xlabel(x_label, fontsize=x_label_size)
     if y_label is not None:
         ax.set_ylabel(y_label, fontsize=y_label_size)
-    
+    # Set the limits
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    if xlim is not None:
+        ax.set_xlim(xlim)
     # Handle custom x-axis ticks and secondary x-axis
     if x_ticks is not None:
         ax.set_xticks(x_ticks)
@@ -45,21 +50,24 @@ def line_plot(xs, ys, errors=None, labels=None, error_alpha=0.2, title=None, x_l
             ax2 = ax.twiny()
             ax2.set_xticks(x_ticks2)
             ax2.tick_params(axis='both', which='major', labelsize=tick_val_size, length=tick_length, width=tick_width)
-    
+    # Allow user to set axis line thickness
+    for spine in ax.spines.values():
+        spine.set_linewidth(axis_line_thickness)
+
     # Handle custom y-axis ticks and secondary y-axis
-    if y_ticks is not None:
-        ax.set_ylabel(labels[0] + ' Counts', color=colors[0])
-        ax.set_yticks(np.linspace(min(ys[0]), 0.85 * y_max, len(y_ticks)))
-        ax.set_yticklabels([str(_) for _ in y_ticks])
-        ax.tick_params(axis='y', which='major', labelsize=tick_val_size, length=tick_length, width=tick_width,
-                       labelcolor=colors[0])
-        if y_ticks2 is not None:
-            ax3 = ax.twinx()
-            ax3.set_ylabel(labels[1] + ' Counts', color=colors[1], fontsize=y_label_size)
-            ax3.set_yticks(np.linspace(0, 0.85, len(y_ticks2)))
-            ax3.set_yticklabels([str(_) for _ in y_ticks2])
-            ax3.tick_params(axis='both', which='major', labelsize=tick_val_size, length=tick_length, width=tick_width,
-                            labelcolor=colors[1])
+    # if y_ticks is not None:
+    #     ax.set_ylabel(labels[0] + ' Counts', color=colors[0])
+    #     ax.set_yticks(np.linspace(min(ys[0]), 0.85 * y_max, len(y_ticks)))
+    #     ax.set_yticklabels([str(_) for _ in y_ticks])
+    #     ax.tick_params(axis='y', which='major', labelsize=tick_val_size, length=tick_length, width=tick_width,
+    #                    labelcolor=colors[0])
+    #     if y_ticks2 is not None:
+    #         ax3 = ax.twinx()
+    #         ax3.set_ylabel(labels[1] + ' Counts', color=colors[1], fontsize=y_label_size)
+    #         ax3.set_yticks(np.linspace(0, 0.85, len(y_ticks2)))
+    #         ax3.set_yticklabels([str(_) for _ in y_ticks2])
+    #         ax3.tick_params(axis='both', which='major', labelsize=tick_val_size, length=tick_length, width=tick_width,
+    #                         labelcolor=colors[1])
     
     # Set tick parameters for main axes
     ax.tick_params(axis='both', which='major', labelsize=tick_val_size, length=tick_length, width=tick_width)
