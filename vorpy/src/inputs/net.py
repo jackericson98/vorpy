@@ -1,7 +1,7 @@
 import csv
 import os.path
 import numpy as np
-from vorpy.src.inputs.integrate_net import integrate_net
+# from vorpy.src.inputs.integrate_net import integrate_net
 
 
 def read_net(net, file_name):
@@ -78,7 +78,7 @@ def read_net(net, file_name):
                 # Add the connections
                 np.append(cons, line)
     # Integrate the data
-    integrate_net(net, verts, edges, surfs, cons)
+    # integrate_net(net, verts, edges, surfs, cons)
     # Return the network
     return net
 
