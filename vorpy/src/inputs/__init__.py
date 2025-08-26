@@ -1,7 +1,7 @@
 from vorpy.src.inputs.balls import read_balls
 from vorpy.src.inputs.cif import read_cif
 from vorpy.src.inputs.gro import read_gro
-from vorpy.src.inputs.integrate_net import integrate_net
+# from vorpy.src.inputs.integrate_net import integrate_net
 from vorpy.src.inputs.mol import read_mol
 from vorpy.src.inputs.net import read_net
 from vorpy.src.inputs.pdb import read_pdb
