@@ -176,7 +176,7 @@ class VorPyGUI(tk.Tk):
         self.output_dir = self.sys.files['dir']
         print(f"Output directory selected: {self.sys.files['dir']}")
 
-    def run_group(self, group_name):
+    def run_group(self, group_name, verts=None):
         """
         This runs a group from the group settings dictionary
         """
@@ -203,7 +203,8 @@ class VorPyGUI(tk.Tk):
             surf_scheme=build_settings['color_settings']['surf_scheme'],
             scheme_factor=build_settings['color_settings']['surf_fact'],
             vert_col=build_settings['color_settings']['vert_col'],
-            edge_col=build_settings['color_settings']['edge_col']
+            edge_col=build_settings['color_settings']['edge_col'], 
+            verts=verts
         )
 
         # Export the group
@@ -246,14 +247,17 @@ class VorPyGUI(tk.Tk):
 
         # Set the output directory 
         self.sys.files['dir'] = self.output_dir
-
         # Update the radii changes in the system
         for change in self.radii_changes:
             self.sys.set_radii(change)
 
         # Create the groups with the correct settings
         for group_name in self.group_settings:
-            self.run_group(group_name)
+            verts = None
+            if self.files['other_files']:
+                if 'verts' in self.files['other_files'][0]:
+                    verts = self.files['other_files'][0]
+            self.run_group(group_name, verts)
 
         # Export the system exports
         self.sys.exports(pdb=self.exports['pdb'], mol=self.exports['mol'], cif=self.exports['cif'],
