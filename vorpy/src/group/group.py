@@ -3,6 +3,7 @@ from vorpy.src.group.sort import add_balls
 from vorpy.src.group.sort import get_info
 from vorpy.src.group.export import group_exports
 from vorpy.src.network import Network
+from vorpy.src.inputs import read_verts
 
 
 class Group:
@@ -167,6 +168,10 @@ class Group:
 
         # Process the inputs
         self.process_inputs()
+
+        # Set the verts
+        if verts is not None and type(verts) == str:
+            self.verts = read_verts(self, verts)
 
         # Make the network
         if make_net:
