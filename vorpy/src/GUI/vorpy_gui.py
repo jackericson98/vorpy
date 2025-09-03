@@ -15,6 +15,7 @@ from vorpy.src.GUI.system.system_frame import SystemFrame
 from vorpy.src.GUI.group.groups_frame import GroupsFrame
 from vorpy.src.GUI.help.help_window import HelpWindow
 from vorpy.src.group import Group
+from vorpy.src.inputs import read_verts
 
 
 class VorPyGUI(tk.Tk):
