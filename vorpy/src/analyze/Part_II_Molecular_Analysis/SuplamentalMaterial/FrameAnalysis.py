@@ -24,6 +24,8 @@ def get_frames(folder=None):
     frame_dict = {}
     # Loop through the folders in the folder
     for subfolder in os.listdir(folder):
+        if subfolder[0] != 'f':
+            continue
         # Get the name of the frame
         frame = int(subfolder[1:])
         # Get the logs
@@ -59,12 +61,11 @@ def plot_frame_diffs(frame_dict):
         pow_diffs.append(pow_diff)
         prm_diffs.append(prm_diff)
         frame_names.append(frame)
-    
     # Plot the differences
     line_plot([frame_names, frame_names], [pow_diffs, prm_diffs], y_label='% Difference', 
               title='% Difference from AW', Show=True, x_label="Frame", labels=["Pow", "Prm"], 
-              colors=["red", "purple"], y_ticks=[-3, -2, -1, 0, 1], y_label_size=20, x_label_size=20, 
-              title_size=25, ylim=[-3.5, 1.5], xlim=[0.5, 11.5], x_ticks=[2, 4, 6, 8, 10], axis_line_thickness=2,
+              colors=["red", "purple"], y_ticks=[-2, -1, 0, 1, 2, 3], y_label_size=20, x_label_size=20, 
+              title_size=25, xlim=[0.5, 11.5], x_ticks=[2, 4, 6, 8, 10], axis_line_thickness=2,
               linewidth=3, tick_val_size=20)
 
 def plot_frame_deviations(frame_dict):
@@ -93,7 +94,7 @@ def plot_frame_deviations(frame_dict):
     line_plot([frame_names, frame_names, frame_names], [aw_devs, pow_devs, prm_devs], y_label='% Deviation', 
               title='Frame Volume Deviation', Show=True, x_label="Frame", labels=["AW", "Pow", "Prm"], 
               colors=["blue", "red", "purple"], y_ticks=[-3, -2, -1, 0], y_label_size=20, x_label_size=20, 
-              title_size=25, ylim=[-4.5, 0.5], xlim=[0.5, 11.5], x_ticks=[2, 4, 6, 8, 10], axis_line_thickness=2, 
+              title_size=25, xlim=[0.5, 11.5], x_ticks=[2, 4, 6, 8, 10], axis_line_thickness=2, 
               linewidth=3, tick_val_size=20, alpha=0.8)
 
 if __name__ == "__main__":
