@@ -1,7 +1,5 @@
 import numpy as np
 import warnings
-import matplotlib as mpl
-from matplotlib._api.deprecation import MatplotlibDeprecationWarning as MPLDepWarn
 from vorpy.src.calculations.curvature import gaussian_curvature
 from vorpy.src.calculations.curvature import mean_curvature
 from vorpy.src.calculations.surf import calc_surf_tri_dists
@@ -215,6 +213,8 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None, min_va
         - The function handles various edge cases including flat surfaces and missing data
         - Color calculations are cached when possible to improve performance
     """
+    import matplotlib as mpl
+    from matplotlib._api.deprecation import MatplotlibDeprecationWarning as MPLDepWarn
     # Set up the variable tri_colors for recording the color designations for
     tri_colors = None
     # Set up the inverse multiplyer
