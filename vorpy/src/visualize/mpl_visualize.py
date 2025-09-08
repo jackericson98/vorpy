@@ -1,6 +1,14 @@
-import matplotlib.pyplot as plt
-import numpy as np
+# vorpy/src/visualize/mpl_visualize.py
+from __future__ import annotations
+
 import random
+import numpy as np
+
+
+def _plt():
+    # Import pyplot only when a plotting function is actually called.
+    import matplotlib.pyplot as plt
+    return plt
 
 
 # Generate a random RGB color
@@ -27,6 +35,7 @@ def random_color_hex():
 
 # Set up plot function. Used to set the parameters for the plot
 def setup_plot(fig=None, ax=None, dfo=None, grid=False, bg_color=None, axes_equal=True):
+    plt = _plt()
     # Create a new subplot if one isn't specified
     if ax is None:
         # Create new figure if one isn't specified
@@ -59,7 +68,7 @@ def setup_plot(fig=None, ax=None, dfo=None, grid=False, bg_color=None, axes_equa
 # Plot spheres function. Plots the spheres specified
 def plot_balls(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=0.5,
                bg_color=None, res=10, axes_scale='equal', random_colors=False):
-
+    plt = _plt()
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Get the atoms colors
@@ -94,6 +103,7 @@ def plot_balls(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=Non
 
 def plot_circles(locations, radii, colors=None, fig=None, ax=None, Show=False, grid=False, alpha=0.5,
                  bg_color=None, linewidth=2, center_point=False, random_colors=False):
+    plt = _plt()
     # Set up the plot
     if not ax:
         fig = plt.figure()
@@ -140,6 +150,7 @@ def plot_circles(locations, radii, colors=None, fig=None, ax=None, Show=False, g
 # Plot vertices function. Plots the vertices of a network.
 def plot_verts(vlocs, vrads, spheres=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None,
                bg_color=None, axes_scale='equal', res=4, random_colors=None):
+    plt = _plt()
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Default color is red
@@ -165,6 +176,7 @@ def plot_verts(vlocs, vrads, spheres=False, fig=None, ax=None, Show=False, dfo=N
 # Plot edges function. Plots the edges given as lines
 def plot_edges(epnts, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None, bg_color=None,
                center=None, thickness=5, axes_scale='equal', random_colors=False):
+    plt = _plt()
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Set the color if it is not indicated already
@@ -197,6 +209,7 @@ def plot_edges(epnts, fig=None, ax=None, Show=False, dfo=None, grid=False, color
 # Plot surfaces function. Plots the surfaces given
 def plot_surfs(spnts, stris, simps=True, simp_linewidth=1, simp_color='grey', fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None,
                bg_color=None, axes_scale='equal', random_colors=False):
+    plt = _plt()
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Set up the colors
@@ -227,6 +240,7 @@ def plot_surfs(spnts, stris, simps=True, simp_linewidth=1, simp_color='grey', fi
 
 # Plot simplices function.
 def plot_simps(spnts, stris, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=None, bg_color=None):
+    plt = _plt()
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
     # Go through each triangle in the surfaces list of simplices
@@ -243,6 +257,7 @@ def plot_simps(spnts, stris, fig=None, ax=None, Show=False, dfo=None, grid=False
 # Plot network function. Plots the network items
 def plot_net(net, group=None, plot_all=False, atoms=False, verts=False, edges=False, surfs=False, fig=None, ax=None, grid=False,
              bg_color='white', dfo=None, Show=True, a_alpha=1, v_alpha=1, e_alpha=1, s_alpha=1, random_colors=False):
+    plt = _plt()
     # Check for a figure or an ax
     if fig is None:
         fig = plt.figure()
@@ -278,6 +293,7 @@ def plot_net(net, group=None, plot_all=False, atoms=False, verts=False, edges=Fa
 
 
 def plot_rects(rects, fig=None, ax=None, show_axes=True, colors=None, Show=False):
+    plt = _plt()
     # Check for a figure or an ax
     if fig is None:
         fig = plt.figure()
