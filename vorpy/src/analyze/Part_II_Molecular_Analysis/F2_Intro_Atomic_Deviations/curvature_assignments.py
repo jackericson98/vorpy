@@ -11,14 +11,14 @@ vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..',
 # Add the root vorpy folder to the system path
 sys.path.append(vorpy_root)
 
-from vorpy.src.analyze.tools.compare.read_logs import read_logs
+from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
 
 root = tk.Tk()
 root.withdraw()
 root.wm_attributes('-topmost', 1)
 my_logs = filedialog.askopenfilename(title='Choose Logs')
 
-my_logs_info = read_logs(my_logs)
+my_logs_info = read_logs2(my_logs, all_=False, surfs=True, balls=True)
 
 combos = {'HG22': 'HG', 'HG21': 'HG', 'HG23': 'HG', 'HD1': 'HD', 'HD2': 'HD', 'HB1': 'HB', 'HG11': 'HG', 'CG1': 'CG',
           'CG2': 'CG', 'HG12': 'HG', 'HG13': 'HG', 'HW1': 'HW', 'HW2': 'HW', 'HH12': 'HH1', 'HH11': 'HH1',
@@ -29,13 +29,13 @@ combos = {'HG22': 'HG', 'HG21': 'HG', 'HG23': 'HG', 'HD1': 'HD', 'HD2': 'HD', 'H
 
 surf_type_dict = {}
 for i, surf in my_logs_info['surfs'].iterrows():
-    atom_indices = [int(_) for _ in list(surf['atoms'])]
+    atom_indices = [int(_) for _ in list(surf['Balls'])]
     try:
-        atom0 = my_logs_info['atoms'].loc[my_logs_info['atoms']['num'] == atom_indices[0]].iloc[0]
-        atom1 = my_logs_info['atoms'].loc[my_logs_info['atoms']['num'] == atom_indices[1]].iloc[0]
+        atom0 = my_logs_info['atoms'].loc[my_logs_info['atoms']['Index'] == atom_indices[0]].iloc[0]
+        atom1 = my_logs_info['atoms'].loc[my_logs_info['atoms']['Index'] == atom_indices[1]].iloc[0]
     except IndexError:
         continue
-    atom_names = [atom0['name'].strip(), atom1['name'].strip()]
+    atom_names = [atom0['Name'].strip(), atom1['Name'].strip()]
 
     for i, atom in enumerate(atom_names):
         if atom in combos:
@@ -46,9 +46,9 @@ for i, surf in my_logs_info['surfs'].iterrows():
         atom_names.sort()
     combined_names = ' - '.join(atom_names)
     if combined_names in surf_type_dict:
-        surf_type_dict[combined_names].append(surf['curvature'])
+        surf_type_dict[combined_names].append(surf['Curvature'])
     else:
-        surf_type_dict[combined_names] = [surf['curvature']]
+        surf_type_dict[combined_names] = [surf['Curvature']]
 
 new_surf_dict = {}
 new_surf_dict1 = {}
@@ -73,7 +73,7 @@ labels, values = zip(*surf_dict.items())
 
 # Create the boxplot
 fig, ax = plt.subplots(figsize=(12, 8))
-ax.boxplot(values[:min(15, len(values))], labels=labels[:min(15, len(values))], patch_artist=True)
+ax.boxplot(values[:min(15, len(values))], tick_labels=labels[:min(15, len(values))], patch_artist=True)
 
 # Set plot title and labels
 ax.set_title('Distribution of Curvatures ({})'.format(my_logs_info['data']['name'].capitalize()), fontdict=dict(size=30))
