@@ -5,344 +5,216 @@ from numba.core.errors import TypingError
 warnings.filterwarnings("error")
 
 
-def round_func(round_to):
-    """
-    Creates a configurable rounding function that can handle both single values and iterables.
+try:
+    from numba import njit, float64
+except Exception:  # numba not installed; make a no-op decorator
+    def njit(*_args, **_kwargs):
+        def deco(f):
+            return f
+        return deco
 
-    This function returns a closure that maintains the specified rounding precision and can be
-    reused for consistent rounding across multiple values. The returned function handles both
-    single numeric values and iterables of values, applying the same rounding precision to all.
+
+__all__ = [
+    "round_func",
+    "calc_dist",
+    "calc_dist_numba",
+    "calc_angle",
+    "calc_angle_jit",
+    "calc_tetra_vol",
+    "calc_tetra_inertia",
+    "calc_tri",
+    "calc_com",
+    "calc_length",
+    "calc_sphericity",
+    "calc_isoperimetric_quotient",
+    "calc_spikes",
+    "calc_cell_box",
+    "calc_cell_com",
+    "calc_cell_moi",
+    "combine_inertia_tensors",
+    "calc_total_inertia_tensor",
+    "calc_contacts",
+    "rotate_points",
+    "get_time",
+    "calc_vol",
+    "calc_curvature",
+    "calc_aw_center",
+    "calc_pw_center"
+]
+
+
+def round_func(round_to: int):
+    """
+    Create a configurable rounding function for scalars, sequences, or NumPy arrays.
 
     Parameters
     ----------
     round_to : int
-        The number of decimal places to round to. A positive value rounds to that many decimal
-        places, while a negative value rounds to the left of the decimal point.
+        The number of decimal places (like Python's built-in round 'ndigits').
 
     Returns
     -------
     function
-        A closure that takes a value (or iterable) and optionally a new rounding precision,
-        returning the rounded value(s) with the specified precision.
+        A closure: f(val, new_num=None) -> rounded val. If val is:
+          - scalar -> float
+          - list/tuple -> list of floats
+          - np.ndarray -> np.ndarray (dtype preserved where possible)
     """
-    # Define the inner round function
-    def round_(val, new_num=None):
-        """
-        Inner round function operating on outer defined round to value
-        :param val: float/iterable - val(s) to be rounded
-        :param new_num: New round to value
-        :return: float/list - rounded values
-        """
-        # Set the new round to number if specified
+    def _round_any(val, new_num=None):
         if new_num is None:
             new_num = round_to
-        # Return the values
+
+        # NumPy array — use np.around so shape/type are preserved
+        if isinstance(val, np.ndarray):
+            return np.around(val, decimals=new_num)
+
+        # Try scalar round; if it fails, treat as iterable
         try:
             return round(val, new_num)
         except TypeError:
-            return [round(_, new_num) for _ in val]
-    # Return the function for the outer function
-    return round_
+            return [round(x, new_num) for x in val]
+
+    return _round_any
 
 
-def project_to_plane(points, plane_point, plane_normal):
+def _as_1d_array(x, name: str) -> np.ndarray:
+    x = np.asarray(x, dtype=float)
+    if x.ndim != 1:
+        raise ValueError(f"{name} must be a 1D array-like, got shape {x.shape}.")
+    if not np.isfinite(x).all():
+        raise ValueError(f"{name} must have all finite values.")
+    return x
+
+
+def _unit_vector(v: np.ndarray, name: str, eps: float = 1e-15) -> np.ndarray:
+    v = np.asarray(v, dtype=float)
+    n = np.linalg.norm(v)
+    if not np.isfinite(n):
+        raise ValueError(f"Vector '{name}' norm is not finite.")
+    if n <= eps:
+        raise ValueError(f"Vector '{name}' must be non-zero (||v|| <= {eps}).")
+    return v / n
+
+
+def calc_dist(l0, l1) -> float:
     """
-    Projects a set of 3D points onto a plane defined by a point and normal vector.
-
-    This function takes a collection of 3D points and projects them onto a plane defined by
-    a point on the plane and its normal vector. The projection is done by finding the closest
-    point on the plane for each input point.
+    Euclidean distance between two points in nD.
 
     Parameters
     ----------
-    points : list or numpy.ndarray
-        Array of 3D points to be projected, where each point is a 3-element array
-    plane_point : numpy.ndarray
-        A point that lies on the plane, represented as a 3-element array
-    plane_normal : numpy.ndarray
-        The normal vector of the plane, represented as a 3-element array
-
-    Returns
-    -------
-    list
-        A list of 2D coordinates representing the projected points on the plane,
-        where each coordinate is a tuple of (u, v) values in the plane's coordinate system
-
-    Notes
-    -----
-    - The plane's coordinate system is created using an orthogonal basis
-    - The normal vector is automatically normalized
-    - If the normal vector is parallel to the x-axis, an alternative basis vector is used
-    """
-    # Normalize the normal vector
-    plane_normal = plane_normal / np.linalg.norm(plane_normal)
-
-    # Create an orthogonal basis for the plane
-    u = np.cross(plane_normal, np.array([1, 0, 0]))
-    if np.linalg.norm(u) < 1e-10:  # Check if cross product is almost zero
-        u = np.cross(plane_normal, np.array([0, 1, 0]))
-    u = u / np.linalg.norm(u)
-    v = np.cross(plane_normal, u)
-    v = v / np.linalg.norm(v)
-
-    # Project points onto the plane
-    projected_points = []
-    for point in points:
-        point_vector = point - plane_point
-        u_coord = np.dot(point_vector, u)
-        v_coord = np.dot(point_vector, v)
-        projected_points.append((u_coord, v_coord))
-
-    return projected_points
-
-
-def unproject_to_3d(projected_points, plane_point, plane_normal):
-    """
-    Reconstructs 3D points from their 2D projections on a plane.
-
-    This function takes a set of 2D points that were previously projected onto a plane
-    and reconstructs their original 3D positions on that plane. The reconstruction uses
-    the plane's point and normal vector to establish the coordinate system.
-
-    Parameters
-    ----------
-    projected_points : list of tuple
-        List of 2D coordinates (u, v) representing points projected onto the plane
-    plane_point : numpy.ndarray
-        A point that lies on the plane, represented as a 3-element array
-    plane_normal : numpy.ndarray
-        The normal vector of the plane, represented as a 3-element array
-
-    Returns
-    -------
-    list of numpy.ndarray
-        A list of 3D points reconstructed on the plane, where each point is a 3-element array
-
-    Notes
-    -----
-    - The plane's coordinate system is recreated using an orthogonal basis
-    - The normal vector is automatically normalized
-    - This function is the inverse operation of project_to_plane
-    """
-    # Normalize the normal vector
-    plane_normal = plane_normal / np.linalg.norm(plane_normal)
-
-    # Create an orthogonal basis for the plane
-    u = np.cross(plane_normal, np.array([1, 0, 0]))
-    if np.linalg.norm(u) < 1e-10:  # Check if cross product is almost zero
-        u = np.cross(plane_normal, np.array([0, 1, 0]))
-    u = u / np.linalg.norm(u)
-    v = np.cross(plane_normal, u)
-    v = v / np.linalg.norm(v)
-
-    # Map 2D coordinates back to 3D plane
-    reconstructed_points = []
-    for u_coord, v_coord in projected_points:
-        # Reconstruct 3D point on the plane using the basis vectors and plane point
-        point_3d = plane_point + u_coord * u + v_coord * v
-        reconstructed_points.append(point_3d)
-
-    return reconstructed_points
-
-
-def map_to_plane(points_2d, plane_point, plane_normal):
-    """
-    Maps 2D points onto a 3D plane defined by a point and normal vector.
-
-    This function takes a set of 2D points and maps them onto a 3D plane using the plane's
-    point and normal vector to establish the coordinate system. The mapping creates a
-    one-to-one correspondence between 2D coordinates and points on the 3D plane.
-
-    Parameters
-    ----------
-    points_2d : list of tuple
-        List of 2D coordinates (u, v) to be mapped onto the plane
-    plane_point : numpy.ndarray
-        A point that lies on the plane, represented as a 3-element array
-    plane_normal : numpy.ndarray
-        The normal vector of the plane, represented as a 3-element array
-
-    Returns
-    -------
-    list of numpy.ndarray
-        A list of 3D points mapped onto the plane, where each point is a 3-element array
-
-    Notes
-    -----
-    - The plane's coordinate system is created using an orthogonal basis
-    - The normal vector is automatically normalized
-    - Special handling for cases where the normal vector is aligned with the x-axis
-    """
-    # Normalize the normal vector
-    plane_normal = plane_normal / np.linalg.norm(plane_normal)
-
-    # Create an orthogonal basis for the plane
-    if (plane_normal == np.array([1.0, 0.0, 0.0])).all() or (plane_normal == np.array([-1.0, 0.0, 0.0])).all():
-        # Handle the case where the normal is along the x-axis
-        u = np.array([0, 1, 0])
-    else:
-        u = np.cross(plane_normal, [1, 0, 0])
-    u = u / np.linalg.norm(u)
-    v = np.cross(plane_normal, u)
-    v = v / np.linalg.norm(v)
-
-    # Map 2D points to the 3D plane
-    mapped_points = []
-    for point_2d in points_2d:
-        u_coord, v_coord = point_2d
-        # Calculate the corresponding 3D point
-        point_3d = plane_point + u_coord * u + v_coord * v
-        mapped_points.append(point_3d)
-
-    return mapped_points
-
-
-def calc_dist(l0, l1):
-    """Calculate the Euclidean distance between two points in n-dimensional space.
-
-    Parameters
-    ----------
-    l0 : array-like
-        First point coordinates as an n-dimensional array or list
-    l1 : array-like
-        Second point coordinates as an n-dimensional array or list with same dimensionality as l0
+    l0, l1 : array-like
+        Coordinates (same length).
 
     Returns
     -------
     float
-        The Euclidean distance between the two points
-
-    Examples
-    --------
-    >>> calc_dist([0, 0, 0], [1, 1, 1])
-    1.7320508075688772
-    >>> import numpy as np
-    >>> calc_dist(np.array([0, 0, 0]), np.array([1, 1, 1]))
-    1.7320508075688772
     """
+    a = _as_1d_array(l0, "l0")
+    b = _as_1d_array(l1, "l1")
+    if a.shape != b.shape:
+        raise ValueError(f"l0 and l1 must have the same shape, got {a.shape} vs {b.shape}.")
+    return float(np.linalg.norm(a - b))
 
-    return np.sqrt(sum(np.square(np.array(l0) - np.array(l1))))
 
-
-@jit(nopython=True)
+@njit(cache=True, nogil=True, fastmath=False)
 def calc_dist_numba(l0, l1):
-    """Calculate the Euclidean distance between two points in n-dimensional space.
+    """
+    Euclidean distance (Numba-accelerated).
 
-    This function computes the straight-line distance between two points using the
-    Pythagorean theorem generalized to n dimensions. The function is optimized with
-    Numba's JIT compilation for improved performance.
+    Notes
+    -----
+    - Expects 1D numpy arrays of equal length (validation should be done in the caller).
+    - Avoids np.linalg.norm to keep it trivially JIT-friendly across versions.
+    """
+    s = 0.0
+    for i in range(l0.shape[0]):
+        d = l0[i] - l1[i]
+        s += d * d
+    return np.sqrt(s)
+
+
+def calc_angle(p0, p1, p2=None) -> float:
+    """
+    Angle (radians) defined by points.
+
+    Two modes:
+    1) p2 is None  -> angle between vectors (origin->p0) and (origin->p1)
+    2) p2 provided -> angle at p0 between (p1 - p0) and (p2 - p0)
 
     Parameters
     ----------
-    l0 : numpy.ndarray
-        First point coordinates as an n-dimensional array
-    l1 : numpy.ndarray
-        Second point coordinates as an n-dimensional array with same dimensionality as l0
+    p0, p1, p2 : array-like
 
     Returns
     -------
     float
-        The Euclidean distance between the two points
-
-    Notes
-    -----
-    - Both input points must have the same dimensionality
-    - Uses numpy's square and sqrt functions for efficient computation
-    - JIT compiled for performance optimization
+        Angle in [0, π].
     """
-    # Pythagorean theorem
-    return np.sqrt(sum(np.square(l0 - l1)))
+    a = _as_1d_array(p0, "p0")
+    b = _as_1d_array(p1, "p1")
+
+    if p2 is None:
+        v0, v1 = a, b
+    else:
+        c = _as_1d_array(p2, "p2")
+        if a.shape != b.shape or a.shape != c.shape:
+            raise ValueError("p0, p1, p2 must have the same shape.")
+        v0, v1 = b - a, c - a
+
+    n0 = _unit_vector(v0, "first vector")
+    n1 = _unit_vector(v1, "second vector")
+
+    # Clip dot to avoid NaNs from tiny FP drift
+    dot = float(np.clip(np.dot(n0, n1), -1.0, 1.0))
+    return float(np.arccos(dot))
 
 
-@jit(nopython=True)
+@njit(cache=True, nogil=True, fastmath=False)
 def calc_angle_jit(p0, p1, p2=None):
-    """Calculates the angle between three points in radians using vector geometry.
-
-    This function computes the angle between vectors formed by the points in two possible ways:
-    1. If p2 is not provided: Angle between vectors from origin to p0 and p1
-    2. If p2 is provided: Angle between vectors from p0 to p1 and p0 to p2
-
-    Parameters
-    ----------
-    p0 : array-like
-        First point coordinates [x, y, z, ...]
-    p1 : array-like
-        Second point coordinates [x, y, z, ...]
-    p2 : array-like, optional
-        Third point coordinates [x, y, z, ...]
-        If not provided, the origin (0,0,0) is used as the reference point
-
-    Returns
-    -------
-    float
-        The angle in radians between the vectors formed by the points
+    """
+    Numba version of calc_angle (radians).
 
     Notes
     -----
-    - All points must have the same dimensionality
-    - Uses numpy's arccos function for angle calculation
-    - Handles edge cases where vectors are parallel or antiparallel
+    - Expects 1D float arrays of equal length.
+    - Raises ValueError for zero-length vectors is not supported in njit mode;
+      instead, it returns 0.0 for degenerate inputs to avoid crashes. You can
+      gate inputs in Python before calling this.
     """
-    # If no p2 is given, use the origin
+    # Build vectors
     if p2 is None:
-        v0, v1 = p0, p1
+        v0 = p0
+        v1 = p1
     else:
-        v0, v1 = p1 - p0, p2 - p0
-    n0, n1 = v0/np.linalg.norm(v0), v1/np.linalg.norm(v1)
-    # Calculate the angle between the two vectors with catches for 180 and 0
-    my_dot = np.dot(n0, n1)
-    if my_dot <= -1.0:
-        my_dot = -1.0
-    elif my_dot >= 1.0:
-        my_dot = 1.0
-    angle = np.arccos(my_dot)
-    return angle
+        v0 = np.empty_like(p0)
+        v1 = np.empty_like(p0)
+        for i in range(p0.shape[0]):
+            v0[i] = p1[i] - p0[i]
+            v1[i] = p2[i] - p0[i]
 
+    # Norms
+    n0 = 0.0
+    n1 = 0.0
+    for i in range(v0.shape[0]):
+        n0 += v0[i] * v0[i]
+        n1 += v1[i] * v1[i]
+    if n0 == 0.0 or n1 == 0.0:
+        return 0.0  # degenerate; prefer to pre-validate in Python
 
-def calc_angle(p0, p1, p2=None):
-    """Calculate the angle between three points in radians.
+    inv0 = 1.0 / np.sqrt(n0)
+    inv1 = 1.0 / np.sqrt(n1)
 
-    This function computes the angle between vectors formed by the points in two possible ways:
-    1. If p2 is not provided: Angle between vectors from origin to p0 and p1
-    2. If p2 is provided: Angle between vectors from p0 to p1 and p0 to p2
+    # Dot of unit vectors with clipping
+    dot = 0.0
+    for i in range(v0.shape[0]):
+        dot += (v0[i] * inv0) * (v1[i] * inv1)
 
-    Parameters
-    ----------
-    p0 : array-like
-        First point coordinates [x, y, z, ...]
-    p1 : array-like
-        Second point coordinates [x, y, z, ...]
-    p2 : array-like, optional
-        Third point coordinates [x, y, z, ...]
-        If not provided, the origin (0,0,0) is used as the reference point
+    if dot < -1.0:
+        dot = -1.0
+    elif dot > 1.0:
+        dot = 1.0
 
-    Returns
-    -------
-    float
-        The angle in radians between the vectors formed by the points
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> p0 = np.array([1, 0, 0])
-    >>> p1 = np.array([0, 1, 0])
-    >>> calc_angle(p0, p1)  # Angle between x and y axes
-    1.5707963267948966
-    """
-    # If no p2 is given, use the origin
-    if p2 is None:
-        v0, v1 = p0, p1
-    else:
-        v0, v1 = p1 - p0, p2 - p0
-    n0, n1 = v0/np.linalg.norm(v0), v1/np.linalg.norm(v1)
-    # Calculate the angle between the two vectors with catches for 180 and 0
-    my_dot = np.dot(n0, n1)
-    if my_dot <= -1.0:
-        my_dot = -1.0
-    elif my_dot >= 1.0:
-        my_dot = 1.0
-    angle = np.arccos(my_dot)
-    return angle
+    return np.arccos(dot)
 
 
 @jit(nopython=True)
@@ -447,7 +319,28 @@ def calc_tetra_inertia(ps, mass):
     return inertia_tensor
 
 
-@jit(nopython=True)
+@njit(float64(float64[:, :]), cache=True, nogil=True)
+def _calc_tri_arr(points):
+    """
+    JIT kernel: triangle area from a (3, 3) float64 array.
+    """
+    # AB and AC using vectorized difference
+    ab0 = points[0, 0] - points[1, 0]
+    ab1 = points[0, 1] - points[1, 1]
+    ab2 = points[0, 2] - points[1, 2]
+
+    ac0 = points[0, 0] - points[2, 0]
+    ac1 = points[0, 1] - points[2, 1]
+    ac2 = points[0, 2] - points[2, 2]
+
+    # Cross product AB x AC
+    cx = ab1 * ac2 - ab2 * ac1
+    cy = ab2 * ac0 - ab0 * ac2
+    cz = ab0 * ac1 - ab1 * ac0
+
+    return 0.5 * np.sqrt(cx * cx + cy * cy + cz * cz)
+
+
 def calc_tri(points):
     """Calculate the area of a triangle formed by three 3D points.
 
@@ -478,12 +371,10 @@ def calc_tri(points):
     >>> calc_tri(points)
     0.5
     """
-    # Get the two triangles vectors
-    ab = [points[0][0] - points[1][0], points[0][1] - points[1][1], points[0][2] - points[1][2]]
-    ac = [points[0][0] - points[2][0], points[0][1] - points[2][1], points[0][2] - points[2][2]]
-
-    # Return half the cross product between the two vectors
-    return 0.5 * np.linalg.norm((np.cross(ab, ac)))
+    arr = np.ascontiguousarray(points, dtype=np.float64)
+    if arr.shape != (3, 3):
+        raise ValueError(f"calc_tri expects shape (3, 3), got {arr.shape}")
+    return float(_calc_tri_arr(arr))
 
 
 def calc_com(points, masses=None):
@@ -520,7 +411,24 @@ def calc_com(points, masses=None):
         return np.average(points, weights=masses, axis=0)
 
 
-@jit(nopython=True)
+# JIT kernel that operates on a 2D float64 array (N, D)
+@njit(float64(float64[:, :]), cache=True, nogil=True)
+def _calc_length_arr(points):
+    n = points.shape[0]
+    d = points.shape[1]
+    if n < 2:
+        return 0.0
+
+    total = 0.0
+    for i in range(n - 1):
+        s = 0.0
+        for k in range(d):
+            diff = points[i + 1, k] - points[i, k]
+            s += diff * diff
+        total += np.sqrt(s)
+    return total
+
+
 def calc_length(points):
     """Calculates the total length of a path defined by a sequence of points.
 
@@ -545,15 +453,11 @@ def calc_length(points):
     - Uses Euclidean distance between consecutive points
     - Returns 0 if the input list contains fewer than 2 points
     """
-    # Reset the length
-    length = 0
-    # Go through the points in the list
-    for m, point in enumerate(points):
-        # Make sure not to index error
-        if m + 1 < len(points):
-            # Add the length to the total
-            length += calc_dist_numba(point, points[m + 1])
-    return length
+
+    arr = np.ascontiguousarray(points, dtype=np.float64)
+    if arr.ndim != 2 or arr.shape[1] < 1:
+        raise ValueError(f"calc_length expects a 2D array (N, D>=1), got shape {arr.shape}")
+    return float(_calc_length_arr(arr))
 
 
 def calc_sphericity(volume, surface_area):
