@@ -1,8 +1,8 @@
-numpy>=1.19.0
+numpy>=2.0,<2.1
+numba==0.60.*
+matplotlib>=3.9,<3.10
 scipy>=1.6.0
-matplotlib>=3.3.0
 pandas>=1.2.0
-numba~=0.60.0
 shapely~=2.0.6
 plotly~=5.22.0
 sympy~=1.13.3
