@@ -103,9 +103,14 @@ def read_atom(atom_line):
 
 
 def read_surf(surf_line):
-    surf = {'Index': int(surf_line[0]), 'Balls': [int(_) for _ in surf_line[1:3]], 'Surface Area': float(surf_line[3]),
-            'Curvature': float(surf_line[4]), 'Ball Volumes': [float(_) for _ in surf_line[5:7] if _ != ''],
-            'Contact Area': float(surf_line[7]), 'Overlap': float(surf_line[8])}
+    if len(surf_line) == 9:
+        surf = {'Index': int(surf_line[0]), 'Balls': [int(_) for _ in surf_line[1:3]], 'Surface Area': float(surf_line[3]),
+                'Mean Curvature': float(surf_line[4]), 'Gauss Curvature': float(surf_line[5]), 'Ball Volumes': [float(_) for _ in surf_line[6:8] if _ != ''],
+                'Contact Area': float(surf_line[8]), 'Overlap': float(surf_line[9])}
+    else:
+        surf = {'Index': int(surf_line[0]), 'Balls': [int(_) for _ in surf_line[1:3]], 'Surface Area': float(surf_line[3]),
+                'Curvature': float(surf_line[4]), 'Ball Volumes': [float(_) for _ in surf_line[5:7] if _ != ''],
+                'Contact Area': float(surf_line[7]), 'Overlap': float(surf_line[8])}
     return surf
 
 
