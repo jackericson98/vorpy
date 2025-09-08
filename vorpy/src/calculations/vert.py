@@ -1,8 +1,9 @@
 import numpy as np
 from numpy import array, dot, isreal, linalg, roots
 from numba import jit
+import warnings
 from vorpy.src.calculations.calcs import calc_dist, calc_dist_numba
-
+warnings.simplefilter('error', RuntimeWarning)
 
 @jit(nopython=True)
 def calc_vert_abcfs(locs, rads):
@@ -386,7 +387,10 @@ def calc_flat_vert(locs, rads, power=False):
     y_numerator = - d1 * c2 * a3 + c1 * d2 * a3 + d1 * a2 * c3 - a1 * d2 * c3 - c1 * a2 * d3 + a1 * c2 * d3
     z_numerator = d1 * b2 * a3 - b1 * d2 * a3 - d1 * a2 * b3 + a1 * d2 * b3 + b1 * a2 * d3 - a1 * b2 * d3
     # Calculate the location of the intersection of the planes
-    x, y, z = x_numerator / disc, y_numerator / disc, z_numerator / disc
+    try:
+        x, y, z = x_numerator / disc, y_numerator / disc, z_numerator / disc
+    except RuntimeWarning:
+        return None, None
     # Get the radius
     if power:
         # Calculate the power distance between the vertex and an arbitrary ball
