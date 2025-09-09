@@ -38,9 +38,11 @@ setup(
         "plotly",
         "sympy",
         "Pillow",
-        "pystray",
     ],
     extras_require={
+        "gui": [
+            "pystray",
+        ],
         "dev": [
             "pytest",
             "pytest-cov",
