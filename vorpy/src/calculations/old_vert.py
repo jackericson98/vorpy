@@ -3,48 +3,7 @@ from numpy import array, dot, isreal, linalg, roots
 from numba import jit
 import warnings
 from vorpy.src.calculations.calcs import calc_dist, calc_dist_numba
-from contextlib import contextmanager
 warnings.simplefilter('error', RuntimeWarning)
-
-
-@contextmanager
-def _numeric_guard():
-    """
-    Locally escalate dangerous FP conditions and numpy RuntimeWarnings to exceptions.
-    - Only active inside the `with` block.
-    - Restores the previous NumPy error state on exit.
-    """
-    old = np.seterr()  # save previous behavior
-    try:
-        # Raise on divide-by-zero / invalid / overflow; underflow is usually benign
-        np.seterr(divide='raise', invalid='raise', over='raise', under='ignore')
-        with warnings.catch_warnings():
-            warnings.filterwarnings('error', category=RuntimeWarning)
-            yield
-    finally:
-        np.seterr(**old)
-
-
-def _real_roots_quadratic(a, b, c, tol=1e-12):
-    with _numeric_guard():
-        try:
-            r = np.roots([a, b, c])
-        except FloatingPointError as e:
-            raise ValueError(f"Failed to solve quadratic: {e}") from e
-    real = []
-    for z in r:
-        z = complex(z)
-        if abs(z.imag) <= tol and np.isfinite(z.real):
-            real.append(float(z.real))
-    return real
-
-
-def _safe_div(num, den, name="denominator", eps=1e-15):
-    den = float(den)
-    if not np.isfinite(den) or abs(den) <= eps:
-        raise ValueError(f"{name} is zero or non-finite (|{den}| <= {eps}).")
-    return num / den
-
 
 @jit(nopython=True)
 def calc_vert_abcfs(locs, rads):
@@ -139,22 +98,36 @@ def calc_vert_case_1(Fs, l0, r0):
     # Unwrap the polynomial coefficients from Fs for convenience
     F, F_2, F10, F11, F20, F21, F30, F31 = Fs
 
-    # Build quadratic in a numerically safer form
-    a = (F11**2 + F21**2 + F31**2) - F_2
-    b = 2.0 * ((F10*F11 + F20*F21 + F30*F31) - r0*F_2)
-    c = (F10**2 + F20**2 + F30**2) - (r0**2)*F_2
+    # # Compute the coefficients of the quadratic equation for the radius R
+    # a = ((F11 ** 2 + F21 ** 2 + F31 ** 2) / F_2) - 1  # Quadratic term
+    # b = 2 * (((F10 * F11 + F20 * F21 + F30 * F31) / F_2) - r0)  # Linear term
+    # c = ((F10 ** 2 + F20 ** 2 + F30 ** 2) / F_2) - r0 ** 2  # Constant term
 
-    Rs = _real_roots_quadratic(a, b, c)
-    if not Rs:
-        return []
-
+    # Compute the coefficients of the quadratic equation for the radius R
+    a = (F11 ** 2 + F21 ** 2 + F31 ** 2) - F_2  # Quadratic term
+    b = 2 * ((F10 * F11 + F20 * F21 + F30 * F31) - r0 * F_2)  # Linear term
+    c = (F10 ** 2 + F20 ** 2 + F30 ** 2) - F_2 * r0 ** 2  # Constant term
+    # Initialize an empty list to store the vertices
     verts = []
-    for R in Rs:
-        # use safe division by F (already checked F != 0 in the outer dispatcher)
-        x = _safe_div(F10 + R*F11, F, name="F") + l0[0]
-        y = _safe_div(F20 + R*F21, F, name="F") + l0[1]
-        z = _safe_div(F30 + R*F31, F, name="F") + l0[2]
-        verts.append([x, y, z, R])
+
+    # Check if the quadratic equation has real solutions (discriminant >= 0)
+    if -4 * a * c + b ** 2 >= 0:
+        # Solve the quadratic equation and filter real roots
+        Rs = [R for R in roots(array([a, b, c])) if isreal(R)]
+    else:
+        return  # Exit if the discriminant is negative (no real solutions)
+
+    # Ensure there are valid roots to process
+    if Rs is not None and len(Rs) > 0:
+        # Loop through each valid radius (R) and calculate the corresponding vertex coordinates
+        for R in Rs:
+            x = F10 / F + R * F11 / F + l0[0]  # x-coordinate of the vertex
+            y = F20 / F + R * F21 / F + l0[1]  # y-coordinate of the vertex
+            z = F30 / F + R * F31 / F + l0[2]  # z-coordinate of the vertex
+            # Append the calculated vertex (including radius R) to the list
+            verts.append([x, y, z, R])
+
+    # Return the list of vertices
     return verts
 
 
@@ -407,25 +380,24 @@ def calc_flat_vert(locs, rads, power=False):
     a1, b1, c1, d1 = coeffs[0]
     a2, b2, c2, d2 = coeffs[1]
     a3, b3, c3, d3 = coeffs[2]
+    # Find the discriminant?
     disc = c1 * b2 * a3 - b1 * c2 * a3 - c1 * a2 * b3 + a1 * c2 * b3 + b1 * a2 * c3 - a1 * b2 * c3
-
-    eps = 1e-15
-    if not np.isfinite(disc) or abs(disc) <= eps:
-        # Singular/near-singular planes → no unique intersection
-        return None, None
-
     # Calculate the intersection numerators
     x_numerator = d1 * c2 * b3 - c1 * d2 * b3 - d1 * b2 * c3 + b1 * d2 * c3 + c1 * b2 * d3 - b1 * c2 * d3
     y_numerator = - d1 * c2 * a3 + c1 * d2 * a3 + d1 * a2 * c3 - a1 * d2 * c3 - c1 * a2 * d3 + a1 * c2 * d3
     z_numerator = d1 * b2 * a3 - b1 * d2 * a3 - d1 * a2 * b3 + a1 * d2 * b3 + b1 * a2 * d3 - a1 * b2 * d3
-
     # Calculate the location of the intersection of the planes
-    x, y, z = x_numerator / disc, y_numerator / disc, z_numerator / disc
-
+    try:
+        x, y, z = x_numerator / disc, y_numerator / disc, z_numerator / disc
+    except RuntimeWarning:
+        return None, None
+    # Get the radius
     if power:
-        rad = calc_dist(np.array([x, y, z]), np.array(ball_rads[0][0])) ** 2 - ball_rads[0][1] ** 2
+        # Calculate the power distance between the vertex and an arbitrary ball
+        rad = calc_dist(array([x, y, z]), array(ball_rads[0][0])) ** 2 - ball_rads[0][1] ** 2
     else:
-        rad = calc_dist(np.array([x, y, z]), np.array(ball_rads[0][0]))
+        # Calculate the distance between the vertex and an arbitrary ball
+        rad = calc_dist(array([x, y, z]), array(ball_rads[0][0]))
     return [x, y, z], rad
 
 
