@@ -2,219 +2,198 @@ import numpy as np
 import warnings
 from numba import jit
 from numba.core.errors import TypingError
+
 warnings.filterwarnings("error")
 
 
-try:
-    from numba import njit, float64
-except Exception:  # numba not installed; make a no-op decorator
-    def njit(*_args, **_kwargs):
-        def deco(f):
-            return f
-        return deco
-
-
-__all__ = [
-    "round_func",
-    "calc_dist",
-    "calc_dist_numba",
-    "calc_angle",
-    "calc_angle_jit",
-    "calc_tetra_vol",
-    "calc_tetra_inertia",
-    "calc_tri",
-    "calc_com",
-    "calc_length",
-    "calc_sphericity",
-    "calc_isoperimetric_quotient",
-    "calc_spikes",
-    "calc_cell_box",
-    "calc_cell_com",
-    "calc_cell_moi",
-    "combine_inertia_tensors",
-    "calc_total_inertia_tensor",
-    "calc_contacts",
-    "rotate_points",
-    "get_time",
-    "calc_vol",
-    "calc_curvature",
-    "calc_aw_center",
-    "calc_pw_center"
-]
-
-
-def round_func(round_to: int):
+def round_func(round_to):
     """
-    Create a configurable rounding function for scalars, sequences, or NumPy arrays.
+    Creates a configurable rounding function that can handle both single values and iterables.
+
+    This function returns a closure that maintains the specified rounding precision and can be
+    reused for consistent rounding across multiple values. The returned function handles both
+    single numeric values and iterables of values, applying the same rounding precision to all.
 
     Parameters
     ----------
     round_to : int
-        The number of decimal places (like Python's built-in round 'ndigits').
+        The number of decimal places to round to. A positive value rounds to that many decimal
+        places, while a negative value rounds to the left of the decimal point.
 
     Returns
     -------
     function
-        A closure: f(val, new_num=None) -> rounded val. If val is:
-          - scalar -> float
-          - list/tuple -> list of floats
-          - np.ndarray -> np.ndarray (dtype preserved where possible)
+        A closure that takes a value (or iterable) and optionally a new rounding precision,
+        returning the rounded value(s) with the specified precision.
     """
-    def _round_any(val, new_num=None):
+
+    # Define the inner round function
+    def round_(val, new_num=None):
+        """
+        Inner round function operating on outer defined round to value
+        :param val: float/iterable - val(s) to be rounded
+        :param new_num: New round to value
+        :return: float/list - rounded values
+        """
+        # Set the new round to number if specified
         if new_num is None:
             new_num = round_to
-
-        # NumPy array — use np.around so shape/type are preserved
-        if isinstance(val, np.ndarray):
-            return np.around(val, decimals=new_num)
-
-        # Try scalar round; if it fails, treat as iterable
+        # Return the values
         try:
             return round(val, new_num)
         except TypeError:
-            return [round(x, new_num) for x in val]
+            return [round(_, new_num) for _ in val]
 
-    return _round_any
-
-
-def _as_1d_array(x, name: str) -> np.ndarray:
-    x = np.asarray(x, dtype=float)
-    if x.ndim != 1:
-        raise ValueError(f"{name} must be a 1D array-like, got shape {x.shape}.")
-    if not np.isfinite(x).all():
-        raise ValueError(f"{name} must have all finite values.")
-    return x
+    # Return the function for the outer function
+    return round_
 
 
-def _unit_vector(v: np.ndarray, name: str, eps: float = 1e-15) -> np.ndarray:
-    v = np.asarray(v, dtype=float)
-    n = np.linalg.norm(v)
-    if not np.isfinite(n):
-        raise ValueError(f"Vector '{name}' norm is not finite.")
-    if n <= eps:
-        raise ValueError(f"Vector '{name}' must be non-zero (||v|| <= {eps}).")
-    return v / n
-
-
-def calc_dist(l0, l1) -> float:
-    """
-    Euclidean distance between two points in nD.
+def calc_dist(l0, l1):
+    """Calculate the Euclidean distance between two points in n-dimensional space.
 
     Parameters
     ----------
-    l0, l1 : array-like
-        Coordinates (same length).
+    l0 : array-like
+        First point coordinates as an n-dimensional array or list
+    l1 : array-like
+        Second point coordinates as an n-dimensional array or list with same dimensionality as l0
 
     Returns
     -------
     float
+        The Euclidean distance between the two points
+
+    Examples
+    --------
+    >>> calc_dist([0, 0, 0], [1, 1, 1])
+    1.7320508075688772
+    >>> import numpy as np
+    >>> calc_dist(np.array([0, 0, 0]), np.array([1, 1, 1]))
+    1.7320508075688772
     """
-    a = _as_1d_array(l0, "l0")
-    b = _as_1d_array(l1, "l1")
-    if a.shape != b.shape:
-        raise ValueError(f"l0 and l1 must have the same shape, got {a.shape} vs {b.shape}.")
-    return float(np.linalg.norm(a - b))
+
+    return np.sqrt(sum(np.square(np.array(l0) - np.array(l1))))
 
 
-@njit(cache=True, nogil=True, fastmath=False)
+@jit(nopython=True)
 def calc_dist_numba(l0, l1):
-    """
-    Euclidean distance (Numba-accelerated).
+    """Calculate the Euclidean distance between two points in n-dimensional space.
 
-    Notes
-    -----
-    - Expects 1D numpy arrays of equal length (validation should be done in the caller).
-    - Avoids np.linalg.norm to keep it trivially JIT-friendly across versions.
-    """
-    s = 0.0
-    for i in range(l0.shape[0]):
-        d = l0[i] - l1[i]
-        s += d * d
-    return np.sqrt(s)
-
-
-def calc_angle(p0, p1, p2=None) -> float:
-    """
-    Angle (radians) defined by points.
-
-    Two modes:
-    1) p2 is None  -> angle between vectors (origin->p0) and (origin->p1)
-    2) p2 provided -> angle at p0 between (p1 - p0) and (p2 - p0)
+    This function computes the straight-line distance between two points using the
+    Pythagorean theorem generalized to n dimensions. The function is optimized with
+    Numba's JIT compilation for improved performance.
 
     Parameters
     ----------
-    p0, p1, p2 : array-like
+    l0 : numpy.ndarray
+        First point coordinates as an n-dimensional array
+    l1 : numpy.ndarray
+        Second point coordinates as an n-dimensional array with same dimensionality as l0
 
     Returns
     -------
     float
-        Angle in [0, π].
-    """
-    a = _as_1d_array(p0, "p0")
-    b = _as_1d_array(p1, "p1")
-
-    if p2 is None:
-        v0, v1 = a, b
-    else:
-        c = _as_1d_array(p2, "p2")
-        if a.shape != b.shape or a.shape != c.shape:
-            raise ValueError("p0, p1, p2 must have the same shape.")
-        v0, v1 = b - a, c - a
-
-    n0 = _unit_vector(v0, "first vector")
-    n1 = _unit_vector(v1, "second vector")
-
-    # Clip dot to avoid NaNs from tiny FP drift
-    dot = float(np.clip(np.dot(n0, n1), -1.0, 1.0))
-    return float(np.arccos(dot))
-
-
-@njit(cache=True, nogil=True, fastmath=False)
-def calc_angle_jit(p0, p1, p2=None):
-    """
-    Numba version of calc_angle (radians).
+        The Euclidean distance between the two points
 
     Notes
     -----
-    - Expects 1D float arrays of equal length.
-    - Raises ValueError for zero-length vectors is not supported in njit mode;
-      instead, it returns 0.0 for degenerate inputs to avoid crashes. You can
-      gate inputs in Python before calling this.
+    - Both input points must have the same dimensionality
+    - Uses numpy's square and sqrt functions for efficient computation
+    - JIT compiled for performance optimization
     """
-    # Build vectors
+    # Pythagorean theorem
+    return np.sqrt(sum(np.square(l0 - l1)))
+
+
+@jit(nopython=True)
+def calc_angle_jit(p0, p1, p2=None):
+    """Calculates the angle between three points in radians using vector geometry.
+
+    This function computes the angle between vectors formed by the points in two possible ways:
+    1. If p2 is not provided: Angle between vectors from origin to p0 and p1
+    2. If p2 is provided: Angle between vectors from p0 to p1 and p0 to p2
+
+    Parameters
+    ----------
+    p0 : array-like
+        First point coordinates [x, y, z, ...]
+    p1 : array-like
+        Second point coordinates [x, y, z, ...]
+    p2 : array-like, optional
+        Third point coordinates [x, y, z, ...]
+        If not provided, the origin (0,0,0) is used as the reference point
+
+    Returns
+    -------
+    float
+        The angle in radians between the vectors formed by the points
+
+    Notes
+    -----
+    - All points must have the same dimensionality
+    - Uses numpy's arccos function for angle calculation
+    - Handles edge cases where vectors are parallel or antiparallel
+    """
+    # If no p2 is given, use the origin
     if p2 is None:
-        v0 = p0
-        v1 = p1
+        v0, v1 = p0, p1
     else:
-        v0 = np.empty_like(p0)
-        v1 = np.empty_like(p0)
-        for i in range(p0.shape[0]):
-            v0[i] = p1[i] - p0[i]
-            v1[i] = p2[i] - p0[i]
+        v0, v1 = p1 - p0, p2 - p0
+    n0, n1 = v0 / np.linalg.norm(v0), v1 / np.linalg.norm(v1)
+    # Calculate the angle between the two vectors with catches for 180 and 0
+    my_dot = np.dot(n0, n1)
+    if my_dot <= -1.0:
+        my_dot = -1.0
+    elif my_dot >= 1.0:
+        my_dot = 1.0
+    angle = np.arccos(my_dot)
+    return angle
 
-    # Norms
-    n0 = 0.0
-    n1 = 0.0
-    for i in range(v0.shape[0]):
-        n0 += v0[i] * v0[i]
-        n1 += v1[i] * v1[i]
-    if n0 == 0.0 or n1 == 0.0:
-        return 0.0  # degenerate; prefer to pre-validate in Python
 
-    inv0 = 1.0 / np.sqrt(n0)
-    inv1 = 1.0 / np.sqrt(n1)
+def calc_angle(p0, p1, p2=None):
+    """Calculate the angle between three points in radians.
 
-    # Dot of unit vectors with clipping
-    dot = 0.0
-    for i in range(v0.shape[0]):
-        dot += (v0[i] * inv0) * (v1[i] * inv1)
+    This function computes the angle between vectors formed by the points in two possible ways:
+    1. If p2 is not provided: Angle between vectors from origin to p0 and p1
+    2. If p2 is provided: Angle between vectors from p0 to p1 and p0 to p2
 
-    if dot < -1.0:
-        dot = -1.0
-    elif dot > 1.0:
-        dot = 1.0
+    Parameters
+    ----------
+    p0 : array-like
+        First point coordinates [x, y, z, ...]
+    p1 : array-like
+        Second point coordinates [x, y, z, ...]
+    p2 : array-like, optional
+        Third point coordinates [x, y, z, ...]
+        If not provided, the origin (0,0,0) is used as the reference point
 
-    return np.arccos(dot)
+    Returns
+    -------
+    float
+        The angle in radians between the vectors formed by the points
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> p0 = np.array([1, 0, 0])
+    >>> p1 = np.array([0, 1, 0])
+    >>> calc_angle(p0, p1)  # Angle between x and y axes
+    1.5707963267948966
+    """
+    # If no p2 is given, use the origin
+    if p2 is None:
+        v0, v1 = p0, p1
+    else:
+        v0, v1 = p1 - p0, p2 - p0
+    n0, n1 = v0 / np.linalg.norm(v0), v1 / np.linalg.norm(v1)
+    # Calculate the angle between the two vectors with catches for 180 and 0
+    my_dot = np.dot(n0, n1)
+    if my_dot <= -1.0:
+        my_dot = -1.0
+    elif my_dot >= 1.0:
+        my_dot = 1.0
+    angle = np.arccos(my_dot)
+    return angle
 
 
 @jit(nopython=True)
@@ -257,7 +236,7 @@ def calc_tetra_vol(p0, p1, p2, p3):
     r03 = np.array([p3[0] - p0[0], p3[1] - p0[1], p3[2] - p0[2]])
 
     # Formula for tetrahedron volume: 1/6 * r03 dot (r01 cross r02)
-    return (1/6)*abs(np.dot(r03, np.cross(r01, r02)))
+    return (1 / 6) * abs(np.dot(r03, np.cross(r01, r02)))
 
 
 def calc_tetra_inertia(ps, mass):
@@ -319,28 +298,7 @@ def calc_tetra_inertia(ps, mass):
     return inertia_tensor
 
 
-@njit(float64(float64[:, :]), cache=True, nogil=True)
-def _calc_tri_arr(points):
-    """
-    JIT kernel: triangle area from a (3, 3) float64 array.
-    """
-    # AB and AC using vectorized difference
-    ab0 = points[0, 0] - points[1, 0]
-    ab1 = points[0, 1] - points[1, 1]
-    ab2 = points[0, 2] - points[1, 2]
-
-    ac0 = points[0, 0] - points[2, 0]
-    ac1 = points[0, 1] - points[2, 1]
-    ac2 = points[0, 2] - points[2, 2]
-
-    # Cross product AB x AC
-    cx = ab1 * ac2 - ab2 * ac1
-    cy = ab2 * ac0 - ab0 * ac2
-    cz = ab0 * ac1 - ab1 * ac0
-
-    return 0.5 * np.sqrt(cx * cx + cy * cy + cz * cz)
-
-
+@jit(nopython=True)
 def calc_tri(points):
     """Calculate the area of a triangle formed by three 3D points.
 
@@ -371,10 +329,12 @@ def calc_tri(points):
     >>> calc_tri(points)
     0.5
     """
-    arr = np.ascontiguousarray(points, dtype=np.float64)
-    if arr.shape != (3, 3):
-        raise ValueError(f"calc_tri expects shape (3, 3), got {arr.shape}")
-    return float(_calc_tri_arr(arr))
+    # Get the two triangles vectors
+    ab = [points[0][0] - points[1][0], points[0][1] - points[1][1], points[0][2] - points[1][2]]
+    ac = [points[0][0] - points[2][0], points[0][1] - points[2][1], points[0][2] - points[2][2]]
+
+    # Return half the cross product between the two vectors
+    return 0.5 * np.linalg.norm((np.cross(ab, ac)))
 
 
 def calc_com(points, masses=None):
@@ -411,24 +371,7 @@ def calc_com(points, masses=None):
         return np.average(points, weights=masses, axis=0)
 
 
-# JIT kernel that operates on a 2D float64 array (N, D)
-@njit(float64(float64[:, :]), cache=True, nogil=True)
-def _calc_length_arr(points):
-    n = points.shape[0]
-    d = points.shape[1]
-    if n < 2:
-        return 0.0
-
-    total = 0.0
-    for i in range(n - 1):
-        s = 0.0
-        for k in range(d):
-            diff = points[i + 1, k] - points[i, k]
-            s += diff * diff
-        total += np.sqrt(s)
-    return total
-
-
+@jit(nopython=True)
 def calc_length(points):
     """Calculates the total length of a path defined by a sequence of points.
 
@@ -453,11 +396,15 @@ def calc_length(points):
     - Uses Euclidean distance between consecutive points
     - Returns 0 if the input list contains fewer than 2 points
     """
-
-    arr = np.ascontiguousarray(points, dtype=np.float64)
-    if arr.ndim != 2 or arr.shape[1] < 1:
-        raise ValueError(f"calc_length expects a 2D array (N, D>=1), got shape {arr.shape}")
-    return float(_calc_length_arr(arr))
+    # Reset the length
+    length = 0
+    # Go through the points in the list
+    for m, point in enumerate(points):
+        # Make sure not to index error
+        if m + 1 < len(points):
+            # Add the length to the total
+            length += calc_dist_numba(point, points[m + 1])
+    return length
 
 
 def calc_sphericity(volume, surface_area):
@@ -479,7 +426,7 @@ def calc_sphericity(volume, surface_area):
         raise ValueError("Volume and surface area must be positive numbers.")
 
     # Calculate sphericity using the geometric formula
-    sphericity = (np.pi ** (1/3) * (6 * volume) ** (2/3)) / surface_area
+    sphericity = (np.pi ** (1 / 3) * (6 * volume) ** (2 / 3)) / surface_area
     return sphericity
 
 
@@ -782,7 +729,7 @@ def calc_total_inertia_tensor(spheres, common_point):
         loc = sphere['loc']
 
         # Moment of inertia tensor of the sphere about its own center (3x3 identity scaled by (2/5) * m * r^2)
-        I_center = (2 / 5) * m * r**2 * np.eye(3)
+        I_center = (2 / 5) * m * r ** 2 * np.eye(3)
 
         # Calculate the displacement vector from the sphere's center to the common point
         d = loc - common_point
@@ -928,7 +875,7 @@ def rotate_points(vec, points, reverse=False):
     if reverse:
         vec = - vec
     vx, vy, vz = vec
-    mag = np.sqrt(vx**2 + vy**2 + vz**2)
+    mag = np.sqrt(vx ** 2 + vy ** 2 + vz ** 2)
     phi = np.arctan2(vy, vx)
     theta = np.arccos(vz / mag)
     if reverse:
@@ -1009,7 +956,8 @@ def calc_vol(a_loc, surfs_points, surfs_tris):
         surf_vol = 0
         for tri in surfs_tris[i]:
             # Calculate the tetrahedron volume between the balls' location and the surface triangle's points
-            surf_vol += calc_tetra_vol(np.array(a_loc), surfs_points[i][tri[0]], surfs_points[i][tri[1]], surfs_points[i][tri[2]])
+            surf_vol += calc_tetra_vol(np.array(a_loc), surfs_points[i][tri[0]], surfs_points[i][tri[1]],
+                                       surfs_points[i][tri[2]])
         # Add the surface's volume to the list
         surf_vols.append(surf_vol)
     # Get the total volume by summing the surfaces volumes
@@ -1052,7 +1000,7 @@ def calc_curvature(points, normals):
     for i in range(n_points):
         # Find neighboring points (excluding self)
         neighbors = [j for j in range(n_points) if j != i]
-        
+
         if not neighbors:
             continue
 
@@ -1062,12 +1010,12 @@ def calc_curvature(points, normals):
             # Project the difference vector onto the normal plane
             diff = points[j] - points[i]
             proj_diff = diff - np.dot(diff, normals[i]) * normals[i]
-            
+
             if np.linalg.norm(proj_diff) > 0:
                 # Calculate the angle between normals
                 cos_angle = np.dot(normals[i], normals[j])
                 angle = np.arccos(np.clip(cos_angle, -1.0, 1.0))
-                
+
                 # Add to variations list
                 normal_variations.append(angle / np.linalg.norm(proj_diff))
 
@@ -1084,7 +1032,7 @@ def calc_aw_center(r1, r2, l1, l2):
 
     This function calculates the distance between two spheres based on their radii and locations.
     It uses the formula:
-    
+
     Parameters
     ----------
     r1 : float
@@ -1119,7 +1067,7 @@ def calc_pw_center(r1, r2, l1, l2):
 
     This function calculates the distance between two spheres based on their radii and locations.
     It uses the formula:
-    
+
     Parameters
     ----------
     r1 : float
