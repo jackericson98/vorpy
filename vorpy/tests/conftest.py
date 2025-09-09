@@ -1,6 +1,10 @@
 # tests/conftest.py
 
 import pytest
+import warnings
+
+warnings.filterwarnings("ignore", category=RuntimeWarning, module=r"vorpy\.src\.calculations\.calcs")
+warnings.filterwarnings("ignore", category=RuntimeWarning, module=r"vorpy\.src\.calculations\.plane")
 
 
 @pytest.fixture(scope="session")
