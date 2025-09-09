@@ -24,4 +24,7 @@ recursive-exclude * .DS_Store
 recursive-exclude * .git
 recursive-exclude * .gitignore
 recursive-exclude * .idea
-recursive-exclude * .vscode 
+recursive-exclude * .vscode
+
+# Exclude analysis scripts that may have syntax issues
+recursive-exclude vorpy/src/analyze * 
