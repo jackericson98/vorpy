@@ -242,10 +242,6 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         start = time.perf_counter()
         v_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=False)
 
-        # Check if the vert is outside the box
-        if box is not None and any([box[0][k] > v_loc[k] or v_loc[k] > box[1][k] for k in range(3)]):
-            continue
-
         # Record the calculate vertex metrics
         if metrics is not None:
             metrics['calc_vert'] += time.perf_counter() - start
@@ -253,6 +249,9 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         # Catch the none location case
         if v_loc is None:
             invalid_ndxs.append(ball)
+            continue
+        # Check if the vert is outside the box
+        if box is not None and any([box[0][k] > v_loc[k] or v_loc[k] > box[1][k] for k in range(3)]):
             continue
 
         # Restart ste start time to only record verify site time to the verify site metrics
