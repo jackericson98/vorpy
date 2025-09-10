@@ -61,11 +61,9 @@ def _load_complete_indices(csv_path: Path, **read_kwargs) -> list[int]:
     return atoms.index[atoms["Complete Cell?"]].to_list()
 
 
-
 def _missing_in_order(population: list[int], have: set[int]) -> list[int]:
     """Return items from population missing in 'have', preserving original order."""
     return [a for a in population if a not in have]
-
 
 
 def check_mol_data(folder: Optional[Union[str, os.PathLike]] = None) -> None:
@@ -85,6 +83,7 @@ def check_mol_data(folder: Optional[Union[str, os.PathLike]] = None) -> None:
 
     # Derive system name from folder and find matching PDB
     system_name = _extract_system_name(folder_path)
+    print(system_name)
     pdb_path = _find_pdb_file(folder_path, system_name)
     if pdb_path is None:
         print("No pdb file found for", system_name)
