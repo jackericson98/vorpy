@@ -306,7 +306,7 @@ def export(sys, usr_npt, my_group=None):
     if my_group is None:
         my_group = group(sys, usr_npt)
     # If no output directory was set, set it
-    if sys.dir is None:
+    if sys.files['dir'] is None:
         sys.set_output_directory()
     # Export loop
     while True:
@@ -337,3 +337,5 @@ def export(sys, usr_npt, my_group=None):
         # Export the atoms
         if xpt_npt.lower() in ['4', '4.', 'vertices', 'verts', 'v'] + all_strs:
             export_verts(my_group=my_group)
+    # Print where the files were exported to
+    print("Files were exported to: {}".format(sys.files['dir']))
