@@ -3,7 +3,7 @@ from os import path
 import tkinter as tk
 from tkinter import filedialog
 from vorpy.src.command.commands import *
-from vorpy.src.chemistry import element_names
+from vorpy.src.chemistry import element_names, element_radii
 
 
 def get_ndx(sys, obj, ndx_npt=None):
@@ -179,12 +179,12 @@ def get_file(file=None):
         if path.exists(file) and len(file) > 0:
             break
         # Check if the file is in the ./Data/test_data folder
-        elif path.exists("./Data/test_data/" + file) and len(file) > 0:
-            file = os.getcwd() + "/Data/test_data/" + file
+        elif path.exists("./vorpy/data/" + file) and len(file) > 0:
+            file = os.getcwd() + "/vorpy/data/" + file
             break
         # Check if it is just the raw name
-        elif path.exists("./Data/test_data/" + file + ".pdb") and len(file) > 0:
-            file = os.getcwd() + "/Data/test_data/" + file + ".pdb"
+        elif path.exists("./vorpy/data/" + file + ".pdb") and len(file) > 0:
+            file = os.getcwd() + "/vorpy/data/" + file + ".pdb"
             break
         # If the file is called as a browse keyword, launch a file browser
         elif file.lower() in browse_names:
