@@ -58,6 +58,8 @@ def read_pdb(sys, file=None):
     # If the file does not exist return
     else:
         return
+    # Print a statement saying the file is being read
+    print("\rReading File {}".format(os.path.basename(file)), end="")
     # Get the file information and make sure to close the file when done
     with open(file_address, 'r') as f:
         my_file = f.readlines()
