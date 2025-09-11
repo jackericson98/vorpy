@@ -24,8 +24,6 @@ class Command:
         self.settings_dict = settings
         self.read_args()
 
-
-
     def read_args(self):
         """
         Starts the reading process. Pulls out the base file if not already loaded.
@@ -336,26 +334,11 @@ class Command:
             self.sys.set_radii(self.settings_dict['atom_rad']['element'], self.settings_dict['atom_rad']['special'])
 
     def read_groups(self):
-            # Compare the groups
-            if self.sys.groups is None or len(self.sys.groups) == 0:
-                ggroup(self.sys, self.groups, self.settings_dict)
-            else:
-                # Compare the groups
-                verts = self.sys.groups[0].verts
-                # Delete the groups 
-                self.sys.groups = None
-                # Recalculate the groups
-                ggroup(self.sys, self.groups, self.settings_dict)
-                # Reset the vertices
-                self.sys.groups[0].verts = verts
-            # If the groups are not valid, calculate the whole molecule
-            if self.sys.groups is None or len(self.sys.groups) == 0:
-                # Print the error message
-                print('{} not a valid group command. Calculating whole molecule'.format(self.groups))
-                # Calculate the whole molecule
-                ggroup(self.sys, [['ns']])
+        # Set the groups up
+        ggroup(self.sys, self.groups, self.settings_dict)
     
     def read_exports(self):
+
         # Export everything
         argv_export(self.sys, self.exports)
     

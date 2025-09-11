@@ -437,8 +437,8 @@ def ggroup(my_sys, group_commands, settings=None):
             # Interpret the sub_group
             group_dict = interpret_group_commands(my_sys, group_dict, sub_group)
         # Check if the group name is in the dict
-        if 'name' in group_commands[_]:
-            name = group_commands[_]['name']
+        if 'name' in [__[0] for __ in group_commands[_]]:
+            name = [__[1] for __ in group_commands[_] if __[0] == 'name'][0]
         else:
             name = '_and_'.join(['_'.join(_) for _ in my_grp_cmnds])
             if len(name) > 15:
