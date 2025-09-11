@@ -200,7 +200,6 @@ class Group:
         for setting in defaults:
             if setting not in self.settings or self.settings[setting] is None:
                 self.settings[setting] = defaults[setting]
-        print(self.settings)
 
     def set_name(self):
         """
@@ -218,6 +217,7 @@ class Group:
             self.name = self.sys.name + '_group_0'
         else:
             self.name = 'group_0'
+
     # Process inputs method. Goes through the atoms, residues and molecules provided in the group
     def process_inputs(self):
         """
