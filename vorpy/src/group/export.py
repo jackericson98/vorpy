@@ -187,6 +187,9 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         os.mkdir(grp.dir)
     # Go back to the group directory
     os.chdir(grp.dir)
+    # Export the log file first
+    if logs or all_:
+        write_logs(grp)
     # If the user wants to export the atoms for the group
     if atoms or all_:
         if grp.sys.files['base_file'][-3:] == 'txt':
@@ -200,9 +203,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         write_atom_cells(grp.net, atoms=grp.ball_ndxs, directory=grp.dir + '/atoms', surfs=atom_surfs or all_,
                          edges=atom_edges or all_, verts=atom_verts or all_, concave_colors=concave_colors)
         os.chdir(grp.dir)
-    # Export the log file
-    if logs or all_:
-        write_logs(grp)
+
     # If the user wants to export the shell for the group
     if shell_surfs or all_:
         if grp.layer_surfs is None:
