@@ -63,7 +63,11 @@ def export_med(sys):
         # Set and make the group directory
         if group.dir is None or not os.path.exists(sys.files['dir'] + '/' + group.name + '_' + group.settings['net_type']):
             group.dir = sys.files['dir'] + '/' + group.name + '_' + group.settings['net_type']
-            os.mkdir(group.dir)
+            # Catch for if the group name is too long
+            try:
+                os.mkdir(group.dir)
+            except FileNotFoundError:
+                group.dir = sys.files['dir'] + '/' + group.settings['net_type'] + 'group'
         # Do the group exports
         group.exports(shell_surfs=True, surfs=True, shell_edges=True, edges=True, shell_verts=True, verts=True,
                       logs=True, atoms=True, surr_atoms=True)
