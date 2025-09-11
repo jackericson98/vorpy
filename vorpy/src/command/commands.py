@@ -97,6 +97,9 @@ surf_schemes = ['ss', 'sirf_scheme', 'surf_scm']
 atom_radii = ['ar', 'atom_radius', 'element_radius']
 surf_factors = ['sf', 'surf_factor', 'surf_fac', 'surff']
 build_surfses = ['bs', 'build_surfs', 'build_surf', 'build_surfses', 'build_surfs_es']
+conc_cols = ['cc', 'conc_col', 'concave_col', 'concave_color', 'concave_surfaces', 'concave_colors']
+vert_cols = ['vc', 'vert_col', 'vertex_color', 'vertex_colors']
+edge_cols = ['ec', 'edge_col', 'edge_color', 'edge_colors']
 
 # Settings vals
 power_vals = ['pow', 'power', 'p', 'pwr', 'pwizzle']
