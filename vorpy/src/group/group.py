@@ -183,7 +183,7 @@ class Group:
 
     def get_settings(self, surf_res=0.2, surf_col='plasma', surf_scheme='mean', scheme_factor='log', max_vert=40,
                      box_size=1.5, net_type='aw', build_type='all', num_splits=1, print_metrics=True, ball_type=None,
-                     sys_dir=None, foam_box=None, vert_col='red', edge_col='grey'):
+                     sys_dir=None, foam_box=None, vert_col='red', edge_col='grey', conc_col=True):
         """
         Sets the settings for the network building
         """
@@ -191,7 +191,8 @@ class Group:
         defaults = {'surf_res': surf_res, 'surf_col': surf_col, 'surf_scheme': surf_scheme, 'max_vert': max_vert,
                     'box_size': box_size, 'net_type': net_type, 'build_type': build_type, 'num_splits': num_splits,
                     'print_metrics': print_metrics, 'ball_type': ball_type, 'sys_dir': sys_dir, 'foam_box': foam_box,
-                    'atom_rad': None, 'scheme_factor': scheme_factor, 'vert_col': vert_col, 'edge_col': edge_col}
+                    'atom_rad': None, 'scheme_factor': scheme_factor, 'vert_col': vert_col, 'edge_col': edge_col,
+                    'conc_col': conc_col}
         # Create the settings dictionary
         if self.settings is None:
             self.settings = defaults
@@ -199,6 +200,7 @@ class Group:
         for setting in defaults:
             if setting not in self.settings or self.settings[setting] is None:
                 self.settings[setting] = defaults[setting]
+        print(self.settings)
 
     def set_name(self):
         """
