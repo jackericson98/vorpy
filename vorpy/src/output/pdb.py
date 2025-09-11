@@ -92,6 +92,8 @@ def write_pdb(atoms, file_name, sys, directory=None):
                 shutil.copy(sys.files['base_file'], os.getcwd() + '/' + file_name + '.pdb')
             except SameFileError:
                 pass
+            except OSError:
+                pass
             return
 
         # Open the file for writing
