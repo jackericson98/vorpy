@@ -458,6 +458,34 @@ def set_bt(build_type, settings):
         return 'logs'
 
 
+def set_cc(conc_col, settings):
+    """
+    Updates the concave colors setting that will allow shells to show whether the surface comes inward or outward
+
+
+    """
+    if conc_col.lower in trues or conc_col:
+        settings['conc_col'] = True
+        return settings
+    else:
+        settings['conc_col'] = False
+        return False
+
+
+def set_vc(vert_col, settings):
+    """
+
+    """
+    pass
+
+
+def set_ec(edge_col, settings):
+    """
+
+    """
+    pass
+
+
 def sett(setting, value, settings=None):
     """
     Updates system settings based on user input parameters.
@@ -485,17 +513,21 @@ def sett(setting, value, settings=None):
     """
     # Set the default settings
     if settings is None:
-        settings = {'surf_res': 0.2, 'max_vert': 40, 'box_size': 1.25, 'net_type': 'aw', 'surf_col': 'plasma_r',
-                    'surf_scheme': 'mean', 'scheme_factor': 'log', 'atom_rad': None, 'bld_type': None}
+        settings = {'surf_res': 0.2, 'max_vert': 40, 'box_size': 1.25, 'net_type': 'aw', 'surf_col': 'plasma',
+                    'surf_scheme': 'mean', 'scheme_factor': 'log', 'atom_rad': None, 'bld_type': None, 'conc_col': True,
+                    'vert_col': 'red', 'edge_col': 'grey'}
     # Set up the functions dictionary to return the value
     func_dict = {'surf_res': set_sr, 'max_vert': set_mv, 'box_size': set_bs, 'net_type': set_nt, 'surf_col': set_sc,
-                 'surf_scheme': set_ss, 'scheme_factor': set_sf, 'atom_rad': set_ar, 'bld_type': set_bt}
+                 'surf_scheme': set_ss, 'scheme_factor': set_sf, 'atom_rad': set_ar, 'bld_type': set_bt,
+                 'conc_col': set_cc, 'vert_col': set_vc, 'edge_col': set_ec}
 
     # Set up the interpretation dictionary
     all_dicts = [{_: 'surf_res' for _ in surf_reses}, {_: 'max_vert' for _ in max_verts},
                  {_: 'box_size' for _ in box_sizes}, {_: 'net_type' for _ in net_types},
                  {_: 'surf_col' for _ in surf_colors}, {_: 'surf_scheme' for _ in surf_schemes},
-                 {_: 'scheme_factor' for _ in surf_factors}, {_: 'atom_rad' for _ in atom_radii}]
+                 {_: 'scheme_factor' for _ in surf_factors}, {_: 'atom_rad' for _ in atom_radii},
+                 {_: 'conc_col' for _ in conc_cols}, {_: 'vert_col' for _ in vert_cols},
+                 {_: 'edge_col' for _ in vert_cols}]
 
     # Put all interpretations into one dictionary for convenience
     interpreter = {k: v for d in all_dicts for k, v in d.items()}
