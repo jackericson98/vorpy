@@ -2,6 +2,7 @@ from vorpy.src.group import Group
 from vorpy.src.command.interpret import get_ndx
 from vorpy.src.command.commands import *
 from vorpy.src.chemistry import residue_names
+from vorpy.src.chemistry import residue_atoms
 from vorpy.src.chemistry import element_names
 
 
@@ -435,7 +436,13 @@ def ggroup(my_sys, group_commands, settings=None):
         for sub_group in my_grp_cmnds:
             # Interpret the sub_group
             group_dict = interpret_group_commands(my_sys, group_dict, sub_group)
-        name = '_and_'.join(['_'.join(_) for _ in my_grp_cmnds])
+        # Check if the group name is in the dict
+        if 'name' in group_commands[_]:
+            name = group_commands[_]['name']
+        else:
+            name = '_and_'.join(['_'.join(_) for _ in my_grp_cmnds])
+            if len(name) > 15:
+                name = name[:12] + '_etc'
         # Finally make the group
         if group_dict is not None and sum([len(group_dict[_]) for _ in group_dict]) > 0:
             my_sys.groups.append(Group(my_sys, name=name, settings=settings, residues=group_dict['residues'],
