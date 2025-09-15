@@ -66,7 +66,7 @@ def _missing_in_order(population: list[int], have: set[int]) -> list[int]:
     return [a for a in population if a not in have]
 
 
-def check_mol_data(folder: Optional[Union[str, os.PathLike]] = None) -> None:
+def check_mol_data(folder: Optional[Union[str, os.PathLike]] = None, print_statement=True) -> None:
     # Choose folder (GUI prompt if not provided)
     if folder is None:
         folder_chosen = filedialog.askdirectory()
@@ -117,14 +117,17 @@ def check_mol_data(folder: Optional[Union[str, os.PathLike]] = None) -> None:
     # Print summary
     print("Number of atoms:", num_atoms)
 
-    for key in ("aw", "pow", "prm"):
-        comp_list = complete[key]
-        comp_set = set(comp_list)
-        missing = _missing_in_order(atom_nums, comp_set)
-        print(
-            f"Number of complete {key} cells: {len(comp_list)}"
-            f" - Missing atoms: {missing}"
-        )
+    if print_statement:
+        for key in ("aw", "pow", "prm"):
+            comp_list = complete[key]
+            comp_set = set(comp_list)
+            missing = _missing_in_order(atom_nums, comp_set)
+            print(
+                f"Number of complete {key} cells: {len(comp_list)}"
+                f" - Missing atoms: {missing}"
+            )
+    else:
+        return complete
 
 
 
