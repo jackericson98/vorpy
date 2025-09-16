@@ -46,5 +46,6 @@ def verify_frames(frame_folder):
 
     return frame_verification
 
+
 if __name__ == "__main__":
     verify_frames(frame_folder=filedialog.askdirectory())
