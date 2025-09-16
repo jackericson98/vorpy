@@ -34,11 +34,16 @@ def plot_data(plotting='Vol', diff='tot', exclude_keys=[]):
             sa = logs['group data']['Surface Area']
             files[key][log + ' vol'] = vol
             files[key][log + ' sa'] = sa
+
+    # INSERT_YOUR_CODE
+    # Sort the files dictionary by key
+    files = dict(sorted(files.items()))
+    print(files)
     # 
     bar(
-        data=[[100 * (files[key]['aw vol'] - files[key]['pow vol']) / files[key]['aw vol'] for key in files if key not in exclude_keys],
-              [100 * (files[key]['aw vol'] - files[key]['prm vol']) / files[key]['aw vol'] for key in files if key not in exclude_keys]],
-        x_names=[files[key]['name'] for key in files if key not in exclude_keys],
+        data=[[100 * (files[key]['pow vol'] - files[key]['aw vol']) / files[key]['aw vol'] for key in files if key not in exclude_keys],
+              [100 * (files[key]['prm vol'] - files[key]['aw vol']) / files[key]['aw vol'] for key in files if key not in exclude_keys]],
+        x_names=[key for key in files if key not in exclude_keys],
         legend_names=['Power', 'Primitive'],
         Show=True,
         y_axis_title='% Difference',
