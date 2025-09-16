@@ -1,4 +1,4 @@
-# tests/geometry/test_plane_mapping.py
+# vorpy/tests/calculations/test_plane.py
 
 import math
 import numpy as np
@@ -131,7 +131,7 @@ def test_translation_invariance(tol):
         assert v1 == pytest.approx(v0, rel=tol["rel"], abs=tol["abs"])
 
 
-def test_accepts_list_and_numpy_inputs():
+def test_accepts_list_and_numpy_inputs(tol):
     """Smoke test: lists vs numpy arrays both work and shapes look right."""
     plane_point, normal = _rand_plane(seed=6)
 
@@ -145,7 +145,7 @@ def test_accepts_list_and_numpy_inputs():
 
 
 @pytest.mark.xfail(reason="No input validation; zero-length normal yields NaNs downstream.")
-def test_zero_length_normal_should_error():
+def test_zero_length_normal_should_error(tol):
     plane_point = np.array([0.0, 0.0, 0.0])
     normal = np.array([0.0, 0.0, 0.0])
     with pytest.raises(ValueError):
