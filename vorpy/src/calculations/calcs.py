@@ -139,7 +139,15 @@ def calc_angle_jit(p0, p1, p2=None):
         v0, v1 = p0, p1
     else:
         v0, v1 = p1 - p0, p2 - p0
-    n0, n1 = v0 / np.linalg.norm(v0), v1 / np.linalg.norm(v1)
+    
+    # Check for zero-length vectors
+    norm_v0 = np.linalg.norm(v0)
+    norm_v1 = np.linalg.norm(v1)
+    
+    if norm_v0 == 0.0 or norm_v1 == 0.0:
+        return 0.0  # Return 0 for degenerate cases
+    
+    n0, n1 = v0 / norm_v0, v1 / norm_v1
     # Calculate the angle between the two vectors with catches for 180 and 0
     my_dot = np.dot(n0, n1)
     if my_dot <= -1.0:
@@ -185,7 +193,15 @@ def calc_angle(p0, p1, p2=None):
         v0, v1 = p0, p1
     else:
         v0, v1 = p1 - p0, p2 - p0
-    n0, n1 = v0 / np.linalg.norm(v0), v1 / np.linalg.norm(v1)
+    
+    # Check for zero-length vectors
+    norm_v0 = np.linalg.norm(v0)
+    norm_v1 = np.linalg.norm(v1)
+    
+    if norm_v0 == 0.0 or norm_v1 == 0.0:
+        return 0.0  # Return 0 for degenerate cases
+    
+    n0, n1 = v0 / norm_v0, v1 / norm_v1
     # Calculate the angle between the two vectors with catches for 180 and 0
     my_dot = np.dot(n0, n1)
     if my_dot <= -1.0:
@@ -334,7 +350,7 @@ def calc_tri(points):
     ac = [points[0][0] - points[2][0], points[0][1] - points[2][1], points[0][2] - points[2][2]]
 
     # Return half the cross product between the two vectors
-    return 0.5 * np.linalg.norm((np.cross(ab, ac)))
+    return 0.5 * np.linalg.norm(np.cross(ab, ac))
 
 
 def calc_com(points, masses=None):

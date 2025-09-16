@@ -31,7 +31,10 @@ def project_to_plane(points, plane_point, plane_normal):
     - If the normal vector is parallel to the x-axis, an alternative basis vector is used
     """
     # Normalize the normal vector
-    plane_normal = plane_normal / np.linalg.norm(plane_normal)
+    norm = np.linalg.norm(plane_normal)
+    if norm == 0.0:
+        raise ValueError("Plane normal vector cannot be zero")
+    plane_normal = plane_normal / norm
 
     # Create an orthogonal basis for the plane
     u = np.cross(plane_normal, np.array([1, 0, 0]))
@@ -81,7 +84,10 @@ def unproject_to_3d(projected_points, plane_point, plane_normal):
     - This function is the inverse operation of project_to_plane
     """
     # Normalize the normal vector
-    plane_normal = plane_normal / np.linalg.norm(plane_normal)
+    norm = np.linalg.norm(plane_normal)
+    if norm == 0.0:
+        raise ValueError("Plane normal vector cannot be zero")
+    plane_normal = plane_normal / norm
 
     # Create an orthogonal basis for the plane
     u = np.cross(plane_normal, np.array([1, 0, 0]))
@@ -130,7 +136,10 @@ def map_to_plane(points_2d, plane_point, plane_normal):
     - Special handling for cases where the normal vector is aligned with the x-axis
     """
     # Normalize the normal vector
-    plane_normal = plane_normal / np.linalg.norm(plane_normal)
+    norm = np.linalg.norm(plane_normal)
+    if norm == 0.0:
+        raise ValueError("Plane normal vector cannot be zero")
+    plane_normal = plane_normal / norm
 
     # Create an orthogonal basis for the plane
     if (plane_normal == np.array([1.0, 0.0, 0.0])).all() or (plane_normal == np.array([-1.0, 0.0, 0.0])).all():
