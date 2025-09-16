@@ -3,7 +3,7 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
-from hypothesis import given, strategies as st
+from hypothesis import given, strategies as st, settings
 
 from vorpy.src.calculations.calcs import (
     round_func,
