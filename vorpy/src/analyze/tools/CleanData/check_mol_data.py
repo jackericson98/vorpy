@@ -127,7 +127,13 @@ def check_mol_data(folder: Optional[Union[str, os.PathLike]] = None, print_state
                 f" - Missing atoms: {missing}"
             )
     else:
-        return complete
+        new_dict = {}
+        for key in ('aw', 'pow', 'prm'):
+            comp_list = complete[key]
+            comp_set = set(comp_list)
+            missing = _missing_in_order(atom_nums, comp_set)
+            new_dict[key] = missing
+        return new_dict
 
 
 
