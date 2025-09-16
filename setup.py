@@ -49,6 +49,7 @@ setup(
             "black",
             "flake8",
             "mypy",
+            "hypothesis",
         ],
     },
     include_package_data=True,
