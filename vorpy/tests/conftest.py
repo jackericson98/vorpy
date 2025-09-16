@@ -1,4 +1,4 @@
-# tests/conftest.py
+# vorpy/tests/conftest.py
 
 import pytest
 import warnings
