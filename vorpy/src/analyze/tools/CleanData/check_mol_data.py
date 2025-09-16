@@ -83,7 +83,6 @@ def check_mol_data(folder: Optional[Union[str, os.PathLike]] = None, print_state
 
     # Derive system name from folder and find matching PDB
     system_name = _extract_system_name(folder_path)
-    print(system_name)
     pdb_path = _find_pdb_file(folder_path, system_name)
     if pdb_path is None:
         print("No pdb file found for", system_name)
@@ -115,7 +114,7 @@ def check_mol_data(folder: Optional[Union[str, os.PathLike]] = None, print_state
         complete[key] = _load_complete_indices(csv_path, **kwargs)
 
     # Print summary
-    print("Number of atoms:", num_atoms)
+    print("\nNumber of atoms:", num_atoms)
 
     if print_statement:
         for key in ("aw", "pow", "prm"):
@@ -134,7 +133,6 @@ def check_mol_data(folder: Optional[Union[str, os.PathLike]] = None, print_state
             missing = _missing_in_order(atom_nums, comp_set)
             new_dict[key] = missing
         return new_dict
-
 
 
 if __name__ == "__main__":
