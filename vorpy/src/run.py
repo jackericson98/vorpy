@@ -8,8 +8,13 @@ vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')
 # Add the root vorpy folder to the system path
 sys.path.append(vorpy_root)
 
-from vorpy.src.GUI.vorpy_gui import VorPyGUI
 from vorpy.src.system import System
+
+try:
+    from vorpy.src.GUI.vorpy_gui import VorPyGUI
+    HAS_GUI = True
+except ImportError:
+    HAS_GUI = False
 
 
 class Run:
@@ -36,9 +41,13 @@ class Run:
 
         # Check if no file is loaded, if so launch the GUI
         if self.file is None:
-            gui = VorPyGUI()
-            gui.mainloop()
-            return
+            if HAS_GUI:
+                gui = VorPyGUI()
+                gui.mainloop()
+                return
+            else:
+                print("GUI not available (tkinter not installed). Please provide a file to process.")
+                return
         
         # Get the settings
         self.get_settings()

@@ -1,10 +1,15 @@
 import os
 import sys
 from pathlib import Path
-import tkinter as tk
-from tkinter import ttk
-from tkinter import filedialog
-from PIL import Image, ImageTk
+
+try:
+    import tkinter as tk
+    from tkinter import ttk
+    from tkinter import filedialog
+    from PIL import Image, ImageTk
+    HAS_TKINTER = True
+except ImportError:
+    HAS_TKINTER = False
 
 # Add the project root directory to the Python path
 project_root = Path(__file__).resolve().parents[3]

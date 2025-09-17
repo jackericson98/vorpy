@@ -1,8 +1,13 @@
 import numpy as np
-import tkinter as tk
 from pandas import DataFrame
-from tkinter import filedialog
 from vorpy.src.objects.atom import make_atom
+
+try:
+    import tkinter as tk
+    from tkinter import filedialog
+    HAS_TKINTER = True
+except ImportError:
+    HAS_TKINTER = False
 
 
 def read_gro(sys, file=None):
