@@ -1,13 +1,12 @@
-
 <h1 align="center" style="font-size: 4em; line-height: 1.2;">
-  <img src="assets/VorpyIcon.svg" alt="VorPy Logo" width="120" height="120"
-       style="vertical-align: -64px; margin-right: 1px;"/>
+  <img src="assets/VorpyIcon.svg" alt="VorPy Logo" width="160" height="160"
+       style="vertical-align: -36px; margin-right: 10px;"/>
   VorPy
 </h1>
 
-VorPy is a **comprehensive Voronoi-diagram analysis toolkit** for scientific and molecular applications.
-It supports **additively weighted**, **power**, and **primitive** Voronoi constructions from multiple input formats, and provides both a **command-line interface** and an intuitive **graphical UI** for interactive exploration.
-Built for performance and clarity, VorPy can produce **lightweight analytical outputs** or generate **rich 3D visualizations** for geometric inspection and publication-quality figures.
+<p align="center">
+  <strong>Comprehensive Voronoi Analysis for Molecular and Geometric Systems</strong>
+</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10%2B-blue"/>
@@ -15,261 +14,299 @@ Built for performance and clarity, VorPy can produce **lightweight analytical ou
   <img src="https://img.shields.io/badge/Status-Active-success"/>
 </p>
 
+---
 
-## Usage
+VorPy is a **comprehensive Voronoi-diagram analysis toolkit** for **scientific and molecular applications**.  
+It supports **additively weighted**, **power**, and **primitive** Voronoi constructions from multiple input formats, and provides both a **command-line interface** and an intuitive **graphical UI** for interactive exploration.  
+Built for performance and clarity, VorPy can produce **lightweight analytical outputs** or generate **rich 3D visualizations** for geometric inspection and publication-quality figures.
 
-Vorpy is available as a PyPI package. After installing it with pip (`pip install vorpy3`), you can launch the main GUI (see [VorPy GUI](#vorpy-gui)) by running the following in a Python interpreter:
+---
 
-    import vorpy as vp
-    vp.run()
+## 🚀 Quick Usage
 
+Install from PyPI:
+```bash
+   pip install vorpy3
+```
 
-<a name="vorpy-gui"></a>
-### VorPy GUI:
+### Launch the GUI
+Run VorPy with no arguments to open the graphical interface:
+```bash
+   python vorpy
+```
+or from within Python:
+```python
+import vorpy as vp
+vp.run()
+```
 
+### Launch File Browser
+Open a file selection dialog:
+```bash
+   python vorpy browse
+```
 
-<img width="2040" height="1320" alt="VorpyGUIDescription-page001" src="https://github.com/user-attachments/assets/43f33001-3ef3-427e-9293-eef0382d754c" />
+### Run from Command Line
+To solve directly from the command line, provide a file path:
+```bash
+   python vorpy path/to/file.pdb
+```
 
+VorPy automatically switches to **command-line mode** when a third argument is detected.  
+Any additional arguments after the file adjust the default settings (see below).
 
+---
 
+## 🖥️ VorPy GUI
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/43f33001-3ef3-427e-9293-eef0382d754c"
+       alt="VorPy GUI" width="80%"/>
+</p>
 
+## 🖥️ VorPy GUI Overview
 
-For detailed documentation, please visit [the documentation website](https://jackericson98.github.io/vorpy/).
+The VorPy graphical interface provides an intuitive workspace for configuring, solving, and visualizing Voronoi analyses.  
+Each interface element serves a clear purpose, from managing input files to customizing groups and exports.
 
-1. **Input File Name**: The name of the ball file with the extension and the folder stripped. This will be the name of the folder that will hold the output files and will hold each of the group folders.
-2. **Input File Information**: Displays the general information about the input file and the groupings within it.
-3. **Input Locations**: Shows where the input file, the output directory, and any other loaded files can be located.
-4. **Radii/Mass Changing**: Allows the user to adjust the radii and masses of any given element and/or specific atoms in set residues (see [Radii/Mass Adjustments](#radii-mass-adjustments)).
-5. **System Exports**: Shows the different options for exports at the system level. Launches another window with different options including logs, ball files, set atoms (see [System](#system))
-6. **Reset**: Clears the program of any system, files, and settings that have been added.
-7. **Groups Section**: Holds each of the groups to be built and all of the corresponding selections, settings, and exports (see [Groups](#groups-gui))
-8. **Group Name**: Changes the name for the current group. Works as the name for the sub-directory for the given group's output files
-9. **Group Selections**: Allows the user to add/delete atoms/balls, residues, chains, and molecules using and index or a range. If the range entry is unfilled only the single object's index identified in the index entry box will be chosen. The indices start at 0 and correspond to the oder in which they appear in the ball file.
-10. **Group Selection Tracker**: Tracks the selections that the the user has added to the group.
-11. **Group Build Settings**: Tracks the given settings the given group will be built with
-12. **Group Exports**: Holds the different exports for the given group. There are three default options: small, medium, and large exports. If the user wants to export custom options, there is a custom exports button with all possible exports for the group.
-13. **Run Group**: Solves the group and exports the given exports. Will only solve the current group and export the current selection.
-14. **Add/Delete Groups**: Adjusts the number of groups being solved. The delete button points to the current group and will ask for permission before deleting anything.
-15. **Help**: The help button launches a window that explains all of the functions of the program and the GUI and serves as a reminder for the user (see [Help Window](#help-window))
-16. **Run All Groups**: Solves and exports all groups as well as the system exports. The main run function for VorPy.
+---
 
+### 🔹 System-Level Controls
 
-<a name="radii-mass-adjustments"></a> 
-#### Radii/Mass Adjustments:
+1. **Input File Name**  
+   Displays the name of the selected input file (with folder path and extension removed).  
+   This name becomes the root directory for all generated outputs, including subfolders for each defined group.
 
-When selected, the radii adjustment window will launch. 
+2. **Input File Information**  
+   Shows general details about the input file, such as atom count, residue grouping, and other molecular metadata.  
+   Helps confirm that the correct structure has been loaded before analysis.
 
+3. **Input Locations**  
+   Lists the current paths for input files, output directories, and any additional data sources (e.g., radii or log files).  
+   Use this section to verify or modify file paths as needed.
 
+4. **Radii and Mass Adjustments**  
+   Opens a dedicated window for changing **atomic radii** and **masses**, either globally by element or selectively for individual atoms within specific residues.  
+   (See [Radii/Mass Adjustments](#radii-mass-adjustments) for details.)
 
-<a name="system"></a>
-#### System Exports
+5. **System Exports**  
+   Provides access to system-level export settings, such as **logs**, **ball files**, and **set-atom configurations**.  
+   Launches a separate dialog where you can choose export types and formats.  
+   (See [System](#system) for configuration options.)
 
- The System Information frame provides an overview and management interface for your 
-        system's core configuration:
+6. **Reset**  
+   Clears all loaded data, including input files, group settings, and system parameters.  
+   Use this option to start fresh without restarting the application.
 
+---
 
-• System Name: Displays the current system's name, which is typically derived from 
-    the selected input file.
+### 🔹 Group Management and Analysis
 
-• Input File: Allows you to select the primary structure file (e.g., PDB) that 
-    defines the molecular system to be analyzed.
+7. **Groups Section**  
+   Displays all currently defined groups and their associated parameters.  
+   Each group functions as an independent analysis unit with its own selection, build settings, and export options.  
+   (See [Groups](#groups-gui) for more details.)
 
-• Additional Files: Lists any supplementary files (such as radii, topology, or 
-    parameter files) associated with the system, if applicable.
+8. **Group Name**  
+   Allows you to rename the active group.  
+   The group name determines the name of its output subdirectory within the main results folder.
 
-• Output Directory: Lets you specify the folder where all generated results and 
-    exports will be saved.
+9. **Group Selections**  
+   Lets you add or remove **atoms**, **balls**, **residues**, **chains**, or **molecules** by specifying indices or ranges.  
+   If the range is left blank, only the single object corresponding to the entered index is selected.  
+   Indices begin at **0** and correspond to the order of objects as they appear in the input file.
 
-    
-To configure your system, use the "Select File" button to choose your main input
-file, and the "Select Directory" button to set the output location. The frame 
-will update to reflect your selections and display relevant file information. This 
-ensures that all subsequent operations and exports are performed using the correct 
-files and directories.
+10. **Group Selection Tracker**  
+    Displays a live record of all atoms or structures currently assigned to the active group.  
+    Useful for confirming selections and avoiding duplicates.
 
+11. **Group Build Settings**  
+    Shows all computation parameters applied to the active group (e.g., network type, vertex count, box multiplier, surface resolution).  
+    Settings can be modified interactively before running the solver.
 
-<a name="groups-gui"></a>
-#### Groups
+12. **Group Exports**  
+    Lists available export configurations for the current group.  
+    Includes three standard presets — **small**, **medium**, and **large** — as well as a **custom exports** button that provides access to every available export type.
 
- The Groups frame provides a comprehensive interface for managing and configuring 
-distinct groups within your system. Groups allow you to organize atoms, residues, 
-chains, or molecules into logical sets, each of which can be processed independently 
-with its own settings.
+13. **Run Group**  
+    Executes the Voronoi solver for the **active group only**, using its assigned selections and settings.  
+    Exports the selected data to that group’s subdirectory.
 
-• Group Selection: Select specific atoms/balls, residues, chains, or molecules from 
-    the input file to define the members of each group. This enables targeted analysis 
-    or export of particular regions or components of your system.
+14. **Add/Delete Groups**  
+    Allows dynamic creation and removal of groups within the session.  
+    The delete function applies to the current group and requires confirmation before removal to prevent accidental loss.
 
-Key features of the Groups frame include:
+---
 
-• Group-Specific Build Settings: Each group contains its own build settings (see the 
-    "Build Settings" tab for details), allowing you to customize parameters such as 
-    network type, maximum vertex count, box size, and surface calculation options on a 
-    per-group basis.
+### 🔹 Global and Support Tools
 
-• Group Management: 
-    - Add or delete groups as needed to organize your workflow.
-    - Rename groups to provide meaningful identifiers for each set.
-    - Use the provided tabs to easily track, switch between, and manage multiple 
-    groups within your project.
+15. **Help**  
+    Opens the in-application help window, which explains each GUI element, available settings, and analysis options.  
+    Acts as a quick reference for both new and experienced users.  
+    (See [Help Window](#help-window).)
 
+16. **Run All Groups**  
+    Executes all defined groups sequentially, along with system-level exports.  
+    This serves as the **main run function** for VorPy, automating the complete analysis workflow from input to export.
 
-• Group-Specific Export Settings: Configure export options for each group 
-    individually (see the "Export Settings" tab for more information). This includes 
-    selecting which data to export, output formats, and destination directories.
+---
 
-• Run Controls: 
-    - Run calculations for all groups collectively, or execute only a specific group 
-    as needed.
-    - Each group can be processed independently, enabling flexible and efficient 
-    workflows.
+### 💡 Tip
+You can run individual groups to test parameters or use **Run All Groups** for batch processing.  
+System and group-level settings can be mixed freely — VorPy applies the most recent changes immediately and reflects them in the corresponding export directories.
+---
 
-• Visual Tracking: The Groups frame uses tabs or a list to help you keep track of 
-    all defined groups, their settings, and their current status.
+## ⚙️ Command Line Interface
 
-    
-The Groups frame is central to organizing your analysis, enabling you to tailor 
-network construction and export options for different parts of your system. By 
-leveraging group-specific settings, you can perform detailed, customized analyses 
-and exports for each region of interest.
-
-
-<a name="run-function"></a>
-### Run Function
-
-If the package was received using PyPi, and the user wants to run multiple files, operate the package outside of the GUI, or integrate the package into an existing script, they can use the same run funciton with a file location:
-
-    import vorpy as vp
-    my_data = vp.run('location_to_file')
-
-This allows the user to continue to perform operations on the data afterwords, loop through several files, change settings, change groups, or change exports without running multiple scripts. 
-
-The parameters for this operation are similar to what can be found in the GUI:
-
-1. file - The input ball/atom file holding the locations and radii of the 
-
-
-
-<a name="command-line"></a>
-### Command line:
-
-If the package was downloaded over github or another repository and not prepackaged, as would be found in the The general structure of the command line follows the structure outlined below:
-
-    python vorpy/cmd.py <file>
-
-
-#### File
-- The first argument after `vorpy.py` should be the file address of the ball or atom file.
-- If the file is located in the `vorpy/src/data` folder, specify the file name without the path or extension.
-- Accepted file extensions include `.pdb`, `.mol`, `.gro`, `.cif`.
-
-
-#### Load Options (Flag `-l`)
-    -l <file>
-Load additional files like vertex files from previous runs, log files, Voronota vertex files, or GROMACS index files.
-
-#### Setting Options (Flag `-s`)
-    -s <setting value>
-Adjust various simulation parameters:
-- `nt` - Network Type: Default = Additively Weighted `aw`, Power `pow`, Primitive `prm`, or Compare `com 'type1' 'type2'`
-- `mv` - Maximum Vertex: Default = `40`
-- `bm` - Box Multiplier: Default = `1.25`
-- `sr` - Surface Resolution: Default = `0.2` 
-- `sc` - Surface Color Map: Default = `viridis`, `plasma`, `rainbow`, or any other [matplotlib colormap](https://matplotlib.org/stable/gallery/color/colormap_reference.html) (note: '_r' inverts the scheme)
-- `ss` - Surface Coloring Scheme: Default = curvature `curv`, inside vs outside spheres `nout`, distance from center `dist`
-- `sf` - Surface Coloring Scale: Default = linear `lin`, log `log`, squared `square`, cube `cube`
-- `ar` - Adjust Radii: `'element' 'value'` or `'atom name' 'value'` or `'residue' 'atom name' 'value'`. To see the current values for defaults for atomic radii go to the radii file (radii.py) or enter the radii flag`-r`
-
-#### Group Options (Flag `-g`)
-    -g <identifier>
-Select specific balls or molecular elements:
-- `b` - Ball Identifier. Used with a ball index `'index'` or range of indices `'index1'-'index2'`.
-- `a` - Atom Identifier. Used with an atom element `'element'`, element name `'element name'`, index `'index'`, or range of indices `'index1'-'index2'`.
-- `r` - Residue Identifier. Used with a residue name `'residue name'` and sequence number `'sequence number'` (optional), index `'index'`, or range of indices `'index1'-'index2'`.
-- `c` - Chain Identifier. Used with a chain name `'chain name'`, index `'index'`, or range of indices `'index1'-'index2'`.
-
-Note: If multiple of the above components are desired in the same group use the `and` qualifier between components. If multiple groups are desired use multiple group flags.  
-
-#### Export Options (Flag `-e`)
-    -e <export_type>
-Specify the intensity and type of exports:
-- Groups of Exports: Default = `large`, `small`, `medium`, `all`
-- Export choices : 
-
-   Molecule File - `pdb`, `mol`, `cif`, `gro`, Set Atoms Radii PyMol Script - `set_atoms`, Group Information - `info`, Network Logs - `logs`, All Surfaces in One File - `surfs`, All Surfaces in Separate Files - `sep_surfs`, All Edges in One File - `edges`, All Edges in Separate Files - `sep_edges`, All Vertices in One File - `verts`, All Vertices in Separate Files - `sep_verts`, Surrounding Surfaces - `shell`, Surrounding Edges - `shell_edges`, Surrounding Vertices - `shell_verts`, Group Atoms - `atoms`, Atoms Surrounding Group - `surr_atoms`
-
-#### Command Line Notes
-- Each option flag and its arguments must be separated by spaces.
-- To use multiple commands for a single option use 'and' or repeat the flag (except for groups to avoid creating multiple groups).
-- Any range can be set with a hyphen and no space (e.g. `-g a 0-100` is a group of the first 101 atoms)
-
-
-<a name="requirements-and-dependencies"></a>
-### Requirements and Dependencies
-#### Requirements
-
-- **Python 3.8+**  
-  vorPy is developed and tested with Python 3.8 and above.
-
-#### Python Dependencies
-
-The following Python packages are required to run vorPy:
-
-- `numpy`
-- `scipy`
-- `matplotlib`
-- `pandas`
-- `Pillow`
-- `tkinter` (for GUI)
-- `pytest` (for running tests, optional)
-
-You can install all dependencies using:
-
-    pip install -r requirements.txt
-
-
-
-
-### Output Examples
-
-The outputs for the program are either informative or visualizations of the data. In th
-
-
+VorPy’s **command-line mode** uses the same executable as the GUI.  
+It activates automatically when a file path or the keyword `browse` is supplied.
 
 ### Examples
+```bash
+   python vorpy                     # Launch GUI
+   python vorpy browse              # Open file selection window
+   python vorpy example.pdb         # Run CLI mode on example.pdb
+   python vorpy example.pdb -s sr 0.1 and mv 80 -e small  # Override default parameters. 
+```
 
+### File Argument
+The first argument after `vorpy` is the **path to the input file** (`.pdb`, `.mol`, `.gro`, `.cif`).
 
-Example 1: Simple Molecular Visualization
-In this example, we look at the molecule EDTA which binds to harmful magnesium ions in food to neutralize them. The EDTA/Mg complex is preloaded into vorPy and can be run simply with the following command:
+### Additional Arguments
+Subsequent arguments modify the default settings.
 
-    python vorpy.py EDTA_Mg
+#### Load Options (`-l`)
+Load supplemental data files (vertices, logs, or index files):
+```bash
+   python vorpy example.pdb -l example_logs.csv
+```
 
-This will solve the additively weighted Voronoi diagram for the EDTA molecule and the Mg atom. Once solved, the program will output the default outputs (see outputs). 
+#### Setting Options (`-s`)
+Adjust simulation or visualization parameters:
+```bash
+   python vorpy example.pdb -s nt pow and sr 0.05 and mv 80.0
+```
+- `nt` — Network Type: `aw`, `pow`, `prm`, or `com 'type1' 'type2'`
+- `sr` — Surface Resolution (default: 0.2)
+- `mv` — Maximum Vertex Count (default: 40)
+- `bm` — Box Multiplier (default: 1.25)
+- `ss` — Surface Scheme: curvature (`curv`), inside/outside (`nout`), or distance (`dist`)
+- `sc` — Colormap: any [matplotlib colormap](https://matplotlib.org/stable/gallery/color/colormap_reference.html)
 
-Example 2: 
-Separately solve the tyrosine 2 and methionine 1 residues of the cambrin molecule, calculate their interface, and export the large export type of the results
+#### Group Options (`-g`)
+Select atoms, residues, chains, or balls for analysis:
+```bash
+   python vorpy example.pdb -g a 0-100
+```
 
-    python vorpy.py cambrin -s sr 0.05 and mv 80 -g tyr 2 -g met 1 -c iface -e large
+#### Export Options (`-e`)
+Choose export type and scope:
+```bash
+   python vorpy -e large and pdb and logs
+```
 
-Example 3:
-Calculate the primitive and power networks for the mg atom in the EDTA_Mg molecule and compare the difference
+---
 
-    python vorpy.py EDTA_Mg -s nt compare prm pow -g mg
+## 🧪 Examples
 
-Example 4:
-Solve the network for hairpin and export the shell with the inside and outside parts of the surfaces highlighted at a high resolution
+The following examples demonstrate how to run VorPy from the command line.
+To execute these commands, make sure your terminal’s working directory is set to the root directory for vorpy.
+Each command can include multiple settings or flags in any order or combination. If two consecutive options contradict each other, VorPy will apply the last-specified command, ensuring that the most recent parameters take precedence.
 
-    python vorpy.py hairpin -s ss nout and sr 0.01 -e shell and pdb
+---
 
+### **Example 1 – Simple Molecular Visualization**
+```bash
+   python vorpy EDTA_Mg
+```
+This runs VorPy using the **built-in EDTA_Mg molecule**, which models the chelating agent EDTA bound to a magnesium ion.  
+By default, VorPy computes the **additively weighted Voronoi diagram**, where each atom’s radius influences its spatial region.  
+The results include geometric metrics (volume, surface area, sphericity) and a default visualization of the structure.
 
-## License
+🧩 *Purpose:* Demonstrates the simplest possible use — one command, no extra flags, producing Voronoi partitions and visual outputs.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+---
 
-## Citation
+### **Example 2 – Change the Settings**
+```bash
+   python vorpy cambrin -s sr 0.05 and mv 80.0
+```
 
-If you use VORPY in your research, please cite:
+This runs the **built-in Cambrin molecule**, but with modified computation settings:
+- `sr 0.05` sets the **surface resolution** to 0.05 Å — very fine, meaning the surface will be calculated at high detail.  
+- `mv 80` sets the **maximum vertex count** per Voronoi cell to 80 — an extremely high cap that ensures **all potential vertices** are evaluated (for most cases, values around 5–10 are sufficient).
+
+🧩 *Purpose:* Demonstrates how to adjust **surface detail** and **computation depth** using the `-s` (settings) flag.
+
+---
+
+### **Example 3 – Compare Network Types**
+```bash
+   python vorpy EDTA -s nt compare prm pow -g mg
+```
+This compares two different Voronoi construction types — **primitive** and **power** — for the **Mg atom** in the built-in EDTA molecule:
+- `nt compare prm pow` tells VorPy to compute **two networks**: one using the *primitive* Voronoi diagram and another using the *power* (weighted) version.  
+- `-g mg` limits the analysis to the magnesium atom group.  
+
+VorPy will generate a **comparison document** summarizing differences in geometric and topological metrics between the two network types.
+
+🧩 *Purpose:* Highlights how VorPy can directly compare different geometric decomposition schemes on the same atomic subset.
+
+---
+
+### **Example 4 – Shell Visualization**
+```bash
+   python vorpy hairpin -s ss nout and sr 0.01 -e shell and pdb
+```
+This runs VorPy on the **hairpin molecule**, producing a **shell visualization**:
+- `ss nout` colors the surface based on **inside vs. outside** curvature (a spatial separation scheme).  
+- `sr 0.01` sets a **very high surface resolution**, ideal for fine structural mapping.  
+- `-e shell and pdb` exports both a **shell visualization** and the corresponding **PDB structure file**.
+
+The result is a highly detailed visual representation showing the molecular boundary and how it interacts with surrounding atoms.
+
+🧩 *Purpose:* Demonstrates how to generate and export high-resolution, color-mapped surface models.
+
+---
+
+### ✅ **Summary of What These Teach**
+| Example | Focus | Key Feature Demonstrated |
+|----------|--------|---------------------------|
+| 1 | Simple run | Default additively weighted Voronoi computation |
+| 2 | Custom settings | Adjusting surface resolution and vertex limits |
+| 3 | Network comparison | Comparing primitive vs. power diagrams |
+| 4 | Visualization exports | Generating detailed color-mapped shell surfaces |
+
+---
+
+## 🧩 Requirements and Dependencies
+
+- **Python 3.8+**
+- **Dependencies:**
+  - numpy  
+  - scipy  
+  - matplotlib  
+  - pandas  
+  - Pillow  
+  - tkinter (for GUI)  
+  - pytest (optional for tests)
+
+Install dependencies via:
+```bash
+   pip install -r requirements.txt
+```
+
+---
+
+## 🪪 License
+
+This project is licensed under the [MIT License](LICENSE).
+
+---
+
+## 🧾 Citation
+
+If you use VorPy in your research, please cite:
 
 ```bibtex
 @software{vorpy2024,
@@ -281,7 +318,10 @@ If you use VORPY in your research, please cite:
 }
 ```
 
-## Contact
-- Email: [jericson1@gsu.edu](mailto:jericson1@gsu.edu)
-- Site: [ericsonlabs.com](ericsonlabs.com)
-- Phone: +1 (404)-413-5491
+---
+
+## 📬 Contact
+
+- **Email:** [jericson1@gsu.edu](mailto:jericson1@gsu.edu)  
+- **Site:** [ericsonlabs.com](https://ericsonlabs.com)  
+- **Phone:** +1 (404)-413-5491
