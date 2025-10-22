@@ -44,7 +44,6 @@ def plot_data(plotting='Vol', diff='tot', exclude_keys=[]):
         data=[[100 * (files[key]['pow vol'] - files[key]['aw vol']) / files[key]['aw vol'] for key in files if key not in exclude_keys],
               [100 * (files[key]['prm vol'] - files[key]['aw vol']) / files[key]['aw vol'] for key in files if key not in exclude_keys]],
         x_names=[key for key in files if key not in exclude_keys],
-        legend_names=['Power', 'Primitive'],
         Show=True,
         y_axis_title='% Difference',
         x_axis_title='Model',
@@ -58,10 +57,24 @@ def plot_data(plotting='Vol', diff='tot', exclude_keys=[]):
         ytick_label_size=25,
         x_tick_rotation=45
     )
-            
 
-
-
+    bar(
+        data=[[100 * (files[key]['pow sa'] - files[key]['aw sa']) / files[key]['aw sa'] for key in files if key not in exclude_keys],
+              [100 * (files[key]['prm sa'] - files[key]['aw sa']) / files[key]['aw sa'] for key in files if key not in exclude_keys]],
+        x_names=[key for key in files if key not in exclude_keys],
+        Show=True,
+        y_axis_title='% Difference',
+        x_axis_title='Model',
+        print_vals_on_bars=False,
+        legend_orientation='Vertical',
+        xlabel_size=30,
+        ylabel_size=30,
+        tick_width=2,
+        tick_length=12,
+        xtick_label_size=25,
+        ytick_label_size=25,
+        x_tick_rotation=45
+    )
 
 
 if __name__ == '__main__':

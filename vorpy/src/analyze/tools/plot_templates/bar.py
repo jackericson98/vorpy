@@ -72,12 +72,14 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
     leg_col = 1
     if legend_orientation == 'Horizontal':
         leg_col = len(data)
-
-    if legend_title is not None:
-        plt.legend(title=legend_title, loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=leg_col)
-    elif len(data) > 1:
-        plt.legend(loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=leg_col,
-                   prop={'size': legend_entry_size})
+    try:
+        if legend_title is not None:
+            plt.legend(title=legend_title, loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=leg_col)
+        elif len(data) > 1:
+            plt.legend(loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=leg_col,
+                       prop={'size': legend_entry_size})
+    except Exception:
+        pass
 
     # Set the y limit
     multiplier = 1.3
