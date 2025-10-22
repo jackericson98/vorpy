@@ -150,8 +150,11 @@ Each interface element serves a clear purpose, from managing input files to cust
 ---
 
 ### 💡 Tip
-You can run individual groups to test parameters or use **Run All Groups** for batch processing.  
-System and group-level settings can be mixed freely — VorPy applies the most recent changes immediately and reflects them in the corresponding export directories.
+<p>
+  You can run individual groups to test parameters or use **Run All Groups** for batch processing.  
+  System and group-level settings can be mixed freely — VorPy applies the most recent changes immediately and reflects them in the corresponding export directories.
+</p>
+
 ---
 
 ## ⚙️ Command Line Interface
@@ -320,6 +323,7 @@ If you use VorPy in your research, please cite:
 
 ## 📬 Contact
 
-- **Email:** [jericson1@gsu.edu](mailto:jericson1@gsu.edu)  
+- **Email:** [jackericson98@gmail.com](mailto:jackericson98@gmail.com)
+- **Linkedin:** [Jack Ericson](linkedin.com/in/jackericson98)  
 - **Site:** [ericsonlabs.com](https://ericsonlabs.com)  
 - **Phone:** +1 (404)-413-5491
