@@ -1,7 +1,5 @@
-<h1 align="center" style="font-size: 4em; line-height: 1.2;">
-  <img src="assets/VorpyIcon.svg" alt="VorPy Logo" width="160" height="160"
-       style="vertical-align: -36px; margin-right: 10px;"/>
-  VorPy
+<h1 align="center">
+  <img src="assets/VorpyLogo1.svg" alt="VorPy Logo" width="60%" style="max-width: 400px; height: auto;"/>
 </h1>
 
 <p align="center">
