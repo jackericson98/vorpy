@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="assets/VorpyLogo1.svg" alt="VorPy Logo" width="60%" style="max-width: 400px; height: auto;"/>
+  <img src="assets/VorpyLogo.svg" alt="VorPy Logo" width="60%" style="max-width: 400px; height: auto;"/>
 </h1>
 
 <p align="center">
