@@ -49,18 +49,23 @@ def get_ndx(sys, obj, ndx_npt=None):
         if ndx_npt is None:
             ndx_npt = input("enter a {} index (range: 0 - {})\nindex >>>   ".format(name, len(obj_list) - 1))
         # Check for quits
-        if ndx_npt.lower() in quits:
+        if isinstance(ndx_npt, str) and ndx_npt.lower() in quits:
             return
         # Check for helps
-        elif ndx_npt.lower in helps:
+        elif isinstance(ndx_npt, str) and ndx_npt.lower() in helps:
             print_help()
+            ndx_npt = None  # Reset to get new input
             continue
-        # Check the input
-        ndx_npt = ndx_npt.split("-")
+        # Check the input - ensure ndx_npt is a string before splitting
+        if not isinstance(ndx_npt, str):
+            ndx_npt = None  # Reset if it's not a string (shouldn't happen, but handle gracefully)
+            continue
+        ndx_npt_split = ndx_npt.split("-")
         # Get the list of index numbers
         try:
-            return [int(_) for _ in ndx_npt]
+            return [int(_) for _ in ndx_npt_split]
         except ValueError:
+            ndx_npt = None  # Reset to get new input on retry
             continue
 
 
@@ -260,7 +265,7 @@ def get_set(usr_npt=None):
             return 'ar'
         else:
             # Tell the user they suck and try again
-            print("\"{}\" is not a valid input. Enter a 181L value (\'surf_res\', \'max_vert\', \'box_size\', or "
+            print("\"{}\" is not a valid input. Enter a valid setting value (\'surf_res\', \'max_vert\', \'box_size\', or "
                   "\'calc_surfs\')".format(usr_npt))
             usr_npt = None
 
