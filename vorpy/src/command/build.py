@@ -1,5 +1,5 @@
 from vorpy.src.command.commands import *
-from vorpy.src.command.set import sett
+from vorpy.src.command.set2 import sett
 from vorpy.src.command.group import group
 
 
