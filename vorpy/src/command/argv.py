@@ -4,7 +4,7 @@ from copy import deepcopy
 import tkinter as tk
 from tkinter import filedialog
 from vorpy.src.command.load import load
-from vorpy.src.command.set import sett
+from vorpy.src.command.set2 import sett
 from vorpy.src.command.group import ggroup
 from vorpy.src.system import System
 from vorpy.src.output import export_micro
