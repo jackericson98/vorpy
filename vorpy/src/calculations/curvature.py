@@ -1,5 +1,5 @@
 import numpy as np
-from vorpy.src.calculations.calcs import calc_dist
+from vorpy.src.calculations.calcs import calc_tri
 
 
 def gaussian_curvature(func, point):
@@ -173,3 +173,60 @@ def calc_surf_tri_curvs(func, points, tris, curvature_type='gauss'):
     max_tcs = max(tri_curvs) if tri_curvs else None
 
     return tri_curvs, max_tcs
+
+
+def calc_avg_surface_curvature(func, s_points, s_tris, curvature_type='gauss'):
+    """
+    Compute the area-weighted average curvature over a triangulated surface.
+
+    Parameters
+    ----------
+    func : list
+        Coefficients defining the quadratic surface (passed directly to
+        gaussian_curvature / mean_curvature).
+    s_points : sequence of array_like, shape (3,)
+        List/array of 3D points (x, y, z) defining the vertices of the surface.
+    s_tris : sequence of array_like or tuple, length 3
+        List of triangles; each triangle is three integer indices into s_points.
+    curvature_type : {'gauss', 'mean'}, optional
+        Which curvature to use at each triangle centroid.
+
+    Returns
+    -------
+    float
+        Area-weighted average curvature over the surface.
+    """
+
+    # Ensure we have numpy arrays for the points
+    points = [np.asarray(p, dtype=float) for p in s_points]
+
+    total_area = 0.0
+    weighted_sum = 0.0
+
+    for tri in s_tris:
+        i, j, k = tri
+        p1, p2, p3 = points[i], points[j], points[k]
+
+        # Triangle centroid
+        centroid = (p1 + p2 + p3) / 3.0
+
+        # Curvature at centroid
+        if curvature_type == 'gauss':
+            curv = gaussian_curvature(func, centroid)
+        elif curvature_type == 'mean':
+            curv = mean_curvature(func, centroid)
+        else:
+            raise ValueError("curvature_type must be 'gauss' or 'mean'")
+
+        # Triangle area (using your existing calc_tri)
+        area = calc_tri(p1, p2, p3)
+
+        total_area += area
+        weighted_sum += curv * area
+
+    if total_area == 0.0:
+        # Degenerate surface; you can also return np.nan if you prefer
+        return 0.0
+
+    # Area-weighted average curvature (Riemann sum → surface integral / area)
+    return weighted_sum / total_area
