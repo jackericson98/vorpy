@@ -136,6 +136,6 @@ def plot_frame_deviations(frame_dict):
 
 
 if __name__ == "__main__":
-    frame_dict = get_frames_by_group()
+    frame_dict = get_frames_by_group(chains=['C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'])
     plot_frame_diffs(frame_dict)
     plot_frame_deviations(frame_dict)

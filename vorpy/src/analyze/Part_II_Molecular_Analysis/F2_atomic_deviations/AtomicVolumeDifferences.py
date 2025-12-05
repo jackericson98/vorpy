@@ -24,9 +24,15 @@ def plot_vols(by_element=False, by_curvature=False):
     folder.withdraw()
     folder = filedialog.askdirectory()
     # get the aw, pow, and prm logs
-    aw_logs = read_logs2(os.path.join(folder, 'aw_logs.csv'), all_=False, balls=True)
-    pow_logs = read_logs2(os.path.join(folder, 'pow_logs.csv'), all_=False, balls=True)
-    prm_logs = read_logs2(os.path.join(folder, 'prm_logs.csv'), all_=False, balls=True)
+    try:
+        aw_logs = read_logs2(os.path.join(folder, 'aw_logs.csv'), all_=False, balls=True)
+        pow_logs = read_logs2(os.path.join(folder, 'pow_logs.csv'), all_=False, balls=True)
+        prm_logs = read_logs2(os.path.join(folder, 'prm_logs.csv'), all_=False, balls=True)
+    except FileNotFoundError:
+        aw_logs = read_logs2(os.path.join(folder, 'aw/aw_logs.csv'), all_=False, balls=True)
+        pow_logs = read_logs2(os.path.join(folder, 'pow/pow_logs.csv'), all_=False, balls=True)
+        prm_logs = read_logs2(os.path.join(folder, 'prm/prm_logs.csv'), all_=False, balls=True)
+
     # Get the title
     title = folder.split('/')[-1][2:] + " Volume Comparison"
     color_dict = {'C': 'grey', 'O': 'r', 'N': 'b', 'P': 'darkorange', 'H': 'pink', 'S': 'y', 'Se': 'sandybrown'}

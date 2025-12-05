@@ -60,7 +60,6 @@ def get_res_sa(logs):
     return res_sa_dict
 
 
-
 def get_res_data(folder=None, exclude_keys=[], get_sa=False):
     """
     Function that gets the residue data for the given systems
