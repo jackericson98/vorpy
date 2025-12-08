@@ -59,7 +59,7 @@ def read_pdb(sys, file=None):
     else:
         return
     # Print a statement saying the file is being read
-    print("\rReading File {}".format(os.path.basename(file)), end="")
+    print(f"\rReading File {os.path.basename(file)}", end="")
     # Get the file information and make sure to close the file when done
     with open(file_address, 'r') as f:
         my_file = f.readlines()
@@ -102,6 +102,8 @@ def read_pdb(sys, file=None):
         sys.type = 'coarse'
     # Go through each line in the file and check if the first word is the word we are looking for
     for i in range(len(my_file)):
+        # Print a loading statement for longer files
+        print(f"\rReading File {os.path.basename(file)} {round(100 * (i/len(my_file)), 2)} %", end="")
         # Check to make sure the line isn't empty
         if len(my_file[i]) == 0:
             continue
@@ -262,8 +264,10 @@ def read_pdb(sys, file=None):
                 print(res.atoms)
         else:
             adjusted_residues.append(res)
-
+    # Add the sol residues
     sys.sol.residues = adjusted_residues
+    # Create a file read statement for the user
+    print(f"\r{os.path.basename(file)} successfully added.", end="")
 
 
 def read_pdb_simple(file):
