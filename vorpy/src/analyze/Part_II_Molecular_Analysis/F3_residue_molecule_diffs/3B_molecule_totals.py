@@ -41,6 +41,7 @@ def plot_data(plotting='Vol', diff='tot', exclude_keys=[]):
     # Sort the files dictionary by key
     files = dict(sorted(files.items()))
     print(files)
+    print(files)
     # 
     bar(
         data=[[100 * (files[key]['pow vol'] - files[key]['aw vol']) / files[key]['aw vol'] for key in files if key not in exclude_keys],
