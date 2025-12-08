@@ -1,11 +1,59 @@
 import numpy as np
 import warnings
+import matplotlib as mpl
+from matplotlib.colors import ListedColormap
 from vorpy.src.calculations.curvature import gaussian_curvature
 from vorpy.src.calculations.curvature import mean_curvature
 from vorpy.src.calculations.surf import calc_surf_tri_dists
 from vorpy.src.calculations.surf import calc_surf_func
 from vorpy.src.calculations.calcs import calc_dist
 warnings.filterwarnings('error')
+
+
+def get_cmap_safe(name: str, fallback: str = "viridis"):
+    """
+    If user passes: 'solid:red', 'solid #00ff00', 'solid(0.1,0.8,0.3)' etc.
+    return a colormap where every entry is that color.
+    Otherwise return a normal Matplotlib colormap.
+    """
+    name = name.strip()
+
+    # --- SOLID COLOR HANDLING ---
+    if name.lower().startswith("solid"):
+        # extract color after "solid:"
+        # examples:
+        #   solid:red
+        #   solid:#00ff00
+        #   solid:(0.1,0.8,0.3)
+        if ":" in name:
+            color = name.split(":", 1)[1].strip()
+        else:
+            color = "gray"  # default solid color
+
+        try:
+            rgba = mpl.colors.to_rgba(color)
+        except ValueError:
+            rgba = mpl.colors.to_rgba("gray")
+
+        # single-color colormap
+        return ListedColormap([rgba], name=f"solid_{color}")
+
+    # --- NORMAL COLORMAP HANDLING ---
+    if hasattr(mpl, "colormaps"):
+        getter = mpl.colormaps.get_cmap
+    else:
+        getter = mpl.cm.get_cmap
+
+    # try raw name and variants
+    for n in (name, name.lower(), name.upper(), name.capitalize()):
+        try:
+            return getter(n)
+        except Exception:
+            pass
+
+    # fallback
+    return getter(fallback)
+
 
 
 def calc_surf_tri_curvs(func, points, tris, curvature_type='gauss'):
@@ -222,17 +270,7 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None, min_va
     if inverse:
         inverse_mult = -1
     # Set up the color map
-    try:
-        my_cmap = mpl.colormaps.get_cmap(color_map)
-    except MPLDepWarn:
-        my_cmap = mpl.cm.get_cmap(color_map)
-    except AttributeError:
-        my_cmap = mpl.cm.get_cmap(color_map)
-    except ValueError:
-        my_cmap = mpl.cm.get_cmap(color_map.capitalize())
-    except Exception as e:
-        print(f"Error: {e}")
-        my_cmap = mpl.cm.get_cmap('viridis')
+    my_cmap = get_cmap_safe(color_map)
     # Create the surface value multiplier
     if color_factor == 'log':
         def multi(val):
