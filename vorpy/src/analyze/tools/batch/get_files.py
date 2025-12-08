@@ -42,10 +42,14 @@ def get_all_files(folder=None):
         # Make the new dictionary entry
         sys_letter = subfolder[0]
         sys_name = subfolder.split('_')[1]
-        
+
         if all(os.path.exists(os.path.join(folder, subfolder, f"{log}_logs.csv")) for log in ['aw', 'pow', 'prm']):
-            files[sys_letter] = {'name': sys_name, 'aw': os.path.join(folder, subfolder, 'aw_logs.csv'), 'pow': os.path.join(folder, subfolder, 'pow_logs.csv'), 'prm': os.path.join(folder, subfolder, 'prm_logs.csv')}
-        
+            files[sys_letter] = {log: os.path.join(folder, subfolder, f"{log}_logs.csv") for log in ['aw', 'pow', 'prm']}
+            files[sys_letter]['name'] = sys_name
+        elif all(os.path.exists(os.path.join(folder, subfolder, f"{log}/{log}_logs.csv")) for log in ['aw', 'pow', 'prm']):
+            files[sys_letter] = {log: os.path.join(folder, subfolder, f"{log}/{log}_logs.csv") for log in ['aw', 'pow', 'prm']}
+            files[sys_letter]['name'] = sys_name
+    print(files)
     return files
 
 
