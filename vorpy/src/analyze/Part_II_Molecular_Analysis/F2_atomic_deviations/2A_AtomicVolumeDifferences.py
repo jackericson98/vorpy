@@ -44,6 +44,10 @@ def plot_vols(by_element=False, by_curvature=False):
         pow_atom = pow_logs['atoms'].loc[pow_logs['atoms']['Index'] == atom['Index']].to_dict(orient='records')[0]
         # Get the primitive atom
         prm_atom = prm_logs['atoms'].loc[prm_logs['atoms']['Index'] == atom['Index']].to_dict(orient='records')[0]
+        if (atom['Volume'] < 3 or atom['Volume'] > 22 or
+            pow_atom['Volume'] < 3 or pow_atom['Volume'] > 22 or
+            prm_atom['Volume'] < 3 or prm_atom['Volume'] > 22):
+            continue
         # Add the volumes to the lists
         aw_vols.append(atom['Volume'])
         pow_vols.append(pow_atom['Volume'])
@@ -105,7 +109,7 @@ def plot_vols(by_element=False, by_curvature=False):
     if by_curvature:
         # For curvature coloring, use matplotlib's scatter directly with color mapping
         scatter_plot = ax.scatter(aw_vols, pow_vols, c=curv_list, cmap=cmap, norm=norm, 
-                                 alpha=0.5, s=100, edgecolors='none')
+                                 alpha=0.5, s=30, edgecolors='none')
         
         # Set up the plot formatting
         ax.set_xlabel('AW Volume', fontsize=25)
@@ -122,13 +126,13 @@ def plot_vols(by_element=False, by_curvature=False):
             spine.set_linewidth(2)
         
         # Add colorbar
-        cbar = plt.colorbar(scatter_plot, ax=ax, pad=0.02)
-        cbar.set_label('Mean Curvature', fontsize=25)
-        cbar.ax.tick_params(labelsize=25, width=2, length=12)
+        # cbar = plt.colorbar(scatter_plot, ax=ax, pad=0.02)
+        # cbar.set_label('Mean Curvature', fontsize=25)
+        # cbar.ax.tick_params(labelsize=25, width=2, length=12)
         
-        # Increase number of ticks on colorbar
-        cbar.locator = plt.MaxNLocator(nbins=4)
-        cbar.update_ticks()
+        # # Increase number of ticks on colorbar
+        # cbar.locator = plt.MaxNLocator(nbins=4)
+        # cbar.update_ticks()
         
         # Make plot fit in frame
         plt.tight_layout()
@@ -147,9 +151,9 @@ def plot_vols(by_element=False, by_curvature=False):
             y_range=[3, 22],
             ax=ax, 
             fig=fig, 
-            legend_title='Element', 
-            legend_labels=legend_labels_to_use,
-            legend_handles=legend_handles_to_use,
+            # legend_title='Element',
+            # legend_labels=legend_labels_to_use,
+            # legend_handles=legend_handles_to_use,
             alpha=0.5, 
             marker_size=100,
             x_tick_labels=[5, 10, 15, 20], 
@@ -161,9 +165,9 @@ def plot_vols(by_element=False, by_curvature=False):
             xlabel_size=25,
             ylabel_size=25,
             title_size=25,
-            legend_entry_size=20,
-            legend_title_size=20, 
-            legend_bbox_to_anchor=(1.5, 0.97),
+            # legend_entry_size=20,
+            # legend_title_size=20,
+            # legend_bbox_to_anchor=(1.5, 0.97),
             axis_line_thickness=2, 
             tick_width=3
         )
