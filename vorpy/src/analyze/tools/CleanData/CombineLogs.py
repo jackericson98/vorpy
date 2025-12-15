@@ -179,8 +179,9 @@ def combine_surface_lines(surface_logs, group):
                 continue
             else:
                 # Check if both indices are in the group
-                if indices[0] not in group or indices[1] not in group:
-                    sa += float(3)
+                if (indices[0] in group) != (indices[1] in group):
+
+                    sa += float(surf[3])
                 surf = [ndx] + surf[1:]
                 surfaces[indices] = surf
                 ndx += 1
@@ -274,6 +275,51 @@ def combine_vertex_lines(output_file, vertex_logs):
     of.close()
 
 
+def warn_on_missing_atoms(atom_indices, label="combined logs"):
+    """
+    Check for missing atom indices in a set of atom indices.
+
+    Parameters
+    ----------
+    atom_indices : Collection[int]
+        The set (or list) of atom indices present in the final logs.
+    label : str, optional
+        A label to include in warning messages for context
+        (e.g., 'Total_logs').
+
+    Returns
+    -------
+    missing : list[int]
+        Sorted list of missing indices strictly between min and max.
+    """
+    if not atom_indices:
+        print(f"WARNING [{label}]: no atom indices found.")
+        return []
+
+    # Ensure we are working with a sorted list
+    idx_sorted = sorted(int(i) for i in atom_indices)
+    min_idx = idx_sorted[0]
+    max_idx = idx_sorted[-1]
+
+    full_range = set(range(min_idx, max_idx + 1))
+    present = set(idx_sorted)
+    missing = sorted(full_range - present)
+
+    if missing:
+        print(f"WARNING [{label}]: missing atom indices detected "
+              f"between {min_idx} and {max_idx}: {missing}")
+    else:
+        print(f"[{label}]: no internal gaps in atom indices "
+              f"({min_idx} → {max_idx}).")
+
+    # This can’t *prove* atoms are missing at the ends, but it’s often a hint.
+    if min_idx != 0:
+        print(f"NOTE [{label}]: atom indices start at {min_idx} "
+              f"instead of 0; atoms before {min_idx} might be missing.")
+
+    return missing
+
+
 def combine_logs(list_of_logs=None, output_dir=None):
     """
     Combines the logs of separate split files.
@@ -344,6 +390,8 @@ def combine_logs(list_of_logs=None, output_dir=None):
     bld_lines = combine_build_information(output_dir + '/Total_logs.csv', build)
     # Get the atoms
     atm_lines, group_nums, com, vdw_com, moi, spatial_moment = combine_atoms_lines(atoms)
+    # Check for missing atoms in the combined logs
+    warn_on_missing_atoms(group_nums, label="Total_logs")
     # Get the surfaces
     srf_lines, sa = combine_surface_lines(surfs, group_nums)
     # Group logs

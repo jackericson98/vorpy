@@ -49,7 +49,7 @@ def get_all_files(folder=None):
         elif all(os.path.exists(os.path.join(folder, subfolder, f"{log}/{log}_logs.csv")) for log in ['aw', 'pow', 'prm']):
             files[sys_letter] = {log: os.path.join(folder, subfolder, f"{log}/{log}_logs.csv") for log in ['aw', 'pow', 'prm']}
             files[sys_letter]['name'] = sys_name
-    print(files)
+
     return files
 
 
