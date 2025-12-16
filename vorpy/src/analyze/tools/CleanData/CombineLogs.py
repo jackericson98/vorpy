@@ -414,6 +414,7 @@ def combine_logs(list_of_logs=None, output_dir=None):
             count += 1
     combine_edges_lines(output_dir + '/Total_logs.csv', edges)
     combine_vertex_lines(output_dir + '/Total_logs.csv', verts)
+    print(f"output to {output_dir}")
 
 
 if __name__ == '__main__':
@@ -423,4 +424,21 @@ if __name__ == '__main__':
     root = tk.Tk()
     root.withdraw()
     root.wm_attributes('-topmost', 1)
+    # combine_logs(list_of_logs=
+    #              ["G:/Data/Molecular/K_NCP/KNCP_2/frames/f11/aw/c0_aw/c0_aw/aw_logs.csv",
+    #               "G:/Data/Molecular/K_NCP/KNCP_2/frames/f11/aw/c1_aw/c1_aw/aw_logs.csv",
+    #               "G:/Data/Molecular/K_NCP/KNCP_2/frames/f11/aw/c2_aw/c2_aw/aw_logs.csv",
+    #               "G:/Data/Molecular/K_NCP/KNCP_2/frames/f11/aw/c3_aw/c3_aw/aw_logs.csv",
+    #               "G:/Data/Molecular/K_NCP/KNCP_2/frames/f11/aw/c4_aw/c4_aw/aw_logs.csv",
+    #               "G:/Data/Molecular/K_NCP/KNCP_2/frames/f11/aw/c5_aw/c5_aw/aw_logs.csv",
+    #               "G:/Data/Molecular/K_NCP/KNCP_2/frames/f11/aw/c6_aw/c6_aw/aw_logs.csv",
+    #               "G:/Data/Molecular/K_NCP/KNCP_2/frames/f11/aw/c7_aw/c7_aw/aw_logs.csv",
+    #               "G:/Data/Molecular/K_NCP/KNCP_2/frames/f11/aw/c8_aw/c8_aw/aw_logs.csv",
+    #               "G:/Data/Molecular/K_NCP/KNCP_2/frames/f11/aw/c9_aw/c9_aw/aw_logs.csv",
+    #               "G:/Data/Molecular/K_NCP/KNCP_2/frames/f11/aw/a_1304_and_a_etc/aw_logs.csv"
+    #
+    #               ],
+    #              output_dir="G:/Data/Molecular/K_NCP/KNCP_2/frames/f11/aw")
     combine_logs()
+
+# "G:/Data/Molecular/K_NCP/KNCP_2/frames/f4/aw/a_410_and_a__etc/aw_logs.csv"
