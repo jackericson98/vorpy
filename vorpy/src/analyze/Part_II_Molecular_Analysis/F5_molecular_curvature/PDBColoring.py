@@ -15,6 +15,7 @@ from vorpy.src.output.pdb import make_pdb_line
 from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
 from vorpy.src.inputs.pdb import read_pdb_line
 
+
 def get_atom_dict(logs_file):
     atom_dict = {}
     logs = read_logs2(logs_file)
