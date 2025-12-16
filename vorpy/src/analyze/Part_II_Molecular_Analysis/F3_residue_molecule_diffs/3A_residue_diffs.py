@@ -79,7 +79,6 @@ def get_res_sa(logs):
     return res_sa_dict
 
 
-
 def get_res_data(folder=None, exclude_keys=None, get_sa=False, max_percent_diff=None):
     """
     For each system (subfolder), compute residue-level volumes and SAs
@@ -342,7 +341,6 @@ def get_res_data(folder=None, exclude_keys=None, get_sa=False, max_percent_diff=
     return sys_res_data
 
 
-
 def plot_data(sys_res_data):
     """
     Make TWO grouped bar plots:
@@ -408,7 +406,6 @@ def plot_data(sys_res_data):
         tick_length=12,
         tick_width=2
     )
-
 
 
 if __name__ == '__main__':
