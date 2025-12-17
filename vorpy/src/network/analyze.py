@@ -15,12 +15,6 @@ from time import perf_counter as now
 def append_0(*lists):
     """
     Appends a 0 to each list provided as an argument.
-
-    Parameters:
-        lists (list of lists): Variable number of list arguments.
-
-    Returns:
-        list: The tuple of lists with 0 appended to each.
     """
     for my_list in lists:
         my_list.append(0)
@@ -30,19 +24,9 @@ def append_0(*lists):
 def get_next_layer(net, prev_layer):
     """
     Identifies and returns the next layer of balls based on the previous layer within a network.
-
-    Parameters:
-        net (object): Network object containing balls and their surfaces.
-        prev_layer (list): List of previous layer's ball indices.
-
-    Returns:
-        list: List of indices representing the next layer of balls.
     """
-    # Set up the layer2 list
     layer2 = []
-    # Gather the ball numbers for the previous layer
     prev_ndxs = [_['num'] for _ in prev_layer]
-    # Loop through the current layer
     for ball in prev_layer:
         ball_surfs = net.surfs.iloc[ball['surfs']].to_dict(orient='records')
         for surf in ball_surfs:
@@ -56,76 +40,149 @@ def analyze(net, complicated=True):
     """
     Performs a comprehensive analysis of a network, calculating various physical, geometrical,
     and topological properties of the cells (balls) within the network.
-
-    Parameters:
-        net (object): Network object containing details about cells, surfaces, vertices, etc.
-        complicated (bool): Flag to perform additional complex calculations.
-
-    This function processes each ball in the network, calculating properties such as volume,
-    surface area, sphericity, curvature, and neighbor relationships, among others. It also
-    handles conditions for incomplete cells and updates the network with the calculated metrics.
     """
-    # Create the group set for the group indexes
+    # Precompute for speed
     group_set = set(net.group)
+    n_group = len(group_set)
+
     # Set up the balls' volumes, surface areas, and completion variables
     b_vols, b_sas, b_cell = [], [], []
+
     # Set up the curvature variables
-    b_max_mean_curvs, b_avg_mean_surf_curvs, b_max_gauss_curvs, b_avg_gauss_surf_curvs = [], [], [], []
+    b_max_mean_curvs, b_avg_mean_surf_curvs = [], []
+    b_max_gauss_curvs, b_avg_gauss_surf_curvs = [], []
+
     # Set up the geometric variables
     b_sphrctys, b_isopmqs = [], []
+
     # Set up the neighbors variables
-    num_nbors, near_nbors, near_nbor_dists, nbor_lyr_rmsds, nbor_dst_avgs, b_inner = [], [], [], [], [], []
+    num_nbors, near_nbors, near_nbor_dists = [], [], []
+    nbor_lyr_rmsds, nbor_dst_avgs, b_inner = [], [], []
+
     # Set up the spike variables
     b_min_spikes, b_max_spikes = [], []
+
     # Set up the contacts lists
     contact_areas, non_olap_vols, olap_vols, num_olaps = [], [], [], []
+
     # Physical values
     coms, mois = [], []
+
     # Bounding boxes
     b_boxs = []
-    # Set up the timer
-    timer = {'basic': 0, 'curvs': 0, 'geometric': 0, 'nbors': 0, 'spikes': 0, 'contacts': 0, 'com': 0, 'moi': 0, 'b_box': 0}
+
+    # Timer
+    timer = {
+        'basic': 0, 'curvs': 0, 'geometric': 0,
+        'nbors': 0, 'spikes': 0, 'contacts': 0,
+        'com': 0, 'moi': 0, 'b_box': 0,
+    }
     time_start = time.perf_counter()
-    # Set up the surfaces tracker
+
+    # Surfaces tracker
     surfaces_tracker = {}
-    # Go through each ball in the system and find the volume
+
+    # Progress counter (only for balls actually analyzed)
     count = 0
+
     for k, ball in net.balls.iterrows():
+        ball_num = ball['num']
 
-        # Get the percentage for printing
-        percentage = round(count / len(net.group), 4) * 100
-        # Print the actions
-        my_time = now() - net.metrics['start']
-        h, m, s = get_time(my_time)
-        print("\rRun Time = {}:{}:{:.2f} - Process: analyzing: {:.2f} %                 "
-              .format(int(h), int(m), round(s, 2), percentage), end="")
-
-        # Get the ball surfs
-        ball_surfs = net.surfs.iloc[ball['surfs']].to_dict(orient='records')
-
-        # Initial test for completeness
-        if len(ball['surfs']) == 0 or sum([_['sa'] for _ in ball_surfs]) == 0 or ball['num'] not in group_set:
-            (b_vols, b_sas, b_cell, b_max_mean_curvs, b_avg_mean_surf_curvs, b_max_gauss_curvs, b_avg_gauss_surf_curvs,
-             b_sphrctys, b_isopmqs, b_inner, num_nbors, near_nbors, near_nbor_dists, nbor_lyr_rmsds, num_olaps,
-             nbor_dst_avgs, b_min_spikes, b_max_spikes, contact_areas, olap_vols, non_olap_vols, coms, mois, b_boxs) = (
-                append_0(b_vols, b_sas, b_cell, b_max_mean_curvs, b_avg_mean_surf_curvs, b_max_gauss_curvs,
-                         b_avg_gauss_surf_curvs, b_sphrctys, b_isopmqs, b_inner, num_nbors, near_nbors, near_nbor_dists,
-                         nbor_lyr_rmsds, num_olaps, nbor_dst_avgs, b_min_spikes, b_max_spikes, contact_areas, olap_vols,
-                         non_olap_vols, coms, mois, b_boxs))
+        # FAST PATH: balls not in the group get zeros and are skipped early.
+        # This is the key optimization when net.balls is large but net.group is small.
+        if ball_num not in group_set:
+            (b_vols, b_sas, b_cell,
+             b_max_mean_curvs, b_avg_mean_surf_curvs,
+             b_max_gauss_curvs, b_avg_gauss_surf_curvs,
+             b_sphrctys, b_isopmqs, b_inner,
+             num_nbors, near_nbors, near_nbor_dists,
+             nbor_lyr_rmsds, num_olaps, nbor_dst_avgs,
+             b_min_spikes, b_max_spikes,
+             contact_areas, olap_vols, non_olap_vols,
+             coms, mois, b_boxs) = append_0(
+                b_vols, b_sas, b_cell,
+                b_max_mean_curvs, b_avg_mean_surf_curvs,
+                b_max_gauss_curvs, b_avg_gauss_surf_curvs,
+                b_sphrctys, b_isopmqs, b_inner,
+                num_nbors, near_nbors, near_nbor_dists,
+                nbor_lyr_rmsds, num_olaps, nbor_dst_avgs,
+                b_min_spikes, b_max_spikes,
+                contact_areas, olap_vols, non_olap_vols,
+                coms, mois, b_boxs,
+            )
             continue
 
-        # Increment the count
+        # Update progress based only on balls in the group
         count += 1
-        # Start the timer
+        percentage = round(count / max(n_group, 1), 4) * 100
+        my_time = now() - net.metrics['start']
+        h, m, s = get_time(my_time)
+        print(
+            "\rRun Time = {}:{}:{:.2f} - Process: analyzing: {:.2f} %                 "
+            .format(int(h), int(m), round(s, 2), percentage),
+            end=""
+        )
+
+        # Get the ball's surfaces once
+        surf_ids = ball['surfs']
+        if not surf_ids:
+            # No surfaces at all -> incomplete / zeroed
+            (b_vols, b_sas, b_cell,
+             b_max_mean_curvs, b_avg_mean_surf_curvs,
+             b_max_gauss_curvs, b_avg_gauss_surf_curvs,
+             b_sphrctys, b_isopmqs, b_inner,
+             num_nbors, near_nbors, near_nbor_dists,
+             nbor_lyr_rmsds, num_olaps, nbor_dst_avgs,
+             b_min_spikes, b_max_spikes,
+             contact_areas, olap_vols, non_olap_vols,
+             coms, mois, b_boxs) = append_0(
+                b_vols, b_sas, b_cell,
+                b_max_mean_curvs, b_avg_mean_surf_curvs,
+                b_max_gauss_curvs, b_avg_gauss_surf_curvs,
+                b_sphrctys, b_isopmqs, b_inner,
+                num_nbors, near_nbors, near_nbor_dists,
+                nbor_lyr_rmsds, num_olaps, nbor_dst_avgs,
+                b_min_spikes, b_max_spikes,
+                contact_areas, olap_vols, non_olap_vols,
+                coms, mois, b_boxs,
+            )
+            continue
+
+        ball_surfs = net.surfs.iloc[surf_ids].to_dict(orient='records')
+
+        # Quick test for pathological case: zero total surface area
+        sa_total = sum(_['sa'] for _ in ball_surfs)
+        if sa_total == 0:
+            (b_vols, b_sas, b_cell,
+             b_max_mean_curvs, b_avg_mean_surf_curvs,
+             b_max_gauss_curvs, b_avg_gauss_surf_curvs,
+             b_sphrctys, b_isopmqs, b_inner,
+             num_nbors, near_nbors, near_nbor_dists,
+             nbor_lyr_rmsds, num_olaps, nbor_dst_avgs,
+             b_min_spikes, b_max_spikes,
+             contact_areas, olap_vols, non_olap_vols,
+             coms, mois, b_boxs) = append_0(
+                b_vols, b_sas, b_cell,
+                b_max_mean_curvs, b_avg_mean_surf_curvs,
+                b_max_gauss_curvs, b_avg_gauss_surf_curvs,
+                b_sphrctys, b_isopmqs, b_inner,
+                num_nbors, near_nbors, near_nbor_dists,
+                nbor_lyr_rmsds, num_olaps, nbor_dst_avgs,
+                b_min_spikes, b_max_spikes,
+                contact_areas, olap_vols, non_olap_vols,
+                coms, mois, b_boxs,
+            )
+            continue
+
         time1 = time.perf_counter()
-        # Check for complete cells in the balls
+
+        # Check for complete cells
         complete = True
-        # Go through each of the vertices in the ball
         for vert in ball['verts']:
-            # Check the number of edges from the vertex that hold
-            if len([_ for _ in [net.edges['balls'][__] for __ in net.verts['edges'][vert]] if k in _]) != 3:
-                # Double check that we arent just missing a connection somewhere, but we only care if it is in the net group
-                if ball['num'] in net.group:
+            # Count edges at this vertex that belong to this ball
+            edge_balls_for_vert = [net.edges['balls'][e] for e in net.verts['edges'][vert]]
+            if len([eb for eb in edge_balls_for_vert if k in eb]) != 3:
+                if ball_num in group_set:
                     new_count = 0
                     for edge in ball['edges']:
                         if set(net.edges['balls'][edge]).issubset(set(net.verts['balls'][vert])):
@@ -134,160 +191,190 @@ def analyze(net, complicated=True):
                         complete = False
                 else:
                     complete = False
-        # Additional catch for any ball that doesn't have the 181L number of network elements associated with it
+
         if len(ball['verts']) < 3 or len(ball['edges']) < 4 or len(ball_surfs) < 3:
             complete = False
-        # Add the complete designation for the cell
+
         b_cell.append(complete)
 
-        # Calculate the surface area of the ball by summing the surface areas of all it's surfaces
-        sa = sum([_['sa'] for _ in ball_surfs])
+        # Basic SA & volume
+        sa = sa_total
         b_sas.append(sa)
 
-        # Calculate the volume of the ball by the previously stored volume data
-        volume = sum([_['vols'][ball['num']] for _ in ball_surfs])
+        volume = sum(_['vols'][ball_num] for _ in ball_surfs)
         b_vols.append(volume)
 
         time2 = time.perf_counter()
         timer['basic'] += time2 - time1
 
-        # Go through the ball's surfaces
-        b_max_mean_curvs.append(max([_['mean_curv'] for _ in ball_surfs]))
-        b_avg_mean_surf_curvs.append(sum(_['sa'] * _['mean_curv'] for _ in ball_surfs) / sa)
-        b_max_gauss_curvs.append(max([_['gauss_curv'] for _ in ball_surfs]))
-        b_avg_gauss_surf_curvs.append(sum(_['sa'] * _['gauss_curv'] for _ in ball_surfs) / sa)
+        # Curvature metrics
+        mean_curvs = [_['mean_curv'] for _ in ball_surfs]
+        gauss_curvs = [_['gauss_curv'] for _ in ball_surfs]
+
+        b_max_mean_curvs.append(max(mean_curvs))
+        b_avg_mean_surf_curvs.append(
+            sum(s['sa'] * s['mean_curv'] for s in ball_surfs) / sa
+        )
+
+        b_max_gauss_curvs.append(max(gauss_curvs))
+        b_avg_gauss_surf_curvs.append(
+            sum(s['sa'] * s['gauss_curv'] for s in ball_surfs) / sa
+        )
 
         time3 = time.perf_counter()
         timer['curvs'] += time3 - time2
 
-        # Calculate the sphericity
+        # Geometric metrics
         b_sphrctys.append(calc_sphericity(volume=volume, surface_area=sa))
-
-        # Calculate the isoperimetric quotient
         b_isopmqs.append(calc_isoperimetric_quotient(volume=volume, surface_area=sa))
 
         time4 = time.perf_counter()
         timer['geometric'] += time4 - time3
 
-        # Gather the neighbors
+        # Neighbor metrics
         neighbors, neighbors_nums, neighbor_dists = [], [], []
-        for i, surf in enumerate(ball_surfs):
-            neighbor_num = [_ for _ in surf['balls'] if _ != ball['num']][0]
+        ball_loc = ball['loc']
+        ball_rad = ball['rad']
 
+        for i, surf in enumerate(ball_surfs):
+            neighbor_num = [_ for _ in surf['balls'] if _ != ball_num][0]
             neighbors_nums.append(neighbor_num)
             neighbor = net.balls.iloc[neighbor_num]
-            neighbor_dist = calc_dist(ball['loc'], neighbor['loc']) - ball['rad'] - neighbor['rad']
-            neighbor_dists.append(neighbor_dist)
             neighbors.append(neighbor)
-            if ball['surfs'][i] not in surfaces_tracker:
-                surfaces_tracker[ball['surfs'][i]] = {'olap_dist': max(-neighbor_dist, 0)}
-        # Check to see if the ball is inside or outside
-        if group_set.issuperset(neighbors_nums):
-            b_inner.append(True)
-        else:
-            b_inner.append(False)
 
-        # Add the number of neighbors and the nearest neighbor
+            neighbor_dist = calc_dist(ball_loc, neighbor['loc']) - ball_rad - neighbor['rad']
+            neighbor_dists.append(neighbor_dist)
+
+            surf_id = surf_ids[i]
+            if surf_id not in surfaces_tracker:
+                surfaces_tracker[surf_id] = {'olap_dist': max(-neighbor_dist, 0)}
+            else:
+                # Keep the max overlap distance per surface
+                surfaces_tracker[surf_id]['olap_dist'] = max(
+                    surfaces_tracker[surf_id]['olap_dist'],
+                    max(-neighbor_dist, 0),
+                )
+
+        # Inner / outer
+        b_inner.append(group_set.issuperset(neighbors_nums))
+
+        # Neighbor stats
         num_nbors.append(len(neighbors))
-        near_nbor_dists.append(min(neighbor_dists))
-        near_nbors.append(neighbors[neighbor_dists.index(near_nbor_dists[-1])]['num'])
+        min_dist = min(neighbor_dists)
+        near_nbor_dists.append(min_dist)
+        near_nbors.append(neighbors[neighbor_dists.index(min_dist)]['num'])
+
         nbor_dist_avg = sum(neighbor_dists) / len(neighbor_dists)
         nbor_dst_avgs.append([nbor_dist_avg])
-        nbor_lyr_rmsds.append([sqrt(sum([(_ - nbor_dist_avg) ** 2 for _ in neighbor_dists]) / len(neighbor_dists))])
+        nbor_lyr_rmsds.append([
+            sqrt(sum((d - nbor_dist_avg) ** 2 for d in neighbor_dists) / len(neighbor_dists))
+        ])
 
         time5 = time.perf_counter()
         timer['nbors'] += time5 - time4
 
-        # The more complicated/time_consuming calculations happen here
+        # Complicated / optional metrics
         if complicated:
-            # Add the spike variables
-            min_spike, max_spike = calc_spikes(ball['loc'], ball_surfs)
-            # Add them to the respective lists
+            # Spikes
+            min_spike, max_spike = calc_spikes(ball_loc, ball_surfs)
             b_min_spikes.append(min_spike)
             b_max_spikes.append(max_spike)
 
             time6 = time.perf_counter()
             timer['spikes'] += time6 - time5
 
-            # Get the contact information
+            # Contacts
+            contact_area, vdw_vol = calc_contacts(ball_loc, ball_rad, ball_surfs, surf_ids)
+            num_olaps.append(len([d for d in neighbor_dists if d < 0]))
+            contact_areas.append(sum(contact_area.values()))
 
-            contact_area, vdw_vol = calc_contacts(ball['loc'], ball['rad'], ball_surfs, ball['surfs'])
-            num_olaps.append(len([_ for _ in neighbor_dists if _ < 0]))
-            contact_areas.append(sum([contact_area[_] for _ in contact_area]))
-            for i, surf in enumerate(ball_surfs):
-                surface_key = ball['surfs'][i]
-                if surface_key not in surfaces_tracker:
-                    surfaces_tracker[surface_key] = {'contact_area': contact_area[surface_key]}
+            for surf_id in surf_ids:
+                if surf_id not in surfaces_tracker:
+                    surfaces_tracker[surf_id] = {'contact_area': contact_area[surf_id]}
                 else:
-                    surfaces_tracker[surface_key]['contact_area'] = contact_area[surface_key]
+                    surfaces_tracker[surf_id]['contact_area'] = contact_area[surf_id]
+
             non_olap_vols.append(vdw_vol)
-            olap_vols.append((4/3) * pi * ball['rad'] ** 3 - vdw_vol)
+            olap_vols.append((4.0 / 3.0) * pi * ball_rad ** 3 - vdw_vol)
 
             time6a = time.perf_counter()
             timer['contacts'] += time6a - time6
 
-            # Get the additional layers
+            # Second neighbor layer
             layer2 = get_next_layer(net, neighbors + [ball])
-            layer2_balls, layer2_dists = [], []
-            # get the distances from the ball for the next layer
+            layer2_dists = []
             for ball_2 in layer2:
                 neighbor2 = net.balls.iloc[ball_2]
-                layer2_dists.append(calc_dist(ball['loc'], neighbor2['loc']))
-                layer2_balls.append(neighbor2)
-            if len(layer2_dists) > 0:
+                layer2_dists.append(calc_dist(ball_loc, neighbor2['loc']))
+
+            if layer2_dists:
                 lyr2_dist_avg = sum(layer2_dists) / len(layer2_dists)
                 nbor_dst_avgs[-1].append(lyr2_dist_avg)
-                nbor_lyr_rmsds[-1].append(sqrt(sum([(_ - lyr2_dist_avg) ** 2 for _ in layer2_dists]) / len(layer2_dists)))
+                nbor_lyr_rmsds[-1].append(
+                    sqrt(sum((d - lyr2_dist_avg) ** 2 for d in layer2_dists) / len(layer2_dists))
+                )
             else:
-                nbor_dst_avgs[-1].append(0)
-                nbor_lyr_rmsds[-1].append(0)
+                nbor_dst_avgs[-1].append(0.0)
+                nbor_lyr_rmsds[-1].append(0.0)
 
             time7 = time.perf_counter()
             timer['nbors'] += time7 - time6a
 
-            # get the center of mass
-            coms.append(calc_cell_com(ball['loc'], ball_surfs, volume))
-
+            # Center of mass
+            coms.append(calc_cell_com(ball_loc, ball_surfs, volume))
             time7a = time.perf_counter()
             timer['com'] += time7a - time7
-            # Get the Moment of inertia
-            mois.append(calc_cell_moi(ball['loc'], ball_surfs, volume))
 
+            # Moment of inertia
+            mois.append(calc_cell_moi(ball_loc, ball_surfs, volume))
             time8 = time.perf_counter()
             timer['moi'] += time8 - time7a
 
-            # Get the bounding box
+            # Bounding box
             b_boxs.append(calc_cell_box(ball_surfs))
-
             time9 = time.perf_counter()
             timer['b_box'] += time9 - time8
+
         else:
-            b_min_spikes.append(0)
-            b_max_spikes.append(0)
-            contact_areas.append(0)
-            non_olap_vols.append(0)
-            coms.append(0)
-            mois.append(0)
-            b_boxs.append(0)
+            # Cheap defaults when complicated=False
+            b_min_spikes.append(0.0)
+            b_max_spikes.append(0.0)
+            contact_areas.append(0.0)
+            non_olap_vols.append(0.0)
+            olap_vols.append(0.0)
+            num_olaps.append(0)
+            coms.append(0.0)
+            mois.append(0.0)
+            b_boxs.append(0.0)
+
     # Assign the balls values
-    net.balls = net.balls.assign(vol=b_vols, sa=b_sas, max_mean_curv=b_max_mean_curvs, complete=b_cell,
-                                 max_gauss_curv=b_max_gauss_curvs, avg_mean_surf_curv=b_avg_mean_surf_curvs,
-                                 avg_gauss_surf_curv=b_avg_gauss_surf_curvs, sphericity=b_sphrctys,
-                                 isometric_quotient=b_isopmqs, ball_inside=b_inner, number_of_neighbors=num_nbors,
-                                 nearest_neighbor=near_nbors, nearest_neighbor_distance=near_nbor_dists,
-                                 neighbor_distance_average=nbor_dst_avgs, neighbor_distance_rmsd=nbor_lyr_rmsds,
-                                 number_of_olaps=num_olaps, min_spike=b_min_spikes, max_spike=b_max_spikes,
-                                 contact_area=contact_areas, olap_vol=olap_vols, vdw_vol=non_olap_vols, com=coms,
-                                 moi=mois, bounding_box=b_boxs)
-    # First make the surfaces columns for contact area and overlap volume
-    net.surfs = net.surfs.assign(contact_area=[0.0 for _ in range(len(net.surfs))],
-                                 overlap=[0.0 for _ in range(len(net.surfs))])
-    for surf in surfaces_tracker:
-        net.surfs.loc[surf, 'contact_area'] = surfaces_tracker[surf]['contact_area']
-        net.surfs.loc[surf, 'overlap'] = surfaces_tracker[surf]['olap_dist']
+    net.balls = net.balls.assign(
+        vol=b_vols, sa=b_sas, max_mean_curv=b_max_mean_curvs, complete=b_cell,
+        max_gauss_curv=b_max_gauss_curvs, avg_mean_surf_curv=b_avg_mean_surf_curvs,
+        avg_gauss_surf_curv=b_avg_gauss_surf_curvs, sphericity=b_sphrctys,
+        isometric_quotient=b_isopmqs, ball_inside=b_inner, number_of_neighbors=num_nbors,
+        nearest_neighbor=near_nbors, nearest_neighbor_distance=near_nbor_dists,
+        neighbor_distance_average=nbor_dst_avgs, neighbor_distance_rmsd=nbor_lyr_rmsds,
+        number_of_olaps=num_olaps, min_spike=b_min_spikes, max_spike=b_max_spikes,
+        contact_area=contact_areas, olap_vol=olap_vols, vdw_vol=non_olap_vols,
+        com=coms, moi=mois, bounding_box=b_boxs,
+    )
 
-    # for _ in timer:
-    #     print(_, timer[_])
-    # print('total = {} s\n'.format(time.perf_counter() - time_start))
+    # Initialize surface columns
+    net.surfs = net.surfs.assign(
+        contact_area=[0.0 for _ in range(len(net.surfs))],
+        overlap=[0.0 for _ in range(len(net.surfs))],
+    )
+    for surf_id, info in surfaces_tracker.items():
+        if 'contact_area' in info:
+            net.surfs.loc[surf_id, 'contact_area'] = info['contact_area']
+        if 'olap_dist' in info:
+            net.surfs.loc[surf_id, 'overlap'] = info['olap_dist']
 
-    net.metrics['anal'] = now() - net.metrics['start'] - net.metrics['surf'] - net.metrics['con'] - net.metrics['vert']
+    net.metrics['anal'] = (
+        now()
+        - net.metrics['start']
+        - net.metrics['surf']
+        - net.metrics['con']
+        - net.metrics['vert']
+    )
