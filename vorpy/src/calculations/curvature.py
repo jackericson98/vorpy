@@ -2,7 +2,7 @@ import numpy as np
 from vorpy.src.calculations.calcs import calc_tri
 
 
-def gaussian_curvature(func, point):
+def gaussian_curvature(func, point, tol=1e-12):
     """
     Calculates the Gaussian curvature at a point on a surface.
 
@@ -28,16 +28,15 @@ def gaussian_curvature(func, point):
     >>> point = np.array([0, 0, 0])
     >>> K = gaussian_curvature(func, point)
     """
-    # Unpack the function coefficients
-    A, B, C, D, E, F, G, H, I, J, K, dx, dy, dz = func
+    A, B, C, D, E, F, G, Hc, Ic, J, Kc, dx, dy, dz = func
     x, y, z = point
 
-    # Calculate first derivatives
+    # First derivatives
     fx = 2*A*x + D*y + F*z + G
-    fy = 2*B*y + D*x + E*z + H
-    fz = 2*C*z + F*x + E*y + I
+    fy = 2*B*y + D*x + E*z + Hc
+    fz = 2*C*z + F*x + E*y + Ic
 
-    # Calculate second derivatives
+    # Second derivatives
     fxx = 2*A
     fyy = 2*B
     fzz = 2*C
@@ -45,21 +44,22 @@ def gaussian_curvature(func, point):
     fxz = F
     fyz = E
 
-    # Calculate the gradient magnitude
+    # Gradient magnitude
     grad_mag = np.sqrt(fx**2 + fy**2 + fz**2)
 
-    # Calculate the Hessian matrix
+    # Guard against degenerate / ill-posed points
+    if not np.isfinite(grad_mag) or grad_mag < tol:
+        return 0.0
+
     H = np.array([[fxx, fxy, fxz],
                   [fxy, fyy, fyz],
                   [fxz, fyz, fzz]])
 
-    # Calculate the Gaussian curvature
     K = np.linalg.det(H) / (grad_mag**4)
-
     return K
 
 
-def mean_curvature(func, point):
+def mean_curvature(func, point, tol=1e-12):
     """
     Calculates the mean curvature at a point on a surface.
 
@@ -85,16 +85,15 @@ def mean_curvature(func, point):
     >>> point = np.array([0, 0, 0])
     >>> H = mean_curvature(func, point)
     """
-    # Unpack the function coefficients
-    A, B, C, D, E, F, G, H, I, J, K, dx, dy, dz = func
+    A, B, C, D, E, F, G, Hc, Ic, J, Kc, dx, dy, dz = func
     x, y, z = point
 
-    # Calculate first derivatives
+    # First derivatives
     fx = 2*A*x + D*y + F*z + G
-    fy = 2*B*y + D*x + E*z + H
-    fz = 2*C*z + F*x + E*y + I
+    fy = 2*B*y + D*x + E*z + Hc
+    fz = 2*C*z + F*x + E*y + Ic
 
-    # Calculate second derivatives
+    # Second derivatives
     fxx = 2*A
     fyy = 2*B
     fzz = 2*C
@@ -102,17 +101,32 @@ def mean_curvature(func, point):
     fxz = F
     fyz = E
 
-    # Calculate the gradient magnitude
+    # Gradient magnitude
     grad_mag = np.sqrt(fx**2 + fy**2 + fz**2)
 
-    # Calculate the Hessian matrix
-    H = np.array([[fxx, fxy, fxz],
-                  [fxy, fyy, fyz],
-                  [fxz, fyz, fzz]])
+    # Guard against degenerate / ill-posed points
+    if not np.isfinite(grad_mag) or grad_mag < tol:
+        return 0.0
 
-    # Calculate the mean curvature
-    H = (np.trace(H) * grad_mag**2 - np.dot(np.array([fx, fy, fz]), np.dot(H, np.array([fx, fy, fz])))) / (2 * grad_mag**3)
-    return H
+    H_mat = np.array([[fxx, fxy, fxz],
+                      [fxy, fyy, fyz],
+                      [fxz, fyz, fzz]])
+
+    # Mean curvature formula
+    grad_vec = np.array([fx, fy, fz])
+    num = np.trace(H_mat) * grad_mag**2 - grad_vec @ (H_mat @ grad_vec)
+    denom = 2.0 * grad_mag**3
+
+    # denom is protected by the tol-check above, but keep it explicit
+    if not np.isfinite(denom) or abs(denom) < tol:
+        return 0.0
+
+    H_val = num / denom
+    # Optional: clamp crazy values
+    if not np.isfinite(H_val):
+        return 0.0
+
+    return H_val
 
 
 def calc_surf_tri_curvs(func, points, tris, curvature_type='gauss'):
