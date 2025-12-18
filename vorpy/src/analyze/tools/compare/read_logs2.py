@@ -103,15 +103,72 @@ def read_atom(atom_line):
 
 
 def read_surf(surf_line):
-    if len(surf_line) == 9:
-        surf = {'Index': int(surf_line[0]), 'Balls': [int(_) for _ in surf_line[1:3]], 'Surface Area': float(surf_line[3]),
-                'Mean Curvature': float(surf_line[4]), 'Gauss Curvature': float(surf_line[5]), 'Ball Volumes': [float(_) for _ in surf_line[6:8] if _ != ''],
-                'Contact Area': float(surf_line[8]), 'Overlap': float(surf_line[9])}
+    """
+    Parse a surface line.
+
+    Handles both the original 8–10 field formats and newer / extended formats
+    where additional columns have been appended (e.g., 36 entries). For
+    extended formats, only the first 10 columns are used:
+
+      0: Index
+      1: Ball 1
+      2: Ball 2
+      3: Surface Area
+      4: Mean Curvature (or Curvature in older logs)
+      5: Gauss / Gaussian Curvature (if present)
+      6: Ball 1 volume contribution
+      7: Ball 2 volume contribution
+      8: Contact Area
+      9: Overlap
+    """
+    n = len(surf_line)
+
+    # If we have 10 or more entries, just use the first 10
+    if n >= 10:
+        core = surf_line[:10]
+        return {
+            "Index": int(core[0]),
+            "Balls": [int(core[1]), int(core[2])],
+            "Surface Area": float(core[3]),
+            "Mean Curvature": float(core[4]),
+            "Gauss Curvature": float(core[5]),
+            "Ball Volumes": [float(x) for x in core[6:8] if x != ""],
+            "Contact Area": float(core[8]),
+            "Overlap": float(core[9]),
+        }
+
+    # Older 9-field format: same as 10-field, but missing one field
+    elif n == 9:
+        # We will assume the last field is Overlap and that both ball volumes
+        # are present
+        return {
+            "Index": int(surf_line[0]),
+            "Balls": [int(surf_line[1]), int(surf_line[2])],
+            "Surface Area": float(surf_line[3]),
+            "Mean Curvature": float(surf_line[4]),
+            "Gauss Curvature": float(surf_line[5]),
+            "Ball Volumes": [float(x) for x in surf_line[6:8] if x != ""],
+            "Contact Area": float(surf_line[8]),
+            "Overlap": 0.0,  # unknown / not provided
+        }
+
+    # 8-field “legacy curvature” format (no separate Gauss curvature)
+    elif n == 8:
+        return {
+            "Index": int(surf_line[0]),
+            "Balls": [int(surf_line[1]), int(surf_line[2])],
+            "Surface Area": float(surf_line[3]),
+            "Curvature": float(surf_line[4]),
+            "Ball Volumes": [float(x) for x in surf_line[5:7] if x != ""],
+            "Contact Area": float(surf_line[7]),
+            "Overlap": 0.0,  # unknown / not provided
+        }
+
+    # Anything else is unrecognized
     else:
-        surf = {'Index': int(surf_line[0]), 'Balls': [int(_) for _ in surf_line[1:3]], 'Surface Area': float(surf_line[3]),
-                'Curvature': float(surf_line[4]), 'Ball Volumes': [float(_) for _ in surf_line[5:7] if _ != ''],
-                'Contact Area': float(surf_line[7]), 'Overlap': float(surf_line[8])}
-    return surf
+        # Uncomment for debugging:
+        # print(f"{len(surf_line)} surface entries, Check Logs!!!! -> {surf_line}")
+        return None
 
 
 def read_edge(edge_line):
@@ -179,11 +236,13 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
                                   'Moment of Inertia': parse_string_lists(line[8]),
                                   'Spatial Moment of Inertia': parse_string_lists(line[9])}
                     continue
+
                 # If the line is a build information, group information, Atoms, Edges, Surfaces, or Vertices, set the data type and skip the next line
                 if line[0] in {'build information', 'group information', 'Atoms', 'Edges', 'Surfaces', 'Vertices'}:
                     data_type = line[0]
                     skip_next = True
                     continue
+
                 # If the skip_next variable is True, skip the next line
                 if skip_next:
                     skip_next = False
