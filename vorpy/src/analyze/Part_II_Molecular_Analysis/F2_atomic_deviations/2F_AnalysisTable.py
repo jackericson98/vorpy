@@ -62,74 +62,206 @@ def infer_element(atom_name: str) -> str:
     return c0
 
 
+def normalize_na_residue(res: str) -> str:
+    """
+    Map common DNA/RNA/modified residue names to canonical bases: A, C, G, T, U.
+
+    Examples:
+      DA -> A, DC -> C, DG -> G, DT -> T
+      ADE -> A, GUA -> G, CYT -> C, URA -> U, THY -> T
+      OMC -> C (methylated cytosine variant commonly labeled OMC)
+    """
+    r = str(res).strip().upper()
+
+    dna_map = {
+        "DA": "A",
+        "DC": "C",
+        "DG": "G",
+        "DT": "T",
+        "DU": "U",
+    }
+
+    # Common 3-letter base names
+    tri_map = {
+        "ADE": "A",
+        "GUA": "G",
+        "CYT": "C",
+        "THY": "T",
+        "URA": "U",
+    }
+
+    # Common modified bases -> canonical base
+    mod_map = {
+        "OMC": "C",   # 5-methylcytidine/cytosine variant in some PDBs
+        "5MC": "C",
+        "M5C": "C",
+        "5MU": "U",
+        "PSU": "U",
+        "H2U": "U",
+        "7MG": "G",
+        "1MG": "G",
+        "OMG": "G",
+        "I": "A",     # inosine behaves closest to A in base-type grouping
+        "INO": "A",
+    }
+
+    if r in dna_map:
+        return dna_map[r]
+
+    if r in tri_map:
+        return tri_map[r]
+
+    if r in mod_map:
+        return mod_map[r]
+
+    # If residue is already a single-letter base, keep it
+    if r in {"A", "C", "G", "T", "U"}:
+        return r
+
+    return r
+
+
+def is_nucleic_acid_res(res: str) -> bool:
+    r = normalize_na_residue(res)
+
+    return r in {"A", "C", "G", "T", "U"}
+
+
+PHOS_O = {
+    "O1P", "O2P", "O3P",
+    "OP1", "OP2", "OP3",
+}
+
+SUGAR_O_EXTRA = {
+    "O3'", "O5'", "O4'", "O2'",
+}
+
+SUGAR_C_EXTRA = {
+    "C1'", "C2'", "C3'", "C4'", "C5'",
+}
+
+
 def classify_atom(res_name: str, atom_name: str) -> str:
     """
     Map (Residue, Name) to a generalized atom-type category.
     """
-    res = str(res_name).strip()
+    res_raw = str(res_name).strip()
     name = str(atom_name).strip()
 
-    element = infer_element(name)
+    res = normalize_na_residue(res_raw)
+    element = infer_element_from_atom_name(name)
 
     # ---------------- protein residues ----------------
-    if res in PROTEIN_RES:
-        # backbone N & attached Hs
-        if name == 'N':
-            return 'Backbone N'
-        # backbone CA
-        if name == 'CA':
-            return 'Backbone CA'
-        # backbone C
-        if name == 'C':
-            return 'Backbone C'
-        # backbone O / carbonyl O
-        if name in {'O', 'OC1', 'OC2'}:
-            return 'Backbone O'
-        # Backbone H
-        if name in {'H', 'H1', 'H2', 'H3'}:
-            return 'Backbone H'
+    if res_raw in PROTEIN_RES:
+        if name == "N":
+            return "Backbone N"
 
-        # side chain atoms: grouped by element
-        if element == 'C':
-            return 'Sidechain C'
-        if element == 'N':
-            return 'Sidechain N'
-        if element == 'O':
-            return 'Sidechain O'
-        if element == 'S':
-            return 'Sidechain S'
-        if element == 'H':
-            return 'Sidechain H'
-        return 'Sidechain Other'
+        if name == "CA":
+            return "Backbone CA"
 
-    # ---------------- nucleic acids (DNA/RNA) ----------------
-    if res in DNA_RES or res in RNA_RES:
-        # phosphate group
-        if name == 'P':
-            return 'Phosphate P'
-        if name in {'O1P', 'O2P', 'O2P'}:
-            return 'Phosphate O'
+        if name == "C":
+            return "Backbone C"
 
-        # sugar carbons/oxygens (contain apostrophe)
-        if "'" in name:
-            if name.startswith('C'):
-                return 'Sugar C'
-            if name.startswith('O'):
-                return 'Sugar O'
+        if name in {"O", "OC1", "OC2"}:
+            return "Backbone O"
 
-        # base atoms grouped by element
-        if element == 'C':
-            return 'Base C'
-        if element == 'N':
-            return 'Base N'
-        if element == 'O':
-            return 'Base O'
-        if element == 'H':
-            return 'H'
-        return 'Other'
+        if name in {"H", "H1", "H2", "H3"}:
+            return "Backbone H"
+
+        if element == "C":
+            return "Sidechain C"
+
+        if element == "N":
+            return "Sidechain N"
+
+        if element == "O":
+            return "Sidechain O"
+
+        if element == "S":
+            return "Sidechain S"
+
+        if element == "H":
+            return "Sidechain H"
+
+        return "Sidechain Other"
+
+    # ---------------- nucleic acids (DNA/RNA/modified) ----------------
+    if is_nucleic_acid_res(res_raw):
+        n = name.upper()
+
+        # Phosphate group
+        if n == "P":
+            return "Phosphate P"
+
+        if n in PHOS_O:
+            return "Phosphate O"
+
+        # Some files use plain "O1P/O2P", others "OP1/OP2"
+        if n.startswith("OP"):
+            return "Phosphate O"
+
+        # Sugar: contains apostrophe OR is a terminal sugar H (H3T/H5T) OR is known sugar atom
+        if ("'" in n) or (n in SUGAR_O_EXTRA) or (n in SUGAR_C_EXTRA) or (n in {"H3T", "H5T"}):
+            if element == "C":
+                return "Sugar C"
+
+            if element == "O":
+                return "Sugar O"
+
+            if element == "H":
+                return "Sugar H"
+
+            return "Sugar Other"
+
+        # Otherwise: treat as base atom
+        if element == "C":
+            return "Base C"
+
+        if element == "N":
+            return "Base N"
+
+        if element == "O":
+            return "Base O"
+
+        if element == "H":
+            return "Base H"
+
+        # Ions/other in NA structures
+        if element in {"MG", "NA", "CL", "K", "ZN", "FE", "CA"}:
+            return f"Ion {element}"
+
+        return "Base Other"
 
     # ---------------- catch-all ----------------
-    return 'Other'
+    # Useful debug line (leave on while iterating)
+    # print(element, name, res_raw)
+    return "Other"
+
+
+def infer_element_from_atom_name(atom_name: str) -> str:
+    """
+    Infer element from a PDB atom name when explicit element column is unavailable.
+    """
+    name = str(atom_name).strip().upper()
+
+    # Strip leading digits/spaces, keep letters
+    name = name.lstrip("0123456789")
+
+    # Common two-letter elements first
+    two = name[:2]
+    if two in {"CL", "NA", "MG", "ZN", "FE", "CA", "MN", "CU", "CO", "NI", "BR", "SI", "AL", "LI", "CD"}:
+        return two
+
+    # Phosphate oxygen naming
+    if name.startswith("OP"):
+        return "O"
+
+    # Standard: first letter
+    first = name[:1]
+    if first in {"H", "C", "N", "O", "S", "P", "F", "K", "I"}:
+        return first
+
+    return "UNK"
 
 
 def neighbor_count(value) -> int:
@@ -233,11 +365,11 @@ def summarize_by_atom_type(atoms_df: pd.DataFrame) -> pd.DataFrame:
             'Radius': float(g['Radius'].mean()),
 
             # All others: mean +/- SD
-            'Avg Vol':       fmt(g['Volume'], decimals=2),
-            'Avg VdW Vol':   fmt(g['Van Der Waals Volume'], decimals=2),
-            'Avg Surf Area': fmt(g['Surface Area'], decimals=2),
-            'Avg \u03A8':    fmt(g['Sphericity'], decimals=3),
-            'Avg Nbors':     fmt(g['Neighbor Count'], decimals=2),
+            'Avg Vol':        fmt(g['Volume'], decimals=2),
+            'Avg VdW Vol':    fmt(g['Van Der Waals Volume'], decimals=2),
+            'Avg Surf Area':  fmt(g['Surface Area'], decimals=2),
+            'Avg Sphericity': fmt(g['Sphericity'], decimals=3),
+            'Avg Nbors':      fmt(g['Neighbor Count'], decimals=2),
         }
         records.append(record)
 

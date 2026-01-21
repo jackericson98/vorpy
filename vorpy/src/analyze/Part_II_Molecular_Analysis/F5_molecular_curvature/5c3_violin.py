@@ -22,22 +22,142 @@ from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
 
 
 AA3_TO_AA1 = {
-    # --- Protein (standard) ---
     "ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D", "CYS": "C",
     "GLN": "Q", "GLU": "E", "GLY": "G", "HIS": "H", "ILE": "I",
     "LEU": "L", "LYS": "K", "MET": "M", "PHE": "F", "PRO": "P",
     "SER": "S", "THR": "T", "TRP": "W", "TYR": "Y", "VAL": "V",
-
-    # --- Protein (alternates / ambiguous) ---
     "SEC": "U", "PYL": "O", "ASX": "B", "GLX": "Z", "XAA": "X",
-
-    # --- DNA ---
-    "DA": "A", "DG": "G", "DC": "C", "DT": "T",
-    "T": "T",
-
-    # --- RNA ---
-    "A": "A", "G": "G", "C": "C", "U": "U",
 }
+
+DNA_3_TO_BASE = {"DA": "A", "DG": "G", "DC": "C", "DT": "T"}
+RNA_1_TO_BASE = {"A": "A", "G": "G", "C": "C", "U": "U"}
+
+# Some files may store thymine as just "T"
+DNA_ALT = {"T": "T"}  # treated as DNA thymine by default
+
+
+def residue_to_token(res: str) -> str:
+    """
+    Returns an unambiguous label token:
+      - Protein AAs: 'A', 'R', ...
+      - DNA bases:   'dA', 'dC', 'dG', 'dT'
+      - RNA bases:   'rA', 'rC', 'rG', 'rU'
+      - Unknown:     'X'
+    """
+    r = str(res).strip().upper()
+
+    # DNA (explicit)
+    if r in DNA_3_TO_BASE:
+        return "d" + DNA_3_TO_BASE[r]
+
+    # DNA (alternate thymine encoding)
+    if r in DNA_ALT:
+        return "d" + DNA_ALT[r]
+
+    # RNA (single-letter bases)
+    if r in RNA_1_TO_BASE:
+        return "r" + RNA_1_TO_BASE[r]
+
+    # Protein (3-letter)
+    if r in AA3_TO_AA1:
+        return AA3_TO_AA1[r]
+
+    # Fallback: try first 3 letters for protein
+    if len(r) >= 3 and r[:3] in AA3_TO_AA1:
+        return AA3_TO_AA1[r[:3]]
+
+    return "X"
+
+
+def token_class(token: str) -> str:
+    """
+    protein vs nucleic for plotting order + separator.
+    """
+    t = str(token)
+    if t.startswith("d") or t.startswith("r"):
+        return "nucleic"
+    return "protein"
+
+
+def print_token_outliers_iqr(
+    res_inst: pd.DataFrame,
+    token: str = "A",
+    curv_col: str = "curv",
+    k: float = 1.5,
+    max_rows: int = 50,
+    save_csv_path: str = None,
+) -> None:
+    """
+    Print IQR-based outliers for a given residue token (e.g., 'A' for alanine).
+
+    Outlier rule:
+        curv < Q1 - k*IQR  OR  curv > Q3 + k*IQR
+    """
+
+    if curv_col not in res_inst.columns:
+        raise KeyError(f"Expected curvature column '{curv_col}' not found. Columns: {list(res_inst.columns)}")
+
+    if "token" not in res_inst.columns:
+        raise KeyError("Expected column 'token' not found in res_inst. Did build_residue_instances_from_atoms add it?")
+
+    df = res_inst[res_inst["token"] == token].copy()
+
+    if df.empty:
+        print(f"[OUTLIERS] No rows found for token='{token}'.")
+        return
+
+    df[curv_col] = pd.to_numeric(df[curv_col], errors="coerce")
+    df = df.dropna(subset=[curv_col])
+
+    if df.empty:
+        print(f"[OUTLIERS] Token='{token}' has no finite curvature values in '{curv_col}'.")
+        return
+
+    q1 = float(df[curv_col].quantile(0.25))
+    q3 = float(df[curv_col].quantile(0.75))
+    iqr = q3 - q1
+
+    lo = q1 - k * iqr
+    hi = q3 + k * iqr
+
+    out = df[(df[curv_col] < lo) | (df[curv_col] > hi)].copy()
+    out = out.sort_values(curv_col)
+
+    print(f"\n[OUTLIERS] token='{token}' using '{curv_col}' (k={k})")
+    print(f"  Q1={q1:.6f}, Q3={q3:.6f}, IQR={iqr:.6f}")
+    print(f"  Bounds: [{lo:.6f}, {hi:.6f}]")
+    print(f"  Found {len(out)} outliers (of {len(df)} total '{token}' residues)\n")
+
+    if out.empty:
+        return
+
+    # Prefer a rich but safe set of columns if they exist
+    preferred_cols = [
+        "Chain",
+        "Residue Sequence",
+        "Residue",
+        "token",
+        curv_col,
+        "n_atoms",
+        "area_sum",
+        "area",
+        "Surface Area",
+        "Complete Cell?",
+        "Number of Neighbors",
+    ]
+    cols = [c for c in preferred_cols if c in out.columns]
+
+    if not cols:
+        cols = [curv_col, "token"]
+
+    print(out[cols].head(max_rows).to_string(index=False))
+
+    if len(out) > max_rows:
+        print(f"... ({len(out) - max_rows} more)")
+
+    if save_csv_path is not None:
+        out.to_csv(save_csv_path, index=False)
+        print(f"\n[OUTLIERS] Saved outliers CSV: {save_csv_path}")
 
 
 
@@ -54,17 +174,15 @@ def residue_to_one_letter(res: str) -> str:
     return "X"
 
 
-
 @dataclass
 class ViolinConfig:
-    curvature_kind: str = "mean"              # "mean" or "gauss"
+    curvature_kind: str = "mean"             # "mean" or "gauss"
     use_magnitude: bool = True               # plot |curv|
     weight_by_area: bool = True              # residue curvature = area-weighted across atoms
-    group_label: str = "aa1"                 # "aa1" (one-letter) or "res3" (raw Residue)
-    min_count_per_group: int = 10            # filter rare residue types
+    group_label: str = "token"               # "token" (disambiguated) or "aa1" or "res3"
+    min_count_per_group: int = 5             # filter rare residue types
     sort_by: str = "median"                  # "median" or "mean" or "count"
     output_dir: str = "curvature_panel_violin"
-
 
 
 def choose_logs_file(initial_dir: Optional[str] = None) -> str:
@@ -191,10 +309,11 @@ def build_residue_instances_from_atoms(atoms_df: pd.DataFrame, cfg: ViolinConfig
             )
         )
 
-    out["aa1"] = out["Residue"].apply(residue_to_one_letter)
+    out["token"] = out["Residue"].apply(residue_to_token)
+    out["token_class"] = out["token"].apply(token_class)
 
     out.attrs["curv_label"] = (
-        f"{curv_name} residue curvature (area-weighted)"
+        f"Res Curv Dist"
         if cfg.weight_by_area
         else f"{curv_name} residue curvature"
     )
@@ -203,19 +322,34 @@ def build_residue_instances_from_atoms(atoms_df: pd.DataFrame, cfg: ViolinConfig
     return out
 
 
-
 def plot_violin_by_residue_type(
     res_inst: pd.DataFrame,
     cfg: ViolinConfig,
     title: str,
     out_prefix: str,
 ) -> Dict[str, str]:
+    import matplotlib as mpl
+
+    mpl.rcParams.update({
+        "font.size": 24,
+        "axes.titlesize": 28,
+        "axes.labelsize": 26,
+        "xtick.labelsize": 22,
+        "ytick.labelsize": 22,
+        "legend.fontsize": 22,
+        "figure.titlesize": 30,
+    })
+
     if cfg.group_label == "res3":
         group_col = "Residue"
         group_title = "Residue (raw)"
+    elif cfg.group_label == "token":
+        group_col = "token"
+        group_title = "Residue (protein vs DNA/RNA)"
     else:
         group_col = "aa1"
-        group_title = "Residue (1-letter)"
+        group_title = "Residue"
+
 
     # Filter unknowns and NaNs
     df = res_inst.copy()
@@ -249,7 +383,17 @@ def plot_violin_by_residue_type(
     else:
         labels = sorted(labels, key=lambda k: float(np.median(grouped[k])), reverse=True)
 
+    # Enforce protein-left / nucleic-right ordering
+    protein_labels = [k for k in labels if token_class(k) == "protein"]
+    nucleic_labels = [k for k in labels if token_class(k) == "nucleic"]
+
+    labels = protein_labels + nucleic_labels
+    boundary = len(protein_labels)  # divider goes after last protein violin
+
+
     data = [grouped[k] for k in labels]
+    global_min = min(np.min(vals) for vals in data)
+    ymin = 0.95 * global_min
 
     fig_w = max(8.0, 0.45 * len(labels))
     fig = plt.figure(figsize=(fig_w, 5.0))
@@ -261,36 +405,74 @@ def plot_violin_by_residue_type(
         showmedians=True,
         showextrema=True,
     )
+    ax.set_ylim(bottom=ymin)
 
     ax.set_title(title)
     ax.set_xlabel(group_title)
-    ax.set_ylabel(res_inst.attrs.get("curv_label", "|Mean residue curvature| (area-weighted)"))
+    ax.set_ylabel(res_inst.attrs.get("curv_label", "Mean res curv"))
 
     ax.set_xticks(np.arange(1, len(labels) + 1))
     ax.set_xticklabels(labels, rotation=0)
 
+    if boundary > 0 and boundary < len(labels):
+        ax.axvline(boundary + 0.5, linewidth=2.5, linestyle="--")
+        ax.text(
+            boundary + 0.5,
+            ax.get_ylim()[1],
+            "protein | nucleic",
+            ha="center",
+            va="bottom",
+            fontsize=16,
+        )
+
+
+    ax.tick_params(axis="x", labelsize=mpl.rcParams["xtick.labelsize"])
+    ax.tick_params(axis="y", labelsize=mpl.rcParams["ytick.labelsize"])
+    ax.tick_params(
+        axis="both",
+        which="major",
+        length=10,
+        width=2.5,
+    )
+    ax.tick_params(top=False, right=False)
+
+    for spine in ax.spines.values():
+        spine.set_linewidth(2.5)
+
     # Add counts under each label (optional but helpful)
     counts = [grouped[k].size for k in labels]
-    for i, n in enumerate(counts, start=1):
-        ax.text(i, ax.get_ylim()[0], f"n={n}", ha="center", va="top", fontsize=8)
+
+    for i, (vals, n) in enumerate(zip(data, counts), start=1):
+        y_min = min(vals) * 0.99
+        ax.text(
+            i,
+            y_min,  # slightly below the median
+            f"{n}",
+            ha="center",
+            va="top",
+            fontsize=10,
+            color="black",
+        )
 
     ax.grid(True, axis="y", alpha=0.3)
 
     os.makedirs(cfg.output_dir, exist_ok=True)
     png_path = os.path.join(cfg.output_dir, f"{out_prefix}_violin_by_{group_col}.png")
     pdf_path = os.path.join(cfg.output_dir, f"{out_prefix}_violin_by_{group_col}.pdf")
+    svg_path = os.path.join(cfg.output_dir, f"{out_prefix}_violin_by_{group_col}.svg")
     csv_path = os.path.join(cfg.output_dir, f"{out_prefix}_residue_instances.csv")
 
     fig.tight_layout()
-    fig.savefig(png_path, dpi=300)
-    fig.savefig(pdf_path)
+    plt.savefig(png_path, dpi=300, bbox_inches="tight")
+    plt.savefig(pdf_path, bbox_inches="tight")
+    plt.savefig(svg_path, bbox_inches="tight")
+    plt.show()
     plt.close(fig)
 
     # Save underlying data for reproducibility
     df.to_csv(csv_path, index=False)
 
-    return {"png": png_path, "pdf": pdf_path, "csv": csv_path}
-
+    return {"png": png_path, "pdf": pdf_path, "svg": svg_path, "csv": csv_path}
 
 
 def main() -> None:
@@ -298,11 +480,12 @@ def main() -> None:
         curvature_kind="mean",
         use_magnitude=True,
         weight_by_area=True,
-        group_label="aa1",           # "aa1" or "res3"
-        min_count_per_group=10,
-        sort_by="median",            # "median" / "mean" / "count"
+        group_label="token",
+        min_count_per_group=5,
+        sort_by="median",
         output_dir="curvature_panel_violin",
     )
+
 
     logs_file = choose_logs_file()
 
@@ -320,6 +503,18 @@ def main() -> None:
 
     res_inst = build_residue_instances_from_atoms(atoms_df, cfg)
 
+    # Print alanine outliers (protein alanine token is 'A')
+    outlier_csv = os.path.join(cfg.output_dir, "outliers_token_A.csv")
+    print_token_outliers_iqr(
+        res_inst=res_inst,
+        token="A",
+        curv_col="curv",
+        k=1.5,
+        max_rows=50,
+        save_csv_path=outlier_csv,
+    )
+
+
     molecule_name = str(
         logs_obj.get("data", {}).get("name", os.path.splitext(os.path.basename(logs_file))[0])
     )
@@ -328,7 +523,7 @@ def main() -> None:
     result = plot_violin_by_residue_type(
         res_inst=res_inst,
         cfg=cfg,
-        title=f"{molecule_name}: residue curvature distribution by residue type",
+        title=f"{molecule_name}",
         out_prefix=out_prefix,
     )
 
@@ -336,8 +531,8 @@ def main() -> None:
     print("Saved:")
     print(f"  PNG: {result['png']}")
     print(f"  PDF: {result['pdf']}")
+    print(f"  SVG: {result['svg']}")
     print(f"  CSV: {result['csv']}")
-
 
 
 if __name__ == "__main__":

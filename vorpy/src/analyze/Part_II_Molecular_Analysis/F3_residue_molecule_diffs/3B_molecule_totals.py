@@ -20,7 +20,7 @@ from vorpy.src.analyze.tools.batch.get_files import get_all_files
 from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
 
 
-def plot_data(plotting='Vol', diff='tot', exclude_keys=[]):
+def plot_data(plotting='Vol', diff='tot', exclude_keys=[], ylim=None):
     """Plots the data for the given plotting type and difference type"""
     # Get the files
     files = get_all_files()
@@ -50,13 +50,14 @@ def plot_data(plotting='Vol', diff='tot', exclude_keys=[]):
         x_axis_title='Model',
         print_vals_on_bars=False,
         legend_orientation='Vertical',
+        y_range=ylim,
         xlabel_size=30,
         ylabel_size=30,
         tick_width=2,
         tick_length=12,
         xtick_label_size=25,
         ytick_label_size=25,
-        x_tick_rotation=45
+        x_tick_rotation=0
     )
 
     bar(
@@ -68,18 +69,19 @@ def plot_data(plotting='Vol', diff='tot', exclude_keys=[]):
         x_axis_title='Model',
         print_vals_on_bars=False,
         legend_orientation='Vertical',
+        y_range=ylim,
         xlabel_size=30,
         ylabel_size=30,
         tick_width=2,
         tick_length=12,
         xtick_label_size=25,
         ytick_label_size=25,
-        x_tick_rotation=45
+        x_tick_rotation=0
     )
 
 
 if __name__ == '__main__':
-    plot_data(exclude_keys=['A', 'B'])
+    plot_data(exclude_keys=['A', 'B', 'C'], ylim=[-4.5, 3.5])
 
     # # Choices
     # # Choose what we are plotting Vol or SA

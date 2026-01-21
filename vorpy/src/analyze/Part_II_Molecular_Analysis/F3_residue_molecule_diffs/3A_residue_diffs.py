@@ -150,13 +150,11 @@ def get_res_data(folder=None, exclude_keys=None, get_sa=False, max_percent_diff=
 
         # Read logs for AW, POW, PRM
         try:
-            aw_logs = read_logs2(os.path.join(sub_path, 'aw_logs.csv'), all_=False, balls=True, surfs=True)
-            pow_logs = read_logs2(os.path.join(sub_path, 'pow_logs.csv'), all_=False, balls=True, surfs=True)
-            prm_logs = read_logs2(os.path.join(sub_path, 'prm_logs.csv'), all_=False, balls=True, surfs=True)
-        except FileNotFoundError:
             aw_logs = read_logs2(os.path.join(sub_path, 'aw', 'aw_logs.csv'), all_=False, balls=True, surfs=True)
             pow_logs = read_logs2(os.path.join(sub_path, 'pow', 'pow_logs.csv'), all_=False, balls=True, surfs=True)
             prm_logs = read_logs2(os.path.join(sub_path, 'prm', 'prm_logs.csv'), all_=False, balls=True, surfs=True)
+        except FileNotFoundError:
+            continue
 
         # Get residue-level surface areas if requested
         if get_sa:
@@ -341,7 +339,7 @@ def get_res_data(folder=None, exclude_keys=None, get_sa=False, max_percent_diff=
     return sys_res_data
 
 
-def plot_data(sys_res_data):
+def plot_data(sys_res_data, ylim=None):
     """
     Make TWO grouped bar plots:
 
@@ -379,7 +377,7 @@ def plot_data(sys_res_data):
         x_axis_title='Model',
         title='Residue-Level Absolute Volume Percent Differences (vs AW)',
         errors=[pow_vol_se, prm_vol_se],
-        y_range=[0, None],
+        y_range=ylim,
         xtick_label_size=25,
         ytick_label_size=25,
         ylabel_size=30,
@@ -398,7 +396,7 @@ def plot_data(sys_res_data):
         x_axis_title='Model',
         title='Residue-Level Absolute Surface Area Percent Differences (vs AW)',
         errors=[pow_sa_se, prm_sa_se],
-        y_range=[0, None],
+        y_range=ylim,
         xtick_label_size=25,
         ytick_label_size=25,
         ylabel_size=30,
@@ -416,4 +414,4 @@ if __name__ == '__main__':
         max_percent_diff=200.0   # set to None for no outlier filtering
     )
 
-    plot_data(sys_res_data)
+    plot_data(sys_res_data, ylim=[0, 4.5])
