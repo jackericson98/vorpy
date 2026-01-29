@@ -7,6 +7,9 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
         tick_length=12, xlabel_size=20, ylabel_size=20, xtick_label_size=20, ytick_label_size=20, legend_entry_size=20,
         x_range=None, y_range=None, legend_orientation='Horizontal', x_tick_rotation=0, y_tick_rotation=0):
 
+    plt.figure()
+    plt.clf()
+
     # Check how the data is set up and make sure it is a list of lists
     if type(data[0]) is not list:
         data = [data]
@@ -17,7 +20,7 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
         err_max = max([max(_) for _ in errors])
     ymax = max([max(_) for _ in data]) + err_max
     ymin = min([min(_) for _ in data]) - err_max
-
+    print(ymax, max([max(_) for _ in data]), err_max)
     # Get the number of bars to plot
     num_bars = len(data)
 
@@ -82,17 +85,20 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
         pass
 
     # Set the y limit
-    multiplier = 1.3
+    multiplier = 1
     if ymin < 0:
         multiplier = 1.5
     if y_range is None:
+        print("y_range is None")
         plt.ylim(ymin * 1.1, multiplier * ymax)
+        print(f"1. {ymin * 1.1} to {multiplier * ymax}")
     else:
         if y_range[0] is not None:
             ymin = y_range[0]
         if y_range[1] is not None:
             ymax = y_range[1]
-        plt.ylim(ymin, multiplier * ymax)
+        plt.ylim(ymin, ymax)
+        print(f"2. {ymin} to {multiplier * ymax}")
 
     # Set the x limits
     if x_range is not None:

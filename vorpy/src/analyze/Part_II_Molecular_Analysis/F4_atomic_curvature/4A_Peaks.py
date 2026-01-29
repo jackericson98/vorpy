@@ -34,6 +34,7 @@ LETTER_CODES = {
     "STREPTAVIDIN": "J",
     "NCP": "K",
     "BSA": "L",
+    "BSA_20": "L"
 }
 
 
@@ -50,6 +51,7 @@ COLOR_MAP = {
     "STREPTAVIDIN": "#A52A2A",  # Brown
     "NCP": "#8C8C8C",           # Neutral Gray
     "BSA": "#FFD700",           # Gold
+    "BSA_20": "#FFD700"         # Gold
 }
 
 
@@ -238,7 +240,7 @@ def main(excluded=None, bins=300, skip_bins=10):
     _, bin_edges = np.histogram(all_vals, bins=increments)
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
 
-    # Optionally skip the first N bins
+    # Optionally skip the first N bins (for plotting only, not for CSV export)
     start_idx = skip_bins
     x_segment = bin_centers[start_idx:]
 
@@ -318,11 +320,12 @@ def main(excluded=None, bins=300, skip_bins=10):
         print(f"\n=== {model_name} ({letter}) bin details ===")
 
         # Collect rows for CSV export, now including residue and surface area stats
+        # Include ALL bins (skip_bins only affects plotting, not CSV export)
         rows = []
 
-        for b in range(start_idx, len(increments) - 1):
-            # Surfaces in this bin with valid pair labels
-            mask_bin = (bin_indices == b) & (pair_labels != None)
+        for b in range(0, len(increments) - 1):
+            # Include ALL surfaces in this bin (not just those with valid pair labels)
+            mask_bin = (bin_indices == b)
             if not np.any(mask_bin):
                 continue
 
@@ -330,8 +333,12 @@ def main(excluded=None, bins=300, skip_bins=10):
             bin_high = increments[b + 1]
 
             # Build a small DataFrame for this bin: Pair, Residues, Curvature, Surface Area
+            # Use placeholder for surfaces without valid pair labels
+            pair_labels_bin = pair_labels[mask_bin].copy()
+            pair_labels_bin[pair_labels_bin == None] = "UNKNOWN"
+            
             bin_df = pd.DataFrame({
-                "Pair": pair_labels[mask_bin],
+                "Pair": pair_labels_bin,
                 "Residue1": res1_labels[mask_bin],
                 "Residue2": res2_labels[mask_bin],
                 "Curv": vals[mask_bin],

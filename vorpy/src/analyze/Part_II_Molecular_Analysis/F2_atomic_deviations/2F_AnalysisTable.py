@@ -95,7 +95,7 @@ def normalize_na_residue(res: str) -> str:
         "OMC": "C",   # 5-methylcytidine/cytosine variant in some PDBs
         "5MC": "C",
         "M5C": "C",
-        "5MU": "U",
+        "5MU": "U",   # 5-methylcytidine/cytosine variant in some PDBs
         "PSU": "U",
         "H2U": "U",
         "7MG": "G",
@@ -377,8 +377,6 @@ def summarize_by_atom_type(atoms_df: pd.DataFrame) -> pd.DataFrame:
     summary = summary.sort_values(by='Name')
 
     return summary
-
-
 
 
 # =========================================================

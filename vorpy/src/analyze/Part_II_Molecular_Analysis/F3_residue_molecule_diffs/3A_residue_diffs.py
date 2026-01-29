@@ -366,16 +366,15 @@ def plot_data(sys_res_data, ylim=None):
 
     pow_sa_se = [sys_res_data[k]['pow_vs_aw']['se sa diff'] for k in x_names]
     prm_sa_se = [sys_res_data[k]['prm_vs_aw']['se sa diff'] for k in x_names]
-
+    print(ylim)
     # Plot 1: Volume
     bar(
         [pow_vol_avg, prm_vol_avg],
         x_names=x_names,
-        legend_names=['Power vs AW', 'Primitive vs AW'],
         Show=True,
-        y_axis_title='Avg Absolute % Difference',
+        y_axis_title='Avg Abs % Diff',
         x_axis_title='Model',
-        title='Residue-Level Absolute Volume Percent Differences (vs AW)',
+        title='Res Abs Vol % Difference',
         errors=[pow_vol_se, prm_vol_se],
         y_range=ylim,
         xtick_label_size=25,
@@ -385,16 +384,16 @@ def plot_data(sys_res_data, ylim=None):
         tick_length=12,
         tick_width=2
     )
+    print(ylim)
 
     # Plot 2: Surface Area
     bar(
         [pow_sa_avg, prm_sa_avg],
         x_names=x_names,
-        legend_names=['Power vs AW', 'Primitive vs AW'],
         Show=True,
-        y_axis_title='Avg Absolute % Difference',
+        y_axis_title='Avg Abs % Diff',
         x_axis_title='Model',
-        title='Residue-Level Absolute Surface Area Percent Differences (vs AW)',
+        title='Res Abs SA % Difference',
         errors=[pow_sa_se, prm_sa_se],
         y_range=ylim,
         xtick_label_size=25,
@@ -414,4 +413,4 @@ if __name__ == '__main__':
         max_percent_diff=200.0   # set to None for no outlier filtering
     )
 
-    plot_data(sys_res_data, ylim=[0, 4.5])
+    plot_data(sys_res_data, ylim=[0, 5.0])

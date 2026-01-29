@@ -146,22 +146,25 @@ def main(min_height=2.0, top_pairs=5, top_residues=5):
     bin_centers = bin_group["BinCenter"].to_numpy()
     percents = bin_group["Percent"].to_numpy()
 
-    peak_indices = find_peaks(bin_centers, percents, min_height=min_height)
-    if not peak_indices:
-        print(f"No peaks found above {min_height:.2f}% in {os.path.basename(csv_path)}.")
-        return
-
     # Derive model name from file name: Ncp_curvature_bins.csv -> Ncp
     base_name = os.path.basename(csv_path)
     model_name = base_name.replace("_curvature_bins.csv", "").replace(".csv", "")
 
     print(f"\nModel: {model_name}")
     print(f"Total surfaces (from CSV counts): {int(total_surfs)}")
-    print(f"Detected {len(peak_indices)} peaks (min height = {min_height:.2f}%)")
+    
+    # Find peaks above threshold (for saving/printing only)
+    peak_indices = find_peaks(bin_centers, percents, min_height=min_height)
+    if not peak_indices:
+        print(f"No peaks found above {min_height:.2f}% in {os.path.basename(csv_path)}.")
+        print("Plotting all data regardless of peak threshold...")
+    else:
+        print(f"Detected {len(peak_indices)} peaks (min height = {min_height:.2f}%)")
 
-    # Prepare peak summary rows for CSV
+    # Prepare peak summary rows for CSV (only for peaks above threshold)
     peak_rows = []
 
+    # Only process and save peaks above the threshold
     for peak_idx_num, i in enumerate(peak_indices, start=1):
         bin_id = int(bin_group.iloc[i]["Bin"])
         bin_low = float(bin_group.iloc[i]["BinLow"])
@@ -295,22 +298,25 @@ def main(min_height=2.0, top_pairs=5, top_residues=5):
                 }
             )
 
-    # Export peak summary CSV next to the input file
-    peaks_df = pd.DataFrame(peak_rows)
-    out_path = os.path.join(
-        os.path.dirname(csv_path), f"{model_name}_curvature_peaks.csv"
-    )
-    peaks_df.to_csv(out_path, index=False)
-    print(f"\nPeak summary exported to:\n  {out_path}")
+    # Export peak summary CSV next to the input file (only if peaks found above threshold)
+    if peak_rows:
+        peaks_df = pd.DataFrame(peak_rows)
+        out_path = os.path.join(
+            os.path.dirname(csv_path), f"{model_name}_curvature_peaks.csv"
+        )
+        peaks_df.to_csv(out_path, index=False)
+        print(f"\nPeak summary exported to:\n  {out_path}")
+    else:
+        print(f"\nNo peaks above {min_height:.2f}% threshold to export.")
 
-    # Optional: plot distribution with peak labels
+    # Plot ALL data (not just peaks above threshold)
     xs = [bin_centers]
     ys = [percents]
 
     line_plot(
         xs=xs,
         ys=ys,
-        title=f"{model_name} Surface Curvatures (Peaks)",
+        title=f"{model_name} Surface Curvatures (All Data)",
         x_label="Curvature",
         y_label="% of Surfs",
         legend_title="Model",
@@ -322,8 +328,10 @@ def main(min_height=2.0, top_pairs=5, top_residues=5):
         tick_val_size=14,
         legend_orientation="horizontal",
         tight_layout=True,
+        ylim=[-0.5, 10.5],
     )
 
+    # Only annotate peaks above the threshold on the plot
     ax = plt.gca()
     for peak_idx_num, i in enumerate(peak_indices, start=1):
         x = bin_centers[i]
