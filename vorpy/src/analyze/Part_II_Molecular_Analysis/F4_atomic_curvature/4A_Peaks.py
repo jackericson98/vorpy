@@ -120,8 +120,7 @@ def _load_pdb_index_map(pdb_path):
     return index_to_name, index_to_coord, index_to_resname
 
 
-
-def main(excluded=None, bins=300, skip_bins=10):
+def main(excluded=None, bins=300, skip_bins=10, mol_type=None):
     # Check the excluded list
     if excluded is None:
         excluded = []
@@ -138,7 +137,10 @@ def main(excluded=None, bins=300, skip_bins=10):
             continue
 
         model_folder = os.path.join(folder, subfolder)
-        aw_logs = os.path.join(model_folder, "aw", "aw_logs.csv")
+        if mol_type is not None and subfolder == 'K_NCP':
+            aw_logs = os.path.join(model_folder, mol_type, 'aw', 'aw_logs.csv')
+        else:
+            aw_logs = os.path.join(model_folder, "aw", "aw_logs.csv")
 
         # Optional safety check
         if not os.path.exists(aw_logs):
@@ -275,7 +277,7 @@ def main(excluded=None, bins=300, skip_bins=10):
         ys.append(scaled_pct[start_idx:])
 
         letter = LETTER_CODES.get(model_name, "?")
-        labels.append(f"{letter} - {model_name}")
+        labels.append(f"{letter}")
 
         colors.append(COLOR_MAP.get(model_name, "k"))
 
@@ -397,12 +399,12 @@ def main(excluded=None, bins=300, skip_bins=10):
         y_label_size=30,
         colors=colors,
         tick_val_size=30,
-        legend_orientation="horizontal",
-        tight_layout=False,
+        legend_orientation="Vertical",
+        legend_label_size=10,
+        tight_layout=True,
     )
 
     plt.show()
-
 
 
 if __name__ == "__main__":

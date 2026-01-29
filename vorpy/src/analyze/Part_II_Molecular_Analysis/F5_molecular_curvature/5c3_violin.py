@@ -322,6 +322,67 @@ def build_residue_instances_from_atoms(atoms_df: pd.DataFrame, cfg: ViolinConfig
     return out
 
 
+def apply_percentile_cutoff_per_group(
+    df: pd.DataFrame,
+    group_col: str,
+    value_col: str = "curv",
+    low: float = 2.5,
+    high: float = 97.5,
+    min_n: int = 20,
+) -> pd.DataFrame:
+    """
+    Apply a percentile cutoff (e.g. 2.5–97.5%) per group.
+    Groups with fewer than min_n samples are left untouched.
+    """
+
+    keep_frames = []
+
+    for g, sub in df.groupby(group_col):
+        vals = sub[value_col].to_numpy(dtype=float)
+        vals = vals[~np.isnan(vals)]
+
+        if vals.size < min_n:
+            keep_frames.append(sub)
+            continue
+
+        lo = np.percentile(vals, low)
+        hi = np.percentile(vals, high)
+
+        trimmed = sub[(sub[value_col] >= lo) & (sub[value_col] <= hi)]
+        keep_frames.append(trimmed)
+
+    return pd.concat(keep_frames, ignore_index=True)
+
+
+def apply_classwise_y_clipping(
+    df: pd.DataFrame,
+    value_col: str = "curv",
+    token_col: str = "token",
+    protein_limits: tuple[float, float] = (0.20, 0.37),
+    nucleic_limits: tuple[float, float] = (0.22, 0.30),
+) -> pd.DataFrame:
+    """
+    Clip curvature values by residue class (protein vs nucleic).
+    """
+
+    df = df.copy()
+
+    is_protein = df[token_col].apply(token_class) == "protein"
+    is_nucleic = df[token_col].apply(token_class) == "nucleic"
+
+    df.loc[is_protein, value_col] = df.loc[is_protein, value_col].clip(
+        lower=protein_limits[0],
+        upper=protein_limits[1],
+    )
+
+    df.loc[is_nucleic, value_col] = df.loc[is_nucleic, value_col].clip(
+        lower=nucleic_limits[0],
+        upper=nucleic_limits[1],
+    )
+
+    return df
+
+
 def plot_violin_by_residue_type(
     res_inst: pd.DataFrame,
     cfg: ViolinConfig,
@@ -355,6 +416,30 @@ def plot_violin_by_residue_type(
     df = res_inst.copy()
     df = df.dropna(subset=["curv"]).copy()
     df[group_col] = df[group_col].astype(str)
+
+    df = res_inst.copy()
+    df = df.dropna(subset=["curv"]).copy()
+    df[group_col] = df[group_col].astype(str)
+
+    # NEW: 95% cutoff per residue group
+    df = apply_percentile_cutoff_per_group(
+        df,
+        group_col=group_col,
+        value_col="curv",
+        low=2.5,
+        high=97.5,
+        min_n=20,
+    )
+
+
+    # NEW: classwise y-range enforcement
+    df = apply_classwise_y_clipping(
+        df,
+        value_col="curv",
+        token_col=group_col,
+        protein_limits=(0.20, 0.37),
+        nucleic_limits=(0.22, 0.30),
+    )
 
     # Optionally drop X if you don’t want unknowns; comment out if you want to keep them
     # df = df[df[group_col] != "X"].copy()
@@ -413,6 +498,8 @@ def plot_violin_by_residue_type(
 
     ax.set_xticks(np.arange(1, len(labels) + 1))
     ax.set_xticklabels(labels, rotation=0)
+
+    ax.set_ylim(0.20, 0.37)
 
     if boundary > 0 and boundary < len(labels):
         ax.axvline(boundary + 0.5, linewidth=2.5, linestyle="--")
