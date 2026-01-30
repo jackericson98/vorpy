@@ -139,6 +139,7 @@ def main(excluded=None, bins=300, skip_bins=10, mol_type=None):
         model_folder = os.path.join(folder, subfolder)
         if mol_type is not None and subfolder == 'K_NCP':
             aw_logs = os.path.join(model_folder, mol_type, 'aw', 'aw_logs.csv')
+            print(mol_type, aw_logs)
         else:
             aw_logs = os.path.join(model_folder, "aw", "aw_logs.csv")
 
@@ -409,4 +410,4 @@ def main(excluded=None, bins=300, skip_bins=10, mol_type=None):
 
 if __name__ == "__main__":
     # Exclude models by first letter of subfolder, as before
-    main(["A", "B", "C"], bins=150, skip_bins=10)
+    main(["A", "B", "C", 'E', "I", 'L', 'J', 'H'], bins=150, skip_bins=10, mol_type='DNA')
