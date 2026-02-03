@@ -48,10 +48,12 @@ def color_pdb_by_curvature(pdb, values, output_folder=None):
                 
                 write_pdb.write(make_pdb_line(ser_num=a['atom_serial_number'], name=a['atom_name'], res_name=a['residue_name'], chain=chain_id,
                                        res_seq=a['residue_sequence_number'], x=a['x_coordinate'], y=a['y_coordinate'], z=a['z_coordinate'], tfact=tfact, elem=a['element_symbol']))
+
     
 def write_pymol_script(output_folder, name, low_val=0, high_val=0):
     with open(output_folder + '/' + name + '_set_colors.pml', 'w') as pymol_script:
         pymol_script.write('spectrum b, red_green, minimum=0, maximum={}'.format(high_val))
+
 
 if __name__ == '__main__':
     # Get the dropbox folder

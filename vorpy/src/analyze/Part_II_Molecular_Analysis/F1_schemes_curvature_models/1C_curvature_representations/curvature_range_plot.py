@@ -24,16 +24,15 @@ for j in range(10):
     diff += 0.05 * j
     distance = round(-1.0 + 0.1 * j + diff, 3)
     data[distance] = {}
-    for i in range(20):
+    for i in range(40):
         # Calculate the large atoms radius
-        large_atom_rad = (i + 2) * 0.5
+        large_atom_rad = ((i / 5) + 2) * 0.5
 
         # This needs to account for the radius of the large atom
         large_atom_loc = 1 + large_atom_rad + distance
         # Find the ceter point of the surface
         center_point = 1 + 0.5 * distance
         # plot_atoms([[0, 0, 0], [large_atom_loc, 0, 0]], [1, large_atom_rad], Show=True)
-
 
         # Get the surf func
         func = calc_surf_func([0, 0, 0], 1, [large_atom_loc, 0, 0], large_atom_rad)
