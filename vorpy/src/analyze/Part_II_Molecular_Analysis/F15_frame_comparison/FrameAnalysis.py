@@ -33,6 +33,7 @@ def get_frames_by_group(folder=None):
             continue
         # Get the name of the frame
         frame = int(subfolder[1:])
+
         # read the logs
         aw_logs = read_logs2(os.path.join(folder, subfolder, 'aw/aw_logs.csv'), all_=False, balls=False)
         pw_logs = read_logs2(os.path.join(folder, subfolder, 'pow/pow_logs.csv'), all_=False, balls=False)
@@ -76,9 +77,9 @@ def plot_frame_diffs(frame_dict):
     # Plot the differences
     line_plot([frame_names, frame_names], [pow_diffs, prm_diffs], y_label='% Difference', 
               title='% Difference from AW', Show=True, x_label="Frame", labels=["Pow", "Prm"], 
-              colors=["red", "purple"], y_ticks=[-2, -1, 0, 1, 2, 3], y_label_size=20, x_label_size=20, 
+              colors=["red", "purple"], y_ticks=[-4, -2, 0, 2, 4], y_label_size=20, x_label_size=20,
               title_size=25, xlim=[0.5, 11.5], x_ticks=[2, 4, 6, 8, 10], axis_line_thickness=2,
-              linewidth=3, tick_val_size=20)
+              linewidth=3, tick_val_size=20, ylim=[-4.5, 4.5])
 
 
 def plot_frame_deviations(frame_dict):
@@ -104,17 +105,18 @@ def plot_frame_deviations(frame_dict):
         prm_devs.append(prm_dev)
         frame_names.append(frame)
     # Sort the diffs and frame_names by frame number (ascending)
-    sorted_data = sorted(zip(frame_names, pow_devs, prm_devs))
-    frame_names, pow_devs, prm_devs = zip(*sorted_data)
+    sorted_data = sorted(zip(frame_names, aw_devs, pow_devs, prm_devs))
+    frame_names, aw_devs, pow_devs, prm_devs = zip(*sorted_data)
     frame_names = list(frame_names)
+    aw_devs = list(aw_devs)
     pow_devs = list(pow_devs)
     prm_devs = list(prm_devs)
     # Plot the deviations
     line_plot([frame_names, frame_names, frame_names], [aw_devs, pow_devs, prm_devs], y_label='% Deviation', 
               title='Frame Volume Deviation', Show=True, x_label="Frame", labels=["AW", "Pow", "Prm"], 
-              colors=["blue", "red", "purple"], y_ticks=[-3, -2, -1, 0], y_label_size=20, x_label_size=20, 
+              colors=["blue", "red", "purple"], y_label_size=20, x_label_size=20,
               title_size=25, xlim=[0.5, 11.5], x_ticks=[2, 4, 6, 8, 10], axis_line_thickness=2, 
-              linewidth=3, tick_val_size=20, alpha=0.8)
+              linewidth=2, tick_val_size=20, alpha=0.8, ylim=[-2.5, 2.5])
 
 
 if __name__ == "__main__":
