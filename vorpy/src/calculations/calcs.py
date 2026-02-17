@@ -1,7 +1,15 @@
 import numpy as np
 import warnings
 from numba import jit
+import math
 from numba.core.errors import TypingError
+
+try:
+    import importlib
+    _native_calc = importlib.import_module("vorpy._native._calc")
+except Exception:
+    _native_calc = None
+
 
 warnings.filterwarnings("error")
 
@@ -48,6 +56,40 @@ def round_func(round_to):
     return round_
 
 
+def calc_dist_seq_py(l0, l1):
+    if len(l0) != len(l1):
+        raise ValueError("calc_dist_seq_py expects same-length inputs")
+
+    acc = 0.0
+
+    for a, b in zip(l0, l1):
+        d = float(a) - float(b)
+        acc += d * d
+
+    return math.sqrt(acc)
+
+
+def calc_dist_seq(l0, l1):
+    """
+    Calculate Euclidean distance between two 1D sequences (lists/tuples/arrays).
+
+    This is a safe fallback for when native acceleration isn't available.
+    Accepts array-like inputs; coerces to 1D float64 arrays and enforces same length.
+    """
+    a = np.asarray(l0, dtype=np.float64)
+    b = np.asarray(l1, dtype=np.float64)
+
+    if a.ndim != 1 or b.ndim != 1:
+        raise ValueError("calc_dist_seq expects 1D array-like inputs")
+
+    if a.shape[0] != b.shape[0]:
+        raise ValueError("calc_dist_seq expects same-length inputs")
+
+    d = a - b
+
+    return float(np.sqrt(np.dot(d, d)))
+
+
 def calc_dist(l0, l1):
     """Calculate the Euclidean distance between two points in n-dimensional space.
 
@@ -64,15 +106,13 @@ def calc_dist(l0, l1):
         The Euclidean distance between the two points
 
     Examples
-    --------
-    >>> calc_dist([0, 0, 0], [1, 1, 1])
-    1.7320508075688772
-    >>> import numpy as np
-    >>> calc_dist(np.array([0, 0, 0]), np.array([1, 1, 1]))
-    1.7320508075688772
     """
+    use_native = (_native_calc is not None) and hasattr(_native_calc, "calc_dist")
 
-    return np.sqrt(sum(np.square(np.array(l0) - np.array(l1))))
+    if use_native:
+        return float(_native_calc.calc_dist(l0, l1))
+
+    return calc_dist_seq(l0, l1)
 
 
 @jit(nopython=True)
@@ -315,7 +355,7 @@ def calc_tetra_inertia(ps, mass):
 
 
 @jit(nopython=True)
-def calc_tri(points):
+def calc_tri_py(points):
     """Calculate the area of a triangle formed by three 3D points.
 
     This function computes the area of a triangle by:
@@ -351,6 +391,31 @@ def calc_tri(points):
 
     # Return half the cross product between the two vectors
     return 0.5 * np.linalg.norm(np.cross(ab, ac))
+
+
+def calc_tri(p0, p1=None, p2=None):
+    # single-arg (3,3) form
+    if p1 is None and p2 is None:
+        tri = np.asarray(p0, dtype=np.float64)
+        if _native_calc is not None and hasattr(_native_calc, "calc_tri"):
+            return float(_native_calc.calc_tri(tri))
+
+        # python fallback
+        e1 = tri[1] - tri[0]
+        e2 = tri[2] - tri[0]
+        return 0.5 * float(np.linalg.norm(np.cross(e1, e2)))
+
+    # three-arg form
+    if _native_calc is not None and hasattr(_native_calc, "calc_tri"):
+        return float(_native_calc.calc_tri(p0, p1, p2))
+
+    p0 = np.asarray(p0, dtype=np.float64)
+    p1 = np.asarray(p1, dtype=np.float64)
+    p2 = np.asarray(p2, dtype=np.float64)
+
+    e1 = p1 - p0
+    e2 = p2 - p0
+    return 0.5 * float(np.linalg.norm(np.cross(e1, e2)))
 
 
 def calc_com(points, masses=None):

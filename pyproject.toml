@@ -1,6 +1,13 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = [
+  "scikit-build-core>=0.8",
+  "pybind11>=2.11",
+  "numpy",
+  "setuptools>=42",
+  "wheel",
+]
+build-backend = "scikit_build_core.build"
+
 
 [tool.black]
 line-length = 88
@@ -25,4 +32,52 @@ check_untyped_defs = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "--cov=vorpy --cov-report=term-missing" 
+addopts = "--cov=vorpy --cov-report=term-missing"
+
+[tool.scikit-build]
+wheel.packages = ["vorpy"]
+cmake.minimum-version = "3.18"
+
+
+[project]
+name = "vorpy3"
+version = "3.1.1"
+description = "A Python package for Voronoi analysis of molecular structures"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+  { name = "John Ericson", email = "jackericson98@gmail.com" }
+]
+license = { text = "MIT" }
+dependencies = [
+  "numpy",
+  "scipy",
+  "matplotlib",
+  "pandas",
+  "numba",
+  "shapely",
+  "plotly",
+  "sympy",
+  "Pillow"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Chemistry",
+  "Topic :: Scientific/Engineering :: Physics",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11"
+]
+
+[project.urls]
+Homepage = "https://github.com/jackericson98/vorpy"
+
+[project.optional-dependencies]
+gui = ["pystray"]
+dev = ["pytest", "pytest-cov", "black", "flake8", "mypy", "hypothesis"]
+
+[project.scripts]
+vorpy = "vorpy.__main__:run"
