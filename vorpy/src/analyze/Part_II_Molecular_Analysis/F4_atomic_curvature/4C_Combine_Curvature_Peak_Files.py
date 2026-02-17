@@ -236,8 +236,6 @@ def _detect_peaks_for_pair(
     return out
 
 
-
-
 def _find_curvature_files(root_folder: str, excluded_prefixes: List[str] | None = None) -> List[Dict[str, str]]:
     """
     Mimics the 4A_Peaks.py folder crawl style:
@@ -291,8 +289,6 @@ def _find_curvature_files(root_folder: str, excluded_prefixes: List[str] | None 
                     )
 
     return hits
-
-
 
 
 def combine_peaks_from_folder(
@@ -388,8 +384,6 @@ def combine_peaks_from_folder(
     ).reset_index(drop=True)
 
     return out_df
-
-
 
 
 def main() -> None:

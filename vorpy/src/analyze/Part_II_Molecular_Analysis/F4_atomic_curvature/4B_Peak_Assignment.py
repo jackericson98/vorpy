@@ -55,7 +55,6 @@ COLOR_MAP = {
 }
 
 
-
 def find_peaks(bin_centers, percents, min_height=2.0):
     """
     Simple 1D peak finder: a peak is a local maximum where
@@ -76,13 +75,14 @@ def find_peaks(bin_centers, percents, min_height=2.0):
 
     return peaks
 
+
 def write_peaks_txt(peaks_df: pd.DataFrame, txt_path: str) -> None:
     """
-    Write a human-readable peak summary alongside the CSV output.
+    Write a human-readable peak summary grouped by:
 
-    Works with both schemas:
-      - 4C combined peaks output (has: Model, Pair, PeakRank, Bin, BinCenter, BinLow, BinHigh, Height, Prominence, ...)
-      - 4B peak assignment output (has: Model, NormPair, PeakIndex, Bin, BinCenter, BinLow, BinHigh, CurvMean, CurvStd, PairCount, ...)
+        Model → Peak → Contributing Pairs
+
+    (instead of Model → Pair → Peak)
     """
     with open(txt_path, "w", encoding="utf-8") as f:
         f.write("SURFACE CURVATURE PEAK SUMMARY\n")
@@ -94,95 +94,91 @@ def write_peaks_txt(peaks_df: pd.DataFrame, txt_path: str) -> None:
 
         cols = set(peaks_df.columns)
 
-        # Figure out which columns exist
         model_col = "Model" if "Model" in cols else None
         pair_col = "Pair" if "Pair" in cols else ("NormPair" if "NormPair" in cols else None)
         peak_col = "PeakRank" if "PeakRank" in cols else ("PeakIndex" if "PeakIndex" in cols else None)
 
-        # Helpers to safely fetch values
-        def has(c: str) -> bool:
-            return c in cols
-
-        def fmt_float(v, nd=6) -> str:
+        def fmt_float(v, nd=6):
             try:
                 return f"{float(v):.{nd}f}"
             except Exception:
                 return str(v)
 
-        def fmt_int(v) -> str:
+        def fmt_int(v):
             try:
                 return str(int(v))
             except Exception:
                 return str(v)
 
-        # Group by model if possible
+        # -------- Model grouping --------
         model_groups = [(None, peaks_df)]
         if model_col is not None:
             model_groups = list(peaks_df.groupby(model_col, sort=False))
 
         for model, model_df in model_groups:
+
             if model is not None:
                 f.write(f"\nMODEL: {model}\n")
                 f.write("-" * 70 + "\n")
 
-            # Group by pair (Pair or NormPair) if possible
-            pair_groups = [(None, model_df)]
-            if pair_col is not None:
-                pair_groups = list(model_df.groupby(pair_col, sort=False))
+            # -------- Peak grouping (KEY CHANGE) --------
+            if peak_col is not None:
+                peak_groups = list(model_df.groupby(peak_col, sort=True))
+            else:
+                peak_groups = [(None, model_df)]
 
-            for pair, pair_df in pair_groups:
-                if pair is not None:
-                    label = "Pair" if pair_col == "Pair" else "NormPair"
-                    f.write(f"\n  {label}: {pair}\n")
+            for peak_id, peak_df in peak_groups:
 
-                # Sort by peak index/rank if possible
-                if peak_col is not None and peak_col in pair_df.columns:
-                    pair_df = pair_df.sort_values(peak_col, kind="mergesort")
+                # Use first row for shared peak-level info
+                row0 = peak_df.iloc[0]
 
-                for _, row in pair_df.iterrows():
-                    # Common bin info
-                    bin_id = fmt_int(row["Bin"]) if has("Bin") else "?"
-                    center = fmt_float(row["BinCenter"], 6) if has("BinCenter") else "?"
-                    low = fmt_float(row["BinLow"], 6) if has("BinLow") else "?"
-                    high = fmt_float(row["BinHigh"], 6) if has("BinHigh") else "?"
+                bin_id = fmt_int(row0.get("Bin", "?"))
+                center = fmt_float(row0.get("BinCenter", "?"), 6)
+                low = fmt_float(row0.get("BinLow", "?"), 6)
+                high = fmt_float(row0.get("BinHigh", "?"), 6)
 
-                    peak_id = fmt_int(row[peak_col]) if (peak_col is not None and has(peak_col)) else "?"
+                f.write(
+                    f"\n  Peak {fmt_int(peak_id)} | "
+                    f"Bin {bin_id} | "
+                    f"Center = {center} | "
+                    f"Range = [{low}, {high}]\n"
+                )
 
-                    f.write(
-                        f"    Peak {peak_id} | Bin {bin_id} | "
-                        f"Center = {center} | Range = [{low}, {high}]\n"
-                    )
+                # Optional peak metrics
+                if "Height" in cols:
+                    f.write(f"    Height = {fmt_float(row0['Height'], 3)}\n")
+                if "Prominence" in cols:
+                    f.write(f"    Prominence = {fmt_float(row0['Prominence'], 3)}\n")
+                if "BinPercentAllSurfs" in cols:
+                    f.write(f"    Bin%AllSurfs = {fmt_float(row0['BinPercentAllSurfs'], 3)}%\n")
 
-                    # 4C-style metrics
-                    if has("Height") or has("Prominence"):
-                        parts = []
-                        if has("Height"):
-                            parts.append(f"Height = {fmt_float(row['Height'], 3)}")
-                        if has("Prominence"):
-                            parts.append(f"Prominence = {fmt_float(row['Prominence'], 3)}")
-                        f.write(f"      " + " | ".join(parts) + "\n")
+                # -------- Contributing pairs for this peak --------
+                if pair_col is not None:
+                    f.write("    Contributing Pairs:\n")
 
-                    if has("LeftBaseCenter") and has("RightBaseCenter"):
-                        f.write(
-                            f"      Bases: {fmt_float(row['LeftBaseCenter'], 6)} → "
-                            f"{fmt_float(row['RightBaseCenter'], 6)}\n"
-                        )
+                    # Sort by PairCount descending if available
+                    if "PairCount" in cols:
+                        peak_df = peak_df.sort_values("PairCount", ascending=False)
 
-                    # 4B-style metrics
-                    extra = []
-                    if has("PairCount"):
-                        extra.append(f"PairCount = {fmt_int(row['PairCount'])}")
-                    if has("PairFracInBin"):
-                        extra.append(f"FracInBin = {fmt_float(100.0 * float(row['PairFracInBin']), 2)}%")
-                    if has("BinPercentAllSurfs"):
-                        extra.append(f"Bin%AllSurfs = {fmt_float(row['BinPercentAllSurfs'], 3)}%")
-                    if has("CurvMean"):
-                        extra.append(f"μ = {fmt_float(row['CurvMean'], 6)}")
-                    if has("CurvStd"):
-                        extra.append(f"σ = {fmt_float(row['CurvStd'], 6)}")
+                    for _, row in peak_df.iterrows():
+                        pair = row[pair_col]
 
-                    if extra:
-                        f.write("      " + " | ".join(extra) + "\n")
+                        parts = [f"{pair}"]
+
+                        if "PairCount" in cols:
+                            parts.append(f"Count={fmt_int(row['PairCount'])}")
+
+                        if "PairFracInBin" in cols:
+                            frac = 100.0 * float(row["PairFracInBin"])
+                            parts.append(f"{fmt_float(frac,2)}%")
+
+                        if "CurvMean" in cols:
+                            parts.append(f"μ={fmt_float(row['CurvMean'],5)}")
+
+                        if "CurvStd" in cols:
+                            parts.append(f"σ={fmt_float(row['CurvStd'],5)}")
+
+                        f.write("      " + " | ".join(parts) + "\n")
 
         f.write("\nEND OF SUMMARY\n")
 
@@ -203,7 +199,6 @@ def normalize_atom_label(label: str) -> str:
     return label
 
 
-
 def normalize_pair(pair: str) -> str:
     """
     Normalize a pair label and canonicalize order so that A-B == B-A.
@@ -219,7 +214,6 @@ def normalize_pair(pair: str) -> str:
         return f"{left_n}-{right_n}"
     else:
         return f"{right_n}-{left_n}"
-
 
 
 def main(min_height=2.0, top_pairs=5, top_residues=5):
@@ -568,8 +562,6 @@ def main(min_height=2.0, top_pairs=5, top_residues=5):
             fontsize=10,
             rotation=0,
         )
-
-
 
     plt.show()
     # --------------------------------------------------------------
