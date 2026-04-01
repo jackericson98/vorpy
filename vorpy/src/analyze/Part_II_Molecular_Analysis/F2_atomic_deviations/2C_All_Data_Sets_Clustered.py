@@ -2,22 +2,189 @@ import os
 import sys
 import tkinter as tk
 from tkinter import filedialog
+from typing import List, Dict, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-
 from sklearn.cluster import DBSCAN
-from sklearn.preprocessing import StandardScaler
-from typing import List, Optional, Dict
+import pandas as pd
 
 
 # Get the path to the root vorpy folder
 vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
-# Add the root vorpy folder to the system path
 sys.path.append(vorpy_root)
 
 from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
+
+
+FINAL_ATOM_ALIASES = {
+
+    # =========================
+    # TERMINAL HYDROGENS
+    # =========================
+    'H1': 'HT',
+    'H2': 'HT',
+    'H3': 'HT',
+
+    # =========================
+    # ALPHA HYDROGENS
+    # =========================
+    'HA1': 'HA',
+    'HA2': 'HA',
+
+    # =========================
+    # BETA HYDROGENS
+    # =========================
+    'HB1': 'HB',
+    'HB2': 'HB',
+    'HB3': 'HB',
+
+    # =========================
+    # GAMMA HYDROGENS
+    # =========================
+    'HG1': 'HG',
+    'HG2': 'HG',
+    'HG11': 'HG',
+    'HG12': 'HG',
+    'HG13': 'HG',
+    'HG21': 'HG',
+    'HG22': 'HG',
+    'HG23': 'HG',
+
+    # =========================
+    # DELTA HYDROGENS
+    # =========================
+    'HD1': 'HD',
+    'HD2': 'HD',
+    'HD3': 'HD',
+    'HD11': 'HD',
+    'HD12': 'HD',
+    'HD13': 'HD',
+    'HD21': 'HD',
+    'HD22': 'HD',
+    'HD23': 'HD',
+
+    # =========================
+    # EPSILON HYDROGENS (KEEP HE2 SEPARATE)
+    # =========================
+    'HE1': 'HE',
+    'HE3': 'HE',
+
+    'HE21': 'HE2',
+    'HE22': 'HE2',
+
+    # =========================
+    # ZETA HYDROGENS
+    # =========================
+    'HZ2': 'HZ',
+    'HZ3': 'HZ',
+
+    # =========================
+    # ETA HYDROGENS
+    # =========================
+    'HH1': 'HH',
+    'HH2': 'HH',
+    'HH11': 'HH',
+    'HH12': 'HH',
+    'HH21': 'HH',
+    'HH22': 'HH',
+
+    # =========================
+    # CARBON SYMMETRY
+    # =========================
+    'CG1': 'CG',
+    'CG2': 'CG',
+
+    'CD1': 'CD',
+    'CD2': 'CD',
+
+    'CE2': 'CE',
+    'CE3': 'CE',
+
+    'CZ2': 'CZ',
+    'CZ3': 'CZ',
+
+    # =========================
+    # NITROGEN SYMMETRY
+    # =========================
+    'NH1': 'NH',
+    'NH2': 'NH',
+
+    # =========================
+    # OXYGEN GROUPING (CLUSTER-INFORMED)
+    # =========================
+
+    # backbone / hydroxyl merged
+    'O':  'O_backbone',
+    'OH': 'O_backbone',
+
+    # carboxyl split (position-sensitive)
+    'OE1': 'O_carboxyl_1',
+    'OD1': 'O_carboxyl_1',
+
+    'OE2': 'O_carboxyl_2',
+    'OD2': 'O_carboxyl_2',
+
+    # terminal oxygens grouped with carboxyl_2
+    'OC1': 'O_carboxyl_2',
+    'OC2': 'O_carboxyl_2',
+
+    'OT1': 'O_carboxyl_2',
+    'OT2': 'O_carboxyl_2',
+
+    # =========================
+    # OPTIONAL CARBON MERGES (from clustering)
+    # =========================
+    'CH2': 'C_aromatic_outer',
+    'CZ':  'C_aromatic_outer',
+    'C6':  'C_aromatic_outer',
+
+    # optional CB neighborhood merge
+    'C2': 'CB',
+    'C3': 'CB',
+}
+
+DIRECT_LABEL_GROUPS = {
+    'O_backbone',
+    'O_carboxyl_1',
+    'O_carboxyl_2',
+    'CB',
+    'C_aromatic_outer',
+}
+
+
+def canonicalize_atom_name(atom_name: str, alias_dict=None) -> str:
+    if alias_dict is None:
+        alias_dict = FINAL_ATOM_ALIASES
+
+    name = str(atom_name).strip().upper()
+    return alias_dict.get(name, name)
+
+
+def get_atom_class(name: str) -> str:
+    name = name.upper()
+
+    if name.startswith('H'):
+        return 'H'
+
+    if name.startswith('C'):
+        if name == 'CA':
+            return 'CA'
+        if name == 'CB':
+            return 'CB'
+        return 'C'
+
+    if name.startswith('N'):
+        if name in ['N', 'HN']:
+            return 'N_backbone'
+        if name in ['NZ', 'NH']:
+            return 'N_terminal'
+        return 'N_side'
+
+    if name.startswith('O'):
+        return 'O'
+
+    return 'Other'
 
 
 def _read_scheme_logs(folder: str):
@@ -59,281 +226,388 @@ def select_folders_multi(title: str = "Select a folder (Cancel to finish)"):
     return folders
 
 
-def rotate_to_diagonal(xs: np.ndarray, ys: np.ndarray):
+def collect_atom_volume_points(
+    folders: List[str],
+    atom_name_field: str = 'Name',
+    volume_range: Optional[tuple] = None
+) -> pd.DataFrame:
     """
-    Rotate (x,y) so that:
-      u = along y=x
-      v = perpendicular to y=x (deviation / bias)
+    Collect pooled AW vs Pow atom volumes across selected folders.
+    Returns dataframe with:
+      Folder, Index, AtomName, AW, Pow
     """
-    u = (xs + ys) / np.sqrt(2.0)
-    v = (ys - xs) / np.sqrt(2.0)
+    records: List[Dict[str, object]] = []
 
-    return u, v
+    for folder in folders:
+        aw_logs, pow_logs, _ = _read_scheme_logs(folder)
+
+        aw_atoms = aw_logs['atoms']
+        pow_atoms = pow_logs['atoms']
+
+        pow_lookup = {
+            int(row['Index']): row
+            for _, row in pow_atoms.iterrows()
+        }
+
+        for _, atom in aw_atoms.iterrows():
+            idx = int(atom['Index'])
+
+            if idx not in pow_lookup:
+                continue
+
+            pow_atom = pow_lookup[idx]
+
+            aw_v = float(atom['Volume'])
+            pow_v = float(pow_atom['Volume'])
+
+            if volume_range is not None:
+                vmin, vmax = volume_range
+                if aw_v < vmin or aw_v > vmax or pow_v < vmin or pow_v > vmax:
+                    continue
+
+            raw_name = atom.get(atom_name_field, '')
+            atom_name = str(raw_name).strip().upper()
+
+            if atom_name == '':
+                continue
+
+            canonical_name = canonicalize_atom_name(atom_name)
+
+            records.append({
+                'Folder': folder,
+                'Index': idx,
+                'AtomName': atom_name,
+                'CanonicalName': canonical_name,
+                'AW': aw_v,
+                'Pow': pow_v
+            })
+
+    return pd.DataFrame(records)
 
 
-def two_pass_dbscan_diagonal(
-    df: pd.DataFrame,
-    eps1: float,
-    min_samples1: int,
-    eps2: float,
-    min_samples2: Optional[int] = None
-):
+def cluster_groups_constrained(stats_df, eps=0.5, min_samples=2):
+    stats_df = stats_df.copy()
+    stats_df['Class'] = stats_df['GroupName'].apply(get_atom_class)
+
+    cluster_labels = []
+
+    for cls in stats_df['Class'].unique():
+        sub = stats_df[stats_df['Class'] == cls]
+
+        coords = sub[['Mean_AW', 'Mean_Pow']].values
+
+        if len(coords) < 2:
+            labels = [-1] * len(sub)
+        else:
+            from sklearn.cluster import DBSCAN
+            labels = DBSCAN(eps=eps, min_samples=min_samples).fit(coords).labels_
+
+        cluster_labels.extend(zip(sub.index, labels))
+
+    cluster_map = dict(cluster_labels)
+    stats_df['Cluster'] = stats_df.index.map(cluster_map)
+
+    return stats_df
+
+
+def cluster_groups(stats_df, eps=0.35, min_samples=2):
     """
-    Pass 1: DBSCAN(eps1) on all points.
-    Pass 2: DBSCAN(eps2) only on points labeled -1 from pass 1.
-    Merges labels so pass-2 clusters get new ids appended after pass-1 ids.
+    Cluster canonical groups based on their (Mean_AW, Mean_Pow).
 
     Returns:
-      final_labels (np.ndarray), labels1 (np.ndarray), labels2 (np.ndarray on outliers only, else -999)
+        stats_df with new column 'Cluster'
     """
-    if min_samples2 is None:
-        min_samples2 = min_samples1
 
-    # ---- Build diagonal coords once ----
-    xs = df['AW'].to_numpy(dtype=float)
-    ys = df['Pow'].to_numpy(dtype=float)
-    u, v = rotate_to_diagonal(xs, ys)
+    coords = stats_df[['Mean_AW', 'Mean_Pow']].values
 
-    Z = StandardScaler().fit_transform(np.column_stack([u, v]))
+    clustering = DBSCAN(eps=eps, min_samples=min_samples).fit(coords)
 
-    # ---- Pass 1 ----
-    labels1 = DBSCAN(eps=eps1, min_samples=min_samples1).fit_predict(Z)
-    final_labels = labels1.copy()
+    stats_df = stats_df.copy()
+    stats_df['Cluster'] = clustering.labels_
 
-    out_mask = labels1 == -1
-    if not np.any(out_mask):
-        labels2_full = np.full_like(final_labels, fill_value=-999)
-        return final_labels, labels1, labels2_full, u, v
-
-    # ---- Pass 2 (only outliers) ----
-    Z2 = Z[out_mask]
-    labels2 = DBSCAN(eps=eps2, min_samples=min_samples2).fit_predict(Z2)
-
-    # Remap pass-2 cluster ids so they don’t collide with pass-1 ids
-    existing = sorted(set(labels1.tolist()))
-    max_id = max([lab for lab in existing if lab != -1], default=-1)
-    next_id = max_id + 1
-
-    labels2_mapped = labels2.copy()
-    for lab in sorted(set(labels2.tolist())):
-        if lab == -1:
-            continue
-        labels2_mapped[labels2 == lab] = next_id
-        next_id += 1
-
-    # Merge: replace only where pass2 formed a cluster
-    out_idx = np.where(out_mask)[0]
-    for k, i in enumerate(out_idx):
-        if labels2_mapped[k] != -1:
-            final_labels[i] = labels2_mapped[k]  # promote to new cluster id
-
-    labels2_full = np.full_like(final_labels, fill_value=-999)
-    labels2_full[out_mask] = labels2  # store original pass2 labels for debugging
-
-    return final_labels, labels1, labels2_full, u, v
+    return stats_df
 
 
-def cluster_dbscan_diagonal(df: pd.DataFrame, eps=0.35, min_samples=10):
+def compute_name_volume_stats(df: pd.DataFrame, group_col: str = 'CanonicalName') -> pd.DataFrame:
     """
-    DBSCAN in diagonal coordinates (u along y=x, v perpendicular).
-    Expects df columns: ['AW', 'Pow'].
-    Returns: labels (np.ndarray), u (np.ndarray), v (np.ndarray)
+    Compute center and spread in AW/Pow space for each plotted group.
+    group_col should usually be 'CanonicalName'.
     """
-    xs = df['AW'].to_numpy(dtype=float)
-    ys = df['Pow'].to_numpy(dtype=float)
+    if len(df) == 0:
+        return pd.DataFrame(
+            columns=['GroupName', 'Count', 'Mean_AW', 'Mean_Pow', 'SD_AW', 'SD_Pow', 'Members']
+        )
 
-    u, v = rotate_to_diagonal(xs, ys)
+    grouped_rows = []
 
-    Z = np.column_stack([u, v])
-    Z = StandardScaler().fit_transform(Z)
+    for group_name, subdf in df.groupby(group_col):
+        member_names = sorted(subdf['AtomName'].unique().tolist())
 
-    labels = DBSCAN(eps=eps, min_samples=min_samples).fit_predict(Z)
+        grouped_rows.append({
+            'GroupName': group_name,
+            'Count': len(subdf),
+            'Mean_AW': subdf['AW'].mean(),
+            'Mean_Pow': subdf['Pow'].mean(),
+            'SD_AW': subdf['AW'].std(ddof=1) if len(subdf) > 1 else 0.0,
+            'SD_Pow': subdf['Pow'].std(ddof=1) if len(subdf) > 1 else 0.0,
+            'Members': ', '.join(member_names)
+        })
 
-    return labels, u, v
+    stats_df = pd.DataFrame(grouped_rows)
 
+    stats_df['SD_AW'] = stats_df['SD_AW'].fillna(0.0)
+    stats_df['SD_Pow'] = stats_df['SD_Pow'].fillna(0.0)
 
-def report_outliers(df: pd.DataFrame, out_path: Optional[str] = None, top_names: int = 15):
-    out_df = df[df['cluster'] == -1].copy()
+    stats_df = stats_df.sort_values(
+        ['Count', 'GroupName'],
+        ascending=[False, True]
+    ).reset_index(drop=True)
 
-    n_total = len(df)
-    n_out = len(out_df)
-    frac = 0.0 if n_total == 0 else n_out / n_total
-
-    print(f"\nOutliers: n={n_out} / {n_total} ({frac:.2%})")
-
-    if n_out == 0:
-        return
-
-    # What are they?
-    print("\nTop outlier AtomName counts:")
-    print(out_df['AtomName'].value_counts().head(top_names).to_string())
-
-    # Print a small sample for manual sanity checking
-    cols = [c for c in ['Folder', 'Index', 'AtomName', 'AW', 'Pow', 'u', 'v'] if c in out_df.columns]
-    print("\nSample outliers (first 30):")
-    print(out_df[cols].head(30).to_string(index=False))
-
-    if out_path is not None:
-        out_df.to_csv(out_path, index=False)
-        print(f"\nSaved outliers CSV -> {out_path}")
+    return stats_df
 
 
-def print_cluster_name_audit(
-    df: pd.DataFrame,
-    name_col: str = 'AtomName',
-    top_k: int = 8,
-    show_names: Optional[List[str]] = None
-):
+def build_cluster_alias_dict(stats_df):
     """
-    Prints:
-      1) Top-k name fractions per cluster
-      2) Optional: distribution of specific names across clusters (e.g., ['CA'])
-    Expects df columns: ['cluster', name_col]
+    Suggest merges: groups in same cluster → same super group
     """
-    df_in = df[df['cluster'] != -1].copy()
-    if len(df_in) == 0:
-        print("\nNo non-outlier clusters to audit (everything is -1).")
-        return
+    cluster_alias = {}
 
-    comp = (
-        df_in
-        .groupby(['cluster', name_col])
-        .size()
-        .reset_index(name='n')
-    )
+    for cluster_id in stats_df['Cluster'].unique():
+        if cluster_id == -1:
+            continue  # noise
 
-    comp['frac'] = comp['n'] / comp.groupby('cluster')['n'].transform('sum')
+        sub = stats_df[stats_df['Cluster'] == cluster_id]
 
-    top = (
-        comp
-        .sort_values(['cluster', 'frac'], ascending=[True, False])
-        .groupby('cluster')
-        .head(top_k)
-    )
+        names = sorted(sub['GroupName'].tolist())
 
-    print("\nTop atom-name fractions per cluster:")
-    print(top.to_string(index=False))
+        # choose representative name (first or centroid-like)
+        rep = names[0]
 
-    if show_names is not None:
-        for nm in show_names:
-            mask = df[name_col] == nm
-            if not mask.any():
-                print(f"\nName '{nm}' not present in data.")
-                continue
+        for name in names:
+            cluster_alias[name] = rep
 
-            print(f"\n'{nm}' atoms per cluster:")
-            print(df.loc[mask, 'cluster'].value_counts(dropna=False).sort_index())
+    return cluster_alias
 
 
-def plot_clusters_with_name_overlay(
-    df: pd.DataFrame,
-    vmin: float,
-    vmax: float,
+def print_clusters(stats_df):
+    print("\nCluster assignments:\n")
+
+    for cluster_id in sorted(stats_df['Cluster'].unique()):
+        sub = stats_df[stats_df['Cluster'] == cluster_id]
+
+        print(f"Cluster {cluster_id}:")
+        for _, row in sub.iterrows():
+            print(f"  {row['GroupName']:>6s} | AW={row['Mean_AW']:.2f}, Pow={row['Mean_Pow']:.2f}")
+        print()
+
+
+def print_name_volume_stats(stats_df: pd.DataFrame):
+    print("\nGrouped atom-name centers and standard deviations in AW vs Pow volume space:\n")
+
+    for _, row in stats_df.iterrows():
+        print(
+            f"{row['GroupName']:>6s} | "
+            f"n={int(row['Count']):>6d} | "
+            f"AW={row['Mean_AW']:>8.3f} ± {row['SD_AW']:.3f} | "
+            f"Pow={row['Mean_Pow']:>8.3f} ± {row['SD_Pow']:.3f} | "
+            f"Members: {row['Members']}"
+        )
+
+
+def build_name_color_map(atom_names: List[str], cmap_name: str = 'tab20'):
+    """
+    Assign a color to each atom name.
+    If there are more names than the colormap length, it cycles.
+    """
+    cmap = plt.get_cmap(cmap_name)
+    n_colors = getattr(cmap, 'N', len(atom_names))
+
+    unique_names = list(atom_names)
+    color_map = {}
+
+    for i, name in enumerate(unique_names):
+        color_map[name] = cmap(i % n_colors)
+
+    return color_map
+
+
+def get_plot_color(name):
+    if name.startswith('H'):
+        return '#1f77b4'  # blue
+
+    if name.startswith('C'):
+        return '#ff7f0e'  # orange
+
+    if name.startswith('N'):
+        return '#2ca02c'  # green
+
+    if name.startswith('O'):
+        return '#d62728'  # red
+
+    return 'gray'
+
+
+def plot_name_volume_groups(
+    atom_df: pd.DataFrame,
+    stats_df: pd.DataFrame,
     title: str,
-    overlay_names: Optional[List[str]] = None,
-    name_col: str = 'AtomName',
-    show: bool = True,
-    save: Optional[str] = None
+    volume_range: Optional[tuple] = None,
+    show_points: bool = True,
+    show_centers: bool = True,
+    show_errorbars: bool = False,
+    annotate: bool = True,
+    min_count_for_label: int = 2,
+    label_top_n: Optional[int] = None,
+    plot_min_count: int = 2,
+    point_size: float = 18,
+    point_alpha: float = 0.25,
+    center_size: float = 220,
+    label_fontsize: int = 11,
+    save: Optional[str] = None,
+    show: bool = True
 ):
-    """
-    Plots (AW, Pow) colored by cluster.
-    Optionally overlays specific AtomName groups with hollow circles (e.g., ['CA']).
-    Uses manual layout (subplots_adjust) to avoid constrained_layout/tight_layout warnings.
-    """
-    fig, ax = plt.subplots(figsize=(10, 8))  # <-- NO constrained_layout
+    fig, ax = plt.subplots(figsize=(12, 9))
 
-    ax.plot([vmin, vmax], [vmin, vmax], color='black', linestyle='--', linewidth=3, alpha=0.7)
+    # Only groups above threshold get plotted / centered / labeled / legend entries
+    plot_stats_df = stats_df[stats_df['Count'] >= plot_min_count].copy()
+    plot_stats_df = plot_stats_df.sort_values('Mean_AW').reset_index(drop=True)
+    plot_stats_df['PlotNumber'] = np.arange(1, len(plot_stats_df) + 1)
 
-    xs = df['AW'].to_numpy(dtype=float)
-    ys = df['Pow'].to_numpy(dtype=float)
-    clabs = df['cluster'].to_numpy()
+    group_names = plot_stats_df['GroupName'].tolist()
+    # color_map = build_name_color_map(group_names, cmap_name='tab20')
 
-    unique_labels = sorted(set(clabs.tolist()))
+    for _, row in plot_stats_df.iterrows():
+        name = row['GroupName']
+        color = get_plot_color(name)
 
-    for lab in unique_labels:
-        mask = clabs == lab
+        group_df = atom_df[atom_df['CanonicalName'] == name]
 
-        if lab == -1:
-            ax.scatter(xs[mask], ys[mask], s=30, alpha=0.35, label='Outliers', marker='x')
-        else:
-            ax.scatter(xs[mask], ys[mask], s=40, alpha=0.6, label=f'Cluster {lab}')
-
-    if overlay_names is not None:
-        for nm in overlay_names:
-            mask_nm = df[name_col] == nm
-            if not mask_nm.any():
-                continue
-
+        if show_points:
             ax.scatter(
-                df.loc[mask_nm, 'AW'],
-                df.loc[mask_nm, 'Pow'],
-                s=140,
-                facecolors='none',
-                linewidths=2.5,
-                label=f"{nm} overlay"
+                group_df['AW'],
+                group_df['Pow'],
+                s=point_size,
+                alpha=point_alpha,
+                color=color,
+                label=name
             )
 
-    ax.set_xlabel('AW Volume', fontsize=25)
-    ax.set_ylabel('Pow Volume', fontsize=25)
+        if show_errorbars:
+            ax.errorbar(
+                row['Mean_AW'],
+                row['Mean_Pow'],
+                xerr=row['SD_AW'],
+                yerr=row['SD_Pow'],
+                fmt='none',
+                ecolor=color,
+                elinewidth=2.0,
+                capsize=4,
+                alpha=0.95,
+                zorder=3
+            )
+
+        if show_centers:
+            ax.text(
+                row['Mean_AW'],
+                row['Mean_Pow'],
+                str(int(row['PlotNumber'])),
+                color=color,
+                fontsize=14,
+                fontweight='bold',
+                ha='center',
+                va='center',
+                zorder=5
+            )
+
+    if annotate:
+        label_df = plot_stats_df.copy()
+
+        if label_top_n is not None:
+            label_df = label_df.head(label_top_n)
+
+        for _, row in label_df.iterrows():
+            if int(row['Count']) < min_count_for_label:
+                continue
+
+            if row['GroupName'] in DIRECT_LABEL_GROUPS:
+                ax.text(
+                    row['Mean_AW'] + 0.18,
+                    row['Mean_Pow'] + 0.18,
+                    row['GroupName'],
+                    fontsize=11,
+                    color='black',
+                    ha='left',
+                    va='bottom',
+                    zorder=6
+                )
+
+    if volume_range is not None:
+        vmin, vmax = volume_range
+        ax.set_xlim(vmin, vmax)
+        ax.set_ylim(vmin, vmax)
+
+        ax.plot(
+            [vmin, vmax],
+            [vmin, vmax],
+            linestyle='--',
+            linewidth=3.5,
+            color='black',
+            alpha=0.9
+        )
+
+    else:
+        if len(atom_df) > 0:
+            xmin = min(atom_df['AW'].min(), atom_df['Pow'].min())
+            xmax = max(atom_df['AW'].max(), atom_df['Pow'].max())
+        else:
+            xmin, xmax = 0.0, 1.0
+
+        pad = 0.05 * (xmax - xmin if xmax > xmin else 1.0)
+
+        ax.set_xlim(xmin - pad, xmax + pad)
+        ax.set_ylim(xmin - pad, xmax + pad)
+
+        ax.plot(
+            [xmin - pad, xmax + pad],
+            [xmin - pad, xmax + pad],
+            linestyle='--',
+            linewidth=2.5,
+            color='black',
+            alpha=0.7
+        )
+
+    ax.set_xlabel('AW Volume', fontsize=24)
+    ax.set_ylabel('Pow Volume', fontsize=24)
     ax.set_title(title, fontsize=22)
-    ax.set_xlim(vmin, vmax)
-    ax.set_ylim(vmin, vmax)
-    ax.set_xticks([5, 10, 15, 20])
-    ax.set_yticks([5, 10, 15, 20])
-    ax.tick_params(axis='both', which='major', labelsize=25, width=3, length=12)
+
+    ax.tick_params(axis='both', which='major', labelsize=20, width=2.5, length=10)
 
     for spine in ax.spines.values():
         spine.set_linewidth(2)
 
-    # --- Make legend manageable: show outliers + overlays + top-N clusters by size ---
-    cluster_sizes = (
-        df[df['cluster'] != -1]
-        .groupby('cluster')
-        .size()
-        .sort_values(ascending=False)
-    )
+    handles, labels = ax.get_legend_handles_labels()
+    seen = set()
+    unique_handles = []
+    unique_labels = []
 
-    report_outliers(df, out_path=None)  # or provide a path
+    for h, lab in zip(handles, labels):
+        if lab not in seen:
+            unique_handles.append(h)
+            unique_labels.append(lab)
+            seen.add(lab)
 
-    top_n = 8
-    top_clusters = set(cluster_sizes.head(top_n).index.tolist())
+    if len(unique_labels) > 0:
+        ax.legend(
+            unique_handles,
+            unique_labels,
+            fontsize=10,
+            frameon=True,
+            loc='center left',
+            bbox_to_anchor=(1.02, 0.5)
+        )
 
-    handles, texts = ax.get_legend_handles_labels()
-    new_handles = []
-    new_texts = []
-
-    for h, t in zip(handles, texts):
-        if t == 'Outliers':
-            new_handles.append(h)
-            new_texts.append(t)
-            continue
-
-        if t.endswith('overlay'):
-            new_handles.append(h)
-            new_texts.append(t)
-            continue
-
-        if t.startswith('Cluster '):
-            try:
-                lab = int(t.replace('Cluster ', '').strip())
-            except ValueError:
-                continue
-            if lab in top_clusters:
-                new_handles.append(h)
-                new_texts.append(t)
-
-    ax.legend(
-        new_handles,
-        new_texts,
-        fontsize=12,
-        frameon=True,
-        loc='center left',
-        bbox_to_anchor=(1.02, 0.5),
-        borderaxespad=0.0
-    )
-
-    # Manual spacing (now valid because no layout engine is active)
-    fig.subplots_adjust(left=0.14, right=0.75, bottom=0.14, top=0.88)
+    ax.set_aspect('equal', adjustable='box')
+    fig.subplots_adjust(left=0.12, right=0.78, bottom=0.12, top=0.90)
 
     if save is not None:
         plt.savefig(save, dpi=300)
@@ -344,139 +618,90 @@ def plot_clusters_with_name_overlay(
     plt.close(fig)
 
 
-def plot_vols(
-    volume_range=(3, 22),
-    cluster: bool = True,
-    cluster_eps: float = 0.35,
-    cluster_min_samples: int = 10,
-    audit_names: bool = True,
-    overlay_names: Optional[List[str]] = None,
+def main(
     atom_name_field: str = 'Name',
-    cluster_multiplier: float = 2.0
+    volume_range: tuple = (3, 22),
+    save_csv: bool = True,
+    save_plot: bool = False,
+    show_points: bool = True,
+    show_centers: bool = True,
+    show_errorbars: bool = True,
+    annotate: bool = True,
+    min_count_for_label: int = 200,
+    label_top_n: Optional[int] = None,
+    plot_min_count: int = 2,
+    use_auto_clustering: bool = True
 ):
-    """
-    Pooled AW vs Pow volume plot across multiple selected folders.
-    If cluster=True: DBSCAN in diagonal coords + name audit + optional overlays.
-
-    overlay_names example: ['CA', 'CB', 'O', 'N']
-    atom_name_field: column in your logs' atoms df to use as the "name convention" (usually 'Name')
-    """
     folders = select_folders_multi()
     if len(folders) == 0:
+        print("No folders selected.")
         return
 
-    vmin, vmax = volume_range
+    atom_df = collect_atom_volume_points(
+        folders=folders,
+        atom_name_field=atom_name_field,
+        volume_range=volume_range
+    )
 
-    records: List[Dict[str, object]] = []
-
-    for folder in folders:
-        aw_logs, pow_logs, prm_logs = _read_scheme_logs(folder)
-
-        for _, atom in aw_logs['atoms'].iterrows():
-            pow_match = pow_logs['atoms'].loc[pow_logs['atoms']['Index'] == atom['Index']]
-            prm_match = prm_logs['atoms'].loc[prm_logs['atoms']['Index'] == atom['Index']]
-
-            if len(pow_match) == 0 or len(prm_match) == 0:
-                continue
-
-            pow_atom = pow_match.to_dict(orient='records')[0]
-            prm_atom = prm_match.to_dict(orient='records')[0]
-
-            aw_v = float(atom['Volume'])
-            pow_v = float(pow_atom['Volume'])
-            prm_v = float(prm_atom['Volume'])
-
-            if (
-                aw_v < vmin or aw_v > vmax or
-                pow_v < vmin or pow_v > vmax or
-                prm_v < vmin or prm_v > vmax
-            ):
-                continue
-
-            raw_name = atom.get(atom_name_field, '')
-            atom_name = str(raw_name).strip().upper()
-
-            records.append({
-                'Folder': folder,
-                'Index': int(atom['Index']),
-                'AtomName': atom_name,
-                'AW': aw_v,
-                'Pow': pow_v
-            })
-
-    if len(records) == 0:
-        print("No atoms passed filters / matching across selected folders.")
+    if len(atom_df) == 0:
+        print("No matching AW/Pow atom volume pairs were found.")
         return
 
-    df = pd.DataFrame(records)
+    stats_df = compute_name_volume_stats(atom_df, group_col='CanonicalName')
 
-    title_base = f"Pooled Volume Comparison (n_folders={len(folders)}, n_atoms={len(df)})"
+    print_name_volume_stats(stats_df)
 
-    if cluster:
-        final_labels, labels1, labels2_full, u, v = two_pass_dbscan_diagonal(
-            df=df,
-            eps1=cluster_eps,  # your strict eps
-            min_samples1=cluster_min_samples,
-            eps2=cluster_eps * cluster_multiplier,  # catch pass (tune this)
-            min_samples2=max(6, cluster_min_samples // 2)
-        )
+    if use_auto_clustering:
+        stats_df = cluster_groups(stats_df, eps=0.35, min_samples=2)
+        print_clusters(stats_df)
 
-        df['cluster'] = final_labels
-        df['u'] = u
-        df['v'] = v
+    out_dir = folders[0]
 
-        print("\nTwo-pass DBSCAN summary:")
-        n_total = len(df)
-        n_out1 = int(np.sum(labels1 == -1))
-        n_out_final = int(np.sum(final_labels == -1))
-        print(f"  pass1 outliers: {n_out1}/{n_total} ({n_out1 / n_total:.2%})")
-        print(f"  final outliers: {n_out_final}/{n_total} ({n_out_final / n_total:.2%})")
+    if save_csv:
+        csv_path = os.path.join(out_dir, 'atom_group_volume_stats.csv')
+        stats_df.to_csv(csv_path, index=False)
+        print(f"\nSaved CSV -> {csv_path}")
 
-        # Use FINAL labels (after both passes)
-        labels = df['cluster'].to_numpy()
+    plot_path = None
+    if save_plot:
+        plot_path = os.path.join(out_dir, 'atom_group_volume_stats.png')
 
-        cluster_ids = set(labels.tolist())
+    title = (
+        f"Grouped atom-name groupings in AW vs Pow space "
+        f"(n_folders={len(folders)}, n_atoms={len(atom_df)})"
+    )
 
-        n_clusters = len(cluster_ids - {-1})
-        n_outliers = int(np.sum(labels == -1))
+    plot_name_volume_groups(
+        atom_df=atom_df,
+        stats_df=stats_df,
+        title=title,
+        volume_range=volume_range,
+        show_points=show_points,
+        show_centers=show_centers,
+        show_errorbars=show_errorbars,
+        annotate=annotate,
+        min_count_for_label=min_count_for_label,
+        label_top_n=label_top_n,
+        plot_min_count=plot_min_count,
+        save=plot_path,
+        show=True
+    )
 
-        title = (
-            f"{title_base} | "
-            f"DBSCAN clusters={n_clusters}, outliers={n_outliers}"
-        )
-
-        if audit_names:
-            print_cluster_name_audit(
-                df=df,
-                name_col='AtomName',
-                top_k=8,
-                show_names=overlay_names
-            )
-
-        plot_clusters_with_name_overlay(
-            df=df,
-            vmin=vmin,
-            vmax=vmax,
-            title=title,
-            overlay_names=overlay_names,
-            name_col='AtomName',
-            show=True
-        )
-
-        return
-
-    print("cluster=False path not implemented in this simplified audit-focused version.")
+    if plot_path is not None:
+        print(f"Saved plot -> {plot_path}")
 
 
 if __name__ == "__main__":
-    # Example: audit whether CA atoms concentrate in one cluster
-    plot_vols(
+    main(
+        atom_name_field='Name',
         volume_range=(3, 22),
-        cluster=True,
-        cluster_eps=0.04,
-        cluster_multiplier=2,
-        cluster_min_samples=50,
-        audit_names=True,
-        overlay_names=None,
-        atom_name_field='Name'
+        save_csv=True,
+        save_plot=False,
+        show_points=True,
+        show_centers=True,
+        show_errorbars=False,
+        annotate=True,
+        min_count_for_label=2,
+        label_top_n=None,
+        plot_min_count=2
     )

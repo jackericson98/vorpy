@@ -423,4 +423,4 @@ def main(excluded=None, bins=300, skip_bins=10, mol_type=None):
 
 if __name__ == "__main__":
     # Exclude models by first letter of subfolder, as before
-    main(['A', 'B', 'C', 'E', 'H', 'I', 'J', 'L', 'M', 'N'], bins=150, skip_bins=10, mol_type=None)
+    main(['A', 'B', 'C'], bins=150, skip_bins=10, mol_type=None)
