@@ -320,7 +320,8 @@ def extract_logs(input_file=None, ndxs=None, output_dir=None, output_name=None):
     if ndxs is None:
         spec = simpledialog.askstring("Atom indices", "Enter atom indices (e.g., 10-50 or 10,11,12):")
         ndxs = parse_ndxs_spec(spec)
-
+    elif isinstance(ndxs, str):
+        ndxs = parse_ndxs_spec(ndxs)
     if not ndxs:
         raise ValueError("No atom indices selected (ndxs is empty).")
 
@@ -337,7 +338,7 @@ def extract_logs(input_file=None, ndxs=None, output_dir=None, output_name=None):
 
     _touch_build_information(filtered.get("build information"), out_path)
 
-    write_logs_sections(out_path, filtered, renumber=True)
+    write_logs_sections(out_path, filtered, renumber=False)
 
     print(f"Wrote extracted logs to: {out_path}")
     return out_path
@@ -348,4 +349,13 @@ if __name__ == "__main__":
     root.withdraw()
     root.wm_attributes("-topmost", 1)
 
-    extract_logs()
+    for i in range(1, 12):
+        for scheme in ['aw', 'pow', 'prm']:
+            input_name = f"H:/Data/Molecular/K_NCP/frames/f{i}/{scheme}/{scheme}_logs.csv"
+            output_folder1 = f"E:/Molecular/K_NCP/Protein/frames/f{i}/{scheme}"
+            output_folder2 = f"E:/Molecular/K_NCP/DNA/frames/f{i}/{scheme}"
+            output_name = f"{scheme}_logs.csv"
+
+            extract_logs(input_name, output_dir=output_folder1, ndxs="9346:25085", output_name=output_name)
+            extract_logs(input_name, output_dir=output_folder2, ndxs="0:9345", output_name=output_name)
+

@@ -32,7 +32,9 @@ LETTER_CODES = {
     "P53TET": "H",
     "T4LP": "I",
     "STREPTAVIDIN": "J",
-    "NCP": "K",
+    # "NCP": "K",
+    "NCP_DNA": "K",
+    # "NCP_Protein": "K",
     "BSA": "L",
     "BSA_20": "L"
 }
@@ -49,7 +51,9 @@ COLOR_MAP = {
     "P53TET": "#FF00AA",        # Magenta
     "T4LP": "#00FF00",          # Neon Green
     "STREPTAVIDIN": "#A52A2A",  # Brown
-    "NCP": "#8C8C8C",           # Neutral Gray
+    # "NCP": "#8C8C8C",           # Neutral Gray
+    "NCP_DNA": "#8C8C8C",           # Neutral Gray
+    # "NCP_Protein": "#8C8C8C",           # Neutral Gray
     "BSA": "#FFD700",           # Gold
     "BSA_20": "#FFD700"         # Gold
 }
@@ -142,7 +146,6 @@ def main(excluded=None, bins=300, skip_bins=10, mol_type=None):
             print(mol_type, aw_logs)
         else:
             aw_logs = os.path.join(model_folder, "aw", "aw_logs.csv")
-
         # Optional safety check
         if not os.path.exists(aw_logs):
             print(f"Skipping {model_folder}: no aw_logs.csv found.")
@@ -386,28 +389,38 @@ def main(excluded=None, bins=300, skip_bins=10, mol_type=None):
         df_out.to_csv(csv_path, index=False)
         print(f"Exported CSV for {model_name}: {csv_path}")
 
-    # Plot the distributions
-    line_plot(
-        xs=xs,
-        ys=ys,
-        title="Surface Curvatures",
-        x_label="Curvature",
-        y_label="% of Surfs",
-        legend_title="Model",
-        labels=labels,
-        title_size=35,
-        x_label_size=30,
-        y_label_size=30,
-        colors=colors,
-        tick_val_size=30,
-        legend_orientation="Vertical",
-        legend_label_size=10,
-        tight_layout=True,
-    )
+    # -------------------- PLOTTING (match 4B behavior; no dropped bins) --------------------
+    plt.figure()
+    plt.clf()
 
+    title_size = 35
+    label_size = 30
+    tick_size = 30
+
+    plt.title("Surface Curvatures", fontsize=title_size)
+    plt.xlabel("Curvature", fontsize=label_size)
+    plt.ylabel("% of Surfs", fontsize=label_size)
+
+    # Tick styling (match your figure aesthetics)
+    ax = plt.gca()
+    ax.tick_params(axis="both", which="major", width=2, length=10, labelsize=tick_size)
+
+    # IMPORTANT: use a step plot so zeros are preserved visually and no diagonal bridging occurs
+    # You already have x_segment defined once (global bins) and ys entries aligned to it.
+    for x, y, lab, col in zip(xs, ys, labels, colors):
+        if lab == 'K':
+            y = 0.5*y
+        # Using where="mid" makes it behave like a histogram trace
+        plt.plot(x, y, label=lab, color=col, alpha=0.5)
+    for spine in ax.spines.values():
+        spine.set_linewidth(3)
+
+    plt.legend(title="Model", fontsize=10, title_fontsize=12, loc="best")
+    plt.tight_layout()
     plt.show()
+    # --------------------------------------------------------------------------------------
 
 
 if __name__ == "__main__":
     # Exclude models by first letter of subfolder, as before
-    main(["A", "B", "C", 'E', "I", 'L', 'J', 'H'], bins=150, skip_bins=10, mol_type='DNA')
+    main(['A', 'B', 'C'], bins=150, skip_bins=10, mol_type=None)

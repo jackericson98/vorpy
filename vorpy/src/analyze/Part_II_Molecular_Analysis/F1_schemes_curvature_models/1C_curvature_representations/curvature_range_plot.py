@@ -16,8 +16,6 @@ from vorpy.src.calculations.curvature import mean_curvature
 from vorpy.src.analyze.tools.plot_templates.line import line_plot
 
 
-
-
 def curvature_distance_ratio_sweep(
     r1: float = 1.0,
     surface_distance_min: float = -1.0,
@@ -103,8 +101,6 @@ def curvature_distance_ratio_sweep(
     }
 
 
-
-
 def plot_curvature_distance_ratio_lines(
     sweep: dict,
     title: str = "Curvature by Distance and Radii",
@@ -154,6 +150,10 @@ def plot_curvature_distance_ratio_lines(
         linewidth=linewidth,
         colorbar=sm,
         figsize=figsize,
+        x_ticks=[1, 2, 3],
+        y_ticks=[0.0, 0.5, 1.0, 1.5, 2.0],
+        xlim=[0.8, 3.2],
+        ylim=[-0.1, 2.1]
     )
 
 
@@ -164,7 +164,7 @@ if __name__ == "__main__":
         surface_distance_max=1.5,
         n_distance_lines=15,
         ratio_min=1.0,
-        ratio_max=5.0,
+        ratio_max=3.0,
         n_ratio_points=40,
         skip_equal_radii=True,
         verbose=True,

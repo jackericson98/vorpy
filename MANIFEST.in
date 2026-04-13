@@ -4,7 +4,14 @@ include pyproject.toml
 include requirements.txt
 include build.bat
 include build.sh
+include CMakeLists.txt
 
+
+recursive-include vorpy *.cpp
+recursive-include vorpy *.cxx
+recursive-include vorpy *.cc
+recursive-include vorpy *.h
+recursive-include vorpy *.hpp
 recursive-include vorpy *.py
 recursive-include vorpy *.txt
 recursive-include vorpy *.md
@@ -17,6 +24,9 @@ recursive-include vorpy *.cif
 recursive-include vorpy *.mol
 recursive-include vorpy *.gro
 
+recursive-exclude _skbuild *
+recursive-exclude build *
+recursive-exclude dist *
 recursive-exclude * __pycache__
 recursive-exclude * *.py[cod]
 recursive-exclude * *.so
