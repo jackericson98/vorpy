@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def draw_line(points, radius=0.02, color=None, edge_org=None):
+def draw_line(points, radius=0.05, color="#000000", edge_org=None):
     """
     Creates a 3D cylindrical line segment between points using triangular mesh representation.
 
