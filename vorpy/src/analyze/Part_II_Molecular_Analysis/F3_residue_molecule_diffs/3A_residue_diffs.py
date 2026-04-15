@@ -18,6 +18,8 @@ from vorpy.src.group.group import Group
 from vorpy.src.analyze.tools.plot_templates.bar import bar
 from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
 
+POWER_COLOR = '#d62728'
+PRIMITIVE_COLOR = '#7f3fbf'
 
 
 def get_res_sa(logs):
@@ -366,7 +368,7 @@ def plot_data(sys_res_data, ylim=None):
 
     pow_sa_se = [sys_res_data[k]['pow_vs_aw']['se sa diff'] for k in x_names]
     prm_sa_se = [sys_res_data[k]['prm_vs_aw']['se sa diff'] for k in x_names]
-    print(ylim)
+
     # Plot 1: Volume
     bar(
         [pow_vol_avg, prm_vol_avg],
@@ -374,7 +376,7 @@ def plot_data(sys_res_data, ylim=None):
         Show=True,
         y_axis_title='Avg Abs % Diff',
         x_axis_title='Model',
-        title='Res Abs Vol % Difference',
+        # title='Res Abs Vol % Difference',
         errors=[pow_vol_se, prm_vol_se],
         y_range=ylim,
         xtick_label_size=25,
@@ -382,9 +384,10 @@ def plot_data(sys_res_data, ylim=None):
         ylabel_size=30,
         xlabel_size=30,
         tick_length=12,
-        tick_width=2
+        tick_width=2,
+        colors=[POWER_COLOR, PRIMITIVE_COLOR],
+        legend_names=["Pow vs AW", "Prm vs AW"]
     )
-    print(ylim)
 
     # Plot 2: Surface Area
     bar(
@@ -393,7 +396,7 @@ def plot_data(sys_res_data, ylim=None):
         Show=True,
         y_axis_title='Avg Abs % Diff',
         x_axis_title='Model',
-        title='Res Abs SA % Difference',
+        # title='Res Abs SA % Difference',
         errors=[pow_sa_se, prm_sa_se],
         y_range=ylim,
         xtick_label_size=25,
@@ -401,7 +404,9 @@ def plot_data(sys_res_data, ylim=None):
         ylabel_size=30,
         xlabel_size=30,
         tick_length=12,
-        tick_width=2
+        tick_width=2,
+        colors=[POWER_COLOR, PRIMITIVE_COLOR],
+        legend_names=["Pow vs AW", "Prm vs AW"]
     )
 
 

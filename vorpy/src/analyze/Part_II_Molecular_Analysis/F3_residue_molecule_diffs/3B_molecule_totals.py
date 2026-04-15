@@ -13,6 +13,10 @@ from vorpy.src.analyze.tools.batch.get_files import get_all_files
 from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
 
 
+POWER_COLOR = '#d62728'
+PRIMITIVE_COLOR = '#7f3fbf'
+
+
 def plot_data(plotting='Vol', diff='tot', exclude_keys=[], ylim=None):
     """Plots the data for the given plotting type and difference type"""
     # Get the files
@@ -50,7 +54,10 @@ def plot_data(plotting='Vol', diff='tot', exclude_keys=[], ylim=None):
         tick_length=12,
         xtick_label_size=25,
         ytick_label_size=25,
-        x_tick_rotation=0
+        x_tick_rotation=0,
+        colors=[POWER_COLOR, PRIMITIVE_COLOR],
+        legend_names=["Pow vs AW", "Prm vs AW"],
+        legend_loc='lower right'
     )
 
     bar(
@@ -69,7 +76,10 @@ def plot_data(plotting='Vol', diff='tot', exclude_keys=[], ylim=None):
         tick_length=12,
         xtick_label_size=25,
         ytick_label_size=25,
-        x_tick_rotation=0
+        x_tick_rotation=0,
+        colors=[POWER_COLOR, PRIMITIVE_COLOR],
+        legend_names=["Pow vs AW", "Prm vs AW"],
+        legend_loc='lower right'
     )
 
 

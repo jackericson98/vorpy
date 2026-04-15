@@ -32,8 +32,8 @@ LETTER_CODES = {
     "P53TET": "H",
     "T4LP": "I",
     "STREPTAVIDIN": "J",
-    # "NCP": "K",
-    "NCP_DNA": "K",
+    "NCP": "K",
+    # "NCP_DNA": "K",
     # "NCP_Protein": "K",
     "BSA": "L",
     "BSA_20": "L"
@@ -51,8 +51,8 @@ COLOR_MAP = {
     "P53TET": "#FF00AA",        # Magenta
     "T4LP": "#00FF00",          # Neon Green
     "STREPTAVIDIN": "#A52A2A",  # Brown
-    # "NCP": "#8C8C8C",           # Neutral Gray
-    "NCP_DNA": "#8C8C8C",           # Neutral Gray
+    "NCP": "#8C8C8C",           # Neutral Gray
+    # "NCP_DNA": "#8C8C8C",           # Neutral Gray
     # "NCP_Protein": "#8C8C8C",           # Neutral Gray
     "BSA": "#FFD700",           # Gold
     "BSA_20": "#FFD700"         # Gold
@@ -143,7 +143,6 @@ def main(excluded=None, bins=300, skip_bins=10, mol_type=None):
         model_folder = os.path.join(folder, subfolder)
         if mol_type is not None and subfolder == 'K_NCP':
             aw_logs = os.path.join(model_folder, mol_type, 'aw', 'aw_logs.csv')
-            print(mol_type, aw_logs)
         else:
             aw_logs = os.path.join(model_folder, "aw", "aw_logs.csv")
         # Optional safety check
@@ -178,12 +177,11 @@ def main(excluded=None, bins=300, skip_bins=10, mol_type=None):
 
         surfs = info["surfs"]
         model_name = info["data"]["name"].upper()
-        print(model_name)
 
         print(f"\nProcessing file: {os.path.basename(log_path)}")
-        print(f"Model name from info['data']['name']: {model_name}")
-        print(f"Surface records: {len(surfs)}")
-        print(f"DataFrame shape: {surfs.shape}")
+        # print(f"Model name from info['data']['name']: {model_name}")
+        # print(f"Surface records: {len(surfs)}")
+        # print(f"DataFrame shape: {surfs.shape}")
 
         # Identify curvature column
         curvature_col = None
@@ -197,7 +195,7 @@ def main(excluded=None, bins=300, skip_bins=10, mol_type=None):
             print("  ", surfs.columns.tolist())
             continue
 
-        print(f"  Using curvature column: {curvature_col}")
+        # print(f"  Using curvature column: {curvature_col}")
 
         vals_full = surfs[curvature_col].to_numpy()
         finite_mask = np.isfinite(vals_full)
@@ -423,4 +421,4 @@ def main(excluded=None, bins=300, skip_bins=10, mol_type=None):
 
 if __name__ == "__main__":
     # Exclude models by first letter of subfolder, as before
-    main(['A', 'B', 'C'], bins=150, skip_bins=10, mol_type=None)
+    main(['A', 'B', 'C'], bins=225, skip_bins=12, mol_type=None)
