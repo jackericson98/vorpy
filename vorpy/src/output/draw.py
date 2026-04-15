@@ -5,68 +5,127 @@ def draw_line(points, radius=0.05, color="#000000", edge_org=None):
     """
     Creates a 3D cylindrical line segment between points using triangular mesh representation.
 
-    This function generates a triangular mesh representation of a cylindrical line segment
-    connecting a series of points in 3D space. The cylinder is constructed using triangular
-    faces and can be customized with different radii and colors.
-
     Args:
-        points (list of numpy.ndarray): List of 3D points to connect with the line segment
-        radius (float, optional): Radius of the cylindrical line segment. Defaults to 0.02
-        color (tuple, optional): RGB color tuple for the line segment. Defaults to None
-        edge_org (numpy.ndarray, optional): Vector defining the orientation of the edge.
-            Defaults to [0, 0, 1] if not specified
+        points (list of array-like): List of 3D points.
+        radius (float): Radius of the tube.
+        color (tuple, optional): Unused here, kept for compatibility.
+        edge_org (array-like, optional): Optional reference vector for initializing the
+            first frame only.
 
     Returns:
-        tuple: A tuple containing:
-            - draw_points (list): List of 3D points defining the vertices of the triangular mesh
-            - draw_tris (list): List of triangular faces connecting the vertices
+        tuple:
+            - draw_points: list of 3D vertex positions
+            - draw_tris: list of triangle indices
     """
-    if edge_org is None:
-        edge_org = [0, 0, 1]
-    # Initiate the draw attributes
-    draw_points, draw_tris = [], []
-    r = None
-    # Go through the points
-    for i in range(len(points)):
-        # If we are at the end of the points list, use the previous point for calibration
-        p0 = np.array(points[i])
-        if i < len(points) - 1:
-            p1 = np.array(points[i + 1])
-            r = p1 - p0
-        # Find the vector and its normal between the two points
-        rn = r / np.linalg.norm(r)
-        # In the case that the vector between the points is in the z direction only, move it
-        if rn[0] == 0 and rn[1] == 0:
-            r = r + np.array([0.001, 0.001, 0])
-            rn = r / np.linalg.norm(r)
-        # Take the cross product with the +z direction and normalize it
-        v0_0x = np.cross(rn, np.array(p0 - edge_org))
-        v0_0n = v0_0x / np.linalg.norm(v0_0x)
-        # Calculate the location of the first point
-        p0_0 = v0_0n * radius + p0
-        # Take the cross product of the edge vector and the vector to the first point and normalize it
-        v0_1x = np.cross(rn, v0_0n)
-        v0_1nx = v0_1x / np.linalg.norm(v0_1x)
-        # Find the vectors for the other two points (30/60/90 triangle)
-        v0_1 = - 0.5 * radius * v0_0n + 0.5 * np.sqrt(3) * radius * v0_1nx
-        v0_2 = - 0.5 * radius * v0_0n - 0.5 * np.sqrt(3) * radius * v0_1nx
-        # Get the points and add them to the list of draw points
-        p0_1, p0_2 = v0_1 + p0, v0_2 + p0
-        draw_points += [p0_0, p0_1, p0_2]
-    # Go through the points
-    for i in range(len(points) - 1):
-        # List the points
-        p0_0, p0_1, p0_2, p1_0, p1_1, p1_2 = range(3 * i, 3 * (i + 2))
-        # Create the triangles
-        draw_tris += [[p0_0, p0_1, p1_0], [p1_0, p1_1, p0_1],
-                           [p0_1, p0_2, p1_1], [p1_1, p1_2, p0_2],
-                           [p0_2, p0_0, p1_2], [p1_2, p1_0, p0_0]]
-    # Return the points and triangles
+    if len(points) < 2:
+        return [], []
+
+    pts = [np.asarray(p, dtype=float) for p in points]
+    draw_points = []
+    draw_tris = []
+    eps = 1e-12
+
+    tangents = []
+    for i in range(len(pts)):
+        if i == 0:
+            t = pts[1] - pts[0]
+        elif i == len(pts) - 1:
+            t = pts[-1] - pts[-2]
+        else:
+            t = pts[i + 1] - pts[i - 1]
+
+        norm_t = np.linalg.norm(t)
+        if norm_t < eps:
+            raise ValueError(f"Degenerate segment near point index {i}.")
+
+        tangents.append(t / norm_t)
+
+    t0 = tangents[0]
+
+    if edge_org is not None:
+        ref = np.asarray(edge_org, dtype=float)
+    else:
+        ref = np.array([0.0, 0.0, 1.0])
+
+    if abs(np.dot(ref, t0)) > 0.9:
+        ref = np.array([1.0, 0.0, 0.0])
+
+    n0 = np.cross(t0, ref)
+    norm_n0 = np.linalg.norm(n0)
+    if norm_n0 < eps:
+        ref = np.array([0.0, 1.0, 0.0])
+        n0 = np.cross(t0, ref)
+        norm_n0 = np.linalg.norm(n0)
+        if norm_n0 < eps:
+            raise ValueError("Could not construct an initial normal vector.")
+
+    n0 = n0 / norm_n0
+    b0 = np.cross(t0, n0)
+    b0 = b0 / np.linalg.norm(b0)
+
+    normals = [n0]
+    binormals = [b0]
+
+    for i in range(1, len(pts)):
+        t_prev = tangents[i - 1]
+        t_curr = tangents[i]
+        n_prev = normals[-1]
+
+        axis = np.cross(t_prev, t_curr)
+        axis_norm = np.linalg.norm(axis)
+
+        if axis_norm < eps:
+            n_curr = n_prev.copy()
+        else:
+            axis = axis / axis_norm
+            angle = np.arccos(np.clip(np.dot(t_prev, t_curr), -1.0, 1.0))
+            n_curr = (
+                n_prev * np.cos(angle)
+                + np.cross(axis, n_prev) * np.sin(angle)
+                + axis * np.dot(axis, n_prev) * (1.0 - np.cos(angle))
+            )
+
+        n_curr = n_curr - np.dot(n_curr, t_curr) * t_curr
+        norm_n_curr = np.linalg.norm(n_curr)
+        if norm_n_curr < eps:
+            n_curr = normals[-1].copy()
+            n_curr = n_curr - np.dot(n_curr, t_curr) * t_curr
+            norm_n_curr = np.linalg.norm(n_curr)
+            if norm_n_curr < eps:
+                raise ValueError(f"Could not stabilize frame at point index {i}.")
+
+        n_curr = n_curr / norm_n_curr
+        b_curr = np.cross(t_curr, n_curr)
+        b_curr = b_curr / np.linalg.norm(b_curr)
+
+        normals.append(n_curr)
+        binormals.append(b_curr)
+
+    for i, p in enumerate(pts):
+        n = normals[i]
+        b = binormals[i]
+
+        p0 = p + radius * n
+        p1 = p + radius * (-0.5 * n + 0.5 * np.sqrt(3.0) * b)
+        p2 = p + radius * (-0.5 * n - 0.5 * np.sqrt(3.0) * b)
+
+        draw_points.extend([p0, p1, p2])
+
+    for i in range(len(pts) - 1):
+        p0_0, p0_1, p0_2 = 3 * i, 3 * i + 1, 3 * i + 2
+        p1_0, p1_1, p1_2 = 3 * (i + 1), 3 * (i + 1) + 1, 3 * (i + 1) + 2
+
+        draw_tris.extend([
+            [p0_0, p0_1, p1_0], [p1_0, p1_1, p0_1],
+            [p0_1, p0_2, p1_1], [p1_1, p1_2, p0_2],
+            [p0_2, p0_0, p1_2], [p1_2, p1_0, p0_0],
+        ])
+
     return draw_points, draw_tris
 
 
 # Draw Edge Function. Takes in an edge and updates its attributes draw_points, draw_tris
-def draw_edge(edge, radius=0.02, color=None):
+def draw_edge(edge, radius=0.05, color=None):
     """
     Draws an edge in triangles and points
     :param edge: Edge object for exporting
