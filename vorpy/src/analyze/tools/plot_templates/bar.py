@@ -5,7 +5,8 @@ import numpy as np
 def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_title='', y_axis_title='', bar_width=0.35,
         Show=False, save=None, legend_title=None, print_vals_on_bars=False, unit='', title_size=25, tick_width=2,
         tick_length=12, xlabel_size=20, ylabel_size=20, xtick_label_size=20, ytick_label_size=20, legend_entry_size=20,
-        x_range=None, y_range=None, legend_orientation='Horizontal', x_tick_rotation=0, y_tick_rotation=0):
+        x_range=None, y_range=None, legend_orientation='Horizontal', x_tick_rotation=0, y_tick_rotation=0, colors=None,
+        legend_loc='upper center', legend_bbox=None):
 
     plt.figure()
     plt.clf()
@@ -20,7 +21,6 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
         err_max = max([max(_) for _ in errors])
     ymax = max([max(_) for _ in data]) + err_max
     ymin = min([min(_) for _ in data]) - err_max
-    print(ymax, max([max(_) for _ in data]), err_max)
     # Get the number of bars to plot
     num_bars = len(data)
 
@@ -36,8 +36,9 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
         x_names = ['' for _ in range(len(data[0]))]
 
     # Set the colors
-    colors = ['skyblue', 'orange', 'lavender', 'red', 'goldenrod', 'slategray', 'rose', 'coral', 'periwinkle',
-              'turquoise']
+    if colors is None:
+        colors = ['skyblue', 'orange', 'lavender', 'red', 'goldenrod', 'slategray', 'rose', 'coral', 'periwinkle',
+                  'turquoise']
 
     # Plot the bars
     xlocs = [[i * bar_width + j * bar_width * (num_bars + 1) for j in num_groups] for i in range(len(data))]
@@ -75,12 +76,23 @@ def bar(data, errors=None, x_names=None, legend_names=None, title='', x_axis_tit
     leg_col = 1
     if legend_orientation == 'Horizontal':
         leg_col = len(data)
+
+    legend_kwargs = dict(
+        loc=legend_loc,
+        shadow=True,
+        ncol=leg_col,
+        prop={'size': legend_entry_size}
+    )
+
+    if legend_bbox is not None:
+        legend_kwargs['bbox_to_anchor'] = legend_bbox
+
     try:
         if legend_title is not None:
-            plt.legend(title=legend_title, loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=leg_col)
+            legend_kwargs['title'] = legend_title
+            plt.legend(**legend_kwargs)
         elif len(data) > 1:
-            plt.legend(loc='upper center', bbox_to_anchor=(0.5, 0.97), shadow=True, ncol=leg_col,
-                       prop={'size': legend_entry_size})
+            plt.legend(**legend_kwargs)
     except Exception:
         pass
 
