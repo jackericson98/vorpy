@@ -11,7 +11,6 @@ import numpy as np
 import pandas as pd
 
 
-
 # Get the path to the root vorpy folder
 vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
 sys.path.append(vorpy_root)
@@ -133,6 +132,131 @@ PROTEIN_ATOM_ALIASES = {
     # 'C2': 'CB',
     # 'C3': 'CB',
 }
+
+PROTEIN_ATOM_RESIDUE_ALIASES = {
+    # Residue-aware overrides go here first.
+    # Exact match: (atom_name, residue_name)
+    # Fallback for all other residues: (atom_name, '*')
+    ('CA', 'GLY'): 'CA_G',
+    ('CA', '*'): 'CA_*',
+    ('CB', 'SER'): 'CB_S',
+    ('CB', 'VAL'): 'CB_IV',
+    ('CB', 'ILE'): 'CB_IV',
+    ('CB', 'THR'): 'CB_T',
+    ('CB', 'ALA'): 'CB_A',
+    ('CB', '*'): 'CB_*',
+    ('CD', 'LYS'): 'CD_K',
+    ('CD', 'ARG'): 'CD_PR',
+    ('CD', 'PRO'): 'CD_PR',
+    ('CD', 'GLU'): 'CD_EQ',
+    ('CD', 'GLN'): 'CD_EQ',
+    ('CD', 'ILE'): 'CD_LI',
+    ('CD1', 'LEU'): 'CD_LI',
+    ('CD2', 'LEU'): 'CD_LI',
+    ('CD1', 'PHE'): 'CD*_FY',
+    ('CD1', 'TYR'): 'CD*_FY',
+    ('CD2', 'PHE'): 'CD*_FY',
+    ('CD2', 'TYR'): 'CD*_FY',
+    ('CD1', 'TRP'): 'CD1_W',
+    ('CD1', '*'): 'CD1_*',
+    ('CD2', 'TRP'): 'CD2_W',
+    ('CE', 'LYS'): 'CE_K',
+    ('CE', 'MET'): 'CE_M',
+    ('CE', '*'): 'CE_*',
+    ('CE1', 'HIS'): 'CE1_H',
+    ('CE1', 'PHE'): 'CE*_FY',
+    ('CE1', 'TYR'): 'CE*_FY',
+    ('CE2', 'PHE'): 'CE*_FY',
+    ('CE2', 'TYR'): 'CE*_FY',
+    ('CE2', 'TRP'): 'CE*_W',
+    ('CE3', 'TRP'): 'CE*_W',
+    ('CG', 'LEU'): 'CG_L',
+    ('CG', 'HIS'): 'CG_FHWY',
+    ('CG', 'TYR'): 'CG_FHWY',
+    ('CG', 'PHE'): 'CG_FHWY',
+    ('CG', 'TRP'): 'CG_FHWY',
+    ('CG', 'ASN'): 'CG_DN',
+    ('CG', 'ASP'): 'CG_DN',
+    ('CG', 'ARG'): 'CG_EKPQR',
+    ('CG', 'GLU'): 'CG_EKPQR',
+    ('CG', 'PRO'): 'CG_EKPQR',
+    ('CG', 'GLN'): 'CG_EKPQR',
+    ('CG', 'LYS'): 'CG_EKPQR',
+    ('CG', '*'): 'CG_*',
+    ('CG1', 'VAL'): 'CG_V',
+    ('CG1', 'ILE'): 'CG_I',
+    ('CG2', 'ILE'): 'CG_ITV',
+    ('CG2', 'VAL'): 'CG_ITV',
+    ('CG2', 'THR'): 'CG_ITV',
+    ('H1', '*'): 'H*',
+    ('H2', '*'): 'H*',
+    ('H3', '*'): 'H*',
+    ('HA', '*'): 'HA*',
+    ('HA1', '*'): 'HA*',
+    ('HA2', '*'): 'HA*',
+    ('HB', '*'): 'HB*',
+    ('HB1', '*'): 'HB*',
+    ('HB2', '*'): 'HB*',
+    ('HB3', '*'): 'HB*',
+    ('HD', '*'): 'HD*',
+    ('HD11', '*'): 'HD*',
+    ('HD12', '*'): 'HD*',
+    ('HD13', '*'): 'HD*',
+    ('HD2', '*'): 'HD*',
+    ('HD21', '*'): 'HD*',
+    ('HD22', '*'): 'HD*',
+    ('HD23', '*'): 'HD*',
+    ('HD3', '*'): 'HD*',
+    ('HE', '*'): 'HE*',
+    ('HE1', '*'): 'HE*',
+    ('HE2', '*'): 'HE*',
+    ('HE21', '*'): 'HE*',
+    ('HE22', '*'): 'HE*',
+    ('HE3', '*'): 'HE*',
+    ('HG', '*'): 'HG*',
+    ('HG1', '*'): 'HG*',
+    ('HG11', '*'): 'HG*',
+    ('HG12', '*'): 'HG*',
+    ('HG13', '*'): 'HG*',
+    ('HG2', '*'): 'HG*',
+    ('HG21', '*'): 'HG*',
+    ('HG22', '*'): 'HG*',
+    ('HG23', '*'): 'HG*',
+    ('HH', '*'): 'HH*',
+    ('HH11', '*'): 'HH*',
+    ('HH12', '*'): 'HH*',
+    ('HH2', '*'): 'HH*',
+    ('HH21', '*'): 'HH*',
+    ('HH22', '*'): 'HH*',
+    ('HN', '*'): 'HN',
+    ('HZ', '*'): 'HZ*',
+    ('HZ1', '*'): 'HZ*',
+    ('HZ2', '*'): 'HZ*',
+    ('HZ3', '*'): 'HZ*',
+    ('N', '*'): 'N',
+    ('N', 'PRO'): 'NP',
+    ('ND1', '*'): 'ND1',
+    ('ND2', '*'): 'ND2',
+    ('NE', '*'): 'NE*',
+    ('NE1', '*'): 'NE*',
+    ('NE2', 'HIS'): 'NE*',
+    ('NE2', 'GLN'): 'NEQ',
+    ('NH1', '*'): 'NH*',
+    ('NH2', '*'): 'NH*',
+    ('O', '*'): 'O',
+    ('OH', '*'): 'OH',
+    # ('OC1', '*'): 'OC*',
+    # ('OC2', '*'): 'OC*',
+    ('OD1', 'ASP'): 'ODA',
+    ('OD1', 'ASN'): 'ODN',
+    ('OD2', 'ASP'): 'ODA',
+    ('OE1', 'GLU'): 'OEE',
+    ('OE2', 'GLU'): 'OEE',
+    ('OE1', 'GLN'): 'OEQ',
+    ('OG', '*'): 'OG',
+    ('OG1', '*'): 'OG'
+}
+
 
 RNA_ATOM_ALIASES = {
     # phosphate
@@ -642,9 +766,16 @@ def canonicalize_atom_name(
     residue_name: str = ''
 ) -> str:
     atom = str(atom_name).strip().upper()
+    residue = str(residue_name).strip().upper()
     mol = str(molecule_class).strip().lower()
 
     if mol == 'protein':
+        if (atom, residue) in PROTEIN_ATOM_RESIDUE_ALIASES:
+            return PROTEIN_ATOM_RESIDUE_ALIASES[(atom, residue)]
+
+        if (atom, '*') in PROTEIN_ATOM_RESIDUE_ALIASES:
+            return PROTEIN_ATOM_RESIDUE_ALIASES[(atom, '*')]
+
         return PROTEIN_ATOM_ALIASES.get(atom, atom)
 
     if mol == 'dna':
@@ -1143,7 +1274,7 @@ def add_covariance_ellipse(
         edgecolor=color,
         linewidth=linewidth,
         alpha=face_alpha,
-        zorder=zorder
+        zorder=zorder,
     )
     ax.add_patch(fill)
 
@@ -1319,6 +1450,7 @@ def plot_name_volume_groups(
     number_fontsize: int = 14,
     direct_label_fontsize: int = 11,
     show_ellipses: bool = True,
+    ellipse_alpha: float = 0.5,
     ellipse_n_std: float = 1.5,
     ellipse_min_count: int = 50,
     ellipse_max_spread: Optional[float] = None,
@@ -1368,9 +1500,9 @@ def plot_name_volume_groups(
                 y=group_df['Pow'].to_numpy(),
                 color=color,
                 n_std=ellipse_n_std,
-                face_alpha=0.20,
-                edge_alpha=1.0,
-                linewidth=1.5,
+                face_alpha=0.10,
+                edge_alpha=ellipse_alpha,
+                linewidth=1.0,
                 zorder=3
             )
 
@@ -1560,15 +1692,15 @@ def main(
     output_base: Optional[str] = None,
     output_name: Optional[str] = None,
     volume_range: tuple = (3, 22),
-    molecule_class: str = 'protein',
+    molecule_class: str = 'rna',
     save_csv: bool = True,
     save_plot: bool = False,
     show_points: bool = True,
     show_numbers: bool = True,
     annotate_direct_groups: bool = True,
-    plot_min_count: int = 100,
+    plot_min_count: int = 10,
     max_spread: Optional[float] = 2.35,
-    ellipse_min_count: int = 150,
+    ellipse_min_count: int = 10,
     ellipse_max_spread: Optional[float] = 2.15,
     ellipse_n_std: float = 2,
     point_alpha: float = 0.2,
@@ -1582,7 +1714,8 @@ def main(
     min_cluster_size: int = 25,
     numerical_cols=None,
     categorical_cols=None,
-    boolean_cols=None
+    boolean_cols=None,
+    show_plot: bool = True
 ):
     if numerical_cols is None:
         numerical_cols = ['AW', 'Pow', 'x', 'y']
@@ -1848,7 +1981,7 @@ def main(
         annotate_direct_groups=annotate_direct_groups,
         point_size=10,
         point_alpha=point_alpha,
-        number_fontsize=12,
+        number_fontsize=10,
         direct_label_fontsize=11,
         show_ellipses=True,
         ellipse_n_std=ellipse_n_std,
@@ -1856,7 +1989,7 @@ def main(
         ellipse_max_spread=ellipse_max_spread,
         save_png=png_path,
         save_svg=svg_path,
-        show=False
+        show=show_plot
     )
 
     if png_path is not None:
@@ -1867,4 +2000,34 @@ def main(
 
 
 if __name__ == "__main__":
-    run_batch_cluster_plots()
+    main(
+        atom_name_field='Name',
+        folders=None,
+        output_base=None,
+        output_name=None,
+        volume_range=(2, 22),
+        molecule_class='dna',
+        save_csv=True,
+        save_plot=True,
+        show_points=True,
+        show_numbers=True,
+        annotate_direct_groups=False,
+        plot_min_count=100,
+        max_spread=2.4,
+        ellipse_min_count=100,
+        ellipse_max_spread=None,
+        ellipse_n_std=2,
+        point_alpha=0.2,
+        use_ml_clustering=False,
+        ml_method='kprototypes',
+        use_sol_binary=True,
+        sol_threshold=20.0,
+        n_clusters=12,
+        min_samples=0,
+        eps=2.5,
+        min_cluster_size=0,
+        numerical_cols=None,
+        categorical_cols=None,
+        boolean_cols=None
+    )
+    # run_batch_cluster_plots()
