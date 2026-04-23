@@ -86,13 +86,14 @@ def write_logs(group, net_name=None, round_to=3):
                                 r(atom['max_mean_curv']), r(atom['avg_mean_surf_curv']), r(atom['max_gauss_curv']),
                                 r(atom['avg_gauss_surf_curv']), r(atom['sphericity']), r(atom['isometric_quotient']),
                                 atom['ball_inside'], atom['number_of_neighbors'], atom['nearest_neighbor'],
-                                atom['nearest_neighbor_distance'], r(atom['neighbor_distance_average']),
-                                r(atom['neighbor_distance_rmsd']), r(atom['min_spike']), r(atom['max_spike']),
-                                atom['number_of_olaps'], r(atom['contact_area']), r(atom['olap_vol']),
-                                r(atom['vdw_vol']), [r(_) for _ in atom['com']],
-                                [[r(__) for __ in _] for _ in atom['moi']],
-                                [[r(_) for _ in atom['bounding_box'][0]], [r(_) for _ in atom['bounding_box'][1]]],
-                                nbrs])
+                                atom['nearest_neighbor_distance'],
+                                [float(_) for _ in r(atom['neighbor_distance_average'])],
+                                [float(_) for _ in r(atom['neighbor_distance_rmsd'])], r(atom['min_spike']),
+                                r(atom['max_spike']), atom['number_of_olaps'], r(atom['contact_area']),
+                                r(atom['olap_vol']), r(atom['vdw_vol']), [float(r(_)) for _ in atom['com']],
+                                [[float(r(__)) for __ in _] for _ in atom['moi']],
+                                [[float(r(_)) for _ in atom['bounding_box'][0]],
+                                 [float(r(_)) for _ in atom['bounding_box'][1]]], nbrs])
         # Write the surfaces header
         lg_fl.writerow(["Surfaces"])
         # Write the surface column labels
