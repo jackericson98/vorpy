@@ -1,6 +1,7 @@
 import csv
 from datetime import datetime
 from vorpy.src.calculations import round_func
+from vorpy.src.version import __version__
 
 
 def write_logs(group, net_name=None, round_to=3):
@@ -46,11 +47,13 @@ def write_logs(group, net_name=None, round_to=3):
         # Write the build information header
         lg_fl.writerow(["build informaiton"])
         # Write the build information labels
-        lg_fl.writerow(["Name", "Location", "Completion Date", "Network Type", "Surface Resolution", "Box Size", "Maximum Allowable Vertex", "Total Time", "Vertex Time",
-                       "Connect Time", "Surface Building Time", "Analysis time", "Maximum Found Vertex", ])
-        lg_fl.writerow([group.sys.name, group.sys.files['base_file'], datetime.now(), net.settings['net_type'], net.settings['surf_res'], net.settings['box_size'],
-                        net.settings['max_vert'], r(net.metrics['tot']), r(net.metrics['vert']), r(net.metrics['con']),
-                        r(net.metrics['surf']), r(net.metrics['anal']), r(max(net.verts['rad']))])
+        lg_fl.writerow(["Name", "Location", "Completion Date", "Network Type", "Surface Resolution", "Box Size",
+                        "Maximum Allowable Vertex", "Total Time", "Vertex Time", "Connect Time",
+                        "Surface Building Time", "Analysis time", "Maximum Found Vertex", "vorPy version"])
+        lg_fl.writerow([group.sys.name, group.sys.files['base_file'], datetime.now(), net.settings['net_type'],
+                        net.settings['surf_res'], net.settings['box_size'], net.settings['max_vert'],
+                        r(net.metrics['tot']), r(net.metrics['vert']), r(net.metrics['con']),
+                        r(net.metrics['surf']), r(net.metrics['anal']), r(max(net.verts['rad'])), __version__])
         # Write the group information header
         lg_fl.writerow(["group information"])
         # Write the group information labels
@@ -97,14 +100,15 @@ def write_logs(group, net_name=None, round_to=3):
         # Write the surfaces header
         lg_fl.writerow(["Surfaces"])
         # Write the surface column labels
-        lg_fl.writerow(["Index", "Ball 1", "Ball 2", "Surface Area", "Mean Curvature", "Gaussian Curvature",
-                        "Ball 1 Volume Contribution", "Ball 2 Volume Contribution", 'Contact Area', 'Overlap'])
+        lg_fl.writerow(["Index", "Ball 1", "Ball 2", "Surface Area", "Mean Curvature", "Average Mean Curvature",
+                        "Gaussian Curvature", "Average Gaussian Curvature", "Ball 1 Volume Contribution",
+                        "Ball 2 Volume Contribution", 'Contact Area', 'Overlap'])
         # Go through the surfaces in the system and write their information
         for i, surf in net.surfs.iterrows():
             # Write the information for the surface
-            lg_fl.writerow([i, *surf['balls'], r(surf['sa']), r(surf['mean_curv']), r(surf['gauss_curv']),
-                            r(surf['vols'][surf['balls'][0]]), r(surf['vols'][surf['balls'][1]]),
-                            r(surf['contact_area']), r(surf['overlap'])])
+            lg_fl.writerow([i, *surf['balls'], r(surf['sa']), r(surf['mean_curv']), r(surf['avg_mean_curv']),
+                            r(surf['gauss_curv']), r(surf['avg_gauss_curv']), r(surf['vols'][surf['balls'][0]]),
+                            r(surf['vols'][surf['balls'][1]]), r(surf['contact_area']), r(surf['overlap'])])
         # Write the edges header
         lg_fl.writerow(["Edges"])
         # Write the edges headers

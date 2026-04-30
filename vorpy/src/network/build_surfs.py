@@ -39,7 +39,7 @@ def build_surfs(net, store_points=True):
     - For large networks, setting store_points=False can reduce memory usage
     """
     # Instantiate the lists for storage
-    points, tris, mean_tri_curvs, mean_curvs, gauss_tri_curvs, gauss_curvs, funcs, coms, flats, sas, vols, surf_locs = [], [], [], [], [], [], [], [], [], [], [], []
+    points, tris, mean_tri_curvs, mean_curvs, avg_mean_curvs, gauss_tri_curvs, gauss_curvs, avg_gauss_curvs, funcs, coms, flats, sas, vols, surf_locs = [], [], [], [], [], [], [], [], [], [], [], [], [], []
     # full_count = {'calc_func': 0, 'perimeter': 0, 'com': 0, 'fill_mesh': 0, 'spider': 0, 'Delaunay': 0,
     #               'designations': 0, 'reassign': 0}
     # Make each surface
@@ -64,7 +64,8 @@ def build_surfs(net, store_points=True):
         if my_surf is None:
             net.surfs.drop(index=i, inplace=True)
             continue
-        surf_points, surf_tris, mean_surf_tri_curvs, mean_surf_curv, gauss_surf_tri_curvs, gauss_surf_curv, surf_func, surf_com, surf_flat, surf_loc = my_surf
+        (surf_points, surf_tris, mean_surf_tri_curvs, mean_surf_curv, avg_mean_surf_curv, gauss_surf_tri_curvs,
+         gauss_surf_curv, avg_gauss_surf_curv, surf_func, surf_com, surf_flat, surf_loc) = my_surf
         # full_count = {_: full_count[_] + timer[_] for _ in full_count}
         # Get the surface Volumes
         sv0 = sum([calc_tetra_vol(locs[0], surf_points[tri[0]], surf_points[tri[1]], surf_points[tri[2]]) for tri in
@@ -88,7 +89,9 @@ def build_surfs(net, store_points=True):
             gauss_tri_curvs.append([])
         # Append the mean and Gaussian curvatures to the lists
         mean_curvs.append(mean_surf_curv)
+        avg_mean_curvs.append(avg_mean_surf_curv)
         gauss_curvs.append(gauss_surf_curv)
+        avg_gauss_curvs.append(avg_gauss_surf_curv)
         # Append the surface function, center of mass, flatness, surface area, volumes, and location to the lists
         funcs.append(surf_func)
         coms.append(surf_com)
@@ -98,11 +101,11 @@ def build_surfs(net, store_points=True):
         surf_locs.append(surf_loc)
     # Set the dataframe elements
     (net.surfs['points'], net.surfs['tris'], net.surfs['mean_tri_curvs'], net.surfs['mean_curv'],
-     net.surfs['gauss_tri_curvs'], net.surfs['gauss_curv'], net.surfs['func'], net.surfs['com'], net.surfs['flat'],
-     net.surfs['sa'], net.surfs['vols'], net.surfs['loc']) = \
-        points, tris, mean_tri_curvs, mean_curvs, gauss_tri_curvs, gauss_curvs, funcs, coms, flats, sas, vols, surf_locs
-    # for _ in [points, tris, mean_tri_curvs, mean_curvs, gauss_tri_curvs, gauss_curvs, funcs, coms, flats, sas, vols, surf_locs]:
-    #     print("\n\n\n", _, "\n\n\n")
+     net.surfs['avg_mean_curv'], net.surfs['gauss_tri_curvs'], net.surfs['gauss_curv'], net.surfs['avg_gauss_curv'],
+     net.surfs['func'], net.surfs['com'], net.surfs['flat'], net.surfs['sa'], net.surfs['vols'], net.surfs['loc']) = \
+        (points, tris, mean_tri_curvs, mean_curvs, avg_mean_curvs, gauss_tri_curvs, gauss_curvs, avg_gauss_curvs, funcs,
+         coms, flats, sas, vols, surf_locs)
+
     # Get the curvature in the 95th percentile
     my_surf_curvs = net.surfs['mean_curv'].to_list()
     if net.settings['surf_scheme'] == 'gauss':

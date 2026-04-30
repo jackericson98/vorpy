@@ -151,7 +151,8 @@ def analyze(net, complicated=True):
         ball_surfs = net.surfs.iloc[surf_ids].to_dict(orient='records')
 
         # Quick test for pathological case: zero total surface area
-        sa_total = sum(_['sa'] for _ in ball_surfs)
+        b_sa_list = [_['sa'] for _ in ball_surfs]
+        sa_total = sum(b_sa_list)
         if sa_total == 0:
             (b_vols, b_sas, b_cell,
              b_max_mean_curvs, b_avg_mean_surf_curvs,
@@ -208,17 +209,15 @@ def analyze(net, complicated=True):
         timer['basic'] += time2 - time1
 
         # Curvature metrics
-        mean_curvs = [_['mean_curv'] for _ in ball_surfs]
-        gauss_curvs = [_['gauss_curv'] for _ in ball_surfs]
 
-        b_max_mean_curvs.append(max(mean_curvs))
+        b_max_mean_curvs.append(max([_['mean_curv'] for _ in ball_surfs]))
         b_avg_mean_surf_curvs.append(
-            sum(s['sa'] * s['mean_curv'] for s in ball_surfs) / sa
+            sum(s['sa'] * s['avg_mean_curv'] for s in ball_surfs) / sa
         )
 
-        b_max_gauss_curvs.append(max(gauss_curvs))
+        b_max_gauss_curvs.append(max([_['gauss_curv'] for _ in ball_surfs]))
         b_avg_gauss_surf_curvs.append(
-            sum(s['sa'] * s['gauss_curv'] for s in ball_surfs) / sa
+            sum(s['sa'] * s['avg_gauss_curv'] for s in ball_surfs) / sa
         )
 
         time3 = time.perf_counter()

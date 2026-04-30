@@ -124,7 +124,22 @@ def read_surf(surf_line):
     n = len(surf_line)
 
     # If we have 10 or more entries, just use the first 10
-    if n >= 10:
+    if n == 12:
+        core = surf_line[:12]
+        return {
+            "Index": int(core[0]),
+            "Balls": [int(core[1]), int(core[2])],
+            "Surface Area": float(core[3]),
+            "Mean Curvature": float(core[4]),
+            "Average Mean Curvature": float(core[5]),
+            "Gauss Curvature": float(core[6]),
+            "Average Gauss Curvature": float(core[7]),
+            "Ball Volumes": [float(x) for x in core[8:10] if x != ""],
+            "Contact Area": float(core[10]),
+            "Overlap": float(core[11]),
+        }
+
+    elif n == 10:
         core = surf_line[:10]
         return {
             "Index": int(core[0]),
@@ -220,12 +235,12 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
                         continue
                     # If the data is not found, get the data from the new logs type
                     except ValueError:
-                        data = {'name': line[0], 'location': line[1], 'time': line[2],'network_type': line[3],
+                        data = {'name': line[0], 'location': line[1], 'time': line[2], 'network_type': line[3],
                                 'surface_resolution': float(line[4]), 'box_size': float(line[5]),
                                 'max_vert': float(line[6]), 'Total_Time': float(line[7]),
                                 'vert_time': float(line[8]), 'connect_time': float(line[9]),
                                 'surf_time': float(line[10]), 'analysis_time': float(line[11]),
-                                'max_vertex': float(line[12])}
+                                'max_vertex': float(line[12]), 'version': '< 3.2.0' if len(line) < 13 else line[13]}
                         continue
                 # Get the group data
                 elif i == 5:
@@ -237,7 +252,8 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
                                   'Spatial Moment of Inertia': parse_string_lists(line[9])}
                     continue
 
-                # If the line is a build information, group information, Atoms, Edges, Surfaces, or Vertices, set the data type and skip the next line
+                # If the line is a build information, group information, Atoms, Edges, Surfaces, or Vertices, set the
+                # data type and skip the next line
                 if line[0] in {'build information', 'group information', 'Atoms', 'Edges', 'Surfaces', 'Vertices'}:
                     data_type = line[0]
                     skip_next = True

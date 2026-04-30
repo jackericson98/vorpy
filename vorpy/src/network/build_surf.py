@@ -212,12 +212,13 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, perimeter=None, sur
     if not flat:
         # Project the points onto the surface again
         spoints = project_to_hyperboloid(my_2d_points, locs[0], sfunc, surf_norm, surf_loc)
-        mean_tri_curvs, mean_surf_curv = calc_surf_tri_curvs(sfunc, spoints, surf_tris, curvature_type='mean')
-        gauss_tri_curvs, gauss_surf_curv = calc_surf_tri_curvs(sfunc, spoints, surf_tris, curvature_type='gauss')
+        mean_tri_curvs, mean_surf_curv, avg_mean_surf_curv = calc_surf_tri_curvs(sfunc, spoints, surf_tris, curvature_type='mean')
+        gauss_tri_curvs, gauss_surf_curv, avg_gauss_surf_curv = calc_surf_tri_curvs(sfunc, spoints, surf_tris, curvature_type='gauss')
     else:
         spoints = unproject_to_3d(my_2d_points, surf_loc, surf_norm)
-        mean_tri_curvs, mean_surf_curv = [0 for _ in range(len(list(surf_tris)))], 0
-        gauss_tri_curvs, gauss_surf_curv = [0 for _ in range(len(list(surf_tris)))], 0
+        mean_tri_curvs, mean_surf_curv, avg_mean_surf_curv = [0 for _ in range(len(list(surf_tris)))], 0, 0
+        gauss_tri_curvs, gauss_surf_curv, avg_gauss_surf_curv = [0 for _ in range(len(list(surf_tris)))], 0, 0
 
     # Return the surface points, triangles, triangle curvatures, total curvature, surface function, com, and flatness
-    return spoints, surf_tris, mean_tri_curvs, mean_surf_curv, gauss_tri_curvs, gauss_surf_curv, sfunc, surf_com, flat, surf_loc
+    return (spoints, surf_tris, mean_tri_curvs, mean_surf_curv, avg_mean_surf_curv, gauss_tri_curvs, gauss_surf_curv,
+            avg_gauss_surf_curv, sfunc, surf_com, flat, surf_loc)

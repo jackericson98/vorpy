@@ -129,6 +129,48 @@ def mean_curvature(func, point, tol=1e-12):
     return H_val
 
 
+def calc_avg_curv(points, tris, curvs):
+    """
+    Calculates the average curvature of the surface
+
+    This function computes the average surface curvature based on the sa of each triangle and the total surface area of
+    the surface to compute a standardized value.
+
+    Parameters
+    ----------
+    points: list
+        List of points associates with the vertices of the triangles of a surface.
+    tris: list
+        List of triangles; each triangle is three integer indices into the points.
+    curvs: list
+        List of points that correspond to the curvature on the surface at the centroid of the triangle
+
+    Returns
+    -------
+    float
+        The average curvature of the entire surface
+    """
+
+    sa = 0.0
+    tot_curv = 0.0
+
+    if len(tris) != len(curvs):
+        raise ValueError("tris and curvs must have the same length.")
+
+    for i, tri in enumerate(tris):
+        p0, p1, p2 = [points[_] for _ in tri]
+
+        tri_sa = calc_tri(p0, p1, p2)
+
+        tot_curv += tri_sa * curvs[i]
+        sa += tri_sa
+
+    if sa == 0:
+        return 0.0  # or np.nan, depending on what makes more sense
+
+    return tot_curv / sa
+
+
 def calc_surf_tri_curvs(func, points, tris, curvature_type='gauss'):
     """
     Calculates the curvature values for each triangle in a surface.
@@ -186,7 +228,10 @@ def calc_surf_tri_curvs(func, points, tris, curvature_type='gauss'):
     # Calculate the max of the tri curves if it isn't empty
     max_tcs = max(tri_curvs) if tri_curvs else None
 
-    return tri_curvs, max_tcs
+    # Calculate the average of the tri curves
+    avg_curv = calc_avg_curv(points, tris, tri_curvs)
+
+    return tri_curvs, max_tcs, avg_curv
 
 
 def calc_avg_surface_curvature(func, s_points, s_tris, curvature_type='gauss'):
