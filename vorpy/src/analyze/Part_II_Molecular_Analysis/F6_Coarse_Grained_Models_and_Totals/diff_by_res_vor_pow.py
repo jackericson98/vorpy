@@ -1,197 +1,576 @@
 import csv
-import os.path
-import tkinter as tk
-from tkinter import filedialog
-import numpy as np
-
 import os
 import sys
+import traceback
+import tkinter as tk
+from tkinter import filedialog
 
-# Get the path to the root vorpy folder
-vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
-# Add the root vorpy folder to the system path
-sys.path.append(vorpy_root)
+import numpy as np
 
-from vorpy.src.analyze.tools.compare.compare_files import compare_files
-from vorpy.src.analyze.tools.plot_templates.bar import bar
 
-def percent_diff(residue_file, file_name):
-    # Start re-sorting the data
-    vols, sas = {}, {}
-    with open(residue_file, 'r') as res_file:
-        res_reader = csv.reader(res_file)
-        for i, line in enumerate(res_reader):
-            if i == 0:
-                continue
-            if len(line) == 0 or line[1] == 'other':
-                continue
-            # File
-            if line[0] not in vols:
-                vols[line[0]] = {}
-                sas[line[0]] = {}
-            # Residue Type
-            if line[1] not in vols[line[0]]:
-                vols[line[0]][line[1]] = {}
-                sas[line[0]][line[1]] = {}
-            # Residue Class
-            if line[2] not in vols[line[0]][line[1]]:
-                vols[line[0]][line[1]][line[2]] = []
-                sas[line[0]][line[1]][line[2]] = []
-            vols[line[0]][line[1]][line[2]].append(line[4])
-            sas[line[0]][line[1]][line[2]].append(line[5])
-    vol_res_data = {}
-    sa_res_data = {}
-    res_names = []
-    for file in vols:
-        vol_res_data[file] = {}
-        sa_res_data[file] = {}
-        for res_type in vols[file]:
-            for res_name in vols[file][res_type]:
-                res_names.append(res_name)
-                vol_by_type = [float(_) for _ in vols[file][res_type][res_name]]
-                vol_res_data[file][res_name] = {'avg': np.mean(vol_by_type), 'max': max(vol_by_type),
-                                                'min': min(vol_by_type), 'sd': np.std(vol_by_type), 'data': vol_by_type}
-                sa_by_type = [float(_) for _ in sas[file][res_type][res_name]]
-                sa_res_data[file][res_name] = {'avg': np.mean(sa_by_type), 'max': max(sa_by_type),
-                                               'min': min(sa_by_type), 'sd': np.std(sa_by_type), 'data': sa_by_type}
+# =============================================================================
+# Settings
+# =============================================================================
 
-    # Get the percent difference for each residue and average
-    vol_means, vol_std_errs = [0], [0]
-    sa_means, sa_std_errs = [0], [0]
-    for file in sas:
-        # We already have the information for the atomic resolution
-        if file == file_name:
+SCHEME_ORDER = [
+    ('1_Atom', 'Atom'),
+    ('2_Encap', 'Encap'),
+    ('3_Encap_SR', 'Encap_SR'),
+    ('4_AD', 'AD'),
+    ('5_AD_SR', 'AD_SR'),
+    ('6_AD_MW', 'AD_MW'),
+    ('7_AD_MW_SR', 'AD_MW_SR'),
+]
+
+VORONOI_TYPES = ['aw', 'pow']
+
+REFERENCE_SCHEME = '1_Atom'
+REFERENCE_VORONOI = 'aw'
+
+RAW_DIAGNOSTIC_FILENAME = 'residue_instance_raw_volume_diagnostic_read_logs2.csv'
+PERCENT_DIAGNOSTIC_FILENAME = 'residue_instance_percent_difference_diagnostic_read_logs2.csv'
+SUMMARY_FILENAME = 'residue_percent_difference_summary_read_logs2.csv'
+
+PRINT_SAMPLE_RESIDUES = True
+SAMPLE_RESIDUE_COUNT = 20
+
+
+# =============================================================================
+# Import helpers
+# =============================================================================
+
+def add_vorpy_root_to_path():
+    current_dir = os.path.abspath(os.path.dirname(__file__))
+
+    search_dir = current_dir
+    for _ in range(12):
+        if os.path.isdir(os.path.join(search_dir, 'vorpy')):
+            if search_dir not in sys.path:
+                sys.path.append(search_dir)
+            return search_dir
+
+        parent = os.path.dirname(search_dir)
+        if parent == search_dir:
+            break
+        search_dir = parent
+
+    return None
+
+
+def import_read_logs2():
+    add_vorpy_root_to_path()
+
+    import_attempts = [
+        'vorpy.src.analyze.tools.compare.read_logs2',
+        'vorpy.src.analyze.tools.compare.compare_files',
+        'vorpy.src.analyze.tools.compare.read_logs',
+    ]
+
+    last_error = None
+    for module_name in import_attempts:
+        try:
+            module = __import__(module_name, fromlist=['read_logs2'])
+            if hasattr(module, 'read_logs2'):
+                print(f'Using read_logs2 from: {module_name}')
+                return module.read_logs2
+        except Exception as exc:
+            last_error = exc
+
+    raise ImportError(f'Could not import read_logs2. Last error: {last_error}')
+
+
+read_logs2 = import_read_logs2()
+
+
+# =============================================================================
+# Column handling
+# =============================================================================
+
+def normalize_col_name(name):
+    return str(name).strip().lower().replace('_', '').replace('-', '').replace(' ', '')
+
+
+def find_column(df, candidates, label, required=True):
+    exact_lookup = {str(col): col for col in df.columns}
+    normalized_lookup = {normalize_col_name(col): col for col in df.columns}
+
+    for candidate in candidates:
+        if candidate in exact_lookup:
+            return exact_lookup[candidate]
+
+        normalized = normalize_col_name(candidate)
+        if normalized in normalized_lookup:
+            return normalized_lookup[normalized]
+
+    if required:
+        print('\nAvailable atoms dataframe columns:')
+        for col in df.columns:
+            print(f'  - {col}')
+        raise KeyError(f'Could not find required {label}. Tried: {candidates}')
+
+    return None
+
+
+def get_schema_columns(atoms_df):
+    residue_name_col = find_column(
+        atoms_df,
+        [
+            'Residue',
+            'Residue Name',
+            'ResidueName',
+            'residue',
+            'resname',
+            'ResName',
+            'res_name',
+        ],
+        'residue name column'
+    )
+
+    residue_id_col = find_column(
+        atoms_df,
+        [
+            'Residue Sequence',
+            'ResidueSequence',
+            'residue_sequence',
+            'Residue Number',
+            'ResidueNumber',
+            'residue_number',
+            'resid',
+            'ResID',
+            'Residue ID',
+            'ResidueID',
+            'res_id',
+            'resSeq',
+            'ResSeq',
+            'Sequence Number',
+            'SequenceNumber',
+        ],
+        'residue ID/number column'
+    )
+
+    chain_col = find_column(
+        atoms_df,
+        [
+            'Chain',
+            'chain',
+            'Chain ID',
+            'ChainID',
+            'chain_id',
+        ],
+        'chain column',
+        required=False
+    )
+
+    volume_col = find_column(
+        atoms_df,
+        [
+            'Volume',
+            'volume',
+            'Vol',
+            'vol',
+        ],
+        'volume column'
+    )
+
+    surface_area_col = find_column(
+        atoms_df,
+        [
+            'Surface Area',
+            'SurfaceArea',
+            'surface_area',
+            'SA',
+            'sa',
+        ],
+        'surface area column'
+    )
+
+    return {
+        'residue_name': residue_name_col,
+        'residue_id': residue_id_col,
+        'chain': chain_col,
+        'volume': volume_col,
+        'surface_area': surface_area_col,
+    }
+
+
+# =============================================================================
+# Data loading and aggregation
+# =============================================================================
+
+def get_atoms_df_from_logs(log_path):
+    log_data = read_logs2(log_path)
+
+    if isinstance(log_data, dict):
+        if 'atoms' in log_data:
+            return log_data['atoms']
+
+        if 'Atoms' in log_data:
+            return log_data['Atoms']
+
+    raise ValueError(f'read_logs2 did not return an atoms dataframe for: {log_path}')
+
+
+def clean_value(value):
+    if value is None:
+        return ''
+
+    text = str(value).strip()
+    if text.lower() in {'nan', 'none'}:
+        return ''
+
+    return text
+
+
+def make_residue_key(row, cols):
+    resname = clean_value(row[cols['residue_name']])
+    resid = clean_value(row[cols['residue_id']])
+
+    if cols['chain'] is None:
+        chain = ''
+    else:
+        chain = clean_value(row[cols['chain']])
+
+    if chain:
+        key = f'{resname}_{chain}_{resid}'
+        label = f'{resname} {chain}:{resid}'
+    else:
+        key = f'{resname}_{resid}'
+        label = f'{resname} {resid}'
+
+    return key, label, resname, resid, chain
+
+
+def aggregate_specific_residues(atoms_df, scheme_name, vor_type):
+    cols = get_schema_columns(atoms_df)
+    residue_data = {}
+
+    for _, row in atoms_df.iterrows():
+        key, label, resname, resid, chain = make_residue_key(row, cols)
+
+        if not resname or not resid:
             continue
-        # Volume data
-        # Set up the percent difference list to get the mean and std error from later
-        my_perc_diff = []
-        # try:
-        #     for res_name in vols[file]['nucs']:
-        #         for i in range(len(vols[file]['nucs'][res_name])):
-        #             my_perc_diff.append((float(vols[file]['nucs'][res_name][i]) - float(
-        #                 vols[file_name]['nucs'][res_name][i])) / float(vols[file_name]['nucs'][res_name][i]))
-        # except KeyError:
-        #     pass
+
         try:
-            for res_name in vols[file]['aminos']:
-                for i in range(len(vols[file]['aminos'][res_name])):
-                    my_perc_diff.append((float(vols[file]['aminos'][res_name][i]) - float(
-                        vols[file_name]['aminos'][res_name][i])) / float(vols[file_name]['aminos'][res_name][i]))
-        except KeyError:
-            pass
-        vol_means.append(round(sum(my_perc_diff) * 100, 3))
-        vol_std_errs.append(round(np.std(my_perc_diff) / np.sqrt(len(my_perc_diff)) * 100, 3))
+            volume = float(row[cols['volume']])
+        except (TypeError, ValueError):
+            volume = 0.0
 
-        # Surface Area data
-        my_perc_diff = []
-        # try:
-        #     for res_name in sas[file]['nucs']:
-        #         for i in range(len(sas[file]['nucs'][res_name])):
-        #             try:
-        #                 my_perc_diff.append((float(sas[file]['nucs'][res_name][i]) - float(
-        #                     sas[file_name]['nucs'][res_name][i])) / float(sas[file_name]['nucs'][res_name][i]))
-        #             except ZeroDivisionError:
-        #                 continue
-        # except KeyError:
-        #     pass
         try:
-            for res_name in sas[file]['aminos']:
-                for i in range(len(sas[file]['aminos'][res_name])):
-                    my_perc_diff.append((float(sas[file]['aminos'][res_name][i]) - float(
-                        sas[file_name]['aminos'][res_name][i])) / float(sas[file_name]['aminos'][res_name][i]))
-        except KeyError:
-            pass
-        sa_means.append(round(sum(my_perc_diff) * 100, 3))
-        sa_std_errs.append(round(np.std(my_perc_diff) / np.sqrt(len(my_perc_diff)) * 100, 3))
+            surface_area = float(row[cols['surface_area']])
+        except (TypeError, ValueError):
+            surface_area = 0.0
 
-    # Your existing code
-    vol_data = (vol_means[::2], vol_means[1::2], vol_std_errs[::2], vol_std_errs[1::2])
-    sa_data = (sa_means[::2], sa_means[1::2], sa_std_errs[::2], sa_std_errs[1::2])
+        if key not in residue_data:
+            residue_data[key] = {
+                'label': label,
+                'residue': resname,
+                'residue_sequence': resid,
+                'chain': chain,
+                'volume': 0.0,
+                'surface_area': 0.0,
+                'atom_count': 0,
+                'scheme': scheme_name,
+                'voronoi': vor_type,
+            }
 
-    return vol_data, sa_data
+        residue_data[key]['volume'] += volume
+        residue_data[key]['surface_area'] += surface_area
+        residue_data[key]['atom_count'] += 1
+
+    return residue_data
 
 
-if __name__ == '__main__':
-    # Go to the logs and pdbs folder
+def load_all_residue_data(model_folder):
+    all_data = {}
+
+    for scheme_name, _ in SCHEME_ORDER:
+        scheme_path = os.path.join(model_folder, scheme_name)
+
+        if not os.path.isdir(scheme_path):
+            print(f'MISSING scheme folder: {scheme_path}')
+            continue
+
+        all_data[scheme_name] = {}
+
+        for vor_type in VORONOI_TYPES:
+            log_path = os.path.join(scheme_path, vor_type, f'{vor_type}_logs.csv')
+
+            if not os.path.exists(log_path):
+                print(f'MISSING log file: {log_path}')
+                continue
+
+            print(f'Reading: {log_path}')
+            atoms_df = get_atoms_df_from_logs(log_path)
+            all_data[scheme_name][vor_type] = aggregate_specific_residues(
+                atoms_df=atoms_df,
+                scheme_name=scheme_name,
+                vor_type=vor_type
+            )
+
+            print(f'  residues found: {len(all_data[scheme_name][vor_type])}')
+
+    return all_data
+
+
+# =============================================================================
+# Diagnostics
+# =============================================================================
+
+def get_all_residue_keys(all_data):
+    keys = set()
+
+    for scheme_name in all_data:
+        for vor_type in all_data[scheme_name]:
+            keys.update(all_data[scheme_name][vor_type].keys())
+
+    return sorted(keys)
+
+
+def get_reference_residue_info(all_data, key):
+    for scheme_name, _ in SCHEME_ORDER:
+        for vor_type in VORONOI_TYPES:
+            try:
+                return all_data[scheme_name][vor_type][key]
+            except KeyError:
+                continue
+
+    return {
+        'label': key,
+        'residue': '',
+        'residue_sequence': '',
+        'chain': '',
+        'atom_count': '',
+    }
+
+
+def write_raw_volume_diagnostic(all_data, output_path):
+    header = ['Residue_Key', 'Residue_Label', 'Residue', 'Chain', 'Residue_Sequence']
+
+    for scheme_name, scheme_label in SCHEME_ORDER:
+        for vor_type in VORONOI_TYPES:
+            header.append(f'{scheme_label}_{vor_type}_volume')
+
+    keys = get_all_residue_keys(all_data)
+
+    with open(output_path, 'w', newline='') as out_file:
+        writer = csv.writer(out_file)
+        writer.writerow(header)
+
+        for key in keys:
+            info = get_reference_residue_info(all_data, key)
+            row = [
+                key,
+                info.get('label', key),
+                info.get('residue', ''),
+                info.get('chain', ''),
+                info.get('residue_sequence', ''),
+            ]
+
+            for scheme_name, _ in SCHEME_ORDER:
+                for vor_type in VORONOI_TYPES:
+                    value = ''
+                    try:
+                        value = all_data[scheme_name][vor_type][key]['volume']
+                    except KeyError:
+                        pass
+                    row.append(value)
+
+            writer.writerow(row)
+
+    print(f'Wrote raw volume diagnostic: {output_path}')
+
+
+def write_percent_difference_diagnostic(all_data, output_path):
+    ref_data = all_data.get(REFERENCE_SCHEME, {}).get(REFERENCE_VORONOI, {})
+
+    header = ['Residue_Key', 'Residue_Label', 'Residue', 'Chain', 'Residue_Sequence', 'Reference_Atom_aw_volume']
+
+    for scheme_name, scheme_label in SCHEME_ORDER:
+        for vor_type in VORONOI_TYPES:
+            header.append(f'{scheme_label}_{vor_type}_abs_percent_diff_volume')
+
+    keys = sorted(ref_data.keys())
+
+    with open(output_path, 'w', newline='') as out_file:
+        writer = csv.writer(out_file)
+        writer.writerow(header)
+
+        for key in keys:
+            ref = ref_data[key]['volume']
+            info = ref_data[key]
+
+            row = [
+                key,
+                info.get('label', key),
+                info.get('residue', ''),
+                info.get('chain', ''),
+                info.get('residue_sequence', ''),
+                ref,
+            ]
+
+            for scheme_name, _ in SCHEME_ORDER:
+                for vor_type in VORONOI_TYPES:
+                    value = ''
+                    try:
+                        comp = all_data[scheme_name][vor_type][key]['volume']
+                        if ref != 0:
+                            value = abs(comp - ref) / ref * 100.0
+                    except KeyError:
+                        pass
+                    row.append(value)
+
+            writer.writerow(row)
+
+    print(f'Wrote percent-difference diagnostic: {output_path}')
+
+
+def print_sample_matches(all_data):
+    if not PRINT_SAMPLE_RESIDUES:
+        return
+
+    ref_data = all_data.get(REFERENCE_SCHEME, {}).get(REFERENCE_VORONOI, {})
+    keys = sorted(ref_data.keys())[:SAMPLE_RESIDUE_COUNT]
+
+    print('\n=== Sample residue instance keys from reference Atom/aw ===')
+    for key in keys:
+        info = ref_data[key]
+        print(
+            f"{key} | label={info['label']} | "
+            f"volume={info['volume']:.3f} | SA={info['surface_area']:.3f} | atoms={info['atom_count']}"
+        )
+
+
+# =============================================================================
+# Summary calculation
+# =============================================================================
+
+def compute_summary_rows(all_data):
+    ref_data = all_data.get(REFERENCE_SCHEME, {}).get(REFERENCE_VORONOI, {})
+
+    if not ref_data:
+        raise ValueError('Reference data was not found: 1_Atom/aw')
+
+    rows = []
+
+    for scheme_name, scheme_label in SCHEME_ORDER:
+        for vor_type in VORONOI_TYPES:
+            comp_data = all_data.get(scheme_name, {}).get(vor_type, {})
+            diffs = []
+
+            for key, ref_info in ref_data.items():
+                if key not in comp_data:
+                    continue
+
+                ref_volume = ref_info['volume']
+                comp_volume = comp_data[key]['volume']
+
+                if ref_volume == 0:
+                    continue
+
+                diffs.append(abs(comp_volume - ref_volume) / ref_volume * 100.0)
+
+            if len(diffs) == 0:
+                mean_diff = ''
+                stderr_diff = ''
+                n = 0
+            else:
+                diff_array = np.array(diffs, dtype=float)
+                mean_diff = float(np.mean(diff_array))
+                stderr_diff = float(np.std(diff_array) / np.sqrt(len(diff_array)))
+                n = len(diff_array)
+
+            rows.append({
+                'scheme': scheme_name,
+                'scheme_label': scheme_label,
+                'voronoi': vor_type,
+                'mean_abs_percent_diff_volume': mean_diff,
+                'stderr_abs_percent_diff_volume': stderr_diff,
+                'n_matched_residues': n,
+            })
+
+    return rows
+
+
+def write_summary(rows, output_path):
+    header = [
+        'scheme',
+        'scheme_label',
+        'voronoi',
+        'mean_abs_percent_diff_volume',
+        'stderr_abs_percent_diff_volume',
+        'n_matched_residues',
+    ]
+
+    with open(output_path, 'w', newline='') as out_file:
+        writer = csv.DictWriter(out_file, fieldnames=header)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+
+    print(f'Wrote summary: {output_path}')
+
+
+def print_summary(rows):
+    print('\n=== Mean absolute percent difference from Atom/aw reference ===')
+    for row in rows:
+        mean_diff = row['mean_abs_percent_diff_volume']
+        stderr = row['stderr_abs_percent_diff_volume']
+
+        if mean_diff == '':
+            mean_text = 'NA'
+            stderr_text = 'NA'
+        else:
+            mean_text = f'{mean_diff:.3f}'
+            stderr_text = f'{stderr:.3f}'
+
+        print(
+            f"{row['scheme_label']:>8s} {row['voronoi']:>3s}: "
+            f"mean={mean_text}% | stderr={stderr_text}% | n={row['n_matched_residues']}"
+        )
+
+
+# =============================================================================
+# Main
+# =============================================================================
+
+def select_model_folder():
     root = tk.Tk()
     root.withdraw()
     root.wm_attributes('-topmost', 1)
-    logs_pdb_folder = filedialog.askdirectory()
-    # Get the model name
-    my_model_name = ''
-    log_files, pdb_files = [], []
-    for file in os.listdir(logs_pdb_folder):
-        filename = os.fsdecode(file)
-        if filename.endswith('a.pdb'):
-            pdb_files.append(os.path.join(logs_pdb_folder, filename))
-            pdb_files.append(os.path.join(logs_pdb_folder, filename))
-            # Get the name of the model
-            my_model_name = filename[:-6]
-        elif filename.endswith('.csv') and '_a_logs' in filename:
-            log_files.append(os.path.join(logs_pdb_folder, filename))
+    folder = filedialog.askdirectory(title='Select model folder, e.g. K_NCP')
+    root.destroy()
 
-    # Go through the files in the folder sorting them
-    for file in os.listdir(logs_pdb_folder):
-        filename = os.fsdecode(file)
-        if '_a.pdb' in filename or '_a_logs' in filename:
-            continue
-        if filename.endswith('.pdb'):
-            pdb_files.append(os.path.join(logs_pdb_folder, filename))
-            pdb_files.append(os.path.join(logs_pdb_folder, filename))
-        elif filename.endswith('.csv') and 'logs' in filename:
-            log_files.append(os.path.join(logs_pdb_folder, filename))
-    # Check to see if the data has been processed yet
-    if not os.path.exists(logs_pdb_folder + '/residue_data.csv'):
-        # Get the data from the log files and sort it
-        my_info = compare_files(pdb_files, log_files, avg_distros=True, by_residues=True)
-        # Put the data into a csv file for later access
-        with open(logs_pdb_folder + '/residue_data.csv', 'w') as res_file:
-            res_fl = csv.writer(res_file)
-            res_fl.writerow(['file', 'residue type', 'name', 'residue', 'volume', 'surface area'])
-            for file in my_info['residues']:
-                for res_type in my_info['residues'][file]:
-                    for res_name in my_info['residues'][file][res_type]:
-                        for res in my_info['residues'][file][res_type][res_name]:
-                            res_fl.writerow(
-                                [file, res_type, res_name, res] + [my_info['residues'][file][res_type][res_name][res][_]
-                                                                   for _ in
-                                                                   my_info['residues'][file][res_type][res_name][res]])
-    vol_dat, sa_dat = percent_diff(logs_pdb_folder + '/residue_data.csv', file_name=my_model_name + '_a')
-    # Sample data
-    labels_dict = {'a': '1', 'ad_mw': '6', 'ad': '4', 'ncap': '2',
-                   'scbb_ad': '5', 'scbb_ncap': '3', 'scbb_ad_mw': '7',
-                   'martini': '8'}
-    labels = []
-    for file in pdb_files[::2]:
-        labels.append(labels_dict[file[len(logs_pdb_folder) + len(my_model_name) + 2:-4]])
+    if not folder:
+        raise ValueError('No folder selected.')
+
+    return folder
 
 
-    def sort_5_lists(lista, listb, listc, listd, liste):
-        # Zipping lists together and sorting by the first list
-        sorted_lists = sorted(zip(lista, listb, listc, listd, liste), key=lambda x: x[0])
+def main():
+    model_folder = select_model_folder()
+    print(f'\nSelected model folder: {model_folder}')
 
-        # Unpacking the sorted lists
-        lista, listb, listc, listd, liste = zip(*sorted_lists)
+    all_data = load_all_residue_data(model_folder)
+    print_sample_matches(all_data)
 
-        # Converting tuples back to lists if needed
-        lista = list(lista)
-        listb = list(listb)
-        listc = list(listc)
-        listd = list(listd)
-        liste = list(liste)
+    raw_output_path = os.path.join(model_folder, RAW_DIAGNOSTIC_FILENAME)
+    percent_output_path = os.path.join(model_folder, PERCENT_DIAGNOSTIC_FILENAME)
+    summary_output_path = os.path.join(model_folder, SUMMARY_FILENAME)
 
-        # Return the lists
-        return lista, listb, listc, listd, liste
+    write_raw_volume_diagnostic(all_data, raw_output_path)
+    write_percent_difference_diagnostic(all_data, percent_output_path)
 
-    labels1, volx1, volx2, voly1, voly2 = sort_5_lists(labels, *vol_dat)
+    rows = compute_summary_rows(all_data)
+    write_summary(rows, summary_output_path)
+    print_summary(rows)
 
-    labels2, sax1, sax2, say1, say2 = sort_5_lists(labels, *sa_dat)
+    print('\nDone.')
 
-    # Volume bar Plot
-    bar([volx1, volx2], None, labels1, ['Additively Weighted', 'Power'], my_model_name + ' Residue Volume % Diff',
-        'CG Schemes', '% Difference', Show=True, print_vals_on_bars=True, unit='%', xtick_label_size=30, xlabel_size=30,
-        ylabel_size=30, ytick_label_size=30, tick_width=2, tick_length=12)
-    # Surface Area Plot
-    bar([sax1, sax2], None, labels2, ['Additively Weighted', 'Power'], my_model_name + ' Residue SA % Diff',
-        'CG Schemes', '% Difference', Show=True, print_vals_on_bars=True, unit='%', xtick_label_size=30, xlabel_size=30,
-        ylabel_size=30, ytick_label_size=30, tick_width=2, tick_length=12)
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        print('\nSCRIPT FAILED. FULL TRACEBACK:\n')
+        traceback.print_exc()
+        input('\nPress Enter to close...')
