@@ -14,6 +14,7 @@ from vorpy.src.network.build_edge import build_edge
 from vorpy.src.network.build_surfs import build_surfs
 from vorpy.src.network.mark_doublets import mark_doublets
 from vorpy.src.network.find_net_verts import find_net_verts
+from vorpy.src.network.net_logs_connect import net_logs_connect
 
 
 class Network:
@@ -26,8 +27,8 @@ class Network:
     - Surface construction
     - Network analysis
     """
-    def __init__(self, locs, rads, names=None, group=None, settings=None, balls=None, verts=None, edges=None,
-                 surfs=None, box=None, sort_balls=False, build_net=False, masses=None):
+    def __init__(self, locs, rads, names=None, group=None, group_name=None, settings=None, balls=None, verts=None,
+                 edges=None, surfs=None, box=None, sort_balls=False, build_net=False, masses=None):
         """
         Initialize a Network object with the given parameters.
         
@@ -48,9 +49,11 @@ class Network:
         """
         # Main network defining objects
         self.group = group                # Group         : List of loc and rad indices for calculation
+        self.group_name = group_name      # Group Name    : Name of the group that the network comes from
         self.settings = settings          # Settings      : surf_res, surf_col, surf_schm, max_vert, net_type
         self.metrics = {'start': now()}   # Metrics       : Holds the time measurements for the build
         self.progress_window = None       # Prog. Window  : Progress window for GUI updates
+        self.loaded_from_logs = False     # Logs Flag     : Determines how the net was created
 
         # Network element lists
         self.balls = balls                # Balls         : Ball DF    - (loc, rad, verts, edges, surfs, vol)
@@ -239,6 +242,12 @@ class Network:
         self.surfs = pd.DataFrame(surf_lists)
         self.metrics['con'] = now() - self.metrics['start'] - self.metrics['vert']
 
+    def logs_connect(self):
+        """
+        Connects a network loaded from logs without resolving vertices.
+        """
+        return net_logs_connect(self)
+
     def get_real_verts(self):
         my_name = os.getcwd() + '/Data/user_data/' + self.group.sys.name + '_Correct/sys/' + self.group.sys.name + \
                   '_logs.csv'
@@ -262,6 +271,7 @@ class Network:
         """
         Builds the edges in the network for use in the surfaces
         """
+
         # Set the edge points and vals lists
         edges_points, edges_vals, edges_lengths = [], [], []
         # Go through the edges in the network
@@ -273,15 +283,23 @@ class Network:
                   .format(int(h), int(m), round(s, 2), i, percentage), end="")
 
             # Build the edge depending on if it is straight or not
-            # try:
-            edge_points, edge_vals = build_edge(locs=[array(self.balls['loc'][_]) for _ in edge['balls']],
-                                                rads=[self.balls['rad'][_] for _ in edge['balls']],
-                                                vlocs=[array(self.verts['loc'][_]) for _ in edge['verts']],
-                                                blocs=self.balls['loc'], brads=self.balls['rad'], eballs=edge['balls'],
-                                                res=self.settings['surf_res'],
-                                                straight=self.settings['net_type'] in {'prm', 'pow'},
-                                                edub=any([self.verts['dub'][_] in {1, 2} for _ in edge['verts']]),
-                                                edge_verts=self.verts.iloc[edge['verts']])
+
+            edge_points, edge_vals = build_edge(
+                locs=[array(self.balls['loc'][_]) for _ in edge['balls']],
+                rads=[self.balls['rad'][_] for _ in edge['balls']],
+                vlocs=[array(self.verts['loc'][_]) for _ in edge['verts']],
+                blocs=self.balls['loc'],
+                brads=self.balls['rad'],
+                eballs=edge['balls'],
+                res=self.settings['surf_res'],
+                straight=self.settings['net_type'] in {'prm', 'pow'},
+                edub=any([self.verts['dub'][_] in {1, 2} for _ in edge['verts']]),
+                edge_verts=self.verts.iloc[edge['verts']],
+                edge_index=i,
+                debug=False,
+                timeout=5.0
+            )
+
             edges_lengths.append(calc_length(array(edge_points)))
             edges_points.append(edge_points)
             edges_vals.append(edge_vals)
@@ -331,6 +349,9 @@ class Network:
         calc_verts : bool, optional
             If False, skips vertex calculations when loading existing network
         """
+        # Check for the group name
+        if self.group_name is None:
+            self.group_name = 'Group'
         # Check to see if the only output for the exports is logs
         limit_mem = False
         if self.settings['build_type'] == 'logs':
@@ -365,6 +386,6 @@ class Network:
         self.metrics['tot'] = now() - self.metrics['start']
         h, m, s = get_time(self.metrics['tot'])
         num_complete = len([_ for _ in self.balls['complete'] if _])
-        print("\rnetwork built - {} complete cell{}, {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
-              .format(num_complete, '' if num_complete == 1 else 's', len(self.verts), len(self.surfs), int(h), int(m),
-                      s, datetime.now()), end="")
+        print("\r\"{}\" network built - {} complete cell{}, {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
+              .format(self.group_name, num_complete, '' if num_complete == 1 else 's', len(self.verts),
+                      len(self.surfs), int(h), int(m), s, datetime.now()), end="")
