@@ -67,7 +67,7 @@ def export_info(grp, directory=None):
 def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=False, atom_verts=False, surfs=False,
                   sep_surfs=False, shell_surfs=False, edges=False, sep_edges=False, shell_edges=False,
                   verts=False, sep_verts=False, shell_verts=False, layers=-1, info=False, surr_atoms=False, logs=False,
-                  ext_atoms=False, concave_colors=False):
+                  ext_atoms=False, concave_colors=False, round_to=3):
     """
     Exports various components of a Group object to files based on specified parameters.
     This function provides flexible export options for different aspects of a molecular group,
@@ -117,6 +117,8 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         If True, exports the outermost atoms in the group's shell. Default is False
     concave_colors : bool, optional
         If True, exports the concave colors for the surfaces. Default is False
+    round_to : int, optional
+
     Returns
     -------
     None
@@ -189,7 +191,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     os.chdir(grp.dir)
     # Export the log file first
     if logs or all_:
-        write_logs(grp)
+        write_logs(grp, round_to=round_to)
     # If the user wants to export the atoms for the group
     if atoms or all_:
         if grp.sys.files['base_file'][-3:] == 'txt':

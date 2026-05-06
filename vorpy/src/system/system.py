@@ -126,7 +126,7 @@ class System:
         self.elements = elements            # Elements            :   List of elements with mass, number, radius, group
         self.element_radii = element_radii  # Element Radii       :   Dictionary of elements and their radii
         self.special_radii = special_radii  # Special Radii       :   Dictionary of residues and their atomic radii
-        self.decimals = None                # Decimals            :   Decimals setting for the whole system
+        self.round_to = None                # round_to            :   Decimals setting for the whole system
         self.export_type = 'large'          # Export type         :   Holds the type of objects that come out
         self.cmnds = None                   # Commands            :   Input commands for the system to be run
 
@@ -276,6 +276,11 @@ class System:
         file : str, optional
             Path to the molecular structure file (.pdb, .gro, .mol, .cif)
         """
+        # We first need to determine what type of file is being loaded
+        if file is not None and file[-3:] == 'csv':
+            self.load_net(file=file)
+            return
+
         # If a file is given read the file and set the system attributes
         if file is not None:
             # Set the file
@@ -394,29 +399,161 @@ class System:
             # If a ball file is loaded as well, this is a Voronota deal
             read_vta(self, vert_file=file, ball_file=vta_ball_file)
 
-    def load_net(self, file=None):
-        """Load a previously calculated network into the system.
-
-        Parameters
-        ----------
-        file : str, optional
-            Path to the network file to be loaded.
-
-        Notes
-        -----
-        If a file is provided, it will be stored in the system's files dictionary
-        under the 'net_file' key. The network will be read using the read_net function.
+    def load_net(self, file=None, group=None, rebuild_edges=True, rebuild_surfs=True, analyze=True, store_points=True):
         """
-        # If no file has been loaded before, create the main network
+        Load a previously calculated logs/network file into a Group network.
+        """
         if file is not None:
-            self.files['net_file'] = file
-        # Read the network file
-        read_net(self.net, self.net_file)
+            self.files["net_file"] = file
 
-        # Print if the system requires
+        if self.files["net_file"] is None:
+            raise ValueError("No network file provided.")
+
+        if self.groups is None or len(self.groups) == 0:
+            self.create_group(make_net=True)
+
+        if group is None:
+            group = self.groups[0]
+
+        if group.net is None:
+            group.make_net()
+
+        read_net(
+            group.net,
+            self.files["net_file"],
+            rebuild_edges=rebuild_edges,
+            rebuild_surfs=rebuild_surfs,
+            analyze=analyze,
+            store_points=store_points,
+        )
+
         if self.print_actions:
-            print("\r{} network loaded - {} verts, {} surfs\n"
-                  .format(self.name, len(self.net.verts), len(self.net.surfs)), end="")
+            print(
+                f"\r{self.name} network loaded - "
+                f"{len(group.net.verts)} verts, {len(group.net.edges)} edges, {len(group.net.surfs)} surfs\n",
+                end=""
+            )
+
+        return group.net
+
+    def load_group_logs(self, group_name, file, rebuild_edges=True, rebuild_surfs=True, analyze=True,
+                        store_points=True):
+        """
+        Load a logs file into a specific group after checking that the logs balls
+        match the currently loaded system balls.
+        """
+        from vorpy.src.inputs.logs import read_logs
+
+        if self.balls is None or len(self.balls) == 0:
+            raise ValueError("Load a ball/base file before loading group logs.")
+
+        log_data = read_logs(file, all_=True)
+        log_balls = log_data["atoms"]
+
+        for _, log_ball in log_balls.iterrows():
+            ball_index = int(log_ball["Index"])
+
+            if ball_index < 0 or ball_index >= len(self.balls):
+                raise ValueError(
+                    f"Logs file does not match the ball file. "
+                    f"Log ball index {ball_index} is outside the system ball range "
+                    f"0-{len(self.balls) - 1}."
+                )
+
+            sys_ball = self.balls.iloc[ball_index]
+
+            log_name = str(log_ball.get("Name", "")).strip()
+            sys_name = str(sys_ball.get("name", "")).strip()
+
+            log_loc = log_ball.get("loc", None)
+            sys_loc = sys_ball.get("loc", None)
+
+            # Name check is useful but can be loosened later if needed.
+            if log_name != sys_name:
+                raise ValueError(
+                    f"Logs file does not match the ball file. "
+                    f"First name mismatch at system ball index {ball_index}: "
+                    f"logs name={log_name}, system name={sys_name}."
+                )
+
+            if log_loc is not None and sys_loc is not None:
+                for j, axis in enumerate(["x", "y", "z"]):
+                    if abs(float(log_loc[j]) - float(sys_loc[j])) > 0.01:
+                        raise ValueError(
+                            f"Logs file does not match the ball file. "
+                            f"First coordinate mismatch at system ball index {ball_index}, axis {axis}: "
+                            f"logs={float(log_loc[j])}, system={float(sys_loc[j])}."
+                        )
+
+        for i, log_ball in log_balls.iterrows():
+            sys_ball = self.balls.iloc[i]
+
+            log_name = str(log_ball.get("Name", "")).strip()
+            sys_name = str(sys_ball.get("name", "")).strip()
+
+            log_loc = log_ball.get("loc", None)
+            sys_loc = sys_ball.get("loc", None)
+
+            log_rad = float(log_ball.get("Radius", log_ball.get("rad", 0)))
+            sys_rad = float(sys_ball.get("rad", 0))
+
+            if log_name != sys_name:
+                raise ValueError(
+                    f"Logs file does not match the ball file. "
+                    f"First mismatch at ball {i}: logs name={log_name}, system name={sys_name}."
+                )
+
+            if log_loc is not None and sys_loc is not None:
+                for j in range(3):
+                    if abs(float(log_loc[j]) - float(sys_loc[j])) > 0.001:
+                        raise ValueError(
+                            f"Logs file does not match the ball file. "
+                            f"First coordinate mismatch at ball {i}."
+                        )
+
+            if abs(log_rad - sys_rad) > 0.001:
+                raise ValueError(
+                    f"Logs file does not match the ball file. "
+                    f"First radius mismatch at ball {i}: logs={log_rad}, system={sys_rad}."
+                )
+
+        if self.groups is None:
+            self.groups = []
+
+        group = None
+        for existing_group in self.groups:
+            if existing_group.name == group_name:
+                group = existing_group
+                break
+
+        if group is None:
+            self.create_group(make_net=True)
+            group = self.groups[-1]
+            group.name = group_name
+
+        if group.net is None:
+            group.make_net()
+
+        read_net(
+            group.net,
+            file,
+            rebuild_edges=rebuild_edges,
+            rebuild_surfs=rebuild_surfs,
+            analyze=analyze,
+            store_points=store_points,
+        )
+
+        group.name = log_data["group data"].get("Name", group_name)
+
+        loaded_ball_indices = sorted([
+            int(_)
+            for _ in log_balls["Index"].dropna().tolist()
+        ])
+
+        group.loaded_log_ball_indices = loaded_ball_indices
+        group.ball_ndxs = loaded_ball_indices
+
+        return group
 
     def load_ndx(self, file=None):
         """Load GROMACS index files into the system.

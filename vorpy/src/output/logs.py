@@ -61,7 +61,11 @@ def write_logs(group, net_name=None, round_to=3):
                         "VDW Center of Mass", "Moment of Inertia", 'Spatial Moment of Inertia'])
         # Write the group information
         group.get_info()
-        lg_fl.writerow([group.name, r(group.vol), r(group.sa), float(group.mass), r(group.density), [float(r(_)) for _ in group.com],
+        log_name = group.sys.name
+        if getattr(net, "rebuilt_from_logs", False):
+            log_name = f"{log_name}_rebuilt_from_logs"
+
+        lg_fl.writerow([log_name, r(group.vol), r(group.sa), float(group.mass), r(group.density), [float(r(_)) for _ in group.com],
                         r(group.vdw_vol), [float(r(_)) for _ in group.vdw_com], [[float(r(__)) for __ in _] for _ in group.moi],
                         [[float(r(__)) for __ in _] for _ in group.spatial_moment]])
         # Write the atom header
@@ -76,7 +80,12 @@ def write_logs(group, net_name=None, round_to=3):
                         "Maximum Point Distance", "Number of Overlaps", "Contact Area", "Non-Overlap Volume",
                         "Overlap Volume", "Center of Mass", "Moment of Inertia Tensor", "Bounding Box", "neighbors"])
         # Go through the atoms in the system
-        sys_balls = group.sys.balls.iloc[[_ for _ in net.balls['num']]].to_dict(orient='records')
+        if "system_num" in net.balls.columns:
+            sys_nums = [int(_) for _ in net.balls["system_num"].tolist()]
+        else:
+            sys_nums = [int(_) for _ in net.balls["num"].tolist()]
+
+        sys_balls = group.sys.balls.iloc[sys_nums].to_dict(orient='records')
         for i, atom in net.balls.iterrows():
             sys_ball = sys_balls[i]
             if atom['sa'] == 0:

@@ -160,7 +160,8 @@ class Group:
         self.get_settings(surf_res=surf_res, surf_col=surf_col, surf_scheme=surf_scheme, max_vert=max_vert,
                           box_size=box_size, net_type=net_type, build_type=build_type, num_splits=num_splits,
                           scheme_factor=scheme_factor, print_metrics=print_metrics, ball_type=sys.type,
-                          sys_dir=sys.files['dir'], foam_box=sys.foam_box, vert_col=vert_col, edge_col=edge_col)
+                          sys_dir=sys.files['dir'], foam_box=sys.foam_box, vert_col=vert_col, edge_col=edge_col,
+                          round_to=sys.round_to)
 
         # Set the name
         if self.name is None:
@@ -183,7 +184,7 @@ class Group:
 
     def get_settings(self, surf_res=0.2, surf_col='plasma', surf_scheme='mean', scheme_factor='log', max_vert=40,
                      box_size=1.5, net_type='aw', build_type='all', num_splits=1, print_metrics=True, ball_type=None,
-                     sys_dir=None, foam_box=None, vert_col='red', edge_col='grey', conc_col=True):
+                     sys_dir=None, foam_box=None, vert_col='red', edge_col='grey', conc_col=True, round_to=3):
         """
         Sets the settings for the network building
         """
@@ -192,7 +193,7 @@ class Group:
                     'box_size': box_size, 'net_type': net_type, 'build_type': build_type, 'num_splits': num_splits,
                     'print_metrics': print_metrics, 'ball_type': ball_type, 'sys_dir': sys_dir, 'foam_box': foam_box,
                     'atom_rad': None, 'scheme_factor': scheme_factor, 'vert_col': vert_col, 'edge_col': edge_col,
-                    'conc_col': conc_col}
+                    'conc_col': conc_col, 'round_to': round_to}
         # Create the settings dictionary
         if self.settings is None:
             self.settings = defaults
@@ -267,15 +268,22 @@ class Group:
         Creates the network without an obligation to necessarily make it
         """
         self.net = Network(locs=self.sys.balls['loc'], rads=self.sys.balls['rad'], group=self.ball_ndxs,
-                           settings=self.settings, sort_balls=True, masses=self.sys.balls['mass'], verts=verts)
+                           group_name=self.name, settings=self.settings, sort_balls=True, masses=self.sys.balls['mass'],
+                           verts=verts)
 
     def build(self, verts=None):
         """
         Allows user to build the network from the system object.
         """
         self.get_settings()
+
         if self.net is None:
             self.make_net(verts)
+
+        if getattr(self.net, "loaded_from_logs", False):
+            print("Network already loaded from logs; skipping full rebuild.")
+            return
+
         self.net.build()
 
     def add_balls(self, ball_list):
@@ -326,4 +334,5 @@ class Group:
         group_exports(self, all_=all_, atoms=atoms, atom_surfs=atom_surfs, atom_edges=atom_edges, atom_verts=atom_verts,
                       surfs=surfs, sep_surfs=sep_surfs, shell_surfs=shell_surfs, edges=edges, sep_edges=sep_edges,
                       shell_edges=shell_edges, verts=verts, sep_verts=sep_verts, shell_verts=shell_verts, layers=layers,
-                      info=info, surr_atoms=surr_atoms, logs=logs, ext_atoms=ext_atoms, concave_colors=concave_colors)
+                      info=info, surr_atoms=surr_atoms, logs=logs, ext_atoms=ext_atoms, concave_colors=concave_colors,
+                      round_to=self.settings['round_to'])
