@@ -110,7 +110,35 @@ class BuildFrame(ttk.LabelFrame):
             'color_settings': color_settings
         }
         return self.settings
-    
+
+    def set_settings_from_logs(self, log_data):
+        net_type_map = {
+            "aw": "Additively Weighted",
+            "pow": "Power",
+            "prm": "Primitive",
+            "Additively Weighted": "Additively Weighted",
+            "Power": "Power",
+            "Primitive": "Primitive",
+        }
+
+        net_type = net_type_map.get(log_data.get("network_type", "aw"), "Additively Weighted")
+        max_vert = log_data.get("max_vert", 40)
+        box_size = log_data.get("box_size", 1.25)
+        surf_res = log_data.get("surface_resolution", 0.2)
+
+        self.network_type.set(net_type)
+
+        self.max_vertices.delete(0, tk.END)
+        self.max_vertices.insert(0, str(max_vert))
+
+        self.box_size.delete(0, tk.END)
+        self.box_size.insert(0, str(box_size))
+
+        self.settings["net_type"] = net_type
+        self.settings["max_vert"] = max_vert
+        self.settings["box_size"] = box_size
+        self.settings["color_settings"]["surf_res"] = str(surf_res)
+
     def copy_settings_from(self, other_frame):
         """Copy settings from another build frame."""
         # Copy the settings
