@@ -3,7 +3,7 @@ from vorpy.src.objects.atom import make_atom
 from pandas import DataFrame
 
 
-def read_mol(sys, file):
+def read_mol(sys, file=None):
     """
     Read and process a MOL format file into a system object.
 

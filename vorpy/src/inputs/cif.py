@@ -8,7 +8,7 @@ from vorpy.src.chemistry import residue_atoms
 from vorpy.src.inputs.fix_sol import fix_sol
 
 
-def read_cif(sys, file):
+def read_cif(sys, file=None):
     """
     Read and process a Crystallographic Information File (CIF) format into a system object.
 
