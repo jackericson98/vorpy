@@ -13,39 +13,7 @@ from vorpy.src.visualize import plot_verts
 import matplotlib.pyplot as plt
 
 
-def edge_bad(e_points):
-    """
-    Determine if the edge points are out of order based on their angular relationships.
-
-    Parameters:
-        e_points (list of tuples): List of coordinates for edge points.
-
-    Returns:
-        bool: True if all angles between consecutive triples of points are within
-              the specified range, False otherwise.
-    """
-    for i in range(len(e_points) - 2):
-        angle = calc_angle_jit(e_points[i + 1], e_points[i], e_points[i + 2])
-        if angle < np.pi / 3 or angle > 5 * np.pi / 3:
-            return False
-    return True
-
-
 def build_straight_edge(locs, rads, vlocs, res):
-    """
-    Construct a straight edge based on given locations and radii, resolving it into
-    multiple points along the edge based on the specified resolution.
-
-    Parameters:
-        locs (list of tuples): List of locations for the vertices.
-        rads (list of floats): Radii at each location.
-        vlocs (list of tuples): Vertex locations defining the edge endpoints.
-        res (float): Resolution determining the number of divisions along the edge.
-
-    Returns:
-        tuple: A tuple containing a list of points defining the edge and a dictionary with edge metadata.
-    """
-    # Get the location and radius of the circle inscribed between the edge atoms
     try:
         loc, rad = calc_circ(locs[0], locs[1], locs[2], rads[0], rads[1], rads[2])
     except TypeError:
@@ -61,9 +29,12 @@ def build_straight_edge(locs, rads, vlocs, res):
     new_res = edge_dist / num_points
     # Find the direction the edge heads
     edge_dir = vlocs[1] - vlocs[0]
-    # Find the normalized vector between the vertices
-    e_hat = edge_dir / np.linalg.norm(edge_dir)
-    # Create the points
+    edge_dir_norm = np.linalg.norm(edge_dir)
+
+    if edge_dir_norm == 0 or not np.isfinite(edge_dir_norm):
+        return [vlocs[0], vlocs[1]], vals
+
+    e_hat = edge_dir / edge_dir_norm
     e_points = [vlocs[0] + i * new_res * e_hat for i in range(num_points + 1)]
     # Return the edge
     return e_points, vals
@@ -89,20 +60,80 @@ def mid_edge_point(ep1, ep2, func, vmid, direction, new_direction=True):
         edir = ep2 - ep1
         # Get the distance between the points
         edist = calc_dist(ep1, ep2)
-        # Get the ehat vector
-        ehat = edir / edist
-        # Get the middle point between the edge points
-        proj_point = ep1 + 0.5 * edist * ehat
-        # Get the normalized vector
+
+        if edist == 0 or not np.isfinite(edist):
+            return None
+
+        proj_point = ep1 + 0.5 * edir
         rn = proj_point - vmid
-        # Normalize it
-        direction = rn / np.linalg.norm(rn)
-    # Project the point toward the projection point
+        rn_norm = np.linalg.norm(rn)
+
+        if rn_norm == 0 or not np.isfinite(rn_norm):
+            return None
+
+        direction = rn / rn_norm
+
+    direction = np.array(direction, dtype=float)
+    dnorm = np.linalg.norm(direction)
+
+    if dnorm == 0 or not np.isfinite(dnorm):
+        return None
+
+    direction = direction / dnorm
+
     return edge_project(np.array(direction), np.array(vmid), np.array(func))
 
 
-def build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight=False, vmid=None, dnorm=None, edub=False,
-               edge_points1=None, edge_verts=None, redone_edge=False):
+def choose_stable_dnorm(vlocs, func, vmid, dnorm):
+    mid_a = mid_edge_point(
+        vlocs[0],
+        vlocs[1],
+        func,
+        vmid,
+        dnorm,
+        new_direction=False
+    )
+
+    mid_b = mid_edge_point(
+        vlocs[0],
+        vlocs[1],
+        func,
+        vmid,
+        -dnorm,
+        new_direction=False
+    )
+
+    if mid_a is None or not np.all(np.isfinite(mid_a)):
+        return -dnorm
+
+    if mid_b is None or not np.all(np.isfinite(mid_b)):
+        return dnorm
+
+    score_a = calc_dist(vlocs[0], mid_a) + calc_dist(mid_a, vlocs[1])
+    score_b = calc_dist(vlocs[0], mid_b) + calc_dist(mid_b, vlocs[1])
+
+    return -dnorm if score_b < score_a else dnorm
+
+
+def build_edge(
+        locs,
+        rads,
+        vlocs,
+        res,
+        blocs,
+        brads,
+        eballs,
+        straight=False,
+        vmid=None,
+        dnorm=None,
+        edub=False,
+        edge_points1=None,
+        edge_verts=None,
+        redone_edge=False,
+        edge_index=None,
+        debug=False,
+        timeout=5.0
+):
     """
     Constructs an edge based on various parameters describing the geometry and properties of the network elements.
 
@@ -126,7 +157,15 @@ def build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight=False, vmi
     Returns:
         tuple: A tuple containing the list of computed edge points and additional values for further processing.
     """
-    # If the edge is straight build the straight edge
+
+    def dprint(msg):
+        if debug:
+            print(msg)
+
+    vlocs = [np.array(vlocs[0], dtype=float), np.array(vlocs[1], dtype=float)]
+    locs = [np.array(_, dtype=float) for _ in locs]
+    rads = [float(_) for _ in rads]
+
     if straight or round(rads[0], 3) == round(rads[1], 3) == round(rads[2], 3):
         return build_straight_edge(locs, rads, vlocs, res)
 
@@ -138,16 +177,46 @@ def build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight=False, vmi
 
     # Get the edge direction
     edge_vals = None
-    if vmid is None:
-        edge_vals = calc_edge_dir(blocs, brads, eballs, vlocs, edub=edub)
-        vmid, dnorm = edge_vals['vmid'], edge_vals['dnorm']
 
-    if edge_points1 is not None:
+    if vmid is None or dnorm is None:
+        edge_vals = calc_edge_dir(blocs, brads, eballs, vlocs, edub=edub)
+
+        if edge_vals is None:
+            return build_straight_edge(locs, rads, vlocs, res)
+
+        vmid = edge_vals["vmid"]
+        dnorm = edge_vals["dnorm"]
+        dnorm = choose_stable_dnorm(vlocs, func, vmid, dnorm)
+
+    else:
+        vmid = np.array(vmid, dtype=float)
+        dnorm = np.array(dnorm, dtype=float)
+        dnorm_norm = np.linalg.norm(dnorm)
+
+        if dnorm_norm == 0 or not np.isfinite(dnorm_norm):
+            edge_vals = calc_edge_dir(blocs, brads, eballs, vlocs, edub=edub)
+            vmid = edge_vals["vmid"]
+            dnorm = edge_vals["dnorm"]
+            dnorm = choose_stable_dnorm(vlocs, func, vmid, dnorm)
+        else:
+            dnorm = dnorm / dnorm_norm
+
+    dprint(f"\nBUILD_EDGE edge={edge_index}, eballs={eballs}, redone={redone_edge}")
+    dprint(f"vlocs distance: {calc_dist(vlocs[0], vlocs[1])}")
+    dprint(f"rads: {rads}")
+    dprint(f"vmid: {vmid}")
+    dprint(f"dnorm: {dnorm}")
+
+    if edge_points1 is not None and edge_vals is not None:
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
         plot_edges([edge_points1], fig, ax)
         plot_balls([blocs[_] for _ in eballs], [brads[_] for _ in eballs], fig=fig, ax=ax)
-        ax.plot([edge_vals['vmid'][0], edge_vals['vmid'][0] + edge_vals['dnorm'][0]], [edge_vals['vmid'][1], edge_vals['vmid'][1] + edge_vals['dnorm'][1]], [edge_vals['vmid'][2], edge_vals['vmid'][2] + edge_vals['dnorm'][2]])
+        ax.plot(
+            [edge_vals['vmid'][0], edge_vals['vmid'][0] + edge_vals['dnorm'][0]],
+            [edge_vals['vmid'][1], edge_vals['vmid'][1] + edge_vals['dnorm'][1]],
+            [edge_vals['vmid'][2], edge_vals['vmid'][2] + edge_vals['dnorm'][2]]
+        )
         plot_balls([edge_vals['loc']], [edge_vals['rad']], fig=fig, ax=ax, colors=['red'])
         plot_verts(vlocs, [1, 1], fig=fig, ax=ax, colors=['g', 'g'])
         print(edge_vals)
@@ -155,156 +224,125 @@ def build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight=False, vmi
         print(edge_verts)
         plt.show()
 
-    # Check for the case 5
-    if edge_vals is not None and edge_vals['case'] == 5:
-        edge0 = build_edge(locs, rads, [vlocs[0], edge_vals['loc']], blocs, brads, eballs, res, straight,
-                           edge_vals['vmid0'], edge_vals['dnorm0'])
-        edge = build_edge(locs, rads, [edge_vals['loc'], edge_vals['loc2']], blocs, brads, eballs, res, straight,
-                          edge_vals['vmid'], edge_vals['dnorm'])
-        edge1 = build_edge(locs, rads, [edge_vals['loc2'], vlocs[1]], blocs, brads, eballs, res, straight,
-                           edge_vals['vmid1'], edge_vals['dnorm1'])
+    if edge_vals is not None and edge_vals.get("case") == 5:
+        edge0 = build_edge(
+            locs, rads, [vlocs[0], edge_vals['loc']], res, blocs, brads, eballs,
+            straight=straight,
+            vmid=edge_vals['vmid0'],
+            dnorm=edge_vals['dnorm0'],
+            edub=edub,
+            edge_verts=edge_verts,
+            edge_index=edge_index,
+            debug=debug,
+            timeout=timeout
+        )
+
+        edge = build_edge(
+            locs, rads, [edge_vals['loc'], edge_vals['loc2']], res, blocs, brads, eballs,
+            straight=straight,
+            vmid=edge_vals['vmid'],
+            dnorm=edge_vals['dnorm'],
+            edub=edub,
+            edge_verts=edge_verts,
+            edge_index=edge_index,
+            debug=debug,
+            timeout=timeout
+        )
+
+        edge1 = build_edge(
+            locs, rads, [edge_vals['loc2'], vlocs[1]], res, blocs, brads, eballs,
+            straight=straight,
+            vmid=edge_vals['vmid1'],
+            dnorm=edge_vals['dnorm1'],
+            edub=edub,
+            edge_verts=edge_verts,
+            edge_index=edge_index,
+            debug=debug,
+            timeout=timeout
+        )
+
         return edge0[0] + edge[0] + edge1[0], edge_vals
     # Create a catch for the time
     start = time.perf_counter()
     # Instantiate the edge points list with the vertices
     e_points = [*vlocs]
-    # Main edge calculation loop
+    loop_n = 0
+
     while True:
-        new_points_added = False  # Track whether new points are added in this iteration
+        loop_n += 1
+        loop_start = time.perf_counter()
+        new_points_added = False
+        insertions = 0
+        max_seg = 0.0
 
         # Loop through the edge points
         i = 0
         while i < len(e_points) - 1:
             # Get the middle points
             ep1, ep2 = e_points[i], e_points[i + 1]
+            seg_len = calc_dist(ep1, ep2)
+            max_seg = max(max_seg, seg_len)
 
-            # Check if the distance is greater than the resolution
-            if calc_dist(ep1, ep2) > res:
-                # Get the middle point
-                mid_point = mid_edge_point(ep1, ep2, func, vmid, dnorm, new_direction=len(e_points) > 2)
+            if seg_len > res:
+                mid_point = mid_edge_point(
+                    ep1,
+                    ep2,
+                    func,
+                    vmid,
+                    dnorm,
+                    new_direction=len(e_points) > 2
+                )
 
-                e_points.insert(i + 1, mid_point)  # Add the new midpoint
-                new_points_added = True  # Mark that we added a new point
+                if mid_point is None or not np.all(np.isfinite(mid_point)):
+                    # Degenerate midpoint fallback.
+                    mid_point = 0.5 * (ep1 + ep2)
 
-                i += 1  # Skip to the next segment
+                e_points.insert(i + 1, mid_point)
+                new_points_added = True
+                insertions += 1
+                i += 1
+
             i += 1
 
-        # If no new points were added, the refinement is complete
+        if debug:
+            dprint(
+                f"edge={edge_index}, redone={redone_edge}, "
+                f"loop={loop_n}, points={len(e_points)}, "
+                f"insertions={insertions}, max_seg={max_seg:.6f}, "
+                f"loop_time={time.perf_counter() - loop_start:.3f}s"
+            )
+
         if not new_points_added:
             return e_points, edge_vals
-        # Check the time
-        if time.perf_counter() - start > 50:
-            # If the edge is already being redone it is bad and there needs to be checked
-            return build_edge(locs, rads, vlocs, res, blocs, brads, eballs, straight, vmid, -dnorm, edub,
-                              redone_edge=True)
 
+        if time.perf_counter() - start > timeout:
+            if not redone_edge:
+                dprint(
+                    f"\nEDGE TIMEOUT RETRY: edge={edge_index}, eballs={eballs}, "
+                    f"points={len(e_points)}, max_seg={max_seg:.6f}"
+                )
 
-# Find projection values. Calculates the 181L end and projection points for the edge
-def calc_edge_proj_pt(pv0, pv1, loc):
-    # Get the projection point
-    # Find the point in between the two vertex points
-    r01 = pv1 - pv0  # Vector between vertices
-    r_mag = np.linalg.norm(r01)  # Magnitude of the vector between the two vertex points
-    rn01 = r01 / r_mag  # Normal to the vector between the vertices
-    pc01 = pv0 + 0.5 * rn01 * r_mag  # Center point
+                return build_edge(
+                    locs,
+                    rads,
+                    vlocs,
+                    res,
+                    blocs,
+                    brads,
+                    eballs,
+                    straight=straight,
+                    vmid=vmid,
+                    dnorm=-dnorm,
+                    edub=edub,
+                    edge_points1=edge_points1,
+                    edge_verts=edge_verts,
+                    redone_edge=True,
+                    edge_index=edge_index,
+                    debug=debug,
+                    timeout=timeout
+                )
 
-    # Determine if the theoretical center of the edge is inside the vertices or not
-    dr = 1
-    if np.sqrt(sum(np.square(loc - pv0))) < r_mag or np.sqrt(sum(np.square(loc - pv1))) < r_mag:
-        dr = -1
-
-    # Find the vector normal to the projection plane
-    p_norm = dr * np.cross(loc - pc01, pv1 - pc01)
-    # Find the vector perpendicular to the plane's normal (i.e. in the plane) and the vector between vertices
-    r_pcr = - np.cross(p_norm, rn01)
-    rn_pcr = r_pcr / np.linalg.norm(r_pcr)
-    # Calculate the reference point
-    return pc01 + 0.5 * r_mag * rn_pcr
-
-# Build edge function. Find points along the edge from its first vertex to its second. Has at least 10 points.
-def build_edge_old(locs, rads, vlocs, res, straight=None):
-    # To ensure a better edge we cut the resolution in quarters
-    res = res / 2
-    # Check for straightness
-    if straight is None:
-        straight = False
-        if rads[0] == rads[1] and rads[1] == rads[2]:
-            straight = True
-    # Get the location and radius of the circle inscribed between the edge atoms
-    try:
-        loc, rad = calc_circ(locs[0], locs[1], locs[2], rads[0], rads[1], rads[2])
-    except TypeError:
-        loc = calc_com([locs[0], locs[1], locs[2]])
-        rad = calc_dist(loc, locs[0]) - rads[0]
-    loc = np.array(loc)
-    vals = {'loc': loc, 'rad': rad}
-    # If the edge is straight return the bare minimum
-    if straight:
-        return vlocs, vals
-    # Choose a curved one to project onto. If the edge isn't straight 2 surfs are curved.
-    if round(rads[0], 10) == round(rads[1], 10):
-        func = calc_surf_func(locs[1], rads[1], locs[2], rads[2])
-    else:
-        func = calc_surf_func(locs[0], rads[0], locs[1], rads[1])
-
-    ################################################# Fill Edge ####################################################
-
-
-    # Reset the edges points
-    points = []
-    # Typical case, no doublets
-    pv0, pv1 = np.array(vlocs[0]), np.array(vlocs[1])
-    # If the edge is completely straight add points in a line from pv0 to pv0 and return
-    if straight or (rads[0] == rads[1] and rads[1] == rads[2]):
-        # Get the vector between the two vectors and the number of point in the edge
-        r = pv1 - pv0
-        num_points = max(int(np.linalg.norm(r) / (4 * res)), 4)
-        # Add the points
-        for i in range(num_points + 1):
-            points.append(pv0 + r * (i / num_points))
-        return points, vals
-    else:
-        pa = calc_edge_proj_pt(pv0, pv1, loc)
-
-    # Find the point in between the two vertex points
-    r01 = pv1 - pv0  # Vector between vertices
-    r_mag = np.linalg.norm(r01)  # Magnitude of the vector between the two vertex points
-    rn01 = r01 / r_mag  # Normal to the vector between the vertices
-    # Find the number of points
-    n = max(int(r_mag / res), 4)
-    # Calculate the angle between the vertices and the reference point
-    theta = calc_angle_jit(pa, pv0, pv1)
-    # Add the first vertex to the list of points
-    points = [pv0]
-    # Find the edges points. Don't count the vertex
-    for i in range(n + 1):
-        if i == 0:
-            A = 0.01 * theta / n
-        elif i == 1:
-            A = 0.99 * theta / n
-        else:
-            A = theta / n
-        # Set pb to the previous point
-        pb = points[-1]
-        # Get the distance between pb and pa for c
-        c = np.sqrt(sum(np.square(np.array(pb) - np.array(pa))))
-        # Get the angle between pb, pa and pb + rno1
-        B = calc_angle_jit(pb, pb + rn01, pa)
-        # Get the last angle
-        C = np.pi - B - A
-        # Get the distance to our projection point or 'a' on our triangle
-        a = np.sin(A) * c / np.sin(C)
-        # Use that distance to project rn01 from pb to find our projection point or pc
-        pc = pb + a * rn01
-        # Get the vector from pa to pc
-        r_ac = np.array(pc) - np.array(pa)
-        r_nac = r_ac / np.linalg.norm(r_ac)
-        # Project the vector onto the surface
-        surf_point = edge_project(r_nac, pa, np.array(func))
-        if surf_point is None:
-            break
-        points.append(surf_point)
-    # Add the end point
-    points.append(pv1)
-    # Finally return the points
-    return points, vals
+            raise RuntimeError(
+                f"Unable to build edge after retry. "
+                f"edge_index={edge_index}, eballs={eballs}, edge_verts={edge_verts}"
+            )
