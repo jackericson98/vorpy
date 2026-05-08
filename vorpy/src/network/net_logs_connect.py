@@ -218,6 +218,12 @@ def net_logs_connect(net):
         if "Balls" in df.columns and "balls" not in df.columns:
             df["balls"] = df["Balls"]
 
+        if "balls" not in df.columns:
+            raise KeyError(
+                f"{df_name} dataframe has no 'balls' or 'Balls' column. "
+                f"Columns found: {list(df.columns)}"
+            )
+
         df["balls"] = df["balls"].apply(_as_int_list)
 
     n_balls = len(net.balls)
