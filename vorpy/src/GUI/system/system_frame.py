@@ -251,15 +251,29 @@ class SystemFrame:
                 self.num_chains.set(len(self.gui.sys.chains))
 
     def _browse_other_files(self):
+
         """Open file dialog to select other files."""
         filename = filedialog.askopenfilename(
             title="Select Other File",
-            filetypes=[("All files", "*.*")]
+            filetypes=[
+                ("Vorpy logs", "*_logs.csv"),
+                ("CSV files", "*.csv"),
+                ("All files", "*.*"),
+            ]
         )
-        if filename:
-            if self.gui is not None:
-                self.gui.files['other_files'].append(filename)
-                self._update_file_display()
+
+        if not filename or self.gui is None:
+            return
+
+        self.gui.files['other_files'].append(filename)
+
+        # If this is a logs/network file, load it into the current system now.
+        if filename.lower().endswith(".csv") and "logs" in os.path.basename(filename).lower():
+            self.gui.sys.files['net_file'] = filename
+            self.gui.sys.load_net(filename)
+            print(f"\nLoaded network logs: {filename}")
+
+        self._update_file_display()
 
     def _update_file_display(self, file_string_len=50):
         """Update the display based on the number of files."""
@@ -306,6 +320,13 @@ class SystemFrame:
             if self.gui is not None:
                 self.gui.output_dir = directory
                 self.gui.sys.output_dir = directory
+                self.gui.sys.files['dir'] = directory
+                if self.gui.sys.groups is not None:
+                    for group in self.gui.sys.groups:
+                        if group.dir is None:
+                            group.dir = os.path.join(directory, group.name)
+                        else:
+                            group.dir = os.path.join(directory, os.path.basename(group.dir))
                 
                 # Truncate the directory path display with ellipses in the middle
                 if len(directory) > 50:
