@@ -24,7 +24,8 @@ class ExportFrame(ttk.LabelFrame):
         self.settings = {
             'size': 'Medium',
             'custom_settings': None,
-            'directory': 'Default Output Directory'
+            'directory': 'Default Output Directory',
+            'round_to': 3
         }
         
         # Create and pack widgets
@@ -59,7 +60,38 @@ class ExportFrame(ttk.LabelFrame):
         # Browse Button
         browse_button = ttk.Button(self, text="Browse", command=self._choose_export_location, width=8)
         browse_button.grid(row=2, column=4, sticky="w", padx=2, pady=5)
-    
+        # Round To setting
+        ttk.Label(self, text="Round To (Decimal Points):").grid(row=3, column=0, columnspan=2, padx=2, pady=5, sticky="w")
+
+        self.round_to = tk.IntVar(value=self.settings["round_to"])
+
+        round_spin = ttk.Spinbox(
+            self,
+            from_=0,
+            to=12,
+            textvariable=self.round_to,
+            width=5,
+            command=self._on_round_to_change
+        )
+        round_spin.grid(row=3, column=4, sticky="w", padx=2, pady=5)
+
+        round_spin.bind("<FocusOut>", lambda e: self._on_round_to_change())
+        round_spin.bind("<Return>", lambda e: self._on_round_to_change())
+
+    def _on_round_to_change(self):
+        try:
+            value = int(self.round_to.get())
+        except (ValueError, tk.TclError):
+            value = 3
+            self.round_to.set(value)
+
+        value = max(0, min(12, value))
+
+        self.settings["round_to"] = value
+
+        if self.gui is not None and getattr(self.gui, "sys", None) is not None:
+            self.gui.sys.round_to = value
+
     def _on_size_change(self, *args):
         """Handle changes to the export size selection."""
         size = self.export_size.get()
@@ -68,15 +100,24 @@ class ExportFrame(ttk.LabelFrame):
             self.settings['size'] = size
             self.settings['custom_settings'] = None
             self.custom_button.state(['!pressed'])
-    
+
     def _choose_export_location(self):
-        """Open a directory chooser dialog for export location."""
         directory = filedialog.askdirectory(title='Choose Export Location')
-        if directory:
-            self.export_location.delete(0, tk.END)
-            self.export_location.insert(0, directory)
-            # Update local settings
-            self.settings['directory'] = directory
+
+        if not directory:
+            return
+
+        self.export_location.delete(0, tk.END)
+        self.export_location.insert(0, directory)
+
+        self.settings["directory"] = directory
+
+        if self.gui is not None and getattr(self.gui, "sys", None) is not None:
+            self.gui.sys.files["dir"] = directory
+
+        print(f"[ExportFrame] directory selected = {directory}")
+        print(f"[ExportFrame] entry now = {self.export_location.get()}")
+        print(f"[ExportFrame] sys.files['dir'] now = {self.gui.sys.files['dir']}")
     
     def _open_custom_settings(self):
         """Open the custom export settings window."""
@@ -98,24 +139,36 @@ class ExportFrame(ttk.LabelFrame):
             # If cancelled, revert to previous settings
             self.export_size.set(self.settings['size'])
             self.custom_button.state(['!pressed'])
-    
+
     def get_settings(self):
         """Get the group's export settings."""
-        # Update directory from entry widget in case it was manually edited
-        self.settings['directory'] = self.export_location.get()
+        directory = self.export_location.get()
+
+        if directory in {"", "Default Output Directory"}:
+            if self.gui is not None and getattr(self.gui, "sys", None) is not None:
+                directory = self.gui.sys.files.get("dir", directory)
+
+        self.settings["directory"] = directory
+
+        if hasattr(self, "round_to"):
+            self._on_round_to_change()
+
+        print(f"[ExportFrame.get_settings] entry directory = {self.export_location.get()}")
+        print(f"[ExportFrame.get_settings] resolved directory = {self.settings['directory']}")
+
         return self.settings.copy()
     
     def copy_settings_from(self, other_frame):
         """Copy settings from another export frame."""
-        # Copy the settings
         self.settings = other_frame.get_settings()
-        
-        # Update the UI to reflect the new settings
+
         self.export_size.set(self.settings['size'])
         self.export_location.delete(0, tk.END)
         self.export_location.insert(0, self.settings['directory'])
-        
-        # Handle custom settings if present
+
+        self.round_to.set(int(self.settings.get("round_to", 3)))
+        self._on_round_to_change()
+
         if self.settings['size'] == "Custom":
             self.custom_button.state(['pressed'])
         else:
