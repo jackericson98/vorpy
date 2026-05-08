@@ -226,7 +226,7 @@ def calc_surf_tri_curvs(func, points, tris, curvature_type='gauss'):
         tri_curvs.append(curv)
     
     # Calculate the max of the tri curves if it isn't empty
-    max_tcs = max(tri_curvs) if tri_curvs else None
+    max_tcs = max(map(abs, tri_curvs)) if tri_curvs else None
 
     # Calculate the average of the tri curves
     avg_curv = calc_avg_curv(points, tris, tri_curvs)
