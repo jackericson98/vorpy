@@ -1,10 +1,11 @@
 import csv
+import os
 from datetime import datetime
 from vorpy.src.calculations import round_func
 from vorpy.src.version import __version__
 
 
-def write_logs(group, net_name=None, round_to=3):
+def write_logs(group, net_name=None, round_to=None):
     """
     Exports a comprehensive log file containing detailed information about the network analysis.
     
@@ -35,6 +36,8 @@ def write_logs(group, net_name=None, round_to=3):
         net_name (str, optional): Additional identifier for the log file name
         round_to (int, optional): Number of decimal places to round numerical values to. Defaults to 3.
     """
+    if round_to is None:
+        round_to = group.sys.round_to
     net = group.net
     # Set the network name for the logs file to be exported
     net_name = '' if net_name is None else '_' + str(net_name)
