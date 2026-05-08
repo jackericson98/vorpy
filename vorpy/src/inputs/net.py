@@ -30,6 +30,37 @@ def _rename_log_columns(df):
     return df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
 
 
+def _standardize_log_geometry_columns(balls, verts, edges, surfs):
+    if "loc" not in balls.columns and {"X", "Y", "Z"}.issubset(balls.columns):
+        balls["loc"] = balls[["X", "Y", "Z"]].values.tolist()
+
+    if "rad" not in balls.columns and "Radius" in balls.columns:
+        balls["rad"] = balls["Radius"]
+
+    if "balls" not in verts.columns:
+        vert_ball_cols = ["Ball 1", "Ball 2", "Ball 3", "Ball 4"]
+        if all(col in verts.columns for col in vert_ball_cols):
+            verts["balls"] = verts[vert_ball_cols].astype(int).values.tolist()
+
+    if "loc" not in verts.columns and {"x", "y", "z"}.issubset(verts.columns):
+        verts["loc"] = verts[["x", "y", "z"]].values.tolist()
+
+    if "rad" not in verts.columns and "r" in verts.columns:
+        verts["rad"] = verts["r"]
+
+    if "balls" not in edges.columns:
+        edge_ball_cols = ["Ball 1", "Ball 2", "Ball 3"]
+        if all(col in edges.columns for col in edge_ball_cols):
+            edges["balls"] = edges[edge_ball_cols].astype(int).values.tolist()
+
+    if "balls" not in surfs.columns:
+        surf_ball_cols = ["Ball 1", "Ball 2"]
+        if all(col in surfs.columns for col in surf_ball_cols):
+            surfs["balls"] = surfs[surf_ball_cols].astype(int).values.tolist()
+
+    return balls, verts, edges, surfs
+
+
 def _recalculate_loaded_vertices(net, verts):
     """
     Recalculate loaded vertex loc/rad from saved 4-ball definitions.
@@ -178,6 +209,13 @@ def read_net(net, file_name, rebuild_edges=True, rebuild_surfs=True, analyze=Tru
     verts = _rename_log_columns(log_data["verts"])
     edges = _rename_log_columns(log_data["edges"])
     surfs = _rename_log_columns(log_data["surfs"])
+
+    balls, verts, edges, surfs = _standardize_log_geometry_columns(
+        balls,
+        verts,
+        edges,
+        surfs
+    )
 
     if "loc" not in balls.columns and {"X", "Y", "Z"}.issubset(balls.columns):
         balls["loc"] = balls[["X", "Y", "Z"]].values.tolist()
