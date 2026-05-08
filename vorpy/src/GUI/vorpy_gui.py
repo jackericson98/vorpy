@@ -5,7 +5,7 @@ from pathlib import Path
 try:
     import tkinter as tk
     from tkinter import ttk
-    from tkinter import filedialog
+    from tkinter import filedialog, messagebox
     from PIL import Image, ImageTk
     HAS_TKINTER = True
 except ImportError:
@@ -55,6 +55,7 @@ class VorPyGUI(tk.Tk):
         self.radii_changes = []
         
         self.group_settings = {}
+        self.group_solves = {}
 
         # Title Section with Image Template
         title_frame = tk.Frame(self, pady=10)
@@ -154,11 +155,11 @@ class VorPyGUI(tk.Tk):
         print_button = ttk.Button(button_frame, text="Print", command=self.print_system)
         print_button.pack(side="left", padx=5)
 
-        run_button = ttk.Button(button_frame, text="Run All", command=self.run_program)
-        run_button.pack(side="right", padx=5)
+        export_button = ttk.Button(button_frame, text="Export", command=self.export_files)
+        export_button.pack(side="right", padx=5)
 
-        cancel_button = ttk.Button(button_frame, text="Cancel", command=self.quit)
-        cancel_button.pack(side="right", padx=5)
+        run_button = ttk.Button(button_frame, text="Solve", command=self.run_program)
+        run_button.pack(side="right", padx=5)
 
     def create_information_section(self, frame):
         self.system_frame = SystemFrame(self, frame)
@@ -175,6 +176,17 @@ class VorPyGUI(tk.Tk):
             self.sys.ball_file = filename
             self.sys.name = os.path.basename(filename)  # Update system name to filename
             self.files['sys_name'].set(self.sys.name.upper())  # Update the display
+
+    def get_group_by_name(self, group_name):
+        """Return the Group object stored in self.sys.groups by name."""
+        if self.sys.groups is None:
+            return None
+
+        for group in self.sys.groups:
+            if group.name == group_name:
+                return group
+
+        return None
 
     def choose_output_directory(self):
         self.sys.files['dir'] = filedialog.askdirectory(title='Choose Output Directory')
@@ -212,66 +224,189 @@ class VorPyGUI(tk.Tk):
             verts=verts
         )
 
-        # Export the group
-        exports = settings['export_settings'].get_settings()
-        # Check if the export directory is chosen
-        if exports['directory'] == 'Default Output Directory' or not os.path.exists(exports['directory']):
-            exports['directory'] = None
-        # Set the group's directory
-        group.dir = exports['directory']
+        if self.sys.groups is None:
+            self.sys.groups = []
 
-        # If the size is not custom export the given size information
-        if exports['size'] == 'Small':
-            group.exports(info=True, shell_surfs=True, logs=True, concave_colors=build_settings['color_settings']['conc_col'])
-        elif exports['size'] == 'Medium':
-            group.exports(shell_surfs=True, surfs=True, shell_edges=True, edges=True, shell_verts=True, verts=True,
-                            logs=True, atoms=True, surr_atoms=True, concave_colors=build_settings['color_settings']['conc_col'])
-        elif exports['size'] == 'Large':
-            # Export the group exports
-            group.exports(shell_verts=True, shell_edges=True, shell_surfs=True, info=True, edges=True, verts=True,
-                            atoms=True, surr_atoms=True, logs=True, atom_surfs=True, atom_edges=True, atom_verts=True,
-                            concave_colors=build_settings['color_settings']['conc_col'])
-        else:
-            cust = exports['custom_settings']
-            group.exports(info=cust['info'], logs=cust['logs'], atoms=cust['group_vars']['pdb'],
-                          sep_surfs=cust['surfs_separate'], sep_edges=cust['edges_separate'],
-                          sep_verts=cust['verts_separate'], atom_surfs=cust['surfs_cell'],
-                          atom_edges=cust['edges_cell'], atom_verts=cust['verts_cell'], surfs=cust['surfs_all'],
-                          edges=cust['edges_all'], verts=['verts_all'], shell_surfs=cust['surfs_shell'],
-                          shell_edges=cust['edges_shell'], shell_verts=cust['verts_shell'],
-                          surr_atoms=cust['surrounding_vars']['pdb'], concave_colors=build_settings['color_settings']['conc_col'])
+        if group not in self.sys.groups:
+            self.sys.groups.append(group)
+
+        self.group_solves[group_name] = True
+        return group
 
     def run_program(self):
         """
-        This sends a system to start running networks on all groups
+        Solve all groups without exporting.
         """
-
-        # Create a group if None exists
         if len(self.group_settings) == 0:
             self.sys.create_group()
 
-        # Set the output directory 
         self.sys.files['dir'] = self.output_dir
-        # Update the radii changes in the system
+
         for change in self.radii_changes:
             self.sys.set_radii(change)
 
-        # Create the groups with the correct settings
         for group_name in self.group_settings:
             verts = None
+
             if self.files['other_files']:
                 if 'verts' in self.files['other_files'][0]:
                     verts = self.files['other_files'][0]
+
             self.run_group(group_name, verts)
 
-        # Export the system exports
-        self.sys.exports(pdb=self.exports['pdb'], mol=self.exports['mol'], cif=self.exports['cif'],
-                         xyz=self.exports['xyz'], txt=self.exports['txt'], info=self.exports['info'],
-                         set_atoms=self.exports['set_atoms'])
-
-        # Print where the files were exported to
-        print(f"Files were exported to: {self.sys.files['dir']}")
         return self.sys
+
+    def export_single_group(self, group, settings):
+        """
+        Export an already solved or loaded group using that group's export settings.
+        """
+        build_settings = settings['build_settings'].get_settings()
+        exports = settings['export_settings'].get_settings()
+
+        # Resolve parent export directory
+        export_parent = exports.get("directory")
+
+        if export_parent in {None, "", "Default Output Directory"}:
+            export_parent = self.sys.files.get("dir")
+
+        if export_parent is None:
+            raise ValueError("No valid export directory is set.")
+
+        os.makedirs(export_parent, exist_ok=True)
+
+        # System files go to the parent export directory
+        self.sys.files["dir"] = export_parent
+
+        # Group files go to parent/group_name
+        group_dir = os.path.join(export_parent, group.name)
+        os.makedirs(group_dir, exist_ok=True)
+
+        group.dir = group_dir
+
+        print("\n=== EXPORT DIRECTORY DEBUG ===")
+        print(f"group name = {group.name}")
+        print(f"exports directory from GUI = {exports.get('directory')}")
+        print(f"system export dir = {self.sys.files['dir']}")
+        print(f"group export dir = {group.dir}")
+        print("=== END EXPORT DIRECTORY DEBUG ===\n")
+
+        concave_colors = build_settings['color_settings']['conc_col']
+        round_to = exports.get("round_to", 3)
+
+        if exports['size'] == 'Small':
+            group.exports(
+                info=True,
+                shell_surfs=True,
+                logs=True,
+                concave_colors=concave_colors,
+            )
+
+        elif exports['size'] == 'Medium':
+            group.exports(
+                shell_surfs=True,
+                surfs=True,
+                shell_edges=True,
+                edges=True,
+                shell_verts=True,
+                verts=True,
+                logs=True,
+                atoms=True,
+                surr_atoms=True,
+                concave_colors=concave_colors,
+            )
+
+        elif exports['size'] == 'Large':
+            group.exports(
+                shell_verts=True,
+                shell_edges=True,
+                shell_surfs=True,
+                info=True,
+                edges=True,
+                verts=True,
+                atoms=True,
+                surr_atoms=True,
+                logs=True,
+                atom_surfs=True,
+                atom_edges=True,
+                atom_verts=True,
+                concave_colors=concave_colors,
+            )
+
+        else:
+            cust = exports['custom_settings']
+
+            group.exports(
+                info=cust['info'],
+                logs=cust['logs'],
+                atoms=cust['group_vars']['pdb'],
+                sep_surfs=cust['surfs_separate'],
+                sep_edges=cust['edges_separate'],
+                sep_verts=cust['verts_separate'],
+                atom_surfs=cust['surfs_cell'],
+                atom_edges=cust['edges_cell'],
+                atom_verts=cust['verts_cell'],
+                surfs=cust['surfs_all'],
+                edges=cust['edges_all'],
+                verts=cust['verts_all'],
+                shell_surfs=cust['surfs_shell'],
+                shell_edges=cust['edges_shell'],
+                shell_verts=cust['verts_shell'],
+                surr_atoms=cust['surrounding_vars']['pdb'],
+                concave_colors=concave_colors,
+            )
+
+        print(f"Exported group: {group.name}")
+
+    def export_group_files(self, group_name=None, export_system=False):
+        """
+        Export one group if group_name is provided, otherwise export all solved/loaded groups.
+        """
+        if group_name is not None:
+            group_names = [group_name]
+        else:
+            group_names = list(self.group_settings.keys())
+
+        for name in group_names:
+            group = self.get_group_by_name(name)
+
+            solved = self.group_solves.get(name, False)
+            loaded_from_logs = group is not None and group.net is not None and getattr(group.net, "loaded_from_logs",
+                                                                                       False)
+
+            if group is None or group.net is None or (not solved and not loaded_from_logs):
+                messagebox.showwarning(
+                    "Group Not Solved",
+                    f"Group '{name}' has not been solved or loaded from logs yet.\n\n"
+                    f"Please solve the group before exporting."
+                )
+                continue
+
+            settings = self.group_settings[name]
+            self.export_single_group(group, settings)
+
+            group_dir = group.dir if group.dir is not None else self.sys.files['dir']
+            print(f"Group '{group.name}' files were exported to: {group_dir}")
+
+        if export_system:
+            self.export_files()
+
+    def export_files(self):
+        """
+        Export all solved/loaded groups, then export system-level files.
+        """
+        self.export_group_files(group_name=None, export_system=False)
+
+        self.sys.exports(
+            pdb=self.exports['pdb'],
+            mol=self.exports['mol'],
+            cif=self.exports['cif'],
+            xyz=self.exports['xyz'],
+            txt=self.exports['txt'],
+            info=self.exports['info'],
+            set_atoms=self.exports['set_atoms']
+        )
+
+        print(f"System files were exported to: {self.sys.files['dir']}")
 
     def open_help(self):
         """Open the help window."""
@@ -293,7 +428,6 @@ class VorPyGUI(tk.Tk):
         # Update the surface settings display in the build frame
         if hasattr(self, 'build_frame'):
             self.build_frame.update_surface_settings_display()
-
 
             
 if __name__ == "__main__":
