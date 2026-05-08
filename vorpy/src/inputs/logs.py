@@ -120,10 +120,11 @@ def read_surf(surf_line):
       8: Contact Area
       9: Overlap
     """
+    while surf_line and surf_line[-1] == "":
+        surf_line = surf_line[:-1]
     n = len(surf_line)
 
-    # If we have 10 or more entries, just use the first 10
-    if n == 12:
+    if n >= 12:
         core = surf_line[:12]
         return {
             "Index": int(core[0]),
@@ -139,22 +140,6 @@ def read_surf(surf_line):
         }
 
     elif n == 10:
-        core = surf_line[:10]
-        return {
-            "Index": int(core[0]),
-            "Balls": [int(core[1]), int(core[2])],
-            "Surface Area": float(core[3]),
-            "Mean Curvature": float(core[4]),
-            "Gauss Curvature": float(core[5]),
-            "Ball Volumes": [float(x) for x in core[6:8] if x != ""],
-            "Contact Area": float(core[8]),
-            "Overlap": float(core[9]),
-        }
-
-    # Older 9-field format: same as 10-field, but missing one field
-    elif n == 9:
-        # We will assume the last field is Overlap and that both ball volumes
-        # are present
         return {
             "Index": int(surf_line[0]),
             "Balls": [int(surf_line[1]), int(surf_line[2])],
@@ -163,10 +148,21 @@ def read_surf(surf_line):
             "Gauss Curvature": float(surf_line[5]),
             "Ball Volumes": [float(x) for x in surf_line[6:8] if x != ""],
             "Contact Area": float(surf_line[8]),
-            "Overlap": 0.0,  # unknown / not provided
+            "Overlap": float(surf_line[9]),
         }
 
-    # 8-field “legacy curvature” format (no separate Gauss curvature)
+    elif n == 9:
+        return {
+            "Index": int(surf_line[0]),
+            "Balls": [int(surf_line[1]), int(surf_line[2])],
+            "Surface Area": float(surf_line[3]),
+            "Mean Curvature": float(surf_line[4]),
+            "Gauss Curvature": float(surf_line[5]),
+            "Ball Volumes": [float(x) for x in surf_line[6:8] if x != ""],
+            "Contact Area": float(surf_line[8]),
+            "Overlap": 0.0,
+        }
+
     elif n == 8:
         return {
             "Index": int(surf_line[0]),
@@ -175,14 +171,10 @@ def read_surf(surf_line):
             "Curvature": float(surf_line[4]),
             "Ball Volumes": [float(x) for x in surf_line[5:7] if x != ""],
             "Contact Area": float(surf_line[7]),
-            "Overlap": 0.0,  # unknown / not provided
+            "Overlap": 0.0,
         }
 
-    # Anything else is unrecognized
-    else:
-        # Uncomment for debugging:
-        # print(f"{len(surf_line)} surface entries, Check Logs!!!! -> {surf_line}")
-        return None
+    return None
 
 
 def read_edge(edge_line):
