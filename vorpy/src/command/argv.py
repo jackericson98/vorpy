@@ -28,45 +28,53 @@ Argv rules:
 
 
 def argv_export(my_sys, usr_npt, add_on=None):
-
     """
-    Exports the specified elements from the system based on the provided export type.
+    Command-line export handler.
 
-    Parameters:
-    -----------
-    my_sys : System
-        The system containing the data to export
-    usr_npt : list
-        List of export specifications and parameters
-    add_on : str, optional
-        Additional directory path to append to export directory
-
-    Export Types:
-    ------------
-    'default' - Exports network, information, no Sol shell, pdb, set atoms from the system and atoms,
-                surrounding atoms, shell, and info from each group
-    'all' - Exports everything from the full system and each group (requires confirmation)
-    'info' - Exports only the information files for the system and each group
-    'surfs' - Exports the built surfaces individually from the system and all group surfaces + verts and edges
-    'dir' or 'directory' - Sets the export directory path
+    Default behavior:
+    - If no export type is specified, export medium/default.
+    - If only a directory is specified, still export medium/default to that directory.
+    - If explicit exports are specified, only export those.
     """
 
-    # Go through each of the inputs in the exports
-    if len(usr_npt) == 0:
-        usr_npt.append(['default'])
-    # Export the specified exports
+    if usr_npt is None:
+        usr_npt = []
+
+    # First pass: handle directory commands
+    export_commands = []
+
     for npt in usr_npt:
-        if npt[0].lower() in {'dir', 'directory'} and len(npt) == 2 and (os.path.isdir(npt[1]) or npt[1] == 'gsu_logs'):
-            if npt[1] == 'gsu_logs':
-                set_system_directory(my_sys, "C:/Users/jacke/OneDrive - Georgia State University/GSU NSC/Jack/Vorpy/test_data/{}/logs".format(my_sys.name))
-            else:
-                if add_on is None:
-                    my_sys.dir = npt[1]
-                else:
-                    my_sys.dir = npt[1] + add_on
-    for npt in usr_npt:
-        if npt[0].lower() in {'dir', 'directory'}:
+        if len(npt) == 0:
             continue
+
+        if npt[0].lower() in {'dir', 'directory'}:
+            if len(npt) < 2:
+                continue
+
+            out_dir = " ".join(npt[1:])
+
+            if add_on is not None:
+                out_dir = out_dir + add_on
+
+            os.makedirs(out_dir, exist_ok=True)
+
+            my_sys.dir = out_dir
+            my_sys.files['dir'] = out_dir
+
+            print(f"Export directory set to: {out_dir}")
+
+        else:
+            export_commands.append(npt)
+
+    # If user only gave -e dir, still do default/medium export
+    if len(export_commands) == 0:
+        export_commands.append(['default'])
+
+    # Second pass: run exports
+    for npt in export_commands:
+        if len(npt) == 0:
+            continue
+
         export_npt(my_sys, npt[0])
 
 
@@ -93,27 +101,62 @@ def export_npt(my_sys, usr_npt=None):
     None
         The function performs exports but does not return any values.
     """
+
+    print("\n=== EXPORT DEBUG ===")
+    print(f"export type      = {usr_npt}")
+    print(f"system name      = {my_sys.name}")
+    print(f"system dir       = {getattr(my_sys, 'dir', None)}")
+    print(f"files['dir']     = {my_sys.files.get('dir', None)}")
+    print(f"round_to         = {getattr(my_sys, 'round_to', None)}")
+    print(f"groups           = {len(getattr(my_sys, 'groups', []))}")
+
+    for i, grp in enumerate(getattr(my_sys, 'groups', [])):
+        print(f"\nGROUP {i}")
+        print(f"  name           = {grp.name}")
+        print(f"  dir            = {getattr(grp, 'dir', None)}")
+
+        if hasattr(grp, 'net'):
+            print(f"  verts          = {len(grp.net.verts)}")
+            print(f"  edges          = {len(grp.net.edges)}")
+            print(f"  surfs          = {len(grp.net.surfs)}")
+
+    print("====================\n")
+
     # If nothing is specified export the defaults
     if usr_npt is None or usr_npt.lower() in {'default', '2', 'medium', '', 'med'}:
+
+        print("RUNNING export_med()\n")
+
         export_med(sys=my_sys)
 
-    # Small export
     elif usr_npt.lower() in {"tiny", "i", "info", "0", "smallest"}:
+
+        print("RUNNING export_micro()\n")
+
         export_micro(my_sys)
 
-    # Medium small export
     elif usr_npt.lower() in {"small", "s", "1"}:
+
+        print("RUNNING export_tiny()\n")
+
         export_tiny(my_sys)
 
-    # Large Export
     elif usr_npt.lower() in {"large", "l", "3"}:
+
+        print("RUNNING export_large()\n")
+
         export_large(my_sys)
 
-    # Export all
     elif usr_npt.lower() in {'all', 'a', 'everything'}:
+
+        print("RUNNING export_all()\n")
+
         export_all(my_sys)
 
     else:
+
+        print(f"RUNNING other_exports({usr_npt})\n")
+
         other_exports(my_sys, usr_npt)
 
 

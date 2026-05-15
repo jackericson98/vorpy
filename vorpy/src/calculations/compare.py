@@ -2,7 +2,6 @@ import os
 import csv
 import time
 from os import path
-from vorpy.src.interface import Interface
 from vorpy.src.calculations.calcs import calc_dist
 
 
@@ -148,60 +147,3 @@ def compare_networks(sys, group1, group2, data_file=None):
             foam_writer = csv.writer(foam_file)
             # Write the data
             foam_writer.writerow(my_line)
-
-
-def make_interfaces(sys):
-    """
-    Analyzes groups in the system to identify and create interfaces between them.
-
-    This function examines pairs of groups in the system to determine if they share any common surfaces.
-    When an interface is found, it creates an interface network by combining materials from both groups'
-    networks. The function ensures that:
-    - Each interface is only created once (no reverse duplicates)
-    - Groups with overlapping ball indices are properly handled
-    - Only valid interfaces with shared surfaces are created
-
-    Parameters:
-    -----------
-    sys : System
-        The system containing groups to analyze for interfaces
-
-    Returns:
-    --------
-    None
-        The function modifies the system's interfaces attribute in place
-    """
-    # First make sure that there is at least two groups in the system
-    if len(sys.groups) < 2:
-        return
-    # Instantiate the interfaces attribute
-    if sys.ifaces is None:
-        sys.ifaces = []
-    # Group1s that have been made tracker for not doing reverse
-    group1_trackers = []
-    # Loop through the groups in the system
-    for group1 in sys.groups:
-        # Loop through the groups again
-        for group2 in sys.groups:
-            # Skip when the groups are the same or when the balls are the same
-            if group1 == group2 or group1.ball_ndxs == group2.ball_ndxs or group2 in group1_trackers:
-                continue
-
-            # Check that there are no overlapping ball ndxs
-            olap_ndxs = []
-            for ball_ndx in group1.ball_ndxs:
-                if ball_ndx in group2.ball_ndxs:
-                    olap_ndxs.append(ball_ndx)
-
-            # Create a set out of the group2. ball ndxs
-            g2_bndxs = set(group2.ball_ndxs)
-            # Get the overlapping surfaces
-            possible_surfs = group1.net.surfs[group1.net.surfs['balls'].apply(lambda balls: any(ball in g2_bndxs for ball in balls))]
-            # Check that there are any overlapping surfaces at all
-            if len(possible_surfs) == 0:
-                continue
-            # Finally add the Interface to the system's list of interfaces
-            sys.ifaces.append(Interface(group1, group2, surfs=possible_surfs))
-        # Add the group to group1 trackers
-        group1_trackers.append(group1)
-

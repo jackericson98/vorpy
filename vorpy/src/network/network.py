@@ -8,9 +8,10 @@ from numpy import array, inf, cbrt, sqrt
 from vorpy.src.calculations import get_time
 from vorpy.src.calculations import calc_length
 from vorpy.src.calculations import global_vars
+from vorpy.src.calculations import calc_dist
 from vorpy.src.network.analyze import analyze
 from vorpy.src.network.build_net import build
-from vorpy.src.network.build_edge import build_edge
+from vorpy.src.network.build_edge1 import build_edge
 from vorpy.src.network.build_surfs import build_surfs
 from vorpy.src.network.mark_doublets import mark_doublets
 from vorpy.src.network.find_net_verts import find_net_verts
@@ -281,23 +282,31 @@ class Network:
             h, m, s = get_time(my_time)
             print("\rRun Time = {}:{:02d}:{:2.2f} - Process: building edges: edge {} - {:.2f} %"
                   .format(int(h), int(m), round(s, 2), i, percentage), end="")
+            vlocs = [array(self.verts['loc'][_]) for _ in edge['verts']]
+            vdist = calc_dist(vlocs[0], vlocs[1])
 
+            if vdist < 1e-8:
+                print("\n=== ZERO LENGTH EDGE INPUT ===")
+                print(f"edge index = {i}")
+                print(f"edge balls = {edge['balls']}")
+                print(f"edge verts = {edge['verts']}")
+                print(f"vlocs[0] = {vlocs[0]}")
+                print(f"vlocs[1] = {vlocs[1]}")
+                print(self.verts.iloc[edge['verts']])
+                print("==============================\n")
             # Build the edge depending on if it is straight or not
 
             edge_points, edge_vals = build_edge(
                 locs=[array(self.balls['loc'][_]) for _ in edge['balls']],
                 rads=[self.balls['rad'][_] for _ in edge['balls']],
-                vlocs=[array(self.verts['loc'][_]) for _ in edge['verts']],
+                vlocs=vlocs,
                 blocs=self.balls['loc'],
                 brads=self.balls['rad'],
                 eballs=edge['balls'],
                 res=self.settings['surf_res'],
                 straight=self.settings['net_type'] in {'prm', 'pow'},
                 edub=any([self.verts['dub'][_] in {1, 2} for _ in edge['verts']]),
-                edge_verts=self.verts.iloc[edge['verts']],
-                edge_index=i,
-                debug=False,
-                timeout=5.0
+                edge_verts=self.verts.iloc[edge['verts']]
             )
 
             edges_lengths.append(calc_length(array(edge_points)))

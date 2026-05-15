@@ -14,7 +14,7 @@ def export_micro(sys):
         # Set up the group directory
         if group.dir is None:
             group.dir = sys.files['dir'] + '/' + group.name
-            os.mkdir(group.dir)
+            os.makedirs(group.dir, exist_ok=True)
         # Export the information for the group
         group.exports(info=True)
     # Loop through the interfaces for the groups.
@@ -43,7 +43,7 @@ def export_tiny(sys):
     sys.exports(info=True, set_atoms=True, pbd=True, balls=True)
     for group in sys.groups:
         group.dir = sys.files['dir'] + '/' + group.name
-        os.mkdir(group.dir)
+        os.makedirs(group.dir, exist_ok=True)
         group.export(info=True, shell=True, logs=True)
     if sys.ifaces is not None:
         for iface in sys.ifaces:
@@ -65,7 +65,7 @@ def export_med(sys):
             group.dir = sys.files['dir'] + '/' + group.name
             # Catch for if the group name is too long
             try:
-                os.mkdir(group.dir)
+                os.makedirs(group.dir, exist_ok=True)
             except FileNotFoundError:
                 group.dir = sys.files['dir'] + '/group'
         # Do the group exports
@@ -94,7 +94,7 @@ def export_large(sys):
         # Set and make the group directory
         if group.dir is None or not os.path.exists(sys.files['dir'] + '/' + group.name):
             group.dir = sys.files['dir'] + '/' + group.name
-            os.mkdir(group.dir)
+            os.makedirs(group.dir, exist_ok=True)
         # Export the group exports
         group.exports(shell_verts=True, shell_edges=True, shell_surfs=True, info=True, edges=True, verts=True,
                       atoms=True, surr_atoms=True, logs=True, atom_surfs=True, atom_edges=True, atom_verts=True)
@@ -120,9 +120,9 @@ def export_all(sys):
         # Set and make the group directory
         if group.dir is None or not os.path.exists(sys.files['dir'] + '/' + group.name):
             group.dir = sys.files['dir'] + '/' + group.name
-            os.mkdir(group.dir)
+            os.makedirs(group.dir, exist_ok=True)
         group.dir = sys.files['dir'] + '/' + group.name
-        os.mkdir(group.dir)
+        os.makedirs(group.dir, exist_ok=True)
         group.exports(atoms=True, shell=True, surfs=True, info=True, ext_atoms=True, sep_surfs=True, sep_edges=True,
                       sep_verts=True, verts=True, edges=True, surr_atoms=True, logs=True)
 

@@ -26,7 +26,6 @@ from vorpy.src.calculations.calcs import calc_vol
 from vorpy.src.calculations.calcs import calc_aw_center
 from vorpy.src.calculations.calcs import calc_pw_center
 from vorpy.src.calculations.compare import compare_networks
-from vorpy.src.calculations.compare import make_interfaces
 from vorpy.src.calculations.edge import calc_edge_proj_pt
 from vorpy.src.calculations.edge import calc_edge_dir
 from vorpy.src.calculations.edge import calc_circ

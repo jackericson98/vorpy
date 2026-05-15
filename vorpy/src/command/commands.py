@@ -100,6 +100,7 @@ build_surfses = ['bs', 'build_surfs', 'build_surf', 'build_surfses', 'build_surf
 conc_cols = ['cc', 'conc_col', 'concave_col', 'concave_color', 'concave_surfaces', 'concave_colors']
 vert_cols = ['vc', 'vert_col', 'vertex_color', 'vertex_colors']
 edge_cols = ['ec', 'edge_col', 'edge_color', 'edge_colors']
+round_tos = ["rt", "round", "round_to", "decimals", "decimal_places"]
 
 # Settings vals
 power_vals = ['pow', 'power', 'p', 'pwr', 'pwizzle']

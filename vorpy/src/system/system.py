@@ -2,6 +2,8 @@ import os
 import time
 from os import path
 from numpy import seterr
+from scipy.spatial import cKDTree
+from collections import Counter
 from vorpy.src.inputs import read_pdb
 from vorpy.src.inputs import read_cif
 from vorpy.src.inputs import read_gro
@@ -19,6 +21,183 @@ from vorpy.src.chemistry import special_radii
 from vorpy.src.chemistry import element_radii
 from vorpy.src.calculations import compare_networks
 from vorpy.src.calculations import make_interfaces
+from vorpy.src.calculations import get_time
+
+
+def infer_index_offset(index_map):
+    offsets = [
+        int(sys_i) - int(log_i)
+        for log_i, sys_i in index_map.items()
+    ]
+
+    if not offsets:
+        return 0
+
+    offset, count = Counter(offsets).most_common(1)[0]
+
+    if count / len(offsets) < 0.95:
+        return None
+
+    return offset
+
+
+def _atom_key_from_row(row):
+    return (
+        str(row.get("Name", row.get("name", ""))).strip(),
+        str(row.get("Residue", row.get("res_name", ""))).strip(),
+        str(row.get("Residue Sequence", row.get("res_seq", ""))).strip(),
+        str(row.get("Chain", row.get("chain", ""))).strip(),
+    )
+
+
+def _atom_key_relaxed_from_row(row):
+    return (
+        str(row.get("Name", row.get("name", ""))).strip(),
+        str(row.get("Residue", row.get("res_name", ""))).strip(),
+        str(row.get("Chain", row.get("chain", ""))).strip(),
+    )
+
+
+def _loc_from_row(row):
+    loc = row.get("loc", None)
+
+    if loc is not None:
+        return [float(_) for _ in loc]
+
+    if {"X", "Y", "Z"}.issubset(row.index):
+        return [float(row["X"]), float(row["Y"]), float(row["Z"])]
+
+    return None
+
+
+def _dist3(a, b):
+    return sum((float(a[i]) - float(b[i])) ** 2 for i in range(3)) ** 0.5
+
+
+def build_log_to_system_index_map(sys_balls, log_balls, tol=0.01, coord_fallback_tol=0.05):
+    start_time = time.perf_counter()
+    total = len(log_balls)
+
+    exact_lookup = {}
+    relaxed_lookup = {}
+
+    sys_locs = []
+    sys_indices = []
+
+    for sys_i, sys_ball in sys_balls.iterrows():
+        exact_key = _atom_key_from_row(sys_ball)
+        relaxed_key = _atom_key_relaxed_from_row(sys_ball)
+
+        exact_lookup.setdefault(exact_key, []).append(sys_i)
+        relaxed_lookup.setdefault(relaxed_key, []).append(sys_i)
+
+        sys_loc = _loc_from_row(sys_ball)
+        if sys_loc is not None:
+            sys_locs.append(sys_loc)
+            sys_indices.append(sys_i)
+
+    sys_tree = cKDTree(sys_locs) if sys_locs else None
+
+    index_map = {}
+    used_sys_indices = set()
+    mismatches = []
+
+    for count, (_, log_ball) in enumerate(log_balls.iterrows(), start=1):
+        if count == 1 or count % 100 == 0 or count == total:
+            my_time = time.perf_counter() - start_time
+            h, m, s = get_time(my_time)
+            percentage = 100.0 * count / total
+
+            print(
+                "\rRun Time = {}:{:02d}:{:2.2f} - Process: verifying log/system atom map: {} atoms - {:.2f} %"
+                .format(int(h), int(m), round(s, 2), count, percentage),
+                end=""
+            )
+
+        log_i = int(log_ball["Index"])
+        log_key = _atom_key_from_row(log_ball)
+        log_key_relaxed = _atom_key_relaxed_from_row(log_ball)
+        log_loc = _loc_from_row(log_ball)
+
+        candidate_source = "exact"
+        candidates = exact_lookup.get(log_key, [])
+
+        if not candidates:
+            candidate_source = "relaxed"
+            candidates = relaxed_lookup.get(log_key_relaxed, [])
+
+        candidates = [i for i in candidates if i not in used_sys_indices]
+
+        if not candidates and log_loc is not None and sys_tree is not None:
+            candidate_source = "coordinate"
+
+            dist, tree_i = sys_tree.query(log_loc, k=10)
+
+            if not hasattr(dist, "__len__"):
+                dist = [dist]
+                tree_i = [tree_i]
+
+            candidates = [
+                sys_indices[int(i)]
+                for d, i in zip(dist, tree_i)
+                if int(i) < len(sys_indices)
+                and d <= coord_fallback_tol
+                and sys_indices[int(i)] not in used_sys_indices
+            ]
+
+        if not candidates:
+            mismatches.append(
+                f"Logs Ball {log_i} has no available match in system.\n"
+                f"Logs exact key = {log_key}\n"
+                f"Logs relaxed key = {log_key_relaxed}\n"
+                f"Logs loc = {log_loc}"
+            )
+            continue
+
+        best_sys_i = None
+        best_dist = float("inf")
+
+        if log_loc is not None:
+            for sys_i in candidates:
+                sys_loc = _loc_from_row(sys_balls.iloc[sys_i])
+                if sys_loc is None:
+                    continue
+
+                d = _dist3(log_loc, sys_loc)
+
+                if d < best_dist:
+                    best_dist = d
+                    best_sys_i = sys_i
+        else:
+            best_sys_i = candidates[0]
+            best_dist = 0.0
+
+        allowed_tol = coord_fallback_tol if candidate_source == "coordinate" else tol
+
+        if best_sys_i is None or best_dist > allowed_tol:
+            mismatches.append(
+                f"Logs Ball {log_i} matched candidate by {candidate_source}, but coordinates do not align.\n"
+                f"Logs exact key = {log_key}\n"
+                f"Logs relaxed key = {log_key_relaxed}\n"
+                f"Logs loc = {[round(_, 3) for _ in log_loc] if log_loc is not None else None}\n"
+                f"Closest System Ball {best_sys_i} loc = "
+                f"{[round(_, 3) for _ in _loc_from_row(sys_balls.iloc[best_sys_i])] if best_sys_i is not None else None}\n"
+                f"Distance = {round(best_dist, 4)}"
+            )
+            continue
+
+        index_map[log_i] = int(best_sys_i)
+        used_sys_indices.add(int(best_sys_i))
+
+    print()
+
+    if mismatches:
+        raise ValueError(
+            "Logs file indices do not align with the current system and could not be remapped.\n\n"
+            + "\n\n".join(mismatches[:5])
+        )
+
+    return index_map
 
 
 class System:
@@ -206,7 +385,8 @@ class System:
         """
         # Set the defaults
         defaults = {'base_file': base_file, 'ball_file': ball_file, 'verts_file': verts_file, 'net_file': net_file,
-                    'ndx_file': ndx_file, 'dir': file_dir, 'frame_files': frame_files, 'vpy_dir': os.getcwd()}        # Set the files if they arent set yet
+                    'ndx_file': ndx_file, 'dir': file_dir, 'frame_files': frame_files, 'vpy_dir': os.getcwd()}
+        # Set the files if they aren't set yet
         
         # Get the directory two levels up from this file
         if defaults['vpy_dir'] is None or defaults['vpy_dir'][-5:] != 'vorpy':
@@ -216,7 +396,7 @@ class System:
             # Update the vpy_dir and root_dir in defaults
             defaults['vpy_dir'] = two_dirs_up
             defaults['root_dir'] = two_dirs_up
-        # Set the files if they arent set yet
+        # Set the files if they aren't set yet
         if self.files is None:
             self.files = defaults
         # Go through the files and see if they need to be set
@@ -228,9 +408,6 @@ class System:
         """
         Load and initialize all system files specified during initialization.
 
-        Parameters
-        ----------
-        None
         """
         # Load the system
         if self.files['base_file'] is not None:
@@ -275,6 +452,8 @@ class System:
         ----------
         file : str, optional
             Path to the molecular structure file (.pdb, .gro, .mol, .cif)
+        simple :
+        make_dir :
         """
         # We first need to determine what type of file is being loaded
         if file is not None and file[-3:] == 'csv':
@@ -419,6 +598,7 @@ class System:
             group.make_net()
 
         read_net(
+            group,
             group.net,
             self.files["net_file"],
             rebuild_edges=rebuild_edges,
@@ -439,8 +619,10 @@ class System:
     def load_group_logs(self, group_name, file, rebuild_edges=True, rebuild_surfs=True, analyze=True,
                         store_points=True):
         """
-        Load a logs file into a specific group after checking that the logs balls
-        match the currently loaded system balls.
+        Load a logs file into a specific group.
+
+        Supports logs whose atom indices do not directly align with the currently
+        loaded system by building a log-index -> system-index map.
         """
         from vorpy.src.inputs.logs import read_logs
 
@@ -450,72 +632,10 @@ class System:
         log_data = read_logs(file, all_=True)
         log_balls = log_data["atoms"]
 
-        for _, log_ball in log_balls.iterrows():
-            ball_index = int(log_ball["Index"])
+        log_to_sys_index = build_log_to_system_index_map(self.balls, log_balls)
+        index_offset = infer_index_offset(log_to_sys_index)
 
-            if ball_index < 0 or ball_index >= len(self.balls):
-                raise ValueError(
-                    f"Logs file does not match the ball file. "
-                    f"Log ball index {ball_index} is outside the system ball range "
-                    f"0-{len(self.balls) - 1}."
-                )
-
-            sys_ball = self.balls.iloc[ball_index]
-
-            log_name = str(log_ball.get("Name", "")).strip()
-            sys_name = str(sys_ball.get("name", "")).strip()
-
-            log_loc = log_ball.get("loc", None)
-            sys_loc = sys_ball.get("loc", None)
-
-            # Name check is useful but can be loosened later if needed.
-            if log_name != sys_name:
-                raise ValueError(
-                    f"Logs file does not match the ball file. "
-                    f"First name mismatch at system ball index {ball_index}: "
-                    f"logs name={log_name}, system name={sys_name}."
-                )
-
-            if log_loc is not None and sys_loc is not None:
-                for j, axis in enumerate(["x", "y", "z"]):
-                    if abs(float(log_loc[j]) - float(sys_loc[j])) > 0.01:
-                        raise ValueError(
-                            f"Logs file does not match the ball file. "
-                            f"First coordinate mismatch at system ball index {ball_index}, axis {axis}: "
-                            f"logs={float(log_loc[j])}, system={float(sys_loc[j])}."
-                        )
-
-        for i, log_ball in log_balls.iterrows():
-            sys_ball = self.balls.iloc[i]
-
-            log_name = str(log_ball.get("Name", "")).strip()
-            sys_name = str(sys_ball.get("name", "")).strip()
-
-            log_loc = log_ball.get("loc", None)
-            sys_loc = sys_ball.get("loc", None)
-
-            log_rad = float(log_ball.get("Radius", log_ball.get("rad", 0)))
-            sys_rad = float(sys_ball.get("rad", 0))
-
-            if log_name != sys_name:
-                raise ValueError(
-                    f"Logs file does not match the ball file. "
-                    f"First mismatch at ball {i}: logs name={log_name}, system name={sys_name}."
-                )
-
-            if log_loc is not None and sys_loc is not None:
-                for j in range(3):
-                    if abs(float(log_loc[j]) - float(sys_loc[j])) > 0.001:
-                        raise ValueError(
-                            f"Logs file does not match the ball file. "
-                            f"First coordinate mismatch at ball {i}."
-                        )
-
-            if abs(log_rad - sys_rad) > 0.001:
-                raise ValueError(
-                    f"Logs file does not match the ball file. "
-                    f"First radius mismatch at ball {i}: logs={log_rad}, system={sys_rad}."
-                )
+        print(f"\nDetected log/system index offset: {index_offset}")
 
         if self.groups is None:
             self.groups = []
@@ -535,23 +655,24 @@ class System:
             group.make_net()
 
         read_net(
+            group,
             group.net,
             file,
             rebuild_edges=rebuild_edges,
             rebuild_surfs=rebuild_surfs,
             analyze=analyze,
             store_points=store_points,
+            index_map=log_to_sys_index,
+            index_offset=index_offset,
         )
 
         group.name = log_data["group data"].get("Name", group_name)
 
-        loaded_ball_indices = sorted([
-            int(_)
-            for _ in log_balls["Index"].dropna().tolist()
-        ])
+        loaded_ball_indices = sorted(log_to_sys_index.values())
 
         group.loaded_log_ball_indices = loaded_ball_indices
         group.ball_ndxs = loaded_ball_indices
+        group.log_to_sys_index = log_to_sys_index
 
         return group
 

@@ -179,6 +179,14 @@ def build_edge(
     edge_vals = None
 
     if vmid is None or dnorm is None:
+
+        if calc_dist(vlocs[0], vlocs[1]) < 1e-8:
+            return [vlocs[0], vlocs[1]], {
+                "loc": np.array(vlocs[0], dtype=float),
+                "rad": 0.0,
+                "case": "zero_length"
+            }
+
         edge_vals = calc_edge_dir(blocs, brads, eballs, vlocs, edub=edub)
 
         if edge_vals is None:
@@ -194,6 +202,14 @@ def build_edge(
         dnorm_norm = np.linalg.norm(dnorm)
 
         if dnorm_norm == 0 or not np.isfinite(dnorm_norm):
+
+            if calc_dist(vlocs[0], vlocs[1]) < 1e-8:
+                return [vlocs[0], vlocs[1]], {
+                    "loc": np.array(vlocs[0], dtype=float),
+                    "rad": 0.0,
+                    "case": "zero_length"
+                }
+
             edge_vals = calc_edge_dir(blocs, brads, eballs, vlocs, edub=edub)
             vmid = edge_vals["vmid"]
             dnorm = edge_vals["dnorm"]

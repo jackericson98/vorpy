@@ -5,7 +5,6 @@ from vorpy.src.chemistry import special_radii
 from vorpy.src.chemistry import element_names
 from vorpy.src.chemistry import residue_names
 
-# INSERT_YOUR_CODE
 
 def _vorpy_print_setting(setting_name, value, note=None):
     msg = f"Vorpy Setting - {setting_name} - set to {value}"
@@ -136,7 +135,6 @@ def set_mv(max_vert, settings, print_change=False):
             "a float value from 0.5 to 5000 \u212B (recommended 7 \u212B)"
         )
         return settings['max_vert']
-
 
 
 def set_bs(box_size, settings, print_change=False):
@@ -424,6 +422,18 @@ def set_sf(surface_factor, settings, print_change=False):
     return settings['surf_factor']
 
 
+def set_rt(round_to, settings, print_change=False):
+    if isinstance(round_to, list):
+        round_to = round_to[0]
+
+    round_to = int(round_to)
+
+    if print_change:
+        _vorpy_print_setting("Round To", round_to)
+
+    return settings['round_to']
+
+
 def set_ar(element_radius, settings, print_change=False):
     """
     Configures the atomic radii settings for the system.
@@ -561,20 +571,35 @@ def set_ar(element_radius, settings, print_change=False):
 
 
 def set_bt(build_type, settings, print_change=False):
-    if build_type == 'logs':
-        settings['bld_type'] = 'logs'
+
+    if isinstance(build_type, list):
+        if len(build_type) == 0:
+            return settings["bld_type"]
+
+        build_type = build_type[0]
+
+    build_type = str(build_type).strip().lower()
+
+    if build_type in {"logs", "log"}:
         if print_change:
-            try:
-                _vorpy_print_setting("Build Type", 'set to "logs"')
-            except NameError:
-                print("Vorpy Setting - Build Type - set to \"logs\"")
-        return settings['bld_type']
-    else:
-        try:
-            _vorpy_print_error("Build Type", build_type, "a valid build type (e.g. 'logs')", example="logs")
-        except NameError:
-            print(f"Vorpy Error - Build Type: '{build_type}' is not a valid build type. Example: logs")
-        return None
+            _vorpy_print_setting("Build Type", "logs")
+
+        return "logs"
+
+    if build_type in {"normal", "build", "default", "fresh"}:
+        if print_change:
+            _vorpy_print_setting("Build Type", "normal")
+
+        return "normal"
+
+    _vorpy_print_error(
+        "Build Type",
+        build_type,
+        "a valid build type",
+        example="logs"
+    )
+
+    return settings["bld_type"]
 
 
 def set_cc(conc_col, settings, print_change=False):
@@ -664,19 +689,21 @@ def sett(setting, value, settings=None):
     if settings is None:
         settings = {'surf_res': 0.2, 'max_vert': 40, 'box_size': 1.25, 'net_type': 'aw', 'surf_col': 'plasma',
                     'surf_scheme': 'mean', 'scheme_factor': 'log', 'atom_rad': None, 'bld_type': None, 'conc_col': True,
-                    'vert_col': 'red', 'edge_col': 'grey'}
+                    'vert_col': 'red', 'edge_col': 'grey', 'round_to': 3}
     # Set up the functions dictionary to return the value
     func_dict = {'surf_res': set_sr, 'max_vert': set_mv, 'box_size': set_bs, 'net_type': set_nt, 'surf_col': set_sc,
                  'surf_scheme': set_ss, 'scheme_factor': set_sf, 'atom_rad': set_ar, 'bld_type': set_bt,
-                 'conc_col': set_cc, 'vert_col': set_vc, 'edge_col': set_ec}
+                 'conc_col': set_cc, 'vert_col': set_vc, 'edge_col': set_ec, 'round_to': set_rt}
 
-    # Set up the interpretation dictionary
+    build_types = ["bt", "build_type", "bld_type", "build", "bld"]
+
     all_dicts = [{_: 'surf_res' for _ in surf_reses}, {_: 'max_vert' for _ in max_verts},
                  {_: 'box_size' for _ in box_sizes}, {_: 'net_type' for _ in net_types},
                  {_: 'surf_col' for _ in surf_colors}, {_: 'surf_scheme' for _ in surf_schemes},
                  {_: 'scheme_factor' for _ in surf_factors}, {_: 'atom_rad' for _ in atom_radii},
+                 {_: 'bld_type' for _ in build_types},
                  {_: 'conc_col' for _ in conc_cols}, {_: 'vert_col' for _ in vert_cols},
-                 {_: 'edge_col' for _ in vert_cols}]
+                 {_: 'edge_col' for _ in edge_cols}, {_: 'round_to' for _ in round_tos}]
 
     # Put all interpretations into one dictionary for convenience
     interpreter = {k: v for d in all_dicts for k, v in d.items()}

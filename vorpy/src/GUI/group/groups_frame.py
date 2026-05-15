@@ -196,10 +196,28 @@ class GroupsFrame(ttk.Frame):
         current_tab = self.notebook.select()
         group_name = self.notebook.tab(current_tab, "text")
 
+        try:
+            group = self.gui.sys.load_group_logs(group_name, filename)
 
-        group = self.gui.sys.load_group_logs(group_name, filename)
+        except ValueError as e:
+            message = str(e)
 
+            if "Logs file does not match the ball file" in message:
+                mismatch_text = message
 
+                messagebox.showerror(
+                    "Log/System Mismatch",
+                    "The selected logs file does not match the currently loaded system.\n\n"
+                    "Please verify that:\n"
+                    "• The correct base structure/PDB is loaded\n"
+                    "• The logs were generated from this same system\n"
+                    "• The atom ordering has not changed\n\n"
+                    f"{mismatch_text}"
+                )
+
+                return
+
+            raise
 
         old_group_name = group_name
         new_group_name = group.net.group_data.get("Name", group.name)

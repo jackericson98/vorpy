@@ -1,124 +1,225 @@
 import os
-from vorpy.src.output import write_off_verts
-from vorpy.src.output import write_edges
+from dataclasses import dataclass, field
+
+import numpy as np
+import pandas as pd
 
 
+@dataclass
 class Interface:
-    def __init__(self, group1, group2, name=None, balls=None, verts=None, edges=None, surfs=None, sa=0, curv=None):
-        """ Initialize the input parameters for an interface"""
+    net: object
+    balls1: set[int]
+    balls2: set[int]
+    name: str = "interface"
 
-        # Interfacial attributes
-        self.name = name
-        self.group1 = group1
-        self.group2 = group2
+    balls: list[int] = field(default_factory=list)
+    verts: pd.DataFrame | None = None
+    edges: pd.DataFrame | None = None
+    surfs: pd.DataFrame | None = None
 
-        # Network Attributes
-        self.balls = balls
-        self.verts = verts
-        self.edges = edges
-        self.surfs = surfs
+    surface_area: float = 0.0
+    mean_curvature: float | None = None
+    gauss_curvature: float | None = None
 
-        # Interface Data
-        self.sa = sa
-        self.curv = curv
+    def __post_init__(self):
+        self.balls1 = set(self.balls1)
+        self.balls2 = set(self.balls2)
 
-        # Run the set up so everything is in place
-        self.setup()
+        self._validate()
+        self.build()
 
-    def setup(self):
-        """ Make sure everything is as is should be before starting the investigation"""
-        # Make sure one of the groups has a network solved
-        if self.group1.net is None or self.group1.net.verts is None or len(self.group1.net.verts) == 0:
-            if self.group2.net is None or self.group2.net.verts is None or len(self.group2.net.verts) == 0:
-                self.group1.build()
-            else:
-                self.group1, self.group2 = self.group2, self.group1
-        # If there is no name assigned the default based on the groups
-        if self.name is None:
-            self.name = self.group1.name + '_' + self.group2.name + '_iface'
+    def _validate(self):
+        if self.net is None:
+            raise ValueError("Interface requires a solved network.")
 
-    def get_iface(self, group1, group2):
-        # Set up the lists and
-        i_balls, i_verts, i_edges, i_surfs, i_sa = [], [], [], [], 0
-        group1.iface_sa = 0
-        iface_curvs = []
-        # Go through the balls in the group
-        self.balls = [_ for _ in self.group1.ball_ndxs if _ in self.group2.ball_ndxs]
+        if getattr(self.net, "surfs", None) is None:
+            raise ValueError("Interface requires net.surfs.")
 
-        # Get the interface elements
+        if getattr(self.net, "edges", None) is None:
+            raise ValueError("Interface requires net.edges.")
 
-        # Function to check if any item in the list is in another list
-        def any_in_list(check_list, target_list):
-            return any(item in target_list for item in check_list)
+        if getattr(self.net, "verts", None) is None:
+            raise ValueError("Interface requires net.verts.")
 
-        # Find the vertices
-        self.verts = self.group1.net.verts[self.group1.net.verts['balls'].apply(lambda x: any_in_list(x, self.balls))]
-        # Find the edges
-        self.edges = self.group1.net.edges[self.group1.net.edges['balls'].apply(lambda x: any_in_list(x, self.balls))]
-        # Find the surfaces
-        self.surfs = self.group1.net.surfs[self.group1.net.surfs['balls'].apply(lambda x: any_in_list(x, self.balls))]
+        overlap = self.balls1.intersection(self.balls2)
+        if overlap:
+            raise ValueError(
+                f"Interface selections overlap. "
+                f"{len(overlap)} balls are present in both selections. "
+                f"Example overlap indices: {sorted(overlap)[:10]}"
+            )
 
-    def export_iface_verts(self, directory=None):
-        """
-        Exports the interfacial vertices between the group and its bff
-        :param grp: Group object for exporting
-        :param directory: Directory to export to
-        """
-        # Move to the directory
-        if directory is not None and os.path.exists(directory):
-            os.chdir(directory)
-        # write the vertices
-        write_off_verts(self.group1.net, self.verts, directory=directory, file_name=self.name + "_verts")
+    def build(self):
+        self.surfs = self._get_interface_surfaces()
+        self.balls = self._get_interface_balls()
+        self.edges = self._get_interface_edges()
+        self.verts = self._get_interface_verts()
 
-    def export_iface_edges(self, directory=None):
-        """
-        Exports the edges of the interface
-        :param grp: Group to pull the interface from
-        :param directory: Output directory for the interface
-        """
-        # Move to the directory
-        if directory is not None and os.path.exists(directory):
-            os.chdir(directory)
-        # write the vertices
-        write_edges(self.group1.net, self.edges, directory=directory, file_name=self.name + "_edges")
+        self._calculate_summary()
 
-    def export_iface_info(grp, directory=None):
-        """
-        Exports the information for an interface
-        :param grp: The group that holds the interface information
-        :param directory: Output directory for the group interface info
-        """
-        # Move to the directory
-        if directory is not None and os.path.exists(directory):
-            os.chdir(directory)
-        # Create the file
-        with open("info.txt", 'w', encoding='utf-8') as info:
-            # Write the main header
-            info.write(grp.name + " - " + grp.bff.name + " interface \n\n")
-            # Information sub header
-            info.write("Interface:\n\n")
-            # Write the information
-            info.write(
-                "  {} Surfaces, {} {} atoms, {} {} atoms\n".format(len(grp.iface_surfs), len(grp.atoms), grp.name,
-                                                                   len(grp.bff.atoms), grp.bff.name))
-            # Network counts
-            info.write("  {} Vertices, {} Edges\n\n".format(len(grp.iface_verts), len(grp.iface_edges),
-                                                            len(grp.iface_surfs)))
-            # Write the analysis header
-            info.write("\nAnalysis:\n\n")
-            # Write the analysis
-            info.write(u"  Surface Area = {:.5f} \u212B\u00B2, Average Curvature = {:.5}\n\n"
-                       .format(grp.iface_sa, grp.iface_curv))
-            # Surfaces header
-            info.write("\nSurfaces:\n\n")
-            # Go through each of the surfaces in the group
-            for surf in grp.iface_surfs:
-                info.write("  Surface {} - \n".format(grp.sys.net.surfs['satoms'][surf]))
-                info.write("    Surface Area = {:.5f} \u212B\u00B2\n".format(grp.sys.net.surfs['sa'][surf]))
-                info.write("    Volume contributions = {:.5f}, {:.5f} \u212B\u00B3\n"
-                           .format(grp.sys.net.surfs['vols'][surf][0], grp.sys.net.surfs['vols'][surf][0]))
-                info.write("    Gaussian Curvature = {:.5f}\n".format(grp.sys.net.surfs['gauss_curv'][surf]))
-                info.write("    Mean Curvature = {:.5f}\n".format(grp.sys.net.surfs['mean_curv'][surf]))
+    def _get_interface_surfaces(self):
+        surfs = self.net.surfs.copy()
 
-    def export(self, balls=True, verts=True, edges=True, surfs=True, info=True, cells=True):
-        pass
+        def is_interface_surface(balls):
+            if balls is None or len(balls) != 2:
+                return False
+
+            b0, b1 = balls
+
+            return (
+                (b0 in self.balls1 and b1 in self.balls2)
+                or
+                (b0 in self.balls2 and b1 in self.balls1)
+            )
+
+        return surfs[surfs["balls"].apply(is_interface_surface)].copy()
+
+    def _get_interface_balls(self):
+        if self.surfs is None or len(self.surfs) == 0:
+            return []
+
+        balls = set()
+
+        for surf_balls in self.surfs["balls"]:
+            balls.update(surf_balls)
+
+        return sorted(balls)
+
+    def _get_interface_edges(self):
+        if self.surfs is None or len(self.surfs) == 0:
+            return self.net.edges.iloc[0:0].copy()
+
+        iface_surf_indices = set(self.surfs.index)
+
+        if "surfs" in self.net.edges.columns:
+            def touches_iface_surface(surf_indices):
+                if surf_indices is None:
+                    return False
+
+                return any(surf in iface_surf_indices for surf in surf_indices)
+
+            return self.net.edges[self.net.edges["surfs"].apply(touches_iface_surface)].copy()
+
+        iface_balls = set(self.balls)
+
+        def touches_iface_ball(edge_balls):
+            if edge_balls is None:
+                return False
+
+            return any(ball in iface_balls for ball in edge_balls)
+
+        return self.net.edges[self.net.edges["balls"].apply(touches_iface_ball)].copy()
+
+    def _get_interface_verts(self):
+        if self.surfs is None or len(self.surfs) == 0:
+            return self.net.verts.iloc[0:0].copy()
+
+        iface_surf_indices = set(self.surfs.index)
+
+        if "surfs" in self.net.verts.columns:
+            def touches_iface_surface(surf_indices):
+                if surf_indices is None:
+                    return False
+
+                return any(surf in iface_surf_indices for surf in surf_indices)
+
+            return self.net.verts[self.net.verts["surfs"].apply(touches_iface_surface)].copy()
+
+        iface_balls = set(self.balls)
+
+        def touches_iface_ball(vert_balls):
+            if vert_balls is None:
+                return False
+
+            return any(ball in iface_balls for ball in vert_balls)
+
+        return self.net.verts[self.net.verts["balls"].apply(touches_iface_ball)].copy()
+
+    def _calculate_summary(self):
+        if self.surfs is None or len(self.surfs) == 0:
+            self.surface_area = 0.0
+            self.mean_curvature = None
+            self.gauss_curvature = None
+            return
+
+        area_col = self._find_col(self.surfs, ["Surface Area", "surface_area", "sa"])
+        mean_col = self._find_col(self.surfs, ["Mean Curvature", "mean_curv", "mean_curvature"])
+        gauss_col = self._find_col(self.surfs, ["Gauss Curvature", "gauss_curv", "gauss_curvature"])
+
+        if area_col is None:
+            raise ValueError(
+                "Could not calculate interface surface area because no surface-area column was found."
+            )
+
+        areas = self.surfs[area_col].astype(float).to_numpy()
+        self.surface_area = float(np.sum(areas))
+
+        if mean_col is not None and self.surface_area > 0:
+            vals = self.surfs[mean_col].astype(float).to_numpy()
+            self.mean_curvature = float(np.sum(vals * areas) / self.surface_area)
+
+        if gauss_col is not None and self.surface_area > 0:
+            vals = self.surfs[gauss_col].astype(float).to_numpy()
+            self.gauss_curvature = float(np.sum(vals * areas) / self.surface_area)
+
+    def export_surfs(self, directory=None):
+        self._ensure_directory(directory)
+
+        path = os.path.join(directory or os.getcwd(), f"{self.name}_surfs.csv")
+        self.surfs.to_csv(path, index=True)
+
+    def export_edges(self, directory=None):
+        self._ensure_directory(directory)
+
+        path = os.path.join(directory or os.getcwd(), f"{self.name}_edges.csv")
+        self.edges.to_csv(path, index=True)
+
+    def export_verts(self, directory=None):
+        self._ensure_directory(directory)
+
+        path = os.path.join(directory or os.getcwd(), f"{self.name}_verts.csv")
+        self.verts.to_csv(path, index=True)
+
+    def export_info(self, directory=None):
+        self._ensure_directory(directory)
+
+        path = os.path.join(directory or os.getcwd(), f"{self.name}_info.txt")
+
+        with open(path, "w", encoding="utf-8") as info:
+            info.write(f"{self.name}\n\n")
+            info.write("Interface Summary\n\n")
+            info.write(f"  Selection 1 Balls: {len(self.balls1)}\n")
+            info.write(f"  Selection 2 Balls: {len(self.balls2)}\n")
+            info.write(f"  Interface Balls: {len(self.balls)}\n")
+            info.write(f"  Interface Surfaces: {len(self.surfs)}\n")
+            info.write(f"  Interface Edges: {len(self.edges)}\n")
+            info.write(f"  Interface Vertices: {len(self.verts)}\n\n")
+            info.write(f"  Surface Area: {self.surface_area:.6f} Å²\n")
+            info.write(f"  Mean Curvature: {self.mean_curvature}\n")
+            info.write(f"  Gaussian Curvature: {self.gauss_curvature}\n")
+
+    def export(self, directory=None, surfs=True, edges=True, verts=True, info=True):
+        if surfs:
+            self.export_surfs(directory=directory)
+
+        if edges:
+            self.export_edges(directory=directory)
+
+        if verts:
+            self.export_verts(directory=directory)
+
+        if info:
+            self.export_info(directory=directory)
+
+    @staticmethod
+    def _find_col(df, possible_names):
+        for name in possible_names:
+            if name in df.columns:
+                return name
+
+        return None
+
+    @staticmethod
+    def _ensure_directory(directory):
+        if directory is not None:
+            os.makedirs(directory, exist_ok=True)

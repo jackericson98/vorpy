@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import filedialog
 import os
 from copy import deepcopy
+from vorpy.src.inputs.net import read_net
 from vorpy.src.command.commands import *
 from vorpy.src.system.system import System
 from vorpy.src.command.interpret import get_file
@@ -22,6 +23,7 @@ class Command:
         self.interfaces = []
         self.settings_cmnds = []
         self.settings_dict = settings
+        self.logs_files = []
         self.read_args()
 
     def read_args(self):
@@ -85,16 +87,73 @@ class Command:
             self.sys.groups += new_groups
 
         else:
-            # Go through each of the groups
-            for grp in self.sys.groups:
-                # Build the groups
-                grp.build()
+
+            build_type = None
+
+            if self.settings_dict is not None:
+                build_type = self.settings_dict.get("bld_type", None)
+
+            if build_type == "logs":
+
+                self.build_groups_from_logs()
+            else:
+                for grp in self.sys.groups:
+                    grp.build()
 
         # Make the system's interfaces
         self.sys.make_interfaces()
 
         # Export everything
         self.read_exports()
+
+    def build_groups_from_logs(self):
+        """
+        Rebuilds command-line groups from existing vorpy logs instead of recomputing vertices.
+
+        Expected command style:
+            py vorpy system.pdb -b logs path/to/aw_logs.csv -e med
+
+        If one logs file is provided, it is used for the first/default group.
+        If multiple groups are provided, pass one logs file per group in the same order.
+        """
+
+        if len(self.logs_files) == 0:
+            raise ValueError(
+                "Build type was set to logs, but no logs file was provided.\n"
+                "Example:\n"
+                "  py vorpy system.pdb -b logs path/to/aw_logs.csv -e med"
+            )
+
+        if len(self.logs_files) == 1 and len(self.sys.groups) >= 1:
+            logs_by_group = [self.logs_files[0]]
+
+        elif len(self.logs_files) == len(self.sys.groups):
+            logs_by_group = self.logs_files
+
+        else:
+            raise ValueError(
+                "Number of logs files does not match number of groups.\n"
+                f"groups = {len(self.sys.groups)}\n"
+                f"logs files = {len(self.logs_files)}"
+            )
+
+        for grp, logs_file in zip(self.sys.groups, logs_by_group):
+            if not os.path.exists(logs_file):
+                raise FileNotFoundError(f"Logs file not found: {logs_file}")
+
+            print(f"\nLoading group from logs:")
+            print(f"  group = {grp.name}")
+            print(f"  logs  = {logs_file}")
+
+            read_net(
+                group=grp,
+                net=grp.net,
+                file_name=logs_file,
+                rebuild_edges=True,
+                rebuild_surfs=True,
+                analyze=True,
+                store_points=True
+            )
 
     def interpret(self, counter=0):
         """
@@ -166,8 +225,13 @@ class Command:
                 # Add the group command to the list
                 self.groups[group_counter].append(arg_cmnds)
             elif arg.lower() == '-b':
-                # Add the build command to the list
                 self.builds.append(arg_cmnds)
+
+            if len(arg_cmnds) > 0 and arg_cmnds[0].lower() in {"logs", "log"}:
+                self.settings_cmnds.append(["bt", "logs"])
+
+                if len(arg_cmnds) > 1:
+                    self.logs_files.append(" ".join(arg_cmnds[1:]))
             elif arg.lower() == '-e':
                 # If the argument is 'logs', add the build type and logs command
                 if arg_cmnds == 'logs':
