@@ -29,6 +29,7 @@ from vorpy.src.calculations.compare import compare_networks
 from vorpy.src.calculations.edge import calc_edge_proj_pt
 from vorpy.src.calculations.edge import calc_edge_dir
 from vorpy.src.calculations.edge import calc_circ
+from vorpy.src.interface.interface import make_interface
 from vorpy.src.calculations.sorting import ndx_search
 from vorpy.src.calculations.sorting import box_search
 from vorpy.src.calculations.sorting import get_balls
