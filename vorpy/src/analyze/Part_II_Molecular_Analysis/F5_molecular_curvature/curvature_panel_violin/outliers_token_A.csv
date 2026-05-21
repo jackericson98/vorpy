@@ -1,0 +1,4 @@
+Chain,Residue Sequence,Residue,curv,area,n_atoms,token,token_class
+C,72,ALA,0.27394783670858514,293.904,10,A,protein
+C,100,ALA,0.3348988891197673,312.815,10,A,protein
+B,78,ALA,0.3373557084878646,274.486,10,A,protein

@@ -1,0 +1,2 @@
+molecule,n_atoms_tested,mean_jaccard,median_jaccard,pct_perfect_match,pct_missing_any,pct_extra_any,mean_missing,mean_extra
+DB1976,41,0.9368611018471322,0.9411764705882353,0.0,100.0,0.0,1.0,0.0
