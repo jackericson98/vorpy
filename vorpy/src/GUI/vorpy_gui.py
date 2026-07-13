@@ -1,5 +1,6 @@
 import os
 import sys
+from itertools import combinations
 from pathlib import Path
 
 try:
@@ -7,6 +8,7 @@ try:
     from tkinter import ttk
     from tkinter import filedialog, messagebox
     from PIL import Image, ImageTk
+
     HAS_TKINTER = True
 except ImportError:
     HAS_TKINTER = False
@@ -19,6 +21,7 @@ from vorpy.src.system.system import System
 from vorpy.src.GUI.system.system_frame import SystemFrame
 from vorpy.src.GUI.group.groups_frame import GroupsFrame
 from vorpy.src.GUI.help.help_window import HelpWindow
+from vorpy.src.GUI.support_functions import ToolTip
 from vorpy.src.group import Group
 from vorpy.src.inputs import read_verts
 
@@ -27,14 +30,14 @@ class VorPyGUI(tk.Tk):
     def __init__(self):
         # Initialize the parent class first
         super().__init__()
-        
+
         # Create a default system
         self.sys = System(simple=True, name="No System Chosen")
         self.ball_file = None
-        
+
         # Set window title
         self.title("VorPy")
-        
+
         # Font classes
         self.fonts = {
             'title': ("Arial", 24, "bold"),
@@ -53,9 +56,10 @@ class VorPyGUI(tk.Tk):
         self.exports = {'set_atoms': True, 'info': True, 'pdb': True, 'mol': False, 'cif': False, 'xyz': False,
                         'txt': False}
         self.radii_changes = []
-        
+
         self.group_settings = {}
         self.group_solves = {}
+        self.interface_requests = []
 
         # Title Section with Image Template
         title_frame = tk.Frame(self, pady=10)
@@ -98,7 +102,7 @@ class VorPyGUI(tk.Tk):
             # If you have a .ico file, use it here
             script_dir = os.path.dirname(os.path.abspath(__file__))
             icon_path_ico = os.path.join(script_dir, "Images", "VorpyIcon.ico")
-            
+
             try:
                 if os.path.exists(icon_path_ico):
                     self.iconbitmap(icon_path_ico)
@@ -127,39 +131,57 @@ class VorPyGUI(tk.Tk):
             logo_label.grid(row=0, column=0, padx=(0, 5), sticky="e")
         title_label = tk.Label(logo_title_frame, text="VorPy", font=self.fonts['title'])
         title_label.grid(row=0, column=1, sticky="w")
-        
-        subtitle_label = tk.Label(title_frame, text="Comprehensive Voronoi Diagram Calculation Tool", 
+
+        subtitle_label = tk.Label(title_frame, text="Comprehensive Voronoi Diagram Calculation Tool",
                                   font=self.fonts['subtitle'])
         subtitle_label.pack(pady=(0, 10))
-        
+
         # System Information Section (Full Width)
         self.info_frame = tk.Frame(self, height=200)
         self.info_frame.pack(fill="x", padx=5)
         self.create_information_section(self.info_frame)
-        
+
         # Settings Frame (Full Width)
         settings_frame = tk.Frame(self)
         settings_frame.pack(expand=True, fill="both", padx=10)
-        
+
         # Create group settings section
         self.group_settings_frame = GroupsFrame(settings_frame, self, self.group_settings)
         self.group_settings_frame.pack(fill="both", expand=True)
-        
+
         # Run and Cancel Buttons
         button_frame = tk.Frame(self, pady=10)
         button_frame.pack()
 
         help_button = ttk.Button(button_frame, text="Help", command=self.open_help)
         help_button.pack(side="left", padx=5)
-        
+
+        ToolTip(help_button, "Help Button\nLaunches a window to explain each function of the GUI")
+
         print_button = ttk.Button(button_frame, text="Print", command=self.print_system)
         print_button.pack(side="left", padx=5)
+
+        ToolTip(print_button,
+                "Print Button:\nPrints the system information and group\ninformation/settings in the command line.")
+
+        interface_button = ttk.Button(button_frame, text="Interface(s)", command=self.interfaces)
+        interface_button.pack(side="left", padx=5)
+
+        ToolTip(
+            interface_button,
+            "Interface(s) Button\nSelect groups and create one or more interface requests."
+        )
 
         export_button = ttk.Button(button_frame, text="Export", command=self.export_files)
         export_button.pack(side="right", padx=5)
 
+        ToolTip(export_button,
+                "Export Button\nExports all solved groups to the system directory.\nGroups will be given individual sub directories\nwithin the directory")
+
         run_button = ttk.Button(button_frame, text="Solve", command=self.run_program)
         run_button.pack(side="right", padx=5)
+
+        ToolTip(run_button, "Solve Button\nSolves all groups in series with a \nprogress bar in the command line")
 
     def create_information_section(self, frame):
         self.system_frame = SystemFrame(self, frame)
@@ -193,6 +215,148 @@ class VorPyGUI(tk.Tk):
         self.output_dir = self.sys.files['dir']
         print(f"Output directory selected: {self.sys.files['dir']}")
 
+    def get_interface_group_names(self):
+        """Return unique names from the currently available system groups."""
+        if not self.sys.groups:
+            return []
+
+        names = []
+        for group in self.sys.groups:
+            if isinstance(group, str):
+                name = group
+            else:
+                name = getattr(group, "name", str(group))
+
+            if name and name not in names:
+                names.append(name)
+
+        return names
+
+    def build_all_interface_pairs(self, group_names):
+        """Build interface pairs according to the GUI's All-selection rules."""
+        if len(group_names) == 0:
+            return [("(default)", "surrounding")]
+
+        if len(group_names) == 1:
+            return [(group_names[0], "surrounding")]
+
+        if len(group_names) == 2:
+            return [(group_names[0], group_names[1])]
+
+        return list(combinations(group_names, 2))
+
+    def interfaces(self):
+        """Open the interface-selection dialog and store the requested pair or pairs."""
+        dialog = tk.Toplevel(self)
+        dialog.title("Interface")
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+
+        frame = ttk.Frame(dialog, padding=18)
+        frame.grid(row=0, column=0, sticky="nsew")
+
+        ttk.Label(
+            frame,
+            text="Interface",
+            font=self.fonts['class 1']
+        ).grid(row=0, column=0, columnspan=3, pady=(0, 3))
+
+        ttk.Label(
+            frame,
+            text="Select groups for interface",
+            font=self.fonts['class 2']
+        ).grid(row=1, column=0, columnspan=3, pady=(0, 14))
+
+        group_names = self.get_interface_group_names()
+        first_options = ["(default)", *group_names]
+        second_options = ["surrounding", "solvent", *group_names]
+
+        # Preserve order while avoiding repeated entries.
+        first_options = list(dict.fromkeys(first_options))
+        second_options = list(dict.fromkeys(second_options))
+
+        first_var = tk.StringVar(value=first_options[0])
+        second_var = tk.StringVar(value=second_options[0])
+
+        first_dropdown = ttk.Combobox(
+            frame,
+            textvariable=first_var,
+            values=first_options,
+            state="readonly",
+            width=24
+        )
+        first_dropdown.grid(row=2, column=0, padx=(0, 6), sticky="ew")
+
+        second_dropdown = ttk.Combobox(
+            frame,
+            textvariable=second_var,
+            values=second_options,
+            state="readonly",
+            width=24
+        )
+        second_dropdown.grid(row=2, column=1, columnspan=2, padx=(6, 0), sticky="ew")
+
+        ttk.Label(
+            frame,
+            text="Create Interface(s)",
+            font=self.fonts['class 3']
+        ).grid(row=3, column=0, columnspan=3, pady=(18, 8))
+
+        def finish(mode, interfaces):
+            self.interface_requests = interfaces
+
+            print(f"Creating {mode} interface request(s):")
+            for group_1, group_2 in interfaces:
+                print(f"  {group_1} <-> {group_2}")
+
+            dialog.destroy()
+
+        def create_selected():
+            group_1 = first_var.get()
+            group_2 = second_var.get()
+
+            if group_1 == group_2:
+                messagebox.showwarning(
+                    "Invalid Interface",
+                    "The two interface selections must be different.",
+                    parent=dialog
+                )
+                return
+
+            finish("selected", [(group_1, group_2)])
+
+        def create_all():
+            finish("all", self.build_all_interface_pairs(group_names))
+
+        ttk.Button(
+            frame,
+            text="Cancel",
+            command=dialog.destroy
+        ).grid(row=4, column=0, sticky="w")
+
+        ttk.Button(
+            frame,
+            text="All",
+            command=create_all
+        ).grid(row=4, column=1, padx=6)
+
+        ttk.Button(
+            frame,
+            text="Selected",
+            command=create_selected
+        ).grid(row=4, column=2, sticky="e")
+
+        for column in range(3):
+            frame.grid_columnconfigure(column, weight=1)
+
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+        dialog.update_idletasks()
+
+        x = self.winfo_rootx() + (self.winfo_width() - dialog.winfo_width()) // 2
+        y = self.winfo_rooty() + (self.winfo_height() - dialog.winfo_height()) // 2
+        dialog.geometry(f"+{x}+{y}")
+
     def run_group(self, group_name, verts=None):
         """
         This runs a group from the group settings dictionary
@@ -220,7 +384,7 @@ class VorPyGUI(tk.Tk):
             surf_scheme=build_settings['color_settings']['surf_scheme'],
             scheme_factor=build_settings['color_settings']['surf_fact'],
             vert_col=build_settings['color_settings']['vert_col'],
-            edge_col=build_settings['color_settings']['edge_col'], 
+            edge_col=build_settings['color_settings']['edge_col'],
             verts=verts
         )
 
@@ -429,10 +593,9 @@ class VorPyGUI(tk.Tk):
         if hasattr(self, 'build_frame'):
             self.build_frame.update_surface_settings_display()
 
-            
+
 if __name__ == "__main__":
     os.chdir('../..')
     # create the system
     app = VorPyGUI()
     app.mainloop()
-

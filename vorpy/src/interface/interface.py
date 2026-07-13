@@ -35,6 +35,7 @@ class Interface:
         if getattr(self.net, "surfs", None) is None:
             raise ValueError("Interface requires net.surfs.")
 
+
         if getattr(self.net, "edges", None) is None:
             raise ValueError("Interface requires net.edges.")
 
