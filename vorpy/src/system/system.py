@@ -20,7 +20,6 @@ from vorpy.src.GUI.system.radii_adjustments.periodic_table_GUI import elements
 from vorpy.src.chemistry import special_radii
 from vorpy.src.chemistry import element_radii
 from vorpy.src.calculations import compare_networks
-from vorpy.src.calculations import make_interfaces
 from vorpy.src.calculations import get_time
 
 

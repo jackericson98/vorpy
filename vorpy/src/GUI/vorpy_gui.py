@@ -78,7 +78,7 @@ class VorPyGUI(tk.Tk):
             # If the image has a background and is PNG, try to remove it by converting white to transparent
             if img.mode != "RGBA":
                 img = img.convert("RGBA")
-            datas = img.getdata()
+            datas = img.get_flattened_data()
             newData = []
             for item in datas:
                 # Detect white-ish pixels (tune threshold as needed)
