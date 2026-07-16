@@ -72,20 +72,31 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, ne
     if vn_1 is None:
         vn_1 = edge_balls
 
-    # Check if the edge contains a group ball, to see if the next ball needs to be checked or not
-    # Start with check balls as false if no group is defined
-    check_ndxs = False
-    if group_ndxs is not None:
-        # If a group exists default to checking each ball
-        check_ndxs = True
-        # Go through the edge balls checking if they are in the group --> any vert found from another ball is included
+    required_group = None
+
+    if isinstance(group_ndxs, tuple):
+
+        satisfied = [
+            any(ball in grp for ball in edge_balls)
+            for grp in group_ndxs
+        ]
+
+        if all(satisfied):
+            required_group = None
+
+        elif satisfied.count(True) == 1:
+            required_group = group_ndxs[satisfied.index(False)]
+
+        else:
+            return None
+
+    elif group_ndxs is not None:
+
+        required_group = group_ndxs
+
         for ball in edge_balls:
-            # Take the potential index of the ball in group
-            my_index = bisect.bisect_left(group_ndxs, ball)
-            # If the index is in the list check if the ball matches the index's element
-            if my_index != len(group_ndxs) and group_ndxs[my_index] == ball:
-                # If the element is found no need to check the balls and break the for loop
-                check_ndxs = False
+            if ball in group_ndxs:
+                required_group = None
                 break
 
     # Find the 3 boxes the edge balls are in
@@ -104,17 +115,18 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, ne
     while vert is None and mv_inc < max_vert:
         # Search for the vertx in the current range
         if net_type == 'aw':
-            vert, invalid_ndxs = find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, check_ndxs,
-                                              surr_balls, my_boxes, invalid_ndxs, vn_1, vn_1_loc, box=box,
-                                              group_balls=group_ndxs, metrics=metrics, printing=printing)
+            vert, invalid_ndxs = find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
+                                              required_group is not None, surr_balls, my_boxes, invalid_ndxs, vn_1,
+                                              vn_1_loc, box=box, group_balls=required_group, metrics=metrics,
+                                              printing=printing)
         elif net_type == 'pow':
             vert, invalid_ndxs = find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
-                                               check_ndxs, surr_balls, my_boxes, invalid_ndxs, vn_1, box, vn_1_loc,
-                                               group_ndxs=group_ndxs, metrics=metrics)
+                                               required_group is not None, surr_balls, my_boxes, invalid_ndxs, vn_1,
+                                               box, vn_1_loc, group_ndxs=required_group, metrics=metrics)
         elif net_type == 'prm':
             vert, invalid_ndxs = find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
-                                               check_ndxs, surr_balls, my_boxes, invalid_ndxs, vn_1, box, vn_1_loc,
-                                               group_ndxs=group_ndxs, metrics=metrics)
+                                               required_group is not None, surr_balls, my_boxes, invalid_ndxs, vn_1,
+                                               box, vn_1_loc, group_ndxs=required_group, metrics=metrics)
         # If a vertex is found exit the loop
         if vert is not None:
             break

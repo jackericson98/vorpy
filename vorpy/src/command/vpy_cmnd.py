@@ -7,16 +7,17 @@ from vorpy.src.inputs.net import read_net
 from vorpy.src.command.commands import *
 from vorpy.src.system.system import System
 from vorpy.src.command.interpret import get_file
-from vorpy.src.command.set2 import sett
+from vorpy.src.command.set import sett
 from vorpy.src.command.group import ggroup
-from vorpy.src.command.argv import argv_export
+from vorpy.src.command.command_export import argv_export
+from vorpy.src.command.interface import build_interfaces
 
 
 class Command:
     def __init__(self, sys=None, settings=None):
         self.sys = sys
         self.base_file = None
-        self.loads = []
+        self.load_commands = []
         self.groups = {}
         self.builds = []
         self.exports = []
@@ -24,9 +25,11 @@ class Command:
         self.settings_cmnds = []
         self.settings_dict = settings
         self.logs_files = []
-        self.read_args()
 
-    def read_args(self):
+    def run(self):
+        self._run_pipeline()
+
+    def _run_pipeline(self):
         """
         Starts the reading process. Pulls out the base file if not already loaded.
         """
@@ -48,63 +51,104 @@ class Command:
             self.sys = System(file=self.base_file)
         
         # Interpret the rest of the argv
-        self.interpret()
+        self.parse_commands()
 
         # Load the other files
-        self.read_files()
+        self.load_files()
 
         # Check for whether the 
-        self.read_settings()
+        self.apply_settings()
 
         # Compare the groups
-        self.read_groups()
+        self.create_groups()
+        # Build interface networks instead of complete group networks
+        if len(self.interfaces) > 0:
+            build_interfaces(
+                sys=self.sys,
+                num_requested_groups=len(self.groups),
+            )
 
-        # Build the groups
-        if self.settings_dict is not None and len(self.settings_dict['net_type']) > 1 and self.settings_dict['net_type'][0] == 'com':
-            # Create a new list of groups
+        # Compare network types
+        elif (
+                self.settings_dict is not None
+                and len(self.settings_dict["net_type"]) > 1
+                and self.settings_dict["net_type"][0] == "com"
+        ):
             new_groups = []
-            # Go through each of the groups
+
             for grp in self.sys.groups:
-                # Copy the group
                 copy_group = deepcopy(grp)
-                # Change the name of the group
-                copy_group.name = copy_group.name + '_' + self.settings_dict['net_type'][1]
-                # Change the net type of the group
-                copy_group.settings['net_type'] = self.settings_dict['net_type'][1]
-                # Change the name of the group
-                grp.settings['net_type'] = self.settings_dict['net_type'][2]
-                grp.name = grp.name + '_' + self.settings_dict['net_type'][2]
-                # Delete the vertices from the grp group because they are only available in the original group
+
+                copy_group.name = (
+                        copy_group.name + "_" + self.settings_dict["net_type"][1]
+                )
+                copy_group.settings["net_type"] = self.settings_dict["net_type"][1]
+
+                grp.settings["net_type"] = self.settings_dict["net_type"][2]
+                grp.name = grp.name + "_" + self.settings_dict["net_type"][2]
+
                 grp.verts = None
-                # Build the groups
+
                 copy_group.build()
                 grp.build()
-                # Add the new groups to the list
+
                 new_groups.append(copy_group)
-                # Compare the two networks
-                self.sys.compare_networks(group1=copy_group, group2=grp)
-            # Add the new groups to the list
+
+                self.sys.compare_networks(
+                    group1=copy_group,
+                    group2=grp,
+                )
+
             self.sys.groups += new_groups
 
         else:
-
-            build_type = None
-
-            if self.settings_dict is not None:
-                build_type = self.settings_dict.get("bld_type", None)
-
-            if build_type == "logs":
-
-                self.build_groups_from_logs()
-            else:
+            # Build the groups
+            if self.settings_dict is not None and len(self.settings_dict['net_type']) > 1 and self.settings_dict['net_type'][0] == 'com':
+                # Create a new list of groups
+                new_groups = []
+                # Go through each of the groups
                 for grp in self.sys.groups:
+                    # Copy the group
+                    copy_group = deepcopy(grp)
+                    # Change the name of the group
+                    copy_group.name = copy_group.name + '_' + self.settings_dict['net_type'][1]
+                    # Change the net type of the group
+                    copy_group.settings['net_type'] = self.settings_dict['net_type'][1]
+                    # Change the name of the group
+                    grp.settings['net_type'] = self.settings_dict['net_type'][2]
+                    grp.name = grp.name + '_' + self.settings_dict['net_type'][2]
+                    # Delete the vertices from the grp group because they are only available in the original group
+                    grp.verts = None
+                    # Build the groups
+                    copy_group.build()
                     grp.build()
+                    # Add the new groups to the list
+                    new_groups.append(copy_group)
+                    # Compare the two networks
+                    self.sys.compare_networks(group1=copy_group, group2=grp)
+                # Add the new groups to the list
+                self.sys.groups += new_groups
+
+            else:
+
+                build_type = None
+
+                if self.settings_dict is not None:
+                    build_type = self.settings_dict.get("bld_type", None)
+
+                if build_type == "logs":
+
+                    self.build_groups_from_logs()
+                else:
+                    for grp in self.sys.groups:
+                        grp.build()
 
         # Make the system's interfaces
-        self.sys.make_interfaces()
+        if len(self.interfaces) == 0:
+            self.sys.make_interfaces()
 
         # Export everything
-        self.read_exports()
+        self.run_exports()
 
     def build_groups_from_logs(self):
         """
@@ -155,7 +199,7 @@ class Command:
                 store_points=True
             )
 
-    def interpret(self, counter=0):
+    def parse_commands(self, counter=0):
         """
         Splits the user inputs into the different commands and flags
         """
@@ -217,7 +261,7 @@ class Command:
             # Add the command to the list
             if arg.lower() == '-l':
                 # Add the load command to the list
-                self.loads.append(arg_cmnds)
+                self.load_commands.append(arg_cmnds)
             elif arg.lower() == '-s':
                 # Add the setting command to the list
                 self.settings_cmnds.append(arg_cmnds)
@@ -250,8 +294,11 @@ class Command:
                         else:
                             print(f"{folder} is not a valid folder")
                     else:
-                        print("Directory set to: {}".format(arg_cmnds[1]))
-                        self.sys.set_output_directory(arg_cmnds[1])
+                        base_dir = arg_cmnds[1]
+                        system_dir = os.path.join(base_dir, self.sys.name)
+
+                        print("Directory set to: {}".format(system_dir))
+                        self.sys.set_output_directory(system_dir)
                 else:
                     # Add the export command to the list
                     self.exports.append(arg_cmnds)
@@ -259,7 +306,7 @@ class Command:
                 # Add the interface command to the list
                 self.interfaces.append(arg_cmnds)
 
-    def read_files(self):
+    def load_files(self):
         """
         Loads molecular structure files and associated data into the system.
 
@@ -290,7 +337,7 @@ class Command:
         """
 
         # Process each file in the list
-        for my_file in self.loads:
+        for my_file in self.load_commands:
             # Interpret the file
             file = get_file(my_file)
             # Check to see what type of file it is
@@ -388,7 +435,7 @@ class Command:
                     "\'h\' for help".format(file))
                 return
 
-    def read_settings(self):
+    def apply_settings(self):
         # Go through the user inputs loading files
         for my_set in self.settings_cmnds:
             # Alter the settings
@@ -397,11 +444,11 @@ class Command:
         if self.settings_dict is not None and self.settings_dict['atom_rad'] is not None:
             self.sys.set_radii(self.settings_dict['atom_rad']['element'], self.settings_dict['atom_rad']['special'])
 
-    def read_groups(self):
+    def create_groups(self):
         # Set the groups up
         ggroup(self.sys, self.groups, self.settings_dict)
     
-    def read_exports(self):
+    def run_exports(self):
 
         # Export everything
         argv_export(self.sys, self.exports)

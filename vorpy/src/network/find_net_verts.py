@@ -7,6 +7,33 @@ from vorpy.src.network.find_verts import find_verts
 from vorpy.src.output import write_verts
 
 
+def vertex_is_allowed(net, vertex_balls):
+    """
+    Determine whether a candidate vertex should be retained.
+
+    Normal network
+    --------------
+    The vertex must contain at least one ball from net.group.
+
+    Interface network
+    -----------------
+    The vertex must contain at least one ball from every selection
+    stored in net.iface_grps.
+    """
+    vertex_balls = set(vertex_balls)
+
+    if net.iface_grps is not None:
+        return all(
+            bool(vertex_balls.intersection(group_indices))
+            for group_indices in net.iface_grps
+        )
+
+    if net.group is None:
+        return True
+
+    return bool(vertex_balls.intersection(net.group))
+
+
 def find_net_verts(net):
 
     """

@@ -28,8 +28,9 @@ class Network:
     - Surface construction
     - Network analysis
     """
-    def __init__(self, locs, rads, names=None, group=None, group_name=None, settings=None, balls=None, verts=None,
-                 edges=None, surfs=None, box=None, sort_balls=False, build_net=False, masses=None):
+    def __init__(self, locs, rads, names=None, group=None, iface_grps=None, group_name=None, settings=None, balls=None,
+                 verts=None, edges=None, surfs=None, box=None, sort_balls=False, build_net=False,
+                 masses=None):
         """
         Initialize a Network object with the given parameters.
         
@@ -49,21 +50,26 @@ class Network:
             masses: Optional list of ball masses
         """
         # Main network defining objects
-        self.group = group                # Group         : List of loc and rad indices for calculation
-        self.group_name = group_name      # Group Name    : Name of the group that the network comes from
-        self.settings = settings          # Settings      : surf_res, surf_col, surf_schm, max_vert, net_type
-        self.metrics = {'start': now()}   # Metrics       : Holds the time measurements for the build
-        self.progress_window = None       # Prog. Window  : Progress window for GUI updates
-        self.loaded_from_logs = False     # Logs Flag     : Determines how the net was created
+        self.group = group               # Group          : List of loc and rad indices for calculation
+        self.iface_grps = iface_grps     # Interface Grps : Tuple of lists of ball indices from groups in an interface
+        self.group_name = group_name     # Group Name     : Name of the group that the network comes from
+        self.settings = settings         # Settings       : surf_res, surf_col, surf_schm, max_vert, net_type
+        self.metrics = {'start': now()}  # Metrics        : Holds the time measurements for the build
+        self.progress_window = None      # Prog. Window   : Progress window for GUI updates
+        self.loaded_from_logs = False    # Logs Flag      : Determines how the net was created
 
         # Network element lists
-        self.balls = balls                # Balls         : Ball DF    - (loc, rad, verts, edges, surfs, vol)
-        self.verts = verts                # Vertices      : Vertex DF  - (loc, rad, balls, edges, surfs)
-        self.edges = edges                # Edges         : Edge DF    - (center, points, balls, verts, surfs, length)
-        self.surfs = surfs                # Surfaces      : Surface DF - (center, points, tris, balls, verts, edges, sa)
+        self.balls = balls               # Balls          : Ball DF    - (loc, rad, verts, edges, surfs, vol)
+        self.verts = verts               # Vertices       : Vertex DF  - (loc, rad, balls, edges, surfs)
+        self.edges = edges               # Edges          : Edge DF    - (center, points, balls, verts, surfs, length)
+        self.surfs = surfs               # Surfaces       : Surface DF - (center, points, tris, balls, verts, edges, sa)
 
         # Tool for splitting up the balls
         self.box = box                    # Box           : Dictionary: Ball box, sub_boxes, and
+
+
+        if iface_grps is not None:
+            self.iface_grps = [set(group_indices) for group_indices in iface_grps]
 
         # Set up the balls
         if names is None:

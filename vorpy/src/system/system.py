@@ -774,7 +774,7 @@ class System:
         """
         Create interfaces between groups in the system.
         """
-        make_interfaces(self)
+        pass
 
     def set_output_directory(self, directory=None):
         """

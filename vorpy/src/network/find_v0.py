@@ -9,8 +9,8 @@ from vorpy.src.network.slow import find_site
 from vorpy.src.calculations import verify_site
 
 
-def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, metrics=None, vert_ndxs=None,
-            group_box=None, box=None):
+def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None,
+            metrics=None, vert_ndxs=None, group_box=None, box=None):
     """
     Finds the initial vertex (v0) in a network by identifying a valid set of balls that form a verified vertex.
 

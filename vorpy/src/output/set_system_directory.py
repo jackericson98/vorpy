@@ -19,7 +19,7 @@ def set_sys_dir(sys, dir_name=None):
         return
     # Make sure a user_data path exists
     if sys.files['vpy_dir'] is not None and not os.path.exists(sys.files['vpy_dir'] + "/output"):
-        os.makedirs(sys.files['vpy_dir'] + "/output", exist_ok=True)
+        os.makedirs(sys.files['vpy_dir'] + "/output", exist_ok=False)
 
     # If no outer directory was specified use the directory outside the current one
     if dir_name is None:
@@ -40,7 +40,7 @@ def set_sys_dir(sys, dir_name=None):
             if i == 0:
                 i_str = ""
             # Try to create the directory
-            os.makedirs(dir_name + i_str, exist_ok=True)
+            os.makedirs(dir_name + i_str, exist_ok=False)
             break
         # If the file exists increment the counter and try creating the directory again
         except FileExistsError:

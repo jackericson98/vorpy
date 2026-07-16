@@ -71,10 +71,10 @@ def export_med(sys):
         # Do the group exports
         group.exports(shell_surfs=True, surfs=True, shell_edges=True, edges=True, shell_verts=True, verts=True,
                       logs=True, atoms=True, surr_atoms=True)
-        # Check to see if the verts are in the system directory and if so move them to the group folder
-        if os.path.exists(sys.files['dir'] + '/verts.txt'):
-            shutil.move(sys.files['dir'] + '/' + group.settings['net_type'] + '_verts.txt',
-                        group.dir + '/' + group.settings['net_type'] + '_verts.txt')
+        # # Check to see if the verts are in the system directory and if so move them to the group folder
+        # if os.path.exists(sys.files['dir'] + '/verts.txt'):
+        #     shutil.move(sys.files['dir'] + '/' + group.settings['net_type'] + '_verts.txt',
+        #                 group.dir + '/' + group.settings['net_type'] + '_verts.txt')
     # Export the interfaces
     if sys.ifaces is not None:
         for iface in sys.ifaces:

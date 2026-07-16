@@ -1,11 +1,11 @@
-from vorpy.src.command.set2 import sett
+from vorpy.src.command.set import sett
 from vorpy.src.command.group import group
 from vorpy.src.command.load import load
 from vorpy.src.command.export import export
 from vorpy.src.command.build import build
 from vorpy.src.command.interpret import get_ndx, get_obj
-from vorpy.src.command.argv import interpret_argvs, argv
-from vorpy.src.command.vpy_cmnd2 import Command
+from vorpy.src.command.legacy_argv import interpret_argvs, argv
+from vorpy.src.command.vpy_cmnd import Command
 from vorpy.src.command.commands import (
     ys, ns, nones, trues, falses, dones, ands, splitters, browses,
     quits, helps, show_cmds, load_cmds, set_cmds, build_cmds,

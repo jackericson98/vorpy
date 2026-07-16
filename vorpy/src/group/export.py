@@ -308,9 +308,15 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         write_pdb(sys=grp.sys, atoms=grp.layer_atoms[0], file_name="ext_atoms", directory=grp.dir)
     # Check to see if there is verts file in the system directory
     for file in os.listdir(grp.sys.files['dir']):
-        # Move the verts file to the group directory
-        if file.endswith('_verts.txt'):
-            os.rename(grp.sys.files['dir'] + "/" + file, grp.dir + "/" + file)
+        if file.endswith("_verts.txt"):
+            source = os.path.join(grp.sys.files["dir"], file)
+            destination = os.path.join(grp.dir, file)
+
+            if os.path.exists(destination):
+                print(f"Skipping existing vertex file: {destination}")
+                continue
+
+            os.rename(source, destination)
     os.chdir("..")
     # Change back to the system directory
     os.chdir(grp.sys.files['dir'])

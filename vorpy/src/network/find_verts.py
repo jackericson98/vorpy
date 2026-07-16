@@ -8,9 +8,10 @@ from numpy import sqrt
 
 
 # Find network function. Keeps searching the network until all verts are found
-def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=None, b_verts=None, vert_ndxs=None,
-               vlocs=None, vrads=None, vloc2s=None, vrad2s=None, start_time=0, print_metrics=False, box=None, vert_box=None,
-               group_box=None, tot_ball_num=None, printing=False, start_vert=0, split=False):
+def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=None,
+               b_verts=None, vert_ndxs=None, vlocs=None, vrads=None, vloc2s=None, vrad2s=None, start_time=0,
+               print_metrics=False, box=None, vert_box=None, group_box=None, tot_ball_num=None, printing=False,
+               start_vert=0, split=False):
     """
     Finds vertices in a network by searching through combinations of balls and verifying their validity.
 
