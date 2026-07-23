@@ -203,7 +203,8 @@ def get_build_surfs1(v_balls, v_edges, e_balls, start_time):
     return s_balls, s_verts, s_edges
 
 
-def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time):
+def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time,
+                    interface=False):
     # Set up the surface lists
     s_balls, s_verts, s_edges = [], [], []
 
@@ -247,13 +248,37 @@ def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time):
             # In order to be a true surface the number of edges need to be equal to the number of verts
             if len(surf_verts) == len(surf_edges):
 
-                no_surf = False
-                # Check to see if the surface is worth adding
-                for vert_ndx in surf_verts:
-                    if len(v_edges[vert_ndx]) <= 2:
-                        no_surf = True
-                if no_surf:
-                    continue
+                if interface:
+                    # In an interface-only polygon, each surface vertex should
+                    # have exactly two edges belonging to this surface.
+                    surf_edge_set = set(surf_edges)
+
+                    invalid_surface = False
+
+                    for vert_ndx in surf_verts:
+                        surface_degree = sum(
+                            edge_ndx in surf_edge_set
+                            for edge_ndx in v_edges[vert_ndx]
+                        )
+
+                        if surface_degree != 2:
+                            invalid_surface = True
+                            break
+
+                    if invalid_surface:
+                        continue
+
+                else:
+                    # Existing complete-network requirement.
+                    no_surf = False
+
+                    for vert_ndx in surf_verts:
+                        if len(v_edges[vert_ndx]) <= 2:
+                            no_surf = True
+                            break
+
+                    if no_surf:
+                        continue
 
                 s_balls.insert(surf_ndx, test_surf)
                 s_edges.insert(surf_ndx, surf_edges)
@@ -283,7 +308,8 @@ def add_build_surfs(num_balls, s_balls, num_verts, s_verts, num_edges, s_edges):
     return b_surfs, v_surfs, e_surfs
 
 
-def build(v_balls, v_locs, v_dubs, num_balls, my_time):
+def build(v_balls, v_locs, v_dubs, num_balls, my_time,
+          interface=False):
     """
     Checks the balls of the vertices for patterns and creates edges and surfaces
     """
@@ -298,8 +324,46 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time):
 
     ################################################# Create the edges #################################################
 
+    print("\n[BUILD NET INPUT]")
+    print(f"  num verts    = {len(v_balls)}")
+    print(f"  num v_dubs   = {len(v_dubs)}")
+    print(f"  doublets     = {sum(v_dubs)}")
+
+    for i, balls in enumerate(v_balls):
+        print(
+            f"  vert {i:<4} "
+            f"balls={list(balls)} "
+            f"dub={v_dubs[i] if i < len(v_dubs) else 'MISSING'}"
+        )
+
+    shared_three_pairs = []
+
+    for i in range(len(v_balls)):
+        for j in range(i + 1, len(v_balls)):
+            shared = sorted(
+                set(v_balls[i]).intersection(v_balls[j])
+            )
+
+            if len(shared) == 3:
+                shared_three_pairs.append((i, j, shared))
+
+    print(f"  shared-3 pairs = {len(shared_three_pairs)}")
+
+    for i, j, shared in shared_three_pairs:
+        print(f"    verts {i}, {j}: {shared}")
+
     # Fill in the doublets and set their outer edges
     e_balls, e_verts = get_build_edges(b_verts, v_balls, v_locs, v_dubs, my_time)
+
+    print("\n[BUILD EDGE RESULT]")
+    print(f"  edges = {len(e_balls)}")
+
+    for i, (balls, verts) in enumerate(zip(e_balls, e_verts)):
+        print(
+            f"  edge {i:<4} "
+            f"balls={balls} "
+            f"verts={verts}"
+        )
 
     # Add the edges to their balls and vertices
     b_edges, v_edges = add_build_edges(num_balls, e_balls, len(v_balls), e_verts)
@@ -307,7 +371,7 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time):
     ################################################### Create the surfaces ############################################
 
     # Get the surfaces
-    s_balls, s_verts, s_edges = get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, my_time)
+    s_balls, s_verts, s_edges = get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, my_time, interface)
 
     # Add the surface objects to their 181L indices
     b_surfs, v_surfs, e_surfs = add_build_surfs(num_balls, s_balls, len(v_balls), s_verts, len(e_balls), s_edges)

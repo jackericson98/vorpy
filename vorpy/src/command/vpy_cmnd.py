@@ -21,7 +21,7 @@ class Command:
         self.groups = {}
         self.builds = []
         self.exports = []
-        self.interfaces = []
+        self.interface_mode = False
         self.settings_cmnds = []
         self.settings_dict = settings
         self.logs_files = []
@@ -31,62 +31,82 @@ class Command:
 
     def _run_pipeline(self):
         """
-        Starts the reading process. Pulls out the base file if not already loaded.
+        Run the complete command-line workflow.
+
+        Pipeline order:
+            1. Resolve the base input file.
+            2. Create the System.
+            3. Parse command-line arguments.
+            4. Load additional files.
+            5. Apply settings.
+            6. Create groups.
+            7. Build interface, comparison, logs, or normal networks.
+            8. Create standard interfaces when not using interface mode.
+            9. Run exports.
         """
-        
-        # Check for the first argv and whether it is a 
-        if sys.argv[1][-3:] in {"pdb", "gro", "mol", "cif", 'txt'}:
-            self.base_file = sys.argv[1]
+
+        # Resolve the base input file
+        input_arg = sys.argv[1]
+
+        if input_arg[-3:].lower() in {"pdb", "gro", "mol", "cif", "txt"}:
+            self.base_file = input_arg
         else:
-            if get_file(sys.argv[1]) is not None:
-                self.base_file = get_file(sys.argv[1])
-            else:
+            resolved_file = get_file(input_arg)
+
+            if resolved_file is None:
                 self.base_file = None
-                # Print the invalid input and return us from the commands
-                print("{} is not a valid input file".format(sys.argv[1]))
+                print(f"{input_arg} is not a valid input file")
                 return
-        # Check to see if a system has been loaded or not
+
+            self.base_file = resolved_file
+
+        # Create the system if one was not supplied
         if self.sys is None:
-            # Define the system
             self.sys = System(file=self.base_file)
-        
-        # Interpret the rest of the argv
+
+        # Parse the remaining command-line arguments
         self.parse_commands()
 
-        # Load the other files
+        # Load any additional files
         self.load_files()
 
-        # Check for whether the 
+        # Apply command-line settings
         self.apply_settings()
 
-        # Compare the groups
+        # Create the requested groups
         self.create_groups()
-        # Build interface networks instead of complete group networks
-        if len(self.interfaces) > 0:
-            build_interfaces(
-                sys=self.sys,
-                num_requested_groups=len(self.groups),
-            )
 
-        # Compare network types
-        elif (
+        comparison_mode = (
                 self.settings_dict is not None
+                and isinstance(self.settings_dict.get("net_type"), list)
                 and len(self.settings_dict["net_type"]) > 1
                 and self.settings_dict["net_type"][0] == "com"
-        ):
+        )
+
+        build_type = None
+
+        if self.settings_dict is not None:
+            build_type = self.settings_dict.get("bld_type")
+
+        # Comparison mode:
+        # Build two network types for each group and compare them.
+        elif comparison_mode:
             new_groups = []
+
+            first_net_type = self.settings_dict["net_type"][1]
+            second_net_type = self.settings_dict["net_type"][2]
 
             for grp in self.sys.groups:
                 copy_group = deepcopy(grp)
 
-                copy_group.name = (
-                        copy_group.name + "_" + self.settings_dict["net_type"][1]
-                )
-                copy_group.settings["net_type"] = self.settings_dict["net_type"][1]
+                copy_group.name = f"{copy_group.name}_{first_net_type}"
+                copy_group.settings["net_type"] = first_net_type
 
-                grp.settings["net_type"] = self.settings_dict["net_type"][2]
-                grp.name = grp.name + "_" + self.settings_dict["net_type"][2]
+                grp.name = f"{grp.name}_{second_net_type}"
+                grp.settings["net_type"] = second_net_type
 
+                # Vertices from the original group should not be reused blindly
+                # for the second network type.
                 grp.verts = None
 
                 copy_group.build()
@@ -101,53 +121,28 @@ class Command:
 
             self.sys.groups += new_groups
 
+        # Reconstruct networks from logs
+        elif build_type == "logs":
+            self.build_groups_from_logs()
+
+        # Preserve the existing interface workflow during normal builds.
+        # Interface mode handles its own interface construction.
+        elif self.interface_mode:
+            interface_pairs = build_interfaces(
+                sys=self.sys,
+                num_requested_groups=len(self.groups),
+            )
+
+            self.sys.make_interfaces(interface_pairs)
+
+        # Standard full-group build
         else:
-            # Build the groups
-            if self.settings_dict is not None and len(self.settings_dict['net_type']) > 1 and self.settings_dict['net_type'][0] == 'com':
-                # Create a new list of groups
-                new_groups = []
-                # Go through each of the groups
-                for grp in self.sys.groups:
-                    # Copy the group
-                    copy_group = deepcopy(grp)
-                    # Change the name of the group
-                    copy_group.name = copy_group.name + '_' + self.settings_dict['net_type'][1]
-                    # Change the net type of the group
-                    copy_group.settings['net_type'] = self.settings_dict['net_type'][1]
-                    # Change the name of the group
-                    grp.settings['net_type'] = self.settings_dict['net_type'][2]
-                    grp.name = grp.name + '_' + self.settings_dict['net_type'][2]
-                    # Delete the vertices from the grp group because they are only available in the original group
-                    grp.verts = None
-                    # Build the groups
-                    copy_group.build()
-                    grp.build()
-                    # Add the new groups to the list
-                    new_groups.append(copy_group)
-                    # Compare the two networks
-                    self.sys.compare_networks(group1=copy_group, group2=grp)
-                # Add the new groups to the list
-                self.sys.groups += new_groups
+            for grp in self.sys.groups:
+                grp.build()
 
-            else:
 
-                build_type = None
 
-                if self.settings_dict is not None:
-                    build_type = self.settings_dict.get("bld_type", None)
-
-                if build_type == "logs":
-
-                    self.build_groups_from_logs()
-                else:
-                    for grp in self.sys.groups:
-                        grp.build()
-
-        # Make the system's interfaces
-        if len(self.interfaces) == 0:
-            self.sys.make_interfaces()
-
-        # Export everything
+        # Export requested outputs
         self.run_exports()
 
     def build_groups_from_logs(self):
@@ -270,6 +265,8 @@ class Command:
                 self.groups[group_counter].append(arg_cmnds)
             elif arg.lower() == '-b':
                 self.builds.append(arg_cmnds)
+            elif arg.lower() == '-i':
+                self.interface_mode = True
 
             if len(arg_cmnds) > 0 and arg_cmnds[0].lower() in {"logs", "log"}:
                 self.settings_cmnds.append(["bt", "logs"])
@@ -302,9 +299,6 @@ class Command:
                 else:
                     # Add the export command to the list
                     self.exports.append(arg_cmnds)
-            elif arg.lower() == '-i':
-                # Add the interface command to the list
-                self.interfaces.append(arg_cmnds)
 
     def load_files(self):
         """

@@ -59,7 +59,6 @@ class Group:
 
     Examples:
         # Example 1: Basic Group Creation and Analysis
-        >>> from vorpy.src.group import Group
         >>> # Create a group from a system with default settings
         >>> group = Group(sys=my_system, name='protein_A')
         >>> # This creates a new group named 'protein_A' from the system 'my_system'
@@ -109,81 +108,248 @@ class Group:
         >>> group = Group(sys=my_system, name='protein_complex')
         >>> group.build()
         >>> # Export group data for visualization
-        >>> group.export(output_directory='./visualization')
+        >>> group.exports(output_directory='./visualization')
         >>> # This exports the group data for visualization in external tools
-    """
+        """
     def __init__(self, sys, name=None, atoms=None, molecules=None, chains=None, residues=None,
-                 settings=None, build_net=False, surf_res=0.2, box_size=1.5, max_vert=40, build_type='all', net=None,
-                 net_type='aw', surf_col='plasma', surf_scheme='mean', num_splits=None, print_metrics=True,
-                 scheme_factor='log', make_net=True, verts=None, vert_col='red', edge_col='grey',
-                 output_directory=None):
-        # System attributes
-        self.sys = sys                  # Network            :    Network of the System
-        self.name = name                # Name               :    Name of the group
-        self.dir = output_directory     # Directory          :    Directory holding the group export info
+                 settings=None, build_net=False, surf_res=0.2, box_size=1.25, max_vert=40,
+                 build_type='all', net=None, net_type='aw', surf_col='plasma',
+                 surf_scheme='mean', num_splits=None, print_metrics=True, scheme_factor='log',
+                 make_net=True, verts=None, vert_col='red', edge_col='grey', output_directory=None,
+                 mode='complete', interfaces=None, interface_metadata=None, parent_interface_id=None,
+                 interface_side=None, interface_groups=None, group_id=None):
+        """
 
-        # Network objects attributes
-        self.net = net                  # Networks           :    List of Network type objects in the group
+        Initialize a Group.
+
+        Parameters
+        ----------
+        sys
+            Parent System containing the complete set of balls and molecular
+            classifications.
+        name : str, optional
+            Human-readable name for the group.
+        atoms, molecules, chains, residues : optional
+            System-level selections used to populate ``ball_ndxs``.
+        settings : dict, optional
+            Existing network settings. Missing settings are filled with defaults.
+        build_net : bool, optional
+            Build the network immediately after initialization.
+        make_net : bool, optional
+            Create the Network object during initialization without necessarily
+            building its vertices, edges, or surfaces.
+        verts : optional
+            Existing vertices or a path to a vertex file.
+        mode : str, optional
+            Group construction mode. Expected values currently include
+            ``"complete"`` and ``"interface"``.
+        interface : Interface, optional
+            Interface object that owns this group when the group represents one
+            partial side of an interface.
+        interface_side : optional
+            Identifies which side of the interface this group represents. This may
+            be a string such as ``"group1"`` or ``"group2"``, or another identifier
+            established by the Interface class.
+        interface_groups : tuple or list, optional
+            Two collections of system ball indices defining the opposing interface
+            selections. These are passed to ``Network`` as ``iface_grps``.
+        """
+
+        # ------------------------------------------------------------------
+        # Parent system and group identity
+        # ------------------------------------------------------------------
+        self.sys = sys
+        self.name = name
+        self.dir = output_directory
+        self.group_id = group_id or None
+
+        # ------------------------------------------------------------------
+        # Network state
+        # ------------------------------------------------------------------
+        self.net = net
         self.verts = verts
-        self.ball_ndxs = []             # Group indexes      :    List of the indices that are included in the solve
-        self.settings = settings        # Settings           :    List of network settings corresponding to the networks
 
-        # System level classifications involved in the group (must be full)
-        self.atms = atoms               # Atoms              :    List of Atoms in the group (Basically spheres)
-        self.mols = molecules           # Molecule           :    List of Molecules in the group
-        self.chns = chains              # Chains             :    List of molecule objects in the group
-        self.rsds = residues            # Residues           :    List of residue objects in the group
+        # Indices of the system balls whose cells belong to this group.
+        self.ball_ndxs = []
 
-        # Analysis attributes
-        self.sa = 0                     # Surface Area       :    The surface area of the outer surfaces of the body
-        self.vol = 0                    # Volume             :    The volume of the group's atom's cells
-        self.density = 0                # Atom vol/space     :    The sum of all the atoms volumes / the total space
-        self.mass = 0                   # Mass               :    Mass of the atoms in the group, if foam mass=1 for r=1
-        self.com = [0, 0, 0]            # Center of Mass     :
+        # Settings used to construct and analyze this group's network.
+        self.settings = settings
+
+        # ------------------------------------------------------------------
+        # Interface and partial-network state
+        # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # Interface relationship state
+        # ------------------------------------------------------------------
+        # A complete group may participate in any number of interfaces.
+        # Interface objects are keyed by a stable interface identifier.
+        self.interfaces = {} if interfaces is None else interfaces
+
+        # Lightweight descriptions of the group's interface relationships.
+        # These records may exist before any Interface or partial network has
+        # been constructed.
+        self.interface_metadata = (
+            {} if interface_metadata is None else interface_metadata
+        )
+
+        # ------------------------------------------------------------------
+        # System-level molecular classifications
+        # ------------------------------------------------------------------
+        # These selections must reference objects or indices from the complete
+        # parent System rather than objects local to the partial network.
+        self.atms = atoms
+        self.mols = molecules
+        self.chns = chains
+        self.rsds = residues
+
+        # ------------------------------------------------------------------
+        # Group analysis results
+        # ------------------------------------------------------------------
+        self.sa = 0
+        self.vol = 0
+        self.density = 0
+        self.mass = 0
+        self.com = [0, 0, 0]
+
         self.vdw_vol = 0
         self.vdw_com = [0, 0, 0]
+
         self.spatial_moment = [[0]]
         self.moi = [[0]]
 
-        # Layer attributes
-        self.layer_atoms = None         # Layer Atoms        :    List of lists of atoms corresponding to layers
-        self.layer_verts = None         # Layer Vertices     :    List of lists of vertices arranged by layer
-        self.layer_edges = None         # Layer Edges        :    List of lists of edges arranged by layer
-        self.layer_surfs = None         # Layer Surfaces     :    List of lists of surfaces corresponding to layers
-        self.layer_info = None          # Layer Information  :    List of information (atoms, SA, vol) for each layer
+        # ------------------------------------------------------------------
+        # Layer-analysis results
+        # ------------------------------------------------------------------
+        self.layer_atoms = None
+        self.layer_verts = None
+        self.layer_edges = None
+        self.layer_surfs = None
+        self.layer_info = None
 
-        # Set the output directory
+        # ------------------------------------------------------------------
+        # Output directory
+        # ------------------------------------------------------------------
+        # Ensure the parent system has an output directory before group
+        # settings are populated, since the system directory is stored in the
+        # settings dictionary.
         if self.sys.files['dir'] is None:
             self.sys.set_output_directory()
 
-        # Get the settings
-        self.get_settings(surf_res=surf_res, surf_col=surf_col, surf_scheme=surf_scheme, max_vert=max_vert,
-                          box_size=box_size, net_type=net_type, build_type=build_type, num_splits=num_splits,
-                          scheme_factor=scheme_factor, print_metrics=print_metrics, ball_type=sys.type,
-                          sys_dir=sys.files['dir'], foam_box=sys.foam_box, vert_col=vert_col, edge_col=edge_col,
-                          round_to=sys.round_to)
+        # ------------------------------------------------------------------
+        # Network settings
+        # ------------------------------------------------------------------
+        self.get_settings(
+            surf_res=surf_res,
+            surf_col=surf_col,
+            surf_scheme=surf_scheme,
+            max_vert=max_vert,
+            box_size=box_size,
+            net_type=net_type,
+            build_type=build_type,
+            num_splits=num_splits,
+            scheme_factor=scheme_factor,
+            print_metrics=print_metrics,
+            ball_type=sys.type,
+            sys_dir=sys.files['dir'],
+            foam_box=sys.foam_box,
+            vert_col=vert_col,
+            edge_col=edge_col,
+            round_to=sys.round_to,
+        )
 
-        # Set the name
+        # ------------------------------------------------------------------
+        # Group name and selected balls
+        # ------------------------------------------------------------------
+        # Resolve the human-readable group name.
         if self.name is None:
             self.set_name()
 
-        # Process the inputs
+        # Use the resolved name as the default stable identifier.
+        if self.group_id is None:
+            self.group_id = self.name
+
+        # Convert the supplied atom, residue, chain, and molecule selections
+        # into the complete list of system ball indices for this group.
         self.process_inputs()
 
-        # Set the verts
-        if verts is not None and type(verts) == str:
+        # ------------------------------------------------------------------
+        # Existing vertex input
+        # ------------------------------------------------------------------
+        # A string is interpreted as a vertex-file path. Other supported
+        # vertex objects are passed directly into Network.
+        if isinstance(verts, str):
             self.verts = read_verts(self, verts)
 
-        # Make the network
+        # ------------------------------------------------------------------
+        # Network creation and optional immediate build
+        # ------------------------------------------------------------------
         if make_net:
-            self.make_net(verts)
+            self.make_net(self.verts)
 
-        # Build the Networks
         if build_net:
             self.build()
 
+    def register_interface(
+            self,
+            interface_id,
+            interface=None,
+            other_group=None,
+            side=None,
+            interface_name=None,
+    ):
+        """
+        Register an interface relationship with this group.
+
+        Metadata is stored even when the Interface object has not yet been
+        created or built.
+        """
+        other_group_id = None
+        other_group_name = "surrounding"
+
+        if other_group is not None:
+            other_group_id = getattr(other_group, "group_id", other_group.name)
+            other_group_name = other_group.name
+
+        self.interface_metadata[interface_id] = {
+            "interface_id": interface_id,
+            "interface_name": interface_name or interface_id,
+            "group_name": self.name,
+            "other_group_id": other_group_id,
+            "other_group_name": other_group_name,
+            "side": side,
+            "status": "defined",
+            "built": False,
+            "partial_group_name": None,
+        }
+
+        if interface is not None:
+            self.interfaces[interface_id] = interface
+
+    def attach_interface(self, interface_id, interface):
+        """
+        Attach a constructed Interface object to an existing metadata record.
+        """
+        self.interfaces[interface_id] = interface
+
+        metadata = self.interface_metadata.setdefault(
+            interface_id,
+            {
+                "interface_id": interface_id,
+                "interface_name": interface.name,
+                "group_name": self.name,
+                "other_group_id": None,
+                "other_group_name": None,
+                "side": None,
+                "status": "defined",
+                "built": False,
+                "partial_group_name": None,
+            },
+        )
+
+        metadata["status"] = "created"
+
     def get_settings(self, surf_res=0.2, surf_col='plasma', surf_scheme='mean', scheme_factor='log', max_vert=40,
-                     box_size=1.5, net_type='aw', build_type='all', num_splits=1, print_metrics=True, ball_type=None,
+                     box_size=1.25, net_type='aw', build_type='all', num_splits=1, print_metrics=True, ball_type=None,
                      sys_dir=None, foam_box=None, vert_col='red', edge_col='grey', conc_col=True, round_to=3):
         """
         Sets the settings for the network building
@@ -263,13 +429,56 @@ class Group:
             # Set the name
             self.name = '{}_group_{}'.format(self.sys.name, self.sys.groups.index(self))
 
+    def make_interface(self, other_group=None):
+        """
+        Create and build an interface network.
+
+        Parameters
+        ----------
+        other_group : Group or None
+            The second interface side. If None, use the surrounding atoms.
+        """
+        raise NotImplementedError
+
     def make_net(self, verts=None):
         """
-        Creates the network without an obligation to necessarily make it
+        Create this group's Network object without building its topology.
+
+        For a complete group, ``interface_groups`` is normally None and the
+        Network follows the standard group-building path.
+
+        For a partial interface group, ``interface_groups`` contains the two
+        opposing collections of system ball indices. The Network stores these
+        collections as ``iface_grps`` so vertex construction can require that
+        accepted vertices contain balls from both sides of the interface.
+
+        Parameters
+        ----------
+        verts : optional
+            Existing vertex data to attach to the Network. When omitted, the
+            Network will calculate vertices when ``build()`` is called.
         """
-        self.net = Network(locs=self.sys.balls['loc'], rads=self.sys.balls['rad'], group=self.ball_ndxs,
-                           group_name=self.name, settings=self.settings, sort_balls=True, masses=self.sys.balls['mass'],
-                           verts=verts)
+
+        self.net = Network(
+            # Complete system geometry is retained even for partial networks.
+            # Interface filtering determines which portion is ultimately built.
+            locs=self.sys.balls['loc'],
+            rads=self.sys.balls['rad'],
+            masses=self.sys.balls['mass'],
+
+            # Cells owned by this Group.
+            group=self.ball_ndxs,
+
+            # Network metadata and construction settings.
+            group_name=self.name,
+            settings=self.settings,
+
+            # Ball sorting is required before geometric vertex discovery.
+            sort_balls=True,
+
+            # Optional pre-existing vertex data.
+            verts=verts,
+        )
 
     def build(self, verts=None):
         """
@@ -285,6 +494,17 @@ class Group:
             return
 
         self.net.build()
+
+    def mark_interface_built(self, interface_id, partial_group=None):
+        """
+        Update this group's metadata after its interface side is built.
+        """
+        metadata = self.interface_metadata[interface_id]
+        metadata["status"] = "built"
+        metadata["built"] = True
+
+        if partial_group is not None:
+            metadata["partial_group_name"] = partial_group.name
 
     def add_balls(self, ball_list):
         """

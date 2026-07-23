@@ -6,6 +6,7 @@ from vorpy.src.output.draw import draw_line
 from vorpy.src.output.edges import write_edges
 from vorpy.src.output.edges import write_edges1
 from vorpy.src.output.logs import write_logs
+from vorpy.src.output.logs import write_interface_logs
 from vorpy.src.output.mol import write_mol
 from vorpy.src.output.net import write_net
 from vorpy.src.output.net import write_verts
@@ -31,7 +32,7 @@ from vorpy.src.output.set_pymol_atoms import set_pymol_atoms
 
 __all__ = [
     'write_atom_cells', 'write_atom_radii', 'color_tris', 'draw_edge', 'draw_line',
-    'write_edges', 'write_edges1', 'write_logs', 'write_mol', 'write_net', 'write_verts',
+    'write_edges', 'write_edges1', 'write_logs', 'write_interface_logs', 'write_mol', 'write_net', 'write_verts',
     'export_sys', 'set_sys_dir', 'export_micro', 'export_tiny', 'export_med', 'export_large',
     'export_all', 'other_exports', 'write_pdb', 'write_surfs', 'write_surfs1', 'write_txt',
     'write_off_verts', 'write_off_verts1', 'write_gro', 'write_cif', 'write_xyz', 'set_pymol_atoms',

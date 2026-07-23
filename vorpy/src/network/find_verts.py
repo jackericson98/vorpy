@@ -9,9 +9,9 @@ from numpy import sqrt
 
 # Find network function. Keeps searching the network until all verts are found
 def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=None,
-               b_verts=None, vert_ndxs=None, vlocs=None, vrads=None, vloc2s=None, vrad2s=None, start_time=0,
-               print_metrics=False, box=None, vert_box=None, group_box=None, tot_ball_num=None, printing=False,
-               start_vert=0, split=False):
+               iface_grps=None, b_verts=None, vert_ndxs=None, vlocs=None, vrads=None, vloc2s=None, vrad2s=None,
+               start_time=0, print_metrics=False, box=None, vert_box=None, group_box=None, tot_ball_num=None,
+               printing=False, start_vert=0, split=False):
     """
     Finds vertices in a network by searching through combinations of balls and verifying their validity.
 
@@ -183,10 +183,34 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
             # Get the edge from the top of the stack
             edge_balls, vert = e_stack.pop()
             # Find the next site in the network
-            vert_ndx_pr = find_site_container(edge_balls=edge_balls, locs=locs, rads=rads, b_verts=b_verts,
-                                              vert_ndxs=vert_ndxs, max_vert=max_vert, net_type=net_type,
-                                              vn_1=vert['balls'], box=box, vn_1_loc=vert['loc'],
-                                              group_ndxs=my_group, metrics=metrics, printing=printing)
+            search_group = (
+                tuple(iface_grps)
+                if iface_grps is not None
+                else my_group
+            )
+            if printing:
+                print("\n[FIND_VERTS SETTINGS]")
+                print(f"  mode         = {'interface' if iface_grps is not None else 'group'}")
+                print(f"  iface_grps   = {iface_grps}")
+                print(f"  my_group     = {my_group}")
+                print(f"  search_group = {search_group}")
+
+
+            vert_ndx_pr = find_site_container(
+                edge_balls=edge_balls,
+                locs=locs,
+                rads=rads,
+                b_verts=b_verts,
+                vert_ndxs=vert_ndxs,
+                max_vert=max_vert,
+                net_type=net_type,
+                vn_1=vert['balls'],
+                box=box,
+                vn_1_loc=vert['loc'],
+                group_ndxs=search_group,
+                metrics=metrics,
+                printing=printing,
+            )
             # If the vertex is none continue
             if vert_ndx_pr is None:
                 continue

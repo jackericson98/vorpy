@@ -1,226 +1,274 @@
 import os
-from dataclasses import dataclass, field
-
 import numpy as np
-import pandas as pd
+from copy import deepcopy
+from vorpy.src.group import Group
+from vorpy.src.network import Network
+from vorpy.src.interface.export import interface_exports
 
 
-@dataclass
 class Interface:
-    net: object
-    balls1: set[int]
-    balls2: set[int]
-    name: str = "interface"
+    """
+    Represents the shared interface between two groups.
 
-    balls: list[int] = field(default_factory=list)
-    verts: pd.DataFrame | None = None
-    edges: pd.DataFrame | None = None
-    surfs: pd.DataFrame | None = None
+    Each side owns a partial Group whose network contains only the
+    vertices, edges, and surfaces relevant to the interface.
+    """
 
-    surface_area: float = 0.0
-    mean_curvature: float | None = None
-    gauss_curvature: float | None = None
+    def __init__(self, sys, group1, group2=None, name=None, interface_id=None):
+        self.sys = sys
 
-    def __post_init__(self):
-        self.balls1 = set(self.balls1)
-        self.balls2 = set(self.balls2)
+        # Original group definitions. These are references, not copies.
+        self.group1 = group1
+        self.group1_name = None
+        if group2 is None:
+            group2 = self._make_surrounding_group(group1)
+        self.group2 = group2
+        self.interface_id = (
+                interface_id
+                or self.make_interface_id(self.group1, self.group2)
+        )
+        self.settings = self._get_settings()
+        self.dir = None
+        self.name = name or self._make_name()
 
-        self._validate()
-        self.build()
+        # The interface owns its own network.
+        self.net = None
 
-    def _validate(self):
-        if self.net is None:
-            raise ValueError("Interface requires a solved network.")
+        # Cached index collections defining the two interface sides.
+        self.group1_indices = None
+        self.group2_indices = None
 
-        if getattr(self.net, "surfs", None) is None:
-            raise ValueError("Interface requires net.surfs.")
+        # Partial groups created specifically for this interface
+        self.partial_group1 = None
+        self.partial_group2 = None
+
+        self._register_with_groups()
+
+    def _make_name(self):
+        second_name = "surrounding" if self.group2 is None else self.group2.name
+        self.name = f"{self.group1.name}_{second_name}_interface"
+        return self.name
+
+    def set_dir(self):
+
+        i = 1
+        my_dir = self.sys.files['dir'] + "/" + self.name
+        first = True
+        while os.path.exists(my_dir):
+            if first:
+                my_dir += "__"
+                first = False
+            my_dir = my_dir[:-(1 + len(str(i)))] + '_' + str(i)
+            i += 1
+        self.dir = my_dir
+        os.mkdir(self.dir)
+
+    def _get_settings(self):
+        """
+        Return independent settings for the interface network.
+
+        Group 1 provides the initial construction settings, but the dictionary
+        is copied so interface-specific changes do not affect the source group.
+        """
+        return deepcopy(self.group1.settings)
+
+    def _make_surrounding_group(self, source_group):
+        """
+        Create a concrete Group containing the spatially restricted
+        surrounding balls for source_group.
+        """
+
+        surrounding_indices = self.get_surrounding_indices(
+            source_group.ball_ndxs
+        )
+
+        surrounding_group = Group(
+            sys=self.sys,
+            name=f"{source_group.name}_surrounding",
+            settings=deepcopy(source_group.settings),
+            make_net=False,
+            build_net=False,
+            mode="interface",
+        )
+
+        # The constructor may populate a default selection, so explicitly
+        # replace it with the spatially restricted surrounding selection.
+        surrounding_group.ball_ndxs = sorted(
+            set(int(index) for index in surrounding_indices)
+        )
+
+        surrounding_group.group_id = (
+            f"{source_group.group_id}__surrounding"
+        )
+
+        return surrounding_group
+
+    def make_net(self, verts=None):
+        """
+        Create the interface-specific Network without building its topology.
+
+        The Network uses the complete system geometry but restricts vertex
+        discovery to vertices involving balls from both interface sides.
+        """
+        if self.dir is None:
+            self.set_dir()
+
+        self.group1_indices = set(self.group1.ball_ndxs)
+
+        if self.group2 is None:
+            self.group2_indices = self.get_surrounding_indices(self.group1_indices)
+            self.group2_name = "surrounding"
+        else:
+            self.group2_indices = set(self.group2.ball_ndxs)
+            self.group2_name = self.group2.name
+
+        interface_indices = sorted(self.group1_indices | self.group2_indices)
+
+        print("\n[INTERFACE MAKE_NET]")
+        print(f"  interface    = {self.name}")
+        print(f"  group1       = {self.group1.name}")
+        print(f"  group2       = {self.group2_name}")
+        print(f"  group1 size  = {len(self.group1_indices)}")
+        print(f"  group2 size  = {len(self.group2_indices)}")
+        print(f"  union size   = {len(interface_indices)}")
 
 
-        if getattr(self.net, "edges", None) is None:
-            raise ValueError("Interface requires net.edges.")
+        self.net = Network(
+            # Retain the complete system geometry so surrounding balls can
+            # participate in geometric validity checks.
+            locs=self.sys.balls["loc"],
+            rads=self.sys.balls["rad"],
+            masses=self.sys.balls["mass"],
 
-        if getattr(self.net, "verts", None) is None:
-            raise ValueError("Interface requires net.verts.")
+            # Balls whose interface topology is being represented.
+            group=interface_indices,
 
-        overlap = self.balls1.intersection(self.balls2)
-        if overlap:
-            raise ValueError(
-                f"Interface selections overlap. "
-                f"{len(overlap)} balls are present in both selections. "
-                f"Example overlap indices: {sorted(overlap)[:10]}"
-            )
+            # Original side membership used during interface vertex filtering.
+            iface_grps=(self.group1_indices, self.group2_indices),
+
+            group_name=self.name,
+            settings=self.settings,
+            sort_balls=True,
+            verts=verts,
+        )
+
+        self._update_group_metadata(
+            network_created=True,
+            built=False,
+        )
+
+        return self.net
 
     def build(self):
-        self.surfs = self._get_interface_surfaces()
-        self.balls = self._get_interface_balls()
-        self.edges = self._get_interface_edges()
-        self.verts = self._get_interface_verts()
+        """
+        Create and build this interface's dedicated network.
+        """
+        if self.net is None:
+            self.make_net()
 
-        self._calculate_summary()
+        self.net.build()
 
-    def _get_interface_surfaces(self):
-        surfs = self.net.surfs.copy()
+        self._update_group_metadata(
+            network_created=True,
+            built=True,
+        )
 
-        def is_interface_surface(balls):
-            if balls is None or len(balls) != 2:
-                return False
+    def _register_with_groups(self):
+        self.group1.register_interface(
+            interface_id=self.interface_id,
+            interface=self,
+            other_group=self.group2,
+            side="group1",
+            interface_name=self.name,
+        )
 
-            b0, b1 = balls
-
-            return (
-                (b0 in self.balls1 and b1 in self.balls2)
-                or
-                (b0 in self.balls2 and b1 in self.balls1)
+        if self.group2 is not None:
+            self.group2.register_interface(
+                interface_id=self.interface_id,
+                interface=self,
+                other_group=self.group1,
+                side="group2",
+                interface_name=self.name,
             )
 
-        return surfs[surfs["balls"].apply(is_interface_surface)].copy()
+    def make_interface_id(self, group1, group2=None):
+        group1_id = group1.group_id
 
-    def _get_interface_balls(self):
-        if self.surfs is None or len(self.surfs) == 0:
-            return []
+        if group2 is None:
+            return f"{group1_id}__surrounding"
 
-        balls = set()
+        group2_id = group2.group_id
 
-        for surf_balls in self.surfs["balls"]:
-            balls.update(surf_balls)
+        # Sorting makes A-B and B-A resolve to the same interface.
+        first, second = sorted((group1_id, group2_id))
+        return f"{first}__{second}"
 
-        return sorted(balls)
+    def get_surrounding_indices(self, group1_indices, surr_dist=5):
+        """
+        Return system balls close enough to group 1 to participate in a
+        vertex whose radius does not exceed the network maximum.
 
-    def _get_interface_edges(self):
-        if self.surfs is None or len(self.surfs) == 0:
-            return self.net.edges.iloc[0:0].copy()
+        A candidate surrounding ball j is retained when at least one group-1
+        ball i satisfies:
 
-        iface_surf_indices = set(self.surfs.index)
+            distance(i, j) <= radius_i + radius_j + 2 * max_vert
+        """
 
-        if "surfs" in self.net.edges.columns:
-            def touches_iface_surface(surf_indices):
-                if surf_indices is None:
-                    return False
+        group1_indices = set(int(i) for i in group1_indices)
 
-                return any(surf in iface_surf_indices for surf in surf_indices)
+        all_locations = np.asarray(
+            self.sys.balls["loc"].tolist(),
+            dtype=float,
+        )
+        all_radii = np.asarray(
+            self.sys.balls["rad"].to_numpy(),
+            dtype=float,
+        )
 
-            return self.net.edges[self.net.edges["surfs"].apply(touches_iface_surface)].copy()
+        surrounding_indices = set()
 
-        iface_balls = set(self.balls)
+        for group1_index in group1_indices:
+            group1_location = all_locations[group1_index]
+            group1_radius = all_radii[group1_index]
 
-        def touches_iface_ball(edge_balls):
-            if edge_balls is None:
-                return False
-
-            return any(ball in iface_balls for ball in edge_balls)
-
-        return self.net.edges[self.net.edges["balls"].apply(touches_iface_ball)].copy()
-
-    def _get_interface_verts(self):
-        if self.surfs is None or len(self.surfs) == 0:
-            return self.net.verts.iloc[0:0].copy()
-
-        iface_surf_indices = set(self.surfs.index)
-
-        if "surfs" in self.net.verts.columns:
-            def touches_iface_surface(surf_indices):
-                if surf_indices is None:
-                    return False
-
-                return any(surf in iface_surf_indices for surf in surf_indices)
-
-            return self.net.verts[self.net.verts["surfs"].apply(touches_iface_surface)].copy()
-
-        iface_balls = set(self.balls)
-
-        def touches_iface_ball(vert_balls):
-            if vert_balls is None:
-                return False
-
-            return any(ball in iface_balls for ball in vert_balls)
-
-        return self.net.verts[self.net.verts["balls"].apply(touches_iface_ball)].copy()
-
-    def _calculate_summary(self):
-        if self.surfs is None or len(self.surfs) == 0:
-            self.surface_area = 0.0
-            self.mean_curvature = None
-            self.gauss_curvature = None
-            return
-
-        area_col = self._find_col(self.surfs, ["Surface Area", "surface_area", "sa"])
-        mean_col = self._find_col(self.surfs, ["Mean Curvature", "mean_curv", "mean_curvature"])
-        gauss_col = self._find_col(self.surfs, ["Gauss Curvature", "gauss_curv", "gauss_curvature"])
-
-        if area_col is None:
-            raise ValueError(
-                "Could not calculate interface surface area because no surface-area column was found."
+            distances = np.linalg.norm(
+                all_locations - group1_location,
+                axis=1,
             )
 
-        areas = self.surfs[area_col].astype(float).to_numpy()
-        self.surface_area = float(np.sum(areas))
+            cutoffs = (
+                    group1_radius
+                    + surr_dist
+            )
 
-        if mean_col is not None and self.surface_area > 0:
-            vals = self.surfs[mean_col].astype(float).to_numpy()
-            self.mean_curvature = float(np.sum(vals * areas) / self.surface_area)
+            candidate_indices = np.flatnonzero(
+                distances <= cutoffs
+            )
 
-        if gauss_col is not None and self.surface_area > 0:
-            vals = self.surfs[gauss_col].astype(float).to_numpy()
-            self.gauss_curvature = float(np.sum(vals * areas) / self.surface_area)
+            surrounding_indices.update(
+                int(index)
+                for index in candidate_indices
+                if int(index) not in group1_indices
+            )
 
-    def export_surfs(self, directory=None):
-        self._ensure_directory(directory)
+        return surrounding_indices
 
-        path = os.path.join(directory or os.getcwd(), f"{self.name}_surfs.csv")
-        self.surfs.to_csv(path, index=True)
+    def _update_group_metadata(self, network_created=None, built=None):
+        groups = [self.group1]
 
-    def export_edges(self, directory=None):
-        self._ensure_directory(directory)
+        if self.group2 is not None:
+            groups.append(self.group2)
 
-        path = os.path.join(directory or os.getcwd(), f"{self.name}_edges.csv")
-        self.edges.to_csv(path, index=True)
+        for group in groups:
+            metadata = group.interface_metadata[self.interface_id]
 
-    def export_verts(self, directory=None):
-        self._ensure_directory(directory)
+            if network_created is not None:
+                metadata["network_created"] = network_created
 
-        path = os.path.join(directory or os.getcwd(), f"{self.name}_verts.csv")
-        self.verts.to_csv(path, index=True)
+            if built is not None:
+                metadata["built"] = built
 
-    def export_info(self, directory=None):
-        self._ensure_directory(directory)
-
-        path = os.path.join(directory or os.getcwd(), f"{self.name}_info.txt")
-
-        with open(path, "w", encoding="utf-8") as info:
-            info.write(f"{self.name}\n\n")
-            info.write("Interface Summary\n\n")
-            info.write(f"  Selection 1 Balls: {len(self.balls1)}\n")
-            info.write(f"  Selection 2 Balls: {len(self.balls2)}\n")
-            info.write(f"  Interface Balls: {len(self.balls)}\n")
-            info.write(f"  Interface Surfaces: {len(self.surfs)}\n")
-            info.write(f"  Interface Edges: {len(self.edges)}\n")
-            info.write(f"  Interface Vertices: {len(self.verts)}\n\n")
-            info.write(f"  Surface Area: {self.surface_area:.6f} Å²\n")
-            info.write(f"  Mean Curvature: {self.mean_curvature}\n")
-            info.write(f"  Gaussian Curvature: {self.gauss_curvature}\n")
-
-    def export(self, directory=None, surfs=True, edges=True, verts=True, info=True):
-        if surfs:
-            self.export_surfs(directory=directory)
-
-        if edges:
-            self.export_edges(directory=directory)
-
-        if verts:
-            self.export_verts(directory=directory)
-
-        if info:
-            self.export_info(directory=directory)
-
-    @staticmethod
-    def _find_col(df, possible_names):
-        for name in possible_names:
-            if name in df.columns:
-                return name
-
-        return None
-
-    @staticmethod
-    def _ensure_directory(directory):
-        if directory is not None:
-            os.makedirs(directory, exist_ok=True)
+    def export(self, all_=False, atoms=False, surfs=False, edges=False, verts=False,
+               logs=False, info=False, round_to=3):
+        interface_exports(iface=self, all_=all_, atoms=atoms, surfs=surfs, edges=edges, verts=verts, logs=logs,
+                          info=info, round_to=round_to)

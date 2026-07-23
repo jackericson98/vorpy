@@ -93,16 +93,40 @@ def find_net_verts(net):
     - For foam networks, the search stops when less than 25% of balls remain unvisited
     - Doublets (vertices with two possible locations) are handled by keeping track of both locations
     """
+    print("\n[VERTEX RUN SETTINGS]")
+    print(f"  network mode = {getattr(net, 'network_mode', None)}")
+    print(f"  net type     = {net.settings['net_type']}")
+    print(f"  max vert     = {net.settings['max_vert']}")
+    print(f"  group size   = {len(net.group) if net.group is not None else None}")
+    print(f"  group        = {net.group}")
+    print(f"  iface grps   = {net.iface_grps}")
+    print(f"  vert box     = {net.box['verts']}")
+    print(f"  foam box     = {net.settings['foam_box']}")
     # Create the group indices
     if net.group is None:
         net.group = [_['num'] for i, _ in net.balls.iterrows()]
     # Create the sphere check list
     sphere_check_list = net.group.copy()
     # Get the indices of the balls in the network to keep track of the balls that haven't been visited
-    my_guuy = find_verts(locs=net.balls['loc'].to_numpy(), rads=net.balls['rad'].to_numpy(),
-                         max_vert=net.settings['max_vert'], net_type=net.settings['net_type'], check_ndxs=sphere_check_list,
-                         my_group=net.group, start_time=net.metrics['start'], print_metrics=net.settings['print_metrics'],
-                         vert_box=net.settings['foam_box'], box=net.box['verts'])
+    my_guuy = find_verts(
+        locs=net.balls['loc'].to_numpy(),
+        rads=net.balls['rad'].to_numpy(),
+        max_vert=net.settings['max_vert'],
+        net_type=net.settings['net_type'],
+        check_ndxs=sphere_check_list,
+
+        # The complete interface network search selection.
+        my_group=net.group,
+
+        # The two original interface sides. These are distinct from
+        # my_group and will later control candidate-vertex acceptance.
+        iface_grps=net.iface_grps,
+
+        start_time=net.metrics['start'],
+        print_metrics=net.settings['print_metrics'],
+        vert_box=net.settings['foam_box'],
+        box=net.box['verts'],
+    )
     # If the function returns a valid vertex, set the variables
     if my_guuy is not None:
         vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
@@ -134,11 +158,25 @@ def find_net_verts(net):
         # Get the next sphere to check
         a0 = sphere_check_list.pop()
         # Find the vertices
-        my_guuy = find_verts(b0=a0, locs=net.balls['loc'].to_numpy(), rads=net.balls['rad'].to_numpy(),
-                             max_vert=net.settings['max_vert'], net_type=net.settings['net_type'], check_ndxs=sphere_check_list,
-                             my_group=net.group, vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads,
-                             vloc2s=vloc2s, vrad2s=vrad2s, start_time=net.metrics['start'],
-                             vert_box=net.settings['foam_box'], b_verts=averts, box=net.box['verts'])
+        my_guuy = find_verts(
+            b0=a0,
+            locs=net.balls['loc'].to_numpy(),
+            rads=net.balls['rad'].to_numpy(),
+            max_vert=net.settings['max_vert'],
+            net_type=net.settings['net_type'],
+            check_ndxs=sphere_check_list,
+            my_group=net.group,
+            iface_grps=net.iface_grps,
+            vert_ndxs=vert_ndxs,
+            vlocs=vlocs,
+            vrads=vrads,
+            vloc2s=vloc2s,
+            vrad2s=vrad2s,
+            start_time=net.metrics['start'],
+            vert_box=net.settings['foam_box'],
+            b_verts=averts,
+            box=net.box['verts'],
+        )
         # If the function returns a valid vertex, set the variables
         if my_guuy is not None:
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy

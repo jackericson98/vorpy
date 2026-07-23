@@ -11,13 +11,14 @@ def build_interfaces(sys, num_requested_groups):
         if group_2 is None:
             print(
                 f'Interface mode: "{group_1.name}" '
-                f"against surrounding molecules"
+                f"against surrounding atoms"
             )
         else:
             print(
                 f'Interface mode: "{group_1.name}" '
                 f'against "{group_2.name}"'
             )
+
 
     return interface_pairs
 

@@ -78,7 +78,7 @@ def export_med(sys):
     # Export the interfaces
     if sys.ifaces is not None:
         for iface in sys.ifaces:
-            iface.export(surfs=True, atoms=True, info=True)
+            iface.export(surfs=True, atoms=True, edges=True, logs=True, verts=True, info=True)
 
 
 def export_large(sys):

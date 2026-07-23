@@ -17,7 +17,29 @@ from vorpy.src.calculations import calc_circ
 warnings.filterwarnings("error", category=RuntimeWarning)
 
 
-def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, net_type, box=None, vn_1=None, vn_1_loc=None,
+TARGET_VERTS = {
+    (27, 334, 448, 582),
+    (27, 334, 582, 583),
+    (27, 448, 582, 583),
+}
+
+TARGET_EDGES = {
+    (27, 334, 448),
+    (27, 334, 583),
+    (27, 448, 583),
+}
+
+
+def debug_target_edge(edge_balls):
+    return tuple(sorted(edge_balls)) in TARGET_EDGES
+
+
+def debug_target_vert(vert_balls):
+    return tuple(sorted(vert_balls)) in TARGET_VERTS
+
+
+def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
+                        max_vert, net_type, box=None, vn_1=None, vn_1_loc=None,
                         group_ndxs=None, metrics=None, printing=False):
     """
     Searches for a valid vertex site by iteratively expanding the search area around edge balls.

@@ -16,6 +16,7 @@ from vorpy.src.inputs import read_verts
 from vorpy.src.output import set_sys_dir
 from vorpy.src.output import export_sys
 from vorpy.src.group import Group
+from vorpy.src.interface import Interface
 from vorpy.src.GUI.system.radii_adjustments.periodic_table_GUI import elements
 from vorpy.src.chemistry import special_radii
 from vorpy.src.chemistry import element_radii
@@ -770,11 +771,28 @@ class System:
         """
         compare_networks(self, group1, group2, data_file)
 
-    def make_interfaces(self):
+    def make_interfaces(self, interface_pairs):
         """
-        Create interfaces between groups in the system.
+        Create and build the requested interfaces.
+
+        Parameters
+        ----------
+        interface_pairs : iterable
+            Iterable of ``(group1, group2)`` pairs. ``group2`` may be None when
+            constructing an interface against the surrounding system.
         """
-        pass
+        if self.ifaces is None:
+            self.ifaces = []
+
+        for group1, group2 in interface_pairs:
+            interface = Interface(
+                sys=self,
+                group1=group1,
+                group2=group2,
+            )
+
+            interface.build()
+            self.ifaces.append(interface)
 
     def set_output_directory(self, directory=None):
         """

@@ -97,9 +97,27 @@ def export_npt(my_sys, usr_npt=None):
         print(f"  dir            = {getattr(grp, 'dir', None)}")
 
         if hasattr(grp, 'net'):
-            print(f"  verts          = {len(grp.net.verts)}")
-            print(f"  edges          = {len(grp.net.edges)}")
-            print(f"  surfs          = {len(grp.net.surfs)}")
+            net = getattr(grp, "net", None)
+
+            print(f"  net            = {net}")
+
+            if net is None:
+                print("  verts          = None")
+                print("  edges          = None")
+                print("  surfs          = None")
+            else:
+                print(
+                    f"  verts          = "
+                    f"{None if net.verts is None else len(net.verts)}"
+                )
+                print(
+                    f"  edges          = "
+                    f"{None if net.edges is None else len(net.edges)}"
+                )
+                print(
+                    f"  surfs          = "
+                    f"{None if net.surfs is None else len(net.surfs)}"
+                )
 
     print("====================\n")
 

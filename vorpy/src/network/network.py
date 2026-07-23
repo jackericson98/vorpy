@@ -67,9 +67,30 @@ class Network:
         # Tool for splitting up the balls
         self.box = box                    # Box           : Dictionary: Ball box, sub_boxes, and
 
-
         if iface_grps is not None:
-            self.iface_grps = [set(group_indices) for group_indices in iface_grps]
+            if len(iface_grps) != 2:
+                raise ValueError(
+                    "Interface networks require exactly two interface groups."
+                )
+
+            self.iface_grps = tuple(
+                set(group_indices)
+                for group_indices in iface_grps
+            )
+
+            overlap = self.iface_grps[0].intersection(self.iface_grps[1])
+
+            if overlap:
+                raise ValueError(
+                    f"Interface groups overlap by {len(overlap)} balls: "
+                    f"{sorted(overlap)}"
+                )
+
+        self.network_mode = (
+            "interface"
+            if self.iface_grps is not None
+            else "complete"
+        )
 
         # Set up the balls
         if names is None:
@@ -155,6 +176,7 @@ class Network:
         if self.box is None:
             self.box = {}
         self.box['verts'] = box
+        return box
 
     def set_progress_window(self, progress_window):
         """
@@ -240,7 +262,8 @@ class Network:
         """
         Connects the network using the functions in the build_net.py file
         """
-        my_lists = build(self.verts['balls'], self.verts['loc'], self.verts['dub'], len(self.balls), self.metrics['start'])
+        my_lists = build(self.verts['balls'], self.verts['loc'], self.verts['dub'], len(self.balls), self.metrics['start'],
+                         interface=self.iface_grps is not None)
         ball_lists, vert_lists, edge_lists, surf_lists = my_lists
         self.balls['verts'], self.balls['edges'], self.balls['surfs'] = ball_lists['verts'], ball_lists['edges'], \
             ball_lists['surfs']
