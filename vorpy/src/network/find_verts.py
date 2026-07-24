@@ -94,7 +94,24 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
     start = time.perf_counter()
     if print_metrics:
         metrics = {'ndx_search': 0, 'box_search': 0, 'gather_balls': 0, 'verify_site': 0, 'calc_vert': 0, 'other': 0}
+    # Normalize the two interface selections.
+    if iface_grps is not None:
+        if len(iface_grps) != 2:
+            raise ValueError(
+                "iface_grps must contain exactly two ball-index collections."
+            )
 
+        iface_grps = tuple(
+            set(group_indices)
+            for group_indices in iface_grps
+        )
+
+        overlap = iface_grps[0].intersection(iface_grps[1])
+
+        if overlap:
+            raise ValueError(
+                f"Interface groups overlap by {len(overlap)} balls."
+            )
     # Get the group balls from which to check vertices against
     if my_group is None or len(my_group) == len(locs):
         # Set the group balls to just the integers in up to the number of balls
@@ -117,22 +134,68 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
     # Find the first verified vertex
     if len(my_group) == 1:
         v0 = find_v0(locs=locs, rads=rads, b_verts=b_verts, max_vert=max_vert, net_type=net_type, b0=my_group[0],
-                     group_ndxs=my_group, metrics=metrics, vert_ndxs=vert_ndxs, group_box=group_box)
+                     group_ndxs=my_group, metrics=metrics, vert_ndxs=vert_ndxs, group_box=group_box, iface_grps=iface_grps)
 
     elif len(my_group) == 4:
         v0_loc, v0_rad, v0_loc2, v0_rad2 = calc_vert(locs=[locs[_] for _ in my_group],
                                                      rads=[rads[_] for _ in my_group])
         v0 = {'balls': my_group, 'loc': v0_loc, 'rad': v0_rad, 'loc2': v0_loc2, 'rad2': v0_rad2}
     else:
-        v0 = find_v0(locs=locs, rads=rads, b_verts=b_verts, max_vert=max_vert, net_type=net_type, b0=b0,
-                     group_ndxs=my_group, metrics=metrics, vert_ndxs=vert_ndxs, group_box=group_box, box=box)
-        j = 1
-        while v0 is None and j < len(check_ndxs):
+        # In interface mode, only seed from the first interface side.
+        # Interior surrounding atoms should not each trigger an expensive
+        # attempt to locate a new interface component.
+        if iface_grps is not None:
+            seed_ndxs = [
+                ball
+                for ball in check_ndxs
+                if ball in iface_grps[0]
+            ]
+        else:
+            seed_ndxs = list(check_ndxs)
 
-            v0 = find_v0(locs=locs, rads=rads, b_verts=b_verts, max_vert=max_vert, net_type=net_type, b0=check_ndxs[j],
-                         group_ndxs=my_group, metrics=metrics, vert_ndxs=vert_ndxs, group_box=group_box, box=box)
+        # Preserve an explicitly supplied starting ball when it is valid.
+        if b0 is not None and b0 in seed_ndxs:
+            seed_ndxs.remove(b0)
+            seed_ndxs.insert(0, b0)
 
-            j += 1
+        v0 = None
+
+        for seed_ball in seed_ndxs:
+            v0 = find_v0(
+                locs=locs,
+                rads=rads,
+                b_verts=b_verts,
+                max_vert=max_vert,
+                net_type=net_type,
+                b0=seed_ball,
+                group_ndxs=my_group,
+                iface_grps=iface_grps,
+                metrics=metrics,
+                vert_ndxs=vert_ndxs,
+                group_box=group_box,
+                box=box,
+            )
+
+            if v0 is not None:
+                break
+
+    # Defensive verification: an interface seed must contain at least
+    # one defining ball from each interface side.
+    if v0 is not None and iface_grps is not None:
+        v0_balls = set(v0["balls"])
+
+        belongs_to_interface = all(
+            bool(v0_balls.intersection(group_indices))
+            for group_indices in iface_grps
+        )
+
+        if not belongs_to_interface:
+            print("\n[INVALID INTERFACE SEED]")
+            print(f"  vertex balls = {v0['balls']}")
+            print(f"  group 1 hit  = {bool(v0_balls & iface_grps[0])}")
+            print(f"  group 2 hit  = {bool(v0_balls & iface_grps[1])}")
+
+            v0 = None
     # If no v0 is possible (e.g., a lone ball) return
     if v0 is None:
         return
@@ -211,11 +274,27 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
                 metrics=metrics,
                 printing=printing,
             )
+
             # If the vertex is none continue
             if vert_ndx_pr is None:
                 continue
             # Set the vertex and its index
             my_vert, metrics = vert_ndx_pr
+            if iface_grps is not None:
+                candidate_balls = set(my_vert["balls"])
+
+                belongs_to_interface = all(
+                    bool(candidate_balls.intersection(group_indices))
+                    for group_indices in iface_grps
+                )
+
+                if not belongs_to_interface:
+                    if printing:
+                        print("\n[REJECTED NON-INTERFACE VERTEX]")
+                        print(f"  balls = {my_vert['balls']}")
+
+                    continue
+
             # # Check if there is a retaining box for the vertices and if the vertex is outside the box
             # if vert_box is not None and (any([vert_box[0][i] > my_vert['loc'][i] for i in range(3)]) or
             #                              any([vert_box[1][i] < my_vert['loc'][i] for i in range(3)])):

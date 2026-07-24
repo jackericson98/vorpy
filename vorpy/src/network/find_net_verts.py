@@ -155,6 +155,19 @@ def find_net_verts(net):
             sphere_check_list.pop(sphere_check_list.index(_))
     # Check for disconnects in the network
     while len(sphere_check_list) > 0:
+        # if net.iface_grps is not None:
+        #     interface_side_1 = set(net.iface_grps[0])
+        #
+        #     sphere_check_list = [
+        #         ball
+        #         for ball in sphere_check_list
+        #         if ball in interface_side_1
+        #     ]
+        # Interface vertex traversal begins from a verified interface seed
+        # and follows all connected interface vertices. Do not perform the
+        # standard group-mode disconnected-component seed search afterward.
+        if net.iface_grps is not None:
+            break
         # Get the next sphere to check
         a0 = sphere_check_list.pop()
         # Find the vertices
