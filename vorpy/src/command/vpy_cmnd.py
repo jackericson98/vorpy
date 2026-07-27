@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog
 import os
@@ -47,6 +48,20 @@ class Command:
 
         # Resolve the base input file
         input_arg = sys.argv[1]
+
+        input_file = Path(input_arg)
+
+        # if not input_file.is_file():
+        #     print("\nERROR: Input file not found.")
+        #     print(f"  File: {input_file}")
+        #
+        #     if not input_file.parent.exists():
+        #         print(f"  Directory does not exist: {input_file.parent}")
+        #         print("  Is the drive connected?")
+        #     else:
+        #         print("  The directory exists, but the file was not found.")
+        #
+        #     sys.exit(1)
 
         if input_arg[-3:].lower() in {"pdb", "gro", "mol", "cif", "txt"}:
             self.base_file = input_arg

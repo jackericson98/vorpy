@@ -72,6 +72,155 @@ residue_names = {**amino_names,  **nucleo_names, **ion_names}
 
 sol_names = {**{_: 'SOL' for _ in {'sol', 'hoh', 'h20'}}}
 
+# Broad molecular-category selectors used by command-line grouping.
+# These values are residue names as they appear in molecular structure files.
+protein_residue_names = {
+    'ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'GLY', 'HIS', 'ILE',
+    'LEU', 'LYS', 'MET', 'PHE', 'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL',
+
+    # Common protonation and force-field variants
+    'ASH', 'CYM', 'CYX', 'GLH',
+    'HID', 'HIE', 'HIP',
+    'HSD', 'HSE', 'HSP',
+    'LYN', 'MSE'
+}
+
+dna_residue_names = {
+    'DA', 'DC', 'DG', 'DT', 'DI',
+    'DA3', 'DA5',
+    'DC3', 'DC5',
+    'DG3', 'DG5',
+    'DT3', 'DT5'
+}
+
+rna_residue_names = {
+    'A', 'C', 'G', 'U', 'I',
+    'A3', 'A5',
+    'C3', 'C5',
+    'G3', 'G5',
+    'U3', 'U5'
+}
+
+water_residue_names = {
+    'SOL',
+    'HOH',
+    'WAT',
+    'H2O',
+    'TIP3',
+    'TIP3P',
+    'TIP4',
+    'TIP4P',
+    'SPC',
+    'SPCE'
+}
+
+ion_residue_names = set(ion_names.values()) | {
+    'NA+',
+    'K+',
+    'CA2',
+    'CA2+',
+    'MG2',
+    'MG2+',
+    'ZN2',
+    'ZN2+',
+    'CL-',
+    'SOD',
+    'POT',
+    'CLA'
+}
+
+category_names = {
+    **{name: 'protein' for name in {
+        'protein',
+        'proteins',
+        'prot'
+    }},
+
+    **{name: 'dna' for name in {
+        'dna',
+        'deoxyribonucleic',
+        'deoxyribonucleic_acid'
+    }},
+
+    **{name: 'rna' for name in {
+        'rna',
+        'ribonucleic',
+        'ribonucleic_acid'
+    }},
+
+    **{name: 'water' for name in {
+        'water',
+        'waters',
+        'sol',
+        'solvent'
+    }},
+
+    **{name: 'ions' for name in {
+        'ion',
+        'ions'
+    }},
+
+    **{name: 'ligand' for name in {
+        'ligand',
+        'ligands',
+        'lig'
+    }},
+
+    **{name: 'other' for name in {
+        'other',
+        'others',
+        'unknown',
+        'nonstandard'
+    }}
+}
+
+
+def classify_residue_name(residue_name):
+    """
+    Return the broad molecular category for a residue name.
+    """
+    name = str(residue_name).strip().upper()
+
+    if name in protein_residue_names:
+        return 'protein'
+
+    if name in dna_residue_names:
+        return 'dna'
+
+    if name in rna_residue_names:
+        return 'rna'
+
+    if name in water_residue_names:
+        return 'water'
+
+    if name in ion_residue_names:
+        return 'ions'
+
+    # Anything not recognized as a standard polymer, water, or ion is
+    # considered a ligand/nonstandard residue.
+    return 'ligand'
+
+
+def residues_in_category(residues, category):
+    """
+    Return every residue matching a broad molecular category.
+    """
+    canonical_category = category_names.get(str(category).lower())
+
+    if canonical_category is None:
+        return []
+
+    # For now, "other" and "others" mean the same thing as ligand:
+    # any nonstandard residue not classified above.
+    if canonical_category == 'other':
+        canonical_category = 'ligand'
+
+    return [
+        residue
+        for residue in residues
+        if classify_residue_name(residue.name) == canonical_category
+    ]
+
 residue_atoms = {
     'SOL': {'HW1', 'HW2', 'OW'},
     'NA':      {'NA'},                    # Sodium

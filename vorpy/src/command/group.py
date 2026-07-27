@@ -4,6 +4,8 @@ from vorpy.src.command.commands import *
 from vorpy.src.chemistry import residue_names
 from vorpy.src.chemistry import residue_atoms
 from vorpy.src.chemistry import element_names
+from vorpy.src.chemistry import category_names
+from vorpy.src.chemistry import residues_in_category
 
 
 def group(sys, usr_npt, settings=None):
@@ -301,6 +303,26 @@ def interpret_group_commands(my_sys, group_dict, command):
     dict
         Updated group dictionary containing the identified molecular components
     """
+    # Broad molecular-category command.
+    # Examples:
+    #   -g protein
+    #   -g dna
+    #   -g rna
+    #   -g ligand
+    #   -g water
+    #   -g sol
+    #   -g ions
+    #   -g others
+    category_command = command[0].lower()
+
+    if category_command in category_names:
+        matching_residues = residues_in_category(
+            my_sys.residues,
+            category_command
+        )
+
+        group_dict['residues'] += matching_residues
+        return group_dict
     # Check if the identifier is in the mols, chains, residues or atoms list
     all_dicts = [{_: 'c' for _ in chn_objs}, {_: 'r' for _ in res_objs}, {_: 'a' for _ in atom_objs}]
     # Set the identifier on em

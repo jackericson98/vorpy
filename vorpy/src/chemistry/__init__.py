@@ -6,3 +6,5 @@ from vorpy.src.chemistry.Standard import special_radii as standard_special_radii
 from vorpy.src.chemistry.Standard import element_radii as standard_element_radii
 from vorpy.src.chemistry.Voronota import special_radii
 from vorpy.src.chemistry.Voronota import element_radii
+from vorpy.src.chemistry.chemistry_interpreter import category_names
+from vorpy.src.chemistry.chemistry_interpreter import residues_in_category

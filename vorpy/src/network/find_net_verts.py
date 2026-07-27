@@ -93,15 +93,26 @@ def find_net_verts(net):
     - For foam networks, the search stops when less than 25% of balls remain unvisited
     - Doublets (vertices with two possible locations) are handled by keeping track of both locations
     """
-    print("\n[VERTEX RUN SETTINGS]")
-    print(f"  network mode = {getattr(net, 'network_mode', None)}")
-    print(f"  net type     = {net.settings['net_type']}")
-    print(f"  max vert     = {net.settings['max_vert']}")
-    print(f"  group size   = {len(net.group) if net.group is not None else None}")
-    print(f"  group        = {net.group}")
-    print(f"  iface grps   = {net.iface_grps}")
-    print(f"  vert box     = {net.box['verts']}")
-    print(f"  foam box     = {net.settings['foam_box']}")
+    # print("\n[VERTEX RUN SETTINGS]")
+    # print(f"  network mode = {getattr(net, 'network_mode', None)}")
+    # print(f"  net type     = {net.settings['net_type']}")
+    # print(f"  max vert     = {net.settings['max_vert']}")
+    # print(f"  group size   = {len(net.group) if net.group is not None else None}")
+    # print(f"  group        = {net.group}")
+    # print(f"  iface grps   = {net.iface_grps}")
+    # print(f"  vert box     = {net.box['verts']}")
+    # print(f"  foam box     = {net.settings['foam_box']}")
+    print("  group size   =", len(net.group))
+    print(
+        "  group range  =",
+        (min(net.group), max(net.group)) if net.group else None
+    )
+
+    if net.iface_grps is not None:
+        print(
+            "  iface sizes  =",
+            tuple(len(group_indices) for group_indices in net.iface_grps)
+        )
     # Create the group indices
     if net.group is None:
         net.group = [_['num'] for i, _ in net.balls.iterrows()]

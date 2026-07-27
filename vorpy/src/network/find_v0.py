@@ -330,6 +330,7 @@ def find_v0(
                     max_vert=max_vert / 10,
                     net_type=net_type,
                     group_ndxs=group_ndxs,
+                    iface_grps=iface_grps,
                     metrics=metrics,
                     box=box,
                 )

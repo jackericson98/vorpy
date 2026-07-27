@@ -9,7 +9,7 @@ from vorpy.src.calculations import calc_flat_vert
 from vorpy.src.calculations import calc_vert
 
 
-def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, net_type, box=None, group_ndxs=None, metrics=None,
+def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, net_type, box=None, group_ndxs=None, iface_grps=None, metrics=None,
                              printing=False):
     """
     Searches for a valid vertex by iteratively expanding the search area around edge balls.
@@ -39,6 +39,8 @@ def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_ver
         Dictionary containing box boundaries and cell information
     group_ndxs : list, optional
         List of ball indices in the group to constrain search
+    iface_grps : tuple(list), optional
+        Tuple of the two iface group indices
     metrics : dict, optional
         Dictionary to store performance metrics
     printing : bool, optional
@@ -90,7 +92,7 @@ def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_ver
         vert, invalid_ndxs = find_site(edge_balls=edge_balls, locs=locs, rads=rads, b_verts=b_verts,
                                        vert_ndxs=vert_ndxs, max_vert=max_vert, mv_inc=mv_inc, net_type=net_type,
                                        invalid_ndxs=invalid_ndxs, check_balls=check_ndxs, surr_balls=surr_balls,
-                                       my_boxes=my_boxes, group_ndxs=group_ndxs, metrics=metrics, box=box)
+                                       my_boxes=my_boxes, group_ndxs=group_ndxs, iface_grps=iface_grps, metrics=metrics, box=box)
         # If a vertex is found exit the loop
         if vert is not None:
             break
@@ -101,8 +103,8 @@ def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_ver
 
 
 def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_type, invalid_ndxs=None,
-              check_balls=True, surr_balls=None, vn_1=None, vn_1_loc=None, group_ndxs=None, metrics=None, my_boxes=None,
-              box=None):
+              check_balls=True, surr_balls=None, vn_1=None, vn_1_loc=None, group_ndxs=None, iface_grps=None,
+              metrics=None, my_boxes=None, box=None):
     """
     Finds a connecting vertex by searching through combinations of balls around an existing vertex.
 
@@ -139,6 +141,8 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
         Location of previous vertex
     group_ndxs : list, optional
         List of ball indices in the group to constrain search
+    iface_grps : tuple(list), optional
+        tuple of lists of
     metrics : dict, optional
         Dictionary to store performance metrics
     my_boxes : list, optional
@@ -167,6 +171,19 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
         invalid_ndxs = []
     # Get the balls that should not ba a part of the new vertex
     edge_ndxs = edge_balls[:]
+
+    # Determine whether the three-ball edge is missing either side of an
+    # interface. Any fourth defining ball must supply every missing side.
+    missing_iface_grps = []
+
+    if iface_grps is not None:
+        edge_ball_set = set(edge_balls)
+
+        missing_iface_grps = [
+            set(group_indices)
+            for group_indices in iface_grps
+            if not edge_ball_set.intersection(group_indices)
+        ]
 
     # If the previous vertex has been provided, add the other  to the not allowed balls
     vert_ball_ndxs = vn_1
@@ -198,6 +215,13 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
             continue
         # Check if we need to check and if so check for the ball in the list
         if check_balls and ball not in group_ndxs:
+            continue
+        # If the current edge does not yet contain both interface sides, the
+        # fourth defining ball must supply every missing side.
+        if missing_iface_grps and not all(
+                ball in group_indices
+                for group_indices in missing_iface_grps
+        ):
             continue
         # If we have found the vertex before it is not the previous vertex return
         ball_ndxs = edge_ndxs + [ball]
@@ -240,6 +264,20 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
         start = time.perf_counter()
         # Filter the vertex out if it is too large or not able to be made
         filtered_test_balls = [_ for _ in surr_balls if _ not in vert_balls]
+        if not hasattr(find_site, "_debug_count"):
+            find_site._debug_count = 0
+        if find_site._debug_count < 10:
+            print(
+                "[SLOW FIND_SITE]",
+                f"edge_balls={edge_balls}",
+                f"fourth_ball={ball}",
+                f"new_test_balls={len(new_test_balls)}",
+                f"filtered_test_balls={len(filtered_test_balls)}",
+                f"all_locs={len(locs)}",
+                f"candidate_verts={len(b_verts)}",
+                flush=True
+            )
+            find_site._debug_count += 1
         test_locs = np.array([locs[_] for _ in filtered_test_balls])
         test_rads = np.array([rads[_] for _ in filtered_test_balls])
         if abs(vert_rad) < max_vert and verify_site(loc=np.array(vert_loc), rad=vert_rad, test_locs=test_locs, test_rads=test_rads, net_type=net_type):

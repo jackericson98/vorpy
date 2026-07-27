@@ -25,7 +25,7 @@ def _numeric_guard():
         np.seterr(**old)
 
 
-def _real_roots_quadratic(a, b, c, tol=1e-12):
+def _real_roots_quadratic1(a, b, c, tol=1e-12):
     with _numeric_guard():
         try:
             r = np.roots([a, b, c])
@@ -37,6 +37,75 @@ def _real_roots_quadratic(a, b, c, tol=1e-12):
         if abs(z.imag) <= tol and np.isfinite(z.real):
             real.append(float(z.real))
     return real
+
+def _real_roots_quadratic(a, b, c, tol=1e-12):
+    """
+    Return the real roots of:
+
+        a*x**2 + b*x + c = 0
+
+    Uses the analytic quadratic formula instead of np.roots(), avoiding
+    a full eigenvalue calculation for every candidate Voronoi vertex.
+    """
+
+    a = float(a)
+    b = float(b)
+    c = float(c)
+
+    coefficient_scale = max(abs(a), abs(b), abs(c), 1.0)
+    coefficient_tol = tol * coefficient_scale
+
+    # Degenerate quadratic: solve as a linear equation.
+    if abs(a) <= coefficient_tol:
+        if abs(b) <= coefficient_tol:
+            return []
+
+        return [-c / b]
+
+    discriminant = b * b - 4.0 * a * c
+
+    discriminant_scale = max(
+        abs(b * b),
+        abs(4.0 * a * c),
+        1.0,
+    )
+    discriminant_tol = tol * discriminant_scale
+
+    # Definitely complex roots.
+    if discriminant < -discriminant_tol:
+        return []
+
+    # Treat a small negative value caused by floating-point error as zero.
+    if discriminant < 0.0:
+        discriminant = 0.0
+
+    sqrt_discriminant = np.sqrt(discriminant)
+
+    # Stable quadratic formula. This avoids cancellation when b and
+    # sqrt(discriminant) have similar magnitudes.
+    if b >= 0.0:
+        q = -0.5 * (b + sqrt_discriminant)
+    else:
+        q = -0.5 * (b - sqrt_discriminant)
+
+    if abs(q) <= coefficient_tol:
+        roots = [-b / (2.0 * a)]
+    else:
+        roots = [
+            q / a,
+            c / q,
+        ]
+
+    # Remove duplicate roots from a zero discriminant.
+    if len(roots) == 2 and np.isclose(
+        roots[0],
+        roots[1],
+        rtol=tol,
+        atol=coefficient_tol,
+    ):
+        return [roots[0]]
+
+    return roots
 
 
 def _safe_div(num, den, name="denominator", eps=1e-15):

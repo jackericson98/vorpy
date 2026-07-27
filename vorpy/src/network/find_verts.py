@@ -3,7 +3,10 @@ from vorpy.src.network.find_v0 import find_v0
 from vorpy.src.network.fast import find_site_container
 from vorpy.src.calculations import get_time
 from vorpy.src.calculations import ndx_search
+from vorpy.src.calculations import box_search
+from vorpy.src.calculations import get_balls
 import time
+import numpy as np
 from numpy import sqrt
 
 
@@ -141,17 +144,91 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
                                                      rads=[rads[_] for _ in my_group])
         v0 = {'balls': my_group, 'loc': v0_loc, 'rad': v0_rad, 'loc2': v0_loc2, 'rad2': v0_rad2}
     else:
-        # In interface mode, only seed from the first interface side.
-        # Interior surrounding atoms should not each trigger an expensive
-        # attempt to locate a new interface component.
+        # In interface mode, seed from first-side balls ordered by their
+        # minimum surface-to-surface separation from the opposite side.
         if iface_grps is not None:
+            interface_side_1 = iface_grps[0]
+            interface_side_2 = iface_grps[1]
+
+            side_2_indices = np.array(
+                sorted(interface_side_2),
+                dtype=int,
+            )
+
+            side_2_locs = np.asarray(
+                [locs[ball] for ball in side_2_indices],
+                dtype=float,
+            )
+
+            side_2_rads = np.asarray(
+                [rads[ball] for ball in side_2_indices],
+                dtype=float,
+            )
+
+            seed_search_dist = max_vert / 10
+
+            seed_distances = []
+
+            for ball in check_ndxs:
+                if ball not in interface_side_1:
+                    continue
+
+                center_distances = np.linalg.norm(
+                    side_2_locs - np.asarray(locs[ball], dtype=float),
+                    axis=1,
+                )
+
+                surface_distances = (
+                        center_distances
+                        - float(rads[ball])
+                        - side_2_rads
+                )
+
+                minimum_surface_distance = float(
+                    np.min(surface_distances)
+                )
+
+                if minimum_surface_distance <= seed_search_dist:
+                    seed_distances.append(
+                        (minimum_surface_distance, ball)
+                    )
+
+            # Try the DNA atoms closest to protein first. No accepted seed is
+            # discarded merely because another seed is closer.
+            seed_distances.sort(
+                key=lambda item: item[0]
+            )
+
             seed_ndxs = [
                 ball
-                for ball in check_ndxs
-                if ball in iface_grps[0]
+                for _, ball in seed_distances
             ]
+
         else:
+            seed_distances = None
             seed_ndxs = list(check_ndxs)
+        if iface_grps is not None:
+            minimum_seed_distance = (
+                seed_distances[0][0]
+                if seed_distances
+                else None
+            )
+
+            maximum_seed_distance = (
+                seed_distances[-1][0]
+                if seed_distances
+                else None
+            )
+
+            print(
+                "\n[INTERFACE SEED FILTER]",
+                f"side1_total={len(iface_grps[0])}",
+                f"near_interface={len(seed_ndxs)}",
+                f"search_dist={seed_search_dist}",
+                f"min_surface_gap={minimum_seed_distance}",
+                f"max_surface_gap={maximum_seed_distance}",
+                flush=True,
+            )
 
         # Preserve an explicitly supplied starting ball when it is valid.
         if b0 is not None and b0 in seed_ndxs:
