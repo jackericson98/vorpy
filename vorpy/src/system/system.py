@@ -141,8 +141,8 @@ def build_log_to_system_index_map(sys_balls, log_balls, tol=0.01, coord_fallback
                 sys_indices[int(i)]
                 for d, i in zip(dist, tree_i)
                 if int(i) < len(sys_indices)
-                and d <= coord_fallback_tol
-                and sys_indices[int(i)] not in used_sys_indices
+                   and d <= coord_fallback_tol
+                   and sys_indices[int(i)] not in used_sys_indices
             ]
 
         if not candidates:
@@ -301,6 +301,15 @@ class System:
         # Settings
         self.groups = groups                # Groups              :   List of groups in the system
         self.ifaces = ifaces                # Interfaces          :   List of interface objects between groups
+
+        # Shared geometry discovered while building pairwise interfaces.
+        # Keys are canonical, system-index-based topology signatures so the
+        # same geometry can be recognized across interfaces and build order.
+        self.interface_geometry_cache = {
+            'verts': {},
+            'edges': {},
+            'surfs': {},
+        }
         self.ndxs = None                    # Indices             :   List of indices used to create groups
         self.elements = elements            # Elements            :   List of elements with mass, number, radius, group
         self.element_radii = element_radii  # Element Radii       :   Dictionary of elements and their radii
@@ -438,7 +447,7 @@ class System:
         except TypeError:
             self.name = "my_system"
 
-        # Set the output directory 
+        # Set the output directory
         if self.files['dir'] is None or 'No System Chosen' in self.files['dir']:
             self.set_output_directory()
 
@@ -770,6 +779,126 @@ class System:
         differences. The comparison can be saved to a data file if specified.
         """
         compare_networks(self, group1, group2, data_file)
+
+    @staticmethod
+    def _freeze_cache_value(value):
+        """Convert dataframe cell values into deterministic hashable values."""
+        if hasattr(value, "tolist"):
+            value = value.tolist()
+
+        if isinstance(value, dict):
+            return tuple(
+                sorted(
+                    (key, System._freeze_cache_value(item))
+                    for key, item in value.items()
+                )
+            )
+
+        if isinstance(value, (list, tuple, set)):
+            return tuple(System._freeze_cache_value(item) for item in value)
+
+        try:
+            # Normalize NumPy scalar types without importing NumPy here.
+            return value.item()
+        except AttributeError:
+            return value
+
+    @classmethod
+    def _interface_geometry_key(cls, kind, row, round_to=8):
+        """Return a canonical cache key for one interface topology row."""
+        balls = tuple(sorted(int(ball) for ball in row.get('balls', [])))
+
+        if kind == 'verts':
+            loc = row.get('loc', [])
+            loc = tuple(round(float(value), round_to) for value in loc)
+            rad = round(float(row.get('rad', 0.0)), round_to)
+            dub = cls._freeze_cache_value(row.get('dub', row.get('vdub', None)))
+            return balls, loc, rad, dub
+
+        if kind == 'edges':
+            verts = tuple(sorted(int(vert) for vert in row.get('verts', [])))
+            return balls, verts
+
+        if kind == 'surfs':
+            verts = tuple(sorted(int(vert) for vert in row.get('verts', [])))
+            edges = tuple(sorted(int(edge) for edge in row.get('edges', [])))
+            return balls, verts, edges
+
+        raise ValueError(f'Unsupported interface geometry kind: {kind}')
+
+    def cache_interface_geometry(self, interface):
+        """Merge a completed interface network into the shared geometry cache.
+
+        Cached rows retain their original network data and a set of interface
+        identifiers recording where the geometry was observed. All defining
+        ball indices remain system-global.
+        """
+        if interface.net is None:
+            return
+
+        for kind in ('verts', 'edges', 'surfs'):
+            frame = getattr(interface.net, kind, None)
+
+            if frame is None or len(frame) == 0:
+                continue
+
+            cache = self.interface_geometry_cache[kind]
+
+            for source_index, row in frame.iterrows():
+                row_dict = row.to_dict()
+                key = self._interface_geometry_key(kind, row_dict)
+                cached = cache.get(key)
+
+                if cached is None:
+                    cache[key] = {
+                        'data': row_dict,
+                        'source_index': int(source_index),
+                        'interfaces': {interface.interface_id},
+                    }
+                else:
+                    cached['interfaces'].add(interface.interface_id)
+
+        print(
+            '[INTERFACE CACHE]',
+            f"interface={interface.name}",
+            f"verts={len(self.interface_geometry_cache['verts'])}",
+            f"edges={len(self.interface_geometry_cache['edges'])}",
+            f"surfs={len(self.interface_geometry_cache['surfs'])}",
+            flush=True,
+        )
+
+    def get_cached_interface_geometry(self, kind, group1_indices=None, group2_indices=None):
+        """Return cached rows, optionally restricted to a requested interface.
+
+        A row matches a requested interface only when its defining balls contain
+        at least one member of each side. This method returns cache records, not
+        a Network dataframe, because cached geometry must be integrated into the
+        vertex traversal rather than treated as a complete preloaded network.
+        """
+        if kind not in self.interface_geometry_cache:
+            raise ValueError(f'Unsupported interface geometry kind: {kind}')
+
+        side1 = None if group1_indices is None else set(group1_indices)
+        side2 = None if group2_indices is None else set(group2_indices)
+        matches = []
+
+        for record in self.interface_geometry_cache[kind].values():
+            balls = set(int(ball) for ball in record['data'].get('balls', []))
+
+            if side1 is not None and balls.isdisjoint(side1):
+                continue
+
+            if side2 is not None and balls.isdisjoint(side2):
+                continue
+
+            matches.append(record)
+
+        return matches
+
+    def clear_interface_geometry_cache(self):
+        """Remove all geometry accumulated from previous interface builds."""
+        for cache in self.interface_geometry_cache.values():
+            cache.clear()
 
     def make_interfaces(self, interface_pairs):
         """

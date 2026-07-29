@@ -34,6 +34,67 @@ def vertex_is_allowed(net, vertex_balls):
     return bool(vertex_balls.intersection(net.group))
 
 
+def _load_cached_vertex_state(net):
+    """Return cached vertices as independent native ``find_verts`` arrays."""
+    records = list(getattr(net, 'cached_interface_vertex_state', None) or [])
+    if not records:
+        return None
+
+    records.sort(key=lambda record: record.get('source_index', 0))
+    vert_ndxs = []
+    vlocs = []
+    vrads = []
+    vloc2s = []
+    vrad2s = []
+    b_verts = [[] for _ in range(len(net.balls))]
+
+    for record in records:
+        row = record['data']
+        balls = [int(ball) for ball in row.get('balls', [])]
+        if not vertex_is_allowed(net, balls):
+            continue
+
+        vertex_index = len(vert_ndxs)
+        vert_ndxs.append(balls)
+        vlocs.append([float(value) for value in row.get('loc', [])])
+        vrads.append(float(row.get('rad', 0.0)))
+
+        loc2 = row.get('loc2', None)
+        if loc2 is None or all(value is None for value in loc2):
+            vloc2s.append([None, None, None])
+            vrad2s.append(None)
+        else:
+            vloc2s.append([float(value) for value in loc2])
+            rad2 = row.get('rad2', None)
+            vrad2s.append(None if rad2 is None else float(rad2))
+
+        for ball in balls:
+            b_verts[ball].append(vertex_index)
+
+    if not vert_ndxs:
+        return None
+
+    return vert_ndxs, vlocs, vrads, vloc2s, vrad2s, b_verts
+
+
+def _store_native_vertex_state(net, vert_ndxs, vlocs, vrads, vloc2s, vrad2s):
+    """Persist the completed native search state for System-level caching."""
+    net.interface_vertex_state = []
+    for balls, loc, rad, loc2, rad2 in zip(
+            vert_ndxs, vlocs, vrads, vloc2s, vrad2s):
+        net.interface_vertex_state.append({
+            'balls': [int(ball) for ball in balls],
+            'loc': [float(value) for value in loc],
+            'rad': float(rad),
+            'loc2': (
+                [None, None, None]
+                if loc2 is None or all(value is None for value in loc2)
+                else [float(value) for value in loc2]
+            ),
+            'rad2': None if rad2 is None else float(rad2),
+        })
+
+
 def find_net_verts(net):
 
     """
@@ -118,7 +179,22 @@ def find_net_verts(net):
         net.group = [_['num'] for i, _ in net.balls.iterrows()]
     # Create the sphere check list
     sphere_check_list = net.group.copy()
-    # Get the indices of the balls in the network to keep track of the balls that haven't been visited
+
+    cached_state = _load_cached_vertex_state(net)
+    if cached_state is None:
+        vert_ndxs = vlocs = vrads = vloc2s = vrad2s = averts = None
+        cached_count = 0
+    else:
+        vert_ndxs, vlocs, vrads, vloc2s, vrad2s, averts = cached_state
+        cached_count = len(vert_ndxs)
+        print(
+            f"[INTERFACE CACHE LOAD] verts={cached_count} "
+            f"covered_balls={sum(bool(vertices) for vertices in averts)}",
+            flush=True,
+        )
+
+    # Continue normal discovery with cached vertices available for duplicate
+    # detection and traversal adjacency.
     my_guuy = find_verts(
         locs=net.balls['loc'].to_numpy(),
         rads=net.balls['rad'].to_numpy(),
@@ -132,15 +208,24 @@ def find_net_verts(net):
         # The two original interface sides. These are distinct from
         # my_group and will later control candidate-vertex acceptance.
         iface_grps=net.iface_grps,
+        vert_ndxs=vert_ndxs,
+        vlocs=vlocs,
+        vrads=vrads,
+        vloc2s=vloc2s,
+        vrad2s=vrad2s,
+        b_verts=averts,
 
         start_time=net.metrics['start'],
         print_metrics=net.settings['print_metrics'],
         vert_box=net.settings['foam_box'],
         box=net.box['verts'],
     )
-    # If the function returns a valid vertex, set the variables
+    # If the function returns a valid vertex, set the variables.
     if my_guuy is not None:
         vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
+    elif cached_state is None:
+        return
+
     # Check to see if any of the balls are encapsulated
     if len(sphere_check_list) > 0:
         # Create the skip numbers list
@@ -208,6 +293,13 @@ def find_net_verts(net):
         if net.settings['ball_type'] == 'foam' and len(sphere_check_list) <= 0.25 * len(net.balls['loc']):
             print(f'Missing Ball Indices:\n{sphere_check_list}\n')
             break
+    # Save the lossless native representation before doublets are expanded
+    # into separate dataframe rows.
+    if net.iface_grps is not None:
+        _store_native_vertex_state(
+            net, vert_ndxs, vlocs, vrads, vloc2s, vrad2s
+        )
+
     # Create the doublets list
     doublets = [0 for _ in range(len(vert_ndxs))]
     # Incorporate the doublets into the v_locs, balls, v_rads lists and lose the v_loc2s and v_rad2s

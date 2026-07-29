@@ -168,6 +168,10 @@ class Interface:
 
         self.net.build()
 
+        # Make completed topology available to later pairwise interface builds.
+        # The System cache uses global ball indices and records provenance.
+        self.sys.cache_interface_geometry(self)
+
         self._update_group_metadata(
             network_created=True,
             built=True,
