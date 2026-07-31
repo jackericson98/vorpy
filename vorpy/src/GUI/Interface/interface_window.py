@@ -95,13 +95,15 @@ def build_all_pairs(group_names):
 class InterfaceWindow(tk.Toplevel):
     """Dialog that selects interface pairs and resolves a usable source network."""
 
-    def __init__(self, parent, system, fonts=None, build_group=None, calculate_interface=None):
+    def __init__(self, parent, system, fonts=None, build_group=None, calculate_interface=None,
+                 pending_group_names=None):
         super().__init__(parent)
         self.parent = parent
         self.system = system
         self.fonts = fonts or {}
         self.build_group = build_group
         self.calculate_interface = calculate_interface
+        self.pending_group_names = list(pending_group_names or [])
         self.results = []
 
         self.title("Interface")
@@ -132,7 +134,19 @@ class InterfaceWindow(tk.Toplevel):
             font=self._font("class 2", ("Arial", 10)),
         ).grid(row=1, column=0, columnspan=3, pady=(0, 14))
 
-        self.group_names = get_group_names(self.system)
+        system_group_names = get_group_names(self.system)
+
+        self.group_names = list(
+            dict.fromkeys([
+                *system_group_names,
+                *self.pending_group_names,
+            ])
+        )
+
+        print("\n=== INTERFACE GROUP OPTIONS ===")
+        print(f"system group names: {system_group_names}")
+        print(f"pending GUI group names: {self.pending_group_names}")
+        print(f"combined interface names: {self.group_names}")
         first_options = list(dict.fromkeys([SPECIAL_FIRST, *self.group_names]))
         second_options = list(dict.fromkeys([*SPECIAL_SECOND, *self.group_names]))
 
@@ -252,7 +266,8 @@ class InterfaceWindow(tk.Toplevel):
         self.geometry(f"+{x}+{y}")
 
 
-def open_interface_window(parent, system, fonts=None, build_group=None, calculate_interface=None):
+def open_interface_window(parent, system, fonts=None, build_group=None, calculate_interface=None,
+                          pending_group_names=None):
     """Open the interface dialog and return the window object."""
     return InterfaceWindow(
         parent=parent,
@@ -260,4 +275,5 @@ def open_interface_window(parent, system, fonts=None, build_group=None, calculat
         fonts=fonts,
         build_group=build_group,
         calculate_interface=calculate_interface,
+        pending_group_names=pending_group_names,
     )

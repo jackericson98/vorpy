@@ -60,6 +60,7 @@ class VorPyGUI(tk.Tk):
         self.group_settings = {}
         self.group_solves = {}
         self.interface_requests = []
+        self.interface_mode = None
 
         # Title Section with Image Template
         title_frame = tk.Frame(self, pady=10)
@@ -247,6 +248,29 @@ class VorPyGUI(tk.Tk):
 
     def interfaces(self):
         """Open the interface-selection dialog and store the requested pair or pairs."""
+        print("\n" + "=" * 70)
+        print("GUI INTERFACE BUTTON PRESSED")
+        print("=" * 70)
+
+        print(f"system object: {self.sys}")
+        print(f"system name: {getattr(self.sys, 'name', None)}")
+        print(f"system atoms loaded: {self.sys.atoms is not None}")
+        print(
+            f"system atom count: "
+            f"{len(self.sys.atoms) if self.sys.atoms is not None else 0}"
+        )
+
+        print(f"GUI group setting names: {list(self.group_settings.keys())}")
+        print(f"existing system groups: {getattr(self.sys, 'groups', None)}")
+        print(f"existing interface requests: {self.interface_requests}")
+
+        if self.sys.groups:
+            for group_index, group in enumerate(self.sys.groups):
+                print(f"\nEXISTING SYSTEM GROUP {group_index}")
+                print(f"  object: {group}")
+                print(f"  name: {getattr(group, 'name', None)}")
+                print(f"  ball_indices: {getattr(group, 'ball_indices', None)}")
+                print(f"  net: {getattr(group, 'net', None)}")
         dialog = tk.Toplevel(self)
         dialog.title("Interface")
         dialog.resizable(False, False)
@@ -268,7 +292,20 @@ class VorPyGUI(tk.Tk):
             font=self.fonts['class 2']
         ).grid(row=1, column=0, columnspan=3, pady=(0, 14))
 
-        group_names = self.get_interface_group_names()
+        system_group_names = self.get_interface_group_names()
+        pending_group_names = list(self.group_settings.keys())
+
+        group_names = list(
+            dict.fromkeys([
+                *system_group_names,
+                *pending_group_names,
+            ])
+        )
+
+        print("\n=== INTERFACE GROUP OPTIONS ===")
+        print(f"system group names: {system_group_names}")
+        print(f"pending GUI group names: {pending_group_names}")
+        print(f"combined interface group names: {group_names}")
         first_options = ["(default)", *group_names]
         second_options = ["surrounding", "solvent", *group_names]
 
@@ -304,11 +341,40 @@ class VorPyGUI(tk.Tk):
         ).grid(row=3, column=0, columnspan=3, pady=(18, 8))
 
         def finish(mode, interfaces):
+            self.interface_mode = mode
             self.interface_requests = interfaces
 
-            print(f"Creating {mode} interface request(s):")
-            for group_1, group_2 in interfaces:
-                print(f"  {group_1} <-> {group_2}")
+            print("\n" + "=" * 70)
+            print("GUI INTERFACE REQUEST SAVED")
+            print("=" * 70)
+
+            print(f"selection mode: {mode}")
+            print(f"raw interface requests: {self.interface_requests}")
+            print(f"request count: {len(self.interface_requests)}")
+            print(f"available GUI groups: {list(self.group_settings.keys())}")
+            print(f"available system groups: {self.get_interface_group_names()}")
+
+            for request_index, (group_1, group_2) in enumerate(interfaces):
+                print(f"\nREQUEST {request_index}")
+                print(f"  group 1 selection: {group_1}")
+                print(f"  group 2 selection: {group_2}")
+
+                resolved_group_1 = self.get_group_by_name(group_1)
+                resolved_group_2 = self.get_group_by_name(group_2)
+
+                print(f"  group 1 currently resolved: {resolved_group_1}")
+                print(f"  group 2 currently resolved: {resolved_group_2}")
+
+                if group_1 in self.group_settings:
+                    selections = self.group_settings[group_1]["selections"].selections
+                    print(f"  group 1 GUI selections: {selections}")
+
+                if group_2 in self.group_settings:
+                    selections = self.group_settings[group_2]["selections"].selections
+                    print(f"  group 2 GUI selections: {selections}")
+
+            print("\nThe request has been stored.")
+            print("Press Solve to execute the requested interface build.")
 
             dialog.destroy()
 
@@ -327,7 +393,7 @@ class VorPyGUI(tk.Tk):
             finish("selected", [(group_1, group_2)])
 
         def create_all():
-            finish("all", self.build_all_interface_pairs(group_names))
+            finish("all", [])
 
         ttk.Button(
             frame,
@@ -357,7 +423,7 @@ class VorPyGUI(tk.Tk):
         y = self.winfo_rooty() + (self.winfo_height() - dialog.winfo_height()) // 2
         dialog.geometry(f"+{x}+{y}")
 
-    def run_group(self, group_name, verts=None):
+    def run_group(self, group_name, verts=None, make_net=True, build_net=True):
         """
         This runs a group from the group settings dictionary
         """
@@ -375,7 +441,9 @@ class VorPyGUI(tk.Tk):
             residues=settings['selections'].selections['residues'],
             chains=settings['selections'].selections['chains'],
             molecules=settings['selections'].selections['molecules'],
-            build_net=True,
+            # Interface mode can create only the group definition.
+            make_net=make_net,
+            build_net=build_net,
             surf_res=float(build_settings['color_settings']['surf_res']),
             box_size=float(build_settings['box_size']),
             max_vert=float(build_settings['max_vert']),
@@ -394,13 +462,190 @@ class VorPyGUI(tk.Tk):
         if group not in self.sys.groups:
             self.sys.groups.append(group)
 
-        self.group_solves[group_name] = True
+        self.group_solves[group_name] = bool(build_net)
+
+        print("\n=== GUI GROUP CREATED ===")
+        print(f"name: {group.name}")
+        print(f"ball count: {len(group.ball_ndxs)}")
+        print(f"make_net requested: {make_net}")
+        print(f"build_net requested: {build_net}")
+        print(f"group.net: {group.net}")
+        print(f"marked solved: {self.group_solves[group_name]}")
+
         return group
+
+    def create_interface_group_definitions(self):
+        """
+        Create the GUI-defined Group objects without constructing or building
+        their complete networks.
+        """
+        print("\n" + "=" * 70)
+        print("CREATING INTERFACE GROUP DEFINITIONS")
+        print("=" * 70)
+
+        if self.sys.groups is None:
+            self.sys.groups = []
+
+        groups_by_name = {
+            group.name: group
+            for group in self.sys.groups
+            if not isinstance(group, str)
+        }
+
+        for group_name in self.group_settings:
+            existing_group = groups_by_name.get(group_name)
+
+            if existing_group is not None:
+                print(f"\nReusing existing group definition: {group_name}")
+                print(f"  balls: {len(existing_group.ball_ndxs)}")
+                print(f"  net: {existing_group.net}")
+                continue
+
+            verts = None
+
+            if self.files["other_files"]:
+                if "verts" in self.files["other_files"][0]:
+                    verts = self.files["other_files"][0]
+
+            group = self.run_group(
+                group_name=group_name,
+                verts=verts,
+                make_net=False,
+                build_net=False,
+            )
+
+            groups_by_name[group_name] = group
+
+            print(f"\nCreated interface group definition: {group_name}")
+            print(f"  balls: {len(group.ball_ndxs)}")
+            print(f"  net: {group.net}")
+
+        return groups_by_name
+
+    def resolve_gui_interface_pairs(self, groups_by_name):
+        """
+        Convert the GUI interface selection into Group object pairs.
+
+        All mode:
+            Build every unique pairwise combination of available GUI groups.
+
+        Selected mode:
+            Build only the pair selected in the interface dialog.
+
+        System.make_interfaces() expects:
+            [(group1_object, group2_object_or_None), ...]
+        """
+        interface_pairs = []
+
+        print("\n" + "=" * 70)
+        print("RESOLVING GUI INTERFACE PAIRS")
+        print("=" * 70)
+
+        print(f"interface mode: {self.interface_mode}")
+        print(f"raw requests: {self.interface_requests}")
+        print(f"available groups: {list(groups_by_name.keys())}")
+
+        # --------------------------------------------------------------
+        # All groups
+        # --------------------------------------------------------------
+        if self.interface_mode == "all":
+            groups = list(groups_by_name.values())
+
+            if len(groups) == 0:
+                raise ValueError(
+                    "Cannot create interfaces because no GUI groups were defined."
+                )
+
+            if len(groups) == 1:
+                interface_pairs = [
+                    (groups[0], None)
+                ]
+            else:
+                interface_pairs = list(
+                    combinations(groups, 2)
+                )
+
+        # --------------------------------------------------------------
+        # Selected groups
+        # --------------------------------------------------------------
+        elif self.interface_mode == "selected":
+            if len(self.interface_requests) != 1:
+                raise ValueError(
+                    "Selected interface mode requires exactly one interface request."
+                )
+
+            first_name, second_name = self.interface_requests[0]
+
+            # Resolve the first side.
+            if first_name == "(default)":
+                if not groups_by_name:
+                    raise ValueError(
+                        "The default interface requires at least one group definition."
+                    )
+
+                group1 = next(iter(groups_by_name.values()))
+            else:
+                group1 = groups_by_name.get(first_name)
+
+            if group1 is None:
+                raise ValueError(
+                    f"Could not resolve interface group '{first_name}'. "
+                    f"Available groups: {list(groups_by_name.keys())}"
+                )
+
+            # Resolve the second side.
+            if second_name in ("surrounding", "solvent"):
+                group2 = None
+            else:
+                group2 = groups_by_name.get(second_name)
+
+            if second_name not in ("surrounding", "solvent") and group2 is None:
+                raise ValueError(
+                    f"Could not resolve interface group '{second_name}'. "
+                    f"Available groups: {list(groups_by_name.keys())}"
+                )
+
+            if group1 is group2:
+                raise ValueError(
+                    f"Cannot create an interface between group "
+                    f"'{group1.name}' and itself."
+                )
+
+            interface_pairs = [
+                (group1, group2)
+            ]
+
+        else:
+            raise ValueError(
+                f"Unknown GUI interface mode: {self.interface_mode}"
+            )
+
+        print(f"resolved pair count: {len(interface_pairs)}")
+
+        for pair_index, (group1, group2) in enumerate(interface_pairs):
+            print(
+                f"  pair {pair_index}: "
+                f"{group1.name} <-> "
+                f"{group2.name if group2 is not None else 'surrounding'}"
+            )
+
+        return interface_pairs
 
     def run_program(self):
         """
-        Solve all groups without exporting.
+        Solve all groups without exporting
         """
+        print("\n" + "=" * 70)
+        print("GUI SOLVE START")
+        print("=" * 70)
+
+        print(f"system name: {getattr(self.sys, 'name', None)}")
+        print(f"output directory: {self.output_dir}")
+        print(f"GUI group names: {list(self.group_settings.keys())}")
+        print(f"group solve states: {self.group_solves}")
+        print(f"interface requests: {self.interface_requests}")
+        print(f"interface mode requested: {self.interface_mode}")
+        print(f"system groups before creation: {getattr(self.sys, 'groups', None)}")
         if len(self.group_settings) == 0:
             self.sys.create_group()
 
@@ -409,14 +654,149 @@ class VorPyGUI(tk.Tk):
         for change in self.radii_changes:
             self.sys.set_radii(change)
 
+        # --------------------------------------------------------------
+        # Interface-only build
+        # --------------------------------------------------------------
+        if self.interface_requests is not None:
+            print("\n" + "=" * 70)
+            print("GUI INTERFACE-ONLY MODE")
+            print("=" * 70)
+
+            print("Full group networks will not be built.")
+            print(f"requested interfaces: {self.interface_requests}")
+
+            groups_by_name = self.create_interface_group_definitions()
+
+            interface_pairs = self.resolve_gui_interface_pairs(
+                groups_by_name=groups_by_name,
+            )
+
+            print("\n=== CALLING SYSTEM.MAKE_INTERFACES ===")
+            print(f"pair count: {len(interface_pairs)}")
+
+            for pair_index, (group1, group2) in enumerate(interface_pairs):
+                print(
+                    f"  pair {pair_index}: "
+                    f"{group1.name} <-> "
+                    f"{group2.name if group2 is not None else 'surrounding'}"
+                )
+
+            self.sys.make_interfaces(interface_pairs)
+
+            print("\n" + "=" * 70)
+            print("GUI INTERFACE-ONLY BUILD COMPLETE")
+            print("=" * 70)
+
+            print(f"system groups: {len(self.sys.groups or [])}")
+            print(f"system interfaces: {len(self.sys.ifaces or [])}")
+
+            for group in self.sys.groups or []:
+                print(f"\nGROUP DEFINITION: {group.name}")
+                print(f"  balls: {len(group.ball_ndxs)}")
+                print(f"  full group net: {group.net}")
+
+            for interface_index, interface in enumerate(self.sys.ifaces or []):
+                print(f"\nINTERFACE {interface_index}")
+                print(f"  name: {interface.name}")
+                print(f"  group1: {interface.group1.name}")
+                print(f"  group2: {interface.group2.name}")
+                print(f"  interface net: {interface.net}")
+
+                if interface.net is not None:
+                    interface_verts = getattr(interface.net, "verts", None)
+                    interface_edges = getattr(interface.net, "edges", None)
+                    interface_surfs = getattr(interface.net, "surfs", None)
+
+                    print(
+                        f"  vertices: "
+                        f"{len(interface_verts) if interface_verts is not None else 0}"
+                    )
+                    print(
+                        f"  edges: "
+                        f"{len(interface_edges) if interface_edges is not None else 0}"
+                    )
+                    print(
+                        f"  surfaces: "
+                        f"{len(interface_surfs) if interface_surfs is not None else 0}"
+                    )
+
+            return self.sys
+
         for group_name in self.group_settings:
+            print("\n" + "-" * 70)
+            print(f"PREPARING GUI GROUP: {group_name}")
+            print("-" * 70)
+
+            settings = self.group_settings[group_name]
+            selections = settings["selections"].selections
+            build_settings = settings["build_settings"].get_settings()
+
+            print(f"selections: {selections}")
+            print(f"build settings: {build_settings}")
+
             verts = None
 
-            if self.files['other_files']:
-                if 'verts' in self.files['other_files'][0]:
-                    verts = self.files['other_files'][0]
+            if self.files["other_files"]:
+                if "verts" in self.files["other_files"][0]:
+                    verts = self.files["other_files"][0]
 
-            self.run_group(group_name, verts)
+            print(f"loaded vertices file: {verts}")
+
+            group = self.run_group(group_name, verts)
+
+            print(f"created group object: {group}")
+            print(f"group name: {getattr(group, 'name', None)}")
+            print(f"group ball_indices: {getattr(group, 'ball_indices', None)}")
+            print(
+                f"group ball count: "
+                f"{len(group.ball_indices) if getattr(group, 'ball_indices', None) is not None else 0}"
+            )
+            print(f"group network: {getattr(group, 'net', None)}")
+
+        print("\n" + "=" * 70)
+        print("GUI SOLVE COMPLETE")
+        print("=" * 70)
+
+        print(f"interface requests: {self.interface_requests}")
+        print(f"system groups after solve: {getattr(self.sys, 'groups', None)}")
+        print(f"system interfaces: {getattr(self.sys, 'interfaces', None)}")
+
+        if self.sys.groups:
+            for group_index, group in enumerate(self.sys.groups):
+                print(f"\nFINAL GROUP {group_index}")
+                print(f"  name: {getattr(group, 'name', None)}")
+                print(f"  ball_indices: {getattr(group, 'ball_indices', None)}")
+
+                net = getattr(group, "net", None)
+                print(f"  net: {net}")
+
+                if net is not None:
+                    verts = getattr(net, "verts", None)
+                    print(len(verts) if verts is not None else 0)
+                    edges = getattr(net, "edges", None)
+                    print(len(edges) if edges is not None else 0)
+                    surfs = getattr(net, "surfs", None)
+                    print(len(surfs) if surfs is not None else 0)
+
+        if getattr(self.sys, "interfaces", None):
+            for interface_index, interface in enumerate(self.sys.ifaces):
+                print(f"\nFINAL INTERFACE {interface_index}")
+                print(f"  object: {interface}")
+                print(f"  name: {getattr(interface, 'name', None)}")
+                print(f"  group1: {getattr(interface, 'group1', None)}")
+                print(f"  group2: {getattr(interface, 'group2', None)}")
+                print(f"  iface_grps: {getattr(interface, 'iface_grps', None)}")
+
+                net = getattr(interface, "net", None)
+                print(f"  net: {net}")
+
+                if net is not None:
+                    verts = getattr(net, "verts", None)
+                    print(len(verts) if verts is not None else 0)
+                    edges = getattr(net, "edges", None)
+                    print(len(edges) if edges is not None else 0)
+                    surfs = getattr(net, "surfs", None)
+                    print(len(surfs) if surfs is not None else 0)
 
         return self.sys
 
@@ -521,6 +901,99 @@ class VorPyGUI(tk.Tk):
 
         print(f"Exported group: {group.name}")
 
+    def export_interface_files(self):
+        """
+        Export all completed interface networks and definition-level information
+        for the groups participating in those interfaces.
+        """
+        interfaces = getattr(self.sys, "ifaces", None) or []
+
+        built_interfaces = [
+            iface
+            for iface in interfaces
+            if iface is not None and iface.net is not None
+        ]
+
+        if not built_interfaces:
+            messagebox.showwarning(
+                "No Interfaces Solved",
+                "No solved interface networks are available to export.\n\n"
+                "Please solve the requested interfaces before exporting.",
+            )
+            return False
+
+        export_parent = self.sys.files.get("dir")
+
+        # Use the first interface's Group 1 GUI export directory when available.
+        first_group_name = built_interfaces[0].group1.name
+        first_group_settings = self.group_settings.get(first_group_name)
+
+        if first_group_settings is not None:
+            export_settings = (
+                first_group_settings["export_settings"].get_settings()
+            )
+
+            requested_directory = export_settings.get("directory")
+
+            if requested_directory not in {
+                None,
+                "",
+                "Default Output Directory",
+            }:
+                export_parent = requested_directory
+
+        if export_parent is None:
+            raise ValueError("No valid interface export directory is set.")
+
+        os.makedirs(export_parent, exist_ok=True)
+        self.sys.files["dir"] = export_parent
+
+        print("\n" + "=" * 70)
+        print("GUI INTERFACE EXPORT")
+        print("=" * 70)
+        print(f"export directory: {export_parent}")
+        print(f"interface count: {len(built_interfaces)}")
+
+        for interface_index, iface in enumerate(built_interfaces):
+            group_settings = self.group_settings.get(iface.group1.name)
+
+            round_to = 3
+
+            if group_settings is not None:
+                export_settings = (
+                    group_settings["export_settings"].get_settings()
+                )
+                round_to = export_settings.get("round_to", 3)
+
+            # Set a deterministic interface directory rather than allowing
+            # set_dir() to create a new numbered directory on every export.
+            iface.dir = os.path.join(
+                export_parent,
+                iface.name,
+            )
+
+            os.makedirs(iface.dir, exist_ok=True)
+
+            print(f"\nExporting interface {interface_index}:")
+            print(f"  name: {iface.name}")
+            print(f"  group 1: {iface.group1.name}")
+            print(f"  group 2: {iface.group2_name}")
+            print(f"  directory: {iface.dir}")
+            print(f"  round to: {round_to}")
+
+            iface.export(
+                all_=True,
+                group_info=True,
+                round_to=round_to,
+            )
+
+            print(f"Exported interface: {iface.name}")
+
+        print("\nInterface files were exported to:")
+        print(f"  {export_parent}")
+
+        return True
+
     def export_group_files(self, group_name=None, export_system=False):
         """
         Export one group if group_name is provided, otherwise export all solved/loaded groups.
@@ -552,13 +1025,40 @@ class VorPyGUI(tk.Tk):
             print(f"Group '{group.name}' files were exported to: {group_dir}")
 
         if export_system:
-            self.export_files()
+            self.sys.exports(
+                pdb=self.exports['pdb'],
+                mol=self.exports['mol'],
+                cif=self.exports['cif'],
+                xyz=self.exports['xyz'],
+                txt=self.exports['txt'],
+                info=self.exports['info'],
+                set_atoms=self.exports['set_atoms'],
+            )
 
     def export_files(self):
         """
-        Export all solved/loaded groups, then export system-level files.
+        Export either completed interfaces or completed full groups, followed by
+        system-level files.
         """
-        self.export_group_files(group_name=None, export_system=False)
+        interfaces = getattr(self.sys, "ifaces", None) or []
+
+        built_interfaces = [
+            iface
+            for iface in interfaces
+            if iface is not None and iface.net is not None
+        ]
+
+        if built_interfaces:
+            interface_exported = self.export_interface_files()
+
+            if not interface_exported:
+                return
+
+        else:
+            self.export_group_files(
+                group_name=None,
+                export_system=False,
+            )
 
         self.sys.exports(
             pdb=self.exports['pdb'],
@@ -567,10 +1067,13 @@ class VorPyGUI(tk.Tk):
             xyz=self.exports['xyz'],
             txt=self.exports['txt'],
             info=self.exports['info'],
-            set_atoms=self.exports['set_atoms']
+            set_atoms=self.exports['set_atoms'],
         )
 
-        print(f"System files were exported to: {self.sys.files['dir']}")
+        print(
+            f"System files were exported to: "
+            f"{self.sys.files['dir']}"
+        )
 
     def open_help(self):
         """Open the help window."""

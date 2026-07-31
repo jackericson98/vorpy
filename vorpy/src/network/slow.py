@@ -264,20 +264,20 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
         start = time.perf_counter()
         # Filter the vertex out if it is too large or not able to be made
         filtered_test_balls = [_ for _ in surr_balls if _ not in vert_balls]
-        if not hasattr(find_site, "_debug_count"):
-            find_site._debug_count = 0
-        if find_site._debug_count < 10:
-            print(
-                "[SLOW FIND_SITE]",
-                f"edge_balls={edge_balls}",
-                f"fourth_ball={ball}",
-                f"new_test_balls={len(new_test_balls)}",
-                f"filtered_test_balls={len(filtered_test_balls)}",
-                f"all_locs={len(locs)}",
-                f"candidate_verts={len(b_verts)}",
-                flush=True
-            )
-            find_site._debug_count += 1
+        # if not hasattr(find_site, "_debug_count"):
+        #     find_site._debug_count = 0
+        # if find_site._debug_count < 10:
+        #     print(
+        #         "[SLOW FIND_SITE]",
+        #         f"edge_balls={edge_balls}",
+        #         f"fourth_ball={ball}",
+        #         f"new_test_balls={len(new_test_balls)}",
+        #         f"filtered_test_balls={len(filtered_test_balls)}",
+        #         f"all_locs={len(locs)}",
+        #         f"candidate_verts={len(b_verts)}",
+        #         flush=True
+        #     )
+        #     find_site._debug_count += 1
         test_locs = np.array([locs[_] for _ in filtered_test_balls])
         test_rads = np.array([rads[_] for _ in filtered_test_balls])
         if abs(vert_rad) < max_vert and verify_site(loc=np.array(vert_loc), rad=vert_rad, test_locs=test_locs, test_rads=test_rads, net_type=net_type):

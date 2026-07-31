@@ -347,16 +347,16 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time,
             if len(shared) == 3:
                 shared_three_pairs.append((i, j, shared))
 
-    print(f"  shared-3 pairs = {len(shared_three_pairs)}")
-
-    for i, j, shared in shared_three_pairs:
-        print(f"    verts {i}, {j}: {shared}")
+    # print(f"  shared-3 pairs = {len(shared_three_pairs)}")
+    #
+    # for i, j, shared in shared_three_pairs:
+    #     print(f"    verts {i}, {j}: {shared}")
 
     # Fill in the doublets and set their outer edges
     e_balls, e_verts = get_build_edges(b_verts, v_balls, v_locs, v_dubs, my_time)
 
-    print("\n[BUILD EDGE RESULT]")
-    print(f"  edges = {len(e_balls)}")
+    # print("\n[BUILD EDGE RESULT]")
+    # print(f"  edges = {len(e_balls)}")
 
     for i, (balls, verts) in enumerate(zip(e_balls, e_verts)):
         print(

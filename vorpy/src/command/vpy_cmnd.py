@@ -1,8 +1,9 @@
+import os
 import sys
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog
-import os
+from itertools import combinations
 from copy import deepcopy
 from vorpy.src.inputs.net import read_net
 from vorpy.src.command.commands import *
@@ -48,20 +49,6 @@ class Command:
 
         # Resolve the base input file
         input_arg = sys.argv[1]
-
-        input_file = Path(input_arg)
-
-        # if not input_file.is_file():
-        #     print("\nERROR: Input file not found.")
-        #     print(f"  File: {input_file}")
-        #
-        #     if not input_file.parent.exists():
-        #         print(f"  Directory does not exist: {input_file.parent}")
-        #         print("  Is the drive connected?")
-        #     else:
-        #         print("  The directory exists, but the file was not found.")
-        #
-        #     sys.exit(1)
 
         if input_arg[-3:].lower() in {"pdb", "gro", "mol", "cif", "txt"}:
             self.base_file = input_arg
@@ -143,10 +130,30 @@ class Command:
         # Preserve the existing interface workflow during normal builds.
         # Interface mode handles its own interface construction.
         elif self.interface_mode:
-            interface_pairs = build_interfaces(
-                sys=self.sys,
-                num_requested_groups=len(self.groups),
-            )
+            num_requested_groups = len(self.groups)
+
+            if num_requested_groups >= 2:
+
+                interface_pairs = list(
+                    combinations(self.sys.groups, 2)
+                )
+            else:
+                interface_pairs = build_interfaces(
+                    sys=self.sys,
+                    num_requested_groups=num_requested_groups,
+                )
+
+            print("\n=== CLI INTERFACES ===")
+            print(f"requested groups: {num_requested_groups}")
+            print(f"interface count: {len(interface_pairs)}")
+
+            for pair_index, (group1, group2) in enumerate(interface_pairs):
+                print(
+                    f"  {pair_index}: "
+                    f"{group1.name} <-> {group2.name}"
+                )
+
+            print("======================\n")
 
             self.sys.make_interfaces(interface_pairs)
 

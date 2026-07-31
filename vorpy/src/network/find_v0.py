@@ -27,20 +27,8 @@ def is_interface_vertex(vertex_balls, iface_grps):
     )
 
 
-def find_v0(
-        locs,
-        rads,
-        b_verts,
-        max_vert,
-        net_type,
-        b0=None,
-        group_ndxs=None,
-        iface_grps=None,
-        metrics=None,
-        vert_ndxs=None,
-        group_box=None,
-        box=None,
-):
+def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, iface_grps=None, metrics=None,
+            vert_ndxs=None, group_box=None, box=None):
     """
     Find the initial verified vertex for a network.
 

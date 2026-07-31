@@ -910,6 +910,21 @@ class System:
             Iterable of ``(group1, group2)`` pairs. ``group2`` may be None when
             constructing an interface against the surrounding system.
         """
+        # print("\n=== INTERFACES TO BUILD ===")
+        # print(f"interface pair count: {len(interface_pairs)}")
+        #
+        # for pair_index, pair in enumerate(interface_pairs):
+        #     group1, group2 = pair
+        #
+        #     group1_name = getattr(group1, "name", str(group1))
+        #     group2_name = getattr(group2, "name", str(group2))
+        #
+        #     print(
+        #         f"  pair {pair_index}: "
+        #         f"{group1_name} <-> {group2_name}"
+        #     )
+        #
+        # print("=== END INTERFACES TO BUILD ===\n")
         if self.ifaces is None:
             self.ifaces = []
 
