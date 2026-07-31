@@ -121,17 +121,17 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
         my_group = [_ for _ in range(len(locs))]
         # Calculate the rough number of vertices
         if tot_ball_num is None:
-            tot_verts = 7 * len(locs)
+            tot_verts = int(6.6 * len(locs))
     # If a group was provided make sure to get its indices
     elif my_group is not None:
         # Calculate the number of vertices
         if tot_ball_num is None:
-            tot_verts = 7 * len(my_group) + int(60 * sqrt(len(my_group)))
+            tot_verts = int(6.6 * len(my_group) + int(60 * sqrt(len(my_group))))
     else:
         return
 
     if tot_ball_num is not None:
-        tot_verts = 7 * tot_ball_num + int(60 * sqrt(tot_ball_num))
+        tot_verts = int(6.6 * tot_ball_num + int(60 * sqrt(tot_ball_num)))
     if b_verts is None:
         b_verts = [[] for _ in range(len(locs))]
     # Find the first verified vertex
@@ -150,20 +150,11 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
             interface_side_1 = iface_grps[0]
             interface_side_2 = iface_grps[1]
 
-            side_2_indices = np.array(
-                sorted(interface_side_2),
-                dtype=int,
-            )
+            side_2_indices = np.array(sorted(interface_side_2), dtype=int)
 
-            side_2_locs = np.asarray(
-                [locs[ball] for ball in side_2_indices],
-                dtype=float,
-            )
+            side_2_locs = np.asarray([locs[ball] for ball in side_2_indices], dtype=float)
 
-            side_2_rads = np.asarray(
-                [rads[ball] for ball in side_2_indices],
-                dtype=float,
-            )
+            side_2_rads = np.asarray([rads[ball] for ball in side_2_indices], dtype=float)
 
             seed_search_dist = max_vert / 10
 
@@ -173,62 +164,29 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
                 if ball not in interface_side_1:
                     continue
 
-                center_distances = np.linalg.norm(
-                    side_2_locs - np.asarray(locs[ball], dtype=float),
-                    axis=1,
-                )
+                center_distances = np.linalg.norm(side_2_locs - np.asarray(locs[ball], dtype=float), axis=1)
 
-                surface_distances = (
-                        center_distances
-                        - float(rads[ball])
-                        - side_2_rads
-                )
+                surface_distances = (center_distances - float(rads[ball]) - side_2_rads)
 
-                minimum_surface_distance = float(
-                    np.min(surface_distances)
-                )
+                minimum_surface_distance = float(np.min(surface_distances))
 
                 if minimum_surface_distance <= seed_search_dist:
-                    seed_distances.append(
-                        (minimum_surface_distance, ball)
-                    )
+                    seed_distances.append((minimum_surface_distance, ball))
 
             # Try the DNA atoms closest to protein first. No accepted seed is
             # discarded merely because another seed is closer.
-            seed_distances.sort(
-                key=lambda item: item[0]
-            )
+            seed_distances.sort(key=lambda item: item[0])
 
-            seed_ndxs = [
-                ball
-                for _, ball in seed_distances
-            ]
+            seed_ndxs = [ball for _, ball in seed_distances]
+            # For interface builds, estimate the total number of vertices from the
+            # number of atoms that actually participate in the interface rather than
+            # from the full union of both groups.
+            if iface_grps is not None:
+                tot_verts = max(50, 10 * len(seed_ndxs))
 
         else:
             seed_distances = None
             seed_ndxs = list(check_ndxs)
-        if iface_grps is not None:
-            minimum_seed_distance = (
-                seed_distances[0][0]
-                if seed_distances
-                else None
-            )
-
-            maximum_seed_distance = (
-                seed_distances[-1][0]
-                if seed_distances
-                else None
-            )
-
-            print(
-                "\n[INTERFACE SEED FILTER]",
-                f"side1_total={len(iface_grps[0])}",
-                f"near_interface={len(seed_ndxs)}",
-                f"search_dist={seed_search_dist}",
-                f"min_surface_gap={minimum_seed_distance}",
-                f"max_surface_gap={maximum_seed_distance}",
-                flush=True,
-            )
 
         # Preserve an explicitly supplied starting ball when it is valid.
         if b0 is not None and b0 in seed_ndxs:
@@ -238,20 +196,9 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
         v0 = None
 
         for seed_ball in seed_ndxs:
-            v0 = find_v0(
-                locs=locs,
-                rads=rads,
-                b_verts=b_verts,
-                max_vert=max_vert,
-                net_type=net_type,
-                b0=seed_ball,
-                group_ndxs=my_group,
-                iface_grps=iface_grps,
-                metrics=metrics,
-                vert_ndxs=vert_ndxs,
-                group_box=group_box,
-                box=box,
-            )
+            v0 = find_v0(locs=locs, rads=rads, b_verts=b_verts, max_vert=max_vert, net_type=net_type, b0=seed_ball,
+                         group_ndxs=my_group, iface_grps=iface_grps, metrics=metrics, vert_ndxs=vert_ndxs,
+                         group_box=group_box, box=box)
 
             if v0 is not None:
                 break
@@ -261,10 +208,7 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
     if v0 is not None and iface_grps is not None:
         v0_balls = set(v0["balls"])
 
-        belongs_to_interface = all(
-            bool(v0_balls.intersection(group_indices))
-            for group_indices in iface_grps
-        )
+        belongs_to_interface = all(bool(v0_balls.intersection(group_indices)) for group_indices in iface_grps)
 
         if not belongs_to_interface:
             print("\n[INVALID INTERFACE SEED]")
@@ -336,21 +280,10 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
                 print(f"  search_group = {search_group}")
 
 
-            vert_ndx_pr = find_site_container(
-                edge_balls=edge_balls,
-                locs=locs,
-                rads=rads,
-                b_verts=b_verts,
-                vert_ndxs=vert_ndxs,
-                max_vert=max_vert,
-                net_type=net_type,
-                vn_1=vert['balls'],
-                box=box,
-                vn_1_loc=vert['loc'],
-                group_ndxs=search_group,
-                metrics=metrics,
-                printing=printing,
-            )
+            vert_ndx_pr = find_site_container(edge_balls=edge_balls, locs=locs, rads=rads, b_verts=b_verts,
+                                              vert_ndxs=vert_ndxs, max_vert=max_vert, net_type=net_type,
+                                              vn_1=vert['balls'], box=box, vn_1_loc=vert['loc'],
+                                              group_ndxs=search_group, metrics=metrics, printing=printing)
 
             # If the vertex is none continue
             if vert_ndx_pr is None:

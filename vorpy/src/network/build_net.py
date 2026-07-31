@@ -5,6 +5,29 @@ from vorpy.src.calculations import get_time
 from vorpy.src.calculations import ndx_search
 
 
+def spans_interface(ball_indices, iface_grps):
+    """
+    Return True when ball_indices contains at least one defining ball from
+    each side of an interface.
+
+    iface_grps must contain exactly two collections of network-local ball
+    indices.
+    """
+    if iface_grps is None:
+        return True
+
+    if len(iface_grps) != 2:
+        raise ValueError(
+            "iface_grps must contain exactly two ball-index collections."
+        )
+
+    ball_set = set(ball_indices)
+    group1 = set(iface_grps[0])
+    group2 = set(iface_grps[1])
+
+    return bool(ball_set & group1) and bool(ball_set & group2)
+
+
 ############################################## Doublets ################################################################
 
 
@@ -204,7 +227,7 @@ def get_build_surfs1(v_balls, v_edges, e_balls, start_time):
 
 
 def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time,
-                    interface=False):
+                    interface=False, iface_grps=None):
     # Set up the surface lists
     s_balls, s_verts, s_edges = [], [], []
 
@@ -220,6 +243,10 @@ def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time,
         test_surfs = [edge1[:2], edge1[1:], edge1[::2]]
         # Go through each possible surface for the edge
         for test_surf in test_surfs:
+            # Check if the surface is in the interface or not
+            if interface and not spans_interface(test_surf, iface_grps):
+                continue
+
             # If the surface has been found before continue
             surf_ndx = ndx_search(s_balls, test_surf)
             # If the surface has been found before, continue
@@ -309,10 +336,28 @@ def add_build_surfs(num_balls, s_balls, num_verts, s_verts, num_edges, s_edges):
 
 
 def build(v_balls, v_locs, v_dubs, num_balls, my_time,
-          interface=False):
+          interface=False, iface_grps=None):
     """
     Checks the balls of the vertices for patterns and creates edges and surfaces
     """
+
+    if interface and iface_grps is None:
+        raise ValueError(
+            "Interface network construction requires iface_grps."
+        )
+
+    if iface_grps is not None:
+        iface_grps = tuple(
+            set(group_indices)
+            for group_indices in iface_grps
+        )
+
+        overlap = iface_grps[0] & iface_grps[1]
+
+        if overlap:
+            raise ValueError(
+                f"Interface groups overlap by {len(overlap)} balls."
+            )
 
     # Create the lists
     b_verts, b_edges = [[] for _ in range(num_balls)], [[] for _ in range(num_balls)]
@@ -355,6 +400,33 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time,
     # Fill in the doublets and set their outer edges
     e_balls, e_verts = get_build_edges(b_verts, v_balls, v_locs, v_dubs, my_time)
 
+    if interface:
+        candidate_edge_count = len(e_balls)
+
+        retained_edges = [
+            (edge_balls, edge_verts)
+            for edge_balls, edge_verts in zip(e_balls, e_verts)
+            if spans_interface(edge_balls, iface_grps)
+        ]
+
+        e_balls = [
+            edge_balls
+            for edge_balls, _ in retained_edges
+        ]
+
+        e_verts = [
+            edge_verts
+            for _, edge_verts in retained_edges
+        ]
+
+        print("\n[INTERFACE EDGE FILTER]")
+        print(f"  candidate edges: {candidate_edge_count}")
+        print(f"  retained edges: {len(e_balls)}")
+        print(
+            f"  removed same-side edges: "
+            f"{candidate_edge_count - len(e_balls)}"
+        )
+
     # print("\n[BUILD EDGE RESULT]")
     # print(f"  edges = {len(e_balls)}")
 
@@ -371,7 +443,25 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time,
     ################################################### Create the surfaces ############################################
 
     # Get the surfaces
-    s_balls, s_verts, s_edges = get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, my_time, interface)
+    s_balls, s_verts, s_edges = get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, my_time, interface,
+                                                iface_grps)
+
+    if interface:
+        invalid_edges = [edge_balls for edge_balls in e_balls if not spans_interface(edge_balls, iface_grps)]
+
+        invalid_surfs = [surf_balls for surf_balls in s_balls if not spans_interface(surf_balls, iface_grps)]
+
+        if invalid_edges or invalid_surfs:
+            raise RuntimeError(
+                "Interface topology validation failed.\n"
+                f"Invalid edges: {len(invalid_edges)}\n"
+                f"Invalid surfaces: {len(invalid_surfs)}"
+            )
+
+        print("\n[INTERFACE TOPOLOGY VALIDATION]")
+        print(f"  valid vertices: {len(v_balls)}")
+        print(f"  valid edges: {len(e_balls)}")
+        print(f"  valid surfaces: {len(s_balls)}")
 
     # Add the surface objects to their 181L indices
     b_surfs, v_surfs, e_surfs = add_build_surfs(num_balls, s_balls, len(v_balls), s_verts, len(e_balls), s_edges)

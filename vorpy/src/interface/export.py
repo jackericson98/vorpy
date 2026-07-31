@@ -52,8 +52,14 @@ def _numeric_series(dataframe, *candidate_names):
     return dataframe[column].dropna()
 
 
-def _safe_sum(series):
-    return 0.0 if series is None or len(series) == 0 else float(series.sum())
+def _safe_sum(series, empty_value=0.0):
+    if series is None:
+        return None
+
+    if len(series) == 0:
+        return empty_value
+
+    return float(series.sum())
 
 
 def _safe_mean(series):
@@ -233,54 +239,36 @@ def write_surface_statistics(info, title, surfaces):
 
     surface_areas = _numeric_series(
         surfaces,
-        "Surface Area",
-        "area",
-        "surf area",
+        "sa",
     )
 
     mean_curvatures = _numeric_series(
         surfaces,
-        "Mean Curvature",
-        "mean curvature",
-        "mean_curvature",
+        "mean_curv",
     )
 
     average_mean_curvatures = _numeric_series(
         surfaces,
-        "Average Mean Curvature",
-        "Average Mean Surface Curvature",
-        "average mean curvature",
-        "avg mean curvature",
-        "average_mean_curvature",
-        "mean_curvature_average",
+        "avg_mean_curv",
     )
 
     gaussian_curvatures = _numeric_series(
         surfaces,
-        "Gaussian Curvature",
-        "gaussian curvature",
-        "gaussian_curvature",
+        "gauss_curv",
     )
 
     average_gaussian_curvatures = _numeric_series(
         surfaces,
-        "Average Gaussian Curvature",
-        "Average Gaussian Surface Curvature",
-        "average gaussian curvature",
-        "avg gaussian curvature",
-        "average_gaussian_curvature",
+        "avg_gauss_curv",
     )
 
     contact_areas = _numeric_series(
         surfaces,
-        "Contact Area",
-        "contact area",
         "contact_area",
     )
 
     overlaps = _numeric_series(
         surfaces,
-        "Overlap",
         "overlap",
     )
 
@@ -492,13 +480,7 @@ def export_info(iface, directory=None):
         )
 
         if net is not None and net.edges is not None:
-            edge_lengths = _numeric_series(
-                net.edges,
-                "Length",
-                "length",
-                "edge length",
-                "edge_length",
-            )
+            edge_lengths = _numeric_series(net.edges, "length")
 
             info.write("Edge geometry:\n")
             info.write(
@@ -519,14 +501,7 @@ def export_info(iface, directory=None):
             )
 
         if net is not None and net.verts is not None:
-            vertex_radii = _numeric_series(
-                net.verts,
-                "r",
-                "Radius",
-                "radius",
-                "vertex radius",
-                "vertex_radius",
-            )
+            vertex_radii = _numeric_series(net.verts, "rad")
 
             info.write("Vertex geometry:\n")
             info.write(

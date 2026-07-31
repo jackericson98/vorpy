@@ -164,10 +164,7 @@ def find_net_verts(net):
     # print(f"  vert box     = {net.box['verts']}")
     # print(f"  foam box     = {net.settings['foam_box']}")
     print("  group size   =", len(net.group))
-    print(
-        "  group range  =",
-        (min(net.group), max(net.group)) if net.group else None
-    )
+    print("  group range  =", (min(net.group), max(net.group)) if net.group else None)
 
     if net.iface_grps is not None:
         print(

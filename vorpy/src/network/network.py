@@ -263,7 +263,7 @@ class Network:
         Connects the network using the functions in the build_net.py file
         """
         my_lists = build(self.verts['balls'], self.verts['loc'], self.verts['dub'], len(self.balls), self.metrics['start'],
-                         interface=self.iface_grps is not None)
+                         interface=self.iface_grps is not None, iface_grps=self.iface_grps)
         ball_lists, vert_lists, edge_lists, surf_lists = my_lists
         self.balls['verts'], self.balls['edges'], self.balls['surfs'] = ball_lists['verts'], ball_lists['edges'], \
             ball_lists['surfs']

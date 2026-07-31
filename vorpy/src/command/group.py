@@ -316,13 +316,39 @@ def interpret_group_commands(my_sys, group_dict, command):
     category_command = command[0].lower()
 
     if category_command in category_names:
-        matching_residues = residues_in_category(
-            my_sys.residues,
-            category_command
+        # Solvent and ion residues are intentionally stored separately in
+        # my_sys.sol.residues by the molecular input readers. Search both
+        # collections so broad category selectors can find every residue.
+        system_residues = list(my_sys.residues or [])
+
+        sol = getattr(my_sys, "sol", None)
+        solvent_residues = list(
+            getattr(sol, "residues", None) or []
         )
 
-        group_dict['residues'] += matching_residues
+        all_residues = [
+            *system_residues,
+            *solvent_residues,
+        ]
+
+        matching_residues = residues_in_category(
+            all_residues,
+            category_command,
+        )
+        print("\n=== CATEGORY GROUP SELECTION ===")
+        print(f"command: {category_command}")
+        print(f"normal residues available: {len(system_residues)}")
+        print(f"solvent residues available: {len(solvent_residues)}")
+        print(f"matching residues: {len(matching_residues)}")
+        print(
+            f"matching residue names: "
+            f"{sorted(set(res.name for res in matching_residues))}"
+        )
+        print("================================\n")
+
+        group_dict["residues"] += matching_residues
         return group_dict
+
     # Check if the identifier is in the mols, chains, residues or atoms list
     all_dicts = [{_: 'c' for _ in chn_objs}, {_: 'r' for _ in res_objs}, {_: 'a' for _ in atom_objs}]
     # Set the identifier on em
@@ -465,7 +491,25 @@ def ggroup(my_sys, group_commands, settings=None):
             name = '_and_'.join(['_'.join(_) for _ in my_grp_cmnds])
             if len(name) > 15:
                 name = name[:12] + '_etc'
-        # Finally make the group
-        if group_dict is not None and sum([len(group_dict[_]) for _ in group_dict]) > 0:
-            my_sys.groups.append(Group(my_sys, name=name, settings=settings, residues=group_dict['residues'],
-                                       atoms=group_dict['atoms'], chains=group_dict['chains']))
+        selection_count = (
+            sum(len(values) for values in group_dict.values())
+            if group_dict is not None
+            else 0
+        )
+
+        if selection_count > 0:
+            my_sys.groups.append(
+                Group(
+                    my_sys,
+                    name=name,
+                    settings=settings,
+                    residues=group_dict["residues"],
+                    atoms=group_dict["atoms"],
+                    chains=group_dict["chains"],
+                )
+            )
+        else:
+            print("\nWARNING: Group command produced an empty group.")
+            print(f"  group index: {_}")
+            print(f"  commands: {my_grp_cmnds}")
+            print(f"  generated name: {name}")

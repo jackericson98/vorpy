@@ -221,6 +221,8 @@ def residues_in_category(residues, category):
         if classify_residue_name(residue.name) == canonical_category
     ]
 
+
+
 residue_atoms = {
     'SOL': {'HW1', 'HW2', 'OW'},
     'NA':      {'NA'},                    # Sodium
