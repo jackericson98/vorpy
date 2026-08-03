@@ -4,6 +4,8 @@ from copy import deepcopy
 from vorpy.src.group import Group
 from vorpy.src.network import Network
 from vorpy.src.interface.export import interface_exports
+from vorpy.src.interface.water import analyze_interface_waters
+from vorpy.src.interface.water import build_interface_water_groups
 
 
 class Interface:
@@ -43,6 +45,9 @@ class Interface:
         self.partial_group2 = None
 
         self._register_with_groups()
+
+        self.water_groups = []
+        self.water_geometries = []
 
     def _make_name(self):
         second_name = "surrounding" if self.group2 is None else self.group2.name
@@ -169,8 +174,76 @@ class Interface:
         self.net.build()
 
         # Make completed topology available to later pairwise interface builds.
-        # The System cache uses global ball indices and records provenance.
         self.sys.cache_interface_geometry(self)
+
+        # Identify all waters touching the completed interface.
+        self.water_geometries = analyze_interface_waters(
+            iface=self,
+        )
+
+        print("\n[INTERFACE WATER DETECTION]")
+        print(f"touching waters: {len(self.water_geometries)}")
+
+        for water_geometry in self.water_geometries[:10]:
+            residue = water_geometry["residue"]
+            interface_geometry = water_geometry["interface_geometry"]
+
+            print(
+                f"  {residue.name} {residue.seq}: "
+                f"group1_surfs="
+                f"{interface_geometry['group1']['surface_count']}, "
+                f"group2_surfs="
+                f"{interface_geometry['group2']['surface_count']}, "
+                f"bridging="
+                f"{interface_geometry['bridging_water']}"
+            )
+
+        # ----------------------------------------------------------
+        # TEMPORARY TEST: fully build only the first touching water.
+        # ----------------------------------------------------------
+        test_water_geometries = self.water_geometries[:1]
+
+        self.water_groups = build_interface_water_groups(
+            iface=self,
+            water_geometries=test_water_geometries,
+        )
+
+        if self.water_groups:
+            water_group = self.water_groups[0]
+
+            print("\n[WATER GROUP TEST]")
+            print(f"name: {water_group.name}")
+            print(f"balls: {water_group.ball_ndxs}")
+            print(f"net: {water_group.net}")
+
+            print(
+                "verts:",
+                len(water_group.net.verts)
+                if water_group.net is not None
+                   and water_group.net.verts is not None
+                else 0,
+            )
+
+            print(
+                "edges:",
+                len(water_group.net.edges)
+                if water_group.net is not None
+                   and water_group.net.edges is not None
+                else 0,
+            )
+
+            print(
+                "surfs:",
+                len(water_group.net.surfs)
+                if water_group.net is not None
+                   and water_group.net.surfs is not None
+                else 0,
+            )
+
+            print(
+                "water group added to system:",
+                water_group in (self.sys.groups or []),
+            )
 
         self._update_group_metadata(
             network_created=True,
