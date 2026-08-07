@@ -104,11 +104,16 @@
 #
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation, PillowWriter
 import random
+import tkinter as tk
+from tkinter import filedialog
 
 
 def plot_proximity(radius1=1, radius2=3, distance_between_circles=5, num_points=2000, markersize=1,
-                   distance_type="surface", bounding_box=[[-10, -5], [10, 5]], alpha=0.5):
+                   distance_type="surface", bounding_box=[[-10, -5], [10, 5]], alpha=0.5, show_center=False,
+                   animation=False, show_animation=True, save_animation=False,
+                   animation_file="proximity.gif", points_per_frame=10, fps=30):
     """
     Plots proximity of random points to two circles based on a chosen distance type.
 
@@ -132,6 +137,8 @@ def plot_proximity(radius1=1, radius2=3, distance_between_circles=5, num_points=
     x_circle2 = radius2 * np.cos(theta) + 0.5 * distance_between_circles
     y_circle2 = radius2 * np.sin(theta)
 
+
+
     # Generate points at random
     points = []
     for _ in range(num_points):
@@ -140,8 +147,14 @@ def plot_proximity(radius1=1, radius2=3, distance_between_circles=5, num_points=
 
     # Create figure and axis
     fig, ax = plt.subplots()
+    # Plot the center point of the circles
+    if show_center:
+        ax.scatter([-0.5 * distance_between_circles], [0], c='r', s=20*markersize, marker='x', alpha=alpha)
+        ax.scatter([0.5 * distance_between_circles], [0], c='b', s=20*markersize, marker='x', alpha=alpha)
+
     ax.plot(x_circle1, y_circle1, 'r')
     ax.plot(x_circle2, y_circle2, 'b')
+
 
     # Define the distance calculation based on selected type
     def calc_distance(x, y, x_circle, y_circle, radius):
@@ -153,25 +166,118 @@ def plot_proximity(radius1=1, radius2=3, distance_between_circles=5, num_points=
             return (x - x_circle) ** 2 + (y - y_circle) ** 2 - radius ** 2
         else:
             raise ValueError("Invalid distance type. Choose 'surface', 'center', or 'power'.")
+    if animation:
+        # Determine point colors based on proximity
+        red_points = []
+        blue_points = []
 
-    # Plot points with colors based on proximity
-    for x, y in points:
-        dist_to_circle1 = calc_distance(x, y, -0.5 * distance_between_circles, 0, radius1)
-        dist_to_circle2 = calc_distance(x, y, 0.5 * distance_between_circles, 0, radius2)
-        color = 'r' if dist_to_circle1 < dist_to_circle2 else 'b'
-        ax.scatter(x, y, color=color, marker='.', s=markersize, alpha=alpha)
+        for x, y in points:
+            dist_to_circle1 = calc_distance(
+                x, y, -0.5 * distance_between_circles, 0, radius1
+            )
+            dist_to_circle2 = calc_distance(
+                x, y, 0.5 * distance_between_circles, 0, radius2
+            )
+
+            if dist_to_circle1 < dist_to_circle2:
+                red_points.append((x, y))
+            else:
+                blue_points.append((x, y))
+
+        # Empty scatter plots that will be filled during animation
+        red_scatter = ax.scatter([], [], color='r', marker='.',
+                                 s=markersize, alpha=alpha)
+
+        blue_scatter = ax.scatter([], [], color='b', marker='.',
+                                  s=markersize, alpha=alpha)
+
+        # Keep the original random order
+        colored_points = []
+
+        for x, y in points:
+            dist_to_circle1 = calc_distance(
+                x, y, -0.5 * distance_between_circles, 0, radius1
+            )
+            dist_to_circle2 = calc_distance(
+                x, y, 0.5 * distance_between_circles, 0, radius2
+            )
+
+            color = 'r' if dist_to_circle1 < dist_to_circle2 else 'b'
+            colored_points.append((x, y, color))
+    else:
+        # Plot points with colors based on proximity
+        for x, y in points:
+            dist_to_circle1 = calc_distance(x, y, -0.5 * distance_between_circles, 0, radius1)
+            dist_to_circle2 = calc_distance(x, y, 0.5 * distance_between_circles, 0, radius2)
+            color = 'r' if dist_to_circle1 < dist_to_circle2 else 'b'
+            ax.scatter(x, y, color=color, marker='.', s=markersize, alpha=alpha)
+
+
 
     # Finalize plot settings
     ax.set_aspect('equal', 'box')
     plt.xticks([])
     plt.yticks([])
     plt.axis('off')
-    my_input = input('Save figure? (y/n)  >>>>    ')
-    if my_input.lower() in {'y', 'yes'}:
-        plt.savefig('C:/Users/Optiplex_7060/OneDrive - Georgia State University/GSU NSC/Manuscripts/'
-                    'Ericson Voronoi DNA/Figures/P1/Figure1_Concepts_and_Scheme_Comparisons/PointProximity/PointProximityPow1.png', format='png', dpi=1200)
+    if animation:
+        # Lock the plot limits so they do not change during animation
+        ax.set_xlim(bounding_box[0][0], bounding_box[1][0])
+        ax.set_ylim(bounding_box[0][1], bounding_box[1][1])
+
+        def update(frame):
+            # Build this frame from scratch so previewing and saving do not
+            # interfere with one another.
+            end = min((frame + 1) * points_per_frame, len(colored_points))
+            visible_points = colored_points[:end]
+
+            red_xy = [(x, y) for x, y, color in visible_points if color == 'r']
+            blue_xy = [(x, y) for x, y, color in visible_points if color == 'b']
+
+            red_scatter.set_offsets(
+                np.asarray(red_xy).reshape(-1, 2) if red_xy else np.empty((0, 2))
+            )
+            blue_scatter.set_offsets(
+                np.asarray(blue_xy).reshape(-1, 2) if blue_xy else np.empty((0, 2))
+            )
+
+            return red_scatter, blue_scatter
+
+        num_frames = int(np.ceil(len(colored_points) / points_per_frame))
+
+        anim = FuncAnimation(
+            fig,
+            update,
+            frames=num_frames,
+            interval=1000 / fps,
+            blit=True,
+            repeat=False
+        )
+
+        # Either option can be used independently, or both can be True.
+        if save_animation:
+            anim.save(
+                animation_file,
+                writer=PillowWriter(fps=fps)
+            )
+
+        if show_animation:
+            plt.show()
+        else:
+            plt.close(fig)
+    else:
+        my_input = input('Save figure? (y/n)  >>>>    ')
+        if my_input.lower() in {'y', 'yes'}:
+            root = tk.Tk()
+            root.withdraw()
+            root.wm_attributes('-topmost', 1)
+            location = filedialog.asksaveasfilename(defaultextension='.png',)
+            plt.savefig(location, format='png', dpi=1200)
+        elif my_input.lower() in {'n', 'no'}:
+            plt.show()
 
 
 # Example usage:
-plot_proximity(distance_type="pow", num_points=10000, alpha=0.6, markersize=0.6, radius1=1, radius2=np.sqrt(5),
-               distance_between_circles=4, bounding_box=[[-5, -4], [5, 4]])
+plot_proximity(distance_type="prm", num_points=10000, alpha=0.6, markersize=0.9, radius1=0, radius2=0,
+               distance_between_circles=4, bounding_box=[[-5, -4], [5, 4]], show_center=True,
+               animation=True, show_animation=True, save_animation=True,
+               animation_file="proximity.gif", points_per_frame=10, fps=30)
