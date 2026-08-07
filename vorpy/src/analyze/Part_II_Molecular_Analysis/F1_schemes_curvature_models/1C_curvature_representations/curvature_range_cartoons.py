@@ -116,42 +116,42 @@ root.withdraw()
 root.wm_attributes('-topmost', 1)
 folder = filedialog.askdirectory()
 
-
-# Plot 1 - 0:0 Circle Ratio, -1.5r gap
-circle1 = [-0.5, 0, 1]  # (x, y, radius) of the first circle
-circle2 = [0.0, 0, 1]  # (x, y, radius) of the second circle
-
-plot_voronoi_partition(circle1, circle2, height=2, savename='1_1_ratio_n15r_dist', save_folder=folder)
-
-# Plot 1 - 0:0 Circle Ratio, -1r gap
-circle1 = [-0.5, 0, 1]  # (x, y, radius) of the first circle
-circle2 = [0.5, 0, 1]  # (x, y, radius) of the second circle
-
-plot_voronoi_partition(circle1, circle2, height=2, savename='1_1_ratio_n1r_dist', save_folder=folder)
 #
-# Plot 2 - 0:0 Circle Ratio, 0r gap
-circle1 = [-1, 0, 1]  # (x, y, radius) of the first circle
-circle2 = [1, 0, 1]  # (x, y, radius) of the second circle
-
-plot_voronoi_partition(circle1, circle2, height=2, savename='1_1_ratio_0r_dist', save_folder=folder)
-
-# Plot 3 - 0:0 Circle Ratio, 1r gap
-circle1 = [-1.5, 0, 1]  # (x, y, radius) of the first circle
-circle2 = [1.5, 0, 1]  # (x, y, radius) of the second circle
-
-plot_voronoi_partition(circle1, circle2, height=2, savename='1_1_ratio_1r_dist', save_folder=folder)
+# # Plot 1 - 0:0 Circle Ratio, -1.5r gap
+# circle1 = [-0.5, 0, 1]  # (x, y, radius) of the first circle
+# circle2 = [0.0, 0, 1]  # (x, y, radius) of the second circle
 #
-# Plot 4 - 0:0 Circle Ratio, 2r gap
-circle1 = [-1.75, 0, 1]  # (x, y, radius) of the first circle
-circle2 = [1.75, 0, 1]  # (x, y, radius) of the second circle
-
-plot_voronoi_partition(circle1, circle2, height=2, savename='1_1_ratio_5r_dist', save_folder=folder)
-
-# Plot 4 - 0:0 Circle Ratio, 2r gap
-circle1 = [-2, 0, 1]  # (x, y, radius) of the first circle
-circle2 = [2, 0, 1]  # (x, y, radius) of the second circle
-
-plot_voronoi_partition(circle1, circle2, height=2, savename='1_1_ratio_2r_dist', save_folder=folder)
+# plot_voronoi_partition(circle1, circle2, height=2, savename='1_1_ratio_n15r_dist', save_folder=folder)
+#
+# # Plot 1 - 0:0 Circle Ratio, -1r gap
+# circle1 = [-0.5, 0, 1]  # (x, y, radius) of the first circle
+# circle2 = [0.5, 0, 1]  # (x, y, radius) of the second circle
+#
+# plot_voronoi_partition(circle1, circle2, height=2, savename='1_1_ratio_n1r_dist', save_folder=folder)
+# #
+# # Plot 2 - 0:0 Circle Ratio, 0r gap
+# circle1 = [-1, 0, 1]  # (x, y, radius) of the first circle
+# circle2 = [1, 0, 1]  # (x, y, radius) of the second circle
+#
+# plot_voronoi_partition(circle1, circle2, height=2, savename='1_1_ratio_0r_dist', save_folder=folder)
+#
+# # Plot 3 - 0:0 Circle Ratio, 1r gap
+# circle1 = [-1.5, 0, 1]  # (x, y, radius) of the first circle
+# circle2 = [1.5, 0, 1]  # (x, y, radius) of the second circle
+#
+# plot_voronoi_partition(circle1, circle2, height=2, savename='1_1_ratio_1r_dist', save_folder=folder)
+# #
+# # Plot 4 - 0:0 Circle Ratio, 2r gap
+# circle1 = [-1.75, 0, 1]  # (x, y, radius) of the first circle
+# circle2 = [1.75, 0, 1]  # (x, y, radius) of the second circle
+#
+# plot_voronoi_partition(circle1, circle2, height=2, savename='1_1_ratio_5r_dist', save_folder=folder)
+#
+# # Plot 4 - 0:0 Circle Ratio, 2r gap
+# circle1 = [-2, 0, 1]  # (x, y, radius) of the first circle
+# circle2 = [2, 0, 1]  # (x, y, radius) of the second circle
+#
+# plot_voronoi_partition(circle1, circle2, height=2, savename='1_1_ratio_2r_dist', save_folder=folder)
 
 # Plot 5 - 2:1 Circle Ratio, -1r gap
 circle1 = [0, 0, 1]
@@ -182,93 +182,93 @@ plot_voronoi_partition(circle1, circle2, height=3, savename='2_1_ratio_15r_dist'
 circle1 = [0, 0, 1]
 circle2 = [5, 0, 2]
 plot_voronoi_partition(circle1, circle2, height=3, savename='2_1_ratio_2r_dist', save_folder=folder)
-
-# # Plot 9 - 3:1 Circle Ratio, -1.5r gap
-circle1 = [0, 0, 1]  # (x, y, radius) of the first circle
-circle2 = [2.5, 0, 3]  # (x, y, radius) of the second circle
-plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_n15r_dist', save_folder=folder)
-
-# # Plot 9 - 3:1 Circle Ratio, -1r gap
-circle1 = [0, 0, 1]  # (x, y, radius) of the first circle
-circle2 = [3, 0, 3]  # (x, y, radius) of the second circle
-plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_n1r_dist', save_folder=folder)
 #
-# # Plot 10 - 3:1 Circle Ratio, 0r gap
-circle1 = [0, 0, 1]  # (x, y, radius) of the first circle
-circle2 = [4, 0, 3]  # (x, y, radius) of the second circle
-plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_0r_dist', save_folder=folder)
+# # # Plot 9 - 3:1 Circle Ratio, -1.5r gap
+# circle1 = [0, 0, 1]  # (x, y, radius) of the first circle
+# circle2 = [2.5, 0, 3]  # (x, y, radius) of the second circle
+# plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_n15r_dist', save_folder=folder)
 #
-# # Plot 11 - 3:1 Circle Ratio, 1r gap
-circle1 = [0, 0, 1]
-circle2 = [5, 0, 3]
-plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_1r_dist', save_folder=folder)
-
-# # Plot 12 - 3:1 Circle Ratio, 2r gap
-circle1 = [0, 0, 1]
-circle2 = [5.5, 0, 3]
-plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_15r_dist', save_folder=folder)
-
-# # Plot 12 - 3:1 Circle Ratio, 2r gap
-circle1 = [0, 0, 1]
-circle2 = [6, 0, 3]
-plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_2r_dist', save_folder=folder)
-
-# # Plot 13 - 5:1 Circle Ratio, -1r gap
-circle1 = [0, 0, 1]
-circle2 = [4.5, 0, 5]
-plot_voronoi_partition(circle1, circle2, height=7, savename='5_1_ratio_n15r_dist', save_folder=folder)
-
-# # Plot 13 - 5:1 Circle Ratio, -1r gap
-circle1 = [0, 0, 1]
-circle2 = [5, 0, 5]
-plot_voronoi_partition(circle1, circle2, height=7, savename='5_1_ratio_n1r_dist', save_folder=folder)
-
-# Plot 14 - 5:1 Circle Ratio, 0r gap
-circle1 = [0, 0, 1]
-circle2 = [6, 0, 5]
-plot_voronoi_partition(circle1, circle2, height=7, savename='5_1_ratio_0r_dist', save_folder=folder)
-
-# # # Plot 15 - 5:1 Circle Ratio, 1r gap
-circle1 = [0, 0, 1]
-circle2 = [7, 0, 5]
-plot_voronoi_partition(circle1, circle2, height=7, savename='5_1_ratio_1r_dist', save_folder=folder)
-
-# # Plot 16 - 5:1 Circle Ratio, 2r gap
-circle1 = [0, 0, 1]
-circle2 = [7.5, 0, 5]
-plot_voronoi_partition(circle1, circle2, height=7, savename='5_1_ratio_15r_dist', save_folder=folder)
-
-# # Plot 16 - 5:1 Circle Ratio, 2r gap
-circle1 = [0, 0, 1]
-circle2 = [8, 0, 5]
-plot_voronoi_partition(circle1, circle2, height=7, savename='5_1_ratio_2r_dist', save_folder=folder)
-
-# # Plot 17 - 10:1 Circle Ratio, 0r gap
-circle1 = [0, 0, 1]
-circle2 = [9.5, 0, 10]
-plot_voronoi_partition(circle1, circle2, height=14, savename='10_1_ratio_n15r_dist', save_folder=folder)
-
-# # Plot 17 - 10:1 Circle Ratio, 0r gap
-circle1 = [0, 0, 1]
-circle2 = [10, 0, 10]
-plot_voronoi_partition(circle1, circle2, height=14, savename='10_1_ratio_n1r_dist', save_folder=folder)
-
-# # # Plot 18 - 10:1 Circle Ratio, 0r gap
-circle1 = [0, 0, 1]
-circle2 = [11, 0, 10]
-plot_voronoi_partition(circle1, circle2, height=14, savename='10_1_ratio_0r_dist', save_folder=folder)
-
-# Plot 19 - 10:1 Circle Ratio, 1r gap
-circle1 = [0, 0, 1]
-circle2 = [12, 0, 10]
-plot_voronoi_partition(circle1, circle2, height=14, savename='10_1_ratio_1r_dist', save_folder=folder)
-
-# Plot 20 - 10:1 Circle Ratio, 2r gap
-circle1 = [0, 0, 1]
-circle2 = [12.5, 0, 10]
-plot_voronoi_partition(circle1, circle2, height=14, savename='10_1_ratio_15r_dist', save_folder=folder)
-
-# Plot 20 - 10:1 Circle Ratio, 2r gap
-circle1 = [0, 0, 1]
-circle2 = [13, 0, 10]
-plot_voronoi_partition(circle1, circle2, height=14, savename='10_1_ratio_2r_dist', save_folder=folder)
+# # # Plot 9 - 3:1 Circle Ratio, -1r gap
+# circle1 = [0, 0, 1]  # (x, y, radius) of the first circle
+# circle2 = [3, 0, 3]  # (x, y, radius) of the second circle
+# plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_n1r_dist', save_folder=folder)
+# #
+# # # Plot 10 - 3:1 Circle Ratio, 0r gap
+# circle1 = [0, 0, 1]  # (x, y, radius) of the first circle
+# circle2 = [4, 0, 3]  # (x, y, radius) of the second circle
+# plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_0r_dist', save_folder=folder)
+# #
+# # # Plot 11 - 3:1 Circle Ratio, 1r gap
+# circle1 = [0, 0, 1]
+# circle2 = [5, 0, 3]
+# plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_1r_dist', save_folder=folder)
+#
+# # # Plot 12 - 3:1 Circle Ratio, 2r gap
+# circle1 = [0, 0, 1]
+# circle2 = [5.5, 0, 3]
+# plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_15r_dist', save_folder=folder)
+#
+# # # Plot 12 - 3:1 Circle Ratio, 2r gap
+# circle1 = [0, 0, 1]
+# circle2 = [6, 0, 3]
+# plot_voronoi_partition(circle1, circle2, height=4, savename='3_1_ratio_2r_dist', save_folder=folder)
+#
+# # # Plot 13 - 5:1 Circle Ratio, -1r gap
+# circle1 = [0, 0, 1]
+# circle2 = [4.5, 0, 5]
+# plot_voronoi_partition(circle1, circle2, height=7, savename='5_1_ratio_n15r_dist', save_folder=folder)
+#
+# # # Plot 13 - 5:1 Circle Ratio, -1r gap
+# circle1 = [0, 0, 1]
+# circle2 = [5, 0, 5]
+# plot_voronoi_partition(circle1, circle2, height=7, savename='5_1_ratio_n1r_dist', save_folder=folder)
+#
+# # Plot 14 - 5:1 Circle Ratio, 0r gap
+# circle1 = [0, 0, 1]
+# circle2 = [6, 0, 5]
+# plot_voronoi_partition(circle1, circle2, height=7, savename='5_1_ratio_0r_dist', save_folder=folder)
+#
+# # # # Plot 15 - 5:1 Circle Ratio, 1r gap
+# circle1 = [0, 0, 1]
+# circle2 = [7, 0, 5]
+# plot_voronoi_partition(circle1, circle2, height=7, savename='5_1_ratio_1r_dist', save_folder=folder)
+#
+# # # Plot 16 - 5:1 Circle Ratio, 2r gap
+# circle1 = [0, 0, 1]
+# circle2 = [7.5, 0, 5]
+# plot_voronoi_partition(circle1, circle2, height=7, savename='5_1_ratio_15r_dist', save_folder=folder)
+#
+# # # Plot 16 - 5:1 Circle Ratio, 2r gap
+# circle1 = [0, 0, 1]
+# circle2 = [8, 0, 5]
+# plot_voronoi_partition(circle1, circle2, height=7, savename='5_1_ratio_2r_dist', save_folder=folder)
+#
+# # # Plot 17 - 10:1 Circle Ratio, 0r gap
+# circle1 = [0, 0, 1]
+# circle2 = [9.5, 0, 10]
+# plot_voronoi_partition(circle1, circle2, height=14, savename='10_1_ratio_n15r_dist', save_folder=folder)
+#
+# # # Plot 17 - 10:1 Circle Ratio, 0r gap
+# circle1 = [0, 0, 1]
+# circle2 = [10, 0, 10]
+# plot_voronoi_partition(circle1, circle2, height=14, savename='10_1_ratio_n1r_dist', save_folder=folder)
+#
+# # # # Plot 18 - 10:1 Circle Ratio, 0r gap
+# circle1 = [0, 0, 1]
+# circle2 = [11, 0, 10]
+# plot_voronoi_partition(circle1, circle2, height=14, savename='10_1_ratio_0r_dist', save_folder=folder)
+#
+# # Plot 19 - 10:1 Circle Ratio, 1r gap
+# circle1 = [0, 0, 1]
+# circle2 = [12, 0, 10]
+# plot_voronoi_partition(circle1, circle2, height=14, savename='10_1_ratio_1r_dist', save_folder=folder)
+#
+# # Plot 20 - 10:1 Circle Ratio, 2r gap
+# circle1 = [0, 0, 1]
+# circle2 = [12.5, 0, 10]
+# plot_voronoi_partition(circle1, circle2, height=14, savename='10_1_ratio_15r_dist', save_folder=folder)
+#
+# # Plot 20 - 10:1 Circle Ratio, 2r gap
+# circle1 = [0, 0, 1]
+# circle2 = [13, 0, 10]
+# plot_voronoi_partition(circle1, circle2, height=14, savename='10_1_ratio_2r_dist', save_folder=folder)
