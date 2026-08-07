@@ -8,6 +8,7 @@ from vorpy.src.inputs import read_pdb
 from vorpy.src.inputs import read_cif
 from vorpy.src.inputs import read_gro
 from vorpy.src.inputs import read_mol
+from vorpy.src.inputs import read_mol2
 from vorpy.src.inputs import read_txt
 from vorpy.src.inputs import read_net
 from vorpy.src.inputs import read_ndx
@@ -494,8 +495,12 @@ class System:
             read_gro(self)
 
         # Read MOL file
-        elif self.files['base_file'][-3:] == "mol":
+        elif self.files['base_file'].endswith(('.mol', '.sdf')):
             read_mol(self)
+
+        # Read Mol2 file
+        elif self.files['base_file'].endswith('.mol2'):
+            read_mol2(self)
 
         # Read a txt file
         elif self.files['base_file'][-3:] == 'txt':

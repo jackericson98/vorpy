@@ -74,6 +74,7 @@ def read_pdb(sys, file=None):
     sys.name = path.basename(sys.files['base_file'])[:-4]
     # Set up the atom and the data lists
     atoms, data, atom_count, reset_checker = [], [], 0, 0
+    previous_res_seq, previous_chain = None, None
     # Initialize the chains and residues lists
     sys.chains, sys.residues = [], []
     # Initialize the chains and residues dictionaries
@@ -119,9 +120,10 @@ def read_pdb(sys, file=None):
             name = line[12:16]
             # Get the residue sequence
             res_seq = line[22:26]
-            # If the residue sequence is empty
-            if line[22:26] == '    ':
+            if res_seq == '    ':
                 res_seq = 0
+            else:
+                res_seq = int(res_seq)
             # If no chain is specified, set the chain to 'None'
             try:
                 res_str, chain_str = line[17:20].strip(), line[21]
@@ -153,8 +155,8 @@ def read_pdb(sys, file=None):
 
             # Create the atom
             atom = make_atom(location=np.array([float(line[30:38]), float(line[38:46]), float(line[46:54])]),
-                             system=sys,
-                             element=line[76:78].strip(), res_seq=int(res_seq), res_name=res_str, chn_name=chain_str,
+                             system=sys, element=line[76:78].strip(), res_seq=res_seq, res_name=res_str,
+                             chn_name=chain_str,
                              name=name.strip(), seg_id=line[72:76], index=atom_count, mass=mass, radius=rad)
             # Increment the atom count
             atom_count += 1
@@ -171,6 +173,13 @@ def read_pdb(sys, file=None):
             elif sys.type == 'foam' and res_str.lower() != 'bub' and chain_str != '0':
                 # Set the chain to SOL
                 chain_str = 'SOL'
+            # Detect PDB residue-number rollover within the same chain.
+            # PDB residue sequence numbers are limited to four columns, so very large
+            # residue counts may eventually restart at a smaller sequence number.
+            if previous_chain == chain_str and previous_res_seq is not None and res_seq < previous_res_seq:
+                reset_checker += 1
+
+            previous_chain, previous_res_seq = chain_str, res_seq
 
             # Create the chain and residue dictionaries
             res_name, chn_name = chain_str + '_' + line[17:20] + str(atom['res_seq']) + '_' + str(reset_checker), chain_str
@@ -228,10 +237,6 @@ def read_pdb(sys, file=None):
 
             # Add the atom to the atoms list
             atoms.append(atom)
-            # If the residue sequence is 9999
-            if res_seq == 9999:
-                # Increment the reset checker
-                reset_checker += 1
         # If the line is not an atom line store the other data
         else:
             data.append(my_file[i].split())
@@ -268,6 +273,7 @@ def read_pdb(sys, file=None):
     sys.sol.residues = adjusted_residues
     # Create a file read statement for the user
     print(f"\r{os.path.basename(file)} successfully added.", end="")
+    return sys
 
 
 def read_pdb_simple(file):
