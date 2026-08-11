@@ -143,10 +143,10 @@ class InterfaceWindow(tk.Toplevel):
             ])
         )
 
-        print("\n=== INTERFACE GROUP OPTIONS ===")
-        print(f"system group names: {system_group_names}")
-        print(f"pending GUI group names: {self.pending_group_names}")
-        print(f"combined interface names: {self.group_names}")
+        # print("\n=== INTERFACE GROUP OPTIONS ===")
+        # print(f"system group names: {system_group_names}")
+        # print(f"pending GUI group names: {self.pending_group_names}")
+        # print(f"combined interface names: {self.group_names}")
         first_options = list(dict.fromkeys([SPECIAL_FIRST, *self.group_names]))
         second_options = list(dict.fromkeys([*SPECIAL_SECOND, *self.group_names]))
 
@@ -251,7 +251,7 @@ class InterfaceWindow(tk.Toplevel):
 
                 results.append(result)
                 source_name = getattr(source_group, "name", "system/default")
-                print(f"Interface {first_name} <-> {second_name}; source network: {source_name}")
+                # print(f"Interface {first_name} <-> {second_name}; source network: {source_name}")
 
             self.results = results
             self.destroy()

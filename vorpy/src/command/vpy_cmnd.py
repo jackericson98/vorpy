@@ -78,28 +78,28 @@ class Command:
         # Create the requested groups
         self.create_groups()
 
-        print("\n=== CLI GROUP VALIDATION ===")
-        print(f"requested group commands: {self.groups}")
-        print(f"created group count: {len(self.sys.groups or [])}")
-
-        for group_index, group in enumerate(self.sys.groups or []):
-            ball_indices = list(
-                getattr(
-                    group,
-                    "ball_ndxs",
-                    getattr(group, "ball_indices", []),
-                )
-                or []
-            )
-
-            print(f"\nGROUP {group_index}")
-            print(f"  name: {group.name}")
-            print(f"  ball count: {len(ball_indices)}")
-            print(f"  first balls: {ball_indices[:20]}")
-            print(f"  net type: {group.settings.get('net_type')}")
-            print(f"  net: {group.net}")
-
-        print("============================\n")
+        # print("\n=== CLI GROUP VALIDATION ===")
+        # print(f"requested group commands: {self.groups}")
+        # print(f"created group count: {len(self.sys.groups or [])}")
+        #
+        # for group_index, group in enumerate(self.sys.groups or []):
+        #     ball_indices = list(
+        #         getattr(
+        #             group,
+        #             "ball_ndxs",
+        #             getattr(group, "ball_indices", []),
+        #         )
+        #         or []
+        #     )
+        #
+        #     print(f"\nGROUP {group_index}")
+        #     print(f"  name: {group.name}")
+        #     print(f"  ball count: {len(ball_indices)}")
+        #     print(f"  first balls: {ball_indices[:20]}")
+        #     print(f"  net type: {group.settings.get('net_type')}")
+        #     print(f"  net: {group.net}")
+        #
+        # print("============================\n")
 
         comparison_mode = (
                 self.settings_dict is not None
@@ -176,45 +176,45 @@ class Command:
             else:
                 interface_pairs = build_interfaces(sys=self.sys, num_requested_groups=num_requested_groups)
 
-            print("\n=== CLI INTERFACES ===")
-            print(f"requested groups: {num_requested_groups}")
-            print(f"interface count: {len(interface_pairs)}")
-
-            for pair_index, (group1, group2) in enumerate(interface_pairs):
-                group1_balls = set(
-                    getattr(
-                        group1,
-                        "ball_ndxs",
-                        getattr(group1, "ball_indices", []),
-                    )
-                    or []
-                )
-
-                group2_balls = set(
-                    getattr(
-                        group2,
-                        "ball_ndxs",
-                        getattr(group2, "ball_indices", []),
-                    )
-                    or []
-                ) if group2 is not None else set()
-
-                overlap = group1_balls & group2_balls
-
-                print(f"\nPAIR {pair_index}")
-                print(f"  group 1: {group1.name}")
-                print(f"  group 1 balls: {len(group1_balls)}")
-                print(
-                    f"  group 2: "
-                    f"{group2.name if group2 is not None else 'surrounding'}"
-                )
-                print(f"  group 2 balls: {len(group2_balls)}")
-                print(f"  overlap count: {len(overlap)}")
-
-                if overlap:
-                    print(f"  first overlapping balls: {sorted(overlap)[:20]}")
-
-            print("======================\n")
+            # print("\n=== CLI INTERFACES ===")
+            # print(f"requested groups: {num_requested_groups}")
+            # print(f"interface count: {len(interface_pairs)}")
+            #
+            # for pair_index, (group1, group2) in enumerate(interface_pairs):
+            #     group1_balls = set(
+            #         getattr(
+            #             group1,
+            #             "ball_ndxs",
+            #             getattr(group1, "ball_indices", []),
+            #         )
+            #         or []
+            #     )
+            #
+            #     group2_balls = set(
+            #         getattr(
+            #             group2,
+            #             "ball_ndxs",
+            #             getattr(group2, "ball_indices", []),
+            #         )
+            #         or []
+            #     ) if group2 is not None else set()
+            #
+            #     overlap = group1_balls & group2_balls
+            #
+            #     print(f"\nPAIR {pair_index}")
+            #     print(f"  group 1: {group1.name}")
+            #     print(f"  group 1 balls: {len(group1_balls)}")
+            #     print(
+            #         f"  group 2: "
+            #         f"{group2.name if group2 is not None else 'surrounding'}"
+            #     )
+            #     print(f"  group 2 balls: {len(group2_balls)}")
+            #     print(f"  overlap count: {len(overlap)}")
+            #
+            #     if overlap:
+            #         print(f"  first overlapping balls: {sorted(overlap)[:20]}")
+            #
+            # print("======================\n")
 
             self.sys.make_interfaces(interface_pairs)
 
@@ -263,9 +263,9 @@ class Command:
             if not os.path.exists(logs_file):
                 raise FileNotFoundError(f"Logs file not found: {logs_file}")
 
-            print(f"\nLoading group from logs:")
-            print(f"  group = {grp.name}")
-            print(f"  logs  = {logs_file}")
+            # print(f"\nLoading group from logs:")
+            # print(f"  group = {grp.name}")
+            # print(f"  logs  = {logs_file}")
 
             read_net(
                 group=grp,

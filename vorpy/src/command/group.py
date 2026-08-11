@@ -335,16 +335,16 @@ def interpret_group_commands(my_sys, group_dict, command):
             all_residues,
             category_command,
         )
-        print("\n=== CATEGORY GROUP SELECTION ===")
-        print(f"command: {category_command}")
-        print(f"normal residues available: {len(system_residues)}")
-        print(f"solvent residues available: {len(solvent_residues)}")
-        print(f"matching residues: {len(matching_residues)}")
-        print(
-            f"matching residue names: "
-            f"{sorted(set(res.name for res in matching_residues))}"
-        )
-        print("================================\n")
+        # print("\n=== CATEGORY GROUP SELECTION ===")
+        # print(f"command: {category_command}")
+        # print(f"normal residues available: {len(system_residues)}")
+        # print(f"solvent residues available: {len(solvent_residues)}")
+        # print(f"matching residues: {len(matching_residues)}")
+        # print(
+        #     f"matching residue names: "
+        #     f"{sorted(set(res.name for res in matching_residues))}"
+        # )
+        # print("================================\n")
 
         group_dict["residues"] += matching_residues
         return group_dict

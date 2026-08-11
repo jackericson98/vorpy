@@ -83,77 +83,77 @@ def export_npt(my_sys, usr_npt=None):
         The function performs exports but does not return any values.
     """
 
-    print("\n=== EXPORT DEBUG ===")
-    print(f"export type      = {usr_npt}")
-    print(f"system name      = {my_sys.name}")
-    print(f"system dir       = {getattr(my_sys, 'dir', None)}")
-    print(f"files['dir']     = {my_sys.files.get('dir', None)}")
-    print(f"round_to         = {getattr(my_sys, 'round_to', None)}")
-    print(f"groups           = {len(getattr(my_sys, 'groups', []))}")
-
-    for i, grp in enumerate(getattr(my_sys, 'groups', [])):
-        print(f"\nGROUP {i}")
-        print(f"  name           = {grp.name}")
-        print(f"  dir            = {getattr(grp, 'dir', None)}")
-
-        if hasattr(grp, 'net'):
-            net = getattr(grp, "net", None)
-
-            print(f"  net            = {net}")
-
-            if net is None:
-                print("  verts          = None")
-                print("  edges          = None")
-                print("  surfs          = None")
-            else:
-                print(
-                    f"  verts          = "
-                    f"{None if net.verts is None else len(net.verts)}"
-                )
-                print(
-                    f"  edges          = "
-                    f"{None if net.edges is None else len(net.edges)}"
-                )
-                print(
-                    f"  surfs          = "
-                    f"{None if net.surfs is None else len(net.surfs)}"
-                )
-
-    print("====================\n")
+    # print("\n=== EXPORT DEBUG ===")
+    # print(f"export type      = {usr_npt}")
+    # print(f"system name      = {my_sys.name}")
+    # print(f"system dir       = {getattr(my_sys, 'dir', None)}")
+    # print(f"files['dir']     = {my_sys.files.get('dir', None)}")
+    # print(f"round_to         = {getattr(my_sys, 'round_to', None)}")
+    # print(f"groups           = {len(getattr(my_sys, 'groups', []))}")
+    #
+    # for i, grp in enumerate(getattr(my_sys, 'groups', [])):
+    #     print(f"\nGROUP {i}")
+    #     print(f"  name           = {grp.name}")
+    #     print(f"  dir            = {getattr(grp, 'dir', None)}")
+    #
+    #     if hasattr(grp, 'net'):
+    #         net = getattr(grp, "net", None)
+    #
+    #         print(f"  net            = {net}")
+    #
+    #         if net is None:
+    #             print("  verts          = None")
+    #             print("  edges          = None")
+    #             print("  surfs          = None")
+    #         else:
+    #             print(
+    #                 f"  verts          = "
+    #                 f"{None if net.verts is None else len(net.verts)}"
+    #             )
+    #             print(
+    #                 f"  edges          = "
+    #                 f"{None if net.edges is None else len(net.edges)}"
+    #             )
+    #             print(
+    #                 f"  surfs          = "
+    #                 f"{None if net.surfs is None else len(net.surfs)}"
+    #             )
+    #
+    # print("====================\n")
 
     # If nothing is specified export the defaults
     if usr_npt is None or usr_npt.lower() in {'default', '2', 'medium', '', 'med'}:
 
-        print("RUNNING export_med()\n")
+        # print("RUNNING export_med()\n")
 
         export_med(sys=my_sys)
 
     elif usr_npt.lower() in {"tiny", "i", "info", "0", "smallest"}:
 
-        print("RUNNING export_micro()\n")
+        # print("RUNNING export_micro()\n")
 
         export_micro(my_sys)
 
     elif usr_npt.lower() in {"small", "s", "1"}:
 
-        print("RUNNING export_tiny()\n")
+        # print("RUNNING export_tiny()\n")
 
         export_tiny(my_sys)
 
     elif usr_npt.lower() in {"large", "l", "3"}:
 
-        print("RUNNING export_large()\n")
+        # print("RUNNING export_large()\n")
 
         export_large(my_sys)
 
     elif usr_npt.lower() in {'all', 'a', 'everything'}:
 
-        print("RUNNING export_all()\n")
+        # print("RUNNING export_all()\n")
 
         export_all(my_sys)
 
     else:
 
-        print(f"RUNNING other_exports({usr_npt})\n")
+        # print(f"RUNNING other_exports({usr_npt})\n")
 
         other_exports(my_sys, usr_npt)

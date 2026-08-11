@@ -41,7 +41,7 @@ cmake.minimum-version = "3.18"
 
 [project]
 name = "vorpy3"
-version = "3.1.1"
+version = "3.4.0"
 description = "A Python package for Voronoi analysis of molecular structures"
 readme = "README.md"
 requires-python = ">=3.9"

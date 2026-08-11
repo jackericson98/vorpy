@@ -115,9 +115,9 @@ class ExportFrame(ttk.LabelFrame):
         if self.gui is not None and getattr(self.gui, "sys", None) is not None:
             self.gui.sys.files["dir"] = directory
 
-        print(f"[ExportFrame] directory selected = {directory}")
-        print(f"[ExportFrame] entry now = {self.export_location.get()}")
-        print(f"[ExportFrame] sys.files['dir'] now = {self.gui.sys.files['dir']}")
+        # print(f"[ExportFrame] directory selected = {directory}")
+        # print(f"[ExportFrame] entry now = {self.export_location.get()}")
+        # print(f"[ExportFrame] sys.files['dir'] now = {self.gui.sys.files['dir']}")
     
     def _open_custom_settings(self):
         """Open the custom export settings window."""
@@ -153,8 +153,8 @@ class ExportFrame(ttk.LabelFrame):
         if hasattr(self, "round_to"):
             self._on_round_to_change()
 
-        print(f"[ExportFrame.get_settings] entry directory = {self.export_location.get()}")
-        print(f"[ExportFrame.get_settings] resolved directory = {self.settings['directory']}")
+        # print(f"[ExportFrame.get_settings] entry directory = {self.export_location.get()}")
+        # print(f"[ExportFrame.get_settings] resolved directory = {self.settings['directory']}")
 
         return self.settings.copy()
     
