@@ -1,12 +1,6 @@
 [build-system]
-requires = [
-  "scikit-build-core>=0.8",
-  "pybind11>=2.11",
-  "numpy",
-  "setuptools>=42",
-  "wheel",
-]
-build-backend = "scikit_build_core.build"
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
 
 
 [tool.black]
@@ -33,10 +27,6 @@ check_untyped_defs = true
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "--cov=vorpy --cov-report=term-missing"
-
-[tool.scikit-build]
-wheel.packages = ["vorpy"]
-cmake.minimum-version = "3.18"
 
 
 [project]
@@ -80,4 +70,4 @@ gui = ["pystray"]
 dev = ["pytest", "pytest-cov", "black", "flake8", "mypy", "hypothesis"]
 
 [project.scripts]
-vorpy = "vorpy.__main__:run"
+vorpy = "vorpy.__main__:main"

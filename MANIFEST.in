@@ -37,4 +37,7 @@ recursive-exclude * .idea
 recursive-exclude * .vscode
 
 # Exclude analysis scripts that may have syntax issues
-recursive-exclude vorpy/src/analyze * 
+recursive-exclude vorpy/src/analyze *
+
+# Exclude verification foam datasets
+recursive-exclude vorpy/data/VerificationFoams *

@@ -16,7 +16,7 @@ try:
 except Exception:  # pragma: no cover
     try:
         from importlib.metadata import version as _pkg_version  # py3.8+
-        __version__ = _pkg_version("vorpy")
+        __version__ = _pkg_version("vorpy3")
     except Exception:  # pragma: no cover
         __version__ = "0.0.0"
 

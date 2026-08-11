@@ -56,7 +56,7 @@ setup(
     license="MIT",
     entry_points={
         'console_scripts': [
-            'vorpy=vorpy.__main__:run',
+            'vorpy=vorpy.__main__:main',
         ],
     },
 ) 
