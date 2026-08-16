@@ -8,7 +8,7 @@ from vorpy.src.chemistry import category_names
 from vorpy.src.chemistry import residues_in_category
 
 
-def group(sys, usr_npt, settings=None):
+def group(sys, usr_npt, settings=None, make_net=True):
     """
     Creates a group object from a molecular system based on user input specifications.
 
@@ -110,7 +110,8 @@ def group(sys, usr_npt, settings=None):
     # Create the group
     npt_list = [None] * 4
     npt_list[obj_ndx] = my_list
-    my_group = Group(sys=sys, chains=npt_list[0], residues=npt_list[1], atoms=npt_list[2], name=name, settings=settings)
+    my_group = Group(sys=sys, chains=npt_list[0], residues=npt_list[1], atoms=npt_list[2], name=name, settings=settings,
+                     make_net=make_net)
     return my_group
 
 
@@ -418,7 +419,7 @@ def interpret_group_commands(my_sys, group_dict, command):
     return group_dict
 
 
-def ggroup(my_sys, group_commands, settings=None):
+def ggroup(my_sys, group_commands, settings=None, make_net=True):
     """
     Creates molecular groups based on user-specified grouping commands.
 
@@ -464,14 +465,17 @@ def ggroup(my_sys, group_commands, settings=None):
     # First case: if no groups are entered, then make the standard group (no sol for 'mol' or coarse and all for 'foam')
     if len(group_commands) == 0:
         # If the given system is not a foam add only the residues to hold out the sol atoms
-        my_sys.groups = [Group(my_sys, name=my_sys.name, residues=my_sys.residues.copy(), settings=settings)]
+        my_sys.groups = [Group(my_sys, name=my_sys.name, residues=my_sys.residues.copy(), settings=settings,
+                               make_net=make_net)]
         return
     # First check if there are specific names without identifiers, no sol, full
     if group_commands[0][0] in noSOL_objs:
-        my_sys.groups = [Group(my_sys, name=my_sys.name, residues=my_sys.residues.copy(), settings=settings)]
+        my_sys.groups = [Group(my_sys, name=my_sys.name, residues=my_sys.residues.copy(), settings=settings,
+                               make_net=make_net)]
         return
     if group_commands[0][0] in full_objs:
-        my_sys.groups = [Group(my_sys, name=my_sys.name + '_all', atoms=my_sys.balls['num'].to_list(), settings=settings)]
+        my_sys.groups = [Group(my_sys, name=my_sys.name + '_all', atoms=my_sys.balls['num'].to_list(),
+                               settings=settings, make_net=make_net)]
         return
     my_sys.groups = []
     # Loop through the names and identifiers

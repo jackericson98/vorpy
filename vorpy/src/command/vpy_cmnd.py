@@ -522,8 +522,9 @@ class Command:
             self.sys.set_radii(self.settings_dict['atom_rad']['element'], self.settings_dict['atom_rad']['special'])
 
     def create_groups(self):
-        # Set the groups up
-        ggroup(self.sys, self.groups, self.settings_dict)
+        # Interface mode only needs group definitions; the Interface creates
+        # the single network that will actually be solved.
+        ggroup(self.sys, self.groups, self.settings_dict, make_net=not self.interface_mode)
     
     def run_exports(self):
 
