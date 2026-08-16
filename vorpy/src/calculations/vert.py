@@ -25,19 +25,6 @@ def _numeric_guard():
         np.seterr(**old)
 
 
-def _real_roots_quadratic1(a, b, c, tol=1e-12):
-    with _numeric_guard():
-        try:
-            r = np.roots([a, b, c])
-        except FloatingPointError as e:
-            raise ValueError(f"Failed to solve quadratic: {e}") from e
-    real = []
-    for z in r:
-        z = complex(z)
-        if abs(z.imag) <= tol and np.isfinite(z.real):
-            real.append(float(z.real))
-    return real
-
 def _real_roots_quadratic(a, b, c, tol=1e-12):
     """
     Return the real roots of:
@@ -109,9 +96,12 @@ def _real_roots_quadratic(a, b, c, tol=1e-12):
 
 
 def _safe_div(num, den, name="denominator", eps=1e-15):
+    """Divide while rejecting zero, near-zero, and non-finite denominators."""
     den = float(den)
+
     if not np.isfinite(den) or abs(den) <= eps:
         raise ValueError(f"{name} is zero or non-finite (|{den}| <= {eps}).")
+
     return num / den
 
 
@@ -228,6 +218,91 @@ def calc_vert_case_1(Fs, l0, r0):
 
 
 @jit(nopython=True)
+def calc_vert_case_1_numba(Fs, l0, r0, tol=1e-12):
+    """
+    Numba-compiled implementation of the standard AW vertex solution.
+
+    This function is numerically equivalent to ``calc_vert_case_1`` but uses
+    fixed-size NumPy arrays and an analytic quadratic solution so the hot
+    four-sphere calculation can execute efficiently in compiled code.
+
+    Parameters
+    ----------
+    Fs : numpy.ndarray
+        Determinant coefficients returned by ``calc_vert_abcfs``.
+    l0 : numpy.ndarray
+        Reference sphere location.
+    r0 : float
+        Reference sphere radius.
+    tol : float, optional
+        Relative tolerance used for degenerate coefficients and duplicate roots.
+
+    Returns
+    -------
+    tuple
+        ``(verts, n_roots)`` where ``verts`` is a preallocated ``(2, 4)``
+        array containing candidate ``x, y, z, radius`` values and ``n_roots``
+        gives the number of valid rows.
+    """
+    F, F_2, F10, F11, F20, F21, F30, F31 = Fs
+    # Construct the quadratic in the vertex radius.
+    a = (F11**2 + F21**2 + F31**2) - F_2
+    b = 2.0 * ((F10*F11 + F20*F21 + F30*F31) - r0*F_2)
+    c = (F10**2 + F20**2 + F30**2) - (r0**2)*F_2
+    # Handle degenerate linear and standard quadratic cases.
+    coefficient_scale = max(abs(a), abs(b), abs(c), 1.0)
+    coefficient_tol = tol * coefficient_scale
+    # Convert each radius root into its corresponding global vertex location.
+    roots_out = np.empty(2, dtype=np.float64)
+    n_roots = 0
+
+    if abs(a) <= coefficient_tol:
+        if abs(b) > coefficient_tol:
+            roots_out[0] = -c / b
+            n_roots = 1
+    else:
+        discriminant = b*b - 4.0*a*c
+        discriminant_scale = max(abs(b*b), abs(4.0*a*c), 1.0)
+        discriminant_tol = tol * discriminant_scale
+
+        if discriminant >= -discriminant_tol:
+            if discriminant < 0.0:
+                discriminant = 0.0
+
+            sqrt_discriminant = np.sqrt(discriminant)
+
+            if b >= 0.0:
+                q = -0.5 * (b + sqrt_discriminant)
+            else:
+                q = -0.5 * (b - sqrt_discriminant)
+
+            if abs(q) <= coefficient_tol:
+                roots_out[0] = -b / (2.0*a)
+                n_roots = 1
+            else:
+                r1 = q / a
+                r2 = c / q
+
+                roots_out[0] = r1
+                n_roots = 1
+
+                if not np.isclose(r1, r2, rtol=tol, atol=coefficient_tol):
+                    roots_out[1] = r2
+                    n_roots = 2
+
+    verts = np.empty((2, 4), dtype=np.float64)
+
+    for i in range(n_roots):
+        R = roots_out[i]
+        verts[i, 0] = (F10 + R*F11) / F + l0[0]
+        verts[i, 1] = (F20 + R*F21) / F + l0[1]
+        verts[i, 2] = (F30 + R*F31) / F + l0[2]
+        verts[i, 3] = R
+
+    return verts, n_roots
+
+
+@jit(nopython=True)
 def calc_vert_case_2(Fs, r0, l0):
     """
     Calculate vertices for Case 2 in a vertex calculation scenario involving spheres.
@@ -304,125 +379,104 @@ def calc_vert_case_2(Fs, r0, l0):
 
 def filter_vert_locrads(verts, rs):
     """
-    Filter and sort vertices based on their radii.
+    Filter candidate AW vertices and order the surviving solutions.
 
-    This function ensures that encapsulating vertices are removed and the smallest vertex is listed first.
-    It is typically used in geometric processing where vertices represent possible solutions that need to be
-    validated based on physical or geometric constraints.
+    Mathematical solutions with radii smaller than the negative radius of the
+    smallest defining ball are physically invalid and are removed. Remaining
+    solutions are ordered by absolute radius so the geometrically nearest
+    solution is returned first.
 
     Parameters
     ----------
     verts : list
-        List of vertices to be filtered and sorted
+        Candidate vertices in the form ``[[x, y, z], radius]``.
     rs : array-like
-        Array of radii corresponding to the vertices
+        Radii of the four defining balls.
 
     Returns
     -------
-    list
-        Filtered and sorted list of vertices, with encapsulating vertices removed and the smallest vertex first
-
-    Notes
-    -----
-    The function removes vertices that are completely encapsulated by other vertices and sorts the remaining
-    vertices by their radii in ascending order.
+    tuple
+        ``(loc, loc2, rad, rad2)`` containing the primary and optional
+        secondary vertex locations and radii. Missing solutions are returned
+        as ``None``.
     """
-
-    # Initialize return variables for location and radii
     loc, rad, loc2, rad2 = None, None, None, None
 
-    # Handle the case with a single vertex
-    if len(verts) == 1:
-        loc, rad = verts[0][0], verts[0][1]  # Directly assign the location and radius
+    if verts is None or len(verts) == 0:
+        return loc, loc2, rad, rad2
 
-    # Handle the case with two vertices
-    elif len(verts) == 2:
-        max_ball_rad = max(rs)  # Determine the largest radius from the original spheres for comparison
+    # A negative vertex cannot contract farther than the smallest defining ball.
+    min_allowed_rad = -min(rs)
+    verts = [vert for vert in verts if vert[1] >= min_allowed_rad]
 
-        # Ensure the smaller vertex is listed first based on absolute radius
-        if abs(verts[0][1]) > abs(verts[1][1]):
-            verts[0], verts[1] = verts[1], verts[0]  # Swap if necessary
+    if len(verts) == 0:
+        return loc, loc2, rad, rad2
 
-        # Extract locations and radii after potential swap
-        locs, rads = [verts[0][0], verts[1][0]], [verts[0][1], verts[1][1]]
+    # Return the solution nearest to zero radius first.
+    verts.sort(key=lambda vert: abs(vert[1]))
 
-        # Validate vertices based on their radii
-        if rads[0] < 0 or rads[1] < 0:
-            # Check first vertex
-            if rads[0] > 0 or abs(rads[0]) < max_ball_rad:
-                loc, rad = locs[0], rads[0]  # Assign if valid
-                # Check second vertex
-                if rads[1] > 0 or abs(rads[1]) < max_ball_rad:
-                    loc2, rad2 = locs[1], rads[1]  # Assign if also valid
-            # If first vertex wasn't valid, check the second
-            elif rads[1] > 0 or abs(rads[1]) < max_ball_rad:
-                loc, rad = locs[1], rads[1]
-        else:
-            # If both radii are positive, assign both with the smallest listed first
-            loc, loc2, rad, rad2 = locs[0], locs[1], rads[0], rads[1]
+    loc, rad = verts[0][0], verts[0][1]
 
-    # Return sorted and validated vertex information
+    if len(verts) >= 2:
+        loc2, rad2 = verts[1][0], verts[1][1]
+
     return loc, loc2, rad, rad2
 
 
 def calc_vert(locs, rads):
     """
-    Calculate the geometrically inscribed or additively weighted vertex between four spheres.
+    Calculate the additively weighted Voronoi vertex defined by four spheres.
 
-    This function calculates the vertex between four spheres based on their locations and radii.
-    It handles different geometrical configurations by applying appropriate computational cases.
+    The four sphere centers and radii are converted into the linearized AW
+    coefficient system. The standard non-degenerate case is solved by the
+    Numba-compiled Case 1 implementation. Degenerate configurations may fall
+    back to Case 2. Candidate solutions are then filtered according to the
+    physically valid radius range.
 
     Parameters
     ----------
-    locs : list of arrays
-        A list of coordinates for the centers of the four spheres
-    rads : list of floats
-        A list of radii for the four spheres
+    locs : array-like
+        Coordinates of the four defining sphere centers.
+    rads : array-like
+        Radii of the four defining spheres.
 
     Returns
     -------
     tuple
-        Returns a tuple of vertices locations and their respective radii calculated for the inscribed sphere
-
-    Notes
-    -----
-    The function uses different computational cases based on the geometric configuration of the spheres.
-    It first calculates vertex coefficients using calc_vert_abcfs, then determines the appropriate case
-    based on matrix ranks and coefficient conditions.
+        ``(loc, rad, loc2, rad2)`` where ``loc`` and ``rad`` describe the
+        primary AW vertex and ``loc2`` and ``rad2`` describe an optional
+        secondary solution for doublet configurations.
     """
+    # Normalize input data for the compiled coefficient calculation.
+    locs_array, rads_array = array(locs), array(rads)
 
-    # Attempt to calculate vertex coefficients using a JIT-accelerated function
-    Fs, abcdfs, rs, l0 = calc_vert_abcfs(array(locs), array(rads))
+    # Build the determinant coefficients for the four-sphere system.
+    Fs, abcdfs, rs, l0 = calc_vert_abcfs(locs_array, rads_array)
 
-    # Initialize matrix ranks needed for determining the computational case
-    m_rank, f_rank = 3, 3  # Default ranks if F != 0
+    # Rank checks are only required for the degenerate F == 0 case.
+    m_rank, f_rank = 3, 3
 
-    # Adjust ranks based on the coefficients if the first F coefficient is zero
     if Fs[0] == 0:
-        my_mtx = [abcdfs]  # Construct matrix from coefficients
-        m_rank = linalg.matrix_rank(array(my_mtx[:-1]))  # Calculate rank excluding the last element
-        if m_rank != 3:
-            f_rank = linalg.matrix_rank(array(my_mtx))  # Calculate full matrix rank
+        my_mtx = [abcdfs]
+        m_rank = linalg.matrix_rank(array(my_mtx[:-1]))
 
-    # Initialize a list to store vertices
+        if m_rank != 3:
+            f_rank = linalg.matrix_rank(array(my_mtx))
+
     verts = []
 
-    # Case 1: Standard case where the first coefficient of F is non-zero
+    # Standard non-degenerate AW vertex calculation.
     if Fs[0] != 0:
-        verts = calc_vert_case_1(Fs, l0, rs[0])  # Calculate vertices for case 1
-        if verts is not None:
-            verts = [[vert[:3], vert[3]] for vert in verts]  # Format vertices
-        else:
-            verts = []  # Reset vertices if None found
+        numba_verts, numba_n = calc_vert_case_1_numba(Fs, l0, rs[0])
+        verts = [[numba_verts[i, :3].tolist(), numba_verts[i, 3]] for i in range(numba_n)]
 
-    # Case 2: Special case based on matrix ranks and specific coefficient conditions
+    # Degenerate fallback calculation.
     elif abcdfs[0][0] * abcdfs[1][1] - abcdfs[0][1] * abcdfs[1][0] != 0 and m_rank == 3 and f_rank == 3 and Fs[0] > 0:
-        verts = calc_vert_case_2(Fs, rs[0], l0)  # Calculate vertices for case 2
+        verts = calc_vert_case_2(Fs, rs[0], l0)
 
-    # Filter and sort vertices to find the appropriate geometric solution
+    # Remove physically invalid roots and order any remaining solutions.
     loc, loc2, rad, rad2 = filter_vert_locrads(verts, rs)
 
-    # Return the first and second vertex locations and their corresponding radii
     return loc, rad, loc2, rad2
 
 

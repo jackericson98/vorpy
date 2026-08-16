@@ -687,7 +687,6 @@ def sett(setting, value, settings=None):
     """
     # Set the default settings
     if settings is None:
-        print("No settings provided")
         settings = {'surf_res': 0.2, 'max_vert': 40, 'box_size': 1.25, 'net_type': 'aw', 'surf_col': 'plasma',
                     'surf_scheme': 'mean', 'scheme_factor': 'log', 'atom_rad': None, 'bld_type': None, 'conc_col': True,
                     'vert_col': 'red', 'edge_col': 'grey', 'round_to': 3}
@@ -712,5 +711,4 @@ def sett(setting, value, settings=None):
     # Set the setting
     settings[interpreter[setting]] = func_dict[interpreter[setting]](value, settings)
     # Return the settings
-    print(settings)
     return settings

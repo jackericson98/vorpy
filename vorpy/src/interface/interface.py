@@ -129,15 +129,6 @@ class Interface:
 
         interface_indices = sorted(self.group1_indices | self.group2_indices)
 
-        print("\n[INTERFACE MAKE_NET]")
-        print(f"  interface    = {self.name}")
-        print(f"  group1       = {self.group1.name}")
-        print(f"  group2       = {self.group2_name}")
-        print(f"  group1 size  = {len(self.group1_indices)}")
-        print(f"  group2 size  = {len(self.group2_indices)}")
-        print(f"  union size   = {len(interface_indices)}")
-
-
         self.net = Network(
             # Retain the complete system geometry so surrounding balls can
             # participate in geometric validity checks.

@@ -213,13 +213,10 @@ def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, i
 
         b2s = []
         inc = 0
-
+        b2_box = box_search(b0_b1_com)
         # Gather at least five b2 candidates near b0 and b1.
         while len(b2s) < 5:
-            b2s = get_balls(
-                box_search(b0_b1_com),
-                inc,
-            )
+            b2s = get_balls(b2_box, inc)
             inc += 1
 
         # b2 must be distinct from b0 and b1.

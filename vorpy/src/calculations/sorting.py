@@ -133,34 +133,31 @@ def get_balls(cells, dist=0, cell_reach=0, my_balls_matrix=None, my_sub_box_size
     if type(cells[0]) is int:
         cells = [cells]
     # Get the min and max of the cells
-    ndx_min = [np.inf, np.inf, np.inf]
-    ndx_max = [-np.inf, -np.inf, -np.inf]
-    # Go through the cells and set the minimum and maximum indexes for xyz for a rectangle containing the balls
-    for cell in cells:
-        # Check each xyz index to see if they are larger or smaller than the max or min
+    ndx_min = list(cells[0])
+    ndx_max = list(cells[0])
+
+    for cell in cells[1:]:
         for i in range(3):
             if cell[i] < ndx_min[i]:
                 ndx_min[i] = cell[i]
             if cell[i] > ndx_max[i]:
                 ndx_max[i] = cell[i]
-    # Get the range of cells to search
-    xs = [x for x in range(max(0, -reach + ndx_min[0] - cell_reach), reach + ndx_max[0] + cell_reach)]
-    ys = [y for y in range(max(0, -reach + ndx_min[1] - cell_reach), reach + ndx_max[1] + cell_reach)]
-    zs = [z for z in range(max(0, -reach + ndx_min[2] - cell_reach), reach + ndx_max[2] + cell_reach)]
-    # Initialize the list of balls
+
+    # Get the bounded range of cells to search
+    xs = range(max(0, -reach + ndx_min[0] - cell_reach), min(n, reach + ndx_max[0] + cell_reach))
+    ys = range(max(0, -reach + ndx_min[1] - cell_reach), min(n, reach + ndx_max[1] + cell_reach))
+    zs = range(max(0, -reach + ndx_min[2] - cell_reach), min(n, reach + ndx_max[2] + cell_reach))
+
+    # Get the balls
     balls = []
-    # Go through the cells and get the balls
     for i in xs:
-        if 0 <= i < n:
-            for j in ys:
-                if 0 <= j < n:
-                    for k in zs:
-                        if 0 <= k < n:
-                            try:
-                                balls += balls_matrix[i, j, k]
-                            except KeyError:
-                                pass
-    # Return the balls
+        for j in ys:
+            for k in zs:
+                try:
+                    balls += balls_matrix[i, j, k]
+                except KeyError:
+                    pass
+
     return balls
 
 

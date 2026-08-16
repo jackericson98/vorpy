@@ -115,7 +115,7 @@ class Command:
 
         # Comparison mode:
         # Build two network types for each group and compare them.
-        elif comparison_mode:
+        if comparison_mode:
             new_groups = []
 
             first_net_type = self.settings_dict["net_type"][1]

@@ -9,16 +9,23 @@ from vorpy.src.output import write_verts
 
 def vertex_is_allowed(net, vertex_balls):
     """
-    Determine whether a candidate vertex should be retained.
+    Determine whether a vertex belongs to the requested network scope.
 
-    Normal network
-    --------------
-    The vertex must contain at least one ball from net.group.
+    Normal networks retain a vertex when at least one defining ball belongs
+    to ``net.group``. Interface networks retain a vertex only when its four
+    defining balls include at least one ball from each interface side.
 
-    Interface network
-    -----------------
-    The vertex must contain at least one ball from every selection
-    stored in net.iface_grps.
+    Parameters
+    ----------
+    net : Network
+        Network providing ``group`` and optional ``iface_grps`` constraints.
+    vertex_balls : collection of int
+        Defining ball indices for the candidate vertex.
+
+    Returns
+    -------
+    bool
+        True when the vertex belongs to the requested network scope.
     """
     vertex_balls = set(vertex_balls)
 
@@ -35,7 +42,20 @@ def vertex_is_allowed(net, vertex_balls):
 
 
 def _load_cached_vertex_state(net):
-    """Return cached vertices as independent native ``find_verts`` arrays."""
+    """
+    Reconstruct native vertex-search arrays from cached interface state.
+
+    Cached records are filtered against the current network scope and converted
+    back into the parallel arrays expected by ``find_verts``. Ball-to-vertex
+    adjacency is rebuilt so cached vertices participate normally in duplicate
+    detection and traversal.
+
+    Returns
+    -------
+    tuple or None
+        ``(vert_ndxs, vlocs, vrads, vloc2s, vrad2s, b_verts)`` when usable cached
+        state exists, otherwise ``None``.
+    """
     records = list(getattr(net, 'cached_interface_vertex_state', None) or [])
     if not records:
         return None
@@ -78,7 +98,13 @@ def _load_cached_vertex_state(net):
 
 
 def _store_native_vertex_state(net, vert_ndxs, vlocs, vrads, vloc2s, vrad2s):
-    """Persist the completed native search state for System-level caching."""
+    """
+Store the native vertex-search representation for interface reuse.
+
+The unexpanded primary/secondary vertex representation is preserved so future
+interface calculations can resume discovery without reconstructing doublets
+from exported dataframe rows.
+"""
     net.interface_vertex_state = []
     for balls, loc, rad, loc2, rad2 in zip(
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s):
@@ -96,99 +122,48 @@ def _store_native_vertex_state(net, vert_ndxs, vlocs, vrads, vloc2s, vrad2s):
 
 
 def find_net_verts(net):
-
     """
-    Finds vertices in a network by iteratively searching for valid vertex configurations.
+    Find and store all vertices belonging to a network.
 
-    This function implements the main vertex finding algorithm for different network types (aw, pow, prm).
-    It starts by finding an initial set of vertices and then continues to find additional vertices
-    until all balls in the network are either part of a vertex or determined to be encapsulated.
+    The search begins from the network's requested group and traverses connected
+    vertices using ``find_verts``. Previously cached interface vertices may be
+    loaded as an initial native search state so duplicate detection and adjacency
+    remain available during continued discovery.
+
+    Any balls left uncovered after the initial traversal are checked for complete
+    encapsulation. Remaining balls are then used as additional seeds, allowing
+    disconnected or incompletely traversed regions to be discovered. Interface
+    networks use this reseeding behavior as well, which allows the same interface
+    to be approached from multiple starting regions.
+
+    Doublet vertices are maintained internally as primary/secondary solutions
+    during discovery and expanded into separate dataframe rows only after the
+    native search is complete.
 
     Parameters
     ----------
     net : Network
-        Network object containing:
-        - balls : pandas.DataFrame
-            DataFrame containing ball information including locations and radii
-        - settings : dict
-            Dictionary of network settings including:
-            - max_vert : float
-                Maximum vertex radius
-            - net_type : str
-                Type of network ('aw', 'pow', or 'prm')
-            - print_metrics : bool
-                Flag to enable progress printing
-            - foam_box : list
-                Bounding box for foam vertices
-            - ball_type : str
-                Type of balls ('foam' or other)
-        - group : list, optional
-            List of ball indices in the group
-        - metrics : dict
-            Dictionary for storing performance metrics
-        - box : dict
-            Dictionary containing bounding boxes for different components
-
-    Returns
-    -------
-    tuple
-        A tuple containing:
-        - vert_ndxs : list
-            List of vertex indices
-        - vlocs : list
-            List of vertex locations
-        - vrads : list
-            List of vertex radii
-        - vloc2s : list
-            List of secondary vertex locations (for doublets)
-        - vrad2s : list
-            List of secondary vertex radii (for doublets)
-        - sphere_check_list : list
-            List of remaining unvisited balls
-        - averts : dict
-            Dictionary mapping balls to their vertices
+        Network being solved. The object provides ball coordinates, radii, group
+        definitions, interface groups, search settings, spatial boxes, and build
+        metrics.
 
     Notes
     -----
-    - The function handles encapsulated balls by checking if any ball is fully contained within another
-    - For foam networks, the search stops when less than 25% of balls remain unvisited
-    - Doublets (vertices with two possible locations) are handled by keeping track of both locations
+    The function updates ``net.verts`` in place, stores interface-native vertex
+    state when applicable, updates the vertex-build timing metric, and writes the
+    vertex output through ``write_verts``.
     """
-    # print("\n[VERTEX RUN SETTINGS]")
-    # print(f"  network mode = {getattr(net, 'network_mode', None)}")
-    # print(f"  net type     = {net.settings['net_type']}")
-    # print(f"  max vert     = {net.settings['max_vert']}")
-    # print(f"  group size   = {len(net.group) if net.group is not None else None}")
-    # print(f"  group        = {net.group}")
-    # print(f"  iface grps   = {net.iface_grps}")
-    # print(f"  vert box     = {net.box['verts']}")
-    # print(f"  foam box     = {net.settings['foam_box']}")
-    print("  group size   =", len(net.group))
-    print("  group range  =", (min(net.group), max(net.group)) if net.group else None)
-
-    if net.iface_grps is not None:
-        print(
-            "  iface sizes  =",
-            tuple(len(group_indices) for group_indices in net.iface_grps)
-        )
     # Create the group indices
     if net.group is None:
-        net.group = [_['num'] for i, _ in net.balls.iterrows()]
-    # Create the sphere check list
+        net.group = net.balls['num'].tolist()
+    # Track group balls that have not yet been reached by vertex traversal.
     sphere_check_list = net.group.copy()
 
     cached_state = _load_cached_vertex_state(net)
     if cached_state is None:
         vert_ndxs = vlocs = vrads = vloc2s = vrad2s = averts = None
-        cached_count = 0
     else:
         vert_ndxs, vlocs, vrads, vloc2s, vrad2s, averts = cached_state
-        cached_count = len(vert_ndxs)
-        print(
-            f"[INTERFACE CACHE LOAD] verts={cached_count} "
-            f"covered_balls={sum(bool(vertices) for vertices in averts)}",
-            flush=True,
-        )
 
     # Continue normal discovery with cached vertices available for duplicate
     # detection and traversal adjacency.
@@ -211,9 +186,7 @@ def find_net_verts(net):
         vloc2s=vloc2s,
         vrad2s=vrad2s,
         b_verts=averts,
-
         start_time=net.metrics['start'],
-        print_metrics=net.settings['print_metrics'],
         vert_box=net.settings['foam_box'],
         box=net.box['verts'],
     )
@@ -227,6 +200,7 @@ def find_net_verts(net):
     if len(sphere_check_list) > 0:
         # Create the skip numbers list
         skip_nums = []
+        max_ball_rad = max(net.balls['rad'])
         # Iterate through the sphere check list
         for sphere in sphere_check_list:
             # Get the radius and location of the sphere
@@ -234,7 +208,7 @@ def find_net_verts(net):
             # Create the sphere box
             sphere_box = box_search(sphere_loc)
             # Get the balls within the sphere box
-            close_spheres = get_balls(sphere_box, dist=max(net.balls['rad']) - sphere_rad)
+            close_spheres = get_balls(sphere_box, dist=max_ball_rad - sphere_rad)
             # Iterate through the close spheres
             for sphere2 in close_spheres:
                 # Check if the sphere is fully encapsulated by another sphere
@@ -246,26 +220,20 @@ def find_net_verts(net):
         # Iterate through the skip numbers
         for _ in skip_nums:
             sphere_check_list.pop(sphere_check_list.index(_))
-    # Check for disconnects in the network
+
+    if net.iface_grps is not None:
+        interface_balls = net.iface_grps[0] | net.iface_grps[1]
+        sphere_check_list[:] = [ball for ball in sphere_check_list if ball in interface_balls]
+
+    # Reseed from any balls not reached by the initial traversal.
     while len(sphere_check_list) > 0:
-        # if net.iface_grps is not None:
-        #     interface_side_1 = set(net.iface_grps[0])
-        #
-        #     sphere_check_list = [
-        #         ball
-        #         for ball in sphere_check_list
-        #         if ball in interface_side_1
-        #     ]
-        # Interface vertex traversal begins from a verified interface seed
-        # and follows all connected interface vertices. Do not perform the
-        # standard group-mode disconnected-component seed search afterward.
-        if net.iface_grps is not None:
-            break
-        # Get the next sphere to check
-        a0 = sphere_check_list.pop()
+
+        # Remove the seed before calling find_verts; b0 explicitly restores it
+        # as the first seed candidate inside the new traversal.
+        seed_ball = sphere_check_list.pop()
         # Find the vertices
         my_guuy = find_verts(
-            b0=a0,
+            b0=seed_ball,
             locs=net.balls['loc'].to_numpy(),
             rads=net.balls['rad'].to_numpy(),
             max_vert=net.settings['max_vert'],
@@ -298,7 +266,7 @@ def find_net_verts(net):
         )
 
     # Create the doublets list
-    doublets = [0 for _ in range(len(vert_ndxs))]
+    doublets = [0] * len(vert_ndxs)
     # Incorporate the doublets into the v_locs, balls, v_rads lists and lose the v_loc2s and v_rad2s
     i = 0
     while i < len(vlocs):

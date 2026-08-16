@@ -107,7 +107,7 @@ class Network:
                 self.default_settings()
 
     def default_settings(self, surf_res=0.2, box_size=1.5, max_vert=40, build_type='all', net=None,
-                         net_type='aw', surf_col='rainbow', surf_scheme='mean', num_splits=None, print_metrics=True,
+                         net_type='aw', surf_col='rainbow', surf_scheme='mean', num_splits=None, print_metrics=False,
                          scheme_factor='log', make_net=False, verts=None):
         """
         Set default settings for the network.
@@ -263,7 +263,7 @@ class Network:
         Connects the network using the functions in the build_net.py file
         """
         my_lists = build(self.verts['balls'], self.verts['loc'], self.verts['dub'], len(self.balls), self.metrics['start'],
-                         interface=self.iface_grps is not None, iface_grps=self.iface_grps)
+                         group=self.group, interface=self.iface_grps is not None, iface_grps=self.iface_grps)
         ball_lists, vert_lists, edge_lists, surf_lists = my_lists
         self.balls['verts'], self.balls['edges'], self.balls['surfs'] = ball_lists['verts'], ball_lists['edges'], \
             ball_lists['surfs']
