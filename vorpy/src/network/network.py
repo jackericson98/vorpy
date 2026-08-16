@@ -231,7 +231,7 @@ class Network:
         # Sort the balls
         for i, loc in enumerate(locs):
             # Print the sorting balls prompt
-            percentage = min(i + 1 / len(locs) * 100, 100)
+            percentage = min((i + 1) / len(locs) * 100, 100)
             my_time = now() - self.metrics['start']
             h, m, s = get_time(my_time)
             print("\rRun Time = {}:{:02d}:{:2.2f} - Process: Sorting Balls - {:.2f} %"
