@@ -1,22 +1,62 @@
+import time
 import bisect
 import numpy as np
 import warnings
+from numba import jit
 from vorpy.src.calculations import calc_flat_vert
 from vorpy.src.calculations import calc_vert
 from vorpy.src.calculations import verify_aw
 from vorpy.src.calculations import verify_pow
 from vorpy.src.calculations import verify_prm
 from vorpy.src.calculations import calc_dist
-from vorpy.src.calculations import calc_dist_numba
 from vorpy.src.calculations import calc_com
 from vorpy.src.calculations import box_search
 from vorpy.src.calculations import get_balls
-from vorpy.src.calculations import sort_lists
 from vorpy.src.calculations import calc_circ
 
 warnings.filterwarnings("error", category=RuntimeWarning)
 
 KNOWN_EDGE = object()
+POW_PRM_METRICS = {
+    'container_calls': 0,
+    'surrounding': 0.0,
+    'candidate_gather': 0.0,
+    'candidate_filter': 0.0,
+    'calc_vert': 0.0,
+    'verify_arrays': 0.0,
+    'verify': 0.0,
+    'candidates': 0,
+    'verify_balls': 0,
+}
+
+
+@jit(nopython=True)
+def verify_pow_cached(loc, rad, test_locs, test_rads, skip0=-1, skip1=-1, skip2=-1, skip3=-1):
+    """Verify Power geometry against cached edge arrays while skipping defining balls."""
+    for i in range(len(test_locs)):
+        if i == skip0 or i == skip1 or i == skip2 or i == skip3:
+            continue
+        dx = test_locs[i, 0] - loc[0]
+        dy = test_locs[i, 1] - loc[1]
+        dz = test_locs[i, 2] - loc[2]
+        if dx * dx + dy * dy + dz * dz - test_rads[i] * test_rads[i] < rad:
+            return False
+    return True
+
+
+@jit(nopython=True)
+def verify_prm_cached(loc, rad, test_locs, skip0=-1, skip1=-1, skip2=-1, skip3=-1):
+    """Verify primitive geometry against cached edge arrays while skipping defining balls."""
+    rad2 = rad * rad
+    for i in range(len(test_locs)):
+        if i == skip0 or i == skip1 or i == skip2 or i == skip3:
+            continue
+        dx = test_locs[i, 0] - loc[0]
+        dy = test_locs[i, 1] - loc[1]
+        dz = test_locs[i, 2] - loc[2]
+        if dx * dx + dy * dy + dz * dz < rad2:
+            return False
+    return True
 
 
 def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
@@ -128,16 +168,35 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
                 break
 
     my_boxes = [box_search(loc=locs[edge_balls[_]]) for _ in range(3)]
-    # AW vertices are verified locally around the candidate vertex. POW and PRM
-    # retain the precomputed surrounding-ball verification set.
+    # AW verifies locally. Power caches one verification neighborhood per edge.
+    # Primitive retains its existing surrounding-ball verification path.
     surr_balls = None
+    surr_locs = None
+    surr_rads = None
+    surr_lookup = None
 
-    if net_type != 'aw':
+    if net_type == 'pow':
+        POW_PRM_METRICS['container_calls'] += 1
+        metric_start = time.perf_counter()
+
         surr_balls = get_balls(cells=my_boxes, dist=max_vert)
-        edge_com = calc_com([locs[_] for _ in edge_balls])
-        edge_com_array = np.asarray(edge_com)
-        dists = [calc_dist_numba(edge_com_array, np.asarray(locs[ball])) for ball in surr_balls]
-        dists, surr_balls = sort_lists(dists, surr_balls)
+        surr_locs = np.asarray([locs[ball] for ball in surr_balls], dtype=float)
+        surr_rads = np.asarray([rads[ball] for ball in surr_balls], dtype=float)
+        surr_lookup = {ball: i for i, ball in enumerate(surr_balls)}
+
+        POW_PRM_METRICS['surrounding'] += time.perf_counter() - metric_start
+
+    elif net_type == 'prm':
+        POW_PRM_METRICS['container_calls'] += 1
+        metric_start = time.perf_counter()
+
+        # Primitive verification also reuses one edge-level neighborhood.
+        # Verification depends only on center distances, not ball ordering.
+        surr_balls = get_balls(cells=my_boxes, dist=max_vert)
+        surr_locs = np.asarray([locs[ball] for ball in surr_balls], dtype=float)
+        surr_lookup = {ball: i for i, ball in enumerate(surr_balls)}
+
+        POW_PRM_METRICS['surrounding'] += time.perf_counter() - metric_start
 
     mv_inc = min(0.45, max_vert)
 
@@ -151,13 +210,19 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
             if vert is KNOWN_EDGE:
                 return None
         elif net_type == 'pow':
-            vert, invalid_ndxs = find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
-                                               required_group is not None, surr_balls, my_boxes, invalid_ndxs, vn_1,
-                                               box, vn_1_loc, group_ndxs=required_group, metrics=metrics)
+            vert, invalid_ndxs = find_site_pow(
+                edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
+                required_group is not None, surr_balls, my_boxes, invalid_ndxs, vn_1,
+                box, vn_1_loc, group_ndxs=required_group, metrics=metrics,
+                surr_locs=surr_locs, surr_rads=surr_rads, surr_lookup=surr_lookup
+            )
         elif net_type == 'prm':
-            vert, invalid_ndxs = find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
-                                               required_group is not None, surr_balls, my_boxes, invalid_ndxs, vn_1,
-                                               box, vn_1_loc, group_ndxs=required_group, metrics=metrics)
+            vert, invalid_ndxs = find_site_del(
+                edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
+                required_group is not None, surr_balls, my_boxes, invalid_ndxs, vn_1,
+                box, vn_1_loc, group_ndxs=required_group, metrics=metrics,
+                surr_locs=surr_locs, surr_lookup=surr_lookup
+            )
 
         if vert is not None or mv_inc >= max_vert:
             break
@@ -168,7 +233,8 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
 
 
 def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, check_ndxs, surr_balls,
-                  my_boxes, invalid_ndxs, vn_1, box=None, vn_1_loc=None, group_ndxs=None, metrics=None):
+                  my_boxes, invalid_ndxs, vn_1, box=None, vn_1_loc=None, group_ndxs=None, metrics=None,
+                  surr_locs=None, surr_lookup=None):
     """
     Finds a new vertex in a Delaunay network by searching for valid ball combinations.
 
@@ -228,16 +294,18 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
     """
     # Get the balls that should not be a part of the new vertex
     edge_ndxs = edge_balls[:]
-
+    invalid_ndxs_set = set(invalid_ndxs)
+    metric_start = time.perf_counter()
     # Get the balls not in the invalid balls that are within the range specified
-    test_balls = [_ for _ in get_balls(cells=my_boxes, dist=mv_inc) if _ not in invalid_ndxs]
+    test_balls = [_ for _ in get_balls(cells=my_boxes, dist=mv_inc) if _ not in invalid_ndxs_set]
+    POW_PRM_METRICS['candidate_gather'] += time.perf_counter() - metric_start
     # Sort the test balls to be in order by distance from the previous vert location
     if vn_1_loc is None:
         vn_1_loc = calc_com([locs[_] for _ in edge_ndxs])
 
     dists = [calc_dist(np.array(locs[_]), np.array(vn_1_loc)) for _ in test_balls]
     test_balls = [_ for x, _ in sorted(zip(dists, test_balls))]
-
+    metric_start = time.perf_counter()
     # Instantiate the list for test vertices to be calculated later. This saves us from sorting the vertices balls twice
     test_verts = []
     # Go through the surrounding balls to look for vertices that have been found before and filter out edge balls
@@ -260,13 +328,22 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
             return None, invalid_ndxs
         # Add the vertex indices to the test_vertices for calculation
         test_verts.append((ball_ndxs, ball))
-
+    POW_PRM_METRICS['candidate_filter'] += time.perf_counter() - metric_start
+    POW_PRM_METRICS['candidates'] += len(test_verts)
     # Go through each ball in the given test balls. Extremely optimized
     for vert in test_verts:
 
         # Add the vertex ball to the
         vert_balls, ball = vert
-        v_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=False)
+        metric_start = time.perf_counter()
+        try:
+            v_loc, vert_rad = calc_flat_vert(
+                locs=[locs[_] for _ in vert_balls],
+                rads=[rads[_] for _ in vert_balls],
+                power=False
+            )
+        finally:
+            POW_PRM_METRICS['calc_vert'] += time.perf_counter() - metric_start
 
         # Catch the none location case
         if v_loc is None:
@@ -275,12 +352,26 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         # Check if the vert is outside the box
         if box is not None and any([box[0][k] > v_loc[k] or v_loc[k] > box[1][k] for k in range(3)]):
             continue
-        # Filter the vertex out if it is too large or not able to be made
-        filtered_test_balls = [_ for _ in surr_balls if _ not in vert_balls]
-        # Get the locations from the test balls
-        test_locs = np.array([locs[_] for _ in filtered_test_balls])
-        # Compare the vertex to the maximum allowed vertex and verify it
-        if vert_rad < max_vert and verify_prm(loc=np.array(v_loc), rad=vert_rad, test_locs=test_locs):
+        # Reject oversized Primitive vertices before verification.
+        if vert_rad >= max_vert:
+            invalid_ndxs.append(ball)
+            continue
+
+        # Reuse the edge-level verification locations and skip the four defining
+        # balls in the compiled empty-sphere test.
+        metric_start = time.perf_counter()
+        skip0 = surr_lookup.get(vert_balls[0], -1)
+        skip1 = surr_lookup.get(vert_balls[1], -1)
+        skip2 = surr_lookup.get(vert_balls[2], -1)
+        skip3 = surr_lookup.get(vert_balls[3], -1)
+        POW_PRM_METRICS['verify_arrays'] += time.perf_counter() - metric_start
+        POW_PRM_METRICS['verify_balls'] += len(surr_locs)
+
+        metric_start = time.perf_counter()
+        valid = verify_prm_cached(np.asarray(v_loc), vert_rad, surr_locs, skip0, skip1, skip2, skip3)
+        POW_PRM_METRICS['verify'] += time.perf_counter() - metric_start
+
+        if valid:
             # Return the validated ball and the invalidated list
             return [{'balls': vert_balls, 'loc': v_loc, 'rad': vert_rad}, metrics], invalid_ndxs
         else:
@@ -291,7 +382,8 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
 
 
 def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, check_ndxs, surr_balls,
-                  my_boxes, invalid_ndxs, vn_1, box=None, vn_1_loc=None, group_ndxs=None, metrics=None):
+                  my_boxes, invalid_ndxs, vn_1, box=None, vn_1_loc=None, group_ndxs=None, metrics=None,
+                  surr_locs=None, surr_rads=None, surr_lookup=None):
     """
     Finds a new vertex in a power network by searching for valid ball combinations.
 
@@ -308,20 +400,23 @@ def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
     3. Checking each ball for potential vertex formation
     4. Returning None if no valid vertex is found
     """
-    # Get the balls that should not ba a part of the new vertex
+    # Get the balls that should not be a part of the new vertex
     edge_ndxs = edge_balls[:]
 
     # Get the balls not in the invalid balls that are within the range specified
     invalid_ndxs_set = set(invalid_ndxs)
+    metric_start = time.perf_counter()
     test_balls = [_ for _ in get_balls(cells=my_boxes, dist=mv_inc) if _ not in invalid_ndxs_set]
+    POW_PRM_METRICS['candidate_gather'] += time.perf_counter() - metric_start
     # Sort the test balls to be in order by distance from the previous vert location
     if vn_1_loc is None:
         vn_1_loc = calc_com([locs[_] for _ in edge_ndxs])
 
     vn_1_loc_array = np.array(vn_1_loc)
     dists = [calc_dist(np.array(locs[_]), vn_1_loc_array) for _ in test_balls]
+    metric_start = time.perf_counter()
     test_balls = [_ for x, _ in sorted(zip(dists, test_balls))]
-
+    metric_start = time.perf_counter()
     # Instantiate the list for test vertices to be calculated later. This saves us from sorting the vertices balls twice
     test_verts = []
     # Go through the surrounding balls to look for vertices that have been found before and filter out edge balls
@@ -344,17 +439,25 @@ def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
             return None, invalid_ndxs
         # Add the vertex indices to the test_vertices for calculation
         test_verts.append((ball_ndxs, ball))
-
+    POW_PRM_METRICS['candidate_filter'] += time.perf_counter() - metric_start
+    POW_PRM_METRICS['candidates'] += len(test_verts)
     # Go through each ball in the given test balls. Extremely optimized
     for vert in test_verts:
 
         # Add the vertex ball to the
         vert_balls, ball = vert
+        metric_start = time.perf_counter()
         try:
-            v_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=True)
+            v_loc, vert_rad = calc_flat_vert(
+                locs=[locs[_] for _ in vert_balls],
+                rads=[rads[_] for _ in vert_balls],
+                power=True
+            )
         except RuntimeWarning:
             invalid_ndxs.append(ball)
             continue
+        finally:
+            POW_PRM_METRICS['calc_vert'] += time.perf_counter() - metric_start
 
         # Catch the none location case
         if v_loc is None:
@@ -364,16 +467,29 @@ def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         # Check if the vert is outside the box
         if box is not None and any([box[0][k] > v_loc[k] or v_loc[k] > box[1][k] for k in range(3)]):
             continue
+        # Reject oversized Power vertices before verification.
+        max_power = max_vert ** 2 - min(rads[_] for _ in vert_balls) ** 2
+        if vert_rad >= max_power:
+            invalid_ndxs.append(ball)
+            continue
 
-        # Filter the vertex out if it is too large or not able to be made
-        filtered_test_balls = [_ for _ in surr_balls if _ not in vert_balls]
-        # Get the locations from the test balls
-        test_locs = np.array([locs[_] for _ in filtered_test_balls])
-        test_rads = np.array([rads[_] for _ in filtered_test_balls])
-        # Compare the vertex to the maximum allowed vertex and verify it
-        if (vert_rad < max_vert ** 2 - min([rads[_] for _ in vert_balls]) ** 2 and
-                verify_pow(loc=np.array(v_loc), rad=vert_rad, test_locs=test_locs, test_rads=test_rads)):
-            # Return the validated ball and the invalidated ist
+        # Reuse the edge-level Power verification arrays and skip only this
+        # candidate's four defining balls. No candidate-level spatial query or
+        # NumPy verification-array rebuild is required.
+        metric_start = time.perf_counter()
+        skip0 = surr_lookup.get(vert_balls[0], -1)
+        skip1 = surr_lookup.get(vert_balls[1], -1)
+        skip2 = surr_lookup.get(vert_balls[2], -1)
+        skip3 = surr_lookup.get(vert_balls[3], -1)
+        POW_PRM_METRICS['verify_arrays'] += time.perf_counter() - metric_start
+        POW_PRM_METRICS['verify_balls'] += len(surr_locs)
+
+        metric_start = time.perf_counter()
+        valid = verify_pow_cached(np.asarray(v_loc), vert_rad, surr_locs, surr_rads, skip0, skip1, skip2, skip3)
+        POW_PRM_METRICS['verify'] += time.perf_counter() - metric_start
+
+        if valid:
+            # Return the validated ball and the invalidated list
             return [{'balls': vert_balls, 'loc': v_loc, 'rad': vert_rad}, metrics], invalid_ndxs
         else:
             # Add the ball to the invalid balls list if it isn't verified
@@ -444,7 +560,7 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
         vertex or ``None``.
     """
 
-    # Get the balls that should not ba a part of the new vertex
+    # Get the balls that should not be a part of the new vertex
     edge_ndxs = edge_balls[:]
 
     # Get the balls not in the invalid balls that are within the range specified
