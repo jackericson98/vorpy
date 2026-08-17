@@ -349,3 +349,20 @@ def find_net_verts(net):
     print("\r                                                                  ", end="")
     net.metrics['vert'] = time.perf_counter() - net.metrics['start']
     write_verts(net)
+    if net.settings['net_type'] in {'pow', 'prm'}:
+        from vorpy.src.network.fast import POW_PRM_METRICS
+
+        m = POW_PRM_METRICS
+        print("\nPOWER/PRIMITIVE VERTEX METRICS")
+        print(f"  Container calls    = {m['container_calls']}")
+        print(f"  Surrounding setup  = {m['surrounding']:.3f} s")
+        print(f"  Candidate gather   = {m['candidate_gather']:.3f} s")
+        print(f"  Candidate filter   = {m['candidate_filter']:.3f} s")
+        print(f"  Vertex calculation = {m['calc_vert']:.3f} s")
+        print(f"  Verify arrays      = {m['verify_arrays']:.3f} s")
+        print(f"  Verification       = {m['verify']:.3f} s")
+        print(f"  Candidates         = {m['candidates']:,}")
+        print(f"  Verify balls       = {m['verify_balls']:,}")
+
+        if m['candidates']:
+            print(f"  Verify balls/cand  = {m['verify_balls'] / m['candidates']:.1f}")
