@@ -510,6 +510,7 @@ def ggroup(my_sys, group_commands, settings=None, make_net=True):
                     residues=group_dict["residues"],
                     atoms=group_dict["atoms"],
                     chains=group_dict["chains"],
+                    make_net=make_net,
                 )
             )
         else:
