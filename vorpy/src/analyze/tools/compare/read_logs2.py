@@ -121,10 +121,12 @@ def read_surf(surf_line):
       8: Contact Area
       9: Overlap
     """
+    while surf_line and surf_line[-1] == "":
+        surf_line = surf_line[:-1]
+
     n = len(surf_line)
 
-    # If we have 10 or more entries, just use the first 10
-    if n == 12:
+    if n >= 12:
         core = surf_line[:12]
         return {
             "Index": int(core[0]),
@@ -140,22 +142,6 @@ def read_surf(surf_line):
         }
 
     elif n == 10:
-        core = surf_line[:10]
-        return {
-            "Index": int(core[0]),
-            "Balls": [int(core[1]), int(core[2])],
-            "Surface Area": float(core[3]),
-            "Mean Curvature": float(core[4]),
-            "Gauss Curvature": float(core[5]),
-            "Ball Volumes": [float(x) for x in core[6:8] if x != ""],
-            "Contact Area": float(core[8]),
-            "Overlap": float(core[9]),
-        }
-
-    # Older 9-field format: same as 10-field, but missing one field
-    elif n == 9:
-        # We will assume the last field is Overlap and that both ball volumes
-        # are present
         return {
             "Index": int(surf_line[0]),
             "Balls": [int(surf_line[1]), int(surf_line[2])],
@@ -164,10 +150,21 @@ def read_surf(surf_line):
             "Gauss Curvature": float(surf_line[5]),
             "Ball Volumes": [float(x) for x in surf_line[6:8] if x != ""],
             "Contact Area": float(surf_line[8]),
-            "Overlap": 0.0,  # unknown / not provided
+            "Overlap": float(surf_line[9]),
         }
 
-    # 8-field “legacy curvature” format (no separate Gauss curvature)
+    elif n == 9:
+        return {
+            "Index": int(surf_line[0]),
+            "Balls": [int(surf_line[1]), int(surf_line[2])],
+            "Surface Area": float(surf_line[3]),
+            "Mean Curvature": float(surf_line[4]),
+            "Gauss Curvature": float(surf_line[5]),
+            "Ball Volumes": [float(x) for x in surf_line[6:8] if x != ""],
+            "Contact Area": float(surf_line[8]),
+            "Overlap": 0.0,
+        }
+
     elif n == 8:
         return {
             "Index": int(surf_line[0]),
@@ -176,14 +173,10 @@ def read_surf(surf_line):
             "Curvature": float(surf_line[4]),
             "Ball Volumes": [float(x) for x in surf_line[5:7] if x != ""],
             "Contact Area": float(surf_line[7]),
-            "Overlap": 0.0,  # unknown / not provided
+            "Overlap": 0.0,
         }
 
-    # Anything else is unrecognized
-    else:
-        # Uncomment for debugging:
-        # print(f"{len(surf_line)} surface entries, Check Logs!!!! -> {surf_line}")
-        return None
+    return None
 
 
 def read_edge(edge_line):
@@ -220,28 +213,49 @@ def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=Fals
             skip_next = False
             # Loop through the lines
             for i, line in enumerate(log_reader):
-                # Skip the first, the second, the fourth, and the fifth lines
-                if i in {0, 1, 3, 4}:
+                # Skip section labels
+                if i in {0, 3, 4}:
                     continue
-                # Get the main data from the logs file. 
+
+                # Store the build-information headers
+                elif i == 1:
+                    build_headers = line
+                    continue
+
+                # Read build information using its actual column headers
                 elif i == 2:
-                    line = line + [0 for _ in range(11 - len(line))]
-                    # Try to get the data from the line
-                    try:
-                        data = {'name': line[0], 'network_type': line[1], 'surface_resolution': float(line[2]),
-                                'box_size': float(line[3]), 'max_vert': float(line[4]), 'Total_Time': float(line[5]),
-                                'vert_time': float(line[6]), 'connect_time': float(line[7]), 'surf_time': float(line[8]),
-                                'analysis_time': float(line[9]), 'max_vertex': float(line[10])}
-                        continue
-                    # If the data is not found, get the data from the new logs type
-                    except ValueError:
-                        data = {'name': line[0], 'location': line[1], 'time': line[2], 'network_type': line[3],
-                                'surface_resolution': float(line[4]), 'box_size': float(line[5]),
-                                'max_vert': float(line[6]), 'Total_Time': float(line[7]),
-                                'vert_time': float(line[8]), 'connect_time': float(line[9]),
-                                'surf_time': float(line[10]), 'analysis_time': float(line[11]),
-                                'max_vertex': float(line[12]), 'version': '< 3.2.0' if len(line) < 13 else line[13]}
-                        continue
+                    build_info = {header.strip().lower(): value for header, value in zip(build_headers, line)}
+
+                    def get_build(*keys, default=None):
+                        for key in keys:
+                            if key.lower() in build_info and build_info[key.lower()] != '':
+                                return build_info[key.lower()]
+                        return default
+
+                    def get_float(*keys, default=0.0):
+                        value = get_build(*keys, default=default)
+                        try:
+                            return float(value)
+                        except (TypeError, ValueError):
+                            return default
+
+                    data = {
+                        'name': get_build('Name', default=''),
+                        'location': get_build('Location'),
+                        'time': get_build('Completion Date', 'Completion Time', 'Time'),
+                        'network_type': get_build('Network Type', default=''),
+                        'surface_resolution': get_float('Surface Resolution'),
+                        'box_size': get_float('Box Size'),
+                        'max_vert': get_float('Maximum Allowable Vertex', 'Max Vert'),
+                        'Total_Time': get_float('Total Time'),
+                        'vert_time': get_float('Vertex Time'),
+                        'connect_time': get_float('Connect Time'),
+                        'surf_time': get_float('Surface Building Time', 'Surface Time'),
+                        'analysis_time': get_float('Analysis time', 'Analysis Time'),
+                        'max_vertex': get_float('Maximum Found Vertex', 'Max Vertex'),
+                        'version': get_build('vorPy version', 'VorPy Version', 'Version', default='< 3.2.0')
+                    }
+                    continue
                 # Get the group data
                 elif i == 5:
                     group_data = {'Name': line[0], 'Volume': float(line[1]), 'Surface Area': float(line[2]),
