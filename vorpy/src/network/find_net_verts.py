@@ -272,14 +272,16 @@ def find_net_verts(net):
             sphere_box = box_search(sphere_loc)
             # Get the balls within the sphere box
             close_spheres = get_balls(sphere_box, dist=max_ball_rad - sphere_rad)
-            # Iterate through the close spheres
-            for sphere2 in close_spheres:
-                # Check if the sphere is fully encapsulated by another sphere
-                if calc_dist(sphere_loc, net.balls['loc'][sphere2]) < abs(net.balls['rad'][sphere2] - sphere_rad):
-                    print("\nUh oh! Ball # {} is fully encapsulated by ball # {}! Skipping {}"
-                          .format(sphere, sphere2, sphere))
-                    skip_nums.append(sphere)
-                    break
+            # Check to see if close spheres is not None
+            if close_spheres is not None:
+                # Iterate through the close spheres
+                for sphere2 in close_spheres:
+                    # Check if the sphere is fully encapsulated by another sphere
+                    if calc_dist(sphere_loc, net.balls['loc'][sphere2]) < abs(net.balls['rad'][sphere2] - sphere_rad):
+                        print("\nUh oh! Ball # {} is fully encapsulated by ball # {}! Skipping {}"
+                              .format(sphere, sphere2, sphere))
+                        skip_nums.append(sphere)
+                        break
         # Iterate through the skip numbers
         for _ in skip_nums:
             sphere_check_list.pop(sphere_check_list.index(_))
@@ -316,7 +318,7 @@ def find_net_verts(net):
         if my_guuy is not None:
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
 
-        if net.settings['ball_type'] == 'foam' and len(sphere_check_list) <= 0.25 * len(net.balls['loc']):
+        if 'ball_type' in net.settings and net.settings['ball_type'] == 'foam' and len(sphere_check_list) <= 0.25 * len(net.balls['loc']):
             print(f'Missing Ball Indices:\n{sphere_check_list}\n')
             break
 
