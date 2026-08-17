@@ -324,19 +324,21 @@ class Network:
                 print(self.verts.iloc[edge['verts']])
                 print("==============================\n")
             # Build the edge depending on if it is straight or not
-
-            edge_points, edge_vals = build_edge(
-                locs=[array(self.balls['loc'][_]) for _ in edge['balls']],
-                rads=[self.balls['rad'][_] for _ in edge['balls']],
-                vlocs=vlocs,
-                blocs=self.balls['loc'],
-                brads=self.balls['rad'],
-                eballs=edge['balls'],
-                res=self.settings['surf_res'],
-                straight=self.settings['net_type'] in {'prm', 'pow'},
-                edub=any([self.verts['dub'][_] in {1, 2} for _ in edge['verts']]),
-                edge_verts=self.verts.iloc[edge['verts']]
-            )
+            try:
+                edge_points, edge_vals = build_edge(
+                    locs=[array(self.balls['loc'][_]) for _ in edge['balls']],
+                    rads=[self.balls['rad'][_] for _ in edge['balls']],
+                    vlocs=vlocs,
+                    blocs=self.balls['loc'],
+                    brads=self.balls['rad'],
+                    eballs=edge['balls'],
+                    res=self.settings['surf_res'],
+                    straight=self.settings['net_type'] in {'prm', 'pow'},
+                    edub=any([self.verts['dub'][_] in {1, 2} for _ in edge['verts']]),
+                    edge_verts=self.verts.iloc[edge['verts']]
+                )
+            except ValueError:
+                print(vlocs, edge['balls'])
 
             edges_lengths.append(calc_length(array(edge_points)))
             edges_points.append(edge_points)
