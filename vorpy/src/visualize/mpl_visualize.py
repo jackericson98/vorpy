@@ -67,7 +67,7 @@ def setup_plot(fig=None, ax=None, dfo=None, grid=False, bg_color=None, axes_equa
 
 # Plot spheres function. Plots the spheres specified
 def plot_balls(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=None, grid=False, alpha=0.5,
-               bg_color=None, res=10, axes_scale='equal', random_colors=False):
+               bg_color=None, res=10, axes_scale='equal', random_colors=False, plot_centers=False):
     plt = _plt()
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
@@ -94,6 +94,9 @@ def plot_balls(alocs, arads, colors=None, fig=None, ax=None, Show=False, dfo=Non
             z = arads[i] * np.cos(v) + alocs[i][2]
             # Plot the sphere
             ax.plot_surface(x, y, z, color=colors[i], alpha=alpha)
+            # If the user wants to plot the centers
+            ax.scatter(alocs[i][0], alocs[i][1], alocs[i][2], s=20, c=colors[i], alpha=alpha)
+
     if axes_scale == 'equal':
         ax.set_box_aspect([1, 1, 1])
     # Show the figure if need be
@@ -149,7 +152,7 @@ def plot_circles(locations, radii, colors=None, fig=None, ax=None, Show=False, g
 
 # Plot vertices function. Plots the vertices of a network.
 def plot_verts(vlocs, vrads, spheres=False, fig=None, ax=None, Show=False, dfo=None, grid=False, colors=None, alpha=None,
-               bg_color=None, axes_scale='equal', res=4, random_colors=None):
+               bg_color=None, axes_scale='equal', res=4, random_colors=None, markersize=10):
     plt = _plt()
     # Set up the plot
     fig, ax = setup_plot(fig, ax, dfo, grid, bg_color)
@@ -162,7 +165,7 @@ def plot_verts(vlocs, vrads, spheres=False, fig=None, ax=None, Show=False, dfo=N
     # Plot each vertex
     for i in range(len(vlocs)):
         # Plot the point
-        ax.scatter(vlocs[i][0], vlocs[i][1], vlocs[i][2], c=colors[i])
+        ax.scatter(vlocs[i][0], vlocs[i][1], vlocs[i][2], c=colors[i], s=markersize)
     # Plot the inscribed spheres
     if spheres:
         plot_balls(alocs=vlocs, arads=vrads, fig=fig, ax=ax, colors=colors, alpha=alpha, res=res)

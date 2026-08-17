@@ -6,9 +6,10 @@ from vorpy.src.output import write_pdb
 from vorpy.src.output import write_interface_logs
 
 def get_interface_atoms(iface):
+    """Return the unique atom indices participating in the interface definition."""
     return sorted(
-        set(iface.group1_indices)
-        | set(iface.group2_indices)
+        set(getattr(iface, "group1_indices", []) or [])
+        | set(getattr(iface, "group2_indices", []) or [])
     )
 
 def _get_column(dataframe, *candidate_names):
@@ -314,8 +315,8 @@ def write_surface_statistics(info, title, surfaces):
     info.write(f"    Mean of surface-average Gaussian curvature: "
         f"{_format_metric(_safe_mean(average_gaussian_curvatures))} Å⁻²\n")
     info.write(
-        f"    Area-weighted surface-average mean curvature: "
-        f"{_format_metric(_weighted_mean(average_mean_curvatures, surface_areas))} Å⁻¹\n")
+        f"    Area-weighted surface-average Gaussian curvature: "
+        f"{_format_metric(_weighted_mean(average_gaussian_curvatures, surface_areas))} Å⁻²\n")
     info.write(
         f"    Minimum surface-average Gaussian curvature: "
         f"{_format_metric(_safe_min(average_gaussian_curvatures))} Å⁻²\n"
@@ -389,15 +390,32 @@ def export_info(iface, directory=None):
         support_surfaces,
     ) = get_interface_surface_sets(iface)
 
+    # One-sided or partially populated interfaces may not have explicit
+    # surface-classification sets. Normalize them to empty DataFrames so
+    # topology/info export remains valid.
+    empty_surfaces = None if net is None or net.surfs is None else net.surfs.iloc[0:0].copy()
+    if direct_surfaces is None:
+        direct_surfaces = empty_surfaces
+    if group1_surfaces is None:
+        group1_surfaces = empty_surfaces
+    if group2_surfaces is None:
+        group2_surfaces = empty_surfaces
+    if support_surfaces is None:
+        support_surfaces = empty_surfaces
+
+    group1_name = getattr(getattr(iface, "group1", None), "name", "group1")
+    group2_name = getattr(iface, "group2_name", None) or getattr(getattr(iface, "group2", None), "name", "surrounding")
+    interface_id = getattr(iface, "interface_id", getattr(iface, "name", "interface"))
+
     file_path = os.path.join(directory, "info.txt")
 
     with open(file_path, "w", encoding="utf-8") as info:
         info.write(f"{iface.name} - {iface.sys.name}\n\n")
 
         info.write("Interface definition:\n")
-        info.write(f"  Interface ID: {iface.interface_id}\n")
-        info.write(f"  Group 1: {iface.group1.name}\n")
-        info.write(f"  Group 2: {iface.group2_name}\n\n")
+        info.write(f"  Interface ID: {interface_id}\n")
+        info.write(f"  Group 1: {group1_name}\n")
+        info.write(f"  Group 2: {group2_name}\n\n")
 
         info.write("Interface atom membership:\n")
         info.write(f"  Group 1 atoms: {len(group1_atoms)}\n")
@@ -434,19 +452,19 @@ def export_info(iface, directory=None):
         info.write("Surface classification:\n")
         info.write(
             f"  Direct Group 1–Group 2 surfaces: "
-            f"{len(direct_surfaces)}\n"
+            f"{0 if direct_surfaces is None else len(direct_surfaces)}\n"
         )
         info.write(
             f"  Group 1 internal surfaces: "
-            f"{len(group1_surfaces)}\n"
+            f"{0 if group1_surfaces is None else len(group1_surfaces)}\n"
         )
         info.write(
             f"  Group 2 internal surfaces: "
-            f"{len(group2_surfaces)}\n"
+            f"{0 if group2_surfaces is None else len(group2_surfaces)}\n"
         )
         info.write(
             f"  Supporting/unclassified surfaces: "
-            f"{len(support_surfaces)}\n\n"
+            f"{0 if support_surfaces is None else len(support_surfaces)}\n\n"
         )
 
         write_surface_statistics(
@@ -463,13 +481,13 @@ def export_info(iface, directory=None):
 
         write_surface_statistics(
             info,
-            f"{iface.group1.name} internal surface statistics",
+            f"{group1_name} internal surface statistics",
             group1_surfaces,
         )
 
         write_surface_statistics(
             info,
-            f"{iface.group2_name} internal surface statistics",
+            f"{group2_name} internal surface statistics",
             group2_surfaces,
         )
 
@@ -553,9 +571,8 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
             if group is None:
                 continue
 
-            group_id = getattr(group, "group_id", group.name)
+            group_id = str(getattr(group, "group_id", None) or group.name)
 
-            # Avoid writing the same object twice within one interface export.
             if group_id in exported_group_ids:
                 continue
 
@@ -592,30 +609,33 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
         )
 
     if verts or all_:
-        write_off_verts(
-            iface.net,
-            list(range(len(iface.net.verts))),
-            directory=iface.dir,
-            file_name="verts",
-            color=iface.net.settings["vert_col"],
-        )
+        if iface.net.verts is not None and len(iface.net.verts) > 0:
+            write_off_verts(
+                iface.net,
+                list(range(len(iface.net.verts))),
+                directory=iface.dir,
+                file_name="verts",
+                color=iface.net.settings["vert_col"],
+            )
 
     if edges or all_:
-        write_edges(
-            iface.net,
-            list(range(len(iface.net.edges))),
-            directory=iface.dir,
-            file_name="edges",
-            color=iface.net.settings["edge_col"],
-        )
+        if iface.net.edges is not None and len(iface.net.edges) > 0:
+            write_edges(
+                iface.net,
+                list(range(len(iface.net.edges))),
+                directory=iface.dir,
+                file_name="edges",
+                color=iface.net.settings["edge_col"],
+            )
 
     if surfs or all_:
-        write_surfs(
-            iface.net,
-            list(range(len(iface.net.surfs))),
-            directory=iface.dir,
-            file_name="surfs",
-        )
+        if iface.net.surfs is not None and len(iface.net.surfs) > 0:
+            write_surfs(
+                iface.net,
+                list(range(len(iface.net.surfs))),
+                directory=iface.dir,
+                file_name="surfs",
+            )
 
 def export_interface_group_info(group, directory):
     """
@@ -628,7 +648,7 @@ def export_interface_group_info(group, directory):
     os.makedirs(directory, exist_ok=True)
 
     group_indices = sorted(
-        set(int(index) for index in group.ball_ndxs)
+        set(int(index) for index in (getattr(group, "ball_ndxs", []) or []))
     )
 
     info_path = os.path.join(directory, "info.txt")
@@ -637,7 +657,7 @@ def export_interface_group_info(group, directory):
         info.write(f"{group.name} - {group.sys.name}\n\n")
 
         info.write("Group definition:\n")
-        info.write(f"  Group ID: {group.group_id}\n")
+        info.write(f"  Group ID: {getattr(group, 'group_id', group.name)}\n")
         info.write(f"  Selected atoms: {len(group_indices)}\n")
         info.write(f"  Full group network built: {group.net is not None}\n\n")
 
