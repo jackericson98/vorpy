@@ -12,7 +12,7 @@ sys.path.append(vorpy_root)
 
 from vorpy.src.visualize.mpl_visualize import plot_balls, plot_verts, plot_edges
 from vorpy.src.calculations.vert import calc_vert
-from vorpy.src.network.build_edge import build_edge_old
+from vorpy.src.network.build_edge import build_edge
 from vorpy.src.calculations.edge import calc_circ
 
 
@@ -28,7 +28,7 @@ Edge plotting code. Choose an edge type below.
 """
 
 # Choose here
-edge_choice = 9
+edge_choice = 3
 
 # Additional Settings
 atom_alpha = 0.5
@@ -43,7 +43,7 @@ show_circs = False
 plot_title = False
 
 edge_color = 'blue'
-atom_color = 'blue'
+atom_color = 'black'
 vert_color = 'r'
 
 # Declare variables
@@ -115,8 +115,8 @@ my_verts = [calc_vert(ar([_[0] for _ in my_atoms]), ar([_[1] for _ in my_atoms])
 
 # Calculate the Edge
 if edge_choice < 9:
-    my_edge = build_edge_old(locs=ar([_[0] for _ in edge_atoms]), rads=ar([_[1] for _ in edge_atoms]),
-                         vlocs=ar([_[0] for _ in my_verts]), res=0.5)
+    my_edge = build_edge(locs=ar([_[0] for _ in edge_atoms]), rads=ar([_[1] for _ in edge_atoms]),
+                         vlocs=ar([_[0] for _ in my_verts]), res=0.5, blocs=[_[0] for _ in edge_atoms], brads=[_[1] for _ in edge_atoms], eballs=[0, 1, 2])
 
 
 # Make the plot

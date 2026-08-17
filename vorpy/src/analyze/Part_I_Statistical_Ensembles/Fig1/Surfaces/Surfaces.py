@@ -11,7 +11,7 @@ sys.path.append(vorpy_root)
 
 from vorpy.src.visualize.mpl_visualize import plot_balls, plot_verts, plot_edges, plot_surfs
 from vorpy.src.calculations.vert import calc_vert, calc_flat_vert
-from vorpy.src.network.build_edge import build_edge, build_edge_old
+from vorpy.src.network.build_edge import build_edge
 from vorpy.src.network.build_surf import build_surf
 
 """
@@ -30,7 +30,7 @@ Plotting Surfaces. Choose a surface type from below
 """
 
 """Set the Surface number from above here"""
-surface_type = 1
+surface_type = 3
 
 
 """ Other Settings """
@@ -51,7 +51,9 @@ edge_thickness = 2
 # Surfaces
 show_surf = True
 surf_res = 0.5
-surf_alpha = 0.4
+surf_alpha = 0.7
+surf_color = 'purple'
+show_tris = False
 
 # Plot
 show_title = False
@@ -135,8 +137,9 @@ else:
 # Calculate the Edges
 edge_atoms = [[_ for _ in my_surf_atoms] + [my_vert_atoms[(i+1)%4]] for i in range(4)]
 my_edge_verts = [(my_verts[j], my_verts[(j+1) % 4]) for j in range(4)]
-my_edges = [build_edge_old(locs=ar([_[0] for _ in edge_atoms[i]]), rads=ar([_[1] for _ in edge_atoms[i]]),
-                           vlocs=ar([_[0] for _ in my_edge_verts[i]]), res=0.2) for i in range(4)]
+my_edges = [build_edge(locs=[_[0] for _ in edge_atoms[i]], rads=[_[1] for _ in edge_atoms[i]],
+                           vlocs=[_[0] for _ in my_edge_verts[i]], res=0.2, blocs=[_[0] for _ in edge_atoms[i]],
+                       brads=[_[1] for _ in edge_atoms[i]], eballs=[0, 1, 2]) for i in range(4)]
 
 # Calculate the surfaces
 my_surf = build_surf(locs=[_[0] for _ in my_surf_atoms], rads=[_[1] for _ in my_surf_atoms],
@@ -148,7 +151,8 @@ ax = fig.add_subplot(projection='3d')
 
 # Plot the surfaces
 if show_surf:
-    plot_surfs([my_surf[0]], [my_surf[1]], fig=fig, ax=ax, alpha=surf_alpha, colors=['grey'])
+    plot_surfs([my_surf[0]], [my_surf[1]], fig=fig, ax=ax, alpha=surf_alpha, colors=[surf_color],
+               simp_linewidth=1 if show_tris else 0, simp_color='grey' if show_tris else surf_color)
 
 # Plot the edges
 if show_edges:

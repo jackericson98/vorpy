@@ -32,16 +32,18 @@ Vertex Plotting: Set the 'vertex_type' Variable From the list below
 """
 
 # Choose Vertex Type Below
-vertex_type = 8
+vertex_type = 3
+
 
 # Other settings
 atom_alpha = .5
 show_axes = False
 
 # Whether or not to plot the inscribed sphere
-plot_vert_balls = True
+plot_vert_balls = False
 # Whether or not to plot the distance lines
 plot_distance_lines = True
+equivalence_lines = True
 # Whether to plot the title
 plot_title = False
 
@@ -133,15 +135,38 @@ ax = fig.add_subplot(projection='3d')
 # Plot the atoms
 plot_balls(locs, rads, fig=fig, ax=ax, res=10, alpha=atom_alpha)
 # Plot the vertices
-plot_verts([my_vert[0]], [abs(my_vert[1])], fig=fig, ax=ax, spheres=plot_vert_balls, res=10, alpha=0.3, colors=['r'])
+plot_verts([my_vert[0]], [abs(my_vert[1])], fig=fig, ax=ax, spheres=plot_vert_balls, res=10, alpha=0.3, colors=['r'], markersize=20)
+
 # plot the distance lines
 if plot_distance_lines:
+    tick_len = 0.08
+
     for i, loc in enumerate(locs):
-        print("testtst")
         v_dir = loc - my_vert[0]
         vnorm = v_dir / np.linalg.norm(v_dir)
         vvec = my_vert[0] + my_vert[1] * vnorm
-        ax.plot([my_vert[0][0], vvec[0]], [my_vert[0][1], vvec[1]], [my_vert[0][2], vvec[2]], c='g')
+
+        # Main distance line
+        ax.plot([my_vert[0][0], vvec[0]], [my_vert[0][1], vvec[1]], [my_vert[0][2], vvec[2]], c='limegreen')
+
+        # Equivalent-length markers
+        if equivalence_lines:
+            mid = (my_vert[0] + vvec) / 2
+
+            # Find a stable perpendicular direction
+            ref = np.array([0.0, 0.0, 1.0])
+            if abs(np.dot(vnorm, ref)) > 0.9:
+                ref = np.array([0.0, 1.0, 0.0])
+
+            perp = np.cross(vnorm, ref)
+            perp /= np.linalg.norm(perp)
+
+            # Two perpendicular ticks
+            for offset in [-0.03, 0.03]:
+                center = mid + offset * vnorm
+                p1 = center - (tick_len / 2) * perp
+                p2 = center + (tick_len / 2) * perp
+                ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], c='limegreen', linewidth=1.5)
 
 
 # Set the axes lines
