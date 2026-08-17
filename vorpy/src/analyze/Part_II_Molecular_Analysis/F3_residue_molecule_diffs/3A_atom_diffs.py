@@ -4,7 +4,7 @@ import numpy as np
 import tkinter as tk
 from tkinter import filedialog
 
-vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '', '..', '..', '..', '..'))
 sys.path.append(vorpy_root)
 
 from vorpy.src.analyze.tools.plot_templates.bar import bar
@@ -41,7 +41,7 @@ def get_atom_sa_neighbors(logs):
     return atom_sa, {idx: len(neighbors) for idx, neighbors in atom_neighbors.items()}
 
 
-def get_atom_data(folder=None, exclude_keys=None, max_percent_diff=None):
+def get_atom_data(folder=None, exclude_keys=None, max_percent_diff=None, absolute=True):
     """Match atoms by Index across AW/POW/PRM and average absolute % differences."""
     if exclude_keys is None:
         exclude_keys = []
@@ -60,8 +60,13 @@ def get_atom_data(folder=None, exclude_keys=None, max_percent_diff=None):
             pow_ = read_logs2(os.path.join(sub_path, 'pow', 'pow_logs.csv'), all_=False, balls=True, surfs=True)
             prm = read_logs2(os.path.join(sub_path, 'prm', 'prm_logs.csv'), all_=False, balls=True, surfs=True)
         except FileNotFoundError:
+            aw = read_logs2(os.path.join(sub_path, 'aw_logs.csv'), all_=False, balls=True, surfs=True)
+            pow_ = read_logs2(os.path.join(sub_path, 'pow_logs.csv'), all_=False, balls=True, surfs=True)
+            prm = read_logs2(os.path.join(sub_path, 'prm_logs.csv'), all_=False, balls=True, surfs=True)
+        except FileNotFoundError:
+            print(f"{sub_path} not found")
             continue
-
+        print(f'\nSYSTEM: {subfolder}')
         aw_sa, aw_neigh = get_atom_sa_neighbors(aw)
         pow_sa, pow_neigh = get_atom_sa_neighbors(pow_)
         prm_sa, prm_neigh = get_atom_sa_neighbors(prm)
@@ -82,9 +87,12 @@ def get_atom_data(folder=None, exclude_keys=None, max_percent_diff=None):
                 if aw_val <= 0:
                     continue
                 for scheme, value in [('pow', pow_val), ('prm', prm_val)]:
-                    diff = abs((value - aw_val) / aw_val) * 100.0
-                    if max_percent_diff is None or diff <= max_percent_diff:
+                    diff = (value - aw_val) / aw_val * 100.0
+                    if absolute:
+                        diff = abs(diff)
+                    if max_percent_diff is None or abs(diff) <= max_percent_diff:
                         diffs[scheme][metric].append(diff)
+
 
         sys_atom_data[my_key] = {}
         for scheme in ['pow', 'prm']:
@@ -96,18 +104,67 @@ def get_atom_data(folder=None, exclude_keys=None, max_percent_diff=None):
     return dict(sorted(sys_atom_data.items()))
 
 
-def plot_data(data, ylim=None):
+def plot_data(data, ylim=None, absolute=True, plot_scheme='both'):
     x_names = list(data.keys())
-    for metric, ylabel in [('vol', 'Avg Abs % Volume Diff'), ('sa', 'Avg Abs % Surface Area Diff'), ('neighbors', 'Avg Abs % Neighbor Count Diff')]:
+    prefix = 'Avg Abs %' if absolute else 'Avg %'
+
+    for metric, ylabel in [('vol', f'{prefix} Volume Diff'),
+                           ('sa', f'{prefix} Surface Area Diff'),
+                           ('neighbors', f'{prefix} Neighbor Count Diff')]:
+        if absolute and ylim is None:
+            max_y = max([a + e for a, e in zip(pow_avg, pow_se)] + [a + e for a, e in zip(prm_avg, prm_se)])
+            metric_ylim = [0, max_y * 1.5]
+        else:
+            metric_ylim = ylim
         pow_avg = [data[k]['pow'][metric]['avg'] for k in x_names]
         prm_avg = [data[k]['prm'][metric]['avg'] for k in x_names]
         pow_se = [data[k]['pow'][metric]['se'] for k in x_names]
         prm_se = [data[k]['prm'][metric]['se'] for k in x_names]
-        bar([pow_avg, prm_avg], x_names=x_names, Show=True, y_axis_title=ylabel, x_axis_title='Model', errors=[pow_se, prm_se], y_range=ylim,
-            xtick_label_size=25, ytick_label_size=25, ylabel_size=30, xlabel_size=30, tick_length=12, tick_width=2,
-            colors=[POWER_COLOR, PRIMITIVE_COLOR], legend_names=['Pow vs AW', 'Prm vs AW'])
+
+        titles = {
+            'vol': 'Average Atomic Volume Difference',
+            'sa': 'Average Atomic Surface Area Difference',
+            'neighbors': 'Average Atomic Neighbor Count Difference'
+        }
+        title = titles[metric]
+
+        if plot_scheme == 'both':
+            bar([pow_avg, prm_avg], x_names=x_names, Show=True, y_axis_title=ylabel, x_axis_title='Model',
+                errors=[pow_se, prm_se], y_range=metric_ylim, xtick_label_size=25, ytick_label_size=25,
+                ylabel_size=30, xlabel_size=30, tick_length=12, tick_width=2, title=title,
+                colors=[POWER_COLOR, PRIMITIVE_COLOR], legend_names=['Pow vs AW', 'Prm vs AW'])
+
+        elif plot_scheme == 'pow':
+            bar([pow_avg], x_names=x_names, Show=True, y_axis_title=ylabel, x_axis_title='Model',
+                errors=[pow_se], y_range=metric_ylim, xtick_label_size=25, ytick_label_size=25,
+                ylabel_size=30, xlabel_size=30, tick_length=12, tick_width=2, title=title + 'pow',
+                colors=[POWER_COLOR], legend_names=['Pow vs AW'])
+
+        elif plot_scheme == 'prm':
+            bar([prm_avg], x_names=x_names, Show=True, y_axis_title=ylabel, x_axis_title='Model',
+                errors=[prm_se], y_range=metric_ylim, xtick_label_size=25, ytick_label_size=25,
+                ylabel_size=30, xlabel_size=30, tick_length=12, tick_width=2, title=title + 'prm',
+                colors=[PRIMITIVE_COLOR], legend_names=['Prm vs AW'])
+
+        elif plot_scheme == 'separate':
+            bar([pow_avg], x_names=x_names, Show=True, y_axis_title=ylabel, x_axis_title='Model',
+                errors=[pow_se], y_range=metric_ylim, xtick_label_size=25, ytick_label_size=25,
+                ylabel_size=30, xlabel_size=30, tick_length=12, tick_width=2, title=title + 'pow',
+                colors=[POWER_COLOR], legend_names=['Pow vs AW'])
+
+            bar([prm_avg], x_names=x_names, Show=True, y_axis_title=ylabel, x_axis_title='Model',
+                errors=[prm_se], y_range=metric_ylim, xtick_label_size=25, ytick_label_size=25,
+                ylabel_size=30, xlabel_size=30, tick_length=12, tick_width=2, title=title + 'prm',
+                colors=[PRIMITIVE_COLOR], legend_names=['Prm vs AW'])
+
+        else:
+            raise ValueError("plot_scheme must be 'both', 'pow', 'prm', or 'separate'")
 
 
 if __name__ == '__main__':
-    atom_data = get_atom_data(exclude_keys=['A', 'B', 'C'], max_percent_diff=200.0)
-    plot_data(atom_data, ylim=None)
+    absolute = False
+    plot_scheme = 'separate'
+
+    atom_data = get_atom_data(exclude_keys=['A', 'B', 'C'], max_percent_diff=200.0, absolute=absolute)
+    print(atom_data)
+    plot_data(atom_data, ylim=None, absolute=absolute, plot_scheme=plot_scheme)

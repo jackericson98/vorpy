@@ -119,9 +119,15 @@ def get_res_data(folder=None, exclude_keys=None, max_percent_diff=None, absolute
 def plot_data(data, ylim=None, absolute=True, plot_scheme='both'):
     x_names = list(data.keys())
     prefix = 'Avg Abs %' if absolute else 'Avg %'
+    titles = {
+        'vol': 'Average Residue Volume Difference',
+        'sa': 'Average Residue Surface Area Difference',
+        'neighbors': 'Average Residue Neighbor Count Difference'
+    }
 
     for metric, ylabel in [('vol', f'{prefix} Volume Diff'), ('sa', f'{prefix} Surface Area Diff'),
                            ('neighbors', f'{prefix} Neighbor Count Diff')]:
+        title = titles[metric]
         pow_avg = [data[k]['pow'][metric]['avg'] for k in x_names]
         prm_avg = [data[k]['prm'][metric]['avg'] for k in x_names]
         pow_se = [data[k]['pow'][metric]['se'] for k in x_names]
@@ -136,26 +142,26 @@ def plot_data(data, ylim=None, absolute=True, plot_scheme='both'):
         if plot_scheme == 'both':
             bar([pow_avg, prm_avg], x_names=x_names, Show=True, y_axis_title=ylabel, x_axis_title='Model',
                 errors=[pow_se, prm_se], y_range=metric_ylim, xtick_label_size=25, ytick_label_size=25,
-                ylabel_size=30, xlabel_size=30, tick_length=12, tick_width=2,
+                ylabel_size=30, xlabel_size=30, tick_length=12, tick_width=2, title=title,
                 colors=[POWER_COLOR, PRIMITIVE_COLOR], legend_names=['Pow vs AW', 'Prm vs AW'])
         elif plot_scheme == 'pow':
             bar([pow_avg], x_names=x_names, Show=True, y_axis_title=ylabel, x_axis_title='Model',
                 errors=[pow_se], y_range=metric_ylim, xtick_label_size=25, ytick_label_size=25,
-                ylabel_size=30, xlabel_size=30, tick_length=12, tick_width=2,
+                ylabel_size=30, xlabel_size=30, tick_length=12, tick_width=2, title=title + 'pow',
                 colors=[POWER_COLOR], legend_names=['Pow vs AW'])
         elif plot_scheme == 'prm':
             bar([prm_avg], x_names=x_names, Show=True, y_axis_title=ylabel, x_axis_title='Model',
                 errors=[prm_se], y_range=metric_ylim, xtick_label_size=25, ytick_label_size=25,
-                ylabel_size=30, xlabel_size=30, tick_length=12, tick_width=2,
+                ylabel_size=30, xlabel_size=30, tick_length=12, tick_width=2, title=title + 'prm',
                 colors=[PRIMITIVE_COLOR], legend_names=['Prm vs AW'])
         elif plot_scheme == 'separate':
             bar([pow_avg], x_names=x_names, Show=True, y_axis_title=ylabel, x_axis_title='Model',
                 errors=[pow_se], y_range=metric_ylim, xtick_label_size=25, ytick_label_size=25,
-                ylabel_size=30, xlabel_size=30, tick_length=12, tick_width=2,
+                ylabel_size=30, xlabel_size=30, tick_length=12, tick_width=2, title=title + 'pow',
                 colors=[POWER_COLOR], legend_names=['Pow vs AW'])
             bar([prm_avg], x_names=x_names, Show=True, y_axis_title=ylabel, x_axis_title='Model',
                 errors=[prm_se], y_range=metric_ylim, xtick_label_size=25, ytick_label_size=25,
-                ylabel_size=30, xlabel_size=30, tick_length=12, tick_width=2,
+                ylabel_size=30, xlabel_size=30, tick_length=12, tick_width=2, title=title + 'prm',
                 colors=[PRIMITIVE_COLOR], legend_names=['Prm vs AW'])
         else:
             raise ValueError("plot_scheme must be 'both', 'pow', 'prm', or 'separate'")
@@ -163,6 +169,7 @@ def plot_data(data, ylim=None, absolute=True, plot_scheme='both'):
 
 if __name__ == '__main__':
     absolute = False
-    plot_scheme = 'both'
+    plot_scheme = 'separate'
     res_data = get_res_data(exclude_keys=['A', 'B', 'C'], max_percent_diff=200.0, absolute=absolute)
+    print(res_data)
     plot_data(res_data, ylim=None, absolute=absolute, plot_scheme=plot_scheme)

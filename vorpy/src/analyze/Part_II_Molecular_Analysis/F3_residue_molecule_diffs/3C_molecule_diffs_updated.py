@@ -67,12 +67,16 @@ def get_molecule_data(exclude_keys=None, sol_name='SOL'):
 def plot_data(data, ylim=None, absolute=True, plot_scheme='both'):
     x_names = list(data.keys())
     prefix = 'Abs %' if absolute else '%'
-
+    titles = {
+        'vol': 'Molecular Volume Difference',
+        'sa': 'Molecular Surface Area Difference',
+        'neighbors': 'Molecular Solvent Neighbor Count Difference'
+    }
     for metric, ylabel in [('vol', f'{prefix} Volume Difference'), ('sa', f'{prefix} Surface Area Difference'),
                            ('neighbors', f'{prefix} SOL Neighbor Count Difference')]:
         pow_diff = [_pct(data[k]['pow'][metric], data[k]['aw'][metric]) for k in x_names]
         prm_diff = [_pct(data[k]['prm'][metric], data[k]['aw'][metric]) for k in x_names]
-
+        title = titles[metric]
         if absolute:
             pow_diff = [abs(_) for _ in pow_diff]
             prm_diff = [abs(_) for _ in prm_diff]
@@ -88,14 +92,15 @@ def plot_data(data, ylim=None, absolute=True, plot_scheme='both'):
                       tick_length=12, xtick_label_size=25, ytick_label_size=25, x_tick_rotation=0, legend_loc='lower right')
 
         if plot_scheme == 'both':
-            bar([pow_diff, prm_diff], colors=[POWER_COLOR, PRIMITIVE_COLOR], legend_names=['Pow vs AW', 'Prm vs AW'], **common)
+            bar([pow_diff, prm_diff], colors=[POWER_COLOR, PRIMITIVE_COLOR], legend_names=['Pow vs AW', 'Prm vs AW'],
+                title=title, **common)
         elif plot_scheme == 'pow':
-            bar([pow_diff], colors=[POWER_COLOR], legend_names=['Pow vs AW'], **common)
+            bar([pow_diff], colors=[POWER_COLOR], legend_names=['Pow vs AW'], title=title + 'pow', **common)
         elif plot_scheme == 'prm':
-            bar([prm_diff], colors=[PRIMITIVE_COLOR], legend_names=['Prm vs AW'], **common)
+            bar([prm_diff], colors=[PRIMITIVE_COLOR], legend_names=['Prm vs AW'], title=title + 'prm', **common)
         elif plot_scheme == 'separate':
-            bar([pow_diff], colors=[POWER_COLOR], legend_names=['Pow vs AW'], **common)
-            bar([prm_diff], colors=[PRIMITIVE_COLOR], legend_names=['Prm vs AW'], **common)
+            bar([pow_diff], colors=[POWER_COLOR], legend_names=['Pow vs AW'], title=title + 'pow', **common)
+            bar([prm_diff], colors=[PRIMITIVE_COLOR], legend_names=['Prm vs AW'], title=title + 'prm', **common)
         else:
             raise ValueError("plot_scheme must be 'both', 'pow', 'prm', or 'separate'")
 
