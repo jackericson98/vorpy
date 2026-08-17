@@ -23,6 +23,8 @@ recursive-include vorpy *.pdb
 recursive-include vorpy *.cif
 recursive-include vorpy *.mol
 recursive-include vorpy *.gro
+recursive-include vorpy *.png
+recursive-include vorpy *.ico
 
 recursive-exclude _skbuild *
 recursive-exclude build *

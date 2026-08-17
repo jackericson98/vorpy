@@ -5,7 +5,7 @@ authors:
     given-names: John
     orcid: https://orcid.org/1234-5678-9101-1121
 title: "VorPy"
-version: 3.4.0
+version: 3.4.1
 identifiers:
   - type: N/A
     value: ...

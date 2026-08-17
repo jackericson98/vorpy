@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="vorpy3",
-    version="3.4.0",
+    version="3.4.1",
     author="John Ericson",
     author_email="jackericson98@gmail.com",
     description="A Python package for Voronoi analysis of molecular structures",
@@ -14,7 +14,7 @@ setup(
     url="https://github.com/jackericson98/vorpy",
     packages=find_packages(),
     package_data={
-        'vorpy': ['data/*.pdb', 'data/*.gro', 'data/*.txt'],
+        'vorpy': ['data/*.pdb', 'data/*.gro', 'data/*.txt', 'src/GUI/Images/*.png', 'src/GUI/Images/*.ico'],
     },
     classifiers=[
         "Development Status :: 3 - Alpha",
