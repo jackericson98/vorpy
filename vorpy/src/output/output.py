@@ -60,21 +60,24 @@ def export_med(sys):
 
     # Loop through the groups and give their exports
     for group in sys.groups:
+        # Interface-mode groups may exist only as atom selections and therefore
+        # intentionally have no independently built network.
+        if group.net is None:
+            continue
+
         # Set and make the group directory
         if group.dir is None or not os.path.exists(sys.files['dir'] + '/' + group.name):
             group.dir = sys.files['dir'] + '/' + group.name
-            # Catch for if the group name is too long
             try:
                 os.makedirs(group.dir, exist_ok=True)
             except FileNotFoundError:
                 group.dir = sys.files['dir'] + '/group'
-        # Do the group exports
-        group.exports(shell_surfs=True, surfs=True, shell_edges=True, edges=True, shell_verts=True, verts=True,
-                      logs=True, atoms=True, surr_atoms=True)
-        # # Check to see if the verts are in the system directory and if so move them to the group folder
-        # if os.path.exists(sys.files['dir'] + '/verts.txt'):
-        #     shutil.move(sys.files['dir'] + '/' + group.settings['net_type'] + '_verts.txt',
-        #                 group.dir + '/' + group.settings['net_type'] + '_verts.txt')
+
+        group.exports(
+            shell_surfs=True, surfs=True, shell_edges=True, edges=True,
+            shell_verts=True, verts=True, logs=True, atoms=True,
+            surr_atoms=True
+        )
     # Export the interfaces
     if sys.ifaces is not None:
         for iface in sys.ifaces:
