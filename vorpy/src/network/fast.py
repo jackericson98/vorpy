@@ -16,6 +16,8 @@ from vorpy.src.calculations import calc_circ
 
 warnings.filterwarnings("error", category=RuntimeWarning)
 
+KNOWN_EDGE = object()
+
 
 def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
                         max_vert, net_type, box=None, vn_1=None, vn_1_loc=None,
@@ -82,6 +84,21 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
     # Without a previous vertex, treat the edge itself as the known definition.
     if vn_1 is None:
         vn_1 = edge_balls
+    # If this edge already belongs to another known vertex, its neighboring
+    # topology has already been traversed and no geometric search is required.
+    # Skip geometric searching when this edge already connects to another
+    # previously discovered vertex.
+    if vert_ndxs is not None and b_verts is not None:
+        common_verts = set(b_verts[edge_balls[0]]).intersection(
+            b_verts[edge_balls[1]],
+            b_verts[edge_balls[2]]
+        )
+
+        current_balls = set(vn_1)
+
+        for vert_ndx in common_verts:
+            if set(vert_ndxs[vert_ndx]) != current_balls:
+                return None
     # Determine whether the fourth ball must come from a particular group.
     required_group = None
 
@@ -122,16 +139,17 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
         dists = [calc_dist_numba(edge_com_array, np.asarray(locs[ball])) for ball in surr_balls]
         dists, surr_balls = sort_lists(dists, surr_balls)
 
-    # Begin with a local search and progressively expand the neighborhood.
-    mv_inc = 0.45
-    # Look for the vert and keep increasing box size until the vert is found
-    while vert is None and mv_inc < max_vert:
+    mv_inc = min(0.45, max_vert)
+
+    while vert is None:
         # Search for the neighboring vertex within the current range.
         if net_type == 'aw':
             vert, invalid_ndxs = find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
                                               required_group is not None, surr_balls, my_boxes, invalid_ndxs, vn_1,
                                               vn_1_loc, box=box, group_balls=required_group, metrics=metrics,
                                               printing=printing, max_ball_rad=max_ball_rad)
+            if vert is KNOWN_EDGE:
+                return None
         elif net_type == 'pow':
             vert, invalid_ndxs = find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
                                                required_group is not None, surr_balls, my_boxes, invalid_ndxs, vn_1,
@@ -140,11 +158,11 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
             vert, invalid_ndxs = find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
                                                required_group is not None, surr_balls, my_boxes, invalid_ndxs, vn_1,
                                                box, vn_1_loc, group_ndxs=required_group, metrics=metrics)
-        # If a vertex is found exit the loop
-        if vert is not None:
+
+        if vert is not None or mv_inc >= max_vert:
             break
-        # Expand the search if no valid neighbor was found.
-        mv_inc *= 10
+
+        mv_inc = min(mv_inc * 10, max_vert)
     # Return the vertex if found
     return vert
 
@@ -208,7 +226,7 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         - The new vertex if found, None otherwise
         - Updated list of invalid ball indices
     """
-    # Get the balls that should not ba a part of the new vertex
+    # Get the balls that should not be a part of the new vertex
     edge_ndxs = edge_balls[:]
 
     # Get the balls not in the invalid balls that are within the range specified
@@ -263,7 +281,7 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         test_locs = np.array([locs[_] for _ in filtered_test_balls])
         # Compare the vertex to the maximum allowed vertex and verify it
         if vert_rad < max_vert and verify_prm(loc=np.array(v_loc), rad=vert_rad, test_locs=test_locs):
-            # Return the validated ball and the invalidated ist
+            # Return the validated ball and the invalidated list
             return [{'balls': vert_balls, 'loc': v_loc, 'rad': vert_rad}, metrics], invalid_ndxs
         else:
             # Add the ball to the invalid balls list if it isn't verified
@@ -426,7 +444,6 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
         vertex or ``None``.
     """
 
-
     # Get the balls that should not ba a part of the new vertex
     edge_ndxs = edge_balls[:]
 
@@ -453,7 +470,7 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
         my_vert_ndx = bisect.bisect_left(check_verts, ball_ndxs)
         # If the index returned is larger than the list or the vertex at the index is not equal to the ball_ndxs were ok
         if my_vert_ndx < len(check_verts) and ball_ndxs == check_verts[my_vert_ndx]:
-            return None, invalid_ndxs
+            return KNOWN_EDGE, invalid_ndxs
         # Add the vertex indices to the test_vertices for calculation
         new_test_balls.append(ball)
 
@@ -478,7 +495,7 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
             v_loc2, v_rad2 = None, None
 
         # Check if the vert is outside the box
-        if box is not None and any([box[0][k] > v_loc[k] > box[1][k] for k in range(3)]):
+        if box is not None and any(box[0][k] > v_loc[k] or v_loc[k] > box[1][k] for k in range(3)):
             continue
 
         # Add the vertex to the list of calculated vertices
@@ -715,8 +732,6 @@ def choose_vert(my_vert, edge_ndxs, test_balls, b_locs, b_rads, metrics, max_bal
         Ball radii for the full system.
     metrics : dict, optional
         Performance metrics populated when profiling is enabled.
-    start : float
-        Start time for verification profiling.
     max_ball_rad : float, optional
         Maximum system ball radius.
 

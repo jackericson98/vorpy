@@ -1,10 +1,11 @@
+import time
 from vorpy.src.calculations import calc_com
 from vorpy.src.calculations import calc_dist
 from vorpy.src.calculations import box_search
 from vorpy.src.calculations import get_balls
 from vorpy.src.calculations import calc_circ
-from vorpy.src.network.slow import find_site_container_slow
 from vorpy.src.network.fast import find_site_container
+from vorpy.src.network.slow import find_site_container_slow
 from vorpy.src.network.slow import find_site
 from vorpy.src.calculations import verify_site
 
@@ -28,7 +29,7 @@ def is_interface_vertex(vertex_balls, iface_grps):
 
 
 def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, iface_grps=None, metrics=None,
-            vert_ndxs=None, group_box=None, box=None):
+            vert_ndxs=None, group_box=None, box=None, timeout=None):
     """
     Find the initial verified vertex for a network.
 
@@ -37,7 +38,10 @@ def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, i
     For an interface network, the returned seed vertex must contain at
     least one defining ball from each collection in iface_grps.
     """
+    start_time = time.perf_counter()
 
+    def timed_out():
+        return timeout is not None and time.perf_counter() - start_time >= timeout
     # Make sure we have an existing-vertex list for the lower-level
     # site-finding functions.
     if vert_ndxs is None:
@@ -203,6 +207,8 @@ def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, i
 
     # Check each b1 candidate until an acceptable seed vertex is found.
     while len(b1s_sorted) > 0:
+        if timed_out():
+            return None
         b1 = b1s_sorted.pop(0)
 
         # Find the center between b0 and b1. Nearby b2 candidates are
@@ -271,6 +277,8 @@ def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, i
         my_circs = []
 
         for b2 in b2s:
+            if timed_out():
+                return None
             circle = [b0, b1, b2]
 
             circle_data = calc_circ(
@@ -289,8 +297,9 @@ def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, i
         )
 
         for circ in my_circs:
-            # Find the complete four-ball vertex generated from this
-            # three-ball circle.
+            if timed_out():
+                return None
+
             if net_type in {'prm', 'pow'}:
                 my_vert = find_site_container(
                     circ[0],

@@ -10,12 +10,12 @@ def build_interfaces(sys, num_requested_groups):
     for group_1, group_2 in interface_pairs:
         if group_2 is None:
             print(
-                f'Interface mode: "{group_1.name}" '
+                f'\nInterface mode: "{group_1.name}" '
                 f"against surrounding atoms"
             )
         else:
             print(
-                f'Interface mode: "{group_1.name}" '
+                f'\nInterface mode: "{group_1.name}" '
                 f'against "{group_2.name}"'
             )
 

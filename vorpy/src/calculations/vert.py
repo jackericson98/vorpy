@@ -553,7 +553,7 @@ def calc_flat_vert(locs, rads, power=False):
 
 
 @jit(nopython=True)
-def verify_aw(loc, rad, test_locs, test_rads):
+def verify_aw(loc, rad, test_locs, test_rads, skip_ndx=-1):
     """
     Verify if a sphere does not encroach within the radius of any other spheres.
 
@@ -590,10 +590,12 @@ def verify_aw(loc, rad, test_locs, test_rads):
 
     # Iterate through each sphere in the list to check for encroachment
     for i, b_loc in enumerate(test_locs):
-        b_rad = test_rads[i]  # Get the radius for the current sphere
-        # Calculate if the center 'loc' encroaches within the adjusted radius of any sphere
+        if i == skip_ndx:
+            continue
+
+        b_rad = test_rads[i]
         if calc_dist_numba(b_loc, loc) - b_rad < rad:
-            return False  # Encroachment detected, return False
+            return False
 
     return True  # No encroachments found, return True
 
@@ -679,7 +681,7 @@ def verify_pow(loc, rad, test_locs, test_rads):
     return True  # No overlaps found, return True
 
 
-def verify_site(loc, rad, test_locs, test_rads, net_type='aw'):
+def verify_site(loc, rad, test_locs, test_rads, net_type='aw', skip_ndx=-1):
     """
     Check if a site (vertex) overlaps with other sites.
 
@@ -720,7 +722,7 @@ def verify_site(loc, rad, test_locs, test_rads, net_type='aw'):
 
     # Call the appropriate function to verify the site based on the type of network
     if net_type == 'aw':
-        return verify_aw(loc, rad, test_locs, test_rads)
+        return verify_aw(loc, rad, test_locs, test_rads, skip_ndx=skip_ndx)
     elif net_type == 'prm':
         return verify_prm(loc, rad, test_locs)
     elif net_type == 'pow':

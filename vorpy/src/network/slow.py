@@ -1,104 +1,80 @@
-import bisect
 import numpy as np
-import time
 from vorpy.src.calculations import box_search
 from vorpy.src.calculations import get_balls
 from vorpy.src.calculations import ndx_search
 from vorpy.src.calculations import verify_site
 from vorpy.src.calculations import calc_flat_vert
 from vorpy.src.calculations import calc_vert
+from vorpy.src.network.fast import verify_aw_local
 
 
-def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, net_type, box=None, group_ndxs=None, iface_grps=None, metrics=None,
-                             printing=False):
+def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, net_type, box=None,
+                             group_ndxs=None, iface_grps=None, metrics=None, printing=False):
     """
-    Searches for a valid vertex by iteratively expanding the search area around edge balls.
+    Search thoroughly for a valid vertex associated with a three-ball edge.
 
-    This function implements a slow but thorough search strategy that:
-    1. Starts with a small search area around the edge balls
-    2. Gradually increases the search radius until a valid vertex is found
-    3. Maintains a list of invalid ball combinations to avoid redundant checks
+    The search begins locally and expands geometrically until a valid site is
+    found or ``max_vert`` is reached. Surrounding balls are gathered once for
+    the full search extent and rejected fourth-ball candidates are retained
+    between expansion steps so they are not recalculated.
 
     Parameters
     ----------
     edge_balls : list of int
-        Indices of the three balls forming the edge
-    locs : list of numpy.ndarray
-        List of ball locations in 3D space
-    rads : list of float
-        List of ball radii
-    b_verts : list of lists
-        List mapping ball indices to their vertices
+        Three ball indices defining the edge.
+    locs : array-like
+        Ball-center coordinates.
+    rads : array-like
+        Ball radii.
+    b_verts : list of list
+        Ball-to-vertex adjacency.
     vert_ndxs : list
-        List of existing vertex indices
+        Defining balls for already discovered vertices.
     max_vert : float
-        Maximum distance to search for vertices
-    net_type : str
-        Type of network ('aw', 'pow', or 'prm')
-    box : dict, optional
-        Dictionary containing box boundaries and cell information
-    group_ndxs : list, optional
-        List of ball indices in the group to constrain search
-    iface_grps : tuple(list), optional
-        Tuple of the two iface group indices
+        Maximum search extent and accepted absolute vertex radius.
+    net_type : {'aw', 'pow', 'prm'}
+        Network geometry being solved.
+    box : list, optional
+        Geometric bounds for accepted primary vertex locations.
+    group_ndxs : collection, optional
+        Group constraint for the fourth defining ball.
+    iface_grps : tuple, optional
+        Two collections defining an interface.
     metrics : dict, optional
-        Dictionary to store performance metrics
+        Retained for API compatibility.
     printing : bool, optional
-        Whether to print progress information
+        Retained for API compatibility.
 
     Returns
     -------
-    tuple or None
-        If a valid vertex is found, returns a tuple containing:
-        - vertex location
-        - vertex radius
-        - list of ball indices forming the vertex
-        Returns None if no valid vertex is found
-
-    Notes
-    -----
-    - The search starts with a small radius (0.45) and increases by a factor of 10 each iteration
-    - Maintains a list of invalid ball combinations to avoid redundant checks
-    - Can be constrained to search only within a specific group of balls
-    - Uses box-based spatial partitioning to optimize ball lookup
+    object or None
+        The verified vertex returned by ``find_site`` or ``None``.
     """
-    # Set up the vert and invalid indices parameters
     invalid_ndxs, vert = [], None
 
-    # Check if the edge contains a group ball, to see if the next ball needs to be checked or not
-    # Start with check balls as false if no group is defined
-    check_ndxs = False
-    if group_ndxs is not None:
-        # If a group exists default to checking each ball
-        check_ndxs = True
-        # Go through the edge balls checking if they are in the group --> any vert found from another ball is included
-        for ball in edge_balls:
-            # Take the potential index of the ball in group
-            my_index = bisect.bisect_left(group_ndxs, ball)
-            # If the index is in the list check if the ball matches the index's element
-            if my_index != len(group_ndxs) and group_ndxs[my_index] == ball:
-                # If the element is found no need to check the balls and break the for loop
-                check_ndxs = False
-                break
+    # The fourth ball only needs group filtering when none of the edge balls
+    # already belongs to the requested group.
+    check_ndxs = group_ndxs is not None and not any(ball in group_ndxs for ball in edge_balls)
 
-    # Find the 3 boxes the edge balls are in
-    my_boxes = [box_search(loc=locs[edge_balls[_]]) for _ in range(3)]
-    # Gather the surrounding balls or the entire list of balls we could be comparing to
+    my_boxes = [box_search(loc=locs[ball]) for ball in edge_balls]
     surr_balls = get_balls(cells=my_boxes, dist=max_vert)
-    # Se the initial vert size
-    mv_inc = 0.45
-    # Look for the vert and keep increasing box size until the vert is found
-    while vert is None and mv_inc < max_vert:
-        vert, invalid_ndxs = find_site(edge_balls=edge_balls, locs=locs, rads=rads, b_verts=b_verts,
-                                       vert_ndxs=vert_ndxs, max_vert=max_vert, mv_inc=mv_inc, net_type=net_type,
-                                       invalid_ndxs=invalid_ndxs, check_balls=check_ndxs, surr_balls=surr_balls,
-                                       my_boxes=my_boxes, group_ndxs=group_ndxs, iface_grps=iface_grps, box=box)
-        # If a vertex is found exit the loop
-        if vert is not None:
+
+    # Always test the requested maximum extent rather than jumping over it.
+    mv_inc = min(0.45, max_vert)
+
+    while vert is None:
+        vert, invalid_ndxs = find_site(
+            edge_balls=edge_balls, locs=locs, rads=rads, b_verts=b_verts, vert_ndxs=vert_ndxs,
+            max_vert=max_vert, mv_inc=mv_inc, net_type=net_type, invalid_ndxs=invalid_ndxs,
+            check_balls=check_ndxs, surr_balls=surr_balls, my_boxes=my_boxes, group_ndxs=group_ndxs,
+            iface_grps=iface_grps, metrics=metrics, box=box
+        )
+
+        if vert is not None or mv_inc >= max_vert:
             break
-        # Increment the range for the search
-        mv_inc *= 10
-    # Return the vertex if found
+
+        mv_inc = min(mv_inc * 10, max_vert)
+
     return vert
 
 
@@ -106,165 +82,144 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
               check_balls=True, surr_balls=None, vn_1=None, vn_1_loc=None, group_ndxs=None, iface_grps=None,
               metrics=None, my_boxes=None, box=None):
     """
-    Finds a connecting vertex by searching through combinations of balls around an existing vertex.
+    Find a valid fourth-ball vertex for an existing three-ball edge.
 
-    This function searches for a valid vertex that connects to an existing vertex through a combination
-    of balls. It uses spatial partitioning and ball indices to efficiently search for potential vertices.
+    Candidate fourth balls are gathered from the current spatial search range,
+    filtered by group/interface constraints and previously rejected candidates,
+    solved geometrically, and verified against the full surrounding search set.
 
-    Parameters
-    ----------
-    edge_balls : list of int
-        List of ball indices forming the edge
-    locs : list of numpy.ndarray
-        List of ball locations in 3D space
-    rads : list of float
-        List of ball radii
-    b_verts : dict
-        Dictionary mapping ball indices to their vertices
-    vert_ndxs : list
-        List of existing vertex indices
-    max_vert : float
-        Maximum distance to search for vertices
-    mv_inc : float
-        Current search radius increment
-    net_type : str
-        Type of network ('aw', 'pow', or 'prm')
-    invalid_ndxs : list, optional
-        List of ball indices that have been checked and found invalid
-    check_balls : bool, optional
-        Whether to check if balls are in the group
-    surr_balls : list, optional
-        List of surrounding ball indices
-    vn_1 : list, optional
-        List of ball indices from previous vertex
-    vn_1_loc : numpy.ndarray, optional
-        Location of previous vertex
-    group_ndxs : list, optional
-        List of ball indices in the group to constrain search
-    iface_grps : tuple(list), optional
-        tuple of lists of
-    metrics : dict, optional
-        Dictionary to store performance metrics
-    my_boxes : list, optional
-        List of box indices for spatial partitioning
-    box : dict, optional
-        Dictionary containing box information for spatial partitioning
+    AW candidates use local verification around the calculated vertex, while
+    POW and PRM retain full surrounding-ball verification. Rejected fourth-ball
+    indices are stored as integers so expanding searches do not reconsider them.
 
     Returns
     -------
     tuple
-        A tuple containing:
-        - vertex : dict or None
-            The found vertex if successful, None otherwise
-        - invalid_ndxs : list
-            Updated list of invalid ball indices
-
-    Notes
-    -----
-    - Uses spatial partitioning to efficiently search for potential vertices
-    - Maintains a list of invalid ball combinations to avoid redundant checks
-    - Can be constrained to search only within a specific group of balls
-    - Tracks performance metrics if provided
-    - Returns None if no valid vertex is found within the search radius
+        ``(vertex, invalid_ndxs)`` where ``vertex`` is the selected verified
+        vertex or ``None``.
     """
     if invalid_ndxs is None:
         invalid_ndxs = []
-    # Get the balls that should not ba a part of the new vertex
+
     edge_ndxs = edge_balls[:]
+    max_ball_rad = max(rads)
+    invalid_set = set(invalid_ndxs)
 
-    # Determine whether the three-ball edge is missing either side of an
-    # interface. Any fourth defining ball must supply every missing side.
+    # Determine whether the edge is missing either side of an interface.
     missing_iface_grps = []
-
     if iface_grps is not None:
         edge_ball_set = set(edge_balls)
+        missing_iface_grps = [set(group_indices) for group_indices in iface_grps
+                              if not edge_ball_set.intersection(group_indices)]
 
-        missing_iface_grps = [
-            set(group_indices)
-            for group_indices in iface_grps
-            if not edge_ball_set.intersection(group_indices)
-        ]
+    vert_ball_ndxs = edge_ndxs if vn_1 is None else vn_1
 
-    # If the previous vertex has been provided, add the other  to the not allowed balls
-    vert_ball_ndxs = vn_1
-    if vn_1 is None:
-        vert_ball_ndxs = edge_ndxs
-
-    # Grab the balls we want to test against
     if my_boxes is None:
-        my_boxes = [box_search(loc=locs[edge_balls[_]]) for _ in range(3)]
+        my_boxes = [box_search(loc=locs[ball]) for ball in edge_balls]
 
-    test_balls = [_ for _ in get_balls(cells=my_boxes, dist=mv_inc) if _ not in invalid_ndxs]
-    if surr_balls is not None:
+    test_balls = [ball for ball in get_balls(cells=my_boxes, dist=mv_inc) if ball not in invalid_set]
+
+    # Reuse the full surrounding-ball set supplied by the container.
+    if surr_balls is None:
         surr_balls = get_balls(cells=my_boxes, dist=max_vert)
-    # First look for vertices that have been found before
+
     new_test_balls = []
+
     for ball in test_balls:
-        # If the ball is in the previous vertex move on
         if ball in vert_ball_ndxs:
             continue
-        # Check if we need to check and if so check for the ball in the list
         if check_balls and ball not in group_ndxs:
             continue
-        # If the current edge does not yet contain both interface sides, the
-        # fourth defining ball must supply every missing side.
-        if missing_iface_grps and not all(
-                ball in group_indices
-                for group_indices in missing_iface_grps
-        ):
+        if missing_iface_grps and not all(ball in group_indices for group_indices in missing_iface_grps):
             continue
-        # If we have found the vertex before it is not the previous vertex return
-        ball_ndxs = edge_ndxs + [ball]
-        ball_ndxs.sort()
-        # Get the vertex's index/insert index
+
+        ball_ndxs = sorted(edge_ndxs + [ball])
+
+        # If this four-ball vertex already exists, this edge does not need a
+        # second geometric search from the current traversal.
         if vert_ndxs is not None and len(vert_ndxs) > 0:
-            check_verts = [vert_ndxs[_] for _ in b_verts[ball_ndxs[0]]]
+            check_verts = [vert_ndxs[vert_ndx] for vert_ndx in b_verts[ball_ndxs[0]]]
             my_vert_ndx = ndx_search(check_verts, ball_ndxs)
             if my_vert_ndx < len(check_verts) and ball_ndxs == check_verts[my_vert_ndx]:
                 return None, invalid_ndxs
+
         new_test_balls.append(ball)
-    # Instantiate the vertex list and the size limit for vertices found
+
     verts = []
-    # Go through each ball in the given test balls
-    for i, ball in enumerate(new_test_balls):
-        ball_new_star = time.perf_counter()
-        # Create the vertex and calculate its value
-        vert_balls = edge_balls + [ball]
-        vert_balls.sort()
+
+    for ball in new_test_balls:
+        vert_balls = sorted(edge_ndxs + [ball])
         vert_loc2, vert_rad2 = None, None
-        # Calculate the 181L vertex values
-        start = time.perf_counter()
+
         if net_type == 'pow':
-            vert_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=True)
+            vert_loc, vert_rad = calc_flat_vert(locs=[locs[ndx] for ndx in vert_balls],
+                                                rads=[rads[ndx] for ndx in vert_balls], power=True)
         elif net_type == 'prm':
-            vert_loc, vert_rad = calc_flat_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls], power=False)
+            vert_loc, vert_rad = calc_flat_vert(locs=[locs[ndx] for ndx in vert_balls],
+                                                rads=[rads[ndx] for ndx in vert_balls], power=False)
         else:
-            vert_loc, vert_rad, vert_loc2, vert_rad2 = calc_vert(locs=[locs[_] for _ in vert_balls], rads=[rads[_] for _ in vert_balls])
-        # Catch the none location case
+            vert_loc, vert_rad, vert_loc2, vert_rad2 = calc_vert(
+                locs=[locs[ndx] for ndx in vert_balls],
+                rads=[rads[ndx] for ndx in vert_balls]
+            )
+
         if vert_loc is None:
-            invalid_ndxs.append([_ for _ in vert_balls if _ not in edge_ndxs])
+            invalid_ndxs.append(ball)
             continue
-        if box is not None and any([box[0][k] > vert_loc[k] or vert_loc[k] > box[1][k] for k in range(3)]):
+
+        if box is not None and any(box[0][axis] > vert_loc[axis] or vert_loc[axis] > box[1][axis] for axis in range(3)):
+            invalid_ndxs.append(ball)
             continue
-        # Filter the vertex out if it is too large or not able to be made
-        filtered_test_balls = [_ for _ in surr_balls if _ not in vert_balls]
-        test_locs = np.array([locs[_] for _ in filtered_test_balls])
-        test_rads = np.array([rads[_] for _ in filtered_test_balls])
-        if abs(vert_rad) < max_vert and verify_site(loc=np.array(vert_loc), rad=vert_rad, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
+
+        # Verify the primary and optional secondary solutions. AW uses the same
+        # local verification strategy as the fast traversal path; POW and PRM
+        # retain their existing full surrounding-ball verification behavior.
+        if net_type == 'aw':
+            primary_valid = abs(vert_rad) < max_vert and verify_aw_local(
+                np.asarray(vert_loc), vert_rad, vert_balls, locs, rads, max_ball_rad
+            )
+            secondary_valid = (
+                vert_loc2 is not None
+                and abs(vert_rad2) < max_vert
+                and verify_aw_local(np.asarray(vert_loc2), vert_rad2, vert_balls, locs, rads, max_ball_rad)
+            )
+        else:
+            filtered_test_balls = [test_ball for test_ball in surr_balls if test_ball not in vert_balls]
+            test_locs = np.asarray([locs[test_ball] for test_ball in filtered_test_balls])
+            test_rads = np.asarray([rads[test_ball] for test_ball in filtered_test_balls])
+
+            primary_valid = abs(vert_rad) < max_vert and verify_site(
+                loc=np.asarray(vert_loc), rad=vert_rad, test_locs=test_locs, test_rads=test_rads, net_type=net_type
+            )
+            secondary_valid = (
+                vert_loc2 is not None
+                and abs(vert_rad2) < max_vert
+                and verify_site(
+                    loc=np.asarray(vert_loc2), rad=vert_rad2,
+                    test_locs=test_locs, test_rads=test_rads, net_type=net_type
+                )
+            )
+
+        if primary_valid:
             if len(verts) > 0 and verts[0]['rad'] < vert_rad:
                 return [verts[0], metrics], invalid_ndxs
+
             verts.append({'balls': vert_balls, 'loc': vert_loc, 'rad': vert_rad, 'loc2': None, 'rad2': None})
-            # If the first vertex site is a valid site add it to the list of check vertices and add its index
-            if vert_loc2 is not None and abs(vert_rad2) < max_vert and verify_site(loc=np.array(vert_loc2), rad=vert_rad2, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
+
+            if secondary_valid:
                 verts[-1]['loc2'], verts[-1]['rad2'] = vert_loc2, vert_rad2
-        # Check to see if the doublet's site is verified
-        elif vert_loc2 is not None and verify_site(loc=np.array(vert_loc2), rad=vert_rad2, test_locs=test_locs, test_rads=test_rads, net_type=net_type):
+
+        elif secondary_valid:
             verts.append({'balls': vert_balls, 'loc': vert_loc2, 'rad': vert_rad2, 'loc2': None, 'rad2': None})
-        invalid_ndxs.append([_ for _ in vert_balls if _ not in edge_ndxs])
-    # If no verts have been found return
+
+        if ball not in invalid_set:
+            invalid_ndxs.append(ball)
+            invalid_set.add(ball)
+
     if len(verts) == 0:
         return None, invalid_ndxs
-    # If we find only 1 vertex, return it
-    elif len(verts) == 1 or verts[0]['rad'] < verts[1]['rad']:
+
+    if len(verts) == 1 or verts[0]['rad'] < verts[1]['rad']:
         return [verts[0], metrics], invalid_ndxs
+
     return [verts[1], metrics], invalid_ndxs

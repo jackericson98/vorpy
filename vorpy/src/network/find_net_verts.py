@@ -99,12 +99,12 @@ def _load_cached_vertex_state(net):
 
 def _store_native_vertex_state(net, vert_ndxs, vlocs, vrads, vloc2s, vrad2s):
     """
-Store the native vertex-search representation for interface reuse.
+    Store the native vertex-search representation for interface reuse.
 
-The unexpanded primary/secondary vertex representation is preserved so future
-interface calculations can resume discovery without reconstructing doublets
-from exported dataframe rows.
-"""
+    The unexpanded primary/secondary vertex representation is preserved so future
+    interface calculations can resume discovery without reconstructing doublets
+    from exported dataframe rows.
+    """
     net.interface_vertex_state = []
     for balls, loc, rad, loc2, rad2 in zip(
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s):
@@ -119,6 +119,71 @@ from exported dataframe rows.
             ),
             'rad2': None if rad2 is None else float(rad2),
         })
+
+
+def _get_interface_reseed_candidates(net, sphere_check_list):
+    """
+    Return unresolved balls that can geometrically participate in an interface seed.
+
+    AW ``find_v0`` currently limits seed discovery to ``max_vert / 10``.
+    Therefore two balls from opposite interface sides that define the same
+    seed vertex cannot have a surface-to-surface separation greater than
+    twice that seed radius.
+
+    Candidates are taken from one interface side only because every valid
+    interface component necessarily contains at least one ball from each side.
+    """
+    if net.iface_grps is None:
+        return sphere_check_list
+
+    side1, side2 = net.iface_grps
+    unresolved = set(sphere_check_list)
+
+    locs = net.balls['loc'].to_numpy()
+    rads = net.balls['rad'].to_numpy()
+
+    seed_max = net.settings['max_vert'] / 10
+    max_surface_sep = 2 * seed_max
+
+    side2 = set(side2)
+    side2_max_rad = max(rads[ball] for ball in side2)
+
+    candidates = []
+
+    for ball in side1:
+        if ball not in unresolved:
+            continue
+
+        # Any opposite-side ball satisfying the exact surface-separation
+        # bound must lie inside this conservative center-distance search.
+        search_dist = max_surface_sep + rads[ball] + side2_max_rad
+        ball_box = box_search(locs[ball])
+        nearby = get_balls([ball_box], dist=search_dist)
+
+        min_surface_sep = None
+
+        for other_ball in nearby:
+            if other_ball not in side2:
+                continue
+
+            surface_sep = (
+                calc_dist(locs[ball], locs[other_ball])
+                - rads[ball]
+                - rads[other_ball]
+            )
+
+            if surface_sep <= max_surface_sep:
+                if min_surface_sep is None or surface_sep < min_surface_sep:
+                    min_surface_sep = surface_sep
+
+        if min_surface_sep is not None:
+            candidates.append((min_surface_sep, ball))
+
+    # Attack the most plausible interface seeds first.
+    # Store farthest-to-nearest so pop() retrieves the closest candidate first.
+    candidates.sort(key=lambda item: item[0], reverse=True)
+
+    return [ball for _, ball in candidates]
 
 
 def find_net_verts(net):
@@ -164,7 +229,6 @@ def find_net_verts(net):
         vert_ndxs = vlocs = vrads = vloc2s = vrad2s = averts = None
     else:
         vert_ndxs, vlocs, vrads, vloc2s, vrad2s, averts = cached_state
-
     # Continue normal discovery with cached vertices available for duplicate
     # detection and traversal adjacency.
     my_guuy = find_verts(
@@ -190,14 +254,13 @@ def find_net_verts(net):
         vert_box=net.settings['foam_box'],
         box=net.box['verts'],
     )
-    # If the function returns a valid vertex, set the variables.
     if my_guuy is not None:
         vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
     elif cached_state is None:
         return
 
     # Check to see if any of the balls are encapsulated
-    if len(sphere_check_list) > 0:
+    if len(sphere_check_list) > 0 and net.iface_grps is None:
         # Create the skip numbers list
         skip_nums = []
         max_ball_rad = max(net.balls['rad'])
@@ -220,18 +283,15 @@ def find_net_verts(net):
         # Iterate through the skip numbers
         for _ in skip_nums:
             sphere_check_list.pop(sphere_check_list.index(_))
-
     if net.iface_grps is not None:
-        interface_balls = net.iface_grps[0] | net.iface_grps[1]
-        sphere_check_list[:] = [ball for ball in sphere_check_list if ball in interface_balls]
+        sphere_check_list[:] = _get_interface_reseed_candidates(net, sphere_check_list)
 
-    # Reseed from any balls not reached by the initial traversal.
-    while len(sphere_check_list) > 0:
+    while sphere_check_list:
 
         # Remove the seed before calling find_verts; b0 explicitly restores it
         # as the first seed candidate inside the new traversal.
         seed_ball = sphere_check_list.pop()
-        # Find the vertices
+
         my_guuy = find_verts(
             b0=seed_ball,
             locs=net.balls['loc'].to_numpy(),
@@ -250,20 +310,20 @@ def find_net_verts(net):
             vert_box=net.settings['foam_box'],
             b_verts=averts,
             box=net.box['verts'],
+            seed_timeout=0.05
         )
-        # If the function returns a valid vertex, set the variables
+
         if my_guuy is not None:
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
-        # If the network is a foam network and less than 25% of the balls remain unvisited, break
+
         if net.settings['ball_type'] == 'foam' and len(sphere_check_list) <= 0.25 * len(net.balls['loc']):
             print(f'Missing Ball Indices:\n{sphere_check_list}\n')
             break
+
     # Save the lossless native representation before doublets are expanded
     # into separate dataframe rows.
     if net.iface_grps is not None:
-        _store_native_vertex_state(
-            net, vert_ndxs, vlocs, vrads, vloc2s, vrad2s
-        )
+        _store_native_vertex_state(net, vert_ndxs, vlocs, vrads, vloc2s, vrad2s)
 
     # Create the doublets list
     doublets = [0] * len(vert_ndxs)

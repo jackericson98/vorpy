@@ -12,7 +12,7 @@ from vorpy.src.calculations import calc_vert
 def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=None,
                iface_grps=None, b_verts=None, vert_ndxs=None, vlocs=None, vrads=None, vloc2s=None, vrad2s=None,
                start_time=0, box=None, vert_box=None, group_box=None, tot_ball_num=None,
-               printing=False, start_vert=0, split=False):
+               printing=False, start_vert=0, split=False, seed_timeout=None):
     """
     Traverse a network and discover vertices connected to an initial seed.
 
@@ -73,6 +73,9 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
         Existing vertex count used in progress reporting.
     split : bool, optional
         Reserved for split-search workflows.
+    seed_timeout : float, optional
+        Maximum time allowed for seed discovery. Used by disconnected interface
+        reseeding to abandon unproductive starting balls quickly.
 
     Returns
     -------
@@ -120,57 +123,58 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
     # Find the first verified vertex
     if len(my_group) == 1:
         v0 = find_v0(locs=locs, rads=rads, b_verts=b_verts, max_vert=max_vert, net_type=net_type, b0=my_group[0],
-                     group_ndxs=my_group, vert_ndxs=vert_ndxs, group_box=group_box, iface_grps=iface_grps)
+                     group_ndxs=my_group, vert_ndxs=vert_ndxs, group_box=group_box, iface_grps=iface_grps,
+                     timeout=seed_timeout)
 
     elif len(my_group) == 4:
         v0_loc, v0_rad, v0_loc2, v0_rad2 = calc_vert(locs=[locs[_] for _ in my_group],
                                                      rads=[rads[_] for _ in my_group])
         v0 = {'balls': my_group, 'loc': v0_loc, 'rad': v0_rad, 'loc2': v0_loc2, 'rad2': v0_rad2}
     else:
-        # In interface mode, seed from first-side balls ordered by their
-        # minimum surface-to-surface separation from the opposite side.
-        if iface_grps is not None:
+        # An explicit interface reseed should test that ball directly. The
+        # outer disconnected-component search will try another ball if it fails.
+        if iface_grps is not None and b0 is not None:
+            valid_b0 = b0 in iface_grps[0] or b0 in iface_grps[1]
+            seed_ndxs = [b0] if valid_b0 else []
+
+        # For the initial interface search, prioritize first-side balls by their
+        # minimum surface-to-surface separation from the opposite interface side.
+        elif iface_grps is not None:
             interface_side_1 = iface_grps[0]
             interface_side_2 = iface_grps[1]
 
             side_2_indices = np.array(sorted(interface_side_2), dtype=int)
-
             side_2_locs = np.asarray([locs[ball] for ball in side_2_indices], dtype=float)
-
             side_2_rads = np.asarray([rads[ball] for ball in side_2_indices], dtype=float)
 
-            seed_cutoff = max_vert / 10
-
+            seed_search_dist = max_vert / 10
             seed_distances = []
 
             for ball in check_ndxs:
                 if ball not in interface_side_1:
                     continue
 
-                center_distances = np.linalg.norm(side_2_locs - np.asarray(locs[ball], dtype=float), axis=1)
+                center_distances = np.linalg.norm(
+                    side_2_locs - np.asarray(locs[ball], dtype=float),
+                    axis=1
+                )
 
-                surface_distances = (center_distances - float(rads[ball]) - side_2_rads)
-
+                surface_distances = center_distances - float(rads[ball]) - side_2_rads
                 minimum_surface_distance = float(np.min(surface_distances))
 
-                if minimum_surface_distance <= seed_cutoff:
+                if minimum_surface_distance <= seed_search_dist:
                     seed_distances.append((minimum_surface_distance, ball))
 
-            # Try first-side balls closest to the opposite interface side first.
-            # All eligible seeds remain available if the nearest candidates fail.
             seed_distances.sort(key=lambda item: item[0])
-
             seed_ndxs = [ball for _, ball in seed_distances]
-            # For interface builds, estimate the total number of vertices from the
-            # number of atoms that actually participate in the interface rather than
-            # from the full union of both groups.
-            if iface_grps is not None:
-                tot_verts = max(50, 10 * len(seed_ndxs))
+
+            # Estimate interface progress from balls plausibly participating in
+            # the interface rather than the full union of both groups.
+            tot_verts = max(50, 10 * len(seed_ndxs))
 
         else:
             seed_distances = None
             seed_ndxs = list(check_ndxs)
-
         # Force an explicitly supplied reseed ball to the front of the seed list.
         if b0 is not None:
             if iface_grps is None:
@@ -188,7 +192,7 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
         for seed_ball in seed_ndxs:
             v0 = find_v0(locs=locs, rads=rads, b_verts=b_verts, max_vert=max_vert, net_type=net_type, b0=seed_ball,
                          group_ndxs=my_group, iface_grps=iface_grps, vert_ndxs=vert_ndxs,
-                         group_box=group_box, box=box)
+                         group_box=group_box, box=box, timeout=seed_timeout)
 
             if v0 is not None:
                 break

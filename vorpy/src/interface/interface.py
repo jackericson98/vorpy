@@ -177,7 +177,9 @@ class Interface:
 
         for water_geometry in self.water_geometries[:10]:
             residue = water_geometry["residue"]
-            interface_geometry = water_geometry["interface_geometry"]
+            interface_geometry = water_geometry.get("interface_geometry")
+            if interface_geometry is None:
+                continue
 
             print(
                 f"  {residue.name} {residue.seq}: "
