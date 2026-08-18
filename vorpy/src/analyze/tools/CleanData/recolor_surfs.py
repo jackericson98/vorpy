@@ -23,7 +23,7 @@ def recolor_off(input_file, output_file, rgb):
     face_indices = geometry_indices[num_vertices:num_vertices + num_faces]
 
     r, g, b = rgb
-    rgba = f"{r} {g} {b} 255"
+    rgba = f"{r:.4f} {g:.4f} {b:.4f} 1.0"
 
     for idx in face_indices:
         parts = lines[idx].split()
@@ -57,7 +57,7 @@ def main():
     if color[0] is None:
         return
 
-    rgb = tuple(round(x) for x in color[0])
+    rgb = tuple(x / 255.0 for x in color[0])
 
     output_file = filedialog.asksaveasfilename(
         title="Save recolored OFF file",
