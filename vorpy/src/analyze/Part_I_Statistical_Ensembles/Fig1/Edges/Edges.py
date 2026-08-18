@@ -31,7 +31,7 @@ Edge plotting code. Choose an edge type below.
 edge_choice = 3
 
 # Additional Settings
-atom_alpha = 0.5
+atom_alpha = 0.2
 vert_alpha = 0.1
 edge_thickness = 2
 

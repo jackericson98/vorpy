@@ -37,7 +37,7 @@ surface_type = 3
 
 # Atoms
 show_atoms = True
-atom_alpha = 0.4
+atom_alpha = 0.2
 
 # Vertices
 show_verts = True

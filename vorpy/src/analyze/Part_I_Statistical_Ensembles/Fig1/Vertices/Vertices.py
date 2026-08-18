@@ -36,7 +36,7 @@ vertex_type = 3
 
 
 # Other settings
-atom_alpha = .5
+atom_alpha = .2
 show_axes = False
 
 # Whether or not to plot the inscribed sphere
