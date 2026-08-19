@@ -111,15 +111,16 @@ def plot_data(data, ylim=None, absolute=True, plot_scheme='both'):
     for metric, ylabel in [('vol', f'{prefix} Volume Diff'),
                            ('sa', f'{prefix} Surface Area Diff'),
                            ('neighbors', f'{prefix} Neighbor Count Diff')]:
+        pow_avg = [data[k]['pow'][metric]['avg'] for k in x_names]
+        prm_avg = [data[k]['prm'][metric]['avg'] for k in x_names]
+        pow_se = [data[k]['pow'][metric]['se'] for k in x_names]
+        prm_se = [data[k]['prm'][metric]['se'] for k in x_names]
         if absolute and ylim is None:
             max_y = max([a + e for a, e in zip(pow_avg, pow_se)] + [a + e for a, e in zip(prm_avg, prm_se)])
             metric_ylim = [0, max_y * 1.5]
         else:
             metric_ylim = ylim
-        pow_avg = [data[k]['pow'][metric]['avg'] for k in x_names]
-        prm_avg = [data[k]['prm'][metric]['avg'] for k in x_names]
-        pow_se = [data[k]['pow'][metric]['se'] for k in x_names]
-        prm_se = [data[k]['prm'][metric]['se'] for k in x_names]
+
 
         titles = {
             'vol': 'Average Atomic Volume Difference',

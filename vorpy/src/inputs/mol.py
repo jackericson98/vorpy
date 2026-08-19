@@ -258,7 +258,7 @@ def _read_mol_v2000(sys, lines, atom_id_to_index):
             raise ValueError(f'Could not parse V2000 bond line:\n{line}')
 
         raw_bonds.append((atom1, atom2, bond_type))
-
+    bonds = []
     for atom1, atom2, bond_type in raw_bonds:
         if atom1 not in atom_id_to_index or atom2 not in atom_id_to_index:
             raise ValueError(f'V2000 bond references an atom that was not loaded: {atom1}, {atom2}')

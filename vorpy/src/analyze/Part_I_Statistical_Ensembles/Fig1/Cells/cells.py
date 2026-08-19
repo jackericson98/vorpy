@@ -48,7 +48,7 @@ show_edges = True
 show_verts = True
 show_vert_balls = False
 
-atom_alpha = 0.2
+atom_alpha = 0.05
 all_atom_alpha = 0.05
 surf_alpha = 0.35
 edge_thickness = 2
