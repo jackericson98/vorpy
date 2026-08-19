@@ -277,7 +277,7 @@ class TestFilterVertLocrads:
         
         assert isinstance(result, tuple)
         assert len(result) == 4
-        loc, rad, loc2, rad2 = result
+        loc, loc2, rad, rad2 = result
         # Some values may be None
         assert loc is None or isinstance(loc, np.ndarray)
         assert rad is None or isinstance(rad, (int, float, np.number))
@@ -291,7 +291,7 @@ class TestFilterVertLocrads:
         
         assert isinstance(result, tuple)
         assert len(result) == 4
-        loc, rad, loc2, rad2 = result
+        loc, loc2, rad, rad2 = result
         # All values should be None for empty input
         assert loc is None
         assert rad is None
@@ -307,7 +307,7 @@ class TestFilterVertLocrads:
         
         assert isinstance(result, tuple)
         assert len(result) == 4
-        loc, rad, loc2, rad2 = result
+        loc, loc2, rad, rad2 = result
         # Some values may be None
         assert loc is None or isinstance(loc, np.ndarray)
         assert rad is None or isinstance(rad, (int, float, np.number))

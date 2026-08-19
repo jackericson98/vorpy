@@ -324,7 +324,10 @@ def calc_surf_tri_dists(points, tris, loc):
             max_dist = my_dist
         if my_dist < min_dist:
             min_dist = my_dist
-    # Normalize the distances
+    dist_range = max_dist - min_dist
+    if dist_range == 0:
+        return [0.0] * len(dists)
+
     for dist in dists:
-        tri_dists.append((dist - min_dist) / (max_dist - min_dist))
+        tri_dists.append((dist - min_dist) / dist_range)
     return tri_dists
