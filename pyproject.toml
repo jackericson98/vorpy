@@ -55,8 +55,6 @@ dependencies = [
   "pandas",
   "numba",
   "shapely",
-  "plotly",
-  "sympy",
   "Pillow"
 ]
 classifiers = [

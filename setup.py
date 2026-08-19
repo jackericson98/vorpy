@@ -35,8 +35,6 @@ setup(
         "pandas",
         "numba",
         "shapely",
-        "plotly",
-        "sympy",
         "Pillow",
     ],
     extras_require={
