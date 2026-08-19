@@ -300,7 +300,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             write_pdb(atoms=grp.layer_atoms[1], file_name="surr_atoms", directory=grp.dir, sys=grp.sys)
         except IndexError:
             pass
-    if (ext_atoms or all_) and len(grp.atoms) > 15:
+    if (ext_atoms or all_) and len(grp.atms) > 15:
         if grp.layer_surfs is None:
             # Get the first layer
             grp.get_layers(max_layers=1)

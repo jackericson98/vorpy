@@ -126,7 +126,7 @@ def export_all(sys):
             os.makedirs(group.dir, exist_ok=True)
         group.dir = sys.files['dir'] + '/' + group.name
         os.makedirs(group.dir, exist_ok=True)
-        group.exports(atoms=True, shell=True, surfs=True, info=True, ext_atoms=True, sep_surfs=True, sep_edges=True,
+        group.exports(atoms=True, shell_surfs=True, surfs=True, info=True, ext_atoms=True, sep_surfs=True, sep_edges=True,
                       sep_verts=True, verts=True, edges=True, surr_atoms=True, logs=True)
 
         # Check to see if the verts are in the system directory and if so move them to the group folder
