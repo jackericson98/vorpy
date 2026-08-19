@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from unittest.mock import Mock, patch, MagicMock
 
-from vorpy.src.calculations.compare import compare_networks, make_interfaces
+from vorpy.src.calculations.compare import compare_networks
 from vorpy.src.interface import Interface
 
 
@@ -134,7 +134,7 @@ class TestMakeInterfaces:
         self.sys.groups = [self.group1]
         original_ifaces = self.sys.ifaces
         
-        make_interfaces(self.sys)
+        self.sys.make_interfaces(self)
         
         # Should not modify interfaces
         assert self.sys.ifaces is original_ifaces
@@ -147,7 +147,7 @@ class TestMakeInterfaces:
         # Mock the Interface class to avoid complex initialization
         mock_interface_instance = Mock()
         with patch('vorpy.src.calculations.compare.Interface', return_value=mock_interface_instance) as mock_interface:
-            make_interfaces(self.sys)
+            self.sys.make_interfaces(self)
             
             # Should initialize interfaces list
             assert self.sys.ifaces is not None
@@ -162,7 +162,7 @@ class TestMakeInterfaces:
         
         mock_interface_instance = Mock()
         with patch('vorpy.src.calculations.compare.Interface', return_value=mock_interface_instance) as mock_interface:
-            make_interfaces(self.sys)
+            self.sys.make_interfaces(self)
             
             # Should not create interface for same group
             assert mock_interface.call_count == 0
@@ -180,7 +180,7 @@ class TestMakeInterfaces:
         
         mock_interface_instance = Mock()
         with patch('vorpy.src.calculations.compare.Interface', return_value=mock_interface_instance) as mock_interface:
-            make_interfaces(self.sys)
+            self.sys.make_interfaces(self)
             
             # The function should create an interface even with overlapping ball indices
             # because it looks for overlapping surfaces, not ball indices
@@ -193,7 +193,7 @@ class TestMakeInterfaces:
         
         mock_interface_instance = Mock()
         with patch('vorpy.src.calculations.compare.Interface', return_value=mock_interface_instance) as mock_interface:
-            make_interfaces(self.sys)
+            self.sys.make_interfaces(self)
             
             # Should only create one interface (not both directions)
             assert mock_interface.call_count <= 1
@@ -210,7 +210,7 @@ class TestMakeInterfaces:
         self.sys.ifaces = []
         
         with patch('vorpy.src.interface.Interface') as mock_interface:
-            make_interfaces(self.sys)
+            self.sys.make_interfaces(self.sys)
             
             # Should not create interface due to no overlapping surfaces
             assert mock_interface.call_count == 0
@@ -228,7 +228,7 @@ class TestMakeInterfaces:
         
         mock_interface_instance = Mock()
         with patch('vorpy.src.calculations.compare.Interface', return_value=mock_interface_instance) as mock_interface:
-            make_interfaces(self.sys)
+            self.sys.make_interfaces(self.sys)
             
             # Should create interface
             assert mock_interface.call_count == 1
@@ -243,7 +243,7 @@ class TestMakeInterfaces:
         
         mock_interface_instance = Mock()
         with patch('vorpy.src.calculations.compare.Interface', return_value=mock_interface_instance) as mock_interface:
-            make_interfaces(self.sys)
+            self.sys.make_interfaces(self.sys)
             
             # Should not modify existing interfaces list
             assert len(self.sys.ifaces) >= original_count
@@ -260,7 +260,7 @@ class TestMakeInterfaces:
         
         mock_interface_instance = Mock()
         with patch('vorpy.src.calculations.compare.Interface', return_value=mock_interface_instance) as mock_interface:
-            make_interfaces(self.sys)
+            self.sys.make_interfaces(self.sys)
             
             # Check that Interface was called with correct parameters
             mock_interface.assert_called_once()
@@ -343,7 +343,7 @@ class TestCompareIntegration:
         
         mock_interface_instance = Mock()
         with patch('vorpy.src.calculations.compare.Interface', return_value=mock_interface_instance) as mock_interface:
-            make_interfaces(sys)
+            sys.make_interfaces(sys)
             
             # Should initialize interfaces
             assert sys.ifaces is not None
