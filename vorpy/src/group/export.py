@@ -189,6 +189,11 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         os.mkdir(grp.dir)
     # Go back to the group directory
     os.chdir(grp.dir)
+    # Build layer information once if any requested export requires it
+    needs_layers = shell_surfs or shell_edges or shell_verts or surr_atoms or ext_atoms or layers > 0 or all_
+
+    if needs_layers and grp.layer_surfs is None:
+        grp.get_layers(max_layers=max(1, layers) if layers > 0 else 1)
     # Export the log file first
     if logs or all_:
         write_logs(grp, round_to=round_to)

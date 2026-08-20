@@ -1,4 +1,5 @@
 import os
+import time
 import shutil
 from vorpy.src.output import write_atom_cells
 
@@ -50,22 +51,92 @@ def export_tiny(sys):
             iface.export(info=True)
 
 
-def export_med(sys):
-    """
-    Medium export. Exports the pdb, the set atoms script and the general information for the system. The group gets the
-    logs, the shell for the group, the surfaces for the group, the full set of edges, the shell edges, and the vertices
-    """
-    # Export the system exports
-    sys.exports(pdb=True, set_atoms=True, info=True)
+def benchmark_exports(group, repeats=3):
+    tests = {
+        "shell_surfs": {"shell_surfs": True},
+        "surfs": {"surfs": True},
+        "shell_edges": {"shell_edges": True},
+        "edges": {"edges": True},
+        "shell_verts": {"shell_verts": True},
+        "verts": {"verts": True},
+        "logs": {"logs": True},
+        "atoms": {"atoms": True},
+        "surr_atoms": {"surr_atoms": True},
+    }
 
-    # Loop through the groups and give their exports
+    net = group.net
+
+    print("\n" + "=" * 80)
+    print("EXPORT BENCHMARK")
+    print("=" * 80)
+    print(f"Atoms:    {len(net.balls):,}")
+    print(f"Surfaces: {len(net.surfs):,}")
+    print(f"Edges:    {len(net.edges):,}")
+    print(f"Vertices: {len(net.verts):,}")
+    print("=" * 80)
+
+    results = {}
+
+    for name, kwargs in tests.items():
+        times = []
+
+        for n in range(repeats):
+            start = time.perf_counter()
+            group.exports(**kwargs)
+            elapsed = time.perf_counter() - start
+            times.append(elapsed)
+
+            print(f"{name:<15} run {n + 1}: {elapsed:10.3f} s")
+
+        avg = sum(times) / len(times)
+        results[name] = avg
+
+    print("\n" + "=" * 80)
+    print("AVERAGE EXPORT TIMES")
+    print("=" * 80)
+
+    for name, elapsed in sorted(results.items(), key=lambda x: x[1], reverse=True):
+        print(f"{name:<15} {elapsed:10.3f} s  {elapsed / 60:8.2f} min")
+
+
+def timed_export(name, func, **kwargs):
+    start = time.perf_counter()
+    print(f"\nEXPORT: {name}...", flush=True)
+    func(**kwargs)
+    elapsed = time.perf_counter() - start
+    print(f"EXPORT: {name} finished in {elapsed:.3f} s ({elapsed / 60:.2f} min)", flush=True)
+    return elapsed
+
+
+def export_med(sys):
+    """Medium export with individual export timing."""
+    total_start = time.perf_counter()
+    timings = {}
+
+    # System exports
+    timings["system_pdb"] = timed_export("System PDB", sys.exports, pdb=True)
+    timings["system_set_atoms"] = timed_export("System set atoms", sys.exports, set_atoms=True)
+    timings["system_info"] = timed_export("System info", sys.exports, info=True)
+
+    # Group exports
     for group in sys.groups:
-        # Interface-mode groups may exist only as atom selections and therefore
-        # intentionally have no independently built network.
         if group.net is None:
             continue
 
-        # Set and make the group directory
+        net = group.net
+        print("\nNETWORK EXPORT SIZE")
+        print(f"Atoms:    {len(net.balls):,}")
+        print(f"Surfaces: {len(net.surfs):,}")
+        print(f"Edges:    {len(net.edges):,}")
+        print(f"Vertices: {len(net.verts):,}")
+        print("\nSURFACE GEOMETRY SIZE")
+        surf_points = sum(len(points) for points in net.surfs['points'])
+        surf_tris = sum(len(tris) for tris in net.surfs['tris'])
+        print(f"Surface points:    {surf_points:,}")
+        print(f"Surface triangles: {surf_tris:,}")
+        print(f"Points/surface:    {surf_points / len(net.surfs):,.1f}")
+        print(f"Tris/surface:      {surf_tris / len(net.surfs):,.1f}")
+
         if group.dir is None or not os.path.exists(sys.files['dir'] + '/' + group.name):
             group.dir = sys.files['dir'] + '/' + group.name
             try:
@@ -73,15 +144,54 @@ def export_med(sys):
             except FileNotFoundError:
                 group.dir = sys.files['dir'] + '/group'
 
-        group.exports(
-            shell_surfs=True, surfs=True, shell_edges=True, edges=True,
-            shell_verts=True, verts=True, logs=True, atoms=True,
-            surr_atoms=True
-        )
-    # Export the interfaces
+        print(f"\n{'=' * 70}\nEXPORTING GROUP: {group.name}\n{'=' * 70}")
+
+        exports = {
+            "shell_surfs": {"shell_surfs": True},
+            "surfs": {"surfs": True},
+            "shell_edges": {"shell_edges": True},
+            "edges": {"edges": True},
+            "shell_verts": {"shell_verts": True},
+            "verts": {"verts": True},
+            "logs": {"logs": True},
+            "atoms": {"atoms": True},
+            "surr_atoms": {"surr_atoms": True},
+        }
+
+        for name, kwargs in exports.items():
+            key = f"group_{group.name}_{name}"
+            timings[key] = timed_export(f"{group.name}: {name}", group.exports, **kwargs)
+
+    # Interface exports
     if sys.ifaces is not None:
         for iface in sys.ifaces:
-            iface.export(surfs=True, atoms=True, edges=True, logs=True, verts=True, info=True)
+            iface_name = getattr(iface, "name", "interface")
+            print(f"\n{'=' * 70}\nEXPORTING INTERFACE: {iface_name}\n{'=' * 70}")
+
+            exports = {
+                "surfs": {"surfs": True},
+                "atoms": {"atoms": True},
+                "edges": {"edges": True},
+                "logs": {"logs": True},
+                "verts": {"verts": True},
+                "info": {"info": True},
+            }
+
+            for name, kwargs in exports.items():
+                key = f"interface_{iface_name}_{name}"
+                timings[key] = timed_export(f"{iface_name}: {name}", iface.export, **kwargs)
+
+    total = time.perf_counter() - total_start
+
+    print(f"\n{'=' * 70}")
+    print("EXPORT TIMING SUMMARY")
+    print(f"{'=' * 70}")
+
+    for name, elapsed in sorted(timings.items(), key=lambda x: x[1], reverse=True):
+        print(f"{elapsed:12.3f} s  {elapsed / 60:9.2f} min  {name}")
+
+    print(f"{'-' * 70}")
+    print(f"{total:12.3f} s  {total / 60:9.2f} min  TOTAL")
 
 
 def export_large(sys):

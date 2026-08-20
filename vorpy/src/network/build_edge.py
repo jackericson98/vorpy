@@ -2,7 +2,6 @@ import time
 import numpy as np
 from vorpy.src.calculations import calc_dist
 from vorpy.src.calculations import calc_com
-from vorpy.src.calculations import calc_angle_jit
 from vorpy.src.calculations import calc_circ
 from vorpy.src.calculations import calc_edge_dir
 from vorpy.src.network.edge_project import edge_project

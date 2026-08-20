@@ -290,24 +290,14 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None, min_va
     else:
         def multi(val):
             return val
-    
+
     def remove_outlrs(tri_curvs):
-        try:
-            # Find the values at the 95th percentile
-            perc_95 = np.percentile(tri_curvs, [10, 90])
-        except IndexError:
-            # If the percentile fails, use the min and max
-            perc_95 = [min(tri_curvs), max(tri_curvs)]
-        # Remove the outliers
-        new_tri_curvs = []
-        for i in range(len(tri_curvs)):
-            if tri_curvs[i] > perc_95[1]:  
-                new_tri_curvs.append(perc_95[1])
-            elif tri_curvs[i] < perc_95[0]:
-                new_tri_curvs.append(perc_95[0])
-            else:
-                new_tri_curvs.append(tri_curvs[i])
-        return new_tri_curvs
+        arr = np.asarray(tri_curvs, dtype=float)
+        if arr.size == 0:
+            return arr
+
+        low, high = np.percentile(arr, [10, 90])
+        return np.clip(arr, low, high)
     
     # Check if the function is None
     if surf['func'] is None:
@@ -436,57 +426,65 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None, min_va
         # Set all the colors to the maximum of the tri_curvs
         tri_colors = [max_curve] * len(surf['tris'])
 
+
     elif color_scheme.lower() in {'mean', 'mean_curv', 'mean curvature'}:
 
-        # Check if the tri_dists have been calculated before
-        if surf['mean_tri_curvs'] is None or len(surf['mean_tri_curvs']) == 0 or len(surf['mean_tri_curvs']) != len(surf['tris']):
+        if surf['mean_tri_curvs'] is None or len(surf['mean_tri_curvs']) == 0 or len(surf['mean_tri_curvs']) != len(
+                surf['tris']):
+
             tri_curvs, _ = calc_surf_tri_curvs(func, surf['points'], surf['tris'], curvature_type='mean')
+
         else:
+
             tri_curvs = surf['mean_tri_curvs']
 
-        # Check if tri curves are empty
         if len(tri_curvs) == 0:
-            tri_colors = [np.random.rand(3) for _ in range(len(surf['tris']))]
-            return tri_colors
+            return [np.random.rand(3) for _ in range(len(surf['tris']))]
 
-        # Remove the outliers
+        tri_curvs = np.asarray(tri_curvs, dtype=float)
+
         if remove_outliers:
             tri_curvs = remove_outlrs(tri_curvs)
 
-        # First check if the surface is flat
         if surf['flat'] or surf['mean_curv'] == 0:
-            my_curvs = [(0-min_val)/(max_val-min_val)] * len(surf['tris'])
+
+            my_curvs = np.full(len(surf['tris']), (0 - min_val) / (max_val - min_val))
+
         else:
-            my_curvs = [(inverse_mult*curv-min_val)/(max_val-min_val) for curv in tri_curvs]
 
-        # Set the colors
-        tri_colors = [my_cmap(multi(_)) for _ in my_curvs]
+            my_curvs = (inverse_mult * tri_curvs - min_val) / (max_val - min_val)
 
-    elif color_scheme.lower() in {'gauss', 'gauss_curv', 'gaussian curvature', 'gauss_curv'}:
+        tri_colors = my_cmap(multi(my_curvs))
 
-        # Check if the tri_dists have been calculated before
-        if surf['gauss_tri_curvs'] is None or len(surf['gauss_tri_curvs']) == 0 or len(surf['gauss_tri_curvs']) != len(surf['tris']):
+
+    elif color_scheme.lower() in {'gauss', 'gauss_curv', 'gaussian curvature'}:
+
+        if surf['gauss_tri_curvs'] is None or len(surf['gauss_tri_curvs']) == 0 or len(surf['gauss_tri_curvs']) != len(
+                surf['tris']):
+
             tri_curvs, _ = calc_surf_tri_curvs(func, surf['points'], surf['tris'], curvature_type='gauss')
+
         else:
+
             tri_curvs = surf['gauss_tri_curvs']
 
-        # Check if tri curves are empty
         if len(tri_curvs) == 0:
-            tri_colors = [np.random.rand(3) for _ in range(len(surf['tris']))]
-            return tri_colors
+            return [np.random.rand(3) for _ in range(len(surf['tris']))]
 
-        # Remove the outliers
+        tri_curvs = np.asarray(tri_curvs, dtype=float)
+
         if remove_outliers:
             tri_curvs = remove_outlrs(tri_curvs)
 
-        # First check if the surface is flat
         if surf['flat'] or surf['mean_curv'] == 0:
-            my_curvs = [(0-min_val)/(max_val-min_val)] * len(surf['tris'])
-        else:
-            my_curvs = [(inverse_mult*curv-min_val)/(max_val-min_val) for curv in tri_curvs]
 
-        # Set the colors
-        tri_colors = [my_cmap(multi(_)) for _ in my_curvs]
+            my_curvs = np.full(len(surf['tris']), (0 - min_val) / (max_val - min_val))
+
+        else:
+
+            my_curvs = (inverse_mult * tri_curvs - min_val) / (max_val - min_val)
+
+        tri_colors = my_cmap(multi(my_curvs))
     elif color_scheme.lower() == "black":
         tri_colors = [(0, 0, 0) for _ in range(len(surf['tris']))]
     else:
