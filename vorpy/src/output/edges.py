@@ -7,8 +7,6 @@ from vorpy.src.output.colors import color_dict
 def write_edges(net, edges, file_name, color=None, directory=None, profile=True):
     """Write selected network edges to an OFF file."""
 
-    total_start = time.perf_counter()
-
     if directory is not None:
         os.chdir(directory)
 
@@ -37,15 +35,11 @@ def write_edges(net, edges, file_name, color=None, directory=None, profile=True)
     # Gather rows
     # ------------------------------------------------------------------
 
-    gather_start = time.perf_counter()
     edge_rows = [net.edges.iloc[ndx] for ndx in edges]
-    gather_time = time.perf_counter() - gather_start
 
     # ------------------------------------------------------------------
     # Generate/retrieve drawing geometry
     # ------------------------------------------------------------------
-
-    draw_start = time.perf_counter()
 
     edges_draw_points = []
     edges_draw_tris = []
@@ -70,8 +64,6 @@ def write_edges(net, edges, file_name, color=None, directory=None, profile=True)
         edges_draw_points.append(draw_points)
         edges_draw_tris.append(draw_tris)
 
-    draw_time = time.perf_counter() - draw_start
-
     # ------------------------------------------------------------------
     # Count output geometry
     # ------------------------------------------------------------------
@@ -80,8 +72,6 @@ def write_edges(net, edges, file_name, color=None, directory=None, profile=True)
 
     num_points = sum(len(points) for points in edges_draw_points)
     num_tris = sum(len(tris) for tris in edges_draw_tris)
-
-    count_time = time.perf_counter() - count_start
 
     # ------------------------------------------------------------------
     # Write OFF
@@ -94,7 +84,6 @@ def write_edges(net, edges, file_name, color=None, directory=None, profile=True)
         # Points
         # --------------------------------------------------------------
 
-        points_start = time.perf_counter()
         buffer = []
         chunk_size = 10000
 
@@ -114,13 +103,10 @@ def write_edges(net, edges, file_name, color=None, directory=None, profile=True)
             file.write(''.join(buffer))
             buffer.clear()
 
-        points_time = time.perf_counter() - points_start
-
         # --------------------------------------------------------------
         # Faces
         # --------------------------------------------------------------
 
-        faces_start = time.perf_counter()
         vertex_offset = 0
         buffer = []
 
@@ -142,22 +128,6 @@ def write_edges(net, edges, file_name, color=None, directory=None, profile=True)
         if buffer:
             file.write(''.join(buffer))
 
-        faces_time = time.perf_counter() - faces_start
-
-    total_time = time.perf_counter() - total_start
-
-    if profile:
-        print(
-            f"EDGE PROFILE | edges={len(edges):,} "
-            f"new={newly_drawn:,} cached={cached:,} "
-            f"points={num_points:,} tris={num_tris:,} | "
-            f"gather={gather_time:.3f}s "
-            f"draw={draw_time:.3f}s "
-            f"count={count_time:.3f}s "
-            f"points={points_time:.3f}s "
-            f"faces={faces_time:.3f}s "
-            f"total={total_time:.3f}s"
-        )
 
 
 def write_edges1(edges, file_name, color=None, directory=None):

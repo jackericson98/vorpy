@@ -1,5 +1,8 @@
 import os
 import sys
+import queue
+import threading
+import traceback
 from itertools import combinations
 from pathlib import Path
 
@@ -34,6 +37,9 @@ class VorPyGUI(tk.Tk):
         # Create a default system
         self.sys = System(simple=True, name="No System Chosen")
         self.ball_file = None
+
+        # Background solve thread
+        self.solve_thread = None
 
         # Set window title
         self.title("VorPy")
@@ -150,6 +156,13 @@ class VorPyGUI(tk.Tk):
         self.group_settings_frame = GroupsFrame(settings_frame, self, self.group_settings)
         self.group_settings_frame.pack(fill="both", expand=True)
 
+        # Run status
+        self.run_status = tk.StringVar(value="Ready")
+        status_label = ttk.Label(self, textvariable=self.run_status)
+        status_label.pack(pady=(5, 0))
+
+        self.after(100, self.update_run_status)
+
         # Run and Cancel Buttons
         button_frame = tk.Frame(self, pady=10)
         button_frame.pack()
@@ -183,6 +196,28 @@ class VorPyGUI(tk.Tk):
         run_button.pack(side="right", padx=5)
 
         ToolTip(run_button, "Solve Button\nSolves all groups in series with a \nprogress bar in the command line")
+
+    def queue_progress_update(self, state):
+        self.progress_queue.put(("progress", state))
+
+    def process_progress_queue(self):
+        try:
+            while True:
+                event, data = self.progress_queue.get_nowait()
+
+                if event == "progress":
+                    self.handle_progress_update(data)
+
+                elif event == "complete":
+                    self.handle_solve_complete()
+
+                elif event == "error":
+                    self.handle_solve_error(data)
+
+        except queue.Empty:
+            pass
+
+        self.after(50, self.process_progress_queue)
 
     def create_information_section(self, frame):
         self.system_frame = SystemFrame(self, frame)
@@ -633,7 +668,47 @@ class VorPyGUI(tk.Tk):
 
         return interface_pairs
 
+    def update_run_status(self):
+        elapsed = self.sys.get_run_time()
+
+        hours = int(elapsed // 3600)
+        minutes = int((elapsed % 3600) // 60)
+        seconds = elapsed % 60
+
+        if self.sys.run_start is None:
+            text = "Ready"
+        elif self.sys.run_active:
+            text = f"Run Time: {hours}:{minutes:02d}:{seconds:05.2f} | {self.sys.run_process}"
+        else:
+            text = f"Run Time: {hours}:{minutes:02d}:{seconds:05.2f} | {self.sys.run_process}"
+
+        self.run_status.set(text)
+
+        self.after(100, self.update_run_status)
+
     def run_program(self):
+        """Start the solve in a background thread."""
+
+        if self.solve_thread is not None and self.solve_thread.is_alive():
+            print("VorPy is already solving a system.")
+            return
+
+        self.sys.start_run()
+
+        self.solve_thread = threading.Thread(target=self._run_program_worker, daemon=True)
+        self.solve_thread.start()
+
+    def _run_program_worker(self):
+        try:
+            self._run_program()
+            self.sys.finish_run()
+        except Exception as e:
+            self.sys.run_active = False
+            self.sys.run_process = "Error"
+            print(f"\nVorPy solve failed: {e}")
+            raise
+
+    def _run_program(self):
         """
         Solve all groups without exporting
         """

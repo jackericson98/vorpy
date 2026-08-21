@@ -5,7 +5,7 @@ from vorpy.src.output.color_tris import color_tris
 
 
 def write_surfs(net, surfs, file_name, color=False, directory=None, concave_colors=False, ref_surfs=None,
-                universal_max=True, profile=True, chunk_size=10000):
+                universal_max=True, chunk_size=10000):
     """Export selected network surfaces to an OFF file."""
 
     total_start = time.perf_counter()
@@ -154,14 +154,6 @@ def write_surfs(net, surfs, file_name, color=False, directory=None, concave_colo
         faces_time = time.perf_counter() - faces_start
 
     total_time = time.perf_counter() - total_start
-
-    if profile:
-        print(
-            f"SURF PROFILE | surfaces={len(surfs):,} points={num_points:,} tris={num_tris:,} | "
-            f"gather={gather_time:.3f}s count={count_time:.3f}s curvature={curvature_time:.3f}s "
-            f"colors={color_time:.3f}s points={points_time:.3f}s faces={faces_time:.3f}s "
-            f"total={total_time:.3f}s"
-        )
 
 
 def write_surfs1(surfs, file_name, settings, color=False, directory=None, chunk_size=10000):

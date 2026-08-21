@@ -524,6 +524,8 @@ class Command:
     def create_groups(self):
         # Interface mode only needs group definitions; the Interface creates
         # the single network that will actually be solved.
+        print(self.sys.files['base_file'])
+        print(self.sys.balls)
         ggroup(self.sys, self.groups, self.settings_dict, make_net=not self.interface_mode)
     
     def run_exports(self):

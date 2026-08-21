@@ -1,5 +1,6 @@
 import time
 import numpy as np
+from itertools import combinations
 from vorpy.src.calculations import calc_dist
 from vorpy.src.calculations import get_time
 from vorpy.src.calculations import ndx_search
@@ -45,6 +46,10 @@ def _print_build_timings(timings, counts):
         print(f'Edge candidate visits: {counts["edge_candidates"]:,}')
     if counts.get('surface_candidates') is not None:
         print(f'Surface candidates:    {counts["surface_candidates"]:,}')
+    if counts.get('unique_surface_keys') is not None:
+        print(f'Unique surface keys:   {counts["unique_surface_keys"]:,}')
+    if counts.get('vertex_surface_candidates') is not None:
+        print(f'Vertex-surface keys:   {counts["vertex_surface_candidates"]:,}')
     print('=' * 70)
 
 
@@ -81,163 +86,127 @@ def belongs_to_group(ball_indices, group):
 ############################################## Doublets ################################################################
 
 
-def doublify(v_balls, v_locs, v_dubs, timings=None):
-    """
-    Construct edges associated with doublet vertices.
-
-    Doublet vertices represent two geometric locations defined by the same
-    four balls. Connecting vertices are assigned to the nearer doublet
-    location, and any remaining three-ball combinations form the internal
-    edges between the two doublet locations.
-
-    Parameters
-    ----------
-    v_balls : list
-        Four defining ball indices for each vertex.
-    v_locs : list
-        Vertex locations.
-    v_dubs : list
-        Doublet flags for each vertex.
-
-    Returns
-    -------
-    tuple
-        ``(e_balls, e_verts)`` containing edge-defining ball indices and
-        the vertex indices connected by each edge.
-    """
+def doublify(b_verts, v_balls, v_locs, v_dubs, timings=None, counts=None):
+    """Construct doublet edges while preserving duplicate 3-ball edge definitions."""
     timing_start = time.perf_counter()
     e_balls, e_verts, e_surfs = [], [], []
-    # Go through the doublets
-    for i in range(len(v_balls)):
+    doublet_candidate_visits = 0
 
-        # Skip the verts that aren't doublets
+    for i in range(len(v_balls)):
         if i >= len(v_balls) - 1 or v_dubs[i + 1] != 1:
             continue
 
-        ################################################ Create the outer edges ########################################
+        # Any vertex sharing exactly three balls with this doublet must belong to
+        # at least one of its four ball->vertex lists. Sorting reproduces the
+        # original full-network j iteration order without scanning every vertex.
+        candidates = set()
+        for ball in v_balls[i]:
+            candidates.update(b_verts[ball])
 
-        # Find all vertices that match edges with the doublet's balls
         con_verts = []
-        for j in range(len(v_balls)):
-            if len([0 for _ in v_balls[i] if _ in v_balls[j]]) == 3:
+        for j in sorted(candidates):
+            doublet_candidate_visits += 1
+            if len([0 for ball in v_balls[i] if ball in v_balls[j]]) == 3:
                 con_verts.append(j)
 
-        # Divide the connecting outer vertices between the two doublet vertices
         dub_verts, dub_dub_verts = [], []
         for j in con_verts:
-            # Decide between the two sides of the doublet for the outer vertex
             if calc_dist(np.array(v_locs[j]), np.array(v_locs[i])) < calc_dist(np.array(v_locs[j]), np.array(v_locs[i + 1])):
                 dub_verts.append(j)
             else:
                 dub_dub_verts.append(j)
 
+        # IMPORTANT: keep list insertion semantics here. Doublet topology can
+        # legitimately contain multiple edges with identical three-ball keys but
+        # different endpoint vertices, so these must NOT be collapsed in a dict.
         known_edges = []
-        # Create the edge objects for each of the vertices connected to the primary doublet vertex
         for j in dub_verts:
-            # Create the edge from the balls in both dub and vert and add it to the network and each vertex
-            edge_balls = [_ for _ in v_balls[i] if _ in v_balls[j]]
+            edge_balls = [ball for ball in v_balls[i] if ball in v_balls[j]]
             edge_ndx = ndx_search(e_balls, edge_balls)
             e_balls.insert(edge_ndx, edge_balls)
             e_verts.insert(edge_ndx, [i, j])
             e_surfs.insert(edge_ndx, [])
             known_edges.append(edge_balls)
 
-        # Create the edge objects for each of the vertices connected to the secondary doublet vertex
         for j in dub_dub_verts:
-            # Create the edge from the balls in both dub.doublet and vert and add it to the network and each vertex
-            edge_balls = [_ for _ in v_balls[i] if _ in v_balls[j]]
+            edge_balls = [ball for ball in v_balls[i] if ball in v_balls[j]]
             edge_ndx = ndx_search(e_balls, edge_balls)
             e_balls.insert(edge_ndx, edge_balls)
             e_verts.insert(edge_ndx, [i + 1, j])
             e_surfs.insert(edge_ndx, [])
             known_edges.append(edge_balls)
 
-        ########################################## Create the inner edges ##########################################
-
-        # Create a list of every edge possibility
         potential_edges = [[v_balls[i][k], v_balls[i][(k + 1) % 4], v_balls[i][(k + 2) % 4]] for k in range(4)]
         for ndx in potential_edges:
             ndx.sort()
 
-        # Gather the other combinations of balls and create the remaining inner balls
         inner_edges = [ndx for ndx in potential_edges if ndx not in known_edges]
-
-        # Add the edges to the network and the doublet vertices
         for edge in inner_edges:
             edge_ndx = ndx_search(e_balls, edge)
             e_balls.insert(edge_ndx, edge)
             e_verts.insert(edge_ndx, [i, i + 1])
-    # Return the partial lists
+
     _record_timing(timings, 'doublets', timing_start)
+    if counts is not None:
+        counts['doublet_candidates'] = doublet_candidate_visits
+        counts['doublet_edges'] = len(e_balls)
     return e_balls, e_verts
 
 
 def get_build_edges(b_verts, v_balls, v_locs, v_dubs, start_time, timings=None, counts=None):
-    """
-    Construct network edges from shared three-ball vertex definitions.
-
-    Doublet-specific edges are created first. Remaining edges are discovered
-    by finding pairs of vertices that share exactly three defining balls.
-
-    Parameters
-    ----------
-    b_verts : list
-        Vertex indices associated with each ball.
-    v_balls : list
-        Defining ball indices for each vertex.
-    v_locs : list
-        Vertex locations.
-    v_dubs : list
-        Doublet flags for each vertex.
-    start_time : float
-        Build start time used for progress reporting.
-
-    Returns
-    -------
-    tuple
-        ``(e_balls, e_verts)`` containing edge definitions and their vertices.
-    """
-    # Get the doublet edges
-    e_balls, e_verts = doublify(v_balls, v_locs, v_dubs, timings=timings)
-
+    """Construct regular edges from indexed 3-ball combinations while retaining exact doublet multiplicity."""
+    e_balls, e_verts = doublify(b_verts, v_balls, v_locs, v_dubs, timings=timings, counts=counts)
     regular_edge_start = time.perf_counter()
-    edge_candidate_visits = 0
 
-    # Go through the vertices in the network searching for potential edges
-    for i, vert1 in enumerate(v_balls):
-        # Print the time and process
-        the_time = time.perf_counter() - start_time
-        h, m, s = get_time(the_time)
-        print("\rRun Time = {}:{}:{:.2f} - Process: connecting network: {:.2f} %"
-              .format(int(h), int(m), round(s, 2), min(100.0, 100 * (0.5 * len(e_balls)) / (3 / 2 * len(v_balls)))),
-              end="")
+    # Index every vertex by each of its four possible 3-ball definitions. Store
+    # the fourth ball too: two vertices define a regular edge only when they share
+    # exactly three balls, not all four.
+    triple_index = {}
+    for vi, vert in enumerate(v_balls):
+        vert_set = set(vert)
+        for triple in combinations(sorted(vert), 3):
+            fourth = next(ball for ball in vert_set if ball not in triple)
+            triple_index.setdefault(triple, []).append((vi, fourth))
 
-        # If the vertex is a doublet it has its edges already, so skip
+    # Any key already produced by doublify must be considered existing exactly as
+    # in the original ndx_search check. We preserve all duplicate doublet entries
+    # in e_balls/e_verts; this set is only for regular-edge existence testing.
+    existing_keys = {tuple(edge) for edge in e_balls}
+    regular_edges = {}
+    regular_edge_keys = 0
+
+    # i order matches the original loop. For a given triple, the first candidate j
+    # with a different fourth ball is the first vertex that shares exactly 3 balls.
+    for i, vert in enumerate(v_balls):
         if v_dubs[i] == 1 or (i + 1 < len(v_dubs) and v_dubs[i + 1] == 1):
             continue
 
-        # Go through the balls in the vertex looking for shared balls
-        for ball in vert1:
-            # Go through the vertices in each ball
-            for j in b_verts[ball]:
-                edge_candidate_visits += 1
-                # Get the balls for vert2
-                vert2 = v_balls[j]
-                # Check the number of shared balls between vert1 and vert2
-                shared_balls = [_ for _ in vert1 if _ in vert2]
-                # Check if this edge is real
-                if len(shared_balls) == 3:
-                    # Get the index of the edge in the edge list
-                    edge_ndx = ndx_search(e_balls, shared_balls)
-                    # Check if we have found this edge before
-                    if edge_ndx >= len(e_balls) or e_balls[edge_ndx] != shared_balls:
-                        # Add the edges balls and the edges verts to their respective lists
-                        e_balls.insert(edge_ndx, shared_balls)
-                        e_verts.insert(edge_ndx, [i, j])
-    # Return the edge's balls and verts
+        vert_set = set(vert)
+        for triple in combinations(sorted(vert), 3):
+            regular_edge_keys += 1
+            if triple in existing_keys or triple in regular_edges:
+                continue
+
+            fourth_i = next(ball for ball in vert_set if ball not in triple)
+            for j, fourth_j in triple_index[triple]:
+                if fourth_j != fourth_i:
+                    regular_edges[triple] = [i, j]
+                    break
+
+    # Merge regular edges with the duplicate-preserving doublet lists, then sort
+    # by the 3-ball definition. Python's stable sort keeps duplicate doublet edges
+    # in their existing relative order.
+    combined = [(tuple(edge), verts) for edge, verts in zip(e_balls, e_verts)]
+    combined.extend((edge, verts) for edge, verts in regular_edges.items())
+    combined.sort(key=lambda item: item[0])
+    e_balls = [list(edge) for edge, _ in combined]
+    e_verts = [verts for _, verts in combined]
+
     _record_timing(timings, 'regular_edges', regular_edge_start)
     if counts is not None:
-        counts['edge_candidates'] = edge_candidate_visits
+        counts['edge_candidates'] = regular_edge_keys
+        counts['unique_edge_keys'] = len(triple_index)
+        counts['regular_edges'] = len(regular_edges)
     return e_balls, e_verts
 
 
@@ -264,132 +233,81 @@ def add_build_edges(num_balls, e_balls, num_verts, e_verts):
 
 def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, group=None,
                     interface=False, iface_grps=None, timings=None, counts=None):
-    """
-    Construct valid two-ball surfaces from the connected edge network.
-
-    Each three-ball edge defines three possible two-ball surfaces. Candidate
-    surfaces are retained only when their edge and vertex topology is complete.
-    Group networks retain surfaces containing at least one group ball, while
-    interface networks retain only surfaces spanning both interface groups.
-
-    Parameters
-    ----------
-    b_verts : list
-        Vertex indices associated with each ball.
-    b_edges : list
-        Edge indices associated with each ball.
-    v_balls : list
-        Defining ball indices for each vertex.
-    v_edges : list
-        Edge indices associated with each vertex.
-    e_balls : list
-        Three defining ball indices for each edge.
-    start_time : float
-        Build start time used for progress reporting.
-    group : collection, optional
-        Ball indices belonging to a normal group network.
-    interface : bool, optional
-        Whether the network represents an interface.
-    iface_grps : tuple, optional
-        Two ball-index collections defining the interface sides.
-
-    Returns
-    -------
-    tuple
-        ``(s_balls, s_verts, s_edges)`` describing surface definitions and
-        their associated vertices and edges.
-    """
+    """Construct surfaces from direct 2-ball topology indices while preserving original validity rules."""
     surface_start = time.perf_counter()
+
+    # Build each candidate surface's edge membership once. Enumerating e_balls
+    # in edge-index order preserves the same surf_edges order as the original
+    # b_edges scan. Duplicate doublet edges remain distinct because we store
+    # edge indices, not just three-ball keys.
+    surf_edge_map = {}
     surface_candidates = 0
-
-    # Set up the surface lists
-    s_balls, s_verts, s_edges = [], [], []
-
-    # Go through the edges in the network
-    for i, edge1 in enumerate(e_balls):
-
-        the_time = time.perf_counter() - start_time
-        h, m, s = get_time(the_time)
-        print("\rRun Time = {}:{}:{:.2f} - Process: connecting network: {:.2f} %"
-              .format(int(h), int(m), round(s, 2),
-                      min(100.0, 100 * (len(s_balls) + 0.5 * (len(e_balls))) / ((3 / 2) * len(v_balls)))), end="")
-        # Get the possible surfs from the edge's balls
-        test_surfs = [edge1[:2], edge1[1:], edge1[::2]]
-        # Go through each possible surface for the edge
-        for test_surf in test_surfs:
+    for edge_ndx, edge_balls in enumerate(e_balls):
+        for surf in combinations(edge_balls, 2):
             surface_candidates += 1
-            # Check if the surface is in the interface or not
-            if interface and not spans_interface(test_surf, iface_grps):
+            key = tuple(sorted(surf))
+            surf_edge_map.setdefault(key, []).append(edge_ndx)
+
+    # Build vertex membership for only surface keys that actually occur in the
+    # edge network. Enumerating vertices in index order preserves surf_verts
+    # ordering from the original b_verts scan.
+    surf_vert_map = {key: [] for key in surf_edge_map}
+    vertex_surface_candidates = 0
+    for vert_ndx, vert_balls in enumerate(v_balls):
+        for surf in combinations(vert_balls, 2):
+            vertex_surface_candidates += 1
+            key = tuple(sorted(surf))
+            if key in surf_vert_map:
+                surf_vert_map[key].append(vert_ndx)
+
+    s_balls, s_verts, s_edges = [], [], []
+    keys = sorted(surf_edge_map)
+    for n, key in enumerate(keys):
+        if n % 5000 == 0 and keys:
+            the_time = time.perf_counter() - start_time
+            h, m, s = get_time(the_time)
+            print("\rRun Time = {}:{}:{:.2f} - Process: connecting network: {:.2f} %"
+                  .format(int(h), int(m), round(s, 2), 100.0 * n / len(keys)), end="")
+
+        test_surf = list(key)
+        if interface and not spans_interface(test_surf, iface_grps):
+            continue
+        if not interface and group is not None and not belongs_to_group(test_surf, group):
+            continue
+
+        surf_edges = surf_edge_map[key]
+        surf_verts = surf_vert_map[key]
+        if len(surf_verts) != len(surf_edges):
+            continue
+
+        if interface:
+            surf_edge_set = set(surf_edges)
+            invalid_surface = False
+            for vert_ndx in surf_verts:
+                surface_degree = sum(edge_ndx in surf_edge_set for edge_ndx in v_edges[vert_ndx])
+                if surface_degree != 2:
+                    invalid_surface = True
+                    break
+            if invalid_surface:
                 continue
-            if not interface and group is not None and not belongs_to_group(test_surf, group):
+        else:
+            no_surf = False
+            for vert_ndx in surf_verts:
+                if len(v_edges[vert_ndx]) <= 2:
+                    no_surf = True
+                    break
+            if no_surf:
                 continue
 
-            # If the surface has been found before continue
-            surf_ndx = ndx_search(s_balls, test_surf)
-            # If the surface has been found before, continue
-            if len(s_balls) > surf_ndx and test_surf == s_balls[surf_ndx]:
-                continue
-            # Set up the surf edges and surf verts lists
-            surf_edges, surf_verts = [], []
-            # Go through the balls in the surface looking for edge candidates
-            for ball in test_surf:
-                # Get the ball's edges
-                for edge in b_edges[ball]:
-                    # Get the edges balls
-                    edge2 = e_balls[edge]
-                    # If the number of shared balls is 2 add the edge to the test surf's list of edges
-                    if len([_ for _ in edge2 if _ in test_surf]) == 2 and edge not in surf_edges:
-                        # Add the edge
-                        surf_edges.append(edge)
-                # Get the ball's vertices
-                for vert in b_verts[ball]:
-                    # Get the vertices balls
-                    vert2 = v_balls[vert]
-                    # If the number of shared balls is 2 add the edge to the test surf's list of edges
-                    if len([_ for _ in vert2 if _ in test_surf]) == 2 and vert not in surf_verts:
-                        # Add the edge
-                        surf_verts.append(vert)
-            # In order to be a true surface the number of edges need to be equal to the number of verts
-            if len(surf_verts) == len(surf_edges):
+        s_balls.append(test_surf)
+        s_edges.append(surf_edges)
+        s_verts.append(surf_verts)
 
-                if interface:
-                    # In an interface-only polygon, each surface vertex should
-                    # have exactly two edges belonging to this surface.
-                    surf_edge_set = set(surf_edges)
-
-                    invalid_surface = False
-
-                    for vert_ndx in surf_verts:
-                        surface_degree = sum(
-                            edge_ndx in surf_edge_set
-                            for edge_ndx in v_edges[vert_ndx]
-                        )
-
-                        if surface_degree != 2:
-                            invalid_surface = True
-                            break
-
-                    if invalid_surface:
-                        continue
-
-                else:
-                    # Existing complete-network requirement.
-                    no_surf = False
-
-                    for vert_ndx in surf_verts:
-                        if len(v_edges[vert_ndx]) <= 2:
-                            no_surf = True
-                            break
-
-                    if no_surf:
-                        continue
-
-                s_balls.insert(surf_ndx, test_surf)
-                s_edges.insert(surf_ndx, surf_edges)
-                s_verts.insert(surf_ndx, surf_verts)
     _record_timing(timings, 'surfaces', surface_start)
     if counts is not None:
         counts['surface_candidates'] = surface_candidates
+        counts['unique_surface_keys'] = len(surf_edge_map)
+        counts['vertex_surface_candidates'] = vertex_surface_candidates
     return s_balls, s_verts, s_edges
 
 

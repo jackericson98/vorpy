@@ -162,11 +162,3 @@ def get_layers(grp, max_layers=50, group_resids=True, build_surfs=True):
         layer_atom_sets.append(set())
 
         counter += 1
-    print(
-        f"LAYER PROFILE | layers={counter} "
-        f"atoms={sum(len(x) for x in grp.layer_atoms):,} "
-        f"surfs={sum(len(x) for x in grp.layer_surfs):,} "
-        f"edges={sum(len(x) for x in grp.layer_edges):,} "
-        f"verts={sum(len(x) for x in grp.layer_verts):,} "
-        f"time={time.perf_counter() - t0:.3f}s"
-    )

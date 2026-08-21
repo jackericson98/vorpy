@@ -1,5 +1,6 @@
 import os
 import time
+import threading
 from os import path
 from numpy import seterr
 from scipy.spatial import cKDTree
@@ -327,6 +328,12 @@ class System:
         self.gui = gui                      # GUI                 :   GUI Vorpy object that can be updated through sys
         self.print_actions = print_actions  # Print actions Bool  :   Tells the system to print or not
 
+        # Runtime/progress
+        self.run_start = None
+        self.run_active = False
+        self.run_process = ""
+        self.run_progress = 0.0
+
         # Set the files
         self.set_files(base_file=file, ball_file=balls_file, verts_file=verts_file, ndx_file=index_file,
                        net_file=network_file, file_dir=output_directory, frame_files=frame_files, root_dir=root_dir)
@@ -363,6 +370,28 @@ class System:
         self.files['root_dir'] = os.getcwd()
         # Set the output directory
         # self.set_output_directory()
+
+    def start_run(self):
+        self.run_start = time.perf_counter()
+        self.run_active = True
+        self.run_process = "Starting"
+        self.run_progress = 0.0
+
+    def finish_run(self):
+        self.run_active = False
+        self.run_process = "Complete"
+        self.run_progress = 100.0
+
+    def get_run_time(self):
+        if self.run_start is None:
+            return 0.0
+        return time.perf_counter() - self.run_start
+
+    def update_progress(self, process, progress=None):
+        self.run_process = process
+
+        if progress is not None:
+            self.run_progress = float(progress)
 
     def set_files(self, base_file=None, ball_file=None, verts_file=None, net_file=None, ndx_file=None, file_dir=None, 
                   frame_files=None, root_dir=None):
@@ -484,6 +513,7 @@ class System:
 
         # Read PDB file
         if self.files['base_file'][-3:] == "pdb":
+            print(self.files['base_file'])
             read_pdb(self)
 
         # Read CIF file
@@ -930,10 +960,16 @@ class System:
         #     )
         #
         # print("=== END INTERFACES TO BUILD ===\n")
-        if self.ifaces is None:
-            self.ifaces = []
+        num_interfaces = len(interface_pairs)
+        for i, (group1, group2) in enumerate(interface_pairs):
+            name1 = group1.name
+            name2 = group2.name if group2 is not None else "surrounding"
 
-        for group1, group2 in interface_pairs:
+            self.update_progress(
+                process=f'interface "{name1}" <-> "{name2}"',
+                progress=100.0 * i / num_interfaces,
+            )
+
             interface = Interface(
                 sys=self,
                 group1=group1,
@@ -993,4 +1029,4 @@ class System:
         The output directory must be set before calling this method.
         """
         # Export the system (/System/sys_funcs/output)
-        export_sys(self, all_=all_, pdb=pdb, alter_atoms_script=set_atoms, info=info, mol=mol, cif=cif, xyz=xyz, txt=txt)
+        export_sys(self, all_=all_, pdb=pdb, set_atoms=set_atoms, info=info, mol=mol, cif=cif, xyz=xyz, txt=txt)

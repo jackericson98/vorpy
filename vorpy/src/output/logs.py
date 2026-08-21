@@ -1,5 +1,4 @@
 import csv
-import time
 import os
 import numpy as np
 from datetime import datetime
@@ -38,22 +37,16 @@ def write_logs(group, net_name=None, round_to=None):
         net_name (str, optional): Additional identifier for the log file name
         round_to (int, optional): Number of decimal places to round numerical values to. Defaults to 3.
     """
-    import time
-
-    total_start = time.perf_counter()
 
     if round_to is None:
         round_to = group.sys.round_to
 
     net = group.net
-    net_name = '' if net_name is None else '_' + str(net_name)
     r = round_func(round_to)
 
     # ------------------------------------------------------------------
     # Setup
     # ------------------------------------------------------------------
-
-    setup_start = time.perf_counter()
 
     if "system_num" in net.balls.columns:
         sys_nums = [int(_) for _ in net.balls["system_num"].tolist()]
@@ -65,7 +58,6 @@ def write_logs(group, net_name=None, round_to=None):
     # Pull surface topology out of pandas once.
     surf_balls = net.surfs['balls'].tolist()
 
-    setup_time = time.perf_counter() - setup_start
 
     # ------------------------------------------------------------------
     # Write log
@@ -77,8 +69,6 @@ def write_logs(group, net_name=None, round_to=None):
         # ==============================================================
         # Build + group information
         # ==============================================================
-
-        info_start = time.perf_counter()
 
         lg_fl.writerow(["build informaiton"])
         lg_fl.writerow([
@@ -129,13 +119,9 @@ def write_logs(group, net_name=None, round_to=None):
             [[float(r(__)) for __ in _] for _ in group.spatial_moment]
         ])
 
-        info_time = time.perf_counter() - info_start
-
         # ==============================================================
         # Atoms
         # ==============================================================
-
-        atoms_start = time.perf_counter()
 
         lg_fl.writerow(["Atoms"])
         lg_fl.writerow([
@@ -213,13 +199,9 @@ def write_logs(group, net_name=None, round_to=None):
                 nbrs
             ])
 
-        atoms_time = time.perf_counter() - atoms_start
-
         # ==============================================================
         # Surfaces
         # ==============================================================
-
-        surfs_start = time.perf_counter()
 
         lg_fl.writerow(["Surfaces"])
         lg_fl.writerow([
@@ -248,13 +230,9 @@ def write_logs(group, net_name=None, round_to=None):
                 r(surf.overlap)
             ])
 
-        surfs_time = time.perf_counter() - surfs_start
-
         # ==============================================================
         # Edges
         # ==============================================================
-
-        edges_start = time.perf_counter()
 
         lg_fl.writerow(["Edges"])
         lg_fl.writerow(["Index", "Ball 1", "Ball 2", "Ball 3", "Length"])
@@ -270,13 +248,9 @@ def write_logs(group, net_name=None, round_to=None):
                 r(edge.length)
             ])
 
-        edges_time = time.perf_counter() - edges_start
-
         # ==============================================================
         # Vertices
         # ==============================================================
-
-        verts_start = time.perf_counter()
 
         lg_fl.writerow(["Vertices"])
         lg_fl.writerow([
@@ -299,19 +273,6 @@ def write_logs(group, net_name=None, round_to=None):
                 loc[2],
                 r(vert.rad)
             ])
-
-        verts_time = time.perf_counter() - verts_start
-
-    total_time = time.perf_counter() - total_start
-
-    print(
-        f"LOG PROFILE | atoms={len(net.balls):,} surfs={len(net.surfs):,} "
-        f"edges={len(net.edges):,} verts={len(net.verts):,} | "
-        f"setup={setup_time:.3f}s info={info_time:.3f}s "
-        f"atoms={atoms_time:.3f}s surfs={surfs_time:.3f}s "
-        f"edges={edges_time:.3f}s verts={verts_time:.3f}s "
-        f"total={total_time:.3f}s"
-    )
 
 
 

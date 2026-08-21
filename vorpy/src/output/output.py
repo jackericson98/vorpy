@@ -4,271 +4,415 @@ import shutil
 from vorpy.src.output import write_atom_cells
 
 
-def export_micro(sys):
-    """
-    Smallest output function. Outputs the information for the system, the groups, and the system's interfaces.
-    """
-    # Export the information for the system.
-    sys.exports(info=True)
-    # Loop through the groups in the system
-    for group in sys.group:
-        # Set up the group directory
-        if group.dir is None:
-            group.dir = sys.files['dir'] + '/' + group.name
-            os.makedirs(group.dir, exist_ok=True)
-        # Export the information for the group
-        group.exports(info=True)
-    # Loop through the interfaces for the groups.
-    if sys.ifaces is not None:
-        for iface in sys.ifaces:
-            # Export the interface information
-            iface.export(info=True)
+def _format_time(seconds):
+    """Format elapsed time as H:MM:SS.ss."""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    seconds = seconds % 60
+    return f"{hours}:{minutes:02d}:{seconds:05.2f}"
+
+def _format_time(seconds):
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    seconds = seconds % 60
+    return f"{hours}:{minutes}:{seconds:.2f}"
 
 
-def export_tiny(sys):
-    """
-    Second smallest of the exports. Outputs are:
+def _get_start_time(sys):
+    """Return the earliest network START timestamp for the current run."""
+    starts = []
 
-    System:
-        1. General Information
-        2. Set balls script for pymol
-        4. The PDB file
-        5. The balls file
-    Groups:
-        1. General Information
-        2. Shell for the group
-        3. Logs for the group
-    Interfaces:
-        1.
-    """
-    sys.exports(info=True, set_atoms=True, pbd=True, balls=True)
-    for group in sys.groups:
-        group.dir = sys.files['dir'] + '/' + group.name
-        os.makedirs(group.dir, exist_ok=True)
-        group.export(info=True, shell=True, logs=True)
-    if sys.ifaces is not None:
-        for iface in sys.ifaces:
-            iface.export(info=True)
+    if getattr(sys, 'net', None) is not None:
+        start = sys.net.metrics.get('START')
+        if start is not None:
+            starts.append(start)
 
-
-def benchmark_exports(group, repeats=3):
-    tests = {
-        "shell_surfs": {"shell_surfs": True},
-        "surfs": {"surfs": True},
-        "shell_edges": {"shell_edges": True},
-        "edges": {"edges": True},
-        "shell_verts": {"shell_verts": True},
-        "verts": {"verts": True},
-        "logs": {"logs": True},
-        "atoms": {"atoms": True},
-        "surr_atoms": {"surr_atoms": True},
-    }
-
-    net = group.net
-
-    print("\n" + "=" * 80)
-    print("EXPORT BENCHMARK")
-    print("=" * 80)
-    print(f"Atoms:    {len(net.balls):,}")
-    print(f"Surfaces: {len(net.surfs):,}")
-    print(f"Edges:    {len(net.edges):,}")
-    print(f"Vertices: {len(net.verts):,}")
-    print("=" * 80)
-
-    results = {}
-
-    for name, kwargs in tests.items():
-        times = []
-
-        for n in range(repeats):
-            start = time.perf_counter()
-            group.exports(**kwargs)
-            elapsed = time.perf_counter() - start
-            times.append(elapsed)
-
-            print(f"{name:<15} run {n + 1}: {elapsed:10.3f} s")
-
-        avg = sum(times) / len(times)
-        results[name] = avg
-
-    print("\n" + "=" * 80)
-    print("AVERAGE EXPORT TIMES")
-    print("=" * 80)
-
-    for name, elapsed in sorted(results.items(), key=lambda x: x[1], reverse=True):
-        print(f"{name:<15} {elapsed:10.3f} s  {elapsed / 60:8.2f} min")
-
-
-def timed_export(name, func, **kwargs):
-    start = time.perf_counter()
-    print(f"\nEXPORT: {name}...", flush=True)
-    func(**kwargs)
-    elapsed = time.perf_counter() - start
-    print(f"EXPORT: {name} finished in {elapsed:.3f} s ({elapsed / 60:.2f} min)", flush=True)
-    return elapsed
-
-
-def export_med(sys):
-    """Medium export with individual export timing."""
-    total_start = time.perf_counter()
-    timings = {}
-
-    # System exports
-    timings["system_pdb"] = timed_export("System PDB", sys.exports, pdb=True)
-    timings["system_set_atoms"] = timed_export("System set atoms", sys.exports, set_atoms=True)
-    timings["system_info"] = timed_export("System info", sys.exports, info=True)
-
-    # Group exports
     for group in sys.groups:
         if group.net is None:
             continue
 
-        net = group.net
-        print("\nNETWORK EXPORT SIZE")
-        print(f"Atoms:    {len(net.balls):,}")
-        print(f"Surfaces: {len(net.surfs):,}")
-        print(f"Edges:    {len(net.edges):,}")
-        print(f"Vertices: {len(net.verts):,}")
-        print("\nSURFACE GEOMETRY SIZE")
-        surf_points = sum(len(points) for points in net.surfs['points'])
-        surf_tris = sum(len(tris) for tris in net.surfs['tris'])
-        print(f"Surface points:    {surf_points:,}")
-        print(f"Surface triangles: {surf_tris:,}")
-        print(f"Points/surface:    {surf_points / len(net.surfs):,.1f}")
-        print(f"Tris/surface:      {surf_tris / len(net.surfs):,.1f}")
+        start = group.net.metrics.get('START')
+        if start is not None:
+            starts.append(start)
 
-        if group.dir is None or not os.path.exists(sys.files['dir'] + '/' + group.name):
-            group.dir = sys.files['dir'] + '/' + group.name
-            try:
-                os.makedirs(group.dir, exist_ok=True)
-            except FileNotFoundError:
-                group.dir = sys.files['dir'] + '/group'
+    if starts:
+        return min(starts)
 
-        print(f"\n{'=' * 70}\nEXPORTING GROUP: {group.name}\n{'=' * 70}")
+    return time.perf_counter()
 
-        exports = {
-            "shell_surfs": {"shell_surfs": True},
-            "surfs": {"surfs": True},
-            "shell_edges": {"shell_edges": True},
-            "edges": {"edges": True},
-            "shell_verts": {"shell_verts": True},
-            "verts": {"verts": True},
-            "logs": {"logs": True},
-            "atoms": {"atoms": True},
-            "surr_atoms": {"surr_atoms": True},
-        }
 
-        for name, kwargs in exports.items():
-            key = f"group_{group.name}_{name}"
-            timings[key] = timed_export(f"{group.name}: {name}", group.exports, **kwargs)
+class ExportProgress:
+    """Track export percentage while preserving total VorPy runtime."""
 
-    # Interface exports
-    if sys.ifaces is not None:
-        for iface in sys.ifaces:
-            iface_name = getattr(iface, "name", "interface")
-            print(f"\n{'=' * 70}\nEXPORTING INTERFACE: {iface_name}\n{'=' * 70}")
+    def __init__(self, total, start):
+        self.total = max(int(total), 1)
+        self.current = 0
+        self.start = start
 
-            exports = {
-                "surfs": {"surfs": True},
-                "atoms": {"atoms": True},
-                "edges": {"edges": True},
-                "logs": {"logs": True},
-                "verts": {"verts": True},
-                "info": {"info": True},
-            }
+    def show(self, name=None):
+        percent = 100.0 * self.current / self.total
+        elapsed = _format_time(time.perf_counter() - self.start)
+        suffix = f" - {name}" if name else ""
 
-            for name, kwargs in exports.items():
-                key = f"interface_{iface_name}_{name}"
-                timings[key] = timed_export(f"{iface_name}: {name}", iface.export, **kwargs)
+        # Clear previous progress line, then replace it.
+        print("\r" + " " * 120, end="")
+        print("\r", end="")
+        print(f"Run Time = {elapsed} - Process: exporting: {percent:.2f} %{suffix}", end="", flush=True)
 
-    total = time.perf_counter() - total_start
+    def step(self):
+        self.current += 1
 
-    print(f"\n{'=' * 70}")
-    print("EXPORT TIMING SUMMARY")
-    print(f"{'=' * 70}")
+    def finish(self):
+        elapsed = _format_time(time.perf_counter() - self.start)
 
-    for name, elapsed in sorted(timings.items(), key=lambda x: x[1], reverse=True):
-        print(f"{elapsed:12.3f} s  {elapsed / 60:9.2f} min  {name}")
+        print("\r" + " " * 120, end="")
+        print("\r", end="")
+        print(f"\rRun Time = {elapsed} - Process: exporting: 100.00 %", end="", flush=True)
 
-    print(f"{'-' * 70}")
-    print(f"{total:12.3f} s  {total / 60:9.2f} min  TOTAL")
+
+def _run_export(progress, name, func, **kwargs):
+    """Run one export operation and update the progress display."""
+    progress.show(name)
+    func(**kwargs)
+    progress.step()
+
+
+def _set_group_directory(sys, group):
+    """Ensure the group's output directory exists."""
+    group_dir = os.path.join(sys.files['dir'], group.name)
+
+    if group.dir is None or not os.path.exists(group_dir):
+        group.dir = group_dir
+        try:
+            os.makedirs(group.dir, exist_ok=True)
+        except FileNotFoundError:
+            group.dir = os.path.join(sys.files['dir'], 'group')
+            os.makedirs(group.dir, exist_ok=True)
+
+
+def _move_vert_file(sys, group):
+    """Move generated vertex text output into the group directory."""
+    vert_file = group.settings['net_type'] + '_verts.txt'
+    source = os.path.join(sys.files['dir'], vert_file)
+    destination = os.path.join(group.dir, vert_file)
+
+    if os.path.exists(source) and not os.path.exists(destination):
+        shutil.move(source, destination)
+
+
+def export_micro(sys):
+    """
+    Smallest export.
+
+    System:
+        - Information
+
+    Groups:
+        - Information
+
+    Interfaces:
+        - Information
+    """
+
+    groups = list(sys.groups)
+    ifaces = [] if sys.ifaces is None else list(sys.ifaces)
+
+    progress = ExportProgress(1 + len(groups) + len(ifaces), _get_start_time(sys))
+
+    _run_export(progress, "system info", sys.exports, info=True)
+
+    for group in groups:
+        _set_group_directory(sys, group)
+        _run_export(progress, f"{group.name}: info", group.exports, info=True)
+
+    for iface in ifaces:
+        name = getattr(iface, 'name', 'interface')
+        _run_export(progress, f"{name}: info", iface.export, info=True)
+
+    progress.finish()
+
+
+def export_tiny(sys):
+    """
+    Small export.
+
+    System:
+        - Information
+        - PDB
+        - PyMOL atom script
+
+    Groups:
+        - Information
+        - Shell surfaces
+        - Logs
+
+    Interfaces:
+        - Information
+    """
+
+    groups = [group for group in sys.groups if group.net is not None]
+    ifaces = [] if sys.ifaces is None else list(sys.ifaces)
+
+    # 3 system + 3/group + 1/interface
+    progress = ExportProgress(3 + 3 * len(groups) + len(ifaces), _get_start_time(sys))
+
+    _run_export(progress, "system info", sys.exports, info=True)
+    _run_export(progress, "system PDB", sys.exports, pdb=True)
+    _run_export(progress, "system PyMOL atoms", sys.exports, set_atoms=True)
+
+    for group in groups:
+        _set_group_directory(sys, group)
+
+        _run_export(progress, f"{group.name}: info", group.exports, info=True)
+        _run_export(progress, f"{group.name}: shell surfaces", group.exports, shell_surfs=True)
+        _run_export(progress, f"{group.name}: logs", group.exports, logs=True)
+
+    for iface in ifaces:
+        name = getattr(iface, 'name', 'interface')
+        _run_export(progress, f"{name}: info", iface.export, info=True)
+
+    progress.finish()
+
+
+def export_med(sys):
+    """
+    Medium export.
+
+    System:
+        - PDB
+        - PyMOL atom script
+        - Information
+
+    Groups:
+        - Shell surfaces
+        - Surfaces
+        - Shell edges
+        - Edges
+        - Shell vertices
+        - Vertices
+        - Logs
+        - Atoms
+        - Surrounding atoms
+
+    Interfaces:
+        - Surfaces
+        - Atoms
+        - Edges
+        - Logs
+        - Vertices
+        - Information
+    """
+
+    groups = [group for group in sys.groups if group.net is not None]
+    ifaces = [] if sys.ifaces is None else list(sys.ifaces)
+
+    # 3 system + 9/group + 6/interface
+    progress = ExportProgress(3 + 9 * len(groups) + 6 * len(ifaces), _get_start_time(sys))
+
+    _run_export(progress, "system PDB", sys.exports, pdb=True)
+    _run_export(progress, "system PyMOL atoms", sys.exports, set_atoms=True)
+    _run_export(progress, "system info", sys.exports, info=True)
+
+    for group in groups:
+        _set_group_directory(sys, group)
+
+        _run_export(progress, f"{group.name}: shell surfaces", group.exports, shell_surfs=True)
+        _run_export(progress, f"{group.name}: surfaces", group.exports, surfs=True)
+        _run_export(progress, f"{group.name}: shell edges", group.exports, shell_edges=True)
+        _run_export(progress, f"{group.name}: edges", group.exports, edges=True)
+        _run_export(progress, f"{group.name}: shell vertices", group.exports, shell_verts=True)
+        _run_export(progress, f"{group.name}: vertices", group.exports, verts=True)
+        _run_export(progress, f"{group.name}: logs", group.exports, logs=True)
+        _run_export(progress, f"{group.name}: atoms", group.exports, atoms=True)
+        _run_export(progress, f"{group.name}: surrounding atoms", group.exports, surr_atoms=True)
+
+    for iface in ifaces:
+        name = getattr(iface, 'name', 'interface')
+
+        _run_export(progress, f"{name}: surfaces", iface.export, surfs=True)
+        _run_export(progress, f"{name}: atoms", iface.export, atoms=True)
+        _run_export(progress, f"{name}: edges", iface.export, edges=True)
+        _run_export(progress, f"{name}: logs", iface.export, logs=True)
+        _run_export(progress, f"{name}: vertices", iface.export, verts=True)
+        _run_export(progress, f"{name}: info", iface.export, info=True)
+
+    progress.finish()
 
 
 def export_large(sys):
     """
-    Large group exports. Exports the basic system files and the shell vertices, the shell surfaces, the information,
-    the edges, the vertices, the atosm the surrounding atoms, the logs, the atom surfaces, the atom edges, and the
-    atom vertices for each group
+    Large export.
+
+    System:
+        - PDB
+        - PyMOL atom script
+        - Information
+
+    Groups:
+        - Shell vertices
+        - Shell edges
+        - Shell surfaces
+        - Information
+        - Edges
+        - Vertices
+        - Atoms
+        - Surrounding atoms
+        - Logs
+        - Atom surfaces
+        - Atom edges
+        - Atom vertices
+
+    Interfaces:
+        - Balls
+        - Surfaces
+        - Edges
+        - Vertices
+        - Information
     """
-    # Export the system exports
-    sys.exports(pdb=True, set_atoms=True, info=True)
-    # Loop through the groups and export the listed items
-    for group in sys.groups:
-        # Set and make the group directory
-        if group.dir is None or not os.path.exists(sys.files['dir'] + '/' + group.name):
-            group.dir = sys.files['dir'] + '/' + group.name
-            os.makedirs(group.dir, exist_ok=True)
-        # Export the group exports
-        group.exports(shell_verts=True, shell_edges=True, shell_surfs=True, info=True, edges=True, verts=True,
-                      atoms=True, surr_atoms=True, logs=True, atom_surfs=True, atom_edges=True, atom_verts=True)
-        # Check to see if the verts are in the system directory and if so move them to the group folder
-        if os.path.exists(sys.files['dir'] + '/' + group.settings['net_type'] + '_verts.txt'):
-            shutil.move(sys.files['dir'] + '/' + group.settings['net_type'] + '_verts.txt',
-                        group.dir + '/' + group.settings['net_type'] + '_verts.txt')
-    # Export the interfaces
-    if sys.ifaces is not None:
-        for iface in sys.ifaces:
-            iface.export(balls=True, surfs=True, edges=True, verts=True, info=True)
+
+    groups = [group for group in sys.groups if group.net is not None]
+    ifaces = [] if sys.ifaces is None else list(sys.ifaces)
+
+    # 3 system + 12/group + 5/interface
+    progress = ExportProgress(3 + 9 * len(groups) + 6 * len(ifaces), _get_start_time(sys))
+
+    _run_export(progress, "system PDB", sys.exports, pdb=True)
+    _run_export(progress, "system PyMOL atoms", sys.exports, set_atoms=True)
+    _run_export(progress, "system info", sys.exports, info=True)
+
+    for group in groups:
+        _set_group_directory(sys, group)
+
+        _run_export(progress, f"{group.name}: shell vertices", group.exports, shell_verts=True)
+        _run_export(progress, f"{group.name}: shell edges", group.exports, shell_edges=True)
+        _run_export(progress, f"{group.name}: shell surfaces", group.exports, shell_surfs=True)
+        _run_export(progress, f"{group.name}: info", group.exports, info=True)
+        _run_export(progress, f"{group.name}: edges", group.exports, edges=True)
+        _run_export(progress, f"{group.name}: vertices", group.exports, verts=True)
+        _run_export(progress, f"{group.name}: atoms", group.exports, atoms=True)
+        _run_export(progress, f"{group.name}: surrounding atoms", group.exports, surr_atoms=True)
+        _run_export(progress, f"{group.name}: logs", group.exports, logs=True)
+        _run_export(progress, f"{group.name}: atom surfaces", group.exports, atom_surfs=True)
+        _run_export(progress, f"{group.name}: atom edges", group.exports, atom_edges=True)
+        _run_export(progress, f"{group.name}: atom vertices", group.exports, atom_verts=True)
+
+        _move_vert_file(sys, group)
+
+    for iface in ifaces:
+        name = getattr(iface, 'name', 'interface')
+
+        _run_export(progress, f"{name}: balls", iface.export, balls=True)
+        _run_export(progress, f"{name}: surfaces", iface.export, surfs=True)
+        _run_export(progress, f"{name}: edges", iface.export, edges=True)
+        _run_export(progress, f"{name}: vertices", iface.export, verts=True)
+        _run_export(progress, f"{name}: info", iface.export, info=True)
+
+    progress.finish()
 
 
 def export_all(sys):
     """
-    Export all. Exports everything there is to export and makes a massive comprehensive set of files that will take a
-    lot of space
-    """
-    # Export the system stuff
-    sys.exports(pdb=True, info=True, set_atoms=True)
-    # For each group in the system export the
-    for group in sys.groups:
-        # Set and make the group directory
-        if group.dir is None or not os.path.exists(sys.files['dir'] + '/' + group.name):
-            group.dir = sys.files['dir'] + '/' + group.name
-            os.makedirs(group.dir, exist_ok=True)
-        group.dir = sys.files['dir'] + '/' + group.name
-        os.makedirs(group.dir, exist_ok=True)
-        group.exports(atoms=True, shell_surfs=True, surfs=True, info=True, ext_atoms=True, sep_surfs=True, sep_edges=True,
-                      sep_verts=True, verts=True, edges=True, surr_atoms=True, logs=True)
+    Export all supported outputs.
 
-        # Check to see if the verts are in the system directory and if so move them to the group folder
-        if os.path.exists(sys.files['dir'] + '/' + group.settings['net_type'] + '_verts.txt'):
-            shutil.move(sys.files['dir'] + '/' + group.settings['net_type'] + '_verts.txt',
-                        group.dir + '/' + group.settings['net_type'] + '_verts.txt')
-    # Make the
-    if sys.ifaces is not None:
-        for iface in sys.ifaces:
-            iface.export(all=True)
+    Operations are called individually so the user receives progress
+    throughout long exports.
+    """
+
+    groups = [group for group in sys.groups if group.net is not None]
+    ifaces = [] if sys.ifaces is None else list(sys.ifaces)
+
+    group_exports = [
+        ("atoms", {"atoms": True}),
+        ("shell surfaces", {"shell_surfs": True}),
+        ("surfaces", {"surfs": True}),
+        ("separate surfaces", {"sep_surfs": True}),
+        ("shell edges", {"shell_edges": True}),
+        ("edges", {"edges": True}),
+        ("separate edges", {"sep_edges": True}),
+        ("shell vertices", {"shell_verts": True}),
+        ("vertices", {"verts": True}),
+        ("separate vertices", {"sep_verts": True}),
+        ("surrounding atoms", {"surr_atoms": True}),
+        ("external atoms", {"ext_atoms": True}),
+        ("logs", {"logs": True}),
+        ("info", {"info": True}),
+        ("atom surfaces", {"atom_surfs": True}),
+        ("atom edges", {"atom_edges": True}),
+        ("atom vertices", {"atom_verts": True}),
+    ]
+
+    interface_exports = [
+        ("balls", {"balls": True}),
+        ("surfaces", {"surfs": True}),
+        ("atoms", {"atoms": True}),
+        ("edges", {"edges": True}),
+        ("logs", {"logs": True}),
+        ("vertices", {"verts": True}),
+        ("info", {"info": True}),
+    ]
+
+    total = 3 + len(group_exports) * len(groups) + len(interface_exports) * len(ifaces)
+    progress = ExportProgress(total, _get_start_time(sys))
+
+    _run_export(progress, "system PDB", sys.exports, pdb=True)
+    _run_export(progress, "system PyMOL atoms", sys.exports, set_atoms=True)
+    _run_export(progress, "system info", sys.exports, info=True)
+
+    for group in groups:
+        _set_group_directory(sys, group)
+
+        for name, kwargs in group_exports:
+            _run_export(progress, f"{group.name}: {name}", group.exports, **kwargs)
+
+        _move_vert_file(sys, group)
+
+    for iface in ifaces:
+        name = getattr(iface, 'name', 'interface')
+
+        for export_name, kwargs in interface_exports:
+            _run_export(progress, f"{name}: {export_name}", iface.export, **kwargs)
+
+    progress.finish()
 
 
 def other_exports(sys, usr_npt):
-    """
+    """Run a user-requested standalone export."""
 
-    :param sys:
-    :param usr_npt:
-    :return:
-    """
-    # If the first word is atom
-    if usr_npt.lower() in {"a", "atoms"}:
-        write_atom_cells(sys.net.atoms['num'], sys.files['dir'])
-    # If the first word is logs
-    elif usr_npt.lower() in {'logs', 'lgs'}:
-        for group in sys.groups:
-            group.exports(logs=True)
-        sys.exports(pdb=True, set_atoms=True)
-    # If the first word is shell
-    elif usr_npt.lower() in {'shell', 'shl'}:
-        for grp in sys.groups:
-            grp.exports(shell_surfs=True)
-    # If the first word is network
-    elif usr_npt.lower() in {'net', 'network'}:
-        sys.exports(network=True)
+    option = usr_npt.lower()
 
+    if option in {"a", "atoms"}:
+        progress = ExportProgress(1, _get_start_time(sys))
+
+        _run_export(
+            progress,
+            "atom cells",
+            write_atom_cells,
+            net=sys.net,
+            atoms=list(range(len(sys.net.balls))),
+            directory=sys.files['dir']
+        )
+
+        progress.finish()
+
+    elif option in {'logs', 'lgs'}:
+        groups = [group for group in sys.groups if group.net is not None]
+        progress = ExportProgress(len(groups) + 2, _get_start_time(sys))
+
+        for group in groups:
+            _set_group_directory(sys, group)
+            _run_export(progress, f"{group.name}: logs", group.exports, logs=True)
+
+        _run_export(progress, "system PDB", sys.exports, pdb=True)
+        _run_export(progress, "system PyMOL atoms", sys.exports, set_atoms=True)
+
+        progress.finish()
+
+    elif option in {'shell', 'shl'}:
+        groups = [group for group in sys.groups if group.net is not None]
+        progress = ExportProgress(len(groups), _get_start_time(sys))
+
+        for group in groups:
+            _set_group_directory(sys, group)
+            _run_export(progress, f"{group.name}: shell surfaces", group.exports, shell_surfs=True)
+
+        progress.finish()

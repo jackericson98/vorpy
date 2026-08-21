@@ -4,7 +4,7 @@ from vorpy.src.output.pdb import write_pdb
 from vorpy.src.output.set_pymol_atoms import set_pymol_atoms
 
 
-def export_sys(sys, all_=False, pdb=False, alter_atoms_script=False, info=False, mol=False, cif=False, xyz=False,
+def export_sys(sys, all_=False, pdb=False, set_atoms=False, info=False, mol=False, cif=False, xyz=False,
                txt=False, print_output=False):
     """
     Manages system output operations and directory preparation.
@@ -22,7 +22,7 @@ def export_sys(sys, all_=False, pdb=False, alter_atoms_script=False, info=False,
     :param sys: System object containing the data to be exported
     :param all_: Boolean flag to enable all export options
     :param pdb: Boolean flag to enable PDB file export
-    :param alter_atoms_script: Boolean flag to enable PyMOL atom script generation
+    :param set_atoms: Boolean flag to enable PyMOL atom script generation
     :param info: Boolean flag to enable system information export
     :param mol: Boolean flag to enable MOL file export
     :param cif: Boolean flag to enable CIF file export
@@ -42,7 +42,7 @@ def export_sys(sys, all_=False, pdb=False, alter_atoms_script=False, info=False,
         write_pdb([_ for i, _ in sys.balls.iterrows()], sys.name, sys)
         os.chdir(sys.files['dir'])
     # Write the alter atoms script
-    if alter_atoms_script or all_:
+    if set_atoms or all_:
         os.chdir(sys.files['dir'])
         set_pymol_atoms(sys)
     # Print the output directory
