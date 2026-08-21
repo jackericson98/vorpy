@@ -5,6 +5,49 @@ from vorpy.src.calculations import get_time
 from vorpy.src.calculations import ndx_search
 
 
+def _record_timing(timings, name, start):
+    """Add elapsed wall time to a timing bucket."""
+    if timings is not None:
+        timings[name] = timings.get(name, 0.0) + (time.perf_counter() - start)
+
+
+def _print_build_timings(timings, counts):
+    """Print a compact timing summary for network construction."""
+    total = timings.get('total', 0.0)
+    phases = [
+        ('Setup', 'setup'),
+        ('Ball -> vertex index', 'ball_vertex_index'),
+        ('Doublet edges', 'doublets'),
+        ('Regular edge search', 'regular_edges'),
+        ('Edge filtering', 'edge_filter'),
+        ('Edge adjacency', 'edge_adjacency'),
+        ('Surface construction', 'surfaces'),
+        ('Interface validation', 'validation'),
+        ('Surface adjacency', 'surface_adjacency'),
+        ('Packaging', 'packaging'),
+    ]
+    print('\n\n' + '=' * 70)
+    print('NETWORK BUILD TIMING')
+    print('=' * 70)
+    for label, key in phases:
+        seconds = timings.get(key, 0.0)
+        pct = 100.0 * seconds / total if total else 0.0
+        print(f'{label:<24} {seconds:>10.4f} s  {pct:>6.2f} %')
+    print('-' * 70)
+    print(f'{"TOTAL":<24} {total:>10.4f} s  {100.0 if total else 0.0:>6.2f} %')
+    print('\nNETWORK BUILD SIZE')
+    print(f'Balls:     {counts.get("balls", 0):,}')
+    print(f'Vertices:  {counts.get("verts", 0):,}')
+    print(f'Doublets:  {counts.get("doublets", 0):,}')
+    print(f'Edges:     {counts.get("edges", 0):,}')
+    print(f'Surfaces:  {counts.get("surfs", 0):,}')
+    if counts.get('edge_candidates') is not None:
+        print(f'Edge candidate visits: {counts["edge_candidates"]:,}')
+    if counts.get('surface_candidates') is not None:
+        print(f'Surface candidates:    {counts["surface_candidates"]:,}')
+    print('=' * 70)
+
+
 def spans_interface(ball_indices, iface_grps):
     """
     Return True when ball_indices contains at least one defining ball from
@@ -38,7 +81,7 @@ def belongs_to_group(ball_indices, group):
 ############################################## Doublets ################################################################
 
 
-def doublify(v_balls, v_locs, v_dubs):
+def doublify(v_balls, v_locs, v_dubs, timings=None):
     """
     Construct edges associated with doublet vertices.
 
@@ -62,6 +105,7 @@ def doublify(v_balls, v_locs, v_dubs):
         ``(e_balls, e_verts)`` containing edge-defining ball indices and
         the vertex indices connected by each edge.
     """
+    timing_start = time.perf_counter()
     e_balls, e_verts, e_surfs = [], [], []
     # Go through the doublets
     for i in range(len(v_balls)):
@@ -124,10 +168,11 @@ def doublify(v_balls, v_locs, v_dubs):
             e_balls.insert(edge_ndx, edge)
             e_verts.insert(edge_ndx, [i, i + 1])
     # Return the partial lists
+    _record_timing(timings, 'doublets', timing_start)
     return e_balls, e_verts
 
 
-def get_build_edges(b_verts, v_balls, v_locs, v_dubs, start_time):
+def get_build_edges(b_verts, v_balls, v_locs, v_dubs, start_time, timings=None, counts=None):
     """
     Construct network edges from shared three-ball vertex definitions.
 
@@ -153,7 +198,10 @@ def get_build_edges(b_verts, v_balls, v_locs, v_dubs, start_time):
         ``(e_balls, e_verts)`` containing edge definitions and their vertices.
     """
     # Get the doublet edges
-    e_balls, e_verts = doublify(v_balls, v_locs, v_dubs)
+    e_balls, e_verts = doublify(v_balls, v_locs, v_dubs, timings=timings)
+
+    regular_edge_start = time.perf_counter()
+    edge_candidate_visits = 0
 
     # Go through the vertices in the network searching for potential edges
     for i, vert1 in enumerate(v_balls):
@@ -172,6 +220,7 @@ def get_build_edges(b_verts, v_balls, v_locs, v_dubs, start_time):
         for ball in vert1:
             # Go through the vertices in each ball
             for j in b_verts[ball]:
+                edge_candidate_visits += 1
                 # Get the balls for vert2
                 vert2 = v_balls[j]
                 # Check the number of shared balls between vert1 and vert2
@@ -186,6 +235,9 @@ def get_build_edges(b_verts, v_balls, v_locs, v_dubs, start_time):
                         e_balls.insert(edge_ndx, shared_balls)
                         e_verts.insert(edge_ndx, [i, j])
     # Return the edge's balls and verts
+    _record_timing(timings, 'regular_edges', regular_edge_start)
+    if counts is not None:
+        counts['edge_candidates'] = edge_candidate_visits
     return e_balls, e_verts
 
 
@@ -211,7 +263,7 @@ def add_build_edges(num_balls, e_balls, num_verts, e_verts):
 
 
 def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, group=None,
-                    interface=False, iface_grps=None):
+                    interface=False, iface_grps=None, timings=None, counts=None):
     """
     Construct valid two-ball surfaces from the connected edge network.
 
@@ -247,6 +299,9 @@ def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, gro
         ``(s_balls, s_verts, s_edges)`` describing surface definitions and
         their associated vertices and edges.
     """
+    surface_start = time.perf_counter()
+    surface_candidates = 0
+
     # Set up the surface lists
     s_balls, s_verts, s_edges = [], [], []
 
@@ -262,6 +317,7 @@ def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, gro
         test_surfs = [edge1[:2], edge1[1:], edge1[::2]]
         # Go through each possible surface for the edge
         for test_surf in test_surfs:
+            surface_candidates += 1
             # Check if the surface is in the interface or not
             if interface and not spans_interface(test_surf, iface_grps):
                 continue
@@ -331,6 +387,9 @@ def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, gro
                 s_balls.insert(surf_ndx, test_surf)
                 s_edges.insert(surf_ndx, surf_edges)
                 s_verts.insert(surf_ndx, surf_verts)
+    _record_timing(timings, 'surfaces', surface_start)
+    if counts is not None:
+        counts['surface_candidates'] = surface_candidates
     return s_balls, s_verts, s_edges
 
 
@@ -399,87 +458,82 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time,
         Dictionaries containing ball, vertex, edge, and surface adjacency data.
     """
 
+    build_start = time.perf_counter()
+    timings = {}
+    counts = {'balls': num_balls, 'verts': len(v_balls), 'doublets': sum(1 for dub in v_dubs if dub == 1)}
+
+    setup_start = time.perf_counter()
     if group is not None:
         group = set(group)
 
     if interface and iface_grps is None:
-        raise ValueError(
-            "Interface network construction requires iface_grps."
-        )
+        raise ValueError("Interface network construction requires iface_grps.")
 
     if iface_grps is not None:
-        iface_grps = tuple(
-            set(group_indices)
-            for group_indices in iface_grps
-        )
-
+        iface_grps = tuple(set(group_indices) for group_indices in iface_grps)
         overlap = iface_grps[0] & iface_grps[1]
-
         if overlap:
-            raise ValueError(
-                f"Interface groups overlap by {len(overlap)} balls."
-            )
+            raise ValueError(f"Interface groups overlap by {len(overlap)} balls.")
+    _record_timing(timings, 'setup', setup_start)
 
-    # Create the lists
+    # Create the ball -> vertex index.
+    ball_vertex_start = time.perf_counter()
     b_verts, b_edges = [[] for _ in range(num_balls)], [[] for _ in range(num_balls)]
-
-    # Add the vertices to the balls
     for i, ndx in enumerate(v_balls):
         for j in ndx:
             b_verts[j].append(i)
+    _record_timing(timings, 'ball_vertex_index', ball_vertex_start)
 
     ################################################# Create the edges #################################################
 
-    # Fill in the doublets and set their outer edges
-    e_balls, e_verts = get_build_edges(b_verts, v_balls, v_locs, v_dubs, my_time)
+    # Fill in the doublets and regular edges.
+    e_balls, e_verts = get_build_edges(b_verts, v_balls, v_locs, v_dubs, my_time, timings=timings, counts=counts)
 
+    edge_filter_start = time.perf_counter()
     if interface:
-        retained_edges = [
-            (edge_balls, edge_verts)
-            for edge_balls, edge_verts in zip(e_balls, e_verts)
-            if spans_interface(edge_balls, iface_grps)
-        ]
+        retained_edges = [(edge_balls, edge_verts) for edge_balls, edge_verts in zip(e_balls, e_verts)
+                          if spans_interface(edge_balls, iface_grps)]
         e_balls = [edge_balls for edge_balls, _ in retained_edges]
         e_verts = [edge_verts for _, edge_verts in retained_edges]
-
     elif group is not None:
-        retained_edges = [
-            (edge_balls, edge_verts)
-            for edge_balls, edge_verts in zip(e_balls, e_verts)
-            if belongs_to_group(edge_balls, group)
-        ]
+        retained_edges = [(edge_balls, edge_verts) for edge_balls, edge_verts in zip(e_balls, e_verts)
+                          if belongs_to_group(edge_balls, group)]
         e_balls = [edge_balls for edge_balls, _ in retained_edges]
         e_verts = [edge_verts for _, edge_verts in retained_edges]
+    _record_timing(timings, 'edge_filter', edge_filter_start)
+    counts['edges'] = len(e_balls)
 
-    # Add the edges to their balls and vertices
+    edge_adjacency_start = time.perf_counter()
     b_edges, v_edges = add_build_edges(num_balls, e_balls, len(v_balls), e_verts)
+    _record_timing(timings, 'edge_adjacency', edge_adjacency_start)
 
     ################################################### Create the surfaces ############################################
 
-    # Get the surfaces
     s_balls, s_verts, s_edges = get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, my_time, group=group,
-                                                interface=interface, iface_grps=iface_grps)
+                                                interface=interface, iface_grps=iface_grps, timings=timings, counts=counts)
+    counts['surfs'] = len(s_balls)
 
+    validation_start = time.perf_counter()
     if interface:
         invalid_edges = [edge_balls for edge_balls in e_balls if not spans_interface(edge_balls, iface_grps)]
-
         invalid_surfs = [surf_balls for surf_balls in s_balls if not spans_interface(surf_balls, iface_grps)]
-
         if invalid_edges or invalid_surfs:
-            raise RuntimeError(
-                "Interface topology validation failed.\n"
-                f"Invalid edges: {len(invalid_edges)}\n"
-                f"Invalid surfaces: {len(invalid_surfs)}"
-            )
+            raise RuntimeError("Interface topology validation failed.\n"
+                               f"Invalid edges: {len(invalid_edges)}\n"
+                               f"Invalid surfaces: {len(invalid_surfs)}")
+    _record_timing(timings, 'validation', validation_start)
 
-    # Add the surface objects to their 181L indices
+    surface_adjacency_start = time.perf_counter()
     b_surfs, v_surfs, e_surfs = add_build_surfs(num_balls, s_balls, len(v_balls), s_verts, len(e_balls), s_edges)
+    _record_timing(timings, 'surface_adjacency', surface_adjacency_start)
 
-    # Package the lists neatly for easier parsing
+    packaging_start = time.perf_counter()
     ball_lists = {'verts': b_verts, 'edges': b_edges, 'surfs': b_surfs}
     vert_lists = {'edges': v_edges, 'surfs': v_surfs}
     edge_lists = {'balls': e_balls, 'verts': e_verts, 'surfs': e_surfs}
     surf_lists = {'balls': s_balls, 'verts': s_verts, 'edges': s_edges}
+    _record_timing(timings, 'packaging', packaging_start)
 
-    # Return the dictionary lists
+    timings['total'] = time.perf_counter() - build_start
+    _print_build_timings(timings, counts)
     return ball_lists, vert_lists, edge_lists, surf_lists

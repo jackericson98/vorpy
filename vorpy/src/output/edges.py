@@ -87,8 +87,7 @@ def write_edges(net, edges, file_name, color=None, directory=None, profile=True)
     # Write OFF
     # ------------------------------------------------------------------
 
-    with open(file_name + ".off", 'w') as file:
-
+    with open(file_name + ".off", 'w', buffering=1024 * 1024) as file:
         file.write(f"OFF\n{num_points} {num_tris} 0\n\n\n")
 
         # --------------------------------------------------------------
@@ -96,14 +95,24 @@ def write_edges(net, edges, file_name, color=None, directory=None, profile=True)
         # --------------------------------------------------------------
 
         points_start = time.perf_counter()
+        buffer = []
+        chunk_size = 10000
 
         for draw_points in edges_draw_points:
             for point in draw_points:
-                file.write(
+                buffer.append(
                     f"{round(float(point[0]), 4)} "
                     f"{round(float(point[1]), 4)} "
                     f"{round(float(point[2]), 4)}\n"
                 )
+
+                if len(buffer) >= chunk_size:
+                    file.write(''.join(buffer))
+                    buffer.clear()
+
+        if buffer:
+            file.write(''.join(buffer))
+            buffer.clear()
 
         points_time = time.perf_counter() - points_start
 
@@ -113,17 +122,25 @@ def write_edges(net, edges, file_name, color=None, directory=None, profile=True)
 
         faces_start = time.perf_counter()
         vertex_offset = 0
+        buffer = []
 
         for draw_points, draw_tris in zip(edges_draw_points, edges_draw_tris):
             for tri in draw_tris:
-                file.write(
+                buffer.append(
                     f"3 {tri[0] + vertex_offset} "
                     f"{tri[1] + vertex_offset} "
                     f"{tri[2] + vertex_offset} "
                     f"{color[0]} {color[1]} {color[2]}\n"
                 )
 
+                if len(buffer) >= chunk_size:
+                    file.write(''.join(buffer))
+                    buffer.clear()
+
             vertex_offset += len(draw_points)
+
+        if buffer:
+            file.write(''.join(buffer))
 
         faces_time = time.perf_counter() - faces_start
 
