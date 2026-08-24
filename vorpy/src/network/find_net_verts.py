@@ -223,9 +223,8 @@ def find_net_verts(net):
         net.group = net.balls['num'].tolist()
     # Track group balls that have not yet been reached by vertex traversal.
     sphere_check_list = net.group.copy()
-    total_spheres = len(sphere_check_list)
 
-    net.update_progress("Finding vertices", 0.0)
+    net.update_progress("Finding vertices | Initializing", 0.0)
 
     cached_state = _load_cached_vertex_state(net)
     if cached_state is None:
@@ -334,23 +333,9 @@ def find_net_verts(net):
     # Make the dataframe
     net.verts = pd.DataFrame({"balls": vert_ndxs, 'loc': vlocs, 'rad': vrads, 'dub': doublets})
     # Clear the print statement
-    net.update_progress("Finding vertices", 100.0)
+    net.update_progress(
+        f"Finding vertices: {len(net.verts):,} / {len(net.verts):,}",
+        100.0
+    )
     net.metrics['vert'] = time.perf_counter() - net.metrics['start']
     write_verts(net)
-    if net.settings['net_type'] in {'pow', 'prm'}:
-        from vorpy.src.network.fast import POW_PRM_METRICS
-
-        m = POW_PRM_METRICS
-        print("\nPOWER/PRIMITIVE VERTEX METRICS")
-        print(f"  Container calls    = {m['container_calls']}")
-        print(f"  Surrounding setup  = {m['surrounding']:.3f} s")
-        print(f"  Candidate gather   = {m['candidate_gather']:.3f} s")
-        print(f"  Candidate filter   = {m['candidate_filter']:.3f} s")
-        print(f"  Vertex calculation = {m['calc_vert']:.3f} s")
-        print(f"  Verify arrays      = {m['verify_arrays']:.3f} s")
-        print(f"  Verification       = {m['verify']:.3f} s")
-        print(f"  Candidates         = {m['candidates']:,}")
-        print(f"  Verify balls       = {m['verify_balls']:,}")
-
-        if m['candidates']:
-            print(f"  Verify balls/cand  = {m['verify_balls'] / m['candidates']:.1f}")

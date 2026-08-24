@@ -40,7 +40,7 @@ def analyze(net, complicated=True):
     Performs a comprehensive analysis of a network, calculating various physical, geometrical,
     and topological properties of the cells (balls) within the network.
     """
-    net.update_progress("Analyzing network", 0.0)
+    net.update_progress("Analyzing network | Initializing", 0.0)
     # Precompute for speed
     group_set = set(net.group)
     n_group = len(group_set)
@@ -77,13 +77,13 @@ def analyze(net, complicated=True):
         'nbors': 0, 'spikes': 0, 'contacts': 0,
         'com': 0, 'moi': 0, 'b_box': 0,
     }
-    time_start = time.perf_counter()
 
     # Surfaces tracker
     surfaces_tracker = {}
 
     # Progress counter (only for balls actually analyzed)
     count = 0
+    last_update = now()
 
     for k, ball in net.balls.iterrows():
         ball_num = ball['num']
@@ -111,12 +111,6 @@ def analyze(net, complicated=True):
                 coms, mois, b_boxs,
             )
             continue
-
-        count += 1
-
-        if count == 1 or count % 100 == 0 or count == n_group:
-            percentage = 100.0 * count / max(n_group, 1)
-            net.update_progress("Analyzing network", percentage)
 
         # Get the ball's surfaces once
         surf_ids = ball['surfs']
@@ -341,6 +335,19 @@ def analyze(net, complicated=True):
             mois.append(0.0)
             b_boxs.append(0.0)
 
+        count += 1
+        current_time = now()
+
+        if current_time - last_update >= 0.25 or count == n_group:
+            percentage = 100.0 * count / max(n_group, 1)
+
+            net.update_progress(
+                f"Analyzing network - ",
+                percentage
+            )
+
+            last_update = current_time
+
     # Assign the balls values
     net.balls = net.balls.assign(
         vol=b_vols, sa=b_sas, max_mean_curv=b_max_mean_curvs, complete=b_cell,
@@ -372,3 +379,4 @@ def analyze(net, complicated=True):
         - net.metrics['con']
         - net.metrics['vert']
     )
+

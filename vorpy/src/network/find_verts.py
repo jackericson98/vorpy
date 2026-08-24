@@ -252,17 +252,26 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
         while e_stack:
             # Get the percentage and print it
             current_time = time.perf_counter()
+
             if current_time - last_print > 0.25:
-                percentage = min((len(vlocs) / tot_verts) * 100, 100)
+                current_verts = len(vert_ndxs) + start_vert
+                percentage = min((len(vlocs) / max(tot_verts, 1)) * 100, 100)
 
                 if net is not None:
-                    net.update_progress("Finding vertices", percentage)
+                    net.update_progress(
+                        f"Finding vertices: {current_verts:,} / ~{int(tot_verts):,}",
+                        percentage
+                    )
                 else:
                     my_time = current_time - start_time
                     h, m, s = get_time(my_time)
-                    print("\rRun Time = {}:{:02d}:{:2.2f} - Process: finding vertices: {} verts - {:.2f} %"
-                        .format(int(h), int(m), round(s, 2), len(vert_ndxs) + start_vert, percentage),
-                        end="")
+                    print(
+                        f"\rRun Time = {int(h)}:{int(m):02d}:{s:05.2f} - "
+                        f"Process: Finding vertices: {current_verts:,} / ~{int(tot_verts):,} - "
+                        f"{percentage:.2f} %",
+                        end="",
+                        flush=True,
+                    )
 
                 last_print = current_time
             # Get the edge from the top of the stack

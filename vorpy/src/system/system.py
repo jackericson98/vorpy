@@ -408,7 +408,8 @@ class System:
         h = int(elapsed // 3600)
         m = int((elapsed % 3600) // 60)
         s = elapsed % 60
-
+        # Print a long clearing line to ensure the previous output is cleared
+        print("\r" + " " * 100, end="", flush=True)
         network_text = f'Network: {self.run_network} - ' if self.run_network else ""
 
         print(

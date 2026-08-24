@@ -39,11 +39,14 @@ def build_surfs(net, store_points=True):
     """
     # Instantiate the lists for storage
     points, tris, mean_tri_curvs, mean_curvs, avg_mean_curvs, gauss_tri_curvs, gauss_curvs, avg_gauss_curvs, funcs, coms, flats, sas, vols, surf_locs = [], [], [], [], [], [], [], [], [], [], [], [], [], []
+
+    total_surfs = len(net.surfs)
+    last_update = 0.0
+    # Set the initializing text for the progress bar
+    net.update_progress(f"Building surfaces | Initializing", 0.0)
     # Make each surface
     for i, surf in net.surfs.iterrows():
-        # Build the surfaces and print the progress
-        percentage = min(100.0, 100.0 * (i + 1) / len(net.surfs))
-        net.update_progress("Building surfaces", percentage)
+
         # Get the radii, locations, and numbers of the balls involved in the surface
         rads = [net.balls['rad'][_] for _ in surf['balls']]
         locs = [net.balls['loc'][_] for _ in surf['balls']]
@@ -68,6 +71,21 @@ def build_surfs(net, store_points=True):
                    surf_tris])
         # Calculate the surface area of the surface
         sa = calc_surf_sa(tris=surf_tris, points=surf_points)
+
+        # Build the surfaces and print the progress
+        current_surf = i + 1
+        current_time = time.perf_counter()
+
+        if current_time - last_update >= 0.25 or current_surf == total_surfs:
+            percentage = 100.0 * current_surf / max(total_surfs, 1)
+
+            net.update_progress(
+                f"Building surfaces: {current_surf:,} / {total_surfs:,}",
+                percentage
+            )
+
+            last_update = current_time
+
         # If we are doing a large export and will need the points later in the process for export and such
         if store_points:
             # Append the surface points and triangles to the lists
@@ -113,3 +131,8 @@ def build_surfs(net, store_points=True):
         net.max_curv = 0
     net.update_progress("Building surfaces", 100.0)
     net.metrics['surf'] = time.perf_counter() - net.metrics['start'] - net.metrics['vert'] - net.metrics['con']
+
+    net.update_progress(
+        f"Building surfaces: {len(net.surfs):,} / {len(net.surfs):,}",
+        100.0
+    )

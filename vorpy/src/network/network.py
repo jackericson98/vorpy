@@ -182,9 +182,10 @@ class Network:
         self.box['verts'] = box
         return box
 
-    def update_progress(self, process, progress=0.0):
+    def update_progress(self, process, progress=None):
         """Report this network's current process to the parent System."""
-        progress = max(0.0, min(float(progress), 100.0))
+        if progress is not None:
+            progress = max(0.0, min(float(progress), 100.0))
 
         if self.sys is not None:
             self.sys.update_progress(
@@ -193,16 +194,17 @@ class Network:
                 network=self.group_name,
             )
             return
-
+        # Print a long clearing line to the console
+        print("\r" + " " * 400, end="", flush=True)
         # Fallback for standalone Network use
         my_time = now() - self.metrics['start']
         h, m, s = get_time(my_time)
-        print(
-            f"\rRun Time = {int(h)}:{int(m):02d}:{s:05.2f} - "
-            f'Network: {self.group_name} - Process: {process} - {progress:.2f} %',
-            end="",
-            flush=True,
-        )
+        if progress is not None:
+            print(f"\rRun Time = {int(h)}:{int(m):02d}:{s:05.2f} - Network: {self.group_name} - Process: {process} - {progress:.2f} %",
+                end="", flush=True)
+        else:
+            print(f"\rRun Time = {int(h)}:{int(m):02d}:{s:05.2f} - Network: {self.group_name} - Process: {process}",
+                end="", flush=True)
 
     def sort_balls(self, num_boxes=None):
         """
@@ -303,10 +305,19 @@ class Network:
 
         # Set the edge points and vals lists
         edges_points, edges_vals, edges_lengths = [], [], []
+
+        total_edges = len(self.edges)
+        last_update = 0.0
+
+        self.update_progress(f"Building edges | Initializing", 0.0)
+
         # Go through the edges in the network
         for i, edge in self.edges.iterrows():
-            percentage = min((i + 1) / len(self.edges) * 100, 100)
-            self.update_progress("Building edges", percentage)
+            current_edge = i + 1
+
+            current_time = time.perf_counter()
+
+
             vlocs = [array(self.verts['loc'][_]) for _ in edge['verts']]
 
             # Build the edge depending on if it is straight or not
@@ -326,6 +337,14 @@ class Network:
             except ValueError:
                 print(vlocs, edge['balls'])
 
+            if current_time - last_update >= 0.25 or current_edge == total_edges:
+                percentage = 100.0 * current_edge / max(total_edges, 1)
+
+                last_update = current_time
+                self.update_progress(
+                    f"Building edges: {current_edge:,} / {total_edges:,}",
+                    percentage
+                )
             edges_lengths.append(calc_length(array(edge_points)))
             edges_points.append(edge_points)
             edges_vals.append(edge_vals)
@@ -384,16 +403,13 @@ class Network:
             limit_mem = True
         # Sort the balls in the network
         if self.box is None:
-            self.update_progress("Sorting balls", 0.0)
             self.sort_balls()
         if verts is not None:
             self.verts = verts
         # Check to see if there are vertices loaded
         if self.verts is None:
             # Find the vertices
-            self.update_progress("Finding vertices", 0.0)
             self.find_verts()
-            self.update_progress("Finding vertices", 100.0)
             # Check to see if there are vertices
             if self.verts is None or len(self.verts) == 0:
                 return
@@ -403,21 +419,13 @@ class Network:
         else:
             self.metrics['vert'] = 0
         # Connect the network
-        self.update_progress("Connecting network", 0.0)
         self.connect()
-        self.update_progress("Connecting network", 100.0)
         # Build the edges in the network
-        self.update_progress("Building edges", 0.0)
         self.build_edges()
-        self.update_progress("Building edges", 100.0)
         # Build the network
-        self.update_progress("Building surfaces", 0.0)
         self.build_surfaces(not limit_mem)
-        self.update_progress("Building surfaces", 100.0)
         # Analyze the network
-        self.update_progress("Analyzing network", 0.0)
         self.analyze()
-        self.update_progress("Analyzing network", 100.0)
 
         # Stop the timer and measure the time
         self.metrics['tot'] = now() - self.metrics['start']
