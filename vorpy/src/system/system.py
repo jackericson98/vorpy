@@ -191,8 +191,6 @@ def build_log_to_system_index_map(sys_balls, log_balls, tol=0.01, coord_fallback
         index_map[log_i] = int(best_sys_i)
         used_sys_indices.add(int(best_sys_i))
 
-    print()
-
     if mismatches:
         raise ValueError(
             "Logs file indices do not align with the current system and could not be remapped.\n\n"
@@ -301,17 +299,13 @@ class System:
         self.sol = None                     # Solute              :   List of solute molecules (lists of atoms)
 
         # Settings
-        self.groups = groups                # Groups              :   List of groups in the system
-        self.ifaces = ifaces                # Interfaces          :   List of interface objects between groups
+        self.groups = [] if groups is None else groups      # Groups              :   List of groups in the system
+        self.ifaces = [] if ifaces is None else ifaces      # Interfaces          :   List of interface objects between groups
 
         # Shared geometry discovered while building pairwise interfaces.
         # Keys are canonical, system-index-based topology signatures so the
         # same geometry can be recognized across interfaces and build order.
-        self.interface_geometry_cache = {
-            'verts': {},
-            'edges': {},
-            'surfs': {},
-        }
+        self.interface_geometry_cache = {'verts': {}, 'edges': {}, 'surfs': {}}
         self.ndxs = None                    # Indices             :   List of indices used to create groups
         self.elements = elements            # Elements            :   List of elements with mass, number, radius, group
         self.element_radii = element_radii  # Element Radii       :   Dictionary of elements and their radii
@@ -333,6 +327,8 @@ class System:
         self.run_active = False
         self.run_process = ""
         self.run_progress = 0.0
+        self.run_network = None
+        self.run_end = None
 
         # Set the files
         self.set_files(base_file=file, ball_file=balls_file, verts_file=verts_file, ndx_file=index_file,
@@ -371,27 +367,57 @@ class System:
         # Set the output directory
         # self.set_output_directory()
 
-    def start_run(self):
-        self.run_start = time.perf_counter()
-        self.run_active = True
-        self.run_process = "Starting"
-        self.run_progress = 0.0
-
     def finish_run(self):
         self.run_active = False
         self.run_process = "Complete"
         self.run_progress = 100.0
+        self.run_network = None
+        self.run_end = time.perf_counter()
 
     def get_run_time(self):
         if self.run_start is None:
             return 0.0
+
+        if self.run_end is not None:
+            return self.run_end - self.run_start
+
         return time.perf_counter() - self.run_start
 
-    def update_progress(self, process, progress=None):
-        self.run_process = process
+    def start_run(self):
+        self.run_start = time.perf_counter()
+        self.run_end = None
+        self.run_active = True
+        self.run_process = "Starting"
+        self.run_progress = 0.0
+        self.run_network = None
+
+    def update_progress(self, process=None, progress=None, network=None):
+        if self.run_start is None:
+            self.start_run()
+
+        if process is not None:
+            self.run_process = process
 
         if progress is not None:
-            self.run_progress = float(progress)
+            self.run_progress = max(0.0, min(float(progress), 100.0))
+
+        if network is not None:
+            self.run_network = network
+
+        elapsed = self.get_run_time()
+        h = int(elapsed // 3600)
+        m = int((elapsed % 3600) // 60)
+        s = elapsed % 60
+
+        network_text = f'Network: {self.run_network} - ' if self.run_network else ""
+
+        print(
+            f"\rRun Time = {h}:{m:02d}:{s:05.2f} - "
+            f"{network_text}Process: {self.run_process} - "
+            f"{self.run_progress:.2f} %",
+            end="",
+            flush=True,
+        )
 
     def set_files(self, base_file=None, ball_file=None, verts_file=None, net_file=None, ndx_file=None, file_dir=None, 
                   frame_files=None, root_dir=None):
@@ -513,7 +539,6 @@ class System:
 
         # Read PDB file
         if self.files['base_file'][-3:] == "pdb":
-            print(self.files['base_file'])
             read_pdb(self)
 
         # Read CIF file
@@ -893,15 +918,6 @@ class System:
                 else:
                     cached['interfaces'].add(interface.interface_id)
 
-        print(
-            '[INTERFACE CACHE]',
-            f"interface={interface.name}",
-            f"verts={len(self.interface_geometry_cache['verts'])}",
-            f"edges={len(self.interface_geometry_cache['edges'])}",
-            f"surfs={len(self.interface_geometry_cache['surfs'])}",
-            flush=True,
-        )
-
     def get_cached_interface_geometry(self, kind, group1_indices=None, group2_indices=None):
         """Return cached rows, optionally restricted to a requested interface.
 
@@ -945,21 +961,6 @@ class System:
             Iterable of ``(group1, group2)`` pairs. ``group2`` may be None when
             constructing an interface against the surrounding system.
         """
-        # print("\n=== INTERFACES TO BUILD ===")
-        # print(f"interface pair count: {len(interface_pairs)}")
-        #
-        # for pair_index, pair in enumerate(interface_pairs):
-        #     group1, group2 = pair
-        #
-        #     group1_name = getattr(group1, "name", str(group1))
-        #     group2_name = getattr(group2, "name", str(group2))
-        #
-        #     print(
-        #         f"  pair {pair_index}: "
-        #         f"{group1_name} <-> {group2_name}"
-        #     )
-        #
-        # print("=== END INTERFACES TO BUILD ===\n")
         num_interfaces = len(interface_pairs)
         for i, (group1, group2) in enumerate(interface_pairs):
             name1 = group1.name

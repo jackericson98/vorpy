@@ -42,32 +42,25 @@ def _get_start_time(sys):
 
 
 class ExportProgress:
-    """Track export percentage while preserving total VorPy runtime."""
+    """Report export progress through the parent System."""
 
-    def __init__(self, total, start):
+    def __init__(self, total, sys):
         self.total = max(int(total), 1)
         self.current = 0
-        self.start = start
+        self.sys = sys
+        self.sys.run_network = None
 
     def show(self, name=None):
         percent = 100.0 * self.current / self.total
-        elapsed = _format_time(time.perf_counter() - self.start)
-        suffix = f" - {name}" if name else ""
-
-        # Clear previous progress line, then replace it.
-        print("\r" + " " * 120, end="")
-        print("\r", end="")
-        print(f"Run Time = {elapsed} - Process: exporting: {percent:.2f} %{suffix}", end="", flush=True)
+        process = "Exporting files" if name is None else f"Exporting files: {name}"
+        self.sys.update_progress(process=process, progress=percent)
 
     def step(self):
-        self.current += 1
+        self.current = min(self.current + 1, self.total)
 
     def finish(self):
-        elapsed = _format_time(time.perf_counter() - self.start)
-
-        print("\r" + " " * 120, end="")
-        print("\r", end="")
-        print(f"\rRun Time = {elapsed} - Process: exporting: 100.00 %", end="", flush=True)
+        self.current = self.total
+        self.sys.update_progress(process="Exporting files", progress=100.0)
 
 
 def _run_export(progress, name, func, **kwargs):
@@ -117,7 +110,7 @@ def export_micro(sys):
     groups = list(sys.groups)
     ifaces = [] if sys.ifaces is None else list(sys.ifaces)
 
-    progress = ExportProgress(1 + len(groups) + len(ifaces), _get_start_time(sys))
+    progress = ExportProgress(1 + len(groups) + len(ifaces), sys)
 
     _run_export(progress, "system info", sys.exports, info=True)
 
@@ -154,7 +147,7 @@ def export_tiny(sys):
     ifaces = [] if sys.ifaces is None else list(sys.ifaces)
 
     # 3 system + 3/group + 1/interface
-    progress = ExportProgress(3 + 3 * len(groups) + len(ifaces), _get_start_time(sys))
+    progress = ExportProgress(3 + 3 * len(groups) + len(ifaces), sys)
 
     _run_export(progress, "system info", sys.exports, info=True)
     _run_export(progress, "system PDB", sys.exports, pdb=True)
@@ -207,7 +200,7 @@ def export_med(sys):
     ifaces = [] if sys.ifaces is None else list(sys.ifaces)
 
     # 3 system + 9/group + 6/interface
-    progress = ExportProgress(3 + 9 * len(groups) + 6 * len(ifaces), _get_start_time(sys))
+    progress = ExportProgress(3 + 9 * len(groups) + 6 * len(ifaces), sys)
 
     _run_export(progress, "system PDB", sys.exports, pdb=True)
     _run_export(progress, "system PyMOL atoms", sys.exports, set_atoms=True)
@@ -274,7 +267,7 @@ def export_large(sys):
     ifaces = [] if sys.ifaces is None else list(sys.ifaces)
 
     # 3 system + 12/group + 5/interface
-    progress = ExportProgress(3 + 9 * len(groups) + 6 * len(ifaces), _get_start_time(sys))
+    progress = ExportProgress(3 + 9 * len(groups) + 6 * len(ifaces), sys)
 
     _run_export(progress, "system PDB", sys.exports, pdb=True)
     _run_export(progress, "system PyMOL atoms", sys.exports, set_atoms=True)
@@ -352,7 +345,7 @@ def export_all(sys):
     ]
 
     total = 3 + len(group_exports) * len(groups) + len(interface_exports) * len(ifaces)
-    progress = ExportProgress(total, _get_start_time(sys))
+    progress = ExportProgress(total, sys)
 
     _run_export(progress, "system PDB", sys.exports, pdb=True)
     _run_export(progress, "system PyMOL atoms", sys.exports, set_atoms=True)
@@ -381,7 +374,7 @@ def other_exports(sys, usr_npt):
     option = usr_npt.lower()
 
     if option in {"a", "atoms"}:
-        progress = ExportProgress(1, _get_start_time(sys))
+        progress = ExportProgress(1, sys)
 
         _run_export(
             progress,
@@ -396,7 +389,7 @@ def other_exports(sys, usr_npt):
 
     elif option in {'logs', 'lgs'}:
         groups = [group for group in sys.groups if group.net is not None]
-        progress = ExportProgress(len(groups) + 2, _get_start_time(sys))
+        progress = ExportProgress(len(groups) + 2, sys)
 
         for group in groups:
             _set_group_directory(sys, group)
@@ -409,7 +402,7 @@ def other_exports(sys, usr_npt):
 
     elif option in {'shell', 'shl'}:
         groups = [group for group in sys.groups if group.net is not None]
-        progress = ExportProgress(len(groups), _get_start_time(sys))
+        progress = ExportProgress(len(groups), sys)
 
         for group in groups:
             _set_group_directory(sys, group)

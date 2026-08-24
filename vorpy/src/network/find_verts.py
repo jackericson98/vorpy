@@ -12,7 +12,7 @@ from vorpy.src.calculations import calc_vert
 def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=None,
                iface_grps=None, b_verts=None, vert_ndxs=None, vlocs=None, vrads=None, vloc2s=None, vrad2s=None,
                start_time=0, box=None, vert_box=None, group_box=None, tot_ball_num=None,
-               printing=False, start_vert=0, split=False, seed_timeout=None):
+               printing=False, start_vert=0, split=False, seed_timeout=None, net=None):
     """
     Traverse a network and discover vertices connected to an initial seed.
 
@@ -76,6 +76,7 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
     seed_timeout : float, optional
         Maximum time allowed for seed discovery. Used by disconnected interface
         reseeding to abandon unproductive starting balls quickly.
+    net:
 
     Returns
     -------
@@ -253,10 +254,16 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
             current_time = time.perf_counter()
             if current_time - last_print > 0.25:
                 percentage = min((len(vlocs) / tot_verts) * 100, 100)
-                my_time = current_time - start_time
-                h, m, s = get_time(my_time)
-                print("\rRun Time = {}:{:02d}:{:2.2f} - Process: finding vertices: {} verts - {:.2f} %"
-                      .format(int(h), int(m), round(s, 2), len(vert_ndxs) + start_vert, percentage), end="")
+
+                if net is not None:
+                    net.update_progress("Finding vertices", percentage)
+                else:
+                    my_time = current_time - start_time
+                    h, m, s = get_time(my_time)
+                    print("\rRun Time = {}:{:02d}:{:2.2f} - Process: finding vertices: {} verts - {:.2f} %"
+                        .format(int(h), int(m), round(s, 2), len(vert_ndxs) + start_vert, percentage),
+                        end="")
+
                 last_print = current_time
             # Get the edge from the top of the stack
             edge_balls, vert = e_stack.pop()

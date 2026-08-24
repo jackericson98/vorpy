@@ -171,7 +171,7 @@ def ndx_search(ndxs_list, ndxs):
     ----------
     ndxs_list : list
         A sorted list of ball indices to search through
-    ndxs : int
+    ndxs : int or list
         The new vertex index to find the insertion point for
 
     Returns

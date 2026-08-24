@@ -172,25 +172,6 @@ class Interface:
             iface=self,
         )
 
-        print("\n[INTERFACE WATER DETECTION]")
-        print(f"touching waters: {len(self.water_geometries)}")
-
-        for water_geometry in self.water_geometries[:10]:
-            residue = water_geometry["residue"]
-            interface_geometry = water_geometry.get("interface_geometry")
-            if interface_geometry is None:
-                continue
-
-            print(
-                f"  {residue.name} {residue.seq}: "
-                f"group1_surfs="
-                f"{interface_geometry['group1']['surface_count']}, "
-                f"group2_surfs="
-                f"{interface_geometry['group2']['surface_count']}, "
-                f"bridging="
-                f"{interface_geometry['bridging_water']}"
-            )
-
         # ----------------------------------------------------------
         # TEMPORARY TEST: fully build only the first touching water.
         # ----------------------------------------------------------
@@ -200,43 +181,6 @@ class Interface:
             iface=self,
             water_geometries=test_water_geometries,
         )
-
-        if self.water_groups:
-            water_group = self.water_groups[0]
-
-            print("\n[WATER GROUP TEST]")
-            print(f"name: {water_group.name}")
-            print(f"balls: {water_group.ball_ndxs}")
-            print(f"net: {water_group.net}")
-
-            print(
-                "verts:",
-                len(water_group.net.verts)
-                if water_group.net is not None
-                   and water_group.net.verts is not None
-                else 0,
-            )
-
-            print(
-                "edges:",
-                len(water_group.net.edges)
-                if water_group.net is not None
-                   and water_group.net.edges is not None
-                else 0,
-            )
-
-            print(
-                "surfs:",
-                len(water_group.net.surfs)
-                if water_group.net is not None
-                   and water_group.net.surfs is not None
-                else 0,
-            )
-
-            print(
-                "water group added to system:",
-                water_group in (self.sys.groups or []),
-            )
 
         self._update_group_metadata(
             network_created=True,

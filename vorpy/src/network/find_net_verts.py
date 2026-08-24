@@ -223,6 +223,9 @@ def find_net_verts(net):
         net.group = net.balls['num'].tolist()
     # Track group balls that have not yet been reached by vertex traversal.
     sphere_check_list = net.group.copy()
+    total_spheres = len(sphere_check_list)
+
+    net.update_progress("Finding vertices", 0.0)
 
     cached_state = _load_cached_vertex_state(net)
     if cached_state is None:
@@ -231,29 +234,11 @@ def find_net_verts(net):
         vert_ndxs, vlocs, vrads, vloc2s, vrad2s, averts = cached_state
     # Continue normal discovery with cached vertices available for duplicate
     # detection and traversal adjacency.
-    my_guuy = find_verts(
-        locs=net.balls['loc'].to_numpy(),
-        rads=net.balls['rad'].to_numpy(),
-        max_vert=net.settings['max_vert'],
-        net_type=net.settings['net_type'],
-        check_ndxs=sphere_check_list,
-
-        # The complete interface network search selection.
-        my_group=net.group,
-
-        # The two original interface sides. These are distinct from
-        # my_group and will later control candidate-vertex acceptance.
-        iface_grps=net.iface_grps,
-        vert_ndxs=vert_ndxs,
-        vlocs=vlocs,
-        vrads=vrads,
-        vloc2s=vloc2s,
-        vrad2s=vrad2s,
-        b_verts=averts,
-        start_time=net.metrics['start'],
-        vert_box=net.settings['foam_box'],
-        box=net.box['verts'],
-    )
+    my_guuy = find_verts(net=net, locs=net.balls['loc'].to_numpy(), rads=net.balls['rad'].to_numpy(),
+                         max_vert=net.settings['max_vert'], net_type=net.settings['net_type'],
+                         check_ndxs=sphere_check_list, my_group=net.group, iface_grps=net.iface_grps,
+                         vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads, vloc2s=vloc2s, vrad2s=vrad2s, b_verts=averts,
+                         start_time=net.metrics['start'], vert_box=net.settings['foam_box'], box=net.box['verts'])
     if my_guuy is not None:
         vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
     elif cached_state is None:
@@ -312,7 +297,8 @@ def find_net_verts(net):
             vert_box=net.settings['foam_box'],
             b_verts=averts,
             box=net.box['verts'],
-            seed_timeout=0.05
+            seed_timeout=0.05,
+            net=net
         )
 
         if my_guuy is not None:
@@ -348,7 +334,7 @@ def find_net_verts(net):
     # Make the dataframe
     net.verts = pd.DataFrame({"balls": vert_ndxs, 'loc': vlocs, 'rad': vrads, 'dub': doublets})
     # Clear the print statement
-    print("\r                                                                  ", end="")
+    net.update_progress("Finding vertices", 100.0)
     net.metrics['vert'] = time.perf_counter() - net.metrics['start']
     write_verts(net)
     if net.settings['net_type'] in {'pow', 'prm'}:

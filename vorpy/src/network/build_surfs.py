@@ -1,5 +1,4 @@
 import time
-from vorpy.src.calculations import get_time
 from vorpy.src.calculations import calc_surf_sa
 from vorpy.src.calculations import calc_tetra_vol
 from vorpy.src.network.build_surf import build_surf
@@ -40,16 +39,11 @@ def build_surfs(net, store_points=True):
     """
     # Instantiate the lists for storage
     points, tris, mean_tri_curvs, mean_curvs, avg_mean_curvs, gauss_tri_curvs, gauss_curvs, avg_gauss_curvs, funcs, coms, flats, sas, vols, surf_locs = [], [], [], [], [], [], [], [], [], [], [], [], [], []
-    # full_count = {'calc_func': 0, 'perimeter': 0, 'com': 0, 'fill_mesh': 0, 'spider': 0, 'Delaunay': 0,
-    #               'designations': 0, 'reassign': 0}
     # Make each surface
     for i, surf in net.surfs.iterrows():
         # Build the surfaces and print the progress
-        my_time = time.perf_counter() - net.metrics['start']
-        h, m, s = get_time(my_time)
-        # Print the progress
-        print("\rRun Time = {:2}:{:2}:{:.2f} - Process: building surfaces {:.2f} %"
-              .format(int(h), int(m), round(s, 2), min(100.0, 100 * round(i / len(net.surfs), 4))), end="")
+        percentage = min(100.0, 100.0 * (i + 1) / len(net.surfs))
+        net.update_progress("Building surfaces", percentage)
         # Get the radii, locations, and numbers of the balls involved in the surface
         rads = [net.balls['rad'][_] for _ in surf['balls']]
         locs = [net.balls['loc'][_] for _ in surf['balls']]
@@ -117,5 +111,5 @@ def build_surfs(net, store_points=True):
         net.max_curv = my_surf_curvs[min(int(0.99 * len(my_surf_curvs)), len(my_surf_curvs) - 1)]
     except IndexError:
         net.max_curv = 0
-    print("\r                                                                                             ", end='')
+    net.update_progress("Building surfaces", 100.0)
     net.metrics['surf'] = time.perf_counter() - net.metrics['start'] - net.metrics['vert'] - net.metrics['con']

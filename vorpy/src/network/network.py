@@ -30,7 +30,7 @@ class Network:
     """
     def __init__(self, locs, rads, names=None, group=None, iface_grps=None, group_name=None, settings=None, balls=None,
                  verts=None, edges=None, surfs=None, box=None, sort_balls=False, build_net=False,
-                 masses=None):
+                 masses=None, system=None):
         """
         Initialize a Network object with the given parameters.
         
@@ -48,6 +48,7 @@ class Network:
             sort_balls: Whether to sort balls on initialization
             build_net: Whether to build network on initialization
             masses: Optional list of ball masses
+            system: Optional System object
         """
         # Main network defining objects
         self.group = group               # Group          : List of loc and rad indices for calculation
@@ -66,6 +67,9 @@ class Network:
 
         # Tool for splitting up the balls
         self.box = box                    # Box           : Dictionary: Ball box, sub_boxes, and
+
+        # System element
+        self.sys = system
 
         if iface_grps is not None:
             if len(iface_grps) != 2:
@@ -178,29 +182,27 @@ class Network:
         self.box['verts'] = box
         return box
 
-    def set_progress_window(self, progress_window):
-        """
-        Set the progress window for GUI updates.
-        
-        Args:
-            progress_window: Progress window object
-        """
-        self.progress_window = progress_window
+    def update_progress(self, process, progress=0.0):
+        """Report this network's current process to the parent System."""
+        progress = max(0.0, min(float(progress), 100.0))
 
-    def update_progress(self, step, progress):
-        """
-        Update progress in GUI if available, otherwise print to console.
-        
-        Args:
-            step: Current step name
-            progress: Progress percentage
-        """
-        if self.progress_window:
-            self.progress_window.update_progress(step, progress)
-        else:
-            my_time = now() - self.metrics['start']
-            h, m, s = get_time(my_time)
-            print(f"\rRun Time = {int(h)}:{int(m):02d}:{s:2.2f} - Process: {step} - {progress:.2f}%", end="")
+        if self.sys is not None:
+            self.sys.update_progress(
+                process=process,
+                progress=progress,
+                network=self.group_name,
+            )
+            return
+
+        # Fallback for standalone Network use
+        my_time = now() - self.metrics['start']
+        h, m, s = get_time(my_time)
+        print(
+            f"\rRun Time = {int(h)}:{int(m):02d}:{s:05.2f} - "
+            f'Network: {self.group_name} - Process: {process} - {progress:.2f} %',
+            end="",
+            flush=True,
+        )
 
     def sort_balls(self, num_boxes=None):
         """
@@ -210,7 +212,7 @@ class Network:
             num_boxes: Optional number of sub-boxes to divide the network into
         """
         # Print the sorting balls prompt
-        print("\rRun Time = 0:00:00.00 - Sorting Balls 0.0 %", end="")
+        self.update_progress("Sorting balls", 0.0)
         # Check that the length of the spheres list is big enough to make a vertex
         if len(self.balls) < 4:
             return
@@ -232,10 +234,7 @@ class Network:
         for i, loc in enumerate(locs):
             # Print the sorting balls prompt
             percentage = min((i + 1) / len(locs) * 100, 100)
-            my_time = now() - self.metrics['start']
-            h, m, s = get_time(my_time)
-            print("\rRun Time = {}:{:02d}:{:2.2f} - Process: Sorting Balls - {:.2f} %"
-                  .format(int(h), int(m), round(s, 2), percentage), end="")
+            self.update_progress("Sorting balls", percentage)
             # Find the box they belong to
             box_ndxs = [int((loc[j] - self.box['verts'][0][j]) / self.box['sub_size'][j]) for j in range(3)]
 
@@ -263,7 +262,7 @@ class Network:
         Connects the network using the functions in the build_net.py file
         """
         my_lists = build(self.verts['balls'], self.verts['loc'], self.verts['dub'], len(self.balls), self.metrics['start'],
-                         group=self.group, interface=self.iface_grps is not None, iface_grps=self.iface_grps)
+                         group=self.group, interface=self.iface_grps is not None, iface_grps=self.iface_grps, net=self)
         ball_lists, vert_lists, edge_lists, surf_lists = my_lists
         self.balls['verts'], self.balls['edges'], self.balls['surfs'] = ball_lists['verts'], ball_lists['edges'], \
             ball_lists['surfs']
@@ -306,23 +305,10 @@ class Network:
         edges_points, edges_vals, edges_lengths = [], [], []
         # Go through the edges in the network
         for i, edge in self.edges.iterrows():
-            percentage = min(i / len(self.edges) * 100, 100)
-            my_time = time.perf_counter() - self.metrics['start']
-            h, m, s = get_time(my_time)
-            print("\rRun Time = {}:{:02d}:{:2.2f} - Process: building edges: edge {} - {:.2f} %"
-                  .format(int(h), int(m), round(s, 2), i, percentage), end="")
+            percentage = min((i + 1) / len(self.edges) * 100, 100)
+            self.update_progress("Building edges", percentage)
             vlocs = [array(self.verts['loc'][_]) for _ in edge['verts']]
-            vdist = calc_dist(vlocs[0], vlocs[1])
 
-            if vdist < 1e-8:
-                print("\n=== ZERO LENGTH EDGE INPUT ===")
-                print(f"edge index = {i}")
-                print(f"edge balls = {edge['balls']}")
-                print(f"edge verts = {edge['verts']}")
-                print(f"vlocs[0] = {vlocs[0]}")
-                print(f"vlocs[1] = {vlocs[1]}")
-                print(self.verts.iloc[edge['verts']])
-                print("==============================\n")
             # Build the edge depending on if it is straight or not
             try:
                 edge_points, edge_vals = build_edge(
@@ -398,13 +384,16 @@ class Network:
             limit_mem = True
         # Sort the balls in the network
         if self.box is None:
+            self.update_progress("Sorting balls", 0.0)
             self.sort_balls()
         if verts is not None:
             self.verts = verts
         # Check to see if there are vertices loaded
         if self.verts is None:
             # Find the vertices
+            self.update_progress("Finding vertices", 0.0)
             self.find_verts()
+            self.update_progress("Finding vertices", 100.0)
             # Check to see if there are vertices
             if self.verts is None or len(self.verts) == 0:
                 return
@@ -414,18 +403,27 @@ class Network:
         else:
             self.metrics['vert'] = 0
         # Connect the network
+        self.update_progress("Connecting network", 0.0)
         self.connect()
+        self.update_progress("Connecting network", 100.0)
         # Build the edges in the network
+        self.update_progress("Building edges", 0.0)
         self.build_edges()
+        self.update_progress("Building edges", 100.0)
         # Build the network
+        self.update_progress("Building surfaces", 0.0)
         self.build_surfaces(not limit_mem)
+        self.update_progress("Building surfaces", 100.0)
         # Analyze the network
+        self.update_progress("Analyzing network", 0.0)
         self.analyze()
+        self.update_progress("Analyzing network", 100.0)
 
         # Stop the timer and measure the time
         self.metrics['tot'] = now() - self.metrics['start']
         h, m, s = get_time(self.metrics['tot'])
         num_complete = len([_ for _ in self.balls['complete'] if _])
+        self.update_progress("Network complete", 100.0)
         print("\r\"{}\" network built - {} complete cell{}, {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
               .format(self.group_name, num_complete, '' if num_complete == 1 else 's', len(self.verts),
                       len(self.surfs), int(h), int(m), s, datetime.now()), end="")

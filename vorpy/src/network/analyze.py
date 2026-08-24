@@ -1,7 +1,6 @@
 import time
 from numpy import pi, sqrt
 from vorpy.src.calculations import calc_sphericity
-from vorpy.src.calculations import get_time
 from vorpy.src.calculations import calc_isoperimetric_quotient
 from vorpy.src.calculations import calc_dist
 from vorpy.src.calculations import calc_spikes
@@ -41,6 +40,7 @@ def analyze(net, complicated=True):
     Performs a comprehensive analysis of a network, calculating various physical, geometrical,
     and topological properties of the cells (balls) within the network.
     """
+    net.update_progress("Analyzing network", 0.0)
     # Precompute for speed
     group_set = set(net.group)
     n_group = len(group_set)
@@ -112,16 +112,11 @@ def analyze(net, complicated=True):
             )
             continue
 
-        # Update progress based only on balls in the group
         count += 1
-        percentage = round(count / max(n_group, 1), 4) * 100
-        my_time = now() - net.metrics['start']
-        h, m, s = get_time(my_time)
-        print(
-            "\rRun Time = {}:{}:{:.2f} - Process: analyzing: {:.2f} %                 "
-            .format(int(h), int(m), round(s, 2), percentage),
-            end=""
-        )
+
+        if count == 1 or count % 100 == 0 or count == n_group:
+            percentage = 100.0 * count / max(n_group, 1)
+            net.update_progress("Analyzing network", percentage)
 
         # Get the ball's surfaces once
         surf_ids = ball['surfs']

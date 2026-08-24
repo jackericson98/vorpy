@@ -112,7 +112,7 @@ class Group:
         >>> # This exports the group data for visualization in external tools
         """
     def __init__(self, sys, name=None, atoms=None, molecules=None, chains=None, residues=None,
-                 settings=None, build_net=False, surf_res=0.2, box_size=1.25, max_vert=40,
+                 settings=None, build_net=True, surf_res=0.2, box_size=1.25, max_vert=40,
                  build_type='all', net=None, net_type='aw', surf_col='plasma',
                  surf_scheme='mean', num_splits=None, print_metrics=True, scheme_factor='log',
                  make_net=True, verts=None, vert_col='red', edge_col='grey', output_directory=None,
@@ -474,10 +474,13 @@ class Group:
             settings=self.settings,
 
             # Ball sorting is required before geometric vertex discovery.
-            sort_balls=True,
+            sort_balls=False,
 
             # Optional pre-existing vertex data.
             verts=verts,
+
+            # Add the system
+            system=self.sys
         )
 
     def build(self, verts=None):

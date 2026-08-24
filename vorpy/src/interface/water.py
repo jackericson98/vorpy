@@ -185,11 +185,6 @@ def build_interface_water_groups(
     """
     water_groups = []
 
-    print("\n" + "=" * 70)
-    print("BUILDING INTERFACE WATER GROUPS")
-    print("=" * 70)
-    print(f"touching waters: {len(water_geometries)}")
-
     for water_index, water_geometry in enumerate(
             water_geometries
     ):
@@ -199,13 +194,6 @@ def build_interface_water_groups(
             f"{iface.name}_"
             f"{residue.name}_{residue.seq}"
         )
-
-        print(
-            f"\nWater {water_index + 1}/"
-            f"{len(water_geometries)}"
-        )
-        print(f"  name: {water_name}")
-        print(f"  atoms: {list(residue.atoms)}")
 
         water_group = Group(
             sys=iface.sys,

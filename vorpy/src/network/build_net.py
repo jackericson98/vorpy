@@ -153,7 +153,7 @@ def doublify(b_verts, v_balls, v_locs, v_dubs, timings=None, counts=None):
     return e_balls, e_verts
 
 
-def get_build_edges(b_verts, v_balls, v_locs, v_dubs, start_time, timings=None, counts=None):
+def get_build_edges(b_verts, v_balls, v_locs, v_dubs, start_time, net=None, timings=None, counts=None):
     """Construct regular edges from indexed 3-ball combinations while retaining exact doublet multiplicity."""
     e_balls, e_verts = doublify(b_verts, v_balls, v_locs, v_dubs, timings=timings, counts=counts)
     regular_edge_start = time.perf_counter()
@@ -178,6 +178,9 @@ def get_build_edges(b_verts, v_balls, v_locs, v_dubs, start_time, timings=None, 
     # i order matches the original loop. For a given triple, the first candidate j
     # with a different fourth ball is the first vertex that shares exactly 3 balls.
     for i, vert in enumerate(v_balls):
+        if net is not None and i % 1000 == 0:
+            percentage = 10.0 + 40.0 * (i + 1) / len(v_balls)
+            net.update_progress("Connecting network", percentage)
         if v_dubs[i] == 1 or (i + 1 < len(v_dubs) and v_dubs[i + 1] == 1):
             continue
 
@@ -231,7 +234,7 @@ def add_build_edges(num_balls, e_balls, num_verts, e_verts):
     return b_edges, v_edges
 
 
-def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, group=None,
+def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, net=None, group=None,
                     interface=False, iface_grps=None, timings=None, counts=None):
     """Construct surfaces from direct 2-ball topology indices while preserving original validity rules."""
     surface_start = time.perf_counter()
@@ -263,11 +266,9 @@ def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, gro
     s_balls, s_verts, s_edges = [], [], []
     keys = sorted(surf_edge_map)
     for n, key in enumerate(keys):
-        if n % 5000 == 0 and keys:
-            the_time = time.perf_counter() - start_time
-            h, m, s = get_time(the_time)
-            print("\rRun Time = {}:{}:{:.2f} - Process: connecting network: {:.2f} %"
-                  .format(int(h), int(m), round(s, 2), 100.0 * n / len(keys)), end="")
+        if net is not None and n % 5000 == 0 and keys:
+            percentage = 60.0 + 30.0 * (n + 1) / len(keys)
+            net.update_progress("Building Topology", percentage)
 
         test_surf = list(key)
         if interface and not spans_interface(test_surf, iface_grps):
@@ -342,7 +343,7 @@ def add_build_surfs(num_balls, s_balls, num_verts, s_verts, num_edges, s_edges):
 
 
 def build(v_balls, v_locs, v_dubs, num_balls, my_time,
-          group=None, interface=False, iface_grps=None):
+          group=None, interface=False, iface_grps=None, net=None):
     """
     Connect solved vertices into the network's edges and surfaces.
 
@@ -380,6 +381,9 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time,
     timings = {}
     counts = {'balls': num_balls, 'verts': len(v_balls), 'doublets': sum(1 for dub in v_dubs if dub == 1)}
 
+    if net is not None:
+        net.update_progress("Building Topology", 0.0)
+
     setup_start = time.perf_counter()
     if group is not None:
         group = set(group)
@@ -403,9 +407,11 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time,
     _record_timing(timings, 'ball_vertex_index', ball_vertex_start)
 
     ################################################# Create the edges #################################################
+    if net is not None:
+        net.update_progress("Building Topology", 10.0)
 
     # Fill in the doublets and regular edges.
-    e_balls, e_verts = get_build_edges(b_verts, v_balls, v_locs, v_dubs, my_time, timings=timings, counts=counts)
+    e_balls, e_verts = get_build_edges(b_verts, v_balls, v_locs, v_dubs, my_time, net=net, timings=timings, counts=counts)
 
     edge_filter_start = time.perf_counter()
     if interface:
@@ -423,13 +429,21 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time,
 
     edge_adjacency_start = time.perf_counter()
     b_edges, v_edges = add_build_edges(num_balls, e_balls, len(v_balls), e_verts)
+    if net is not None:
+        net.update_progress("Building Topology", 60.0)
     _record_timing(timings, 'edge_adjacency', edge_adjacency_start)
 
     ################################################### Create the surfaces ############################################
 
+    if net is not None:
+        net.update_progress("Building Topology", 60.0)
+
     s_balls, s_verts, s_edges = get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, my_time, group=group,
-                                                interface=interface, iface_grps=iface_grps, timings=timings, counts=counts)
+                                                interface=interface, iface_grps=iface_grps, timings=timings,
+                                                net=net, counts=counts)
     counts['surfs'] = len(s_balls)
+    if net is not None:
+        net.update_progress("Building Topology", 90.0)
 
     validation_start = time.perf_counter()
     if interface:
@@ -443,6 +457,9 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time,
 
     surface_adjacency_start = time.perf_counter()
     b_surfs, v_surfs, e_surfs = add_build_surfs(num_balls, s_balls, len(v_balls), s_verts, len(e_balls), s_edges)
+    if net is not None:
+        net.update_progress("Building Topology", 97.0)
+
     _record_timing(timings, 'surface_adjacency', surface_adjacency_start)
 
     packaging_start = time.perf_counter()
@@ -453,5 +470,8 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time,
     _record_timing(timings, 'packaging', packaging_start)
 
     timings['total'] = time.perf_counter() - build_start
-    _print_build_timings(timings, counts)
+    # _print_build_timings(timings, counts)
+    if net is not None:
+        net.update_progress("Building Topology", 100.0)
+
     return ball_lists, vert_lists, edge_lists, surf_lists
