@@ -252,7 +252,7 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None, min_va
         inverse (bool, optional): If True, the color scheme is inverted. Default is False
         remove_outliers (bool, optional): If True, outliers are removed from the color scheme. Default is True
     Returns:
-        None: The function modifies the surface data structure in place by adding color information
+        list: The function modifies the surface data structure in place by adding color information
         to the triangles.
 
     Notes:
@@ -485,6 +485,111 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None, min_va
             my_curvs = (inverse_mult * tri_curvs - min_val) / (max_val - min_val)
 
         tri_colors = my_cmap(multi(my_curvs))
+    # ------------------------------------------------------------------
+    # Integrated mean curvature
+    # ------------------------------------------------------------------
+
+    elif color_scheme.lower() in {
+
+        'int_mean_curv',
+
+        'int_mean',
+
+        'integrated_mean',
+
+        'integrated mean curvature'
+
+    }:
+
+        value = float(surf['int_mean_curv'])
+
+        norm_value = (
+
+                (inverse_mult * value - min_val)
+
+                / (max_val - min_val)
+
+        )
+
+        norm_value = np.clip(norm_value, 0.0, 1.0)
+
+        surf_color = my_cmap(multi(norm_value))
+
+        tri_colors = [
+
+            surf_color
+
+            for _ in range(len(surf['tris']))
+
+        ]
+
+
+    # ------------------------------------------------------------------
+    # Integrated mean curvature squared
+    # ------------------------------------------------------------------
+
+    elif color_scheme.lower() in {
+        'int_mean_curv_sq',
+        'int_mean_sq',
+        'integrated_mean_squared',
+        'integrated mean curvature squared'
+    }:
+
+        value = float(surf['int_mean_curv_sq'])
+
+        norm_value = (
+                (value - min_val)
+                / (max_val - min_val)
+        )
+
+        norm_value = np.clip(norm_value, 0.0, 1.0)
+
+        surf_color = my_cmap(multi(norm_value))
+
+        tri_colors = [
+            surf_color
+            for _ in range(len(surf['tris']))
+        ]
+
+
+    # ------------------------------------------------------------------
+    # Integrated Gaussian curvature
+    # ------------------------------------------------------------------
+
+    elif color_scheme.lower() in {
+
+        'int_gauss_curv',
+
+        'int_gauss',
+
+        'integrated_gauss',
+
+        'integrated gaussian curvature'
+
+    }:
+        print("Coloring tris")
+
+        value = float(surf['int_gauss_curv'])
+
+        norm_value = (
+
+                (value - min_val)
+
+                / (max_val - min_val)
+
+        )
+
+        norm_value = np.clip(norm_value, 0.0, 1.0)
+
+        surf_color = my_cmap(multi(norm_value))
+
+        tri_colors = [
+
+            surf_color
+
+            for _ in range(len(surf['tris']))
+
+        ]
     elif color_scheme.lower() == "black":
         tri_colors = [(0, 0, 0) for _ in range(len(surf['tris']))]
     else:

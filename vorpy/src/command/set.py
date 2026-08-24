@@ -353,14 +353,26 @@ def set_ss(surf_scheme, settings, print_change=False):
       - 'mean' or 'curv' for mean curvature
       - 'ins_out' for inside/outside coloring
       - 'none' for no special coloring
+      - 'int_mean_curv' for integrated mean curvature
+      - 'int_mean_curv_sq' for integrated squared mean curvature
+      - 'int_gauss_curv' for integrated Gaussian curvature
     """
     # Make sure to extract the surface scheme from the value
     if type(surf_scheme) is list:
         surf_scheme = surf_scheme[0]
     # Set up the list of different dictionaries
-    all_dicts = [{_: 'gauss' for _ in surf_scheme_gaus_vals}, {_: 'dist' for _ in surf_scheme_dist_vals},
-                 {_: 'mean' for _ in surf_scheme_mean_vals + surf_scheme_curv_vals},
-                 {_: 'ins_out' for _ in surf_scheme_nout_vals}, {_: 'none' for _ in nones}]
+    all_dicts = [
+        {_: 'gauss' for _ in surf_scheme_gaus_vals},
+        {_: 'dist' for _ in surf_scheme_dist_vals},
+        {_: 'mean' for _ in surf_scheme_mean_vals + surf_scheme_curv_vals},
+        {_: 'ins_out' for _ in surf_scheme_nout_vals},
+        {_: 'none' for _ in nones},
+
+        # Integrated curvature coloring
+        {_: 'int_mean_curv' for _ in surf_scheme_int_mean_vals},
+        {_: 'int_mean_curv_sq' for _ in surf_scheme_int_mean_sq_vals},
+        {_: 'int_gauss_curv' for _ in surf_scheme_int_gauss_vals},
+    ]
     # Put all interpretations into one dictionary for convenience
     interpreter = {k: v for d in all_dicts for k, v in d.items()}
     # Check that the scheme entered is in the set of
@@ -370,7 +382,7 @@ def set_ss(surf_scheme, settings, print_change=False):
             "Surface Scheme",
             surf_scheme,
             "a valid surface coloring scheme",
-            example="curv, mean, gaussian, dist, ins_out, none"
+            example="curv, mean, gaussian, int_mean_curv, int_mean_curv_sq, int_gauss_curv, dist, ins_out, none"
         )
         return settings['surf_scheme']
     if print_change:

@@ -47,6 +47,14 @@ def get_info(group):
     """
     # Reset the group's data attributes
     group.sa, group.vol, group.vdw_vol, group.density, group.mass = 0, 0, 0, 0, 0
+    # Reset the group's curvature geometry
+    group.avg_mean_curv = 0.0
+    group.avg_gauss_curv = 0.0
+
+    group.int_mean_curv = 0.0
+    group.int_mean_curv_sq = 0.0
+    group.int_gauss_curv = 0.0
+    # Center of masses
     com, vdw_com = [0, 0, 0], [0, 0, 0]
     # Get the balls in the group
     group_balls = group.net.balls.iloc[group.ball_ndxs].to_dict(orient='records')
@@ -81,21 +89,61 @@ def get_info(group):
         group.moi = calc_total_inertia_tensor(group_balls, group.vdw_com)
     # Check to see if the first layer has been calculated
     if group.layer_surfs is None or len(group.layer_surfs) == 0:
-        # Get the layers
         group.get_layers(max_layers=1)
+
     # Check to see if there are any layers
-    if len(group.layer_surfs) > 0:
-        # Go through the first layer
-        for i in group.layer_surfs[0]:
+    if group.layer_surfs is not None and len(group.layer_surfs) > 0:
+
+        # The first surface layer defines the exposed group boundary.
+        for surf_ndx in group.layer_surfs[0]:
+
             # Get the surface
-            surf = group.net.surfs.iloc[i]
-            # Check that the surface has a surface area
+            surf = group.net.surfs.iloc[surf_ndx]
+
+            # --------------------------------------------------------------
+            # Surface area
+            # --------------------------------------------------------------
+
             if surf['sa'] is None or surf['sa'] == 0:
-                surf_sa = calc_surf_sa(tris=surf['tris'], points=surf['points'])
+                surf_sa = calc_surf_sa(
+                    tris=surf['tris'],
+                    points=surf['points']
+                )
             else:
-                surf_sa = surf['sa']
-            # Add the surface area
+                surf_sa = float(surf['sa'])
+
             group.sa += surf_sa
+
+            # --------------------------------------------------------------
+            # Integrated curvature
+            # --------------------------------------------------------------
+
+            int_mean_curv = surf.get('int_mean_curv', 0.0)
+            int_mean_curv_sq = surf.get('int_mean_curv_sq', 0.0)
+            int_gauss_curv = surf.get('int_gauss_curv', 0.0)
+
+            # Protect against missing/None values
+            if int_mean_curv is not None:
+                group.int_mean_curv += float(int_mean_curv)
+
+            if int_mean_curv_sq is not None:
+                group.int_mean_curv_sq += float(int_mean_curv_sq)
+
+            if int_gauss_curv is not None:
+                group.int_gauss_curv += float(int_gauss_curv)
+
+    # ----------------------------------------------------------------------
+    # Area-weighted group curvature
+    # ----------------------------------------------------------------------
+
+    if group.sa > 0.0:
+        group.avg_mean_curv = (
+                group.int_mean_curv / group.sa
+        )
+
+        group.avg_gauss_curv = (
+                group.int_gauss_curv / group.sa
+        )
 
 
 def add_balls(grp, ball_list):

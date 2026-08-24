@@ -129,9 +129,10 @@ def write_logs(group, net_name=None, round_to=None):
             "X", "Y", "Z", "Radius", "Volume", "Van Der Waals Volume",
             "Surface Area", "Complete Cell?", "Maximum Mean Curvature",
             "Average Mean Surface Curvature", "Maximum Gaussian Curvature",
-            "Average Gaussian Surface Curvature", "Sphericity", "Isometric Quotient",
-            "Inner Ball?", "Number of Neighbors", "Closest Neighbor",
-            "Closest Neighbor Distance", "Layer Distance Average",
+            "Average Gaussian Surface Curvature", "Integrated Mean Curvature",
+            "Integrated Mean Curvature Squared", "Integrated Gaussian Curvature",
+            "Sphericity", "Isometric Quotient", "Inner Ball?", "Number of Neighbors",
+            "Closest Neighbor", "Closest Neighbor Distance", "Layer Distance Average",
             "Layer Distance RMSD", "Minimum Point Distance", "Maximum Point Distance",
             "Number of Overlaps", "Contact Area", "Non-Overlap Volume",
             "Overlap Volume", "Center of Mass", "Moment of Inertia Tensor",
@@ -176,6 +177,9 @@ def write_logs(group, net_name=None, round_to=None):
                 r(atom.avg_mean_surf_curv),
                 r(atom.max_gauss_curv),
                 r(atom.avg_gauss_surf_curv),
+                r(atom.int_mean_curv),
+                r(atom.int_mean_curv_sq),
+                r(atom.int_gauss_curv),
                 r(atom.sphericity),
                 r(atom.isometric_quotient),
                 atom.ball_inside,
@@ -204,31 +208,19 @@ def write_logs(group, net_name=None, round_to=None):
         # ==============================================================
 
         lg_fl.writerow(["Surfaces"])
-        lg_fl.writerow([
-            "Index", "Ball 1", "Ball 2", "Surface Area", "Mean Curvature",
-            "Average Mean Curvature", "Gaussian Curvature", "Average Gaussian Curvature",
-            "Ball 1 Volume Contribution", "Ball 2 Volume Contribution",
-            "Contact Area", "Overlap"
-        ])
+        lg_fl.writerow(["Index", "Ball 1", "Ball 2", "Surface Area", "Mean Curvature", "Average Mean Curvature",
+                        "Gaussian Curvature", "Average Gaussian Curvature","Integrated Mean Curvature",
+                        "Integrated Mean Curvature Squared", "Integrated Gaussian Curvature",
+                        "Ball 1 Volume Contribution", "Ball 2 Volume Contribution", "Contact Area", "Overlap"])
 
         for surf in net.surfs.itertuples(index=True, name='SurfRow'):
             ball1, ball2 = surf.balls
             vols = surf.vols
 
-            lg_fl.writerow([
-                surf.Index,
-                ball1,
-                ball2,
-                r(surf.sa),
-                r(surf.mean_curv),
-                r(surf.avg_mean_curv),
-                r(surf.gauss_curv),
-                r(surf.avg_gauss_curv),
-                r(vols[ball1]),
-                r(vols[ball2]),
-                r(surf.contact_area),
-                r(surf.overlap)
-            ])
+            lg_fl.writerow([surf.Index, ball1, ball2, r(surf.sa), r(surf.mean_curv), r(surf.avg_mean_curv),
+                            r(surf.gauss_curv), r(surf.avg_gauss_curv), r(surf.int_mean_curv), r(surf.int_mean_curv_sq),
+                            r(surf.int_gauss_curv), r(vols[ball1]), r(vols[ball2]), r(surf.contact_area),
+                            r(surf.overlap)])
 
         # ==============================================================
         # Edges
@@ -634,11 +626,13 @@ def write_interface_logs(iface, net_name=None, round_to=None):
         lg_fl.writerow(["Index", "Name", "Residue", "Residue Sequence", "Chain", "Mass", "X", "Y", "Z", "Radius",
                         "Volume", "Van Der Waals Volume", "Surface Area", "Complete Cell?",
                         "Maximum Mean Curvature", "Average Mean Surface Curvature", "Maximum Gaussian Curvature",
-                        "Average Gaussian Surface Curvature", "Sphericity", "Isometric Quotient",
-                        "Inner Ball?", "Number of Neighbors", "Closest Neighbor", "Closest Neighbor Distance",
-                        "Layer Distance Average", "Layer Distance RMSD", "Minimum Point Distance",
-                        "Maximum Point Distance", "Number of Overlaps", "Contact Area", "Non-Overlap Volume",
-                        "Overlap Volume", "Center of Mass", "Moment of Inertia Tensor", "Bounding Box", "neighbors"])
+                        "Average Gaussian Surface Curvature", "Integrated Mean Curvature",
+                        "Integrated Mean Curvature Squared", "Integrated Gaussian Curvature", "Sphericity",
+                        "Isometric Quotient", "Inner Ball?", "Number of Neighbors", "Closest Neighbor",
+                        "Closest Neighbor Distance", "Layer Distance Average", "Layer Distance RMSD",
+                        "Minimum Point Distance", "Maximum Point Distance", "Number of Overlaps", "Contact Area",
+                        "Non-Overlap Volume", "Overlap Volume", "Center of Mass", "Moment of Inertia Tensor",
+                        "Bounding Box", "neighbors"])
 
         for record in interface_atom_records:
             atom = record["atom"]
@@ -745,6 +739,9 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                     safe_round(atom.get("avg_mean_surf_curv", 0.0)),
                     safe_round(atom.get("max_gauss_curv", 0.0)),
                     safe_round(atom.get("avg_gauss_surf_curv", 0.0)),
+                    safe_round(atom.get("int_mean_curv", 0.0)),
+                    safe_round(atom.get("int_mean_curv_sq", 0.0)),
+                    safe_round(atom.get("int_gauss_curv", 0.0)),
                     safe_round(atom.get("sphericity", 0.0)),
                     safe_round(atom.get("isometric_quotient", 0.0)),
                     bool(atom.get("ball_inside", False)),

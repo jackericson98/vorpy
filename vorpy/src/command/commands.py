@@ -114,6 +114,20 @@ surf_scheme_gaus_vals = ['gaussian', 'gc', 'gauss', 'g']
 surf_scheme_dist_vals = ['distance', 'dist', 'd']
 surf_scheme_nout_vals = ['in_out', 'nout', 'no', 'ins_out']
 
+# Integrated curvature surface-coloring schemes
+surf_scheme_int_mean_vals = [
+    'int_mean_curv', 'int_mean', 'integrated_mean_curvature',
+    'integrated_mean', 'imc'
+]
+surf_scheme_int_mean_sq_vals = [
+    'int_mean_curv_sq', 'int_mean_sq', 'integrated_mean_curvature_squared',
+    'integrated_mean_squared', 'imcs'
+]
+surf_scheme_int_gauss_vals = [
+    'int_gauss_curv', 'int_gauss', 'integrated_gaussian_curvature',
+    'integrated_gauss', 'igc'
+]
+
 surf_factor_vals = {
     **{_: 'lin' for _ in {'linear', 'lin', 'line'}},
     **{_: 'log' for _ in {'log', 'logarithmic', 'log'}},
@@ -221,7 +235,9 @@ Options:
       mv - Maximum Vertex: Default = 40
       bm - Box Multiplier: Default = 1.25
       sc - Surface Color: Default = 'viridis', 'plasma', 'rainbow', or any other matplotlib colormap
-      ss - Surface Scheme: Default = curvature 'curv', inside vs outside spheres 'nout', distance from center 'dist'
+      ss - Surface Scheme: mean 'mean', Gaussian 'gauss', integrated mean 'int_mean_curv',
+           integrated mean squared 'int_mean_curv_sq', integrated Gaussian 'int_gauss_curv',
+           inside vs outside spheres 'nout', distance from center 'dist'
       sf - Surface Coloring Scale: Default = linear 'lin', log 'log', squared 'square', cube 'cube'
       ar - Adjust Radii: 'element' 'value' or 'atom name' 'value' or 'residue' 'atom name' 'value'
 

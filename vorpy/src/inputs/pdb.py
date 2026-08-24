@@ -57,6 +57,7 @@ def read_pdb(sys, file=None):
         file_address = sys.files['dir'] + file[1:]
     # If the file does not exist return
     else:
+        print("here")
         return
     # Print a statement saying the file is being read
     print(f"\rReading File {os.path.basename(file)}", end="")
@@ -129,6 +130,18 @@ def read_pdb(sys, file=None):
                 res_str, chain_str = line[17:20].strip(), line[21]
             except IndexError:
                 continue
+            # Get the name
+            name = line[12:16]
+
+            # Determine the element
+            element = line[76:78].strip()
+
+            # GROMACS and some other programs leave the PDB element field blank.
+            if not element:
+                atom_name = name.strip().lstrip('0123456789')
+                if atom_name:
+                    element = atom_name[0]
+
             # Assign the radius
             rad = None
             # If the system is a foam or coarse system
@@ -152,10 +165,9 @@ def read_pdb(sys, file=None):
             else:
                 # Set the mass to 1
                 mass = 1
-
             # Create the atom
             atom = make_atom(location=np.array([float(line[30:38]), float(line[38:46]), float(line[46:54])]),
-                             system=sys, element=line[76:78].strip(), res_seq=res_seq, res_name=res_str,
+                             system=sys, element=element, res_seq=res_seq, res_name=res_str,
                              chn_name=chain_str,
                              name=name.strip(), seg_id=line[72:76], index=atom_count, mass=mass, radius=rad)
             # Increment the atom count

@@ -8,8 +8,6 @@ def write_surfs(net, surfs, file_name, color=False, directory=None, concave_colo
                 universal_max=True, chunk_size=10000):
     """Export selected network surfaces to an OFF file."""
 
-    total_start = time.perf_counter()
-
     if directory is not None:
         os.chdir(directory)
 
@@ -31,43 +29,74 @@ def write_surfs(net, surfs, file_name, color=False, directory=None, concave_colo
     # Gather surfaces
     # ------------------------------------------------------------------
 
-    gather_start = time.perf_counter()
     surf_rows = [net.surfs.iloc[ndx] for ndx in surfs]
-    gather_time = time.perf_counter() - gather_start
 
     # ------------------------------------------------------------------
     # Count geometry
     # ------------------------------------------------------------------
-
-    count_start = time.perf_counter()
     num_points = sum(len(surf['points']) for surf in surf_rows)
     num_tris = sum(len(surf['tris']) for surf in surf_rows)
-    count_time = time.perf_counter() - count_start
 
     # ------------------------------------------------------------------
     # Determine curvature scale
     # ------------------------------------------------------------------
 
-    curvature_start = time.perf_counter()
+    surf_scheme = net.settings['surf_scheme'].lower()
+
+    # Map surface coloring schemes to their DataFrame columns
+    scheme_columns = {
+        'mean': 'mean_curv',
+        'mean_curv': 'mean_curv',
+
+        'gauss': 'gauss_curv',
+        'gauss_curv': 'gauss_curv',
+
+        'avg_mean': 'avg_mean_curv',
+        'avg_gauss': 'avg_gauss_curv',
+
+        'max_mean': 'mean_curv',
+        'max_gauss': 'gauss_curv',
+
+        # Integrated curvature geometry
+        'int_mean': 'int_mean_curv',
+        'int_mean_sq': 'int_mean_curv_sq',
+        'int_gauss': 'int_gauss_curv',
+    }
+
+    value_column = scheme_columns.get(
+        surf_scheme,
+        'mean_curv'
+    )
 
     if universal_max:
-        if net.settings['surf_scheme'] == 'gauss':
-            max_val = max(net.surfs['gauss_curv'])
-        else:
-            max_val = max(net.surfs['mean_curv'])
+        values = np.asarray(
+            net.surfs[value_column],
+            dtype=float
+        )
     else:
-        if net.settings['surf_scheme'] == 'gauss':
-            max_val = max((surf['gauss_curv'] for surf in surf_rows), default=0)
-        else:
-            max_val = max((surf['mean_curv'] for surf in surf_rows), default=0)
+        values = np.asarray(
+            [surf[value_column] for surf in surf_rows],
+            dtype=float
+        )
 
-    curvature_time = time.perf_counter() - curvature_start
+    # Remove NaN / inf
+    values = values[np.isfinite(values)]
+
+    if len(values) == 0:
+        min_val = 0.0
+        max_val = 1.0
+
+    else:
+        min_val = float(np.min(values))
+        max_val = float(np.max(values))
+
+        # Prevent divide-by-zero during normalization
+        if max_val == min_val:
+            max_val = min_val + 1.0
 
     # ------------------------------------------------------------------
     # Generate triangle colors
     # ------------------------------------------------------------------
-
-    color_start = time.perf_counter()
     tri_colors = []
 
     if net.settings['net_type'] == 'aw':
@@ -79,10 +108,10 @@ def write_surfs(net, surfs, file_name, color=False, directory=None, concave_colo
                 non_ref_ball = next(ball for ball in surf['balls'] if ball not in ref_set)
                 inverse = net.balls.iloc[ref_ball]['rad'] <= net.balls.iloc[non_ref_ball]['rad']
 
-                tri_colors.append(color_tris(
-                    surf=surf, color_map=net.settings['surf_col'], color_scheme=net.settings['surf_scheme'],
-                    color_factor=net.settings['scheme_factor'], max_val=max_val, min_val=-max_val, inverse=inverse
-                ))
+                tri_colors.append(color_tris(surf=surf, color_map=net.settings['surf_col'],
+                                             color_scheme=net.settings['surf_scheme'],
+                                             color_factor=net.settings['scheme_factor'], max_val=max_val,
+                                             min_val=min_val))
             else:
                 tri_colors.append(color_tris(
                     surf=surf, color_map=net.settings['surf_col'], color_scheme=net.settings['surf_scheme'],
@@ -90,8 +119,6 @@ def write_surfs(net, surfs, file_name, color=False, directory=None, concave_colo
                 ))
     else:
         tri_colors = [[color] * len(surf['tris']) for surf in surf_rows]
-
-    color_time = time.perf_counter() - color_start
 
     # ------------------------------------------------------------------
     # Write OFF file
@@ -104,7 +131,6 @@ def write_surfs(net, surfs, file_name, color=False, directory=None, concave_colo
         # Write points in chunks
         # --------------------------------------------------------------
 
-        points_start = time.perf_counter()
         buffer = []
 
         for surf in surf_rows:
@@ -123,13 +149,10 @@ def write_surfs(net, surfs, file_name, color=False, directory=None, concave_colo
             file.write(''.join(buffer))
             buffer.clear()
 
-        points_time = time.perf_counter() - points_start
-
         # --------------------------------------------------------------
         # Write faces in chunks
         # --------------------------------------------------------------
 
-        faces_start = time.perf_counter()
         vertex_offset = 0
         buffer = []
 
@@ -150,10 +173,6 @@ def write_surfs(net, surfs, file_name, color=False, directory=None, concave_colo
 
         if buffer:
             file.write(''.join(buffer))
-
-        faces_time = time.perf_counter() - faces_start
-
-    total_time = time.perf_counter() - total_start
 
 
 def write_surfs1(surfs, file_name, settings, color=False, directory=None, chunk_size=10000):

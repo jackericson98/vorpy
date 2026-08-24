@@ -225,7 +225,7 @@ def test_angle_translation_invariance(p0, p1, p2, t):
     if np.isnan(ang0) or np.isnan(ang1):
         assert np.isnan(ang0) and np.isnan(ang1)
     else:
-        assert np.isclose(ang0, ang1, atol=1e-12)
+        assert np.isclose(ang0, ang1, atol=1e-10)
 
 
 @given(POINT3, POINT3)

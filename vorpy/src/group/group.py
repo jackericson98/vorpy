@@ -211,6 +211,19 @@ class Group:
         self.mass = 0
         self.com = [0, 0, 0]
 
+        # ------------------------------------------------------------------
+        # Surface curvature geometry
+        # ------------------------------------------------------------------
+
+        # Area-weighted average curvature over the group's exposed surface
+        self.avg_mean_curv = 0.0
+        self.avg_gauss_curv = 0.0
+
+        # Integrated curvature over the group's exposed surface
+        self.int_mean_curv = 0.0
+        self.int_mean_curv_sq = 0.0
+        self.int_gauss_curv = 0.0
+
         self.vdw_vol = 0
         self.vdw_com = [0, 0, 0]
 
@@ -350,7 +363,7 @@ class Group:
 
     def get_settings(self, surf_res=0.2, surf_col='plasma', surf_scheme='mean', scheme_factor='log', max_vert=40,
                      box_size=1.25, net_type='aw', build_type='all', num_splits=1, print_metrics=True, ball_type=None,
-                     sys_dir=None, foam_box=None, vert_col='red', edge_col='grey', conc_col=True, round_to=3):
+                     sys_dir=None, foam_box=None, vert_col='red', edge_col='grey', conc_col=True, round_to=6):
         """
         Sets the settings for the network building
         """

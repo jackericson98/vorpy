@@ -5,6 +5,7 @@ from vorpy.src.output import write_surfs
 from vorpy.src.output import write_pdb
 from vorpy.src.output import write_interface_logs
 
+
 def get_interface_atoms(iface):
     """Return the unique atom indices participating in the interface definition."""
     return sorted(
@@ -263,6 +264,30 @@ def write_surface_statistics(info, title, surfaces):
         "avg_gauss_curv",
     )
 
+    # Integrated curvature geometry
+    integrated_mean_curvatures = _numeric_series(
+        surfaces,
+        "int_mean_curv",
+        "Integrated Mean Curvature",
+    )
+
+    integrated_mean_curvature_squared = _numeric_series(
+        surfaces,
+        "int_mean_curv_sq",
+        "Integrated Mean Curvature Squared",
+    )
+
+    integrated_gaussian_curvatures = _numeric_series(
+        surfaces,
+        "int_gauss_curv",
+        "Integrated Gaussian Curvature",
+    )
+
+    contact_areas = _numeric_series(
+        surfaces,
+        "contact_area",
+    )
+
     contact_areas = _numeric_series(
         surfaces,
         "contact_area",
@@ -328,6 +353,56 @@ def write_surface_statistics(info, title, surfaces):
         f"    Maximum local Gaussian curvature: "
         f"{_format_metric(_safe_max(gaussian_curvatures))} Å⁻²\n"
     )
+
+    # ------------------------------------------------------------------
+    # Integrated curvature geometry
+    # ------------------------------------------------------------------
+
+    info.write("\n  Integrated curvature geometry:\n")
+
+    total_int_mean_curv = _safe_sum(
+        integrated_mean_curvatures
+    )
+
+    total_int_mean_curv_sq = _safe_sum(
+        integrated_mean_curvature_squared
+    )
+
+    total_int_gauss_curv = _safe_sum(
+        integrated_gaussian_curvatures
+    )
+
+    info.write(
+        f"    Integrated mean curvature (∫H dA): "
+        f"{_format_metric(total_int_mean_curv)} Å\n"
+    )
+
+    info.write(
+        f"    Integrated squared mean curvature (∫H² dA): "
+        f"{_format_metric(total_int_mean_curv_sq)}\n"
+    )
+
+    info.write(
+        f"    Integrated Gaussian curvature (∫K dA): "
+        f"{_format_metric(total_int_gauss_curv)}\n"
+    )
+
+    # Derive area-normalized curvature from the integrated quantities
+    total_surface_area = _safe_sum(surface_areas)
+
+    if total_surface_area is not None and total_surface_area > 0.0:
+
+        if total_int_mean_curv is not None:
+            info.write(
+                f"    Area-normalized mean curvature: "
+                f"{_format_metric(total_int_mean_curv / total_surface_area)} Å⁻¹\n"
+            )
+
+        if total_int_gauss_curv is not None:
+            info.write(
+                f"    Area-normalized Gaussian curvature: "
+                f"{_format_metric(total_int_gauss_curv / total_surface_area)} Å⁻²\n"
+            )
 
     info.write("\n  Contact and overlap:\n")
     info.write(

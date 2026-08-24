@@ -89,92 +89,237 @@ atom_vals_old = {'Index': int, 'Name': str, 'Residue': str, 'Residue Sequence': 
                  'Moment of Inertia Tensor': parse_string_lists, 'Bounding Box': parse_string_lists,
                  'Neighbors': parse_string_lists_int}
 
+atom_vals_new = {'Index': int, 'Name': str, 'Residue': str, 'Residue Sequence': int, 'Chain': str, 'Mass': float,
+                 'X': float, 'Y': float, 'Z': float, 'Radius': float, 'Volume': float, 'Van Der Waals Volume': float,
+                 'Surface Area': float, 'Complete Cell?': sort_bool, 'Maximum Mean Curvature': float,
+                 'Average Mean Surface Curvature': float, 'Maximum Gaussian Curvature': float,
+                 'Average Gaussian Surface Curvature': float, 'Integrated Mean Curvature': float,
+                 'Integrated Mean Curvature Squared': float, 'Integrated Gaussian Curvature': float,
+                 'Sphericity': float, 'Isometric Quotient': float, 'Inner Ball?': sort_bool, 'Number of Neighbors': int,
+                 'Closest Neighbor': int, 'Closest Neighbor Distance': float, 'Layer Distance Average': parse_string_lists,
+                 'Layer Distance RMSD': parse_string_lists, 'Minimum Point Distance': float,
+                 'Maximum Point Distance': float, 'Number of Overlaps': int, 'Contact Area': float,
+                 'Non - Overlap Volume': float, 'Overlap Volume': float, 'Center of Mass': parse_string_lists,
+                 'Moment of Inertia Tensor': parse_string_lists, 'Bounding Box': parse_string_lists,
+                 'Neighbors': parse_string_lists_int}
+
 
 def read_atom(atom_line):
+    """
+    Parse an atom row using its column count.
+
+    Supported formats
+    -----------------
+    36 columns
+        Existing VorPy atom log format.
+
+    39 columns
+        New VorPy atom log format containing:
+        - Integrated Mean Curvature
+        - Integrated Mean Curvature Squared
+        - Integrated Gaussian Curvature
+    """
+
+    n = len(atom_line)
+
+    # --------------------------------------------------------------
+    # New format: 39 columns
+    # --------------------------------------------------------------
+    if n == 39:
+        schema = atom_vals_new
+
+    # --------------------------------------------------------------
+    # Current/legacy format: 36 columns
+    # --------------------------------------------------------------
+    elif n == 36:
+        schema = atom_vals
+
+    # --------------------------------------------------------------
+    # Older legacy format
+    # --------------------------------------------------------------
+    elif n == len(atom_vals_old):
+        schema = atom_vals_old
+
+    else:
+        raise ValueError(
+            f"Unrecognized atom log format: "
+            f"expected 39, 36, or {len(atom_vals_old)} columns, "
+            f"got {n}."
+        )
+
     atom = {}
-    try:
-        for i, title in enumerate(atom_vals):
-            atom[title] = atom_vals[title](atom_line[i])
-    except ValueError:
-        for i, title in enumerate(atom_vals_old):
-            atom[title] = atom_vals_old[title](atom_line[i])
+
+    for i, title in enumerate(schema):
+        atom[title] = schema[title](atom_line[i])
+
     return atom
 
 
 def read_surf(surf_line):
     """
-    Parse a surface line.
+    Parse a surface row based on its column count.
 
-    Handles both the original 8–10 field formats and newer / extended formats
-    where additional columns have been appended (e.g., 36 entries). For
-    extended formats, only the first 10 columns are used:
+    Supported formats
+    -----------------
+    15 columns
+        New VorPy format with integrated curvature values.
 
-      0: Index
-      1: Ball 1
-      2: Ball 2
-      3: Surface Area
-      4: Mean Curvature (or Curvature in older logs)
-      5: Gauss / Gaussian Curvature (if present)
-      6: Ball 1 volume contribution
-      7: Ball 2 volume contribution
-      8: Contact Area
-      9: Overlap
+    12 columns
+        Current VorPy format.
+
+    10 columns
+        Older mean/Gaussian curvature format.
+
+    9 columns
+        Older format without overlap.
+
+    8 columns
+        Legacy single-curvature format.
     """
+
+    # Remove trailing empty CSV entries
     while surf_line and surf_line[-1] == "":
         surf_line = surf_line[:-1]
+
     n = len(surf_line)
 
-    if n >= 12:
-        core = surf_line[:12]
+    # --------------------------------------------------------------
+    # New format: 15 columns
+    # --------------------------------------------------------------
+    if n == 15:
         return {
-            "Index": int(core[0]),
-            "Balls": [int(core[1]), int(core[2])],
-            "Surface Area": float(core[3]),
-            "Mean Curvature": float(core[4]),
-            "Average Mean Curvature": float(core[5]),
-            "Gauss Curvature": float(core[6]),
-            "Average Gauss Curvature": float(core[7]),
-            "Ball Volumes": [float(x) for x in core[8:10] if x != ""],
-            "Contact Area": float(core[10]),
-            "Overlap": float(core[11]),
+            "Index": int(surf_line[0]),
+            "Balls": [
+                int(surf_line[1]),
+                int(surf_line[2])
+            ],
+
+            "Surface Area": float(surf_line[3]),
+
+            # Keep existing names unchanged
+            "Mean Curvature": float(surf_line[4]),
+            "Average Mean Curvature": float(surf_line[5]),
+            "Gauss Curvature": float(surf_line[6]),
+            "Average Gauss Curvature": float(surf_line[7]),
+
+            # New values
+            "Integrated Mean Curvature": float(surf_line[8]),
+            "Integrated Mean Curvature Squared": float(surf_line[9]),
+            "Integrated Gaussian Curvature": float(surf_line[10]),
+
+            "Ball Volumes": [
+                float(surf_line[11]),
+                float(surf_line[12])
+            ],
+
+            "Contact Area": float(surf_line[13]),
+            "Overlap": float(surf_line[14]),
         }
 
+    # --------------------------------------------------------------
+    # Current format: 12 columns
+    # --------------------------------------------------------------
+    elif n == 12:
+        return {
+            "Index": int(surf_line[0]),
+            "Balls": [
+                int(surf_line[1]),
+                int(surf_line[2])
+            ],
+
+            "Surface Area": float(surf_line[3]),
+
+            "Mean Curvature": float(surf_line[4]),
+            "Average Mean Curvature": float(surf_line[5]),
+            "Gauss Curvature": float(surf_line[6]),
+            "Average Gauss Curvature": float(surf_line[7]),
+
+            "Ball Volumes": [
+                float(surf_line[8]),
+                float(surf_line[9])
+            ],
+
+            "Contact Area": float(surf_line[10]),
+            "Overlap": float(surf_line[11]),
+        }
+
+    # --------------------------------------------------------------
+    # Older format: 10 columns
+    # --------------------------------------------------------------
     elif n == 10:
         return {
             "Index": int(surf_line[0]),
-            "Balls": [int(surf_line[1]), int(surf_line[2])],
+            "Balls": [
+                int(surf_line[1]),
+                int(surf_line[2])
+            ],
+
             "Surface Area": float(surf_line[3]),
+
             "Mean Curvature": float(surf_line[4]),
             "Gauss Curvature": float(surf_line[5]),
-            "Ball Volumes": [float(x) for x in surf_line[6:8] if x != ""],
+
+            "Ball Volumes": [
+                float(surf_line[6]),
+                float(surf_line[7])
+            ],
+
             "Contact Area": float(surf_line[8]),
             "Overlap": float(surf_line[9]),
         }
 
+    # --------------------------------------------------------------
+    # Older format: 9 columns
+    # --------------------------------------------------------------
     elif n == 9:
         return {
             "Index": int(surf_line[0]),
-            "Balls": [int(surf_line[1]), int(surf_line[2])],
+            "Balls": [
+                int(surf_line[1]),
+                int(surf_line[2])
+            ],
+
             "Surface Area": float(surf_line[3]),
+
             "Mean Curvature": float(surf_line[4]),
             "Gauss Curvature": float(surf_line[5]),
-            "Ball Volumes": [float(x) for x in surf_line[6:8] if x != ""],
+
+            "Ball Volumes": [
+                float(surf_line[6]),
+                float(surf_line[7])
+            ],
+
             "Contact Area": float(surf_line[8]),
             "Overlap": 0.0,
         }
 
+    # --------------------------------------------------------------
+    # Legacy format: 8 columns
+    # --------------------------------------------------------------
     elif n == 8:
         return {
             "Index": int(surf_line[0]),
-            "Balls": [int(surf_line[1]), int(surf_line[2])],
+            "Balls": [
+                int(surf_line[1]),
+                int(surf_line[2])
+            ],
+
             "Surface Area": float(surf_line[3]),
             "Curvature": float(surf_line[4]),
-            "Ball Volumes": [float(x) for x in surf_line[5:7] if x != ""],
+
+            "Ball Volumes": [
+                float(surf_line[5]),
+                float(surf_line[6])
+            ],
+
             "Contact Area": float(surf_line[7]),
             "Overlap": 0.0,
         }
 
-    return None
+    raise ValueError(
+        f"Unrecognized surface log format: "
+        f"expected 15, 12, 10, 9, or 8 columns, got {n}."
+    )
 
 
 def read_edge(edge_line):

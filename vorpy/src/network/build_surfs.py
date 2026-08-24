@@ -2,6 +2,7 @@ import time
 from vorpy.src.calculations import calc_surf_sa
 from vorpy.src.calculations import calc_tetra_vol
 from vorpy.src.network.build_surf import build_surf
+from vorpy.src.calculations.surface_energy import calc_surface_energy_geometry_from_curvatures
 
 
 def build_surfs(net, store_points=True):
@@ -38,7 +39,9 @@ def build_surfs(net, store_points=True):
     - For large networks, setting store_points=False can reduce memory usage
     """
     # Instantiate the lists for storage
-    points, tris, mean_tri_curvs, mean_curvs, avg_mean_curvs, gauss_tri_curvs, gauss_curvs, avg_gauss_curvs, funcs, coms, flats, sas, vols, surf_locs = [], [], [], [], [], [], [], [], [], [], [], [], [], []
+    points, tris, mean_tri_curvs, mean_curvs, avg_mean_curvs, gauss_tri_curvs, gauss_curvs, avg_gauss_curvs = [], [], [], [], [], [], [], []
+    int_mean_curvs, int_mean_curv_sqs, int_gauss_curvs, surf_energies = [], [], [], []
+    funcs, coms, flats, sas, vols, surf_locs = [], [], [], [], [], []
 
     total_surfs = len(net.surfs)
     last_update = 0.0
@@ -72,6 +75,16 @@ def build_surfs(net, store_points=True):
         # Calculate the surface area of the surface
         sa = calc_surf_sa(tris=surf_tris, points=surf_points)
 
+        # Calculate the integrated curvature geometry using the triangle
+        # curvatures that were already calculated in build_surf().
+        energy_geometry = calc_surface_energy_geometry_from_curvatures(
+            points=surf_points,
+            tris=surf_tris,
+            mean_curvatures=mean_surf_tri_curvs,
+            gaussian_curvatures=gauss_surf_tri_curvs,
+            area=sa
+        )
+
         # Build the surfaces and print the progress
         current_surf = i + 1
         current_time = time.perf_counter()
@@ -85,7 +98,10 @@ def build_surfs(net, store_points=True):
             )
 
             last_update = current_time
-
+        representative_energy = (
+                2.0
+                * energy_geometry['Integrated Mean Curvature Squared']
+        )
         # If we are doing a large export and will need the points later in the process for export and such
         if store_points:
             # Append the surface points and triangles to the lists
@@ -104,6 +120,19 @@ def build_surfs(net, store_points=True):
         avg_mean_curvs.append(avg_mean_surf_curv)
         gauss_curvs.append(gauss_surf_curv)
         avg_gauss_curvs.append(avg_gauss_surf_curv)
+
+        # Append integrated curvature descriptors
+        int_mean_curvs.append(energy_geometry['Integrated Mean Curvature'])
+        int_mean_curv_sqs.append(energy_geometry['Integrated Mean Curvature Squared'])
+        int_gauss_curvs.append(energy_geometry['Integrated Gaussian Curvature'])
+        # Representative curvature-dependent surface energy
+        # Helfrich bending term with kappa_b = 1 kBT and C0 = 0.
+        surf_energy = (
+                2.0
+                * energy_geometry['Integrated Mean Curvature Squared']
+        )
+
+        surf_energies.append(surf_energy)
         # Append the surface function, center of mass, flatness, surface area, volumes, and location to the lists
         funcs.append(surf_func)
         coms.append(surf_com)
@@ -114,9 +143,10 @@ def build_surfs(net, store_points=True):
     # Set the dataframe elements
     (net.surfs['points'], net.surfs['tris'], net.surfs['mean_tri_curvs'], net.surfs['mean_curv'],
      net.surfs['avg_mean_curv'], net.surfs['gauss_tri_curvs'], net.surfs['gauss_curv'], net.surfs['avg_gauss_curv'],
+     net.surfs['int_mean_curv'], net.surfs['int_mean_curv_sq'], net.surfs['int_gauss_curv'], net.surfs['surf_energy'],
      net.surfs['func'], net.surfs['com'], net.surfs['flat'], net.surfs['sa'], net.surfs['vols'], net.surfs['loc']) = \
-        (points, tris, mean_tri_curvs, mean_curvs, avg_mean_curvs, gauss_tri_curvs, gauss_curvs, avg_gauss_curvs, funcs,
-         coms, flats, sas, vols, surf_locs)
+        (points, tris, mean_tri_curvs, mean_curvs, avg_mean_curvs, gauss_tri_curvs, gauss_curvs, avg_gauss_curvs,
+         int_mean_curvs, int_mean_curv_sqs, int_gauss_curvs, surf_energies, funcs, coms, flats, sas, vols, surf_locs)
 
     # Get the curvature in the 95th percentile
     my_surf_curvs = net.surfs['mean_curv'].to_list()

@@ -52,6 +52,9 @@ def analyze(net, complicated=True):
     b_max_mean_curvs, b_avg_mean_surf_curvs = [], []
     b_max_gauss_curvs, b_avg_gauss_surf_curvs = [], []
 
+    # Integrated curvature geometry
+    b_int_mean_curvs, b_int_mean_curv_sqs, b_int_gauss_curvs = [], [], []
+
     # Set up the geometric variables
     b_sphrctys, b_isopmqs = [], []
 
@@ -94,6 +97,7 @@ def analyze(net, complicated=True):
             (b_vols, b_sas, b_cell,
              b_max_mean_curvs, b_avg_mean_surf_curvs,
              b_max_gauss_curvs, b_avg_gauss_surf_curvs,
+             b_int_mean_curvs, b_int_mean_curv_sqs, b_int_gauss_curvs,
              b_sphrctys, b_isopmqs, b_inner,
              num_nbors, near_nbors, near_nbor_dists,
              nbor_lyr_rmsds, num_olaps, nbor_dst_avgs,
@@ -103,6 +107,7 @@ def analyze(net, complicated=True):
                 b_vols, b_sas, b_cell,
                 b_max_mean_curvs, b_avg_mean_surf_curvs,
                 b_max_gauss_curvs, b_avg_gauss_surf_curvs,
+                b_int_mean_curvs, b_int_mean_curv_sqs, b_int_gauss_curvs,
                 b_sphrctys, b_isopmqs, b_inner,
                 num_nbors, near_nbors, near_nbor_dists,
                 nbor_lyr_rmsds, num_olaps, nbor_dst_avgs,
@@ -119,6 +124,7 @@ def analyze(net, complicated=True):
             (b_vols, b_sas, b_cell,
              b_max_mean_curvs, b_avg_mean_surf_curvs,
              b_max_gauss_curvs, b_avg_gauss_surf_curvs,
+             b_int_mean_curvs, b_int_mean_curv_sqs, b_int_gauss_curvs,
              b_sphrctys, b_isopmqs, b_inner,
              num_nbors, near_nbors, near_nbor_dists,
              nbor_lyr_rmsds, num_olaps, nbor_dst_avgs,
@@ -128,6 +134,7 @@ def analyze(net, complicated=True):
                 b_vols, b_sas, b_cell,
                 b_max_mean_curvs, b_avg_mean_surf_curvs,
                 b_max_gauss_curvs, b_avg_gauss_surf_curvs,
+                b_int_mean_curvs, b_int_mean_curv_sqs, b_int_gauss_curvs,
                 b_sphrctys, b_isopmqs, b_inner,
                 num_nbors, near_nbors, near_nbor_dists,
                 nbor_lyr_rmsds, num_olaps, nbor_dst_avgs,
@@ -146,6 +153,7 @@ def analyze(net, complicated=True):
             (b_vols, b_sas, b_cell,
              b_max_mean_curvs, b_avg_mean_surf_curvs,
              b_max_gauss_curvs, b_avg_gauss_surf_curvs,
+             b_int_mean_curvs, b_int_mean_curv_sqs, b_int_gauss_curvs,
              b_sphrctys, b_isopmqs, b_inner,
              num_nbors, near_nbors, near_nbor_dists,
              nbor_lyr_rmsds, num_olaps, nbor_dst_avgs,
@@ -155,6 +163,7 @@ def analyze(net, complicated=True):
                 b_vols, b_sas, b_cell,
                 b_max_mean_curvs, b_avg_mean_surf_curvs,
                 b_max_gauss_curvs, b_avg_gauss_surf_curvs,
+                b_int_mean_curvs, b_int_mean_curv_sqs, b_int_gauss_curvs,
                 b_sphrctys, b_isopmqs, b_inner,
                 num_nbors, near_nbors, near_nbor_dists,
                 nbor_lyr_rmsds, num_olaps, nbor_dst_avgs,
@@ -199,15 +208,25 @@ def analyze(net, complicated=True):
 
         # Curvature metrics
 
+        # Existing maximum triangle-curvature metrics
         b_max_mean_curvs.append(max([_['mean_curv'] for _ in ball_surfs]))
-        b_avg_mean_surf_curvs.append(
-            sum(s['sa'] * s['avg_mean_curv'] for s in ball_surfs) / sa
-        )
-
         b_max_gauss_curvs.append(max([_['gauss_curv'] for _ in ball_surfs]))
-        b_avg_gauss_surf_curvs.append(
-            sum(s['sa'] * s['avg_gauss_curv'] for s in ball_surfs) / sa
-        )
+
+        # Integrated curvature descriptors are additive across surfaces.
+        int_mean_curv = sum(s['int_mean_curv'] for s in ball_surfs)
+        int_mean_curv_sq = sum(s['int_mean_curv_sq'] for s in ball_surfs)
+        int_gauss_curv = sum(s['int_gauss_curv'] for s in ball_surfs)
+
+        b_int_mean_curvs.append(int_mean_curv)
+        b_int_mean_curv_sqs.append(int_mean_curv_sq)
+        b_int_gauss_curvs.append(int_gauss_curv)
+
+        # Derive area-weighted average cell curvatures directly from the
+        # integrated values. This is mathematically equivalent to weighting
+        # each surface average by surface area, but keeps one consistent
+        # definition throughout the code.
+        b_avg_mean_surf_curvs.append(int_mean_curv / sa)
+        b_avg_gauss_surf_curvs.append(int_gauss_curv / sa)
 
         time3 = time.perf_counter()
         timer['curvs'] += time3 - time2
@@ -342,7 +361,7 @@ def analyze(net, complicated=True):
             percentage = 100.0 * count / max(n_group, 1)
 
             net.update_progress(
-                f"Analyzing network - ",
+                f"Analyzing network",
                 percentage
             )
 
@@ -352,7 +371,9 @@ def analyze(net, complicated=True):
     net.balls = net.balls.assign(
         vol=b_vols, sa=b_sas, max_mean_curv=b_max_mean_curvs, complete=b_cell,
         max_gauss_curv=b_max_gauss_curvs, avg_mean_surf_curv=b_avg_mean_surf_curvs,
-        avg_gauss_surf_curv=b_avg_gauss_surf_curvs, sphericity=b_sphrctys,
+        avg_gauss_surf_curv=b_avg_gauss_surf_curvs,
+        int_mean_curv=b_int_mean_curvs, int_mean_curv_sq=b_int_mean_curv_sqs,
+        int_gauss_curv=b_int_gauss_curvs, sphericity=b_sphrctys,
         isometric_quotient=b_isopmqs, ball_inside=b_inner, number_of_neighbors=num_nbors,
         nearest_neighbor=near_nbors, nearest_neighbor_distance=near_nbor_dists,
         neighbor_distance_average=nbor_dst_avgs, neighbor_distance_rmsd=nbor_lyr_rmsds,
@@ -379,4 +400,3 @@ def analyze(net, complicated=True):
         - net.metrics['con']
         - net.metrics['vert']
     )
-
