@@ -57,10 +57,12 @@ def write_surfs(net, surfs, file_name, color=False, directory=None, concave_colo
         'max_mean': 'mean_curv',
         'max_gauss': 'gauss_curv',
 
-        # Integrated curvature geometry
-        'int_mean': 'int_mean_curv',
-        'int_mean_sq': 'int_mean_curv_sq',
-        'int_gauss': 'int_gauss_curv',
+        'int_mean_curv': 'int_mean_curv',
+        'int_mean_curv_sq': 'int_mean_curv_sq',
+        'int_gauss_curv': 'int_gauss_curv',
+
+        # Representative surface energy
+        'surf_energy': 'surf_energy',
     }
 
     value_column = scheme_columns.get(

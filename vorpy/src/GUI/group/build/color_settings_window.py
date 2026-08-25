@@ -106,7 +106,11 @@ class ColorSettingsWindow(tk.Toplevel):
 
             'int_gauss_curv': 'int_gauss_curv',
             'int_gauss': 'int_gauss_curv',
-            'integrated gaussian curvature': 'int_gauss_curv'
+            'integrated gaussian curvature': 'int_gauss_curv',
+
+            'representative surface energy': 'surf_energy',
+            'surface energy': 'surf_energy',
+            'surf_energy': 'surf_energy',
         }
         current_value = default_settings['surf_scheme']
 
@@ -124,6 +128,7 @@ class ColorSettingsWindow(tk.Toplevel):
             'int_mean_curv': 'Integrated Mean Curvature',
             'int_mean_curv_sq': 'Integrated Mean Curvature Squared',
             'int_gauss_curv': 'Integrated Gaussian Curvature',
+            'surf_energy': 'Representative Surface Energy',
         }
 
         self.surf_scheme.set(

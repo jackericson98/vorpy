@@ -128,6 +128,13 @@ surf_scheme_int_gauss_vals = [
     'integrated_gauss', 'igc'
 ]
 
+surf_scheme_energy_vals = [
+    'surf_energy',
+    'surface_energy',
+    'energy',
+    'se'
+]
+
 surf_factor_vals = {
     **{_: 'lin' for _ in {'linear', 'lin', 'line'}},
     **{_: 'log' for _ in {'log', 'logarithmic', 'log'}},

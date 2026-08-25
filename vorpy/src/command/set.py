@@ -372,6 +372,7 @@ def set_ss(surf_scheme, settings, print_change=False):
         {_: 'int_mean_curv' for _ in surf_scheme_int_mean_vals},
         {_: 'int_mean_curv_sq' for _ in surf_scheme_int_mean_sq_vals},
         {_: 'int_gauss_curv' for _ in surf_scheme_int_gauss_vals},
+        {_: 'surf_energy' for _ in surf_scheme_energy_vals},
     ]
     # Put all interpretations into one dictionary for convenience
     interpreter = {k: v for d in all_dicts for k, v in d.items()}
@@ -478,7 +479,7 @@ def set_ar(element_radius, settings, print_change=False):
     - Radii must be valid float values
     - Element and residue names must match predefined values
     """
-
+    print(element_radius)
     # Create the changes list
     change_settings = {'element': {}, 'special': {}}
     if settings['atom_rad'] is not None:
@@ -486,6 +487,7 @@ def set_ar(element_radius, settings, print_change=False):
 
     # Separate the element from the radius
     if len(element_radius) >= 3 and element_radius[0] not in atom_objs:
+        print(1)
         # Get the residue
         residue, name, radius = element_radius[:3]
         # Check that this exists

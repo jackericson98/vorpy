@@ -9,20 +9,20 @@ from vorpy.src.version import __version__
 def write_logs(group, net_name=None, round_to=None):
     """
     Exports a comprehensive log file containing detailed information about the network analysis.
-    
+
     This function generates a CSV log file with multiple sections:
-    
+
     Build Information:
     - Network name, location, and completion date
     - Network type and key parameters (surface resolution, box size, max vertices)
     - Performance metrics (total time, vertex processing time, connection time, etc.)
     - Maximum vertex radius found
-    
+
     Group Information:
     - Basic properties (name, volume, surface area, mass, density)
     - Center of mass (both standard and VDW)
     - Moment of inertia tensors (standard and spatial)
-    
+
     Atoms:
     - Basic atom properties (index, name, residue info, chain, mass)
     - Spatial information (coordinates, radius, volumes)
@@ -31,7 +31,7 @@ def write_logs(group, net_name=None, round_to=None):
     - Neighbor analysis (count, distances, overlaps)
     - Contact areas and volumes
     - Center of mass and moment of inertia
-    
+
     Args:
         group: Group object containing the network and system information
         net_name (str, optional): Additional identifier for the log file name
@@ -57,7 +57,6 @@ def write_logs(group, net_name=None, round_to=None):
 
     # Pull surface topology out of pandas once.
     surf_balls = net.surfs['balls'].tolist()
-
 
     # ------------------------------------------------------------------
     # Write log
@@ -124,20 +123,16 @@ def write_logs(group, net_name=None, round_to=None):
         # ==============================================================
 
         lg_fl.writerow(["Atoms"])
-        lg_fl.writerow([
-            "Index", "Name", "Residue", "Residue Sequence", "Chain", "Mass",
-            "X", "Y", "Z", "Radius", "Volume", "Van Der Waals Volume",
-            "Surface Area", "Complete Cell?", "Maximum Mean Curvature",
-            "Average Mean Surface Curvature", "Maximum Gaussian Curvature",
-            "Average Gaussian Surface Curvature", "Integrated Mean Curvature",
-            "Integrated Mean Curvature Squared", "Integrated Gaussian Curvature",
-            "Sphericity", "Isometric Quotient", "Inner Ball?", "Number of Neighbors",
-            "Closest Neighbor", "Closest Neighbor Distance", "Layer Distance Average",
-            "Layer Distance RMSD", "Minimum Point Distance", "Maximum Point Distance",
-            "Number of Overlaps", "Contact Area", "Non-Overlap Volume",
-            "Overlap Volume", "Center of Mass", "Moment of Inertia Tensor",
-            "Bounding Box", "neighbors"
-        ])
+        lg_fl.writerow(["Index", "Name", "Residue", "Residue Sequence", "Chain", "Mass", "X", "Y", "Z", "Radius",
+                        "Volume", "Van Der Waals Volume", "Surface Area", "Complete Cell?", "Maximum Mean Curvature",
+                        "Average Mean Surface Curvature", "Maximum Gaussian Curvature",
+                        "Average Gaussian Surface Curvature", "Integrated Mean Curvature",
+                        "Integrated Mean Curvature Squared", "Integrated Gaussian Curvature",
+                        "Representative Surface Energy", "Sphericity", "Isometric Quotient", "Inner Ball?",
+                        "Number of Neighbors", "Closest Neighbor", "Closest Neighbor Distance",
+                        "Layer Distance Average", "Layer Distance RMSD", "Minimum Point Distance",
+                        "Maximum Point Distance", "Number of Overlaps", "Contact Area", "Non-Overlap Volume",
+                        "Overlap Volume", "Center of Mass", "Moment of Inertia Tensor", "Bounding Box", "neighbors"])
 
         atom_rows = net.balls.itertuples(index=True, name='AtomRow')
 
@@ -180,6 +175,7 @@ def write_logs(group, net_name=None, round_to=None):
                 r(atom.int_mean_curv),
                 r(atom.int_mean_curv_sq),
                 r(atom.int_gauss_curv),
+                r(getattr(atom, 'surf_energy', 2.0 * atom.int_mean_curv_sq)),
                 r(atom.sphericity),
                 r(atom.isometric_quotient),
                 atom.ball_inside,
@@ -209,9 +205,10 @@ def write_logs(group, net_name=None, round_to=None):
 
         lg_fl.writerow(["Surfaces"])
         lg_fl.writerow(["Index", "Ball 1", "Ball 2", "Surface Area", "Mean Curvature", "Average Mean Curvature",
-                        "Gaussian Curvature", "Average Gaussian Curvature","Integrated Mean Curvature",
+                        "Gaussian Curvature", "Average Gaussian Curvature", "Integrated Mean Curvature",
                         "Integrated Mean Curvature Squared", "Integrated Gaussian Curvature",
-                        "Ball 1 Volume Contribution", "Ball 2 Volume Contribution", "Contact Area", "Overlap"])
+                        "Representative Surface Energy", "Ball 1 Volume Contribution", "Ball 2 Volume Contribution",
+                        "Contact Area", "Overlap"])
 
         for surf in net.surfs.itertuples(index=True, name='SurfRow'):
             ball1, ball2 = surf.balls
@@ -219,8 +216,8 @@ def write_logs(group, net_name=None, round_to=None):
 
             lg_fl.writerow([surf.Index, ball1, ball2, r(surf.sa), r(surf.mean_curv), r(surf.avg_mean_curv),
                             r(surf.gauss_curv), r(surf.avg_gauss_curv), r(surf.int_mean_curv), r(surf.int_mean_curv_sq),
-                            r(surf.int_gauss_curv), r(vols[ball1]), r(vols[ball2]), r(surf.contact_area),
-                            r(surf.overlap)])
+                            r(surf.int_gauss_curv), r(getattr(surf, 'surf_energy', 2.0 * surf.int_mean_curv_sq)),
+                            r(vols[ball1]), r(vols[ball2]), r(surf.contact_area), r(surf.overlap)])
 
         # ==============================================================
         # Edges
@@ -265,7 +262,6 @@ def write_logs(group, net_name=None, round_to=None):
                 loc[2],
                 r(vert.rad)
             ])
-
 
 
 def write_interface_logs(iface, net_name=None, round_to=None):
@@ -627,8 +623,9 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                         "Volume", "Van Der Waals Volume", "Surface Area", "Complete Cell?",
                         "Maximum Mean Curvature", "Average Mean Surface Curvature", "Maximum Gaussian Curvature",
                         "Average Gaussian Surface Curvature", "Integrated Mean Curvature",
-                        "Integrated Mean Curvature Squared", "Integrated Gaussian Curvature", "Sphericity",
-                        "Isometric Quotient", "Inner Ball?", "Number of Neighbors", "Closest Neighbor",
+                        "Integrated Mean Curvature Squared", "Integrated Gaussian Curvature",
+                        "Representative Surface Energy", "Sphericity", "Isometric Quotient", "Inner Ball?",
+                        "Number of Neighbors", "Closest Neighbor",
                         "Closest Neighbor Distance", "Layer Distance Average", "Layer Distance RMSD",
                         "Minimum Point Distance", "Maximum Point Distance", "Number of Overlaps", "Contact Area",
                         "Non-Overlap Volume", "Overlap Volume", "Center of Mass", "Moment of Inertia Tensor",
@@ -720,65 +717,69 @@ def write_interface_logs(iface, net_name=None, round_to=None):
 
             atom_moi = safe_nested_list(atom.get("moi"), default=zero_tensor)
 
-            lg_fl.writerow(             [
-                    topology_index,
-                    atom_name,
-                    residue_name,
-                    residue_sequence,
-                    chain_name,
-                    atom_mass,
-                    safe_float(location[0]),
-                    safe_float(location[1]),
-                    safe_float(location[2]),
-                    safe_float(atom.get("rad", 0.0)),
-                    safe_round(atom.get("vol", 0.0)),
-                    safe_round(atom.get("vdw_vol", 0.0)),
-                    safe_round(atom_surface_area),
-                    complete,
-                    safe_round(atom.get("max_mean_curv", 0.0)),
-                    safe_round(atom.get("avg_mean_surf_curv", 0.0)),
-                    safe_round(atom.get("max_gauss_curv", 0.0)),
-                    safe_round(atom.get("avg_gauss_surf_curv", 0.0)),
-                    safe_round(atom.get("int_mean_curv", 0.0)),
-                    safe_round(atom.get("int_mean_curv_sq", 0.0)),
-                    safe_round(atom.get("int_gauss_curv", 0.0)),
-                    safe_round(atom.get("sphericity", 0.0)),
-                    safe_round(atom.get("isometric_quotient", 0.0)),
-                    bool(atom.get("ball_inside", False)),
-                    int(atom.get("number_of_neighbors", len(neighbors))),
-                    int(atom.get("nearest_neighbor", -1)),
-                    safe_round(
-                        atom.get("nearest_neighbor_distance", 0.0)
-                    ),
-                    safe_list(
-                        atom.get("neighbor_distance_average", []),
-                        default=[],
-                    ),
-                    safe_list(
-                        atom.get("neighbor_distance_rmsd", []),
-                        default=[],
-                    ),
-                    safe_round(atom.get("min_spike", 0.0)),
-                    safe_round(atom.get("max_spike", 0.0)),
-                    int(atom.get("number_of_olaps", 0)),
-                    safe_round(atom.get("contact_area", 0.0)),
+            lg_fl.writerow([
+                topology_index,
+                atom_name,
+                residue_name,
+                residue_sequence,
+                chain_name,
+                atom_mass,
+                safe_float(location[0]),
+                safe_float(location[1]),
+                safe_float(location[2]),
+                safe_float(atom.get("rad", 0.0)),
+                safe_round(atom.get("vol", 0.0)),
+                safe_round(atom.get("vdw_vol", 0.0)),
+                safe_round(atom_surface_area),
+                complete,
+                safe_round(atom.get("max_mean_curv", 0.0)),
+                safe_round(atom.get("avg_mean_surf_curv", 0.0)),
+                safe_round(atom.get("max_gauss_curv", 0.0)),
+                safe_round(atom.get("avg_gauss_surf_curv", 0.0)),
+                safe_round(atom.get("int_mean_curv", 0.0)),
+                safe_round(atom.get("int_mean_curv_sq", 0.0)),
+                safe_round(atom.get("int_gauss_curv", 0.0)),
+                safe_round(atom.get(
+                    "surf_energy",
+                    2.0 * safe_float(atom.get("int_mean_curv_sq", 0.0))
+                )),
+                safe_round(atom.get("sphericity", 0.0)),
+                safe_round(atom.get("isometric_quotient", 0.0)),
+                bool(atom.get("ball_inside", False)),
+                int(atom.get("number_of_neighbors", len(neighbors))),
+                int(atom.get("nearest_neighbor", -1)),
+                safe_round(
+                    atom.get("nearest_neighbor_distance", 0.0)
+                ),
+                safe_list(
+                    atom.get("neighbor_distance_average", []),
+                    default=[],
+                ),
+                safe_list(
+                    atom.get("neighbor_distance_rmsd", []),
+                    default=[],
+                ),
+                safe_round(atom.get("min_spike", 0.0)),
+                safe_round(atom.get("max_spike", 0.0)),
+                int(atom.get("number_of_olaps", 0)),
+                safe_round(atom.get("contact_area", 0.0)),
 
-                    # These two positions deliberately preserve the current
-                    # Group log writer's output ordering.
-                    safe_round(atom.get("olap_vol", 0.0)),
-                    safe_round(atom.get("vdw_vol", 0.0)),
+                # These two positions deliberately preserve the current
+                # Group log writer's output ordering.
+                safe_round(atom.get("olap_vol", 0.0)),
+                safe_round(atom.get("vdw_vol", 0.0)),
 
-                    [safe_round(value) for value in atom_com],
-                    [
-                        [safe_round(value) for value in row]
-                        for row in atom_moi
-                    ],
-                    [
-                        [safe_round(value) for value in row]
-                        for row in bounding_box
-                    ],
-                    neighbors,
-                ]
+                [safe_round(value) for value in atom_com],
+                [
+                    [safe_round(value) for value in row]
+                    for row in atom_moi
+                ],
+                [
+                    [safe_round(value) for value in row]
+                    for row in bounding_box
+                ],
+                neighbors,
+            ]
             )
 
         # ==============================================================
@@ -797,6 +798,10 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                 "Average Mean Curvature",
                 "Gaussian Curvature",
                 "Average Gaussian Curvature",
+                "Integrated Mean Curvature",
+                "Integrated Mean Curvature Squared",
+                "Integrated Gaussian Curvature",
+                "Representative Surface Energy",
                 "Ball 1 Volume Contribution",
                 "Ball 2 Volume Contribution",
                 "Contact Area",
@@ -845,6 +850,13 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                         safe_round(surf.get("avg_mean_curv", 0.0)),
                         safe_round(surf.get("gauss_curv", 0.0)),
                         safe_round(surf.get("avg_gauss_curv", 0.0)),
+                        safe_round(surf.get("int_mean_curv", 0.0)),
+                        safe_round(surf.get("int_mean_curv_sq", 0.0)),
+                        safe_round(surf.get("int_gauss_curv", 0.0)),
+                        safe_round(surf.get(
+                            "surf_energy",
+                            2.0 * safe_float(surf.get("int_mean_curv_sq", 0.0))
+                        )),
                         safe_round(ball1_volume),
                         safe_round(ball2_volume),
                         safe_round(surf.get("contact_area", 0.0)),
@@ -925,7 +937,7 @@ def write_interface_logs(iface, net_name=None, round_to=None):
 
                 if len(vertex_location) < 3:
                     vertex_location += [0.0] * (
-                        3 - len(vertex_location)
+                            3 - len(vertex_location)
                     )
 
                 lg_fl.writerow(

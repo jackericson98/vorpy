@@ -567,7 +567,6 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None, min_va
         'integrated gaussian curvature'
 
     }:
-        print("Coloring tris")
 
         value = float(surf['int_gauss_curv'])
 
@@ -589,6 +588,34 @@ def color_tris(surf, color_scheme, color_map, color_factor, max_val=None, min_va
 
             for _ in range(len(surf['tris']))
 
+        ]
+    elif color_scheme.lower() in {
+        'surf_energy',
+        'surface_energy',
+        'surface energy',
+        'energy'
+    }:
+
+        value = float(surf['surf_energy'])
+
+        norm_value = (
+                (value - min_val)
+                / (max_val - min_val)
+        )
+
+        norm_value = np.clip(
+            norm_value,
+            0.0,
+            1.0
+        )
+
+        surf_color = my_cmap(
+            multi(norm_value)
+        )
+
+        tri_colors = [
+            surf_color
+            for _ in range(len(surf['tris']))
         ]
     elif color_scheme.lower() == "black":
         tri_colors = [(0, 0, 0) for _ in range(len(surf['tris']))]
