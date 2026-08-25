@@ -7,7 +7,7 @@ from vorpy.src.calculations.calcs import calc_dist
 from vorpy.src.visualize import plot_balls
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def calc_circ_coefs(l0, l1, l2, r0, r1, r2):
     """
     Calculates the coefficients for finding the tangential circle between three spheres.
@@ -59,7 +59,7 @@ def calc_circ_coefs(l0, l1, l2, r0, r1, r2):
     return Fs, abcs
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def calc_circ_abcs(Fs, r0):
     """
     Calculates the coefficients for the quadratic equation used to determine the radius of a circle tangent to three spheres.
@@ -172,7 +172,7 @@ def calc_circ(l0, l1, l2, r0, r1, r2, return_both=False):
 
 
 # Find projection values. Calculates the 181L end and projection points for the edge
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def calc_edge_proj_pt(pv0, pv1, loc):
     """
     Calculates the projection point for an edge between two vertices.

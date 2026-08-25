@@ -7,7 +7,7 @@ import numpy as np
 from numba import jit
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def calc_surf_point_abcs_from_plane(vi, vn, func):
 
     # Solve the surface function's equation for the vector through the given point from the atom's location:
@@ -49,7 +49,7 @@ def calc_surf_point_from_plane(point, norm, func, small_loc):
         return r1 if d1 < d2 else r2
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def calc_surf_point_abcs(locs, point, func):
     # Set up the unit vector
     vi = point - locs[0]

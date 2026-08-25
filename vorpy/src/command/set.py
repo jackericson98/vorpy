@@ -703,7 +703,7 @@ def sett(setting, value, settings=None):
     if settings is None:
         settings = {'surf_res': 0.2, 'max_vert': 40, 'box_size': 1.25, 'net_type': 'aw', 'surf_col': 'plasma',
                     'surf_scheme': 'mean', 'scheme_factor': 'log', 'atom_rad': None, 'bld_type': None, 'conc_col': True,
-                    'vert_col': 'red', 'edge_col': 'grey', 'round_to': 3}
+                    'vert_col': 'red', 'edge_col': 'grey', 'round_to': 6}
     # Set up the functions dictionary to return the value
     func_dict = {'surf_res': set_sr, 'max_vert': set_mv, 'box_size': set_bs, 'net_type': set_nt, 'surf_col': set_sc,
                  'surf_scheme': set_ss, 'scheme_factor': set_sf, 'atom_rad': set_ar, 'bld_type': set_bt,

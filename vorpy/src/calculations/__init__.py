@@ -25,6 +25,10 @@ from vorpy.src.calculations.calcs import get_time
 from vorpy.src.calculations.calcs import calc_vol
 from vorpy.src.calculations.calcs import calc_aw_center
 from vorpy.src.calculations.calcs import calc_pw_center
+from vorpy.src.calculations.calcs import calc_cell_mass_properties
+from vorpy.src.calculations.calcs import calc_contacts_cached
+from vorpy.src.calculations.calcs import calc_cell_point_properties_cached
+from vorpy.src.calculations.calcs import calc_cell_mass_properties_cached
 from vorpy.src.calculations.compare import compare_networks
 from vorpy.src.calculations.edge import calc_edge_proj_pt
 from vorpy.src.calculations.edge import calc_edge_dir

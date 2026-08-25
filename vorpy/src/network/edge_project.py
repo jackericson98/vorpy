@@ -2,7 +2,7 @@ from numba import jit
 import numpy as np
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def edge_project(rn, pa, f):
     """
     Projects an edge onto a surface defined by a polynomial equation. Calculates the intersection points of a line,

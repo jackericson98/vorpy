@@ -5,7 +5,7 @@ from vorpy.src.calculations.calcs import calc_dist
 from vorpy.src.calculations.calcs import calc_tri
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def calc_tri(points):
     """Calculate the area of a triangle formed by three 3D points.
 
@@ -90,7 +90,7 @@ def calc_surf_func(l0, r0, l1, r1):
     return vals
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def calc_surf_func_jit(l0, r0, l1, r1):
     """Calculate the mathematical coefficients defining the hyperboloid surface between two spheres.
 

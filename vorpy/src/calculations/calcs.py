@@ -6,10 +6,10 @@ from numba.core.errors import TypingError
 
 try:
     import importlib
+
     _native_calc = importlib.import_module("vorpy._native._calc")
 except Exception:
     _native_calc = None
-
 
 warnings.filterwarnings("error")
 
@@ -179,14 +179,14 @@ def calc_angle_jit(p0, p1, p2=None):
         v0, v1 = p0, p1
     else:
         v0, v1 = p1 - p0, p2 - p0
-    
+
     # Check for zero-length vectors
     norm_v0 = np.linalg.norm(v0)
     norm_v1 = np.linalg.norm(v1)
-    
+
     if norm_v0 == 0.0 or norm_v1 == 0.0:
         return 0.0  # Return 0 for degenerate cases
-    
+
     n0, n1 = v0 / norm_v0, v1 / norm_v1
     # Calculate the angle between the two vectors with catches for 180 and 0
     my_dot = np.dot(n0, n1)
@@ -233,14 +233,14 @@ def calc_angle(p0, p1, p2=None):
         v0, v1 = p0, p1
     else:
         v0, v1 = p1 - p0, p2 - p0
-    
+
     # Check for zero-length vectors
     norm_v0 = np.linalg.norm(v0)
     norm_v1 = np.linalg.norm(v1)
-    
+
     if norm_v0 == 0.0 or norm_v1 == 0.0:
         return 0.0  # Return 0 for degenerate cases
-    
+
     n0, n1 = v0 / norm_v0, v1 / norm_v1
     # Calculate the angle between the two vectors with catches for 180 and 0
     my_dot = np.dot(n0, n1)
@@ -532,6 +532,146 @@ def calc_isoperimetric_quotient(volume, surface_area):
     return (36 * np.pi * volume ** 2) / (surface_area ** 3)
 
 
+@jit(nopython=True, cache=True)
+def _cell_point_properties_surface_kernel(ball_loc, points):
+    """Return spike-distance extrema and XYZ bounds for one surface."""
+    min_d2 = np.inf
+    max_d2 = 0.0
+
+    min_x = np.inf
+    min_y = np.inf
+    min_z = np.inf
+    max_x = -np.inf
+    max_y = -np.inf
+    max_z = -np.inf
+
+    x0 = ball_loc[0]
+    y0 = ball_loc[1]
+    z0 = ball_loc[2]
+
+    for i in range(points.shape[0]):
+        x = points[i, 0]
+        y = points[i, 1]
+        z = points[i, 2]
+
+        dx = x - x0
+        dy = y - y0
+        dz = z - z0
+        d2 = dx * dx + dy * dy + dz * dz
+
+        if d2 < min_d2:
+            min_d2 = d2
+        if d2 > max_d2:
+            max_d2 = d2
+
+        if x < min_x:
+            min_x = x
+        if y < min_y:
+            min_y = y
+        if z < min_z:
+            min_z = z
+        if x > max_x:
+            max_x = x
+        if y > max_y:
+            max_y = y
+        if z > max_z:
+            max_z = z
+
+    return min_d2, max_d2, min_x, min_y, min_z, max_x, max_y, max_z
+
+
+def calc_cell_point_properties(ball_loc, surfs):
+    """
+    Calculate spike extrema and the axis-aligned cell bounding box in one pass.
+
+    This is mathematically equivalent to calling ``calc_spikes`` and
+    ``calc_cell_box`` separately, but each surface point is classified only once
+    and the point loop runs inside a cached Numba kernel.
+    """
+    ball_loc_arr = np.asarray(ball_loc, dtype=np.float64)
+
+    min_d2 = np.inf
+    max_d2 = 0.0
+    mins = np.array([np.inf, np.inf, np.inf], dtype=np.float64)
+    maxs = np.array([-np.inf, -np.inf, -np.inf], dtype=np.float64)
+
+    found_points = False
+
+    for surf in surfs:
+        points = np.asarray(surf['points'], dtype=np.float64)
+        if points.size == 0:
+            continue
+        if points.ndim != 2:
+            points = points.reshape((-1, 3))
+
+        found_points = True
+        vals = _cell_point_properties_surface_kernel(ball_loc_arr, points)
+
+        if vals[0] < min_d2:
+            min_d2 = vals[0]
+        if vals[1] > max_d2:
+            max_d2 = vals[1]
+
+        if vals[2] < mins[0]:
+            mins[0] = vals[2]
+        if vals[3] < mins[1]:
+            mins[1] = vals[3]
+        if vals[4] < mins[2]:
+            mins[2] = vals[4]
+        if vals[5] > maxs[0]:
+            maxs[0] = vals[5]
+        if vals[6] > maxs[1]:
+            maxs[1] = vals[6]
+        if vals[7] > maxs[2]:
+            maxs[2] = vals[7]
+
+    if not found_points:
+        # Historical helpers would fail on a point-free cell; this defensive
+        # fallback keeps the return shape predictable for malformed input.
+        return 0.0, 0.0, [[np.inf, np.inf, np.inf], [-np.inf, -np.inf, -np.inf]]
+
+    return math.sqrt(min_d2), math.sqrt(max_d2), [mins.tolist(), maxs.tolist()]
+
+
+def calc_cell_point_properties_cached(ball_loc, surf_ids, surf_points):
+    """Fast spike extrema and bounding box using pre-normalized surface point arrays."""
+    ball_loc_arr = np.asarray(ball_loc, dtype=np.float64)
+
+    min_d2 = np.inf
+    max_d2 = 0.0
+    mins = np.array([np.inf, np.inf, np.inf], dtype=np.float64)
+    maxs = np.array([-np.inf, -np.inf, -np.inf], dtype=np.float64)
+    found_points = False
+
+    for surf_id in surf_ids:
+        points = surf_points[int(surf_id)]
+        if points.size == 0:
+            continue
+        found_points = True
+        vals = _cell_point_properties_surface_kernel(ball_loc_arr, points)
+        if vals[0] < min_d2:
+            min_d2 = vals[0]
+        if vals[1] > max_d2:
+            max_d2 = vals[1]
+        if vals[2] < mins[0]:
+            mins[0] = vals[2]
+        if vals[3] < mins[1]:
+            mins[1] = vals[3]
+        if vals[4] < mins[2]:
+            mins[2] = vals[4]
+        if vals[5] > maxs[0]:
+            maxs[0] = vals[5]
+        if vals[6] > maxs[1]:
+            maxs[1] = vals[6]
+        if vals[7] > maxs[2]:
+            maxs[2] = vals[7]
+
+    if not found_points:
+        return 0.0, 0.0, [[np.inf, np.inf, np.inf], [-np.inf, -np.inf, -np.inf]]
+
+    return math.sqrt(min_d2), math.sqrt(max_d2), [mins.tolist(), maxs.tolist()]
+
+
 def calc_spikes(ball_loc, surfs):
     """Calculate the minimum and maximum distances (spikes) from a ball's center to all surface points.
 
@@ -606,117 +746,212 @@ def calc_cell_box(surfs):
     return [mins, maxs]
 
 
-def calc_cell_com(ball_loc, surfs, volume):
-    """Calculate the center of mass of a cell using tetrahedral decomposition.
+@jit(nopython=True, cache=True)
+def _tetra_volume_scalar(p0, p1, p2, p3):
+    """Fast scalar tetrahedron volume used inside compiled hot loops."""
+    a0 = p1[0] - p0[0]
+    a1 = p1[1] - p0[1]
+    a2 = p1[2] - p0[2]
 
-    This function computes the center of mass of a cell by decomposing it into tetrahedrons
-    formed by the cell's center point and each triangular face of its surfaces. The center
-    of mass is calculated as the volume-weighted average of the centroids of all tetrahedrons.
+    b0 = p2[0] - p0[0]
+    b1 = p2[1] - p0[1]
+    b2 = p2[2] - p0[2]
 
-    Parameters
-    ----------
-    ball_loc : list or numpy.ndarray
-        The center location of the cell (3D coordinates)
-    surfs : list of dict
-        List of surface dictionaries, where each surface contains:
-        - 'points': List of 3D coordinates representing surface points
-        - 'tris': List of triangle indices referencing the points
-    volume : float
-        Total volume of the cell
+    c0 = p3[0] - p0[0]
+    c1 = p3[1] - p0[1]
+    c2 = p3[2] - p0[2]
 
-    Returns
-    -------
-    numpy.ndarray
-        The 3D coordinates of the cell's center of mass
+    cx0 = a1 * b2 - a2 * b1
+    cx1 = a2 * b0 - a0 * b2
+    cx2 = a0 * b1 - a1 * b0
 
-    Notes
-    -----
-    - Uses tetrahedral decomposition to calculate the center of mass
-    - Each tetrahedron is formed by the cell center and a triangular face
-    - The result is normalized by the total cell volume
-    - Returns a numpy array for vector operations
+    triple = c0 * cx0 + c1 * cx1 + c2 * cx2
+    if triple < 0.0:
+        triple = -triple
+    return triple / 6.0
+
+
+@jit(nopython=True, cache=True)
+def _triangle_area_scalar(p0, p1, p2):
+    """Fast scalar triangle area used inside compiled hot loops."""
+    a0 = p1[0] - p0[0]
+    a1 = p1[1] - p0[1]
+    a2 = p1[2] - p0[2]
+
+    b0 = p2[0] - p0[0]
+    b1 = p2[1] - p0[1]
+    b2 = p2[2] - p0[2]
+
+    cx0 = a1 * b2 - a2 * b1
+    cx1 = a2 * b0 - a0 * b2
+    cx2 = a0 * b1 - a1 * b0
+    return 0.5 * math.sqrt(cx0 * cx0 + cx1 * cx1 + cx2 * cx2)
+
+
+@jit(nopython=True, cache=True)
+def _surface_mass_properties_kernel(ball_loc, points, tris, density):
     """
-    # Create the mass_locs list
-    mass_locs = []
-    for surf in surfs:
-        for tri in surf['tris']:
-            # Get the points of the tetrahedron
-            ps = [ball_loc, *[surf['points'][_] for _ in tri]]
-            # Calculate the centroid of the tetrahedron
-            tet_com = [sum([ps[j][i] for j in range(4)]) / 4 for i in range(3)]
-            # Calculate the volume of the tetrahedron
-            tet_vol = calc_tetra_vol(*ps)
-            # Append the volume-weighted centroid
-            mass_locs.append([tet_vol * coord for coord in tet_com])
+    Accumulate COM numerator and the historical VorPy MOI approximation for one
+    triangulated surface.
 
-    # Calculate the total center of mass by normalizing with the cell volume
-    return np.array([sum(coords) / volume for coords in zip(*mass_locs)])
+    The formulas intentionally reproduce the existing calc_cell_com /
+    calc_cell_moi definitions; this is a performance rewrite, not a change in
+    the reported physical quantity.
+    """
+    mx = 0.0
+    my = 0.0
+    mz = 0.0
+
+    ixx = 0.0
+    iyy = 0.0
+    izz = 0.0
+    ixy = 0.0
+    ixz = 0.0
+    iyz = 0.0
+
+    x0 = ball_loc[0]
+    y0 = ball_loc[1]
+    z0 = ball_loc[2]
+
+    for t in range(tris.shape[0]):
+        i0 = tris[t, 0]
+        i1 = tris[t, 1]
+        i2 = tris[t, 2]
+
+        p1 = points[i0]
+        p2 = points[i1]
+        p3 = points[i2]
+
+        tet_vol = _tetra_volume_scalar(ball_loc, p1, p2, p3)
+        tet_mass = density * tet_vol
+
+        # Historical tetrahedron centroid.
+        cx = (x0 + p1[0] + p2[0] + p3[0]) / 4.0
+        cy = (y0 + p1[1] + p2[1] + p3[1]) / 4.0
+        cz = (z0 + p1[2] + p2[2] + p3[2]) / 4.0
+
+        mx += tet_vol * cx
+        my += tet_vol * cy
+        mz += tet_vol * cz
+
+        # Historical calc_tetra_inertia approximation. Accumulate the six
+        # independent tensor elements directly to avoid per-triangle matrices.
+        # Vertex 0: ball_loc
+        scale = tet_mass / 10.0
+
+        ixx += scale * (y0 * y0 + z0 * z0)
+        iyy += scale * (x0 * x0 + z0 * z0)
+        izz += scale * (x0 * x0 + y0 * y0)
+        ixy -= scale * x0 * y0
+        ixz -= scale * x0 * z0
+        iyz -= scale * y0 * z0
+
+        # Vertices 1-3.
+        for p in (p1, p2, p3):
+            x = p[0]
+            y = p[1]
+            z = p[2]
+            ixx += scale * (y * y + z * z)
+            iyy += scale * (x * x + z * z)
+            izz += scale * (x * x + y * y)
+            ixy -= scale * x * y
+            ixz -= scale * x * z
+            iyz -= scale * y * z
+
+        # Historical parallel-axis shift from tetrahedron centroid to ball_loc.
+        rx = cx - x0
+        ry = cy - y0
+        rz = cz - z0
+
+        ixx += tet_mass * (ry * ry + rz * rz)
+        iyy += tet_mass * (rx * rx + rz * rz)
+        izz += tet_mass * (rx * rx + ry * ry)
+        ixy -= tet_mass * rx * ry
+        ixz -= tet_mass * rx * rz
+        iyz -= tet_mass * ry * rz
+
+    return mx, my, mz, ixx, iyy, izz, ixy, ixz, iyz
+
+
+def calc_cell_mass_properties(ball_loc, surfs, volume, density=1.0):
+    """
+    Calculate cell center of mass and moment of inertia in one surface traversal.
+
+    This uses the same tetrahedral decomposition and historical VorPy MOI
+    approximation as calc_cell_com() and calc_cell_moi(), but moves the
+    triangle-level work into a Numba-compiled kernel.
+    """
+    ball_loc_arr = np.asarray(ball_loc, dtype=np.float64)
+
+    mx = my = mz = 0.0
+    ixx = iyy = izz = ixy = ixz = iyz = 0.0
+
+    for surf in surfs:
+        points = np.asarray(surf['points'], dtype=np.float64)
+        tris = np.asarray(surf['tris'], dtype=np.int64)
+
+        if tris.size == 0:
+            continue
+        if tris.ndim != 2:
+            tris = tris.reshape((-1, 3))
+
+        vals = _surface_mass_properties_kernel(ball_loc_arr, points, tris, float(density))
+        mx += vals[0]
+        my += vals[1]
+        mz += vals[2]
+        ixx += vals[3]
+        iyy += vals[4]
+        izz += vals[5]
+        ixy += vals[6]
+        ixz += vals[7]
+        iyz += vals[8]
+
+    com = np.array([mx / volume, my / volume, mz / volume], dtype=np.float64)
+    moi = np.array([
+        [ixx, ixy, ixz],
+        [ixy, iyy, iyz],
+        [ixz, iyz, izz],
+    ], dtype=np.float64)
+
+    return com, moi
+
+
+def calc_cell_mass_properties_cached(ball_loc, surf_ids, surf_points, surf_tris, volume, density=1.0):
+    """COM and historical VorPy MOI using pre-normalized surface geometry arrays."""
+    ball_loc_arr = np.asarray(ball_loc, dtype=np.float64)
+    mx = my = mz = 0.0
+    ixx = iyy = izz = ixy = ixz = iyz = 0.0
+
+    for surf_id in surf_ids:
+        sid = int(surf_id)
+        points = surf_points[sid]
+        tris = surf_tris[sid]
+        if tris.size == 0:
+            continue
+        vals = _surface_mass_properties_kernel(ball_loc_arr, points, tris, float(density))
+        mx += vals[0];
+        my += vals[1];
+        mz += vals[2]
+        ixx += vals[3];
+        iyy += vals[4];
+        izz += vals[5]
+        ixy += vals[6];
+        ixz += vals[7];
+        iyz += vals[8]
+
+    com = np.array([mx / volume, my / volume, mz / volume], dtype=np.float64)
+    moi = np.array([[ixx, ixy, ixz], [ixy, iyy, iyz], [ixz, iyz, izz]], dtype=np.float64)
+    return com, moi
+
+
+def calc_cell_com(ball_loc, surfs, volume):
+    """Backward-compatible fast center-of-mass calculation."""
+    return calc_cell_mass_properties(ball_loc, surfs, volume, density=1.0)[0]
 
 
 def calc_cell_moi(ball_loc, surfs, volume, density=1.0):
-    """Calculate the moment of inertia tensor of a cell using tetrahedral decomposition.
-
-    This function computes the moment of inertia tensor of a cell by decomposing it into tetrahedrons
-    formed by the cell's center point and each triangular face of its surfaces. The total moment of inertia
-    is calculated as the sum of individual tetrahedron contributions, using the parallel axis theorem to
-    shift each contribution to the cell's center point.
-
-    Parameters
-    ----------
-    ball_loc : numpy.ndarray or list
-        The center location of the cell (3D coordinates)
-    surfs : list of dict
-        List of surface dictionaries, where each surface contains:
-        - 'points': List of 3D coordinates representing surface points
-        - 'tris': List of triangle indices referencing the points
-    volume : float
-        Total volume of the cell
-    density : float, optional
-        Density of the material (default is 1.0)
-
-    Returns
-    -------
-    numpy.ndarray
-        A 3x3 moment of inertia tensor of the cell with respect to ball_loc
-
-    Notes
-    -----
-    - Uses tetrahedral decomposition to calculate individual contributions
-    - Applies the parallel axis theorem to shift each tetrahedron's inertia tensor
-    - Returns a symmetric 3x3 numpy array representing the inertia tensor
-    """
-    # Create an inertia tensor initialized to zero
-    inertia_tensor = np.zeros((3, 3))
-
-    # Iterate through each surface and triangle to calculate the tetrahedron MOI contributions
-    for surf in surfs:
-        for tri in surf['tris']:
-            # Get the points of the tetrahedron
-            ps = [ball_loc, *[surf['points'][_] for _ in tri]]
-
-            # Calculate the centroid of the tetrahedron
-            tet_com = [sum([ps[j][i] for j in range(4)]) / 4 for i in range(3)]
-
-            # Calculate the volume of the tetrahedron
-            tet_vol = calc_tetra_vol(*ps)
-
-            # Calculate the mass of the tetrahedron
-            tet_mass = density * tet_vol
-
-            # Calculate the inertia tensor of the tetrahedron about its centroid
-            tet_inertia_tensor = calc_tetra_inertia(ps, tet_mass)
-
-            # Calculate the distance vector from the tetrahedron centroid to the cell's center (`ball_loc`)
-            r = np.array(tet_com) - np.array(ball_loc)
-            r_squared = np.dot(r, r)
-
-            # Use the parallel axis theorem to adjust the inertia tensor to the cell's center
-            shift_tensor = tet_mass * (r_squared * np.identity(3) - np.outer(r, r))
-
-            # Add the adjusted tensor to the total inertia tensor
-            inertia_tensor += tet_inertia_tensor + shift_tensor
-
-    return inertia_tensor
+    """Backward-compatible fast historical VorPy moment-of-inertia calculation."""
+    return calc_cell_mass_properties(ball_loc, surfs, volume, density=density)[1]
 
 
 def combine_inertia_tensors(inertia_tensors, centroids, common_centroid, masses):
@@ -828,98 +1063,128 @@ def calc_total_inertia_tensor(spheres, common_point):
     return I_total
 
 
+@jit(nopython=True, cache=True)
+def _contact_surface_kernel(loc, rad, points, tris):
+    """Compiled contact-area and contribution-volume calculation for one surface."""
+    n_points = points.shape[0]
+    projected = np.empty((n_points, 3), dtype=np.float64)
+    inside = np.empty(n_points, dtype=np.uint8)
+
+    lx = loc[0]
+    ly = loc[1]
+    lz = loc[2]
+    rad2 = rad * rad
+
+    # Classify/project every point once.
+    for i in range(n_points):
+        dx = points[i, 0] - lx
+        dy = points[i, 1] - ly
+        dz = points[i, 2] - lz
+        dist2 = dx * dx + dy * dy + dz * dz
+
+        # Historical code compares sqrt(dist2) <= rad. For non-negative
+        # radii this squared comparison is mathematically equivalent.
+        if dist2 <= rad2:
+            inside[i] = 1
+            projected[i, 0] = points[i, 0]
+            projected[i, 1] = points[i, 1]
+            projected[i, 2] = points[i, 2]
+        else:
+            inside[i] = 0
+            norm = math.sqrt(dist2)
+            if norm > 0.0:
+                scale = rad / norm
+                projected[i, 0] = lx + scale * dx
+                projected[i, 1] = ly + scale * dy
+                projected[i, 2] = lz + scale * dz
+            else:
+                projected[i, 0] = points[i, 0]
+                projected[i, 1] = points[i, 1]
+                projected[i, 2] = points[i, 2]
+
+    contact_area = 0.0
+    contribution_vol = 0.0
+
+    for t in range(tris.shape[0]):
+        i0 = tris[t, 0]
+        i1 = tris[t, 1]
+        i2 = tris[t, 2]
+
+        n_inside = int(inside[i0]) + int(inside[i1]) + int(inside[i2])
+
+        p0 = points[i0]
+        p1 = points[i1]
+        p2 = points[i2]
+
+        if n_inside == 3:
+            contact_area += _triangle_area_scalar(p0, p1, p2)
+            contribution_vol += _tetra_volume_scalar(loc, p0, p1, p2)
+
+        elif n_inside == 0:
+            contribution_vol += _tetra_volume_scalar(
+                loc, projected[i0], projected[i1], projected[i2]
+            )
+
+        else:
+            # Historical mixed case: preserve inside vertices and use projected
+            # coordinates for outside vertices.
+            q0 = p0 if inside[i0] else projected[i0]
+            q1 = p1 if inside[i1] else projected[i1]
+            q2 = p2 if inside[i2] else projected[i2]
+
+            contribution_vol += _tetra_volume_scalar(loc, q0, q1, q2)
+            contact_area += _triangle_area_scalar(p0, p1, p2)
+
+    return contact_area, contribution_vol
+
+
 def calc_contacts(loc, rad, surfs, surf_ndxs):
     """
-    Calculate the contact areas and contribution volume for a given sphere.
+    Fast backward-compatible contact-area / contribution-volume calculation.
 
-    This function computes the contact areas between a sphere and surrounding surfaces, as well as the
-    contribution volume of the sphere to the total volume of the system. It handles cases where surfaces
-    are fully inside, fully outside, or partially intersecting with the sphere.
-
-    Parameters
-    ----------
-    loc : numpy.ndarray
-        Center coordinates of the sphere in 3D space
-    rad : float
-        Radius of the sphere
-    surfs : list of dict
-        List of surface dictionaries, where each surface contains:
-        - 'points': List of 3D coordinates defining surface vertices
-        - 'tris': List of triangle indices referencing the points
-    surf_ndxs : list of int
-        Indices of surfaces to consider for contact calculations
-
-    Returns
-    -------
-    tuple
-        A tuple containing:
-        - contact_areas : dict
-            Dictionary mapping surface indices to their respective contact areas
-        - contribution_vol : float
-            Total volume contribution of the sphere to the system
-
-    Notes
-    -----
-    - Contact area is calculated for surfaces that intersect with the sphere
-    - Volume contribution considers both internal and external portions of surfaces
-    - Points inside the sphere are preserved, while points outside are projected onto the sphere's surface
+    The public API and historical triangle classification rules are unchanged;
+    point projection and triangle processing now execute inside a compiled
+    kernel instead of Python loops.
     """
-    # Create the area and volume vals
-    contact_areas, contribution_vol = {}, 0
+    loc_arr = np.asarray(loc, dtype=np.float64)
+    contact_areas = {}
+    contribution_vol = 0.0
 
-    # Loop through the surfaces
     for i, surf in enumerate(surfs):
-        # Initialize contact area for this surface
-        contact_area = 0
-        new_points = []
-        point_inside = []
+        points = np.asarray(surf['points'], dtype=np.float64)
+        tris = np.asarray(surf['tris'], dtype=np.int64)
 
-        # Loop through the points to determine if inside or outside
-        for point in surf['points']:
-            distance = calc_dist(point, loc)
-            if distance <= rad:
-                point_inside.append(True)
-                new_points.append(point)
-            else:
-                point_inside.append(False)
-                # Get the direction and normalize it
-                direction = point - loc
-                norm = np.linalg.norm(direction)
-                if norm > 0:
-                    # Project the point onto the sphere's surface
-                    new_points.append(rad * (direction / norm) + loc)
-                else:
-                    new_points.append(point)  # If the point coincides with the center (rare edge case)
+        if tris.size == 0:
+            contact_areas[surf_ndxs[i]] = 0.0
+            continue
+        if tris.ndim != 2:
+            tris = tris.reshape((-1, 3))
 
-        # Loop through the triangles
-        for tri in surf['tris']:
-            triangle_points = [surf['points'][index] for index in tri]
-            projected_points = [new_points[index] for index in tri]
-            inside_flags = [point_inside[index] for index in tri]
-
-            # Determine if the triangle is fully inside, fully outside, or mixed
-            all_inside = all(inside_flags)
-            all_outside = not any(inside_flags)
-            mixed = not all_inside and not all_outside
-
-            if all_inside:
-                # Triangle is fully inside the sphere
-                contact_area += calc_tri(np.array(triangle_points))
-                contribution_vol += calc_tetra_vol(loc, *triangle_points)
-            elif all_outside:
-                # Triangle is fully outside the sphere
-                contribution_vol += calc_tetra_vol(loc, *projected_points)
-            elif mixed:
-                # Triangle is partially inside and outside
-                # We add the volume using a mix of inside and projected points
-                mixed_points = [triangle_points[i] if inside_flags[i] else projected_points[i] for i in range(3)]
-                contribution_vol += calc_tetra_vol(loc, *mixed_points)
-                # Count the triangle as outside for contact area if any point is outside
-                if inside_flags.count(True) < 3:
-                    contact_area += calc_tri(np.array(triangle_points))
-
-        # Append the contact area for this surface
+        contact_area, surf_vol = _contact_surface_kernel(
+            loc_arr, float(rad), points, tris
+        )
         contact_areas[surf_ndxs[i]] = contact_area
+        contribution_vol += surf_vol
+
+    return contact_areas, contribution_vol
+
+
+def calc_contacts_cached(loc, rad, surf_ids, surf_points, surf_tris):
+    """Contact areas/volume using pre-normalized surface geometry arrays."""
+    loc_arr = np.asarray(loc, dtype=np.float64)
+    contact_areas = {}
+    contribution_vol = 0.0
+
+    for surf_id in surf_ids:
+        sid = int(surf_id)
+        points = surf_points[sid]
+        tris = surf_tris[sid]
+        if tris.size == 0:
+            contact_areas[sid] = 0.0
+            continue
+        contact_area, surf_vol = _contact_surface_kernel(loc_arr, float(rad), points, tris)
+        contact_areas[sid] = contact_area
+        contribution_vol += surf_vol
 
     return contact_areas, contribution_vol
 

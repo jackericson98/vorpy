@@ -105,7 +105,7 @@ def _safe_div(num, den, name="denominator", eps=1e-15):
     return num / den
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def calc_vert_abcfs(locs, rads):
     """
     Calculate and organize coefficients for solving the system of equations that determine additively weighted vertices.
@@ -217,7 +217,7 @@ def calc_vert_case_1(Fs, l0, r0):
     return verts
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def calc_vert_case_1_numba(Fs, l0, r0, tol=1e-12):
     """
     Numba-compiled implementation of the standard AW vertex solution.
@@ -302,7 +302,7 @@ def calc_vert_case_1_numba(Fs, l0, r0, tol=1e-12):
     return verts, n_roots
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def calc_vert_case_2(Fs, r0, l0):
     """
     Calculate vertices for Case 2 in a vertex calculation scenario involving spheres.
@@ -552,7 +552,7 @@ def calc_flat_vert(locs, rads, power=False):
     return [x, y, z], rad
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def verify_aw(loc, rad, test_locs, test_rads, skip_ndx=-1):
     """
     Verify if a sphere does not encroach within the radius of any other spheres.
@@ -600,7 +600,7 @@ def verify_aw(loc, rad, test_locs, test_rads, skip_ndx=-1):
     return True  # No encroachments found, return True
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def verify_prm(loc, rad, test_locs):
     """
     Verify if a location does not fall within the power radius of any other locations.
@@ -638,7 +638,7 @@ def verify_prm(loc, rad, test_locs):
     return True  # If no overlaps are found, return True indicating a valid position
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def verify_pow(loc, rad, test_locs, test_rads):
     """
     Verify if a sphere does not overlap with any other spheres.

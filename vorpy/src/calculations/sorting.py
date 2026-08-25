@@ -35,7 +35,7 @@ def global_vars(sub_boxes, my_box_verts, my_num_splits, my_max_ball_rad, my_sub_
     sub_box_size = my_sub_box_size
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def box_search_numba(loc, num_splits, box_verts):
     """Find the sub box indices for a given location in 3D space.
 

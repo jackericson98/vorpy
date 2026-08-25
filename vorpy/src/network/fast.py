@@ -30,7 +30,7 @@ POW_PRM_METRICS = {
 }
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def verify_pow_cached(loc, rad, test_locs, test_rads, skip0=-1, skip1=-1, skip2=-1, skip3=-1):
     """Verify Power geometry against cached edge arrays while skipping defining balls."""
     for i in range(len(test_locs)):
@@ -44,7 +44,7 @@ def verify_pow_cached(loc, rad, test_locs, test_rads, skip0=-1, skip1=-1, skip2=
     return True
 
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def verify_prm_cached(loc, rad, test_locs, skip0=-1, skip1=-1, skip2=-1, skip3=-1):
     """Verify primitive geometry against cached edge arrays while skipping defining balls."""
     rad2 = rad * rad

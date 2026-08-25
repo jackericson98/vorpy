@@ -5,11 +5,9 @@ from time import perf_counter as now
 
 from vorpy.src.calculations import calc_sphericity
 from vorpy.src.calculations import calc_isoperimetric_quotient
-from vorpy.src.calculations import calc_spikes
-from vorpy.src.calculations import calc_contacts
-from vorpy.src.calculations import calc_cell_box
-from vorpy.src.calculations import calc_cell_com
-from vorpy.src.calculations import calc_cell_moi
+from vorpy.src.calculations import calc_contacts_cached
+from vorpy.src.calculations import calc_cell_point_properties_cached
+from vorpy.src.calculations import calc_cell_mass_properties_cached
 
 
 def _rmsd(values, average):
@@ -17,14 +15,6 @@ def _rmsd(values, average):
     if not values:
         return 0.0
     return sqrt(sum((value - average) ** 2 for value in values) / len(values))
-
-
-def _surface_records(net, surf_ids):
-    """
-    Build the legacy list-of-dicts surface representation only when one of the
-    existing calculation helpers requires it.
-    """
-    return net.surfs.iloc[surf_ids].to_dict(orient='records')
 
 
 def _print_analysis_timing(timer, total):
@@ -42,11 +32,11 @@ def _print_analysis_timing(timer, total):
         ('geometric', 'Geometric metrics'),
         ('neighbors_1', 'First neighbors'),
         ('neighbors_2', 'Second neighbors'),
-        ('spikes', 'Spikes'),
+        ('spikes', 'Spikes + bounding box'),
         ('contacts', 'Contacts'),
-        ('com', 'Center of mass'),
-        ('moi', 'Moment of inertia'),
-        ('b_box', 'Bounding box'),
+        ('com', 'COM + moment of inertia'),
+        ('moi', 'Moment of inertia only'),
+        ('b_box', 'Bounding box only'),
         ('surface_assign', 'Surface assignment'),
         ('ball_assign', 'Ball assignment'),
     ]
@@ -146,6 +136,28 @@ def analyze(
     surf_int_mean = net.surfs['int_mean_curv'].to_numpy()
     surf_int_mean_sq = net.surfs['int_mean_curv_sq'].to_numpy()
     surf_int_gauss = net.surfs['int_gauss_curv'].to_numpy()
+
+    # Normalize surface geometry once. Every analyzed cell can now reuse these
+    # arrays directly without DataFrame slicing, dictionary construction, or
+    # repeated np.asarray conversion inside geometry helpers.
+    raw_surf_points = net.surfs['points'].to_numpy()
+    raw_surf_tris = net.surfs['tris'].to_numpy()
+    surf_points = np.empty(n_surfs, dtype=object)
+    surf_tris = np.empty(n_surfs, dtype=object)
+    for surf_id in range(n_surfs):
+        points = np.asarray(raw_surf_points[surf_id], dtype=np.float64)
+        if points.size == 0:
+            points = np.empty((0, 3), dtype=np.float64)
+        elif points.ndim != 2:
+            points = points.reshape((-1, 3))
+        surf_points[surf_id] = np.ascontiguousarray(points)
+
+        tris = np.asarray(raw_surf_tris[surf_id], dtype=np.int64)
+        if tris.size == 0:
+            tris = np.empty((0, 3), dtype=np.int64)
+        elif tris.ndim != 2:
+            tris = tris.reshape((-1, 3))
+        surf_tris[surf_id] = np.ascontiguousarray(tris)
 
     edge_balls = net.edges['balls'].to_numpy()
     vert_edges = net.verts['edges'].to_numpy()
@@ -405,30 +417,31 @@ def analyze(
 
         timer['neighbors_1'] += now() - t
 
-        # Build legacy surface records only if a helper below needs them.
-        needs_surface_records = spikes or contacts or com or moi or bounding_box
-        ball_surfs = None
-        if needs_surface_records:
+        # --------------------------------------------------------------
+        # Point properties: spikes + bounding box in one compiled pass.
+        # --------------------------------------------------------------
+        if spikes or bounding_box:
             t = now()
-            ball_surfs = _surface_records(net, surf_ids)
-            timer['surface_gather'] += now() - t
+            min_spike, max_spike, box = calc_cell_point_properties_cached(ball_loc, surf_ids, surf_points)
+            elapsed = now() - t
 
-        # --------------------------------------------------------------
-        # Spikes
-        # --------------------------------------------------------------
-        if spikes:
-            t = now()
-            min_spike, max_spike = calc_spikes(ball_loc, ball_surfs)
-            b_min_spikes[ball_pos] = min_spike
-            b_max_spikes[ball_pos] = max_spike
-            timer['spikes'] += now() - t
+            if spikes:
+                b_min_spikes[ball_pos] = min_spike
+                b_max_spikes[ball_pos] = max_spike
+
+            if bounding_box:
+                b_boxs[ball_pos] = box
+
+            # When both are requested (the normal complicated=True path), the
+            # single traversal is charged to this combined timing category.
+            timer['spikes'] += elapsed
 
         # --------------------------------------------------------------
         # Contacts / overlap volume
         # --------------------------------------------------------------
         if contacts:
             t = now()
-            contact_area, vdw_vol = calc_contacts(ball_loc, ball_rad, ball_surfs, surf_ids)
+            contact_area, vdw_vol = calc_contacts_cached(ball_loc, ball_rad, surf_ids, surf_points, surf_tris)
 
             num_olaps[ball_pos] = sum(1 for dist in neighbor_dists if dist < 0)
             contact_areas[ball_pos] = sum(contact_area.values())
@@ -484,22 +497,28 @@ def analyze(
         # the historical complicated=False result (one first-layer value).
 
         # --------------------------------------------------------------
-        # Center of mass / moment of inertia / bounding box
+        # Center of mass / moment of inertia. Calculate both in one
+        # tetrahedral traversal when both are requested.
         # --------------------------------------------------------------
-        if com:
+        if com and moi:
             t = now()
-            coms[ball_pos] = calc_cell_com(ball_loc, ball_surfs, volume)
+            com_val, moi_val = calc_cell_mass_properties_cached(ball_loc, surf_ids, surf_points, surf_tris, volume)
+            elapsed = now() - t
+            coms[ball_pos] = com_val
+            mois[ball_pos] = moi_val
+            timer['com'] += elapsed
+
+        elif com:
+            t = now()
+            com_val, _ = calc_cell_mass_properties_cached(ball_loc, surf_ids, surf_points, surf_tris, volume)
+            coms[ball_pos] = com_val
             timer['com'] += now() - t
 
-        if moi:
+        elif moi:
             t = now()
-            mois[ball_pos] = calc_cell_moi(ball_loc, ball_surfs, volume)
+            _, moi_val = calc_cell_mass_properties_cached(ball_loc, surf_ids, surf_points, surf_tris, volume)
+            mois[ball_pos] = moi_val
             timer['moi'] += now() - t
-
-        if bounding_box:
-            t = now()
-            b_boxs[ball_pos] = calc_cell_box(ball_surfs)
-            timer['b_box'] += now() - t
 
         count += 1
         current_time = now()
