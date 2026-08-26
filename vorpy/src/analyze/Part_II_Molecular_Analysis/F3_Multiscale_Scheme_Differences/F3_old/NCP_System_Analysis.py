@@ -3,7 +3,7 @@ import sys
 import tkinter as tk
 from tkinter import filedialog
 
-vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..', '..', '..', '..', '..'))
 sys.path.append(vorpy_root)
 
 from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2

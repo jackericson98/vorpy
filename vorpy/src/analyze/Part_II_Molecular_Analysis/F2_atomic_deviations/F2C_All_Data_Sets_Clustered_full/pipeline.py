@@ -19,7 +19,6 @@ from .config import (
     RNA_ATOM_ALIASES,
     DNA_ATOM_ALIASES,
     DIRECT_LABEL_GROUPS,
-    FORCE_INCLUDE_GROUPS,
 )
 
 # Get the path to the root vorpy folder
@@ -28,11 +27,6 @@ if vorpy_root not in sys.path:
     sys.path.append(vorpy_root)
 
 from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
-from vorpy.src.analyze.Part_II_Molecular_Analysis.F2_atomic_deviations.F2C_Helper_Auto_Cluster import compare_manual_vs_ml
-from vorpy.src.analyze.Part_II_Molecular_Analysis.F2_atomic_deviations.F2C_Helper_Auto_Cluster import make_sol_facing_binary
-from vorpy.src.analyze.Part_II_Molecular_Analysis.F2_atomic_deviations.F2C_Helper_Auto_Cluster import print_cluster_summary
-from vorpy.src.analyze.Part_II_Molecular_Analysis.F2_atomic_deviations.F2C_Helper_Auto_Cluster import run_clustering
-from vorpy.src.analyze.Part_II_Molecular_Analysis.F2_atomic_deviations.F2C_Helper_Auto_Cluster import summarize_clusters
 
 
 def run_pca_analysis(df: pd.DataFrame, numeric_cols: List[str], label: str = ""):

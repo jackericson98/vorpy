@@ -1,0 +1,40 @@
+INTENDED VORPY SCRIPT FOLDER
+============================
+vorpy/src/analyze/Part_II_Molecular_Analysis/F3_multiscale_differences/
+
+F3_common.py
+    Shared AW/Power matching, atom/residue/molecule aggregation, surface-area
+    and contact definitions, and signed/absolute deviation functions.
+
+F3A_multiscale_summary.py
+    Main atom -> residue -> molecule comparison for Volume, Surface Area,
+    Contacts.
+
+F3B_atomic_groups.py
+    Protein and nucleic-acid AW-vs-Power atom-value plots; refactor of
+    F2C_All_Data_Sets_Clustered.py.
+
+F3C_residue_groups.py
+    Signed residue-type distributions; refactor of 3C_Residue_type_diffs.py.
+
+F3D_geometry_examples.py
+    Data-driven selection/export of representative atom and residue geometry.
+
+F3E_solvent_exposure.py
+    Buried/partial/exposed scheme-deviation analysis for atoms and residues.
+
+F3_build_figure.py
+    Final figure compositor only.
+
+FIGURE / ASSET FOLDER
+=====================
+figures/
+└── Figure_3/
+    ├── F3A_multiscale_summary.png
+    ├── F3B1_protein_volume_groups.png
+    ├── F3B2_nucleic_volume_groups.png
+    ├── F3C_residue_type_deviations.png
+    ├── F3D1_atom_geometry.png
+    ├── F3D2_residue_geometry.png
+    ├── F3E_solvent_exposure.png
+    └── Figure_3_final.png / .svg / .pdf

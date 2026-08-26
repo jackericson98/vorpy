@@ -20,7 +20,7 @@ NUCLEIC_RESIDUES = {
 
 
 # Get the path to the root vorpy folder
-vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..', '..', '..', '..', '..'))
 sys.path.append(vorpy_root)
 
 

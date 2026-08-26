@@ -13,17 +13,17 @@ from collections import defaultdict
 
 
 # Get the path to the root vorpy folder
-vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..', '..', '..', '..', '..'))
 sys.path.append(vorpy_root)
 
 
 from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
 from vorpy.src.analyze.tools.compare.sol_facing_percentage import compute_sol_facing_percent
-from vorpy.src.analyze.Part_II_Molecular_Analysis.F2_atomic_deviations.F2C_Helper_Auto_Cluster import compare_manual_vs_ml
-from vorpy.src.analyze.Part_II_Molecular_Analysis.F2_atomic_deviations.F2C_Helper_Auto_Cluster import make_sol_facing_binary
-from vorpy.src.analyze.Part_II_Molecular_Analysis.F2_atomic_deviations.F2C_Helper_Auto_Cluster import print_cluster_summary
-from vorpy.src.analyze.Part_II_Molecular_Analysis.F2_atomic_deviations.F2C_Helper_Auto_Cluster import run_clustering
-from vorpy.src.analyze.Part_II_Molecular_Analysis.F2_atomic_deviations.F2C_Helper_Auto_Cluster import summarize_clusters
+from src.analyze.Part_II_Molecular_Analysis.F3_Multiscale_Scheme_Differences.F3_old.F2C_Helper_Auto_Cluster import compare_manual_vs_ml
+from src.analyze.Part_II_Molecular_Analysis.F3_Multiscale_Scheme_Differences.F3_old.F2C_Helper_Auto_Cluster import make_sol_facing_binary
+from src.analyze.Part_II_Molecular_Analysis.F3_Multiscale_Scheme_Differences.F3_old.F2C_Helper_Auto_Cluster import print_cluster_summary
+from src.analyze.Part_II_Molecular_Analysis.F3_Multiscale_Scheme_Differences.F3_old.F2C_Helper_Auto_Cluster import run_clustering
+from src.analyze.Part_II_Molecular_Analysis.F3_Multiscale_Scheme_Differences.F3_old.F2C_Helper_Auto_Cluster import summarize_clusters
 
 
 SMALL_MOL_ATOM_ALIASES = {

@@ -3,7 +3,7 @@ import sys
 import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning, module=r'PIL|matplotlib\.backends\._backend_tk')
 
-vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '', '..', '..', '..', '..'))
+vorpy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '', '../..', '..', '..', '..'))
 sys.path.append(vorpy_root)
 
 from vorpy.src.analyze.tools.plot_templates.bar import bar
