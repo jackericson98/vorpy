@@ -1,7 +1,7 @@
 import time
 import numpy as np
 from vorpy.src.calculations import calc_surf_func
-from vorpy.src.calculations import calc_surf_tri_curvs
+from vorpy.src.calculations.curvature import calc_surf_tri_curvs_both
 from vorpy.src.network.perimeter import build_perimeter
 from vorpy.src.network.fill import calc_surf_point
 from vorpy.src.network.fill import calc_surf_point_from_plane
@@ -123,19 +123,13 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, perimeter=None,
         spoints = project_to_hyperboloid(my_2d_points, locs[0], sfunc, surf_norm, surf_loc)
         _record_timing(timing, 'project_hyperboloid', time.perf_counter() - stage_start)
 
-        # Mean curvature
+        # Mean + Gaussian curvature in one shared triangle pass.
         stage_start = time.perf_counter()
-        mean_tri_curvs, mean_surf_curv, avg_mean_surf_curv = calc_surf_tri_curvs(
-            sfunc, spoints, surf_tris, curvature_type='mean'
-        )
-        _record_timing(timing, 'mean_curvature', time.perf_counter() - stage_start)
-
-        # Gaussian curvature
-        stage_start = time.perf_counter()
-        gauss_tri_curvs, gauss_surf_curv, avg_gauss_surf_curv = calc_surf_tri_curvs(
-            sfunc, spoints, surf_tris, curvature_type='gauss'
-        )
-        _record_timing(timing, 'gauss_curvature', time.perf_counter() - stage_start)
+        (
+            mean_tri_curvs, mean_surf_curv, avg_mean_surf_curv,
+            gauss_tri_curvs, gauss_surf_curv, avg_gauss_surf_curv,
+        ) = calc_surf_tri_curvs_both(sfunc, spoints, surf_tris)
+        _record_timing(timing, 'combined_curvature', time.perf_counter() - stage_start)
     else:
         # Flat surfaces need only unprojection; curvature is zero.
         stage_start = time.perf_counter()

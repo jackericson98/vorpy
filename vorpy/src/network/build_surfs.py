@@ -52,6 +52,7 @@ def _print_surface_timing(total_elapsed, total_surfs, valid_surfs, invalid_surfs
         ('Project COM', 'project_com'),
         ('Triangulation', 'triangulate'),
         ('Project hyperboloid', 'project_hyperboloid'),
+        ('Combined H + K curvature', 'combined_curvature'),
         ('Mean curvature', 'mean_curvature'),
         ('Gaussian curvature', 'gauss_curvature'),
         ('Flat unprojection', 'unproject_flat'),
