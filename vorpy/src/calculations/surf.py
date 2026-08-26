@@ -1,11 +1,11 @@
-from numba import jit
+from numba import njit
 import numpy as np
 from numba.core.errors import NumbaPendingDeprecationWarning as numba_err
 from vorpy.src.calculations.calcs import calc_dist
 from vorpy.src.calculations.calcs import calc_tri
 
 
-@jit(nopython=True, cache=True)
+@njit(cache=True)
 def calc_tri(points):
     """Calculate the area of a triangle formed by three 3D points.
 
@@ -90,7 +90,7 @@ def calc_surf_func(l0, r0, l1, r1):
     return vals
 
 
-@jit(nopython=True, cache=True)
+@njit(cache=True)
 def calc_surf_func_jit(l0, r0, l1, r1):
     """Calculate the mathematical coefficients defining the hyperboloid surface between two spheres.
 
@@ -257,32 +257,27 @@ def calc_2d_surf_sa(tris, points):
 
 
 def calc_surf_sa(tris, points):
-    """Calculates the surface area of a 3D surface defined by triangles and points.
+    sa = 0.0
 
-    This function computes the total surface area of a 3D surface by summing the areas
-    of individual triangles that make up the surface. The area calculation uses the
-    cross product method to compute the area of each triangle in 3D space.
+    for i in range(len(tris)):
+        i0 = tris[i][0]
+        i1 = tris[i][1]
+        i2 = tris[i][2]
 
-    Parameters
-    ----------
-    tris : list of tuples
-        List of triangles, where each triangle is represented as a tuple of three indices
-        corresponding to points in the points array
-    points : list of numpy.ndarray
-        List of 3D point coordinates [x, y, z] that form the vertices of the triangles
+        ax = points[i0][0] - points[i1][0]
+        ay = points[i0][1] - points[i1][1]
+        az = points[i0][2] - points[i1][2]
 
-    Returns
-    -------
-    float
-        The total surface area of the 3D surface
-    """
-    # Create the surface area variable
-    sa = 0
-    # Go through the triangles in the surface
-    for tri in tris:
-        tri1 = np.array([points[tri[_]] for _ in range(3)])
-        sa += calc_tri(tri1)
-    # Return the surface area
+        bx = points[i0][0] - points[i2][0]
+        by = points[i0][1] - points[i2][1]
+        bz = points[i0][2] - points[i2][2]
+
+        cx = ay * bz - az * by
+        cy = az * bx - ax * bz
+        cz = ax * by - ay * bx
+
+        sa += 0.5 * np.sqrt(cx * cx + cy * cy + cz * cz)
+
     return sa
 
 
