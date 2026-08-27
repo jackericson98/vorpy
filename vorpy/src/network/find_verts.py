@@ -12,7 +12,7 @@ from vorpy.src.calculations import calc_vert
 def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=None,
                iface_grps=None, b_verts=None, vert_ndxs=None, vlocs=None, vrads=None, vloc2s=None, vrad2s=None,
                start_time=0, box=None, vert_box=None, group_box=None, tot_ball_num=None,
-               printing=False, start_vert=0, split=False, seed_timeout=None, net=None):
+               printing=False, start_vert=0, split=False, seed_timeout=None, net=None, timing=None):
     """
     Traverse a network and discover vertices connected to an initial seed.
 
@@ -85,7 +85,17 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
         when a seed is found, otherwise ``None``.
     """
 
+    # Optional shared timing dictionary. The outer wrapper can pass one
+    # dictionary across initial and reseed traversals so timings accumulate
+    # over the complete vertex-search phase.
+    if timing is None:
+        timing = {}
+
+    def _add_time(key, elapsed):
+        timing[key] = timing.get(key, 0.0) + elapsed
+
     # Calculate the maximum input ball radius
+    t_stage = time.perf_counter()
     max_ball_rad = max(rads)
     # Normalize the two interface selections.
     if iface_grps is not None:
@@ -121,7 +131,10 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
         tot_verts = int(6.6 * tot_ball_num + int(60 * sqrt(tot_ball_num)))
     if b_verts is None:
         b_verts = [[] for _ in range(len(locs))]
+    _add_time('fv_setup', time.perf_counter() - t_stage)
+
     # Find the first verified vertex
+    t_stage = time.perf_counter()
     if len(my_group) == 1:
         v0 = find_v0(locs=locs, rads=rads, b_verts=b_verts, max_vert=max_vert, net_type=net_type, b0=my_group[0],
                      group_ndxs=my_group, vert_ndxs=vert_ndxs, group_box=group_box, iface_grps=iface_grps,
@@ -207,10 +220,13 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
 
         if not belongs_to_interface:
             v0 = None
+    _add_time('seed_discovery', time.perf_counter() - t_stage)
+
     # If no v0 is possible (e.g., a lone ball) return
     if v0 is None:
         return
     # Check if this is the first go around
+    t_stage = time.perf_counter()
     if vert_ndxs is None:
         for ball in v0['balls']:
             # noinspection PyTypeChecker
@@ -238,10 +254,19 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
         else:
             vloc2s.append([None, None, None])
             vrad2s.append(None)
+    _add_time('seed_insert', time.perf_counter() - t_stage)
+
     # Throttle progress output.
     last_print = 0
     # Traverse neighboring vertices depth-first.
     vert_stack = [v0]
+
+    edge_search_calls = 0
+    accepted_vertices = 0
+    rejected_none = 0
+    rejected_interface = 0
+    rejected_loc = 0
+    rejected_box = 0
     # While the verts stack is not empty
     while vert_stack:
         # Get the vertex from the bottom of the stack
@@ -254,6 +279,7 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
             current_time = time.perf_counter()
 
             if current_time - last_print > 0.25:
+                t_progress = time.perf_counter()
                 current_verts = len(vert_ndxs) + start_vert
                 percentage = min((len(vlocs) / max(tot_verts, 1)) * 100, 100)
 
@@ -274,25 +300,35 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
                     )
 
                 last_print = current_time
+                _add_time('progress', time.perf_counter() - t_progress)
+
             # Get the edge from the top of the stack
             edge_balls, vert = e_stack.pop()
             # Find the next site in the network
+            t_prep = time.perf_counter()
             search_group = (
                 tuple(iface_grps)
                 if iface_grps is not None
                 else my_group
             )
 
+            _add_time('edge_prep', time.perf_counter() - t_prep)
+
+            edge_search_calls += 1
+            t_search = time.perf_counter()
             vert_ndx_pr = find_site_container(edge_balls=edge_balls, locs=locs, rads=rads, b_verts=b_verts,
                                               vert_ndxs=vert_ndxs, max_vert=max_vert, net_type=net_type,
                                               vn_1=vert['balls'], box=box, vn_1_loc=vert['loc'],
                                               group_ndxs=search_group, printing=printing, max_ball_rad=max_ball_rad)
-
+            _add_time('site_container', time.perf_counter() - t_search)
 
             # If the vertex is none continue
             if vert_ndx_pr is None:
+                rejected_none += 1
                 continue
+
             # Set the vertex and its index
+            t_validate = time.perf_counter()
             my_vert, metrics = vert_ndx_pr
             if iface_grps is not None:
                 candidate_balls = set(my_vert["balls"])
@@ -303,6 +339,8 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
                 )
 
                 if not belongs_to_interface:
+                    rejected_interface += 1
+                    _add_time('candidate_validation', time.perf_counter() - t_validate)
                     if printing:
                         print("\n[REJECTED NON-INTERFACE VERTEX]")
                         print(f"  balls = {my_vert['balls']}")
@@ -310,12 +348,19 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
                     continue
 
             if my_vert['loc'] is None:
+                rejected_loc += 1
+                _add_time('candidate_validation', time.perf_counter() - t_validate)
                 continue
             if box is not None and any([box[0][k] > my_vert['loc'][k] or my_vert['loc'][k] > box[1][k] for k in range(3)]):
+                rejected_box += 1
+                _add_time('candidate_validation', time.perf_counter() - t_validate)
                 continue
             if box is not None and 'loc2' in my_vert and my_vert['loc2'] is not None and any([box[0][k] > my_vert['loc2'][k] or my_vert['loc2'][k] > box[1][k] for k in range(3)]):
                 my_vert['loc2'], my_vert['rad2'] = None, None
+            _add_time('candidate_validation', time.perf_counter() - t_validate)
+
             # Queue the new vertex for traversal and append it to native state.
+            t_state = time.perf_counter()
             vert_stack.append(my_vert)
             # Insert the vertices in order of increasing ball indices
             vert_ndxs.append(my_vert['balls'])
@@ -327,7 +372,10 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
             else:
                 vloc2s.append([None, None, None])
                 vrad2s.append(None)
+            _add_time('state_append', time.perf_counter() - t_state)
+
             # Update ball-to-vertex adjacency and mark reached balls as visited.
+            t_adj = time.perf_counter()
             for ball in my_vert['balls']:
                 # noinspection PyTypeChecker
                 b_vert_ndxs = [vert_ndxs[_] for _ in b_verts[ball]]
@@ -335,5 +383,16 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
                 b_verts[ball].insert(ndx_search(b_vert_ndxs, my_vert['balls']), len(vert_ndxs) - 1)
                 if ball in check_ndxs:
                     check_ndxs.remove(ball)
+
+            _add_time('adjacency_updates', time.perf_counter() - t_adj)
+            accepted_vertices += 1
+
+    timing['edge_search_calls'] = timing.get('edge_search_calls', 0) + edge_search_calls
+    timing['accepted_vertices'] = timing.get('accepted_vertices', 0) + accepted_vertices
+    timing['rejected_none'] = timing.get('rejected_none', 0) + rejected_none
+    timing['rejected_interface'] = timing.get('rejected_interface', 0) + rejected_interface
+    timing['rejected_loc'] = timing.get('rejected_loc', 0) + rejected_loc
+    timing['rejected_box'] = timing.get('rejected_box', 0) + rejected_box
+
     # Return the values of the vertices
     return vert_ndxs, vlocs, vrads, vloc2s, vrad2s, check_ndxs, b_verts

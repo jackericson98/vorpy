@@ -586,4 +586,5 @@ def analyze(
     net.analysis_timing = timer.copy()
     net.analysis_timing['total'] = analysis_total
 
-    _print_analysis_timing(timer, analysis_total)
+    if net.settings.get('verbose', False):
+        _print_analysis_timing(timer, analysis_total)

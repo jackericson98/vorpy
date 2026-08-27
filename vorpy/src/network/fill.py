@@ -1,4 +1,5 @@
 import numba.core.errors
+import time
 from vorpy.src.network.triangulate import is_within
 from vorpy.src.calculations import calc_angle_jit
 from vorpy.src.calculations import calc_angle
@@ -23,30 +24,101 @@ def calc_surf_point_abcs_from_plane(vi, vn, func):
     return vi, vn, a, b, c
 
 
-def calc_surf_point_from_plane(point, norm, func, small_loc):
+def calc_surf_point_from_plane(point, norm, func, small_loc, timing=None):
     """
-    Projects a vector through the reference point and the smaller surface atom's center onto the surface
-    :param func: Implicit function for the hyperboloid surface between the atoms
-    :param locs: Smaller atom's location used for projection onto the surface
-    :param point: Reference point to be projected through
-    :return: The point on the surface
-    """
-    vi, vn, a, b, c = calc_surf_point_abcs_from_plane(np.array(point), norm, np.array(func))
+    Project a plane point onto the implicit surface.
 
-    # Check that the discriminant of the solution to at^2 + bt + c = 0, is positive
-    if round(b ** 2 - 4 * a * c, 10) >= 0:
-        # Calculate the roots of the factoring equation
-        roots = np.roots([a, b, c])
-        # If one root exists return it
-        if len(roots) == 1:
-            return vi + roots[0] * vn
-        # Calculate the two point options
-        r1, r2 = vi + roots[0] * vn, vi + roots[1] * vn
-        # Calculate the distance between the two points and the
-        d1 = calc_dist(r1, small_loc)
-        d2 = calc_dist(r2, small_loc)
-        # Return the closer one
-        return r1 if d1 < d2 else r2
+    When ``timing`` is supplied, cumulative timings are stored for:
+      - coefficient calculation,
+      - quadratic root solving,
+      - root selection / distance comparison.
+
+    The projection mathematics is unchanged.
+    """
+    t0 = time.perf_counter()
+    # point, norm, and func are normalized to NumPy arrays by the caller.
+    # Avoid allocating new arrays for every projected point.
+    vi, vn, a, b, c = calc_surf_point_abcs_from_plane(
+        point, norm, func
+    )
+    if timing is not None:
+        timing['proj_coefficients'] = (
+            timing.get('proj_coefficients', 0.0)
+            + time.perf_counter() - t0
+        )
+
+    # Preserve the historical rounded-discriminant behavior exactly.
+    t0 = time.perf_counter()
+    discriminant = b ** 2 - 4 * a * c
+    if round(discriminant, 10) < 0:
+        if timing is not None:
+            timing['proj_root_solve'] = (
+                timing.get('proj_root_solve', 0.0)
+                + time.perf_counter() - t0
+            )
+            timing['proj_no_root'] = timing.get('proj_no_root', 0) + 1
+            timing['proj_calls'] = timing.get('proj_calls', 0) + 1
+        return None
+
+    # Solve the quadratic explicitly instead of calling np.roots().
+    # Preserve the same quadratic equation and downstream root-selection rule.
+    if abs(a) < 1e-15:
+        # Degenerate linear case: b*t + c = 0.
+        if abs(b) < 1e-15:
+            if timing is not None:
+                timing['proj_root_solve'] = (
+                    timing.get('proj_root_solve', 0.0)
+                    + time.perf_counter() - t0
+                )
+                timing['proj_no_root'] = timing.get('proj_no_root', 0) + 1
+                timing['proj_calls'] = timing.get('proj_calls', 0) + 1
+            return None
+
+        roots = (-c / b,)
+    else:
+        sqrt_disc = np.sqrt(max(discriminant, 0.0))
+        denom = 2.0 * a
+        roots = (
+            (-b + sqrt_disc) / denom,
+            (-b - sqrt_disc) / denom,
+        )
+
+    if timing is not None:
+        timing['proj_root_solve'] = (
+            timing.get('proj_root_solve', 0.0)
+            + time.perf_counter() - t0
+        )
+
+    t0 = time.perf_counter()
+
+    if len(roots) == 1:
+        result = vi + roots[0] * vn
+    else:
+        r1 = vi + roots[0] * vn
+        r2 = vi + roots[1] * vn
+
+        # Only relative distance matters for selecting the closer root.
+        # Compare squared distances to avoid two square roots / calc_dist calls.
+        dx1 = r1[0] - small_loc[0]
+        dy1 = r1[1] - small_loc[1]
+        dz1 = r1[2] - small_loc[2]
+        d1_sq = dx1 * dx1 + dy1 * dy1 + dz1 * dz1
+
+        dx2 = r2[0] - small_loc[0]
+        dy2 = r2[1] - small_loc[1]
+        dz2 = r2[2] - small_loc[2]
+        d2_sq = dx2 * dx2 + dy2 * dy2 + dz2 * dz2
+
+        result = r1 if d1_sq < d2_sq else r2
+
+    if timing is not None:
+        timing['proj_root_select'] = (
+            timing.get('proj_root_select', 0.0)
+            + time.perf_counter() - t0
+        )
+        timing['proj_calls'] = timing.get('proj_calls', 0) + 1
+
+    return result
 
 
 @jit(nopython=True, cache=True)

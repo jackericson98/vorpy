@@ -28,6 +28,11 @@ class Command:
         self.settings_dict = settings
         self.logs_files = []
 
+        # Global diagnostic-output flag.
+        # Timers/metrics may still be collected when False; this controls
+        # whether verbose diagnostic information is printed.
+        self.verbose = False
+
     def run(self):
         self._run_pipeline()
 
@@ -68,6 +73,10 @@ class Command:
 
         # Parse the remaining command-line arguments
         self.parse_commands()
+
+        # Expose the CLI verbosity state at the system level so downstream
+        # build/analyze/export code has one common place to query it.
+        self.sys.verbose = self.verbose
 
         # Load any additional files
         self.load_files()
@@ -160,8 +169,6 @@ class Command:
             for grp in self.sys.groups:
                 grp.build()
 
-
-
         # Export requested outputs
         self.run_exports()
 
@@ -241,7 +248,17 @@ class Command:
             }
         """
         # Separate the rest of the argv args
-        my_args = sys.argv[2 + counter:]
+        my_args = list(sys.argv[2 + counter:])
+
+        # -v / --verbose is a universal argumentless flag. Remove it before
+        # the existing command parser processes argument/value groups.
+        if '-v' in my_args or '--verbose' in my_args:
+            self.verbose = True
+            my_args = [
+                arg for arg in my_args
+                if arg not in {'-v', '--verbose'}
+            ]
+
         # Set the arg to load as a default
         arg = '-l'
         group_counter = -1
@@ -354,9 +371,10 @@ class Command:
             if file[-3:] == 'pdb' or file[-3:] == 'mol' or file[-3:] == 'gro' or file[-3:] == 'cif':
                 # If the system already exists, prompt the user to confirm replacement
                 if self.sys.name is not None and \
-                        (self.sys.atoms is not None or self.sys.files['verts_file'] is not None or self.sys.files['net_file'] is not None):
+                        (self.sys.atoms is not None or self.sys.files['verts_file'] is not None or self.sys.files[
+                            'net_file'] is not None):
                     reset_sys = input("replacing {} with {}\nconfirm >>>   "
-                                    .format(self.sys.name, file))
+                                      .format(self.sys.name, file))
                     # If the user confirms the replacement, create a new system
                     if reset_sys.lower() in ys:
                         self.sys = System(file)
@@ -382,12 +400,13 @@ class Command:
                     # If a vertex file has already been loaded make sure the user wants to load it if not load it
                     if self.sys.files['verts_file'] is not None and self.sys.vert_file != "":
                         replace_vert_file = input("replacing {} with {}\n "
-                                                "confirm >>>   ".format(self.sys.files['verts_file'], file))
+                                                  "confirm >>>   ".format(self.sys.files['verts_file'], file))
                         # If the user confirms the replacement, load the vertices
                         if replace_vert_file.lower() in ys or replace_vert_file.lower() in dones:
                             self.sys.load_verts(file, vta_ball_file=self.sys.ball_file)
                             print("{} vertices loaded - {} vertices, maximum vertex radius: {} \u208B, box size: {} x\n"
-                                .format(self.sys.name, len(self.sys.net.verts), self.sys.net.settings['max_vert'], self.sys.net.settings['box_size']))
+                                  .format(self.sys.name, len(self.sys.net.verts), self.sys.net.settings['max_vert'],
+                                          self.sys.net.settings['box_size']))
                         # If the user requests help, print the help message
                         elif replace_vert_file.lower() in helps:
                             print_help()
@@ -406,13 +425,15 @@ class Command:
                     # If a vertex file has already been loaded make sure the user wants to load it if not load it
                     if self.sys.net_file is not None or self.sys.net_file != "":
                         replace_net_file = input("replacing {} with {}\n "
-                                                "confirm >>>   ".format(self.sys.net_file, file))
+                                                 "confirm >>>   ".format(self.sys.net_file, file))
                         # If the user confirms the replacement, load the network
                         if replace_net_file in ys:
                             self.sys.load_net(file)
-                            print("{} network loaded - surface resolution: {}\u208B, maximum vertex radius: {} \u208B, box"
-                                " size: {} x\n".format(self.sys.name, len(self.sys.net.verts), self.sys.net.settings['max_vert'],
-                                                        self.sys.net.settings['box_size']))
+                            print(
+                                "{} network loaded - surface resolution: {}\u208B, maximum vertex radius: {} \u208B, box"
+                                " size: {} x\n".format(self.sys.name, len(self.sys.net.verts),
+                                                       self.sys.net.settings['max_vert'],
+                                                       self.sys.net.settings['box_size']))
                         # If the user requests help, print the help message
                         elif replace_net_file in helps:
                             print_help()
@@ -423,26 +444,29 @@ class Command:
                         # Load the file
                         self.sys.load_net(file)
                         if len(sys.net.surfs) > 0:
-                            print("{} network loaded - surface resolution: {}\u208B, maximum vertex radius: {} \u208B, box size: {} x\n"
-                                .format(self.sys.name, len(self.sys.net.verts), self.sys.net.settings['max_vert'], self.sys.net.settings['box_size']))
+                            print(
+                                "{} network loaded - surface resolution: {}\u208B, maximum vertex radius: {} \u208B, box size: {} x\n"
+                                .format(self.sys.name, len(self.sys.net.verts), self.sys.net.settings['max_vert'],
+                                        self.sys.net.settings['box_size']))
                         else:
                             print("{} vertices loaded - {} vertices, maximum vertex radius: {} \u208B, box size: {} x\n"
-                                .format(self.sys.name, len(self.sys.net.verts), self.sys.net.settings['max_vert'], self.sys.net.settings['box_size']))
+                                  .format(self.sys.name, len(self.sys.net.verts), self.sys.net.settings['max_vert'],
+                                          self.sys.net.settings['box_size']))
             # Check to see if it is a new network file
             elif file[-3:] == 'csv':
                 # Check to see that this is a network file
                 if file[-7:-4].lower() == 'net':
-
                     self.sys.load_net(file=file)
 
             # If the file is an index file load it accordingly
             elif file[-3:] == 'ndx':
                 self.sys.load_ndx(file)
-                print(self.sys.ndx_file + "loaded -  {}".format(self.sys.ndx_names[:min(len(self.sys.ndx_names) - 1, 10)]))
+                print(self.sys.ndx_file + "loaded -  {}".format(
+                    self.sys.ndx_names[:min(len(self.sys.ndx_names) - 1, 10)]))
             # In all other case print an error and give the user a chance to try again
             else:
                 print("\'{}\' is not a valid input. allowed file types: .pdb, .mol, .cif, .gro, .txt, .ndx. type "
-                    "\'h\' for help".format(file))
+                      "\'h\' for help".format(file))
                 return
 
     def apply_settings(self):
@@ -457,9 +481,31 @@ class Command:
     def create_groups(self):
         # Interface mode only needs group definitions; the Interface creates
         # the single network that will actually be solved.
-        ggroup(self.sys, self.groups, self.settings_dict, make_net=not self.interface_mode)
-    
+        ggroup(
+            self.sys,
+            self.groups,
+            self.settings_dict,
+            make_net=not self.interface_mode
+        )
+
+        # Propagate the universal verbose flag into every created group and
+        # network. This lets existing timing code use:
+        #
+        #     if net.settings.get('verbose', False):
+        #         ...
+        #
+        # without making verbose output a calculation setting.
+        for group in (self.sys.groups or []):
+            if getattr(group, 'settings', None) is not None:
+                group.settings['verbose'] = self.verbose
+
+            net = getattr(group, 'net', None)
+            if net is not None:
+                if getattr(net, 'settings', None) is None:
+                    net.settings = {}
+                net.settings['verbose'] = self.verbose
+
     def run_exports(self):
         # Export everything
         argv_export(self.sys, self.exports)
-    
+

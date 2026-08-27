@@ -265,7 +265,11 @@ def calc_surf_tri_curvs_both(func, points, tris, tol=1e-12):
     -------
     tuple
         mean_tri_curvs, mean_max_abs, mean_avg,
-        gauss_tri_curvs, gauss_max_abs, gauss_avg
+        gauss_tri_curvs, gauss_max_abs, gauss_avg,
+        integrated_mean_curvature,
+        integrated_mean_curvature_squared,
+        integrated_gaussian_curvature,
+        total_surface_area
     """
     A, B, C, D, E, F, G, Hc, Ic, J, Kc, dx, dy, dz = func
 
@@ -294,6 +298,7 @@ def calc_surf_tri_curvs_both(func, points, tris, tol=1e-12):
 
     total_area = 0.0
     weighted_mean = 0.0
+    weighted_mean_sq = 0.0
     weighted_gauss = 0.0
 
     for tri in tris:
@@ -380,6 +385,7 @@ def calc_surf_tri_curvs_both(func, points, tris, tol=1e-12):
         if np.isfinite(tri_area) and tri_area > 0.0:
             total_area += tri_area
             weighted_mean += mean_val * tri_area
+            weighted_mean_sq += mean_val * mean_val * tri_area
             weighted_gauss += gauss_val * tri_area
 
     if total_area > 0.0:
@@ -392,6 +398,8 @@ def calc_surf_tri_curvs_both(func, points, tris, tol=1e-12):
     return (
         mean_tri_curvs, mean_max, mean_avg,
         gauss_tri_curvs, gauss_max, gauss_avg,
+        weighted_mean, weighted_mean_sq, weighted_gauss,
+        total_area,
     )
 
 def calc_avg_surface_curvature(func, s_points, s_tris, curvature_type='gauss'):

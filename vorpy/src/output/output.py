@@ -50,6 +50,10 @@ class ExportProgress:
         self.sys = sys
         self.sys.run_network = None
 
+        self.start = time.perf_counter()
+        self.timings = {}
+        self.counts = {}
+
     def show(self, name=None):
         percent = 100.0 * self.current / self.total
         process = "Exporting files" if name is None else f"Exporting files: {name}"
@@ -62,11 +66,45 @@ class ExportProgress:
         self.current = self.total
         self.sys.update_progress(process="Exporting files", progress=100.0)
 
+        total_elapsed = time.perf_counter() - self.start
+        self.sys.export_timing = self.timings.copy()
+        self.sys.export_timing['total'] = total_elapsed
+
+        if not getattr(self.sys, 'verbose', False):
+            return
+
+        print("\n" + "=" * 70)
+        print("EXPORT TIMING")
+        print("=" * 70)
+
+        for name, elapsed in sorted(
+            self.timings.items(),
+            key=lambda item: item[1],
+            reverse=True
+        ):
+            pct = 100.0 * elapsed / total_elapsed if total_elapsed > 0 else 0.0
+            print(f"{name:<40} {elapsed:10.4f} s  {pct:6.2f} %")
+
+        measured = sum(self.timings.values())
+        other = max(total_elapsed - measured, 0.0)
+        pct = 100.0 * other / total_elapsed if total_elapsed > 0 else 0.0
+        print(f"{'Other / export overhead':<40} {other:10.4f} s  {pct:6.2f} %")
+        print("-" * 70)
+        print(f"{'TOTAL':<40} {total_elapsed:10.4f} s  100.00 %")
+        print(f"Export operations: {sum(self.counts.values()):,}")
+        print("=" * 70)
+
 
 def _run_export(progress, name, func, **kwargs):
-    """Run one export operation and update the progress display."""
+    """Run one export operation, retain timing, and update progress."""
     progress.show(name)
+
+    start = time.perf_counter()
     func(**kwargs)
+    elapsed = time.perf_counter() - start
+
+    progress.timings[name] = progress.timings.get(name, 0.0) + elapsed
+    progress.counts[name] = progress.counts.get(name, 0) + 1
     progress.step()
 
 
@@ -209,7 +247,6 @@ def export_med(sys):
     for group in groups:
         _set_group_directory(sys, group)
 
-        _run_export(progress, f"{group.name}: info", group.exports, info=True)
         _run_export(progress, f"{group.name}: shell surfaces", group.exports, shell_surfs=True)
         _run_export(progress, f"{group.name}: surfaces", group.exports, surfs=True)
         _run_export(progress, f"{group.name}: shell edges", group.exports, shell_edges=True)

@@ -186,97 +186,192 @@ def _get_interface_reseed_candidates(net, sphere_check_list):
     return [ball for _, ball in candidates]
 
 
+def _print_find_verts_timing(net, timer, total):
+    """Print a compact, meaningful vertex-search timing breakdown."""
+    if not net.settings.get('verbose', False):
+        return
+
+    grouped = {
+        'Setup + seed discovery': (
+            timer.get('setup', 0.0)
+            + timer.get('cache_load', 0.0)
+            + timer.get('fv_setup', 0.0)
+            + timer.get('seed_discovery', 0.0)
+            + timer.get('seed_insert', 0.0)
+        ),
+        'Site-container search': timer.get('site_container', 0.0),
+        'Vertex bookkeeping': (
+            timer.get('edge_prep', 0.0)
+            + timer.get('candidate_validation', 0.0)
+            + timer.get('state_append', 0.0)
+            + timer.get('adjacency_updates', 0.0)
+        ),
+        'Progress reporting': timer.get('progress', 0.0),
+        'Post-search processing': (
+            timer.get('encapsulation', 0.0)
+            + timer.get('interface_reseed_setup', 0.0)
+            + timer.get('cache_store', 0.0)
+            + timer.get('doublets', 0.0)
+            + timer.get('dataframe', 0.0)
+        ),
+        'Vertex export': timer.get('export', 0.0),
+    }
+
+    print("\n" + "=" * 70)
+    print("FIND VERTICES TIMING")
+    print("=" * 70)
+
+    for label, elapsed in grouped.items():
+        pct = 100.0 * elapsed / total if total > 0 else 0.0
+        print(f"{label:<28} {elapsed:10.4f} s  {pct:6.2f} %")
+
+    measured = sum(grouped.values())
+    other = max(total - measured, 0.0)
+    pct = 100.0 * other / total if total > 0 else 0.0
+    print(f"{'Other / unmeasured':<28} {other:10.4f} s  {pct:6.2f} %")
+    print("-" * 70)
+    print(f"{'TOTAL':<28} {total:10.4f} s  100.00 %")
+
+    print("\nFIND VERTICES SIZE")
+    print(f"Balls requested:    {len(net.group or []):,}")
+    print(f"Vertices found:     {0 if net.verts is None else len(net.verts):,}")
+    if net.verts is not None and 'dub' in net.verts:
+        print(f"Doublet rows:       {sum(1 for value in net.verts['dub'] if value in (1, 2)):,}")
+    print(f"Site searches:      {int(timer.get('edge_search_calls', 0)):,}")
+    print(f"Accepted vertices:  {int(timer.get('accepted_vertices', 0)):,}")
+    print(f"No-site results:    {int(timer.get('rejected_none', 0)):,}")
+    print("=" * 70)
+
+
 def find_net_verts(net):
     """
     Find and store all vertices belonging to a network.
 
-    The search begins from the network's requested group and traverses connected
-    vertices using ``find_verts``. Previously cached interface vertices may be
-    loaded as an initial native search state so duplicate detection and adjacency
-    remain available during continued discovery.
-
-    Any balls left uncovered after the initial traversal are checked for complete
-    encapsulation. Remaining balls are then used as additional seeds, allowing
-    disconnected or incompletely traversed regions to be discovered. Interface
-    networks use this reseeding behavior as well, which allows the same interface
-    to be approached from multiple starting regions.
-
-    Doublet vertices are maintained internally as primary/secondary solutions
-    during discovery and expanded into separate dataframe rows only after the
-    native search is complete.
-
-    Parameters
-    ----------
-    net : Network
-        Network being solved. The object provides ball coordinates, radii, group
-        definitions, interface groups, search settings, spatial boxes, and build
-        metrics.
-
-    Notes
-    -----
-    The function updates ``net.verts`` in place, stores interface-native vertex
-    state when applicable, updates the vertex-build timing metric, and writes the
-    vertex output through ``write_verts``.
+    Detailed timings are always collected in ``net.vert_timing``.
+    They are printed only when ``net.settings['verbose']`` is True.
     """
-    # Create the group indices
+    vert_start = time.perf_counter()
+    timer = {
+        'setup': 0.0,
+        'cache_load': 0.0,
+        'encapsulation': 0.0,
+        'interface_reseed_setup': 0.0,
+        'cache_store': 0.0,
+        'doublets': 0.0,
+        'dataframe': 0.0,
+        'export': 0.0,
+    }
+
+    # --------------------------------------------------------------
+    # Setup
+    # --------------------------------------------------------------
+    t = time.perf_counter()
     if net.group is None:
         net.group = net.balls['num'].tolist()
-    # Track group balls that have not yet been reached by vertex traversal.
+
     sphere_check_list = net.group.copy()
-
     net.update_progress("Finding vertices | Initializing", 0.0)
+    timer['setup'] += time.perf_counter() - t
 
+    # --------------------------------------------------------------
+    # Cached vertex state
+    # --------------------------------------------------------------
+    t = time.perf_counter()
     cached_state = _load_cached_vertex_state(net)
     if cached_state is None:
         vert_ndxs = vlocs = vrads = vloc2s = vrad2s = averts = None
     else:
         vert_ndxs, vlocs, vrads, vloc2s, vrad2s, averts = cached_state
-    # Continue normal discovery with cached vertices available for duplicate
-    # detection and traversal adjacency.
-    my_guuy = find_verts(net=net, locs=net.balls['loc'].to_numpy(), rads=net.balls['rad'].to_numpy(),
-                         max_vert=net.settings['max_vert'], net_type=net.settings['net_type'],
-                         check_ndxs=sphere_check_list, my_group=net.group, iface_grps=net.iface_grps,
-                         vert_ndxs=vert_ndxs, vlocs=vlocs, vrads=vrads, vloc2s=vloc2s, vrad2s=vrad2s, b_verts=averts,
-                         start_time=net.metrics['start'], vert_box=net.settings['foam_box'], box=net.box['verts'])
+    timer['cache_load'] += time.perf_counter() - t
+
+    # --------------------------------------------------------------
+    # Initial vertex search
+    # --------------------------------------------------------------
+    my_guuy = find_verts(
+        net=net,
+        locs=net.balls['loc'].to_numpy(),
+        rads=net.balls['rad'].to_numpy(),
+        max_vert=net.settings['max_vert'],
+        net_type=net.settings['net_type'],
+        check_ndxs=sphere_check_list,
+        my_group=net.group,
+        iface_grps=net.iface_grps,
+        vert_ndxs=vert_ndxs,
+        vlocs=vlocs,
+        vrads=vrads,
+        vloc2s=vloc2s,
+        vrad2s=vrad2s,
+        b_verts=averts,
+        start_time=net.metrics['start'],
+        vert_box=net.settings['foam_box'],
+        box=net.box['verts'],
+        timing=timer
+    )
+
     if my_guuy is not None:
         vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
     elif cached_state is None:
+        total = time.perf_counter() - vert_start
+        net.vert_timing = timer.copy()
+        net.vert_timing['total'] = total
+        net.metrics['vert'] = time.perf_counter() - net.metrics['start']
+        _print_find_verts_timing(net, timer, total)
         return
 
-    # Check to see if any of the balls are encapsulated
+    # --------------------------------------------------------------
+    # Encapsulation checks
+    # --------------------------------------------------------------
+    t = time.perf_counter()
     if len(sphere_check_list) > 0 and net.iface_grps is None:
-        # Create the skip numbers list
         skip_nums = []
         max_ball_rad = max(net.balls['rad'])
-        # Iterate through the sphere check list
+
         for sphere in sphere_check_list:
-            # Get the radius and location of the sphere
-            sphere_rad, sphere_loc = net.balls['rad'][sphere], net.balls['loc'][sphere]
-            # Create the sphere box
+            sphere_rad = net.balls['rad'][sphere]
+            sphere_loc = net.balls['loc'][sphere]
             sphere_box = box_search(sphere_loc)
-            # Get the balls within the sphere box
-            close_spheres = get_balls(sphere_box, dist=max_ball_rad - sphere_rad)
-            # Check to see if close spheres is not None
+            close_spheres = get_balls(
+                sphere_box,
+                dist=max_ball_rad - sphere_rad
+            )
+
             if close_spheres is not None:
-                # Iterate through the close spheres
                 for sphere2 in close_spheres:
-                    # Check if the sphere is fully encapsulated by another sphere
-                    if calc_dist(sphere_loc, net.balls['loc'][sphere2]) < abs(net.balls['rad'][sphere2] - sphere_rad):
-                        print("\nUh oh! Ball # {} is fully encapsulated by ball # {}! Skipping {}"
-                              .format(sphere, sphere2, sphere))
+                    if calc_dist(
+                        sphere_loc,
+                        net.balls['loc'][sphere2]
+                    ) < abs(net.balls['rad'][sphere2] - sphere_rad):
+                        print(
+                            "\nUh oh! Ball # {} is fully encapsulated by ball # {}! Skipping {}"
+                            .format(sphere, sphere2, sphere)
+                        )
                         skip_nums.append(sphere)
                         break
-        # Iterate through the skip numbers
-        for _ in skip_nums:
-            sphere_check_list.pop(sphere_check_list.index(_))
+
+        for sphere in skip_nums:
+            sphere_check_list.pop(sphere_check_list.index(sphere))
+
+    timer['encapsulation'] += time.perf_counter() - t
+
+    # --------------------------------------------------------------
+    # Interface reseed preparation
+    # --------------------------------------------------------------
+    t = time.perf_counter()
     if net.iface_grps is not None:
-        sphere_check_list[:] = _get_interface_reseed_candidates(net, sphere_check_list)
+        sphere_check_list[:] = _get_interface_reseed_candidates(
+            net,
+            sphere_check_list
+        )
+    timer['interface_reseed_setup'] += time.perf_counter() - t
+
+    # --------------------------------------------------------------
+    # Additional seed searches
+    # --------------------------------------------------------------
+    reseed_count = 0
 
     while sphere_check_list:
-
-        # Remove the seed before calling find_verts; b0 explicitly restores it
-        # as the first seed candidate inside the new traversal.
         seed_ball = sphere_check_list.pop()
+        reseed_count += 1
 
         my_guuy = find_verts(
             b0=seed_ball,
@@ -297,45 +392,95 @@ def find_net_verts(net):
             b_verts=averts,
             box=net.box['verts'],
             seed_timeout=0.05,
-            net=net
+            net=net,
+            timing=timer
         )
 
         if my_guuy is not None:
-            vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
+            (
+                vert_ndxs,
+                vlocs,
+                vrads,
+                vloc2s,
+                vrad2s,
+                sphere_check_list,
+                averts
+            ) = my_guuy
 
-        if 'ball_type' in net.settings and net.settings['ball_type'] == 'foam' and len(sphere_check_list) <= 0.25 * len(net.balls['loc']):
+        if (
+            'ball_type' in net.settings
+            and net.settings['ball_type'] == 'foam'
+            and len(sphere_check_list) <= 0.25 * len(net.balls['loc'])
+        ):
             print(f'Missing Ball Indices:\n{sphere_check_list}\n')
             break
 
-    # Save the lossless native representation before doublets are expanded
-    # into separate dataframe rows.
+    # --------------------------------------------------------------
+    # Store native interface state
+    # --------------------------------------------------------------
+    t = time.perf_counter()
     if net.iface_grps is not None:
-        _store_native_vertex_state(net, vert_ndxs, vlocs, vrads, vloc2s, vrad2s)
+        _store_native_vertex_state(
+            net,
+            vert_ndxs,
+            vlocs,
+            vrads,
+            vloc2s,
+            vrad2s
+        )
+    timer['cache_store'] += time.perf_counter() - t
 
-    # Create the doublets list
+    # --------------------------------------------------------------
+    # Doublet expansion
+    # --------------------------------------------------------------
+    t = time.perf_counter()
     doublets = [0] * len(vert_ndxs)
-    # Incorporate the doublets into the v_locs, balls, v_rads lists and lose the v_loc2s and v_rad2s
     i = 0
+
     while i < len(vlocs):
-        # Check for doubletness
         if vrad2s[i] is not None:
-            # Insert the relevant information into their respective lists
             vert_ndxs.insert(i + 1, vert_ndxs[i])
             vlocs.insert(i + 1, vloc2s[i])
             vrads.insert(i + 1, vrad2s[i])
             doublets[i] = 2
             doublets.insert(i + 1, 1)
-            # Preserve the relational aspects of vrad2s and vloc2s
             vrad2s.insert(i + 1, None)
             vloc2s.insert(i + 1, [None, None, None])
         i += 1
 
-    # Make the dataframe
-    net.verts = pd.DataFrame({"balls": vert_ndxs, 'loc': vlocs, 'rad': vrads, 'dub': doublets})
-    # Clear the print statement
+    timer['doublets'] += time.perf_counter() - t
+
+    # --------------------------------------------------------------
+    # Vertex DataFrame
+    # --------------------------------------------------------------
+    t = time.perf_counter()
+    net.verts = pd.DataFrame({
+        "balls": vert_ndxs,
+        'loc': vlocs,
+        'rad': vrads,
+        'dub': doublets
+    })
+    timer['dataframe'] += time.perf_counter() - t
+
     net.update_progress(
         f"Finding vertices: {len(net.verts):,} / {len(net.verts):,}",
         100.0
     )
+
+    # Historical metric remains system-relative for compatibility.
     net.metrics['vert'] = time.perf_counter() - net.metrics['start']
+
+    # --------------------------------------------------------------
+    # Vertex output
+    # --------------------------------------------------------------
+    t = time.perf_counter()
     write_verts(net)
+    timer['export'] += time.perf_counter() - t
+
+    total = time.perf_counter() - vert_start
+
+    net.vert_timing = timer.copy()
+    net.vert_timing['total'] = total
+    net.vert_timing['reseed_count'] = reseed_count
+
+    _print_find_verts_timing(net, timer, total)

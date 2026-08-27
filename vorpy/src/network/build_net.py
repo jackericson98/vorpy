@@ -470,8 +470,12 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time,
     _record_timing(timings, 'packaging', packaging_start)
 
     timings['total'] = time.perf_counter() - build_start
-    # _print_build_timings(timings, counts)
+
     if net is not None:
         net.update_progress("Building Topology", 100.0)
+
+    # Timing is always collected; -v / net.verbose controls only printing.
+    if net is not None and net.settings.get('verbose', False):
+        _print_build_timings(timings, counts)
 
     return ball_lists, vert_lists, edge_lists, surf_lists

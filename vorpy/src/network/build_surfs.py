@@ -2,7 +2,6 @@ import time
 from vorpy.src.calculations import calc_surf_sa
 from vorpy.src.calculations import calc_tetra_vol
 from vorpy.src.network.build_surf import build_surf
-from vorpy.src.calculations.surface_energy import calc_surface_energy_geometry_from_curvatures
 
 
 def _add_timing(timing, key, elapsed):
@@ -48,10 +47,18 @@ def _print_surface_timing(total_elapsed, total_surfs, valid_surfs, invalid_surfs
         ('Flatness check', 'flat_check'),
         ('Perimeter', 'perimeter'),
         ('Surface COM', 'get_com'),
+        ('  Containment setup', 'com_contains_setup'),
+        ('  Containment queries', 'com_contains_query'),
+        ('  Centroid calculations', 'com_centroid'),
+        ('  Surface projection', 'com_surface_projection'),
+        ('  Nearest fallback', 'com_nearest_fallback'),
         ('Project perimeter', 'project_perimeter'),
         ('Project COM', 'project_com'),
         ('Triangulation', 'triangulate'),
         ('Project hyperboloid', 'project_hyperboloid'),
+        ('  Coefficient setup', 'proj_coefficients'),
+        ('  Root solving', 'proj_root_solve'),
+        ('  Root selection', 'proj_root_select'),
         ('Combined H + K curvature', 'combined_curvature'),
         ('Mean curvature', 'mean_curvature'),
         ('Gaussian curvature', 'gauss_curvature'),
@@ -67,7 +74,18 @@ def _print_surface_timing(total_elapsed, total_surfs, valid_surfs, invalid_surfs
         pct = 100.0 * elapsed / build_total if build_total > 0 else 0.0
         print(f'{name:<28}{elapsed:>10.4f} s  {pct:>7.2f} %')
 
-    internal_accounted = sum(build_timing.get(key, 0.0) for _, key in internal_order)
+    # Projection sub-timers are components of project_hyperboloid and therefore
+    # must not be added again when calculating accounted wall time.
+    internal_accounted = sum(
+        build_timing.get(key, 0.0)
+        for _, key in internal_order
+        if key not in {
+            'proj_coefficients', 'proj_root_solve', 'proj_root_select',
+            'com_contains_setup', 'com_contains_query',
+            'com_centroid', 'com_surface_projection',
+            'com_nearest_fallback'
+        }
+    )
     internal_other = max(0.0, build_total - internal_accounted)
     pct = 100.0 * internal_other / build_total if build_total > 0 else 0.0
     print(f'{"Internal overhead":<28}{internal_other:>10.4f} s  {pct:>7.2f} %')
@@ -84,6 +102,24 @@ def _print_surface_timing(total_elapsed, total_surfs, valid_surfs, invalid_surfs
     if valid_surfs:
         print(f'Points / surface:   {total_points / valid_surfs:,.1f}')
         print(f'Tris / surface:     {total_tris / valid_surfs:,.1f}')
+    if build_timing.get('proj_calls', 0):
+        print(f'Projection calls:   {int(build_timing.get("proj_calls", 0)):,}')
+        print(f'No-root projections:{int(build_timing.get("proj_no_root", 0)):>9,}')
+
+    com_returns = (
+        int(build_timing.get('com_flat_returns', 0))
+        + int(build_timing.get('com_surf_loc_returns', 0))
+        + int(build_timing.get('com_true_returns', 0))
+        + int(build_timing.get('com_sample_returns', 0))
+        + int(build_timing.get('com_hard_returns', 0))
+    )
+    if com_returns:
+        print('COM return paths:')
+        print(f'  Surface location: {int(build_timing.get("com_surf_loc_returns", 0)):,}')
+        print(f'  True centroid:    {int(build_timing.get("com_true_returns", 0)):,}')
+        print(f'  Sample centroid:  {int(build_timing.get("com_sample_returns", 0)):,}')
+        print(f'  Hard fallback:    {int(build_timing.get("com_hard_returns", 0)):,}')
+        print(f'  Flat fast path:   {int(build_timing.get("com_flat_returns", 0)):,}')
     print('=' * 70)
 
 
@@ -139,6 +175,8 @@ def build_surfs(net, store_points=True):
             surf_points, surf_tris,
             mean_surf_tri_curvs, mean_surf_curv, avg_mean_surf_curv,
             gauss_surf_tri_curvs, gauss_surf_curv, avg_gauss_surf_curv,
+            int_mean_curv, int_mean_curv_sq, int_gauss_curv,
+            curvature_area,
             surf_func, surf_com, surf_flat, surf_loc
         ) = my_surf
 
@@ -160,17 +198,27 @@ def build_surfs(net, store_points=True):
         _add_timing(outer_timing, 'volume_1', time.perf_counter() - timer)
 
         timer = time.perf_counter()
-        sa = calc_surf_sa(tris=surf_tris, points=surf_points)
+        if curvature_area is None:
+            # Flat surfaces do not run the curvature pass, so preserve the
+            # historical standalone surface-area calculation for them.
+            sa = calc_surf_sa(tris=surf_tris, points=surf_points)
+        else:
+            # Curved-surface triangle areas were already accumulated during
+            # the combined H/K pass; do not walk the mesh again.
+            sa = curvature_area
         _add_timing(outer_timing, 'surface_area', time.perf_counter() - timer)
 
+        # Integrated curvature geometry was accumulated during the combined
+        # curvature pass, so do not walk the triangle mesh again here.
         timer = time.perf_counter()
-        energy_geometry = calc_surface_energy_geometry_from_curvatures(
-            points=surf_points,
-            tris=surf_tris,
-            mean_curvatures=mean_surf_tri_curvs,
-            gaussian_curvatures=gauss_surf_tri_curvs,
-            area=sa,
-        )
+        energy_geometry = {
+            'Area': sa,
+            'Mean Curvature': (int_mean_curv / sa) if sa > 0.0 else 0.0,
+            'Gaussian Curvature': (int_gauss_curv / sa) if sa > 0.0 else 0.0,
+            'Integrated Mean Curvature': int_mean_curv,
+            'Integrated Mean Curvature Squared': int_mean_curv_sq,
+            'Integrated Gaussian Curvature': int_gauss_curv,
+        }
         _add_timing(outer_timing, 'energy_geometry', time.perf_counter() - timer)
 
         current_time = time.perf_counter()
@@ -249,13 +297,21 @@ def build_surfs(net, store_points=True):
     )
 
     total_elapsed = time.perf_counter() - stage_start
-    _print_surface_timing(
-        total_elapsed=total_elapsed,
-        total_surfs=total_surfs,
-        valid_surfs=valid_surfs,
-        invalid_surfs=invalid_surfs,
-        outer_timing=outer_timing,
-        build_timing=build_timing,
-        total_points=total_points,
-        total_tris=total_tris,
-    )
+
+    # Persist detailed profiling regardless of output mode.
+    net.surface_timing = outer_timing.copy()
+    net.surface_timing['total'] = total_elapsed
+    net.build_surf_timing = build_timing.copy()
+
+    # Detailed timing output is controlled universally by -v / --verbose.
+    if net.settings.get('verbose', False):
+        _print_surface_timing(
+            total_elapsed=total_elapsed,
+            total_surfs=total_surfs,
+            valid_surfs=valid_surfs,
+            invalid_surfs=invalid_surfs,
+            outer_timing=outer_timing,
+            build_timing=build_timing,
+            total_points=total_points,
+            total_tris=total_tris,
+        )

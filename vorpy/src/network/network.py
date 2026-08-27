@@ -28,12 +28,13 @@ class Network:
     - Surface construction
     - Network analysis
     """
+
     def __init__(self, locs, rads, names=None, group=None, iface_grps=None, group_name=None, settings=None, balls=None,
                  verts=None, edges=None, surfs=None, box=None, sort_balls=False, build_net=False,
                  masses=None, system=None):
         """
         Initialize a Network object with the given parameters.
-        
+
         Args:
             locs: List of ball locations
             rads: List of ball radii
@@ -51,22 +52,22 @@ class Network:
             system: Optional System object
         """
         # Main network defining objects
-        self.group = group               # Group          : List of loc and rad indices for calculation
-        self.iface_grps = iface_grps     # Interface Grps : Tuple of lists of ball indices from groups in an interface
-        self.group_name = group_name     # Group Name     : Name of the group that the network comes from
-        self.settings = settings         # Settings       : surf_res, surf_col, surf_schm, max_vert, net_type
+        self.group = group  # Group          : List of loc and rad indices for calculation
+        self.iface_grps = iface_grps  # Interface Grps : Tuple of lists of ball indices from groups in an interface
+        self.group_name = group_name  # Group Name     : Name of the group that the network comes from
+        self.settings = settings  # Settings       : surf_res, surf_col, surf_schm, max_vert, net_type
         self.metrics = {'start': now()}  # Metrics        : Holds the time measurements for the build
-        self.progress_window = None      # Prog. Window   : Progress window for GUI updates
-        self.loaded_from_logs = False    # Logs Flag      : Determines how the net was created
+        self.progress_window = None  # Prog. Window   : Progress window for GUI updates
+        self.loaded_from_logs = False  # Logs Flag      : Determines how the net was created
 
         # Network element lists
-        self.balls = balls               # Balls          : Ball DF    - (loc, rad, verts, edges, surfs, vol)
-        self.verts = verts               # Vertices       : Vertex DF  - (loc, rad, balls, edges, surfs)
-        self.edges = edges               # Edges          : Edge DF    - (center, points, balls, verts, surfs, length)
-        self.surfs = surfs               # Surfaces       : Surface DF - (center, points, tris, balls, verts, edges, sa)
+        self.balls = balls  # Balls          : Ball DF    - (loc, rad, verts, edges, surfs, vol)
+        self.verts = verts  # Vertices       : Vertex DF  - (loc, rad, balls, edges, surfs)
+        self.edges = edges  # Edges          : Edge DF    - (center, points, balls, verts, surfs, length)
+        self.surfs = surfs  # Surfaces       : Surface DF - (center, points, tris, balls, verts, edges, sa)
 
         # Tool for splitting up the balls
-        self.box = box                    # Box           : Dictionary: Ball box, sub_boxes, and
+        self.box = box  # Box           : Dictionary: Ball box, sub_boxes, and
 
         # System element
         self.sys = system
@@ -115,7 +116,7 @@ class Network:
                          scheme_factor='log', make_net=False, verts=None):
         """
         Set default settings for the network.
-        
+
         Args:
             surf_res: Surface resolution
             box_size: Box size multiplier
@@ -134,18 +135,18 @@ class Network:
         self.settings = {'surf_res': surf_res, 'surf_col': surf_col, 'surf_scheme': surf_scheme, 'max_vert': max_vert,
                          'box_size': box_size, 'net_type': net_type, 'build_type': build_type, 'num_splits': num_splits,
                          'print_metrics': print_metrics, 'atom_rad': None, 'scheme_factor': scheme_factor,
-                         'foam_box': None, 'sys_dir': os.getcwd()}
+                         'foam_box': None, 'sys_dir': os.getcwd(), 'verbose': False}
 
     def calc_box(self, locs, rads, return_val=False, box_size=None):
         """
         Calculate the dimensions of a box x times the size of the balls.
-        
+
         Args:
             locs: List of ball locations
             rads: List of ball radii
             return_val: Whether to return the box value
             box_size: Optional box size multiplier
-            
+
         Returns:
             If return_val is True, returns the box vertices
         """
@@ -200,58 +201,175 @@ class Network:
         my_time = now() - self.metrics['start']
         h, m, s = get_time(my_time)
         if progress is not None:
-            print(f"\rRun Time = {int(h)}:{int(m):02d}:{s:05.2f} - Network: {self.group_name} - Process: {process} - {progress:.2f} %",
+            print(
+                f"\rRun Time = {int(h)}:{int(m):02d}:{s:05.2f} - Network: {self.group_name} - Process: {process} - {progress:.2f} %",
                 end="", flush=True)
         else:
             print(f"\rRun Time = {int(h)}:{int(m):02d}:{s:05.2f} - Network: {self.group_name} - Process: {process}",
-                end="", flush=True)
+                  end="", flush=True)
+
+    def _print_sort_balls_timing(self, timer, total):
+        """Print detailed ball-sorting timing when verbose output is enabled."""
+        if not self.settings.get('verbose', False):
+            return
+
+        print("\n" + "=" * 70)
+        print("SORT BALLS TIMING")
+        print("=" * 70)
+
+        labels = [
+            ('setup', 'Setup'),
+            ('calc_box', 'Bounding box'),
+            ('grid_setup', 'Grid initialization'),
+            ('assign', 'Ball -> box assignment'),
+            ('dataframe', 'DataFrame assignment'),
+            ('globals', 'Global spatial variables'),
+        ]
+
+        for key, label in labels:
+            elapsed = timer.get(key, 0.0)
+            pct = 100.0 * elapsed / total if total > 0 else 0.0
+            print(f"{label:<28} {elapsed:10.4f} s  {pct:6.2f} %")
+
+        measured = sum(timer.get(key, 0.0) for key, _ in labels)
+        other = max(total - measured, 0.0)
+        pct = 100.0 * other / total if total > 0 else 0.0
+        print(f"{'Other / loop overhead':<28} {other:10.4f} s  {pct:6.2f} %")
+        print("-" * 70)
+        print(f"{'TOTAL':<28} {total:10.4f} s  100.00 %")
+
+        print("\nSORT BALLS SIZE")
+        print(f"Balls:              {len(self.balls):,}")
+        print(f"Grid splits / axis: {self.settings.get('num_splits', 0):,}")
+        print(f"Occupied sub-boxes: {max(len(self.box.get('sub_boxes', {})) - 1, 0):,}")
+        print("=" * 70)
 
     def sort_balls(self, num_boxes=None):
         """
         Sort balls into their respective grid sections.
-        
+
+        Detailed timings are always collected in ``self.sort_timing``.
+        The timing report is printed only when ``settings['verbose']`` is True.
+
         Args:
             num_boxes: Optional number of sub-boxes to divide the network into
         """
-        # Print the sorting balls prompt
+        sort_start = now()
+        timer = {
+            'setup': 0.0,
+            'calc_box': 0.0,
+            'grid_setup': 0.0,
+            'assign': 0.0,
+            'dataframe': 0.0,
+            'globals': 0.0,
+        }
+
+        # --------------------------------------------------------------
+        # Setup
+        # --------------------------------------------------------------
+        t = now()
         self.update_progress("Sorting balls", 0.0)
-        # Check that the length of the spheres list is big enough to make a vertex
+
         if len(self.balls) < 4:
+            timer['setup'] += now() - t
+            total = now() - sort_start
+            self.sort_timing = timer.copy()
+            self.sort_timing['total'] = total
+            self.metrics['sort'] = total
+            self._print_sort_balls_timing(timer, total)
             return
-        # Set the number of boxes to roughly 5x the number of balls must be a cube for the of cells per row/column/aisle
-        elif num_boxes is None:
+
+        if num_boxes is None:
             n = int(0.5 * sqrt(len(self.balls))) + 1
         else:
             n = int(cbrt(num_boxes)) + 1
+
         self.settings['num_splits'] = n
         locs, rads = self.balls['loc'], self.balls['rad']
-        # First get the box for the balls to be sorted into
-        self.calc_box(locs, rads)
-        # Instantiate the grid structure of lists is locations representing a grid
-        self.box['sub_boxes'] = {(-1, -1, -1): [n]}
-        # Get the cell size
-        self.box['sub_size'] = [round((self.box['verts'][1][i] - self.box['verts'][0][i]) / n, 3) for i in range(3)]
-        my_boxes = []
-        # Sort the balls
-        for i, loc in enumerate(locs):
-            # Print the sorting balls prompt
-            percentage = min((i + 1) / len(locs) * 100, 100)
-            self.update_progress("Sorting balls", percentage)
-            # Find the box they belong to
-            box_ndxs = [int((loc[j] - self.box['verts'][0][j]) / self.box['sub_size'][j]) for j in range(3)]
+        timer['setup'] += now() - t
 
-            # Add the ball to the box
+        # --------------------------------------------------------------
+        # Bounding box
+        # --------------------------------------------------------------
+        t = now()
+        self.calc_box(locs, rads)
+        timer['calc_box'] += now() - t
+
+        # --------------------------------------------------------------
+        # Grid initialization
+        # --------------------------------------------------------------
+        t = now()
+        self.box['sub_boxes'] = {(-1, -1, -1): [n]}
+        self.box['sub_size'] = [
+            round(
+                (self.box['verts'][1][i] - self.box['verts'][0][i]) / n,
+                3
+            )
+            for i in range(3)
+        ]
+        my_boxes = []
+        timer['grid_setup'] += now() - t
+
+        # --------------------------------------------------------------
+        # Ball -> sub-box assignment
+        # --------------------------------------------------------------
+        t = now()
+        total_balls = len(locs)
+        last_update = now()
+
+        for i, loc in enumerate(locs):
+            box_ndxs = [
+                int(
+                    (loc[j] - self.box['verts'][0][j])
+                    / self.box['sub_size'][j]
+                )
+                for j in range(3)
+            ]
+
+            key = (box_ndxs[0], box_ndxs[1], box_ndxs[2])
             try:
-                self.box['sub_boxes'][box_ndxs[0], box_ndxs[1], box_ndxs[2]].append(i)
+                self.box['sub_boxes'][key].append(i)
             except KeyError:
-                self.box['sub_boxes'][box_ndxs[0], box_ndxs[1], box_ndxs[2]] = [i]
-            # Add the box to the ball
+                self.box['sub_boxes'][key] = [i]
+
             my_boxes.append(box_ndxs)
-        # set the box data
+
+            current_time = now()
+            if current_time - last_update >= 0.25 or i + 1 == total_balls:
+                percentage = min((i + 1) / total_balls * 100.0, 100.0)
+                self.update_progress("Sorting balls", percentage)
+                last_update = current_time
+
+        timer['assign'] += now() - t
+
+        # --------------------------------------------------------------
+        # DataFrame assignment
+        # --------------------------------------------------------------
+        t = now()
         self.balls['box'] = my_boxes
-        # Set the global variables
-        global_vars(self.box['sub_boxes'], self.box['verts'], self.settings['num_splits'], max(self.balls['rad']),
-                    self.box['sub_size'])
+        timer['dataframe'] += now() - t
+
+        # --------------------------------------------------------------
+        # Global spatial variables
+        # --------------------------------------------------------------
+        t = now()
+        global_vars(
+            self.box['sub_boxes'],
+            self.box['verts'],
+            self.settings['num_splits'],
+            max(self.balls['rad']),
+            self.box['sub_size']
+        )
+        timer['globals'] += now() - t
+
+        total = now() - sort_start
+
+        # Keep both a detailed timing dictionary and a scalar top-level metric.
+        self.sort_timing = timer.copy()
+        self.sort_timing['total'] = total
+        self.metrics['sort'] = total
+
+        self._print_sort_balls_timing(timer, total)
 
     def find_verts(self):
         """
@@ -263,7 +381,8 @@ class Network:
         """
         Connects the network using the functions in the build_net.py file
         """
-        my_lists = build(self.verts['balls'], self.verts['loc'], self.verts['dub'], len(self.balls), self.metrics['start'],
+        my_lists = build(self.verts['balls'], self.verts['loc'], self.verts['dub'], len(self.balls),
+                         self.metrics['start'],
                          group=self.group, interface=self.iface_grps is not None, iface_grps=self.iface_grps, net=self)
         ball_lists, vert_lists, edge_lists, surf_lists = my_lists
         self.balls['verts'], self.balls['edges'], self.balls['surfs'] = ball_lists['verts'], ball_lists['edges'], \
@@ -298,58 +417,130 @@ class Network:
                     vert_ndxs.append([int(_) for _ in line[1:5]])
         return vert_ndxs
 
+    def _print_build_edges_timing(self, timer, total, total_edges, total_points):
+        """Print aggregate edge-building timings only in verbose mode."""
+        if not self.settings.get('verbose', False):
+            return
+
+        print("\n" + "=" * 70)
+        print("BUILD EDGES TIMING")
+        print("=" * 70)
+
+        labels = [
+            ('data_lookup', 'Data lookup'),
+            ('edge_geometry', 'Edge geometry'),
+            ('length', 'Edge length'),
+            ('result_storage', 'Result storage'),
+            ('dataframe', 'DataFrame assignment'),
+        ]
+
+        for key, label in labels:
+            elapsed = timer.get(key, 0.0)
+            pct = 100.0 * elapsed / total if total > 0 else 0.0
+            print(f"{label:<28} {elapsed:10.4f} s  {pct:6.2f} %")
+
+        measured = sum(timer.get(key, 0.0) for key, _ in labels)
+        other = max(total - measured, 0.0)
+        pct = 100.0 * other / total if total > 0 else 0.0
+        print(f"{'Other / loop overhead':<28} {other:10.4f} s  {pct:6.2f} %")
+        print("-" * 70)
+        print(f"{'TOTAL':<28} {total:10.4f} s  100.00 %")
+
+        print("\nBUILD EDGES SIZE")
+        print(f"Edges:              {total_edges:,}")
+        print(f"Edge points:        {total_points:,}")
+        if total_edges:
+            print(f"Points / edge:      {total_points / total_edges:,.1f}")
+        print("=" * 70)
+
     def build_edges(self):
         """
-        Builds the edges in the network for use in the surfaces
+        Build geometric edge points.
+
+        Detailed timings are always retained in ``self.edge_timing``.
+        The validated build_edge1 geometry is called without modification.
         """
+        edge_start = time.perf_counter()
+        timer = {
+            'data_lookup': 0.0,
+            'edge_geometry': 0.0,
+            'length': 0.0,
+            'result_storage': 0.0,
+            'dataframe': 0.0,
+        }
 
-        # Set the edge points and vals lists
         edges_points, edges_vals, edges_lengths = [], [], []
-
         total_edges = len(self.edges)
+        total_points = 0
         last_update = 0.0
 
-        self.update_progress(f"Building edges | Initializing", 0.0)
+        self.update_progress("Building edges | Initializing", 0.0)
 
-        # Go through the edges in the network
         for i, edge in self.edges.iterrows():
             current_edge = i + 1
-
             current_time = time.perf_counter()
 
-
+            t = time.perf_counter()
             vlocs = [array(self.verts['loc'][_]) for _ in edge['verts']]
+            locs = [array(self.balls['loc'][_]) for _ in edge['balls']]
+            rads = [self.balls['rad'][_] for _ in edge['balls']]
+            edub = any(self.verts['dub'][_] in {1, 2} for _ in edge['verts'])
+            edge_verts = self.verts.iloc[edge['verts']]
+            timer['data_lookup'] += time.perf_counter() - t
 
-            # Build the edge depending on if it is straight or not
+            t = time.perf_counter()
             try:
                 edge_points, edge_vals = build_edge(
-                    locs=[array(self.balls['loc'][_]) for _ in edge['balls']],
-                    rads=[self.balls['rad'][_] for _ in edge['balls']],
+                    locs=locs,
+                    rads=rads,
                     vlocs=vlocs,
                     blocs=self.balls['loc'],
                     brads=self.balls['rad'],
                     eballs=edge['balls'],
                     res=self.settings['surf_res'],
                     straight=self.settings['net_type'] in {'prm', 'pow'},
-                    edub=any([self.verts['dub'][_] in {1, 2} for _ in edge['verts']]),
-                    edge_verts=self.verts.iloc[edge['verts']]
+                    edub=edub,
+                    edge_verts=edge_verts
                 )
             except ValueError:
                 print(vlocs, edge['balls'])
+                raise
+            timer['edge_geometry'] += time.perf_counter() - t
 
             if current_time - last_update >= 0.25 or current_edge == total_edges:
                 percentage = 100.0 * current_edge / max(total_edges, 1)
-
                 last_update = current_time
                 self.update_progress(
                     f"Building edges: {current_edge:,} / {total_edges:,}",
                     percentage
                 )
-            edges_lengths.append(calc_length(array(edge_points)))
+
+            t = time.perf_counter()
+            edge_length = calc_length(array(edge_points))
+            timer['length'] += time.perf_counter() - t
+
+            t = time.perf_counter()
+            edges_lengths.append(edge_length)
             edges_points.append(edge_points)
             edges_vals.append(edge_vals)
-        # Set the dataframe values
-        self.edges['points'], self.edges['vals'], self.edges['length'] = edges_points, edges_vals, edges_lengths
+            total_points += len(edge_points)
+            timer['result_storage'] += time.perf_counter() - t
+
+        t = time.perf_counter()
+        self.edges['points'] = edges_points
+        self.edges['vals'] = edges_vals
+        self.edges['length'] = edges_lengths
+        timer['dataframe'] += time.perf_counter() - t
+
+        total = time.perf_counter() - edge_start
+        self.edge_timing = timer.copy()
+        self.edge_timing['total'] = total
+        self.edge_timing['edges'] = total_edges
+        self.edge_timing['points'] = total_points
+
+        self._print_build_edges_timing(
+            timer, total, total_edges, total_points
+        )
 
     def build_surfaces(self, store_points=True):
         """
