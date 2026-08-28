@@ -263,7 +263,7 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, perimeter=None,
 
     # Triangulation
     stage_start = time.perf_counter()
-    my_2d_points, surf_tris = triangulate_2D_Surface(flat_points, res=res, center=flat_loc)
+    my_2d_points, surf_tris = triangulate_2D_Surface(flat_points, res=res, center=flat_loc, timing=timing)
     _record_timing(timing, 'triangulate', time.perf_counter() - stage_start)
 
     if not flat:

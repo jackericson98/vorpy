@@ -64,6 +64,13 @@ def _print_surface_timing(total_elapsed, total_surfs, valid_surfs, invalid_surfs
         ('Gaussian curvature', 'gauss_curvature'),
         ('Flat unprojection', 'unproject_flat'),
         ('Flat curvature init', 'flat_curvature_init'),
+        ('  Bounding box', 'tri_bbox'),
+        ('  Spiderweb generation', 'tri_spiderweb'),
+        ('  Shapely setup', 'tri_shapely_setup'),
+        ('  Point filtering', 'tri_point_filter'),
+        ('  Delaunay / Qhull', 'tri_delaunay'),
+        ('  Triangle sorting', 'tri_sort'),
+        ('  Mid-triangle reassignment', 'tri_reassign'),
     ]
 
     build_total = build_timing.get('total', 0.0)
@@ -80,10 +87,23 @@ def _print_surface_timing(total_elapsed, total_surfs, valid_surfs, invalid_surfs
         build_timing.get(key, 0.0)
         for _, key in internal_order
         if key not in {
-            'proj_coefficients', 'proj_root_solve', 'proj_root_select',
-            'com_contains_setup', 'com_contains_query',
-            'com_centroid', 'com_surface_projection',
-            'com_nearest_fallback'
+            'proj_coefficients',
+            'proj_root_solve',
+            'proj_root_select',
+
+            'com_contains_setup',
+            'com_contains_query',
+            'com_centroid',
+            'com_surface_projection',
+            'com_nearest_fallback',
+
+            'tri_bbox',
+            'tri_spiderweb',
+            'tri_shapely_setup',
+            'tri_point_filter',
+            'tri_delaunay',
+            'tri_sort',
+            'tri_reassign',
         }
     )
     internal_other = max(0.0, build_total - internal_accounted)
@@ -99,6 +119,22 @@ def _print_surface_timing(total_elapsed, total_surfs, valid_surfs, invalid_surfs
     print(f'Invalid surfaces:   {invalid_surfs:,}')
     print(f'Points:             {total_points:,}')
     print(f'Triangles:          {total_tris:,}')
+    print()
+    print('TRIANGULATION SIZE')
+    print(f"Calls:                {int(build_timing.get('tri_calls', 0)):,}")
+    print(f"Generated grid points:{int(build_timing.get('tri_grid_points', 0)):>12,}")
+    print(f"Accepted grid points: {int(build_timing.get('tri_accepted_points', 0)):>12,}")
+    print(f"Delaunay input points:{int(build_timing.get('tri_input_points', 0)):>12,}")
+    print(f"Raw triangles:        {int(build_timing.get('tri_raw_triangles', 0)):>12,}")
+    print(f"Inside triangles:     {int(build_timing.get('tri_inside_triangles', 0)):>12,}")
+    print(f"Outside triangles:    {int(build_timing.get('tri_outside_triangles', 0)):>12,}")
+    print(f"Mid triangles before: {int(build_timing.get('tri_mid_before', 0)):>12,}")
+    print(f"Mid triangles after:  {int(build_timing.get('tri_mid_after', 0)):>12,}")
+    print(f"Qhull fallbacks:      {int(build_timing.get('tri_qhull_fallbacks', 0)):>12,}")
+    print(f"All-interior triangles:       {int(build_timing.get('tri_all_interior', 0)):>12,}")
+    print(f"All-perimeter triangles:      {int(build_timing.get('tri_all_perimeter', 0)):>12,}")
+    print(f"Mixed triangles:              {int(build_timing.get('tri_mixed', 0)):>12,}")
+    print(f"Perimeter containment tests:  {int(build_timing.get('tri_perimeter_containment_tests', 0)):>12,}")
     if valid_surfs:
         print(f'Points / surface:   {total_points / valid_surfs:,.1f}')
         print(f'Tris / surface:     {total_tris / valid_surfs:,.1f}')

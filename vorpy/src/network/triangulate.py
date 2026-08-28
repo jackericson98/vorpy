@@ -1,4 +1,8 @@
 from shapely import Polygon, Point, LineString
+try:
+    from shapely import contains_xy
+except ImportError:
+    contains_xy = None
 from scipy.spatial import Delaunay
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,6 +11,7 @@ from vorpy.src.calculations import calc_tri
 from vorpy.src.calculations import calc_com
 from vorpy.src.calculations import project_to_plane
 from scipy.spatial._qhull import QhullError
+from time import perf_counter
 
 
 def plot_points_and_tris(pnts=None, trs=None, pcol=None, tcol=None, plot_points=True, Show=False):
@@ -55,75 +60,58 @@ def plot_points_and_tris(pnts=None, trs=None, pcol=None, tcol=None, plot_points=
 
 def generate_spiderweb(box, res, center=None, ring_scaler=None):
     """
-    Generates a spiderweb-like pattern of points for surface triangulation.
+    Generate concentric ring points used for surface triangulation.
 
-    This function creates a set of points arranged in concentric circles (rings) around a center point,
-    with the number of points per ring increasing with radius to maintain approximately uniform spacing.
-    The points are constrained to lie within a specified bounding box.
-
-    Parameters
-    ----------
-    box : list of list
-        Bounding box defined as [[min_x, min_y], [max_x, max_y]]
-    res : float
-        Approximate resolution (spacing) between points
-    center : list, optional
-        Center point [x, y] for the spiderweb pattern
-    ring_scaler : float, optional
-        Scaling factor for ring spacing
-
-    Returns
-    -------
-    numpy.ndarray
-        Array of 2D points arranged in a spiderweb pattern
-
-    Notes
-    -----
-    - Points are arranged in concentric circles around the center
-    - Number of points per ring increases with radius to maintain uniform spacing
-    - Points outside the bounding box are excluded
-    - The pattern starts with a single point at the center
-    - Ring spacing is determined by the resolution parameter
+    The original spiderweb geometry and point ordering are preserved while
+    coordinate generation and bounds filtering are vectorized within each ring.
     """
-    # Set up the ring scaler variable
     if ring_scaler is None:
         ring_scaler = 1
-    # Set up th minimum and maximum values
-    min_x, max_x, min_y, max_y = box[0][0] - 2 * res, box[1][0] + 2 * res, box[0][1] - 2 * res, box[1][1] + 2 * res
-    # Check if center is None
+
+    min_x, max_x, min_y, max_y = (
+        box[0][0] - 2 * res,
+        box[1][0] + 2 * res,
+        box[0][1] - 2 * res,
+        box[1][1] + 2 * res
+    )
+
     if center is None:
-        center = [min_x + 0.5 * (max_x - min_x), min_y + 0.5 * (max_y - min_y)]
-    # Get the center points variable
+        center = [
+            min_x + 0.5 * (max_x - min_x),
+            min_y + 0.5 * (max_y - min_y)
+        ]
+
     cx, cy = center
-    # Get the corners
     corners = [box[0], [min_x, max_y], [max_x, min_y], box[1]]
-    # Find the maximum possible radius based on the distance from the center to the corners
-    max_radius = max([calc_dist(center, _) for _ in corners])
-    # Get the number of rings based on the
+    max_radius = max(calc_dist(center, corner) for corner in corners)
     num_rings = int(max_radius / res) + 1
-    # Create concentric circles of points
-    points = [center]  # Start with the center point
+
+    point_chunks = [np.asarray(center, dtype=float).reshape(1, 2)]
+
     for i in range(1, num_rings + 1):
-        # Create the new radius for the next ring
         radius = max_radius * (i / num_rings)
-        # Increase the number of ring points as we go out
         num_points_per_ring = int(2 * np.pi * radius / res) + 1
-        # Loop through the ring points adding if needed
-        for j in range(num_points_per_ring):
-            # Find the angle to place the next point
-            angle = 2 * np.pi * j / num_points_per_ring
-            # Get the x and y values
-            x, y = cx + radius * np.cos(angle), cy + radius * np.sin(angle)
-            # Check the location of the point and if it is outside the given box
-            if min_x > x or x > max_x or min_y > y or y > max_y:
-                continue
-            points.append((x, y))
 
-    # Convert list to numpy array for Delaunay triangulation
-    points = np.array(points)
+        j = np.arange(num_points_per_ring, dtype=np.float64)
+        angles = 2 * np.pi * j / num_points_per_ring
 
-    return points
+        x = cx + radius * np.cos(angles)
+        y = cy + radius * np.sin(angles)
 
+        mask = (
+            (x >= min_x) &
+            (x <= max_x) &
+            (y >= min_y) &
+            (y <= max_y)
+        )
+
+        if np.any(mask):
+            point_chunks.append(np.column_stack((x[mask], y[mask])))
+
+    if len(point_chunks) == 1:
+        return point_chunks[0]
+
+    return np.concatenate(point_chunks, axis=0)
 
 def is_within(perimeter, point, surf_loc, surf_norm):
     """
@@ -173,92 +161,103 @@ def is_within(perimeter, point, surf_loc, surf_norm):
     return perimeter.contains(point)
 
 
-def sort_tris(perimeter, tris, polygon, points):
+def sort_tris(perimeter, tris, polygon, numeric_points, timing=None):
     """
-    Sorts triangles into groups based on their position relative to a perimeter.
+    Production triangle sorting.
 
-    This function categorizes triangles into three groups:
-    1. Inside triangles (completely within the perimeter)
-    2. Outside triangles (completely outside the perimeter)
-    3. Middle triangles (spanning the perimeter boundary)
+    Keeps the validated optimizations:
+      - indexed perimeter/interior classification
+      - numeric-coordinate centroid calculation
+      - vectorized all-perimeter containment via contains_xy
+      - exact reconstruction in original Delaunay triangle order
 
-    Parameters
-    ----------
-    perimeter : list of numpy.ndarray
-        List of points defining the perimeter boundary
-    tris : list of list of int
-        List of triangles, where each triangle is a list of three point indices
-    polygon : shapely.geometry.Polygon
-        Shapely polygon object representing the perimeter
-    points : list of shapely.geometry.Point
-        List of Shapely point objects representing all points in the triangulation
-
-    Returns
-    -------
-    tuple
-        A tuple containing:
-        - in_ : list of list of int
-            List of triangles completely inside the perimeter
-        - out : list of list of int
-            List of triangles completely outside the perimeter
-        - mid : list of list of int
-            List of triangles spanning the perimeter boundary
-        - point_desigs : dict
-            Dictionary mapping point indices to their designation ('e' for edge, 'i' for inside)
-
-    Notes
-    -----
-    - Triangles are categorized based on their vertices' positions relative to the perimeter
-    - Edge triangles (all vertices on perimeter) are checked using their center of mass
-    - Middle triangles (spanning boundary) are included in the inside group
-    - Point designations are used to track which points are on the perimeter vs inside
+    Detailed per-triangle profiling has been removed.
     """
-    """
-    Sorts the triangles into different groups of inside and outside
-    """
-    # Set up the different triangles lists
+    n_perimeter = len(perimeter)
+
+    point_desigs = {
+        i: ('e' if i < n_perimeter else 'i')
+        for i in range(len(numeric_points))
+    }
+
     in_, out, mid = [], [], []
-    # Point Designation dictionary
-    point_desigs = {}
-    # Loop through the points
-    for i, point in enumerate(points):
-        # Check if the point is on the perimeter
-        if i < len(perimeter):
-            # Assign as an edge point
-            point_desigs[i] = 'e'
-        # Check if the point is inside
+
+    tri_modes = np.zeros(len(tris), dtype=np.uint8)
+    perimeter_centroids = []
+
+    all_interior = 0
+    all_perimeter = 0
+    mixed = 0
+
+    for tri_idx, tri in enumerate(tris):
+        i0, i1, i2 = tri
+
+        e0 = i0 < n_perimeter
+        e1 = i1 < n_perimeter
+        e2 = i2 < n_perimeter
+
+        if not e0 and not e1 and not e2:
+            all_interior += 1
+
+        elif e0 and e1 and e2:
+            all_perimeter += 1
+            tri_modes[tri_idx] = 1
+
+            p0 = numeric_points[i0]
+            p1 = numeric_points[i1]
+            p2 = numeric_points[i2]
+
+            cx = (p0[0] + p1[0] + p2[0]) / 3.0
+            cy = (p0[1] + p1[1] + p2[1]) / 3.0
+
+            perimeter_centroids.append((cx, cy))
+
         else:
-            # Assign as inside
-            point_desigs[i] = 'i'
+            mixed += 1
 
-    # Loop through the triangles
-    for tri in tris:
-        # Create the list of designations
-        tri_point_desigs = [point_desigs[_] for _ in tri]
+    perimeter_inside = None
 
-        # First check that all 3 points are within the perimeter
-        if tri_point_desigs == ['i', 'i', 'i']:
-            # Add to the in list
+    if perimeter_centroids:
+        if contains_xy is not None:
+            centroid_arr = np.asarray(perimeter_centroids, dtype=float)
+            perimeter_inside = np.asarray(
+                contains_xy(
+                    polygon,
+                    centroid_arr[:, 0],
+                    centroid_arr[:, 1]
+                ),
+                dtype=bool
+            )
+        else:
+            perimeter_inside = np.asarray(
+                [
+                    polygon.contains(Point(com))
+                    for com in perimeter_centroids
+                ],
+                dtype=bool
+            )
+
+    perimeter_result_pos = 0
+
+    for tri_idx, tri in enumerate(tris):
+        if tri_modes[tri_idx] == 0:
             in_.append(tri)
-        # If all three points are edges this will need to be checked
-        elif tri_point_desigs == ['e', 'e', 'e']:
-            # Check the center of mass
-            com = calc_com([[points[_].x, points[_].y] for _ in tri])
-            # Check if the polygon contains this center of mass
-            if polygon.contains(Point(com)):
-                # Add to the ins
+        else:
+            if perimeter_inside[perimeter_result_pos]:
                 in_.append(tri)
-            # Otherwise add to the out list
             else:
-                # Add to the outs
                 out.append(tri)
-        # Contain at least 1 point inside the perimeter means middle
-        else:
-            # Add to the mids
-            in_.append(tri)
-    # Return the lists
-    return in_, out, mid, point_desigs
+            perimeter_result_pos += 1
 
+    if timing is not None:
+        timing['tri_all_interior'] = timing.get('tri_all_interior', 0) + all_interior
+        timing['tri_all_perimeter'] = timing.get('tri_all_perimeter', 0) + all_perimeter
+        timing['tri_mixed'] = timing.get('tri_mixed', 0) + mixed
+        timing['tri_perimeter_containment_tests'] = (
+            timing.get('tri_perimeter_containment_tests', 0) + all_perimeter
+        )
+
+    return in_, out, mid, point_desigs
 
 def reassign_tri_points(perimeter, mid_tris, polygon, points):
     """
@@ -388,15 +387,15 @@ def filter_points_and_tris(points, triangles):
     return new_points, new_triangles
 
 
-def triangulate_2D_Surface(perimeter, res=0.2, center=None):
+def triangulate_2D_Surface(perimeter, res=0.2, center=None, timing=None):
     """
     Triangulates a 2D surface defined by a perimeter of points.
 
     This function creates a triangulated mesh of a 2D surface by:
     1. Determining the bounding box of the perimeter points
     2. Generating a uniform grid of points within the bounding box
-    3. Creating geometric objects (Polygon, LineString, Point) for spatial analysis
-    4. Filtering grid points to only those inside the perimeter
+    3. Creating Polygon and LineString objects for spatial analysis
+    4. Filtering grid points using vectorized containment predicates
     5. Performing Delaunay triangulation on the filtered points
     6. Sorting and validating triangles to ensure proper surface coverage
 
@@ -426,53 +425,123 @@ def triangulate_2D_Surface(perimeter, res=0.2, center=None):
     - Validates surface area against the original polygon area
     """
 
-    # Step 1: Get the maximum and minimum values for the perimeter with an additional cushion
+    tri_start = perf_counter()
+
+    def _add(key, elapsed):
+        if timing is not None:
+            timing[key] = timing.get(key, 0.0) + elapsed
+
+    # Step 1: Bounding box. Calculation is unchanged.
+    t = perf_counter()
     px, py = [_[0] for _ in perimeter], [_[1] for _ in perimeter]
     box = [[min(px), min(py)], [max(px), max(py)]]
+    _add('tri_bbox', perf_counter() - t)
 
-    # Step 2: Create the grid for mapping to the surface with the given triangles
+    # Step 2: Historical spiderweb generation.
+    t = perf_counter()
     grid_points = generate_spiderweb(box, res, center)
+    _add('tri_spiderweb', perf_counter() - t)
 
-    # Step 3: Set up the shapely objects and test for insideness
-    poly, linestring, all_ppoints = Polygon(perimeter), LineString(perimeter), [Point(_) for _ in perimeter]
-    # Check for points close to the edge
+    # Step 3: Historical Shapely setup.
+    t = perf_counter()
+    poly = Polygon(perimeter)
+    linestring = LineString(perimeter)
     buffer = linestring.buffer(res / 2)
-    # Create a list of all points
     all_points = perimeter.copy()
-    # Loop through the grid points
-    for point in grid_points:
-        # Create the shapely point object
-        test_point = Point(point)
-        # Check for insideness of the point and add the objects if it is
-        if poly.contains(test_point):
-            # Remove any of the points that are too close to the perimeter to prevent bad triangles
-            if not buffer.contains(test_point):
-                all_points.append(point)
-                all_ppoints.append(test_point)
+    _add('tri_shapely_setup', perf_counter() - t)
 
-    # Step 5: Create the triangulation of the points
+    # Step 4: Filter the exact same spiderweb points, preserving their order.
+    #
+    # Shapely 2.x exposes contains_xy(), which evaluates the same GEOS
+    # containment predicate without constructing a Python Point object for
+    # every rejected candidate. This is intentionally limited to the
+    # filtering implementation; candidate coordinates, predicates,
+    # accepted-point ordering, and downstream triangulation are unchanged.
+    t = perf_counter()
+    accepted = 0
+
+    if contains_xy is not None and len(grid_points) > 0:
+        grid_arr = np.asarray(grid_points)
+
+        inside_mask = np.asarray(
+            contains_xy(poly, grid_arr[:, 0], grid_arr[:, 1]),
+            dtype=bool
+        )
+        inside_points = grid_arr[inside_mask]
+
+        if len(inside_points) > 0:
+            buffer_mask = np.asarray(
+                contains_xy(buffer, inside_points[:, 0], inside_points[:, 1]),
+                dtype=bool
+            )
+            accepted_points = inside_points[~buffer_mask]
+        else:
+            accepted_points = inside_points
+
+        accepted = len(accepted_points)
+
+        # Preserve historical accepted-point ordering exactly without
+        # constructing Shapely Point objects. Delaunay and downstream
+        # classification use numeric coordinates only.
+        all_points.extend(accepted_points)
+
+    else:
+        # Compatibility fallback: original scalar implementation.
+        for point in grid_points:
+            test_point = Point(point)
+            if poly.contains(test_point):
+                if not buffer.contains(test_point):
+                    all_points.append(point)
+                    accepted += 1
+
+    _add('tri_point_filter', perf_counter() - t)
+
+    # Step 5: Historical Delaunay + QJ fallback.
+    t = perf_counter()
+    qhull_fallback = 0
     try:
         triangles = Delaunay(all_points).simplices
-    except QhullError as e:
+    except QhullError:
+        qhull_fallback = 1
         try:
             triangles = Delaunay(all_points, qhull_options='QJ').simplices
-        except QhullError as e2:
+        except QhullError:
+            _add('tri_delaunay', perf_counter() - t)
+            if timing is not None:
+                timing['tri_calls'] = timing.get('tri_calls', 0) + 1
+                timing['tri_qhull_fallbacks'] = timing.get('tri_qhull_fallbacks', 0) + qhull_fallback
+                timing['tri_grid_points'] = timing.get('tri_grid_points', 0) + len(grid_points)
+                timing['tri_accepted_points'] = timing.get('tri_accepted_points', 0) + accepted
+                timing['tri_input_points'] = timing.get('tri_input_points', 0) + len(all_points)
+                timing['tri_total'] = timing.get('tri_total', 0.0) + (perf_counter() - tri_start)
             return all_points, []
+    _add('tri_delaunay', perf_counter() - t)
 
-    # Step 6: Sort the triangles and reassign the points
-    in_tris, out_tris, mid_tris, mid_tri_designations = sort_tris(perimeter, triangles, poly, all_ppoints)
+    # Step 6: Historical triangle classification.
+    t = perf_counter()
+    in_tris, out_tris, mid_tris, mid_tri_designations = sort_tris(
+        perimeter, triangles, poly, all_points, timing=timing
+    )
+    _add('tri_sort', perf_counter() - t)
 
-    # Step 7: Check if the mid tris exist and hard fix them
+    # Step 7: Historical mid-triangle reassignment.
+    t = perf_counter()
+    mid_before = len(mid_tris)
     if len(mid_tris) > 0:
         mid_tris = reassign_tri_points(perimeter, mid_tris, poly, all_points)
+    _add('tri_reassign', perf_counter() - t)
 
-    # Step 8: Verify the surface
-    # my_sa = calc_2d_surf_sa(in_tris + mid_tris, all_points)
-    # poly_sa = poly.area
-    # if round(my_sa, 5) != round(poly_sa, 5):
-    #     print(my_sa, poly_sa)
-    # plot_polygon(poly, add_points=False)
-    # plot_points_and_tris(all_points, in_tris + mid_tris, tcol='grey', plot_points=False, Show=True)
+    if timing is not None:
+        timing['tri_calls'] = timing.get('tri_calls', 0) + 1
+        timing['tri_qhull_fallbacks'] = timing.get('tri_qhull_fallbacks', 0) + qhull_fallback
+        timing['tri_grid_points'] = timing.get('tri_grid_points', 0) + len(grid_points)
+        timing['tri_accepted_points'] = timing.get('tri_accepted_points', 0) + accepted
+        timing['tri_input_points'] = timing.get('tri_input_points', 0) + len(all_points)
+        timing['tri_raw_triangles'] = timing.get('tri_raw_triangles', 0) + len(triangles)
+        timing['tri_inside_triangles'] = timing.get('tri_inside_triangles', 0) + len(in_tris)
+        timing['tri_outside_triangles'] = timing.get('tri_outside_triangles', 0) + len(out_tris)
+        timing['tri_mid_before'] = timing.get('tri_mid_before', 0) + mid_before
+        timing['tri_mid_after'] = timing.get('tri_mid_after', 0) + len(mid_tris)
+        timing['tri_total'] = timing.get('tri_total', 0.0) + (perf_counter() - tri_start)
 
-    # Step 7: Return the values
     return all_points, in_tris + mid_tris
