@@ -247,6 +247,7 @@ def export_med(sys):
     for group in groups:
         _set_group_directory(sys, group)
 
+        _run_export(progress, f"{group.name}: info", group.exports, info=True)
         _run_export(progress, f"{group.name}: shell surfaces", group.exports, shell_surfs=True)
         _run_export(progress, f"{group.name}: surfaces", group.exports, surfs=True)
         _run_export(progress, f"{group.name}: shell edges", group.exports, shell_edges=True)
