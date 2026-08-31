@@ -239,7 +239,7 @@ def calc_angle(p0, p1, p2=None):
     norm_v1 = np.linalg.norm(v1)
 
     if norm_v0 == 0.0 or norm_v1 == 0.0:
-        return 0.0  # Return 0 for degenerate cases
+        return np.nan  # Return NaN for degenerate cases
 
     n0, n1 = v0 / norm_v0, v1 / norm_v1
     # Calculate the angle between the two vectors with catches for 180 and 0
