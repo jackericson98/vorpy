@@ -1,0 +1,33 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache / compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Numba cache
+*.nbc
+*.nbi
+
+# PyCharm
+.idea/
+
+# Generated VorPy output
+output/
+
+# Testing/cache
+.pytest_cache/
+.mypy_cache/
+.coverage
+
+# Build/distribution
+build/
+dist/
+*.egg-info/
+
+# OS junk
+.DS_Store
+Thumbs.db
