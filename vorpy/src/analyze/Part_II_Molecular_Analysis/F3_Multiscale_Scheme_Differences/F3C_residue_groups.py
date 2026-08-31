@@ -34,6 +34,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.lines import Line2D
 
 
 # ---------------------------------------------------------------------------
@@ -70,16 +71,21 @@ SHOW = True
 SAVE_PNG = True
 SAVE_SVG = True
 
-# Raw residue points
-POINT_SIZE = 12
-POINT_ALPHA = 0.14
-JITTER_WIDTH = 0.13
-RANDOM_SEED = 17
+# Violin plot settings
+VIOLIN_WIDTH = 0.78
+VIOLIN_ALPHA = 0.42
 
-# Mean ± SEM
+# Mean ± SEM overlay
 MEAN_SIZE = 52
 MEAN_EDGE_WIDTH = 0.9
 ERROR_CAPSIZE = 3
+
+# Counts are printed just inside the top of every panel.
+SHOW_COUNTS = False
+COUNT_FONT_SIZE = 8
+
+# Mark DNA and RNA blocks above the nucleic-acid x-axis.
+SHOW_NUCLEIC_TYPE_LABELS = True
 
 # If a residue type has fewer observations than this, it is omitted.
 MIN_RESIDUE_COUNT = 3
@@ -364,6 +370,158 @@ def summarize_residue_types(
     return pd.DataFrame(rows)
 
 
+def nucleic_polymer_type(residue: str) -> str:
+    residue = str(residue).upper()
+
+    if residue in DNA_RESIDUES:
+        return "DNA"
+
+    if residue in RNA_RESIDUES:
+        return "RNA"
+
+    return "Other"
+
+
+def add_nucleic_type_brackets(ax, order: List[str]):
+    """Add DNA and RNA span labels above the nucleic-acid x-axis."""
+    if not SHOW_NUCLEIC_TYPE_LABELS or not order:
+        return
+
+    groups = []
+    current_type = None
+    start = None
+
+    for i, residue in enumerate(order):
+        polymer_type = nucleic_polymer_type(residue)
+
+        if polymer_type != current_type:
+            if current_type is not None:
+                groups.append((current_type, start, i - 1))
+
+            current_type = polymer_type
+            start = i
+
+    if current_type is not None:
+        groups.append((current_type, start, len(order) - 1))
+
+    for label, start_i, end_i in groups:
+        if label == "Other":
+            continue
+
+        x0 = start_i - 0.35
+        x1 = end_i + 0.35
+
+        # Draw just above the axes without changing the y-data scale.
+        y = 1.035
+
+        ax.plot(
+            [x0, x1],
+            [y, y],
+            transform=ax.get_xaxis_transform(),
+            color="black",
+            linewidth=1.1,
+            clip_on=False,
+        )
+
+        ax.plot(
+            [x0, x0],
+            [y - 0.018, y],
+            transform=ax.get_xaxis_transform(),
+            color="black",
+            linewidth=1.1,
+            clip_on=False,
+        )
+
+        ax.plot(
+            [x1, x1],
+            [y - 0.018, y],
+            transform=ax.get_xaxis_transform(),
+            color="black",
+            linewidth=1.1,
+            clip_on=False,
+        )
+
+        ax.text(
+            0.5 * (x0 + x1),
+            y + 0.012,
+            label,
+            transform=ax.get_xaxis_transform(),
+            ha="center",
+            va="bottom",
+            fontsize=9.5,
+            fontweight="bold",
+            clip_on=False,
+        )
+
+
+def add_figure_legends(fig):
+    """Add protein-chemistry and nucleic-base-class legends."""
+    protein_labels = [
+        ("Hydrophobic", "hydrophobic"),
+        ("Polar", "polar"),
+        ("Acidic", "acidic"),
+        ("Basic", "basic"),
+        ("Glycine", "special"),
+    ]
+
+    protein_handles = [
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            linestyle="none",
+            markerfacecolor=CATEGORY_COLORS[key],
+            markeredgecolor="none",
+            markersize=8,
+            label=label,
+        )
+        for label, key in protein_labels
+    ]
+
+    nucleic_labels = [
+        ("Purine", "purine"),
+        ("Pyrimidine", "pyrimidine"),
+    ]
+
+    nucleic_handles = [
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            linestyle="none",
+            markerfacecolor=CATEGORY_COLORS[key],
+            markeredgecolor="none",
+            markersize=8,
+            label=label,
+        )
+        for label, key in nucleic_labels
+    ]
+
+    protein_legend = fig.legend(
+        handles=protein_handles,
+        title="Protein residue class",
+        loc="lower left",
+        bbox_to_anchor=(0.12, 0.01),
+        ncol=len(protein_handles),
+        frameon=False,
+        fontsize=9,
+        title_fontsize=9.5,
+    )
+
+    fig.add_artist(protein_legend)
+
+    fig.legend(
+        handles=nucleic_handles,
+        title="Nucleic base class",
+        loc="lower right",
+        bbox_to_anchor=(0.88, 0.01),
+        ncol=len(nucleic_handles),
+        frameon=False,
+        fontsize=9,
+        title_fontsize=9.5,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Plotting
 # ---------------------------------------------------------------------------
@@ -389,35 +547,33 @@ def residue_order_for_class(
     return ordered + extras
 
 
-def get_shared_y_limits(
+def get_panel_y_limits(
     residue_df: pd.DataFrame,
+    broad_class_name: str,
     metric: str,
 ) -> Tuple[float, float]:
+    """Use the full observed range for each molecular-class/metric panel."""
     diff_col = METRIC_DIFF_COLUMNS[metric]
-
     vals = pd.to_numeric(
-        residue_df[diff_col],
+        residue_df.loc[
+            residue_df["BroadClass"] == broad_class_name,
+            diff_col,
+        ],
         errors="coerce",
     ).dropna().to_numpy(float)
-
     vals = vals[np.isfinite(vals)]
 
     if len(vals) == 0:
         return -1.0, 1.0
 
-    tail = (100.0 - Y_PERCENTILE) / 2.0
-    lo = float(np.percentile(vals, tail))
-    hi = float(np.percentile(vals, 100.0 - tail))
+    lo = float(np.min(vals))
+    hi = float(np.max(vals))
+    span = hi - lo
+    if span <= 0.0:
+        span = max(abs(lo), 1.0)
 
-    max_abs = max(
-        abs(lo),
-        abs(hi),
-        float(MIN_ABS_Y_RANGE.get(metric, 1.0)),
-    )
-
-    pad = max_abs * 0.08
-    return -(max_abs + pad), max_abs + pad
-
+    pad = max(0.08 * span, 0.35)
+    return lo - pad, hi + pad
 
 def plot_residue_metric(
     ax,
@@ -426,7 +582,6 @@ def plot_residue_metric(
     broad_class_name: str,
     metric: str,
     y_limits: Tuple[float, float],
-    rng: np.random.Generator,
 ):
     diff_col = METRIC_DIFF_COLUMNS[metric]
 
@@ -456,47 +611,50 @@ def plot_residue_metric(
     }
 
     # ------------------------------------------------------------------
-    # Individual residue observations.
+    # Residue distributions as violins.
     # ------------------------------------------------------------------
     for residue in order:
-        group_df = class_df[
-            class_df["Residue"] == residue
-        ]
+        group_df = class_df[class_df["Residue"] == residue]
 
         vals = pd.to_numeric(
             group_df[diff_col],
             errors="coerce",
         ).dropna().to_numpy(float)
 
-        if len(vals) == 0:
+        if len(vals) < MIN_RESIDUE_COUNT:
             continue
 
-        category = residue_category(
-            residue,
-            broad_class_name,
-        )
-        color = CATEGORY_COLORS.get(
-            category,
-            CATEGORY_COLORS["other"],
-        )
-
+        category = residue_category(residue, broad_class_name)
+        color = CATEGORY_COLORS.get(category, CATEGORY_COLORS["other"])
         x0 = positions[residue]
-        xs = x0 + rng.uniform(
-            -JITTER_WIDTH,
-            JITTER_WIDTH,
-            len(vals),
-        )
 
-        ax.scatter(
-            xs,
-            vals,
-            s=POINT_SIZE,
-            alpha=POINT_ALPHA,
-            color=color,
-            linewidths=0,
-            rasterized=True,
-            zorder=1,
-        )
+        if len(vals) >= 2 and np.ptp(vals) > 1e-12:
+            parts = ax.violinplot(
+                [vals],
+                positions=[x0],
+                widths=VIOLIN_WIDTH,
+                showmeans=False,
+                showmedians=False,
+                showextrema=False,
+                points=100,
+                bw_method="scott",
+            )
+            for body in parts["bodies"]:
+                body.set_facecolor(color)
+                body.set_edgecolor(color)
+                body.set_alpha(VIOLIN_ALPHA)
+                body.set_linewidth(0.9)
+                body.set_zorder(1)
+        else:
+            ax.hlines(
+                float(np.mean(vals)),
+                x0 - VIOLIN_WIDTH / 3.0,
+                x0 + VIOLIN_WIDTH / 3.0,
+                color=color,
+                linewidth=2.0,
+                alpha=VIOLIN_ALPHA,
+                zorder=1,
+            )
 
     # ------------------------------------------------------------------
     # Mean ± SEM.
@@ -537,6 +695,34 @@ def plot_residue_metric(
             zorder=5,
         )
 
+    # ------------------------------------------------------------------
+    # Sample counts.
+    # ------------------------------------------------------------------
+    if SHOW_COUNTS:
+        for residue in order:
+            count = int(
+                np.sum(
+                    class_df["Residue"].astype(str) == residue
+                )
+            )
+
+            if count < MIN_RESIDUE_COUNT:
+                continue
+
+            ax.text(
+                positions[residue],
+                0.975,
+                f"n={count}",
+                transform=ax.get_xaxis_transform(),
+                ha="center",
+                va="top",
+                fontsize=COUNT_FONT_SIZE,
+                rotation=90 if broad_class_name == "Protein" else 0,
+                color="0.25",
+                clip_on=False,
+                zorder=10,
+            )
+
     ax.axhline(
         0.0,
         linestyle="--",
@@ -556,6 +742,9 @@ def plot_residue_metric(
         ha="right" if broad_class_name == "Protein" else "center",
         fontsize=8.5 if broad_class_name == "Protein" else 10,
     )
+
+    if broad_class_name == "Nucleic acid":
+        add_nucleic_type_brackets(ax, order)
 
     ax.set_ylabel(
         "Power vs AW signed difference (%)",
@@ -660,31 +849,31 @@ def make_figure(
         "Nucleic acid",
     ]
 
-    shared_y = {
-        metric: get_shared_y_limits(
+    panel_y = {
+        (broad_name, metric): get_panel_y_limits(
             residue_df,
-            metric,
+            broad_class_name=broad_name,
+            metric=metric,
         )
+        for broad_name in rows
         for metric in metrics
     }
 
     print()
-    print("F3C SHARED Y LIMITS")
-    for metric, limits in shared_y.items():
-        print(
-            f"  {metric}: "
-            f"{limits[0]:.3f} -> {limits[1]:.3f}"
-        )
+    print("F3C PANEL Y LIMITS")
+    for broad_name in rows:
+        for metric in metrics:
+            limits = panel_y[(broad_name, metric)]
+            print(
+                f"  {broad_name} | {metric}: "
+                f"{limits[0]:.3f} -> {limits[1]:.3f}"
+            )
 
     fig, axes = plt.subplots(
         2,
         3,
         figsize=FIGSIZE,
         constrained_layout=False,
-    )
-
-    rng = np.random.default_rng(
-        RANDOM_SEED
     )
 
     for row_i, broad_name in enumerate(rows):
@@ -695,8 +884,7 @@ def make_figure(
                 summary_df=summary_df,
                 broad_class_name=broad_name,
                 metric=metric,
-                y_limits=shared_y[metric],
-                rng=rng,
+                y_limits=panel_y[(broad_name, metric)],
             )
 
         axes[row_i, 0].text(
@@ -718,17 +906,19 @@ def make_figure(
         y=0.985,
     )
 
+    add_figure_legends(fig)
+
     fig.subplots_adjust(
         left=0.075,
         right=0.99,
-        top=0.92,
-        bottom=0.10,
+        top=0.90,
+        bottom=0.16,
         wspace=0.25,
         hspace=0.35,
     )
 
     if SAVE_PNG:
-        path = figure_dir / "F3C_residue_type_deviations.png"
+        path = figure_dir / "F3C_residue_type_violins_legend_counts.png"
         fig.savefig(
             path,
             dpi=DPI,
@@ -737,7 +927,7 @@ def make_figure(
         print(f"Saved: {path}")
 
     if SAVE_SVG:
-        path = figure_dir / "F3C_residue_type_deviations.svg"
+        path = figure_dir / "F3C_residue_type_violins_legend_counts.svg"
         fig.savefig(
             path,
             bbox_inches="tight",
