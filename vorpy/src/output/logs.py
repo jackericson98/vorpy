@@ -188,8 +188,8 @@ def write_logs(group, net_name=None, round_to=None):
                 r(atom.max_spike),
                 atom.number_of_olaps,
                 r(atom.contact_area),
-                r(atom.olap_vol),
                 r(atom.vdw_vol),
+                r(atom.olap_vol),
                 [float(r(_)) for _ in atom.com],
                 [[float(r(__)) for __ in _] for _ in atom.moi],
                 [

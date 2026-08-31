@@ -166,8 +166,8 @@ def get_group_spheres(atoms, identifier):
             res_name, res_seq, atom_name = residue_names[identifier[0].lower()], int(identifier[1]), identifier[2]
             return atoms.loc[(atoms['res_name'] == res_name) &
                               (atoms['res_seq'] == res_seq) &
-                              (atoms['name'] == atom_name.upper()), 'num'].to_lost()
-        except Exception as e:
+                              (atoms['name'] == atom_name.upper()), 'num'].to_list()
+        except (KeyError, ValueError, IndexError):
             pass
     # Check if the identifier is in the atom names
     if identifier[0].upper() in atoms['name'].values:

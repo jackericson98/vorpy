@@ -105,7 +105,7 @@ round_tos = ["rt", "round", "round_to", "decimals", "decimal_places"]
 # Settings vals
 power_vals = ['pow', 'power', 'p', 'pwr', 'pwizzle']
 voronoi_vals = ['vor', 'voronoi', 'vnoi', 'voron', 'vn', 'aw', 'additively_weighted', 'add_weight', 'awizzle']
-delaunay_vals = ['del', 'dl', 'delaunay', 'dlny', 'dny', 'prm', 'primitive' 'prim', 'ptiv', 'ptizzle']
+delaunay_vals = ['del', 'dl', 'delaunay', 'dlny', 'dny', 'prm', 'primitive', 'prim', 'ptiv', 'ptizzle']
 compare_vals = ['c', 'com', 'compare', 'cpr', 'compar', 'cum']
 
 surf_scheme_curv_vals = ['curv', 'c', 'curvature']

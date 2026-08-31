@@ -146,22 +146,29 @@ class SelectionFrame(ttk.LabelFrame):
         """Goes through the selections added, checks the self.selections dictionary and only adds the selected indexes
         if they are not already in the dictionary. Once added, the text showing the current selections will be updated
         to show any index ranges, minimizing the amount of text listed"""
-        if start == '' or start is None or not start.isdigit():
+        # Validate the requested index/range before changing selection state.
+        if start is None or start == '':
             return
-        # Check if the start and end indices are strings
         if isinstance(start, str):
+            if not start.isdigit():
+                return
             start = int(start)
-            if start < 0:
+        if start < 0:
+            return
+
+        if end is not None and end != '':
+            if isinstance(end, str):
+                if not end.isdigit():
+                    return
+                end = int(end)
+            if end < 0 or end < start:
                 return
-        if end is not None and end != '' and isinstance(end, str):
-            end = int(end)
-            if end < 0:
-                return
-        # Get a list of new indexes to add to whatever the selection is
+
+        # Get a list of new indexes to add to whatever the selection is.
         if end is None or end == '':
             new_ndxs = [start]
         else:
-            new_ndxs = list(range(start, end+1))
+            new_ndxs = list(range(start, end + 1))
         # Add the given selection to the self.selections dictionary and make sure duplicates are filtered out
         if selection_type == 'Atoms/Balls':
             if self.selections['balls'] is None:
@@ -194,8 +201,9 @@ class SelectionFrame(ttk.LabelFrame):
         
         # Update the tracking text
         self.update_tracking_text()
-        # Add the current state to the undo stack
-        if undo_command:
+        # Record normal user actions. Internal calls made by undo should not
+        # create a second undo entry.
+        if not undo_command:
             self.undo_stack.append({
                 'selections': selection_type,
                 'start': start,
@@ -204,33 +212,51 @@ class SelectionFrame(ttk.LabelFrame):
             })
     
     def delete_selection(self, selection_type, start, end=None, undo_command=False):
-        """Deletes a selection from the self.selections dictionary"""
-        # Check if the start and end indices are strings
+        """Delete an index or inclusive index range from the current selection."""
+        if start is None or start == '':
+            return
         if isinstance(start, str):
+            if not start.isdigit():
+                return
             start = int(start)
-        if end is not None and end != '' and isinstance(end, str):
-            end = int(end)
-        # Get a list of indexes to remove
+        if start < 0:
+            return
+
+        if end is not None and end != '':
+            if isinstance(end, str):
+                if not end.isdigit():
+                    return
+                end = int(end)
+            if end < 0 or end < start:
+                return
+
         if end is None or end == '':
             removal_ndxs = [start]
         else:
-            removal_ndxs = list(range(start, end+1))
-        if selection_type == 'Atoms/Balls':
-            self.selections['balls'] = [ndx for ndx in self.selections['balls'] if ndx not in removal_ndxs]
-            self.tracking['balls'] = self.create_selection_string(self.selections['balls'])
-        elif selection_type == 'Residues':
-            self.selections['residues'] = [ndx for ndx in self.selections['residues'] if ndx not in removal_ndxs]
-            self.tracking['residues'] = self.create_selection_string(self.selections['residues'])
-        elif selection_type == 'Chains':
-            self.selections['chains'] = [ndx for ndx in self.selections['chains'] if ndx not in removal_ndxs]
-            self.tracking['chains'] = self.create_selection_string(self.selections['chains'])
-        elif selection_type == 'Molecules':
-            self.selections['molecules'] = [ndx for ndx in self.selections['molecules'] if ndx not in removal_ndxs]
-            self.tracking['molecules'] = self.create_selection_string(self.selections['molecules'])
-        
-        # Update the tracking text
+            removal_ndxs = list(range(start, end + 1))
+
+        selection_keys = {
+            'Atoms/Balls': 'balls',
+            'Residues': 'residues',
+            'Chains': 'chains',
+            'Molecules': 'molecules',
+        }
+        key = selection_keys.get(selection_type)
+        if key is None:
+            return
+
+        # Removing from an untouched selection class is a harmless no-op.
+        current = list(self.selections.get(key) or [])
+        updated = [ndx for ndx in current if ndx not in removal_ndxs]
+
+        # Do not create undo entries for a request that changed nothing.
+        if updated == current:
+            return
+
+        self.selections[key] = updated
+        self.tracking[key] = self.create_selection_string(updated)
         self.update_tracking_text()
-        # Add the current state to the undo stack
+
         if not undo_command:
             self.undo_stack.append({
                 'selections': selection_type,
