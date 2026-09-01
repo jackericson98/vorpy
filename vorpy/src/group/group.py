@@ -233,11 +233,16 @@ class Group:
         # ------------------------------------------------------------------
         # Layer-analysis results
         # ------------------------------------------------------------------
+        # layer_atoms are always parent SYSTEM indices (safe for PDB export).
+        # layer_net_atoms are the corresponding NETWORK TOPOLOGY identifiers.
         self.layer_atoms = None
+        self.layer_net_atoms = None
         self.layer_verts = None
         self.layer_edges = None
         self.layer_surfs = None
         self.layer_info = None
+        self.layer_body_topology = None
+        self.layer_time = 0.0
 
         # ------------------------------------------------------------------
         # Output directory

@@ -8,6 +8,43 @@ from vorpy.src.output import write_edges
 from vorpy.src.output import write_off_verts
 
 
+def _group_topology_indices(grp):
+    """
+    Convert grp.ball_ndxs (SYSTEM indices) to network TOPOLOGY identifiers.
+    """
+    net_balls = getattr(grp.net, "balls", None)
+    if net_balls is None or len(net_balls) == 0:
+        return list(grp.ball_ndxs)
+
+    system_to_topology = {}
+
+    for row_pos, (_, atom) in enumerate(net_balls.iterrows()):
+        try:
+            topology_id = int(atom.get("num", row_pos))
+        except (TypeError, ValueError):
+            topology_id = int(row_pos)
+
+        system_id = None
+        if "system_num" in net_balls.columns:
+            try:
+                value = atom.get("system_num", None)
+                if value is not None and not (isinstance(value, float) and value != value):
+                    system_id = int(value)
+            except (TypeError, ValueError):
+                system_id = None
+
+        if system_id is None:
+            system_id = topology_id
+
+        system_to_topology.setdefault(system_id, topology_id)
+
+    return [
+        system_to_topology[system_id]
+        for system_id in (int(_) for _ in grp.ball_ndxs)
+        if system_id in system_to_topology
+    ]
+
+
 def export_info(grp, directory=None):
     """
     Export a detailed human-readable summary of a VorPy group.
@@ -827,7 +864,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     if atom_verts or atom_edges or atom_surfs or all_:
         if not path.exists(grp.dir + '/atoms'):
             os.mkdir(grp.dir + '/atoms')
-        write_atom_cells(grp.net, atoms=grp.ball_ndxs, directory=grp.dir + '/atoms', surfs=atom_surfs or all_,
+        write_atom_cells(grp.net, atoms=_group_topology_indices(grp), directory=grp.dir + '/atoms', surfs=atom_surfs or all_,
                          edges=atom_edges or all_, verts=atom_verts or all_, concave_colors=concave_colors)
         os.chdir(grp.dir)
 
@@ -839,7 +876,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         # noinspection PyUnresolvedReferences
         if grp.layer_surfs is not None and len(grp.layer_surfs) > 0:
             write_surfs(net=grp.net, surfs=grp.layer_surfs[0], file_name="shell_surfs", directory=grp.dir,
-                        concave_colors=concave_colors, ref_surfs=grp.ball_ndxs, universal_max=False)
+                        concave_colors=concave_colors, ref_surfs=_group_topology_indices(grp), universal_max=False)
     # If the user wants all of the surfaces in one file
     if surfs or all_:
         write_surfs(grp.net, [i for i in range(len(grp.net.surfs))], 'surfs')

@@ -5,6 +5,48 @@ from vorpy.src.calculations import ndx_search
 from vorpy.src.calculations import calc_surf_sa
 
 
+def _group_net_row_positions(group):
+    """
+    Map Group SYSTEM atom indices to positional rows in group.net.balls.
+
+    This prevents group.ball_ndxs from being used directly with .iloc when
+    net.balls has a distinct topology/system_num index mapping.
+    """
+    net_balls = group.net.balls
+    system_to_row = {}
+
+    for row_pos, (_, atom) in enumerate(net_balls.iterrows()):
+        try:
+            topology_id = int(atom.get("num", row_pos))
+        except (TypeError, ValueError):
+            topology_id = int(row_pos)
+
+        system_id = None
+        if "system_num" in net_balls.columns:
+            value = atom.get("system_num", None)
+            try:
+                if value is not None and not (isinstance(value, float) and np.isnan(value)):
+                    system_id = int(value)
+            except (TypeError, ValueError):
+                system_id = None
+
+        if system_id is None:
+            system_id = topology_id
+
+        system_to_row.setdefault(system_id, row_pos)
+
+    rows = []
+
+    for system_id in (int(_) for _ in group.ball_ndxs):
+        row_pos = system_to_row.get(system_id)
+        if row_pos is None:
+            missing.append(system_id)
+        else:
+            rows.append(row_pos)
+
+    return rows
+
+
 def get_info(group):
     """
     Gathers and calculates comprehensive information about a molecular group, including geometric, physical, and structural properties.
@@ -57,7 +99,8 @@ def get_info(group):
     # Center of masses
     com, vdw_com = [0, 0, 0], [0, 0, 0]
     # Get the balls in the group
-    group_balls = group.net.balls.iloc[group.ball_ndxs].to_dict(orient='records')
+    group_net_rows = _group_net_row_positions(group)
+    group_balls = group.net.balls.iloc[group_net_rows].to_dict(orient='records')
     # Get the volume of the group
     for i, ball in enumerate(group_balls):
         # Check for the ball to be complets
@@ -81,7 +124,7 @@ def get_info(group):
         # Calculate the vdw center of mass
         group.vdw_com = [vdw_com[j] / group.vdw_vol for j in range(3)]
     # Check to see if the moi has been calculated
-    if 'moi' in group.net.balls.iloc[group.ball_ndxs[0]]:
+    if group_net_rows and 'moi' in group.net.balls.iloc[group_net_rows[0]]:
         # Calculate the spatial moment
         group.spatial_moment = combine_inertia_tensors([_['moi'] for _ in group_balls], [_['com'] for _ in group_balls],
                                                        group.com, [_['vol'] for _ in group_balls])

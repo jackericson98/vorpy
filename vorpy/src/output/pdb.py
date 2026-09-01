@@ -1,6 +1,5 @@
 import os
 import shutil
-import numpy as np
 from shutil import SameFileError
 
 
@@ -75,104 +74,90 @@ def write_pdb(atoms, file_name, sys, directory=None):
         >>> selected_atoms = [0, 5, 10]  # Indices of atoms to include
         >>> write_pdb(selected_atoms, "subset", sys, directory="/path/to/output")
     """
+    # Catch empty atoms cases
     if atoms is None or len(atoms) == 0:
         return
-
+    # Make note of the starting directory
     start_dir = os.getcwd()
+    # Change to the specified directory
+    if directory is not None:
+        os.chdir(directory)
 
-    try:
-        if directory is not None:
-            os.chdir(directory)
+    # Check to see if a system was provided
+    if sys.files['base_file'] is not None:
 
-        # --------------------------------------------------------------
-        # Existing base PDB
-        # --------------------------------------------------------------
+        # If the output is all atoms just copy the pdb
+        if len(atoms) == len(sys.balls):
+            try:
+                shutil.copy(sys.files['base_file'], os.getcwd() + '/' + file_name + '.pdb')
+            except SameFileError:
+                pass
+            except OSError:
+                pass
+            return
 
-        if sys.files['base_file'] is not None:
+        # Open the file for writing
+        with open(file_name + ".pdb", 'w') as pdb_file:
 
-            # Full system: simply copy original file.
-            if len(atoms) == len(sys.balls):
-                try:
-                    shutil.copy(sys.files['base_file'], os.path.join(os.getcwd(), file_name + '.pdb'))
-                except SameFileError:
-                    pass
-                except OSError:
-                    pass
-                return
-
-            # ----------------------------------------------------------
-            # Determine selected atom numbers
-            # ----------------------------------------------------------
-
-            first = atoms[0]
-
-            if isinstance(first, (int, np.integer)):
-                # Group atom lists normally contain indices into sys.balls.
-                selected_nums = set(sys.balls.iloc[list(atoms)]['num'].tolist())
-            else:
-                # Atom/Series objects.
-                selected_nums = {a['num'] for a in atoms}
-
-            # ----------------------------------------------------------
-            # Read base PDB
-            # ----------------------------------------------------------
-
+            # Open the base file and read the lines.
             with open(sys.files['base_file'], 'r') as f:
                 read_file = f.readlines()
 
-            offset = 0
+            # Write a header for the pdb.
+            pdb_file.write(
+                "HEADER  vorpy output - "
+                + sys.name
+                + " group "
+                + file_name
+                + " atoms\n"
+            )
 
-            while offset < len(read_file) and read_file[offset][:6].lower().strip() not in {'atom', 'hetatm'}:
-                offset += 1
-
-            # ----------------------------------------------------------
-            # Write selected atoms
-            # ----------------------------------------------------------
-
-            output_lines = [
-                "HEADER  vorpy output - " + sys.name + " group " + file_name + " atoms\n"
+            # IMPORTANT:
+            # System atom indices correspond to the ordered ATOM/HETATM
+            # records, NOT to raw line positions in the PDB file.
+            #
+            # A PDB may contain TER, MODEL, ENDMDL, REMARK, ANISOU, etc.
+            # between atom records.  The old ``read_file[j + offset]``
+            # assumption therefore shifted exports after the first
+            # interspersed non-atom record.  1BNA contains a TER before
+            # chain B, which made system index 736 (N9) export the
+            # preceding H1' record.
+            atom_records = [
+                line
+                for line in read_file
+                if line[:6].strip().upper() in {"ATOM", "HETATM"}
             ]
 
-            nums = sys.balls['num'].to_numpy()
+            selected = []
+            for atom_index in atoms:
+                try:
+                    atom_index = int(atom_index)
+                except (TypeError, ValueError):
+                    continue
 
-            for j, num in enumerate(nums):
-                if num in selected_nums:
-                    output_lines.append(read_file[j + offset])
+                if 0 <= atom_index < len(atom_records):
+                    selected.append(atom_index)
 
-            with open(file_name + ".pdb", 'w', buffering=1024 * 1024) as pdb_file:
-                pdb_file.writelines(output_lines)
+            for atom_index in sorted(set(selected)):
+                pdb_file.write(atom_records[atom_index])
 
-        # --------------------------------------------------------------
-        # No base PDB: construct manually
-        # --------------------------------------------------------------
-
-        else:
-            output_lines = []
-
-            for a in atoms:
-                if isinstance(a, (int, np.integer)):
+    # Manually write the pdb file
+    else:
+        # Open the file for writing
+        with open(file_name + ".pdb", 'w') as pdb_file:
+            # Go through each atom in the system
+            for i, a in enumerate(atoms):
+                # Get the ball
+                if type(a) is int:
                     a = sys.balls.iloc[a]
-
+                # Get the location string
                 x, y, z = a['loc']
-                tfact = a['rad'] if sys.type in {'foam', 'coarse'} else 0
-
-                output_lines.append(
-                    make_pdb_line(
-                        ser_num=a['num'],
-                        name=a['name'],
-                        res_name=a['res'].name,
-                        chain=a['chn'].name,
-                        res_seq=a['res_seq'],
-                        x=x,
-                        y=y,
-                        z=z,
-                        tfact=tfact,
-                        elem=a['element']
-                    )
-                )
-
-            with open(file_name + ".pdb", 'w', buffering=1024 * 1024) as pdb_file:
-                pdb_file.writelines(output_lines)
-
-    finally:
-        os.chdir(start_dir)
+                # Get the information from the atom in writable format
+                tfact = 0
+                if sys.type == 'foam' or sys.type == 'coarse':
+                    tfact = a['rad']
+                # Write the atom information
+                pdb_file.write(make_pdb_line(ser_num=a['num'], name=a['name'], res_name=a['res'].name, chain=a['chn'].name,
+                                             res_seq=a['res_seq'], x=x, y=y, z=z, tfact=tfact, elem=a['element']))
+    # Change back to the starting directory
+    os.chdir(start_dir)

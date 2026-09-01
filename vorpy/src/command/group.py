@@ -117,68 +117,140 @@ def group(sys, usr_npt, settings=None, make_net=True):
 
 def get_group_spheres(atoms, identifier):
     """
-    Retrieves a list of atom indices from a pandas DataFrame based on various identifier formats.
+    Resolve an atom selection to SYSTEM atom indices.
 
-    This function supports multiple ways to identify atoms:
-    - Single atom index (e.g., '5')
-    - Range of indices (e.g., '1-10')
-    - Residue name, sequence number, and atom name (e.g., 'ALA 1 CA')
-    - Atom name (e.g., 'CA')
-    - Element name (e.g., 'C')
+    IMPORTANT INDEX CONTRACT
+    ------------------------
+    Every integer returned by this function is a zero-based positional index
+    into ``System.balls`` / ``atoms.iloc``.  The ``atoms['num']`` column is
+    metadata (for example a PDB atom serial) and is NOT used as the internal
+    VorPy atom index.
 
-    Parameters:
-    -----------
+    Supported selectors
+    -------------------
+    - Single internal atom index: ``a 736``
+    - Inclusive internal-index range: ``a 730-740``
+    - Residue/name lookup: ``DG 24 N9`` (legacy/experimental path)
+    - Atom name: ``a CA``
+    - Element: ``a carbon``
+
+    Parameters
+    ----------
     atoms : pandas.DataFrame
-        DataFrame containing atom information with columns 'num', 'res_name', 'res_seq', 'name', and 'element'
+        System atom table.
     identifier : list
-        List containing the identifier string(s) to match against the atoms DataFrame
+        Atom-selection tokens.
 
-    Returns:
-    --------
+    Returns
+    -------
     list
-        List of atom indices matching the given identifier(s)
+        Zero-based SYSTEM atom indices.
     """
-    # First see if the identifier is an atom index
-    atom_indices = atoms['num'].to_list()
+    if identifier is None or len(identifier) == 0:
+        return []
+
+    token = str(identifier[0]).strip()
+
+    # ------------------------------------------------------------------
+    # 1. Explicit internal SYSTEM index.
+    #
+    # Example:
+    #     -g a 736
+    #
+    # means:
+    #     atoms.iloc[736]
+    #
+    # It must NOT mean:
+    #     atom whose PDB serial / atoms['num'] value is 736
+    # ------------------------------------------------------------------
     try:
-        my_atoms = atom_indices[int(identifier[0])]
-        return [my_atoms]
-    except ValueError:
-        pass
-    # Next see if it is a range:
-    if '-' in identifier[0]:
-        # Split the indices
-        index1, index2 = identifier[0].split('-')
-        # Make sure the two indices are intable
+        requested = int(token)
+    except (ValueError, TypeError):
+        requested = None
+
+    if requested is not None:
+        if 0 <= requested < len(atoms):
+            return [requested]
+        return []
+
+    # ------------------------------------------------------------------
+    # 2. Inclusive internal SYSTEM-index range.
+    # ------------------------------------------------------------------
+    if "-" in token:
         try:
+            index1, index2 = token.split("-", 1)
             index1, index2 = int(index1), int(index2)
-        except ValueError:
-            pass
-        # Get all the atoms in the list
-        my_atoms = []
-        for i in range(index1, index2 + 1):
-            my_atoms.append(i)
-        return my_atoms
-    # Next check to see if the identifier is a residue
-    if identifier[0].lower() in residue_names and len(identifier) == 3:
-        # Return the atom in atoms that has both the residue name and the residue sequence number and the atom name
+        except (ValueError, TypeError):
+            index1 = index2 = None
+
+        if index1 is not None:
+            lo, hi = sorted((index1, index2))
+            lo = max(0, lo)
+            hi = min(len(atoms) - 1, hi)
+
+            if lo > hi:
+                return []
+
+            return list(range(lo, hi + 1))
+
+    # ------------------------------------------------------------------
+    # Helper: convert a boolean condition over rows into POSITIONAL
+    # System indices.  Do not return DataFrame labels or atoms['num'].
+    # ------------------------------------------------------------------
+    def _positions(condition):
         try:
-            res_name, res_seq, atom_name = residue_names[identifier[0].lower()], int(identifier[1]), identifier[2]
-            return atoms.loc[(atoms['res_name'] == res_name) &
-                              (atoms['res_seq'] == res_seq) &
-                              (atoms['name'] == atom_name.upper()), 'num'].to_list()
-        except (KeyError, ValueError, IndexError):
+            values = condition.to_list()
+        except AttributeError:
+            values = list(condition)
+
+        return [i for i, matched in enumerate(values) if bool(matched)]
+
+    # ------------------------------------------------------------------
+    # 3. Legacy/experimental structural identity:
+    #       residue + residue sequence + atom name
+    #
+    # This remains available internally even though it is not yet treated
+    # as a finalized public CLI feature.
+    # ------------------------------------------------------------------
+    if token.lower() in residue_names and len(identifier) == 3:
+        try:
+            res_name = residue_names[token.lower()]
+            res_seq = int(identifier[1])
+            atom_name = str(identifier[2]).strip().upper()
+
+            condition = (
+                (atoms["res_name"] == res_name)
+                & (atoms["res_seq"] == res_seq)
+                & (atoms["name"].astype(str).str.strip().str.upper() == atom_name)
+            )
+            return _positions(condition)
+        except (KeyError, TypeError, ValueError):
             pass
-    # Check if the identifier is in the atom names
-    if identifier[0].upper() in atoms['name'].values:
-        return atoms.loc[atoms['name'] == identifier[0].upper(), 'num'].to_list()
-    # Check if the identifier is an element
-    if identifier[0].lower() in element_names:
 
-        # Return the atoms in the atoms dataframe with the same name as the atom we want
-        my_atoms = atoms.loc[atoms['element'] == element_names[identifier[0].lower()], 'num'].to_list()
+    # ------------------------------------------------------------------
+    # 4. Atom-name selection.
+    # ------------------------------------------------------------------
+    try:
+        atom_name = token.upper()
+        normalized_names = atoms["name"].astype(str).str.strip().str.upper()
 
-        return my_atoms
+        if atom_name in set(normalized_names):
+            return _positions(normalized_names == atom_name)
+    except KeyError:
+        pass
+
+    # ------------------------------------------------------------------
+    # 5. Element selection.
+    # ------------------------------------------------------------------
+    if token.lower() in element_names:
+        try:
+            element = element_names[token.lower()]
+            normalized_elements = atoms["element"].astype(str).str.strip().str.upper()
+            return _positions(normalized_elements == str(element).strip().upper())
+        except KeyError:
+            pass
+
+    return []
 
 
 def get_group_resids(resids, identifier):
@@ -474,8 +546,17 @@ def ggroup(my_sys, group_commands, settings=None, make_net=True):
                                make_net=make_net)]
         return
     if group_commands[0][0] in full_objs:
-        my_sys.groups = [Group(my_sys, name=my_sys.name + '_all', atoms=my_sys.balls['num'].to_list(),
-                               settings=settings, make_net=make_net)]
+        # Group atom membership always uses zero-based SYSTEM row indices.
+        # ``balls['num']`` may contain PDB serial numbers and is metadata only.
+        my_sys.groups = [
+            Group(
+                my_sys,
+                name=my_sys.name + '_all',
+                atoms=list(range(len(my_sys.balls))),
+                settings=settings,
+                make_net=make_net,
+            )
+        ]
         return
     my_sys.groups = []
     # Loop through the names and identifiers

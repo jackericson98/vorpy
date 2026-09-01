@@ -23,7 +23,7 @@ def write_off_verts(net, verts, file_name, atom_type=None, directory=None, color
     Returns:
         None: Creates an OFF file with the specified vertex data
     """
-    
+
     # If no color is given, make the color random
     if color is None:
         color = 'red'
@@ -49,7 +49,7 @@ def write_off_verts(net, verts, file_name, atom_type=None, directory=None, color
         # Connect the points
         loc_points.append([xp, xn, yp, yn, zp, zn])
         loc_tris.append([[0, 2, 4], [0, 2, 5], [0, 3, 4], [0, 3, 5], [1, 2, 4], [1, 2, 5], [1, 3, 4], [1, 3, 5]])
-    num_verts, num_tris = 8 * len(loc_points), 6 * len(loc_tris)
+    num_verts, num_tris = 6 * len(loc_points), 8 * len(loc_tris)
     # Create the file
     with open(file_name + ".off", 'w') as file:
         # Count the number of triangles and vertices there are
@@ -113,7 +113,7 @@ def write_off_verts1(verts, file_name, atom_type=None, directory=None, color=Non
         loc_points.append([xp, xn, yp, yn, zp, zn])
         loc_tris.append([[0, 2, 4], [0, 2, 5], [0, 3, 4], [0, 3, 5], [1, 2, 4], [1, 2, 5], [1, 3, 4], [1, 3, 5]])
     # Set the number of triangles and points for the off file record
-    num_verts, num_tris = 8 * len(loc_points), 6 * len(loc_tris)
+    num_verts, num_tris = 6 * len(loc_points), 8 * len(loc_tris)
     # Create the file
     with open(file_name + ".off", 'w') as file:
         # Count the number of triangles and vertices there are
