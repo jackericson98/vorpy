@@ -2,7 +2,6 @@ import time
 import numpy as np
 from itertools import combinations
 from vorpy.src.calculations import calc_dist
-from vorpy.src.calculations import get_time
 from vorpy.src.calculations import ndx_search
 
 
@@ -153,57 +152,158 @@ def doublify(b_verts, v_balls, v_locs, v_dubs, timings=None, counts=None):
     return e_balls, e_verts
 
 
+def _minimum_distance_edge_pairing(entries, v_locs):
+    """
+    Pair all vertices belonging to one 3-ball edge definition.
+
+    For ordinary Voronoi topology a three-ball definition has exactly two
+    endpoint vertices.  Additively weighted topology can contain multiple
+    disconnected edge segments with the same three defining balls, so a
+    single dictionary entry per triple is insufficient.
+
+    When multiplicity is greater than two, pair endpoints using the minimum
+    total Euclidean vertex-to-vertex distance.  Pairs with the same fourth
+    defining ball are forbidden because they share all four balls rather than
+    exactly three.
+    """
+    entries = list(entries)
+    if len(entries) < 2:
+        return []
+
+    # Normal case: exactly two endpoints.
+    if len(entries) == 2:
+        (v0, fourth0), (v1, fourth1) = entries
+        if fourth0 == fourth1:
+            return []
+        return [[v0, v1]]
+
+    # A closed regular-edge topology should provide an even number of
+    # endpoints for a repeated 3-ball definition.  Do not silently invent a
+    # partial pairing when that invariant is violated.
+    if len(entries) % 2:
+        return []
+
+    # Exact minimum-weight perfect matching for the small multiplicities that
+    # occur here.  Fall back to deterministic greedy matching only for very
+    # large multiplicities to avoid exponential work in pathological inputs.
+    if len(entries) <= 12:
+        from functools import lru_cache
+
+        n = len(entries)
+
+        @lru_cache(maxsize=None)
+        def solve(mask):
+            if mask == 0:
+                return 0.0, ()
+
+            # First active endpoint.
+            i = (mask & -mask).bit_length() - 1
+            best_cost = float('inf')
+            best_pairs = None
+            mask_without_i = mask & ~(1 << i)
+
+            for j in range(i + 1, n):
+                if not (mask_without_i & (1 << j)):
+                    continue
+
+                vi, fourth_i = entries[i]
+                vj, fourth_j = entries[j]
+                if fourth_i == fourth_j:
+                    continue
+
+                dist = calc_dist(np.asarray(v_locs[vi]), np.asarray(v_locs[vj]))
+                sub_cost, sub_pairs = solve(mask_without_i & ~(1 << j))
+                if sub_pairs is None:
+                    continue
+
+                cost = dist + sub_cost
+                if cost < best_cost:
+                    best_cost = cost
+                    best_pairs = ((vi, vj),) + sub_pairs
+
+            if best_pairs is None:
+                return float('inf'), None
+            return best_cost, best_pairs
+
+        _, pairs = solve((1 << len(entries)) - 1)
+        if pairs is None:
+            return []
+        return [list(pair) for pair in pairs]
+
+    # Deterministic nearest-neighbor fallback for unexpectedly high
+    # multiplicity.  Same-fourth-ball pairs remain disallowed.
+    remaining = list(entries)
+    pairs = []
+    while remaining:
+        vi, fourth_i = remaining.pop(0)
+        candidates = []
+        for k, (vj, fourth_j) in enumerate(remaining):
+            if fourth_i == fourth_j:
+                continue
+            dist = calc_dist(np.asarray(v_locs[vi]), np.asarray(v_locs[vj]))
+            candidates.append((dist, vj, k))
+
+        if not candidates:
+            return []
+
+        _, vj, k = min(candidates, key=lambda x: (x[0], x[1]))
+        remaining.pop(k)
+        pairs.append([vi, vj])
+
+    return pairs
+
+
 def get_build_edges(b_verts, v_balls, v_locs, v_dubs, start_time, net=None, timings=None, counts=None):
-    """Construct regular edges from indexed 3-ball combinations while retaining exact doublet multiplicity."""
+    """Construct regular edges while preserving repeated AW 3-ball edge segments."""
     e_balls, e_verts = doublify(b_verts, v_balls, v_locs, v_dubs, timings=timings, counts=counts)
     regular_edge_start = time.perf_counter()
 
     # Index every vertex by each of its four possible 3-ball definitions. Store
-    # the fourth ball too: two vertices define a regular edge only when they share
-    # exactly three balls, not all four.
+    # the fourth ball too so duplicate four-ball definitions are never mistaken
+    # for ordinary regular-edge endpoints.
     triple_index = {}
     for vi, vert in enumerate(v_balls):
+        # Preserve the original regular-edge exclusion around doublets.
+        if v_dubs[vi] == 1 or (vi + 1 < len(v_dubs) and v_dubs[vi + 1] == 1):
+            continue
+
         vert_set = set(vert)
         for triple in combinations(sorted(vert), 3):
             fourth = next(ball for ball in vert_set if ball not in triple)
             triple_index.setdefault(triple, []).append((vi, fourth))
 
-    # Any key already produced by doublify must be considered existing exactly as
-    # in the original ndx_search check. We preserve all duplicate doublet entries
-    # in e_balls/e_verts; this set is only for regular-edge existence testing.
+    # Any key already produced by doublify is left to the doublet topology.
     existing_keys = {tuple(edge) for edge in e_balls}
-    regular_edges = {}
+
+    # IMPORTANT: this is intentionally a list rather than a dict.  AW can have
+    # multiple disconnected regular edge segments sharing the same 3-ball key.
+    regular_edges = []
     regular_edge_keys = 0
 
-    # i order matches the original loop. For a given triple, the first candidate j
-    # with a different fourth ball is the first vertex that shares exactly 3 balls.
-    for i, vert in enumerate(v_balls):
-        if net is not None and i % 1000 == 0:
-            percentage = 10.0 + 40.0 * (i + 1) / len(v_balls)
+    triples = sorted(triple_index.items())
+    for triple_ndx, (triple, entries) in enumerate(triples):
+        if net is not None and triple_ndx % 1000 == 0:
+            percentage = 10.0 + 40.0 * (triple_ndx + 1) / max(1, len(triples))
             net.update_progress("Connecting network", percentage)
-        if v_dubs[i] == 1 or (i + 1 < len(v_dubs) and v_dubs[i + 1] == 1):
+
+        regular_edge_keys += len(entries)
+        if triple in existing_keys:
             continue
 
-        vert_set = set(vert)
-        for triple in combinations(sorted(vert), 3):
-            regular_edge_keys += 1
-            if triple in existing_keys or triple in regular_edges:
-                continue
+        pairs = _minimum_distance_edge_pairing(entries, v_locs)
+        if len(entries) >= 2 and not pairs:
+            continue
 
-            fourth_i = next(ball for ball in vert_set if ball not in triple)
-            for j, fourth_j in triple_index[triple]:
-                if fourth_j != fourth_i:
-                    regular_edges[triple] = [i, j]
-                    break
+        for verts in pairs:
+            regular_edges.append((triple, verts))
 
-    # Merge regular edges with the duplicate-preserving doublet lists, then sort
-    # by the 3-ball definition. Python's stable sort keeps duplicate doublet edges
-    # in their existing relative order.
+    # Merge regular edges with duplicate-preserving doublet edges. Stable sort
+    # keeps multiple edges with the same 3-ball key as distinct edge records.
     combined = [(tuple(edge), verts) for edge, verts in zip(e_balls, e_verts)]
-    combined.extend((edge, verts) for edge, verts in regular_edges.items())
+    combined.extend(regular_edges)
     combined.sort(key=lambda item: item[0])
     e_balls = [list(edge) for edge, _ in combined]
-    e_verts = [verts for _, verts in combined]
+    e_verts = [list(verts) for _, verts in combined]
 
     _record_timing(timings, 'regular_edges', regular_edge_start)
     if counts is not None:
@@ -211,7 +311,6 @@ def get_build_edges(b_verts, v_balls, v_locs, v_dubs, start_time, net=None, timi
         counts['unique_edge_keys'] = len(triple_index)
         counts['regular_edges'] = len(regular_edges)
     return e_balls, e_verts
-
 
 def add_build_edges(num_balls, e_balls, num_verts, e_verts):
     """Create ball-to-edge and vertex-to-edge adjacency lists."""
@@ -278,17 +377,17 @@ def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, net
 
         surf_edges = surf_edge_map[key]
         surf_verts = surf_vert_map[key]
+
         if len(surf_verts) != len(surf_edges):
             continue
 
         if interface:
+            # Interface surfaces retain the existing degree-two closure check.
             surf_edge_set = set(surf_edges)
-            invalid_surface = False
-            for vert_ndx in surf_verts:
-                surface_degree = sum(edge_ndx in surf_edge_set for edge_ndx in v_edges[vert_ndx])
-                if surface_degree != 2:
-                    invalid_surface = True
-                    break
+            invalid_surface = any(
+                sum(edge_ndx in surf_edge_set for edge_ndx in v_edges[vert_ndx]) != 2
+                for vert_ndx in surf_verts
+            )
             if invalid_surface:
                 continue
         else:
@@ -340,6 +439,7 @@ def add_build_surfs(num_balls, s_balls, num_verts, s_verts, num_edges, s_edges):
             e_surfs[j] += [i]
 
     return b_surfs, v_surfs, e_surfs
+
 
 
 def build(v_balls, v_locs, v_dubs, num_balls, my_time,
