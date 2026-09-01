@@ -265,14 +265,24 @@ def calc_edge_dir1(locs, rads, eballs, vlocs, edub=False):
     vdist = np.sqrt(sum([np.square(vlocs[0][i] - vlocs[1][i]) for i in range(3)]))
     # Get the center point of the vertices
     vdir = vlocs[1] - vlocs[0]
-    # Normalize the vertex vector
-    vnorm = vdir / vdist
+    # Normalize the vertex vector. Degenerate/identical endpoints have no
+    # unique direction, so preserve the edge-info return contract with a zero
+    # direction instead of generating NaNs from a zero-length division.
+    if vdist > np.finfo(float).eps:
+        vnorm = vdir / vdist
+    else:
+        vnorm = np.zeros(3, dtype=float)
     # Get the halfway point
     vmid = vlocs[0] + 0.5 * vdist * vnorm
     # Find the plane normal direction
     pprime = np.cross(loc - vlocs[0], loc - vlocs[1])
-    # Normalize this direction
-    pnorm = pprime / np.linalg.norm(pprime)
+    # Normalize this direction. A zero cross product is a degenerate
+    # projection plane; use a zero direction rather than propagating NaNs.
+    pprime_norm = np.linalg.norm(pprime)
+    if pprime_norm > np.finfo(float).eps:
+        pnorm = pprime / pprime_norm
+    else:
+        pnorm = np.zeros(3, dtype=float)
     # Create the edge info dictionary
     edge_info = {'loc': loc, 'rad': rad, 'loc2': loc2, 'rad2': rad2, 'vdist': vdist, 'vnorm': vnorm, 'vmid': vmid,
                  'pnorm': pnorm, 'check': False, 'outside': False, 'case': None, 'dnorm': None, 'dnorm0': None,
@@ -497,14 +507,24 @@ def calc_edge_dir(locs, rads, eballs, vlocs, edub=False):
     vdist = np.sqrt(sum([np.square(vlocs[0][i] - vlocs[1][i]) for i in range(3)]))
     # Get the center point of the vertices
     vdir = vlocs[1] - vlocs[0]
-    # Normalize the vertex vector
-    vnorm = vdir / vdist
+    # Normalize the vertex vector. Degenerate/identical endpoints have no
+    # unique direction, so preserve the edge-info return contract with a zero
+    # direction instead of generating NaNs from a zero-length division.
+    if vdist > np.finfo(float).eps:
+        vnorm = vdir / vdist
+    else:
+        vnorm = np.zeros(3, dtype=float)
     # Get the halfway point
     vmid = vlocs[0] + 0.5 * vdist * vnorm
     # Find the plane normal direction
     pprime = np.cross(loc - vlocs[0], loc - vlocs[1])
-    # Normalize this direction
-    pnorm = pprime / np.linalg.norm(pprime)
+    # Normalize this direction. A zero cross product is a degenerate
+    # projection plane; use a zero direction rather than propagating NaNs.
+    pprime_norm = np.linalg.norm(pprime)
+    if pprime_norm > np.finfo(float).eps:
+        pnorm = pprime / pprime_norm
+    else:
+        pnorm = np.zeros(3, dtype=float)
     # Create the edge info dictionary
     edge_info = {'loc': loc, 'rad': rad, 'loc2': loc2, 'rad2': rad2, 'vdist': vdist, 'vnorm': vnorm, 'vmid': vmid,
                  'pnorm': pnorm, 'check': False, 'outside': False, 'case': None, 'dnorm': None, 'dnorm0': None,

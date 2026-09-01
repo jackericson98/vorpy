@@ -144,10 +144,15 @@ def test_accepts_list_and_numpy_inputs(tol):
     assert isinstance(mapped, list) and all(np.shape(p) == (3,) for p in mapped)
 
 
-@pytest.mark.xfail(reason="No input validation; zero-length normal yields NaNs downstream.")
 def test_zero_length_normal_should_error(tol):
     plane_point = np.array([0.0, 0.0, 0.0])
     normal = np.array([0.0, 0.0, 0.0])
-    with pytest.raises(ValueError):
-        _ = project_to_plane([np.array([1.0, 2.0, 3.0])], plane_point, normal)
 
+    with pytest.raises(ValueError, match="Plane normal vector cannot be zero"):
+        project_to_plane([np.array([1.0, 2.0, 3.0])], plane_point, normal)
+
+    with pytest.raises(ValueError, match="Plane normal vector cannot be zero"):
+        unproject_to_3d([(1.0, 2.0)], plane_point, normal)
+
+    with pytest.raises(ValueError, match="Plane normal vector cannot be zero"):
+        map_to_plane([(1.0, 2.0)], plane_point, normal)

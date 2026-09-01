@@ -1,5 +1,5 @@
 import numpy as np
-from numpy import array, dot, isreal, linalg, roots
+from numpy import array, dot, linalg
 from numba import jit
 import warnings
 from vorpy.src.calculations.calcs import calc_dist, calc_dist_numba
@@ -302,76 +302,112 @@ def calc_vert_case_1_numba(Fs, l0, r0, tol=1e-12):
     return verts, n_roots
 
 
-@jit(nopython=True, cache=True)
-def calc_vert_case_2(Fs, r0, l0):
+def calc_vert_case_2(Fs, r0, l0, tol=1e-12):
     """
-    Calculate vertices for Case 2 in a vertex calculation scenario involving spheres.
+    Calculate the legacy Case 2 AW vertex solutions.
 
-    This function computes vertices based on polynomial roots derived from given coefficients, which describe
-    the geometric and algebraic conditions for sphere intersections. It handles three subcases based on the
-    values of the coefficients F31, F21, and F11.
-
-    Parameters
-    ----------
-    Fs : list
-        List of polynomial coefficients F, F_2, F10, F11, etc., that define the conditions for vertex calculation
-    r0 : float
-        The radius component used in the calculation of polynomial coefficients
-    l0 : array
-        The original location of the sphere center used to adjust the calculated vertices back to the actual position
-
-    Returns
-    -------
-    list
-        A list of vertices, each represented as a tuple containing the vertex coordinates and a corresponding radius
+    Case 2 parameterizes the vertex equations by one coordinate (z, y, or x,
+    depending on which radius coefficient is non-zero) and solves the resulting
+    quadratic analytically. The helper intentionally remains Python-level:
+    its legacy return contract is a heterogeneous nested list of
+    ``[[x, y, z], radius]`` records, which Numba cannot type in nopython mode.
+    The active ``calc_vert`` hot path uses the compiled Case 1 solver.
 
     Notes
     -----
-    This function handles three subcases within Case 2 based on the values of the coefficients F31, F21, and F11.
-    It checks for real roots of the polynomial defined by the coefficients a, b, and c, calculated from the input Fs.
+    This routine requires ``F != 0`` because reconstruction of x, y, z and R
+    divides by F.  Therefore it is not a valid fallback for determinant-zero
+    systems.  ``calc_vert`` uses the standard Case 1 solver for F != 0 and
+    rejects determinant-zero systems that do not have a unique solution under
+    the current formulation.
     """
-
-    # Unpack the F values for easier handling
     F, F_2, F10, F11, F20, F21, F30, F31 = Fs
 
-    # Calculate polynomial coefficients for the vertex equation
-    a = F_2 + F11 ** 2 + F21 ** 2 - F31 ** 2
-    b = 2 * (F10 * F11 + F20 * F21 - F30 * F31 - F * F31 * r0)
-    c = F10 ** 2 + F20 ** 2 - (F30 + F * r0)**2
+    # Case 2 reconstruction divides by F throughout.
+    coefficient_scale = max(
+        abs(F), abs(F_2), abs(F10), abs(F11),
+        abs(F20), abs(F21), abs(F30), abs(F31), 1.0
+    )
+    coefficient_tol = tol * coefficient_scale
+    if not np.isfinite(F) or abs(F) <= coefficient_tol:
+        return []
 
-    # Initialize list to store vertices
+    # Quadratic in the free coordinate.
+    a = F_2 + F11 ** 2 + F21 ** 2 - F31 ** 2
+    b = 2.0 * (F10 * F11 + F20 * F21 - F30 * F31 - F * F31 * r0)
+    c = F10 ** 2 + F20 ** 2 - (F30 + F * r0) ** 2
+
+    quad_scale = max(abs(a), abs(b), abs(c), 1.0)
+    quad_tol = tol * quad_scale
+
+    # Fixed-size root storage keeps the function straightforward for Numba.
+    rts = np.empty(2, dtype=np.float64)
+    n_roots = 0
+
+    # Degenerate quadratic -> linear equation.
+    if abs(a) <= quad_tol:
+        if abs(b) <= quad_tol:
+            return []
+        rts[0] = -c / b
+        n_roots = 1
+    else:
+        disc = b * b - 4.0 * a * c
+        disc_scale = max(abs(b * b), abs(4.0 * a * c), 1.0)
+        disc_tol = tol * disc_scale
+
+        if disc < -disc_tol:
+            return []
+
+        # Small negative discriminants are roundoff at a repeated root.
+        if disc < 0.0:
+            disc = 0.0
+
+        sqrt_disc = np.sqrt(disc)
+
+        # Numerically stable quadratic formula.
+        if b >= 0.0:
+            q = -0.5 * (b + sqrt_disc)
+        else:
+            q = -0.5 * (b - sqrt_disc)
+
+        if abs(q) <= quad_tol:
+            rts[0] = -b / (2.0 * a)
+            n_roots = 1
+        else:
+            r1 = q / a
+            r2 = c / q
+            rts[0] = r1
+            n_roots = 1
+
+            if not np.isclose(r1, r2, rtol=tol, atol=quad_tol):
+                rts[1] = r2
+                n_roots = 2
+
     verts = []
 
-    # Calculate the discriminant to check for real roots
-    disc = b**2 - 4 * a * c
-
-    # Proceed only if the discriminant is non-negative, indicating real roots
-    if disc < 0:
-        return  # Exit if roots would be complex
-
-    # Solve the quadratic equation to find potential z, y, or x values (roots)
-    rts = [root for root in roots([a, b, c]) if isreal(root)]
-
-    # Handle different subcases based on the non-zero coefficient
-    if F31 != 0:  # Case 2.1
-        for z in rts:
-            x = F10 / F + z * F11 / F
-            y = F20 / F + z * F21 / F
-            R = F30 / F + z * F31 / F
+    # Reconstruct the full vertex from the free coordinate.
+    if abs(F31) > coefficient_tol:  # Case 2.1: z is free
+        for i in range(n_roots):
+            z = rts[i]
+            x = (F10 + z * F11) / F
+            y = (F20 + z * F21) / F
+            R = (F30 + z * F31) / F
             verts.append([[x + l0[0], y + l0[1], z + l0[2]], R])
 
-    elif F21 != 0:  # Case 2.2
-        for y in rts:
-            x = F10 / F + y * F11 / F
-            R = F20 / F + y * F21 / F
-            z = F30 / F + y * F31 / F
+    elif abs(F21) > coefficient_tol:  # Case 2.2: y is free
+        for i in range(n_roots):
+            y = rts[i]
+            x = (F10 + y * F11) / F
+            R = (F20 + y * F21) / F
+            z = (F30 + y * F31) / F
             verts.append([[x + l0[0], y + l0[1], z + l0[2]], R])
 
-    elif F11 != 0:  # Case 2.3
-        for x in rts:
-            R = F10 / F + x * F11 / F
-            y = F20 / F + x * F21 / F
-            z = F30 / F + x * F31 / F
+    elif abs(F11) > coefficient_tol:  # Case 2.3: x is free
+        for i in range(n_roots):
+            x = rts[i]
+            R = (F10 + x * F11) / F
+            y = (F20 + x * F21) / F
+            z = (F30 + x * F31) / F
             verts.append([[x + l0[0], y + l0[1], z + l0[2]], R])
 
     return verts
@@ -429,9 +465,10 @@ def calc_vert(locs, rads):
 
     The four sphere centers and radii are converted into the linearized AW
     coefficient system. The standard non-degenerate case is solved by the
-    Numba-compiled Case 1 implementation. Degenerate configurations may fall
-    back to Case 2. Candidate solutions are then filtered according to the
-    physically valid radius range.
+    Numba-compiled Case 1 implementation. Determinant-zero configurations do
+    not have a unique solution under this formulation and return no candidate.
+    Candidate solutions are then filtered according to the physically valid
+    radius range.
 
     Parameters
     ----------
@@ -453,26 +490,17 @@ def calc_vert(locs, rads):
     # Build the determinant coefficients for the four-sphere system.
     Fs, abcdfs, rs, l0 = calc_vert_abcfs(locs_array, rads_array)
 
-    # Rank checks are only required for the degenerate F == 0 case.
-    m_rank, f_rank = 3, 3
-
-    if Fs[0] == 0:
-        my_mtx = [abcdfs]
-        m_rank = linalg.matrix_rank(array(my_mtx[:-1]))
-
-        if m_rank != 3:
-            f_rank = linalg.matrix_rank(array(my_mtx))
-
+    # The standard AW formulation requires a non-zero determinant F.
+    # The former Case 2 fallback was unreachable (it was guarded by both
+    # F == 0 and F > 0) and, more importantly, Case 2 itself divides by F.
+    # Preserve the existing determinant-zero behavior explicitly: no candidate
+    # vertex is produced when the defining system has no unique solution.
     verts = []
 
-    # Standard non-degenerate AW vertex calculation.
     if Fs[0] != 0:
         numba_verts, numba_n = calc_vert_case_1_numba(Fs, l0, rs[0])
-        verts = [[numba_verts[i, :3].tolist(), numba_verts[i, 3]] for i in range(numba_n)]
-
-    # Degenerate fallback calculation.
-    elif abcdfs[0][0] * abcdfs[1][1] - abcdfs[0][1] * abcdfs[1][0] != 0 and m_rank == 3 and f_rank == 3 and Fs[0] > 0:
-        verts = calc_vert_case_2(Fs, rs[0], l0)
+        verts = [[numba_verts[i, :3].tolist(), numba_verts[i, 3]]
+                 for i in range(numba_n)]
 
     # Remove physically invalid roots and order any remaining solutions.
     loc, loc2, rad, rad2 = filter_vert_locrads(verts, rs)

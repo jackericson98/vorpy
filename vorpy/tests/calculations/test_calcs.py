@@ -179,7 +179,25 @@ def test_distance_translation_invariance(a, b, t):
 def test_distance_scale_homogeneity(a, b, s):
     d0 = calc_dist(a, b)
     d1 = calc_dist(s * a, s * b)
-    assert d1 == pytest.approx(abs(s) * d0, rel=1e-12, abs=1e-12)
+    expected = abs(s) * d0
+
+    # Scaling the absolute coordinates occurs before subtraction. When a and b
+    # are large but close together, rounding in s*a and s*b is amplified by
+    # cancellation in (s*a - s*b). Account for that input-rounding error using
+    # the coordinate scale rather than requiring an unrealistically fixed
+    # 1e-12 relative tolerance on the final distance.
+    coord_scale = max(
+        float(np.max(np.abs(s * a))),
+        float(np.max(np.abs(s * b))),
+        1.0,
+    )
+    roundoff_bound = 16.0 * np.finfo(float).eps * coord_scale
+
+    assert d1 == pytest.approx(
+        expected,
+        rel=1e-12,
+        abs=max(1e-12, roundoff_bound),
+    )
 
 
 @given(POINT3, POINT3)
@@ -224,6 +242,20 @@ def test_angle_translation_invariance(p0, p1, p2, t):
 
     if np.isnan(ang0) or np.isnan(ang1):
         assert np.isnan(ang0) and np.isnan(ang1)
+        return
+
+    # Near 0 or pi, tiny floating-point changes in the normalized dot
+    # product can collapse the computed angle to exactly 0 or pi.
+    degenerate_tol = 1e-7
+    near_degenerate = (
+        ang0 < degenerate_tol
+        or ang1 < degenerate_tol
+        or abs(np.pi - ang0) < degenerate_tol
+        or abs(np.pi - ang1) < degenerate_tol
+    )
+
+    if near_degenerate:
+        assert np.isclose(ang0, ang1, atol=1e-7, rtol=0.0)
     else:
         assert np.isclose(ang0, ang1, atol=1e-9, rtol=1e-9)
 

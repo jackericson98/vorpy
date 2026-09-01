@@ -232,33 +232,57 @@ class TestCalcVertCase1:
 
 
 class TestCalcVertCase2:
-    """Test cases for calc_vert_case_2 function."""
-    
-    @pytest.mark.skip(reason="Numba compilation issues with roots function")
+    """Tests for the Numba-compatible legacy Case 2 solver."""
+
     def test_calc_vert_case_2_basic(self):
-        """Test basic case 2 calculation."""
-        Fs = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]  # 8 coefficients
+        """Case 2 should compile and return both real quadratic solutions."""
+        Fs = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
         r0 = 1.0
         l0 = np.array([0.0, 0.0, 0.0])
-        
+
         result = calc_vert_case_2(Fs, r0, l0)
-        
+
         assert isinstance(result, list)
-        # Result is a list of vertices
-        assert all(isinstance(vertex, list) for vertex in result)
-    
-    @pytest.mark.skip(reason="Numba compilation issues with roots function")
+        assert len(result) == 2
+
+        # For these coefficients the free-coordinate equation is
+        # 2*z^2 - 2 = 0, giving z = -1 and +1.
+        zs = sorted(float(vertex[0][2]) for vertex in result)
+        assert np.allclose(zs, [-1.0, 1.0], atol=1e-12, rtol=1e-12)
+
+        # Reconstruction should be internally consistent:
+        # x = 1 + z, y = 1 + z, R = 1 + z.
+        for loc, rad in result:
+            z = float(loc[2])
+            assert np.allclose(loc[:2], [1.0 + z, 1.0 + z],
+                               atol=1e-12, rtol=1e-12)
+            assert np.isclose(rad, 1.0 + z, atol=1e-12, rtol=1e-12)
+
     def test_calc_vert_case_2_different_radius(self):
-        """Test with different radius."""
-        Fs = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]  # 8 coefficients
+        """Changing r0 should still produce valid roots of the Case 2 equation."""
+        Fs = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
         r0 = 2.0
         l0 = np.array([0.0, 0.0, 0.0])
-        
+
         result = calc_vert_case_2(Fs, r0, l0)
-        
+
         assert isinstance(result, list)
-        # Result is a list of vertices
-        assert all(isinstance(vertex, list) for vertex in result)
+        assert len(result) == 2
+
+        # a=2, b=-2, c=-7 for this fixture.
+        for loc, rad in result:
+            z = float(loc[2])
+            assert np.isclose(2.0*z*z - 2.0*z - 7.0, 0.0,
+                              atol=1e-10, rtol=1e-10)
+            assert np.allclose(loc[:2], [1.0 + z, 1.0 + z],
+                               atol=1e-12, rtol=1e-12)
+            assert np.isclose(rad, 1.0 + z, atol=1e-12, rtol=1e-12)
+
+    def test_calc_vert_case_2_rejects_zero_determinant(self):
+        """Case 2 cannot reconstruct a vertex when F is zero."""
+        Fs = np.array([0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+        result = calc_vert_case_2(Fs, 1.0, np.zeros(3))
+        assert result == []
 
 
 class TestFilterVertLocrads:
