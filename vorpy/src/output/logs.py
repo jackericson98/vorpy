@@ -1,5 +1,6 @@
-import csv
 import os
+import pandas as pd
+import csv
 import numpy as np
 from datetime import datetime
 from vorpy.src.calculations import round_func
@@ -265,6 +266,9 @@ def write_logs(group, net_name=None, round_to=None):
 
 
 def write_interface_logs(iface, net_name=None, round_to=None):
+    _debug_interface_logs = os.environ.get("VORPY_INTERFACE_LOG_DEBUG", "0") == "1"
+    import time
+    _log_t_total = time.perf_counter()
     """
     Export an Interface network using the standard vorPy log format.
 
@@ -501,64 +505,123 @@ def write_interface_logs(iface, net_name=None, round_to=None):
     # Gather interface atom mappings and aggregate information
     # ------------------------------------------------------------------
 
+    _log_t_mapping = time.perf_counter()
+
     interface_atom_records = []
-    unique_system_indices = set()
+    system_atom_cache = {}
 
-    if balls is not None:
-        for dataframe_index, atom in balls.iterrows():
-            topology_index = get_topology_index(atom, dataframe_index)
-            system_index = get_system_index(atom, topology_index)
+    if balls is not None and num_balls > 0:
+        dataframe_indices = list(balls.index)
 
-            interface_atom_records.append(
-                {
+        if "num" in balls.columns:
+            topology_values = balls["num"].to_numpy(copy=False)
+        else:
+            topology_values = np.asarray(dataframe_indices)
+
+        if "system_num" in balls.columns:
+            raw_system_values = balls["system_num"].to_numpy(copy=False)
+        else:
+            raw_system_values = topology_values
+
+        # Resolve system indices once without materializing every network-ball
+        # row as a Python dictionary.
+        system_indices = np.empty(num_balls, dtype=int)
+        for position, value in enumerate(raw_system_values):
+            try:
+                system_indices[position] = int(value)
+            except (TypeError, ValueError):
+                try:
+                    system_indices[position] = int(topology_values[position])
+                except (TypeError, ValueError):
+                    system_indices[position] = int(dataframe_indices[position])
+
+        # Interface mass/COM are vector operations across all network balls.
+        # This replaces the old all-row DataFrame->dict conversion.
+        try:
+            locations = np.asarray(balls["loc"].tolist(), dtype=float)
+            parent_masses = np.asarray(sys.balls["mass"].to_numpy(), dtype=float)
+            masses = parent_masses[system_indices]
+        except (KeyError, IndexError, TypeError, ValueError):
+            locations = np.asarray(balls["loc"].tolist(), dtype=float)
+            try:
+                masses = np.asarray(balls["mass"].to_numpy(), dtype=float)
+            except (KeyError, TypeError, ValueError):
+                masses = np.zeros(num_balls, dtype=float)
+
+        finite_mass = np.isfinite(masses)
+        masses = np.where(finite_mass, masses, 0.0)
+        total_mass = float(masses.sum())
+        if total_mass > 0.0 and len(locations) == len(masses):
+            interface_com = (
+                (locations * masses[:, None]).sum(axis=0) / total_mass
+            ).tolist()
+        else:
+            interface_com = [0.0, 0.0, 0.0]
+
+        # Only atoms with nonzero interface surface area are emitted in the
+        # atom section. Convert only those rows, and only columns the writer
+        # actually consumes.
+        if "sa" in balls.columns:
+            sa_values = pd.to_numeric(balls["sa"], errors="coerce").fillna(0.0).to_numpy()
+            active_positions = np.flatnonzero(sa_values != 0.0)
+        else:
+            active_positions = np.arange(num_balls, dtype=int)
+
+        atom_columns = [
+            "loc", "rad", "mass", "sa", "complete", "bounding_box",
+            "com", "moi", "vol", "vdw_vol", "max_mean_curv",
+            "avg_mean_surf_curv", "max_gauss_curv", "avg_gauss_surf_curv",
+            "int_mean_curv", "int_mean_curv_sq", "int_gauss_curv",
+            "surf_energy", "sphericity", "isometric_quotient", "ball_inside",
+            "number_of_neighbors", "nearest_neighbor",
+            "nearest_neighbor_distance", "neighbor_distance_average",
+            "neighbor_distance_rmsd", "min_spike", "max_spike",
+            "number_of_olaps", "contact_area", "olap_vol",
+        ]
+        atom_columns = [column for column in atom_columns if column in balls.columns]
+
+        if len(active_positions) > 0:
+            active_records = balls.iloc[active_positions][atom_columns].to_dict(orient="records")
+            active_system_indices = sorted(set(int(system_indices[pos]) for pos in active_positions))
+
+            try:
+                selected_system_rows = sys.balls.iloc[active_system_indices]
+                selected_columns = [
+                    column for column in
+                    ("name", "res_name", "res_seq", "chain_name", "mass")
+                    if column in selected_system_rows.columns
+                ]
+                selected_records = selected_system_rows[selected_columns].to_dict(orient="records")
+                system_atom_cache = {
+                    int(system_index): record
+                    for system_index, record in zip(active_system_indices, selected_records)
+                }
+            except (IndexError, KeyError, TypeError, ValueError):
+                system_atom_cache = {}
+
+            for position, atom in zip(active_positions, active_records):
+                dataframe_index = dataframe_indices[position]
+                try:
+                    topology_index = int(topology_values[position])
+                except (TypeError, ValueError):
+                    topology_index = int(dataframe_index)
+
+                interface_atom_records.append({
                     "dataframe_index": dataframe_index,
                     "topology_index": topology_index,
-                    "system_index": system_index,
+                    "system_index": int(system_indices[position]),
                     "atom": atom,
-                }
-            )
-
-            unique_system_indices.add(system_index)
-
-    total_mass = 0.0
-    weighted_center = np.zeros(3, dtype=float)
-
-    for record in interface_atom_records:
-        system_index = record["system_index"]
-        atom = record["atom"]
-
-        try:
-            sys_atom = sys.balls.iloc[system_index]
-        except (IndexError, KeyError, TypeError):
-            sys_atom = None
-
-        if sys_atom is not None:
-            mass = safe_float(sys_atom.get("mass", 0.0))
-        else:
-            mass = safe_float(atom.get("mass", 0.0))
-
-        location = safe_list(
-            atom.get("loc", [0.0, 0.0, 0.0]),
-            default=[0.0, 0.0, 0.0],
-        )
-
-        if len(location) < 3:
-            location = list(location) + [0.0] * (3 - len(location))
-
-        location_array = np.asarray(location[:3], dtype=float)
-
-        total_mass += mass
-        weighted_center += mass * location_array
-
-    if total_mass > 0:
-        interface_com = (weighted_center / total_mass).tolist()
+                })
     else:
+        total_mass = 0.0
         interface_com = [0.0, 0.0, 0.0]
 
     if num_surfs > 0 and "sa" in surfs.columns:
         interface_surface_area = safe_float(surfs["sa"].sum())
     else:
         interface_surface_area = 0.0
+
+    _log_mapping_seconds = time.perf_counter() - _log_t_mapping
 
     # An interface-only network does not necessarily define a closed volume.
     undefined_scalar = float("nan")
@@ -568,6 +631,39 @@ def write_interface_logs(iface, net_name=None, round_to=None):
         [0.0, 0.0, 0.0],
         [0.0, 0.0, 0.0],
     ]
+
+    # ------------------------------------------------------------------
+    # Precompute lookup tables used by the atom section.
+    #
+    # The legacy implementation performed a pandas surface lookup for every
+    # atom/surface relationship.  On large interface networks that dominates
+    # export time.  Build the topology neighbor map once instead.
+    # ------------------------------------------------------------------
+
+    _log_t_prepare = time.perf_counter()
+
+    neighbor_map = {}
+    if surfs is not None and num_surfs > 0:
+        # Pull the small topology column out of pandas once and build the
+        # adjacency map using native Python containers.
+        for surface_balls in surfs["balls"].tolist():
+            surface_balls = safe_list(surface_balls, default=[])
+            if len(surface_balls) < 2:
+                continue
+            try:
+                ball1 = int(surface_balls[0])
+                ball2 = int(surface_balls[1])
+            except (TypeError, ValueError):
+                continue
+            neighbor_map.setdefault(ball1, set()).add(ball2)
+            neighbor_map.setdefault(ball2, set()).add(ball1)
+
+    neighbor_map = {
+        atom_index: sorted(neighbors)
+        for atom_index, neighbors in neighbor_map.items()
+    }
+
+    _log_prepare_seconds = time.perf_counter() - _log_t_prepare
 
     # ------------------------------------------------------------------
     # Write the log
@@ -631,15 +727,20 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                         "Non-Overlap Volume", "Overlap Volume", "Center of Mass", "Moment of Inertia Tensor",
                         "Bounding Box", "neighbors"])
 
+        _log_t_atoms = time.perf_counter()
+        _log_atom_rows = 0
+
         for record in interface_atom_records:
             atom = record["atom"]
             topology_index = record["topology_index"]
             system_index = record["system_index"]
 
-            try:
-                sys_atom = sys.balls.iloc[system_index]
-            except (IndexError, KeyError, TypeError):
-                sys_atom = None
+            # Skip non-participating atoms before any metadata or topology work.
+            atom_surface_area = safe_float(atom.get("sa", 0.0))
+            if atom_surface_area == 0:
+                continue
+
+            sys_atom = system_atom_cache.get(int(system_index))
 
             if sys_atom is None:
                 atom_name = str(atom.get("name", ""))
@@ -662,54 +763,10 @@ def write_interface_logs(iface, net_name=None, round_to=None):
             if len(location) < 3:
                 location += [0.0] * (3 - len(location))
 
-            # Determine neighbors from the atom's surfaces.
-            neighbors = []
-
-            atom_surface_indices = safe_list(
-                atom.get("surfs", []),
-                default=[],
-            )
-
-            if surfs is not None:
-                for surface_index in atom_surface_indices:
-                    try:
-                        surface_balls = safe_list(
-                            surfs.loc[surface_index, "balls"],
-                            default=[],
-                        )
-                    except (KeyError, IndexError, TypeError):
-                        try:
-                            surface_balls = safe_list(
-                                surfs.iloc[int(surface_index)]["balls"],
-                                default=[],
-                            )
-                        except (KeyError, IndexError, TypeError, ValueError):
-                            continue
-
-                    if len(surface_balls) < 2:
-                        continue
-
-                    ball1 = int(surface_balls[0])
-                    ball2 = int(surface_balls[1])
-
-                    if ball1 == topology_index:
-                        neighbor = ball2
-                    elif ball2 == topology_index:
-                        neighbor = ball1
-                    else:
-                        continue
-
-                    if neighbor not in neighbors:
-                        neighbors.append(neighbor)
+            # Neighbor relationships were precomputed from surfaces once.
+            neighbors = neighbor_map.get(int(topology_index), [])
 
             complete = bool(atom.get("complete", False))
-
-            # Preserve the existing writer behavior and skip atoms with
-            # no surface area.
-            atom_surface_area = safe_float(atom.get("sa", 0.0))
-
-            if atom_surface_area == 0:
-                continue
 
             bounding_box = safe_nested_list(atom.get("bounding_box"), default=[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
 
@@ -781,6 +838,11 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                 neighbors,
             ]
             )
+            _log_atom_rows += 1
+
+        _log_atom_seconds = time.perf_counter() - _log_t_atoms
+        if _debug_interface_logs:
+            print(f"[INTERFACE LOG] atoms: {_log_atom_rows} rows in {_log_atom_seconds:.3f} s")
 
         # ==============================================================
         # Surfaces
@@ -809,6 +871,8 @@ def write_interface_logs(iface, net_name=None, round_to=None):
             ]
         )
 
+        _log_t_surfaces = time.perf_counter()
+        _log_surface_rows = 0
         if surfs is not None:
             for surface_index, surf in surfs.iterrows():
                 surface_balls = safe_list(
@@ -863,6 +927,11 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                         safe_round(surf.get("overlap", 0.0)),
                     ]
                 )
+                _log_surface_rows += 1
+
+        _log_surface_seconds = time.perf_counter() - _log_t_surfaces
+        if _debug_interface_logs:
+            print(f"[INTERFACE LOG] surfaces: {_log_surface_rows} rows in {_log_surface_seconds:.3f} s")
 
         # ==============================================================
         # Edges
@@ -880,6 +949,8 @@ def write_interface_logs(iface, net_name=None, round_to=None):
             ]
         )
 
+        _log_t_edges = time.perf_counter()
+        _log_edge_rows = 0
         if edges is not None:
             for edge_index, edge in edges.iterrows():
                 edge_balls = safe_list(
@@ -899,6 +970,11 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                         safe_round(edge.get("length", 0.0)),
                     ]
                 )
+                _log_edge_rows += 1
+
+        _log_edge_seconds = time.perf_counter() - _log_t_edges
+        if _debug_interface_logs:
+            print(f"[INTERFACE LOG] edges: {_log_edge_rows} rows in {_log_edge_seconds:.3f} s")
 
         # ==============================================================
         # Vertices
@@ -920,6 +996,8 @@ def write_interface_logs(iface, net_name=None, round_to=None):
             ]
         )
 
+        _log_t_vertices = time.perf_counter()
+        _log_vertex_rows = 0
         if verts is not None:
             for vertex_index, vert in verts.iterrows():
                 vertex_balls = safe_list(
@@ -953,5 +1031,25 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                         safe_round(vert.get("rad", 0.0)),
                     ]
                 )
+                _log_vertex_rows += 1
+
+        _log_vertex_seconds = time.perf_counter() - _log_t_vertices
+        if _debug_interface_logs:
+            print(f"[INTERFACE LOG] vertices: {_log_vertex_rows} rows in {_log_vertex_seconds:.3f} s")
+
+    _log_total_seconds = time.perf_counter() - _log_t_total
+    if _debug_interface_logs:
+        print("\n" + "=" * 72)
+        print("INTERFACE LOG EXPORT TIMING")
+        print("=" * 72)
+        print(f"Atom mapping / metadata     {_log_mapping_seconds:10.3f} s")
+        print(f"Preparation / caches        {_log_prepare_seconds:10.3f} s")
+        print(f"Atoms                       {_log_atom_seconds:10.3f} s")
+        print(f"Surfaces                    {_log_surface_seconds:10.3f} s")
+        print(f"Edges                       {_log_edge_seconds:10.3f} s")
+        print(f"Vertices                    {_log_vertex_seconds:10.3f} s")
+        print("-" * 72)
+        print(f"TOTAL                       {_log_total_seconds:10.3f} s")
+        print("=" * 72 + "\n")
 
     return log_path
