@@ -1,328 +1,707 @@
+"""Backward-compatible VorPy log reader with modern header-driven parsing.
+
+Key improvement
+---------------
+Modern VorPy logs contain additional atom/surface curvature and representative
+surface-energy fields. Older read_logs2 versions parsed rows positionally,
+which silently shifted fields after newly inserted columns.
+
+This reader uses each section's CSV header to map values by column name.
+Older logs remain supported through aliases and positional fallbacks.
+"""
+
+import ast
 import csv
+import re
+from pathlib import Path
 
 import pandas as pd
 
 
-def parse_string_lists_int(string_list, apply_type=int):
-    # Test if it is just one single list
-    if string_list[1] != '[':
-        listy, current_number = [], ''
-        for letter in string_list:
-            if letter.isdigit() or letter == '.':
-                current_number += letter
-            elif letter == ',':
-                listy.append(apply_type(current_number))
-                current_number = ''
-    else:
-        listy, current_number = [[]], ''
-        for letter in string_list:
-            if letter.isdigit() or letter == '.':
-                current_number += letter
-            elif letter == ',' and len(current_number) > 0:
-                listy[-1].append(apply_type(current_number))
-                current_number = ''
-            elif letter == ']':
-                listy.append([])
-                current_number = ''
-    return listy
+# ---------------------------------------------------------------------------
+# Generic converters
+# ---------------------------------------------------------------------------
+
+def sort_bool(value):
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() == "true"
 
 
-def parse_string_lists(string_list, apply_type=float):
-    # Check if the string list contains np.float64 values
-    if 'n' in string_list and 'p' in string_list:
-        remove_float_vals = True
-    else:
-        remove_float_vals = False
-    # Test if it is just one single list
-    if string_list[1] != '[':
-        listy, current_number = [], ''
-        for letter in string_list:
-            if letter.isdigit() or letter == '.':
-                current_number += letter
-            elif letter == ',':
-                if remove_float_vals:
-                    current_number = current_number[2:]
-                listy.append(apply_type(current_number))
-                current_number = ''
-    else:
-        listy, current_number = [[]], ''
-        for letter in string_list:
-            if letter.isdigit() or letter == '.':
-                current_number += letter
-            elif letter == ',' and len(current_number) > 0:
-                if remove_float_vals:
-                    current_number = current_number[2:]
-                listy[-1].append(apply_type(current_number))
-                current_number = ''
-            elif letter == ']':
-                listy.append([])
-                current_number = ''
-    return listy
+def _strip_numpy_wrappers(value):
+    """Turn strings like np.float64(1.2) into 1.2 before literal_eval."""
+    value = str(value)
+    value = re.sub(
+        r"(?:np\.)?(?:float16|float32|float64|int16|int32|int64)\(([^()]*)\)",
+        r"\1",
+        value,
+    )
+    return value
 
 
-def sort_bool(stringy):
-    return True if stringy == 'True' else False
+def parse_string_lists(value, apply_type=float):
+    """Parse scalar/list/nested-list CSV strings robustly, including negatives."""
+    if value is None:
+        return []
 
+    if isinstance(value, (list, tuple)):
+        def convert(obj):
+            if isinstance(obj, (list, tuple)):
+                return [convert(x) for x in obj]
+            return apply_type(obj)
+        return convert(value)
 
-atom_vals = {'Index': int, 'Name': str, 'Residue': str, 'Residue Sequence': int, 'Chain': str, 'Mass': float,
-             'X': float, 'Y': float, 'Z': float, 'Radius': float, 'Volume': float, 'Van Der Waals Volume': float,
-             'Surface Area': float, 'Complete Cell?': sort_bool, 'Maximum Mean Curvature': float,
-             'Average Mean Surface Curvature': float, 'Maximum Gaussian Curvature': float,
-             'Average Gaussian Surface Curvature': float, 'Sphericity': float, 'Isometric Quotient': float,
-             'Inner Ball?': sort_bool, 'Number of Neighbors': int, 'Closest Neighbor': int,
-             'Closest Neighbor Distance': float, 'Layer Distance Average': parse_string_lists,
-             'Layer Distance RMSD': parse_string_lists, 'Minimum Point Distance': float,
-             'Maximum Point Distance': float, 'Number of Overlaps': int, 'Contact Area': float,
-             'Non - Overlap Volume': float, 'Overlap Volume': float, 'Center of Mass': parse_string_lists,
-             'Moment of Inertia Tensor': parse_string_lists, 'Bounding Box': parse_string_lists,
-             'Neighbors': parse_string_lists_int}
+    text = str(value).strip()
+    if text == "":
+        return []
 
+    text = _strip_numpy_wrappers(text)
 
-atom_vals_old = {'Index': int, 'Name': str, 'Residue': str, 'Residue Sequence': int, 'Chain': str, 'Mass': float,
-                 'X': float, 'Y': float, 'Z': float, 'Radius': float, 'Volume': float, 'Van Der Waals Volume': float,
-                 'Surface Area': float, 'Complete Cell?': sort_bool, 'Maximum Curvature': float,
-                 'Average Surface Curvature': float, 'Sphericity': float, 'Isometric Quotient': float,
-                 'Inner Ball?': sort_bool, 'Number of Neighbors': int, 'Closest Neighbor': int,
-                 'Closest Neighbor Distance': float, 'Layer Distance Average': parse_string_lists,
-                 'Layer Distance RMSD': parse_string_lists, 'Minimum Point Distance': float,
-                 'Maximum Point Distance': float, 'Number of Overlaps': int, 'Contact Area': float,
-                 'Non - Overlap Volume': float, 'Overlap Volume': float, 'Center of Mass': parse_string_lists,
-                 'Moment of Inertia Tensor': parse_string_lists, 'Bounding Box': parse_string_lists,
-                 'Neighbors': parse_string_lists_int}
-
-
-def read_atom(atom_line):
-    atom = {}
     try:
-        for i, title in enumerate(atom_vals):
-            atom[title] = atom_vals[title](atom_line[i])
-    except ValueError:
-        for i, title in enumerate(atom_vals_old):
-            atom[title] = atom_vals_old[title](atom_line[i])
+        parsed = ast.literal_eval(text)
+    except (ValueError, SyntaxError):
+        # Conservative compatibility fallback.
+        numbers = re.findall(
+            r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?",
+            text,
+        )
+        return [apply_type(x) for x in numbers]
+
+    def convert(obj):
+        if isinstance(obj, (list, tuple)):
+            return [convert(x) for x in obj]
+        return apply_type(obj)
+
+    if isinstance(parsed, (list, tuple)):
+        return convert(parsed)
+
+    return [apply_type(parsed)]
+
+
+def parse_string_lists_int(value, apply_type=int):
+    return parse_string_lists(value, apply_type=apply_type)
+
+
+def _to_int(value, default=0):
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _to_float(value, default=0.0):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _to_str(value):
+    return "" if value is None else str(value)
+
+
+def _norm_header(value):
+    """Normalize a CSV header enough to survive spelling/case variations."""
+    value = str(value).strip().lower()
+    value = value.replace("_", " ")
+    value = value.replace("-", " ")
+    value = re.sub(r"\s+", " ", value)
+    return value
+
+
+def _row_dict(headers, row):
+    """Map a CSV row by header, padding missing trailing fields with ''."""
+    return {
+        _norm_header(header): (row[i] if i < len(row) else "")
+        for i, header in enumerate(headers)
+    }
+
+
+def _get(mapped, *names, default=""):
+    for name in names:
+        key = _norm_header(name)
+        if key in mapped and mapped[key] != "":
+            return mapped[key]
+    return default
+
+
+# ---------------------------------------------------------------------------
+# Atom parsing
+# ---------------------------------------------------------------------------
+
+ATOM_CONVERTERS = {
+    "Index": _to_int,
+    "Name": _to_str,
+    "Residue": _to_str,
+    "Residue Sequence": _to_int,
+    "Chain": _to_str,
+    "Mass": _to_float,
+    "X": _to_float,
+    "Y": _to_float,
+    "Z": _to_float,
+    "Radius": _to_float,
+    "Volume": _to_float,
+    "Van Der Waals Volume": _to_float,
+    "Surface Area": _to_float,
+    "Complete Cell?": sort_bool,
+
+    # Modern curvature fields
+    "Maximum Mean Curvature": _to_float,
+    "Average Mean Surface Curvature": _to_float,
+    "Maximum Gaussian Curvature": _to_float,
+    "Average Gaussian Surface Curvature": _to_float,
+    "Integrated Mean Curvature": _to_float,
+    "Integrated Mean Curvature Squared": _to_float,
+    "Integrated Gaussian Curvature": _to_float,
+    "Representative Surface Energy": _to_float,
+
+    # Older curvature aliases retained below too
+    "Maximum Curvature": _to_float,
+    "Average Surface Curvature": _to_float,
+
+    "Sphericity": _to_float,
+    "Isometric Quotient": _to_float,
+    "Inner Ball?": sort_bool,
+    "Number of Neighbors": _to_int,
+    "Closest Neighbor": _to_int,
+    "Closest Neighbor Distance": _to_float,
+    "Layer Distance Average": parse_string_lists,
+    "Layer Distance RMSD": parse_string_lists,
+    "Minimum Point Distance": _to_float,
+    "Maximum Point Distance": _to_float,
+    "Number of Overlaps": _to_int,
+    "Contact Area": _to_float,
+    "Non-Overlap Volume": _to_float,
+    "Overlap Volume": _to_float,
+    "Center of Mass": parse_string_lists,
+    "Moment of Inertia Tensor": parse_string_lists,
+    "Bounding Box": parse_string_lists,
+    "Neighbors": parse_string_lists_int,
+}
+
+
+ATOM_ALIASES = {
+    "Van Der Waals Volume": ["VDW Volume"],
+    "Non-Overlap Volume": ["Non - Overlap Volume", "Non Overlap Volume"],
+    "Neighbors": ["neighbors"],
+}
+
+
+def read_atom(atom_line, headers=None):
+    """Parse an atom row, preferably from its actual CSV header."""
+    if headers is None:
+        # Legacy fallback layouts.
+        modern_legacy_headers = [
+            "Index", "Name", "Residue", "Residue Sequence", "Chain", "Mass",
+            "X", "Y", "Z", "Radius", "Volume", "Van Der Waals Volume",
+            "Surface Area", "Complete Cell?", "Maximum Mean Curvature",
+            "Average Mean Surface Curvature", "Maximum Gaussian Curvature",
+            "Average Gaussian Surface Curvature", "Sphericity",
+            "Isometric Quotient", "Inner Ball?", "Number of Neighbors",
+            "Closest Neighbor", "Closest Neighbor Distance",
+            "Layer Distance Average", "Layer Distance RMSD",
+            "Minimum Point Distance", "Maximum Point Distance",
+            "Number of Overlaps", "Contact Area", "Non-Overlap Volume",
+            "Overlap Volume", "Center of Mass", "Moment of Inertia Tensor",
+            "Bounding Box", "Neighbors",
+        ]
+
+        old_headers = [
+            "Index", "Name", "Residue", "Residue Sequence", "Chain", "Mass",
+            "X", "Y", "Z", "Radius", "Volume", "Van Der Waals Volume",
+            "Surface Area", "Complete Cell?", "Maximum Curvature",
+            "Average Surface Curvature", "Sphericity", "Isometric Quotient",
+            "Inner Ball?", "Number of Neighbors", "Closest Neighbor",
+            "Closest Neighbor Distance", "Layer Distance Average",
+            "Layer Distance RMSD", "Minimum Point Distance",
+            "Maximum Point Distance", "Number of Overlaps", "Contact Area",
+            "Non-Overlap Volume", "Overlap Volume", "Center of Mass",
+            "Moment of Inertia Tensor", "Bounding Box", "Neighbors",
+        ]
+
+        headers = (
+            modern_legacy_headers
+            if len(atom_line) >= len(modern_legacy_headers)
+            else old_headers
+        )
+
+    mapped = _row_dict(headers, atom_line)
+    atom = {}
+
+    for canonical, converter in ATOM_CONVERTERS.items():
+        aliases = ATOM_ALIASES.get(canonical, [])
+        raw = _get(mapped, canonical, *aliases, default="")
+        if raw == "":
+            continue
+        atom[canonical] = converter(raw)
+
+    # Friendly aliases expected by some older analysis code.
+    if "Name" in atom:
+        atom["name"] = atom["Name"]
+
+    if "Radius" in atom:
+        atom["rad"] = atom["Radius"]
+
+    if all(k in atom for k in ("X", "Y", "Z")):
+        atom["loc"] = [atom["X"], atom["Y"], atom["Z"]]
+
+    # Normalize old curvature names into modern names where possible.
+    if "Maximum Mean Curvature" not in atom and "Maximum Curvature" in atom:
+        atom["Maximum Mean Curvature"] = atom["Maximum Curvature"]
+
+    if (
+        "Average Mean Surface Curvature" not in atom
+        and "Average Surface Curvature" in atom
+    ):
+        atom["Average Mean Surface Curvature"] = atom["Average Surface Curvature"]
+
     return atom
 
 
-def read_surf(surf_line):
+# ---------------------------------------------------------------------------
+# Surface parsing
+# ---------------------------------------------------------------------------
+
+def read_surf(surf_line, headers=None):
     """
-    Parse a surface line.
+    Parse old and modern surface rows.
 
-    Handles both the original 8–10 field formats and newer / extended formats
-    where additional columns have been appended (e.g., 36 entries). For
-    extended formats, only the first 10 columns are used:
-
-      0: Index
-      1: Ball 1
-      2: Ball 2
-      3: Surface Area
-      4: Mean Curvature (or Curvature in older logs)
-      5: Gauss / Gaussian Curvature (if present)
-      6: Ball 1 volume contribution
-      7: Ball 2 volume contribution
-      8: Contact Area
-      9: Overlap
+    Modern 3.5.x example header:
+        Index
+        Ball 1
+        Ball 2
+        Surface Area
+        Mean Curvature
+        Average Mean Curvature
+        Gaussian Curvature
+        Average Gaussian Curvature
+        Integrated Mean Curvature
+        Integrated Mean Curvature Squared
+        Integrated Gaussian Curvature
+        Representative Surface Energy
+        Ball 1 Volume Contribution
+        Ball 2 Volume Contribution
+        Contact Area
+        Overlap
     """
     while surf_line and surf_line[-1] == "":
         surf_line = surf_line[:-1]
 
+    if not surf_line:
+        return None
+
+    if headers is not None:
+        mapped = _row_dict(headers, surf_line)
+
+        surf = {
+            "Index": _to_int(_get(mapped, "Index")),
+            "Balls": [
+                _to_int(_get(mapped, "Ball 1")),
+                _to_int(_get(mapped, "Ball 2")),
+            ],
+            "Surface Area": _to_float(_get(mapped, "Surface Area")),
+        }
+
+        optional_float_fields = {
+            "Mean Curvature": ["Mean Curvature", "Curvature"],
+            "Average Mean Curvature": ["Average Mean Curvature"],
+            "Gauss Curvature": ["Gaussian Curvature", "Gauss Curvature"],
+            "Average Gauss Curvature": [
+                "Average Gaussian Curvature",
+                "Average Gauss Curvature",
+            ],
+            "Integrated Mean Curvature": ["Integrated Mean Curvature"],
+            "Integrated Mean Curvature Squared": [
+                "Integrated Mean Curvature Squared"
+            ],
+            "Integrated Gaussian Curvature": [
+                "Integrated Gaussian Curvature"
+            ],
+            "Representative Surface Energy": [
+                "Representative Surface Energy"
+            ],
+            "Contact Area": ["Contact Area"],
+            "Overlap": ["Overlap"],
+        }
+
+        for canonical, aliases in optional_float_fields.items():
+            raw = _get(mapped, *aliases, default="")
+            if raw != "":
+                surf[canonical] = _to_float(raw)
+
+        b1v = _get(
+            mapped,
+            "Ball 1 Volume Contribution",
+            "Ball 1 Volume",
+            default="",
+        )
+        b2v = _get(
+            mapped,
+            "Ball 2 Volume Contribution",
+            "Ball 2 Volume",
+            default="",
+        )
+
+        volumes = []
+        if b1v != "":
+            volumes.append(_to_float(b1v))
+        if b2v != "":
+            volumes.append(_to_float(b2v))
+        surf["Ball Volumes"] = volumes
+
+        surf.setdefault("Contact Area", 0.0)
+        surf.setdefault("Overlap", 0.0)
+
+        return surf
+
+    # Positional fallback for legacy files without a captured header.
     n = len(surf_line)
 
-    if n >= 12:
-        core = surf_line[:12]
+    if n >= 16:
         return {
-            "Index": int(core[0]),
-            "Balls": [int(core[1]), int(core[2])],
-            "Surface Area": float(core[3]),
-            "Mean Curvature": float(core[4]),
-            "Average Mean Curvature": float(core[5]),
-            "Gauss Curvature": float(core[6]),
-            "Average Gauss Curvature": float(core[7]),
-            "Ball Volumes": [float(x) for x in core[8:10] if x != ""],
-            "Contact Area": float(core[10]),
-            "Overlap": float(core[11]),
+            "Index": _to_int(surf_line[0]),
+            "Balls": [_to_int(surf_line[1]), _to_int(surf_line[2])],
+            "Surface Area": _to_float(surf_line[3]),
+            "Mean Curvature": _to_float(surf_line[4]),
+            "Average Mean Curvature": _to_float(surf_line[5]),
+            "Gauss Curvature": _to_float(surf_line[6]),
+            "Average Gauss Curvature": _to_float(surf_line[7]),
+            "Integrated Mean Curvature": _to_float(surf_line[8]),
+            "Integrated Mean Curvature Squared": _to_float(surf_line[9]),
+            "Integrated Gaussian Curvature": _to_float(surf_line[10]),
+            "Representative Surface Energy": _to_float(surf_line[11]),
+            "Ball Volumes": [
+                _to_float(surf_line[12]),
+                _to_float(surf_line[13]),
+            ],
+            "Contact Area": _to_float(surf_line[14]),
+            "Overlap": _to_float(surf_line[15]),
         }
 
-    elif n == 10:
+    if n == 12:
         return {
-            "Index": int(surf_line[0]),
-            "Balls": [int(surf_line[1]), int(surf_line[2])],
-            "Surface Area": float(surf_line[3]),
-            "Mean Curvature": float(surf_line[4]),
-            "Gauss Curvature": float(surf_line[5]),
-            "Ball Volumes": [float(x) for x in surf_line[6:8] if x != ""],
-            "Contact Area": float(surf_line[8]),
-            "Overlap": float(surf_line[9]),
+            "Index": _to_int(surf_line[0]),
+            "Balls": [_to_int(surf_line[1]), _to_int(surf_line[2])],
+            "Surface Area": _to_float(surf_line[3]),
+            "Mean Curvature": _to_float(surf_line[4]),
+            "Average Mean Curvature": _to_float(surf_line[5]),
+            "Gauss Curvature": _to_float(surf_line[6]),
+            "Average Gauss Curvature": _to_float(surf_line[7]),
+            "Ball Volumes": [
+                _to_float(surf_line[8]),
+                _to_float(surf_line[9]),
+            ],
+            "Contact Area": _to_float(surf_line[10]),
+            "Overlap": _to_float(surf_line[11]),
         }
 
-    elif n == 9:
+    if n == 10:
         return {
-            "Index": int(surf_line[0]),
-            "Balls": [int(surf_line[1]), int(surf_line[2])],
-            "Surface Area": float(surf_line[3]),
-            "Mean Curvature": float(surf_line[4]),
-            "Gauss Curvature": float(surf_line[5]),
-            "Ball Volumes": [float(x) for x in surf_line[6:8] if x != ""],
-            "Contact Area": float(surf_line[8]),
+            "Index": _to_int(surf_line[0]),
+            "Balls": [_to_int(surf_line[1]), _to_int(surf_line[2])],
+            "Surface Area": _to_float(surf_line[3]),
+            "Mean Curvature": _to_float(surf_line[4]),
+            "Gauss Curvature": _to_float(surf_line[5]),
+            "Ball Volumes": [
+                _to_float(surf_line[6]),
+                _to_float(surf_line[7]),
+            ],
+            "Contact Area": _to_float(surf_line[8]),
+            "Overlap": _to_float(surf_line[9]),
+        }
+
+    if n == 9:
+        return {
+            "Index": _to_int(surf_line[0]),
+            "Balls": [_to_int(surf_line[1]), _to_int(surf_line[2])],
+            "Surface Area": _to_float(surf_line[3]),
+            "Mean Curvature": _to_float(surf_line[4]),
+            "Gauss Curvature": _to_float(surf_line[5]),
+            "Ball Volumes": [
+                _to_float(surf_line[6]),
+                _to_float(surf_line[7]),
+            ],
+            "Contact Area": _to_float(surf_line[8]),
             "Overlap": 0.0,
         }
 
-    elif n == 8:
+    if n == 8:
         return {
-            "Index": int(surf_line[0]),
-            "Balls": [int(surf_line[1]), int(surf_line[2])],
-            "Surface Area": float(surf_line[3]),
-            "Curvature": float(surf_line[4]),
-            "Ball Volumes": [float(x) for x in surf_line[5:7] if x != ""],
-            "Contact Area": float(surf_line[7]),
+            "Index": _to_int(surf_line[0]),
+            "Balls": [_to_int(surf_line[1]), _to_int(surf_line[2])],
+            "Surface Area": _to_float(surf_line[3]),
+            "Curvature": _to_float(surf_line[4]),
+            "Ball Volumes": [
+                _to_float(surf_line[5]),
+                _to_float(surf_line[6]),
+            ],
+            "Contact Area": _to_float(surf_line[7]),
             "Overlap": 0.0,
         }
 
     return None
 
 
-def read_edge(edge_line):
-    edge = {'Index': int(edge_line[0]), 'Balls': [int(_) for _ in edge_line[1:4]], 'Length': float(edge_line[4])}
-    return edge
+# ---------------------------------------------------------------------------
+# Edge / vertex parsing
+# ---------------------------------------------------------------------------
+
+def read_edge(edge_line, headers=None):
+    if headers is not None:
+        mapped = _row_dict(headers, edge_line)
+        return {
+            "Index": _to_int(_get(mapped, "Index")),
+            "Balls": [
+                _to_int(_get(mapped, "Ball 1")),
+                _to_int(_get(mapped, "Ball 2")),
+                _to_int(_get(mapped, "Ball 3")),
+            ],
+            "Length": _to_float(_get(mapped, "Length")),
+        }
+
+    return {
+        "Index": _to_int(edge_line[0]),
+        "Balls": [_to_int(x) for x in edge_line[1:4]],
+        "Length": _to_float(edge_line[4]),
+    }
 
 
-def read_vert(vert_line):
-    vert = {'Index': int(vert_line[0]), 'Balls': [int(_) for _ in vert_line[1:5]],
-            'loc': [float(_) for _ in vert_line[5:8]], 'rad': float(vert_line[8])}
-    return vert
+def read_vert(vert_line, headers=None):
+    if headers is not None:
+        mapped = _row_dict(headers, vert_line)
+        return {
+            "Index": _to_int(_get(mapped, "Index")),
+            "Balls": [
+                _to_int(_get(mapped, "Ball 1")),
+                _to_int(_get(mapped, "Ball 2")),
+                _to_int(_get(mapped, "Ball 3")),
+                _to_int(_get(mapped, "Ball 4")),
+            ],
+            "loc": [
+                _to_float(_get(mapped, "x")),
+                _to_float(_get(mapped, "y")),
+                _to_float(_get(mapped, "z")),
+            ],
+            "rad": _to_float(_get(mapped, "r", "Radius")),
+        }
+
+    return {
+        "Index": _to_int(vert_line[0]),
+        "Balls": [_to_int(x) for x in vert_line[1:5]],
+        "loc": [_to_float(x) for x in vert_line[5:8]],
+        "rad": _to_float(vert_line[8]),
+    }
 
 
-def read_logs2(log_files, return_dict=False, no_sol=False, all_=True, balls=False, surfs=False, edges=False, verts=False):
-    # Set up the dictionary to store the data
-    file_info = {}
-    # Create the one_file variable to track this. 
-    one_file = False
-    # Figure out if the log_files is a single file or a list of files and change the variable accordingly
-    if type(log_files) is str:
-        one_file = True
-        log_files = [log_files]
-    # Loop through the files
-    for file in log_files:
-        # Open the file
-        with open(file, 'r') as logs:
-            # Create the log reader
-            log_reader = csv.reader(logs)
-            # Set up the data type
-            data_type = 'data'
-            # Set up the lists to store the data
-            atoms, surf_list, edge_list, vert_list = [], [], [], []
-            # Set up the skip_next variable to track if the next line should be skipped
-            skip_next = False
-            # Loop through the lines
-            for i, line in enumerate(log_reader):
-                # Skip section labels
-                if i in {0, 3, 4}:
-                    continue
+# ---------------------------------------------------------------------------
+# Main log reader
+# ---------------------------------------------------------------------------
 
-                # Store the build-information headers
-                elif i == 1:
-                    build_headers = line
-                    continue
+SECTION_NAMES = {
+    "build information",
+    "build informaiton",   # historical typo in current logs
+    "group information",
+    "atoms",
+    "surfaces",
+    "edges",
+    "vertices",
+}
 
-                # Read build information using its actual column headers
-                elif i == 2:
-                    build_info = {header.strip().lower(): value for header, value in zip(build_headers, line)}
 
-                    def get_build(*keys, default=None):
-                        for key in keys:
-                            if key.lower() in build_info and build_info[key.lower()] != '':
-                                return build_info[key.lower()]
-                        return default
+def _is_section(line):
+    return bool(line) and _norm_header(line[0]) in SECTION_NAMES
 
-                    def get_float(*keys, default=0.0):
-                        value = get_build(*keys, default=default)
-                        try:
-                            return float(value)
-                        except (TypeError, ValueError):
-                            return default
 
-                    data = {
-                        'name': get_build('Name', default=''),
-                        'location': get_build('Location'),
-                        'time': get_build('Completion Date', 'Completion Time', 'Time'),
-                        'network_type': get_build('Network Type', default=''),
-                        'surface_resolution': get_float('Surface Resolution'),
-                        'box_size': get_float('Box Size'),
-                        'max_vert': get_float('Maximum Allowable Vertex', 'Max Vert'),
-                        'Total_Time': get_float('Total Time'),
-                        'vert_time': get_float('Vertex Time'),
-                        'connect_time': get_float('Connect Time'),
-                        'surf_time': get_float('Surface Building Time', 'Surface Time'),
-                        'analysis_time': get_float('Analysis time', 'Analysis Time'),
-                        'max_vertex': get_float('Maximum Found Vertex', 'Max Vertex'),
-                        'version': get_build('vorPy version', 'VorPy Version', 'Version', default='< 3.2.0')
-                    }
-                    continue
-                # Get the group data
-                elif i == 5:
-                    group_data = {'Name': line[0], 'Volume': float(line[1]), 'Surface Area': float(line[2]),
-                                  'Mass': float(line[3]), 'Density': float(line[4]),
-                                  'Center of Mass': parse_string_lists(line[5]), 'VDW Volume': float(line[6]),
-                                  'VDW Center of Mass': parse_string_lists(line[7]),
-                                  'Moment of Inertia': parse_string_lists(line[8]),
-                                  'Spatial Moment of Inertia': parse_string_lists(line[9])}
-                    continue
+def _parse_build(headers, row):
+    mapped = _row_dict(headers, row)
 
-                # If the line is a build information, group information, Atoms, Edges, Surfaces, or Vertices, set the
-                # data type and skip the next line
-                if line[0] in {'build information', 'group information', 'Atoms', 'Edges', 'Surfaces', 'Vertices'}:
-                    data_type = line[0]
-                    skip_next = True
-                    continue
+    def get(*keys, default=None):
+        return _get(mapped, *keys, default=default)
 
-                # If the skip_next variable is True, skip the next line
-                if skip_next:
-                    skip_next = False
-                    continue
-                # If the data type is Atoms and the all_ or balls variable is True, read the atom data
-                elif data_type == 'Atoms' and (all_ or balls):
-                    my_atom = read_atom(line)
-                    my_atom['rad'], my_atom['loc'] = my_atom['Radius'], [my_atom['X'], my_atom['Y'], my_atom['Z']]
-                    if no_sol and my_atom['name'].strip().lower() in {'hw1', 'hw2', 'ow', 'h02', 'h01', 'na', 'cl', 'mg', 'k'}:
-                        continue
-                    else:
-                        atoms.append(my_atom)
-                # If the data type is Surfaces and the all_ or surfs variable is True, read the surface data
-                elif data_type == 'Surfaces' and (all_ or surfs):
-                    surf_list.append(read_surf(line))
-                # If the data type is Edges and the all_ or edges variable is True, read the edge data
-                elif data_type == 'Edges' and (all_ or edges):
-                    edge_list.append(read_edge(line))
-                # If the data type is Vertices and the all_ or verts variable is True, read the vertex data
-                elif data_type == 'Vertices' and (all_ or verts):
-                    vert_list.append(read_vert(line))
-                # If the data type is not one of the above, skip the line
-                else:
-                    continue
-            # Get the file name
-            file_name = data['name']
-            # Set up the index to track the number of files with the same name
-            index = 0
-            # Loop through the file name
-            while True:
-                # If the file name is already in the dictionary, add a number to the end of the file name
-                if file_name in file_info:
-                    if index != 0:
-                        file_name = file_name[:-len(str(index - 1))]
-                    file_name = file_name + str(index)
-                else:
-                    break
-                index += 1
-            # If the return_dict variable is True, add the data to the dictionary
-            if return_dict:
-                file_info[file_name] = {'data': data, 'group data': group_data, 'atoms': atoms, 'surfs': surf_list,
-                                        'edges': edge_list, 'verts': vert_list}
-            else:
-                file_info[file_name] = {'data': data, 'group data': group_data, 'atoms': pd.DataFrame(atoms),
-                                        'surfs': pd.DataFrame(surf_list), 'edges': pd.DataFrame(edge_list),
-                                        'verts': pd.DataFrame(vert_list)}
-    # If the one_file variable is True, return the first file in the dictionary
+    return {
+        "name": get("Name", default=""),
+        "location": get("Location"),
+        "time": get("Completion Date", "Completion Time", "Time"),
+        "network_type": get("Network Type", default=""),
+        "surface_resolution": _to_float(get("Surface Resolution", default=0.0)),
+        "box_size": _to_float(get("Box Size", default=0.0)),
+        "max_vert": _to_float(
+            get("Maximum Allowable Vertex", "Max Vert", default=0.0)
+        ),
+        "Total_Time": _to_float(get("Total Time", default=0.0)),
+        "vert_time": _to_float(get("Vertex Time", default=0.0)),
+        "connect_time": _to_float(get("Connect Time", default=0.0)),
+        "surf_time": _to_float(
+            get("Surface Building Time", "Surface Time", default=0.0)
+        ),
+        "analysis_time": _to_float(
+            get("Analysis time", "Analysis Time", default=0.0)
+        ),
+        "max_vertex": _to_float(
+            get("Maximum Found Vertex", "Max Vertex", default=0.0)
+        ),
+        "version": get(
+            "vorPy version",
+            "VorPy Version",
+            "Version",
+            default="< 3.2.0",
+        ),
+    }
+
+
+def _parse_group(headers, row):
+    mapped = _row_dict(headers, row)
+
+    group = {}
+    converters = {
+        "Name": _to_str,
+        "Volume": _to_float,
+        "Surface Area": _to_float,
+        "Mass": _to_float,
+        "Density": _to_float,
+        "Center of Mass": parse_string_lists,
+        "VDW Volume": _to_float,
+        "VDW Center of Mass": parse_string_lists,
+        "Moment of Inertia": parse_string_lists,
+        "Spatial Moment of Inertia": parse_string_lists,
+    }
+
+    for key, converter in converters.items():
+        raw = _get(mapped, key, default="")
+        if raw != "":
+            group[key] = converter(raw)
+
+    return group
+
+
+def read_logs2(
+    log_files,
+    return_dict=False,
+    no_sol=False,
+    all_=True,
+    balls=False,
+    surfs=False,
+    edges=False,
+    verts=False,
+):
+    """
+    Read one VorPy log or a list of logs.
+
+    The public return structure matches the historical read_logs2 API.
+    """
+    one_file = isinstance(log_files, (str, bytes))
     if one_file:
-        # Get the first file in the dictionary
-        my_file = [_ for _ in file_info][0]
-        return file_info[my_file]
-    # If the one_file variable is False, return the dictionary
+        log_files = [log_files]
+
+    file_info = {}
+
+    for file in log_files:
+        with open(file, "r", newline="", encoding="utf-8-sig") as logs:
+            rows = list(csv.reader(logs))
+
+        data = {}
+        group_data = {}
+        atoms = []
+        surf_list = []
+        edge_list = []
+        vert_list = []
+
+        current_section = None
+        current_headers = None
+        expect_header = False
+
+        for line in rows:
+            if not line or all(str(x).strip() == "" for x in line):
+                continue
+
+            first = _norm_header(line[0])
+
+            if first in SECTION_NAMES:
+                current_section = first
+                current_headers = None
+                expect_header = True
+                continue
+
+            if expect_header:
+                current_headers = line
+                expect_header = False
+                continue
+
+            if current_section in {"build information", "build informaiton"}:
+                data = _parse_build(current_headers, line)
+                current_section = None
+                continue
+
+            if current_section == "group information":
+                group_data = _parse_group(current_headers, line)
+                current_section = None
+                continue
+
+            if current_section == "atoms" and (all_ or balls):
+                atom = read_atom(line, headers=current_headers)
+
+                if no_sol:
+                    name = atom.get("Name", "").strip().lower()
+                    residue = atom.get("Residue", "").strip().lower()
+
+                    if (
+                        name in {
+                            "hw1", "hw2", "ow", "h02", "h01",
+                            "na", "cl", "mg", "k"
+                        }
+                        or residue in {
+                            "sol", "hoh", "wat", "h2o",
+                            "tip3", "tip3p", "spc", "spce"
+                        }
+                    ):
+                        continue
+
+                atoms.append(atom)
+                continue
+
+            if current_section == "surfaces" and (all_ or surfs):
+                surf = read_surf(line, headers=current_headers)
+                if surf is not None:
+                    surf_list.append(surf)
+                continue
+
+            if current_section == "edges" and (all_ or edges):
+                edge_list.append(read_edge(line, headers=current_headers))
+                continue
+
+            if current_section == "vertices" and (all_ or verts):
+                vert_list.append(read_vert(line, headers=current_headers))
+                continue
+
+        file_name = data.get("name") or Path(file).stem
+        unique_name = file_name
+        index = 0
+
+        while unique_name in file_info:
+            unique_name = f"{file_name}{index}"
+            index += 1
+
+        if return_dict:
+            file_info[unique_name] = {
+                "data": data,
+                "group data": group_data,
+                "atoms": atoms,
+                "surfs": surf_list,
+                "edges": edge_list,
+                "verts": vert_list,
+            }
+        else:
+            file_info[unique_name] = {
+                "data": data,
+                "group data": group_data,
+                "atoms": pd.DataFrame(atoms),
+                "surfs": pd.DataFrame(surf_list),
+                "edges": pd.DataFrame(edge_list),
+                "verts": pd.DataFrame(vert_list),
+            }
+
+    if one_file:
+        first_key = next(iter(file_info))
+        return file_info[first_key]
+
     return file_info

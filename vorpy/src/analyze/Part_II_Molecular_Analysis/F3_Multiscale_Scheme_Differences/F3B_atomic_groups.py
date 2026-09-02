@@ -48,6 +48,7 @@ if vorpy_root not in sys.path:
     sys.path.append(vorpy_root)
 
 from vorpy.src.analyze.Part_II_Molecular_Analysis.F3_Multiscale_Scheme_Differences.F3_common import (
+    add_deviation_columns,
     build_atomic_metrics,
     discover_systems,
     read_pair,
@@ -66,6 +67,20 @@ DATA_ROOT = None
 FIGURE_DIR = None
 
 EXCLUDE_KEYS = ["A", "B", "C"]
+
+# ---------------------------------------------------------------------------
+# Instance cache + Figure 3D candidate exports
+# ---------------------------------------------------------------------------
+# Set True only when the underlying logs, parsing, or metric construction changes.
+REBUILD_INSTANCE_CACHE = True
+INSTANCE_CACHE_NAME = "F3B_atomic_instance_cache.csv"
+
+# Number of examples retained in each candidate class / molecular class.
+OUTLIER_TOP_N = 25
+
+# Minimum observations required for a canonical atom type to receive a stable
+# within-type outlier score.
+MIN_WITHIN_TYPE_COUNT = 5
 
 MIN_GROUP_COUNT = 25
 
@@ -316,6 +331,10 @@ def collect_atomic_data(
             keep = atom_df["Residue"].isin(RNA_RESIDUES)
 
         atom_df = atom_df.loc[keep].copy()
+
+        # Preserve instance-level signed and absolute deviations for Figure 3D
+        # candidate selection. This does not alter Figure 3B plotting.
+        atom_df = add_deviation_columns(atom_df)
 
         print(f"  retained atoms: {len(atom_df):,}")
         frames.append(atom_df)
@@ -597,7 +616,7 @@ def select_representative_groups(
         ).iloc[0].copy()
 
         selected_rows.append(chosen)
-        selected_names.add(chosen["GroupName"])
+        selected_names.add(str(chosen["GroupName"]))
 
     # ------------------------------------------------------------------
     # Stage 2: fill extra slots using spatial separation + base quality.
@@ -657,7 +676,7 @@ def select_representative_groups(
 
                 chosen = remaining.loc[best_idx].copy()
                 selected_rows.append(chosen)
-                selected_names.add(chosen["GroupName"])
+                selected_names.add(str(chosen["GroupName"]))
                 remaining = remaining.drop(index=best_idx)
 
     if not selected_rows:
@@ -1090,6 +1109,311 @@ def compute_shared_metric_limits(
     return lower, upper
 
 
+
+# ---------------------------------------------------------------------------
+# Instance cache + outlier analysis for Figure 3D
+# ---------------------------------------------------------------------------
+
+def _robust_high_z(values: pd.Series) -> pd.Series:
+    """MAD-based one-sided robust z: positive means unusually high."""
+    vals = pd.to_numeric(values, errors="coerce").astype(float)
+    finite = np.isfinite(vals)
+
+    result = pd.Series(np.nan, index=vals.index, dtype=float)
+    if not finite.any():
+        return result
+
+    valid = vals[finite]
+    median = float(np.median(valid))
+    mad = float(np.median(np.abs(valid - median)))
+
+    if mad <= 1e-12:
+        result.loc[finite] = 0.0
+        return result
+
+    result.loc[finite] = 0.67448975 * (valid - median) / mad
+    return result
+
+
+def _within_group_percentile(
+    df: pd.DataFrame,
+    value_col: str,
+    group_cols: List[str],
+    min_count: int,
+) -> pd.Series:
+    out = pd.Series(np.nan, index=df.index, dtype=float)
+
+    for _, group in df.groupby(group_cols, dropna=False):
+        vals = pd.to_numeric(group[value_col], errors="coerce")
+        valid = vals.notna() & np.isfinite(vals)
+
+        if int(valid.sum()) < min_count:
+            continue
+
+        ranks = vals.loc[valid].rank(method="average", pct=True)
+        out.loc[ranks.index] = ranks.astype(float)
+
+    return out
+
+
+def _within_group_robust_z(
+    df: pd.DataFrame,
+    value_col: str,
+    group_cols: List[str],
+    min_count: int,
+) -> pd.Series:
+    out = pd.Series(np.nan, index=df.index, dtype=float)
+
+    for _, group in df.groupby(group_cols, dropna=False):
+        vals = pd.to_numeric(group[value_col], errors="coerce")
+        valid = vals.notna() & np.isfinite(vals)
+
+        if int(valid.sum()) < min_count:
+            continue
+
+        z = _robust_high_z(vals.loc[valid])
+        out.loc[z.index] = z
+
+    return out
+
+
+def build_atomic_outlier_table(atom_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add global and within-canonical-type outlier scores to every atom instance.
+
+    Joint scores use Volume and Surface Area only because these are the
+    continuous geometric quantities intended for Figure 3D.
+    """
+    df = atom_df.copy()
+
+    for metric in ["Volume", "Surface Area", "Contacts"]:
+        abs_col = f"{metric} Abs % Diff"
+        if abs_col not in df.columns:
+            signed_col = f"{metric} Signed % Diff"
+            if signed_col in df.columns:
+                df[abs_col] = np.abs(pd.to_numeric(df[signed_col], errors="coerce"))
+
+    metric_cols = {
+        "Volume": "Volume Abs % Diff",
+        "Surface Area": "Surface Area Abs % Diff",
+    }
+
+    for metric, value_col in metric_cols.items():
+        vals = pd.to_numeric(df[value_col], errors="coerce")
+        df[f"{metric} Percentile"] = vals.rank(method="average", pct=True)
+
+        df[f"{metric} Within-Type Percentile"] = _within_group_percentile(
+            df,
+            value_col=value_col,
+            group_cols=["BroadClass", "CanonicalName"],
+            min_count=MIN_WITHIN_TYPE_COUNT,
+        )
+
+        df[f"{metric} Within-Type Robust Z"] = _within_group_robust_z(
+            df,
+            value_col=value_col,
+            group_cols=["BroadClass", "CanonicalName"],
+            min_count=MIN_WITHIN_TYPE_COUNT,
+        )
+
+    df["Joint Outlier Score"] = df[
+        ["Volume Percentile", "Surface Area Percentile"]
+    ].mean(axis=1, skipna=False)
+
+    df["Within-Type Joint Outlier Score"] = df[
+        ["Volume Within-Type Percentile", "Surface Area Within-Type Percentile"]
+    ].mean(axis=1, skipna=False)
+
+    df["Within-Type Mean Robust Z"] = df[
+        ["Volume Within-Type Robust Z", "Surface Area Within-Type Robust Z"]
+    ].mean(axis=1, skipna=False)
+
+    volume_abs = pd.to_numeric(df["Volume Abs % Diff"], errors="coerce")
+    sa_abs = pd.to_numeric(df["Surface Area Abs % Diff"], errors="coerce")
+    df["Max Metric"] = np.where(volume_abs >= sa_abs, "Volume", "Surface Area")
+
+    # Explicit ranks make sorting/filtering straightforward outside Python.
+    df["Absolute Joint Rank"] = (
+        df.groupby("BroadClass")["Joint Outlier Score"]
+        .rank(method="min", ascending=False)
+    )
+    df["Within-Type Joint Rank"] = (
+        df.groupby("BroadClass")["Within-Type Joint Outlier Score"]
+        .rank(method="min", ascending=False)
+    )
+    df["Low-Deviation Rank"] = (
+        df.groupby("BroadClass")["Joint Outlier Score"]
+        .rank(method="min", ascending=True)
+    )
+
+    return df
+
+
+def summarize_atomic_outlier_groups(outlier_df: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+
+    for (broad, group_name), group in outlier_df.groupby(
+        ["BroadClass", "CanonicalName"],
+        dropna=False,
+    ):
+        rows.append({
+            "BroadClass": broad,
+            "CanonicalName": group_name,
+            "Element": group["ElementClass"].iloc[0] if "ElementClass" in group else "",
+            "Count": len(group),
+            "Systems": group["System"].nunique() if "System" in group else np.nan,
+            "Median Volume Abs % Diff": pd.to_numeric(
+                group["Volume Abs % Diff"], errors="coerce"
+            ).median(),
+            "Median Surface Area Abs % Diff": pd.to_numeric(
+                group["Surface Area Abs % Diff"], errors="coerce"
+            ).median(),
+            "Mean Joint Outlier Score": pd.to_numeric(
+                group["Joint Outlier Score"], errors="coerce"
+            ).mean(),
+            "95th % Joint Outlier Score": pd.to_numeric(
+                group["Joint Outlier Score"], errors="coerce"
+            ).quantile(0.95),
+            "Maximum Joint Outlier Score": pd.to_numeric(
+                group["Joint Outlier Score"], errors="coerce"
+            ).max(),
+        })
+
+    result = pd.DataFrame(rows)
+    if not result.empty:
+        result = result.sort_values(
+            ["BroadClass", "Median Volume Abs % Diff", "Median Surface Area Abs % Diff"],
+            ascending=[True, False, False],
+        )
+    return result
+
+
+def build_atomic_top_candidates(outlier_df: pd.DataFrame) -> pd.DataFrame:
+    pieces = []
+
+    for broad_name in ["Protein", "Nucleic acid"]:
+        class_df = outlier_df[outlier_df["BroadClass"] == broad_name].copy()
+        if class_df.empty:
+            continue
+
+        selections = [
+            (
+                "Absolute high",
+                class_df.sort_values("Joint Outlier Score", ascending=False).head(OUTLIER_TOP_N),
+            ),
+            (
+                "Within-type high",
+                class_df.sort_values(
+                    ["Within-Type Joint Outlier Score", "Within-Type Mean Robust Z"],
+                    ascending=[False, False],
+                ).head(OUTLIER_TOP_N),
+            ),
+            (
+                "Low-deviation control",
+                class_df.sort_values("Joint Outlier Score", ascending=True).head(OUTLIER_TOP_N),
+            ),
+        ]
+
+        for candidate_set, selected in selections:
+            selected = selected.copy()
+            selected.insert(0, "Candidate Set", candidate_set)
+            pieces.append(selected)
+
+    return pd.concat(pieces, ignore_index=True) if pieces else pd.DataFrame()
+
+
+def atomic_cache_path(figure_dir: str) -> Path:
+    return Path(figure_dir) / INSTANCE_CACHE_NAME
+
+
+def print_atomic_cache_status(figure_dir: str):
+    path = atomic_cache_path(figure_dir)
+    print()
+    print("=" * 80)
+    print("F3B INSTANCE CACHE")
+    print("=" * 80)
+    print(f"Path:    {path}")
+    print(f"Exists:  {path.exists()}")
+    print(f"Rebuild: {REBUILD_INSTANCE_CACHE}")
+    print()
+
+
+def load_or_collect_atomic_data(
+    figure_dir: str,
+    data_root: Optional[str] = None,
+    exclude_keys=None,
+) -> pd.DataFrame:
+    path = atomic_cache_path(figure_dir)
+
+    if path.exists() and not REBUILD_INSTANCE_CACHE:
+        print(f"Loading cached F3B atomic instances: {path}")
+        cached = pd.read_csv(path)
+        print(f"  loaded {len(cached):,} atom instances")
+        return cached
+
+    if not data_root:
+        data_root = select_directory(
+            "Select MOLECULAR DATA ROOT containing D_Hairpin, E_Cambrin, etc."
+        )
+
+    if not data_root:
+        print("No Figure 3 data folder selected; cannot rebuild atomic cache.")
+        return pd.DataFrame()
+
+    print("Building F3B atomic instance cache from AW/Power logs ...")
+
+    atom_df = collect_atomic_data(
+        data_root=data_root,
+        exclude_keys=exclude_keys,
+    )
+
+    if not atom_df.empty:
+        Path(figure_dir).mkdir(parents=True, exist_ok=True)
+        atom_df.to_csv(path, index=False)
+        print(f"Saved atomic instance cache: {path}")
+
+    return atom_df
+
+
+def export_atomic_outliers(atom_df: pd.DataFrame, figure_dir: str):
+    figure_dir = Path(figure_dir)
+    figure_dir.mkdir(parents=True, exist_ok=True)
+
+    outliers = build_atomic_outlier_table(atom_df)
+    group_summary = summarize_atomic_outlier_groups(outliers)
+    candidates = build_atomic_top_candidates(outliers)
+
+    instance_path = figure_dir / "F3B_atomic_instance_outliers.csv"
+    group_path = figure_dir / "F3B_atomic_group_outliers.csv"
+    candidate_path = figure_dir / "F3B_atomic_top_candidates.csv"
+
+    outliers.to_csv(instance_path, index=False)
+    group_summary.to_csv(group_path, index=False)
+    candidates.to_csv(candidate_path, index=False)
+
+    print(f"Saved: {instance_path}")
+    print(f"Saved: {group_path}")
+    print(f"Saved: {candidate_path}")
+
+    preview_cols = [
+        c for c in [
+            "Candidate Set", "BroadClass", "System", "Index", "Atom",
+            "CanonicalName", "Residue", "Residue Sequence", "Chain",
+            "Volume Abs % Diff", "Surface Area Abs % Diff",
+            "Joint Outlier Score", "Within-Type Joint Outlier Score",
+            "Within-Type Mean Robust Z", "Max Metric",
+        ]
+        if c in candidates.columns
+    ]
+
+    if not candidates.empty and preview_cols:
+        print()
+        print("=" * 120)
+        print("F3B TOP ATOMIC CANDIDATES FOR FIGURE 3D")
+        print("=" * 120)
+        print(candidates[preview_cols].head(60).to_string(index=False))
+
+
 def make_figure(atom_df: pd.DataFrame, figure_dir: str):
     figure_dir = Path(figure_dir)
     figure_dir.mkdir(parents=True, exist_ok=True)
@@ -1204,21 +1528,44 @@ def main(
     data_root: Optional[str] = DATA_ROOT,
     figure_dir: Optional[str] = FIGURE_DIR,
 ):
-    if data_root is None:
-        data_root = select_directory("Select Figure 3 data folder")
+    # Rebuild workflow:
+    #   1) choose the molecular DATA ROOT first
+    #   2) choose the Figure 3 OUTPUT folder second
+    #
+    # Cached workflow:
+    #   only the OUTPUT folder is needed.
+    if REBUILD_INSTANCE_CACHE:
+        if data_root is None:
+            data_root = select_directory(
+                "STEP 1/2 — Select MOLECULAR DATA ROOT containing D_Hairpin, E_Cambrin, etc."
+            )
 
-    if not data_root:
-        print("No data folder selected.")
-        return
+        if not data_root:
+            print("No molecular data root selected.")
+            return
 
-    if figure_dir is None:
-        figure_dir = select_directory("Select figures/Figure_3 folder")
+        if figure_dir is None:
+            figure_dir = select_directory(
+                "STEP 2/2 — Select FIGURE OUTPUT folder for F3B files/cache"
+            )
+    else:
+        if figure_dir is None:
+            figure_dir = select_directory(
+                "Select FIGURE OUTPUT folder containing the F3B cache"
+            )
 
     if not figure_dir:
         print("No figure output folder selected.")
         return
 
-    atom_df = collect_atomic_data(
+    print()
+    print(f"Molecular data root: {data_root if data_root else '(not needed; using cache)'}")
+    print(f"Figure output dir:   {figure_dir}")
+
+    print_atomic_cache_status(figure_dir)
+
+    atom_df = load_or_collect_atomic_data(
+        figure_dir=figure_dir,
         data_root=data_root,
         exclude_keys=EXCLUDE_KEYS,
     )
@@ -1226,6 +1573,11 @@ def main(
     if atom_df.empty:
         print("No protein or nucleic-acid atomic data were collected.")
         return
+
+    export_atomic_outliers(
+        atom_df,
+        figure_dir=figure_dir,
+    )
 
     make_figure(atom_df, figure_dir=figure_dir)
 
