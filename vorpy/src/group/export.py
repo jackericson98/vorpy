@@ -724,7 +724,7 @@ def export_info(grp, directory=None):
 def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=False, atom_verts=False, surfs=False,
                   sep_surfs=False, shell_surfs=False, edges=False, sep_edges=False, shell_edges=False,
                   verts=False, sep_verts=False, shell_verts=False, layers=-1, info=False, surr_atoms=False, logs=False,
-                  ext_atoms=False, concave_colors=False, round_to=3):
+                  ext_atoms=False, concave_colors=False, round_to=3, file_type=None):
     """
     Exports various components of a Group object to files based on specified parameters.
     This function provides flexible export options for different aspects of a molecular group,
@@ -775,6 +775,8 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     concave_colors : bool, optional
         If True, exports the concave colors for the surfaces. Default is False
     round_to : int, optional
+    file_type : {'off', 'ply', 'vtp'}, optional
+        Geometry format used for surface, edge, and vertex meshes. Default is 'off'.
 
     Returns
     -------
@@ -823,6 +825,13 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     # Useful for analyzing the group's environment and properties
     """
     # Set the surface colors and scheme
+    if file_type is None:
+        file_type = getattr(grp, 'settings', {}).get('file_type', 'off')
+    file_type = str(file_type).strip().lower().lstrip('.')
+    if file_type == 'vtk':
+        file_type = 'vtp'
+    if file_type not in {'off', 'ply', 'vtp'}:
+        raise ValueError("file_type must be 'off', 'ply', or 'vtp'")
     if grp.settings['surf_col'] is None:
         grp.settings['surf_col'] = grp.net.settings['surf_col']
     # Set the surface scheme
@@ -865,7 +874,8 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         if not path.exists(grp.dir + '/atoms'):
             os.mkdir(grp.dir + '/atoms')
         write_atom_cells(grp.net, atoms=_group_topology_indices(grp), directory=grp.dir + '/atoms', surfs=atom_surfs or all_,
-                         edges=atom_edges or all_, verts=atom_verts or all_, concave_colors=concave_colors)
+                         edges=atom_edges or all_, verts=atom_verts or all_, concave_colors=concave_colors,
+                         file_type=file_type)
         os.chdir(grp.dir)
 
     # If the user wants to export the shell for the group
@@ -876,10 +886,11 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         # noinspection PyUnresolvedReferences
         if grp.layer_surfs is not None and len(grp.layer_surfs) > 0:
             write_surfs(net=grp.net, surfs=grp.layer_surfs[0], file_name="shell_surfs", directory=grp.dir,
-                        concave_colors=concave_colors, ref_surfs=_group_topology_indices(grp), universal_max=False)
+                        concave_colors=concave_colors, ref_surfs=_group_topology_indices(grp), universal_max=False,
+                        file_type=file_type)
     # If the user wants all of the surfaces in one file
     if surfs or all_:
-        write_surfs(grp.net, [i for i in range(len(grp.net.surfs))], 'surfs')
+        write_surfs(grp.net, [i for i in range(len(grp.net.surfs))], 'surfs', file_type=file_type)
     # Separate surfaces
     if sep_surfs or all_:
         # Make the surfaces directory
@@ -887,41 +898,44 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             os.mkdir(grp.dir + '/surfs')
         # Create the surfaces' files
         for j, my_surf in grp.net.surfs.iterrows():
-            write_surfs(grp.net, [j], file_name='b{}_b{}'.format(*my_surf['balls']), directory=grp.dir + '/surfs')
+            write_surfs(grp.net, [j], file_name='b{}_b{}'.format(*my_surf['balls']),
+                        directory=grp.dir + '/surfs', file_type=file_type)
     # Shell edges
     if shell_edges or all_:
         if grp.layer_edges is None:
             grp.get_layers(max_layers=1, build_surfs=False)
         write_edges(grp.net, grp.layer_edges[0], file_name="shell_edges", directory=grp.dir,
-                    color=grp.settings['edge_col'])
+                    color=grp.settings['edge_col'], file_type=file_type)
     # All one big edge file
     if edges or all_:
         write_edges(grp.net, edges=[i for i in range(len(grp.net.edges))], file_name="edges", directory=grp.dir,
-                    color=grp.settings['edge_col'])
+                    color=grp.settings['edge_col'], file_type=file_type)
     # If the separate edges are called
     if sep_edges or all_:
         # Make the edges directory
         if not os.path.exists(grp.dir + '/edges'):
             os.mkdir(grp.dir + '/edges')
         for j, my_edge in grp.net.edges.iterrows():
-            write_edges(grp.net, [j], 'b{}_b{}_b{}'.format(*my_edge['balls']), directory=grp.dir + '/edges')
+            write_edges(grp.net, [j], 'b{}_b{}_b{}'.format(*my_edge['balls']),
+                        directory=grp.dir + '/edges', file_type=file_type)
     # Run the separate vertices
     if sep_verts:
         # Make the vertices directory
         if not path.exists(grp.dir + '/verts'):
             os.mkdir(grp.dir + "/verts")
         for j, vert in grp.net.verts.iterrows():
-            write_off_verts(grp.net, [j], 'b{}_b{}_b{}_b{}'.format(*vert['balls']), directory=grp.dir + "/verts")
+            write_off_verts(grp.net, [j], 'b{}_b{}_b{}_b{}'.format(*vert['balls']),
+                            directory=grp.dir + "/verts", file_type=file_type)
     # Export all the vertices in one file
     if verts or all_:
         write_off_verts(grp.net, [i for i in range(len(grp.net.verts))], directory=grp.dir, file_name='verts',
-                        color=grp.settings['vert_col'])
+                        color=grp.settings['vert_col'], file_type=file_type)
     # Export the shell vertices
     if shell_verts or all_:
         if grp.layer_verts is None:
             grp.get_layers(max_layers=1, build_surfs=False)
         write_off_verts(grp.net, grp.layer_verts[0], file_name="shell_verts", directory=grp.dir,
-                        color=grp.settings['vert_col'])
+                        color=grp.settings['vert_col'], file_type=file_type)
     # If the user wants layers
     if layers > 0 or all_:
         # First check to see if the number of layers is greater than 1
@@ -940,7 +954,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         # Create the layer and atoms files
         for i in range(len(grp.layer_surfs)):
             write_pdb(grp.layer_atoms[i + 1], file_name=str(i) + "_atoms", sys=grp.sys)
-            write_surfs(grp.net, grp.layer_surfs[i], file_name=str(i) + "_surfs")
+            write_surfs(grp.net, grp.layer_surfs[i], file_name=str(i) + "_surfs", file_type=file_type)
         # If the user wants info and layers create a layers info file
         if info or all_:
             # Create the information file

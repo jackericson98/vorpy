@@ -5,6 +5,10 @@ from vorpy.src.output.draw import draw_edge
 from vorpy.src.output.draw import draw_line
 from vorpy.src.output.edges import write_edges
 from vorpy.src.output.edges import write_edges1
+from vorpy.src.output.mesh import MeshData
+from vorpy.src.output.mesh import SUPPORTED_MESH_FORMATS
+from vorpy.src.output.mesh import combine_mesh_parts
+from vorpy.src.output.mesh import write_mesh
 from vorpy.src.output.logs import write_logs
 from vorpy.src.output.logs import write_interface_logs
 from vorpy.src.output.mol import write_mol
@@ -25,6 +29,7 @@ from vorpy.src.output.surfs import write_surfs1
 from vorpy.src.output.txt import write_txt
 from vorpy.src.output.verts import write_off_verts
 from vorpy.src.output.verts import write_off_verts1
+from vorpy.src.output.verts import write_verts as write_mesh_verts
 from vorpy.src.output.gro import write_gro
 from vorpy.src.output.cif import write_cif
 from vorpy.src.output.xyz import write_xyz
@@ -36,9 +41,9 @@ __all__ = [
     'export_sys', 'set_sys_dir', 'export_micro', 'export_tiny', 'export_med', 'export_large',
     'export_all', 'other_exports', 'write_pdb', 'write_surfs', 'write_surfs1', 'write_txt',
     'write_off_verts', 'write_off_verts1', 'write_gro', 'write_cif', 'write_xyz', 'set_pymol_atoms',
-    'make_pdb_line'
+    'make_pdb_line', 'MeshData', 'SUPPORTED_MESH_FORMATS', 'combine_mesh_parts', 'write_mesh',
+    'write_mesh_verts'
 ]
-
 
 
 

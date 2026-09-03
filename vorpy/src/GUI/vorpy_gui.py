@@ -726,6 +726,7 @@ class VorPyGUI(tk.Tk):
 
         concave_colors = build_settings['color_settings']['conc_col']
         round_to = exports.get("round_to", 3)
+        file_type = exports.get("file_type", "off")
 
         if exports['size'] == 'Small':
             group.exports(
@@ -733,6 +734,8 @@ class VorPyGUI(tk.Tk):
                 shell_surfs=True,
                 logs=True,
                 concave_colors=concave_colors,
+                round_to=round_to,
+                file_type=file_type,
             )
 
         elif exports['size'] == 'Medium':
@@ -747,6 +750,8 @@ class VorPyGUI(tk.Tk):
                 atoms=True,
                 surr_atoms=True,
                 concave_colors=concave_colors,
+                round_to=round_to,
+                file_type=file_type,
             )
 
         elif exports['size'] == 'Large':
@@ -764,6 +769,8 @@ class VorPyGUI(tk.Tk):
                 atom_edges=True,
                 atom_verts=True,
                 concave_colors=concave_colors,
+                round_to=round_to,
+                file_type=file_type,
             )
 
         else:
@@ -787,6 +794,8 @@ class VorPyGUI(tk.Tk):
                 shell_verts=cust['verts_shell'],
                 surr_atoms=cust['surrounding_vars']['pdb'],
                 concave_colors=concave_colors,
+                round_to=round_to,
+                file_type=file_type,
             )
 
         print(f"Exported group: {group.name}")

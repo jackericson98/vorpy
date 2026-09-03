@@ -1,5 +1,6 @@
 import os
 from os import path
+from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog
 from vorpy.src.command.commands import *
@@ -128,14 +129,49 @@ def get_obj(sys, obj=None):
             return 'n'
 
 
+SUPPORTED_INPUT_SUFFIXES = ('.pdb', '.mol', '.mol2', '.cif', '.gro', '.txt')
+
+
+def _find_bundled_data_file(file_name):
+    """Resolve a name from a project-level or installed data directory.
+
+    Matching is case-insensitive so ``edta`` finds ``EDTA.pdb`` on Linux as
+    well as on case-insensitive filesystems.
+    """
+    source_file = Path(__file__).resolve()
+    data_directories = (
+        source_file.parents[3] / 'data',  # repository: <project>/data
+        source_file.parents[2] / 'data',  # installed fallback: <package>/data
+    )
+
+    requested = Path(str(file_name).strip()).name
+    if not requested:
+        return None
+
+    requested_names = {requested.casefold()}
+    if Path(requested).suffix == '':
+        requested_names.update(
+            (requested + suffix).casefold()
+            for suffix in SUPPORTED_INPUT_SUFFIXES
+        )
+
+    for data_directory in data_directories:
+        if not data_directory.is_dir():
+            continue
+        for candidate in data_directory.iterdir():
+            if candidate.is_file() and candidate.name.casefold() in requested_names:
+                return str(candidate.resolve())
+    return None
+
+
 def get_file(file=None):
     """
     Prompts the user to select a file or validates a provided file path.
 
     This function handles file selection through multiple methods:
     1. Direct file path input
-    2. Relative path resolution from the vorpy directory
-    3. Automatic path resolution for files in the test_data directory
+    2. Project-level ``data`` directory lookup
+    3. Installed-package ``data`` directory fallback
     4. File browser dialog for interactive selection
 
     The function supports various file formats including:
@@ -159,7 +195,7 @@ def get_file(file=None):
     Notes:
     ------
     - Supports relative paths using './' notation
-    - Automatically checks test_data directory for files
+    - Checks bundled data filenames case-insensitively
     - Launches file browser for interactive selection
     - Validates file existence and format
     """
@@ -180,16 +216,16 @@ def get_file(file=None):
             test_file = file.split()
             if test_file[0] in load_cmds:
                 file = file[len(test_file[0]) + 1:]
-        # Check if the initial file works
-        if path.exists(file) and len(file) > 0:
+        # Direct absolute or relative file path.
+        if len(file) > 0 and path.isfile(file):
+            file = str(Path(file).resolve())
             break
-        # Check if the file is in the ./Data/test_data folder
-        elif path.exists("./vorpy/data/" + file) and len(file) > 0:
-            file = os.getcwd() + "/vorpy/data/" + file
-            break
-        # Check if it is just the raw name
-        elif path.exists("./vorpy/data/" + file + ".pdb") and len(file) > 0:
-            file = os.getcwd() + "/vorpy/data/" + file + ".pdb"
+
+        # Bare names are resolved relative to the installed VorPy package,
+        # not relative to the shell's current working directory.
+        bundled_file = _find_bundled_data_file(file)
+        if bundled_file is not None:
+            file = bundled_file
             break
         # If the file is called as a browse keyword, launch a file browser
         elif file.lower() in browse_names:
@@ -198,7 +234,8 @@ def get_file(file=None):
             root.withdraw()
             root.wm_attributes('-topmost', 1)
             file = filedialog.askopenfilename(title='Choose Ball File')
-            if file[:-3] in {'pdb', 'mol', 'cif', 'gro'} and path.exists(file):
+            if Path(file).suffix.lower() in SUPPORTED_INPUT_SUFFIXES and path.isfile(file):
+                file = str(Path(file).resolve())
                 break
         # Otherwise, tell the user to try again
         else:

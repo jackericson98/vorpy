@@ -203,7 +203,8 @@ def build_log_to_system_index_map(sys_balls, log_balls, tol=0.01, coord_fallback
 class System:
     def __init__(self, file=None, files=None, spheres=None, verts_file=None, balls_file=None, network_file=None,
                  index_file=None, frame_files=None, output_directory=None, gui=None, root_dir=None, print_actions=False,
-                 atoms=None, residues=None, chains=None, segments=None, groups=None, ifaces=None, simple=False, name=None):
+                 atoms=None, residues=None, chains=None, segments=None, groups=None, ifaces=None, simple=False,
+                 name=None):
         """
         Initialize a new System object for managing molecular systems and networks.
 
@@ -266,7 +267,7 @@ class System:
             Load vertices from a file into the system.
         load_net(): 
             Load a previously calculated network into the system.
-            
+
         Notes
         -----
         This initializes a new System object with the specified files and components.
@@ -274,52 +275,53 @@ class System:
         """
 
         # An initial default shell system
-        self.simple = simple                # Simple System       :   Indicates the system is simple and is only a shell
+        self.simple = simple  # Simple System       :   Indicates the system is simple and is only a shell
 
         # Names
-        self.name = name                    # Name                :   Name describing the system
-        self.atom_names = []                # Atom Names          :   List holding the names of the atoms in the system
-        self.chn_names = []                 # Chain Names         :   List of chain names
-        self.res_names = []                 # Residue Names       :   List of residue names
-        self.ndx_names = []                 # Index Names         :   List of names of indices corresponding to ndxs
-        self.group_names = []               # Group Names         :   List of names of user groups for to self.groups
+        self.name = name  # Name                :   Name describing the system
+        self.atom_names = []  # Atom Names          :   List holding the names of the atoms in the system
+        self.chn_names = []  # Chain Names         :   List of chain names
+        self.res_names = []  # Residue Names       :   List of residue names
+        self.ndx_names = []  # Index Names         :   List of names of indices corresponding to ndxs
+        self.group_names = []  # Group Names         :   List of names of user groups for to self.groups
 
         # Data
-        self.user_atoms = spheres           # User Atoms          :   User provided locations and radii
-        self.type = 'mol'                   # Type of file        :   Holds the type of file loaded (mol, coarse, foam)
-        self.foam_box = None                # Foam Retaining Box  :   Indicated in file the box that contains all balls
-        self.foam_data = None               # Foam Data Info      :   Holds general information from the foam generation
+        self.user_atoms = spheres  # User Atoms          :   User provided locations and radii
+        self.type = 'mol'  # Type of file        :   Holds the type of file loaded (mol, coarse, foam)
+        self.foam_box = None  # Foam Retaining Box  :   Indicated in file the box that contains all balls
+        self.foam_data = None  # Foam Data Info      :   Holds general information from the foam generation
 
         # Loadable objects
-        self.balls = spheres                # Spheres             :   List holding the atom objects
-        self.atoms = atoms                  # Atoms
-        self.residues = residues            # Residues            :   List of residues (lists of atoms)
-        self.chains = chains                # Chains              :   List of the chains that make up the molecule
-        self.segments = segments            # Segments            :   List of segments in the molecule
-        self.sol = None                     # Solute              :   List of solute molecules (lists of atoms)
+        self.balls = spheres  # Spheres             :   List holding the atom objects
+        self.atoms = atoms  # Atoms
+        self.residues = residues  # Residues            :   List of residues (lists of atoms)
+        self.chains = chains  # Chains              :   List of the chains that make up the molecule
+        self.segments = segments  # Segments            :   List of segments in the molecule
+        self.sol = None  # Solute              :   List of solute molecules (lists of atoms)
 
         # Settings
-        self.groups = [] if groups is None else groups      # Groups              :   List of groups in the system
-        self.ifaces = [] if ifaces is None else ifaces      # Interfaces          :   List of interface objects between groups
+        self.groups = [] if groups is None else groups  # Groups              :   List of groups in the system
+        self.ifaces = [] if ifaces is None else ifaces  # Interfaces          :   List of interface objects between groups
 
         # Shared geometry discovered while building pairwise interfaces.
         # Keys are canonical, system-index-based topology signatures so the
         # same geometry can be recognized across interfaces and build order.
         self.interface_geometry_cache = {'verts': {}, 'edges': {}, 'surfs': {}}
-        self.ndxs = None                    # Indices             :   List of indices used to create groups
-        self.elements = elements            # Elements            :   List of elements with mass, number, radius, group
+        self.ndxs = None  # Indices             :   List of indices used to create groups
+        self.elements = elements  # Elements            :   List of elements with mass, number, radius, group
         self.element_radii = element_radii  # Element Radii       :   Dictionary of elements and their radii
         self.special_radii = special_radii  # Special Radii       :   Dictionary of residues and their atomic radii
-        self.round_to = None                # round_to            :   Decimals setting for the whole system
-        self.export_type = 'large'          # Export type         :   Holds the type of objects that come out
-        self.cmnds = None                   # Commands            :   Input commands for the system to be run
+        self.round_to = None  # round_to            :   Decimals setting for the whole system
+        self.file_type = 'off'  # Geometry mesh format:   OFF, PLY, or VTP
+        self.export_type = 'large'  # Export type         :   Holds the type of objects that come out
+        self.cmnds = None  # Commands            :   Input commands for the system to be run
 
         # Set up the file attributes
-        self.max_atom_rad = 0               # Max atom rad        :   Largest radius of the system for reference
-        self.files = files                  # Files               :   Files dictionary referenced for
+        self.max_atom_rad = 0  # Max atom rad        :   Largest radius of the system for reference
+        self.files = files  # Files               :   Files dictionary referenced for
 
         # Gui
-        self.gui = gui                      # GUI                 :   GUI Vorpy object that can be updated through sys
+        self.gui = gui  # GUI                 :   GUI Vorpy object that can be updated through sys
         self.print_actions = print_actions  # Print actions Bool  :   Tells the system to print or not
 
         # Runtime/progress
@@ -420,7 +422,7 @@ class System:
             flush=True,
         )
 
-    def set_files(self, base_file=None, ball_file=None, verts_file=None, net_file=None, ndx_file=None, file_dir=None, 
+    def set_files(self, base_file=None, ball_file=None, verts_file=None, net_file=None, ndx_file=None, file_dir=None,
                   frame_files=None, root_dir=None):
         """
         Set the file paths for the system components.
@@ -453,12 +455,12 @@ class System:
         defaults = {'base_file': base_file, 'ball_file': ball_file, 'verts_file': verts_file, 'net_file': net_file,
                     'ndx_file': ndx_file, 'dir': file_dir, 'frame_files': frame_files, 'vpy_dir': os.getcwd()}
         # Set the files if they aren't set yet
-        
+
         # Get the directory two levels up from this file
         if defaults['vpy_dir'] is None or defaults['vpy_dir'][-5:] != 'vorpy':
             current_file_path = os.path.abspath(__file__)
             two_dirs_up = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file_path))))
-            
+
             # Update the vpy_dir and root_dir in defaults
             defaults['vpy_dir'] = two_dirs_up
             defaults['root_dir'] = two_dirs_up
@@ -781,7 +783,8 @@ class System:
         atoms_var = str(len(self.balls)) + " Atoms"
         resids_var = str(len(self.residues)) + " Residues"
         chains_var = str(len(self.chains)) + " Chains: " + ", ".join(["{} - {} atoms, {} residues"
-                            .format(_.name, len(_.atoms), len(_.residues)) for _ in self.chains])
+                                                                     .format(_.name, len(_.atoms), len(_.residues)) for
+                                                                      _ in self.chains])
         sol_var = ""
         if self.sol is not None:
             sol_var = self.sol.name + " - " + str(len(self.sol.residues)) + " residues"

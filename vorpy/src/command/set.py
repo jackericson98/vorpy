@@ -447,6 +447,29 @@ def set_rt(round_to, settings, print_change=False):
     return settings['round_to']
 
 
+def set_ft(file_type, settings, print_change=False):
+    """Validate and return the canonical geometry export format."""
+    if isinstance(file_type, list):
+        if len(file_type) == 0:
+            return settings.get('file_type', 'off')
+        file_type = file_type[0]
+
+    value = str(file_type).strip().lower().lstrip('.')
+    value = mesh_format_vals.get(value)
+    if value is None:
+        _vorpy_print_error(
+            "Geometry File Format",
+            file_type,
+            "off, ply, or vtp",
+            example="-s ft ply",
+        )
+        return settings.get('file_type', 'off')
+
+    if print_change:
+        _vorpy_print_setting("Geometry File Format", value.upper())
+    return value
+
+
 def set_ar(element_radius, settings, print_change=False):
     """
     Configures the atomic radii settings for the system.
@@ -703,11 +726,12 @@ def sett(setting, value, settings=None):
     if settings is None:
         settings = {'surf_res': 0.2, 'max_vert': 40, 'box_size': 1.25, 'net_type': 'aw', 'surf_col': 'plasma',
                     'surf_scheme': 'mean', 'scheme_factor': 'log', 'atom_rad': None, 'bld_type': None, 'conc_col': True,
-                    'vert_col': 'red', 'edge_col': 'grey', 'round_to': 6}
+                    'vert_col': 'red', 'edge_col': 'grey', 'round_to': 6, 'file_type': 'off'}
     # Set up the functions dictionary to return the value
     func_dict = {'surf_res': set_sr, 'max_vert': set_mv, 'box_size': set_bs, 'net_type': set_nt, 'surf_col': set_sc,
                  'surf_scheme': set_ss, 'scheme_factor': set_sf, 'atom_rad': set_ar, 'bld_type': set_bt,
-                 'conc_col': set_cc, 'vert_col': set_vc, 'edge_col': set_ec, 'round_to': set_rt}
+                 'conc_col': set_cc, 'vert_col': set_vc, 'edge_col': set_ec, 'round_to': set_rt,
+                 'file_type': set_ft}
 
     build_types = ["bt", "build_type", "bld_type", "build", "bld"]
 
@@ -717,7 +741,8 @@ def sett(setting, value, settings=None):
                  {_: 'scheme_factor' for _ in surf_factors}, {_: 'atom_rad' for _ in atom_radii},
                  {_: 'bld_type' for _ in build_types},
                  {_: 'conc_col' for _ in conc_cols}, {_: 'vert_col' for _ in vert_cols},
-                 {_: 'edge_col' for _ in edge_cols}, {_: 'round_to' for _ in round_tos}]
+                 {_: 'edge_col' for _ in edge_cols}, {_: 'round_to' for _ in round_tos},
+                 {_: 'file_type' for _ in mesh_formats}]
 
     # Put all interpretations into one dictionary for convenience
     interpreter = {k: v for d in all_dicts for k, v in d.items()}

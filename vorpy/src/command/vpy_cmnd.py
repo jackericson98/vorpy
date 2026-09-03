@@ -477,6 +477,9 @@ class Command:
         # Update the sphere radii in the system
         if self.settings_dict is not None and self.settings_dict['atom_rad'] is not None:
             self.sys.set_radii(self.settings_dict['atom_rad']['element'], self.settings_dict['atom_rad']['special'])
+        if self.settings_dict is not None:
+            self.sys.round_to = self.settings_dict.get('round_to', self.sys.round_to)
+            self.sys.file_type = self.settings_dict.get('file_type', 'off')
 
     def create_groups(self):
         # Interface mode only needs group definitions; the Interface creates
@@ -508,4 +511,3 @@ class Command:
     def run_exports(self):
         # Export everything
         argv_export(self.sys, self.exports)
-

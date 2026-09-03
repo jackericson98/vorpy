@@ -7,28 +7,56 @@ from vorpy.src.output import export_all
 from vorpy.src.output import other_exports
 
 
+FORMAT_COMMANDS = {'ft', 'file_type', 'file_format', 'format', 'mesh_format'}
+FORMAT_VALUES = {'off': 'off', 'ply': 'ply', 'vtp': 'vtp', 'vtk': 'vtp'}
+ONLY_COMMANDS = {'only', 'just'}
+
+
+def _set_mesh_format(my_sys, value):
+    """Apply a geometry-format modifier to the system and all current groups."""
+    value = str(value).strip().lower().lstrip('.')
+    file_type = FORMAT_VALUES.get(value)
+    if file_type is None:
+        raise ValueError(
+            f"Unsupported geometry file format {value!r}. "
+            "Choose off, ply, or vtp."
+        )
+
+    my_sys.file_type = file_type
+    for group in getattr(my_sys, 'groups', []) or []:
+        if getattr(group, 'settings', None) is None:
+            group.settings = {}
+        group.settings['file_type'] = file_type
+
+    print(f"Geometry file format: {file_type.upper()}")
+
+
 
 def argv_export(my_sys, usr_npt, add_on=None):
     """
     Command-line export handler.
 
     Default behavior:
-    - If no export type is specified, export medium/default.
-    - If only a directory is specified, still export medium/default to that directory.
+    - If no export type is specified, export the large preset.
+    - Format and directory commands modify the export but do not replace its preset.
+    - If only modifiers are specified, export the large preset.
+    - ``only`` explicitly restricts output to the export names that follow it.
     - If explicit exports are specified, only export those.
     """
 
     if usr_npt is None:
         usr_npt = []
 
-    # First pass: handle directory commands
+    # First pass: handle export modifiers and collect actual export commands.
     export_commands = []
 
     for npt in usr_npt:
         if len(npt) == 0:
             continue
 
-        if npt[0].lower() in {'dir', 'directory'}:
+        command = npt[0].lower()
+
+        if command in {'dir', 'directory'}:
             if len(npt) < 2:
                 continue
 
@@ -44,12 +72,30 @@ def argv_export(my_sys, usr_npt, add_on=None):
 
             print(f"Export directory set to: {out_dir}")
 
+        elif command in FORMAT_COMMANDS:
+            if len(npt) < 2:
+                raise ValueError(
+                    "A geometry format is required after the format command. "
+                    "Example: -e ft ply"
+                )
+            _set_mesh_format(my_sys, npt[1])
+
+        elif command in ONLY_COMMANDS:
+            if len(npt) < 2:
+                raise ValueError(
+                    "At least one export type is required after 'only'. "
+                    "Example: -e only logs"
+                )
+            export_commands.extend([[export_name] for export_name in npt[1:]])
+
         else:
             export_commands.append(npt)
 
-    # If user only gave -e dir, still do default/medium export
+    # No preset, or only modifiers such as ``dir``/``ft``: export Large.
     if len(export_commands) == 0:
-        export_commands.append(['default'])
+        export_commands.append(['large'])
+
+    print(f"\nExporting files to: {os.path.abspath(my_sys.files['dir'])}\n")
 
     # Second pass: run exports
     for npt in export_commands:
@@ -68,9 +114,10 @@ def export_npt(my_sys, usr_npt=None):
     my_sys : System
         The system object containing the data to be exported
     usr_npt : str, optional
-        The export type specification. If None or 'default', performs a medium export.
+        The export type specification. If None or 'default', performs a large export.
         Valid options include:
-        - 'default'/'2'/'medium'/'med': Medium export (default)
+        - 'default': Large export (default)
+        - '2'/'medium'/'med': Medium export
         - 'tiny'/'i'/'info'/'0'/'smallest': Small export
         - 'small'/'s'/'1': Medium-small export
         - 'large'/'l'/'3': Large export
@@ -121,8 +168,12 @@ def export_npt(my_sys, usr_npt=None):
     #
     # print("====================\n")
 
-    # If nothing is specified export the defaults
-    if usr_npt is None or usr_npt.lower() in {'default', '2', 'medium', '', 'med'}:
+    # If nothing is specified export the large default.
+    if usr_npt is None or usr_npt.lower() in {'default', ''}:
+
+        export_large(my_sys)
+
+    elif usr_npt.lower() in {'2', 'medium', 'med'}:
 
         # print("RUNNING export_med()\n")
 

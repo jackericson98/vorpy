@@ -1,142 +1,106 @@
-import os
+"""Prepare and export drawable Voronoi vertex geometry."""
+
 import numpy as np
+
 from vorpy.src.output.colors import color_dict
+from vorpy.src.output.draw import DEFAULT_VERTEX_RADIUS, draw_joint
+from vorpy.src.output.mesh import combine_mesh_parts, write_mesh
 
 
-def write_off_verts(net, verts, file_name, atom_type=None, directory=None, color=None, vert_rad=0.05):
-    """
-    Exports vertex data to an OFF (Object File Format) file for visualization.
-
-    This function creates an OFF file containing geometric data for specified vertices from a network.
-    Each vertex is represented as a small octahedron centered at its location, with the size controlled
-    by the vertex radius parameter. The vertices can be colored uniformly using the provided color values.
-
-    Args:
-        net: Network object containing vertex data
-        verts: List of vertex indices to export
-        file_name: Base name for the output OFF file
-        atom_type: Optional atom type for vertex representation (default: 'He')
-        directory: Optional output directory path. If None, uses current directory
-        color: Optional RGB color tuple for vertex coloring. If None, uses default red (1,0,0)
-        vert_rad: Radius of the octahedron representing each vertex (default: 0.05)
-
-    Returns:
-        None: Creates an OFF file with the specified vertex data
-    """
-
-    # If no color is given, make the color random
+def _resolve_color(color):
     if color is None:
-        color = 'red'
-    if color in color_dict.keys():
-        color = color_dict[color]
-    else:
-        color = [1, 0, 0]
-    # Check to see if a directory is given
-    if directory is not None:
-        os.chdir(directory)
-    if atom_type is None:
-        atom_type = 'He'
-    # If no surfaces are provided return
-    if verts is None or len(verts) == 0:
-        return
-    loc_points, loc_tris = [], []
-    for vert in verts:
-        loc = net.verts['loc'][vert]
-        # Draw the point
-        xp, xn = loc + np.array([vert_rad, 0, 0]), loc - np.array([vert_rad, 0, 0])
-        yp, yn = loc + np.array([0, vert_rad, 0]), loc - np.array([0, vert_rad, 0])
-        zp, zn = loc + np.array([0, 0, vert_rad]), loc - np.array([0, 0, vert_rad])
-        # Connect the points
-        loc_points.append([xp, xn, yp, yn, zp, zn])
-        loc_tris.append([[0, 2, 4], [0, 2, 5], [0, 3, 4], [0, 3, 5], [1, 2, 4], [1, 2, 5], [1, 3, 4], [1, 3, 5]])
-    num_verts, num_tris = 6 * len(loc_points), 8 * len(loc_tris)
-    # Create the file
-    with open(file_name + ".off", 'w') as file:
-        # Count the number of triangles and vertices there are
-        # Write the numbers into the file
-        file.write("OFF\n" + str(num_verts) + " " + str(num_tris) + " 0\n\n\n")
-        # Go through the surfaces and add the points
-        for i in range(len(verts)):
-            # Go through the points on the surface
-            for point in loc_points[i]:
-                # Add the point to the system file and the surface's file (rounded to 4 decimal points)
-                str_point = [str(round(float(point[_]), 4)) for _ in range(3)]
-                file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
-        num_verts, tri_count = 0, 0
-        # Go through each surface and add the faces
-        for i in range(len(verts)):
-            tri_list = loc_tris[i]
-            # Go through the triangles in the surface
-            for j in range(len(tri_list)):
-                # Get the triangle and colors
-                tri = tri_list[j]
-                # Add the triangle to the system file and the surface's file
-                str_tri = [str(tri[_] + num_verts) for _ in range(3)]
-                file.write("3 " + str_tri[0] + " " + str_tri[1] + " " + str_tri[2] + " " + str(color[0]) + " " +
-                           str(color[1]) + " " + str(color[2]) + "\n")
-            # Keep counting triangles for the system file
-            num_verts += len(loc_points[i])
+        return color_dict.get('red', [1.0, 0.0, 0.0])
+    if isinstance(color, str):
+        return color_dict.get(color, color_dict.get('red', [1.0, 0.0, 0.0]))
+    return color
 
 
-def write_off_verts1(verts, file_name, atom_type=None, directory=None, color=None, vert_rad=0.05):
+def prepare_verts(net, verts, color=None, vert_rad=DEFAULT_VERTEX_RADIUS,
+                  subdivisions=0):
+    """Prepare selected Voronoi vertices as icosahedral markers.
+
+    The markers use the same geometry generator as edge junctions. Standalone
+    vertices default to a slightly larger radius so they remain visible within
+    the connected edge network.
     """
-    Creates a pdb file for vertex representation
-    :param vert_rad:
-    :param color:
-    :param pdb:
-    :param verts:
-    :param file_name:
-    :param atom_type:
-    :param directory:
-    :return:
-    """
-    # If no color is given, make the color random
-    if color is None:
-        color = [1, 0, 0]
-    # Check to see if a directory is given
-    if directory is not None:
-        os.chdir(directory)
-    if atom_type is None:
-        atom_type = 'He'
-    # If no surfaces are provided return
     if verts is None or len(verts) == 0:
-        return
-    loc_points, loc_tris = [], []
-    for i, vert in verts.iterrows():
-        # Get the location of the vert
-        loc = vert['loc']
-        # Draw the point
-        xp, xn = loc + np.array([vert_rad, 0, 0]), loc - np.array([vert_rad, 0, 0])
-        yp, yn = loc + np.array([0, vert_rad, 0]), loc - np.array([0, vert_rad, 0])
-        zp, zn = loc + np.array([0, 0, vert_rad]), loc - np.array([0, 0, vert_rad])
-        # Connect the points
-        loc_points.append([xp, xn, yp, yn, zp, zn])
-        loc_tris.append([[0, 2, 4], [0, 2, 5], [0, 3, 4], [0, 3, 5], [1, 2, 4], [1, 2, 5], [1, 3, 4], [1, 3, 5]])
-    # Set the number of triangles and points for the off file record
-    num_verts, num_tris = 6 * len(loc_points), 8 * len(loc_tris)
-    # Create the file
-    with open(file_name + ".off", 'w') as file:
-        # Count the number of triangles and vertices there are
-        # Write the numbers into the file
-        file.write("OFF\n" + str(num_verts) + " " + str(num_tris) + " 0\n\n\n")
-        # Go through the surfaces and add the points
-        for i in range(len(verts)):
-            # Go through the points on the surface
-            for point in loc_points[i]:
-                # Add the point to the system file and the surface's file (rounded to 4 decimal points)
-                str_point = [str(round(float(point[_]), 4)) for _ in range(3)]
-                file.write(str_point[0] + " " + str_point[1] + " " + str_point[2] + '\n')
-        num_verts, tri_count = 0, 0
-        # Go through each surface and add the faces
-        for i in range(len(verts)):
-            tri_list = loc_tris[i]
-            # Go through the triangles in the surface
-            for j in range(len(tri_list)):
-                # Get the triangle and colors
-                tri = tri_list[j]
-                # Add the triangle to the system file and the surface's file
-                str_tri = [str(tri[_] + num_verts) for _ in range(3)]
-                file.write("3 " + str_tri[0] + " " + str_tri[1] + " " + str_tri[2] + " " + str(color[0]) + " " +
-                           str(color[1]) + " " + str(color[2]) + "\n")
-            # Keep counting triangles for the system file
-            num_verts += len(loc_points[i])
+        return None
+
+    color = _resolve_color(color)
+    point_parts = []
+    triangle_parts = []
+    color_parts = []
+    index_parts = []
+
+    for index in list(verts):
+        location = np.asarray(net.verts['loc'][index], dtype=float)
+        points, triangles = draw_joint(
+            location,
+            radius=vert_rad,
+            subdivisions=subdivisions,
+        )
+        point_parts.append(points)
+        triangle_parts.append(triangles)
+        color_parts.append([color] * len(triangles))
+        index_parts.append(np.full(len(triangles), index, dtype=np.int64))
+
+    return combine_mesh_parts(
+        point_parts,
+        triangle_parts,
+        color_parts,
+        {'vertex_index': index_parts},
+    )
+
+
+def write_verts(net, verts, file_name, atom_type=None, directory=None, color=None,
+                vert_rad=DEFAULT_VERTEX_RADIUS, file_type='off', chunk_size=10000,
+                subdivisions=0):
+    """Prepare selected vertices once and write OFF, PLY, or VTP."""
+    mesh = prepare_verts(net, verts, color, vert_rad, subdivisions)
+    if mesh is None:
+        return None
+    return write_mesh(mesh, file_name, file_type, directory, chunk_size)
+
+
+def write_off_verts(net, verts, file_name, atom_type=None, directory=None, color=None,
+                    vert_rad=DEFAULT_VERTEX_RADIUS, file_type='off', chunk_size=10000,
+                    subdivisions=0):
+    """Backward-compatible vertex-export entry point; OFF remains the default."""
+    return write_verts(
+        net,
+        verts,
+        file_name,
+        atom_type=atom_type,
+        directory=directory,
+        color=color,
+        vert_rad=vert_rad,
+        file_type=file_type,
+        chunk_size=chunk_size,
+        subdivisions=subdivisions,
+    )
+
+
+def write_off_verts1(verts, file_name, atom_type=None, directory=None, color=None,
+                     vert_rad=DEFAULT_VERTEX_RADIUS, file_type='off', chunk_size=10000,
+                     subdivisions=0):
+    """Legacy DataFrame vertex writer retained for compatibility."""
+    if verts is None or len(verts) == 0:
+        return None
+
+    color = _resolve_color(color)
+    point_parts = []
+    triangle_parts = []
+    color_parts = []
+
+    for _, vertex in verts.iterrows():
+        points, triangles = draw_joint(
+            vertex['loc'],
+            radius=vert_rad,
+            subdivisions=subdivisions,
+        )
+        point_parts.append(points)
+        triangle_parts.append(triangles)
+        color_parts.append([color] * len(triangles))
+
+    mesh = combine_mesh_parts(point_parts, triangle_parts, color_parts)
+    return write_mesh(mesh, file_name, file_type, directory, chunk_size)

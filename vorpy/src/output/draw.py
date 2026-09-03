@@ -2,6 +2,11 @@ import numpy as np
 from numba import njit
 
 
+DEFAULT_EDGE_RADIUS = 0.05
+DEFAULT_JOINT_RADIUS_FACTOR = 1.35
+DEFAULT_VERTEX_RADIUS = 0.08
+
+
 @njit(cache=True)
 def _norm3(v):
     return np.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
@@ -214,7 +219,7 @@ def _draw_line_numba(pts, radius):
     return draw_points, draw_tris, 0, -1
 
 
-def draw_line(points, radius=0.05, color="#000000", edge_org=None):
+def draw_line(points, radius=DEFAULT_EDGE_RADIUS, color="#000000", edge_org=None):
     """
     Create triangular tube geometry around a 3D polyline.
 
@@ -240,6 +245,68 @@ def draw_line(points, radius=0.05, color="#000000", edge_org=None):
     return draw_points.tolist(), draw_tris.tolist()
 
 
-def draw_edge(edge, radius=0.05, color=None):
+def draw_edge(edge, radius=DEFAULT_EDGE_RADIUS, color=None):
     """Generate drawable triangular tube geometry for an edge."""
     return draw_line(edge.points, radius=radius, color=color)
+
+
+def draw_joint(center, radius=DEFAULT_EDGE_RADIUS * DEFAULT_JOINT_RADIUS_FACTOR, subdivisions=0):
+    """Create an icosphere used to blend tubes at a shared edge endpoint.
+
+    ``subdivisions=0`` produces a compact 12-point, 20-face icosahedron. Each
+    additional subdivision replaces every triangle with four triangles.
+    """
+    center = np.asarray(center, dtype=np.float64)
+    if center.shape != (3,):
+        raise ValueError("center must be a three-component coordinate")
+    if radius <= 0:
+        raise ValueError("radius must be positive")
+    if subdivisions < 0:
+        raise ValueError("subdivisions must be non-negative")
+
+    golden_ratio = (1.0 + np.sqrt(5.0)) / 2.0
+    vertices = [
+        (-1, golden_ratio, 0), (1, golden_ratio, 0),
+        (-1, -golden_ratio, 0), (1, -golden_ratio, 0),
+        (0, -1, golden_ratio), (0, 1, golden_ratio),
+        (0, -1, -golden_ratio), (0, 1, -golden_ratio),
+        (golden_ratio, 0, -1), (golden_ratio, 0, 1),
+        (-golden_ratio, 0, -1), (-golden_ratio, 0, 1),
+    ]
+    faces = [
+        (0, 11, 5), (0, 5, 1), (0, 1, 7), (0, 7, 10), (0, 10, 11),
+        (1, 5, 9), (5, 11, 4), (11, 10, 2), (10, 7, 6), (7, 1, 8),
+        (3, 9, 4), (3, 4, 2), (3, 2, 6), (3, 6, 8), (3, 8, 9),
+        (4, 9, 5), (2, 4, 11), (6, 2, 10), (8, 6, 7), (9, 8, 1),
+    ]
+
+    vertices = [np.asarray(vertex, dtype=np.float64) for vertex in vertices]
+    vertices = [vertex / np.linalg.norm(vertex) for vertex in vertices]
+
+    for _ in range(int(subdivisions)):
+        midpoint_cache = {}
+
+        def midpoint(first, second):
+            key = tuple(sorted((first, second)))
+            if key not in midpoint_cache:
+                point = vertices[first] + vertices[second]
+                point /= np.linalg.norm(point)
+                midpoint_cache[key] = len(vertices)
+                vertices.append(point)
+            return midpoint_cache[key]
+
+        refined_faces = []
+        for first, second, third in faces:
+            first_second = midpoint(first, second)
+            second_third = midpoint(second, third)
+            third_first = midpoint(third, first)
+            refined_faces.extend([
+                (first, first_second, third_first),
+                (second, second_third, first_second),
+                (third, third_first, second_third),
+                (first_second, second_third, third_first),
+            ])
+        faces = refined_faces
+
+    points = center + float(radius) * np.asarray(vertices)
+    return points.tolist(), np.asarray(faces, dtype=np.int64).tolist()

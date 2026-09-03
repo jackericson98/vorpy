@@ -5,7 +5,8 @@ from vorpy.src.output.edges import write_edges
 from vorpy.src.output.verts import write_off_verts
 
 
-def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=False, concave_colors=False):
+def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=False,
+                     concave_colors=False, file_type='off'):
     """
     Exports individual cell data files for specified atoms in a network.
 
@@ -21,6 +22,7 @@ def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=
         edges: If True, exports edge data for each atom (default: False)
         verts: If True, exports vertex data for each atom (default: False)
         concave_colors: If True, exports the concave colors for the surfaces. Default is False
+        file_type: Geometry format for surfaces, edges, and vertices: off, ply, or vtp
     Returns:
         None: Creates individual files for each atom's cell components in the specified directory
     """
@@ -37,15 +39,18 @@ def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=
             write_surfs(net, atom['surfs'], directory=directory,
                         file_name='ball' + "_" + atom['name'].strip() + '_' + net.settings['net_type'],
                         color=(255, 0, 0) if net.settings['net_type'] == 'pow' else False,
-                        concave_colors=concave_colors, ref_surfs=[i], universal_max=False)
+                        concave_colors=concave_colors, ref_surfs=[i], universal_max=False,
+                        file_type=file_type)
         # Check for verts
         if verts:
             write_off_verts(net, atom['verts'], directory=directory,
-                            file_name='ball_{}'.format(atom['name'].strip()) + "_" + net.settings['net_type'] + "_verts")
+                            file_name='ball_{}'.format(atom['name'].strip()) + "_" + net.settings['net_type'] + "_verts",
+                            file_type=file_type)
         # Check for edges
         if edges:
             write_edges(net, atom['edges'], directory=directory,
-                        file_name='ball_{}'.format(atom['name'].strip()) + "_" + net.settings['net_type'] + "_edges")
+                        file_name='ball_{}'.format(atom['name'].strip()) + "_" + net.settings['net_type'] + "_edges",
+                        file_type=file_type)
 
 
 def write_atom_radii(my_sys, directory=None, file_name=None):

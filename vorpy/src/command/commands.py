@@ -101,6 +101,14 @@ conc_cols = ['cc', 'conc_col', 'concave_col', 'concave_color', 'concave_surfaces
 vert_cols = ['vc', 'vert_col', 'vertex_color', 'vertex_colors']
 edge_cols = ['ec', 'edge_col', 'edge_color', 'edge_colors']
 round_tos = ["rt", "round", "round_to", "decimals", "decimal_places"]
+mesh_formats = ["ft", "file_type", "file_format", "format", "mesh_format"]
+
+mesh_format_vals = {
+    "off": "off",
+    "ply": "ply",
+    "vtp": "vtp",
+    "vtk": "vtp",
+}
 
 # Settings vals
 power_vals = ['pow', 'power', 'p', 'pwr', 'pwizzle']
@@ -246,6 +254,7 @@ Options:
            integrated mean squared 'int_mean_curv_sq', integrated Gaussian 'int_gauss_curv',
            inside vs outside spheres 'nout', distance from center 'dist'
       sf - Surface Coloring Scale: Default = linear 'lin', log 'log', squared 'square', cube 'cube'
+      ft - Geometry File Format: Default = 'off'; options are 'off', 'ply', and 'vtp'
       ar - Adjust Radii: 'element' 'value' or 'atom name' 'value' or 'residue' 'atom name' 'value'
 
   -g <identifier>
@@ -272,7 +281,7 @@ Examples:
     python vorpy.py EDTA_Mg -s nt compare prm pow -g mg
 
   Solve the network for hairpin and export the shell with inside and outside parts of the surfaces highlighted at high resolution:
-    python vorpy.py hairpin -s ss nout and sr 0.01 -e shell and pdb
+    python vorpy.py hairpin -s ss nout and sr 0.01 and ft ply -e shell and pdb
 
 Note:
   Each option flag and its arguments must be separated by spaces.
