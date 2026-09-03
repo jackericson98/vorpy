@@ -553,7 +553,8 @@ class Group:
 
     def exports(self, all_=False, atoms=False, atom_surfs=False, atom_edges=False, atom_verts=False, surfs=False,
                 sep_surfs=False, shell_surfs=False, edges=False, sep_edges=False, shell_edges=False, verts=False,
-                sep_verts=False, shell_verts=False, layers=-1, info=False, surr_atoms=False, logs=False,
+                sep_verts=False, shell_verts=False, layers=-1, info=False, surr_atoms=False, surr_resids=False,
+                logs=False,
                 ext_atoms=False, concave_colors=False, round_to=None, file_type=None):
         """
         Exports specified export types for the group
@@ -566,7 +567,8 @@ class Group:
         :param info: Exports the information for the group
         :param iface: Exports the interface for the group, bff must be specified first
         :param verts: Exports the vertices of the group as an off file
-        :param surr_atoms: Exports the atoms directly surrounding the group (residues intact)
+        :param surr_atoms: Exports outside atoms directly sharing surfaces with the group
+        :param surr_resids: Exports the surrounding atoms with complete residues retained
         :param ext_atoms: Exports the outermost atoms in the group's set of atoms (must be a part of shell)
         :param edges: Exports all edges for the group
         :param concave_colors: Exports the concave colors for the surfaces. Default is False
@@ -582,5 +584,6 @@ class Group:
         group_exports(self, all_=all_, atoms=atoms, atom_surfs=atom_surfs, atom_edges=atom_edges, atom_verts=atom_verts,
                       surfs=surfs, sep_surfs=sep_surfs, shell_surfs=shell_surfs, edges=edges, sep_edges=sep_edges,
                       shell_edges=shell_edges, verts=verts, sep_verts=sep_verts, shell_verts=shell_verts, layers=layers,
-                      info=info, surr_atoms=surr_atoms, logs=logs, ext_atoms=ext_atoms, concave_colors=concave_colors,
+                      info=info, surr_atoms=surr_atoms, surr_resids=surr_resids, logs=logs, ext_atoms=ext_atoms,
+                      concave_colors=concave_colors,
                       round_to=round_to, file_type=file_type)

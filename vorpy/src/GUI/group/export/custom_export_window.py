@@ -4,11 +4,12 @@ from tkinter import ttk
 
 class CustomExportWindow(tk.Toplevel):
     """Window for custom export settings."""
+
     def __init__(self, parent, group_name):
         import os
         super().__init__(parent)
         self.title(f"{group_name} Export Settings")
-        self.geometry("300x350")  # Reduced size
+        self.geometry("360x380")
         self.resizable(False, False)
         if not isinstance(parent, tk.Tk):
             self.transient(parent)
@@ -57,7 +58,8 @@ class CustomExportWindow(tk.Toplevel):
 
         # Column headers
         ttk.Label(grid_frame, text="Group").grid(row=1, column=0, padx=5, sticky="w")
-        ttk.Label(grid_frame, text="Surrounding").grid(row=2, column=0, padx=5, sticky="w")
+        ttk.Label(grid_frame, text="Surface Neighbors").grid(row=2, column=0, padx=5, sticky="w")
+        ttk.Label(grid_frame, text="Surrounding Residues").grid(row=3, column=0, padx=5, sticky="w")
 
         # File format options
         self.formats = ['pdb', 'cif', 'mol', 'gro', 'xyz', 'txt']
@@ -65,19 +67,24 @@ class CustomExportWindow(tk.Toplevel):
         # Create variables for checkbuttons
         self.group_vars = {}
         self.surrounding_vars = {}
+        self.surrounding_resid_vars = {}
 
         # Create grid of checkbuttons with format labels
         for i, fmt in enumerate(self.formats, start=1):
             # Format label
             ttk.Label(grid_frame, text=fmt).grid(row=0, column=i, padx=(0, 5))
-            
+
             # Group balls checkbutton
-            self.group_vars[fmt] = tk.BooleanVar(value=fmt=='pdb')
+            self.group_vars[fmt] = tk.BooleanVar(value=fmt == 'pdb')
             ttk.Checkbutton(grid_frame, variable=self.group_vars[fmt]).grid(row=1, column=i, padx=5)
-            
+
             # Surrounding balls checkbutton
             self.surrounding_vars[fmt] = tk.BooleanVar(value=False)
             ttk.Checkbutton(grid_frame, variable=self.surrounding_vars[fmt]).grid(row=2, column=i, padx=5)
+
+            # Residue-expanded surrounding atoms
+            self.surrounding_resid_vars[fmt] = tk.BooleanVar(value=False)
+            ttk.Checkbutton(grid_frame, variable=self.surrounding_resid_vars[fmt]).grid(row=3, column=i, padx=5)
 
         # Create a frame for the three similar sections
         three_sections_frame = ttk.Frame(main_frame)
@@ -159,6 +166,9 @@ class CustomExportWindow(tk.Toplevel):
             'verts_cell': self.verts_cell_var.get(),
             'group_vars': {fmt: self.group_vars[fmt].get() for fmt in self.formats},
             'surrounding_vars': {fmt: self.surrounding_vars[fmt].get() for fmt in self.formats},
+            'surrounding_resid_vars': {
+                fmt: self.surrounding_resid_vars[fmt].get() for fmt in self.formats
+            },
         }
         # Update the export frame's settings directly
         self.parent.settings['custom_settings'] = self.settings
