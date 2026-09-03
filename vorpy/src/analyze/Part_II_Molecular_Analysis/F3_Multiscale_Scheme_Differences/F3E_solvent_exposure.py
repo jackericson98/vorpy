@@ -1,63 +1,17 @@
-"""Figure 3E — Continuous solvent-exposure dependence of AW/Power deviations.
+"""Figure 3E — Direct solvent-exposure dependence of AW/Power deviations.
 
-This version replaces pooled low/intermediate/high exposure violins with a
-continuous exposure analysis.
-
-Layout
-------
+Layout:
                     Volume | Surface Area | Contacts
     Atom
     Residue
 
-Atom row
---------
-Only the same representative atom groups used in Figure 3B are shown:
-
-Protein:
-    CA_*, CB_*, O, NZ, HN, SG
-
-Nucleic acid:
-    C5', C_sugar, N9, H_base_exocyclic, O_backbone, P
-
-For each atom group:
+Each panel shows:
     x = AW solvent-facing surface area (%)
     y = absolute Power-vs-AW percent deviation
 
-Faint points show individual atoms.
-A binned mean trend is drawn for groups with enough observations.
-
-Residue row
------------
-All residue types are retained, but residue identity is controlled explicitly.
-
-For each residue type, subtract its own mean exposure and its own mean
-absolute deviation. This is a fixed-effect / within-type transformation:
-
-    x = AW SolFacingPct - mean(AW SolFacingPct | residue type)
-    y = Abs % Diff      - mean(Abs % Diff      | residue type)
-
-The plotted residue relationship therefore asks:
-
-    Within the SAME residue identity, does being more solvent exposed than
-    usual correspond to a larger or smaller AW/Power deviation?
-
-Protein and nucleic-acid residuals are plotted separately.
-
-Methodological choice
----------------------
-AW defines solvent exposure. Power is never allowed to change the exposure
-variable.
-
-The full-system PDB is used only to recover metadata for surface partner
-indices omitted from the logs, especially solvent atoms. AW/Power geometric
-metrics still come from the logs.
-
-Outputs
--------
-F3E_continuous_solvent_exposure.png
-F3E_continuous_solvent_exposure.svg
-F3E_atom_group_trends.csv
-F3E_residue_fixed_effect_trends.csv
+Protein and nucleic-acid observations are shown separately with faint points
+and binned mean trends. Chemistry is controlled in exported statistics rather
+than encoded into the visualization.
 """
 from __future__ import annotations
 
@@ -66,17 +20,12 @@ import sys
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.lines import Line2D
-
-
-# ---------------------------------------------------------------------------
-# VorPy imports
-# ---------------------------------------------------------------------------
 
 vorpy_root = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "..")
@@ -97,17 +46,21 @@ from vorpy.src.analyze.Part_II_Molecular_Analysis.F3_Multiscale_Scheme_Differenc
     canonicalize_atom_name,
 )
 
-
-# ---------------------------------------------------------------------------
-# User settings
-# ---------------------------------------------------------------------------
-
 DATA_ROOT = None
 FIGURE_DIR = None
+EXCLUDE_KEYS = ["A", "B", "C"]
 
-EXCLUDE_KEYS = ["A", "B", "C", "K", "L"]
+# ---------------------------------------------------------------------------
+# Cache settings
+# ---------------------------------------------------------------------------
+# Building the exposure tables is expensive. Once built, all later figure
+# experiments should read these CSVs instead of re-reading logs/PDBs.
+REBUILD_CACHE = False
+ATOM_CACHE_NAME = "F3E_atom_exposure_cache.csv"
+RESIDUE_CACHE_NAME = "F3E_residue_exposure_cache.csv"
 
-FIGSIZE = (19, 10.8)
+
+FIGSIZE = (18.5, 10.5)
 DPI = 300
 SHOW = True
 SAVE_PNG = True
@@ -124,75 +77,44 @@ AA_RESIDUES = {
     "LEU", "LYS", "MET", "PHE", "PRO",
     "SER", "THR", "TRP", "TYR", "VAL",
 }
-
 DNA_RESIDUES = {"DA", "DC", "DG", "DT", "DI"}
 RNA_RESIDUES = {"A", "C", "G", "U", "I", "RA", "RC", "RG", "RU"}
 
-PROTEIN_REPRESENTATIVE_GROUPS = [
-    "CA_*",
-    "CB_*",
-    "O",
-    "NZ",
-    "HN",
-    "SG",
-]
-
-NUCLEIC_REPRESENTATIVE_GROUPS = [
-    "C5'",
-    "C_sugar",
-    "N9",
-    "H_base_exocyclic",
-    "O_backbone",
-    "P",
-]
-
-# Plot only a fraction of raw atom points; statistics use all observations.
-ATOM_POINT_FRACTION = 0.35
-ATOM_POINT_ALPHA = 0.12
-ATOM_POINT_SIZE = 9
-RANDOM_SEED = 17
-
-# Binned trend requirements.
-TREND_BINS = 8
-MIN_GROUP_COUNT = 25
-MIN_BIN_COUNT = 5
-TREND_LINE_WIDTH = 2.0
-TREND_MARKER_SIZE = 4.5
-
-# Residue fixed-effect scatter.
-RESIDUE_POINT_ALPHA = 0.12
-RESIDUE_POINT_SIZE = 10
-
-# Display trimming only; regression/statistics use all finite data.
-DISPLAY_PERCENTILE = 99.0
-
-# Atom-group colors. Chosen to stay stable across all three metrics.
-ATOM_GROUP_COLORS = {
-    "CA_*": "#1f77b4",
-    "CB_*": "#ff7f0e",
-    "O": "#d62728",
-    "NZ": "#2ca02c",
-    "HN": "#9467bd",
-    "SG": "#8c564b",
-    "C5'": "#17becf",
-    "C_sugar": "#bcbd22",
-    "N9": "#2ca02c",
-    "H_base_exocyclic": "#9467bd",
-    "O_backbone": "#d62728",
-    "P": "#e377c2",
-}
+METRICS = ["Volume", "Surface Area"]
 
 CLASS_COLORS = {
     "Protein": "#4c78a8",
     "Nucleic acid": "#f58518",
 }
 
-METRICS = ["Volume", "Surface Area", "Contacts"]
+POINT_SIZE = 8
+POINT_ALPHA = 0.055
+ATOM_PLOT_FRACTION = 1.0
+RESIDUE_PLOT_FRACTION = 1.0
+RANDOM_SEED = 17
 
+# Hard caps keep the raw visual layer informative without allowing the
+# very large protein populations to dominate the figure.
+ATOM_MAX_POINTS_PER_GROUP = 500
+RESIDUE_MAX_POINTS_PER_GROUP = 500
 
-# ---------------------------------------------------------------------------
-# Generic helpers
-# ---------------------------------------------------------------------------
+# Exposure bins are data-adaptive within each scale (Atom vs Residue).
+# Protein and nucleic acids share the same cutoffs within a scale.
+EXPOSURE_QUANTILES = (1.0 / 3.0, 2.0 / 3.0)
+EXPOSURE_ORDER = ["Low", "Medium", "High"]
+
+# Compact summary styling.
+CLASS_OFFSET = 0.18
+RAW_JITTER = 0.07
+SUMMARY_MARKER_SIZE = 82
+IQR_LINE_WIDTH = 3.8
+MEDIAN_LINE_WIDTH = 2.0
+
+DISPLAY_PERCENTILE = 99.0
+
+# Figure 3E focuses on continuous geometric quantities.
+# Contacts are intentionally excluded from this exposure panel.
+
 
 def select_directory(title: str) -> str:
     root = tk.Tk()
@@ -208,13 +130,11 @@ def classify_system(atoms: pd.DataFrame) -> Optional[str]:
         return None
 
     residues = atoms["Residue"].astype(str).str.strip().str.upper()
-
     counts = {
         "protein": int(residues.isin(AA_RESIDUES).sum()),
         "dna": int(residues.isin(DNA_RESIDUES).sum()),
         "rna": int(residues.isin(RNA_RESIDUES).sum()),
     }
-
     best = max(counts, key=counts.get)
     return best if counts[best] > 0 else None
 
@@ -238,20 +158,13 @@ def allowed_residues(system_class: str):
 
 
 def expected_pdb_path(system) -> Path:
-    # SchemePaths.aw points to .../<system>/aw/aw_logs.csv
     system_folder = Path(system.aw).resolve().parent.parent
-
     molecule_name = getattr(system, "molecule_name", None)
     if not molecule_name:
         folder_name = system_folder.name
-        molecule_name = (
-            folder_name.split("_", 1)[1]
-            if "_" in folder_name
-            else folder_name
-        )
+        molecule_name = folder_name.split("_", 1)[1] if "_" in folder_name else folder_name
 
     expected = system_folder / f"{molecule_name}.pdb"
-
     if expected.exists():
         return expected
 
@@ -259,14 +172,10 @@ def expected_pdb_path(system) -> Path:
     for candidate in system_folder.iterdir():
         if candidate.is_file() and candidate.name.lower() == target:
             return candidate
-
     return expected
 
 
 def parse_full_pdb_metadata(pdb_path: Path) -> Dict[int, Dict]:
-    """
-    Zero-based ATOM/HETATM file order = original VorPy index.
-    """
     metadata = {}
     atom_index = 0
 
@@ -279,7 +188,6 @@ def parse_full_pdb_metadata(pdb_path: Path) -> Dict[int, Dict]:
             atom_name = line[12:16].strip()
             residue = line[17:20].strip().upper()
             chain = line[21:22].strip()
-
             try:
                 resseq = int(line[22:26].strip())
             except ValueError:
@@ -296,11 +204,7 @@ def parse_full_pdb_metadata(pdb_path: Path) -> Dict[int, Dict]:
     return metadata
 
 
-def validate_pdb_mapping(
-    metadata: Dict[int, Dict],
-    log_atoms: pd.DataFrame,
-    system_name: str,
-):
+def validate_pdb_mapping(metadata: Dict[int, Dict], log_atoms: pd.DataFrame, system_name: str):
     checked = 0
     matched = 0
 
@@ -322,7 +226,6 @@ def validate_pdb_mapping(
             matched += 1
 
     fraction = matched / checked if checked else 0.0
-
     print(
         f"  PDB/log residue index agreement: "
         f"{matched:,}/{checked:,} ({100.0 * fraction:.2f}%)"
@@ -335,17 +238,8 @@ def validate_pdb_mapping(
         )
 
 
-# ---------------------------------------------------------------------------
-# Solvent-exposure calculations
-# ---------------------------------------------------------------------------
-
-def attach_atom_exposure(
-    atom_df: pd.DataFrame,
-    aw_logs: Dict,
-    metadata: Dict[int, Dict],
-) -> pd.DataFrame:
+def attach_atom_exposure(atom_df: pd.DataFrame, aw_logs: Dict, metadata: Dict[int, Dict]) -> pd.DataFrame:
     df = atom_df.copy()
-
     total_area = {int(i): 0.0 for i in df["Index"]}
     solvent_area = {int(i): 0.0 for i in df["Index"]}
 
@@ -361,14 +255,10 @@ def attach_atom_exposure(
                 solvent_area[b2] += area
 
     df["AW SolFacingPct"] = [
-        (
-            100.0 * solvent_area[int(idx)] / total_area[int(idx)]
-            if total_area[int(idx)] > 0.0
-            else np.nan
-        )
+        100.0 * solvent_area[int(idx)] / total_area[int(idx)]
+        if total_area[int(idx)] > 0.0 else np.nan
         for idx in df["Index"]
     ]
-
     return df
 
 
@@ -419,11 +309,8 @@ def attach_residue_exposure(
                 solvent_area[r2] += area
 
     exposure_lookup = {
-        key: (
-            100.0 * solvent_area[key] / total_area[key]
-            if total_area[key] > 0.0
-            else np.nan
-        )
+        key: 100.0 * solvent_area[key] / total_area[key]
+        if total_area[key] > 0.0 else np.nan
         for key in residue_keys
     }
 
@@ -438,51 +325,11 @@ def attach_residue_exposure(
         )
         for _, row in df.iterrows()
     ]
-
     return df
 
 
-# ---------------------------------------------------------------------------
-# Figure 3B atom group reuse
-# ---------------------------------------------------------------------------
-
-def add_atom_groups(
-    atom_df: pd.DataFrame,
-    system_class: str,
-) -> pd.DataFrame:
-    df = atom_df.copy()
-
-    df["CanonicalName"] = [
-        canonicalize_atom_name(
-            atom_name=str(atom),
-            molecule_class=system_class,
-            residue_name=str(residue),
-        )
-        for atom, residue in zip(df["Atom"], df["Residue"])
-    ]
-
-    wanted = (
-        PROTEIN_REPRESENTATIVE_GROUPS
-        if system_class == "protein"
-        else NUCLEIC_REPRESENTATIVE_GROUPS
-    )
-
-    return df[df["CanonicalName"].isin(wanted)].copy()
-
-
-# ---------------------------------------------------------------------------
-# Data collection
-# ---------------------------------------------------------------------------
-
-def collect_data(
-    data_root: str,
-    exclude_keys: Optional[Iterable[str]] = None,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    systems = discover_systems(
-        data_root,
-        exclude_keys=exclude_keys,
-    )
-
+def collect_data(data_root: str, exclude_keys: Optional[Iterable[str]] = None):
+    systems = discover_systems(data_root, exclude_keys=exclude_keys)
     atom_frames = []
     residue_frames = []
 
@@ -491,121 +338,171 @@ def collect_data(
     for system in systems:
         print(f"\nProcessing {system.name} ...")
 
-        aw_logs, power_logs = read_pair(
-            system,
-            need_surfs=True,
-        )
-
+        aw_logs, power_logs = read_pair(system, need_surfs=True)
         system_class = classify_system(aw_logs["atoms"])
+
         if system_class is None:
             print("  skipped: unclassified")
             continue
 
         pdb_path = expected_pdb_path(system)
         if not pdb_path.exists():
-            raise FileNotFoundError(
-                f"Full-system PDB not found: {pdb_path}"
-            )
+            raise FileNotFoundError(f"Full-system PDB not found: {pdb_path}")
 
         metadata = parse_full_pdb_metadata(pdb_path)
-        validate_pdb_mapping(
-            metadata,
-            aw_logs["atoms"],
-            system.name,
-        )
+        validate_pdb_mapping(metadata, aw_logs["atoms"], system.name)
 
         allowed = allowed_residues(system_class)
         class_name = broad_class(system_class)
 
-        # --------------------------
-        # Atom data
-        # --------------------------
-        atom_df = build_atomic_metrics(
-            aw_logs,
-            power_logs,
-        )
-
-        atom_df = atom_df[
-            atom_df["Residue"].isin(allowed)
-        ].copy()
-
+        atom_df = build_atomic_metrics(aw_logs, power_logs)
+        atom_df = atom_df[atom_df["Residue"].isin(allowed)].copy()
         atom_df = add_deviation_columns(atom_df)
-        atom_df = attach_atom_exposure(
-            atom_df,
-            aw_logs,
-            metadata,
-        )
-        atom_df = add_atom_groups(
-            atom_df,
-            system_class=system_class,
-        )
-
+        atom_df = attach_atom_exposure(atom_df, aw_logs, metadata)
         atom_df["System"] = system.name
         atom_df["BroadClass"] = class_name
-
+        atom_df["CanonicalName"] = [
+            canonicalize_atom_name(
+                atom_name=str(atom),
+                molecule_class=system_class,
+                residue_name=str(residue),
+            )
+            for atom, residue in zip(atom_df["Atom"], atom_df["Residue"])
+        ]
         atom_frames.append(atom_df)
 
-        # --------------------------
-        # Residue data
-        # --------------------------
-        # Build residue metrics from all matched biomolecular atoms, not only
-        # the Figure 3B representative subset.
-        all_atom_df = build_atomic_metrics(
-            aw_logs,
-            power_logs,
-        )
-        all_atom_df = all_atom_df[
-            all_atom_df["Residue"].isin(allowed)
-        ].copy()
-
-        residue_df = build_residue_metrics(
-            all_atom_df,
-            aw_logs,
-            power_logs,
-        )
-        residue_df = residue_df[
-            residue_df["Residue"].isin(allowed)
-        ].copy()
-
+        residue_df = build_residue_metrics(atom_df, aw_logs, power_logs)
+        residue_df = residue_df[residue_df["Residue"].isin(allowed)].copy()
         residue_df = add_deviation_columns(residue_df)
-        residue_df = attach_residue_exposure(
-            residue_df,
-            all_atom_df,
-            aw_logs,
-            metadata,
-        )
-
+        residue_df = attach_residue_exposure(residue_df, atom_df, aw_logs, metadata)
         residue_df["System"] = system.name
         residue_df["BroadClass"] = class_name
-
         residue_frames.append(residue_df)
 
-        print(
-            f"  retained selected atoms: {len(atom_df):,}; "
-            f"residues: {len(residue_df):,}"
-        )
+        print(f"  retained atoms: {len(atom_df):,}; residues: {len(residue_df):,}")
 
-    atoms = (
-        pd.concat(atom_frames, ignore_index=True)
-        if atom_frames
-        else pd.DataFrame()
-    )
-    residues = (
-        pd.concat(residue_frames, ignore_index=True)
-        if residue_frames
-        else pd.DataFrame()
-    )
-
+    atoms = pd.concat(atom_frames, ignore_index=True) if atom_frames else pd.DataFrame()
+    residues = pd.concat(residue_frames, ignore_index=True) if residue_frames else pd.DataFrame()
     return atoms, residues
 
 
-# ---------------------------------------------------------------------------
-# Trend statistics
-# ---------------------------------------------------------------------------
+def class_exposure_cutoffs(df: pd.DataFrame) -> Dict[str, tuple]:
+    """Return Low/Medium/High tertile cutoffs separately for each molecular class."""
+    cutoffs = {}
 
-def linear_stats(x, y) -> Tuple[float, float, float, int]:
-    x = np.asarray(x, dtype=float)
-    y = np.asarray(y, dtype=float)
+    for broad_name in ["Protein", "Nucleic acid"]:
+        vals = pd.to_numeric(
+            df.loc[df["BroadClass"] == broad_name, "AW SolFacingPct"],
+            errors="coerce",
+        ).dropna().to_numpy(float)
+
+        vals = vals[np.isfinite(vals)]
+
+        if len(vals) == 0:
+            cutoffs[broad_name] = (np.nan, np.nan)
+            continue
+
+        low, high = np.quantile(vals, EXPOSURE_QUANTILES)
+        cutoffs[broad_name] = (float(low), float(high))
+
+    return cutoffs
+
+
+def assign_exposure_categories(
+    df: pd.DataFrame,
+    cutoffs: Dict[str, tuple],
+) -> pd.DataFrame:
+    """
+    Assign exposure tertiles within molecular class.
+
+    Thus Low/Medium/High means relatively buried/intermediate/exposed within
+    Protein or Nucleic acid, rather than using protein-dominated global cutoffs.
+    """
+    out = df.copy()
+    out["Exposure Group"] = None
+
+    exposure = pd.to_numeric(
+        out["AW SolFacingPct"],
+        errors="coerce",
+    )
+
+    for broad_name, (low_cut, high_cut) in cutoffs.items():
+        if not np.isfinite(low_cut) or not np.isfinite(high_cut):
+            continue
+
+        class_mask = out["BroadClass"] == broad_name
+
+        out.loc[
+            class_mask & (exposure <= low_cut),
+            "Exposure Group",
+        ] = "Low"
+
+        out.loc[
+            class_mask
+            & (exposure > low_cut)
+            & (exposure <= high_cut),
+            "Exposure Group",
+        ] = "Medium"
+
+        out.loc[
+            class_mask & (exposure > high_cut),
+            "Exposure Group",
+        ] = "High"
+
+    return out
+
+
+def summarize_exposure_groups(
+    df: pd.DataFrame,
+    scale: str,
+):
+    cutoffs = class_exposure_cutoffs(df)
+    work = assign_exposure_categories(df, cutoffs=cutoffs)
+
+    rows = []
+
+    for metric in METRICS:
+        y_col = f"{metric} Abs % Diff"
+
+        for broad_name in ["Protein", "Nucleic acid"]:
+            low_cut, high_cut = cutoffs[broad_name]
+
+            for exposure_group in EXPOSURE_ORDER:
+                vals = pd.to_numeric(
+                    work.loc[
+                        (work["BroadClass"] == broad_name)
+                        & (work["Exposure Group"] == exposure_group),
+                        y_col,
+                    ],
+                    errors="coerce",
+                ).dropna().to_numpy(float)
+
+                vals = vals[np.isfinite(vals)]
+
+                if len(vals) == 0:
+                    continue
+
+                rows.append({
+                    "Scale": scale,
+                    "Metric": metric,
+                    "BroadClass": broad_name,
+                    "Exposure Group": exposure_group,
+                    "Count": len(vals),
+                    "Exposure Low Cutoff": low_cut,
+                    "Exposure High Cutoff": high_cut,
+                    "Mean": float(np.mean(vals)),
+                    "Median": float(np.median(vals)),
+                    "Q1": float(np.percentile(vals, 25)),
+                    "Q3": float(np.percentile(vals, 75)),
+                    "SD": float(np.std(vals, ddof=1)) if len(vals) > 1 else 0.0,
+                })
+
+    return work, pd.DataFrame(rows), cutoffs
+
+
+def linear_stats(x, y):
+    x = pd.to_numeric(pd.Series(x), errors="coerce").to_numpy(float)
+    y = pd.to_numeric(pd.Series(y), errors="coerce").to_numpy(float)
 
     finite = np.isfinite(x) & np.isfinite(y)
     x = x[finite]
@@ -616,290 +513,268 @@ def linear_stats(x, y) -> Tuple[float, float, float, int]:
 
     slope, intercept = np.polyfit(x, y, 1)
     pred = slope * x + intercept
-
-    ss_res = float(np.sum((y - pred) ** 2))
-    ss_tot = float(np.sum((y - np.mean(y)) ** 2))
-    r2 = (
-        1.0 - ss_res / ss_tot
-        if ss_tot > 0.0
-        else np.nan
-    )
+    ss_res = np.sum((y - pred) ** 2)
+    ss_tot = np.sum((y - np.mean(y)) ** 2)
+    r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else np.nan
 
     return float(slope), float(intercept), float(r2), len(x)
 
 
-def quantile_binned_means(
-    x,
-    y,
-    n_bins: int = TREND_BINS,
-) -> pd.DataFrame:
-    df = pd.DataFrame(
-        {
-            "x": pd.to_numeric(x, errors="coerce"),
-            "y": pd.to_numeric(y, errors="coerce"),
-        }
-    ).dropna()
-
-    if len(df) < MIN_GROUP_COUNT:
-        return pd.DataFrame()
-
-    # qcut can collapse repeated exposure values; duplicates='drop' handles it.
-    try:
-        df["bin"] = pd.qcut(
-            df["x"],
-            q=n_bins,
-            duplicates="drop",
-        )
-    except ValueError:
-        return pd.DataFrame()
-
-    out = (
-        df.groupby("bin", observed=True)
-        .agg(
-            x_mean=("x", "mean"),
-            y_mean=("y", "mean"),
-            y_sem=(
-                "y",
-                lambda s: (
-                    s.std(ddof=1) / np.sqrt(len(s))
-                    if len(s) > 1
-                    else 0.0
-                ),
-            ),
-            count=("y", "size"),
-        )
-        .reset_index(drop=True)
-    )
-
-    return out[out["count"] >= MIN_BIN_COUNT].copy()
-
-
-def build_atom_trend_table(atom_df: pd.DataFrame) -> pd.DataFrame:
+def controlled_slopes_atom(atom_df: pd.DataFrame) -> pd.DataFrame:
     rows = []
-
     for metric in METRICS:
         y_col = f"{metric} Abs % Diff"
-
-        for (class_name, group_name), group_df in atom_df.groupby(
-            ["BroadClass", "CanonicalName"]
-        ):
+        for (broad_name, atom_type), group_df in atom_df.groupby(["BroadClass", "CanonicalName"]):
             slope, intercept, r2, n = linear_stats(
                 group_df["AW SolFacingPct"],
                 group_df[y_col],
             )
-
-            rows.append(
-                {
-                    "Metric": metric,
-                    "BroadClass": class_name,
-                    "GroupName": group_name,
-                    "Count": n,
-                    "Mean Exposure %": float(
-                        pd.to_numeric(
-                            group_df["AW SolFacingPct"],
-                            errors="coerce",
-                        ).mean()
-                    ),
-                    "Mean Abs % Diff": float(
-                        pd.to_numeric(
-                            group_df[y_col],
-                            errors="coerce",
-                        ).mean()
-                    ),
-                    "Slope (%diff per exposure %)": slope,
-                    "Intercept": intercept,
-                    "R2": r2,
-                }
-            )
-
+            rows.append({
+                "Metric": metric,
+                "BroadClass": broad_name,
+                "AtomType": atom_type,
+                "Count": n,
+                "Slope": slope,
+                "Intercept": intercept,
+                "R2": r2,
+            })
     return pd.DataFrame(rows)
 
 
-def add_residue_fixed_effects(
-    residue_df: pd.DataFrame,
-) -> pd.DataFrame:
-    """
-    Residualize exposure and each metric by residue identity within broad class.
-    """
-    df = residue_df.copy()
-
-    group_cols = ["BroadClass", "Residue"]
-
-    df["Exposure Within Type"] = (
-        pd.to_numeric(
-            df["AW SolFacingPct"],
-            errors="coerce",
-        )
-        - df.groupby(group_cols)["AW SolFacingPct"].transform("mean")
-    )
-
+def controlled_slopes_residue(residue_df: pd.DataFrame) -> pd.DataFrame:
+    rows = []
     for metric in METRICS:
         y_col = f"{metric} Abs % Diff"
-
-        numeric_y = pd.to_numeric(
-            df[y_col],
-            errors="coerce",
-        )
-
-        df[f"{metric} Within Type"] = (
-            numeric_y
-            - df.assign(_y=numeric_y)
-                .groupby(group_cols)["_y"]
-                .transform("mean")
-        )
-
-    return df
-
-
-def build_residue_trend_table(
-    residue_df: pd.DataFrame,
-) -> pd.DataFrame:
-    rows = []
-
-    for metric in METRICS:
-        y_col = f"{metric} Within Type"
-
-        for class_name, class_df in residue_df.groupby("BroadClass"):
+        for (broad_name, residue_name), group_df in residue_df.groupby(["BroadClass", "Residue"]):
             slope, intercept, r2, n = linear_stats(
-                class_df["Exposure Within Type"],
-                class_df[y_col],
+                group_df["AW SolFacingPct"],
+                group_df[y_col],
             )
+            rows.append({
+                "Metric": metric,
+                "BroadClass": broad_name,
+                "Residue": residue_name,
+                "Count": n,
+                "Slope": slope,
+                "Intercept": intercept,
+                "R2": r2,
+            })
+    return pd.DataFrame(rows)
 
-            rows.append(
-                {
+
+def overall_summary(atom_df: pd.DataFrame, residue_df: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+    for scale, df in [("Atom", atom_df), ("Residue", residue_df)]:
+        for metric in METRICS:
+            y_col = f"{metric} Abs % Diff"
+            for broad_name, group_df in df.groupby("BroadClass"):
+                slope, intercept, r2, n = linear_stats(
+                    group_df["AW SolFacingPct"],
+                    group_df[y_col],
+                )
+                rows.append({
+                    "Scale": scale,
                     "Metric": metric,
-                    "BroadClass": class_name,
+                    "BroadClass": broad_name,
                     "Count": n,
+                    "Mean Exposure %": pd.to_numeric(
+                        group_df["AW SolFacingPct"], errors="coerce"
+                    ).mean(),
+                    "Mean Abs % Diff": pd.to_numeric(
+                        group_df[y_col], errors="coerce"
+                    ).mean(),
                     "Slope": slope,
                     "Intercept": intercept,
                     "R2": r2,
-                }
-            )
-
+                })
     return pd.DataFrame(rows)
 
 
-# ---------------------------------------------------------------------------
-# Plot helpers
-# ---------------------------------------------------------------------------
-
-def display_upper(values, percentile=DISPLAY_PERCENTILE):
-    vals = pd.to_numeric(
-        pd.Series(values),
-        errors="coerce",
-    ).dropna().to_numpy(float)
-
-    vals = vals[np.isfinite(vals)]
-
-    if len(vals) == 0:
-        return 1.0
-
-    return max(
-        float(np.percentile(vals, percentile)) * 1.10,
-        1.0,
-    )
-
-
-def symmetric_limit(values, percentile=DISPLAY_PERCENTILE):
-    vals = pd.to_numeric(
-        pd.Series(values),
-        errors="coerce",
-    ).dropna().to_numpy(float)
-
-    vals = vals[np.isfinite(vals)]
-
-    if len(vals) == 0:
-        return 1.0
-
-    abs_lim = float(
-        np.percentile(np.abs(vals), percentile)
-    )
-
-    return max(abs_lim * 1.10, 0.5)
-
-
-def plot_atom_panel(
-    ax,
-    atom_df: pd.DataFrame,
-    metric: str,
+def sample_for_plot(
+    df: pd.DataFrame,
+    fraction: float,
     rng: np.random.Generator,
+    max_points: Optional[int] = None,
+) -> pd.DataFrame:
+    """Downsample only the faint raw-point layer; summaries always use all data."""
+    if len(df) <= 1:
+        return df
+
+    n = len(df)
+
+    if fraction < 1.0:
+        n = max(1, int(round(n * fraction)))
+
+    if max_points is not None:
+        n = min(n, max_points)
+
+    if n >= len(df):
+        return df
+
+    idx = rng.choice(
+        df.index.to_numpy(),
+        size=n,
+        replace=False,
+    )
+    return df.loc[idx]
+
+
+def axis_upper(values, percentile=DISPLAY_PERCENTILE):
+    vals = pd.to_numeric(pd.Series(values), errors="coerce").dropna().to_numpy(float)
+    vals = vals[np.isfinite(vals)]
+
+    if len(vals) == 0:
+        return 1.0
+
+    return max(float(np.percentile(vals, percentile)) * 1.08, 1.0)
+
+
+def plot_panel(
+    ax,
+    df,
+    scale,
+    metric,
+    rng,
+    cutoffs,
 ):
     y_col = f"{metric} Abs % Diff"
-
-    panel = atom_df[
-        ["AW SolFacingPct", y_col, "BroadClass", "CanonicalName"]
-    ].copy()
-
-    panel["AW SolFacingPct"] = pd.to_numeric(
-        panel["AW SolFacingPct"],
-        errors="coerce",
-    )
-    panel[y_col] = pd.to_numeric(
-        panel[y_col],
-        errors="coerce",
-    )
-    panel = panel.dropna()
-
-    groups_in_order = (
-        PROTEIN_REPRESENTATIVE_GROUPS
-        + NUCLEIC_REPRESENTATIVE_GROUPS
+    plot_fraction = (
+        ATOM_PLOT_FRACTION
+        if scale == "Atom"
+        else RESIDUE_PLOT_FRACTION
     )
 
-    for group_name in groups_in_order:
-        group_df = panel[
-            panel["CanonicalName"] == group_name
-        ]
+    work = assign_exposure_categories(
+        df,
+        cutoffs=cutoffs,
+    )
 
-        if len(group_df) < MIN_GROUP_COUNT:
-            continue
+    base_x = {
+        "Low": 0.0,
+        "Medium": 1.0,
+        "High": 2.0,
+    }
 
-        color = ATOM_GROUP_COLORS.get(group_name, "0.4")
+    offsets = {
+        "Protein": -CLASS_OFFSET,
+        "Nucleic acid": CLASS_OFFSET,
+    }
 
-        # Plot sample only.
-        if ATOM_POINT_FRACTION < 1.0:
-            n_sample = max(
-                1,
-                int(round(len(group_df) * ATOM_POINT_FRACTION)),
+    for broad_name in ["Protein", "Nucleic acid"]:
+        color = CLASS_COLORS[broad_name]
+
+        for exposure_group in EXPOSURE_ORDER:
+            group_df = work[
+                (work["BroadClass"] == broad_name)
+                & (work["Exposure Group"] == exposure_group)
+            ].copy()
+
+            group_df[y_col] = pd.to_numeric(
+                group_df[y_col],
+                errors="coerce",
             )
-            sample_idx = rng.choice(
-                group_df.index.to_numpy(),
-                size=min(n_sample, len(group_df)),
-                replace=False,
+            group_df = group_df.dropna(subset=[y_col])
+
+            if group_df.empty:
+                continue
+
+            # Downsample only the raw visual layer.
+            max_points = (
+                ATOM_MAX_POINTS_PER_GROUP
+                if scale == "Atom"
+                else RESIDUE_MAX_POINTS_PER_GROUP
             )
-            sample = group_df.loc[sample_idx]
-        else:
-            sample = group_df
 
-        ax.scatter(
-            sample["AW SolFacingPct"],
-            sample[y_col],
-            s=ATOM_POINT_SIZE,
-            alpha=ATOM_POINT_ALPHA,
-            color=color,
-            linewidths=0,
-            rasterized=True,
-            zorder=1,
-        )
+            sample = sample_for_plot(
+                group_df,
+                plot_fraction,
+                rng,
+                max_points=max_points,
+            )
 
-        trend = quantile_binned_means(
-            group_df["AW SolFacingPct"],
-            group_df[y_col],
-        )
+            x_center = base_x[exposure_group] + offsets[broad_name]
+            jitter = rng.uniform(
+                -RAW_JITTER,
+                RAW_JITTER,
+                len(sample),
+            )
 
-        if not trend.empty:
-            ax.plot(
-                trend["x_mean"],
-                trend["y_mean"],
-                marker="o",
-                markersize=TREND_MARKER_SIZE,
-                linewidth=TREND_LINE_WIDTH,
+            ax.scatter(
+                np.full(len(sample), x_center) + jitter,
+                sample[y_col],
+                s=POINT_SIZE,
+                alpha=POINT_ALPHA,
                 color=color,
-                label=group_name,
+                linewidths=0,
+                rasterized=True,
+                zorder=1,
+            )
+
+            vals = group_df[y_col].to_numpy(float)
+
+            median = float(np.median(vals))
+            q1 = float(np.percentile(vals, 25))
+            q3 = float(np.percentile(vals, 75))
+
+            # Thick IQR bar.
+            ax.vlines(
+                x_center,
+                q1,
+                q3,
+                color=color,
+                linewidth=IQR_LINE_WIDTH,
                 zorder=4,
             )
 
+            # Median marker.
+            ax.scatter(
+                [x_center],
+                [median],
+                s=SUMMARY_MARKER_SIZE,
+                color=color,
+                edgecolor="white",
+                linewidth=1.2,
+                zorder=5,
+            )
+
+            # Short median tick reinforces the statistic.
+            ax.hlines(
+                median,
+                x_center - 0.055,
+                x_center + 0.055,
+                color="white",
+                linewidth=MEDIAN_LINE_WIDTH,
+                zorder=6,
+            )
+
+            # Count above the panel.
+            ax.text(
+                x_center,
+                0.98,
+                f"n={len(vals)}",
+                transform=ax.get_xaxis_transform(),
+                ha="center",
+                va="top",
+                fontsize=8,
+                color=color,
+            )
+
+    ax.set_xticks([0, 1, 2])
+    ax.set_xticklabels(EXPOSURE_ORDER, fontsize=10)
+
+    ax.set_xlim(-0.55, 2.55)
+
+    panel_y = pd.to_numeric(
+        work[y_col],
+        errors="coerce",
+    )
+    ax.set_ylim(
+        0.0,
+        axis_upper(panel_y, percentile=99.0),
+    )
+
     ax.set_xlabel(
-        "AW solvent-facing surface area (%)",
+        "Relative AW solvent exposure",
         fontsize=10,
     )
     ax.set_ylabel(
@@ -912,17 +787,6 @@ def plot_atom_panel(
         fontweight="bold",
     )
 
-    ax.set_ylim(
-        0.0,
-        display_upper(panel[y_col]),
-    )
-
-    x_max = display_upper(
-        panel["AW SolFacingPct"],
-        percentile=99.5,
-    )
-    ax.set_xlim(0.0, x_max)
-
     ax.tick_params(
         axis="both",
         labelsize=9,
@@ -934,256 +798,267 @@ def plot_atom_panel(
         spine.set_linewidth(1.2)
 
 
-def plot_residue_panel(
-    ax,
-    residue_df: pd.DataFrame,
-    metric: str,
-):
-    x_col = "Exposure Within Type"
-    y_col = f"{metric} Within Type"
-
-    panel = residue_df[
-        [x_col, y_col, "BroadClass"]
-    ].copy()
-
-    panel[x_col] = pd.to_numeric(
-        panel[x_col],
-        errors="coerce",
-    )
-    panel[y_col] = pd.to_numeric(
-        panel[y_col],
-        errors="coerce",
-    )
-    panel = panel.dropna()
-
-    for class_name in ["Protein", "Nucleic acid"]:
-        class_df = panel[
-            panel["BroadClass"] == class_name
-        ]
-
-        if class_df.empty:
-            continue
-
-        color = CLASS_COLORS[class_name]
-
-        ax.scatter(
-            class_df[x_col],
-            class_df[y_col],
-            s=RESIDUE_POINT_SIZE,
-            alpha=RESIDUE_POINT_ALPHA,
-            color=color,
-            linewidths=0,
-            rasterized=True,
-            zorder=1,
-        )
-
-        trend = quantile_binned_means(
-            class_df[x_col],
-            class_df[y_col],
-            n_bins=TREND_BINS,
-        )
-
-        if not trend.empty:
-            ax.plot(
-                trend["x_mean"],
-                trend["y_mean"],
-                marker="o",
-                markersize=TREND_MARKER_SIZE + 0.5,
-                linewidth=TREND_LINE_WIDTH,
-                color=color,
-                label=class_name,
-                zorder=4,
-            )
-
-    ax.axhline(
-        0.0,
-        linestyle="--",
-        linewidth=1.0,
-        color="black",
-        alpha=0.7,
-        zorder=0,
-    )
-    ax.axvline(
-        0.0,
-        linestyle="--",
-        linewidth=1.0,
-        color="black",
-        alpha=0.7,
-        zorder=0,
-    )
-
-    xlim = symmetric_limit(panel[x_col], percentile=99.0)
-    ylim = symmetric_limit(panel[y_col], percentile=99.0)
-
-    ax.set_xlim(-xlim, xlim)
-    ax.set_ylim(-ylim, ylim)
-
-    ax.set_xlabel(
-        "Exposure relative to residue-type mean (%)",
-        fontsize=10,
-    )
-    ax.set_ylabel(
-        "Deviation relative to residue-type mean (%)",
-        fontsize=10,
-    )
-    ax.set_title(
-        metric,
-        fontsize=13,
-        fontweight="bold",
-    )
-
-    ax.tick_params(
-        axis="both",
-        labelsize=9,
-        width=1.2,
-        length=5,
-    )
-
-    for spine in ax.spines.values():
-        spine.set_linewidth(1.2)
-
-
-def add_legends(fig):
-    atom_handles = [
+def add_legend(fig):
+    handles = [
         Line2D(
             [0], [0],
             marker="o",
-            linewidth=2,
-            color=ATOM_GROUP_COLORS.get(name, "0.4"),
-            label=name,
-            markersize=5,
-        )
-        for name in (
-            PROTEIN_REPRESENTATIVE_GROUPS
-            + NUCLEIC_REPRESENTATIVE_GROUPS
-        )
-    ]
-
-    residue_handles = [
-        Line2D(
-            [0], [0],
-            marker="o",
-            linewidth=2,
+            linewidth=2.2,
             color=color,
             label=name,
-            markersize=5,
+            markersize=6,
         )
         for name, color in CLASS_COLORS.items()
     ]
 
-    atom_legend = fig.legend(
-        handles=atom_handles,
-        title="Atom groups",
-        loc="lower left",
-        bbox_to_anchor=(0.08, 0.005),
-        ncol=6,
-        frameon=False,
-        fontsize=8.5,
-        title_fontsize=9,
-    )
-    fig.add_artist(atom_legend)
-
     fig.legend(
-        handles=residue_handles,
-        title="Residue class",
-        loc="lower right",
-        bbox_to_anchor=(0.92, 0.005),
+        handles=handles,
+        loc="lower center",
         ncol=2,
         frameon=False,
-        fontsize=9,
-        title_fontsize=9,
+        fontsize=10,
+        bbox_to_anchor=(0.5, 0.02),
     )
 
 
-# ---------------------------------------------------------------------------
-# Figure
-# ---------------------------------------------------------------------------
-
-def make_figure(
-    atom_df: pd.DataFrame,
-    residue_df: pd.DataFrame,
-    figure_dir: str,
-):
+def cache_paths(figure_dir):
     figure_dir = Path(figure_dir)
-    figure_dir.mkdir(
-        parents=True,
-        exist_ok=True,
+    return (
+        figure_dir / ATOM_CACHE_NAME,
+        figure_dir / RESIDUE_CACHE_NAME,
     )
 
-    residue_fe = add_residue_fixed_effects(
-        residue_df
+
+def save_exposure_cache(atom_df, residue_df, figure_dir):
+    """Save only the scalar fields needed for future Figure 3E experiments."""
+    figure_dir = Path(figure_dir)
+    figure_dir.mkdir(parents=True, exist_ok=True)
+
+    atom_cache, residue_cache = cache_paths(figure_dir)
+
+    atom_columns = [
+        "System",
+        "BroadClass",
+        "Index",
+        "Name",
+        "Atom",
+        "Residue",
+        "Residue Sequence",
+        "Chain",
+        "CanonicalName",
+        "AW SolFacingPct",
+        "Volume Abs % Diff",
+        "Surface Area Abs % Diff",
+        "Contacts Abs % Diff",
+        "Volume Signed % Diff",
+        "Surface Area Signed % Diff",
+        "Contacts Signed % Diff",
+    ]
+    atom_columns = [c for c in atom_columns if c in atom_df.columns]
+
+    residue_columns = [
+        "System",
+        "BroadClass",
+        "Residue",
+        "Residue Sequence",
+        "Chain",
+        "AW SolFacingPct",
+        "Volume Abs % Diff",
+        "Surface Area Abs % Diff",
+        "Contacts Abs % Diff",
+        "Volume Signed % Diff",
+        "Surface Area Signed % Diff",
+        "Contacts Signed % Diff",
+    ]
+    residue_columns = [c for c in residue_columns if c in residue_df.columns]
+
+    atom_df[atom_columns].to_csv(atom_cache, index=False)
+    residue_df[residue_columns].to_csv(residue_cache, index=False)
+
+    print(f"Saved atom exposure cache: {atom_cache}")
+    print(f"Saved residue exposure cache: {residue_cache}")
+
+
+def load_exposure_cache(figure_dir):
+    atom_cache, residue_cache = cache_paths(figure_dir)
+
+    if not atom_cache.exists() or not residue_cache.exists():
+        return None, None
+
+    print(f"Loading cached atom data: {atom_cache}")
+    print(f"Loading cached residue data: {residue_cache}")
+
+    return (
+        pd.read_csv(atom_cache),
+        pd.read_csv(residue_cache),
     )
 
-    atom_trends = build_atom_trend_table(
-        atom_df
+
+def get_or_build_exposure_data(data_root, figure_dir, exclude_keys=None):
+    """
+    Load cached exposure/deviation tables when available.
+
+    Set REBUILD_CACHE = True only when the underlying AW/Power logs, PDBs,
+    parsing logic, or solvent-exposure calculation has changed.
+    """
+    if not REBUILD_CACHE:
+        atom_df, residue_df = load_exposure_cache(figure_dir)
+
+        if atom_df is not None and residue_df is not None:
+            print(
+                f"Using cached Figure 3E data: "
+                f"{len(atom_df):,} atoms, {len(residue_df):,} residues"
+            )
+            return atom_df, residue_df
+
+    print("Building Figure 3E exposure cache from logs/PDBs ...")
+
+    atom_df, residue_df = collect_data(
+        data_root=data_root,
+        exclude_keys=exclude_keys,
     )
-    residue_trends = build_residue_trend_table(
-        residue_fe
+
+    save_exposure_cache(
+        atom_df,
+        residue_df,
+        figure_dir=figure_dir,
+    )
+
+    return atom_df, residue_df
+
+
+def build_cutoff_table(atom_cutoffs, residue_cutoffs):
+    rows = []
+
+    for scale, cutoffs in [
+        ("Atom", atom_cutoffs),
+        ("Residue", residue_cutoffs),
+    ]:
+        for broad_name in ["Protein", "Nucleic acid"]:
+            low_cut, high_cut = cutoffs[broad_name]
+
+            rows.extend([
+                {
+                    "Scale": scale,
+                    "BroadClass": broad_name,
+                    "Exposure Group": "Low",
+                    "Range": f"<= {low_cut:.3f}%",
+                    "Lower Bound %": 0.0,
+                    "Upper Bound %": low_cut,
+                },
+                {
+                    "Scale": scale,
+                    "BroadClass": broad_name,
+                    "Exposure Group": "Medium",
+                    "Range": f"> {low_cut:.3f}% to <= {high_cut:.3f}%",
+                    "Lower Bound %": low_cut,
+                    "Upper Bound %": high_cut,
+                },
+                {
+                    "Scale": scale,
+                    "BroadClass": broad_name,
+                    "Exposure Group": "High",
+                    "Range": f"> {high_cut:.3f}%",
+                    "Lower Bound %": high_cut,
+                    "Upper Bound %": np.nan,
+                },
+            ])
+
+    return pd.DataFrame(rows)
+
+
+def format_cutoff_line(scale_name: str, cutoffs: Dict[str, tuple]) -> str:
+    parts = []
+
+    for broad_name in ["Protein", "Nucleic acid"]:
+        low_cut, high_cut = cutoffs[broad_name]
+
+        parts.append(
+            f"{broad_name}: "
+            f"Low <= {low_cut:.1f}% | "
+            f"Medium {low_cut:.1f}-{high_cut:.1f}% | "
+            f"High > {high_cut:.1f}%"
+        )
+
+    return f"{scale_name}: " + "     ".join(parts)
+
+
+def make_figure(atom_df, residue_df, figure_dir):
+    figure_dir = Path(figure_dir)
+    figure_dir.mkdir(parents=True, exist_ok=True)
+
+    atom_work, atom_summary, atom_cutoffs = summarize_exposure_groups(
+        atom_df,
+        scale="Atom",
+    )
+    residue_work, residue_summary, residue_cutoffs = summarize_exposure_groups(
+        residue_df,
+        scale="Residue",
+    )
+
+    summary = pd.concat(
+        [atom_summary, residue_summary],
+        ignore_index=True,
+    )
+
+    atom_controlled = controlled_slopes_atom(atom_df)
+    residue_controlled = controlled_slopes_residue(residue_df)
+    cutoff_table = build_cutoff_table(
+        atom_cutoffs,
+        residue_cutoffs,
     )
 
     print()
-    print("=" * 115)
-    print("F3E ATOM GROUP EXPOSURE TRENDS")
-    print("=" * 115)
-    print(
-        atom_trends.sort_values(
-            ["Metric", "BroadClass", "GroupName"]
-        ).to_string(
-            index=False,
-            formatters={
-                "Mean Exposure %": lambda x: f"{x:8.3f}",
-                "Mean Abs % Diff": lambda x: f"{x:8.3f}",
-                "Slope (%diff per exposure %)": lambda x: f"{x:10.5f}",
-                "Intercept": lambda x: f"{x:9.4f}",
-                "R2": lambda x: f"{x:8.4f}",
-            },
-        )
-    )
+    print("=" * 110)
+    print("F3E CLASS-SPECIFIC LOW / MEDIUM / HIGH EXPOSURE SUMMARY")
+    print("=" * 110)
+
+    for scale_name, cutoffs in [
+        ("Atom", atom_cutoffs),
+        ("Residue", residue_cutoffs),
+    ]:
+        for broad_name in ["Protein", "Nucleic acid"]:
+            low_cut, high_cut = cutoffs[broad_name]
+            print(
+                f"{scale_name:7s} | {broad_name:12s}: "
+                f"Low <= {low_cut:.3f}% | "
+                f"Medium <= {high_cut:.3f}% | "
+                f"High > {high_cut:.3f}%"
+            )
 
     print()
-    print("=" * 90)
-    print("F3E RESIDUE WITHIN-TYPE EXPOSURE TRENDS")
-    print("=" * 90)
-    print(
-        residue_trends.to_string(
-            index=False,
-            formatters={
-                "Slope": lambda x: f"{x:10.5f}",
-                "Intercept": lambda x: f"{x:9.4f}",
-                "R2": lambda x: f"{x:8.4f}",
-            },
-        )
-    )
+    print(summary.to_string(index=False))
 
     fig, axes = plt.subplots(
         2,
-        3,
-        figsize=FIGSIZE,
+        len(METRICS),
+        figsize=(12.5 if len(METRICS) == 2 else 18.5, 10.5),
         constrained_layout=False,
+        squeeze=False,
     )
 
-    rng = np.random.default_rng(
-        RANDOM_SEED
-    )
+    rng = np.random.default_rng(RANDOM_SEED)
 
     for col_i, metric in enumerate(METRICS):
-        plot_atom_panel(
+        plot_panel(
             axes[0, col_i],
-            atom_df=atom_df,
-            metric=metric,
-            rng=rng,
+            atom_work,
+            "Atom",
+            metric,
+            rng,
+            cutoffs=atom_cutoffs,
         )
-
-        plot_residue_panel(
+        plot_panel(
             axes[1, col_i],
-            residue_df=residue_fe,
-            metric=metric,
+            residue_work,
+            "Residue",
+            metric,
+            rng,
+            cutoffs=residue_cutoffs,
         )
 
     axes[0, 0].text(
-        -0.22,
-        0.5,
-        "Atom",
+        -0.20, 0.5, "Atom",
         transform=axes[0, 0].transAxes,
         rotation=90,
         va="center",
@@ -1191,81 +1066,89 @@ def make_figure(
         fontsize=15,
         fontweight="bold",
     )
-
     axes[1, 0].text(
-        -0.22,
-        0.5,
-        "Residue\n(type-controlled)",
+        -0.20, 0.5, "Residue",
         transform=axes[1, 0].transAxes,
         rotation=90,
         va="center",
         ha="center",
-        fontsize=14,
+        fontsize=15,
         fontweight="bold",
     )
 
     fig.suptitle(
-        "Figure 3E — AW/Power sensitivity as a function of solvent exposure",
+        "Figure 3E — Scheme sensitivity across relative solvent exposure",
         fontsize=17,
         fontweight="bold",
         y=0.985,
     )
 
-    add_legends(fig)
+    fig.text(
+        0.5,
+        0.948,
+        "Low / Medium / High are class-specific AW solvent-exposure tertiles; "
+        "markers show medians and bars show IQR",
+        ha="center",
+        va="center",
+        fontsize=9.5,
+    )
+
+    fig.text(
+        0.5,
+        0.925,
+        format_cutoff_line("Atom", atom_cutoffs),
+        ha="center",
+        va="center",
+        fontsize=8.7,
+    )
+
+    fig.text(
+        0.5,
+        0.905,
+        format_cutoff_line("Residue", residue_cutoffs),
+        ha="center",
+        va="center",
+        fontsize=8.7,
+    )
+
+    add_legend(fig)
 
     fig.subplots_adjust(
         left=0.08,
         right=0.99,
-        top=0.92,
-        bottom=0.16,
+        top=0.865,
+        bottom=0.10,
         wspace=0.26,
         hspace=0.30,
     )
 
-    png_path = (
-        figure_dir /
-        "F3E_continuous_solvent_exposure.png"
-    )
-    svg_path = (
-        figure_dir /
-        "F3E_continuous_solvent_exposure.svg"
-    )
+    png_path = figure_dir / "F3E_exposure_multiscale_ranges.png"
+    svg_path = figure_dir / "F3E_exposure_multiscale_ranges.svg"
 
     if SAVE_PNG:
-        fig.savefig(
-            png_path,
-            dpi=DPI,
-            bbox_inches="tight",
-        )
+        fig.savefig(png_path, dpi=DPI, bbox_inches="tight")
         print(f"Saved: {png_path}")
 
     if SAVE_SVG:
-        fig.savefig(
-            svg_path,
-            bbox_inches="tight",
-        )
+        fig.savefig(svg_path, bbox_inches="tight")
         print(f"Saved: {svg_path}")
 
-    atom_csv = (
-        figure_dir /
-        "F3E_atom_group_trends.csv"
-    )
-    residue_csv = (
-        figure_dir /
-        "F3E_residue_fixed_effect_trends.csv"
-    )
-
-    atom_trends.to_csv(
-        atom_csv,
+    summary.to_csv(
+        figure_dir / "F3E_exposure_multiscale_summary.csv",
         index=False,
     )
-    residue_trends.to_csv(
-        residue_csv,
+    atom_controlled.to_csv(
+        figure_dir / "F3E_atom_type_controlled_slopes.csv",
         index=False,
     )
-
-    print(f"Saved: {atom_csv}")
-    print(f"Saved: {residue_csv}")
+    residue_controlled.to_csv(
+        figure_dir / "F3E_residue_type_controlled_slopes.csv",
+        index=False,
+    )
+    cutoff_table.to_csv(
+        figure_dir / "F3E_exposure_group_cutoffs.csv",
+        index=False,
+    )
 
     if SHOW:
         plt.show()
@@ -1273,48 +1156,32 @@ def make_figure(
     plt.close(fig)
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
-def main(
-    data_root: Optional[str] = DATA_ROOT,
-    figure_dir: Optional[str] = FIGURE_DIR,
-):
+def main(data_root: Optional[str] = DATA_ROOT, figure_dir: Optional[str] = FIGURE_DIR):
     if data_root is None:
-        data_root = select_directory(
-            "Select Figure 3 data folder"
-        )
+        data_root = select_directory("Select Figure 3 data folder")
 
     if not data_root:
         print("No data folder selected.")
         return
 
     if figure_dir is None:
-        figure_dir = select_directory(
-            "Select figures/Figure_3 folder"
-        )
+        figure_dir = select_directory("Select figures/Figure_3 folder")
 
     if not figure_dir:
         print("No figure output folder selected.")
         return
 
-    atom_df, residue_df = collect_data(
+    atom_df, residue_df = get_or_build_exposure_data(
         data_root=data_root,
+        figure_dir=figure_dir,
         exclude_keys=EXCLUDE_KEYS,
     )
 
     if atom_df.empty or residue_df.empty:
-        print(
-            "Continuous 3E requires both atom and residue data."
-        )
+        print("3E requires both atom and residue data.")
         return
 
-    make_figure(
-        atom_df=atom_df,
-        residue_df=residue_df,
-        figure_dir=figure_dir,
-    )
+    make_figure(atom_df, residue_df, figure_dir)
 
 
 if __name__ == "__main__":

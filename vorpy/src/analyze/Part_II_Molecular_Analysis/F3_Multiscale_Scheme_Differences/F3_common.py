@@ -72,43 +72,85 @@ def sem(values: Sequence[float]) -> float:
 SYSTEM_FOLDER_RE = re.compile(r"^([A-Za-z])_(.+)$")
 
 
-def discover_systems(data_root: str, exclude_keys: Optional[Iterable[str]] = None) -> List[SchemePaths]:
+def discover_systems(
+    data_root: str,
+    exclude_keys: Optional[Iterable[str]] = None,
+    verbose: bool = True,
+) -> List[SchemePaths]:
     """Discover valid Figure 3 molecular-system folders.
 
-    Only immediate subdirectories whose names match::
+    A valid system is an immediate child of ``data_root`` named
+    ``<single letter>_<molecule name>`` and containing:
 
-        <single letter>_<molecule name>
+        aw/aw_logs.csv
+        pow/pow_logs.csv
 
-    are considered. Examples include ``D_p53tet`` and ``F_NCP``. Other
-    directories in ``data_root`` are ignored before their contents are checked.
-
-    ``exclude_keys`` applies to the leading single-letter key and is
-    case-insensitive. A valid system must contain AW and Power log files. The
-    Primitive log path is retained when present for later SI analyses.
+    Primitive is optional. When ``verbose`` is True, candidate directories are
+    reported with an explicit rejection reason so a wrong root or folder layout
+    is immediately visible.
     """
+    root = os.path.abspath(os.path.expanduser(str(data_root)))
+
+    if not os.path.isdir(root):
+        if verbose:
+            print(f"Figure 3 data root does not exist or is not a directory: {root}")
+        return []
+
     exclude = {str(x).strip().upper() for x in (exclude_keys or [])}
     systems: List[SchemePaths] = []
 
-    for entry in sorted(os.listdir(data_root)):
-        folder = os.path.join(data_root, entry)
+    if verbose:
+        print(f"\nDiscovering Figure 3 systems in: {root}")
+        print(f"Excluded leading keys: {sorted(exclude) if exclude else 'none'}")
+
+    entries = sorted(os.listdir(root))
+    directory_count = 0
+    pattern_count = 0
+
+    for entry in entries:
+        folder = os.path.join(root, entry)
         if not os.path.isdir(folder):
             continue
 
+        directory_count += 1
         match = SYSTEM_FOLDER_RE.fullmatch(entry)
+
         if match is None:
+            if verbose:
+                print(f"  SKIP {entry}: name does not match <letter>_<molecule>")
             continue
 
+        pattern_count += 1
         key = match.group(1).upper()
         molecule_name = match.group(2).strip()
-        if not molecule_name or key in exclude:
+
+        if not molecule_name:
+            if verbose:
+                print(f"  SKIP {entry}: molecule name is empty")
+            continue
+
+        if key in exclude:
+            if verbose:
+                print(f"  SKIP {entry}: leading key {key} is excluded")
             continue
 
         aw = os.path.join(folder, "aw", "aw_logs.csv")
         power = os.path.join(folder, "pow", "pow_logs.csv")
         primitive = os.path.join(folder, "prm", "prm_logs.csv")
 
-        if not (os.path.isfile(aw) and os.path.isfile(power)):
+        missing = []
+        if not os.path.isfile(aw):
+            missing.append(r"aw\aw_logs.csv")
+        if not os.path.isfile(power):
+            missing.append(r"pow\pow_logs.csv")
+
+        if missing:
+            if verbose:
+                print(f"  SKIP {entry}: missing {', '.join(missing)}")
             continue
+
+        if verbose:
+            print(f"  OK   {entry}")
 
         systems.append(
             SchemePaths(
@@ -120,6 +162,20 @@ def discover_systems(data_root: str, exclude_keys: Optional[Iterable[str]] = Non
                 primitive=primitive if os.path.isfile(primitive) else None,
             )
         )
+
+    if verbose:
+        print(
+            f"Discovery summary: {directory_count} immediate directories, "
+            f"{pattern_count} matched the naming pattern, "
+            f"{len(systems)} valid systems."
+        )
+        if directory_count == 0:
+            print("  The selected root contains no subdirectories.")
+        elif pattern_count == 0:
+            print(
+                "  None of the immediate subdirectories match the required "
+                "<letter>_<molecule> naming convention."
+            )
 
     return systems
 

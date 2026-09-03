@@ -253,19 +253,19 @@ class System:
 
         Methods
         -------
-        make_simple(): 
+        make_simple():
             Create a simple system with specified components.
-        set_files(): 
+        set_files():
             Set the file paths for the system components.
-        load_files(): 
+        load_files():
             Load and initialize all system files specified during initialization.
-        load_sys(): 
+        load_sys():
             Load and set the base file for the system.
-        set_radii(): 
+        set_radii():
             Set the atom radii in the spheres dataframe.
-        load_verts(): 
+        load_verts():
             Load vertices from a file into the system.
-        load_net(): 
+        load_net():
             Load a previously calculated network into the system.
 
         Notes
@@ -307,12 +307,17 @@ class System:
         # Keys are canonical, system-index-based topology signatures so the
         # same geometry can be recognized across interfaces and build order.
         self.interface_geometry_cache = {'verts': {}, 'edges': {}, 'surfs': {}}
+
+        # Shared spatial index for all Networks built from this System.
+        # The first Network sorts the canonical system balls; later Groups and
+        # Interfaces reuse the same grid instead of repeating O(N) ball sorting.
+        self.spatial_index_cache = None
+        self._spatial_revision = 0
         self.ndxs = None  # Indices             :   List of indices used to create groups
         self.elements = elements  # Elements            :   List of elements with mass, number, radius, group
         self.element_radii = element_radii  # Element Radii       :   Dictionary of elements and their radii
         self.special_radii = special_radii  # Special Radii       :   Dictionary of residues and their atomic radii
         self.round_to = None  # round_to            :   Decimals setting for the whole system
-        self.file_type = 'off'  # Geometry mesh format:   OFF, PLY, or VTP
         self.export_type = 'large'  # Export type         :   Holds the type of objects that come out
         self.cmnds = None  # Commands            :   Input commands for the system to be run
 
@@ -331,6 +336,9 @@ class System:
         self.run_progress = 0.0
         self.run_network = None
         self.run_end = None
+        self._progress_last_emit = 0.0
+        self._progress_last_process = None
+        self._progress_line_len = 0
 
         # Set the files
         self.set_files(base_file=file, ball_file=balls_file, verts_file=verts_file, ndx_file=index_file,
@@ -385,6 +393,53 @@ class System:
 
         return time.perf_counter() - self.run_start
 
+    def invalidate_spatial_index(self):
+        """Invalidate the shared spatial grid after coordinates/radii change."""
+        self._spatial_revision += 1
+        self.spatial_index_cache = None
+
+    def _spatial_cache_signature(self, net):
+        settings = getattr(net, "settings", {}) or {}
+        return (
+            self._spatial_revision,
+            len(self.balls) if self.balls is not None else 0,
+            float(settings.get("box_size", 1.25)),
+        )
+
+    def cache_spatial_index(self, net):
+        """Store a Network's completed full-system spatial index."""
+        if net is None or getattr(net, "box", None) is None:
+            return False
+        balls = getattr(net, "balls", None)
+        if balls is None or self.balls is None or len(balls) != len(self.balls):
+            return False
+        if "box" not in balls.columns:
+            return False
+
+        self.spatial_index_cache = {
+            "signature": self._spatial_cache_signature(net),
+            "box": net.box,
+            "ball_boxes": list(balls["box"]),
+            "num_splits": (getattr(net, "settings", {}) or {}).get("num_splits"),
+        }
+        return True
+
+    def apply_spatial_index(self, net):
+        """Attach the shared System spatial index to a compatible Network."""
+        cache = self.spatial_index_cache
+        if not cache or net is None:
+            return False
+        if cache.get("signature") != self._spatial_cache_signature(net):
+            return False
+        if len(getattr(net, "balls", [])) != len(self.balls):
+            return False
+
+        net.box = cache["box"]
+        net.balls["box"] = cache["ball_boxes"]
+        if cache.get("num_splits") is not None:
+            net.settings["num_splits"] = cache["num_splits"]
+        return True
+
     def start_run(self):
         self.run_start = time.perf_counter()
         self.run_end = None
@@ -394,33 +449,54 @@ class System:
         self.run_network = None
 
     def update_progress(self, process=None, progress=None, network=None):
+        """Update the single system-wide CLI/GUI progress stream.
+
+        CLI rendering is throttled so tight inner loops do not flood stdout or
+        materially slow calculations. Process changes and completion events are
+        always emitted immediately.
+        """
         if self.run_start is None:
             self.start_run()
 
         if process is not None:
             self.run_process = process
-
         if progress is not None:
             self.run_progress = max(0.0, min(float(progress), 100.0))
-
         if network is not None:
             self.run_network = network
+
+        now_t = time.perf_counter()
+        process_changed = self.run_process != self._progress_last_process
+        force = process_changed or self.run_progress >= 100.0
+
+        # GUI callbacks still receive the current state; CLI text is throttled.
+        if self.gui is not None and hasattr(self.gui, "update_progress"):
+            try:
+                self.gui.update_progress(self.run_process, self.run_progress, self.run_network)
+            except Exception:
+                pass
+
+        if not force and (now_t - self._progress_last_emit) < 0.10:
+            return
 
         elapsed = self.get_run_time()
         h = int(elapsed // 3600)
         m = int((elapsed % 3600) // 60)
-        s = elapsed % 60
-        # Print a long clearing line to ensure the previous output is cleared
-        print("\r" + " " * 100, end="", flush=True)
+        sec = elapsed % 60
         network_text = f'Network: {self.run_network} - ' if self.run_network else ""
-
-        print(
-            f"\rRun Time = {h}:{m:02d}:{s:05.2f} - "
+        message = (
+            f"Run Time = {h}:{m:02d}:{sec:05.2f} - "
             f"{network_text}Process: {self.run_process} - "
-            f"{self.run_progress:.2f} %",
-            end="",
-            flush=True,
+            f"{self.run_progress:.2f} %"
         )
+
+        # Pad only the difference from the prior line. This prevents stale tail
+        # characters without dumping hundreds of spaces into copied transcripts.
+        padding = " " * max(0, self._progress_line_len - len(message))
+        print("\r" + message + padding, end="", flush=True)
+        self._progress_line_len = len(message)
+        self._progress_last_emit = now_t
+        self._progress_last_process = self.run_process
 
     def set_files(self, base_file=None, ball_file=None, verts_file=None, net_file=None, ndx_file=None, file_dir=None,
                   frame_files=None, root_dir=None):

@@ -1,4 +1,5 @@
 import os
+import numpy as np
 from vorpy.src.output import write_off_verts
 from vorpy.src.output import write_edges
 from vorpy.src.output import write_surfs
@@ -117,6 +118,306 @@ def _format_metric(value, decimals=6):
         return "Not available"
 
     return f"{value:.{decimals}f}"
+
+
+
+def _build_interface_orientation_context(iface):
+    """Build topology -> system/location/radius maps for an Interface network."""
+    net_balls = iface.net.balls
+    columns = list(net_balls.columns)
+    num_idx = columns.index("num") if "num" in columns else None
+    system_idx = columns.index("system_num") if "system_num" in columns else None
+    loc_idx = columns.index("loc") if "loc" in columns else None
+    rad_idx = columns.index("rad") if "rad" in columns else None
+
+    topology_to_system = {}
+    topology_to_loc = {}
+    topology_to_rad = {}
+
+    for row_pos, row in enumerate(net_balls.itertuples(index=False, name=None)):
+        try:
+            topology_id = int(row[num_idx]) if num_idx is not None else int(row_pos)
+        except (TypeError, ValueError):
+            topology_id = int(row_pos)
+
+        system_id = topology_id
+        if system_idx is not None:
+            value = row[system_idx]
+            try:
+                if value is not None and not (isinstance(value, float) and np.isnan(value)):
+                    system_id = int(value)
+            except (TypeError, ValueError):
+                pass
+
+        topology_to_system[topology_id] = system_id
+
+        if loc_idx is not None:
+            try:
+                topology_to_loc[topology_id] = np.asarray(row[loc_idx], dtype=float)
+            except (TypeError, ValueError):
+                pass
+
+        if rad_idx is not None:
+            try:
+                topology_to_rad[topology_id] = float(row[rad_idx])
+            except (TypeError, ValueError):
+                pass
+
+    return {
+        "group1_system_ids": set(int(i) for i in iface.group1_indices),
+        "group2_system_ids": set(int(i) for i in iface.group2_indices),
+        "topology_to_system": topology_to_system,
+        "topology_to_loc": topology_to_loc,
+        "topology_to_rad": topology_to_rad,
+    }
+
+
+def _surface_interface_orientation(surf, context, tol=1e-12):
+    """Return orientation multiplier for the Group 1 -> Group 2 normal."""
+    try:
+        ball0, ball1 = [int(v) for v in surf["balls"]]
+    except (KeyError, TypeError, ValueError):
+        return 0, None, None
+
+    topo_to_system = context["topology_to_system"]
+    system0 = topo_to_system.get(ball0)
+    system1 = topo_to_system.get(ball1)
+    g1 = context["group1_system_ids"]
+    g2 = context["group2_system_ids"]
+
+    if system0 in g1 and system1 in g2:
+        ball_g1, ball_g2 = ball0, ball1
+    elif system1 in g1 and system0 in g2:
+        ball_g1, ball_g2 = ball1, ball0
+    else:
+        return 0, None, None
+
+    loc1 = context["topology_to_loc"].get(ball_g1)
+    loc2 = context["topology_to_loc"].get(ball_g2)
+    if loc1 is None or loc2 is None:
+        return 0, ball_g1, ball_g2
+
+    try:
+        point = np.asarray(surf.get("com"), dtype=float)
+        func = np.asarray(surf.get("func"), dtype=float)
+    except (TypeError, ValueError):
+        return 0, ball_g1, ball_g2
+
+    if point.shape != (3,) or func.size < 9:
+        return 0, ball_g1, ball_g2
+
+    A, B, C, D, E, F, G, Hc, Ic = func[:9]
+    x, y, z = point
+    grad = np.array([
+        2.0 * A * x + D * y + F * z + G,
+        2.0 * B * y + D * x + E * z + Hc,
+        2.0 * C * z + F * x + E * y + Ic,
+    ], dtype=float)
+
+    outward = loc2 - loc1
+    grad_norm = np.linalg.norm(grad)
+    outward_norm = np.linalg.norm(outward)
+    if (
+        not np.isfinite(grad_norm)
+        or not np.isfinite(outward_norm)
+        or grad_norm < tol
+        or outward_norm < tol
+    ):
+        return 0, ball_g1, ball_g2
+
+    dot = float(np.dot(grad, outward))
+    if abs(dot) <= tol * grad_norm * outward_norm:
+        return 0, ball_g1, ball_g2
+
+    return (1 if dot > 0.0 else -1), ball_g1, ball_g2
+
+
+def _triangle_areas(points, tris):
+    try:
+        pts = np.asarray(points, dtype=float)
+        tri_idx = np.asarray(tris, dtype=int)
+        if tri_idx.ndim != 2 or tri_idx.shape[1] != 3 or len(tri_idx) == 0:
+            return None
+        tri_pts = pts[tri_idx]
+        return 0.5 * np.linalg.norm(
+            np.cross(tri_pts[:, 1] - tri_pts[:, 0], tri_pts[:, 2] - tri_pts[:, 0]),
+            axis=1,
+        )
+    except (TypeError, ValueError, IndexError):
+        return None
+
+
+def summarize_direct_interface_orientation(iface, direct_surfaces, flat_tol=1e-10):
+    """
+    Summarize direct interface geometry from both side perspectives.
+
+    Group 1 -> Group 2 is the primary orientation. Group 2 -> Group 1 is its
+    exact normal reversal, so C changes sign while A, Q, and X are invariant.
+    """
+    summary = {
+        "surface_count": 0,
+        "area": 0.0,
+        "c12": 0.0,
+        "q": 0.0,
+        "x": 0.0,
+        "surf_energy": 0.0,
+        "g1_convex_sa": 0.0,
+        "g1_concave_sa": 0.0,
+        "flat_sa": 0.0,
+        "failed_sa": 0.0,
+        "curved_tested": 0,
+        "radius_sign_agree": 0,
+        "radius_sign_disagree": 0,
+        "orientation_failed": 0,
+        "equal_radius": 0,
+        "equal_radius_flat": 0,
+        "equal_radius_nonflat": 0,
+        "equal_radius_nonzero_h": 0,
+        "missing_radius": 0,
+    }
+
+    if iface.net is None or direct_surfaces is None or len(direct_surfaces) == 0:
+        return summary
+
+    context = _build_interface_orientation_context(iface)
+    tol = 1e-10
+
+    for _, surf in direct_surfaces.iterrows():
+        sa = float(surf.get("sa", 0.0) or 0.0)
+        raw_c = float(surf.get("int_mean_curv", 0.0) or 0.0)
+        q = float(surf.get("int_mean_curv_sq", 0.0) or 0.0)
+        x = float(surf.get("int_gauss_curv", 0.0) or 0.0)
+        energy = float(surf.get("surf_energy", 0.0) or 0.0)
+
+        summary["surface_count"] += 1
+        summary["area"] += sa
+        summary["q"] += q
+        summary["x"] += x
+        summary["surf_energy"] += energy
+
+        orientation, ball_g1, ball_g2 = _surface_interface_orientation(surf, context)
+        is_flat = bool(surf.get("flat", False))
+
+        rin = context["topology_to_rad"].get(ball_g1, np.nan) if ball_g1 is not None else np.nan
+        rout = context["topology_to_rad"].get(ball_g2, np.nan) if ball_g2 is not None else np.nan
+
+        if is_flat:
+            summary["flat_sa"] += sa
+        elif orientation == 0:
+            summary["failed_sa"] += sa
+            summary["orientation_failed"] += 1
+        else:
+            oriented_c = orientation * raw_c
+            summary["c12"] += oriented_c
+
+            tri_h = surf.get("mean_tri_curvs", None)
+            tri_sa = _triangle_areas(surf.get("points", None), surf.get("tris", None))
+            classified = False
+            if tri_h is not None and tri_sa is not None:
+                try:
+                    h = orientation * np.asarray(tri_h, dtype=float)
+                    if len(h) == len(tri_sa):
+                        valid = np.isfinite(h) & np.isfinite(tri_sa) & (tri_sa > 0.0)
+                        h = h[valid]
+                        areas = tri_sa[valid]
+                        convex = h > flat_tol
+                        concave = h < -flat_tol
+                        near_flat = ~(convex | concave)
+                        summary["g1_convex_sa"] += float(np.sum(areas[convex]))
+                        summary["g1_concave_sa"] += float(np.sum(areas[concave]))
+                        summary["flat_sa"] += float(np.sum(areas[near_flat]))
+                        classified = True
+                except (TypeError, ValueError):
+                    pass
+
+            if not classified:
+                avg_h = oriented_c / sa if sa > 0.0 else 0.0
+                if avg_h > flat_tol:
+                    summary["g1_convex_sa"] += sa
+                elif avg_h < -flat_tol:
+                    summary["g1_concave_sa"] += sa
+                else:
+                    summary["flat_sa"] += sa
+
+        if not np.isfinite(rin) or not np.isfinite(rout):
+            summary["missing_radius"] += 1
+            continue
+
+        if abs(rin - rout) <= tol:
+            summary["equal_radius"] += 1
+            if is_flat:
+                summary["equal_radius_flat"] += 1
+            else:
+                summary["equal_radius_nonflat"] += 1
+            if abs(raw_c) > tol:
+                summary["equal_radius_nonzero_h"] += 1
+        else:
+            summary["curved_tested"] += 1
+            if orientation == 0:
+                summary["radius_sign_disagree"] += 1
+                continue
+            oriented_avg_h = orientation * raw_c / sa if sa > 0.0 else 0.0
+            expected_sign = 1 if rin < rout else -1
+            if abs(oriented_avg_h) <= tol or np.sign(oriented_avg_h) == expected_sign:
+                summary["radius_sign_agree"] += 1
+            else:
+                summary["radius_sign_disagree"] += 1
+
+    summary["c21"] = -summary["c12"]
+    summary["g2_convex_sa"] = summary["g1_concave_sa"]
+    summary["g2_concave_sa"] = summary["g1_convex_sa"]
+    summary["validation_pass"] = (
+        summary["radius_sign_disagree"] == 0
+        and summary["orientation_failed"] == 0
+        and summary["equal_radius_nonflat"] == 0
+        and summary["equal_radius_nonzero_h"] == 0
+        and summary["missing_radius"] == 0
+    )
+    return summary
+
+
+def write_interface_orientation_statistics(info, iface, direct_surfaces):
+    summary = summarize_direct_interface_orientation(iface, direct_surfaces)
+    group1_name = getattr(iface.group1, "name", "group1")
+    group2_name = getattr(iface, "group2_name", None) or getattr(iface.group2, "name", "group2")
+    area = summary["area"]
+
+    info.write("Direct interface oriented curvature:\n")
+    info.write(f"  Primary orientation: {group1_name} -> {group2_name}\n")
+    info.write(f"  Direct surfaces: {summary['surface_count']}\n")
+    info.write(f"  Direct surface area: {_format_metric(area)} Å²\n")
+    info.write(f"  Integrated H dA ({group1_name} -> {group2_name}): {_format_metric(summary['c12'])} Å\n")
+    info.write(f"  Integrated H dA ({group2_name} -> {group1_name}): {_format_metric(summary['c21'])} Å\n")
+    info.write(f"  Integrated H² dA (orientation invariant): {_format_metric(summary['q'])}\n")
+    info.write(f"  Integrated K dA (orientation invariant): {_format_metric(summary['x'])}\n")
+    info.write(f"  Representative surface energy (orientation invariant): {_format_metric(summary['surf_energy'])} kBT\n\n")
+
+    info.write(f"  {group1_name} perspective:\n")
+    info.write(f"    Convex area: {_format_metric(summary['g1_convex_sa'])} Å²\n")
+    info.write(f"    Concave area: {_format_metric(summary['g1_concave_sa'])} Å²\n")
+    info.write(f"    Flat/near-flat area: {_format_metric(summary['flat_sa'])} Å²\n")
+    info.write(f"    Failed curved area: {_format_metric(summary['failed_sa'])} Å²\n")
+
+    info.write(f"  {group2_name} perspective:\n")
+    info.write(f"    Convex area: {_format_metric(summary['g2_convex_sa'])} Å²\n")
+    info.write(f"    Concave area: {_format_metric(summary['g2_concave_sa'])} Å²\n")
+    info.write(f"    Flat/near-flat area: {_format_metric(summary['flat_sa'])} Å²\n")
+    info.write(f"    Failed curved area: {_format_metric(summary['failed_sa'])} Å²\n\n")
+
+    tested = summary["curved_tested"]
+    pct = 100.0 * summary["radius_sign_agree"] / tested if tested else 100.0
+    info.write("  Orientation validation:\n")
+    info.write(f"    Curved surfaces tested: {tested}\n")
+    info.write(f"    Radius/sign agreements: {summary['radius_sign_agree']}\n")
+    info.write(f"    Radius/sign disagreements: {summary['radius_sign_disagree']}\n")
+    info.write(f"    Curved orientation failures: {summary['orientation_failed']}\n")
+    info.write(f"    Radius/sign agreement: {pct:.3f} %\n")
+    info.write(f"    Equal-radius surfaces: {summary['equal_radius']}\n")
+    info.write(f"    Equal-radius marked flat: {summary['equal_radius_flat']}\n")
+    info.write(f"    Equal-radius non-flat: {summary['equal_radius_nonflat']}\n")
+    info.write(f"    Equal-radius nonzero H: {summary['equal_radius_nonzero_h']}\n")
+    info.write(f"    Missing radius metadata: {summary['missing_radius']}\n")
+    info.write(f"    Result: {'PASS' if summary['validation_pass'] else 'FAIL'}\n\n")
 
 
 def get_interface_surface_sets(iface):
@@ -425,6 +726,278 @@ def write_surface_statistics(info, title, surfaces):
     info.write("\n")
 
 
+
+def write_interface_water_topology_statistics(info, iface):
+    """Write a compact production summary of interface-water classification."""
+    topology = getattr(iface, "water_topology", None)
+
+    info.write("Interface waters:\n")
+    if not topology:
+        info.write("  No interface-water topology analysis available.\n\n")
+        return
+
+    waters = topology.get("waters", {})
+    cycle_sets = topology.get("cycle_sets", [])
+    buried_sets = topology.get("buried_cycle_sets", [])
+
+    counts = {"buried": 0, "semi_buried": 0, "peripheral": 0}
+    for water in waters.values():
+        burial_class = water.get("burial_class")
+        if burial_class in counts:
+            counts[burial_class] += 1
+
+    non_buried_count = counts["peripheral"] + counts["semi_buried"]
+
+    info.write(f"  Total interface waters: {len(waters)}\n")
+    info.write(f"  Non-buried interface waters: {non_buried_count}\n")
+    info.write(f"  Buried interface waters: {counts['buried']}\n")
+    info.write(f"  Buried water groups: {len(buried_sets)}\n")
+
+    qc = topology.get("discovery_qc", {})
+    mapping_failures = (
+        int(qc.get("unmapped_ball_references", 0))
+        + int(qc.get("edges_with_mapping_failure", 0))
+    )
+    info.write(f"  Topology mapping failures: {mapping_failures}\n")
+
+    if buried_sets:
+        info.write("\n  Buried water groups:\n")
+        for group_index, cycle_set in enumerate(buried_sets, start=1):
+            labels = cycle_set.get("water_labels", [])
+            solved_name = cycle_set.get("solved_group_name", f"buried_{group_index}")
+            info.write(
+                f"    {group_index}: {', '.join(labels)} "
+                f"[{len(cycle_set.get('edge_indices', []))} cycle edges] "
+                f"-> waters/{solved_name}/\n"
+            )
+
+    info.write("\n  Detailed buried-water geometry: waters/\n\n")
+
+
+def _water_class_atom_indices(iface):
+    """Return complete atom selections for non-buried and buried waters.
+
+    ``peripheral`` and ``semi_buried`` remain separate internal topology labels
+    because they are useful diagnostics, but neither defines a closed buried
+    water volume.  Production exports therefore combine both as ``non_buried``.
+    """
+    topology = getattr(iface, "water_topology", None) or {}
+    class_atoms = {"non_buried": set(), "buried": set()}
+
+    for water in topology.get("waters", {}).values():
+        burial_class = water.get("burial_class")
+        if burial_class == "buried":
+            export_class = "buried"
+        elif burial_class in {"peripheral", "semi_buried"}:
+            export_class = "non_buried"
+        else:
+            continue
+
+        residue = water.get("residue")
+        if residue is None:
+            continue
+        for atom_index in getattr(residue, "atoms", []) or []:
+            try:
+                class_atoms[export_class].add(int(atom_index))
+            except (TypeError, ValueError):
+                continue
+
+    return {key: sorted(values) for key, values in class_atoms.items()}
+
+
+def export_water_class_pdbs(iface):
+    """Export non-buried and buried interface waters as complete-residue PDBs."""
+    waters_dir = os.path.join(iface.dir, "waters")
+    os.makedirs(waters_dir, exist_ok=True)
+
+    selections = _water_class_atom_indices(iface)
+    filenames = {
+        "non_buried": "non_buried_waters",
+        "buried": "buried_waters",
+    }
+
+    cwd = os.getcwd()
+    try:
+        os.chdir(waters_dir)
+        for burial_class, atoms in selections.items():
+            if not atoms:
+                continue
+            write_pdb(
+                atoms=atoms,
+                file_name=filenames[burial_class],
+                sys=iface.sys,
+            )
+    finally:
+        os.chdir(cwd)
+
+    return selections
+
+
+def _write_buried_water_summary(iface):
+    """Write aggregate geometry for solved buried-water Groups."""
+    waters_dir = os.path.join(iface.dir, "waters")
+    os.makedirs(waters_dir, exist_ok=True)
+    path = os.path.join(waters_dir, "info.txt")
+    groups = list(getattr(iface, "buried_water_groups", []) or [])
+
+    with open(path, "w", encoding="utf-8") as info:
+        info.write(f"Buried interface-water analysis - {iface.name}\n\n")
+        info.write(f"Buried water groups: {len(groups)}\n")
+        info.write(f"Total waters in buried groups: {sum(len(getattr(g, 'buried_water_metadata', {}).get('residues', [])) for g in groups)}\n\n")
+
+        if not groups:
+            info.write("No closed buried-water groups were detected.\n")
+            return path
+
+        info.write(
+            "Group | Waters | Shell Color | Volume (A^3) | Surface Area (A^2) | "
+            "Oriented int H dA (A) | int H^2 dA | int K dA | Representative Energy (kBT)\n"
+        )
+        info.write("-" * 140 + "\n")
+
+        total_volume = 0.0
+        total_sa = 0.0
+        total_c = 0.0
+        total_q = 0.0
+        total_x = 0.0
+
+        for group in groups:
+            metadata = getattr(group, "buried_water_metadata", {})
+            labels = ", ".join(metadata.get("water_labels", []))
+            shell_color = metadata.get("shell_color_map", "default")
+            volume = float(getattr(group, "vol", 0.0) or 0.0)
+            sa = float(getattr(group, "sa", 0.0) or 0.0)
+            c = float(getattr(group, "oriented_int_mean_curv", 0.0) or 0.0)
+            q = float(getattr(group, "int_mean_curv_sq", 0.0) or 0.0)
+            x = float(getattr(group, "int_gauss_curv", 0.0) or 0.0)
+            energy = 2.0 * q
+
+            total_volume += volume
+            total_sa += sa
+            total_c += c
+            total_q += q
+            total_x += x
+
+            info.write(
+                f"{group.name} | {labels} | {shell_color} | {volume:.6f} | {sa:.6f} | "
+                f"{c:.6f} | {q:.6f} | {x:.6f} | {energy:.6f}\n"
+            )
+
+        info.write("\nAggregate sums across buried groups:\n")
+        info.write(f"  Volume: {total_volume:.6f} A^3\n")
+        info.write(f"  Surface area: {total_sa:.6f} A^2\n")
+        info.write(f"  Oriented int H dA: {total_c:.6f} A\n")
+        info.write(f"  int H^2 dA: {total_q:.6f}\n")
+        info.write(f"  int K dA: {total_x:.6f}\n")
+        info.write(f"  Representative surface energy: {2.0 * total_q:.6f} kBT\n")
+
+    return path
+
+
+def _update_water_export_progress(iface, process, progress=None):
+    """Relabel the active interface-export progress without starting a nested percentage scale."""
+    sys = getattr(iface, "sys", None)
+    if sys is None:
+        return
+
+    updater = getattr(sys, "update_progress", None)
+    if updater is None:
+        return
+
+    # Preserve the enclosing export percentage.  The previous implementation
+    # ran a second 0->100 counter inside one interface export step, which caused
+    # percentage jumps and stale console text.
+    current_progress = getattr(sys, "run_progress", None)
+    if current_progress is None:
+        current_progress = 0.0 if progress is None else progress
+
+    try:
+        updater(
+            process=process,
+            progress=current_progress,
+            network=iface.name,
+        )
+    except TypeError:
+        try:
+            updater(process, current_progress, name=iface.name)
+        except TypeError:
+            updater(process=process, progress=current_progress)
+
+
+def export_buried_water_groups(iface):
+    """Export a compact companion set for every solved buried-water group.
+
+    Buried-water geometry is intentionally a subordinate interface product, so
+    only the files needed to identify and visualize the closed water cells are
+    emitted: class-level PDBs, aggregate info, per-group info/PDB, and the
+    external shell surfaces/edges/vertices.  Full Group network tables and logs
+    remain available in memory but are not written by default.
+    """
+    if getattr(iface, "_buried_water_exports_complete", False):
+        return
+
+    groups = list(getattr(iface, "buried_water_groups", []) or [])
+    total_steps = max(2 + len(groups), 1)
+    step = 0
+
+    _update_water_export_progress(
+        iface,
+        "Exporting interface waters: PDBs",
+        100.0 * step / total_steps,
+    )
+    export_water_class_pdbs(iface)
+    step += 1
+
+    _update_water_export_progress(
+        iface,
+        "Exporting interface waters: summary",
+        100.0 * step / total_steps,
+    )
+    _write_buried_water_summary(iface)
+    step += 1
+
+    for group_index, group in enumerate(groups, start=1):
+        _update_water_export_progress(
+            iface,
+            f"Exporting interface water {group_index}/{len(groups)}: {group.name}",
+            100.0 * step / total_steps,
+        )
+
+        os.makedirs(group.dir, exist_ok=True)
+
+        # Compact buried-water product: detailed Group info plus the external
+        # cell shell.  Do not emit full surfs/edges/verts or a Group log here;
+        # this is a small subordinate object of the parent Interface.
+        group.exports(
+            info=True,
+            shell_surfs=True,
+            shell_edges=True,
+            shell_verts=True,
+        )
+
+        # One plainly named PDB per buried group; avoid the duplicate
+        # group_atoms.pdb generated by the normal Group ``atoms=True`` export.
+        cwd = os.getcwd()
+        try:
+            os.chdir(group.dir)
+            write_pdb(
+                atoms=list(group.ball_ndxs),
+                file_name=group.name,
+                sys=group.sys,
+            )
+        finally:
+            os.chdir(cwd)
+
+        step += 1
+
+    _update_water_export_progress(
+        iface,
+        "Exporting interface waters",
+        100.0,
+    )
+    iface._buried_water_exports_complete = True
+
+
 def export_info(iface, directory=None):
     """
     Export a detailed geometric and topological summary of an Interface.
@@ -554,23 +1127,39 @@ def export_info(iface, directory=None):
             direct_surfaces,
         )
 
-        write_surface_statistics(
-            info,
-            f"{group1_name} internal surface statistics",
-            group1_surfaces,
+        write_interface_orientation_statistics(
+            info=info,
+            iface=iface,
+            direct_surfaces=direct_surfaces,
         )
 
-        write_surface_statistics(
-            info,
-            f"{group2_name} internal surface statistics",
-            group2_surfaces,
+        write_interface_water_topology_statistics(
+            info=info,
+            iface=iface,
         )
 
-        write_surface_statistics(
-            info,
-            "Supporting surface statistics",
-            support_surfaces,
-        )
+        # Zero-length classes add nearly a page of "Not available" values and
+        # carry no information. Only report classes that are actually present.
+        if group1_surfaces is not None and len(group1_surfaces) > 0:
+            write_surface_statistics(
+                info,
+                f"{group1_name} internal surface statistics",
+                group1_surfaces,
+            )
+
+        if group2_surfaces is not None and len(group2_surfaces) > 0:
+            write_surface_statistics(
+                info,
+                f"{group2_name} internal surface statistics",
+                group2_surfaces,
+            )
+
+        if support_surfaces is not None and len(support_surfaces) > 0:
+            write_surface_statistics(
+                info,
+                "Supporting surface statistics",
+                support_surfaces,
+            )
 
         if net is not None and net.edges is not None:
             edge_lengths = _numeric_series(net.edges, "length")
@@ -638,6 +1227,13 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
         )
 
     os.makedirs(iface.dir, exist_ok=True)
+
+    # Buried-water networks are subordinate interface products. Export them
+    # once with the interface information pass rather than during an arbitrary
+    # geometry export (surfaces/edges/verts). The helper retains its own guard
+    # for explicit repeated info exports.
+    if info or all_:
+        export_buried_water_groups(iface)
 
     if group_info or all_:
         exported_group_ids = set()

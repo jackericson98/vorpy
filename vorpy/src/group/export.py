@@ -8,43 +8,6 @@ from vorpy.src.output import write_edges
 from vorpy.src.output import write_off_verts
 
 
-def _group_topology_indices(grp):
-    """
-    Convert grp.ball_ndxs (SYSTEM indices) to network TOPOLOGY identifiers.
-    """
-    net_balls = getattr(grp.net, "balls", None)
-    if net_balls is None or len(net_balls) == 0:
-        return list(grp.ball_ndxs)
-
-    system_to_topology = {}
-
-    for row_pos, (_, atom) in enumerate(net_balls.iterrows()):
-        try:
-            topology_id = int(atom.get("num", row_pos))
-        except (TypeError, ValueError):
-            topology_id = int(row_pos)
-
-        system_id = None
-        if "system_num" in net_balls.columns:
-            try:
-                value = atom.get("system_num", None)
-                if value is not None and not (isinstance(value, float) and value != value):
-                    system_id = int(value)
-            except (TypeError, ValueError):
-                system_id = None
-
-        if system_id is None:
-            system_id = topology_id
-
-        system_to_topology.setdefault(system_id, topology_id)
-
-    return [
-        system_to_topology[system_id]
-        for system_id in (int(_) for _ in grp.ball_ndxs)
-        if system_id in system_to_topology
-    ]
-
-
 def export_info(grp, directory=None):
     """
     Export a detailed human-readable summary of a VorPy group.
@@ -397,9 +360,40 @@ def export_info(grp, directory=None):
         residue_atoms = defaultdict(list)
         chain_atoms = defaultdict(list)
 
-        if net_balls is not None and len(net_balls) > 0:
+        # Only atoms that define one of this Group's retained surfaces can
+        # contribute to boundary/residue/solvent statistics.  A Group network
+        # may retain the complete System ball table for geometric validity
+        # (hundreds of thousands of rows for NCP), so iterating every row here
+        # is both unnecessary and extremely expensive.
+        relevant_topology_indices = set()
+        if net_surfs is not None and len(net_surfs) > 0 and "balls" in net_surfs.columns:
+            for balls in net_surfs["balls"]:
+                try:
+                    relevant_topology_indices.update(int(ball) for ball in balls)
+                except (TypeError, ValueError):
+                    continue
 
-            for net_index, net_atom in net_balls.iterrows():
+        relevant_net_balls = net_balls
+        if net_balls is not None and len(net_balls) > 0:
+            mask = None
+
+            if relevant_topology_indices:
+                if "num" in net_balls.columns:
+                    mask = net_balls["num"].isin(relevant_topology_indices)
+                else:
+                    mask = net_balls.index.to_series().isin(relevant_topology_indices)
+
+            # Include Group atoms even if a pathological/empty cell has no
+            # retained boundary surface. This keeps composition/volume mapping
+            # correct without scanning rows in Python.
+            if "system_num" in net_balls.columns and group_system_indices:
+                group_mask = net_balls["system_num"].isin(group_system_indices)
+                mask = group_mask if mask is None else (mask | group_mask)
+
+            if mask is not None:
+                relevant_net_balls = net_balls.loc[mask]
+
+            for net_index, net_atom in relevant_net_balls.iterrows():
 
                 # Topology tables normally refer to net.balls["num"].
                 try:
@@ -532,6 +526,12 @@ def export_info(grp, directory=None):
         residue_inter_sa = defaultdict(float)
         residue_sol_sa = defaultdict(float)
 
+        # Unique water residues that actually share a retained boundary surface
+        # with this Group. This is the physical meaning of "surrounding waters";
+        # counting every water atom in the System inflated this by both system
+        # size and atoms-per-water.
+        surrounding_water_residues = set()
+
         chain_total_sa = defaultdict(float)
         chain_inter_sa = defaultdict(float)
         chain_sol_sa = defaultdict(float)
@@ -559,6 +559,11 @@ def export_info(grp, directory=None):
 
                 ball1_is_water = meta1["res_name"] in water_names
                 ball2_is_water = meta2["res_name"] in water_names
+
+                if meta1["in_group"] and not meta2["in_group"] and ball2_is_water:
+                    surrounding_water_residues.add(meta2["residue_key"])
+                if meta2["in_group"] and not meta1["in_group"] and ball1_is_water:
+                    surrounding_water_residues.add(meta1["residue_key"])
 
                 # ==================================================
                 # RESIDUE LEVEL
@@ -639,10 +644,7 @@ def export_info(grp, directory=None):
             if meta["in_group"]
         )
 
-        mapped_water_atoms = sum(
-            1 for meta in atom_meta.values()
-            if meta["res_name"] in water_names
-        )
+        mapped_surrounding_waters = len(surrounding_water_residues)
 
         info.write("SURFACE CLASSIFICATION\n")
         info.write("-" * 72 + "\n")
@@ -650,7 +652,7 @@ def export_info(grp, directory=None):
             f"Mapped Group Atoms:       {mapped_group_atoms:,}\n"
         )
         info.write(
-            f"Mapped Surrounding Waters: {mapped_water_atoms:,}\n"
+            f"Mapped Surrounding Waters: {mapped_surrounding_waters:,}\n"
         )
         info.write("\n")
 
@@ -724,7 +726,7 @@ def export_info(grp, directory=None):
 def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=False, atom_verts=False, surfs=False,
                   sep_surfs=False, shell_surfs=False, edges=False, sep_edges=False, shell_edges=False,
                   verts=False, sep_verts=False, shell_verts=False, layers=-1, info=False, surr_atoms=False, logs=False,
-                  ext_atoms=False, concave_colors=False, round_to=3, file_type=None):
+                  ext_atoms=False, concave_colors=False, round_to=3):
     """
     Exports various components of a Group object to files based on specified parameters.
     This function provides flexible export options for different aspects of a molecular group,
@@ -775,8 +777,6 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     concave_colors : bool, optional
         If True, exports the concave colors for the surfaces. Default is False
     round_to : int, optional
-    file_type : {'off', 'ply', 'vtp'}, optional
-        Geometry format used for surface, edge, and vertex meshes. Default is 'off'.
 
     Returns
     -------
@@ -825,13 +825,6 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     # Useful for analyzing the group's environment and properties
     """
     # Set the surface colors and scheme
-    if file_type is None:
-        file_type = getattr(grp, 'settings', {}).get('file_type', 'off')
-    file_type = str(file_type).strip().lower().lstrip('.')
-    if file_type == 'vtk':
-        file_type = 'vtp'
-    if file_type not in {'off', 'ply', 'vtp'}:
-        raise ValueError("file_type must be 'off', 'ply', or 'vtp'")
     if grp.settings['surf_col'] is None:
         grp.settings['surf_col'] = grp.net.settings['surf_col']
     # Set the surface scheme
@@ -873,9 +866,8 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     if atom_verts or atom_edges or atom_surfs or all_:
         if not path.exists(grp.dir + '/atoms'):
             os.mkdir(grp.dir + '/atoms')
-        write_atom_cells(grp.net, atoms=_group_topology_indices(grp), directory=grp.dir + '/atoms', surfs=atom_surfs or all_,
-                         edges=atom_edges or all_, verts=atom_verts or all_, concave_colors=concave_colors,
-                         file_type=file_type)
+        write_atom_cells(grp.net, atoms=grp.ball_ndxs, directory=grp.dir + '/atoms', surfs=atom_surfs or all_,
+                         edges=atom_edges or all_, verts=atom_verts or all_, concave_colors=concave_colors)
         os.chdir(grp.dir)
 
     # If the user wants to export the shell for the group
@@ -886,11 +878,10 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         # noinspection PyUnresolvedReferences
         if grp.layer_surfs is not None and len(grp.layer_surfs) > 0:
             write_surfs(net=grp.net, surfs=grp.layer_surfs[0], file_name="shell_surfs", directory=grp.dir,
-                        concave_colors=concave_colors, ref_surfs=_group_topology_indices(grp), universal_max=False,
-                        file_type=file_type)
+                        concave_colors=concave_colors, ref_surfs=grp.ball_ndxs, universal_max=False)
     # If the user wants all of the surfaces in one file
     if surfs or all_:
-        write_surfs(grp.net, [i for i in range(len(grp.net.surfs))], 'surfs', file_type=file_type)
+        write_surfs(grp.net, [i for i in range(len(grp.net.surfs))], 'surfs')
     # Separate surfaces
     if sep_surfs or all_:
         # Make the surfaces directory
@@ -898,44 +889,41 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             os.mkdir(grp.dir + '/surfs')
         # Create the surfaces' files
         for j, my_surf in grp.net.surfs.iterrows():
-            write_surfs(grp.net, [j], file_name='b{}_b{}'.format(*my_surf['balls']),
-                        directory=grp.dir + '/surfs', file_type=file_type)
+            write_surfs(grp.net, [j], file_name='b{}_b{}'.format(*my_surf['balls']), directory=grp.dir + '/surfs')
     # Shell edges
     if shell_edges or all_:
         if grp.layer_edges is None:
             grp.get_layers(max_layers=1, build_surfs=False)
         write_edges(grp.net, grp.layer_edges[0], file_name="shell_edges", directory=grp.dir,
-                    color=grp.settings['edge_col'], file_type=file_type)
+                    color=grp.settings['edge_col'])
     # All one big edge file
     if edges or all_:
         write_edges(grp.net, edges=[i for i in range(len(grp.net.edges))], file_name="edges", directory=grp.dir,
-                    color=grp.settings['edge_col'], file_type=file_type)
+                    color=grp.settings['edge_col'])
     # If the separate edges are called
     if sep_edges or all_:
         # Make the edges directory
         if not os.path.exists(grp.dir + '/edges'):
             os.mkdir(grp.dir + '/edges')
         for j, my_edge in grp.net.edges.iterrows():
-            write_edges(grp.net, [j], 'b{}_b{}_b{}'.format(*my_edge['balls']),
-                        directory=grp.dir + '/edges', file_type=file_type)
+            write_edges(grp.net, [j], 'b{}_b{}_b{}'.format(*my_edge['balls']), directory=grp.dir + '/edges')
     # Run the separate vertices
     if sep_verts:
         # Make the vertices directory
         if not path.exists(grp.dir + '/verts'):
             os.mkdir(grp.dir + "/verts")
         for j, vert in grp.net.verts.iterrows():
-            write_off_verts(grp.net, [j], 'b{}_b{}_b{}_b{}'.format(*vert['balls']),
-                            directory=grp.dir + "/verts", file_type=file_type)
+            write_off_verts(grp.net, [j], 'b{}_b{}_b{}_b{}'.format(*vert['balls']), directory=grp.dir + "/verts")
     # Export all the vertices in one file
     if verts or all_:
         write_off_verts(grp.net, [i for i in range(len(grp.net.verts))], directory=grp.dir, file_name='verts',
-                        color=grp.settings['vert_col'], file_type=file_type)
+                        color=grp.settings['vert_col'])
     # Export the shell vertices
     if shell_verts or all_:
         if grp.layer_verts is None:
             grp.get_layers(max_layers=1, build_surfs=False)
         write_off_verts(grp.net, grp.layer_verts[0], file_name="shell_verts", directory=grp.dir,
-                        color=grp.settings['vert_col'], file_type=file_type)
+                        color=grp.settings['vert_col'])
     # If the user wants layers
     if layers > 0 or all_:
         # First check to see if the number of layers is greater than 1
@@ -954,7 +942,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         # Create the layer and atoms files
         for i in range(len(grp.layer_surfs)):
             write_pdb(grp.layer_atoms[i + 1], file_name=str(i) + "_atoms", sys=grp.sys)
-            write_surfs(grp.net, grp.layer_surfs[i], file_name=str(i) + "_surfs", file_type=file_type)
+            write_surfs(grp.net, grp.layer_surfs[i], file_name=str(i) + "_surfs")
         # If the user wants info and layers create a layers info file
         if info or all_:
             # Create the information file
