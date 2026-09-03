@@ -95,8 +95,6 @@ def argv_export(my_sys, usr_npt, add_on=None):
     if len(export_commands) == 0:
         export_commands.append(['large'])
 
-    print(f"\nExporting files to: {os.path.abspath(my_sys.files['dir'])}\n")
-
     # Second pass: run exports
     for npt in export_commands:
         if len(npt) == 0:
