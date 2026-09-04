@@ -62,6 +62,8 @@ contains double-clickable application launchers:
 - Windows: `vorpy-windows.bat`
 
 Each launcher uses the checkout's `.venv` when one exists.
+On Windows, the launcher creates `.venv` and installs the GUI dependencies
+automatically on its first run; it displays progress while this completes.
 
 On GNOME-based Linux desktops, a newly cloned `.desktop` file may need to be
 trusted once before it can be opened by double-clicking:
