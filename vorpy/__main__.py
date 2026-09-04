@@ -1,25 +1,20 @@
-"""
-Main entry point for running vorpy as a module
-"""
+"""Main entry point for VorPy."""
 
-import os
+from __future__ import annotations
+
 import sys
 
-# Add the parent directory to sys.path
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
-
-
-from vorpy.src.GUI.vorpy_gui import VorPyGUI as VorPyGUI
-from vorpy.src.command.vpy_cmnd import Command
 
 def main() -> None:
     if len(sys.argv) == 1:
-        app = VorPyGUI()
-        app.mainloop()
-    else:
-        Command().run()
+        from vorpy.workbench.__main__ import main as gui_main
+
+        raise SystemExit(gui_main())
+
+    from vorpy.src.command.vpy_cmnd import Command
+
+    Command().run()
+
 
 if __name__ == "__main__":
     main()

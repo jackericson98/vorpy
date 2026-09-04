@@ -183,7 +183,16 @@ See [`docs/cli/exports.md`](docs/cli/exports.md).
 
 ## Graphical User Interface
 
-The GUI provides an interactive environment for loading structures, defining groups, changing radii and masses, configuring build settings, selecting exports, running individual groups or complete systems, and working with interfaces and visualization output.
+VorPy's default desktop interface is the PySide6/PyVista **Analysis Studio**. It loads PDB structures, runs the real VorPy solver in a background worker, displays solver progress, and overlays completed Voronoi vertices and edges on the molecular viewer. Existing completed VorPy output directories can also be opened directly.
+
+Install the GUI dependencies and launch the official application with:
+
+~~~bash
+pip install "vorpy3[gui]"
+vorpy
+~~~
+
+Passing a structure or CLI options to `vorpy` continues to use the command-line workflow.
 
 The detailed GUI guide is maintained in [`docs/gui/`](docs/gui/).
 

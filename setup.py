@@ -14,7 +14,7 @@ setup(
     url="https://github.com/jackericson98/vorpy",
     packages=find_packages(),
     package_data={
-        'vorpy': ['data/*.pdb', 'data/*.gro', 'data/*.txt', 'src/GUI/Images/*.png', 'src/GUI/Images/*.ico'],
+        'vorpy': ['data/*.pdb', 'data/*.gro', 'data/*.txt', 'src/GUI/Images/*.png', 'src/GUI/Images/*.ico', 'workbench/assets/*.png'],
     },
     classifiers=[
         "Development Status :: 3 - Alpha",
@@ -39,7 +39,9 @@ setup(
     ],
     extras_require={
         "gui": [
-            "pystray",
+            "PySide6>=6.7",
+            "pyvista>=0.44",
+            "pyvistaqt>=0.11",
         ],
         "dev": [
             "pytest",
@@ -48,6 +50,7 @@ setup(
             "flake8",
             "mypy",
             "hypothesis",
+            "ruff>=0.6",
         ],
     },
     include_package_data=True,
