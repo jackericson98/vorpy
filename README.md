@@ -61,11 +61,11 @@ contains double-clickable application launchers:
 - macOS: `vorpy-mac.command`
 - Windows: `vorpy-windows.bat`
 
-Each launcher uses the checkout's `.venv` when one exists.
-On Windows, the launcher creates `.venv` and installs the GUI dependencies
-automatically on its first run; it displays progress while this completes. It
-then launches without a terminal window and shows a splash while the 3D stack
-loads.
+Each launcher creates a local `.venv` and installs the GUI dependencies
+automatically when needed. The first run displays installation progress and may
+take several minutes. Later launches skip setup, detach from the terminal, and
+show a VorPy splash while the 3D stack loads. Linux uses a graphical setup
+dialog when `zenity` is available; macOS shows setup progress in Terminal.
 
 On GNOME-based Linux desktops, a newly cloned `.desktop` file may need to be
 trusted once before it can be opened by double-clicking:

@@ -1,18 +1,59 @@
 #!/bin/sh
 # Portable Linux launcher. Always run relative to this checkout.
-set -eu
+set -u
 
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+venv_dir="$repo_dir/.venv"
+python_cmd="$venv_dir/bin/python"
+ready_file="$venv_dir/.vorpy-gui-ready"
+install_log="$venv_dir/vorpy-install.log"
 cd "$repo_dir"
 
-if [ -x "$repo_dir/.venv/bin/python" ]; then
-    python_cmd="$repo_dir/.venv/bin/python"
-elif command -v python3 >/dev/null 2>&1; then
-    python_cmd=python3
-else
-    printf '%s\n' 'VorPy needs Python 3. Install Python, then run:' >&2
-    printf '  %s\n' 'python3 -m pip install -e ".[gui]"' >&2
+graphical_setup=false
+if [ ! -t 1 ] && command -v zenity >/dev/null 2>&1 && [ -n "${DISPLAY-}" ]; then
+    graphical_setup=true
+fi
+
+setup_error() {
+    message=$1
+    if [ "$graphical_setup" = true ]; then
+        zenity --error --title="VorPy setup failed" --text="$message\n\nSee $install_log for details." || true
+    else
+        printf '\n%s\n' "$message" >&2
+    fi
     exit 1
+}
+
+if [ ! -x "$python_cmd" ]; then
+    if ! command -v python3 >/dev/null 2>&1; then
+        setup_error "Python 3 was not found. Install Python 3 and try again."
+    fi
+    if [ "$graphical_setup" = true ]; then
+        zenity --info --title="VorPy first-time setup" --text="VorPy will create a local environment and install its graphical dependencies. This may take several minutes and normally happens only once." || true
+    else
+        printf '%s\n' 'VorPy first-time setup: creating a local Python environment...'
+    fi
+    python3 -m venv "$venv_dir" || setup_error "Could not create VorPy's Python environment."
+fi
+
+if [ ! -f "$ready_file" ]; then
+    "$python_cmd" -c "import importlib.util, sys; names = ('PySide6', 'pyvista', 'pyvistaqt', 'vorpy.workbench'); sys.exit(0 if all(importlib.util.find_spec(name) for name in names) else 1)" >/dev/null 2>&1
+    dependencies_ready=$?
+    if [ "$dependencies_ready" -ne 0 ]; then
+        if [ "$graphical_setup" = true ]; then
+            "$python_cmd" -m pip install -e ".[gui]" >"$install_log" 2>&1 &
+            install_pid=$!
+            while kill -0 "$install_pid" 2>/dev/null; do
+                printf '# Installing VorPy and graphical dependencies...\n'
+                sleep 1
+            done | zenity --progress --pulsate --no-cancel --auto-close --title="VorPy first-time setup" --text="Installing dependencies..." || true
+            wait "$install_pid" || setup_error "VorPy's dependencies could not be installed."
+        else
+            printf '%s\n' 'Installing VorPy and graphical dependencies. This may take several minutes...'
+            "$python_cmd" -m pip install -e ".[gui]" || setup_error "VorPy's dependencies could not be installed."
+        fi
+    fi
+    : > "$ready_file"
 fi
 
 exec "$python_cmd" -m vorpy.workbench "$@"
