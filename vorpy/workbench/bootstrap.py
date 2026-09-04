@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import queue
+import platform
 import subprocess
 import sys
 import threading
@@ -11,6 +12,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 ICON = Path(__file__).resolve().parent / "assets" / "VorpyIcon_transparent.png"
+WINDOWS_ICON = ROOT / "vorpy" / "src" / "GUI" / "Images" / "VorpyIcon.ico"
+INSTALL_LOG = ROOT / ".venv" / "vorpy-install.log"
 COMMANDS = (
     ([sys.executable, "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"],
      "Updating the Python installer..."),
@@ -34,11 +37,25 @@ def _gui_install() -> int:
 
     events: queue.Queue[tuple[str, object]] = queue.Queue()
     result = {"code": 1}
+    if sys.platform == "win32":
+        try:
+            import ctypes
+
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                "EricsonLabs.VorPy.Installer"
+            )
+        except (AttributeError, OSError):
+            pass
     root = tk.Tk()
     root.title("VorPy first-time setup")
     root.geometry("680x520")
     root.minsize(520, 400)
     root.configure(bg="#111827")
+    if sys.platform == "win32" and WINDOWS_ICON.exists():
+        try:
+            root.iconbitmap(default=str(WINDOWS_ICON))
+        except tk.TclError:
+            pass
 
     try:
         icon = tk.PhotoImage(file=str(ICON))
@@ -84,23 +101,28 @@ def _gui_install() -> int:
     root.protocol("WM_DELETE_WINDOW", lambda: None)
 
     def worker() -> None:
-        for command, message in COMMANDS:
-            events.put(("status", message))
-            process = subprocess.Popen(
-                command,
-                cwd=ROOT,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-            )
-            assert process.stdout is not None
-            for line in process.stdout:
-                events.put(("line", line))
-            code = process.wait()
-            if code:
-                events.put(("done", code))
-                return
+        with INSTALL_LOG.open("w", encoding="utf-8") as install_log:
+            install_log.write(f"Python: {sys.version}\n")
+            install_log.write(f"Platform: {platform.platform()} ({platform.machine()})\n\n")
+            for command, message in COMMANDS:
+                events.put(("status", message))
+                process = subprocess.Popen(
+                    command,
+                    cwd=ROOT,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                )
+                assert process.stdout is not None
+                for line in process.stdout:
+                    install_log.write(line)
+                    install_log.flush()
+                    events.put(("line", line))
+                code = process.wait()
+                if code:
+                    events.put(("done", code))
+                    return
         events.put(("done", 0))
 
     def poll() -> None:

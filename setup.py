@@ -33,7 +33,8 @@ setup(
         "scipy", 
         "matplotlib",
         "pandas",
-        "numba",
+        "numba==0.62.1; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+        "numba; sys_platform != 'darwin' or platform_machine != 'x86_64'",
         "shapely",
         "Pillow",
     ],
@@ -60,4 +61,4 @@ setup(
             'vorpy=vorpy.__main__:main',
         ],
     },
-) 
+)

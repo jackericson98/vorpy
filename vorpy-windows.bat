@@ -30,7 +30,11 @@ if not exist "%VORPY_READY%" (
     "%VORPY_PYTHON%" -c "import importlib.util, sys; names = ('PySide6', 'pyvista', 'pyvistaqt', 'vorpy.workbench'); sys.exit(0 if all(importlib.util.find_spec(name) for name in names) else 1)" >nul 2>nul
 )
 if not exist "%VORPY_READY%" if errorlevel 1 (
-    "%VORPY_PYTHON%" "vorpy\workbench\bootstrap.py"
+    if exist "%VORPY_PYTHONW%" (
+        start "" /wait "%VORPY_PYTHONW%" "vorpy\workbench\bootstrap.py"
+    ) else (
+        "%VORPY_PYTHON%" "vorpy\workbench\bootstrap.py"
+    )
     if errorlevel 1 goto :setup_failed
     type nul > "%VORPY_READY%"
     echo.

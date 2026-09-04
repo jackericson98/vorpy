@@ -66,6 +66,8 @@ automatically when needed. The first run displays installation progress and may
 take several minutes. Later launches skip setup, detach from the terminal, and
 show a VorPy splash while the 3D stack loads. A lightweight installer window
 shows the VorPy logo and package installation log during first-time setup.
+Intel Macs automatically use the final Numba release that provides native
+Intel macOS wheels, avoiding a local LLVM/CMake build.
 
 On GNOME-based Linux desktops, a newly cloned `.desktop` file may need to be
 trusted once before it can be opened by double-clicking:

@@ -31,7 +31,16 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationName("VorPy")
     app.setOrganizationName("Ericson Labs")
     app.setDesktopFileName("vorpy")
-    icon_path = Path(__file__).resolve().parent / "assets" / "VorpyIcon_transparent.png"
+    if sys.platform == "win32":
+        icon_path = (
+            Path(__file__).resolve().parents[1]
+            / "src"
+            / "GUI"
+            / "Images"
+            / "VorpyIcon.ico"
+        )
+    else:
+        icon_path = Path(__file__).resolve().parent / "assets" / "VorpyIcon_transparent.png"
     app.setWindowIcon(QIcon(str(icon_path)))
     app.setStyle("Fusion")
 
