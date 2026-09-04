@@ -41,6 +41,43 @@ def _group_topology_indices(grp):
     ]
 
 
+def _surface_neighbor_system_indices(grp):
+    """Return non-group system atoms sharing a surface with a Group atom."""
+    net_balls = getattr(grp.net, 'balls', None)
+    net_surfs = getattr(grp.net, 'surfs', None)
+    if net_balls is None or net_surfs is None or len(net_surfs) == 0:
+        return []
+
+    group_topology = set(_group_topology_indices(grp))
+    topology_to_system = {}
+    for row_pos, (_, atom) in enumerate(net_balls.iterrows()):
+        try:
+            topology_id = int(atom.get('num', row_pos))
+        except (TypeError, ValueError):
+            topology_id = int(row_pos)
+
+        try:
+            system_id = int(atom.get('system_num', topology_id))
+        except (TypeError, ValueError):
+            system_id = topology_id
+        topology_to_system[topology_id] = system_id
+
+    neighbors = set()
+    for balls in net_surfs['balls']:
+        try:
+            ball_ids = {int(ball) for ball in balls}
+        except (TypeError, ValueError):
+            continue
+        if ball_ids & group_topology:
+            neighbors.update(ball_ids - group_topology)
+
+    return sorted(
+        topology_to_system[topology_id]
+        for topology_id in neighbors
+        if topology_id in topology_to_system
+    )
+
+
 def export_info(grp, directory=None):
     """
     Export a detailed human-readable summary of a VorPy group.
@@ -758,8 +795,8 @@ def export_info(grp, directory=None):
 
 def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=False, atom_verts=False, surfs=False,
                   sep_surfs=False, shell_surfs=False, edges=False, sep_edges=False, shell_edges=False,
-                  verts=False, sep_verts=False, shell_verts=False, layers=-1, info=False, surr_atoms=False, logs=False,
-                  ext_atoms=False, concave_colors=False, round_to=3, file_type=None):
+                  verts=False, sep_verts=False, shell_verts=False, layers=-1, info=False, surr_atoms=False,
+                  surr_resids=False, logs=False, ext_atoms=False, concave_colors=False, round_to=3, file_type=None):
     """
     Exports various components of a Group object to files based on specified parameters.
     This function provides flexible export options for different aspects of a molecular group,
@@ -802,7 +839,11 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     info : bool, optional
         If True, exports group information to info.txt. Default is False
     surr_atoms : bool, optional
-        If True, exports atoms directly surrounding the group with intact residues. Default is False
+        If True, exports only outside atoms that directly share a surface with
+        a Group atom. Default is False
+    surr_resids : bool, optional
+        If True, exports the residue-expanded first surrounding layer. This is
+        the behavior formerly provided by ``surr_atoms``. Default is False
     logs : bool, optional
         If True, exports log files. Default is False
     ext_atoms : bool, optional
@@ -893,7 +934,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     # Go back to the group directory
     os.chdir(grp.dir)
     # Build layer information once if any requested export requires it
-    needs_layers = shell_surfs or shell_edges or shell_verts or surr_atoms or ext_atoms or layers > 0 or all_
+    needs_layers = shell_surfs or shell_edges or shell_verts or surr_resids or ext_atoms or layers > 0 or all_
 
     if needs_layers and grp.layer_surfs is None:
         grp.get_layers(max_layers=max(1, layers) if layers > 0 else 1)
@@ -1008,14 +1049,18 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     # If the user wants a full information file on the group
     if info or all_:
         export_info(grp)
-    # Surrounding atoms
+    # Direct surface-neighbor atoms only (no residue expansion).
     if surr_atoms or all_:
+        surrounding_atoms = _surface_neighbor_system_indices(grp)
+        if surrounding_atoms:
+            write_pdb(atoms=surrounding_atoms, file_name="surr_atoms", directory=grp.dir, sys=grp.sys)
+
+    # Residue-expanded surrounding layer (the former surr_atoms behavior).
+    if surr_resids or all_:
         if grp.layer_surfs is None:
-            # Get the first layer
             grp.get_layers(max_layers=1)
-        # write the surrounding atoms
         try:
-            write_pdb(atoms=grp.layer_atoms[1], file_name="surr_atoms", directory=grp.dir, sys=grp.sys)
+            write_pdb(atoms=grp.layer_atoms[1], file_name="surr_resids", directory=grp.dir, sys=grp.sys)
         except IndexError:
             pass
     if (ext_atoms or all_) and len(grp.atms) > 15:

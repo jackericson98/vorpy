@@ -271,7 +271,7 @@ Options:
   -e <export_type>
     Specify the intensity and type of exports:
       Options include: small, medium, large, all
-      Export choices: pdb, mol, cif, gro, set_atoms, info, logs, surfs, sep_surfs, edges, sep_edges, verts, sep_verts, shell, shell_edges, shell_verts, atoms, surr_atoms
+      Export choices: pdb, mol, cif, gro, set_atoms, info, logs, surfs, sep_surfs, edges, sep_edges, verts, sep_verts, shell, shell_edges, shell_verts, atoms, surr_atoms, surr_resids
 
 Examples:
   Solve the network for tyrosine 2 and methionine 1 in the cambrin molecule, calculate their interface, and export large type results:
