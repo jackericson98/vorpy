@@ -42,6 +42,40 @@ pip install vorpy3
 conda install vorpy3
 ```
 
+### Development checkout
+
+To run the current code from a clone, including the new Analysis Studio GUI,
+install the checkout in editable mode with its GUI dependencies:
+
+```bash
+git clone https://github.com/jackericson98/vorpy.git
+cd vorpy
+python -m pip install -e ".[gui]"
+```
+
+This keeps the installed `vorpy` command connected to the checkout, so future
+`git pull` updates take effect without reinstalling. The repository root also
+contains double-clickable application launchers:
+
+- Linux: `vorpy-linux.desktop` (or run `./vorpy-linux`)
+- macOS: `vorpy-mac.command`
+- Windows: `vorpy-windows.bat`
+
+Each launcher uses the checkout's `.venv` when one exists.
+
+On GNOME-based Linux desktops, a newly cloned `.desktop` file may need to be
+trusted once before it can be opened by double-clicking:
+
+```bash
+chmod +x vorpy-linux.desktop vorpy-linux
+gio set -t string vorpy-linux.desktop metadata::trusted true
+```
+
+Your file manager may also offer this as **Allow Launching** in the launcher's
+right-click menu. If launching `.desktop` files directly from a folder is
+disabled, run `./vorpy-linux` or install the desktop entry into the system's
+application menu.
+
 VorPy currently targets **Python 3.10+**. Explicit multi-version support will be listed here once the test suite and end-to-end regression suite have been validated across supported interpreters and platforms.
 
 ---
@@ -51,19 +85,19 @@ VorPy currently targets **Python 3.10+**. Explicit multi-version support will be
 Launch the graphical interface:
 
 ```bash
-python vorpy
+vorpy
 ```
 
 Open the file browser:
 
 ```bash
-python vorpy browse
+vorpy browse
 ```
 
 Analyze a structure directly:
 
 ```bash
-python vorpy path/to/structure.pdb
+vorpy path/to/structure.pdb
 ```
 
 VorPy currently supports `.pdb`, `.cif`, `.mol`, `.mol2`, and `.gro` files.
@@ -173,8 +207,8 @@ all
 Additional output types can be requested independently or appended to a preset:
 
 ```bash
-python vorpy example.pdb -e small
-python vorpy example.pdb -e small and shell
+vorpy example.pdb -e small
+vorpy example.pdb -e small and shell
 ```
 
 See [`docs/cli/exports.md`](docs/cli/exports.md).

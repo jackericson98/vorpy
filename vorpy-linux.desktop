@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=VorPy
+Comment=Inspect molecular structures and VorPy geometry
+Exec=sh -c "root=\$(dirname \"\$1\"); cd \"\$root\" && exec ./vorpy-linux \"\$2\"" sh %k %f
+Icon=applications-science
+Terminal=false
+Categories=Science;Chemistry;
+MimeType=chemical/x-pdb;application/x-pdb;
+StartupNotify=true
+StartupWMClass=vorpy

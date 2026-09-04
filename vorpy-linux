@@ -1,0 +1,18 @@
+#!/bin/sh
+# Portable Linux launcher. Always run relative to this checkout.
+set -eu
+
+repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+cd "$repo_dir"
+
+if [ -x "$repo_dir/.venv/bin/python" ]; then
+    python_cmd="$repo_dir/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+    python_cmd=python3
+else
+    printf '%s\n' 'VorPy needs Python 3. Install Python, then run:' >&2
+    printf '  %s\n' 'python3 -m pip install -e ".[gui]"' >&2
+    exit 1
+fi
+
+exec "$python_cmd" -m vorpy.workbench "$@"

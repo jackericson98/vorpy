@@ -17,8 +17,13 @@ VorPy currently targets Python 3.10+. Explicit compatibility claims for addition
 ```bash
 git clone https://github.com/jackericson98/vorpy.git
 cd vorpy
-pip install -e .
+python -m pip install -e ".[gui]"
 ```
+
+This editable installation binds the `vorpy` command and the launchers in the
+repository root to the current checkout. The included launchers are
+`vorpy-linux.desktop` for Linux, `vorpy-mac.command` for macOS, and
+`vorpy-windows.bat` for Windows.
 
 ## Verification
 ```bash
