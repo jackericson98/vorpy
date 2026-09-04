@@ -3,6 +3,8 @@ setlocal
 cd /d "%~dp0"
 
 set "VORPY_PYTHON=.venv\Scripts\python.exe"
+set "VORPY_PYTHONW=.venv\Scripts\pythonw.exe"
+set "VORPY_READY=.venv\.vorpy-gui-ready"
 
 if not exist "%VORPY_PYTHON%" (
     echo ============================================================
@@ -24,20 +26,28 @@ if not exist "%VORPY_PYTHON%" (
     if errorlevel 1 goto :setup_failed
 )
 
-"%VORPY_PYTHON%" -c "import PySide6, pyvista, pyvistaqt, vorpy.workbench" >nul 2>nul
-if errorlevel 1 (
+if not exist "%VORPY_READY%" (
+    "%VORPY_PYTHON%" -c "import importlib.util, sys; names = ('PySide6', 'pyvista', 'pyvistaqt', 'vorpy.workbench'); sys.exit(0 if all(importlib.util.find_spec(name) for name in names) else 1)" >nul 2>nul
+)
+if not exist "%VORPY_READY%" if errorlevel 1 (
     echo Installing VorPy and its graphical dependencies...
     echo Please keep this window open. This may take several minutes.
     echo.
     "%VORPY_PYTHON%" -m pip install -e ".[gui]"
     if errorlevel 1 goto :setup_failed
+    type nul > "%VORPY_READY%"
     echo.
     echo Installation complete. Starting VorPy...
     echo.
 )
 
-"%VORPY_PYTHON%" -m vorpy.workbench %*
-if errorlevel 1 goto :launch_failed
+if not exist "%VORPY_READY%" type nul > "%VORPY_READY%"
+
+if exist "%VORPY_PYTHONW%" (
+    start "" "%VORPY_PYTHONW%" -m vorpy.workbench %*
+) else (
+    start "" "%VORPY_PYTHON%" -m vorpy.workbench %*
+)
 exit /b 0
 
 :python_missing
@@ -51,11 +61,5 @@ exit /b 1
 :setup_failed
 echo.
 echo VorPy setup failed. Review the installation error above, then try again.
-pause
-exit /b 1
-
-:launch_failed
-echo.
-echo VorPy was installed but could not start. Review the error above.
 pause
 exit /b 1
