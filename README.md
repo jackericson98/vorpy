@@ -64,8 +64,8 @@ contains double-clickable application launchers:
 Each launcher creates a local `.venv` and installs the GUI dependencies
 automatically when needed. The first run displays installation progress and may
 take several minutes. Later launches skip setup, detach from the terminal, and
-show a VorPy splash while the 3D stack loads. Linux uses a graphical setup
-dialog when `zenity` is available; macOS shows setup progress in Terminal.
+show a VorPy splash while the 3D stack loads. A lightweight installer window
+shows the VorPy logo and package installation log during first-time setup.
 
 On GNOME-based Linux desktops, a newly cloned `.desktop` file may need to be
 trusted once before it can be opened by double-clicking:

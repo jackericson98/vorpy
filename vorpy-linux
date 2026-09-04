@@ -40,18 +40,7 @@ if [ ! -f "$ready_file" ]; then
     "$python_cmd" -c "import importlib.util, sys; names = ('PySide6', 'pyvista', 'pyvistaqt', 'vorpy.workbench'); sys.exit(0 if all(importlib.util.find_spec(name) for name in names) else 1)" >/dev/null 2>&1
     dependencies_ready=$?
     if [ "$dependencies_ready" -ne 0 ]; then
-        if [ "$graphical_setup" = true ]; then
-            "$python_cmd" -m pip install -e ".[gui]" >"$install_log" 2>&1 &
-            install_pid=$!
-            while kill -0 "$install_pid" 2>/dev/null; do
-                printf '# Installing VorPy and graphical dependencies...\n'
-                sleep 1
-            done | zenity --progress --pulsate --no-cancel --auto-close --title="VorPy first-time setup" --text="Installing dependencies..." || true
-            wait "$install_pid" || setup_error "VorPy's dependencies could not be installed."
-        else
-            printf '%s\n' 'Installing VorPy and graphical dependencies. This may take several minutes...'
-            "$python_cmd" -m pip install -e ".[gui]" || setup_error "VorPy's dependencies could not be installed."
-        fi
+        "$python_cmd" "$repo_dir/vorpy/workbench/bootstrap.py" || setup_error "VorPy's dependencies could not be installed."
     fi
     : > "$ready_file"
 fi

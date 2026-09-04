@@ -35,9 +35,7 @@ if [ ! -f "$ready_file" ]; then
     "$python_cmd" -c "import importlib.util, sys; names = ('PySide6', 'pyvista', 'pyvistaqt', 'vorpy.workbench'); sys.exit(0 if all(importlib.util.find_spec(name) for name in names) else 1)" >/dev/null 2>&1
     dependencies_ready=$?
     if [ "$dependencies_ready" -ne 0 ]; then
-        printf '%s\n' 'Installing VorPy and graphical dependencies.'
-        printf '%s\n\n' 'Please keep this window open. This may take several minutes.'
-        "$python_cmd" -m pip install -e ".[gui]" || fail_setup "VorPy's dependencies could not be installed."
+        "$python_cmd" "$repo_dir/vorpy/workbench/bootstrap.py" || fail_setup "VorPy's dependencies could not be installed."
     fi
     : > "$ready_file"
     printf '\n%s\n' 'Installation complete. Starting VorPy...'
