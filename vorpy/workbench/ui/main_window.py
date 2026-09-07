@@ -163,7 +163,7 @@ class MainWindow(QMainWindow):
             style.standardIcon(QStyle.SP_BrowserReload), "Fit view", self
         )
         self.fit_action.setShortcut("F")
-        self.fit_action.triggered.connect(self.viewer.plotter.reset_camera)
+        self.fit_action.triggered.connect(self._fit_view)
         self.screenshot_action = QAction(
             style.standardIcon(QStyle.SP_DialogSaveButton), "Screenshot", self
         )
@@ -1117,6 +1117,10 @@ class MainWindow(QMainWindow):
             self._worker.cancel()
             self.progress_label.setText("Cancelling…")
             self.statusBar().showMessage("Cancelling analysis…")
+
+    def _fit_view(self) -> None:
+        self.viewer.reset_depth_clipping()
+        self.viewer.plotter.reset_camera()
 
     def save_screenshot(self) -> None:
         filename, _ = QFileDialog.getSaveFileName(

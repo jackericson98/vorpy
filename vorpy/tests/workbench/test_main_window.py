@@ -6,6 +6,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication, QToolBar, QWidget
+from vtkmodules.vtkCommonDataModel import vtkPlane
 
 from vorpy.workbench.domain import AnalysisResult, Atom, Bond, GeometryLayer
 from vorpy.workbench.ui import main_window
@@ -81,6 +82,9 @@ class ViewerStub(QWidget):
 
     def set_layer_color_scheme(self, name, scheme):
         self.calls.append((f"scheme:{name}", scheme))
+
+    def reset_depth_clipping(self):
+        self.calls.append(("reset-depth",))
 
     def save_screenshot(self, filename, scale=1):
         self.calls.append(("screenshot", filename, scale))
@@ -372,6 +376,58 @@ def test_empty_viewer_pick_emits_selection_cleared():
     MolecularView._apply_pending_pick(viewer)
 
     assert events == ["highlight-cleared", "selection-cleared"]
+
+
+def test_depth_clipping_advances_and_restores_all_rendered_actors():
+    class Mapper:
+        def __init__(self):
+            self.planes = []
+
+        def RemoveAllClippingPlanes(self):
+            self.planes.clear()
+
+        def AddClippingPlane(self, plane):
+            self.planes.append(plane)
+
+    mapper = Mapper()
+    actor = SimpleNamespace(
+        GetMapper=lambda: mapper,
+        GetBounds=lambda: (-2.0, 2.0, -1.0, 1.0, -3.0, 3.0),
+    )
+    label = SimpleNamespace(
+        setText=lambda text: None,
+        show=lambda: None,
+        hide=lambda: None,
+    )
+    viewer = SimpleNamespace(
+        _depth_clip_fraction=0.0,
+        _depth_clip_plane=vtkPlane(),
+        depth_clip_label=label,
+        plotter=SimpleNamespace(
+            camera=SimpleNamespace(
+                GetDirectionOfProjection=lambda: (0.0, 0.0, -1.0)
+            ),
+            render=lambda: None,
+        ),
+        _rendered_actors=lambda: [actor],
+    )
+    viewer._apply_depth_clip_to_actor = lambda item: (
+        MolecularView._apply_depth_clip_to_actor(viewer, item)
+    )
+    viewer._depth_projection_range = lambda direction: (
+        MolecularView._depth_projection_range(viewer, direction)
+    )
+    viewer._apply_depth_clipping = lambda render=True: (
+        MolecularView._apply_depth_clipping(viewer, render)
+    )
+
+    MolecularView.adjust_depth_clipping(viewer, 5)
+    assert viewer._depth_clip_fraction == 0.2
+    assert mapper.planes == [viewer._depth_clip_plane]
+
+    MolecularView.adjust_depth_clipping(viewer, -5)
+    assert viewer._depth_clip_fraction == 0.0
+    assert mapper.planes == []
 
 
 def test_ion_classification_uses_residue_identity():

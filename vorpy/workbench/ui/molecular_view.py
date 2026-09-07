@@ -7,8 +7,9 @@ from collections import defaultdict
 import numpy as np
 import pyvista as pv
 from PySide6.QtCore import QEvent, Qt, QTimer, Signal
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 from pyvistaqt import QtInteractor
+from vtkmodules.vtkCommonDataModel import vtkPlane
 
 from vorpy.workbench.domain import AnalysisResult, Atom, GeometryLayer
 
@@ -85,8 +86,13 @@ class MolecularView(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         self.plotter = QtInteractor(self)
-        layout.addWidget(self.plotter.interactor)
+        layout.addWidget(self.plotter.interactor, 1)
         self.plotter.interactor.installEventFilter(self)
+        self.depth_clip_label = QLabel("Depth cut: off")
+        self.depth_clip_label.setObjectName("sectionLabel")
+        self.depth_clip_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.depth_clip_label.hide()
+        layout.addWidget(self.depth_clip_label)
         self.plotter.set_background("#111820")
         self._result: AnalysisResult | None = None
         self._positions = np.empty((0, 3))
@@ -106,6 +112,8 @@ class MolecularView(QWidget):
         self._selection_dragged = False
         self._selection_additive = False
         self._pending_pick = None
+        self._depth_clip_fraction = 0.0
+        self._depth_clip_plane = vtkPlane()
 
     def clear_result(self) -> None:
         """Clear molecular state and picking when closing the active project."""
@@ -113,6 +121,7 @@ class MolecularView(QWidget):
             self.plotter.disable_picking()
         except (AttributeError, RuntimeError):
             pass
+        self.reset_depth_clipping(render=False)
         self.plotter.clear()
         self._actors.clear()
         self._layer_definitions.clear()
@@ -127,6 +136,7 @@ class MolecularView(QWidget):
             self.plotter.disable_picking()
         except (AttributeError, RuntimeError):
             pass
+        self.reset_depth_clipping(render=False)
         self.plotter.clear()
         self._actors.clear()
         self._layer_definitions = {layer.name: layer for layer in result.layers}
@@ -411,6 +421,7 @@ class MolecularView(QWidget):
             actor = self.plotter.add_mesh(mesh, **mesh_options)
             actor.SetVisibility(layer.visible)
             self._actors[layer.name].append(actor)
+            self._apply_depth_clip_to_actor(actor)
         except Exception as error:  # noqa: BLE001 - mesh readers expose varied exceptions.
             layer.visible = False
             layer.name = f"{layer.name} [load failed: {error}]"
@@ -469,6 +480,16 @@ class MolecularView(QWidget):
         signal.emit(selected_atoms, additive)
 
     def eventFilter(self, watched, event) -> bool:
+        if (
+            watched is self.plotter.interactor
+            and event.type() == QEvent.Type.Wheel
+            and self._result is not None
+        ):
+            steps = event.angleDelta().y() / 120.0
+            if steps:
+                self.adjust_depth_clipping(steps)
+                event.accept()
+                return True
         if watched is self.plotter.interactor and self._selection_mode is not None:
             if (
                 event.type() == QEvent.Type.MouseButtonPress
@@ -498,6 +519,78 @@ class MolecularView(QWidget):
                 self._press_position = None
                 QTimer.singleShot(0, self._apply_pending_pick)
         return super().eventFilter(watched, event)
+
+    def _rendered_actors(self) -> list[object]:
+        return [
+            actor
+            for actors in self._actors.values()
+            for actor in actors
+            if actor is not None
+        ]
+
+    def _apply_depth_clip_to_actor(self, actor) -> None:
+        mapper = actor.GetMapper()
+        mapper.RemoveAllClippingPlanes()
+        if self._depth_clip_fraction > 0.0:
+            mapper.AddClippingPlane(self._depth_clip_plane)
+
+    def _depth_projection_range(
+        self, direction: np.ndarray
+    ) -> tuple[float, float] | None:
+        projections = []
+        for actor in self._rendered_actors():
+            bounds = actor.GetBounds()
+            if bounds is None or len(bounds) != 6:
+                continue
+            for x in (bounds[0], bounds[1]):
+                for y in (bounds[2], bounds[3]):
+                    for z in (bounds[4], bounds[5]):
+                        projections.append(float(np.dot((x, y, z), direction)))
+        if not projections:
+            return None
+        return min(projections), max(projections)
+
+    def adjust_depth_clipping(self, wheel_steps: float) -> None:
+        self._depth_clip_fraction = float(
+            np.clip(self._depth_clip_fraction + 0.04 * wheel_steps, 0.0, 0.98)
+        )
+        self._apply_depth_clipping()
+
+    def _apply_depth_clipping(self, render: bool = True) -> None:
+        if self._depth_clip_fraction > 0.0:
+            direction = np.asarray(
+                self.plotter.camera.GetDirectionOfProjection(), dtype=float
+            )
+            magnitude = np.linalg.norm(direction)
+            if magnitude:
+                direction /= magnitude
+                projection_range = self._depth_projection_range(direction)
+                if projection_range is not None:
+                    near, far = projection_range
+                    cut = near + self._depth_clip_fraction * (far - near)
+                    self._depth_clip_plane.SetNormal(direction)
+                    self._depth_clip_plane.SetOrigin(direction * cut)
+
+        for actor in self._rendered_actors():
+            self._apply_depth_clip_to_actor(actor)
+
+        if self._depth_clip_fraction > 0.0:
+            self.depth_clip_label.setText(
+                f"Depth cut: {self._depth_clip_fraction:.0%} · scroll out to restore"
+            )
+            self.depth_clip_label.show()
+        else:
+            self.depth_clip_label.hide()
+        if render:
+            self.plotter.render()
+
+    def reset_depth_clipping(self, render: bool = True) -> None:
+        self._depth_clip_fraction = 0.0
+        for actor in self._rendered_actors():
+            actor.GetMapper().RemoveAllClippingPlanes()
+        self.depth_clip_label.hide()
+        if render:
+            self.plotter.render()
 
     def _highlight_atoms(self, atoms: list[Atom], name: str) -> None:
         self._clear_pick_highlight()
