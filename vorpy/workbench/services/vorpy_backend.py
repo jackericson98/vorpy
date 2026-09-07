@@ -83,13 +83,30 @@ class VorPyBackend:
 
         system.start_run()
         group.build()
+        shell_surfs = shell_edges = shell_verts = ()
+        if all(
+            getattr(group.net, name, None) is not None
+            for name in ("surfs", "edges", "verts")
+        ):
+            group.get_layers(max_layers=1, group_resids=False)
+            if group.layer_surfs:
+                shell_surfs = group.layer_surfs[0]
+            if group.layer_edges:
+                shell_edges = group.layer_edges[0]
+            if group.layer_verts:
+                shell_verts = group.layer_verts[0]
         system.finish_run()
         if is_cancelled():
             raise RuntimeError("Analysis cancelled")
 
         result = load_pdb(source)
         result.atoms = _merge_atoms(result.atoms, _atoms_from_system(system))
-        result.layers = _layers_from_network(group.net)
+        result.layers = _layers_from_network(
+            group.net,
+            shell_surfs=shell_surfs,
+            shell_edges=shell_edges,
+            shell_verts=shell_verts,
+        )
         requested_layers = {"vertices", "edges", "surfaces"}
         if not self.settings.build_vertices:
             requested_layers.discard("vertices")
@@ -152,28 +169,66 @@ def _merge_atoms(display_atoms: list[Atom], solved_atoms: list[Atom]) -> list[At
     ]
 
 
-def _layers_from_network(network) -> list[GeometryLayer]:
+def _surface_geometry(surfaces) -> tuple[np.ndarray, np.ndarray]:
+    points: list[np.ndarray] = []
+    faces: list[np.ndarray] = []
+    offset = 0
+    for _, surface in surfaces.iterrows():
+        surface_points = np.asarray(surface["points"], dtype=float).reshape((-1, 3))
+        surface_faces = np.asarray(surface["tris"], dtype=np.int64).reshape((-1, 3))
+        points.extend(surface_points)
+        faces.extend(surface_faces + offset)
+        offset += len(surface_points)
+    return (
+        np.asarray(points, dtype=float).reshape((-1, 3)),
+        np.asarray(faces, dtype=np.int64).reshape((-1, 3)),
+    )
+
+
+def _edge_geometry(edges) -> tuple[np.ndarray, np.ndarray]:
+    points: list[np.ndarray] = []
+    lines: list[tuple[int, int]] = []
+    for edge_points in edges["points"]:
+        edge_points = np.asarray(edge_points, dtype=float)
+        start = len(points)
+        points.extend(edge_points)
+        lines.extend(
+            (start + index, start + index + 1)
+            for index in range(max(len(edge_points) - 1, 0))
+        )
+    return (
+        np.asarray(points, dtype=float).reshape((-1, 3)),
+        np.asarray(lines, dtype=np.int64).reshape((-1, 2)),
+    )
+
+
+def _layers_from_network(
+    network,
+    shell_surfs=(),
+    shell_edges=(),
+    shell_verts=(),
+) -> list[GeometryLayer]:
     layers: list[GeometryLayer] = []
     if network.edges is not None and "points" in network.edges:
-        points: list[np.ndarray] = []
-        lines: list[tuple[int, int]] = []
-        for edge_points in network.edges["points"]:
-            edge_points = np.asarray(edge_points, dtype=float)
-            start = len(points)
-            points.extend(edge_points)
-            lines.extend(
-                (start + index, start + index + 1)
-                for index in range(max(len(edge_points) - 1, 0))
-            )
+        points, lines = _edge_geometry(network.edges)
         layers.append(
             GeometryLayer(
-                "Voronoi edges",
-                "edges",
-                np.asarray(points, dtype=float).reshape((-1, 3)),
-                np.asarray(lines, dtype=np.int64).reshape((-1, 2)),
-                color="#55a9d9",
+                "Voronoi edges", "edges", points, lines, color="#55a9d9"
             )
         )
+        shell_edge_rows = network.edges.iloc[list(shell_edges)]
+        if not shell_edge_rows.empty:
+            points, lines = _edge_geometry(shell_edge_rows)
+            layers.append(
+                GeometryLayer(
+                    "Voronoi shell edges",
+                    "edges",
+                    points,
+                    lines,
+                    color="#42d6c7",
+                )
+            )
+
     if network.verts is not None and "loc" in network.verts:
         layers.append(
             GeometryLayer(
@@ -183,4 +238,47 @@ def _layers_from_network(network) -> list[GeometryLayer]:
                 color="#efb84f",
             )
         )
+        shell_vertex_rows = network.verts.iloc[list(shell_verts)]
+        if not shell_vertex_rows.empty:
+            layers.append(
+                GeometryLayer(
+                    "Voronoi shell vertices",
+                    "vertices",
+                    np.asarray(list(shell_vertex_rows["loc"]), dtype=float).reshape(
+                        (-1, 3)
+                    ),
+                    color="#f29f67",
+                )
+            )
+
+    if (
+        network.surfs is not None
+        and "points" in network.surfs
+        and "tris" in network.surfs
+    ):
+        points, faces = _surface_geometry(network.surfs)
+        layers.append(
+            GeometryLayer(
+                "Voronoi surfaces",
+                "surfaces",
+                points=points,
+                faces=faces,
+                color="#4f9fcf",
+                opacity=0.45,
+                visible=False,
+            )
+        )
+        shell_surface_rows = network.surfs.iloc[list(shell_surfs)]
+        if not shell_surface_rows.empty:
+            points, faces = _surface_geometry(shell_surface_rows)
+            layers.append(
+                GeometryLayer(
+                    "Voronoi shell surfaces",
+                    "surfaces",
+                    points=points,
+                    faces=faces,
+                    color="#806df0",
+                    opacity=0.45,
+                )
+            )
     return layers

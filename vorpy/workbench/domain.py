@@ -36,6 +36,7 @@ class GeometryLayer:
     color: str = "#55a9d9"
     opacity: float = 1.0
     visible: bool = True
+    faces: np.ndarray | None = None
 
 
 @dataclass

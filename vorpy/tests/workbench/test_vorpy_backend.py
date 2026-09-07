@@ -22,14 +22,20 @@ def test_network_geometry_is_converted_to_viewer_layers():
     network = SimpleNamespace(
         edges=pd.DataFrame({"points": [[np.array([0, 0, 0]), np.array([1, 0, 0])]]}),
         verts=pd.DataFrame({"loc": [np.array([0, 0, 0]), np.array([1, 0, 0])]}),
+        surfs=pd.DataFrame({
+            "points": [np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]])],
+            "tris": [np.array([[0, 1, 2]])],
+        }),
     )
 
     layers = _layers_from_network(network)
 
-    assert [layer.kind for layer in layers] == ["edges", "vertices"]
+    assert [layer.kind for layer in layers] == ["edges", "vertices", "surfaces"]
     assert layers[0].points.shape == (2, 3)
     assert layers[0].lines.tolist() == [[0, 1]]
     assert layers[1].points.shape == (2, 3)
+    assert layers[2].faces.tolist() == [[0, 1, 2]]
+    assert not layers[2].visible
 
 
 def test_worker_forwards_selection_snapshot_to_backend():

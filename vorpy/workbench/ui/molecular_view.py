@@ -353,6 +353,13 @@ class MolecularView(QWidget):
         try:
             if layer.source_path is not None:
                 mesh = pv.read(layer.source_path)
+            elif layer.faces is not None:
+                points = np.asarray(layer.points, dtype=float).reshape((-1, 3))
+                faces = np.asarray(layer.faces, dtype=np.int64).reshape((-1, 3))
+                mesh = pv.PolyData(points)
+                mesh.faces = np.column_stack(
+                    (np.full(len(faces), 3, dtype=np.int64), faces)
+                ).ravel()
             elif layer.lines is not None:
                 cells = np.asarray(
                     [[2, a, b] for a, b in layer.lines], dtype=np.int64
