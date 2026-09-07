@@ -89,51 +89,104 @@ _PERIODIC_TABLE = {
 }
 
 
-class AtomicRadiiDialog(QDialog):
-    """Periodic-table editor for the display radius of every element."""
+RESIDUE_ATOMS = {
+    "ALA": ["N", "CA", "C", "O", "CB"], "ARG": ["N", "CA", "C", "O", "CB", "CG", "CD", "NE", "CZ", "NH1", "NH2"],
+    "ASN": ["N", "CA", "C", "O", "CB", "CG", "OD1", "ND2"], "ASP": ["N", "CA", "C", "O", "CB", "CG", "OD1", "OD2"],
+    "CYS": ["N", "CA", "C", "O", "CB", "SG"], "GLN": ["N", "CA", "C", "O", "CB", "CG", "CD", "OE1", "NE2"],
+    "GLU": ["N", "CA", "C", "O", "CB", "CG", "CD", "OE1", "OE2"], "GLY": ["N", "CA", "C", "O"],
+    "HIS": ["N", "CA", "C", "O", "CB", "CG", "ND1", "CD2", "CE1", "NE2"], "ILE": ["N", "CA", "C", "O", "CB", "CG1", "CG2", "CD1"],
+    "LEU": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2"], "LYS": ["N", "CA", "C", "O", "CB", "CG", "CD", "CE", "NZ"],
+    "MET": ["N", "CA", "C", "O", "CB", "CG", "SD", "CE"], "PHE": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ"],
+    "PRO": ["N", "CA", "C", "O", "CB", "CG", "CD"], "SER": ["N", "CA", "C", "O", "CB", "OG"],
+    "THR": ["N", "CA", "C", "O", "CB", "OG1", "CG2"], "TRP": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", "NE1", "CE2", "CE3", "CZ2", "CZ3", "CH2"],
+    "TYR": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ", "OH"], "VAL": ["N", "CA", "C", "O", "CB", "CG1", "CG2"],
+    "A": ["P", "OP1", "OP2", "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", "N9"],
+    "C": ["P", "OP1", "OP2", "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", "N1"],
+    "G": ["P", "OP1", "OP2", "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", "N9"],
+    "T": ["P", "OP1", "OP2", "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", "N1", "C5M"],
+    "U": ["P", "OP1", "OP2", "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", "N1"],
+}
+ION_NAMES = ("LI", "NA", "K", "RB", "CS", "MG", "CA", "SR", "BA", "ZN", "FE", "CL")
+_PERIODIC_COLORS = {"alkali": "#f7c6c7", "alkaline": "#f2d3a1", "transition": "#f4e3b2", "post": "#c8e6c9", "metalloid": "#b2dfdb", "nonmetal": "#bbdefb", "halogen": "#d1c4e9", "noble": "#e1bee7", "lanthanide": "#ffe0b2", "actinide": "#ffccbc"}
 
+def _element_category(symbol: str) -> str:
+    if symbol in {"H", "C", "N", "O", "P", "S", "Se"}: return "nonmetal"
+    if symbol in {"F", "Cl", "Br", "I", "At", "Ts"}: return "halogen"
+    if symbol in {"He", "Ne", "Ar", "Kr", "Xe", "Rn", "Og"}: return "noble"
+    if symbol in {"Li", "Na", "K", "Rb", "Cs", "Fr"}: return "alkali"
+    if symbol in {"Be", "Mg", "Ca", "Sr", "Ba", "Ra"}: return "alkaline"
+    if symbol in {"B", "Si", "Ge", "As", "Sb", "Te", "Po"}: return "metalloid"
+    if symbol in {"Al", "Ga", "In", "Sn", "Tl", "Pb", "Bi", "Nh", "Fl", "Mc", "Lv"}: return "post"
+    if symbol in {"La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu"}: return "lanthanide"
+    if symbol in {"Ac", "Th", "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr"}: return "actinide"
+    return "transition"
+
+
+class AtomicRadiiDialog(QDialog):
+    """Three-tab editor for element, residue-atom, and ion radii."""
     def __init__(self, radii: dict[str, float], parent=None):
         super().__init__(parent)
         self.setWindowTitle("Atomic radii")
-        self.setMinimumSize(980, 430)
+        self.setMinimumSize(1050, 620)
         self._radii = {key.upper(): float(value) for key, value in radii.items()}
         self._fields: dict[str, QDoubleSpinBox] = {}
         self._baseline: dict[str, float] = {}
+        self._residue_fields: dict[str, QDoubleSpinBox] = {}
+        self._ion_fields: dict[str, QDoubleSpinBox] = {}
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("Set the display radius in Å. Changes apply to atoms, waters, and ions of that element."))
-        grid = QGridLayout()
-        grid.setSpacing(3)
-        for symbol, (row, column) in _PERIODIC_TABLE.items():
-            tile = QWidget()
-            tile_layout = QVBoxLayout(tile)
-            tile_layout.setContentsMargins(2, 2, 2, 2)
-            label = QLabel(symbol)
-            label.setAlignment(Qt.AlignCenter)
-            field = QDoubleSpinBox()
-            field.setRange(0.01, 5.0)
-            field.setDecimals(3)
-            field.setSingleStep(0.01)
-            initial = self._radii.get(symbol.upper(), 0.36)
-            field.setValue(initial)
-            self._baseline[symbol.upper()] = initial
-            field.setToolTip(f"{symbol} radius (Å)")
-            tile_layout.addWidget(label)
-            tile_layout.addWidget(field)
-            grid.addWidget(tile, row, column)
-            self._fields[symbol.upper()] = field
-        layout.addLayout(grid)
+        layout.addWidget(QLabel("Set radii in Å. Residue-atom overrides take precedence over element defaults."))
+        tabs = QTabWidget()
+        tabs.addTab(self._build_defaults_tab(), "Defaults")
+        tabs.addTab(self._build_residue_tab(), "Residues")
+        tabs.addTab(self._build_ions_tab(), "Ions")
+        layout.addWidget(tabs, 1)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
+        buttons.accepted.connect(self.accept); buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
-    def values(self) -> dict[str, float]:
-        return {
-            symbol: field.value()
-            for symbol, field in self._fields.items()
-            if abs(field.value() - self._baseline[symbol]) > 1e-9
-        }
+    def _spin(self, key: str, value: float) -> QDoubleSpinBox:
+        field = QDoubleSpinBox(); field.setRange(0.01, 5.0); field.setDecimals(3); field.setSingleStep(0.01); field.setValue(value)
+        self._baseline[key] = value
+        return field
 
+    def _build_defaults_tab(self) -> QWidget:
+        panel = QWidget(); layout = QVBoxLayout(panel)
+        legend = QLabel("Element families are color-coded: alkali, alkaline earth, transition, post-transition, metalloid, nonmetal, halogen, noble gas, lanthanide, and actinide.")
+        legend.setWordWrap(True); layout.addWidget(legend)
+        grid = QGridLayout(); grid.setSpacing(3)
+        for symbol, (row, column) in _PERIODIC_TABLE.items():
+            tile = QGroupBox(symbol); tile.setStyleSheet(f"QGroupBox {{ background: {_PERIODIC_COLORS[_element_category(symbol)]}; color: #17202a; }}")
+            tile_layout = QVBoxLayout(tile); field = self._spin(symbol.upper(), self._radii.get(symbol.upper(), 0.36)); tile_layout.addWidget(field)
+            grid.addWidget(tile, row, column); self._fields[symbol.upper()] = field
+        layout.addLayout(grid); return panel
+
+    def _build_residue_tab(self) -> QWidget:
+        panel = QWidget(); layout = QHBoxLayout(panel)
+        names = QListWidget(); names.addItems(RESIDUE_ATOMS.keys()); names.setMaximumWidth(110)
+        diagram = QLabel("Select a residue to see its atom diagram"); diagram.setAlignment(Qt.AlignCenter); diagram.setWordWrap(True); diagram.setMinimumWidth(260)
+        table = QTableWidget(0, 2); table.setHorizontalHeaderLabels(["Atom name", "Radius (Å)"]); table.horizontalHeader().setStretchLastSection(True)
+        layout.addWidget(names); layout.addWidget(diagram, 1); layout.addWidget(table, 1)
+        self._residue_table, self._residue_diagram = table, diagram
+        names.currentTextChanged.connect(self._select_residue_editor); names.setCurrentRow(0)
+        return panel
+
+    def _select_residue_editor(self, residue: str) -> None:
+        atoms = RESIDUE_ATOMS.get(residue, []); self._residue_table.setRowCount(len(atoms))
+        self._residue_diagram.setText(f"{residue} residue diagram\\n\\n" + "  —  ".join(atoms) + "\\n\\nSelect an atom below to edit its radius.")
+        for row, atom_name in enumerate(atoms):
+            key = f"RES:{residue}:{atom_name}"; self._residue_table.setItem(row, 0, QTableWidgetItem(atom_name))
+            field = self._spin(key, self._radii.get(key, self._radii.get(atom_name[:2].upper(), self._radii.get(atom_name[:1].upper(), 0.36)))); self._residue_table.setCellWidget(row, 1, field); self._residue_fields[key] = field
+
+    def _build_ions_tab(self) -> QWidget:
+        panel = QWidget(); layout = QVBoxLayout(panel); table = QTableWidget(len(ION_NAMES), 2); table.setHorizontalHeaderLabels(["Ion", "Radius (Å)"]); table.horizontalHeader().setStretchLastSection(True)
+        for row, ion in enumerate(ION_NAMES):
+            table.setItem(row, 0, QTableWidgetItem(ion)); key = f"ION:{ion}"; field = self._spin(key, self._radii.get(key, self._radii.get(ion, 0.4))); table.setCellWidget(row, 1, field); self._ion_fields[key] = field
+        layout.addWidget(table); return panel
+
+    def values(self) -> dict[str, float]:
+        values = {symbol: field.value() for symbol, field in self._fields.items() if abs(field.value() - self._baseline[symbol]) > 1e-9}
+        values.update({key: field.value() for key, field in {**self._residue_fields, **self._ion_fields}.items() if abs(field.value() - self._baseline[key]) > 1e-9})
+        return values
 
 
 class MetricCard(QFrame):
@@ -643,7 +696,7 @@ class MainWindow(QMainWindow):
         self.radius_overrides = dialog.values()
         if self.current_result is not None:
             self.current_result.atoms = [
-                replace(atom, radius=self.radius_overrides.get(atom.element.upper(), atom.radius))
+                replace(atom, radius=self._radius_for_atom(atom))
                 for atom in self.current_result.atoms
             ]
             self.viewer.display_result(self.current_result)
@@ -1029,7 +1082,7 @@ class MainWindow(QMainWindow):
         self._update_running_selection()
         if self.current_result is not None and "radius_overrides" in state:
             self.current_result.atoms = [
-                replace(atom, radius=self.radius_overrides.get(atom.element.upper(), atom.radius))
+                replace(atom, radius=self._radius_for_atom(atom))
                 for atom in self.current_result.atoms
             ]
             self.viewer.display_result(self.current_result)
@@ -1385,6 +1438,17 @@ class MainWindow(QMainWindow):
             except Exception as error:  # noqa: BLE001 - VTK writers expose varied exceptions.
                 self._show_error(str(error))
 
+    def _radius_for_atom(self, atom: Atom) -> float:
+        residue = atom.residue_name.upper()
+        specific = self.radius_overrides.get(f"RES:{residue}:{atom.name}")
+        if specific is not None:
+            return specific
+        if residue in ION_RESIDUES:
+            ion_radius = self.radius_overrides.get(f"ION:{atom.element.upper()}")
+            if ion_radius is not None:
+                return ion_radius
+        return self.radius_overrides.get(atom.element.upper(), atom.radius)
+
     def _display_result(self, result: AnalysisResult) -> None:
         previous = self.current_result
         same_structure = (
@@ -1393,7 +1457,7 @@ class MainWindow(QMainWindow):
             and len(previous.atoms) == len(result.atoms)
         )
         if self.radius_overrides:
-            result.atoms = [replace(atom, radius=self.radius_overrides.get(atom.element.upper(), atom.radius)) for atom in result.atoms]
+            result.atoms = [replace(atom, radius=self._radius_for_atom(atom)) for atom in result.atoms]
         self.current_result = result
         main_atom_count = sum(
             not (atom.residue_name.upper() in WATER_RESIDUES or atom.residue_name.upper() in ION_RESIDUES)
