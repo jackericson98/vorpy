@@ -169,14 +169,11 @@ class MolecularView(QWidget):
         unit_sphere = pv.Sphere(radius=1.0, theta_resolution=14, phi_resolution=14)
         for (element, category), element_atoms in grouped.items():
             cloud = pv.PolyData(np.asarray([atom.position for atom in element_atoms]))
-            if category == "waters":
-                cloud["radius"] = np.asarray(
-                    [atom.radius * 1.25 for atom in element_atoms]
-                )
-            else:
-                cloud["radius"] = np.asarray(
-                    [VDW_RADII.get(atom.element.upper(), 1.7) for atom in element_atoms]
-                )
+            # Use the editable atom radius for every category, including waters and ions.
+            # The small scale factor keeps the display legible while preserving edits.
+            cloud["radius"] = np.asarray(
+                [atom.radius * 1.25 for atom in element_atoms]
+            )
             glyphs = cloud.glyph(scale="radius", orient=False, geom=unit_sphere)
             opacity = (
                 self._water_opacity if category == "waters" else self._molecule_opacity
@@ -202,7 +199,7 @@ class MolecularView(QWidget):
                     np.asarray([atom.position for atom in element_atoms])
                 )
                 vdw_cloud["radius"] = np.asarray(
-                    [VDW_RADII.get(atom.element.upper(), 1.7) for atom in element_atoms]
+                    [atom.radius * 1.25 for atom in element_atoms]
                 )
                 vdw_actor = self.plotter.add_mesh(
                     vdw_cloud.glyph(scale="radius", orient=False, geom=unit_sphere),

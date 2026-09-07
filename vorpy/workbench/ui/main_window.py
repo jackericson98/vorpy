@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from uuid import uuid4
 
 from PySide6.QtCore import Qt, QThread
@@ -13,11 +13,14 @@ from PySide6.QtWidgets import (
     QColorDialog,
     QComboBox,
     QDoubleSpinBox,
+    QDialog,
+    QDialogButtonBox,
     QFileDialog,
     QFormLayout,
     QFrame,
     QGroupBox,
     QHBoxLayout,
+    QGridLayout,
     QHeaderView,
     QInputDialog,
     QLabel,
@@ -54,7 +57,7 @@ from vorpy.workbench.project import (
 )
 from vorpy.workbench.services.result_directory import load_result_directory
 from vorpy.workbench.services.info_parser import parse_group_info
-from vorpy.workbench.services.structure_loader import load_pdb
+from vorpy.workbench.services.structure_loader import DISPLAY_RADII, load_pdb
 from vorpy.workbench.services.vorpy_backend import VorPyBackend, VorPySolveSettings
 from vorpy.workbench.ui.molecular_view import (
     ION_RESIDUES,
@@ -73,6 +76,64 @@ NETWORK_LAYER_OPTIONS = (
     ("shell_vertices", "Shell vertices", "#f29f67"),
     ("shell_surfaces", "Shell surfaces", "#806df0"),
 )
+
+
+_PERIODIC_TABLE = {
+    "H": (0, 0), "He": (0, 17),
+    "Li": (1, 0), "Be": (1, 1), "B": (1, 12), "C": (1, 13), "N": (1, 14), "O": (1, 15), "F": (1, 16), "Ne": (1, 17),
+    "Na": (2, 0), "Mg": (2, 1), "Al": (2, 12), "Si": (2, 13), "P": (2, 14), "S": (2, 15), "Cl": (2, 16), "Ar": (2, 17),
+    "K": (3, 0), "Ca": (3, 1), "Sc": (3, 2), "Ti": (3, 3), "V": (3, 4), "Cr": (3, 5), "Mn": (3, 6), "Fe": (3, 7), "Co": (3, 8), "Ni": (3, 9), "Cu": (3, 10), "Zn": (3, 11), "Ga": (3, 12), "Ge": (3, 13), "As": (3, 14), "Se": (3, 15), "Br": (3, 16), "Kr": (3, 17),
+    "Rb": (4, 0), "Sr": (4, 1), "Y": (4, 2), "Zr": (4, 3), "Nb": (4, 4), "Mo": (4, 5), "Tc": (4, 6), "Ru": (4, 7), "Rh": (4, 8), "Pd": (4, 9), "Ag": (4, 10), "Cd": (4, 11), "In": (4, 12), "Sn": (4, 13), "Sb": (4, 14), "Te": (4, 15), "I": (4, 16), "Xe": (4, 17),
+    "Cs": (5, 0), "Ba": (5, 1), "La": (5, 2), "Hf": (5, 3), "Ta": (5, 4), "W": (5, 5), "Re": (5, 6), "Os": (5, 7), "Ir": (5, 8), "Pt": (5, 9), "Au": (5, 10), "Hg": (5, 11), "Tl": (5, 12), "Pb": (5, 13), "Bi": (5, 14), "Po": (5, 15), "At": (5, 16), "Rn": (5, 17),
+    "Fr": (6, 0), "Ra": (6, 1), "Ac": (6, 2), "Rf": (6, 3), "Db": (6, 4), "Sg": (6, 5), "Bh": (6, 6), "Hs": (6, 7), "Mt": (6, 8), "Ds": (6, 9), "Rg": (6, 10), "Cn": (6, 11), "Nh": (6, 12), "Fl": (6, 13), "Mc": (6, 14), "Lv": (6, 15), "Ts": (6, 16), "Og": (6, 17),
+}
+
+
+class AtomicRadiiDialog(QDialog):
+    """Periodic-table editor for the display radius of every element."""
+
+    def __init__(self, radii: dict[str, float], parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Atomic radii")
+        self.setMinimumSize(980, 430)
+        self._radii = {key.upper(): float(value) for key, value in radii.items()}
+        self._fields: dict[str, QDoubleSpinBox] = {}
+        self._baseline: dict[str, float] = {}
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("Set the display radius in Å. Changes apply to atoms, waters, and ions of that element."))
+        grid = QGridLayout()
+        grid.setSpacing(3)
+        for symbol, (row, column) in _PERIODIC_TABLE.items():
+            tile = QWidget()
+            tile_layout = QVBoxLayout(tile)
+            tile_layout.setContentsMargins(2, 2, 2, 2)
+            label = QLabel(symbol)
+            label.setAlignment(Qt.AlignCenter)
+            field = QDoubleSpinBox()
+            field.setRange(0.01, 5.0)
+            field.setDecimals(3)
+            field.setSingleStep(0.01)
+            initial = self._radii.get(symbol.upper(), 0.36)
+            field.setValue(initial)
+            self._baseline[symbol.upper()] = initial
+            field.setToolTip(f"{symbol} radius (Å)")
+            tile_layout.addWidget(label)
+            tile_layout.addWidget(field)
+            grid.addWidget(tile, row, column)
+            self._fields[symbol.upper()] = field
+        layout.addLayout(grid)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def values(self) -> dict[str, float]:
+        return {
+            symbol: field.value()
+            for symbol, field in self._fields.items()
+            if abs(field.value() - self._baseline[symbol]) > 1e-9
+        }
+
 
 
 class MetricCard(QFrame):
@@ -102,6 +163,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1050, 680)
         self.backend = VorPyBackend()
         self.project = Project()
+        self.radius_overrides: dict[str, float] = {}
         self.project_file: Path | None = None
         self._project_dirty = False
         self._loading_project = False
@@ -530,15 +592,27 @@ class MainWindow(QMainWindow):
         self.surface_resolution.setRange(0.01, 1.0)
         self.surface_resolution.setSingleStep(0.01)
         self.surface_resolution.setValue(0.2)
-        self.mesh_format = QComboBox()
-        self.mesh_format.addItems(["OFF", "PLY", "VTP"])
         form.addRow("Target", self.solve_target)
         form.addRow("Network", self.network_type)
-        form.addRow("Mesh format", self.mesh_format)
-        form.addRow("Maximum vertices", self.max_vertices)
+        max_row = QWidget()
+        max_layout = QHBoxLayout(max_row)
+        max_layout.setContentsMargins(0, 0, 0, 0)
+        max_layout.addWidget(self.max_vertices)
+        max_help = QPushButton("?")
+        max_help.setFixedWidth(26)
+        max_help.setToolTip("Maximum vertices per Voronoi cell. Lower values simplify the network and speed up surface construction.")
+        max_layout.addWidget(max_help)
+        form.addRow("Max Vert rad", max_row)
         form.addRow("Box size", self.box_size)
         form.addRow("Surface resolution", self.surface_resolution)
+        help_button = QPushButton("?  Build setting help")
+        help_button.setToolTip("Explain the solve configuration settings")
+        help_button.clicked.connect(self._show_build_settings_help)
+        form.addRow(help_button)
         layout.addWidget(section)
+        self.adjust_radii_button = QPushButton("Adjust atomic radii…")
+        self.adjust_radii_button.clicked.connect(self._open_atomic_radii)
+        layout.addWidget(self.adjust_radii_button)
         layout.addStretch(1)
         self.solve_network_button = QPushButton("Solve network")
         self.solve_network_button.setObjectName("primaryAction")
@@ -551,6 +625,30 @@ class MainWindow(QMainWindow):
         )
         layout.addWidget(self.solve_network_button)
         return panel
+
+    def _show_build_settings_help(self) -> None:
+        QMessageBox.information(self, "Build settings",
+            "Target chooses the whole structure, active selection, group, or interface.\n\n"
+            "Network selects the Voronoi construction. Max Vert rad limits the number of vertices used to represent each cell.\n\n"
+            "Box size controls the padding around the group. Surface resolution controls triangle spacing; smaller values create finer surfaces but take longer.")
+
+    def _open_atomic_radii(self) -> None:
+        current = dict(DISPLAY_RADII)
+        if self.current_result is not None:
+            current.update({atom.element.upper(): atom.radius for atom in self.current_result.atoms})
+        current.update(self.radius_overrides)
+        dialog = AtomicRadiiDialog(current, self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        self.radius_overrides = dialog.values()
+        if self.current_result is not None:
+            self.current_result.atoms = [
+                replace(atom, radius=self.radius_overrides.get(atom.element.upper(), atom.radius))
+                for atom in self.current_result.atoms
+            ]
+            self.viewer.display_result(self.current_result)
+            self._set_project_dirty()
+        self.statusBar().showMessage("Atomic radii updated")
 
     def _update_solve_targets(self) -> None:
         current = self.solve_target.currentData()
@@ -888,11 +986,13 @@ class MainWindow(QMainWindow):
             "selection_mode": mode,
             "running_selection": sorted(self._running_selection),
             "depth_clip_fraction": getattr(self.viewer, "_depth_clip_fraction", 0.0),
+            "radius_overrides": dict(self.radius_overrides),
         }
 
     def _restore_view_state(self, state: dict) -> None:
         if not state:
             return
+        self.radius_overrides = {str(key): float(value) for key, value in state.get("radius_overrides", {}).items()}
         for widget, key in ((
             (self.show_cartoon, "show_cartoon"),
             (self.show_spheres, "show_spheres"),
@@ -927,6 +1027,12 @@ class MainWindow(QMainWindow):
         actions.get(state.get("selection_mode", "residue"), self.select_residue_action).setChecked(True)
         self._running_selection = {int(index) for index in state.get("running_selection", [])}
         self._update_running_selection()
+        if self.current_result is not None and "radius_overrides" in state:
+            self.current_result.atoms = [
+                replace(atom, radius=self.radius_overrides.get(atom.element.upper(), atom.radius))
+                for atom in self.current_result.atoms
+            ]
+            self.viewer.display_result(self.current_result)
         self.viewer.set_depth_clipping_fraction(float(state.get("depth_clip_fraction", 0.0)))
 
     def _restore_project_groups(self) -> None:
@@ -1286,6 +1392,8 @@ class MainWindow(QMainWindow):
             and previous.source == result.source
             and len(previous.atoms) == len(result.atoms)
         )
+        if self.radius_overrides:
+            result.atoms = [replace(atom, radius=self.radius_overrides.get(atom.element.upper(), atom.radius)) for atom in result.atoms]
         self.current_result = result
         main_atom_count = sum(
             not (atom.residue_name.upper() in WATER_RESIDUES or atom.residue_name.upper() in ION_RESIDUES)
