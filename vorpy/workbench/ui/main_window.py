@@ -1207,13 +1207,26 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _chain_groups(result: AnalysisResult) -> list[tuple[str, tuple[int, ...]]]:
-        groups: dict[str, list[int]] = {}
+        groups: dict[tuple[str, str, str], list[int]] = {}
         for atom in result.atoms:
-            groups.setdefault(atom.chain or "(blank)", []).append(atom.index)
-        return [
-            (f"Chain {chain} ({len(indices)} atoms)", tuple(indices))
-            for chain, indices in groups.items()
-        ]
+            if atom.chain:
+                key = ("chain", atom.chain, "")
+            elif atom.residue_name.strip().upper() in WATER_RESIDUES:
+                key = ("water", atom.residue_sequence, atom.residue_name)
+            else:
+                key = ("unassigned", "", "")
+            groups.setdefault(key, []).append(atom.index)
+        entries = []
+        for (kind, identity, residue), indices in groups.items():
+            if kind == "chain":
+                label = f"Chain {identity}"
+            elif kind == "unassigned":
+                label = "No chain · non-water atoms"
+            else:
+                label = f"No chain · {residue or 'Unknown'} {identity or '?'}"
+            atom_label = "atom" if len(indices) == 1 else "atoms"
+            entries.append((f"{label} ({len(indices)} {atom_label})", tuple(indices)))
+        return entries
 
     @staticmethod
     def _molecule_groups(result: AnalysisResult) -> list[tuple[str, tuple[int, ...]]]:
@@ -1428,9 +1441,16 @@ class MainWindow(QMainWindow):
     def _show_selected_chain(self, atoms: list[Atom], additive: bool = False) -> None:
         if not atoms:
             return
-        chain = atoms[0].chain or "(blank)"
+        atom = atoms[0]
+        chain = atom.chain or "—"
+        description = (
+            f"Chain {chain}"
+            if atom.chain
+            else f"No chain · {atom.residue_name or 'Unknown'} "
+            f"{atom.residue_sequence or '?'}"
+        )
         self._show_selected_collection(
-            atoms, "chain", f"Chain {chain}", chain, additive
+            atoms, "chain", description, chain, additive
         )
 
     def _show_selected_molecule(

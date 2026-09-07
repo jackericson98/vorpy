@@ -416,9 +416,7 @@ class MolecularView(QWidget):
             ]
             signal = self.selected_residue
         elif self._selection_mode == "chain":
-            selected_atoms = [
-                item for item in self._result.atoms if item.chain == atom.chain
-            ]
+            selected_atoms = self._chain_atoms(atom)
             signal = self.selected_chain
         elif self._selection_mode == "molecule":
             selected_atoms = self._molecule_atoms(atom)
@@ -550,6 +548,25 @@ class MolecularView(QWidget):
             selected.add(atom_index)
             pending.extend(neighbors[atom_index] - selected)
         return [item for item in self._result.atoms if item.index in selected]
+
+    def _chain_atoms(self, atom: Atom) -> list[Atom]:
+        """Select a chain while keeping blank-chain waters independent."""
+        if self._result is None:
+            return []
+        if atom.chain:
+            return [item for item in self._result.atoms if item.chain == atom.chain]
+        if self._is_water(atom):
+            residue = self._residue_key(atom)
+            return [
+                item
+                for item in self._result.atoms
+                if self._residue_key(item) == residue
+            ]
+        return [
+            item
+            for item in self._result.atoms
+            if not item.chain and not self._is_water(item)
+        ]
 
     @staticmethod
     def _residue_sort_key(atom: Atom) -> tuple[int, str]:

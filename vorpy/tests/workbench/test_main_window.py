@@ -438,6 +438,34 @@ def test_viewer_molecule_selection_uses_bond_connected_component():
     assert [atom.index for atom in separate] == [2]
 
 
+def test_blank_chain_selection_keeps_water_residues_separate():
+    atoms = [
+        Atom(0, 1, "CA", "C", (0.0, 0.0, 0.0), "GLY", "1", ""),
+        Atom(1, 2, "CB", "C", (0.5, 0.0, 0.0), "ALA", "2", ""),
+        Atom(2, 3, "OW", "O", (4.0, 0.0, 0.0), "SOL", "47", ""),
+        Atom(3, 4, "HW1", "H", (4.5, 0.0, 0.0), "SOL", "47", ""),
+        Atom(4, 5, "OW", "O", (8.0, 0.0, 0.0), "SOL", "48", ""),
+    ]
+    result = AnalysisResult(source=None, name="waters", atoms=atoms)
+    viewer = SimpleNamespace(
+        _result=result,
+        _residue_key=MolecularView._residue_key,
+        _is_water=MolecularView._is_water,
+    )
+
+    selected_protein = MolecularView._chain_atoms(viewer, atoms[0])
+    selected_water = MolecularView._chain_atoms(viewer, atoms[2])
+    groups = main_window.MainWindow._chain_groups(result)
+
+    assert [atom.index for atom in selected_protein] == [0, 1]
+    assert [atom.index for atom in selected_water] == [2, 3]
+    assert groups == [
+        ("No chain · non-water atoms (2 atoms)", (0, 1)),
+        ("No chain · SOL 47 (2 atoms)", (2, 3)),
+        ("No chain · SOL 48 (1 atom)", (4,)),
+    ]
+
+
 def test_groups_survive_analysis_result_for_same_structure(monkeypatch):
     window = make_window(monkeypatch)
     result = sample_result()
