@@ -108,6 +108,8 @@ def test_action_state_and_visibility_controls(monkeypatch):
 
     assert window.select_residue_action.isChecked()
     assert ("selection", "residue") in window.viewer.calls
+    assert not window.select_residue_action.shortcut().toString()
+    assert window.reset_selection_action.shortcut().toString() == "R"
 
     assert [window.workflow_tabs.tabText(i) for i in range(window.workflow_tabs.count())] == [
         "Structure", "Selection", "Groups", "Interfaces"
@@ -237,6 +239,33 @@ def test_shift_selection_toggles_and_normal_selection_replaces(monkeypatch):
     window._show_selected_atom(result.atoms[0])
     assert window._running_selection == {0}
     assert window.selection_count.text() == "1"
+
+
+def test_reset_selection_requires_confirmation(monkeypatch):
+    window = make_window(monkeypatch)
+    result = sample_result()
+    window._display_result(result)
+    window._show_selected_residue(result.atoms)
+
+    monkeypatch.setattr(
+        main_window.QMessageBox,
+        "question",
+        lambda *_args, **_kwargs: main_window.QMessageBox.No,
+    )
+    window.reset_selection()
+    assert window._running_selection == {0, 1}
+
+    monkeypatch.setattr(
+        main_window.QMessageBox,
+        "question",
+        lambda *_args, **_kwargs: main_window.QMessageBox.Yes,
+    )
+    window.reset_selection()
+    assert window._running_selection == set()
+    assert window.running_selection.text() == "No atoms selected"
+    assert window.selection_group.title() == "No selection"
+    assert window.statusBar().currentMessage() == "Selection reset"
+    assert ("group-selection", ()) in window.viewer.calls
 
 
 def test_ion_classification_uses_residue_identity():

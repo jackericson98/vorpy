@@ -169,7 +169,6 @@ class MainWindow(QMainWindow):
         self.select_atom_action = QAction("Select atom", self, checkable=True)
         self.select_atom_action.setShortcut("A")
         self.select_residue_action = QAction("Select residue", self, checkable=True)
-        self.select_residue_action.setShortcut("R")
         self.select_chain_action = QAction("Select chain", self, checkable=True)
         self.select_chain_action.setShortcut("C")
         self.select_molecule_action = QAction("Select molecule", self, checkable=True)
@@ -190,6 +189,9 @@ class MainWindow(QMainWindow):
         self.select_molecule_action.toggled.connect(
             lambda checked: self._set_selection_mode("molecule" if checked else None)
         )
+        self.reset_selection_action = QAction("Reset selection…", self)
+        self.reset_selection_action.setShortcut("R")
+        self.reset_selection_action.triggered.connect(self.reset_selection)
 
     def _build_menu_and_toolbar(self) -> None:
         file_menu = self.menuBar().addMenu("File")
@@ -210,6 +212,8 @@ class MainWindow(QMainWindow):
                 self.select_molecule_action,
             ]
         )
+        selection_menu.addSeparator()
+        selection_menu.addAction(self.reset_selection_action)
         self.menuBar().addMenu("Analysis").addAction(self.solve_action)
         self.menuBar().addMenu("View").addAction(self.fit_action)
         self.menuBar().addMenu("Help")
@@ -1335,6 +1339,28 @@ class MainWindow(QMainWindow):
             f"{len(chains):,} chains\n{residue_preview}"
         )
         self.make_group_button.setEnabled(True)
+
+    def reset_selection(self) -> None:
+        choice = QMessageBox.question(
+            self,
+            "Reset selection",
+            "Reset Selection?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if choice != QMessageBox.Yes:
+            return
+        self._running_selection.clear()
+        self._update_running_selection()
+        self._populate_structure_browser()
+        self.selection_group.setTitle("No selection")
+        self.atom_name.setText("—")
+        self.atom_element.setText("—")
+        self.atom_residue.setText("—")
+        self.atom_chain.setText("—")
+        self.atom_position.setText("—")
+        self.selection_count.setText("—")
+        self.statusBar().showMessage("Selection reset")
 
     def _make_group(self) -> None:
         if not self._running_selection or self.current_result is None:
