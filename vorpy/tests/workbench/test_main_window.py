@@ -4,6 +4,7 @@ from types import SimpleNamespace
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication, QToolBar, QWidget
 
 from vorpy.workbench.domain import AnalysisResult, Atom, Bond, GeometryLayer
@@ -115,8 +116,8 @@ def test_action_state_and_visibility_controls(monkeypatch):
     assert [window.workflow_tabs.tabText(i) for i in range(window.workflow_tabs.count())] == [
         "Structure", "Selection", "Groups", "Interfaces"
     ]
-    assert window.inspector.tabText(0) == "Visual"
-    assert window.inspector.tabText(1) == "Layers"
+    assert window.inspector.tabText(0) == "System"
+    assert window.inspector.tabText(1) == "Network"
 
     assert window.solve_action.isEnabled()
     assert not window.cancel_action.isEnabled()
@@ -220,8 +221,10 @@ def test_result_and_selection_populate_inspector(monkeypatch):
     assert window.metric_cards["cells"].value.text() == "2"
     assert window.results.item(5, 1).text() == "3"
 
-    layer_item = window.layer_tree.topLevelItem(0)
-    layer_item.setCheckState(0, Qt.Unchecked)
+    assert window.network_layer_checks["edges"].isEnabled()
+    assert window.network_layer_checks["edges"].isChecked()
+    assert not window.network_layer_checks["vertices"].isEnabled()
+    window.network_layer_checks["edges"].setChecked(False)
     assert ("layer:edges", False) in window.viewer.calls
 
     window._show_selected_atom(result.atoms[1])
@@ -235,6 +238,45 @@ def test_result_and_selection_populate_inspector(monkeypatch):
     assert window.selection_count.text() == "2"
     assert window._running_selection == {0, 1}
     assert ("group-selection", (0, 1)) in window.viewer.calls
+
+
+def test_network_controls_manage_categories_color_and_surface_opacity(monkeypatch):
+    window = make_window(monkeypatch)
+    result = sample_result()
+    result.layers = [
+        GeometryLayer("network edges", "edges", color="#111111"),
+        GeometryLayer("network vertices", "vertices", color="#222222"),
+        GeometryLayer("network surfaces", "surfaces", color="#333333", opacity=0.6),
+        GeometryLayer("shell edges", "edges", color="#444444"),
+        GeometryLayer("shell vertices", "vertices", color="#555555"),
+        GeometryLayer("shell surfaces", "surfaces", color="#666666", opacity=0.6),
+    ]
+
+    window._display_result(result)
+
+    assert set(window.network_layer_checks) == {
+        "edges", "vertices", "surfaces",
+        "shell_edges", "shell_vertices", "shell_surfaces",
+    }
+    assert all(control.isEnabled() for control in window.network_layer_checks.values())
+    assert window.surface_opacity.isEnabled()
+    assert window.surface_opacity.value() == 60
+
+    window.network_layer_checks["shell_edges"].setChecked(False)
+    assert ("layer:shell edges", False) in window.viewer.calls
+
+    window.surface_opacity.setValue(35)
+    assert ("opacity:network surfaces", 0.35) in window.viewer.calls
+    assert ("opacity:shell surfaces", 0.35) in window.viewer.calls
+
+    monkeypatch.setattr(
+        main_window.QColorDialog,
+        "getColor",
+        lambda *args, **kwargs: QColor("#abcdef"),
+    )
+    window._choose_network_color("vertices")
+    assert ("color:network vertices", "#abcdef") in window.viewer.calls
+    assert result.layers[1].color == "#abcdef"
 
 
 def test_shift_selection_toggles_and_normal_selection_replaces(monkeypatch):
@@ -439,8 +481,8 @@ def test_structure_browser_builds_running_selection_and_group(monkeypatch):
     assert window._groups["Active site"] == (0,)
     assert window.groups_list.count() == 1
     assert window.groups_list.item(0).text() == "Active site (1 atoms)"
-    assert window.inspector.tabText(0) == "Visual"
-    assert window.inspector.tabText(1) == "Layers"
+    assert window.inspector.tabText(0) == "System"
+    assert window.inspector.tabText(1) == "Network"
     assert window.groups_list.item(0).text() == "Active site (1 atoms)"
 
     window._select_saved_group(window.groups_list.item(0))

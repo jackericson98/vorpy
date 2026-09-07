@@ -28,6 +28,7 @@ QFrame#metricCard { border-top: 2px solid #6857d9; }
 QLabel#metricTitle { color: #8fa0b2; font-size: 9pt; }
 QLabel#metricValue { color: #f3f7fb; font-size: 18pt; font-weight: 600; }
 QLabel#sectionLabel { color: #8fa0b2; font-size: 9pt; font-weight: 600; }
+QLabel#viewSettingsTitle { color: #f3f7fb; font-size: 15pt; font-weight: 700; padding: 4px 6px; }
 QTabWidget::pane { border: 1px solid #2b3743; background: #111820; }
 QTabBar::tab { background: #111820; color: #9cabba; padding: 9px 14px; border-bottom: 2px solid transparent; }
 QTabBar::tab:selected { color: #ffffff; border-bottom-color: #806df0; }

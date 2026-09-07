@@ -34,8 +34,6 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
-    QTreeWidget,
-    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -63,6 +61,15 @@ from vorpy.workbench.workers.solve_worker import SolveWorker
 
 DEFAULT_DATA_DIRECTORY = Path(__file__).resolve().parents[2] / "data"
 
+NETWORK_LAYER_OPTIONS = (
+    ("edges", "Edges", "#72bde4"),
+    ("vertices", "Vertices", "#efb84f"),
+    ("surfaces", "Surfaces", "#4f9fcf"),
+    ("shell_edges", "Shell edges", "#42d6c7"),
+    ("shell_vertices", "Shell vertices", "#f29f67"),
+    ("shell_surfaces", "Shell surfaces", "#806df0"),
+)
+
 
 class MetricCard(QFrame):
     """Compact numerical readout used in the analysis tray."""
@@ -83,7 +90,6 @@ class MetricCard(QFrame):
 
 
 class MainWindow(QMainWindow):
-    LAYER_ROLE = Qt.UserRole + 1
 
     def __init__(self):
         super().__init__()
@@ -283,12 +289,19 @@ class MainWindow(QMainWindow):
         return checkbox
 
     def _build_inspector(self) -> QWidget:
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        title = QLabel("View Settings")
+        title.setObjectName("viewSettingsTitle")
+        layout.addWidget(title)
         self.inspector = QTabWidget()
         self.inspector.setMinimumWidth(290)
         self.inspector.setMaximumWidth(390)
-        self.inspector.addTab(self._build_visualization_tab(), "Visual")
-        self.inspector.addTab(self._build_layers_tab(), "Layers")
-        return self.inspector
+        self.inspector.addTab(self._build_visualization_tab(), "System")
+        self.inspector.addTab(self._build_network_tab(), "Network")
+        layout.addWidget(self.inspector, 1)
+        return container
 
     def _build_visualization_tab(self) -> QWidget:
         panel = QWidget()
@@ -549,24 +562,48 @@ class MainWindow(QMainWindow):
             self.solve_target.setCurrentIndex(max(0, index))
         self.solve_target.blockSignals(False)
 
-    def _build_layers_tab(self) -> QWidget:
+    def _build_network_tab(self) -> QWidget:
         panel = QWidget()
         layout = QVBoxLayout(panel)
-        self.layer_tree = QTreeWidget()
-        self.layer_tree.setHeaderLabel("VorPy geometry")
-        self.layer_tree.itemChanged.connect(self._tree_item_changed)
-        layout.addWidget(self.layer_tree, 1)
-        styling = QGroupBox("Selected layer")
-        styling_form = QFormLayout(styling)
-        self.layer_opacity = QSlider(Qt.Horizontal)
-        self.layer_opacity.setRange(0, 100)
-        self.layer_opacity.setValue(70)
-        self.layer_opacity.valueChanged.connect(self._change_selected_layer_opacity)
-        self.layer_color = QPushButton("Choose color…")
-        self.layer_color.clicked.connect(self._change_selected_layer_color)
-        styling_form.addRow("Opacity", self.layer_opacity)
-        styling_form.addRow("Color", self.layer_color)
-        layout.addWidget(styling)
+        self.network_layer_checks = {}
+        self.network_color_buttons = {}
+        self.network_colors = {}
+        for key, label, color in NETWORK_LAYER_OPTIONS:
+            row = QWidget()
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            checkbox = QCheckBox(label)
+            checkbox.setEnabled(False)
+            checkbox.toggled.connect(
+                lambda visible, layer_key=key: self._set_network_layer_visible(
+                    layer_key, visible
+                )
+            )
+            color_button = QPushButton("Color")
+            color_button.setEnabled(False)
+            color_button.clicked.connect(
+                lambda _checked=False, layer_key=key: self._choose_network_color(
+                    layer_key
+                )
+            )
+            self.network_layer_checks[key] = checkbox
+            self.network_color_buttons[key] = color_button
+            self.network_colors[key] = color
+            self._set_color_button_swatch(color_button, color)
+            row_layout.addWidget(checkbox, 1)
+            row_layout.addWidget(color_button)
+            layout.addWidget(row)
+
+        surfaces = QGroupBox("Surface appearance")
+        surface_form = QFormLayout(surfaces)
+        self.surface_opacity = QSlider(Qt.Horizontal)
+        self.surface_opacity.setRange(0, 100)
+        self.surface_opacity.setValue(45)
+        self.surface_opacity.setEnabled(False)
+        self.surface_opacity.valueChanged.connect(self._set_surface_opacity)
+        surface_form.addRow("Opacity", self.surface_opacity)
+        layout.addWidget(surfaces)
+        layout.addStretch()
         return panel
 
     def _build_analysis_tray(self) -> QWidget:
@@ -627,7 +664,7 @@ class MainWindow(QMainWindow):
         self._running_selection.clear()
         self._groups.clear()
         self._interfaces.clear()
-        self.layer_tree.clear()
+        self._reset_network_controls()
         self.structure_browser.clear()
         self.structure_name.setText("No structure loaded")
         self.structure_summary.setText("Open a PDB structure")
@@ -670,7 +707,7 @@ class MainWindow(QMainWindow):
                 self.viewer.clear_result()
                 self._groups.clear()
                 self._interfaces.clear()
-                self.layer_tree.clear()
+                self._reset_network_controls()
                 self.structure_browser.clear()
             self._set_project_dirty(False)
             self.statusBar().showMessage(f"Opened project {project.name}")
@@ -1126,7 +1163,7 @@ class MainWindow(QMainWindow):
                 for name, indices in self._groups.items()
             }
         self._refresh_groups_panel()
-        self._populate_layer_tree(result)
+        self._populate_network_controls(result)
         self._populate_structure_browser()
         self._update_running_selection()
         metrics = [
@@ -1154,16 +1191,65 @@ class MainWindow(QMainWindow):
         self.progress_bar.setValue(100)
         self.statusBar().showMessage(f"{result.name} ready")
 
-    def _populate_layer_tree(self, result: AnalysisResult) -> None:
-        self.layer_tree.blockSignals(True)
-        self.layer_tree.clear()
-        for layer in result.layers:
-            item = QTreeWidgetItem([layer.name])
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(0, Qt.Checked if layer.visible else Qt.Unchecked)
-            item.setData(0, self.LAYER_ROLE, layer.name)
-            self.layer_tree.addTopLevelItem(item)
-        self.layer_tree.blockSignals(False)
+    @staticmethod
+    def _network_layer_key(layer) -> str | None:
+        kind = layer.kind.lower().strip()
+        kind = {"vertex": "vertices", "surface": "surfaces", "edge": "edges"}.get(
+            kind, kind
+        )
+        if kind not in {"edges", "vertices", "surfaces"}:
+            return None
+        return f"shell_{kind}" if "shell" in layer.name.lower() else kind
+
+    def _network_layers(self, key: str):
+        if self.current_result is None:
+            return []
+        return [
+            layer
+            for layer in self.current_result.layers
+            if self._network_layer_key(layer) == key
+        ]
+
+    @staticmethod
+    def _set_color_button_swatch(button: QPushButton, color: str) -> None:
+        button.setStyleSheet(
+            f"QPushButton {{ border-left: 18px solid {color}; padding-left: 7px; }}"
+        )
+
+    def _reset_network_controls(self) -> None:
+        for key, checkbox in self.network_layer_checks.items():
+            checkbox.blockSignals(True)
+            checkbox.setChecked(False)
+            checkbox.setEnabled(False)
+            checkbox.blockSignals(False)
+            self.network_color_buttons[key].setEnabled(False)
+        self.surface_opacity.setEnabled(False)
+
+    def _populate_network_controls(self, result: AnalysisResult) -> None:
+        for key, checkbox in self.network_layer_checks.items():
+            layers = [
+                layer for layer in result.layers if self._network_layer_key(layer) == key
+            ]
+            checkbox.blockSignals(True)
+            checkbox.setEnabled(bool(layers))
+            checkbox.setChecked(any(layer.visible for layer in layers))
+            checkbox.blockSignals(False)
+            self.network_color_buttons[key].setEnabled(bool(layers))
+            if layers:
+                self.network_colors[key] = layers[0].color
+                self._set_color_button_swatch(
+                    self.network_color_buttons[key], layers[0].color
+                )
+        surface_layers = [
+            layer
+            for layer in result.layers
+            if self._network_layer_key(layer) in {"surfaces", "shell_surfaces"}
+        ]
+        self.surface_opacity.blockSignals(True)
+        if surface_layers:
+            self.surface_opacity.setValue(round(surface_layers[0].opacity * 100))
+        self.surface_opacity.setEnabled(bool(surface_layers))
+        self.surface_opacity.blockSignals(False)
 
     @staticmethod
     def _residue_groups(result: AnalysisResult) -> list[tuple[str, tuple[int, ...]]]:
@@ -1359,30 +1445,29 @@ class MainWindow(QMainWindow):
             f"Created {name} with {len(self._running_selection):,} atoms"
         )
 
-    def _tree_item_changed(self, item: QTreeWidgetItem, column: int) -> None:
-        layer_name = item.data(column, self.LAYER_ROLE)
-        if layer_name:
-            self.viewer.set_layer_visible(
-                layer_name, item.checkState(column) == Qt.Checked
-            )
+    def _set_network_layer_visible(self, key: str, visible: bool) -> None:
+        for layer in self._network_layers(key):
+            layer.visible = visible
+            self.viewer.set_layer_visible(layer.name, visible)
 
-    def _change_selected_layer_opacity(self, value: int) -> None:
-        item = self.layer_tree.currentItem()
-        if item is not None:
-            layer_name = item.data(0, self.LAYER_ROLE)
-            if layer_name:
-                self.viewer.set_layer_opacity(layer_name, value / 100.0)
+    def _set_surface_opacity(self, value: int) -> None:
+        opacity = value / 100.0
+        for key in ("surfaces", "shell_surfaces"):
+            for layer in self._network_layers(key):
+                layer.opacity = opacity
+                self.viewer.set_layer_opacity(layer.name, opacity)
 
-    def _change_selected_layer_color(self) -> None:
-        item = self.layer_tree.currentItem()
-        if item is None:
-            return
-        layer_name = item.data(0, self.LAYER_ROLE)
-        if not layer_name:
-            return
-        color = QColorDialog.getColor(QColor("#6857d9"), self, "Choose layer color")
+    def _choose_network_color(self, key: str) -> None:
+        color = QColorDialog.getColor(
+            QColor(self.network_colors[key]), self, "Choose network color"
+        )
         if color.isValid():
-            self.viewer.set_layer_color(layer_name, color.name())
+            color_name = color.name()
+            self.network_colors[key] = color_name
+            self._set_color_button_swatch(self.network_color_buttons[key], color_name)
+            for layer in self._network_layers(key):
+                layer.color = color_name
+                self.viewer.set_layer_color(layer.name, color_name)
 
     def _apply_picked_atoms(self, atoms: list[Atom], additive: bool) -> str:
         indices = {atom.index for atom in atoms}

@@ -653,8 +653,10 @@ class MolecularView(QWidget):
         self.plotter.render()
 
     def set_layer_visible(self, name: str, visible: bool) -> None:
+        layer = self._layer_definitions.get(name)
+        if layer is not None:
+            layer.visible = visible
         if visible and not self._actors.get(name):
-            layer = self._layer_definitions.get(name)
             if layer is not None:
                 self._add_layer(layer)
         for actor in self._actors.get(name, ()):
@@ -662,6 +664,9 @@ class MolecularView(QWidget):
         self.plotter.render()
 
     def set_layer_opacity(self, name: str, opacity: float) -> None:
+        layer = self._layer_definitions.get(name)
+        if layer is not None:
+            layer.opacity = opacity
         for actor in self._actors.get(name, ()):
             actor.GetProperty().SetOpacity(opacity)
         self.plotter.render()
