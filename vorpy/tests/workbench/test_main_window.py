@@ -172,6 +172,16 @@ def test_bottom_tray_and_small_molecule_representation_defaults(monkeypatch):
     assert window.upper_workspace.widget(0) is window.workflow_panel
     assert window.workflow_panel.parentWidget() is window.upper_workspace
     assert window.analysis_tray.parentWidget() is window.workspace_splitter
+    assert window.max_vertices.isVisibleTo(window)
+    assert window.box_size.isVisibleTo(window)
+    assert window.surface_resolution.isVisibleTo(window)
+    assert window.solve_network_button.text() == "Solve network"
+    assert window.solve_network_button.objectName() == "primaryAction"
+    assert not hasattr(window, "build_settings_button")
+    window.solve_action.setEnabled(False)
+    assert not window.solve_network_button.isEnabled()
+    window.solve_action.setEnabled(True)
+    assert window.solve_network_button.isEnabled()
     assert [window.analysis_tray_tabs.tabText(i) for i in range(window.analysis_tray_tabs.count())] == [
         "Analysis", "Results"
     ]

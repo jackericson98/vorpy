@@ -13,6 +13,9 @@ QToolBar QToolButton { padding: 6px 9px; border-radius: 5px; }
 QToolButton, QPushButton { background: #18222d; border: 1px solid #33404e; border-radius: 5px; padding: 6px 10px; }
 QToolButton:hover, QPushButton:hover { background: #233141; border-color: #596b7e; }
 QToolButton:pressed, QPushButton:pressed { background: #2c385f; }
+QPushButton#primaryAction { background: #6857d9; border-color: #8b7df0; color: white; font-weight: 700; }
+QPushButton#primaryAction:hover { background: #7868e5; }
+QPushButton#primaryAction:disabled { background: #303746; border-color: #414a5b; color: #8993a4; }
 QToolButton:checked { background: #5546b8; border-color: #7869e3; color: white; }
 QToolButton#railButton { border: none; border-radius: 7px; padding: 9px 3px; min-height: 49px; color: #b8c5d2; }
 QToolButton#railButton:hover { background: #1a2530; color: white; }

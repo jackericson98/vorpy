@@ -11,8 +11,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QColorDialog,
     QComboBox,
-    QDialog,
-    QDialogButtonBox,
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
@@ -252,9 +250,9 @@ class MainWindow(QMainWindow):
         vertical.addWidget(upper)
         self.analysis_tray = self._build_analysis_tray()
         vertical.addWidget(self.analysis_tray)
-        vertical.setStretchFactor(0, 5)
-        vertical.setStretchFactor(1, 1)
-        vertical.setSizes([610, 270])
+        vertical.setStretchFactor(0, 4)
+        vertical.setStretchFactor(1, 2)
+        vertical.setSizes([560, 320])
         layout.addWidget(vertical)
         self.setCentralWidget(root)
 
@@ -519,6 +517,9 @@ class MainWindow(QMainWindow):
         form.addRow("Target", self.solve_target)
         form.addRow("Network", self.network_type)
         form.addRow("Mesh format", self.mesh_format)
+        form.addRow("Maximum vertices", self.max_vertices)
+        form.addRow("Box size", self.box_size)
+        form.addRow("Surface resolution", self.surface_resolution)
         outputs = QHBoxLayout()
         self.build_vertices = QCheckBox("Vertices")
         self.build_edges = QCheckBox("Edges")
@@ -527,44 +528,19 @@ class MainWindow(QMainWindow):
             checkbox.setChecked(True)
             outputs.addWidget(checkbox)
         form.addRow("Build", outputs)
-        self.build_settings_button = QPushButton("Detailed build settings…")
-        self.build_settings_button.clicked.connect(self._open_build_settings)
-        form.addRow(self.build_settings_button)
         layout.addWidget(section)
+        layout.addStretch(1)
+        self.solve_network_button = QPushButton("Solve network")
+        self.solve_network_button.setObjectName("primaryAction")
+        self.solve_network_button.setMinimumHeight(36)
+        self.solve_network_button.clicked.connect(self.solve_action.trigger)
+        self.solve_action.changed.connect(
+            lambda: self.solve_network_button.setEnabled(
+                self.solve_action.isEnabled()
+            )
+        )
+        layout.addWidget(self.solve_network_button)
         return panel
-
-    def _open_build_settings(self) -> None:
-        dialog = QDialog(self)
-        dialog.setWindowTitle("VorPy build settings")
-        dialog.setModal(True)
-        form = QFormLayout(dialog)
-        network = QComboBox()
-        network.addItems(["Atomic Voronoi", "Power", "Primitive"])
-        network.setCurrentIndex(self.network_type.currentIndex())
-        max_vertices = QSpinBox()
-        max_vertices.setRange(1, 10000)
-        max_vertices.setValue(self.max_vertices.value())
-        box_size = QDoubleSpinBox()
-        box_size.setRange(1.0, 10.0)
-        box_size.setSingleStep(0.05)
-        box_size.setValue(self.box_size.value())
-        surface_resolution = QDoubleSpinBox()
-        surface_resolution.setRange(0.01, 1.0)
-        surface_resolution.setSingleStep(0.01)
-        surface_resolution.setValue(self.surface_resolution.value())
-        form.addRow("Network", network)
-        form.addRow("Maximum vertices", max_vertices)
-        form.addRow("Box size", box_size)
-        form.addRow("Surface resolution", surface_resolution)
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        form.addRow(buttons)
-        if dialog.exec() == QDialog.Accepted:
-            self.network_type.setCurrentIndex(network.currentIndex())
-            self.max_vertices.setValue(max_vertices.value())
-            self.box_size.setValue(box_size.value())
-            self.surface_resolution.setValue(surface_resolution.value())
 
     def _update_solve_targets(self) -> None:
         current = self.solve_target.currentData()
