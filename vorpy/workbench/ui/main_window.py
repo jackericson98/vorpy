@@ -7,7 +7,7 @@ from dataclasses import asdict, replace
 from uuid import uuid4
 
 from PySide6.QtCore import Qt, QThread
-from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QColor
+from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QColor, QBrush, QPainter, QPen
 from PySide6.QtWidgets import (
     QCheckBox,
     QColorDialog,
@@ -121,6 +121,44 @@ def _element_category(symbol: str) -> str:
     if symbol in {"Ac", "Th", "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr"}: return "actinide"
     return "transition"
 
+for _column, _symbol in enumerate(("Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu"), 2):
+    _PERIODIC_TABLE[_symbol] = (7, _column)
+for _column, _symbol in enumerate(("Th", "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr"), 2):
+    _PERIODIC_TABLE[_symbol] = (8, _column)
+_ELEMENT_ORDER = "H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf Es Fm Md No Lr Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og".split()
+_ELEMENT_NUMBERS = {symbol.upper(): index for index, symbol in enumerate(_ELEMENT_ORDER, 1)}
+_ELEMENT_NAMES = {
+    "H": "Hydrogen", "He": "Helium", "Li": "Lithium", "Be": "Beryllium", "B": "Boron", "C": "Carbon", "N": "Nitrogen", "O": "Oxygen", "F": "Fluorine", "Ne": "Neon",
+    "Na": "Sodium", "Mg": "Magnesium", "Al": "Aluminium", "Si": "Silicon", "P": "Phosphorus", "S": "Sulfur", "Cl": "Chlorine", "Ar": "Argon",
+}
+_ELEMENT_MASSES = {"H": 1.008, "C": 12.011, "N": 14.007, "O": 15.999, "F": 18.998, "P": 30.974, "S": 32.06, "Cl": 35.45, "Na": 22.990, "Mg": 24.305, "K": 39.098, "Ca": 40.078, "Fe": 55.845, "Zn": 65.38, "Br": 79.904, "I": 126.904}
+_RESIDUE_NAMES = {
+    "ALA": "Alanine", "ARG": "Arginine", "ASN": "Asparagine", "ASP": "Aspartic acid", "CYS": "Cysteine", "GLN": "Glutamine", "GLU": "Glutamic acid", "GLY": "Glycine", "HIS": "Histidine", "ILE": "Isoleucine", "LEU": "Leucine", "LYS": "Lysine", "MET": "Methionine", "PHE": "Phenylalanine", "PRO": "Proline", "SER": "Serine", "THR": "Threonine", "TRP": "Tryptophan", "TYR": "Tyrosine", "VAL": "Valine", "A": "Adenine", "C": "Cytosine", "G": "Guanine", "T": "Thymine", "U": "Uracil"
+}
+
+class ResidueDiagram(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent); self.atoms: list[str] = []; self.setMinimumSize(280, 250)
+    def set_atoms(self, residue: str, atoms: list[str]) -> None:
+        self.residue, self.atoms = residue, atoms; self.update()
+    def paintEvent(self, event) -> None:
+        painter = QPainter(self); painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(QPen(QColor("#c7d2df"), 2)); painter.setBrush(QBrush(QColor("#263646")))
+        painter.drawText(10, 20, f"{_RESIDUE_NAMES.get(self.residue, self.residue)} ({self.residue})")
+        if not self.atoms: return
+        center = self.rect().center(); radius = min(self.width(), self.height()) * 0.34
+        points = []
+        for index, name in enumerate(self.atoms):
+            import math
+            angle = 2 * math.pi * index / len(self.atoms) - math.pi / 2
+            points.append((center.x() + radius * math.cos(angle), center.y() + radius * math.sin(angle)))
+        painter.setPen(QPen(QColor("#71849a"), 2))
+        for point_a, point_b in zip(points, points[1:]): painter.drawLine(int(point_a[0]), int(point_a[1]), int(point_b[0]), int(point_b[1]))
+        for name, (x, y) in zip(self.atoms, points):
+            painter.setBrush(QBrush(QColor("#4f9fcf"))); painter.setPen(QPen(QColor("#dce8f2"), 1)); painter.drawEllipse(int(x - 20), int(y - 14), 40, 28)
+            painter.drawText(int(x - 18), int(y + 5), 36, 18, Qt.AlignCenter, name)
+
+
 
 class AtomicRadiiDialog(QDialog):
     """Three-tab editor for element, residue-atom, and ion radii."""
@@ -151,28 +189,33 @@ class AtomicRadiiDialog(QDialog):
 
     def _build_defaults_tab(self) -> QWidget:
         panel = QWidget(); layout = QVBoxLayout(panel)
-        legend = QLabel("Element families are color-coded: alkali, alkaline earth, transition, post-transition, metalloid, nonmetal, halogen, noble gas, lanthanide, and actinide.")
+        legend = QLabel("Periodic-table colors identify element families. Each card shows atomic number, mass, name, symbol, and editable radius.")
         legend.setWordWrap(True); layout.addWidget(legend)
-        grid = QGridLayout(); grid.setSpacing(3)
+        grid = QGridLayout(); grid.setSpacing(4)
         for symbol, (row, column) in _PERIODIC_TABLE.items():
-            tile = QGroupBox(symbol); tile.setStyleSheet(f"QGroupBox {{ background: {_PERIODIC_COLORS[_element_category(symbol)]}; color: #17202a; }}")
-            tile_layout = QVBoxLayout(tile); field = self._spin(symbol.upper(), self._radii.get(symbol.upper(), 0.36)); tile_layout.addWidget(field)
-            grid.addWidget(tile, row, column); self._fields[symbol.upper()] = field
+            card = QFrame(); card.setFixedSize(82, 106); card.setStyleSheet(f"QFrame {{ background: {_PERIODIC_COLORS[_element_category(symbol)]}; border: 1px solid #71808f; border-radius: 4px; }} QLabel {{ color: #17202a; }}")
+            card_layout = QVBoxLayout(card); card_layout.setContentsMargins(4, 3, 4, 3); card_layout.setSpacing(0)
+            number = _ELEMENT_NUMBERS[symbol.upper()]; mass = _ELEMENT_MASSES.get(symbol, float(number * 2))
+            top = QLabel(f"{number}    {mass:g}"); top.setStyleSheet("font-size: 8px;"); card_layout.addWidget(top)
+            name = QLabel(_ELEMENT_NAMES.get(symbol, symbol)); name.setStyleSheet("font-size: 8px;"); card_layout.addWidget(name)
+            abbrev = QLabel(symbol); abbrev.setAlignment(Qt.AlignCenter); abbrev.setStyleSheet("font-size: 18px; font-weight: 700;"); card_layout.addWidget(abbrev, 1)
+            field = self._spin(symbol.upper(), self._radii.get(symbol.upper(), 0.36)); field.setFixedHeight(22); card_layout.addWidget(field)
+            grid.addWidget(card, row, column); self._fields[symbol.upper()] = field
         layout.addLayout(grid); return panel
 
     def _build_residue_tab(self) -> QWidget:
         panel = QWidget(); layout = QHBoxLayout(panel)
-        names = QListWidget(); names.addItems(RESIDUE_ATOMS.keys()); names.setMaximumWidth(110)
-        diagram = QLabel("Select a residue to see its atom diagram"); diagram.setAlignment(Qt.AlignCenter); diagram.setWordWrap(True); diagram.setMinimumWidth(260)
-        table = QTableWidget(0, 2); table.setHorizontalHeaderLabels(["Atom name", "Radius (Å)"]); table.horizontalHeader().setStretchLastSection(True)
+        names = QListWidget(); names.setMaximumWidth(180)
+        for abbreviation in RESIDUE_ATOMS:
+            item = QListWidgetItem(f"{_RESIDUE_NAMES.get(abbreviation, abbreviation)} ({abbreviation})"); item.setData(Qt.UserRole, abbreviation); names.addItem(item)
+        diagram = ResidueDiagram(); table = QTableWidget(0, 2); table.setHorizontalHeaderLabels(["Atom name", "Radius (Å)"]); table.horizontalHeader().setStretchLastSection(True)
         layout.addWidget(names); layout.addWidget(diagram, 1); layout.addWidget(table, 1)
         self._residue_table, self._residue_diagram = table, diagram
-        names.currentTextChanged.connect(self._select_residue_editor); names.setCurrentRow(0)
+        names.currentItemChanged.connect(lambda item, _previous: self._select_residue_editor(item.data(Qt.UserRole) if item else "")); names.setCurrentRow(0)
         return panel
 
     def _select_residue_editor(self, residue: str) -> None:
-        atoms = RESIDUE_ATOMS.get(residue, []); self._residue_table.setRowCount(len(atoms))
-        self._residue_diagram.setText(f"{residue} residue diagram\\n\\n" + "  —  ".join(atoms) + "\\n\\nSelect an atom below to edit its radius.")
+        atoms = RESIDUE_ATOMS.get(residue, []); self._residue_table.setRowCount(len(atoms)); self._residue_diagram.set_atoms(residue, atoms)
         for row, atom_name in enumerate(atoms):
             key = f"RES:{residue}:{atom_name}"; self._residue_table.setItem(row, 0, QTableWidgetItem(atom_name))
             field = self._spin(key, self._radii.get(key, self._radii.get(atom_name[:2].upper(), self._radii.get(atom_name[:1].upper(), 0.36)))); self._residue_table.setCellWidget(row, 1, field); self._residue_fields[key] = field
