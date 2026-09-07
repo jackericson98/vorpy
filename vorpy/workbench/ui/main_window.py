@@ -111,13 +111,14 @@ class MainWindow(QMainWindow):
         self.viewer = MolecularView(self)
         self.viewer.selected_atom.connect(self._show_selected_atom)
         self.viewer.selected_residue.connect(self._show_selected_residue)
+        self.viewer.selected_chain.connect(self._show_selected_chain)
+        self.viewer.selected_molecule.connect(self._show_selected_molecule)
         self._build_actions()
         self._build_menu_and_toolbar()
         self._build_workspace()
         self._build_status()
-        self.statusBar().showMessage(
-            "Ready — load a structure, then choose atom or residue selection"
-        )
+        self.statusBar().showMessage("Ready — load a structure and select a residue")
+        self.select_residue_action.setChecked(True)
 
     def _build_actions(self) -> None:
         style = self.style()
@@ -169,13 +170,25 @@ class MainWindow(QMainWindow):
         self.select_atom_action.setShortcut("A")
         self.select_residue_action = QAction("Select residue", self, checkable=True)
         self.select_residue_action.setShortcut("R")
+        self.select_chain_action = QAction("Select chain", self, checkable=True)
+        self.select_chain_action.setShortcut("C")
+        self.select_molecule_action = QAction("Select molecule", self, checkable=True)
+        self.select_molecule_action.setShortcut("M")
         self.selection_actions.addAction(self.select_atom_action)
         self.selection_actions.addAction(self.select_residue_action)
+        self.selection_actions.addAction(self.select_chain_action)
+        self.selection_actions.addAction(self.select_molecule_action)
         self.select_atom_action.toggled.connect(
             lambda checked: self._set_selection_mode("atom" if checked else None)
         )
         self.select_residue_action.toggled.connect(
             lambda checked: self._set_selection_mode("residue" if checked else None)
+        )
+        self.select_chain_action.toggled.connect(
+            lambda checked: self._set_selection_mode("chain" if checked else None)
+        )
+        self.select_molecule_action.toggled.connect(
+            lambda checked: self._set_selection_mode("molecule" if checked else None)
         )
 
     def _build_menu_and_toolbar(self) -> None:
@@ -189,7 +202,14 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction("Exit", self.close)
         selection_menu = self.menuBar().addMenu("Selection")
-        selection_menu.addActions([self.select_atom_action, self.select_residue_action])
+        selection_menu.addActions(
+            [
+                self.select_atom_action,
+                self.select_residue_action,
+                self.select_chain_action,
+                self.select_molecule_action,
+            ]
+        )
         self.menuBar().addMenu("Analysis").addAction(self.solve_action)
         self.menuBar().addMenu("View").addAction(self.fit_action)
         self.menuBar().addMenu("Help")
@@ -1385,6 +1405,40 @@ class MainWindow(QMainWindow):
             f"Selected {atom.residue_name} {atom.residue_sequence}, chain "
             f"{atom.chain or '—'} ({len(atoms)} atoms)"
         )
+
+    def _show_selected_chain(self, atoms: list[Atom]) -> None:
+        if not atoms:
+            return
+        chain = atoms[0].chain or "(blank)"
+        self._show_selected_collection(atoms, "chain", f"Chain {chain}", chain)
+
+    def _show_selected_molecule(self, atoms: list[Atom]) -> None:
+        if not atoms:
+            return
+        residues = {
+            (atom.chain, atom.residue_sequence, atom.residue_name) for atom in atoms
+        }
+        self._show_selected_collection(
+            atoms,
+            "molecule",
+            f"Molecule ({len(residues)} residues)",
+            atoms[0].chain or "—",
+        )
+
+    def _show_selected_collection(
+        self, atoms: list[Atom], kind: str, description: str, chain: str
+    ) -> None:
+        self._running_selection = {atom.index for atom in atoms}
+        self._update_running_selection()
+        self._populate_structure_browser()
+        self.selection_group.setTitle(f"Selected {kind}")
+        self.atom_name.setText("Multiple")
+        self.atom_element.setText("—")
+        self.atom_residue.setText(description)
+        self.atom_chain.setText(chain)
+        self.atom_position.setText("—")
+        self.selection_count.setText(str(len(atoms)))
+        self.statusBar().showMessage(f"Selected {description} ({len(atoms)} atoms)")
 
     def _set_selection_mode(self, mode: str | None) -> None:
         active = self.selection_actions.checkedAction()

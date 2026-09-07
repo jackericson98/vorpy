@@ -22,6 +22,8 @@ class PlotterStub:
 class ViewerStub(QWidget):
     selected_atom = Signal(object)
     selected_residue = Signal(object)
+    selected_chain = Signal(object)
+    selected_molecule = Signal(object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -104,6 +106,9 @@ def sample_result():
 def test_action_state_and_visibility_controls(monkeypatch):
     window = make_window(monkeypatch)
 
+    assert window.select_residue_action.isChecked()
+    assert ("selection", "residue") in window.viewer.calls
+
     assert [window.workflow_tabs.tabText(i) for i in range(window.workflow_tabs.count())] == [
         "Structure", "Selection", "Groups", "Interfaces"
     ]
@@ -147,6 +152,14 @@ def test_action_state_and_visibility_controls(monkeypatch):
     assert window.select_residue_action.isChecked()
     assert window.viewer.calls[-1] == ("selection", "residue")
     assert window.selection_mode_label.text() == "Residue selection active"
+
+    window.select_chain_action.setChecked(True)
+    assert window.viewer.calls[-1] == ("selection", "chain")
+    assert window.selection_mode_label.text() == "Chain selection active"
+
+    window.select_molecule_action.setChecked(True)
+    assert window.viewer.calls[-1] == ("selection", "molecule")
+    assert window.selection_mode_label.text() == "Molecule selection active"
 
 
 def test_bottom_tray_and_small_molecule_representation_defaults(monkeypatch):
@@ -386,6 +399,19 @@ def test_molecule_browser_uses_bond_connected_components(monkeypatch):
     assert window.structure_browser.count() == 2
     assert window.structure_browser.item(0).data(Qt.UserRole) == (0, 1)
     assert window.structure_browser.item(1).data(Qt.UserRole) == (2,)
+
+
+def test_viewer_molecule_selection_uses_bond_connected_component():
+    result = sample_result()
+    isolated = Atom(2, 3, "O", "O", (4.0, 0.0, 0.0), "HOH", "8", "")
+    result.atoms.append(isolated)
+    viewer = SimpleNamespace(_result=result)
+
+    bonded = MolecularView._molecule_atoms(viewer, result.atoms[0])
+    separate = MolecularView._molecule_atoms(viewer, isolated)
+
+    assert [atom.index for atom in bonded] == [0, 1]
+    assert [atom.index for atom in separate] == [2]
 
 
 def test_groups_survive_analysis_result_for_same_structure(monkeypatch):

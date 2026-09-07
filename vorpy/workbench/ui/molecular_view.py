@@ -76,6 +76,8 @@ CARTOON_COLORS = ("#6f7ee8", "#39a88e", "#d27a43", "#9c68cf", "#cf5f7b")
 class MolecularView(QWidget):
     selected_atom = Signal(object)
     selected_residue = Signal(object)
+    selected_chain = Signal(object)
+    selected_molecule = Signal(object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -406,14 +408,24 @@ class MolecularView(QWidget):
         atom = self._result.atoms[selectable[int(np.argmin(distances))]]
         if self._selection_mode == "residue":
             key = self._residue_key(atom)
-            residue_atoms = [
+            selected_atoms = [
                 item for item in self._result.atoms if self._residue_key(item) == key
             ]
-            self._highlight_atoms(residue_atoms, "selected-residue")
-            self.selected_residue.emit(residue_atoms)
+            signal = self.selected_residue
+        elif self._selection_mode == "chain":
+            selected_atoms = [
+                item for item in self._result.atoms if item.chain == atom.chain
+            ]
+            signal = self.selected_chain
+        elif self._selection_mode == "molecule":
+            selected_atoms = self._molecule_atoms(atom)
+            signal = self.selected_molecule
         else:
             self._highlight_atoms([atom], "selected-atom")
             self.selected_atom.emit(atom)
+            return
+        self._highlight_atoms(selected_atoms, f"selected-{self._selection_mode}")
+        signal.emit(selected_atoms)
 
     def eventFilter(self, watched, event) -> bool:
         if watched is self.plotter.interactor and self._selection_mode is not None:
@@ -444,8 +456,8 @@ class MolecularView(QWidget):
         return super().eventFilter(watched, event)
 
     def _highlight_atoms(self, atoms: list[Atom], name: str) -> None:
-        self.plotter.remove_actor("selected-atom", render=False)
-        self.plotter.remove_actor("selected-residue", render=False)
+        for selection_name in ("atom", "residue", "chain", "molecule"):
+            self.plotter.remove_actor(f"selected-{selection_name}", render=False)
         cloud = pv.PolyData(np.asarray([atom.position for atom in atoms], dtype=float))
         cloud["radius"] = np.asarray([atom.radius * 1.22 for atom in atoms])
         highlight = cloud.glyph(
@@ -514,6 +526,24 @@ class MolecularView(QWidget):
     @staticmethod
     def _residue_key(atom: Atom) -> tuple[str, str, str]:
         return atom.chain, atom.residue_sequence, atom.residue_name
+
+    def _molecule_atoms(self, atom: Atom) -> list[Atom]:
+        """Return the bond-connected component containing ``atom``."""
+        if self._result is None:
+            return []
+        neighbors = {item.index: set() for item in self._result.atoms}
+        for bond in self._result.bonds:
+            neighbors[bond.atom_a].add(bond.atom_b)
+            neighbors[bond.atom_b].add(bond.atom_a)
+        pending = [atom.index]
+        selected: set[int] = set()
+        while pending:
+            atom_index = pending.pop()
+            if atom_index in selected:
+                continue
+            selected.add(atom_index)
+            pending.extend(neighbors[atom_index] - selected)
+        return [item for item in self._result.atoms if item.index in selected]
 
     @staticmethod
     def _residue_sort_key(atom: Atom) -> tuple[int, str]:
