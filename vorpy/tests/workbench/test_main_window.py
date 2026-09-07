@@ -166,6 +166,12 @@ def test_action_state_and_visibility_controls(monkeypatch):
 
 def test_bottom_tray_and_small_molecule_representation_defaults(monkeypatch):
     window = make_window(monkeypatch)
+    assert window.workspace_splitter.orientation() == Qt.Vertical
+    assert window.workspace_splitter.widget(0) is window.upper_workspace
+    assert window.workspace_splitter.widget(1) is window.analysis_tray
+    assert window.upper_workspace.widget(0) is window.workflow_panel
+    assert window.workflow_panel.parentWidget() is window.upper_workspace
+    assert window.analysis_tray.parentWidget() is window.workspace_splitter
     assert [window.analysis_tray_tabs.tabText(i) for i in range(window.analysis_tray_tabs.count())] == [
         "Analysis", "Results"
     ]

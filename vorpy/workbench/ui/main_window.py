@@ -220,11 +220,12 @@ class MainWindow(QMainWindow):
 
     def _build_workspace(self) -> None:
         root = QWidget()
-        layout = QHBoxLayout(root)
+        layout = QVBoxLayout(root)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
         workflow = QWidget()
+        self.workflow_panel = workflow
         workflow.setObjectName("workflowPanel")
         workflow.setMinimumWidth(350)
         workflow.setMaximumWidth(430)
@@ -237,21 +238,24 @@ class MainWindow(QMainWindow):
         self.workflow_tabs.addTab(self._build_groups_tab(), "Groups")
         self.workflow_tabs.addTab(self._build_interfaces_tab(), "Interfaces")
         workflow_layout.addWidget(self.workflow_tabs, 1)
-        layout.addWidget(workflow)
-
         vertical = QSplitter(Qt.Vertical)
+        self.workspace_splitter = vertical
         upper = QSplitter(Qt.Horizontal)
+        self.upper_workspace = upper
+        upper.addWidget(workflow)
         upper.addWidget(self._build_viewport())
         upper.addWidget(self._build_inspector())
-        upper.setStretchFactor(0, 5)
-        upper.setStretchFactor(1, 1)
-        upper.setSizes([1050, 320])
+        upper.setStretchFactor(0, 0)
+        upper.setStretchFactor(1, 5)
+        upper.setStretchFactor(2, 1)
+        upper.setSizes([390, 1050, 320])
         vertical.addWidget(upper)
-        vertical.addWidget(self._build_analysis_tray())
+        self.analysis_tray = self._build_analysis_tray()
+        vertical.addWidget(self.analysis_tray)
         vertical.setStretchFactor(0, 5)
         vertical.setStretchFactor(1, 1)
         vertical.setSizes([610, 270])
-        layout.addWidget(vertical, 1)
+        layout.addWidget(vertical)
         self.setCentralWidget(root)
 
     def _build_viewport(self) -> QWidget:
@@ -600,7 +604,7 @@ class MainWindow(QMainWindow):
         tray = QSplitter(Qt.Horizontal)
         tray.setObjectName("bottomTray")
         solve = self._build_solve_section()
-        solve.setMinimumWidth(300)
+        solve.setMinimumWidth(350)
         tray.addWidget(solve)
         tabs = QTabWidget()
         self.analysis_tray_tabs = tabs
@@ -628,9 +632,9 @@ class MainWindow(QMainWindow):
         tabs.addTab(analysis, "Analysis")
         tabs.addTab(self.results, "Results")
         tray.addWidget(tabs)
-        tray.setStretchFactor(0, 3)
-        tray.setStretchFactor(1, 7)
-        tray.setSizes([360, 840])
+        tray.setStretchFactor(0, 0)
+        tray.setStretchFactor(1, 1)
+        tray.setSizes([430, 1050])
         return tray
 
     def _build_status(self) -> None:
