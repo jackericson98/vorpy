@@ -24,6 +24,7 @@ class ViewerStub(QWidget):
     selected_residue = Signal(object, bool)
     selected_chain = Signal(object, bool)
     selected_molecule = Signal(object, bool)
+    selection_cleared = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -178,6 +179,9 @@ def test_bottom_tray_and_small_molecule_representation_defaults(monkeypatch):
     assert window.solve_network_button.text() == "Solve network"
     assert window.solve_network_button.objectName() == "primaryAction"
     assert not hasattr(window, "build_settings_button")
+    assert not hasattr(window, "build_vertices")
+    assert not hasattr(window, "build_edges")
+    assert not hasattr(window, "build_surfaces")
     window.solve_action.setEnabled(False)
     assert not window.solve_network_button.isEnabled()
     window.solve_action.setEnabled(True)
@@ -282,6 +286,41 @@ def test_reset_selection_requires_confirmation(monkeypatch):
     assert window.selection_group.title() == "No selection"
     assert window.statusBar().currentMessage() == "Selection reset"
     assert ("group-selection", ()) in window.viewer.calls
+
+
+def test_clicking_viewer_background_clears_selection(monkeypatch):
+    window = make_window(monkeypatch)
+    result = sample_result()
+    window._display_result(result)
+    window._show_selected_residue(result.atoms)
+
+    window.viewer.selection_cleared.emit()
+
+    assert window._running_selection == set()
+    assert window.running_selection.text() == "No atoms selected"
+    assert window.selection_group.title() == "No selection"
+    assert window.statusBar().currentMessage() == "Selection cleared"
+    assert ("group-selection", ()) in window.viewer.calls
+
+
+def test_empty_viewer_pick_emits_selection_cleared():
+    events = []
+    viewer = SimpleNamespace(
+        _pending_pick=None,
+        _selection_additive=False,
+        _result=sample_result(),
+        _selection_mode="residue",
+        _positions=[(0.0, 0.0, 0.0)],
+        _selection_dragged=False,
+        _clear_pick_highlight=lambda: events.append("highlight-cleared"),
+        selection_cleared=SimpleNamespace(
+            emit=lambda: events.append("selection-cleared")
+        ),
+    )
+
+    MolecularView._apply_pending_pick(viewer)
+
+    assert events == ["highlight-cleared", "selection-cleared"]
 
 
 def test_ion_classification_uses_residue_identity():

@@ -78,6 +78,7 @@ class MolecularView(QWidget):
     selected_residue = Signal(object, bool)
     selected_chain = Signal(object, bool)
     selected_molecule = Signal(object, bool)
+    selection_cleared = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -393,9 +394,12 @@ class MolecularView(QWidget):
             self._result is None
             or self._selection_mode is None
             or len(self._positions) == 0
-            or point is None
             or self._selection_dragged
         ):
+            return
+        if point is None:
+            self._clear_pick_highlight()
+            self.selection_cleared.emit()
             return
         selectable = [
             index
@@ -460,8 +464,7 @@ class MolecularView(QWidget):
         return super().eventFilter(watched, event)
 
     def _highlight_atoms(self, atoms: list[Atom], name: str) -> None:
-        for selection_name in ("atom", "residue", "chain", "molecule"):
-            self.plotter.remove_actor(f"selected-{selection_name}", render=False)
+        self._clear_pick_highlight()
         cloud = pv.PolyData(np.asarray([atom.position for atom in atoms], dtype=float))
         cloud["radius"] = np.asarray([atom.radius * 1.22 for atom in atoms])
         highlight = cloud.glyph(
@@ -478,6 +481,10 @@ class MolecularView(QWidget):
             pickable=False,
             reset_camera=False,
         )
+
+    def _clear_pick_highlight(self) -> None:
+        for selection_name in ("atom", "residue", "chain", "molecule"):
+            self.plotter.remove_actor(f"selected-{selection_name}", render=False)
 
     def set_group_selection(self, atoms: list[Atom]) -> None:
         """Highlight atoms accumulated by the Structure group builder."""

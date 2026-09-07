@@ -111,6 +111,7 @@ class MainWindow(QMainWindow):
         self.viewer.selected_residue.connect(self._show_selected_residue)
         self.viewer.selected_chain.connect(self._show_selected_chain)
         self.viewer.selected_molecule.connect(self._show_selected_molecule)
+        self.viewer.selection_cleared.connect(self._clear_selection_from_viewer)
         self._build_actions()
         self._build_menu_and_toolbar()
         self._build_workspace()
@@ -520,14 +521,6 @@ class MainWindow(QMainWindow):
         form.addRow("Maximum vertices", self.max_vertices)
         form.addRow("Box size", self.box_size)
         form.addRow("Surface resolution", self.surface_resolution)
-        outputs = QHBoxLayout()
-        self.build_vertices = QCheckBox("Vertices")
-        self.build_edges = QCheckBox("Edges")
-        self.build_surfaces = QCheckBox("Surfaces")
-        for checkbox in (self.build_vertices, self.build_edges, self.build_surfaces):
-            checkbox.setChecked(True)
-            outputs.addWidget(checkbox)
-        form.addRow("Build", outputs)
         layout.addWidget(section)
         layout.addStretch(1)
         self.solve_network_button = QPushButton("Solve network")
@@ -1045,9 +1038,9 @@ class MainWindow(QMainWindow):
                 max_vertices=self.max_vertices.value(),
                 box_size=self.box_size.value(),
                 surface_resolution=self.surface_resolution.value(),
-                build_surfaces=self.build_surfaces.isChecked(),
-                build_vertices=self.build_vertices.isChecked(),
-                build_edges=self.build_edges.isChecked(),
+                build_surfaces=True,
+                build_vertices=True,
+                build_edges=True,
             )
         )
         self.solve_action.setEnabled(False)
@@ -1330,6 +1323,12 @@ class MainWindow(QMainWindow):
         )
         if choice != QMessageBox.Yes:
             return
+        self._clear_selection("Selection reset")
+
+    def _clear_selection_from_viewer(self) -> None:
+        self._clear_selection("Selection cleared")
+
+    def _clear_selection(self, status: str) -> None:
         self._running_selection.clear()
         self._update_running_selection()
         self._populate_structure_browser()
@@ -1340,7 +1339,7 @@ class MainWindow(QMainWindow):
         self.atom_chain.setText("—")
         self.atom_position.setText("—")
         self.selection_count.setText("—")
-        self.statusBar().showMessage("Selection reset")
+        self.statusBar().showMessage(status)
 
     def _make_group(self) -> None:
         if not self._running_selection or self.current_result is None:
