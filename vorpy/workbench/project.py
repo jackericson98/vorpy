@@ -251,6 +251,7 @@ def result_to_json(result: AnalysisResult) -> dict:
         "complete_cells": result.complete_cells,
         "surface_count": result.surface_count,
         "elapsed_seconds": result.elapsed_seconds,
+        "info_sections": result.info_sections,
     }
 
 
@@ -307,4 +308,8 @@ def result_from_json(data: dict) -> AnalysisResult:
         complete_cells=int(data.get("complete_cells", 0)),
         surface_count=int(data.get("surface_count", 0)),
         elapsed_seconds=float(data.get("elapsed_seconds", 0.0)),
+        info_sections={
+            str(section): [(str(key), str(value)) for key, value in values]
+            for section, values in data.get("info_sections", {}).items()
+        },
     )

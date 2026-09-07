@@ -53,6 +53,7 @@ from vorpy.workbench.project import (
     result_to_json,
 )
 from vorpy.workbench.services.result_directory import load_result_directory
+from vorpy.workbench.services.info_parser import parse_group_info
 from vorpy.workbench.services.structure_loader import load_pdb
 from vorpy.workbench.services.vorpy_backend import VorPyBackend, VorPySolveSettings
 from vorpy.workbench.ui.molecular_view import (
@@ -632,9 +633,11 @@ class MainWindow(QMainWindow):
         tray.addWidget(solve)
         tabs = QTabWidget()
         self.analysis_tray_tabs = tabs
-        analysis = QWidget()
-        cards_layout = QHBoxLayout(analysis)
-        cards_layout.setContentsMargins(8, 8, 8, 8)
+        overview = QWidget()
+        overview_layout = QVBoxLayout(overview)
+        cards = QWidget()
+        cards_layout = QHBoxLayout(cards)
+        cards_layout.setContentsMargins(8, 8, 8, 4)
         self.metric_cards = {}
         for key, title, accent in ((
             "atoms", "Atoms", "#6857d9"),
@@ -646,20 +649,64 @@ class MainWindow(QMainWindow):
             card = MetricCard(title, accent)
             self.metric_cards[key] = card
             cards_layout.addWidget(card)
+        overview_layout.addWidget(cards)
         self.results = QTableWidget(0, 2)
         self.results.setAlternatingRowColors(True)
         self.results.setHorizontalHeaderLabels(["Metric", "Value"])
         self.results.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.results.horizontalHeader().setSectionResizeMode(
-            1, QHeaderView.ResizeToContents
-        )
-        tabs.addTab(analysis, "Analysis")
-        tabs.addTab(self.results, "Results")
+        self.results.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        overview_layout.addWidget(self.results, 1)
+        tabs.addTab(overview, "Overview")
+        self.analysis_section_tables = {}
+        for section in ("Composition", "Build Information", "Build Timing",
+                         "Voronoi Network", "Group Geometry", "Surface Curvature",
+                         "Surface Energy Estimate", "Surface Classification",
+                         "Chain Composition", "Residue Composition"):
+            table = QTableWidget(0, 2)
+            table.setAlternatingRowColors(True)
+            table.setHorizontalHeaderLabels(["Value", "Details"])
+            table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+            table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+            self.analysis_section_tables[section] = table
+            tabs.addTab(table, section.replace(" Information", "").replace(" Estimate", ""))
         tray.addWidget(tabs)
         tray.setStretchFactor(0, 0)
         tray.setStretchFactor(1, 1)
         tray.setSizes([430, 1050])
         return tray
+
+    def _fallback_info_sections(self, result: AnalysisResult) -> dict[str, list[tuple[str, str]]]:
+        return {
+            "Composition": [("Atoms", f"{len(result.atoms):,}"),
+                            ("Residues", f"{len(self._residue_groups(result)):,}"),
+                            ("Chains", f"{len(self._chain_groups(result)):,}")],
+            "Voronoi Network": [("Vertices", str(sum(len(layer.points) for layer in result.layers if layer.kind.lower() in {"vertex", "vertices"}))),
+                                 ("Edges", f"{len(result.bonds):,}"),
+                                 ("Surfaces", f"{result.surface_count:,}")],
+        }
+
+    def _populate_analysis_sections(self, result: AnalysisResult) -> None:
+        metrics = [("Structure", result.name), ("Atoms", f"{len(result.atoms):,}"),
+                   ("Bonds", f"{len(result.bonds):,}"),
+                   ("Geometry layers", str(len(result.layers))),
+                   ("Complete cells", f"{result.complete_cells:,}"),
+                   ("Surfaces", f"{result.surface_count:,}")]
+        self.results.setRowCount(len(metrics))
+        for row, (label, value) in enumerate(metrics):
+            self.results.setItem(row, 0, QTableWidgetItem(label))
+            self.results.setItem(row, 1, QTableWidgetItem(value))
+        sections = result.info_sections or self._fallback_info_sections(result)
+        for name, table in self.analysis_section_tables.items():
+            rows = sections.get(name, [])
+            table.setRowCount(len(rows))
+            for row, (key, value) in enumerate(rows):
+                table.setItem(row, 0, QTableWidgetItem(key))
+                table.setItem(row, 1, QTableWidgetItem(value))
+        values = {"atoms": len(result.atoms), "bonds": len(result.bonds),
+                  "cells": result.complete_cells, "surfaces": result.surface_count,
+                  "layers": len(result.layers)}
+        for key, value in values.items():
+            self.metric_cards[key].value.setText(f"{value:,}")
 
     def _build_status(self) -> None:
         self.progress_label = QLabel("Ready")
@@ -1112,6 +1159,10 @@ class MainWindow(QMainWindow):
                 return
             self._save_current_structure_state()
             result = load_result_directory(source) if source.is_dir() else load_pdb(source)
+            if source.is_dir():
+                info_path = source / "info.txt"
+                if info_path.exists():
+                    result.info_sections = parse_group_info(info_path)
             self.source = source
             self._loaded_results[source] = result
             self._display_result(result)
@@ -1268,27 +1319,7 @@ class MainWindow(QMainWindow):
         self._populate_network_controls(result)
         self._populate_structure_browser()
         self._update_running_selection()
-        metrics = [
-            ("Structure", result.name),
-            ("Atoms", f"{len(result.atoms):,}"),
-            ("Bonds", f"{len(result.bonds):,}"),
-            ("Geometry layers", str(len(result.layers))),
-            ("Complete cells", f"{result.complete_cells:,}"),
-            ("Surfaces", f"{result.surface_count:,}"),
-        ]
-        self.results.setRowCount(len(metrics))
-        for row, (label, value) in enumerate(metrics):
-            self.results.setItem(row, 0, QTableWidgetItem(label))
-            self.results.setItem(row, 1, QTableWidgetItem(value))
-        values = {
-            "atoms": len(result.atoms),
-            "bonds": len(result.bonds),
-            "cells": result.complete_cells,
-            "surfaces": result.surface_count,
-            "layers": len(result.layers),
-        }
-        for key, value in values.items():
-            self.metric_cards[key].value.setText(f"{value:,}")
+        self._populate_analysis_sections(result)
         self.progress_label.setText("Complete")
         self.progress_bar.setValue(100)
         self.statusBar().showMessage(f"{result.name} ready")
