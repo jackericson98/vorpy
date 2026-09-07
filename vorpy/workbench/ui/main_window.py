@@ -145,24 +145,32 @@ class ResidueDiagram(QWidget):
     def paintEvent(self, event) -> None:
         painter = QPainter(self); painter.setRenderHint(QPainter.Antialiasing)
         painter.setPen(QPen(QColor("#c7d2df"), 2)); painter.drawText(10, 22, f"{_RESIDUE_NAMES.get(self.residue, self.residue)} ({self.residue})")
-        def node(x, y, text, color="#4f9fcf", shape="circle"):
-            painter.setBrush(QBrush(QColor(color))); painter.setPen(QPen(QColor("#dce8f2"), 1))
-            if shape == "pentagon":
-                points = [QPoint(x, y-25), QPoint(x+24, y-8), QPoint(x+15, y+22), QPoint(x-15, y+22), QPoint(x-24, y-8)]; painter.drawPolygon(QPolygon(points))
-            elif shape == "rect": painter.drawRoundedRect(x-36, y-18, 72, 36, 8, 8)
-            else: painter.drawEllipse(x-25, y-25, 50, 50)
-            painter.drawText(x-34, y-7, 68, 20, Qt.AlignCenter, text)
-        painter.setPen(QPen(QColor("#71849a"), 3))
+        def atom(x, y, text, color="#4f9fcf", radius=19):
+            painter.setBrush(QBrush(QColor(color))); painter.setPen(QPen(QColor("#dce8f2"), 1)); painter.drawEllipse(x-radius, y-radius, radius*2, radius*2); painter.drawText(x-radius, y-7, radius*2, 18, Qt.AlignCenter, text)
+        def bond(a, b, double=False):
+            painter.setPen(QPen(QColor("#71849a"), 3)); painter.drawLine(*a, *b)
+            if double: painter.drawLine(a[0], a[1]+5, b[0], b[1]+5)
         if self.residue in {"A", "C", "G", "T", "U"}:
-            # Standard nucleotide schematic: phosphate—pentose sugar—nitrogenous base.
-            painter.drawLine(58, 125, 135, 125); painter.drawLine(185, 125, 235, 125)
-            node(50, 125, "P", "#e5b94f"); node(160, 125, "sugar", "#6fc5a8", "pentagon"); node(255, 125, "base", "#d9778a", "rect")
-            painter.setPen(QPen(QColor("#a9b7c5"), 1)); painter.drawText(28, 195, "phosphate"); painter.drawText(140, 195, "ribose / deoxyribose"); painter.drawText(235, 195, self.residue)
+            # Pentose ring with phosphate on the 5' side and the base attached at C1'.
+            ring = {"C4'": (125, 125), "O4'": (165, 95), "C1'": (210, 115), "C2'": (205, 165), "C3'": (155, 180)}
+            for a, b in (("C4'", "O4'"), ("O4'", "C1'"), ("C1'", "C2'"), ("C2'", "C3'"), ("C3'", "C4'")): bond(ring[a], ring[b])
+            for name, pos in ring.items(): atom(*pos, name, "#56b893" if name == "O4'" else "#4f9fcf", 16)
+            bond((125, 125), (70, 125)); atom(48, 125, "P", "#e5b94f", 17); bond((48, 125), (35, 88)); bond((48, 125), (35, 162)); atom(25, 82, "O", "#d66d6d", 13); atom(25, 168, "O", "#d66d6d", 13)
+            base_name = "N9" if self.residue in {"A", "G"} else "N1"; bond(ring["C1'"], (255, 115))
+            base = [(255, 115), (295, 90), (330, 115), (320, 155), (275, 165), (245, 145)]
+            painter.setPen(QPen(QColor("#71849a"), 3)); painter.drawPolygon(QPolygon([QPoint(*point) for point in base])); atom(255, 115, base_name, "#d9778a", 15); painter.setPen(QPen(QColor("#a9b7c5"), 1)); painter.drawText(245, 205, 100, 18, Qt.AlignCenter, f"base {self.residue}")
         else:
-            # Peptide residue schematic: N—Cα—C(=O), with the side-chain R group.
-            painter.drawLine(45, 125, 105, 125); painter.drawLine(135, 125, 195, 125); painter.drawLine(225, 125, 275, 125); painter.drawLine(210, 110, 245, 75)
-            node(30, 125, "N"); node(120, 125, "Cα", "#62a9d8"); node(210, 125, "C"); node(295, 125, "O", "#d66d6d"); node(260, 65, "R", "#a88bd8", "rect")
-            painter.setPen(QPen(QColor("#a9b7c5"), 1)); painter.drawText(20, 195, "peptide backbone"); painter.drawText(235, 195, "side chain")
+            # Shared peptide backbone; the residue-specific side chain branches from Cα.
+            n, ca, c, o = (50, 125), (135, 125), (220, 125), (285, 85)
+            bond(n, ca); bond(ca, c); bond(c, o, True); atom(*n, "N"); atom(*ca, "Cα", "#62a9d8"); atom(*c, "C"); atom(*o, "O", "#d66d6d")
+            side = [name for name in RESIDUE_ATOMS.get(self.residue, []) if name not in {"N", "CA", "C", "O"}]
+            side = side[:10]
+            points = {}
+            for index, name in enumerate(side):
+                points[name] = (135 + 45 * (index % 3), 185 + 42 * (index // 3))
+                parent = ca if index == 0 else points[side[index - 1]]; bond(parent, points[name])
+            for name, pos in points.items(): atom(*pos, name, "#a88bd8" if name.startswith("O") or name.startswith("N") else "#4f9fcf", 15)
+            painter.setPen(QPen(QColor("#a9b7c5"), 1)); painter.drawText(85, 245, 180, 18, Qt.AlignCenter, "residue-specific side chain")
 
 
 class AtomicRadiiDialog(QDialog):
