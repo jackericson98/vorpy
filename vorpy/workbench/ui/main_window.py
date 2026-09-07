@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from dataclasses import asdict
 from uuid import uuid4
 
 from PySide6.QtCore import Qt, QThread
@@ -48,6 +49,8 @@ from vorpy.workbench.project import (
     StructureSource,
     load_project,
     save_project,
+    result_from_json,
+    result_to_json,
 )
 from vorpy.workbench.services.result_directory import load_result_directory
 from vorpy.workbench.services.structure_loader import load_pdb
@@ -704,15 +707,26 @@ class MainWindow(QMainWindow):
                 )
             self.project = project
             self.project_file = project_file
+            if project.backend_settings:
+                allowed = set(VorPySolveSettings.__dataclass_fields__)
+                settings = {key: value for key, value in project.backend_settings.items() if key in allowed}
+                self.backend.settings = VorPySolveSettings(**settings)
             self._loading_project = True
             if project.structure is not None:
                 self.load_path(project.structure.source_path)
+                if project.result_state is not None:
+                    restored_result = result_from_json(project.result_state)
+                    self._loaded_results[project.structure.source_path] = restored_result
+                    self.source = project.structure.source_path
+                    self._display_result(restored_result)
                 self._restore_project_groups()
                 self._interfaces = {
                     interface.name: (interface.group_a, interface.group_b)
                     for interface in project.interfaces
                 }
                 self._refresh_groups_panel()
+                self._refresh_groups_panel()
+                self._restore_view_state(project.view_state)
             else:
                 self.source = None
                 self.current_result = None
@@ -798,6 +812,75 @@ class MainWindow(QMainWindow):
                     group_b=group_b,
                 )
             )
+        self.project.result_state = result_to_json(result) if result is not None else None
+        self.project.view_state = self._view_state_to_json()
+        self.project.backend_settings = asdict(self.backend.settings)
+
+    def _view_state_to_json(self) -> dict:
+        mode = "residue"
+        for action, value in ((
+            (self.select_atom_action, "atom"),
+            (self.select_residue_action, "residue"),
+            (self.select_chain_action, "chain"),
+            (self.select_molecule_action, "molecule"),
+        )):
+            if action.isChecked():
+                mode = value
+                break
+        return {
+            "show_cartoon": self.show_cartoon.isChecked(),
+            "show_spheres": self.show_spheres.isChecked(),
+            "show_sticks": self.show_sticks.isChecked(),
+            "show_waters": self.show_waters.isChecked(),
+            "water_style": self.water_style.currentData(),
+            "show_ions": self.show_ions.isChecked(),
+            "molecule_opacity": self.molecule_opacity.value(),
+            "water_opacity": self.water_opacity.value(),
+            "surface_opacity": self.surface_opacity.value(),
+            "surface_color_scheme": self.surface_color_scheme.currentData(),
+            "selection_mode": mode,
+            "running_selection": sorted(self._running_selection),
+            "depth_clip_fraction": getattr(self.viewer, "_depth_clip_fraction", 0.0),
+        }
+
+    def _restore_view_state(self, state: dict) -> None:
+        if not state:
+            return
+        for widget, key in ((
+            (self.show_cartoon, "show_cartoon"),
+            (self.show_spheres, "show_spheres"),
+            (self.show_sticks, "show_sticks"),
+            (self.show_waters, "show_waters"),
+            (self.show_ions, "show_ions"),
+        )):
+            if key in state:
+                widget.setChecked(bool(state[key]))
+        if state.get("water_style") is not None:
+            index = self.water_style.findData(state["water_style"])
+            if index >= 0:
+                self.water_style.setCurrentIndex(index)
+        for widget, key in ((
+            (self.molecule_opacity, "molecule_opacity"),
+            (self.water_opacity, "water_opacity"),
+            (self.surface_opacity, "surface_opacity"),
+        )):
+            if key in state:
+                widget.setValue(int(state[key]))
+        index = self.surface_color_scheme.findData(
+            state.get("surface_color_scheme", "solid")
+        )
+        if index >= 0:
+            self.surface_color_scheme.setCurrentIndex(index)
+        actions = {
+            "atom": self.select_atom_action,
+            "residue": self.select_residue_action,
+            "chain": self.select_chain_action,
+            "molecule": self.select_molecule_action,
+        }
+        actions.get(state.get("selection_mode", "residue"), self.select_residue_action).setChecked(True)
+        self._running_selection = {int(index) for index in state.get("running_selection", [])}
+        self._update_running_selection()
+        self.viewer.set_depth_clipping_fraction(float(state.get("depth_clip_fraction", 0.0)))
 
     def _restore_project_groups(self) -> None:
         result = self.current_result

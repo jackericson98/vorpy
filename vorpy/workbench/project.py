@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import numpy as np
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from vorpy.workbench.domain import Atom
+from vorpy.workbench.domain import AnalysisResult, Atom, Bond, GeometryLayer
 
 PROJECT_SCHEMA_VERSION = 1
 PROJECT_SUFFIX = ".vpyworkbench.json"
@@ -90,6 +91,9 @@ class Project:
     structure: StructureSource | None = None
     groups: list[GroupDefinition] = field(default_factory=list)
     interfaces: list[InterfaceDefinition] = field(default_factory=list)
+    result_state: dict | None = None
+    view_state: dict = field(default_factory=dict)
+    backend_settings: dict = field(default_factory=dict)
 
 
 def fingerprint_path(path: Path) -> str:
@@ -135,6 +139,9 @@ def save_project(project: Project, destination: Path) -> None:
                 }
                 for interface in project.interfaces
             ],
+            "result_state": project.result_state,
+            "view_state": project.view_state,
+            "backend_settings": project.backend_settings,
         },
     }
     temporary = destination.with_name(f".{destination.name}.tmp")
@@ -192,6 +199,9 @@ def load_project(source: Path) -> Project:
         structure=structure,
         groups=groups,
         interfaces=interfaces,
+        result_state=data.get("result_state"),
+        view_state=data.get("view_state", {}),
+        backend_settings=data.get("backend_settings", {}),
     )
 
 
@@ -211,3 +221,90 @@ def _structure_to_json(
         "source_path": stored_path,
         "fingerprint": structure.fingerprint,
     }
+
+
+def result_to_json(result: AnalysisResult) -> dict:
+    """Serialize a solved result, including all mesh and scalar arrays."""
+    return {
+        "source": str(result.source) if result.source is not None else None,
+        "name": result.name,
+        "atoms": [asdict(atom) for atom in result.atoms],
+        "bonds": [asdict(bond) for bond in result.bonds],
+        "layers": [
+            {
+                "name": layer.name,
+                "kind": layer.kind,
+                "points": layer.points.tolist(),
+                "lines": layer.lines.tolist() if layer.lines is not None else None,
+                "faces": layer.faces.tolist() if layer.faces is not None else None,
+                "source_path": str(layer.source_path) if layer.source_path else None,
+                "color": layer.color,
+                "opacity": layer.opacity,
+                "visible": layer.visible,
+                "cell_scalars": {
+                    key: values.tolist() for key, values in layer.cell_scalars.items()
+                },
+                "color_scheme": layer.color_scheme,
+            }
+            for layer in result.layers
+        ],
+        "complete_cells": result.complete_cells,
+        "surface_count": result.surface_count,
+        "elapsed_seconds": result.elapsed_seconds,
+    }
+
+
+def result_from_json(data: dict) -> AnalysisResult:
+    layers = []
+    for item in data.get("layers", []):
+        source_path = item.get("source_path")
+        layers.append(
+            GeometryLayer(
+                name=item["name"],
+                kind=item["kind"],
+                points=np.asarray(item.get("points", []), dtype=float),
+                lines=(
+                    np.asarray(item["lines"], dtype=np.int64)
+                    if item.get("lines") is not None
+                    else None
+                ),
+                faces=(
+                    np.asarray(item["faces"], dtype=np.int64)
+                    if item.get("faces") is not None
+                    else None
+                ),
+                source_path=Path(source_path) if source_path else None,
+                color=item.get("color", "#55a9d9"),
+                opacity=float(item.get("opacity", 1.0)),
+                visible=bool(item.get("visible", True)),
+                cell_scalars={
+                    key: np.asarray(values, dtype=float)
+                    for key, values in item.get("cell_scalars", {}).items()
+                },
+                color_scheme=item.get("color_scheme", "solid"),
+            )
+        )
+    atoms = [
+        Atom(
+            index=int(item["index"]),
+            serial=int(item["serial"]),
+            name=item["name"],
+            element=item["element"],
+            position=tuple(item["position"]),
+            residue_name=item.get("residue_name", ""),
+            residue_sequence=item.get("residue_sequence", ""),
+            chain=item.get("chain", ""),
+            radius=float(item.get("radius", 0.35)),
+        )
+        for item in data.get("atoms", [])
+    ]
+    return AnalysisResult(
+        source=Path(data["source"]) if data.get("source") else None,
+        name=data["name"],
+        atoms=atoms,
+        bonds=[Bond(int(item["atom_a"]), int(item["atom_b"])) for item in data.get("bonds", [])],
+        layers=layers,
+        complete_cells=int(data.get("complete_cells", 0)),
+        surface_count=int(data.get("surface_count", 0)),
+        elapsed_seconds=float(data.get("elapsed_seconds", 0.0)),
+    )

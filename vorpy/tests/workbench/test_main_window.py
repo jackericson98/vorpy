@@ -86,6 +86,9 @@ class ViewerStub(QWidget):
     def reset_depth_clipping(self):
         self.calls.append(("reset-depth",))
 
+    def set_depth_clipping_fraction(self, fraction):
+        self.calls.append(("depth-clipping", fraction))
+
     def save_screenshot(self, filename, scale=1):
         self.calls.append(("screenshot", filename, scale))
 

@@ -620,6 +620,10 @@ class MolecularView(QWidget):
         if render:
             self.plotter.render()
 
+    def set_depth_clipping_fraction(self, fraction: float) -> None:
+        self._depth_clip_fraction = float(np.clip(fraction, 0.0, 0.98))
+        self._apply_depth_clipping()
+
     def reset_depth_clipping(self, render: bool = True) -> None:
         self._depth_clip_fraction = 0.0
         for actor in self._rendered_actors():
