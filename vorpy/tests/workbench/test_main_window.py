@@ -215,7 +215,7 @@ def test_result_and_selection_populate_inspector(monkeypatch):
     assert ("group-selection", (0, 1)) in window.viewer.calls
 
 
-def test_shift_selection_adds_and_normal_selection_replaces(monkeypatch):
+def test_shift_selection_toggles_and_normal_selection_replaces(monkeypatch):
     window = make_window(monkeypatch)
     result = sample_result()
     window._display_result(result)
@@ -225,6 +225,14 @@ def test_shift_selection_adds_and_normal_selection_replaces(monkeypatch):
     assert window._running_selection == {0, 1}
     assert window.selection_count.text() == "2"
     assert window.selection_group.title() == "Selected atoms"
+
+    window._show_selected_atom(result.atoms[1], additive=True)
+    assert window._running_selection == {0}
+    assert window.selection_count.text() == "1"
+    assert window.statusBar().currentMessage().startswith("Removed CA")
+
+    window._show_selected_atom(result.atoms[1], additive=True)
+    assert window._running_selection == {0, 1}
 
     window._show_selected_atom(result.atoms[0])
     assert window._running_selection == {0}
