@@ -25,6 +25,8 @@ def test_network_geometry_is_converted_to_viewer_layers():
         surfs=pd.DataFrame({
             "points": [np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]])],
             "tris": [np.array([[0, 1, 2]])],
+            "mean_tri_curvs": [np.array([0.25])],
+            "gauss_tri_curvs": [np.array([0.125])],
         }),
     )
 
@@ -36,6 +38,7 @@ def test_network_geometry_is_converted_to_viewer_layers():
     assert layers[1].points.shape == (2, 3)
     assert layers[2].faces.tolist() == [[0, 1, 2]]
     assert not layers[2].visible
+    assert layers[2].cell_scalars["surface_energy"].tolist() == [0.125]
     assert set(layers[2].cell_scalars) == {"gaussian_curvature", "mean_curvature", "surface_energy", "distance", "inside_outside"}
 
 

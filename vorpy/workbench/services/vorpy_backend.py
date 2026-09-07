@@ -206,8 +206,12 @@ def _surface_geometry(
                 )
             scalar_values[scheme].extend(values)
 
-        energy = float(surface.get("surf_energy", 0.0) or 0.0)
-        scalar_values["surface_energy"].extend(np.full(face_count, energy))
+        mean_values = np.asarray(
+            scalar_values["mean_curvature"][-face_count:], dtype=float
+        )
+        # VorPy's bending-energy density is 2H². The stored surf_energy is
+        # integrated over a whole surface and would paint every face identically.
+        scalar_values["surface_energy"].extend(2.0 * np.square(mean_values))
 
         center = np.asarray(surface.get("loc", surface_points.mean(axis=0)), dtype=float)
         point_distances = np.linalg.norm(surface_points - center, axis=1)

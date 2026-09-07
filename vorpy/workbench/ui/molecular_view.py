@@ -431,8 +431,19 @@ class MolecularView(QWidget):
                 if layer.color_scheme in {
                     "gaussian_curvature", "mean_curvature"
                 }:
-                    limit = float(np.percentile(np.abs(scalar_values), 98))
-                    mesh_options["clim"] = (-limit or -1.0, limit or 1.0)
+                    low, high = np.percentile(scalar_values, (2, 98))
+                    if low < 0.0 < high:
+                        limit = max(abs(float(low)), abs(float(high)))
+                        mesh_options["clim"] = (-limit, limit)
+                    else:
+                        # A zero-centered diverging map turns a one-signed
+                        # distribution almost entirely white. Use its actual
+                        # robust range so meaningful variation remains visible.
+                        if np.isclose(low, high):
+                            padding = max(abs(float(low)) * 0.01, 1e-9)
+                            low, high = low - padding, high + padding
+                        mesh_options["cmap"] = "turbo"
+                        mesh_options["clim"] = (float(low), float(high))
                 elif layer.color_scheme == "inside_outside":
                     mesh_options["clim"] = (0.0, 1.0)
                 else:
