@@ -20,10 +20,10 @@ class PlotterStub:
 
 
 class ViewerStub(QWidget):
-    selected_atom = Signal(object)
-    selected_residue = Signal(object)
-    selected_chain = Signal(object)
-    selected_molecule = Signal(object)
+    selected_atom = Signal(object, bool)
+    selected_residue = Signal(object, bool)
+    selected_chain = Signal(object, bool)
+    selected_molecule = Signal(object, bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -213,6 +213,22 @@ def test_result_and_selection_populate_inspector(monkeypatch):
     assert window.selection_count.text() == "2"
     assert window._running_selection == {0, 1}
     assert ("group-selection", (0, 1)) in window.viewer.calls
+
+
+def test_shift_selection_adds_and_normal_selection_replaces(monkeypatch):
+    window = make_window(monkeypatch)
+    result = sample_result()
+    window._display_result(result)
+
+    window._show_selected_atom(result.atoms[0])
+    window._show_selected_atom(result.atoms[1], additive=True)
+    assert window._running_selection == {0, 1}
+    assert window.selection_count.text() == "2"
+    assert window.selection_group.title() == "Selected atoms"
+
+    window._show_selected_atom(result.atoms[0])
+    assert window._running_selection == {0}
+    assert window.selection_count.text() == "1"
 
 
 def test_ion_classification_uses_residue_identity():

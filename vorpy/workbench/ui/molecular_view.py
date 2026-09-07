@@ -74,10 +74,10 @@ CARTOON_COLORS = ("#6f7ee8", "#39a88e", "#d27a43", "#9c68cf", "#cf5f7b")
 
 
 class MolecularView(QWidget):
-    selected_atom = Signal(object)
-    selected_residue = Signal(object)
-    selected_chain = Signal(object)
-    selected_molecule = Signal(object)
+    selected_atom = Signal(object, bool)
+    selected_residue = Signal(object, bool)
+    selected_chain = Signal(object, bool)
+    selected_molecule = Signal(object, bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -103,6 +103,7 @@ class MolecularView(QWidget):
         self._bonds_visible = False
         self._press_position: tuple[float, float] | None = None
         self._selection_dragged = False
+        self._selection_additive = False
         self._pending_pick = None
 
     def clear_result(self) -> None:
@@ -386,6 +387,8 @@ class MolecularView(QWidget):
     def _apply_pending_pick(self) -> None:
         point = self._pending_pick
         self._pending_pick = None
+        additive = self._selection_additive
+        self._selection_additive = False
         if (
             self._result is None
             or self._selection_mode is None
@@ -422,10 +425,10 @@ class MolecularView(QWidget):
             signal = self.selected_molecule
         else:
             self._highlight_atoms([atom], "selected-atom")
-            self.selected_atom.emit(atom)
+            self.selected_atom.emit(atom, additive)
             return
         self._highlight_atoms(selected_atoms, f"selected-{self._selection_mode}")
-        signal.emit(selected_atoms)
+        signal.emit(selected_atoms, additive)
 
     def eventFilter(self, watched, event) -> bool:
         if watched is self.plotter.interactor and self._selection_mode is not None:
@@ -436,6 +439,9 @@ class MolecularView(QWidget):
                 position = event.position()
                 self._press_position = (position.x(), position.y())
                 self._selection_dragged = False
+                self._selection_additive = bool(
+                    event.modifiers() & Qt.KeyboardModifier.ShiftModifier
+                )
                 self._pending_pick = None
             elif (
                 event.type() == QEvent.Type.MouseMove

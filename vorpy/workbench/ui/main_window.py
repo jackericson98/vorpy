@@ -1366,11 +1366,18 @@ class MainWindow(QMainWindow):
         if color.isValid():
             self.viewer.set_layer_color(layer_name, color.name())
 
-    def _show_selected_atom(self, atom: Atom) -> None:
-        self._running_selection = {atom.index}
+    def _apply_picked_atoms(self, atoms: list[Atom], additive: bool) -> None:
+        indices = {atom.index for atom in atoms}
+        if additive:
+            self._running_selection.update(indices)
+        else:
+            self._running_selection = indices
         self._update_running_selection()
         self._populate_structure_browser()
-        self.selection_group.setTitle("Selected atom")
+
+    def _show_selected_atom(self, atom: Atom, additive: bool = False) -> None:
+        self._apply_picked_atoms([atom], additive)
+        self.selection_group.setTitle("Selected atoms" if additive else "Selected atom")
         self.atom_name.setText(f"{atom.name} (#{atom.serial})")
         self.atom_element.setText(atom.element)
         self.atom_residue.setText(
@@ -1378,21 +1385,25 @@ class MainWindow(QMainWindow):
         )
         self.atom_chain.setText(atom.chain or "—")
         self.atom_position.setText(", ".join(f"{value:.3f}" for value in atom.position))
-        self.selection_count.setText("1")
+        self.selection_count.setText(str(len(self._running_selection)))
         self.statusBar().showMessage(
-            f"Selected {atom.name}, {atom.residue_name} {atom.residue_sequence}"
+            f"{'Added' if additive else 'Selected'} {atom.name}, "
+            f"{atom.residue_name} {atom.residue_sequence} "
+            f"({len(self._running_selection)} atoms total)"
         )
 
-    def _show_selected_residue(self, atoms: list[Atom]) -> None:
+    def _show_selected_residue(
+        self, atoms: list[Atom], additive: bool = False
+    ) -> None:
         if not atoms:
             return
         # Mouse residue picks and Structure-browser residue picks share the
         # same temporary selection, highlight, and group-creation path.
-        self._running_selection = {atom.index for atom in atoms}
-        self._update_running_selection()
-        self._populate_structure_browser()
+        self._apply_picked_atoms(atoms, additive)
         atom = atoms[0]
-        self.selection_group.setTitle("Selected residue")
+        self.selection_group.setTitle(
+            "Selected residues" if additive else "Selected residue"
+        )
         self.atom_name.setText("Multiple")
         self.atom_element.setText("—")
         self.atom_residue.setText(
@@ -1400,19 +1411,24 @@ class MainWindow(QMainWindow):
         )
         self.atom_chain.setText(atom.chain or "—")
         self.atom_position.setText("—")
-        self.selection_count.setText(str(len(atoms)))
+        self.selection_count.setText(str(len(self._running_selection)))
         self.statusBar().showMessage(
-            f"Selected {atom.residue_name} {atom.residue_sequence}, chain "
-            f"{atom.chain or '—'} ({len(atoms)} atoms)"
+            f"{'Added' if additive else 'Selected'} {atom.residue_name} "
+            f"{atom.residue_sequence}, chain {atom.chain or '—'} "
+            f"({len(self._running_selection)} atoms total)"
         )
 
-    def _show_selected_chain(self, atoms: list[Atom]) -> None:
+    def _show_selected_chain(self, atoms: list[Atom], additive: bool = False) -> None:
         if not atoms:
             return
         chain = atoms[0].chain or "(blank)"
-        self._show_selected_collection(atoms, "chain", f"Chain {chain}", chain)
+        self._show_selected_collection(
+            atoms, "chain", f"Chain {chain}", chain, additive
+        )
 
-    def _show_selected_molecule(self, atoms: list[Atom]) -> None:
+    def _show_selected_molecule(
+        self, atoms: list[Atom], additive: bool = False
+    ) -> None:
         if not atoms:
             return
         residues = {
@@ -1423,22 +1439,31 @@ class MainWindow(QMainWindow):
             "molecule",
             f"Molecule ({len(residues)} residues)",
             atoms[0].chain or "—",
+            additive,
         )
 
     def _show_selected_collection(
-        self, atoms: list[Atom], kind: str, description: str, chain: str
+        self,
+        atoms: list[Atom],
+        kind: str,
+        description: str,
+        chain: str,
+        additive: bool = False,
     ) -> None:
-        self._running_selection = {atom.index for atom in atoms}
-        self._update_running_selection()
-        self._populate_structure_browser()
-        self.selection_group.setTitle(f"Selected {kind}")
+        self._apply_picked_atoms(atoms, additive)
+        self.selection_group.setTitle(
+            f"Selected {kind}s" if additive else f"Selected {kind}"
+        )
         self.atom_name.setText("Multiple")
         self.atom_element.setText("—")
         self.atom_residue.setText(description)
         self.atom_chain.setText(chain)
         self.atom_position.setText("—")
-        self.selection_count.setText(str(len(atoms)))
-        self.statusBar().showMessage(f"Selected {description} ({len(atoms)} atoms)")
+        self.selection_count.setText(str(len(self._running_selection)))
+        self.statusBar().showMessage(
+            f"{'Added' if additive else 'Selected'} {description} "
+            f"({len(self._running_selection)} atoms total)"
+        )
 
     def _set_selection_mode(self, mode: str | None) -> None:
         active = self.selection_actions.checkedAction()
@@ -1451,7 +1476,7 @@ class MainWindow(QMainWindow):
         if mode is not None:
             self.inspector.setCurrentIndex(1)
             self.statusBar().showMessage(
-                f"{mode.title()} selection active — each click replaces the selection"
+                f"{mode.title()} selection active — Shift-click adds to the selection"
             )
 
     def _show_progress(self, label: str, value: int) -> None:
