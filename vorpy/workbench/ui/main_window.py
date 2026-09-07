@@ -138,26 +138,32 @@ _RESIDUE_NAMES = {
 
 class ResidueDiagram(QWidget):
     def __init__(self, parent=None):
-        super().__init__(parent); self.atoms: list[str] = []; self.setMinimumSize(280, 250)
+        super().__init__(parent); self.atoms: list[str] = []; self.residue = ""; self.setMinimumSize(280, 250)
     def set_atoms(self, residue: str, atoms: list[str]) -> None:
         self.residue, self.atoms = residue, atoms; self.update()
+    def _topology(self):
+        if not self.atoms: return [], []
+        points = {}; edges = []
+        if self.residue in {"A", "C", "G", "T", "U"}:
+            coords = [("P", 0.12, .50), ("C5'", .30, .50), ("C4'", .46, .50), ("O4'", .60, .38), ("C3'", .74, .38), ("O3'", .88, .50), ("C2'", .60, .62), ("C1'", .74, .62), ("N9" if self.residue in {"A", "G"} else "N1", .90, .72)]
+            points.update({name: (x, y) for name, x, y in coords}); edges += list(zip([c[0] for c in coords], [c[0] for c in coords][1:]))
+            points.update({"OP1": (.12, .25), "OP2": (.12, .75)}); edges += [("P", "OP1"), ("P", "OP2")]
+        else:
+            backbone = ["N", "CA", "C", "O"]; points.update({name: (x, .48) for name, x in zip(backbone, (.12, .34, .56, .78))}); edges += list(zip(backbone, backbone[1:]))
+            side = self.atoms[self.atoms.index("CB"):] if "CB" in self.atoms else []
+            for i, name in enumerate(side):
+                points[name] = (.34 + .16 * (i % 4), .70 + .16 * (i // 4));
+                if i == 0: edges.append(("CA", name))
+                elif side[i - 1] != name: edges.append((side[i - 1], name))
+        return [(name, points[name]) for name in self.atoms if name in points], [(a, b) for a, b in edges if a in points and b in points]
     def paintEvent(self, event) -> None:
-        painter = QPainter(self); painter.setRenderHint(QPainter.Antialiasing)
-        painter.setPen(QPen(QColor("#c7d2df"), 2)); painter.setBrush(QBrush(QColor("#263646")))
-        painter.drawText(10, 20, f"{_RESIDUE_NAMES.get(self.residue, self.residue)} ({self.residue})")
-        if not self.atoms: return
-        center = self.rect().center(); radius = min(self.width(), self.height()) * 0.34
-        points = []
-        for index, name in enumerate(self.atoms):
-            import math
-            angle = 2 * math.pi * index / len(self.atoms) - math.pi / 2
-            points.append((center.x() + radius * math.cos(angle), center.y() + radius * math.sin(angle)))
+        painter = QPainter(self); painter.setRenderHint(QPainter.Antialiasing); painter.setPen(QPen(QColor("#c7d2df"), 2)); painter.drawText(10, 20, f"{_RESIDUE_NAMES.get(self.residue, self.residue)} ({self.residue})")
+        nodes, edges = self._topology(); lookup = dict(nodes); scale_x, scale_y = self.width() - 30, self.height() - 55
+        def point(name): return (15 + lookup[name][0] * scale_x, 35 + lookup[name][1] * scale_y)
         painter.setPen(QPen(QColor("#71849a"), 2))
-        for point_a, point_b in zip(points, points[1:]): painter.drawLine(int(point_a[0]), int(point_a[1]), int(point_b[0]), int(point_b[1]))
-        for name, (x, y) in zip(self.atoms, points):
-            painter.setBrush(QBrush(QColor("#4f9fcf"))); painter.setPen(QPen(QColor("#dce8f2"), 1)); painter.drawEllipse(int(x - 20), int(y - 14), 40, 28)
-            painter.drawText(int(x - 18), int(y + 5), 36, 18, Qt.AlignCenter, name)
-
+        for a, b in edges: painter.drawLine(*map(int, (*point(a), *point(b))))
+        for name, _ in nodes:
+            x, y = point(name); painter.setBrush(QBrush(QColor("#4f9fcf"))); painter.setPen(QPen(QColor("#dce8f2"), 1)); painter.drawEllipse(int(x - 19), int(y - 13), 38, 26); painter.drawText(int(x - 17), int(y + 5), 34, 16, Qt.AlignCenter, name)
 
 
 class AtomicRadiiDialog(QDialog):
@@ -165,7 +171,7 @@ class AtomicRadiiDialog(QDialog):
     def __init__(self, radii: dict[str, float], parent=None):
         super().__init__(parent)
         self.setWindowTitle("Atomic radii")
-        self.setMinimumSize(1050, 620)
+        self.setMinimumSize(1150, 560)
         self._radii = {key.upper(): float(value) for key, value in radii.items()}
         self._fields: dict[str, QDoubleSpinBox] = {}
         self._baseline: dict[str, float] = {}
@@ -193,13 +199,13 @@ class AtomicRadiiDialog(QDialog):
         legend.setWordWrap(True); layout.addWidget(legend)
         grid = QGridLayout(); grid.setSpacing(4)
         for symbol, (row, column) in _PERIODIC_TABLE.items():
-            card = QFrame(); card.setFixedSize(82, 106); card.setStyleSheet(f"QFrame {{ background: {_PERIODIC_COLORS[_element_category(symbol)]}; border: 1px solid #71808f; border-radius: 4px; }} QLabel {{ color: #17202a; }}")
-            card_layout = QVBoxLayout(card); card_layout.setContentsMargins(4, 3, 4, 3); card_layout.setSpacing(0)
+            card = QFrame(); card.setFixedSize(62, 92); card.setStyleSheet(f"QFrame {{ background: {_PERIODIC_COLORS[_element_category(symbol)]}; border: none; border-radius: 3px; }} QLabel {{ color: #17202a; }} QDoubleSpinBox {{ border: none; background: transparent; padding: 0; }}")
+            card_layout = QVBoxLayout(card); card_layout.setContentsMargins(2, 2, 2, 2); card_layout.setSpacing(0)
             number = _ELEMENT_NUMBERS[symbol.upper()]; mass = _ELEMENT_MASSES.get(symbol, float(number * 2))
-            top = QLabel(f"{number}    {mass:g}"); top.setStyleSheet("font-size: 8px;"); card_layout.addWidget(top)
-            name = QLabel(_ELEMENT_NAMES.get(symbol, symbol)); name.setStyleSheet("font-size: 8px;"); card_layout.addWidget(name)
-            abbrev = QLabel(symbol); abbrev.setAlignment(Qt.AlignCenter); abbrev.setStyleSheet("font-size: 18px; font-weight: 700;"); card_layout.addWidget(abbrev, 1)
-            field = self._spin(symbol.upper(), self._radii.get(symbol.upper(), 0.36)); field.setFixedHeight(22); card_layout.addWidget(field)
+            top = QLabel(f"{number}  {mass:g}"); top.setAlignment(Qt.AlignCenter); top.setStyleSheet("font-size: 7px;"); card_layout.addWidget(top)
+            name = QLabel(_ELEMENT_NAMES.get(symbol, symbol)); name.setAlignment(Qt.AlignCenter); name.setWordWrap(True); name.setFixedHeight(20); name.setStyleSheet("font-size: 7px;"); card_layout.addWidget(name)
+            abbrev = QLabel(symbol); abbrev.setAlignment(Qt.AlignCenter); abbrev.setStyleSheet("font-size: 16px; font-weight: 700;"); card_layout.addWidget(abbrev, 1)
+            field = self._spin(symbol.upper(), self._radii.get(symbol.upper(), 0.36)); field.setFixedHeight(18); field.setButtonSymbols(QDoubleSpinBox.NoButtons); field.setAlignment(Qt.AlignCenter); card_layout.addWidget(field)
             grid.addWidget(card, row, column); self._fields[symbol.upper()] = field
         layout.addLayout(grid); return panel
 
