@@ -1480,6 +1480,14 @@ class MainWindow(QMainWindow):
 
     def _set_surface_color_scheme(self, _index: int) -> None:
         scheme = self.surface_color_scheme.currentData()
+        surface_layers = self._network_layers("surfaces")
+        shell_layers = self._network_layers("shell_surfaces")
+        if (
+            scheme != "solid"
+            and not any(layer.visible for layer in surface_layers + shell_layers)
+        ):
+            preferred = "shell_surfaces" if shell_layers else "surfaces"
+            self.network_layer_checks[preferred].setChecked(True)
         for key in ("surfaces", "shell_surfaces"):
             for layer in self._network_layers(key):
                 layer.color_scheme = scheme

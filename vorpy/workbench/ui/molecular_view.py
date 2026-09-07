@@ -390,16 +390,36 @@ class MolecularView(QWidget):
             }
             scalar_values = layer.cell_scalars.get(layer.color_scheme)
             if layer.faces is not None and scalar_values is not None:
+                scalar_values = np.asarray(scalar_values, dtype=float).reshape(-1)
+                if len(scalar_values) != mesh.n_cells:
+                    raise ValueError(
+                        f"{layer.color_scheme} has {len(scalar_values)} values "
+                        f"for {mesh.n_cells} surface triangles"
+                    )
+                finite = scalar_values[np.isfinite(scalar_values)]
+                replacement = float(np.median(finite)) if len(finite) else 0.0
+                scalar_values = np.nan_to_num(
+                    scalar_values,
+                    nan=replacement,
+                    posinf=replacement,
+                    neginf=replacement,
+                )
                 mesh.cell_data["surface_values"] = scalar_values
                 mesh_options.update(
                     scalars="surface_values",
+                    preference="cell",
+                    interpolate_before_map=False,
+                    lighting=False,
+                    show_edges=True,
+                    edge_color="#263440",
+                    line_width=0.5,
                     cmap=(
-                        ["#2c7bb6", "#f7f7f7", "#d7191c"]
+                        ["#2166ac", "#f7f7f7", "#b2182b"]
                         if layer.color_scheme in {
                             "gaussian_curvature", "mean_curvature"
                         }
                         else (
-                            ["#3b4cc0", "#b40426"]
+                            ["#2166ac", "#b2182b"]
                             if layer.color_scheme == "inside_outside"
                             else "viridis"
                         )
@@ -411,11 +431,16 @@ class MolecularView(QWidget):
                 if layer.color_scheme in {
                     "gaussian_curvature", "mean_curvature"
                 }:
-                    finite = scalar_values[np.isfinite(scalar_values)]
-                    limit = float(np.max(np.abs(finite))) if len(finite) else 1.0
+                    limit = float(np.percentile(np.abs(scalar_values), 98))
                     mesh_options["clim"] = (-limit or -1.0, limit or 1.0)
                 elif layer.color_scheme == "inside_outside":
                     mesh_options["clim"] = (0.0, 1.0)
+                else:
+                    low, high = np.percentile(scalar_values, (2, 98))
+                    if np.isclose(low, high):
+                        padding = max(abs(float(low)) * 0.01, 1e-9)
+                        low, high = low - padding, high + padding
+                    mesh_options["clim"] = (float(low), float(high))
             else:
                 mesh_options["color"] = layer.color
             actor = self.plotter.add_mesh(mesh, **mesh_options)
