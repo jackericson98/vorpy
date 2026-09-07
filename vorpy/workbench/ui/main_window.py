@@ -6,8 +6,8 @@ from pathlib import Path
 from dataclasses import asdict, replace
 from uuid import uuid4
 
-from PySide6.QtCore import Qt, QThread
-from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QColor, QBrush, QPainter, QPen
+from PySide6.QtCore import QPoint, Qt, QThread
+from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QColor, QBrush, QPainter, QPen, QPolygon
 from PySide6.QtWidgets import (
     QCheckBox,
     QColorDialog,
@@ -137,33 +137,32 @@ _RESIDUE_NAMES = {
 }
 
 class ResidueDiagram(QWidget):
+    """Clean schematic of a residue's standard biochemical connectivity."""
     def __init__(self, parent=None):
-        super().__init__(parent); self.atoms: list[str] = []; self.residue = ""; self.setMinimumSize(280, 250)
+        super().__init__(parent); self.residue = ""; self.setMinimumSize(280, 250)
     def set_atoms(self, residue: str, atoms: list[str]) -> None:
-        self.residue, self.atoms = residue, atoms; self.update()
-    def _topology(self):
-        if not self.atoms: return [], []
-        points = {}; edges = []
-        if self.residue in {"A", "C", "G", "T", "U"}:
-            coords = [("P", 0.12, .50), ("C5'", .30, .50), ("C4'", .46, .50), ("O4'", .60, .38), ("C3'", .74, .38), ("O3'", .88, .50), ("C2'", .60, .62), ("C1'", .74, .62), ("N9" if self.residue in {"A", "G"} else "N1", .90, .72)]
-            points.update({name: (x, y) for name, x, y in coords}); edges += list(zip([c[0] for c in coords], [c[0] for c in coords][1:]))
-            points.update({"OP1": (.12, .25), "OP2": (.12, .75)}); edges += [("P", "OP1"), ("P", "OP2")]
-        else:
-            backbone = ["N", "CA", "C", "O"]; points.update({name: (x, .48) for name, x in zip(backbone, (.12, .34, .56, .78))}); edges += list(zip(backbone, backbone[1:]))
-            side = self.atoms[self.atoms.index("CB"):] if "CB" in self.atoms else []
-            for i, name in enumerate(side):
-                points[name] = (.34 + .16 * (i % 4), .70 + .16 * (i // 4));
-                if i == 0: edges.append(("CA", name))
-                elif side[i - 1] != name: edges.append((side[i - 1], name))
-        return [(name, points[name]) for name in self.atoms if name in points], [(a, b) for a, b in edges if a in points and b in points]
+        self.residue = residue; self.update()
     def paintEvent(self, event) -> None:
-        painter = QPainter(self); painter.setRenderHint(QPainter.Antialiasing); painter.setPen(QPen(QColor("#c7d2df"), 2)); painter.drawText(10, 20, f"{_RESIDUE_NAMES.get(self.residue, self.residue)} ({self.residue})")
-        nodes, edges = self._topology(); lookup = dict(nodes); scale_x, scale_y = self.width() - 30, self.height() - 55
-        def point(name): return (15 + lookup[name][0] * scale_x, 35 + lookup[name][1] * scale_y)
-        painter.setPen(QPen(QColor("#71849a"), 2))
-        for a, b in edges: painter.drawLine(*map(int, (*point(a), *point(b))))
-        for name, _ in nodes:
-            x, y = point(name); painter.setBrush(QBrush(QColor("#4f9fcf"))); painter.setPen(QPen(QColor("#dce8f2"), 1)); painter.drawEllipse(int(x - 19), int(y - 13), 38, 26); painter.drawText(int(x - 17), int(y + 5), 34, 16, Qt.AlignCenter, name)
+        painter = QPainter(self); painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(QPen(QColor("#c7d2df"), 2)); painter.drawText(10, 22, f"{_RESIDUE_NAMES.get(self.residue, self.residue)} ({self.residue})")
+        def node(x, y, text, color="#4f9fcf", shape="circle"):
+            painter.setBrush(QBrush(QColor(color))); painter.setPen(QPen(QColor("#dce8f2"), 1))
+            if shape == "pentagon":
+                points = [QPoint(x, y-25), QPoint(x+24, y-8), QPoint(x+15, y+22), QPoint(x-15, y+22), QPoint(x-24, y-8)]; painter.drawPolygon(QPolygon(points))
+            elif shape == "rect": painter.drawRoundedRect(x-36, y-18, 72, 36, 8, 8)
+            else: painter.drawEllipse(x-25, y-25, 50, 50)
+            painter.drawText(x-34, y-7, 68, 20, Qt.AlignCenter, text)
+        painter.setPen(QPen(QColor("#71849a"), 3))
+        if self.residue in {"A", "C", "G", "T", "U"}:
+            # Standard nucleotide schematic: phosphate—pentose sugar—nitrogenous base.
+            painter.drawLine(58, 125, 135, 125); painter.drawLine(185, 125, 235, 125)
+            node(50, 125, "P", "#e5b94f"); node(160, 125, "sugar", "#6fc5a8", "pentagon"); node(255, 125, "base", "#d9778a", "rect")
+            painter.setPen(QPen(QColor("#a9b7c5"), 1)); painter.drawText(28, 195, "phosphate"); painter.drawText(140, 195, "ribose / deoxyribose"); painter.drawText(235, 195, self.residue)
+        else:
+            # Peptide residue schematic: N—Cα—C(=O), with the side-chain R group.
+            painter.drawLine(45, 125, 105, 125); painter.drawLine(135, 125, 195, 125); painter.drawLine(225, 125, 275, 125); painter.drawLine(210, 110, 245, 75)
+            node(30, 125, "N"); node(120, 125, "Cα", "#62a9d8"); node(210, 125, "C"); node(295, 125, "O", "#d66d6d"); node(260, 65, "R", "#a88bd8", "rect")
+            painter.setPen(QPen(QColor("#a9b7c5"), 1)); painter.drawText(20, 195, "peptide backbone"); painter.drawText(235, 195, "side chain")
 
 
 class AtomicRadiiDialog(QDialog):
@@ -174,6 +173,7 @@ class AtomicRadiiDialog(QDialog):
         self.setMinimumSize(1150, 560)
         self._radii = {key.upper(): float(value) for key, value in radii.items()}
         self._fields: dict[str, QDoubleSpinBox] = {}
+        self._element_values: dict[str, float] = {}
         self._baseline: dict[str, float] = {}
         self._residue_fields: dict[str, QDoubleSpinBox] = {}
         self._ion_fields: dict[str, QDoubleSpinBox] = {}
@@ -195,19 +195,25 @@ class AtomicRadiiDialog(QDialog):
 
     def _build_defaults_tab(self) -> QWidget:
         panel = QWidget(); layout = QVBoxLayout(panel)
-        legend = QLabel("Periodic-table colors identify element families. Each card shows atomic number, mass, name, symbol, and editable radius.")
-        legend.setWordWrap(True); layout.addWidget(legend)
-        grid = QGridLayout(); grid.setSpacing(4)
+        legend = QLabel("Click an element to edit its display radius. Colors identify periodic-table families."); legend.setWordWrap(True); layout.addWidget(legend)
+        grid = QGridLayout(); grid.setSpacing(3)
         for symbol, (row, column) in _PERIODIC_TABLE.items():
-            card = QFrame(); card.setFixedSize(62, 92); card.setStyleSheet(f"QFrame {{ background: {_PERIODIC_COLORS[_element_category(symbol)]}; border: none; border-radius: 3px; }} QLabel {{ color: #17202a; }} QDoubleSpinBox {{ border: none; background: transparent; padding: 0; }}")
+            card = QFrame(); card.setFixedSize(62, 78); card.setCursor(Qt.PointingHandCursor); card.setStyleSheet(f"QFrame {{ background: {_PERIODIC_COLORS[_element_category(symbol)]}; border: none; border-radius: 3px; }} QLabel {{ color: #17202a; }}")
             card_layout = QVBoxLayout(card); card_layout.setContentsMargins(2, 2, 2, 2); card_layout.setSpacing(0)
             number = _ELEMENT_NUMBERS[symbol.upper()]; mass = _ELEMENT_MASSES.get(symbol, float(number * 2))
             top = QLabel(f"{number}  {mass:g}"); top.setAlignment(Qt.AlignCenter); top.setStyleSheet("font-size: 7px;"); card_layout.addWidget(top)
-            name = QLabel(_ELEMENT_NAMES.get(symbol, symbol)); name.setAlignment(Qt.AlignCenter); name.setWordWrap(True); name.setFixedHeight(20); name.setStyleSheet("font-size: 7px;"); card_layout.addWidget(name)
+            name = QLabel(_ELEMENT_NAMES.get(symbol, symbol)); name.setAlignment(Qt.AlignCenter); name.setWordWrap(True); name.setFixedHeight(19); name.setStyleSheet("font-size: 7px;"); card_layout.addWidget(name)
             abbrev = QLabel(symbol); abbrev.setAlignment(Qt.AlignCenter); abbrev.setStyleSheet("font-size: 16px; font-weight: 700;"); card_layout.addWidget(abbrev, 1)
-            field = self._spin(symbol.upper(), self._radii.get(symbol.upper(), 0.36)); field.setFixedHeight(18); field.setButtonSymbols(QDoubleSpinBox.NoButtons); field.setAlignment(Qt.AlignCenter); card_layout.addWidget(field)
-            grid.addWidget(card, row, column); self._fields[symbol.upper()] = field
+            radius = QLabel(f"{self._radii.get(symbol.upper(), 0.36):.2f} Å"); radius.setAlignment(Qt.AlignCenter); radius.setStyleSheet("font-size: 8px;"); card_layout.addWidget(radius)
+            card.mousePressEvent = lambda event, element=symbol, label=radius: self._edit_element(element, label)
+            grid.addWidget(card, row, column)
         layout.addLayout(grid); return panel
+
+    def _edit_element(self, symbol: str, label: QLabel) -> None:
+        key = symbol.upper(); current = self._element_values.get(key, self._radii.get(key, 0.36))
+        value, accepted = QInputDialog.getDouble(self, f"{_ELEMENT_NAMES.get(symbol, symbol)} radius", "Radius (Å)", current, 0.01, 5.0, 3)
+        if accepted:
+            self._element_values[key] = value; label.setText(f"{value:.2f} Å")
 
     def _build_residue_tab(self) -> QWidget:
         panel = QWidget(); layout = QHBoxLayout(panel)
@@ -233,7 +239,7 @@ class AtomicRadiiDialog(QDialog):
         layout.addWidget(table); return panel
 
     def values(self) -> dict[str, float]:
-        values = {symbol: field.value() for symbol, field in self._fields.items() if abs(field.value() - self._baseline[symbol]) > 1e-9}
+        values = dict(self._element_values)
         values.update({key: field.value() for key, field in {**self._residue_fields, **self._ion_fields}.items() if abs(field.value() - self._baseline[key]) > 1e-9})
         return values
 
