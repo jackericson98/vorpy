@@ -169,19 +169,76 @@ def _merge_atoms(display_atoms: list[Atom], solved_atoms: list[Atom]) -> list[At
     ]
 
 
-def _surface_geometry(surfaces) -> tuple[np.ndarray, np.ndarray]:
+def _surface_geometry(
+    surfaces, balls
+) -> tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]:
     points: list[np.ndarray] = []
     faces: list[np.ndarray] = []
+    scalar_values = {
+        "gaussian_curvature": [],
+        "mean_curvature": [],
+        "surface_energy": [],
+        "distance": [],
+        "inside_outside": [],
+    }
     offset = 0
     for _, surface in surfaces.iterrows():
         surface_points = np.asarray(surface["points"], dtype=float).reshape((-1, 3))
         surface_faces = np.asarray(surface["tris"], dtype=np.int64).reshape((-1, 3))
+        face_count = len(surface_faces)
         points.extend(surface_points)
         faces.extend(surface_faces + offset)
         offset += len(surface_points)
+
+        for scheme, column in (
+            ("gaussian_curvature", "gauss_tri_curvs"),
+            ("mean_curvature", "mean_tri_curvs"),
+        ):
+            values = np.asarray(surface.get(column, []), dtype=float).ravel()
+            if len(values) != face_count:
+                fallback = (
+                    "gauss_curv"
+                    if scheme == "gaussian_curvature"
+                    else "mean_curv"
+                )
+                values = np.full(
+                    face_count, float(surface.get(fallback, 0.0) or 0.0)
+                )
+            scalar_values[scheme].extend(values)
+
+        energy = float(surface.get("surf_energy", 0.0) or 0.0)
+        scalar_values["surface_energy"].extend(np.full(face_count, energy))
+
+        center = np.asarray(surface.get("loc", surface_points.mean(axis=0)), dtype=float)
+        point_distances = np.linalg.norm(surface_points - center, axis=1)
+        scalar_values["distance"].extend(
+            np.max(point_distances[surface_faces], axis=1)
+        )
+
+        inside = np.zeros(len(surface_points), dtype=bool)
+        defining = surface.get("balls", [])
+        if balls is not None and len(defining):
+            matches = balls
+            if "num" in balls:
+                matches = balls.loc[balls["num"] == int(defining[0])]
+            elif int(defining[0]) in balls.index:
+                matches = balls.loc[[int(defining[0])]]
+            if len(matches):
+                atom = matches.iloc[0]
+                inside = (
+                    np.linalg.norm(
+                        surface_points - np.asarray(atom["loc"], dtype=float), axis=1
+                    )
+                    < float(atom["rad"])
+                )
+        scalar_values["inside_outside"].extend(
+            np.all(inside[surface_faces], axis=1).astype(float)
+        )
+
     return (
         np.asarray(points, dtype=float).reshape((-1, 3)),
         np.asarray(faces, dtype=np.int64).reshape((-1, 3)),
+        {key: np.asarray(values, dtype=float) for key, values in scalar_values.items()},
     )
 
 
@@ -256,7 +313,7 @@ def _layers_from_network(
         and "points" in network.surfs
         and "tris" in network.surfs
     ):
-        points, faces = _surface_geometry(network.surfs)
+        points, faces, scalars = _surface_geometry(network.surfs, getattr(network, "balls", None))
         layers.append(
             GeometryLayer(
                 "Voronoi surfaces",
@@ -264,13 +321,16 @@ def _layers_from_network(
                 points=points,
                 faces=faces,
                 color="#4f9fcf",
+                cell_scalars=scalars,
                 opacity=0.45,
                 visible=False,
             )
         )
         shell_surface_rows = network.surfs.iloc[list(shell_surfs)]
         if not shell_surface_rows.empty:
-            points, faces = _surface_geometry(shell_surface_rows)
+            points, faces, scalars = _surface_geometry(
+                shell_surface_rows, getattr(network, "balls", None)
+            )
             layers.append(
                 GeometryLayer(
                     "Voronoi shell surfaces",
@@ -278,6 +338,7 @@ def _layers_from_network(
                     points=points,
                     faces=faces,
                     color="#806df0",
+                    cell_scalars=scalars,
                     opacity=0.45,
                 )
             )

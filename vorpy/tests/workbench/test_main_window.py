@@ -79,6 +79,9 @@ class ViewerStub(QWidget):
     def set_layer_color(self, name, color):
         self.calls.append((f"color:{name}", color))
 
+    def set_layer_color_scheme(self, name, scheme):
+        self.calls.append((f"scheme:{name}", scheme))
+
     def save_screenshot(self, filename, scale=1):
         self.calls.append(("screenshot", filename, scale))
 
@@ -246,10 +249,10 @@ def test_network_controls_manage_categories_color_and_surface_opacity(monkeypatc
     result.layers = [
         GeometryLayer("network edges", "edges", color="#111111"),
         GeometryLayer("network vertices", "vertices", color="#222222"),
-        GeometryLayer("network surfaces", "surfaces", color="#333333", opacity=0.6),
+        GeometryLayer("network surfaces", "surfaces", color="#333333", opacity=0.6, cell_scalars={"mean_curvature": object()}),
         GeometryLayer("shell edges", "edges", color="#444444"),
         GeometryLayer("shell vertices", "vertices", color="#555555"),
-        GeometryLayer("shell surfaces", "surfaces", color="#666666", opacity=0.6),
+        GeometryLayer("shell surfaces", "surfaces", color="#666666", opacity=0.6, cell_scalars={"mean_curvature": object()}),
     ]
 
     window._display_result(result)
@@ -261,6 +264,12 @@ def test_network_controls_manage_categories_color_and_surface_opacity(monkeypatc
     assert all(control.isEnabled() for control in window.network_layer_checks.values())
     assert window.surface_opacity.isEnabled()
     assert window.surface_opacity.value() == 60
+    assert window.surface_color_scheme.isEnabled()
+    window.surface_color_scheme.setCurrentIndex(
+        window.surface_color_scheme.findData("mean_curvature")
+    )
+    assert ("scheme:network surfaces", "mean_curvature") in window.viewer.calls
+    assert ("scheme:shell surfaces", "mean_curvature") in window.viewer.calls
 
     window.network_layer_checks["shell_edges"].setChecked(False)
     assert ("layer:shell edges", False) in window.viewer.calls

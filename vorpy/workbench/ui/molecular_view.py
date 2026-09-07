@@ -356,10 +356,10 @@ class MolecularView(QWidget):
             elif layer.faces is not None:
                 points = np.asarray(layer.points, dtype=float).reshape((-1, 3))
                 faces = np.asarray(layer.faces, dtype=np.int64).reshape((-1, 3))
-                mesh = pv.PolyData(points)
-                mesh.faces = np.column_stack(
+                face_cells = np.column_stack(
                     (np.full(len(faces), 3, dtype=np.int64), faces)
                 ).ravel()
+                mesh = pv.PolyData(points, faces=face_cells)
             elif layer.lines is not None:
                 cells = np.asarray(
                     [[2, a, b] for a, b in layer.lines], dtype=np.int64
@@ -373,13 +373,42 @@ class MolecularView(QWidget):
                 mesh = cloud.glyph(
                     scale="radius", orient=False, geom=pv.Icosahedron(radius=1.0)
                 )
-            actor = self.plotter.add_mesh(
-                mesh,
-                color=layer.color,
-                opacity=layer.opacity,
-                name=f"layer-{layer.name}",
-                show_edges=False,
-            )
+            mesh_options = {
+                "opacity": layer.opacity,
+                "name": f"layer-{layer.name}",
+                "show_edges": False,
+            }
+            scalar_values = layer.cell_scalars.get(layer.color_scheme)
+            if layer.faces is not None and scalar_values is not None:
+                mesh.cell_data["surface_values"] = scalar_values
+                mesh_options.update(
+                    scalars="surface_values",
+                    cmap=(
+                        ["#2c7bb6", "#f7f7f7", "#d7191c"]
+                        if layer.color_scheme in {
+                            "gaussian_curvature", "mean_curvature"
+                        }
+                        else (
+                            ["#3b4cc0", "#b40426"]
+                            if layer.color_scheme == "inside_outside"
+                            else "viridis"
+                        )
+                    ),
+                    scalar_bar_args={
+                        "title": layer.color_scheme.replace("_", " ").title()
+                    },
+                )
+                if layer.color_scheme in {
+                    "gaussian_curvature", "mean_curvature"
+                }:
+                    finite = scalar_values[np.isfinite(scalar_values)]
+                    limit = float(np.max(np.abs(finite))) if len(finite) else 1.0
+                    mesh_options["clim"] = (-limit or -1.0, limit or 1.0)
+                elif layer.color_scheme == "inside_outside":
+                    mesh_options["clim"] = (0.0, 1.0)
+            else:
+                mesh_options["color"] = layer.color
+            actor = self.plotter.add_mesh(mesh, **mesh_options)
             actor.SetVisibility(layer.visible)
             self._actors[layer.name].append(actor)
         except Exception as error:  # noqa: BLE001 - mesh readers expose varied exceptions.
@@ -676,6 +705,16 @@ class MolecularView(QWidget):
             layer.opacity = opacity
         for actor in self._actors.get(name, ()):
             actor.GetProperty().SetOpacity(opacity)
+        self.plotter.render()
+
+    def set_layer_color_scheme(self, name: str, scheme: str) -> None:
+        layer = self._layer_definitions.get(name)
+        if layer is None or layer.kind.lower() != "surfaces":
+            return
+        layer.color_scheme = scheme if scheme in layer.cell_scalars else "solid"
+        self.plotter.remove_actor(f"layer-{name}", render=False)
+        self._actors[name].clear()
+        self._add_layer(layer)
         self.plotter.render()
 
     def set_layer_color(self, name: str, color: str) -> None:

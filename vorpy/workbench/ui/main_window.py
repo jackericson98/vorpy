@@ -596,9 +596,24 @@ class MainWindow(QMainWindow):
 
         surfaces = QGroupBox("Surface appearance")
         surface_form = QFormLayout(surfaces)
+        self.surface_color_scheme = QComboBox()
+        for label, scheme in (
+            ("Solid color", "solid"),
+            ("Gaussian curvature", "gaussian_curvature"),
+            ("Mean curvature", "mean_curvature"),
+            ("Surface energy", "surface_energy"),
+            ("Distance to center", "distance"),
+            ("Inside / outside", "inside_outside"),
+        ):
+            self.surface_color_scheme.addItem(label, scheme)
+        self.surface_color_scheme.currentIndexChanged.connect(
+            self._set_surface_color_scheme
+        )
+        surface_form.addRow("Coloring", self.surface_color_scheme)
         self.surface_opacity = QSlider(Qt.Horizontal)
         self.surface_opacity.setRange(0, 100)
         self.surface_opacity.setValue(45)
+        self.surface_color_scheme.setEnabled(False)
         self.surface_opacity.setEnabled(False)
         self.surface_opacity.valueChanged.connect(self._set_surface_opacity)
         surface_form.addRow("Opacity", self.surface_opacity)
@@ -1223,6 +1238,7 @@ class MainWindow(QMainWindow):
             checkbox.setEnabled(False)
             checkbox.blockSignals(False)
             self.network_color_buttons[key].setEnabled(False)
+        self.surface_color_scheme.setEnabled(False)
         self.surface_opacity.setEnabled(False)
 
     def _populate_network_controls(self, result: AnalysisResult) -> None:
@@ -1248,6 +1264,14 @@ class MainWindow(QMainWindow):
         self.surface_opacity.blockSignals(True)
         if surface_layers:
             self.surface_opacity.setValue(round(surface_layers[0].opacity * 100))
+        has_scalar_colors = any(layer.cell_scalars for layer in surface_layers)
+        self.surface_color_scheme.setEnabled(has_scalar_colors)
+        if has_scalar_colors:
+            self._set_surface_color_scheme(self.surface_color_scheme.currentIndex())
+        else:
+            self.surface_color_scheme.blockSignals(True)
+            self.surface_color_scheme.setCurrentIndex(0)
+            self.surface_color_scheme.blockSignals(False)
         self.surface_opacity.setEnabled(bool(surface_layers))
         self.surface_opacity.blockSignals(False)
 
@@ -1450,6 +1474,13 @@ class MainWindow(QMainWindow):
             layer.visible = visible
             self.viewer.set_layer_visible(layer.name, visible)
 
+    def _set_surface_color_scheme(self, _index: int) -> None:
+        scheme = self.surface_color_scheme.currentData()
+        for key in ("surfaces", "shell_surfaces"):
+            for layer in self._network_layers(key):
+                layer.color_scheme = scheme
+                self.viewer.set_layer_color_scheme(layer.name, scheme)
+
     def _set_surface_opacity(self, value: int) -> None:
         opacity = value / 100.0
         for key in ("surfaces", "shell_surfaces"):
@@ -1462,6 +1493,10 @@ class MainWindow(QMainWindow):
             QColor(self.network_colors[key]), self, "Choose network color"
         )
         if color.isValid():
+            if key in {"surfaces", "shell_surfaces"}:
+                self.surface_color_scheme.setCurrentIndex(
+                    self.surface_color_scheme.findData("solid")
+                )
             color_name = color.name()
             self.network_colors[key] = color_name
             self._set_color_button_swatch(self.network_color_buttons[key], color_name)

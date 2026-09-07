@@ -37,6 +37,8 @@ class GeometryLayer:
     opacity: float = 1.0
     visible: bool = True
     faces: np.ndarray | None = None
+    cell_scalars: dict[str, np.ndarray] = field(default_factory=dict)
+    color_scheme: str = "solid"
 
 
 @dataclass
