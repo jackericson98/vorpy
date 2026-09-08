@@ -333,6 +333,34 @@ def _calc_vert_numba_core(locs, rads):
     return output_locs, output_rads, count
 
 
+@jit(nopython=True, cache=True)
+def _calc_vert_numba_indexed(locs, rads, indices):
+    selected_locs = np.empty((4, 3), dtype=np.float64)
+    selected_rads = np.empty(4, dtype=np.float64)
+    for row in range(4):
+        index = indices[row]
+        selected_locs[row, 0] = locs[index, 0]
+        selected_locs[row, 1] = locs[index, 1]
+        selected_locs[row, 2] = locs[index, 2]
+        selected_rads[row] = rads[index]
+    return _calc_vert_numba_core(selected_locs, selected_rads)
+
+
+def calc_vert_numba_indexed(locs, rads, indices):
+    """Compiled AW solve reading four rows from full coordinate arrays."""
+    output_locs, output_rads, count = _calc_vert_numba_indexed(
+        np.asarray(locs, dtype=np.float64),
+        np.asarray(rads, dtype=np.float64),
+        np.asarray(indices, dtype=np.int64),
+    )
+    if count == 0:
+        return None, None, None, None
+    primary_loc, primary_rad = output_locs[0].tolist(), float(output_rads[0])
+    if count == 1:
+        return primary_loc, primary_rad, None, None
+    return primary_loc, primary_rad, output_locs[1].tolist(), float(output_rads[1])
+
+
 def calc_vert_numba(locs, rads):
     """AW vertex calculation using the compiled solve and filtering core."""
     locations = np.asarray(locs, dtype=np.float64)
