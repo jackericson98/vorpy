@@ -638,6 +638,9 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
 
     # Get the balls that should not be a part of the new vertex
     edge_ndxs = edge_balls[:]
+    edge_ndxs_set = set(edge_ndxs)
+    vn_1_set = set(vn_1)
+    group_balls_set = set(group_balls) if check_ndxs and group_balls is not None else None
 
     # Get the balls not in the invalid balls that are within the range specified
     invalid_ndxs_set = set(invalid_ndxs)
@@ -649,10 +652,10 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
     # Go through the surrounding balls to look for vertices that have been found before and filter out edge balls
     for ball in test_balls:
         # If the ball is in the previous vertex move on
-        if ball in vn_1:
+        if ball in vn_1_set:
             continue
         # Check if we need to check and if so check for the ball in the list
-        if check_ndxs and ball not in group_balls:
+        if check_ndxs and ball not in group_balls_set:
             continue
         # If we have found the vertex before it is not the previous vertex return
         ball_ndxs = edge_ndxs + [ball]
