@@ -863,6 +863,14 @@ class MainWindow(QMainWindow):
             self.metric_cards[key] = card
             cards_layout.addWidget(card)
         overview_layout.addWidget(cards)
+        self.summary_statement = QLabel("Load a completed network to see its scientific summary.")
+        self.summary_statement.setWordWrap(True)
+        self.summary_statement.setObjectName("sectionLabel")
+        overview_layout.addWidget(self.summary_statement)
+        self.summary_status = QLabel("—")
+        self.summary_status.setWordWrap(True)
+        self.summary_status.setObjectName("sectionLabel")
+        overview_layout.addWidget(self.summary_status)
         self.results = QTableWidget(0, 2)
         self.results.setAlternatingRowColors(True)
         self.results.setHorizontalHeaderLabels(["Metric", "Value"])
@@ -916,6 +924,21 @@ class MainWindow(QMainWindow):
         metrics = [("System", summary.system if summary and summary.system else result.name), ("Group", summary.group if summary and summary.group else "Whole system"), ("Atoms", f"{atoms:,}"), ("Residues", f"{residues:,}"), ("Chains", f"{chains:,}"), ("Network", summary.network_type if summary and summary.network_type else "—"), ("Vertices", f"{vertices:,}"), ("Edges", f"{edges:,}"), ("Surfaces", f"{surfaces:,}")]
         if summary:
             metrics += [("Volume", self._format_measurement(summary.geometry.get("volume"))), ("Surface area", self._format_measurement(summary.geometry.get("surface_area"))), ("Representative surface energy", self._format_measurement(summary.energy.get("surf_energy"), 5)), ("Energy / area", self._format_measurement(summary.energy.get("energy_per_area"), 5)), ("Mapped waters", self._format_measurement(summary.classification.get("mapped_surrounding_waters"), 0))]
+        if summary:
+            group_label = summary.group or "Whole system"
+            network_label = summary.network_type or "unknown network"
+            volume = self._format_measurement(summary.geometry.get("volume"))
+            area = self._format_measurement(summary.geometry.get("surface_area"))
+            energy = self._format_measurement(summary.energy.get("surf_energy"), 5)
+            waters = self._format_measurement(summary.classification.get("mapped_surrounding_waters"), 0)
+            self.summary_statement.setText(f"{group_label} contains {atoms:,} atoms in {residues:,} residues. The {network_label} network contains {vertices:,} vertices, {edges:,} edges, and {surfaces:,} surfaces.\n\nThe group occupies {volume} with {area} of total boundary surface area. Representative surface energy: {energy}. Mapped surrounding waters: {waters}.")
+            status = ["Parsed network metadata"]
+            if summary.missing_sections: status.append("Missing: " + ", ".join(summary.missing_sections))
+            if summary.warnings: status.append("Warnings: " + "; ".join(summary.warnings))
+            self.summary_status.setText(" • ".join(status))
+        else:
+            self.summary_statement.setText(f"{result.name} contains {atoms:,} atoms in {residues:,} residues and {chains:,} chains.")
+            self.summary_status.setText("Summary generated from loaded structure metrics; no info.txt metadata was found.")
         self.results.setRowCount(len(metrics))
         self.results.setColumnCount(2); self.results.setHorizontalHeaderLabels(["Metric", "Value"])
         for row, (label, value) in enumerate(metrics): self.results.setItem(row, 0, QTableWidgetItem(label)); self.results.setItem(row, 1, QTableWidgetItem(str(value)))
