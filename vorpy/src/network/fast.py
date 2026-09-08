@@ -961,7 +961,7 @@ def choose_vert(my_vert, edge_ndxs, test_balls, b_locs, b_rads, metrics, max_bal
         if my_vert['loc2'] is not None:
             secondary_valid = verify_aw_local(
                 my_vert['loc2'], my_vert['rad2'], my_vert['balls'],
-                b_locs, b_rads, max_ball_rad
+                b_locs, b_rads, max_ball_rad, search_cache=search_cache
             )
 
             if not secondary_valid:
@@ -973,7 +973,7 @@ def choose_vert(my_vert, edge_ndxs, test_balls, b_locs, b_rads, metrics, max_bal
     if my_vert['loc2'] is not None:
         secondary_valid = verify_aw_local(
             my_vert['loc2'], my_vert['rad2'], my_vert['balls'],
-            b_locs, b_rads, max_ball_rad
+            b_locs, b_rads, max_ball_rad, search_cache=search_cache
         )
 
         if secondary_valid:
