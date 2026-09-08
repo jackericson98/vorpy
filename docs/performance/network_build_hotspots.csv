@@ -1,0 +1,9 @@
+fixture,network,stage,current_seconds,runtime_percent,call_count,metric_basis,bottleneck_type,notes
+DB1976,aw,AW candidate filtering plus geometry,2.5978,44.4,,vert_timing/detail_metrics,Python/object overhead and geometry,Instrumentation bucket overlaps aw_calc_vert
+DB1976,aw,AW geometry calculation,1.7902,30.7,,detail_metrics,compiled-kernel boundary and candidate volume,Indexed Numba path active
+Cambrin, pow,surrounding verification arrays,1.5902,25.0,2298,detail_metrics,array construction/indexing,After vectorized indexing change
+Cambrin,prm,surrounding verification arrays,1.5598,26.5,2270,detail_metrics,array construction/indexing,After vectorized indexing change
+Cambrin,pow,candidate filtering,0.6802,10.7,435944,detail_metrics,Python candidate/object traversal,Full context selected-group run
+Cambrin,prm,candidate filtering,0.5947,10.1,430502,detail_metrics,Python candidate/object traversal,Full context selected-group run
+Cambrin,pow,verification,0.2101,3.3,29071211,detail_metrics,compiled verification plus memory bandwidth,Full context selected-group run
+Cambrin,prm,verification,0.1973,3.4,28841951,detail_metrics,compiled verification plus memory bandwidth,Full context selected-group run

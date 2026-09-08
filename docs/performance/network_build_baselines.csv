@@ -1,0 +1,7 @@
+fixture,scope,network,max_vertex,atoms_or_balls,selected_atoms,vertices,edges,surfaces,complete_cells,wall_seconds,avg_seconds_per_vertex,stage_or_metric,seconds,calls,notes
+DB1976,vertex_search,aw,5,41,,722,,, ,5.8507,0.008103,site_container,5.5657,2884,Fresh 5-A run; warm-up/process variance applies
+DB1976,vertex_search,pow,5,41,,731,,, ,3.0115,0.004120,site_container,2.8084,2924,Fresh 5-A run; warm-up/process variance applies
+DB1976,vertex_search,prm,5,41,,703,,, ,2.7229,0.003873,site_container,2.5363,2812,Fresh 5-A run; warm-up/process variance applies
+Cambrin,selected_group_full_context,pow,5,9190,144,1730,,, ,6.3549,0.003673,surrounding,1.5902,2298,First ten residue records with all atoms retained as context
+Cambrin,selected_group_full_context,prm,5,9190,144,1708,,, ,5.8696,0.003437,surrounding,1.5598,2270,First ten residue records with all atoms retained as context
+Cambrin,cli_whole_run,unknown,5,9190,,,7676,7496,674,90.25,,,analysis/build,, ,User-provided CLI output; export progress reached 146.55 s; not stage-reconciled
