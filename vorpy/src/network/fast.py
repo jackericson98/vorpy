@@ -109,8 +109,8 @@ def _edge_surrounding_query(edge_balls, locs, rads, dist, cache):
         _, balls = _edge_spatial_query(edge_balls, locs, dist, None)
         return (
             balls,
-            np.asarray([locs[ball] for ball in balls], dtype=float),
-            np.asarray([rads[ball] for ball in balls], dtype=float),
+            locs[np.asarray(balls, dtype=np.intp)],
+            rads[np.asarray(balls, dtype=np.intp)],
             {ball: index for index, ball in enumerate(balls)},
         )
 
@@ -120,8 +120,8 @@ def _edge_surrounding_query(edge_balls, locs, rads, dist, cache):
         _, balls = _edge_spatial_query(edge_balls, locs, dist, cache)
         surrounding = (
             balls,
-            np.asarray([locs[ball] for ball in balls], dtype=float),
-            np.asarray([rads[ball] for ball in balls], dtype=float),
+            locs[np.asarray(balls, dtype=np.intp)],
+            rads[np.asarray(balls, dtype=np.intp)],
             {ball: index for index, ball in enumerate(balls)},
         )
         cache["surrounding"][key] = surrounding
