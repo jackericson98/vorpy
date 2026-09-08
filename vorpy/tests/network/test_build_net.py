@@ -1,5 +1,7 @@
 import time
 import numpy as np
+import pandas as pd
+import pytest
 
 from vorpy.src.network.build_net import (
     _minimum_distance_edge_pairing,
@@ -7,11 +9,80 @@ from vorpy.src.network.build_net import (
     add_build_edges,
     get_build_surfs,
 )
+from vorpy.src.calculations.edge_geometry import AdditivelyWeightedTrisectorBranch
+from vorpy.src.network.edge_geometry_diagnostics import diagnose_aw_edge_geometry
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+class _DiagnosticNetwork:
+    pass
+
+
+def _polyline_length_for_test(points):
+    points = np.asarray(points)
+    return float(np.sum(np.linalg.norm(np.diff(points, axis=0), axis=1)))
+
+
+def _analytic_diagnostic_network():
+    locations = np.array([
+        [0.0, 0.0, 0.0],
+        [4.0, 0.0, 0.0],
+        [0.0, 5.0, 0.0],
+    ])
+    radii = np.array([1.0, 1.5, 2.0])
+    curve = AdditivelyWeightedTrisectorBranch(
+        locations, radii, 2.0, 4.0, branch=1
+    )
+    samples = [curve.point(rho) for rho in np.linspace(2.0, 4.0, 17)]
+    net = _DiagnosticNetwork()
+    net.settings = {"net_type": "aw"}
+    net.balls = pd.DataFrame(
+        {"loc": list(locations), "rad": list(radii)}, index=[0, 1, 2]
+    )
+    net.verts = pd.DataFrame(
+        {"loc": [curve.point(4.0), curve.point(2.0)]}, index=[8, 3]
+    )
+    net.edges = pd.DataFrame({
+        "balls": [[0, 1, 2]],
+        "verts": [[8, 3]],
+        "points": [samples],
+        "length": [_polyline_length_for_test(samples)],
+    })
+    return net
+
+
+def test_aw_network_edge_diagnostic_matches_real_table_schema():
+    report = diagnose_aw_edge_geometry(_analytic_diagnostic_network())
+    assert report.total_edges == 1
+    assert report.matched_edges == 1
+    assert report.matched_fraction == 1.0
+    assert report.status_counts == {"matched_curve": 1}
+    record = report.records[0]
+    assert record.ball_indices == (0, 1, 2)
+    assert record.vertex_indices == (8, 3)
+    assert record.endpoint_error < 1e-12
+    assert record.maximum_sample_error < 1e-12
+    assert abs(record.length_difference) < 0.01
+
+
+def test_aw_network_edge_diagnostic_is_read_only():
+    net = _analytic_diagnostic_network()
+    edges_before = net.edges.copy(deep=True)
+    columns_before = tuple(net.edges.columns)
+    diagnose_aw_edge_geometry(net)
+    assert tuple(net.edges.columns) == columns_before
+    assert net.edges.equals(edges_before)
+
+
+def test_aw_network_edge_diagnostic_rejects_other_network_types():
+    net = _analytic_diagnostic_network()
+    net.settings["net_type"] = "pow"
+    with pytest.raises(ValueError, match="AW network"):
+        diagnose_aw_edge_geometry(net)
 
 def _build_ball_vertex_index(v_balls, num_balls=None):
     """Return the ball -> vertex adjacency used by build_net."""

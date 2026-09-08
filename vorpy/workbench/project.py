@@ -212,9 +212,9 @@ def _structure_to_json(
         return None
     source_path = structure.source_path
     try:
-        stored_path = str(source_path.relative_to(project_directory))
+        stored_path = source_path.relative_to(project_directory).as_posix()
     except ValueError:
-        stored_path = str(source_path)
+        stored_path = source_path.as_posix()
     return {
         "id": structure.id,
         "name": structure.name,

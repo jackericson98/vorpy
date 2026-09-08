@@ -115,6 +115,16 @@ def sample_result():
     )
 
 
+def result_metric(window, label):
+    """Return an overview metric by label rather than fragile row position."""
+    for row in range(window.results.rowCount()):
+        label_item = window.results.item(row, 0)
+        if label_item is not None and label_item.text() == label:
+            value_item = window.results.item(row, 1)
+            return value_item.text() if value_item is not None else None
+    raise AssertionError(f"Overview metric {label!r} was not found")
+
+
 def test_action_state_and_visibility_controls(monkeypatch):
     window = make_window(monkeypatch)
 
@@ -198,7 +208,9 @@ def test_bottom_tray_and_small_molecule_representation_defaults(monkeypatch):
     window.solve_action.setEnabled(True)
     assert window.solve_network_button.isEnabled()
     assert [window.analysis_tray_tabs.tabText(i) for i in range(window.analysis_tray_tabs.count())] == [
-        "Analysis", "Results"
+        "Overview", "Composition", "Build", "Build Timing", "Voronoi Network",
+        "Group Geometry", "Surface Curvature", "Surface Energy",
+        "Surface Classification", "Chain Composition", "Residue Composition",
     ]
     assert window.solve_target.count() == 2
     assert not window.findChildren(QToolBar)
@@ -229,7 +241,7 @@ def test_result_and_selection_populate_inspector(monkeypatch):
     )
     assert window.metric_cards["atoms"].value.text() == "2"
     assert window.metric_cards["cells"].value.text() == "2"
-    assert window.results.item(5, 1).text() == "3"
+    assert result_metric(window, "Surfaces") == "3"
 
     assert window.network_layer_checks["edges"].isEnabled()
     assert window.network_layer_checks["edges"].isChecked()
@@ -597,13 +609,13 @@ def test_multiple_structures_switch_with_independent_selection_and_statistics(mo
     window.load_path(second)
     assert window.source == second.resolve()
     assert window._running_selection == set()
-    assert window.results.item(4, 1).text() == "99"
+    assert window.metric_cards["cells"].value.text() == "99"
 
     window._switch_structure_item(window.loaded_structures.item(0))
     assert window.source == first.resolve()
     assert window._running_selection == {1}
     assert window._groups == {"First group": (1,)}
-    assert window.results.item(4, 1).text() == "2"
+    assert window.metric_cards["cells"].value.text() == "2"
 
 
 def test_molecule_browser_uses_bond_connected_components(monkeypatch):

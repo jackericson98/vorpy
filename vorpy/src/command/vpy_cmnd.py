@@ -32,6 +32,7 @@ class Command:
         # Timers/metrics may still be collected when False; this controls
         # whether verbose diagnostic information is printed.
         self.verbose = False
+        self.diagnose_edges = False
 
     def run(self):
         self._run_pipeline()
@@ -169,6 +170,11 @@ class Command:
             for grp in self.sys.groups:
                 grp.build()
 
+        # Run optional read-only diagnostics after construction and before
+        # export so the report describes the completed in-memory networks.
+        if self.diagnose_edges:
+            self.run_edge_diagnostics()
+
         # Export requested outputs
         self.run_exports()
 
@@ -257,6 +263,15 @@ class Command:
             my_args = [
                 arg for arg in my_args
                 if arg not in {'-v', '--verbose'}
+            ]
+
+        # Analytic edge auditing is also a universal argumentless flag.
+        # Remove it before the legacy grouped parser handles option values.
+        if '--diagnose-edges' in my_args:
+            self.diagnose_edges = True
+            my_args = [
+                arg for arg in my_args
+                if arg != '--diagnose-edges'
             ]
 
         # Set the arg to load as a default
@@ -511,3 +526,98 @@ class Command:
     def run_exports(self):
         # Export everything
         argv_export(self.sys, self.exports)
+
+    def _diagnostic_networks(self):
+        """Yield each unique named network created by this command."""
+        seen = set()
+        owners = list(self.sys.groups or [])
+        owners.extend(list(getattr(self.sys, 'interfaces', None) or []))
+
+        for owner in owners:
+            net = getattr(owner, 'net', None)
+            if net is None or id(net) in seen:
+                continue
+            seen.add(id(net))
+            name = (
+                getattr(owner, 'name', None)
+                or getattr(net, 'group_name', None)
+                or 'Network'
+            )
+            yield str(name), net
+
+    @staticmethod
+    def _diagnostic_number(value):
+        """Format a finite diagnostic value while preserving unavailable data."""
+        try:
+            if value is None or not float('-inf') < float(value) < float('inf'):
+                return 'n/a'
+            return f"{float(value):.6g}"
+        except (TypeError, ValueError):
+            return 'n/a'
+
+    def run_edge_diagnostics(self, max_problem_edges=10):
+        """Print analytic AW edge audits for the networks built by the CLI."""
+        networks = list(self._diagnostic_networks())
+        if not networks:
+            print("\nNo constructed networks are available for edge diagnostics.")
+            return
+
+        for name, net in networks:
+            settings = getattr(net, 'settings', None) or {}
+            net_type = settings.get('net_type', 'aw')
+            if net_type != 'aw':
+                print(
+                    f"\nSkipping analytic edge diagnostic for {name}: "
+                    f"network type '{net_type}' is not AW."
+                )
+                continue
+
+            try:
+                report = net.diagnose_aw_edges()
+                summary = report.summary()
+            except (AttributeError, TypeError, ValueError) as error:
+                print(f"\nAnalytic edge diagnostic failed for {name}: {error}")
+                continue
+
+            counts = summary['status_counts']
+            failed = summary['total_edges'] - summary['matched_edges']
+            print("\n" + "="*70)
+            print(f"ANALYTIC AW EDGE DIAGNOSTIC: {name}")
+            print("="*70)
+            print(f"Total edges:                  {summary['total_edges']:,}")
+            print(f"Matched analytic curves:      {counts.get('matched_curve', 0):,}")
+            print(f"Matched straight edges:       {counts.get('matched_line', 0):,}")
+            print(f"Unsupported / failed:         {failed:,}")
+            print(f"Match coverage:               {100*summary['matched_fraction']:.2f} %")
+            print(
+                "Maximum sample residual:      "
+                f"{self._diagnostic_number(summary['maximum_sample_error'])} A"
+            )
+            print(
+                "RMS sample residual:          "
+                f"{self._diagnostic_number(summary['rms_sample_error'])} A"
+            )
+            print(
+                "Maximum |length difference|: "
+                f"{self._diagnostic_number(summary['maximum_absolute_length_difference'])} A"
+            )
+            print(f"Status counts:                {counts}")
+
+            problems = [
+                record for record in report.records
+                if not record.status.startswith('matched')
+            ]
+            if problems:
+                print(f"Problem edges (first {min(len(problems), max_problem_edges)}):")
+                for record in problems[:max_problem_edges]:
+                    print(
+                        f"  edge {record.edge_index}: {record.status}; "
+                        f"balls={record.ball_indices}; verts={record.vertex_indices}; "
+                        f"{record.reason}"
+                    )
+                if len(problems) > max_problem_edges:
+                    print(
+                        f"  ... {len(problems) - max_problem_edges:,} additional "
+                        "problem edges omitted"
+                    )
+            print("="*70)

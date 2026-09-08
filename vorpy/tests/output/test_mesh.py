@@ -2,7 +2,7 @@ import xml.etree.ElementTree as ET
 
 import numpy as np
 
-from mesh import MeshData, combine_mesh_parts, write_mesh
+from vorpy.src.output.mesh import MeshData, combine_mesh_parts, write_mesh
 
 
 def sample_mesh():

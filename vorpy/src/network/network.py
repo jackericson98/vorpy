@@ -16,6 +16,7 @@ from vorpy.src.network.build_surfs import build_surfs
 from vorpy.src.network.mark_doublets import mark_doublets
 from vorpy.src.network.find_net_verts import find_net_verts
 from vorpy.src.network.net_logs_connect import net_logs_connect
+from vorpy.src.network.edge_geometry_diagnostics import diagnose_aw_edge_geometry
 
 
 class Network:
@@ -374,6 +375,16 @@ class Network:
         Takes in a system and returns a fully connected network
         """
         build_surfs(self, store_points=store_points)
+
+    def diagnose_aw_edges(self, tolerance=1e-6, quadrature_order=32):
+        """Compare stored AW edge samples with analytic edge geometry.
+
+        This is an opt-in, read-only diagnostic and does not alter network
+        geometry, analysis fields, logs, or exports.
+        """
+        return diagnose_aw_edge_geometry(
+            self, tolerance=tolerance, quadrature_order=quadrature_order
+        )
 
     def analyze(self):
         analyze(self)

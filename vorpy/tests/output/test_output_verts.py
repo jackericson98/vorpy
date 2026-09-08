@@ -36,10 +36,10 @@ def test_write_off_verts_header_matches_written_geometry(tmp_path):
     vertex_lines = [line for line in body if len(line.split()) == 3]
     face_lines = [line for line in body if line.split()[0] == "3" and len(line.split()) >= 4]
 
-    # Each displayed Voronoi vertex is an octahedron:
-    # 6 coordinate vertices and 8 triangular faces.
-    assert n_vertices == 12
-    assert n_faces == 16
+    # Each displayed Voronoi vertex is an icosahedron:
+    # 12 coordinate vertices and 20 triangular faces.
+    assert n_vertices == 24
+    assert n_faces == 40
     assert n_edges == 0
 
     assert len(vertex_lines) == n_vertices

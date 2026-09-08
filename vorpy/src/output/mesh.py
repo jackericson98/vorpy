@@ -41,12 +41,77 @@ class MeshData:
             self.face_data[name] = array
 
 
+def _normalize_face_colors(colors, triangle_count, part_index):
+    """Return one RGB row per triangle for a single prepared mesh part.
+
+    Surface exporters can legitimately produce no triangles for an individual
+    mesh part.  Some callers may also represent a uniform color as one RGB
+    triplet instead of repeating that triplet for every triangle.  Normalize
+    both cases here, where the triangle count is known, so MeshData always
+    receives a strict (N, 3) face-color array.
+    """
+    triangle_count = int(triangle_count)
+    array = np.asarray(colors, dtype=float)
+
+    if triangle_count == 0:
+        if array.size not in (0, 3, 4):
+            raise ValueError(
+                f"color_parts[{part_index}] contains {array.size} color values "
+                "for a mesh part with zero triangles"
+            )
+        return np.empty((0, 3), dtype=float)
+
+    if array.size == 0:
+        raise ValueError(
+            f"color_parts[{part_index}] is empty but the mesh part contains "
+            f"{triangle_count} triangle(s)"
+        )
+
+    # A single RGB/RGBA triplet represents one uniform color for the part.
+    if array.ndim == 1 and array.size in (3, 4):
+        rgb = array[:3].reshape((1, 3))
+        return np.repeat(rgb, triangle_count, axis=0)
+
+    # Accept a flat sequence containing one RGB/RGBA value per triangle.
+    if array.ndim == 1:
+        if array.size == triangle_count * 3:
+            return array.reshape((triangle_count, 3))
+        if array.size == triangle_count * 4:
+            return array.reshape((triangle_count, 4))[:, :3]
+        raise ValueError(
+            f"color_parts[{part_index}] has shape {array.shape}; expected one "
+            f"RGB/RGBA color or {triangle_count} per-triangle colors"
+        )
+
+    if array.ndim != 2 or array.shape[1] < 3:
+        raise ValueError(
+            f"color_parts[{part_index}] has shape {array.shape}; expected "
+            "(N, 3+) face colors"
+        )
+
+    if array.shape[0] == 1 and triangle_count > 1:
+        return np.repeat(array[:, :3], triangle_count, axis=0)
+
+    if array.shape[0] != triangle_count:
+        raise ValueError(
+            f"color_parts[{part_index}] contains {array.shape[0]} colors for "
+            f"{triangle_count} triangles"
+        )
+
+    return array[:, :3]
+
+
 def combine_mesh_parts(point_parts: Iterable, triangle_parts: Iterable,
                        color_parts: Optional[Iterable] = None,
                        face_data_parts: Optional[Dict[str, Iterable]] = None) -> MeshData:
     """Combine independently indexed mesh parts into one globally indexed mesh."""
     point_parts = [np.asarray(points, dtype=float).reshape((-1, 3)) for points in point_parts]
     triangle_parts = [np.asarray(tris, dtype=np.int64).reshape((-1, 3)) for tris in triangle_parts]
+
+    if len(point_parts) != len(triangle_parts):
+        raise ValueError(
+            "point_parts and triangle_parts must contain the same number of mesh parts"
+        )
 
     triangles = []
     offset = 0
@@ -56,10 +121,20 @@ def combine_mesh_parts(point_parts: Iterable, triangle_parts: Iterable,
 
     points = np.concatenate(point_parts) if point_parts else np.empty((0, 3), dtype=float)
     triangles = np.concatenate(triangles) if triangles else np.empty((0, 3), dtype=np.int64)
+
     colors = None
     if color_parts is not None:
-        parts = [np.asarray(colors, dtype=float)[:, :3] for colors in color_parts]
-        colors = np.concatenate(parts) if parts else np.empty((0, 3), dtype=float)
+        color_parts = list(color_parts)
+        if len(color_parts) != len(triangle_parts):
+            raise ValueError(
+                "color_parts and triangle_parts must contain the same number of mesh parts"
+            )
+
+        parts = [
+            _normalize_face_colors(colors_part, len(tris), part_index)
+            for part_index, (colors_part, tris) in enumerate(zip(color_parts, triangle_parts))
+        ]
+        colors = np.concatenate(parts, axis=0) if parts else np.empty((0, 3), dtype=float)
 
     combined_data = {}
     for name, parts in (face_data_parts or {}).items():
