@@ -4,6 +4,7 @@ import argparse
 import contextlib
 import io
 import json
+import signal
 import time
 from pathlib import Path
 
@@ -18,6 +19,8 @@ def main():
     parser.add_argument("--max-vert", type=float, default=5.0)
     parser.add_argument("--residues", type=int, default=10, help="first N residue records; 0 means all atoms")
     parser.add_argument("--full-context", action="store_true", help="keep all atoms as spatial context while selecting the first residues")
+    parser.add_argument("--network", choices=("aw", "pow", "prm", "all"), default="all")
+    parser.add_argument("--timeout", type=int, default=0, help="seconds per network; 0 means unlimited")
     args = parser.parse_args()
 
     atoms = load_pdb(args.pdb).atoms
@@ -34,7 +37,8 @@ def main():
     group = selected_indices if args.full_context else list(range(len(chosen)))
     print(f"atoms={len(atoms)} context={len(chosen)} selected={len(group)} max_vert={args.max_vert:g}", flush=True)
 
-    for net_type in ("aw", "pow", "prm"):
+    network_types = ("aw", "pow", "prm") if args.network == "all" else (args.network,)
+    for net_type in network_types:
         for key, value in fast.POW_PRM_METRICS.items():
             fast.POW_PRM_METRICS[key] = 0.0 if isinstance(value, float) else 0
         settings = {
@@ -47,7 +51,14 @@ def main():
             net = Network(locs=locs, rads=rads, group=group, settings=settings, sort_balls=False)
             started = time.perf_counter()
             net.sort_balls()
-            net.find_verts()
+            if args.timeout:
+                signal.signal(signal.SIGALRM, lambda *_: (_ for _ in ()).throw(TimeoutError("benchmark timeout")))
+                signal.alarm(args.timeout)
+            try:
+                net.find_verts()
+            finally:
+                if args.timeout:
+                    signal.alarm(0)
             elapsed = time.perf_counter() - started
         vertices = len(net.verts) if net.verts is not None else 0
         timing = dict(getattr(net, "vert_timing", {}))
