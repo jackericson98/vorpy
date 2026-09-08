@@ -29,6 +29,9 @@ POW_PRM_METRICS = {
     'verify': 0.0,
     'candidates': 0,
     'verify_balls': 0,
+    'aw_candidate_filter': 0.0,
+    'aw_calc_vert': 0.0,
+    'aw_verify': 0.0,
 }
 
 
@@ -666,6 +669,7 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
 
     # Instantiate the calculated vertices list
     calc_verts = []
+    aw_filter_start = time.perf_counter()
     # Go through each ball in the given test balls. Extremely optimized
     for ball in new_test_balls:
 
@@ -673,6 +677,7 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
         vert_balls = edge_balls + [ball]
         vert_balls.sort()
         # Calculate the Voronoi vertex values
+        aw_calc_start = time.perf_counter()
         v_loc, v_rad, v_loc2, v_rad2 = _cached_geometry(
             search_cache,
             ("aw", tuple(vert_balls)),
@@ -681,6 +686,7 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
                 [rads[_] for _ in vert_balls],
             ),
         )
+        POW_PRM_METRICS['aw_calc_vert'] += time.perf_counter() - aw_calc_start
 
         min_allowed_rad = -min(rads[_] for _ in vert_balls)
 
@@ -698,6 +704,7 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
         # Add the vertex to the list of calculated vertices
         calc_verts.append({'balls': vert_balls, 'loc': np.array(v_loc), 'rad': v_rad, 'loc2': v_loc2, 'rad2': v_rad2})
 
+    POW_PRM_METRICS['aw_candidate_filter'] += time.perf_counter() - aw_filter_start
     # If no vertices survived return
     if  not calc_verts:
         return None, invalid_ndxs
@@ -887,7 +894,10 @@ def verify_aw_local(loc, rad, vert_balls, b_locs, b_rads, max_ball_rad, search_c
         test_locs, test_rads, lookup = cached
 
     skips = [lookup.get(ball, -1) for ball in vert_balls]
-    return verify_aw_cached(np.asarray(loc), rad, test_locs, test_rads, *skips)
+    aw_verify_start = time.perf_counter()
+    result = verify_aw_cached(np.asarray(loc), rad, test_locs, test_rads, *skips)
+    POW_PRM_METRICS['aw_verify'] += time.perf_counter() - aw_verify_start
+    return result
 
 
 def choose_vert(my_vert, edge_ndxs, test_balls, b_locs, b_rads, metrics, max_ball_rad=None, search_cache=None):
