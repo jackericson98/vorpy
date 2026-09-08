@@ -7,6 +7,7 @@ from vorpy.src.calculations import calc_flat_vert
 from vorpy.src.calculations import calc_flat_vert_numba
 from vorpy.src.calculations import calc_vert
 from vorpy.src.calculations import verify_aw
+from vorpy.src.calculations import verify_aw_cached
 from vorpy.src.calculations import verify_pow
 from vorpy.src.calculations import verify_prm
 from vorpy.src.calculations import calc_dist
@@ -861,55 +862,32 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
 
 
 def verify_aw_local(loc, rad, vert_balls, b_locs, b_rads, max_ball_rad, search_cache=None):
-    """
-    Verify an AW vertex using only balls that can geometrically invalidate it.
-
-    For a candidate AW vertex with radius ``rad``, a ball can invalidate the
-    vertex only if its center lies within ``rad + ball_radius`` of the vertex.
-    Searching to ``rad + max_ball_rad`` therefore provides a conservative
-    spatial bound that contains every possible invalidating ball while avoiding
-    a system-wide verification search.
-
-    Parameters
-    ----------
-    loc : array-like
-        Candidate vertex location.
-    rad : float
-        Candidate AW vertex radius.
-    vert_balls : collection of int
-        Four balls defining the candidate vertex.
-    b_locs : array-like
-        Locations of all balls.
-    b_rads : array-like
-        Radii of all balls.
-    max_ball_rad : float
-        Maximum ball radius in the system.
-
-    Returns
-    -------
-    bool
-        True when no nearby non-defining ball invalidates the candidate.
-    """
+    """Verify an AW vertex using cached local arrays when available."""
     verify_dist = max(0.0, rad + max_ball_rad)
     verify_box = box_search(loc)
-
     if verify_box is None:
         return False
 
     cache_key = (tuple(verify_box), float(verify_dist))
     if search_cache is None:
         nearby_balls = get_balls([verify_box], dist=verify_dist)
+        test_locs = np.asarray([b_locs[index] for index in nearby_balls], dtype=float)
+        test_rads = np.asarray([b_rads[index] for index in nearby_balls], dtype=float)
+        lookup = {ball: index for index, ball in enumerate(nearby_balls)}
     else:
         nearby = search_cache.setdefault("aw_verification", {})
-        nearby_balls = nearby.get(cache_key)
-        if nearby_balls is None:
+        cached = nearby.get(cache_key)
+        if cached is None:
             nearby_balls = get_balls([verify_box], dist=verify_dist)
-            nearby[cache_key] = nearby_balls
-    check_balls = [_ for _ in nearby_balls if _ not in vert_balls]
-    test_locs = np.asarray([b_locs[_] for _ in check_balls])
-    test_rads = np.asarray([b_rads[_] for _ in check_balls])
+            test_locs = np.asarray([b_locs[index] for index in nearby_balls], dtype=float)
+            test_rads = np.asarray([b_rads[index] for index in nearby_balls], dtype=float)
+            lookup = {ball: index for index, ball in enumerate(nearby_balls)}
+            cached = (test_locs, test_rads, lookup)
+            nearby[cache_key] = cached
+        test_locs, test_rads, lookup = cached
 
-    return verify_aw(np.asarray(loc), rad, test_locs, test_rads)
+    skips = [lookup.get(ball, -1) for ball in vert_balls]
+    return verify_aw_cached(np.asarray(loc), rad, test_locs, test_rads, *skips)
 
 
 def choose_vert(my_vert, edge_ndxs, test_balls, b_locs, b_rads, metrics, max_ball_rad=None, search_cache=None):

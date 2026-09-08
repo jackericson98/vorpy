@@ -20,6 +20,7 @@ from vorpy.src.calculations.vert import (
     calc_flat_vert,
     calc_flat_vert_numba,
     verify_aw,
+    verify_aw_cached,
     verify_prm,
     verify_pow,
     verify_site
@@ -455,6 +456,15 @@ class TestCalcFlatVert:
         
         assert isinstance(result, tuple)
         assert len(result) == 2
+
+
+class TestVerifyAwCached:
+    def test_verify_aw_cached_matches_reference_with_skips(self):
+        loc = np.array([0.0, 0.0, 0.0])
+        test_locs = np.array([[0.0, 0.0, 0.0], [5.0, 0.0, 0.0], [0.0, 5.0, 0.0]])
+        test_rads = np.array([1.0, 1.0, 1.0])
+        assert verify_aw_cached(loc, 1.0, test_locs, test_rads, 0, -1, -1, -1)
+        assert verify_aw(loc, 1.0, test_locs[1:], test_rads[1:])
 
 
 class TestVerifyAw:

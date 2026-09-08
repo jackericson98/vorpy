@@ -700,6 +700,17 @@ def verify_aw(loc, rad, test_locs, test_rads, skip_ndx=-1):
 
 
 @jit(nopython=True, cache=True)
+def verify_aw_cached(loc, rad, test_locs, test_rads, skip0=-1, skip1=-1, skip2=-1, skip3=-1):
+    """Verify AW geometry while skipping the four defining balls."""
+    for i, b_loc in enumerate(test_locs):
+        if i == skip0 or i == skip1 or i == skip2 or i == skip3:
+            continue
+        if calc_dist_numba(b_loc, loc) - test_rads[i] < rad:
+            return False
+    return True
+
+
+@jit(nopython=True, cache=True)
 def verify_prm(loc, rad, test_locs):
     """
     Verify if a location does not fall within the power radius of any other locations.

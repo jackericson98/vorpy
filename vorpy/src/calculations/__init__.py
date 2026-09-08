@@ -51,5 +51,6 @@ from vorpy.src.calculations.vert import calc_flat_vert_numba
 from vorpy.src.calculations.vert import calc_vert
 from vorpy.src.calculations.vert import verify_site
 from vorpy.src.calculations.vert import verify_aw
+from vorpy.src.calculations.vert import verify_aw_cached
 from vorpy.src.calculations.vert import verify_pow
 from vorpy.src.calculations.vert import verify_prm
