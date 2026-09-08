@@ -17,6 +17,7 @@ from vorpy.src.calculations.vert import (
     calc_vert_case_2,
     filter_vert_locrads,
     calc_vert,
+    calc_vert_numba,
     calc_flat_vert,
     calc_flat_vert_numba,
     verify_aw,
@@ -390,6 +391,23 @@ class TestCalcVert:
         
         assert isinstance(result, tuple)
         assert len(result) == 4
+
+
+class TestCalcVertNumba:
+    def test_calc_vert_numba_matches_reference(self):
+        rng = np.random.default_rng(321)
+        for _ in range(20):
+            locs = rng.normal(size=(4, 3))
+            rads = rng.uniform(0.4, 2.0, size=4)
+            reference = calc_vert(locs.tolist(), rads.tolist())
+            accelerated = calc_vert_numba(locs, rads)
+            for expected, actual in zip(reference, accelerated):
+                if expected is None or actual is None:
+                    assert expected is None and actual is None
+                elif isinstance(expected, list):
+                    np.testing.assert_allclose(actual, expected, rtol=2e-9, atol=2e-9)
+                else:
+                    np.testing.assert_allclose(actual, expected, rtol=2e-9, atol=2e-9)
 
 
 class TestCalcFlatVert:

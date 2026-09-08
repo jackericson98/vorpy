@@ -302,6 +302,51 @@ def calc_vert_case_1_numba(Fs, l0, r0, tol=1e-12):
     return verts, n_roots
 
 
+@jit(nopython=True, cache=True)
+def _calc_vert_numba_core(locs, rads):
+    """Compiled AW solve, physical-radius filtering, and root ordering."""
+    Fs, _, rs, l0 = calc_vert_abcfs(locs, rads)
+    output_locs = np.zeros((2, 3), dtype=np.float64)
+    output_rads = np.zeros(2, dtype=np.float64)
+    if Fs[0] == 0.0:
+        return output_locs, output_rads, 0
+
+    roots, root_count = calc_vert_case_1_numba(Fs, l0, rs[0])
+    minimum = -min(rs[0], rs[1], rs[2], rs[3])
+    count = 0
+    first_abs = 0.0
+    for i in range(root_count):
+        radius = roots[i, 3]
+        if radius < minimum:
+            continue
+        if count == 0 or abs(radius) < first_abs:
+            if count > 0:
+                output_locs[1] = output_locs[0]
+                output_rads[1] = output_rads[0]
+            output_locs[0] = roots[i, :3]
+            output_rads[0] = radius
+            first_abs = abs(radius)
+        elif count == 1:
+            output_locs[1] = roots[i, :3]
+            output_rads[1] = radius
+        count = min(count + 1, 2)
+    return output_locs, output_rads, count
+
+
+def calc_vert_numba(locs, rads):
+    """AW vertex calculation using the compiled solve and filtering core."""
+    locations = np.asarray(locs, dtype=np.float64)
+    radii = np.asarray(rads, dtype=np.float64)
+    output_locs, output_rads, count = _calc_vert_numba_core(locations, radii)
+    if count == 0:
+        return None, None, None, None
+    loc = output_locs[0].tolist()
+    rad = float(output_rads[0])
+    if count == 1:
+        return loc, rad, None, None
+    return loc, rad, output_locs[1].tolist(), float(output_rads[1])
+
+
 def calc_vert_case_2(Fs, r0, l0, tol=1e-12):
     """
     Calculate the legacy Case 2 AW vertex solutions.

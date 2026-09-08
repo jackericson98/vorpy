@@ -6,6 +6,7 @@ from numba import jit
 from vorpy.src.calculations import calc_flat_vert
 from vorpy.src.calculations import calc_flat_vert_numba
 from vorpy.src.calculations import calc_vert
+from vorpy.src.calculations import calc_vert_numba
 from vorpy.src.calculations import verify_aw
 from vorpy.src.calculations import verify_aw_cached
 from vorpy.src.calculations import verify_pow
@@ -684,7 +685,7 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
         v_loc, v_rad, v_loc2, v_rad2 = _cached_geometry(
             search_cache,
             ("aw", tuple(vert_balls)),
-            lambda: calc_vert(
+            lambda: calc_vert_numba(
                 [locs[_] for _ in vert_balls],
                 [rads[_] for _ in vert_balls],
             ),
