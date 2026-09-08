@@ -17,23 +17,22 @@ def main():
     parser.add_argument("pdb", type=Path)
     parser.add_argument("--max-vert", type=float, default=5.0)
     parser.add_argument("--residues", type=int, default=10, help="first N residue records; 0 means all atoms")
+    parser.add_argument("--full-context", action="store_true", help="keep all atoms as spatial context while selecting the first residues")
     args = parser.parse_args()
 
     atoms = load_pdb(args.pdb).atoms
-    if args.residues:
-        residue_ids = []
-        for atom in atoms:
-            if atom.residue_sequence not in residue_ids:
-                residue_ids.append(atom.residue_sequence)
-        selected = set(residue_ids[:args.residues])
-        chosen = [atom for atom in atoms if atom.residue_sequence in selected]
-    else:
-        chosen = list(atoms)
+    residue_ids = []
+    for atom in atoms:
+        if atom.residue_sequence not in residue_ids:
+            residue_ids.append(atom.residue_sequence)
+    selected = set(residue_ids[:args.residues]) if args.residues else set(residue_ids)
+    selected_indices = [index for index, atom in enumerate(atoms) if atom.residue_sequence in selected]
+    chosen = list(atoms) if args.full_context else [atoms[index] for index in selected_indices]
 
     locs = [atom.position for atom in chosen]
     rads = [atom.radius for atom in chosen]
-    group = list(range(len(chosen)))
-    print(f"atoms={len(atoms)} selected={len(chosen)} max_vert={args.max_vert:g}", flush=True)
+    group = selected_indices if args.full_context else list(range(len(chosen)))
+    print(f"atoms={len(atoms)} context={len(chosen)} selected={len(group)} max_vert={args.max_vert:g}", flush=True)
 
     for net_type in ("aw", "pow", "prm"):
         for key, value in fast.POW_PRM_METRICS.items():
