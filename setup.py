@@ -47,6 +47,8 @@ setup(
         "dev": [
             "pytest",
             "pytest-cov",
+            "pytest-timeout",
+            "numba",
             "black",
             "flake8",
             "mypy",
