@@ -34,8 +34,9 @@ def main():
 
     locs = [atom.position for atom in chosen]
     rads = [atom.radius for atom in chosen]
-    group = selected_indices if args.full_context else list(range(len(chosen)))
-    print(f"atoms={len(atoms)} context={len(chosen)} selected={len(group)} max_vert={args.max_vert:g}", flush=True)
+    group = None if not args.residues else (selected_indices if args.full_context else list(range(len(chosen))))
+    selected_count = len(group) if group is not None else len(chosen)
+    print(f"atoms={len(atoms)} context={len(chosen)} selected={selected_count} max_vert={args.max_vert:g}", flush=True)
 
     network_types = ("aw", "pow", "prm") if args.network == "all" else (args.network,)
     for net_type in network_types:
