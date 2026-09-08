@@ -640,6 +640,7 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
 
     # Get the balls that should not be a part of the new vertex
     edge_ndxs = edge_balls[:]
+    edge_sorted = sorted(edge_ndxs)
     edge_ndxs_set = set(edge_ndxs)
     vn_1_set = set(vn_1)
     group_balls_set = set(group_balls) if check_ndxs and group_balls is not None else None
@@ -660,8 +661,8 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
         if check_ndxs and ball not in group_balls_set:
             continue
         # If we have found the vertex before it is not the previous vertex return
-        ball_ndxs = edge_ndxs + [ball]
-        ball_ndxs.sort()
+        ball_ndxs = edge_sorted[:]
+        bisect.insort(ball_ndxs, ball)
         # Get the vertices for the first ball. All balls will contain the vertex so only one ball needs to be checked
         check_verts = [vert_ndxs[_] for _ in b_verts[ball_ndxs[0]]]
         # Use the ndx_search function to quickly search the list of sorted vertices
@@ -679,8 +680,8 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
     for ball in new_test_balls:
 
         # Combine the new ball with the edge balls and sort
-        vert_balls = edge_balls + [ball]
-        vert_balls.sort()
+        vert_balls = edge_sorted[:]
+        bisect.insort(vert_balls, ball)
         # Calculate the Voronoi vertex values
         aw_calc_start = time.perf_counter()
         v_loc, v_rad, v_loc2, v_rad2 = _cached_geometry(
