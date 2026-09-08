@@ -56,7 +56,7 @@ from vorpy.workbench.project import (
     result_to_json,
 )
 from vorpy.workbench.services.result_directory import load_result_directory
-from vorpy.workbench.services.info_parser import parse_group_info
+from vorpy.workbench.services.info_parser import Measurement, NetworkSummary, parse_group_info, parse_network_summary
 from vorpy.workbench.services.structure_loader import DISPLAY_RADII, load_pdb
 from vorpy.workbench.services.vorpy_backend import VorPyBackend, VorPySolveSettings
 from vorpy.workbench.ui.molecular_view import (
@@ -853,12 +853,11 @@ class MainWindow(QMainWindow):
         cards_layout = QHBoxLayout(cards)
         cards_layout.setContentsMargins(8, 8, 8, 4)
         self.metric_cards = {}
-        for key, title, accent in ((
-            "atoms", "Atoms", "#6857d9"),
-            ("bonds", "Bonds", "#367bd6"),
-            ("cells", "Complete cells", "#38a873"),
-            ("surfaces", "Surfaces", "#9b59db"),
-            ("layers", "Geometry layers", "#d99a32"),
+        for key, title, accent in (
+            ("atoms", "Atoms", "#6857d9"), ("residues", "Residues", "#5a9bd5"),
+            ("chains", "Chains", "#4cbe9b"), ("vertices", "Vertices", "#d99a32"),
+            ("edges", "Edges", "#367bd6"), ("surfaces", "Surfaces", "#9b59db"),
+            ("cells", "Complete cells", "#38a873"), ("layers", "Geometry layers", "#d99a32"),
         ):
             card = MetricCard(title, accent)
             self.metric_cards[key] = card
@@ -876,11 +875,13 @@ class MainWindow(QMainWindow):
                          "Voronoi Network", "Group Geometry", "Surface Curvature",
                          "Surface Energy Estimate", "Surface Classification",
                          "Chain Composition", "Residue Composition"):
-            table = QTableWidget(0, 2)
+            columns = (["Chain", "Atoms", "Residues", "Volume", "Boundary SA", "Inter-chain SA", "Solvent-interfacial SA"] if section == "Chain Composition" else ["Chain", "Residue", "Identifier", "Atoms", "Volume", "Boundary SA", "Inter-residue SA", "Solvent-interfacial SA"] if section == "Residue Composition" else ["Value", "Details"])
+            table = QTableWidget(0, len(columns))
             table.setAlternatingRowColors(True)
-            table.setHorizontalHeaderLabels(["Value", "Details"])
+            table.setSortingEnabled(True)
+            table.setHorizontalHeaderLabels(columns)
             table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-            table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+            for column in range(1, len(columns)): table.horizontalHeader().setSectionResizeMode(column, QHeaderView.Stretch)
             self.analysis_section_tables[section] = table
             tabs.addTab(table, section.replace(" Information", "").replace(" Estimate", ""))
         tray.addWidget(tabs)
@@ -899,28 +900,43 @@ class MainWindow(QMainWindow):
                                  ("Surfaces", f"{result.surface_count:,}")],
         }
 
+    @staticmethod
+    def _format_measurement(value: Measurement | None, decimals: int = 3) -> str:
+        if value is None or value.value is None: return "—"
+        unit = f" {value.unit}" if value.unit else ""
+        return f"{value.value:,.{decimals}f}{unit}"
+
     def _populate_analysis_sections(self, result: AnalysisResult) -> None:
-        metrics = [("Structure", result.name), ("Atoms", f"{len(result.atoms):,}"),
-                   ("Bonds", f"{len(result.bonds):,}"),
-                   ("Geometry layers", str(len(result.layers))),
-                   ("Complete cells", f"{result.complete_cells:,}"),
-                   ("Surfaces", f"{result.surface_count:,}")]
+        summary = result.summary if isinstance(result.summary, NetworkSummary) else None
+        atoms = len(result.atoms); residues = len(self._residue_groups(result)); chains = len(self._chain_groups(result))
+        network = summary.network if summary else {}
+        vertices = int(network.get("vertices", Measurement(None)).value or 0) if network else sum(len(layer.points) for layer in result.layers if layer.kind.lower() in {"vertex", "vertices"})
+        edges = int(network.get("edges", Measurement(None)).value or 0) if network else len(result.bonds)
+        surfaces = int(network.get("surfaces", Measurement(None)).value or result.surface_count) if network else result.surface_count
+        metrics = [("System", summary.system if summary and summary.system else result.name), ("Group", summary.group if summary and summary.group else "Whole system"), ("Atoms", f"{atoms:,}"), ("Residues", f"{residues:,}"), ("Chains", f"{chains:,}"), ("Network", summary.network_type if summary and summary.network_type else "—"), ("Vertices", f"{vertices:,}"), ("Edges", f"{edges:,}"), ("Surfaces", f"{surfaces:,}")]
+        if summary:
+            metrics += [("Volume", self._format_measurement(summary.geometry.get("volume"))), ("Surface area", self._format_measurement(summary.geometry.get("surface_area"))), ("Representative surface energy", self._format_measurement(summary.energy.get("surf_energy"), 5)), ("Energy / area", self._format_measurement(summary.energy.get("energy_per_area"), 5)), ("Mapped waters", self._format_measurement(summary.classification.get("mapped_surrounding_waters"), 0))]
         self.results.setRowCount(len(metrics))
-        for row, (label, value) in enumerate(metrics):
-            self.results.setItem(row, 0, QTableWidgetItem(label))
-            self.results.setItem(row, 1, QTableWidgetItem(value))
+        self.results.setColumnCount(2); self.results.setHorizontalHeaderLabels(["Metric", "Value"])
+        for row, (label, value) in enumerate(metrics): self.results.setItem(row, 0, QTableWidgetItem(label)); self.results.setItem(row, 1, QTableWidgetItem(str(value)))
         sections = result.info_sections or self._fallback_info_sections(result)
         for name, table in self.analysis_section_tables.items():
-            rows = sections.get(name, [])
-            table.setRowCount(len(rows))
-            for row, (key, value) in enumerate(rows):
-                table.setItem(row, 0, QTableWidgetItem(key))
-                table.setItem(row, 1, QTableWidgetItem(value))
-        values = {"atoms": len(result.atoms), "bonds": len(result.bonds),
-                  "cells": result.complete_cells, "surfaces": result.surface_count,
-                  "layers": len(result.layers)}
+            if name == "Chain Composition" and summary:
+                table.setRowCount(len(summary.chains))
+                for row, record in enumerate(summary.chains):
+                    values=[record.chain, record.atoms or "—", record.residues or "—", self._format_measurement(record.volume), self._format_measurement(record.boundary_area), self._format_measurement(record.inter_chain_area), self._format_measurement(record.solvent_interfacial_area)]
+                    for col, value in enumerate(values): table.setItem(row,col,QTableWidgetItem(str(value)))
+            elif name == "Residue Composition" and summary:
+                table.setRowCount(len(summary.residues))
+                for row, record in enumerate(summary.residues):
+                    values=[record.chain, record.name, record.identifier, record.atoms or "—", self._format_measurement(record.volume), self._format_measurement(record.boundary_area), self._format_measurement(record.inter_residue_area), self._format_measurement(record.solvent_interfacial_area)]
+                    for col, value in enumerate(values): table.setItem(row,col,QTableWidgetItem(str(value)))
+            else:
+                rows = sections.get(name, []); table.setRowCount(len(rows))
+                for row, (key, value) in enumerate(rows): table.setItem(row, 0, QTableWidgetItem(key)); table.setItem(row, 1, QTableWidgetItem(value))
+        values = {"atoms": atoms, "residues": residues, "chains": chains, "vertices": vertices, "edges": edges, "surfaces": surfaces, "cells": result.complete_cells, "layers": len(result.layers)}
         for key, value in values.items():
-            self.metric_cards[key].value.setText(f"{value:,}")
+            if key in self.metric_cards: self.metric_cards[key].value.setText(f"{value:,}")
 
     def _build_status(self) -> None:
         self.progress_label = QLabel("Ready")
@@ -1385,6 +1401,7 @@ class MainWindow(QMainWindow):
                 info_path = source / "info.txt"
                 if info_path.exists():
                     result.info_sections = parse_group_info(info_path)
+                    result.summary = parse_network_summary(info_path)
             self.source = source
             self._loaded_results[source] = result
             self._display_result(result)

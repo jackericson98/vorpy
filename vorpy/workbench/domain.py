@@ -52,5 +52,6 @@ class AnalysisResult:
     surface_count: int = 0
     elapsed_seconds: float = 0.0
     info_sections: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
+    summary: object | None = None
 
 
