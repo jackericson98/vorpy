@@ -953,7 +953,7 @@ def choose_vert(my_vert, edge_ndxs, test_balls, b_locs, b_rads, metrics, max_bal
     # Verify the primary vertex location
     primary_valid = verify_aw_local(
         my_vert['loc'], my_vert['rad'], my_vert['balls'],
-        b_locs, b_rads, max_ball_rad
+        b_locs, b_rads, max_ball_rad, search_cache=search_cache
     )
 
     if primary_valid:
