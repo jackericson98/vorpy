@@ -85,6 +85,16 @@ def verify_prm_cached(loc, rad, test_locs, skip0=-1, skip1=-1, skip2=-1, skip3=-
     return True
 
 
+def _cached_geometry(cache, key, calculate):
+    """Evaluate deterministic four-ball geometry once per traversal."""
+    if cache is None:
+        return calculate()
+    values = cache.setdefault("geometry", {})
+    if key not in values:
+        values[key] = calculate()
+    return values[key]
+
+
 def _edge_surrounding_query(edge_balls, locs, rads, dist, cache):
     """Return cached surrounding indices and verification arrays for an edge."""
     edge_key = tuple(sorted(edge_balls))
@@ -389,10 +399,14 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         vert_balls, ball = vert
         metric_start = time.perf_counter()
         try:
-            v_loc, vert_rad = calc_flat_vert(
-                locs=[locs[_] for _ in vert_balls],
-                rads=[rads[_] for _ in vert_balls],
-                power=False
+            v_loc, vert_rad = _cached_geometry(
+                search_cache,
+                ("flat", False, tuple(vert_balls)),
+                lambda: calc_flat_vert(
+                    locs=[locs[_] for _ in vert_balls],
+                    rads=[rads[_] for _ in vert_balls],
+                    power=False,
+                ),
             )
         finally:
             POW_PRM_METRICS['calc_vert'] += time.perf_counter() - metric_start
@@ -501,10 +515,14 @@ def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         vert_balls, ball = vert
         metric_start = time.perf_counter()
         try:
-            v_loc, vert_rad = calc_flat_vert(
-                locs=[locs[_] for _ in vert_balls],
-                rads=[rads[_] for _ in vert_balls],
-                power=True
+            v_loc, vert_rad = _cached_geometry(
+                search_cache,
+                ("flat", True, tuple(vert_balls)),
+                lambda: calc_flat_vert(
+                    locs=[locs[_] for _ in vert_balls],
+                    rads=[rads[_] for _ in vert_balls],
+                    power=True,
+                ),
             )
         except RuntimeWarning:
             invalid_ndxs.append(ball)
@@ -653,7 +671,14 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
         vert_balls = edge_balls + [ball]
         vert_balls.sort()
         # Calculate the Voronoi vertex values
-        v_loc, v_rad, v_loc2, v_rad2 = calc_vert([locs[_] for _ in vert_balls], [rads[_] for _ in vert_balls])
+        v_loc, v_rad, v_loc2, v_rad2 = _cached_geometry(
+            search_cache,
+            ("aw", tuple(vert_balls)),
+            lambda: calc_vert(
+                [locs[_] for _ in vert_balls],
+                [rads[_] for _ in vert_balls],
+            ),
+        )
 
         min_allowed_rad = -min(rads[_] for _ in vert_balls)
 

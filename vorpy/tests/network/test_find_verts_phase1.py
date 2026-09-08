@@ -99,3 +99,20 @@ def test_edge_surrounding_query_cache_reuses_arrays(monkeypatch):
     assert first[2] is second[2]
     assert first[3] is second[3]
     assert calls["balls"] == 1
+
+
+def test_cached_geometry_evaluates_each_key_once():
+    from vorpy.src.network.fast import _cached_geometry
+
+    calls = []
+    cache = {}
+
+    def calculate():
+        calls.append(True)
+        return (1, 2, 3)
+
+    first = _cached_geometry(cache, ("aw", (0, 1, 2, 3)), calculate)
+    second = _cached_geometry(cache, ("aw", (0, 1, 2, 3)), calculate)
+    other = _cached_geometry(cache, ("flat", True, (0, 1, 2, 3)), calculate)
+    assert first == second == other
+    assert len(calls) == 2
