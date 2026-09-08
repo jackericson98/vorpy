@@ -581,6 +581,77 @@ def calc_flat_vert(locs, rads, power=False):
 
 
 @jit(nopython=True, cache=True)
+def _calc_flat_vert_numba(locs, rads, power):
+    """Compiled core for the four-ball flat vertex calculation."""
+    order = np.array([0, 1, 2, 3], dtype=np.int64)
+    for i in range(1, 4):
+        current = order[i]
+        j = i - 1
+        while j >= 0 and rads[order[j]] > rads[current]:
+            order[j + 1] = order[j]
+            j -= 1
+        order[j + 1] = current
+
+    base = order[0]
+    base_loc = locs[base]
+    base_rad = rads[base]
+    coeffs = np.empty((3, 4), dtype=np.float64)
+    for row in range(3):
+        idx = order[row + 1]
+        dx = locs[idx, 0] - base_loc[0]
+        dy = locs[idx, 1] - base_loc[1]
+        dz = locs[idx, 2] - base_loc[2]
+        norm = np.sqrt(dx * dx + dy * dy + dz * dz)
+        if not np.isfinite(norm) or norm <= 1e-15:
+            return np.zeros(3), 0.0, False
+        nx, ny, nz = dx / norm, dy / norm, dz / norm
+        if power:
+            d0 = 0.5 * (norm * norm + base_rad * base_rad - rads[idx] * rads[idx]) / norm
+            cx = base_loc[0] + d0 * nx
+            cy = base_loc[1] + d0 * ny
+            cz = base_loc[2] + d0 * nz
+        else:
+            cx = base_loc[0] + 0.5 * dx
+            cy = base_loc[1] + 0.5 * dy
+            cz = base_loc[2] + 0.5 * dz
+        coeffs[row, 0] = nx
+        coeffs[row, 1] = ny
+        coeffs[row, 2] = nz
+        coeffs[row, 3] = nx * cx + ny * cy + nz * cz
+
+    a1, b1, c1, d1 = coeffs[0]
+    a2, b2, c2, d2 = coeffs[1]
+    a3, b3, c3, d3 = coeffs[2]
+    disc = c1 * b2 * a3 - b1 * c2 * a3 - c1 * a2 * b3 + a1 * c2 * b3 + b1 * a2 * c3 - a1 * b2 * c3
+    if not np.isfinite(disc) or abs(disc) <= 1e-15:
+        return np.zeros(3), 0.0, False
+
+    xn = d1 * c2 * b3 - c1 * d2 * b3 - d1 * b2 * c3 + b1 * d2 * c3 + c1 * b2 * d3 - b1 * c2 * d3
+    yn = -d1 * c2 * a3 + c1 * d2 * a3 + d1 * a2 * c3 - a1 * d2 * c3 - c1 * a2 * d3 + a1 * c2 * d3
+    zn = d1 * b2 * a3 - b1 * d2 * a3 - d1 * a2 * b3 + a1 * d2 * b3 + b1 * a2 * d3 - a1 * b2 * d3
+    result = np.array([xn / disc, yn / disc, zn / disc])
+    dx = result[0] - base_loc[0]
+    dy = result[1] - base_loc[1]
+    dz = result[2] - base_loc[2]
+    rad = dx * dx + dy * dy + dz * dz
+    if power:
+        rad -= base_rad * base_rad
+    else:
+        rad = np.sqrt(rad)
+    return result, rad, True
+
+
+def calc_flat_vert_numba(locs, rads, power=False):
+    """Calculate a flat vertex through the compiled four-ball core."""
+    locations = np.asarray(locs, dtype=np.float64)
+    radii = np.asarray(rads, dtype=np.float64)
+    result, radius, valid = _calc_flat_vert_numba(locations, radii, power)
+    if not valid:
+        return None, None
+    return result.tolist(), float(radius)
+
+
+@jit(nopython=True, cache=True)
 def verify_aw(loc, rad, test_locs, test_rads, skip_ndx=-1):
     """
     Verify if a sphere does not encroach within the radius of any other spheres.

@@ -47,6 +47,7 @@ from vorpy.src.calculations.curvature import calc_surf_tri_curvs
 from vorpy.src.calculations.curvature import gaussian_curvature
 from vorpy.src.calculations.curvature import mean_curvature
 from vorpy.src.calculations.vert import calc_flat_vert
+from vorpy.src.calculations.vert import calc_flat_vert_numba
 from vorpy.src.calculations.vert import calc_vert
 from vorpy.src.calculations.vert import verify_site
 from vorpy.src.calculations.vert import verify_aw

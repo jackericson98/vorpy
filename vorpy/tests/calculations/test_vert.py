@@ -18,6 +18,7 @@ from vorpy.src.calculations.vert import (
     filter_vert_locrads,
     calc_vert,
     calc_flat_vert,
+    calc_flat_vert_numba,
     verify_aw,
     verify_prm,
     verify_pow,
@@ -426,6 +427,20 @@ class TestCalcFlatVert:
         assert isinstance(result, tuple)
         assert len(result) == 2
     
+    def test_calc_flat_vert_numba_matches_reference(self):
+        rng = np.random.default_rng(123)
+        for power in (False, True):
+            for _ in range(10):
+                locs = rng.normal(size=(4, 3))
+                rads = rng.uniform(0.4, 2.0, size=4)
+                reference = calc_flat_vert(locs.tolist(), rads.tolist(), power=power)
+                accelerated = calc_flat_vert_numba(locs, rads, power=power)
+                if reference[0] is None:
+                    assert accelerated[0] is None
+                else:
+                    np.testing.assert_allclose(accelerated[0], reference[0], rtol=2e-10, atol=2e-10)
+                    np.testing.assert_allclose(accelerated[1], reference[1], rtol=2e-10, atol=2e-10)
+
     def test_calc_flat_vert_different_radii(self):
         """Test with different radii."""
         locs = [

@@ -4,6 +4,7 @@ import numpy as np
 import warnings
 from numba import jit
 from vorpy.src.calculations import calc_flat_vert
+from vorpy.src.calculations import calc_flat_vert_numba
 from vorpy.src.calculations import calc_vert
 from vorpy.src.calculations import verify_aw
 from vorpy.src.calculations import verify_pow
@@ -402,7 +403,7 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
             v_loc, vert_rad = _cached_geometry(
                 search_cache,
                 ("flat", False, tuple(vert_balls)),
-                lambda: calc_flat_vert(
+                lambda: calc_flat_vert_numba(
                     locs=[locs[_] for _ in vert_balls],
                     rads=[rads[_] for _ in vert_balls],
                     power=False,
@@ -518,7 +519,7 @@ def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
             v_loc, vert_rad = _cached_geometry(
                 search_cache,
                 ("flat", True, tuple(vert_balls)),
-                lambda: calc_flat_vert(
+                lambda: calc_flat_vert_numba(
                     locs=[locs[_] for _ in vert_balls],
                     rads=[rads[_] for _ in vert_balls],
                     power=True,
