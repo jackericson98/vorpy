@@ -87,7 +87,7 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
 
     # Normalize numeric inputs once. Callers commonly pass pandas-derived lists;
     # keeping contiguous arrays here avoids repeated conversion in candidate searches.
-    locs = np.asarray(locs, dtype=float)
+    locs = np.asarray(list(locs), dtype=float)
     rads = np.asarray(rads, dtype=float)
     check_ndxs_set = set(check_ndxs)
 
