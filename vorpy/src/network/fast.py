@@ -30,6 +30,14 @@ POW_PRM_METRICS = {
 }
 
 
+def _squared_distance(left, right):
+    """Return squared Euclidean distance without allocating arrays or taking a root."""
+    dx = left[0] - right[0]
+    dy = left[1] - right[1]
+    dz = left[2] - right[2]
+    return dx * dx + dy * dy + dz * dz
+
+
 def _edge_spatial_query(edge_balls, locs, dist, cache):
     """Cache deterministic spatial candidates for one three-ball edge."""
     if cache is None:
@@ -322,7 +330,7 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
     if vn_1_loc is None:
         vn_1_loc = calc_com([locs[_] for _ in edge_ndxs])
 
-    dists = [calc_dist(np.array(locs[_]), np.array(vn_1_loc)) for _ in test_balls]
+    dists = [_squared_distance(locs[_], vn_1_loc) for _ in test_balls]
     test_balls = [_ for x, _ in sorted(zip(dists, test_balls))]
     metric_start = time.perf_counter()
     # Instantiate the list for test vertices to be calculated later. This saves us from sorting the vertices balls twice
@@ -433,7 +441,7 @@ def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
         vn_1_loc = calc_com([locs[_] for _ in edge_ndxs])
 
     vn_1_loc_array = np.array(vn_1_loc)
-    dists = [calc_dist(np.array(locs[_]), vn_1_loc_array) for _ in test_balls]
+    dists = [_squared_distance(locs[_], vn_1_loc_array) for _ in test_balls]
     metric_start = time.perf_counter()
     test_balls = [_ for x, _ in sorted(zip(dists, test_balls))]
     metric_start = time.perf_counter()

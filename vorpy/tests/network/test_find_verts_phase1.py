@@ -62,3 +62,13 @@ def test_edge_spatial_query_cache_reuses_box_and_candidate_queries(monkeypatch):
     second = fast._edge_spatial_query([0, 2, 1], locs, 0.45, cache)
     assert first == second
     assert calls == {"box": 3, "balls": 1}
+
+
+def test_squared_distance_preserves_distance_ordering():
+    from vorpy.src.network.fast import _squared_distance
+
+    reference = np.array([1.0, -2.0, 0.5])
+    points = [np.array([4.0, -2.0, 0.5]), np.array([1.0, 0.0, 0.5]), np.array([1.0, -2.0, 2.5])]
+    squared_order = sorted(range(len(points)), key=lambda i: _squared_distance(points[i], reference))
+    euclidean_order = sorted(range(len(points)), key=lambda i: np.linalg.norm(points[i] - reference))
+    assert squared_order == euclidean_order
