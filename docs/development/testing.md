@@ -40,4 +40,20 @@ Every commit should run unit tests, small integration tests, and a small end-to-
 
 A Python version should only be added to the README compatibility badge after the required suite passes consistently.
 
+## Morphometric geometry validation
+
+Curvature and edge-geometry changes require more than ordinary unit coverage.
+Each stage must connect its mathematical definition, implementation, and test
+in the [Morphometric Geometry Implementation](morphometric_geometry.md) map.
+
+Required validation classes include:
+
+- analytic values for spheres, planes, lines, circles, and constant-angle wedges;
+- equal-clearance residuals for AW three-generator edges;
+- first- and second-derivative checks against finite differences;
+- invariance under translation, rotation, and irrelevant input reordering;
+- explicit convex/concave orientation and sign tests;
+- surface-resolution convergence for integrated quantities;
+- unchanged legacy fields while new component fields remain experimental.
+
 **TODO:** Review the existing `tests/` directory and convert this strategy into the actual GitHub Actions matrix.

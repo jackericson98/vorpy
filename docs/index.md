@@ -47,6 +47,7 @@ This directory contains the extended documentation for VorPy. The top-level READ
 - [Testing and Compatibility](development/testing.md)
 - [Contributing](development/contributing.md)
 - [Architecture](development/architecture.md)
+- [Morphometric Geometry: Method-to-Code Map](development/morphometric_geometry.md)
 
 ## Reference
 - [Terminology](reference/terminology.md)
