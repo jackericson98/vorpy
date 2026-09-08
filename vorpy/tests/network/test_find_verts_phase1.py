@@ -72,3 +72,30 @@ def test_squared_distance_preserves_distance_ordering():
     squared_order = sorted(range(len(points)), key=lambda i: _squared_distance(points[i], reference))
     euclidean_order = sorted(range(len(points)), key=lambda i: np.linalg.norm(points[i] - reference))
     assert squared_order == euclidean_order
+
+
+def test_edge_surrounding_query_cache_reuses_arrays(monkeypatch):
+    from vorpy.src.network import fast
+
+    calls = {"balls": 0}
+
+    monkeypatch.setattr(fast, "_edge_spatial_query",
+                        lambda edge, locs, dist, cache: (
+                            [], [0, 1, 2]
+                        ))
+    original = fast._edge_spatial_query
+    # Count through a wrapper while retaining deterministic candidate output.
+    def counted(edge, locs, dist, cache):
+        calls["balls"] += 1
+        return original(edge, locs, dist, cache)
+    monkeypatch.setattr(fast, "_edge_spatial_query", counted)
+    locs = np.zeros((3, 3))
+    rads = np.ones(3)
+    cache = {}
+    first = fast._edge_surrounding_query([2, 1, 0], locs, rads, 5.0, cache)
+    second = fast._edge_surrounding_query([0, 2, 1], locs, rads, 5.0, cache)
+    assert first[0] == second[0] == [0, 1, 2]
+    assert first[1] is second[1]
+    assert first[2] is second[2]
+    assert first[3] is second[3]
+    assert calls["balls"] == 1

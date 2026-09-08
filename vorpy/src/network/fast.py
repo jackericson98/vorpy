@@ -85,6 +85,32 @@ def verify_prm_cached(loc, rad, test_locs, skip0=-1, skip1=-1, skip2=-1, skip3=-
     return True
 
 
+def _edge_surrounding_query(edge_balls, locs, rads, dist, cache):
+    """Return cached surrounding indices and verification arrays for an edge."""
+    edge_key = tuple(sorted(edge_balls))
+    if cache is None:
+        _, balls = _edge_spatial_query(edge_balls, locs, dist, None)
+        return (
+            balls,
+            np.asarray([locs[ball] for ball in balls], dtype=float),
+            np.asarray([rads[ball] for ball in balls], dtype=float),
+            {ball: index for index, ball in enumerate(balls)},
+        )
+
+    key = (edge_key, float(dist))
+    surrounding = cache.setdefault("surrounding", {}).get(key)
+    if surrounding is None:
+        _, balls = _edge_spatial_query(edge_balls, locs, dist, cache)
+        surrounding = (
+            balls,
+            np.asarray([locs[ball] for ball in balls], dtype=float),
+            np.asarray([rads[ball] for ball in balls], dtype=float),
+            {ball: index for index, ball in enumerate(balls)},
+        )
+        cache["surrounding"][key] = surrounding
+    return surrounding
+
+
 def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
                         max_vert, net_type, box=None, vn_1=None, vn_1_loc=None,
                         group_ndxs=None, metrics=None, printing=False, max_ball_rad=None, search_cache=None):
@@ -205,10 +231,9 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
         POW_PRM_METRICS['container_calls'] += 1
         metric_start = time.perf_counter()
 
-        _, surr_balls = _edge_spatial_query(edge_balls, locs, max_vert, search_cache)
-        surr_locs = np.asarray([locs[ball] for ball in surr_balls], dtype=float)
-        surr_rads = np.asarray([rads[ball] for ball in surr_balls], dtype=float)
-        surr_lookup = {ball: i for i, ball in enumerate(surr_balls)}
+        surr_balls, surr_locs, surr_rads, surr_lookup = _edge_surrounding_query(
+            edge_balls, locs, rads, max_vert, search_cache
+        )
 
         POW_PRM_METRICS['surrounding'] += time.perf_counter() - metric_start
 
@@ -218,9 +243,9 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
 
         # Primitive verification also reuses one edge-level neighborhood.
         # Verification depends only on center distances, not ball ordering.
-        _, surr_balls = _edge_spatial_query(edge_balls, locs, max_vert, search_cache)
-        surr_locs = np.asarray([locs[ball] for ball in surr_balls], dtype=float)
-        surr_lookup = {ball: i for i, ball in enumerate(surr_balls)}
+        surr_balls, surr_locs, _, surr_lookup = _edge_surrounding_query(
+            edge_balls, locs, rads, max_vert, search_cache
+        )
 
         POW_PRM_METRICS['surrounding'] += time.perf_counter() - metric_start
 
