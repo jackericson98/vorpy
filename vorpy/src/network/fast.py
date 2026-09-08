@@ -30,6 +30,24 @@ POW_PRM_METRICS = {
 }
 
 
+def _edge_spatial_query(edge_balls, locs, dist, cache):
+    """Cache deterministic spatial candidates for one three-ball edge."""
+    if cache is None:
+        cells = [box_search(loc=locs[index]) for index in edge_balls]
+        return cells, get_balls(cells=cells, dist=dist)
+    edge_key = tuple(sorted(edge_balls))
+    boxes = cache.setdefault("boxes", {}).get(edge_key)
+    if boxes is None:
+        boxes = [box_search(loc=locs[index]) for index in edge_balls]
+        cache.setdefault("boxes", {})[edge_key] = boxes
+    candidate_key = (edge_key, float(dist))
+    candidates = cache.setdefault("candidates", {}).get(candidate_key)
+    if candidates is None:
+        candidates = get_balls(cells=boxes, dist=dist)
+        cache.setdefault("candidates", {})[candidate_key] = candidates
+    return boxes, candidates
+
+
 @jit(nopython=True, cache=True)
 def verify_pow_cached(loc, rad, test_locs, test_rads, skip0=-1, skip1=-1, skip2=-1, skip3=-1):
     """Verify Power geometry against cached edge arrays while skipping defining balls."""
@@ -61,7 +79,7 @@ def verify_prm_cached(loc, rad, test_locs, skip0=-1, skip1=-1, skip2=-1, skip3=-
 
 def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
                         max_vert, net_type, box=None, vn_1=None, vn_1_loc=None,
-                        group_ndxs=None, metrics=None, printing=False, max_ball_rad=None):
+                        group_ndxs=None, metrics=None, printing=False, max_ball_rad=None, search_cache=None):
     """
     Find a neighboring vertex associated with a three-ball edge.
 
@@ -167,7 +185,7 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
                 required_group = None
                 break
 
-    my_boxes = [box_search(loc=locs[edge_balls[_]]) for _ in range(3)]
+    my_boxes, _ = _edge_spatial_query(edge_balls, locs, 0.0, search_cache)
     # AW verifies locally. Power caches one verification neighborhood per edge.
     # Primitive retains its existing surrounding-ball verification path.
     surr_balls = None
@@ -179,7 +197,7 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
         POW_PRM_METRICS['container_calls'] += 1
         metric_start = time.perf_counter()
 
-        surr_balls = get_balls(cells=my_boxes, dist=max_vert)
+        _, surr_balls = _edge_spatial_query(edge_balls, locs, max_vert, search_cache)
         surr_locs = np.asarray([locs[ball] for ball in surr_balls], dtype=float)
         surr_rads = np.asarray([rads[ball] for ball in surr_balls], dtype=float)
         surr_lookup = {ball: i for i, ball in enumerate(surr_balls)}
@@ -192,7 +210,7 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
 
         # Primitive verification also reuses one edge-level neighborhood.
         # Verification depends only on center distances, not ball ordering.
-        surr_balls = get_balls(cells=my_boxes, dist=max_vert)
+        _, surr_balls = _edge_spatial_query(edge_balls, locs, max_vert, search_cache)
         surr_locs = np.asarray([locs[ball] for ball in surr_balls], dtype=float)
         surr_lookup = {ball: i for i, ball in enumerate(surr_balls)}
 
@@ -206,7 +224,7 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
             vert, invalid_ndxs = find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
                                               required_group is not None, surr_balls, my_boxes, invalid_ndxs, vn_1,
                                               vn_1_loc, box=box, group_balls=required_group, metrics=metrics,
-                                              printing=printing, max_ball_rad=max_ball_rad)
+                                              printing=printing, max_ball_rad=max_ball_rad, search_cache=search_cache)
             if vert is KNOWN_EDGE:
                 return None
         elif net_type == 'pow':
@@ -214,14 +232,14 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
                 edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
                 required_group is not None, surr_balls, my_boxes, invalid_ndxs, vn_1,
                 box, vn_1_loc, group_ndxs=required_group, metrics=metrics,
-                surr_locs=surr_locs, surr_rads=surr_rads, surr_lookup=surr_lookup
+                surr_locs=surr_locs, surr_rads=surr_rads, surr_lookup=surr_lookup, search_cache=search_cache
             )
         elif net_type == 'prm':
             vert, invalid_ndxs = find_site_del(
                 edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc,
                 required_group is not None, surr_balls, my_boxes, invalid_ndxs, vn_1,
                 box, vn_1_loc, group_ndxs=required_group, metrics=metrics,
-                surr_locs=surr_locs, surr_lookup=surr_lookup
+                surr_locs=surr_locs, surr_lookup=surr_lookup, search_cache=search_cache
             )
 
         if vert is not None or mv_inc >= max_vert:
@@ -234,7 +252,7 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
 
 def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, check_ndxs, surr_balls,
                   my_boxes, invalid_ndxs, vn_1, box=None, vn_1_loc=None, group_ndxs=None, metrics=None,
-                  surr_locs=None, surr_lookup=None):
+                  surr_locs=None, surr_lookup=None, search_cache=None):
     """
     Finds a new vertex in a Delaunay network by searching for valid ball combinations.
 
@@ -297,7 +315,8 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
     invalid_ndxs_set = set(invalid_ndxs)
     metric_start = time.perf_counter()
     # Get the balls not in the invalid balls that are within the range specified
-    test_balls = [_ for _ in get_balls(cells=my_boxes, dist=mv_inc) if _ not in invalid_ndxs_set]
+    _, candidate_balls = _edge_spatial_query(edge_balls, locs, mv_inc, search_cache)
+    test_balls = [_ for _ in candidate_balls if _ not in invalid_ndxs_set]
     POW_PRM_METRICS['candidate_gather'] += time.perf_counter() - metric_start
     # Sort the test balls to be in order by distance from the previous vert location
     if vn_1_loc is None:
@@ -383,7 +402,7 @@ def find_site_del(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
 
 def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, check_ndxs, surr_balls,
                   my_boxes, invalid_ndxs, vn_1, box=None, vn_1_loc=None, group_ndxs=None, metrics=None,
-                  surr_locs=None, surr_rads=None, surr_lookup=None):
+                  surr_locs=None, surr_rads=None, surr_lookup=None, search_cache=None):
     """
     Finds a new vertex in a power network by searching for valid ball combinations.
 
@@ -406,7 +425,8 @@ def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
     # Get the balls not in the invalid balls that are within the range specified
     invalid_ndxs_set = set(invalid_ndxs)
     metric_start = time.perf_counter()
-    test_balls = [_ for _ in get_balls(cells=my_boxes, dist=mv_inc) if _ not in invalid_ndxs_set]
+    _, candidate_balls = _edge_spatial_query(edge_balls, locs, mv_inc, search_cache)
+    test_balls = [_ for _ in candidate_balls if _ not in invalid_ndxs_set]
     POW_PRM_METRICS['candidate_gather'] += time.perf_counter() - metric_start
     # Sort the test balls to be in order by distance from the previous vert location
     if vn_1_loc is None:
@@ -499,7 +519,7 @@ def find_site_pow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, 
 
 
 def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, check_ndxs, surr_balls,
-                 my_boxes, invalid_ndxs, vn_1, vn_1_loc, box=None, group_balls=None, metrics=None, printing=False, max_ball_rad=None):
+                 my_boxes, invalid_ndxs, vn_1, vn_1_loc, box=None, group_balls=None, metrics=None, printing=False, max_ball_rad=None, search_cache=None):
     """
     Find the neighboring additively weighted Voronoi vertex for an edge.
 
@@ -565,7 +585,8 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
 
     # Get the balls not in the invalid balls that are within the range specified
     invalid_ndxs_set = set(invalid_ndxs)
-    test_balls = [_ for _ in get_balls(cells=my_boxes, dist=mv_inc) if _ not in invalid_ndxs_set]
+    _, candidate_balls = _edge_spatial_query(edge_balls, locs, mv_inc, search_cache)
+    test_balls = [_ for _ in candidate_balls if _ not in invalid_ndxs_set]
 
     # Instantiate the list for test vertices to be calculated later. This saves us from sorting the vertices balls twice
     new_test_balls = []

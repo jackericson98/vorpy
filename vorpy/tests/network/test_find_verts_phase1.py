@@ -12,7 +12,7 @@ def test_find_verts_phase1_normalizes_inputs_and_records_timing(monkeypatch):
     result = module.find_verts(
         locs=[[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]],
         rads=[1, 1, 1, 1],
-        max_vert=40,
+        max_vert=5,
         net_type="aw",
         check_ndxs=[0, 1, 2, 3],
         my_group=[0],
@@ -33,9 +33,32 @@ def test_find_verts_phase1_preserves_vertex_state_shape(monkeypatch):
     monkeypatch.setattr(module, "find_v0", lambda **kwargs: seed)
     monkeypatch.setattr(module, "find_site_container", lambda **kwargs: None)
     result = module.find_verts(
-        locs=np.zeros((4, 3)), rads=np.ones(4), max_vert=40, net_type="aw",
+        locs=np.zeros((4, 3)), rads=np.ones(4), max_vert=5, net_type="aw",
         check_ndxs=list(range(4)), my_group=[0], timing={}, start_time=time.perf_counter()
     )
     assert result[2] == [1.0]
     np.testing.assert_allclose(result[3][0], np.ones(3))
     assert result[4] == [0.5]
+
+
+def test_edge_spatial_query_cache_reuses_box_and_candidate_queries(monkeypatch):
+    from vorpy.src.network import fast
+
+    calls = {"box": 0, "balls": 0}
+
+    def fake_box_search(loc):
+        calls["box"] += 1
+        return tuple(loc)
+
+    def fake_get_balls(cells, dist):
+        calls["balls"] += 1
+        return [1, 2]
+
+    monkeypatch.setattr(fast, "box_search", fake_box_search)
+    monkeypatch.setattr(fast, "get_balls", fake_get_balls)
+    locs = np.zeros((3, 3))
+    cache = {}
+    first = fast._edge_spatial_query([2, 1, 0], locs, 0.45, cache)
+    second = fast._edge_spatial_query([0, 2, 1], locs, 0.45, cache)
+    assert first == second
+    assert calls == {"box": 3, "balls": 1}

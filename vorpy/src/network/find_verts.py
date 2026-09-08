@@ -90,6 +90,7 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
     locs = np.asarray(list(locs), dtype=float)
     rads = np.asarray(rads, dtype=float)
     check_ndxs_set = set(check_ndxs)
+    search_cache = {}
 
     # Optional shared timing dictionary. The outer wrapper can pass one
     # dictionary across initial and reseed traversals so timings accumulate
@@ -325,7 +326,8 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
             vert_ndx_pr = find_site_container(edge_balls=edge_balls, locs=locs, rads=rads, b_verts=b_verts,
                                               vert_ndxs=vert_ndxs, max_vert=max_vert, net_type=net_type,
                                               vn_1=vert['balls'], box=box, vn_1_loc=vert['loc'],
-                                              group_ndxs=search_group, printing=printing, max_ball_rad=max_ball_rad)
+                                              group_ndxs=search_group, printing=printing, max_ball_rad=max_ball_rad,
+                                              search_cache=search_cache)
             _add_time('site_container', time.perf_counter() - t_search)
 
             # If the vertex is none continue
