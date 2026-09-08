@@ -702,7 +702,7 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
         return None, invalid_ndxs
     # If there is only one vertex left, no need to sort. Just verify it
     if len(calc_verts) == 1:
-        return choose_vert(calc_verts[0], edge_ndxs, surr_balls, locs, rads, metrics, max_ball_rad=max_ball_rad)[0], invalid_ndxs
+        return choose_vert(calc_verts[0], edge_ndxs, surr_balls, locs, rads, metrics, max_ball_rad=max_ball_rad, search_cache=search_cache)[0], invalid_ndxs
 
     # Instantiate the left and right vertex lists
     left_verts, right_verts = [], []
@@ -846,21 +846,21 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
 
     # Check the left neighbor vertex
     if left_neighbor is not None:
-        my_vert, extra_ball = choose_vert(left_neighbor, edge_ndxs, surr_balls, locs, rads, metrics, max_ball_rad=max_ball_rad)
+        my_vert, extra_ball = choose_vert(left_neighbor, edge_ndxs, surr_balls, locs, rads, metrics, max_ball_rad=max_ball_rad, search_cache=search_cache)
 
         if my_vert is not None:
             return my_vert, invalid_ndxs
         invalid_ndxs.append(extra_ball)
     # Check the right neighbor vertex
     if right_neighbor is not None:
-        my_vert, extra_ball = choose_vert(right_neighbor, edge_ndxs, surr_balls, locs, rads, metrics, max_ball_rad=max_ball_rad)
+        my_vert, extra_ball = choose_vert(right_neighbor, edge_ndxs, surr_balls, locs, rads, metrics, max_ball_rad=max_ball_rad, search_cache=search_cache)
         if my_vert is not None:
             return my_vert, invalid_ndxs
         invalid_ndxs.append(extra_ball)
     return None, invalid_ndxs
 
 
-def verify_aw_local(loc, rad, vert_balls, b_locs, b_rads, max_ball_rad):
+def verify_aw_local(loc, rad, vert_balls, b_locs, b_rads, max_ball_rad, search_cache=None):
     """
     Verify an AW vertex using only balls that can geometrically invalidate it.
 
@@ -896,14 +896,23 @@ def verify_aw_local(loc, rad, vert_balls, b_locs, b_rads, max_ball_rad):
     if verify_box is None:
         return False
 
-    check_balls = [_ for _ in get_balls([verify_box], dist=verify_dist) if _ not in vert_balls]
+    cache_key = (tuple(verify_box), float(verify_dist))
+    if search_cache is None:
+        nearby_balls = get_balls([verify_box], dist=verify_dist)
+    else:
+        nearby = search_cache.setdefault("aw_verification", {})
+        nearby_balls = nearby.get(cache_key)
+        if nearby_balls is None:
+            nearby_balls = get_balls([verify_box], dist=verify_dist)
+            nearby[cache_key] = nearby_balls
+    check_balls = [_ for _ in nearby_balls if _ not in vert_balls]
     test_locs = np.asarray([b_locs[_] for _ in check_balls])
     test_rads = np.asarray([b_rads[_] for _ in check_balls])
 
     return verify_aw(np.asarray(loc), rad, test_locs, test_rads)
 
 
-def choose_vert(my_vert, edge_ndxs, test_balls, b_locs, b_rads, metrics, max_ball_rad=None):
+def choose_vert(my_vert, edge_ndxs, test_balls, b_locs, b_rads, metrics, max_ball_rad=None, search_cache=None):
     """
     Verify a candidate AW neighbor and resolve optional doublet solutions.
 
