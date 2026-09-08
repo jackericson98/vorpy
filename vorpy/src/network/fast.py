@@ -160,7 +160,7 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
 
     elif group_ndxs is not None:
 
-        required_group = group_ndxs
+        required_group = set(group_ndxs)
 
         for ball in edge_balls:
             if ball in group_ndxs:

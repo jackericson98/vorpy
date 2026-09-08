@@ -85,6 +85,12 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
         when a seed is found, otherwise ``None``.
     """
 
+    # Normalize numeric inputs once. Callers commonly pass pandas-derived lists;
+    # keeping contiguous arrays here avoids repeated conversion in candidate searches.
+    locs = np.asarray(locs, dtype=float)
+    rads = np.asarray(rads, dtype=float)
+    check_ndxs_set = set(check_ndxs)
+
     # Optional shared timing dictionary. The outer wrapper can pass one
     # dictionary across initial and reseed traversals so timings accumulate
     # over the complete vertex-search phase.
@@ -381,8 +387,9 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
                 b_vert_ndxs = [vert_ndxs[_] for _ in b_verts[ball]]
                 # noinspection PyTypeChecker
                 b_verts[ball].insert(ndx_search(b_vert_ndxs, my_vert['balls']), len(vert_ndxs) - 1)
-                if ball in check_ndxs:
+                if ball in check_ndxs_set:
                     check_ndxs.remove(ball)
+                    check_ndxs_set.discard(ball)
 
             _add_time('adjacency_updates', time.perf_counter() - t_adj)
             accepted_vertices += 1
