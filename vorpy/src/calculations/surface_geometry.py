@@ -146,3 +146,135 @@ class PlaneSurfaceGeometry(SurfaceGeometry):
 def surface_geometry_from_coefficients(coefficients):
     """Create the current AW quadratic geometry without changing callers."""
     return QuadraticSurfaceGeometry(coefficients)
+
+def aw_clearance_difference(
+        point,
+        cell_location,
+        cell_radius,
+        neighbor_location,
+        neighbor_radius):
+    """Return additive-clearance difference d_cell - d_neighbor.
+
+    Negative values lie on the cell side of the pairwise AW boundary,
+    positive values lie on the neighboring-cell side, and zero defines
+    the pairwise boundary surface.
+    """
+    point = np.asarray(point, dtype=float)
+    cell_location = np.asarray(cell_location, dtype=float)
+    neighbor_location = np.asarray(neighbor_location, dtype=float)
+
+    if (
+        point.shape != (3,)
+        or cell_location.shape != (3,)
+        or neighbor_location.shape != (3,)
+    ):
+        raise ValueError(
+            "AW clearance inputs must be three-dimensional vectors."
+        )
+
+    if not (
+        np.all(np.isfinite(point))
+        and np.all(np.isfinite(cell_location))
+        and np.all(np.isfinite(neighbor_location))
+        and np.isfinite(float(cell_radius))
+        and np.isfinite(float(neighbor_radius))
+    ):
+        raise ValueError("AW clearance inputs must be finite.")
+
+    cell_clearance = (
+        np.linalg.norm(point - cell_location)
+        - float(cell_radius)
+    )
+    neighbor_clearance = (
+        np.linalg.norm(point - neighbor_location)
+        - float(neighbor_radius)
+    )
+
+    return float(cell_clearance - neighbor_clearance)
+
+
+def aw_clearance_gradient(
+        point,
+        cell_location,
+        neighbor_location,
+        tol=1e-12):
+    """Return grad(d_cell - d_neighbor).
+
+    The gradient is oriented from the cell side toward the neighboring
+    cell side of the pairwise additively weighted boundary.
+    """
+    point = np.asarray(point, dtype=float)
+    cell_location = np.asarray(cell_location, dtype=float)
+    neighbor_location = np.asarray(neighbor_location, dtype=float)
+
+    if (
+        point.shape != (3,)
+        or cell_location.shape != (3,)
+        or neighbor_location.shape != (3,)
+    ):
+        raise ValueError(
+            "AW clearance-gradient inputs must be three-dimensional vectors."
+        )
+
+    if not (
+        np.all(np.isfinite(point))
+        and np.all(np.isfinite(cell_location))
+        and np.all(np.isfinite(neighbor_location))
+    ):
+        raise ValueError("AW clearance-gradient inputs must be finite.")
+
+    cell_vector = point - cell_location
+    neighbor_vector = point - neighbor_location
+
+    cell_distance = float(np.linalg.norm(cell_vector))
+    neighbor_distance = float(np.linalg.norm(neighbor_vector))
+
+    if cell_distance < tol or neighbor_distance < tol:
+        raise ValueError(
+            "AW clearance gradient is undefined at a generator center."
+        )
+
+    gradient = (
+        cell_vector / cell_distance
+        - neighbor_vector / neighbor_distance
+    )
+
+    if not np.all(np.isfinite(gradient)):
+        raise ValueError("AW clearance gradient is non-finite.")
+
+    return gradient
+
+
+def aw_outward_normal(
+        point,
+        cell_location,
+        neighbor_location,
+        tol=1e-12):
+    """Return the unit normal pointing outward from one AW cell.
+
+    The returned direction points from the region satisfying
+
+        d_cell <= d_neighbor
+
+    toward the neighboring-cell side
+
+        d_cell > d_neighbor.
+
+    This orientation is independent of whatever generator ordering is
+    required internally for surface construction.
+    """
+    gradient = aw_clearance_gradient(
+        point,
+        cell_location,
+        neighbor_location,
+        tol=tol,
+    )
+
+    magnitude = float(np.linalg.norm(gradient))
+
+    if not np.isfinite(magnitude) or magnitude < tol:
+        raise ValueError(
+            "AW outward normal is undefined at this point."
+        )
+
+    return gradient / magnitude

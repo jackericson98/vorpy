@@ -586,6 +586,7 @@ class Command:
             print("="*70)
             print(f"Total edges:                  {summary['total_edges']:,}")
             print(f"Matched analytic curves:      {counts.get('matched_curve', 0):,}")
+            print(f"Matched turning conics:       {counts.get('matched_nonsingular', 0):,}")
             print(f"Matched straight edges:       {counts.get('matched_line', 0):,}")
             print(f"Unsupported / failed:         {failed:,}")
             print(f"Match coverage:               {100*summary['matched_fraction']:.2f} %")

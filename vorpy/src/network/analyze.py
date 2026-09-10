@@ -2,7 +2,6 @@ import time
 import numpy as np
 from numpy import pi, sqrt
 from time import perf_counter as now
-
 from vorpy.src.calculations import calc_sphericity
 from vorpy.src.calculations import calc_isoperimetric_quotient
 from vorpy.src.calculations import calc_contacts_cached
@@ -19,10 +18,9 @@ def _rmsd(values, average):
 
 def _print_analysis_timing(timer, total):
     """Print a detailed analysis timing breakdown."""
-    print("\n" + "=" * 70)
-    print("ANALYSIS TIMING")
-    print("=" * 70)
-
+    print('\n' + '=' * 70)
+    print('ANALYSIS TIMING')
+    print('=' * 70)
     labels = [
         ('setup', 'Setup / cache construction'),
         ('surface_gather', 'Surface gathering'),
@@ -40,19 +38,16 @@ def _print_analysis_timing(timer, total):
         ('surface_assign', 'Surface assignment'),
         ('ball_assign', 'Ball assignment'),
     ]
-
     for key, label in labels:
         elapsed = timer.get(key, 0.0)
         pct = 100.0 * elapsed / total if total > 0 else 0.0
-        print(f"{label:<28} {elapsed:10.4f} s  {pct:6.2f} %")
-
-    measured = sum(timer.get(key, 0.0) for key, _ in labels)
+        print(f'{label:<28} {elapsed:10.4f} s  {pct:6.2f} %')
+    measured = sum((timer.get(key, 0.0) for key, _ in labels))
     other = max(total - measured, 0.0)
     pct = 100.0 * other / total if total > 0 else 0.0
     print(f"{'Other / loop overhead':<28} {other:10.4f} s  {pct:6.2f} %")
-    print("-" * 70)
+    print('-' * 70)
     print(f"{'TOTAL':<28} {total:10.4f} s  100.00 %")
-
 
 def analyze(
     net,
@@ -64,26 +59,19 @@ def analyze(
     moi=None,
     bounding_box=None,
 ):
-    """
-    Analyze the cells in ``net.group``.
+    """Analyze cells in ``net.group`` and assemble geometric cell properties.
 
-    This implementation keeps the historical output columns and default
-    behavior while removing most pandas work from the hot per-cell loop.
+    For AW networks:
+        M = M_surface + M_edge
+        G = G_surface + G_edge + G_vertex
 
-    Parameters
-    ----------
-    net
-        VorPy network object.
-    complicated : bool, default=True
-        Backward-compatible master switch for the expensive metrics.
-    spikes, contacts, second_neighbors, com, moi, bounding_box : bool or None
-        Optional per-feature switches. ``None`` inherits ``complicated``.
+    Canonical ``int_mean_curv`` and ``int_gauss_curv`` store the complete
+    piecewise-smooth cell measures. Component fields are retained for
+    validation, interpretation, and regression testing.
     """
     analysis_start = now()
     net.update_progress("Analyzing network | Initializing", 0.0)
 
-    # Preserve the old complicated=True/False behavior unless a feature is
-    # explicitly overridden by the caller.
     spikes = complicated if spikes is None else spikes
     contacts = complicated if contacts is None else contacts
     second_neighbors = complicated if second_neighbors is None else second_neighbors
@@ -92,30 +80,16 @@ def analyze(
     bounding_box = complicated if bounding_box is None else bounding_box
 
     timer = {
-        'setup': 0.0,
-        'surface_gather': 0.0,
-        'completeness': 0.0,
-        'basic': 0.0,
-        'curvs': 0.0,
-        'geometric': 0.0,
-        'neighbors_1': 0.0,
-        'neighbors_2': 0.0,
-        'spikes': 0.0,
-        'contacts': 0.0,
-        'com': 0.0,
-        'moi': 0.0,
-        'b_box': 0.0,
-        'surface_assign': 0.0,
-        'ball_assign': 0.0,
+        'setup': 0.0, 'surface_gather': 0.0, 'completeness': 0.0,
+        'basic': 0.0, 'curvs': 0.0, 'geometric': 0.0,
+        'neighbors_1': 0.0, 'neighbors_2': 0.0, 'spikes': 0.0,
+        'contacts': 0.0, 'com': 0.0, 'moi': 0.0, 'b_box': 0.0,
+        'surface_assign': 0.0, 'ball_assign': 0.0,
     }
 
     setup_start = now()
 
-    # ------------------------------------------------------------------
-    # Cache DataFrame columns once. Object-valued columns remain object
-    # arrays, but this still avoids Series creation, .iloc row access, and
-    # repeated DataFrame slicing throughout the hot loop.
-    # ------------------------------------------------------------------
+    # Cache DataFrame columns once; the hot loop should not repeatedly slice DataFrames.
     n_balls = len(net.balls)
     n_surfs = len(net.surfs)
 
@@ -137,13 +111,43 @@ def analyze(
     surf_int_mean_sq = net.surfs['int_mean_curv_sq'].to_numpy()
     surf_int_gauss = net.surfs['int_gauss_curv'].to_numpy()
 
-    # Normalize surface geometry once. Every analyzed cell can now reuse these
-    # arrays directly without DataFrame slicing, dictionary construction, or
-    # repeated np.asarray conversion inside geometry helpers.
+    settings = getattr(net, 'settings', None) or {}
+    is_aw = settings.get('net_type', 'aw') == 'aw'
+
+    # AW uses cell-relative surface M, edge M, and vertex G caches. Missing
+    # production caches are errors rather than silently dropping curvature.
+    # AW complete curvature uses surface/edge M and edge/vertex G caches.
+    if is_aw:
+        required = (
+            (net.surfs, 'int_mean_curv_by_ball', 'surface mean-curvature'),
+            (net.edges, 'int_mean_curv_by_ball', 'edge mean-curvature'),
+            (net.edges, 'int_gauss_curv_by_ball', 'edge Gaussian-curvature'),
+            (net.verts, 'int_gauss_curv_by_ball', 'vertex Gaussian-curvature'),
+        )
+
+        for table, column, description in required:
+            if column not in table.columns:
+                raise ValueError(
+                    f"AW analysis requires {description} cache '{column}'."
+                )
+
+        surf_int_mean_by_ball = net.surfs['int_mean_curv_by_ball'].to_numpy()
+        edge_mean_curv_by_ball = net.edges['int_mean_curv_by_ball'].to_numpy()
+        edge_gauss_curv_by_ball = net.edges['int_gauss_curv_by_ball'].to_numpy()
+        vert_gauss_curv_by_ball = net.verts['int_gauss_curv_by_ball'].to_numpy()
+
+    else:
+        surf_int_mean_by_ball = None
+        edge_mean_curv_by_ball = None
+        edge_gauss_curv_by_ball = None
+        vert_gauss_curv_by_ball = None
+
+    # Normalize mesh arrays once for compiled geometry helpers.
     raw_surf_points = net.surfs['points'].to_numpy()
     raw_surf_tris = net.surfs['tris'].to_numpy()
     surf_points = np.empty(n_surfs, dtype=object)
     surf_tris = np.empty(n_surfs, dtype=object)
+
     for surf_id in range(n_surfs):
         points = np.asarray(raw_surf_points[surf_id], dtype=np.float64)
         if points.size == 0:
@@ -163,23 +167,13 @@ def analyze(
     vert_edges = net.verts['edges'].to_numpy()
     vert_balls = net.verts['balls'].to_numpy()
 
-    # Ball numbers have historically matched DataFrame positions, but keeping
-    # an explicit lookup costs little and makes this routine safer.
     num_to_pos = {int(num): pos for pos, num in enumerate(ball_nums)}
-
-    # Group-only iteration: irrelevant balls stay at their preallocated zero
-    # defaults and are never visited by the expensive loop.
     group_nums = [int(num) for num in net.group if int(num) in num_to_pos]
     group_set = set(group_nums)
     n_group = len(group_nums)
-
-    # Precompute immutable edge-ball sets for the completeness fallback.
     edge_ball_sets = [frozenset(balls) for balls in edge_balls]
 
-    # ------------------------------------------------------------------
-    # Build the atom adjacency graph once from solved surfaces.
-    # Each entry contains (neighbor_ball_num, surface_id).
-    # ------------------------------------------------------------------
+    # Build first-neighbor adjacency once from solved pairwise surfaces.
     ball_neighbors = [[] for _ in range(n_balls)]
     neighbor_sets = [set() for _ in range(n_balls)]
 
@@ -187,8 +181,6 @@ def analyze(
         if balls is None or len(balls) < 2:
             continue
 
-        # Normal Voronoi surfaces are pairwise. The nested loop also behaves
-        # sensibly if a future representation contains >2 balls.
         for i, ball_num in enumerate(balls):
             ball_num = int(ball_num)
             ball_pos = num_to_pos.get(ball_num)
@@ -204,10 +196,7 @@ def analyze(
                 ball_neighbors[ball_pos].append((neighbor_num, surf_id))
                 neighbor_sets[ball_pos].add(neighbor_num)
 
-    # ------------------------------------------------------------------
-    # Preallocate every output for the full ball table. This removes the large
-    # append_0 blocks and allows direct assignment by DataFrame position.
-    # ------------------------------------------------------------------
+    # Full-table outputs. Balls outside net.group retain zero/default values.
     b_vols = [0.0] * n_balls
     b_sas = [0.0] * n_balls
     b_cell = [0] * n_balls
@@ -217,9 +206,18 @@ def analyze(
     b_max_gauss_curvs = [0.0] * n_balls
     b_avg_gauss_surf_curvs = [0.0] * n_balls
 
+    # Complete integrated curvature measures plus explicit decompositions.
     b_int_mean_curvs = [0.0] * n_balls
+    b_int_mean_curv_surfaces = [0.0] * n_balls
+    b_int_mean_curv_edges = [0.0] * n_balls
+    b_int_mean_curv_totals = [0.0] * n_balls
     b_int_mean_curv_sqs = [0.0] * n_balls
+
     b_int_gauss_curvs = [0.0] * n_balls
+    b_int_gauss_curv_surfaces = [0.0] * n_balls
+    b_int_gauss_curv_edges = [0.0] * n_balls
+    b_int_gauss_curv_vertices = [0.0] * n_balls
+    b_int_gauss_curv_totals = [0.0] * n_balls
 
     b_sphrctys = [0.0] * n_balls
     b_isopmqs = [0.0] * n_balls
@@ -243,31 +241,26 @@ def analyze(
     mois = [0.0] * n_balls
     b_boxs = [0.0] * n_balls
 
-    # Array-based surface tracking replaces nested dictionaries and repeated
-    # .loc writes at the end of analysis.
     surface_contact_area = np.zeros(n_surfs, dtype=float)
     surface_overlap = np.zeros(n_surfs, dtype=float)
 
     timer['setup'] += now() - setup_start
-
-    # Progress counter counts only balls that are actually analyzed.
     count = 0
     last_update = now()
 
     # ==================================================================
-    # HOT LOOP: ONLY BALLS IN net.group
+    # HOT LOOP: only requested cells in net.group
     # ==================================================================
     for ball_num in group_nums:
         ball_pos = num_to_pos[ball_num]
         surf_ids = ball_surfs_all[ball_pos]
 
-        # Keep historical zero defaults for cells with no surfaces.
         if surf_ids is None or len(surf_ids) == 0:
             count += 1
             continue
 
         # --------------------------------------------------------------
-        # Gather all basic surface/cell quantities in one surface pass.
+        # Surface quantities
         # --------------------------------------------------------------
         t = now()
 
@@ -275,32 +268,47 @@ def analyze(
         volume = 0.0
         max_mean_curv = -float('inf')
         max_gauss_curv = -float('inf')
-        int_mean_curv = 0.0
+        int_mean_curv_surface = 0.0
         int_mean_curv_sq = 0.0
-        int_gauss_curv = 0.0
+        int_gauss_curv_surface = 0.0
 
         for surf_id in surf_ids:
             surf_id = int(surf_id)
-            sa_i = surf_sa[surf_id]
-            sa += sa_i
+            sa += surf_sa[surf_id]
 
             vols_i = surf_vols[surf_id]
             try:
                 volume += vols_i[ball_num]
             except (IndexError, KeyError, TypeError):
-                # Fallback for non-positional volume containers.
                 volume += vols_i[ball_pos]
 
-            mean_i = surf_mean_curv[surf_id]
-            gauss_i = surf_gauss_curv[surf_id]
-            if mean_i > max_mean_curv:
-                max_mean_curv = mean_i
-            if gauss_i > max_gauss_curv:
-                max_gauss_curv = gauss_i
+            max_mean_curv = max(max_mean_curv, surf_mean_curv[surf_id])
+            max_gauss_curv = max(max_gauss_curv, surf_gauss_curv[surf_id])
 
-            int_mean_curv += surf_int_mean[surf_id]
+            # H changes sign with orientation, so AW uses the cell-relative cache.
+            if is_aw:
+                surface_values = surf_int_mean_by_ball[surf_id]
+                if not isinstance(surface_values, dict):
+                    raise ValueError(
+                        f"Invalid AW surface mean-curvature cache for surface {surf_id}: expected dict."
+                    )
+                if ball_num not in surface_values:
+                    raise ValueError(
+                        f"Missing AW surface mean-curvature contribution for ball {ball_num}, surface {surf_id}."
+                    )
+                surface_value = float(surface_values[ball_num])
+                if not np.isfinite(surface_value):
+                    raise ValueError(
+                        f"Non-finite AW surface mean-curvature contribution for ball {ball_num}, "
+                        f"surface {surf_id}: {surface_value}"
+                    )
+                int_mean_curv_surface += surface_value
+            else:
+                int_mean_curv_surface += surf_int_mean[surf_id]
+
+            # H^2 and K are invariant under normal reversal.
             int_mean_curv_sq += surf_int_mean_sq[surf_id]
-            int_gauss_curv += surf_int_gauss[surf_id]
+            int_gauss_curv_surface += surf_int_gauss[surf_id]
 
         timer['surface_gather'] += now() - t
 
@@ -309,29 +317,28 @@ def analyze(
             continue
 
         # --------------------------------------------------------------
-        # Completeness check using cached arrays/frozensets.
+        # Cell completeness
         # --------------------------------------------------------------
         t = now()
+
         ball_verts = ball_verts_all[ball_pos]
         ball_edges = ball_edges_all[ball_pos]
         complete = True
-
         ball_index_value = ball_index[ball_pos]
+
         for vert in ball_verts:
             vert = int(vert)
-            owning_edge_count = 0
-            for edge in vert_edges[vert]:
-                # Preserve the historical check, which used the DataFrame
-                # row index (k) rather than ball['num'] here.
-                if ball_index_value in edge_ball_sets[int(edge)]:
-                    owning_edge_count += 1
+            owning_edge_count = sum(
+                ball_index_value in edge_ball_sets[int(edge)]
+                for edge in vert_edges[vert]
+            )
 
             if owning_edge_count != 3:
                 vert_ball_set = set(vert_balls[vert])
-                new_count = 0
-                for edge in ball_edges:
-                    if edge_ball_sets[int(edge)].issubset(vert_ball_set):
-                        new_count += 1
+                new_count = sum(
+                    edge_ball_sets[int(edge)].issubset(vert_ball_set)
+                    for edge in ball_edges
+                )
                 if new_count < 3:
                     complete = False
                     break
@@ -343,8 +350,7 @@ def analyze(
         timer['completeness'] += now() - t
 
         # --------------------------------------------------------------
-        # Basic cell values were gathered above; assignment is separated
-        # in timing so the profiler does not hide completeness cost.
+        # Basic geometry
         # --------------------------------------------------------------
         t = now()
         b_sas[ball_pos] = sa
@@ -352,16 +358,113 @@ def analyze(
         timer['basic'] += now() - t
 
         # --------------------------------------------------------------
-        # Curvature
+        # Complete piecewise-smooth curvature measures
         # --------------------------------------------------------------
         t = now()
+
+        int_mean_curv_edge = 0.0
+        int_gauss_curv_edge = 0.0
+        int_gauss_curv_vertex = 0.0
+
+        if is_aw:
+            # Edge contributions: M turning and intrinsic G boundary curvature.
+            for edge_id in ball_edges:
+                edge_id = int(edge_id)
+
+                mean_values = edge_mean_curv_by_ball[edge_id]
+                gauss_values = edge_gauss_curv_by_ball[edge_id]
+
+                if not isinstance(mean_values, dict):
+                    raise ValueError(
+                        f"Invalid AW edge mean-curvature cache for edge {edge_id}."
+                    )
+                if not isinstance(gauss_values, dict):
+                    raise ValueError(
+                        f"Invalid AW edge Gaussian-curvature cache for edge {edge_id}."
+                    )
+                if ball_num not in mean_values:
+                    raise ValueError(
+                        f"Missing AW edge mean-curvature contribution for "
+                        f"ball {ball_num}, edge {edge_id}."
+                    )
+                if ball_num not in gauss_values:
+                    if complete:
+                        raise ValueError(
+                            f"Missing AW edge Gaussian-curvature contribution for "
+                            f"complete ball {ball_num}, edge {edge_id}."
+                        )
+                    continue
+
+                mean_value = float(mean_values[ball_num])
+                gauss_value = float(gauss_values[ball_num])
+
+                if not np.isfinite(mean_value):
+                    raise ValueError(
+                        f"Non-finite AW edge mean curvature for "
+                        f"ball {ball_num}, edge {edge_id}: {mean_value}"
+                    )
+                if not np.isfinite(gauss_value):
+                    raise ValueError(
+                        f"Non-finite AW edge Gaussian curvature for "
+                        f"ball {ball_num}, edge {edge_id}: {gauss_value}"
+                    )
+
+                int_mean_curv_edge += mean_value
+                int_gauss_curv_edge += gauss_value
+
+            # Intrinsic Gaussian angular defects at vertices.
+            for vert_id in ball_verts:
+                vert_id = int(vert_id)
+                vertex_values = vert_gauss_curv_by_ball[vert_id]
+
+                if not isinstance(vertex_values, dict):
+                    raise ValueError(
+                        f"Invalid AW vertex Gaussian-curvature cache for vertex {vert_id}."
+                    )
+                if ball_num not in vertex_values:
+                    raise ValueError(
+                        f"Missing AW vertex Gaussian-curvature contribution for "
+                        f"ball {ball_num}, vertex {vert_id}."
+                    )
+
+                value = float(vertex_values[ball_num])
+
+                if not np.isfinite(value):
+                    raise ValueError(
+                        f"Non-finite AW vertex Gaussian curvature for "
+                        f"ball {ball_num}, vertex {vert_id}: {value}"
+                    )
+
+                int_gauss_curv_vertex += value
+
+        int_mean_curv_total = int_mean_curv_surface + int_mean_curv_edge
+        int_gauss_curv_total = (
+                int_gauss_curv_surface
+                + int_gauss_curv_edge
+                + int_gauss_curv_vertex
+        )
+
         b_max_mean_curvs[ball_pos] = max_mean_curv
         b_max_gauss_curvs[ball_pos] = max_gauss_curv
-        b_int_mean_curvs[ball_pos] = int_mean_curv
+
+        # Canonical fields store the complete cell measures.
+        b_int_mean_curvs[ball_pos] = int_mean_curv_total
+        b_int_gauss_curvs[ball_pos] = int_gauss_curv_total
+
+        b_int_mean_curv_surfaces[ball_pos] = int_mean_curv_surface
+        b_int_mean_curv_edges[ball_pos] = int_mean_curv_edge
+        b_int_mean_curv_totals[ball_pos] = int_mean_curv_total
         b_int_mean_curv_sqs[ball_pos] = int_mean_curv_sq
-        b_int_gauss_curvs[ball_pos] = int_gauss_curv
-        b_avg_mean_surf_curvs[ball_pos] = int_mean_curv / sa
-        b_avg_gauss_surf_curvs[ball_pos] = int_gauss_curv / sa
+
+        b_int_gauss_curv_surfaces[ball_pos] = int_gauss_curv_surface
+        b_int_gauss_curv_edges[ball_pos] = int_gauss_curv_edge
+        b_int_gauss_curv_vertices[ball_pos] = int_gauss_curv_vertex
+        b_int_gauss_curv_totals[ball_pos] = int_gauss_curv_total
+
+        # These remain smooth-surface averages; singular terms are not area densities.
+        b_avg_mean_surf_curvs[ball_pos] = int_mean_curv_surface / sa
+        b_avg_gauss_surf_curvs[ball_pos] = int_gauss_curv_surface / sa
+
         timer['curvs'] += now() - t
 
         # --------------------------------------------------------------
@@ -373,13 +476,13 @@ def analyze(
         timer['geometric'] += now() - t
 
         # --------------------------------------------------------------
-        # First neighbor layer from the prebuilt adjacency graph.
+        # First neighbors
         # --------------------------------------------------------------
         t = now()
+
         ball_loc = ball_locs[ball_pos]
         ball_rad = ball_rads[ball_pos]
         adjacency = ball_neighbors[ball_pos]
-
         neighbors_nums = []
         neighbor_dists = []
 
@@ -396,15 +499,12 @@ def analyze(
             if overlap_dist > surface_overlap[surf_id]:
                 surface_overlap[surf_id] = overlap_dist
 
-        # A solved cell should have neighbors if it has surfaces; keep safe
-        # defaults if malformed topology reaches this point.
         if neighbor_dists:
             b_inner[ball_pos] = group_set.issuperset(neighbors_nums)
             num_nbors[ball_pos] = len(neighbors_nums)
 
             min_index = min(range(len(neighbor_dists)), key=neighbor_dists.__getitem__)
-            min_dist = neighbor_dists[min_index]
-            near_nbor_dists[ball_pos] = min_dist
+            near_nbor_dists[ball_pos] = neighbor_dists[min_index]
             near_nbors[ball_pos] = neighbors_nums[min_index]
 
             nbor_dist_avg = sum(neighbor_dists) / len(neighbor_dists)
@@ -418,32 +518,32 @@ def analyze(
         timer['neighbors_1'] += now() - t
 
         # --------------------------------------------------------------
-        # Point properties: spikes + bounding box in one compiled pass.
+        # Point properties
         # --------------------------------------------------------------
         if spikes or bounding_box:
             t = now()
-            min_spike, max_spike, box = calc_cell_point_properties_cached(ball_loc, surf_ids, surf_points)
-            elapsed = now() - t
+            min_spike, max_spike, box = calc_cell_point_properties_cached(
+                ball_loc, surf_ids, surf_points
+            )
 
             if spikes:
                 b_min_spikes[ball_pos] = min_spike
                 b_max_spikes[ball_pos] = max_spike
-
             if bounding_box:
                 b_boxs[ball_pos] = box
 
-            # When both are requested (the normal complicated=True path), the
-            # single traversal is charged to this combined timing category.
-            timer['spikes'] += elapsed
+            timer['spikes'] += now() - t
 
         # --------------------------------------------------------------
         # Contacts / overlap volume
         # --------------------------------------------------------------
         if contacts:
             t = now()
-            contact_area, vdw_vol = calc_contacts_cached(ball_loc, ball_rad, surf_ids, surf_points, surf_tris)
+            contact_area, vdw_vol = calc_contacts_cached(
+                ball_loc, ball_rad, surf_ids, surf_points, surf_tris
+            )
 
-            num_olaps[ball_pos] = sum(1 for dist in neighbor_dists if dist < 0)
+            num_olaps[ball_pos] = sum(dist < 0 for dist in neighbor_dists)
             contact_areas[ball_pos] = sum(contact_area.values())
 
             for surf_id in surf_ids:
@@ -455,20 +555,15 @@ def analyze(
             timer['contacts'] += now() - t
 
         # --------------------------------------------------------------
-        # Second neighbor layer from cached adjacency sets.
-        # This replaces get_next_layer() and all pandas/dict conversion in
-        # the previous nested neighbor search.
+        # Second neighbors
         # --------------------------------------------------------------
         if second_neighbors:
             t = now()
             first_set = neighbor_sets[ball_pos]
-            second_set = set()
-
-            # Match the historical behavior: expand the first layer plus the
-            # central ball, then remove every first-layer/central atom.
             previous = set(first_set)
             previous.add(ball_num)
 
+            second_set = set()
             for first_num in previous:
                 first_pos = num_to_pos.get(first_num)
                 if first_pos is not None:
@@ -477,8 +572,9 @@ def analyze(
             second_set.difference_update(previous)
 
             if second_set:
-                layer2_dists = []
                 ball_loc_array = ball_locs_matrix[ball_pos]
+                layer2_dists = []
+
                 for ball_2 in second_set:
                     pos_2 = num_to_pos[ball_2]
                     delta = ball_locs_matrix[pos_2] - ball_loc_array
@@ -493,55 +589,67 @@ def analyze(
 
             timer['neighbors_2'] += now() - t
 
-        # If second neighbors were explicitly disabled, preserve the shape of
-        # the historical complicated=False result (one first-layer value).
-
         # --------------------------------------------------------------
-        # Center of mass / moment of inertia. Calculate both in one
-        # tetrahedral traversal when both are requested.
+        # Center of mass / moment of inertia
         # --------------------------------------------------------------
         if com and moi:
             t = now()
-            com_val, moi_val = calc_cell_mass_properties_cached(ball_loc, surf_ids, surf_points, surf_tris, volume)
-            elapsed = now() - t
+            com_val, moi_val = calc_cell_mass_properties_cached(
+                ball_loc, surf_ids, surf_points, surf_tris, volume
+            )
             coms[ball_pos] = com_val
             mois[ball_pos] = moi_val
-            timer['com'] += elapsed
+            timer['com'] += now() - t
 
         elif com:
             t = now()
-            com_val, _ = calc_cell_mass_properties_cached(ball_loc, surf_ids, surf_points, surf_tris, volume)
+            com_val, _ = calc_cell_mass_properties_cached(
+                ball_loc, surf_ids, surf_points, surf_tris, volume
+            )
             coms[ball_pos] = com_val
             timer['com'] += now() - t
 
         elif moi:
             t = now()
-            _, moi_val = calc_cell_mass_properties_cached(ball_loc, surf_ids, surf_points, surf_tris, volume)
+            _, moi_val = calc_cell_mass_properties_cached(
+                ball_loc, surf_ids, surf_points, surf_tris, volume
+            )
             mois[ball_pos] = moi_val
             timer['moi'] += now() - t
 
         count += 1
         current_time = now()
+
         if current_time - last_update >= 0.25 or count == n_group:
-            percentage = 100.0 * count / max(n_group, 1)
-            net.update_progress("Analyzing network", percentage)
+            net.update_progress("Analyzing network", 100.0 * count / max(n_group, 1))
             last_update = current_time
 
     # ------------------------------------------------------------------
-    # Bulk DataFrame assignments.
+    # Bulk assignments
     # ------------------------------------------------------------------
     t = now()
+
     net.balls = net.balls.assign(
         vol=b_vols,
         sa=b_sas,
-        max_mean_curv=b_max_mean_curvs,
         complete=b_cell,
+        max_mean_curv=b_max_mean_curvs,
         max_gauss_curv=b_max_gauss_curvs,
         avg_mean_surf_curv=b_avg_mean_surf_curvs,
         avg_gauss_surf_curv=b_avg_gauss_surf_curvs,
+
         int_mean_curv=b_int_mean_curvs,
+        int_mean_curv_surface=b_int_mean_curv_surfaces,
+        int_mean_curv_edge=b_int_mean_curv_edges,
+        int_mean_curv_total=b_int_mean_curv_totals,
         int_mean_curv_sq=b_int_mean_curv_sqs,
+
         int_gauss_curv=b_int_gauss_curvs,
+        int_gauss_curv_surface=b_int_gauss_curv_surfaces,
+        int_gauss_curv_edge=b_int_gauss_curv_edges,
+        int_gauss_curv_vertex=b_int_gauss_curv_vertices,
+        int_gauss_curv_total=b_int_gauss_curv_totals,
+
         sphericity=b_sphrctys,
         isometric_quotient=b_isopmqs,
         ball_inside=b_inner,
@@ -560,29 +668,19 @@ def analyze(
         moi=mois,
         bounding_box=b_boxs,
     )
+
     timer['ball_assign'] += now() - t
 
     t = now()
-    net.surfs = net.surfs.assign(
-        contact_area=surface_contact_area,
-        overlap=surface_overlap,
-    )
+    net.surfs = net.surfs.assign(contact_area=surface_contact_area, overlap=surface_overlap)
     timer['surface_assign'] += now() - t
 
     analysis_total = now() - analysis_start
-
-    # Keep the existing top-level analysis metric calculation intact for
-    # compatibility with the rest of VorPy's system-wide timing code.
     net.metrics['anal'] = (
-        now()
-        - net.metrics['start']
-        - net.metrics['surf']
-        - net.metrics['con']
-        - net.metrics['vert']
+        now() - net.metrics['start'] - net.metrics['surf']
+        - net.metrics['con'] - net.metrics['vert']
     )
 
-    # Detailed profiler is deliberately kept separate from the historical
-    # scalar metrics so existing metric consumers are not forced to change.
     net.analysis_timing = timer.copy()
     net.analysis_timing['total'] = analysis_total
 

@@ -9,7 +9,10 @@ from vorpy.src.network.build_net import (
     add_build_edges,
     get_build_surfs,
 )
-from vorpy.src.calculations.edge_geometry import AdditivelyWeightedTrisectorBranch
+from vorpy.src.calculations.edge_geometry import (
+    AdditivelyWeightedTrisectorBranch,
+    AdditivelyWeightedTrisectorConic,
+)
 from vorpy.src.network.edge_geometry_diagnostics import diagnose_aw_edge_geometry
 
 
@@ -83,6 +86,36 @@ def test_aw_network_edge_diagnostic_rejects_other_network_types():
     net.settings["net_type"] = "pow"
     with pytest.raises(ValueError, match="AW network"):
         diagnose_aw_edge_geometry(net)
+
+
+def test_aw_network_edge_diagnostic_recovers_turning_conic():
+    locations = np.array([
+        [0.0, 0.0, 0.0],
+        [4.0, 0.0, 0.0],
+        [0.0, 5.0, 0.0],
+    ])
+    radii = np.array([1.0, 1.5, 2.0])
+    curve = AdditivelyWeightedTrisectorConic(
+        locations, radii, -0.8, 1.2, component=1
+    )
+    samples = [curve.point(value) for value in np.linspace(-0.8, 1.2, 23)]
+    net = _DiagnosticNetwork()
+    net.settings = {"net_type": "aw"}
+    net.balls = pd.DataFrame({"loc": list(locations), "rad": list(radii)})
+    net.verts = pd.DataFrame(
+        {"loc": [samples[0], samples[-1]]}, index=[4, 9]
+    )
+    net.edges = pd.DataFrame({
+        "balls": [[0, 1, 2]],
+        "verts": [[4, 9]],
+        "points": [samples],
+    })
+
+    report = diagnose_aw_edge_geometry(net)
+
+    assert report.status_counts == {"matched_nonsingular": 1}
+    assert report.matched_fraction == 1.0
+    assert report.records[0].maximum_sample_error < 1e-12
 
 def _build_ball_vertex_index(v_balls, num_balls=None):
     """Return the ball -> vertex adjacency used by build_net."""

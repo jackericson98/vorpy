@@ -274,6 +274,9 @@ def other_exports(sys, usr_npt):
     option = str(usr_npt).strip().lower()
     groups = [group for group in sys.groups if group.net is not None]
 
+    if option in {'none', 'no', 'skip'}:
+        return
+
     if option in {'a', 'atoms', 'atom_cells'}:
         progress = ExportProgress(1, sys)
         _run_export(

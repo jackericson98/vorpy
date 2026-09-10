@@ -1,6 +1,7 @@
 import os
 import csv
 import time
+import numpy as np
 import pandas as pd
 from datetime import datetime
 from time import perf_counter as now
@@ -8,7 +9,6 @@ from numpy import array, inf, cbrt, sqrt
 from vorpy.src.calculations import get_time
 from vorpy.src.calculations import calc_length
 from vorpy.src.calculations import global_vars
-from vorpy.src.calculations import calc_dist
 from vorpy.src.network.analyze import analyze
 from vorpy.src.network.build_net import build
 from vorpy.src.network.build_edge1 import build_edge
@@ -274,6 +274,36 @@ class Network:
         """
         find_net_verts(self)
 
+    def build_vertex_gaussian_curvature(
+            self,
+            tolerance=1e-7):
+        """Cache cell-relative Gaussian-curvature defects at network vertices.
+
+        Stores one dictionary per vertex in:
+
+            self.verts['int_gauss_curv_by_ball']
+        """
+        if self.settings.get("net_type", "aw") != "aw":
+            return
+
+        # Local import avoids package-level circular dependencies.
+        from vorpy.src.calculations.vertex_gaussian_curvature import (
+            calculate_aw_network_vertex_gaussian_curvatures,
+        )
+
+        values = calculate_aw_network_vertex_gaussian_curvatures(
+            self,
+            tolerance=tolerance,
+        )
+
+        if len(values) != len(self.verts):
+            raise ValueError(
+                "Vertex Gaussian-curvature cache size does not "
+                "match vertex table."
+            )
+
+        self.verts["int_gauss_curv_by_ball"] = values
+
     def connect(self):
         """
         Connects the network using the functions in the build_net.py file
@@ -376,6 +406,93 @@ class Network:
         """
         build_surfs(self, store_points=store_points)
 
+    def build_edge_mean_curvature(
+            self,
+            quadrature_order=32,
+            tolerance=1e-6):
+        """Calculate and cache per-cell AW edge mean-curvature contributions.
+
+        Stores one dictionary per edge in:
+
+            self.edges['int_mean_curv_by_ball']
+
+        Each dictionary maps the edge's three generating ball numbers to that
+        cell's contribution to integrated mean curvature.
+        """
+        if self.settings.get('net_type', 'aw') != 'aw':
+            return
+
+        # Local import avoids a package-level circular dependency:
+        # Network -> calculations.edge_mean_curvature
+        #         -> network.edge_geometry_diagnostics
+        from vorpy.src.calculations.edge_mean_curvature import (
+            calculate_aw_network_edge_mean_curvatures,
+        )
+
+        values = calculate_aw_network_edge_mean_curvatures(
+            self,
+            quadrature_order=quadrature_order,
+            tolerance=tolerance,
+        )
+
+        if len(values) != len(self.edges):
+            raise ValueError(
+                "Edge mean-curvature cache size does not match edge table."
+            )
+
+        self.edges['int_mean_curv_by_ball'] = values
+
+    def build_edge_gaussian_curvature(
+            self,
+            quadrature_order=32,
+            tolerance=1e-6):
+        """Cache cell-relative edge contributions to integrated Gaussian curvature."""
+        if self.settings.get("net_type", "aw") != "aw":
+            return
+
+        from vorpy.src.calculations.edge_gaussian_curvature import (
+            calculate_aw_network_edge_gaussian_curvatures,
+        )
+
+        values = calculate_aw_network_edge_gaussian_curvatures(
+            self,
+            quadrature_order=quadrature_order,
+            tolerance=tolerance,
+        )
+
+        if len(values) != len(self.edges):
+            raise ValueError(
+                "Edge Gaussian-curvature cache size does not match edge table."
+            )
+
+        self.edges["int_gauss_curv_by_ball"] = values
+
+    def build_surface_mean_curvature(self):
+        """Cache cell-oriented smooth-surface mean-curvature contributions.
+
+        Stores one dictionary per pairwise AW surface in:
+
+            self.surfs['int_mean_curv_by_ball']
+
+        The existing surface-level ``int_mean_curv`` field remains unchanged.
+        """
+        if self.settings.get("net_type", "aw") != "aw":
+            return
+
+        # Local import avoids package-level circular dependencies.
+        from vorpy.src.calculations.surface_mean_curvature import (
+            calculate_aw_network_surface_mean_curvatures,
+        )
+
+        values = calculate_aw_network_surface_mean_curvatures(self)
+
+        if len(values) != len(self.surfs):
+            raise ValueError(
+                "Surface mean-curvature cache size does not match surface table."
+            )
+
+        self.surfs["int_mean_curv_by_ball"] = values
+
     def diagnose_aw_edges(self, tolerance=1e-6, quadrature_order=32):
         """Compare stored AW edge samples with analytic edge geometry.
 
@@ -388,6 +505,194 @@ class Network:
 
     def analyze(self):
         analyze(self)
+
+    def diagnose_mean_curvature(self):
+        """Print a compact validation summary for complete-cell mean curvature."""
+        required = {
+            "complete",
+            "int_mean_curv_surface",
+            "int_mean_curv_edge",
+            "int_mean_curv_total",
+        }
+
+        missing = required.difference(self.balls.columns)
+        if missing:
+            raise ValueError(
+                "Missing mean-curvature fields: "
+                + ", ".join(sorted(missing))
+            )
+
+        complete = self.balls[self.balls["complete"].astype(bool)]
+
+        if complete.empty:
+            print("\nNo complete cells available for mean-curvature diagnostics.")
+            return
+
+        surface = complete["int_mean_curv_surface"].to_numpy(dtype=float)
+        edge = complete["int_mean_curv_edge"].to_numpy(dtype=float)
+        total = complete["int_mean_curv_total"].to_numpy(dtype=float)
+
+        identity_error = np.abs(total - (surface + edge))
+
+        print("\n" + "=" * 78)
+        print("INTEGRATED MEAN CURVATURE DIAGNOSTIC")
+        print("=" * 78)
+        print(f"Complete cells: {len(complete):,} / {len(self.balls):,}")
+        print()
+
+        print(
+            f"{'Component':<12}"
+            f"{'Min (A)':>14}"
+            f"{'Max (A)':>14}"
+            f"{'Mean (A)':>14}"
+            f"{'Std (A)':>14}"
+        )
+        print("-" * 68)
+
+        for name, values in (
+                ("Surface", surface),
+                ("Edge", edge),
+                ("Total", total),
+        ):
+            print(
+                f"{name:<12}"
+                f"{values.min():>14.6f}"
+                f"{values.max():>14.6f}"
+                f"{values.mean():>14.6f}"
+                f"{values.std():>14.6f}"
+            )
+
+        print()
+        print(
+            "Maximum |M_total - (M_surface + M_edge)|: "
+            f"{identity_error.max():.6e} A"
+        )
+
+        # Show only a few extreme cells for inspection.
+        print("\nLargest total-M cells:")
+        largest = complete.nlargest(5, "int_mean_curv_total")
+
+        for _, ball in largest.iterrows():
+            print(
+                f"  Ball {int(ball['num']):5d}: "
+                f"surface={ball['int_mean_curv_surface']:10.5f}, "
+                f"edge={ball['int_mean_curv_edge']:10.5f}, "
+                f"total={ball['int_mean_curv_total']:10.5f}"
+            )
+
+        print("\nSmallest total-M cells:")
+        smallest = complete.nsmallest(5, "int_mean_curv_total")
+
+        for _, ball in smallest.iterrows():
+            print(
+                f"  Ball {int(ball['num']):5d}: "
+                f"surface={ball['int_mean_curv_surface']:10.5f}, "
+                f"edge={ball['int_mean_curv_edge']:10.5f}, "
+                f"total={ball['int_mean_curv_total']:10.5f}"
+            )
+
+        print("=" * 78)
+
+    def diagnose_gaussian_curvature(self):
+        """Validate complete AW Gaussian curvature against Gauss-Bonnet."""
+        required = {
+            "complete",
+            "int_gauss_curv",
+            "int_gauss_curv_surface",
+            "int_gauss_curv_edge",
+            "int_gauss_curv_vertex",
+            "int_gauss_curv_total",
+        }
+
+        missing = required.difference(self.balls.columns)
+
+        if missing:
+            raise ValueError(
+                "Missing Gaussian-curvature fields: "
+                + ", ".join(sorted(missing))
+            )
+
+        complete = self.balls[self.balls["complete"].astype(bool)]
+
+        if complete.empty:
+            print("\nNo complete cells available for Gaussian-curvature diagnostics.")
+            return
+
+        surface = complete["int_gauss_curv_surface"].to_numpy(dtype=float)
+        edge = complete["int_gauss_curv_edge"].to_numpy(dtype=float)
+        vertex = complete["int_gauss_curv_vertex"].to_numpy(dtype=float)
+        total = complete["int_gauss_curv_total"].to_numpy(dtype=float)
+        canonical = complete["int_gauss_curv"].to_numpy(dtype=float)
+
+        expected = 4.0 * np.pi
+        component_error = np.abs(total - (surface + edge + vertex))
+        canonical_error = np.abs(canonical - total)
+        gb_error = np.abs(total - expected)
+
+        print("\n" + "=" * 82)
+        print("INTEGRATED GAUSSIAN CURVATURE DIAGNOSTIC")
+        print("=" * 82)
+        print(f"Complete cells: {len(complete):,} / {len(self.balls):,}")
+        print(f"Gauss-Bonnet target for genus-0 cell: {expected:.12f}\n")
+
+        print(
+            f"{'Component':<12}"
+            f"{'Min':>14}"
+            f"{'Max':>14}"
+            f"{'Mean':>14}"
+            f"{'Std':>14}"
+        )
+        print("-" * 68)
+
+        for name, values in (
+                ("Surface", surface),
+                ("Edge", edge),
+                ("Vertex", vertex),
+                ("Total", total),
+        ):
+            print(
+                f"{name:<12}"
+                f"{values.min():>14.6f}"
+                f"{values.max():>14.6f}"
+                f"{values.mean():>14.6f}"
+                f"{values.std():>14.6f}"
+            )
+
+        print()
+        print(
+            "Maximum |G_total - (G_surface + G_edge + G_vertex)|: "
+            f"{component_error.max():.6e}"
+        )
+        print(
+            "Maximum |G - G_total|:                              "
+            f"{canonical_error.max():.6e}"
+        )
+        print(
+            "Maximum |G_total - 4*pi|:                           "
+            f"{gb_error.max():.6e}"
+        )
+        print(
+            "Mean    |G_total - 4*pi|:                           "
+            f"{gb_error.mean():.6e}"
+        )
+
+        order = np.argsort(gb_error)[::-1][:5]
+
+        print("\nLargest Gauss-Bonnet errors:")
+
+        for pos in order:
+            ball = complete.iloc[pos]
+
+            print(
+                f"  Ball {int(ball['num']):5d}: "
+                f"surface={surface[pos]:9.5f}, "
+                f"edge={edge[pos]:9.5f}, "
+                f"vertex={vertex[pos]:9.5f}, "
+                f"total={total[pos]:10.6f}, "
+                f"error={gb_error[pos]:.3e}"
+            )
+
+        print("=" * 82)
 
     def build(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
               calc_verts=None, my_group=None, print_actions=None, print_vert_metrics=False, curr_time=None, verts=None):
@@ -450,14 +755,34 @@ class Network:
             self.verts['dub'] = mark_doublets(self.verts)
         else:
             self.metrics['vert'] = 0
-        # Connect the network
+        # Connect topology and construct geometry.
         self.connect()
-        # Build the edges in the network
         self.build_edges()
-        # Build the network
         self.build_surfaces(not limit_mem)
-        # Analyze the network
+
+        if self.settings.get("net_type", "aw") == "aw":
+            self.update_progress("Orienting surface curvature", 0.0)
+            self.build_surface_mean_curvature()
+            self.update_progress("Orienting surface curvature", 100.0)
+
+            self.update_progress("Calculating edge mean curvature", 0.0)
+            self.build_edge_mean_curvature()
+            self.update_progress("Calculating edge mean curvature", 100.0)
+
+            self.update_progress("Calculating edge Gaussian curvature", 0.0)
+            self.build_edge_gaussian_curvature()
+            self.update_progress("Calculating edge Gaussian curvature", 100.0)
+
+            self.update_progress("Calculating vertex Gaussian curvature", 0.0)
+            self.build_vertex_gaussian_curvature()
+            self.update_progress("Calculating vertex Gaussian curvature", 100.0)
+
         self.analyze()
+
+        if self.settings.get("verbose", False):
+            if self.settings.get("net_type", "aw") == "aw":
+                self.diagnose_mean_curvature()
+                self.diagnose_gaussian_curvature()
 
         # Stop the timer and measure the time
         self.metrics['tot'] = now() - self.metrics['start']

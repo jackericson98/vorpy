@@ -27,9 +27,10 @@ after network construction and before export:
 python vorpy edta -s mv 5 --diagnose-edges
 ```
 
-The terminal report includes analytic curved and straight-edge matches,
-coverage, maximum and RMS sample reconstruction residuals, maximum absolute
-length difference, status counts, and a bounded list of problem edges.
+The terminal report includes analytic curved, turning-conic, and straight-edge
+matches, coverage, maximum and RMS sample reconstruction residuals, maximum
+absolute length difference, status counts, and a bounded list of problem
+edges.
 
 This option is read-only. It does not replace sampled edge points or change
 analysis fields, logs, surfaces, or exported geometry. POW and PRM networks are

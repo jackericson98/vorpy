@@ -75,7 +75,45 @@ residuals per edge, plus aggregate match coverage. Unsupported topology and
 individual numerical failures remain explicit records so one problematic edge
 does not abort the audit.
 
+## Nonsingular conic coordinates
+
+The signed-square-root form is retained as the simplest chart for edges that do
+not cross `q(rho)=0`. A separate
+`AdditivelyWeightedTrisectorConic` covers turning points without changing that
+validated implementation.
+
+After completing the square, the nonsingular coordinates are:
+
+```text
+ellipse:    rho = rho_c + a cos(phi),    z = b sin(phi)
+hyperbola:  rho = rho_c +/- a cosh(eta), z = b sinh(eta)
+parabola:   rho = (z^2 - q0) / q1
+```
+
+Here `z` is the signed coordinate along the generator-plane normal. The
+ellipse angle, hyperbolic angle, and parabola normal coordinate all remain
+regular when `z=0`. Existing edge samples select the intended elliptical arc
+or connected hyperbola component and establish canonical traversal direction.
+
+The network audit first attempts the original `rho` branch. Only a
+`cross_branch` or `turning_point` result triggers the nonsingular fallback.
+Neither representation replaces legacy edge points.
+
+Initial diagnostic baselines at surface resolution 0.2 A and maximum vertex
+radius 5 A were:
+
+| System | Edges | Original-chart coverage | Maximum matched sample residual | Maximum length difference |
+|---|---:|---:|---:|---:|
+| EDTA | 892 | 56.73% | 4.41e-11 A | 0.00702 A |
+| Cambrin | 14,507 | 58.17% | 2.62e-10 A | 0.01908 A |
+
+These are pre-fallback baselines. They must be retained when evaluating the
+nonsingular implementation.
+
 Implementation: `calculations/edge_geometry.py::AdditivelyWeightedTrisectorBranch`.
+Nonsingular implementation:
+`calculations/edge_geometry.py::AdditivelyWeightedTrisectorConic` and
+`match_aw_trisector_conic_to_samples`.
 Validation: `tests/calculations/test_edge_geometry.py` checks equal-clearance
 residuals, derivatives, intrinsic curvature integration, rigid transforms, and
 turning-point rejection. The same files implement and test endpoint matching,
