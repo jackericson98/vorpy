@@ -248,78 +248,132 @@ def write_surfs1(surfs, file_name, settings, color=False, directory=None, chunk_
             file.write(''.join(buffer))
 
 
-def prepare_surfs(net, surfs, color=False, concave_colors=False, ref_surfs=None, universal_max=True):
-    """Prepare selected surfaces as format-neutral triangle geometry."""
+def prepare_surfs(net, surfs, color=False, concave_colors=False, ref_surfs=None,
+                  universal_max=True, color_scheme=None, color_map=None,
+                  color_limit=None, target_cells=None, color_mode="boundary"):
+    """Prepare selected surfaces as format-neutral triangle geometry.
+
+    Integrated mean/Gaussian schemes color each entire surface uniformly from
+    its group-relative curvature contribution. Local mean/Gaussian schemes
+    retain the existing per-triangle coloring behavior.
+    """
     if surfs is None or len(surfs) == 0:
         return None
+
+    from vorpy.src.output.curvature_colors import (
+        canonical_curvature_scheme,
+        component_color,
+        curvature_color_limit,
+    )
+
     surf_indices = list(surfs)
     surf_rows = [net.surfs.iloc[index] for index in surf_indices]
     color = (1, 0, 0) if color is False else color
     ref_set = set(ref_surfs or [])
 
-    scheme_columns = {
-        'mean': 'mean_curv', 'mean_curv': 'mean_curv',
-        'gauss': 'gauss_curv', 'gauss_curv': 'gauss_curv',
-        'avg_mean': 'avg_mean_curv', 'avg_gauss': 'avg_gauss_curv',
-        'max_mean': 'mean_curv', 'max_gauss': 'gauss_curv',
-        'int_mean_curv': 'int_mean_curv',
-        'int_mean_curv_sq': 'int_mean_curv_sq',
-        'int_gauss_curv': 'int_gauss_curv',
-        'surf_energy': 'surf_energy',
-    }
-    value_column = scheme_columns.get(net.settings['surf_scheme'].lower(), 'mean_curv')
-    if universal_max:
-        values = np.asarray(net.surfs[value_column], dtype=float)
-    else:
-        values = np.asarray([surf[value_column] for surf in surf_rows], dtype=float)
-    values = values[np.isfinite(values)]
-    min_val, max_val = ((0.0, 1.0) if len(values) == 0
-                        else (float(np.min(values)), float(np.max(values))))
-    if max_val == min_val:
-        max_val = min_val + 1.0
+    requested_scheme = (
+        net.settings["surf_scheme"]
+        if color_scheme is None else color_scheme
+    )
+    integrated_scheme = canonical_curvature_scheme(requested_scheme)
+    cmap = net.settings.get("surf_col", "coolwarm") if color_map is None else color_map
 
-    if net.settings['net_type'] == 'aw':
-        tri_colors = []
+    tri_colors = []
+
+    if net.settings["net_type"] == "aw" and integrated_scheme is not None:
+        if color_limit is None:
+            color_limit = curvature_color_limit(net, integrated_scheme, target_cells, mode=color_mode)
+
+        for surf in surf_rows:
+            surf_color = component_color(
+                surf, "surface", integrated_scheme, target_cells,
+                color_map=cmap, limit=color_limit,
+                factor=net.settings.get("scheme_factor", "log"), mode=color_mode,
+            )
+            if surf_color is None:
+                surf_color = np.asarray(color, dtype=float)
+            tri_colors.append([surf_color] * len(surf["tris"]))
+
+    elif net.settings["net_type"] == "aw":
+        scheme_columns = {
+            "mean": "mean_curv", "mean_curv": "mean_curv",
+            "gauss": "gauss_curv", "gauss_curv": "gauss_curv",
+            "avg_mean": "avg_mean_curv", "avg_gauss": "avg_gauss_curv",
+            "max_mean": "mean_curv", "max_gauss": "gauss_curv",
+            "int_mean_curv_sq": "int_mean_curv_sq",
+            "surf_energy": "surf_energy",
+        }
+
+        scheme_name = str(requested_scheme).lower()
+        value_column = scheme_columns.get(scheme_name, "mean_curv")
+
+        if universal_max:
+            values = np.asarray(net.surfs[value_column], dtype=float)
+        else:
+            values = np.asarray([surf[value_column] for surf in surf_rows], dtype=float)
+
+        values = values[np.isfinite(values)]
+        min_val, max_val = (
+            (0.0, 1.0)
+            if len(values) == 0
+            else (float(np.min(values)), float(np.max(values)))
+        )
+        if max_val == min_val:
+            max_val = min_val + 1.0
+
         for surf in surf_rows:
             inverse = False
             if concave_colors:
-                ref_ball = next(ball for ball in surf['balls'] if ball in ref_set)
-                non_ref_ball = next(ball for ball in surf['balls'] if ball not in ref_set)
-                inverse = net.balls.iloc[ref_ball]['rad'] <= net.balls.iloc[non_ref_ball]['rad']
+                ref_ball = next(ball for ball in surf["balls"] if ball in ref_set)
+                non_ref_ball = next(ball for ball in surf["balls"] if ball not in ref_set)
+                inverse = net.balls.iloc[ref_ball]["rad"] <= net.balls.iloc[non_ref_ball]["rad"]
+
             tri_colors.append(color_tris(
-                surf=surf, color_map=net.settings['surf_col'],
-                color_scheme=net.settings['surf_scheme'],
-                color_factor=net.settings['scheme_factor'], max_val=max_val,
-                min_val=min_val, inverse=inverse,
+                surf=surf,
+                color_map=cmap,
+                color_scheme=requested_scheme,
+                color_factor=net.settings["scheme_factor"],
+                max_val=max_val,
+                min_val=min_val,
+                inverse=inverse,
             ))
     else:
-        tri_colors = [[color] * len(surf['tris']) for surf in surf_rows]
+        tri_colors = [[color] * len(surf["tris"]) for surf in surf_rows]
 
-    columns = ('area', 'mean_curv', 'gauss_curv', 'int_mean_curv',
-               'int_mean_curv_sq', 'int_gauss_curv', 'surf_energy')
-    face_data = {'surface_index': []}
+    columns = (
+        "area", "mean_curv", "gauss_curv", "int_mean_curv",
+        "int_mean_curv_sq", "int_gauss_curv", "surf_energy",
+    )
+    face_data = {"surface_index": []}
     for column in columns:
         if column in net.surfs.columns:
             face_data[column] = []
+
     for index, surf in zip(surf_indices, surf_rows):
-        count = len(surf['tris'])
-        face_data['surface_index'].append(np.full(count, index, dtype=np.int64))
+        count = len(surf["tris"])
+        face_data["surface_index"].append(np.full(count, index, dtype=np.int64))
         for column in columns:
             if column in face_data:
                 face_data[column].append(np.full(count, surf[column], dtype=float))
 
     return combine_mesh_parts(
-        [surf['points'] for surf in surf_rows],
-        [surf['tris'] for surf in surf_rows],
+        [surf["points"] for surf in surf_rows],
+        [surf["tris"] for surf in surf_rows],
         tri_colors,
         face_data,
     )
 
 
 def write_surfs(net, surfs, file_name, color=False, directory=None, concave_colors=False,
-                ref_surfs=None, universal_max=True, chunk_size=10000, file_type='off'):
+                ref_surfs=None, universal_max=True, chunk_size=10000, file_type="off",
+                color_scheme=None, color_map=None, color_limit=None,
+                target_cells=None, color_mode="boundary"):
     """Prepare selected surfaces once and write OFF, PLY, or VTP."""
-    mesh = prepare_surfs(net, surfs, color, concave_colors, ref_surfs, universal_max)
+    mesh = prepare_surfs(
+        net, surfs, color, concave_colors, ref_surfs, universal_max,
+        color_scheme=color_scheme, color_map=color_map,
+        color_limit=color_limit, target_cells=target_cells, color_mode=color_mode,
+    )
     if mesh is None:
         return None
     return write_mesh(mesh, file_name, file_type, directory, chunk_size)

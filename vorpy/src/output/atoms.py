@@ -6,51 +6,54 @@ from vorpy.src.output.verts import write_off_verts
 
 
 def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=False,
-                     concave_colors=False, file_type='off'):
-    """
-    Exports individual cell data files for specified atoms in a network.
+                     concave_colors=False, file_type='off', color_scheme=None,
+                     color_map=None, color_limit=None):
+    """Export each complete atom cell using cell-relative curvature colors.
 
-    This function generates separate output files for each atom's cell components (surfaces, edges, and vertices)
-    based on the network's Voronoi decomposition. Each atom's data can be exported as multiple file types
-    depending on the specified parameters.
-
-    Args:
-        net: Network object containing the Voronoi decomposition data
-        atoms: List of atom indices to process
-        directory: Optional output directory path. If None, uses current directory
-        surfs: If True, exports surface data for each atom (default: True)
-        edges: If True, exports edge data for each atom (default: False)
-        verts: If True, exports vertex data for each atom (default: False)
-        concave_colors: If True, exports the concave colors for the surfaces. Default is False
-        file_type: Geometry format for surfaces, edges, and vertices: off, ply, or vtp
-    Returns:
-        None: Creates individual files for each atom's cell components in the specified directory
+    Individual atom cells have a well-defined outward orientation, so their
+    surface/edge/vertex colors use that atom's own curvature perspective. A
+    caller-supplied ``color_limit`` keeps all atom cells on the same scale as
+    the corresponding group visualization.
     """
-    # Change to the directory
     if directory is not None:
         os.chdir(directory)
-    # Go through the atoms
+
+    scheme = net.settings.get('surf_scheme') if color_scheme is None else color_scheme
+    cmap = net.settings.get('surf_col', 'coolwarm') if color_map is None else color_map
+
     for i in atoms:
         atom = net.balls.iloc[i]
         if not atom['complete']:
             continue
-        # Check if the surfaces should be exported
+
+        cell_targets = [int(atom.get('num', i))]
+        base_name = 'ball_' + atom['name'].strip() + '_' + net.settings['net_type']
+
         if surfs:
-            write_surfs(net, atom['surfs'], directory=directory,
-                        file_name='ball' + "_" + atom['name'].strip() + '_' + net.settings['net_type'],
-                        color=(255, 0, 0) if net.settings['net_type'] == 'pow' else False,
-                        concave_colors=concave_colors, ref_surfs=[i], universal_max=False,
-                        file_type=file_type)
-        # Check for verts
+            write_surfs(
+                net, atom['surfs'], directory=directory, file_name=base_name,
+                color=(255, 0, 0) if net.settings['net_type'] == 'pow' else False,
+                concave_colors=concave_colors, ref_surfs=cell_targets,
+                universal_max=False, file_type=file_type,
+                color_scheme=scheme, color_map=cmap, color_limit=color_limit,
+                target_cells=cell_targets, color_mode='cell',
+            )
+
         if verts:
-            write_off_verts(net, atom['verts'], directory=directory,
-                            file_name='ball_{}'.format(atom['name'].strip()) + "_" + net.settings['net_type'] + "_verts",
-                            file_type=file_type)
-        # Check for edges
+            write_off_verts(
+                net, atom['verts'], directory=directory,
+                file_name=base_name + '_verts', file_type=file_type,
+                color_scheme=scheme, color_map=cmap, color_limit=color_limit,
+                target_cells=cell_targets, color_mode='cell',
+            )
+
         if edges:
-            write_edges(net, atom['edges'], directory=directory,
-                        file_name='ball_{}'.format(atom['name'].strip()) + "_" + net.settings['net_type'] + "_edges",
-                        file_type=file_type)
+            write_edges(
+                net, atom['edges'], directory=directory,
+                file_name=base_name + '_edges', file_type=file_type,
+                color_scheme=scheme, color_map=cmap, color_limit=color_limit,
+                target_cells=cell_targets, color_mode='cell',
+            )
 
 
 def write_atom_radii(my_sys, directory=None, file_name=None):

@@ -6,6 +6,7 @@ from vorpy.src.output import write_logs
 from vorpy.src.output import write_surfs
 from vorpy.src.output import write_edges
 from vorpy.src.output import write_off_verts
+from vorpy.src.output.curvature_colors import canonical_curvature_scheme, curvature_color_limit
 
 
 def _group_topology_indices(grp):
@@ -915,6 +916,24 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     # Set the surface scheme
     if grp.settings['surf_scheme'] is None:
         grp.settings['surf_scheme'] = grp.net.settings['surf_scheme']
+    # Integrated curvature schemes are shared across surface/edge/vertex
+    # exporters. Compute one group-relative scale so identical colors represent
+    # identical signed contributions on every supported geometric component.
+    target_cells = _group_topology_indices(grp)
+    curvature_scheme = canonical_curvature_scheme(grp.settings.get('surf_scheme'))
+    curvature_map = grp.settings.get('surf_col', 'coolwarm')
+    boundary_color_limit = (
+        curvature_color_limit(grp.net, curvature_scheme, target_cells, mode='boundary')
+        if curvature_scheme is not None else None
+    )
+    magnitude_color_limit = (
+        curvature_color_limit(grp.net, curvature_scheme, target_cells, mode='magnitude')
+        if curvature_scheme is not None else None
+    )
+    cell_color_limit = (
+        curvature_color_limit(grp.net, curvature_scheme, target_cells, mode='cell')
+        if curvature_scheme is not None else None
+    )
     # Get the surfaces if they haven't been got
     if grp.net.surfs is None or len(grp.net.surfs) == 0:
         return
@@ -951,9 +970,13 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     if atom_verts or atom_edges or atom_surfs or all_:
         if not path.exists(grp.dir + '/atoms'):
             os.mkdir(grp.dir + '/atoms')
-        write_atom_cells(grp.net, atoms=_group_topology_indices(grp), directory=grp.dir + '/atoms',
-                         surfs=atom_surfs or all_, edges=atom_edges or all_, verts=atom_verts or all_,
-                         concave_colors=concave_colors, file_type=file_type)
+        write_atom_cells(
+            grp.net, atoms=target_cells, directory=grp.dir + '/atoms',
+            surfs=atom_surfs or all_, edges=atom_edges or all_, verts=atom_verts or all_,
+            concave_colors=concave_colors, file_type=file_type,
+            color_scheme=curvature_scheme, color_map=curvature_map,
+            color_limit=cell_color_limit,
+        )
         os.chdir(grp.dir)
 
     # If the user wants to export the shell for the group
@@ -963,12 +986,19 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             grp.get_layers(max_layers=1)
         # noinspection PyUnresolvedReferences
         if grp.layer_surfs is not None and len(grp.layer_surfs) > 0:
-            write_surfs(net=grp.net, surfs=grp.layer_surfs[0], file_name="shell_surfs", directory=grp.dir,
-                        concave_colors=concave_colors, ref_surfs=_group_topology_indices(grp), universal_max=False,
-                        file_type=file_type)
+            write_surfs(
+                net=grp.net, surfs=grp.layer_surfs[0], file_name="shell_surfs", directory=grp.dir,
+                concave_colors=concave_colors, ref_surfs=target_cells, universal_max=False,
+                file_type=file_type, color_scheme=curvature_scheme, color_map=curvature_map,
+                color_limit=boundary_color_limit, target_cells=target_cells, color_mode="boundary",
+            )
     # If the user wants all of the surfaces in one file
     if surfs or all_:
-        write_surfs(grp.net, [i for i in range(len(grp.net.surfs))], 'surfs', file_type=file_type)
+        write_surfs(
+            grp.net, [i for i in range(len(grp.net.surfs))], 'surfs', file_type=file_type,
+            color_scheme=curvature_scheme, color_map=curvature_map,
+            color_limit=magnitude_color_limit, target_cells=target_cells, color_mode="magnitude",
+        )
     # Separate surfaces
     if sep_surfs or all_:
         # Make the surfaces directory
@@ -976,44 +1006,73 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             os.mkdir(grp.dir + '/surfs')
         # Create the surfaces' files
         for j, my_surf in grp.net.surfs.iterrows():
-            write_surfs(grp.net, [j], file_name='b{}_b{}'.format(*my_surf['balls']),
-                        directory=grp.dir + '/surfs', file_type=file_type)
+            write_surfs(
+                grp.net, [j], file_name='b{}_b{}'.format(*my_surf['balls']),
+                directory=grp.dir + '/surfs', file_type=file_type,
+                color_scheme=curvature_scheme, color_map=curvature_map,
+                color_limit=magnitude_color_limit, target_cells=target_cells, color_mode="magnitude",
+            )
     # Shell edges
     if shell_edges or all_:
         if grp.layer_edges is None:
             grp.get_layers(max_layers=1, build_surfs=False)
-        write_edges(grp.net, grp.layer_edges[0], file_name="shell_edges", directory=grp.dir,
-                    color=grp.settings['edge_col'], file_type=file_type)
+        write_edges(
+            grp.net, grp.layer_edges[0], file_name="shell_edges", directory=grp.dir,
+            color=grp.settings['edge_col'], file_type=file_type,
+            color_scheme=curvature_scheme, color_map=curvature_map,
+            color_limit=boundary_color_limit, target_cells=target_cells, color_mode="boundary",
+        )
     # All one big edge file
     if edges or all_:
-        write_edges(grp.net, edges=[i for i in range(len(grp.net.edges))], file_name="edges", directory=grp.dir,
-                    color=grp.settings['edge_col'], file_type=file_type)
+        write_edges(
+            grp.net, edges=[i for i in range(len(grp.net.edges))], file_name="edges", directory=grp.dir,
+            color=grp.settings['edge_col'], file_type=file_type,
+            color_scheme=curvature_scheme, color_map=curvature_map,
+            color_limit=magnitude_color_limit, target_cells=target_cells, color_mode="magnitude",
+        )
     # If the separate edges are called
     if sep_edges or all_:
         # Make the edges directory
         if not os.path.exists(grp.dir + '/edges'):
             os.mkdir(grp.dir + '/edges')
         for j, my_edge in grp.net.edges.iterrows():
-            write_edges(grp.net, [j], 'b{}_b{}_b{}'.format(*my_edge['balls']),
-                        directory=grp.dir + '/edges', file_type=file_type)
+            write_edges(
+                grp.net, [j], 'b{}_b{}_b{}'.format(*my_edge['balls']),
+                directory=grp.dir + '/edges', file_type=file_type,
+                color_scheme=curvature_scheme, color_map=curvature_map,
+                color_limit=magnitude_color_limit, target_cells=target_cells, color_mode="magnitude",
+            )
     # Run the separate vertices
     if sep_verts:
         # Make the vertices directory
         if not path.exists(grp.dir + '/verts'):
             os.mkdir(grp.dir + "/verts")
         for j, vert in grp.net.verts.iterrows():
-            write_off_verts(grp.net, [j], 'b{}_b{}_b{}_b{}'.format(*vert['balls']),
-                            directory=grp.dir + "/verts", file_type=file_type)
+            write_off_verts(
+                grp.net, [j], 'b{}_b{}_b{}_b{}'.format(*vert['balls']),
+                directory=grp.dir + "/verts", file_type=file_type,
+                color=grp.settings['vert_col'], color_scheme=curvature_scheme,
+                color_map=curvature_map, color_limit=magnitude_color_limit,
+                target_cells=target_cells, color_mode="magnitude",
+            )
     # Export all the vertices in one file
     if verts or all_:
-        write_off_verts(grp.net, [i for i in range(len(grp.net.verts))], directory=grp.dir, file_name='verts',
-                        color=grp.settings['vert_col'], file_type=file_type)
+        write_off_verts(
+            grp.net, [i for i in range(len(grp.net.verts))], directory=grp.dir, file_name='verts',
+            color=grp.settings['vert_col'], file_type=file_type,
+            color_scheme=curvature_scheme, color_map=curvature_map,
+            color_limit=magnitude_color_limit, target_cells=target_cells, color_mode="magnitude",
+        )
     # Export the shell vertices
     if shell_verts or all_:
         if grp.layer_verts is None:
             grp.get_layers(max_layers=1, build_surfs=False)
-        write_off_verts(grp.net, grp.layer_verts[0], file_name="shell_verts", directory=grp.dir,
-                        color=grp.settings['vert_col'], file_type=file_type)
+        write_off_verts(
+            grp.net, grp.layer_verts[0], file_name="shell_verts", directory=grp.dir,
+            color=grp.settings['vert_col'], file_type=file_type,
+            color_scheme=curvature_scheme, color_map=curvature_map,
+            color_limit=boundary_color_limit, target_cells=target_cells, color_mode="boundary",
+        )
     # If the user wants layers
     if layers > 0 or all_:
         # First check to see if the number of layers is greater than 1
@@ -1032,7 +1091,11 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         # Create the layer and atoms files
         for i in range(len(grp.layer_surfs)):
             write_pdb(grp.layer_atoms[i + 1], file_name=str(i) + "_atoms", sys=grp.sys)
-            write_surfs(grp.net, grp.layer_surfs[i], file_name=str(i) + "_surfs", file_type=file_type)
+            write_surfs(
+                grp.net, grp.layer_surfs[i], file_name=str(i) + "_surfs", file_type=file_type,
+                color_scheme=curvature_scheme, color_map=curvature_map,
+                color_limit=magnitude_color_limit, target_cells=target_cells, color_mode="magnitude",
+            )
         # If the user wants info and layers create a layers info file
         if info or all_:
             # Create the information file
