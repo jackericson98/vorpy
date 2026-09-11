@@ -152,6 +152,7 @@ class MolecularView(QWidget):
                 self._add_layer(layer)
         self._axes_actor = self.plotter.add_axes()
         self.plotter.reset_camera()
+        self._refresh_scalar_bar()
         self.plotter.render()
         if self._selection_mode is not None:
             self.set_selection_mode(self._selection_mode)
@@ -356,108 +357,275 @@ class MolecularView(QWidget):
             actor.SetVisibility(visible)
             self._actors[category].append(actor)
 
+    def _layer_scalar_limit(self, scheme: str, interpretation: str) -> float:
+        values = []
+        for layer in self._layer_definitions.values():
+            if layer.interpretation != interpretation or scheme not in layer.cell_scalars:
+                continue
+            array = np.asarray(layer.cell_scalars[scheme], dtype=float).ravel()
+            finite = array[np.isfinite(array)]
+            if len(finite):
+                values.extend(np.abs(finite))
+        if not values:
+            return 1.0
+        limit = float(np.percentile(np.asarray(values, dtype=float), 98.0))
+        return limit if np.isfinite(limit) and limit > 0.0 else 1.0
+
+    def _display_scalars(self, layer: GeometryLayer, raw: np.ndarray) -> tuple[np.ndarray, tuple[float, float]]:
+        values = np.asarray(raw, dtype=float).reshape(-1)
+        finite = values[np.isfinite(values)]
+        replacement = float(np.median(finite)) if len(finite) else 0.0
+        values = np.nan_to_num(values, nan=replacement, posinf=replacement, neginf=replacement)
+        if layer.color_scheme == "inside_outside":
+            return np.clip(values, 0.0, 1.0), (0.0, 1.0)
+
+        if layer.color_scheme == "distance":
+            low, high = np.percentile(values, (2.0, 98.0)) if len(values) else (0.0, 1.0)
+            if np.isclose(low, high):
+                padding = max(abs(float(low)) * 0.01, 1e-9)
+                low, high = low - padding, high + padding
+            return values, (float(low), float(high))
+
+        limit = self._layer_scalar_limit(layer.color_scheme, layer.interpretation)
+        ratio = np.clip(values / limit, -1.0, 1.0)
+        if layer.interpretation == "magnitude":
+            ratio = np.abs(ratio)
+        if layer.scale_mode == "signed_log":
+            gain = 1000.0
+            ratio = np.sign(ratio) * np.log1p(gain * np.abs(ratio)) / np.log1p(gain)
+        if layer.interpretation == "magnitude":
+            ratio = 0.5 + 0.5 * np.abs(ratio)
+            return ratio, (0.0, 1.0)
+        return ratio, (-1.0, 1.0)
+
+    @staticmethod
+    def _physical_line_ranges(lines: np.ndarray) -> list[tuple[int, int]]:
+        """Return contiguous segment ranges for disconnected polyline edges."""
+        lines = np.asarray(lines, dtype=np.int64).reshape((-1, 2))
+        if len(lines) == 0:
+            return []
+        starts = [0]
+        for index in range(1, len(lines)):
+            if int(lines[index, 0]) != int(lines[index - 1, 1]):
+                starts.append(index)
+        starts.append(len(lines))
+        return list(zip(starts[:-1], starts[1:]))
+
+    def _attach_line_scalars(
+        self,
+        line_mesh: pv.PolyData,
+        lines: np.ndarray,
+        values: np.ndarray,
+        layer_name: str,
+        scheme: str,
+    ) -> str:
+        """Attach edge scalars robustly and return PyVista preference.
+
+        Accepted backend representations:
+          * one value per rendered point,
+          * one value per rendered segment,
+          * one value per physical polyline edge.
+        """
+        values = np.asarray(values, dtype=float).reshape(-1)
+
+        if len(values) == line_mesh.n_points:
+            line_mesh.point_data["layer_values"] = values
+            return "point"
+
+        if len(values) == line_mesh.n_cells:
+            line_mesh.cell_data["layer_values"] = values
+            converted = line_mesh.cell_data_to_point_data(pass_cell_data=False)
+            line_mesh.point_data.clear()
+            line_mesh.copy_from(converted)
+            return "point"
+
+        ranges = self._physical_line_ranges(lines)
+        if len(values) == len(ranges):
+            expanded = np.empty(line_mesh.n_cells, dtype=float)
+            for value, (start, stop) in zip(values, ranges):
+                expanded[start:stop] = value
+            line_mesh.cell_data["layer_values"] = expanded
+            converted = line_mesh.cell_data_to_point_data(pass_cell_data=False)
+            line_mesh.point_data.clear()
+            line_mesh.copy_from(converted)
+            return "point"
+
+        raise ValueError(
+            f"{scheme} has {len(values)} values for layer {layer_name!r}; "
+            f"expected {line_mesh.n_points} points, {line_mesh.n_cells} "
+            f"segments, or {len(ranges)} physical polyline edges"
+        )
+
+    @staticmethod
+    def _scheme_title(layer: GeometryLayer) -> str:
+        titles = {
+            "mean_curvature": "Mean Curvature",
+            "gaussian_curvature": "Gaussian Curvature",
+            "integrated_mean_curvature": "Integrated Mean Curvature",
+            "integrated_gaussian_curvature": "Integrated Gaussian Curvature",
+            "surface_energy": "Surface Energy",
+            "distance": "Distance to Center",
+            "inside_outside": "Inside / Outside",
+        }
+        title = titles.get(
+            layer.color_scheme,
+            layer.color_scheme.replace("_", " ").title(),
+        )
+        if layer.color_scheme in {
+            "mean_curvature",
+            "gaussian_curvature",
+            "integrated_mean_curvature",
+            "integrated_gaussian_curvature",
+        }:
+            scale = "signed log" if layer.scale_mode == "signed_log" else "linear"
+            return f"{title} · {scale} normalized"
+        return title
+
+    def _refresh_scalar_bar(self) -> None:
+        """Show exactly one scalar bar for the active scalar visualization.
+
+        PyVista raises StopIteration when remove_scalar_bar() is called with no
+        registered scalar bars, so cleanup must explicitly tolerate the empty
+        state. This method is called during initial result loading before any
+        scalar bar necessarily exists.
+        """
+        try:
+            scalar_bars = getattr(self.plotter, "scalar_bars", None)
+            actors = getattr(scalar_bars, "_scalar_bar_actors", None)
+            if actors:
+                self.plotter.remove_scalar_bar()
+        except (AttributeError, KeyError, RuntimeError, StopIteration):
+            pass
+
+        for layer in self._layer_definitions.values():
+            if not layer.visible or layer.color_scheme == "solid":
+                continue
+            actors = self._actors.get(layer.name, ())
+            actor = next((item for item in actors if item is not None), None)
+            if actor is None:
+                continue
+            try:
+                mapper = actor.GetMapper()
+                self.plotter.add_scalar_bar(
+                    title=self._scheme_title(layer),
+                    mapper=mapper,
+                    n_labels=2 if layer.color_scheme == "inside_outside" else 5,
+                    vertical=False,
+                    position_x=0.27,
+                    position_y=0.025,
+                    width=0.46,
+                    height=0.055,
+                    color="white",
+                    title_font_size=10,
+                    label_font_size=8,
+                    fmt="%.2g",
+                )
+                return
+            except (AttributeError, RuntimeError, TypeError):
+                continue
+
     def _add_layer(self, layer: GeometryLayer) -> None:
         try:
+            preference = "cell"
+            scalar_values = layer.cell_scalars.get(layer.color_scheme)
             if layer.source_path is not None:
                 mesh = pv.read(layer.source_path)
             elif layer.faces is not None:
                 points = np.asarray(layer.points, dtype=float).reshape((-1, 3))
                 faces = np.asarray(layer.faces, dtype=np.int64).reshape((-1, 3))
-                face_cells = np.column_stack(
-                    (np.full(len(faces), 3, dtype=np.int64), faces)
-                ).ravel()
+                face_cells = np.column_stack((np.full(len(faces), 3, dtype=np.int64), faces)).ravel()
                 mesh = pv.PolyData(points, faces=face_cells)
+                if scalar_values is not None:
+                    values, _ = self._display_scalars(layer, scalar_values)
+
+                    if len(values) != mesh.n_cells:
+                        raise ValueError(f"{layer.color_scheme} has {len(values)} values for {mesh.n_cells} surface triangles")
+                    mesh.cell_data["layer_values"] = values
             elif layer.lines is not None:
                 cells = np.asarray(
-                    [[2, a, b] for a, b in layer.lines], dtype=np.int64
+                    [[2, a, b] for a, b in layer.lines],
+                    dtype=np.int64,
                 ).ravel()
-                mesh = pv.PolyData(np.asarray(layer.points, dtype=float))
-                mesh.lines = cells
-                mesh = mesh.tube(radius=0.045, n_sides=6)
+                # Build a line-only PolyData. Calling pv.PolyData(points)
+                # creates one vertex cell per point; adding lines afterward
+                # leaves those vertex cells in the dataset, so n_cells becomes
+                # n_points + n_lines. That made correctly sized edge scalar
+                # arrays appear too short. Construct the dataset explicitly
+                # without vertex cells instead.
+                line_mesh = pv.PolyData()
+                line_mesh.points = np.asarray(layer.points, dtype=float)
+                line_mesh.lines = cells
+
+                if scalar_values is not None:
+                    values, _ = self._display_scalars(layer, scalar_values)
+                    if len(values) not in {
+                        line_mesh.n_points,
+                        line_mesh.n_lines,
+                        len(self._physical_line_ranges(layer.lines)),
+                    }:
+                        print(
+                            f"[EDGE SCALAR DEBUG] {layer.name}: "
+                            f"points={line_mesh.n_points}, "
+                            f"lines={line_mesh.n_lines}, "
+                            f"cells={line_mesh.n_cells}, "
+                            f"physical_edges={len(self._physical_line_ranges(layer.lines))}, "
+                            f"values={len(values)}, "
+                            f"scheme={layer.color_scheme}"
+                        )
+                    preference = self._attach_line_scalars(
+                        line_mesh,
+                        layer.lines,
+                        values,
+                        layer.name,
+                        layer.color_scheme,
+                    )
+
+                mesh = line_mesh.tube(
+                    radius=0.020,
+                    n_sides=10,
+                    capping=True,
+                )
+
+                if scalar_values is not None and "layer_values" not in mesh.array_names:
+                    raise ValueError(
+                        f"Scalar data were lost while tubing layer {layer.name!r}"
+                    )
             else:
                 cloud = pv.PolyData(np.asarray(layer.points, dtype=float))
                 cloud["radius"] = np.full(len(layer.points), 0.13)
-                mesh = cloud.glyph(
-                    scale="radius", orient=False, geom=pv.Icosahedron(radius=1.0)
-                )
+                if scalar_values is not None:
+                    values, _ = self._display_scalars(layer, scalar_values)
+                    if len(values) != cloud.n_points:
+                        raise ValueError(f"{layer.color_scheme} has {len(values)} values for {cloud.n_points} vertices")
+                    cloud.point_data["layer_values"] = values
+                    preference = "point"
+                mesh = cloud.glyph(scale="radius", orient=False, geom=pv.Icosahedron(radius=1.0))
+
             mesh_options = {
                 "opacity": layer.opacity,
                 "name": f"layer-{layer.name}",
                 "show_edges": False,
             }
-            scalar_values = layer.cell_scalars.get(layer.color_scheme)
-            if layer.faces is not None and scalar_values is not None:
-                scalar_values = np.asarray(scalar_values, dtype=float).reshape(-1)
-                if len(scalar_values) != mesh.n_cells:
-                    raise ValueError(
-                        f"{layer.color_scheme} has {len(scalar_values)} values "
-                        f"for {mesh.n_cells} surface triangles"
-                    )
-                finite = scalar_values[np.isfinite(scalar_values)]
-                replacement = float(np.median(finite)) if len(finite) else 0.0
-                scalar_values = np.nan_to_num(
-                    scalar_values,
-                    nan=replacement,
-                    posinf=replacement,
-                    neginf=replacement,
-                )
-                mesh.cell_data["surface_values"] = scalar_values
+            if scalar_values is not None and "layer_values" in mesh.array_names:
+                _, clim = self._display_scalars(layer, scalar_values)
                 mesh_options.update(
-                    scalars="surface_values",
-                    preference="cell",
+                    scalars="layer_values",
+                    preference=preference,
+                    cmap=layer.color_map,
+                    clim=clim,
                     interpolate_before_map=False,
-                    lighting=False,
-                    show_edges=True,
-                    edge_color="#263440",
-                    line_width=0.5,
-                    cmap=(
-                        ["#2166ac", "#f7f7f7", "#b2182b"]
-                        if layer.color_scheme in {
-                            "gaussian_curvature", "mean_curvature"
-                        }
-                        else (
-                            ["#2166ac", "#b2182b"]
-                            if layer.color_scheme == "inside_outside"
-                            else "viridis"
-                        )
-                    ),
-                    scalar_bar_args={
-                        "title": layer.color_scheme.replace("_", " ").title()
-                    },
+                    lighting=layer.kind.lower() != "surfaces",
+                    smooth_shading=layer.kind.lower() in {"edges", "vertices"},
+                    show_scalar_bar=False,
                 )
-                if layer.color_scheme in {
-                    "gaussian_curvature", "mean_curvature"
-                }:
-                    low, high = np.percentile(scalar_values, (2, 98))
-                    if low < 0.0 < high:
-                        limit = max(abs(float(low)), abs(float(high)))
-                        mesh_options["clim"] = (-limit, limit)
-                    else:
-                        # A zero-centered diverging map turns a one-signed
-                        # distribution almost entirely white. Use its actual
-                        # robust range so meaningful variation remains visible.
-                        if np.isclose(low, high):
-                            padding = max(abs(float(low)) * 0.01, 1e-9)
-                            low, high = low - padding, high + padding
-                        mesh_options["cmap"] = "turbo"
-                        mesh_options["clim"] = (float(low), float(high))
-                elif layer.color_scheme == "inside_outside":
-                    mesh_options["clim"] = (0.0, 1.0)
-                else:
-                    low, high = np.percentile(scalar_values, (2, 98))
-                    if np.isclose(low, high):
-                        padding = max(abs(float(low)) * 0.01, 1e-9)
-                        low, high = low - padding, high + padding
-                    mesh_options["clim"] = (float(low), float(high))
             else:
                 mesh_options["color"] = layer.color
             actor = self.plotter.add_mesh(mesh, **mesh_options)
             actor.SetVisibility(layer.visible)
             self._actors[layer.name].append(actor)
             self._apply_depth_clip_to_actor(actor)
-        except Exception as error:  # noqa: BLE001 - mesh readers expose varied exceptions.
-            layer.visible = False
-            layer.name = f"{layer.name} [load failed: {error}]"
+        except Exception as error:  # noqa: BLE001
+            print(f"[VorPy Workbench] Failed to render layer {layer.name!r}: {error}")
 
     def _picked_point(self, point) -> None:
         # PyVista reports a point at the start of a left-button gesture. Defer
@@ -827,6 +995,7 @@ class MolecularView(QWidget):
                 self._add_layer(layer)
         for actor in self._actors.get(name, ()):
             actor.SetVisibility(visible)
+        self._refresh_scalar_bar()
         self.plotter.render()
 
     def set_layer_opacity(self, name: str, opacity: float) -> None:
@@ -837,15 +1006,36 @@ class MolecularView(QWidget):
             actor.GetProperty().SetOpacity(opacity)
         self.plotter.render()
 
+    def _redraw_layer(self, layer: GeometryLayer) -> None:
+        self.plotter.remove_actor(f"layer-{layer.name}", render=False)
+        self._actors[layer.name].clear()
+        if layer.visible:
+            self._add_layer(layer)
+        self._refresh_scalar_bar()
+        self.plotter.render()
+
     def set_layer_color_scheme(self, name: str, scheme: str) -> None:
         layer = self._layer_definitions.get(name)
-        if layer is None or layer.kind.lower() != "surfaces":
+        if layer is None:
             return
-        layer.color_scheme = scheme if scheme in layer.cell_scalars else "solid"
-        self.plotter.remove_actor(f"layer-{name}", render=False)
-        self._actors[name].clear()
-        self._add_layer(layer)
-        self.plotter.render()
+        layer.color_scheme = scheme if scheme == "solid" or scheme in layer.cell_scalars else "solid"
+        self._redraw_layer(layer)
+
+    def set_layer_colormap(self, name: str, color_map: str) -> None:
+        layer = self._layer_definitions.get(name)
+        if layer is None:
+            return
+        layer.color_map = str(color_map)
+        if layer.color_scheme != "solid":
+            self._redraw_layer(layer)
+
+    def set_layer_scale_mode(self, name: str, scale_mode: str) -> None:
+        layer = self._layer_definitions.get(name)
+        if layer is None:
+            return
+        layer.scale_mode = "linear" if scale_mode == "linear" else "signed_log"
+        if layer.color_scheme != "solid":
+            self._redraw_layer(layer)
 
     def set_layer_color(self, name: str, color: str) -> None:
         for actor in self._actors.get(name, ()):

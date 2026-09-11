@@ -39,6 +39,9 @@ class GeometryLayer:
     faces: np.ndarray | None = None
     cell_scalars: dict[str, np.ndarray] = field(default_factory=dict)
     color_scheme: str = "solid"
+    color_map: str = "coolwarm"
+    scale_mode: str = "signed_log"
+    interpretation: str = "magnitude"
 
 
 @dataclass

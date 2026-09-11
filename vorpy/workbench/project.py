@@ -245,6 +245,9 @@ def result_to_json(result: AnalysisResult) -> dict:
                     key: values.tolist() for key, values in layer.cell_scalars.items()
                 },
                 "color_scheme": layer.color_scheme,
+                "color_map": layer.color_map,
+                "scale_mode": layer.scale_mode,
+                "interpretation": layer.interpretation,
             }
             for layer in result.layers
         ],
@@ -283,6 +286,9 @@ def result_from_json(data: dict) -> AnalysisResult:
                     for key, values in item.get("cell_scalars", {}).items()
                 },
                 color_scheme=item.get("color_scheme", "solid"),
+                color_map=item.get("color_map", "coolwarm"),
+                scale_mode=item.get("scale_mode", "signed_log"),
+                interpretation=item.get("interpretation", "magnitude"),
             )
         )
     atoms = [

@@ -13,6 +13,10 @@ from vorpy.src.system import System
 from vorpy.workbench.domain import AnalysisResult, Atom, GeometryLayer
 from vorpy.workbench.services.backend import CancellationCheck, ProgressCallback
 from vorpy.workbench.services.structure_loader import load_pdb
+from vorpy.src.output.curvature_colors import (
+    component_value,
+    mean_vertex_display_value,
+)
 
 
 @dataclass(frozen=True)
@@ -169,14 +173,40 @@ def _merge_atoms(display_atoms: list[Atom], solved_atoms: list[Atom]) -> list[At
     ]
 
 
+
+def _network_geometry_center(balls, target_cells=None) -> np.ndarray:
+    if balls is None or len(balls) == 0 or "loc" not in balls:
+        return np.zeros(3, dtype=float)
+
+    selected = balls
+    if target_cells:
+        targets = {int(value) for value in target_cells}
+        if "num" in balls:
+            selected = balls.loc[balls["num"].astype(int).isin(targets)]
+        else:
+            valid = [value for value in targets if value in balls.index]
+            if valid:
+                selected = balls.loc[valid]
+
+    if len(selected) == 0:
+        selected = balls
+    return np.mean(
+        np.asarray(list(selected["loc"]), dtype=float).reshape((-1, 3)),
+        axis=0,
+    )
+
+
 def _surface_geometry(
-    surfaces, balls
+    surfaces, balls, target_cells=None, interpretation="magnitude",
+    geometry_center=None,
 ) -> tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]:
     points: list[np.ndarray] = []
     faces: list[np.ndarray] = []
     scalar_values = {
         "gaussian_curvature": [],
         "mean_curvature": [],
+        "integrated_mean_curvature": [],
+        "integrated_gaussian_curvature": [],
         "surface_energy": [],
         "distance": [],
         "inside_outside": [],
@@ -196,28 +226,31 @@ def _surface_geometry(
         ):
             values = np.asarray(surface.get(column, []), dtype=float).ravel()
             if len(values) != face_count:
-                fallback = (
-                    "gauss_curv"
-                    if scheme == "gaussian_curvature"
-                    else "mean_curv"
-                )
-                values = np.full(
-                    face_count, float(surface.get(fallback, 0.0) or 0.0)
-                )
+                fallback = "gauss_curv" if scheme == "gaussian_curvature" else "mean_curv"
+                values = np.full(face_count, float(surface.get(fallback, 0.0) or 0.0))
             scalar_values[scheme].extend(values)
 
-        mean_values = np.asarray(
-            scalar_values["mean_curvature"][-face_count:], dtype=float
-        )
-        # VorPy's bending-energy density is 2H². The stored surf_energy is
-        # integrated over a whole surface and would paint every face identically.
+        mean_values = np.asarray(scalar_values["mean_curvature"][-face_count:], dtype=float)
         scalar_values["surface_energy"].extend(2.0 * np.square(mean_values))
 
-        center = np.asarray(surface.get("loc", surface_points.mean(axis=0)), dtype=float)
-        point_distances = np.linalg.norm(surface_points - center, axis=1)
-        scalar_values["distance"].extend(
-            np.max(point_distances[surface_faces], axis=1)
+        for display_name, core_name in (
+            ("integrated_mean_curvature", "int_mean_curv"),
+            ("integrated_gaussian_curvature", "int_gauss_curv"),
+        ):
+            value = component_value(
+                surface, "surface", core_name, target_cells, mode=interpretation
+            )
+            scalar_values[display_name].extend(
+                np.full(face_count, 0.0 if value is None else float(value))
+            )
+
+        center = (
+            np.asarray(geometry_center, dtype=float)
+            if geometry_center is not None
+            else np.asarray(surface.get("loc", surface_points.mean(axis=0)), dtype=float)
         )
+        point_distances = np.linalg.norm(surface_points - center, axis=1)
+        scalar_values["distance"].extend(np.max(point_distances[surface_faces], axis=1))
 
         inside = np.zeros(len(surface_points), dtype=bool)
         defining = surface.get("balls", [])
@@ -229,12 +262,9 @@ def _surface_geometry(
                 matches = balls.loc[[int(defining[0])]]
             if len(matches):
                 atom = matches.iloc[0]
-                inside = (
-                    np.linalg.norm(
-                        surface_points - np.asarray(atom["loc"], dtype=float), axis=1
-                    )
-                    < float(atom["rad"])
-                )
+                inside = np.linalg.norm(
+                    surface_points - np.asarray(atom["loc"], dtype=float), axis=1
+                ) < float(atom["rad"])
         scalar_values["inside_outside"].extend(
             np.all(inside[surface_faces], axis=1).astype(float)
         )
@@ -246,21 +276,131 @@ def _surface_geometry(
     )
 
 
-def _edge_geometry(edges) -> tuple[np.ndarray, np.ndarray]:
+def _edge_geometry(
+    edges, balls=None, target_cells=None, interpretation="magnitude",
+    geometry_center=None,
+) -> tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]:
     points: list[np.ndarray] = []
     lines: list[tuple[int, int]] = []
-    for edge_points in edges["points"]:
-        edge_points = np.asarray(edge_points, dtype=float)
+    scalars = {
+        "integrated_mean_curvature": [],
+        "integrated_gaussian_curvature": [],
+        "distance": [],
+        "inside_outside": [],
+    }
+
+    center = None if geometry_center is None else np.asarray(geometry_center, dtype=float)
+
+    for _, edge in edges.iterrows():
+        edge_points = np.asarray(edge["points"], dtype=float).reshape((-1, 3))
         start = len(points)
         points.extend(edge_points)
-        lines.extend(
-            (start + index, start + index + 1)
-            for index in range(max(len(edge_points) - 1, 0))
-        )
+        segment_count = max(len(edge_points) - 1, 0)
+        lines.extend((start + index, start + index + 1) for index in range(segment_count))
+
+        for display_name, core_name in (
+            ("integrated_mean_curvature", "int_mean_curv"),
+            ("integrated_gaussian_curvature", "int_gauss_curv"),
+        ):
+            value = component_value(
+                edge, "edge", core_name, target_cells, mode=interpretation
+            )
+            scalars[display_name].extend(
+                np.full(segment_count, 0.0 if value is None else float(value))
+            )
+
+        if segment_count:
+            midpoints = 0.5 * (edge_points[:-1] + edge_points[1:])
+            local_center = center if center is not None else edge_points.mean(axis=0)
+            scalars["distance"].extend(
+                np.linalg.norm(midpoints - local_center, axis=1)
+            )
+
+            inside_segments = np.zeros(segment_count, dtype=float)
+            defining = edge.get("balls", [])
+            if balls is not None and len(defining):
+                matches = balls
+                if "num" in balls:
+                    matches = balls.loc[balls["num"] == int(defining[0])]
+                elif int(defining[0]) in balls.index:
+                    matches = balls.loc[[int(defining[0])]]
+                if len(matches):
+                    atom = matches.iloc[0]
+                    inside_points = (
+                        np.linalg.norm(
+                            edge_points - np.asarray(atom["loc"], dtype=float),
+                            axis=1,
+                        )
+                        < float(atom["rad"])
+                    )
+                    inside_segments = (
+                        inside_points[:-1] & inside_points[1:]
+                    ).astype(float)
+            scalars["inside_outside"].extend(inside_segments)
+
     return (
         np.asarray(points, dtype=float).reshape((-1, 3)),
         np.asarray(lines, dtype=np.int64).reshape((-1, 2)),
+        {
+            key: np.asarray(values, dtype=float)
+            for key, values in scalars.items()
+        },
     )
+
+
+def _vertex_geometry(
+    network, vertices, target_cells=None, interpretation="magnitude",
+    geometry_center=None,
+) -> tuple[np.ndarray, dict[str, np.ndarray]]:
+    points = np.asarray(list(vertices["loc"]), dtype=float).reshape((-1, 3))
+    mean_values, gauss_values = [], []
+
+    for _, vertex in vertices.iterrows():
+        mean_value = mean_vertex_display_value(
+            network, vertex, target_cells, mode=interpretation
+        )
+        gauss_value = component_value(
+            vertex, "vertex", "int_gauss_curv", target_cells, mode=interpretation
+        )
+        mean_values.append(0.0 if mean_value is None else float(mean_value))
+        gauss_values.append(0.0 if gauss_value is None else float(gauss_value))
+
+    center = (
+        np.asarray(geometry_center, dtype=float)
+        if geometry_center is not None
+        else (points.mean(axis=0) if len(points) else np.zeros(3))
+    )
+    distances = (
+        np.linalg.norm(points - center, axis=1)
+        if len(points) else np.empty(0, dtype=float)
+    )
+
+    inside = np.zeros(len(points), dtype=float)
+    balls = getattr(network, "balls", None)
+    if balls is not None:
+        for index, (_, vertex) in enumerate(vertices.iterrows()):
+            defining = vertex.get("balls", [])
+            if not len(defining):
+                continue
+            matches = balls
+            if "num" in balls:
+                matches = balls.loc[balls["num"] == int(defining[0])]
+            elif int(defining[0]) in balls.index:
+                matches = balls.loc[[int(defining[0])]]
+            if len(matches):
+                atom = matches.iloc[0]
+                inside[index] = float(
+                    np.linalg.norm(
+                        points[index] - np.asarray(atom["loc"], dtype=float)
+                    ) < float(atom["rad"])
+                )
+
+    return points, {
+        "integrated_mean_curvature": np.asarray(mean_values, dtype=float),
+        "integrated_gaussian_curvature": np.asarray(gauss_values, dtype=float),
+        "distance": np.asarray(distances, dtype=float),
+        "inside_outside": inside,
+    }
 
 
 def _layers_from_network(
@@ -270,80 +410,71 @@ def _layers_from_network(
     shell_verts=(),
 ) -> list[GeometryLayer]:
     layers: list[GeometryLayer] = []
+    raw_group = getattr(network, "group", None)
+    target_cells = () if raw_group is None else tuple(int(value) for value in raw_group)
+    balls = getattr(network, "balls", None)
+    geometry_center = _network_geometry_center(balls, target_cells)
+
     if network.edges is not None and "points" in network.edges:
-        points, lines = _edge_geometry(network.edges)
-        layers.append(
-            GeometryLayer(
-                "Voronoi edges", "edges", points, lines, color="#55a9d9"
-            )
+        points, lines, scalars = _edge_geometry(
+            network.edges, balls, target_cells, interpretation="magnitude",
+            geometry_center=geometry_center,
         )
+        layers.append(GeometryLayer(
+            "Voronoi edges", "edges", points, lines, color="#55a9d9",
+            cell_scalars=scalars, interpretation="magnitude",
+        ))
         shell_edge_rows = network.edges.iloc[list(shell_edges)]
         if not shell_edge_rows.empty:
-            points, lines = _edge_geometry(shell_edge_rows)
-            layers.append(
-                GeometryLayer(
-                    "Voronoi shell edges",
-                    "edges",
-                    points,
-                    lines,
-                    color="#42d6c7",
-                )
+            points, lines, scalars = _edge_geometry(
+                shell_edge_rows, balls, target_cells, interpretation="boundary",
+                geometry_center=geometry_center,
             )
+            layers.append(GeometryLayer(
+                "Voronoi shell edges", "edges", points, lines, color="#42d6c7",
+                cell_scalars=scalars, interpretation="boundary",
+            ))
 
     if network.verts is not None and "loc" in network.verts:
-        layers.append(
-            GeometryLayer(
-                "Voronoi vertices",
-                "vertices",
-                np.asarray(list(network.verts["loc"]), dtype=float).reshape((-1, 3)),
-                color="#efb84f",
-            )
+        points, scalars = _vertex_geometry(
+            network, network.verts, target_cells, interpretation="magnitude",
+            geometry_center=geometry_center,
         )
+        layers.append(GeometryLayer(
+            "Voronoi vertices", "vertices", points, color="#efb84f",
+            cell_scalars=scalars, interpretation="magnitude",
+        ))
         shell_vertex_rows = network.verts.iloc[list(shell_verts)]
         if not shell_vertex_rows.empty:
-            layers.append(
-                GeometryLayer(
-                    "Voronoi shell vertices",
-                    "vertices",
-                    np.asarray(list(shell_vertex_rows["loc"]), dtype=float).reshape(
-                        (-1, 3)
-                    ),
-                    color="#f29f67",
-                )
+            points, scalars = _vertex_geometry(
+                network, shell_vertex_rows, target_cells, interpretation="boundary",
+                geometry_center=geometry_center,
             )
+            layers.append(GeometryLayer(
+                "Voronoi shell vertices", "vertices", points, color="#f29f67",
+                cell_scalars=scalars, interpretation="boundary",
+            ))
 
-    if (
-        network.surfs is not None
-        and "points" in network.surfs
-        and "tris" in network.surfs
-    ):
-        points, faces, scalars = _surface_geometry(network.surfs, getattr(network, "balls", None))
-        layers.append(
-            GeometryLayer(
-                "Voronoi surfaces",
-                "surfaces",
-                points=points,
-                faces=faces,
-                color="#4f9fcf",
-                cell_scalars=scalars,
-                opacity=0.45,
-                visible=False,
-            )
+    if network.surfs is not None and "points" in network.surfs and "tris" in network.surfs:
+        points, faces, scalars = _surface_geometry(
+            network.surfs, balls, target_cells,
+            interpretation="magnitude", geometry_center=geometry_center,
         )
+        layers.append(GeometryLayer(
+            "Voronoi surfaces", "surfaces", points=points, faces=faces,
+            color="#4f9fcf", cell_scalars=scalars, opacity=0.45,
+            visible=False, interpretation="magnitude",
+        ))
         shell_surface_rows = network.surfs.iloc[list(shell_surfs)]
         if not shell_surface_rows.empty:
             points, faces, scalars = _surface_geometry(
-                shell_surface_rows, getattr(network, "balls", None)
+                shell_surface_rows, balls, target_cells,
+                interpretation="boundary", geometry_center=geometry_center,
             )
-            layers.append(
-                GeometryLayer(
-                    "Voronoi shell surfaces",
-                    "surfaces",
-                    points=points,
-                    faces=faces,
-                    color="#806df0",
-                    cell_scalars=scalars,
-                    opacity=0.45,
-                )
-            )
+            layers.append(GeometryLayer(
+                "Voronoi shell surfaces", "surfaces", points=points, faces=faces,
+                color="#806df0", cell_scalars=scalars, opacity=0.45,
+                interpretation="boundary",
+            ))
     return layers
+

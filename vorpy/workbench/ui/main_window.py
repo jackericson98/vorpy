@@ -786,10 +786,8 @@ class MainWindow(QMainWindow):
         self.network_layer_checks = {}
         self.network_color_buttons = {}
         self.network_colors = {}
+
         for key, label, color in NETWORK_LAYER_OPTIONS:
-            row = QWidget()
-            row_layout = QHBoxLayout(row)
-            row_layout.setContentsMargins(0, 0, 0, 0)
             checkbox = QCheckBox(label)
             checkbox.setEnabled(False)
             checkbox.toggled.connect(
@@ -797,44 +795,59 @@ class MainWindow(QMainWindow):
                     layer_key, visible
                 )
             )
-            color_button = QPushButton("Color")
-            color_button.setEnabled(False)
-            color_button.clicked.connect(
-                lambda _checked=False, layer_key=key: self._choose_network_color(
-                    layer_key
-                )
-            )
             self.network_layer_checks[key] = checkbox
-            self.network_color_buttons[key] = color_button
             self.network_colors[key] = color
-            self._set_color_button_swatch(color_button, color)
-            row_layout.addWidget(checkbox, 1)
-            row_layout.addWidget(color_button)
-            layout.addWidget(row)
 
-        surfaces = QGroupBox("Surface appearance")
+            # Retain a hidden compatibility button so older tests/callers that
+            # reference network_color_buttons continue to work. The actual
+            # solid-color control now lives in Geometry appearance.
+            color_button = QPushButton("Color")
+            color_button.hide()
+            self.network_color_buttons[key] = color_button
+
+            layout.addWidget(checkbox)
+
+        surfaces = QGroupBox("Geometry appearance")
         surface_form = QFormLayout(surfaces)
         self.surface_color_scheme = QComboBox()
         for label, scheme in (
             ("Solid color", "solid"),
-            ("Gaussian curvature", "gaussian_curvature"),
             ("Mean curvature", "mean_curvature"),
+            ("Gaussian curvature", "gaussian_curvature"),
+            ("Integrated mean curvature", "integrated_mean_curvature"),
+            ("Integrated Gaussian curvature", "integrated_gaussian_curvature"),
             ("Surface energy", "surface_energy"),
             ("Distance to center", "distance"),
             ("Inside / outside", "inside_outside"),
         ):
             self.surface_color_scheme.addItem(label, scheme)
-        self.surface_color_scheme.currentIndexChanged.connect(
-            self._set_surface_color_scheme
-        )
-        surface_form.addRow("Coloring", self.surface_color_scheme)
+        self.surface_color_scheme.currentIndexChanged.connect(self._set_surface_color_scheme)
+        surface_form.addRow("Color by", self.surface_color_scheme)
+        self.geometry_color_button = QPushButton("Choose solid color…")
+        self.geometry_color_button.clicked.connect(self._choose_geometry_color)
+        surface_form.addRow("Solid color", self.geometry_color_button)
+        self.curvature_colormap = QComboBox()
+        for label, value in (("Coolwarm", "coolwarm"), ("RdBu", "RdBu_r"), ("Seismic", "seismic"), ("Viridis", "viridis"), ("Plasma", "plasma")):
+            self.curvature_colormap.addItem(label, value)
+        self.curvature_colormap.currentIndexChanged.connect(self._set_curvature_colormap)
+        surface_form.addRow("Colormap", self.curvature_colormap)
+        self.curvature_scale = QComboBox()
+        self.curvature_scale.addItem("Signed log", "signed_log")
+        self.curvature_scale.addItem("Linear", "linear")
+        self.curvature_scale.currentIndexChanged.connect(self._set_curvature_scale)
+        surface_form.addRow("Scale", self.curvature_scale)
+        self.curvature_interpretation = QLabel("Automatic: shell = signed boundary; network = magnitude")
+        self.curvature_interpretation.setWordWrap(True)
+        surface_form.addRow("Interpretation", self.curvature_interpretation)
         self.surface_opacity = QSlider(Qt.Horizontal)
         self.surface_opacity.setRange(0, 100)
         self.surface_opacity.setValue(45)
         self.surface_color_scheme.setEnabled(False)
+        self.curvature_colormap.setEnabled(False)
+        self.curvature_scale.setEnabled(False)
         self.surface_opacity.setEnabled(False)
         self.surface_opacity.valueChanged.connect(self._set_surface_opacity)
-        surface_form.addRow("Opacity", self.surface_opacity)
+        surface_form.addRow("Surface opacity", self.surface_opacity)
         layout.addWidget(surfaces)
         layout.addStretch()
         return panel
@@ -1138,6 +1151,8 @@ class MainWindow(QMainWindow):
             "water_opacity": self.water_opacity.value(),
             "surface_opacity": self.surface_opacity.value(),
             "surface_color_scheme": self.surface_color_scheme.currentData(),
+            "curvature_colormap": self.curvature_colormap.currentData(),
+            "curvature_scale": self.curvature_scale.currentData(),
             "selection_mode": mode,
             "running_selection": sorted(self._running_selection),
             "depth_clip_fraction": getattr(self.viewer, "_depth_clip_fraction", 0.0),
@@ -1173,6 +1188,14 @@ class MainWindow(QMainWindow):
         )
         if index >= 0:
             self.surface_color_scheme.setCurrentIndex(index)
+        if state.get("curvature_colormap") is not None:
+            index = self.curvature_colormap.findData(state["curvature_colormap"])
+            if index >= 0:
+                self.curvature_colormap.setCurrentIndex(index)
+        if state.get("curvature_scale") is not None:
+            index = self.curvature_scale.findData(state["curvature_scale"])
+            if index >= 0:
+                self.curvature_scale.setCurrentIndex(index)
         actions = {
             "atom": self.select_atom_action,
             "residue": self.select_residue_action,
@@ -1632,6 +1655,8 @@ class MainWindow(QMainWindow):
             checkbox.blockSignals(False)
             self.network_color_buttons[key].setEnabled(False)
         self.surface_color_scheme.setEnabled(False)
+        self.curvature_colormap.setEnabled(False)
+        self.curvature_scale.setEnabled(False)
         self.surface_opacity.setEnabled(False)
 
     def _populate_network_controls(self, result: AnalysisResult) -> None:
@@ -1649,18 +1674,19 @@ class MainWindow(QMainWindow):
                 self._set_color_button_swatch(
                     self.network_color_buttons[key], layers[0].color
                 )
-        surface_layers = [
-            layer
-            for layer in result.layers
-            if self._network_layer_key(layer) in {"surfaces", "shell_surfaces"}
-        ]
+        surface_layers = [layer for layer in result.layers if self._network_layer_key(layer) in {"surfaces", "shell_surfaces"}]
+        scalar_layers = [layer for layer in result.layers if layer.cell_scalars]
         self.surface_opacity.blockSignals(True)
         if surface_layers:
             self.surface_opacity.setValue(round(surface_layers[0].opacity * 100))
-        has_scalar_colors = any(layer.cell_scalars for layer in surface_layers)
+        has_scalar_colors = bool(scalar_layers)
         self.surface_color_scheme.setEnabled(has_scalar_colors)
+        self.curvature_colormap.setEnabled(has_scalar_colors)
+        self.curvature_scale.setEnabled(has_scalar_colors)
         if has_scalar_colors:
             self._set_surface_color_scheme(self.surface_color_scheme.currentIndex())
+            self._set_curvature_colormap(self.curvature_colormap.currentIndex())
+            self._set_curvature_scale(self.curvature_scale.currentIndex())
         else:
             self.surface_color_scheme.blockSignals(True)
             self.surface_color_scheme.setCurrentIndex(0)
@@ -1869,18 +1895,34 @@ class MainWindow(QMainWindow):
 
     def _set_surface_color_scheme(self, _index: int) -> None:
         scheme = self.surface_color_scheme.currentData()
-        surface_layers = self._network_layers("surfaces")
-        shell_layers = self._network_layers("shell_surfaces")
-        if (
-            scheme != "solid"
-            and not any(layer.visible for layer in surface_layers + shell_layers)
-        ):
-            preferred = "shell_surfaces" if shell_layers else "surfaces"
-            self.network_layer_checks[preferred].setChecked(True)
-        for key in ("surfaces", "shell_surfaces"):
-            for layer in self._network_layers(key):
+        eligible = [layer for layer in (self.current_result.layers if self.current_result else []) if scheme == "solid" or scheme in layer.cell_scalars]
+        if scheme != "solid" and not any(layer.visible for layer in eligible):
+            shell = next((layer for layer in eligible if "shell" in layer.name.lower()), None)
+            preferred = shell or (eligible[0] if eligible else None)
+            if preferred is not None:
+                key = self._network_layer_key(preferred)
+                if key in self.network_layer_checks:
+                    self.network_layer_checks[key].setChecked(True)
+        for layer in (self.current_result.layers if self.current_result else []):
+            if scheme == "solid" or scheme in layer.cell_scalars:
                 layer.color_scheme = scheme
                 self.viewer.set_layer_color_scheme(layer.name, scheme)
+
+    def _set_curvature_colormap(self, _index: int) -> None:
+        color_map = self.curvature_colormap.currentData() or "coolwarm"
+        for layer in (self.current_result.layers if self.current_result else []):
+            layer.color_map = color_map
+            setter = getattr(self.viewer, "set_layer_colormap", None)
+            if setter is not None:
+                setter(layer.name, color_map)
+
+    def _set_curvature_scale(self, _index: int) -> None:
+        scale = self.curvature_scale.currentData() or "signed_log"
+        for layer in (self.current_result.layers if self.current_result else []):
+            layer.scale_mode = scale
+            setter = getattr(self.viewer, "set_layer_scale_mode", None)
+            if setter is not None:
+                setter(layer.name, scale)
 
     def _set_surface_opacity(self, value: int) -> None:
         opacity = value / 100.0
@@ -1888,6 +1930,32 @@ class MainWindow(QMainWindow):
             for layer in self._network_layers(key):
                 layer.opacity = opacity
                 self.viewer.set_layer_opacity(layer.name, opacity)
+
+    def _choose_geometry_color(self) -> None:
+        """Choose one solid color for all network geometry layers."""
+        current = next(
+            (
+                layer.color
+                for layer in (self.current_result.layers if self.current_result else [])
+                if self._network_layer_key(layer) is not None
+            ),
+            "#55a9d9",
+        )
+        color = QColorDialog.getColor(QColor(current), self, "Choose geometry color")
+        if not color.isValid():
+            return
+
+        color_name = color.name()
+        self.surface_color_scheme.setCurrentIndex(
+            self.surface_color_scheme.findData("solid")
+        )
+        for key in self.network_colors:
+            self.network_colors[key] = color_name
+        for layer in (self.current_result.layers if self.current_result else []):
+            if self._network_layer_key(layer) is None:
+                continue
+            layer.color = color_name
+            self.viewer.set_layer_color(layer.name, color_name)
 
     def _choose_network_color(self, key: str) -> None:
         color = QColorDialog.getColor(
