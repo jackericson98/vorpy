@@ -114,6 +114,10 @@ class MolecularView(QWidget):
         self._pending_pick = None
         self._depth_clip_fraction = 0.0
         self._depth_clip_plane = vtkPlane()
+        # Display radii for VorPy geometry only. Atom spheres remain 1:1 with
+        # the computational radii stored on Atom.radius.
+        self._edge_radius = 0.020
+        self._vertex_radius = 0.130
 
     def clear_result(self) -> None:
         """Clear molecular state and picking when closing the active project."""
@@ -170,10 +174,12 @@ class MolecularView(QWidget):
         unit_sphere = pv.Sphere(radius=1.0, theta_resolution=14, phi_resolution=14)
         for (element, category), element_atoms in grouped.items():
             cloud = pv.PolyData(np.asarray([atom.position for atom in element_atoms]))
-            # Use the editable atom radius for every category, including waters and ions.
-            # The small scale factor keeps the display legible while preserving edits.
+            # Render the exact radius used by the VorPy computation.
+            # The unit sphere is scaled 1:1, so a 1.70 Å atom is displayed
+            # with a 1.70 Å radius in the molecular coordinate system.
             cloud["radius"] = np.asarray(
-                [atom.radius * 1.25 for atom in element_atoms]
+                [atom.radius for atom in element_atoms],
+                dtype=float,
             )
             glyphs = cloud.glyph(scale="radius", orient=False, geom=unit_sphere)
             opacity = (
@@ -200,7 +206,8 @@ class MolecularView(QWidget):
                     np.asarray([atom.position for atom in element_atoms])
                 )
                 vdw_cloud["radius"] = np.asarray(
-                    [atom.radius * 1.25 for atom in element_atoms]
+                    [atom.radius for atom in element_atoms],
+                    dtype=float,
                 )
                 vdw_actor = self.plotter.add_mesh(
                     vdw_cloud.glyph(scale="radius", orient=False, geom=unit_sphere),
@@ -390,9 +397,21 @@ class MolecularView(QWidget):
         ratio = np.clip(values / limit, -1.0, 1.0)
         if layer.interpretation == "magnitude":
             ratio = np.abs(ratio)
-        if layer.scale_mode == "signed_log":
-            gain = 1000.0
-            ratio = np.sign(ratio) * np.log1p(gain * np.abs(ratio)) / np.log1p(gain)
+        scale_gains = {
+            "log10": 10.0,
+            "log100": 100.0,
+            "signed_log": 1000.0,  # compatibility with older projects
+            "log1000": 1000.0,
+            "log10000": 10000.0,
+            "log100000": 100000.0,
+        }
+        gain = scale_gains.get(layer.scale_mode)
+        if gain is not None:
+            ratio = (
+                np.sign(ratio)
+                * np.log1p(gain * np.abs(ratio))
+                / np.log1p(gain)
+            )
         if layer.interpretation == "magnitude":
             ratio = 0.5 + 0.5 * np.abs(ratio)
             return ratio, (0.0, 1.0)
@@ -477,7 +496,16 @@ class MolecularView(QWidget):
             "integrated_mean_curvature",
             "integrated_gaussian_curvature",
         }:
-            scale = "signed log" if layer.scale_mode == "signed_log" else "linear"
+            scale_labels = {
+                "linear": "linear",
+                "signed_log": "Log1000",
+                "log10": "Log10",
+                "log100": "Log100",
+                "log1000": "Log1000",
+                "log10000": "Log10000",
+                "log100000": "Log100000",
+            }
+            scale = scale_labels.get(layer.scale_mode, layer.scale_mode)
             return f"{title} · {scale} normalized"
         return title
 
@@ -581,7 +609,7 @@ class MolecularView(QWidget):
                     )
 
                 mesh = line_mesh.tube(
-                    radius=0.020,
+                    radius=self._edge_radius,
                     n_sides=10,
                     capping=True,
                 )
@@ -592,7 +620,11 @@ class MolecularView(QWidget):
                     )
             else:
                 cloud = pv.PolyData(np.asarray(layer.points, dtype=float))
-                cloud["radius"] = np.full(len(layer.points), 0.13)
+                cloud["radius"] = np.full(
+                    len(layer.points),
+                    self._vertex_radius,
+                    dtype=float,
+                )
                 if scalar_values is not None:
                     values, _ = self._display_scalars(layer, scalar_values)
                     if len(values) != cloud.n_points:
@@ -620,7 +652,11 @@ class MolecularView(QWidget):
                 )
             else:
                 mesh_options["color"] = layer.color
-            actor = self.plotter.add_mesh(mesh, **mesh_options)
+            actor = self.plotter.add_mesh(
+                mesh,
+                reset_camera=False,
+                **mesh_options,
+            )
             actor.SetVisibility(layer.visible)
             self._actors[layer.name].append(actor)
             self._apply_depth_clip_to_actor(actor)
@@ -1007,11 +1043,26 @@ class MolecularView(QWidget):
         self.plotter.render()
 
     def _redraw_layer(self, layer: GeometryLayer) -> None:
+        """Redraw one geometry layer without changing the current camera view."""
+        camera_position = self.plotter.camera_position
+        parallel_scale = self.plotter.camera.parallel_scale
+        view_angle = self.plotter.camera.view_angle
+
         self.plotter.remove_actor(f"layer-{layer.name}", render=False)
         self._actors[layer.name].clear()
+
         if layer.visible:
             self._add_layer(layer)
+
+        # Re-adding an actor can cause PyVista/VTK to recompute the camera.
+        # Restore the exact user view so size/color changes feel live rather
+        # than like a new scene load.
+        self.plotter.camera_position = camera_position
+        self.plotter.camera.parallel_scale = parallel_scale
+        self.plotter.camera.view_angle = view_angle
+
         self._refresh_scalar_bar()
+        self._apply_depth_clipping(render=False)
         self.plotter.render()
 
     def set_layer_color_scheme(self, name: str, scheme: str) -> None:
@@ -1033,9 +1084,39 @@ class MolecularView(QWidget):
         layer = self._layer_definitions.get(name)
         if layer is None:
             return
-        layer.scale_mode = "linear" if scale_mode == "linear" else "signed_log"
+        allowed = {
+            "linear", "log10", "log100", "log1000", "log10000", "log100000"
+        }
+        # Older saved projects used the generic name ``signed_log``.
+        if scale_mode == "signed_log":
+            scale_mode = "log1000"
+        layer.scale_mode = scale_mode if scale_mode in allowed else "log1000"
         if layer.color_scheme != "solid":
             self._redraw_layer(layer)
+
+    def set_edge_radius(self, radius: float) -> None:
+        """Set the displayed VorPy edge-tube radius and redraw edge layers."""
+        radius = float(radius)
+        if not np.isfinite(radius) or radius <= 0.0:
+            return
+        if np.isclose(radius, self._edge_radius):
+            return
+        self._edge_radius = radius
+        for layer in list(self._layer_definitions.values()):
+            if layer.kind.lower() == "edges" and layer.visible:
+                self._redraw_layer(layer)
+
+    def set_vertex_radius(self, radius: float) -> None:
+        """Set the displayed VorPy vertex-glyph radius and redraw vertex layers."""
+        radius = float(radius)
+        if not np.isfinite(radius) or radius <= 0.0:
+            return
+        if np.isclose(radius, self._vertex_radius):
+            return
+        self._vertex_radius = radius
+        for layer in list(self._layer_definitions.values()):
+            if layer.kind.lower() == "vertices" and layer.visible:
+                self._redraw_layer(layer)
 
     def set_layer_color(self, name: str, color: str) -> None:
         for actor in self._actors.get(name, ()):

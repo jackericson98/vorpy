@@ -787,9 +787,30 @@ class MainWindow(QMainWindow):
         self.network_color_buttons = {}
         self.network_colors = {}
 
-        for key, label, color in NETWORK_LAYER_OPTIONS:
-            checkbox = QCheckBox(label)
+        # Compact three-column layer controls:
+        # Show | Object | Color
+        layer_table = QWidget()
+        layer_grid = QGridLayout(layer_table)
+        layer_grid.setContentsMargins(0, 0, 0, 0)
+        layer_grid.setHorizontalSpacing(8)
+        layer_grid.setVerticalSpacing(2)
+
+        show_header = QLabel("Show")
+        object_header = QLabel("Object")
+        color_header = QLabel("Color")
+        for header in (show_header, object_header, color_header):
+            header.setObjectName("sectionLabel")
+
+        layer_grid.addWidget(show_header, 0, 0, Qt.AlignmentFlag.AlignCenter)
+        layer_grid.addWidget(object_header, 0, 1, Qt.AlignmentFlag.AlignLeft)
+        layer_grid.addWidget(color_header, 0, 2, Qt.AlignmentFlag.AlignCenter)
+
+        for row_index, (key, label, color) in enumerate(
+            NETWORK_LAYER_OPTIONS, start=1
+        ):
+            checkbox = QCheckBox()
             checkbox.setEnabled(False)
+            checkbox.setToolTip(f"Show {label.lower()}")
             checkbox.toggled.connect(
                 lambda visible, layer_key=key: self._set_network_layer_visible(
                     layer_key, visible
@@ -798,17 +819,43 @@ class MainWindow(QMainWindow):
             self.network_layer_checks[key] = checkbox
             self.network_colors[key] = color
 
-            # Retain a hidden compatibility button so older tests/callers that
-            # reference network_color_buttons continue to work. The actual
-            # solid-color control now lives in Geometry appearance.
-            color_button = QPushButton("Color")
-            color_button.hide()
+            object_label = QLabel(label)
+            object_label.setMinimumHeight(22)
+
+            color_button = QPushButton()
+            color_button.setFixedSize(22, 22)
+            color_button.setEnabled(False)
+            color_button.setToolTip(f"Choose solid color for {label.lower()}")
+            color_button.clicked.connect(
+                lambda _checked=False, layer_key=key: self._choose_network_color(
+                    layer_key
+                )
+            )
+            self._set_color_button_swatch(color_button, color)
             self.network_color_buttons[key] = color_button
 
-            layout.addWidget(checkbox)
+            layer_grid.addWidget(
+                checkbox,
+                row_index,
+                0,
+                Qt.AlignmentFlag.AlignCenter,
+            )
+            layer_grid.addWidget(object_label, row_index, 1)
+            layer_grid.addWidget(
+                color_button,
+                row_index,
+                2,
+                Qt.AlignmentFlag.AlignCenter,
+            )
+
+        layer_grid.setColumnStretch(0, 0)
+        layer_grid.setColumnStretch(1, 1)
+        layer_grid.setColumnStretch(2, 0)
+        layout.addWidget(layer_table)
 
         surfaces = QGroupBox("Geometry appearance")
         surface_form = QFormLayout(surfaces)
+
         self.surface_color_scheme = QComboBox()
         for label, scheme in (
             ("Solid color", "solid"),
@@ -821,33 +868,84 @@ class MainWindow(QMainWindow):
             ("Inside / outside", "inside_outside"),
         ):
             self.surface_color_scheme.addItem(label, scheme)
-        self.surface_color_scheme.currentIndexChanged.connect(self._set_surface_color_scheme)
+        self.surface_color_scheme.currentIndexChanged.connect(
+            self._set_surface_color_scheme
+        )
         surface_form.addRow("Color by", self.surface_color_scheme)
-        self.geometry_color_button = QPushButton("Choose solid color…")
-        self.geometry_color_button.clicked.connect(self._choose_geometry_color)
-        surface_form.addRow("Solid color", self.geometry_color_button)
+
         self.curvature_colormap = QComboBox()
-        for label, value in (("Coolwarm", "coolwarm"), ("RdBu", "RdBu_r"), ("Seismic", "seismic"), ("Viridis", "viridis"), ("Plasma", "plasma")):
+        for label, value in (
+            ("Coolwarm", "coolwarm"),
+            ("RdBu", "RdBu_r"),
+            ("Blue / white / red", "bwr"),
+            ("Seismic", "seismic"),
+            ("Spectral", "Spectral_r"),
+            ("Purple / orange", "PuOr"),
+            ("Purple / green", "PRGn"),
+            ("Brown / teal", "BrBG"),
+            ("Pink / green", "PiYG"),
+            ("Viridis", "viridis"),
+            ("Cividis", "cividis"),
+            ("Plasma", "plasma"),
+            ("Inferno", "inferno"),
+            ("Magma", "magma"),
+            ("Turbo", "turbo"),
+            ("Cubehelix", "cubehelix"),
+        ):
             self.curvature_colormap.addItem(label, value)
-        self.curvature_colormap.currentIndexChanged.connect(self._set_curvature_colormap)
+        self.curvature_colormap.currentIndexChanged.connect(
+            self._set_curvature_colormap
+        )
         surface_form.addRow("Colormap", self.curvature_colormap)
-        self.curvature_scale = QComboBox()
-        self.curvature_scale.addItem("Signed log", "signed_log")
-        self.curvature_scale.addItem("Linear", "linear")
-        self.curvature_scale.currentIndexChanged.connect(self._set_curvature_scale)
-        surface_form.addRow("Scale", self.curvature_scale)
-        self.curvature_interpretation = QLabel("Automatic: shell = signed boundary; network = magnitude")
-        self.curvature_interpretation.setWordWrap(True)
-        surface_form.addRow("Interpretation", self.curvature_interpretation)
+
+        # Discrete signed-log contrast slider. The current historical
+        # Signed log setting corresponds to Log1000 (position 3).
+        self.curvature_scale = QSlider(Qt.Horizontal)
+        self.curvature_scale.setRange(0, 5)
+        self.curvature_scale.setSingleStep(1)
+        self.curvature_scale.setPageStep(1)
+        self.curvature_scale.setTickPosition(QSlider.TicksBelow)
+        self.curvature_scale.setTickInterval(1)
+        self.curvature_scale.setValue(3)
+        self.curvature_scale.valueChanged.connect(self._set_curvature_scale)
+
+        self.curvature_scale_label = QLabel("Log1000")
+        self.curvature_scale_label.setMinimumWidth(68)
+        scale_row = QWidget()
+        scale_layout = QHBoxLayout(scale_row)
+        scale_layout.setContentsMargins(0, 0, 0, 0)
+        scale_layout.setSpacing(6)
+        scale_layout.addWidget(self.curvature_scale, 1)
+        scale_layout.addWidget(self.curvature_scale_label)
+        surface_form.addRow("Scale", scale_row)
+
+        self.edge_size = QSlider(Qt.Horizontal)
+        self.edge_size.setRange(5, 100)
+        self.edge_size.setValue(20)
+        self.edge_size.setToolTip("Displayed VorPy edge radius (0.005–0.100 Å)")
+        self.edge_size.valueChanged.connect(self._set_edge_size)
+        surface_form.addRow("Edge size", self.edge_size)
+
+        self.vertex_size = QSlider(Qt.Horizontal)
+        self.vertex_size.setRange(5, 30)
+        self.vertex_size.setValue(13)
+        self.vertex_size.setToolTip("Displayed VorPy vertex radius (0.05–0.30 Å)")
+        self.vertex_size.valueChanged.connect(self._set_vertex_size)
+        surface_form.addRow("Vertex size", self.vertex_size)
+
         self.surface_opacity = QSlider(Qt.Horizontal)
         self.surface_opacity.setRange(0, 100)
         self.surface_opacity.setValue(45)
+        self.surface_opacity.valueChanged.connect(self._set_surface_opacity)
+        surface_form.addRow("Surface opacity", self.surface_opacity)
+
         self.surface_color_scheme.setEnabled(False)
         self.curvature_colormap.setEnabled(False)
         self.curvature_scale.setEnabled(False)
+        self.edge_size.setEnabled(False)
+        self.vertex_size.setEnabled(False)
         self.surface_opacity.setEnabled(False)
-        self.surface_opacity.valueChanged.connect(self._set_surface_opacity)
-        surface_form.addRow("Surface opacity", self.surface_opacity)
+
         layout.addWidget(surfaces)
         layout.addStretch()
         return panel
@@ -1152,7 +1250,9 @@ class MainWindow(QMainWindow):
             "surface_opacity": self.surface_opacity.value(),
             "surface_color_scheme": self.surface_color_scheme.currentData(),
             "curvature_colormap": self.curvature_colormap.currentData(),
-            "curvature_scale": self.curvature_scale.currentData(),
+            "curvature_scale": self._curvature_scale_mode(),
+            "edge_size": self.edge_size.value(),
+            "vertex_size": self.vertex_size.value(),
             "selection_mode": mode,
             "running_selection": sorted(self._running_selection),
             "depth_clip_fraction": getattr(self.viewer, "_depth_clip_fraction", 0.0),
@@ -1193,9 +1293,22 @@ class MainWindow(QMainWindow):
             if index >= 0:
                 self.curvature_colormap.setCurrentIndex(index)
         if state.get("curvature_scale") is not None:
-            index = self.curvature_scale.findData(state["curvature_scale"])
-            if index >= 0:
-                self.curvature_scale.setCurrentIndex(index)
+            scale_positions = {
+                "linear": 0,
+                "log10": 1,
+                "log100": 2,
+                "signed_log": 3,   # compatibility with older projects
+                "log1000": 3,
+                "log10000": 4,
+                "log100000": 5,
+            }
+            self.curvature_scale.setValue(
+                scale_positions.get(str(state["curvature_scale"]), 3)
+            )
+        if state.get("edge_size") is not None:
+            self.edge_size.setValue(int(state["edge_size"]))
+        if state.get("vertex_size") is not None:
+            self.vertex_size.setValue(int(state["vertex_size"]))
         actions = {
             "atom": self.select_atom_action,
             "residue": self.select_residue_action,
@@ -1657,6 +1770,8 @@ class MainWindow(QMainWindow):
         self.surface_color_scheme.setEnabled(False)
         self.curvature_colormap.setEnabled(False)
         self.curvature_scale.setEnabled(False)
+        self.edge_size.setEnabled(False)
+        self.vertex_size.setEnabled(False)
         self.surface_opacity.setEnabled(False)
 
     def _populate_network_controls(self, result: AnalysisResult) -> None:
@@ -1686,13 +1801,22 @@ class MainWindow(QMainWindow):
         if has_scalar_colors:
             self._set_surface_color_scheme(self.surface_color_scheme.currentIndex())
             self._set_curvature_colormap(self.curvature_colormap.currentIndex())
-            self._set_curvature_scale(self.curvature_scale.currentIndex())
+            self._set_curvature_scale(self.curvature_scale.value())
         else:
             self.surface_color_scheme.blockSignals(True)
             self.surface_color_scheme.setCurrentIndex(0)
             self.surface_color_scheme.blockSignals(False)
         self.surface_opacity.setEnabled(bool(surface_layers))
         self.surface_opacity.blockSignals(False)
+        self.edge_size.setEnabled(
+            bool(self._network_layers("edges") or self._network_layers("shell_edges"))
+        )
+        self.vertex_size.setEnabled(
+            bool(
+                self._network_layers("vertices")
+                or self._network_layers("shell_vertices")
+            )
+        )
 
     @staticmethod
     def _residue_groups(result: AnalysisResult) -> list[tuple[str, tuple[int, ...]]]:
@@ -1916,13 +2040,46 @@ class MainWindow(QMainWindow):
             if setter is not None:
                 setter(layer.name, color_map)
 
-    def _set_curvature_scale(self, _index: int) -> None:
-        scale = self.curvature_scale.currentData() or "signed_log"
+    @staticmethod
+    def _curvature_scale_options() -> tuple[tuple[str, str], ...]:
+        return (
+            ("Linear", "linear"),
+            ("Log10", "log10"),
+            ("Log100", "log100"),
+            ("Log1000", "log1000"),
+            ("Log10000", "log10000"),
+            ("Log100000", "log100000"),
+        )
+
+    def _curvature_scale_mode(self) -> str:
+        options = self._curvature_scale_options()
+        index = max(0, min(int(self.curvature_scale.value()), len(options) - 1))
+        return options[index][1]
+
+    def _set_curvature_scale(self, _value: int) -> None:
+        options = self._curvature_scale_options()
+        index = max(0, min(int(self.curvature_scale.value()), len(options) - 1))
+        label, scale = options[index]
+        self.curvature_scale_label.setText(label)
+        self.curvature_scale.setToolTip(
+            "Linear" if scale == "linear" else f"Signed logarithmic compression ({label})"
+        )
+
         for layer in (self.current_result.layers if self.current_result else []):
             layer.scale_mode = scale
             setter = getattr(self.viewer, "set_layer_scale_mode", None)
             if setter is not None:
                 setter(layer.name, scale)
+
+    def _set_edge_size(self, value: int) -> None:
+        setter = getattr(self.viewer, "set_edge_radius", None)
+        if setter is not None:
+            setter(float(value) / 1000.0)
+
+    def _set_vertex_size(self, value: int) -> None:
+        setter = getattr(self.viewer, "set_vertex_radius", None)
+        if setter is not None:
+            setter(float(value) / 100.0)
 
     def _set_surface_opacity(self, value: int) -> None:
         opacity = value / 100.0
@@ -1931,41 +2088,16 @@ class MainWindow(QMainWindow):
                 layer.opacity = opacity
                 self.viewer.set_layer_opacity(layer.name, opacity)
 
-    def _choose_geometry_color(self) -> None:
-        """Choose one solid color for all network geometry layers."""
-        current = next(
-            (
-                layer.color
-                for layer in (self.current_result.layers if self.current_result else [])
-                if self._network_layer_key(layer) is not None
-            ),
-            "#55a9d9",
-        )
-        color = QColorDialog.getColor(QColor(current), self, "Choose geometry color")
-        if not color.isValid():
-            return
-
-        color_name = color.name()
-        self.surface_color_scheme.setCurrentIndex(
-            self.surface_color_scheme.findData("solid")
-        )
-        for key in self.network_colors:
-            self.network_colors[key] = color_name
-        for layer in (self.current_result.layers if self.current_result else []):
-            if self._network_layer_key(layer) is None:
-                continue
-            layer.color = color_name
-            self.viewer.set_layer_color(layer.name, color_name)
 
     def _choose_network_color(self, key: str) -> None:
         color = QColorDialog.getColor(
             QColor(self.network_colors[key]), self, "Choose network color"
         )
         if color.isValid():
-            if key in {"surfaces", "shell_surfaces"}:
-                self.surface_color_scheme.setCurrentIndex(
-                    self.surface_color_scheme.findData("solid")
-                )
+            # Manual per-layer colors are the solid-color representation.
+            self.surface_color_scheme.setCurrentIndex(
+                self.surface_color_scheme.findData("solid")
+            )
             color_name = color.name()
             self.network_colors[key] = color_name
             self._set_color_button_swatch(self.network_color_buttons[key], color_name)
