@@ -6,12 +6,11 @@ from pathlib import Path
 import numpy as np
 
 from vorpy.workbench.domain import AnalysisResult, Atom, Bond
+from vorpy.src.chemistry import element_radii, my_masses
 
-DISPLAY_RADII = {
-    "H": 0.23, "C": 0.36, "N": 0.34, "O": 0.33,
-    "P": 0.42, "S": 0.40, "F": 0.32, "CL": 0.40,
-    "BR": 0.43, "I": 0.46, "MG": 0.40, "ZN": 0.40,
-}
+# Use the same default radii as molecular atoms created by the solver.
+# Keep the public name for the atomic-radii editor and existing callers.
+DISPLAY_RADII = dict(element_radii)
 COVALENT_RADII = {
     "H": 0.31, "C": 0.76, "N": 0.71, "O": 0.66,
     "P": 1.07, "S": 1.05, "F": 0.57, "CL": 1.02,
@@ -27,6 +26,18 @@ def _element_from_record(line: str, atom_name: str) -> str:
     if len(name) >= 2 and name[:2] in COVALENT_RADII:
         return name[:2]
     return name[:1] or "C"
+
+
+def _pdb_charge(text: str) -> float | None:
+    text = text.strip()
+    if not text:
+        return None
+    try:
+        if text[-1] in "+-":
+            return float(text[-1] + text[:-1])
+        return float(text)
+    except ValueError:
+        return None
 
 
 def load_pdb(path: Path) -> AnalysisResult:
@@ -70,7 +81,9 @@ def load_pdb(path: Path) -> AnalysisResult:
                     residue_name=line[17:20].strip(),
                     residue_sequence=line[22:26].strip(),
                     chain=line[21:22].strip(),
-                    radius=DISPLAY_RADII.get(element, 0.36),
+                    radius=DISPLAY_RADII.get(element, DISPLAY_RADII["C"]),
+                    mass=my_masses.get(element.lower(), 1.0),
+                    charge=_pdb_charge(line[78:80]),
                 ))
                 serial_to_index[serial] = index
             elif record == "CONECT":

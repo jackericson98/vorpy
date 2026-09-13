@@ -27,3 +27,16 @@ def test_pdb_loader_reads_atoms_metadata_and_conect(tmp_path):
     assert result.atoms[0].residue_name == "GLY"
     assert result.atoms[0].residue_sequence == "7"
     assert result.atoms[0].chain == "A"
+
+
+def test_loaded_sphere_radii_match_default_build_radii():
+    from pathlib import Path
+    from vorpy.src.system import System
+    from vorpy.workbench.services.structure_loader import load_pdb
+
+    source = Path(__file__).resolve().parents[2] / "data" / "EDTA.pdb"
+    displayed = load_pdb(source)
+    built = System(file=str(source), print_actions=False)
+    assert len(displayed.atoms) == len(built.balls)
+    for atom, (_, build_atom) in zip(displayed.atoms, built.balls.iterrows()):
+        assert atom.radius == build_atom["rad"], (atom.serial, atom.name)

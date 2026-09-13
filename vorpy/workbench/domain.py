@@ -18,6 +18,9 @@ class Atom:
     residue_sequence: str = ""
     chain: str = ""
     radius: float = 0.35
+    mass: float | None = None
+    charge: float | None = None
+    source_properties: dict[str, float | None] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -56,5 +59,6 @@ class AnalysisResult:
     elapsed_seconds: float = 0.0
     info_sections: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
     summary: object | None = None
+    defaults_stale: bool = False
 
 

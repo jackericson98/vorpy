@@ -139,7 +139,8 @@ def test_action_state_and_visibility_controls(monkeypatch):
     assert window.inspector.tabText(0) == "System"
     assert window.inspector.tabText(1) == "Network"
 
-    assert window.solve_action.isEnabled()
+    assert not window.solve_action.isEnabled()
+    assert window.inspector.currentIndex() == 0
     assert not window.cancel_action.isEnabled()
     assert window.show_cartoon.isChecked()
     assert not window.show_spheres.isChecked()
@@ -208,9 +209,9 @@ def test_bottom_tray_and_small_molecule_representation_defaults(monkeypatch):
     window.solve_action.setEnabled(True)
     assert window.solve_network_button.isEnabled()
     assert [window.analysis_tray_tabs.tabText(i) for i in range(window.analysis_tray_tabs.count())] == [
-        "Overview", "Composition", "Build", "Build Timing", "Voronoi Network",
+        "Overview", "Composition", "Build", "Timing", "Network / Topology",
         "Group Geometry", "Surface Curvature", "Surface Energy",
-        "Surface Classification", "Chain Composition", "Residue Composition",
+        "Surface Classification", "Chain Composition", "Residue Composition", "Interfaces",
     ]
     assert window.solve_target.count() == 2
     assert not window.findChildren(QToolBar)
@@ -789,3 +790,94 @@ def test_solve_target_resolves_group_and_interface_membership(monkeypatch):
     assert window._solve_target_indices() == (0, 1)
     window.solve_target.setCurrentIndex(window.solve_target.findText("Whole molecule"))
     assert window._solve_target_indices() is None
+
+
+def test_workbench_empty_loaded_busy_and_reset_states(monkeypatch):
+    window = make_window(monkeypatch)
+    assert not window.solve_network_button.isEnabled()
+    assert not window.system_display.isEnabled()
+    assert window.analysis_empty.isVisibleTo(window)
+    assert not window.make_interface_button.isEnabled()
+    assert window.upper_workspace.widget(2).isAncestorOf(window.solve_network_button)
+    assert "0 selected" in window.state_summary.text()
+
+    result = sample_result()
+    window._display_result(result)
+    assert window.solve_network_button.isEnabled()
+    assert not window.analysis_empty.isVisibleTo(window)
+    assert window.network_layer_checks["edges"].isEnabled()
+    window._show_selected_atom(result.atoms[0])
+    assert "1 selected" in window.state_summary.text()
+    window.inspector.setCurrentIndex(0)
+    window.select_atom_action.setChecked(True)
+    assert window.inspector.currentIndex() == 0
+
+    window._thread = object()
+    window._refresh_ui_state()
+    assert not window.solve_network_button.isEnabled()
+    assert not window.open_action.isEnabled()
+    assert window.progress_bar.isVisibleTo(window)
+    window._thread_finished()
+    assert window.solve_network_button.isEnabled()
+
+    monkeypatch.setattr(window, "_confirm_discard_changes", lambda: True)
+    window.new_project()
+    assert not window.solve_network_button.isEnabled()
+    assert window.results.rowCount() == 0
+    assert window.analysis_empty.isVisibleTo(window)
+    assert not window.network_layer_checks["edges"].isEnabled()
+    assert "0 selected" in window.state_summary.text()
+
+
+def test_layout_state_round_trip_and_results_collapse(monkeypatch):
+    window = make_window(monkeypatch)
+    window.show()
+    QApplication.processEvents()
+    window.upper_workspace.setSizes([310, 710, 340])
+    window.analysis_tray.set_expanded(False)
+    state = window._view_state_to_json()
+    assert not state["results_expanded"]
+    window.analysis_tray.set_expanded(True)
+    window._restore_view_state(state)
+    assert not window.analysis_tray.content.isVisibleTo(window)
+    assert window.upper_workspace.sizes() == state["panel_sizes"]
+    window._focus_results()
+    assert window.analysis_tray.content.isVisibleTo(window)
+    window.close()
+
+
+def test_dragged_pick_preserves_selection():
+    import numpy as np
+    emitted = []
+    viewer = SimpleNamespace(
+        _pending_pick=np.array([0., 1., 2.]), _selection_additive=False,
+        _result=sample_result(), _selection_mode="atom",
+        _positions=np.array([[0., 1., 2.], [1., 1., 2.]]),
+        _selection_dragged=True,
+        selected_atom=SimpleNamespace(emit=lambda *args: emitted.append(args)),
+        selection_cleared=SimpleNamespace(emit=lambda: emitted.append("cleared")),
+    )
+    MolecularView._apply_pending_pick(viewer)
+    assert emitted == []
+
+
+def test_atomic_defaults_update_loaded_atoms_and_mark_results_outdated(monkeypatch):
+    window = make_window(monkeypatch)
+    window._display_result(sample_result())
+    window.atomic_defaults = {'C': {'radius': 2.0, 'mass': 13., 'charge': -0.25}}
+    window._apply_project_atomic_defaults()
+    carbon = window.current_result.atoms[1]
+    assert (carbon.radius, carbon.mass, carbon.charge) == (2., 13., -0.25)
+    assert window.current_result.defaults_stale
+    assert 'outdated' in window.state_summary.text()
+    assert window.solve_hint.isVisibleTo(window)
+    state = window._view_state_to_json()
+    assert state['atomic_defaults']['C']['charge'] == -0.25
+    window.atomic_defaults = {}
+    window._apply_project_atomic_defaults()
+    assert window.current_result.atoms[1].radius == 0.35
+    window._restore_view_state(state)
+    assert window.current_result.atoms[1].mass == 13.
+    monkeypatch.setattr(window, '_confirm_discard_changes', lambda: True)
+    window.new_project()
+    assert window.atomic_defaults == {}

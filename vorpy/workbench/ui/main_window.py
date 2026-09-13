@@ -6,8 +6,8 @@ from pathlib import Path
 from dataclasses import asdict, replace
 from uuid import uuid4
 
-from PySide6.QtCore import QPoint, Qt, QThread
-from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QColor, QBrush, QPainter, QPen, QPolygon
+from PySide6.QtCore import Qt, QThread, QTimer
+from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QColor
 from PySide6.QtWidgets import (
     QCheckBox,
     QColorDialog,
@@ -43,6 +43,8 @@ from PySide6.QtWidgets import (
 )
 
 from vorpy.workbench.domain import AnalysisResult, Atom
+from vorpy.workbench.atomic_defaults import apply_atom_defaults, validate_defaults
+from vorpy.workbench.ui.atomic_defaults_dialog import AtomicDefaultsDialog
 from vorpy.workbench.project import (
     PROJECT_SUFFIX,
     AtomKey,
@@ -57,7 +59,7 @@ from vorpy.workbench.project import (
 )
 from vorpy.workbench.services.result_directory import load_result_directory
 from vorpy.workbench.services.info_parser import Measurement, NetworkSummary, parse_group_info, parse_network_summary
-from vorpy.workbench.services.structure_loader import DISPLAY_RADII, load_pdb
+from vorpy.workbench.services.structure_loader import load_pdb
 from vorpy.workbench.services.vorpy_backend import VorPyBackend, VorPySolveSettings
 from vorpy.workbench.ui.molecular_view import (
     ION_RESIDUES,
@@ -65,6 +67,7 @@ from vorpy.workbench.ui.molecular_view import (
     MolecularView,
 )
 from vorpy.workbench.workers.solve_worker import SolveWorker
+from vorpy.workbench.ui.panels import (WorkflowSidebar, ViewerPanel, ViewInspector, ResultsInspector, action_button, scroll_panel)
 
 DEFAULT_DATA_DIRECTORY = Path(__file__).resolve().parents[2] / "data"
 
@@ -78,189 +81,15 @@ NETWORK_LAYER_OPTIONS = (
 )
 
 
-_PERIODIC_TABLE = {
-    "H": (0, 0), "He": (0, 17),
-    "Li": (1, 0), "Be": (1, 1), "B": (1, 12), "C": (1, 13), "N": (1, 14), "O": (1, 15), "F": (1, 16), "Ne": (1, 17),
-    "Na": (2, 0), "Mg": (2, 1), "Al": (2, 12), "Si": (2, 13), "P": (2, 14), "S": (2, 15), "Cl": (2, 16), "Ar": (2, 17),
-    "K": (3, 0), "Ca": (3, 1), "Sc": (3, 2), "Ti": (3, 3), "V": (3, 4), "Cr": (3, 5), "Mn": (3, 6), "Fe": (3, 7), "Co": (3, 8), "Ni": (3, 9), "Cu": (3, 10), "Zn": (3, 11), "Ga": (3, 12), "Ge": (3, 13), "As": (3, 14), "Se": (3, 15), "Br": (3, 16), "Kr": (3, 17),
-    "Rb": (4, 0), "Sr": (4, 1), "Y": (4, 2), "Zr": (4, 3), "Nb": (4, 4), "Mo": (4, 5), "Tc": (4, 6), "Ru": (4, 7), "Rh": (4, 8), "Pd": (4, 9), "Ag": (4, 10), "Cd": (4, 11), "In": (4, 12), "Sn": (4, 13), "Sb": (4, 14), "Te": (4, 15), "I": (4, 16), "Xe": (4, 17),
-    "Cs": (5, 0), "Ba": (5, 1), "La": (5, 2), "Hf": (5, 3), "Ta": (5, 4), "W": (5, 5), "Re": (5, 6), "Os": (5, 7), "Ir": (5, 8), "Pt": (5, 9), "Au": (5, 10), "Hg": (5, 11), "Tl": (5, 12), "Pb": (5, 13), "Bi": (5, 14), "Po": (5, 15), "At": (5, 16), "Rn": (5, 17),
-    "Fr": (6, 0), "Ra": (6, 1), "Ac": (6, 2), "Rf": (6, 3), "Db": (6, 4), "Sg": (6, 5), "Bh": (6, 6), "Hs": (6, 7), "Mt": (6, 8), "Ds": (6, 9), "Rg": (6, 10), "Cn": (6, 11), "Nh": (6, 12), "Fl": (6, 13), "Mc": (6, 14), "Lv": (6, 15), "Ts": (6, 16), "Og": (6, 17),
-}
-
-
-RESIDUE_ATOMS = {
-    "ALA": ["N", "CA", "C", "O", "CB"], "ARG": ["N", "CA", "C", "O", "CB", "CG", "CD", "NE", "CZ", "NH1", "NH2"],
-    "ASN": ["N", "CA", "C", "O", "CB", "CG", "OD1", "ND2"], "ASP": ["N", "CA", "C", "O", "CB", "CG", "OD1", "OD2"],
-    "CYS": ["N", "CA", "C", "O", "CB", "SG"], "GLN": ["N", "CA", "C", "O", "CB", "CG", "CD", "OE1", "NE2"],
-    "GLU": ["N", "CA", "C", "O", "CB", "CG", "CD", "OE1", "OE2"], "GLY": ["N", "CA", "C", "O"],
-    "HIS": ["N", "CA", "C", "O", "CB", "CG", "ND1", "CD2", "CE1", "NE2"], "ILE": ["N", "CA", "C", "O", "CB", "CG1", "CG2", "CD1"],
-    "LEU": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2"], "LYS": ["N", "CA", "C", "O", "CB", "CG", "CD", "CE", "NZ"],
-    "MET": ["N", "CA", "C", "O", "CB", "CG", "SD", "CE"], "PHE": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ"],
-    "PRO": ["N", "CA", "C", "O", "CB", "CG", "CD"], "SER": ["N", "CA", "C", "O", "CB", "OG"],
-    "THR": ["N", "CA", "C", "O", "CB", "OG1", "CG2"], "TRP": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", "NE1", "CE2", "CE3", "CZ2", "CZ3", "CH2"],
-    "TYR": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ", "OH"], "VAL": ["N", "CA", "C", "O", "CB", "CG1", "CG2"],
-    "A": ["P", "OP1", "OP2", "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", "N9"],
-    "C": ["P", "OP1", "OP2", "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", "N1"],
-    "G": ["P", "OP1", "OP2", "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", "N9"],
-    "T": ["P", "OP1", "OP2", "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", "N1", "C5M"],
-    "U": ["P", "OP1", "OP2", "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", "N1"],
-}
-ION_NAMES = ("LI", "NA", "K", "RB", "CS", "MG", "CA", "SR", "BA", "ZN", "FE", "CL")
-_PERIODIC_COLORS = {"alkali": "#f7c6c7", "alkaline": "#f2d3a1", "transition": "#f4e3b2", "post": "#c8e6c9", "metalloid": "#b2dfdb", "nonmetal": "#bbdefb", "halogen": "#d1c4e9", "noble": "#e1bee7", "lanthanide": "#ffe0b2", "actinide": "#ffccbc"}
-
-def _element_category(symbol: str) -> str:
-    if symbol in {"H", "C", "N", "O", "P", "S", "Se"}: return "nonmetal"
-    if symbol in {"F", "Cl", "Br", "I", "At", "Ts"}: return "halogen"
-    if symbol in {"He", "Ne", "Ar", "Kr", "Xe", "Rn", "Og"}: return "noble"
-    if symbol in {"Li", "Na", "K", "Rb", "Cs", "Fr"}: return "alkali"
-    if symbol in {"Be", "Mg", "Ca", "Sr", "Ba", "Ra"}: return "alkaline"
-    if symbol in {"B", "Si", "Ge", "As", "Sb", "Te", "Po"}: return "metalloid"
-    if symbol in {"Al", "Ga", "In", "Sn", "Tl", "Pb", "Bi", "Nh", "Fl", "Mc", "Lv"}: return "post"
-    if symbol in {"La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu"}: return "lanthanide"
-    if symbol in {"Ac", "Th", "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr"}: return "actinide"
-    return "transition"
-
-for _column, _symbol in enumerate(("Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu"), 2):
-    _PERIODIC_TABLE[_symbol] = (7, _column)
-for _column, _symbol in enumerate(("Th", "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr"), 2):
-    _PERIODIC_TABLE[_symbol] = (8, _column)
-_ELEMENT_ORDER = "H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf Es Fm Md No Lr Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og".split()
-_ELEMENT_NUMBERS = {symbol.upper(): index for index, symbol in enumerate(_ELEMENT_ORDER, 1)}
-_ELEMENT_NAMES = {
-    "H": "Hydrogen", "He": "Helium", "Li": "Lithium", "Be": "Beryllium", "B": "Boron", "C": "Carbon", "N": "Nitrogen", "O": "Oxygen", "F": "Fluorine", "Ne": "Neon",
-    "Na": "Sodium", "Mg": "Magnesium", "Al": "Aluminium", "Si": "Silicon", "P": "Phosphorus", "S": "Sulfur", "Cl": "Chlorine", "Ar": "Argon",
-}
-_ELEMENT_MASSES = {"H": 1.008, "C": 12.011, "N": 14.007, "O": 15.999, "F": 18.998, "P": 30.974, "S": 32.06, "Cl": 35.45, "Na": 22.990, "Mg": 24.305, "K": 39.098, "Ca": 40.078, "Fe": 55.845, "Zn": 65.38, "Br": 79.904, "I": 126.904}
-_RESIDUE_NAMES = {
-    "ALA": "Alanine", "ARG": "Arginine", "ASN": "Asparagine", "ASP": "Aspartic acid", "CYS": "Cysteine", "GLN": "Glutamine", "GLU": "Glutamic acid", "GLY": "Glycine", "HIS": "Histidine", "ILE": "Isoleucine", "LEU": "Leucine", "LYS": "Lysine", "MET": "Methionine", "PHE": "Phenylalanine", "PRO": "Proline", "SER": "Serine", "THR": "Threonine", "TRP": "Tryptophan", "TYR": "Tyrosine", "VAL": "Valine", "A": "Adenine", "C": "Cytosine", "G": "Guanine", "T": "Thymine", "U": "Uracil"
-}
-
-class ResidueDiagram(QWidget):
-    """Clean schematic of a residue's standard biochemical connectivity."""
-    def __init__(self, parent=None):
-        super().__init__(parent); self.residue = ""; self.setMinimumSize(280, 250)
-    def set_atoms(self, residue: str, atoms: list[str]) -> None:
-        self.residue = residue; self.update()
-    def paintEvent(self, event) -> None:
-        painter = QPainter(self); painter.setRenderHint(QPainter.Antialiasing)
-        painter.setPen(QPen(QColor("#c7d2df"), 2)); painter.drawText(10, 22, f"{_RESIDUE_NAMES.get(self.residue, self.residue)} ({self.residue})")
-        def atom(x, y, text, color="#4f9fcf", radius=19):
-            painter.setBrush(QBrush(QColor(color))); painter.setPen(QPen(QColor("#dce8f2"), 1)); painter.drawEllipse(x-radius, y-radius, radius*2, radius*2); painter.drawText(x-radius, y-7, radius*2, 18, Qt.AlignCenter, text)
-        def bond(a, b, double=False):
-            painter.setPen(QPen(QColor("#71849a"), 3)); painter.drawLine(*a, *b)
-            if double: painter.drawLine(a[0], a[1]+5, b[0], b[1]+5)
-        if self.residue in {"A", "C", "G", "T", "U"}:
-            # Pentose ring with phosphate on the 5' side and the base attached at C1'.
-            ring = {"C4'": (125, 125), "O4'": (165, 95), "C1'": (210, 115), "C2'": (205, 165), "C3'": (155, 180)}
-            for a, b in (("C4'", "O4'"), ("O4'", "C1'"), ("C1'", "C2'"), ("C2'", "C3'"), ("C3'", "C4'")): bond(ring[a], ring[b])
-            for name, pos in ring.items(): atom(*pos, name, "#56b893" if name == "O4'" else "#4f9fcf", 16)
-            bond((125, 125), (70, 125)); atom(48, 125, "P", "#e5b94f", 17); bond((48, 125), (35, 88)); bond((48, 125), (35, 162)); atom(25, 82, "O", "#d66d6d", 13); atom(25, 168, "O", "#d66d6d", 13)
-            base_name = "N9" if self.residue in {"A", "G"} else "N1"; bond(ring["C1'"], (255, 115))
-            base = [(255, 115), (295, 90), (330, 115), (320, 155), (275, 165), (245, 145)]
-            painter.setPen(QPen(QColor("#71849a"), 3)); painter.drawPolygon(QPolygon([QPoint(*point) for point in base])); atom(255, 115, base_name, "#d9778a", 15); painter.setPen(QPen(QColor("#a9b7c5"), 1)); painter.drawText(245, 205, 100, 18, Qt.AlignCenter, f"base {self.residue}")
-        else:
-            # Shared peptide backbone; the residue-specific side chain branches from Cα.
-            n, ca, c, o = (50, 125), (135, 125), (220, 125), (285, 85)
-            bond(n, ca); bond(ca, c); bond(c, o, True); atom(*n, "N"); atom(*ca, "Cα", "#62a9d8"); atom(*c, "C"); atom(*o, "O", "#d66d6d")
-            side = [name for name in RESIDUE_ATOMS.get(self.residue, []) if name not in {"N", "CA", "C", "O"}]
-            side = side[:10]
-            points = {}
-            for index, name in enumerate(side):
-                points[name] = (135 + 45 * (index % 3), 185 + 42 * (index // 3))
-                parent = ca if index == 0 else points[side[index - 1]]; bond(parent, points[name])
-            for name, pos in points.items(): atom(*pos, name, "#a88bd8" if name.startswith("O") or name.startswith("N") else "#4f9fcf", 15)
-            painter.setPen(QPen(QColor("#a9b7c5"), 1)); painter.drawText(85, 245, 180, 18, Qt.AlignCenter, "residue-specific side chain")
-
-
-class AtomicRadiiDialog(QDialog):
-    """Three-tab editor for element, residue-atom, and ion radii."""
-    def __init__(self, radii: dict[str, float], parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Atomic radii")
-        self.setMinimumSize(1150, 560)
-        self._radii = {key.upper(): float(value) for key, value in radii.items()}
-        self._fields: dict[str, QDoubleSpinBox] = {}
-        self._element_values: dict[str, float] = {}
-        self._baseline: dict[str, float] = {}
-        self._residue_fields: dict[str, QDoubleSpinBox] = {}
-        self._ion_fields: dict[str, QDoubleSpinBox] = {}
-        layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("Set radii in Å. Residue-atom overrides take precedence over element defaults."))
-        tabs = QTabWidget()
-        tabs.addTab(self._build_defaults_tab(), "Defaults")
-        tabs.addTab(self._build_residue_tab(), "Residues")
-        tabs.addTab(self._build_ions_tab(), "Ions")
-        layout.addWidget(tabs, 1)
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(self.accept); buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
-
-    def _spin(self, key: str, value: float) -> QDoubleSpinBox:
-        field = QDoubleSpinBox(); field.setRange(0.01, 5.0); field.setDecimals(3); field.setSingleStep(0.01); field.setValue(value)
-        self._baseline[key] = value
-        return field
-
-    def _build_defaults_tab(self) -> QWidget:
-        panel = QWidget(); layout = QVBoxLayout(panel)
-        legend = QLabel("Click an element to edit its display radius. Colors identify periodic-table families."); legend.setWordWrap(True); layout.addWidget(legend)
-        grid = QGridLayout(); grid.setSpacing(3)
-        for symbol, (row, column) in _PERIODIC_TABLE.items():
-            card = QFrame(); card.setFixedSize(62, 78); card.setCursor(Qt.PointingHandCursor); card.setStyleSheet(f"QFrame {{ background: {_PERIODIC_COLORS[_element_category(symbol)]}; border: none; border-radius: 3px; }} QLabel {{ color: #17202a; }}")
-            card_layout = QVBoxLayout(card); card_layout.setContentsMargins(2, 2, 2, 2); card_layout.setSpacing(0)
-            number = _ELEMENT_NUMBERS[symbol.upper()]; mass = _ELEMENT_MASSES.get(symbol, float(number * 2))
-            top = QLabel(f"{number}  {mass:g}"); top.setAlignment(Qt.AlignCenter); top.setStyleSheet("font-size: 7px;"); card_layout.addWidget(top)
-            name = QLabel(_ELEMENT_NAMES.get(symbol, symbol)); name.setAlignment(Qt.AlignCenter); name.setWordWrap(True); name.setFixedHeight(19); name.setStyleSheet("font-size: 7px;"); card_layout.addWidget(name)
-            abbrev = QLabel(symbol); abbrev.setAlignment(Qt.AlignCenter); abbrev.setStyleSheet("font-size: 16px; font-weight: 700;"); card_layout.addWidget(abbrev, 1)
-            radius = QLabel(f"{self._radii.get(symbol.upper(), 0.36):.2f} Å"); radius.setAlignment(Qt.AlignCenter); radius.setStyleSheet("font-size: 8px;"); card_layout.addWidget(radius)
-            card.mousePressEvent = lambda event, element=symbol, label=radius: self._edit_element(element, label)
-            grid.addWidget(card, row, column)
-        layout.addLayout(grid); return panel
-
-    def _edit_element(self, symbol: str, label: QLabel) -> None:
-        key = symbol.upper(); current = self._element_values.get(key, self._radii.get(key, 0.36))
-        value, accepted = QInputDialog.getDouble(self, f"{_ELEMENT_NAMES.get(symbol, symbol)} radius", "Radius (Å)", current, 0.01, 5.0, 3)
-        if accepted:
-            self._element_values[key] = value; label.setText(f"{value:.2f} Å")
-
-    def _build_residue_tab(self) -> QWidget:
-        panel = QWidget(); layout = QHBoxLayout(panel)
-        names = QListWidget(); names.setMaximumWidth(180)
-        for abbreviation in RESIDUE_ATOMS:
-            item = QListWidgetItem(f"{_RESIDUE_NAMES.get(abbreviation, abbreviation)} ({abbreviation})"); item.setData(Qt.UserRole, abbreviation); names.addItem(item)
-        diagram = ResidueDiagram(); table = QTableWidget(0, 2); table.setHorizontalHeaderLabels(["Atom name", "Radius (Å)"]); table.horizontalHeader().setStretchLastSection(True)
-        layout.addWidget(names); layout.addWidget(diagram, 1); layout.addWidget(table, 1)
-        self._residue_table, self._residue_diagram = table, diagram
-        names.currentItemChanged.connect(lambda item, _previous: self._select_residue_editor(item.data(Qt.UserRole) if item else "")); names.setCurrentRow(0)
-        return panel
-
-    def _select_residue_editor(self, residue: str) -> None:
-        atoms = RESIDUE_ATOMS.get(residue, []); self._residue_table.setRowCount(len(atoms)); self._residue_diagram.set_atoms(residue, atoms)
-        for row, atom_name in enumerate(atoms):
-            key = f"RES:{residue}:{atom_name}"; self._residue_table.setItem(row, 0, QTableWidgetItem(atom_name))
-            field = self._spin(key, self._radii.get(key, self._radii.get(atom_name[:2].upper(), self._radii.get(atom_name[:1].upper(), 0.36)))); self._residue_table.setCellWidget(row, 1, field); self._residue_fields[key] = field
-
-    def _build_ions_tab(self) -> QWidget:
-        panel = QWidget(); layout = QVBoxLayout(panel); table = QTableWidget(len(ION_NAMES), 2); table.setHorizontalHeaderLabels(["Ion", "Radius (Å)"]); table.horizontalHeader().setStretchLastSection(True)
-        for row, ion in enumerate(ION_NAMES):
-            table.setItem(row, 0, QTableWidgetItem(ion)); key = f"ION:{ion}"; field = self._spin(key, self._radii.get(key, self._radii.get(ion, 0.4))); table.setCellWidget(row, 1, field); self._ion_fields[key] = field
-        layout.addWidget(table); return panel
-
-    def values(self) -> dict[str, float]:
-        values = dict(self._element_values)
-        values.update({key: field.value() for key, field in {**self._residue_fields, **self._ion_fields}.items() if abs(field.value() - self._baseline[key]) > 1e-9})
-        return values
-
-
 class MetricCard(QFrame):
     """Compact numerical readout used in the analysis tray."""
 
     def __init__(self, title: str, accent: str, parent=None):
         super().__init__(parent)
         self.setObjectName("metricCard")
-        self.setStyleSheet(f"QFrame#metricCard {{ border-top-color: {accent}; }}")
+
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 9, 12, 9)
+        layout.setContentsMargins(10, 5, 10, 5)
         layout.setSpacing(2)
         label = QLabel(title)
         label.setObjectName("metricTitle")
@@ -279,8 +108,9 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1050, 680)
         self.backend = VorPyBackend()
         self.project = Project()
-        self.radius_overrides: dict[str, float] = {}
+        self.atomic_defaults: dict[str, dict[str, float]] = {}
         self.project_file: Path | None = None
+        self._layout_restored = False
         self._project_dirty = False
         self._loading_project = False
         self.source: Path | None = None
@@ -306,6 +136,14 @@ class MainWindow(QMainWindow):
         self._build_status()
         self.statusBar().showMessage("Ready — load a structure and select a residue")
         self.select_residue_action.setChecked(True)
+        self.inspector.setCurrentIndex(0)
+        self._refresh_ui_state()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        if not self._layout_restored:
+            self._layout_restored = True
+            QTimer.singleShot(0, lambda: self.workspace_splitter.setSizes([max(400, self.height() - 310), 200]))
 
     def _build_actions(self) -> None:
         style = self.style()
@@ -410,58 +248,69 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(root)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-
-        workflow = QWidget()
-        self.workflow_panel = workflow
-        workflow.setObjectName("workflowPanel")
-        workflow.setMinimumWidth(350)
-        workflow.setMaximumWidth(430)
-        workflow_layout = QVBoxLayout(workflow)
-        workflow_layout.setContentsMargins(8, 8, 5, 5)
-        workflow_layout.setSpacing(8)
+        header = QFrame()
+        header.setObjectName("workbenchHeader")
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(14, 6, 14, 6)
+        brand = QLabel("⬡  VorPy Workbench")
+        brand.setObjectName("workbenchBrand")
+        header_layout.addWidget(brand)
+        header_layout.addStretch()
         self.workflow_tabs = QTabWidget()
-        self.workflow_tabs.addTab(self._build_structure_tab(), "Structure")
-        self.workflow_tabs.addTab(self._build_selection_tab(), "Selection")
-        self.workflow_tabs.addTab(self._build_groups_tab(), "Groups")
-        self.workflow_tabs.addTab(self._build_interfaces_tab(), "Interfaces")
-        workflow_layout.addWidget(self.workflow_tabs, 1)
-        vertical = QSplitter(Qt.Vertical)
-        self.workspace_splitter = vertical
-        upper = QSplitter(Qt.Horizontal)
-        self.upper_workspace = upper
-        upper.addWidget(workflow)
-        upper.addWidget(self._build_viewport())
-        upper.addWidget(self._build_inspector())
-        upper.setStretchFactor(0, 0)
-        upper.setStretchFactor(1, 5)
-        upper.setStretchFactor(2, 1)
-        upper.setSizes([390, 1050, 320])
-        vertical.addWidget(upper)
+        for title, panel in (("Structure", self._build_structure_tab()),
+                             ("Selection", self._build_selection_tab()),
+                             ("Groups", self._build_groups_tab()),
+                             ("Interfaces", self._build_interfaces_tab())):
+            self.workflow_tabs.addTab(panel, title)
+        for title, callback in (("Structure", lambda: self.workflow_tabs.setCurrentIndex(0)),
+                                ("Selection", lambda: self.workflow_tabs.setCurrentIndex(1)),
+                                ("Analysis", self._focus_solve),
+                                ("Results", self._focus_results),
+                                ("Settings", self._focus_settings)):
+            action = QAction(title, self)
+            action.triggered.connect(callback)
+            header_layout.addWidget(action_button(action))
+        layout.addWidget(header)
+        self.workflow_panel = WorkflowSidebar(self.workflow_tabs)
+        self.workspace_splitter = QSplitter(Qt.Vertical)
+        self.upper_workspace = QSplitter(Qt.Horizontal)
+        self.upper_workspace.setChildrenCollapsible(False)
+        self.upper_workspace.addWidget(self.workflow_panel)
+        self.upper_workspace.addWidget(self._build_viewport())
+        self.upper_workspace.addWidget(self._build_inspector())
+        self.upper_workspace.setStretchFactor(1, 1)
+        self.upper_workspace.setSizes([300, 850, 330])
+        self.workspace_splitter.addWidget(self.upper_workspace)
         self.analysis_tray = self._build_analysis_tray()
-        vertical.addWidget(self.analysis_tray)
-        vertical.setStretchFactor(0, 4)
-        vertical.setStretchFactor(1, 2)
-        vertical.setSizes([560, 320])
-        layout.addWidget(vertical)
+        self.workspace_splitter.addWidget(self.analysis_tray)
+        self.workspace_splitter.setCollapsible(0, False)
+        self.workspace_splitter.setCollapsible(1, False)
+        self.workspace_splitter.setStretchFactor(0, 1)
+        self.workspace_splitter.setSizes([650, 200])
+        layout.addWidget(self.workspace_splitter)
         self.setCentralWidget(root)
 
+    def _focus_solve(self) -> None:
+        self.solve_target.setFocus()
+
+    def _focus_results(self) -> None:
+        self.analysis_tray.set_expanded(True)
+
+    def _focus_settings(self) -> None:
+        self.inspector.setCurrentIndex(0)
+        self.inspector.setFocus()
+
     def _build_viewport(self) -> QWidget:
-        container = QWidget()
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(5, 5, 5, 0)
-        layout.setSpacing(5)
-        layout.addWidget(self.viewer, 1)
-        bar = QFrame()
-        bar.setObjectName("viewerBar")
-        bar_layout = QHBoxLayout(bar)
-        bar_layout.setContentsMargins(12, 6, 12, 6)
-        bar_layout.setSpacing(14)
-        bar_layout.addStretch()
-        self.selection_mode_label = QLabel("Navigation mode")
-        self.selection_mode_label.setObjectName("sectionLabel")
-        bar_layout.addWidget(self.selection_mode_label)
-        layout.addWidget(bar)
-        return container
+        self.viewer_panel = ViewerPanel(self.viewer, [
+            (self.select_atom_action, "Atom"),
+            (self.select_residue_action, "Residue"),
+            (self.select_chain_action, "Chain"),
+            (self.select_molecule_action, "Molecule"),
+            (self.fit_action, "Fit"),
+            (self.screenshot_action, "Capture"),
+        ])
+        self.selection_mode_label = self.viewer_panel.selection_label
+        return self.viewer_panel
 
     @staticmethod
     def _visibility_checkbox(label: str, callback, checked: bool = True) -> QCheckBox:
@@ -471,19 +320,12 @@ class MainWindow(QMainWindow):
         return checkbox
 
     def _build_inspector(self) -> QWidget:
-        container = QWidget()
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
-        title = QLabel("View Settings")
-        title.setObjectName("viewSettingsTitle")
-        layout.addWidget(title)
         self.inspector = QTabWidget()
-        self.inspector.setMinimumWidth(290)
-        self.inspector.setMaximumWidth(390)
-        self.inspector.addTab(self._build_visualization_tab(), "System")
-        self.inspector.addTab(self._build_network_tab(), "Network")
-        layout.addWidget(self.inspector, 1)
-        return container
+        self.system_display = self._build_visualization_tab()
+        self.inspector.addTab(scroll_panel(self.system_display), "System")
+        self.inspector.addTab(scroll_panel(self._build_network_tab()), "Network")
+        self.solve_panel = self._build_solve_section()
+        return ViewInspector(self.inspector, self.solve_panel)
 
     def _build_visualization_tab(self) -> QWidget:
         panel = QWidget()
@@ -506,7 +348,7 @@ class MainWindow(QMainWindow):
         self.show_atoms = self.show_spheres
         self.show_bonds = self.show_sticks
         representations = QWidget()
-        representation_layout = QVBoxLayout(representations)
+        representation_layout = QHBoxLayout(representations)
         representation_layout.setContentsMargins(0, 0, 0, 0)
         for checkbox in (self.show_cartoon, self.show_spheres, self.show_sticks):
             representation_layout.addWidget(checkbox)
@@ -516,7 +358,7 @@ class MainWindow(QMainWindow):
         self.molecule_opacity.valueChanged.connect(
             lambda value: self.viewer.set_molecule_opacity(value / 100.0)
         )
-        molecule_form.addRow("Representations", representations)
+        molecule_form.addRow(representations)
         molecule_form.addRow("Sphere opacity", self.molecule_opacity)
         layout.addWidget(molecule_group)
 
@@ -563,9 +405,21 @@ class MainWindow(QMainWindow):
         self.structure_summary.setWordWrap(True)
         self.structure_summary.setAlignment(Qt.AlignCenter)
         self.structure_summary.setObjectName("sectionLabel")
-        self.structure_summary.setVisible(False)
+        self.structure_summary.setVisible(True)
         layout.addStretch(1)
         layout.addWidget(self.structure_name)
+        layout.addWidget(self.structure_summary)
+        self.empty_open_button = QPushButton("Open structure")
+        self.empty_open_button.setObjectName("primaryAction")
+        self.empty_open_button.clicked.connect(self.open_structure)
+        layout.addWidget(self.empty_open_button)
+        self.load_example_button = QPushButton("Load example")
+        self.load_example_button.clicked.connect(lambda: self.load_path(DEFAULT_DATA_DIRECTORY / "EDTA.pdb"))
+        layout.addWidget(self.load_example_button)
+        self.format_hint = QLabel("PDB structures · More formats available through the CLI")
+        self.format_hint.setWordWrap(True)
+        self.format_hint.setObjectName("sectionLabel")
+        layout.addWidget(self.format_hint)
         layout.addStretch(1)
         self.chemical_info = QGroupBox("Chemical information")
         chemical_form = QFormLayout(self.chemical_info)
@@ -593,8 +447,10 @@ class MainWindow(QMainWindow):
         self.loaded_structures.setVisible(False)
         layout.addWidget(self.loaded_structures_label)
         layout.addWidget(self.loaded_structures, 2)
-        structure_buttons = QHBoxLayout()
-        self.add_structure_button = QPushButton("Add structure")
+        self.structure_action_bar = QWidget()
+        structure_buttons = QHBoxLayout(self.structure_action_bar)
+        structure_buttons.setContentsMargins(0, 0, 0, 0)
+        self.add_structure_button = QPushButton("Open structure")
         self.delete_structure_button = QPushButton("Delete")
         self.reset_structures_button = QPushButton("Reset all")
         self.add_structure_button.clicked.connect(self.open_structure)
@@ -602,12 +458,17 @@ class MainWindow(QMainWindow):
         self.reset_structures_button.clicked.connect(self._reset_structures)
         for button in (self.add_structure_button, self.delete_structure_button, self.reset_structures_button):
             structure_buttons.addWidget(button)
-        layout.addLayout(structure_buttons)
+        layout.addWidget(self.structure_action_bar)
         return panel
 
     def _build_selection_tab(self) -> QWidget:
         panel = QWidget()
         layout = QVBoxLayout(panel)
+        modes = QHBoxLayout()
+        for action, label in ((self.select_atom_action, "Atoms"), (self.select_residue_action, "Residues"),
+                              (self.select_chain_action, "Chains"), (self.select_molecule_action, "Molecules")):
+            modes.addWidget(action_button(action, label))
+        layout.addLayout(modes)
         self.selection_group = QGroupBox("No selection")
         form = QFormLayout(self.selection_group)
         self.atom_name = QLabel("—")
@@ -615,12 +476,15 @@ class MainWindow(QMainWindow):
         self.atom_residue = QLabel("—")
         self.atom_chain = QLabel("—")
         self.atom_position = QLabel("—")
+        self.atom_properties = QLabel("—")
+        self.atom_properties.setWordWrap(True)
         self.selection_count = QLabel("—")
         form.addRow("Atom", self.atom_name)
         form.addRow("Element", self.atom_element)
         form.addRow("Residue", self.atom_residue)
         form.addRow("Chain", self.atom_chain)
         form.addRow("Coordinates (Å)", self.atom_position)
+        form.addRow("Atomic properties", self.atom_properties)
         form.addRow("Atoms selected", self.selection_count)
         self.selection_group.setVisible(False)
         layout.addWidget(self.selection_group)
@@ -646,7 +510,9 @@ class MainWindow(QMainWindow):
         hint.setWordWrap(True)
         hint.setObjectName("sectionLabel")
         layout.addWidget(hint)
-        self.make_group_button = QPushButton("Make group")
+        self.make_group_button = QPushButton("+  Create group from selection")
+        self.make_group_button.setObjectName("primaryAction")
+        self.make_group_button.setToolTip("Select one or more atoms to create a group")
         self.make_group_button.setEnabled(False)
         self.make_group_button.clicked.connect(self._make_group)
         layout.addWidget(self.make_group_button)
@@ -690,7 +556,10 @@ class MainWindow(QMainWindow):
     def _build_solve_section(self) -> QWidget:
         panel = QWidget()
         layout = QVBoxLayout(panel)
-        section = QGroupBox("Solve configuration")
+        layout.setContentsMargins(0, 4, 0, 0)
+        layout.setSpacing(5)
+        section = QGroupBox("Network / Solve")
+        self.solve_configuration = section
         form = QFormLayout(section)
         self.solve_target = QComboBox()
         self.solve_target.addItem("Whole molecule", ("whole", ""))
@@ -708,29 +577,40 @@ class MainWindow(QMainWindow):
         self.surface_resolution.setRange(0.01, 1.0)
         self.surface_resolution.setSingleStep(0.01)
         self.surface_resolution.setValue(0.2)
-        form.addRow("Target", self.solve_target)
-        form.addRow("Network", self.network_type)
-        max_row = QWidget()
-        max_layout = QHBoxLayout(max_row)
-        max_layout.setContentsMargins(0, 0, 0, 0)
-        max_layout.addWidget(self.max_vertices)
-        max_help = QPushButton("?")
-        max_help.setFixedWidth(26)
-        max_help.setToolTip("Maximum vertices per Voronoi cell. Lower values simplify the network and speed up surface construction.")
-        max_layout.addWidget(max_help)
-        form.addRow("Max Vert rad", max_row)
-        form.addRow("Box size", self.box_size)
-        form.addRow("Surface resolution", self.surface_resolution)
-        help_button = QPushButton("?  Build setting help")
-        help_button.setToolTip("Explain the solve configuration settings")
-        help_button.clicked.connect(self._show_build_settings_help)
-        form.addRow(help_button)
+        fields = (
+            ("Targe", self.solve_target,
+             "Choose what to analyze: the whole molecule, active selection, a saved group, "
+             "or an interface defined by two groups."),
+            ("Scheme", self.network_type,
+             "Choose the spatial partitioning method. Atomic Voronoi uses distance to atom "
+             "surfaces; Power uses squared distance weighted by atomic radii; Primitive "
+             "uses distance to atom centers without radius weighting."),
+            ("Probe Size", self.max_vertices,
+             "Maximum allowed Voronoi vertex radius (Å), used as a cutoff during network "
+             "construction. Larger values allow larger vertices; smaller values restrict "
+             "the network. This does not change atomic radii."),
+            ("Boundary Padding", self.box_size,
+             "Dimensionless factor controlling the calculation bounding box around the "
+             "structure. Larger values extend the boundary farther out. A value of 1.25 "
+             "adds 25% of the coordinate span on each side of each non-flat axis."),
+            ("Resolution", self.surface_resolution,
+             "Target spacing (Å) for surface triangulation. Smaller values produce finer "
+             "surface meshes with more triangles and take more time and memory; larger "
+             "values produce coarser meshes."),
+        )
+        for title, control, explanation in fields:
+            label = QLabel(title)
+            label.setBuddy(control)
+            label.setToolTip(explanation)
+            control.setToolTip(explanation)
+            form.addRow(label, control)
         layout.addWidget(section)
-        self.adjust_radii_button = QPushButton("Adjust atomic radii…")
+        self.adjust_radii_button = QPushButton("Atomic defaults…")
         self.adjust_radii_button.clicked.connect(self._open_atomic_radii)
         layout.addWidget(self.adjust_radii_button)
         layout.addStretch(1)
         self.solve_network_button = QPushButton("Solve network")
+        self.solve_network_button.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
         self.solve_network_button.setObjectName("primaryAction")
         self.solve_network_button.setMinimumHeight(36)
         self.solve_network_button.clicked.connect(self.solve_action.trigger)
@@ -740,31 +620,57 @@ class MainWindow(QMainWindow):
             )
         )
         layout.addWidget(self.solve_network_button)
+        self.solve_hint = QLabel("Open a structure to configure and solve a network.")
+        self.solve_hint.setWordWrap(True)
+        self.solve_hint.setObjectName("sectionLabel")
+        layout.addWidget(self.solve_hint)
+        self.cancel_button = action_button(self.cancel_action)
+        layout.addWidget(self.cancel_button)
         return panel
 
-    def _show_build_settings_help(self) -> None:
-        QMessageBox.information(self, "Build settings",
-            "Target chooses the whole structure, active selection, group, or interface.\n\n"
-            "Network selects the Voronoi construction. Max Vert rad limits the number of vertices used to represent each cell.\n\n"
-            "Box size controls the padding around the group. Surface resolution controls triangle spacing; smaller values create finer surfaces but take longer.")
+    @property
+    def radius_overrides(self) -> dict[str, float]:
+        """Compatibility with the former radius-only project state."""
+        return {scope: values["radius"] for scope, values in self.atomic_defaults.items() if "radius" in values}
+
+    @radius_overrides.setter
+    def radius_overrides(self, values) -> None:
+        defaults = {scope: {name: value for name, value in properties.items() if name != "radius"}
+                    for scope, properties in self.atomic_defaults.items()}
+        for scope, value in values.items():
+            defaults.setdefault(scope, {})["radius"] = value
+        self.atomic_defaults = validate_defaults(defaults)
+
+    def _apply_defaults_to_result(self, result, mark_stale=False) -> None:
+        atoms = [apply_atom_defaults(atom, self.atomic_defaults) for atom in result.atoms]
+        changed = any((old.radius, old.mass, old.charge) != (new.radius, new.mass, new.charge)
+                      for old, new in zip(result.atoms, atoms))
+        if changed and mark_stale and (result.layers or result.summary or result.complete_cells):
+            result.defaults_stale = True
+        result.atoms = atoms
 
     def _open_atomic_radii(self) -> None:
-        current = dict(DISPLAY_RADII)
-        if self.current_result is not None:
-            current.update({atom.element.upper(): atom.radius for atom in self.current_result.atoms})
-        current.update(self.radius_overrides)
-        dialog = AtomicRadiiDialog(current, self)
+        dialog = AtomicDefaultsDialog(self.atomic_defaults,
+                                      self.current_result.atoms if self.current_result else (), self)
         if dialog.exec() != QDialog.Accepted:
             return
-        self.radius_overrides = dialog.values()
+        self.atomic_defaults = dialog.values()
+        self._apply_project_atomic_defaults()
+
+    def _apply_project_atomic_defaults(self) -> None:
+        results = list(self._loaded_results.values())
+        if self.current_result is not None and all(item is not self.current_result for item in results):
+            results.append(self.current_result)
+        for result in results:
+            self._apply_defaults_to_result(result, mark_stale=True)
         if self.current_result is not None:
-            self.current_result.atoms = [
-                replace(atom, radius=self._radius_for_atom(atom))
-                for atom in self.current_result.atoms
-            ]
+            camera = getattr(self.viewer.plotter, "camera_position", None)
             self.viewer.display_result(self.current_result)
-            self._set_project_dirty()
-        self.statusBar().showMessage("Atomic radii updated")
+            if camera is not None:
+                self.viewer.plotter.camera_position = camera
+            self._update_running_selection()
+        self._set_project_dirty()
+        self.statusBar().showMessage("Atomic defaults updated for this project", 5000)
 
     def _update_solve_targets(self) -> None:
         current = self.solve_target.currentData()
@@ -783,6 +689,10 @@ class MainWindow(QMainWindow):
     def _build_network_tab(self) -> QWidget:
         panel = QWidget()
         layout = QVBoxLayout(panel)
+        self.network_empty = QLabel("Solve or load a network to enable geometry layers.")
+        self.network_empty.setWordWrap(True)
+        self.network_empty.setObjectName("sectionLabel")
+        layout.addWidget(self.network_empty)
         self.network_layer_checks = {}
         self.network_color_buttons = {}
         self.network_colors = {}
@@ -857,6 +767,8 @@ class MainWindow(QMainWindow):
         surface_form = QFormLayout(surfaces)
 
         self.surface_color_scheme = QComboBox()
+        self.surface_color_scheme.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self.surface_color_scheme.setMinimumContentsLength(10)
         for label, scheme in (
             ("Solid color", "solid"),
             ("Mean curvature", "mean_curvature"),
@@ -951,30 +863,32 @@ class MainWindow(QMainWindow):
         return panel
 
     def _build_analysis_tray(self) -> QWidget:
-        tray = QSplitter(Qt.Horizontal)
-        tray.setObjectName("bottomTray")
-        solve = self._build_solve_section()
-        solve.setMinimumWidth(350)
-        tray.addWidget(solve)
         tabs = QTabWidget()
         self.analysis_tray_tabs = tabs
         overview = QWidget()
         overview_layout = QVBoxLayout(overview)
+        overview_layout.setContentsMargins(6, 4, 6, 4)
+        overview_layout.setSpacing(4)
         cards = QWidget()
+        cards.setFixedHeight(68)
         cards_layout = QHBoxLayout(cards)
         cards_layout.setContentsMargins(8, 8, 8, 4)
         self.metric_cards = {}
         for key, title, accent in (
             ("atoms", "Atoms", "#6857d9"), ("residues", "Residues", "#5a9bd5"),
-            ("chains", "Chains", "#4cbe9b"), ("vertices", "Vertices", "#d99a32"),
-            ("edges", "Edges", "#367bd6"), ("surfaces", "Surfaces", "#9b59db"),
-            ("cells", "Complete cells", "#38a873"), ("layers", "Geometry layers", "#d99a32"),
+            ("chains", "Chains", "#4cbe9b"), ("cells", "Complete cells", "#38a873"),
+            ("surfaces", "Surfaces", "#9b59db"), ("volume", "Volume", "#6857d9"),
+            ("area", "Surface area", "#6857d9"), ("interfaces", "Defined interfaces", "#6857d9"),
         ):
             card = MetricCard(title, accent)
             self.metric_cards[key] = card
             cards_layout.addWidget(card)
         overview_layout.addWidget(cards)
-        self.summary_statement = QLabel("Load a completed network to see its scientific summary.")
+        self.analysis_empty = QLabel("No analysis available\nSolve or load a completed network to view its scientific summary.")
+        self.analysis_empty.setWordWrap(True)
+        self.analysis_empty.setObjectName("emptyState")
+        overview_layout.addWidget(self.analysis_empty)
+        self.summary_statement = QLabel("")
         self.summary_statement.setWordWrap(True)
         self.summary_statement.setObjectName("sectionLabel")
         overview_layout.addWidget(self.summary_statement)
@@ -988,7 +902,7 @@ class MainWindow(QMainWindow):
         self.results.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.results.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         overview_layout.addWidget(self.results, 1)
-        tabs.addTab(overview, "Overview")
+        tabs.addTab(scroll_panel(overview), "Overview")
         self.analysis_section_tables = {}
         for section in ("Composition", "Build Information", "Build Timing",
                          "Voronoi Network", "Group Geometry", "Surface Curvature",
@@ -1002,12 +916,12 @@ class MainWindow(QMainWindow):
             table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
             for column in range(1, len(columns)): table.horizontalHeader().setSectionResizeMode(column, QHeaderView.Stretch)
             self.analysis_section_tables[section] = table
-            tabs.addTab(table, section.replace(" Information", "").replace(" Estimate", ""))
-        tray.addWidget(tabs)
-        tray.setStretchFactor(0, 0)
-        tray.setStretchFactor(1, 1)
-        tray.setSizes([430, 1050])
-        return tray
+            tabs.addTab(table, {"Build Information": "Build", "Build Timing": "Timing", "Voronoi Network": "Network / Topology", "Surface Energy Estimate": "Surface Energy"}.get(section, section))
+        self.interface_results = QTableWidget(0, 3)
+        self.interface_results.setHorizontalHeaderLabels(["Defined interface", "Group A", "Group B"])
+        self.interface_results.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        tabs.addTab(self.interface_results, "Interfaces")
+        return ResultsInspector(tabs)
 
     def _fallback_info_sections(self, result: AnalysisResult) -> dict[str, list[tuple[str, str]]]:
         return {
@@ -1073,6 +987,8 @@ class MainWindow(QMainWindow):
             if key in self.metric_cards: self.metric_cards[key].value.setText(f"{value:,}")
 
     def _build_status(self) -> None:
+        self.state_summary = QLabel()
+        self.statusBar().addPermanentWidget(self.state_summary, 1)
         self.progress_label = QLabel("Ready")
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
@@ -1080,10 +996,91 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self.progress_label)
         self.statusBar().addPermanentWidget(self.progress_bar)
 
+    def _refresh_ui_state(self) -> None:
+        """Present authoritative selection/result/job state without duplicating it."""
+        if not hasattr(self, "state_summary"):
+            return
+        result = self.current_result
+        loaded = result is not None and bool(result.atoms)
+        busy = self._thread is not None
+        solved = result is not None and bool(result.layers or result.summary or result.complete_cells)
+        self.solve_action.setEnabled(loaded and not busy)
+        self.solve_network_button.setEnabled(self.solve_action.isEnabled())
+        self.solve_configuration.setEnabled(loaded and not busy)
+        self.adjust_radii_button.setEnabled(not busy)
+        self.system_display.setEnabled(loaded)
+        self.delete_structure_button.setEnabled(loaded and not busy)
+        self.reset_structures_button.setEnabled(bool(self._loaded_results) and not busy)
+        for widget in (self.add_structure_button, self.empty_open_button, self.load_example_button):
+            widget.setEnabled(not busy)
+        for action in (self.open_action, self.open_result_action, self.open_project_action, self.new_project_action):
+            action.setEnabled(not busy)
+        self.loaded_structures.setEnabled(not busy)
+        self.fit_action.setEnabled(loaded)
+        self.screenshot_action.setEnabled(loaded)
+        self.structure_search.setEnabled(loaded)
+        self.structure_browser_type.setEnabled(loaded)
+        self.make_group_button.setEnabled(loaded and bool(self._running_selection))
+        self.make_interface_button.setEnabled(len(self._groups) >= 2)
+        self.make_interface_button.setToolTip("Choose two different saved groups" if len(self._groups) >= 2 else "Create at least two groups first")
+        self.empty_open_button.setVisible(not loaded)
+        self.structure_action_bar.setVisible(loaded)
+        self.load_example_button.setVisible(not loaded)
+        self.format_hint.setVisible(not loaded)
+        self.chemical_info.setVisible(loaded)
+        self.selection_group.setVisible(bool(self._running_selection))
+        self.selection_count.setText(str(len(self._running_selection)))
+        self.progress_bar.setVisible(busy)
+        self.cancel_button.setVisible(busy)
+        self.network_empty.setVisible(not solved)
+        self.analysis_empty.setVisible(not solved)
+        self.summary_statement.setVisible(solved)
+        self.summary_status.setVisible(solved)
+        self.results.setVisible(solved)
+        stale = result is not None and result.defaults_stale
+        self.solve_hint.setText("Analysis running…" if busy else "Atomic defaults changed. Solve again to update the network and results." if stale else "" if loaded else "Open a structure to configure and solve a network.")
+        self.solve_hint.setVisible(busy or not loaded or stale)
+        active = self.selection_actions.checkedAction()
+        mode = active.text().replace("Select ", "").title() if active else "Navigation"
+        network_state = "solving" if busy else "outdated" if result and result.defaults_stale else "loaded" if solved else "unsolved"
+        self.state_summary.setText(f"Selection: {mode} | {len(self._running_selection):,} selected | Network: {network_state}")
+        if loaded:
+            self.viewer_panel.metadata.setText(f"{result.name} | {len(result.atoms):,} atoms | {len(self._residue_groups(result)):,} residues | {len(self._chain_groups(result)):,} chains | {len(self._running_selection):,} selected")
+        else:
+            self.viewer_panel.metadata.setText("No structure loaded")
+            self.structure_name.setText("No structure loaded")
+            self.structure_summary.setText("Open a molecular structure to begin.")
+            self.running_selection.setText("No atoms selected")
+            self._populate_loaded_structures()
+            self.groups_list.clear()
+            self.interfaces_list.clear()
+            self.interface_group_a.clear()
+            self.interface_group_b.clear()
+            self._update_solve_targets()
+            self._reset_network_controls()
+            self.results.setRowCount(0)
+            for table in self.analysis_section_tables.values():
+                table.setRowCount(0)
+            for card in self.metric_cards.values():
+                card.value.setText("—")
+        self.interface_results.setRowCount(len(self._interfaces))
+        for row, (name, groups) in enumerate(self._interfaces.items()):
+            for column, value in enumerate((name, *groups)):
+                self.interface_results.setItem(row, column, QTableWidgetItem(value))
+        if loaded:
+            self.metric_cards["interfaces"].value.setText(str(len(self._interfaces)))
+        summary = result.summary if result and isinstance(result.summary, NetworkSummary) else None
+        self.metric_cards["volume"].value.setText(self._format_measurement(summary.geometry.get("volume")) if summary else "—")
+        self.metric_cards["area"].value.setText(self._format_measurement(summary.geometry.get("surface_area")) if summary else "—")
+        if not solved:
+            self.metric_cards["cells"].value.setText("—")
+            self.metric_cards["surfaces"].value.setText("—")
+
     def new_project(self) -> None:
         if not self._confirm_discard_changes():
             return
         self.project = Project()
+        self.atomic_defaults = {}
         self.project_file = None
         self.source = None
         self.current_result = None
@@ -1116,6 +1113,8 @@ class MainWindow(QMainWindow):
                 raise ValueError(
                     f"Structure file is missing: {project.structure.source_path}"
                 )
+            self.atomic_defaults = validate_defaults(project.view_state.get("atomic_defaults",
+                {scope: {"radius": value} for scope, value in project.view_state.get("radius_overrides", {}).items()}))
             self.project = project
             self.project_file = project_file
             if project.backend_settings:
@@ -1257,12 +1256,23 @@ class MainWindow(QMainWindow):
             "running_selection": sorted(self._running_selection),
             "depth_clip_fraction": getattr(self.viewer, "_depth_clip_fraction", 0.0),
             "radius_overrides": dict(self.radius_overrides),
+            "atomic_defaults": validate_defaults(self.atomic_defaults),
+            "workspace_sizes": self.workspace_splitter.sizes(),
+            "panel_sizes": self.upper_workspace.sizes(),
+            "results_expanded": self.analysis_tray.toggle.isChecked(),
         }
 
     def _restore_view_state(self, state: dict) -> None:
         if not state:
             return
-        self.radius_overrides = {str(key): float(value) for key, value in state.get("radius_overrides", {}).items()}
+        self._layout_restored = True
+        for splitter, key, count in ((self.workspace_splitter, "workspace_sizes", 2), (self.upper_workspace, "panel_sizes", 3)):
+            sizes = state.get(key)
+            if isinstance(sizes, list) and len(sizes) == count and all(isinstance(v, int) and v >= 0 for v in sizes):
+                splitter.setSizes(sizes)
+        self.analysis_tray.set_expanded(bool(state.get("results_expanded", True)))
+        self.atomic_defaults = validate_defaults(state.get("atomic_defaults",
+            {scope: {"radius": value} for scope, value in state.get("radius_overrides", {}).items()}))
         for widget, key in ((
             (self.show_cartoon, "show_cartoon"),
             (self.show_spheres, "show_spheres"),
@@ -1318,11 +1328,8 @@ class MainWindow(QMainWindow):
         actions.get(state.get("selection_mode", "residue"), self.select_residue_action).setChecked(True)
         self._running_selection = {int(index) for index in state.get("running_selection", [])}
         self._update_running_selection()
-        if self.current_result is not None and "radius_overrides" in state:
-            self.current_result.atoms = [
-                replace(atom, radius=self._radius_for_atom(atom))
-                for atom in self.current_result.atoms
-            ]
+        if self.current_result is not None:
+            self._apply_defaults_to_result(self.current_result, mark_stale=True)
             self.viewer.display_result(self.current_result)
         self.viewer.set_depth_clipping_fraction(float(state.get("depth_clip_fraction", 0.0)))
 
@@ -1359,6 +1366,7 @@ class MainWindow(QMainWindow):
             self.interfaces_list.addItem(f"{name}: {group_a} ↔ {group_b}")
         self.make_interface_button.setEnabled(len(names) >= 2)
         self._update_solve_targets()
+        self._refresh_ui_state()
 
     def _select_saved_group(self, item: QListWidgetItem) -> None:
         name = item.data(Qt.UserRole)
@@ -1402,6 +1410,7 @@ class MainWindow(QMainWindow):
         return True
 
     def _set_project_dirty(self, dirty: bool = True) -> None:
+        self._refresh_ui_state()
         self._project_dirty = dirty
         self._update_window_title()
 
@@ -1608,7 +1617,7 @@ class MainWindow(QMainWindow):
         raise ValueError(f"Unknown solve target: {target}")
 
     def solve(self) -> None:
-        if self._thread is not None:
+        if self._thread is not None or self.current_result is None:
             return
         try:
             selected_indices = self._solve_target_indices()
@@ -1625,6 +1634,7 @@ class MainWindow(QMainWindow):
                 build_surfaces=True,
                 build_vertices=True,
                 build_edges=True,
+                atomic_defaults=validate_defaults(self.atomic_defaults),
             )
         )
         self.solve_action.setEnabled(False)
@@ -1642,6 +1652,7 @@ class MainWindow(QMainWindow):
         self._worker.finished.connect(self._worker.deleteLater)
         self._thread.finished.connect(self._thread.deleteLater)
         self._thread.finished.connect(self._thread_finished)
+        self._refresh_ui_state()
         self._thread.start()
 
     def cancel_analysis(self) -> None:
@@ -1678,15 +1689,7 @@ class MainWindow(QMainWindow):
                 self._show_error(str(error))
 
     def _radius_for_atom(self, atom: Atom) -> float:
-        residue = atom.residue_name.upper()
-        specific = self.radius_overrides.get(f"RES:{residue}:{atom.name}")
-        if specific is not None:
-            return specific
-        if residue in ION_RESIDUES:
-            ion_radius = self.radius_overrides.get(f"ION:{atom.element.upper()}")
-            if ion_radius is not None:
-                return ion_radius
-        return self.radius_overrides.get(atom.element.upper(), atom.radius)
+        return apply_atom_defaults(atom, self.atomic_defaults).radius
 
     def _display_result(self, result: AnalysisResult) -> None:
         previous = self.current_result
@@ -1695,8 +1698,7 @@ class MainWindow(QMainWindow):
             and previous.source == result.source
             and len(previous.atoms) == len(result.atoms)
         )
-        if self.radius_overrides:
-            result.atoms = [replace(atom, radius=self._radius_for_atom(atom)) for atom in result.atoms]
+        self._apply_defaults_to_result(result)
         self.current_result = result
         main_atom_count = sum(
             not (atom.residue_name.upper() in WATER_RESIDUES or atom.residue_name.upper() in ION_RESIDUES)
@@ -1731,9 +1733,10 @@ class MainWindow(QMainWindow):
         self._populate_structure_browser()
         self._update_running_selection()
         self._populate_analysis_sections(result)
-        self.progress_label.setText("Complete")
+        self.progress_label.setText("Complete" if result.layers or result.summary else "Ready")
         self.progress_bar.setValue(100)
-        self.statusBar().showMessage(f"{result.name} ready")
+        self.statusBar().showMessage(f"{result.name} ready", 4000)
+        self._refresh_ui_state()
 
     @staticmethod
     def _network_layer_key(layer) -> str | None:
@@ -1942,7 +1945,15 @@ class MainWindow(QMainWindow):
         self._populate_structure_browser()
 
     def _update_running_selection(self) -> None:
+        self._refresh_ui_state()
         result = self.current_result
+        if result is not None and len(self._running_selection) == 1:
+            atom = result.atoms[next(iter(self._running_selection))]
+            mass = f"{atom.mass:g} Da" if atom.mass is not None else "unset mass"
+            charge = f"{atom.charge:+g} e" if atom.charge is not None else "unset charge"
+            self.atom_properties.setText(f"{atom.radius:g} Å · {mass} · {charge}")
+        else:
+            self.atom_properties.setText("Varies by atom" if self._running_selection else "—")
         if result is None or not self._running_selection:
             self.viewer.set_group_selection([])
             self.running_selection.setText("No atoms selected")
@@ -1991,6 +2002,7 @@ class MainWindow(QMainWindow):
         self.atom_residue.setText("—")
         self.atom_chain.setText("—")
         self.atom_position.setText("—")
+        self.atom_properties.setText("—")
         self.selection_count.setText("—")
         self.statusBar().showMessage(status)
 
@@ -2131,6 +2143,9 @@ class MainWindow(QMainWindow):
         )
         self.atom_chain.setText(atom.chain or "—")
         self.atom_position.setText(", ".join(f"{value:.3f}" for value in atom.position))
+        mass = f"{atom.mass:g} Da" if atom.mass is not None else "unset mass"
+        charge = f"{atom.charge:+g} e" if atom.charge is not None else "unset charge"
+        self.atom_properties.setText(f"{atom.radius:g} Å · {mass} · {charge}")
         self.selection_count.setText(str(len(self._running_selection)))
         self.statusBar().showMessage(
             f"{action} {atom.name}, "
@@ -2157,6 +2172,7 @@ class MainWindow(QMainWindow):
         )
         self.atom_chain.setText(atom.chain or "—")
         self.atom_position.setText("—")
+        self.atom_properties.setText("—")
         self.selection_count.setText(str(len(self._running_selection)))
         self.statusBar().showMessage(
             f"{action} {atom.residue_name} "
@@ -2212,6 +2228,7 @@ class MainWindow(QMainWindow):
         self.atom_residue.setText(description)
         self.atom_chain.setText(chain)
         self.atom_position.setText("—")
+        self.atom_properties.setText("—")
         self.selection_count.setText(str(len(self._running_selection)))
         self.statusBar().showMessage(
             f"{action} {description} "
@@ -2223,11 +2240,11 @@ class MainWindow(QMainWindow):
         if mode is None and active is not None:
             return
         self.viewer.set_selection_mode(mode)
+        self._refresh_ui_state()
         self.selection_mode_label.setText(
             f"{mode.title()} selection active" if mode else "Navigation mode"
         )
         if mode is not None:
-            self.inspector.setCurrentIndex(1)
             self.statusBar().showMessage(
                 f"{mode.title()} selection active — Shift-click toggles selections"
             )
@@ -2248,5 +2265,5 @@ class MainWindow(QMainWindow):
     def _thread_finished(self) -> None:
         self._thread = None
         self._worker = None
-        self.solve_action.setEnabled(True)
         self.cancel_action.setEnabled(False)
+        self._refresh_ui_state()

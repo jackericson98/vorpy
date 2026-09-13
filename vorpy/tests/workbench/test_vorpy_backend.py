@@ -39,7 +39,7 @@ def test_network_geometry_is_converted_to_viewer_layers():
     assert layers[2].faces.tolist() == [[0, 1, 2]]
     assert not layers[2].visible
     assert layers[2].cell_scalars["surface_energy"].tolist() == [0.125]
-    assert set(layers[2].cell_scalars) == {"gaussian_curvature", "mean_curvature", "surface_energy", "distance", "inside_outside"}
+    assert set(layers[2].cell_scalars) == {"gaussian_curvature", "mean_curvature", "surface_energy", "distance", "inside_outside", "integrated_mean_curvature", "integrated_gaussian_curvature"}
 
 
 def test_worker_forwards_selection_snapshot_to_backend():

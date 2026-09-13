@@ -58,3 +58,44 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
 """
 
 
+
+# Workbench A: quiet panels, consistent controls, and a dominant viewport.
+STUDIO_STYLESHEET += """
+QWidget { font-size: 9pt; background: #101820; }
+QFrame#workbenchHeader { background: #0b1219; border-bottom: 1px solid #253341; }
+QLabel#workbenchBrand { font-size: 15pt; font-weight: 700; background: transparent; }
+QLabel { background: transparent; }
+QLabel#viewSettingsTitle { font-size: 13pt; padding: 3px 0; }
+QLabel#emptyState { color: #a9b9c9; padding: 10px; font-size: 11pt; }
+QLabel#metricValue { font-size: 13pt; font-weight: 600; }
+QLabel#metricTitle { font-size: 9pt; color: #93a7ba; }
+QFrame#metricCard { background: #141f2a; border: none; border-radius: 6px; }
+QFrame#viewerBar { background: #0b1219; border: none; }
+QWidget#workflowPanel { background: #101820; border: none; }
+QWidget#resultsInspector { background: #0e161e; }
+QGroupBox { border: none; border-top: 1px solid #273441; margin-top: 13px; padding: 8px 2px 2px; }
+QGroupBox::title { left: 2px; color: #dae4ed; padding: 0 4px 0 0; }
+QTabWidget::pane { border: none; }
+QTabBar::tab { padding: 8px 10px; background: #101820; }
+QTabBar::tab:selected { background: #192635; border-bottom: 2px solid #806df0; }
+QPushButton, QToolButton { padding: 5px 8px; border-radius: 5px; background: #1a2835; border: 1px solid #304151; }
+QToolButton { border-color: transparent; }
+QPushButton:disabled, QToolButton:disabled { color: #627486; background: #14202b; border-color: #22303d; }
+QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit { background: #101a24; color: #dce5ef; border: 1px solid #304151; border-radius: 5px; padding: 4px 6px; min-height: 20px; }
+QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QLineEdit:disabled { color: #6f8193; border-color: #23313f; }
+QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QLineEdit:focus { border-color: #8974eb; }
+QListWidget, QTableWidget, QTreeWidget { background: #111b25; alternate-background-color: #15212d; border: none; border-radius: 5px; selection-background-color: #4f449e; }
+QListWidget::item { padding: 7px 5px; }
+QHeaderView::section { background: #1a2733; border: none; padding: 6px; }
+QSplitter::handle { background: #23313f; }
+QSplitter::handle:horizontal { width: 4px; }
+QSplitter::handle:vertical { height: 4px; }
+QScrollArea { border: none; }
+QToolTip { color: #edf2f7; background: #233343; border: 1px solid #52667b; padding: 5px; }
+"""
+STUDIO_STYLESHEET += """
+QToolButton:checked { background: #5546b8; }
+QWidget#resultsInspector QToolButton:checked { background: #192635; }
+QGroupBox { margin-top: 10px; padding-top: 6px; }
+QLabel#emptyState { padding: 4px; font-size: 10pt; }
+"""

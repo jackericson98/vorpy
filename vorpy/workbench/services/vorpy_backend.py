@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -11,6 +11,7 @@ import numpy as np
 from vorpy.src.group import Group
 from vorpy.src.system import System
 from vorpy.workbench.domain import AnalysisResult, Atom, GeometryLayer
+from vorpy.workbench.atomic_defaults import apply_system_defaults
 from vorpy.workbench.services.backend import CancellationCheck, ProgressCallback
 from vorpy.workbench.services.structure_loader import load_pdb
 from vorpy.src.output.curvature_colors import (
@@ -28,6 +29,7 @@ class VorPySolveSettings:
     build_surfaces: bool = True
     build_vertices: bool = True
     build_edges: bool = True
+    atomic_defaults: dict[str, dict[str, float]] = field(default_factory=dict)
 
 
 class _ProgressBridge:
@@ -72,6 +74,7 @@ class VorPyBackend:
         if is_cancelled():
             raise RuntimeError("Analysis cancelled")
 
+        apply_system_defaults(system, self.settings.atomic_defaults)
         group = Group(
             system,
             name=source.stem,
@@ -134,6 +137,14 @@ class VorPyBackend:
         return result
 
 
+def _numeric_charge(value):
+    try:
+        result = float(value)
+        return result if np.isfinite(result) else None
+    except (TypeError, ValueError):
+        return None
+
+
 def _atoms_from_system(system: System) -> list[Atom]:
     atoms: list[Atom] = []
     for index, row in system.balls.reset_index(drop=True).iterrows():
@@ -148,6 +159,8 @@ def _atoms_from_system(system: System) -> list[Atom]:
                 residue_sequence=str(row.get("res_seq", "")),
                 chain=str(row.get("chain_name", row.get("chain", ""))),
                 radius=float(row["rad"]),
+                mass=float(row["mass"]) if row.get("mass") is not None else None,
+                charge=_numeric_charge(row.get("charge")),
             )
         )
     return atoms
@@ -171,6 +184,9 @@ def _merge_atoms(display_atoms: list[Atom], solved_atoms: list[Atom]) -> list[At
             # preserve PDB identity fields, but keep the exact radius that
             # VorPy used to build the network.
             radius=solved.radius,
+            mass=solved.mass,
+            charge=solved.charge if solved.charge is not None else display.charge,
+            source_properties={"radius": display.radius, "mass": display.mass, "charge": display.charge},
         )
         for display, solved in zip(display_atoms, solved_atoms, strict=True)
     ]

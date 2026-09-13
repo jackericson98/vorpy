@@ -255,6 +255,7 @@ def result_to_json(result: AnalysisResult) -> dict:
         "surface_count": result.surface_count,
         "elapsed_seconds": result.elapsed_seconds,
         "info_sections": result.info_sections,
+        "defaults_stale": result.defaults_stale,
     }
 
 
@@ -302,6 +303,9 @@ def result_from_json(data: dict) -> AnalysisResult:
             residue_sequence=item.get("residue_sequence", ""),
             chain=item.get("chain", ""),
             radius=float(item.get("radius", 0.35)),
+            mass=item.get("mass"),
+            charge=item.get("charge"),
+            source_properties=dict(item.get("source_properties", {})),
         )
         for item in data.get("atoms", [])
     ]
@@ -314,6 +318,7 @@ def result_from_json(data: dict) -> AnalysisResult:
         complete_cells=int(data.get("complete_cells", 0)),
         surface_count=int(data.get("surface_count", 0)),
         elapsed_seconds=float(data.get("elapsed_seconds", 0.0)),
+        defaults_stale=bool(data.get("defaults_stale", False)),
         info_sections={
             str(section): [(str(key), str(value)) for key, value in values]
             for section, values in data.get("info_sections", {}).items()

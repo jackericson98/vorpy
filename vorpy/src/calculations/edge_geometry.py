@@ -1776,6 +1776,12 @@ def aw_edge_curvature_measures(
             timing.setdefault(key, 0.0)
 
     function_start = perf_counter() if profile else None
+    measured_start = (
+        sum(timing[key] for key in (
+            "orientation", "point_tangent", "second_derivative", "radial",
+            "normals", "mean", "gaussian",
+        )) if profile else 0.0
+    )
 
     indices = tuple(int(value) for value in generator_indices)
     locations = np.asarray(generator_locations, dtype=float)
@@ -1876,10 +1882,12 @@ def aw_edge_curvature_measures(
 
         # Edge M for all three cells.
         t0 = perf_counter() if profile else None
-        cos0 = np.clip(np.dot(n01, n02), -1.0, 1.0)
-        cos1 = np.clip(np.dot(-n01, n12), -1.0, 1.0)
-        cos2 = np.clip(np.dot(-n02, -n12), -1.0, 1.0)
-        mean_totals += float(weight) * np.arccos([cos0, cos1, cos2]) * speed
+        cosines = np.clip([
+            np.dot(n01, n02),
+            np.dot(-n01, n12),
+            np.dot(-n02, -n12),
+        ], -1.0, 1.0)
+        mean_totals += float(weight) * np.arccos(cosines) * speed
         if profile:
             timing["mean"] += perf_counter() - t0
 
@@ -1900,9 +1908,15 @@ def aw_edge_curvature_measures(
             }
 
             t0 = perf_counter() if profile else None
-            for pair in pairs:
-                normal = normals[(positions[pair[0]], positions[pair[1]])]
-                value = float(np.dot(second, np.cross(normal, first)) / speed_sq)
+            # Batch the small cross products while retaining each dot product
+            # and the original quadrature accumulation order.
+            face_normals = np.array([
+                normals[(positions[cell], positions[other])]
+                for cell, other in pairs
+            ])
+            conormals = np.cross(face_normals, first)
+            for pair, conormal in zip(pairs, conormals):
+                value = float(np.dot(second, conormal) / speed_sq)
                 if not np.isfinite(value):
                     raise ValueError("AW geodesic-curvature integrand is non-finite.")
                 gauss_totals[pair] += float(weight) * value
@@ -1931,7 +1945,10 @@ def aw_edge_curvature_measures(
                 "gaussian",
             )
         )
-        timing["other"] += max(perf_counter() - function_start - measured, 0.0)
+        timing["other"] += max(
+            perf_counter() - function_start - (measured - measured_start),
+            0.0,
+        )
 
     return {
         "mean": {

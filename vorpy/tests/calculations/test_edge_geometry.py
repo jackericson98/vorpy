@@ -1441,3 +1441,51 @@ def test_oriented_aw_face_edge_geodesic_curvature_is_direction_invariant():
     )
 
     assert value_forward == pytest.approx(value_reverse, abs=1e-14)
+
+@pytest.mark.parametrize("curved", [False, True])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_fused_edge_curvature_matches_independent_integrals(curved, reverse):
+    from vorpy.src.calculations.edge_geometry import aw_edge_curvature_measures
+
+    locations = np.array([[0., 0., 0.], [4., 0., 0.], [0., 5., 0.]])
+    if curved:
+        edge = AdditivelyWeightedTrisectorConic(
+            locations, np.array([1., 1.5, 2.]), -0.7, 1.1, component=1,
+        )
+    else:
+        edge = LineEdgeGeometry([2., 2.5, -2.], [2., 2.5, 2.])
+    if reverse:
+        from vorpy.src.calculations.edge_geometry import AffineEdgeGeometry
+        edge = AffineEdgeGeometry(edge, edge.t_max, edge.t_min)
+    indices = [10, 20, 30]
+    pairs = [(cell, other) for cell in indices for other in indices if cell != other]
+    result = aw_edge_curvature_measures(edge, indices, locations, pairs)
+    for cell in indices:
+        reference = aw_cell_edge_mean_curvature(edge, indices, locations, cell)
+        assert result['mean'][cell] == pytest.approx(reference, rel=1e-12, abs=1e-12)
+    for cell, other in pairs:
+        reference = oriented_aw_face_edge_geodesic_curvature(
+            edge, indices, locations, cell, other,
+        )
+        assert result['gaussian'][cell, other] == pytest.approx(
+            reference, rel=1e-12, abs=1e-12,
+        )
+
+
+def test_fused_edge_timing_accumulates_per_call(monkeypatch):
+    import itertools
+    import vorpy.src.calculations.edge_geometry as geometry
+
+    ticks = itertools.count()
+    monkeypatch.setattr(geometry, 'perf_counter', lambda: float(next(ticks)))
+    edge = LineEdgeGeometry([1., 1., -2.], [1., 1., 2.])
+    locations = np.array([[0., 0., 0.], [2., 0., 0.], [0., 2., 0.]])
+    timing = {}
+    kwargs = dict(edge_geometry=edge, generator_indices=[10, 20, 30],
+                  generator_locations=locations, timing=timing)
+    first = geometry.aw_edge_curvature_measures(**kwargs)
+    initial = timing.copy()
+    second = geometry.aw_edge_curvature_measures(**kwargs)
+    assert first == second
+    assert initial['other'] > 0
+    assert timing == {key: 2 * value for key, value in initial.items()}

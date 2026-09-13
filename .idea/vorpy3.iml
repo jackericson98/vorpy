@@ -10,7 +10,7 @@
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
       <excludeFolder url="file://$MODULE_DIR$/.release_test" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.10 (vorpy) (2)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="~/PycharmProjects/vorpy/.venv" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PyDocumentationSettings">
