@@ -23,7 +23,7 @@ from vorpy.src.output.curvature_colors import (
 @dataclass(frozen=True)
 class VorPySolveSettings:
     network_type: str = "aw"
-    max_vertices: int = 40
+    max_vertices: int = 5
     box_size: float = 1.25
     surface_resolution: float = 0.2
     build_surfaces: bool = True
@@ -399,4 +399,3 @@ def _layers_from_network(
                 interpretation="boundary",
             ))
     return layers
-

@@ -91,7 +91,7 @@ QSplitter::handle { background: #23313f; }
 QSplitter::handle:horizontal { width: 4px; }
 QSplitter::handle:vertical { height: 4px; }
 QScrollArea { border: none; }
-QToolTip { color: #edf2f7; background: #233343; border: 1px solid #52667b; padding: 5px; }
+QToolTip { color: #edf2f7; background: #233343; border: 1px solid #52667b; padding: 5px; font-size: 8pt; }
 """
 STUDIO_STYLESHEET += """
 QToolButton:checked { background: #5546b8; }

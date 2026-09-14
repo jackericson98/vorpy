@@ -109,8 +109,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("VorPy")
-        self.resize(1480, 900)
-        self.setMinimumSize(1050, 680)
+        self.resize(1600, 1000)
+        self.setMinimumSize(1150, 760)
         self.backend = VorPyBackend()
         self.project = Project()
         self.atomic_defaults: dict[str, dict[str, float]] = {}
@@ -154,7 +154,13 @@ class MainWindow(QMainWindow):
         super().showEvent(event)
         if not self._layout_restored:
             self._layout_restored = True
-            QTimer.singleShot(0, lambda: self.workspace_splitter.setSizes([max(400, self.height() - 410), 300]))
+            QTimer.singleShot(
+                0,
+                lambda: self.workspace_splitter.setSizes([
+                    300,
+                    max(600, self.workspace_splitter.width() - 300),
+                ]),
+            )
 
     def _build_actions(self) -> None:
         style = self.style()
@@ -290,7 +296,7 @@ class MainWindow(QMainWindow):
         self.view_settings_panel = self._build_inspector()
         self.upper_workspace.addWidget(self.view_settings_panel)
         self.upper_workspace.setStretchFactor(0, 1)
-        self.upper_workspace.setSizes([1060, 360])
+        self.upper_workspace.setSizes([1240, 360])
         self.right_workspace.addWidget(self.upper_workspace)
         self.solve_panel = self._build_solve_section()
         # Solve and Analysis are independent panes so the solve controls stay
@@ -304,7 +310,7 @@ class MainWindow(QMainWindow):
         self.bottom_workspace.addWidget(self.solve_container)
         self.bottom_workspace.addWidget(self.analysis_tray)
         self.bottom_workspace.setStretchFactor(1, 1)
-        self.bottom_workspace.setSizes([380, 900])
+        self.bottom_workspace.setSizes([400, 1000])
         self.bottom_workspace.setMinimumHeight(300)
         self.lower_workspace = self.bottom_workspace  # compatibility alias
         self.right_workspace.addWidget(self.bottom_workspace)
@@ -312,7 +318,7 @@ class MainWindow(QMainWindow):
         self.right_workspace.setSizes([650, 260])
         self.workspace_splitter.addWidget(self.right_workspace)
         self.workspace_splitter.setStretchFactor(1, 1)
-        self.workspace_splitter.setSizes([320, 1060])
+        self.workspace_splitter.setSizes([300, 1300])
         layout.addWidget(self.workspace_splitter)
         self.setCentralWidget(root)
 
@@ -598,7 +604,7 @@ class MainWindow(QMainWindow):
         self.network_type.addItems(["Atomic Voronoi", "Power", "Primitive"])
         self.max_vertices = QSpinBox()
         self.max_vertices.setRange(1, 10000)
-        self.max_vertices.setValue(40)
+        self.max_vertices.setValue(5)
         self.box_size = QDoubleSpinBox()
         self.box_size.setRange(1.0, 10.0)
         self.box_size.setSingleStep(0.05)
@@ -608,25 +614,26 @@ class MainWindow(QMainWindow):
         self.surface_resolution.setSingleStep(0.01)
         self.surface_resolution.setValue(0.2)
         fields = (
-            ("Targe", self.solve_target,
-             "Choose what to analyze: the whole molecule, active selection, a saved group, "
-             "or an interface defined by two groups."),
+            ("Target", self.solve_target,
+             "Choose what to analyze:\nwhole molecule, active selection,\n"
+             "a saved group, or an interface."),
             ("Scheme", self.network_type,
-             "Choose the spatial partitioning method. Atomic Voronoi uses distance to atom "
-             "surfaces; Power uses squared distance weighted by atomic radii; Primitive "
-             "uses distance to atom centers without radius weighting."),
+             "Choose the spatial partitioning method.\n"
+             "Atomic Voronoi uses atom-surface distance;\n"
+             "Power weights squared distance by atomic radii;\n"
+             "Primitive uses atom-center distance."),
             ("Probe Size", self.max_vertices,
-             "Maximum allowed Voronoi vertex radius (Å), used as a cutoff during network "
-             "construction. Larger values allow larger vertices; smaller values restrict "
-             "the network. This does not change atomic radii."),
+             "Maximum Voronoi vertex radius (Å).\n"
+             "Larger values allow larger vertices; smaller values\n"
+             "restrict the network. This does not change atom radii."),
             ("Boundary Padding", self.box_size,
-             "Dimensionless factor controlling the calculation bounding box around the "
-             "structure. Larger values extend the boundary farther out. A value of 1.25 "
-             "adds 25% of the coordinate span on each side of each non-flat axis."),
+             "Factor controlling the calculation bounding box.\n"
+             "Larger values extend the boundary farther out.\n"
+             "1.25 adds 25% on each side of each axis."),
             ("Resolution", self.surface_resolution,
-             "Target spacing (Å) for surface triangulation. Smaller values produce finer "
-             "surface meshes with more triangles and take more time and memory; larger "
-             "values produce coarser meshes."),
+             "Target spacing (Å) for surface triangulation.\n"
+             "Smaller values produce finer meshes and take more\n"
+             "time and memory; larger values produce coarser meshes."),
         )
         for title, control, explanation in fields:
             label = QLabel(title)

@@ -28,7 +28,7 @@ class WorkflowSidebar(QWidget):
         super().__init__()
         self.setObjectName("workflowPanel")
         self.setMinimumWidth(240)
-        self.setMaximumWidth(340)
+        self.setMaximumWidth(320)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.addWidget(tabs)
