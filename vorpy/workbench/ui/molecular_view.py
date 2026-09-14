@@ -10,6 +10,7 @@ from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 from pyvistaqt import QtInteractor
 from vtkmodules.vtkCommonDataModel import vtkPlane
+from vtkmodules.vtkRenderingCore import vtkActor, vtkGlyph3DMapper
 
 from vorpy.workbench.domain import AnalysisResult, Atom, GeometryLayer
 
@@ -39,38 +40,8 @@ VDW_RADII = {
     "ZN": 1.39,
     "FE": 1.56,
 }
-WATER_RESIDUES = {"HOH", "WAT", "SOL", "TIP3", "TIP3P", "SPC", "SPCE"}
-ION_RESIDUES = {
-    "LI",
-    "NA",
-    "K",
-    "RB",
-    "CS",
-    "MG",
-    "CA",
-    "SR",
-    "BA",
-    "ZN",
-    "CD",
-    "FE",
-    "FE2",
-    "FE3",
-    "MN",
-    "CU",
-    "CU1",
-    "CU2",
-    "CO",
-    "NI",
-    "AL",
-    "F",
-    "CL",
-    "BR",
-    "I",
-    "IOD",
-    "SO4",
-    "PO4",
-    "NH4",
-}
+from vorpy.workbench.chemistry import WATER_RESIDUES, ION_RESIDUES
+
 CARTOON_COLORS = ("#6f7ee8", "#39a88e", "#d27a43", "#9c68cf", "#cf5f7b")
 
 
@@ -80,6 +51,8 @@ class MolecularView(QWidget):
     selected_chain = Signal(object, bool)
     selected_molecule = Signal(object, bool)
     selection_cleared = Signal()
+
+    loading_progress = Signal(str, int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -106,7 +79,8 @@ class MolecularView(QWidget):
         self._waters_visible = False
         self._water_style = "ball-and-stick"
         self._water_opacity = 0.25
-        self._ions_visible = False
+        self._ion_opacity = 0.75
+        self._ions_visible = True
         self._bonds_visible = False
         self._press_position: tuple[float, float] | None = None
         self._selection_dragged = False
@@ -118,6 +92,7 @@ class MolecularView(QWidget):
         # the computational radii stored on Atom.radius.
         self._edge_radius = 0.020
         self._vertex_radius = 0.130
+        self._pending_bond_groups = {}
 
     def clear_result(self) -> None:
         """Clear molecular state and picking when closing the active project."""
@@ -128,34 +103,48 @@ class MolecularView(QWidget):
         self.reset_depth_clipping(render=False)
         self.plotter.clear()
         self._actors.clear()
+        self._pending_bond_groups = {}
         self._layer_definitions.clear()
         self._result = None
         self._positions = np.empty((0, 3))
         self.plotter.render()
 
-    def display_result(self, result: AnalysisResult) -> None:
+    def display_result(self, result: AnalysisResult, *, preserve_camera=False) -> None:
         # Picking survives plotter.clear(), so explicitly remove the previous
         # observer before installing a picker for the newly loaded result.
         try:
             self.plotter.disable_picking()
         except (AttributeError, RuntimeError):
             pass
-        self.reset_depth_clipping(render=False)
+        camera = self.plotter.camera_position if preserve_camera else None
+        if not preserve_camera:
+            self.reset_depth_clipping(render=False)
         self.plotter.clear()
         self._actors.clear()
+        self._pending_bond_groups = {}
         self._layer_definitions = {layer.name: layer for layer in result.layers}
         self._result = result
         self._positions = np.asarray(
             [atom.position for atom in result.atoms], dtype=float
         )
+        self.loading_progress.emit("Building backbone traces…", 77)
         self._add_cartoon(result.atoms)
+        self.loading_progress.emit("Preparing atom display…", 80)
         self._add_atoms(result.atoms)
+        self.loading_progress.emit("Preparing bond display…", 83)
         self._add_bonds(result)
+        self.loading_progress.emit("Preparing network geometry…", 85)
         for layer in result.layers:
             if layer.visible:
                 self._add_layer(layer)
+        self.loading_progress.emit("Rendering structure…", 87)
         self._axes_actor = self.plotter.add_axes()
-        self.plotter.reset_camera()
+        if camera is not None:
+            self.plotter.camera_position = camera
+            for actor in self._rendered_actors():
+                self._apply_depth_clip_to_actor(actor)
+        else:
+            self.plotter.reset_camera()
         self._refresh_scalar_bar()
         self.plotter.render()
         if self._selection_mode is not None:
@@ -181,17 +170,24 @@ class MolecularView(QWidget):
                 [atom.radius for atom in element_atoms],
                 dtype=float,
             )
-            glyphs = cloud.glyph(scale="radius", orient=False, geom=unit_sphere)
-            opacity = (
-                self._water_opacity if category == "waters" else self._molecule_opacity
+            # Instance one sphere on the GPU instead of expanding a mesh for
+            # every atom (including hidden solvent atoms).
+            mapper = vtkGlyph3DMapper()
+            mapper.SetInputData(cloud)
+            mapper.SetSourceData(unit_sphere)
+            mapper.SetScaleArray("radius")
+            mapper.SetScaleModeToScaleByMagnitude()
+            mapper.SetScaleFactor(1.0)
+            mapper.OrientOff()
+            mapper.ScalarVisibilityOff()
+            actor = vtkActor()
+            actor.SetMapper(mapper)
+            actor.GetProperty().SetColor(pv.Color(ELEMENT_COLORS.get(element, "#bf8bd8")).float_rgb)
+            actor.GetProperty().SetOpacity(
+                self._water_opacity if category == "waters" else
+                self._ion_opacity if category == "ions" else self._molecule_opacity
             )
-            actor = self.plotter.add_mesh(
-                glyphs,
-                color=ELEMENT_COLORS.get(element, "#bf8bd8"),
-                opacity=opacity,
-                smooth_shading=True,
-                name=f"{category}-{element}",
-            )
+            self.plotter.add_actor(actor, name=f"{category}-{element}", render=False)
             visible = (
                 self._waters_visible and self._water_style == "ball-and-stick"
                 if category == "waters"
@@ -202,20 +198,10 @@ class MolecularView(QWidget):
             actor.SetVisibility(visible)
             self._actors[category].append(actor)
             if category == "waters":
-                vdw_cloud = pv.PolyData(
-                    np.asarray([atom.position for atom in element_atoms])
-                )
-                vdw_cloud["radius"] = np.asarray(
-                    [atom.radius for atom in element_atoms],
-                    dtype=float,
-                )
-                vdw_actor = self.plotter.add_mesh(
-                    vdw_cloud.glyph(scale="radius", orient=False, geom=unit_sphere),
-                    color=ELEMENT_COLORS.get(element, "#bf8bd8"),
-                    opacity=self._water_opacity,
-                    smooth_shading=True,
-                    name=f"water-spheres-{element}",
-                )
+                vdw_actor = vtkActor()
+                vdw_actor.SetMapper(mapper)
+                vdw_actor.GetProperty().DeepCopy(actor.GetProperty())
+                self.plotter.add_actor(vdw_actor, name=f"water-spheres-{element}", render=False)
                 vdw_actor.SetVisibility(
                     self._waters_visible and self._water_style == "spheres"
                 )
@@ -335,6 +321,9 @@ class MolecularView(QWidget):
     ) -> None:
         if not bonds:
             return
+        if not visible:
+            self._pending_bond_groups[category] = (points, atoms, bonds)
+            return
         half_bonds: dict[str, list[tuple[np.ndarray, np.ndarray]]] = defaultdict(list)
         for bond in bonds:
             point_a = points[bond.atom_a]
@@ -360,6 +349,7 @@ class MolecularView(QWidget):
                 color=ELEMENT_COLORS.get(element, "#bf8bd8"),
                 smooth_shading=True,
                 name=f"{category}-{element}",
+                render=False,
             )
             actor.SetVisibility(visible)
             self._actors[category].append(actor)
@@ -978,8 +968,19 @@ class MolecularView(QWidget):
             actor.SetVisibility(visible)
         self.plotter.render()
 
+    def _ensure_bond_group(self, category: str) -> None:
+        pending = self._pending_bond_groups.pop(category, None)
+        if pending is not None:
+            self._add_bond_group(*pending, category, True)
+            for actor in self._actors[category]:
+                self._apply_depth_clip_to_actor(actor)
+
     def set_bonds_visible(self, visible: bool) -> None:
         self._bonds_visible = visible
+        if visible:
+            self._ensure_bond_group("bonds")
+            if self._ions_visible:
+                self._ensure_bond_group("ion_bonds")
         for actor in self._actors.get("bonds", ()):
             actor.SetVisibility(visible)
         for actor in self._actors.get("water_bonds", ()):
@@ -993,6 +994,8 @@ class MolecularView(QWidget):
 
     def set_waters_visible(self, visible: bool) -> None:
         self._waters_visible = visible
+        if visible and self._water_style in {"sticks", "ball-and-stick"}:
+            self._ensure_bond_group("water_bonds")
         for actor in self._actors.get("waters", ()):
             actor.SetVisibility(visible and self._water_style == "ball-and-stick")
         for actor in self._actors.get("water_spheres", ()):
@@ -1016,10 +1019,18 @@ class MolecularView(QWidget):
 
     def set_ions_visible(self, visible: bool) -> None:
         self._ions_visible = visible
+        if visible and self._bonds_visible:
+            self._ensure_bond_group("ion_bonds")
         for actor in self._actors.get("ions", ()):
             actor.SetVisibility(visible)
         for actor in self._actors.get("ion_bonds", ()):
             actor.SetVisibility(visible and self._bonds_visible)
+        self.plotter.render()
+
+    def set_ion_opacity(self, opacity: float) -> None:
+        self._ion_opacity = opacity
+        for actor in self._actors.get("ions", ()):
+            actor.GetProperty().SetOpacity(opacity)
         self.plotter.render()
 
     def set_layer_visible(self, name: str, visible: bool) -> None:

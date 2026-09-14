@@ -8,7 +8,9 @@ from vorpy.workbench.services.structure_loader import load_pdb
 MESH_SUFFIXES = {".off", ".ply", ".vtp"}
 
 
-def load_result_directory(directory: Path):
+def load_result_directory(directory: Path, progress=None):
+    report = progress or (lambda label, value: None)
+    report("Finding structure files…", 0)
     pdb_files = sorted(directory.rglob("*.pdb"))
     preferred = [
         path for path in pdb_files
@@ -16,7 +18,8 @@ def load_result_directory(directory: Path):
     ]
     if not preferred and not pdb_files:
         raise ValueError("The selected directory does not contain a PDB structure")
-    result = load_pdb((preferred or pdb_files)[0])
+    result = load_pdb((preferred or pdb_files)[0], progress=lambda label, value: report(label, value * 90 // 100))
+    report("Discovering network geometry…", 92)
     result.name = directory.name
 
     for mesh_path in sorted(path for path in directory.rglob("*") if path.suffix.lower() in MESH_SUFFIXES):
@@ -40,6 +43,7 @@ def load_result_directory(directory: Path):
             opacity=opacity,
             visible=initially_visible,
         ))
+    report("Result files read", 100)
     return result
 
 

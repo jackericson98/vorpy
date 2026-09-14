@@ -1,4 +1,5 @@
 import re
+from vorpy.src.input_progress import iter_input_lines
 import numpy as np
 
 from pandas import DataFrame
@@ -9,7 +10,7 @@ from vorpy.src.chemistry import my_masses, residue_names, residue_atoms
 from vorpy.src.inputs.fix_sol import fix_sol
 
 
-def read_mol2(sys, file=None):
+def read_mol2(sys, file=None, progress=None):
     """
     Read a Tripos MOL2 file into a VorPy System.
 
@@ -21,8 +22,7 @@ def read_mol2(sys, file=None):
     if file is None:
         file = sys.files['base_file']
 
-    with open(file, 'r') as rf:
-        lines = rf.readlines()
+    report = progress or (lambda label, value: None)
 
     sys.chains, sys.residues, sys.sol = [], [], None
 
@@ -39,7 +39,7 @@ def read_mol2(sys, file=None):
 
     section = None
 
-    for line in lines:
+    for line in iter_input_lines(file, lambda label, value: report(label, value * 30 // 100)):
         stripped = line.strip()
 
         if stripped.startswith('@<TRIPOS>'):
@@ -80,7 +80,7 @@ def read_mol2(sys, file=None):
     raw_bonds = []
     atom_count = 0
 
-    for line in lines:
+    for line in iter_input_lines(file, lambda label, value: report(label, 30 + value * 60 // 100)):
         stripped = line.strip()
 
         if stripped.startswith('@<TRIPOS>'):
@@ -231,6 +231,7 @@ def read_mol2(sys, file=None):
 
     sys.sol.residues = adjusted_residues
 
+    report("MOL2 structure ready", 100)
     return sys
 
 

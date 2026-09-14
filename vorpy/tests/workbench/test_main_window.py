@@ -22,6 +22,7 @@ class PlotterStub:
 
 
 class ViewerStub(QWidget):
+    loading_progress = Signal(str, int)
     selected_atom = Signal(object, bool)
     selected_residue = Signal(object, bool)
     selected_chain = Signal(object, bool)
@@ -34,8 +35,9 @@ class ViewerStub(QWidget):
         self.calls = []
         self.result = None
 
-    def display_result(self, result):
+    def display_result(self, result, **kwargs):
         self.result = result
+        self.calls.append(("display", kwargs.get("preserve_camera", False)))
 
     def clear_result(self):
         self.result = None
@@ -70,6 +72,9 @@ class ViewerStub(QWidget):
 
     def set_ions_visible(self, visible):
         self.calls.append(("ions", visible))
+
+    def set_ion_opacity(self, opacity):
+        self.calls.append(("ion-opacity", opacity))
 
     def set_layer_visible(self, name, visible):
         self.calls.append((f"layer:{name}", visible))
@@ -146,10 +151,11 @@ def test_action_state_and_visibility_controls(monkeypatch):
     assert not window.show_spheres.isChecked()
     assert not window.show_sticks.isChecked()
     assert not window.show_waters.isChecked()
-    assert not window.show_ions.isChecked()
+    assert window.show_ions.isChecked()
     assert window.water_style.currentData() == "ball-and-stick"
     assert window.water_opacity.value() == 25
     assert window.molecule_opacity.value() == 50
+    assert window.ion_opacity.value() == 75
 
     window.show_spheres.setChecked(True)
     window.show_sticks.setChecked(True)
@@ -170,6 +176,8 @@ def test_action_state_and_visibility_controls(monkeypatch):
     window.water_opacity.setValue(35)
     assert ("water-style", "spheres") in window.viewer.calls
     assert ("water-opacity", 0.35) in window.viewer.calls
+    window.ion_opacity.setValue(40)
+    assert ("ion-opacity", 0.4) in window.viewer.calls
 
     window.select_atom_action.setChecked(True)
     window.select_residue_action.setChecked(True)
@@ -191,10 +199,11 @@ def test_bottom_tray_and_small_molecule_representation_defaults(monkeypatch):
     window = make_window(monkeypatch)
     assert window.workspace_splitter.orientation() == Qt.Vertical
     assert window.workspace_splitter.widget(0) is window.upper_workspace
-    assert window.workspace_splitter.widget(1) is window.analysis_tray
-    assert window.upper_workspace.widget(0) is window.workflow_panel
-    assert window.workflow_panel.parentWidget() is window.upper_workspace
-    assert window.analysis_tray.parentWidget() is window.workspace_splitter
+    assert window.workspace_splitter.widget(1) is window.lower_workspace
+    assert window.upper_workspace.widget(0) is window.viewer_panel
+    assert window.upper_workspace.widget(1) is window.view_settings_panel
+    assert window.workflow_panel.parentWidget() is window.lower_workspace
+    assert window.analysis_tray.parentWidget() is window.lower_workspace
     assert window.max_vertices.isVisibleTo(window)
     assert window.box_size.isVisibleTo(window)
     assert window.surface_resolution.isVisibleTo(window)
@@ -600,7 +609,7 @@ def test_multiple_structures_switch_with_independent_selection_and_statistics(mo
     second_result.name = "second"
     second_result.complete_cells = 99
     monkeypatch.setattr(
-        main_window, "load_pdb", lambda path: {first: first_result, second: second_result}[path]
+        main_window, "load_pdb", lambda path, **kwargs: {first: first_result, second: second_result}[path]
     )
     window = make_window(monkeypatch)
 
@@ -798,7 +807,7 @@ def test_workbench_empty_loaded_busy_and_reset_states(monkeypatch):
     assert not window.system_display.isEnabled()
     assert window.analysis_empty.isVisibleTo(window)
     assert not window.make_interface_button.isEnabled()
-    assert window.upper_workspace.widget(2).isAncestorOf(window.solve_network_button)
+    assert window.lower_workspace.widget(1).isAncestorOf(window.solve_network_button)
     assert "0 selected" in window.state_summary.text()
 
     result = sample_result()
@@ -833,7 +842,8 @@ def test_layout_state_round_trip_and_results_collapse(monkeypatch):
     window = make_window(monkeypatch)
     window.show()
     QApplication.processEvents()
-    window.upper_workspace.setSizes([310, 710, 340])
+    window.upper_workspace.setSizes([1000, 400])
+    window.lower_workspace.setSizes([450, 350, 600])
     window.analysis_tray.set_expanded(False)
     state = window._view_state_to_json()
     assert not state["results_expanded"]
@@ -841,6 +851,7 @@ def test_layout_state_round_trip_and_results_collapse(monkeypatch):
     window._restore_view_state(state)
     assert not window.analysis_tray.content.isVisibleTo(window)
     assert window.upper_workspace.sizes() == state["panel_sizes"]
+    assert window.lower_workspace.sizes() == state["bottom_panel_sizes"]
     window._focus_results()
     assert window.analysis_tray.content.isVisibleTo(window)
     window.close()
@@ -881,3 +892,333 @@ def test_atomic_defaults_update_loaded_atoms_and_mark_results_outdated(monkeypat
     monkeypatch.setattr(window, '_confirm_discard_changes', lambda: True)
     window.new_project()
     assert window.atomic_defaults == {}
+
+
+def test_filtered_browser_switch_preserves_selection(monkeypatch):
+    window = make_window(monkeypatch)
+    result = sample_result()
+    from dataclasses import replace
+    result.atoms[0] = replace(result.atoms[0], residue_name="ILE")
+    window._display_result(result)
+    window.structure_browser.item(0).setCheckState(Qt.Checked)
+    window.structure_search.setText("ILE")
+    for category in ("Residues", "Chains", "Molecules", "Atoms"):
+        window.structure_browser_type.setCurrentText(category)
+        assert window._running_selection == {0}
+        for row in range(window.structure_browser.count()):
+            item = window.structure_browser.item(row)
+            assert item.isHidden() == ("ile" not in item.text().casefold())
+    window.close()
+
+
+def test_atom_rendering_instances_spheres():
+    from collections import defaultdict
+    from vtkmodules.vtkRenderingCore import vtkGlyph3DMapper
+    class Plotter:
+        def add_actor(self, actor, **kwargs):
+            pass
+    viewer = SimpleNamespace(
+        plotter=Plotter(), _actors=defaultdict(list), _water_opacity=0.3,
+        _molecule_opacity=1.0, _waters_visible=False, _water_style="spheres",
+        _ions_visible=True, _spheres_visible=True,
+        _is_water=MolecularView._is_water, _is_ion=MolecularView._is_ion,
+    )
+    MolecularView._add_atoms(viewer, sample_result().atoms)
+    actors = viewer._actors["atoms"]
+    assert len(actors) == 2
+    for actor in actors:
+        mapper = actor.GetMapper()
+        assert isinstance(mapper, vtkGlyph3DMapper)
+        assert mapper.GetInput().GetNumberOfPoints() == 1
+        assert mapper.GetScaleFactor() == 1.0
+
+
+def test_loading_keeps_event_loop_alive_and_recovers_from_error(monkeypatch, tmp_path):
+    from threading import Event, get_ident
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QApplication
+    window = make_window(monkeypatch)
+    source = tmp_path / 'slow.pdb'
+    source.write_text('END\n')
+    gui_thread = get_ident()
+    heartbeat = Event()
+    observed = []
+
+    def read(path, progress, preview=None):
+        assert get_ident() != gui_thread
+        progress('Reading test structure', 25)
+        assert heartbeat.wait(3), 'GUI event loop stopped during reading'
+        return sample_result()
+
+    def tick():
+        if window._loading_structure:
+            observed.append(window.progress_bar.isVisibleTo(window))
+            heartbeat.set()
+
+    timer = QTimer(window)
+    timer.timeout.connect(tick)
+    timer.start(5)
+    monkeypatch.setattr(main_window, 'load_pdb', read)
+    window.load_path(source)
+    timer.stop()
+    assert heartbeat.is_set() and all(observed)
+    assert window._load_dialog is None
+    assert not window._loading_structure
+    assert window.current_result.name == 'tiny'
+    previous = window.current_result
+    errors = []
+    monkeypatch.setattr(window, '_show_error', errors.append)
+    def fail(path, progress, preview=None):
+        raise ValueError('Invalid structure')
+    monkeypatch.setattr(main_window, 'load_pdb', fail)
+    window.load_path(tmp_path / 'invalid.pdb')
+    assert errors == ['Invalid structure']
+    assert window.current_result is previous
+    assert window.open_action.isEnabled()
+    assert not window._loading_structure
+    window._project_dirty = False
+    window.close()
+
+
+def test_molecule_groups_cover_disconnected_atoms_and_cycles():
+    result = sample_result()
+    result.atoms = [Atom(i, i + 1, 'O', 'O', (float(i), 0., 0.)) for i in range(10000)]
+    result.bonds = [Bond(0, 1), Bond(1, 2), Bond(2, 0), Bond(5, 7)]
+    groups = main_window.MainWindow._molecule_groups(result)
+    assert groups[:4] == [('Molecule 1 (3 atoms)', (0, 1, 2)),
+                          ('Molecule 2 (1 atoms)', (3,)),
+                          ('Molecule 3 (1 atoms)', (4,)),
+                          ('Molecule 4 (2 atoms)', (5, 7))]
+    assert sorted(i for label, indices in groups for i in indices) == list(range(10000))
+
+
+def test_hidden_bonds_are_built_once_when_enabled():
+    from collections import defaultdict
+    from types import MethodType
+    import numpy as np
+    import pyvista as pv
+    class Plotter:
+        def __init__(self):
+            self.added = []
+        def add_mesh(self, mesh, **kwargs):
+            self.added.append(mesh)
+            return pv.Actor()
+        def render(self):
+            pass
+    result = sample_result()
+    view = SimpleNamespace(plotter=Plotter(), _actors=defaultdict(list),
+                           _pending_bond_groups={}, _ions_visible=False,
+                           _waters_visible=False, _water_style='ball-and-stick',
+                           _apply_depth_clip_to_actor=lambda actor: None)
+    view._add_bond_group = MethodType(MolecularView._add_bond_group, view)
+    view._ensure_bond_group = MethodType(MolecularView._ensure_bond_group, view)
+    view._add_bond_group(np.asarray([atom.position for atom in result.atoms]),
+                         result.atoms, result.bonds, 'bonds', False)
+    assert not view.plotter.added
+    assert 'bonds' in view._pending_bond_groups
+    MolecularView.set_bonds_visible(view, True)
+    assert len(view.plotter.added) == 2
+    assert 'bonds' not in view._pending_bond_groups
+    MolecularView.set_bonds_visible(view, False)
+    MolecularView.set_bonds_visible(view, True)
+    assert len(view.plotter.added) == 2
+    assert all(actor.GetVisibility() for actor in view._actors['bonds'])
+
+
+def test_preview_is_interactive_and_remaps_selection_on_completion(monkeypatch, tmp_path):
+    from dataclasses import replace
+    from threading import Event
+    from PySide6.QtCore import QTimer
+    from vorpy.workbench.domain import AnalysisResult
+    source = tmp_path / 'solvated.pdb'
+    source.write_text('END\n')
+    primary = sample_result()
+    primary.source = source
+    primary.layers = []
+    primary.complete_cells = 0
+    full = AnalysisResult(source, 'full', atoms=[
+        Atom(0, 10, 'O', 'O', (10., 0., 0.), 'HOH'),
+        replace(primary.atoms[0], index=1),
+        Atom(2, 11, 'O', 'O', (20., 0., 0.), 'HOH'),
+        replace(primary.atoms[1], index=3),
+    ], bonds=[Bond(1, 3)])
+    interacted = Event()
+    window = make_window(monkeypatch)
+    observations = []
+    def read(path, progress, preview):
+        preview(primary)
+        assert interacted.wait(3)
+        return full
+    def interact():
+        if window._molecule_preview and window._load_dialog is None and not interacted.is_set():
+            observations.append((window.solve_action.isEnabled(), window.save_project_action.isEnabled(),
+                                 window.structure_browser.isEnabled(), source not in window._loaded_results))
+            window.structure_browser.item(1).setCheckState(Qt.Checked)
+            window._groups = {'Chosen': (0, 1)}
+            window.show_sticks.setChecked(False)
+            interacted.set()
+    timer = QTimer(window)
+    timer.timeout.connect(interact)
+    timer.start(5)
+    monkeypatch.setattr(main_window, 'load_pdb', read)
+    window.load_path(source)
+    timer.stop()
+    assert observations == [(False, False, True, True)]
+    assert window._running_selection == {3}
+    assert window._groups == {'Chosen': (1, 3)}
+    assert ('display', True) in window.viewer.calls
+    assert not window.show_sticks.isChecked()
+    assert window.current_result is full
+    assert window._loaded_results[source] is full
+    assert window.solve_action.isEnabled() and window.save_project_action.isEnabled()
+    assert not window._molecule_preview
+    window._project_dirty = False
+    window.close()
+
+
+def test_failed_background_load_restores_previous_structure(monkeypatch, tmp_path):
+    from threading import Event
+    from PySide6.QtCore import QTimer
+    window = make_window(monkeypatch)
+    old = sample_result()
+    old.source = tmp_path / 'old.pdb'
+    window.source = old.source
+    window._display_result(old)
+    window._running_selection = {1}
+    window._groups = {'Old group': (1,)}
+    source = tmp_path / 'new.pdb'
+    source.write_text('END\n')
+    primary = sample_result()
+    primary.source = source
+    shown = Event()
+    def read(path, progress, preview):
+        preview(primary)
+        assert shown.wait(3)
+        raise ValueError('Solvent read failed')
+    timer = QTimer(window)
+    timer.timeout.connect(lambda: shown.set() if window._molecule_preview and window._load_dialog is None else None)
+    timer.start(5)
+    errors = []
+    monkeypatch.setattr(main_window, 'load_pdb', read)
+    monkeypatch.setattr(window, '_show_error', errors.append)
+    window.load_path(source)
+    timer.stop()
+    assert errors == ['Solvent read failed']
+    assert window.source == old.source and window.current_result is old
+    assert window._running_selection == {1}
+    assert window._groups == {'Old group': (1,)}
+    assert source not in window._loaded_results
+    assert not window._molecule_preview and not window._loading_structure
+    window._project_dirty = False
+    window.close()
+
+
+def test_virtual_browser_filtered_checkbox_maps_to_source_atom(monkeypatch):
+    window = make_window(monkeypatch)
+    window._display_result(sample_result())
+    window.structure_search.setText('CA')
+    proxy = window.structure_browser.model()
+    assert proxy.rowCount() == 1
+    assert proxy.setData(proxy.index(0, 0), Qt.Checked, Qt.CheckStateRole)
+    assert window._running_selection == {1}
+    window.structure_search.clear()
+    assert proxy.rowCount() == 2
+    assert window.structure_browser.item(0).checkState() == Qt.Unchecked
+    assert window.structure_browser.item(1).checkState() == Qt.Checked
+    window._running_selection = {0}
+    window._update_running_selection()
+    assert window.structure_browser.item(0).checkState() == Qt.Checked
+    assert window.structure_browser.item(1).checkState() == Qt.Unchecked
+    window.close()
+
+
+def test_preview_display_failure_releases_worker_and_restores_empty_state(monkeypatch, tmp_path):
+    window = make_window(monkeypatch)
+    source = tmp_path / 'preview.pdb'
+    source.write_text('END\n')
+    primary = sample_result()
+    primary.source = source
+    def read(path, progress, preview):
+        preview(primary)
+        return primary
+    original_display = window._display_result
+    def display(result, **kwargs):
+        if kwargs.get('preview'):
+            raise ValueError('Preview could not be displayed')
+        original_display(result, **kwargs)
+    errors = []
+    monkeypatch.setattr(window, '_display_result', display)
+    monkeypatch.setattr(window, '_show_error', errors.append)
+    monkeypatch.setattr(main_window, 'load_pdb', read)
+    window.load_path(source)
+    assert errors == ['Preview could not be displayed']
+    assert window.current_result is None and window.source is None
+    assert window._load_worker is None
+    assert not window._loading_structure and not window._molecule_preview
+    assert source not in window._loaded_results
+    window.close()
+
+
+def test_browser_selection_populates_information_for_every_category(monkeypatch):
+    window = make_window(monkeypatch)
+    window._display_result(sample_result())
+    for category in ('Atoms', 'Residues', 'Chains', 'Molecules'):
+        window._clear_selection('Reset for test')
+        window.structure_browser_type.setCurrentText(category)
+        window.structure_browser.item(0).setCheckState(Qt.Checked)
+        assert window.selection_group.title() != 'No selection'
+        assert window.atom_residue.text() == 'GLY 7'
+        assert window.atom_chain.text() == 'A'
+        assert window.atom_name.text() != '—'
+        assert window.atom_element.text() != '—'
+        assert window.atom_position.text() != '—'
+        assert 'Å' in window.atom_properties.text()
+        window.structure_browser.item(0).setCheckState(Qt.Unchecked)
+        assert window.selection_group.title() == 'No selection'
+        assert window.atom_residue.text() == '—'
+        assert window.atom_position.text() == '—'
+    window.close()
+
+
+def test_information_tracks_remaining_atoms_after_additive_removal(monkeypatch):
+    from dataclasses import replace
+    window = make_window(monkeypatch)
+    result = sample_result()
+    result.atoms[0] = replace(result.atoms[0], radius=1.5, mass=14., charge=0.)
+    result.atoms[1] = replace(result.atoms[1], residue_name='ILE', residue_sequence='8',
+                              chain='B', radius=1.8, mass=12., charge=-0.5)
+    window._display_result(result)
+    window._show_selected_atom(result.atoms[0])
+    window._show_selected_atom(result.atoms[1], additive=True)
+    assert window.atom_name.text() == 'CA, N'
+    assert window.atom_element.text() == 'C, N'
+    assert window.atom_residue.text() == 'GLY 7, ILE 8'
+    assert window.atom_chain.text() == 'A, B'
+    assert window.atom_position.text() == 'Center: 0.500, 1.000, 2.000'
+    assert window.atom_properties.text() == '1.5 to 1.8 Å · 12 to 14 Da · -0.5 to +0 e'
+    window._show_selected_atom(result.atoms[1], additive=True)
+    assert window.atom_name.text() == 'N (#1)'
+    assert window.atom_residue.text() == 'GLY 7'
+    assert window.atom_chain.text() == 'A'
+    assert window.atom_properties.text() == '1.5 Å · 14 Da · +0 e'
+    window._show_selected_atom(result.atoms[0], additive=True)
+    assert window.selection_group.title() == 'No selection'
+    assert window.atom_name.text() == '—'
+    assert window.atom_properties.text() == '—'
+    window.close()
+
+
+def test_saved_group_selection_refreshes_all_information(monkeypatch):
+    window = make_window(monkeypatch)
+    result = sample_result()
+    window._display_result(result)
+    window._show_selected_atom(result.atoms[0])
+    window._groups = {'Carbon': (1,)}
+    window._refresh_groups_panel()
+    window._select_saved_group(window.groups_list.item(0))
+    assert window.selection_group.title() == 'Group: Carbon'
+    assert window.atom_name.text() == 'CA (#2)'
+    assert window.atom_element.text() == 'C'
+    assert window.atom_residue.text() == 'GLY 7'
+    assert window.atom_position.text() == '1.000, 1.000, 2.000'
+    window.close()

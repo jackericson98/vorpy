@@ -1,4 +1,6 @@
 import os
+from itertools import chain
+from vorpy.src.input_progress import iter_input_lines
 from vorpy.src.objects import make_atom
 from vorpy.src.objects import Residue
 from vorpy.src.objects import Chain, Sol
@@ -11,7 +13,7 @@ import numpy as np
 from pandas import DataFrame
 
 
-def read_pdb(sys, file=None):
+def read_pdb(sys, file=None, progress=None):
     """
     Read and process a PDB format file into a system object.
 
@@ -59,17 +61,15 @@ def read_pdb(sys, file=None):
     else:
         print("here")
         return
-    # Print a statement saying the file is being read
-    print(f"\rReading File {os.path.basename(file)}", end="")
-    # Get the file information and make sure to close the file when done
-    with open(file_address, 'r') as f:
-        my_file = f.readlines()
-    # If the file is empty
-    if len(my_file) == 0:
-        # Open the file in the absolute path
-        with open(os.path.abspath(file_address), 'r') as f:
-            # Read the file
-            my_file = f.readlines()
+    report = progress
+    if report is None and getattr(sys, 'print_actions', False):
+        report = lambda label, value: print(f"\r{label} {value}%", end="")
+    lines = iter_input_lines(file_address,
+                             (lambda label, value: report(label, value * 90 // 100)) if report else None)
+    first_line = next(lines, "")
+    if not first_line:
+        raise ValueError(f"Empty PDB file: {file}")
+    header = first_line.split()
 
     # Add the system name and reset the atoms and data lists
     sys.name = path.basename(sys.files['base_file'])[:-4]
@@ -81,36 +81,31 @@ def read_pdb(sys, file=None):
     # Initialize the chains and residues dictionaries
     chains, resids = {}, {}
     # Check if the file is a foam file
-    if my_file[0].split()[1] == 'foam_gen':
+    if len(header) > 1 and header[1] == 'foam_gen':
         # Set the system type to foam
         sys.type = 'foam'
         try:
             # Get the box width
-            bw = float(my_file[0].split()[2])
+            bw = float(header[2])
             # Set the foam box
             sys.foam_box = [[0, 0, 0], [bw, bw, bw]]
             # Set the foam data
-            sys.foam_data = my_file[0].split()[2:]
+            sys.foam_data = header[2:]
         except ValueError:
             # Get the box width
-            bw = float(my_file[0].split()[5][:-1])
+            bw = float(header[5][:-1])
             # Set the foam box
             sys.foam_box = [[0, 0, 0], [bw, bw, bw]]
             # Set the foam data
-            sys.foam_data = my_file[0].split()[5:]
+            sys.foam_data = header[5:]
     # Check if the file is a coarse file
-    if my_file[0].split()[1] == 'coarsify':
+    if len(header) > 1 and header[1] == 'coarsify':
         # Set the system type to coarse
         sys.type = 'coarse'
     # Go through each line in the file and check if the first word is the word we are looking for
-    for i in range(len(my_file)):
-        # Print a loading statement for longer files
-        print(f"\rReading File {os.path.basename(file)} {round(100 * (i/len(my_file)), 2)} %", end="")
-        # Check to make sure the line isn't empty
-        if len(my_file[i]) == 0:
+    for line in chain((first_line,), lines):
+        if not line:
             continue
-        # Pull the file line and first word
-        line = my_file[i]
         word = line[:6].lower().strip()
         # Check to see if the line is an atom line
         if line and word in {'atom', 'hetatm'}:
@@ -251,7 +246,7 @@ def read_pdb(sys, file=None):
             atoms.append(atom)
         # If the line is not an atom line store the other data
         else:
-            data.append(my_file[i].split())
+            data.append(line.split())
     # Check that the sys.sol is not Noner
     if sys.sol is None:
         sys.sol = Sol(sys, [], [])
@@ -265,6 +260,8 @@ def read_pdb(sys, file=None):
             residue_atoms[res.name.upper()] = {atoms[_]['name'] for _ in res.atoms}
 
 
+    if report:
+        report("Building atom table and solvent groups", 92)
     # Set the atoms and the data
     sys.balls, sys.data = DataFrame(atoms), data
     # Adjust the SOL residues
@@ -284,7 +281,8 @@ def read_pdb(sys, file=None):
     # Add the sol residues
     sys.sol.residues = adjusted_residues
     # Create a file read statement for the user
-    print(f"\r{os.path.basename(file)} successfully added.", end="")
+    if report:
+        report(f"{os.path.basename(file)} successfully added", 100)
     return sys
 
 

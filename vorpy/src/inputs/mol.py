@@ -1,4 +1,6 @@
 import re
+from itertools import chain
+from vorpy.src.input_progress import iter_input_lines
 import numpy as np
 
 from pandas import DataFrame
@@ -9,7 +11,7 @@ from vorpy.src.chemistry import my_masses, residue_names, residue_atoms
 from vorpy.src.inputs.fix_sol import fix_sol
 
 
-def read_mol(sys, file=None):
+def read_mol(sys, file=None, progress=None):
     """
     Read a MOL or SDF file into a VorPy System.
 
@@ -41,8 +43,9 @@ def read_mol(sys, file=None):
     if file is None:
         file = sys.files['base_file']
 
-    with open(file, 'r') as rf:
-        lines = rf.readlines()
+    source_lines = iter_input_lines(file, progress)
+    header = [next(source_lines, '') for _ in range(4)]
+    lines = chain(header, source_lines)
 
     # MOL/SDF does not reliably contain PDB-style chain/residue information.
     sys.chains, sys.residues = [], []
@@ -52,14 +55,14 @@ def read_mol(sys, file=None):
     atom_id_to_index = {}
 
     # Determine whether this is V2000 or V3000.
-    is_v3000 = any('V3000' in line for line in lines[:10])
-    is_v2000 = any('V2000' in line for line in lines[:10])
+    is_v3000 = any('V3000' in line for line in header)
+    is_v2000 = any('V2000' in line for line in header)
 
     if is_v3000:
         atoms, bonds, data = _read_mol_v3000(sys, lines, atom_id_to_index)
 
     elif is_v2000:
-        atoms, bonds, data = _read_mol_v2000(sys, lines, atom_id_to_index)
+        atoms, bonds, data = _read_mol_v2000(sys, list(lines), atom_id_to_index)
 
     else:
         raise ValueError(f'Could not determine MOL/SDF version for file: {file}')
@@ -69,6 +72,25 @@ def read_mol(sys, file=None):
     sys.data = data
 
     return sys
+
+
+def _mol_logical_lines(lines):
+    """Join V3000 continuation records without copying the whole file."""
+    pending = ''
+    for line in lines:
+        stripped = line.rstrip('\r\n')
+        if pending:
+            continuation = stripped.lstrip()
+            if continuation.startswith('M  V30 '):
+                continuation = continuation[7:]
+            stripped = pending + continuation
+        if stripped.rstrip().endswith('-'):
+            pending = stripped.rstrip()[:-1] + ' '
+        else:
+            yield stripped
+            pending = ''
+    if pending:
+        yield pending
 
 
 def _read_mol_v3000(sys, lines, atom_id_to_index):
@@ -88,28 +110,7 @@ def _read_mol_v3000(sys, lines, atom_id_to_index):
     section = None
     atom_count = 0
 
-    # V3000 permits continued records ending in "-".
-    # Join those before attempting to parse the file.
-    processed_lines = []
-    pending = ''
-
-    for line in lines:
-        stripped = line.rstrip('\n')
-
-        if pending:
-            stripped = pending + stripped.lstrip()
-
-        if stripped.rstrip().endswith('-'):
-            pending = stripped.rstrip()[:-1] + ' '
-            continue
-
-        processed_lines.append(stripped)
-        pending = ''
-
-    if pending:
-        processed_lines.append(pending)
-
-    for line in processed_lines:
+    for line in _mol_logical_lines(lines):
         stripped = line.strip()
 
         if stripped == 'M  V30 BEGIN ATOM':

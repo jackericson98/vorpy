@@ -1,5 +1,6 @@
 import numpy as np
 from pandas import DataFrame
+from vorpy.src.input_progress import iter_input_lines
 from vorpy.src.objects.atom import make_atom
 
 try:
@@ -10,7 +11,7 @@ except ImportError:
     HAS_TKINTER = False
 
 
-def read_gro(sys, file=None):
+def read_gro(sys, file=None, progress=None):
     """
     Read and process a GROMACS (.gro) format file into a system object.
 
@@ -44,29 +45,34 @@ def read_gro(sys, file=None):
     # Get the file if the file is not specified
     if file is None:
         file = sys.files['base_file']
-    # Create the dictionary that holds the balls and the additional information
     file_dict = {'balls': [], 'Additional Lines': []}
-    # Line splits
-    line_splits = [0, 5, 8, 15, 20, 28, 36, 44]
-    # Value types
-    val_types = [int, str, str, int, float, float, float]
-    # Line values
-    line_vals = ['res_seq', 'res_name', 'atom_name', 'index', 'x', 'y', 'z']
-    # Open the file
-    with open(file, 'r') as read_file:
-        # Loop through the lines
-        for line in read_file.readlines():
-            try:
-                # Split the line into its constituent parts
-                ball = {line_vals[j]: val_types[j](line[line_splits[j]: line_splits[j + 1]].strip()) for j in range(7)}
-                # Make an atom
-                ball = make_atom(sys, location=np.array([ball['x'], ball['y'], ball['z']]), index=ball['index'],
-                                 name=ball['atom_name'], res_name=ball['res_name'])
-                # Add the atom to the list
-                file_dict['balls'].append(ball)
-            # If the line is not a valid GROMACS line, add it to the additional lines list
-            except ValueError:
-                file_dict['Additional Lines'].append(line)
+    lines = iter_input_lines(file, progress)
+    title = next(lines, "")
+    count_line = next(lines, "")
+    try:
+        atom_count = int(count_line.strip())
+    except ValueError as error:
+        raise ValueError("Invalid GRO atom count") from error
+    if atom_count < 0:
+        raise ValueError("Invalid GRO atom count")
+    file_dict['Additional Lines'].extend((title, count_line))
+    for index in range(atom_count):
+        line = next(lines, "")
+        try:
+            # GRO uses five-character residue/atom names and nanometres.
+            # Infer coordinate precision from the decimal-point spacing.
+            decimals = [i for i, char in enumerate(line[20:]) if char == '.']
+            width = decimals[1] - decimals[0] if len(decimals) >= 3 else 8
+            location = np.array([float(line[20 + axis * width:20 + (axis + 1) * width])
+                                 for axis in range(3)]) * 10.0
+            ball = make_atom(sys, location=location, index=index,
+                             name=line[10:15].strip(), res_name=line[5:10].strip(),
+                             res_seq=int(line[:5]))
+            ball['gro_id'] = int(line[15:20])
+        except (ValueError, IndexError) as error:
+            raise ValueError(f"Invalid GRO atom record {index + 1}: {line.rstrip()}") from error
+        file_dict['balls'].append(ball)
+    file_dict['Additional Lines'].extend(lines)
     # Add the information to the system
     sys.balls, sys.data = DataFrame(file_dict['balls']), file_dict['Additional Lines']
     # Initialize empty lists for chains and residues

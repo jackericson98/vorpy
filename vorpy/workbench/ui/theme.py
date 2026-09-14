@@ -84,8 +84,8 @@ QPushButton:disabled, QToolButton:disabled { color: #627486; background: #14202b
 QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit { background: #101a24; color: #dce5ef; border: 1px solid #304151; border-radius: 5px; padding: 4px 6px; min-height: 20px; }
 QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QLineEdit:disabled { color: #6f8193; border-color: #23313f; }
 QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QLineEdit:focus { border-color: #8974eb; }
-QListWidget, QTableWidget, QTreeWidget { background: #111b25; alternate-background-color: #15212d; border: none; border-radius: 5px; selection-background-color: #4f449e; }
-QListWidget::item { padding: 7px 5px; }
+QListView, QTableWidget, QTreeWidget { background: #111b25; alternate-background-color: #15212d; border: none; border-radius: 5px; selection-background-color: #4f449e; }
+QListView::item { padding: 7px 5px; }
 QHeaderView::section { background: #1a2733; border: none; padding: 6px; }
 QSplitter::handle { background: #23313f; }
 QSplitter::handle:horizontal { width: 4px; }

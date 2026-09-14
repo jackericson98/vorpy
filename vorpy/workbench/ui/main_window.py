@@ -6,7 +6,7 @@ from pathlib import Path
 from dataclasses import asdict, replace
 from uuid import uuid4
 
-from PySide6.QtCore import Qt, QThread, QTimer
+from PySide6.QtCore import Qt, QThread, QTimer, QEventLoop
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QColor
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -30,6 +30,8 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QProgressBar,
+    QProgressDialog,
+    QApplication,
     QPushButton,
     QSlider,
     QSpinBox,
@@ -60,6 +62,9 @@ from vorpy.workbench.project import (
 from vorpy.workbench.services.result_directory import load_result_directory
 from vorpy.workbench.services.info_parser import Measurement, NetworkSummary, parse_group_info, parse_network_summary
 from vorpy.workbench.services.structure_loader import load_pdb
+from vorpy.workbench.workers.load_worker import LoadWorker
+from vorpy.workbench.chemistry import is_solvent
+from vorpy.workbench.ui.structure_browser import StructureBrowser
 from vorpy.workbench.services.vorpy_backend import VorPyBackend, VorPySolveSettings
 from vorpy.workbench.ui.molecular_view import (
     ION_RESIDUES,
@@ -113,6 +118,11 @@ class MainWindow(QMainWindow):
         self._layout_restored = False
         self._project_dirty = False
         self._loading_project = False
+        self._loading_structure = False
+        self._molecule_preview = False
+        self._load_worker = None
+        self._preview_error = None
+        self._load_dialog = None
         self.source: Path | None = None
         self.current_result: AnalysisResult | None = None
         self._loaded_results: dict[Path, AnalysisResult] = {}
@@ -125,6 +135,7 @@ class MainWindow(QMainWindow):
         self._selection_entries: list[tuple[str, tuple[int, ...]]] = []
 
         self.viewer = MolecularView(self)
+        self.viewer.loading_progress.connect(self._loading_progress)
         self.viewer.selected_atom.connect(self._show_selected_atom)
         self.viewer.selected_residue.connect(self._show_selected_residue)
         self.viewer.selected_chain.connect(self._show_selected_chain)
@@ -143,7 +154,7 @@ class MainWindow(QMainWindow):
         super().showEvent(event)
         if not self._layout_restored:
             self._layout_restored = True
-            QTimer.singleShot(0, lambda: self.workspace_splitter.setSizes([max(400, self.height() - 310), 200]))
+            QTimer.singleShot(0, lambda: self.workspace_splitter.setSizes([max(400, self.height() - 410), 300]))
 
     def _build_actions(self) -> None:
         style = self.style()
@@ -257,36 +268,51 @@ class MainWindow(QMainWindow):
         header_layout.addWidget(brand)
         header_layout.addStretch()
         self.workflow_tabs = QTabWidget()
+        # Keep the workflow controls in a narrow full-height rail.  Horizontal
+        # tabs leave the labels readable while the active page remains scrollable.
+        self.workflow_tabs.setTabPosition(QTabWidget.North)
+        self.workflow_tabs.setUsesScrollButtons(True)
         for title, panel in (("Structure", self._build_structure_tab()),
                              ("Selection", self._build_selection_tab()),
                              ("Groups", self._build_groups_tab()),
                              ("Interfaces", self._build_interfaces_tab())):
-            self.workflow_tabs.addTab(panel, title)
-        for title, callback in (("Structure", lambda: self.workflow_tabs.setCurrentIndex(0)),
-                                ("Selection", lambda: self.workflow_tabs.setCurrentIndex(1)),
-                                ("Analysis", self._focus_solve),
-                                ("Results", self._focus_results),
-                                ("Settings", self._focus_settings)):
-            action = QAction(title, self)
-            action.triggered.connect(callback)
-            header_layout.addWidget(action_button(action))
+            self.workflow_tabs.addTab(scroll_panel(panel), title)
         layout.addWidget(header)
         self.workflow_panel = WorkflowSidebar(self.workflow_tabs)
-        self.workspace_splitter = QSplitter(Qt.Vertical)
+        self.workspace_splitter = QSplitter(Qt.Horizontal)
+        self.workspace_splitter.setChildrenCollapsible(False)
+        self.workspace_splitter.addWidget(self.workflow_panel)
+        self.right_workspace = QSplitter(Qt.Vertical)
+        self.right_workspace.setChildrenCollapsible(False)
         self.upper_workspace = QSplitter(Qt.Horizontal)
         self.upper_workspace.setChildrenCollapsible(False)
-        self.upper_workspace.addWidget(self.workflow_panel)
         self.upper_workspace.addWidget(self._build_viewport())
-        self.upper_workspace.addWidget(self._build_inspector())
-        self.upper_workspace.setStretchFactor(1, 1)
-        self.upper_workspace.setSizes([300, 850, 330])
-        self.workspace_splitter.addWidget(self.upper_workspace)
+        self.view_settings_panel = self._build_inspector()
+        self.upper_workspace.addWidget(self.view_settings_panel)
+        self.upper_workspace.setStretchFactor(0, 1)
+        self.upper_workspace.setSizes([1060, 360])
+        self.right_workspace.addWidget(self.upper_workspace)
+        self.solve_panel = self._build_solve_section()
+        # Solve and Analysis are independent panes so the solve controls stay
+        # visible while results are inspected.  The solve form is deliberately
+        # not wrapped in a scroll area: its compact contents fit this pane.
+        self.solve_container = self.solve_panel
+        self.solve_container.setMinimumWidth(340)
         self.analysis_tray = self._build_analysis_tray()
-        self.workspace_splitter.addWidget(self.analysis_tray)
-        self.workspace_splitter.setCollapsible(0, False)
-        self.workspace_splitter.setCollapsible(1, False)
-        self.workspace_splitter.setStretchFactor(0, 1)
-        self.workspace_splitter.setSizes([650, 200])
+        self.bottom_workspace = QSplitter(Qt.Horizontal)
+        self.bottom_workspace.setChildrenCollapsible(False)
+        self.bottom_workspace.addWidget(self.solve_container)
+        self.bottom_workspace.addWidget(self.analysis_tray)
+        self.bottom_workspace.setStretchFactor(1, 1)
+        self.bottom_workspace.setSizes([380, 900])
+        self.bottom_workspace.setMinimumHeight(300)
+        self.lower_workspace = self.bottom_workspace  # compatibility alias
+        self.right_workspace.addWidget(self.bottom_workspace)
+        self.right_workspace.setStretchFactor(0, 1)
+        self.right_workspace.setSizes([650, 260])
+        self.workspace_splitter.addWidget(self.right_workspace)
+        self.workspace_splitter.setStretchFactor(1, 1)
+        self.workspace_splitter.setSizes([320, 1060])
         layout.addWidget(self.workspace_splitter)
         self.setCentralWidget(root)
 
@@ -324,8 +350,7 @@ class MainWindow(QMainWindow):
         self.system_display = self._build_visualization_tab()
         self.inspector.addTab(scroll_panel(self.system_display), "System")
         self.inspector.addTab(scroll_panel(self._build_network_tab()), "Network")
-        self.solve_panel = self._build_solve_section()
-        return ViewInspector(self.inspector, self.solve_panel)
+        return ViewInspector(self.inspector)
 
     def _build_visualization_tab(self) -> QWidget:
         panel = QWidget()
@@ -388,9 +413,17 @@ class MainWindow(QMainWindow):
         ion_group = QGroupBox("Ions")
         ion_layout = QVBoxLayout(ion_group)
         self.show_ions = self._visibility_checkbox(
-            "Show ions", self.viewer.set_ions_visible, checked=False
+            "Show ions", self.viewer.set_ions_visible, checked=True
+        )
+        self.ion_opacity = QSlider(Qt.Horizontal)
+        self.ion_opacity.setRange(5, 100)
+        self.ion_opacity.setValue(75)
+        self.ion_opacity.valueChanged.connect(
+            lambda value: self.viewer.set_ion_opacity(value / 100.0)
         )
         ion_layout.addWidget(self.show_ions)
+        ion_layout.addWidget(QLabel("Sphere opacity"))
+        ion_layout.addWidget(self.ion_opacity)
         layout.addWidget(ion_group)
         layout.addStretch()
         return panel
@@ -464,11 +497,6 @@ class MainWindow(QMainWindow):
     def _build_selection_tab(self) -> QWidget:
         panel = QWidget()
         layout = QVBoxLayout(panel)
-        modes = QHBoxLayout()
-        for action, label in ((self.select_atom_action, "Atoms"), (self.select_residue_action, "Residues"),
-                              (self.select_chain_action, "Chains"), (self.select_molecule_action, "Molecules")):
-            modes.addWidget(action_button(action, label))
-        layout.addLayout(modes)
         self.selection_group = QGroupBox("No selection")
         form = QFormLayout(self.selection_group)
         self.atom_name = QLabel("—")
@@ -500,9 +528,11 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.structure_search)
         self.structure_browser_type = QComboBox()
         self.structure_browser_type.addItems(["Atoms", "Residues", "Chains", "Molecules"])
-        self.structure_browser_type.currentIndexChanged.connect(self._populate_structure_browser)
+        self.structure_browser_type.setToolTip("Choose what the search and selection list targets")
+        self.structure_browser_type.currentIndexChanged.connect(self._set_structure_browser_type)
         layout.addWidget(self.structure_browser_type)
-        self.structure_browser = QListWidget()
+        self.structure_browser = StructureBrowser()
+        self.structure_browser.setUniformItemSizes(True)
         self.structure_browser.setAlternatingRowColors(True)
         self.structure_browser.itemChanged.connect(self._browser_item_changed)
         layout.addWidget(self.structure_browser, 1)
@@ -1002,7 +1032,7 @@ class MainWindow(QMainWindow):
             return
         result = self.current_result
         loaded = result is not None and bool(result.atoms)
-        busy = self._thread is not None
+        busy = self._thread is not None or self._loading_structure
         solved = result is not None and bool(result.layers or result.summary or result.complete_cells)
         self.solve_action.setEnabled(loaded and not busy)
         self.solve_network_button.setEnabled(self.solve_action.isEnabled())
@@ -1016,6 +1046,8 @@ class MainWindow(QMainWindow):
         for action in (self.open_action, self.open_result_action, self.open_project_action, self.new_project_action):
             action.setEnabled(not busy)
         self.loaded_structures.setEnabled(not busy)
+        self.save_project_action.setEnabled(not self._loading_structure)
+        self.save_project_as_action.setEnabled(not self._loading_structure)
         self.fit_action.setEnabled(loaded)
         self.screenshot_action.setEnabled(loaded)
         self.structure_search.setEnabled(loaded)
@@ -1031,18 +1063,18 @@ class MainWindow(QMainWindow):
         self.selection_group.setVisible(bool(self._running_selection))
         self.selection_count.setText(str(len(self._running_selection)))
         self.progress_bar.setVisible(busy)
-        self.cancel_button.setVisible(busy)
+        self.cancel_button.setVisible(self._thread is not None)
         self.network_empty.setVisible(not solved)
         self.analysis_empty.setVisible(not solved)
         self.summary_statement.setVisible(solved)
         self.summary_status.setVisible(solved)
         self.results.setVisible(solved)
         stale = result is not None and result.defaults_stale
-        self.solve_hint.setText("Analysis running…" if busy else "Atomic defaults changed. Solve again to update the network and results." if stale else "" if loaded else "Open a structure to configure and solve a network.")
+        self.solve_hint.setText("Molecule ready · solvent loading…" if self._molecule_preview else "Loading structure…" if self._loading_structure else "Analysis running…" if busy else "Atomic defaults changed. Solve again to update the network and results." if stale else "" if loaded else "Open a structure to configure and solve a network.")
         self.solve_hint.setVisible(busy or not loaded or stale)
         active = self.selection_actions.checkedAction()
         mode = active.text().replace("Select ", "").title() if active else "Navigation"
-        network_state = "solving" if busy else "outdated" if result and result.defaults_stale else "loaded" if solved else "unsolved"
+        network_state = "loading" if self._loading_structure else "solving" if busy else "outdated" if result and result.defaults_stale else "loaded" if solved else "unsolved"
         self.state_summary.setText(f"Selection: {mode} | {len(self._running_selection):,} selected | Network: {network_state}")
         if loaded:
             self.viewer_panel.metadata.setText(f"{result.name} | {len(result.atoms):,} atoms | {len(self._residue_groups(result)):,} residues | {len(self._chain_groups(result)):,} chains | {len(self._running_selection):,} selected")
@@ -1156,6 +1188,8 @@ class MainWindow(QMainWindow):
             self._loading_project = False
 
     def save_project(self) -> bool:
+        if self._loading_structure:
+            return False
         if self.project_file is None:
             return self.save_project_as()
         try:
@@ -1169,6 +1203,8 @@ class MainWindow(QMainWindow):
             return False
 
     def save_project_as(self) -> bool:
+        if self._loading_structure:
+            return False
         suggested = self.project_file or Path.cwd() / (
             self.project.name.replace(" ", "_") + PROJECT_SUFFIX
         )
@@ -1189,6 +1225,8 @@ class MainWindow(QMainWindow):
         return self.save_project()
 
     def _sync_project_state(self) -> None:
+        if self._molecule_preview:
+            return
         if self.source is not None:
             existing = self.project.structure
             if existing is None or existing.source_path != self.source.resolve():
@@ -1246,6 +1284,7 @@ class MainWindow(QMainWindow):
             "show_ions": self.show_ions.isChecked(),
             "molecule_opacity": self.molecule_opacity.value(),
             "water_opacity": self.water_opacity.value(),
+            "ion_opacity": self.ion_opacity.value(),
             "surface_opacity": self.surface_opacity.value(),
             "surface_color_scheme": self.surface_color_scheme.currentData(),
             "curvature_colormap": self.curvature_colormap.currentData(),
@@ -1259,17 +1298,33 @@ class MainWindow(QMainWindow):
             "atomic_defaults": validate_defaults(self.atomic_defaults),
             "workspace_sizes": self.workspace_splitter.sizes(),
             "panel_sizes": self.upper_workspace.sizes(),
+            "bottom_panel_sizes": self.right_workspace.sizes(),
             "results_expanded": self.analysis_tray.toggle.isChecked(),
+            "bottom_pane_sizes": self.bottom_workspace.sizes(),
         }
 
     def _restore_view_state(self, state: dict) -> None:
         if not state:
             return
         self._layout_restored = True
-        for splitter, key, count in ((self.workspace_splitter, "workspace_sizes", 2), (self.upper_workspace, "panel_sizes", 3)):
+        panel_sizes = state.get("panel_sizes")
+        legacy_layout = isinstance(panel_sizes, list) and len(panel_sizes) == 3
+        for splitter, key, count in ((self.workspace_splitter, "workspace_sizes", 2),
+                                     (self.upper_workspace, "panel_sizes", 2)):
             sizes = state.get(key)
+            if legacy_layout:
+                if key == "workspace_sizes":
+                    continue
+                if key == "panel_sizes" and all(isinstance(v, int) and v >= 0 for v in panel_sizes):
+                    sizes = [panel_sizes[0] + panel_sizes[1], panel_sizes[2]]
             if isinstance(sizes, list) and len(sizes) == count and all(isinstance(v, int) and v >= 0 for v in sizes):
                 splitter.setSizes(sizes)
+        bottom_sizes = state.get("bottom_panel_sizes")
+        if isinstance(bottom_sizes, list) and len(bottom_sizes) == 2:
+            self.right_workspace.setSizes([max(0, int(bottom_sizes[0])), max(0, int(bottom_sizes[1]))])
+        pane_sizes = state.get("bottom_pane_sizes")
+        if isinstance(pane_sizes, list) and len(pane_sizes) == 2:
+            self.bottom_workspace.setSizes([max(0, int(pane_sizes[0])), max(0, int(pane_sizes[1]))])
         self.analysis_tray.set_expanded(bool(state.get("results_expanded", True)))
         self.atomic_defaults = validate_defaults(state.get("atomic_defaults",
             {scope: {"radius": value} for scope, value in state.get("radius_overrides", {}).items()}))
@@ -1289,6 +1344,7 @@ class MainWindow(QMainWindow):
         for widget, key in ((
             (self.molecule_opacity, "molecule_opacity"),
             (self.water_opacity, "water_opacity"),
+            (self.ion_opacity, "ion_opacity"),
             (self.surface_opacity, "surface_opacity"),
         )):
             if key in state:
@@ -1373,7 +1429,8 @@ class MainWindow(QMainWindow):
         indices = self._groups.get(name, ())
         self._running_selection = set(indices)
         self._update_running_selection()
-        self.selection_group.setTitle(f"Group: {name}")
+        if self._running_selection:
+            self.selection_group.setTitle(f"Group: {name}")
         self.statusBar().showMessage(f"Selected group {name} ({len(indices):,} atoms)")
 
     def _make_interface(self) -> None:
@@ -1420,6 +1477,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"VorPy — {subject}{marker}")
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        if self._loading_structure:
+            event.ignore()
+            return
         if self._confirm_discard_changes():
             event.accept()
         else:
@@ -1552,6 +1612,12 @@ class MainWindow(QMainWindow):
 
     def load_path(self, path: Path) -> None:
         """Load a structure, retaining prior structures for later switching."""
+        if self._loading_structure or self._thread is not None:
+            return
+        previous_source, previous_result = self.source, self.current_result
+        previous_dirty = self._project_dirty
+        self._preview_error = None
+        previous_state = (set(self._running_selection), dict(self._groups), dict(self._interfaces))
         try:
             source = path.expanduser().resolve()
             if source in self._loaded_results:
@@ -1564,16 +1630,59 @@ class MainWindow(QMainWindow):
                 )
                 return
             self._save_current_structure_state()
-            result = load_result_directory(source) if source.is_dir() else load_pdb(source)
-            if source.is_dir():
-                info_path = source / "info.txt"
-                if info_path.exists():
-                    result.info_sections = parse_group_info(info_path)
-                    result.summary = parse_network_summary(info_path)
+            self._loading_structure = True
+            self._load_dialog = QProgressDialog("Reading structure…", "", 0, 100, self)
+            self._load_dialog.setWindowTitle(f"Loading {source.name}")
+            self._load_dialog.setWindowModality(Qt.WindowModal)
+            self._load_dialog.setCancelButton(None)
+            self._load_dialog.setAutoClose(False)
+            self._load_dialog.setAutoReset(False)
+            self._load_dialog.setMinimumDuration(0)
+            self._load_dialog.show()
+            self._refresh_ui_state()
+            self._loading_progress("Reading structure…", 0)
+
+            def read(progress, preview):
+                result = (load_result_directory(source, progress=progress) if source.is_dir()
+                          else load_pdb(source, progress=progress, preview=preview))
+                if source.is_dir():
+                    info_path = source / "info.txt"
+                    if info_path.exists():
+                        progress("Reading analysis summary…", 100)
+                        result.info_sections = parse_group_info(info_path)
+                        result.summary = parse_network_summary(info_path)
+                return result
+
+            worker = LoadWorker(read, self)
+            self._load_worker = worker
+            loop = QEventLoop(self)
+            worker.progress.connect(self._reader_progress)
+            worker.preview.connect(self._show_molecule_preview)
+            worker.finished.connect(loop.quit)
+            worker.start()
+            # Keep Qt painting and dispatching progress while reading off-thread.
+            # Waiting here preserves project restoration's load-before-restore order.
+            loop.exec()
+            worker.wait()
+            error, result = worker.error or self._preview_error, worker.result
+            worker.deleteLater()
+            loop.deleteLater()
+            if error is not None:
+                raise error
+            self._loading_progress("Preparing structure…", 70)
+            completing_preview = self._molecule_preview
+            if completing_preview:
+                # Preview indices are compact; final indices follow PDB file order.
+                mapping = [atom.index for atom in result.atoms if not is_solvent(atom)]
+                self._running_selection = {mapping[index] for index in self._running_selection}
+                self._groups = {name: tuple(mapping[index] for index in indices)
+                                for name, indices in self._groups.items()}
+            self._molecule_preview = False
             self.source = source
             self._loaded_results[source] = result
-            self._display_result(result)
-            self._restore_structure_state(source)
+            self._display_result(result, preserve_view=completing_preview)
+            if source in self._structure_states:
+                self._restore_structure_state(source)
             self._populate_loaded_structures()
             if not self._loading_project:
                 self.project.structure = StructureSource.from_path(
@@ -1582,7 +1691,59 @@ class MainWindow(QMainWindow):
                 self.project.groups.clear()
                 self._set_project_dirty()
         except Exception as error:  # noqa: BLE001 - GUI boundary reports loader failures.
+            if self._molecule_preview:
+                self._molecule_preview = False
+                self.source = previous_source
+                if previous_result is not None:
+                    self._display_result(previous_result)
+                else:
+                    self.current_result = None
+                    self.viewer.clear_result()
+                    self.structure_browser.clear()
+                self._running_selection, self._groups, self._interfaces = previous_state
+                self._project_dirty = previous_dirty
+                self._update_window_title()
+                self._refresh_groups_panel()
+                self._populate_structure_browser()
+                self._update_running_selection()
+            self.progress_label.setText("Loading failed")
             self._show_error(str(error))
+        finally:
+            if self._load_dialog is not None:
+                self._load_dialog.close()
+                self._load_dialog.deleteLater()
+                self._load_dialog = None
+            self._loading_structure = False
+            self._load_worker = None
+            self._refresh_ui_state()
+
+    def _show_molecule_preview(self, result: AnalysisResult) -> None:
+        try:
+            self._molecule_preview = True
+            self.source = result.source
+            self._display_result(result, preview=True)
+            if self._load_dialog is not None:
+                self._load_dialog.close()
+                self._load_dialog.deleteLater()
+                self._load_dialog = None
+            self._show_progress("Molecule ready · loading solvent in background…", 0)
+            self._refresh_ui_state()
+        except Exception as error:
+            self._preview_error = error
+        finally:
+            self._load_worker.preview_displayed.set()
+
+    def _reader_progress(self, label: str, value: int) -> None:
+        self._loading_progress(label, value * 70 // 100)
+
+    def _loading_progress(self, label: str, value: int) -> None:
+        if not self._loading_structure:
+            return
+        self._show_progress(label, value)
+        if self._load_dialog is not None:
+            self._load_dialog.setLabelText(label)
+            self._load_dialog.setValue(value)
+        QApplication.processEvents(QEventLoop.ExcludeUserInputEvents)
 
     def open_result_directory(self) -> None:
         directory = QFileDialog.getExistingDirectory(
@@ -1617,7 +1778,7 @@ class MainWindow(QMainWindow):
         raise ValueError(f"Unknown solve target: {target}")
 
     def solve(self) -> None:
-        if self._thread is not None or self.current_result is None:
+        if self._thread is not None or self._loading_structure or self.current_result is None:
             return
         try:
             selected_indices = self._solve_target_indices()
@@ -1691,24 +1852,28 @@ class MainWindow(QMainWindow):
     def _radius_for_atom(self, atom: Atom) -> float:
         return apply_atom_defaults(atom, self.atomic_defaults).radius
 
-    def _display_result(self, result: AnalysisResult) -> None:
+    def _display_result(self, result: AnalysisResult, *, preview=False, preserve_view=False) -> None:
         previous = self.current_result
-        same_structure = (
+        same_structure = preserve_view or (
             previous is not None
             and previous.source == result.source
             and len(previous.atoms) == len(result.atoms)
         )
+        self._loading_progress("Applying atomic properties…", 72)
         self._apply_defaults_to_result(result)
         self.current_result = result
         main_atom_count = sum(
             not (atom.residue_name.upper() in WATER_RESIDUES or atom.residue_name.upper() in ION_RESIDUES)
             for atom in result.atoms
         )
-        self.show_cartoon.setChecked(True)
-        self.show_sticks.setChecked(main_atom_count <= 1500)
-        if self.source is not None:
+        if not preserve_view:
+            self.show_cartoon.setChecked(True)
+            self.show_sticks.setChecked(main_atom_count <= 1500)
+        if self.source is not None and not preview:
             self._loaded_results[self.source] = result
-        self.viewer.display_result(result)
+        self._loading_progress("Building molecular view…", 76)
+        self.viewer.display_result(result, preserve_camera=preserve_view)
+        self._loading_progress("Counting residues and molecules…", 88)
         self._update_window_title()
         self.structure_name.setText(result.name)
         residues = self._residue_groups(result)
@@ -1721,6 +1886,7 @@ class MainWindow(QMainWindow):
         if not same_structure:
             self._running_selection.clear()
             self._groups.clear()
+            self._interfaces.clear()
         else:
             valid_indices = {atom.index for atom in result.atoms}
             self._running_selection.intersection_update(valid_indices)
@@ -1730,12 +1896,16 @@ class MainWindow(QMainWindow):
             }
         self._refresh_groups_panel()
         self._populate_network_controls(result)
+        self._loading_progress("Preparing selection browser…", 92)
         self._populate_structure_browser()
         self._update_running_selection()
+        self._loading_progress("Preparing analysis panels…", 97)
         self._populate_analysis_sections(result)
-        self.progress_label.setText("Complete" if result.layers or result.summary else "Ready")
-        self.progress_bar.setValue(100)
-        self.statusBar().showMessage(f"{result.name} ready", 4000)
+        if not preview:
+            self.progress_label.setText("Complete" if result.layers or result.summary else "Ready")
+            self.progress_bar.setValue(100)
+            self._loading_progress(f"{result.name} ready", 100)
+            self.statusBar().showMessage(f"{result.name} ready", 4000)
         self._refresh_ui_state()
 
     @staticmethod
@@ -1868,18 +2038,22 @@ class MainWindow(QMainWindow):
             neighbors[bond.atom_a].add(bond.atom_b)
             neighbors[bond.atom_b].add(bond.atom_a)
         components: list[tuple[str, tuple[int, ...]]] = []
-        unseen = set(neighbors)
-        while unseen:
-            first = min(unseen)
+        seen: set[int] = set()
+        # Visit each atom once, including isolated atoms and solvent molecules.
+        # Repeated min(unseen) scans made solvent-heavy systems quadratic.
+        for first in sorted(neighbors):
+            if first in seen:
+                continue
+            seen.add(first)
             pending = [first]
-            component: set[int] = set()
+            component = []
             while pending:
                 atom_index = pending.pop()
-                if atom_index in component:
-                    continue
-                component.add(atom_index)
-                pending.extend(neighbors[atom_index] - component)
-            unseen -= component
+                component.append(atom_index)
+                for other in neighbors[atom_index]:
+                    if other not in seen:
+                        seen.add(other)
+                        pending.append(other)
             indices = tuple(sorted(component))
             components.append(
                 (f"Molecule {len(components) + 1} ({len(indices)} atoms)", indices)
@@ -1913,27 +2087,24 @@ class MainWindow(QMainWindow):
             else:
                 self._selection_entries = self._molecule_groups(result)
 
-            for label, atom_indices in self._selection_entries:
-                item = QListWidgetItem(label)
-                item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-                selected_count = len(self._running_selection.intersection(atom_indices))
-                if selected_count == len(atom_indices):
-                    state = Qt.Checked
-                elif selected_count:
-                    state = Qt.PartiallyChecked
-                else:
-                    state = Qt.Unchecked
-                item.setCheckState(state)
-                item.setData(Qt.UserRole, atom_indices)
-                self.structure_browser.addItem(item)
+        self.structure_browser.set_entries(self._selection_entries, self._running_selection)
         self.structure_browser.blockSignals(False)
         self._filter_structure_browser(self.structure_search.text())
 
+    def _set_structure_browser_type(self, index: int) -> None:
+        """Use the Selection tab's dropdown for both browsing and picking mode."""
+        actions = (
+            self.select_atom_action,
+            self.select_residue_action,
+            self.select_chain_action,
+            self.select_molecule_action,
+        )
+        if 0 <= index < len(actions):
+            actions[index].setChecked(True)
+        self._populate_structure_browser()
+
     def _filter_structure_browser(self, query: str) -> None:
-        query = query.strip().casefold()
-        for row in range(self.structure_browser.count()):
-            item = self.structure_browser.item(row)
-            item.setHidden(bool(query) and query not in item.text().casefold())
+        self.structure_browser.set_query(query)
 
     def _browser_item_changed(self, item: QListWidgetItem) -> None:
         atom_indices = set(item.data(Qt.UserRole) or ())
@@ -1942,24 +2113,19 @@ class MainWindow(QMainWindow):
         else:
             self._running_selection.difference_update(atom_indices)
         self._update_running_selection()
-        self._populate_structure_browser()
 
     def _update_running_selection(self) -> None:
+        self.structure_browser.set_selection(self._running_selection)
         self._refresh_ui_state()
         result = self.current_result
-        if result is not None and len(self._running_selection) == 1:
-            atom = result.atoms[next(iter(self._running_selection))]
-            mass = f"{atom.mass:g} Da" if atom.mass is not None else "unset mass"
-            charge = f"{atom.charge:+g} e" if atom.charge is not None else "unset charge"
-            self.atom_properties.setText(f"{atom.radius:g} Å · {mass} · {charge}")
-        else:
-            self.atom_properties.setText("Varies by atom" if self._running_selection else "—")
         if result is None or not self._running_selection:
+            self._update_selection_information([])
             self.viewer.set_group_selection([])
             self.running_selection.setText("No atoms selected")
             self.make_group_button.setEnabled(False)
             return
         atoms = [result.atoms[index] for index in sorted(self._running_selection)]
+        self._update_selection_information(atoms)
         self.viewer.set_group_selection(atoms)
         residues = {
             (atom.residue_name, atom.residue_sequence, atom.chain) for atom in atoms
@@ -1976,6 +2142,52 @@ class MainWindow(QMainWindow):
             f"{len(chains):,} chains\n{residue_preview}"
         )
         self.make_group_button.setEnabled(True)
+
+    def _update_selection_information(self, atoms: list[Atom]) -> None:
+        """Describe the active selection regardless of how it was made."""
+        fields = (self.atom_name, self.atom_element, self.atom_residue,
+                  self.atom_chain, self.atom_position, self.atom_properties)
+        if not atoms:
+            self.selection_group.setTitle("No selection")
+            for field in (*fields, self.selection_count):
+                field.setText("—")
+            return
+
+        def preview(values):
+            values = sorted(set(values))
+            text = ", ".join(values[:4])
+            return text + (f", +{len(values) - 4} more" if len(values) > 4 else "")
+
+        def property_range(values, unit, unset, signed=False):
+            known = sorted({value for value in values if value is not None})
+            if not known:
+                return unset
+            def number(value):
+                return f"{value:+g}" if signed else f"{value:g}"
+            text = number(known[0])
+            if len(known) > 1:
+                text += f" to {number(known[-1])}"
+            return f"{text} {unit}" + (" (some unset)" if None in values else "")
+
+        single = len(atoms) == 1
+        atom = atoms[0]
+        self.selection_group.setTitle("Selected atom" if single else "Selected atoms")
+        self.atom_name.setText(f"{atom.name} (#{atom.serial})" if single
+                               else preview(item.name or "Unnamed atom" for item in atoms))
+        self.atom_element.setText(preview(item.element or "Unknown" for item in atoms))
+        self.atom_residue.setText(preview(
+            f"{item.residue_name} {item.residue_sequence}".strip() or "Unknown residue"
+            for item in atoms))
+        self.atom_chain.setText(preview(item.chain or "No chain" for item in atoms))
+        center = tuple(sum(item.position[axis] for item in atoms) / len(atoms) for axis in range(3))
+        self.atom_position.setText(("" if single else "Center: ") +
+                                   ", ".join(f"{value:.3f}" for value in center))
+        self.atom_properties.setText(" · ".join((
+            property_range([item.radius for item in atoms], "Å", "unset radius"),
+            property_range([item.mass for item in atoms], "Da", "unset mass"),
+            property_range([item.charge for item in atoms], "e", "unset charge", signed=True),
+        )))
+        self.selection_count.setText(str(len(atoms)))
 
     def reset_selection(self) -> None:
         choice = QMessageBox.question(
@@ -1996,14 +2208,6 @@ class MainWindow(QMainWindow):
         self._running_selection.clear()
         self._update_running_selection()
         self._populate_structure_browser()
-        self.selection_group.setTitle("No selection")
-        self.atom_name.setText("—")
-        self.atom_element.setText("—")
-        self.atom_residue.setText("—")
-        self.atom_chain.setText("—")
-        self.atom_position.setText("—")
-        self.atom_properties.setText("—")
-        self.selection_count.setText("—")
         self.statusBar().showMessage(status)
 
     def _make_group(self) -> None:
@@ -2135,18 +2339,6 @@ class MainWindow(QMainWindow):
 
     def _show_selected_atom(self, atom: Atom, additive: bool = False) -> None:
         action = self._apply_picked_atoms([atom], additive)
-        self.selection_group.setTitle("Selected atoms" if additive else "Selected atom")
-        self.atom_name.setText(f"{atom.name} (#{atom.serial})")
-        self.atom_element.setText(atom.element)
-        self.atom_residue.setText(
-            f"{atom.residue_name} {atom.residue_sequence}".strip() or "—"
-        )
-        self.atom_chain.setText(atom.chain or "—")
-        self.atom_position.setText(", ".join(f"{value:.3f}" for value in atom.position))
-        mass = f"{atom.mass:g} Da" if atom.mass is not None else "unset mass"
-        charge = f"{atom.charge:+g} e" if atom.charge is not None else "unset charge"
-        self.atom_properties.setText(f"{atom.radius:g} Å · {mass} · {charge}")
-        self.selection_count.setText(str(len(self._running_selection)))
         self.statusBar().showMessage(
             f"{action} {atom.name}, "
             f"{atom.residue_name} {atom.residue_sequence} "
@@ -2162,18 +2354,8 @@ class MainWindow(QMainWindow):
         # same temporary selection, highlight, and group-creation path.
         action = self._apply_picked_atoms(atoms, additive)
         atom = atoms[0]
-        self.selection_group.setTitle(
-            "Selected residues" if additive else "Selected residue"
-        )
-        self.atom_name.setText("Multiple")
-        self.atom_element.setText("—")
-        self.atom_residue.setText(
-            f"{atom.residue_name} {atom.residue_sequence}".strip()
-        )
-        self.atom_chain.setText(atom.chain or "—")
-        self.atom_position.setText("—")
-        self.atom_properties.setText("—")
-        self.selection_count.setText(str(len(self._running_selection)))
+        if self._running_selection:
+            self.selection_group.setTitle("Selected residues" if additive else "Selected residue")
         self.statusBar().showMessage(
             f"{action} {atom.residue_name} "
             f"{atom.residue_sequence}, chain {atom.chain or '—'} "
@@ -2220,16 +2402,8 @@ class MainWindow(QMainWindow):
         additive: bool = False,
     ) -> None:
         action = self._apply_picked_atoms(atoms, additive)
-        self.selection_group.setTitle(
-            f"Selected {kind}s" if additive else f"Selected {kind}"
-        )
-        self.atom_name.setText("Multiple")
-        self.atom_element.setText("—")
-        self.atom_residue.setText(description)
-        self.atom_chain.setText(chain)
-        self.atom_position.setText("—")
-        self.atom_properties.setText("—")
-        self.selection_count.setText(str(len(self._running_selection)))
+        if self._running_selection:
+            self.selection_group.setTitle(f"Selected {kind}s" if additive else f"Selected {kind}")
         self.statusBar().showMessage(
             f"{action} {description} "
             f"({len(self._running_selection)} atoms total)"
