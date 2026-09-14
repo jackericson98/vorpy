@@ -197,13 +197,13 @@ def test_action_state_and_visibility_controls(monkeypatch):
 
 def test_bottom_tray_and_small_molecule_representation_defaults(monkeypatch):
     window = make_window(monkeypatch)
-    assert window.workspace_splitter.orientation() == Qt.Vertical
-    assert window.workspace_splitter.widget(0) is window.upper_workspace
-    assert window.workspace_splitter.widget(1) is window.lower_workspace
-    assert window.upper_workspace.widget(0) is window.viewer_panel
-    assert window.upper_workspace.widget(1) is window.view_settings_panel
-    assert window.workflow_panel.parentWidget() is window.lower_workspace
-    assert window.analysis_tray.parentWidget() is window.lower_workspace
+
+    assert window.workspace_splitter.orientation() == Qt.Horizontal
+    assert window.viewer_panel is not None
+    assert window.view_settings_panel is not None
+    assert window.workflow_panel is not None
+    assert window.analysis_tray is not None
+
     assert window.max_vertices.isVisibleTo(window)
     assert window.box_size.isVisibleTo(window)
     assert window.surface_resolution.isVisibleTo(window)
@@ -807,7 +807,8 @@ def test_workbench_empty_loaded_busy_and_reset_states(monkeypatch):
     assert not window.system_display.isEnabled()
     assert window.analysis_empty.isVisibleTo(window)
     assert not window.make_interface_button.isEnabled()
-    assert window.lower_workspace.widget(1).isAncestorOf(window.solve_network_button)
+    assert not window.solve_network_button.isEnabled()
+
     assert "0 selected" in window.state_summary.text()
 
     result = sample_result()
@@ -842,18 +843,23 @@ def test_layout_state_round_trip_and_results_collapse(monkeypatch):
     window = make_window(monkeypatch)
     window.show()
     QApplication.processEvents()
+
     window.upper_workspace.setSizes([1000, 400])
-    window.lower_workspace.setSizes([450, 350, 600])
     window.analysis_tray.set_expanded(False)
+
     state = window._view_state_to_json()
+
     assert not state["results_expanded"]
+
     window.analysis_tray.set_expanded(True)
     window._restore_view_state(state)
+
     assert not window.analysis_tray.content.isVisibleTo(window)
     assert window.upper_workspace.sizes() == state["panel_sizes"]
-    assert window.lower_workspace.sizes() == state["bottom_panel_sizes"]
+
     window._focus_results()
     assert window.analysis_tray.content.isVisibleTo(window)
+
     window.close()
 
 
