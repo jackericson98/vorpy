@@ -244,15 +244,24 @@ def aw_cell_vertex_angular_defect(
             f"Cell {cell_index} does not meet vertex {vertex_index}."
         )
 
-    incident_surfaces = []
+    # Prefer the vertex topology list, but recover from the authoritative
+    # surface vertex references when a platform-dependent topology build has
+    # left that list incomplete.  This avoids treating a valid cell corner as
+    # an unresolved two-face corner merely because insertion order differed.
+    candidate_surfaces = {int(value) for value in vertex.get("surfs", [])}
+    for surface_index, surface in net.surfs.iterrows():
+        try:
+            if vertex_index in {int(value) for value in surface.get("verts", [])}:
+                candidate_surfaces.add(int(surface_index))
+        except (TypeError, ValueError):
+            continue
 
-    for surface_index in vertex["surfs"]:
-        surface_index = int(surface_index)
+    incident_surfaces = []
+    for surface_index in sorted(candidate_surfaces):
         surface_balls = {
             int(value)
             for value in net.surfs.loc[surface_index, "balls"]
         }
-
         if cell_index in surface_balls:
             incident_surfaces.append(surface_index)
 
