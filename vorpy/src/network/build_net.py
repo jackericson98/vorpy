@@ -413,7 +413,10 @@ def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, net
                     no_surf = True
                     break
             if no_surf:
-                if debug_pair == key: print(f"SURFACE DEBUG {key}: rejected vertex degree <= 2")
+                if debug_pair == key:
+                    offenders = [(int(vert_ndx), list(v_balls[vert_ndx]), list(v_edges[vert_ndx]))
+                                 for vert_ndx in surf_verts if len(v_edges[vert_ndx]) <= 2]
+                    print(f"SURFACE DEBUG {key}: rejected vertex degree <= 2 offenders={offenders}")
                 continue
 
         s_balls.append(test_surf)
