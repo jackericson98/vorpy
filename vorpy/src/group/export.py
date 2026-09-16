@@ -384,6 +384,45 @@ def export_info(grp, directory=None):
         info.write("\n")
 
         # ==========================================================
+        # CURVATURE COMPONENTS
+        # ==========================================================
+
+        def sum_numeric(values):
+            total = 0.0
+            for value in values:
+                if isinstance(value, dict):
+                    value = sum_numeric(value.values())
+                try:
+                    number = float(value)
+                except (TypeError, ValueError):
+                    continue
+                if np.isfinite(number):
+                    total += number
+            return total
+
+        def component_total(table, field):
+            if table is None or field not in getattr(table, "columns", ()):
+                return 0.0
+            return sum_numeric(table[field].tolist())
+
+        atom_mean = component_total(getattr(grp.net, "balls", None), "int_mean_curv")
+        atom_gauss = component_total(getattr(grp.net, "balls", None), "int_gauss_curv")
+        surface_mean = component_total(getattr(grp.net, "surfs", None), "int_mean_curv")
+        surface_gauss = component_total(getattr(grp.net, "surfs", None), "int_gauss_curv")
+        edge_mean = component_total(getattr(grp.net, "edges", None), "int_mean_curv_by_ball")
+        edge_gauss = component_total(getattr(grp.net, "edges", None), "int_gauss_curv_by_ball")
+        vertex_gauss = component_total(getattr(grp.net, "verts", None), "int_gauss_curv_by_ball")
+
+        info.write("CURVATURE COMPONENTS\n")
+        info.write("-" * 72 + "\n")
+        info.write("Component                 Integrated Mean       Integrated Gaussian\n")
+        info.write(f"Atoms                    {atom_mean:>18.6f}        {atom_gauss:>18.6f}\n")
+        info.write(f"Surfaces                 {surface_mean:>18.6f}        {surface_gauss:>18.6f}\n")
+        info.write(f"Edges                    {edge_mean:>18.6f}        {edge_gauss:>18.6f}\n")
+        info.write(f"Vertices                 {0.0:>18.6f}        {vertex_gauss:>18.6f}\n")
+        info.write("\n")
+
+        # ==========================================================
         # SURFACE ENERGY ESTIMATE
         # ==========================================================
 

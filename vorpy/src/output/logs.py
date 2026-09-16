@@ -45,6 +45,15 @@ def write_logs(group, net_name=None, round_to=None):
     net = group.net
     r = round_func(round_to)
 
+    def curvature_total(row, field):
+        value = getattr(row, field, 0.0)
+        if isinstance(value, dict):
+            value = sum(float(item) for item in value.values())
+        try:
+            return r(value)
+        except (TypeError, ValueError):
+            return 0.0
+
     # ------------------------------------------------------------------
     # Setup
     # ------------------------------------------------------------------
@@ -97,7 +106,9 @@ def write_logs(group, net_name=None, round_to=None):
         lg_fl.writerow(["group information"])
         lg_fl.writerow([
             "Name", "Volume", "Surface Area", "Mass", "Density", "Center of Mass",
-            "VDW Volume", "VDW Center of Mass", "Moment of Inertia", "Spatial Moment of Inertia"
+            "VDW Volume", "VDW Center of Mass", "Moment of Inertia", "Spatial Moment of Inertia",
+            "Integrated Mean Curvature", "Integrated Mean Curvature Squared",
+            "Integrated Gaussian Curvature"
         ])
 
         group.get_info()
@@ -116,7 +127,10 @@ def write_logs(group, net_name=None, round_to=None):
             r(group.vdw_vol),
             [float(r(_)) for _ in group.vdw_com],
             [[float(r(__)) for __ in _] for _ in group.moi],
-            [[float(r(__)) for __ in _] for _ in group.spatial_moment]
+            [[float(r(__)) for __ in _] for _ in group.spatial_moment],
+            r(getattr(group, "int_mean_curv", 0.0)),
+            r(getattr(group, "int_mean_curv_sq", 0.0)),
+            r(getattr(group, "int_gauss_curv", 0.0))
         ])
 
         # ==============================================================
@@ -225,7 +239,8 @@ def write_logs(group, net_name=None, round_to=None):
         # ==============================================================
 
         lg_fl.writerow(["Edges"])
-        lg_fl.writerow(["Index", "Ball 1", "Ball 2", "Ball 3", "Length"])
+        lg_fl.writerow(["Index", "Ball 1", "Ball 2", "Ball 3", "Length",
+                        "Integrated Mean Curvature", "Integrated Gaussian Curvature"])
 
         for edge in net.edges.itertuples(index=True, name='EdgeRow'):
             balls = edge.balls
@@ -235,7 +250,9 @@ def write_logs(group, net_name=None, round_to=None):
                 balls[0],
                 balls[1],
                 balls[2],
-                r(edge.length)
+                r(edge.length),
+                curvature_total(edge, "int_mean_curv_by_ball"),
+                curvature_total(edge, "int_gauss_curv_by_ball")
             ])
 
         # ==============================================================
@@ -245,7 +262,8 @@ def write_logs(group, net_name=None, round_to=None):
         lg_fl.writerow(["Vertices"])
         lg_fl.writerow([
             "Index", "Ball 1", "Ball 2", "Ball 3", "Ball 4",
-            "x", "y", "z", "r"
+            "x", "y", "z", "r", "Integrated Mean Curvature",
+            "Integrated Gaussian Curvature"
         ])
 
         for vert in net.verts.itertuples(index=True, name='VertRow'):
@@ -261,7 +279,9 @@ def write_logs(group, net_name=None, round_to=None):
                 loc[0],
                 loc[1],
                 loc[2],
-                r(vert.rad)
+                r(vert.rad),
+                0.0,
+                curvature_total(vert, "int_gauss_curv_by_ball")
             ])
 
 
@@ -346,6 +366,15 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                 return r(default)
             except (TypeError, ValueError):
                 return default
+
+    def curvature_total(value):
+        if isinstance(value, dict):
+            value = sum(curvature_total(item) for item in value.values())
+        try:
+            number = float(value)
+            return number if np.isfinite(number) else 0.0
+        except (TypeError, ValueError):
+            return 0.0
 
     def safe_float(value, default=0.0):
         """
@@ -946,6 +975,8 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                 "Ball 2",
                 "Ball 3",
                 "Length",
+                "Integrated Mean Curvature",
+                "Integrated Gaussian Curvature",
             ]
         )
 
@@ -968,6 +999,8 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                         int(edge_balls[1]),
                         int(edge_balls[2]),
                         safe_round(edge.get("length", 0.0)),
+                        safe_round(curvature_total(edge.get("int_mean_curv_by_ball", 0.0))),
+                        safe_round(curvature_total(edge.get("int_gauss_curv_by_ball", 0.0))),
                     ]
                 )
                 _log_edge_rows += 1
@@ -993,6 +1026,8 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                 "y",
                 "z",
                 "r",
+                "Integrated Mean Curvature",
+                "Integrated Gaussian Curvature",
             ]
         )
 

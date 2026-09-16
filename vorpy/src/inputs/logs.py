@@ -406,12 +406,20 @@ def read_surf(surf_line):
 
 def read_edge(edge_line):
     edge = {'Index': int(edge_line[0]), 'Balls': [int(_) for _ in edge_line[1:4]], 'Length': float(edge_line[4])}
+    if len(edge_line) > 5:
+        edge['Integrated Mean Curvature'] = float(edge_line[5])
+    if len(edge_line) > 6:
+        edge['Integrated Gaussian Curvature'] = float(edge_line[6])
     return edge
 
 
 def read_vert(vert_line):
     vert = {'Index': int(vert_line[0]), 'Balls': [int(_) for _ in vert_line[1:5]],
             'loc': [float(_) for _ in vert_line[5:8]], 'rad': float(vert_line[8])}
+    if len(vert_line) > 9:
+        vert['Integrated Mean Curvature'] = float(vert_line[9])
+    if len(vert_line) > 10:
+        vert['Integrated Gaussian Curvature'] = float(vert_line[10])
     return vert
 
 
@@ -468,6 +476,12 @@ def read_logs(log_files, return_dict=False, no_sol=False, all_=True, balls=False
                                   'VDW Center of Mass': parse_string_lists(line[7]),
                                   'Moment of Inertia': parse_string_lists(line[8]),
                                   'Spatial Moment of Inertia': parse_string_lists(line[9])}
+                    if len(line) > 10:
+                        group_data['Integrated Mean Curvature'] = float(line[10])
+                    if len(line) > 11:
+                        group_data['Integrated Mean Curvature Squared'] = float(line[11])
+                    if len(line) > 12:
+                        group_data['Integrated Gaussian Curvature'] = float(line[12])
                     continue
 
                 # If the line is a build information, group information, Atoms, Edges, Surfaces, or Vertices, set the
