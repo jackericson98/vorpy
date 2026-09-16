@@ -61,9 +61,17 @@ def calculate_aw_network_vertex_gaussian_curvatures(
         vertex_edges = tuple(sorted(int(value) for value in vertex["edges"]))
 
         if len(vertex_edges) < 3:
-            raise ValueError(
-                f"Target vertex {vertex_index} has only {len(vertex_edges)} incident edges."
+            message = (
+                f"Target vertex {vertex_index} has only {len(vertex_edges)} "
+                "incident edges."
             )
+            if os.environ.get("VORPY_STRICT_VERTEX_CURVATURE", "0").strip().lower() in {"1", "true", "yes", "on"}:
+                raise ValueError(message)
+            for cell_index in participating_cells:
+                unresolved.add((int(vertex_index), int(cell_index), message))
+            contributions.append({})
+            timing["storage"] += now() - t if 't' in locals() else 0.0
+            continue
 
         # Reuse the network-wide analytic cache; only select this vertex's edges.
         vertex_resolved_edges = {
