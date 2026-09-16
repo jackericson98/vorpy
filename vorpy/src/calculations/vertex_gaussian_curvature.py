@@ -128,10 +128,14 @@ def calculate_aw_network_vertex_gaussian_curvatures(
                     print(f"surface {surface_id}: balls={list(surface.get('balls', []))} edges={list(surface.get('edges', []))} verts={list(surface.get('verts', []))}")
                 print(f"tolerance={tolerance}; vertex membership comparison={sorted(vertex_balls)} & {sorted(target_cells)} -> {sorted(expected)}")
                 print(f"unresolved={sorted(unresolved)}")
-            raise ValueError(
-                f"Vertex {vertex_index} did not produce one Gaussian-curvature "
-                "defect for every participating target cell."
-            )
+            # Preserve partial results and the unresolved-cell record.  The
+            # analysis stage marks the affected cell incomplete; it must not
+            # receive a fabricated zero defect or be treated as closed.
+            if os.environ.get("VORPY_STRICT_VERTEX_CURVATURE", "0").strip().lower() in {"1", "true", "yes", "on"}:
+                raise ValueError(
+                    f"Vertex {vertex_index} did not produce one Gaussian-curvature "
+                    "defect for every participating target cell."
+                )
 
         t = now()
         contributions.append(vertex_values)
