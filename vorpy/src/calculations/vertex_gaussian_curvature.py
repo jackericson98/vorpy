@@ -1,6 +1,7 @@
 """Network-level vertex contributions to integrated Gaussian curvature."""
 
 from time import perf_counter as now
+import os
 
 import numpy as np
 
@@ -105,6 +106,28 @@ def calculate_aw_network_vertex_gaussian_curvatures(
             defect_values += 1
 
         if len(vertex_values) != len(participating_cells):
+            debug = os.environ.get("VORPY_VERTEX_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"}
+            debug_id = int(os.environ.get("VORPY_VERTEX_ID", "290"))
+            if debug and int(vertex_index) == debug_id:
+                expected = set(int(value) for value in participating_cells)
+                actual = set(int(value) for value in vertex_values)
+                print("VERTEX INVARIANT FAILURE")
+                print(f"vertex_index={vertex_index} coordinates={np.asarray(vertex.get('loc'), dtype=float).tolist()}")
+                print(f"target_cells={sorted(target_cells)}")
+                print(f"vertex_balls_raw={list(vertex.get('balls', []))} vertex_balls={sorted(vertex_balls)}")
+                print(f"expected_cells={sorted(expected)} actual_cells={sorted(actual)}")
+                print(f"missing_cells={sorted(expected - actual)} extra_cells={sorted(actual - expected)}")
+                print(f"defect_counts={{{', '.join(f'{cell}: {1 if cell in vertex_values else 0}' for cell in sorted(expected | actual))}}}")
+                print(f"incident_edges={sorted(int(value) for value in vertex.get('edges', []))}")
+                print(f"incident_surfaces={sorted(int(value) for value in vertex.get('surfs', []))}")
+                for edge_id in sorted(int(value) for value in vertex.get('edges', [])):
+                    edge = net.edges.loc[edge_id]
+                    print(f"edge {edge_id}: balls={list(edge.get('balls', []))} verts={list(edge.get('verts', []))}")
+                for surface_id in sorted(int(value) for value in vertex.get('surfs', [])):
+                    surface = net.surfs.loc[surface_id]
+                    print(f"surface {surface_id}: balls={list(surface.get('balls', []))} edges={list(surface.get('edges', []))} verts={list(surface.get('verts', []))}")
+                print(f"tolerance={tolerance}; vertex membership comparison={sorted(vertex_balls)} & {sorted(target_cells)} -> {sorted(expected)}")
+                print(f"unresolved={sorted(unresolved)}")
             raise ValueError(
                 f"Vertex {vertex_index} did not produce one Gaussian-curvature "
                 "defect for every participating target cell."
