@@ -1,3 +1,4 @@
+import os
 import numpy as np
 
 
@@ -216,6 +217,8 @@ def aw_vertex_face_angle(
 
         tangents.append(tangent)
 
+    if os.environ.get("VORPY_VERTEX_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"} and vertex_index == int(os.environ.get("VORPY_VERTEX_ID", "290")):
+        print(f"sector_surface={surface_index} cell={cell_index} incident_edges={incident_edges} tangents={[np.asarray(t, dtype=float).tolist() for t in tangents]} face_normal_used=None")
     return intrinsic_corner_angle(
         tangents[0],
         tangents[1],
@@ -256,6 +259,24 @@ def aw_cell_vertex_angular_defect(
         except (TypeError, ValueError):
             continue
 
+    debug_vertex = os.environ.get("VORPY_VERTEX_DEBUG", "0").strip().lower() in {
+        "1", "true", "yes", "on"
+    }
+    if debug_vertex and vertex_index == int(os.environ.get("VORPY_VERTEX_ID", "290")):
+        print("VERTEX GAUSSIAN DIAGNOSTIC")
+        print(f"vertex_id={vertex_index} loc={np.asarray(vertex.get('loc'), dtype=float).tolist()}")
+        print(f"cell={cell_index} vertex_balls={sorted(vertex_balls)}")
+        print(f"original_surfaces={list(vertex.get('surfs', []))}")
+        print(f"candidate_surfaces={sorted(candidate_surfaces)}")
+        print(f"original_edges={list(vertex.get('edges', []))}")
+        print(f"sorted_edges={sorted(int(value) for value in vertex.get('edges', []))}")
+        for edge_id in sorted(int(value) for value in vertex.get('edges', [])):
+            edge = net.edges.loc[edge_id]
+            print(f"edge={edge_id} balls={list(edge.get('balls', []))} verts={list(edge.get('verts', []))}")
+        for surface_id in sorted(candidate_surfaces):
+            surface = net.surfs.loc[surface_id]
+            print(f"surface={surface_id} balls={list(surface.get('balls', []))} edges={list(surface.get('edges', []))} verts={list(surface.get('verts', []))} belongs_to_cell={cell_index in set(int(v) for v in surface.get('balls', []))}")
+
     incident_surfaces = []
     for surface_index in sorted(candidate_surfaces):
         surface_balls = {
@@ -265,25 +286,36 @@ def aw_cell_vertex_angular_defect(
         if cell_index in surface_balls:
             incident_surfaces.append(surface_index)
 
+    if debug_vertex and vertex_index == int(os.environ.get("VORPY_VERTEX_ID", "290")):
+        print(f"incident_cell_surfaces={incident_surfaces} count={len(incident_surfaces)}")
     if len(incident_surfaces) < 3:
         raise ValueError(
             f"Cell {cell_index} has only {len(incident_surfaces)} "
             f"incident surfaces at vertex {vertex_index}; expected at least 3."
         )
 
-    face_angles = [
-        aw_vertex_face_angle(
-            net=net,
-            vertex_index=vertex_index,
-            cell_index=cell_index,
-            surface_index=surface_index,
-            resolved_edges=resolved_edges,
-            tolerance=tolerance,
-        )
-        for surface_index in incident_surfaces
-    ]
-
-    return angular_defect(face_angles)
+    face_angles = []
+    for surface_index in incident_surfaces:
+        try:
+            angle = aw_vertex_face_angle(
+                net=net,
+                vertex_index=vertex_index,
+                cell_index=cell_index,
+                surface_index=surface_index,
+                resolved_edges=resolved_edges,
+                tolerance=tolerance,
+            )
+        except ValueError as error:
+            if debug_vertex and vertex_index == int(os.environ.get("VORPY_VERTEX_ID", "290")):
+                print(f"rejected_surface={surface_index} reason={error}")
+            raise
+        face_angles.append(float(angle))
+        if debug_vertex and vertex_index == int(os.environ.get("VORPY_VERTEX_ID", "290")):
+            print(f"surface={surface_index} alpha_rad={float(angle):.17g}")
+    defect = angular_defect(face_angles)
+    if debug_vertex and vertex_index == int(os.environ.get("VORPY_VERTEX_ID", "290")):
+        print(f"angles_rad={face_angles} sum={sum(face_angles):.17g} defect={defect:.17g}")
+    return defect
 
 
 def spherical_triangle_area(first_normal, second_normal, third_normal, tol=1e-12):

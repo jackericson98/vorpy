@@ -57,7 +57,7 @@ def calculate_aw_network_vertex_gaussian_curvatures(
             timing["storage"] += now() - t
             continue
 
-        vertex_edges = tuple(int(value) for value in vertex["edges"])
+        vertex_edges = tuple(sorted(int(value) for value in vertex["edges"]))
 
         if len(vertex_edges) < 3:
             raise ValueError(
