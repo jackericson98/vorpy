@@ -868,6 +868,23 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
         if my_vert is not None:
             return my_vert, invalid_ndxs
         invalid_ndxs.append(extra_ball)
+    # The determinant hull heuristic can select invalid neighbors, especially
+    # when nearly coplanar candidates change sign with floating-point rounding.
+    # Exhaust the remaining candidates before abandoning this edge; a valid
+    # fourth sphere may still be present in the current spatial neighborhood.
+    rejected = set(invalid_ndxs)
+    for candidate in sorted(left_verts + right_verts, key=lambda item: item['d2pv']):
+        fourth = next(ball for ball in candidate['balls'] if ball not in edge_ndxs_set)
+        if fourth in rejected:
+            continue
+        my_vert, extra_ball = choose_vert(
+            candidate, edge_ndxs, surr_balls, locs, rads, metrics,
+            max_ball_rad=max_ball_rad, search_cache=search_cache,
+        )
+        if my_vert is not None:
+            return my_vert, invalid_ndxs
+        invalid_ndxs.append(extra_ball)
+        rejected.add(extra_ball)
     return None, invalid_ndxs
 
 

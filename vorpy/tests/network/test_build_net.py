@@ -401,6 +401,23 @@ def test_get_build_edges_normal_three_ball_key_still_has_one_segment():
 # Surface-closure regression
 # ---------------------------------------------------------------------------
 
+@pytest.mark.parametrize("v_edges, retained", [
+    ([[0, 2], [0, 1], [1, 2]], True),
+    ([[0, 1, 2], [0, 1, 3], [2, 3, 4]], False),
+])
+def test_group_surface_checks_face_boundary_degree(v_edges, retained):
+    # Support filtering can leave a closed face with degree-two network
+    # vertices. Conversely, total network degree does not establish closure.
+    s_balls, _, _ = get_build_surfs(
+        b_verts=[], b_edges=[],
+        v_balls=[[0, 1, 2, 3], [0, 1, 2, 4], [0, 1, 3, 4]],
+        v_edges=v_edges,
+        e_balls=[[0, 1, 2], [0, 1, 4], [0, 1, 3]],
+        start_time=time.time(), group=[0],
+    )
+    assert ([0, 1] in s_balls) == retained
+
+
 def test_ala78_ca_c_multiedge_surface_closes():
     """
     Full topology regression for the surface that originally disappeared.

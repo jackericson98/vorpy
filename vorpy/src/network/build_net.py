@@ -397,27 +397,16 @@ def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, net
             if debug_pair == key: print(f"SURFACE DEBUG {key}: rejected unequal edge/vertex counts")
             continue
 
-        if interface:
-            # Interface surfaces retain the existing degree-two closure check.
-            surf_edge_set = set(surf_edges)
-            invalid_surface = any(
-                sum(edge_ndx in surf_edge_set for edge_ndx in v_edges[vert_ndx]) != 2
-                for vert_ndx in surf_verts
-            )
-            if invalid_surface:
-                continue
-        else:
-            no_surf = False
-            for vert_ndx in surf_verts:
-                if len(v_edges[vert_ndx]) <= 2:
-                    no_surf = True
-                    break
-            if no_surf:
-                if debug_pair == key:
-                    offenders = [(int(vert_ndx), list(v_balls[vert_ndx]), list(v_edges[vert_ndx]))
-                                 for vert_ndx in surf_verts if len(v_edges[vert_ndx]) <= 2]
-                    print(f"SURFACE DEBUG {key}: rejected vertex degree <= 2 offenders={offenders}")
-                continue
+        # Closure is a property of this face's boundary. A vertex may have
+        # only two network edges after surrounding support cells are filtered,
+        # while still joining two boundary edges of a valid target face.
+        surf_edge_set = set(surf_edges)
+        invalid_surface = any(
+            sum(edge_ndx in surf_edge_set for edge_ndx in v_edges[vert_ndx]) != 2
+            for vert_ndx in surf_verts
+        )
+        if invalid_surface:
+            continue
 
         s_balls.append(test_surf)
         if debug_pair == key: print(f"SURFACE DEBUG {key}: ACCEPTED")

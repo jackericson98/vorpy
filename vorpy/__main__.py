@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
+
+
+# Directory execution (python3 vorpy ...) puts the package directory on
+# sys.path; absolute imports need its parent to select the local checkout.
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 def main() -> None:

@@ -2,8 +2,11 @@ import numpy as np
 import pytest
 from types import SimpleNamespace
 import pandas as pd
+import importlib
 
 from vorpy.src.calculations.edge_geometry import LineEdgeGeometry
+
+
 from vorpy.src.calculations.vertex_geometry import (
     intrinsic_corner_angle,
     angular_defect,
@@ -19,6 +22,34 @@ from vorpy.src.calculations.vertex_geometry import (
     orient_aw_cell_vertex_surface_cycle,
     aw_cell_vertex_gauss_map_area,
 )
+
+
+@pytest.mark.parametrize("edge_ids", [[0, 1, 2], [0, 1]])
+def test_network_vertex_preserves_unresolved_cell_defects(monkeypatch, edge_ids):
+    module = importlib.import_module(
+        "vorpy.src.calculations.vertex_gaussian_curvature"
+    )
+    net = SimpleNamespace(
+        settings={"net_type": "aw"}, group=[0, 1],
+        verts=pd.DataFrame([{"balls": [0, 1, 2, 3], "edges": edge_ids}]),
+        edges=pd.DataFrame(), surfs=pd.DataFrame(),
+    )
+    monkeypatch.setattr(module, "get_aw_edge_geometry_cache",
+                        lambda *args, **kwargs: ({0: None, 1: None, 2: None}, False, 0.0))
+
+    def defect(**kwargs):
+        if kwargs["cell_index"] == 1:
+            raise ValueError("Incomplete cell corner")
+        return np.pi / 2
+
+    monkeypatch.setattr(module, "aw_cell_vertex_angular_defect", defect)
+    values = module.calculate_aw_network_vertex_gaussian_curvatures(net)
+    if len(edge_ids) == 3:
+        assert values == [{0: np.pi / 2}]
+        assert net._aw_unresolved_vertex_curvature == {(0, 1, "Incomplete cell corner")}
+    else:
+        assert values == [{}]
+        assert {(vertex, cell) for vertex, cell, _ in net._aw_unresolved_vertex_curvature} == {(0, 0), (0, 1)}
 
 
 def test_cube_vertex_has_pi_over_two_angular_defect():
