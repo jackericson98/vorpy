@@ -291,7 +291,8 @@ def aw_cell_vertex_angular_defect(
     if len(incident_surfaces) < 3:
         raise ValueError(
             f"Cell {cell_index} has only {len(incident_surfaces)} "
-            f"incident surfaces at vertex {vertex_index}; expected at least 3."
+            f"incident surfaces at vertex {vertex_index}; expected at least 3; "
+            f"curvature_candidates=0; candidate_surface_ids={incident_surfaces}."
         )
 
     face_angles = []
