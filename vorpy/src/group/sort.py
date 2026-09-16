@@ -4,6 +4,8 @@ from vorpy.src.calculations import combine_inertia_tensors
 from vorpy.src.calculations import calc_total_inertia_tensor
 from vorpy.src.calculations import ndx_search
 from vorpy.src.calculations import calc_surf_sa
+from vorpy.src.calculations.vertex_geometry import aw_vertex_face_angle
+from vorpy.src.calculations.edge_resolution_cache import get_aw_edge_geometry_cache
 
 
 def _group_net_row_positions(group):
@@ -458,9 +460,32 @@ def get_info(group):
     group.avg_mean_curv = 0.0
     group.avg_gauss_curv = 0.0
 
+    group.int_mean_curv_face = 0.0
+    group.int_mean_curv_edge = 0.0
     group.int_mean_curv = 0.0
     group.int_mean_curv_sq = 0.0
+    group.int_gauss_curv_face = 0.0
+    group.int_gauss_curv_edge = 0.0
+    group.int_gauss_curv_vertex = 0.0
     group.int_gauss_curv = 0.0
+    group.euler_characteristic = None
+    group.gauss_bonnet_expected = None
+    group.gauss_bonnet_error = None
+    group.gauss_bonnet_relative_error = None
+    group.boundary_is_complete = False
+    group.boundary_is_closed = False
+    group.boundary_is_manifold = False
+    group.boundary_is_orientable = False
+    group.boundary_component_count = 0
+    group.boundary_face_count = 0
+    group.boundary_edge_count = 0
+    group.boundary_vertex_count = 0
+    group.boundary_genus = None
+    group.boundary_missing_faces = 0
+    group.boundary_missing_edges = 0
+    group.boundary_missing_vertices = 0
+    group.boundary_nonmanifold_edges = 0
+    group.boundary_nonmanifold_vertices = 0
     # Group-oriented curvature. Raw surface/network values above remain unchanged.
     group.oriented_int_mean_curv = 0.0
     group.oriented_avg_mean_curv = 0.0
@@ -582,13 +607,13 @@ def get_info(group):
 
             # Protect against missing/None values
             if int_mean_curv is not None:
-                group.int_mean_curv += float(int_mean_curv)
+                group.int_mean_curv_face += float(int_mean_curv)
 
             if int_mean_curv_sq is not None:
                 group.int_mean_curv_sq += float(int_mean_curv_sq)
 
             if int_gauss_curv is not None:
-                group.int_gauss_curv += float(int_gauss_curv)
+                group.int_gauss_curv_face += float(int_gauss_curv)
 
             # --------------------------------------------------------------
             # Group-oriented mean curvature and convex/concave decomposition
@@ -680,6 +705,267 @@ def get_info(group):
                                 orientation_details,
                                 "RADIUS/SIGN DISAGREEMENT"
                             )
+
+    # ----------------------------------------------------------------------
+    # Assemble complete piecewise-smooth curvature on the group boundary.
+    # ----------------------------------------------------------------------
+    boundary_surfaces = set(int(_) for _ in (group.layer_surfs[0] if group.layer_surfs else []))
+    body_cells = set(int(_) for _ in (group.layer_net_atoms[0] if group.layer_net_atoms else []))
+    net = group.net
+    surface_cells = {}
+    boundary_surface_cells = {}
+    for surf_id in boundary_surfaces:
+        try:
+            balls = {int(_) for _ in net.surfs.iloc[surf_id]['balls']}
+        except (IndexError, KeyError, TypeError, ValueError):
+            group.boundary_missing_faces += 1
+            continue
+        cells = balls.intersection(body_cells)
+        if len(cells) != 1:
+            group.boundary_missing_faces += 1
+            continue
+        surface_cells[surf_id] = next(iter(cells))
+        boundary_surface_cells[surf_id] = cells
+
+    def _boundary_ids(kind):
+        values = set(int(_) for _ in (getattr(group, f'layer_{kind}', [[]])[0]
+                                      if getattr(group, f'layer_{kind}', None) else []))
+        column = getattr(net, kind, None)
+        if column is not None and kind == 'edges':
+            for surf_id in boundary_surfaces:
+                try:
+                    values.update(int(_) for _ in net.surfs.iloc[surf_id].get('edges', []))
+                except (IndexError, TypeError, ValueError):
+                    pass
+        if column is not None and kind == 'verts':
+            for edge_id in values.copy():
+                try:
+                    values.update(int(_) for _ in net.edges.iloc[edge_id].get('verts', []))
+                except (IndexError, TypeError, ValueError):
+                    pass
+            for surf_id in boundary_surfaces:
+                try:
+                    values.update(int(_) for _ in net.surfs.iloc[surf_id].get('verts', []))
+                except (IndexError, TypeError, ValueError):
+                    pass
+        return values
+
+    # Derive the complex strictly from the filtered boundary face set.  Layer
+    # caches can contain support entities, so including them would change V/E
+    # without adding a corresponding boundary face.
+    boundary_edges = set()
+    boundary_vertices = set()
+    for surf_id in boundary_surfaces:
+        try:
+            surf = net.surfs.iloc[surf_id]
+            boundary_edges.update(int(_) for _ in surf.get('edges', []))
+            boundary_vertices.update(int(_) for _ in surf.get('verts', []))
+        except (IndexError, TypeError, ValueError):
+            group.boundary_missing_faces += 1
+    for edge_id in tuple(boundary_edges):
+        try:
+            boundary_vertices.update(int(_) for _ in net.edges.iloc[edge_id].get('verts', []))
+        except (IndexError, TypeError, ValueError):
+            group.boundary_missing_edges += 1
+    edge_faces = {edge_id: set() for edge_id in boundary_edges}
+    vertex_faces = {vert_id: set() for vert_id in boundary_vertices}
+    for surf_id in boundary_surfaces:
+        try:
+            surf = net.surfs.iloc[surf_id]
+            for edge_id in surf.get('edges', []):
+                edge_faces.setdefault(int(edge_id), set()).add(surf_id)
+            for vert_id in surf.get('verts', []):
+                vertex_faces.setdefault(int(vert_id), set()).add(surf_id)
+        except (IndexError, TypeError, ValueError):
+            group.boundary_missing_faces += 1
+
+    edge_mean = edge_gauss = vertex_gauss = 0.0
+    invalid_edges = invalid_vertices = 0
+    edge_diagnostics = []
+    vertex_diagnostics = []
+    # Edge Gaussian values are stored per directed face incidence.  A group
+    # boundary edge contributes exactly its retained boundary-face incidences;
+    # cell totals are never reused for this reduction.
+    edge_face_values = getattr(net, "edges", {}).get("int_gauss_curv_by_face", None)
+    if edge_face_values is None:
+        cache = getattr(net, "_aw_fused_edge_curvature_cache", {})
+        edge_face_values = cache.get("gaussian_by_face") if isinstance(cache, dict) else None
+    resolved_edges = {}
+    try:
+        resolved_edges, _, _ = get_aw_edge_geometry_cache(net, tolerance=1e-7)
+    except Exception:
+        resolved_edges = {}
+
+    for edge_id, faces in edge_faces.items():
+        boundary_face_ids = sorted(s for s in faces if s in surface_cells)
+        try:
+            edge = net.edges.iloc[edge_id]
+        except (IndexError, TypeError, ValueError):
+            invalid_edges += 1
+            continue
+        mean_map = edge.get('int_mean_curv_by_ball', {})
+        if not isinstance(mean_map, dict):
+            invalid_edges += 1
+            continue
+        cells = {surface_cells[s] for s in boundary_face_ids}
+        for cell in cells:
+            if cell not in mean_map:
+                invalid_edges += 1
+                continue
+            # aw_edge_curvature_measures stores the sum of the two face
+            # dihedral integrals for a cell.  The group edge term is 1/2
+            # integral(theta) for the geometric edge itself.
+            contribution = 0.5 * float(mean_map[cell])
+            edge_mean += contribution
+        if edge_face_values is None or edge_id >= len(edge_face_values):
+            invalid_edges += 1
+            continue
+        pair_values = edge_face_values[edge_id]
+        if not isinstance(pair_values, dict):
+            invalid_edges += 1
+            continue
+        edge_contribution = 0.0
+        for surf_id in boundary_face_ids:
+            balls = tuple(int(_) for _ in net.surfs.iloc[surf_id].get('balls', ()))
+            cell = surface_cells[surf_id]
+            other = next((value for value in balls if value != cell), None)
+            pair = (cell, other)
+            if other is None or pair not in pair_values:
+                invalid_edges += 1
+                continue
+            value = float(pair_values[pair])
+            edge_contribution += value
+        edge_gauss += edge_contribution
+        edge_diagnostics.append((int(edge_id), edge_contribution, boundary_face_ids))
+
+    for vert_id, faces in vertex_faces.items():
+        boundary_face_ids = sorted(s for s in faces if s in surface_cells)
+        if not boundary_face_ids:
+            invalid_vertices += 1
+            continue
+        try:
+            alphas = []
+            for surf_id in boundary_face_ids:
+                cell = surface_cells[surf_id]
+                alpha = aw_vertex_face_angle(
+                    net=net, vertex_index=vert_id, cell_index=cell,
+                    surface_index=surf_id, resolved_edges=resolved_edges,
+                    tolerance=1e-7,
+                )
+                if not np.isfinite(alpha):
+                    raise ValueError("non-finite sector angle")
+                alphas.append(float(alpha))
+            defect = float(2.0 * np.pi - sum(alphas))
+            vertex_gauss += defect
+            vertex_diagnostics.append((int(vert_id), defect, boundary_face_ids, alphas))
+        except (IndexError, KeyError, TypeError, ValueError):
+            invalid_vertices += 1
+
+    group.boundary_missing_edges = invalid_edges
+    group.boundary_missing_vertices = invalid_vertices
+    group.int_mean_curv_edge = edge_mean
+    group.int_mean_curv = group.int_mean_curv_face + edge_mean
+    group.int_gauss_curv_edge = edge_gauss
+    group.int_gauss_curv_vertex = vertex_gauss
+    group.int_gauss_curv = group.int_gauss_curv_face + edge_gauss + vertex_gauss
+
+    # Boundary-complex topology: faces are exposed pairwise patches, with
+    # network edges/vertices deduplicated by their topology identifiers.
+    adjacency = {face: set() for face in boundary_surfaces}
+    for faces in edge_faces.values():
+        for face in faces:
+            adjacency[face].update(faces - {face})
+    components = 0
+    unseen = set(boundary_surfaces)
+    while unseen:
+        components += 1
+        stack = [unseen.pop()]
+        while stack:
+            face = stack.pop()
+            for neighbor in adjacency.get(face, ()) & unseen:
+                unseen.remove(neighbor)
+                stack.append(neighbor)
+    group.boundary_component_count = components
+    group.boundary_face_count = len(boundary_surfaces)
+    group.boundary_edge_count = len(boundary_edges)
+    group.boundary_vertex_count = len(boundary_vertices)
+    group.euler_characteristic = len(boundary_vertices) - len(boundary_edges) + len(boundary_surfaces)
+    group.boundary_nonmanifold_edges = sum(len(faces) != 2 for faces in edge_faces.values())
+    vertex_edge_sets = {vert_id: set() for vert_id in boundary_vertices}
+    for edge_id in boundary_edges:
+        try:
+            for vert_id in net.edges.iloc[edge_id].get('verts', []):
+                vertex_edge_sets.setdefault(int(vert_id), set()).add(edge_id)
+        except (IndexError, TypeError, ValueError):
+            continue
+    # For a closed 2-manifold, the link of every vertex is one cycle.  Check
+    # the actual face link rather than imposing a fixed edge valence.
+    bad_vertices = 0
+    for vert_id in boundary_vertices:
+        incident_edges = vertex_edge_sets.get(vert_id, set())
+        incident_faces = vertex_faces.get(vert_id, set())
+        link = {face: set() for face in incident_faces}
+        for edge_id in incident_edges:
+            edge_link_faces = edge_faces.get(edge_id, set()) & incident_faces
+            for face in edge_link_faces:
+                link[face].update(edge_link_faces - {face})
+        if not incident_faces or any(len(neighbors) != 2 for neighbors in link.values()):
+            bad_vertices += 1
+        elif len(link) > 1:
+            unseen = set(link)
+            stack = [unseen.pop()]
+            while stack:
+                face = stack.pop()
+                for neighbor in link[face] & unseen:
+                    unseen.remove(neighbor)
+                    stack.append(neighbor)
+            if unseen:
+                bad_vertices += 1
+    group.boundary_nonmanifold_vertices = bad_vertices
+    group.boundary_is_closed = bool(boundary_surfaces) and group.boundary_nonmanifold_edges == 0
+    group.boundary_is_manifold = (
+        group.boundary_is_closed and group.boundary_nonmanifold_vertices == 0
+    ) if boundary_vertices else False
+    # An orientable closed surface has even Euler characteristic.  This
+    # parity check prevents a non-orientable/ambiguous complex from being
+    # presented as an orientable genus surface.
+    group.boundary_is_orientable = (
+        group.boundary_is_manifold
+        and ((2 * group.boundary_component_count - group.euler_characteristic) % 2 == 0)
+    )
+    group.boundary_is_complete = (
+        group.boundary_is_closed and group.boundary_is_manifold
+        and group.boundary_missing_faces == 0
+        and group.boundary_missing_edges == 0
+        and group.boundary_missing_vertices == 0
+    )
+    if group.boundary_is_closed and group.boundary_is_manifold and group.boundary_is_orientable:
+        group.gauss_bonnet_expected = 2.0 * np.pi * group.euler_characteristic
+        group.gauss_bonnet_error = group.int_gauss_curv - group.gauss_bonnet_expected
+        group.gauss_bonnet_relative_error = (
+            abs(group.gauss_bonnet_error) / abs(group.gauss_bonnet_expected)
+            if group.gauss_bonnet_expected else 0.0
+        )
+        group.boundary_genus = group.boundary_component_count - group.euler_characteristic / 2.0
+
+    if os.environ.get("VORPY_CURVATURE_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"}:
+        print("GROUP BOUNDARY CURVATURE DIAGNOSTICS")
+        print(f"G_face={group.int_gauss_curv_face:.12g} G_edge={group.int_gauss_curv_edge:.12g} "
+              f"G_vertex={group.int_gauss_curv_vertex:.12g} G_total={group.int_gauss_curv:.12g}")
+        print(f"F={group.boundary_face_count} E={group.boundary_edge_count} V={group.boundary_vertex_count} "
+              f"chi={group.euler_characteristic} components={group.boundary_component_count}")
+        print(f"open_edges={sum(len(f) != 2 for f in edge_faces.values())} "
+              f"nonmanifold_edges={group.boundary_nonmanifold_edges} "
+              f"unresolved={group.boundary_missing_faces}/{group.boundary_missing_edges}/{group.boundary_missing_vertices}")
+        if vertex_diagnostics:
+            angles = [a for _, _, _, values in vertex_diagnostics for a in values]
+            print(f"alpha radians min={min(angles):.12g} max={max(angles):.12g} avg={sum(angles)/len(angles):.12g}")
+        print("largest edge Gaussian contributions:")
+        for row in sorted(edge_diagnostics, key=lambda item: abs(item[1]), reverse=True)[:20]:
+            print(f"  edge={row[0]} contribution={row[1]:.12g} faces={row[2]}")
+        print("largest vertex defects:")
+        for row in sorted(vertex_diagnostics, key=lambda item: abs(item[1]), reverse=True)[:20]:
+            print(f"  vertex={row[0]} defect={row[1]:.12g} faces={row[2]} alphas={row[3]}")
 
     # ----------------------------------------------------------------------
     # Area-weighted group curvature

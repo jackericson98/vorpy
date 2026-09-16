@@ -66,6 +66,7 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
     reduction_time = 0.0
     mean_contributions = []
     gaussian_contributions = []
+    gaussian_by_face = []
     face_values = 0
     gauss_cell_values = 0
 
@@ -134,6 +135,14 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
 
         t = perf_counter()
         gauss_values = {}
+        face_values_by_pair = {}
+        for pair, value in face_integrals.items():
+            if not np.isfinite(value):
+                raise ValueError(
+                    f"Non-finite edge Gaussian curvature for edge {edge_index}, "
+                    f"face incidence {pair}: {value}"
+                )
+            face_values_by_pair[tuple(int(_) for _ in pair)] = float(value)
         for cell_index, others in cell_faces.items():
             value = sum(face_integrals[(cell_index, other)] for other in others)
             if not np.isfinite(value):
@@ -153,6 +162,7 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
 
         mean_contributions.append(mean_values)
         gaussian_contributions.append(gauss_values)
+        gaussian_by_face.append(face_values_by_pair)
         face_values += len(face_integrals)
         reduction_time += perf_counter() - t
 
@@ -172,6 +182,7 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
         "key": key,
         "mean": mean_contributions,
         "gaussian": gaussian_contributions,
+        "gaussian_by_face": gaussian_by_face,
     }
     setattr(net, _CACHE_ATTR, result)
 

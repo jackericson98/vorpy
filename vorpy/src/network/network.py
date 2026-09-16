@@ -466,6 +466,10 @@ class Network:
             )
 
         self.edges["int_gauss_curv_by_ball"] = values
+        cache = getattr(self, "_aw_fused_edge_curvature_cache", {})
+        face_values = cache.get("gaussian_by_face") if isinstance(cache, dict) else None
+        if face_values is not None and len(face_values) == len(self.edges):
+            self.edges["int_gauss_curv_by_face"] = face_values
 
     def build_surface_mean_curvature(self):
         """Cache cell-oriented smooth-surface mean-curvature contributions.

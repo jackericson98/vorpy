@@ -219,10 +219,34 @@ class Group:
         self.avg_mean_curv = 0.0
         self.avg_gauss_curv = 0.0
 
-        # Integrated curvature over the group's exposed surface
+        # Integrated curvature over the group's exposed boundary.  The
+        # explicit component fields preserve smooth-face values separately.
+        self.int_mean_curv_face = 0.0
+        self.int_mean_curv_edge = 0.0
         self.int_mean_curv = 0.0
         self.int_mean_curv_sq = 0.0
+        self.int_gauss_curv_face = 0.0
+        self.int_gauss_curv_edge = 0.0
+        self.int_gauss_curv_vertex = 0.0
         self.int_gauss_curv = 0.0
+        self.euler_characteristic = None
+        self.gauss_bonnet_expected = None
+        self.gauss_bonnet_error = None
+        self.gauss_bonnet_relative_error = None
+        self.boundary_is_complete = False
+        self.boundary_is_closed = False
+        self.boundary_is_manifold = False
+        self.boundary_is_orientable = False
+        self.boundary_component_count = 0
+        self.boundary_face_count = 0
+        self.boundary_edge_count = 0
+        self.boundary_vertex_count = 0
+        self.boundary_genus = None
+        self.boundary_missing_faces = 0
+        self.boundary_missing_edges = 0
+        self.boundary_missing_vertices = 0
+        self.boundary_nonmanifold_edges = 0
+        self.boundary_nonmanifold_vertices = 0
 
         self.vdw_vol = 0
         self.vdw_com = [0, 0, 0]

@@ -387,39 +387,33 @@ def export_info(grp, directory=None):
         # CURVATURE COMPONENTS
         # ==========================================================
 
-        def sum_numeric(values):
-            total = 0.0
-            for value in values:
-                if isinstance(value, dict):
-                    value = sum_numeric(value.values())
-                try:
-                    number = float(value)
-                except (TypeError, ValueError):
-                    continue
-                if np.isfinite(number):
-                    total += number
-            return total
-
-        def component_total(table, field):
-            if table is None or field not in getattr(table, "columns", ()):
-                return 0.0
-            return sum_numeric(table[field].tolist())
-
-        atom_mean = component_total(getattr(grp.net, "balls", None), "int_mean_curv")
-        atom_gauss = component_total(getattr(grp.net, "balls", None), "int_gauss_curv")
-        surface_mean = component_total(getattr(grp.net, "surfs", None), "int_mean_curv")
-        surface_gauss = component_total(getattr(grp.net, "surfs", None), "int_gauss_curv")
-        edge_mean = component_total(getattr(grp.net, "edges", None), "int_mean_curv_by_ball")
-        edge_gauss = component_total(getattr(grp.net, "edges", None), "int_gauss_curv_by_ball")
-        vertex_gauss = component_total(getattr(grp.net, "verts", None), "int_gauss_curv_by_ball")
-
         info.write("CURVATURE COMPONENTS\n")
         info.write("-" * 72 + "\n")
-        info.write("Component                 Integrated Mean       Integrated Gaussian\n")
-        info.write(f"Atoms                    {atom_mean:>18.6f}        {atom_gauss:>18.6f}\n")
-        info.write(f"Surfaces                 {surface_mean:>18.6f}        {surface_gauss:>18.6f}\n")
-        info.write(f"Edges                    {edge_mean:>18.6f}        {edge_gauss:>18.6f}\n")
-        info.write(f"Vertices                 {0.0:>18.6f}        {vertex_gauss:>18.6f}\n")
+        info.write("Boundary component            Integrated Mean       Integrated Gaussian\n")
+        info.write(f"Smooth faces                 {get_attr(grp, 'int_mean_curv_face', 0.0):>18.6f}        {get_attr(grp, 'int_gauss_curv_face', 0.0):>18.6f}\n")
+        info.write(f"Edges                        {get_attr(grp, 'int_mean_curv_edge', 0.0):>18.6f}        {get_attr(grp, 'int_gauss_curv_edge', 0.0):>18.6f}\n")
+        info.write(f"Vertices                     {0.0:>18.6f}        {get_attr(grp, 'int_gauss_curv_vertex', 0.0):>18.6f}\n")
+        info.write(f"Complete boundary            {get_attr(grp, 'int_mean_curv', 0.0):>18.6f}        {get_attr(grp, 'int_gauss_curv', 0.0):>18.6f}\n")
+        info.write("\n")
+        info.write("BOUNDARY TOPOLOGY\n")
+        info.write("-" * 72 + "\n")
+        info.write(f"Boundary faces/edges/vertices: {get_attr(grp, 'boundary_face_count', 0)}/{get_attr(grp, 'boundary_edge_count', 0)}/{get_attr(grp, 'boundary_vertex_count', 0)}\n")
+        info.write(f"Connected components:       {get_attr(grp, 'boundary_component_count', 0)}\n")
+        info.write(f"Euler characteristic:       {get_attr(grp, 'euler_characteristic', 'unavailable')}\n")
+        info.write(f"Genus:                      {get_attr(grp, 'boundary_genus', 'unavailable')}\n")
+        info.write(f"Complete:                   {get_attr(grp, 'boundary_is_complete', False)}\n")
+        info.write(f"Closed:                     {get_attr(grp, 'boundary_is_closed', False)}\n")
+        info.write(f"Manifold:                   {get_attr(grp, 'boundary_is_manifold', False)}\n")
+        info.write(f"Orientable:                 {get_attr(grp, 'boundary_is_orientable', False)}\n")
+        expected = get_attr(grp, 'gauss_bonnet_expected', None)
+        if expected is None:
+            info.write("Gauss-Bonnet validation:    unavailable (boundary is not a closed orientable manifold)\n")
+        else:
+            info.write(f"Gauss-Bonnet expected:       {expected:.6f}\n")
+            info.write(f"Gauss-Bonnet error:          {get_attr(grp, 'gauss_bonnet_error', 0.0):.6f}\n")
+            info.write(f"Gauss-Bonnet relative error: {get_attr(grp, 'gauss_bonnet_relative_error', 0.0):.6g}\n")
+        info.write(f"Missing faces/edges/vertices: {get_attr(grp, 'boundary_missing_faces', 0)}/{get_attr(grp, 'boundary_missing_edges', 0)}/{get_attr(grp, 'boundary_missing_vertices', 0)}\n")
+        info.write(f"Nonmanifold edges/vertices:    {get_attr(grp, 'boundary_nonmanifold_edges', 0)}/{get_attr(grp, 'boundary_nonmanifold_vertices', 0)}\n")
         info.write("\n")
 
         # ==========================================================

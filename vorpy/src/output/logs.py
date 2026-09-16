@@ -108,7 +108,13 @@ def write_logs(group, net_name=None, round_to=None):
             "Name", "Volume", "Surface Area", "Mass", "Density", "Center of Mass",
             "VDW Volume", "VDW Center of Mass", "Moment of Inertia", "Spatial Moment of Inertia",
             "Integrated Mean Curvature", "Integrated Mean Curvature Squared",
-            "Integrated Gaussian Curvature"
+            "Integrated Gaussian Curvature", "Integrated Mean Curvature (Face)",
+            "Integrated Mean Curvature (Edge)", "Integrated Gaussian Curvature (Face)",
+            "Integrated Gaussian Curvature (Edge)", "Integrated Gaussian Curvature (Vertex)",
+            "Euler Characteristic", "Gauss-Bonnet Expected", "Gauss-Bonnet Error",
+            "Gauss-Bonnet Relative Error", "Boundary Complete", "Boundary Closed", "Boundary Manifold",
+            "Boundary Orientable", "Boundary Components", "Missing Faces", "Missing Edges",
+            "Missing Vertices", "Nonmanifold Edges", "Nonmanifold Vertices"
         ])
 
         group.get_info()
@@ -130,7 +136,26 @@ def write_logs(group, net_name=None, round_to=None):
             [[float(r(__)) for __ in _] for _ in group.spatial_moment],
             r(getattr(group, "int_mean_curv", 0.0)),
             r(getattr(group, "int_mean_curv_sq", 0.0)),
-            r(getattr(group, "int_gauss_curv", 0.0))
+            r(getattr(group, "int_gauss_curv", 0.0)),
+            r(getattr(group, "int_mean_curv_face", 0.0)),
+            r(getattr(group, "int_mean_curv_edge", 0.0)),
+            r(getattr(group, "int_gauss_curv_face", 0.0)),
+            r(getattr(group, "int_gauss_curv_edge", 0.0)),
+            r(getattr(group, "int_gauss_curv_vertex", 0.0)),
+            getattr(group, "euler_characteristic", ""),
+            getattr(group, "gauss_bonnet_expected", ""),
+            getattr(group, "gauss_bonnet_error", ""),
+            getattr(group, "gauss_bonnet_relative_error", ""),
+            getattr(group, "boundary_is_complete", False),
+            getattr(group, "boundary_is_closed", False),
+            getattr(group, "boundary_is_manifold", False),
+            getattr(group, "boundary_is_orientable", False),
+            getattr(group, "boundary_component_count", 0),
+            getattr(group, "boundary_missing_faces", 0),
+            getattr(group, "boundary_missing_edges", 0),
+            getattr(group, "boundary_missing_vertices", 0),
+            getattr(group, "boundary_nonmanifold_edges", 0),
+            getattr(group, "boundary_nonmanifold_vertices", 0)
         ])
 
         # ==============================================================
@@ -147,7 +172,11 @@ def write_logs(group, net_name=None, round_to=None):
                         "Number of Neighbors", "Closest Neighbor", "Closest Neighbor Distance",
                         "Layer Distance Average", "Layer Distance RMSD", "Minimum Point Distance",
                         "Maximum Point Distance", "Number of Overlaps", "Contact Area", "Non-Overlap Volume",
-                        "Overlap Volume", "Center of Mass", "Moment of Inertia Tensor", "Bounding Box", "neighbors"])
+                        "Overlap Volume", "Center of Mass", "Moment of Inertia Tensor", "Bounding Box", "neighbors",
+                        "Integrated Mean Curvature (Face)", "Integrated Mean Curvature (Edge)",
+                        "Integrated Mean Curvature (Total)", "Integrated Gaussian Curvature (Face)",
+                        "Integrated Gaussian Curvature (Edge)", "Integrated Gaussian Curvature (Vertex)",
+                        "Integrated Gaussian Curvature (Total)"])
 
         atom_rows = net.balls.itertuples(index=True, name='AtomRow')
 
@@ -211,7 +240,14 @@ def write_logs(group, net_name=None, round_to=None):
                     [float(r(_)) for _ in atom.bounding_box[0]],
                     [float(r(_)) for _ in atom.bounding_box[1]]
                 ],
-                nbrs
+                nbrs,
+                r(getattr(atom, "int_mean_curv_surface", atom.int_mean_curv)),
+                r(getattr(atom, "int_mean_curv_edge", 0.0)),
+                r(getattr(atom, "int_mean_curv_total", atom.int_mean_curv)),
+                r(getattr(atom, "int_gauss_curv_surface", atom.int_gauss_curv)),
+                r(getattr(atom, "int_gauss_curv_edge", 0.0)),
+                r(getattr(atom, "int_gauss_curv_vertex", 0.0)),
+                r(getattr(atom, "int_gauss_curv_total", atom.int_gauss_curv))
             ])
 
         # ==============================================================
@@ -223,7 +259,8 @@ def write_logs(group, net_name=None, round_to=None):
                         "Gaussian Curvature", "Average Gaussian Curvature", "Integrated Mean Curvature",
                         "Integrated Mean Curvature Squared", "Integrated Gaussian Curvature",
                         "Representative Surface Energy", "Ball 1 Volume Contribution", "Ball 2 Volume Contribution",
-                        "Contact Area", "Overlap"])
+                        "Contact Area", "Overlap", "Integrated Mean Curvature (Face)",
+                        "Integrated Gaussian Curvature (Face)"])
 
         for surf in net.surfs.itertuples(index=True, name='SurfRow'):
             ball1, ball2 = surf.balls
@@ -232,7 +269,8 @@ def write_logs(group, net_name=None, round_to=None):
             lg_fl.writerow([surf.Index, ball1, ball2, r(surf.sa), r(surf.mean_curv), r(surf.avg_mean_curv),
                             r(surf.gauss_curv), r(surf.avg_gauss_curv), r(surf.int_mean_curv), r(surf.int_mean_curv_sq),
                             r(surf.int_gauss_curv), r(getattr(surf, 'surf_energy', 2.0 * surf.int_mean_curv_sq)),
-                            r(vols[ball1]), r(vols[ball2]), r(surf.contact_area), r(surf.overlap)])
+                            r(vols[ball1]), r(vols[ball2]), r(surf.contact_area), r(surf.overlap),
+                            r(surf.int_mean_curv), r(surf.int_gauss_curv)])
 
         # ==============================================================
         # Edges
@@ -754,7 +792,10 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                         "Closest Neighbor Distance", "Layer Distance Average", "Layer Distance RMSD",
                         "Minimum Point Distance", "Maximum Point Distance", "Number of Overlaps", "Contact Area",
                         "Non-Overlap Volume", "Overlap Volume", "Center of Mass", "Moment of Inertia Tensor",
-                        "Bounding Box", "neighbors"])
+                        "Bounding Box", "neighbors", "Integrated Mean Curvature (Face)",
+                        "Integrated Mean Curvature (Edge)", "Integrated Mean Curvature (Total)",
+                        "Integrated Gaussian Curvature (Face)", "Integrated Gaussian Curvature (Edge)",
+                        "Integrated Gaussian Curvature (Vertex)", "Integrated Gaussian Curvature (Total)"])
 
         _log_t_atoms = time.perf_counter()
         _log_atom_rows = 0
@@ -865,6 +906,13 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                     for row in bounding_box
                 ],
                 neighbors,
+                safe_round(atom.get("int_mean_curv_surface", atom.get("int_mean_curv", 0.0))),
+                safe_round(atom.get("int_mean_curv_edge", 0.0)),
+                safe_round(atom.get("int_mean_curv_total", atom.get("int_mean_curv", 0.0))),
+                safe_round(atom.get("int_gauss_curv_surface", atom.get("int_gauss_curv", 0.0))),
+                safe_round(atom.get("int_gauss_curv_edge", 0.0)),
+                safe_round(atom.get("int_gauss_curv_vertex", 0.0)),
+                safe_round(atom.get("int_gauss_curv_total", atom.get("int_gauss_curv", 0.0))),
             ]
             )
             _log_atom_rows += 1
@@ -897,6 +945,8 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                 "Ball 2 Volume Contribution",
                 "Contact Area",
                 "Overlap",
+                "Integrated Mean Curvature (Face)",
+                "Integrated Gaussian Curvature (Face)",
             ]
         )
 
@@ -954,6 +1004,8 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                         safe_round(ball2_volume),
                         safe_round(surf.get("contact_area", 0.0)),
                         safe_round(surf.get("overlap", 0.0)),
+                        safe_round(surf.get("int_mean_curv", 0.0)),
+                        safe_round(surf.get("int_gauss_curv", 0.0)),
                     ]
                 )
                 _log_surface_rows += 1

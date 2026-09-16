@@ -154,6 +154,18 @@ atom_vals_energy = {
 }
 
 
+atom_vals_complete = dict(atom_vals_energy)
+atom_vals_complete.update({
+    'Integrated Mean Curvature (Face)': float,
+    'Integrated Mean Curvature (Edge)': float,
+    'Integrated Mean Curvature (Total)': float,
+    'Integrated Gaussian Curvature (Face)': float,
+    'Integrated Gaussian Curvature (Edge)': float,
+    'Integrated Gaussian Curvature (Vertex)': float,
+    'Integrated Gaussian Curvature (Total)': float,
+})
+
+
 def read_atom(atom_line):
     """
     Parse an atom row using its column count.
@@ -176,7 +188,13 @@ def read_atom(atom_line):
     # --------------------------------------------------------------
     # Current format: 40 columns
     # --------------------------------------------------------------
-    if n == 40:
+    if n == 47:
+        schema = atom_vals_complete
+
+    # --------------------------------------------------------------
+    # Current format: 40 columns
+    # --------------------------------------------------------------
+    elif n == 40:
         schema = atom_vals_energy
 
     # --------------------------------------------------------------
@@ -200,7 +218,7 @@ def read_atom(atom_line):
     else:
         raise ValueError(
             f"Unrecognized atom log format: "
-            f"expected 40, 39, 36, or {len(atom_vals_old)} columns, "
+            f"expected 47, 40, 39, 36, or {len(atom_vals_old)} columns, "
             f"got {n}."
         )
 
@@ -243,6 +261,23 @@ def read_surf(surf_line):
         surf_line = surf_line[:-1]
 
     n = len(surf_line)
+
+    # --------------------------------------------------------------
+    # Current format with explicit face aliases: 18 columns
+    # --------------------------------------------------------------
+    if n == 18:
+        result = {
+            "Index": int(surf_line[0]), "Balls": [int(surf_line[1]), int(surf_line[2])],
+            "Surface Area": float(surf_line[3]), "Mean Curvature": float(surf_line[4]),
+            "Average Mean Curvature": float(surf_line[5]), "Gauss Curvature": float(surf_line[6]),
+            "Average Gauss Curvature": float(surf_line[7]), "Integrated Mean Curvature": float(surf_line[8]),
+            "Integrated Mean Curvature Squared": float(surf_line[9]), "Integrated Gaussian Curvature": float(surf_line[10]),
+            "Representative Surface Energy": float(surf_line[11]), "Ball Volumes": [float(surf_line[12]), float(surf_line[13])],
+            "Contact Area": float(surf_line[14]), "Overlap": float(surf_line[15]),
+            "Integrated Mean Curvature (Face)": float(surf_line[16]),
+            "Integrated Gaussian Curvature (Face)": float(surf_line[17]),
+        }
+        return result
 
     # --------------------------------------------------------------
     # Current format: 16 columns
@@ -400,7 +435,7 @@ def read_surf(surf_line):
 
     raise ValueError(
         f"Unrecognized surface log format: "
-        f"expected 16, 15, 12, 10, 9, or 8 columns, got {n}."
+        f"expected 18, 16, 15, 12, 10, 9, or 8 columns, got {n}."
     )
 
 
@@ -482,6 +517,22 @@ def read_logs(log_files, return_dict=False, no_sol=False, all_=True, balls=False
                         group_data['Integrated Mean Curvature Squared'] = float(line[11])
                     if len(line) > 12:
                         group_data['Integrated Gaussian Curvature'] = float(line[12])
+                    optional_names = (
+                        'Integrated Mean Curvature (Face)', 'Integrated Mean Curvature (Edge)',
+                        'Integrated Gaussian Curvature (Face)', 'Integrated Gaussian Curvature (Edge)',
+                        'Integrated Gaussian Curvature (Vertex)', 'Euler Characteristic',
+                        'Gauss-Bonnet Expected', 'Gauss-Bonnet Error', 'Gauss-Bonnet Relative Error',
+                        'Boundary Complete', 'Boundary Closed', 'Boundary Manifold', 'Boundary Orientable',
+                        'Boundary Components')
+                    for offset, name in enumerate(optional_names, start=13):
+                        if len(line) <= offset or line[offset] == '':
+                            continue
+                        if name.startswith('Boundary'):
+                            group_data[name] = line[offset] == 'True'
+                        elif name == 'Euler Characteristic' or name == 'Boundary Components':
+                            group_data[name] = int(float(line[offset]))
+                        else:
+                            group_data[name] = float(line[offset])
                     continue
 
                 # If the line is a build information, group information, Atoms, Edges, Surfaces, or Vertices, set the
