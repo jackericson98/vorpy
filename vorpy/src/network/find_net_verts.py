@@ -1,4 +1,5 @@
 import time
+import os
 import pandas as pd
 from vorpy.src.calculations import box_search
 from vorpy.src.calculations import get_balls
@@ -188,7 +189,8 @@ def _get_interface_reseed_candidates(net, sphere_check_list):
 
 def _print_find_verts_timing(net, timer, total):
     """Print a compact, meaningful vertex-search timing breakdown."""
-    if not net.settings.get('verbose', False):
+    debug = os.environ.get('VORPY_VERTEX_SEARCH_DEBUG', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+    if not net.settings.get('verbose', False) and not debug:
         return
 
     grouped = {
