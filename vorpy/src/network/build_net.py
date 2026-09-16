@@ -1,4 +1,5 @@
 import time
+import os
 import numpy as np
 from itertools import combinations
 from vorpy.src.calculations import calc_dist
@@ -363,6 +364,15 @@ def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, net
                 surf_vert_map[key].append(vert_ndx)
 
     s_balls, s_verts, s_edges = [], [], []
+    debug_pair = None
+    raw_pair = os.environ.get("VORPY_DEBUG_SURFACE_PAIR", "").strip()
+    if raw_pair:
+        try:
+            debug_pair = tuple(sorted(int(value.strip()) for value in raw_pair.split(",")))
+            if len(debug_pair) != 2:
+                debug_pair = None
+        except ValueError:
+            debug_pair = None
     keys = sorted(surf_edge_map)
     for n, key in enumerate(keys):
         if net is not None and n % 5000 == 0 and keys:
@@ -371,14 +381,20 @@ def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, net
 
         test_surf = list(key)
         if interface and not spans_interface(test_surf, iface_grps):
+            if debug_pair == key: print(f"SURFACE DEBUG {key}: rejected interface membership")
             continue
         if not interface and group is not None and not belongs_to_group(test_surf, group):
+            if debug_pair == key: print(f"SURFACE DEBUG {key}: rejected group membership")
             continue
 
         surf_edges = surf_edge_map[key]
         surf_verts = surf_vert_map[key]
 
+        if debug_pair == key:
+            print(f"SURFACE DEBUG {key}: candidate_edges={surf_edges} candidate_vertices={surf_verts}")
+            print(f"SURFACE DEBUG {key}: edge_count={len(surf_edges)} vertex_count={len(surf_verts)}")
         if len(surf_verts) != len(surf_edges):
+            if debug_pair == key: print(f"SURFACE DEBUG {key}: rejected unequal edge/vertex counts")
             continue
 
         if interface:
@@ -397,9 +413,11 @@ def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, net
                     no_surf = True
                     break
             if no_surf:
+                if debug_pair == key: print(f"SURFACE DEBUG {key}: rejected vertex degree <= 2")
                 continue
 
         s_balls.append(test_surf)
+        if debug_pair == key: print(f"SURFACE DEBUG {key}: ACCEPTED")
         s_edges.append(surf_edges)
         s_verts.append(surf_verts)
 
