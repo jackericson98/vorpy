@@ -325,6 +325,9 @@ def analyze(
         ball_edges = ball_edges_all[ball_pos]
         complete = True
         ball_index_value = ball_index[ball_pos]
+        unresolved_vertices = getattr(net, "_aw_unresolved_vertex_curvature", set())
+        if any(int(cell) == int(ball_num) for _, cell, _ in unresolved_vertices):
+            complete = False
 
         for vert in ball_verts:
             vert = int(vert)
@@ -422,6 +425,8 @@ def analyze(
                         f"Invalid AW vertex Gaussian-curvature cache for vertex {vert_id}."
                     )
                 if ball_num not in vertex_values:
+                    if not complete:
+                        continue
                     raise ValueError(
                         f"Missing AW vertex Gaussian-curvature contribution for "
                         f"ball {ball_num}, vertex {vert_id}."

@@ -41,6 +41,7 @@ def calculate_aw_network_vertex_gaussian_curvatures(
     timing = {"edge_resolution": 0.0, "vertex_geometry": 0.0, "storage": 0.0}
     target_cells = {int(value) for value in net.group}
     contributions = []
+    unresolved = set()
     resolved_edges, cache_built, cache_time = get_aw_edge_geometry_cache(net, tolerance=tolerance)
     timing["edge_resolution"] += cache_time
     resolved_edge_calls = 0
@@ -74,13 +75,20 @@ def calculate_aw_network_vertex_gaussian_curvatures(
 
         for cell_index in participating_cells:
             t = now()
-            defect = aw_cell_vertex_angular_defect(
-                net=net,
-                vertex_index=vertex_index,
-                cell_index=cell_index,
-                resolved_edges=vertex_resolved_edges,
-                tolerance=tolerance,
-            )
+            try:
+                defect = aw_cell_vertex_angular_defect(
+                    net=net,
+                    vertex_index=vertex_index,
+                    cell_index=cell_index,
+                    resolved_edges=vertex_resolved_edges,
+                    tolerance=tolerance,
+                )
+            except ValueError as error:
+                # A platform-dependent incomplete corner is unresolved data,
+                # not zero curvature.  Preserve the omission so analysis can
+                # mark the cell incomplete and avoid claiming a closed total.
+                unresolved.add((int(vertex_index), int(cell_index), str(error)))
+                continue
             timing["vertex_geometry"] += now() - t
 
             defect = float(defect)
@@ -105,6 +113,8 @@ def calculate_aw_network_vertex_gaussian_curvatures(
         t = now()
         contributions.append(vertex_values)
         timing["storage"] += now() - t
+
+    setattr(net, "_aw_unresolved_vertex_curvature", unresolved)
 
     if len(contributions) != len(net.verts):
         raise ValueError(
