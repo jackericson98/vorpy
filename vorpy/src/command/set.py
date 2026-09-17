@@ -725,7 +725,7 @@ def sett(setting, value, settings=None):
     # Set the default settings
     if settings is None:
         settings = {'surf_res': 0.2, 'max_vert': 40, 'box_size': 1.25, 'net_type': 'aw', 'surf_col': 'plasma',
-                    'surf_scheme': 'mean', 'scheme_factor': 'log', 'atom_rad': None, 'bld_type': None, 'conc_col': True,
+                    'surf_scheme': 'int_mean_curv', 'scheme_factor': 'log', 'atom_rad': None, 'bld_type': None, 'conc_col': True,
                     'vert_col': 'red', 'edge_col': 'grey', 'round_to': 6, 'file_type': 'off'}
     # Set up the functions dictionary to return the value
     func_dict = {'surf_res': set_sr, 'max_vert': set_mv, 'box_size': set_bs, 'net_type': set_nt, 'surf_col': set_sc,

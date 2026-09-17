@@ -52,6 +52,37 @@ def test_network_vertex_preserves_unresolved_cell_defects(monkeypatch, edge_ids)
         assert {(vertex, cell) for vertex, cell, _ in net._aw_unresolved_vertex_curvature} == {(0, 0), (0, 1)}
 
 
+def test_network_vertex_surface_index_recovers_missing_faces_and_refreshes(monkeypatch):
+    geometry = importlib.import_module("vorpy.src.calculations.vertex_geometry")
+    module = importlib.import_module("vorpy.src.calculations.vertex_gaussian_curvature")
+    net = SimpleNamespace(
+        settings={"net_type": "aw"}, group=[0],
+        verts=pd.DataFrame([
+            {"balls": [0, 1, 2, 3], "edges": [0, 1, 2], "surfs": [8]},
+        ], index=[17]),
+        edges=pd.DataFrame(),
+        surfs=pd.DataFrame([
+            {"balls": [0, 1], "verts": [17]},
+            {"balls": [0, 2], "verts": [17]},
+            {"balls": [0, 3], "verts": [17]},
+            {"balls": [0, 1], "verts": None},
+        ], index=[8, 9, 10, 11]),
+    )
+    monkeypatch.setattr(module, "get_aw_edge_geometry_cache",
+                        lambda *args, **kwargs: ({0: None, 1: None, 2: None}, False, 0.0))
+    monkeypatch.setattr(geometry, "aw_vertex_face_angle", lambda **kwargs: np.pi / 2)
+    reference = geometry.aw_cell_vertex_angular_defect(net, 17, 0)
+    # The network path must not perform the standalone full-table recovery.
+    def forbid_scan():
+        raise AssertionError("Surface table was scanned per cell corner")
+    monkeypatch.setattr(net.surfs, "iterrows", forbid_scan)
+    assert module.calculate_aw_network_vertex_gaussian_curvatures(net) == [{0: reference}]
+    assert net._aw_unresolved_vertex_curvature == set()
+    net.surfs.at[10, "verts"] = []
+    assert module.calculate_aw_network_vertex_gaussian_curvatures(net) == [{}]
+    assert {(vertex, cell) for vertex, cell, _ in net._aw_unresolved_vertex_curvature} == {(17, 0)}
+
+
 def test_cube_vertex_has_pi_over_two_angular_defect():
     angles = [
         np.pi / 2.0,

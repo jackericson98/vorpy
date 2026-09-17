@@ -3,8 +3,10 @@
 import os
 import shutil
 import time
+from contextlib import contextmanager
 
 from vorpy.src.output.atoms import write_atom_cells
+from vorpy.src.output.curvature_colors import export_color_cache
 
 
 SYSTEM_PRESETS = {
@@ -169,7 +171,7 @@ class ExportProgress:
 
     def show(self, name=None):
         percent = 100.0 * self.current / self.total
-        process = 'Exporting files' if name is None else f'Exporting files: {name}'
+        process = 'Export' if name is None else f'Export: {name}'
         self.sys.update_progress(process=process, progress=percent)
 
     def step(self):
@@ -177,7 +179,7 @@ class ExportProgress:
 
     def finish(self):
         self.current = self.total
-        self.sys.update_progress(process='Exporting files', progress=100.0)
+        self.sys.update_progress(process='Export', progress=100.0)
         total_elapsed = time.perf_counter() - self.start
         self.sys.export_timing = self.timings.copy()
         self.sys.export_timing['total'] = total_elapsed
@@ -224,6 +226,21 @@ def _move_vert_file(sys, group):
         shutil.move(source, destination)
 
 
+@contextmanager
+def _group_export_cache(group):
+    """Share summaries and color scales only within this export plan."""
+    previous = getattr(group, "_export_info_ready", None)
+    group._export_info_ready = False
+    try:
+        with export_color_cache(group.net):
+            yield
+    finally:
+        if previous is None:
+            del group._export_info_ready
+        else:
+            group._export_info_ready = previous
+
+
 def export_preset(sys, preset):
     """Execute one named export plan."""
     groups = [group for group in sys.groups if group.net is not None]
@@ -238,14 +255,16 @@ def export_preset(sys, preset):
         _run_export(progress, f'system {name}', sys.exports, **kwargs)
     for group in groups:
         _set_group_directory(sys, group)
-        for name, kwargs in group_plan:
-            _run_export(progress, f'{group.name}: {name}', group.exports, **kwargs)
+        with _group_export_cache(group):
+            for name, kwargs in group_plan:
+                _run_export(progress, f'{group.name}: {name}', group.exports, **kwargs)
         if preset in {'large', 'all'}:
             _move_vert_file(sys, group)
     for iface in ifaces:
         interface_name = getattr(iface, 'name', 'interface')
-        for name, kwargs in interface_plan:
-            _run_export(progress, f'{interface_name}: {name}', iface.export, **kwargs)
+        with export_color_cache(iface.net):
+            for name, kwargs in interface_plan:
+                _run_export(progress, f'{interface_name}: {name}', iface.export, **kwargs)
     progress.finish()
 
 

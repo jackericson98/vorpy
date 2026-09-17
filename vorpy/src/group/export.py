@@ -957,15 +957,15 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     curvature_map = grp.settings.get('surf_col', 'coolwarm')
     boundary_color_limit = (
         curvature_color_limit(grp.net, curvature_scheme, target_cells, mode='boundary')
-        if curvature_scheme is not None else None
+        if curvature_scheme is not None and (shell_surfs or shell_edges or shell_verts or all_) else None
     )
     magnitude_color_limit = (
         curvature_color_limit(grp.net, curvature_scheme, target_cells, mode='magnitude')
-        if curvature_scheme is not None else None
+        if curvature_scheme is not None and (surfs or edges or verts or sep_surfs or sep_edges or sep_verts or all_) else None
     )
     cell_color_limit = (
         curvature_color_limit(grp.net, curvature_scheme, target_cells, mode='cell')
-        if curvature_scheme is not None else None
+        if curvature_scheme is not None and (atom_surfs or atom_edges or atom_verts or all_) else None
     )
     # Get the surfaces if they haven't been got
     if grp.net.surfs is None or len(grp.net.surfs) == 0:

@@ -20,6 +20,21 @@ Three visualization interpretations are supported for integrated curvature:
 
 import numpy as np
 import matplotlib as mpl
+from contextlib import contextmanager
+
+
+@contextmanager
+def export_color_cache(net):
+    """Reuse color scales during one export plan, never across analyses."""
+    previous = getattr(net, "_export_color_limits", None)
+    net._export_color_limits = {}
+    try:
+        yield
+    finally:
+        if previous is None:
+            del net._export_color_limits
+        else:
+            net._export_color_limits = previous
 
 
 INTEGRATED_CURVATURE_SCHEMES = {"int_mean_curv", "int_gauss_curv"}
@@ -280,6 +295,19 @@ def curvature_color_limit(net, scheme, target_cells=None, mode="boundary"):
     mode = canonical_color_mode(mode)
     if scheme is None:
         return None
+
+    cache = getattr(net, "_export_color_limits", None)
+    targets = None if target_cells is None else tuple(sorted({int(value) for value in target_cells}))
+    key = (scheme, targets, mode)
+    if cache is not None and key in cache:
+        return cache[key]
+    limit = _calculate_curvature_color_limit(net, scheme, targets, mode)
+    if cache is not None:
+        cache[key] = limit
+    return limit
+
+
+def _calculate_curvature_color_limit(net, scheme, target_cells, mode):
 
     arrays = []
     support = SUPPORTED_COMPONENTS[scheme]

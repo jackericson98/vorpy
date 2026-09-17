@@ -272,7 +272,7 @@ def find_net_verts(net):
         net.group = net.balls['num'].tolist()
 
     sphere_check_list = net.group.copy()
-    net.update_progress("Finding vertices | Initializing", 0.0)
+    net.update_progress("Vertices | Setup", 0.0)
     timer['setup'] += time.perf_counter() - t
 
     # --------------------------------------------------------------
@@ -465,7 +465,7 @@ def find_net_verts(net):
     timer['dataframe'] += time.perf_counter() - t
 
     net.update_progress(
-        f"Finding vertices: {len(net.verts):,} / {len(net.verts):,}",
+        f"Vertices: {len(net.verts):,} / {len(net.verts):,}",
         100.0
     )
 

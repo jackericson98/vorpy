@@ -70,7 +70,7 @@ def analyze(
     validation, interpretation, and regression testing.
     """
     analysis_start = now()
-    net.update_progress("Analyzing network | Initializing", 0.0)
+    net.update_progress("Analysis | Setup", 0.0)
 
     spikes = complicated if spikes is None else spikes
     contacts = complicated if contacts is None else contacts
@@ -626,7 +626,7 @@ def analyze(
         current_time = now()
 
         if current_time - last_update >= 0.25 or count == n_group:
-            net.update_progress("Analyzing network", 100.0 * count / max(n_group, 1))
+            net.update_progress("Analysis", 100.0 * count / max(n_group, 1))
             last_update = current_time
 
     # ------------------------------------------------------------------

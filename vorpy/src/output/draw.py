@@ -1,4 +1,5 @@
 import numpy as np
+from functools import lru_cache
 from numba import njit
 
 
@@ -264,6 +265,15 @@ def draw_joint(center, radius=DEFAULT_EDGE_RADIUS * DEFAULT_JOINT_RADIUS_FACTOR,
     if subdivisions < 0:
         raise ValueError("subdivisions must be non-negative")
 
+    vertices, faces = _joint_template(int(subdivisions))
+    points = center + float(radius) * vertices
+    return points.tolist(), faces.tolist()
+
+
+@lru_cache(maxsize=8)
+def _joint_template(subdivisions):
+    """Reuse the same unit icosphere for vertex markers and edge joints."""
+
     golden_ratio = (1.0 + np.sqrt(5.0)) / 2.0
     vertices = [
         (-1, golden_ratio, 0), (1, golden_ratio, 0),
@@ -308,5 +318,4 @@ def draw_joint(center, radius=DEFAULT_EDGE_RADIUS * DEFAULT_JOINT_RADIUS_FACTOR,
             ])
         faces = refined_faces
 
-    points = center + float(radius) * np.asarray(vertices)
-    return points.tolist(), np.asarray(faces, dtype=np.int64).tolist()
+    return np.asarray(vertices), np.asarray(faces, dtype=np.int64)

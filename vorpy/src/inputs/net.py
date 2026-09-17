@@ -67,6 +67,27 @@ def _standardize_log_geometry_columns(balls, verts, edges, surfs):
         if all(col in surfs.columns for col in surf_ball_cols):
             surfs["balls"] = surfs[surf_ball_cols].astype(int).values.tolist()
 
+    # New logs preserve edge curvature from every generating cell's view.
+    # Older aggregate-only logs retain their existing loading behavior.
+    if "balls" in edges:
+        for measure, field in [("Mean", "int_mean_curv_by_ball"),
+                               ("Gaussian", "int_gauss_curv_by_generator")]:
+            columns = [f"Integrated {measure} Curvature (Ball {i})" for i in range(1, 4)]
+            if all(column in edges for column in columns):
+                edges[field] = [
+                    {int(ball): float(value) for ball, value in zip(balls, values)
+                     if pd.notna(value)}
+                    for balls, values in zip(edges["balls"], edges[columns].to_numpy())
+                ]
+        slots = ((1, 2), (1, 3), (2, 1), (2, 3), (3, 1), (3, 2))
+        columns = [f"Integrated Gaussian Curvature (Ball {i}, Face with Ball {j})" for i, j in slots]
+        if all(column in edges for column in columns):
+            edges["int_gauss_curv_by_face"] = [
+                {(int(balls[i - 1]), int(balls[j - 1])): float(value)
+                 for (i, j), value in zip(slots, values) if pd.notna(value)}
+                for balls, values in zip(edges["balls"], edges[columns].to_numpy())
+            ]
+
     balls = balls.loc[:, ~balls.columns.duplicated()].copy()
     verts = verts.loc[:, ~verts.columns.duplicated()].copy()
     edges = edges.loc[:, ~edges.columns.duplicated()].copy()

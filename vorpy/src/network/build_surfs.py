@@ -177,7 +177,7 @@ def build_surfs(net, store_points=True):
     total_tris = 0
     last_update = 0.0
 
-    net.update_progress('Building surfaces | Initializing', 0.0)
+    net.update_progress('Surfaces | Setup', 0.0)
 
     for count, (i, surf) in enumerate(net.surfs.iterrows(), start=1):
         lookup_start = time.perf_counter()
@@ -261,7 +261,7 @@ def build_surfs(net, store_points=True):
         if current_time - last_update >= 0.25 or count == total_surfs:
             percentage = 100.0 * count / max(total_surfs, 1)
             net.update_progress(
-                f'Building surfaces: {count:,} / {total_surfs:,}',
+                f'Surfaces: {count:,} / {total_surfs:,}',
                 percentage,
             )
             last_update = current_time
@@ -325,10 +325,10 @@ def build_surfs(net, store_points=True):
         net.max_curv = 0
     _add_timing(outer_timing, 'curvature_percentile', time.perf_counter() - timer)
 
-    net.update_progress('Building surfaces', 100.0)
+    net.update_progress('Surfaces', 100.0)
     net.metrics['surf'] = time.perf_counter() - net.metrics['start'] - net.metrics['vert'] - net.metrics['con']
     net.update_progress(
-        f'Building surfaces: {len(net.surfs):,} / {len(net.surfs):,}',
+        f'Surfaces: {len(net.surfs):,} / {len(net.surfs):,}',
         100.0,
     )
 

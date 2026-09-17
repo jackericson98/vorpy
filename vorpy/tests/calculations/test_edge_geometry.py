@@ -1444,7 +1444,8 @@ def test_oriented_aw_face_edge_geodesic_curvature_is_direction_invariant():
 
 @pytest.mark.parametrize("curved", [False, True])
 @pytest.mark.parametrize("reverse", [False, True])
-def test_fused_edge_curvature_matches_independent_integrals(curved, reverse):
+@pytest.mark.parametrize("face_count", [0, 2, 6])
+def test_fused_edge_curvature_matches_independent_integrals(curved, reverse, face_count):
     from vorpy.src.calculations.edge_geometry import aw_edge_curvature_measures
 
     locations = np.array([[0., 0., 0.], [4., 0., 0.], [0., 5., 0.]])
@@ -1458,8 +1459,11 @@ def test_fused_edge_curvature_matches_independent_integrals(curved, reverse):
         from vorpy.src.calculations.edge_geometry import AffineEdgeGeometry
         edge = AffineEdgeGeometry(edge, edge.t_max, edge.t_min)
     indices = [10, 20, 30]
-    pairs = [(cell, other) for cell in indices for other in indices if cell != other]
+    pairs = [(cell, other) for cell in indices for other in indices if cell != other][:face_count]
     result = aw_edge_curvature_measures(edge, indices, locations, pairs)
+    profiled = aw_edge_curvature_measures(edge, indices, locations, pairs, timing={})
+    for measure in ("mean", "gaussian"):
+        assert result[measure] == pytest.approx(profiled[measure], rel=1e-12, abs=1e-12)
     for cell in indices:
         reference = aw_cell_edge_mean_curvature(edge, indices, locations, cell)
         assert result['mean'][cell] == pytest.approx(reference, rel=1e-12, abs=1e-12)

@@ -114,7 +114,7 @@ class Group:
     def __init__(self, sys, name=None, atoms=None, molecules=None, chains=None, residues=None,
                  settings=None, build_net=False, surf_res=0.2, box_size=1.25, max_vert=40,
                  build_type='all', net=None, net_type='aw', surf_col='plasma',
-                 surf_scheme='mean', num_splits=None, print_metrics=True, scheme_factor='log',
+                 surf_scheme='int_mean_curv', num_splits=None, print_metrics=True, scheme_factor='log',
                  make_net=True, verts=None, vert_col='red', edge_col='grey', output_directory=None,
                  mode='complete', interfaces=None, interface_metadata=None, parent_interface_id=None,
                  interface_side=None, interface_groups=None, group_id=None):
@@ -390,7 +390,7 @@ class Group:
 
         metadata["status"] = "created"
 
-    def get_settings(self, surf_res=0.2, surf_col='plasma', surf_scheme='mean', scheme_factor='log', max_vert=40,
+    def get_settings(self, surf_res=0.2, surf_col='plasma', surf_scheme='int_mean_curv', scheme_factor='log', max_vert=40,
                      box_size=1.25, net_type='aw', build_type='all', num_splits=1, print_metrics=True, ball_type=None,
                      sys_dir=None, foam_box=None, vert_col='red', edge_col='grey', conc_col=True, round_to=6):
         """
@@ -563,7 +563,11 @@ class Group:
         """
         Gets the info for the group to be able to make an output file with said information and also sorts the network
         """
+        if getattr(self, "_export_info_ready", False):
+            return
         get_info(self)
+        if hasattr(self, "_export_info_ready"):
+            self._export_info_ready = True
 
     def get_layers(self, max_layers=50, group_resids=True, build_surfs=True):
         """

@@ -120,7 +120,7 @@ class Network:
                 self.default_settings()
 
     def default_settings(self, surf_res=0.2, box_size=1.5, max_vert=40, build_type='all', net=None,
-                         net_type='aw', surf_col='rainbow', surf_scheme='mean', num_splits=None, print_metrics=False,
+                         net_type='aw', surf_col='rainbow', surf_scheme='int_mean_curv', num_splits=None, print_metrics=False,
                          scheme_factor='log', make_net=False, verts=None):
         """
         Set default settings for the network.
@@ -213,8 +213,8 @@ class Network:
         my_time = now() - self.metrics['start']
         h, m, s = get_time(my_time)
         print(
-            f"\rRun Time = {int(h)}:{int(m):02d}:{s:05.2f} - "
-            f'Network: {self.group_name} - Process: {process} - {progress:.2f} %',
+            f"\r{int(h)}:{int(m):02d}:{s:05.2f} - "
+            f'{progress_network} - {progress_process} - {progress:.2f} %',
             end="",
             flush=True,
         )
@@ -356,7 +356,7 @@ class Network:
         last_update = 0.0
 
         self.update_progress(
-            f"Building edges: 0 / {total_edges:,}",
+            f"Edges: 0 / {total_edges:,}",
             0.0
         )
 
@@ -370,7 +370,7 @@ class Network:
                 percentage = 100.0 * current_edge / max(total_edges, 1)
 
                 self.update_progress(
-                    f"Building edges: {current_edge:,} / {total_edges:,}",
+                    f"Edges: {current_edge:,} / {total_edges:,}",
                     percentage
                 )
 
@@ -467,6 +467,9 @@ class Network:
 
         self.edges["int_gauss_curv_by_ball"] = values
         cache = getattr(self, "_aw_fused_edge_curvature_cache", {})
+        generator_values = cache.get("gaussian_by_generator") if isinstance(cache, dict) else None
+        if generator_values is not None and len(generator_values) == len(self.edges):
+            self.edges["int_gauss_curv_by_generator"] = generator_values
         face_values = cache.get("gaussian_by_face") if isinstance(cache, dict) else None
         if face_values is not None and len(face_values) == len(self.edges):
             self.edges["int_gauss_curv_by_face"] = face_values
@@ -707,7 +710,7 @@ class Network:
         1. Sorting and organizing the balls in the network
         2. Finding and verifying vertices
         3. Connecting vertices to form edges
-        4. Building surfaces between edges
+        4. Surfaces between edges
         5. Analyzing the final network structure
 
         Parameters
@@ -765,21 +768,21 @@ class Network:
         self.build_surfaces(not limit_mem)
 
         if self.settings.get("net_type", "aw") == "aw":
-            self.update_progress("Orienting surface curvature", 0.0)
+            self.update_progress("Surface orientation", 0.0)
             self.build_surface_mean_curvature()
-            self.update_progress("Orienting surface curvature", 100.0)
+            self.update_progress("Surface orientation", 100.0)
 
-            self.update_progress("Calculating edge mean curvature", 0.0)
+            self.update_progress("Edge mean", 0.0)
             self.build_edge_mean_curvature()
-            self.update_progress("Calculating edge mean curvature", 100.0)
+            self.update_progress("Edge mean", 100.0)
 
-            self.update_progress("Calculating edge Gaussian curvature", 0.0)
+            self.update_progress("Edge Gaussian", 0.0)
             self.build_edge_gaussian_curvature()
-            self.update_progress("Calculating edge Gaussian curvature", 100.0)
+            self.update_progress("Edge Gaussian", 100.0)
 
-            self.update_progress("Calculating vertex Gaussian curvature", 0.0)
+            self.update_progress("Vertex Gaussian", 0.0)
             self.build_vertex_gaussian_curvature()
-            self.update_progress("Calculating vertex Gaussian curvature", 100.0)
+            self.update_progress("Vertex Gaussian", 100.0)
 
         self.analyze()
 

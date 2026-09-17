@@ -67,6 +67,7 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
     mean_contributions = []
     gaussian_contributions = []
     gaussian_by_face = []
+    gaussian_by_generator = []
     face_values = 0
     gauss_cell_values = 0
 
@@ -105,9 +106,8 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
             cell_faces[cell_index] = tuple(others)
 
         face_pairs = tuple(
-            (cell_index, other_index)
-            for cell_index, others in cell_faces.items()
-            for other_index in others
+            (cell, other) for cell in edge_balls for other in edge_balls
+            if cell != other
         )
         topology_time += perf_counter() - t
 
@@ -163,12 +163,16 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
         mean_contributions.append(mean_values)
         gaussian_contributions.append(gauss_values)
         gaussian_by_face.append(face_values_by_pair)
+        gaussian_by_generator.append({
+            cell: float(sum(face_integrals[(cell, other)] for other in edge_balls if other != cell))
+            for cell in edge_balls
+        })
         face_values += len(face_integrals)
         reduction_time += perf_counter() - t
 
         if count == n_edges or count % 100 == 0:
             net.update_progress(
-                f"Calculating edge curvature: {count:,} / {n_edges:,}",
+                f"Edge curvature: {count:,} / {n_edges:,}",
                 100.0 * count / max(n_edges, 1),
             )
 
@@ -183,6 +187,7 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
         "mean": mean_contributions,
         "gaussian": gaussian_contributions,
         "gaussian_by_face": gaussian_by_face,
+        "gaussian_by_generator": gaussian_by_generator,
     }
     setattr(net, _CACHE_ATTR, result)
 

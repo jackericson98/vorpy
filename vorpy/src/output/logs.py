@@ -7,6 +7,28 @@ from vorpy.src.calculations import round_func
 from vorpy.src.version import __version__
 
 
+_EDGE_FACE_SLOTS = ((1, 2), (1, 3), (2, 1), (2, 3), (3, 1), (3, 2))
+EDGE_CURVATURE_HEADERS = (
+    [f"Integrated Mean Curvature (Ball {i})" for i in range(1, 4)]
+    + [f"Integrated Gaussian Curvature (Ball {i})" for i in range(1, 4)]
+    + [f"Integrated Gaussian Curvature (Ball {i}, Face with Ball {j})" for i, j in _EDGE_FACE_SLOTS]
+)
+
+
+def edge_curvature_log_values(balls, mean, gaussian, faces, rounding):
+    """Cell-outward edge terms; missing data is blank, never zero."""
+    def value(mapping, key):
+        if not isinstance(mapping, dict):
+            return ""
+        number = mapping.get(key, mapping.get(str(key)))
+        return rounding(float(number)) if number is not None and np.isfinite(float(number)) else ""
+    return (
+        [value(mean, int(ball)) for ball in balls]
+        + [value(gaussian, int(ball)) for ball in balls]
+        + [value(faces, (int(balls[i - 1]), int(balls[j - 1]))) for i, j in _EDGE_FACE_SLOTS]
+    )
+
+
 def write_logs(group, net_name=None, round_to=None):
     """
     Exports a comprehensive log file containing detailed information about the network analysis.
@@ -259,7 +281,7 @@ def write_logs(group, net_name=None, round_to=None):
                         "Gaussian Curvature", "Average Gaussian Curvature", "Integrated Mean Curvature",
                         "Integrated Mean Curvature Squared", "Integrated Gaussian Curvature",
                         "Representative Surface Energy", "Ball 1 Volume Contribution", "Ball 2 Volume Contribution",
-                        "Contact Area", "Overlap", "Integrated Mean Curvature (Face)",
+                        "Contact Area", "Overlap",
                         "Integrated Gaussian Curvature (Face)"])
 
         for surf in net.surfs.itertuples(index=True, name='SurfRow'):
@@ -270,15 +292,14 @@ def write_logs(group, net_name=None, round_to=None):
                             r(surf.gauss_curv), r(surf.avg_gauss_curv), r(surf.int_mean_curv), r(surf.int_mean_curv_sq),
                             r(surf.int_gauss_curv), r(getattr(surf, 'surf_energy', 2.0 * surf.int_mean_curv_sq)),
                             r(vols[ball1]), r(vols[ball2]), r(surf.contact_area), r(surf.overlap),
-                            r(surf.int_mean_curv), r(surf.int_gauss_curv)])
+                            r(surf.int_gauss_curv)])
 
         # ==============================================================
         # Edges
         # ==============================================================
 
         lg_fl.writerow(["Edges"])
-        lg_fl.writerow(["Index", "Ball 1", "Ball 2", "Ball 3", "Length",
-                        "Integrated Mean Curvature", "Integrated Gaussian Curvature"])
+        lg_fl.writerow(["Index", "Ball 1", "Ball 2", "Ball 3", "Length"] + EDGE_CURVATURE_HEADERS)
 
         for edge in net.edges.itertuples(index=True, name='EdgeRow'):
             balls = edge.balls
@@ -289,9 +310,11 @@ def write_logs(group, net_name=None, round_to=None):
                 balls[1],
                 balls[2],
                 r(edge.length),
-                curvature_total(edge, "int_mean_curv_by_ball"),
-                curvature_total(edge, "int_gauss_curv_by_ball")
-            ])
+            ] + edge_curvature_log_values(
+                balls, getattr(edge, "int_mean_curv_by_ball", None),
+                getattr(edge, "int_gauss_curv_by_generator", getattr(edge, "int_gauss_curv_by_ball", None)),
+                getattr(edge, "int_gauss_curv_by_face", None), r,
+            ))
 
         # ==============================================================
         # Vertices
@@ -945,7 +968,6 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                 "Ball 2 Volume Contribution",
                 "Contact Area",
                 "Overlap",
-                "Integrated Mean Curvature (Face)",
                 "Integrated Gaussian Curvature (Face)",
             ]
         )
@@ -1004,7 +1026,6 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                         safe_round(ball2_volume),
                         safe_round(surf.get("contact_area", 0.0)),
                         safe_round(surf.get("overlap", 0.0)),
-                        safe_round(surf.get("int_mean_curv", 0.0)),
                         safe_round(surf.get("int_gauss_curv", 0.0)),
                     ]
                 )
@@ -1027,9 +1048,7 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                 "Ball 2",
                 "Ball 3",
                 "Length",
-                "Integrated Mean Curvature",
-                "Integrated Gaussian Curvature",
-            ]
+            ] + EDGE_CURVATURE_HEADERS
         )
 
         _log_t_edges = time.perf_counter()
@@ -1051,9 +1070,11 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                         int(edge_balls[1]),
                         int(edge_balls[2]),
                         safe_round(edge.get("length", 0.0)),
-                        safe_round(curvature_total(edge.get("int_mean_curv_by_ball", 0.0))),
-                        safe_round(curvature_total(edge.get("int_gauss_curv_by_ball", 0.0))),
-                    ]
+                    ] + edge_curvature_log_values(
+                        edge_balls[:3], edge.get("int_mean_curv_by_ball"),
+                        edge.get("int_gauss_curv_by_generator", edge.get("int_gauss_curv_by_ball")),
+                        edge.get("int_gauss_curv_by_face"), safe_round,
+                    )
                 )
                 _log_edge_rows += 1
 

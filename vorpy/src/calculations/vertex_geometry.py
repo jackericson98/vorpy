@@ -230,8 +230,13 @@ def aw_cell_vertex_angular_defect(
         vertex_index,
         cell_index,
         resolved_edges=None,
-        tolerance=1e-7):
-    """Return the Gaussian-curvature angular defect for one AW cell vertex."""
+        tolerance=1e-7,
+        candidate_surfaces=None):
+    """Return the Gaussian-curvature angular defect for one AW cell vertex.
+
+    Network callers may supply recovered ``candidate_surfaces`` to avoid
+    repeating the full surface-table scan for each cell corner.
+    """
     vertex_index = int(vertex_index)
     cell_index = int(cell_index)
 
@@ -251,13 +256,14 @@ def aw_cell_vertex_angular_defect(
     # surface vertex references when a platform-dependent topology build has
     # left that list incomplete.  This avoids treating a valid cell corner as
     # an unresolved two-face corner merely because insertion order differed.
-    candidate_surfaces = {int(value) for value in vertex.get("surfs", [])}
-    for surface_index, surface in net.surfs.iterrows():
-        try:
-            if vertex_index in {int(value) for value in surface.get("verts", [])}:
-                candidate_surfaces.add(int(surface_index))
-        except (TypeError, ValueError):
-            continue
+    if candidate_surfaces is None:
+        candidate_surfaces = {int(value) for value in vertex.get("surfs", [])}
+        for surface_index, surface in net.surfs.iterrows():
+            try:
+                if vertex_index in {int(value) for value in surface.get("verts", [])}:
+                    candidate_surfaces.add(int(surface_index))
+            except (TypeError, ValueError):
+                continue
 
     debug_vertex = os.environ.get("VORPY_VERTEX_DEBUG", "0").strip().lower() in {
         "1", "true", "yes", "on"

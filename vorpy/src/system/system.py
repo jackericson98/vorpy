@@ -483,10 +483,10 @@ class System:
         h = int(elapsed // 3600)
         m = int((elapsed % 3600) // 60)
         sec = elapsed % 60
-        network_text = f'Network: {self.run_network} - ' if self.run_network else ""
+        network_text = f'{self.run_network} - ' if self.run_network else ""
         message = (
-            f"Run Time = {h}:{m:02d}:{sec:05.2f} - "
-            f"{network_text}Process: {self.run_process} - "
+            f"{h}:{m:02d}:{sec:05.2f} - "
+            f"{network_text}{self.run_process} - "
             f"{self.run_progress:.2f} %"
         )
 

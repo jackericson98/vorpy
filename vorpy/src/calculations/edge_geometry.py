@@ -1756,7 +1756,8 @@ def aw_edge_curvature_measures(
     Edge position, tangent, radial unit vectors, pairwise AW normals, and the
     second derivative are shared between M and G. If ``timing`` is supplied,
     cumulative kernel timings are added to that dictionary without changing
-    the numerical path.
+    the quadrature. Normal calls use compiled accumulation; detailed timing
+    uses the Python reference loop so individual operations can be measured.
     """
     if not isinstance(edge_geometry, EdgeGeometry):
         raise TypeError("edge_geometry must implement EdgeGeometry.")
@@ -1835,6 +1836,40 @@ def aw_edge_curvature_measures(
     mean_totals = np.zeros(3, dtype=float)
     gauss_totals = {pair: 0.0 for pair in pairs}
     curved_for_g = bool(pairs) and not isinstance(edge_geometry, LineEdgeGeometry)
+
+    if not profile:
+        # Evaluate polymorphic geometry in Python, then perform the small
+        # per-node normal/cross-product calculations in one compiled call.
+        from vorpy.src.calculations.edge_curvature_kernel import integrate_edge_samples
+
+        parameters = center + half * np.asarray(nodes, dtype=float)
+        points = np.asarray([edge_geometry.point(t) for t in parameters], dtype=float)
+        firsts = np.asarray([edge_geometry.tangent(t) for t in parameters], dtype=float)
+        seconds = (
+            np.asarray([edge_geometry.second_derivative(t) for t in parameters], dtype=float)
+            if curved_for_g else np.zeros_like(firsts)
+        )
+        pair_positions = np.asarray(
+            [(positions[cell], positions[other]) for cell, other in pairs],
+            dtype=np.int64,
+        ).reshape((-1, 2))
+        mean_totals, gaussian = integrate_edge_samples(
+            points, firsts, seconds, locations, pair_positions,
+            np.asarray(weights, dtype=float), tol,
+        )
+        mean_totals *= 0.5 * half
+        gauss_totals = {
+            pair: float(orientations[pair] * half * gaussian[i])
+            for i, pair in enumerate(pairs)
+        }
+        if not np.all(np.isfinite(mean_totals)):
+            raise ValueError("Non-finite AW edge mean-curvature integral.")
+        if not all(np.isfinite(value) for value in gauss_totals.values()):
+            raise ValueError("Non-finite AW edge geodesic-curvature integral.")
+        return {
+            "mean": {index: float(mean_totals[i]) for i, index in enumerate(indices)},
+            "gaussian": gauss_totals,
+        }
 
     for node, weight in zip(nodes, weights):
         t = center + half * float(node)
@@ -1958,4 +1993,3 @@ def aw_edge_curvature_measures(
         },
         "gaussian": gauss_totals,
     }
-

@@ -292,15 +292,15 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
 
                 if net is not None:
                     net.update_progress(
-                        f"Finding vertices: {current_verts:,} / ~{int(tot_verts):,}",
+                        f"Vertices: {current_verts:,} / ~{int(tot_verts):,}",
                         percentage
                     )
                 else:
                     my_time = current_time - start_time
                     h, m, s = get_time(my_time)
                     print(
-                        f"\rRun Time = {int(h)}:{int(m):02d}:{s:05.2f} - "
-                        f"Process: Finding vertices: {current_verts:,} / ~{int(tot_verts):,} - "
+                        f"\r{int(h)}:{int(m):02d}:{s:05.2f} - "
+                        f"Vertices: {current_verts:,} / ~{int(tot_verts):,} - "
                         f"{percentage:.2f} %",
                         end="",
                         flush=True,

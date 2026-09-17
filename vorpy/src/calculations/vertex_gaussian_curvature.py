@@ -47,8 +47,32 @@ def calculate_aw_network_vertex_gaussian_curvatures(
     timing["edge_resolution"] += cache_time
     resolved_edge_calls = 0
     defect_values = 0
+    total_vertices = len(net.verts)
+    update_progress = getattr(net, "update_progress", None)
+    last_progress = 0.0
 
-    for vertex_index, vertex in net.verts.iterrows():
+    # Recover surface membership once for the whole network rather than
+    # scanning every surface for every participating cell at every vertex.
+    surfaces_by_vertex = {}
+    if "verts" in net.surfs:
+        for surface_index, surface_vertices in net.surfs["verts"].items():
+            try:
+                vertex_indices = {int(value) for value in surface_vertices}
+                surface_id = int(surface_index)
+            except (TypeError, ValueError):
+                continue
+            for vertex_index in vertex_indices:
+                surfaces_by_vertex.setdefault(vertex_index, set()).add(surface_id)
+
+    for count, (vertex_index, vertex) in enumerate(net.verts.iterrows()):
+        current_time = now()
+        if update_progress is not None and current_time - last_progress >= 0.25:
+            update_progress(
+                f"Vertex Gaussian: {count:,} / {total_vertices:,}",
+                100.0 * count / max(total_vertices, 1),
+            )
+            last_progress = current_time
+
         vertex_balls = {int(value) for value in vertex["balls"]}
         participating_cells = sorted(vertex_balls.intersection(target_cells))
 
@@ -81,6 +105,10 @@ def calculate_aw_network_vertex_gaussian_curvatures(
         resolved_edge_calls += len(vertex_edges)
 
         vertex_values = {}
+        candidate_surfaces = (
+            {int(value) for value in vertex.get("surfs", [])}
+            | surfaces_by_vertex.get(int(vertex_index), set())
+        )
 
         for cell_index in participating_cells:
             t = now()
@@ -91,6 +119,7 @@ def calculate_aw_network_vertex_gaussian_curvatures(
                     cell_index=cell_index,
                     resolved_edges=vertex_resolved_edges,
                     tolerance=tolerance,
+                    candidate_surfaces=candidate_surfaces,
                 )
             except ValueError as error:
                 # A platform-dependent incomplete corner is unresolved data,
@@ -150,6 +179,12 @@ def calculate_aw_network_vertex_gaussian_curvatures(
         timing["storage"] += now() - t
 
     setattr(net, "_aw_unresolved_vertex_curvature", unresolved)
+
+    if update_progress is not None:
+        update_progress(
+            f"Vertex Gaussian: {total_vertices:,} / {total_vertices:,}",
+            100.0,
+        )
 
     if len(contributions) != len(net.verts):
         raise ValueError(
