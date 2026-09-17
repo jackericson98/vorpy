@@ -1,6 +1,7 @@
 import os
 from itertools import chain
 from vorpy.src.input_progress import iter_input_lines
+from vorpy.src.inputs.frames import first_pdb_frame
 from vorpy.src.objects import make_atom
 from vorpy.src.objects import Residue
 from vorpy.src.objects import Chain, Sol
@@ -59,8 +60,7 @@ def read_pdb(sys, file=None, progress=None):
         file_address = sys.files['dir'] + file[1:]
     # If the file does not exist return
     else:
-        print("here")
-        return
+        raise FileNotFoundError(f"PDB input file not found: {file}")
     report = progress
     if report is None and getattr(sys, 'print_actions', False):
         report = lambda label, value: print(f"\r{label} {value}%", end="")
@@ -103,7 +103,7 @@ def read_pdb(sys, file=None, progress=None):
         # Set the system type to coarse
         sys.type = 'coarse'
     # Go through each line in the file and check if the first word is the word we are looking for
-    for line in chain((first_line,), lines):
+    for line in first_pdb_frame(chain((first_line,), lines), sys):
         if not line:
             continue
         word = line[:6].lower().strip()

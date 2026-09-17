@@ -22,21 +22,29 @@ class SolveWorker(QObject):
         backend: AnalysisBackend,
         source: Path | None,
         selected_indices: Sequence[int] | None = None,
+        frame_index: int = 1,
+        frame_ranges=None,
     ):
         super().__init__()
         self._backend = backend
         self._source = source
         self._selected_indices = tuple(selected_indices or ())
+        self._frame_index = frame_index
+        self._frame_ranges = frame_ranges
         self._cancelled = Event()
 
     @Slot()
     def run(self) -> None:
         try:
+            solve_options = {}
+            if self._frame_index != 1 or (self._frame_ranges and len(self._frame_ranges) > 1):
+                solve_options = {"frame_index": self._frame_index, "frame_ranges": self._frame_ranges}
             result = self._backend.solve(
                 self._source,
                 lambda label, value: self.progress.emit(label, value),
                 self._cancelled.is_set,
                 self._selected_indices or None,
+                **solve_options,
             )
             self.completed.emit(result)
         except Exception as error:  # noqa: BLE001 - backends report failures through this boundary.

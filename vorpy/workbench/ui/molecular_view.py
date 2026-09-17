@@ -3,8 +3,19 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import warnings
 
 import numpy as np
+
+# VTK 9.x still assigns ``shape`` directly inside numpy_support. NumPy 2.5
+# reports that internal compatibility operation as a deprecation warning while
+# constructing actors; it is unrelated to structure validity and can otherwise
+# be surfaced by Qt as a failed load.
+warnings.filterwarnings(
+    "ignore",
+    message=r"Setting the shape on a NumPy array has been deprecated.*",
+    category=DeprecationWarning,
+)
 import pyvista as pv
 from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
@@ -93,6 +104,7 @@ class MolecularView(QWidget):
         self._edge_radius = 0.020
         self._vertex_radius = 0.130
         self._pending_bond_groups = {}
+        self._group_overlay_actors = []
 
     def clear_result(self) -> None:
         """Clear molecular state and picking when closing the active project."""
@@ -104,9 +116,93 @@ class MolecularView(QWidget):
         self.plotter.clear()
         self._actors.clear()
         self._pending_bond_groups = {}
+        self._group_overlay_actors = []
         self._layer_definitions.clear()
         self._result = None
         self._positions = np.empty((0, 3))
+        self.plotter.render()
+
+    def set_group_overlay(self, result, group_indices=(), surrounding_atoms=(),
+                          surrounding_residues=(), *, show_group=True,
+                          show_surrounding_atoms=False, show_surrounding_residues=False,
+                          show_sticks=False, show_balls=True, show_cartoon=False,
+                          group_opacity=1.0, surrounding_sticks=False,
+                          surrounding_balls=True, surrounding_cartoon=False,
+                          surrounding_opacity=0.65):
+        """Display the selected group's atom context as a lightweight overlay."""
+        for actor in self._group_overlay_actors:
+            try:
+                self.plotter.remove_actor(actor, render=False)
+            except (AttributeError, RuntimeError):
+                pass
+        self._group_overlay_actors = []
+        categories = []
+        if show_group:
+            # ``None`` requests the standard element coloring used by the
+            # molecular representation below.
+            categories.append((set(group_indices), None, group_opacity,
+                               show_balls, show_sticks))
+        if show_surrounding_atoms:
+            categories.append((set(surrounding_atoms), '#62b6cb', surrounding_opacity,
+                               surrounding_balls, surrounding_sticks))
+        if show_surrounding_residues:
+            categories.append((set(surrounding_residues), '#9b7ede', surrounding_opacity,
+                               surrounding_balls, surrounding_sticks))
+        unit = pv.Sphere(radius=1.0, theta_resolution=12, phi_resolution=12)
+        atom_by_index = {atom.index: atom for atom in result.atoms}
+        for serial, (indices, color, opacity, balls, sticks) in enumerate(categories):
+            atoms = [atom_by_index[index] for index in sorted(indices)
+                     if index in atom_by_index]
+            if not atoms:
+                continue
+            colored_atoms = defaultdict(list)
+            for atom in atoms:
+                atom_color = color or ELEMENT_COLORS.get(atom.element.upper(), '#aeb7c2')
+                colored_atoms[atom_color].append(atom)
+            for color_serial, (atom_color, color_atoms) in enumerate(colored_atoms.items()):
+                cloud = pv.PolyData(np.asarray([atom.position for atom in color_atoms]))
+                cloud['radius'] = np.asarray([atom.radius for atom in color_atoms], dtype=float)
+                mapper = vtkGlyph3DMapper()
+                mapper.SetInputData(cloud)
+                mapper.SetSourceData(unit)
+                mapper.SetScaleArray('radius')
+                mapper.SetScaleModeToScaleByMagnitude()
+                mapper.SetScaleFactor(1.0)
+                mapper.OrientOff()
+                mapper.ScalarVisibilityOff()
+                actor = vtkActor(); actor.SetMapper(mapper)
+                actor.GetProperty().SetColor(pv.Color(atom_color).float_rgb)
+                actor.GetProperty().SetOpacity(opacity)
+                actor.SetVisibility(balls)
+                self.plotter.add_actor(actor, name=f'group-overlay-{serial}-{color_serial}', render=False)
+                self._group_overlay_actors.append(actor)
+            if sticks:
+                selected = set(indices)
+                lines = []
+                for bond in result.bonds:
+                    if bond.atom_a in selected and bond.atom_b in selected:
+                        atom_a = atom_by_index.get(bond.atom_a)
+                        atom_b = atom_by_index.get(bond.atom_b)
+                        if atom_a is not None and atom_b is not None:
+                            lines.append([atom_a.position, atom_b.position])
+                if lines:
+                    mesh = pv.PolyData(np.asarray(lines).reshape(-1, 3))
+                    mesh.lines = np.asarray([[2, 2 * row, 2 * row + 1]
+                                             for row in range(len(lines))])
+                    stick = self.plotter.add_mesh(mesh.tube(radius=0.08), color=color or '#aeb7c2',
+                                                  opacity=opacity, name=f'group-sticks-{serial}', render=False)
+                    self._group_overlay_actors.append(stick)
+        cartoon_indices = set(group_indices) if show_cartoon else set()
+        if surrounding_cartoon:
+            cartoon_indices.update(surrounding_atoms if show_surrounding_atoms else surrounding_residues)
+        if cartoon_indices:
+            atoms = [atom_by_index[index] for index in sorted(cartoon_indices)
+                     if index in atom_by_index]
+            if len(atoms) >= 2:
+                cartoon = pv.Spline(np.asarray([atom.position for atom in atoms]),
+                                    n_points=max(12, len(atoms) * 4)).tube(radius=0.22)
+                actor = self.plotter.add_mesh(cartoon, color='#e76f51', name='group-cartoon', render=False)
+                self._group_overlay_actors.append(actor)
         self.plotter.render()
 
     def display_result(self, result: AnalysisResult, *, preserve_camera=False) -> None:

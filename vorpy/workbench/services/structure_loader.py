@@ -9,6 +9,7 @@ import numpy as np
 from scipy.spatial import cKDTree
 
 from vorpy.workbench.domain import AnalysisResult, Atom, Bond
+from vorpy.workbench.services.trajectory import index_pdb_frames, read_frame_lines
 from vorpy.src.chemistry import element_radii, my_masses
 
 # Use the same default radii as molecular atoms created by the solver.
@@ -43,30 +44,21 @@ def _pdb_charge(text: str) -> float | None:
         return None
 
 
-def load_pdb(path: Path, progress=None, preview=None) -> AnalysisResult:
-    """Load the first PDB model and construct explicit or inferred bonds."""
+def load_pdb(path: Path, progress=None, preview=None, *, frame_index=1, frame_ranges=None) -> AnalysisResult:
+    """Load one indexed PDB frame and construct explicit or inferred bonds."""
     atoms: list[Atom] = []
     records: list[Atom | str] = []
     serial_to_index: dict[int, int] = {}
     conect: set[tuple[int, int]] = set()
-    in_first_model = True
-    saw_model = False
-
-    from vorpy.src.input_progress import iter_input_lines
-
     report = progress or (lambda label, value: None)
-    for line in iter_input_lines(path, lambda label, value: report(label, value * 70 // 100),
-                                 errors="replace"):
+    ranges = frame_ranges or index_pdb_frames(path, report)
+    if not ranges:
+        raise ValueError(f"No ATOM or HETATM records were found in {path.name}")
+    if not 1 <= frame_index <= len(ranges):
+        raise ValueError(f'Frame {frame_index} is outside 1–{len(ranges)}')
+    metadata = dict(frame_index=frame_index, frame_count=len(ranges), frame_ranges=ranges)
+    for line in read_frame_lines(path, ranges[frame_index - 1], report):
         record = line[:6].strip().upper()
-        if record == "MODEL":
-            if saw_model:
-                in_first_model = False
-            saw_model = True
-            continue
-        if record == "ENDMDL" and saw_model:
-            break
-        if not in_first_model:
-            continue
         if record in {"ATOM", "HETATM"}:
             altloc = line[16:17]
             if altloc not in {"", " ", "A", "1"}:
@@ -94,7 +86,7 @@ def load_pdb(path: Path, progress=None, preview=None) -> AnalysisResult:
                  if a in primary_serials and b in primary_serials}
         pairs = pairs or _infer_bonds(atoms)
         preview(AnalysisResult(source=path, name=path.stem, atoms=atoms,
-                               bonds=[Bond(a, b) for a, b in sorted(pairs)]))
+                               bonds=[Bond(a, b) for a, b in sorted(pairs)], **metadata))
 
     if preview is not None:
         atoms = []
@@ -125,6 +117,7 @@ def load_pdb(path: Path, progress=None, preview=None) -> AnalysisResult:
         bonds=[Bond(a, b) for a, b in sorted(bond_pairs)],
         complete_cells=0,
         surface_count=0,
+        **metadata,
     )
     report("Structure read", 100)
     return result

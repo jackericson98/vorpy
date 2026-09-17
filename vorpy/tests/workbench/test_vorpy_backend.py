@@ -57,3 +57,20 @@ def test_worker_forwards_selection_snapshot_to_backend():
     worker.run()
 
     assert seen["indices"] == (4, 9)
+
+
+def test_worker_forwards_selected_frame_to_backend():
+    from vorpy.workbench.domain import AnalysisResult
+    from vorpy.workbench.workers.solve_worker import SolveWorker
+
+    seen = {}
+
+    class BackendStub:
+        def solve(self, source, progress, is_cancelled, selected_indices=None,
+                  frame_index=1, frame_ranges=None):
+            seen.update(frame_index=frame_index, frame_ranges=frame_ranges)
+            return AnalysisResult(source=source, name="frame")
+
+    ranges = ((0, 10), (10, 20))
+    SolveWorker(BackendStub(), None, frame_index=2, frame_ranges=ranges).run()
+    assert seen == {"frame_index": 2, "frame_ranges": ranges}

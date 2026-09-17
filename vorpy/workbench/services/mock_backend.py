@@ -17,6 +17,8 @@ class MockBackend:
         progress: ProgressCallback,
         is_cancelled: CancellationCheck,
         selected_indices: tuple[int, ...] | None = None,
+        frame_index: int = 1,
+        frame_ranges=None,
     ) -> AnalysisResult:
         start = time.perf_counter()
         stages = [
@@ -79,6 +81,9 @@ class MockBackend:
             complete_cells=len(atoms),
             surface_count=24,
             elapsed_seconds=time.perf_counter() - start,
+            frame_index=frame_index,
+            frame_count=len(frame_ranges) if frame_ranges else 1,
+            frame_ranges=tuple(frame_ranges or ()),
         )
 
 

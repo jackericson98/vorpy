@@ -60,5 +60,8 @@ class AnalysisResult:
     info_sections: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
     summary: object | None = None
     defaults_stale: bool = False
+    frame_index: int = 1
+    frame_count: int = 1
+    frame_ranges: tuple[tuple[int, int], ...] = field(default_factory=tuple, repr=False)
 
 

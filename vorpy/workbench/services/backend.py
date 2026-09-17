@@ -18,8 +18,9 @@ class AnalysisBackend(Protocol):
         progress: ProgressCallback,
         is_cancelled: CancellationCheck,
         selected_indices: tuple[int, ...] | None = None,
+        frame_index: int = 1,
+        frame_ranges: tuple[tuple[int, int], ...] | None = None,
     ) -> AnalysisResult:
         """Analyze one structure and return display-ready, format-neutral data."""
-
 
 

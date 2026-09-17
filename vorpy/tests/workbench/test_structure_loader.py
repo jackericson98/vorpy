@@ -1,7 +1,25 @@
 import numpy as np
+import pytest
 
 from vorpy.workbench.domain import Atom
 from vorpy.workbench.services.structure_loader import COVALENT_RADII, _infer_bonds
+
+
+@pytest.mark.parametrize('boundary', ['ENDMDL\nMODEL        2\n', 'END\n', 'MODEL        2\n'])
+def test_indexed_frames_load_coordinates_independently(tmp_path, boundary, monkeypatch):
+    from vorpy.workbench.services import structure_loader
+    path = tmp_path / 'frames.pdb'
+    atom = 'ATOM      1  CA  ALA A   1       1.000   0.000   0.000  1.00  0.00           C\n'
+    path.write_text('MODEL        1\n' + atom + boundary + atom.replace('1.000', '9.000'))
+    first = structure_loader.load_pdb(path)
+    assert first.frame_count == 2 and first.frame_index == 1
+    monkeypatch.setattr(structure_loader, 'index_pdb_frames', lambda *args: pytest.fail('Reindexed cached trajectory'))
+    second = structure_loader.load_pdb(path, frame_index=2, frame_ranges=first.frame_ranges)
+    assert first.atoms[0].position == (1., 0., 0.)
+    assert second.atoms[0].position == (9., 0., 0.)
+    assert second.frame_index == 2 and second.frame_count == 2
+    with pytest.raises(ValueError, match='outside'):
+        structure_loader.load_pdb(path, frame_index=3, frame_ranges=first.frame_ranges)
 
 
 def test_inferred_bonds_match_pairwise_distances():

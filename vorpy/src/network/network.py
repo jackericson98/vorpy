@@ -202,6 +202,9 @@ class Network:
         progress_network = self.progress_network_name or self.group_name
 
         if self.sys is not None:
+            if getattr(self.sys, 'frame_count', 0):
+                progress_network = (f'{progress_network} - Frame {self.sys.frame_index}'
+                                    f'/{self.sys.frame_count}')
             self.sys.update_progress(
                 process=progress_process,
                 progress=progress,

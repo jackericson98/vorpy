@@ -256,6 +256,8 @@ def result_to_json(result: AnalysisResult) -> dict:
         "elapsed_seconds": result.elapsed_seconds,
         "info_sections": result.info_sections,
         "defaults_stale": result.defaults_stale,
+        "frame_index": result.frame_index,
+        "frame_count": result.frame_count,
     }
 
 
@@ -319,6 +321,8 @@ def result_from_json(data: dict) -> AnalysisResult:
         surface_count=int(data.get("surface_count", 0)),
         elapsed_seconds=float(data.get("elapsed_seconds", 0.0)),
         defaults_stale=bool(data.get("defaults_stale", False)),
+        frame_index=int(data.get("frame_index", 1)),
+        frame_count=int(data.get("frame_count", 1)),
         info_sections={
             str(section): [(str(key), str(value)) for key, value in values]
             for section, values in data.get("info_sections", {}).items()

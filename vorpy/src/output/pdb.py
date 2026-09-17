@@ -74,6 +74,8 @@ def write_pdb(atoms, file_name, sys, directory=None):
         >>> selected_atoms = [0, 5, 10]  # Indices of atoms to include
         >>> write_pdb(selected_atoms, "subset", sys, directory="/path/to/output")
     """
+    from vorpy.src.inputs.frames import first_pdb_frame
+
     # Catch empty atoms cases
     if atoms is None or len(atoms) == 0:
         return
@@ -87,7 +89,7 @@ def write_pdb(atoms, file_name, sys, directory=None):
     if sys.files['base_file'] is not None:
 
         # If the output is all atoms just copy the pdb
-        if len(atoms) == len(sys.balls):
+        if len(atoms) == len(sys.balls) and getattr(sys, 'frame_count', 1) <= 1:
             try:
                 shutil.copy(sys.files['base_file'], os.getcwd() + '/' + file_name + '.pdb')
             except SameFileError:
@@ -101,7 +103,7 @@ def write_pdb(atoms, file_name, sys, directory=None):
 
             # Open the base file and read the lines.
             with open(sys.files['base_file'], 'r') as f:
-                read_file = f.readlines()
+                read_file = list(first_pdb_frame(f))
 
             # Write a header for the pdb.
             pdb_file.write(

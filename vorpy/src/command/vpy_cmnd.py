@@ -1,10 +1,13 @@
 import os
 import sys
+import gc
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog
 from itertools import combinations
 from copy import deepcopy
+from contextlib import closing
+from vorpy.src.inputs.frames import iter_pdb_frames, count_pdb_frames
 from vorpy.src.inputs.net import read_net
 from vorpy.src.command.commands import *
 from vorpy.src.system.system import System
@@ -56,17 +59,30 @@ class Command:
         # Resolve the base input file
         input_arg = sys.argv[1]
 
-        if input_arg[-3:].lower() in {"pdb", "gro", "mol", "cif", "txt"}:
-            self.base_file = input_arg
-        else:
-            resolved_file = get_file(input_arg)
+        self.base_file = get_file(input_arg, interactive=False)
+        if self.base_file is None:
+            raise SystemExit(f"Input file not found: {input_arg}. "
+                             "Provide an existing path or a filename from vorpy/data.")
 
-            if resolved_file is None:
-                self.base_file = None
-                print(f"{input_arg} is not a valid input file")
-                return
+        if '--all-frames' in sys.argv[2:]:
+            self.run_all_frames()
+            return
 
-            self.base_file = resolved_file
+        if Path(self.base_file).suffix.lower() == '.pdb':
+            total_frames = count_pdb_frames(self.base_file)
+            if total_frames > 1:
+                while True:
+                    try:
+                        answer = input(f'{total_frames} frames found. Run all? [Y/n] ').strip().lower()
+                    except EOFError:
+                        raise SystemExit('No response received. Use --all-frames to run all frames without a prompt.')
+                    if answer in {'', 'y', 'yes'}:
+                        self.run_all_frames(total_frames=total_frames)
+                        return
+                    if answer in {'n', 'no'}:
+                        print('Running frame 1 only.')
+                        break
+                    print('Please enter y (all frames) or n (frame 1 only).')
 
         # Create the system if one was not supplied
         if self.sys is None:
@@ -75,12 +91,80 @@ class Command:
         # Parse the remaining command-line arguments
         self.parse_commands()
 
+        self._process_system()
+
+    def run_all_frames(self, total_frames=None):
+        """Run the normal workflow independently for every input PDB frame."""
+        if Path(self.base_file).suffix.lower() != '.pdb':
+            raise ValueError('--all-frames currently supports PDB input files only.')
+        initial_settings = deepcopy(self.settings_dict)
+        output_root = None
+        if total_frames is None:
+            total_frames = count_pdb_frames(self.base_file)
+        print(f'{Path(self.base_file).name}: {total_frames} frames found; processing all frames sequentially.')
+        option_names = ('load_commands', 'groups', 'builds', 'exports',
+                        'settings_cmnds', 'logs_files', 'interface_mode',
+                        'verbose', 'diagnose_edges')
+        with closing(iter_pdb_frames(self.base_file)) as frames:
+            for ordinal, frame_file in frames:
+                # Keep setup directories inside the temporary workspace.
+                frame_system = System(file=frame_file, output_directory=str(Path(frame_file).parent))
+                frame_system.frame_index = ordinal
+                frame_system.frame_count = total_frames
+                command = Command(sys=frame_system, settings=deepcopy(initial_settings))
+                command.base_file = frame_file
+                if output_root is None:
+                    frame_system.files['dir'] = None
+                    frame_system.set_output_directory()
+                    command.parse_commands()
+                    output_root = Path(frame_system.files['dir']) / 'frames'
+                    options = {name: deepcopy(getattr(command, name)) for name in option_names}
+                else:
+                    for name, value in options.items():
+                        setattr(command, name, deepcopy(value))
+                frame_system.set_output_directory(str(output_root / f'frame_{ordinal:04d}'))
+                print(f'Processing frame {ordinal}: {frame_system.files["dir"]}')
+                command._process_system()
+                print(f'\nFrame {ordinal}/{total_frames} complete. Releasing frame memory.')
+                # Systems, groups, networks and atom tables reference each other.
+                # Drop all batch-owned references and collect those cycles before
+                # allocating the next frame's geometry. Results remain on disk.
+                self._release_frame_system(frame_system)
+                self.sys = None
+                del command, frame_system
+                gc.collect()
+
+    @staticmethod
+    def _release_frame_system(system):
+        """Break references through NumPy object tables that GC cannot trace.
+
+        Only call after a batch frame has finished exporting: this consumes its
+        in-memory state. In particular, atom tables hold references back to the
+        System, so merely deleting local variables does not release them.
+        """
+        owners = list(system.groups or [])
+        owners.extend(getattr(system, 'interfaces', None) or [])
+        owners.extend(getattr(system, 'ifaces', None) or [])
+        for owner in owners:
+            network = getattr(owner, 'net', None)
+            if network is not None:
+                network.__dict__.clear()
+            owner.__dict__.clear()
+        system.__dict__.clear()
+
+    def _process_system(self):
+        """Build and export a loaded system using the parsed commands."""
         # Expose the CLI verbosity state at the system level so downstream
         # build/analyze/export code has one common place to query it.
         self.sys.verbose = self.verbose
 
         # Load any additional files
         self.load_files()
+
+        if getattr(self.sys, 'frame_count', 0):
+            print(f'{self.sys.name}: {self.sys.frame_count} frames found; '
+                  f'{self.sys.loaded_frame_count} frame loaded '
+                  f'(frame {self.sys.frame_index} only), {len(self.sys.balls):,} atoms.')
 
         # Apply command-line settings
         self.apply_settings()
@@ -255,6 +339,7 @@ class Command:
         """
         # Separate the rest of the argv args
         my_args = list(sys.argv[2 + counter:])
+        my_args = [arg for arg in my_args if arg != '--all-frames']
 
         # -v / --verbose is a universal argumentless flag. Remove it before
         # the existing command parser processes argument/value groups.
@@ -326,7 +411,7 @@ class Command:
                 if arg_cmnds == 'logs':
                     self.settings_cmnds.append(['bt', 'logs'])
                 # If the argument is a directory command, format it
-                if arg_cmnds[0] == 'dir':
+                if arg_cmnds[0] in {'dir', 'directory'}:
                     # Check if the direcory is in the browse names
                     if arg_cmnds[1] in browse_names:
                         # Launch the browse window
@@ -485,6 +570,11 @@ class Command:
                 return
 
     def apply_settings(self):
+        # Establish CLI defaults before applying explicit command-line overrides.
+        if self.settings_dict is None:
+            self.settings_dict = sett('mv', ['5'])
+        elif self.settings_dict.get('max_vert') is None:
+            self.settings_dict['max_vert'] = 5.0
         # Go through the user inputs loading files
         for my_set in self.settings_cmnds:
             # Alter the settings

@@ -164,7 +164,7 @@ def _find_bundled_data_file(file_name):
     return None
 
 
-def get_file(file=None):
+def get_file(file=None, interactive=True):
     """
     Prompts the user to select a file or validates a provided file path.
 
@@ -184,6 +184,8 @@ def get_file(file=None):
     -----------
     file : str, optional
         Pre-specified file path. If None, user will be prompted for input.
+    interactive : bool, optional
+        If False, return None for an unresolved input instead of prompting.
 
     Returns:
     --------
@@ -206,6 +208,8 @@ def get_file(file=None):
     while True:
         # Get the file if None was specified
         if file is None:
+            if not interactive:
+                return None
             file = input("file >>>   ")
             if file.lower() in quits:
                 return
@@ -239,6 +243,8 @@ def get_file(file=None):
                 break
         # Otherwise, tell the user to try again
         else:
+            if not interactive:
+                return None
             invalid_input(file)
             file = None
             continue

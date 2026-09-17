@@ -255,6 +255,39 @@ python vorpy example.pdb -g a 0-100
 python vorpy example.pdb -e small and shell
 ```
 
+To process every frame in a multi-model PDB trajectory in one invocation:
+
+```bash
+python -m vorpy vorpy/data/1bna_DB1976.pdb --all-frames -e small
+```
+
+Each frame runs independently with the same settings, groups, and export
+selection. Results use the usual filenames and layout inside
+`output/1bna_DB1976/frames/frame_0001/`, `frame_0002/`, etc.
+Use `-e dir <folder>` to choose the parent output folder as usual.
+Frames are numbered in file order, starting at 1, and processed sequentially
+without loading the entire trajectory into memory. PDB `MODEL`/`ENDMDL` and
+concatenated `END`-delimited frames are supported; a single-frame PDB produces
+one frame folder. Without `--all-frames`, multi-frame PDBs prompt
+`11 frames found. Run all? [Y/n]`. Press Enter or type `y` to run every frame
+in series, or type `n` to process only frame 1. Single-frame files do not prompt.
+The loading message reports frames found, frames loaded, and the atom count;
+calculation progress includes the current frame number.
+
+The GUI also opens multi-frame PDBs. Use the slider, frame-number field, or
+Previous/Next buttons below the viewer to browse frames. Only the selected
+frame is loaded, with the camera retained between frames. Groups and selections
+carry over when atom identities match.
+After the first frame appears, the remaining frames preload in the background.
+Use Play/Pause to animate them; navigation wraps from the last frame back to the
+first. Solve is frame-aware: the displayed frame is extracted and analyzed, and
+its network stays attached to that frame when you browse back to it. Network and
+interface comparisons across frames are a later step.
+The Solve network button analyzes the displayed frame. Frame selection opens a
+frame checklist; after choosing frames, Solve network runs those frames in series
+using the same selected target and caches each result. With no frame selection,
+Solve network analyzes only the displayed frame.
+
 Full CLI documentation is available in [`docs/cli/`](docs/cli/).
 
 ---

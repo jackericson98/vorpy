@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import time
+import tempfile
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -14,6 +16,7 @@ from vorpy.workbench.domain import AnalysisResult, Atom, GeometryLayer
 from vorpy.workbench.atomic_defaults import apply_system_defaults
 from vorpy.workbench.services.backend import CancellationCheck, ProgressCallback
 from vorpy.workbench.services.structure_loader import load_pdb
+from vorpy.workbench.services.trajectory import read_frame_lines, index_pdb_frames
 from vorpy.src.output.curvature_colors import (
     component_value,
     mean_vertex_display_value,
@@ -58,6 +61,8 @@ class VorPyBackend:
         progress: ProgressCallback,
         is_cancelled: CancellationCheck,
         selected_indices: tuple[int, ...] | None = None,
+        frame_index: int = 1,
+        frame_ranges: tuple[tuple[int, int], ...] | None = None,
     ) -> AnalysisResult:
         if source is None:
             raise ValueError("Load a structure before running analysis")
@@ -66,11 +71,29 @@ class VorPyBackend:
 
         started = time.perf_counter()
         progress("Reading structure", 0)
-        system = System(
-            file=str(source),
-            gui=_ProgressBridge(progress, is_cancelled),
-            print_actions=False,
-        )
+        ranges = frame_ranges or index_pdb_frames(source)
+        if not 1 <= frame_index <= len(ranges):
+            raise ValueError(f"Frame {frame_index} is outside 1–{len(ranges)}")
+        frame_count = len(ranges)
+        directory = tempfile.mkdtemp(prefix="vorpy_solve_frame_")
+        solve_source = source
+        if frame_count > 1:
+            solve_source = Path(directory) / f"{source.stem}_frame_{frame_index:04d}.pdb"
+            solve_source.write_text("".join(read_frame_lines(source, ranges[frame_index - 1])))
+        system_options = {
+            "file": str(solve_source),
+            "gui": _ProgressBridge(progress, is_cancelled),
+            "print_actions": False,
+        }
+        if frame_count > 1:
+            system_options["output_directory"] = directory
+        system = System(**system_options)
+        # The temporary solve input contains one model, but progress should
+        # identify its position in the original trajectory.
+        system.frame_index = frame_index
+        system.frame_count = frame_count
+        system.loaded_frame_count = 1
+        loaded_structure = load_pdb(solve_source)
         if is_cancelled():
             raise RuntimeError("Analysis cancelled")
 
@@ -106,7 +129,11 @@ class VorPyBackend:
         if is_cancelled():
             raise RuntimeError("Analysis cancelled")
 
-        result = load_pdb(source)
+        result = loaded_structure
+        result.source = source
+        result.frame_index = frame_index
+        result.frame_count = frame_count
+        result.frame_ranges = tuple(ranges)
         result.atoms = _merge_atoms(result.atoms, _atoms_from_system(system))
         result.layers = _layers_from_network(
             group.net,
@@ -134,6 +161,7 @@ class VorPyBackend:
         )
         result.elapsed_seconds = time.perf_counter() - started
         progress("Preparing viewer", 100)
+        shutil.rmtree(directory, ignore_errors=True)
         return result
 
 

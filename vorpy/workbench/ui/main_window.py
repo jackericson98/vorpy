@@ -72,6 +72,7 @@ from vorpy.workbench.ui.molecular_view import (
     MolecularView,
 )
 from vorpy.workbench.workers.solve_worker import SolveWorker
+from vorpy.workbench.workers.trajectory_worker import TrajectoryPreloadWorker
 from vorpy.workbench.ui.panels import (WorkflowSidebar, ViewerPanel, ViewInspector, ResultsInspector, action_button, scroll_panel)
 
 DEFAULT_DATA_DIRECTORY = Path(__file__).resolve().parents[2] / "data"
@@ -129,10 +130,20 @@ class MainWindow(QMainWindow):
         self._structure_states: dict[Path, tuple[set[int], dict[str, tuple[int, ...]], dict[str, tuple[str, str]]]] = {}
         self._thread: QThread | None = None
         self._worker: SolveWorker | None = None
+        self._solve_all_queue: list[int] = []
+        self._solve_all_return_frame: int | None = None
+        self._solve_all_indices: tuple[int, ...] | None = None
+        self._solve_frame_selection: tuple[int, ...] = ()
+        self._trajectory_worker: TrajectoryPreloadWorker | None = None
+        self._trajectory_cache: dict[tuple[Path, int], AnalysisResult] = {}
+        self._frame_play_timer = QTimer(self)
+        self._frame_play_timer.setInterval(180)
+        self._frame_play_timer.timeout.connect(self._advance_frame)
         self._running_selection: set[int] = set()
         self._groups: dict[str, tuple[int, ...]] = {}
         self._interfaces: dict[str, tuple[str, str]] = {}
         self._selection_entries: list[tuple[str, tuple[int, ...]]] = []
+        self._network_sizes_by_frame: dict[tuple[Path, int], tuple[int, int]] = {}
 
         self.viewer = MolecularView(self)
         self.viewer.loading_progress.connect(self._loading_progress)
@@ -342,7 +353,91 @@ class MainWindow(QMainWindow):
             (self.screenshot_action, "Capture"),
         ])
         self.selection_mode_label = self.viewer_panel.selection_label
+        self.frame_controls = QWidget()
+        frame_layout = QHBoxLayout(self.frame_controls)
+        self.previous_frame = QPushButton('Previous')
+        self.next_frame = QPushButton('Next')
+        self.frame_slider = QSlider(Qt.Horizontal)
+        self.frame_slider.setTracking(False)
+        self.frame_number = QSpinBox()
+        self.frame_number.setKeyboardTracking(False)
+        self.frame_label = QLabel('Frame 1 / 1')
+        self.play_frames = QPushButton('Play')
+        self.play_speed = QSlider(Qt.Horizontal)
+        self.play_speed.setRange(1, 20)
+        self.play_speed.setValue(6)
+        self.play_speed.setToolTip('Playback speed')
+        self.play_speed.valueChanged.connect(self._set_play_speed)
+        for widget in (self.previous_frame, self.play_frames, QLabel('Speed'), self.play_speed,
+                       self.frame_slider, self.frame_number,
+                       self.frame_label, self.next_frame):
+            frame_layout.addWidget(widget)
+        self.viewer_panel.layout().addWidget(self.frame_controls)
+        self.frame_controls.hide()
+        self.frame_slider.valueChanged.connect(self._change_frame)
+        self.frame_number.valueChanged.connect(self._change_frame)
+        self.previous_frame.clicked.connect(lambda: self._change_frame(self.current_result.frame_index - 1))
+        self.next_frame.clicked.connect(lambda: self._change_frame(self.current_result.frame_index + 1))
+        self.play_frames.clicked.connect(self._toggle_frame_playback)
         return self.viewer_panel
+
+    def _set_play_speed(self, value: int) -> None:
+        self._frame_play_timer.setInterval(max(40, int(1100 / max(value, 1))))
+
+    def _change_frame(self, number):
+        result = self.current_result
+        if result is None or self._loading_structure or self._thread is not None:
+            return
+        if result.frame_count <= 1:
+            return
+        number = ((int(number) - 1) % result.frame_count) + 1
+        if number == result.frame_index:
+            return
+        cached = self._trajectory_cache.get((self.source, number))
+        if cached is not None:
+            self._display_result(cached, preserve_view=True)
+            return
+        self.load_path(self.source, frame_index=number)
+
+    def _advance_frame(self):
+        if self.current_result is not None:
+            self._change_frame(self.current_result.frame_index + 1)
+
+    def _toggle_frame_playback(self):
+        if self._frame_play_timer.isActive():
+            self._frame_play_timer.stop()
+            self.play_frames.setText('Play')
+        elif self.current_result is not None and self.current_result.frame_count > 1:
+            self._frame_play_timer.start()
+            self.play_frames.setText('Pause')
+
+    def _start_trajectory_preload(self, result):
+        if result.frame_count <= 1 or not result.frame_ranges:
+            return
+        self._stop_trajectory_preload()
+        source = result.source.resolve()
+        self._trajectory_cache[(source, result.frame_index)] = result
+        worker = TrajectoryPreloadWorker(source, result.frame_ranges, result.frame_index, self)
+        worker.frame_loaded.connect(self._cache_trajectory_frame)
+        worker.finished.connect(self._trajectory_preload_finished)
+        self._trajectory_worker = worker
+        worker.start()
+
+    def _cache_trajectory_frame(self, result):
+        self._trajectory_cache[(result.source.resolve(), result.frame_index)] = result
+
+    def _trajectory_preload_finished(self):
+        worker = self._trajectory_worker
+        if worker is not None:
+            worker.deleteLater()
+        self._trajectory_worker = None
+
+    def _stop_trajectory_preload(self):
+        worker = self._trajectory_worker
+        if worker is not None and worker.isRunning():
+            worker.requestInterruption()
+            worker.wait(1000)
+        self._trajectory_worker = None
 
     @staticmethod
     def _visibility_checkbox(label: str, callback, checked: bool = True) -> QCheckBox:
@@ -356,7 +451,89 @@ class MainWindow(QMainWindow):
         self.system_display = self._build_visualization_tab()
         self.inspector.addTab(scroll_panel(self.system_display), "System")
         self.inspector.addTab(scroll_panel(self._build_network_tab()), "Network")
+        self.group_display = self._build_group_display_tab()
+        self.inspector.addTab(scroll_panel(self.group_display), "Groups")
         return ViewInspector(self.inspector)
+
+    def _build_group_display_tab(self) -> QWidget:
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        self.group_view_selector = QComboBox()
+        self.group_view_selector.currentIndexChanged.connect(self._update_group_display)
+        layout.addWidget(QLabel("Group"))
+        layout.addWidget(self.group_view_selector)
+        group_box = QGroupBox("Group atoms")
+        group_form = QFormLayout(group_box)
+        self.group_show_atoms = self._visibility_checkbox("Show", self._update_group_display, True)
+        self.group_atoms_cartoon = self._visibility_checkbox("Cartoon", self._update_group_display, False)
+        self.group_atoms_spheres = self._visibility_checkbox("Spheres", self._update_group_display, True)
+        self.group_atoms_sticks = self._visibility_checkbox("Sticks", self._update_group_display, False)
+        self.group_atoms_opacity = QSlider(Qt.Horizontal); self.group_atoms_opacity.setRange(5, 100); self.group_atoms_opacity.setValue(100)
+        for widget in (self.group_show_atoms, self.group_atoms_cartoon, self.group_atoms_spheres, self.group_atoms_sticks):
+            group_form.addRow(widget)
+        group_form.addRow("Sphere opacity", self.group_atoms_opacity)
+        self.group_atoms_opacity.valueChanged.connect(self._update_group_display)
+        layout.addWidget(group_box)
+
+        surrounding_box = QGroupBox("Surrounding")
+        surrounding_form = QFormLayout(surrounding_box)
+        self.group_surrounding_kind = QComboBox()
+        self.group_surrounding_kind.addItem("Atoms", "atoms")
+        self.group_surrounding_kind.addItem("Residues", "residues")
+        self.group_surrounding_kind.currentIndexChanged.connect(self._update_group_display)
+        self.group_show_surrounding = self._visibility_checkbox("Show", self._update_group_display, False)
+        self.group_surrounding_cartoon = self._visibility_checkbox("Cartoon", self._update_group_display, False)
+        self.group_surrounding_spheres = self._visibility_checkbox("Spheres", self._update_group_display, True)
+        self.group_surrounding_sticks = self._visibility_checkbox("Sticks", self._update_group_display, False)
+        self.group_surrounding_opacity = QSlider(Qt.Horizontal); self.group_surrounding_opacity.setRange(5, 100); self.group_surrounding_opacity.setValue(65)
+        surrounding_form.addRow("Show", self.group_show_surrounding)
+        surrounding_form.addRow("Type", self.group_surrounding_kind)
+        for widget in (self.group_surrounding_cartoon, self.group_surrounding_spheres, self.group_surrounding_sticks):
+            surrounding_form.addRow(widget)
+        surrounding_form.addRow("Sphere opacity", self.group_surrounding_opacity)
+        self.group_surrounding_opacity.valueChanged.connect(self._update_group_display)
+        layout.addWidget(surrounding_box)
+        layout.addStretch()
+        return panel
+
+    def _update_group_display(self, *_args) -> None:
+        if (not hasattr(self, 'group_view_selector') or self.current_result is None
+                or not hasattr(self.viewer, 'set_group_overlay')):
+            return
+        name = self.group_view_selector.currentData()
+        indices = set(self._groups.get(name, ())) if name else set()
+        result = self.current_result
+        atom_by_index = {atom.index: atom for atom in result.atoms}
+        bonded = set()
+        for bond in result.bonds:
+            if bond.atom_a in indices and bond.atom_b not in indices:
+                bonded.add(bond.atom_b)
+            elif bond.atom_b in indices and bond.atom_a not in indices:
+                bonded.add(bond.atom_a)
+        surrounding_keys = {
+            (atom_by_index[index].chain, atom_by_index[index].residue_sequence,
+             atom_by_index[index].residue_name) for index in bonded
+            if index in atom_by_index
+        }
+        surrounding_residues = {
+            atom.index for atom in result.atoms
+            if (atom.chain, atom.residue_sequence, atom.residue_name) in surrounding_keys
+            and atom.index not in indices
+        }
+        self.viewer.set_group_overlay(
+            result, indices, bonded, surrounding_residues,
+            show_group=self.group_show_atoms.isChecked(),
+            show_surrounding_atoms=self.group_show_surrounding.isChecked() and self.group_surrounding_kind.currentData() == "atoms",
+            show_surrounding_residues=self.group_show_surrounding.isChecked() and self.group_surrounding_kind.currentData() == "residues",
+            show_sticks=self.group_atoms_sticks.isChecked(),
+            show_balls=self.group_atoms_spheres.isChecked(),
+            show_cartoon=self.group_atoms_cartoon.isChecked(),
+            group_opacity=self.group_atoms_opacity.value() / 100.0,
+            surrounding_sticks=self.group_surrounding_sticks.isChecked(),
+            surrounding_balls=self.group_surrounding_spheres.isChecked(),
+            surrounding_cartoon=self.group_surrounding_cartoon.isChecked(),
+            surrounding_opacity=self.group_surrounding_opacity.value() / 100.0,
+        )
 
     def _build_visualization_tab(self) -> QWidget:
         panel = QWidget()
@@ -656,6 +833,10 @@ class MainWindow(QMainWindow):
                 self.solve_action.isEnabled()
             )
         )
+        self.solve_all_frames_button = QPushButton("Frame selection")
+        self.solve_all_frames_button.setToolTip("Choose which trajectory frames Solve network will analyze")
+        self.solve_all_frames_button.clicked.connect(self.solve_all_frames)
+        layout.addWidget(self.solve_all_frames_button)
         layout.addWidget(self.solve_network_button)
         self.solve_hint = QLabel("Open a structure to configure and solve a network.")
         self.solve_hint.setWordWrap(True)
@@ -1041,8 +1222,25 @@ class MainWindow(QMainWindow):
         loaded = result is not None and bool(result.atoms)
         busy = self._thread is not None or self._loading_structure
         solved = result is not None and bool(result.layers or result.summary or result.complete_cells)
+        trajectory = loaded and result.frame_count > 1
         self.solve_action.setEnabled(loaded and not busy)
+        self.solve_action.setToolTip('Solve the displayed frame')
+        self.frame_controls.setVisible(bool(trajectory))
+        self.frame_controls.setEnabled(not busy)
+        self.play_frames.setEnabled(not busy and trajectory)
+        if not trajectory and self._frame_play_timer.isActive():
+            self._toggle_frame_playback()
+        if loaded:
+            for widget in (self.frame_slider, self.frame_number):
+                widget.blockSignals(True)
+                widget.setRange(1, result.frame_count)
+                widget.setValue(result.frame_index)
+                widget.blockSignals(False)
+            self.frame_label.setText(f'Frame {result.frame_index} / {result.frame_count}')
+            self.previous_frame.setEnabled(not busy and trajectory)
+            self.next_frame.setEnabled(not busy and trajectory)
         self.solve_network_button.setEnabled(self.solve_action.isEnabled())
+        self.solve_all_frames_button.setEnabled(loaded and trajectory and not busy)
         self.solve_configuration.setEnabled(loaded and not busy)
         self.adjust_radii_button.setEnabled(not busy)
         self.system_display.setEnabled(loaded)
@@ -1079,6 +1277,9 @@ class MainWindow(QMainWindow):
         stale = result is not None and result.defaults_stale
         self.solve_hint.setText("Molecule ready · solvent loading…" if self._molecule_preview else "Loading structure…" if self._loading_structure else "Analysis running…" if busy else "Atomic defaults changed. Solve again to update the network and results." if stale else "" if loaded else "Open a structure to configure and solve a network.")
         self.solve_hint.setVisible(busy or not loaded or stale)
+        if trajectory and not busy and not solved:
+            self.solve_hint.setText('Solve the displayed frame; each frame keeps its own network result.')
+            self.solve_hint.show()
         active = self.selection_actions.checkedAction()
         mode = active.text().replace("Select ", "").title() if active else "Navigation"
         network_state = "loading" if self._loading_structure else "solving" if busy else "outdated" if result and result.defaults_stale else "loaded" if solved else "unsolved"
@@ -1118,6 +1319,11 @@ class MainWindow(QMainWindow):
     def new_project(self) -> None:
         if not self._confirm_discard_changes():
             return
+        self._frame_play_timer.stop()
+        self._stop_trajectory_preload()
+        self._trajectory_cache.clear()
+        self._network_sizes_by_frame.clear()
+        self._solve_frame_selection = ()
         self.project = Project()
         self.atomic_defaults = {}
         self.project_file = None
@@ -1165,6 +1371,9 @@ class MainWindow(QMainWindow):
                 self.load_path(project.structure.source_path)
                 if project.result_state is not None:
                     restored_result = result_from_json(project.result_state)
+                    loaded_result = self._loaded_results.get(project.structure.source_path)
+                    if loaded_result is not None:
+                        restored_result.frame_ranges = loaded_result.frame_ranges
                     self._loaded_results[project.structure.source_path] = restored_result
                     self.source = project.structure.source_path
                     self._display_result(restored_result)
@@ -1414,6 +1623,16 @@ class MainWindow(QMainWindow):
         self._refresh_groups_panel()
 
     def _refresh_groups_panel(self) -> None:
+        if hasattr(self, 'group_view_selector'):
+            current = self.group_view_selector.currentData()
+            self.group_view_selector.blockSignals(True)
+            self.group_view_selector.clear()
+            self.group_view_selector.addItem('Choose a group', None)
+            for name in self._groups:
+                self.group_view_selector.addItem(name, name)
+            index = self.group_view_selector.findData(current)
+            self.group_view_selector.setCurrentIndex(index if index >= 0 else 0)
+            self.group_view_selector.blockSignals(False)
         self.groups_list.clear()
         self.interface_group_a.clear()
         self.interface_group_b.clear()
@@ -1427,6 +1646,7 @@ class MainWindow(QMainWindow):
         self.interfaces_list.clear()
         for name, (group_a, group_b) in self._interfaces.items():
             self.interfaces_list.addItem(f"{name}: {group_a} ↔ {group_b}")
+        self._update_group_display()
         self.make_interface_button.setEnabled(len(names) >= 2)
         self._update_solve_targets()
         self._refresh_ui_state()
@@ -1484,6 +1704,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"VorPy — {subject}{marker}")
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        self._frame_play_timer.stop()
+        self._stop_trajectory_preload()
         if self._loading_structure:
             event.ignore()
             return
@@ -1542,6 +1764,11 @@ class MainWindow(QMainWindow):
             return
         if QMessageBox.question(self, "Reset structures", "Remove all loaded structures and selections?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
             return
+        self._frame_play_timer.stop()
+        self._stop_trajectory_preload()
+        self._trajectory_cache.clear()
+        self._network_sizes_by_frame.clear()
+        self._solve_frame_selection = ()
         self._loaded_results.clear()
         self._structure_states.clear()
         self.source = None
@@ -1617,7 +1844,7 @@ class MainWindow(QMainWindow):
             return
         self.load_path(Path(filename))
 
-    def load_path(self, path: Path) -> None:
+    def load_path(self, path: Path, *, frame_index=None) -> None:
         """Load a structure, retaining prior structures for later switching."""
         if self._loading_structure or self._thread is not None:
             return
@@ -1627,7 +1854,18 @@ class MainWindow(QMainWindow):
         previous_state = (set(self._running_selection), dict(self._groups), dict(self._interfaces))
         try:
             source = path.expanduser().resolve()
-            if source in self._loaded_results:
+            switching_frame = frame_index is not None
+            if not switching_frame:
+                self._stop_trajectory_preload()
+                self._network_sizes_by_frame = {
+                    key: value for key, value in self._network_sizes_by_frame.items()
+                    if key[0] != source
+                }
+                self._trajectory_cache = {
+                    key: value for key, value in self._trajectory_cache.items()
+                    if key[0] != source
+                }
+            if source in self._loaded_results and not switching_frame:
                 self._switch_structure_item(
                     next(
                         self.loaded_structures.item(row)
@@ -1651,7 +1889,11 @@ class MainWindow(QMainWindow):
 
             def read(progress, preview):
                 result = (load_result_directory(source, progress=progress) if source.is_dir()
-                          else load_pdb(source, progress=progress, preview=preview))
+                          else load_pdb(source, progress=progress,
+                                        preview=None if switching_frame else preview,
+                                        **(dict(frame_index=frame_index,
+                                                frame_ranges=previous_result.frame_ranges)
+                                           if switching_frame else {})))
                 if source.is_dir():
                     info_path = source / "info.txt"
                     if info_path.exists():
@@ -1687,11 +1929,24 @@ class MainWindow(QMainWindow):
             self._molecule_preview = False
             self.source = source
             self._loaded_results[source] = result
-            self._display_result(result, preserve_view=completing_preview)
-            if source in self._structure_states:
+            if switching_frame and previous_result is not None:
+                identity = lambda atom: (atom.serial, atom.name, atom.element, atom.chain,
+                                         atom.residue_sequence, atom.residue_name)
+                if ([identity(atom) for atom in previous_result.atoms]
+                        != [identity(atom) for atom in result.atoms]):
+                    self._running_selection.clear()
+                    self._groups.clear()
+                    self._interfaces.clear()
+            self._display_result(result, preserve_view=completing_preview or switching_frame)
+            if not switching_frame:
+                self._start_trajectory_preload(result)
+            if source in self._structure_states and not switching_frame:
                 self._restore_structure_state(source)
             self._populate_loaded_structures()
-            if not self._loading_project:
+            if switching_frame:
+                self._save_current_structure_state()
+                self._set_project_dirty()
+            elif not self._loading_project:
                 self.project.structure = StructureSource.from_path(
                     source, result.name
                 )
@@ -1787,9 +2042,76 @@ class MainWindow(QMainWindow):
     def solve(self) -> None:
         if self._thread is not None or self._loading_structure or self.current_result is None:
             return
+        if self._solve_frame_selection:
+            self._solve_all_return_frame = self.current_result.frame_index
+            self._solve_all_queue = list(self._solve_frame_selection)
+            try:
+                self._solve_all_indices = self._solve_target_indices()
+            except ValueError as error:
+                self._solve_all_queue.clear()
+                self._solve_all_return_frame = None
+                self._show_error(str(error))
+                return
+            self._begin_solve(self._solve_all_queue.pop(0), self._solve_all_indices)
+            return
+        self._begin_solve(self.current_result.frame_index)
+
+    def solve_all_frames(self) -> None:
+        if (self._thread is not None or self._loading_structure or self.current_result is None
+                or self.current_result.frame_count <= 1):
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Solve trajectory frames")
+        dialog.setMinimumWidth(280)
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(QLabel("Select the frames to solve:"))
+        frames = QListWidget(dialog)
+        for number in range(1, self.current_result.frame_count + 1):
+            item = QListWidgetItem(f"Frame {number}")
+            item.setData(Qt.UserRole, number)
+            item.setCheckState(Qt.Checked)
+            frames.addItem(item)
+        layout.addWidget(frames)
+        select_buttons = QHBoxLayout()
+        select_all = QPushButton("Select all")
+        clear_all = QPushButton("Clear")
+        select_buttons.addWidget(select_all)
+        select_buttons.addWidget(clear_all)
+        layout.addLayout(select_buttons)
+        select_all.clicked.connect(lambda: [frames.item(i).setCheckState(Qt.Checked) for i in range(frames.count())])
+        clear_all.clicked.connect(lambda: [frames.item(i).setCheckState(Qt.Unchecked) for i in range(frames.count())])
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        layout.addWidget(buttons)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        selected_frames = [
+            frames.item(i).data(Qt.UserRole)
+            for i in range(frames.count())
+            if frames.item(i).checkState() == Qt.Checked
+        ]
+        if not selected_frames:
+            self.statusBar().showMessage("No frames selected.", 3000)
+            return
         try:
-            selected_indices = self._solve_target_indices()
+            self._solve_all_indices = self._solve_target_indices()
         except ValueError as error:
+            self._show_error(str(error))
+            return
+        self._solve_frame_selection = tuple(selected_frames)
+        self.statusBar().showMessage(
+            f"Selected {len(selected_frames)} frame(s) for the next solve.", 3000
+        )
+
+    def _begin_solve(self, frame_index: int, selected_indices=None) -> None:
+        try:
+            if selected_indices is None:
+                selected_indices = self._solve_target_indices()
+        except ValueError as error:
+            self._solve_all_queue.clear()
+            self._solve_all_return_frame = None
+            self._solve_all_indices = None
             self._show_error(str(error))
             return
         network_types = {0: "aw", 1: "pow", 2: "prm"}
@@ -1809,12 +2131,15 @@ class MainWindow(QMainWindow):
         self.cancel_action.setEnabled(True)
         self.progress_bar.setValue(0)
         self._thread = QThread(self)
-        self._worker = SolveWorker(self.backend, self.source, selected_indices)
+        current = self.current_result
+        self._worker = SolveWorker(self.backend, self.source, selected_indices,
+                                   frame_index=frame_index,
+                                   frame_ranges=current.frame_ranges)
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
         self._worker.progress.connect(self._show_progress)
-        self._worker.completed.connect(self._display_result)
-        self._worker.failed.connect(self._show_error)
+        self._worker.completed.connect(self._solve_completed)
+        self._worker.failed.connect(self._solve_failed)
         self._worker.cancelled.connect(self._show_cancelled)
         self._worker.finished.connect(self._thread.quit)
         self._worker.finished.connect(self._worker.deleteLater)
@@ -1823,7 +2148,28 @@ class MainWindow(QMainWindow):
         self._refresh_ui_state()
         self._thread.start()
 
+    def _solve_completed(self, result: AnalysisResult) -> None:
+        if self._solve_all_return_frame is None:
+            self._display_result(result)
+            return
+        if result.source is not None:
+            self._trajectory_cache[(result.source.resolve(), result.frame_index)] = result
+        if result.frame_index == self._solve_all_return_frame:
+            self._display_result(result, preserve_view=True)
+        self.statusBar().showMessage(
+            f"Solved frame {result.frame_index} / {result.frame_count}", 3000
+        )
+
+    def _solve_failed(self, message: str) -> None:
+        self._solve_all_queue.clear()
+        self._solve_all_return_frame = None
+        self._solve_all_indices = None
+        self._show_error(message)
+
     def cancel_analysis(self) -> None:
+        self._solve_all_queue.clear()
+        self._solve_all_return_frame = None
+        self._solve_all_indices = None
         if self._worker is not None:
             self._worker.cancel()
             self.progress_label.setText("Cancelling…")
@@ -1869,6 +2215,8 @@ class MainWindow(QMainWindow):
         self._loading_progress("Applying atomic properties…", 72)
         self._apply_defaults_to_result(result)
         self.current_result = result
+        if result.frame_count > 1 and result.source is not None:
+            self._trajectory_cache[(result.source.resolve(), result.frame_index)] = result
         main_atom_count = sum(
             not (atom.residue_name.upper() in WATER_RESIDUES or atom.residue_name.upper() in ION_RESIDUES)
             for atom in result.atoms
@@ -1903,6 +2251,7 @@ class MainWindow(QMainWindow):
             }
         self._refresh_groups_panel()
         self._populate_network_controls(result)
+        self._apply_frame_network_sizes(result)
         self._loading_progress("Preparing selection browser…", 92)
         self._populate_structure_browser()
         self._update_running_selection()
@@ -1979,6 +2328,26 @@ class MainWindow(QMainWindow):
         self.curvature_colormap.setEnabled(has_scalar_colors)
         self.curvature_scale.setEnabled(has_scalar_colors)
         if has_scalar_colors:
+            schemes = [layer.color_scheme for layer in scalar_layers if layer.color_scheme]
+            if schemes:
+                index = self.surface_color_scheme.findData(schemes[0])
+                if index >= 0:
+                    self.surface_color_scheme.blockSignals(True)
+                    self.surface_color_scheme.setCurrentIndex(index)
+                    self.surface_color_scheme.blockSignals(False)
+            maps = [layer.color_map for layer in scalar_layers if layer.color_map]
+            if maps:
+                index = self.curvature_colormap.findData(maps[0])
+                if index >= 0:
+                    self.curvature_colormap.blockSignals(True)
+                    self.curvature_colormap.setCurrentIndex(index)
+                    self.curvature_colormap.blockSignals(False)
+            scales = [layer.scale_mode for layer in scalar_layers if layer.scale_mode]
+            if scales:
+                index = next((i for i, (_, value) in enumerate(self._curvature_scale_options()) if value == scales[0]), 3)
+                self.curvature_scale.blockSignals(True)
+                self.curvature_scale.setValue(index)
+                self.curvature_scale.blockSignals(False)
             self._set_surface_color_scheme(self.surface_color_scheme.currentIndex())
             self._set_curvature_colormap(self.curvature_colormap.currentIndex())
             self._set_curvature_scale(self.curvature_scale.value())
@@ -1997,6 +2366,28 @@ class MainWindow(QMainWindow):
                 or self._network_layers("shell_vertices")
             )
         )
+
+    def _frame_network_key(self, result=None):
+        result = result or self.current_result
+        if result is None or result.source is None or result.frame_count <= 1:
+            return None
+        return result.source.resolve(), result.frame_index
+
+    def _apply_frame_network_sizes(self, result):
+        key = self._frame_network_key(result)
+        if key is None:
+            return
+        sizes = self._network_sizes_by_frame.get(key)
+        if sizes is None:
+            # New frames start from the same neutral display defaults. Once a
+            # control is changed, its value is retained only for this frame.
+            sizes = (20, 13)
+            self._network_sizes_by_frame[key] = sizes
+        edge, vertex = sizes
+        self.edge_size.blockSignals(True); self.edge_size.setValue(edge); self.edge_size.blockSignals(False)
+        self.vertex_size.blockSignals(True); self.vertex_size.setValue(vertex); self.vertex_size.blockSignals(False)
+        self._set_edge_size(edge)
+        self._set_vertex_size(vertex)
 
     @staticmethod
     def _residue_groups(result: AnalysisResult) -> list[tuple[str, tuple[int, ...]]]:
@@ -2295,11 +2686,19 @@ class MainWindow(QMainWindow):
                 setter(layer.name, scale)
 
     def _set_edge_size(self, value: int) -> None:
+        key = self._frame_network_key()
+        if key is not None:
+            _, vertex = self._network_sizes_by_frame.get(key, (self.edge_size.value(), self.vertex_size.value()))
+            self._network_sizes_by_frame[key] = (int(value), int(vertex))
         setter = getattr(self.viewer, "set_edge_radius", None)
         if setter is not None:
             setter(float(value) / 1000.0)
 
     def _set_vertex_size(self, value: int) -> None:
+        key = self._frame_network_key()
+        if key is not None:
+            edge, _ = self._network_sizes_by_frame.get(key, (self.edge_size.value(), self.vertex_size.value()))
+            self._network_sizes_by_frame[key] = (int(edge), int(value))
         setter = getattr(self.viewer, "set_vertex_radius", None)
         if setter is not None:
             setter(float(value) / 100.0)
@@ -2447,4 +2846,10 @@ class MainWindow(QMainWindow):
         self._thread = None
         self._worker = None
         self.cancel_action.setEnabled(False)
+        if self._solve_all_queue:
+            self._begin_solve(self._solve_all_queue.pop(0), self._solve_all_indices)
+            return
+        self._solve_all_return_frame = None
+        self._solve_all_indices = None
+        self._solve_frame_selection = ()
         self._refresh_ui_state()
