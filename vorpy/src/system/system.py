@@ -204,7 +204,7 @@ class System:
     def __init__(self, file=None, files=None, spheres=None, verts_file=None, balls_file=None, network_file=None,
                  index_file=None, frame_files=None, output_directory=None, gui=None, root_dir=None, print_actions=False,
                  atoms=None, residues=None, chains=None, segments=None, groups=None, ifaces=None, simple=False,
-                 name=None):
+                 name=None, make_dir=True):
         """
         Initialize a new System object for managing molecular systems and networks.
 
@@ -250,6 +250,8 @@ class System:
             Indicates the system is simple and is only a shell
         name : str, optional
             Name describing the system
+        make_dir : bool, optional
+            Create the output directory during initialization (default True).
 
         Methods
         -------
@@ -351,7 +353,7 @@ class System:
 
         # # Initiate the system
         self.start = time.perf_counter()
-        self.load_files()
+        self.load_files(make_dir=make_dir)
 
         seterr(divide='ignore', invalid='ignore')
 
@@ -548,19 +550,20 @@ class System:
             if self.files[file] is None:
                 self.files[file] = defaults[file]
 
-    def load_files(self):
+    def load_files(self, make_dir=True):
         """
         Load and initialize all system files specified during initialization.
 
         """
         # Load the system
         if self.files['base_file'] is not None:
-            self.load_sys()
+            self.load_sys(make_dir=make_dir)
 
         # elif self.user_atoms is not None:
         #     self.load_sys_atoms()
         elif self.atoms is not None:
-            self.set_output_directory()
+            if make_dir:
+                self.set_output_directory()
             return
 
         # Load the network
@@ -583,7 +586,7 @@ class System:
             self.name = "my_system"
 
         # Set the output directory
-        if self.files['dir'] is None or 'No System Chosen' in self.files['dir']:
+        if make_dir and (self.files['dir'] is None or 'No System Chosen' in self.files['dir']):
             self.set_output_directory()
 
     def load_sys(self, file=None, simple=False, make_dir=True):

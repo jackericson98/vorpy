@@ -39,7 +39,7 @@ def export_sys(sys, all_=False, pdb=False, set_atoms=False, info=False, mol=Fals
     if pdb or all_:
         os.chdir(sys.files['dir'])
         # Export a pdb file for the system
-        write_pdb([_ for i, _ in sys.balls.iterrows()], sys.name, sys)
+        write_pdb(list(range(len(sys.balls))), sys.name, sys)
         os.chdir(sys.files['dir'])
     # Write the alter atoms script
     if set_atoms or all_:

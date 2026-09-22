@@ -3,7 +3,8 @@
 Key improvement
 ---------------
 Modern VorPy logs contain additional atom/surface curvature and representative
-surface-energy fields. Older read_logs2 versions parsed rows positionally,
+surface-energy fields, per-cell and per-face edge curvature, vertex curvature,
+and group boundary diagnostics. Older read_logs2 versions parsed rows positionally,
 which silently shifted fields after newly inserted columns.
 
 This reader uses each section's CSV header to map values by column name.
@@ -13,6 +14,7 @@ Older logs remain supported through aliases and positional fallbacks.
 import ast
 import csv
 import re
+from os import PathLike
 from pathlib import Path
 
 import pandas as pd
@@ -180,6 +182,27 @@ ATOM_CONVERTERS = {
 }
 
 
+CURVATURE_BREAKDOWN_FIELDS = (
+    "Integrated Mean Curvature (Face)",
+    "Integrated Mean Curvature (Edge)",
+    "Integrated Mean Curvature (Total)",
+    "Integrated Gaussian Curvature (Face)",
+    "Integrated Gaussian Curvature (Edge)",
+    "Integrated Gaussian Curvature (Vertex)",
+    "Integrated Gaussian Curvature (Total)",
+)
+ATOM_CONVERTERS.update({field: _to_float for field in CURVATURE_BREAKDOWN_FIELDS})
+
+
+def _optional_fields(mapped, converters):
+    """Convert present values without inventing zeros for blank log fields."""
+    return {
+        field: converter(raw)
+        for field, converter in converters.items()
+        if (raw := _get(mapped, field, default="")) != ""
+    }
+
+
 ATOM_ALIASES = {
     "Van Der Waals Volume": ["VDW Volume"],
     "Non-Overlap Volume": ["Non - Overlap Volume", "Non Overlap Volume"],
@@ -317,6 +340,9 @@ def read_surf(surf_line, headers=None):
             "Integrated Gaussian Curvature": [
                 "Integrated Gaussian Curvature"
             ],
+            "Integrated Gaussian Curvature (Face)": [
+                "Integrated Gaussian Curvature (Face)"
+            ],
             "Representative Surface Energy": [
                 "Representative Surface Energy"
             ],
@@ -449,7 +475,7 @@ def read_surf(surf_line, headers=None):
 def read_edge(edge_line, headers=None):
     if headers is not None:
         mapped = _row_dict(headers, edge_line)
-        return {
+        edge = {
             "Index": _to_int(_get(mapped, "Index")),
             "Balls": [
                 _to_int(_get(mapped, "Ball 1")),
@@ -458,6 +484,17 @@ def read_edge(edge_line, headers=None):
             ],
             "Length": _to_float(_get(mapped, "Length")),
         }
+        curvature_fields = ["Integrated Mean Curvature", "Integrated Gaussian Curvature"]
+        curvature_fields += [
+            f"Integrated {kind} Curvature (Ball {i})"
+            for kind in ("Mean", "Gaussian") for i in range(1, 4)
+        ]
+        curvature_fields += [
+            f"Integrated Gaussian Curvature (Ball {i}, Face with Ball {j})"
+            for i in range(1, 4) for j in range(1, 4) if i != j
+        ]
+        edge.update(_optional_fields(mapped, {field: _to_float for field in curvature_fields}))
+        return edge
 
     return {
         "Index": _to_int(edge_line[0]),
@@ -469,7 +506,7 @@ def read_edge(edge_line, headers=None):
 def read_vert(vert_line, headers=None):
     if headers is not None:
         mapped = _row_dict(headers, vert_line)
-        return {
+        vertex = {
             "Index": _to_int(_get(mapped, "Index")),
             "Balls": [
                 _to_int(_get(mapped, "Ball 1")),
@@ -484,6 +521,11 @@ def read_vert(vert_line, headers=None):
             ],
             "rad": _to_float(_get(mapped, "r", "Radius")),
         }
+        vertex.update(_optional_fields(mapped, {
+            "Integrated Mean Curvature": _to_float,
+            "Integrated Gaussian Curvature": _to_float,
+        }))
+        return vertex
 
     return {
         "Index": _to_int(vert_line[0]),
@@ -564,7 +606,25 @@ def _parse_group(headers, row):
         "VDW Center of Mass": parse_string_lists,
         "Moment of Inertia": parse_string_lists,
         "Spatial Moment of Inertia": parse_string_lists,
+        "Integrated Mean Curvature": _to_float,
+        "Integrated Mean Curvature Squared": _to_float,
+        "Integrated Gaussian Curvature": _to_float,
+        "Euler Characteristic": _to_int,
+        "Gauss-Bonnet Expected": _to_float,
+        "Gauss-Bonnet Error": _to_float,
+        "Gauss-Bonnet Relative Error": _to_float,
+        "Boundary Complete": sort_bool,
+        "Boundary Closed": sort_bool,
+        "Boundary Manifold": sort_bool,
+        "Boundary Orientable": sort_bool,
+        "Boundary Components": _to_int,
+        "Missing Faces": _to_int,
+        "Missing Edges": _to_int,
+        "Missing Vertices": _to_int,
+        "Nonmanifold Edges": _to_int,
+        "Nonmanifold Vertices": _to_int,
     }
+    converters.update({field: _to_float for field in CURVATURE_BREAKDOWN_FIELDS})
 
     for key, converter in converters.items():
         raw = _get(mapped, key, default="")
@@ -588,8 +648,12 @@ def read_logs2(
     Read one VorPy log or a list of logs.
 
     The public return structure matches the historical read_logs2 API.
+    New curvature and boundary fields retain their CSV column names. Missing
+    optional values are omitted from row dictionaries (NaN in mixed DataFrame
+    columns), while explicitly recorded zeros are preserved. Paths may be
+    strings or pathlib.Path objects.
     """
-    one_file = isinstance(log_files, (str, bytes))
+    one_file = isinstance(log_files, (str, bytes, PathLike))
     if one_file:
         log_files = [log_files]
 

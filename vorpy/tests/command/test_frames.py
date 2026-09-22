@@ -78,7 +78,8 @@ def test_batch_uses_independent_systems_and_standard_exports(tmp_path, monkeypat
     source.write_text('MODEL        1\n' + atom(1) + 'ENDMDL\n'
                       'MODEL        2\n' + atom(2) + 'ENDMDL\n')
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr('builtins.input', lambda prompt: pytest.fail('Unexpected prompt') if explicit else '')
+    replies = iter(['y', 'n'])
+    monkeypatch.setattr('builtins.input', lambda prompt: pytest.fail('Unexpected prompt') if explicit else next(replies))
     monkeypatch.setattr('sys.argv', ['vorpy', str(source)] + (['--all-frames'] if explicit else []) + [
                                    '-e', 'dir', str(tmp_path / 'results'),
                                    '-e', 'only', 'pdb', '-s', 'nt', 'pow'])
@@ -110,7 +111,7 @@ def test_frame_prompt_routes_answer(tmp_path, monkeypatch, answers, expected):
     source = tmp_path / 'trajectory.pdb'
     source.write_text(atom(1) + 'END\n' + atom(2) + 'END\n')
     monkeypatch.setattr('sys.argv', ['vorpy', str(source)])
-    replies = iter(answers)
+    replies = iter(answers + (['n'] if expected == 'all' else []))
     prompts = []
     def respond(prompt):
         prompts.append(prompt)
@@ -123,7 +124,8 @@ def test_frame_prompt_routes_answer(tmp_path, monkeypatch, answers, expected):
     monkeypatch.setattr(command, '_process_system', lambda: actions.append(('first', 1)))
     command.run()
     assert actions == [(expected, 2 if expected == 'all' else 1)]
-    assert prompts == ['2 frames found. Run all? [Y/n] '] * len(answers)
+    assert prompts == (['2 frames found. Run all? [Y/n] '] * len(answers)
+                       + (['Parallelize frame runs? [Y/n] '] if expected == 'all' else []))
 
 
 def test_batch_collects_previous_frame_before_loading_next(tmp_path, monkeypatch):

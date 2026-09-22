@@ -7,6 +7,7 @@ from contextlib import contextmanager
 
 from vorpy.src.output.atoms import write_atom_cells
 from vorpy.src.output.curvature_colors import export_color_cache
+from vorpy.src.analyze.nonpolar_interface import export_geometry_tables, build_geometry_tables
 
 
 SYSTEM_PRESETS = {
@@ -226,6 +227,18 @@ def _move_vert_file(sys, group):
         shutil.move(source, destination)
 
 
+def _export_nonpolar_geometry(sys, network, directory, network_id):
+    """Export the read-only local geometry analysis tables for one network."""
+    destination = os.path.join(directory, 'nonpolar_interface_geometry')
+    tables = build_geometry_tables(
+        network,
+        system_id=getattr(sys, 'name', ''),
+        frame_id=getattr(sys, 'frame_index', None),
+        network_id=network_id,
+    )
+    export_geometry_tables(tables, destination)
+
+
 @contextmanager
 def _group_export_cache(group):
     """Share summaries and color scales only within this export plan."""
@@ -248,7 +261,9 @@ def export_preset(sys, preset):
     system_plan = SYSTEM_PRESETS[preset]
     group_plan = GROUP_PRESETS[preset]
     interface_plan = INTERFACE_PRESETS[preset]
-    total = len(system_plan) + len(group_plan) * len(groups) + len(interface_plan) * len(ifaces)
+    analysis_count = (len(groups) + len(ifaces)) if preset in {'large', 'all'} else 0
+    total = (len(system_plan) + len(group_plan) * len(groups)
+             + len(interface_plan) * len(ifaces) + analysis_count)
     progress = ExportProgress(total, sys)
 
     for name, kwargs in system_plan:
@@ -260,11 +275,30 @@ def export_preset(sys, preset):
                 _run_export(progress, f'{group.name}: {name}', group.exports, **kwargs)
         if preset in {'large', 'all'}:
             _move_vert_file(sys, group)
+            _run_export(
+                progress,
+                f'{group.name}: nonpolar interface geometry',
+                _export_nonpolar_geometry,
+                sys=sys,
+                network=group.net,
+                directory=group.dir,
+                network_id=group.name,
+            )
     for iface in ifaces:
         interface_name = getattr(iface, 'name', 'interface')
         with export_color_cache(iface.net):
             for name, kwargs in interface_plan:
                 _run_export(progress, f'{interface_name}: {name}', iface.export, **kwargs)
+            if preset in {'large', 'all'}:
+                _run_export(
+                    progress,
+                    f'{interface_name}: nonpolar interface geometry',
+                    _export_nonpolar_geometry,
+                    sys=sys,
+                    network=iface.net,
+                    directory=iface.dir,
+                    network_id=interface_name,
+                )
     progress.finish()
 
 

@@ -4,6 +4,15 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 
+def is_pdb_virtual_site(line):
+    """Identify non-atomic water charge sites that have no atomic radius."""
+    element = line[76:78].strip().upper()
+    return element == 'M' or (
+        not element and line[12:16].strip().upper() == 'MW'
+        and line[17:20].strip().upper() in {'SOL', 'HOH', 'WAT', 'H2O', 'TIP4', 'TIP4P'}
+    )
+
+
 def first_pdb_frame(lines, system=None):
     """Yield only frame 1 while counting atom-containing frames in a stream."""
     count = 0

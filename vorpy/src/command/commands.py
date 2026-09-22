@@ -268,6 +268,13 @@ Options:
   -c <calculation_type>
     Identify additional calculations like interfaces between groups (iface, ifc, i) or calculating vertices up to specified layers (layers)
 
+  --all-frames
+    Process every frame in a PDB trajectory sequentially without prompting.
+
+  --parallel-frames <workers>
+    Process every PDB frame with up to this many worker processes.
+    Implies --all-frames. Each frame has its own output folder and run.log.
+
   -e <export_type>
     Specify the intensity and type of exports:
       Options include: small, medium, large, all

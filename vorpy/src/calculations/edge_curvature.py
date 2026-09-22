@@ -19,6 +19,10 @@ def _cache_key(net, quadrature_order, tolerance):
 def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-6):
     """Calculate edge M and edge G together in one traversal per physical edge.
 
+    ``tolerance`` controls analytic endpoint matching. Curvature integration
+    uses its own numerical singularity tolerance so short regular edges are
+    not rejected merely because their length is below the matching tolerance.
+
     Returns
     -------
     tuple[list[dict], list[dict]]
@@ -119,7 +123,6 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
             face_pairs=face_pairs,
             order=quadrature_order,
             quadrature=quadrature,
-            tol=tolerance,
             timing=kernel_timing if verbose else None,
         )
         integration_time += perf_counter() - t
