@@ -69,6 +69,18 @@ def prepare_edges(net, edges, color=None, radius=DEFAULT_EDGE_RADIUS, add_joints
 
     for index in edge_indices:
         edge = net.edges.iloc[index]
+        raw_points = np.asarray(edge.get("points", []), dtype=float)
+        if (
+            raw_points.ndim != 2
+            or raw_points.shape[0] < 2
+            or raw_points.shape[1] != 3
+            or not np.all(np.isfinite(raw_points))
+            or np.any(np.linalg.norm(np.diff(raw_points, axis=0), axis=1) <= endpoint_tolerance)
+        ):
+            # Degenerate edges have no drawable geometry (and no defined
+            # tangent). They can occur in validation shapes with coincident
+            # Voronoi vertices, so omit them from mesh export.
+            continue
         draw_points = edge["draw_points"]
         draw_tris = edge["draw_tris"]
 

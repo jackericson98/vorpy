@@ -2,6 +2,8 @@
 
 from time import perf_counter
 
+import numpy as np
+
 from vorpy.src.network.edge_geometry_diagnostics import resolve_aw_network_edge
 
 
@@ -56,14 +58,19 @@ def get_aw_edge_geometry_cache(net, tolerance=1e-7):
         return cache, False, 0.0
 
     start = perf_counter()
-    cache = {
-        int(edge_index): resolve_aw_network_edge(
-            net,
-            edge_index,
-            tolerance=cache_tolerance,
-        )
-        for edge_index in edges.index
-    }
+    cache = {}
+    for edge_index in edges.index:
+        try:
+            cache[int(edge_index)] = resolve_aw_network_edge(
+                net,
+                edge_index,
+                tolerance=cache_tolerance,
+            )
+        except (TypeError, ValueError, np.linalg.LinAlgError):
+            # Degenerate validation geometries can contain a zero-length or
+            # otherwise singular edge. Such an edge has no defined tangent
+            # and contributes no curvature.
+            cache[int(edge_index)] = None
     elapsed = perf_counter() - start
 
     setattr(net, _CACHE_ATTR, cache)

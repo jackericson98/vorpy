@@ -34,7 +34,8 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
     rads : array-like
         Ball radii for the full system.
     max_vert : float
-        Maximum permitted vertex radius/search extent.
+        Maximum allowable weighted Voronoi vertex radius (clearance) in the
+        network's length units.
     net_type : {'aw', 'pow', 'prm'}
         Network geometry being solved.
     check_ndxs : list of int
@@ -145,7 +146,7 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
     if len(my_group) == 1:
         v0 = find_v0(locs=locs, rads=rads, b_verts=b_verts, max_vert=max_vert, net_type=net_type, b0=my_group[0],
                      group_ndxs=my_group, vert_ndxs=vert_ndxs, group_box=group_box, iface_grps=iface_grps,
-                     timeout=seed_timeout)
+                     timeout=seed_timeout, metrics=timing)
 
     elif len(my_group) == 4:
         v0_loc, v0_rad, v0_loc2, v0_rad2 = calc_vert(locs=[locs[_] for _ in my_group],
@@ -213,7 +214,7 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
         for seed_ball in seed_ndxs:
             v0 = find_v0(locs=locs, rads=rads, b_verts=b_verts, max_vert=max_vert, net_type=net_type, b0=seed_ball,
                          group_ndxs=my_group, iface_grps=iface_grps, vert_ndxs=vert_ndxs,
-                         group_box=group_box, box=box, timeout=seed_timeout)
+                         group_box=group_box, box=box, timeout=seed_timeout, metrics=timing)
 
             if v0 is not None:
                 break

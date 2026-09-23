@@ -27,6 +27,9 @@ class MeshData:
     def __post_init__(self):
         self.points = np.asarray(self.points, dtype=float).reshape((-1, 3))
         self.triangles = np.asarray(self.triangles, dtype=np.int64).reshape((-1, 3))
+        if len(self.triangles):
+            if np.any(self.triangles < 0) or np.any(self.triangles >= len(self.points)):
+                raise ValueError("Mesh triangle index is outside the point array.")
 
         if self.face_colors is not None:
             colors = np.asarray(self.face_colors, dtype=float)

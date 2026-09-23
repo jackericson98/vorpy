@@ -232,7 +232,16 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, perimeter=None,
     # Perimeter construction
     stage_start = time.perf_counter()
     if perimeter is None:
-        perimeter, surf_loc, surf_norm = build_perimeter(locs, rads, epnts=epnts, net_type=net_type)
+        try:
+            perimeter, surf_loc, surf_norm = build_perimeter(
+                locs, rads, epnts=epnts, net_type=net_type
+            )
+        except ValueError:
+            # Degenerate edge projections make this individual surface
+            # unusable.  The network builder already knows how to drop an
+            # invalid surface, so return the sentinel it expects here.
+            _record_timing(timing, 'total', time.perf_counter() - total_start)
+            return
     _record_timing(timing, 'perimeter', time.perf_counter() - stage_start)
 
     if surf_loc is None or surf_norm is None:

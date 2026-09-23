@@ -77,6 +77,12 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
 
     for count, (edge_index, edge) in enumerate(net.edges.iterrows(), start=1):
         resolved = resolved_edges[int(edge_index)]
+        if resolved is None:
+            mean_contributions.append({})
+            gaussian_contributions.append({})
+            gaussian_by_face.append({})
+            gaussian_by_generator.append({})
+            continue
         edge_balls = tuple(int(value) for value in resolved.ball_indices)
 
         if len(edge_balls) != 3:

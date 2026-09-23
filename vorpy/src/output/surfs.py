@@ -268,6 +268,19 @@ def prepare_surfs(net, surfs, color=False, concave_colors=False, ref_surfs=None,
 
     surf_indices = list(surfs)
     surf_rows = [net.surfs.iloc[index] for index in surf_indices]
+    # A solved surface without triangles is not a drawable mesh. Exclude such
+    # rows explicitly so an OFF export cannot claim vertices while declaring
+    # zero faces. If none of the selected surfaces are triangulated, no mesh
+    # is exported and the caller can leave the path absent.
+    triangulated = [
+        (index, surf) for index, surf in zip(surf_indices, surf_rows)
+        if len(surf.get("tris", ())) > 0
+    ]
+    if not triangulated:
+        return None
+    surf_indices, surf_rows = zip(*triangulated)
+    surf_indices = list(surf_indices)
+    surf_rows = list(surf_rows)
     color = (1, 0, 0) if color is False else color
     ref_set = set(ref_surfs or [])
 

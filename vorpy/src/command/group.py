@@ -536,9 +536,29 @@ def ggroup(my_sys, group_commands, settings=None, make_net=True):
         return
     # First case: if no groups are entered, then make the standard group (no sol for 'mol' or coarse and all for 'foam')
     if len(group_commands) == 0:
-        # If the given system is not a foam add only the residues to hold out the sol atoms
-        my_sys.groups = [Group(my_sys, name=my_sys.name, residues=my_sys.residues.copy(), settings=settings,
-                               make_net=make_net)]
+        # Raw ball systems have no molecular residue/chain hierarchy.
+        # Their natural default group is therefore the complete set of balls.
+        if my_sys.type == 'balls':
+            my_sys.groups = [
+                Group(
+                    my_sys,
+                    name=my_sys.name,
+                    atoms=list(range(len(my_sys.balls))),
+                    settings=settings,
+                    make_net=make_net,
+                )
+            ]
+        else:
+            # Molecular systems retain the normal no-solvent/default behavior.
+            my_sys.groups = [
+                Group(
+                    my_sys,
+                    name=my_sys.name,
+                    residues=my_sys.residues.copy(),
+                    settings=settings,
+                    make_net=make_net,
+                )
+            ]
         return
     # First check if there are specific names without identifiers, no sol, full
     if group_commands[0][0] in noSOL_objs:

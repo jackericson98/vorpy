@@ -209,6 +209,11 @@ def aw_vertex_face_angle(
                 tolerance=tolerance,
             )
 
+        if resolved is None:
+            raise ValueError(
+                f"Edge {edge_index} has no valid analytic geometry."
+            )
+
         tangent = analytic_edge_tangent_away_from_network_vertex(
             resolved.geometry,
             vertex_location,

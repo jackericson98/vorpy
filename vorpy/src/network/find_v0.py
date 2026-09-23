@@ -322,6 +322,7 @@ def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, i
                     b_verts=b_verts,
                     vert_ndxs=vert_ndxs,
                     max_vert=max_vert / 10,
+                    full_max_vert=max_vert,
                     net_type=net_type,
                     group_ndxs=group_ndxs,
                     iface_grps=iface_grps,

@@ -109,6 +109,9 @@ def _read_pdb_lines(sys, file, lines, report):
     if len(header) > 1 and header[1] == 'coarsify':
         # Set the system type to coarse
         sys.type = 'coarse'
+
+    if len(header) > 1 and header[1].lower() == 'vorpy_balls':
+        sys.type = 'balls'
     # Go through each line in the file and check if the first word is the word we are looking for
     for line in first_pdb_frame(chain((first_line,), lines), sys):
         if not line:
@@ -146,14 +149,15 @@ def _read_pdb_lines(sys, file, lines, report):
 
             # Assign the radius
             rad = None
-            # If the system is a foam or coarse system
-            if sys.type == 'foam' or sys.type == 'coarse':
-                # Get the radius
+            # If the system is a foam, coarse, or balls system, get the radius from the PDB line
+            if sys.type in {'foam', 'coarse', 'balls'}:
                 rad = float(line[60:66])
-                # If the radius is 0
-                if rad == 0:
-                    # Set the radius to 0.001
-                    rad = 0.001
+
+                if rad <= 0:
+                    raise ValueError(
+                        f"Explicit-radius PDB contains invalid radius {rad} "
+                        f"for atom {atom_count}."
+                    )
             # Get the mass for the atom:
             if sys.type == 'mol' and line[76:78].strip().lower() in my_masses:
                 # Get the mass

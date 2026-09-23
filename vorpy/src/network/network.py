@@ -751,8 +751,30 @@ class Network:
             self.sys.apply_spatial_index(self)
         if self.box is None:
             self.sort_balls()
-        if verts is not None:
-            self.verts = verts
+        if self.verts is None:
+            self.find_verts()
+
+            if self.verts is None or len(self.verts) == 0:
+                max_vert = self.settings.get("max_vert", None)
+
+                print()
+                print("=" * 70)
+                print("WARNING: No vertices were found.")
+                if max_vert is not None:
+                    print(f"Maximum allowable vertex radius: {max_vert} A")
+                    print(
+                        "Try increasing the maximum allowable vertex radius "
+                        f"(for example: -s mv {max_vert * 2:g})."
+                    )
+                else:
+                    print(
+                        "Consider increasing the maximum allowable vertex radius "
+                        "with '-s mv VALUE'."
+                    )
+                print("=" * 70)
+                print()
+
+                return
         # Check to see if there are vertices loaded
         if self.verts is None:
             # Find the vertices

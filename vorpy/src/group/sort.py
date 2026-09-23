@@ -5,6 +5,7 @@ from vorpy.src.calculations import calc_total_inertia_tensor
 from vorpy.src.calculations import ndx_search
 from vorpy.src.calculations import calc_surf_sa
 from vorpy.src.calculations.vertex_geometry import aw_vertex_face_angle
+from vorpy.src.calculations.edge_geometry import boundary_edge_mean_curvature
 from vorpy.src.calculations.edge_resolution_cache import get_aw_edge_geometry_cache
 
 
@@ -534,10 +535,15 @@ def get_info(group):
         # Calculate the vdw center of mass
         group.vdw_com = [vdw_com[j] / group.vdw_vol for j in range(3)]
     # Check to see if the moi has been calculated
-    if group_net_rows and 'moi' in group.net.balls.iloc[group_net_rows[0]]:
+    complete_balls = [ball for ball in group_balls if ball.get('complete')]
+    if group.vol > 0 and complete_balls and 'moi' in complete_balls[0]:
         # Calculate the spatial moment
-        group.spatial_moment = combine_inertia_tensors([_['moi'] for _ in group_balls], [_['com'] for _ in group_balls],
-                                                       group.com, [_['vol'] for _ in group_balls])
+        group.spatial_moment = combine_inertia_tensors(
+            [_['moi'] for _ in complete_balls],
+            [np.asarray(_['com'], dtype=float) for _ in complete_balls],
+            np.asarray(group.com, dtype=float),
+            [_['vol'] for _ in complete_balls],
+        )
     if group.vdw_vol > 0:
         group.moi = calc_total_inertia_tensor(group_balls, group.vdw_com)
     # Check to see if the first layer has been calculated
@@ -803,20 +809,31 @@ def get_info(group):
         except (IndexError, TypeError, ValueError):
             invalid_edges += 1
             continue
-        mean_map = edge.get('int_mean_curv_by_ball', {})
-        if not isinstance(mean_map, dict):
+        # Reconstruct the turning angle from the retained external faces.
+        # Per-cell edge_mean_curv_by_ball values cannot be reused here: an
+        # external edge may also be incident to an internal face, and that
+        # cell-relative value then contains the internal-face turn.
+        if len(boundary_face_ids) != 2:
             invalid_edges += 1
             continue
-        cells = {surface_cells[s] for s in boundary_face_ids}
-        for cell in cells:
-            if cell not in mean_map:
-                invalid_edges += 1
-                continue
-            # aw_edge_curvature_measures stores the sum of the two face
-            # dihedral integrals for a cell.  The group edge term is 1/2
-            # integral(theta) for the geometric edge itself.
-            contribution = 0.5 * float(mean_map[cell])
-            edge_mean += contribution
+        try:
+            normals = []
+            for surf_id in boundary_face_ids:
+                surf_balls = tuple(int(_) for _ in net.surfs.iloc[surf_id].get('balls', ()))
+                cell = surface_cells[surf_id]
+                other = next(value for value in surf_balls if value != cell)
+                cell_loc = np.asarray(net.balls.iloc[cell].get('loc'), dtype=float)
+                other_loc = np.asarray(net.balls.iloc[other].get('loc'), dtype=float)
+                normal = other_loc - cell_loc
+                norm = float(np.linalg.norm(normal))
+                if normal.shape != (3,) or not np.isfinite(norm) or norm <= 1e-12:
+                    raise ValueError("undefined boundary face normal")
+                normals.append(normal / norm)
+            edge_mean += boundary_edge_mean_curvature(
+                edge.get('length', 0.0), normals[0], normals[1])
+        except (IndexError, KeyError, StopIteration, TypeError, ValueError):
+            invalid_edges += 1
+            continue
         if edge_face_values is None or edge_id >= len(edge_face_values):
             invalid_edges += 1
             continue

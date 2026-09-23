@@ -173,6 +173,7 @@ def build_surfs(net, store_points=True):
     total_surfs = len(net.surfs)
     valid_surfs = 0
     invalid_surfs = 0
+    invalid_surface_indices = set()
     total_points = 0
     total_tris = 0
     last_update = 0.0
@@ -203,6 +204,7 @@ def build_surfs(net, store_points=True):
 
         if my_surf is None:
             invalid_surfs += 1
+            invalid_surface_indices.add(int(i))
             net.surfs.drop(index=i, inplace=True)
             continue
 
@@ -295,6 +297,26 @@ def build_surfs(net, store_points=True):
         vols.append({nums[0]: sv0, nums[1]: sv1})
         surf_locs.append(surf_loc)
         _add_timing(outer_timing, 'storage', time.perf_counter() - timer)
+
+    # Surface construction can reject a degenerate surface after topology has
+    # already recorded its index on balls, edges, and vertices.  Remove those
+    # stale references before curvature stages traverse the topology.
+    if invalid_surface_indices:
+        surface_index_map = {
+            int(old_index): new_index
+            for new_index, old_index in enumerate(net.surfs.index)
+        }
+        for table in (net.balls, net.edges, net.verts):
+            if table is None or 'surfs' not in table:
+                continue
+            table['surfs'] = table['surfs'].map(
+                lambda values: [
+                    surface_index_map[int(value)]
+                    for value in (values or [])
+                    if int(value) in surface_index_map
+                ]
+            )
+        net.surfs.reset_index(drop=True, inplace=True)
 
     timer = time.perf_counter()
     (

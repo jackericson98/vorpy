@@ -273,8 +273,11 @@ def export_preset(sys, preset):
         with _group_export_cache(group):
             for name, kwargs in group_plan:
                 _run_export(progress, f'{group.name}: {name}', group.exports, **kwargs)
+        # The vertex log is a network-level artifact. Move it once after the
+        # group's export plan, rather than checking it from every individual
+        # export stage.
+        _move_vert_file(sys, group)
         if preset in {'large', 'all'}:
-            _move_vert_file(sys, group)
             _run_export(
                 progress,
                 f'{group.name}: nonpolar interface geometry',

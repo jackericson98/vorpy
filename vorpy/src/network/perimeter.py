@@ -41,6 +41,21 @@ def build_perimeter(locs, rads, epnts, net_type='aw'):
     - For 'prm' networks, the surface is positioned at the midpoint between balls
     - For 'pow' networks, the surface position is calculated using the power diagram formula
     """
+    if not epnts:
+        raise ValueError("Cannot build a perimeter without edge points.")
+
+    # A failed edge projection can produce an array of NaNs.  Let the caller
+    # discard that surface rather than allowing the traversal below to keep a
+    # ``None`` index and fail with an opaque list.pop error.
+    for edge_index, edge_points in enumerate(epnts):
+        points = np.asarray(edge_points, dtype=float)
+        if points.ndim != 2 or points.shape[0] < 2 or points.shape[1] != 3:
+            raise ValueError(
+                f"Invalid edge {edge_index}: expected at least two 3D points."
+            )
+        if not np.all(np.isfinite(points)):
+            raise ValueError(f"Invalid edge {edge_index}: non-finite point detected.")
+
     # Add the first edge's vertex location and set of points to the perimeter points list
     perimeter = epnts[0][:]
     # Make a copy of the edges to organize excluding the first edge
@@ -63,6 +78,12 @@ def build_perimeter(locs, rads, epnts, net_type='aw'):
             # Otherwise, if the last edge point is the closest add the edge in reverse
             elif d1 < d:
                 d, ndx, reverse = d1, i, True
+        if ndx is None:
+            raise ValueError(
+                "Unable to connect edge points into a perimeter; "
+                "the surface geometry is disconnected or non-finite."
+            )
+
         # Pull the edge from the list of edges
         my_edge_points = edges_points.pop(ndx)
         # Add the edge's point in the right order and then add the 181L vertex

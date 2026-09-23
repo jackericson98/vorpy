@@ -553,11 +553,15 @@ class Command:
                         else:
                             print(f"{folder} is not a valid folder")
                     else:
-                        base_dir = arg_cmnds[1]
+                        base_dir = os.path.abspath(os.path.expanduser(arg_cmnds[1]))
                         system_dir = os.path.join(base_dir, self.sys.name)
 
+                        os.makedirs(system_dir, exist_ok=True)
+
+                        self.sys.dir = system_dir
+                        self.sys.files['dir'] = system_dir
+
                         print("Directory set to: {}".format(system_dir))
-                        self.sys.set_output_directory(system_dir)
                 else:
                     # Add the export command to the list
                     self.exports.append(arg_cmnds)

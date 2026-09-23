@@ -1017,6 +1017,30 @@ def boundary_turning_angle(first_normal, second_normal, tol=1e-12):
     return float(np.arccos(cosine))
 
 
+def boundary_edge_mean_curvature(
+        edge_length, first_normal, second_normal, orientation=1.0, tol=1e-12):
+    """Return an integrated mean-curvature contribution for a boundary edge.
+
+    The normals must be the outward normals of the two *retained boundary*
+    faces incident to the edge.  This deliberately computes the turning angle
+    from those faces rather than using a cell-relative edge cache, since the
+    latter may include faces internal to a selected multi-cell group.
+
+    ``orientation`` carries the existing signed boundary convention.  It is
+    normally +1 for an outward, convex boundary and may be -1 for a reversed
+    oriented boundary.  The factor of one half is the convention used by the
+    AW edge-curvature integration.
+    """
+    length = float(edge_length)
+    if not np.isfinite(length) or length < 0.0:
+        raise ValueError("Edge length must be a finite non-negative number.")
+    sign = float(orientation)
+    if not np.isfinite(sign):
+        raise ValueError("Boundary orientation must be finite.")
+    angle = boundary_turning_angle(first_normal, second_normal, tol=tol)
+    return 0.5 * length * sign * angle
+
+
 def aw_cell_turning_angle(
         edge_geometry,
         t,

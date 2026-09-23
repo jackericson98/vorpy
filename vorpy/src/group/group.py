@@ -440,7 +440,10 @@ class Group:
         self.mols = self.mols if self.mols is not None else []
         # Check for empty groups
         if len(self.atms + self.rsds + self.chns + self.mols) == 0:
-            self.rsds = [i for i in range(len(self.sys.residues))]
+            if self.sys.type == 'balls':
+                self.atms = list(range(len(self.sys.balls)))
+            else:
+                self.rsds = list(range(len(self.sys.residues)))
         # Add the provided atoms to the self.atoms list
         self.add_balls(self.atms)
         for resid in self.rsds:

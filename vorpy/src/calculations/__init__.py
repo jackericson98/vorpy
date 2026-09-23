@@ -70,6 +70,7 @@ from vorpy.src.calculations.edge_geometry import validate_edge_samples
 from vorpy.src.calculations.edge_geometry import AWEdgePointGeometry
 from vorpy.src.calculations.edge_geometry import aw_edge_point_geometry
 from vorpy.src.calculations.edge_geometry import boundary_turning_angle
+from vorpy.src.calculations.edge_geometry import boundary_edge_mean_curvature
 from vorpy.src.calculations.edge_geometry import aw_cell_turning_angle
 from vorpy.src.calculations.edge_geometry import aw_cell_edge_mean_curvature
 from vorpy.src.calculations.edge_geometry import aw_edge_mean_curvatures

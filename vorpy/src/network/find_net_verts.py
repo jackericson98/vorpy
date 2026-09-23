@@ -1,9 +1,12 @@
 import time
 import os
+from itertools import combinations
 import pandas as pd
+import numpy as np
 from vorpy.src.calculations import box_search
 from vorpy.src.calculations import get_balls
 from vorpy.src.calculations import calc_dist
+from vorpy.src.calculations.vert import calc_vert_numba_indexed
 from vorpy.src.network.find_verts import find_verts
 from vorpy.src.output import write_verts
 
@@ -40,6 +43,60 @@ def vertex_is_allowed(net, vertex_balls):
         return True
 
     return bool(vertex_balls.intersection(net.group))
+
+
+def _enumerate_sparse_aw_vertices(net):
+    """Recover exact AW vertices for the seven-generator box construction.
+
+    The normal search is intentionally local and assumes molecular spheres are
+    reasonably close. An exact power-cell validation box can have six distant
+    axis neighbors, so enumerate its four-generator intersections when the
+    normal search finds nothing.
+    """
+    # This fallback is intended for compact synthetic systems. Enumerating
+    # four-generator intersections remains inexpensive up to a few dozen
+    # generators and also covers the Fibonacci sphere validation shell.
+    if net.settings.get("net_type", "aw") != "aw" or len(net.balls) > 32:
+        return None
+
+    locs = np.asarray(net.balls["loc"].tolist(), dtype=float)
+    rads = np.asarray(net.balls["rad"].tolist(), dtype=float)
+    max_vert = float(net.settings.get("max_vert", np.inf))
+    records = []
+    tolerance = 1e-7
+
+    for balls in combinations(range(len(locs)), 4):
+        result = calc_vert_numba_indexed(locs, rads, balls)
+        location, vertex_radius = result[0], result[1]
+        if location is None or not np.all(np.isfinite(location)):
+            continue
+        location = np.asarray(location, dtype=float)
+        vertex_radius = float(vertex_radius)
+        if not np.isfinite(vertex_radius) or vertex_radius > max_vert:
+            continue
+
+        # Keep only vertices on the lower envelope of all weighted distance
+        # functions, rather than every algebraic four-generator intersection.
+        distances = np.linalg.norm(locs - location, axis=1) - rads
+        if np.any(distances < vertex_radius - tolerance):
+            continue
+        if not vertex_is_allowed(net, balls):
+            continue
+        records.append((list(balls), location.tolist(), vertex_radius))
+
+    if not records:
+        return None
+
+    vert_ndxs = [record[0] for record in records]
+    vlocs = [record[1] for record in records]
+    vrads = [record[2] for record in records]
+    vloc2s = [[None, None, None] for _ in records]
+    vrad2s = [None for _ in records]
+    averts = [[] for _ in range(len(net.balls))]
+    for vertex_index, balls in enumerate(vert_ndxs):
+        for ball in balls:
+            averts[ball].append(vertex_index)
+    return vert_ndxs, vlocs, vrads, vloc2s, vrad2s, averts
 
 
 def _load_cached_vertex_state(net):
@@ -242,6 +299,20 @@ def _print_find_verts_timing(net, timer, total):
     print(f"Site searches:      {int(timer.get('edge_search_calls', 0)):,}")
     print(f"Accepted vertices:  {int(timer.get('accepted_vertices', 0)):,}")
     print(f"No-site results:    {int(timer.get('rejected_none', 0)):,}")
+    if timer.get('seed_search_attempts', 0):
+        raw_limits = timer.get('seed_search_limits', [])
+        unique_limits = list(dict.fromkeys(raw_limits))
+        if len(unique_limits) > 8:
+            limits = ", ".join(f"{value:g}" for value in unique_limits[:4]) + ", ..., " + ", ".join(
+                f"{value:g}" for value in unique_limits[-2:]
+            )
+        else:
+            limits = ", ".join(f"{value:g}" for value in unique_limits)
+        print(f"AW seed attempts:    {int(timer['seed_search_attempts']):,} ({limits})")
+        if timer.get('seed_success_max_vert') is not None:
+            print(f"AW seed success limit:{timer['seed_success_max_vert']:g}")
+        seed_times = timer.get('seed_search_times', [])
+        print(f"AW seed time total:  {sum(seed_times):.4f}s")
     print("=" * 70)
 
 
@@ -313,12 +384,17 @@ def find_net_verts(net):
     if my_guuy is not None:
         vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
     elif cached_state is None:
-        total = time.perf_counter() - vert_start
-        net.vert_timing = timer.copy()
-        net.vert_timing['total'] = total
-        net.metrics['vert'] = time.perf_counter() - net.metrics['start']
-        _print_find_verts_timing(net, timer, total)
-        return
+        sparse_state = _enumerate_sparse_aw_vertices(net)
+        if sparse_state is not None:
+            vert_ndxs, vlocs, vrads, vloc2s, vrad2s, averts = sparse_state
+            sphere_check_list = []
+        else:
+            total = time.perf_counter() - vert_start
+            net.vert_timing = timer.copy()
+            net.vert_timing['total'] = total
+            net.metrics['vert'] = time.perf_counter() - net.metrics['start']
+            _print_find_verts_timing(net, timer, total)
+            return
 
     # --------------------------------------------------------------
     # Encapsulation checks

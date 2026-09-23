@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from vorpy.src.calculations import box_search
 from vorpy.src.calculations import get_balls
@@ -9,12 +10,13 @@ from vorpy.src.network.fast import verify_aw_local
 
 
 def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, net_type, box=None,
-                             group_ndxs=None, iface_grps=None, metrics=None, printing=False):
+                             group_ndxs=None, iface_grps=None, metrics=None, printing=False,
+                             full_max_vert=None):
     """
     Search thoroughly for a valid vertex associated with a three-ball edge.
 
     The search begins locally and expands geometrically until a valid site is
-    found or ``max_vert`` is reached. Surrounding balls are gathered once for
+    found or the allowable vertex radius is reached. Surrounding balls are gathered once for
     the full search extent and rejected fourth-ball candidates are retained
     between expansion steps so they are not recalculated.
 
@@ -31,7 +33,13 @@ def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_ver
     vert_ndxs : list
         Defining balls for already discovered vertices.
     max_vert : float
-        Maximum search extent and accepted absolute vertex radius.
+        Initial search extent and accepted absolute vertex radius. For AW seed
+        searches this is intentionally the fast initial limit (normally the
+        user's limit divided by ten).
+    full_max_vert : float, optional
+        User's full maximum allowable weighted Voronoi vertex radius. AW seed
+        searches progressively retry up to this value while reusing the
+        spatial setup. Other network types ignore this argument.
     net_type : {'aw', 'pow', 'prm'}
         Network geometry being solved.
     box : list, optional
@@ -50,32 +58,70 @@ def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_ver
     object or None
         The verified vertex returned by ``find_site`` or ``None``.
     """
-    invalid_ndxs, vert = [], None
+    initial_max_vert = float(max_vert)
+    final_max_vert = float(full_max_vert if full_max_vert is not None else max_vert)
+    if final_max_vert < initial_max_vert:
+        final_max_vert = initial_max_vert
+
+    # AW uses a deliberately cheap first seed search. If it finds no valid
+    # seed, expand the limit geometrically rather than treating the fast
+    # limit as a correctness bound. The final value is always the user's
+    # exact limit.
+    if net_type == 'aw' and full_max_vert is not None and initial_max_vert < final_max_vert:
+        search_limits = []
+        limit = initial_max_vert
+        while True:
+            limit = min(limit, final_max_vert)
+            search_limits.append(limit)
+            if limit >= final_max_vert:
+                break
+            limit = min(limit * 2.0, final_max_vert)
+    else:
+        search_limits = [initial_max_vert]
 
     # The fourth ball only needs group filtering when none of the edge balls
     # already belongs to the requested group.
     check_ndxs = group_ndxs is not None and not any(ball in group_ndxs for ball in edge_balls)
 
     my_boxes = [box_search(loc=locs[ball]) for ball in edge_balls]
-    surr_balls = get_balls(cells=my_boxes, dist=max_vert)
+    # Candidate discovery at the full user limit is setup work shared by all
+    # progressive seed attempts. AW local verification still applies each
+    # attempt's current radius limit below.
+    surr_balls = get_balls(cells=my_boxes, dist=final_max_vert)
 
-    # Always test the requested maximum extent rather than jumping over it.
-    mv_inc = min(0.45, max_vert)
+    for attempt, attempt_max_vert in enumerate(search_limits, start=1):
+        attempt_start = time.perf_counter()
+        invalid_ndxs = []
+        vert = None
 
-    while vert is None:
-        vert, invalid_ndxs = find_site(
-            edge_balls=edge_balls, locs=locs, rads=rads, b_verts=b_verts, vert_ndxs=vert_ndxs,
-            max_vert=max_vert, mv_inc=mv_inc, net_type=net_type, invalid_ndxs=invalid_ndxs,
-            check_balls=check_ndxs, surr_balls=surr_balls, my_boxes=my_boxes, group_ndxs=group_ndxs,
-            iface_grps=iface_grps, metrics=metrics, box=box
-        )
+        # Always test the current maximum extent rather than jumping over it.
+        mv_inc = min(0.45, attempt_max_vert)
+        while vert is None:
+            vert, invalid_ndxs = find_site(
+                edge_balls=edge_balls, locs=locs, rads=rads, b_verts=b_verts, vert_ndxs=vert_ndxs,
+                max_vert=attempt_max_vert, mv_inc=mv_inc, net_type=net_type, invalid_ndxs=invalid_ndxs,
+                check_balls=check_ndxs, surr_balls=surr_balls, my_boxes=my_boxes, group_ndxs=group_ndxs,
+                iface_grps=iface_grps, metrics=metrics, box=box
+            )
 
-        if vert is not None or mv_inc >= max_vert:
-            break
+            if vert is not None or mv_inc >= attempt_max_vert:
+                break
 
-        mv_inc = min(mv_inc * 10, max_vert)
+            mv_inc = min(mv_inc * 10, attempt_max_vert)
 
-    return vert
+        if metrics is not None:
+            metrics['seed_search_attempts'] = metrics.get('seed_search_attempts', 0) + 1
+            metrics.setdefault('seed_search_limits', []).append(attempt_max_vert)
+            metrics.setdefault('seed_search_times', []).append(
+                time.perf_counter() - attempt_start
+            )
+
+        if vert is not None:
+            if metrics is not None:
+                metrics['seed_success_max_vert'] = attempt_max_vert
+            return vert
+
+    return None
 
 
 def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_type, invalid_ndxs=None,
