@@ -74,6 +74,10 @@ def prepare_verts(net, verts, color=None, vert_rad=DEFAULT_VERTEX_RADIUS,
             if mapped is not None:
                 vertex_color = mapped
 
+        export_colors = getattr(net, '_export_color_provider', None)
+        if export_colors is not None:
+            vertex_color = export_colors('vertices', index, color_mode, 1)[0]
+
         point_parts.append(points)
         triangle_parts.append(triangles)
         color_parts.append([vertex_color] * len(triangles))

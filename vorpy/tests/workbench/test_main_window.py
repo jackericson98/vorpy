@@ -839,22 +839,21 @@ def test_workbench_empty_loaded_busy_and_reset_states(monkeypatch):
     assert "0 selected" in window.state_summary.text()
 
 
-def test_layout_state_round_trip_and_results_collapse(monkeypatch):
+def test_layout_state_round_trip_keeps_results_visible(monkeypatch):
     window = make_window(monkeypatch)
     window.show()
     QApplication.processEvents()
 
     window.upper_workspace.setSizes([1000, 400])
-    window.analysis_tray.set_expanded(False)
 
     state = window._view_state_to_json()
 
-    assert not state["results_expanded"]
-
-    window.analysis_tray.set_expanded(True)
+    assert "results_expanded" not in state
+    # Older projects may still contain the removed collapse setting.
+    state["results_expanded"] = False
     window._restore_view_state(state)
 
-    assert not window.analysis_tray.content.isVisibleTo(window)
+    assert window.analysis_tray.content.isVisibleTo(window)
     assert window.upper_workspace.sizes() == state["panel_sizes"]
 
     window._focus_results()
@@ -1227,4 +1226,43 @@ def test_saved_group_selection_refreshes_all_information(monkeypatch):
     assert window.atom_element.text() == 'C'
     assert window.atom_residue.text() == 'GLY 7'
     assert window.atom_position.text() == '1.000, 1.000, 2.000'
+    window.close()
+
+
+def test_export_tab_and_solved_result_availability(monkeypatch):
+    window = make_window(monkeypatch)
+    assert [window.results_export_tabs.tabText(i) for i in range(2)] == ['Results / Analysis', 'Export']
+    panel = window.export_panel
+    assert not panel.export_button.isEnabled()
+    result = AnalysisResult(None, 'solved', export_group=object())
+    panel.update_state(result, False)
+    assert panel.export_button.isEnabled()
+    panel.update_state(result, True)
+    assert not panel.export_button.isEnabled()
+    result.defaults_stale = True
+    panel.update_state(result, False)
+    assert not panel.export_button.isEnabled()
+    window.results_export_tabs.setCurrentIndex(1)
+    window._focus_results()
+    assert window.results_export_tabs.currentIndex() == 0
+    window.close()
+
+
+def test_save_session_restores_export_settings_without_a_structure(monkeypatch, tmp_path):
+    window = make_window(monkeypatch)
+    window.project_file = tmp_path / ('session' + main_window.PROJECT_SUFFIX)
+    panel = window.export_panel
+    panel.atom_format.setCurrentText('XYZ')
+    panel.config.options['full_molecule'] = True
+    panel.config.color_overrides['surfaces'] = '#123456'
+    panel.save_session_button.click()
+    assert window.project_file.is_file()
+    filename = str(window.project_file)
+    panel.restore_config({})
+    monkeypatch.setattr(window, '_confirm_discard_changes', lambda: True)
+    monkeypatch.setattr(main_window.QFileDialog, 'getOpenFileName', lambda *args: (filename, ''))
+    window.open_project()
+    assert panel.config.atom_format == 'xyz'
+    assert panel.config.options['full_molecule']
+    assert panel.config.color_overrides == {'surfaces': '#123456'}
     window.close()

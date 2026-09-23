@@ -87,6 +87,10 @@ def prepare_edges(net, edges, color=None, radius=DEFAULT_EDGE_RADIUS, add_joints
             if mapped is not None:
                 edge_color = mapped
 
+        export_colors = getattr(net, '_export_color_provider', None)
+        if export_colors is not None:
+            edge_color = export_colors('edges', index, color_mode, 1)[0]
+
         point_parts.append(draw_points)
         triangle_parts.append(draw_tris)
         color_parts.append([edge_color] * len(draw_tris))

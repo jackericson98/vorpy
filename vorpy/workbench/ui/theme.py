@@ -99,3 +99,9 @@ QWidget#resultsInspector QToolButton:checked { background: #192635; }
 QGroupBox { margin-top: 10px; padding-top: 6px; }
 QLabel#emptyState { padding: 4px; font-size: 10pt; }
 """
+
+STUDIO_STYLESHEET += """
+QPushButton#exportPreset { background: #18222d; border: 1px solid #33404e; padding: 5px 10px; }
+QPushButton#exportPreset:hover { background: #233141; border-color: #596b7e; }
+QPushButton#exportPreset:checked { background: #30284f; border: 1px solid #8b7df0; color: #f3efff; }
+"""

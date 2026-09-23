@@ -1,4 +1,5 @@
 import os
+from numbers import Integral
 import shutil
 from shutil import SameFileError
 
@@ -150,7 +151,7 @@ def write_pdb(atoms, file_name, sys, directory=None):
             # Go through each atom in the system
             for i, a in enumerate(atoms):
                 # Get the ball
-                if type(a) is int:
+                if isinstance(a, Integral):
                     a = sys.balls.iloc[a]
                 # Get the location string
                 x, y, z = a['loc']

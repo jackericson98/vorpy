@@ -79,22 +79,7 @@ class ResultsInspector(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 0, 8, 4)
         layout.setSpacing(2)
-        self.toggle = QToolButton()
-        self.toggle.setText("Results / Analysis")
-        self.toggle.setCheckable(True)
-        self.toggle.setChecked(True)
-        self.toggle.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-        self.toggle.setArrowType(Qt.DownArrow)
-        layout.addWidget(self.toggle, alignment=Qt.AlignLeft)
         content.setMinimumHeight(0)
         content.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Ignored)
         self.content = content
         layout.addWidget(content, 1)
-        self.toggle.toggled.connect(self.set_expanded)
-
-    def set_expanded(self, expanded):
-        self.content.setVisible(expanded)
-        self.toggle.setArrowType(Qt.DownArrow if expanded else Qt.RightArrow)
-        self.setMaximumHeight(16777215 if expanded else 34)
-        if self.toggle.isChecked() != expanded:
-            self.toggle.setChecked(expanded)

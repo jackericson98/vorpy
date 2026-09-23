@@ -1262,7 +1262,7 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
     if atoms or all_:
         interface_atoms = get_interface_atoms(iface)
 
-        if iface.sys.files["base_file"][-3:].lower() != "txt":
+        if str(iface.sys.files.get("base_file") or "")[-3:].lower() != "txt":
             write_pdb(
                 atoms=interface_atoms,
                 file_name="interface_atoms",

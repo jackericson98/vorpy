@@ -27,7 +27,7 @@ def set_pymol_atoms(sys):
     if sys.type == 'foam' or sys.type == 'coarse':
         # Get the directory for the base_file and copy the set atoms file
         try:
-            shutil.copyfile(path.dirname(sys.files['base_file']) + '/set_atoms.pml', sys.files['dir'] + '/sys/set_atoms.pml')
+            shutil.copyfile(path.dirname(sys.files.get('base_file') or '') + '/set_atoms.pml', sys.files['dir'] + '/sys/set_atoms.pml')
         except FileNotFoundError:
             # Create the file
             with open('set_atoms.pml', 'w') as file:

@@ -970,6 +970,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     # Get the surfaces if they haven't been got
     if grp.net.surfs is None or len(grp.net.surfs) == 0:
         return
+    os.makedirs(grp.sys.files['dir'], exist_ok=True)
     # Create the output directory inside the system's directory
     if grp.dir is None:
         i = 1
@@ -995,7 +996,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         write_logs(grp, round_to=round_to)
     # If the user wants to export the atoms for the group
     if atoms or all_:
-        if grp.sys.files['base_file'][-3:] == 'txt':
+        if str(grp.sys.files.get('base_file') or '')[-3:] == 'txt':
             pass
         else:
             write_pdb(atoms=grp.ball_ndxs, file_name="group_atoms", sys=grp.sys)

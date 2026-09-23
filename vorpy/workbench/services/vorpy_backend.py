@@ -130,6 +130,8 @@ class VorPyBackend:
             raise RuntimeError("Analysis cancelled")
 
         result = loaded_structure
+        result.export_group = group
+        system.gui = None
         result.source = source
         result.frame_index = frame_index
         result.frame_count = frame_count

@@ -59,6 +59,7 @@ class AnalysisResult:
     elapsed_seconds: float = 0.0
     info_sections: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
     summary: object | None = None
+    export_group: object | None = field(default=None, repr=False, compare=False)
     defaults_stale: bool = False
     frame_index: int = 1
     frame_count: int = 1

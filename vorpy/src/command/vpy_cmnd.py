@@ -36,6 +36,7 @@ class Command:
         # whether verbose diagnostic information is printed.
         self.verbose = False
         self.diagnose_edges = False
+        self.save_network_path = None
 
     def run(self):
         self._run_pipeline()
@@ -57,14 +58,23 @@ class Command:
         """
 
         # Resolve the base input file
-        input_arg = sys.argv[1]
+        self._arguments = list(sys.argv[1:])
+        if self._arguments and self._arguments[0] == '--load-network':
+            self._arguments.pop(0)
+        if not self._arguments:
+            raise SystemExit('Provide a structure or .vpy network archive path')
+        input_arg = self._arguments[0]
 
         self.base_file = get_file(input_arg, interactive=False)
         if self.base_file is None:
             raise SystemExit(f"Input file not found: {input_arg}. "
                              "Provide an existing path or a filename from vorpy/data.")
 
-        if '--all-frames' in sys.argv[2:]:
+        if Path(self.base_file).suffix.lower() == '.vpy':
+            self._run_archive()
+            return
+
+        if '--all-frames' in self._arguments[1:]:
             self.run_all_frames()
             return
 
@@ -104,7 +114,7 @@ class Command:
         print(f'{Path(self.base_file).name}: {total_frames} frames found; processing all frames sequentially.')
         option_names = ('load_commands', 'groups', 'builds', 'exports',
                         'settings_cmnds', 'logs_files', 'interface_mode',
-                        'verbose', 'diagnose_edges')
+                        'verbose', 'diagnose_edges', 'save_network_path')
         with closing(iter_pdb_frames(self.base_file)) as frames:
             for ordinal, frame_file in frames:
                 # Keep setup directories inside the temporary workspace.
@@ -261,6 +271,37 @@ class Command:
 
         # Export requested outputs
         self.run_exports()
+        self._save_archive()
+
+    def _save_archive(self):
+        if self.save_network_path is not None:
+            from vorpy.src.io import save_network
+            destination = self.save_network_path
+            if getattr(self.sys, 'frame_count', 1) > 1:
+                destination = destination.with_name(f'{destination.stem}_frame_{self.sys.frame_index:04d}.vpy')
+            save_network(self.sys, destination)
+            print(f'Solved network saved: {destination}')
+
+    def _run_archive(self):
+        from vorpy.src.io import load_network, group_from_network
+        network = load_network(self.base_file)
+        self.sys = network.sys
+        self.sys.set_output_directory(self.sys.files['dir'])
+        self.parse_commands()
+        if self.builds or self.load_commands or self.settings_cmnds or self.interface_mode:
+            raise ValueError('Archive input reuses solved geometry. Use -e export options or -g selections; rebuild/settings commands require a structure input.')
+        if self.groups:
+            previous = list(self.sys.groups)
+            ggroup(self.sys, self.groups, dict(network.settings), make_net=False)
+            definitions = [group for group in self.sys.groups if group not in previous]
+            # Some command paths replace the group list rather than append it.
+            self.sys.groups = previous
+            for definition in definitions:
+                group_from_network(network, definition.ball_ndxs, definition.name)
+        if self.diagnose_edges:
+            self.run_edge_diagnostics()
+        self.run_exports()
+        self._save_archive()
 
     def build_groups_from_logs(self):
         """
@@ -338,7 +379,13 @@ class Command:
             }
         """
         # Separate the rest of the argv args
-        my_args = list(sys.argv[2 + counter:])
+        my_args = list(getattr(self, '_arguments', sys.argv[1:])[1 + counter:])
+        if '--save-network' in my_args:
+            index = my_args.index('--save-network')
+            if index + 1 >= len(my_args) or my_args[index + 1].startswith('-'):
+                raise ValueError('--save-network requires an output .vpy path')
+            self.save_network_path = Path(my_args[index + 1]).expanduser().resolve()
+            del my_args[index:index + 2]
         my_args = [arg for arg in my_args if arg != '--all-frames']
 
         # -v / --verbose is a universal argumentless flag. Remove it before

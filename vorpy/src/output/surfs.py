@@ -280,7 +280,11 @@ def prepare_surfs(net, surfs, color=False, concave_colors=False, ref_surfs=None,
 
     tri_colors = []
 
-    if net.settings["net_type"] == "aw" and integrated_scheme is not None:
+    export_colors = getattr(net, '_export_color_provider', None)
+    if export_colors is not None:
+        tri_colors = [export_colors('surfaces', index, color_mode, len(surf['tris']))
+                      for index, surf in zip(surf_indices, surf_rows)]
+    elif net.settings["net_type"] == "aw" and integrated_scheme is not None:
         if color_limit is None:
             color_limit = curvature_color_limit(net, integrated_scheme, target_cells, mode=color_mode)
 

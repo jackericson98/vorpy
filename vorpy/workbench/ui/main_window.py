@@ -73,6 +73,7 @@ from vorpy.workbench.ui.molecular_view import (
 )
 from vorpy.workbench.workers.solve_worker import SolveWorker
 from vorpy.workbench.workers.trajectory_worker import TrajectoryPreloadWorker
+from vorpy.workbench.ui.export_panel import ExportPanel
 from vorpy.workbench.ui.panels import (WorkflowSidebar, ViewerPanel, ViewInspector, ResultsInspector, action_button, scroll_panel)
 
 DEFAULT_DATA_DIRECTORY = Path(__file__).resolve().parents[2] / "data"
@@ -337,7 +338,7 @@ class MainWindow(QMainWindow):
         self.solve_target.setFocus()
 
     def _focus_results(self) -> None:
-        self.analysis_tray.set_expanded(True)
+        self.results_export_tabs.setCurrentIndex(0)
 
     def _focus_settings(self) -> None:
         self.inspector.setCurrentIndex(0)
@@ -1139,7 +1140,11 @@ class MainWindow(QMainWindow):
         self.interface_results.setHorizontalHeaderLabels(["Defined interface", "Group A", "Group B"])
         self.interface_results.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         tabs.addTab(self.interface_results, "Interfaces")
-        return ResultsInspector(tabs)
+        self.results_export_tabs = QTabWidget()
+        self.results_export_tabs.addTab(tabs, "Results / Analysis")
+        self.export_panel = ExportPanel(lambda: self.current_result, self.save_project_action)
+        self.results_export_tabs.addTab(self.export_panel, "Export")
+        return ResultsInspector(self.results_export_tabs)
 
     def _fallback_info_sections(self, result: AnalysisResult) -> dict[str, list[tuple[str, str]]]:
         return {
@@ -1239,6 +1244,7 @@ class MainWindow(QMainWindow):
             self.frame_label.setText(f'Frame {result.frame_index} / {result.frame_count}')
             self.previous_frame.setEnabled(not busy and trajectory)
             self.next_frame.setEnabled(not busy and trajectory)
+        self.export_panel.update_state(result, busy)
         self.solve_network_button.setEnabled(self.solve_action.isEnabled())
         self.solve_all_frames_button.setEnabled(loaded and trajectory and not busy)
         self.solve_configuration.setEnabled(loaded and not busy)
@@ -1340,6 +1346,7 @@ class MainWindow(QMainWindow):
         self.structure_name.setText("No structure loaded")
         self.structure_summary.setText("Open a PDB structure")
         self._set_project_dirty(False)
+        self.export_panel.restore_config({})
         self.statusBar().showMessage("New project ready")
 
     def open_project(self) -> None:
@@ -1396,6 +1403,7 @@ class MainWindow(QMainWindow):
                 self._interfaces.clear()
                 self._reset_network_controls()
                 self.structure_browser.clear()
+            self.export_panel.restore_config(project.view_state.get("export_config", {}))
             self._set_project_dirty(False)
             self.statusBar().showMessage(f"Opened project {project.name}")
         except Exception as error:  # noqa: BLE001 - project boundary reports failures.
@@ -1492,6 +1500,7 @@ class MainWindow(QMainWindow):
                 mode = value
                 break
         return {
+            "export_config": asdict(self.export_panel.config),
             "show_cartoon": self.show_cartoon.isChecked(),
             "show_spheres": self.show_spheres.isChecked(),
             "show_sticks": self.show_sticks.isChecked(),
@@ -1515,13 +1524,13 @@ class MainWindow(QMainWindow):
             "workspace_sizes": self.workspace_splitter.sizes(),
             "panel_sizes": self.upper_workspace.sizes(),
             "bottom_panel_sizes": self.right_workspace.sizes(),
-            "results_expanded": self.analysis_tray.toggle.isChecked(),
             "bottom_pane_sizes": self.bottom_workspace.sizes(),
         }
 
     def _restore_view_state(self, state: dict) -> None:
         if not state:
             return
+        self.export_panel.restore_config(state.get("export_config", {}))
         self._layout_restored = True
         panel_sizes = state.get("panel_sizes")
         legacy_layout = isinstance(panel_sizes, list) and len(panel_sizes) == 3
@@ -1541,7 +1550,6 @@ class MainWindow(QMainWindow):
         pane_sizes = state.get("bottom_pane_sizes")
         if isinstance(pane_sizes, list) and len(pane_sizes) == 2:
             self.bottom_workspace.setSizes([max(0, int(pane_sizes[0])), max(0, int(pane_sizes[1]))])
-        self.analysis_tray.set_expanded(bool(state.get("results_expanded", True)))
         self.atomic_defaults = validate_defaults(state.get("atomic_defaults",
             {scope: {"radius": value} for scope, value in state.get("radius_overrides", {}).items()}))
         for widget, key in ((
