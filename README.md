@@ -270,9 +270,31 @@ without loading the entire trajectory into memory. PDB `MODEL`/`ENDMDL` and
 concatenated `END`-delimited frames are supported; a single-frame PDB produces
 one frame folder. Without `--all-frames`, multi-frame PDBs prompt
 `11 frames found. Run all? [Y/n]`. Press Enter or type `y` to run every frame
-in series, or type `n` to process only frame 1. Single-frame files do not prompt.
+and then choose whether to parallelize, or type `n` to process only frame 1.
+Choosing parallel processing displays the available logical CPU count and asks
+for a CPU usage percentage (default 50%). The worker count is that percentage
+of logical CPUs, rounded down, with a minimum of one and a maximum of the frame
+count. For example, 12 logical CPUs at 50% runs up to six frames simultaneously;
+remaining frames start as workers finish. This controls concurrency, not a strict
+CPU utilization limit. Declining parallel processing runs frames sequentially.
+Single-frame files do not prompt.
 The loading message reports frames found, frames loaded, and the atom count;
 calculation progress includes the current frame number.
+
+To run all frames in parallel with up to four worker processes:
+
+```bash
+python -m vorpy trajectory.pdb --parallel-frames 4 -s mv 5 -e dir results
+```
+
+`--parallel-frames N` implies `--all-frames` and skips the frame prompt.
+Each process builds and exports one frame at a time using the same CLI options.
+Frame folders retain their file-order numbering even when jobs finish out of
+order. Detailed progress and tracebacks go to each frame's `run.log`; the terminal
+reports starts, completions, and failures. Failed frames do not prevent the
+remaining frames from running; the command exits unsuccessfully if any fail.
+Choose the worker count to fit available memory: each active frame holds its own
+network. `--all-frames` alone continues to run sequentially.
 
 The GUI also opens multi-frame PDBs. Use the slider, frame-number field, or
 Previous/Next buttons below the viewer to browse frames. Only the selected

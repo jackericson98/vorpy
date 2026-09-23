@@ -17,10 +17,6 @@ def set_sys_dir(sys, dir_name=None):
     # Check to see if the system has a name
     if sys.name is None:
         return
-    # Make sure a user_data path exists
-    if sys.files['vpy_dir'] is not None and not os.path.exists(sys.files['vpy_dir'] + "/output"):
-        os.makedirs(sys.files['vpy_dir'] + "/output", exist_ok=False)
-
     # If no outer directory was specified use the directory outside the current one
     if dir_name is None:
         if sys.files['dir'] is not None:

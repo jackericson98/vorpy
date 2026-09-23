@@ -54,7 +54,7 @@ def get_radius(atom, my_radii=None):
     Note:
         First checks for residue-specific radii (e.g. special cases in nucleic acids or amino acids).
         If no residue-specific radius is found, uses the standard element radius.
-        If no radius is found, attempts to find the closest matching element radius.
+        Raises ValueError if no radius is available for the atom's element.
     """
     if my_radii is None:
         elements_radii, specials_radii = element_radii, special_radii
@@ -72,18 +72,12 @@ def get_radius(atom, my_radii=None):
     # If we have the type and just want the radius, keep scanning until we find the radius
     if atom['rad'] is None and atom['element'].upper() in elements_radii:
         atom['rad'] = elements_radii[atom['element'].upper()]
-    # If indicated we return the symbol of ball that the radius indicates
-    if atom['rad'] is None or atom['rad'] == 0:
-        # Check to see if the radius is in the system
-        if atom['rad'] in {elements_radii[_] for _ in elements_radii}:
-            atom['element'] = elements_radii[atom['rad']]
-        else:
-            # Get the closest ball to it
-            min_diff = np.inf
-            # Go through the radii in the system looking for the smallest difference
-            for radius in elements_radii:
-                if elements_radii[radius] - atom['rad'] < min_diff:
-                    atom['element'] = elements_radii[radius]
+    if atom['rad'] is None:
+        raise ValueError(
+            f"No radius available for atom {atom['name']!r} "
+            f"in residue {atom.get('res_name', '')!r} "
+            f"(element {atom['element']!r})."
+        )
     return atom['rad']
 
 

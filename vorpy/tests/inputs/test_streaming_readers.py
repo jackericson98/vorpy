@@ -1,10 +1,13 @@
 from types import SimpleNamespace
+from contextlib import closing
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 from vorpy.src.input_progress import iter_input_lines
 from vorpy.src.inputs.pdb import read_pdb
+from vorpy.src.inputs.frames import iter_pdb_frames
 from vorpy.src.inputs.gro import read_gro
 from vorpy.src.inputs.mol import read_mol
 from vorpy.src.inputs.mol2 import read_mol2
@@ -36,6 +39,39 @@ def test_pdb_streaming_preserves_hierarchy_and_silent_mode(tmp_path, capsys):
     assert sys.chains[0].atoms == [0, 1]
     assert sys.residues[0].atoms == [0, 1]
     assert capsys.readouterr().out == ''
+
+
+def test_pdb_skips_blank_element_water_virtual_sites(tmp_path, monkeypatch):
+    path = tmp_path / 'water.pdb'
+    path.write_text(''.join(
+        f'ATOM  {i:5d} {name:^4s} SOL A   1    {x:8.3f}{0.:8.3f}{0.:8.3f}  1.00  0.00\n'
+        for i, name, x in [(1, 'OW', 0.), (2, 'MW', .1),
+                           (3, 'HW1', .9), (4, 'HW2', -.9)]))
+    sys = system(path)
+    read_pdb(sys)
+    assert sys.balls['name'].tolist() == ['OW', 'HW1', 'HW2']
+    assert sys.balls['num'].tolist() == [0, 1, 2]
+    assert sys.balls['element'].tolist() == ['O', 'H', 'H']
+    assert all(sys.balls['rad'] > 0)
+    from vorpy.src.output.pdb import write_pdb
+    monkeypatch.chdir(tmp_path)
+    sys.frame_count = 2
+    write_pdb([0, 1, 2], 'exported', sys)
+    names = [line[12:16].strip() for line in (tmp_path / 'exported.pdb').read_text().splitlines()
+             if line.startswith('ATOM')]
+    assert names == ['OW', 'HW1', 'HW2']
+
+
+def test_failed_frame_load_closes_input_before_temporary_cleanup(tmp_path):
+    source = tmp_path / 'unknown.pdb'
+    source.write_text('ATOM      1  XX  UNK A   1       1.000   0.000   0.000  1.00  0.00          XX\nEND\n')
+    with pytest.raises(ValueError, match="No radius available for atom 'XX'") as error:
+        with closing(iter_pdb_frames(source)) as frames:
+            _, frame_path = next(frames)
+            read_pdb(system(frame_path))
+    # Keep the exception/traceback alive to catch handles retained by frames.
+    assert error.value.__traceback__ is not None
+    assert not Path(frame_path).parent.exists()
 
 
 def test_gro_fixed_fields_units_and_indices(tmp_path):

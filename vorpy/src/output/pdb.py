@@ -75,7 +75,7 @@ def write_pdb(atoms, file_name, sys, directory=None):
         >>> selected_atoms = [0, 5, 10]  # Indices of atoms to include
         >>> write_pdb(selected_atoms, "subset", sys, directory="/path/to/output")
     """
-    from vorpy.src.inputs.frames import first_pdb_frame
+    from vorpy.src.inputs.frames import first_pdb_frame, is_pdb_virtual_site
 
     # Catch empty atoms cases
     if atoms is None or len(atoms) == 0:
@@ -129,6 +129,7 @@ def write_pdb(atoms, file_name, sys, directory=None):
                 line
                 for line in read_file
                 if line[:6].strip().upper() in {"ATOM", "HETATM"}
+                and not is_pdb_virtual_site(line)
             ]
 
             selected = []

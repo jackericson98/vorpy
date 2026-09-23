@@ -1,6 +1,40 @@
 from types import SimpleNamespace
 
+import pytest
+
 from vorpy.src.command.vpy_cmnd import Command
+from vorpy.src.system.system import System
+
+
+@pytest.mark.parametrize('all_frames', [False, True])
+@pytest.mark.parametrize('custom_directory', [False, True])
+def test_cli_creates_only_selected_output_directory(tmp_path, monkeypatch, all_frames, custom_directory):
+    source = tmp_path / 'sample.pdb'
+    atom = 'ATOM      1  CA  ALA A   1       1.000   0.000   0.000  1.00  0.00           C\n'
+    source.write_text(atom + 'ENDMDL\n' + (atom + 'ENDMDL\n' if all_frames else ''))
+    original_set_files = System.set_files
+
+    def set_files(system, *args, **kwargs):
+        original_set_files(system, *args, **kwargs)
+        system.files['vpy_dir'] = str(tmp_path)
+
+    monkeypatch.setattr(System, 'set_files', set_files)
+    args = ['vorpy', str(source), '-e', 'only', 'pdb']
+    if all_frames:
+        args.append('--all-frames')
+    if custom_directory:
+        args.extend(['-e', 'dir', str(tmp_path / 'custom results')])
+    monkeypatch.setattr('sys.argv', args)
+    monkeypatch.setattr(Command, 'create_groups', lambda self: None)
+
+    Command().run()
+
+    root = tmp_path / ('custom results' if custom_directory else 'output') / 'sample'
+    directories = [root / 'frames' / f'frame_{index:04d}' for index in (1, 2)] if all_frames else [root]
+    for directory in directories:
+        assert (directory / 'sample.pdb').is_file()
+    assert (tmp_path / 'output').exists() is (not custom_directory)
+    assert list(root.parent.iterdir()) == [root]
 
 
 class DummySystem:

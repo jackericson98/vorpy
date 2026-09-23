@@ -1,7 +1,8 @@
 import os
+from contextlib import closing
 from itertools import chain
 from vorpy.src.input_progress import iter_input_lines
-from vorpy.src.inputs.frames import first_pdb_frame
+from vorpy.src.inputs.frames import first_pdb_frame, is_pdb_virtual_site
 from vorpy.src.objects import make_atom
 from vorpy.src.objects import Residue
 from vorpy.src.objects import Chain, Sol
@@ -64,8 +65,14 @@ def read_pdb(sys, file=None, progress=None):
     report = progress
     if report is None and getattr(sys, 'print_actions', False):
         report = lambda label, value: print(f"\r{label} {value}%", end="")
-    lines = iter_input_lines(file_address,
-                             (lambda label, value: report(label, value * 90 // 100)) if report else None)
+    with closing(iter_input_lines(
+            file_address,
+            (lambda label, value: report(label, value * 90 // 100)) if report else None)) as lines:
+        return _read_pdb_lines(sys, file, lines, report)
+
+
+def _read_pdb_lines(sys, file, lines, report):
+    """Parse while read_pdb owns and reliably closes the input stream."""
     first_line = next(lines, "")
     if not first_line:
         raise ValueError(f"Empty PDB file: {file}")
@@ -109,8 +116,8 @@ def read_pdb(sys, file=None, progress=None):
         word = line[:6].lower().strip()
         # Check to see if the line is an atom line
         if line and word in {'atom', 'hetatm'}:
-            # Check for the "m" situation
-            if line[76:78] == ' M':
+            # Water charge sites are not atoms/Voronoi generators.
+            if is_pdb_virtual_site(line):
                 continue
             # Get the name
             name = line[12:16]

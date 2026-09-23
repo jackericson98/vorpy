@@ -18,6 +18,75 @@ from vorpy.src.command.command_export import argv_export
 from vorpy.src.command.interface import build_interfaces
 
 
+FRAME_OPTIONS = ('load_commands', 'groups', 'builds', 'exports',
+                 'settings_cmnds', 'logs_files', 'interface_mode',
+                 'verbose', 'diagnose_edges')
+
+
+def available_cpu_count():
+    """Count logical CPUs available to this process where supported."""
+    count = getattr(os, 'process_cpu_count', os.cpu_count)() or 1
+    if hasattr(os, 'sched_getaffinity'):
+        count = min(count, len(os.sched_getaffinity(0)))
+    return max(1, count)
+
+
+def prompt_frame_workers(total_frames):
+    """Return a worker count, or None for sequential frame processing."""
+    while True:
+        try:
+            answer = input('Parallelize frame runs? [Y/n] ').strip().lower()
+        except EOFError:
+            raise SystemExit('No response received. Use --all-frames for sequential runs '
+                             'or --parallel-frames N for parallel runs.') from None
+        if answer in {'n', 'no'}:
+            return None
+        if answer in {'', 'y', 'yes'}:
+            break
+        print('Please enter y (parallel) or n (sequential).')
+
+    cpus = available_cpu_count()
+    print(f'{cpus} logical CPUs (hardware threads) available.')
+    while True:
+        try:
+            answer = input('Enter CPU usage percentage (1-100) [50]: ').strip().rstrip('%')
+        except EOFError:
+            raise SystemExit('No response received. Use --parallel-frames N to choose '
+                             'the worker count without a prompt.') from None
+        try:
+            percentage = float(answer or '50')
+        except ValueError:
+            percentage = 0
+        if 1 <= percentage <= 100:
+            workers = min(total_frames, max(1, int(cpus * percentage / 100)))
+            print(f'Using {workers} frame worker(s) for {total_frames} frames '
+                  f'({percentage:g}% of {cpus} logical CPUs, rounded down; minimum 1).')
+            print('Frames are queued; each free worker starts the next frame. '
+                  'This selects concurrency, not a strict CPU utilization limit.')
+            return workers
+        print('Enter a percentage from 1 to 100.')
+
+
+def frame_cli_options(args):
+    """Remove the parallel-frame option before the legacy grouped parser."""
+    remaining = []
+    workers = None
+    args = iter(args)
+    for arg in args:
+        if arg == '--parallel-frames':
+            if workers is not None:
+                raise SystemExit('--parallel-frames may only be specified once.')
+            try:
+                workers = int(next(args))
+            except (StopIteration, ValueError):
+                raise SystemExit('--parallel-frames requires a positive integer worker count.') from None
+            if workers < 1:
+                raise SystemExit('--parallel-frames requires a positive integer worker count.')
+        else:
+            remaining.append(arg)
+    return remaining, workers
+
+
 class Command:
     def __init__(self, sys=None, settings=None):
         self.sys = sys
@@ -70,11 +139,12 @@ class Command:
             raise SystemExit(f"Input file not found: {input_arg}. "
                              "Provide an existing path or a filename from vorpy/data.")
 
-        if Path(self.base_file).suffix.lower() == '.vpy':
-            self._run_archive()
+        _, workers = frame_cli_options(sys.argv[2:])
+        if workers is not None:
+            self.run_all_frames(workers=workers)
             return
 
-        if '--all-frames' in self._arguments[1:]:
+        if '--all-frames' in sys.argv[2:]:
             self.run_all_frames()
             return
 
@@ -87,7 +157,11 @@ class Command:
                     except EOFError:
                         raise SystemExit('No response received. Use --all-frames to run all frames without a prompt.')
                     if answer in {'', 'y', 'yes'}:
-                        self.run_all_frames(total_frames=total_frames)
+                        workers = prompt_frame_workers(total_frames)
+                        if workers is None:
+                            self.run_all_frames(total_frames=total_frames)
+                        else:
+                            self.run_all_frames(total_frames=total_frames, workers=workers)
                         return
                     if answer in {'n', 'no'}:
                         print('Running frame 1 only.')
@@ -96,17 +170,20 @@ class Command:
 
         # Create the system if one was not supplied
         if self.sys is None:
-            self.sys = System(file=self.base_file)
+            self.sys = System(file=self.base_file, make_dir=False)
 
         # Parse the remaining command-line arguments
         self.parse_commands()
 
         self._process_system()
 
-    def run_all_frames(self, total_frames=None):
+    def run_all_frames(self, total_frames=None, workers=None):
         """Run the normal workflow independently for every input PDB frame."""
         if Path(self.base_file).suffix.lower() != '.pdb':
-            raise ValueError('--all-frames currently supports PDB input files only.')
+            raise ValueError('Frame processing currently supports PDB input files only.')
+        if workers is not None:
+            from vorpy.src.command.parallel_frames import run_parallel_frames
+            return run_parallel_frames(self, workers, total_frames)
         initial_settings = deepcopy(self.settings_dict)
         output_root = None
         if total_frames is None:
@@ -117,18 +194,17 @@ class Command:
                         'verbose', 'diagnose_edges', 'save_network_path')
         with closing(iter_pdb_frames(self.base_file)) as frames:
             for ordinal, frame_file in frames:
-                # Keep setup directories inside the temporary workspace.
-                frame_system = System(file=frame_file, output_directory=str(Path(frame_file).parent))
+                frame_system = System(file=frame_file, make_dir=False)
                 frame_system.frame_index = ordinal
                 frame_system.frame_count = total_frames
                 command = Command(sys=frame_system, settings=deepcopy(initial_settings))
                 command.base_file = frame_file
                 if output_root is None:
-                    frame_system.files['dir'] = None
-                    frame_system.set_output_directory()
                     command.parse_commands()
+                    if frame_system.files['dir'] is None:
+                        frame_system.set_output_directory()
                     output_root = Path(frame_system.files['dir']) / 'frames'
-                    options = {name: deepcopy(getattr(command, name)) for name in option_names}
+                    options = {name: deepcopy(getattr(command, name)) for name in FRAME_OPTIONS}
                 else:
                     for name, value in options.items():
                         setattr(command, name, deepcopy(value))
@@ -164,6 +240,10 @@ class Command:
 
     def _process_system(self):
         """Build and export a loaded system using the parsed commands."""
+        # Select the default only after export-directory commands have been applied.
+        if self.sys.files['dir'] is None:
+            self.sys.set_output_directory()
+
         # Expose the CLI verbosity state at the system level so downstream
         # build/analyze/export code has one common place to query it.
         self.sys.verbose = self.verbose
@@ -386,6 +466,8 @@ class Command:
                 raise ValueError('--save-network requires an output .vpy path')
             self.save_network_path = Path(my_args[index + 1]).expanduser().resolve()
             del my_args[index:index + 2]
+        my_args = list(sys.argv[2 + counter:])
+        my_args, _ = frame_cli_options(my_args)
         my_args = [arg for arg in my_args if arg != '--all-frames']
 
         # -v / --verbose is a universal argumentless flag. Remove it before
