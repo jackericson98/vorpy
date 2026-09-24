@@ -1,5 +1,3 @@
-import shutil
-from os import path
 from vorpy.src.chemistry import special_radii
 
 
@@ -8,10 +6,9 @@ def set_pymol_atoms(sys):
     """
     Generates a PyMOL script to configure atomic radii for visualization.
 
-    This function creates a 'set_atoms.pml' script that sets the van der Waals radii for atoms
-    in the PyMOL visualization. It handles both standard element radii and special cases for
-    specific residues and atoms. The script can be used to ensure accurate representation of
-    atomic sizes in PyMOL visualizations.
+    Explicit-radius sphere systems use each PDB B-factor as the sphere radius,
+    covering every loaded sphere in one PyMOL command. Molecular PDBs retain
+    their element and residue-specific radius rules.
 
     Args:
         sys: System object containing atomic information including:
@@ -23,18 +20,12 @@ def set_pymol_atoms(sys):
     Returns:
         None: Creates a PyMOL script file in the system's output directory
     """
-    # If we have special circumstances for the atoms in our base file, output the already created set pymol atoms
-    if sys.type == 'foam' or sys.type == 'coarse':
-        # Get the directory for the base_file and copy the set atoms file
-        try:
-            shutil.copyfile(path.dirname(sys.files.get('base_file') or '') + '/set_atoms.pml', sys.files['dir'] + '/sys/set_atoms.pml')
-        except FileNotFoundError:
-            # Create the file
-            with open('set_atoms.pml', 'w') as file:
-                for i, ball in sys.balls.iterrows():
-                    file.write(
-                        "alter r. {} and n. {}, vdw={}\n".format(ball['res_name'], ball['name'], ball['rad']))
-                file.write("\nrebuild")
+    # Explicit-radius systems store each sphere's radius in the PDB B-factor.
+    # Apply it to the whole loaded object so every sphere is covered, including
+    # repeated atom/residue names and serial-number rollovers.
+    if sys.type in {'foam', 'coarse', 'balls'}:
+        with open('set_atoms.pml', 'w') as file:
+            file.write(f"alter {sys.name}, vdw=b\n\nrebuild\n")
         return
     # Check to see if the atoms in the system are all accounted for
     for i, res in enumerate(sys.residues):

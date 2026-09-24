@@ -34,6 +34,10 @@ def make_pdb_line(atom="ATOM", ser_num=0, name="", alt_loc=" ", res_name="", cha
     Returns:
         str: A properly formatted PDB file line string with all fields aligned according to PDB specifications
     """
+    # Field widths in str.format are minima, so reject serial overflow rather
+    # than shifting every subsequent PDB column.
+    if not isinstance(ser_num, Integral) or not 0 <= ser_num <= 99999:
+        raise ValueError("PDB atom serial must be an integer between 0 and 99999.")
     # Write the line for the file
     return "{:<6}{:>5} {:<4}{:1}{:>3} {:^1}{:>4}{:1}   {:>8.3f}{:>8.3f}{:>8.3f}{:>6.2f}{:>6.2f}      {:<4}{:>2}{}\n"\
         .format(atom, ser_num, name, alt_loc, res_name, chain[0], res_seq, cfir, x, y, z, occ, tfact, seg_id, elem, charge)

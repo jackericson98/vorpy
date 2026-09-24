@@ -62,6 +62,26 @@ if __package__ in {None, ""}:
 from vorpy.src.output import make_pdb_line
 
 
+def _validation_pdb_identity(serial, chain, *, interior=False):
+    """Keep decimal serials in five columns, reserving I for interiors.
+
+    Exterior chains change at each 100,000-record rollover. Refuse to reuse
+    a chain when the single-character namespace is exhausted.
+    """
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    if len(chain) != 1 or chain not in alphabet or chain == "I":
+        raise ValueError("Validation exterior chain must be alphanumeric and not I.")
+    block, local_serial = divmod(serial, 100000)
+    if interior:
+        if block:
+            raise ValueError("Validation interior chain supports at most 99,999 atoms.")
+        return local_serial, "I"
+    chains = chain + "".join(c for c in alphabet if c not in {chain, "I"})
+    if block >= len(chains):
+        raise ValueError("Validation PDB exhausted its single-character chains; use XYZR.")
+    return local_serial, chains[block]
+
+
 # ============================================================================
 # Data container
 # ============================================================================
@@ -170,7 +190,9 @@ class ValidationShape:
             Residue name assigned to the synthetic atoms.
 
         chain
-            Chain identifier.
+            Initial exterior chain identifier (alphanumeric, excluding I).
+            Serials wrap to zero on a new chain every 100,000 records;
+            chain I remains reserved for multicell interiors.
 
         Returns
         -------
@@ -184,9 +206,19 @@ class ValidationShape:
 
         path.parent.mkdir(parents=True, exist_ok=True)
 
+        # Validate capacity before opening/truncating the destination.
+        _validation_pdb_identity(len(self.xyzr), chain)
+        interior_indices = self.parameters.get("interior_indices")
+        interior_count = (
+            len(interior_indices) if interior_indices is not None
+            else int(self.parameters.get("interior_count", 0))
+        )
+        if self.name in {"spherocylinder_multicell", "torus", "torus_multicell"}:
+            _validation_pdb_identity(interior_count, chain, interior=True)
+
         with path.open("w") as pdb_file:
             pdb_file.write(
-                f"HEADER    VORPY CURVATURE VALIDATION - "
+                f"HEADER    VORPY_BALLS CURVATURE VALIDATION - "
                 f"{self.name.upper()}\n"
             )
 
@@ -204,14 +236,8 @@ class ValidationShape:
                     self.xyzr,
                     start=1,
             ):
-                interior_indices = self.parameters.get("interior_indices")
-                interior_count = (
-                    len(interior_indices)
-                    if interior_indices is not None
-                    else int(self.parameters.get("interior_count", 0))
-                )
                 is_interior = self.name in {
-                    "spherocylinder_multicell", "torus_multicell",
+                    "spherocylinder_multicell", "torus", "torus_multicell",
                 } and i <= interior_count
                 is_center = (
                         np.isclose(x, 0.0)
@@ -223,17 +249,19 @@ class ValidationShape:
                     atom_name = "INT"
                     current_residue = "VAL"
                     current_res_seq = 1
-                    current_chain = "I"
                 else:
                     atom_name = "CTR" if is_center else "SUR"
                     current_residue = "CTR" if is_center else residue_name
                     current_res_seq = 1 if is_center else 2
-                    current_chain = chain
+
+                serial, current_chain = _validation_pdb_identity(
+                    i, chain, interior=is_interior,
+                )
 
                 pdb_file.write(
                     make_pdb_line(
                         atom="HETATM",
-                        ser_num=i,
+                        ser_num=serial,
                         name=atom_name,
                         res_name=current_residue,
                         chain=current_chain,
@@ -972,6 +1000,8 @@ def torus(
     major_resolution: int,
     minor_resolution: int,
     sphere_radius: float = 1.0,
+    center_radius: float = 1.0,
+    include_center: bool = True,
 ) -> ValidationShape:
     """
     Generate points on a standard ring torus.
@@ -992,6 +1022,13 @@ def torus(
 
     sphere_radius
         Radius assigned to every generated XYZR sphere.
+
+    center_radius
+        Radius assigned to generators placed on the torus centerline.
+
+    include_center
+        Include a ring of centerline generators by default. The origin stays
+        empty, preserving the hole in the torus.
 
     Returns
     -------
@@ -1031,6 +1068,7 @@ def torus(
         minor_resolution,
         minimum=3,
     )
+    center_radius = _validate_positive(center_radius, "center_radius")
 
     u_values = np.linspace(
         0.0,
@@ -1073,6 +1111,14 @@ def torus(
         xyz=xyz,
         sphere_radius=sphere_radius,
     )
+    center_xyz = np.column_stack((
+        major_radius * np.cos(u_values),
+        major_radius * np.sin(u_values),
+        np.zeros(major_resolution),
+    ))
+    center_xyzr = _make_xyzr(center_xyz, center_radius)
+    if include_center:
+        xyzr = np.vstack((center_xyzr, xyzr))
 
     return ValidationShape(
         name="torus",
@@ -1087,6 +1133,11 @@ def torus(
             "major_resolution": major_resolution,
             "minor_resolution": minor_resolution,
             "sphere_radius": sphere_radius,
+            "center_radius": center_radius,
+            "include_center": include_center,
+            "interior_count": major_resolution if include_center else 0,
+            "interior_indices": list(range(major_resolution)) if include_center else [],
+            "interior_coordinates": center_xyz if include_center else np.empty((0, 3)),
         },
         notes=(
             "Standard ring torus. Gaussian curvature is positive on the "
@@ -1293,7 +1344,8 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         default=1.0,
         help=(
-            "Radius assigned to the central VorPy validation ball. "
+            "Radius assigned to the centerline generators for torus "
+            "geometries, or the central VorPy validation ball otherwise. "
             "Default: 1.0."
         ),
     )
@@ -1577,6 +1629,8 @@ def _generate_from_args(args) -> ValidationShape:
             major_resolution=args.resolution,
             minor_resolution=minor_resolution,
             sphere_radius=args.sphere_radius,
+            center_radius=args.center_radius,
+            include_center=not args.no_center,
         )
 
     if shape_name == "torus_multicell":
@@ -1650,6 +1704,8 @@ def _default_basename(shape: ValidationShape) -> str:
             f"torus_R{p['major_radius']:g}"
             f"_r{p['minor_radius']:g}"
             f"_ball{p['sphere_radius']:g}"
+            f"_cr{p['center_radius']:g}"
+            f"_i{p['interior_count']}"
             f"_n{p['major_resolution']}"
             f"x{p['minor_resolution']}"
         )

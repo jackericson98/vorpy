@@ -112,6 +112,15 @@ def _read_pdb_lines(sys, file, lines, report):
 
     if len(header) > 1 and header[1].lower() == 'vorpy_balls':
         sys.type = 'balls'
+    # Validation-shape PDBs store each explicit sphere radius in the B-factor
+    # field, just like VorPy ball files. Recognize older validation headers as
+    # well as the explicit VORPY_BALLS marker used by current generators.
+    if (
+        len(header) > 1 and header[1].lower() == 'vorpy'
+        and len(header) > 3
+        and [part.lower() for part in header[1:4]] == ['vorpy', 'curvature', 'validation']
+    ):
+        sys.type = 'balls'
     # Go through each line in the file and check if the first word is the word we are looking for
     for line in first_pdb_frame(chain((first_line,), lines), sys):
         if not line:

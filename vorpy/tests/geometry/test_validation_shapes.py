@@ -175,3 +175,48 @@ def test_multicell_pdb_marks_interior_chain_separately(tmp_path):
     atom_lines = [line for line in path.read_text().splitlines() if line.startswith("HETATM")]
     assert sum(" INT " in line for line in atom_lines) == 5
     assert not any(" EXT " in line for line in atom_lines)
+
+
+@pytest.mark.parametrize("serial, expected", [
+    (99999, (99999, "A")), (100000, (0, "B")),
+    (100001, (1, "B")), (1000000, (0, "L")),
+])
+def test_validation_pdb_serial_rollover(serial, expected):
+    from vorpy.src.geometry.validation_shapes import _validation_pdb_identity
+    assert _validation_pdb_identity(serial, "A") == expected
+
+
+def test_validation_pdb_rollover_preserves_columns_and_reader_indices(tmp_path):
+    from vorpy.src.geometry.validation_shapes import ValidationShape
+    from vorpy.src.system.system import System
+
+    shape = ValidationShape("torus", np.tile([12.5, -3.25, 1.5, 1.0], (100001, 1)), 0, 0)
+    path = shape.save_pdb(tmp_path / "rollover.pdb")
+    records = [line for line in path.read_text().splitlines() if line.startswith("HETATM")]
+    selected = [records[0], *records[99998:]]
+    assert [(int(line[6:11]), line[21]) for line in selected] == [
+        (1, "A"), (99999, "A"), (0, "B"), (1, "B"),
+    ]
+    for line in selected:
+        assert line[17:20] == "VAL"
+        assert int(line[22:26]) == 2
+        assert [float(line[a:b]) for a, b in [(30, 38), (38, 46), (46, 54)]] == [12.5, -3.25, 1.5]
+    sample = tmp_path / "sample.pdb"
+    sample.write_text("HEADER test\n" + "\n".join(selected) + "\nEND\n")
+    system = System(file=str(sample), make_dir=False, print_actions=False)
+    assert system.balls["num"].tolist() == [0, 1, 2, 3]
+    assert [chain.name for chain in system.chains] == ["A", "B"]
+
+
+def test_validation_pdb_rejects_exhausted_chains():
+    from vorpy.src.geometry.validation_shapes import _validation_pdb_identity
+    with pytest.raises(ValueError, match="exhausted"):
+        _validation_pdb_identity(6100000, "A")
+    with pytest.raises(ValueError, match="99,999"):
+        _validation_pdb_identity(100000, "A", interior=True)
+
+
+def test_pdb_formatter_rejects_serial_overflow():
+    from vorpy.src.output import make_pdb_line
+    with pytest.raises(ValueError, match="serial"):
+        make_pdb_line(ser_num=1000000)
