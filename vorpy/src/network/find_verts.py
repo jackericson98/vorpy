@@ -137,6 +137,13 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
 
     if tot_ball_num is not None:
         tot_verts = int(6.6 * tot_ball_num + int(60 * sqrt(tot_ball_num)))
+    # Reuse one membership index across all edge searches. Building this set
+    # inside find_site_container creates a full-sized hash table for every
+    # continued vertex; large systems can otherwise exhaust memory mid-build.
+    group_membership = (
+        range(len(locs)) if my_group is not None and len(my_group) == len(locs)
+        else set(my_group) if my_group is not None else None
+    )
     if b_verts is None:
         b_verts = [[] for _ in range(len(locs))]
     _add_time('fv_setup', time.perf_counter() - t_stage)
@@ -317,7 +324,7 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
             search_group = (
                 tuple(iface_grps)
                 if iface_grps is not None
-                else my_group
+                else group_membership
             )
 
             _add_time('edge_prep', time.perf_counter() - t_prep)

@@ -1,5 +1,6 @@
 import numpy as np
 import importlib
+import pytest
 
 from vorpy.src.network import slow
 
@@ -75,3 +76,26 @@ def test_find_v0_keeps_fast_initial_aw_limit(monkeypatch):
 
     assert result == candidate
     assert observed == [(4.0, 40.0)]
+
+
+@pytest.mark.parametrize("radius", [-2.0, -0.2, 0.0, 1.0, 10.0])
+def test_seed_verification_matches_all_ball_clearance(monkeypatch, radius):
+    monkeypatch.setattr(slow, "box_search", lambda loc: [0, 0, 0])
+    rng = np.random.default_rng(71)
+    locs = rng.uniform(-5, 5, (100, 3))
+    rads = rng.uniform(0.1, 2, 100)
+    defining = [0, 3, 7, 15]
+    for point in rng.uniform(-5, 5, (12, 3)):
+        others = np.ones(len(locs), dtype=bool)
+        others[defining] = False
+        expected = np.all(np.linalg.norm(locs[others] - point, axis=1) - rads[others] >= radius)
+        assert slow._verify_seed_aw(point, radius, defining, locs, rads) == expected
+
+
+def test_seed_verification_skips_defining_balls_and_rejects_outside_box(monkeypatch):
+    locs = np.zeros((4, 3))
+    rads = np.ones(4)
+    monkeypatch.setattr(slow, "box_search", lambda loc: [0, 0, 0])
+    assert slow._verify_seed_aw(np.zeros(3), 1.0, [0, 1, 2, 3], locs, rads)
+    monkeypatch.setattr(slow, "box_search", lambda loc: None)
+    assert not slow._verify_seed_aw(np.zeros(3), 1.0, [0, 1, 2, 3], locs, rads)

@@ -150,6 +150,20 @@ def get_balls(cells, dist=0, cell_reach=0, my_balls_matrix=None, my_sub_box_size
 
     # Get the balls
     balls = []
+    # Surface-sampled systems occupy only a small fraction of the grid.
+    # Large verification radii must not enumerate a cubic volume of empty
+    # cells. Preserve the nested-loop order because seed selection uses it.
+    if isinstance(balls_matrix, dict) and len(xs) * len(ys) * len(zs) > len(balls_matrix):
+        occupied = sorted(
+            key for key in balls_matrix
+            if xs.start <= key[0] < xs.stop
+            and ys.start <= key[1] < ys.stop
+            and zs.start <= key[2] < zs.stop
+        )
+        for key in occupied:
+            balls.extend(balls_matrix[key])
+        return balls
+
     for i in xs:
         for j in ys:
             for k in zs:

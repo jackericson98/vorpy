@@ -229,12 +229,12 @@ def find_site_container(edge_balls, locs, rads, b_verts, vert_ndxs,
 
     elif group_ndxs is not None:
 
-        required_group = set(group_ndxs)
-
-        for ball in edge_balls:
-            if ball in group_ndxs:
-                required_group = None
-                break
+        if any(ball in group_ndxs for ball in edge_balls):
+            required_group = None
+        elif isinstance(group_ndxs, (set, frozenset, range)):
+            required_group = group_ndxs
+        else:
+            required_group = set(group_ndxs)
 
     my_boxes, _ = _edge_spatial_query(edge_balls, locs, 0.0, search_cache)
     # AW verifies locally. Power caches one verification neighborhood per edge.
@@ -643,7 +643,12 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
     edge_sorted = sorted(edge_ndxs)
     edge_ndxs_set = set(edge_ndxs)
     vn_1_set = set(vn_1)
-    group_balls_set = set(group_balls) if check_ndxs and group_balls is not None else None
+    group_balls_set = None
+    if check_ndxs and group_balls is not None:
+        group_balls_set = (
+            group_balls if isinstance(group_balls, (set, frozenset, range))
+            else set(group_balls)
+        )
 
     # Get the balls not in the invalid balls that are within the range specified
     invalid_ndxs_set = set(invalid_ndxs)
@@ -889,11 +894,26 @@ def find_site_aw(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, c
 
 
 def verify_aw_local(loc, rad, vert_balls, b_locs, b_rads, max_ball_rad, search_cache=None):
-    """Verify an AW vertex using cached local arrays when available."""
+    """Verify AW clearance, avoiding neighborhood setup for small systems.
+
+    Traversal already supplies NumPy arrays. For a few thousand generators,
+    the compiled early-exit scan is cheaper than gathering/copying spatial
+    neighborhoods for each slightly different candidate radius. Larger
+    systems retain local verification to bound the work for valid sites.
+    """
     verify_dist = max(0.0, rad + max_ball_rad)
     verify_box = box_search(loc)
     if verify_box is None:
         return False
+
+    if len(b_rads) <= 4096:
+        aw_verify_start = time.perf_counter()
+        result = verify_aw_cached(
+            np.asarray(loc), rad, np.asarray(b_locs, dtype=float),
+            np.asarray(b_rads, dtype=float), *vert_balls,
+        )
+        POW_PRM_METRICS['aw_verify'] += time.perf_counter() - aw_verify_start
+        return result
 
     cache_key = (tuple(verify_box), float(verify_dist))
     if search_cache is None:

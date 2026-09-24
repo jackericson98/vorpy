@@ -6,7 +6,14 @@ from vorpy.src.calculations import ndx_search
 from vorpy.src.calculations import verify_site
 from vorpy.src.calculations import calc_flat_vert
 from vorpy.src.calculations import calc_vert
-from vorpy.src.network.fast import verify_aw_local
+from vorpy.src.calculations import verify_aw_cached
+
+
+def _verify_seed_aw(loc, rad, vert_balls, locs, rads):
+    """Check a seed against all generators without rebuilding neighborhoods."""
+    if box_search(loc) is None:
+        return False
+    return verify_aw_cached(np.asarray(loc), rad, locs, rads, *vert_balls)
 
 
 def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, net_type, box=None,
@@ -16,8 +23,8 @@ def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_ver
     Search thoroughly for a valid vertex associated with a three-ball edge.
 
     The search begins locally and expands geometrically until a valid site is
-    found or the allowable vertex radius is reached. Surrounding balls are gathered once for
-    the full search extent and rejected fourth-ball candidates are retained
+    found or the allowable vertex radius is reached. Verification arrays are
+    prepared once and rejected fourth-ball candidates are retained
     between expansion steps so they are not recalculated.
 
     Parameters
@@ -39,7 +46,7 @@ def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_ver
     full_max_vert : float, optional
         User's full maximum allowable weighted Voronoi vertex radius. AW seed
         searches progressively retry up to this value while reusing the
-        spatial setup. Other network types ignore this argument.
+        verification arrays. Other network types ignore this argument.
     net_type : {'aw', 'pow', 'prm'}
         Network geometry being solved.
     box : list, optional
@@ -59,6 +66,9 @@ def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_ver
         The verified vertex returned by ``find_site`` or ``None``.
     """
     initial_max_vert = float(max_vert)
+    if net_type == 'aw':
+        locs = np.asarray(locs, dtype=float)
+        rads = np.asarray(rads, dtype=float)
     final_max_vert = float(full_max_vert if full_max_vert is not None else max_vert)
     if final_max_vert < initial_max_vert:
         final_max_vert = initial_max_vert
@@ -84,10 +94,9 @@ def find_site_container_slow(edge_balls, locs, rads, b_verts, vert_ndxs, max_ver
     check_ndxs = group_ndxs is not None and not any(ball in group_ndxs for ball in edge_balls)
 
     my_boxes = [box_search(loc=locs[ball]) for ball in edge_balls]
-    # Candidate discovery at the full user limit is setup work shared by all
-    # progressive seed attempts. AW local verification still applies each
-    # attempt's current radius limit below.
-    surr_balls = get_balls(cells=my_boxes, dist=final_max_vert)
+    # AW verifies against the prepared full arrays. Other geometries retain
+    # the shared spatial neighborhood used by their verification routines.
+    surr_balls = [] if net_type == 'aw' else get_balls(cells=my_boxes, dist=final_max_vert)
 
     for attempt, attempt_max_vert in enumerate(search_limits, start=1):
         attempt_start = time.perf_counter()
@@ -134,7 +143,7 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
     filtered by group/interface constraints and previously rejected candidates,
     solved geometrically, and verified against the full surrounding search set.
 
-    AW candidates use local verification around the calculated vertex, while
+    AW candidates use full-array verification without neighborhood setup, while
     POW and PRM retain full surrounding-ball verification. Rejected fourth-ball
     indices are stored as integers so expanding searches do not reconsider them.
 
@@ -148,7 +157,9 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
         invalid_ndxs = []
 
     edge_ndxs = edge_balls[:]
-    max_ball_rad = max(rads)
+    if net_type == 'aw':
+        locs = np.asarray(locs, dtype=float)
+        rads = np.asarray(rads, dtype=float)
     invalid_set = set(invalid_ndxs)
 
     # Determine whether the edge is missing either side of an interface.
@@ -217,17 +228,17 @@ def find_site(edge_balls, locs, rads, b_verts, vert_ndxs, max_vert, mv_inc, net_
             invalid_ndxs.append(ball)
             continue
 
-        # Verify the primary and optional secondary solutions. AW uses the same
-        # local verification strategy as the fast traversal path; POW and PRM
+        # Verify the primary and optional secondary solutions. AW scans the
+        # prepared arrays and exits on the first blocker; POW and PRM
         # retain their existing full surrounding-ball verification behavior.
         if net_type == 'aw':
-            primary_valid = abs(vert_rad) < max_vert and verify_aw_local(
-                np.asarray(vert_loc), vert_rad, vert_balls, locs, rads, max_ball_rad
+            primary_valid = abs(vert_rad) < max_vert and _verify_seed_aw(
+                vert_loc, vert_rad, vert_balls, locs, rads
             )
             secondary_valid = (
                 vert_loc2 is not None
                 and abs(vert_rad2) < max_vert
-                and verify_aw_local(np.asarray(vert_loc2), vert_rad2, vert_balls, locs, rads, max_ball_rad)
+                and _verify_seed_aw(vert_loc2, vert_rad2, vert_balls, locs, rads)
             )
         else:
             filtered_test_balls = [test_ball for test_ball in surr_balls if test_ball not in vert_balls]
