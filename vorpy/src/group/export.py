@@ -1048,14 +1048,15 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             )
     # Shell edges
     if shell_edges or all_:
-        if grp.layer_edges is None:
+        if grp.layer_edges is None or len(grp.layer_edges) == 0:
             grp.get_layers(max_layers=1, build_surfs=False)
-        write_edges(
-            grp.net, grp.layer_edges[0], file_name="shell_edges", directory=grp.dir,
-            color=grp.settings['edge_col'], file_type=file_type,
-            color_scheme=curvature_scheme, color_map=curvature_map,
-            color_limit=boundary_color_limit, target_cells=target_cells, color_mode="boundary",
-        )
+        if grp.layer_edges is not None and len(grp.layer_edges) > 0:
+            write_edges(
+                grp.net, grp.layer_edges[0], file_name="shell_edges", directory=grp.dir,
+                color=grp.settings['edge_col'], file_type=file_type,
+                color_scheme=curvature_scheme, color_map=curvature_map,
+                color_limit=boundary_color_limit, target_cells=target_cells, color_mode="boundary",
+            )
     # All one big edge file
     if edges or all_:
         write_edges(
@@ -1099,14 +1100,15 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         )
     # Export the shell vertices
     if shell_verts or all_:
-        if grp.layer_verts is None:
+        if grp.layer_verts is None or len(grp.layer_verts) == 0:
             grp.get_layers(max_layers=1, build_surfs=False)
-        write_off_verts(
-            grp.net, grp.layer_verts[0], file_name="shell_verts", directory=grp.dir,
-            color=grp.settings['vert_col'], file_type=file_type,
-            color_scheme=curvature_scheme, color_map=curvature_map,
-            color_limit=boundary_color_limit, target_cells=target_cells, color_mode="boundary",
-        )
+        if grp.layer_verts is not None and len(grp.layer_verts) > 0:
+            write_off_verts(
+                grp.net, grp.layer_verts[0], file_name="shell_verts", directory=grp.dir,
+                color=grp.settings['vert_col'], file_type=file_type,
+                color_scheme=curvature_scheme, color_map=curvature_map,
+                color_limit=boundary_color_limit, target_cells=target_cells, color_mode="boundary",
+            )
     # If the user wants layers
     if layers > 0 or all_:
         # First check to see if the number of layers is greater than 1

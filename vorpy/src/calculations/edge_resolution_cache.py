@@ -11,6 +11,27 @@ _CACHE_ATTR = "_aw_edge_geometry_cache"
 _META_ATTR = "_aw_edge_geometry_cache_meta"
 
 
+def _is_collapsed_straight_edge(net, edge_index, tolerance):
+    """Recognize only finite equal-radius edges below the line-length floor.
+
+    Coincident endpoints alone do not prove an unequal-radius curve is empty.
+    Use the same radius and endpoint tolerances as the analytic line resolver.
+    """
+    edge = net.edges.loc[edge_index]
+    balls, vertices = edge.get("balls", ()), edge.get("verts", ())
+    if len(balls) != 3 or len(vertices) != 2:
+        return False
+    radii = np.asarray([net.balls.loc[i, "rad"] for i in balls], dtype=float)
+    endpoints = np.asarray([net.verts.loc[i, "loc"] for i in vertices], dtype=float)
+    return (
+        endpoints.shape == (2, 3)
+        and np.all(np.isfinite(endpoints))
+        and np.all(np.isfinite(radii))
+        and np.ptp(radii) <= tolerance
+        and np.linalg.norm(endpoints[1] - endpoints[0]) < 1e-12
+    )
+
+
 def clear_aw_edge_geometry_cache(net):
     """Remove any cached analytic AW edge geometries from ``net``."""
     for name in (_CACHE_ATTR, _META_ATTR):
@@ -66,10 +87,13 @@ def get_aw_edge_geometry_cache(net, tolerance=1e-7):
                 edge_index,
                 tolerance=cache_tolerance,
             )
-        except (TypeError, ValueError, np.linalg.LinAlgError):
-            # Degenerate validation geometries can contain a zero-length or
-            # otherwise singular edge. Such an edge has no defined tangent
-            # and contributes no curvature.
+        except (TypeError, ValueError, np.linalg.LinAlgError) as error:
+            if not _is_collapsed_straight_edge(net, edge_index, cache_tolerance):
+                raise ValueError(
+                    f"Unable to resolve AW edge {edge_index}: {error}"
+                ) from error
+            # Only a confirmed collapsed straight edge has zero line measure.
+            # Keep None so tangent-dependent vertex checks mark it unresolved.
             cache[int(edge_index)] = None
     elapsed = perf_counter() - start
 

@@ -78,10 +78,18 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
     for count, (edge_index, edge) in enumerate(net.edges.iterrows(), start=1):
         resolved = resolved_edges[int(edge_index)]
         if resolved is None:
-            mean_contributions.append({})
-            gaussian_contributions.append({})
-            gaussian_by_face.append({})
-            gaussian_by_generator.append({})
+            # The shared resolver permits None only for a confirmed collapsed
+            # straight edge. Its line integrals vanish, but it has no tangent:
+            # vertex/completeness diagnostics must still retain that fact.
+            edge_balls = tuple(int(value) for value in edge["balls"])
+            zero_values = {cell: 0.0 for cell in edge_balls}
+            mean_contributions.append(zero_values.copy())
+            gaussian_contributions.append(zero_values.copy())
+            gaussian_by_face.append({
+                (cell, other): 0.0 for cell in edge_balls for other in edge_balls
+                if cell != other
+            })
+            gaussian_by_generator.append(zero_values.copy())
             continue
         edge_balls = tuple(int(value) for value in resolved.ball_indices)
 
