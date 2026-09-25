@@ -1025,7 +1025,7 @@ def torus(
         Number of samples around the tube.
 
     sphere_radius
-        Radius assigned to every generated XYZR sphere.
+        Radius assigned to the surrounding constraint spheres.
 
     center_radius
         Radius assigned to generators placed on the torus centerline.
@@ -1033,6 +1033,12 @@ def torus(
     include_center
         Include a ring of centerline generators by default. The origin stays
         empty, preserving the hole in the torus.
+
+    Constraint placement
+        Surrounding generators are placed so their weighted power bisectors
+        with the centerline generators lie at ``minor_radius``. The
+        cross-section phase alternates between adjacent centerline generators
+        to avoid aligned degeneracies.
 
     Returns
     -------
@@ -1073,6 +1079,19 @@ def torus(
         minimum=3,
     )
     center_radius = _validate_positive(center_radius, "center_radius")
+    sphere_radius = _validate_positive(sphere_radius, "sphere_radius")
+
+    radicand = (
+        minor_radius * minor_radius
+        - center_radius * center_radius
+        + sphere_radius * sphere_radius
+    )
+    if radicand < 0.0:
+        raise ValueError(
+            "The requested torus power-support radius is incompatible with "
+            "the supplied center and sphere radii."
+        )
+    constraint_distance = minor_radius + np.sqrt(radicand)
 
     u_values = np.linspace(
         0.0,
@@ -1089,25 +1108,22 @@ def torus(
     )
 
     points: list[list[float]] = []
+    assignments: list[int] = []
 
-    for u in u_values:
+    for major_index, u in enumerate(u_values):
         cos_u = np.cos(u)
         sin_u = np.sin(u)
-
-        for v in v_values:
-            cos_v = np.cos(v)
-            sin_v = np.sin(v)
-
-            radial = (
-                major_radius
-                + minor_radius * cos_v
-            )
-
-            x = radial * cos_u
-            y = radial * sin_u
-            z = minor_radius * sin_v
-
-            points.append([x, y, z])
+        e_r = np.array([cos_u, sin_u, 0.0])
+        e_z = np.array([0.0, 0.0, 1.0])
+        phase = (major_index % 2) * (0.35 * np.pi / minor_resolution)
+        local_v = v_values + phase
+        normals = (
+            np.cos(local_v)[:, None] * e_r
+            + np.sin(local_v)[:, None] * e_z
+        )
+        center = np.array([major_radius * cos_u, major_radius * sin_u, 0.0])
+        points.extend((center + constraint_distance * normals).tolist())
+        assignments.extend([major_index] * minor_resolution)
 
     xyz = np.asarray(points, dtype=float)
 
@@ -1138,15 +1154,19 @@ def torus(
             "minor_resolution": minor_resolution,
             "sphere_radius": sphere_radius,
             "center_radius": center_radius,
+            "constraint_distance": constraint_distance,
+            "constraint_assignments": assignments,
+            "exterior_count": len(points),
             "include_center": include_center,
             "interior_count": major_resolution if include_center else 0,
             "interior_indices": list(range(major_resolution)) if include_center else [],
             "interior_coordinates": center_xyz if include_center else np.empty((0, 3)),
         },
         notes=(
-            "Standard ring torus. Gaussian curvature is positive on the "
-            "outer region and negative on the inner region, but integrates "
-            "to zero by Gauss-Bonnet because the surface has genus 1."
+            "Ring-torus power constraints. Surrounding generators are "
+            "offset to place the weighted bisectors at the requested tube "
+            "radius; alternating phases avoid aligned degeneracies. "
+            "Gaussian curvature integrates to zero for genus 1."
         ),
     )
 
@@ -1515,6 +1535,20 @@ def _torus_chain(
 
 def analytic_summary(shape: ValidationShape) -> str:
     """Return a compact human-readable summary of a validation geometry."""
+    parameter_lines = []
+    for key, value in shape.parameters.items():
+        if isinstance(value, np.ndarray) and value.ndim == 2 and value.shape[1] == 3:
+            display_value = f"{value.shape[0]} points"
+        elif isinstance(value, np.ndarray) and value.size > 12:
+            display_value = f"array with shape {value.shape}"
+        elif isinstance(value, (list, tuple)) and len(value) > 12:
+            display_value = f"{len(value)} entries"
+        elif isinstance(value, np.generic):
+            display_value = repr(value.item())
+        else:
+            display_value = repr(value)
+        parameter_lines.append(f"    {key}: {display_value}")
+
     return (
         f"{shape.name}\n"
         f"  XYZR spheres: {shape.n_atoms}\n"
@@ -1522,7 +1556,7 @@ def analytic_summary(shape: ValidationShape) -> str:
         f"{shape.expected_int_mean_curvature:.12g}\n"
         f"  Expected integrated Gaussian curvature: "
         f"{shape.expected_int_gaussian_curvature:.12g}\n"
-        f"  Parameters: {shape.parameters}"
+        f"  Parameters:\n" + "\n".join(parameter_lines)
     )
 
 
@@ -1630,8 +1664,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "--no-center",
         action="store_true",
         help=(
-            "Do not add the central validation ball. "
-            "By default a central ball is included."
+            "Do not add central/interior validation generators (for a torus, "
+            "the centerline ring). Included by default where applicable."
         ),
     )
 
@@ -1709,8 +1743,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--interior-count",
         type=int,
-        default=3,
-        help="Number of axial interior cells for spherocylinder_multicell.",
+        default=None,
+        help=(
+            "Number of interior centerline generators. Defaults to 3 for "
+            "spherocylinder_multicell, 12 for torus_multicell, and -r for "
+            "double_torus_multicell and multitorus (per loop). Odd counts for "
+            "multitorus with 3+ loops round up to even to sample both junctions."
+        ),
     )
 
     parser.add_argument(
@@ -1880,7 +1919,7 @@ def _generate_from_args(args) -> ValidationShape:
         return spherocylinder_multicell(
             radius=args.radius,
             cylinder_length=args.cylinder_length,
-            interior_count=args.interior_count,
+            interior_count=(args.interior_count or 3),
             angular_resolution=angular_resolution,
             cap_resolution=args.cap_resolution,
             sphere_radius=args.sphere_radius,

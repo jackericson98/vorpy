@@ -5,6 +5,7 @@ from vorpy.src.output import write_edges
 from vorpy.src.output import write_surfs
 from vorpy.src.output import write_pdb
 from vorpy.src.output import write_interface_logs
+from vorpy.src.output.draw import DEFAULT_EDGE_RADIUS, DEFAULT_VERTEX_RADIUS
 
 
 def get_interface_atoms(iface):
@@ -1287,6 +1288,7 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
                 directory=iface.dir,
                 file_name="verts",
                 color=iface.net.settings["vert_col"],
+                vert_rad=iface.net.settings.get("vertex_size", DEFAULT_VERTEX_RADIUS),
             )
 
     if edges or all_:
@@ -1297,6 +1299,7 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
                 directory=iface.dir,
                 file_name="edges",
                 color=iface.net.settings["edge_col"],
+                radius=iface.net.settings.get("edge_width", DEFAULT_EDGE_RADIUS),
             )
 
     if surfs or all_:

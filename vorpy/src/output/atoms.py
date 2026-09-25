@@ -3,11 +3,14 @@ from datetime import datetime
 from vorpy.src.output.surfs import write_surfs
 from vorpy.src.output.edges import write_edges
 from vorpy.src.output.verts import write_off_verts
+from vorpy.src.output.draw import DEFAULT_EDGE_RADIUS, DEFAULT_VERTEX_RADIUS
 
 
 def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=False,
                      concave_colors=False, file_type='off', color_scheme=None,
-                     color_map=None, color_limit=None):
+                     color_map=None, color_limit=None,
+                     edge_radius=DEFAULT_EDGE_RADIUS,
+                     vertex_radius=DEFAULT_VERTEX_RADIUS):
     """Export each complete atom cell using cell-relative curvature colors.
 
     Individual atom cells have a well-defined outward orientation, so their
@@ -43,6 +46,7 @@ def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=
             write_off_verts(
                 net, atom['verts'], directory=directory,
                 file_name=base_name + '_verts', file_type=file_type,
+                vert_rad=vertex_radius,
                 color_scheme=scheme, color_map=cmap, color_limit=color_limit,
                 target_cells=cell_targets, color_mode='cell',
             )
@@ -51,6 +55,7 @@ def write_atom_cells(net, atoms, directory=None, surfs=True, edges=False, verts=
             write_edges(
                 net, atom['edges'], directory=directory,
                 file_name=base_name + '_edges', file_type=file_type,
+                radius=edge_radius,
                 color_scheme=scheme, color_map=cmap, color_limit=color_limit,
                 target_cells=cell_targets, color_mode='cell',
             )

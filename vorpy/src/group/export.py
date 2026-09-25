@@ -6,6 +6,7 @@ from vorpy.src.output import write_logs
 from vorpy.src.output import write_surfs
 from vorpy.src.output import write_edges
 from vorpy.src.output import write_off_verts
+from vorpy.src.output.draw import DEFAULT_EDGE_RADIUS, DEFAULT_VERTEX_RADIUS
 from vorpy.src.output.curvature_colors import canonical_curvature_scheme, curvature_color_limit
 
 
@@ -942,6 +943,8 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         file_type = 'vtp'
     if file_type not in {'off', 'ply', 'vtp'}:
         raise ValueError("file_type must be 'off', 'ply', or 'vtp'")
+    edge_width = grp.settings.get('edge_width', DEFAULT_EDGE_RADIUS)
+    vertex_size = grp.settings.get('vertex_size', DEFAULT_VERTEX_RADIUS)
 
     # Set the surface colors and scheme
     if grp.settings['surf_col'] is None:
@@ -955,6 +958,12 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     target_cells = _group_topology_indices(grp)
     curvature_scheme = canonical_curvature_scheme(grp.settings.get('surf_scheme'))
     curvature_map = grp.settings.get('surf_col', 'coolwarm')
+    edge_export_scheme = (
+        'fixed' if grp.settings.get('_edge_col_explicit') else curvature_scheme
+    )
+    vertex_export_scheme = (
+        'fixed' if grp.settings.get('_vert_col_explicit') else curvature_scheme
+    )
     boundary_color_limit = (
         curvature_color_limit(grp.net, curvature_scheme, target_cells, mode='boundary')
         if curvature_scheme is not None and (shell_surfs or shell_edges or shell_verts or all_) else None
@@ -1009,7 +1018,8 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             surfs=atom_surfs or all_, edges=atom_edges or all_, verts=atom_verts or all_,
             concave_colors=concave_colors, file_type=file_type,
             color_scheme=curvature_scheme, color_map=curvature_map,
-            color_limit=cell_color_limit,
+            color_limit=cell_color_limit, edge_radius=edge_width,
+            vertex_radius=vertex_size,
         )
         os.chdir(grp.dir)
 
@@ -1054,7 +1064,8 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             write_edges(
                 grp.net, grp.layer_edges[0], file_name="shell_edges", directory=grp.dir,
                 color=grp.settings['edge_col'], file_type=file_type,
-                color_scheme=curvature_scheme, color_map=curvature_map,
+                radius=edge_width,
+                color_scheme=edge_export_scheme, color_map=curvature_map,
                 color_limit=boundary_color_limit, target_cells=target_cells, color_mode="boundary",
             )
     # All one big edge file
@@ -1062,7 +1073,8 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         write_edges(
             grp.net, edges=[i for i in range(len(grp.net.edges))], file_name="edges", directory=grp.dir,
             color=grp.settings['edge_col'], file_type=file_type,
-            color_scheme=curvature_scheme, color_map=curvature_map,
+            radius=edge_width,
+            color_scheme=edge_export_scheme, color_map=curvature_map,
             color_limit=magnitude_color_limit, target_cells=target_cells, color_mode="magnitude",
         )
     # If the separate edges are called
@@ -1074,7 +1086,8 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             write_edges(
                 grp.net, [j], 'b{}_b{}_b{}'.format(*my_edge['balls']),
                 directory=grp.dir + '/edges', file_type=file_type,
-                color_scheme=curvature_scheme, color_map=curvature_map,
+                radius=edge_width,
+                color_scheme=edge_export_scheme, color_map=curvature_map,
                 color_limit=magnitude_color_limit, target_cells=target_cells, color_mode="magnitude",
             )
     # Run the separate vertices
@@ -1086,7 +1099,8 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             write_off_verts(
                 grp.net, [j], 'b{}_b{}_b{}_b{}'.format(*vert['balls']),
                 directory=grp.dir + "/verts", file_type=file_type,
-                color=grp.settings['vert_col'], color_scheme=curvature_scheme,
+                color=grp.settings['vert_col'], vert_rad=vertex_size,
+                color_scheme=vertex_export_scheme,
                 color_map=curvature_map, color_limit=magnitude_color_limit,
                 target_cells=target_cells, color_mode="magnitude",
             )
@@ -1095,7 +1109,8 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         write_off_verts(
             grp.net, [i for i in range(len(grp.net.verts))], directory=grp.dir, file_name='verts',
             color=grp.settings['vert_col'], file_type=file_type,
-            color_scheme=curvature_scheme, color_map=curvature_map,
+            vert_rad=vertex_size,
+            color_scheme=vertex_export_scheme, color_map=curvature_map,
             color_limit=magnitude_color_limit, target_cells=target_cells, color_mode="magnitude",
         )
     # Export the shell vertices
@@ -1106,7 +1121,8 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
             write_off_verts(
                 grp.net, grp.layer_verts[0], file_name="shell_verts", directory=grp.dir,
                 color=grp.settings['vert_col'], file_type=file_type,
-                color_scheme=curvature_scheme, color_map=curvature_map,
+                vert_rad=vertex_size,
+                color_scheme=vertex_export_scheme, color_map=curvature_map,
                 color_limit=boundary_color_limit, target_cells=target_cells, color_mode="boundary",
             )
     # If the user wants layers

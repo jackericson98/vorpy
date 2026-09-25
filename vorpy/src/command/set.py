@@ -1,5 +1,7 @@
 import matplotlib as mpl
+import math
 from vorpy.src.command.interpret import *
+from vorpy.src.output.colors import color_dict
 from vorpy.src.chemistry import element_radii
 from vorpy.src.chemistry import special_radii
 from vorpy.src.chemistry import element_names
@@ -470,6 +472,38 @@ def set_ft(file_type, settings, print_change=False):
     return value
 
 
+def _set_mesh_radius(value, settings, key, label, default, print_change=False):
+    """Validate a positive mesh display radius from a CLI setting value."""
+    if isinstance(value, (list, tuple)):
+        if not value:
+            return settings.get(key, default)
+        value = value[0]
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        value = None
+    if value is None or not math.isfinite(value) or value <= 0.0:
+        _vorpy_print_error(label, value, "a finite positive radius")
+        return settings.get(key, default)
+    if print_change:
+        _vorpy_print_setting(label, f"{value} Å")
+    return value
+
+
+def set_ew(edge_width, settings, print_change=False):
+    """Set exported edge tube radius (the CLI alias is ``ew``)."""
+    return _set_mesh_radius(
+        edge_width, settings, "edge_width", "Edge Width", 0.05, print_change,
+    )
+
+
+def set_vs(vertex_size, settings, print_change=False):
+    """Set exported vertex sphere radius (the CLI alias is ``vs``)."""
+    return _set_mesh_radius(
+        vertex_size, settings, "vertex_size", "Vertex Size", 0.08, print_change,
+    )
+
+
 def set_ar(element_radius, settings, print_change=False):
     """
     Configures the atomic radii settings for the system.
@@ -657,6 +691,29 @@ def set_cc(conc_col, settings, print_change=False):
         return False
 
 
+def _set_mesh_color(value, settings, key, setting_name):
+    """Validate a fixed mesh color and preserve the export color name."""
+    if isinstance(value, (list, tuple)):
+        if not value:
+            value = None
+        else:
+            value = value[0]
+
+    if isinstance(value, str):
+        value = value.strip().lower()
+    if value in color_dict:
+        settings[f"_{key}_explicit"] = True
+        return value
+
+    _vorpy_print_error(
+        setting_name,
+        value,
+        "a supported color name",
+        example="blue",
+    )
+    return settings[key]
+
+
 def set_vc(vert_col, settings):
     """
     Configures the vertex color settings for the system.
@@ -674,7 +731,7 @@ def set_vc(vert_col, settings):
         Dictionary containing current system settings including the default vertex color
     """
 
-    return settings['vert_col']
+    return _set_mesh_color(vert_col, settings, 'vert_col', 'Vertex Color')
 
 
 def set_ec(edge_col, settings):
@@ -694,7 +751,7 @@ def set_ec(edge_col, settings):
         Dictionary containing current system settings including the default edge color
 
     """
-    return settings['edge_col']
+    return _set_mesh_color(edge_col, settings, 'edge_col', 'Edge Color')
 
 
 def sett(setting, value, settings=None):
@@ -726,12 +783,13 @@ def sett(setting, value, settings=None):
     if settings is None:
         settings = {'surf_res': 0.2, 'max_vert': 40, 'box_size': 1.25, 'net_type': 'aw', 'surf_col': 'plasma',
                     'surf_scheme': 'int_mean_curv', 'scheme_factor': 'log', 'atom_rad': None, 'bld_type': None, 'conc_col': True,
-                    'vert_col': 'red', 'edge_col': 'grey', 'round_to': 6, 'file_type': 'off'}
+                    'vert_col': 'red', 'edge_col': 'grey', 'edge_width': 0.05, 'vertex_size': 0.08,
+                    'round_to': 6, 'file_type': 'off'}
     # Set up the functions dictionary to return the value
     func_dict = {'surf_res': set_sr, 'max_vert': set_mv, 'box_size': set_bs, 'net_type': set_nt, 'surf_col': set_sc,
                  'surf_scheme': set_ss, 'scheme_factor': set_sf, 'atom_rad': set_ar, 'bld_type': set_bt,
                  'conc_col': set_cc, 'vert_col': set_vc, 'edge_col': set_ec, 'round_to': set_rt,
-                 'file_type': set_ft}
+                 'file_type': set_ft, 'edge_width': set_ew, 'vertex_size': set_vs}
 
     build_types = ["bt", "build_type", "bld_type", "build", "bld"]
 
@@ -742,7 +800,9 @@ def sett(setting, value, settings=None):
                  {_: 'bld_type' for _ in build_types},
                  {_: 'conc_col' for _ in conc_cols}, {_: 'vert_col' for _ in vert_cols},
                  {_: 'edge_col' for _ in edge_cols}, {_: 'round_to' for _ in round_tos},
-                 {_: 'file_type' for _ in mesh_formats}]
+                 {_: 'file_type' for _ in mesh_formats},
+                 {_: 'edge_width' for _ in edge_widths},
+                 {_: 'vertex_size' for _ in vertex_sizes}]
 
     # Put all interpretations into one dictionary for convenience
     interpreter = {k: v for d in all_dicts for k, v in d.items()}

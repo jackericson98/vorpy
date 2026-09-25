@@ -297,6 +297,10 @@ def get_set(usr_npt=None):
         elif usr_npt.lower() in max_verts:
             # Return the base setting
             return 'mv'
+        elif usr_npt.lower() in edge_widths:
+            return 'ew'
+        elif usr_npt.lower() in vertex_sizes:
+            return 'vs'
         elif usr_npt.lower() in box_sizes:
             # Return the base setting
             return 'bm'
@@ -387,7 +391,9 @@ def get_val(setting=None, val=None):
             elif val.lower() in compare_vals:
                 val = 'com'
         # Test for a float value
-        elif type(val) == str and setting in surf_reses + max_verts + box_sizes:
+        elif type(val) == str and setting in (
+            surf_reses + max_verts + box_sizes + edge_widths + vertex_sizes
+        ):
             try:
                 val = float(val)
             except ValueError:

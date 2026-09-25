@@ -36,6 +36,8 @@ The module contains several categories of command lists:
 5. Settings:
    - Surface resolution settings (surf_reses)
    - Maximum vertex settings (max_verts)
+   - Edge width settings (edge_widths)
+   - Vertex size settings (vertex_sizes)
    - Box size settings (box_sizes)
    - Network type settings (net_types)
    - Surface color settings (surf_colors)
@@ -89,7 +91,7 @@ my_objects = full_objs + noSOL_objs + chn_objs + res_objs + atom_objs + ndx_objs
 
 # Settings
 surf_reses = ['surf_res', 'sr', 'surface_resolution', 'surface_res', 'surf_resolution', 'surfs', 'surf', 'surfs_res', 'surfs_resolution', 'surfaces_resolution', 'surfaces_res']
-max_verts = ['max_vert', 'mv', 'maximum_vertex', 'max_vertex', 'maximum_vert', 'verts', 'vs', 'vert_size', 'max_vert_size', 'mvs', 'vert_max', 'vertex_max', 'vertex_maximum']
+max_verts = ['max_vert', 'mv', 'maximum_vertex', 'max_vertex', 'maximum_vert', 'verts', 'vert_size', 'max_vert_size', 'mvs', 'vert_max', 'vertex_max', 'vertex_maximum']
 box_sizes = ['box_size', 'bm', 'box', 'bx_sz', 'size_box', 'containing_box', 'containing_box_size', 'box_multi', 'box_multiplier', 'bs']
 net_types = ['st', 'surf_type', 'net_type', 'nt']
 surf_colors = ['sc', 'surf_colors', 'surf_color_map', 'surf_col', "scm"]
@@ -102,6 +104,8 @@ vert_cols = ['vc', 'vert_col', 'vertex_color', 'vertex_colors']
 edge_cols = ['ec', 'edge_col', 'edge_color', 'edge_colors']
 round_tos = ["rt", "round", "round_to", "decimals", "decimal_places"]
 mesh_formats = ["ft", "file_type", "file_format", "format", "mesh_format"]
+edge_widths = ["ew", "edge_width", "edge_radius"]
+vertex_sizes = ["vs", "vertex_size", "vertex_radius", "vert_radius"]
 
 mesh_format_vals = {
     "off": "off",
@@ -158,7 +162,8 @@ browse_names = {'browse', 'choose', 'brwse', 'chse', 'get', 'find'}
 net_type_dict = {'pow': "Power", 'del': "Primitive", 'vor': "Additively Weighted"}
 
 settings_dict = {'sr': 'Surface Resolution', 'mv': 'Maximum Vertex', 'bm': 'Box Multiplier', 'bs': 'Build Surfaces?',
-                 'nt': 'Network Type', 'sc': 'Surface Color Map', 'ss': 'Surface Coloring Scheme'}
+                 'nt': 'Network Type', 'sc': 'Surface Color Map', 'ss': 'Surface Coloring Scheme',
+                 'ew': 'Edge Width', 'vs': 'Vertex Size'}
 
 
 def are_you_sure():
@@ -210,7 +215,9 @@ def help_():
                        "  2. max_vert : Maximum Vertex Radius (From 0.10 to 20 A, recommended 7 A)  ",
                        "  3. box_size : Retaining Box Multiplier (From 1 to 10 A, recommended 1.5 A)",
                        "  4. build_surfs: Calculate the network's surfaces (True/False)",
-                       "  5. flat_surfs: Build the surfaces flat (True/False)     "]
+                       "  5. flat_surfs: Build the surfaces flat (True/False)     ",
+                       "  6. ew : Exported edge tube radius (default 0.05 A)",
+                       "  7. vs : Exported vertex sphere radius (default 0.08 A)"]
 
     # Print everything
     print(splitting_line)
@@ -249,6 +256,8 @@ Options:
       nt - Network Type: Default = Additively Weighted 'aw', Power 'pow', Primitive 'prm', or Compare 'com 'type1' 'type2''
       mv - Maximum Vertex: Default = 40
       bm - Box Multiplier: Default = 1.25
+      ew - Exported edge tube radius: Default = 0.05 A
+      vs - Exported vertex sphere radius: Default = 0.08 A
       sc - Surface Color: Default = 'viridis', 'plasma', 'rainbow', or any other matplotlib colormap
       ss - Surface Scheme: mean 'mean', Gaussian 'gauss', integrated mean 'int_mean_curv',
            integrated mean squared 'int_mean_curv_sq', integrated Gaussian 'int_gauss_curv',
