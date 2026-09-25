@@ -213,7 +213,10 @@ class ValidationShape:
             len(interior_indices) if interior_indices is not None
             else int(self.parameters.get("interior_count", 0))
         )
-        if self.name in {"spherocylinder_multicell", "torus", "torus_multicell"}:
+        if self.name in {
+            "spherocylinder_multicell", "torus", "torus_multicell",
+            "double_torus_multicell", "multitorus",
+        }:
             _validation_pdb_identity(interior_count, chain, interior=True)
 
         with path.open("w") as pdb_file:
@@ -238,6 +241,7 @@ class ValidationShape:
             ):
                 is_interior = self.name in {
                     "spherocylinder_multicell", "torus", "torus_multicell",
+                    "double_torus_multicell", "multitorus",
                 } and i <= interior_count
                 is_center = (
                         np.isclose(x, 0.0)
@@ -1255,6 +1259,255 @@ def torus_multicell(
     )
 
 
+def double_torus_multicell(
+    major_radius: float,
+    minor_radius: float,
+    interior_count: int = 12,
+    cross_section_resolution: int = 12,
+    sphere_radius: float = 1.0,
+    center_radius: float = 1.0,
+    neighbor_radius: float | None = None,
+    include_center: bool = True,
+    junction_offset: float | None = None,
+) -> ValidationShape:
+    """Generate a genus-2 validation geometry from two joined torus loops.
+
+    Two circular centerlines in perpendicular planes share exactly one
+    generator, creating a figure-eight centerline graph. Its regular
+    neighborhood is a connected double torus (Euler characteristic -2).
+    Local radial/vertical weighted constraints bound each centerline cell.
+    At the shared generator, dense samples omit both constraint rings;
+    coarse samples retain the exposed part of the first ring.
+    Constraint spheres inside the other loop's constraint shell are removed
+    so the overlapping shells form a union without an internal wall.
+    """
+    if junction_offset is None:
+        junction_offset = 0.1 * minor_radius
+    junction_offset = _validate_positive(junction_offset, "junction_offset")
+    return _torus_chain(
+        major_radius, minor_radius, 2, interior_count,
+        cross_section_resolution, sphere_radius, center_radius,
+        neighbor_radius, include_center, "double_torus_multicell", junction_offset,
+    )
+
+
+def multitorus(
+    major_radius: float,
+    minor_radius: float,
+    torus_count: int = 3,
+    interior_count: int = 16,
+    cross_section_resolution: int = 12,
+    sphere_radius: float = 1.0,
+    center_radius: float = 1.0,
+    neighbor_radius: float | None = None,
+    include_center: bool = True,
+    junction_offset: float | None = None,
+) -> ValidationShape:
+    """Chain any positive number of tori along x, alternating XY/XZ planes.
+
+    Adjacent centerline circles share one generator. Buried constraint
+    spheres are clipped against all other shells. For three or more loops,
+    odd interior counts round up to even so both antipodal junctions are
+    sampled. ``interior_count_per_loop`` reports the actual resolution.
+    The genus target is torus_count; coarse discretizations still require
+    boundary validation. Mean curvature is the sum of isolated-torus
+    reference values, not an exact result for the joined junctions. Each
+    shared junction generator is displaced slightly perpendicular to both
+    loop planes to remove co-spherical degeneracies in the weighted diagram.
+    """
+    if (
+        not isinstance(torus_count, (int, np.integer))
+        or isinstance(torus_count, (bool, np.bool_))
+        or torus_count < 1
+    ):
+        raise ValueError("torus_count must be a positive integer.")
+    if junction_offset is None:
+        junction_offset = 0.1 * minor_radius
+    junction_offset = _validate_positive(junction_offset, "junction_offset")
+    return _torus_chain(
+        major_radius, minor_radius, int(torus_count), interior_count,
+        cross_section_resolution, sphere_radius, center_radius,
+        neighbor_radius, include_center, "multitorus", junction_offset,
+    )
+
+
+def _torus_chain(
+    major_radius, minor_radius, torus_count, interior_count,
+    cross_section_resolution, sphere_radius, center_radius,
+    neighbor_radius, include_center, name, junction_offset=0.0,
+) -> ValidationShape:
+    major_radius = _validate_positive(major_radius, "major_radius")
+    minor_radius = _validate_positive(minor_radius, "minor_radius")
+    if major_radius <= minor_radius:
+        raise ValueError("A ring torus requires major_radius > minor_radius.")
+    interior_count = _validate_resolution(interior_count, minimum=4)
+    requested_interior_count = interior_count
+    if torus_count > 2 and interior_count % 2:
+        interior_count += 1
+    cross_section_resolution = _validate_resolution(
+        cross_section_resolution, minimum=4,
+    )
+    center_radius = _validate_positive(center_radius, "center_radius")
+    if neighbor_radius is None:
+        neighbor_radius = sphere_radius
+    neighbor_radius = _validate_positive(neighbor_radius, "neighbor_radius")
+
+    radicand = minor_radius**2 - center_radius**2 + neighbor_radius**2
+    if radicand < 0.0:
+        raise ValueError(
+            "The requested torus-chain support planes are incompatible with "
+            "the supplied center and neighbor radii."
+        )
+    constraint_distance = minor_radius + np.sqrt(radicand)
+    theta = 2.0 * np.pi * np.arange(cross_section_resolution) / cross_section_resolution
+    angles = 2.0 * np.pi * np.arange(interior_count) / interior_count
+    centerline_spacing = 2.0 * major_radius * np.sin(np.pi / interior_count)
+    dense_junction = centerline_spacing <= 2.0 * minor_radius
+
+    loops = []
+    for index in range(torus_count):
+        even = index % 2 == 0
+        loops.append((
+            np.array([(2 * index - torus_count + 1) * major_radius, 0.0, 0.0]),
+            np.array([1.0 if even else -1.0, 0.0, 0.0]),
+            np.array([0.0, 1.0, 0.0] if even else [0.0, 0.0, 1.0]),
+            np.array([0.0, 0.0, 1.0] if even else [0.0, 1.0, 0.0]),
+        ))
+    interior_xyz = []
+    exterior_xyz = []
+    assignments = []
+    lookup = {}
+    overlap_constraints_omitted = 0
+    junction_constraints_omitted = 0
+    reach = int(np.ceil((major_radius + constraint_distance) / major_radius))
+    for loop_index, (center, radial_axis, second_axis, binormal) in enumerate(loops):
+        # Shells farther apart than their bounding spheres cannot overlap.
+        other_loops = [loops[index] for index in range(
+            max(0, loop_index - reach), min(torus_count, loop_index + reach + 1),
+        ) if index != loop_index]
+        for sample_index, angle in enumerate(angles):
+            radial = np.cos(angle) * radial_axis + np.sin(angle) * second_axis
+            point = center + major_radius * radial
+            # Use exact junction coordinates so long chains share one generator
+            # at each join without depending on trigonometric roundoff.
+            endpoint = sample_index == 0 or (
+                interior_count % 2 == 0 and sample_index == interior_count // 2
+            )
+            right = (sample_index == 0) == (loop_index % 2 == 0)
+            junction = endpoint and (
+                (right and loop_index < torus_count - 1)
+                or (not right and loop_index > 0)
+            )
+            if endpoint:
+                point = np.array([
+                    (2 * loop_index - torus_count + 1 + (1 if right else -1)) * major_radius,
+                    0.0, 0.0,
+                ])
+                if junction and junction_offset:
+                    # A local off-axis junction generator removes the
+                    # co-spherical multi-cell vertices at the loop crossing.
+                    # Both loop sections use the exact same displaced point.
+                    point += np.array([0.0, junction_offset, 1.37 * junction_offset])
+            key = tuple(np.round(point, 12))
+            if key not in lookup:
+                lookup[key] = len(interior_xyz)
+                interior_xyz.append(point)
+            interior_index = lookup[key]
+
+            # Dense samples bound the junction with the four incident interior
+            # generators; coarse samples also retain exposed first-loop support.
+            if junction and (dense_junction or not right):
+                junction_constraints_omitted += cross_section_resolution
+                continue
+
+            # A golden-angle phase makes neighboring constraint rings
+            # incommensurate, removing repeated co-spherical junction
+            # vertices while keeping every local support ring uniform.
+            if torus_count == 1:
+                # Keep the established single-torus constraint layout exact.
+                phase = (sample_index % 2) * (
+                    0.35 * np.pi / cross_section_resolution
+                )
+            else:
+                phase = 2.0 * np.pi * (
+                    sample_index * 0.6180339887498949
+                    + loop_index * 0.3819660112501051
+                ) / cross_section_resolution
+            local_theta = theta + phase
+            normals = (
+                np.cos(local_theta)[:, None] * radial
+                + np.sin(local_theta)[:, None] * binormal
+            )
+            candidates = point + constraint_distance * normals
+            # Clip against the generator shell (not the smaller power-cell
+            # tube). Retain points on the seam within floating-point tolerance.
+            keep = np.ones(cross_section_resolution, dtype=bool)
+            for other_center, other_radial, other_second, other_binormal in other_loops:
+                relative = candidates - other_center
+                planar_radius = np.hypot(relative @ other_radial, relative @ other_second)
+                other_distance = np.hypot(
+                    planar_radius - major_radius, relative @ other_binormal,
+                )
+                keep &= other_distance >= constraint_distance - 1e-12 * max(
+                    major_radius, constraint_distance,
+                )
+            overlap_constraints_omitted += int(np.count_nonzero(~keep))
+            exterior_xyz.extend(candidates[keep].tolist())
+            assignments.extend([interior_index] * int(np.count_nonzero(keep)))
+
+    interior_xyz = np.asarray(interior_xyz, dtype=float)
+    exterior_xyz = np.asarray(exterior_xyz, dtype=float)
+    interior_xyzr = _make_xyzr(interior_xyz, center_radius)
+    exterior_xyzr = _make_xyzr(exterior_xyz, neighbor_radius)
+    xyzr = np.vstack((interior_xyzr, exterior_xyzr)) if include_center else exterior_xyzr
+    interior_indices = list(range(len(interior_xyz))) if include_center else []
+
+    return ValidationShape(
+        name=name,
+        xyzr=xyzr,
+        # Sum isolated-handle references; junctions alter the actual mean
+        # curvature. Gaussian curvature follows the target genus instead.
+        expected_int_mean_curvature=torus_count * 2.0 * np.pi**2 * major_radius,
+        expected_int_gaussian_curvature=4.0 * np.pi * (1 - torus_count),
+        parameters={
+            "torus_count": torus_count,
+            "requested_interior_count_per_loop": requested_interior_count,
+            "junction_offset": junction_offset,
+            "major_radius": major_radius,
+            "minor_radius": minor_radius,
+            "interior_count_per_loop": interior_count,
+            "interior_count": len(interior_xyz),
+            "cross_section_resolution": cross_section_resolution,
+            "sphere_radius": neighbor_radius,
+            "center_radius": center_radius,
+            "neighbor_radius": neighbor_radius,
+            "include_center": include_center,
+            "interior_indices": interior_indices,
+            "interior_coordinates": interior_xyz,
+            "exterior_start": len(interior_xyzr) if include_center else 0,
+            "exterior_count": len(exterior_xyz),
+            "constraint_distance": constraint_distance,
+            "constraint_assignments": assignments,
+            "centerline_spacing": centerline_spacing,
+            "dense_junction": dense_junction,
+            "overlap_constraints_omitted": overlap_constraints_omitted,
+            "junction_constraints_omitted": junction_constraints_omitted,
+            "junction_constraint_loop_retained": None if dense_junction else 0,
+            "genus": torus_count,
+            "euler_characteristic": 2 - 2 * torus_count,
+        },
+        notes=(
+            f"{torus_count} alternating perpendicular ring centerlines form a "
+            f"chain with target genus {torus_count}. Adjacent loops share one generator. The "
+            "junction support is reduced according to centerline spacing to "
+            "preserve both loop faces while keeping the junction cell bounded. "
+            "Constraint spheres buried inside the other loop's shell are removed. "
+            "Integrated Gaussian curvature target is 4 pi (1 - genus). "
+            "Mean curvature is an isolated-torus reference sum, not an exact junction value."
+        ),
+    )
+
+
 # ============================================================================
 # Convenience utilities
 # ============================================================================
@@ -1306,6 +1559,9 @@ def _build_parser() -> argparse.ArgumentParser:
             "spherocylinder_multicell",
             "torus",
             "torus_multicell",
+            "double_torus",
+            "double_torus_multicell",
+            "multitorus",
         ],
         help="Synthetic geometry to generate.",
     )
@@ -1467,6 +1723,23 @@ def _build_parser() -> argparse.ArgumentParser:
     # ------------------------------------------------------------------
     # Torus
     # ------------------------------------------------------------------
+
+    parser.add_argument(
+        "--torus-count",
+        type=int,
+        default=3,
+        help="Number of chained tori for multitorus (positive integer). Default: 3.",
+    )
+
+    parser.add_argument(
+        "--junction-offset",
+        type=float,
+        default=None,
+        help=(
+            "Perpendicular displacement of shared multitorus/double-torus "
+            "junction generators. Defaults to 0.1 times the minor radius."
+        ),
+    )
 
     parser.add_argument(
         "--major-radius",
@@ -1637,7 +1910,39 @@ def _generate_from_args(args) -> ValidationShape:
         return torus_multicell(
             major_radius=args.major_radius,
             minor_radius=args.minor_radius,
-            interior_count=args.interior_count,
+            interior_count=(args.interior_count or 12),
+            cross_section_resolution=args.cross_section_resolution,
+            sphere_radius=args.sphere_radius,
+            center_radius=args.center_radius,
+            neighbor_radius=args.neighbor_radius,
+            include_center=not args.no_center,
+            junction_offset=args.junction_offset,
+        )
+
+    if shape_name == "multitorus":
+        return multitorus(
+            major_radius=args.major_radius,
+            minor_radius=args.minor_radius,
+            torus_count=args.torus_count,
+            interior_count=(
+                args.interior_count if args.interior_count is not None else args.resolution
+            ),
+            cross_section_resolution=args.cross_section_resolution,
+            sphere_radius=args.sphere_radius,
+            center_radius=args.center_radius,
+            neighbor_radius=args.neighbor_radius,
+            include_center=not args.no_center,
+            junction_offset=args.junction_offset,
+        )
+
+    if shape_name in {"double_torus", "double_torus_multicell"}:
+        return double_torus_multicell(
+            major_radius=args.major_radius,
+            minor_radius=args.minor_radius,
+            interior_count=(
+                args.interior_count
+                if args.interior_count is not None else args.resolution
+            ),
             cross_section_resolution=args.cross_section_resolution,
             sphere_radius=args.sphere_radius,
             center_radius=args.center_radius,
@@ -1715,6 +2020,17 @@ def _default_basename(shape: ValidationShape) -> str:
             f"torus_multicell_R{p['major_radius']:g}"
             f"_r{p['minor_radius']:g}"
             f"_i{p['interior_count']}"
+            f"_x{p['cross_section_resolution']}"
+        )
+
+    if shape.name in {"double_torus_multicell", "multitorus"}:
+        prefix = (
+            f"multitorus_n{p['torus_count']}" if shape.name == "multitorus" else "double_torus"
+        )
+        return (
+            f"{prefix}_R{p['major_radius']:g}"
+            f"_r{p['minor_radius']:g}"
+            f"_i{p['interior_count_per_loop']}"
             f"_x{p['cross_section_resolution']}"
         )
 

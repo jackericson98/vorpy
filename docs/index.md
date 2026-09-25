@@ -29,6 +29,7 @@ This directory contains the extended documentation for VorPy. The top-level READ
 - [Selections](cli/selections.md)
 - [Exports](cli/exports.md)
 - [Examples](cli/examples.md)
+- [Validation Shapes and Multitorus Chains](cli/validation_shapes.md)
 
 ## GUI
 - [Overview](gui/overview.md)

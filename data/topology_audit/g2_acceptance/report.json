@@ -1,0 +1,483 @@
+{
+  "selected_cells": 31,
+  "complete_selected_cells": 31,
+  "incomplete_selected_cells": [],
+  "selected_cell_components": 1,
+  "selected_cell_component_members": [
+    [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30
+    ]
+  ],
+  "selected_selected_faces": [
+    {
+      "face": 0,
+      "cells": [
+        0,
+        1
+      ],
+      "area": 23.615670295726826
+    },
+    {
+      "face": 1,
+      "cells": [
+        0,
+        15
+      ],
+      "area": 19.530289549138665
+    },
+    {
+      "face": 2,
+      "cells": [
+        0,
+        16
+      ],
+      "area": 24.032057888139466
+    },
+    {
+      "face": 3,
+      "cells": [
+        0,
+        30
+      ],
+      "area": 19.459148449409927
+    },
+    {
+      "face": 15,
+      "cells": [
+        1,
+        2
+      ],
+      "area": 29.303905091332886
+    },
+    {
+      "face": 16,
+      "cells": [
+        1,
+        16
+      ],
+      "area": 7.337373129205532
+    },
+    {
+      "face": 17,
+      "cells": [
+        1,
+        30
+      ],
+      "area": 9.577450385209428
+    },
+    {
+      "face": 41,
+      "cells": [
+        2,
+        3
+      ],
+      "area": 29.02287744647394
+    },
+    {
+      "face": 71,
+      "cells": [
+        3,
+        4
+      ],
+      "area": 29.02156012411384
+    },
+    {
+      "face": 108,
+      "cells": [
+        4,
+        5
+      ],
+      "area": 29.020664810161065
+    },
+    {
+      "face": 145,
+      "cells": [
+        5,
+        6
+      ],
+      "area": 29.022202624198222
+    },
+    {
+      "face": 182,
+      "cells": [
+        6,
+        7
+      ],
+      "area": 29.022351705948836
+    },
+    {
+      "face": 219,
+      "cells": [
+        7,
+        8
+      ],
+      "area": 29.02026874837608
+    },
+    {
+      "face": 256,
+      "cells": [
+        8,
+        9
+      ],
+      "area": 29.020412697757827
+    },
+    {
+      "face": 293,
+      "cells": [
+        9,
+        10
+      ],
+      "area": 29.023206118935658
+    },
+    {
+      "face": 330,
+      "cells": [
+        10,
+        11
+      ],
+      "area": 29.023343884970025
+    },
+    {
+      "face": 367,
+      "cells": [
+        11,
+        12
+      ],
+      "area": 29.02196652746752
+    },
+    {
+      "face": 404,
+      "cells": [
+        12,
+        13
+      ],
+      "area": 29.02188880379814
+    },
+    {
+      "face": 441,
+      "cells": [
+        13,
+        14
+      ],
+      "area": 29.022695231090637
+    },
+    {
+      "face": 478,
+      "cells": [
+        14,
+        15
+      ],
+      "area": 29.009010186167277
+    },
+    {
+      "face": 509,
+      "cells": [
+        15,
+        16
+      ],
+      "area": 7.832487871237631
+    },
+    {
+      "face": 510,
+      "cells": [
+        15,
+        30
+      ],
+      "area": 11.319809113808166
+    },
+    {
+      "face": 533,
+      "cells": [
+        16,
+        17
+      ],
+      "area": 29.133150985063452
+    },
+    {
+      "face": 557,
+      "cells": [
+        17,
+        18
+      ],
+      "area": 29.02230062431724
+    },
+    {
+      "face": 589,
+      "cells": [
+        18,
+        19
+      ],
+      "area": 29.023166685581767
+    },
+    {
+      "face": 626,
+      "cells": [
+        19,
+        20
+      ],
+      "area": 29.023422684505288
+    },
+    {
+      "face": 663,
+      "cells": [
+        20,
+        21
+      ],
+      "area": 29.02151131057212
+    },
+    {
+      "face": 700,
+      "cells": [
+        21,
+        22
+      ],
+      "area": 29.021731656601343
+    },
+    {
+      "face": 737,
+      "cells": [
+        22,
+        23
+      ],
+      "area": 29.022099747259432
+    },
+    {
+      "face": 774,
+      "cells": [
+        23,
+        24
+      ],
+      "area": 29.021682136458434
+    },
+    {
+      "face": 811,
+      "cells": [
+        24,
+        25
+      ],
+      "area": 29.021634948511235
+    },
+    {
+      "face": 848,
+      "cells": [
+        25,
+        26
+      ],
+      "area": 29.023054101001915
+    },
+    {
+      "face": 885,
+      "cells": [
+        26,
+        27
+      ],
+      "area": 29.022177742841592
+    },
+    {
+      "face": 922,
+      "cells": [
+        27,
+        28
+      ],
+      "area": 29.022816758134145
+    },
+    {
+      "face": 959,
+      "cells": [
+        28,
+        29
+      ],
+      "area": 29.02139814064973
+    },
+    {
+      "face": 996,
+      "cells": [
+        29,
+        30
+      ],
+      "area": 28.904935679781293
+    }
+  ],
+  "boundary_vertices": 1354,
+  "boundary_edges": 2369,
+  "boundary_faces": 1013,
+  "euler_characteristic": -2,
+  "boundary_components": 1,
+  "complete": true,
+  "boundary_complete": true,
+  "closed": true,
+  "manifold": true,
+  "orientable": true,
+  "inferred_genus": 2.0,
+  "integrated_gaussian_curvature": -12.56637061435966,
+  "gaussian_face": 0.0,
+  "gaussian_edge": 0.0,
+  "gaussian_vertex": -12.56637061435966,
+  "boundary_missing_faces": 0,
+  "boundary_missing_edges": 0,
+  "boundary_missing_vertices": 0,
+  "boundary_face_symmetric_difference": [],
+  "independent_boundary_checks": {
+    "bad_edges": [],
+    "bad_vertices": [],
+    "invalid_face_cycles": [],
+    "orientation_conflicts": [],
+    "orientable_by_face_winding": true
+  },
+  "junctions": [
+    {
+      "junction": 0,
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "handle_a_cells": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "handle_b_cells": [
+        0,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30
+      ],
+      "shared_junction_cells": [
+        0
+      ],
+      "shared_selected_selected_faces": [
+        {
+          "face": 0,
+          "cells": [
+            0,
+            1
+          ],
+          "area": 23.615670295726826
+        },
+        {
+          "face": 1,
+          "cells": [
+            0,
+            15
+          ],
+          "area": 19.530289549138665
+        },
+        {
+          "face": 2,
+          "cells": [
+            0,
+            16
+          ],
+          "area": 24.032057888139466
+        },
+        {
+          "face": 3,
+          "cells": [
+            0,
+            30
+          ],
+          "area": 19.459148449409927
+        },
+        {
+          "face": 16,
+          "cells": [
+            1,
+            16
+          ],
+          "area": 7.337373129205532
+        },
+        {
+          "face": 17,
+          "cells": [
+            1,
+            30
+          ],
+          "area": 9.577450385209428
+        },
+        {
+          "face": 509,
+          "cells": [
+            15,
+            16
+          ],
+          "area": 7.832487871237631
+        },
+        {
+          "face": 510,
+          "cells": [
+            15,
+            30
+          ],
+          "area": 11.319809113808166
+        }
+      ],
+      "internal_faces_retained_on_boundary": [],
+      "union_connected": true,
+      "external_boundary_manifold": true,
+      "local_bad_edges": [],
+      "local_bad_vertices": []
+    }
+  ],
+  "input": "C:\\Users\\Ryzen-3600\\PycharmProjects\\vorpy\\data\\topology_audit\\g2_acceptance\\geometry.pdb",
+  "settings": {
+    "net_type": "aw",
+    "max_vert": 30,
+    "surf_res": 0.2
+  }
+}

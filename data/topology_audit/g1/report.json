@@ -1,0 +1,189 @@
+{
+  "selected_cells": 16,
+  "complete_selected_cells": 16,
+  "incomplete_selected_cells": [],
+  "selected_cell_components": 1,
+  "selected_cell_component_members": [
+    [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ]
+  ],
+  "selected_selected_faces": [
+    {
+      "face": 0,
+      "cells": [
+        0,
+        1
+      ],
+      "area": 29.208188165650085
+    },
+    {
+      "face": 1,
+      "cells": [
+        0,
+        15
+      ],
+      "area": 29.208188165650103
+    },
+    {
+      "face": 38,
+      "cells": [
+        1,
+        2
+      ],
+      "area": 29.208586557351353
+    },
+    {
+      "face": 75,
+      "cells": [
+        2,
+        3
+      ],
+      "area": 29.20858655735135
+    },
+    {
+      "face": 112,
+      "cells": [
+        3,
+        4
+      ],
+      "area": 29.20818816565006
+    },
+    {
+      "face": 149,
+      "cells": [
+        4,
+        5
+      ],
+      "area": 29.208188165650075
+    },
+    {
+      "face": 186,
+      "cells": [
+        5,
+        6
+      ],
+      "area": 29.208586557351286
+    },
+    {
+      "face": 223,
+      "cells": [
+        6,
+        7
+      ],
+      "area": 29.208586557351296
+    },
+    {
+      "face": 260,
+      "cells": [
+        7,
+        8
+      ],
+      "area": 29.208188165650096
+    },
+    {
+      "face": 297,
+      "cells": [
+        8,
+        9
+      ],
+      "area": 29.208188165650128
+    },
+    {
+      "face": 334,
+      "cells": [
+        9,
+        10
+      ],
+      "area": 29.20858655735136
+    },
+    {
+      "face": 371,
+      "cells": [
+        10,
+        11
+      ],
+      "area": 29.208586557351303
+    },
+    {
+      "face": 408,
+      "cells": [
+        11,
+        12
+      ],
+      "area": 29.208188165650057
+    },
+    {
+      "face": 445,
+      "cells": [
+        12,
+        13
+      ],
+      "area": 29.208188165650093
+    },
+    {
+      "face": 482,
+      "cells": [
+        13,
+        14
+      ],
+      "area": 29.208586557351293
+    },
+    {
+      "face": 519,
+      "cells": [
+        14,
+        15
+      ],
+      "area": 29.208586557351342
+    }
+  ],
+  "boundary_vertices": 768,
+  "boundary_edges": 1344,
+  "boundary_faces": 576,
+  "euler_characteristic": 0,
+  "boundary_components": 1,
+  "complete": true,
+  "boundary_complete": true,
+  "closed": true,
+  "manifold": true,
+  "orientable": true,
+  "inferred_genus": 1.0,
+  "integrated_gaussian_curvature": -2.9665159217984183e-13,
+  "gaussian_face": 0.0,
+  "gaussian_edge": 0.0,
+  "gaussian_vertex": -2.9665159217984183e-13,
+  "boundary_missing_faces": 0,
+  "boundary_missing_edges": 0,
+  "boundary_missing_vertices": 0,
+  "boundary_face_symmetric_difference": [],
+  "independent_boundary_checks": {
+    "bad_edges": [],
+    "bad_vertices": [],
+    "invalid_face_cycles": [],
+    "orientation_conflicts": [],
+    "orientable_by_face_winding": true
+  },
+  "junctions": [],
+  "input": "C:\\Users\\Ryzen-3600\\PycharmProjects\\vorpy\\data\\topology_audit\\g1\\geometry.pdb",
+  "settings": {
+    "net_type": "aw",
+    "max_vert": 30,
+    "surf_res": 0.2
+  }
+}
