@@ -215,7 +215,7 @@ class ValidationShape:
         )
         if self.name in {
             "spherocylinder_multicell", "torus", "torus_multicell",
-            "double_torus_multicell", "multitorus",
+            "double_torus_multicell", "multitorus", "sphere_with_cavities",
         }:
             _validation_pdb_identity(interior_count, chain, interior=True)
 
@@ -241,7 +241,7 @@ class ValidationShape:
             ):
                 is_interior = self.name in {
                     "spherocylinder_multicell", "torus", "torus_multicell",
-                    "double_torus_multicell", "multitorus",
+                    "double_torus_multicell", "multitorus", "sphere_with_cavities",
                 } and i <= interior_count
                 is_center = (
                         np.isclose(x, 0.0)
@@ -579,6 +579,95 @@ def sphere(
 
 
 # ============================================================================
+def sphere_with_cavities(
+    n_cavities: int = 1,
+    outer_radius: float | None = None,
+    cavity_radius: float = 3.0,
+    resolution: int = 32,
+    sphere_radius: float = 1.0,
+) -> ValidationShape:
+    """A sphere-like selected Voronoi union with N excluded bounded cells.
+
+    Cavity centers form a regular polygon with nearest spacing 6*r (one
+    cavity is centered). Each excluded center is surrounded by selected
+    generators at distance 2*r. For N>1 a selected outer shell and excluded
+    exterior supports bound the body. The outer radius grows automatically
+    with N; an explicit radius must leave the same conservative clearance.
+
+    Equal weights give planar faces in AW and power modes. Radii are smooth
+    reference radii; Gaussian targets are analytic checks only. There is no
+    fixed count limit, but runtime/memory grow with the number of generators.
+    """
+    if isinstance(n_cavities, (bool, np.bool_)) or not isinstance(n_cavities, (int, np.integer)) or n_cavities < 0:
+        raise ValueError("n_cavities must be a nonnegative integer.")
+    n_cavities = int(n_cavities)
+    cavity_radius = _validate_positive(cavity_radius, "cavity_radius")
+    sphere_radius = _validate_positive(sphere_radius, "sphere_radius")
+    resolution = _validate_resolution(resolution, minimum=16)
+    if not np.isfinite([cavity_radius, sphere_radius]).all():
+        raise ValueError("Radii must be finite.")
+    r = cavity_radius
+    placement_radius = 0. if n_cavities < 2 else 3 * r / np.sin(np.pi / n_cavities)
+    angles = 2 * np.pi * np.arange(n_cavities) / max(1, n_cavities)
+    centers = np.column_stack((placement_radius * np.cos(angles),
+                               placement_radius * np.sin(angles), np.zeros(n_cavities)))
+    minimum_outer = (0. if n_cavities == 0 else
+                     3 * r if n_cavities == 1 else placement_radius + 6 * r)
+    if outer_radius is None:
+        outer_radius = max(10., minimum_outer)
+    outer_radius = _validate_positive(outer_radius, "outer_radius")
+    if not np.isfinite(outer_radius):
+        raise ValueError("Radii must be finite.")
+    if outer_radius < minimum_outer:
+        raise ValueError(f"outer_radius must be at least {minimum_outer:g} for this placement.")
+    local = sphere(r, resolution, sphere_radius, sphere_radius, include_center=False).xyzr
+    if n_cavities == 0:
+        selected = np.array([[0., 0., 0., sphere_radius]])
+        exterior = sphere(outer_radius, 2 * resolution + 1, sphere_radius,
+                          sphere_radius, include_center=False).xyzr
+    elif n_cavities == 1:
+        # Preserve the reviewed one-cavity geometry exactly.
+        selected = local
+        exterior = sphere(outer_radius - r, 2 * resolution + 1, sphere_radius,
+                          sphere_radius, include_center=False).xyzr
+    else:
+        shells = []
+        for i, center in enumerate(centers):
+            # Deterministic distinct phases avoid translated co-spherical junctions.
+            angle = i * np.pi * (3 - np.sqrt(5))
+            c, t = np.cos(angle), np.sin(angle)
+            rotation = np.array([[c, -t, 0.], [t, c, 0.], [0., 0., 1.]])
+            shells.append(_make_xyzr(local[:, :3] @ rotation.T + center, sphere_radius))
+        outer_count = max(2 * resolution, n_cavities * resolution)
+        outer_selected = sphere((outer_radius - r) / 2, outer_count,
+                                sphere_radius, sphere_radius, include_center=False).xyzr
+        selected = np.vstack((*shells, outer_selected))
+        exterior = sphere((outer_radius + r) / 2, 2 * outer_count + 1,
+                          sphere_radius, sphere_radius, include_center=False).xyzr
+    cavity = _make_xyzr(centers, sphere_radius)
+    count = len(selected)
+    return ValidationShape(
+        name="sphere_with_cavities",
+        xyzr=np.vstack((selected, cavity, exterior)),
+        expected_int_mean_curvature=4 * np.pi * (outer_radius - n_cavities * r),
+        expected_int_gaussian_curvature=4 * np.pi * (n_cavities + 1),
+        parameters={
+            "n_cavities": n_cavities, "outer_radius": outer_radius,
+            "cavity_radius": r, "resolution": resolution,
+            "sphere_radius": sphere_radius, "interior_count": count,
+            "interior_indices": list(range(count)),
+            "interior_coordinates": selected[:, :3],
+            "cavity_indices": list(range(count, count + n_cavities)),
+            "cavity_centers": centers, "placement_radius": placement_radius,
+            "minimum_outer_radius": minimum_outer,
+            "exterior_start": count + n_cavities, "exterior_count": len(exterior),
+        },
+        notes="Select INT cells only; cavity and exterior generators are excluded. "
+              "Mean curvature is a smooth-sphere reference, not an exact "
+              "polyhedral target. Each enclosed cavity contributes +4*pi to G.",
+    )
+
+
 # Rectangular box / cube
 # ============================================================================
 
@@ -1586,6 +1675,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--shape",
         required=True,
         choices=[
+            "sphere_with_cavities",
             "sphere",
             "cube",
             "box",
@@ -1608,10 +1698,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "-r",
         "--resolution",
         type=int,
-        default=10,
+        default=None,
         help=(
             "Primary geometry resolution. Interpretation depends on shape. "
-            "Default: 10."
+            "Default: 32 for cavities, 10 otherwise."
         ),
     )
 
@@ -1673,10 +1763,14 @@ def _build_parser() -> argparse.ArgumentParser:
     # Sphere
     # ------------------------------------------------------------------
 
+    parser.add_argument("--outer-radius", type=float, default=None,
+                        help="Cavity body radius; omitted means automatic safe sizing.")
+    parser.add_argument("--n-cavities", type=int, default=1)
+    parser.add_argument("--cavity-radius", type=float, default=3.0)
     parser.add_argument(
         "--radius",
         type=float,
-        default=10.0,
+        default=None,
         help=(
             "Target central power-cell radius for sphere; target radius "
             "for spherocylinder. "
@@ -1867,6 +1961,18 @@ def _generate_from_args(args) -> ValidationShape:
     Generate the requested validation geometry from CLI arguments.
     """
     shape_name = args.shape.lower()
+    if args.resolution is None:
+        args.resolution = 32 if shape_name == "sphere_with_cavities" else 10
+
+    if args.radius is None and shape_name != "sphere_with_cavities":
+        args.radius = 10.0
+
+    if shape_name == "sphere_with_cavities":
+        return sphere_with_cavities(
+            args.n_cavities, (args.outer_radius if args.outer_radius is not None else args.radius),
+            args.cavity_radius,
+            args.resolution, args.sphere_radius,
+        )
 
     if shape_name == "sphere":
         return sphere(
@@ -1999,6 +2105,10 @@ def _default_basename(shape: ValidationShape) -> str:
     Generate a descriptive output basename.
     """
     p = shape.parameters
+
+    if shape.name == "sphere_with_cavities":
+        return (f"sphere_cavities_N{p['n_cavities']}_R{p['outer_radius']:g}"
+                f"_r{p['cavity_radius']:g}_n{p['resolution']}")
 
     if shape.name == "sphere":
         return (

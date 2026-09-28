@@ -108,7 +108,131 @@ def boundary_checks(net, boundary):
     }
 
 
-def inspect_group(group, loop_cells, junction_positions):
+def _oriented_polygon(group, face_id):
+    """Order a planar face toward the excluded generator (solid outward)."""
+    net = group.net
+    face = net.surfs.iloc[face_id]
+    if not face['flat']:
+        raise ValueError('Polygon orientation/export requires planar faces.')
+    body = set(map(int, group.layer_net_atoms[0]))
+    inside, = body.intersection(map(int, face['balls']))
+    outside, = set(map(int, face['balls'])) - body
+    normal = np.asarray(net.balls.iloc[outside]['loc']) - net.balls.iloc[inside]['loc']
+    normal /= np.linalg.norm(normal)
+    neighbors = {}
+    for e in face['edges']:
+        a, b = map(int, net.edges.iloc[int(e)]['verts'])
+        neighbors.setdefault(a, []).append(b)
+        neighbors.setdefault(b, []).append(a)
+    if any(len(v) != 2 for v in neighbors.values()):
+        raise ValueError('Face does not have a closed polygon cycle.')
+    order = [min(neighbors)]
+    previous = None
+    while True:
+        nxt = next(v for v in neighbors[order[-1]] if v != previous)
+        if nxt == order[0]:
+            break
+        previous = order[-1]
+        order.append(nxt)
+        if len(order) > len(neighbors):
+            raise ValueError('Invalid polygon cycle.')
+    if len(order) != len(neighbors):
+        raise ValueError('Disconnected polygon cycle.')
+    xyz = np.array([net.verts.iloc[v]['loc'] for v in order])
+    area_vector = np.cross(xyz - xyz.mean(axis=0),
+                           np.roll(xyz, -1, axis=0) - xyz.mean(axis=0)).sum(axis=0)
+    if np.dot(area_vector, normal) < 0:
+        order.reverse()
+        xyz = xyz[::-1]
+    return order, xyz, normal
+
+
+def boundary_component_reports(group):
+    """Partition actual faces and sum VorPy's measured curvature terms."""
+    net = group.net
+    boundary = set(map(int, group.layer_surfs[0]))
+    edge_faces = {}
+    for f in boundary:
+        for e in net.surfs.iloc[f]['edges']:
+            edge_faces.setdefault(int(e), set()).add(f)
+    adjacency = {f: set() for f in boundary}
+    for faces in edge_faces.values():
+        for f in faces:
+            adjacency[f].update(faces - {f})
+    reports = []
+    for faces in components(adjacency):
+        edges = {int(e) for f in faces for e in net.surfs.iloc[f]['edges']}
+        vertices = {int(v) for e in edges for v in net.edges.iloc[e]['verts']}
+        checks = boundary_checks(net, faces)
+        gf = sum(float(net.surfs.iloc[f]['int_gauss_curv']) for f in faces)
+        ge = sum(group.boundary_edge_gaussian_contributions[e] for e in edges)
+        gv = sum(group.boundary_vertex_gaussian_contributions[v] for v in vertices)
+        report = {
+            'faces': faces, 'V': len(vertices), 'E': len(edges), 'F': len(faces),
+            'chi': len(vertices) - len(edges) + len(faces),
+            'closed': not checks['bad_edges'] and not checks['invalid_face_cycles'],
+            'manifold': not (checks['bad_edges'] or checks['bad_vertices']
+                             or checks['invalid_face_cycles']),
+            'orientable': checks['orientable_by_face_winding'],
+            'gaussian_face': gf, 'gaussian_edge': ge, 'gaussian_vertex': gv,
+            'integrated_gaussian_curvature': gf + ge + gv,
+        }
+        if all(net.surfs.iloc[f]['flat'] for f in faces):
+            volume, radial_dots, directed_edges = 0., [], {}
+            origin = np.mean([net.verts.iloc[v]['loc'] for v in vertices], axis=0)
+            report['orientation_reference_point'] = origin.tolist()
+            for f in faces:
+                order, xyz, normal = _oriented_polygon(group, f)
+                radial_dots.append(float(np.dot(normal, xyz.mean(axis=0) - origin)))
+                for a, b in zip(order, order[1:] + order[:1]):
+                    directed_edges.setdefault(tuple(sorted((a, b))), []).append(1 if a < b else -1)
+                for j in range(1, len(xyz) - 1):
+                    volume += np.dot(xyz[0], np.cross(xyz[j], xyz[j + 1])) / 6
+            report.update({
+                'signed_volume': float(volume),
+                'solid_outward_winding_consistent': all(
+                    len(signs) == 2 and sum(signs) == 0 for signs in directed_edges.values()),
+                'normal_dot_position_min': min(radial_dots),
+                'normal_dot_position_max': max(radial_dots),
+            })
+        reports.append(report)
+    # Exterior first, identified geometrically by its positive signed volume.
+    reports.sort(key=lambda r: -r.get('signed_volume', 0.))
+    for index, report in enumerate(reports):
+        report['component'] = index
+    return reports
+
+
+def export_planar_boundary(group, reports, directory):
+    """Export the assembled faces, with cavity winding preserved, to OBJ/PyMOL."""
+    obj, script, offset = [], [
+        'from pymol import cmd', 'from pymol.cgo import BEGIN, END, TRIANGLES, NORMAL, VERTEX, COLOR',
+    ], 1
+    for report in reports:
+        name = f"boundary_{report['component']}"
+        obj.append(f'o {name}')
+        cgo = []
+        color = (0.3, 0.6, 0.9) if report['signed_volume'] > 0 else (1., 0.45, 0.2)
+        script.append(f'mesh = [BEGIN, TRIANGLES, COLOR, {color[0]}, {color[1]}, {color[2]}]')
+        for f in report['faces']:
+            _, xyz, normal = _oriented_polygon(group, f)
+            obj.extend('v ' + ' '.join(map(str, point)) for point in xyz)
+            obj.append('f ' + ' '.join(str(offset + j) for j in range(len(xyz))))
+            offset += len(xyz)
+            for j in range(1, len(xyz) - 1):
+                cgo.append('NORMAL, ' + ', '.join(map(str, normal)))
+                cgo.extend('VERTEX, ' + ', '.join(map(str, xyz[k])) for k in (0, j, j + 1))
+        script.extend(['mesh.extend([' + ',\n'.join(cgo) + ', END])',
+                       f'cmd.load_cgo(mesh, "{name}")'])
+        if report['signed_volume'] > 0:
+            script.append(f'cmd.set("cgo_transparency", 0.7, "{name}")')
+    script.extend(['cmd.bg_color("white")', 'cmd.orient("boundary_*")'])
+    (directory / 'boundary.obj').write_text('\n'.join(obj) + '\n')
+    (directory / 'boundary.py').write_text('\n'.join(script) + '\n')
+    (directory / 'boundary.pml').write_text(f'run "{directory / "boundary.py"}"\n')
+
+
+def inspect_group(group, loop_cells=(), junction_positions=()):
     net = group.net
     selected = set(map(int, group.ball_ndxs))
     topo_to_system, selected_balls = {}, {}
@@ -230,7 +354,13 @@ def acceptance_errors(report, genus, atol=1e-8):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--torus-count', type=int, required=True)
+    parser.add_argument('--shape', choices=['multitorus', 'sphere_with_cavities'], default='multitorus')
+    parser.add_argument('--n-cavities', type=int, default=1)
+    parser.add_argument('--outer-radius', type=float, default=None,
+                        help='Omit to grow the exterior safely with cavity count.')
+    parser.add_argument('--cavity-radius', type=float, default=3.)
+    parser.add_argument('--resolution', type=int, default=32)
+    parser.add_argument('--torus-count', type=int)
     parser.add_argument('--interior-count', type=int, default=16)
     parser.add_argument('--cross-section-resolution', type=int, default=12)
     parser.add_argument('--major-radius', type=float, default=10)
@@ -242,6 +372,13 @@ def main():
     parser.add_argument('--expect-genus', type=int,
                         help='Assert acceptance criteria after measurement; never changes geometry/results.')
     args = parser.parse_args()
+    if args.shape == 'sphere_with_cavities':
+        if args.input or args.expect_genus is not None:
+            parser.error('Cavity diagnostic generates its own input and checks cavity targets.')
+        run_cavity_diagnostic(args)
+        return
+    if args.torus_count is None:
+        parser.error('--torus-count is required for multitorus.')
     # Network construction may change the working directory during export.
     args.output = args.output.resolve()
     if args.input:
@@ -293,6 +430,94 @@ def main():
         print('Acceptance: ' + ('FAIL\n' + '\n'.join(errors) if errors else 'PASS'))
         if errors:
             raise SystemExit(1)
+
+
+def cavity_acceptance_errors(report, n_cavities=1, atol=1e-8):
+    """Analytic targets are used only here, after independent measurement."""
+    expected = {
+        'selected_cell_components': 1, 'boundary_components': n_cavities + 1,
+        'euler_characteristic': 2 * (n_cavities + 1),
+        'complete': True, 'closed': True, 'manifold': True, 'orientable': True,
+    }
+    errors = [f'{k}: measured {report[k]!r}, expected {v!r}'
+              for k, v in expected.items() if report[k] != v]
+    if report['boundary_face_symmetric_difference']:
+        errors.append('Boundary differs from selected/excluded interfaces.')
+    if not report['independent_boundary_checks']['orientable_by_face_winding']:
+        errors.append('Independent winding check failed.')
+    measured = report['integrated_gaussian_curvature']
+    if not np.isclose(measured, 4 * np.pi * (n_cavities + 1), rtol=0, atol=atol):
+        errors.append('Total Gaussian curvature does not match cavity target.')
+    parts = report['component_reports']
+    if len(parts) != n_cavities + 1:
+        errors.append('Independent component count failed.')
+    if not np.isclose(sum(p['integrated_gaussian_curvature'] for p in parts), measured,
+                      rtol=0, atol=atol):
+        errors.append('Component curvature sum differs from group measurement.')
+    for p in parts:
+        if p['chi'] != 2 or not all(p[k] for k in (
+                'closed', 'manifold', 'orientable', 'solid_outward_winding_consistent')):
+            errors.append(f'Component {p["component"]} topology/orientation failed.')
+        if not np.isclose(p['integrated_gaussian_curvature'], 4 * np.pi, rtol=0, atol=atol):
+            errors.append(f'Component {p["component"]} curvature failed.')
+        # Radial checks use each component's own vertex centroid.
+        if p['component'] == 0:
+            oriented = p['signed_volume'] > 0 and p['normal_dot_position_min'] > 0
+        else:
+            oriented = p['signed_volume'] < 0 and p['normal_dot_position_max'] < 0
+        if not oriented:
+            errors.append(f'Component {p["component"]} solid-outward normal failed.')
+    return errors
+
+
+def run_cavity_diagnostic(args):
+    from vorpy.src.geometry.validation_shapes import sphere_with_cavities
+    from vorpy.src.command.set import sett
+    from vorpy.src.group.group import Group
+    from vorpy.src.system.system import System
+
+    output = args.output.resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    shape = sphere_with_cavities(args.n_cavities, args.outer_radius,
+                                 args.cavity_radius, args.resolution)
+    max_vert = max(30., 2 * shape.parameters['outer_radius'])
+    if max_vert > 5000:
+        raise ValueError('Required vertex radius exceeds VorPy settings limit; reduce cavity_radius.')
+    pdb = shape.save_pdb(output / 'geometry.pdb')
+    shape.save_xyzr(output / 'geometry.xyzr')
+    with (output / 'build.log').open('w') as log, contextlib.redirect_stdout(log):
+        system = System(file=str(pdb), make_dir=False, print_actions=False)
+        selected = [int(row['num']) for _, row in system.balls.iterrows()
+                    if str(row['name']).strip() == 'INT']
+        group = Group(system, name='cavity_diagnostic', atoms=selected,
+                      settings=sett('mv', [str(max_vert)]), make_net=True)
+        group.build()
+        group.get_info()
+        report = inspect_group(group)
+        report['component_reports'] = boundary_component_reports(group)
+        export_planar_boundary(group, report['component_reports'], output)
+    target = shape.expected_int_gaussian_curvature
+    report.update({
+        'input': str(pdb), 'n_cavities': args.n_cavities,
+        'outer_radius': shape.parameters['outer_radius'],
+        'cavity_centers': shape.parameters['cavity_centers'].tolist(),
+        'settings': {'net_type': 'aw', 'max_vert': max_vert, 'surf_res': 0.2},
+        'expected_gaussian_curvature': target,
+        'gaussian_error': report['integrated_gaussian_curvature'] - target,
+        'gaussian_relative_error': abs(report['integrated_gaussian_curvature'] - target) / target,
+    })
+    errors = cavity_acceptance_errors(report, args.n_cavities)
+    report['acceptance_errors'] = errors
+    (output / 'report.json').write_text(json.dumps(report, indent=2))
+    for key in ('selected_cells', 'complete_selected_cells', 'selected_cell_components',
+                'boundary_components', 'complete', 'closed', 'manifold', 'orientable',
+                'euler_characteristic', 'integrated_gaussian_curvature', 'gaussian_error'):
+        print(f'{key}: {report[key]}')
+    for part in report['component_reports']:
+        print(json.dumps({k: v for k, v in part.items() if k != 'faces'}, indent=2))
+    print('Acceptance: ' + ('FAIL\n' + '\n'.join(errors) if errors else 'PASS'))
+    if errors:
+        raise SystemExit(1)
 
 
 if __name__ == '__main__':

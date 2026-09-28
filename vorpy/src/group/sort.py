@@ -885,6 +885,14 @@ def get_info(group):
     group.int_gauss_curv_edge = edge_gauss
     group.int_gauss_curv_vertex = vertex_gauss
     group.int_gauss_curv = group.int_gauss_curv_face + edge_gauss + vertex_gauss
+    # Preserve measured contributions for component-level diagnostic reduction.
+    # These are the same values used above, never Gauss--Bonnet substitutions.
+    group.boundary_edge_gaussian_contributions = dict(
+        (edge, value) for edge, value, _ in edge_diagnostics
+    )
+    group.boundary_vertex_gaussian_contributions = dict(
+        (vertex, value) for vertex, value, _, _ in vertex_diagnostics
+    )
 
     # Boundary-complex topology: faces are exposed pairwise patches, with
     # network edges/vertices deduplicated by their topology identifiers.
