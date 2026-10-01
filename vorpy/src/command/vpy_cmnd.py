@@ -1,6 +1,7 @@
 import os
 import sys
 import gc
+import re
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog
@@ -11,6 +12,7 @@ from vorpy.src.inputs.frames import iter_pdb_frames, count_pdb_frames
 from vorpy.src.inputs.net import read_net
 from vorpy.src.command.commands import *
 from vorpy.src.system.system import System
+from vorpy.src.boundary import BoundaryConfig, BoundaryMode, resolve_boundary
 from vorpy.src.command.interpret import get_file
 from vorpy.src.command.set import sett
 from vorpy.src.command.group import ggroup
@@ -20,7 +22,10 @@ from vorpy.src.command.interface import build_interfaces
 
 FRAME_OPTIONS = ('load_commands', 'groups', 'builds', 'exports',
                  'settings_cmnds', 'logs_files', 'interface_mode',
-                 'verbose', 'diagnose_edges')
+                 'verbose', 'diagnose_edges', 'boundary_config',
+                 'boundary_explicitly_requested', 'boundary_warning_printed',
+                 'apollonius_requested', 'alpha_value', 'power_settings',
+                 'power_vs_aw_requested', 'power_cli_arguments')
 
 
 def available_cpu_count():
@@ -87,6 +92,82 @@ def frame_cli_options(args):
     return remaining, workers
 
 
+def boundary_cli_options(args):
+    """Extract boundary options before the legacy grouped command parser."""
+    remaining = []
+    values = {}
+    args = iter(args)
+    for arg in args:
+        if arg in {'--boundary', '--probe-radius', '--shell-spacing', '--shell-offset'}:
+            try:
+                value = next(args)
+            except StopIteration:
+                raise SystemExit(f'{arg} requires a value') from None
+            key = {'--boundary': 'mode', '--probe-radius': 'probe_radius',
+                   '--shell-spacing': 'shell_spacing', '--shell-offset': 'shell_offset'}[arg]
+            if key in values:
+                raise SystemExit(f'{arg} may only be specified once')
+            try:
+                values[key] = value if key == 'mode' else float(value)
+            except ValueError:
+                raise SystemExit(f'{arg} requires a number') from None
+        else:
+            remaining.append(arg)
+    try:
+        return remaining, BoundaryConfig(**values), 'mode' in values
+    except (ValueError, TypeError) as error:
+        raise SystemExit(str(error)) from None
+
+
+def apollonius_cli_options(args):
+    """Extract opt-in dual and alpha-complex flags from legacy CLI arguments."""
+    remaining = []
+    requested = False
+    seen_flag = False
+    alpha = None
+    args = iter(args)
+    for arg in args:
+        if arg == '--apollonius':
+            if seen_flag:
+                raise SystemExit('--apollonius may only be specified once')
+            seen_flag = True
+            requested = True
+        elif arg == '--alpha-complex':
+            if alpha is not None:
+                raise SystemExit('--alpha-complex may only be specified once')
+            try:
+                alpha = float(next(args))
+            except (StopIteration, ValueError):
+                raise SystemExit('--alpha-complex requires a finite numeric value in Å') from None
+            if not (-float('inf') < alpha < float('inf')):
+                raise SystemExit('--alpha-complex requires a finite numeric value in Å')
+            requested = True
+        else:
+            remaining.append(arg)
+    return remaining, requested, alpha
+
+
+def prompt_boundary(config):
+    """Choose an optional boundary on a terminal; batch runs use no boundary."""
+    if not sys.stdin.isatty():
+        return config
+    print("\nNo explicit solvent was detected. Exterior cells may be unbounded.\n"
+          "Boundary methods:\n"
+          "    [0] No boundary (default; use existing generators only)\n"
+          "    [1] Virtual solvent shell\n"
+          "SES, SAS, and AW probe boundaries are planned and unavailable.")
+    while True:
+        try:
+            answer = input("Choose boundary [0]: ").strip().lower()
+        except EOFError:
+            answer = ""
+        modes = {"": "none", "0": "none", "none": "none", "1": "shell", "shell": "shell"}
+        if answer in modes:
+            return BoundaryConfig(modes[answer], config.probe_radius,
+                                  config.shell_spacing, config.shell_offset)
+        print("Enter 0 (none) or 1 (shell).")
+
+
 class Command:
     def __init__(self, sys=None, settings=None):
         self.sys = sys
@@ -106,6 +187,16 @@ class Command:
         self.verbose = False
         self.diagnose_edges = False
         self.save_network_path = None
+        self.boundary_config = BoundaryConfig()
+        self.boundary_explicitly_requested = False
+        self.boundary_warning_printed = False
+        self.apollonius_requested = False
+        self.alpha_value = None
+        self.power_settings = {'preset': None, 'probe_radius': 1.4, 'alpha': 0.0,
+                               'condition_beta_m': 5.0, 'compare_aw': False}
+        self.power_vs_aw_requested = False
+        self.power_cli_arguments = []
+        self.power_aw_water_records_omitted = 0
 
     def run(self):
         self._run_pipeline()
@@ -130,6 +221,14 @@ class Command:
         self._arguments = list(sys.argv[1:])
         if self._arguments and self._arguments[0] == '--load-network':
             self._arguments.pop(0)
+        from vorpy.src.analyze.power_interface_cli import extract_power_interface_options
+        self._arguments, self.power_settings = extract_power_interface_options(self._arguments)
+        self.power_vs_aw_requested = self.power_settings['compare_aw']
+        if not self._arguments:
+            raise SystemExit('Provide a structure or .vpy network archive path')
+        input_arg = self._arguments[0]
+
+        self._arguments, self.boundary_config, self.boundary_explicitly_requested = boundary_cli_options(self._arguments)
         if not self._arguments:
             raise SystemExit('Provide a structure or .vpy network archive path')
         input_arg = self._arguments[0]
@@ -138,6 +237,26 @@ class Command:
         if self.base_file is None:
             raise SystemExit(f"Input file not found: {input_arg}. "
                              "Provide an existing path or a filename from vorpy/data.")
+
+        if self.power_settings['preset'] and not self.power_vs_aw_requested:
+            from vorpy.src.analyze.power_interface_cli import (
+                chain_groups_from_legacy_args, power_output_directory,
+                run_power_interface_pdb,
+            )
+            chains_a, chains_b = chain_groups_from_legacy_args(self._arguments[1:])
+            destination = power_output_directory(self._arguments[1:], self.base_file)
+            try:
+                run = run_power_interface_pdb(
+                    self.base_file, chains_a, chains_b, destination,
+                    probe_radius=self.power_settings['probe_radius'],
+                    alpha=self.power_settings['alpha'],
+                    condition_beta_m=self.power_settings['condition_beta_m'],
+                )
+            except (ValueError, RuntimeError) as error:
+                raise SystemExit(str(error)) from None
+            print(run['summary'], end='')
+            print(f"Power-interface exports written to: {destination}")
+            return
 
         _, workers = frame_cli_options(sys.argv[2:])
         if workers is not None:
@@ -168,12 +287,32 @@ class Command:
                         break
                     print('Please enter y (all frames) or n (frame 1 only).')
 
-        # Create the system if one was not supplied
-        if self.sys is None:
-            self.sys = System(file=self.base_file, make_dir=False)
+        # The legacy PDB reader dereferences its optional solvent container
+        # for crystallographic waters. For the two-protein AW comparison only,
+        # use a temporary copy without water HETATM records; neither the source
+        # PDB nor the independent Cazals/Power preparation is altered.
+        comparison_temp = None
+        system_input = self.base_file
+        if self.power_vs_aw_requested and Path(self.base_file).suffix.lower() == '.pdb':
+            from vorpy.src.analyze.power_interface_cli import aw_comparison_structure_without_waters
+            comparison_temp, self.power_aw_water_records_omitted = aw_comparison_structure_without_waters(self.base_file)
+            system_input = comparison_temp
+        try:
+            if self.sys is None:
+                self.sys = System(file=str(system_input), make_dir=False, boundary_config=self.boundary_config)
+                if comparison_temp is not None:
+                    self.sys.name = Path(self.base_file).stem
+            else:
+                self.sys.boundary_config = self.boundary_config
+        finally:
+            if comparison_temp is not None:
+                comparison_temp.unlink(missing_ok=True)
 
         # Parse the remaining command-line arguments
         self.parse_commands()
+        if self.power_vs_aw_requested:
+            self.interface_mode = True
+            self.power_cli_arguments = list(self._arguments[1:])
 
         self._process_system()
 
@@ -189,16 +328,18 @@ class Command:
         if total_frames is None:
             total_frames = count_pdb_frames(self.base_file)
         print(f'{Path(self.base_file).name}: {total_frames} frames found; processing all frames sequentially.')
-        option_names = ('load_commands', 'groups', 'builds', 'exports',
-                        'settings_cmnds', 'logs_files', 'interface_mode',
-                        'verbose', 'diagnose_edges', 'save_network_path')
+        option_names = (*FRAME_OPTIONS, 'save_network_path')
         with closing(iter_pdb_frames(self.base_file)) as frames:
             for ordinal, frame_file in frames:
-                frame_system = System(file=frame_file, make_dir=False)
+                frame_system = System(file=frame_file, make_dir=False, boundary_config=self.boundary_config)
                 frame_system.frame_index = ordinal
                 frame_system.frame_count = total_frames
                 command = Command(sys=frame_system, settings=deepcopy(initial_settings))
                 command.base_file = frame_file
+                command._arguments = list(self._arguments)
+                command.boundary_config = deepcopy(self.boundary_config)
+                command.boundary_explicitly_requested = self.boundary_explicitly_requested
+                command.boundary_warning_printed = self.boundary_warning_printed
                 if output_root is None:
                     command.parse_commands()
                     if frame_system.files['dir'] is None:
@@ -211,6 +352,11 @@ class Command:
                 frame_system.set_output_directory(str(output_root / f'frame_{ordinal:04d}'))
                 print(f'Processing frame {ordinal}: {frame_system.files["dir"]}')
                 command._process_system()
+                self.boundary_warning_printed = command.boundary_warning_printed
+                self.boundary_config = command.boundary_config
+                if output_root is not None:
+                    options['boundary_warning_printed'] = self.boundary_warning_printed
+                    options['boundary_config'] = deepcopy(self.boundary_config)
                 print(f'\nFrame {ordinal}/{total_frames} complete. Releasing frame memory.')
                 # Systems, groups, networks and atom tables reference each other.
                 # Drop all batch-owned references and collect those cycles before
@@ -258,6 +404,21 @@ class Command:
 
         # Apply command-line settings
         self.apply_settings()
+
+        molecular_suffixes = {'.pdb', '.cif', '.gro', '.mol', '.sdf', '.mol2', '.txt'}
+        if Path(self.base_file).suffix.lower() in molecular_suffixes:
+            if (not self.boundary_explicitly_requested and not self.boundary_warning_printed
+                    and not self.sys.has_explicit_solvent):
+                self.boundary_config = prompt_boundary(self.boundary_config)
+                self.boundary_warning_printed = True
+            try:
+                self.sys.boundary_config = resolve_boundary(
+                    self.boundary_config, self.sys.has_explicit_solvent
+                )
+            except (ValueError, NotImplementedError) as error:
+                raise SystemExit(str(error)) from None
+            self.sys.boundary_mode = self.sys.boundary_config.mode.value
+
 
         # Create the requested groups
         self.create_groups()
@@ -349,6 +510,17 @@ class Command:
         if self.diagnose_edges:
             self.run_edge_diagnostics()
 
+        if self.power_vs_aw_requested:
+            self.run_power_aw_comparison()
+            # This analysis mode writes its own compact Power/AW artifacts.
+            # Avoid the legacy default bulk exporter, which is unrelated to
+            # the analysis output and currently does not support Interface's
+            # selected export keyword set.
+            return
+
+        if self.apollonius_requested:
+            self.run_apollonius()
+
         # Export requested outputs
         self.run_exports()
         self._save_archive()
@@ -380,6 +552,8 @@ class Command:
                 group_from_network(network, definition.ball_ndxs, definition.name)
         if self.diagnose_edges:
             self.run_edge_diagnostics()
+        if self.apollonius_requested:
+            self.run_apollonius()
         self.run_exports()
         self._save_archive()
 
@@ -460,13 +634,24 @@ class Command:
         """
         # Separate the rest of the argv args
         my_args = list(getattr(self, '_arguments', sys.argv[1:])[1 + counter:])
+        my_args, boundary_config, boundary_requested = boundary_cli_options(my_args)
+        if boundary_requested:
+            self.boundary_config = boundary_config
+            self.boundary_explicitly_requested = True
+            if self.sys is not None:
+                self.sys.boundary_config = boundary_config
+        my_args, apollonius_requested, alpha_value = apollonius_cli_options(my_args)
+        self.apollonius_requested = self.apollonius_requested or apollonius_requested
+        if alpha_value is not None:
+            self.alpha_value = alpha_value
         if '--save-network' in my_args:
             index = my_args.index('--save-network')
             if index + 1 >= len(my_args) or my_args[index + 1].startswith('-'):
                 raise ValueError('--save-network requires an output .vpy path')
             self.save_network_path = Path(my_args[index + 1]).expanduser().resolve()
             del my_args[index:index + 2]
-        my_args = list(sys.argv[2 + counter:])
+        # Use the normalized argv captured by _run_pipeline so custom options
+        # such as --boundary never reach the legacy grouped parser.
         my_args, _ = frame_cli_options(my_args)
         my_args = [arg for arg in my_args if arg != '--all-frames']
 
@@ -749,6 +934,158 @@ class Command:
     def run_exports(self):
         # Export everything
         argv_export(self.sys, self.exports)
+
+    def run_apollonius(self):
+        """Build/export derived complexes from completed in-memory networks."""
+        from vorpy.src.analyze.apollonius import ApolloniusComplex
+        from vorpy.src.analyze.apollonius_export import export_apollonius
+
+        networks = list(self._diagnostic_networks())
+        if not networks:
+            raise SystemExit('Apollonius analysis requested, but no solved network is available.')
+        root = Path((getattr(self.sys, 'files', {}) or {}).get('dir') or Path.cwd())
+        for name, network in networks:
+            settings = getattr(network, 'settings', None) or {}
+            if settings.get('net_type', 'aw') != 'aw':
+                raise SystemExit(
+                    f"Apollonius analysis requires an AW network; '{name}' uses "
+                    f"'{settings.get('net_type', 'aw')}'."
+                )
+            complex_ = ApolloniusComplex(network, name=name)
+            alpha_complex = None
+            if self.alpha_value is not None:
+                complex_.calculate_alpha_births()
+                alpha_complex = complex_.alpha_complex(self.alpha_value)
+                closure_errors = alpha_complex.validate()
+                if closure_errors:
+                    raise SystemExit(
+                        'Extracted alpha complex is not closed: '
+                        + '; '.join(closure_errors[:5])
+                    )
+            slug = re.sub(r'[^A-Za-z0-9_.-]+', '_', name).strip('._') or 'network'
+            destination = root / 'apollonius' / slug
+            print(complex_.summary(), end='')
+            if alpha_complex is not None:
+                print(alpha_complex.summary(), end='')
+            export_apollonius(complex_, destination, alpha_complex=alpha_complex)
+            print(f"Apollonius exports written to: {destination}")
+
+    def run_power_aw_comparison(self):
+        """Run Power beside a full-system AW network and audit the interface net."""
+        from copy import deepcopy
+        import numpy as np
+        from vorpy.src.group import Group
+        from vorpy.src.analyze.aw_interface_curvature import analyze_aw_interface_curvature
+        from vorpy.src.analyze.aw_pipeline_audit import (
+            audit_interface_surfaces, compare_surface_tables, write_rows,
+        )
+        from vorpy.src.analyze.power_interface_cli import (
+            chain_groups_from_legacy_args, power_output_directory,
+            run_power_interface_pdb,
+        )
+        from vorpy.src.analyze.power_vs_aw import compare_power_and_aw
+
+        if Path(self.base_file).suffix.lower() != '.pdb':
+            raise SystemExit('--power-vs-aw currently requires a PDB structure')
+        if not getattr(self.sys, 'ifaces', None):
+            raise SystemExit('--power-vs-aw requires two non-empty -g groups')
+        interface = self.sys.ifaces[0]
+        if interface.net is None:
+            raise SystemExit('The requested AW interface network was not built')
+        if (getattr(interface.net, 'settings', None) or {}).get('net_type', 'aw') != 'aw':
+            raise SystemExit('--power-vs-aw requires the AW network type')
+        chains_a, chains_b = chain_groups_from_legacy_args(self.power_cli_arguments)
+        root = Path(self.sys.files.get('dir') or power_output_directory(self.power_cli_arguments, self.base_file))
+        power_run = run_power_interface_pdb(
+            self.base_file, chains_a, chains_b, root / 'power_interface',
+            probe_radius=self.power_settings['probe_radius'],
+            alpha=self.power_settings['alpha'],
+            condition_beta_m=self.power_settings['condition_beta_m'],
+        )
+
+        # An Interface Network intentionally retains only vertices/edges/
+        # surfaces spanning the two requested groups. Its cells are therefore
+        # not whole-cell complexes, and its Apollonius subcomplex need not have
+        # all same-group faces. Build a separate normal, full-system network for
+        # cell completeness and supported AW analysis. Both networks use the
+        # same System coordinates/radii and the same settings (including mv).
+        full_group = Group(
+            sys=self.sys, name='power_vs_aw_full_system',
+            atoms=list(range(len(self.sys.balls))),
+            settings=deepcopy(interface.settings), make_net=True,
+            build_net=False, print_metrics=False,
+        )
+        if full_group in (self.sys.groups or []):
+            self.sys.groups.remove(full_group)
+        full_group.build()
+        full_net = full_group.net
+        if not full_net.balls.index.equals(interface.net.balls.index):
+            raise RuntimeError('Full and interface AW networks do not share generator IDs.')
+        coordinate_identity = all(
+            np.array_equal(np.asarray(full_net.balls.at[index, 'loc'], dtype=float),
+                           np.asarray(interface.net.balls.at[index, 'loc'], dtype=float))
+            and float(full_net.balls.at[index, 'rad']) == float(interface.net.balls.at[index, 'rad'])
+            for index in full_net.balls.index
+        )
+        if not coordinate_identity:
+            raise RuntimeError('Full and interface AW networks have different generator coordinates/radii.')
+
+        filtered_audit = audit_interface_surfaces(
+            interface.net, interface.group1_indices, interface.group2_indices,
+            full_reference=full_net,
+        )
+        old_surface_csv = (Path(__file__).resolve().parents[3] / 'output' / '2KAI_aw'
+                           / 'data' / 'aw_interface_2KAI_supported' / 'aw_interface_surfaces.csv')
+        surface_comparison = compare_surface_tables(
+            filtered_audit, full_net, interface.group1_indices,
+            interface.group2_indices,
+            previous_csv=old_surface_csv if Path(self.base_file).stem.upper() == '2KAI' else None,
+        )
+        write_rows(root / 'aw_surface_completeness_audit.csv', filtered_audit)
+        write_rows(root / 'aw_pipeline_surface_comparison.csv', surface_comparison)
+        (root / 'aw_pipeline_audit.txt').write_text(
+            'AW Pipeline Reconciliation\n'
+            f'Source PDB: {self.base_file}\n'
+            f'AW parser atoms retained: {len(self.sys.balls)}; waters omitted for parser compatibility: '
+            f'{self.power_aw_water_records_omitted}\n'
+            f'Interface network: {len(interface.net.balls)} generators, {len(interface.net.verts)} vertices, '
+            f'{len(interface.net.edges)} edges, {len(interface.net.surfs)} surfaces; '
+            f'complete cells={int(interface.net.balls.complete.astype(bool).sum())}\n'
+            f'Full network: {len(full_net.balls)} generators, {len(full_net.verts)} vertices, '
+            f'{len(full_net.edges)} edges, {len(full_net.surfs)} surfaces; '
+            f'complete cells={int(full_net.balls.complete.astype(bool).sum())}\n'
+            f'Network settings (full/interface): {full_net.settings} / {interface.net.settings}\n'
+            f'Full/interface coordinate and radius identity: {coordinate_identity}\n'
+            'The interface network is intentionally topology-filtered to cross-group features. Its cell.complete '
+            'flags cannot establish completeness of whole molecular cells. The full network is used for supported '
+            'surface/edge analysis; no completeness criterion was relaxed.\n'
+            f'Filtered interface candidates: {len(filtered_audit)}; feature-complete by closed-boundary audit: '
+            f'{sum(bool(row["feature_complete"]) for row in filtered_audit)}\n'
+            f'Surface identity comparison rows: {len(surface_comparison)}; prior standalone artifact: '
+            f'{old_surface_csv if old_surface_csv.exists() and Path(self.base_file).stem.upper() == "2KAI" else "unavailable"}\n',
+            encoding='utf-8',
+        )
+
+        aw = analyze_aw_interface_curvature(
+            full_net, interface.group1_indices, interface.group2_indices,
+            selection_mode='supported',
+        )
+        aw.export_csv(root / 'aw_interface')
+        lys15 = set()
+        # Use the loader's explicit author-facing residue columns. Residue and
+        # Chain object labels differ across readers (e.g. sequence vs seq), so
+        # attribute probing can silently miss a valid author-chain selection.
+        atoms = self.sys.balls
+        lys15.update(int(index) for index, row in atoms.iterrows()
+                     if str(row.get('chain_name', '')).strip() == 'I'
+                     and str(row.get('res_name', '')).strip().upper() == 'LYS'
+                     and str(row.get('res_seq', '')).strip() == '15')
+        comparison = compare_power_and_aw(power_run, aw, root,
+                                          aw_lys15_ids=lys15,
+                                          input_notes=(f"AW parser input excluded {self.power_aw_water_records_omitted} crystallographic water HETATM records using a temporary copy; original PDB unchanged.",),
+                                          group_labels=(chains_a, chains_b))
+        print(comparison['summary'], end='')
+        print(f"Power/AW comparison written to: {root}")
 
     def _diagnostic_networks(self):
         """Yield each unique named network created by this command."""

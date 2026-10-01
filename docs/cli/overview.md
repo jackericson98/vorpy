@@ -14,7 +14,7 @@ python vorpy example.pdb -g a 0-100
 python vorpy example.pdb -e small and shell
 ```
 
-See [Settings](settings.md), [Selections](selections.md), [Exports](exports.md), and [Examples](examples.md).
+See [Boundaries](boundaries.md), [Apollonius analysis](apollonius.md), [Power interface analysis](power_interface.md), [Settings](settings.md), [Selections](selections.md), [Exports](exports.md), and [Examples](examples.md).
 
 **TODO:** Generate a complete authoritative option table from the current CLI parser.
 
