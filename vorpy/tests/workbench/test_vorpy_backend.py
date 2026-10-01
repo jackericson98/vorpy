@@ -42,6 +42,32 @@ def test_network_geometry_is_converted_to_viewer_layers():
     assert set(layers[2].cell_scalars) == {"gaussian_curvature", "mean_curvature", "surface_energy", "distance", "inside_outside", "integrated_mean_curvature", "integrated_gaussian_curvature"}
 
 
+def test_boundary_facing_geometry_is_labeled_and_boundary_internal_surfaces_hidden():
+    network = SimpleNamespace(
+        group=[0],
+        boundary_indices=(3, 4),
+        balls=pd.DataFrame({
+            "num": [0, 1, 3, 4],
+            "loc": [np.array([0., 0., 0.]), np.array([1., 0., 0.]),
+                    np.array([2., 0., 0.]), np.array([3., 0., 0.])],
+            "rad": [1., 1., 1.5, 1.5],
+        }),
+        edges=None,
+        verts=None,
+        surfs=pd.DataFrame({
+            "balls": [[0, 1], [0, 3], [3, 4]],
+            "points": [np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]])] * 3,
+            "tris": [np.array([[0, 1, 2]])] * 3,
+            "mean_tri_curvs": [np.array([0.25])] * 3,
+            "gauss_tri_curvs": [np.array([0.125])] * 3,
+        }),
+    )
+    layers = _layers_from_network(network)
+    assert [layer.name for layer in layers] == ["Voronoi surfaces", "Virtual boundary surfaces"]
+    assert len(layers[0].faces) == len(layers[1].faces) == 1
+    assert layers[1].visible is False
+
+
 def test_worker_forwards_selection_snapshot_to_backend():
     from vorpy.workbench.domain import AnalysisResult
     from vorpy.workbench.workers.solve_worker import SolveWorker

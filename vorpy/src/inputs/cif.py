@@ -1,5 +1,6 @@
 import numpy as np
 from pandas import DataFrame
+from vorpy.src.boundary import SOLVENT_RESIDUES
 from vorpy.src.objects import make_atom
 from vorpy.src.objects import Sol, Chain
 from vorpy.src.objects import Residue
@@ -54,7 +55,7 @@ def read_cif(sys, file=None):
     printed_occ_warn = False
 
     # These names are treated as solvent throughout VorPy/read_pdb().
-    solvent_names = {'sol', 'hoh', 'sod', 'out', 'cl', 'mg', 'na', 'k', 'ion', 'cla'}
+    solvent_names = SOLVENT_RESIDUES
 
     # ----------------------------------------------------------------------
     # Find the _atom_site table layout
@@ -269,7 +270,7 @@ def read_cif(sys, file=None):
         # ------------------------------------------------------------------
 
         if chain_str == ' ':
-            if res_str.lower() in solvent_names:
+            if res_str.strip().upper() in solvent_names:
                 chain_str = 'SOL'
             else:
                 chain_str = 'A'
@@ -296,7 +297,7 @@ def read_cif(sys, file=None):
             ball['chn'] = my_chn
 
         else:
-            if res_str.lower() in solvent_names or chn_name == 'SOL':
+            if res_str.strip().upper() in solvent_names or chn_name == 'SOL':
                 my_chn = Sol(atoms=[ball['num']], residues=[], name=chn_name, sys=sys)
                 sys.sol = my_chn
             else:
@@ -318,7 +319,7 @@ def read_cif(sys, file=None):
             my_res = Residue(sys=sys, atoms=[ball['num']], name=res_str, sequence=ball['res_seq'], chain=ball['chn'])
             resids[res_key] = my_res
 
-            if res_str.lower() in solvent_names or chain_str == 'SOL':
+            if res_str.strip().upper() in solvent_names or chain_str == 'SOL':
                 if sys.sol is None:
                     sys.sol = Sol(sys=sys, atoms=[], residues=[])
 

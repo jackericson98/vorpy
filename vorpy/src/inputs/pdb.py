@@ -2,6 +2,7 @@ import os
 from contextlib import closing
 from itertools import chain
 from vorpy.src.input_progress import iter_input_lines
+from vorpy.src.boundary import SOLVENT_RESIDUES
 from vorpy.src.inputs.frames import first_pdb_frame, is_pdb_virtual_site
 from vorpy.src.objects import make_atom
 from vorpy.src.objects import Residue
@@ -190,7 +191,7 @@ def _read_pdb_lines(sys, file, lines, report):
             # If the chain is empty
             if chain_str == ' ':
                 # If the residue is a sol or hoh
-                if res_str.lower() in {'sol', 'hoh', 'sod', 'out', 'cl', 'mg', 'na', 'k', 'ion', 'cla'}:
+                if res_str.strip().upper() in SOLVENT_RESIDUES:
                     # Set the chain to SOL
                     chain_str = 'SOL'
                 # Otherwise set the chain to A
@@ -221,7 +222,7 @@ def _read_pdb_lines(sys, file, lines, report):
             # Create the chain
             else:
                 # If the chain is the sol chain
-                if res_str.lower() in {'sol', 'hoh', 'sod', 'out', 'cl', 'mg', 'na', 'k', 'ion', 'cla'} or chn_name == 'SOL':
+                if res_str.strip().upper() in SOLVENT_RESIDUES or chn_name == 'SOL':
                     # Create the sol chain
                     my_chn = Sol(atoms=[atom['num']], residues=[], name=chn_name, sys=sys)
                     # Set the sol chain
@@ -251,7 +252,7 @@ def _read_pdb_lines(sys, file, lines, report):
                 # Add the residue to the dictionary
                 resids[res_name] = my_res
                 # If the residue is a sol or hoh or the chain is SOL
-                if res_str.lower() in {'sol', 'hoh', 'sod', 'out', 'cl', 'mg', 'na', 'k', 'ion', 'cla'} or chain_str == 'SOL':
+                if res_str.strip().upper() in SOLVENT_RESIDUES or chain_str == 'SOL':
                     # Add the residue to the sol residues
                     sys.sol.residues.append(my_res)
                 else:

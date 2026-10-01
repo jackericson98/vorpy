@@ -85,7 +85,15 @@ def write_logs(group, net_name=None, round_to=None):
     else:
         sys_nums = [int(_) for _ in net.balls["num"].tolist()]
 
-    sys_balls = group.sys.balls.iloc[sys_nums].to_dict(orient='records')
+    # Virtual shell sites belong only to the network, not System.balls.
+    # Keep metadata keyed by network index, including remapped networks.
+    boundary_indices = set(getattr(net, "boundary_indices", ()))
+    boundary_flags = net.balls.get("is_boundary_generator", [False] * len(net.balls))
+    sys_balls = {}
+    for index, system_num, is_boundary in zip(net.balls.index, sys_nums, boundary_flags):
+        if is_boundary or index in boundary_indices:
+            continue
+        sys_balls[index] = group.sys.balls.iloc[system_num].to_dict()
 
     # Pull surface topology out of pandas once.
     surf_balls = net.surfs['balls'].tolist()
@@ -204,6 +212,8 @@ def write_logs(group, net_name=None, round_to=None):
 
         for atom in atom_rows:
             i = atom.Index
+            if i not in sys_balls:
+                continue
             sys_ball = sys_balls[i]
 
             if atom.sa == 0:

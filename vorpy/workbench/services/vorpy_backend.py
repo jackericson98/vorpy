@@ -12,6 +12,14 @@ import numpy as np
 
 from vorpy.src.group import Group
 from vorpy.src.system import System
+from vorpy.src.boundary import (
+    BoundaryConfig,
+    BoundaryMode,
+    DEFAULT_PROBE_RADIUS,
+    DEFAULT_BOUNDARY_GENERATOR_RADIUS,
+    DEFAULT_SHELL_OFFSET,
+    DEFAULT_SHELL_SPACING,
+)
 from vorpy.workbench.domain import AnalysisResult, Atom, GeometryLayer
 from vorpy.workbench.atomic_defaults import apply_system_defaults
 from vorpy.workbench.services.backend import CancellationCheck, ProgressCallback
@@ -33,6 +41,10 @@ class VorPySolveSettings:
     build_vertices: bool = True
     build_edges: bool = True
     atomic_defaults: dict[str, dict[str, float]] = field(default_factory=dict)
+    boundary_mode: str | None = None
+    probe_radius: float = DEFAULT_PROBE_RADIUS
+    shell_spacing: float = DEFAULT_SHELL_SPACING
+    shell_offset: float = DEFAULT_SHELL_OFFSET
 
 
 class _ProgressBridge:
@@ -84,6 +96,12 @@ class VorPyBackend:
             "file": str(solve_source),
             "gui": _ProgressBridge(progress, is_cancelled),
             "print_actions": False,
+            "boundary_config": BoundaryConfig(
+                self.settings.boundary_mode,
+                self.settings.probe_radius,
+                self.settings.shell_spacing,
+                self.settings.shell_offset,
+            ),
         }
         if frame_count > 1:
             system_options["output_directory"] = directory
@@ -94,6 +112,20 @@ class VorPyBackend:
         system.frame_count = frame_count
         system.loaded_frame_count = 1
         loaded_structure = load_pdb(solve_source)
+        if loaded_structure.atoms:
+            from vorpy.src.boundary import has_explicit_solvent
+            solvent_present = has_explicit_solvent(loaded_structure.atoms)
+        else:
+            solvent_present = False
+        resolved_boundary = BoundaryConfig(
+            self.settings.boundary_mode,
+            self.settings.probe_radius,
+            self.settings.shell_spacing,
+            self.settings.shell_offset,
+        )
+        from vorpy.src.boundary import resolve_boundary
+        resolved_boundary = resolve_boundary(resolved_boundary, solvent_present)
+        system.boundary_config = resolved_boundary
         if is_cancelled():
             raise RuntimeError("Analysis cancelled")
 
@@ -130,6 +162,20 @@ class VorPyBackend:
             raise RuntimeError("Analysis cancelled")
 
         result = loaded_structure
+        boundary_info = [
+            ("Mode", {BoundaryMode.NONE: "No boundary", BoundaryMode.SHELL: "Virtual solvent shell",
+                      BoundaryMode.EXPLICIT: "Explicit solvent"}[resolved_boundary.mode]),
+            ("Explicit solvent detected", "Yes" if solvent_present else "No"),
+        ]
+        if resolved_boundary.mode is BoundaryMode.SHELL:
+            boundary_info.extend([
+                ("Probe radius", f"{resolved_boundary.probe_radius:.3f} Å"),
+                ("Shell offset", f"{resolved_boundary.shell_offset:.3f} Å"),
+                ("Shell spacing", f"{resolved_boundary.shell_spacing:.3f} Å"),
+                ("Boundary generator radius", f"{DEFAULT_BOUNDARY_GENERATOR_RADIUS:.3f} Å"),
+                ("Boundary generators", str(len(system.boundary_generators))),
+            ])
+        result.info_sections["Boundary"] = boundary_info
         result.export_group = group
         system.gui = None
         result.source = source
@@ -156,11 +202,21 @@ class VorPyBackend:
         ]
         complete = group.net.balls.get("complete")
         result.complete_cells = (
-            int(sum(bool(value) for value in complete)) if complete is not None else 0
+            int(sum(bool(value) for value in complete.iloc[:len(system.balls)]))
+            if complete is not None else 0
         )
-        result.surface_count = (
-            len(group.net.surfs) if group.net.surfs is not None else 0
-        )
+        if group.net.surfs is None:
+            result.surface_count = 0
+        else:
+            boundary_indices = set(getattr(group.net, "boundary_indices", ()))
+            if boundary_indices and "balls" in group.net.surfs:
+                result.surface_count = sum(
+                    not bool({int(value) for value in row} & boundary_indices)
+                    or bool({int(value) for value in row} - boundary_indices)
+                    for row in group.net.surfs["balls"]
+                )
+            else:
+                result.surface_count = len(group.net.surfs)
         result.elapsed_seconds = time.perf_counter() - started
         progress("Preparing viewer", 100)
         shutil.rmtree(directory, ignore_errors=True)
@@ -370,16 +426,42 @@ def _layers_from_network(
     layers: list[GeometryLayer] = []
     raw_group = getattr(network, "group", None)
     target_cells = () if raw_group is None else tuple(int(value) for value in raw_group)
+    boundary_indices = set(getattr(network, "boundary_indices", ()))
+
+    def split_rows(frame):
+        """Separate molecular, boundary-facing and shell-only topology rows."""
+        if frame is None or frame.empty or not boundary_indices or "balls" not in frame:
+            return frame, frame.iloc[0:0] if frame is not None else frame
+        molecular, boundary = [], []
+        for index, row in frame.iterrows():
+            try:
+                adjacent = {int(value) for value in row["balls"]}
+            except (TypeError, ValueError):
+                molecular.append(index)
+                continue
+            artificial = adjacent & boundary_indices
+            if not artificial:
+                molecular.append(index)
+            elif adjacent - boundary_indices:
+                boundary.append(index)
+            # Rows surrounded only by generated sites are internal shell geometry.
+        return frame.loc[molecular], frame.loc[boundary]
+
+    physical_edges, boundary_edges = split_rows(network.edges)
+    physical_vertices, boundary_vertices = split_rows(network.verts)
+    physical_surfaces, boundary_surfaces = split_rows(network.surfs)
 
     if network.edges is not None and "points" in network.edges:
         points, lines, scalars = _edge_geometry(
-            network.edges, target_cells, interpretation="magnitude"
+            physical_edges, target_cells, interpretation="magnitude"
         )
-        layers.append(GeometryLayer(
-            "Voronoi edges", "edges", points, lines, color="#55a9d9",
-            cell_scalars=scalars, interpretation="magnitude",
-        ))
-        shell_edge_rows = network.edges.iloc[list(shell_edges)]
+        if not physical_edges.empty:
+            layers.append(GeometryLayer(
+                "Voronoi edges", "edges", points, lines, color="#55a9d9",
+                cell_scalars=scalars, interpretation="magnitude",
+            ))
+        shell_edge_indices = network.edges.iloc[list(shell_edges)].index
+        shell_edge_rows = physical_edges.loc[physical_edges.index.intersection(shell_edge_indices)]
         if not shell_edge_rows.empty:
             points, lines, scalars = _edge_geometry(
                 shell_edge_rows, target_cells, interpretation="boundary"
@@ -388,16 +470,26 @@ def _layers_from_network(
                 "Voronoi shell edges", "edges", points, lines, color="#42d6c7",
                 cell_scalars=scalars, interpretation="boundary",
             ))
+        if not boundary_edges.empty:
+            points, lines, scalars = _edge_geometry(
+                boundary_edges, target_cells, interpretation="boundary"
+            )
+            layers.append(GeometryLayer(
+                "Virtual boundary edges", "edges", points, lines, color="#9467bd",
+                cell_scalars=scalars, interpretation="boundary", visible=False,
+            ))
 
     if network.verts is not None and "loc" in network.verts:
         points, scalars = _vertex_geometry(
-            network, network.verts, target_cells, interpretation="magnitude"
+            network, physical_vertices, target_cells, interpretation="magnitude"
         )
-        layers.append(GeometryLayer(
-            "Voronoi vertices", "vertices", points, color="#efb84f",
-            cell_scalars=scalars, interpretation="magnitude",
-        ))
-        shell_vertex_rows = network.verts.iloc[list(shell_verts)]
+        if not physical_vertices.empty:
+            layers.append(GeometryLayer(
+                "Voronoi vertices", "vertices", points, color="#efb84f",
+                cell_scalars=scalars, interpretation="magnitude",
+            ))
+        shell_vertex_indices = network.verts.iloc[list(shell_verts)].index
+        shell_vertex_rows = physical_vertices.loc[physical_vertices.index.intersection(shell_vertex_indices)]
         if not shell_vertex_rows.empty:
             points, scalars = _vertex_geometry(
                 network, shell_vertex_rows, target_cells, interpretation="boundary"
@@ -406,18 +498,28 @@ def _layers_from_network(
                 "Voronoi shell vertices", "vertices", points, color="#f29f67",
                 cell_scalars=scalars, interpretation="boundary",
             ))
+        if not boundary_vertices.empty:
+            points, scalars = _vertex_geometry(
+                network, boundary_vertices, target_cells, interpretation="boundary"
+            )
+            layers.append(GeometryLayer(
+                "Virtual boundary vertices", "vertices", points, color="#a98bd4",
+                cell_scalars=scalars, interpretation="boundary", visible=False,
+            ))
 
     if network.surfs is not None and "points" in network.surfs and "tris" in network.surfs:
         points, faces, scalars = _surface_geometry(
-            network.surfs, getattr(network, "balls", None), target_cells,
+            physical_surfaces, getattr(network, "balls", None), target_cells,
             interpretation="magnitude",
         )
-        layers.append(GeometryLayer(
-            "Voronoi surfaces", "surfaces", points=points, faces=faces,
-            color="#4f9fcf", cell_scalars=scalars, opacity=0.45,
-            visible=False, interpretation="magnitude",
-        ))
-        shell_surface_rows = network.surfs.iloc[list(shell_surfs)]
+        if not physical_surfaces.empty:
+            layers.append(GeometryLayer(
+                "Voronoi surfaces", "surfaces", points=points, faces=faces,
+                color="#4f9fcf", cell_scalars=scalars, opacity=0.45,
+                visible=False, interpretation="magnitude",
+            ))
+        shell_surface_indices = network.surfs.iloc[list(shell_surfs)].index
+        shell_surface_rows = physical_surfaces.loc[physical_surfaces.index.intersection(shell_surface_indices)]
         if not shell_surface_rows.empty:
             points, faces, scalars = _surface_geometry(
                 shell_surface_rows, getattr(network, "balls", None), target_cells,
@@ -427,5 +529,15 @@ def _layers_from_network(
                 "Voronoi shell surfaces", "surfaces", points=points, faces=faces,
                 color="#806df0", cell_scalars=scalars, opacity=0.45,
                 interpretation="boundary",
+            ))
+        if not boundary_surfaces.empty:
+            points, faces, scalars = _surface_geometry(
+                boundary_surfaces, getattr(network, "balls", None), target_cells,
+                interpretation="boundary",
+            )
+            layers.append(GeometryLayer(
+                "Virtual boundary surfaces", "surfaces", points=points, faces=faces,
+                color="#9467bd", cell_scalars=scalars, opacity=0.45,
+                visible=False, interpretation="boundary",
             ))
     return layers

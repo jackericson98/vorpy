@@ -12,6 +12,7 @@ from tempfile import TemporaryDirectory
 import traceback
 
 from vorpy.src.inputs.frames import count_pdb_frames, iter_pdb_frames
+from vorpy.src.boundary import BoundaryMode, resolve_boundary
 
 
 def run_frame(frame_file, directory, ordinal, total_frames, options, settings):
@@ -67,6 +68,15 @@ def run_parallel_frames(parent, workers, total_frames=None):
         setup = Command(sys=system, settings=deepcopy(settings))
         setup.base_file = first_file
         setup.parse_commands()
+        system.boundary_config = resolve_boundary(
+            setup.boundary_config, system.has_explicit_solvent
+        )
+        system.boundary_mode = system.boundary_config.mode.value
+        if (not setup.boundary_explicitly_requested
+                and system.boundary_mode == BoundaryMode.SHELL.value):
+            from vorpy.src.command.vpy_cmnd import print_boundary_warning
+            print_boundary_warning()
+            setup.boundary_warning_printed = True
         if system.files['dir'] is None:
             system.set_output_directory()
         output_root = Path(system.files['dir']).resolve() / 'frames'

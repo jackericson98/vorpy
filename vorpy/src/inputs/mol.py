@@ -1,6 +1,7 @@
 import re
 from itertools import chain
 from vorpy.src.input_progress import iter_input_lines
+from vorpy.src.boundary import SOLVENT_RESIDUES
 import numpy as np
 
 from pandas import DataFrame
@@ -327,7 +328,7 @@ def read_mol2(sys, file=None):
     atom_id_to_index = {}
     substructures = {}
 
-    solvent_names = {'sol', 'hoh', 'sod', 'out', 'cl', 'mg', 'na', 'k', 'ion', 'cla'}
+    solvent_names = SOLVENT_RESIDUES
 
     # ------------------------------------------------------------------
     # First pass: read SUBSTRUCTURE information
@@ -444,7 +445,7 @@ def read_mol2(sys, file=None):
                 res_str = re.sub(r'-?\d+$', '', subst_name) or 'UNK'
 
             # MOL2 solvent/group records often use **** instead of a chain.
-            if res_str.lower() in solvent_names:
+            if res_str.strip().upper() in solvent_names:
                 chain_str = 'SOL'
             elif not chain_str:
                 chain_str = 'A'
@@ -473,7 +474,7 @@ def read_mol2(sys, file=None):
                 ball['chn'] = my_chn
 
             else:
-                if res_str.lower() in solvent_names or chain_str == 'SOL':
+                if res_str.strip().upper() in solvent_names or chain_str == 'SOL':
                     my_chn = Sol(atoms=[ball['num']], residues=[], name='SOL', sys=sys)
                     sys.sol = my_chn
                 else:
@@ -502,7 +503,7 @@ def read_mol2(sys, file=None):
                 my_res = Residue(sys=sys, atoms=[ball['num']], name=res_str, sequence=res_seq, chain=ball['chn'])
                 resids[res_key] = my_res
 
-                if res_str.lower() in solvent_names or chain_str == 'SOL':
+                if res_str.strip().upper() in solvent_names or chain_str == 'SOL':
                     if sys.sol is None:
                         sys.sol = Sol(sys=sys, atoms=[], residues=[])
 

@@ -21,6 +21,7 @@ class Atom:
     mass: float | None = None
     charge: float | None = None
     source_properties: dict[str, float | None] = field(default_factory=dict)
+    is_boundary_generator: bool = False
 
 
 @dataclass(frozen=True)

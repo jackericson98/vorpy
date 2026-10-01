@@ -64,6 +64,12 @@ from vorpy.workbench.services.info_parser import Measurement, NetworkSummary, pa
 from vorpy.workbench.services.structure_loader import load_pdb
 from vorpy.workbench.workers.load_worker import LoadWorker
 from vorpy.workbench.chemistry import is_solvent
+from vorpy.src.boundary import (
+    DEFAULT_PROBE_RADIUS,
+    DEFAULT_SHELL_OFFSET,
+    DEFAULT_SHELL_SPACING,
+    has_explicit_solvent,
+)
 from vorpy.workbench.ui.structure_browser import StructureBrowser
 from vorpy.workbench.services.vorpy_backend import VorPyBackend, VorPySolveSettings
 from vorpy.workbench.ui.molecular_view import (
@@ -85,6 +91,9 @@ NETWORK_LAYER_OPTIONS = (
     ("shell_edges", "Shell edges", "#42d6c7"),
     ("shell_vertices", "Shell vertices", "#f29f67"),
     ("shell_surfaces", "Shell surfaces", "#806df0"),
+    ("boundary_edges", "Virtual boundary edges", "#9467bd"),
+    ("boundary_vertices", "Virtual boundary vertices", "#a98bd4"),
+    ("boundary_surfaces", "Virtual boundary surfaces", "#9467bd"),
 )
 
 
@@ -145,6 +154,8 @@ class MainWindow(QMainWindow):
         self._interfaces: dict[str, tuple[str, str]] = {}
         self._selection_entries: list[tuple[str, tuple[int, ...]]] = []
         self._network_sizes_by_frame: dict[tuple[Path, int], tuple[int, int]] = {}
+        self._boundary_context_key = None
+        self._boundary_manually_selected = False
 
         self.viewer = MolecularView(self)
         self.viewer.loading_progress.connect(self._loading_progress)
@@ -778,6 +789,40 @@ class MainWindow(QMainWindow):
         self.solve_target = QComboBox()
         self.solve_target.addItem("Whole molecule", ("whole", ""))
         self.solve_target.addItem("Active selection", ("selection", ""))
+        self.boundary_mode = QComboBox()
+        for label, mode, enabled in (
+            ("No boundary (default)", "none", True),
+            ("Explicit solvent", "explicit", True),
+            ("Virtual solvent shell", "shell", True),
+            ("Solvent-excluded surface · Coming soon", "ses", False),
+            ("Solvent-accessible surface · Coming soon", "sas", False),
+            ("AW probe boundary · Coming soon", "probe", False),
+        ):
+            self.boundary_mode.addItem(label, mode)
+            if not enabled:
+                self.boundary_mode.model().item(self.boundary_mode.count() - 1).setEnabled(False)
+        self.boundary_mode.currentIndexChanged.connect(self._boundary_mode_changed)
+        self.boundary_mode.activated.connect(self._boundary_mode_activated)
+        boundary_control = QWidget()
+        boundary_layout = QHBoxLayout(boundary_control)
+        boundary_layout.setContentsMargins(0, 0, 0, 0)
+        boundary_layout.addWidget(self.boundary_mode, 1)
+        self.boundary_settings_button = QPushButton("Settings…")
+        self.boundary_settings_button.clicked.connect(self._open_boundary_settings)
+        boundary_layout.addWidget(self.boundary_settings_button)
+        self.boundary_probe_radius = QDoubleSpinBox()
+        self.boundary_probe_radius.setRange(0.1, 10.0)
+        self.boundary_probe_radius.setDecimals(2)
+        self.boundary_probe_radius.setSingleStep(0.1)
+        self.boundary_probe_radius.setValue(DEFAULT_PROBE_RADIUS)
+        self.boundary_shell_spacing = QDoubleSpinBox()
+        self.boundary_shell_spacing.setRange(0.5, 10.0)
+        self.boundary_shell_spacing.setDecimals(2)
+        self.boundary_shell_spacing.setValue(DEFAULT_SHELL_SPACING)
+        self.boundary_shell_offset = QDoubleSpinBox()
+        self.boundary_shell_offset.setRange(0.5, 10.0)
+        self.boundary_shell_offset.setDecimals(2)
+        self.boundary_shell_offset.setValue(DEFAULT_SHELL_OFFSET)
         self.network_type = QComboBox()
         self.network_type.addItems(["Atomic Voronoi", "Power", "Primitive"])
         self.max_vertices = QSpinBox()
@@ -795,6 +840,8 @@ class MainWindow(QMainWindow):
             ("Target", self.solve_target,
              "Choose what to analyze:\nwhole molecule, active selection,\n"
              "a saved group, or an interface."),
+            ("Boundary", boundary_control,
+             "Explicit solvent uses loaded water/ions. Virtual solvent shell adds marked, geometry-only generators."),
             ("Scheme", self.network_type,
              "Choose the spatial partitioning method.\n"
              "Atomic Voronoi uses atom-surface distance;\n"
@@ -1373,6 +1420,9 @@ class MainWindow(QMainWindow):
                 allowed = set(VorPySolveSettings.__dataclass_fields__)
                 settings = {key: value for key, value in project.backend_settings.items() if key in allowed}
                 self.backend.settings = VorPySolveSettings(**settings)
+                self.boundary_probe_radius.setValue(self.backend.settings.probe_radius)
+                self.boundary_shell_spacing.setValue(self.backend.settings.shell_spacing)
+                self.boundary_shell_offset.setValue(self.backend.settings.shell_offset)
             self._loading_project = True
             if project.structure is not None:
                 self.load_path(project.structure.source_path)
@@ -1385,6 +1435,12 @@ class MainWindow(QMainWindow):
                     self.source = project.structure.source_path
                     self._display_result(restored_result)
                 self._restore_project_groups()
+                if self.backend.settings.boundary_mode in {"none", "explicit", "shell"}:
+                    index = self.boundary_mode.findData(self.backend.settings.boundary_mode)
+                    self.boundary_mode.blockSignals(True)
+                    self.boundary_mode.setCurrentIndex(index)
+                    self.boundary_mode.blockSignals(False)
+                    self._boundary_manually_selected = True
                 self._interfaces = {
                     interface.name: (interface.group_a, interface.group_b)
                     for interface in project.interfaces
@@ -1486,6 +1542,13 @@ class MainWindow(QMainWindow):
             )
         self.project.result_state = result_to_json(result) if result is not None else None
         self.project.view_state = self._view_state_to_json()
+        self.backend.settings = replace(
+            self.backend.settings,
+            boundary_mode=(self.boundary_mode.currentData() if self._boundary_manually_selected else None),
+            probe_radius=self.boundary_probe_radius.value(),
+            shell_spacing=self.boundary_shell_spacing.value(),
+            shell_offset=self.boundary_shell_offset.value(),
+        )
         self.project.backend_settings = asdict(self.backend.settings)
 
     def _view_state_to_json(self) -> dict:
@@ -2050,6 +2113,8 @@ class MainWindow(QMainWindow):
     def solve(self) -> None:
         if self._thread is not None or self._loading_structure or self.current_result is None:
             return
+        if not self._confirm_boundary_solve():
+            return
         if self._solve_frame_selection:
             self._solve_all_return_frame = self.current_result.frame_index
             self._solve_all_queue = list(self._solve_frame_selection)
@@ -2063,6 +2128,82 @@ class MainWindow(QMainWindow):
             self._begin_solve(self._solve_all_queue.pop(0), self._solve_all_indices)
             return
         self._begin_solve(self.current_result.frame_index)
+
+    def _boundary_mode_changed(self, _index: int) -> None:
+        if self.current_result is not None:
+            self._boundary_manually_selected = True
+
+    def _boundary_mode_activated(self, _index: int) -> None:
+        if self.current_result is not None:
+            self._boundary_manually_selected = True
+
+    def _open_boundary_settings(self) -> None:
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Virtual solvent shell settings")
+        form = QFormLayout(dialog)
+        probe = QDoubleSpinBox(dialog)
+        probe.setRange(0.1, 10.0)
+        probe.setDecimals(2)
+        probe.setValue(self.boundary_probe_radius.value())
+        spacing = QDoubleSpinBox(dialog)
+        spacing.setRange(0.5, 10.0)
+        spacing.setDecimals(2)
+        spacing.setValue(self.boundary_shell_spacing.value())
+        offset = QDoubleSpinBox(dialog)
+        offset.setRange(0.5, 10.0)
+        offset.setDecimals(2)
+        offset.setValue(self.boundary_shell_offset.value())
+        form.addRow("Probe radius (Å)", probe)
+        form.addRow("Shell spacing (Å)", spacing)
+        form.addRow("Shell offset (Å)", offset)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, parent=dialog)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        form.addRow(buttons)
+        if dialog.exec() == QDialog.Accepted:
+            self.boundary_probe_radius.setValue(probe.value())
+            self.boundary_shell_spacing.setValue(spacing.value())
+            self.boundary_shell_offset.setValue(offset.value())
+
+    def _sync_boundary_for_structure(self, result: AnalysisResult) -> None:
+        key = (result.source, result.frame_index)
+        if key == self._boundary_context_key:
+            return
+        self._boundary_context_key = key
+        self._boundary_manually_selected = False
+        mode = "none"
+        index = self.boundary_mode.findData(mode)
+        self.boundary_mode.blockSignals(True)
+        self.boundary_mode.setCurrentIndex(index)
+        self.boundary_mode.blockSignals(False)
+
+    def _confirm_boundary_solve(self) -> bool:
+        result = self.current_result
+        if result is None:
+            return False
+        has_solvent = has_explicit_solvent(result.atoms)
+        mode = self.boundary_mode.currentData()
+        if mode in {"ses", "sas", "probe"}:
+            self._show_error(f"Boundary mode '{mode}' is planned but not implemented.")
+            return False
+        if mode == "explicit" and not has_solvent:
+            self._show_error("Explicit solvent boundary requested, but no explicit solvent was detected.")
+            return False
+        if not has_solvent and mode == "shell" and not self._boundary_manually_selected:
+            message = QMessageBox(self)
+            message.setWindowTitle("Confirm virtual solvent shell")
+            message.setIcon(QMessageBox.Warning)
+            message.setText("No explicit solvent was detected.")
+            message.setInformativeText(
+                "VorPy normally requires a boundary to prevent exterior Voronoi cells from remaining unbounded.\n\n"
+                "The Virtual Solvent Shell boundary has been selected automatically.\n\n"
+                f"Boundary method: Virtual Solvent Shell\nProbe radius: {self.boundary_probe_radius.value():.2f} Å"
+            )
+            proceed = message.addButton("Continue", QMessageBox.AcceptRole)
+            message.addButton(QMessageBox.Cancel)
+            message.exec()
+            return message.clickedButton() is proceed
+        return True
 
     def solve_all_frames(self) -> None:
         if (self._thread is not None or self._loading_structure or self.current_result is None
@@ -2133,6 +2274,10 @@ class MainWindow(QMainWindow):
                 build_vertices=True,
                 build_edges=True,
                 atomic_defaults=validate_defaults(self.atomic_defaults),
+                boundary_mode=self.boundary_mode.currentData(),
+                probe_radius=self.boundary_probe_radius.value(),
+                shell_spacing=self.boundary_shell_spacing.value(),
+                shell_offset=self.boundary_shell_offset.value(),
             )
         )
         self.solve_action.setEnabled(False)
@@ -2223,6 +2368,7 @@ class MainWindow(QMainWindow):
         self._loading_progress("Applying atomic properties…", 72)
         self._apply_defaults_to_result(result)
         self.current_result = result
+        self._sync_boundary_for_structure(result)
         if result.frame_count > 1 and result.source is not None:
             self._trajectory_cache[(result.source.resolve(), result.frame_index)] = result
         main_atom_count = sum(
@@ -2280,6 +2426,8 @@ class MainWindow(QMainWindow):
         )
         if kind not in {"edges", "vertices", "surfaces"}:
             return None
+        if "virtual boundary" in layer.name.lower():
+            return f"boundary_{kind}"
         return f"shell_{kind}" if "shell" in layer.name.lower() else kind
 
     def _network_layers(self, key: str):
@@ -2326,7 +2474,7 @@ class MainWindow(QMainWindow):
                 self._set_color_button_swatch(
                     self.network_color_buttons[key], layers[0].color
                 )
-        surface_layers = [layer for layer in result.layers if self._network_layer_key(layer) in {"surfaces", "shell_surfaces"}]
+        surface_layers = [layer for layer in result.layers if self._network_layer_key(layer) in {"surfaces", "shell_surfaces", "boundary_surfaces"}]
         scalar_layers = [layer for layer in result.layers if layer.cell_scalars]
         self.surface_opacity.blockSignals(True)
         if surface_layers:
@@ -2366,12 +2514,14 @@ class MainWindow(QMainWindow):
         self.surface_opacity.setEnabled(bool(surface_layers))
         self.surface_opacity.blockSignals(False)
         self.edge_size.setEnabled(
-            bool(self._network_layers("edges") or self._network_layers("shell_edges"))
+            bool(self._network_layers("edges") or self._network_layers("shell_edges")
+                 or self._network_layers("boundary_edges"))
         )
         self.vertex_size.setEnabled(
             bool(
                 self._network_layers("vertices")
                 or self._network_layers("shell_vertices")
+                or self._network_layers("boundary_vertices")
             )
         )
 

@@ -1,6 +1,7 @@
 import pandas as pd
+from types import SimpleNamespace
 
-from vorpy.src.command.group import get_group_spheres
+from vorpy.src.command.group import get_group_chains, get_group_spheres
 
 
 def _atoms():
@@ -49,3 +50,11 @@ def test_atom_name_returns_system_positions():
 def test_element_returns_system_positions():
     atoms = _atoms()
     assert get_group_spheres(atoms, ["carbon"]) == [0, 3]
+
+
+def test_chain_selection_accepts_author_chain_id_and_keeps_numeric_index_behavior():
+    chains = [SimpleNamespace(name="A"), SimpleNamespace(name="B"), SimpleNamespace(name="I")]
+    assert get_group_chains(chains, ["A"]) == [chains[0]]
+    assert get_group_chains(chains, ["I"]) == [chains[2]]
+    assert get_group_chains(chains, ["1"]) == [chains[1]]
+    assert get_group_chains(chains, ["0-1"]) == chains[:2]

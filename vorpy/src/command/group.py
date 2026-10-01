@@ -341,11 +341,16 @@ def get_group_chains(chains, identifier):
             index1, index2 = int(index1), int(index2)
         except ValueError:
             pass
-        # Get all the atoms in the list
-        my_chains = []
-        for i in range(index1, index2 + 1):
-            my_chains.append(chains[i])
-        return my_chains
+        else:
+            # Get all the chains in the inclusive positional range.
+            return [chains[i] for i in range(index1, index2 + 1)]
+    # PDB author chain IDs are more stable and readable than list positions.
+    # Preserve established integer/range behavior above, then allow an exact
+    # chain-name match (for example ``-g c A``).
+    chain_id = str(identifier[0]).strip()
+    matches = [chain for chain in chains
+               if str(getattr(chain, 'name', '')).strip() == chain_id]
+    return matches or None
 
 
 def interpret_group_commands(my_sys, group_dict, command):

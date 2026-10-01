@@ -1,4 +1,10 @@
 import os
+from vorpy.src.boundary import (
+    BoundaryMode,
+    DEFAULT_BOUNDARY_GENERATOR_RADIUS,
+    ION_RESIDUES,
+    WATER_RESIDUES,
+)
 
 
 def export_sys_info(sys):
@@ -103,6 +109,27 @@ def export_sys_info(sys):
         info.write(f"Output Directory: {output_location}\n")
         info.write("\n")
 
+        info.write("BOUNDARY\n")
+        info.write("-" * 72 + "\n")
+        detected = bool(getattr(sys, "has_explicit_solvent", False))
+        mode = getattr(sys, "boundary_mode", None) or (
+            getattr(getattr(sys, "boundary_config", None), "mode", None)
+        )
+        mode_value = getattr(mode, "value", mode)
+        if mode_value is None:
+            mode_value = BoundaryMode.NONE.value
+        mode_label = {"none": "No boundary", "shell": "Virtual solvent shell",
+                      "explicit": "Explicit solvent"}.get(mode_value, mode_value)
+        info.write(f"Mode:                   {mode_label}\n")
+        info.write(f"Explicit solvent detected: {'Yes' if detected else 'No'}\n")
+        config = getattr(sys, "boundary_config", None)
+        if config is not None and mode_value == BoundaryMode.SHELL.value:
+            info.write(f"Probe radius:           {config.probe_radius:.3f} Å\n")
+            info.write(f"Shell offset:           {config.shell_offset:.3f} Å\n")
+            info.write(f"Shell spacing:          {config.shell_spacing:.3f} Å\n")
+            info.write(f"Generator radius:       {DEFAULT_BOUNDARY_GENERATOR_RADIUS:.3f} Å\n")
+        info.write(f"Boundary generators:    {len(getattr(sys, 'boundary_generators', ())):,}\n\n")
+
         # ==============================================================
         # MOLECULAR COMPOSITION
         # ==============================================================
@@ -147,25 +174,8 @@ def export_sys_info(sys):
             # Chemistry-aware classification
             # ----------------------------------------------------------
 
-            water_names = {
-                "SOL", "HOH", "WAT", "H2O",
-                "TIP3", "TIP3P", "TIP4", "TIP4P",
-                "SPC", "SPCE"
-            }
-
-            ion_names = {
-                "NA", "NA+", "SOD",
-                "K", "K+", "POT",
-                "CL", "CL-", "CLA",
-                "MG", "MG2", "MG2+",
-                "CA", "CA2", "CA2+",
-                "ZN", "ZN2", "ZN2+",
-                "FE", "FE2", "FE3",
-                "MN", "MN2",
-                "CU", "CU1", "CU2",
-                "CO", "NI", "CD",
-                "CS", "LI", "RB",
-            }
+            water_names = WATER_RESIDUES
+            ion_names = ION_RESIDUES
 
             if res_name_col:
                 res_names = (

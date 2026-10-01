@@ -24,6 +24,7 @@ from vorpy.src.chemistry import special_radii
 from vorpy.src.chemistry import element_radii
 from vorpy.src.calculations import compare_networks
 from vorpy.src.calculations import get_time
+from vorpy.src.boundary import BoundaryConfig, has_explicit_solvent
 
 
 def infer_index_offset(index_map):
@@ -204,7 +205,7 @@ class System:
     def __init__(self, file=None, files=None, spheres=None, verts_file=None, balls_file=None, network_file=None,
                  index_file=None, frame_files=None, output_directory=None, gui=None, root_dir=None, print_actions=False,
                  atoms=None, residues=None, chains=None, segments=None, groups=None, ifaces=None, simple=False,
-                 name=None, make_dir=True):
+                 name=None, make_dir=True, boundary_config=None):
         """
         Initialize a new System object for managing molecular systems and networks.
 
@@ -319,6 +320,9 @@ class System:
         self.elements = elements  # Elements            :   List of elements with mass, number, radius, group
         self.element_radii = element_radii  # Element Radii       :   Dictionary of elements and their radii
         self.special_radii = special_radii  # Special Radii       :   Dictionary of residues and their atomic radii
+        self.boundary_config = boundary_config or BoundaryConfig()
+        self.boundary_generators = ()
+        self.boundary_mode = None
         self.round_to = None  # round_to            :   Decimals setting for the whole system
         self.export_type = 'large'  # Export type         :   Holds the type of objects that come out
         self.cmnds = None  # Commands            :   Input commands for the system to be run
@@ -654,8 +658,13 @@ class System:
         # If the system wants its actions printed
         if self.print_actions and not simple:
             print("{} loaded - {} atoms, {} residues, {} chain{}, "
-                  .format(self.name, len(self.atoms) if self.atoms is not None else len(self.balls),
-                          len(self.residues), len(self.chains), 's' if len(self.chains) > 1 else ''))
+                          .format(self.name, len(self.atoms) if self.atoms is not None else len(self.balls),
+                                  len(self.residues), len(self.chains), 's' if len(self.chains) > 1 else ''))
+
+    @property
+    def has_explicit_solvent(self):
+        """Whether loaded physical atoms include a recognized solvent/ion residue."""
+        return has_explicit_solvent(self.balls)
 
     def set_radii(self, my_element_radii=None, my_special_radii=None):
         """Set the atom radii in the spheres dataframe.

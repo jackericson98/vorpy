@@ -3,6 +3,7 @@ import numpy as np
 from copy import deepcopy
 from vorpy.src.group import Group
 from vorpy.src.network import Network
+from vorpy.src.boundary import network_geometry
 from vorpy.src.interface.export import interface_exports
 from vorpy.src.interface.water import analyze_interface_waters
 from vorpy.src.interface.water import build_buried_water_groups
@@ -132,12 +133,13 @@ class Interface:
 
         interface_indices = sorted(self.group1_indices | self.group2_indices)
 
+        locs, rads, masses, boundary_indices, boundary_config = network_geometry(self.sys)
         self.net = Network(
             # Retain the complete system geometry so surrounding balls can
             # participate in geometric validity checks.
-            locs=self.sys.balls["loc"],
-            rads=self.sys.balls["rad"],
-            masses=self.sys.balls["mass"],
+            locs=locs,
+            rads=rads,
+            masses=masses,
 
             # Balls whose interface topology is being represented.
             group=interface_indices,
@@ -151,6 +153,12 @@ class Interface:
             verts=verts,
             system=self.sys,
         )
+        self.net.boundary_indices = boundary_indices
+        self.net.boundary_config = boundary_config
+        self.net.boundary_mode = getattr(self.sys, "boundary_mode", None)
+        if boundary_indices:
+            self.net.balls["is_boundary_generator"] = False
+            self.net.balls.loc[list(boundary_indices), "is_boundary_generator"] = True
 
         self._update_group_metadata(
             network_created=True,

@@ -147,6 +147,39 @@ def test_action_state_and_visibility_controls(monkeypatch):
     assert not window.solve_action.isEnabled()
     assert window.inspector.currentIndex() == 0
     assert not window.cancel_action.isEnabled()
+
+
+def test_boundary_default_is_none_with_or_without_solvent(monkeypatch):
+    window = make_window(monkeypatch)
+    unsolvated = sample_result()
+    window._display_result(unsolvated)
+    assert window.boundary_mode.currentData() == "none"
+    solvated = sample_result()
+    solvated.source = unsolvated.source
+    solvated.frame_index = 2
+    solvated.atoms[0] = Atom(0, 1, "O", "O", (0., 0., 0.), "HOH", "1", "W")
+    window._display_result(solvated)
+    assert window.boundary_mode.currentData() == "none"
+
+
+def test_no_boundary_default_starts_solve_without_confirmation(monkeypatch):
+    window = make_window(monkeypatch)
+    window._display_result(sample_result())
+    started = []
+    monkeypatch.setattr(window, "_begin_solve", lambda *_: started.append(True))
+    window.solve()
+    assert started == [True]
+
+
+
+def test_explicit_solvent_solve_needs_no_boundary_confirmation(monkeypatch):
+    window = make_window(monkeypatch)
+    result = sample_result()
+    result.atoms[0] = Atom(0, 1, "O", "O", (0., 0., 0.), "HOH", "1", "W")
+    window.current_result = result
+    window._sync_boundary_for_structure(result)
+    assert window.boundary_mode.currentData() == "none"
+    assert window._confirm_boundary_solve()
     assert window.show_cartoon.isChecked()
     assert not window.show_spheres.isChecked()
     assert not window.show_sticks.isChecked()
@@ -289,8 +322,14 @@ def test_network_controls_manage_categories_color_and_surface_opacity(monkeypatc
     assert set(window.network_layer_checks) == {
         "edges", "vertices", "surfaces",
         "shell_edges", "shell_vertices", "shell_surfaces",
+        "boundary_edges", "boundary_vertices", "boundary_surfaces",
     }
-    assert all(control.isEnabled() for control in window.network_layer_checks.values())
+    assert all(window.network_layer_checks[key].isEnabled() for key in (
+        "edges", "vertices", "surfaces", "shell_edges", "shell_vertices", "shell_surfaces"
+    ))
+    assert not any(window.network_layer_checks[key].isEnabled() for key in (
+        "boundary_edges", "boundary_vertices", "boundary_surfaces"
+    ))
     assert window.surface_opacity.isEnabled()
     assert window.surface_opacity.value() == 60
     assert window.surface_color_scheme.isEnabled()

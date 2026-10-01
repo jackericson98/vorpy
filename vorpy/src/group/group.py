@@ -3,6 +3,7 @@ from vorpy.src.group.sort import add_balls
 from vorpy.src.group.sort import get_info
 from vorpy.src.group.export import group_exports
 from vorpy.src.network import Network
+from vorpy.src.boundary import network_geometry
 from vorpy.src.inputs import read_verts
 from vorpy.src.output.draw import DEFAULT_EDGE_RADIUS, DEFAULT_VERTEX_RADIUS
 
@@ -507,12 +508,14 @@ class Group:
             Network will calculate vertices when ``build()`` is called.
         """
 
+        locs, rads, masses, boundary_indices, config = network_geometry(self.sys)
+
         self.net = Network(
             # Complete system geometry is retained even for partial networks.
             # Interface filtering determines which portion is ultimately built.
-            locs=self.sys.balls['loc'],
-            rads=self.sys.balls['rad'],
-            masses=self.sys.balls['mass'],
+            locs=locs,
+            rads=rads,
+            masses=masses,
 
             # Cells owned by this Group.
             group=self.ball_ndxs,
@@ -530,6 +533,12 @@ class Group:
             # Add the system
             system=self.sys
         )
+        self.net.boundary_indices = boundary_indices
+        self.net.boundary_config = config
+        self.net.boundary_mode = getattr(self.sys, "boundary_mode", None)
+        if boundary_indices:
+            self.net.balls["is_boundary_generator"] = False
+            self.net.balls.loc[list(boundary_indices), "is_boundary_generator"] = True
 
     def build(self, verts=None):
         """
