@@ -203,7 +203,7 @@ def boundary_component_reports(group):
     return reports
 
 
-def export_planar_boundary(group, reports, directory):
+def export_planar_boundary(group, reports, directory, exterior_transparency=0.7):
     """Export the assembled faces, with cavity winding preserved, to OBJ/PyMOL."""
     obj, script, offset = [], [
         'from pymol import cmd', 'from pymol.cgo import BEGIN, END, TRIANGLES, NORMAL, VERTEX, COLOR',
@@ -225,11 +225,11 @@ def export_planar_boundary(group, reports, directory):
         script.extend(['mesh.extend([' + ',\n'.join(cgo) + ', END])',
                        f'cmd.load_cgo(mesh, "{name}")'])
         if report['signed_volume'] > 0:
-            script.append(f'cmd.set("cgo_transparency", 0.7, "{name}")')
+            script.append(f'cmd.set("cgo_transparency", {exterior_transparency}, "{name}")')
     script.extend(['cmd.bg_color("white")', 'cmd.orient("boundary_*")'])
     (directory / 'boundary.obj').write_text('\n'.join(obj) + '\n')
     (directory / 'boundary.py').write_text('\n'.join(script) + '\n')
-    (directory / 'boundary.pml').write_text(f'run "{directory / "boundary.py"}"\n')
+    (directory / 'boundary.pml').write_text(f'run "{(directory / "boundary.py").as_posix()}"\n')
 
 
 def inspect_group(group, loop_cells=(), junction_positions=()):
@@ -354,7 +354,9 @@ def acceptance_errors(report, genus, atol=1e-8):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--shape', choices=['multitorus', 'sphere_with_cavities'], default='multitorus')
+    parser.add_argument('--shape', choices=['multitorus', 'sphere_with_cavities', 'deep_pocket'], default='multitorus')
+    from vorpy.src.geometry.validation_shapes import add_deep_pocket_arguments
+    add_deep_pocket_arguments(parser)
     parser.add_argument('--n-cavities', type=int, default=1)
     parser.add_argument('--outer-radius', type=float, default=None,
                         help='Omit to grow the exterior safely with cavity count.')
@@ -372,6 +374,11 @@ def main():
     parser.add_argument('--expect-genus', type=int,
                         help='Assert acceptance criteria after measurement; never changes geometry/results.')
     args = parser.parse_args()
+    if args.shape == 'deep_pocket':
+        if args.input:
+            parser.error('Deep-pocket diagnostic generates its own input.')
+        run_deep_pocket_diagnostic(args)
+        return
     if args.shape == 'sphere_with_cavities':
         if args.input or args.expect_genus is not None:
             parser.error('Cavity diagnostic generates its own input and checks cavity targets.')
@@ -518,6 +525,139 @@ def run_cavity_diagnostic(args):
     print('Acceptance: ' + ('FAIL\n' + '\n'.join(errors) if errors else 'PASS'))
     if errors:
         raise SystemExit(1)
+
+
+def run_deep_pocket_diagnostic(args):
+    """Build the actual selected VorPy union, reject wrong topology, export it."""
+    from vorpy.src.geometry.validation_shapes import deep_pocket
+    from vorpy.src.boundary import BoundaryConfig
+    from vorpy.src.command.set import sett
+    from vorpy.src.group.group import Group
+    from vorpy.src.system.system import System
+
+    output = args.output.resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    shape = deep_pocket(args.body_radius, args.pocket_mouth_radius, args.pocket_depth,
+                        args.pocket_neck_radius, args.outer_count, args.pocket_layers,
+                        args.ring_count)
+    pdb = shape.save_pdb(output / 'deep_pocket.pdb')
+    shape.save_xyzr(output / 'deep_pocket.xyzr')
+    shape.save_pymol_script(output / 'generators.pml', pdb)
+    max_vert = max(30., 2*args.body_radius)
+    if max_vert > 5000:
+        raise ValueError('Body exceeds the supported vertex-radius limit.')
+    with (output / 'build.log').open('w') as log, contextlib.redirect_stdout(log):
+        system = System(file=str(pdb), make_dir=False, print_actions=False,
+                        boundary_config=BoundaryConfig('none'))
+        group = Group(system, name='deep_pocket',
+                      atoms=list(range(shape.parameters['interior_count'])),
+                      settings=sett('mv', [str(max_vert)]), make_net=True)
+        group.build()
+        group.get_info()
+        report = inspect_group(group)
+        report['component_reports'] = boundary_component_reports(group)
+        report['network_counts'] = dict(vertices=len(group.net.verts),
+                                        edges=len(group.net.edges), surfaces=len(group.net.surfs))
+        export_planar_boundary(group, report['component_reports'], output, exterior_transparency=0.)
+        export_pocket_presentation(group, shape, output)
+        hits = pocket_axis_intersections(group)
+    report.update({
+        'input': str(pdb), 'generator_count': shape.n_atoms,
+        'parameters': {k: v for k, v in shape.parameters.items()
+                       if k not in {'interior_coordinates', 'interior_indices', 'surface_regions'}},
+        'settings': {'net_type': 'aw', 'boundary': 'none', 'max_vert': max_vert},
+        'axis_boundary_intersections_z': hits,
+        'measured_axial_floor_thickness': hits[-1]-hits[0] if len(hits) == 2 else None,
+        'expected_gaussian_curvature': float(4*np.pi),
+        'gaussian_error': report['integrated_gaussian_curvature']-4*np.pi,
+    })
+    errors = acceptance_errors(report, 0)
+    if len(report['component_reports']) != 1:
+        errors.append('Expected one boundary component and no enclosed cavity.')
+    if (len(hits) != 2 or
+            abs(hits[-1]-shape.parameters['bottom_z']) > shape.parameters['pocket_neck_radius']):
+        errors.append('Axis does not intersect a blind pocket floor and intact underside.')
+    report['acceptance_errors'] = errors
+    (output / 'report.json').write_text(json.dumps(report, indent=2))
+    print(json.dumps({k: report[k] for k in ('generator_count', 'network_counts',
+        'selected_cells', 'complete_selected_cells', 'boundary_vertices', 'boundary_edges',
+        'boundary_faces', 'boundary_components', 'inferred_genus', 'euler_characteristic',
+        'integrated_gaussian_curvature', 'gaussian_error', 'axis_boundary_intersections_z',
+        'measured_axial_floor_thickness', 'acceptance_errors')}, indent=2))
+    if errors:
+        raise SystemExit(1)
+
+
+def pocket_axis_intersections(group):
+    """Intersect the actual boundary triangles with the global z axis."""
+    hits = []
+    for face in group.layer_surfs[0]:
+        _, xyz, _ = _oriented_polygon(group, face)
+        for j in range(1, len(xyz)-1):
+            a, b, c = xyz[[0, j, j+1]]
+            matrix = np.column_stack((b[:2]-a[:2], c[:2]-a[:2]))
+            if abs(np.linalg.det(matrix)) < 1e-10:
+                continue
+            u, v = np.linalg.solve(matrix, -a[:2])
+            if min(u, v, 1-u-v) >= -1e-8:
+                hits.append(float(a[2]+u*(b[2]-a[2])+v*(c[2]-a[2])))
+    unique = []
+    for hit in sorted(hits):
+        if not unique or hit-unique[-1] > 1e-5:
+            unique.append(hit)
+    return unique
+
+
+def export_pocket_presentation(group, shape, output):
+    """Opaque actual boundary; warm walls/floor distinguish them from the body."""
+    regions = shape.parameters['surface_regions']
+    colors = {'outer': (0.24, 0.57, 0.68), 'wall': (0.88, 0.56, 0.28),
+              'floor': (1.0, 0.80, 0.38)}
+    selected = set(group.layer_net_atoms[0])
+    meshes = {name: [] for name in colors}
+    for face_id in group.layer_surfs[0]:
+        face = group.net.surfs.iloc[face_id]
+        inside, = selected.intersection(face['balls'])
+        cell = group.net.balls.iloc[inside]
+        index = int(cell.get('system_num', cell['num']))
+        region = regions[index]
+        _, xyz, normal = _oriented_polygon(group, face_id)
+        for j in range(1, len(xyz)-1):
+            triangle = xyz[[0, j, j+1]]
+            # Color the flared lip with the body so color does not exaggerate
+            # the staggered support-cell boundaries around the circular mouth.
+            color_region = ("outer" if triangle[:, 2].mean() >
+                            shape.parameters['mouth_z'] - shape.parameters['support_offset']/3
+                            else region)
+            meshes[color_region].append({'vertices': triangle.tolist(),
+                                         'normal': normal.tolist()})
+    write_pocket_presentation(meshes, output)
+
+
+def write_pocket_presentation(meshes, output):
+    """Write an opaque PyMOL view from measured triangles without modifying them."""
+    colors = {'outer': (0.24, 0.57, 0.68), 'wall': (0.88, 0.56, 0.28),
+              'floor': (1.0, 0.80, 0.38)}
+    # JSON triangles also allow reproducible independent surface rendering.
+    (output / 'presentation_mesh.json').write_text(json.dumps(meshes))
+    script = ['from pymol import cmd',
+              'from pymol.cgo import BEGIN, END, TRIANGLES, NORMAL, VERTEX, COLOR',
+              'cmd.reinitialize()']
+    for region, triangles in meshes.items():
+        script.append(f'mesh = [BEGIN, TRIANGLES, COLOR, {", ".join(map(str, colors[region]))}]')
+        for triangle in triangles:
+            entries = ['NORMAL', *map(str, triangle['normal'])]
+            for vertex in triangle['vertices']:
+                entries.extend(['VERTEX', *map(str, vertex)])
+            script.append('mesh.extend(['+', '.join(entries)+'])')
+        script.extend(['mesh.append(END)', f'cmd.load_cgo(mesh, "pocket_{region}")'])
+    script.extend(['cmd.bg_color("white")', 'cmd.set("orthoscopic", 1)',
+                   'cmd.set("two_sided_lighting", 1)', 'cmd.set("ambient", 0.45)',
+                   'cmd.set("specular", 0.2)', 'cmd.set("cgo_transparency", 0)',
+                   'cmd.reset()', 'cmd.zoom("pocket_*", 2)', 'cmd.turn("x", -8)',
+                   'cmd.clip("slab", 100)', 'cmd.deselect()'])
+    (output / 'presentation.py').write_text('\n'.join(script)+'\n')
+    (output / 'presentation.pml').write_text(f'run "{(output / "presentation.py").as_posix()}"\n')
 
 
 if __name__ == '__main__':

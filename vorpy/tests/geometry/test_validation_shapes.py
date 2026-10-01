@@ -3,8 +3,61 @@ import pytest
 
 from vorpy.src.geometry.validation_shapes import (
     box, cube, sphere, spherocylinder, spherocylinder_multicell,
-    torus, torus_multicell, double_torus_multicell,
+    torus, torus_multicell, double_torus_multicell, deep_pocket,
 )
+
+
+@pytest.mark.parametrize("resolution", [8, 10, 14])
+def test_deep_pocket_has_closed_genus_zero_boundary_and_blind_floor(resolution):
+    from collections import Counter
+    from scipy.spatial import Voronoi
+
+    shape = deep_pocket(ring_count=resolution)
+    count = shape.parameters["interior_count"]
+    xyz = shape.xyzr[:, :3]
+    net = Voronoi(xyz)
+    faces = [face for (a, b), face in zip(net.ridge_points, net.ridge_vertices)
+             if (a < count) != (b < count)]
+    vertices = set(vertex for face in faces for vertex in face)
+    edges = Counter(tuple(sorted((face[i], face[(i + 1) % len(face)])))
+                    for face in faces for i in range(len(face)))
+    assert -1 not in vertices
+    assert set(edges.values()) == {2}
+    assert len(vertices) - len(edges) + len(faces) == 2
+    # The axial recess is exterior, but material closes it before the underside.
+    for z, inside in [(12.0, False), (3.0, False), (0.0, False),
+                      (-7.0, True), (-8.0, True), (-12.0, False)]:
+        nearest = np.argmin(np.linalg.norm(xyz - [0, 0, z], axis=1))
+        assert bool(nearest < count) == inside
+    assert shape.expected_int_gaussian_curvature == pytest.approx(4 * np.pi)
+    assert np.isnan(shape.expected_int_mean_curvature)
+
+
+def test_deep_pocket_cli_and_exports(tmp_path):
+    from vorpy.src.geometry.validation_shapes import _build_parser, _generate_from_args
+
+    args = _build_parser().parse_args(["--shape", "deep_pocket"])
+    shape = _generate_from_args(args)
+    assert shape.name == "deep_pocket"
+    paths = shape.save(tmp_path)
+    assert all(path.exists() for path in paths)
+    records = [line for line in paths[1].read_text().splitlines()
+               if line.startswith("HETATM")]
+    assert sum(line[21] == "I" for line in records) == shape.parameters["interior_count"]
+    exterior_only = deep_pocket(include_center=False)
+    assert exterior_only.parameters["interior_count"] == 0
+    assert exterior_only.n_atoms == deep_pocket().parameters["exterior_count"]
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"body_radius": 4}, {"pocket_depth": 20}, {"pocket_depth": 3},
+    {"pocket_neck_radius": 4}, {"sphere_radius": float("nan")},
+    {"outer_count": 47}, {"pocket_layers": 3}, {"ring_count": 7},
+    {"outer_count": 64.5},
+])
+def test_deep_pocket_rejects_invalid_geometry(kwargs):
+    with pytest.raises(ValueError):
+        deep_pocket(**kwargs)
 
 
 def test_sphere_radius_is_target_power_cell_radius_for_equal_weights():

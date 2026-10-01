@@ -1,5 +1,60 @@
 # Validation shapes
 
+## Deep pocket
+
+The deep pocket is a spherical body with a localized, tapered invagination,
+rounded lip, and hemispherical closed bottom. It replaces the earlier torus
+plus bottom-cell construction. The pocket opens along +z and does not form a
+handle or an enclosed cavity.
+
+Generate, run VorPy, validate the actual boundary, and export presentation
+artifacts from the repository root:
+
+```sh
+python -m vorpy.src.geometry.topology_diagnostic --shape deep_pocket --body-radius 10 --pocket-mouth-radius 3.2 --pocket-neck-radius 2.1 --pocket-depth 14 --outer-count 160 --pocket-layers 10 --ring-count 14 --output data/validation_shapes/deep_pocket_presentation
+```
+
+The output contains `deep_pocket.pdb`, `deep_pocket.xyzr`, `build.log`,
+`report.json`, `boundary.obj`, and PyMOL scripts. Open **`presentation.pml`**
+to show the opaque measured boundary (blue body, orange walls, gold floor).
+`generators.pml` shows construction sites only, not the molecular boundary.
+The presentation camera looks down +z with an 8-degree tilt so the floor
+remains visible through the deep narrow neck. Geometry is not smoothed or
+changed by the presentation export. For independent PNG previews with VTK:
+
+```sh
+python scripts/render_pocket_preview.py data/validation_shapes/deep_pocket_presentation
+```
+
+This writes an intact view and a clearly labeled illustrative cutaway.
+Topology is validated on the intact surface, never on the cutaway.
+
+Generator-only export remains available:
+
+```sh
+python -m vorpy.src.geometry.validation_shapes --shape deep_pocket
+```
+
+Python: `deep_pocket(body_radius=10, pocket_mouth_radius=3.2,
+pocket_neck_radius=2.1, pocket_depth=14, outer_count=160,
+pocket_layers=10, ring_count=14)`. The old torus-specific radius/resolution
+arguments no longer define this shape. Depth is measured from the neck's
+mouth plane to its rounded bottom; the rounded lip extends above this plane.
+The mouth radius describes the upper neck, and the lip flares outward.
+`outer_count` is the number of Fibonacci outer-sphere sample pairs; additional
+pairs form five lip rings, the requested wall layers, and a hemispherical cap.
+Each sample has a selected material-side and excluded exterior-side generator,
+with equal sphere radii. Selected generators are `INT` on PDB chain `I`.
+
+Depth must exceed twice the neck radius and leave at least
+`max(0.2*body_radius, pocket_neck_radius)` of reference material beneath the
+bottom. Invalid dimensions are rejected. Dimensions refer to the ideal
+surface being sampled, so the diagnostic additionally measures the actual
+axial floor and underside intersections. It rejects incomplete/nonmanifold
+boundaries, multiple boundary components, nonzero genus, or Gaussian error
+greater than `1e-8`. The analytic target is `G=4*pi`; integrated mean curvature
+is unknown (`NaN`). No through-channel mode is implemented.
+
 ## Enclosed cavities
 
 Generate and validate any nonnegative cavity count (subject to runtime and

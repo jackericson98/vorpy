@@ -215,7 +215,7 @@ class ValidationShape:
         )
         if self.name in {
             "spherocylinder_multicell", "torus", "torus_multicell",
-            "double_torus_multicell", "multitorus", "sphere_with_cavities",
+            "double_torus_multicell", "multitorus", "sphere_with_cavities", "deep_pocket",
         }:
             _validation_pdb_identity(interior_count, chain, interior=True)
 
@@ -241,7 +241,7 @@ class ValidationShape:
             ):
                 is_interior = self.name in {
                     "spherocylinder_multicell", "torus", "torus_multicell",
-                    "double_torus_multicell", "multitorus", "sphere_with_cavities",
+                    "double_torus_multicell", "multitorus", "sphere_with_cavities", "deep_pocket",
                 } and i <= interior_count
                 is_center = (
                         np.isclose(x, 0.0)
@@ -300,7 +300,8 @@ class ValidationShape:
 
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        pdb_filename = Path(pdb_filename).name
+        pdb_filename = (Path(pdb_filename).resolve().as_posix() if self.name == "deep_pocket"
+                        else Path(pdb_filename).name)
         object_name = self.name
 
         script = f"""\
@@ -1260,6 +1261,124 @@ def torus(
     )
 
 
+def deep_pocket(
+    body_radius: float = 10.0,
+    pocket_mouth_radius: float = 3.2,
+    pocket_depth: float = 14.0,
+    pocket_neck_radius: float = 2.1,
+    outer_count: int = 160,
+    pocket_layers: int = 10,
+    ring_count: int = 14,
+    sphere_radius: float = 1.0,
+    include_center: bool = True,
+) -> ValidationShape:
+    """Spherical body with a tapered +z invagination and rounded blind bottom.
+
+    Sample the truncated outer sphere, mouth rim, tapered pocket walls and a
+    hemispherical floor. Each surface sample supplies two equal-radius sites
+    on opposite sides of its outward normal. The material-side sites are the
+    selected Voronoi union; the other sites represent the connected exterior.
+    Depth is measured from the mouth plane to the rounded bottom, not from
+    the body's north pole. A conservative thickness guard prevents breakthrough.
+    These are reference dimensions of a faceted approximation; use the topology
+    diagnostic to validate the actual VorPy boundary before presentation.
+    """
+    values = [body_radius, pocket_mouth_radius, pocket_depth,
+              pocket_neck_radius, sphere_radius]
+    if not np.isfinite(values).all() or min(values) <= 0:
+        raise ValueError("All radii and pocket_depth must be positive and finite.")
+    R, mouth, depth, neck = map(float, values[:4])
+    if not neck <= mouth < 0.6 * R:
+        raise ValueError("Require pocket_neck_radius <= pocket_mouth_radius < 0.6 * body_radius.")
+    for name, value, minimum in (("outer_count", outer_count, 48),
+                                  ("pocket_layers", pocket_layers, 4),
+                                  ("ring_count", ring_count, 8)):
+        if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, np.integer)) or value < minimum:
+            raise ValueError(f"{name} must be an integer >= {minimum}.")
+    lip_radius = min(0.1 * R, 0.5 * mouth)
+    lip_center_r = mouth + lip_radius
+    mouth_z = float(np.sqrt((R - lip_radius)**2 - lip_center_r**2))
+    sphere_join_z = R * mouth_z / (R - lip_radius)
+    bottom_z = mouth_z - depth
+    clearance = max(0.2 * R, neck)
+    if depth <= 2 * neck:
+        raise ValueError("pocket_depth must exceed twice pocket_neck_radius for a deep pocket.")
+    if bottom_z < -R + clearance:
+        raise ValueError("Pocket would approach breakthrough: leave at least max(0.2*body_radius, pocket_neck_radius) below the bottom.")
+    offset = min(0.045 * R, 0.22 * neck)
+    points, normals, regions = [], [], []
+
+    def add(point, normal, region):
+        normal = np.asarray(normal, dtype=float)
+        points.append(point)
+        normals.append(normal / np.linalg.norm(normal))
+        regions.append(region)
+
+    # Fibonacci samples on the outer sphere with its north cap removed.
+    for i in range(outer_count):
+        z = -1.0 + (sphere_join_z / R + 1.0) * (i + 0.5) / outer_count
+        angle = i * np.pi * (3.0 - np.sqrt(5.0))
+        v = np.array([np.sqrt(1 - z*z) * np.cos(angle),
+                      np.sqrt(1 - z*z) * np.sin(angle), z])
+        add(R * v, v, "outer")
+
+    def ring(radius, z, radial_normal, vertical_normal, phase, count, region):
+        for angle in 2 * np.pi * (np.arange(count) + phase) / count:
+            c, sn = np.cos(angle), np.sin(angle)
+            add([radius*c, radius*sn, z],
+                [radial_normal*c, radial_normal*sn, vertical_normal], region)
+
+    # A circular fillet is tangent to the outer sphere and the pocket neck.
+    # Unlike intersecting sphere/wall support pairs, it cannot create a spiky
+    # mouth from competing, abruptly opposing surface normals.
+    lip_start = np.arctan2(mouth_z, lip_center_r)
+    for j, angle in enumerate(np.linspace(lip_start, np.pi, 5)):
+        ring(lip_center_r + lip_radius*np.cos(angle),
+             mouth_z + lip_radius*np.sin(angle), np.cos(angle), np.sin(angle),
+             0.17 + j*0.381966, ring_count,
+             "outer" if angle < np.pi/2 else "wall")
+    cap_center_z = bottom_z + neck
+    wall_length = mouth_z - cap_center_z
+    for layer, t in enumerate(np.linspace(0.015, 1.0, pocket_layers)):
+        # Smooth taper: wider at the mouth, cylindrical at the cap join.
+        radius = neck + (mouth - neck) * (1 - t)**2
+        derivative = 2 * (mouth - neck) * (1 - t) / wall_length
+        ring(radius, mouth_z - wall_length*t, -1, derivative,
+             0.381966 * (layer + 1), ring_count, "wall")
+    for j, angle in enumerate((np.pi/6, np.pi/3)):
+        ring(neck*np.cos(angle), cap_center_z-neck*np.sin(angle),
+             -np.cos(angle), np.sin(angle), 0.271 + j*0.381966,
+             max(6, round(ring_count*np.cos(angle))), "floor")
+    add([0., 0., bottom_z], [0., 0., 1.], "floor")
+    points, normals = np.asarray(points), np.asarray(normals)
+    selected = points - offset*normals
+    exterior = points + offset*normals
+    interior = selected if include_center else np.empty((0, 3))
+    return ValidationShape(
+        name="deep_pocket",
+        xyzr=_make_xyzr(np.vstack((interior, exterior)), sphere_radius),
+        expected_int_mean_curvature=float("nan"),
+        expected_int_gaussian_curvature=4.0*np.pi,
+        parameters={
+            "body_radius": R, "pocket_mouth_radius": mouth, "pocket_depth": depth,
+            "pocket_neck_radius": neck, "outer_count": int(outer_count),
+            "pocket_layers": int(pocket_layers), "ring_count": int(ring_count),
+            "sphere_radius": float(sphere_radius), "support_offset": offset,
+            "mouth_z": mouth_z, "bottom_z": bottom_z, "lip_radius": lip_radius,
+            "reference_bottom_thickness": bottom_z + R,
+            "include_center": include_center, "interior_count": len(interior),
+            "interior_indices": list(range(len(interior))),
+            "interior_coordinates": interior, "exterior_start": len(interior),
+            "exterior_count": len(exterior), "surface_regions": regions,
+            "genus": 0, "euler_characteristic": 2,
+        },
+        notes=("Truncated spherical body with a localized tapered invagination and "
+               "hemispherical blind floor. Paired equal-weight generators. "
+               "Expected genus zero and G=4*pi; verify the assembled boundary "
+               "with topology_diagnostic. Mean curvature is unknown (NaN)."),
+    )
+
+
 def torus_multicell(
     major_radius: float,
     minor_radius: float,
@@ -1655,6 +1774,17 @@ def analytic_summary(shape: ValidationShape) -> str:
 # ============================================================================
 
 
+def add_deep_pocket_arguments(parser):
+    """Shared generator/diagnostic controls for the blind spherical pocket."""
+    parser.add_argument("--body-radius", type=float, default=10., help="Deep-pocket body radius (10).")
+    parser.add_argument("--pocket-mouth-radius", type=float, default=3.2, help="Upper neck radius (3.2); lip flares outward.")
+    parser.add_argument("--pocket-depth", type=float, default=14., help="Mouth-plane to blind-bottom depth (14).")
+    parser.add_argument("--pocket-neck-radius", type=float, default=2.1, help="Deep neck and rounded floor radius (2.1).")
+    parser.add_argument("--outer-count", type=int, default=160, help="Outer Fibonacci surface sample pairs (160).")
+    parser.add_argument("--pocket-layers", type=int, default=10, help="Tapered wall layers (10).")
+    parser.add_argument("--ring-count", type=int, default=14, help="Sample pairs per lip/wall ring (14).")
+
+
 def _build_parser() -> argparse.ArgumentParser:
     """
     Build the command-line parser for synthetic validation geometries.
@@ -1670,12 +1800,15 @@ def _build_parser() -> argparse.ArgumentParser:
     # Shape selection
     # ------------------------------------------------------------------
 
+    add_deep_pocket_arguments(parser)
+
     parser.add_argument(
         "-s",
         "--shape",
         required=True,
         choices=[
             "sphere_with_cavities",
+            "deep_pocket",
             "sphere",
             "cube",
             "box",
@@ -1974,6 +2107,13 @@ def _generate_from_args(args) -> ValidationShape:
             args.resolution, args.sphere_radius,
         )
 
+    if shape_name == "deep_pocket":
+        return deep_pocket(
+            args.body_radius, args.pocket_mouth_radius, args.pocket_depth,
+            args.pocket_neck_radius, args.outer_count, args.pocket_layers,
+            args.ring_count, args.sphere_radius, include_center=not args.no_center,
+        )
+
     if shape_name == "sphere":
         return sphere(
             radius=args.radius,
@@ -2110,6 +2250,11 @@ def _default_basename(shape: ValidationShape) -> str:
         return (f"sphere_cavities_N{p['n_cavities']}_R{p['outer_radius']:g}"
                 f"_r{p['cavity_radius']:g}_n{p['resolution']}")
 
+    if shape.name == "deep_pocket":
+        return (f"deep_pocket_B{p['body_radius']:g}_M{p['pocket_mouth_radius']:g}"
+                f"_D{p['pocket_depth']:g}_N{p['pocket_neck_radius']:g}"
+                f"_o{p['outer_count']}_l{p['pocket_layers']}_r{p['ring_count']}")
+
     if shape.name == "sphere":
         return (
             f"sphere_R{p['radius']:g}"
@@ -2233,6 +2378,10 @@ def main() -> None:
     print("  alter all, vdw=b")
     print("  rebuild")
     print("  show spheres")
+    if shape.name == "deep_pocket":
+        print("  Generator spheres are not the target boundary.")
+        print("  Run topology_diagnostic --shape deep_pocket --output PATH")
+        print("  with matching dimensions, then open PATH/presentation.pml.")
 
     print("=" * 72)
 
