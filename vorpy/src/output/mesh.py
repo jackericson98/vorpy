@@ -4,11 +4,31 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, Optional
 import xml.etree.ElementTree as ET
+from time import perf_counter
 
 import numpy as np
 
 
 SUPPORTED_MESH_FORMATS = ("off", "ply", "vtp")
+
+
+def write_prepared_mesh(net, prepare, file_name, file_type, directory, chunk_size):
+    """Separate geometry/color preparation from file-writing time."""
+    timing = getattr(net, '_export_mesh_timing', None)
+    start = perf_counter()
+    try:
+        mesh = prepare()
+    finally:
+        if timing is not None:
+            timing['prepare'] += perf_counter() - start
+    if mesh is None:
+        return None
+    start = perf_counter()
+    try:
+        return write_mesh(mesh, file_name, file_type, directory, chunk_size)
+    finally:
+        if timing is not None:
+            timing['write'] += perf_counter() - start
 
 
 @dataclass

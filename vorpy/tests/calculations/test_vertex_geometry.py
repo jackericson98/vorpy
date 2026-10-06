@@ -3,6 +3,7 @@ import pytest
 from types import SimpleNamespace
 import pandas as pd
 import importlib
+from itertools import combinations
 
 from vorpy.src.calculations.edge_geometry import LineEdgeGeometry
 
@@ -17,6 +18,44 @@ from vorpy.src.calculations.vertex_geometry import (
     aw_vertex_cell_surface_normal,
     aw_cell_vertex_gauss_map_normals,
 )
+
+
+@pytest.mark.parametrize('reverse', [False, True])
+def test_network_corner_shares_tangents_and_matches_reference(monkeypatch, reverse):
+    geometry = importlib.import_module('vorpy.src.calculations.vertex_geometry')
+    module = importlib.import_module('vorpy.src.calculations.vertex_gaussian_curvature')
+    rays = np.asarray([[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]], dtype=float)
+    resolved = {}
+    for index, ray in enumerate(rays):
+        endpoints = (ray, np.zeros(3)) if reverse else (np.zeros(3), ray)
+        resolved[index] = SimpleNamespace(geometry=LineEdgeGeometry(*endpoints))
+    net = SimpleNamespace(
+        settings={'net_type': 'aw'}, group=[0, 1, 2, 3],
+        verts=pd.DataFrame([{'balls': [0, 1, 2, 3], 'edges': [0, 1, 2, 3],
+                             'surfs': list(range(6)), 'loc': np.zeros(3)}], index=[17]),
+        edges=pd.DataFrame(),
+        surfs=pd.DataFrame([{'balls': pair, 'verts': [17],
+                             'edges': sorted(set(range(4)) - set(pair))}
+                            for pair in combinations(range(4), 2)]),
+    )
+    expected = {cell: geometry.aw_cell_vertex_angular_defect(
+        net, 17, cell, resolved_edges=resolved) for cell in net.group}
+    original = geometry.analytic_edge_tangent_away_from_network_vertex
+    calls = []
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+    monkeypatch.setattr(geometry, 'analytic_edge_tangent_away_from_network_vertex', counted)
+    monkeypatch.setattr(module, 'get_aw_edge_geometry_cache',
+                        lambda *args, **kwargs: (resolved, False, 0.0))
+    monkeypatch.delenv('VORPY_VERTEX_DEBUG', raising=False)
+    actual = module.calculate_aw_network_vertex_gaussian_curvatures(net)
+    assert actual[0] == pytest.approx(expected, abs=1e-12)
+    assert len(calls) == 4  # Previously 24 endpoint/tangent evaluations.
+    net.surfs.at[0, 'edges'] = [0]
+    actual = module.calculate_aw_network_vertex_gaussian_curvatures(net)
+    assert set(actual[0]) == {2, 3}
+    assert {cell for _, cell, _ in net._aw_unresolved_vertex_curvature} == {0, 1}
 from vorpy.src.calculations.vertex_geometry import (
     aw_cell_vertex_surface_cycle,
     orient_aw_cell_vertex_surface_cycle,
@@ -50,6 +89,27 @@ def test_network_vertex_preserves_unresolved_cell_defects(monkeypatch, edge_ids)
     else:
         assert values == [{}]
         assert {(vertex, cell) for vertex, cell, _ in net._aw_unresolved_vertex_curvature} == {(0, 0), (0, 1)}
+
+
+def test_network_vertex_accepts_function_loaded_before_source_update(monkeypatch):
+    module = importlib.import_module('vorpy.src.calculations.vertex_gaussian_curvature')
+    net = SimpleNamespace(
+        settings={'net_type': 'aw'}, group=[0],
+        verts=pd.DataFrame([{'balls': [0, 1, 2, 3], 'edges': [0, 1, 2]}]),
+        edges=pd.DataFrame(), surfs=pd.DataFrame(),
+    )
+    calls = []
+    # Exactly the pre-optimization signature retained by an active process.
+    def old_defect(net, vertex_index, cell_index, resolved_edges=None,
+                   tolerance=1e-7, candidate_surfaces=None):
+        calls.append((vertex_index, cell_index))
+        return np.pi / 2
+    monkeypatch.setattr(module, 'aw_cell_vertex_angular_defect', old_defect)
+    monkeypatch.setattr(module, 'get_aw_edge_geometry_cache',
+                        lambda *args, **kwargs: ({0: None, 1: None, 2: None}, False, 0.0))
+    assert module.calculate_aw_network_vertex_gaussian_curvatures(net) == [{0: np.pi / 2}]
+    assert calls == [(0, 0)]
+    assert net._aw_unresolved_vertex_curvature == set()
 
 
 def test_network_vertex_surface_index_recovers_missing_faces_and_refreshes(monkeypatch):

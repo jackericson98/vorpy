@@ -1,5 +1,6 @@
 import os
 import csv
+from vorpy.src.network.runtime_diagnostics import checkpoint, verbose_build
 import time
 import numpy as np
 import pandas as pd
@@ -347,61 +348,82 @@ class Network:
                     vert_ndxs.append([int(_) for _ in line[1:5]])
         return vert_ndxs
 
-    def build_edges(self):
+    def build_edges(self, compute_curvature=True):
+        """Sample each edge and integrate AW curvature before building surfaces.
+
+        Analytic edge geometry is resolved once and shared with vertex curvature.
+        Both edge curvature measures use the same quadrature traversal.
         """
-        Builds the edges in the network for use in the surfaces
-        """
-
-        # Set the edge points and vals lists
-        edges_points, edges_vals, edges_lengths = [], [], []
-
-        total_edges = len(self.edges)
-        last_update = 0.0
-
-        self.update_progress(
-            f"Edges: 0 / {total_edges:,}",
-            0.0
+        from vorpy.src.calculations.edge_resolution_cache import (
+            clear_aw_edge_geometry_cache, resolve_aw_edge_geometry,
+            store_aw_edge_geometry_cache,
         )
+        from vorpy.src.calculations.edge_curvature import calculate_aw_network_edge_curvatures
 
-        # Go through the edges in the network
-        for i, edge in self.edges.iterrows():
-            current_edge = i + 1
+        edges_points, edges_vals, edges_lengths = [], [], []
+        total_edges = len(self.edges)
+        fused = (compute_curvature and self.settings['net_type'] == 'aw'
+                 and self.group is not None and self.surfs is not None)
+        clear_aw_edge_geometry_cache(self)
+        if hasattr(self, '_aw_fused_edge_curvature_cache'):
+            del self._aw_fused_edge_curvature_cache
+        resolved_edges = {}
+        ball_locations = self.balls['loc']
+        ball_radii = self.balls['rad']
+        vertex_locations = self.verts['loc']
+        vertex_doublets = self.verts['dub']
+        surface_lists = self.edges['surfs'] if 'surfs' in self.edges else [[]] * total_edges
+        label = 'Edges + curvature' if fused else 'Edges'
+        self.update_progress(f'{label}: 0 / {total_edges:,}', 0.0)
 
-            current_time = time.perf_counter()
+        def records():
+            last_update = 0.0
+            for count, (index, balls, vertices, surfaces) in enumerate(zip(
+                    self.edges.index, self.edges['balls'], self.edges['verts'], surface_lists), start=1):
+                vlocs = [array(vertex_locations[v]) for v in vertices]
+                try:
+                    points, values = build_edge(
+                        locs=[array(ball_locations[b]) for b in balls],
+                        rads=[ball_radii[b] for b in balls], vlocs=vlocs,
+                        blocs=ball_locations, brads=ball_radii, eballs=balls,
+                        res=self.settings['surf_res'],
+                        straight=self.settings['net_type'] in {'prm', 'pow'},
+                        edub=any(vertex_doublets[v] in {1, 2} for v in vertices),
+                        edge_verts=self.verts.loc[vertices],
+                    )
+                except ValueError as error:
+                    raise ValueError(f'Unable to build edge {index}, balls={balls}: {error}') from error
+                edges_points.append(points)
+                edges_vals.append(values)
+                edges_lengths.append(calc_length(array(points)))
+                edge = {'balls': balls, 'verts': vertices, 'surfs': surfaces,
+                        'points': points, 'vals': values}
+                resolved = None
+                if fused:
+                    resolved = resolve_aw_edge_geometry(self, index, edge_data=edge)
+                    resolved_edges[int(index)] = resolved
+                current_time = time.perf_counter()
+                if current_time - last_update >= 0.25 or count == total_edges:
+                    self.update_progress(f'{label}: {count:,} / {total_edges:,}',
+                                         100.0 * count / max(total_edges, 1))
+                    last_update = current_time
+                yield index, edge, resolved
 
-            if current_time - last_update >= 0.25 or current_edge == total_edges:
-                percentage = 100.0 * current_edge / max(total_edges, 1)
-
-                self.update_progress(
-                    f"Edges: {current_edge:,} / {total_edges:,}",
-                    percentage
-                )
-
-                last_update = current_time
-            vlocs = [array(self.verts['loc'][_]) for _ in edge['verts']]
-
-            # Build the edge depending on if it is straight or not
-            try:
-                edge_points, edge_vals = build_edge(
-                    locs=[array(self.balls['loc'][_]) for _ in edge['balls']],
-                    rads=[self.balls['rad'][_] for _ in edge['balls']],
-                    vlocs=vlocs,
-                    blocs=self.balls['loc'],
-                    brads=self.balls['rad'],
-                    eballs=edge['balls'],
-                    res=self.settings['surf_res'],
-                    straight=self.settings['net_type'] in {'prm', 'pow'},
-                    edub=any([self.verts['dub'][_] in {1, 2} for _ in edge['verts']]),
-                    edge_verts=self.verts.iloc[edge['verts']]
-                )
-            except ValueError:
-                print(vlocs, edge['balls'])
-
-            edges_lengths.append(calc_length(array(edge_points)))
-            edges_points.append(edge_points)
-            edges_vals.append(edge_vals)
-        # Set the dataframe values
-        self.edges['points'], self.edges['vals'], self.edges['length'] = edges_points, edges_vals, edges_lengths
+        if fused:
+            mean_values, gaussian_values = calculate_aw_network_edge_curvatures(
+                self, edge_records=records())
+            self.edges['int_mean_curv_by_ball'] = mean_values
+            self.edges['int_gauss_curv_by_ball'] = gaussian_values
+            curvature_cache = self._aw_fused_edge_curvature_cache
+            self.edges['int_gauss_curv_by_generator'] = curvature_cache['gaussian_by_generator']
+            self.edges['int_gauss_curv_by_face'] = curvature_cache['gaussian_by_face']
+            store_aw_edge_geometry_cache(self, resolved_edges)
+        else:
+            for _ in records():
+                pass
+        self.edges['points'] = edges_points
+        self.edges['vals'] = edges_vals
+        self.edges['length'] = edges_lengths
 
     def build_surfaces(self, store_points=True):
         """
@@ -704,6 +726,7 @@ class Network:
 
         print("=" * 82)
 
+    @verbose_build
     def build(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
               calc_verts=None, my_group=None, print_actions=None, print_vert_metrics=False, curr_time=None, verts=None):
         """
@@ -750,8 +773,10 @@ class Network:
         if self.box is None and self.sys is not None:
             self.sys.apply_spatial_index(self)
         if self.box is None:
+            checkpoint(self, 'Spatial index')
             self.sort_balls()
         if self.verts is None:
+            checkpoint(self, 'Find vertices')
             self.find_verts()
 
             if self.verts is None or len(self.verts) == 0:
@@ -778,37 +803,49 @@ class Network:
         # Check to see if there are vertices loaded
         if self.verts is None:
             # Find the vertices
+            checkpoint(self, 'Find vertices')
             self.find_verts()
             # Check to see if there are vertices
             if self.verts is None or len(self.verts) == 0:
                 return
         elif 'vdub' not in self.verts:
             self.metrics['vert'] = 0
+            checkpoint(self, 'Mark doublets', f'vertices={len(self.verts):,}')
             self.verts['dub'] = mark_doublets(self.verts)
         else:
             self.metrics['vert'] = 0
         # Connect topology and construct geometry.
+        checkpoint(self, 'Connect topology')
         self.connect()
+        checkpoint(self, 'Edges + curvature' if self.settings.get('net_type') == 'aw' else 'Edge geometry')
         self.build_edges()
+        checkpoint(self, 'Surface geometry')
         self.build_surfaces(not limit_mem)
 
         if self.settings.get("net_type", "aw") == "aw":
             self.update_progress("Surface orientation", 0.0)
+            checkpoint(self, 'Surface orientation')
             self.build_surface_mean_curvature()
             self.update_progress("Surface orientation", 100.0)
 
+            # Curvature quadrature is already complete. These calls reuse its
+            # cache and refresh cell reductions if meshing rejected any faces.
             self.update_progress("Edge mean", 0.0)
+            checkpoint(self, 'Edge mean curvature')
             self.build_edge_mean_curvature()
             self.update_progress("Edge mean", 100.0)
 
             self.update_progress("Edge Gaussian", 0.0)
+            checkpoint(self, 'Edge Gaussian curvature')
             self.build_edge_gaussian_curvature()
             self.update_progress("Edge Gaussian", 100.0)
 
             self.update_progress("Vertex Gaussian", 0.0)
+            checkpoint(self, 'Vertex Gaussian curvature')
             self.build_vertex_gaussian_curvature()
             self.update_progress("Vertex Gaussian", 100.0)
 
+        checkpoint(self, 'Analyze')
         self.analyze()
 
         if self.settings.get("verbose", False):

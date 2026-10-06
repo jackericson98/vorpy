@@ -27,7 +27,13 @@ from contextlib import contextmanager
 def export_color_cache(net):
     """Reuse color scales during one export plan, never across analyses."""
     previous = getattr(net, "_export_color_limits", None)
+    previous_edges = getattr(net, '_export_edge_color_values', None)
+    previous_timing = getattr(net, '_export_mesh_timing', None)
+    previous_surfaces = getattr(net, '_export_surface_rows', None)
     net._export_color_limits = {}
+    net._export_edge_color_values = {}
+    net._export_mesh_timing = {'prepare': 0.0, 'write': 0.0}
+    net._export_surface_rows = {}
     try:
         yield
     finally:
@@ -35,6 +41,18 @@ def export_color_cache(net):
             del net._export_color_limits
         else:
             net._export_color_limits = previous
+        if previous_edges is None:
+            del net._export_edge_color_values
+        else:
+            net._export_edge_color_values = previous_edges
+        if previous_timing is None:
+            del net._export_mesh_timing
+        else:
+            net._export_mesh_timing = previous_timing
+        if previous_surfaces is None:
+            del net._export_surface_rows
+        else:
+            net._export_surface_rows = previous_surfaces
 
 
 INTEGRATED_CURVATURE_SCHEMES = {"int_mean_curv", "int_gauss_curv"}
@@ -75,6 +93,8 @@ def canonical_color_mode(mode):
 
 
 def _cmap(name):
+    if isinstance(name, mpl.colors.Colormap):
+        return name
     name = "coolwarm" if name is None else str(name).strip()
     try:
         return mpl.colormaps.get_cmap(name)
@@ -85,10 +105,16 @@ def _cmap(name):
             return mpl.colormaps.get_cmap("coolwarm")
 
 
+class _TargetCells(frozenset):
+    """An already normalized integer selection reusable in hot color loops."""
+
+
 def _target_set(target_cells):
     if target_cells is None:
         return None
-    return {int(value) for value in target_cells}
+    if isinstance(target_cells, _TargetCells):
+        return target_cells
+    return _TargetCells(int(value) for value in target_cells)
 
 
 def _row_balls(row):
@@ -258,6 +284,7 @@ def component_values(table, component, scheme, target_cells=None, indices=None,
                      mode="boundary"):
     if table is None or len(table) == 0:
         return np.empty(0, dtype=float)
+    target_cells = _target_set(target_cells)
     positions = range(len(table)) if indices is None else list(indices)
     values = []
     for position in positions:
@@ -275,6 +302,7 @@ def _cell_mapping_values(table, component, scheme, target_cells=None):
     if table is None or len(table) == 0:
         return []
     key = f"{scheme}_by_ball"
+    target_cells = _target_set(target_cells)
     values = []
     for _, row in table.iterrows():
         if key in row.index:
@@ -308,7 +336,7 @@ def curvature_color_limit(net, scheme, target_cells=None, mode="boundary"):
 
 
 def _calculate_curvature_color_limit(net, scheme, target_cells, mode):
-
+    target_cells = _target_set(target_cells)
     arrays = []
     support = SUPPORTED_COMPONENTS[scheme]
 
@@ -406,15 +434,26 @@ def mean_vertex_display_value(net, vertex_row, target_cells=None, mode="boundary
     except (KeyError, TypeError, ValueError):
         return None
 
+    target_cells = _target_set(target_cells)
+    cache = getattr(net, '_export_edge_color_values', None)
+    # Cell exports have thousands of distinct selections. Keep memoization
+    # limited to shared group views, rather than accumulating per-cell state.
+    cached_values = (cache.setdefault((target_cells, mode), {})
+                     if cache is not None and mode in {'boundary', 'magnitude'} else None)
     values = []
     for edge_index in edge_indices:
-        try:
-            edge = net.edges.iloc[edge_index]
-        except (IndexError, TypeError, ValueError):
-            continue
-        value = component_value(
-            edge, "edge", "int_mean_curv", target_cells, mode=mode,
-        )
+        if cached_values is not None and edge_index in cached_values:
+            value = cached_values[edge_index]
+        else:
+            try:
+                edge = net.edges.iloc[edge_index]
+            except (IndexError, TypeError, ValueError):
+                continue
+            value = component_value(
+                edge, "edge", "int_mean_curv", target_cells, mode=mode,
+            )
+            if cached_values is not None:
+                cached_values[edge_index] = value
         if value is not None and np.isfinite(value):
             # Ignore edges that are not part of the boundary in boundary mode.
             if mode == "boundary" and abs(value) < 1e-15:

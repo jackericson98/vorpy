@@ -147,6 +147,14 @@ class EdgeGeometry(ABC):
     def speed(self, t):
         return float(np.linalg.norm(self.tangent(t)))
 
+    def samples(self, parameters, second=True):
+        """Evaluate quadrature geometry; subclasses can share analytic work."""
+        points = np.asarray([self.point(t) for t in parameters], dtype=float)
+        firsts = np.asarray([self.tangent(t) for t in parameters], dtype=float)
+        seconds = (np.asarray([self.second_derivative(t) for t in parameters], dtype=float)
+                   if second else np.zeros_like(firsts))
+        return points, firsts, seconds
+
     def unit_tangent(self, t, tol=1e-12):
         tangent = np.asarray(self.tangent(t), dtype=float)
         speed = float(np.linalg.norm(tangent))
@@ -220,6 +228,11 @@ class LineEdgeGeometry(EdgeGeometry):
 
     def second_derivative(self, t):
         return np.zeros(3, dtype=float)
+
+    def samples(self, parameters, second=True):
+        parameters = np.asarray(parameters, dtype=float)
+        points = self.start + parameters[:, None] * self._direction
+        return points, np.broadcast_to(self._direction, points.shape).copy(), np.zeros_like(points)
 
     def arc_length(self, t0=None, t1=None, order=32):
         lower = self.t_min if t0 is None else float(t0)
@@ -383,6 +396,22 @@ class AdditivelyWeightedTrisectorBranch(EdgeGeometry):
             point - self.generator_locations, axis=1
         ) - self.generator_radii
         return clearances - float(t)
+
+    def samples(self, parameters, second=True):
+        rho = np.asarray(parameters, dtype=float)
+        q2, q1, q0 = self.q_coefficients
+        q = (q2 * rho + q1) * rho + q0
+        if np.any(q <= self.tol):
+            raise ValueError('AW rho tangent is singular at a conic turning point.')
+        root = np.sqrt(q)
+        prime = 2.0 * q2 * rho + q1
+        points = (self.origin + rho[:, None] * self.basis_u
+                  + self.branch * self.basis_v * root[:, None])
+        firsts = self.basis_u + self.branch * self.basis_v * (prime / (2.0 * root))[:, None]
+        seconds = (self.branch * self.basis_v
+                   * (q2 / root - prime ** 2 / (4.0 * q ** 1.5))[:, None]
+                   if second else np.zeros_like(firsts))
+        return points, firsts, seconds
 
     def parameter_for_point(self, point):
         """Recover rho from a point expected to lie on this trisector."""
@@ -625,6 +654,11 @@ class AffineEdgeGeometry(EdgeGeometry):
         return self.source.second_derivative(
             self._source_parameter(t)
         )*self._scale**2
+
+    def samples(self, parameters, second=True):
+        mapped = self.source_start + np.asarray(parameters, dtype=float) * self._scale
+        points, firsts, seconds = self.source.samples(mapped, second=second)
+        return points, firsts * self._scale, seconds * self._scale ** 2
 
 
 def match_aw_trisector_to_endpoints(generator_locations, generator_radii,
@@ -1770,7 +1804,8 @@ def aw_edge_curvature_measures(
         order=32,
         quadrature=None,
         tol=1e-12,
-        timing=None):
+        timing=None,
+        reference=False):
     """Integrate AW edge mean- and Gaussian-curvature terms in one traversal.
 
     ``mean`` contains the three cell-relative edge-M contributions. ``gaussian``
@@ -1780,8 +1815,8 @@ def aw_edge_curvature_measures(
     Edge position, tangent, radial unit vectors, pairwise AW normals, and the
     second derivative are shared between M and G. If ``timing`` is supplied,
     cumulative kernel timings are added to that dictionary without changing
-    the quadrature. Normal calls use compiled accumulation; detailed timing
-    uses the Python reference loop so individual operations can be measured.
+    the quadrature or compiled execution path. ``reference=True`` explicitly
+    selects the Python reference loop for numerical regression checks.
     """
     if not isinstance(edge_geometry, EdgeGeometry):
         raise TypeError("edge_geometry must implement EdgeGeometry.")
@@ -1796,6 +1831,7 @@ def aw_edge_curvature_measures(
             "normals",
             "mean",
             "gaussian",
+            "compiled_accumulation",
             "other",
         ):
             timing.setdefault(key, 0.0)
@@ -1804,7 +1840,7 @@ def aw_edge_curvature_measures(
     measured_start = (
         sum(timing[key] for key in (
             "orientation", "point_tangent", "second_derivative", "radial",
-            "normals", "mean", "gaussian",
+            "normals", "mean", "gaussian", "compiled_accumulation",
         )) if profile else 0.0
     )
 
@@ -1843,17 +1879,25 @@ def aw_edge_curvature_measures(
     center = 0.5 * (upper + lower)
 
     t0 = perf_counter() if profile else None
-    orientations = {
-        pair: aw_face_edge_boundary_orientation(
-            edge_geometry=edge_geometry,
-            generator_indices=indices,
-            generator_locations=locations,
-            cell_index=pair[0],
-            face_other_index=pair[1],
-            tol=tol,
-        )
-        for pair in pairs
-    }
+    pair_positions = np.asarray(
+        [(positions[cell], positions[other]) for cell, other in pairs],
+        dtype=np.int64,
+    ).reshape((-1, 2))
+    if reference:
+        orientations = {
+            pair: aw_face_edge_boundary_orientation(
+                edge_geometry, indices, locations, pair[0], pair[1], tol=tol)
+            for pair in pairs
+        }
+    elif pairs:
+        from vorpy.src.calculations.edge_curvature_kernel import edge_boundary_orientations
+        signs = edge_boundary_orientations(
+            np.asarray(edge_geometry.point(center), dtype=float),
+            np.asarray(edge_geometry.tangent(center), dtype=float),
+            locations, pair_positions, tol)
+        orientations = dict(zip(pairs, signs))
+    else:
+        orientations = {}
     if profile:
         timing["orientation"] += perf_counter() - t0
 
@@ -1861,26 +1905,23 @@ def aw_edge_curvature_measures(
     gauss_totals = {pair: 0.0 for pair in pairs}
     curved_for_g = bool(pairs) and not isinstance(edge_geometry, LineEdgeGeometry)
 
-    if not profile:
+    if not reference:
         # Evaluate polymorphic geometry in Python, then perform the small
         # per-node normal/cross-product calculations in one compiled call.
         from vorpy.src.calculations.edge_curvature_kernel import integrate_edge_samples
 
         parameters = center + half * np.asarray(nodes, dtype=float)
-        points = np.asarray([edge_geometry.point(t) for t in parameters], dtype=float)
-        firsts = np.asarray([edge_geometry.tangent(t) for t in parameters], dtype=float)
-        seconds = (
-            np.asarray([edge_geometry.second_derivative(t) for t in parameters], dtype=float)
-            if curved_for_g else np.zeros_like(firsts)
-        )
-        pair_positions = np.asarray(
-            [(positions[cell], positions[other]) for cell, other in pairs],
-            dtype=np.int64,
-        ).reshape((-1, 2))
+        t0 = perf_counter() if profile else None
+        points, firsts, seconds = edge_geometry.samples(parameters, second=curved_for_g)
+        if profile:
+            timing["point_tangent"] += perf_counter() - t0
+        t0 = perf_counter() if profile else None
         mean_totals, gaussian = integrate_edge_samples(
             points, firsts, seconds, locations, pair_positions,
             np.asarray(weights, dtype=float), tol,
         )
+        if profile:
+            timing["compiled_accumulation"] += perf_counter() - t0
         mean_totals *= 0.5 * half
         gauss_totals = {
             pair: float(orientations[pair] * half * gaussian[i])
@@ -1890,6 +1931,13 @@ def aw_edge_curvature_measures(
             raise ValueError("Non-finite AW edge mean-curvature integral.")
         if not all(np.isfinite(value) for value in gauss_totals.values()):
             raise ValueError("Non-finite AW edge geodesic-curvature integral.")
+        if profile:
+            measured = sum(timing[key] for key in (
+                "orientation", "point_tangent", "second_derivative", "radial",
+                "normals", "mean", "gaussian", "compiled_accumulation",
+            ))
+            timing["other"] += max(perf_counter() - function_start
+                                   - (measured - measured_start), 0.0)
         return {
             "mean": {index: float(mean_totals[i]) for i, index in enumerate(indices)},
             "gaussian": gauss_totals,

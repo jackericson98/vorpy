@@ -1,4 +1,5 @@
 import time
+from vorpy.src.network.search_cache import cache_summary
 import numpy as np
 from numpy import sqrt
 from vorpy.src.network.find_v0 import find_v0
@@ -313,6 +314,14 @@ def find_verts(locs, rads, max_vert, net_type, check_ndxs, b0=None, my_group=Non
                         end="",
                         flush=True,
                     )
+
+                if net is not None and net.settings.get('verbose', False):
+                    net._diagnostic_details = (
+                        f'vertices={len(vert_ndxs):,}; pending vertices={len(vert_stack):,}; '
+                        f'pending edges={len(e_stack):,}; site searches={edge_search_calls:,}; '
+                        f'remaining atoms={len(check_ndxs):,}; seed={b0}; '
+                        f'{cache_summary(search_cache)}; '
+                        'percentage is an estimate, not completion')
 
                 last_print = current_time
                 _add_time('progress', time.perf_counter() - t_progress)

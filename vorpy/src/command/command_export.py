@@ -49,6 +49,7 @@ def argv_export(my_sys, usr_npt, add_on=None):
 
     # First pass: handle export modifiers and collect actual export commands.
     export_commands = []
+    skip_archive = False
 
     for npt in usr_npt:
         if len(npt) == 0:
@@ -80,7 +81,11 @@ def argv_export(my_sys, usr_npt, add_on=None):
                 )
             _set_mesh_format(my_sys, npt[1])
 
+        elif command in {'no_archive', 'no-archive', 'no_network', 'no-network'}:
+            skip_archive = True
+
         elif command in ONLY_COMMANDS:
+            skip_archive = True
             if len(npt) < 2:
                 raise ValueError(
                     "At least one export type is required after 'only'. "
@@ -95,12 +100,21 @@ def argv_export(my_sys, usr_npt, add_on=None):
     if len(export_commands) == 0:
         export_commands.append(['large'])
 
-    # Second pass: run exports
-    for npt in export_commands:
-        if len(npt) == 0:
-            continue
-
-        export_npt(my_sys, npt[0])
+    skip_archive = skip_archive or any(npt[0].lower() in {'none', 'no', 'skip'} for npt in export_commands)
+    # Keep archive policy scoped to this invocation, including repeated presets.
+    previous = {name: getattr(my_sys, name) for name in
+                ('_export_skip_archive', '_export_archive_written') if hasattr(my_sys, name)}
+    my_sys._export_skip_archive = skip_archive
+    my_sys._export_archive_written = False
+    try:
+        for npt in export_commands:
+            export_npt(my_sys, npt[0])
+    finally:
+        for name in ('_export_skip_archive', '_export_archive_written'):
+            if name in previous:
+                setattr(my_sys, name, previous[name])
+            else:
+                delattr(my_sys, name)
 
 
 def export_npt(my_sys, usr_npt=None):

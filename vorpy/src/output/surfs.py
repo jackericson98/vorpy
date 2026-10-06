@@ -2,7 +2,7 @@ import os
 import time
 import numpy as np
 from vorpy.src.output.color_tris import color_tris
-from vorpy.src.output.mesh import combine_mesh_parts, write_mesh
+from vorpy.src.output.mesh import combine_mesh_parts, write_mesh, write_prepared_mesh
 
 
 def write_surfs(net, surfs, file_name, color=False, directory=None, concave_colors=False, ref_surfs=None,
@@ -250,7 +250,8 @@ def write_surfs1(surfs, file_name, settings, color=False, directory=None, chunk_
 
 def prepare_surfs(net, surfs, color=False, concave_colors=False, ref_surfs=None,
                   universal_max=True, color_scheme=None, color_map=None,
-                  color_limit=None, target_cells=None, color_mode="boundary"):
+                  color_limit=None, target_cells=None, color_mode="boundary",
+                  include_face_data=True):
     """Prepare selected surfaces as format-neutral triangle geometry.
 
     Integrated mean/Gaussian schemes color each entire surface uniformly from
@@ -264,10 +265,21 @@ def prepare_surfs(net, surfs, color=False, concave_colors=False, ref_surfs=None,
         canonical_curvature_scheme,
         component_color,
         curvature_color_limit,
+        _target_set,
+        _cmap,
     )
 
     surf_indices = list(surfs)
-    surf_rows = [net.surfs.iloc[index] for index in surf_indices]
+    row_cache = getattr(net, '_export_surface_rows', None)
+    surf_rows = []
+    for index in surf_indices:
+        if row_cache is None:
+            row = net.surfs.iloc[index]
+        else:
+            if index not in row_cache:
+                row_cache[index] = net.surfs.iloc[index].to_dict()
+            row = row_cache[index]
+        surf_rows.append(row)
     # A solved surface without triangles is not a drawable mesh. Exclude such
     # rows explicitly so an OFF export cannot claim vertices while declaring
     # zero faces. If none of the selected surfaces are triangulated, no mesh
@@ -290,6 +302,9 @@ def prepare_surfs(net, surfs, color=False, concave_colors=False, ref_surfs=None,
     )
     integrated_scheme = canonical_curvature_scheme(requested_scheme)
     cmap = net.settings.get("surf_col", "coolwarm") if color_map is None else color_map
+    target_cells = _target_set(target_cells)
+    if integrated_scheme is not None:
+        cmap = _cmap(cmap)
 
     tri_colors = []
 
@@ -361,14 +376,17 @@ def prepare_surfs(net, surfs, color=False, concave_colors=False, ref_surfs=None,
         "area", "mean_curv", "gauss_curv", "int_mean_curv",
         "int_mean_curv_sq", "int_gauss_curv", "surf_energy",
     )
-    face_data = {"surface_index": []}
+    # OFF carries geometry and RGB only. Do not expand scientific fields
+    # into per-triangle arrays that its writer will immediately discard.
+    face_data = {"surface_index": []} if include_face_data else {}
     for column in columns:
-        if column in net.surfs.columns:
+        if include_face_data and column in net.surfs.columns:
             face_data[column] = []
 
     for index, surf in zip(surf_indices, surf_rows):
         count = len(surf["tris"])
-        face_data["surface_index"].append(np.full(count, index, dtype=np.int64))
+        if include_face_data:
+            face_data["surface_index"].append(np.full(count, index, dtype=np.int64))
         for column in columns:
             if column in face_data:
                 face_data[column].append(np.full(count, surf[column], dtype=float))
@@ -386,11 +404,9 @@ def write_surfs(net, surfs, file_name, color=False, directory=None, concave_colo
                 color_scheme=None, color_map=None, color_limit=None,
                 target_cells=None, color_mode="boundary"):
     """Prepare selected surfaces once and write OFF, PLY, or VTP."""
-    mesh = prepare_surfs(
+    return write_prepared_mesh(net, lambda: prepare_surfs(
         net, surfs, color, concave_colors, ref_surfs, universal_max,
         color_scheme=color_scheme, color_map=color_map,
         color_limit=color_limit, target_cells=target_cells, color_mode=color_mode,
-    )
-    if mesh is None:
-        return None
-    return write_mesh(mesh, file_name, file_type, directory, chunk_size)
+        include_face_data=str(file_type).lower().lstrip('.') != 'off',
+    ), file_name, file_type, directory, chunk_size)

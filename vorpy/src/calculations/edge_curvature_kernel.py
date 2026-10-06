@@ -5,6 +5,45 @@ from numba import njit
 
 
 @njit(cache=True, nogil=True)
+def edge_boundary_orientations(point, first, locations, pairs, tol):
+    """Share midpoint radial vectors and normals across all face incidences."""
+    speed = np.sqrt(np.dot(first, first))
+    if not np.isfinite(speed) or speed < tol:
+        raise ValueError('Edge tangent is undefined at this parameter.')
+    tangent = first / speed
+    radial = point - locations
+    for cell in range(3):
+        length = np.sqrt(np.dot(radial[cell], radial[cell]))
+        if not np.isfinite(length) or length < tol:
+            raise ValueError('AW edge point coincides with a generator.')
+        radial[cell] /= length
+    normals = np.empty((3, 3, 3))
+    for cell in range(3):
+        for other in range(cell + 1, 3):
+            normal = radial[cell] - radial[other]
+            length = np.sqrt(np.dot(normal, normal))
+            if not np.isfinite(length) or length < tol:
+                raise ValueError('AW face normal is undefined on the edge.')
+            normals[cell, other] = normal / length
+            normals[other, cell] = -normals[cell, other]
+    signs = np.empty(len(pairs))
+    for face in range(len(pairs)):
+        cell, other = pairs[face]
+        third = 3 - cell - other
+        normal, third_normal = normals[cell, other], normals[cell, third]
+        inward = -third_normal + np.dot(third_normal, normal) * normal
+        length = np.sqrt(np.dot(inward, inward))
+        if not np.isfinite(length) or length < tol:
+            raise ValueError('AW face interior direction is undefined at the edge.')
+        inward /= length
+        orientation = np.dot(np.cross(normal, tangent), inward)
+        if not np.isfinite(orientation) or abs(orientation) < tol:
+            raise ValueError('AW face-edge boundary orientation is degenerate.')
+        signs[face] = 1.0 if orientation > 0.0 else -1.0
+    return signs
+
+
+@njit(cache=True, nogil=True)
 def integrate_edge_samples(points, firsts, seconds, locations, pairs, weights, tol):
     """Accumulate in node order without relaxing floating-point precision."""
     mean = np.zeros(3)

@@ -16,7 +16,36 @@ def _cache_key(net, quadrature_order, tolerance):
     return (id(net.edges), len(net.edges), int(quadrature_order), float(tolerance), group)
 
 
-def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-6):
+def _refresh_gaussian_reduction(net, cached):
+    """Surface meshing may discard faces; reuse integrals on retained topology."""
+    surface_key = (id(net.surfs), len(net.surfs))
+    if cached.get('surface_key') == surface_key:
+        return
+    pairs = {int(index): tuple(int(b) for b in balls)
+             for index, balls in net.surfs['balls'].items()}
+    targets = set(int(b) for b in net.group)
+    values = []
+    for position, (balls, surfaces) in enumerate(zip(net.edges['balls'], net.edges['surfs'])):
+        if cached['collapsed'][position]:
+            values.append({int(b): 0.0 for b in balls})
+            continue
+        faces = cached['gaussian_by_face'][position]
+        per_cell = {}
+        for cell in balls:
+            cell = int(cell)
+            if cell not in targets:
+                continue
+            incident = [pairs[int(s)] for s in surfaces if cell in pairs[int(s)]]
+            if len(incident) == 2:
+                others = [pair[1] if pair[0] == cell else pair[0] for pair in incident]
+                per_cell[cell] = float(sum(faces[(cell, other)] for other in others))
+        values.append(per_cell)
+    cached['gaussian'] = values
+    cached['surface_key'] = surface_key
+
+
+def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-6,
+                                       edge_records=None):
     """Calculate edge M and edge G together in one traversal per physical edge.
 
     ``tolerance`` controls analytic endpoint matching. Curvature integration
@@ -42,7 +71,8 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
 
     key = _cache_key(net, quadrature_order, tolerance)
     cached = getattr(net, _CACHE_ATTR, None)
-    if isinstance(cached, dict) and cached.get("key") == key:
+    if edge_records is None and isinstance(cached, dict) and cached.get("key") == key:
+        _refresh_gaussian_reduction(net, cached)
         return cached["mean"], cached["gaussian"]
 
     verbose = settings.get("verbose", False)
@@ -51,9 +81,19 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
     n_edges = len(net.edges)
     quadrature = np.polynomial.legendre.leggauss(int(quadrature_order))
 
-    resolved_edges, cache_built, cache_time = get_aw_edge_geometry_cache(
-        net, tolerance=tolerance,
-    )
+    if edge_records is None:
+        resolved_edges, cache_built, cache_time = get_aw_edge_geometry_cache(
+            net, tolerance=tolerance,
+        )
+        edge_records = ((index, edge, resolved_edges[int(index)])
+                        for index, edge in net.edges.iterrows())
+        integrated_during_build = False
+    else:
+        cache_built, cache_time = False, 0.0
+        integrated_during_build = True
+
+    surface_balls = {int(index): tuple(int(value) for value in balls)
+                     for index, balls in net.surfs['balls'].items()}
 
     topology_time = 0.0
     integration_time = 0.0
@@ -65,6 +105,7 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
         "normals": 0.0,
         "mean": 0.0,
         "gaussian": 0.0,
+        "compiled_accumulation": 0.0,
         "other": 0.0,
     }
     reduction_time = 0.0
@@ -74,9 +115,10 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
     gaussian_by_generator = []
     face_values = 0
     gauss_cell_values = 0
+    collapsed_edges = []
 
-    for count, (edge_index, edge) in enumerate(net.edges.iterrows(), start=1):
-        resolved = resolved_edges[int(edge_index)]
+    for count, (edge_index, edge, resolved) in enumerate(edge_records, start=1):
+        collapsed_edges.append(resolved is None)
         if resolved is None:
             # The shared resolver permits None only for a confirmed collapsed
             # straight edge. Its line integrals vanish, but it has no tangent:
@@ -108,7 +150,7 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
             incident_surfaces = [
                 surface_index for surface_index in edge_surfaces
                 if cell_index in {
-                    int(value) for value in net.surfs.loc[surface_index, "balls"]
+                    value for value in surface_balls[surface_index]
                 }
             ]
             if len(incident_surfaces) != 2:
@@ -116,10 +158,8 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
 
             others = []
             for surface_index in incident_surfaces:
-                surface_balls = tuple(
-                    int(value) for value in net.surfs.loc[surface_index, "balls"]
-                )
-                other = surface_balls[1] if surface_balls[0] == cell_index else surface_balls[0]
+                pair_balls = surface_balls[surface_index]
+                other = pair_balls[1] if pair_balls[0] == cell_index else pair_balls[0]
                 others.append(int(other))
             cell_faces[cell_index] = tuple(others)
 
@@ -189,7 +229,7 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
 
         if count == n_edges or count % 100 == 0:
             net.update_progress(
-                f"Edge curvature: {count:,} / {n_edges:,}",
+                f"{'Edges + curvature' if integrated_during_build else 'Edge curvature'}: {count:,} / {n_edges:,}",
                 100.0 * count / max(n_edges, 1),
             )
 
@@ -205,6 +245,8 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
         "gaussian": gaussian_contributions,
         "gaussian_by_face": gaussian_by_face,
         "gaussian_by_generator": gaussian_by_generator,
+        "collapsed": collapsed_edges,
+        "surface_key": (id(net.surfs), len(net.surfs)),
     }
     setattr(net, _CACHE_ATTR, result)
 
@@ -212,13 +254,14 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
         print("\n" + "=" * 70)
         print("FUSED EDGE CURVATURE TIMING")
         print("=" * 70)
-        cache_label = "Shared edge cache build" if cache_built else "Shared edge cache reuse"
+        cache_label = ("Edge geometry resolved in build" if integrated_during_build else
+                       "Shared edge cache build" if cache_built else "Shared edge cache reuse")
         for label, value in (
             (cache_label, cache_time),
             ("Surface / topology lookup", topology_time),
             ("Fused M + G integration", integration_time),
             ("Storage / G reduction", reduction_time),
-            ("Other / loop overhead", other_time),
+            ("Sampling + resolution / other" if integrated_during_build else "Other / loop overhead", other_time),
         ):
             pct = 100.0 * value / total_time if total_time > 0 else 0.0
             print(f"{label:<30} {value:10.4f} s  {pct:6.2f} %")
@@ -239,14 +282,17 @@ def calculate_aw_network_edge_curvatures(net, quadrature_order=32, tolerance=1e-
         print("=" * 70)
         for label, value in (
             ("Boundary orientation", kernel_timing["orientation"]),
-            ("Point + tangent", kernel_timing["point_tangent"]),
+            ("Points + derivatives", kernel_timing["point_tangent"]),
             ("Second derivative", kernel_timing["second_derivative"]),
             ("Radial vectors / normalize", kernel_timing["radial"]),
             ("Pairwise normal construction", kernel_timing["normals"]),
             ("Mean-curvature accumulation", kernel_timing["mean"]),
             ("Gaussian accumulation", kernel_timing["gaussian"]),
+            ("Compiled M + G accumulation", kernel_timing["compiled_accumulation"]),
             ("Kernel loop / other", kernel_timing["other"]),
         ):
+            if value == 0.0:
+                continue
             pct = 100.0 * value / kernel_total if kernel_total > 0 else 0.0
             print(f"{label:<30} {value:10.4f} s  {pct:6.2f} %")
         print("-" * 70)

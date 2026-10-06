@@ -14,6 +14,11 @@ from vorpy.src.analyze.power_interface_cli import (
     run_power_interface_pdb,
 )
 from vorpy.src.analyze.power_vs_aw import compare_power_and_aw
+from vorpy.src.analyze.aw_interface_curvature import (
+    AWInterfaceCurvatureResult,
+    InterfaceEdgeRecord,
+    InterfaceSurfaceRecord,
+)
 
 
 def test_power_cli_options_and_existing_chain_group_syntax(tmp_path):
@@ -82,7 +87,7 @@ def test_aw_compare_water_filter_is_temporary_and_preserves_source(tmp_path):
         filtered.unlink(missing_ok=True)
 
 
-def test_power_aw_comparison_writes_separate_convention_report(tmp_path):
+def test_power_aw_comparison_passes_through_standalone_aw_curvature(tmp_path):
     power = SimpleNamespace(
         final_facets=[], included_edges=[], group_a=frozenset({0}),
         group_b=frozenset({1}), alpha=0., condition_beta_m=5.,
@@ -94,17 +99,98 @@ def test_power_aw_comparison_writes_separate_convention_report(tmp_path):
     power_run = {"result": power, "prepared": prepared,
                  "facet_records": [], "facet_area_by_facet": {}}
     network = SimpleNamespace(balls=pd.DataFrame(columns=["loc"]))
-    aw = SimpleNamespace(selected_surfaces=[], selected_edges=[], network=network,
-                         interface_area=0., edge_curvature={"signed": 0.},
-                         surface_curvature=0., selection_mode="supported",
-                         group_a={0}, group_b={1})
+    surface = InterfaceSurfaceRecord(
+        surface_id=3, generator_ids=(0, 1), atom_numbers=(1, 2),
+        group_orientation="A->B", area=4., bounded=True,
+        feature_complete=True, generator_cells_complete=True, supported=True,
+        included=True, dual_edge=(0, 1), integrated_mean_curvature=2.5,
+        status="included",
+    )
+    edge = InterfaceEdgeRecord(
+        edge_id=9, generator_ids=(0, 1, 2), atom_numbers=(1, 2, 3),
+        dual_triangle=(0, 1, 2), surface_ids=(3, 4), geometry_type="analytic",
+        supported=True, feature_complete=True, generator_cells_complete=True,
+        length=3., signed_contribution=-4., unsigned_contribution=7.,
+        positive_contribution=0., negative_contribution=-4., beta_min=-2.,
+        beta_max=2., beta_mean=0., beta_statistics_method="test",
+        integration_status="converged", estimated_error=0., quadrature_order=16,
+        status="included",
+    )
+    aw = AWInterfaceCurvatureResult(
+        network=network, complex=None, group_a=frozenset({0}),
+        group_b=frozenset({1, 2}), selection_mode="supported",
+        surfaces=[surface], edges=[edge],
+    )
     result = compare_power_and_aw(power_run, aw, tmp_path,
                                   group_labels=({"A", "B"}, {"I"}))
     report = (tmp_path / "power_vs_aw_summary.txt").read_text(encoding="utf-8")
-    assert "C_total_H is withheld" in report
+    assert "smooth integral(H dA)=2.5 A" in report
+    assert "raw signed edge integral(integral beta ds)=-4 A rad" in report
+    assert "raw unsigned edge integral(integral |beta| ds)=7 A rad" in report
+    assert "conventional edge contribution(1/2 integral beta ds)=-2 A" in report
+    assert "combined conventional AW integrated mean curvature C_H=0.5 A" in report
+    assert "interface normal A->B" in report
+    assert "reversing A/B reverses signed smooth, edge, and combined quantities" in report
     assert "group A chains=['A', 'B']; group B chains=['I']" in report
-    assert not any(row["metric"] == "C_total_H" and row["value"] is not None
-                   for row in result["metrics"])
-    assert "AW curvature: unavailable" in report
-    assert next(row for row in result["metrics"] if row["metric"] == "C_surface_H")["value"] is None
+    metrics = {row["metric"]: row for row in result["metrics"] if row["model"] == "AW"}
+    assert metrics["C_surface_H"]["value"] == aw.surface_curvature
+    assert metrics["C_edge_raw_signed"]["value"] == aw.edge_curvature["signed"]
+    assert metrics["C_edge_raw_unsigned"]["value"] == aw.edge_curvature["unsigned"]
+    assert metrics["C_edge_H_signed"]["value"] == aw.edge_curvature["signed"] / 2
+    assert metrics["C_total_H"]["value"] == aw.combined_curvature
+    assert metrics["orientation_convention"]["value"].startswith("interface normal A->B")
+    assert metrics["C_total_H"]["value"] == metrics["C_surface_H"]["value"] + metrics["C_edge_H_signed"]["value"]
     assert (tmp_path / "power_vs_aw_metrics.csv").is_file()
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("unequal_pair", [False, True])
+def test_comparison_matches_analyzed_aw_and_exported_totals(tmp_path, reverse, unequal_pair):
+    from vorpy.src.analyze.aw_interface_curvature import analyze_aw_interface_curvature
+    from vorpy.tests.analyze.test_aw_interface_curvature import _interface_network
+
+    groups = ({1, 2}, {0}) if reverse else ({0}, {1, 2})
+    aw = analyze_aw_interface_curvature(_interface_network(unequal_pair=unequal_pair), *groups)
+    aw.export_csv(tmp_path / "standalone")
+    power = SimpleNamespace(
+        final_facets=[], included_edges=[], group_a={0}, group_b={1},
+        alpha=0., condition_beta_m=5., edge_totals={"signed": 0.},
+    )
+    prepared = SimpleNamespace(points=np.empty((0, 3)), atoms=[],
+                               group_a={0}, group_b={1}, probe_radius=1.4)
+    report = compare_power_and_aw({"result": power, "prepared": prepared}, aw, tmp_path)
+    with (tmp_path / "power_vs_aw_metrics.csv").open(newline="", encoding="utf-8") as handle:
+        metrics = {r["metric"]: r for r in csv.DictReader(handle) if r["model"] == "AW"}
+    expected = {
+        "C_surface_H": aw.surface_curvature,
+        "C_edge_raw_signed": aw.edge_curvature["signed"],
+        "C_edge_raw_unsigned": aw.edge_curvature["unsigned"],
+        "C_edge_H_signed": 0.5 * aw.edge_curvature["signed"],
+        "C_total_H": aw.combined_curvature,
+    }
+    for metric, value in expected.items():
+        assert float(metrics[metric]["value"]) == pytest.approx(value)
+        assert f"{value:.9g}" in report["summary"]
+    assert metrics["C_edge_raw_signed"]["unit"] == "A rad"
+    assert metrics["C_edge_H_signed"]["unit"] == "A"
+    assert "reversing A/B reverses signed smooth, edge, and combined" in metrics["orientation_convention"]["value"]
+    assert "withheld" not in report["summary"].lower()
+    assert "pending orientation" not in report["summary"].lower()
+    standalone = (tmp_path / "standalone" / "aw_interface_summary.txt").read_text(encoding="utf-8")
+    assert f"C_H = C_smooth + 1/2 C_edge,signed: {aw.combined_curvature:.9g} A" in standalone
+
+
+def test_comparison_consumes_combined_analyzer_property(tmp_path, monkeypatch):
+    # A sentinel catches accidental reimplementation of the combined formula.
+    monkeypatch.setattr(AWInterfaceCurvatureResult, "combined_curvature", property(lambda self: 123.))
+    from vorpy.src.analyze.aw_interface_curvature import analyze_aw_interface_curvature
+    from vorpy.tests.analyze.test_aw_interface_curvature import _interface_network
+    aw = analyze_aw_interface_curvature(_interface_network(), {0}, {1, 2})
+    power = SimpleNamespace(final_facets=[], included_edges=[], group_a={0}, group_b={1},
+                            alpha=0., condition_beta_m=5., edge_totals={"signed": 0.})
+    prepared = SimpleNamespace(points=np.empty((0, 3)), atoms=[],
+                               group_a={0}, group_b={1}, probe_radius=1.4)
+    report = compare_power_and_aw({"result": power, "prepared": prepared}, aw, tmp_path)
+    assert next(r["value"] for r in report["metrics"]
+                if r["model"] == "AW" and r["metric"] == "C_total_H") == 123.
+    assert "C_H=123 A" in report["summary"]

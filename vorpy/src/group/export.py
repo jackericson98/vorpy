@@ -12,6 +12,9 @@ from vorpy.src.output.curvature_colors import canonical_curvature_scheme, curvat
 
 def _group_topology_indices(grp):
     """Convert Group system indices to the identifiers used by its Network."""
+    cached = getattr(grp, '_export_topology_indices', None)
+    if cached is not None:
+        return list(cached)
     net_balls = getattr(grp.net, "balls", None)
     if net_balls is None or len(net_balls) == 0:
         return list(grp.ball_ndxs)
@@ -36,11 +39,14 @@ def _group_topology_indices(grp):
             system_id = topology_id
         system_to_topology.setdefault(system_id, topology_id)
 
-    return [
+    indices = [
         system_to_topology[system_id]
         for system_id in (int(index) for index in grp.ball_ndxs)
         if system_id in system_to_topology
     ]
+    if hasattr(grp, '_export_topology_indices'):
+        grp._export_topology_indices = indices
+    return list(indices)
 
 
 def _surface_neighbor_system_indices(grp):

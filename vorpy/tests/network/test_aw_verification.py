@@ -11,6 +11,7 @@ def test_aw_verification_matches_full_clearance(monkeypatch, count, radius):
     locs = rng.uniform(-20, 20, (count, 3))
     rads = rng.uniform(0.2, 2, count)
     defining = [0, 2, 5, 8]
+    monkeypatch.setattr(fast, "ball_search_reach", lambda distance: distance)
     monkeypatch.setattr(fast, "box_search", lambda point: [0, 0, 0])
 
     def neighborhood(*args, **kwargs):
@@ -32,6 +33,7 @@ def test_aw_verification_matches_full_clearance(monkeypatch, count, radius):
 def test_aw_verification_skips_definers_and_checks_box(monkeypatch):
     locs = np.zeros((4, 3))
     rads = np.ones(4)
+    monkeypatch.setattr(fast, "ball_search_reach", lambda distance: distance)
     monkeypatch.setattr(fast, "box_search", lambda point: [0, 0, 0])
     assert fast.verify_aw_local(np.zeros(3), 1, [0, 1, 2, 3], locs, rads, 1)
     monkeypatch.setattr(fast, "box_search", lambda point: None)
@@ -39,6 +41,7 @@ def test_aw_verification_skips_definers_and_checks_box(monkeypatch):
 
 
 def test_choose_vertex_keeps_valid_secondary_when_primary_is_blocked(monkeypatch):
+    monkeypatch.setattr(fast, "ball_search_reach", lambda distance: distance)
     monkeypatch.setattr(fast, "box_search", lambda point: [0, 0, 0])
     locs = np.zeros((5, 3))
     rads = np.ones(5)

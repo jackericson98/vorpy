@@ -8,9 +8,11 @@ from vorpy.src.output.curvature_colors import (
     component_color,
     curvature_color_limit,
     mean_vertex_display_color,
+    _target_set,
+    _cmap,
 )
 from vorpy.src.output.draw import DEFAULT_VERTEX_RADIUS, draw_joint
-from vorpy.src.output.mesh import combine_mesh_parts, write_mesh
+from vorpy.src.output.mesh import combine_mesh_parts, write_mesh, write_prepared_mesh
 
 
 def _resolve_color(color):
@@ -40,6 +42,9 @@ def prepare_verts(net, verts, color=None, vert_rad=DEFAULT_VERTEX_RADIUS,
         settings.get("surf_scheme") if color_scheme is None else color_scheme
     )
     cmap = settings.get("surf_col", "coolwarm") if color_map is None else color_map
+    target_cells = _target_set(target_cells)
+    if scheme is not None:
+        cmap = _cmap(cmap)
 
     if scheme is not None and color_limit is None:
         color_limit = curvature_color_limit(net, scheme, target_cells, mode=color_mode)
@@ -96,14 +101,11 @@ def write_verts(net, verts, file_name, atom_type=None, directory=None, color=Non
                 subdivisions=0, color_scheme=None, color_map=None,
                 color_limit=None, target_cells=None, color_mode="boundary"):
     """Prepare selected vertices once and write OFF, PLY, or VTP."""
-    mesh = prepare_verts(
+    return write_prepared_mesh(net, lambda: prepare_verts(
         net, verts, color, vert_rad, subdivisions,
         color_scheme=color_scheme, color_map=color_map,
         color_limit=color_limit, target_cells=target_cells, color_mode=color_mode,
-    )
-    if mesh is None:
-        return None
-    return write_mesh(mesh, file_name, file_type, directory, chunk_size)
+    ), file_name, file_type, directory, chunk_size)
 
 
 def write_off_verts(net, verts, file_name, atom_type=None, directory=None, color=None,

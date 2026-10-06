@@ -1,31 +1,33 @@
-import os
-import sys
 import gc
+import os
 import re
-from pathlib import Path
+import sys
 import tkinter as tk
-from tkinter import filedialog
-from itertools import combinations
-from copy import deepcopy
 from contextlib import closing
-from vorpy.src.inputs.frames import iter_pdb_frames, count_pdb_frames
-from vorpy.src.inputs.net import read_net
+from copy import deepcopy
+from itertools import combinations
+from pathlib import Path
+from tkinter import filedialog
+
+from vorpy.src.boundary import BoundaryConfig, resolve_boundary
+from vorpy.src.command.command_export import argv_export
 from vorpy.src.command.commands import *
-from vorpy.src.system.system import System
-from vorpy.src.boundary import BoundaryConfig, BoundaryMode, resolve_boundary
+from vorpy.src.command.group import ggroup
+from vorpy.src.command.interface import build_interfaces
 from vorpy.src.command.interpret import get_file
 from vorpy.src.command.set import sett
-from vorpy.src.command.group import ggroup
-from vorpy.src.command.command_export import argv_export
-from vorpy.src.command.interface import build_interfaces
-
+from vorpy.src.inputs.frames import count_pdb_frames, iter_pdb_frames
+from vorpy.src.inputs.net import read_net
+from vorpy.src.system.system import System
 
 FRAME_OPTIONS = ('load_commands', 'groups', 'builds', 'exports',
                  'settings_cmnds', 'logs_files', 'interface_mode',
                  'verbose', 'diagnose_edges', 'boundary_config',
                  'boundary_explicitly_requested', 'boundary_warning_printed',
                  'apollonius_requested', 'alpha_value', 'power_settings',
-                 'power_vs_aw_requested', 'power_cli_arguments')
+                 'power_vs_aw_requested', 'power_cli_arguments',
+                 'aw_alpha_values', 'aw_alpha_pair_overlap_only',
+                 'visualize_dual_requested', 'visualize_alpha_value')
 
 
 def available_cpu_count():
@@ -119,6 +121,34 @@ def boundary_cli_options(args):
         raise SystemExit(str(error)) from None
 
 
+def visualization_cli_options(args):
+    """Extract read-only dual visualization flags before legacy parsing."""
+    remaining = []
+    requested = False
+    seen_dual_flag = False
+    alpha = None
+    args = iter(args)
+    for arg in args:
+        if arg == '--export-dual-visualization':
+            if seen_dual_flag:
+                raise SystemExit('--export-dual-visualization may only be specified once')
+            seen_dual_flag = True
+            requested = True
+        elif arg == '--export-alpha-visualization':
+            if alpha is not None:
+                raise SystemExit('--export-alpha-visualization may only be specified once')
+            try:
+                alpha = float(next(args))
+            except (StopIteration, ValueError):
+                raise SystemExit('--export-alpha-visualization requires a finite alpha value') from None
+            if not (-float('inf') < alpha < float('inf')):
+                raise SystemExit('--export-alpha-visualization requires a finite alpha value')
+            requested = True
+        else:
+            remaining.append(arg)
+    return remaining, requested, alpha
+
+
 def apollonius_cli_options(args):
     """Extract opt-in dual and alpha-complex flags from legacy CLI arguments."""
     remaining = []
@@ -197,6 +227,11 @@ class Command:
         self.power_vs_aw_requested = False
         self.power_cli_arguments = []
         self.power_aw_water_records_omitted = 0
+        self.aw_alpha_values = []
+        self.aw_alpha_pair_overlap_only = False
+        self.aw_alpha_solvent_chains_normalized = 0
+        self.visualize_dual_requested = False
+        self.visualize_alpha_value = None
 
     def run(self):
         self._run_pipeline()
@@ -221,7 +256,9 @@ class Command:
         self._arguments = list(sys.argv[1:])
         if self._arguments and self._arguments[0] == '--load-network':
             self._arguments.pop(0)
-        from vorpy.src.analyze.power_interface_cli import extract_power_interface_options
+        from vorpy.src.analyze.power_interface_cli import (
+            extract_power_interface_options,
+        )
         self._arguments, self.power_settings = extract_power_interface_options(self._arguments)
         self.power_vs_aw_requested = self.power_settings['compare_aw']
         if not self._arguments:
@@ -229,6 +266,23 @@ class Command:
         input_arg = self._arguments[0]
 
         self._arguments, self.boundary_config, self.boundary_explicitly_requested = boundary_cli_options(self._arguments)
+        (self._arguments, self.visualize_dual_requested,
+         self.visualize_alpha_value) = visualization_cli_options(self._arguments)
+        if len(self._arguments) > 1:
+            from vorpy.src.geometry.aw_alpha.cli import (
+                extract_aw_alpha_options,
+                extract_aw_alpha_pair_only,
+            )
+            tail, self.aw_alpha_values = extract_aw_alpha_options(self._arguments[1:])
+            tail, self.aw_alpha_pair_overlap_only = extract_aw_alpha_pair_only(tail)
+            self._arguments = [self._arguments[0], *tail]
+            if self.aw_alpha_pair_overlap_only and not any(
+                value == 0.0 for value in self.aw_alpha_values
+            ):
+                raise SystemExit(
+                    "--aw-alpha-pairs-only-experimental requires "
+                    "--aw-alpha-experimental 0."
+                )
         if not self._arguments:
             raise SystemExit('Provide a structure or .vpy network archive path')
         input_arg = self._arguments[0]
@@ -240,7 +294,8 @@ class Command:
 
         if self.power_settings['preset'] and not self.power_vs_aw_requested:
             from vorpy.src.analyze.power_interface_cli import (
-                chain_groups_from_legacy_args, power_output_directory,
+                chain_groups_from_legacy_args,
+                power_output_directory,
                 run_power_interface_pdb,
             )
             chains_a, chains_b = chain_groups_from_legacy_args(self._arguments[1:])
@@ -294,9 +349,16 @@ class Command:
         comparison_temp = None
         system_input = self.base_file
         if self.power_vs_aw_requested and Path(self.base_file).suffix.lower() == '.pdb':
-            from vorpy.src.analyze.power_interface_cli import aw_comparison_structure_without_waters
+            from vorpy.src.analyze.power_interface_cli import (
+                aw_comparison_structure_without_waters,
+            )
             comparison_temp, self.power_aw_water_records_omitted = aw_comparison_structure_without_waters(self.base_file)
             system_input = comparison_temp
+        elif self.aw_alpha_values and Path(self.base_file).suffix.lower() == '.pdb':
+            from vorpy.src.geometry.aw_alpha.cli import parser_safe_aw_alpha_structure
+            comparison_temp, self.aw_alpha_solvent_chains_normalized = parser_safe_aw_alpha_structure(self.base_file)
+            if comparison_temp is not None:
+                system_input = comparison_temp
         try:
             if self.sys is None:
                 self.sys = System(file=str(system_input), make_dir=False, boundary_config=self.boundary_config)
@@ -331,12 +393,34 @@ class Command:
         option_names = (*FRAME_OPTIONS, 'save_network_path')
         with closing(iter_pdb_frames(self.base_file)) as frames:
             for ordinal, frame_file in frames:
-                frame_system = System(file=frame_file, make_dir=False, boundary_config=self.boundary_config)
+                frame_input = frame_file
+                parser_temp = None
+                normalized_solvent = 0
+                if self.aw_alpha_values:
+                    from vorpy.src.geometry.aw_alpha.cli import (
+                        parser_safe_aw_alpha_structure,
+                    )
+                    parser_temp, normalized_solvent = parser_safe_aw_alpha_structure(frame_file)
+                    if parser_temp is not None:
+                        frame_input = parser_temp
+                try:
+                    frame_system = System(
+                        file=frame_input, make_dir=False,
+                        boundary_config=self.boundary_config,
+                    )
+                finally:
+                    if parser_temp is not None:
+                        parser_temp.unlink(missing_ok=True)
                 frame_system.frame_index = ordinal
                 frame_system.frame_count = total_frames
                 command = Command(sys=frame_system, settings=deepcopy(initial_settings))
                 command.base_file = frame_file
                 command._arguments = list(self._arguments)
+                command.aw_alpha_values = list(self.aw_alpha_values)
+                command.aw_alpha_pair_overlap_only = self.aw_alpha_pair_overlap_only
+                command.aw_alpha_solvent_chains_normalized = normalized_solvent
+                command.visualize_dual_requested = self.visualize_dual_requested
+                command.visualize_alpha_value = self.visualize_alpha_value
                 command.boundary_config = deepcopy(self.boundary_config)
                 command.boundary_explicitly_requested = self.boundary_explicitly_requested
                 command.boundary_warning_printed = self.boundary_warning_printed
@@ -521,6 +605,14 @@ class Command:
         if self.apollonius_requested:
             self.run_apollonius()
 
+        if self.visualize_dual_requested:
+            self.run_dual_visualization()
+
+        if self.aw_alpha_values:
+            self.run_aw_alpha_experimental()
+            self._save_archive()
+            return
+
         # Export requested outputs
         self.run_exports()
         self._save_archive()
@@ -535,7 +627,7 @@ class Command:
             print(f'Solved network saved: {destination}')
 
     def _run_archive(self):
-        from vorpy.src.io import load_network, group_from_network
+        from vorpy.src.io import group_from_network, load_network
         network = load_network(self.base_file)
         self.sys = network.sys
         self.sys.set_output_directory(self.sys.files['dir'])
@@ -554,6 +646,12 @@ class Command:
             self.run_edge_diagnostics()
         if self.apollonius_requested:
             self.run_apollonius()
+        if self.visualize_dual_requested:
+            self.run_dual_visualization()
+        if self.aw_alpha_values:
+            self.run_aw_alpha_experimental()
+            self._save_archive()
+            return
         self.run_exports()
         self._save_archive()
 
@@ -644,6 +742,14 @@ class Command:
         self.apollonius_requested = self.apollonius_requested or apollonius_requested
         if alpha_value is not None:
             self.alpha_value = alpha_value
+        from vorpy.src.geometry.aw_alpha.cli import extract_aw_alpha_options
+        my_args, aw_alpha_values = extract_aw_alpha_options(my_args)
+        if aw_alpha_values:
+            self.aw_alpha_values = aw_alpha_values
+        from vorpy.src.geometry.aw_alpha.cli import extract_aw_alpha_pair_only
+        my_args, pair_overlap_only = extract_aw_alpha_pair_only(my_args)
+        if pair_overlap_only:
+            self.aw_alpha_pair_overlap_only = True
         if '--save-network' in my_args:
             index = my_args.index('--save-network')
             if index + 1 >= len(my_args) or my_args[index + 1].startswith('-'):
@@ -746,7 +852,7 @@ class Command:
                         self.sys.dir = system_dir
                         self.sys.files['dir'] = system_dir
 
-                        print("Directory set to: {}".format(system_dir))
+                        print(f"Directory set to: {system_dir}")
                 else:
                     # Add the export command to the list
                     self.exports.append(arg_cmnds)
@@ -791,13 +897,13 @@ class Command:
                 if self.sys.name is not None and \
                         (self.sys.atoms is not None or self.sys.files['verts_file'] is not None or self.sys.files[
                             'net_file'] is not None):
-                    reset_sys = input("replacing {} with {}\nconfirm >>>   "
-                                      .format(self.sys.name, file))
+                    reset_sys = input(f"replacing {self.sys.name} with {file}\nconfirm >>>   "
+                                      )
                     # If the user confirms the replacement, create a new system
                     if reset_sys.lower() in ys:
                         self.sys = System(file)
-                        print(self.sys.name + " loaded - {} atoms, {} molecules, solute: {}"
-                              .format(len(self.sys.atoms), len(self.sys.chains), self.sys.sol.name))
+                        print(self.sys.name + f" loaded - {len(self.sys.atoms)} atoms, {len(self.sys.chains)} molecules, solute: {self.sys.sol.name}"
+                              )
                         return self.sys
                     # If the user requests help, print the help message
                     elif reset_sys.lower() in helps:
@@ -842,8 +948,8 @@ class Command:
                 elif file[-11:-4].lower() in 'network':
                     # If a vertex file has already been loaded make sure the user wants to load it if not load it
                     if self.sys.net_file is not None or self.sys.net_file != "":
-                        replace_net_file = input("replacing {} with {}\n "
-                                                 "confirm >>>   ".format(self.sys.net_file, file))
+                        replace_net_file = input(f"replacing {self.sys.net_file} with {file}\n "
+                                                 "confirm >>>   ")
                         # If the user confirms the replacement, load the network
                         if replace_net_file in ys:
                             self.sys.load_net(file)
@@ -879,12 +985,11 @@ class Command:
             # If the file is an index file load it accordingly
             elif file[-3:] == 'ndx':
                 self.sys.load_ndx(file)
-                print(self.sys.ndx_file + "loaded -  {}".format(
-                    self.sys.ndx_names[:min(len(self.sys.ndx_names) - 1, 10)]))
+                print(self.sys.ndx_file + f"loaded -  {self.sys.ndx_names[:min(len(self.sys.ndx_names) - 1, 10)]}")
             # In all other case print an error and give the user a chance to try again
             else:
-                print("\'{}\' is not a valid input. allowed file types: .pdb, .mol, .cif, .gro, .txt, .ndx. type "
-                      "\'h\' for help".format(file))
+                print(f"\'{file}\' is not a valid input. allowed file types: .pdb, .mol, .cif, .gro, .txt, .ndx. type "
+                      "\'h\' for help")
                 return
 
     def apply_settings(self):
@@ -970,20 +1075,75 @@ class Command:
             export_apollonius(complex_, destination, alpha_complex=alpha_complex)
             print(f"Apollonius exports written to: {destination}")
 
+    def run_aw_alpha_experimental(self):
+        """Analyze already-solved AW networks with the experimental filtration."""
+        from vorpy.src.geometry.aw_alpha.cli import run_aw_alpha_experimental
+
+        networks = list(self._diagnostic_networks())
+        root = Path((getattr(self.sys, 'files', {}) or {}).get('dir') or Path.cwd())
+        try:
+            results = run_aw_alpha_experimental(
+                networks, root / 'aw_alpha', self.aw_alpha_values,
+                pair_overlap_only=self.aw_alpha_pair_overlap_only,
+            )
+        except (TypeError, ValueError, RuntimeError) as error:
+            raise SystemExit(str(error)) from None
+        for name, result in results:
+            print(f"Experimental AW alpha filtration: {name}; "
+                  f"unresolved births={len(result['unresolved'])}; "
+                  f"pair-overlap-only={self.aw_alpha_pair_overlap_only}; "
+                  f"water/ion records temporarily normalized for PDB loading="
+                  f"{self.aw_alpha_solvent_chains_normalized}; "
+                  f"output={root / 'aw_alpha'}")
+
+    def run_dual_visualization(self):
+        """Export solved-network dual layers and optional native-alpha layers."""
+        from vorpy.src.geometry.duals import build_dual
+        from vorpy.src.geometry.filtrations import build_alpha_filtration
+        from vorpy.src.geometry.visualization import export_dual_visualization
+
+        networks = list(self._diagnostic_networks())
+        if not networks:
+            raise SystemExit('Dual visualization requested, but no solved network is available.')
+        root = Path((getattr(self.sys, 'files', {}) or {}).get('dir') or Path.cwd())
+        for name, network in networks:
+            dual = build_dual(network)
+            filtration = None
+            if self.visualize_alpha_value is not None:
+                scheme = str((getattr(network, 'settings', None) or {}).get('net_type', 'aw'))
+                max_dimension = 1 if scheme == 'aw' else 3
+                filtration = build_alpha_filtration(network, max_dimension=max_dimension)
+            slug = re.sub(r'[^A-Za-z0-9_.-]+', '_', name).strip('._') or 'network'
+            destination = root / 'visualization' / slug
+            metadata = export_dual_visualization(
+                network, dual, destination, filtration=filtration,
+                alpha=self.visualize_alpha_value,
+                structure_path=self.base_file if Path(self.base_file).suffix.lower() == '.pdb' else None,
+            )
+            print(f"Dual visualization written: {destination}; "
+                  f"full={metadata['full_dual_counts']}; alpha={metadata['alpha_counts']}")
+
     def run_power_aw_comparison(self):
         """Run Power beside a full-system AW network and audit the interface net."""
         from copy import deepcopy
+
         import numpy as np
-        from vorpy.src.group import Group
-        from vorpy.src.analyze.aw_interface_curvature import analyze_aw_interface_curvature
+
+        from vorpy.src.analyze.aw_interface_curvature import (
+            analyze_aw_interface_curvature,
+        )
         from vorpy.src.analyze.aw_pipeline_audit import (
-            audit_interface_surfaces, compare_surface_tables, write_rows,
+            audit_interface_surfaces,
+            compare_surface_tables,
+            write_rows,
         )
         from vorpy.src.analyze.power_interface_cli import (
-            chain_groups_from_legacy_args, power_output_directory,
+            chain_groups_from_legacy_args,
+            power_output_directory,
             run_power_interface_pdb,
         )
         from vorpy.src.analyze.power_vs_aw import compare_power_and_aw
+        from vorpy.src.group import Group
 
         if Path(self.base_file).suffix.lower() != '.pdb':
             raise SystemExit('--power-vs-aw currently requires a PDB structure')
@@ -1091,6 +1251,7 @@ class Command:
         """Yield each unique named network created by this command."""
         seen = set()
         owners = list(self.sys.groups or [])
+        owners.extend(list(getattr(self.sys, 'ifaces', None) or []))
         owners.extend(list(getattr(self.sys, 'interfaces', None) or []))
 
         for owner in owners:

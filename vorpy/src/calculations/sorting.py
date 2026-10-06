@@ -90,6 +90,11 @@ def box_search(loc):
     return box_search_numba(np.array(loc), num_splits, np.array(box_verts))
 
 
+def ball_search_reach(dist):
+    """Discrete grid reach shared by retrieval and neighborhood cache keys."""
+    return int(dist / min(sub_box_size)) + 3
+
+
 def get_balls(cells, dist=0, cell_reach=0, my_balls_matrix=None, my_sub_box_size=None, my_max_ball_rad=None):
     """Retrieves a list of balls from a 3D grid of cells based on specified search parameters.
 
@@ -126,7 +131,7 @@ def get_balls(cells, dist=0, cell_reach=0, my_balls_matrix=None, my_sub_box_size
     if my_balls_matrix is not None:
         balls_matrix, sub_box_size, max_ball_rad = my_balls_matrix, my_sub_box_size, my_max_ball_rad
     # Get the reach around the box to grab balls from
-    reach = int(dist / min(sub_box_size)) + 3
+    reach = ball_search_reach(dist)
     # Grab the number of cells in the grid
     n = balls_matrix[-1, -1, -1][0]
     # If a single cell is entered

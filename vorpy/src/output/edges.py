@@ -7,6 +7,8 @@ from vorpy.src.output.curvature_colors import (
     canonical_curvature_scheme,
     component_color,
     curvature_color_limit,
+    _target_set,
+    _cmap,
 )
 from vorpy.src.output.draw import (
     DEFAULT_EDGE_RADIUS,
@@ -14,7 +16,7 @@ from vorpy.src.output.draw import (
     draw_edge,
     draw_joint,
 )
-from vorpy.src.output.mesh import combine_mesh_parts, write_mesh
+from vorpy.src.output.mesh import combine_mesh_parts, write_mesh, write_prepared_mesh
 
 
 def _resolve_color(color):
@@ -62,6 +64,10 @@ def prepare_edges(net, edges, color=None, radius=DEFAULT_EDGE_RADIUS, add_joints
 
     if scheme is not None and color_limit is None:
         color_limit = curvature_color_limit(net, scheme, target_cells, mode=color_mode)
+
+    target_cells = _target_set(target_cells)
+    if scheme is not None:
+        cmap = _cmap(cmap)
 
     point_parts, triangle_parts, color_parts = [], [], []
     index_parts, kind_parts = [], []
@@ -145,15 +151,12 @@ def write_edges(net, edges, file_name, color=None, directory=None, profile=True,
                 color_scheme=None, color_map=None, color_limit=None,
                 target_cells=None, color_mode="boundary"):
     """Prepare selected edges once and write OFF, PLY, or VTP."""
-    mesh = prepare_edges(
+    return write_prepared_mesh(net, lambda: prepare_edges(
         net, edges, color=color, radius=radius, add_joints=add_joints,
         joint_radius=joint_radius, joint_subdivisions=joint_subdivisions,
         color_scheme=color_scheme, color_map=color_map,
         color_limit=color_limit, target_cells=target_cells, color_mode=color_mode,
-    )
-    if mesh is None:
-        return None
-    return write_mesh(mesh, file_name, file_type, directory, chunk_size)
+    ), file_name, file_type, directory, chunk_size)
 
 
 def write_edges1(edges, file_name, color=None, directory=None, radius=DEFAULT_EDGE_RADIUS,

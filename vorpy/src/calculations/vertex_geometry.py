@@ -141,7 +141,8 @@ def aw_vertex_face_angle(
         cell_index,
         surface_index,
         resolved_edges=None,
-        tolerance=1e-7):
+        tolerance=1e-7,
+        corner_context=None):
     """Return one intrinsic face angle for one AW cell at one network vertex.
 
     The selected pairwise surface must belong to the selected cell and
@@ -151,8 +152,8 @@ def aw_vertex_face_angle(
     cell_index = int(cell_index)
     surface_index = int(surface_index)
 
-    vertex = net.verts.loc[vertex_index]
-    surface = net.surfs.loc[surface_index]
+    vertex = net.verts.loc[vertex_index] if corner_context is None else corner_context['vertex']
+    surface = net.surfs.loc[surface_index] if corner_context is None else corner_context['surfaces'][surface_index]
 
     surface_balls = tuple(int(value) for value in surface["balls"])
 
@@ -165,6 +166,9 @@ def aw_vertex_face_angle(
         raise ValueError(
             f"Surface {surface_index} does not bound cell {cell_index}."
         )
+
+    if corner_context is not None and surface_index in corner_context['angles']:
+        return corner_context['angles'][surface_index]
 
     vertex_edges = {
         int(value)
@@ -194,6 +198,12 @@ def aw_vertex_face_angle(
     tangents = []
 
     for edge_index in incident_edges:
+        if corner_context is not None and edge_index in corner_context['tangents']:
+            cached = corner_context['tangents'][edge_index]
+            if isinstance(cached, ValueError):
+                raise cached
+            tangents.append(cached.copy())
+            continue
         if resolved_edges is not None and edge_index in resolved_edges:
             resolved = resolved_edges[edge_index]
         else:
@@ -214,20 +224,30 @@ def aw_vertex_face_angle(
                 f"Edge {edge_index} has no valid analytic geometry."
             )
 
-        tangent = analytic_edge_tangent_away_from_network_vertex(
-            resolved.geometry,
-            vertex_location,
-            tolerance=tolerance,
-        )
+        try:
+            tangent = analytic_edge_tangent_away_from_network_vertex(
+                resolved.geometry,
+                vertex_location,
+                tolerance=tolerance,
+            )
+        except ValueError as error:
+            if corner_context is not None:
+                corner_context['tangents'][edge_index] = error
+            raise
+        if corner_context is not None:
+            corner_context['tangents'][edge_index] = tangent.copy()
 
         tangents.append(tangent)
 
     if os.environ.get("VORPY_VERTEX_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"} and vertex_index == int(os.environ.get("VORPY_VERTEX_ID", "290")):
         print(f"sector_surface={surface_index} cell={cell_index} incident_edges={incident_edges} tangents={[np.asarray(t, dtype=float).tolist() for t in tangents]} face_normal_used=None")
-    return intrinsic_corner_angle(
+    angle = intrinsic_corner_angle(
         tangents[0],
         tangents[1],
     )
+    if corner_context is not None:
+        corner_context['angles'][surface_index] = angle
+    return angle
 
 
 def aw_cell_vertex_angular_defect(
@@ -236,7 +256,8 @@ def aw_cell_vertex_angular_defect(
         cell_index,
         resolved_edges=None,
         tolerance=1e-7,
-        candidate_surfaces=None):
+        candidate_surfaces=None,
+        corner_context=None):
     """Return the Gaussian-curvature angular defect for one AW cell vertex.
 
     Network callers may supply recovered ``candidate_surfaces`` to avoid
@@ -245,7 +266,7 @@ def aw_cell_vertex_angular_defect(
     vertex_index = int(vertex_index)
     cell_index = int(cell_index)
 
-    vertex = net.verts.loc[vertex_index]
+    vertex = net.verts.loc[vertex_index] if corner_context is None else corner_context['vertex']
 
     vertex_balls = {
         int(value)
@@ -292,7 +313,7 @@ def aw_cell_vertex_angular_defect(
     for surface_index in sorted(candidate_surfaces):
         surface_balls = {
             int(value)
-            for value in net.surfs.loc[surface_index, "balls"]
+            for value in (net.surfs.loc[surface_index, "balls"] if corner_context is None else corner_context['surfaces'][surface_index]['balls'])
         }
         if cell_index in surface_balls:
             incident_surfaces.append(surface_index)
@@ -316,6 +337,7 @@ def aw_cell_vertex_angular_defect(
                 surface_index=surface_index,
                 resolved_edges=resolved_edges,
                 tolerance=tolerance,
+                corner_context=corner_context,
             )
         except ValueError as error:
             if debug_vertex and vertex_index == int(os.environ.get("VORPY_VERTEX_ID", "290")):

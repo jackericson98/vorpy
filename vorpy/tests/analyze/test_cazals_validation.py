@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 from pathlib import Path
+from collections import defaultdict
+from itertools import combinations
 
 import numpy as np
 import pytest
@@ -61,6 +63,13 @@ def test_bounded_power_facet_polygon_area_and_area_summary():
     assert area["status"] == "finite_bounded"
     assert area["polygon_vertex_count"] == 4
     assert area["area_A2"] == pytest.approx(4.0)
+    cached_incidence = defaultdict(list)
+    for tet in tets:
+        for tri in combinations(tet, 3):
+            cached_incidence[tuple(sorted(tri))].append(tuple(sorted(tet)))
+    cached_area = power_facet_polygon_area(result, facet,
+                                          triangle_tetrahedra=cached_incidence)
+    assert cached_area == area
     summary = facet_area_statistics([area["area_A2"], 0.5, 12.0])
     assert summary["VIA_A2"] == pytest.approx(16.5)
     assert summary["mean_A2"] == pytest.approx(5.5)

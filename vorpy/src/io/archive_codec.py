@@ -148,7 +148,13 @@ class Reader:
         try:
             with self.archive.open(path) as stream:
                 version = np.lib.format.read_magic(stream)
-                shape, fortran, dtype = np.lib.format._read_array_header(stream, version)
+                # NumPy 2 moved this private helper from format.py into
+                # _format_impl.py. Keep support for both layouts because the
+                # public, version-specific readers do not accept NPY 3 headers.
+                header_reader = getattr(np.lib.format, '_read_array_header', None)
+                if header_reader is None:
+                    from numpy.lib._format_impl import _read_array_header as header_reader
+                shape, fortran, dtype = header_reader(stream, version)
                 size = math.prod(shape) * dtype.itemsize
                 if dtype.kind not in 'biufc' or size > self.archive.getinfo(path).file_size - stream.tell():
                     raise ArchiveError(f'Invalid array dtype/size: {path}')

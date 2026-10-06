@@ -11,13 +11,13 @@ _CACHE_ATTR = "_aw_edge_geometry_cache"
 _META_ATTR = "_aw_edge_geometry_cache_meta"
 
 
-def _is_collapsed_straight_edge(net, edge_index, tolerance):
+def _is_collapsed_straight_edge(net, edge_index, tolerance, edge_data=None):
     """Recognize only finite equal-radius edges below the line-length floor.
 
     Coincident endpoints alone do not prove an unequal-radius curve is empty.
     Use the same radius and endpoint tolerances as the analytic line resolver.
     """
-    edge = net.edges.loc[edge_index]
+    edge = net.edges.loc[edge_index] if edge_data is None else edge_data
     balls, vertices = edge.get("balls", ()), edge.get("verts", ())
     if len(balls) != 3 or len(vertices) != 2:
         return False
@@ -37,6 +37,25 @@ def clear_aw_edge_geometry_cache(net):
     for name in (_CACHE_ATTR, _META_ATTR):
         if hasattr(net, name):
             delattr(net, name)
+
+
+def resolve_aw_edge_geometry(net, edge_index, tolerance=1e-7, edge_data=None):
+    """Resolve a freshly built or stored edge with the same failure policy."""
+    try:
+        return resolve_aw_network_edge(net, edge_index, tolerance=tolerance,
+                                       **({'edge_data': edge_data} if edge_data is not None else {}))
+    except (TypeError, ValueError, np.linalg.LinAlgError) as error:
+        if not _is_collapsed_straight_edge(net, edge_index, tolerance, edge_data):
+            raise ValueError(f"Unable to resolve AW edge {edge_index}: {error}") from error
+        return None
+
+
+def store_aw_edge_geometry_cache(net, cache, tolerance=1e-7):
+    setattr(net, _CACHE_ATTR, cache)
+    setattr(net, _META_ATTR, {
+        'edges_id': id(net.edges), 'edge_count': len(net.edges),
+        'tolerance': float(tolerance),
+    })
 
 
 def get_aw_edge_geometry_cache(net, tolerance=1e-7):
@@ -81,27 +100,9 @@ def get_aw_edge_geometry_cache(net, tolerance=1e-7):
     start = perf_counter()
     cache = {}
     for edge_index in edges.index:
-        try:
-            cache[int(edge_index)] = resolve_aw_network_edge(
-                net,
-                edge_index,
-                tolerance=cache_tolerance,
-            )
-        except (TypeError, ValueError, np.linalg.LinAlgError) as error:
-            if not _is_collapsed_straight_edge(net, edge_index, cache_tolerance):
-                raise ValueError(
-                    f"Unable to resolve AW edge {edge_index}: {error}"
-                ) from error
-            # Only a confirmed collapsed straight edge has zero line measure.
-            # Keep None so tangent-dependent vertex checks mark it unresolved.
-            cache[int(edge_index)] = None
+        cache[int(edge_index)] = resolve_aw_edge_geometry(net, edge_index, cache_tolerance)
     elapsed = perf_counter() - start
 
-    setattr(net, _CACHE_ATTR, cache)
-    setattr(net, _META_ATTR, {
-        "edges_id": id(edges),
-        "edge_count": len(edges),
-        "tolerance": cache_tolerance,
-    })
+    store_aw_edge_geometry_cache(net, cache, cache_tolerance)
 
     return cache, True, elapsed

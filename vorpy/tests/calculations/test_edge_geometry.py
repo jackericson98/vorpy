@@ -1461,7 +1461,7 @@ def test_fused_edge_curvature_matches_independent_integrals(curved, reverse, fac
     indices = [10, 20, 30]
     pairs = [(cell, other) for cell in indices for other in indices if cell != other][:face_count]
     result = aw_edge_curvature_measures(edge, indices, locations, pairs)
-    profiled = aw_edge_curvature_measures(edge, indices, locations, pairs, timing={})
+    profiled = aw_edge_curvature_measures(edge, indices, locations, pairs, timing={}, reference=True)
     for measure in ("mean", "gaussian"):
         assert result[measure] == pytest.approx(profiled[measure], rel=1e-12, abs=1e-12)
     for cell in indices:

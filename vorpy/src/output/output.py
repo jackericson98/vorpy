@@ -169,6 +169,11 @@ class ExportProgress:
         self.start = time.perf_counter()
         self.timings = {}
         self.counts = {}
+        self.mesh_timings = {}
+        self.verbose = bool(getattr(sys, 'verbose', False) or
+                            (getattr(sys, 'settings', None) or {}).get('verbose', False) or
+                            any((getattr(group, 'settings', None) or {}).get('verbose', False)
+                                for group in (getattr(sys, 'groups', None) or [])))
 
     def show(self, name=None):
         percent = 100.0 * self.current / self.total
@@ -184,8 +189,9 @@ class ExportProgress:
         total_elapsed = time.perf_counter() - self.start
         self.sys.export_timing = self.timings.copy()
         self.sys.export_timing['total'] = total_elapsed
+        self.sys.export_mesh_timing = self.mesh_timings.copy()
         debug = str(os.environ.get('VORPY_EXPORT_TIMING', '0')).strip().lower()
-        if debug not in {'1', 'true', 'yes', 'on'}:
+        if not self.verbose and debug not in {'1', 'true', 'yes', 'on'}:
             return
         print('\n' + '=' * 70)
         print('EXPORT TIMING')
@@ -200,16 +206,29 @@ class ExportProgress:
         print('-' * 70)
         print(f'{"TOTAL":<40} {total_elapsed:10.4f} s  100.00 %')
         print(f'Export operations: {sum(self.counts.values()):,}')
+        print(f'Mesh preparation: {sum(item["prepare"] for item in self.mesh_timings.values()):.4f} s')
+        print(f'Mesh file writing: {sum(item["write"] for item in self.mesh_timings.values()):.4f} s')
         print('=' * 70)
 
 
 def _run_export(progress, name, func, **kwargs):
     progress.show(name)
     start = time.perf_counter()
+    owner = getattr(func, '__self__', None)
+    net = getattr(owner, 'net', None)
+    timing = getattr(net, '_export_mesh_timing', None)
+    before = dict(timing) if timing is not None else None
     func(**kwargs)
     elapsed = time.perf_counter() - start
     progress.timings[name] = progress.timings.get(name, 0.0) + elapsed
     progress.counts[name] = progress.counts.get(name, 0) + 1
+    details = ''
+    if before is not None:
+        phases = {phase: timing[phase] - before[phase] for phase in ('prepare', 'write')}
+        progress.mesh_timings[name] = phases
+        details = f' | mesh preparation={phases["prepare"]:.2f}s; file writing={phases["write"]:.2f}s'
+    if progress.verbose:
+        print(f'\n[export] {name}: {elapsed:.2f}s{details}', flush=True)
     progress.step()
 
 
@@ -243,7 +262,9 @@ def _export_nonpolar_geometry(sys, network, directory, network_id):
 def _group_export_cache(group):
     """Share summaries and color scales only within this export plan."""
     previous = getattr(group, "_export_info_ready", None)
+    previous_indices = getattr(group, '_export_topology_indices', None)
     group._export_info_ready = False
+    group._export_topology_indices = None
     try:
         with export_color_cache(group.net):
             yield
@@ -252,6 +273,10 @@ def _group_export_cache(group):
             del group._export_info_ready
         else:
             group._export_info_ready = previous
+        if previous_indices is None:
+            del group._export_topology_indices
+        else:
+            group._export_topology_indices = previous_indices
 
 
 def export_preset(sys, preset):
@@ -262,8 +287,10 @@ def export_preset(sys, preset):
     group_plan = GROUP_PRESETS[preset]
     interface_plan = INTERFACE_PRESETS[preset]
     analysis_count = (len(groups) + len(ifaces)) if preset in {'large', 'all'} else 0
+    archive_enabled = (bool(groups or ifaces) and not getattr(sys, '_export_skip_archive', False)
+                       and not getattr(sys, '_export_archive_written', False))
     total = (len(system_plan) + len(group_plan) * len(groups)
-             + len(interface_plan) * len(ifaces) + analysis_count)
+             + len(interface_plan) * len(ifaces) + analysis_count + int(archive_enabled))
     progress = ExportProgress(total, sys)
 
     for name, kwargs in system_plan:
@@ -302,7 +329,17 @@ def export_preset(sys, preset):
                     directory=iface.dir,
                     network_id=interface_name,
                 )
+    if archive_enabled:
+        _run_export(progress, 'network archive', _export_network_archive, sys=sys)
     progress.finish()
+
+
+def _export_network_archive(sys):
+    from vorpy.src.io import save_network
+    destination = os.path.join(sys.files['dir'], str(sys.name) + '.vpy')
+    save_network(sys, destination)
+    if hasattr(sys, '_export_archive_written'):
+        sys._export_archive_written = True
 
 
 def export_micro(sys):

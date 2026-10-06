@@ -2,6 +2,7 @@
 
 from time import perf_counter as now
 import os
+from inspect import Parameter, signature
 
 import numpy as np
 
@@ -39,6 +40,15 @@ def calculate_aw_network_vertex_gaussian_curvatures(
         raise ValueError("AW vertex Gaussian curvature requires a target network group.")
 
     total_start = now()
+    # vertex_geometry is imported at startup, while this module is loaded
+    # lazily. A long-running process may therefore retain its older function
+    # if source files were updated between those imports. Use the reference
+    # path in that case instead of passing an unsupported optimization keyword.
+    parameters = signature(aw_cell_vertex_angular_defect).parameters
+    supports_corner_context = ('corner_context' in parameters or any(
+        parameter.kind == Parameter.VAR_KEYWORD
+        for parameter in parameters.values()
+    ))
     timing = {"edge_resolution": 0.0, "vertex_geometry": 0.0, "storage": 0.0}
     target_cells = {int(value) for value in net.group}
     contributions = []
@@ -54,6 +64,8 @@ def calculate_aw_network_vertex_gaussian_curvatures(
     # Recover surface membership once for the whole network rather than
     # scanning every surface for every participating cell at every vertex.
     surfaces_by_vertex = {}
+    # Fetch topology once; repeated pandas row lookups dominate small corners.
+    surface_records = dict(zip(net.surfs.index, net.surfs.to_dict('records')))
     if "verts" in net.surfs:
         for surface_index, surface_vertices in net.surfs["verts"].items():
             try:
@@ -109,10 +121,19 @@ def calculate_aw_network_vertex_gaussian_curvatures(
             {int(value) for value in vertex.get("surfs", [])}
             | surfaces_by_vertex.get(int(vertex_index), set())
         )
+        debug_vertex = os.environ.get('VORPY_VERTEX_DEBUG', '0').strip().lower() in {'1', 'true', 'yes', 'on'}
+        # Keep the diagnostic reference path intact. This cache is local to
+        # one vertex and one invocation, so rejected/rebuilt faces cannot
+        # leave stale curvature and memory does not grow with the network.
+        corner_context = None if debug_vertex else {
+            'vertex': vertex, 'surfaces': surface_records,
+            'tangents': {}, 'angles': {},
+        }
 
         for cell_index in participating_cells:
             t = now()
             try:
+                corner_options = {'corner_context': corner_context} if supports_corner_context else {}
                 defect = aw_cell_vertex_angular_defect(
                     net=net,
                     vertex_index=vertex_index,
@@ -120,6 +141,7 @@ def calculate_aw_network_vertex_gaussian_curvatures(
                     resolved_edges=vertex_resolved_edges,
                     tolerance=tolerance,
                     candidate_surfaces=candidate_surfaces,
+                    **corner_options,
                 )
             except ValueError as error:
                 # A platform-dependent incomplete corner is unresolved data,

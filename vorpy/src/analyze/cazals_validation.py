@@ -172,12 +172,16 @@ def covalent_heavy_bonds(prepared, pdb_path):
     return bonds
 
 
-def power_facet_polygon_area(result, facet, *, coordinate_tolerance=1e-7):
+def power_facet_polygon_area(result, facet, *, coordinate_tolerance=1e-7,
+                             triangle_tetrahedra=None):
     """Recover a bounded dual power-facet polygon from its incident tetrahedra."""
-    tri_to_tets = defaultdict(list)
-    for tet in result.full_simplices[3]:
-        for tri in _faces(tet, 3):
-            tri_to_tets[tri].append(tet)
+    if triangle_tetrahedra is None:
+        tri_to_tets = defaultdict(list)
+        for tet in result.full_simplices[3]:
+            for tri in _faces(tet, 3):
+                tri_to_tets[tri].append(tet)
+    else:
+        tri_to_tets = triangle_tetrahedra
     incident_tets = set()
     for triangle in facet.incident_regular_triangles:
         incident = tri_to_tets.get(tuple(triangle), ())

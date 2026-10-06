@@ -11,9 +11,9 @@ def compare_power_and_aw(power_run, aw_result, output_dir, *, aw_lys15_ids=(), i
     """Write comparable interface metrics while keeping curvature terms separate.
 
     ``power_run`` is the mapping returned by ``run_power_interface_pdb``.
-    No combined Power/AW curvature value is emitted: the Power quantity is
-    discrete turning on planar facets, while AW has curved surfaces and its
-    analyzer intentionally withholds a combined signed curvature measure.
+    AW curvature values are passed through from the standalone AW analyzer.
+    The Power quantity remains discrete turning on planar facets, so its
+    normalized statistic is not treated as interchangeable with AW terms.
     """
     output_dir=Path(output_dir); output_dir.mkdir(parents=True,exist_ok=True)
     power=power_run["result"]; prepared=power_run["prepared"]
@@ -37,6 +37,11 @@ def compare_power_and_aw(power_run, aw_result, output_dir, *, aw_lys15_ids=(), i
         aw_coords=np.empty((0,3))
     aw_centroid=_centroid(aw_coords)
     edge=aw_result.edge_curvature
+    # Consume oriented analyzer totals; only convert the raw edge measure to
+    # its conventional half-scaled reporting convention here.
+    smooth_h = aw_result.surface_curvature
+    edge_h = 0.5 * edge["signed"]
+    combined_h = aw_result.combined_curvature
     p_edge=power.edge_totals
     aw_supported=bool(aw_surfaces)
     rows=[]
@@ -68,13 +73,18 @@ def compare_power_and_aw(power_run, aw_result, output_dir, *, aw_lys15_ids=(), i
     add("Power","C_edge_raw_signed",p_edge["signed"],"A rad","Cazals raw sum(l beta)")
     add("Power","C_edge_H_signed",p_edge["signed"]/2.,"A","Conventional half-scaled edge measure")
     add("AW","curved_surfaces",len(aw_surfaces),"surfaces")
-    add("AW","C_edge_raw_signed",edge["signed"] if aw_supported else None,"A",
-        "AW integral of beta ds" if aw_supported else "Unavailable: no selected supported AW surfaces")
-    add("AW","C_edge_H_signed",edge["signed"]/2. if aw_supported else None,"A",
-        "Half-scaled edge contribution for H=(k1+k2)/2" if aw_supported else "Unavailable: no selected supported AW surfaces")
-    add("AW","C_surface_H",aw_result.surface_curvature if aw_supported else None,"A",
-        "Existing AW integral of H dA; H=(k1+k2)/2" if aw_supported else "Unavailable: no selected supported AW surfaces")
-    add("AW","C_total_H",None,"A","Withheld: edge orientation and surface-normal sign conventions have not been reconciled")
+    add("AW","C_edge_raw_signed",edge["signed"] if aw_supported else None,"A rad",
+        "Raw AW integral of beta ds; no half factor" if aw_supported else "Unavailable: no selected supported AW surfaces")
+    add("AW","C_edge_raw_unsigned",edge["unsigned"] if aw_supported else None,"A rad",
+        "Raw AW integral of |beta| ds; no half factor" if aw_supported else "Unavailable: no selected supported AW surfaces")
+    add("AW","C_edge_H_signed",edge_h if aw_supported else None,"A",
+        "Conventional edge contribution: 1/2 integral beta ds for H=(k1+k2)/2" if aw_supported else "Unavailable: no selected supported AW surfaces")
+    add("AW","C_surface_H",smooth_h if aw_supported else None,"A",
+        "Oriented smooth AW integral of H dA; H=(k1+k2)/2" if aw_supported else "Unavailable: no selected supported AW surfaces")
+    add("AW","C_total_H",combined_h if aw_supported else None,"A",
+        "Standalone AW analyzer: integral H dA + 1/2 integral beta ds" if aw_supported else "Unavailable: no selected supported AW surfaces")
+    add("AW","orientation_convention","interface normal A->B; reversing A/B reverses signed smooth, edge, and combined quantities","text",
+        "Edge tangent is induced by the oriented AW interface patches")
     lys_ids=set(aw_lys15_ids)
     lys_power = sum(any(prepared.atoms[i].chain=="I" and prepared.atoms[i].residue_name=="LYS" and prepared.atoms[i].residue_number==15 for i in f.generator_ids) for f in power.final_facets)
     lys_aw_surfaces = [s for s in aw_surfaces if lys_ids.intersection(s.generator_ids)]
@@ -96,9 +106,11 @@ def compare_power_and_aw(power_run, aw_result, output_dir, *, aw_lys15_ids=(), i
     add("AW","Lys15_surfaces",lys_aw,"surfaces","Selected supported AW surfaces incident to BPTI chain I Lys15")
     add("AW","Lys15_interface_area",lys_aw_area,"A^2")
     add("AW","Lys15_curvature_edges",len(lys_aw_edges),"edges","Included AW analytic curvature edges incident to a Lys15 atom")
-    add("AW","Lys15_C_edge_signed",sum(e.signed_contribution or 0.0 for e in lys_aw_edges),"A")
-    add("AW","Lys15_C_edge_unsigned",sum(e.unsigned_contribution or 0.0 for e in lys_aw_edges),"A")
+    add("AW","Lys15_C_edge_signed",sum(e.signed_contribution or 0.0 for e in lys_aw_edges),"A rad")
+    add("AW","Lys15_C_edge_unsigned",sum(e.unsigned_contribution or 0.0 for e in lys_aw_edges),"A rad")
     add("AW","Lys15_C_surface_H",lys_aw_surface_h,"A","Existing integral of H dA over selected Lys15-associated AW surfaces")
+    add("AW","Lys15_C_edge_H_signed",sum(e.signed_contribution or 0.0 for e in lys_aw_edges)/2.,"A",
+        "Conventional edge contribution: half the raw signed integral")
     for note in input_notes:
         add("Input","note",note,"text")
     _write_csv(output_dir/"power_vs_aw_metrics.csv",rows)
@@ -114,13 +126,19 @@ def compare_power_and_aw(power_run, aw_result, output_dir, *, aw_lys15_ids=(), i
         f"AW interface atoms={len(aw_atom_ids)}; selected surfaces={len(aw_surfaces)}/{len(aw_surface_candidates)} candidates; excluded={len(aw_excluded)} {dict(aw_excluded_reasons)}; area={aw_result.interface_area:.9g} A^2; components={len(aw_components)}; significant={sum(c['significant'] for c in aw_components)}.\n"
         f"Interface-center centroid distance={_format_distance(_distance(p_centroid,aw_centroid))} A (localization diagnostic only).\n\n"
         f"Power curvature: C_edge_raw={p_edge['signed']:.9g} A rad; C_edge_H=C_raw/2={p_edge['signed']/2.:.9g} A.\n"
-        + (f"AW curvature: C_edge_raw={edge['signed']:.9g} A; C_edge_H=C_raw/2={edge['signed']/2.:.9g} A; C_surface_H={aw_result.surface_curvature:.9g} A.\n"
-           if aw_supported else "AW curvature: unavailable; no selected supported AW surfaces.\n")
-        +
-        "C_total_H is withheld because the edge orientation and surface-normal signs are not yet reconciled. Power s_H and AW edge-normalized beta statistics are not treated as interchangeable.\n"
+         + (f"AW curvature: smooth integral(H dA)={smooth_h:.9g} A; "
+            f"raw signed edge integral(integral beta ds)={edge['signed']:.9g} A rad; "
+            f"raw unsigned edge integral(integral |beta| ds)={edge['unsigned']:.9g} A rad; "
+            f"conventional edge contribution(1/2 integral beta ds)={edge_h:.9g} A; "
+            f"combined conventional AW integrated mean curvature C_H={combined_h:.9g} A.\n"
+            if aw_supported else "AW curvature: unavailable; no selected supported AW surfaces.\n")
+         +
+         "AW orientation convention: interface normal A->B; reversing A/B reverses signed smooth, edge, and combined quantities. "
+         "Raw edge integrals have no 1/2 factor; only the conventional edge contribution is half-scaled. "
+         "Power s_H and AW edge-normalized beta statistics are not treated as interchangeable.\n"
         f"Lys15 pocket diagnostic: Power facets={lys_power}, area={lys_power_area:.9g} A^2, curvature edges={len(lys_power_measurements)}, C_signed={sum(m.length_times_beta for m in lys_power_measurements):.9g} A rad; "
         f"AW selected surfaces={lys_aw}, area={lys_aw_area:.9g} A^2, curvature edges={len(lys_aw_edges)}, "
-        f"C_edge_signed={sum(e.signed_contribution or 0.0 for e in lys_aw_edges):.9g} A, "
+        f"raw signed edge integral={sum(e.signed_contribution or 0.0 for e in lys_aw_edges):.9g} A rad, "
         f"C_surface_H={lys_aw_surface_h:.9g} A.\n")
     (output_dir/"power_vs_aw_summary.txt").write_text(summary,encoding="utf-8")
     return {"summary":summary,"metrics":rows}

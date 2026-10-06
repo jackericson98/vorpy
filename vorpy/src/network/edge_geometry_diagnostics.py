@@ -161,7 +161,7 @@ class AWResolvedNetworkEdge:
     clearance_error: float
 
 
-def resolve_aw_network_edge(net, edge_index, tolerance=1e-6):
+def resolve_aw_network_edge(net, edge_index, tolerance=1e-6, edge_data=None):
     """Resolve one stored regular AW edge to exact analytic geometry.
 
     This is the canonical network-edge resolver. Diagnostics and production
@@ -200,7 +200,9 @@ def resolve_aw_network_edge(net, edge_index, tolerance=1e-6):
             "Analytic AW edge resolution requires an AW network."
         )
 
-    edge = net.edges.loc[edge_index]
+    # Construction can supply the freshly sampled row before DataFrame
+    # assignment, avoiding a second traversal after surfaces are meshed.
+    edge = net.edges.loc[edge_index] if edge_data is None else edge_data
 
     balls = tuple(
         int(value)

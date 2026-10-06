@@ -1,4 +1,5 @@
 import time
+from vorpy.src.network.runtime_diagnostics import checkpoint
 import os
 from itertools import combinations
 import pandas as pd
@@ -350,6 +351,7 @@ def find_net_verts(net):
     # Cached vertex state
     # --------------------------------------------------------------
     t = time.perf_counter()
+    checkpoint(net, 'Vertex cache load')
     cached_state = _load_cached_vertex_state(net)
     if cached_state is None:
         vert_ndxs = vlocs = vrads = vloc2s = vrad2s = averts = None
@@ -360,6 +362,7 @@ def find_net_verts(net):
     # --------------------------------------------------------------
     # Initial vertex search
     # --------------------------------------------------------------
+    checkpoint(net, 'Initial vertex search')
     my_guuy = find_verts(
         net=net,
         locs=net.balls['loc'].to_numpy(),
@@ -400,6 +403,7 @@ def find_net_verts(net):
     # Encapsulation checks
     # --------------------------------------------------------------
     t = time.perf_counter()
+    checkpoint(net, 'Encapsulation checks', f'remaining atoms={len(sphere_check_list):,}; vertices={len(vert_ndxs):,}')
     if len(sphere_check_list) > 0 and net.iface_grps is None:
         skip_nums = []
         max_ball_rad = max(net.balls['rad'])
@@ -445,6 +449,7 @@ def find_net_verts(net):
     # --------------------------------------------------------------
     # Additional seed searches
     # --------------------------------------------------------------
+    checkpoint(net, 'Additional seed searches', f'remaining atoms={len(sphere_check_list):,}')
     reseed_count = 0
 
     while sphere_check_list:
@@ -512,6 +517,7 @@ def find_net_verts(net):
     # Doublet expansion
     # --------------------------------------------------------------
     t = time.perf_counter()
+    checkpoint(net, 'Doublet expansion', f'vertices={len(vert_ndxs):,}')
     doublets = [0] * len(vert_ndxs)
     i = 0
 
@@ -532,6 +538,7 @@ def find_net_verts(net):
     # Vertex DataFrame
     # --------------------------------------------------------------
     t = time.perf_counter()
+    checkpoint(net, 'Vertex DataFrame', f'rows={len(vert_ndxs):,}')
     net.verts = pd.DataFrame({
         "balls": vert_ndxs,
         'loc': vlocs,
@@ -552,6 +559,7 @@ def find_net_verts(net):
     # Vertex output
     # --------------------------------------------------------------
     t = time.perf_counter()
+    checkpoint(net, 'Vertex export', f'rows={len(net.verts):,}')
     write_verts(net)
     timer['export'] += time.perf_counter() - t
 

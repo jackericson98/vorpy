@@ -1,5 +1,7 @@
 import time
 import bisect
+from vorpy.src.network.search_cache import cache_bucket
+from vorpy.src.calculations.sorting import ball_search_reach
 import numpy as np
 import warnings
 from numba import jit
@@ -51,15 +53,15 @@ def _edge_spatial_query(edge_balls, locs, dist, cache):
         cells = [box_search(loc=locs[index]) for index in edge_balls]
         return cells, get_balls(cells=cells, dist=dist)
     edge_key = tuple(sorted(edge_balls))
-    boxes = cache.setdefault("boxes", {}).get(edge_key)
+    boxes = cache_bucket(cache, "boxes").get(edge_key)
     if boxes is None:
         boxes = [box_search(loc=locs[index]) for index in edge_balls]
-        cache.setdefault("boxes", {})[edge_key] = boxes
+        cache_bucket(cache, "boxes")[edge_key] = boxes
     candidate_key = (edge_key, float(dist))
-    candidates = cache.setdefault("candidates", {}).get(candidate_key)
+    candidates = cache_bucket(cache, "candidates").get(candidate_key)
     if candidates is None:
         candidates = get_balls(cells=boxes, dist=dist)
-        cache.setdefault("candidates", {})[candidate_key] = candidates
+        cache_bucket(cache, "candidates")[candidate_key] = candidates
     return boxes, candidates
 
 
@@ -96,10 +98,14 @@ def _cached_geometry(cache, key, calculate):
     """Evaluate deterministic four-ball geometry once per traversal."""
     if cache is None:
         return calculate()
-    values = cache.setdefault("geometry", {})
-    if key not in values:
-        values[key] = calculate()
-    return values[key]
+    values = cache_bucket(cache, "geometry")
+    try:
+        return values[key]
+    except KeyError:
+        pass
+    value = calculate()
+    values[key] = value
+    return value
 
 
 def _edge_surrounding_query(edge_balls, locs, rads, dist, cache):
@@ -115,7 +121,7 @@ def _edge_surrounding_query(edge_balls, locs, rads, dist, cache):
         )
 
     key = (edge_key, float(dist))
-    surrounding = cache.setdefault("surrounding", {}).get(key)
+    surrounding = cache_bucket(cache, "surrounding").get(key)
     if surrounding is None:
         _, balls = _edge_spatial_query(edge_balls, locs, dist, cache)
         surrounding = (
@@ -915,14 +921,16 @@ def verify_aw_local(loc, rad, vert_balls, b_locs, b_rads, max_ball_rad, search_c
         POW_PRM_METRICS['aw_verify'] += time.perf_counter() - aw_verify_start
         return result
 
-    cache_key = (tuple(verify_box), float(verify_dist))
+    # Retrieval uses integer grid reach, not exact radius. Reuse identical
+    # neighborhoods while verifying every candidate with its original radius.
+    cache_key = (tuple(verify_box), ball_search_reach(verify_dist)) if search_cache is not None else None
     if search_cache is None:
         nearby_balls = get_balls([verify_box], dist=verify_dist)
         test_locs = np.asarray([b_locs[index] for index in nearby_balls], dtype=float)
         test_rads = np.asarray([b_rads[index] for index in nearby_balls], dtype=float)
         lookup = {ball: index for index, ball in enumerate(nearby_balls)}
     else:
-        nearby = search_cache.setdefault("aw_verification", {})
+        nearby = cache_bucket(search_cache, "aw_verification")
         cached = nearby.get(cache_key)
         if cached is None:
             nearby_balls = get_balls([verify_box], dist=verify_dist)

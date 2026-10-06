@@ -33,6 +33,28 @@ def archive(solved, tmp_path):
     return path
 
 
+def test_preset_archive_can_be_loaded_without_rebuilding(solved, tmp_path, monkeypatch):
+    from vorpy.src.output.output import export_micro
+    from vorpy.src.network import Network
+    system = solved.export_group.sys
+    monkeypatch.setitem(system.files, 'dir', str(tmp_path))
+    for group in system.groups:
+        monkeypatch.setattr(group, 'dir', group.dir)
+    cwd = Path.cwd()
+    try:
+        export_micro(system)
+        destination = tmp_path / (system.name + '.vpy')
+        assert zipfile.is_zipfile(destination)
+        with zipfile.ZipFile(destination) as archive:
+            assert {'state.json', 'metadata.json'} <= set(archive.namelist())
+        monkeypatch.setattr(Network, 'build', lambda *a, **kw: pytest.fail('Archive loader rebuilt topology'))
+        loaded = load_network(destination)
+        assert len(loaded.surfs) == len(solved.export_group.net.surfs)
+        assert len(loaded.verts) == len(solved.export_group.net.verts)
+    finally:
+        os.chdir(cwd)
+
+
 def same(a, b):
     if isinstance(a, dict):
         assert a.keys() == b.keys()
