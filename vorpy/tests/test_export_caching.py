@@ -141,6 +141,27 @@ def test_target_selection_is_consumed_once_in_vertex_loop():
     assert len(mesh.triangles) == 40
 
 
+def test_edge_vertex_row_cache_refresh_and_off_fields():
+    from vorpy.src.output.edges import prepare_edges
+    from vorpy.src.output.verts import prepare_verts
+    net = _colored_network()
+    with export_color_cache(net):
+        # Vertex colors read edges before tube drawing columns are populated.
+        vertex_mesh = prepare_verts(net, [0], target_cells=[0], color_limit=3., include_face_data=False)
+        edge_mesh = prepare_edges(net, [0], target_cells=[0], color_limit=3., include_face_data=False)
+        assert vertex_mesh.face_data == edge_mesh.face_data == {}
+        row = net._export_component_rows[('edges', 0)]
+        assert len(row['draw_points']) > 0
+        repeated = prepare_edges(net, [0], target_cells=[0], color_limit=3.)
+        np.testing.assert_array_equal(repeated.points, edge_mesh.points)
+        assert set(repeated.face_data) == {'edge_index', 'geometry_kind'}
+    assert not hasattr(net, '_export_component_rows')
+    net.verts.at[0, 'loc'] = [4., 0., 0.]
+    with export_color_cache(net):
+        shifted = prepare_verts(net, [0], target_cells=[0], color_limit=3.)
+        np.testing.assert_allclose(shifted.points, vertex_mesh.points + [4., 0., 0.])
+
+
 def test_incident_edge_color_cache_is_scoped_to_plan_and_selection():
     from vorpy.src.output.curvature_colors import mean_vertex_display_value
     net = _colored_network()

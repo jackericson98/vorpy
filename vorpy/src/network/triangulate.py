@@ -12,6 +12,20 @@ from vorpy.src.calculations import calc_com
 from vorpy.src.calculations import project_to_plane
 from scipy.spatial._qhull import QhullError
 from time import perf_counter
+from functools import lru_cache
+
+
+def _ring_directions(count):
+    angles = 2 * np.pi * np.arange(count, dtype=np.float64) / count
+    return np.cos(angles), np.sin(angles)
+
+
+@lru_cache(maxsize=256)
+def _cached_ring_directions(count):
+    # At most 32 MiB of numeric data (256 * 8192 * two float64 arrays).
+    cosine, sine = _ring_directions(count)
+    cosine.flags.writeable = sine.flags.writeable = False
+    return cosine, sine
 
 
 def plot_points_and_tris(pnts=None, trs=None, pcol=None, tcol=None, plot_points=True, Show=False):
@@ -92,11 +106,10 @@ def generate_spiderweb(box, res, center=None, ring_scaler=None):
         radius = max_radius * (i / num_rings)
         num_points_per_ring = int(2 * np.pi * radius / res) + 1
 
-        j = np.arange(num_points_per_ring, dtype=np.float64)
-        angles = 2 * np.pi * j / num_points_per_ring
-
-        x = cx + radius * np.cos(angles)
-        y = cy + radius * np.sin(angles)
+        directions = (_cached_ring_directions(num_points_per_ring)
+                      if num_points_per_ring <= 8192 else _ring_directions(num_points_per_ring))
+        x = cx + radius * directions[0]
+        y = cy + radius * directions[1]
 
         mask = (
             (x >= min_x) &
@@ -182,42 +195,23 @@ def sort_tris(perimeter, tris, polygon, numeric_points, timing=None):
 
     in_, out, mid = [], [], []
 
-    tri_modes = np.zeros(len(tris), dtype=np.uint8)
+    tri_array = np.asarray(tris, dtype=np.int64).reshape((-1, 3))
+    perimeter_vertices = tri_array < n_perimeter
+    perimeter_mask = np.all(perimeter_vertices, axis=1)
+    interior_mask = ~np.any(perimeter_vertices, axis=1)
+    all_interior = int(np.count_nonzero(interior_mask))
+    all_perimeter = int(np.count_nonzero(perimeter_mask))
+    mixed = len(tri_array) - all_interior - all_perimeter
     perimeter_centroids = []
-
-    all_interior = 0
-    all_perimeter = 0
-    mixed = 0
-
-    for tri_idx, tri in enumerate(tris):
-        i0, i1, i2 = tri
-
-        e0 = i0 < n_perimeter
-        e1 = i1 < n_perimeter
-        e2 = i2 < n_perimeter
-
-        if not e0 and not e1 and not e2:
-            all_interior += 1
-
-        elif e0 and e1 and e2:
-            all_perimeter += 1
-            tri_modes[tri_idx] = 1
-
-            p0 = numeric_points[i0]
-            p1 = numeric_points[i1]
-            p2 = numeric_points[i2]
-
-            cx = (p0[0] + p1[0] + p2[0]) / 3.0
-            cy = (p0[1] + p1[1] + p2[1]) / 3.0
-
-            perimeter_centroids.append((cx, cy))
-
-        else:
-            mixed += 1
+    if all_perimeter:
+        coordinates = np.asarray(numeric_points, dtype=float)
+        corners = coordinates[tri_array[perimeter_mask]]
+        # Preserve the original left-to-right addition, not a different reduction.
+        perimeter_centroids = (corners[:, 0, :2] + corners[:, 1, :2] + corners[:, 2, :2]) / 3.0
 
     perimeter_inside = None
 
-    if perimeter_centroids:
+    if len(perimeter_centroids):
         if contains_xy is not None:
             centroid_arr = np.asarray(perimeter_centroids, dtype=float)
             perimeter_inside = np.asarray(
@@ -237,17 +231,12 @@ def sort_tris(perimeter, tris, polygon, numeric_points, timing=None):
                 dtype=bool
             )
 
-    perimeter_result_pos = 0
-
-    for tri_idx, tri in enumerate(tris):
-        if tri_modes[tri_idx] == 0:
-            in_.append(tri)
-        else:
-            if perimeter_inside[perimeter_result_pos]:
-                in_.append(tri)
-            else:
-                out.append(tri)
-            perimeter_result_pos += 1
+    inside_mask = np.ones(len(tri_array), dtype=bool)
+    if all_perimeter:
+        inside_mask[perimeter_mask] = perimeter_inside
+    # Retain the original row objects and their Delaunay order.
+    in_ = [tris[index] for index in np.flatnonzero(inside_mask)]
+    out = [tris[index] for index in np.flatnonzero(~inside_mask)]
 
     if timing is not None:
         timing['tri_all_interior'] = timing.get('tri_all_interior', 0) + all_interior

@@ -30,10 +30,12 @@ def export_color_cache(net):
     previous_edges = getattr(net, '_export_edge_color_values', None)
     previous_timing = getattr(net, '_export_mesh_timing', None)
     previous_surfaces = getattr(net, '_export_surface_rows', None)
+    previous_rows = getattr(net, '_export_component_rows', None)
     net._export_color_limits = {}
     net._export_edge_color_values = {}
     net._export_mesh_timing = {'prepare': 0.0, 'write': 0.0}
     net._export_surface_rows = {}
+    net._export_component_rows = {}
     try:
         yield
     finally:
@@ -53,6 +55,22 @@ def export_color_cache(net):
             del net._export_surface_rows
         else:
             net._export_surface_rows = previous_surfaces
+        if previous_rows is None:
+            del net._export_component_rows
+        else:
+            net._export_component_rows = previous_rows
+
+
+def export_component_row(net, component, index):
+    """Reuse a component's metadata across cell exports in one plan."""
+    table = getattr(net, component)
+    cache = getattr(net, '_export_component_rows', None)
+    if cache is None:
+        return table.iloc[index]
+    key = (component, int(index))
+    if key not in cache:
+        cache[key] = table.iloc[index].to_dict()
+    return cache[key]
 
 
 INTEGRATED_CURVATURE_SCHEMES = {"int_mean_curv", "int_gauss_curv"}
@@ -446,7 +464,7 @@ def mean_vertex_display_value(net, vertex_row, target_cells=None, mode="boundary
             value = cached_values[edge_index]
         else:
             try:
-                edge = net.edges.iloc[edge_index]
+                edge = export_component_row(net, 'edges', edge_index)
             except (IndexError, TypeError, ValueError):
                 continue
             value = component_value(

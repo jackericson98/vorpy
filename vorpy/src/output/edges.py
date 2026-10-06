@@ -9,6 +9,7 @@ from vorpy.src.output.curvature_colors import (
     curvature_color_limit,
     _target_set,
     _cmap,
+    export_component_row,
 )
 from vorpy.src.output.draw import (
     DEFAULT_EDGE_RADIUS,
@@ -37,7 +38,7 @@ def _cache_columns(net):
 def prepare_edges(net, edges, color=None, radius=DEFAULT_EDGE_RADIUS, add_joints=True,
                   joint_radius=None, joint_subdivisions=0, endpoint_tolerance=1e-6,
                   color_scheme=None, color_map=None, color_limit=None,
-                  target_cells=None, color_mode="boundary"):
+                  target_cells=None, color_mode="boundary", include_face_data=True):
     """Prepare selected edge tubes with optional integrated-curvature colors.
 
     ``int_mean_curv`` and ``int_gauss_curv`` use the cell-relative edge
@@ -74,7 +75,7 @@ def prepare_edges(net, edges, color=None, radius=DEFAULT_EDGE_RADIUS, add_joints
     endpoints = {}
 
     for index in edge_indices:
-        edge = net.edges.iloc[index]
+        edge = export_component_row(net, 'edges', index)
         raw_points = np.asarray(edge.get("points", []), dtype=float)
         if (
             raw_points.ndim != 2
@@ -87,13 +88,15 @@ def prepare_edges(net, edges, color=None, radius=DEFAULT_EDGE_RADIUS, add_joints
             # tangent). They can occur in validation shapes with coincident
             # Voronoi vertices, so omit them from mesh export.
             continue
-        draw_points = edge["draw_points"]
-        draw_tris = edge["draw_tris"]
+        draw_points = edge.get('draw_points')
+        draw_tris = edge.get('draw_tris')
 
         if draw_points is None or draw_tris is None or len(draw_points) == 0 or len(draw_tris) == 0:
             draw_points, draw_tris = draw_edge(edge, radius=radius)
             net.edges.at[net.edges.index[index], "draw_points"] = draw_points
             net.edges.at[net.edges.index[index], "draw_tris"] = draw_tris
+            if isinstance(edge, dict):
+                edge['draw_points'], edge['draw_tris'] = draw_points, draw_tris
 
         edge_color = fixed_color
         if scheme is not None:
@@ -112,8 +115,9 @@ def prepare_edges(net, edges, color=None, radius=DEFAULT_EDGE_RADIUS, add_joints
         point_parts.append(draw_points)
         triangle_parts.append(draw_tris)
         color_parts.append([edge_color] * len(draw_tris))
-        index_parts.append(np.full(len(draw_tris), index, dtype=np.int64))
-        kind_parts.append(np.zeros(len(draw_tris), dtype=np.int64))
+        if include_face_data:
+            index_parts.append(np.full(len(draw_tris), index, dtype=np.int64))
+            kind_parts.append(np.zeros(len(draw_tris), dtype=np.int64))
 
         if add_joints and len(edge["points"]) > 0:
             for endpoint in (edge["points"][0], edge["points"][-1]):
@@ -134,14 +138,15 @@ def prepare_edges(net, edges, color=None, radius=DEFAULT_EDGE_RADIUS, add_joints
         point_parts.append(joint_points)
         triangle_parts.append(joint_tris)
         color_parts.append([joint_color] * len(joint_tris))
-        index_parts.append(np.full(len(joint_tris), -1, dtype=np.int64))
-        kind_parts.append(np.ones(len(joint_tris), dtype=np.int64))
+        if include_face_data:
+            index_parts.append(np.full(len(joint_tris), -1, dtype=np.int64))
+            kind_parts.append(np.ones(len(joint_tris), dtype=np.int64))
 
     return combine_mesh_parts(
         point_parts,
         triangle_parts,
         color_parts,
-        {"edge_index": index_parts, "geometry_kind": kind_parts},
+        {"edge_index": index_parts, "geometry_kind": kind_parts} if include_face_data else None,
     )
 
 
@@ -156,6 +161,7 @@ def write_edges(net, edges, file_name, color=None, directory=None, profile=True,
         joint_radius=joint_radius, joint_subdivisions=joint_subdivisions,
         color_scheme=color_scheme, color_map=color_map,
         color_limit=color_limit, target_cells=target_cells, color_mode=color_mode,
+        include_face_data=str(file_type).lower().lstrip('.') != 'off',
     ), file_name, file_type, directory, chunk_size)
 
 

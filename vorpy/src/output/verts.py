@@ -10,6 +10,7 @@ from vorpy.src.output.curvature_colors import (
     mean_vertex_display_color,
     _target_set,
     _cmap,
+    export_component_row,
 )
 from vorpy.src.output.draw import DEFAULT_VERTEX_RADIUS, draw_joint
 from vorpy.src.output.mesh import combine_mesh_parts, write_mesh, write_prepared_mesh
@@ -25,7 +26,8 @@ def _resolve_color(color):
 
 def prepare_verts(net, verts, color=None, vert_rad=DEFAULT_VERTEX_RADIUS,
                   subdivisions=0, color_scheme=None, color_map=None,
-                  color_limit=None, target_cells=None, color_mode="boundary"):
+                  color_limit=None, target_cells=None, color_mode="boundary",
+                  include_face_data=True):
     """Prepare selected vertices with optional integrated-G coloring.
 
     Vertices carry Gaussian angular-defect curvature but no mean-curvature
@@ -52,7 +54,7 @@ def prepare_verts(net, verts, color=None, vert_rad=DEFAULT_VERTEX_RADIUS,
     point_parts, triangle_parts, color_parts, index_parts = [], [], [], []
 
     for index in list(verts):
-        vertex = net.verts.iloc[index]
+        vertex = export_component_row(net, 'verts', index)
         location = np.asarray(vertex["loc"], dtype=float)
         points, triangles = draw_joint(
             location,
@@ -86,13 +88,14 @@ def prepare_verts(net, verts, color=None, vert_rad=DEFAULT_VERTEX_RADIUS,
         point_parts.append(points)
         triangle_parts.append(triangles)
         color_parts.append([vertex_color] * len(triangles))
-        index_parts.append(np.full(len(triangles), index, dtype=np.int64))
+        if include_face_data:
+            index_parts.append(np.full(len(triangles), index, dtype=np.int64))
 
     return combine_mesh_parts(
         point_parts,
         triangle_parts,
         color_parts,
-        {"vertex_index": index_parts},
+        {"vertex_index": index_parts} if include_face_data else None,
     )
 
 
@@ -105,6 +108,7 @@ def write_verts(net, verts, file_name, atom_type=None, directory=None, color=Non
         net, verts, color, vert_rad, subdivisions,
         color_scheme=color_scheme, color_map=color_map,
         color_limit=color_limit, target_cells=target_cells, color_mode=color_mode,
+        include_face_data=str(file_type).lower().lstrip('.') != 'off',
     ), file_name, file_type, directory, chunk_size)
 
 

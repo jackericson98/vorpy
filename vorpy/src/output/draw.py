@@ -248,7 +248,7 @@ def draw_line(points, radius=DEFAULT_EDGE_RADIUS, color="#000000", edge_org=None
 
 def draw_edge(edge, radius=DEFAULT_EDGE_RADIUS, color=None):
     """Generate drawable triangular tube geometry for an edge."""
-    return draw_line(edge.points, radius=radius, color=color)
+    return draw_line(edge['points'], radius=radius, color=color)
 
 
 def draw_joint(center, radius=DEFAULT_EDGE_RADIUS * DEFAULT_JOINT_RADIUS_FACTOR, subdivisions=0):
