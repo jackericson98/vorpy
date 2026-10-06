@@ -300,7 +300,7 @@ class System:
         self.residues = residues  # Residues            :   List of residues (lists of atoms)
         self.chains = chains  # Chains              :   List of the chains that make up the molecule
         self.segments = segments  # Segments            :   List of segments in the molecule
-        self.sol = None  # Solute              :   List of solute molecules (lists of atoms)
+        self.sol = None  # Physical solvent container; input readers may initialize it empty.
 
         # Settings
         self.groups = [] if groups is None else groups  # Groups              :   List of groups in the system
@@ -347,6 +347,12 @@ class System:
         self._progress_line_len = 0
 
         # Set the files
+        if file is not None and not path.splitext(str(file))[1]:
+            from vorpy.src.command.interpret import get_file
+            resolved_file = get_file(str(file), interactive=False)
+            if resolved_file is None:
+                raise FileNotFoundError(f'Input file not found: {file}')
+            file = resolved_file
         self.set_files(base_file=file, ball_file=balls_file, verts_file=verts_file, ndx_file=index_file,
                        net_file=network_file, file_dir=output_directory, frame_files=frame_files, root_dir=root_dir)
 

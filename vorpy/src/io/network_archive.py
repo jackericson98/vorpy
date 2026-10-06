@@ -35,6 +35,29 @@ LINKS = {
 }
 
 
+def _water_topology_snapshot(value):
+    # Discovery's local lookup closure is executable runtime state, not
+    # scientific data. Preserve the lookup maps and all water results.
+    if isinstance(value, dict):
+        value = dict(value)
+        context = value.get('context')
+        if isinstance(context, dict):
+            value['context'] = {key: item for key, item in context.items()
+                                if key != 'topology_to_parent'}
+    return value
+
+
+def _archive_field(obj, kind, name):
+    value = getattr(obj, name)
+    if kind == 'interface' and name == 'water_topology':
+        return _water_topology_snapshot(value)
+    if kind == 'interface' and name == 'water_geometries' and value is not None:
+        return [dict(geometry, topology_analysis=_water_topology_snapshot(geometry['topology_analysis']))
+                if isinstance(geometry, dict) and 'topology_analysis' in geometry else geometry
+                for geometry in value]
+    return value
+
+
 def _classes():
     from vorpy.src.system import System
     from vorpy.src.network import Network
@@ -113,7 +136,7 @@ def save_network(network, path):
             records = []
             for obj in objects:
                 kind = types[type(obj)]
-                fields = {name: writer.encode(getattr(obj, name)) for name in FIELDS[kind] + LINKS[kind]
+                fields = {name: writer.encode(_archive_field(obj, kind, name)) for name in FIELDS[kind] + LINKS[kind]
                           if hasattr(obj, name)}
                 records.append({'id': ids[id(obj)], 'kind': kind, 'fields': fields})
             metadata['solve_settings'] = writer.encode(root.settings)

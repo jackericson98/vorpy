@@ -26,6 +26,7 @@ import os
 import numpy as np
 
 from vorpy.src.group import Group
+from vorpy.src.boundary import WATER_RESIDUES
 
 
 # ---------------------------------------------------------------------------
@@ -143,6 +144,8 @@ def _build_interface_index_context(iface):
         solvent_residues = getattr(sol, "residues", None) or []
 
     for residue in solvent_residues:
+        if str(getattr(residue, 'name', '')).strip().upper() not in WATER_RESIDUES:
+            continue
         for system_id in _safe_list(getattr(residue, "atoms", [])):
             try:
                 water_by_system[int(system_id)] = residue

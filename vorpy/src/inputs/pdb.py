@@ -2,7 +2,7 @@ import os
 from contextlib import closing
 from itertools import chain
 from vorpy.src.input_progress import iter_input_lines
-from vorpy.src.boundary import SOLVENT_RESIDUES
+from vorpy.src.boundary import SOLVENT_RESIDUES, WATER_RESIDUES
 from vorpy.src.inputs.frames import first_pdb_frame, is_pdb_virtual_site
 from vorpy.src.objects import make_atom
 from vorpy.src.objects import Residue
@@ -86,6 +86,9 @@ def _read_pdb_lines(sys, file, lines, report):
     previous_res_seq, previous_chain = None, None
     # Initialize the chains and residues lists
     sys.chains, sys.residues = [], []
+    # Solvent ownership is independent of the author chain identifier. Water
+    # can follow protein records on an already existing PDB chain.
+    sys.sol = Sol(sys=sys, atoms=[], residues=[])
     # Initialize the chains and residues dictionaries
     chains, resids = {}, {}
     # Check if the file is a foam file
@@ -212,7 +215,12 @@ def _read_pdb_lines(sys, file, lines, report):
             # Create the chain and residue dictionaries
             res_name, chn_name = chain_str + '_' + line[17:20] + str(atom['res_seq']) + '_' + str(reset_checker), chain_str
             # If the chain has been made before
-            if chn_name in chains:
+            is_solvent = res_str.strip().upper() in SOLVENT_RESIDUES
+            if is_solvent:
+                my_chn = sys.sol
+                my_chn.add_atom(atom['num'])
+                atom['chn'] = my_chn
+            elif chn_name in chains:
                 # Get the chain from the dictionary and add the atom
                 my_chn = chains[chn_name]
                 # Add the atom to the chain
@@ -221,18 +229,8 @@ def _read_pdb_lines(sys, file, lines, report):
                 atom['chn'] = my_chn
             # Create the chain
             else:
-                # If the chain is the sol chain
-                if res_str.strip().upper() in SOLVENT_RESIDUES or chn_name == 'SOL':
-                    # Create the sol chain
-                    my_chn = Sol(atoms=[atom['num']], residues=[], name=chn_name, sys=sys)
-                    # Set the sol chain
-                    sys.sol = my_chn
-                # If the chain is not sol create a regular chain object
-                else:
-                    # Create the chain
-                    my_chn = Chain(atoms=[atom['num']], residues=[], name=chn_name, sys=sys)
-                    # Add the chain to the chains list
-                    sys.chains.append(my_chn)
+                my_chn = Chain(atoms=[atom['num']], residues=[], name=chn_name, sys=sys)
+                sys.chains.append(my_chn)
                 # Set the chain in the dictionary and give the atom it's chain
                 chains[chn_name] = my_chn
                 # Set the chain for the atom
@@ -251,8 +249,8 @@ def _read_pdb_lines(sys, file, lines, report):
                                  chain=atom['chn'])
                 # Add the residue to the dictionary
                 resids[res_name] = my_res
-                # If the residue is a sol or hoh or the chain is SOL
-                if res_str.strip().upper() in SOLVENT_RESIDUES or chain_str == 'SOL':
+                # Physical water/ions are classified only by shared metadata.
+                if is_solvent:
                     # Add the residue to the sol residues
                     sys.sol.residues.append(my_res)
                 else:
@@ -268,9 +266,6 @@ def _read_pdb_lines(sys, file, lines, report):
         # If the line is not an atom line store the other data
         else:
             data.append(line.split())
-    # Check that the sys.sol is not Noner
-    if sys.sol is None:
-        sys.sol = Sol(sys, [], [])
     # Set up the stuff
     for res in sys.residues:
         # If the residue name is not in the residue names dictionary and the chain is not SOL
@@ -290,7 +285,7 @@ def _read_pdb_lines(sys, file, lines, report):
     # Go through the sol residues
     for res in sys.sol.residues:
         # If the residue has more than 3 atoms
-        if len(res.atoms) > 3:
+        if res.name.strip().upper() in WATER_RESIDUES and len(res.atoms) > 3:
             try:
                 # Fix the sol
                 adjusted_residues += fix_sol(sys, res)
