@@ -37,6 +37,28 @@ def _csv(path, rows):
                              for k, v in row.items()})
 
 
+def _load_aw_rows(path):
+    """Read the completed AW pair table for export-only reruns."""
+    integer_fields = {"generator_i", "generator_j", "boundary_edge_count"}
+    boolean_fields = {"full_dual", "restricted", "bicolor", "bounded", "complete", "supported"}
+    float_fields = {"center_distance_A", "base_radius_i_A", "base_radius_j_A",
+        "expanded_radius_i_A", "surface_birth_A", "birth_lower_bound_A", "alpha_native",
+        "threshold", "margin", "surface_area_A2"}
+    result = []
+    with Path(path).open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            if row.get("scheme") != "aw":
+                continue
+            for key in integer_fields:
+                if row.get(key, "") != "": row[key] = int(row[key])
+            for key in boolean_fields:
+                if row.get(key, "") != "": row[key] = row[key].lower() == "true"
+            for key in float_fields:
+                row[key] = None if row.get(key, "") == "" else float(row[key])
+            result.append(row)
+    return result
+
+
 def _atom_maps(path):
     aw, power = {}, {}
     with Path(path).open(newline="", encoding="utf-8") as stream:
@@ -211,7 +233,8 @@ def _power_metrics(result, chosen, areas):
             "unresolved_smooth_surfaces": 0}
 
 
-def _export_visualization(network, power_rows, aw_rows, shared, power_only, aw_only, out, pdb_path):
+def _export_visualization(network, power_rows, aw_rows, shared, power_only, aw_only, out, pdb_path,
+                          aw_unresolved=()):
     """Use VorPy's existing edge and physical-surface mesh builders."""
     from vorpy.src.geometry.visualization.export import _edge_mesh, _surface_mesh
     from vorpy.src.output.mesh import MeshData, combine_mesh_parts, write_mesh
@@ -223,7 +246,8 @@ def _export_visualization(network, power_rows, aw_rows, shared, power_only, aw_o
     asel = {tuple(sorted((r["generator_i"], r["generator_j"]))) for r in aw_rows if r["restriction_status"] == "retained"}
     layers = {"full_Power_dual": pfull, "restricted_Power_dual": psel,
               "full_AW_dual": afull, "restricted_AW_dual": asel,
-              "shared_pairs": shared, "Power_only_pairs": power_only, "AW_only_pairs": aw_only}
+              "shared_pairs": shared, "Power_only_pairs": power_only, "AW_only_pairs": aw_only,
+              "AW_unresolved_for_Power_pairs": set(aw_unresolved)}
     for name, pairs in layers.items():
         mesh = _edge_mesh(sorted(pairs), xyz, .07)
         if mesh is not None:
@@ -268,7 +292,8 @@ def _export_visualization(network, power_rows, aw_rows, shared, power_only, aw_o
               "full_AW_dual": (0.58,0.58,0.60), "restricted_AW_dual": (0.0,0.85,0.85),
               "shared_pairs": (0.2,1.0,0.2), "Power_only_pairs": (1.0,0.35,0.0),
               "AW_only_pairs": (0.8,0.1,0.85), "shared_AW_physical_surfaces": (0.1,0.8,0.8),
-              "shared_Power_physical_surfaces": (0.1,0.35,1.0)}
+              "shared_Power_physical_surfaces": (0.1,0.35,1.0),
+              "AW_unresolved_for_Power_pairs": (1.0,0.8,0.0)}
     for name, color in colors.items():
         mesh_path = root / f"{name}.off"
         if mesh_path.exists():
@@ -330,6 +355,8 @@ def run(network_path=NETWORK, radius_audit=RADIUS_AUDIT, output_dir=OUTPUT,
             "atom_name": a["atom"], "element": elements[a["atom_id"]],
             "x_A": coords[k, 0], "y_A": coords[k, 1], "z_A": coords[k, 2],
             "base_radius_A": base[k], "expanded_radius_A": expanded[k],
+            "Power_weight_A2": expanded[k] ** 2,
+            "unused_radius_audit_Power_base_A": a["power_base"],
             "radius_source": "saved AW-loaded H-tier base radius"})
     _csv(out / "input_identity_audit.csv", input_rows)
 
@@ -362,7 +389,21 @@ def run(network_path=NETWORK, radius_audit=RADIUS_AUDIT, output_dir=OUTPUT,
     p_bicolor_full = {tuple(sorted(pair)) for pair in power.alpha_simplices[1]
                       if (pair[0] in group_a and pair[1] in group_b)
                       or (pair[1] in group_a and pair[0] in group_b)}
-    parea = _power_areas(power, p_bicolor_full)
+    area_cache = out / "power_facet_area_cache.json"
+    parea = None
+    if area_cache.exists():
+        try:
+            cached = json.loads(area_cache.read_text(encoding="utf-8"))
+            if cached.get("input_key") == cache_key:
+                parea = {tuple(map(int, key.split(":"))): value
+                         for key, value in cached["areas"].items()}
+        except (OSError, ValueError, KeyError, TypeError):
+            parea = None
+    if parea is None:
+        parea = _power_areas(power, p_bicolor_full)
+        area_cache.write_text(json.dumps({"input_key": cache_key,
+            "areas": {f"{pair[0]}:{pair[1]}": value for pair, value in parea.items()}},
+            allow_nan=False), encoding="utf-8")
     power_rows = []
     for pair in sorted(pfull):
         i, j = pair; ai, aj = power_atoms[i], power_atoms[j]
@@ -389,53 +430,78 @@ def run(network_path=NETWORK, radius_audit=RADIUS_AUDIT, output_dir=OUTPUT,
     # Exact AW clipped-surface pair birth. No Power alpha values or guessed births.
     surfaces = _aw_surfaces(network)
     aw_rows = []
+    completed_table = out / "full_dual_pairs.csv"
+    if completed_table.exists():
+        cached_rows = _load_aw_rows(completed_table)
+        cached_pairs = {(int(row["generator_i"]), int(row["generator_j"])) for row in cached_rows}
+        if len(cached_rows) == len(surfaces) and cached_pairs == set(surfaces):
+            aw_rows = cached_rows
+            print(f"Reusing audited AW pair birth table ({len(aw_rows)} exact source rows).", flush=True)
     edge_birth_cache, vertex_birth_cache = {}, {}
     all_aw_locations = np.asarray(network.balls["loc"].tolist(), dtype=float)
     all_aw_radii = np.asarray(network.balls["rad"], dtype=float)
-    for n, (pair, features) in enumerate(sorted(surfaces.items()), 1):
+    for n, (pair, features) in enumerate(sorted(surfaces.items()), 1) if not aw_rows else ():
         refs = [x[0] for x in features]
         simplex = SimpleNamespace(generator_ids=pair, primal_features=refs)
         i, j = pair
         is_bicolor = (i in group_a and j in group_b) or (i in group_b and j in group_a)
-        candidate, candidate_diag = _pair_contact_candidate(network, pair, 1e-6)
-        # The unconstrained pairwise AW minimum is a rigorous lower bound for
-        # the minimum on the clipped surface. It can certify rejection only;
-        # bicolor contacts and possible retained contacts always get the exact
-        # clipped-surface minimization.
         bounded_complete = all(ref.bounded and ref.complete for ref in refs)
         cells_complete = all(ref.generator_cells_complete for ref in refs)
         birth_geometry_supported = bounded_complete and cells_complete
-        certified_reject = (not is_bicolor and candidate is not None and
-                            float(candidate["alpha"]) > aw_alpha + 1e-6)
-        if certified_reject:
-            birth, diag = None, {"birth_source": "pair_global_lower_bound",
-                                 "reason": "Unconstrained pair minimum exceeds the AW threshold; clipped minimum cannot be lower."}
-            lower_bound = float(candidate["alpha"])
-        elif candidate is not None:
-            candidate_clearances = _clearances(candidate["point"], all_aw_locations, all_aw_radii)
-            candidate_alpha = float(candidate["alpha"])
-            tie_count = int(np.sum(np.abs(candidate_clearances-candidate_alpha) <= 1e-6))
-            if float(np.min(candidate_clearances)) >= candidate_alpha-1e-6 and tie_count == 2:
-                birth, diag = candidate_alpha, {"birth_source":"interior_analytic",
-                    "reason":"Analytic pair minimum is in the actual AW cell intersection.",
-                    "residual_A":candidate["residual_A"]}
-                lower_bound = candidate_alpha
-            elif not birth_geometry_supported:
-                birth, diag = None, {"birth_source":"unresolved",
-                    "reason":"Pair minimum is clipped by other generators, but pair surface/cell support is incomplete."}
-                lower_bound = candidate_alpha
+        candidate = None
+        # The unconstrained pairwise AW minimum is a rigorous lower bound for
+        # the clipped-surface minimum. Non-bicolor pairs use this exact lower
+        # bound plus a verified interior candidate; if clipping moves the
+        # minimizer to a boundary, their birth remains explicitly unresolved.
+        # Every bicolor pair receives the full exact clipped-surface analysis.
+        certified_reject = False
+        if not is_bicolor:
+            pi, pj = coords[i], coords[j]
+            ri, rj = float(base[i]), float(base[j])
+            d = float(np.linalg.norm(pi-pj))
+            lower_bound = ((d-ri-rj)/2.0 if d >= abs(ri-rj)-1e-6 else None)
+            if lower_bound is not None and lower_bound > aw_alpha+1e-6:
+                birth, diag = None, {"birth_source":"pair_global_lower_bound",
+                    "reason":"Unconstrained pair minimum exceeds threshold; clipped minimum cannot be lower."}
+                certified_reject = True
+            elif lower_bound is not None:
+                offset = (d + ri-rj)/2.0
+                contact = pi + (offset/d)*(pj-pi)
+                clearances = _clearances(contact, all_aw_locations, all_aw_radii)
+                tie_count = int(np.sum(np.abs(clearances-lower_bound) <= 1e-6))
+                if float(np.min(clearances)) >= lower_bound-1e-6 and tie_count == 2:
+                    birth, diag = lower_bound, {"birth_source":"interior_analytic",
+                        "reason":"Analytic pair minimum lies in the actual AW cell intersection."}
+                else:
+                    birth, diag = None, {"birth_source":"unresolved_boundary_minimum",
+                        "reason":"Pairwise lower bound is at/below threshold but its minimizer is occluded; exact boundary birth is deferred for non-bicolor pair."}
             else:
-                birth, diag = surface_birth(network, simplex, 1e-6,
-                    edge_birth_cache=edge_birth_cache, vertex_birth_cache=vertex_birth_cache)
-                lower_bound = candidate_alpha
+                birth, diag = None, {"birth_source":"unresolved",
+                    "reason":"No real pairwise AW contact candidate; pair birth remains unresolved."}
+        elif not birth_geometry_supported:
+            candidate, candidate_diag = _pair_contact_candidate(network, pair, 1e-6)
+            lower_bound = None if candidate is None else float(candidate["alpha"])
+            if candidate is not None and lower_bound > aw_alpha+1e-6:
+                birth, diag = None, {"birth_source":"pair_global_lower_bound",
+                    "reason":"Unconstrained pair minimum certifies rejection; clipped birth unresolved."}
+                certified_reject = True
+            elif candidate is not None:
+                clearances = _clearances(candidate["point"], all_aw_locations, all_aw_radii)
+                tie_count = int(np.sum(np.abs(clearances-lower_bound) <= 1e-6))
+                if float(np.min(clearances)) >= lower_bound-1e-6 and tie_count == 2:
+                    birth, diag = lower_bound, {"birth_source":"interior_analytic",
+                        "reason":"Analytic pair minimum lies in the actual AW cell intersection.",
+                        "residual_A":candidate["residual_A"]}
+                else:
+                    birth, diag = None, {"birth_source":"unresolved",
+                        "reason":"Pair minimum is clipped, but pair surface/cells are incomplete."}
+            else:
+                birth, diag = None, {"birth_source":"unresolved",
+                    "reason":"No analytic pair contact and pair surface/cells are incomplete."}
         else:
-            if not birth_geometry_supported:
-                birth, diag = None, {"birth_source":"unresolved",
-                    "reason":"No analytic pair contact and pair surface/cell support is incomplete."}
-            else:
-                birth, diag = surface_birth(network, simplex, 1e-6,
-                    edge_birth_cache=edge_birth_cache, vertex_birth_cache=vertex_birth_cache)
-            lower_bound = None
+            birth, diag = surface_birth(network, simplex, 1e-6,
+                edge_birth_cache=edge_birth_cache, vertex_birth_cache=vertex_birth_cache)
+            lower_bound = None if birth is None else float(birth)
         filtered = None if birth is None else max(float(birth),
             -float(network.balls.loc[pair[0], "rad"]), -float(network.balls.loc[pair[1], "rad"]))
         selected = (not certified_reject and filtered is not None and filtered <= aw_alpha + 1e-6)
@@ -467,6 +533,7 @@ def run(network_path=NETWORK, radius_audit=RADIUS_AUDIT, output_dir=OUTPUT,
             "boundary_edge_count": sum(len(row.get("edges", ())) for _, row in features)})
         if n % 500 == 0:
             print(f"AW exact pair births {n}/{len(surfaces)}", flush=True)
+            _csv(out / "aw_pair_birth_checkpoint.csv", aw_rows)
     _csv(out / "full_dual_pairs.csv", power_rows + aw_rows)
     _csv(out / "restricted_pairs.csv", power_rows + aw_rows)
 
@@ -477,6 +544,12 @@ def run(network_path=NETWORK, radius_audit=RADIUS_AUDIT, output_dir=OUTPUT,
     shared, p_only, a_only = pair_partition(p_bi, w_bi)
     pm = {tuple((r["generator_i"], r["generator_j"])): r for r in power_rows}
     am = {tuple((r["generator_i"], r["generator_j"])): r for r in aw_rows}
+    p_only_aw_unresolved = {pair for pair in p_only
+        if pair in am and am[pair].get("restriction_status") == "unresolved"}
+    p_only_resolved = p_only - p_only_aw_unresolved
+    resolved_union_count = len(shared) + len(p_only_resolved) + len(a_only)
+    aw_selected_bicolor_rows = [row for row in aw_rows if row["bicolor"] and row["restricted"]]
+    aw_selected_unsupported = [row for row in aw_selected_bicolor_rows if not row["supported"]]
     comp_rows = []
     for pair in sorted(p_bi | w_bi):
         pr, ar = pm.get(pair), am.get(pair)
@@ -484,7 +557,9 @@ def run(network_path=NETWORK, radius_audit=RADIUS_AUDIT, output_dir=OUTPUT,
             "stable_atom_i": aw_atoms[pair[0]]["stable"], "stable_atom_j": aw_atoms[pair[1]]["stable"],
             "center_distance_A": float(np.linalg.norm(coords[pair[0]]-coords[pair[1]])),
             "in_Power": pair in p_bi, "in_AW": pair in w_bi,
-            "classification": "shared" if pair in shared else "Power_only" if pair in p_only else "AW_only",
+            "classification": ("shared" if pair in shared else
+                "AW_unresolved_for_Power_pair" if pair in p_only and ar and ar.get("restriction_status") == "unresolved" else
+                "Power_only" if pair in p_only else "AW_only"),
             "Power_birth_A2": pr["alpha_native"] if pr else None,
             "Power_margin_A2": pr["margin"] if pr else None,
             "Power_surface_area_A2": pr["surface_area_A2"] if pr else None,
@@ -558,6 +633,7 @@ def run(network_path=NETWORK, radius_audit=RADIUS_AUDIT, output_dir=OUTPUT,
         "input_control": {"stable_atom_ids_equal": True, "coordinates_exactly_equal": True,
             "base_radii_exactly_equal": True, "expanded_radii_exactly_equal": bool(np.array_equal(expanded, aw_effective)),
             "base_radius_source": "saved H-tier AW-loaded radius", "Power_expansion": "R=r+1.4; weight=R^2; alpha=0 A^2",
+            "Power_weight_units": "A^2",
             "AW_expansion": "base r; actual restricted surface birth <=1.4 A; no pre-expansion",
             "frozen_Cazals_reference_separate": {"full_bicolor_regular":690,"alpha0":362,"M5_final":362,
                 "radius_model":"literature-reference Cazals/Chothia + 1.4 A"}},
@@ -569,14 +645,22 @@ def run(network_path=NETWORK, radius_audit=RADIUS_AUDIT, output_dir=OUTPUT,
         "distance_distributions_A":distributions,
         "bicolor":{"Power":len(p_bi),"AW":len(w_bi),"shared":len(shared),"Power_only":len(p_only),
             "AW_only":len(a_only),"union":len(p_bi|w_bi),"Jaccard":len(shared)/len(p_bi|w_bi) if p_bi|w_bi else None,
+            "Power_only_resolved":len(p_only_resolved),"Power_selected_AW_unresolved":len(p_only_aw_unresolved),
+            "resolved_membership_union":resolved_union_count,
+            "Jaccard_on_resolved_membership":len(shared)/resolved_union_count if resolved_union_count else None,
+            "AW_selected_surfaces_unsupported":len(aw_selected_unsupported),
+            "AW_selected_unsupported_area_A2":sum(float(row["surface_area_A2"] or 0.0) for row in aw_selected_unsupported),
             "fraction_Power_shared":len(shared)/len(p_bi) if p_bi else None,"fraction_AW_shared":len(shared)/len(w_bi) if w_bi else None},
         "shared_pair_area_A2":{"Power":shared_p_area,"AW":shared_a_area,"delta_AW_minus_Power":shared_a_area-shared_p_area},
         "total_interface_area_A2":{"Power":total_pair_power_area,"AW":total_pair_aw_area,"delta_AW_minus_Power":total_pair_aw_area-total_pair_power_area},
         "curvature":curvature_rows,
+        "curvature_orientation":{"Power":"Cazals AAB/ABB edge sign; group labels A/B fixed",
+            "AW":"interface normal A-to-B; reversing A/B reverses signed smooth, edge, and combined terms"},
         "longest_retained_connections":{"power":sorted([r for r in power_rows if r["restricted"]],key=lambda r:r["center_distance_A"],reverse=True)[:10],
             "aw":sorted([r for r in aw_rows if r["restriction_status"]=="retained"],key=lambda r:r["center_distance_A"],reverse=True)[:10]},
         "boundary_policy":"No boundary curvature term; integrate only seams shared by two selected physical surfaces.",
-        "visualization":_export_visualization(network,power_rows,aw_rows,shared,p_only,a_only,out,pdb_path)}
+        "visualization":_export_visualization(network,power_rows,aw_rows,shared,p_only_resolved,a_only,out,pdb_path,
+                                               p_only_aw_unresolved)}
     (out/"comparison_summary.json").write_text(json.dumps(summary,indent=2,allow_nan=False)+"\n",encoding="utf-8")
     (out/"comparison_report.txt").write_text(_report(summary),encoding="utf-8")
     return summary
@@ -584,16 +668,32 @@ def run(network_path=NETWORK, radius_audit=RADIUS_AUDIT, output_dir=OUTPUT,
 
 def _report(s):
     b=s["bicolor"]; p=s["shared_pair_area_A2"]; t=s["total_interface_area_A2"]
-    return ("2KAI matched-probe Power-vs-AW molecular restriction comparison\n"
+    base = ("2KAI matched-probe Power-vs-AW molecular restriction comparison\n"
         "Shared base radii are the saved H-tier AW-loaded radii; Power uses R=r+1.4 and AW uses base r with alpha=1.4 A.\n"
         "Power weighted-alpha units are A^2; AW additive-offset units are A. The frozen Cazals/Chothia result is context only.\n"
         f"Full pairs: Power {s['full_dual_counts']['power']}, AW {s['full_dual_counts']['aw']}.\n"
+        "Separate literature-reference radius model (frozen Cazals/Chothia + 1.4 A): 690 full bicolor regular pairs, 362 alpha=0 pairs, M=5 retains 362.\n"
         f"Restricted pairs: Power {s['restricted_counts']['power']}; AW {s['restricted_counts']['aw']}.\n"
-        f"Bicolor: Power {b['Power']}, AW {b['AW']}, shared {b['shared']}, Power-only {b['Power_only']}, AW-only {b['AW_only']}, Jaccard {b['Jaccard']}.\n"
+        f"Bicolor accepted sets: Power {b['Power']}, AW {b['AW']}, shared {b['shared']}, AW-only {b['AW_only']}, observed Jaccard {b['Jaccard']}.\n"
+        f"Power-only candidates: {b['Power_only_resolved']} have resolved AW rejection; {b['Power_selected_AW_unresolved']} have unresolved AW births. Resolved-membership Jaccard {b['Jaccard_on_resolved_membership']}.\n"
+        f"Among AW-selected bicolor surfaces, {b['AW_selected_surfaces_unsupported']} have incomplete/unsupported participating cells (area {b['AW_selected_unsupported_area_A2']:.8f} A^2); their AW smooth term remains unresolved.\n"
         f"Shared-pair areas A^2: Power {p['Power']:.8f}, AW {p['AW']:.8f}, delta {p['delta_AW_minus_Power']:.8f}.\n"
         f"Total restricted interface areas A^2: Power {t['Power']:.8f}, AW {t['AW']:.8f}, delta {t['delta_AW_minus_Power']:.8f}.\n"
         "Boundary curvature is not assigned; unresolved geometry remains reported rather than replaced by a heuristic.\n"
         f"Visualization layers: {s['visualization']}\n")
+    curvature = {(row["comparison"], row["scheme"]): row for row in s["curvature"]}
+    lines = []
+    for comparison, title in (("shared_pair_geometry", "Shared-pair curvature"),
+                              ("total_restricted_interface", "Total-interface curvature")):
+        lines.append(title + ":")
+        for scheme in ("power", "aw"):
+            row = curvature.get((comparison, scheme))
+            if row is None:
+                continue
+            combined = "unresolved" if row["combined_H_A"] is None else f"{row['combined_H_A']:.8f} A"
+            lines.append(f"  {scheme}: smooth={row['smooth_H_A']}, raw signed edge={row['raw_signed_edge_A_rad']:.8f} A rad, raw unsigned edge={row['raw_unsigned_edge_A_rad']:.8f} A rad, conventional edge H={row['conventional_edge_H_A']:.8f} A, combined={combined}; boundaries={row['boundary_edges']} ({row['boundary_length_A']:.6f} A); unresolved edges={row['unresolved_edges']}; unresolved smooth surfaces={row['unresolved_smooth_surfaces']}.")
+    lines.append("AW combined curvature and H/area are withheld where smooth surface curvature is unresolved; no boundary curvature term is invented.")
+    return base + "\n".join(lines) + "\n"
 
 
 def main(argv=None):

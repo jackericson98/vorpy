@@ -166,7 +166,7 @@ atom_vals_complete.update({
 })
 
 
-def read_atom(atom_line):
+def read_atom(atom_line, headers=None):
     """
     Parse an atom row using its column count.
 
@@ -182,6 +182,14 @@ def read_atom(atom_line):
     39 columns
         Prior integrated-curvature format without surface energy.
     """
+
+    if headers is not None:
+        from vorpy.src.analyze.tools.compare.read_logs2 import read_atom as parse_atom
+        atom = parse_atom(atom_line, headers=headers)
+        # Preserve the importer's historical spelling for reconstruction callers.
+        if 'Non-Overlap Volume' in atom:
+            atom['Non - Overlap Volume'] = atom['Non-Overlap Volume']
+        return atom
 
     n = len(atom_line)
 
@@ -230,7 +238,7 @@ def read_atom(atom_line):
     return atom
 
 
-def read_surf(surf_line):
+def read_surf(surf_line, headers=None):
     """
     Parse a surface row based on its column count.
 
@@ -255,6 +263,10 @@ def read_surf(surf_line):
     8 columns
         Legacy single-curvature format.
     """
+
+    if headers is not None:
+        from vorpy.src.analyze.tools.compare.read_logs2 import read_surf as parse_surf
+        return parse_surf(surf_line, headers=headers)
 
     # Remove trailing empty CSV entries
     while surf_line and surf_line[-1] == "":
@@ -439,7 +451,10 @@ def read_surf(surf_line):
     )
 
 
-def read_edge(edge_line):
+def read_edge(edge_line, headers=None):
+    if headers is not None:
+        from vorpy.src.analyze.tools.compare.read_logs2 import read_edge as parse_edge
+        return parse_edge(edge_line, headers=headers)
     edge = {'Index': int(edge_line[0]), 'Balls': [int(_) for _ in edge_line[1:4]], 'Length': float(edge_line[4])}
     if len(edge_line) > 5:
         edge['Integrated Mean Curvature'] = float(edge_line[5])
@@ -448,7 +463,10 @@ def read_edge(edge_line):
     return edge
 
 
-def read_vert(vert_line):
+def read_vert(vert_line, headers=None):
+    if headers is not None:
+        from vorpy.src.analyze.tools.compare.read_logs2 import read_vert as parse_vert
+        return parse_vert(vert_line, headers=headers)
     vert = {'Index': int(vert_line[0]), 'Balls': [int(_) for _ in vert_line[1:5]],
             'loc': [float(_) for _ in vert_line[5:8]], 'rad': float(vert_line[8])}
     if len(vert_line) > 9:
@@ -479,13 +497,27 @@ def read_logs(log_files, return_dict=False, no_sol=False, all_=True, balls=False
             atoms, surf_list, edge_list, vert_list = [], [], [], []
             # Set up the skip_next variable to track if the next line should be skipped
             skip_next = False
+            headers = None
+            geometry_data = None
+            build_headers = None
+            group_headers = None
             # Loop through the lines
             for i, line in enumerate(log_reader):
+                if not line:
+                    continue
+                if i == 1:
+                    build_headers = line
+                elif i == 4:
+                    group_headers = line
                 # Skip the first, the second, the fourth, and the fifth lines
                 if i in {0, 1, 3, 4}:
                     continue
                 # Get the main data from the logs file.
                 elif i == 2:
+                    if build_headers and 'Name' in build_headers:
+                        from vorpy.src.analyze.tools.compare.read_logs2 import _parse_build
+                        data = _parse_build(build_headers, line)
+                        continue
                     line = line + [0 for _ in range(11 - len(line))]
                     # Try to get the data from the line
                     try:
@@ -505,6 +537,10 @@ def read_logs(log_files, return_dict=False, no_sol=False, all_=True, balls=False
                         continue
                 # Get the group data
                 elif i == 5:
+                    if group_headers and 'Name' in group_headers:
+                        from vorpy.src.analyze.tools.compare.read_logs2 import _parse_group
+                        group_data = _parse_group(group_headers, line)
+                        continue
                     group_data = {'Name': line[0], 'Volume': float(line[1]), 'Surface Area': float(line[2]),
                                   'Mass': float(line[3]), 'Density': float(line[4]),
                                   'Center of Mass': parse_string_lists(line[5]), 'VDW Volume': float(line[6]),
@@ -537,18 +573,24 @@ def read_logs(log_files, return_dict=False, no_sol=False, all_=True, balls=False
 
                 # If the line is a build information, group information, Atoms, Edges, Surfaces, or Vertices, set the
                 # data type and skip the next line
-                if line[0] in {'build information', 'group information', 'Atoms', 'Edges', 'Surfaces', 'Vertices'}:
+                if line[0] in {'build information', 'group information', 'Atoms', 'Edges', 'Surfaces', 'Vertices', 'Interface Geometry'}:
                     data_type = line[0]
                     skip_next = True
                     continue
 
                 # If the skip_next variable is True, skip the next line
                 if skip_next:
+                    headers = line
                     skip_next = False
+                    continue
+                elif data_type == 'Interface Geometry':
+                    from vorpy.src.interface.geometry_analysis import parse_geometry_record
+                    geometry_data = parse_geometry_record(headers, line)
+                    data_type = 'data'
                     continue
                 # If the data type is Atoms and the all_ or balls variable is True, read the atom data
                 elif data_type == 'Atoms' and (all_ or balls):
-                    my_atom = read_atom(line)
+                    my_atom = read_atom(line, headers=headers)
                     my_atom['rad'], my_atom['loc'] = my_atom['Radius'], [my_atom['X'], my_atom['Y'], my_atom['Z']]
                     if no_sol:
                         residue_name = str(my_atom.get('Residue', '')).strip().upper()
@@ -583,13 +625,13 @@ def read_logs(log_files, return_dict=False, no_sol=False, all_=True, balls=False
                     atoms.append(my_atom)
                 # If the data type is Surfaces and the all_ or surfs variable is True, read the surface data
                 elif data_type == 'Surfaces' and (all_ or surfs):
-                    surf_list.append(read_surf(line))
+                    surf_list.append(read_surf(line, headers=headers))
                 # If the data type is Edges and the all_ or edges variable is True, read the edge data
                 elif data_type == 'Edges' and (all_ or edges):
-                    edge_list.append(read_edge(line))
+                    edge_list.append(read_edge(line, headers=headers))
                 # If the data type is Vertices and the all_ or verts variable is True, read the vertex data
                 elif data_type == 'Vertices' and (all_ or verts):
-                    vert_list.append(read_vert(line))
+                    vert_list.append(read_vert(line, headers=headers))
                 # If the data type is not one of the above, skip the line
                 else:
                     continue
@@ -615,6 +657,8 @@ def read_logs(log_files, return_dict=False, no_sol=False, all_=True, balls=False
                 file_info[file_name] = {'data': data, 'group data': group_data, 'atoms': pd.DataFrame(atoms),
                                         'surfs': pd.DataFrame(surf_list), 'edges': pd.DataFrame(edge_list),
                                         'verts': pd.DataFrame(vert_list)}
+            if geometry_data is not None:
+                file_info[file_name]['interface geometry'] = geometry_data
     # If the one_file variable is True, return the first file in the dictionary
     if one_file:
         # Get the first file in the dictionary

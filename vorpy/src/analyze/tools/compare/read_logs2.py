@@ -547,6 +547,7 @@ SECTION_NAMES = {
     "surfaces",
     "edges",
     "vertices",
+    "interface geometry",
 }
 
 
@@ -665,6 +666,7 @@ def read_logs2(
 
         data = {}
         group_data = {}
+        geometry_data = None
         atoms = []
         surf_list = []
         edge_list = []
@@ -698,6 +700,12 @@ def read_logs2(
 
             if current_section == "group information":
                 group_data = _parse_group(current_headers, line)
+                current_section = None
+                continue
+
+            if current_section == 'interface geometry':
+                from vorpy.src.interface.geometry_analysis import parse_geometry_record
+                geometry_data = parse_geometry_record(current_headers, line)
                 current_section = None
                 continue
 
@@ -763,6 +771,9 @@ def read_logs2(
                 "edges": pd.DataFrame(edge_list),
                 "verts": pd.DataFrame(vert_list),
             }
+
+        if geometry_data is not None:
+            file_info[unique_name]['interface geometry'] = geometry_data
 
     if one_file:
         first_key = next(iter(file_info))

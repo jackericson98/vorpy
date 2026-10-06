@@ -1,10 +1,10 @@
 import os
 import pandas as pd
-import csv
 import numpy as np
 from datetime import datetime
 from vorpy.src.calculations import round_func
 from vorpy.src.version import __version__
+from vorpy.src.log_columns import LogWriter
 
 
 _EDGE_FACE_SLOTS = ((1, 2), (1, 3), (2, 1), (2, 3), (3, 1), (3, 2))
@@ -103,7 +103,7 @@ def write_logs(group, net_name=None, round_to=None):
     # ------------------------------------------------------------------
 
     with open(group.settings['net_type'] + "_logs.csv", 'w', newline='', buffering=1024 * 1024) as log_file:
-        lg_fl = csv.writer(log_file, lineterminator='\n')
+        lg_fl = LogWriter(log_file, lineterminator='\n')
 
         # ==============================================================
         # Build + group information
@@ -771,13 +771,13 @@ def write_interface_logs(iface, net_name=None, round_to=None):
 
     with open(log_path, "w", newline="", encoding="utf-8") as log_file:
 
-        lg_fl = csv.writer(log_file, lineterminator="\n")
+        lg_fl = LogWriter(log_file, lineterminator="\n")
 
         # ==============================================================
         # Build information
         #
-        # These must remain the first three rows because read_logs()
-        # accesses the build-data row by its absolute row number.
+        # Preserve the section layout used by legacy importers.
+        # LogWriter orders columns; supported readers use their names.
         # ==============================================================
 
         lg_fl.writerow(["build information"])
@@ -796,8 +796,7 @@ def write_interface_logs(iface, net_name=None, round_to=None):
         # ==============================================================
         # Group information compatibility section
         #
-        # The section must retain this name and contain ten values because
-        # read_logs() parses row 5 positionally as group information.
+        # Retain the group section name and its interface summary fields.
         # ==============================================================
 
         lg_fl.writerow(["group information"])
@@ -1147,6 +1146,8 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                         safe_round(vertex_location[1]),
                         safe_round(vertex_location[2]),
                         safe_round(vert.get("rad", 0.0)),
+                        "",  # Interface vertex mean curvature is not exported.
+                        "",  # Cell angular defects are not interface Gaussian totals.
                     ]
                 )
                 _log_vertex_rows += 1
@@ -1154,6 +1155,9 @@ def write_interface_logs(iface, net_name=None, round_to=None):
         _log_vertex_seconds = time.perf_counter() - _log_t_vertices
         if _debug_interface_logs:
             print(f"[INTERFACE LOG] vertices: {_log_vertex_rows} rows in {_log_vertex_seconds:.3f} s")
+
+        from vorpy.src.interface.geometry_analysis import write_geometry_log
+        write_geometry_log(lg_fl, getattr(iface, 'geometry_analysis', None))
 
     _log_total_seconds = time.perf_counter() - _log_t_total
     if _debug_interface_logs:

@@ -32,7 +32,7 @@ def read_vert(vert_line):
 
 
 #
-def read_logs(log_files, return_dict=False, no_sol=False):
+def _read_legacy_logs(log_files, return_dict=False, no_sol=False):
     file_info = {}
     one_file = False
     if type(log_files) is str:
@@ -100,3 +100,54 @@ def read_logs(log_files, return_dict=False, no_sol=False):
         my_file = [_ for _ in file_info][0]
         return file_info[my_file]
     return file_info
+
+
+def read_logs(log_files, return_dict=False, no_sol=False):
+    """Keep the old analysis keys while accepting header-driven modern logs."""
+    from os import PathLike
+    from vorpy.src.analyze.tools.compare.read_logs2 import read_logs2
+
+    one_file = isinstance(log_files, (str, PathLike))
+    files = [log_files] if one_file else log_files
+    results = {}
+    for path in files:
+        with open(path, newline='', encoding='utf-8-sig') as stream:
+            rows = csv.reader(stream)
+            modern = False
+            for row in rows:
+                if row == ['Atoms']:
+                    modern = 'Residue' in next(rows, [])
+                    break
+        if not modern:
+            result = _read_legacy_logs(str(path), return_dict=True, no_sol=no_sol)
+        else:
+            result = read_logs2(path, return_dict=True, no_sol=no_sol)
+            result['atoms'] = [
+                {'num': a['Index'], 'name': a['Name'], 'volume': a['Volume'],
+                 'sa': a['Surface Area'], 'max curv': a.get('Maximum Mean Curvature', a.get('Maximum Curvature', 0.)),
+                 'complete': a.get('Complete Cell?', False), 'neighbors': a['Neighbors']}
+                for a in result['atoms']
+            ]
+            result['surfs'] = [
+                {'index': s['Index'], 'atoms': s['Balls'], 'sa': s['Surface Area'],
+                 'curvature': s.get('Mean Curvature', s.get('Curvature', 0.)), 'atom vols': s['Ball Volumes']}
+                for s in result['surfs']
+            ]
+            result['edges'] = [
+                {'index': e['Index'], 'atoms': e['Balls'], 'length': e['Length']}
+                for e in result['edges']
+            ]
+            result['verts'] = [
+                {'index': v['Index'], 'atoms': v['Balls'], 'loc': v['loc'], 'rad': v['rad']}
+                for v in result['verts']
+            ]
+        if not return_dict:
+            for section in ('atoms', 'surfs', 'edges', 'verts'):
+                result[section] = pd.DataFrame(result[section])
+        name = result['data']['name']
+        key, suffix = name, 0
+        while key in results:
+            key = name + str(suffix)
+            suffix += 1
+        results[key] = result
+    return next(iter(results.values())) if one_file else results

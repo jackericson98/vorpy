@@ -36,6 +36,7 @@ class Interface:
 
         # The interface owns its own network.
         self.net = None
+        self.geometry_analysis = None
 
         # Cached index collections defining the two interface sides.
         self.group1_indices = None
@@ -175,9 +176,15 @@ class Interface:
             self.make_net()
 
         self.net.build()
+        self.geometry_analysis = None
+        self._geometry_analysis_key = None
+        self._geometry_source_key = None
 
         # Make completed topology available to later pairwise interface builds.
         self.sys.cache_interface_geometry(self)
+
+        # Cache the solved geometry independently of later buried-water solves.
+        self.analyze_geometry()
 
         # Stage 1: classify all strict interface waters from the completed
         # interface topology.  This pass is topology-only and does not build
@@ -225,6 +232,13 @@ class Interface:
             network_created=True,
             built=True,
         )
+
+    def analyze_geometry(self, alpha=None, *, refresh=False):
+        """Return the cached alpha-selected physical interface analysis."""
+        from vorpy.src.interface.geometry_analysis import analyze_interface_geometry
+        if self.net is None:
+            raise ValueError('Build the interface network before analyzing geometry')
+        return analyze_interface_geometry(self, alpha=alpha, refresh=refresh)
 
     def _register_with_groups(self):
         self.group1.register_interface(
@@ -322,6 +336,6 @@ class Interface:
                 metadata["built"] = built
 
     def export(self, all_=False, atoms=False, surfs=False, edges=False, verts=False, logs=False, info=False,
-               group_info=False, round_to=3):
+               group_info=False, round_to=3, dual=False):
         interface_exports(iface=self, all_=all_, atoms=atoms, surfs=surfs, edges=edges, verts=verts, logs=logs,
-                          info=info, group_info=group_info, round_to=round_to)
+                          info=info, group_info=group_info, round_to=round_to, dual=dual)
