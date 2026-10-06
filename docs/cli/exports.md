@@ -35,4 +35,8 @@ offsetting triangle indices for each surface. Exporting a cell does not run
 triangulation again. OFF retains geometry and colors; VTP also retains scientific
 face fields.
 
+AW interface exports support `-e dual` (alias `-e apollonius`), also included in
+large/all presets. See [Apollonius interface visualization](apollonius_interface.md)
+for the PyMOL launcher, selected/rejected/unresolved layers, and contact mapping.
+
 **TODO:** Add the complete list of export components and the exact contents of every preset from the export implementation.

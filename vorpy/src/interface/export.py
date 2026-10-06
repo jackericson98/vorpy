@@ -1134,6 +1134,11 @@ def export_info(iface, directory=None):
             direct_surfaces=direct_surfaces,
         )
 
+        from vorpy.src.interface.geometry_analysis import write_geometry_info
+        write_geometry_info(info, getattr(iface, 'geometry_analysis', None))
+        from vorpy.src.geometry.visualization.interface import write_interface_dual_summary
+        write_interface_dual_summary(info, iface)
+
         write_interface_water_topology_statistics(
             info=info,
             iface=iface,
@@ -1213,7 +1218,7 @@ def export_info(iface, directory=None):
 
 
 def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, verts=False, logs=False, info=False,
-                      group_info=False, round_to=3):
+                      group_info=False, round_to=3, dual=False):
     """
     Export data belonging to an Interface and its dedicated Network.
     """
@@ -1228,6 +1233,9 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
         )
 
     os.makedirs(iface.dir, exist_ok=True)
+    if dual or (all_ and iface.net.settings.get('net_type', 'aw') == 'aw'):
+        from vorpy.src.geometry.visualization.interface import export_interface_dual_visualization
+        export_interface_dual_visualization(iface)
 
     # Buried-water networks are subordinate interface products. Export them
     # once with the interface information pass rather than during an arbitrary
@@ -1303,6 +1311,11 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
             )
 
     if surfs or all_:
+        # Legacy archives do not contain Phase-1 caches. Keep their existing
+        # full-geometry export available without recomputing alpha selection.
+        if getattr(iface, '_geometry_representation', None) is not None:
+            from vorpy.src.interface.selected_export import export_selected_interface
+            export_selected_interface(iface)
         if iface.net.surfs is not None and len(iface.net.surfs) > 0:
             write_surfs(
                 iface.net,

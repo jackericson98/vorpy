@@ -103,14 +103,13 @@ INTERFACE_PRESETS = {
         ('info', {'info': True}),
     ],
     'large': [
-        ('balls', {'balls': True}),
+        ('atoms', {'atoms': True}),
         ('surfaces', {'surfs': True}),
         ('edges', {'edges': True}),
         ('vertices', {'verts': True}),
         ('info', {'info': True}),
     ],
     'all': [
-        ('balls', {'balls': True}),
         ('surfaces', {'surfs': True}),
         ('atoms', {'atoms': True}),
         ('edges', {'edges': True}),
@@ -287,10 +286,12 @@ def export_preset(sys, preset):
     group_plan = GROUP_PRESETS[preset]
     interface_plan = INTERFACE_PRESETS[preset]
     analysis_count = (len(groups) + len(ifaces)) if preset in {'large', 'all'} else 0
+    dual_interfaces = [iface for iface in ifaces if iface.net is not None and
+                       iface.net.settings.get('net_type', 'aw') == 'aw'] if preset in {'large', 'all'} else []
     archive_enabled = (bool(groups or ifaces) and not getattr(sys, '_export_skip_archive', False)
                        and not getattr(sys, '_export_archive_written', False))
     total = (len(system_plan) + len(group_plan) * len(groups)
-             + len(interface_plan) * len(ifaces) + analysis_count + int(archive_enabled))
+             + len(interface_plan) * len(ifaces) + analysis_count + len(dual_interfaces) + int(archive_enabled))
     progress = ExportProgress(total, sys)
 
     for name, kwargs in system_plan:
@@ -319,6 +320,8 @@ def export_preset(sys, preset):
         with export_color_cache(iface.net):
             for name, kwargs in interface_plan:
                 _run_export(progress, f'{interface_name}: {name}', iface.export, **kwargs)
+            if iface in dual_interfaces:
+                _run_export(progress, f'{interface_name}: Apollonius dual', iface.export, dual=True)
             if preset in {'large', 'all'}:
                 _run_export(
                     progress,
@@ -368,6 +371,16 @@ def other_exports(sys, usr_npt):
     groups = [group for group in sys.groups if group.net is not None]
 
     if option in {'none', 'no', 'skip'}:
+        return
+
+    if option in {'dual', 'apollonius'}:
+        interfaces = [iface for iface in (getattr(sys, 'ifaces', None) or []) if iface.net is not None]
+        if not interfaces:
+            raise ValueError('-e dual requires a solved AW Interface; use the two-group -i workflow.')
+        progress = ExportProgress(len(interfaces), sys)
+        for iface in interfaces:
+            _run_export(progress, f'{iface.name}: Apollonius dual', iface.export, dual=True)
+        progress.finish()
         return
 
     if option in {'a', 'atoms', 'atom_cells'}:

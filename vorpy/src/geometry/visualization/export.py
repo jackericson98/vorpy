@@ -461,6 +461,11 @@ def _surface_mesh(network, positions):
     import copy
     clone = copy.copy(network)
     clone.surfs = network.surfs.copy(deep=True)
+    # Visualization layers have a fixed layer color and must not derive or
+    # require scientific curvature fields merely to copy solved triangles.
+    clone._export_color_provider = lambda component, index, mode, count: np.tile((0.25, 0.75, 0.8), (count, 1))
+    if hasattr(clone, '_export_surface_rows'):
+        clone._export_surface_rows = {}
     if "tri_colors" in clone.surfs.columns:
         clone.surfs["tri_colors"] = [[] for _ in range(len(clone.surfs))]
     return prepare_surfs(clone, positions, color=(0.25, 0.75, 0.8),
@@ -530,17 +535,8 @@ def _write_pymol_script(path, structure_path, dual_dir, alpha_dir, interface_lay
         "cmd.show('spheres', 'generators')",
         "cmd.set('sphere_scale', 0.22, 'generators')",
         "cmd.color('gray70', 'generators')",
-        "def _load_off_layer(path, name, color):",
-        "    if not path or not os.path.exists(path): return",
-        "    with open(path, 'r', encoding='utf-8') as f: lines=f.readlines()",
-        "    if not lines or lines[0].strip() != 'OFF': return",
-        "    nv,nf,_=map(int, lines[1].split()); pts=[tuple(map(float, x.split())) for x in lines[2:2+nv]]",
-        "    obj=[]; obj.extend([BEGIN, TRIANGLES, COLOR, *color])",
-        "    for line in lines[2+nv:2+nv+nf]:",
-        "        fields=line.split(); n=int(fields[0]); ids=list(map(int, fields[1:1+n]))",
-        "        for k in range(1, n-1): obj.extend([VERTEX, *pts[ids[0]], VERTEX, *pts[ids[k]], VERTEX, *pts[ids[k+1]]])",
-        "    obj.append(END); cmd.load_cgo(obj, name)",
-    ]
+    ] + pymol_off_loader_lines()
+
     if alpha_dir is not None and (alpha_dir / "alpha_vertices.pdb").exists():
         lines.extend([
             f"cmd.load({str(alpha_dir / 'alpha_vertices.pdb')!r}, 'alpha_vertices')",
@@ -574,6 +570,22 @@ def _write_pymol_script(path, structure_path, dual_dir, alpha_dir, interface_lay
     python_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     path.write_text(f'run "{python_path.resolve().as_posix()}"\n', encoding="utf-8")
     _write_pymol_views(path, lines, scheme, alpha_dir, interface_layers)
+
+
+def pymol_off_loader_lines():
+    """Shared PyMOL CGO loader for VorPy OFF meshes, including blank lines."""
+    return [
+        "def _load_off_layer(path, name, color):",
+        "    if not path or not os.path.exists(path): return",
+        "    with open(path, 'r', encoding='utf-8') as f: lines=[line for line in f if line.strip() and not line.lstrip().startswith('#')]",
+        "    if not lines or lines[0].strip() != 'OFF': return",
+        "    nv,nf,_=map(int, lines[1].split()); pts=[tuple(map(float, x.split())) for x in lines[2:2+nv]]",
+        "    obj=[]; obj.extend([BEGIN, TRIANGLES, COLOR, *color])",
+        "    for line in lines[2+nv:2+nv+nf]:",
+        "        fields=line.split(); n=int(fields[0]); ids=list(map(int, fields[1:1+n]))",
+        "        for k in range(1, n-1): obj.extend([VERTEX, *pts[ids[0]], VERTEX, *pts[ids[k]], VERTEX, *pts[ids[k+1]]])",
+        "    obj.append(END); cmd.load_cgo(obj, name)",
+    ]
 
 
 def _write_pymol_views(master_path, master_lines, scheme, alpha_dir, interface_layers):
