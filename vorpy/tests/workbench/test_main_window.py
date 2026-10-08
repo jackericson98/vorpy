@@ -801,7 +801,7 @@ def test_project_save_and_open_restores_groups(monkeypatch, tmp_path):
         "CONECT    1    2\nEND\n",
         encoding="utf-8",
     )
-    project_file = tmp_path / "saved.vpyworkbench.json"
+    project_file = tmp_path / "saved.vpy"
     window = make_window(monkeypatch)
     window.load_path(pdb)
     window._groups["Backbone"] = (1,)
