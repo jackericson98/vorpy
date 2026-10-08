@@ -22,11 +22,18 @@ chemistry-specific empirical cutoff.
 
 from collections import defaultdict, deque
 import os
+from time import perf_counter
 
 import numpy as np
 
 from vorpy.src.group import Group
 from vorpy.src.boundary import WATER_RESIDUES
+
+
+def _water_progress(iface, process, progress):
+    updater = getattr(getattr(iface, 'sys', None), 'update_progress', None)
+    if updater is not None:
+        updater(process=process, progress=float(progress), network=iface.name)
 
 
 # ---------------------------------------------------------------------------
@@ -851,11 +858,21 @@ def analyze_interface_waters(iface):
     """
     Analyze all interface waters once and retain the global topology result.
     """
+    started = perf_counter()
     topology = analyze_interface_water_topology(iface)
     iface.water_topology = topology
 
     geometries = []
-    for water in topology["waters"].values():
+    waters = list(topology["waters"].values())
+    total = len(waters)
+    step = max(1, total // 20)
+    for index, water in enumerate(waters, start=1):
+        if index == 1 or index == total or index % step == 0:
+            _water_progress(
+                iface,
+                f'Interface analysis | Classifying interface waters {index}/{total}',
+                100.0 * index / max(total, 1),
+            )
         geometry = get_water_interface_geometry(
             iface=iface,
             residue=water["residue"],
@@ -869,6 +886,12 @@ def analyze_interface_waters(iface):
             str(getattr(g["residue"], "name", "")),
             getattr(g["residue"], "seq", -1),
         )
+    )
+    _water_progress(
+        iface,
+        'Interface analysis | Interface-water classification complete '
+        f'({perf_counter() - started:.2f} s)',
+        100.0,
     )
     return geometries
 
@@ -984,7 +1007,6 @@ def build_buried_water_groups(iface):
 
     buried_sets = list(topology.get("buried_cycle_sets", []))
     waters_root = os.path.join(iface.dir, "waters")
-    os.makedirs(waters_root, exist_ok=True)
 
     water_groups = []
     total = len(buried_sets)
@@ -995,8 +1017,12 @@ def build_buried_water_groups(iface):
             continue
 
         group_name = _buried_group_name(group_index, residues)
+        _water_progress(
+            iface,
+            f'Interface analysis | Analyzing buried water {group_index}/{total}: {group_name}',
+            100.0 * (group_index - 1) / max(total, 1),
+        )
         group_dir = os.path.join(waters_root, group_name)
-        os.makedirs(group_dir, exist_ok=True)
 
         labels = [_residue_label(residue) for residue in residues]
 
@@ -1021,8 +1047,15 @@ def build_buried_water_groups(iface):
             water_group.net.completion_kind = "interface water network"
 
 
+        started = perf_counter()
         water_group.build()
         water_group.get_info()
+        _water_progress(
+            iface,
+            f'Interface analysis | Buried water {group_index}/{total} complete '
+            f'({perf_counter() - started:.2f} s): {group_name}',
+            100.0 * group_index / max(total, 1),
+        )
 
         # Give every buried-water shell a visibly different color map while
         # retaining the normal curvature-based coloring within that shell.

@@ -16,7 +16,7 @@ __pycache__/
 .idea/
 
 # Generated VorPy output
-output/
+/output/
 
 # Testing/cache
 .pytest_cache/

@@ -20,6 +20,23 @@ def _clearances(point, locations, radii):
     return np.linalg.norm(np.asarray(point, dtype=float) - locations, axis=1) - radii
 
 
+def _network_geometry(network, cache=None):
+    """Return the solved generator arrays once per filtration.
+
+    The old path rebuilt these arrays with ``iterrows`` for every surface
+    birth.  They are immutable during one filtration, so sharing them is
+    observational and keeps the numerical path unchanged.
+    """
+    if cache is not None and "locations" in cache:
+        return cache["locations"], cache["radii"]
+    locations = np.asarray(network.balls["loc"].tolist(), dtype=float)
+    radii = np.asarray(network.balls["rad"].tolist(), dtype=float)
+    if cache is not None:
+        cache["locations"] = locations
+        cache["radii"] = radii
+    return locations, radii
+
+
 def generator_birth(radius):
     """Formal union-of-balls birth, retained even when negative."""
     return -float(radius)
@@ -164,7 +181,7 @@ def _pair_contact_candidate(network, pair, tolerance):
     }
 
 
-def _vertex_candidate(network, vertex_id, pair, tolerance):
+def _vertex_candidate(network, vertex_id, pair, tolerance, *, geometry_cache=None):
     row = network.verts.loc[vertex_id]
     point = np.asarray(row["loc"], dtype=float)
     radii = np.asarray([network.balls.loc[i, "rad"] for i in pair], dtype=float)
@@ -175,12 +192,7 @@ def _vertex_candidate(network, vertex_id, pair, tolerance):
         raise ValueError(
             f"AW surface boundary vertex {vertex_id} pair residual {residual:g} A exceeds tolerance."
         )
-    all_locations = np.asarray(
-        [row["loc"] for _, row in network.balls.iterrows()], dtype=float
-    )
-    all_radii = np.asarray(
-        [row["rad"] for _, row in network.balls.iterrows()], dtype=float
-    )
+    all_locations, all_radii = _network_geometry(network, geometry_cache)
     all_clearances = _clearances(point, all_locations, all_radii)
     pair_alpha = float(np.mean(clearances))
     if float(np.min(all_clearances)) < pair_alpha - tolerance:
@@ -197,7 +209,8 @@ def _vertex_candidate(network, vertex_id, pair, tolerance):
 
 
 def surface_birth(network, surface_simplex, tolerance=1e-6, *,
-                  edge_birth_cache=None, vertex_birth_cache=None):
+                  edge_birth_cache=None, vertex_birth_cache=None,
+                  geometry_cache=None):
     """Conservative minimum on the actual network-clipped pair surface.
 
     The unrestricted pair bisector has one analytic global minimum at the
@@ -210,12 +223,7 @@ def surface_birth(network, surface_simplex, tolerance=1e-6, *,
     interior, pair_diagnostic = _pair_contact_candidate(network, pair, tolerance)
     if interior is not None and interior["residual_A"] <= tolerance:
         point = interior["point"]
-        all_locations = np.asarray(
-            [row["loc"] for _, row in network.balls.iterrows()], dtype=float
-        )
-        all_radii = np.asarray(
-            [row["rad"] for _, row in network.balls.iterrows()], dtype=float
-        )
+        all_locations, all_radii = _network_geometry(network, geometry_cache)
         all_clearances = _clearances(point, all_locations, all_radii)
         alpha = interior["alpha"]
         if float(np.min(all_clearances)) >= alpha - tolerance:
@@ -298,7 +306,10 @@ def surface_birth(network, surface_simplex, tolerance=1e-6, *,
                 continue
         else:
             try:
-                alpha, diagnostic = _vertex_candidate(network, vertex_id, pair, tolerance)
+                alpha, diagnostic = _vertex_candidate(
+                    network, vertex_id, pair, tolerance,
+                    geometry_cache=geometry_cache,
+                )
                 error_text = None
             except (TypeError, ValueError, KeyError, IndexError) as error:
                 alpha, diagnostic, error_text = None, None, str(error)

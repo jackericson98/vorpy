@@ -1,0 +1,1035 @@
+{
+  "result_id": "result-v1:ad515f1de8c38262832656d7d7c2779e272f10c4c9bf4aa1912aa7956abfb08e",
+  "identity": {
+    "result_kind": "interface",
+    "system": "2KAI",
+    "frame": "static",
+    "network_id": "2KAI:matched-probe:aw",
+    "network_scope": "system",
+    "environment": "dry",
+    "partition": "aw",
+    "representation": "voronoi",
+    "radius_configuration_id": "2KAI:H-tier:base-r",
+    "group_id": null,
+    "interface_id": "AB_I",
+    "group_A": "chains:A+B",
+    "group_B": "chain:I",
+    "side": "shared",
+    "orientation": "group1 -> group2",
+    "alpha_method": "additive",
+    "alpha_value": 1.4,
+    "alpha_units": "A",
+    "probe_radius": 1.4,
+    "probe_units": "Å",
+    "system_id": "2KAI:H-tier"
+  },
+  "provenance": {
+    "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+    "source_revision": null,
+    "scientific_state_id": null,
+    "details": {},
+    "diagnostics": []
+  },
+  "status": "PARTIAL",
+  "environment": {
+    "environment": "dry",
+    "explicit_solvent_present": null,
+    "solvent_generator_count": null,
+    "solvent_interface_competitors": null,
+    "provenance": {
+      "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+      "source_revision": null,
+      "scientific_state_id": null,
+      "details": {},
+      "diagnostics": []
+    }
+  },
+  "metrics": {
+    "area": {
+      "name": "area",
+      "value": 787.0925777403216,
+      "units": "Å²",
+      "status": "CERTIFIED",
+      "method": "cached area",
+      "scope": "retained complete alpha-selected physical surfaces; excluded mappings are reported separately",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "mean_curvature_per_area": {
+      "name": "mean_curvature_per_area",
+      "value": null,
+      "units": "Å^-1",
+      "status": "NOT_CALCULATED",
+      "method": "cached mean_curvature_per_area",
+      "scope": "supported_contributions",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "gaussian_curvature_per_area": {
+      "name": "gaussian_curvature_per_area",
+      "value": null,
+      "units": "Å^-2",
+      "status": "NOT_CALCULATED",
+      "method": "cached gaussian_curvature_per_area",
+      "scope": "full_selected_interface",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "n_atoms_A": {
+      "name": "n_atoms_A",
+      "value": null,
+      "units": "1",
+      "status": "NOT_CALCULATED",
+      "method": "cached n_atoms_A",
+      "scope": "full_selected_interface",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "n_atoms_B": {
+      "name": "n_atoms_B",
+      "value": null,
+      "units": "1",
+      "status": "NOT_CALCULATED",
+      "method": "cached n_atoms_B",
+      "scope": "full_selected_interface",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "n_interface_atoms_A": {
+      "name": "n_interface_atoms_A",
+      "value": null,
+      "units": "1",
+      "status": "NOT_CALCULATED",
+      "method": "cached n_interface_atoms_A",
+      "scope": "full_selected_interface",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "n_interface_atoms_B": {
+      "name": "n_interface_atoms_B",
+      "value": null,
+      "units": "1",
+      "status": "NOT_CALCULATED",
+      "method": "cached n_interface_atoms_B",
+      "scope": "full_selected_interface",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "n_interface_residues_A": {
+      "name": "n_interface_residues_A",
+      "value": null,
+      "units": "1",
+      "status": "NOT_CALCULATED",
+      "method": "cached n_interface_residues_A",
+      "scope": "full_selected_interface",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "n_interface_residues_B": {
+      "name": "n_interface_residues_B",
+      "value": null,
+      "units": "1",
+      "status": "NOT_CALCULATED",
+      "method": "cached n_interface_residues_B",
+      "scope": "full_selected_interface",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "n_contacts": {
+      "name": "n_contacts",
+      "value": null,
+      "units": "1",
+      "status": "NOT_CALCULATED",
+      "method": "cached n_contacts",
+      "scope": "full_selected_interface",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "n_residue_contacts": {
+      "name": "n_residue_contacts",
+      "value": null,
+      "units": "1",
+      "status": "NOT_CALCULATED",
+      "method": "cached n_residue_contacts",
+      "scope": "full_selected_interface",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "n_interface_atoms": {
+      "name": "n_interface_atoms",
+      "value": 190,
+      "units": "1",
+      "status": "PARTIAL",
+      "method": "cached interface_atoms",
+      "scope": "full_selected_interface",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "mean_unsupported_faces": {
+      "name": "mean_unsupported_faces",
+      "value": 5,
+      "units": "1",
+      "status": "PARTIAL",
+      "method": "cached mean_unsupported_faces",
+      "scope": "cached_support_audit",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "mean_unresolved_internal_seams": {
+      "name": "mean_unresolved_internal_seams",
+      "value": 14,
+      "units": "1",
+      "status": "PARTIAL",
+      "method": "cached mean_unresolved_internal_seams",
+      "scope": "cached_support_audit",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "gaussian_supported_faces": {
+      "name": "gaussian_supported_faces",
+      "value": 334,
+      "units": "1",
+      "status": "PARTIAL",
+      "method": "cached gaussian_supported_faces",
+      "scope": "cached_support_audit",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "gaussian_unsupported_faces": {
+      "name": "gaussian_unsupported_faces",
+      "value": 5,
+      "units": "1",
+      "status": "PARTIAL",
+      "method": "cached gaussian_unsupported_faces",
+      "scope": "cached_support_audit",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    }
+  },
+  "topology": {
+    "quantities": {
+      "vertices": {
+        "name": "vertices",
+        "value": 584,
+        "units": "1",
+        "status": "CERTIFIED",
+        "method": "cached topology_vertices",
+        "scope": "full_selected_interface",
+        "support_count": null,
+        "total_count": null,
+        "provenance": {
+          "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+          "source_revision": null,
+          "scientific_state_id": null,
+          "details": {},
+          "diagnostics": []
+        }
+      },
+      "edges": {
+        "name": "edges",
+        "value": 924,
+        "units": "1",
+        "status": "CERTIFIED",
+        "method": "cached topology_edges",
+        "scope": "full_selected_interface",
+        "support_count": null,
+        "total_count": null,
+        "provenance": {
+          "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+          "source_revision": null,
+          "scientific_state_id": null,
+          "details": {},
+          "diagnostics": []
+        }
+      },
+      "faces": {
+        "name": "faces",
+        "value": 339,
+        "units": "1",
+        "status": "CERTIFIED",
+        "method": "cached topology_faces",
+        "scope": "full_selected_interface",
+        "support_count": null,
+        "total_count": null,
+        "provenance": {
+          "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+          "source_revision": null,
+          "scientific_state_id": null,
+          "details": {},
+          "diagnostics": []
+        }
+      },
+      "euler_characteristic": {
+        "name": "euler_characteristic",
+        "value": -1,
+        "units": "1",
+        "status": "CERTIFIED",
+        "method": "cached euler_characteristic",
+        "scope": "full_selected_interface",
+        "support_count": null,
+        "total_count": null,
+        "provenance": {
+          "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+          "source_revision": null,
+          "scientific_state_id": null,
+          "details": {},
+          "diagnostics": []
+        }
+      },
+      "connected_components": {
+        "name": "connected_components",
+        "value": 2,
+        "units": "1",
+        "status": "CERTIFIED",
+        "method": "cached connected_components",
+        "scope": "full_selected_interface",
+        "support_count": null,
+        "total_count": null,
+        "provenance": {
+          "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+          "source_revision": null,
+          "scientific_state_id": null,
+          "details": {},
+          "diagnostics": []
+        }
+      },
+      "boundary_edges": {
+        "name": "boundary_edges",
+        "value": 113,
+        "units": "1",
+        "status": "CERTIFIED",
+        "method": "cached boundary_edges",
+        "scope": "full_selected_interface",
+        "support_count": null,
+        "total_count": null,
+        "provenance": {
+          "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+          "source_revision": null,
+          "scientific_state_id": null,
+          "details": {},
+          "diagnostics": []
+        }
+      },
+      "boundary_loops": {
+        "name": "boundary_loops",
+        "value": 5,
+        "units": "1",
+        "status": "CERTIFIED",
+        "method": "cached boundary_loops",
+        "scope": "full_selected_interface",
+        "support_count": null,
+        "total_count": null,
+        "provenance": {
+          "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+          "source_revision": null,
+          "scientific_state_id": null,
+          "details": {},
+          "diagnostics": []
+        }
+      },
+      "nonmanifold_edges": {
+        "name": "nonmanifold_edges",
+        "value": null,
+        "units": "1",
+        "status": "NOT_CALCULATED",
+        "method": "cached nonmanifold_edges",
+        "scope": "full_selected_interface",
+        "support_count": null,
+        "total_count": null,
+        "provenance": {
+          "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+          "source_revision": null,
+          "scientific_state_id": null,
+          "details": {},
+          "diagnostics": []
+        }
+      },
+      "orientable": {
+        "name": "orientable",
+        "value": null,
+        "units": "1",
+        "status": "NOT_CALCULATED",
+        "method": "cached orientable",
+        "scope": "full_selected_interface",
+        "support_count": null,
+        "total_count": null,
+        "provenance": {
+          "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+          "source_revision": null,
+          "scientific_state_id": null,
+          "details": {},
+          "diagnostics": []
+        }
+      }
+    },
+    "orientation_status": "CERTIFIED",
+    "genus_by_component": [
+      0,
+      0
+    ],
+    "genus_method": "cached validated manifold component classification"
+  },
+  "mean_curvature": {
+    "integrated_mean_curvature": {
+      "name": "integrated_mean_curvature",
+      "value": -54.150160911300546,
+      "units": "Å",
+      "status": "PARTIAL",
+      "method": "cached partial_integrated_mean_curvature",
+      "scope": "supported_contributions",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "complete_total": {
+      "name": "complete_mean_curvature",
+      "value": null,
+      "units": "Å",
+      "status": "UNRESOLVED",
+      "method": "cached total_integrated_mean_curvature",
+      "scope": "full_selected_interface",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "smooth_face_contribution": {
+      "name": "smooth_face_contribution",
+      "value": 1.6219633715872277,
+      "units": "Å",
+      "status": "PARTIAL",
+      "method": "cached smooth_integrated_mean_curvature",
+      "scope": "supported_face_contributions",
+      "support_count": 334,
+      "total_count": 339,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "edge_contribution": {
+      "name": "edge_contribution",
+      "value": -55.77212428288777,
+      "units": "Å",
+      "status": "PARTIAL",
+      "method": "cached internal_seam_integrated_mean_curvature",
+      "scope": "supported_internal_seams",
+      "support_count": 790,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "boundary_contribution": {
+      "name": "boundary_contribution",
+      "value": null,
+      "units": "Å",
+      "status": "NOT_SUPPORTED",
+      "method": "validated free-boundary convention: no scalar mean-curvature term",
+      "scope": "free_boundary",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "convention": "sum(smooth face H) + 1/2 sum(internal seam beta ds); free boundary has no automatic scalar H term"
+  },
+  "gaussian_curvature": {
+    "integrated_gaussian_curvature": {
+      "name": "integrated_gaussian_curvature",
+      "value": null,
+      "units": "1",
+      "status": "UNRESOLVED",
+      "method": "cached intrinsic_integrated_gaussian_curvature",
+      "scope": "full_selected_interface",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "smooth_face_contribution": {
+      "name": "smooth_face_contribution",
+      "value": 0.31525450341123196,
+      "units": "1",
+      "status": "PARTIAL",
+      "method": "cached smooth_integrated_gaussian_curvature",
+      "scope": "supported_subcomplex",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "intrinsic_discrete_contribution": {
+      "name": "intrinsic_discrete_contribution",
+      "value": null,
+      "units": "1",
+      "status": "NOT_CALCULATED",
+      "method": "cached intrinsic_discrete_gaussian_curvature",
+      "scope": "supported_subcomplex",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "intrinsic_seam_contribution": {
+      "name": "intrinsic_seam_contribution",
+      "value": -0.44407754243673997,
+      "units": "1",
+      "status": "PARTIAL",
+      "method": "cached intrinsic_seam_gaussian_curvature",
+      "scope": "supported_subcomplex",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "interior_vertex_defects": {
+      "name": "interior_vertex_defects",
+      "value": 4.776016756751914,
+      "units": "1",
+      "status": "PARTIAL",
+      "method": "cached interior_vertex_gaussian_curvature",
+      "scope": "supported_subcomplex",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "boundary_geodesic_contribution": {
+      "name": "boundary_geodesic_contribution",
+      "value": 0.17516607157465303,
+      "units": "1",
+      "status": "PARTIAL",
+      "method": "cached boundary_geodesic_curvature",
+      "scope": "supported_subcomplex",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "boundary_corner_contribution": {
+      "name": "boundary_corner_contribution",
+      "value": -11.10621059172663,
+      "units": "1",
+      "status": "PARTIAL",
+      "method": "cached boundary_corner_turning",
+      "scope": "supported_subcomplex",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "gauss_bonnet_completion": {
+      "name": "gauss_bonnet_completion",
+      "value": null,
+      "units": "1",
+      "status": "UNRESOLVED",
+      "method": "cached gauss_bonnet_lhs",
+      "scope": "supported_subcomplex",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "gauss_bonnet_expected": {
+      "name": "gauss_bonnet_expected",
+      "value": -6.283185307179586,
+      "units": "1",
+      "status": "PARTIAL",
+      "method": "cached gauss_bonnet_expected",
+      "scope": "full_selected_interface",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "gauss_bonnet_residual": {
+      "name": "gauss_bonnet_residual",
+      "value": null,
+      "units": "1",
+      "status": "UNRESOLVED",
+      "method": "cached gauss_bonnet_residual",
+      "scope": "supported_subcomplex",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "convention": "intrinsic surface integral; boundary geodesic/corner terms complete Gauss-Bonnet separately; extrinsic fold beta is not Gaussian curvature"
+  },
+  "contacts": [],
+  "selection": {
+    "eligible_pairs": {
+      "name": "eligible_pairs",
+      "value": null,
+      "units": "1",
+      "status": "NOT_CALCULATED",
+      "method": "cached eligible_bicolor_pairs",
+      "scope": "cached_pair_selection",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "candidate_pairs": {
+      "name": "candidate_pairs",
+      "value": null,
+      "units": "1",
+      "status": "NOT_CALCULATED",
+      "method": "cached candidate_bicolor_pairs",
+      "scope": "cached_pair_selection",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "selected_features": {
+      "name": "selected_features",
+      "value": 339,
+      "units": "1",
+      "status": "PARTIAL",
+      "method": "cached selected_pairs",
+      "scope": "cached_pair_selection",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "rejected_features": {
+      "name": "rejected_features",
+      "value": null,
+      "units": "1",
+      "status": "NOT_CALCULATED",
+      "method": "cached certified_rejected_pairs",
+      "scope": "cached_pair_selection",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "unresolved_features": {
+      "name": "unresolved_features",
+      "value": null,
+      "units": "1",
+      "status": "NOT_CALCULATED",
+      "method": "cached unresolved_pairs",
+      "scope": "cached_pair_selection",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "mapped_surfaces": {
+      "name": "mapped_surfaces",
+      "value": null,
+      "units": "1",
+      "status": "NOT_CALCULATED",
+      "method": "cached selected_physical_pairs",
+      "scope": "cached_pair_selection",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    },
+    "excluded_pairs": {
+      "name": "excluded_pairs",
+      "value": null,
+      "units": "1",
+      "status": "NOT_CALCULATED",
+      "method": "cached excluded_pairs",
+      "scope": "cached_pair_selection",
+      "support_count": null,
+      "total_count": null,
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    }
+  },
+  "extensions": [
+    {
+      "namespace": "vorpy.interface_geometry_analysis",
+      "schema_version": "1",
+      "status": "PARTIAL",
+      "payload": {
+        "selection": {
+          "selected_pairs": 339,
+          "coverage": 1.0,
+          "status": "frozen selection"
+        },
+        "coverage": {},
+        "unresolved": [
+          "Selected smooth mean-curvature contributions are missing",
+          "Required interface edge turning contributions are unresolved",
+          "Selected surface incidence references 7 missing physical edges",
+          "Edge 3494: unresolved",
+          "Edge 5822: unresolved",
+          "Edge 5940: unresolved",
+          "Edge 10425: unresolved",
+          "Edge 10438: unresolved",
+          "Edge 10444: unresolved",
+          "Edge 10445: unresolved",
+          "Edge 10477: unresolved",
+          "Edge 15472: unresolved",
+          "Edge 15485: unresolved",
+          "Edge 17382: unresolved",
+          "Edge 17383: unresolved",
+          "Edge 19145: unresolved",
+          "Edge 20569: unresolved",
+          "UNRESOLVED: Gauss-Bonnet residual exceeds tolerance",
+          "Gaussian partial terms describe a supported subcomplex, not the full selected interface"
+        ],
+        "physical_accounting": {
+          "orientation": "group1 -> group2",
+          "interface_atoms": 190,
+          "components": 2,
+          "area": 787.0925777403216,
+          "area_scope": "retained complete alpha-selected physical surfaces; excluded mappings are reported separately",
+          "area_selection_complete": true,
+          "smooth_H": null,
+          "smooth_H_partial": 1.6219633715872277,
+          "raw_signed_edge": -111.54424856577555,
+          "edge_H": -55.77212428288777,
+          "partial_H": -54.150160911300546,
+          "total_H": null,
+          "unsigned_edge": 577.8548337338322,
+          "positive_edge": 233.15529258402856,
+          "negative_edge": -344.699541149804,
+          "edge_candidates": 853,
+          "boundary_edges": 113,
+          "supported_edges": 790,
+          "unresolved_edges": 14,
+          "supported_surfaces": 334,
+          "unresolved_surfaces": 5,
+          "mean_coverage": 0.9833770778652668,
+          "mean_certified": false,
+          "coverage_basis": "supported selected surfaces and required seam features / candidate features",
+          "smooth_K_partial": 0.32123106499090304,
+          "smooth_K_coverage": 1.0,
+          "total_K": null,
+          "gaussian_total_certified": false,
+          "euler_incidence": -1,
+          "boundary_policy": "Mean curvature uses smooth patches plus interior seams; no free-boundary turning term",
+          "unresolved_reasons": [
+            "Selected smooth mean-curvature contributions are missing",
+            "Required interface edge turning contributions are unresolved",
+            "Selected surface incidence references 7 missing physical edges",
+            "Edge 3494: unresolved",
+            "Edge 5822: unresolved",
+            "Edge 5940: unresolved",
+            "Edge 10425: unresolved",
+            "Edge 10438: unresolved",
+            "Edge 10444: unresolved",
+            "Edge 10445: unresolved",
+            "Edge 10477: unresolved",
+            "Edge 15472: unresolved",
+            "Edge 15485: unresolved",
+            "Edge 17382: unresolved",
+            "Edge 17383: unresolved",
+            "Edge 19145: unresolved",
+            "Edge 20569: unresolved",
+            "UNRESOLVED: Gauss-Bonnet residual exceeds tolerance",
+            "Gaussian partial terms describe a supported subcomplex, not the full selected interface"
+          ],
+          "topology_vertices": 584,
+          "topology_edges": 924,
+          "topology_faces": 339,
+          "euler_characteristic": -1,
+          "boundary_loops": 5,
+          "smooth_mean_curvature": 1.6219633715872277,
+          "internal_crease_mean_curvature": -55.77212428288777,
+          "boundary_mean_curvature": 0.0,
+          "total_mean_curvature": null,
+          "certified_mean_total": false,
+          "smooth_gaussian_curvature": 0.31525450341123196,
+          "intrinsic_vertex_gaussian": 4.776016756751914,
+          "boundary_geodesic_gaussian": 0.17516607157465303,
+          "boundary_corner_gaussian": -11.10621059172663,
+          "gauss_bonnet_lhs": null,
+          "gauss_bonnet_expected": -6.283185307179586,
+          "gauss_bonnet_residual": null,
+          "total_gaussian_curvature": null,
+          "certified_gaussian_total": false,
+          "connected_components": 2,
+          "genus_by_component": [
+            0,
+            0
+          ],
+          "manifold_incidence_certified": true,
+          "smooth_integrated_mean_curvature": 1.6219633715872277,
+          "internal_seam_integrated_mean_curvature": -55.77212428288777,
+          "boundary_integrated_mean_curvature": 0.0,
+          "partial_integrated_mean_curvature": -54.150160911300546,
+          "total_integrated_mean_curvature": null,
+          "mean_curvature_certified": false,
+          "mean_supported_faces": 334,
+          "mean_unsupported_faces": 5,
+          "mean_supported_internal_seams": 790,
+          "mean_unresolved_internal_seams": 14,
+          "smooth_integrated_gaussian_curvature": 0.31525450341123196,
+          "intrinsic_seam_gaussian_curvature": -0.44407754243673997,
+          "interior_vertex_gaussian_curvature": 4.776016756751914,
+          "intrinsic_integrated_gaussian_curvature": null,
+          "boundary_geodesic_curvature": 0.17516607157465303,
+          "boundary_corner_turning": -11.10621059172663,
+          "gaussian_curvature_certified": false,
+          "gaussian_accounting_scope": "supported_subcomplex",
+          "gaussian_supported_faces": 334,
+          "gaussian_unsupported_faces": 5,
+          "gaussian_coverage": 0.9852507374631269,
+          "supported_subcomplex_gauss_bonnet": {
+            "smooth_K": 0.31525450341123196,
+            "internal_seam_face_geodesic_K": -0.44407754243673997,
+            "interior_vertex_defect_K": 4.776016756751914,
+            "free_boundary_face_geodesic_K": 0.17516607157465303,
+            "boundary_vertex_corner_K": -11.10621059172663,
+            "total_GB_left": -6.283850802425571,
+            "two_pi_chi": -6.283185307179586,
+            "residual": -0.0006654952459843599,
+            "certified": false,
+            "status": "UNRESOLVED: Gauss-Bonnet residual exceeds tolerance",
+            "topology": {
+              "vertices": 571,
+              "edges": 906,
+              "faces": 334,
+              "euler_characteristic": -1,
+              "components": 1,
+              "boundary_components": 3
+            },
+            "quadrature_order": 256
+          }
+        },
+        "dry_solvent_comparison": {
+          "available": false,
+          "status": "not applicable"
+        }
+      },
+      "provenance": {
+        "source": "frozen 2KAI InterfaceGeometryAnalysis regression cache",
+        "source_revision": null,
+        "scientific_state_id": null,
+        "details": {},
+        "diagnostics": []
+      }
+    }
+  ],
+  "schema_version": "1.0"
+}

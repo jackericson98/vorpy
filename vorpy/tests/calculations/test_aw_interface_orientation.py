@@ -122,3 +122,30 @@ def test_edge_orientation_is_rigid_motion_invariant():
     )
     assert transformed["beta"] == pytest.approx(reference["beta"], abs=1e-12)
     assert transformed["tangent"] == pytest.approx(rotation @ reference["tangent"])
+
+
+def test_reversing_edge_parameter_flips_signed_dihedral_only():
+    """Parameter reversal changes the signed tangent convention, not geometry."""
+    tangent = np.array([0.0, 0.0, 1.0])
+    normal_1 = np.array([1.0, 0.0, 0.0])
+    normal_2 = np.array([0.0, 1.0, 0.0])
+
+    forward = signed_dihedral(tangent, normal_1, normal_2)
+    reversed_parameter = signed_dihedral(-tangent, normal_1, normal_2)
+
+    assert forward == pytest.approx(np.pi / 2.0)
+    assert reversed_parameter == pytest.approx(-np.pi / 2.0)
+    assert reversed_parameter == pytest.approx(-forward)
+    assert abs(reversed_parameter) == pytest.approx(abs(forward))
+
+
+def test_surface_boundary_tangent_uses_right_hand_rule():
+    normal = np.array([0.0, 0.0, 1.0])
+    outward_conormal = np.array([1.0, 0.0, 0.0])
+
+    assert induced_boundary_tangent(normal, outward_conormal) == pytest.approx(
+        [0.0, 1.0, 0.0]
+    )
+    assert induced_boundary_tangent(-normal, outward_conormal) == pytest.approx(
+        [0.0, -1.0, 0.0]
+    )

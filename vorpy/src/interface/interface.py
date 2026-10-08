@@ -1,4 +1,5 @@
 import os
+from time import perf_counter
 import numpy as np
 from copy import deepcopy
 from vorpy.src.group import Group
@@ -7,6 +8,7 @@ from vorpy.src.boundary import network_geometry
 from vorpy.src.interface.export import interface_exports
 from vorpy.src.interface.water import analyze_interface_waters
 from vorpy.src.interface.water import build_buried_water_groups
+from vorpy.src.output.layout import interface_folder_name, unique_output_directory
 
 
 class Interface:
@@ -60,18 +62,14 @@ class Interface:
         return self.name
 
     def set_dir(self):
-
-        i = 1
-        my_dir = self.sys.files['dir'] + "/" + self.name
-        first = True
-        while os.path.exists(my_dir):
-            if first:
-                my_dir += "__"
-                first = False
-            my_dir = my_dir[:-(1 + len(str(i)))] + '_' + str(i)
-            i += 1
-        self.dir = my_dir
-        os.mkdir(self.dir)
+        root = self.sys.files['dir']
+        occupied = [getattr(interface, 'dir', None)
+                    for interface in getattr(self.sys, 'ifaces', ()) or ()
+                    if getattr(interface, 'dir', None)]
+        self.dir = str(unique_output_directory(
+            root, interface_folder_name(self.group1, self.group2), occupied,
+        ))
+        os.makedirs(self.dir, exist_ok=False)
 
     def _get_settings(self):
         """
@@ -120,7 +118,7 @@ class Interface:
         The Network uses the complete system geometry but restricts vertex
         discovery to vertices involving balls from both interface sides.
         """
-        if self.dir is None:
+        if self.dir is None and not getattr(self.sys, '_compact_interface_workflow', False):
             self.set_dir()
 
         self.group1_indices = set(self.group1.ball_ndxs)
@@ -168,14 +166,21 @@ class Interface:
 
         return self.net
 
-    def build(self):
+    def build(self, *, analyze_waters=True, calculate_curvature=None):
         """
         Create and build this interface's dedicated network.
         """
         if self.net is None:
             self.make_net()
 
-        self.net.build()
+        if calculate_curvature is None:
+            calculate_curvature = getattr(self.sys, '_interface_curvature_requested', True)
+        if calculate_curvature:
+            # Preserve the historical no-argument call for legacy Network
+            # implementations and test doubles.
+            self.net.build()
+        else:
+            self.net.build(calculate_curvature=False)
         self.geometry_analysis = None
         self._geometry_analysis_key = None
         self._geometry_source_key = None
@@ -184,14 +189,47 @@ class Interface:
         self.sys.cache_interface_geometry(self)
 
         # Cache the solved geometry independently of later buried-water solves.
-        self.analyze_geometry()
+        analysis_started = perf_counter()
+        update_progress = getattr(self.sys, 'update_progress', None)
+        if update_progress is not None:
+            update_progress(
+                process='Interface analysis | Preparing cached physical interface',
+                progress=0.0,
+                network=self.name,
+            )
+        self.analyze_geometry(
+            calculate_curvature=calculate_curvature
+        )
+        self._interface_stage_timings = getattr(self, '_interface_stage_timings', {})
+        self._interface_stage_timings['physical_interface'] = perf_counter() - analysis_started
+
+        # Water classification and buried-water solves are optional.  Keep the
+        # direct API's historical default, while the normal interface CLI
+        # opts out unless explicitly asked for them.
+        if not analyze_waters:
+            self.water_geometries = []
+            self.water_topology = None
+            self.buried_water_groups = []
+            self.water_groups = self.buried_water_groups
+            self._interface_stage_timings['interface_water'] = 0.0
+            self._interface_stage_timings['buried_water'] = 0.0
+            self._update_group_metadata(network_created=True, built=True)
+            return
 
         # Stage 1: classify all strict interface waters from the completed
         # interface topology.  This pass is topology-only and does not build
         # separate water networks.
+        water_started = perf_counter()
+        if update_progress is not None:
+            update_progress(
+                process='Interface analysis | Classifying interface waters',
+                progress=0.0,
+                network=self.name,
+            )
         self.water_geometries = analyze_interface_waters(
             iface=self,
         )
+        self._interface_stage_timings['interface_water'] = perf_counter() - water_started
 
         topology = self.water_topology or {}
         waters = topology.get("waters", {})
@@ -223,7 +261,24 @@ class Interface:
         # Group against the parent System.  These networks live under
         # <interface>/waters/<buried_group>/ and provide V/A/C/Q/X plus cell
         # geometry using the standard VorPy machinery.
+        buried_started = perf_counter()
+        if update_progress is not None:
+            update_progress(
+                process='Interface analysis | Analyzing buried water groups',
+                progress=0.0,
+                network=self.name,
+            )
         self.buried_water_groups = build_buried_water_groups(self)
+        self._interface_stage_timings['buried_water'] = perf_counter() - buried_started
+        if update_progress is not None:
+            update_progress(
+                process=(
+                    'Interface analysis | Buried water groups complete '
+                    f'({self._interface_stage_timings["buried_water"]:.2f} s)'
+                ),
+                progress=100.0,
+                network=self.name,
+            )
 
         # Backward-compatible alias for code that already expects water_groups.
         self.water_groups = self.buried_water_groups
@@ -233,12 +288,15 @@ class Interface:
             built=True,
         )
 
-    def analyze_geometry(self, alpha=None, *, refresh=False):
+    def analyze_geometry(self, alpha=None, *, refresh=False, calculate_curvature=True):
         """Return the cached alpha-selected physical interface analysis."""
         from vorpy.src.interface.geometry_analysis import analyze_interface_geometry
         if self.net is None:
             raise ValueError('Build the interface network before analyzing geometry')
-        return analyze_interface_geometry(self, alpha=alpha, refresh=refresh)
+        return analyze_interface_geometry(
+            self, alpha=alpha, refresh=refresh,
+            calculate_curvature=calculate_curvature,
+        )
 
     def _register_with_groups(self):
         self.group1.register_interface(
@@ -336,6 +394,7 @@ class Interface:
                 metadata["built"] = built
 
     def export(self, all_=False, atoms=False, surfs=False, edges=False, verts=False, logs=False, info=False,
-               group_info=False, round_to=3, dual=False):
+               group_info=False, round_to=3, dual=False, buried_water=None):
         interface_exports(iface=self, all_=all_, atoms=atoms, surfs=surfs, edges=edges, verts=verts, logs=logs,
-                          info=info, group_info=group_info, round_to=round_to, dual=dual)
+                          info=info, group_info=group_info, round_to=round_to, dual=dual,
+                          buried_water=buried_water)

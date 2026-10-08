@@ -1,22 +1,22 @@
 """Data-driven output presets and standalone export commands for VorPy."""
 
+import json
 import os
 import shutil
 import time
 from contextlib import contextmanager
+from pathlib import Path
 
 from vorpy.src.output.atoms import write_atom_cells
 from vorpy.src.output.curvature_colors import export_color_cache
 from vorpy.src.analyze.nonpolar_interface import export_geometry_tables, build_geometry_tables
+from vorpy.src.output.layout import unique_output_directory
 
 
 SYSTEM_PRESETS = {
     'micro': [('info', {'info': True})],
-    'tiny': [
-        ('info', {'info': True}),
-        ('PDB', {'pdb': True}),
-        ('PyMOL atoms', {'set_atoms': True}),
-    ],
+    'tiny': [('info', {'info': True})],
+    'small': [('info', {'info': True})],
     'medium': [
         ('PDB', {'pdb': True}),
         ('PyMOL atoms', {'set_atoms': True}),
@@ -36,9 +36,10 @@ SYSTEM_PRESETS = {
 
 GROUP_PRESETS = {
     'micro': [('info', {'info': True})],
-    'tiny': [
+    'tiny': [('info', {'info': True})],
+    'small': [
         ('info', {'info': True}),
-        ('shell surfaces', {'shell_surfs': True}),
+        ('surfaces', {'surfs': True}),
         ('logs', {'logs': True}),
     ],
     'medium': [
@@ -58,6 +59,7 @@ GROUP_PRESETS = {
         ('shell vertices', {'shell_verts': True}),
         ('shell edges', {'shell_edges': True}),
         ('shell surfaces', {'shell_surfs': True}),
+        ('surfaces', {'surfs': True}),
         ('info', {'info': True}),
         ('edges', {'edges': True}),
         ('vertices', {'verts': True}),
@@ -92,8 +94,12 @@ GROUP_PRESETS = {
 }
 
 INTERFACE_PRESETS = {
-    'micro': [('info', {'info': True})],
-    'tiny': [('info', {'info': True})],
+    'micro': [('info', {'info': True, 'buried_water': False})],
+    'tiny': [('info', {'info': True, 'buried_water': False})],
+    'small': [
+        ('surfaces', {'surfs': True}),
+        ('info', {'info': True, 'buried_water': False}),
+    ],
     'medium': [
         ('surfaces', {'surfs': True}),
         ('atoms', {'atoms': True}),
@@ -232,9 +238,24 @@ def _run_export(progress, name, func, **kwargs):
 
 
 def _set_group_directory(sys, group):
-    group_dir = os.path.join(sys.files['dir'], group.name)
-    group.dir = group_dir
-    os.makedirs(group.dir, exist_ok=True)
+    root = Path(sys.files['dir'])
+    group_indices = {int(index) for index in (getattr(group, 'ball_ndxs', ()) or ())}
+    balls = getattr(sys, 'balls', None)
+    total_atoms = len(balls) if balls is not None else 0
+    if total_atoms and group_indices == set(range(total_atoms)):
+        group.dir = str(root)
+        root.mkdir(parents=True, exist_ok=True)
+        return
+
+    existing = getattr(group, 'dir', None)
+    if existing and Path(existing).parent == root:
+        group_dir = Path(existing)
+    else:
+        occupied = [getattr(item, 'dir', None) for item in getattr(sys, 'groups', ()) or ()
+                    if getattr(item, 'dir', None)]
+        group_dir = unique_output_directory(root, getattr(group, 'name', 'network'), occupied)
+    group.dir = str(group_dir)
+    group_dir.mkdir(parents=True, exist_ok=True)
 
 
 def _move_vert_file(sys, group):
@@ -255,6 +276,22 @@ def _export_nonpolar_geometry(sys, network, directory, network_id):
         network_id=network_id,
     )
     export_geometry_tables(tables, destination)
+
+
+def _export_dual_geometry_without_launcher(iface):
+    """Keep rich dual derivatives, but do not retain preset PyMOL launchers."""
+    iface.export(dual=True)
+    dual_dir = getattr(iface, 'dir', None)
+    if dual_dir is None:
+        return
+    dual_dir = Path(dual_dir) / 'dual'
+    for name in ('apollonius_interface.pml', 'apollonius_interface.py'):
+        (dual_dir / name).unlink(missing_ok=True)
+    summary = dual_dir / 'interface_dual_summary.json'
+    if summary.exists():
+        payload = json.loads(summary.read_text(encoding='utf-8'))
+        payload['pymol_script'] = None
+        summary.write_text(json.dumps(payload, indent=2, allow_nan=False) + '\n', encoding='utf-8')
 
 
 @contextmanager
@@ -286,12 +323,17 @@ def export_preset(sys, preset):
     group_plan = GROUP_PRESETS[preset]
     interface_plan = INTERFACE_PRESETS[preset]
     analysis_count = (len(groups) + len(ifaces)) if preset in {'large', 'all'} else 0
+    canonical_interface_logs = (
+        [iface for iface in ifaces if iface.net is not None]
+        if preset == 'small' else []
+    )
     dual_interfaces = [iface for iface in ifaces if iface.net is not None and
                        iface.net.settings.get('net_type', 'aw') == 'aw'] if preset in {'large', 'all'} else []
-    archive_enabled = (bool(groups or ifaces) and not getattr(sys, '_export_skip_archive', False)
+    archive_enabled = (not getattr(sys, '_export_skip_archive', False)
                        and not getattr(sys, '_export_archive_written', False))
     total = (len(system_plan) + len(group_plan) * len(groups)
-             + len(interface_plan) * len(ifaces) + analysis_count + len(dual_interfaces) + int(archive_enabled))
+             + len(interface_plan) * len(ifaces) + len(canonical_interface_logs)
+             + analysis_count + len(dual_interfaces) + int(archive_enabled))
     progress = ExportProgress(total, sys)
 
     for name, kwargs in system_plan:
@@ -320,8 +362,16 @@ def export_preset(sys, preset):
         with export_color_cache(iface.net):
             for name, kwargs in interface_plan:
                 _run_export(progress, f'{interface_name}: {name}', iface.export, **kwargs)
+            if preset == 'small' and iface.net is not None:
+                _run_export(
+                    progress,
+                    f'{interface_name}: canonical logs',
+                    _export_canonical_interface_log,
+                    iface=iface,
+                )
             if iface in dual_interfaces:
-                _run_export(progress, f'{interface_name}: Apollonius dual', iface.export, dual=True)
+                _run_export(progress, f'{interface_name}: Apollonius dual',
+                            _export_dual_geometry_without_launcher, iface=iface)
             if preset in {'large', 'all'}:
                 _run_export(
                     progress,
@@ -345,12 +395,25 @@ def _export_network_archive(sys):
         sys._export_archive_written = True
 
 
+def _export_canonical_interface_log(iface):
+    """Persist the canonical Results log without rebuilding cached geometry."""
+    from vorpy.src.output.visualization import _compact_log
+
+    _compact_log(iface, Path(iface.dir) / 'logs.csv')
+
+
 def export_micro(sys):
     export_preset(sys, 'micro')
 
 
 def export_tiny(sys):
-    export_preset(sys, 'tiny')
+    # ``small`` is the historical CLI-small alias; keep its behavior while
+    # exposing ``export_preset(..., 'tiny')`` as the metadata-only preset.
+    export_preset(sys, 'small')
+
+
+def export_small(sys):
+    export_preset(sys, 'small')
 
 
 def export_med(sys):
@@ -381,6 +444,41 @@ def other_exports(sys, usr_npt):
         for iface in interfaces:
             _run_export(progress, f'{iface.name}: Apollonius dual', iface.export, dual=True)
         progress.finish()
+        return
+
+    if option == 'visualize':
+        from vorpy.src.output.visualization import export_visualization_bundle
+        if getattr(sys, '_compact_interface_workflow', False):
+            from vorpy.src.output.visualization import export_compact_visualization_bundle
+            export_visualization_bundle = export_compact_visualization_bundle
+
+        progress = ExportProgress(1, sys)
+        result = {}
+
+        def write_visualization():
+            result['items'] = export_visualization_bundle(sys)
+
+        _run_export(progress, 'visualization bundle', write_visualization)
+        progress.finish()
+        for item in result.get('items', ()):
+            if item.get('launcher'):
+                print(f"Visualization launcher written: {item['launcher']}")
+                for stage, elapsed in item.get('timings', {}).items():
+                    print(f'  {stage}: {elapsed:.2f} s')
+                for name, layer in item.get('layers', {}).items():
+                    state = layer.get('state', 'NOT_CALCULATED')
+                    reason = f" ({layer['reason']})" if layer.get('reason') else ''
+                    print(f'  {name}: {state}{reason}')
+            else:
+                print('Visualization: no solved interface is available; nothing exported.')
+        return
+
+    if option in {'water', 'waters', 'interface_water'}:
+        interfaces = [iface for iface in (getattr(sys, 'ifaces', None) or [])
+                      if getattr(iface, 'net', None) is not None]
+        for iface in interfaces:
+            state = 'AVAILABLE' if getattr(iface, 'water_topology', None) is not None else 'NOT_CALCULATED'
+            print(f'Interface water analysis {iface.name}: {state}')
         return
 
     if option in {'a', 'atoms', 'atom_cells'}:

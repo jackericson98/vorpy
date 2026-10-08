@@ -49,6 +49,48 @@ def _print_analysis_timing(timer, total):
     print('-' * 70)
     print(f"{'TOTAL':<28} {total:10.4f} s  100.00 %")
 
+def analyze_geometry_only(net):
+    """Populate only cell completeness needed by dual/interface selection."""
+    ball_index = net.balls.index.to_numpy()
+    ball_verts = net.balls['verts'].to_numpy()
+    ball_edges = net.balls['edges'].to_numpy()
+    ball_surfs = net.balls['surfs'].to_numpy()
+    edge_ball_sets = [frozenset(balls) for balls in net.edges['balls'].to_numpy()]
+    vert_edges = net.verts['edges'].to_numpy()
+    vert_balls = net.verts['balls'].to_numpy()
+    num_to_pos = {int(num): pos for pos, num in enumerate(ball_index)}
+    complete = [False] * len(net.balls)
+
+    for ball_num in net.group:
+        ball_num = int(ball_num)
+        ball_pos = num_to_pos.get(ball_num)
+        if ball_pos is None:
+            continue
+        verts = ball_verts[ball_pos]
+        edges = ball_edges[ball_pos]
+        surfs = ball_surfs[ball_pos]
+        if len(verts) < 3 or len(edges) < 4 or len(surfs) < 3:
+            continue
+        valid = True
+        for vertex in verts:
+            vertex = int(vertex)
+            owning = sum(
+                ball_num in edge_ball_sets[int(edge)]
+                for edge in vert_edges[vertex]
+            )
+            if owning != 3:
+                vertex_balls = set(vert_balls[vertex])
+                if sum(
+                    edge_ball_sets[int(edge)].issubset(vertex_balls)
+                    for edge in edges
+                ) < 3:
+                    valid = False
+                    break
+        complete[ball_pos] = valid
+
+    net.balls['complete'] = complete
+
+
 def analyze(
     net,
     complicated=True,

@@ -47,6 +47,11 @@ def test_preset_archive_can_be_loaded_without_rebuilding(solved, tmp_path, monke
         assert zipfile.is_zipfile(destination)
         with zipfile.ZipFile(destination) as archive:
             assert {'state.json', 'metadata.json'} <= set(archive.namelist())
+            units = json.loads(archive.read('metadata.json'))['units']
+            assert units['mean_curvature'] == 'angstrom^-1'
+            assert units['gaussian_curvature'] == 'angstrom^-2'
+            assert units['integrated_mean_curvature'] == 'angstrom'
+            assert units['integrated_gaussian_curvature'] == '1'
         monkeypatch.setattr(Network, 'build', lambda *a, **kw: pytest.fail('Archive loader rebuilt topology'))
         loaded = load_network(destination)
         assert len(loaded.surfs) == len(solved.export_group.net.surfs)
@@ -191,6 +196,11 @@ def test_missing_array(archive):
 
 def test_process_exit_load_export(archive, tmp_path):
     import sys
+    project_root = Path(__file__).resolve().parents[3]
+    environment = os.environ.copy()
+    environment['PYTHONPATH'] = os.pathsep.join(
+        value for value in (str(project_root), environment.get('PYTHONPATH')) if value
+    )
     code = '''from vorpy.src.io import load_network
 from pathlib import Path
 import sys
@@ -198,7 +208,14 @@ n=load_network(sys.argv[1]); g=n.sys.groups[0]
 g.exports(atoms=True,shell_surfs=True,verts=True,file_type='off')
 assert (Path(g.dir)/'group_atoms.pdb').is_file()
 '''
-    completed = subprocess.run([sys.executable, '-c', code, str(archive)], capture_output=True, text=True, timeout=30)
+    completed = subprocess.run(
+        [sys.executable, '-c', code, str(archive)],
+        cwd=project_root,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
     assert completed.returncode == 0, completed.stderr
 
 

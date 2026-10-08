@@ -86,6 +86,11 @@ class AWAlphaFiltration:
         self.issues = []
         self._built = False
         self._max_dimension_built = -1
+        # Births share boundary features heavily.  Keep these caches scoped
+        # to this filtration so no state escapes the solved network/query.
+        self._edge_birth_cache = {}
+        self._vertex_birth_cache = {}
+        self._geometry_cache = {}
 
     def _record(
         self,
@@ -130,7 +135,19 @@ class AWAlphaFiltration:
                 )
 
         if max_dimension >= 1 and not self.records[1]:
-            for key, simplex in self.incidence.simplices[1].items():
+            simplices = list(self.incidence.simplices[1].items())
+            total = len(simplices)
+            progress_step = max(1, total // 20)
+            for index, (key, simplex) in enumerate(simplices, start=1):
+                if index == 1 or index == total or index % progress_step == 0:
+                    system = getattr(self.network, 'sys', None)
+                    updater = getattr(system, 'update_progress', None)
+                    if updater is not None:
+                        updater(
+                            process=f'Interface analysis | Alpha selection {index}/{total}',
+                            progress=20.0 + 15.0 * index / max(total, 1),
+                            network=self.network,
+                        )
                 if not self.incidence.is_supported(1, key):
                     self._record(
                         1,
@@ -143,7 +160,10 @@ class AWAlphaFiltration:
                     continue
                 try:
                     value, diagnostic = surface_birth(
-                        self.network, simplex, self.tolerance
+                        self.network, simplex, self.tolerance,
+                        edge_birth_cache=self._edge_birth_cache,
+                        vertex_birth_cache=self._vertex_birth_cache,
+                        geometry_cache=self._geometry_cache,
                     )
                 except (
                     TypeError,

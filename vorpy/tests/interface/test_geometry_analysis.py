@@ -258,6 +258,27 @@ def test_interface_build_populates_analysis(monkeypatch):
     assert iface.geometry_analysis.voronoi_side_1['area'] == 3.
 
 
+def test_interface_build_can_skip_optional_water_pipeline(monkeypatch):
+    network = _network()
+    network.build = lambda: None
+    install_filtration(monkeypatch, network)
+    iface = iface_for(network)
+    iface.sys.cache_interface_geometry = lambda _iface: None
+    iface._update_group_metadata = lambda **kwargs: None
+    monkeypatch.setattr(
+        'vorpy.src.interface.interface.analyze_interface_waters',
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError('water analysis ran')),
+    )
+    monkeypatch.setattr(
+        'vorpy.src.interface.interface.build_buried_water_groups',
+        lambda _iface: (_ for _ in ()).throw(AssertionError('buried solve ran')),
+    )
+    iface.build(analyze_waters=False)
+    assert iface.geometry_analysis is not None
+    assert iface.water_topology is None
+    assert iface.buried_water_groups == []
+
+
 def test_missing_dependency_is_reported_not_zero_filled(monkeypatch):
     def unavailable(*args, **kwargs):
         raise RuntimeError('GUDHI unavailable')
@@ -266,6 +287,16 @@ def test_missing_dependency_is_reported_not_zero_filled(monkeypatch):
     assert result.voronoi_side_1['total_H'] is None
     assert not result.voronoi_side_1['mean_certified']
     assert 'GUDHI unavailable' in result.unresolved[0]
+
+
+def test_interface_selection_can_skip_optional_curvature_and_topology(monkeypatch):
+    network = _network()
+    install_filtration(monkeypatch, network)
+    result = analyze_interface_geometry(iface_for(network), calculate_curvature=False)
+    assert result.metadata['curvature_requested'] is False
+    assert result.voronoi_side_1['area'] == 3.
+    assert result.voronoi_side_1['total_H'] is None
+    assert result.voronoi_side_1['euler_characteristic'] is None
 
 
 def test_primitive_planar_behavior(monkeypatch):

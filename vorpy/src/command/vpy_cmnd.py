@@ -11,6 +11,9 @@ from tkinter import filedialog
 
 from vorpy.src.boundary import BoundaryConfig, resolve_boundary
 from vorpy.src.command.command_export import argv_export
+from vorpy.src.command.calculation_plan import (
+    build_calculation_plan,
+)
 from vorpy.src.command.commands import *
 from vorpy.src.command.group import ggroup
 from vorpy.src.command.interface import build_interfaces
@@ -27,7 +30,34 @@ FRAME_OPTIONS = ('load_commands', 'groups', 'builds', 'exports',
                  'apollonius_requested', 'alpha_value', 'power_settings',
                  'power_vs_aw_requested', 'power_cli_arguments',
                  'aw_alpha_values', 'aw_alpha_pair_overlap_only',
-                 'visualize_dual_requested', 'visualize_alpha_value')
+                 'visualize_dual_requested', 'visualize_alpha_value',
+                 'execution_profile', 'calculation_plan',
+                 '_build_group_networks', '_full_system_separate',
+                 '_planned_interface_operands')
+
+EXECUTION_PROFILES = frozenset({'geometry', 'interface', 'analysis', 'full'})
+
+
+def execution_profile_cli_options(args):
+    """Extract the opt-in execution profile before legacy parsing."""
+    remaining = []
+    profile = None
+    args = iter(args)
+    for arg in args:
+        if arg == '--profile':
+            if profile is not None:
+                raise SystemExit('--profile may only be specified once')
+            try:
+                profile = str(next(args)).strip().lower()
+            except StopIteration:
+                raise SystemExit('--profile requires geometry, interface, analysis, or full') from None
+            if profile not in EXECUTION_PROFILES:
+                raise SystemExit(
+                    '--profile requires geometry, interface, analysis, or full'
+                )
+        else:
+            remaining.append(arg)
+    return remaining, profile
 
 
 def available_cpu_count():
@@ -232,6 +262,12 @@ class Command:
         self.aw_alpha_solvent_chains_normalized = 0
         self.visualize_dual_requested = False
         self.visualize_alpha_value = None
+        self.execution_profile = None
+        self.calculation_plan = None
+        self._build_group_networks = False
+        self._full_system_separate = False
+        self._full_system_group = None
+        self._planned_interface_operands = ()
 
     def run(self):
         self._run_pipeline()
@@ -254,6 +290,9 @@ class Command:
 
         # Resolve the base input file
         self._arguments = list(sys.argv[1:])
+        self._arguments, self.execution_profile = execution_profile_cli_options(
+            self._arguments
+        )
         if self._arguments and self._arguments[0] == '--load-network':
             self._arguments.pop(0)
         from vorpy.src.analyze.power_interface_cli import (
@@ -291,6 +330,9 @@ class Command:
         if self.base_file is None:
             raise SystemExit(f"Input file not found: {input_arg}. "
                              "Provide an existing path or a filename from vorpy/data.")
+        if Path(self.base_file).suffix.lower() == '.vpy':
+            self._run_archive()
+            return
 
         if self.power_settings['preset'] and not self.power_vs_aw_requested:
             from vorpy.src.analyze.power_interface_cli import (
@@ -419,6 +461,7 @@ class Command:
                 command.aw_alpha_values = list(self.aw_alpha_values)
                 command.aw_alpha_pair_overlap_only = self.aw_alpha_pair_overlap_only
                 command.aw_alpha_solvent_chains_normalized = normalized_solvent
+                command.execution_profile = self.execution_profile
                 command.visualize_dual_requested = self.visualize_dual_requested
                 command.visualize_alpha_value = self.visualize_alpha_value
                 command.boundary_config = deepcopy(self.boundary_config)
@@ -468,6 +511,87 @@ class Command:
             owner.__dict__.clear()
         system.__dict__.clear()
 
+    @staticmethod
+    def _interface_selector_key(selector):
+        return tuple(token.lower() for token in selector)
+
+    def _planned_interface_pairs(self):
+        """Resolve planned selectors to groups without changing geometry."""
+        plan = self.calculation_plan
+        groups = list(self.sys.groups or [])
+        if plan is None or not plan.interface_requests:
+            if len(groups) >= 2:
+                return list(combinations(groups, 2))
+            return build_interfaces(
+                sys=self.sys,
+                num_requested_groups=len(self.groups),
+            )
+
+        # Group definitions are kept in the same order as the legacy parser.
+        by_selector = {}
+        for index, commands in self.groups.items():
+            key = tuple(
+                tuple(str(token).lower() for token in command)
+                for command in commands
+            )
+            if index < len(groups):
+                by_selector[key] = groups[index]
+
+        pairs = []
+        seen = set()
+        for request in plan.interface_requests:
+            if not request.operands:
+                candidates = groups
+            else:
+                candidates = []
+                for operand in request.operands:
+                    key = (self._interface_selector_key(operand),)
+                    group = by_selector.get(key)
+                    if group is None:
+                        raise ValueError(
+                            'Interface selector did not resolve to a declared group: '
+                            + ' '.join(operand)
+                        )
+                    if group not in candidates:
+                        candidates.append(group)
+
+            if len(request.operands) == 1:
+                requested_pairs = [(candidates[0], None)]
+            elif len(request.operands) >= 2:
+                requested_pairs = list(combinations(candidates, 2))
+            elif len(candidates) >= 2:
+                requested_pairs = list(combinations(candidates, 2))
+            else:
+                requested_pairs = [(candidates[0], None)]
+
+            for group1, group2 in requested_pairs:
+                marker = (id(group1), id(group2) if group2 is not None else None)
+                if marker not in seen:
+                    seen.add(marker)
+                    pairs.append((group1, group2))
+        return pairs
+
+    def _build_full_system_target(self):
+        """Build a separate full-system network when other targets coexist."""
+        if not self._full_system_separate or self._full_system_group is not None:
+            return
+        from vorpy.src.group import Group
+
+        settings = deepcopy(self.settings_dict)
+        self._full_system_group = Group(
+            sys=self.sys,
+            name=f'{self.sys.name}_full_system',
+            atoms=list(range(len(self.sys.balls))),
+            settings=settings,
+            make_net=True,
+            build_net=False,
+            print_metrics=False,
+        )
+        calculate_curvature = getattr(
+            self.sys, '_network_calculate_curvature', True
+        )
+        self._full_system_group.build(calculate_curvature=calculate_curvature)
+
     def _process_system(self):
         """Build and export a loaded system using the parsed commands."""
         # Select the default only after export-directory commands have been applied.
@@ -477,6 +601,42 @@ class Command:
         # Expose the CLI verbosity state at the system level so downstream
         # build/analyze/export code has one common place to query it.
         self.sys.verbose = self.verbose
+        interface_export_names = {
+            str(command[0]).strip().lower()
+            for command in self.exports if command
+        }
+        self.sys._interface_water_requested = bool(
+            interface_export_names & {
+                'water', 'waters', 'interface_water',
+                'tiny', 'small', 'med', 'medium', 'large', 'all',
+            }
+        )
+        self.sys._interface_curvature_requested = bool(
+            interface_export_names & {
+                'curvature', 'curv', 'diagnostic', 'diagnostics',
+                'logs', 'dual', 'apollonius', 'small', 'med', 'medium',
+                'large', 'all',
+            }
+        )
+        self.sys._compact_interface_workflow = bool(
+            self.interface_mode and (
+                not self.exports or 'visualize' in interface_export_names
+            )
+        )
+        self.sys._execution_profile = self.execution_profile
+        if self.execution_profile in {'geometry', 'interface'}:
+            self.sys._interface_curvature_requested = False
+            self.sys._interface_water_requested = False
+            self.sys._network_calculate_curvature = False
+        elif self.execution_profile == 'analysis':
+            self.sys._interface_curvature_requested = True
+            self.sys._network_calculate_curvature = True
+        elif self.execution_profile == 'full':
+            self.sys._interface_curvature_requested = True
+            self.sys._interface_water_requested = True
+            self.sys._network_calculate_curvature = True
+        else:
+            self.sys._network_calculate_curvature = True
 
         # Load any additional files
         self.load_files()
@@ -506,6 +666,7 @@ class Command:
 
         # Create the requested groups
         self.create_groups()
+        self._build_full_system_target()
 
         comparison_mode = (
                 self.settings_dict is not None
@@ -540,8 +701,11 @@ class Command:
                 # for the second network type.
                 grp.verts = None
 
-                copy_group.build()
-                grp.build()
+                calculate_curvature = getattr(
+                    self.sys, '_network_calculate_curvature', True
+                )
+                copy_group.build(calculate_curvature=calculate_curvature)
+                grp.build(calculate_curvature=calculate_curvature)
 
                 new_groups.append(copy_group)
 
@@ -562,6 +726,15 @@ class Command:
             num_requested_groups = len(self.groups)
             num_created_groups = len(self.sys.groups or [])
 
+            if self._build_group_networks:
+                calculate_curvature = getattr(
+                    self.sys, '_network_calculate_curvature', True
+                )
+                for group in self.sys.groups or []:
+                    if getattr(group, 'net', None) is None:
+                        group.make_net()
+                    group.build(calculate_curvature=calculate_curvature)
+
             if num_requested_groups >= 2 > num_created_groups:
                 raise ValueError(
                     "Interface mode requested multiple groups, but fewer than "
@@ -576,18 +749,27 @@ class Command:
                 print(f"  requested groups: {num_requested_groups}")
                 print(f"  created groups: {num_created_groups}")
 
-            if num_created_groups >= 2:
+            interface_pairs = self._planned_interface_pairs()
 
-                interface_pairs = list(combinations(self.sys.groups, 2))
-            else:
-                interface_pairs = build_interfaces(sys=self.sys, num_requested_groups=num_requested_groups)
-
-            self.sys.make_interfaces(interface_pairs)
+            self.sys.make_interfaces(
+                interface_pairs,
+                analyze_waters=getattr(self.sys, '_interface_water_requested', False),
+            )
 
         # Standard full-group build
         else:
             for grp in self.sys.groups:
-                grp.build()
+                if self.execution_profile is None:
+                    grp.build()
+                else:
+                    grp.build(
+                        calculate_curvature=getattr(
+                            self.sys, '_network_calculate_curvature', True
+                        )
+                    )
+
+        if self._full_system_group is not None and self._full_system_group not in self.sys.groups:
+            self.sys.groups.append(self._full_system_group)
 
         # Run optional read-only diagnostics after construction and before
         # export so the report describes the completed in-memory networks.
@@ -630,8 +812,13 @@ class Command:
         from vorpy.src.io import group_from_network, load_network
         network = load_network(self.base_file)
         self.sys = network.sys
+        self.sys._loaded_from_archive = True
         self.sys.set_output_directory(self.sys.files['dir'])
         self.parse_commands()
+        self.sys._compact_interface_workflow = any(
+            command and str(command[0]).strip().lower() == 'visualize'
+            for command in self.exports
+        )
         if self.builds or self.load_commands or self.settings_cmnds or self.interface_mode:
             raise ValueError('Archive input reuses solved geometry. Use -e export options or -g selections; rebuild/settings commands require a structure input.')
         if self.groups:
@@ -700,7 +887,7 @@ class Command:
                 store_points=True
             )
 
-    def parse_commands(self, counter=0):
+    def _legacy_parse_commands(self, counter=0):
         """
         Splits the user inputs into the different commands and flags
         """
@@ -856,6 +1043,162 @@ class Command:
                 else:
                     # Add the export command to the list
                     self.exports.append(arg_cmnds)
+
+    def parse_commands(self, counter=0):
+        """Parse CLI blocks into a calculation plan and legacy command state."""
+        my_args = list(getattr(self, '_arguments', sys.argv[1:])[1 + counter:])
+        my_args, boundary_config, boundary_requested = boundary_cli_options(my_args)
+        if boundary_requested:
+            self.boundary_config = boundary_config
+            self.boundary_explicitly_requested = True
+            if self.sys is not None:
+                self.sys.boundary_config = boundary_config
+
+        my_args, apollonius_requested, alpha_value = apollonius_cli_options(my_args)
+        self.apollonius_requested = self.apollonius_requested or apollonius_requested
+        if alpha_value is not None:
+            self.alpha_value = alpha_value
+        from vorpy.src.geometry.aw_alpha.cli import (
+            extract_aw_alpha_options,
+            extract_aw_alpha_pair_only,
+        )
+        my_args, aw_alpha_values = extract_aw_alpha_options(my_args)
+        if aw_alpha_values:
+            self.aw_alpha_values = aw_alpha_values
+        my_args, pair_overlap_only = extract_aw_alpha_pair_only(my_args)
+        if pair_overlap_only:
+            self.aw_alpha_pair_overlap_only = True
+        planning_args = list(my_args)
+        if '--save-network' in my_args:
+            index = my_args.index('--save-network')
+            if index + 1 >= len(my_args) or my_args[index + 1].startswith('-'):
+                raise ValueError('--save-network requires an output .vpy path')
+            self.save_network_path = Path(my_args[index + 1]).expanduser().resolve()
+            del my_args[index:index + 2]
+        my_args, _ = frame_cli_options(my_args)
+        my_args = [arg for arg in my_args if arg != '--all-frames']
+
+        if '-v' in my_args or '--verbose' in my_args:
+            self.verbose = True
+            my_args = [arg for arg in my_args if arg not in {'-v', '--verbose'}]
+        if '--diagnose-edges' in my_args:
+            self.diagnose_edges = True
+            my_args = [arg for arg in my_args if arg != '--diagnose-edges']
+
+        self.calculation_plan = build_calculation_plan(
+            [self.base_file or 'input', *planning_args],
+            input_source=self.base_file,
+            analysis_profile=self.execution_profile,
+        )
+        plan = self.calculation_plan
+        if self.execution_profile is None and plan.analysis_profile is not None:
+            self.execution_profile = plan.analysis_profile
+        self.interface_mode = bool(plan.interface_requests)
+        self._planned_interface_operands = tuple(
+            request.operands for request in plan.interface_requests
+        )
+        self._build_group_networks = bool(
+            plan.all_groups_request
+            or plan.independent_group_requests
+        )
+        self._full_system_separate = bool(
+            plan.full_system_request
+            and (plan.interface_requests or plan.declared_group_requests)
+        )
+
+        # Preserve the old execution containers while making block parsing
+        # exact and ordered.  ``and`` remains a selector separator inside a
+        # block, rather than accidentally ending that block.
+        group_counter = -1
+        declared_keys = set()
+        for block in plan.blocks:
+            if block.flag == 'load':
+                self.load_commands.append(list(block.args))
+            elif block.flag == 'settings':
+                # ``solver_settings`` already contains all settings blocks;
+                # apply each setting once even when several -s blocks occur.
+                for setting in plan.solver_settings:
+                    setting = list(setting)
+                    if setting not in self.settings_cmnds:
+                        self.settings_cmnds.append(setting)
+            elif block.flag == 'group':
+                group_counter += 1
+                commands = []
+                current = []
+                for token in block.args:
+                    if token.lower() in {'&', 'and', 'nd', 'also', '+', '&&'}:
+                        if current:
+                            commands.append(current)
+                            current = []
+                    else:
+                        current.append(token)
+                if current:
+                    commands.append(current)
+                self.groups[group_counter] = commands
+                declared_keys.add(tuple(tuple(token.lower() for token in command)
+                                        for command in commands))
+            elif block.flag == 'build':
+                self.builds.append(list(block.args))
+            elif block.flag == 'interface':
+                self.interface_mode = True
+            elif block.flag == 'export':
+                # Export options are flattened so ``-e a and b`` retains the
+                # intended two export commands.
+                exports = []
+                current = []
+                for token in block.args:
+                    if token.lower() in {'&', 'and', 'nd', 'also', '+', '&&'}:
+                        if current:
+                            exports.append(tuple(current))
+                            current = []
+                    else:
+                        current.append(token)
+                if current:
+                    exports.append(tuple(current))
+                for export in exports:
+                    if not export:
+                        continue
+                    command = list(export)
+                    if command[0].lower() in {'dir', 'directory'}:
+                        if len(command) < 2:
+                            raise ValueError('Export directory requires a path.')
+                        if command[1] in browse_names:
+                            my_root = tk.Tk()
+                            my_root.withdraw()
+                            my_root.wm_attributes('-topmost', 1)
+                            folder = filedialog.askdirectory(title='Choose Output Folder')
+                            if os.path.exists(folder):
+                                self.sys.files['dir'] = folder
+                            else:
+                                print(f"{folder} is not a valid folder")
+                        else:
+                            base_dir = os.path.abspath(os.path.expanduser(command[1]))
+                            system_dir = os.path.join(base_dir, self.sys.name)
+                            os.makedirs(system_dir, exist_ok=True)
+                            self.sys.dir = system_dir
+                            self.sys.files['dir'] = system_dir
+                            print(f"Directory set to: {system_dir}")
+                    else:
+                        self.exports.append(command)
+
+        # Explicit interface operands and calculate-chain targets define
+        # groups without turning them into independent solves.
+        for request in plan.declared_group_requests:
+            if request.key in declared_keys or not request.commands:
+                continue
+            group_counter += 1
+            commands = [list(command) for command in request.commands]
+            self.groups[group_counter] = commands
+            declared_keys.add(request.key)
+
+        if plan.full_system_request and not self.groups and not plan.interface_requests:
+            self.groups[0] = [['f']]
+
+        for command in self.exports:
+            if command and command[0].lower() in {'logs', 'log'}:
+                self.settings_cmnds.append(['bt', 'logs'])
+                if len(command) > 1:
+                    self.logs_files.append(' '.join(command[1:]))
 
     def load_files(self):
         """
@@ -1016,7 +1359,7 @@ class Command:
             self.sys,
             self.groups,
             self.settings_dict,
-            make_net=not self.interface_mode
+            make_net=(not self.interface_mode) or self._build_group_networks
         )
 
         # Propagate the universal verbose flag into every created group and

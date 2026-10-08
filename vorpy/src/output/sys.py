@@ -36,6 +36,10 @@ def export_sys(sys, all_=False, pdb=False, set_atoms=False, info=False, mol=Fals
     if info or all_:
         os.chdir(sys.files['dir'])
         export_sys_info(sys)
+        source = os.path.join(sys.files['dir'], f'{sys.name}_info.txt')
+        target = os.path.join(sys.files['dir'], 'info.txt')
+        if source != target and os.path.exists(source):
+            os.replace(source, target)
     if pdb or all_:
         os.chdir(sys.files['dir'])
         # Export a pdb file for the system

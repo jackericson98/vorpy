@@ -2,6 +2,7 @@ import time
 from vorpy.src.calculations import calc_surf_sa
 from vorpy.src.calculations import calc_tetra_vol
 from vorpy.src.network.build_surf import build_surf
+from vorpy.src.network.perimeter import stable_vertex_identity
 
 
 def _add_timing(timing, key, elapsed):
@@ -159,7 +160,7 @@ def _print_surface_timing(total_elapsed, total_surfs, valid_surfs, invalid_surfs
     print('=' * 70)
 
 
-def build_surfs(net, store_points=True):
+def build_surfs(net, store_points=True, calculate_curvature=True):
     """Build all network surfaces while collecting detailed timing metrics."""
     stage_start = time.perf_counter()
     outer_timing = {}
@@ -185,7 +186,17 @@ def build_surfs(net, store_points=True):
         rads = [net.balls['rad'][_] for _ in surf['balls']]
         locs = [net.balls['loc'][_] for _ in surf['balls']]
         nums = [net.balls['num'][_] for _ in surf['balls']]
-        epnts = [net.edges['points'][_] for _ in surf['edges']]
+        edge_indices = [int(_) for _ in surf['edges']]
+        epnts = [net.edges['points'][_] for _ in edge_indices]
+        edge_endpoints = None
+        if net.settings.get('net_type') == 'aw':
+            edge_endpoints = [
+                tuple(
+                    stable_vertex_identity(net.verts.loc[int(vertex)])
+                    for vertex in net.edges['verts'][edge_index]
+                )
+                for edge_index in edge_indices
+            ]
 
         if rads[0] > rads[1]:
             rads, locs, nums = [rads[1], rads[0]], [locs[1], locs[0]], [nums[1], nums[0]]
@@ -196,9 +207,11 @@ def build_surfs(net, store_points=True):
             locs=locs,
             rads=rads,
             epnts=epnts,
+            edge_endpoints=edge_endpoints,
             res=net.settings['surf_res'],
             net_type=net.settings['net_type'],
             timing=build_timing,
+            calculate_curvature=calculate_curvature,
         )
         _add_timing(outer_timing, 'build_surf', time.perf_counter() - build_start)
 

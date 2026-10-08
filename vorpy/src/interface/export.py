@@ -259,11 +259,14 @@ def summarize_direct_interface_orientation(iface, direct_surfaces, flat_tol=1e-1
         "surface_count": 0,
         "area": 0.0,
         "c12": 0.0,
+        "c21": 0.0,
         "q": 0.0,
         "x": 0.0,
         "surf_energy": 0.0,
         "g1_convex_sa": 0.0,
         "g1_concave_sa": 0.0,
+        "g2_convex_sa": 0.0,
+        "g2_concave_sa": 0.0,
         "flat_sa": 0.0,
         "failed_sa": 0.0,
         "curved_tested": 0,
@@ -275,6 +278,7 @@ def summarize_direct_interface_orientation(iface, direct_surfaces, flat_tol=1e-1
         "equal_radius_nonflat": 0,
         "equal_radius_nonzero_h": 0,
         "missing_radius": 0,
+        "validation_pass": False,
     }
 
     if iface.net is None or direct_surfaces is None or len(direct_surfaces) == 0:
@@ -468,8 +472,16 @@ def get_interface_surface_sets(iface):
         "surface balls",
     )
 
-    group1_indices = set(int(index) for index in iface.group1_indices)
-    group2_indices = set(int(index) for index in iface.group2_indices)
+    group1_indices = set(int(index) for index in (
+        getattr(iface, "group1_indices", None)
+        or getattr(getattr(iface, "group1", None), "ball_ndxs", ())
+        or ()
+    ))
+    group2_indices = set(int(index) for index in (
+        getattr(iface, "group2_indices", None)
+        or getattr(getattr(iface, "group2", None), "ball_ndxs", ())
+        or ()
+    ))
 
     if ball1_column is not None and ball2_column is not None:
         ball_pairs = [
@@ -808,10 +820,12 @@ def _water_class_atom_indices(iface):
 
 def export_water_class_pdbs(iface):
     """Export non-buried and buried interface waters as complete-residue PDBs."""
+    selections = _water_class_atom_indices(iface)
+    if not any(selections.values()):
+        return selections
+
     waters_dir = os.path.join(iface.dir, "waters")
     os.makedirs(waters_dir, exist_ok=True)
-
-    selections = _water_class_atom_indices(iface)
     filenames = {
         "non_buried": "non_buried_waters",
         "buried": "buried_waters",
@@ -836,19 +850,18 @@ def export_water_class_pdbs(iface):
 
 def _write_buried_water_summary(iface):
     """Write aggregate geometry for solved buried-water Groups."""
+    groups = list(getattr(iface, "buried_water_groups", []) or [])
+    if not groups:
+        return None
+
     waters_dir = os.path.join(iface.dir, "waters")
     os.makedirs(waters_dir, exist_ok=True)
     path = os.path.join(waters_dir, "info.txt")
-    groups = list(getattr(iface, "buried_water_groups", []) or [])
 
     with open(path, "w", encoding="utf-8") as info:
         info.write(f"Buried interface-water analysis - {iface.name}\n\n")
         info.write(f"Buried water groups: {len(groups)}\n")
         info.write(f"Total waters in buried groups: {sum(len(getattr(g, 'buried_water_metadata', {}).get('residues', [])) for g in groups)}\n\n")
-
-        if not groups:
-            info.write("No closed buried-water groups were detected.\n")
-            return path
 
         info.write(
             "Group | Waters | Shell Color | Volume (A^3) | Surface Area (A^2) | "
@@ -1026,8 +1039,16 @@ def export_info(iface, directory=None):
         else len(net.surfs)
     )
 
-    group1_atoms = sorted(set(iface.group1_indices))
-    group2_atoms = sorted(set(iface.group2_indices))
+    group1_atoms = sorted(set(
+        getattr(iface, "group1_indices", None)
+        or getattr(getattr(iface, "group1", None), "ball_ndxs", ())
+        or ()
+    ))
+    group2_atoms = sorted(set(
+        getattr(iface, "group2_indices", None)
+        or getattr(getattr(iface, "group2", None), "ball_ndxs", ())
+        or ()
+    ))
     interface_atoms = sorted(
         set(group1_atoms) | set(group2_atoms)
     )
@@ -1059,7 +1080,10 @@ def export_info(iface, directory=None):
     file_path = os.path.join(directory, "info.txt")
 
     with open(file_path, "w", encoding="utf-8") as info:
-        info.write(f"{iface.name} - {iface.sys.name}\n\n")
+        info.write(
+            f"{getattr(iface, 'name', 'interface')} - "
+            f"{getattr(getattr(iface, 'sys', None), 'name', 'system')}\n\n"
+        )
 
         info.write("Interface definition:\n")
         info.write(f"  Interface ID: {interface_id}\n")
@@ -1115,6 +1139,15 @@ def export_info(iface, directory=None):
             f"  Supporting/unclassified surfaces: "
             f"{0 if support_surfaces is None else len(support_surfaces)}\n\n"
         )
+        representation = getattr(iface, "_geometry_representation", None)
+        info.write(
+            "  Physical export selection: full_network "
+            "(all cached network surfaces)\n"
+        )
+        info.write(
+            f"  Alpha metadata selection: "
+            f"{getattr(representation, 'selection_mode', 'not recorded')}\n\n"
+        )
 
         write_surface_statistics(
             info,
@@ -1135,7 +1168,10 @@ def export_info(iface, directory=None):
         )
 
         from vorpy.src.interface.geometry_analysis import write_geometry_info
-        write_geometry_info(info, getattr(iface, 'geometry_analysis', None))
+        try:
+            write_geometry_info(info, getattr(iface, 'geometry_analysis', None))
+        except (AttributeError, KeyError, TypeError, ValueError):
+            info.write("Geometry analysis: unavailable for this cached interface.\n\n")
         from vorpy.src.geometry.visualization.interface import write_interface_dual_summary
         write_interface_dual_summary(info, iface)
 
@@ -1218,7 +1254,7 @@ def export_info(iface, directory=None):
 
 
 def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, verts=False, logs=False, info=False,
-                      group_info=False, round_to=3, dual=False):
+                      group_info=False, round_to=3, dual=False, buried_water=None):
     """
     Export data belonging to an Interface and its dedicated Network.
     """
@@ -1227,10 +1263,11 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
         return
 
     if iface.dir is None:
-        iface.dir = os.path.join(
-            iface.sys.files["dir"],
-            iface.name,
-        )
+        set_dir = getattr(iface, "set_dir", None)
+        if set_dir is not None:
+            set_dir()
+        else:
+            iface.dir = os.path.join(iface.sys.files["dir"], iface.name)
 
     os.makedirs(iface.dir, exist_ok=True)
     if dual or (all_ and iface.net.settings.get('net_type', 'aw') == 'aw'):
@@ -1241,13 +1278,13 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
     # once with the interface information pass rather than during an arbitrary
     # geometry export (surfaces/edges/verts). The helper retains its own guard
     # for explicit repeated info exports.
-    if info or all_:
+    if (info or all_) and buried_water is not False:
         export_buried_water_groups(iface)
 
     if group_info or all_:
         exported_group_ids = set()
 
-        for group in (iface.group1, iface.group2):
+        for position, group in enumerate((iface.group1, iface.group2), start=1):
             if group is None:
                 continue
 
@@ -1258,20 +1295,24 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
 
             exported_group_ids.add(group_id)
 
-            group_directory = os.path.join(
-                iface.sys.files["dir"],
-                group.name,
-            )
-
             export_interface_group_info(
                 group=group,
-                directory=group_directory,
+                directory=iface.dir,
+                file_prefix=f"group_{position}",
             )
 
     if atoms or all_:
         interface_atoms = get_interface_atoms(iface)
 
         if str(iface.sys.files.get("base_file") or "")[-3:].lower() != "txt":
+            for position, group in enumerate((iface.group1, iface.group2), start=1):
+                if group is not None:
+                    write_pdb(
+                        atoms=sorted(set(getattr(group, "ball_ndxs", ()) or ())),
+                        file_name=f"group_{position}_atoms",
+                        directory=iface.dir,
+                        sys=iface.sys,
+                    )
             write_pdb(
                 atoms=interface_atoms,
                 file_name="interface_atoms",
@@ -1311,11 +1352,6 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
             )
 
     if surfs or all_:
-        # Legacy archives do not contain Phase-1 caches. Keep their existing
-        # full-geometry export available without recomputing alpha selection.
-        if getattr(iface, '_geometry_representation', None) is not None:
-            from vorpy.src.interface.selected_export import export_selected_interface
-            export_selected_interface(iface)
         if iface.net.surfs is not None and len(iface.net.surfs) > 0:
             write_surfs(
                 iface.net,
@@ -1324,7 +1360,7 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
                 file_name="surfs",
             )
 
-def export_interface_group_info(group, directory):
+def export_interface_group_info(group, directory, file_prefix="group"):
     """
     Export information for a Group that participated in an interface-only
     calculation.
@@ -1338,7 +1374,7 @@ def export_interface_group_info(group, directory):
         set(int(index) for index in (getattr(group, "ball_ndxs", []) or []))
     )
 
-    info_path = os.path.join(directory, "info.txt")
+    info_path = os.path.join(directory, f"{file_prefix}_info.txt")
 
     with open(info_path, "w", encoding="utf-8") as info:
         info.write(f"{group.name} - {group.sys.name}\n\n")
@@ -1389,7 +1425,7 @@ def export_interface_group_info(group, directory):
     ):
         write_pdb(
             atoms=group_indices,
-            file_name="group_atoms",
+            file_name=f"{file_prefix}_atoms",
             directory=directory,
             sys=group.sys,
         )

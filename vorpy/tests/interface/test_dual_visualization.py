@@ -124,6 +124,7 @@ def test_cached_lower_bound_exclusion_does_not_invent_a_birth(tmp_path):
 def test_presets_include_dual_only_in_large_and_all(tmp_path, monkeypatch, preset, expected):
     output = importlib.import_module('vorpy.src.output.output')
     iface = cached_interface(tmp_path)
+    iface.dir = None
     calls = []
     iface.export = lambda **kwargs: calls.append(kwargs)
     monkeypatch.setattr(output, '_export_nonpolar_geometry', lambda **kwargs: None)
@@ -210,3 +211,121 @@ def test_cli_dual_and_apollonius_export_from_interface_only(tmp_path):
     system.ifaces = []
     with pytest.raises(ValueError, match='two-group -i'):
         output.other_exports(system, 'dual')
+
+
+def test_visualize_export_is_cache_only_and_reports_missing_layers(tmp_path, monkeypatch):
+    output = importlib.import_module('vorpy.src.output.output')
+    iface = cached_interface(tmp_path)
+    iface.dir = None
+    iface.group1.ball_ndxs = []
+    iface.group2.ball_ndxs = []
+    system = SimpleNamespace(
+        groups=[], ifaces=[iface], files={'dir': str(tmp_path)},
+        update_progress=lambda **kwargs: None,
+        verbose=False,
+    )
+    iface.sys = system
+    forbid_recalculation(monkeypatch)
+
+    output.other_exports(system, 'visualize')
+
+    launcher = tmp_path / 'interface_A_B' / 'visualization' / 'interface_A_B_visualization.pml'
+    manifest = tmp_path / 'interface_A_B' / 'visualization' / 'visualization_manifest.json'
+    assert launcher.exists()
+    data = json.loads(manifest.read_text(encoding='utf-8'))
+    assert data['layers']['partition_interface']['state'] == 'AVAILABLE'
+    assert data['layers']['dual_contact_complex']['state'] == 'AVAILABLE'
+    assert data['layers']['molecular_contact_surface:A']['state'] == 'NOT_CALCULATED'
+
+
+def test_visualize_reuses_cached_molecular_contact_exporter(tmp_path, monkeypatch):
+    output = importlib.import_module('vorpy.src.output.output')
+    from vorpy.tests.geometry.test_molecular_contact_visualization import _surface
+
+    iface = cached_interface(tmp_path)
+    iface.dir = None
+    iface.group1.ball_ndxs = []
+    iface.group2.ball_ndxs = []
+    iface.representation_caches = {'molecular_contact_surface:A': _surface('A')}
+    system = SimpleNamespace(
+        groups=[], ifaces=[iface], files={'dir': str(tmp_path)},
+        update_progress=lambda **kwargs: None,
+        verbose=False,
+    )
+    iface.sys = system
+    forbid_recalculation(monkeypatch)
+
+    output.other_exports(system, 'visualize')
+
+    root = tmp_path / 'interface_A_B' / 'molecular_contact_surface_A'
+    assert (root / 'molecular_contact_surface_A.obj').exists()
+    manifest = json.loads(
+        (tmp_path / 'interface_A_B' / 'visualization' / 'visualization_manifest.json').read_text()
+    )
+    assert manifest['layers']['molecular_contact_surface:A']['state'] == 'PARTIAL'
+
+
+def test_compact_interface_bundle_has_one_log_and_physical_surface(tmp_path):
+    from vorpy.src.output.visualization import export_compact_visualization_bundle
+
+    iface = cached_interface(tmp_path)
+    iface.dir = None
+    iface.group1.ball_ndxs = []
+    iface.group2.ball_ndxs = []
+    system = SimpleNamespace(
+        groups=[], ifaces=[iface], files={'dir': str(tmp_path)},
+        update_progress=lambda **kwargs: None, verbose=False, name='fixture',
+        balls=None,
+    )
+    iface.sys = system
+
+    export_compact_visualization_bundle(system)
+
+    root = tmp_path / 'interface_A_B'
+    assert (root / 'aw_surfs.off').stat().st_size > 0
+    assert (root / 'aw_edges.off').stat().st_size > 0
+    assert (root / 'aw_verts.pdb').stat().st_size > 0
+    assert (root / 'logs.csv').read_text(encoding='utf-8').startswith(
+        'interface_id,representation,side,quantity,value,units,status,provenance\n'
+    )
+    log_rows = rows(root / 'logs.csv')
+    assert log_rows
+    assert all(row['status'] != 'AVAILABLE' for row in log_rows)
+    assert {row['representation'] for row in log_rows} <= {
+        'physical_partition_interface', 'molecular_contact_surface',
+        'alpha_selection', 'water_analysis', 'timing',
+    }
+    assert not (root / 'interface.pml').exists()
+    assert not (root / 'dual_mapping_edges.off').exists()
+
+
+def test_compact_interface_make_net_does_not_create_legacy_directory(tmp_path, monkeypatch):
+    module = importlib.import_module('vorpy.src.interface.interface')
+
+    class FakeNetwork:
+        def __init__(self, **kwargs):
+            self.balls = kwargs['locs']
+            self.settings = kwargs['settings']
+
+    system = SimpleNamespace(
+        files={'dir': str(tmp_path)}, _compact_interface_workflow=True,
+        boundary_mode='shell',
+    )
+    iface = Interface.__new__(Interface)
+    iface.sys = system
+    iface.dir = None
+    iface.name = 'A_B_interface'
+    iface.settings = {'net_type': 'aw'}
+    iface.group1 = SimpleNamespace(ball_ndxs=[1], name='A', group_id='A')
+    iface.group2 = SimpleNamespace(ball_ndxs=[2], name='B', group_id='B')
+    monkeypatch.setattr(module, 'Network', FakeNetwork)
+    monkeypatch.setattr(
+        module, 'network_geometry',
+        lambda _sys: ([], [], [], set(), None),
+    )
+    monkeypatch.setattr(Interface, '_update_group_metadata', lambda *_args, **_kwargs: None)
+
+    iface.make_net()
+
+    assert iface.dir is None
+    assert not (tmp_path / iface.name).exists()

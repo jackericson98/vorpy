@@ -1,5 +1,6 @@
 import os
 import csv
+import json
 from vorpy.src.network.runtime_diagnostics import checkpoint, verbose_build
 import time
 import numpy as np
@@ -10,14 +11,108 @@ from numpy import array, inf, cbrt, sqrt
 from vorpy.src.calculations import get_time
 from vorpy.src.calculations import calc_length
 from vorpy.src.calculations import global_vars
-from vorpy.src.network.analyze import analyze
+from vorpy.src.network.analyze import analyze, analyze_geometry_only
 from vorpy.src.network.build_net import build
 from vorpy.src.network.build_edge1 import build_edge
 from vorpy.src.network.build_surfs import build_surfs
+from vorpy.src.network.perimeter import canonicalize_edge_orientation, stable_vertex_identity
 from vorpy.src.network.mark_doublets import mark_doublets
 from vorpy.src.network.find_net_verts import find_net_verts
 from vorpy.src.network.net_logs_connect import net_logs_connect
 from vorpy.src.network.edge_geometry_diagnostics import diagnose_aw_edge_geometry
+
+
+def _build_timing_enabled(net):
+    """Return whether opt-in Network.build timing is enabled."""
+    settings = getattr(net, 'settings', None) or {}
+    env_value = os.environ.get('VORPY_TIMING', '').strip().lower()
+    return bool(
+        settings.get('timing', False)
+        or settings.get('verbose', False)
+        or env_value in {'1', 'true', 'yes', 'on'}
+    )
+
+
+def _aw_provenance_enabled(net):
+    settings = getattr(net, 'settings', None) or {}
+    env_value = os.environ.get('VORPY_AW_PROVENANCE', '').strip().lower()
+    return bool(
+        settings.get('aw_provenance', False)
+        or env_value in {'1', 'true', 'yes', 'on'}
+    )
+
+
+def _timing_sum(values, keys):
+    return sum(float(values.get(key, 0.0)) for key in keys)
+
+
+def _build_timing_payload(net, stages, total_seconds):
+    """Build the stable, JSON-safe timing record emitted by Network.build."""
+    surface = getattr(net, 'surface_timing', {}) or {}
+    surface_detail = getattr(net, 'build_surf_timing', {}) or {}
+    analysis = getattr(net, 'analysis_timing', {}) or {}
+
+    geometric_predicates = _timing_sum(
+        surface_detail,
+        (
+            'com_contains_setup', 'com_contains_query',
+            'tri_shapely_setup', 'tri_point_filter', 'tri_sort', 'tri_reassign',
+        ),
+    )
+    surface_curvature = _timing_sum(
+        surface_detail,
+        ('combined_curvature', 'mean_curvature', 'gauss_curvature', 'flat_curvature_init'),
+    )
+    surface_build_total = float(surface_detail.get('total', 0.0))
+    surface_mesh_generation = max(
+        surface_build_total - geometric_predicates - surface_curvature,
+        0.0,
+    )
+
+    def row_count(value):
+        try:
+            return len(value)
+        except (AttributeError, TypeError):
+            return 0
+
+    balls = getattr(net, 'balls', None)
+    complete = balls['complete'] if balls is not None and 'complete' in balls else ()
+    counts = {
+        'balls': row_count(balls),
+        'vertices': row_count(getattr(net, 'verts', None)),
+        'edges': row_count(getattr(net, 'edges', None)),
+        'surfaces': row_count(getattr(net, 'surfs', None)),
+        'complete_cells': sum(bool(value) for value in complete),
+    }
+    stage_total = sum(stages.values())
+    return {
+        'schema_version': 1,
+        'unit': 'seconds',
+        'total_seconds': float(total_seconds),
+        'unattributed_seconds': max(float(total_seconds) - stage_total, 0.0),
+        'stages': {key: float(value) for key, value in stages.items()},
+        # These are child buckets from the existing surface/analysis timers;
+        # they are diagnostic detail and must not be added to ``stages``.
+        'breakdown_seconds': {
+            'geometric_predicates': geometric_predicates,
+            'surface_mesh_generation': surface_mesh_generation,
+            'surface_curvature': surface_curvature,
+            'intermediate_conversions': _timing_sum(
+                surface,
+                ('lookup', 'storage', 'dataframe_assignment'),
+            ),
+            'completeness_analysis': float(analysis.get('completeness', 0.0)),
+        },
+        'counts': counts,
+    }
+
+
+def _emit_build_timing(net, stages, total_seconds):
+    payload = _build_timing_payload(net, stages, total_seconds)
+    net.build_timing = payload
+    print('VORPY_BUILD_TIMING ' + json.dumps(
+        payload, sort_keys=True, separators=(',', ':'), allow_nan=False,
+    ))
 
 
 class Network:
@@ -393,6 +488,17 @@ class Network:
                     )
                 except ValueError as error:
                     raise ValueError(f'Unable to build edge {index}, balls={balls}: {error}') from error
+                if self.settings.get('net_type') == 'aw':
+                    endpoint_keys = tuple(
+                        stable_vertex_identity(self.verts.loc[int(vertex)])
+                        for vertex in vertices
+                    )
+                    points, values, reversed_edge = canonicalize_edge_orientation(
+                        points, endpoint_keys, values
+                    )
+                    if reversed_edge:
+                        vertices = list(reversed(vertices))
+                        self.edges.at[index, 'verts'] = vertices
                 edges_points.append(points)
                 edges_vals.append(values)
                 edges_lengths.append(calc_length(array(points)))
@@ -425,11 +531,15 @@ class Network:
         self.edges['vals'] = edges_vals
         self.edges['length'] = edges_lengths
 
-    def build_surfaces(self, store_points=True):
+    def build_surfaces(self, store_points=True, calculate_curvature=True):
         """
         Takes in a system and returns a fully connected network
         """
-        build_surfs(self, store_points=store_points)
+        build_surfs(
+            self,
+            store_points=store_points,
+            calculate_curvature=calculate_curvature,
+        )
 
     def build_edge_mean_curvature(
             self,
@@ -728,7 +838,8 @@ class Network:
 
     @verbose_build
     def build(self, surf_res=None, max_vert=None, box_size=None, build_surfs=None, net_type=None,
-              calc_verts=None, my_group=None, print_actions=None, print_vert_metrics=False, curr_time=None, verts=None):
+              calc_verts=None, my_group=None, print_actions=None, print_vert_metrics=False,
+              curr_time=None, verts=None, calculate_curvature=True):
         """
         Builds and constructs the complete network structure including vertices, edges, and surfaces.
 
@@ -768,16 +879,54 @@ class Network:
         limit_mem = False
         if self.settings['build_type'] == 'logs':
             limit_mem = True
+        timing_enabled = _build_timing_enabled(self)
+        self._timing_enabled = timing_enabled
+        timing_started = time.perf_counter() if timing_enabled else None
+        timing_stages = {}
+
+        def stage_start():
+            return time.perf_counter() if timing_enabled else None
+
+        def stage_end(name, started):
+            if started is not None:
+                timing_stages[name] = time.perf_counter() - started
+
+        def finish_timing():
+            if timing_started is not None:
+                _emit_build_timing(self, timing_stages, time.perf_counter() - timing_started)
+
+        def finish_provenance():
+            if not _aw_provenance_enabled(self):
+                return
+            try:
+                from vorpy.src.network.aw_geometry_reuse import collect_aw_solver_provenance
+                self.aw_solver_provenance = collect_aw_solver_provenance(self).as_dict()
+            except Exception as error:  # opt-in diagnostics must not alter a solve
+                self.aw_solver_provenance = {
+                    'schema_version': 1,
+                    'enabled': True,
+                    'status': 'error',
+                    'error': f'{type(error).__name__}: {error}',
+                    'completeness': {
+                        'completeness_proven': False,
+                        'reason': 'provenance collection failed',
+                    },
+                }
+
         # Reuse the System-level spatial index whenever possible. The first
         # full-system Network creates it; subsequent Groups/Interfaces attach it.
         if self.box is None and self.sys is not None:
             self.sys.apply_spatial_index(self)
         if self.box is None:
             checkpoint(self, 'Spatial index')
+            stage_started = stage_start()
             self.sort_balls()
+            stage_end('spatial_index', stage_started)
         if self.verts is None:
             checkpoint(self, 'Find vertices')
+            stage_started = stage_start()
             self.find_verts()
+            stage_end('vertex_generation', stage_started)
 
             if self.verts is None or len(self.verts) == 0:
                 max_vert = self.settings.get("max_vert", None)
@@ -799,14 +948,20 @@ class Network:
                 print("=" * 70)
                 print()
 
+                finish_timing()
+                finish_provenance()
                 return
         # Check to see if there are vertices loaded
         if self.verts is None:
             # Find the vertices
             checkpoint(self, 'Find vertices')
+            stage_started = stage_start()
             self.find_verts()
+            stage_end('vertex_generation', stage_started)
             # Check to see if there are vertices
             if self.verts is None or len(self.verts) == 0:
+                finish_timing()
+                finish_provenance()
                 return
         elif 'vdub' not in self.verts:
             self.metrics['vert'] = 0
@@ -816,42 +971,66 @@ class Network:
             self.metrics['vert'] = 0
         # Connect topology and construct geometry.
         checkpoint(self, 'Connect topology')
+        stage_started = stage_start()
         self.connect()
+        stage_end('topology', stage_started)
         checkpoint(self, 'Edges + curvature' if self.settings.get('net_type') == 'aw' else 'Edge geometry')
-        self.build_edges()
+        stage_started = stage_start()
+        self.build_edges(compute_curvature=calculate_curvature)
+        stage_end('edge_generation', stage_started)
         checkpoint(self, 'Surface geometry')
-        self.build_surfaces(not limit_mem)
+        stage_started = stage_start()
+        self.build_surfaces(not limit_mem, calculate_curvature=calculate_curvature)
+        stage_end('surface_construction', stage_started)
 
-        if self.settings.get("net_type", "aw") == "aw":
+        if calculate_curvature and self.settings.get("net_type", "aw") == "aw":
             self.update_progress("Surface orientation", 0.0)
             checkpoint(self, 'Surface orientation')
+            stage_started = stage_start()
             self.build_surface_mean_curvature()
+            stage_end('surface_orientation', stage_started)
             self.update_progress("Surface orientation", 100.0)
 
             # Curvature quadrature is already complete. These calls reuse its
             # cache and refresh cell reductions if meshing rejected any faces.
             self.update_progress("Edge mean", 0.0)
             checkpoint(self, 'Edge mean curvature')
+            stage_started = stage_start()
             self.build_edge_mean_curvature()
+            stage_end('edge_mean_curvature', stage_started)
             self.update_progress("Edge mean", 100.0)
 
             self.update_progress("Edge Gaussian", 0.0)
             checkpoint(self, 'Edge Gaussian curvature')
+            stage_started = stage_start()
             self.build_edge_gaussian_curvature()
+            stage_end('edge_gaussian_curvature', stage_started)
             self.update_progress("Edge Gaussian", 100.0)
 
             self.update_progress("Vertex Gaussian", 0.0)
             checkpoint(self, 'Vertex Gaussian curvature')
+            stage_started = stage_start()
             self.build_vertex_gaussian_curvature()
+            stage_end('vertex_gaussian_curvature', stage_started)
             self.update_progress("Vertex Gaussian", 100.0)
 
-        checkpoint(self, 'Analyze')
-        self.analyze()
+        checkpoint(self, 'Analyze' if calculate_curvature else 'Geometry completeness')
+        stage_started = stage_start()
+        if calculate_curvature:
+            self.analyze()
+            stage_name = 'analysis'
+        else:
+            analyze_geometry_only(self)
+            stage_name = 'completeness_analysis'
+        stage_end(stage_name, stage_started)
 
-        if self.settings.get("verbose", False):
+        if calculate_curvature and self.settings.get("verbose", False):
             if self.settings.get("net_type", "aw") == "aw":
                 self.diagnose_mean_curvature()
                 self.diagnose_gaussian_curvature()
+
+        finish_timing()
+        finish_provenance()
 
         # Stop the timer and measure the time
         self.metrics['tot'] = now() - self.metrics['start']

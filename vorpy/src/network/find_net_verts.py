@@ -325,6 +325,11 @@ def find_net_verts(net):
     They are printed only when ``net.settings['verbose']`` is True.
     """
     vert_start = time.perf_counter()
+    provenance_enabled = bool(
+        (getattr(net, 'settings', None) or {}).get('aw_provenance', False)
+        or os.environ.get('VORPY_AW_PROVENANCE', '').strip().lower()
+        in {'1', 'true', 'yes', 'on'}
+    )
     timer = {
         'setup': 0.0,
         'cache_load': 0.0,
@@ -344,6 +349,9 @@ def find_net_verts(net):
         net.group = net.balls['num'].tolist()
 
     sphere_check_list = net.group.copy()
+    initial_sphere_check_list = tuple(sorted(int(value) for value in sphere_check_list))
+    initial_seed_balls = None
+    reseed_candidates = ()
     net.update_progress("Vertices | Setup", 0.0)
     timer['setup'] += time.perf_counter() - t
 
@@ -386,12 +394,25 @@ def find_net_verts(net):
 
     if my_guuy is not None:
         vert_ndxs, vlocs, vrads, vloc2s, vrad2s, sphere_check_list, averts = my_guuy
+        if vert_ndxs:
+            initial_seed_balls = tuple(int(value) for value in vert_ndxs[0])
     elif cached_state is None:
         sparse_state = _enumerate_sparse_aw_vertices(net)
         if sparse_state is not None:
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s, averts = sparse_state
             sphere_check_list = []
         else:
+            if provenance_enabled:
+                net.aw_vertex_search_provenance = {
+                    'status': 'no_seed',
+                    'initial_unresolved_balls': initial_sphere_check_list,
+                    'remaining_balls': tuple(sorted(int(value) for value in sphere_check_list)),
+                    'seed_balls': None,
+                    'reseed_count': 0,
+                    'traversal_exhausted': False,
+                    'completeness_proven': False,
+                    'reason': 'vertex search found no verified seed; omission is unresolved',
+                }
             total = time.perf_counter() - vert_start
             net.vert_timing = timer.copy()
             net.vert_timing['total'] = total
@@ -444,6 +465,8 @@ def find_net_verts(net):
             net,
             sphere_check_list
         )
+        if provenance_enabled:
+            reseed_candidates = tuple(sorted(int(value) for value in sphere_check_list))
     timer['interface_reseed_setup'] += time.perf_counter() - t
 
     # --------------------------------------------------------------
@@ -497,6 +520,21 @@ def find_net_verts(net):
         ):
             print(f'Missing Ball Indices:\n{sphere_check_list}\n')
             break
+
+    if provenance_enabled:
+        net.aw_vertex_search_provenance = {
+            'status': 'traversal_exhausted' if not sphere_check_list else 'truncated',
+            'initial_unresolved_balls': initial_sphere_check_list,
+            'reseed_candidates': reseed_candidates,
+            'remaining_balls': tuple(sorted(int(value) for value in sphere_check_list)),
+            'seed_balls': initial_seed_balls,
+            'reseed_count': int(reseed_count),
+            'traversal_exhausted': not bool(sphere_check_list),
+            'seed_timeout_events': int(timer.get('seed_timeout_events', 0)),
+            'timing_seed_search_attempts': int(timer.get('seed_search_attempts', 0)),
+            'completeness_proven': False,
+            'reason': 'traversal outcome recorded; omitted isolated or filtered vertices remain unproven',
+        }
 
     # --------------------------------------------------------------
     # Store native interface state

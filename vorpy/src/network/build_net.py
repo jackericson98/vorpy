@@ -1,5 +1,6 @@
 import time
 import os
+import json
 import numpy as np
 from itertools import combinations
 from vorpy.src.calculations import calc_dist
@@ -51,6 +52,56 @@ def _print_build_timings(timings, counts):
     if counts.get('vertex_surface_candidates') is not None:
         print(f'Vertex-surface keys:   {counts["vertex_surface_candidates"]:,}')
     print('=' * 70)
+
+
+def _interface_diagnostics_enabled(net):
+    settings = getattr(net, 'settings', None) or {}
+    value = os.environ.get('VORPY_INTERFACE_DIAGNOSTICS', '').strip().lower()
+    return bool(
+        settings.get('interface_diagnostics', False)
+        or value in {'1', 'true', 'yes', 'on'}
+    )
+
+
+def _aw_provenance_enabled(net):
+    settings = getattr(net, 'settings', None) or {}
+    value = os.environ.get('VORPY_AW_PROVENANCE', '').strip().lower()
+    return bool(
+        settings.get('aw_provenance', False)
+        or value in {'1', 'true', 'yes', 'on'}
+    )
+
+
+def _surface_connectivity(surface_edges):
+    """Return face components and boundary-edge counts without mutating topology."""
+    edge_faces = {}
+    for surface_id, edges in enumerate(surface_edges):
+        for edge_id in edges:
+            edge_faces.setdefault(edge_id, []).append(surface_id)
+
+    neighbors = [[] for _ in surface_edges]
+    boundary_edges = 0
+    for incident in edge_faces.values():
+        if len(incident) == 1:
+            boundary_edges += 1
+        for left in incident:
+            neighbors[left].extend(right for right in incident if right != left)
+
+    seen = set()
+    components = 0
+    for surface_id in range(len(surface_edges)):
+        if surface_id in seen:
+            continue
+        components += 1
+        stack = [surface_id]
+        seen.add(surface_id)
+        while stack:
+            current = stack.pop()
+            for neighbor in neighbors[current]:
+                if neighbor not in seen:
+                    seen.add(neighbor)
+                    stack.append(neighbor)
+    return components, boundary_edges
 
 
 def spans_interface(ball_indices, iface_grps):
@@ -335,7 +386,8 @@ def add_build_edges(num_balls, e_balls, num_verts, e_verts):
 
 
 def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, net=None, group=None,
-                    interface=False, iface_grps=None, timings=None, counts=None):
+                    interface=False, iface_grps=None, timings=None, counts=None,
+                    diagnostics=None):
     """Construct surfaces from direct 2-ball topology indices while preserving original validity rules."""
     surface_start = time.perf_counter()
 
@@ -374,6 +426,21 @@ def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, net
         except ValueError:
             debug_pair = None
     keys = sorted(surf_edge_map)
+    candidate_vertex_ids = (
+        {vertex_id for vertices in surf_vert_map.values() for vertex_id in vertices}
+        if diagnostics is not None else None
+    )
+    candidate_edge_ids = (
+        {edge_id for edges in surf_edge_map.values() for edge_id in edges}
+        if diagnostics is not None else None
+    )
+    interface_candidate_keys = [] if diagnostics is not None and interface else None
+    discarded = {} if diagnostics is not None else None
+
+    def discard(reason):
+        if discarded is not None:
+            discarded[reason] = discarded.get(reason, 0) + 1
+
     for n, key in enumerate(keys):
         if net is not None and n % 5000 == 0 and keys:
             percentage = 60.0 + 30.0 * (n + 1) / len(keys)
@@ -381,9 +448,13 @@ def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, net
 
         test_surf = list(key)
         if interface and not spans_interface(test_surf, iface_grps):
+            discard('not_interface_bicolor')
             if debug_pair == key: print(f"SURFACE DEBUG {key}: rejected interface membership")
             continue
+        if interface and diagnostics is not None:
+            interface_candidate_keys.append(key)
         if not interface and group is not None and not belongs_to_group(test_surf, group):
+            discard('not_group_member')
             if debug_pair == key: print(f"SURFACE DEBUG {key}: rejected group membership")
             continue
 
@@ -394,6 +465,7 @@ def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, net
             print(f"SURFACE DEBUG {key}: candidate_edges={surf_edges} candidate_vertices={surf_verts}")
             print(f"SURFACE DEBUG {key}: edge_count={len(surf_edges)} vertex_count={len(surf_verts)}")
         if len(surf_verts) != len(surf_edges):
+            discard('edge_vertex_count_mismatch')
             if debug_pair == key: print(f"SURFACE DEBUG {key}: rejected unequal edge/vertex counts")
             continue
 
@@ -406,6 +478,7 @@ def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, net
             for vert_ndx in surf_verts
         )
         if invalid_surface:
+            discard('non_closed_boundary')
             continue
 
         s_balls.append(test_surf)
@@ -418,6 +491,39 @@ def get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, start_time, net
         counts['surface_candidates'] = surface_candidates
         counts['unique_surface_keys'] = len(surf_edge_map)
         counts['vertex_surface_candidates'] = vertex_surface_candidates
+    if diagnostics is not None and interface:
+        interface_vertices = {
+            vertex_id for key in interface_candidate_keys for vertex_id in surf_vert_map[key]
+        }
+        interface_edges = {
+            edge_id for key in interface_candidate_keys for edge_id in surf_edge_map[key]
+        }
+        retained_vertices = {vertex_id for vertices in s_verts for vertex_id in vertices}
+        retained_edges = {edge_id for edges in s_edges for edge_id in edges}
+        components, boundary_edges = _surface_connectivity(s_edges)
+        diagnostics.update({
+            'total_interface_facets': len(interface_candidate_keys),
+            'selected_physical_facets': len(s_balls),
+            'discarded_facets_by_reason': dict(sorted(discarded.items())),
+            'connected_components': components,
+            'boundary_edges': boundary_edges,
+            'stage_counts': {
+                'vertex_generation': {'vertices': len(v_balls), 'edges': None, 'faces': None},
+                'edge_generation': {'vertices': len(v_balls), 'edges': len(e_balls), 'faces': None},
+                'surface_candidates': {
+                    'vertices': len(candidate_vertex_ids), 'edges': len(candidate_edge_ids),
+                    'faces': len(surf_edge_map),
+                },
+                'interface_filter': {
+                    'vertices': len(interface_vertices), 'edges': len(interface_edges),
+                    'faces': len(interface_candidate_keys),
+                },
+                'physical_faces_retained': {
+                    'vertices': len(retained_vertices), 'edges': len(retained_edges),
+                    'faces': len(s_balls),
+                },
+            },
+        })
     return s_balls, s_verts, s_edges
 
 
@@ -488,7 +594,17 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time,
     """
 
     build_start = time.perf_counter()
-    timings = {}
+    timing_enabled = bool(
+        net is not None
+        and (
+            getattr(net, '_timing_enabled', False)
+            or (getattr(net, 'settings', None) or {}).get('verbose', False)
+        )
+    )
+    timings = {} if timing_enabled else None
+    provenance_enabled = _aw_provenance_enabled(net)
+    diagnostics = {} if interface and (_interface_diagnostics_enabled(net) or provenance_enabled) else None
+    topology_provenance = {} if provenance_enabled else None
     counts = {'balls': num_balls, 'verts': len(v_balls), 'doublets': sum(1 for dub in v_dubs if dub == 1)}
 
     if net is not None:
@@ -522,6 +638,7 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time,
 
     # Fill in the doublets and regular edges.
     e_balls, e_verts = get_build_edges(b_verts, v_balls, v_locs, v_dubs, my_time, net=net, timings=timings, counts=counts)
+    edge_candidates_before_filter = len(e_balls)
 
     edge_filter_start = time.perf_counter()
     if interface:
@@ -536,6 +653,17 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time,
         e_verts = [edge_verts for _, edge_verts in retained_edges]
     _record_timing(timings, 'edge_filter', edge_filter_start)
     counts['edges'] = len(e_balls)
+    if topology_provenance is not None:
+        topology_provenance['edge_construction'] = {
+            'candidate_edges': edge_candidates_before_filter,
+            'retained_edges': len(e_balls),
+            'discarded_edges': edge_candidates_before_filter - len(e_balls),
+            'discarded_by_reason': {
+                'scope_filter': edge_candidates_before_filter - len(e_balls),
+            } if edge_candidates_before_filter != len(e_balls) else {},
+            'completeness_proven': False,
+            'reason': 'edge construction completed; absence of candidates is not completeness proof',
+        }
 
     edge_adjacency_start = time.perf_counter()
     b_edges, v_edges = add_build_edges(num_balls, e_balls, len(v_balls), e_verts)
@@ -550,8 +678,27 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time,
 
     s_balls, s_verts, s_edges = get_build_surfs(b_verts, b_edges, v_balls, v_edges, e_balls, my_time, group=group,
                                                 interface=interface, iface_grps=iface_grps, timings=timings,
-                                                net=net, counts=counts)
+                                                net=net, counts=counts, diagnostics=diagnostics)
     counts['surfs'] = len(s_balls)
+    if topology_provenance is not None:
+        topology_provenance['surface_construction'] = {
+            'candidate_surfaces': counts.get('unique_surface_keys', 0),
+            'retained_surfaces': len(s_balls),
+            'connected_components': (
+                diagnostics.get('connected_components') if diagnostics is not None else None
+            ),
+            'boundary_edges': (
+                diagnostics.get('boundary_edges') if diagnostics is not None else None
+            ),
+            'completeness_proven': False,
+            'reason': 'surface construction completed; filtered or absent faces remain unproven',
+        }
+        topology_provenance['discarded_primitives'] = {
+            'surfaces': (
+                diagnostics.get('discarded_facets_by_reason', {})
+                if diagnostics is not None else {}
+            ),
+        }
     if net is not None:
         net.update_progress("Topology", 90.0)
 
@@ -579,12 +726,29 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time,
     surf_lists = {'balls': s_balls, 'verts': s_verts, 'edges': s_edges}
     _record_timing(timings, 'packaging', packaging_start)
 
-    timings['total'] = time.perf_counter() - build_start
+    if timings is not None:
+        timings['total'] = time.perf_counter() - build_start
 
     if net is not None:
         net.update_progress("Topology", 100.0)
 
-    # Timing is always collected; -v / net.verbose controls only printing.
+    if net is not None and timing_enabled:
+        net.build_net_timing = timings.copy()
+        net.build_net_counts = counts.copy()
+
+    if diagnostics is not None:
+        diagnostics['network_counts'] = {
+            'vertices': len(v_balls), 'edges': len(e_balls), 'faces': len(s_balls),
+        }
+        if _interface_diagnostics_enabled(net):
+            net.interface_topology_diagnostics = diagnostics
+            print('VORPY_INTERFACE_DIAGNOSTICS ' + json.dumps(
+                diagnostics, sort_keys=True, separators=(',', ':'), allow_nan=False,
+            ))
+
+    if topology_provenance is not None:
+        net.aw_topology_provenance = topology_provenance
+
     if net is not None and net.settings.get('verbose', False):
         _print_build_timings(timings, counts)
 

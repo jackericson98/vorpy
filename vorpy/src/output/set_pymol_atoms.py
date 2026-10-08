@@ -25,6 +25,7 @@ def set_pymol_atoms(sys):
     # repeated atom/residue names and serial-number rollovers.
     if sys.type in {'foam', 'coarse', 'balls'}:
         with open('set_atoms.pml', 'w') as file:
+            file.write(f"load {sys.name}.pdb, {sys.name}\n")
             file.write(f"alter {sys.name}, vdw=b\n\nrebuild\n")
         return
     # Check to see if the atoms in the system are all accounted for
@@ -33,6 +34,7 @@ def set_pymol_atoms(sys):
             special_radii[res.name] = {sys.balls['name'][j]: round(sys.balls['rad'][j], 2) for j in res.atoms}
     # Create the file
     with open('set_atoms.pml', 'w') as file:
+        file.write(f"load {sys.name}.pdb, {sys.name}\n")
         # Write the change radii script for the system's set atomic radii
         for radius in sys.element_radii:
             if radius != '':

@@ -41,7 +41,10 @@ def find_v0(locs, rads, b_verts, max_vert, net_type, b0=None, group_ndxs=None, i
     start_time = time.perf_counter()
 
     def timed_out():
-        return timeout is not None and time.perf_counter() - start_time >= timeout
+        expired = timeout is not None and time.perf_counter() - start_time >= timeout
+        if expired and metrics is not None:
+            metrics['seed_timeout_events'] = metrics.get('seed_timeout_events', 0) + 1
+        return expired
     # Make sure we have an existing-vertex list for the lower-level
     # site-finding functions.
     if vert_ndxs is None:

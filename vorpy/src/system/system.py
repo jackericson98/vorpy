@@ -1049,7 +1049,8 @@ class System:
         for cache in self.interface_geometry_cache.values():
             cache.clear()
 
-    def make_interfaces(self, interface_pairs):
+    def make_interfaces(self, interface_pairs, *, analyze_waters=True,
+                        calculate_curvature=None):
         """
         Create and build the requested interfaces.
 
@@ -1075,7 +1076,10 @@ class System:
                 group2=group2,
             )
 
-            interface.build()
+            interface.build(
+                analyze_waters=analyze_waters,
+                calculate_curvature=calculate_curvature,
+            )
             self.ifaces.append(interface)
 
     def set_output_directory(self, directory=None):

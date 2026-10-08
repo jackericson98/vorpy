@@ -8,8 +8,23 @@ from dataclasses import dataclass, field, asdict
 import hashlib
 import json
 import math
+from time import perf_counter
 
 from vorpy.src.boundary import SOLVENT_RESIDUES
+
+
+def _analysis_progress(iface, process, progress):
+    """Use the normal system progress stream for analysis stages."""
+    updater = getattr(getattr(iface, 'sys', None), 'update_progress', None)
+    if updater is not None:
+        updater(process=process, progress=float(progress), network=iface.name)
+
+
+def _stage_done(iface, label, started, progress, timings):
+    elapsed = perf_counter() - started
+    timings[label] = elapsed
+    _analysis_progress(iface, f'Interface analysis | {label} ({elapsed:.2f} s)', progress)
+    return elapsed
 
 
 PHYSICAL_FIELDS = (
@@ -441,6 +456,27 @@ def summarize_physical_interface(representation, network, selection_complete=Tru
     }
 
 
+def summarize_selected_interface(representation, selection_complete=True):
+    """Return selection/area state without running optional H/K/topology work."""
+    values = {key: None for key in PHYSICAL_FIELDS}
+    values.update({
+        'interface_atoms': len(getattr(representation, 'interface_atoms', ()) or ()),
+        'components': getattr(representation, 'component_count', None),
+        'area': getattr(representation, 'area_A2', None),
+        'area_scope': 'retained complete alpha-selected physical surfaces',
+        'area_selection_complete': bool(selection_complete),
+        'selected_pairs': len(getattr(representation, 'selected_surfaces', ()) or ()),
+        'mean_certified': False,
+        'gaussian_total_certified': False,
+        'mean_curvature_certified': False,
+        'gaussian_curvature_certified': False,
+        'manifold_incidence_certified': False,
+        'gaussian_accounting_scope': 'not_calculated',
+        'unresolved_reasons': [],
+    })
+    return values
+
+
 def _comparison_key(iface, solvent_ids, alpha):
     """Exact non-solvent generator geometry, including numerical boundary sites."""
     rows = []
@@ -454,7 +490,15 @@ def _comparison_key(iface, solvent_ids, alpha):
     return hashlib.sha256(repr(payload).encode()).hexdigest()
 
 
-def analyze_interface_geometry(iface, alpha=None, *, refresh=False):
+def geometry_cache_key(iface, alpha):
+    """Runtime table identity plus stable solve identity; keys are never archived."""
+    from vorpy.src.io.scientific_adapters import stable_id
+    return (stable_id(iface.net), id(iface.net.surfs), id(iface.net.edges),
+            id(iface.net.verts), float(alpha), iface.net.settings.get('net_type', 'aw'), 2)
+
+
+def analyze_interface_geometry(iface, alpha=None, *, refresh=False,
+                               calculate_curvature=True):
     """Analyze once per solve/query. No additional network solve is performed."""
     from vorpy.src.geometry.duals import build_dual
     from vorpy.src.geometry.filtrations.alpha import build_alpha_filtration
@@ -466,8 +510,9 @@ def analyze_interface_geometry(iface, alpha=None, *, refresh=False):
     if not math.isfinite(alpha):
         raise ValueError('Interface alpha must be finite')
     scheme = settings.get('net_type', 'aw')
-    key = (id(iface.net), id(iface.net.surfs), id(iface.net.edges), id(iface.net.verts), alpha, scheme, 2)
+    key = (*geometry_cache_key(iface, alpha), bool(calculate_curvature))
     if not refresh and getattr(iface, '_geometry_analysis_key', None) == key:
+        _analysis_progress(iface, 'Interface analysis | Cached state reused', 100.0)
         return iface.geometry_analysis
     environment, solvent_ids = solvent_environment(iface)
     result = InterfaceGeometryAnalysis(metadata={
@@ -477,18 +522,33 @@ def analyze_interface_geometry(iface, alpha=None, *, refresh=False):
         'alpha_units': 'A' if scheme == 'aw' else 'A^2',
         'alpha_value_source': 'explicit query' if explicit_alpha else 'interface_alpha setting or existing alpha-zero convention',
         'molecular_contact_patch_status': 'not_implemented',
+        'curvature_requested': bool(calculate_curvature),
         'additional_network_solves': 0, **environment,
     })
+    timings = {}
     try:
         groups = _network_groups(iface)
-        source_key = (key[0:4], scheme)
+        source_key = (key[0:4], scheme, bool(calculate_curvature))
         if refresh or getattr(iface, '_geometry_source_key', None) != source_key:
+            _analysis_progress(iface, 'Interface analysis | Building dual representation', 5.0)
+            started = perf_counter()
             iface._geometry_dual = build_dual(iface.net)
+            _stage_done(iface, 'Building dual representation', started, 20.0, timings)
             # Phase 1 AW selection requires only validated pair births.
+            _analysis_progress(iface, 'Interface analysis | Building alpha selection', 20.0)
+            started = perf_counter()
             iface._geometry_filtration = build_alpha_filtration(iface.net, max_dimension=1 if scheme == 'aw' else 3)
+            _stage_done(iface, 'Building alpha selection', started, 35.0, timings)
             iface._geometry_source_key = source_key
+        else:
+            _analysis_progress(iface, 'Interface analysis | Using cached dual and alpha selection', 35.0)
         filtration = iface._geometry_filtration
-        representation = build_alpha_interface(iface.net, iface._geometry_dual, filtration, alpha, *groups)
+        _analysis_progress(iface, 'Interface analysis | Building physical interface', 40.0)
+        started = perf_counter()
+        representation = build_alpha_interface(
+            iface.net, iface._geometry_dual, filtration, alpha, *groups,
+            calculate_curvature=calculate_curvature,
+        )
         iface._geometry_representation = representation
         subcomplex = filtration.simplices_at(alpha)
         blocked_pairs = [r for r in subcomplex.blocked if r.dimension == 1
@@ -519,7 +579,23 @@ def analyze_interface_geometry(iface, alpha=None, *, refresh=False):
         }
         result.metadata['filtration_kind'] = filtration.metadata.get('filtration_kind')
         result.metadata['higher_dimension_policy'] = 'AW higher-dimensional births are not invented; pair-only Phase 1 selection'
-        result.voronoi_side_1 = summarize_physical_interface(representation, iface.net, complete)
+        _stage_done(iface, 'Building physical interface', started, 60.0, timings)
+        if calculate_curvature:
+            _analysis_progress(iface, 'Interface analysis | Calculating curvature and topology', 60.0)
+            started = perf_counter()
+            result.voronoi_side_1 = summarize_physical_interface(
+                representation, iface.net, complete
+            )
+            _stage_done(iface, 'Calculating curvature and topology', started, 90.0, timings)
+        else:
+            _analysis_progress(
+                iface,
+                'Interface analysis | Recording selected area (curvature/topology skipped)',
+                90.0,
+            )
+            result.voronoi_side_1 = summarize_selected_interface(
+                representation, complete
+            )
         result.voronoi_side_1['selected_pairs'] = len(selected)
         result.voronoi_side_2 = reverse_perspective(result.voronoi_side_1)
         result.coverage = {k: result.voronoi_side_1[k] for k in (
@@ -556,6 +632,14 @@ def analyze_interface_geometry(iface, alpha=None, *, refresh=False):
                                             'delta_area': None, 'delta_H': None, 'delta_K': None}
         if not environment['solvent_context']:
             cache[comparison_key] = result
+        result.metadata['timings_seconds'] = dict(timings)
+        result.metadata['timing_total_seconds'] = sum(timings.values())
+        _analysis_progress(
+            iface,
+            'Interface analysis | Complete '
+            f'({result.metadata["timing_total_seconds"]:.2f} s)',
+            100.0,
+        )
     except (RuntimeError, ValueError, KeyError, AttributeError, IndexError, TypeError) as error:
         # Optional analysis cannot make a solved interface unexportable.
         reason = f'{type(error).__name__}: {error}'
@@ -577,6 +661,9 @@ def analyze_interface_geometry(iface, alpha=None, *, refresh=False):
                            'mean_certified': False, 'gaussian_total_certified': False}
         result.unresolved = [reason, 'Validated open-interface accounting could not be completed']
         result.dry_solvent_comparison = {'available': False, 'status': 'analysis unresolved'}
+        result.metadata['timings_seconds'] = dict(timings)
+        result.metadata['timing_total_seconds'] = sum(timings.values())
+        _analysis_progress(iface, f'Interface analysis | Unresolved ({reason})', 100.0)
     iface.geometry_analysis = result
     iface._geometry_analysis_key = key
     return result
@@ -652,7 +739,7 @@ def write_geometry_info(stream, analysis):
     def show(value):
         return 'UNRESOLVED' if value is None else f'{value:.6f}' if isinstance(value, float) else str(value)
     stream.write('\nALPHA-SELECTED INTERFACE GEOMETRY\n' + '=' * 40 + '\n')
-    stream.write('Physical selected geometry: alpha_interface/selected_interface.pml (default Large export or -e surfs).\n')
+    stream.write('Alpha-selected derivative: generated only by an explicit alpha export.\n')
     stream.write('Full physical interface: surfs.*; selected geometry uses this cached analysis, with zero additional solves.\n')
     for label, key in (('Scheme', 'scheme'), ('Alpha convention', 'alpha_convention'), ('Alpha value', 'alpha_value'), ('Alpha units', 'alpha_units'), ('Solvent context', 'solvent_context')):
         stream.write(f'{label}: {show(m.get(key))}\n')

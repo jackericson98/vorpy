@@ -540,7 +540,7 @@ class Group:
             self.net.balls["is_boundary_generator"] = False
             self.net.balls.loc[list(boundary_indices), "is_boundary_generator"] = True
 
-    def build(self, verts=None):
+    def build(self, verts=None, *, calculate_curvature=None):
         """
         Allows user to build the network from the system object.
         """
@@ -553,7 +553,10 @@ class Group:
             print("Network already loaded from logs; skipping full rebuild.")
             return
 
-        self.net.build()
+        if calculate_curvature is None:
+            self.net.build()
+        else:
+            self.net.build(calculate_curvature=calculate_curvature)
 
     def mark_interface_built(self, interface_id, partial_group=None):
         """

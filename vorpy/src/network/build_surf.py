@@ -208,7 +208,8 @@ def project_to_hyperboloid(twoD_points, small_ball_loc, surf_func, plane_normal,
 
 
 def build_surf(locs, rads, epnts, res, net_type, sfunc=None, perimeter=None,
-               surf_loc=None, surf_norm=None, timing=None):
+               surf_loc=None, surf_norm=None, timing=None,
+               calculate_curvature=True, edge_endpoints=None):
     """
     Build one surface and calculate its mesh and curvature descriptors.
 
@@ -234,7 +235,9 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, perimeter=None,
     if perimeter is None:
         try:
             perimeter, surf_loc, surf_norm = build_perimeter(
-                locs, rads, epnts=epnts, net_type=net_type
+                locs, rads, epnts=epnts, net_type=net_type,
+                edge_endpoints=edge_endpoints,
+                allow_legacy_fallback=(net_type == 'aw' and edge_endpoints is not None),
             )
         except ValueError:
             # Degenerate edge projections make this individual surface
@@ -268,6 +271,14 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, perimeter=None,
     flat_com, flat_loc = project_to_plane(
         np.array([surf_com, surf_loc]), plane_normal=surf_norm, plane_point=surf_loc
     )
+    if net_type == 'aw' and edge_endpoints is not None:
+        # Independent AW solves can differ by a few ulps at shared boundary
+        # samples.  Normalize only the triangulation inputs so Qhull sees the
+        # same deterministic coordinates without changing stored edge curves.
+        flat_points = [
+            point for point in np.round(np.asarray(flat_points, dtype=float), decimals=10)
+        ]
+        flat_loc = np.round(np.asarray(flat_loc, dtype=float), decimals=10)
     _record_timing(timing, 'project_com', time.perf_counter() - stage_start)
 
     # Triangulation
@@ -281,15 +292,24 @@ def build_surf(locs, rads, epnts, res, net_type, sfunc=None, perimeter=None,
         spoints = project_to_hyperboloid(my_2d_points, locs[0], sfunc, surf_norm, surf_loc, timing=timing)
         _record_timing(timing, 'project_hyperboloid', time.perf_counter() - stage_start)
 
-        # Mean + Gaussian curvature in one shared triangle pass.
-        stage_start = time.perf_counter()
-        (
-            mean_tri_curvs, mean_surf_curv, avg_mean_surf_curv,
-            gauss_tri_curvs, gauss_surf_curv, avg_gauss_surf_curv,
-            int_mean_curv, int_mean_curv_sq, int_gauss_curv,
-            curvature_area,
-        ) = calc_surf_tri_curvs_both(sfunc, spoints, surf_tris)
-        _record_timing(timing, 'combined_curvature', time.perf_counter() - stage_start)
+        if calculate_curvature:
+            # Mean + Gaussian curvature in one shared triangle pass.
+            stage_start = time.perf_counter()
+            (
+                mean_tri_curvs, mean_surf_curv, avg_mean_surf_curv,
+                gauss_tri_curvs, gauss_surf_curv, avg_gauss_surf_curv,
+                int_mean_curv, int_mean_curv_sq, int_gauss_curv,
+                curvature_area,
+            ) = calc_surf_tri_curvs_both(sfunc, spoints, surf_tris)
+            _record_timing(timing, 'combined_curvature', time.perf_counter() - stage_start)
+        else:
+            # Geometry-only/interface profiles still need the physical mesh,
+            # but do not need scientific curvature descriptors.
+            n_tris = len(surf_tris)
+            mean_tri_curvs, mean_surf_curv, avg_mean_surf_curv = [0] * n_tris, 0, 0
+            gauss_tri_curvs, gauss_surf_curv, avg_gauss_surf_curv = [0] * n_tris, 0, 0
+            int_mean_curv, int_mean_curv_sq, int_gauss_curv = 0.0, 0.0, 0.0
+            curvature_area = None
     else:
         # Flat surfaces need only unprojection; curvature is zero.
         stage_start = time.perf_counter()

@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 import itertools
 import json
+import os
 from dataclasses import asdict
 from pathlib import Path
 
@@ -403,7 +404,8 @@ def _dual_mapping_rows(dual):
     return rows
 
 
-def _write_interface_layers(network, interface, directory, prefix, coordinates, edge_radius):
+def _write_interface_layers(network, interface, directory, prefix, coordinates, edge_radius,
+                            *, diagnostics=True):
     directory.mkdir(parents=True, exist_ok=True)
     selected = interface.selected_surfaces
     surf_positions = [_position_by_feature(network.surfs, row.feature_id) for row in selected]
@@ -420,10 +422,12 @@ def _write_interface_layers(network, interface, directory, prefix, coordinates, 
     if edge_mesh is not None:
         write_mesh(edge_mesh, edge_file, directory=directory)
     center_pairs = sorted({tuple(sorted(surface.generator_ids)) for surface in selected})
-    mapping_mesh = _edge_mesh(center_pairs, coordinates, edge_radius)
-    mapping_edge_file = "dual_mapping_edges.off"
-    if mapping_mesh is not None:
-        write_mesh(mapping_mesh, mapping_edge_file, directory=directory)
+    mapping_edge_file = None
+    if diagnostics:
+        mapping_mesh = _edge_mesh(center_pairs, coordinates, edge_radius)
+        mapping_edge_file = "dual_mapping_edges.off"
+        if mapping_mesh is not None:
+            write_mesh(mapping_mesh, mapping_edge_file, directory=directory)
     vertex_rows = [row for row in interface.interface_vertices if row.xyz is not None]
     vertex_parts, vertex_faces = [], []
     for row in vertex_rows:
@@ -433,23 +437,25 @@ def _write_interface_layers(network, interface, directory, prefix, coordinates, 
     vertex_file = f"{prefix}_physical_vertices.off"
     if vertex_mesh is not None:
         write_mesh(vertex_mesh, vertex_file, directory=directory)
-    mapping_file = directory / f"{prefix}_dual_edges.csv"
-    _write_csv(mapping_file, (interface.selection_mappings
-                              if interface.selection_mappings
-                              else _interface_mapping_rows(interface)))
-    for name, records in (
-        ("interface_surfaces.csv", interface.surfaces),
-        ("interface_edges.csv", interface.edges),
-        ("interface_vertices.csv", interface.vertices),
-    ):
-        _write_csv(directory / name, [asdict(record) for record in records])
-    _write_csv(directory / "alpha_incidence_audit.csv", interface.alpha_incidence_audit)
+    mapping_file = None
+    if diagnostics:
+        mapping_file = directory / f"{prefix}_dual_edges.csv"
+        _write_csv(mapping_file, (interface.selection_mappings
+                                  if interface.selection_mappings
+                                  else _interface_mapping_rows(interface)))
+        for name, records in (
+            ("interface_surfaces.csv", interface.surfaces),
+            ("interface_edges.csv", interface.edges),
+            ("interface_vertices.csv", interface.vertices),
+        ):
+            _write_csv(directory / name, [asdict(record) for record in records])
+        _write_csv(directory / "alpha_incidence_audit.csv", interface.alpha_incidence_audit)
     return {prefix: {"directory": str(directory), "surfaces": surface_file if mesh is not None else None,
                      "physical_edges": edge_file if edge_mesh is not None else None,
-                     "dual_mapping_edges": mapping_edge_file if mapping_mesh is not None else None,
+                     "dual_mapping_edges": mapping_edge_file,
                      "physical_vertices": vertex_file if vertex_mesh is not None else None,
                      "surface_count": len(selected), "edge_count": len(edge_ids),
-                     "mapping_csv": mapping_file.name}}
+                     "mapping_csv": mapping_file.name if mapping_file else None}}
 
 
 def _surface_mesh(network, positions):
@@ -525,12 +531,15 @@ def _alpha_slug(alpha):
 
 
 def _write_pymol_script(path, structure_path, dual_dir, alpha_dir, interface_layers):
+    def relative(target):
+        return os.path.relpath(Path(target), Path(path).parent).replace(os.sep, '/')
+
     structure = Path(structure_path).resolve() if structure_path else dual_dir / "generators.pdb"
     lines = [
         "from pymol import cmd",
         "from pymol.cgo import BEGIN, END, TRIANGLES, COLOR, VERTEX",
         "import os",
-        f"cmd.load({str(structure)!r}, 'generators')",
+        f"cmd.load({relative(structure)!r}, 'generators')",
         "cmd.hide('everything', 'generators')",
         "cmd.show('spheres', 'generators')",
         "cmd.set('sphere_scale', 0.22, 'generators')",
@@ -539,7 +548,7 @@ def _write_pymol_script(path, structure_path, dual_dir, alpha_dir, interface_lay
 
     if alpha_dir is not None and (alpha_dir / "alpha_vertices.pdb").exists():
         lines.extend([
-            f"cmd.load({str(alpha_dir / 'alpha_vertices.pdb')!r}, 'alpha_vertices')",
+            f"cmd.load({relative(alpha_dir / 'alpha_vertices.pdb')!r}, 'alpha_vertices')",
             "cmd.show('spheres', 'alpha_vertices')",
             "cmd.set('sphere_scale', 0.35, 'alpha_vertices')",
             "cmd.color('orange', 'alpha_vertices')",
@@ -547,11 +556,11 @@ def _write_pymol_script(path, structure_path, dual_dir, alpha_dir, interface_lay
     scheme = dual_dir.parent.name
     for filename, name, color in _mesh_layers(dual_dir, "dual_full"):
         name = f"{scheme}_{name}"
-        lines.append(f"_load_off_layer({str(filename)!r}, {name!r}, {color!r})")
+        lines.append(f"_load_off_layer({relative(filename)!r}, {name!r}, {color!r})")
     if alpha_dir is not None:
         for filename, name, color in _mesh_layers(alpha_dir, "alpha"):
             name = f"{scheme}_{name}"
-            lines.append(f"_load_off_layer({str(filename)!r}, {name!r}, {color!r})")
+            lines.append(f"_load_off_layer({relative(filename)!r}, {name!r}, {color!r})")
     for layer_key, layer_info in interface_layers.items():
         directory = Path(layer_info["directory"])
         for key in ("surfaces", "physical_edges", "dual_mapping_edges", "physical_vertices"):
@@ -563,12 +572,12 @@ def _write_pymol_script(path, structure_path, dual_dir, alpha_dir, interface_lay
                 else:
                     color = _COLORS["interface_alpha_surfaces" if layer_key == "interface_alpha"
                                     else "interface_full_surfaces"]
-                lines.append(f"_load_off_layer({str(directory / filename)!r}, {name!r}, {color!r})")
+                lines.append(f"_load_off_layer({relative(directory / filename)!r}, {name!r}, {color!r})")
     lines.append("cmd.zoom('generators')")
     path = Path(path)
     python_path = path.with_suffix(".py")
     python_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    path.write_text(f'run "{python_path.resolve().as_posix()}"\n', encoding="utf-8")
+    path.write_text(f'run "{relative(python_path)}"\n', encoding="utf-8")
     _write_pymol_views(path, lines, scheme, alpha_dir, interface_layers)
 
 
@@ -616,7 +625,10 @@ def _write_pymol_views(master_path, master_lines, scheme, alpha_dir, interface_l
         pml_path = directory / filename
         python_path = pml_path.with_suffix(".py")
         python_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        pml_path.write_text(f'run "{python_path.resolve().as_posix()}"\n', encoding="utf-8")
+        pml_path.write_text(
+            f'run "{os.path.relpath(python_path, pml_path.parent).replace(os.sep, "/")}"\n',
+            encoding="utf-8",
+        )
 
 
 def _mesh_layers(directory, prefix):

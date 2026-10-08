@@ -96,8 +96,13 @@ def argv_export(my_sys, usr_npt, add_on=None):
         else:
             export_commands.append(npt)
 
-    # No preset, or only modifiers such as ``dir``/``ft``: export Large.
+    # The interface CLI has a deliberately small default bundle.  Legacy
+    # non-interface commands retain the historical Large preset.
     if len(export_commands) == 0:
+        if getattr(my_sys, '_compact_interface_workflow', False):
+            from vorpy.src.output.visualization import export_compact_visualization_bundle
+            export_compact_visualization_bundle(my_sys)
+            return
         export_commands.append(['large'])
 
     skip_archive = skip_archive or any(npt[0].lower() in {'none', 'no', 'skip'} for npt in export_commands)
