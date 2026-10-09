@@ -1,7 +1,6 @@
 import time
 import numpy as np
 from numba import jit
-from vorpy.src.calculations import calc_surf_sa
 from vorpy.src.network.build_surf import build_surf
 from vorpy.src.network.perimeter import stable_vertex_identity
 
@@ -12,12 +11,21 @@ def _add_timing(timing, key, elapsed):
 
 @jit(nopython=True)
 def _surface_tetra_volumes_kernel(references, points, triangles):
-    """Evaluate the scalar tetrahedron formula in input triangle order."""
+    """Evaluate volume and area formulas in input triangle order."""
     totals = np.zeros(len(references), dtype=np.float64)
+    surface_area = 0.0
     for triangle in triangles:
         p1 = points[triangle[0]]
         p2 = points[triangle[1]]
         p3 = points[triangle[2]]
+
+        ax, ay, az = p1[0] - p2[0], p1[1] - p2[1], p1[2] - p2[2]
+        bx, by, bz = p1[0] - p3[0], p1[1] - p3[1], p1[2] - p3[2]
+        cx = ay * bz - az * by
+        cy = az * bx - ax * bz
+        cz = ax * by - ay * bx
+        surface_area += 0.5 * np.sqrt(cx * cx + cy * cy + cz * cz)
+
         for reference_index in range(len(references)):
             p0 = references[reference_index]
             r01x, r01y, r01z = p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]
@@ -28,11 +36,11 @@ def _surface_tetra_volumes_kernel(references, points, triangles):
             cross_z = r01x * r02y - r01y * r02x
             triple_product = r03x * cross_x + r03y * cross_y + r03z * cross_z
             totals[reference_index] += abs(triple_product) / 6.0
-    return totals
+    return totals, surface_area
 
 
 def _surface_tetra_volumes(references, points, triangles):
-    """Batch unsigned tetrahedral volumes for multiple reference points.
+    """Batch unsigned tetrahedral volumes and final-triangle surface area.
 
     The calculation preserves ``calc_tetra_vol``'s absolute scalar-triple-
     product formula and triangle traversal order.  Only the loop location
@@ -49,7 +57,7 @@ def _surface_tetra_volumes(references, points, triangles):
     if point_array.ndim != 2 or point_array.shape[1:] != (3,):
         raise ValueError("Surface points must have shape (n, 3).")
     if triangle_array.size == 0:
-        return np.zeros(len(reference_array), dtype=float)
+        return np.zeros(len(reference_array), dtype=float), 0.0
     if triangle_array.ndim != 2 or triangle_array.shape[1:] != (3,):
         raise ValueError("Surface triangles must have shape (n, 3).")
     return _surface_tetra_volumes_kernel(
@@ -284,14 +292,13 @@ def build_surfs(net, store_points=True, calculate_curvature=True):
         total_tris += len(surf_tris)
 
         timer = time.perf_counter()
-        sv0, sv1 = _surface_tetra_volumes(locs, surf_points, surf_tris)
+        surface_volumes, fused_area = _surface_tetra_volumes(locs, surf_points, surf_tris)
+        sv0, sv1 = surface_volumes
         _add_timing(outer_timing, 'volumes', time.perf_counter() - timer)
 
         timer = time.perf_counter()
         if curvature_area is None:
-            # Flat surfaces do not run the curvature pass, so preserve the
-            # historical standalone surface-area calculation for them.
-            sa = calc_surf_sa(tris=surf_tris, points=surf_points)
+            sa = fused_area
         else:
             # Curved-surface triangle areas were already accumulated during
             # the combined H/K pass; do not walk the mesh again.

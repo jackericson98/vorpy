@@ -362,7 +362,10 @@ def _cached_alpha_selection_result(iface):
     details = dict(archive_provenance) if isinstance(archive_provenance, Mapping) else {}
     provenance = Provenance('cached alpha selection', scientific_state_id=stable_id(analysis)
                             if analysis is not None else None, details=details)
-    return (adapt_alpha_selection(analysis, identity, provenance=provenance)
+    dual = getattr(iface, '_geometry_dual', None)
+    if getattr(dual, 'network', None) is not getattr(iface, 'net', None):
+        dual = None
+    return (adapt_alpha_selection(analysis, identity, dual=dual, provenance=provenance)
             if analysis is not None else unavailable_alpha_selection(identity, provenance=provenance))
 
 

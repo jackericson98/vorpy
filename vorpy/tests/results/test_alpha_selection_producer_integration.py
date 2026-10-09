@@ -52,6 +52,87 @@ def _cached_analysis():
     return analysis
 
 
+def _cached_dual(network):
+    edge = SimpleNamespace(
+        simplex_id="1:3,8",
+        dimension=1,
+        generator_ids=(3, 8),
+        primal_feature_ids=(("surface", 17),),
+        bounded=True,
+        complete=True,
+        supported=True,
+        status="bounded_complete_supported",
+    )
+    audit = SimpleNamespace(
+        valid=True,
+        generator_count=2,
+        feature_counts={"surface": 1},
+        unmapped_feature_count=0,
+    )
+    return SimpleNamespace(
+        network=network,
+        simplices={1: {(3, 8): edge}},
+        audit=lambda: audit,
+    )
+
+
+def _cached_alpha_with_generator_pair():
+    analysis = _cached_analysis()
+    analysis.alpha_selection = {
+        **analysis.alpha_selection,
+        "selected_generator_pairs": [[3, 8]],
+    }
+    return analysis
+
+
+def _alpha_iface(analysis, **kwargs):
+    iface = SimpleNamespace(geometry_analysis=analysis, **kwargs)
+    return iface
+
+
+def _stub_alpha_identity(monkeypatch):
+    monkeypatch.setattr(
+        visualization,
+        "_cached_result_identity",
+        lambda _iface, **_kwargs: _identity("alpha_selection"),
+    )
+
+
+def test_cached_alpha_selection_uses_matching_cached_dual(monkeypatch):
+    network = object()
+    iface = _alpha_iface(
+        _cached_alpha_with_generator_pair(), net=network, _geometry_dual=_cached_dual(network)
+    )
+    _stub_alpha_identity(monkeypatch)
+
+    result = visualization._cached_alpha_selection_result(iface)
+
+    assert [feature.simplex_id for feature in result.selected_dual_features] == ["1:3,8"]
+
+
+def test_cached_alpha_selection_without_dual_keeps_selection_partial(monkeypatch):
+    iface = _alpha_iface(_cached_alpha_with_generator_pair(), net=object())
+    _stub_alpha_identity(monkeypatch)
+
+    result = visualization._cached_alpha_selection_result(iface)
+
+    assert result.status is Status.PARTIAL
+    assert result.selected_dual_feature_ids == ("1:3,8",)
+    assert result.selected_dual_features == ()
+
+
+def test_cached_alpha_selection_ignores_stale_dual(monkeypatch):
+    iface = _alpha_iface(
+        _cached_alpha_with_generator_pair(), net=object(), _geometry_dual=_cached_dual(object())
+    )
+    _stub_alpha_identity(monkeypatch)
+
+    result = visualization._cached_alpha_selection_result(iface)
+
+    assert result.status is Status.PARTIAL
+    assert result.selected_dual_features == ()
+
+
 def test_cached_alpha_selection_becomes_typed_result_without_a_geometry_query(monkeypatch):
     analysis = _cached_analysis()
     iface = SimpleNamespace(geometry_analysis=analysis)
