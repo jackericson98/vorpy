@@ -170,6 +170,7 @@ def test_compact_rows_use_canonical_results_mappings(monkeypatch):
         ))
 
     monkeypatch.setattr(visualization, "_cached_interface_result", lambda iface: interface_result)
+    monkeypatch.setattr(visualization, "_cached_alpha_selection_result", lambda iface: None)
     monkeypatch.setattr(visualization, "_cached_surface_result", lambda iface, surface: surface_result)
     monkeypatch.setattr(visualization, "_iter_result_quantities", quantities)
     iface = SimpleNamespace(
@@ -214,6 +215,7 @@ def test_compact_rows_use_canonical_results_mappings(monkeypatch):
     missing_area = [row for row in missing_rows if row["quantity"] == "area"]
     assert missing_area and all(row["status"] == "NOT_CALCULATED" and row["value"] == ""
                                 for row in missing_area)
+
 
 
 def test_compact_interface_bundle_has_no_generic_wrappers(tmp_path):

@@ -323,9 +323,18 @@ def export_preset(sys, preset):
     group_plan = GROUP_PRESETS[preset]
     interface_plan = INTERFACE_PRESETS[preset]
     analysis_count = (len(groups) + len(ifaces)) if preset in {'large', 'all'} else 0
+    # ``logs`` still includes the legacy sectioned interface CSV.  Whenever it
+    # is requested, also emit the canonical Results log: it preserves status,
+    # units, identity, and provenance without recalculating geometry.  ``small``
+    # has always supplied that canonical log even though its interface plan has
+    # no legacy ``logs`` entry.
+    write_canonical_interface_logs = (
+        preset == 'small'
+        or any(kwargs.get('logs', False) for _, kwargs in interface_plan)
+    )
     canonical_interface_logs = (
         [iface for iface in ifaces if iface.net is not None]
-        if preset == 'small' else []
+        if write_canonical_interface_logs else []
     )
     dual_interfaces = [iface for iface in ifaces if iface.net is not None and
                        iface.net.settings.get('net_type', 'aw') == 'aw'] if preset in {'large', 'all'} else []
@@ -362,7 +371,7 @@ def export_preset(sys, preset):
         with export_color_cache(iface.net):
             for name, kwargs in interface_plan:
                 _run_export(progress, f'{interface_name}: {name}', iface.export, **kwargs)
-            if preset == 'small' and iface.net is not None:
+            if iface in canonical_interface_logs:
                 _run_export(
                     progress,
                     f'{interface_name}: canonical logs',

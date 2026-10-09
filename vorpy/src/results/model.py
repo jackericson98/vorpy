@@ -579,6 +579,7 @@ class ResultIdentity:
             "dual_b",
             "dual_generator_complex",
             "dual_separator",
+            "alpha_selection",
             "molecular_contact_surface",
             "dual",
             "molecular",
@@ -597,7 +598,13 @@ class ResultIdentity:
                 raise ValueError(
                     "Interface identity requires groups, ID, and orientation"
                 )
-            expected = {"voronoi": {"shared"}, "dual_a": {"A"}, "dual_b": {"B"}}
+            expected = {
+                "voronoi": {"shared"},
+                "dual": {"shared"},
+                "dual_a": {"A"},
+                "dual_b": {"B"},
+                "alpha_selection": {"shared"},
+            }
             if self.representation in expected:
                 valid_sides = expected[self.representation]
             elif self.representation == "dual_generator_complex":
@@ -988,7 +995,10 @@ class GeneratorComplex:
                 or quantity.value < 0
             ):
                 raise ValueError("Simplex counts must be nonnegative integers")
-        object.__setattr__(self, "simplex_counts", freeze(self.simplex_counts))
+        # Dimensions are typed integer keys in the in-memory contract.  The
+        # generic JSON freezer stringifies mapping keys, so use a read-only
+        # mapping here and let ``dictionary()`` perform serialization later.
+        object.__setattr__(self, "simplex_counts", MappingProxyType(dict(self.simplex_counts)))
         object.__setattr__(self, "topology", freeze(self.topology))
         _quantity_mapping(self.topology)
 
@@ -1544,6 +1554,209 @@ class GroupResult(ResultModel):
 @dataclass(frozen=True)
 class InterfaceResult(ResultModel):
     KIND = "interface"
+
+
+@dataclass(frozen=True)
+class DualSimplexRecord:
+    """An incidence record from a dual complex, with no geometric measure.
+
+    ``generator_ids`` are network-local generator indices, as declared by the
+    source dual cache.  ``primal_feature_ids`` are stable serialized feature
+    references (for example ``"surf:17"``), not physical measurements.
+    """
+
+    simplex_id: str
+    dimension: int
+    generator_ids: tuple[int, ...]
+    primal_feature_ids: tuple[str, ...] = ()
+    bounded: bool | None = None
+    complete: bool | None = None
+    supported: bool | None = None
+    status: Status = Status.NOT_CALCULATED
+    provenance: Provenance | None = None
+
+    def __post_init__(self):
+        if isinstance(self.dimension, bool) or not isinstance(self.dimension, int) or self.dimension < 0:
+            raise ValueError("Dual-simplex dimensions must be nonnegative integers")
+        generator_ids = tuple(self.generator_ids)
+        if len(generator_ids) != self.dimension + 1:
+            raise ValueError("Dual-simplex dimension and generator count disagree")
+        if (
+            any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in generator_ids)
+            or tuple(sorted(generator_ids)) != generator_ids
+            or len(set(generator_ids)) != len(generator_ids)
+        ):
+            raise ValueError("Dual-simplex generator IDs must be sorted unique nonnegative integers")
+        expected_id = f"{self.dimension}:" + ",".join(map(str, generator_ids))
+        if self.simplex_id != expected_id:
+            raise ValueError("Dual-simplex ID must match its dimension and generator IDs")
+        primal_feature_ids = tuple(self.primal_feature_ids)
+        if any(not isinstance(value, str) or not value for value in primal_feature_ids):
+            raise ValueError("Dual primal-feature IDs must be non-empty strings")
+        for name in ("bounded", "complete", "supported"):
+            value = getattr(self, name)
+            if value is not None and not isinstance(value, bool):
+                raise TypeError(f"Dual-simplex {name} must be a boolean or null")
+        if self.provenance is not None and not isinstance(self.provenance, Provenance):
+            raise TypeError("Dual-simplex provenance must be typed")
+        object.__setattr__(self, "generator_ids", generator_ids)
+        object.__setattr__(self, "primal_feature_ids", primal_feature_ids)
+        object.__setattr__(self, "status", Status(self.status))
+
+
+def _dual_generator_pairs(values, name):
+    pairs = tuple(tuple(pair) for pair in values)
+    if any(
+        len(pair) != 2
+        or any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in pair)
+        or pair != tuple(sorted(pair))
+        or pair[0] == pair[1]
+        for pair in pairs
+    ):
+        raise ValueError(f"{name} must contain sorted pairs of distinct nonnegative generator IDs")
+    if len(set(pairs)) != len(pairs):
+        raise ValueError(f"{name} contains duplicate generator pairs")
+    return pairs
+
+
+def _selection_pairs(values, name):
+    pairs = tuple(tuple(pair) for pair in values)
+    if any(len(pair) != 2 or any(not isinstance(value, str) or not value for value in pair) for pair in pairs):
+        raise ValueError(f"{name} must contain pairs of non-empty stable identifiers")
+    return pairs
+
+
+@dataclass(frozen=True)
+class DualContactComplexResult(ResultModel):
+    """Dual contact incidences; deliberately not a physical surface result."""
+
+    KIND = "interface"
+
+    contact_features: tuple[DualSimplexRecord, ...] = ()
+
+    def __post_init__(self):
+        super().__post_init__()
+        if self.identity.representation != "dual":
+            raise ValueError("Dual-contact results require the dual representation")
+        object.__setattr__(self, "contact_features", tuple(self.contact_features))
+        if any(
+            not isinstance(feature, DualSimplexRecord) or feature.dimension != 1
+            for feature in self.contact_features
+        ):
+            raise TypeError("Dual-contact results require typed dimension-one features")
+        if len({feature.simplex_id for feature in self.contact_features}) != len(self.contact_features):
+            raise ValueError("Dual-contact results contain duplicate features")
+        if self.status in {Status.NOT_CALCULATED, Status.NOT_SUPPORTED} and self.contact_features:
+            raise ValueError("Unavailable dual-contact results cannot contain incidences")
+        if self.status == Status.STALE:
+            object.__setattr__(
+                self,
+                "contact_features",
+                tuple(_stale(feature) for feature in self.contact_features),
+            )
+
+
+@dataclass(frozen=True)
+class DualGeneratorComplexResult(ResultModel):
+    """Traversed generator complex with explicit simplices and side identity."""
+
+    KIND = "interface"
+
+    generator_complex: GeneratorComplex | None = None
+    simplex_records: tuple[DualSimplexRecord, ...] = ()
+
+    def __post_init__(self):
+        super().__post_init__()
+        if self.identity.representation not in {"dual_a", "dual_b", "dual_generator_complex"}:
+            raise ValueError("Dual-generator results require a generator-complex representation")
+        if self.generator_complex is not None and not isinstance(self.generator_complex, GeneratorComplex):
+            raise TypeError("generator_complex must be GeneratorComplex")
+        if self.generator_complex is not None and self.generator_complex.side != self.identity.side:
+            raise ValueError("Generator-complex side disagrees with result identity")
+        object.__setattr__(self, "simplex_records", tuple(self.simplex_records))
+        if any(not isinstance(record, DualSimplexRecord) for record in self.simplex_records):
+            raise TypeError("Dual-generator results require typed simplex records")
+        if len({record.simplex_id for record in self.simplex_records}) != len(self.simplex_records):
+            raise ValueError("Dual-generator results contain duplicate simplex records")
+        if self.status in {Status.NOT_CALCULATED, Status.NOT_SUPPORTED} and (
+            self.generator_complex is not None or self.simplex_records
+        ):
+            raise ValueError("Unavailable dual-generator results cannot contain incidences")
+        if self.status == Status.STALE:
+            if self.generator_complex is not None:
+                object.__setattr__(self, "generator_complex", _stale(self.generator_complex))
+            object.__setattr__(
+                self,
+                "simplex_records",
+                tuple(_stale(record) for record in self.simplex_records),
+            )
+
+
+@dataclass(frozen=True)
+class AlphaSelectionResult(ResultModel):
+    """A standalone alpha-selected dual subset, separate from primal geometry."""
+
+    KIND = "interface"
+
+    selected_dual_feature_ids: tuple[str, ...] = ()
+    selected_generator_pairs: tuple[tuple[int, int], ...] = ()
+    selected_system_pairs: tuple[tuple[str, str], ...] = ()
+    selected_physical_system_pairs: tuple[tuple[str, str], ...] = ()
+    selected_dual_features: tuple[DualSimplexRecord, ...] = ()
+
+    def __post_init__(self):
+        super().__post_init__()
+        if self.identity.representation != "alpha_selection":
+            raise ValueError("Alpha-selection results require the alpha_selection representation")
+        if self.identity.alpha_value is None:
+            raise ValueError("Alpha-selection results require an explicit alpha identity")
+        object.__setattr__(
+            self,
+            "selected_dual_feature_ids",
+            _string_tuple(self.selected_dual_feature_ids, "selected_dual_feature_ids"),
+        )
+        if len(set(self.selected_dual_feature_ids)) != len(self.selected_dual_feature_ids):
+            raise ValueError("Alpha-selection results contain duplicate dual feature IDs")
+        object.__setattr__(
+            self,
+            "selected_generator_pairs",
+            _dual_generator_pairs(self.selected_generator_pairs, "selected_generator_pairs"),
+        )
+        object.__setattr__(
+            self,
+            "selected_system_pairs",
+            _selection_pairs(self.selected_system_pairs, "selected_system_pairs"),
+        )
+        object.__setattr__(
+            self,
+            "selected_physical_system_pairs",
+            _selection_pairs(self.selected_physical_system_pairs, "selected_physical_system_pairs"),
+        )
+        object.__setattr__(self, "selected_dual_features", tuple(self.selected_dual_features))
+        if any(
+            not isinstance(feature, DualSimplexRecord) or feature.dimension != 1
+            for feature in self.selected_dual_features
+        ):
+            raise TypeError("Alpha-selection results require typed dimension-one dual features")
+        feature_ids = {feature.simplex_id for feature in self.selected_dual_features}
+        if not feature_ids.issubset(set(self.selected_dual_feature_ids)):
+            raise ValueError("Selected dual feature records must be named by the alpha selection")
+        if self.status in {Status.NOT_CALCULATED, Status.NOT_SUPPORTED} and any(
+            (
+                self.selected_dual_feature_ids,
+                self.selected_generator_pairs,
+                self.selected_system_pairs,
+                self.selected_physical_system_pairs,
+                self.selected_dual_features,
+            )
+        ):
+            raise ValueError("Unavailable alpha selections cannot contain selected identities")
+        if self.status == Status.STALE:
+            object.__setattr__(
+                self,
+                "selected_dual_features",
+                tuple(_stale(feature) for feature in self.selected_dual_features),
+            )
 
 
 @dataclass(frozen=True)

@@ -25,6 +25,13 @@ solved-network ZIP archive containing JSON metadata/state and NumPy arrays; it
 can be loaded without rebuilding vertices, edges, or surface triangulations.
 Multiple presets in one command save the archive only once.
 
+When an interface export includes `logs`, VorPy writes both the legacy
+sectioned interface CSV and `interface_<A>_<B>/logs.csv`. The latter is the
+canonical eight-column Results log (`interface_id`, representation, side,
+quantity, value, units, status, provenance); it serializes cached state only
+and does not rebuild geometry. The `small` preset also writes this canonical
+log for its compact interface bundle.
+
 Use `-e large -e no_archive` to retain the preset outputs without the automatic
 archive. `-e none` disables automatic exports, and `-e none -e logs` or
 `-e only logs` exports only the requested component without an archive.

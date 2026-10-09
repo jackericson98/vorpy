@@ -37,9 +37,10 @@ def gaussian_curvature(func, point, tol=1e-12):
     grad = np.array([fx, fy, fz], dtype=float)
     grad_mag = np.linalg.norm(grad)
 
-    # Guard against degenerate / ill-posed points
+    # A vanishing implicit gradient does not describe a regular surface at
+    # this point.  It is an unavailable measurement, not a flat patch.
     if not np.isfinite(grad_mag) or grad_mag < tol:
-        return 0.0
+        raise ValueError("Gaussian curvature is undefined for a degenerate implicit gradient.")
 
     # Hessian matrix
     hess = np.array([
@@ -64,12 +65,12 @@ def gaussian_curvature(func, point, tol=1e-12):
     denominator = grad_mag ** 4
 
     if not np.isfinite(denominator) or denominator < tol:
-        return 0.0
+        raise ValueError("Gaussian curvature denominator is undefined.")
 
     K = numerator / denominator
 
     if not np.isfinite(K):
-        return 0.0
+        raise ValueError("Gaussian curvature is non-finite.")
 
     return K
 
@@ -119,9 +120,10 @@ def mean_curvature(func, point, tol=1e-12):
     # Gradient magnitude
     grad_mag = np.sqrt(fx ** 2 + fy ** 2 + fz ** 2)
 
-    # Guard against degenerate / ill-posed points
+    # A vanishing implicit gradient does not describe a regular surface at
+    # this point.  It is an unavailable measurement, not a flat patch.
     if not np.isfinite(grad_mag) or grad_mag < tol:
-        return 0.0
+        raise ValueError("Mean curvature is undefined for a degenerate implicit gradient.")
 
     H_mat = np.array([[fxx, fxy, fxz],
                       [fxy, fyy, fyz],
@@ -134,12 +136,11 @@ def mean_curvature(func, point, tol=1e-12):
 
     # denom is protected by the tol-check above, but keep it explicit
     if not np.isfinite(denom) or abs(denom) < tol:
-        return 0.0
+        raise ValueError("Mean curvature denominator is undefined.")
 
     H_val = num / denom
-    # Optional: clamp crazy values
     if not np.isfinite(H_val):
-        return 0.0
+        raise ValueError("Mean curvature is non-finite.")
 
     return H_val
 
@@ -301,7 +302,7 @@ def calc_surf_tri_curvs_both(func, points, tris, tol=1e-12):
     weighted_mean_sq = 0.0
     weighted_gauss = 0.0
 
-    for tri in tris:
+    for tri_index, tri in enumerate(tris):
         i0, i1, i2 = tri
         p0 = points[i0]
         p1 = points[i1]
@@ -320,8 +321,9 @@ def calc_surf_tri_curvs_both(func, points, tris, tol=1e-12):
         grad_sq = fx * fx + fy * fy + fz * fz
 
         if not np.isfinite(grad_sq) or grad_sq < tol * tol:
-            mean_val = 0.0
-            gauss_val = 0.0
+            raise ValueError(
+                f"Curvature is undefined at triangle {tri_index}: degenerate implicit gradient."
+            )
         else:
             grad_mag = np.sqrt(grad_sq)
 
@@ -336,11 +338,14 @@ def calc_surf_tri_curvs_both(func, points, tris, tol=1e-12):
             mean_denom = 2.0 * grad_sq * grad_mag
 
             if not np.isfinite(mean_denom) or abs(mean_denom) < tol:
-                mean_val = 0.0
-            else:
-                mean_val = mean_num / mean_denom
-                if not np.isfinite(mean_val):
-                    mean_val = 0.0
+                raise ValueError(
+                    f"Mean curvature is undefined at triangle {tri_index}: invalid denominator."
+                )
+            mean_val = mean_num / mean_denom
+            if not np.isfinite(mean_val):
+                raise ValueError(
+                    f"Mean curvature is non-finite at triangle {tri_index}."
+                )
 
             # Gaussian curvature:
             # K = grad^T adj(Hess) grad / |grad|^4
@@ -351,11 +356,14 @@ def calc_surf_tri_curvs_both(func, points, tris, tol=1e-12):
             gauss_denom = grad_sq * grad_sq
 
             if not np.isfinite(gauss_denom) or gauss_denom < tol:
-                gauss_val = 0.0
-            else:
-                gauss_val = gauss_num / gauss_denom
-                if not np.isfinite(gauss_val):
-                    gauss_val = 0.0
+                raise ValueError(
+                    f"Gaussian curvature is undefined at triangle {tri_index}: invalid denominator."
+                )
+            gauss_val = gauss_num / gauss_denom
+            if not np.isfinite(gauss_val):
+                raise ValueError(
+                    f"Gaussian curvature is non-finite at triangle {tri_index}."
+                )
 
         mean_tri_curvs.append(mean_val)
         gauss_tri_curvs.append(gauss_val)

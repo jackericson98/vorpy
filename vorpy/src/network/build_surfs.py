@@ -1,12 +1,62 @@
 import time
+import numpy as np
+from numba import jit
 from vorpy.src.calculations import calc_surf_sa
-from vorpy.src.calculations import calc_tetra_vol
 from vorpy.src.network.build_surf import build_surf
 from vorpy.src.network.perimeter import stable_vertex_identity
 
 
 def _add_timing(timing, key, elapsed):
     timing[key] = timing.get(key, 0.0) + elapsed
+
+
+@jit(nopython=True)
+def _surface_tetra_volumes_kernel(references, points, triangles):
+    """Evaluate the scalar tetrahedron formula in input triangle order."""
+    totals = np.zeros(len(references), dtype=np.float64)
+    for triangle in triangles:
+        p1 = points[triangle[0]]
+        p2 = points[triangle[1]]
+        p3 = points[triangle[2]]
+        for reference_index in range(len(references)):
+            p0 = references[reference_index]
+            r01x, r01y, r01z = p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]
+            r02x, r02y, r02z = p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]
+            r03x, r03y, r03z = p3[0] - p0[0], p3[1] - p0[1], p3[2] - p0[2]
+            cross_x = r01y * r02z - r01z * r02y
+            cross_y = r01z * r02x - r01x * r02z
+            cross_z = r01x * r02y - r01y * r02x
+            triple_product = r03x * cross_x + r03y * cross_y + r03z * cross_z
+            totals[reference_index] += abs(triple_product) / 6.0
+    return totals
+
+
+def _surface_tetra_volumes(references, points, triangles):
+    """Batch unsigned tetrahedral volumes for multiple reference points.
+
+    The calculation preserves ``calc_tetra_vol``'s absolute scalar-triple-
+    product formula and triangle traversal order.  Only the loop location
+    changes: all triangles and both AW cell reference points cross the
+    Python-to-Numba boundary once per surface.  The kernel indexes the existing
+    point and triangle arrays directly, avoiding a triangle-sized coordinate
+    copy.
+    """
+    reference_array = np.asarray(references, dtype=float)
+    point_array = np.asarray(points, dtype=float)
+    triangle_array = np.asarray(triangles, dtype=np.int64)
+    if reference_array.ndim != 2 or reference_array.shape[1:] != (3,):
+        raise ValueError("Surface volume references must have shape (n, 3).")
+    if point_array.ndim != 2 or point_array.shape[1:] != (3,):
+        raise ValueError("Surface points must have shape (n, 3).")
+    if triangle_array.size == 0:
+        return np.zeros(len(reference_array), dtype=float)
+    if triangle_array.ndim != 2 or triangle_array.shape[1:] != (3,):
+        raise ValueError("Surface triangles must have shape (n, 3).")
+    return _surface_tetra_volumes_kernel(
+        reference_array,
+        point_array,
+        triangle_array,
+    )
 
 
 def _print_surface_timing(total_elapsed, total_surfs, valid_surfs, invalid_surfs,
@@ -20,8 +70,7 @@ def _print_surface_timing(total_elapsed, total_surfs, valid_surfs, invalid_surfs
     rows = [
         ('Data lookup', outer_timing.get('lookup', 0.0)),
         ('Build surface', outer_timing.get('build_surf', 0.0)),
-        ('Volume atom 1', outer_timing.get('volume_0', 0.0)),
-        ('Volume atom 2', outer_timing.get('volume_1', 0.0)),
+        ('Batched surface volumes', outer_timing.get('volumes', 0.0)),
         ('Surface area', outer_timing.get('surface_area', 0.0)),
         ('Energy geometry', outer_timing.get('energy_geometry', 0.0)),
         ('Result storage', outer_timing.get('storage', 0.0)),
@@ -235,18 +284,8 @@ def build_surfs(net, store_points=True, calculate_curvature=True):
         total_tris += len(surf_tris)
 
         timer = time.perf_counter()
-        sv0 = sum(
-            calc_tetra_vol(locs[0], surf_points[tri[0]], surf_points[tri[1]], surf_points[tri[2]])
-            for tri in surf_tris
-        )
-        _add_timing(outer_timing, 'volume_0', time.perf_counter() - timer)
-
-        timer = time.perf_counter()
-        sv1 = sum(
-            calc_tetra_vol(locs[1], surf_points[tri[0]], surf_points[tri[1]], surf_points[tri[2]])
-            for tri in surf_tris
-        )
-        _add_timing(outer_timing, 'volume_1', time.perf_counter() - timer)
+        sv0, sv1 = _surface_tetra_volumes(locs, surf_points, surf_tris)
+        _add_timing(outer_timing, 'volumes', time.perf_counter() - timer)
 
         timer = time.perf_counter()
         if curvature_area is None:

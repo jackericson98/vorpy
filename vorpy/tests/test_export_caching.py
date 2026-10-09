@@ -30,6 +30,30 @@ def test_every_export_preset_saves_network_archive(tmp_path, monkeypatch, preset
     assert saved == []
 
 
+@pytest.mark.parametrize('preset', ['small', 'medium', 'all'])
+def test_interface_log_presets_also_write_canonical_results_log(tmp_path, monkeypatch, preset):
+    output = importlib.import_module('vorpy.src.output.output')
+    written = []
+    monkeypatch.setattr(output, '_export_canonical_interface_log', lambda iface: written.append(iface))
+    monkeypatch.setattr(output, '_export_dual_geometry_without_launcher', lambda **kwargs: None)
+    monkeypatch.setattr(output, '_export_nonpolar_geometry', lambda **kwargs: None)
+
+    interface = SimpleNamespace(
+        name='A_B', dir=str(tmp_path / 'interface_A_B'),
+        net=SimpleNamespace(settings={'net_type': 'aw'}),
+        export=lambda **kwargs: None,
+    )
+    system = SimpleNamespace(
+        name='example', groups=[], ifaces=[interface], files={'dir': str(tmp_path)},
+        exports=lambda **kwargs: None, update_progress=lambda **kwargs: None,
+        _export_skip_archive=True,
+    )
+
+    output.export_preset(system, preset)
+
+    assert written == [interface]
+
+
 @pytest.mark.parametrize('commands, expected', [
     ([['large'], ['medium']], 1),
     ([['large'], ['no_archive']], 0),

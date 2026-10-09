@@ -8,11 +8,16 @@ from collections.abc import Mapping
 
 from .model import (
     AtomIdentity,
+    AlphaSelectionResult,
     ContactRecord,
+    DualContactComplexResult,
+    DualGeneratorComplexResult,
+    DualSimplexRecord,
     Environment,
     GaussianCurvature,
     GroupResult,
     InterfaceResult,
+    GeneratorComplex,
     MolecularContactSurfaceResult,
     MeanCurvature,
     NetworkResult,
@@ -672,4 +677,412 @@ def adapt_contact_mapping(
         ),
         quantities or {},
         provenance,
+    )
+
+
+def _require_representation(identity, allowed, label):
+    if identity.representation not in allowed:
+        raise ValueError(f"{label} identity has an incompatible representation")
+
+
+def _unavailable_status(status):
+    status = Status(status)
+    if status not in {Status.NOT_CALCULATED, Status.NOT_SUPPORTED}:
+        raise ValueError("Unavailable adapters require NOT_CALCULATED or NOT_SUPPORTED")
+    return status
+
+
+def _dual_provenance(provenance, source):
+    if provenance is not None:
+        return provenance
+    return Provenance(source)
+
+
+def _source_feature_id(value):
+    if isinstance(value, str) and value:
+        return value
+    if isinstance(value, tuple) and len(value) == 2:
+        return f"{value[0]}:{value[1]}"
+    key = getattr(value, "key", None)
+    if key is not None:
+        return _source_feature_id(key)
+    kind = getattr(value, "kind", None)
+    feature_id = getattr(value, "feature_id", None)
+    if kind is not None and feature_id is not None:
+        return f"{kind}:{feature_id}"
+    raise TypeError("Dual primal features require a stable feature key")
+
+
+def _dual_record_status(simplex):
+    raw = str(_read(simplex, "status", "")).upper()
+    if raw in {status.value for status in Status}:
+        return Status(raw)
+    if "UNRESOLVED" in raw or "UNKNOWN" in raw:
+        return Status.UNRESOLVED
+    if _read(simplex, "supported", True) is False:
+        return Status.NOT_SUPPORTED
+    if _read(simplex, "complete", True) is False:
+        return Status.PARTIAL
+    return Status.CERTIFIED
+
+
+def _dual_record(simplex, provenance):
+    generator_ids = tuple(_read(simplex, "generator_ids", _read(simplex, "generator_tuple")))
+    dimension = _read(simplex, "dimension")
+    primal_feature_ids = _read(simplex, "primal_feature_ids", None)
+    if primal_feature_ids is None:
+        primal_feature_ids = tuple(
+            _source_feature_id(feature)
+            for feature in _read(simplex, "primal_features", ())
+        )
+    return DualSimplexRecord(
+        _read(simplex, "simplex_id"),
+        dimension,
+        generator_ids,
+        tuple(_source_feature_id(feature) for feature in primal_feature_ids),
+        _read(simplex, "bounded", None),
+        _read(simplex, "complete", None),
+        _read(simplex, "supported", None),
+        _dual_record_status(simplex),
+        provenance,
+    )
+
+
+def _dual_records(dual, provenance, *, dimensions=None, simplex_ids=None):
+    simplices = _read(dual, "simplices")
+    if not isinstance(simplices, Mapping):
+        raise TypeError("Dual complex must expose a dimension-indexed simplices mapping")
+    wanted_dimensions = None if dimensions is None else frozenset(dimensions)
+    wanted_ids = None if simplex_ids is None else frozenset(simplex_ids)
+    if wanted_ids is not None and any(not isinstance(value, str) or not value for value in wanted_ids):
+        raise ValueError("simplex_ids must contain non-empty canonical simplex IDs")
+    records = []
+    for dimension, by_generator_ids in simplices.items():
+        if wanted_dimensions is not None and dimension not in wanted_dimensions:
+            continue
+        source_simplices = (
+            by_generator_ids.values()
+            if isinstance(by_generator_ids, Mapping)
+            else by_generator_ids
+        )
+        for simplex in source_simplices:
+            record = _dual_record(simplex, provenance)
+            if wanted_ids is None or record.simplex_id in wanted_ids:
+                records.append(record)
+    records.sort(key=lambda record: (record.dimension, record.generator_ids))
+    if wanted_ids is not None:
+        found_ids = {record.simplex_id for record in records}
+        missing_ids = wanted_ids - found_ids
+        if missing_ids:
+            raise ValueError(
+                "Requested dual simplex IDs are absent from the supplied dual complex: "
+                + ", ".join(sorted(missing_ids))
+            )
+    return tuple(records)
+
+
+def _dual_audit(dual):
+    audit = getattr(dual, "audit", None)
+    return audit() if callable(audit) else None
+
+
+def _dual_result_status(records, audit):
+    if audit is None or not bool(_read(audit, "valid", False)):
+        return Status.PARTIAL
+    if any(record.status is not Status.CERTIFIED for record in records):
+        return Status.PARTIAL
+    return Status.CERTIFIED
+
+
+def _dual_count_quantities(records, status, provenance, audit):
+    counts = {}
+    for record in records:
+        name = f"simplex_count_dim_{record.dimension}"
+        counts[name] = counts.get(name, 0) + 1
+    quantities = {
+        name: Quantity(
+            name,
+            count,
+            "1",
+            status,
+            "dual-complex traversal",
+            "selected dual simplices",
+            provenance=provenance,
+        )
+        for name, count in counts.items()
+    }
+    if audit is not None:
+        generator_count = _read(audit, "generator_count", None)
+        if generator_count is not None:
+            quantities["dual_generator_count"] = Quantity(
+                "dual_generator_count",
+                generator_count,
+                "1",
+                status,
+                "dual-incidence audit",
+                "dual generator namespace",
+                provenance=provenance,
+            )
+        unmapped = _read(audit, "unmapped_feature_count", None)
+        if unmapped is not None:
+            quantities["dual_unmapped_primal_feature_count"] = Quantity(
+                "dual_unmapped_primal_feature_count",
+                unmapped,
+                "1",
+                status,
+                "dual-incidence audit",
+                "primal-to-dual incidence audit",
+                provenance=provenance,
+            )
+        feature_counts = _read(audit, "feature_counts", None)
+        if isinstance(feature_counts, Mapping) and unmapped is not None:
+            total = sum(feature_counts.values())
+            if total:
+                support = total - unmapped
+                if not isinstance(support, int) or support < 0:
+                    raise ValueError("Dual incidence audit has invalid feature coverage")
+                quantities["dual_incidence_coverage"] = Quantity(
+                    "dual_incidence_coverage",
+                    support / total,
+                    "1",
+                    status,
+                    "dual-incidence audit",
+                    "mapped primal-feature coverage",
+                    support_count=support,
+                    total_count=total,
+                    provenance=provenance,
+                )
+    return quantities
+
+
+def unavailable_dual_contact_complex(identity, *, status=Status.NOT_CALCULATED, provenance=None):
+    """Return an explicitly unavailable dual-contact result without fake counts."""
+    _require_representation(identity, {"dual"}, "Dual-contact")
+    return DualContactComplexResult(
+        identity,
+        _dual_provenance(provenance, "dual contact complex unavailable"),
+        _unavailable_status(status),
+    )
+
+
+def adapt_dual_contact_complex(dual, identity, *, provenance=None, simplex_ids=None):
+    """Adapt dimension-one dual incidences without querying geometry or curvature.
+
+    ``simplex_ids`` is an optional explicit contact subset.  It is deliberately
+    an ID list rather than a group predicate: FORGE owns the side-selection
+    policy, while this adapter only snapshots the selected incidence records.
+    """
+    _require_representation(identity, {"dual"}, "Dual-contact")
+    provenance = _dual_provenance(provenance, "cached dual contact complex")
+    if dual is None:
+        return unavailable_dual_contact_complex(identity, provenance=provenance)
+    records = _dual_records(
+        dual, provenance, dimensions={1}, simplex_ids=simplex_ids
+    )
+    audit = _dual_audit(dual)
+    status = _dual_result_status(records, audit)
+    return DualContactComplexResult(
+        identity,
+        provenance,
+        status,
+        metrics=_dual_count_quantities(records, status, provenance, audit),
+        contact_features=records,
+    )
+
+
+def unavailable_dual_generator_complex(identity, *, status=Status.NOT_CALCULATED, provenance=None):
+    """Return an explicitly unavailable dual-generator result without fake counts."""
+    _require_representation(
+        identity, {"dual_a", "dual_b", "dual_generator_complex"}, "Dual-generator"
+    )
+    return DualGeneratorComplexResult(
+        identity,
+        _dual_provenance(provenance, "dual generator complex unavailable"),
+        _unavailable_status(status),
+    )
+
+
+def adapt_dual_generator_complex(
+    dual,
+    identity,
+    *,
+    provenance=None,
+    simplex_ids=None,
+    topology=None,
+):
+    """Traverse a cached dual complex into typed generator-complex records.
+
+    ``topology`` must already contain typed, producer-supplied quantities.  No
+    topology, area, or curvature is inferred from simplex counts here.
+    """
+    _require_representation(
+        identity, {"dual_a", "dual_b", "dual_generator_complex"}, "Dual-generator"
+    )
+    provenance = _dual_provenance(provenance, "cached dual generator complex")
+    if dual is None:
+        return unavailable_dual_generator_complex(identity, provenance=provenance)
+    records = _dual_records(dual, provenance, simplex_ids=simplex_ids)
+    audit = _dual_audit(dual)
+    status = _dual_result_status(records, audit)
+    simplex_counts = _dual_count_quantities(records, status, provenance, None)
+    simplex_counts = {
+        name: quantity
+        for name, quantity in simplex_counts.items()
+        if name.startswith("simplex_count_dim_")
+    }
+    generator_complex = GeneratorComplex(
+        identity.side,
+        {
+            int(name.rsplit("_", 1)[1]): quantity
+            for name, quantity in simplex_counts.items()
+        },
+        topology or {},
+        status,
+        provenance,
+    )
+    return DualGeneratorComplexResult(
+        identity,
+        provenance,
+        status,
+        metrics=_dual_count_quantities(records, status, provenance, audit),
+        generator_complex=generator_complex,
+        simplex_records=records,
+    )
+
+
+def _alpha_payload(source):
+    if source is None:
+        return None
+    payload = _read(source, "alpha_selection", source)
+    if not isinstance(payload, Mapping):
+        raise TypeError("Alpha selection must be a mapping or an analysis with alpha_selection")
+    return payload
+
+
+def _alpha_status(payload):
+    raw = str(payload.get("status", "")).lower()
+    if raw in {"unresolved", "unknown"}:
+        return Status.UNRESOLVED
+    if raw in {"not_calculated", "not calculated"}:
+        return Status.NOT_CALCULATED
+    if raw in {"not_supported", "not supported"}:
+        return Status.NOT_SUPPORTED
+    return Status.CERTIFIED if payload.get("certified") is True else Status.PARTIAL
+
+
+def _alpha_quantity(name, value, status, provenance, *, coverage=False):
+    if status in {Status.UNRESOLVED, Status.NOT_CALCULATED, Status.NOT_SUPPORTED}:
+        # Legacy unresolved caches use ``coverage: 0.0`` as a sentinel.  A
+        # scientific Result must not reinterpret that sentinel as a measured
+        # zero, so unavailable alpha quantities remain explicitly null.
+        return Quantity(
+            name,
+            None,
+            "1",
+            status,
+            "cached alpha selection",
+            "alpha-selected dual subset",
+            provenance=provenance,
+        )
+    if value is None:
+        return Quantity(
+            name,
+            None,
+            "1",
+            Status.NOT_CALCULATED,
+            "cached alpha selection",
+            "alpha-selected dual subset",
+            provenance=provenance,
+        )
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+        raise ValueError(f"Alpha selection {name} must be a nonnegative numeric value")
+    if not coverage and (not isinstance(value, int) or isinstance(value, bool)):
+        raise ValueError(f"Alpha selection {name} must be an integer count")
+    if coverage and value > 1:
+        raise ValueError("Alpha selection coverage must be between zero and one")
+    return Quantity(
+        name,
+        value,
+        "1",
+        status,
+        "cached alpha selection",
+        "alpha-selected dual subset",
+        provenance=provenance,
+    )
+
+
+def _stable_pair_strings(values, name):
+    if values is None:
+        return ()
+    pairs = []
+    for pair in values:
+        if not isinstance(pair, (tuple, list)) or len(pair) != 2 or any(value is None for value in pair):
+            raise ValueError(f"{name} must contain two-item stable-identifier pairs")
+        pairs.append(tuple(str(value) for value in pair))
+    return tuple(pairs)
+
+
+def unavailable_alpha_selection(identity, *, status=Status.NOT_CALCULATED, provenance=None):
+    """Return an explicitly unavailable alpha-selection result without zero counts."""
+    _require_representation(identity, {"alpha_selection"}, "Alpha-selection")
+    return AlphaSelectionResult(
+        identity,
+        _dual_provenance(provenance, "alpha selection unavailable"),
+        _unavailable_status(status),
+    )
+
+
+def adapt_alpha_selection(source, identity, *, dual=None, provenance=None):
+    """Adapt a cached alpha selection without treating it as primal geometry."""
+    _require_representation(identity, {"alpha_selection"}, "Alpha-selection")
+    provenance = _dual_provenance(provenance, "cached alpha selection")
+    payload = _alpha_payload(source)
+    if payload is None:
+        return unavailable_alpha_selection(identity, provenance=provenance)
+    status = _alpha_status(payload)
+    aliases = {
+        "eligible_pairs": "eligible_bicolor_pairs",
+        "candidate_pairs": "candidate_bicolor_pairs",
+        "selected_features": "selected_pairs",
+        "rejected_features": "certified_rejected_pairs",
+        "unresolved_features": "unresolved_pairs",
+        "mapped_surfaces": "selected_physical_pairs",
+        "excluded_pairs": "excluded_pairs",
+        "coverage": "coverage",
+    }
+    selection = {
+        name: _alpha_quantity(
+            name, payload.get(source_name), status, provenance, coverage=name == "coverage"
+        )
+        for name, source_name in aliases.items()
+    }
+    generator_pairs = tuple(
+        tuple(pair) for pair in (payload.get("selected_generator_pairs") or ())
+    )
+    selected_feature_ids = tuple(
+        f"1:{first},{second}" for first, second in generator_pairs
+    )
+    selected_features = ()
+    if dual is not None and selected_feature_ids:
+        selected_features = _dual_records(
+            dual,
+            provenance,
+            dimensions={1},
+            simplex_ids=selected_feature_ids,
+        )
+    return AlphaSelectionResult(
+        identity,
+        provenance,
+        status,
+        selection=selection,
+        selected_dual_feature_ids=selected_feature_ids,
+        selected_generator_pairs=generator_pairs,
+        selected_system_pairs=_stable_pair_strings(
+            payload.get("selected_system_pairs"), "selected_system_pairs"
+        ),
+        selected_physical_system_pairs=_stable_pair_strings(
+            payload.get("selected_physical_system_pairs"),
+            "selected_physical_system_pairs",
+        ),
+        selected_dual_features=selected_features,
     )

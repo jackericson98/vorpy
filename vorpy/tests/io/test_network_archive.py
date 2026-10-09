@@ -78,6 +78,98 @@ def same(a, b):
         assert a == b
 
 
+def _write_legacy_archive(source, destination, version):
+    """Derive a schema-valid v1/v2 fixture from a current solved archive."""
+    from vorpy.src.io.network_archive import LINKS, V1_FIELDS, V2_FIELDS
+
+    allowed_fields = V1_FIELDS if version == 1 else V2_FIELDS
+    with zipfile.ZipFile(source, 'r') as archive:
+        members = {
+            name: archive.read(name)
+            for name in archive.namelist()
+        }
+
+    metadata = json.loads(members['metadata.json'])
+    metadata['format_version'] = version
+    state = json.loads(members['state.json'])
+    records = [
+        record for record in state['objects']
+        if record['kind'] in allowed_fields
+    ]
+    old_to_new = {record['id']: index for index, record in enumerate(records)}
+
+    def remap_references(value):
+        if isinstance(value, list):
+            return [remap_references(item) for item in value]
+        if not isinstance(value, dict):
+            return value
+        if set(value) == {'ref'}:
+            return {'ref': old_to_new[value['ref']]}
+        return {name: remap_references(item) for name, item in value.items()}
+
+    for index, record in enumerate(records):
+        allowed = set(allowed_fields[record['kind']]) | set(LINKS[record['kind']])
+        record['fields'] = {
+            name: remap_references(value)
+            for name, value in record['fields'].items()
+            if name in allowed
+        }
+        record['id'] = index
+        if version == 1:
+            record.pop('schema_version', None)
+    metadata['root_network'] = old_to_new[metadata['root_network']]
+    state['objects'] = records
+
+    # Object references also occur in table cells; remap every encoded table
+    # member after dropping newer object kinds from the legacy projection.
+    for name, content in tuple(members.items()):
+        if name.startswith('tables/') and name.endswith('.json'):
+            members[name] = json.dumps(
+                remap_references(json.loads(content)), allow_nan=False
+            ).encode('utf-8')
+
+    members['metadata.json'] = json.dumps(metadata, allow_nan=False).encode('utf-8')
+    members['state.json'] = json.dumps(state, allow_nan=False).encode('utf-8')
+    with zipfile.ZipFile(destination, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, content in members.items():
+            archive.writestr(name, content)
+
+
+@pytest.mark.parametrize('version', [1, 2])
+def test_legacy_archive_versions_load_without_rebuilding(solved, archive, tmp_path, monkeypatch, version):
+    from vorpy.src.network import Network
+
+    legacy = tmp_path / f'network-v{version}.vpy'
+    _write_legacy_archive(archive, legacy, version)
+    monkeypatch.setattr(Network, 'build', lambda *args, **kwargs: pytest.fail('Archive loader rebuilt topology'))
+
+    loaded = load_network(legacy)
+
+    original = solved.export_group.net
+    assert len(loaded.balls) == len(original.balls)
+    assert len(loaded.surfs) == len(original.surfs)
+    assert len(loaded.edges) == len(original.edges)
+    assert len(loaded.verts) == len(original.verts)
+    assert loaded.settings == original.settings
+
+
+def test_archive_writes_versioned_timing_sidecar(archive):
+    sidecar = archive.with_name(archive.name + '.timing.json')
+
+    manifest = json.loads(sidecar.read_text(encoding='utf-8'))
+
+    assert manifest['format'] == 'vorpy.archive_timing'
+    assert manifest['manifest_version'] == 1
+    assert manifest['archive'] == archive.name
+    timing = manifest['timing']
+    assert timing['total'] >= 0.0
+    assert timing['member_count'] > 0
+    assert timing['archive_bytes'] == archive.stat().st_size
+    assert timing['array_count'] >= 0
+    assert timing['table_count'] >= 0
+    assert timing['uncompressed_member_bytes'] >= timing['compressed_member_bytes']
+
+
 def test_round_trip_all_scientific_columns(solved, archive, monkeypatch):
     from vorpy.src.network import Network
     from vorpy.src.group import Group

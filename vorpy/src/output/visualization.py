@@ -41,7 +41,9 @@ from vorpy.src.results import (
     Provenance,
     ResultIdentity,
     Status,
+    adapt_alpha_selection,
     adapt_interface_analysis,
+    unavailable_alpha_selection,
     unavailable_interface,
 )
 
@@ -262,6 +264,16 @@ _ALPHA_LOG_NAMES = {
     'selected_features': 'alpha_selected_count',
     'mapped_surfaces': 'alpha_selected_physical_system_pairs',
 }
+_ALPHA_SELECTION_LOG_NAMES = {
+    'eligible_pairs': 'alpha_eligible_count',
+    'candidate_pairs': 'alpha_candidate_count',
+    'selected_features': 'alpha_selected_count',
+    'rejected_features': 'alpha_rejected_count',
+    'unresolved_features': 'alpha_unresolved_count',
+    'mapped_surfaces': 'alpha_selected_physical_count',
+    'excluded_pairs': 'alpha_excluded_count',
+    'coverage': 'alpha_coverage',
+}
 
 
 def _cached_result_identity(iface, *, result_kind='interface', representation='voronoi',
@@ -336,6 +348,22 @@ def _cached_interface_result(iface):
                             if analysis is not None else None, details=details)
     return (adapt_interface_analysis(analysis, identity, provenance=provenance)
             if analysis is not None else unavailable_interface(identity, provenance=provenance))
+
+
+def _cached_alpha_selection_result(iface):
+    """Adapt cached alpha-selection state; never query or rebuild geometry."""
+    analysis = getattr(iface, 'geometry_analysis', None)
+    identity = _cached_result_identity(iface, representation='alpha_selection')
+    # AlphaSelectionResult deliberately requires an explicit native alpha
+    # identity. Without it there is no standalone scientific selection result.
+    if identity.alpha_value is None:
+        return None
+    archive_provenance = getattr(analysis, 'archive_provenance', None) if analysis is not None else None
+    details = dict(archive_provenance) if isinstance(archive_provenance, Mapping) else {}
+    provenance = Provenance('cached alpha selection', scientific_state_id=stable_id(analysis)
+                            if analysis is not None else None, details=details)
+    return (adapt_alpha_selection(analysis, identity, provenance=provenance)
+            if analysis is not None else unavailable_alpha_selection(identity, provenance=provenance))
 
 
 def _cached_surface_result(iface, surface):
@@ -420,20 +448,24 @@ def _compact_result_rows(iface):
         ).as_csv_row())
 
     result = _cached_interface_result(iface)
+    identity = result.identity
     for path, quantity in _iter_result_quantities(result):
         name = _TOPOLOGY_LOG_NAMES.get(quantity.name)
         if path.startswith('selection.'):
             name = _ALPHA_LOG_NAMES.get(quantity.name)
         add(result, 'physical_partition_interface', 'shared', path, quantity, name=name)
 
-    identity = result.identity
-    if identity.alpha_value is not None:
+    alpha_result = _cached_alpha_selection_result(iface)
+    if alpha_result is not None:
+        alpha_identity = alpha_result.identity
+        for name, quantity in alpha_result.selection.items():
+            add(alpha_result, 'alpha_selection', 'shared', f'selection.{name}', quantity,
+                name=_ALPHA_SELECTION_LOG_NAMES[name])
         rows.append(InterfaceLogRow(
-            identity.interface_id or identity.result_id, 'alpha_selection', 'shared',
-            'alpha_value', identity.alpha_value, identity.alpha_units or '1',
-            result.status, provenance=result.provenance,
+            alpha_identity.interface_id or alpha_identity.result_id, 'alpha_selection', 'shared',
+            'alpha_value', alpha_identity.alpha_value, alpha_identity.alpha_units or '1',
+            alpha_result.status, provenance=alpha_result.provenance,
         ).as_csv_row())
-
     metadata = getattr(getattr(iface, 'geometry_analysis', None), 'metadata', {}) or {}
     for quantity, value in (metadata.get('timings_seconds', {}) or {}).items():
         if value is not None:
