@@ -5,6 +5,7 @@ import pandas as pd
 from vorpy.src.boundary import BoundaryConfig, BoundaryGenerator
 from vorpy.src.network.aw_geometry_reuse import (
     STATIC_FRAME_ID,
+    _settings_for_identity,
     build_solve_context_key,
     build_solve_universe_key,
 )
@@ -76,6 +77,24 @@ def test_identical_contexts_are_equal_and_preserve_system_mapping():
     assert first.verts is None
     assert first.edges is None
     assert first.surfs is None
+
+
+def test_settings_identity_normalizer_does_not_reference_network_state():
+    settings = {
+        "net_type": "aw",
+        "max_vert": 5.0,
+        "surf_col": "plasma",
+        "print_metrics": True,
+    }
+
+    normalized = _settings_for_identity(settings)
+
+    assert normalized == {
+        "net_type": "aw",
+        "max_vert": 5.0,
+        "surf_col": "plasma",
+    }
+    assert build_solve_context_key(_network()).solve_universe_id.startswith("solve:")
 
 
 def test_static_frame_sentinel_is_explicit_and_non_empty():

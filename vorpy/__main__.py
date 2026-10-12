@@ -18,6 +18,12 @@ def main() -> None:
 
         raise SystemExit(gui_main())
 
+    if any(argument in {'-h', '--help'} for argument in sys.argv[1:]):
+        from vorpy.src.command.commands import print_help
+
+        print_help()
+        return
+
     from vorpy.src.command.vpy_cmnd import Command
 
     Command().run()

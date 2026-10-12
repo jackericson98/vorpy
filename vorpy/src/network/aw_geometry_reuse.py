@@ -722,6 +722,37 @@ def build_solve_universe_key(
     return key
 
 
+def build_geometry_lineage_metadata(
+    network: Any,
+    *,
+    selection_scope: Mapping[str, Any] | None = None,
+    orientation: Mapping[str, Any] | None = None,
+    completeness: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Project one producer solve key into common GeometryLineage metadata.
+
+    This is identity-only bookkeeping.  It does not inspect or rebuild
+    geometry, and it never treats a solve key as reuse evidence.
+    """
+    key = build_solve_context_key(network)
+    source_network_id = getattr(network, "source_network_id", None)
+    if source_network_id == getattr(network, "archive_id", None):
+        source_network_id = None
+    return {
+        "solve_universe_id": key.solve_universe_id,
+        "geometry_source_id": f"geometry:{key.geometry_digest}",
+        "geometry_version": key.solver_version,
+        "solver_settings_digest": key.solver_settings_digest,
+        "solver_settings_ref": f"settings:{key.solver_settings_digest}",
+        "environment_digest": key.environment_digest,
+        "environment_ref": f"environment:{key.environment_digest}",
+        "source_network_id": source_network_id,
+        "selection_scope": selection_scope,
+        "orientation": orientation,
+        "completeness": completeness,
+    }
+
+
 def _aw_provenance_enabled(network: Any) -> bool:
     settings = getattr(network, "settings", None) or {}
     value = os.environ.get("VORPY_AW_PROVENANCE", "").strip().lower()
@@ -2112,6 +2143,7 @@ __all__ = [
     "SolveUniverseKey",
     "assess_aw_reuse",
     "build_aw_interface_view",
+    "build_geometry_lineage_metadata",
     "build_solve_universe_key",
     "build_solve_context_key",
     "certify_aw_interface_completeness",

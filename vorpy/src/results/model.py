@@ -205,6 +205,184 @@ class GeometryLineage:
         return dictionary(self)
 
 
+def _lineage_evidence_value(source, name, default=None):
+    if isinstance(source, Mapping):
+        return source.get(name, default)
+    return getattr(source, name, default)
+
+
+def _lineage_unresolved(reason):
+    return GeometryLineage(GeometryLineageOrigin.UNRESOLVED, reason=reason)
+
+
+def make_geometry_lineage(
+    metadata,
+    *,
+    solver_evidence=None,
+    view_evidence=None,
+    reuse_certificate=None,
+):
+    """Build lineage only from one explicit, producer-attested evidence path.
+
+    ``metadata`` contains the common ``GeometryLineage`` fields.  The three
+    evidence arguments are deliberately separate: solver provenance, a
+    validated view, or a positive reuse assessment.  Missing, ambiguous, or
+    contradictory evidence remains ``UNRESOLVED`` instead of being inferred.
+    """
+    try:
+        if not isinstance(metadata, Mapping):
+            return _lineage_unresolved("geometry lineage metadata is not a mapping")
+        evidence = tuple(
+            (name, value)
+            for name, value in (
+                ("solver", solver_evidence),
+                ("view", view_evidence),
+                ("reuse", reuse_certificate),
+            )
+            if value is not None
+        )
+        if len(evidence) != 1:
+            return _lineage_unresolved(
+                "exactly one explicit geometry lineage evidence path is required"
+            )
+
+        field_names = {
+            item.name for item in fields(GeometryLineage)
+            if not item.name.startswith("_")
+        }
+        if "origin" in metadata or set(metadata).difference(field_names - {"origin"}):
+            return _lineage_unresolved("geometry lineage metadata has unsupported fields")
+        values = dict(metadata)
+        evidence_kind, evidence_value = evidence[0]
+
+        if evidence_kind == "solver":
+            if _lineage_evidence_value(evidence_value, "schema_version") != 1:
+                return _lineage_unresolved("solver evidence schema is unavailable")
+            if _lineage_evidence_value(evidence_value, "enabled") is not True:
+                return _lineage_unresolved("solver evidence is not explicitly enabled")
+            solve_key = _lineage_evidence_value(evidence_value, "solve_key")
+            solve_id = _lineage_evidence_value(solve_key, "solve_universe_id")
+            if not isinstance(solve_id, str) or not solve_id:
+                solve_digest = _lineage_evidence_value(solve_key, "digest")
+                if isinstance(solve_digest, str) and solve_digest:
+                    solve_id = f"solve:{solve_digest}"
+            if not isinstance(solve_id, str) or not solve_id:
+                solve_id = _lineage_evidence_value(evidence_value, "solve_universe_id")
+            if not isinstance(solve_id, str) or not solve_id:
+                return _lineage_unresolved("solver evidence has no solve-universe identity")
+            if values.get("solve_universe_id") not in (None, solve_id):
+                return _lineage_unresolved("solver evidence conflicts with solve identity")
+            values["solve_universe_id"] = solve_id
+            if values.get("completeness") is None:
+                solver_completeness = _lineage_evidence_value(
+                    evidence_value, "completeness", {}
+                )
+                proven = _lineage_evidence_value(
+                    solver_completeness, "completeness_proven", False
+                )
+                values["completeness"] = {
+                    "completeness_proven": proven if isinstance(proven, bool) else False,
+                    "solver_evidence_enabled": True,
+                }
+            origin = GeometryLineageOrigin.DIRECT_SOLVE
+
+        elif evidence_kind == "view":
+            view_id = _lineage_evidence_value(evidence_value, "selection_id")
+            source_id = _lineage_evidence_value(evidence_value, "source_network_id")
+            context = _lineage_evidence_value(evidence_value, "solve_context")
+            solve_id = _lineage_evidence_value(evidence_value, "solve_universe_id")
+            if solve_id is None:
+                solve_id = _lineage_evidence_value(context, "solve_universe_id")
+            completeness = _lineage_evidence_value(evidence_value, "completeness")
+            proven = _lineage_evidence_value(completeness, "proven")
+            selection_kind = _lineage_evidence_value(evidence_value, "selection_kind")
+            if (
+                not isinstance(view_id, str)
+                or not view_id
+                or not isinstance(source_id, str)
+                or not source_id
+                or not isinstance(solve_id, str)
+                or not solve_id
+                or proven is not True
+                or selection_kind not in {"group", "interface"}
+            ):
+                return _lineage_unresolved("view evidence is not validated")
+            for name, expected in (
+                ("source_view_id", view_id),
+                ("source_network_id", source_id),
+                ("solve_universe_id", solve_id),
+            ):
+                if values.get(name) not in (None, expected):
+                    return _lineage_unresolved("view evidence conflicts with lineage identity")
+                values[name] = expected
+            scope = values.get("selection_scope")
+            if scope is None:
+                scope = {
+                    "selection_kind": selection_kind,
+                    "system_ids": _lineage_evidence_value(evidence_value, "system_ids", ()),
+                    "group_a_ids": _lineage_evidence_value(evidence_value, "group_a_ids", ()),
+                    "group_b_ids": _lineage_evidence_value(evidence_value, "group_b_ids", ()),
+                    "support_generator_local_indices": _lineage_evidence_value(
+                        evidence_value, "support_generator_local_indices", ()
+                    ),
+                }
+            values["selection_scope"] = scope
+            completeness_value = values.get("completeness")
+            if completeness_value is None:
+                values["completeness"] = {
+                    "completeness_proven": True,
+                    "view_completeness_proven": True,
+                }
+            elif (
+                not isinstance(completeness_value, Mapping)
+                or completeness_value.get("completeness_proven") is not True
+            ):
+                return _lineage_unresolved("lineage completeness conflicts with view evidence")
+            origin = GeometryLineageOrigin.MATERIALIZED_VIEW
+
+        else:
+            decision = _lineage_evidence_value(evidence_value, "decision")
+            decision = getattr(decision, "value", decision)
+            certificate = _lineage_evidence_value(evidence_value, "certificate")
+            comparison = _lineage_evidence_value(evidence_value, "comparison")
+            mismatches = _lineage_evidence_value(comparison, "mismatches", {})
+            if (
+                decision != GeometryLineageOrigin.EXACT_REUSE.value
+                or _lineage_evidence_value(certificate, "proven") is not True
+                or _lineage_evidence_value(comparison, "equivalent") is not True
+                or _lineage_evidence_value(comparison, "same_competitor_universe") is not True
+                or _lineage_evidence_value(comparison, "compatible_geometry_context") is not True
+                or bool(mismatches)
+            ):
+                return _lineage_unresolved("reuse certificate is not positive")
+            compatibility = {
+                "decision": GeometryLineageOrigin.EXACT_REUSE.value,
+                "generator_compatibility": {"match": True},
+                "competitor_compatibility": {"match": True},
+                "solve_context": {"match": True},
+            }
+            if values.get("compatibility") not in (None, compatibility):
+                return _lineage_unresolved("reuse certificate conflicts with compatibility")
+            values["compatibility"] = compatibility
+            completeness_value = values.get("completeness")
+            if completeness_value is None:
+                values["completeness"] = {
+                    "completeness_proven": True,
+                    "reuse_certificate_proven": True,
+                }
+            elif (
+                not isinstance(completeness_value, Mapping)
+                or completeness_value.get("completeness_proven") is not True
+            ):
+                return _lineage_unresolved("lineage completeness is not proven for reuse")
+            origin = GeometryLineageOrigin.EXACT_REUSE
+
+        values["origin"] = origin
+        return GeometryLineage(**values)
+    except (AttributeError, TypeError, ValueError, KeyError):
+        return _lineage_unresolved("geometry lineage evidence is malformed")
+
+
 class MolecularSurfaceConvention(str, Enum):
     EXPANDED_UNION_OF_BALLS = "expanded_union_of_balls"
     SOLVENT_ACCESSIBLE = "solvent_accessible"
@@ -437,6 +615,7 @@ def dictionary(value):
             "definition_version",
             "partner_id",
             "source_network_id",
+            "source_identity_status",
             "source_interface_id",
         "interaction_id",
         "orientation_convention",
@@ -705,7 +884,6 @@ class ResultIdentity:
                 "contact_selection_id": self.contact_selection_id,
                 "molecular_surface_convention": self.molecular_surface_convention,
                 "definition_version": self.definition_version,
-                "source_network_id": self.source_network_id,
                 "source_interface_id": self.source_interface_id,
                 "interaction_id": self.interaction_id,
             }
@@ -713,6 +891,14 @@ class ResultIdentity:
                 raise ValueError(
                     "Molecular contact-surface identity is incomplete"
                 )
+            if self.source_network_id is None:
+                if self.source_identity_status != "UNRESOLVED":
+                    raise ValueError(
+                        "Molecular contact surfaces without producer identity "
+                        "must be explicitly unresolved"
+                    )
+            elif not isinstance(self.source_network_id, str) or not self.source_network_id:
+                raise ValueError("Molecular contact-surface source network ID is invalid")
             if self.representation != "molecular_contact_surface" or self.side not in {"A", "B"}:
                 raise ValueError("Molecular contact surfaces require side A or B")
         if self.alpha_value is not None and (

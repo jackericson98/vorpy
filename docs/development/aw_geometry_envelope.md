@@ -61,6 +61,23 @@ equivalence, but a production enablement proposal requires solver-instrumented
 completeness proof on the selected universe plus retained direct-solve
 regressions.
 
+## Scoped interface evidence
+
+`ApolloniusComplex.interface_completeness(group_a, group_b)` is an analysis-only
+view over existing primal surface and edge rows. It reports the selected
+bicolor pair faces, their explicitly referenced three-generator cofaces, and
+global missing-face/incomplete-cell evidence. It does not synthesize missing
+features, change `is_supported`, or certify curvature.
+
+`LOCAL_COMPLETE_GLOBAL_UNRESOLVED` means the selected face/coface incidence and
+the selected producer primitives are complete while the full producer complex
+still has unresolved closure or cell-completeness evidence. `LOCAL_UNRESOLVED`
+means a selected face or its explicit coface incidence/primitive is missing or
+invalid.
+`GLOBAL_COMPLETE` only describes this evidence view; ATLAS Results statuses and
+VECTOR serialization remain unchanged and global curvature certification stays
+fail-closed.
+
 ## Validation evidence (2026-10-09)
 
 - Synthetic envelope regressions cover deterministic IDs, atom/cell/surface/

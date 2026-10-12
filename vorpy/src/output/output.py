@@ -400,6 +400,9 @@ def _export_network_archive(sys):
     from vorpy.src.io import save_network
     destination = os.path.join(sys.files['dir'], str(sys.name) + '.vpy')
     save_network(sys, destination)
+    # Command._save_archive can reuse this completed archive for an explicit
+    # destination, avoiding a second serialization/compression pass.
+    sys._last_export_archive_path = str(Path(destination).resolve())
     if hasattr(sys, '_export_archive_written'):
         sys._export_archive_written = True
 

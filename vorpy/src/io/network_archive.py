@@ -6,6 +6,7 @@ No solve, triangulation, or scientific analysis is invoked by the loader.
 """
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from collections.abc import Mapping
 from pathlib import Path
 import json
 import os
@@ -130,6 +131,9 @@ FIELDS['network'] += (
 # v3 optional extension: preserve the producer namespace separately from the
 # archive object ID. Missing legacy values remain unavailable on load.
 FIELDS['network'] += ('source_network_id',)
+# v3 optional extension: preserve the canonical solve dependency for native
+# interface vertex state; missing legacy values must fail closed on reuse.
+FIELDS['network'] += ('interface_vertex_state_dependency',)
 FIELDS['system'] += ('retained_system_indices',)
 FIELDS['interface'] += ('representation_caches', 'representation_links')
 
@@ -153,6 +157,23 @@ def _water_topology_snapshot(value):
     return value
 
 
+def _archive_provenance_value(value):
+    """Convert typed lineage nested in provenance to JSON-safe archive state."""
+    from vorpy.src.results import GeometryLineage
+
+    if isinstance(value, GeometryLineage):
+        return value.as_dict()
+    if isinstance(value, Mapping):
+        return {key: _archive_provenance_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_archive_provenance_value(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_archive_provenance_value(item) for item in value)
+    if isinstance(value, (set, frozenset)):
+        return type(value)(_archive_provenance_value(item) for item in value)
+    return value
+
+
 def _archive_field_value(kind, name, value):
     if name == 'solvent_mode' and value is not None:
         # System stores the enum while Network stores its canonical string.
@@ -163,6 +184,8 @@ def _archive_field_value(kind, name, value):
         return [dict(geometry, topology_analysis=_water_topology_snapshot(geometry['topology_analysis']))
                 if isinstance(geometry, dict) and 'topology_analysis' in geometry else geometry
                 for geometry in value]
+    if name in {'archive_provenance', 'analysis_provenance'}:
+        return _archive_provenance_value(value)
     return value
 
 

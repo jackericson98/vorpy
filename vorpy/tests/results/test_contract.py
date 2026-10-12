@@ -37,6 +37,7 @@ from vorpy.src.results import (
     generator_complex_extension,
     unavailable_interface,
 )
+from vorpy.src.results.model import dictionary
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -280,6 +281,14 @@ def test_result_id_covers_scientific_identity(field, value):
     base = identity()
     assert replace(base, **{field: value}).result_id != base.result_id
     assert identity().result_id == base.result_id
+
+
+def test_result_identity_omits_null_source_status_but_keeps_explicit_status():
+    legacy = identity()
+    assert "source_identity_status" not in dictionary(legacy)
+    explicit = identity(source_identity_status="UNRESOLVED")
+    assert dictionary(explicit)["source_identity_status"] == "UNRESOLVED"
+    assert explicit.result_id != legacy.result_id
 
 
 def test_identity_and_scope_validation():

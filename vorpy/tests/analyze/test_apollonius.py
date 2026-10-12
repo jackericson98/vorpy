@@ -13,13 +13,36 @@ from vorpy.src.analyze.apollonius import ApolloniusComplex
 
 @pytest.fixture(scope="module")
 def edta_network():
-    from vorpy.workbench.services.vorpy_backend import VorPyBackend
+    from vorpy.src.boundary import BoundaryConfig, SolventMode
+    from vorpy.src.group import Group
+    from vorpy.src.system.system import System
 
     source = Path(__file__).resolve().parents[2] / "data" / "EDTA.pdb"
     old_cwd = Path.cwd()
     try:
-        result = VorPyBackend().solve(source, lambda *args: None, lambda: False)
-        yield result.export_group.net
+        # These legacy Apollonius references cover the full physical context;
+        # request it explicitly after the producer default became molecule-only.
+        system = System(
+            file=str(source),
+            make_dir=False,
+            print_actions=False,
+            boundary_config=BoundaryConfig("none"),
+            solvent_mode=SolventMode.SOLVENT_CONTEXT,
+        )
+        group = Group(
+            system,
+            name="EDTA",
+            atoms=list(range(32)),
+            max_vert=5,
+            box_size=1.25,
+            surf_res=0.2,
+            net_type="aw",
+            print_metrics=False,
+        )
+        system.start_run()
+        group.build()
+        system.finish_run()
+        yield group.net
     finally:
         os.chdir(old_cwd)
 
@@ -88,6 +111,41 @@ def test_three_generator_edge_defines_triangle_and_closure():
     assert list(complex_.simplices[2]) == [(0, 1, 2)]
     assert len(complex_.simplices[1]) == 3
     assert complex_.validate() == []
+
+
+def test_interface_completeness_distinguishes_local_faces_from_global_gap():
+    network = _network(
+        3,
+        surfaces=[
+            ([0, 1], [0], [0, 1]),
+            ([0, 2], [0], [0, 1]),
+        ],
+        edges=[([0, 1, 2], [0, 1])],
+    )
+    evidence = ApolloniusComplex(network).interface_completeness({0}, {1, 2})
+
+    assert evidence["status"] == "LOCAL_COMPLETE_GLOBAL_UNRESOLVED"
+    assert evidence["local_complete"]
+    assert not evidence["global_complete"]
+    assert evidence["selected_faces"] == ((0, 1), (0, 2))
+    assert evidence["selected_cofaces"] == ((0, 1, 2),)
+    assert evidence["missing_selected_faces"] == ()
+    assert evidence["missing_selected_cofaces"] == ()
+    assert evidence["counts"]["global_missing_face_relations"] == 1
+
+
+def test_interface_completeness_rejects_missing_selected_face():
+    network = _network(
+        3,
+        surfaces=[([0, 1], [0], [0, 1])],
+        edges=[([0, 1, 2], [0, 1])],
+    )
+    evidence = ApolloniusComplex(network).interface_completeness({0}, {1, 2})
+
+    assert evidence["status"] == "LOCAL_UNRESOLVED"
+    assert not evidence["local_complete"]
+    assert evidence["missing_selected_faces"] == ((0, 2),)
+    assert evidence["missing_selected_cofaces"] == ()
 
 
 def test_four_generator_vertex_defines_tetrahedron_and_closure():

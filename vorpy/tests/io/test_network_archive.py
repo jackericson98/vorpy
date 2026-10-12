@@ -33,6 +33,110 @@ def archive(solved, tmp_path):
     return path
 
 
+def _cached_lineage_interface(solved, *, interface_id='cached_alpha_dual_regression'):
+    from vorpy.src.geometry.duals import build_dual
+    from vorpy.src.interface import Interface
+    from vorpy.src.interface.geometry_analysis import InterfaceGeometryAnalysis
+    from vorpy.src.io.scientific_adapters import stable_id
+    from vorpy.src.results import GeometryLineage, GeometryLineageOrigin
+
+    group = solved.export_group
+    complete_system_ids = [
+        int(system_id)
+        for system_id, complete in zip(
+            group.net.balls['system_num'], group.net.balls['complete']
+        )
+        if int(system_id) >= 0 and bool(complete)
+    ]
+    assert len(complete_system_ids) >= 2
+    left = group_from_network(group.net, {complete_system_ids[0]}, 'cached_left')
+    right = group_from_network(group.net, {complete_system_ids[1]}, 'cached_right')
+    interface = Interface(
+        group.sys, left, right, name=interface_id,
+        interface_id=interface_id,
+    )
+    interface.net = group.net
+    interface.group1_indices = set(left.ball_ndxs)
+    interface.group2_indices = set(right.ball_ndxs)
+    group.sys.ifaces.append(interface)
+    group.net.source_network_id = 'producer:geometry-lineage-v1'
+    lineage = GeometryLineage(
+        origin=GeometryLineageOrigin.MATERIALIZED_VIEW,
+        solve_universe_id='solve:geometry-lineage-v1',
+        geometry_source_id='geometry:sha256:lineage',
+        geometry_version='cached-interface-v1',
+        solver_settings_digest='settings:sha256:lineage',
+        solver_settings={'net_type': 'pow'},
+        environment_digest='environment:sha256:lineage',
+        environment={'network_environment': 'dry'},
+        source_network_id=group.net.source_network_id,
+        source_interface_id=interface.interface_id,
+        source_view_id='view:geometry-lineage-v1',
+        selection_scope={
+            'groups': {'A': sorted(interface.group1_indices),
+                       'B': sorted(interface.group2_indices)},
+        },
+        orientation={'convention': 'physical_interface_A_to_B'},
+        completeness={'completeness_proven': False, 'reason': 'cached fixture'},
+    )
+    analysis = InterfaceGeometryAnalysis(
+        **json.loads(
+            (Path(__file__).parent.parent / 'results' / 'fixtures' / '2kai_aw_cached_analysis.json')
+            .read_text(encoding='utf-8')
+        )
+    )
+    analysis.metadata.update(
+        scheme='pow', alpha_convention='power_distance', alpha_units='A^2'
+    )
+    analysis.archive_provenance = {
+        'fixture': '2kai_aw_cached_analysis',
+        'network_id': stable_id(group.net),
+        'geometry_lineage': lineage,
+    }
+    interface.geometry_analysis = analysis
+    interface._geometry_dual = build_dual(group.net)
+    interface._geometry_dual.record_explicit_group_membership(
+        interface.group1_indices, interface.group2_indices
+    )
+    return group, interface, lineage, analysis
+
+
+@pytest.mark.parametrize('archive_mode', ('materialized', 'unresolved', 'missing'))
+def test_cached_interface_result_lineage_cases(solved, monkeypatch, archive_mode):
+    from vorpy.src.output import visualization
+    from vorpy.src.results import GeometryLineage, GeometryLineageOrigin
+
+    _, interface, lineage, analysis = _cached_lineage_interface(
+        solved, interface_id=f'cached_lineage_{archive_mode}'
+    )
+    if archive_mode == 'unresolved':
+        archived = GeometryLineage(
+            GeometryLineageOrigin.UNRESOLVED,
+            reason='archived producer lineage is unresolved',
+        )
+        analysis.archive_provenance['geometry_lineage'] = archived.as_dict()
+        expected = archived
+    elif archive_mode == 'missing':
+        analysis.archive_provenance.pop('geometry_lineage')
+        expected = None
+    else:
+        expected = lineage
+
+    if archive_mode != 'missing':
+        monkeypatch.setattr(
+            visualization,
+            'make_geometry_lineage',
+            lambda *args, **kwargs: pytest.fail('Existing archive lineage was synthesized again'),
+        )
+
+    result = visualization._cached_interface_result(interface)
+    assert result.provenance.geometry_lineage is not None
+    if expected is None:
+        assert result.provenance.geometry_lineage.origin is GeometryLineageOrigin.UNRESOLVED
+    else:
+        assert result.provenance.geometry_lineage == expected
+
+
 def test_preset_archive_can_be_loaded_without_rebuilding(solved, tmp_path, monkeypatch):
     from vorpy.src.output.output import export_micro
     from vorpy.src.network import Network
@@ -1267,58 +1371,47 @@ def test_cli_archive_input_without_build(archive, monkeypatch, tmp_path):
         os.chdir(cwd)
 
 
+def test_cli_archive_cache_export_profile(archive, monkeypatch):
+    import sys
+    from vorpy.src.command.vpy_cmnd import Command
+    from vorpy.src.network import Network
+
+    monkeypatch.setattr(Network, 'build', lambda *a, **kw: pytest.fail('CLI tried to rebuild'))
+    monkeypatch.setattr(sys, 'argv', [
+        'vorpy', '--profile-cache-export', str(archive), '-e', 'only', 'logs'
+    ])
+    cwd = Path.cwd()
+    try:
+        command = Command()
+        command.run()
+        profile_path = Path(command.sys.files['dir']) / 'cache_export_profile.json'
+        payload = json.loads(profile_path.read_text(encoding='utf-8'))
+        assert payload['format'] == 'vorpy.cache_export_profile'
+        assert payload['profile_version'] == 1
+        for phase in ('load', 'command_setup', 'export', 'explicit_archive', 'total'):
+            assert payload['timing'][phase]['wall_seconds'] >= 0.0
+            assert payload['timing'][phase]['cpu_seconds'] >= 0.0
+        members = payload['archive_members']['input']
+        assert members['member_count'] > 0
+        assert members['array_member_count'] >= 0
+        assert 'peak_rss_bytes' in payload
+        assert 'memory_source' in payload
+        assert payload['cache_state']['interface_count'] == len(command.sys.ifaces)
+        assert 'operations' in payload['export_phases']
+    finally:
+        os.chdir(cwd)
+
+
 def test_cached_alpha_dual_archive_round_trip_writes_logs_without_rebuild(
     solved, tmp_path, monkeypatch
 ):
     import csv
-    import json
     from vorpy.src.interface import Interface
-    from vorpy.src.interface.geometry_analysis import InterfaceGeometryAnalysis
-    from vorpy.src.geometry.duals import build_dual
-    from vorpy.src.io.scientific_adapters import stable_id
     from vorpy.src.network import Network
     from vorpy.src.output import visualization
     from vorpy.src.results import Status
 
-    group = solved.export_group
-    complete_system_ids = [
-        int(system_id)
-        for system_id, complete in zip(
-            group.net.balls['system_num'], group.net.balls['complete']
-        )
-        if int(system_id) >= 0 and bool(complete)
-    ]
-    assert len(complete_system_ids) >= 2
-    left_ids = {complete_system_ids[0]}
-    right_ids = {complete_system_ids[1]}
-    left = group_from_network(group.net, left_ids, 'cached_left')
-    right = group_from_network(group.net, right_ids, 'cached_right')
-    interface = Interface(
-        group.sys, left, right, name='cached_alpha_dual_regression',
-        interface_id='cached_alpha_dual_regression',
-    )
-    interface.net = group.net
-    interface.group1_indices = set(left_ids)
-    interface.group2_indices = set(right_ids)
-    group.sys.ifaces.append(interface)
-    analysis = InterfaceGeometryAnalysis(
-        **json.loads(
-            (Path(__file__).parent.parent / 'results' / 'fixtures' / '2kai_aw_cached_analysis.json')
-            .read_text(encoding='utf-8')
-        )
-    )
-    analysis.metadata.update(
-        scheme='pow', alpha_convention='power_distance', alpha_units='A^2'
-    )
-    analysis.archive_provenance = {
-        'fixture': '2kai_aw_cached_analysis',
-        'network_id': stable_id(group.net),
-    }
-    interface.geometry_analysis = analysis
-    interface._geometry_dual = build_dual(group.net)
-    interface._geometry_dual.record_explicit_group_membership(
-        interface.group1_indices, interface.group2_indices
-    )
+    group, interface, lineage, analysis = _cached_lineage_interface(solved)
 
     archive = save_network(group.net, tmp_path / 'cached.vpy')
     with zipfile.ZipFile(archive) as bundle:
@@ -1334,8 +1427,11 @@ def test_cached_alpha_dual_archive_round_trip_writes_logs_without_rebuild(
         item for item in loaded.sys.ifaces
         if item.interface_id == interface.interface_id
     )
+    assert loaded.source_network_id == lineage.source_network_id
+    assert loaded.archive_id != loaded.source_network_id
     assert restored.geometry_analysis.alpha_selection == analysis.alpha_selection
     assert restored.geometry_analysis.archive_provenance['fixture'] == '2kai_aw_cached_analysis'
+    assert restored.geometry_analysis.archive_provenance['geometry_lineage'] == lineage.as_dict()
     assert restored._geometry_dual.network is loaded
     assert restored.group1_indices == interface.group1_indices
     assert restored.group2_indices == interface.group2_indices
@@ -1343,6 +1439,9 @@ def test_cached_alpha_dual_archive_round_trip_writes_logs_without_rebuild(
         interface._geometry_dual.metadata['explicit_group_membership']
     )
     alpha_result = visualization._cached_alpha_selection_result(restored)
+    assert alpha_result.identity.network_id == loaded.archive_id
+    assert alpha_result.identity.source_network_id == loaded.source_network_id
+    assert alpha_result.provenance.geometry_lineage == lineage
     assert alpha_result.status is Status.PARTIAL
     assert alpha_result.provenance.details['fixture'] == '2kai_aw_cached_analysis'
 
@@ -1367,3 +1466,56 @@ def test_cached_alpha_dual_archive_round_trip_writes_logs_without_rebuild(
         assert row['interface_id'] == restored.archive_id
         assert details['network_id'] == loaded.archive_id
         assert details['partition'] == 'power'
+
+
+def test_cli_cache_only_export_preserves_lineage_and_status(
+    solved, tmp_path, monkeypatch
+):
+    import csv
+    import sys
+    from vorpy.src.command.vpy_cmnd import Command
+    from vorpy.src.interface import Interface
+    from vorpy.src.network import Network
+
+    group, interface, lineage, _ = _cached_lineage_interface(
+        solved, interface_id='cached_lineage_cli'
+    )
+    archive = save_network(group.net, tmp_path / 'cached-lineage.vpy')
+    monkeypatch.setattr(Network, 'build', lambda *a, **kw: pytest.fail('Cache-only CLI rebuilt topology'))
+    monkeypatch.setattr(Interface, 'analyze_geometry',
+                        lambda *a, **kw: pytest.fail('Cache-only CLI rebuilt geometry'))
+    monkeypatch.setattr(sys, 'argv', [
+        'vorpy', '--profile-cache-export', str(archive), '-e', 'small'
+    ])
+
+    cwd = Path.cwd()
+    try:
+        command = Command()
+        command.run()
+        profile = json.loads(
+            (Path(command.sys.files['dir']) / 'cache_export_profile.json')
+            .read_text(encoding='utf-8')
+        )
+        assert profile['cache_state']['interface_count'] >= 1
+        assert profile['output_archive']
+        log_paths = list(Path(command.sys.files['dir']).rglob('logs.csv'))
+        assert log_paths
+        rows = []
+        for path in log_paths:
+            with path.open(newline='', encoding='utf-8') as stream:
+                rows.extend(csv.DictReader(stream))
+        alpha_rows = [row for row in rows if row['representation'] == 'alpha_selection']
+        assert alpha_rows
+        alpha_value_rows = [
+            row for row in alpha_rows
+            if row['quantity'] == 'alpha_value' and row['interface_id'] == interface.archive_id
+        ]
+        assert alpha_value_rows
+        assert all(row['status'] == 'PARTIAL' for row in alpha_value_rows)
+        provenance = json.loads(alpha_value_rows[0]['provenance'])
+        restored_lineage = provenance['details']['geometry_lineage']
+        assert restored_lineage == lineage.as_dict()
+        assert restored_lineage['source_network_id'] == lineage.source_network_id
+        assert provenance['details']['network_id'] != lineage.source_network_id
+    finally:
+        os.chdir(cwd)

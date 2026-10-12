@@ -1455,9 +1455,6 @@ class MainWindow(QMainWindow):
                 allowed = set(VorPySolveSettings.__dataclass_fields__)
                 settings = {key: value for key, value in project.backend_settings.items() if key in allowed}
                 self.backend.settings = VorPySolveSettings(**settings)
-                self.boundary_probe_radius.setValue(self.backend.settings.probe_radius)
-                self.boundary_shell_spacing.setValue(self.backend.settings.shell_spacing)
-                self.boundary_shell_offset.setValue(self.backend.settings.shell_offset)
             self._loading_project = True
             if project.structure is not None:
                 self.load_path(project.structure.source_path)
@@ -1470,12 +1467,6 @@ class MainWindow(QMainWindow):
                     self.source = project.structure.source_path
                     self._display_result(restored_result)
                 self._restore_project_groups()
-                if self.backend.settings.boundary_mode in {"none", "explicit", "shell"}:
-                    index = self.boundary_mode.findData(self.backend.settings.boundary_mode)
-                    self.boundary_mode.blockSignals(True)
-                    self.boundary_mode.setCurrentIndex(index)
-                    self.boundary_mode.blockSignals(False)
-                    self._boundary_manually_selected = True
                 self._interfaces = {
                     interface.name: (interface.group_a, interface.group_b)
                     for interface in project.interfaces
@@ -1494,6 +1485,8 @@ class MainWindow(QMainWindow):
                 self._interfaces.clear()
                 self._reset_network_controls()
                 self.structure_browser.clear()
+            if project.backend_settings:
+                self._restore_solver_controls()
             self.export_panel.restore_config(project.view_state.get("export_config", {}))
             self._set_project_dirty(False)
             self.statusBar().showMessage(f"Opened project {project.name}")
@@ -1536,6 +1529,8 @@ class MainWindow(QMainWindow):
             self._reset_network_controls()
         self._populate_loaded_structures()
         self._restore_view_state(project.view_state)
+        if project.backend_settings:
+            self._restore_solver_controls()
         self.export_panel.restore_config(project.view_state.get('export_config', {}))
         self._set_project_dirty(False)
         self.statusBar().showMessage(f'Opened session {project.name}')
@@ -1645,14 +1640,51 @@ class MainWindow(QMainWindow):
         # codec; avoid allocating a second JSON-shaped copy of every mesh.
         self.project.result_state = None
         self.project.view_state = self._view_state_to_json()
+        self._sync_solver_controls()
+        self.project.backend_settings = asdict(self.backend.settings)
+
+    def _sync_solver_controls(self) -> None:
+        network_types = {0: "aw", 1: "pow", 2: "prm"}
         self.backend.settings = replace(
             self.backend.settings,
-            boundary_mode=(self.boundary_mode.currentData() if self._boundary_manually_selected else None),
+            network_type=network_types[self.network_type.currentIndex()],
+            max_vertices=self.max_vertices.value(),
+            box_size=self.box_size.value(),
+            surface_resolution=self.surface_resolution.value(),
+            boundary_mode=(
+                self.boundary_mode.currentData()
+                if self._boundary_manually_selected else None
+            ),
             probe_radius=self.boundary_probe_radius.value(),
             shell_spacing=self.boundary_shell_spacing.value(),
             shell_offset=self.boundary_shell_offset.value(),
         )
-        self.project.backend_settings = asdict(self.backend.settings)
+
+    def _restore_solver_controls(self) -> None:
+        settings = self.backend.settings
+        network_index = {"aw": 0, "pow": 1, "prm": 2}.get(
+            str(settings.network_type).lower()
+        )
+        if network_index is not None:
+            self.network_type.setCurrentIndex(network_index)
+        self.max_vertices.setValue(settings.max_vertices)
+        self.box_size.setValue(settings.box_size)
+        self.surface_resolution.setValue(settings.surface_resolution)
+        self.boundary_probe_radius.setValue(settings.probe_radius)
+        self.boundary_shell_spacing.setValue(settings.shell_spacing)
+        self.boundary_shell_offset.setValue(settings.shell_offset)
+
+        boundary_mode = settings.boundary_mode
+        if hasattr(boundary_mode, "value"):
+            boundary_mode = boundary_mode.value
+        if boundary_mode is None:
+            boundary_mode = "none"
+        if boundary_mode in {"none", "explicit", "shell"}:
+            index = self.boundary_mode.findData(boundary_mode)
+            self.boundary_mode.blockSignals(True)
+            self.boundary_mode.setCurrentIndex(index)
+            self.boundary_mode.blockSignals(False)
+            self._boundary_manually_selected = settings.boundary_mode is not None
 
     def _view_state_to_json(self) -> dict:
         mode = "residue"

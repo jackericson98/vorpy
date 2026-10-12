@@ -18,8 +18,10 @@ from .model import (
     Environment,
     GaussianCurvature,
     GroupResult,
-    InterfaceResult,
     GeneratorComplex,
+    GeometryLineage,
+    GeometryLineageOrigin,
+    InterfaceResult,
     MolecularContactSurfaceResult,
     MeanCurvature,
     NetworkResult,
@@ -272,6 +274,32 @@ def unavailable_interface(identity, *, status=Status.NOT_CALCULATED, provenance=
     )
 
 
+def _with_geometry_lineage(provenance, geometry_lineage, source):
+    """Attach producer-supplied lineage without inferring missing evidence."""
+    if geometry_lineage is None:
+        return provenance
+    lineage = GeometryLineage.from_mapping(geometry_lineage)
+    if provenance is None:
+        return Provenance(source, details={"geometry_lineage": lineage.as_dict()})
+    existing = provenance.geometry_lineage
+    if existing is not None:
+        if existing.as_dict() == lineage.as_dict():
+            return provenance
+        # An unresolved fallback cannot contradict archived producer evidence.
+        if lineage.origin is GeometryLineageOrigin.UNRESOLVED:
+            return provenance
+        raise ValueError("Conflicting geometry lineage supplied")
+    details = dict(provenance.details)
+    details["geometry_lineage"] = lineage.as_dict()
+    return Provenance(
+        provenance.source,
+        source_revision=provenance.source_revision,
+        scientific_state_id=provenance.scientific_state_id,
+        details=details,
+        diagnostics=provenance.diagnostics,
+    )
+
+
 TOPOLOGY_ALIASES = {
     "vertices": ("topology_vertices",),
     "edges": ("topology_edges",),
@@ -305,6 +333,7 @@ def adapt_interface_analysis(
     contacts=(),
     extensions=(),
     cached_metrics=None,
+    geometry_lineage=None,
 ):
     """Snapshot existing InterfaceGeometryAnalysis, with an explicit identity.
 
@@ -315,7 +344,12 @@ def adapt_interface_analysis(
     if identity.representation != "voronoi":
         raise ValueError("Physical analysis cannot populate dual-side results")
     if analysis is None:
-        return unavailable_interface(identity, provenance=provenance)
+        return unavailable_interface(
+            identity,
+            provenance=_with_geometry_lineage(
+                provenance, geometry_lineage, "InterfaceGeometryAnalysis"
+            ),
+        )
     metadata = _read(analysis, "metadata", {})
     if not isinstance(metadata, Mapping):
         raise ValueError("Cached metadata must be a mapping")
@@ -333,6 +367,9 @@ def adapt_interface_analysis(
         "InterfaceGeometryAnalysis",
         details={"cache_metadata": metadata, "cache_side": source},
         diagnostics=tuple(_read(analysis, "unresolved", ())),
+    )
+    provenance = _with_geometry_lineage(
+        provenance, geometry_lineage, "InterfaceGeometryAnalysis"
     )
     curvature_not_requested = (
         Status.NOT_CALCULATED
@@ -613,13 +650,23 @@ def adapt_interface_analysis(
     )
 
 
-def adapt_cached_result(identity, *, provenance, status=Status.PARTIAL, **blocks):
+def adapt_cached_result(
+    identity,
+    *,
+    provenance,
+    status=Status.PARTIAL,
+    geometry_lineage=None,
+    **blocks,
+):
     """Common composition entry point for cached system/network/group producers.
 
     Also accepts future dual-side InterfaceResult blocks supplied by Agent #3.
     Producers supply Quantity objects with their own certification; the adapter
     does not infer geometry, scientific totals, or aggregate certification.
     """
+    provenance = _with_geometry_lineage(
+        provenance, geometry_lineage, "cached scientific state"
+    )
     cls = {
         "system": SystemResult,
         "network": NetworkResult,
@@ -644,6 +691,7 @@ def adapt_group_view_analysis(
     source_solve_context=None,
     source_solvent_provenance=None,
     source_retained_generator_provenance=None,
+    geometry_lineage=None,
 ):
     """Adapt NEXUS ``GroupViewAnalysis`` into one typed ``GroupResult``.
 
@@ -790,6 +838,9 @@ def adapt_group_view_analysis(
         source_revision=dependency.source_revision,
         details=provenance_details,
     )
+    provenance = _with_geometry_lineage(
+        provenance, geometry_lineage, "NEXUS shared group view"
+    )
 
     value_status = status if status in {
         Status.CERTIFIED,
@@ -911,10 +962,9 @@ def _unavailable_status(status):
     return status
 
 
-def _dual_provenance(provenance, source):
-    if provenance is not None:
-        return provenance
-    return Provenance(source)
+def _dual_provenance(provenance, source, geometry_lineage=None):
+    provenance = provenance or Provenance(source)
+    return _with_geometry_lineage(provenance, geometry_lineage, source)
 
 
 def _source_feature_id(value):
@@ -1103,7 +1153,9 @@ def unavailable_dual_contact_complex(identity, *, status=Status.NOT_CALCULATED, 
     )
 
 
-def adapt_dual_contact_complex(dual, identity, *, provenance=None, simplex_ids=None):
+def adapt_dual_contact_complex(
+    dual, identity, *, provenance=None, simplex_ids=None, geometry_lineage=None
+):
     """Adapt dimension-one dual incidences without querying geometry or curvature.
 
     ``simplex_ids`` is an optional explicit contact subset.  It is deliberately
@@ -1111,7 +1163,9 @@ def adapt_dual_contact_complex(dual, identity, *, provenance=None, simplex_ids=N
     policy, while this adapter only snapshots the selected incidence records.
     """
     _require_representation(identity, {"dual"}, "Dual-contact")
-    provenance = _dual_provenance(provenance, "cached dual contact complex")
+    provenance = _dual_provenance(
+        provenance, "cached dual contact complex", geometry_lineage
+    )
     if dual is None:
         return unavailable_dual_contact_complex(identity, provenance=provenance)
     if simplex_ids is None:
@@ -1151,6 +1205,7 @@ def adapt_dual_generator_complex(
     provenance=None,
     simplex_ids=None,
     topology=None,
+    geometry_lineage=None,
 ):
     """Traverse a cached dual complex into typed generator-complex records.
 
@@ -1160,7 +1215,9 @@ def adapt_dual_generator_complex(
     _require_representation(
         identity, {"dual_a", "dual_b", "dual_generator_complex"}, "Dual-generator"
     )
-    provenance = _dual_provenance(provenance, "cached dual generator complex")
+    provenance = _dual_provenance(
+        provenance, "cached dual generator complex", geometry_lineage
+    )
     if dual is None:
         return unavailable_dual_generator_complex(identity, provenance=provenance)
     if simplex_ids is None and identity.side in {"A", "B"}:
@@ -1284,10 +1341,14 @@ def unavailable_alpha_selection(identity, *, status=Status.NOT_CALCULATED, prove
     )
 
 
-def adapt_alpha_selection(source, identity, *, dual=None, provenance=None):
+def adapt_alpha_selection(
+    source, identity, *, dual=None, provenance=None, geometry_lineage=None
+):
     """Adapt a cached alpha selection without treating it as primal geometry."""
     _require_representation(identity, {"alpha_selection"}, "Alpha-selection")
-    provenance = _dual_provenance(provenance, "cached alpha selection")
+    provenance = _dual_provenance(
+        provenance, "cached alpha selection", geometry_lineage
+    )
     payload = _alpha_payload(source)
     if payload is None:
         return unavailable_alpha_selection(identity, provenance=provenance)

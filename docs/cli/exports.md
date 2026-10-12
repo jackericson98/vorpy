@@ -37,6 +37,12 @@ archive. `-e none` disables automatic exports, and `-e none -e logs` or
 `-e only logs` exports only the requested component without an archive.
 An explicit `--save-network path.vpy` still saves the requested archive.
 
+For a cache-only archive run, add `--profile-cache-export`. The opt-in
+`cache_export_profile.json` beside the normal export directory records load,
+export, and explicit-save wall/CPU time, peak RSS when supported, archive
+member counts, cached interface state, and existing export phases. It accepts
+`.vpy` input only and does not rebuild geometry.
+
 Atom cell meshes combine their already solved surface points and triangles,
 offsetting triangle indices for each surface. Exporting a cell does not run
 triangulation again. OFF retains geometry and colors; VTP also retains scientific

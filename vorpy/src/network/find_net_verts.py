@@ -1,6 +1,7 @@
 import time
 from vorpy.src.network.runtime_diagnostics import checkpoint
 import os
+from collections.abc import Mapping
 from itertools import combinations
 import pandas as pd
 import numpy as np
@@ -44,6 +45,24 @@ def vertex_is_allowed(net, vertex_balls):
         return True
 
     return bool(vertex_balls.intersection(net.group))
+
+
+_INTERFACE_VERTEX_STATE_DEPENDENCY_SCHEMA = 1
+
+
+def _interface_vertex_state_dependency_id(net):
+    """Return the canonical solve dependency ID, or ``None`` if unavailable."""
+    get_context = getattr(net, 'get_solve_context_key', None)
+    if not callable(get_context):
+        return None
+    try:
+        context = get_context()
+    except (AttributeError, TypeError, ValueError):
+        return None
+    dependency_id = getattr(context, 'solve_universe_id', None)
+    if not isinstance(dependency_id, str) or not dependency_id.strip():
+        return None
+    return dependency_id
 
 
 def _enumerate_sparse_aw_vertices(net):
@@ -115,11 +134,144 @@ def _load_cached_vertex_state(net):
         ``(vert_ndxs, vlocs, vrads, vloc2s, vrad2s, b_verts)`` when usable cached
         state exists, otherwise ``None``.
     """
-    records = list(getattr(net, 'cached_interface_vertex_state', None) or [])
-    if not records:
+    def record_cache_result(*, hit, source=None, reason=None, records=0, accepted=0):
+        # Runtime-only diagnostics; archive_fields intentionally does not
+        # persist cache decisions or counters.
+        net.interface_vertex_cache_stats = {
+            'hits': int(bool(hit)),
+            'misses': int(not hit),
+            'source': source,
+            'records': int(records),
+            'accepted': int(accepted),
+            'reason': reason,
+        }
+
+    if getattr(net, 'iface_grps', None) is None:
+        record_cache_result(hit=False, reason='non_interface_scope')
         return None
 
-    records.sort(key=lambda record: record.get('source_index', 0))
+    cached_dependency = getattr(net, 'interface_vertex_state_dependency', None)
+    cached_dependency_id = (
+        cached_dependency.get('solve_universe_id')
+        if isinstance(cached_dependency, Mapping)
+        and cached_dependency.get('schema_version') == _INTERFACE_VERTEX_STATE_DEPENDENCY_SCHEMA
+        else None
+    )
+    if not isinstance(cached_dependency_id, str) or not cached_dependency_id.strip():
+        record_cache_result(hit=False, reason='dependency_missing')
+        return None
+    current_dependency_id = _interface_vertex_state_dependency_id(net)
+    if current_dependency_id is None:
+        record_cache_result(hit=False, reason='dependency_unavailable')
+        return None
+    if cached_dependency_id != current_dependency_id:
+        record_cache_result(hit=False, reason='dependency_mismatch')
+        return None
+
+    cached_value = getattr(net, 'cached_interface_vertex_state', None)
+    native_value = getattr(net, 'interface_vertex_state', None)
+    if cached_value is not None:
+        value = cached_value
+        source = 'cached_interface_vertex_state'
+    elif native_value is not None:
+        value = native_value
+        source = 'interface_vertex_state'
+    else:
+        record_cache_result(hit=False, reason='missing')
+        return None
+
+    if not isinstance(value, (list, tuple)) or not value:
+        record_cache_result(hit=False, source=source, reason='empty_or_invalid')
+        return None
+
+    records = []
+    seen_source_indices = set()
+    for position, record in enumerate(value):
+        if not isinstance(record, Mapping):
+            record_cache_result(hit=False, source=source, reason='invalid_record')
+            return None
+
+        # ``cached_interface_vertex_state`` historically used a cache wrapper
+        # with ``data``/``source_index``; archived ``interface_vertex_state``
+        # stores the native vertex record directly. Accept both forms.
+        row = record.get('data', record)
+        if not isinstance(row, Mapping):
+            record_cache_result(hit=False, source=source, reason='invalid_data')
+            return None
+        source_index = record.get('source_index', position)
+        if isinstance(source_index, bool):
+            record_cache_result(hit=False, source=source, reason='invalid_source_index')
+            return None
+        try:
+            source_index = int(source_index)
+        except (TypeError, ValueError, OverflowError):
+            record_cache_result(hit=False, source=source, reason='invalid_source_index')
+            return None
+        if source_index < 0 or source_index in seen_source_indices:
+            record_cache_result(hit=False, source=source, reason='invalid_source_index')
+            return None
+        seen_source_indices.add(source_index)
+
+        try:
+            balls = tuple(int(ball) for ball in row['balls'])
+            location = tuple(float(value) for value in row['loc'])
+            radius = float(row['rad'])
+        except (KeyError, TypeError, ValueError, OverflowError):
+            record_cache_result(hit=False, source=source, reason='invalid_geometry')
+            return None
+        if (
+            len(balls) != 4
+            or len(set(balls)) != 4
+            or len(location) != 3
+            or not np.all(np.isfinite(location))
+            or not np.isfinite(radius)
+        ):
+            record_cache_result(hit=False, source=source, reason='invalid_geometry')
+            return None
+        loc2 = row.get('loc2')
+        rad2 = row.get('rad2')
+        has_secondary_geometry = False
+        if loc2 is None:
+            normalized_loc2 = [None, None, None]
+            normalized_rad2 = None
+        else:
+            try:
+                loc2_values = list(loc2)
+            except (TypeError, ValueError, OverflowError):
+                record_cache_result(hit=False, source=source, reason='invalid_secondary_geometry')
+                return None
+            if len(loc2_values) == 3 and all(value is None for value in loc2_values):
+                normalized_loc2 = [None, None, None]
+                normalized_rad2 = None
+            else:
+                try:
+                    normalized_loc2 = [float(value) for value in loc2_values]
+                    normalized_rad2 = float(rad2)
+                except (TypeError, ValueError, OverflowError):
+                    record_cache_result(hit=False, source=source, reason='invalid_secondary_geometry')
+                    return None
+                has_secondary_geometry = True
+            if has_secondary_geometry and (
+                len(normalized_loc2) != 3
+                or not np.all(np.isfinite(normalized_loc2))
+                or not np.isfinite(normalized_rad2)
+            ):
+                record_cache_result(hit=False, source=source, reason='invalid_secondary_geometry')
+                return None
+
+        records.append({
+            'source_index': source_index,
+            'data': {
+                'balls': list(balls),
+                'loc': list(location),
+                'rad': radius,
+                'loc2': normalized_loc2,
+                'rad2': normalized_rad2,
+            },
+        })
+
+    records.sort(key=lambda record: record['source_index'])
+
     vert_ndxs = []
     vlocs = []
     vrads = []
@@ -130,6 +282,11 @@ def _load_cached_vertex_state(net):
     for record in records:
         row = record['data']
         balls = [int(ball) for ball in row.get('balls', [])]
+        if any(ball < 0 or ball >= len(net.balls) for ball in balls):
+            record_cache_result(
+                hit=False, source=source, reason='out_of_range_ball', records=len(records)
+            )
+            return None
         if not vertex_is_allowed(net, balls):
             continue
 
@@ -151,7 +308,17 @@ def _load_cached_vertex_state(net):
             b_verts[ball].append(vertex_index)
 
     if not vert_ndxs:
+        record_cache_result(
+            hit=False, source=source, reason='no_records_in_scope', records=len(records)
+        )
         return None
+
+    record_cache_result(
+        hit=True,
+        source=source,
+        records=len(records),
+        accepted=len(vert_ndxs),
+    )
 
     return vert_ndxs, vlocs, vrads, vloc2s, vrad2s, b_verts
 
@@ -165,6 +332,14 @@ def _store_native_vertex_state(net, vert_ndxs, vlocs, vrads, vloc2s, vrad2s):
     from exported dataframe rows.
     """
     net.interface_vertex_state = []
+    dependency_id = _interface_vertex_state_dependency_id(net)
+    net.interface_vertex_state_dependency = (
+        {
+            'schema_version': _INTERFACE_VERTEX_STATE_DEPENDENCY_SCHEMA,
+            'solve_universe_id': dependency_id,
+        }
+        if dependency_id is not None else None
+    )
     for balls, loc, rad, loc2, rad2 in zip(
             vert_ndxs, vlocs, vrads, vloc2s, vrad2s):
         net.interface_vertex_state.append({

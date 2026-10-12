@@ -13,6 +13,7 @@ pytest.importorskip("vtkmodules")
 from vtkmodules.vtkCommonDataModel import vtkPlane
 
 from vorpy.workbench.domain import AnalysisResult, Atom, Bond, GeometryLayer
+from vorpy.workbench.project import Project, StructureSource, save_project
 from vorpy.workbench.ui import main_window
 from vorpy.workbench.ui.molecular_view import MolecularView
 
@@ -809,6 +810,14 @@ def test_project_save_and_open_restores_groups(monkeypatch, tmp_path):
     window = make_window(monkeypatch)
     window.load_path(pdb)
     window._groups["Backbone"] = (1,)
+    window.network_type.setCurrentText("Power")
+    window.max_vertices.setValue(13)
+    window.box_size.setValue(1.6)
+    window.surface_resolution.setValue(0.12)
+    window.boundary_mode.setCurrentText("Virtual solvent shell")
+    window.boundary_probe_radius.setValue(1.7)
+    window.boundary_shell_spacing.setValue(3.1)
+    window.boundary_shell_offset.setValue(3.4)
     window._set_project_dirty()
     window.project_file = project_file
 
@@ -825,8 +834,61 @@ def test_project_save_and_open_restores_groups(monkeypatch, tmp_path):
 
     assert restored.source == pdb.resolve()
     assert restored._groups == {"Backbone": (1,)}
+    assert restored.network_type.currentText() == "Power"
+    assert restored.max_vertices.value() == 13
+    assert restored.box_size.value() == 1.6
+    assert restored.surface_resolution.value() == 0.12
+    assert restored.boundary_mode.currentData() == "shell"
+    assert restored.boundary_probe_radius.value() == 1.7
+    assert restored.boundary_shell_spacing.value() == 3.1
+    assert restored.boundary_shell_offset.value() == 3.4
     assert not restored._project_dirty
     assert restored.project_file == project_file.resolve()
+
+
+def test_legacy_project_open_restores_solver_controls(monkeypatch, tmp_path):
+    pdb = tmp_path / "tiny.pdb"
+    pdb.write_text(
+        "ATOM      1  N   GLY A   7       0.000   0.000   0.000  1.00  0.00           N  \n"
+        "ATOM      2  CA  GLY A   7       1.450   0.000   0.000  1.00  0.00           C  \n"
+        "CONECT    1    2\nEND\n",
+        encoding="utf-8",
+    )
+    project_file = tmp_path / "legacy.vpyworkbench.json"
+    save_project(
+        Project(
+            name="Legacy",
+            structure=StructureSource.from_path(pdb),
+            backend_settings={
+                "network_type": "prm",
+                "max_vertices": 17,
+                "box_size": 1.8,
+                "surface_resolution": 0.14,
+                "boundary_mode": "explicit",
+                "probe_radius": 1.9,
+                "shell_spacing": 3.2,
+                "shell_offset": 3.6,
+            },
+        ),
+        project_file,
+    )
+
+    restored = make_window(monkeypatch)
+    monkeypatch.setattr(
+        main_window.QFileDialog,
+        "getOpenFileName",
+        lambda *args: (str(project_file), ""),
+    )
+    restored.open_project()
+
+    assert restored.network_type.currentText() == "Primitive"
+    assert restored.max_vertices.value() == 17
+    assert restored.box_size.value() == 1.8
+    assert restored.surface_resolution.value() == 0.14
+    assert restored.boundary_mode.currentData() == "explicit"
+    assert restored.boundary_probe_radius.value() == 1.9
+    assert restored.boundary_shell_spacing.value() == 3.2
+    assert restored.boundary_shell_offset.value() == 3.6
 
 
 def test_solve_target_resolves_group_and_interface_membership(monkeypatch):

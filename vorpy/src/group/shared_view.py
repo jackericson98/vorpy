@@ -161,6 +161,8 @@ def attach_group_view_results(
     """
     from vorpy.src.results.adapters import adapt_group_view_analysis
     from vorpy.src.results.shared_network import ResultsDependency
+    from vorpy.src.network.aw_geometry_reuse import build_geometry_lineage_metadata
+    from vorpy.src.results import make_geometry_lineage
 
     context = source_network.get_solve_context_key()
     provenance = getattr(source_network, "solvent_provenance", None)
@@ -181,6 +183,13 @@ def attach_group_view_results(
         view = make_group_view(
             group, source_network, source_network_id=source_network_id
         )
+        geometry_lineage = make_geometry_lineage(
+            build_geometry_lineage_metadata(
+                source_network,
+                orientation={"convention": "source_view"},
+            ),
+            view_evidence=view,
+        ).as_dict()
         analysis = analyze_group_view(view)
         identity = shared_network_identity(view, source_network)
         dependency = ResultsDependency(
@@ -207,6 +216,7 @@ def attach_group_view_results(
                 source_solve_context=context,
                 source_solvent_provenance=provenance,
                 source_retained_generator_provenance=retention,
+                geometry_lineage=geometry_lineage,
             )
         )
     analysis_result.typed_results = tuple(typed_results)

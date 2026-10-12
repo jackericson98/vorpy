@@ -1,13 +1,18 @@
 import gc
+import json
 import os
 import re
+import shutil
 import sys
+import tempfile
 import tkinter as tk
+import zipfile
 from contextlib import closing
 from copy import deepcopy
 from itertools import combinations
 from pathlib import Path
 from tkinter import filedialog
+from time import perf_counter, process_time
 
 from vorpy.src.boundary import (
     BoundaryConfig,
@@ -64,6 +69,135 @@ def execution_profile_cli_options(args):
         else:
             remaining.append(arg)
     return remaining, profile
+
+
+def cache_export_profile_cli_options(args):
+    """Extract the opt-in archive-load/export profile before legacy parsing."""
+    remaining = []
+    enabled = False
+    for arg in args:
+        if arg == '--profile-cache-export':
+            if enabled:
+                raise SystemExit('--profile-cache-export may only be specified once')
+            enabled = True
+        else:
+            remaining.append(arg)
+    return remaining, enabled
+
+
+def _archive_member_counts(path):
+    """Inspect ZIP metadata only; do not read archive payloads."""
+    if path is None or not Path(path).is_file():
+        return None
+    with zipfile.ZipFile(path, 'r') as archive:
+        infos = archive.infolist()
+    return {
+        'member_count': len(infos),
+        'array_member_count': sum(info.filename.startswith('arrays/') for info in infos),
+        'table_member_count': sum(info.filename.startswith('tables/') for info in infos),
+        'json_member_count': sum(info.filename.endswith('.json') for info in infos),
+        'uncompressed_bytes': sum(info.file_size for info in infos),
+        'compressed_bytes': sum(info.compress_size for info in infos),
+        'archive_bytes': Path(path).stat().st_size,
+    }
+
+
+def _cache_export_state(system):
+    """Return a read-only summary of archived interface caches."""
+    interfaces = []
+    state_counts = {}
+    for index, interface in enumerate(getattr(system, 'ifaces', None) or []):
+        state = str(getattr(interface, 'archive_cache_state', None) or 'UNKNOWN')
+        state_counts[state] = state_counts.get(state, 0) + 1
+        caches = getattr(interface, 'representation_caches', None) or {}
+        interfaces.append({
+            'index': index,
+            'interface_id': getattr(interface, 'archive_id', None),
+            'network_id': getattr(getattr(interface, 'net', None), 'archive_id', None),
+            'archive_cache_state': state,
+            'geometry_analysis': getattr(interface, 'geometry_analysis', None) is not None,
+            'dual': getattr(interface, '_geometry_dual', None) is not None,
+            'filtration': getattr(interface, '_geometry_filtration', None) is not None,
+            'representation': getattr(interface, '_geometry_representation', None) is not None,
+            'representation_cache_keys': sorted(str(key) for key in caches),
+        })
+    return {
+        'interface_count': len(interfaces),
+        'state_counts': state_counts,
+        'interfaces': interfaces,
+    }
+
+
+def _atomic_copy(source, destination):
+    """Copy one completed artifact without exposing a partial destination."""
+    source = Path(source)
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if source.resolve() == destination.resolve():
+        return
+    fd, temporary = tempfile.mkstemp(prefix='.vorpy-copy-', suffix='.tmp', dir=destination.parent)
+    os.close(fd)
+    try:
+        shutil.copyfile(source, temporary)
+        os.replace(temporary, destination)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def _copy_archive_artifacts(source, destination):
+    """Reuse an automatic archive and its timing sidecar for explicit output."""
+    source = Path(source)
+    destination = Path(destination)
+    _atomic_copy(source, destination)
+    source_timing = source.with_name(source.name + '.timing.json')
+    destination_timing = destination.with_name(destination.name + '.timing.json')
+    if not source_timing.is_file():
+        return
+    try:
+        manifest = json.loads(source_timing.read_text(encoding='utf-8'))
+        manifest['archive'] = destination.name
+        encoded = json.dumps(manifest, allow_nan=False, separators=(',', ':')) + '\n'
+        fd, temporary = tempfile.mkstemp(
+            prefix='.vorpy-timing-', suffix='.tmp', dir=destination_timing.parent
+        )
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8', newline='') as stream:
+                stream.write(encoded)
+            os.replace(temporary, destination_timing)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+    except (OSError, TypeError, ValueError):
+        _atomic_copy(source_timing, destination_timing)
+
+
+def _profile_interval(started):
+    return {
+        'wall_seconds': perf_counter() - started[0],
+        'cpu_seconds': process_time() - started[1],
+    }
+
+
+def _write_cache_export_profile(system, input_archive, profile):
+    destination = Path(system.files['dir']) / 'cache_export_profile.json'
+    payload = {
+        'format': 'vorpy.cache_export_profile',
+        'profile_version': 1,
+        'input_archive': Path(input_archive).name,
+        'output_directory': str(Path(system.files['dir']).resolve()),
+        **profile,
+    }
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix='.vorpy-profile-', suffix='.tmp', dir=destination.parent)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8', newline='') as stream:
+            json.dump(payload, stream, allow_nan=False, indent=2, sort_keys=True)
+            stream.write('\n')
+        os.replace(temporary, destination)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def available_cpu_count():
@@ -300,6 +434,7 @@ class Command:
         self.visualize_dual_requested = False
         self.visualize_alpha_value = None
         self.execution_profile = None
+        self.cache_export_profile = False
         self.calculation_plan = None
         self._build_group_networks = False
         self._full_system_separate = False
@@ -328,6 +463,9 @@ class Command:
         # Resolve the base input file
         self._arguments = list(sys.argv[1:])
         self._arguments, self.execution_profile = execution_profile_cli_options(
+            self._arguments
+        )
+        self._arguments, self.cache_export_profile = cache_export_profile_cli_options(
             self._arguments
         )
         if self._arguments and self._arguments[0] == '--load-network':
@@ -370,6 +508,8 @@ class Command:
         if self.base_file is None:
             raise SystemExit(f"Input file not found: {input_arg}. "
                              "Provide an existing path or a filename from vorpy/data.")
+        if self.cache_export_profile and Path(self.base_file).suffix.lower() != '.vpy':
+            raise SystemExit('--profile-cache-export requires a .vpy archive input')
         if Path(self.base_file).suffix.lower() == '.vpy':
             self._run_archive()
             return
@@ -843,24 +983,45 @@ class Command:
             return
 
         # Export requested outputs
+        self.sys._last_export_archive_path = None
+        self.sys._last_export_archive_output_path = None
         self.run_exports()
         self._save_archive()
 
     def _save_archive(self):
         if self.save_network_path is not None:
-            from vorpy.src.io import save_network
             destination = self.save_network_path
             if getattr(self.sys, 'frame_count', 1) > 1:
                 destination = destination.with_name(f'{destination.stem}_frame_{self.sys.frame_index:04d}.vpy')
-            save_network(self.sys, destination)
+            automatic = getattr(self.sys, '_last_export_archive_path', None)
+            if automatic and Path(automatic).is_file():
+                _copy_archive_artifacts(automatic, destination)
+            else:
+                from vorpy.src.io import save_network
+                save_network(self.sys, destination)
+            self.sys._last_export_archive_output_path = str(destination)
+            self.sys._last_export_archive_path = None
             print(f'Solved network saved: {destination}')
 
     def _run_archive(self):
         from vorpy.src.io import group_from_network, load_network
+        profile = None
+        profile_started = None
+        if self.cache_export_profile:
+            profile = {
+                'timing': {},
+                'export_phases': {},
+            }
+            profile_started = (perf_counter(), process_time())
+            started = (perf_counter(), process_time())
         network = load_network(self.base_file)
+        if profile is not None:
+            profile['timing']['load'] = _profile_interval(started)
         self.sys = network.sys
         self.sys._loaded_from_archive = True
         self.sys.set_output_directory(self.sys.files['dir'])
+        if profile is not None:
+            started = (perf_counter(), process_time())
         self.parse_commands()
         self.sys._compact_interface_workflow = any(
             command and str(command[0]).strip().lower() == 'visualize'
@@ -882,12 +1043,55 @@ class Command:
             self.run_apollonius()
         if self.visualize_dual_requested:
             self.run_dual_visualization()
+        if profile is not None:
+            profile['timing']['command_setup'] = _profile_interval(started)
+            self.sys._last_export_archive_path = None
+            self.sys._last_export_archive_output_path = None
         if self.aw_alpha_values:
+            started = (perf_counter(), process_time())
             self.run_aw_alpha_experimental()
+            if profile is not None:
+                profile['timing']['export'] = _profile_interval(started)
+            started = (perf_counter(), process_time())
             self._save_archive()
+            if profile is not None:
+                profile['timing']['explicit_archive'] = _profile_interval(started)
+                self._finish_cache_export_profile(profile, profile_started)
             return
+        started = (perf_counter(), process_time())
         self.run_exports()
+        if profile is not None:
+            profile['timing']['export'] = _profile_interval(started)
+        started = (perf_counter(), process_time())
         self._save_archive()
+        if profile is not None:
+            profile['timing']['explicit_archive'] = _profile_interval(started)
+            self._finish_cache_export_profile(profile, profile_started)
+
+    def _finish_cache_export_profile(self, profile, profile_started):
+        """Persist the opt-in profile after cache-only export work completes."""
+        from vorpy.src.io.network_archive import _process_memory
+
+        profile['timing']['total'] = _profile_interval(profile_started)
+        output_archive = getattr(self.sys, '_last_export_archive_output_path', None)
+        output_archive = output_archive or getattr(self.sys, '_last_export_archive_path', None)
+        profile['archive_members'] = {
+            'input': _archive_member_counts(self.base_file),
+            'output': _archive_member_counts(output_archive),
+        }
+        profile['cache_state'] = _cache_export_state(self.sys)
+        profile['export_phases'] = {
+            'run_exports': profile['timing'].get('export'),
+            'operations': getattr(self.sys, 'export_timing', {}),
+            'mesh': getattr(self.sys, 'export_mesh_timing', {}),
+        }
+        rss, source = _process_memory()
+        profile['peak_rss_bytes'] = rss if source == 'resource_ru_maxrss' else None
+        profile['peak_rss_supported'] = source == 'resource_ru_maxrss'
+        profile['rss_bytes'] = rss
+        profile['memory_source'] = source
+        profile['output_archive'] = None if output_archive is None else Path(output_archive).name
+        _write_cache_export_profile(self.sys, self.base_file, profile)
 
     def build_groups_from_logs(self):
         """

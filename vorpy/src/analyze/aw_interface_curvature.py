@@ -94,6 +94,11 @@ class AWInterfaceCurvatureResult:
         return {"A": len(self.group_a), "B": len(self.group_b)}
 
     @property
+    def completeness_evidence(self):
+        """Return analysis-only selected-face/coface evidence."""
+        return self.complex.interface_completeness(self.group_a, self.group_b)
+
+    @property
     def interface_area(self):
         return float(sum(record.area or 0.0 for record in self.selected_surfaces))
 

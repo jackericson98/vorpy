@@ -31,6 +31,7 @@ from vorpy.src.io.scientific_adapters import (
     canonical_environment, canonical_network_scope, scope, stable_id,
 )
 from vorpy.src.output.layout import interface_folder_name
+from vorpy.src.network.aw_geometry_reuse import build_geometry_lineage_metadata
 from vorpy.src.results import (
     INTERFACE_LOG_COLUMNS,
     INTERFACE_LOG_QUANTITY_UNITS,
@@ -38,6 +39,7 @@ from vorpy.src.results import (
     RESULT_METRIC_QUANTITY_TO_INTERFACE_LOG,
     RESULT_MOLECULAR_QUANTITY_TO_INTERFACE_LOG,
     InterfaceLogRow,
+    make_geometry_lineage,
     Provenance,
     ResultIdentity,
     Status,
@@ -45,6 +47,7 @@ from vorpy.src.results import (
     adapt_dual_contact_complex,
     adapt_dual_generator_complex,
     adapt_interface_analysis,
+    is_provisional_source_network_id,
     unavailable_alpha_selection,
     unavailable_dual_contact_complex,
     unavailable_dual_generator_complex,
@@ -308,6 +311,26 @@ def _cached_result_identity(iface, *, result_kind='interface', representation='v
     )
     environment = canonical_environment(source.get('environment', metadata.get(
         'environment', 'solvent_competing' if metadata.get('solvent_context') else 'dry')))
+    producer_source_network_id = getattr(net, 'source_network_id', None)
+    if not isinstance(producer_source_network_id, str) or not producer_source_network_id.strip():
+        producer_source_network_id = None
+    source_identity_status = 'UNRESOLVED'
+    if producer_source_network_id is not None:
+        if producer_source_network_id == getattr(net, 'archive_id', None):
+            producer_source_network_id = None
+        else:
+            source_identity_status = 'AUTHORITATIVE'
+            get_context = getattr(net, 'get_solve_context_key', None)
+            if callable(get_context):
+                try:
+                    context = get_context()
+                except (AttributeError, TypeError, ValueError):
+                    context = None
+                solve_universe_id = getattr(context, 'solve_universe_id', None)
+                if isinstance(solve_universe_id, str) and is_provisional_source_network_id(
+                    producer_source_network_id, solve_universe_id
+                ):
+                    source_identity_status = 'PROVISIONAL'
     return ResultIdentity(
         result_kind=result_kind,
         system=str(getattr(sys, 'name', 'system')),
@@ -333,8 +356,9 @@ def _cached_result_identity(iface, *, result_kind='interface', representation='v
         molecular_surface_convention=getattr(surface, 'convention', None),
         definition_version=getattr(surface, 'definition_version', None),
         partner_id='B' if side == 'A' else 'A' if side == 'B' else None,
-        source_network_id=stable_id(net),
-        source_interface_id=stable_id(iface),
+        source_network_id=producer_source_network_id,
+        source_identity_status=source_identity_status,
+        source_interface_id=getattr(iface, 'interface_id', None),
         interaction_id=f'{getattr(sys, "name", "system")}:{getattr(iface, "name", "interface")}',
         orientation_convention=(
             'outward_molecular_normal' if result_kind == 'molecular_contact_surface'
@@ -350,8 +374,34 @@ def _cached_interface_result(iface):
     details = dict(archive_provenance) if isinstance(archive_provenance, Mapping) else {}
     provenance = Provenance('cached interface scientific state', scientific_state_id=stable_id(analysis)
                             if analysis is not None else None, details=details)
-    return (adapt_interface_analysis(analysis, identity, provenance=provenance)
-            if analysis is not None else unavailable_interface(identity, provenance=provenance))
+    if analysis is None:
+        return unavailable_interface(identity, provenance=provenance)
+    # Preserve producer lineage loaded from the archive; synthesize only for
+    # legacy caches that have no archived lineage record.
+    geometry_lineage = None
+    if provenance.geometry_lineage is None:
+        solver_evidence = getattr(iface.net, 'aw_solver_provenance', None)
+        try:
+            lineage_metadata = build_geometry_lineage_metadata(
+                iface.net,
+                selection_scope={
+                    'scope': 'interface',
+                    'source_interface_id': getattr(iface, 'interface_id', None),
+                },
+                orientation={'convention': 'physical_interface_A_to_B'},
+            )
+        except (AttributeError, TypeError, ValueError):
+            lineage_metadata = {}
+        geometry_lineage = make_geometry_lineage(
+            lineage_metadata,
+            solver_evidence=solver_evidence,
+        ).as_dict()
+    return adapt_interface_analysis(
+        analysis,
+        identity,
+        provenance=provenance,
+        geometry_lineage=geometry_lineage,
+    )
 
 
 def _cached_alpha_selection_result(iface):
