@@ -1,6 +1,7 @@
 import os
 import csv
 import json
+from hashlib import sha256
 from vorpy.src.network.runtime_diagnostics import checkpoint, verbose_build
 import time
 import numpy as np
@@ -11,7 +12,11 @@ from numpy import array, inf, cbrt, sqrt
 from vorpy.src.calculations import get_time
 from vorpy.src.calculations import calc_length
 from vorpy.src.calculations import global_vars
-from vorpy.src.network.analyze import analyze, analyze_geometry_only
+from vorpy.src.network.analyze import (
+    analyze,
+    analyze_geometry_only,
+    diagnose_geometry_completeness,
+)
 from vorpy.src.network.build_net import build
 from vorpy.src.network.build_edge1 import build_edge
 from vorpy.src.network.build_surfs import build_surfs
@@ -20,6 +25,10 @@ from vorpy.src.network.mark_doublets import mark_doublets
 from vorpy.src.network.find_net_verts import find_net_verts
 from vorpy.src.network.net_logs_connect import net_logs_connect
 from vorpy.src.network.edge_geometry_diagnostics import diagnose_aw_edge_geometry
+from vorpy.src.boundary import (
+    normalize_retained_system_indices,
+    normalize_solvent_mode,
+)
 
 
 def _build_timing_enabled(net):
@@ -128,7 +137,11 @@ class Network:
 
     def __init__(self, locs, rads, names=None, group=None, iface_grps=None, group_name=None, settings=None, balls=None,
                  verts=None, edges=None, surfs=None, box=None, sort_balls=False, build_net=False,
-                 masses=None, system=None):
+                 masses=None, system=None, source_network_id=None,
+                 generator_system_indices=None, generator_stable_ids=None,
+                 solvent_local_indices=None, solvent_generator_ids=None,
+                 solvent_mode=None, retained_system_indices=None,
+                 retained_generator_ids=None):
         """
         Initialize a Network object with the given parameters.
 
@@ -147,6 +160,17 @@ class Network:
             build_net: Whether to build network on initialization
             masses: Optional list of ball masses
             system: Optional System object
+            source_network_id: Optional explicit producer/archive namespace
+                propagated to immutable NetworkView selections
+            generator_system_indices: System-global ID for each local generator;
+                ``None`` marks appended numerical boundary generators.
+            generator_stable_ids: Deterministic producer IDs for generators.
+            solvent_local_indices: Local generator indices classified as solvent.
+            solvent_generator_ids: Stable IDs for participating solvent generators.
+            solvent_mode: Explicit solvent-generator universe mode.
+            retained_system_indices: Explicit System-global molecular rows retained
+                from the otherwise excluded solvent/ion universe.
+            retained_generator_ids: Stable IDs corresponding to retained rows.
         """
         # Main network defining objects
         self.group = group  # Group          : List of loc and rad indices for calculation
@@ -175,6 +199,31 @@ class Network:
 
         # System element
         self.sys = system
+        self.source_network_id = source_network_id
+        self.generator_system_indices = (
+            None if generator_system_indices is None
+            else tuple(generator_system_indices)
+        )
+        self.generator_stable_ids = (
+            None if generator_stable_ids is None
+            else tuple(str(value) for value in generator_stable_ids)
+        )
+        self.solvent_local_indices = tuple(solvent_local_indices or ())
+        self.solvent_generator_ids = tuple(str(value) for value in (solvent_generator_ids or ()))
+        self.solvent_mode = solvent_mode
+        self.solvent_cells_complete = None
+        self.solvent_generator_digest = None
+        self.retained_system_indices = normalize_retained_system_indices(
+            retained_system_indices
+        )
+        self.retained_generator_ids = tuple(
+            str(value) for value in (retained_generator_ids or ())
+        )
+        self.retained_generator_digest = None
+        self.boundary_indices = ()
+        self.boundary_generators = ()
+        self.boundary_config = None
+        self.boundary_mode = None
 
         if iface_grps is not None:
             if len(iface_grps) != 2:
@@ -207,6 +256,39 @@ class Network:
         if self.balls is None:
             self.balls = pd.DataFrame({'loc': locs, 'rad': rads, 'num': [i for i in range(len(locs))], 'name': names,
                                        'mass': masses})
+        if self.generator_system_indices is not None:
+            if len(self.generator_system_indices) != len(self.balls):
+                raise ValueError("generator_system_indices must match the Network balls")
+            self.balls["system_num"] = pd.Series(
+                [
+                    -1 if value is None else int(value)
+                    for value in self.generator_system_indices
+                ],
+                index=self.balls.index,
+                dtype=int,
+            )
+            self.boundary_indices = tuple(
+                index for index, value in enumerate(self.generator_system_indices)
+                if value is None
+            )
+        if self.generator_stable_ids is not None:
+            if len(self.generator_stable_ids) != len(self.balls):
+                raise ValueError("generator_stable_ids must match the Network balls")
+            self.balls["stable_id"] = list(self.generator_stable_ids)
+        if self.solvent_local_indices:
+            solvent_flags = [
+                index in set(self.solvent_local_indices)
+                for index in range(len(self.balls))
+            ]
+            self.balls["is_solvent_generator"] = solvent_flags
+        elif "is_solvent_generator" not in self.balls:
+            self.balls["is_solvent_generator"] = False
+        if "is_boundary_generator" not in self.balls:
+            self.balls["is_boundary_generator"] = [
+                index in set(self.boundary_indices)
+                for index in range(len(self.balls))
+            ]
+        self.refresh_solvent_provenance()
         # Sort the balls if need be
         if sort_balls:
             self.sort_balls()
@@ -214,6 +296,121 @@ class Network:
         if build_net:
             if self.settings is None:
                 self.default_settings()
+
+    def refresh_solvent_provenance(self):
+        """Refresh producer-attested solvent mode and membership evidence."""
+        settings_mode = (
+            self.settings.get("solvent_mode")
+            if isinstance(self.settings, dict) else None
+        )
+        mode_value = self.solvent_mode if self.solvent_mode is not None else settings_mode
+        if mode_value is None:
+            return None
+        mode = normalize_solvent_mode(mode_value)
+        self.solvent_mode = mode.value
+
+        if self.generator_system_indices is None and "system_num" in self.balls:
+            self.generator_system_indices = tuple(
+                None if pd.isna(value) else int(value)
+                for value in self.balls["system_num"]
+            )
+        if self.generator_stable_ids is None and "stable_id" in self.balls:
+            self.generator_stable_ids = tuple(
+                str(value) for value in self.balls["stable_id"]
+            )
+        if not self.solvent_local_indices and "is_solvent_generator" in self.balls:
+            self.solvent_local_indices = tuple(
+                index for index, value in enumerate(self.balls["is_solvent_generator"])
+                if bool(value)
+            )
+
+        if not self.solvent_generator_ids:
+            stable_ids = self.generator_stable_ids or tuple(
+                f"system:{value}" if value is not None else f"boundary:{index}"
+                for index, value in enumerate(self.generator_system_indices or ())
+            )
+            self.solvent_generator_ids = tuple(
+                stable_ids[index] for index in self.solvent_local_indices
+            )
+        if self.solvent_generator_ids:
+            payload = json.dumps(
+                list(self.solvent_generator_ids), separators=(",", ":"), ensure_ascii=True
+            ).encode("utf-8")
+            self.solvent_generator_digest = sha256(payload).hexdigest()
+        else:
+            self.solvent_generator_digest = None
+
+        if self.retained_system_indices or self.retained_generator_ids:
+            payload = json.dumps(
+                {
+                    "system_indices": tuple(self.retained_system_indices),
+                    "generator_ids": tuple(self.retained_generator_ids),
+                },
+                separators=(",", ":"),
+                ensure_ascii=True,
+                sort_keys=True,
+            ).encode("utf-8")
+            self.retained_generator_digest = sha256(payload).hexdigest()
+        else:
+            self.retained_generator_digest = None
+
+        group_indices = set(self.group or ())
+        self.solvent_cells_complete = bool(
+            mode.value == "FULL_SOLVENT"
+            and set(self.solvent_local_indices).issubset(group_indices)
+        )
+        if isinstance(self.settings, dict):
+            self.settings["solvent_mode"] = mode.value
+            self.settings["solvent_generator_digest"] = self.solvent_generator_digest
+            self.settings["solvent_cells_complete"] = self.solvent_cells_complete
+        return self.solvent_provenance
+
+    @property
+    def solvent_provenance(self):
+        if self.solvent_mode is None:
+            return None
+        return {
+            "solvent_mode": self.solvent_mode,
+            "solvent_generator_digest": self.solvent_generator_digest,
+            "solvent_cells_complete": self.solvent_cells_complete,
+            "solvent_local_indices": tuple(self.solvent_local_indices),
+            "solvent_generator_ids": tuple(self.solvent_generator_ids),
+            "generator_membership": self.generator_membership_evidence,
+        }
+
+    @property
+    def retained_generator_provenance(self):
+        """Return explicit molecular-component retention evidence."""
+        return {
+            "policy": "explicit_system_indices",
+            "retained_system_indices": tuple(self.retained_system_indices),
+            "retained_generator_ids": tuple(self.retained_generator_ids),
+            "retained_generator_digest": self.retained_generator_digest,
+            "boundary_independent": True,
+        }
+
+    @property
+    def participating_solvent_generator_digest(self):
+        """Compatibility alias for older FORGE diagnostics."""
+        return self.solvent_generator_digest
+
+    @property
+    def generator_membership_evidence(self):
+        """Immutable local-to-system membership and boundary evidence."""
+        system_indices = self.generator_system_indices or ()
+        stable_ids = self.generator_stable_ids or ()
+        solvent_indices = set(self.solvent_local_indices)
+        boundary_indices = set(self.boundary_indices)
+        return tuple(
+            (
+                int(local_index),
+                None if local_index >= len(system_indices) else system_indices[local_index],
+                None if local_index >= len(stable_ids) else stable_ids[local_index],
+                local_index in solvent_indices,
+                local_index in boundary_indices,
+            )
+            for local_index in range(len(self.balls))
+        )
 
     def default_settings(self, surf_res=0.2, box_size=1.5, max_vert=40, build_type='all', net=None,
                          net_type='aw', surf_col='rainbow', surf_scheme='int_mean_curv', num_splits=None, print_metrics=False,
@@ -240,6 +437,61 @@ class Network:
                          'box_size': box_size, 'net_type': net_type, 'build_type': build_type, 'num_splits': num_splits,
                          'print_metrics': print_metrics, 'atom_rad': None, 'scheme_factor': scheme_factor,
                          'foam_box': None, 'sys_dir': os.getcwd()}
+
+    def get_solve_context_key(self, *, frame_id=None, environment=None,
+                              partition_scheme=None, solver_version=None,
+                              build_options=None):
+        """Return the deterministic identity for this network's solve inputs.
+
+        This is metadata only.  It never builds, reuses, or mutates network
+        geometry.  The optional arguments are forwarded to the identity
+        builder so callers can make frame/environment provenance explicit.
+        """
+        from vorpy.src.network.aw_geometry_reuse import (
+            DEFAULT_SOLVER_VERSION,
+            build_solve_context_key,
+        )
+
+        return build_solve_context_key(
+            self,
+            frame_id=frame_id,
+            environment=environment,
+            partition_scheme=partition_scheme,
+            build_options=build_options,
+            solver_version=(
+                DEFAULT_SOLVER_VERSION
+                if solver_version is None else solver_version
+            ),
+        )
+
+    def make_view(self, *, group_ids=None, iface_grps=None,
+                  source_network_id=None):
+        """Return a read-only selection over this solved network.
+
+        ``group_ids`` and ``iface_grps`` are explicit system-global generator
+        IDs.  View creation only reads existing topology and never invokes a
+        network build or mutates this Network.
+        """
+        from vorpy.src.network.views import NetworkView, NetworkViewError
+
+        if group_ids is not None and iface_grps is not None:
+            raise NetworkViewError("Choose either group_ids or iface_grps, not both.")
+        if group_ids is not None:
+            return NetworkView.for_group(
+                self,
+                group_ids,
+                source_network_id=source_network_id,
+            )
+        if iface_grps is not None:
+            if len(iface_grps) != 2:
+                raise NetworkViewError("Interface views require exactly two groups.")
+            return NetworkView.for_interface(
+                self,
+                iface_grps[0],
+                iface_grps[1],
+                source_network_id=source_network_id,
+            )
+        raise NetworkViewError("A group or ordered interface selection is required.")
 
     def calc_box(self, locs, rads, return_val=False, box_size=None):
         """
@@ -644,6 +896,10 @@ class Network:
         return diagnose_aw_edge_geometry(
             self, tolerance=tolerance, quadrature_order=quadrature_order
         )
+
+    def diagnose_geometry_completeness(self, *, tolerance=1e-9):
+        """Return read-only per-cell closure and boundedness evidence."""
+        return diagnose_geometry_completeness(self, tolerance=tolerance)
 
     def analyze(self):
         analyze(self)

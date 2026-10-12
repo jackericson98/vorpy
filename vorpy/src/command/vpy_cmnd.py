@@ -9,7 +9,12 @@ from itertools import combinations
 from pathlib import Path
 from tkinter import filedialog
 
-from vorpy.src.boundary import BoundaryConfig, resolve_boundary
+from vorpy.src.boundary import (
+    BoundaryConfig,
+    SolventMode,
+    normalize_solvent_mode,
+    resolve_boundary,
+)
 from vorpy.src.command.command_export import argv_export
 from vorpy.src.command.calculation_plan import (
     build_calculation_plan,
@@ -27,6 +32,7 @@ FRAME_OPTIONS = ('load_commands', 'groups', 'builds', 'exports',
                  'settings_cmnds', 'logs_files', 'interface_mode',
                  'verbose', 'diagnose_edges', 'boundary_config',
                  'boundary_explicitly_requested', 'boundary_warning_printed',
+                 'solvent_mode',
                  'apollonius_requested', 'alpha_value', 'power_settings',
                  'power_vs_aw_requested', 'power_cli_arguments',
                  'aw_alpha_values', 'aw_alpha_pair_overlap_only',
@@ -151,6 +157,36 @@ def boundary_cli_options(args):
         raise SystemExit(str(error)) from None
 
 
+def solvent_cli_options(args):
+    """Extract explicit solvent-generator-universe options."""
+    remaining = []
+    mode = None
+    args = iter(args)
+    for arg in args:
+        if arg == '--solvent-mode':
+            if mode is not None:
+                raise SystemExit('--solvent-mode may only be specified once')
+            try:
+                mode = normalize_solvent_mode(next(args))
+            except StopIteration:
+                raise SystemExit(
+                    '--solvent-mode requires MOLECULE_ONLY, SOLVENT_CONTEXT, or FULL_SOLVENT'
+                ) from None
+            except ValueError as error:
+                raise SystemExit(str(error)) from None
+        elif arg in {'--solvent-context', '--full-solvent'}:
+            if mode is not None:
+                raise SystemExit('solvent mode may only be specified once')
+            mode = (
+                SolventMode.SOLVENT_CONTEXT
+                if arg == '--solvent-context'
+                else SolventMode.FULL_SOLVENT
+            )
+        else:
+            remaining.append(arg)
+    return remaining, mode
+
+
 def visualization_cli_options(args):
     """Extract read-only dual visualization flags before legacy parsing."""
     remaining = []
@@ -250,6 +286,7 @@ class Command:
         self.boundary_config = BoundaryConfig()
         self.boundary_explicitly_requested = False
         self.boundary_warning_printed = False
+        self.solvent_mode = SolventMode.MOLECULE_ONLY
         self.apollonius_requested = False
         self.alpha_value = None
         self.power_settings = {'preset': None, 'probe_radius': 1.4, 'alpha': 0.0,
@@ -305,6 +342,9 @@ class Command:
         input_arg = self._arguments[0]
 
         self._arguments, self.boundary_config, self.boundary_explicitly_requested = boundary_cli_options(self._arguments)
+        self._arguments, requested_solvent_mode = solvent_cli_options(self._arguments)
+        if requested_solvent_mode is not None:
+            self.solvent_mode = requested_solvent_mode
         (self._arguments, self.visualize_dual_requested,
          self.visualize_alpha_value) = visualization_cli_options(self._arguments)
         if len(self._arguments) > 1:
@@ -403,11 +443,16 @@ class Command:
                 system_input = comparison_temp
         try:
             if self.sys is None:
-                self.sys = System(file=str(system_input), make_dir=False, boundary_config=self.boundary_config)
+                self.sys = System(
+                    file=str(system_input), make_dir=False,
+                    boundary_config=self.boundary_config,
+                    solvent_mode=self.solvent_mode,
+                )
                 if comparison_temp is not None:
                     self.sys.name = Path(self.base_file).stem
             else:
                 self.sys.boundary_config = self.boundary_config
+                self.sys.solvent_mode = self.solvent_mode
         finally:
             if comparison_temp is not None:
                 comparison_temp.unlink(missing_ok=True)
@@ -449,6 +494,7 @@ class Command:
                     frame_system = System(
                         file=frame_input, make_dir=False,
                         boundary_config=self.boundary_config,
+                        solvent_mode=self.solvent_mode,
                     )
                 finally:
                     if parser_temp is not None:
@@ -467,6 +513,7 @@ class Command:
                 command.boundary_config = deepcopy(self.boundary_config)
                 command.boundary_explicitly_requested = self.boundary_explicitly_requested
                 command.boundary_warning_printed = self.boundary_warning_printed
+                command.solvent_mode = self.solvent_mode
                 if output_root is None:
                     command.parse_commands()
                     if frame_system.files['dir'] is None:
@@ -925,6 +972,11 @@ class Command:
             self.boundary_explicitly_requested = True
             if self.sys is not None:
                 self.sys.boundary_config = boundary_config
+        my_args, requested_solvent_mode = solvent_cli_options(my_args)
+        if requested_solvent_mode is not None:
+            self.solvent_mode = requested_solvent_mode
+            if self.sys is not None:
+                self.sys.solvent_mode = requested_solvent_mode
         my_args, apollonius_requested, alpha_value = apollonius_cli_options(my_args)
         self.apollonius_requested = self.apollonius_requested or apollonius_requested
         if alpha_value is not None:

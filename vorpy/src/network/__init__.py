@@ -7,6 +7,12 @@ from vorpy.src.network.build_surfs import build_surfs
 from vorpy.src.network.edge_project import edge_project
 from vorpy.src.network.fill import calc_surf_point
 from vorpy.src.network.fill import calc_surf_point_from_plane
+from vorpy.src.network.aw_geometry_reuse import (
+    STATIC_FRAME_ID,
+    SolveContextKey,
+    build_solve_context_key,
+)
+from vorpy.src.network.views import NetworkView, NetworkViewError
 from vorpy.src.network.fill import calc_surf_point_from_plane
 
 

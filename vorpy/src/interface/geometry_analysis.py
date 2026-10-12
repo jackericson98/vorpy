@@ -533,6 +533,7 @@ def analyze_interface_geometry(iface, alpha=None, *, refresh=False,
             _analysis_progress(iface, 'Interface analysis | Building dual representation', 5.0)
             started = perf_counter()
             iface._geometry_dual = build_dual(iface.net)
+            iface._geometry_dual.record_explicit_group_membership(*groups)
             _stage_done(iface, 'Building dual representation', started, 20.0, timings)
             # Phase 1 AW selection requires only validated pair births.
             _analysis_progress(iface, 'Interface analysis | Building alpha selection', 20.0)

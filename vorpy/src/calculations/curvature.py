@@ -75,6 +75,131 @@ def gaussian_curvature(func, point, tol=1e-12):
     return K
 
 
+def integrate_quadratic_surface_gaussian_curvature(
+        func, points, tris, plane_point, plane_normal, reference_point,
+        *, order=8, point_tolerance=1e-6, tol=1e-12):
+    """Integrate ``K dA`` on a quadratic surface over curved mesh triangles.
+
+    The stored surface mesh is a triangulation in a projection plane whose
+    vertices were lifted to the selected regular branch of the implicit
+    quadratic.  This routine re-lifts Duffy-mapped Gauss--Legendre points and
+    uses the implicit graph Jacobian, rather than multiplying centroid ``K``
+    by flat triangle area.  A failed branch, projection, or regularity check
+    is unresolved and raises ``ValueError``.
+    """
+    coefficients = np.asarray(func, dtype=float)
+    if (coefficients.ndim != 1 or coefficients.size < 14 or
+            not np.all(np.isfinite(coefficients))):
+        raise ValueError("Quadratic surface coefficients are incomplete.")
+    surface_points = np.asarray(points, dtype=float)
+    if surface_points.ndim != 2 or surface_points.shape[1] != 3:
+        raise ValueError("Surface points must be finite three-vectors.")
+    triangles = np.asarray(tris, dtype=int)
+    if triangles.ndim != 2 or triangles.shape[1] != 3:
+        raise ValueError("Surface triangles must have three indices.")
+    if len(triangles) == 0 or np.any(triangles < 0) or np.any(triangles >= len(surface_points)):
+        raise ValueError("Surface triangles are empty or out of bounds.")
+    plane_point = np.asarray(plane_point, dtype=float)
+    plane_normal = np.asarray(plane_normal, dtype=float)
+    reference_point = np.asarray(reference_point, dtype=float)
+    if any(vector.shape != (3,) or not np.all(np.isfinite(vector))
+           for vector in (plane_point, plane_normal, reference_point)):
+        raise ValueError("Surface projection metadata is incomplete.")
+    normal_length = float(np.linalg.norm(plane_normal))
+    if normal_length <= tol:
+        raise ValueError("Surface projection normal is degenerate.")
+    plane_normal = plane_normal / normal_length
+    if not np.all(np.isfinite(surface_points)):
+        raise ValueError("Surface points must be finite.")
+    order = int(order)
+    if order < 2:
+        raise ValueError("Curved-surface quadrature order must be at least two.")
+
+    A, B, C, D, E, F, G, Hc, Ic, J = coefficients[:10]
+
+    def gradient(point):
+        x, y, z = point
+        return np.array((
+            2.0*A*x + D*y + F*z + G,
+            2.0*B*y + D*x + E*z + Hc,
+            2.0*C*z + F*x + E*y + Ic,
+        ), dtype=float)
+
+    def surface_point(projected):
+        """Lift a plane point to the branch nearest the reference generator."""
+        direction = plane_normal
+        x, y, z = projected
+        a = A*direction[0]**2 + B*direction[1]**2 + C*direction[2]**2 \
+            + D*direction[0]*direction[1] + E*direction[1]*direction[2] \
+            + F*direction[2]*direction[0]
+        b = (2.0*A*direction[0]*x + 2.0*B*direction[1]*y
+             + 2.0*C*direction[2]*z
+             + D*(direction[0]*y + direction[1]*x)
+             + E*(direction[1]*z + direction[2]*y)
+             + F*(direction[2]*x + direction[0]*z)
+             + G*direction[0] + Hc*direction[1] + Ic*direction[2])
+        c = (A*x*x + B*y*y + C*z*z + D*x*y + E*y*z + F*z*x
+             + G*x + Hc*y + Ic*z + J)
+        scale = max(1.0, abs(b*b), abs(4.0*a*c))
+        discriminant = b*b - 4.0*a*c
+        if discriminant < -tol*scale:
+            raise ValueError("Surface projection has no real quadratic root.")
+        if abs(a) <= tol*max(1.0, abs(b), abs(c)):
+            if abs(b) <= tol*max(1.0, abs(c)):
+                raise ValueError("Surface projection has no regular root.")
+            roots = (-c/b,)
+        else:
+            root = float(np.sqrt(max(discriminant, 0.0)))
+            roots = ((-b + root)/(2.0*a), (-b - root)/(2.0*a))
+        candidates = [projected + value*direction for value in roots]
+        result = min(candidates, key=lambda value: float(np.linalg.norm(value-reference_point)))
+        if not np.all(np.isfinite(result)):
+            raise ValueError("Surface projection produced a non-finite point.")
+        return result
+
+    nodes, weights = np.polynomial.legendre.leggauss(order)
+    unit_nodes = 0.5*(nodes + 1.0)
+    unit_weights = 0.5*weights
+    total = 0.0
+    for triangle in triangles:
+        actual = surface_points[triangle]
+        projected = actual - np.outer(
+            (actual - plane_point) @ plane_normal, plane_normal
+        )
+        for actual_point, projected_point in zip(actual, projected, strict=True):
+            if np.linalg.norm(surface_point(projected_point) - actual_point) > point_tolerance:
+                raise ValueError("Stored surface point is not on the selected quadratic branch.")
+        first = projected[1] - projected[0]
+        second = projected[2] - projected[0]
+        plane_jacobian = float(np.linalg.norm(np.cross(first, second)))
+        if not np.isfinite(plane_jacobian) or plane_jacobian <= tol:
+            raise ValueError("Surface triangle projection is degenerate.")
+        for u, wu in zip(unit_nodes, unit_weights, strict=True):
+            for v, wv in zip(unit_nodes, unit_weights, strict=True):
+                barycentric_v = (1.0-u)*v
+                projected_point = projected[0] + u*first + barycentric_v*second
+                point = surface_point(projected_point)
+                grad = gradient(point)
+                grad_length = float(np.linalg.norm(grad))
+                denominator = float(np.dot(grad, plane_normal))
+                if (not np.isfinite(grad_length) or grad_length <= tol or
+                        abs(denominator) <= tol*max(1.0, grad_length)):
+                    raise ValueError("Quadratic surface graph is singular at a quadrature point.")
+                first_derivative = first - plane_normal * float(np.dot(grad, first)/denominator)
+                second_derivative = second - plane_normal * float(np.dot(grad, second)/denominator)
+                surface_jacobian = float(np.linalg.norm(
+                    np.cross(first_derivative, second_derivative)
+                ))
+                if not np.isfinite(surface_jacobian):
+                    raise ValueError("Quadratic surface Jacobian is non-finite.")
+                total += float(wu*wv*(1.0-u)*surface_jacobian*gaussian_curvature(
+                    coefficients, point, tol=tol
+                ))
+    if not np.isfinite(total):
+        raise ValueError("Curved-surface Gaussian integral is non-finite.")
+    return float(total)
+
+
 def mean_curvature(func, point, tol=1e-12):
     """
     Calculates the mean curvature at a point on a surface.

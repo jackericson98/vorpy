@@ -5,6 +5,8 @@ not new scientific computations. Missing ratios, counts, and terms stay missing.
 """
 
 from collections.abc import Mapping
+from math import isfinite
+from numbers import Real
 
 from .model import (
     AtomIdentity,
@@ -24,11 +26,20 @@ from .model import (
     Provenance,
     Quantity,
     RepresentationExtension,
+    ResultIdentity,
     Status,
     SystemResult,
     Topology,
     normalize_environment,
     normalize_network_scope,
+)
+from .shared_network import (
+    ResultsDependency,
+    SharedNetworkIdentity,
+    validate_results_dependency,
+    validate_retained_generator_provenance,
+    validate_solve_context_identity,
+    validate_solvent_provenance,
 )
 
 MEAN_CONVENTION = "sum(smooth face H) + 1/2 sum(internal seam beta ds); free boundary has no automatic scalar H term"
@@ -619,6 +630,214 @@ def adapt_cached_result(identity, *, provenance, status=Status.PARTIAL, **blocks
     return cls(identity=identity, provenance=provenance, status=status, **blocks)
 
 
+def adapt_group_view_analysis(
+    analysis,
+    identity: SharedNetworkIdentity,
+    dependency: ResultsDependency,
+    *,
+    group_id: str,
+    system: str,
+    radius_configuration_id: str,
+    environment: str = "dry",
+    results_partition: str | None = None,
+    cached_dependency: ResultsDependency | None = None,
+    source_solve_context=None,
+    source_solvent_provenance=None,
+    source_retained_generator_provenance=None,
+):
+    """Adapt NEXUS ``GroupViewAnalysis`` into one typed ``GroupResult``.
+
+    NEXUS owns the immutable view and all area/volume calculations.  This
+    adapter validates only identity/evidence and never touches source geometry.
+    ``cached_dependency`` represents the prior cache lineage; a mismatch makes
+    the returned quantities ``STALE`` while retaining their cached values.
+    Certification requires the producer solve context and F10/F12 provenance;
+    supplied evidence is retained for downstream audit.
+    """
+    if not isinstance(identity, SharedNetworkIdentity):
+        raise TypeError("group view Results require SharedNetworkIdentity")
+    if not isinstance(dependency, ResultsDependency):
+        raise TypeError("group view Results require ResultsDependency")
+    if not identity.selection_id:
+        raise ValueError("group view Results require selection_id")
+    if dependency.identity != identity:
+        status = Status.UNRESOLVED
+    else:
+        status = validate_results_dependency(
+            dependency,
+            cached_dependency if cached_dependency is not None else dependency,
+        )
+    if status is not Status.STALE and any(
+        evidence is not Status.CERTIFIED
+        for evidence in (
+            validate_solve_context_identity(identity, source_solve_context),
+            validate_solvent_provenance(identity, source_solvent_provenance),
+            validate_retained_generator_provenance(
+                identity, source_retained_generator_provenance
+            ),
+        )
+    ):
+        status = Status.UNRESOLVED
+
+    observed = {
+        "source_network_id": getattr(analysis, "source_network_id", None),
+        "solve_universe_id": getattr(analysis, "solve_universe_id", None),
+        "selection_id": getattr(analysis, "selection_id", None),
+    }
+    expected = {
+        key: getattr(identity, key)
+        for key in observed
+    }
+    if observed != expected and status is not Status.STALE:
+        status = Status.UNRESOLVED
+
+    boundary_dependent_area = getattr(analysis, "boundary_dependent_area", None)
+    physical_interface_area = getattr(analysis, "physical_interface_area", None)
+    area_components_valid = all(
+        isinstance(value, Real)
+        and not isinstance(value, bool)
+        and isfinite(value)
+        and value >= 0
+        for value in (boundary_dependent_area, physical_interface_area)
+    )
+    if status is not Status.STALE and not area_components_valid:
+        status = Status.UNRESOLVED
+
+    complete_value = getattr(analysis, "complete", None)
+    complete = complete_value is True
+    if status is not Status.STALE:
+        if complete_value is not True and complete_value is not False:
+            status = Status.UNRESOLVED
+        elif status is Status.CERTIFIED and not complete:
+            status = Status.PARTIAL
+
+    partition = results_partition or identity.partition_scheme
+    partition_aliases = {"aw": "aw", "pow": "power", "power": "power"}
+    try:
+        partition = partition_aliases[partition]
+    except KeyError as error:
+        raise ValueError(
+            "Results partition mapping is required for unsupported geometry "
+            f"partition {partition!r}"
+        ) from error
+
+    result_identity = ResultIdentity(
+        result_kind="group",
+        system=system,
+        frame=identity.frame_id,
+        network_id=identity.source_network_id,
+        network_scope="system",
+        environment=environment,
+        partition=partition,
+        representation="voronoi",
+        radius_configuration_id=radius_configuration_id,
+        group_id=group_id,
+        source_network_id=identity.source_network_id,
+        source_identity_status=identity.source_identity_status,
+        solve_universe_id=identity.solve_universe_id,
+        analysis_context_kind=identity.analysis_context_kind,
+        selection_id=identity.selection_id,
+        solvent_mode=identity.solvent_mode,
+    )
+
+    provenance_details = {
+        "shared_network_identity": identity.payload(),
+        "dependency_digest": dependency.dependency_digest,
+        "source_revision": dependency.source_revision,
+        "cache_dependencies": ({
+            "identity": dependency.identity.payload(),
+            "source_id": dependency.source_id,
+            "source_revision": dependency.source_revision,
+            "source_digest": dependency.source_digest,
+            "upstream_dependency_digests": dependency.upstream_dependency_digests,
+            "required": dependency.required,
+            "status": dependency.status.value,
+            "dependency_digest": dependency.dependency_digest,
+        },),
+        "area_components": {
+            "total": getattr(analysis, "area", None),
+            "boundary_dependent": (
+                boundary_dependent_area if area_components_valid else None
+            ),
+            "physical_interface": (
+                physical_interface_area if area_components_valid else None
+            ),
+            "components_proven": area_components_valid,
+            "units": "\u00c5\u00b2",
+        },
+        "completeness": {
+            "proven": complete,
+            "boundary_surface_count": len(
+                getattr(analysis, "boundary_surface_ids", ())
+            ),
+        },
+    }
+    if cached_dependency is not None:
+        provenance_details["cached_dependency_digest"] = (
+            cached_dependency.dependency_digest
+        )
+        provenance_details["cached_dependency_status"] = (
+            cached_dependency.status.value
+        )
+    if source_solvent_provenance is not None:
+        provenance_details["source_solvent_provenance"] = source_solvent_provenance
+    if source_retained_generator_provenance is not None:
+        provenance_details["source_retained_generator_provenance"] = (
+            source_retained_generator_provenance
+        )
+    provenance = Provenance(
+        "NEXUS shared group view",
+        source_revision=dependency.source_revision,
+        details=provenance_details,
+    )
+
+    value_status = status if status in {
+        Status.CERTIFIED,
+        Status.PARTIAL,
+        Status.STALE,
+    } else status
+    metrics = {
+        "area": Quantity(
+            "area",
+            getattr(analysis, "area", None) if value_status in {
+                Status.CERTIFIED,
+                Status.PARTIAL,
+                Status.STALE,
+            } else None,
+            "Å²",
+            value_status,
+            "NEXUS shared group view boundary surfaces",
+            "group_view",
+            support_count=len(getattr(analysis, "boundary_surface_ids", ()))
+            if value_status in {Status.CERTIFIED, Status.PARTIAL, Status.STALE}
+            else None,
+            provenance=provenance,
+        ),
+        "volume": Quantity(
+            "volume",
+            getattr(analysis, "volume", None) if value_status in {
+                Status.CERTIFIED,
+                Status.PARTIAL,
+                Status.STALE,
+            } else None,
+            "Å³",
+            value_status,
+            "NEXUS shared group view cells",
+            "group_view",
+            support_count=len(getattr(analysis, "system_ids", ()))
+            if value_status in {Status.CERTIFIED, Status.PARTIAL, Status.STALE}
+            else None,
+            provenance=provenance,
+        ),
+    }
+    return GroupResult(
+        identity=result_identity,
+        provenance=provenance,
+        status=status,
+        metrics=metrics,
+    )
+
+
 def adapt_atom_metadata(metadata, *, system_id, network_id=None, generator_index=None):
     """Adapt already resolved molecular metadata; never use a generator as identity."""
 
@@ -786,6 +1005,25 @@ def _dual_audit(dual):
     return audit() if callable(audit) else None
 
 
+def _explicit_dual_simplex_ids(dual, side):
+    """Return producer-supplied simplex membership, never a geometric guess."""
+    metadata = _read(dual, "metadata", None)
+    evidence = metadata.get("explicit_group_membership") if isinstance(metadata, Mapping) else None
+    if evidence is None:
+        return None
+    if not isinstance(evidence, Mapping):
+        raise TypeError("Dual explicit group membership must be a mapping")
+    memberships = evidence.get("simplex_ids")
+    if not isinstance(memberships, Mapping) or side not in memberships:
+        raise ValueError(f"Dual explicit group membership has no {side!r} simplex IDs")
+    values = tuple(memberships[side])
+    if any(not isinstance(value, str) or not value for value in values):
+        raise ValueError("Dual explicit simplex IDs must be nonempty strings")
+    if len(set(values)) != len(values):
+        raise ValueError("Dual explicit simplex IDs must be unique")
+    return values
+
+
 def _dual_result_status(records, audit):
     if audit is None or not bool(_read(audit, "valid", False)):
         return Status.PARTIAL
@@ -876,6 +1114,10 @@ def adapt_dual_contact_complex(dual, identity, *, provenance=None, simplex_ids=N
     provenance = _dual_provenance(provenance, "cached dual contact complex")
     if dual is None:
         return unavailable_dual_contact_complex(identity, provenance=provenance)
+    if simplex_ids is None:
+        explicit_ids = _explicit_dual_simplex_ids(dual, "AB/contact")
+        if explicit_ids is not None:
+            simplex_ids = explicit_ids
     records = _dual_records(
         dual, provenance, dimensions={1}, simplex_ids=simplex_ids
     )
@@ -921,6 +1163,16 @@ def adapt_dual_generator_complex(
     provenance = _dual_provenance(provenance, "cached dual generator complex")
     if dual is None:
         return unavailable_dual_generator_complex(identity, provenance=provenance)
+    if simplex_ids is None and identity.side in {"A", "B"}:
+        simplex_ids = _explicit_dual_simplex_ids(dual, identity.side)
+        if simplex_ids is None:
+            return unavailable_dual_generator_complex(
+                identity, status=Status.NOT_SUPPORTED, provenance=provenance
+            )
+    elif simplex_ids is None:
+        explicit_ids = _explicit_dual_simplex_ids(dual, identity.side)
+        if explicit_ids is not None:
+            simplex_ids = explicit_ids
     records = _dual_records(dual, provenance, simplex_ids=simplex_ids)
     audit = _dual_audit(dual)
     status = _dual_result_status(records, audit)

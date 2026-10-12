@@ -4,7 +4,7 @@ import numpy as np
 from copy import deepcopy
 from vorpy.src.group import Group
 from vorpy.src.network import Network
-from vorpy.src.boundary import network_geometry
+from vorpy.src.boundary import prepare_network_geometry
 from vorpy.src.interface.export import interface_exports
 from vorpy.src.interface.water import analyze_interface_waters
 from vorpy.src.interface.water import build_buried_water_groups
@@ -130,34 +130,67 @@ class Interface:
             self.group2_indices = set(self.group2.ball_ndxs)
             self.group2_name = self.group2.name
 
-        interface_indices = sorted(self.group1_indices | self.group2_indices)
-
-        locs, rads, masses, boundary_indices, boundary_config = network_geometry(self.sys)
+        geometry = prepare_network_geometry(
+            self.sys,
+            getattr(self.group1, "solvent_mode", None),
+        )
+        system_to_local = {
+            int(system_index): local_index
+            for local_index, system_index in enumerate(geometry.system_indices)
+            if system_index is not None
+        }
+        missing_group1 = sorted(set(self.group1_indices) - set(system_to_local))
+        if missing_group1:
+            raise ValueError(
+                "Interface group 1 contains generators excluded by solvent_mode: "
+                f"{missing_group1[:5]}"
+            )
+        # A default molecule-only interface may be requested against the
+        # surrounding System selection; excluded physical solvent is simply
+        # absent from that surrounding side. Explicit solvent modes retain it.
+        group1_local = {
+            system_to_local[index] for index in self.group1_indices
+        }
+        group2_local = {
+            system_to_local[index]
+            for index in self.group2_indices
+            if index in system_to_local
+        }
+        interface_local_indices = sorted(group1_local | group2_local)
         self.net = Network(
-            # Retain the complete system geometry so surrounding balls can
+            # Retain the selected solve universe so surrounding generators can
             # participate in geometric validity checks.
-            locs=locs,
-            rads=rads,
-            masses=masses,
+            locs=geometry.locations,
+            rads=geometry.radii,
+            masses=geometry.masses,
 
             # Balls whose interface topology is being represented.
-            group=interface_indices,
+            group=interface_local_indices,
 
             # Original side membership used during interface vertex filtering.
-            iface_grps=(self.group1_indices, self.group2_indices),
+            iface_grps=(group1_local, group2_local),
 
             group_name=self.name,
             settings=self.settings,
             sort_balls=False,
             verts=verts,
             system=self.sys,
+            generator_system_indices=geometry.system_indices,
+            generator_stable_ids=geometry.stable_ids,
+            solvent_local_indices=geometry.solvent_local_indices,
+            solvent_generator_ids=geometry.solvent_generator_ids,
+            solvent_mode=geometry.solvent_mode,
+            retained_system_indices=geometry.retained_system_indices,
+            retained_generator_ids=geometry.retained_generator_ids,
         )
-        self.net.boundary_indices = boundary_indices
-        self.net.boundary_config = boundary_config
+        self.net.boundary_indices = geometry.boundary_indices
+        self.net.boundary_config = geometry.boundary_config
         self.net.boundary_mode = getattr(self.sys, "boundary_mode", None)
-        if boundary_indices:
+        self.net.boundary_generators = geometry.boundary_generators
+        if geometry.boundary_indices:
             self.net.balls["is_boundary_generator"] = False
-            self.net.balls.loc[list(boundary_indices), "is_boundary_generator"] = True
+            self.net.balls.loc[list(geometry.boundary_indices), "is_boundary_generator"] = True
+        self.net.refresh_solvent_provenance()
 
         self._update_group_metadata(
             network_created=True,

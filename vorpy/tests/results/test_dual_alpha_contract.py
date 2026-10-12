@@ -71,7 +71,20 @@ def dual_cache():
         feature_counts={"cell": 1, "surf": 1},
         unmapped_feature_count=0,
     )
-    return SimpleNamespace(simplices={0: {(3,): vertex}, 1: {(3, 8): contact}}, audit=lambda: audit)
+    return SimpleNamespace(
+        simplices={0: {(3,): vertex}, 1: {(3, 8): contact}},
+        metadata={
+            "explicit_group_membership": {
+                "generator_ids": {"A": [3], "B": [8]},
+                "simplex_ids": {
+                    "A": ["0:3"],
+                    "B": [],
+                    "AB/contact": ["1:3,8"],
+                },
+            }
+        },
+        audit=lambda: audit,
+    )
 
 
 def provenance():
@@ -113,10 +126,24 @@ def test_dual_generator_adapter_traverses_dimensioned_simplices_without_topology
     assert isinstance(result, DualGeneratorComplexResult)
     assert result.generator_complex.side == "A"
     assert result.generator_complex.simplex_counts[0].value == 1
-    assert result.generator_complex.simplex_counts[1].value == 1
+    assert 1 not in result.generator_complex.simplex_counts
     assert result.generator_complex.topology == {}
-    assert [record.simplex_id for record in result.simplex_records] == ["0:3", "1:3,8"]
+    assert [record.simplex_id for record in result.simplex_records] == ["0:3"]
     json.dumps(result.to_dict())
+
+
+def test_dual_generator_adapter_does_not_certify_without_explicit_membership():
+    dual = dual_cache()
+    del dual.metadata
+
+    result = adapt_dual_generator_complex(
+        dual, identity("dual_a", "A"), provenance=provenance()
+    )
+
+    assert isinstance(result, DualGeneratorComplexResult)
+    assert result.status is Status.NOT_SUPPORTED
+    assert result.generator_complex is None
+    assert result.simplex_records == ()
 
 
 def test_alpha_selection_has_its_own_identity_and_selected_dual_correspondence():

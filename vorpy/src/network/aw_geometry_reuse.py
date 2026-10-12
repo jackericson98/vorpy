@@ -25,6 +25,9 @@ import pandas as pd
 
 SCHEMA_VERSION = 1
 DEFAULT_SOLVER_VERSION = "aw-geometry-reuse-v1"
+# Explicit producer-attested frame key for structures without a trajectory.
+# The legacy ``default`` value remains the unresolved/unknown fallback.
+STATIC_FRAME_ID = "static"
 _PRESENTATION_SETTINGS = frozenset(
     {"verbose", "print_actions", "print_vert_metrics", "print_metrics"}
 )
@@ -60,7 +63,10 @@ def _canonical(value: Any) -> Any:
         return {"__enum__": _canonical(value.value)}
     if hasattr(value, "__dict__"):
         return {"__object__": type(value).__name__, "value": _canonical(value.__dict__)}
-    return {"__text__": str(value)}
+    raise AWGeometryReuseError(
+        "Unsupported identity value; provide deterministic scalar, mapping, "
+        f"or dataclass data instead of {type(value).__name__}."
+    )
 
 
 def _digest(value: Any) -> str:
@@ -123,6 +129,212 @@ def _scope_mode(network: Any) -> str:
     return "group"
 
 
+def _missing_identity_value(value: Any) -> bool:
+    """Return whether a scalar identity field is absent without coercing arrays."""
+    if value is None:
+        return True
+    try:
+        missing = pd.isna(value)
+    except (TypeError, ValueError):
+        return False
+    return isinstance(missing, (bool, np.bool_)) and bool(missing)
+
+
+def _optional_int(value: Any) -> int | None:
+    if _missing_identity_value(value):
+        return None
+    try:
+        integer = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    try:
+        if float(value) != float(integer):
+            return None
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return integer
+
+
+def _frame_identity(network: Any, frame_id: Any) -> str:
+    """Resolve a non-empty frame identity deterministically.
+
+    ``STATIC_FRAME_ID`` is the documented sentinel for an explicitly supplied
+    static structure. Missing frame evidence retains the legacy ``default``
+    sentinel and remains provisional for identity-required Results.
+    """
+    if frame_id is None:
+        frame_id = getattr(network, "frame_id", None)
+    if frame_id is None:
+        frame_id = getattr(network, "frame", None)
+    system = getattr(network, "sys", None)
+    if frame_id is None and system is not None:
+        frame_id = getattr(system, "frame_id", None)
+    if frame_id is None and system is not None:
+        frame_id = getattr(system, "frame_index", None)
+    if frame_id is None:
+        return "default"
+    if isinstance(frame_id, (str, int, float, bool, np.generic)):
+        return str(frame_id)
+    return f"digest:{_digest(frame_id)}"
+
+
+def _network_scope(network: Any) -> str:
+    return "interface" if getattr(network, "iface_grps", None) is not None else "system"
+
+
+def _boundary_config_identity(config: Any) -> Any:
+    """Project boundary configuration without mutable archive metadata."""
+    if config is None:
+        return None
+    fields = ("mode", "probe_radius", "shell_spacing", "shell_offset")
+    if isinstance(config, Mapping):
+        values = {field: config.get(field) for field in fields if field in config}
+    else:
+        values = {
+            field: getattr(config, field)
+            for field in fields
+            if hasattr(config, field)
+        }
+    if "mode" in values:
+        values["mode"] = getattr(values["mode"], "value", values["mode"])
+    return values
+
+
+def _boundary_identity(network: Any) -> tuple[str, Any, tuple[int, ...], tuple[dict[str, Any], ...]]:
+    """Return boundary identity data without mutating the System or Network."""
+    system = getattr(network, "sys", None)
+    config = getattr(network, "boundary_config", None)
+    if config is None and system is not None:
+        config = getattr(system, "boundary_config", None)
+
+    mode = getattr(network, "boundary_mode", None)
+    if mode is None and system is not None:
+        mode = getattr(system, "boundary_mode", None)
+    if mode is None and config is not None:
+        mode = getattr(config, "mode", None)
+    mode = getattr(mode, "value", mode)
+    mode = "none" if mode is None else str(mode)
+
+    boundary_indices = getattr(network, "boundary_indices", ()) or ()
+    boundary_indices = tuple(sorted(int(value) for value in boundary_indices))
+    generators = getattr(network, "boundary_generators", None)
+    if generators is None and system is not None:
+        generators = getattr(system, "boundary_generators", ())
+    generators = tuple(generators or ())
+    generator_records = []
+    for ordinal, generator in enumerate(generators):
+        position = getattr(generator, "position", None)
+        if position is None:
+            position = generator.get("position") if isinstance(generator, Mapping) else None
+        if position is None:
+            position = ()
+        radius = getattr(generator, "radius", None)
+        if radius is None and isinstance(generator, Mapping):
+            radius = generator.get("radius")
+        generator_records.append({
+            "id": f"boundary:{ordinal}",
+            "position": tuple(float(value) for value in position),
+            "radius": None if radius is None else float(radius),
+        })
+    return mode, _boundary_config_identity(config), boundary_indices, tuple(generator_records)
+
+
+def _generator_identities(network: Any) -> tuple[dict[str, Any], ...]:
+    """Capture stable physical IDs, local mappings, and virtual boundaries."""
+    balls = getattr(network, "balls", None)
+    if balls is None or not {"loc", "rad"}.issubset(balls.columns):
+        raise AWGeometryReuseError("Solve context requires ball coordinates and radii.")
+
+    boundary_mode, _, boundary_indices, boundary_generators = _boundary_identity(network)
+    boundary_by_index = {
+        index: boundary_generators[ordinal]
+        for ordinal, index in enumerate(boundary_indices)
+        if ordinal < len(boundary_generators)
+    }
+    records = []
+    seen_ids = set()
+    for local_index, (_, row) in enumerate(balls.iterrows()):
+        boundary_flag = row.get("is_boundary_generator", False)
+        is_boundary = (
+            (not _missing_identity_value(boundary_flag) and bool(boundary_flag))
+            or local_index in boundary_indices
+        )
+        system_index = None if is_boundary else _optional_int(row.get("system_num"))
+        if system_index is None and not is_boundary:
+            system_index = _optional_int(row.get("num"))
+
+        stable_id = None
+        for field in ("stable_id", "atom_stable_id", "generator_id"):
+            value = row.get(field)
+            if not _missing_identity_value(value) and str(value):
+                stable_id = str(value)
+                break
+        if stable_id is None:
+            stable_id = (
+                f"boundary:{local_index}"
+                if is_boundary
+                else f"system:{system_index}" if system_index is not None
+                else f"ball:{local_index}"
+            )
+        if stable_id in seen_ids:
+            raise AWGeometryReuseError(f"Duplicate generator identity: {stable_id}")
+        seen_ids.add(stable_id)
+
+        record = {
+            "local_index": int(local_index),
+            "system_index": system_index,
+            "stable_id": stable_id,
+            "is_boundary": is_boundary,
+            "loc": tuple(float(value) for value in row["loc"]),
+            "rad": float(row["rad"]),
+            "boundary_mode": boundary_mode if is_boundary else None,
+        }
+        boundary_record = boundary_by_index.get(local_index)
+        if boundary_record is not None:
+            record["boundary_generator"] = boundary_record
+        records.append(record)
+    return tuple(records)
+
+
+def _membership_identity(network: Any, records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Record explicit ownership/interface membership in the key."""
+    def normalize(values: Any) -> tuple[Any, ...] | None:
+        if values is None:
+            return None
+        if isinstance(values, (set, frozenset)):
+            values = sorted(values, key=str)
+        try:
+            return tuple(int(value) for value in values)
+        except (TypeError, ValueError):
+            return tuple(str(value) for value in values)
+
+    iface_grps = getattr(network, "iface_grps", None)
+    membership = {
+        "scope_mode": _scope_mode(network),
+        "group": normalize(getattr(network, "group", None)),
+        "iface_grps": None if iface_grps is None else tuple(
+            normalize(group) for group in iface_grps
+        ),
+        "generator_ids": tuple(record["stable_id"] for record in records),
+    }
+    retained_system_indices = normalize(
+        getattr(network, "retained_system_indices", ())
+    ) or ()
+    retained_generator_ids = tuple(
+        str(value)
+        for value in (getattr(network, "retained_generator_ids", ()) or ())
+    )
+    if retained_system_indices or retained_generator_ids:
+        membership.update({
+            "retained_system_indices": retained_system_indices,
+            "retained_generator_ids": retained_generator_ids,
+            "retained_generator_digest": getattr(
+                network, "retained_generator_digest", None
+            ),
+        })
+    return membership
+
+
 def _settings_for_identity(settings: Mapping[str, Any] | None) -> dict[str, Any]:
     settings = settings or {}
     return {
@@ -134,32 +346,63 @@ def _settings_for_identity(settings: Mapping[str, Any] | None) -> dict[str, Any]
 
 @dataclass(frozen=True)
 class SolveUniverseKey:
-    """Deterministic identity of one AW geometry construction universe."""
+    """Deterministic identity of one geometry construction universe.
+
+    The name is retained for compatibility with the existing AW reuse
+    prototype.  The identity itself is scheme-neutral and is valid for AW,
+    Power, and Primitive networks.
+    """
 
     schema_version: int
     scheme: str
     scope_mode: str
+    network_scope: str
     frame_id: str
     partition_scheme: str
+    boundary_mode: str
+    boundary_config_digest: str
+    boundary_generator_digest: str
     environment_digest: str
     generator_digest: str
     geometry_digest: str
+    physical_generator_ids: tuple[str, ...]
+    local_to_system: tuple[tuple[int, int | None], ...]
+    boundary_generator_ids: tuple[str, ...]
+    membership_digest: str
     resolution: Any
+    vertex_settings_digest: str
+    build_options_digest: str
     solver_settings_digest: str
     solver_version: str
     digest: str
+
+    @property
+    def solve_universe_id(self) -> str:
+        """Stable solve-universe identifier for downstream context records."""
+        return f"solve:{self.digest}"
+
+    @property
+    def context_id(self) -> str:
+        """Alias used by the shared-network analysis contract."""
+        return self.digest
 
     @property
     def competitor_digest(self) -> str:
         """Identity of the full coordinate/radius competitor universe."""
         return _digest(
             {
+                "scheme": self.scheme,
                 "generator_digest": self.generator_digest,
                 "geometry_digest": self.geometry_digest,
                 "environment_digest": self.environment_digest,
                 "partition_scheme": self.partition_scheme,
             }
         )
+
+
+# Public name for Phase 1 callers.  The compatibility name above remains the
+# source type used by the existing AW extraction/provenance code.
+SolveContextKey = SolveUniverseKey
 
 
 @dataclass(frozen=True)
@@ -335,6 +578,125 @@ class AWSolvedNetworkComparison:
     interface_provenance: AWSolverProvenance
 
 
+def build_solve_context_key(
+    network: Any,
+    *,
+    frame_id: Any = None,
+    environment: Any = None,
+    partition_scheme: Any = None,
+    solver_version: str = DEFAULT_SOLVER_VERSION,
+    build_options: Mapping[str, Any] | None = None,
+) -> SolveUniverseKey:
+    """Build a deterministic, scheme-neutral identity for one solve context."""
+    settings = _settings_for_identity(getattr(network, "settings", None))
+    scheme = str(settings.get("net_type", "aw")).lower()
+    if scheme not in {"aw", "pow", "prm"}:
+        raise AWGeometryReuseError(f"Unsupported geometry scheme {scheme!r}.")
+
+    identities = _generator_identities(network)
+    generator_records = [dict(record) for record in identities]
+    physical_generator_ids = tuple(
+        record["stable_id"] for record in identities if not record["is_boundary"]
+    )
+    boundary_generator_ids = tuple(
+        record["stable_id"] for record in identities if record["is_boundary"]
+    )
+    local_to_system = tuple(
+        (int(record["local_index"]), record["system_index"])
+        for record in identities
+    )
+
+    frame = _frame_identity(network, frame_id)
+
+    partition = partition_scheme
+    if partition is None:
+        partition = settings.get("partition_scheme", settings.get("partition", "default"))
+    partition = str(partition)
+
+    boundary_mode, boundary_config, boundary_indices, boundary_generators = _boundary_identity(network)
+    boundary_config_digest = _digest(boundary_config)
+    boundary_generator_digest = _digest(boundary_generators)
+    membership = _membership_identity(network, identities)
+    membership_digest = _digest(membership)
+
+    environment_value = {
+        "requested": environment,
+        "network_environment": getattr(network, "environment", None),
+        "boundary_mode": boundary_mode,
+        "boundary_config": boundary_config,
+        "boundary_indices": boundary_indices,
+        "boundary_generators": boundary_generators,
+    }
+
+    resolution = _freeze(settings.get("surf_res", settings.get("surface_resolution")))
+    solver_settings = {
+        key: value
+        for key, value in settings.items()
+        if key not in {"net_type", "surf_res", "surface_resolution"}
+    }
+    vertex_settings = {
+        key: settings.get(key)
+        for key in ("max_vert", "num_splits", "box_size", "foam_box")
+        if key in settings
+    }
+    build_options = dict(build_options or {})
+    identity_payload = {
+        "schema_version": SCHEMA_VERSION,
+        "scheme": scheme,
+        "scope_mode": _scope_mode(network),
+        "network_scope": _network_scope(network),
+        "frame_id": frame,
+        "partition_scheme": partition,
+        "environment": environment_value,
+        "generators": generator_records,
+        "membership": membership,
+        "resolution": resolution,
+        "vertex_settings": vertex_settings,
+        "build_options": build_options,
+        "solver_settings": solver_settings,
+        "solver_version": solver_version,
+    }
+
+    geometry_digest = _digest(generator_records)
+    generator_digest = _digest([
+        {
+            "stable_id": record["stable_id"],
+            "system_index": record["system_index"],
+            "is_boundary": record["is_boundary"],
+        }
+        for record in identities
+    ])
+    environment_digest = _digest(environment_value)
+    vertex_settings_digest = _digest(vertex_settings)
+    build_options_digest = _digest(build_options)
+    solver_settings_digest = _digest(solver_settings)
+    digest = _digest(identity_payload)
+    return SolveUniverseKey(
+        schema_version=SCHEMA_VERSION,
+        scheme=scheme,
+        scope_mode=_scope_mode(network),
+        network_scope=_network_scope(network),
+        frame_id=frame,
+        partition_scheme=str(partition),
+        boundary_mode=boundary_mode,
+        boundary_config_digest=boundary_config_digest,
+        boundary_generator_digest=boundary_generator_digest,
+        environment_digest=environment_digest,
+        generator_digest=generator_digest,
+        geometry_digest=geometry_digest,
+        physical_generator_ids=physical_generator_ids,
+        local_to_system=local_to_system,
+        boundary_generator_ids=boundary_generator_ids,
+        membership_digest=membership_digest,
+        resolution=resolution,
+        vertex_settings_digest=vertex_settings_digest,
+        build_options_digest=build_options_digest,
+        solver_settings_digest=solver_settings_digest,
+        solver_version=str(solver_version),
+        digest=digest,
+    )
+
+
 def build_solve_universe_key(
     network: Any,
     *,
@@ -342,95 +704,22 @@ def build_solve_universe_key(
     environment: Any = None,
     partition_scheme: Any = None,
     solver_version: str = DEFAULT_SOLVER_VERSION,
+    build_options: Mapping[str, Any] | None = None,
 ) -> SolveUniverseKey:
-    """Build a deterministic key from network inputs and scientific settings."""
-    balls = getattr(network, "balls", None)
-    if balls is None or not {"loc", "rad"}.issubset(balls.columns):
-        raise AWGeometryReuseError("AW geometry requires ball coordinates and radii.")
-
-    settings = _settings_for_identity(getattr(network, "settings", None))
-    scheme = str(settings.get("net_type", "aw")).lower()
-    if scheme != "aw":
-        raise AWGeometryReuseError(
-            f"AW reuse received non-AW network type {scheme!r}."
-        )
-
-    generators = []
-    seen_ids = set()
-    for position, (_, row) in enumerate(balls.iterrows()):
-        row_data = row.to_dict()
-        stable_id = _stable_generator_id(row_data, position)
-        if stable_id in seen_ids:
-            raise AWGeometryReuseError(f"Duplicate generator identity: {stable_id}")
-        seen_ids.add(stable_id)
-        generators.append(
-            {
-                "stable_id": stable_id,
-                "source_index": position,
-                "loc": tuple(float(value) for value in row_data["loc"]),
-                "rad": float(row_data["rad"]),
-            }
-        )
-    generators.sort(key=lambda item: item["stable_id"])
-
-    frame = frame_id
-    if frame is None:
-        frame = getattr(network, "frame_id", None)
-    if frame is None:
-        frame = getattr(network, "frame", "default")
-
-    partition = partition_scheme
-    if partition is None:
-        partition = settings.get("partition_scheme", settings.get("partition", "default"))
-
-    environment_value = environment
-    if environment_value is None:
-        environment_value = {
-            "network_environment": getattr(network, "environment", None),
-            "boundary_indices": getattr(network, "boundary_indices", ()),
-            "boundary_config": getattr(network, "boundary_config", None),
-            "boundary_mode": getattr(network, "boundary_mode", None),
-            "boundary_generators": getattr(network, "boundary_generators", ()),
-        }
-
-    resolution = settings.get("surf_res", settings.get("surface_resolution"))
-    solver_settings = {
-        key: value
-        for key, value in settings.items()
-        if key not in {"net_type", "surf_res", "surface_resolution"}
-    }
-    identity_payload = {
-        "schema_version": SCHEMA_VERSION,
-        "scheme": scheme,
-        "scope_mode": _scope_mode(network),
-        "frame_id": str(frame),
-        "partition_scheme": partition,
-        "environment": environment_value,
-        "generators": generators,
-        "resolution": resolution,
-        "solver_settings": solver_settings,
-        "solver_version": solver_version,
-    }
-
-    geometry_digest = _digest(generators)
-    generator_digest = _digest([item["stable_id"] for item in generators])
-    environment_digest = _digest(environment_value)
-    solver_settings_digest = _digest(solver_settings)
-    digest = _digest(identity_payload)
-    return SolveUniverseKey(
-        schema_version=SCHEMA_VERSION,
-        scheme=scheme,
-        scope_mode=_scope_mode(network),
-        frame_id=str(frame),
-        partition_scheme=str(partition),
-        environment_digest=environment_digest,
-        generator_digest=generator_digest,
-        geometry_digest=geometry_digest,
-        resolution=resolution,
-        solver_settings_digest=solver_settings_digest,
-        solver_version=str(solver_version),
-        digest=digest,
+    """Build the legacy AW-only key used by the reuse prototype."""
+    key = build_solve_context_key(
+        network,
+        frame_id=frame_id,
+        environment=environment,
+        partition_scheme=partition_scheme,
+        solver_version=solver_version,
+        build_options=build_options,
     )
+    if key.scheme != "aw":
+        raise AWGeometryReuseError(
+            f"AW reuse received non-AW network type {key.scheme!r}."
+        )
+    return key
 
 
 def _aw_provenance_enabled(network: Any) -> bool:
@@ -580,6 +869,8 @@ def _primitive_id(kind: str, key: SolveUniverseKey, payload: Any) -> str:
         "generator_digest": key.generator_digest,
         "geometry_digest": key.geometry_digest,
         "resolution": key.resolution,
+        "vertex_settings_digest": key.vertex_settings_digest,
+        "build_options_digest": key.build_options_digest,
         "solver_settings_digest": key.solver_settings_digest,
         "solver_version": key.solver_version,
     }
@@ -1636,6 +1927,8 @@ def diagnose_aw_interface_difference(
             view.source.key.frame_id == direct_key.frame_id,
             view.source.key.partition_scheme == direct_key.partition_scheme,
             view.source.key.resolution == direct_key.resolution,
+            view.source.key.vertex_settings_digest == direct_key.vertex_settings_digest,
+            view.source.key.build_options_digest == direct_key.build_options_digest,
             view.source.key.solver_settings_digest == direct_key.solver_settings_digest,
             view.source.key.solver_version == direct_key.solver_version,
         )),
@@ -1663,6 +1956,8 @@ def compare_aw_interface_view(
             view.source.key.frame_id == direct_key.frame_id,
             view.source.key.partition_scheme == direct_key.partition_scheme,
             view.source.key.resolution == direct_key.resolution,
+            view.source.key.vertex_settings_digest == direct_key.vertex_settings_digest,
+            view.source.key.build_options_digest == direct_key.build_options_digest,
             view.source.key.solver_settings_digest == direct_key.solver_settings_digest,
             view.source.key.solver_version == direct_key.solver_version,
         )
@@ -1811,11 +2106,14 @@ __all__ = [
     "AWSurfacePrimitive",
     "AWVertexPrimitive",
     "DEFAULT_SOLVER_VERSION",
+    "STATIC_FRAME_ID",
     "ReuseMetrics",
+    "SolveContextKey",
     "SolveUniverseKey",
     "assess_aw_reuse",
     "build_aw_interface_view",
     "build_solve_universe_key",
+    "build_solve_context_key",
     "certify_aw_interface_completeness",
     "compare_aw_interface_view",
     "compare_solved_aw_networks",

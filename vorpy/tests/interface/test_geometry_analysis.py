@@ -69,6 +69,19 @@ def test_cache_selection_and_planar_partial_gaussian(monkeypatch):
     assert result.metadata['molecular_contact_patch_status'] == 'not_implemented'
 
 
+def test_cached_dual_preserves_explicit_ab_simplex_membership(monkeypatch):
+    network = _network()
+    install_filtration(monkeypatch, network)
+    iface = iface_for(network)
+
+    analyze_interface_geometry(iface)
+
+    evidence = iface._geometry_dual.metadata['explicit_group_membership']
+    assert evidence['generator_ids'] == {'A': [10], 'B': [13, 16]}
+    assert '1:10,13' in evidence['simplex_ids']['AB/contact']
+    assert '1:13,16' in evidence['simplex_ids']['B']
+
+
 def test_static_matched_probe_2kai_curvature_regression_fixture():
     fixture_path = Path(__file__).parent / 'fixtures' / 'phase1_2kai_matched_probe_curvature.json'
     fixture = json.loads(fixture_path.read_text(encoding='utf-8'))

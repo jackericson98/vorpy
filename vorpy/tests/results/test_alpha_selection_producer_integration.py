@@ -9,6 +9,8 @@ from vorpy.src.interface.geometry_analysis import InterfaceGeometryAnalysis
 from vorpy.src.output import visualization
 from vorpy.src.results import (
     AlphaSelectionResult,
+    DualContactComplexResult,
+    DualGeneratorComplexResult,
     INTERFACE_LOG_COLUMNS,
     InterfaceResult,
     Provenance,
@@ -20,7 +22,7 @@ from vorpy.src.results import (
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
-def _identity(representation):
+def _identity(representation, side="shared"):
     return ResultIdentity(
         result_kind="interface",
         system="2KAI",
@@ -35,7 +37,7 @@ def _identity(representation):
         interface_id="2KAI_matched_probe",
         group_A="A",
         group_B="B",
-        side="shared",
+        side=side,
         orientation="group1 -> group2",
         alpha_method="additive",
         alpha_value=1.4,
@@ -96,6 +98,101 @@ def _stub_alpha_identity(monkeypatch):
         "_cached_result_identity",
         lambda _iface, **_kwargs: _identity("alpha_selection"),
     )
+
+
+def _stub_result_identity(monkeypatch):
+    monkeypatch.setattr(
+        visualization,
+        "_cached_result_identity",
+        lambda _iface, representation="voronoi", side="shared", **_kwargs: _identity(
+            representation, side
+        ),
+    )
+
+
+def test_matching_cached_dual_becomes_canonical_results_without_geometry_query(monkeypatch):
+    network = object()
+    dual = _cached_dual(network)
+    dual.archive_provenance = {"fixture": "cached_dual"}
+    iface = SimpleNamespace(
+        net=network,
+        _geometry_dual=dual,
+        analyze_geometry=lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("dual export rebuilt geometry")
+        ),
+    )
+    _stub_result_identity(monkeypatch)
+
+    contact, generators = visualization._cached_dual_results(iface)
+
+    assert isinstance(contact, DualContactComplexResult)
+    assert isinstance(generators, DualGeneratorComplexResult)
+    assert contact.status is generators.status is Status.CERTIFIED
+    assert contact.identity.side == "shared"
+    assert generators.identity.side == "AB/contact"
+    assert contact.contact_features[0].simplex_id == "1:3,8"
+    assert generators.generator_complex.simplex_counts[1].value == 1
+    assert generators.generator_complex.topology == {}
+    assert contact.provenance.details["fixture"] == "cached_dual"
+    assert contact.provenance.details["partition"] == "aw"
+
+
+def test_missing_cached_dual_stays_unavailable_without_zero_counts(monkeypatch):
+    iface = SimpleNamespace(net=object())
+    _stub_result_identity(monkeypatch)
+
+    contact, generators = visualization._cached_dual_results(iface)
+
+    assert contact.status is generators.status is Status.NOT_CALCULATED
+    assert contact.metrics == generators.metrics == {}
+    assert contact.contact_features == ()
+    assert generators.generator_complex is None
+
+
+def test_stale_cached_dual_is_not_traversed_or_certified(monkeypatch):
+    stale = _cached_dual(object())
+    stale.audit = lambda: (_ for _ in ()).throw(AssertionError("stale dual was traversed"))
+    iface = SimpleNamespace(net=object(), _geometry_dual=stale)
+    _stub_result_identity(monkeypatch)
+
+    contact, generators = visualization._cached_dual_results(iface)
+
+    assert contact.status is generators.status is Status.STALE
+    assert contact.metrics == generators.metrics == {}
+    assert contact.contact_features == ()
+    assert generators.simplex_records == ()
+    assert contact.provenance.diagnostics == ("cached dual references another network",)
+
+
+def test_matching_cached_dual_writes_canonical_rows_and_preserves_alpha(monkeypatch, tmp_path):
+    network = object()
+    analysis = _cached_analysis()
+    physical_result = InterfaceResult(
+        _identity("voronoi"), Provenance("fixture physical cache"), Status.NOT_CALCULATED,
+    )
+    iface = SimpleNamespace(
+        net=network,
+        _geometry_dual=_cached_dual(network),
+        geometry_analysis=analysis,
+        water_topology=None,
+        representation_caches={},
+    )
+    _stub_result_identity(monkeypatch)
+    monkeypatch.setattr(visualization, "_cached_interface_result", lambda _iface: physical_result)
+
+    path = tmp_path / "logs.csv"
+    visualization._compact_log(iface, path)
+    with path.open(newline="", encoding="utf-8") as stream:
+        rows = list(csv.DictReader(stream))
+
+    logged = {(row["representation"], row["side"], row["quantity"]): row for row in rows}
+    contact = logged[("dual_contact_complex", "shared", "simplex_count_dim_1")]
+    generators = logged[("dual_generator_complex", "AB/contact", "simplex_count_dim_1")]
+    alpha = logged[("alpha_selection", "shared", "alpha_selected_count")]
+    assert (contact["value"], contact["status"]) == ("1", "CERTIFIED")
+    assert (generators["value"], generators["status"]) == ("1", "CERTIFIED")
+    assert alpha["value"] == "339"
+    assert all(tuple(row) == INTERFACE_LOG_COLUMNS for row in rows)
 
 
 def test_cached_alpha_selection_uses_matching_cached_dual(monkeypatch):

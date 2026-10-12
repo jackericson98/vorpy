@@ -11,7 +11,7 @@ import re
 import csv
 import os
 from collections.abc import Mapping
-from dataclasses import fields
+from dataclasses import fields, replace
 from time import perf_counter
 from pathlib import Path
 
@@ -42,8 +42,12 @@ from vorpy.src.results import (
     ResultIdentity,
     Status,
     adapt_alpha_selection,
+    adapt_dual_contact_complex,
+    adapt_dual_generator_complex,
     adapt_interface_analysis,
     unavailable_alpha_selection,
+    unavailable_dual_contact_complex,
+    unavailable_dual_generator_complex,
     unavailable_interface,
 )
 
@@ -369,6 +373,100 @@ def _cached_alpha_selection_result(iface):
             if analysis is not None else unavailable_alpha_selection(identity, provenance=provenance))
 
 
+def _cached_contact_simplex_ids(dual):
+    """Return only explicit dimension-one contact IDs from ATLAS metadata."""
+    metadata = getattr(dual, 'metadata', None)
+    evidence = metadata.get('explicit_group_membership') if isinstance(metadata, Mapping) else None
+    if evidence is None:
+        return None
+    memberships = evidence['simplex_ids']
+    values = tuple(memberships['AB/contact'])
+    if any(not isinstance(value, str) or not value for value in values):
+        raise ValueError('Dual explicit simplex IDs must be nonempty strings')
+    return tuple(value for value in values if value.split(':', 1)[0] == '1')
+
+
+def _cached_dual_result_bundle(iface):
+    """Adapt the cached dual without rebuilding it or inventing A/B membership."""
+    contact_identity = _cached_result_identity(iface, representation='dual')
+    generator_identity = _cached_result_identity(
+        iface, representation='dual_generator_complex', side='AB/contact',
+    )
+    a_identity = _cached_result_identity(iface, representation='dual_a', side='A')
+    b_identity = _cached_result_identity(iface, representation='dual_b', side='B')
+    dual = getattr(iface, '_geometry_dual', None)
+    archive_provenance = getattr(dual, 'archive_provenance', None)
+    details = dict(archive_provenance) if isinstance(archive_provenance, Mapping) else {}
+    metadata = getattr(dual, 'metadata', None)
+    if isinstance(metadata, Mapping):
+        for name, value in metadata.items():
+            details.setdefault(name, value)
+    details['partition'] = contact_identity.partition
+    provenance = Provenance(
+        'cached dual complex',
+        scientific_state_id=stable_id(dual) if dual is not None else None,
+        details=details,
+    )
+
+    stale_reasons = []
+    if getattr(iface, 'archive_cache_state', None) == 'STALE':
+        stale_reasons.append('cached dual is marked stale')
+    if dual is not None and getattr(dual, 'network', None) is not getattr(iface, 'net', None):
+        stale_reasons.append('cached dual references another network')
+    if dual is not None:
+        cached_network_id = details.get('network_id')
+        if cached_network_id is not None and cached_network_id != contact_identity.network_id:
+            stale_reasons.append('cached dual references another network identity')
+        cached_interface_id = details.get('interface_id')
+        if cached_interface_id is not None and cached_interface_id != contact_identity.interface_id:
+            stale_reasons.append('cached dual references another interface identity')
+        cached_scheme = getattr(dual, 'scheme', None) or details.get('scheme')
+        expected_scheme = 'power' if contact_identity.partition == 'power' else contact_identity.partition
+        if cached_scheme is not None:
+            normalized_scheme = 'power' if str(cached_scheme).lower() in {'pow', 'power', 'prm'} else str(cached_scheme).lower()
+            if normalized_scheme != expected_scheme:
+                stale_reasons.append('cached dual uses another partition')
+
+    if dual is None:
+        return (
+            unavailable_dual_contact_complex(contact_identity, provenance=provenance),
+            unavailable_dual_generator_complex(generator_identity, provenance=provenance),
+            unavailable_dual_generator_complex(a_identity, provenance=provenance),
+            unavailable_dual_generator_complex(b_identity, provenance=provenance),
+        )
+    if stale_reasons:
+        stale = replace(
+            provenance,
+            diagnostics=provenance.diagnostics + tuple(stale_reasons),
+        )
+        return (
+            replace(unavailable_dual_contact_complex(contact_identity, provenance=stale),
+                    status=Status.STALE),
+            replace(unavailable_dual_generator_complex(generator_identity, provenance=stale),
+                    status=Status.STALE),
+            replace(unavailable_dual_generator_complex(a_identity, provenance=stale),
+                    status=Status.STALE),
+            replace(unavailable_dual_generator_complex(b_identity, provenance=stale),
+                    status=Status.STALE),
+        )
+    return (
+        adapt_dual_contact_complex(
+            dual,
+            contact_identity,
+            provenance=provenance,
+            simplex_ids=_cached_contact_simplex_ids(dual),
+        ),
+        adapt_dual_generator_complex(dual, generator_identity, provenance=provenance),
+        adapt_dual_generator_complex(dual, a_identity, provenance=provenance),
+        adapt_dual_generator_complex(dual, b_identity, provenance=provenance),
+    )
+
+
+def _cached_dual_results(iface):
+    """Return the existing contact and combined generator Results pair."""
+    return _cached_dual_result_bundle(iface)[:2]
+
+
 def _cached_surface_result(iface, surface):
     identity = _cached_result_identity(
         iface, result_kind='molecular_contact_surface',
@@ -457,6 +555,12 @@ def _compact_result_rows(iface):
         if path.startswith('selection.'):
             name = _ALPHA_LOG_NAMES.get(quantity.name)
         add(result, 'physical_partition_interface', 'shared', path, quantity, name=name)
+
+    if getattr(iface, '_geometry_dual', None) is not None:
+        for dual_result in _cached_dual_result_bundle(iface):
+            for path, quantity in _iter_result_quantities(dual_result):
+                add(dual_result, dual_result.identity.representation,
+                    dual_result.identity.side, path, quantity)
 
     alpha_result = _cached_alpha_selection_result(iface)
     if alpha_result is not None:

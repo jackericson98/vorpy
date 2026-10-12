@@ -24,7 +24,12 @@ from vorpy.src.chemistry import special_radii
 from vorpy.src.chemistry import element_radii
 from vorpy.src.calculations import compare_networks
 from vorpy.src.calculations import get_time
-from vorpy.src.boundary import BoundaryConfig, has_explicit_solvent
+from vorpy.src.boundary import (
+    BoundaryConfig,
+    has_explicit_solvent,
+    normalize_solvent_mode,
+    normalize_retained_system_indices,
+)
 
 
 def infer_index_offset(index_map):
@@ -205,7 +210,8 @@ class System:
     def __init__(self, file=None, files=None, spheres=None, verts_file=None, balls_file=None, network_file=None,
                  index_file=None, frame_files=None, output_directory=None, gui=None, root_dir=None, print_actions=False,
                  atoms=None, residues=None, chains=None, segments=None, groups=None, ifaces=None, simple=False,
-                 name=None, make_dir=True, boundary_config=None):
+                 name=None, make_dir=True, boundary_config=None, solvent_mode=None,
+                 retained_system_indices=None):
         """
         Initialize a new System object for managing molecular systems and networks.
 
@@ -253,6 +259,9 @@ class System:
             Name describing the system
         make_dir : bool, optional
             Create the output directory during initialization (default True).
+        retained_system_indices : iterable of int, optional
+            Explicit System-global rows to retain as molecular generators even
+            when their residue is classified as solvent/ion.
 
         Methods
         -------
@@ -321,6 +330,10 @@ class System:
         self.element_radii = element_radii  # Element Radii       :   Dictionary of elements and their radii
         self.special_radii = special_radii  # Special Radii       :   Dictionary of residues and their atomic radii
         self.boundary_config = boundary_config or BoundaryConfig()
+        self.solvent_mode = normalize_solvent_mode(solvent_mode)
+        self.retained_system_indices = normalize_retained_system_indices(
+            retained_system_indices
+        )
         self.boundary_generators = ()
         self.boundary_mode = None
         self.round_to = None  # round_to            :   Decimals setting for the whole system

@@ -3,7 +3,11 @@ from vorpy.src.group.sort import add_balls
 from vorpy.src.group.sort import get_info
 from vorpy.src.group.export import group_exports
 from vorpy.src.network import Network
-from vorpy.src.boundary import network_geometry
+from vorpy.src.boundary import (
+    SolventMode,
+    normalize_solvent_mode,
+    prepare_network_geometry,
+)
 from vorpy.src.inputs import read_verts
 from vorpy.src.output.draw import DEFAULT_EDGE_RADIUS, DEFAULT_VERTEX_RADIUS
 
@@ -119,7 +123,8 @@ class Group:
                  surf_scheme='int_mean_curv', num_splits=None, print_metrics=True, scheme_factor='log',
                  make_net=True, verts=None, vert_col='red', edge_col='grey', output_directory=None,
                  mode='complete', interfaces=None, interface_metadata=None, parent_interface_id=None,
-                 interface_side=None, interface_groups=None, group_id=None):
+                 interface_side=None, interface_groups=None, group_id=None,
+                 solvent_mode=None):
         """
 
         Initialize a Group.
@@ -176,6 +181,12 @@ class Group:
 
         # Settings used to construct and analyze this group's network.
         self.settings = settings
+        configured_mode = solvent_mode
+        if configured_mode is None and isinstance(settings, dict):
+            configured_mode = settings.get("solvent_mode")
+        if configured_mode is None:
+            configured_mode = getattr(sys, "solvent_mode", None)
+        self.solvent_mode = normalize_solvent_mode(configured_mode)
 
         # ------------------------------------------------------------------
         # Interface and partial-network state
@@ -299,6 +310,7 @@ class Group:
             vert_col=vert_col,
             edge_col=edge_col,
             round_to=sys.round_to,
+            solvent_mode=self.solvent_mode,
         )
 
         # ------------------------------------------------------------------
@@ -395,7 +407,8 @@ class Group:
     def get_settings(self, surf_res=0.2, surf_col='plasma', surf_scheme='int_mean_curv', scheme_factor='log', max_vert=40,
                      box_size=1.25, net_type='aw', build_type='all', num_splits=1, print_metrics=True, ball_type=None,
                      sys_dir=None, foam_box=None, vert_col='red', edge_col='grey', conc_col=True, round_to=6,
-                     edge_width=DEFAULT_EDGE_RADIUS, vertex_size=DEFAULT_VERTEX_RADIUS):
+                     edge_width=DEFAULT_EDGE_RADIUS, vertex_size=DEFAULT_VERTEX_RADIUS,
+                     solvent_mode=None):
         """
         Sets the settings for the network building
         """
@@ -405,7 +418,10 @@ class Group:
                     'print_metrics': print_metrics, 'ball_type': ball_type, 'sys_dir': sys_dir, 'foam_box': foam_box,
                     'atom_rad': None, 'scheme_factor': scheme_factor, 'vert_col': vert_col, 'edge_col': edge_col,
                     'edge_width': edge_width, 'vertex_size': vertex_size,
-                    'conc_col': conc_col, 'round_to': round_to}
+                    'conc_col': conc_col, 'round_to': round_to,
+                    'solvent_mode': normalize_solvent_mode(
+                        self.solvent_mode if solvent_mode is None else solvent_mode
+                    ).value}
         # Create the settings dictionary
         if self.settings is None:
             self.settings = defaults
@@ -508,17 +524,37 @@ class Group:
             Network will calculate vertices when ``build()`` is called.
         """
 
-        locs, rads, masses, boundary_indices, config = network_geometry(self.sys)
+        geometry = prepare_network_geometry(self.sys, self.solvent_mode)
+        system_to_local = {
+            int(system_index): local_index
+            for local_index, system_index in enumerate(geometry.system_indices)
+            if system_index is not None
+        }
+        missing = sorted(
+            set(int(index) for index in self.ball_ndxs) - set(system_to_local)
+        )
+        if missing:
+            raise ValueError(
+                "Selected group contains generators excluded by solvent_mode "
+                f"{geometry.solvent_mode}: {missing[:5]}"
+            )
+        if self.solvent_mode is SolventMode.FULL_SOLVENT:
+            group_indices = [
+                local_index for local_index, system_index in enumerate(geometry.system_indices)
+                if system_index is not None
+            ]
+        else:
+            group_indices = [system_to_local[int(index)] for index in self.ball_ndxs]
 
         self.net = Network(
-            # Complete system geometry is retained even for partial networks.
-            # Interface filtering determines which portion is ultimately built.
-            locs=locs,
-            rads=rads,
-            masses=masses,
+            # The selected solve universe is retained; molecule-only mode
+            # intentionally omits physical solvent generator rows.
+            locs=geometry.locations,
+            rads=geometry.radii,
+            masses=geometry.masses,
 
             # Cells owned by this Group.
-            group=self.ball_ndxs,
+            group=group_indices,
 
             # Network metadata and construction settings.
             group_name=self.name,
@@ -531,14 +567,23 @@ class Group:
             verts=verts,
 
             # Add the system
-            system=self.sys
+            system=self.sys,
+            generator_system_indices=geometry.system_indices,
+            generator_stable_ids=geometry.stable_ids,
+            solvent_local_indices=geometry.solvent_local_indices,
+            solvent_generator_ids=geometry.solvent_generator_ids,
+            solvent_mode=geometry.solvent_mode,
+            retained_system_indices=geometry.retained_system_indices,
+            retained_generator_ids=geometry.retained_generator_ids,
         )
-        self.net.boundary_indices = boundary_indices
-        self.net.boundary_config = config
+        self.net.boundary_indices = geometry.boundary_indices
+        self.net.boundary_config = geometry.boundary_config
         self.net.boundary_mode = getattr(self.sys, "boundary_mode", None)
-        if boundary_indices:
+        self.net.boundary_generators = geometry.boundary_generators
+        if geometry.boundary_indices:
             self.net.balls["is_boundary_generator"] = False
-            self.net.balls.loc[list(boundary_indices), "is_boundary_generator"] = True
+            self.net.balls.loc[list(geometry.boundary_indices), "is_boundary_generator"] = True
+        self.net.refresh_solvent_provenance()
 
     def build(self, verts=None, *, calculate_curvature=None):
         """

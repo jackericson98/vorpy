@@ -17,6 +17,16 @@ from types import MappingProxyType
 from typing import ClassVar
 
 SCHEMA_VERSION = "1.0"
+RESULT_SOLVENT_MODES = frozenset({
+    "MOLECULE_ONLY",
+    "SOLVENT_CONTEXT",
+    "FULL_SOLVENT",
+})
+RESULT_SOURCE_IDENTITY_STATUSES = frozenset({
+    "AUTHORITATIVE",
+    "PROVISIONAL",
+    "UNRESOLVED",
+})
 
 
 class Status(str, Enum):
@@ -284,6 +294,13 @@ INTERFACE_LOG_QUANTITY_UNITS = MappingProxyType(
         "beta0": "1",
         "beta1": "1",
         "beta2": "1",
+        "simplex_count_dim_0": "1",
+        "simplex_count_dim_1": "1",
+        "simplex_count_dim_2": "1",
+        "simplex_count_dim_3": "1",
+        "dual_generator_count": "1",
+        "dual_unmapped_primal_feature_count": "1",
+        "dual_incidence_coverage": "1",
         "mean_curvature_per_area": "Å^-1",
         "gaussian_curvature_per_area": "Å^-2",
         "smooth_integrated_mean_curvature": "Å",
@@ -424,6 +441,10 @@ def dictionary(value):
         "interaction_id",
         "orientation_convention",
         "orientation_convention",
+        "solve_universe_id",
+        "analysis_context_kind",
+        "selection_id",
+        "solvent_mode",
         }
         return {
             f.name: dictionary(getattr(value, f.name))
@@ -539,9 +560,14 @@ class ResultIdentity:
     definition_version: str | None = None
     partner_id: str | None = None
     source_network_id: str | None = None
+    source_identity_status: str | None = None
     source_interface_id: str | None = None
     interaction_id: str | None = None
     orientation_convention: str | None = None
+    solve_universe_id: str | None = None
+    analysis_context_kind: str | None = None
+    selection_id: str | None = None
+    solvent_mode: str | None = None
 
     def __post_init__(self):
         if self.result_kind not in {
@@ -589,6 +615,44 @@ class ResultIdentity:
             raise ValueError("Unknown side")
         if self.system_id is not None and not self.system_id:
             raise ValueError("Stable system namespace cannot be empty")
+        if self.solve_universe_id is not None and (
+            not self.solve_universe_id.startswith("solve:")
+        ):
+            raise ValueError("solve_universe_id must use the canonical solve:<digest> ID")
+        if self.analysis_context_kind is not None and self.analysis_context_kind not in {
+            "GLOBAL_NETWORK",
+            "ISOLATED_GROUP",
+        }:
+            raise ValueError("Unknown analysis context kind")
+        if self.solvent_mode is not None and self.solvent_mode not in RESULT_SOLVENT_MODES:
+            raise ValueError("Unknown solvent mode")
+        if self.source_identity_status is not None and (
+            self.source_identity_status not in RESULT_SOURCE_IDENTITY_STATUSES
+        ):
+            raise ValueError("Unknown source identity status")
+        if any(
+            value is not None
+            for value in (
+                self.solve_universe_id,
+                self.analysis_context_kind,
+                self.selection_id,
+                self.solvent_mode,
+            )
+        ) and not all(
+            (
+                self.source_network_id,
+                self.solve_universe_id,
+                self.analysis_context_kind,
+            )
+        ):
+            raise ValueError(
+                "shared-network identity requires source network, solve, and context IDs"
+            )
+        if self.selection_id is not None:
+            if not self.selection_id.startswith("view:"):
+                raise ValueError("selection_id must use the canonical view:<digest> ID")
+            if self.solve_universe_id is None:
+                raise ValueError("selection_id requires solve_universe_id")
         if self.result_kind == "group" and not self.group_id:
             raise ValueError("Group results require group_id")
         if self.result_kind == "interface":

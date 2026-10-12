@@ -1,7 +1,9 @@
 from itertools import combinations
 from types import SimpleNamespace
 from pathlib import Path
+import math
 import os
+import time
 
 import pandas as pd
 import pytest
@@ -258,6 +260,317 @@ def test_edta_real_network_keeps_only_incidence_closed_supported_simplices(edta_
     assert edta_network.edges.loc[73, "surfs"] == [25, 26]
     assert (199, 381) not in complex_.simplices[1]
     assert not complex_._supported(triangle)
+
+
+def test_edta_interface_local_faces_are_distinct_from_global_closure_gaps(edta_network):
+    complex_ = ApolloniusComplex(edta_network, "EDTA")
+    diagnostics = complex_.incidence_diagnostics()
+    # F10's default molecule-only producer no longer guarantees the old
+    # archive row numbers (and may exclude an explicitly listed ion).  Pick a
+    # real generator interface from the current network instead of coupling
+    # this local-completeness diagnostic to legacy row IDs.
+    interface_generator = next(
+        int(index)
+        for index, row in edta_network.surfs.iterrows()
+        if len(row["balls"]) == 2 and 0 in row["balls"]
+    )
+    interface_surfaces = {
+        int(index)
+        for index, row in edta_network.surfs.iterrows()
+        if len(row["balls"]) == 2 and interface_generator in row["balls"]
+    }
+    interface_pairs = {
+        tuple(sorted(map(int, edta_network.surfs.loc[sid, "balls"])))
+        for sid in interface_surfaces
+    }
+    candidate_edges = []
+    for edge_id, row in edta_network.edges.iterrows():
+        triangle = tuple(sorted(map(int, row["balls"])))
+        incident = tuple(sorted(
+            int(sid) for sid in row["surfs"] if int(sid) in interface_surfaces
+        ))
+        if interface_generator in triangle and incident:
+            candidate_edges.append((triangle, incident))
+
+    missing = diagnostics["missing_face_relations"]
+    missing_pairs = {
+        tuple(relation["missing_face"])
+        for relation in missing
+        if relation["face_dimension"] == 1
+    }
+    assert not interface_pairs & missing_pairs
+
+    seam_triangles = {
+        triangle for triangle, incident in candidate_edges if len(incident) == 2
+    }
+    boundary_triangles = {
+        triangle for triangle, incident in candidate_edges if len(incident) == 1
+    }
+    missing_boundary_relations = [
+        relation for relation in missing
+        if relation["simplex"] in {
+            "2:" + ",".join(map(str, triangle))
+            for triangle in boundary_triangles
+        }
+    ]
+    assert seam_triangles
+    # The selected pair faces are present, while unrelated cofaces may still
+    # be absent from the globally incomplete generator complex.
+    assert not boundary_triangles
+    assert not missing_boundary_relations
+    assert diagnostics["missing_face_relations"]
+    assert missing_pairs - interface_pairs
+
+
+def test_edta_molecule_only_interface_is_local_complete_but_global_unresolved():
+    from vorpy.src.analyze.aw_interface_curvature import _integrate_edge_beta
+    from vorpy.src.analyze.open_interface_curvature import (
+        _aw_supported_gauss_bonnet,
+        _network_face_cycle,
+        analyze_surface_topology,
+    )
+    from vorpy.src.network.aw_geometry_reuse import (
+        build_aw_interface_view,
+        certify_aw_interface_completeness,
+        extract_aw_geometry,
+    )
+    from vorpy.src.network.edge_geometry_diagnostics import resolve_aw_network_edge
+    from vorpy.workbench.services.vorpy_backend import VorPyBackend, VorPySolveSettings
+
+    source = Path(__file__).resolve().parents[2] / "data" / "EDTA.pdb"
+    result = VorPyBackend(
+        VorPySolveSettings(boundary_mode="none", max_vertices=5, surface_resolution=0.2)
+    ).solve(source, lambda *args: None, lambda: False)
+    network = result.export_group.net
+    complex_ = ApolloniusComplex(network, "EDTA-molecule-only")
+    diagnostics = complex_.incidence_diagnostics()
+
+    assert network.solvent_mode == "MOLECULE_ONLY"
+    assert len(network.balls) < 42
+    assert not network.boundary_indices
+    assert int(network.balls["complete"].sum()) < len(network.balls)
+    interface_generator = 0
+    interface_surface_ids = {
+        int(index) for index, row in network.surfs.iterrows()
+        if len(row["balls"]) == 2 and interface_generator in row["balls"]
+    }
+    assert interface_surface_ids
+    pair_complete = [
+        bool(network.balls.loc[list(map(int, network.surfs.loc[sid, "balls"])), "complete"].all())
+        for sid in interface_surface_ids
+    ]
+    assert not all(pair_complete)
+
+    interface_pairs = {
+        tuple(sorted(map(int, network.surfs.loc[sid, "balls"])))
+        for sid in interface_surface_ids
+    }
+    candidate_edges = []
+    for edge_id, row in network.edges.iterrows():
+        triangle = tuple(sorted(map(int, row["balls"])))
+        incident = tuple(sorted(
+            int(sid) for sid in row["surfs"] if int(sid) in interface_surface_ids
+        ))
+        if interface_generator in triangle and incident:
+            candidate_edges.append((int(edge_id), triangle, incident))
+    assert candidate_edges
+    assert {len(incident) for _, _, incident in candidate_edges} == {2}
+
+    topology = analyze_surface_topology([
+        _network_face_cycle(network, network.surfs.loc[sid])
+        for sid in sorted(interface_surface_ids)
+    ])
+    assert topology["faces"] == len(interface_surface_ids)
+    assert topology["euler_characteristic"] == 2
+    assert topology["boundary_edges"] == topology["boundary_components"] == 0
+    assert topology["boundary_is_manifold"] and topology["orientable"]
+
+    # The selected patch is topologically closed, but the conservative local
+    # certificate follows its shared dual support component.  On this real
+    # molecule that component reaches every retained generator, so incomplete
+    # unrelated cells must still block certification.
+    store = extract_aw_geometry(network, allow_incomplete=True)
+    view = build_aw_interface_view(
+        store, {interface_generator}, set(range(1, len(network.balls)))
+    )
+    certificate = certify_aw_interface_completeness(view)
+    assert len(view.surface_ids) == len(interface_surface_ids)
+    assert not certificate.proven
+    assert not certificate.globally_complete
+    assert "incomplete_relevant_competitor" in certificate.reasons
+    assert certificate.counts["relevant_generators"] == len(network.balls)
+
+    missing = diagnostics["missing_face_relations"]
+    assert not interface_pairs & {
+        tuple(relation["missing_face"])
+        for relation in missing
+        if relation["face_dimension"] == 1
+    }
+    simplex_ids = {
+        "2:" + ",".join(map(str, triangle))
+        for _, triangle, _ in candidate_edges
+    }
+    seam_missing = [relation for relation in missing if relation["simplex"] in simplex_ids]
+    assert seam_missing
+    assert all(
+        interface_generator not in tuple(relation["missing_face"])
+        for relation in seam_missing
+    )
+    assert 0 < sum(
+        complex_.is_supported(2, triangle)
+        for _, triangle, _ in candidate_edges
+    ) < len(candidate_edges)
+
+    resolved_edges = []
+    signed = []
+    for edge_id, _, incident in candidate_edges:
+        resolved = resolve_aw_network_edge(network, edge_id)
+        assert resolved.status in {"matched_nonsingular", "matched_curve"}
+        resolved_edges.append(edge_id)
+        forward = _integrate_edge_beta(
+            network, resolved, incident, set(range(1, len(network.balls))), {interface_generator},
+            order=8, max_order=64, rtol=1e-9, atol=1e-11,
+        )
+        reverse = _integrate_edge_beta(
+            network, resolved, incident, {interface_generator}, set(range(1, len(network.balls))),
+            order=8, max_order=64, rtol=1e-9, atol=1e-11,
+        )
+        assert forward["status"] == reverse["status"] == "converged"
+        assert forward["length"] > 0.0
+        assert forward["signed"] == pytest.approx(-reverse["signed"])
+        signed.append(forward["signed"])
+    assert resolved_edges
+    assert len(resolved_edges) == len(candidate_edges)
+    assert sum(signed) != 0.0
+
+    face_records = [
+        (
+            sid,
+            tuple(sorted(map(int, network.surfs.loc[sid, "balls"]))),
+            _network_face_cycle(network, network.surfs.loc[sid]),
+        )
+        for sid in sorted(interface_surface_ids)
+    ]
+    gaussian_16 = _aw_supported_gauss_bonnet(
+        network, face_records, interface_surface_ids, set(range(1, len(network.balls))), order=16
+    )
+    gaussian_32 = _aw_supported_gauss_bonnet(
+        network, face_records, interface_surface_ids, set(range(1, len(network.balls))), order=32
+    )
+    gaussian_baseline = _aw_supported_gauss_bonnet(
+        network, face_records, interface_surface_ids, set(range(1, len(network.balls))),
+        order=16, smooth_face_method="triangulated",
+    )
+    gaussian_reversed = _aw_supported_gauss_bonnet(
+        network, face_records, interface_surface_ids, set(range(1, len(network.balls))), order=16
+    )
+    assert gaussian_16["unresolved_edges"] == 0
+    assert gaussian_16["unresolved_vertices"] == 0
+    assert gaussian_16["unresolved_faces"] == 0
+    assert not gaussian_16["certified"]
+    assert not gaussian_32["certified"]
+    assert not gaussian_16["global_complete"]
+    assert gaussian_16["smooth_face_method"] == "curved"
+    assert abs(gaussian_16["residual"]) < abs(gaussian_baseline["residual"])
+    for key in (
+        "smooth_K", "internal_seam_face_geodesic_K", "free_boundary_face_geodesic_K",
+        "interior_vertex_defect_K", "boundary_vertex_corner_K", "total_GB_left", "residual",
+    ):
+        assert gaussian_reversed[key] == pytest.approx(gaussian_16[key], abs=1e-12)
+    assert gaussian_16["free_boundary_face_geodesic_K"] == pytest.approx(0.0)
+    assert gaussian_16["boundary_vertex_corner_K"] == pytest.approx(0.0)
+    assert len(gaussian_16["face_diagnostics"]) == len(interface_surface_ids)
+    assert all(row["complete"] for row in gaussian_16["face_diagnostics"])
+    assert sum(row["face_GB_residual"] for row in gaussian_16["face_diagnostics"]) == pytest.approx(
+        gaussian_16["residual"], abs=1e-12
+    )
+    assert len(gaussian_16["edge_diagnostics"]) == len(candidate_edges)
+    assert all(
+        row["complete"] and len(row["surface_ids"]) == 2
+        and len(row["incidence_terms"]) == 2 and row["sum"] is not None
+        for row in gaussian_16["edge_diagnostics"]
+    )
+    assert len(gaussian_16["vertex_terms"]) == topology["vertices"]
+    assert gaussian_16["total_GB_left"] == pytest.approx(
+        gaussian_16["smooth_K"]
+        + gaussian_16["internal_seam_face_geodesic_K"]
+        + gaussian_16["free_boundary_face_geodesic_K"]
+        + gaussian_16["interior_vertex_defect_K"]
+        + gaussian_16["boundary_vertex_corner_K"],
+        abs=1e-12,
+    )
+    assert abs(gaussian_16["residual"]) > 1e-6
+    # Validated conic rematching removes the clearance-branch conditioning
+    # issue; the persistent nonzero residual is an accounting blocker.
+    assert gaussian_32["residual"] == pytest.approx(
+        gaussian_16["residual"], abs=1e-12
+    )
+
+
+def test_edta_curved_gaussian_surface_resolution_and_quadrature_converge():
+    from vorpy.src.analyze.open_interface_curvature import (
+        _aw_curved_surface_gaussian,
+        _aw_supported_gauss_bonnet,
+        _network_face_cycle,
+    )
+    from vorpy.workbench.services.vorpy_backend import VorPyBackend, VorPySolveSettings
+
+    source = Path(__file__).resolve().parents[2] / "data" / "EDTA.pdb"
+    study = {}
+    for resolution in (0.2, 0.1):
+        network = VorPyBackend(
+            VorPySolveSettings(boundary_mode="none", max_vertices=5,
+                               surface_resolution=resolution)
+        ).solve(source, lambda *args: None, lambda: False).export_group.net
+        interface_generator = 0
+        surface_ids = {
+            int(index) for index, row in network.surfs.iterrows()
+            if len(row["balls"]) == 2 and interface_generator in row["balls"]
+        }
+        face_records = [
+            (sid, tuple(sorted(map(int, network.surfs.loc[sid, "balls"]))),
+             _network_face_cycle(network, network.surfs.loc[sid]))
+            for sid in sorted(surface_ids)
+        ]
+        group_a = set(range(1, len(network.balls)))
+        baseline_started = time.perf_counter()
+        fixed_terms = _aw_supported_gauss_bonnet(
+            network, face_records, surface_ids, group_a,
+            order=16, smooth_face_method="triangulated",
+        )
+        baseline_seconds = time.perf_counter() - baseline_started
+        non_smooth = fixed_terms["total_GB_left"] - fixed_terms["smooth_K"]
+        values = {}
+        curved_seconds = {}
+        for smooth_order in (2, 4):
+            curved_started = time.perf_counter()
+            values[smooth_order] = non_smooth + sum(
+                _aw_curved_surface_gaussian(network, sid, order=smooth_order)
+                for sid in surface_ids
+            ) - fixed_terms["two_pi_chi"]
+            curved_seconds[smooth_order] = time.perf_counter() - curved_started
+        study[resolution] = {
+            "values": values,
+            "baseline_residual": fixed_terms["residual"],
+            "baseline_seconds": baseline_seconds,
+            "curved_seconds": curved_seconds,
+        }
+
+    print("G12 EDTA residual study:", study)
+    for resolution, result in study.items():
+        values = result["values"]
+        assert abs(values[4]) < abs(result["baseline_residual"])
+        assert result["baseline_seconds"] >= 0.0
+        assert all(seconds >= 0.0 for seconds in result["curved_seconds"].values())
+        if resolution == 0.2:
+            assert abs(values[2] - values[4]) > 1e-6
+        else:
+            assert abs(values[2] - values[4]) < 1e-7
+    assert abs(study[0.1]["values"][4]) < abs(study[0.2]["values"][4])
+    observed_order = math.log(
+        abs(study[0.2]["values"][4] / study[0.1]["values"][4]), 2.0
+    )
+    assert observed_order > 1.0
 
 
 def test_edta_alpha_stays_closed_and_reports_unresolved_births(edta_network):
