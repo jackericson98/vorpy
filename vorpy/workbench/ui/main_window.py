@@ -80,7 +80,22 @@ from vorpy.workbench.ui.molecular_view import (
 from vorpy.workbench.workers.solve_worker import SolveWorker
 from vorpy.workbench.workers.trajectory_worker import TrajectoryPreloadWorker
 from vorpy.workbench.ui.export_panel import ExportPanel
-from vorpy.workbench.ui.panels import (WorkflowSidebar, ViewerPanel, ViewInspector, ResultsInspector, action_button, scroll_panel)
+from vorpy.workbench.ui.panels import (
+    AnalysisCatalogPanel,
+    AnalysisCatalogPresentation,
+    NetworkContextPanel,
+    NetworkContextPresentation,
+    catalog_presentation_from_results,
+    context_presentation_from_owner,
+    context_presentation_from_results,
+    validated_group_system_ids,
+    WorkflowSidebar,
+    ViewerPanel,
+    ViewInspector,
+    ResultsInspector,
+    action_button,
+    scroll_panel,
+)
 
 DEFAULT_DATA_DIRECTORY = Path(__file__).resolve().parents[2] / "data"
 
@@ -136,6 +151,7 @@ class MainWindow(QMainWindow):
         self._load_dialog = None
         self.source: Path | None = None
         self.current_result: AnalysisResult | None = None
+        self._typed_results = ()
         self._loaded_results: dict[Path, AnalysisResult] = {}
         self._structure_states: dict[Path, tuple[set[int], dict[str, tuple[int, ...]], dict[str, tuple[str, str]]]] = {}
         self._thread: QThread | None = None
@@ -514,6 +530,13 @@ class MainWindow(QMainWindow):
             return
         name = self.group_view_selector.currentData()
         indices = set(self._groups.get(name, ())) if name else set()
+        self._render_group_overlay(indices)
+
+    def _render_group_overlay(self, indices) -> None:
+        if (self.current_result is None
+                or not hasattr(self.viewer, 'set_group_overlay')):
+            return
+        indices = set(indices)
         result = self.current_result
         atom_by_index = {atom.index: atom for atom in result.atoms}
         bonded = set()
@@ -959,6 +982,8 @@ class MainWindow(QMainWindow):
         self.network_empty.setWordWrap(True)
         self.network_empty.setObjectName("sectionLabel")
         layout.addWidget(self.network_empty)
+        self.network_context = NetworkContextPanel()
+        layout.addWidget(self.network_context)
         self.network_layer_checks = {}
         self.network_color_buttons = {}
         self.network_colors = {}
@@ -1187,6 +1212,11 @@ class MainWindow(QMainWindow):
         self.interface_results.setHorizontalHeaderLabels(["Defined interface", "Group A", "Group B"])
         self.interface_results.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         tabs.addTab(self.interface_results, "Interfaces")
+        self.analysis_catalog = AnalysisCatalogPanel()
+        self.analysis_catalog.active_selection_changed.connect(
+            self._activate_catalog_entry
+        )
+        tabs.addTab(scroll_panel(self.analysis_catalog), "Catalog")
         self.results_export_tabs = QTabWidget()
         self.results_export_tabs.addTab(tabs, "Results / Analysis")
         self.export_panel = ExportPanel(lambda: self.current_result, self.save_project_action)
@@ -2363,6 +2393,12 @@ class MainWindow(QMainWindow):
                 probe_radius=self.boundary_probe_radius.value(),
                 shell_spacing=self.boundary_shell_spacing.value(),
                 shell_offset=self.boundary_shell_offset.value(),
+                source_network_id=f"workbench:{uuid4()}",
+                typed_group_selections={
+                    name: tuple(indices)
+                    for name, indices in self._groups.items()
+                    if indices
+                },
             )
         )
         self.solve_action.setEnabled(False)
@@ -2445,6 +2481,13 @@ class MainWindow(QMainWindow):
 
     def _display_result(self, result: AnalysisResult, *, preview=False, preserve_view=False) -> None:
         previous = self.current_result
+        same_network_context = (
+            previous is not None
+            and previous.source == result.source
+            and previous.frame_index == result.frame_index
+        )
+        if not same_network_context:
+            self._typed_results = ()
         same_structure = preserve_view or (
             previous is not None
             and previous.source == result.source
@@ -2453,6 +2496,9 @@ class MainWindow(QMainWindow):
         self._loading_progress("Applying atomic properties…", 72)
         self._apply_defaults_to_result(result)
         self.current_result = result
+        handoff = getattr(result, "typed_results", None)
+        if handoff is not None:
+            self.set_typed_results(handoff)
         self._sync_boundary_for_structure(result)
         if result.frame_count > 1 and result.source is not None:
             self._trajectory_cache[(result.source.resolve(), result.frame_index)] = result
@@ -2489,6 +2535,10 @@ class MainWindow(QMainWindow):
                 for name, indices in self._groups.items()
             }
         self._refresh_groups_panel()
+        if handoff is None:
+            # Results are producer-owned. Legacy backends may still return
+            # none, but the Workbench must not analyze defined groups here.
+            self._populate_analysis_catalog()
         self._populate_network_controls(result)
         self._apply_frame_network_sizes(result)
         self._loading_progress("Preparing selection browser…", 92)
@@ -2531,6 +2581,9 @@ class MainWindow(QMainWindow):
         )
 
     def _reset_network_controls(self) -> None:
+        self.network_context.set_context(None)
+        self._typed_results = ()
+        self.analysis_catalog.set_catalog(None)
         for key, checkbox in self.network_layer_checks.items():
             checkbox.blockSignals(True)
             checkbox.setChecked(False)
@@ -2545,6 +2598,31 @@ class MainWindow(QMainWindow):
         self.surface_opacity.setEnabled(False)
 
     def _populate_network_controls(self, result: AnalysisResult) -> None:
+        solved = bool(result.layers or result.summary or result.complete_cells)
+        if solved:
+            producer_context = context_presentation_from_results(self._typed_results)
+            owner_context = context_presentation_from_owner(result.export_group)
+            if producer_context is not None and owner_context is not None:
+                producer_context = replace(
+                    producer_context,
+                    retained_generators=owner_context.retained_generators,
+                )
+            producer_context = producer_context or owner_context
+            if producer_context is not None:
+                self.network_context.set_context(producer_context)
+            else:
+                summary = result.summary if isinstance(result.summary, NetworkSummary) else None
+                self.network_context.set_context(NetworkContextPresentation(
+                    geometry_scheme=summary.network_type if summary else None,
+                    frame=str(result.frame_index),
+                    status="UNRESOLVED",
+                    completeness="UNKNOWN",
+                    identity_state="unresolved",
+                    note=("Network geometry is loaded, but a validated source-network "
+                          "identity and global/isolated scope are not available yet."),
+                ))
+        else:
+            self.network_context.set_context(None)
         for key, checkbox in self.network_layer_checks.items():
             layers = [
                 layer for layer in result.layers if self._network_layer_key(layer) == key
@@ -2608,6 +2686,48 @@ class MainWindow(QMainWindow):
                 or self._network_layers("shell_vertices")
                 or self._network_layers("boundary_vertices")
             )
+        )
+
+    def set_typed_results(self, results) -> None:
+        """Attach active ATLAS/NEXUS Results without rebuilding the network."""
+        if results is None:
+            self._typed_results = ()
+        else:
+            try:
+                self._typed_results = tuple(results)
+            except TypeError:
+                self._typed_results = (results,)
+        self._populate_analysis_catalog()
+        if self.current_result is not None:
+            self._populate_network_controls(self.current_result)
+
+    def _populate_analysis_catalog(self) -> None:
+        catalog = catalog_presentation_from_results(self._typed_results)
+        if catalog is None and self.current_result is not None:
+            catalog = AnalysisCatalogPresentation(
+                note="No validated typed Results are associated with this network.\n"
+                     "Defined groups and interfaces are not analyzed results."
+            )
+        self.analysis_catalog.set_catalog(catalog)
+
+    def _activate_catalog_entry(self, entry) -> None:
+        """Change only the active display selection, never the solved network."""
+        self._active_catalog_entry = entry
+        target = getattr(entry, "selection_target", None)
+        if (
+            getattr(entry, "selection_kind", None) == "group"
+            and hasattr(self, "group_view_selector")
+            and target in self._groups
+        ):
+            index = self.group_view_selector.findData(target)
+            if index >= 0:
+                self.group_view_selector.setCurrentIndex(index)
+        if self.current_result is not None:
+            system_ids = validated_group_system_ids(self.current_result, entry)
+            self._render_group_overlay(system_ids or ())
+        self.statusBar().showMessage(
+            f"Viewing {entry.selection_label} over the solved network; no rebuild requested.",
+            4000,
         )
 
     def _frame_network_key(self, result=None):

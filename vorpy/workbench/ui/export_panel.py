@@ -23,6 +23,7 @@ class ExportPanel(QWidget):
         layout.setContentsMargins(6, 4, 6, 4)
         layout.setSpacing(4)
         content = QWidget()
+        content.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         body = QVBoxLayout(content)
         body.setContentsMargins(4, 2, 4, 2)
         body.setSpacing(6)
@@ -34,7 +35,7 @@ class ExportPanel(QWidget):
             button = QPushButton(f'{PRESET_LABELS[key]}\n{subtitle}')
             button.setObjectName('exportPreset')
             button.setCheckable(True)
-            button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            button.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
             button.clicked.connect(lambda checked=False, key=key: self.select_preset(key))
             self.size_group.addButton(button)
             self.size_buttons[key] = button

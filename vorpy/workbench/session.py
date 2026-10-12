@@ -1,4 +1,5 @@
 """Workbench bridge to the shared scientific .vpy session archive."""
+from copy import copy
 from pathlib import Path
 
 from vorpy.src.io import Session, load_session, save_session
@@ -27,20 +28,83 @@ def session_from_workbench(project, results, active_source=None, structure_state
     # Live scientific references stay in AnalysisResult.export_group; arrays are
     # packed by the same codec, not duplicated into result_state JSON.
     project.result_state = None
-    session.workbench = {'project': project, 'results': dict(results),
-        'active_source': active_source, 'structure_states': dict(structure_states or {}),
-        'trajectory_results': dict(trajectory_results or {}),
-        'network_sizes_by_frame': dict(network_sizes_by_frame or {})}
+    archived_results = {}
+
+    def archive_result(result):
+        key = id(result)
+        if key not in archived_results:
+            stored = result
+            typed = getattr(result, "typed_results", None)
+            selections = getattr(result, "typed_selection_system_ids", None)
+            if (typed and isinstance(selections, dict) and all(
+                getattr(getattr(item, "identity", None), "result_kind", None) == "group"
+                and getattr(getattr(item, "identity", None), "group_id", None) in selections
+                for item in typed
+            )):
+                # Group Results derive from the archived Network and are rebuilt on reload.
+                stored = copy(result)
+                stored.typed_results = None
+            archived_results[key] = stored
+        return archived_results[key]
+
+    session.workbench = {
+        'project': project,
+        'results': {key: archive_result(value) for key, value in results.items()},
+        'active_source': active_source,
+        'structure_states': dict(structure_states or {}),
+        'trajectory_results': {
+            key: archive_result(value) for key, value in (trajectory_results or {}).items()
+        },
+        'network_sizes_by_frame': dict(network_sizes_by_frame or {}),
+    }
     return session
+
+
+def _rebuild_group_results(result, network):
+    selections = getattr(result, "typed_selection_system_ids", None)
+    if not selections:
+        return None
+    from types import SimpleNamespace
+    from vorpy.src.group.shared_view import attach_group_view_results
+    from vorpy.src.network.views import NetworkViewError
+
+    groups = tuple(
+        SimpleNamespace(group_id=name, ball_ndxs=tuple(indices))
+        for name, indices in selections.items()
+    )
+    system = (
+        Path(result.source).stem
+        if result.source is not None
+        else str(getattr(network, "group_name", "unknown"))
+    )
+    try:
+        return attach_group_view_results(
+            result,
+            network,
+            groups,
+            system=system,
+            radius_configuration_id="vorpy-backend-radii-v1",
+        )
+    except NetworkViewError:
+        return ()
 
 
 def workbench_from_session(session, source):
     """Restore display state, wrapping old network archives without analysis."""
     state = session.workbench
     if 'project' in state and 'results' in state:
-        for result in state['results'].values():
-            network = getattr(result.export_group, 'net', None)
+        restored_ids = set()
+        cached_results = list(state['results'].values()) + list(
+            state.get('trajectory_results', {}).values()
+        )
+        for result in cached_results:
+            if id(result) in restored_ids:
+                continue
+            restored_ids.add(id(result))
+            network = getattr(getattr(result, 'export_group', None), 'net', None)
             if network is not None:
+                if getattr(result, "typed_results", None) is None:
+                    result.typed_results = _rebuild_group_results(result, network)
                 result.info_sections.update(cached_info_sections(network))
         return state['project'], state['results'], state.get('active_source'), state.get('structure_states', {})
     from vorpy.workbench.domain import AnalysisResult

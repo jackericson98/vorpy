@@ -10,7 +10,6 @@ from vorpy.workbench.domain import AnalysisResult
 ProgressCallback = Callable[[str, int], None]
 CancellationCheck = Callable[[], bool]
 
-
 class AnalysisBackend(Protocol):
     def solve(
         self,
@@ -21,6 +20,12 @@ class AnalysisBackend(Protocol):
         frame_index: int = 1,
         frame_ranges: tuple[tuple[int, int], ...] | None = None,
     ) -> AnalysisResult:
-        """Analyze one structure and return display-ready, format-neutral data."""
+        """Analyze one structure and return display-ready, format-neutral data.
+
+        A producer that has ATLAS/NEXUS Results may attach one authoritative
+        collection to ``AnalysisResult.typed_results``. The Workbench consumes
+        that live handoff without deriving Results from defined selections;
+        legacy backends may leave the field unset.
+        """
 
 

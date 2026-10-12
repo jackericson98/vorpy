@@ -65,5 +65,13 @@ class AnalysisResult:
     frame_index: int = 1
     frame_count: int = 1
     frame_ranges: tuple[tuple[int, int], ...] = field(default_factory=tuple, repr=False)
+    # Live ATLAS/NEXUS Results are an optional backend handoff. They are
+    # deliberately not part of the legacy JSON presentation payload.
+    typed_results: tuple[object, ...] | None = field(
+        default=None, repr=False, compare=False
+    )
+    typed_selection_system_ids: dict[str, tuple[int, ...]] | None = field(
+        default=None, repr=False, compare=False
+    )
 
 

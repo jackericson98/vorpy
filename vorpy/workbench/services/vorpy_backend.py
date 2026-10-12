@@ -5,12 +5,14 @@ from __future__ import annotations
 import time
 import tempfile
 import shutil
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
 
 from vorpy.src.group import Group
+from vorpy.src.network.views import NetworkViewError
 from vorpy.src.system import System
 from vorpy.src.boundary import (
     BoundaryConfig,
@@ -45,6 +47,15 @@ class VorPySolveSettings:
     probe_radius: float = DEFAULT_PROBE_RADIUS
     shell_spacing: float = DEFAULT_SHELL_SPACING
     shell_offset: float = DEFAULT_SHELL_OFFSET
+    # Optional NEXUS handoff; values are System-global atom IDs. A mapping
+    # preserves Workbench group labels; the tuple form stays compatible with
+    # positional callers.
+    typed_group_selections: (
+        Mapping[str, tuple[int, ...]] | tuple[tuple[int, ...], ...]
+    ) = ()
+    # Producer identity is separate from the archive object's persisted ID.
+    source_network_id: str | None = None
+    retained_system_indices: tuple[int, ...] = ()
 
 
 class _ProgressBridge:
@@ -103,6 +114,10 @@ class VorPyBackend:
                 self.settings.shell_offset,
             ),
         }
+        if self.settings.retained_system_indices:
+            system_options["retained_system_indices"] = (
+                self.settings.retained_system_indices
+            )
         if frame_count > 1:
             system_options["output_directory"] = directory
         system = System(**system_options)
@@ -217,6 +232,46 @@ class VorPyBackend:
                 )
             else:
                 result.surface_count = len(group.net.surfs)
+        if self.settings.typed_group_selections:
+            from types import SimpleNamespace
+
+            from vorpy.src.group.shared_view import attach_group_view_results
+
+            selections = self.settings.typed_group_selections
+            if isinstance(selections, Mapping):
+                selection_items = tuple(
+                    (str(group_id), tuple(indices))
+                    for group_id, indices in selections.items()
+                )
+            else:
+                selection_items = tuple(
+                    (f"{source.stem}:group-{index}", tuple(selection))
+                    for index, selection in enumerate(selections)
+                )
+            requested_groups = tuple(
+                SimpleNamespace(ball_ndxs=selection, group_id=group_id)
+                for group_id, selection in selection_items
+            )
+            try:
+                attach_group_view_results(
+                    result,
+                    group.net,
+                    requested_groups,
+                    system=source.stem,
+                    radius_configuration_id="vorpy-backend-radii-v1",
+                    source_network_id=self.settings.source_network_id,
+                )
+            except NetworkViewError as error:
+                # Missing producer identity is a valid unresolved Workbench
+                # state; every other producer failure must remain visible.
+                if (
+                    self.settings.source_network_id is not None
+                    or getattr(group.net, "source_network_id", None) is not None
+                    or "producer-attested source_network_id is required" not in str(error)
+                ):
+                    raise
+                result.typed_results = ()
+            result.typed_selection_system_ids = dict(selection_items)
         result.elapsed_seconds = time.perf_counter() - started
         progress("Preparing viewer", 100)
         shutil.rmtree(directory, ignore_errors=True)

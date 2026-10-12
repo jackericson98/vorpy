@@ -1,11 +1,15 @@
 import os
 from types import SimpleNamespace
 
+import pytest
+
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication, QToolBar, QWidget
+pytest.importorskip("vtkmodules")
+
 from vtkmodules.vtkCommonDataModel import vtkPlane
 
 from vorpy.workbench.domain import AnalysisResult, Atom, Bond, GeometryLayer
@@ -253,7 +257,7 @@ def test_bottom_tray_and_small_molecule_representation_defaults(monkeypatch):
     assert [window.analysis_tray_tabs.tabText(i) for i in range(window.analysis_tray_tabs.count())] == [
         "Overview", "Composition", "Build", "Timing", "Network / Topology",
         "Group Geometry", "Surface Curvature", "Surface Energy",
-        "Surface Classification", "Chain Composition", "Residue Composition", "Interfaces",
+        "Surface Classification", "Chain Composition", "Residue Composition", "Interfaces", "Catalog",
     ]
     assert window.solve_target.count() == 2
     assert not window.findChildren(QToolBar)
