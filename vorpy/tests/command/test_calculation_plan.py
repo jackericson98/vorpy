@@ -150,6 +150,16 @@ def test_interface_plan_resolves_selected_groups_and_pairwise_requests():
     ]
 
 
+def test_cli_interface_operands_remain_ordered_for_workbench_handoff():
+    plan = build_calculation_plan(
+        ["input.pdb", "--interface", "g", "c", "0", "g", "c", "1"]
+    )
+
+    assert plan.interface_requests[0].operands == (("c", "0"), ("c", "1"))
+    assert plan.interface_requests[0].pair_count() == 1
+    assert plan.interface_only is True
+
+
 @pytest.mark.parametrize(
     ('argv', 'independent', 'full_system', 'interface_only'),
     [

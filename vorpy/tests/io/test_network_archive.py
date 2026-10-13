@@ -13,6 +13,9 @@ from vorpy.src.io import ArchiveError, group_from_network, load_network, save_ne
 from vorpy.workbench.services.vorpy_backend import VorPyBackend, VorPySolveSettings
 
 
+_MISSING = object()
+
+
 @pytest.fixture(scope='module')
 def solved(tmp_path_factory):
     directory = tmp_path_factory.mktemp('archive-solve')
@@ -33,7 +36,44 @@ def archive(solved, tmp_path):
     return path
 
 
-def _cached_lineage_interface(solved, *, interface_id='cached_alpha_dual_regression'):
+@pytest.fixture
+def cached_lineage_interface(solved):
+    """Provide cached-lineage fixtures without leaking state into ``solved``."""
+    system = solved.export_group.sys
+    network = solved.export_group.net
+    original_groups = list(system.groups)
+    original_ifaces = list(system.ifaces)
+    original_system_archive_id = getattr(system, 'archive_id', _MISSING)
+    original_network_archive_id = getattr(network, 'archive_id', _MISSING)
+    original_source_network_id = getattr(network, 'source_network_id', _MISSING)
+    original_files_dir = system.files.get('dir')
+
+    def factory(*, interface_id='cached_alpha_dual_regression'):
+        return _make_cached_lineage_interface(solved, interface_id=interface_id)
+
+    yield factory
+
+    system.groups[:] = original_groups
+    system.ifaces[:] = original_ifaces
+    system.files['dir'] = original_files_dir
+    if original_system_archive_id is _MISSING:
+        if hasattr(system, 'archive_id'):
+            delattr(system, 'archive_id')
+    else:
+        system.archive_id = original_system_archive_id
+    if original_network_archive_id is _MISSING:
+        if hasattr(network, 'archive_id'):
+            delattr(network, 'archive_id')
+    else:
+        network.archive_id = original_network_archive_id
+    if original_source_network_id is _MISSING:
+        if hasattr(network, 'source_network_id'):
+            delattr(network, 'source_network_id')
+    else:
+        network.source_network_id = original_source_network_id
+
+
+def _make_cached_lineage_interface(solved, *, interface_id='cached_alpha_dual_regression'):
     from vorpy.src.geometry.duals import build_dual
     from vorpy.src.interface import Interface
     from vorpy.src.interface.geometry_analysis import InterfaceGeometryAnalysis
@@ -102,12 +142,14 @@ def _cached_lineage_interface(solved, *, interface_id='cached_alpha_dual_regress
 
 
 @pytest.mark.parametrize('archive_mode', ('materialized', 'unresolved', 'missing'))
-def test_cached_interface_result_lineage_cases(solved, monkeypatch, archive_mode):
+def test_cached_interface_result_lineage_cases(
+    solved, cached_lineage_interface, monkeypatch, archive_mode
+):
     from vorpy.src.output import visualization
     from vorpy.src.results import GeometryLineage, GeometryLineageOrigin
 
-    _, interface, lineage, analysis = _cached_lineage_interface(
-        solved, interface_id=f'cached_lineage_{archive_mode}'
+    _, interface, lineage, analysis = cached_lineage_interface(
+        interface_id=f'cached_lineage_{archive_mode}'
     )
     if archive_mode == 'unresolved':
         archived = GeometryLineage(
@@ -1403,7 +1445,7 @@ def test_cli_archive_cache_export_profile(archive, monkeypatch):
 
 
 def test_cached_alpha_dual_archive_round_trip_writes_logs_without_rebuild(
-    solved, tmp_path, monkeypatch
+    solved, cached_lineage_interface, tmp_path, monkeypatch
 ):
     import csv
     from vorpy.src.interface import Interface
@@ -1411,7 +1453,7 @@ def test_cached_alpha_dual_archive_round_trip_writes_logs_without_rebuild(
     from vorpy.src.output import visualization
     from vorpy.src.results import Status
 
-    group, interface, lineage, analysis = _cached_lineage_interface(solved)
+    group, interface, lineage, analysis = cached_lineage_interface()
 
     archive = save_network(group.net, tmp_path / 'cached.vpy')
     with zipfile.ZipFile(archive) as bundle:
@@ -1469,7 +1511,7 @@ def test_cached_alpha_dual_archive_round_trip_writes_logs_without_rebuild(
 
 
 def test_cli_cache_only_export_preserves_lineage_and_status(
-    solved, tmp_path, monkeypatch
+    solved, cached_lineage_interface, tmp_path, monkeypatch
 ):
     import csv
     import sys
@@ -1477,8 +1519,8 @@ def test_cli_cache_only_export_preserves_lineage_and_status(
     from vorpy.src.interface import Interface
     from vorpy.src.network import Network
 
-    group, interface, lineage, _ = _cached_lineage_interface(
-        solved, interface_id='cached_lineage_cli'
+    group, interface, lineage, _ = cached_lineage_interface(
+        interface_id='cached_lineage_cli'
     )
     archive = save_network(group.net, tmp_path / 'cached-lineage.vpy')
     monkeypatch.setattr(Network, 'build', lambda *a, **kw: pytest.fail('Cache-only CLI rebuilt topology'))

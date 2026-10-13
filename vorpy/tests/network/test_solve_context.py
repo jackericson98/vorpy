@@ -126,6 +126,38 @@ def test_context_changes_when_geometry_membership_scheme_or_frame_changes():
     )
 
 
+def test_context_changes_when_retention_or_solvent_mode_changes():
+    baseline = build_solve_context_key(_network())
+
+    retained = _network()
+    retained.retained_system_indices = (10,)
+    retained.retained_generator_ids = ("atom-A",)
+    retained.retained_generator_digest = "retained-digest"
+
+    solvent_context = _network()
+    solvent_context.solvent_mode = "SOLVENT_CONTEXT"
+    solvent_context.settings["solvent_mode"] = "SOLVENT_CONTEXT"
+
+    assert build_solve_context_key(retained).digest != baseline.digest
+    assert build_solve_context_key(solvent_context).digest != baseline.digest
+
+
+def test_direct_network_solvent_mode_is_identity_input_without_settings():
+    molecule_only = _network()
+    molecule_only.settings = None
+    molecule_only.solvent_mode = "MOLECULE_ONLY"
+
+    full_solvent = _network()
+    full_solvent.settings = None
+    full_solvent.solvent_mode = "FULL_SOLVENT"
+
+    molecule_key = build_solve_context_key(molecule_only)
+    full_key = build_solve_context_key(full_solvent)
+
+    assert molecule_key.digest != full_key.digest
+    assert molecule_key.solver_settings_digest != full_key.solver_settings_digest
+
+
 def test_equal_value_environment_objects_do_not_use_object_identity():
     first = build_solve_context_key(
         _network(), environment=SimpleNamespace(mode="dry")

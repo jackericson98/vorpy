@@ -634,6 +634,14 @@ def build_solve_context_key(
         for key, value in settings.items()
         if key not in {"net_type", "surf_res", "surface_resolution"}
     }
+    # Direct Network producers may carry the canonical solvent mode without a
+    # settings mapping. Keep that mode in the solve identity rather than
+    # treating the missing mapping as legacy-equivalent geometry.
+    network_solvent_mode = getattr(network, "solvent_mode", None)
+    if network_solvent_mode is not None:
+        solver_settings["solvent_mode"] = getattr(
+            network_solvent_mode, "value", network_solvent_mode
+        )
     vertex_settings = {
         key: settings.get(key)
         for key in ("max_vert", "num_splits", "box_size", "foam_box")

@@ -171,6 +171,7 @@ def test_no_boundary_default_starts_solve_without_confirmation(monkeypatch):
     window = make_window(monkeypatch)
     window._display_result(sample_result())
     started = []
+    monkeypatch.setattr(window, "_show_solve_preflight", lambda *_: True)
     monkeypatch.setattr(window, "_begin_solve", lambda *_: started.append(True))
     window.solve()
     assert started == [True]
@@ -815,6 +816,10 @@ def test_project_save_and_open_restores_groups(monkeypatch, tmp_path):
     window.box_size.setValue(1.6)
     window.surface_resolution.setValue(0.12)
     window.boundary_mode.setCurrentText("Virtual solvent shell")
+    window.solvent_mode.setCurrentText("Solvent context")
+    window.backend.settings = main_window.VorPySolveSettings(
+        solvent_mode="SOLVENT_CONTEXT", retained_system_indices=(1,)
+    )
     window.boundary_probe_radius.setValue(1.7)
     window.boundary_shell_spacing.setValue(3.1)
     window.boundary_shell_offset.setValue(3.4)
@@ -839,6 +844,8 @@ def test_project_save_and_open_restores_groups(monkeypatch, tmp_path):
     assert restored.box_size.value() == 1.6
     assert restored.surface_resolution.value() == 0.12
     assert restored.boundary_mode.currentData() == "shell"
+    assert restored.solvent_mode.currentData() == "SOLVENT_CONTEXT"
+    assert restored.backend.settings.retained_system_indices == (1,)
     assert restored.boundary_probe_radius.value() == 1.7
     assert restored.boundary_shell_spacing.value() == 3.1
     assert restored.boundary_shell_offset.value() == 3.4
@@ -865,6 +872,8 @@ def test_legacy_project_open_restores_solver_controls(monkeypatch, tmp_path):
                 "box_size": 1.8,
                 "surface_resolution": 0.14,
                 "boundary_mode": "explicit",
+                "solvent_mode": "FULL_SOLVENT",
+                "retained_system_indices": [1],
                 "probe_radius": 1.9,
                 "shell_spacing": 3.2,
                 "shell_offset": 3.6,
@@ -886,9 +895,111 @@ def test_legacy_project_open_restores_solver_controls(monkeypatch, tmp_path):
     assert restored.box_size.value() == 1.8
     assert restored.surface_resolution.value() == 0.14
     assert restored.boundary_mode.currentData() == "explicit"
+    assert restored.solvent_mode.currentData() == "FULL_SOLVENT"
+    assert restored.backend.settings.retained_system_indices == (1,)
     assert restored.boundary_probe_radius.value() == 1.9
     assert restored.boundary_shell_spacing.value() == 3.2
     assert restored.boundary_shell_offset.value() == 3.6
+
+
+def test_scientific_session_open_restores_solvent_and_retained_settings(monkeypatch, tmp_path):
+    project = Project(
+        name="Restored session",
+        backend_settings={
+            "network_type": "pow",
+            "max_vertices": 19,
+            "box_size": 1.7,
+            "surface_resolution": 0.16,
+            "boundary_mode": "shell",
+            "solvent_mode": "SOLVENT_CONTEXT",
+            "retained_system_indices": [0, 1],
+        },
+    )
+    session = SimpleNamespace(workbench={"trajectory_results": {}})
+    monkeypatch.setattr(main_window, "load_session", lambda _path: session)
+    monkeypatch.setattr(
+        main_window,
+        "workbench_from_session",
+        lambda _session, _path: (project, {}, None, {}),
+    )
+    window = make_window(monkeypatch)
+
+    window._open_scientific_session(tmp_path / "restored.vpy")
+
+    assert window.network_type.currentText() == "Power"
+    assert window.max_vertices.value() == 19
+    assert window.box_size.value() == 1.7
+    assert window.surface_resolution.value() == 0.16
+    assert window.boundary_mode.currentData() == "shell"
+    assert window.solvent_mode.currentData() == "SOLVENT_CONTEXT"
+    assert window.backend.settings.retained_system_indices == (0, 1)
+
+    rebuilt = window._solver_settings_from_controls()
+    assert rebuilt.solvent_mode == "SOLVENT_CONTEXT"
+    assert rebuilt.retained_system_indices == (0, 1)
+
+
+def test_begin_solve_preserves_restored_solvent_and_retained_settings(monkeypatch):
+    window = make_window(monkeypatch)
+    window._display_result(sample_result())
+    window.solvent_mode.setCurrentText("Full solvent")
+    window.boundary_mode.setCurrentText("Virtual solvent shell")
+    window.backend.settings = main_window.VorPySolveSettings(
+        solvent_mode="FULL_SOLVENT", retained_system_indices=(1,)
+    )
+
+    captured = {}
+
+    class SignalStub:
+        def connect(self, _callback):
+            pass
+
+    class BackendStub:
+        def __init__(self, settings):
+            captured["settings"] = settings
+            self.settings = settings
+
+    class WorkerStub:
+        def __init__(self, *_args, **_kwargs):
+            self.progress = SignalStub()
+            self.completed = SignalStub()
+            self.failed = SignalStub()
+            self.cancelled = SignalStub()
+            self.finished = SignalStub()
+
+        def moveToThread(self, _thread):
+            pass
+
+        def run(self):
+            pass
+
+        def deleteLater(self):
+            pass
+
+    class ThreadStub:
+        def __init__(self, _parent=None):
+            self.started = SignalStub()
+            self.finished = SignalStub()
+
+        def start(self):
+            pass
+
+        def quit(self):
+            pass
+
+        def deleteLater(self):
+            pass
+
+    monkeypatch.setattr(main_window, "VorPyBackend", BackendStub)
+    monkeypatch.setattr(main_window, "SolveWorker", WorkerStub)
+    monkeypatch.setattr(main_window, "QThread", ThreadStub)
+
+    window._begin_solve(1, (0,))
+
+    settings = captured["settings"]
+    assert settings.solvent_mode == "FULL_SOLVENT"
+    assert settings.retained_system_indices == (1,)
+    assert settings.boundary_mode == "shell"
 
 
 def test_solve_target_resolves_group_and_interface_membership(monkeypatch):
@@ -904,6 +1015,94 @@ def test_solve_target_resolves_group_and_interface_membership(monkeypatch):
     assert window._solve_target_indices() == (0, 1)
     window.solve_target.setCurrentIndex(window.solve_target.findText("Whole molecule"))
     assert window._solve_target_indices() is None
+
+
+def test_solve_preflight_labels_interface_union_and_solver_settings(monkeypatch, tmp_path):
+    window = make_window(monkeypatch)
+    result = sample_result()
+    result.source = tmp_path / "input.pdb"
+    window._display_result(result)
+    window._groups = {"A": (0,), "B": (1,)}
+    window._interfaces = {"Contact": ("A", "B")}
+    window._refresh_groups_panel()
+    window.solve_target.setCurrentIndex(window.solve_target.findText("Interface: Contact"))
+    window.solvent_mode.setCurrentText("Full solvent")
+    window.backend.settings = main_window.VorPySolveSettings(
+        solvent_mode="FULL_SOLVENT", retained_system_indices=(1,)
+    )
+
+    text = window._solve_preflight_text((0, 1))
+
+    assert "Source PDB:" in text
+    assert "Frame: 1 / 1" in text
+    assert "Group A: A (1 atoms)" in text
+    assert "Group B: B (1 atoms)" in text
+    assert "Group overlap: 0 atoms" in text
+    assert "Decomposition scheme: Atomic Voronoi" in text
+    assert "Solver vertex limit (max_vert): 5" in text
+    assert "Boundary policy: No boundary (default)" in text
+    assert "Solvent participation: FULL_SOLVENT" in text
+    assert "Retained generators: 1 explicit System indices" in text
+    assert "Interface path: ordered A/B typed Result handoff" in text
+    assert "Scientific completeness: not certified" in text
+
+    started = []
+    monkeypatch.setattr(window, "_show_solve_preflight", lambda *_: False)
+    monkeypatch.setattr(window, "_begin_solve", lambda *_: started.append(True))
+    window.solve()
+    assert started == []
+
+
+def test_interface_preflight_preserves_order_counts_and_overlap(monkeypatch):
+    window = make_window(monkeypatch)
+    window._display_result(sample_result())
+    window._groups = {"A": (0, 1), "B": (1,)}
+    window._interfaces = {"Contact": ("A", "B")}
+    window._refresh_groups_panel()
+    window.solve_target.setCurrentIndex(window.solve_target.findText("Interface: Contact"))
+
+    assert [window.groups_list.item(row).text() for row in range(window.groups_list.count())] == [
+        "A (2 atoms)",
+        "B (1 atoms)",
+    ]
+    assert window.interfaces_list.item(0).text() == "Contact: A ↔ B"
+
+    text = window._solve_preflight_text((0, 1))
+
+    assert "Group A: A (2 atoms)" in text
+    assert "Group B: B (1 atoms)" in text
+    assert "Group overlap: 1 atoms" in text
+    assert "Interface path: ordered A/B typed Result handoff" in text
+
+
+def test_solve_passes_ordered_interface_selection_to_worker(monkeypatch):
+    window = make_window(monkeypatch)
+    window._display_result(sample_result())
+    window._groups = {"A": (0,), "B": (1,)}
+    window._interfaces = {"Contact": ("A", "B")}
+    window._refresh_groups_panel()
+    window.solve_target.setCurrentIndex(window.solve_target.findText("Interface: Contact"))
+
+    seen = {}
+    monkeypatch.setattr(
+        window,
+        "_show_solve_preflight",
+        lambda indices, selection: seen.update(
+            preflight=(indices, selection)
+        ) or True,
+    )
+    monkeypatch.setattr(window, "_confirm_boundary_solve", lambda: True)
+    monkeypatch.setattr(window, "_begin_solve", lambda *args: seen.update(begin=args))
+
+    window.solve()
+
+    selection = seen["preflight"][1]
+    assert selection.interface_id == "Contact"
+    assert selection.group_a_id == "A"
+    assert selection.group_a_system_indices == (0,)
+    assert selection.group_b_id == "B"
+    assert selection.group_b_system_indices == (1,)
+    assert seen["begin"][2] == selection
 
 
 def test_workbench_empty_loaded_busy_and_reset_states(monkeypatch):

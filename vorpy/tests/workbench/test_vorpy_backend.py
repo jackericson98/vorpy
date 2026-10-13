@@ -1,10 +1,20 @@
 from types import SimpleNamespace
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from vorpy.workbench.services.vorpy_backend import _layers_from_network, _ProgressBridge
+from vorpy.src.boundary import SolventMode
+from vorpy.src.system import System
+from vorpy.workbench.services import vorpy_backend
+from vorpy.workbench.services.vorpy_backend import (
+    InterfaceSolveSelection,
+    VorPyBackend,
+    VorPySolveSettings,
+    _layers_from_network,
+    _ProgressBridge,
+)
 
 
 def test_progress_bridge_forwards_network_context_and_cancellation():
@@ -16,6 +26,215 @@ def test_progress_bridge_forwards_network_context_and_cancellation():
     cancelled = _ProgressBridge(lambda *_: None, lambda: True)
     with pytest.raises(RuntimeError, match="cancelled"):
         cancelled.update_progress("Building", 10)
+
+
+def test_backend_forwards_canonical_generator_settings_before_solving(monkeypatch):
+    captured = {}
+
+    class StopAfterSettings(RuntimeError):
+        pass
+
+    def capture_system(**kwargs):
+        captured.update(kwargs)
+        raise StopAfterSettings
+
+    monkeypatch.setattr(vorpy_backend, "System", capture_system)
+    source = Path(__file__).resolve().parents[2] / "data" / "EDTA.pdb"
+    settings = VorPySolveSettings(
+        solvent_mode="full-solvent",
+        retained_system_indices=(32, 0, 32),
+    )
+
+    with pytest.raises(StopAfterSettings):
+        VorPyBackend(settings).solve(source, lambda *_args: None, lambda: False)
+
+    assert captured["solvent_mode"] == "FULL_SOLVENT"
+    assert captured["retained_system_indices"] == (0, 32)
+
+
+def _interface_system(*, solvent_mode=SolventMode.SOLVENT_CONTEXT,
+                      retained_system_indices=(1,)):
+    return System(
+        spheres=pd.DataFrame({
+            "loc": [
+                (0.0, 0.0, 0.0),
+                (1.5, 0.0, 0.0),
+                (0.0, 1.5, 0.0),
+                (1.5, 1.5, 0.0),
+            ],
+            "rad": [1.7, 1.5, 1.5, 1.5],
+            "mass": [12.0, 16.0, 18.0, 16.0],
+            "num": [100, 101, 102, 103],
+            "res_name": ["ALA", "HOH", "GLY", "WAT"],
+            "name": ["CA", "O", "CA", "O"],
+        }),
+        name="backend-interface",
+        make_dir=False,
+        solvent_mode=solvent_mode,
+        retained_system_indices=retained_system_indices,
+    )
+
+
+def test_interface_selection_rejects_overlap_and_noncanonical_membership():
+    with pytest.raises(ValueError, match="overlap"):
+        InterfaceSolveSelection(
+            "interface-1", "chains-A-B", (0, 1), "chain-I", (1, 2)
+        )
+    with pytest.raises(ValueError, match="sorted"):
+        InterfaceSolveSelection(
+            "interface-1", "chains-A-B", (1, 0), "chain-I", (2,)
+        )
+
+
+def test_backend_makes_ordered_interface_with_solvent_and_retention_identity():
+    system = _interface_system()
+    settings = VorPySolveSettings(
+        solvent_mode=SolventMode.SOLVENT_CONTEXT.value,
+        retained_system_indices=(1,),
+        source_network_id="producer:interface-test",
+    )
+    selection = InterfaceSolveSelection(
+        "chains-A-B__chain-I",
+        "chains-A-B",
+        (0, 1),
+        "chain-I",
+        (2,),
+    )
+
+    interface = VorPyBackend(settings).make_interface_network(system, selection)
+
+    assert interface.interface_id == "chains-A-B__chain-I"
+    assert interface.group1.group_id == "chains-A-B"
+    assert interface.group2.group_id == "chain-I"
+    assert interface.net.iface_grps == ({0, 1}, {2})
+    assert interface.net.network_mode == "interface"
+    assert interface.net.solvent_mode == SolventMode.SOLVENT_CONTEXT.value
+    assert interface.net.retained_system_indices == (1,)
+    assert interface.net.source_network_id == "producer:interface-test"
+    assert system.ifaces == [interface]
+
+
+def test_backend_rejects_interface_side_excluded_by_solvent_mode():
+    system = _interface_system(solvent_mode=SolventMode.MOLECULE_ONLY,
+                               retained_system_indices=())
+    settings = VorPySolveSettings()
+    selection = InterfaceSolveSelection(
+        "interface-1", "chains-A-B", (0, 1), "chain-I", (2,)
+    )
+
+    with pytest.raises(ValueError, match="excluded by solvent_mode"):
+        VorPyBackend(settings).make_interface_network(system, selection)
+
+
+def test_backend_rejects_system_identity_mismatch_before_interface_build():
+    system = _interface_system()
+    selection = InterfaceSolveSelection(
+        "interface-1", "chains-A-B", (0,), "chain-I", (2,)
+    )
+
+    with pytest.raises(ValueError, match="retained_system_indices"):
+        VorPyBackend(
+            VorPySolveSettings(
+                solvent_mode=SolventMode.SOLVENT_CONTEXT.value,
+            )
+        ).make_interface_network(system, selection)
+
+
+def test_backend_builds_typed_ordered_interface_handoff():
+    from vorpy.src.interface.geometry_analysis import InterfaceGeometryAnalysis
+    from vorpy.src.results import GeometryLineageOrigin, InterfaceResult
+
+    system = _interface_system()
+    settings = VorPySolveSettings(
+        solvent_mode=SolventMode.SOLVENT_CONTEXT.value,
+        retained_system_indices=(1,),
+        source_network_id="producer:interface-handoff",
+    )
+    backend = VorPyBackend(settings)
+    selection = InterfaceSolveSelection(
+        "chains-A-B__chain-I",
+        "chains-A-B",
+        (0, 1),
+        "chain-I",
+        (2,),
+    )
+    interface = backend.make_interface_network(system, selection)
+    analysis = InterfaceGeometryAnalysis(
+        metadata={"result_status": "PARTIAL"},
+        voronoi_side_1={},
+    )
+
+    handoff = backend.make_interface_result_handoff(
+        interface,
+        selection,
+        analysis,
+        system_id="synthetic-interface",
+        result_network_id="archive:interface-handoff",
+        radius_configuration_id="radii:synthetic-v1",
+        selection_id="view:chains-A-B__chain-I",
+        group_a_selection_id="view:chains-A-B",
+        group_b_selection_id="view:chain-I",
+        orientation="A -> B",
+        source_identity_status="AUTHORITATIVE",
+        source_revision="producer-interface-v1",
+        environment="solvent_competing",
+        completeness_proven=False,
+    )
+
+    assert isinstance(handoff.result, InterfaceResult)
+    assert handoff.identity.source_network_id == "producer:interface-handoff"
+    assert handoff.identity.solve_universe_id.startswith("solve:")
+    assert handoff.identity.group_A_selection_id == "view:chains-A-B"
+    assert handoff.identity.group_B_selection_id == "view:chain-I"
+    assert handoff.identity.orientation == "A -> B"
+    assert handoff.identity.solvent_mode == SolventMode.SOLVENT_CONTEXT.value
+    assert handoff.identity.retained_system_indices == (1,)
+    assert handoff.dependency.identity == handoff.identity
+    assert handoff.dependency.source_id == selection.interface_id
+    assert handoff.dependency.source_revision == "producer-interface-v1"
+    assert handoff.result.identity.network_id == "archive:interface-handoff"
+    assert handoff.result.identity.source_interface_id == selection.interface_id
+    assert handoff.result.identity.orientation == "group1 -> group2"
+    assert handoff.result.provenance.source_revision == "producer-interface-v1"
+    assert handoff.result.status.value == "PARTIAL"
+    assert handoff.geometry_lineage.origin is GeometryLineageOrigin.DIRECT_SOLVE
+    assert handoff.geometry_lineage.solve_universe_id == handoff.identity.solve_universe_id
+    assert handoff.geometry_lineage.source_interface_id == selection.interface_id
+
+
+def test_typed_interface_handoff_rejects_union_network():
+    from vorpy.src.interface.geometry_analysis import InterfaceGeometryAnalysis
+
+    system = _interface_system()
+    settings = VorPySolveSettings(
+        solvent_mode=SolventMode.SOLVENT_CONTEXT.value,
+        retained_system_indices=(1,),
+        source_network_id="producer:interface-union-reject",
+    )
+    backend = VorPyBackend(settings)
+    selection = InterfaceSolveSelection(
+        "interface-union-reject", "group-A", (0, 1), "group-B", (2,)
+    )
+    interface = backend.make_interface_network(system, selection)
+    interface.net.iface_grps = None
+
+    with pytest.raises(ValueError, match="dedicated interface network"):
+        backend.make_interface_result_handoff(
+            interface,
+            selection,
+            InterfaceGeometryAnalysis(metadata={"result_status": "PARTIAL"}),
+            system_id="synthetic-interface",
+            result_network_id="archive:interface-union-reject",
+            radius_configuration_id="radii:synthetic-v1",
+            selection_id="view:interface-union-reject",
+            group_a_selection_id="view:group-A",
+            group_b_selection_id="view:group-B",
+            orientation="A -> B",
+            source_identity_status="AUTHORITATIVE",
+            source_revision="producer-interface-v1",
+            environment="dry",
+            completeness_proven=False,
+        )
 
 
 def test_network_geometry_is_converted_to_viewer_layers():
@@ -83,6 +302,30 @@ def test_worker_forwards_selection_snapshot_to_backend():
     worker.run()
 
     assert seen["indices"] == (4, 9)
+
+
+def test_worker_forwards_ordered_interface_selection_to_backend():
+    from vorpy.workbench.domain import AnalysisResult
+    from vorpy.workbench.workers.solve_worker import SolveWorker
+
+    selection = InterfaceSolveSelection(
+        "interface-1", "group-A", (0,), "group-B", (1,)
+    )
+    seen = {}
+
+    class BackendStub:
+        def solve(
+            self, source, progress, is_cancelled, selected_indices=None,
+            interface_selection=None,
+        ):
+            seen["selection"] = interface_selection
+            return AnalysisResult(source=source, name="interface")
+
+    SolveWorker(
+        BackendStub(), None, (0, 1), interface_selection=selection
+    ).run()
+
+    assert seen["selection"] is selection
 
 
 def test_worker_forwards_selected_frame_to_backend():

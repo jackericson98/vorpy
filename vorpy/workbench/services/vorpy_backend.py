@@ -12,15 +12,30 @@ from pathlib import Path
 import numpy as np
 
 from vorpy.src.group import Group
+from vorpy.src.interface import Interface
 from vorpy.src.network.views import NetworkViewError
+from vorpy.src.results import (
+    GeometryLineage,
+    InterfaceResult,
+    ResultsDependency,
+    ResultIdentity,
+    Provenance,
+    SharedNetworkIdentity,
+    adapt_interface_analysis,
+    make_geometry_lineage,
+)
 from vorpy.src.system import System
 from vorpy.src.boundary import (
     BoundaryConfig,
     BoundaryMode,
+    SolventMode,
     DEFAULT_PROBE_RADIUS,
     DEFAULT_BOUNDARY_GENERATOR_RADIUS,
     DEFAULT_SHELL_OFFSET,
     DEFAULT_SHELL_SPACING,
+    normalize_retained_system_indices,
+    normalize_solvent_mode,
+    prepare_network_geometry,
 )
 from vorpy.workbench.domain import AnalysisResult, Atom, GeometryLayer
 from vorpy.workbench.atomic_defaults import apply_system_defaults
@@ -56,6 +71,90 @@ class VorPySolveSettings:
     # Producer identity is separate from the archive object's persisted ID.
     source_network_id: str | None = None
     retained_system_indices: tuple[int, ...] = ()
+    # Scientific generator-universe contract shared with the CLI. Boundary
+    # mode remains a separate numerical boundary setting.
+    solvent_mode: str = SolventMode.MOLECULE_ONLY.value
+
+    def __post_init__(self):
+        object.__setattr__(
+            self,
+            "solvent_mode",
+            normalize_solvent_mode(self.solvent_mode).value,
+        )
+        object.__setattr__(
+            self,
+            "retained_system_indices",
+            normalize_retained_system_indices(self.retained_system_indices),
+        )
+
+
+def _interface_indices(value, label):
+    if isinstance(value, (str, bytes)):
+        raise ValueError(f"{label} must be a non-empty sequence of System indices")
+    try:
+        indices = tuple(value)
+    except TypeError as error:
+        raise ValueError(
+            f"{label} must be a non-empty sequence of System indices"
+        ) from error
+    if not indices:
+        raise ValueError(f"{label} must not be empty")
+    if any(
+        isinstance(index, bool) or not isinstance(index, int) or index < 0
+        for index in indices
+    ):
+        raise ValueError(f"{label} must contain non-negative integer System indices")
+    if tuple(sorted(set(indices))) != indices:
+        raise ValueError(f"{label} must be sorted and contain no duplicate indices")
+    return indices
+
+
+@dataclass(frozen=True)
+class InterfaceSolveSelection:
+    """Validated, ordered Group A/Group B input for a dedicated interface.
+
+    The selections are System-global indices.  Their order is semantic (A is
+    the first physical side), while each side is required to be canonical so
+    the same target cannot acquire multiple cache or identity spellings.
+    """
+
+    interface_id: str
+    group_a_id: str
+    group_a_system_indices: tuple[int, ...]
+    group_b_id: str
+    group_b_system_indices: tuple[int, ...]
+
+    def __post_init__(self):
+        for name in ("interface_id", "group_a_id", "group_b_id"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{name} must be a non-empty stable identifier")
+        if self.group_a_id == self.group_b_id:
+            raise ValueError("Group A and Group B identifiers must be distinct")
+        group_a = _interface_indices(
+            self.group_a_system_indices, "group_a_system_indices"
+        )
+        group_b = _interface_indices(
+            self.group_b_system_indices, "group_b_system_indices"
+        )
+        overlap = sorted(set(group_a).intersection(group_b))
+        if overlap:
+            raise ValueError(
+                "Group A and Group B selections overlap: "
+                f"{overlap[:5]}"
+            )
+        object.__setattr__(self, "group_a_system_indices", group_a)
+        object.__setattr__(self, "group_b_system_indices", group_b)
+
+
+@dataclass(frozen=True)
+class InterfaceResultHandoff:
+    """Typed producer evidence returned with one live interface Result."""
+
+    result: InterfaceResult
+    identity: SharedNetworkIdentity
+    dependency: ResultsDependency
+    geometry_lineage: GeometryLineage
 
 
 class _ProgressBridge:
@@ -75,8 +174,356 @@ class _ProgressBridge:
 class VorPyBackend:
     """Run VorPy and convert its output to the viewer's stable data model."""
 
+    supports_interface_results = True
+
     def __init__(self, settings: VorPySolveSettings | None = None):
         self.settings = settings or VorPySolveSettings()
+
+    def make_interface_network(
+        self, system: System, selection: InterfaceSolveSelection
+    ) -> Interface:
+        """Construct a genuine ordered A/B interface network from a System.
+
+        This is intentionally a lower-level producer seam.  It does not infer
+        a Workbench Result or adapt ATLAS provenance; callers must supply that
+        separately once the Results dependency/context contract is selected.
+        """
+        if not isinstance(selection, InterfaceSolveSelection):
+            raise TypeError("selection must be InterfaceSolveSelection")
+        source_network_id = self.settings.source_network_id
+        if source_network_id is not None and (
+            not isinstance(source_network_id, str) or not source_network_id.strip()
+        ):
+            raise ValueError(
+                "source_network_id must be null or a non-empty stable identifier"
+            )
+
+        system_mode = normalize_solvent_mode(
+            getattr(system, "solvent_mode", None)
+        ).value
+        if system_mode != self.settings.solvent_mode:
+            raise ValueError(
+                "Interface system solvent_mode does not match backend settings"
+            )
+        system_retained = normalize_retained_system_indices(
+            getattr(system, "retained_system_indices", ())
+        )
+        if system_retained != self.settings.retained_system_indices:
+            raise ValueError(
+                "Interface system retained_system_indices do not match backend settings"
+            )
+        existing_group_ids = {
+            getattr(group, "group_id", None) for group in getattr(system, "groups", ())
+        }
+        if {selection.group_a_id, selection.group_b_id}.intersection(existing_group_ids):
+            raise ValueError("Interface group identifiers already exist in the System")
+        if any(
+            getattr(interface, "interface_id", None) == selection.interface_id
+            for interface in getattr(system, "ifaces", ())
+        ):
+            raise ValueError("Interface identifier already exists in the System")
+
+        geometry = prepare_network_geometry(system, self.settings.solvent_mode)
+        available = {
+            int(index) for index in geometry.system_indices if index is not None
+        }
+        for label, indices in (
+            ("Group A", selection.group_a_system_indices),
+            ("Group B", selection.group_b_system_indices),
+        ):
+            missing = sorted(set(indices).difference(available))
+            if missing:
+                raise ValueError(
+                    f"{label} contains generators excluded by solvent_mode "
+                    f"{self.settings.solvent_mode}: {missing[:5]}"
+                )
+
+        group_kwargs = dict(
+            sys=system,
+            net_type=self.settings.network_type,
+            max_vert=self.settings.max_vertices,
+            box_size=self.settings.box_size,
+            surf_res=self.settings.surface_resolution,
+            print_metrics=False,
+            make_net=False,
+            build_net=False,
+            mode="interface",
+            solvent_mode=self.settings.solvent_mode,
+        )
+        group_a = Group(
+            name=selection.group_a_id,
+            atoms=list(selection.group_a_system_indices),
+            group_id=selection.group_a_id,
+            **group_kwargs,
+        )
+        group_b = Group(
+            name=selection.group_b_id,
+            atoms=list(selection.group_b_system_indices),
+            group_id=selection.group_b_id,
+            **group_kwargs,
+        )
+
+        # In-memory Workbench systems have no output directory.  Keep this
+        # constructor bounded without changing the normal CLI output policy.
+        files = getattr(system, "files", {}) or {}
+        compact_before = getattr(system, "_compact_interface_workflow", None)
+        if files.get("dir") is None:
+            system._compact_interface_workflow = True
+        try:
+            interface = Interface(
+                sys=system,
+                group1=group_a,
+                group2=group_b,
+                interface_id=selection.interface_id,
+            )
+            interface.make_net()
+            interface.net.source_network_id = source_network_id
+        finally:
+            if compact_before is None:
+                try:
+                    del system._compact_interface_workflow
+                except AttributeError:
+                    pass
+            else:
+                system._compact_interface_workflow = compact_before
+
+        system.groups.extend((group_a, group_b))
+        system.ifaces.append(interface)
+        return interface
+
+    def make_interface_result_handoff(
+        self,
+        interface: Interface,
+        selection: InterfaceSolveSelection,
+        analysis,
+        *,
+        system_id: str,
+        result_network_id: str,
+        radius_configuration_id: str,
+        selection_id: str,
+        group_a_selection_id: str,
+        group_b_selection_id: str,
+        orientation: str,
+        source_identity_status: str,
+        source_revision: str,
+        environment: str,
+        completeness_proven: bool,
+    ) -> InterfaceResultHandoff:
+        """Adapt one built ordered interface into the typed Results seam.
+
+        Every identity that is not present on the solved network is explicit
+        input.  This method rejects provisional producer identity rather than
+        presenting calculated interface quantities as authoritative.
+        """
+        if not isinstance(interface, Interface):
+            raise TypeError("interface must be a VorPy Interface")
+        if not isinstance(selection, InterfaceSolveSelection):
+            raise TypeError("selection must be InterfaceSolveSelection")
+        if analysis is None:
+            raise ValueError("A built interface analysis is required for typed Results")
+        if source_identity_status != "AUTHORITATIVE":
+            raise ValueError(
+                "Typed live interface Results require authoritative source identity"
+            )
+        if orientation not in {"A -> B", "B -> A"}:
+            raise ValueError("Interface orientation must be A -> B or B -> A")
+        for label, value in (
+            ("system_id", system_id),
+            ("result_network_id", result_network_id),
+            ("radius_configuration_id", radius_configuration_id),
+            ("selection_id", selection_id),
+            ("group_a_selection_id", group_a_selection_id),
+            ("group_b_selection_id", group_b_selection_id),
+            ("source_revision", source_revision),
+            ("environment", environment),
+        ):
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{label} must be a non-empty stable identifier")
+        if not isinstance(completeness_proven, bool):
+            raise TypeError("completeness_proven must be boolean")
+
+        network = getattr(interface, "net", None)
+        if network is None or getattr(network, "network_mode", None) != "interface":
+            raise ValueError("Typed interface Results require a dedicated interface network")
+        if interface.interface_id != selection.interface_id:
+            raise ValueError("Interface identity does not match InterfaceSolveSelection")
+        if tuple(sorted(interface.group1.ball_ndxs)) != selection.group_a_system_indices:
+            raise ValueError("Interface Group A membership does not match selection")
+        if tuple(sorted(interface.group2.ball_ndxs)) != selection.group_b_system_indices:
+            raise ValueError("Interface Group B membership does not match selection")
+
+        iface_groups = getattr(network, "iface_grps", None)
+        generator_system_indices = getattr(network, "generator_system_indices", None)
+        if (
+            not isinstance(iface_groups, tuple)
+            or len(iface_groups) != 2
+            or generator_system_indices is None
+        ):
+            raise ValueError(
+                "dedicated interface network is missing distinct generator-side evidence"
+            )
+        local_by_system = {
+            int(system_index): local_index
+            for local_index, system_index in enumerate(generator_system_indices)
+            if system_index is not None
+        }
+        expected_a = {
+            local_by_system[index]
+            for index in selection.group_a_system_indices
+            if index in local_by_system
+        }
+        expected_b = {
+            local_by_system[index]
+            for index in selection.group_b_system_indices
+            if index in local_by_system
+        }
+        if (
+            set(iface_groups[0]) != expected_a
+            or set(iface_groups[1]) != expected_b
+            or set(getattr(network, "group", ()) or ()) != expected_a | expected_b
+        ):
+            raise ValueError("Interface network membership is not the ordered A/B selection")
+
+        source_network_id = getattr(network, "source_network_id", None)
+        if not isinstance(source_network_id, str) or not source_network_id.strip():
+            raise ValueError("Typed interface Results require explicit source_network_id")
+        if result_network_id == source_network_id:
+            raise ValueError("Result network identity must remain distinct from producer identity")
+
+        context = network.get_solve_context_key()
+        partition = {"aw": "aw", "pow": "power"}.get(context.scheme)
+        if partition is None:
+            raise ValueError(
+                f"Typed interface Results do not support geometry scheme {context.scheme!r}"
+            )
+        solvent_mode = getattr(network.solvent_mode, "value", network.solvent_mode)
+        if not isinstance(solvent_mode, str) or not solvent_mode:
+            raise ValueError("Interface network is missing solvent_mode provenance")
+
+        shared_identity = SharedNetworkIdentity(
+            source_network_id=source_network_id,
+            source_identity_status=source_identity_status,
+            solve_universe_id=context.solve_universe_id,
+            frame_id=context.frame_id,
+            analysis_context_kind="GLOBAL_NETWORK",
+            geometry_scheme=context.scheme,
+            partition_scheme=partition,
+            scope_mode=context.scope_mode,
+            solvent_mode=solvent_mode,
+            solvent_generator_digest=getattr(
+                network, "solvent_generator_digest", None
+            ),
+            solvent_cells_complete=getattr(
+                network, "solvent_cells_complete", None
+            ),
+            retained_system_indices=tuple(
+                getattr(network, "retained_system_indices", ()) or ()
+            ),
+            retained_generator_ids=tuple(
+                getattr(network, "retained_generator_ids", ()) or ()
+            ),
+            retained_generator_digest=getattr(
+                network, "retained_generator_digest", None
+            ),
+            selection_id=selection_id,
+            group_A_selection_id=group_a_selection_id,
+            group_B_selection_id=group_b_selection_id,
+            orientation=orientation,
+        )
+        dependency = ResultsDependency(
+            identity=shared_identity,
+            source_id=selection.interface_id,
+            source_revision=source_revision,
+        )
+
+        from vorpy.src.network.aw_geometry_reuse import build_geometry_lineage_metadata
+
+        lineage_metadata = build_geometry_lineage_metadata(
+            network,
+            selection_scope={
+                "selection_kind": "interface",
+                "interface_id": selection.interface_id,
+                "group_A_id": selection.group_a_id,
+                "group_B_id": selection.group_b_id,
+                "group_A_system_indices": selection.group_a_system_indices,
+                "group_B_system_indices": selection.group_b_system_indices,
+                "selection_id": selection_id,
+            },
+            orientation={
+                "convention": (
+                    "physical_interface_A_to_B"
+                    if orientation == "A -> B"
+                    else "physical_interface_B_to_A"
+                )
+            },
+            completeness={"completeness_proven": completeness_proven},
+        )
+        lineage_metadata["source_interface_id"] = selection.interface_id
+        geometry_lineage = make_geometry_lineage(
+            lineage_metadata,
+            solver_evidence={
+                "schema_version": 1,
+                "enabled": True,
+                "solve_key": context,
+                "completeness": {
+                    "completeness_proven": completeness_proven,
+                },
+            },
+        )
+        if geometry_lineage.origin.value != "DIRECT_SOLVE":
+            raise ValueError("Explicit interface solve evidence did not produce DIRECT_SOLVE lineage")
+
+        result_identity = ResultIdentity(
+            result_kind="interface",
+            system=system_id,
+            frame=context.frame_id,
+            network_id=result_network_id,
+            network_scope="interface",
+            environment=environment,
+            partition=partition,
+            representation="voronoi",
+            radius_configuration_id=radius_configuration_id,
+            interface_id=selection.interface_id,
+            group_A=selection.group_a_id,
+            group_B=selection.group_b_id,
+            side="shared",
+            orientation=(
+                "group1 -> group2"
+                if orientation == "A -> B"
+                else "group2 -> group1"
+            ),
+            source_network_id=source_network_id,
+            source_identity_status=source_identity_status,
+            source_interface_id=selection.interface_id,
+            solve_universe_id=context.solve_universe_id,
+            analysis_context_kind="GLOBAL_NETWORK",
+            selection_id=selection_id,
+            solvent_mode=solvent_mode,
+        )
+        provenance = Provenance(
+            "FORGE ordered interface producer",
+            source_revision=source_revision,
+            details={
+                "shared_network_identity": shared_identity.payload(),
+                "dependency_digest": dependency.dependency_digest,
+                "source_solvent_provenance": network.solvent_provenance,
+                "source_retained_generator_provenance": (
+                    network.retained_generator_provenance
+                ),
+            },
+        )
+        result = adapt_interface_analysis(
+            analysis,
+            result_identity,
+            provenance=provenance,
+            geometry_lineage=geometry_lineage,
+        )
+        return InterfaceResultHandoff(
+            result=result,
+            identity=shared_identity,
+            dependency=dependency,
+            geometry_lineage=geometry_lineage,
+        )
 
     def solve(
         self,
@@ -84,6 +531,7 @@ class VorPyBackend:
         progress: ProgressCallback,
         is_cancelled: CancellationCheck,
         selected_indices: tuple[int, ...] | None = None,
+        interface_selection: InterfaceSolveSelection | None = None,
         frame_index: int = 1,
         frame_ranges: tuple[tuple[int, int], ...] | None = None,
     ) -> AnalysisResult:
@@ -107,6 +555,8 @@ class VorPyBackend:
             "file": str(solve_source),
             "gui": _ProgressBridge(progress, is_cancelled),
             "print_actions": False,
+            "solvent_mode": self.settings.solvent_mode,
+            "retained_system_indices": self.settings.retained_system_indices,
             "boundary_config": BoundaryConfig(
                 self.settings.boundary_mode,
                 self.settings.probe_radius,
@@ -114,10 +564,6 @@ class VorPyBackend:
                 self.settings.shell_offset,
             ),
         }
-        if self.settings.retained_system_indices:
-            system_options["retained_system_indices"] = (
-                self.settings.retained_system_indices
-            )
         if frame_count > 1:
             system_options["output_directory"] = directory
         system = System(**system_options)
@@ -145,23 +591,33 @@ class VorPyBackend:
             raise RuntimeError("Analysis cancelled")
 
         apply_system_defaults(system, self.settings.atomic_defaults)
-        group = Group(
-            system,
-            name=source.stem,
-            atoms=list(selected_indices or ()),
-            net_type=self.settings.network_type,
-            max_vert=self.settings.max_vertices,
-            box_size=self.settings.box_size,
-            surf_res=self.settings.surface_resolution,
-            print_metrics=False,
-        )
-        if group not in system.groups:
-            system.groups.append(group)
+        interface = None
+        if interface_selection is not None:
+            interface = self.make_interface_network(system, interface_selection)
+            network_owner = interface
+        else:
+            group = Group(
+                system,
+                name=source.stem,
+                atoms=list(selected_indices or ()),
+                net_type=self.settings.network_type,
+                max_vert=self.settings.max_vertices,
+                box_size=self.settings.box_size,
+                surf_res=self.settings.surface_resolution,
+                print_metrics=False,
+            )
+            if group not in system.groups:
+                system.groups.append(group)
+            network_owner = group
 
         system.start_run()
-        group.build()
+        if interface is not None:
+            interface.build(analyze_waters=False)
+        else:
+            group.build()
+        network = network_owner.net
         shell_surfs = shell_edges = shell_verts = ()
-        if all(
+        if interface is None and all(
             getattr(group.net, name, None) is not None
             for name in ("surfs", "edges", "verts")
         ):
@@ -191,7 +647,7 @@ class VorPyBackend:
                 ("Boundary generators", str(len(system.boundary_generators))),
             ])
         result.info_sections["Boundary"] = boundary_info
-        result.export_group = group
+        result.export_group = network_owner
         system.gui = None
         result.source = source
         result.frame_index = frame_index
@@ -199,7 +655,7 @@ class VorPyBackend:
         result.frame_ranges = tuple(ranges)
         result.atoms = _merge_atoms(result.atoms, _atoms_from_system(system))
         result.layers = _layers_from_network(
-            group.net,
+            network,
             shell_surfs=shell_surfs,
             shell_edges=shell_edges,
             shell_verts=shell_verts,
@@ -215,24 +671,32 @@ class VorPyBackend:
             layer for layer in result.layers
             if layer.kind.lower() in requested_layers
         ]
-        complete = group.net.balls.get("complete")
+        complete = network.balls.get("complete")
         result.complete_cells = (
             int(sum(bool(value) for value in complete.iloc[:len(system.balls)]))
             if complete is not None else 0
         )
-        if group.net.surfs is None:
+        if network.surfs is None:
             result.surface_count = 0
         else:
-            boundary_indices = set(getattr(group.net, "boundary_indices", ()))
-            if boundary_indices and "balls" in group.net.surfs:
+            boundary_indices = set(getattr(network, "boundary_indices", ()))
+            if boundary_indices and "balls" in network.surfs:
                 result.surface_count = sum(
                     not bool({int(value) for value in row} & boundary_indices)
                     or bool({int(value) for value in row} - boundary_indices)
-                    for row in group.net.surfs["balls"]
+                    for row in network.surfs["balls"]
                 )
             else:
-                result.surface_count = len(group.net.surfs)
-        if self.settings.typed_group_selections:
+                result.surface_count = len(network.surfs)
+        if interface is not None:
+            result.typed_results = self._interface_typed_results(
+                interface, interface_selection, source, frame_index
+            )
+            result.typed_selection_system_ids = {
+                interface_selection.group_a_id: interface_selection.group_a_system_indices,
+                interface_selection.group_b_id: interface_selection.group_b_system_indices,
+            }
+        elif self.settings.typed_group_selections:
             from types import SimpleNamespace
 
             from vorpy.src.group.shared_view import attach_group_view_results
@@ -255,7 +719,7 @@ class VorPyBackend:
             try:
                 attach_group_view_results(
                     result,
-                    group.net,
+                    network,
                     requested_groups,
                     system=source.stem,
                     radius_configuration_id="vorpy-backend-radii-v1",
@@ -276,6 +740,71 @@ class VorPyBackend:
         progress("Preparing viewer", 100)
         shutil.rmtree(directory, ignore_errors=True)
         return result
+
+    def _interface_typed_results(
+        self,
+        interface: Interface,
+        selection: InterfaceSolveSelection,
+        source: Path,
+        frame_index: int,
+    ) -> tuple[object, ...]:
+        """Adapt one explicit FORGE interface solve into ATLAS Results.
+
+        Missing producer evidence remains an empty typed handoff; the viewer
+        then presents the solved geometry as unresolved rather than certifying
+        an interface from labels or the union of A/B atoms.
+        """
+        from vorpy.src.network.views import NetworkViewError
+        from vorpy.src.results.model import stable_id
+
+        try:
+            network = interface.net
+            context = network.get_solve_context_key()
+            source_network_id = getattr(network, "source_network_id", None)
+            if not isinstance(source_network_id, str) or not source_network_id.strip():
+                return ()
+            view = network.make_view(
+                iface_grps=(
+                    selection.group_a_system_indices,
+                    selection.group_b_system_indices,
+                ),
+                source_network_id=source_network_id,
+            )
+            group_a_selection_id = stable_id(
+                "view",
+                {"group_id": selection.group_a_id, "system_ids": selection.group_a_system_indices},
+            )
+            group_b_selection_id = stable_id(
+                "view",
+                {"group_id": selection.group_b_id, "system_ids": selection.group_b_system_indices},
+            )
+            result_network_id = getattr(network, "archive_id", None) or stable_id(
+                "archive", {"source": str(source), "interface_id": selection.interface_id}
+            )
+            environment = (
+                "solvent_competing"
+                if getattr(network, "solvent_mode", None) != SolventMode.MOLECULE_ONLY.value
+                else "dry"
+            )
+            handoff = self.make_interface_result_handoff(
+                interface,
+                selection,
+                interface.geometry_analysis,
+                system_id=source.stem,
+                result_network_id=result_network_id,
+                radius_configuration_id="vorpy-backend-radii-v1",
+                selection_id=view.selection_id,
+                group_a_selection_id=group_a_selection_id,
+                group_b_selection_id=group_b_selection_id,
+                orientation="A -> B",
+                source_identity_status="AUTHORITATIVE",
+                source_revision=f"interface:{selection.interface_id}",
+                environment=environment,
+                completeness_proven=False,
+            )
+            return (handoff.result,)
+        except (NetworkViewError, TypeError, ValueError, KeyError):
+            return ()
 
 
 def _numeric_charge(value):

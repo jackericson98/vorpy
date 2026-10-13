@@ -8,11 +8,13 @@ from vorpy.src.boundary import (
     prepare_network_geometry,
 )
 from vorpy.src.group import Group
+from vorpy.src.interface import Interface
 from vorpy.src.network import Network
 from vorpy.src.network.views import NetworkView
 from vorpy.src.group.shared_view import analyze_group_view
 from vorpy.src.system.system import System
 from vorpy.src.command.vpy_cmnd import solvent_cli_options
+from vorpy.workbench.services.vorpy_backend import VorPySolveSettings
 
 
 def _balls():
@@ -123,6 +125,83 @@ def test_cli_requires_explicit_opt_in_for_non_default_solvent_modes():
     )
     assert remaining == ["input.pdb"]
     assert mode is SolventMode.FULL_SOLVENT
+
+
+def test_workbench_settings_share_cli_solvent_and_retention_contract():
+    defaults = VorPySolveSettings()
+    assert defaults.solvent_mode == SolventMode.MOLECULE_ONLY.value
+    assert defaults.retained_system_indices == ()
+
+    settings = VorPySolveSettings(
+        solvent_mode="solvent-context",
+        retained_system_indices=(2, 0, 2),
+    )
+    assert settings.solvent_mode == SolventMode.SOLVENT_CONTEXT.value
+    assert settings.retained_system_indices == (0, 2)
+
+
+def test_retained_solvent_generator_is_included_in_group_scope():
+    system = System(
+        spheres=_balls(),
+        name="retained-solvent",
+        make_dir=False,
+        retained_system_indices=(1,),
+    )
+    group = Group(
+        system,
+        name="solute-with-retained-water",
+        atoms=[0, 2],
+        make_net=True,
+        build_net=False,
+    )
+
+    assert group.net.generator_system_indices == (0, 1, 2)
+    assert group.net.retained_system_indices == (1,)
+    assert group.net.retained_generator_ids == ("system:1",)
+    assert group.net.get_solve_context_key().digest
+
+
+def test_interface_scope_rejects_overlapping_group_membership():
+    with pytest.raises(ValueError, match="overlap"):
+        Network(
+            locs=[(0.0, 0.0, 0.0)] * 3,
+            rads=[1.0] * 3,
+            group=[0, 1, 2],
+            iface_grps=({0, 1}, {1, 2}),
+            settings={"net_type": "aw"},
+        )
+
+
+def test_dedicated_interface_network_preserves_distinct_group_sides(tmp_path):
+    balls = _balls().copy()
+    balls["res_name"] = ["GLY", "ALA", "SER"]
+    system = System(
+        spheres=balls,
+        name="synthetic-interface",
+        output_directory=str(tmp_path),
+        make_dir=False,
+    )
+    group_a = Group(
+        system,
+        name="chains-A-B",
+        atoms=[0, 1],
+        make_net=False,
+        build_net=False,
+    )
+    group_b = Group(
+        system,
+        name="chain-I",
+        atoms=[2],
+        make_net=False,
+        build_net=False,
+    )
+    system._compact_interface_workflow = True
+    interface = Interface(system, group_a, group_b)
+    network = interface.make_net()
+
+    assert network.iface_grps == ({0, 1}, {2})
+    assert set(network.group) == {0, 1, 2}
+    assert network.network_mode == "interface"
 
 
 def test_molecule_only_view_accepts_incomplete_numerical_boundary_support():

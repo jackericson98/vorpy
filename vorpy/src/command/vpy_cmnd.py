@@ -48,6 +48,22 @@ FRAME_OPTIONS = ('load_commands', 'groups', 'builds', 'exports',
 
 EXECUTION_PROFILES = frozenset({'geometry', 'interface', 'analysis', 'full'})
 
+_LEGACY_INTERFACE_RESULT_REASON = (
+    'Legacy CLI interface geometry is not emitted as a typed Workbench '
+    'InterfaceResult; producer provenance and Results dependencies are unresolved.'
+)
+
+
+def _legacy_interface_result_state():
+    """Describe the legacy CLI boundary without certifying its geometry."""
+    return {
+        'status': 'UNRESOLVED',
+        'typed_result': False,
+        'provenance': False,
+        'dependency': False,
+        'reason': _LEGACY_INTERFACE_RESULT_REASON,
+    }
+
 
 def execution_profile_cli_options(args):
     """Extract the opt-in execution profile before legacy parsing."""
@@ -440,6 +456,7 @@ class Command:
         self._full_system_separate = False
         self._full_system_group = None
         self._planned_interface_operands = ()
+        self.interface_result_state = None
 
     def run(self):
         self._run_pipeline()
@@ -941,6 +958,12 @@ class Command:
             self.sys.make_interfaces(
                 interface_pairs,
                 analyze_waters=getattr(self.sys, '_interface_water_requested', False),
+            )
+            self.interface_result_state = _legacy_interface_result_state()
+            print(
+                'Interface Result status: UNRESOLVED '
+                '(legacy CLI execution does not emit a typed Workbench '
+                'InterfaceResult or Results dependency).'
             )
 
         # Standard full-group build

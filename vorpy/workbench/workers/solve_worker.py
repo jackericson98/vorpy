@@ -22,6 +22,7 @@ class SolveWorker(QObject):
         backend: AnalysisBackend,
         source: Path | None,
         selected_indices: Sequence[int] | None = None,
+        interface_selection=None,
         frame_index: int = 1,
         frame_ranges=None,
     ):
@@ -29,6 +30,7 @@ class SolveWorker(QObject):
         self._backend = backend
         self._source = source
         self._selected_indices = tuple(selected_indices or ())
+        self._interface_selection = interface_selection
         self._frame_index = frame_index
         self._frame_ranges = frame_ranges
         self._cancelled = Event()
@@ -39,6 +41,8 @@ class SolveWorker(QObject):
             solve_options = {}
             if self._frame_index != 1 or (self._frame_ranges and len(self._frame_ranges) > 1):
                 solve_options = {"frame_index": self._frame_index, "frame_ranges": self._frame_ranges}
+            if self._interface_selection is not None:
+                solve_options["interface_selection"] = self._interface_selection
             result = self._backend.solve(
                 self._source,
                 lambda label, value: self.progress.emit(label, value),

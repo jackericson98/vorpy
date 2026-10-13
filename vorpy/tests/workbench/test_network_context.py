@@ -52,6 +52,8 @@ def test_network_context_renders_validated_global_identity():
     panel.set_context(NetworkContextPresentation(
         source_network_id="network-7",
         solve_universe_id="solve-9",
+        archive_identity="archive-7",
+        geometry_lineage="DIRECT_SOLVE · geometry-7",
         geometry_scheme="AW",
         frame="12",
         context_scope="global_network",
@@ -66,6 +68,8 @@ def test_network_context_renders_validated_global_identity():
     assert panel.identity_badge.text() == "Validated identity"
     assert panel.fields["source_network_id"].text() == "network-7"
     assert panel.fields["solve_universe_id"].text() == "solve-9"
+    assert panel.fields["archive_identity"].text() == "archive-7"
+    assert panel.fields["geometry_lineage"].text() == "DIRECT_SOLVE · geometry-7"
     assert panel.fields["geometry_scheme"].text() == "AW"
     assert panel.fields["frame"].text() == "12"
     assert panel.fields["context_scope"].text() == "Global network"
@@ -253,6 +257,7 @@ def test_context_adapter_does_not_promote_archive_id_to_source_identity():
     context = context_presentation_from_owner(SimpleNamespace(net=network))
 
     assert context.source_network_id is None
+    assert context.archive_identity == "archive-object-7"
     assert context.identity_state == "unresolved"
     assert context.status == "UNRESOLVED"
     assert "Archive object identity is not used" in context.note
@@ -455,6 +460,29 @@ def test_catalog_presents_group_and_interface_results_from_one_network():
         "view:group-a", "view:interface-ab"
     ]
     assert catalog.entries[1].selection_target == "interface-ab"
+
+
+def test_catalog_labels_unresolved_interface_status_without_certifying_it():
+    panel = AnalysisCatalogPanel()
+    panel.set_catalog(AnalysisCatalogPresentation(
+        source_network_id=None,
+        identity_state="unresolved",
+        entries=(
+            AnalysisCatalogEntryPresentation(
+                selection_label="Interface: A ↔ B",
+                selection_id="view:interface-ab",
+                selection_kind="interface",
+                selection_target="interface-ab",
+                completeness="UNKNOWN",
+                status="UNRESOLVED",
+            ),
+        ),
+    ))
+
+    assert panel.network_label.text() == "Unresolved network: —"
+    assert panel.table.item(0, 0).text() == "Interface: A ↔ B"
+    assert panel.table.item(0, 4).text() == "UNKNOWN"
+    assert panel.table.item(0, 5).text() == "UNRESOLVED"
 
 
 def test_context_keeps_solvent_mode_unresolved_without_source_evidence():

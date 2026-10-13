@@ -71,7 +71,11 @@ from vorpy.src.boundary import (
     has_explicit_solvent,
 )
 from vorpy.workbench.ui.structure_browser import StructureBrowser
-from vorpy.workbench.services.vorpy_backend import VorPyBackend, VorPySolveSettings
+from vorpy.workbench.services.vorpy_backend import (
+    InterfaceSolveSelection,
+    VorPyBackend,
+    VorPySolveSettings,
+)
 from vorpy.workbench.ui.molecular_view import (
     ION_RESIDUES,
     WATER_RESIDUES,
@@ -159,6 +163,7 @@ class MainWindow(QMainWindow):
         self._solve_all_queue: list[int] = []
         self._solve_all_return_frame: int | None = None
         self._solve_all_indices: tuple[int, ...] | None = None
+        self._solve_all_interface_selection: InterfaceSolveSelection | None = None
         self._solve_frame_selection: tuple[int, ...] = ()
         self._trajectory_worker: TrajectoryPreloadWorker | None = None
         self._trajectory_cache: dict[tuple[Path, int], AnalysisResult] = {}
@@ -833,6 +838,13 @@ class MainWindow(QMainWindow):
         self.boundary_settings_button = QPushButton("Settings…")
         self.boundary_settings_button.clicked.connect(self._open_boundary_settings)
         boundary_layout.addWidget(self.boundary_settings_button)
+        self.solvent_mode = QComboBox()
+        for label, mode in (
+            ("Molecule only", "MOLECULE_ONLY"),
+            ("Solvent context", "SOLVENT_CONTEXT"),
+            ("Full solvent", "FULL_SOLVENT"),
+        ):
+            self.solvent_mode.addItem(label, mode)
         self.boundary_probe_radius = QDoubleSpinBox()
         self.boundary_probe_radius.setRange(0.1, 10.0)
         self.boundary_probe_radius.setDecimals(2)
@@ -862,9 +874,12 @@ class MainWindow(QMainWindow):
         fields = (
             ("Target", self.solve_target,
              "Choose what to analyze:\nwhole molecule, active selection,\n"
-             "a saved group, or an interface."),
+             "or a saved group. Supported interfaces use ordered A/B typed Results;\n"
+             "unsupported schemes remain in preflight/guarded mode."),
             ("Boundary", boundary_control,
              "Explicit solvent uses loaded water/ions. Virtual solvent shell adds marked, geometry-only generators."),
+            ("Solvent mode", self.solvent_mode,
+             "Scientific generator participation. This is separate from the numerical boundary policy above."),
             ("Scheme", self.network_type,
              "Choose the spatial partitioning method.\n"
              "Atomic Voronoi uses atom-surface distance;\n"
@@ -1655,6 +1670,7 @@ class MainWindow(QMainWindow):
                 self.boundary_mode.currentData()
                 if self._boundary_manually_selected else None
             ),
+            solvent_mode=self.solvent_mode.currentData(),
             probe_radius=self.boundary_probe_radius.value(),
             shell_spacing=self.boundary_shell_spacing.value(),
             shell_offset=self.boundary_shell_offset.value(),
@@ -1667,6 +1683,13 @@ class MainWindow(QMainWindow):
         )
         if network_index is not None:
             self.network_type.setCurrentIndex(network_index)
+        solvent_mode = getattr(settings, "solvent_mode", "MOLECULE_ONLY")
+        solvent_mode = getattr(solvent_mode, "value", solvent_mode)
+        solvent_index = self.solvent_mode.findData(str(solvent_mode).upper())
+        if solvent_index >= 0:
+            self.solvent_mode.blockSignals(True)
+            self.solvent_mode.setCurrentIndex(solvent_index)
+            self.solvent_mode.blockSignals(False)
         self.max_vertices.setValue(settings.max_vertices)
         self.box_size.setValue(settings.box_size)
         self.surface_resolution.setValue(settings.surface_resolution)
@@ -2233,6 +2256,96 @@ class MainWindow(QMainWindow):
             return
         self.load_path(Path(directory))
 
+    def _solve_preflight_text(self, selected_indices=None) -> str:
+        """Describe the planned solve without claiming a Result exists."""
+        result = self.current_result
+        target, name = self.solve_target.currentData() or ("whole", "")
+        source = self.source or (result.source if result is not None else None)
+        frame_index = result.frame_index if result is not None else 1
+        frame_count = result.frame_count if result is not None else 1
+        settings = self.backend.settings
+        solvent_mode = self.solvent_mode.currentData()
+        retained = tuple(getattr(settings, "retained_system_indices", ()) or ())
+        explicit_solvent = sum(
+            is_solvent(atom) for atom in (result.atoms if result is not None else ())
+        )
+        target_atoms = "whole structure" if selected_indices is None else f"{len(selected_indices):,}"
+
+        lines = [
+            f"Source PDB: {source or 'unknown'}",
+            f"Frame: {frame_index} / {frame_count}",
+            f"Target: {target.title()}{f' · {name}' if name else ''}",
+        ]
+        unsupported = [
+            "SES, SAS, and AW probe boundary modes are unavailable",
+        ]
+        if target == "interface":
+            group_names = self._interfaces.get(name)
+            if group_names is None:
+                group_a = group_b = ()
+                unsupported.append("the selected interface definition is unavailable")
+            else:
+                group_a = tuple(self._groups.get(group_names[0], ()))
+                group_b = tuple(self._groups.get(group_names[1], ()))
+                if not self._interface_solver_supported():
+                    unsupported.append(
+                        "true A/B typed InterfaceResult construction is unavailable; this union-only action is blocked"
+                    )
+            overlap = set(group_a).intersection(group_b)
+            lines.extend([
+                f"Group A: {group_names[0] if group_names else 'unknown'} ({len(group_a):,} atoms)",
+                f"Group B: {group_names[1] if group_names else 'unknown'} ({len(group_b):,} atoms)",
+                f"Group overlap: {len(overlap):,} atoms",
+            ])
+            if group_names and self._interface_solver_supported():
+                lines.append("Interface path: ordered A/B typed Result handoff")
+        else:
+            lines.extend([
+                "Group A: not selected",
+                "Group B: not selected",
+                "Group overlap: not applicable",
+            ])
+        lines.extend([
+            f"Target atoms: {target_atoms}",
+            f"Decomposition scheme: {self.network_type.currentText()}",
+            f"Solver vertex limit (max_vert): {self.max_vertices.value():,}",
+            f"Boundary policy: {self.boundary_mode.currentText()}",
+            f"Solvent participation: {solvent_mode}; {explicit_solvent:,} explicit solvent atoms detected",
+            f"Retained generators: {len(retained):,} explicit System indices"
+            + (f" ({', '.join(str(index) for index in retained[:8])}{'…' if len(retained) > 8 else ''})" if retained else ""),
+            "Planned Result status: NOT_CALCULATED",
+            "Producer/archive identity and geometry lineage: assigned or restored separately from this preflight",
+            "Scientific completeness: not certified by this preflight",
+            "Unsupported options: " + "; ".join(unsupported),
+        ])
+        return "\n".join(lines)
+
+    def _show_solve_preflight(
+        self, selected_indices=None, interface_selection=None
+    ) -> bool:
+        """Require an explicit review before starting a new solve."""
+        target, _name = self.solve_target.currentData() or ("whole", "")
+        message = QMessageBox(self)
+        message.setWindowTitle("Solve preflight")
+        message.setDetailedText(self._solve_preflight_text(selected_indices))
+        if target == "interface" and (
+            interface_selection is None or not self._interface_solver_supported()
+        ):
+            message.setIcon(QMessageBox.Warning)
+            message.setText("Solve blocked: this is not a validated A/B interface target.")
+            message.setInformativeText(
+                "The Workbench can define the two groups, but its current solver only has a union selection. No solve was started."
+            )
+            message.setStandardButtons(QMessageBox.Ok)
+            message.exec()
+            return False
+        message.setIcon(QMessageBox.Information)
+        message.setText("Review the solve settings before starting.")
+        message.setInformativeText(self._solve_preflight_text(selected_indices))
+        message.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+        message.setDefaultButton(QMessageBox.Ok)
+        return message.exec() == QMessageBox.Ok
+
     def _solve_target_indices(self) -> tuple[int, ...] | None:
         target, name = self.solve_target.currentData() or ("whole", "")
         if target == "whole":
@@ -2257,24 +2370,57 @@ class MainWindow(QMainWindow):
             return tuple(sorted(indices))
         raise ValueError(f"Unknown solve target: {target}")
 
+    def _interface_selection_for_target(self) -> InterfaceSolveSelection | None:
+        target, name = self.solve_target.currentData() or ("whole", "")
+        if target != "interface":
+            return None
+        group_names = self._interfaces.get(name)
+        if group_names is None:
+            raise ValueError(f"Interface {name!r} is unavailable.")
+        return InterfaceSolveSelection(
+            interface_id=name,
+            group_a_id=group_names[0],
+            group_a_system_indices=tuple(sorted(self._groups.get(group_names[0], ()))),
+            group_b_id=group_names[1],
+            group_b_system_indices=tuple(sorted(self._groups.get(group_names[1], ()))),
+        )
+
+    def _interface_solver_supported(self) -> bool:
+        network_type = {0: "aw", 1: "pow", 2: "prm"}[self.network_type.currentIndex()]
+        return bool(
+            getattr(self.backend, "supports_interface_results", False)
+            and network_type in {"aw", "pow"}
+        )
+
     def solve(self) -> None:
         if self._thread is not None or self._loading_structure or self.current_result is None:
+            return
+        try:
+            selected_indices = self._solve_target_indices()
+            interface_selection = self._interface_selection_for_target()
+        except ValueError as error:
+            self._show_error(str(error))
+            return
+        if not self._show_solve_preflight(selected_indices, interface_selection):
             return
         if not self._confirm_boundary_solve():
             return
         if self._solve_frame_selection:
             self._solve_all_return_frame = self.current_result.frame_index
             self._solve_all_queue = list(self._solve_frame_selection)
-            try:
-                self._solve_all_indices = self._solve_target_indices()
-            except ValueError as error:
-                self._solve_all_queue.clear()
-                self._solve_all_return_frame = None
-                self._show_error(str(error))
-                return
-            self._begin_solve(self._solve_all_queue.pop(0), self._solve_all_indices)
+            self._solve_all_indices = selected_indices
+            self._solve_all_interface_selection = interface_selection
+            self._begin_solve(
+                self._solve_all_queue.pop(0),
+                self._solve_all_indices,
+                self._solve_all_interface_selection,
+            )
             return
-        self._begin_solve(self.current_result.frame_index)
+        self._begin_solve(
+            self.current_result.frame_index,
+            selected_indices,
+            interface_selection,
+        )
 
     def _boundary_mode_changed(self, _index: int) -> None:
         if self.current_result is not None:
@@ -2400,47 +2546,65 @@ class MainWindow(QMainWindow):
             f"Selected {len(selected_frames)} frame(s) for the next solve.", 3000
         )
 
-    def _begin_solve(self, frame_index: int, selected_indices=None) -> None:
+    def _solver_settings_from_controls(self) -> VorPySolveSettings:
+        network_types = {0: "aw", 1: "pow", 2: "prm"}
+        return VorPySolveSettings(
+            network_type=network_types[self.network_type.currentIndex()],
+            max_vertices=self.max_vertices.value(),
+            box_size=self.box_size.value(),
+            surface_resolution=self.surface_resolution.value(),
+            build_surfaces=True,
+            build_vertices=True,
+            build_edges=True,
+            atomic_defaults=validate_defaults(self.atomic_defaults),
+            boundary_mode=self.boundary_mode.currentData(),
+            solvent_mode=self.solvent_mode.currentData(),
+            probe_radius=self.boundary_probe_radius.value(),
+            shell_spacing=self.boundary_shell_spacing.value(),
+            shell_offset=self.boundary_shell_offset.value(),
+            source_network_id=f"workbench:{uuid4()}",
+            # Preserve producer settings restored from a session even though
+            # a re-solve receives a fresh producer identity.
+            retained_system_indices=self.backend.settings.retained_system_indices,
+            typed_group_selections={
+                name: tuple(indices)
+                for name, indices in self._groups.items()
+                if indices
+            },
+        )
+
+    def _begin_solve(
+        self,
+        frame_index: int,
+        selected_indices=None,
+        interface_selection: InterfaceSolveSelection | None = None,
+    ) -> None:
         try:
             if selected_indices is None:
                 selected_indices = self._solve_target_indices()
+            if interface_selection is None:
+                interface_selection = self._interface_selection_for_target()
         except ValueError as error:
             self._solve_all_queue.clear()
             self._solve_all_return_frame = None
             self._solve_all_indices = None
+            self._solve_all_interface_selection = None
             self._show_error(str(error))
             return
-        network_types = {0: "aw", 1: "pow", 2: "prm"}
-        self.backend = VorPyBackend(
-            VorPySolveSettings(
-                network_type=network_types[self.network_type.currentIndex()],
-                max_vertices=self.max_vertices.value(),
-                box_size=self.box_size.value(),
-                surface_resolution=self.surface_resolution.value(),
-                build_surfaces=True,
-                build_vertices=True,
-                build_edges=True,
-                atomic_defaults=validate_defaults(self.atomic_defaults),
-                boundary_mode=self.boundary_mode.currentData(),
-                probe_radius=self.boundary_probe_radius.value(),
-                shell_spacing=self.boundary_shell_spacing.value(),
-                shell_offset=self.boundary_shell_offset.value(),
-                source_network_id=f"workbench:{uuid4()}",
-                typed_group_selections={
-                    name: tuple(indices)
-                    for name, indices in self._groups.items()
-                    if indices
-                },
-            )
-        )
+        self.backend = VorPyBackend(self._solver_settings_from_controls())
         self.solve_action.setEnabled(False)
         self.cancel_action.setEnabled(True)
         self.progress_bar.setValue(0)
         self._thread = QThread(self)
         current = self.current_result
-        self._worker = SolveWorker(self.backend, self.source, selected_indices,
-                                   frame_index=frame_index,
-                                   frame_ranges=current.frame_ranges)
+        self._worker = SolveWorker(
+            self.backend,
+            self.source,
+            selected_indices,
+            interface_selection=interface_selection,
+            frame_index=frame_index,
+            frame_ranges=current.frame_ranges,
+        )
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
         self._worker.progress.connect(self._show_progress)
@@ -2470,12 +2634,14 @@ class MainWindow(QMainWindow):
         self._solve_all_queue.clear()
         self._solve_all_return_frame = None
         self._solve_all_indices = None
+        self._solve_all_interface_selection = None
         self._show_error(message)
 
     def cancel_analysis(self) -> None:
         self._solve_all_queue.clear()
         self._solve_all_return_frame = None
         self._solve_all_indices = None
+        self._solve_all_interface_selection = None
         if self._worker is not None:
             self._worker.cancel()
             self.progress_label.setText("Cancelling…")
@@ -3242,9 +3408,14 @@ class MainWindow(QMainWindow):
         self._worker = None
         self.cancel_action.setEnabled(False)
         if self._solve_all_queue:
-            self._begin_solve(self._solve_all_queue.pop(0), self._solve_all_indices)
+            self._begin_solve(
+                self._solve_all_queue.pop(0),
+                self._solve_all_indices,
+                self._solve_all_interface_selection,
+            )
             return
         self._solve_all_return_frame = None
         self._solve_all_indices = None
+        self._solve_all_interface_selection = None
         self._solve_frame_selection = ()
         self._refresh_ui_state()

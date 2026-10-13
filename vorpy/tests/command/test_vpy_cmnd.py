@@ -43,6 +43,43 @@ class DummySystem:
         self.interfaces = [] if interfaces is None else interfaces
 
 
+def test_legacy_cli_interface_result_state_is_explicitly_unresolved(tmp_path, capsys):
+    class InterfaceSystem(DummySystem):
+        def __init__(self):
+            super().__init__(
+                groups=[SimpleNamespace(name='A'), SimpleNamespace(name='B')]
+            )
+            self.files = {'dir': str(tmp_path)}
+
+        def make_interfaces(self, pairs, *, analyze_waters):
+            self.interface_pairs = pairs
+            self.analyze_waters = analyze_waters
+
+    system = InterfaceSystem()
+    command = Command(sys=system)
+    command.base_file = tmp_path / 'synthetic.input'
+    command.interface_mode = True
+    command.run_exports = lambda: None
+    command._save_archive = lambda: None
+    command.load_files = lambda: None
+    command.apply_settings = lambda: None
+    command.create_groups = lambda: None
+    command._build_full_system_target = lambda: None
+
+    command._process_system()
+
+    assert system.interface_pairs == [(system.groups[0], system.groups[1])]
+    assert command.interface_result_state == {
+        'status': 'UNRESOLVED',
+        'typed_result': False,
+        'provenance': False,
+        'dependency': False,
+        'reason': command.interface_result_state['reason'],
+    }
+    assert 'typed Workbench InterfaceResult' in command.interface_result_state['reason']
+    assert 'Interface Result status: UNRESOLVED' in capsys.readouterr().out
+
+
 def test_diagnose_edges_flag_is_removed_before_grouped_parsing(monkeypatch):
     command = Command(sys=DummySystem())
     monkeypatch.setattr(

@@ -27,6 +27,8 @@ class NetworkContextPresentation:
 
     source_network_id: str | None = None
     solve_universe_id: str | None = None
+    archive_identity: str | None = None
+    geometry_lineage: str | None = None
     geometry_scheme: str | None = None
     frame: str | None = None
     context_scope: str = "unknown"
@@ -109,6 +111,8 @@ class NetworkContextPanel(QGroupBox):
         for key, label in (
             ("source_network_id", "Source network ID"),
             ("solve_universe_id", "Solve universe ID"),
+            ("archive_identity", "Archive network ID"),
+            ("geometry_lineage", "Geometry lineage"),
             ("geometry_scheme", "Geometry scheme"),
             ("frame", "Frame"),
             ("context_scope", "Analysis context"),
@@ -158,6 +162,8 @@ class NetworkContextPanel(QGroupBox):
         values = {
             "source_network_id": context.source_network_id,
             "solve_universe_id": context.solve_universe_id,
+            "archive_identity": context.archive_identity,
+            "geometry_lineage": context.geometry_lineage,
             "geometry_scheme": context.geometry_scheme,
             "frame": context.frame,
             "context_scope": self._SCOPE_LABELS.get(
@@ -340,6 +346,7 @@ def context_presentation_from_owner(owner, *, frame=None):
     return NetworkContextPresentation(
         source_network_id=source_network_id,
         solve_universe_id=getattr(key, "solve_universe_id", None),
+        archive_identity=getattr(network, "archive_id", None),
         geometry_scheme=getattr(key, "scheme", None),
         frame=getattr(key, "frame_id", None),
         context_scope=context_scope,
@@ -393,6 +400,29 @@ def _typed_geometry_scheme(result):
     if isinstance(shared, Mapping) and shared.get("geometry_scheme"):
         return str(shared["geometry_scheme"])
     return None
+
+
+def _typed_geometry_lineage(result):
+    lineage = getattr(getattr(result, "provenance", None), "geometry_lineage", None)
+    if lineage is None:
+        return None
+    origin = getattr(lineage.origin, "value", lineage.origin)
+    if origin == "UNRESOLVED":
+        return f"UNRESOLVED: {lineage.reason or 'reason unavailable'}"
+    source = (
+        getattr(lineage, "geometry_source_id", None)
+        or getattr(lineage, "source_view_id", None)
+        or getattr(lineage, "source_interface_id", None)
+    )
+    suffix = f" · {source}" if source else ""
+    return f"{origin}{suffix}"
+
+
+def _consistent_context_value(values):
+    values = tuple(value for value in values if value not in (None, ""))
+    if not values:
+        return None
+    return values[0] if all(value == values[0] for value in values[1:]) else "MIXED"
 
 
 def _typed_completeness(result):
@@ -570,9 +600,17 @@ def context_presentation_from_results(results) -> NetworkContextPresentation | N
     }
     completeness = {_typed_completeness(result) for result in typed}
     status = next(iter(statuses)) if len(statuses) == 1 else "MIXED"
+    archive_identity = _consistent_context_value(
+        getattr(result.identity, "network_id", None) for result in typed
+    )
+    geometry_lineage = _consistent_context_value(
+        _typed_geometry_lineage(result) for result in typed
+    )
     return NetworkContextPresentation(
         source_network_id=source_network_id,
         solve_universe_id=solve_universe_id,
+        archive_identity=archive_identity,
+        geometry_lineage=geometry_lineage,
         geometry_scheme=_typed_geometry_scheme(typed[0]),
         frame=frame,
         context_scope={

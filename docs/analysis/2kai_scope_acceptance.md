@@ -12,13 +12,16 @@ The intended biological partition is the deposited 2KAI assignment:
 - group B: inhibitor chain I;
 - orientation: A+B -> I.
 
-The two files under review are `vorpy/data/2KAI_MD_centered.pdb` and
-`vorpy/data/2KAI_MD_centered_no_sol.pdb`. Their PDB chain fields are blank, so
-the strings `A`, `B`, and `I` must never be inferred from the raw MD chain
-column. A comparison is eligible only after an independent identity/sequence
-audit maps every retained protein atom to the deposited reference
-`vorpy/data/2KAI.pdb`, with no unresolved duplicates, alternate locations, or
-missing atoms in A, B, or I.
+The canonical comparison inputs are the new chain-restored solvated
+`vorpy/data/2KAI_MD_centered_chainrestored_solvated.pdb` and the derived dry
+`vorpy/data/2KAI_MD_centered_no_sol_corrected.pdb`. The original
+`vorpy/data/2KAI_MD_centered.pdb` remains the immutable source, and the supplied
+`vorpy/data/2KAI_MD_centered_no_sol.pdb` remains a rejected incomplete fixture.
+The raw MD chain fields are blank in the supplied source, so the strings `A`,
+`B`, and `I` must never be inferred from that column. A comparison is eligible
+only after an independent identity/sequence audit maps every retained protein
+atom to the deposited reference `vorpy/data/2KAI.pdb`, with no unresolved
+duplicates, alternate locations, or missing atoms in A, B, or I.
 
 ## Current input audit (no geometry computed)
 
@@ -61,7 +64,48 @@ summary and hashes in
 The corrected no-solvent view retains no nonprotein species. The source ion
 inventory is Na=53 and Cl=41, with no Mg; 40,086 SOL atoms are also omitted.
 Those species are candidates for an explicitly labeled `SOLVENT_CONTEXT` or
-`FULL_SOLVENT` run, not for this no-solvent input. No geometry was computed.
+`FULL_SOLVENT` run, not for this no-solvent input. No molecular solve was run.
+
+Under the same `MOLECULE_ONLY` policy, `prepare_network_geometry` produces
+exactly matching protein generators for the solvated source and corrected
+input: system indices, stable IDs, locations, radii, and masses all agree, and
+both retain zero participating solvent generators. This is the canonical
+protein-only control; it does not make the solvent-context runs scope
+equivalent to the dry runs.
+
+## Chain-restored solvated input
+
+The new `vorpy/data/2KAI_MD_centered_chainrestored_solvated.pdb` retains all
+44,520 source records in their original order: 4,340 protein atoms, 40,086
+SOL water atoms, and 94 ions (53 NA and 41 CL). Its SHA-256 is
+`2e869bee8330cffd4ddffe62f1e6063726fd1f8ebee59f5834bf04411d275e6a`.
+Coordinates, serials, residue names/numbers, atom names, elements, occupancy/
+B-factor fields, and every nonprotein line are preserved byte-for-byte at the
+record level. Only protein chain and insertion-code provenance fields differ
+from the blank-chain source.
+
+Labels were established from the already validated corrected protein mapping:
+an exact ordered match of 288 N-terminated protein residue blocks by
+`(residue_number, residue_name)` to authoritative `vorpy/data/2KAI.pdb`
+ATOM/DBREF/COMPND topology. This yields A=1,239, B=2,243, and I=858. The
+solvent and ion records were not assigned inferred chains or new topology;
+they are retained physical context only. The new file is scientifically
+acceptable for selecting protein groups A+B versus I, but it is not evidence
+of solvent-cell completeness or solvent/ion participation.
+
+## Excluded trajectory frame
+
+`vorpy/data/2KAI_Frames/frame_0100ps.pdb` is not a canonical comparison source.
+Its SHA-256 is
+`d15ce739150bc47d08d444211b8546af2f9da956840aec9c69d0f933f06185cd`. The
+`TRJCONV` header identifies `t=100.00000 step=50000`; it has the same 44,520
+record categories and protein atom order as the solvated source when chain
+labels are ignored, but uses raw protein chains A/B/C rather than blank/A/B/I
+provenance. Its box is 85.754 Å instead of 85.632 Å, and the best-fit rigid
+alignment leaves 1.514 Å heavy-protein RMSD over 2,238 atoms. It is therefore
+a distinct MD conformation, not a rigidly transformed copy. No PRM, POW, or AW
+comparison may substitute this frame without a new scientific equivalence
+audit.
 
 ## Solvent presence versus participation
 
@@ -86,6 +130,40 @@ The accepted meanings are:
 For this pair, the no-solvent file has no solvent to participate. The solvated
 file must be run in a separately named mode; a solvent-present file run as
 `MOLECULE_ONLY` is not a solvent-participation comparison.
+
+## Six-run interface acceptance matrix
+
+The planned comparison is three methods by two explicit competitor scopes:
+
+| run family | canonical input | solvent mode | physical generators | retained competitors |
+|---|---|---|---:|---|
+| PRM dry | `2KAI_MD_centered_no_sol_corrected.pdb` | `MOLECULE_ONLY` | 4,340 protein | none |
+| PRM with competitors | `2KAI_MD_centered_chainrestored_solvated.pdb` | `SOLVENT_CONTEXT` | 44,520 total | 40,086 SOL + 53 NA + 41 CL |
+| POW dry | `2KAI_MD_centered_no_sol_corrected.pdb` | `MOLECULE_ONLY` | 4,340 protein | none |
+| POW with competitors | `2KAI_MD_centered_chainrestored_solvated.pdb` | `SOLVENT_CONTEXT` | 44,520 total | 40,086 SOL + 53 NA + 41 CL |
+| AW dry | `2KAI_MD_centered_no_sol_corrected.pdb` | `MOLECULE_ONLY` | 4,340 protein | none |
+| AW with competitors | `2KAI_MD_centered_chainrestored_solvated.pdb` | `SOLVENT_CONTEXT` | 44,520 total | 40,086 SOL + 53 NA + 41 CL |
+
+Every row must record the canonical input fingerprint, A+B/I membership,
+method, solvent presence, solvent mode, participating-generator count, and
+solvent-cell status. The metric payload must separately report interface
+surface area (Å²), contact count and definitions, edge count, vertex count,
+curvature terms with their method-native units/sign convention, completeness
+status, and numerical uncertainty status. Counts must be integers; geometric
+values must be finite when a result is claimed, and missing values remain
+missing rather than zero.
+
+The dry and solvent-context rows are intentionally not an equivalent
+two-input metric comparison: the latter has 40,180 additional participating
+solvent/ion generators. A solvated `MOLECULE_ONLY` control is the exact
+protein-generator equivalence check against the corrected dry input. The
+`FULL_SOLVENT` mode is a separate future configuration with the same explicit
+retention as `SOLVENT_CONTEXT`, but it is not accepted until complete
+solvent-cell evidence is independently supplied. PRM/POW rows may be
+`COMPLETE` only when their selected interface features and topology evidence
+are accounted for. AW rows may reach at most
+`LOCAL_COMPLETE_GLOBAL_UNRESOLVED` for this study; no AW row may emit
+`GLOBAL_COMPLETE`.
 
 ## Metric-equivalence gates
 
