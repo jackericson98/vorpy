@@ -38,6 +38,11 @@ class Interface:
 
         # The interface owns its own network.
         self.net = None
+        # Full-system mode replaces the dedicated network with a read-only
+        # source view while retaining explicit provenance on the record.
+        self.source_network = None
+        self.source_view = None
+        self.geometry_source = None
         self.geometry_analysis = None
 
         # Cached index collections defining the two interface sides.
@@ -276,7 +281,7 @@ class Interface:
         non_buried_count = (
             class_counts["peripheral"] + class_counts["semi_buried"]
         )
-        # Keep water classification in info.txt; normal CLI output uses the
+        # Keep water classification in the interface info export; normal CLI output uses the
         # single system-wide progress stream rather than standalone debug prints.
         if hasattr(self.sys, "update_progress"):
             self.sys.update_progress(

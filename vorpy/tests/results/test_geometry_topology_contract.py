@@ -1,4 +1,4 @@
-from results.model import (
+from vorpy.src.results.model import (
     MolecularContactSurfaceGeometry,
     MolecularGeometryCounts,
     Quantity,

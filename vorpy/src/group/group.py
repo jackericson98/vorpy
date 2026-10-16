@@ -175,6 +175,11 @@ class Group:
         # ------------------------------------------------------------------
         self.net = net
         self.verts = verts
+        # A full-system calculation attaches a read-only NetworkView here;
+        # it must remain distinct from an independently built Group Network.
+        self.source_network = None
+        self.source_view = None
+        self.source_view_analysis = None
 
         # Indices of the system balls whose cells belong to this group.
         self.ball_ndxs = []

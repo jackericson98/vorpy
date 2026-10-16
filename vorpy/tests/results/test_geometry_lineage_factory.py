@@ -68,6 +68,14 @@ def test_materialized_view_requires_validated_view_evidence():
     assert lineage.completeness["completeness_proven"] is True
 
     evidence["completeness"] = {"proven": False}
+    incomplete = make_geometry_lineage(
+        _metadata(completeness=None, source_network_id="network:view-source"),
+        view_evidence=evidence,
+    )
+    assert incomplete.origin is GeometryLineageOrigin.MATERIALIZED_VIEW
+    assert incomplete.completeness["completeness_proven"] is False
+
+    evidence["completeness"] = {"proven": None}
     unresolved = make_geometry_lineage(
         _metadata(completeness=None, source_network_id="network:view-source"),
         view_evidence=evidence,

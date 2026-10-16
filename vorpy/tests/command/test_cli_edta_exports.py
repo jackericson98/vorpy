@@ -1,0 +1,90 @@
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+from vorpy.src.io import load_network
+
+
+def _terminal_lines(output):
+    """Interpret carriage-return progress as a single terminal line."""
+    lines = []
+    current = []
+    for char in output:
+        if char == '\r':
+            current = []
+        elif char == '\n':
+            lines.append(''.join(current))
+            current = []
+        else:
+            current.append(char)
+    if current:
+        lines.append(''.join(current))
+    return lines
+
+
+def test_edta_default_cli_exports_clean_aw_bundle(tmp_path):
+    output_parent = tmp_path / "output"
+    root = Path(__file__).resolve().parents[3]
+    completed = subprocess.run(
+        [sys.executable, "vorpy", "edta", "-e", "dir", str(output_parent)],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env={"PYTHONPATH": str(root), **os.environ},
+    )
+
+    assert completed.returncode == 0, completed.stdout + "\n" + completed.stderr
+    output = completed.stdout
+    assert 'network built - ' in output
+    assert '32 complete cells' not in output
+    assert "Analysis - 100.00 %" not in output
+    assert "Vertex Gaussian - 100%" not in output
+    assert "Export - 100%" not in output
+    assert "Solving AW network..." in output
+    assert "Exporting results..." in output
+    export_line = f"Files exported to: {output_parent / 'EDTA'}"
+    assert output.rstrip().endswith(export_line)
+
+    terminal_lines = _terminal_lines(output)
+    solve_line = terminal_lines.index("Solving AW network...")
+    assert terminal_lines[solve_line - 4:solve_line] == [
+        "",
+        "EDTA loaded",
+        "  612 atoms, 195 residues, 1 chains, 193 waters",
+        "",
+    ]
+    assert terminal_lines[solve_line + 1].startswith('"EDTA" network built - ')
+    assert terminal_lines[solve_line + 2] == ""
+    assert terminal_lines[solve_line + 3] == "Exporting results..."
+    assert terminal_lines[solve_line + 4] == export_line
+    assert terminal_lines[solve_line + 5] == ""
+
+    directory = output_parent / "EDTA"
+    network_dir = directory / "EDTA"
+    assert (directory / "system_info.txt").is_file()
+    assert (network_dir / "network_info.txt").is_file()
+    system_info = (directory / "system_info.txt").read_text(encoding="utf-8")
+    assert "Molecular Atoms:      32" in system_info
+    assert "Waters:                193" in system_info
+    assert "Total Atoms:            612" in system_info
+    assert "Active Generators:      33" in system_info
+    assert "Excluded Water:         579" in system_info
+    assert (network_dir / "surfs.off").stat().st_size > 0
+    assert (network_dir / "edges.off").stat().st_size > 0
+    assert (network_dir / "verts.off").stat().st_size > 0
+    assert not list(directory.rglob("nonpolar_interface_geometry"))
+    assert not (directory / "EDTA.vpy.timing.json").exists()
+
+    archive = directory / "EDTA.vpy"
+    restored = load_network(archive)
+    assert restored.solvent_mode == "MOLECULE_ONLY"
+    assert restored.retained_system_indices == (32,)
+    assert restored.settings["generator_policy"]["active_generator_count"] == 33
+    assert restored.settings["generator_policy"]["excluded_water_generator_count"] == 579
+    assert len(restored.balls) == 33
+    assert 0 < int(restored.balls.complete.astype(bool).sum()) < len(restored.balls)
+    assert len(restored.verts) > 0
+    assert len(restored.edges) > 0
+    assert len(restored.surfs) > 0

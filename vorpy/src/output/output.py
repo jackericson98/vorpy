@@ -3,6 +3,7 @@
 import json
 import os
 import shutil
+import sys
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -14,6 +15,7 @@ from vorpy.src.output.layout import unique_output_directory
 
 
 SYSTEM_PRESETS = {
+    'interface': [('info', {'info': True})],
     'micro': [('info', {'info': True})],
     'tiny': [('info', {'info': True})],
     'small': [('info', {'info': True})],
@@ -35,6 +37,7 @@ SYSTEM_PRESETS = {
 }
 
 GROUP_PRESETS = {
+    'interface': [],
     'micro': [('info', {'info': True})],
     'tiny': [('info', {'info': True})],
     'small': [
@@ -94,6 +97,14 @@ GROUP_PRESETS = {
 }
 
 INTERFACE_PRESETS = {
+    'interface': [
+        ('surfaces', {'surfs': True}),
+        ('edges', {'edges': True}),
+        ('vertices', {'verts': True}),
+        ('info', {'info': True}),
+        ('logs', {'logs': True}),
+        ('atoms', {'atoms': True}),
+    ],
     'micro': [('info', {'info': True, 'buried_water': False})],
     'tiny': [('info', {'info': True, 'buried_water': False})],
     'small': [
@@ -162,6 +173,18 @@ SYSTEM_EXPORT_OPTIONS = {
     'txt': {'txt': True},
 }
 
+INTERFACE_EXPORT_OPTIONS = {
+    'atoms': {'atoms': True},
+    'surfs': {'surfs': True},
+    'surfaces': {'surfs': True},
+    'edges': {'edges': True},
+    'verts': {'verts': True},
+    'vertices': {'verts': True},
+    'logs': {'logs': True},
+    'info': {'info': True},
+    'group_info': {'group_info': True},
+}
+
 
 class ExportProgress:
     """Report export progress and retain per-operation timing."""
@@ -223,7 +246,25 @@ def _run_export(progress, name, func, **kwargs):
     net = getattr(owner, 'net', None)
     timing = getattr(net, '_export_mesh_timing', None)
     before = dict(timing) if timing is not None else None
-    func(**kwargs)
+    try:
+        func(**kwargs)
+    except Exception as error:
+        # Keep the original exception and traceback; this marker only identifies
+        # the export boundary that failed for captured process diagnostics.
+        diagnostic = {
+            'stage': name,
+            'callable': getattr(func, '__qualname__', getattr(func, '__name__', type(func).__name__)),
+            'exception_type': type(error).__name__,
+            'message': str(error),
+        }
+        progress.sys.export_failure = diagnostic
+        print(
+            f"[export] FAILED stage={name!r} "
+            f"exception={type(error).__name__}: {error}",
+            file=sys.stderr,
+            flush=True,
+        )
+        raise
     elapsed = time.perf_counter() - start
     progress.timings[name] = progress.timings.get(name, 0.0) + elapsed
     progress.counts[name] = progress.counts.get(name, 0) + 1
@@ -301,9 +342,13 @@ def _group_export_cache(group):
     previous_indices = getattr(group, '_export_topology_indices', None)
     group._export_info_ready = False
     group._export_topology_indices = None
+    network = getattr(group, "net", None) or getattr(group, "source_network", None)
     try:
-        with export_color_cache(group.net):
+        if network is None:
             yield
+        else:
+            with export_color_cache(network):
+                yield
     finally:
         if previous is None:
             del group._export_info_ready
@@ -317,12 +362,14 @@ def _group_export_cache(group):
 
 def export_preset(sys, preset):
     """Execute one named export plan."""
-    groups = [group for group in sys.groups if group.net is not None]
+    groups = [
+        group for group in sys.groups
+        if group.net is not None or getattr(group, "source_view", None) is not None
+    ]
     ifaces = [] if sys.ifaces is None else list(sys.ifaces)
     system_plan = SYSTEM_PRESETS[preset]
     group_plan = GROUP_PRESETS[preset]
     interface_plan = INTERFACE_PRESETS[preset]
-    analysis_count = (len(groups) + len(ifaces)) if preset in {'large', 'all'} else 0
     # ``logs`` still includes the legacy sectioned interface CSV.  Whenever it
     # is requested, also emit the canonical Results log: it preserves status,
     # units, identity, and provenance without recalculating geometry.  ``small``
@@ -336,13 +383,20 @@ def export_preset(sys, preset):
         [iface for iface in ifaces if iface.net is not None]
         if write_canonical_interface_logs else []
     )
-    dual_interfaces = [iface for iface in ifaces if iface.net is not None and
-                       iface.net.settings.get('net_type', 'aw') == 'aw'] if preset in {'large', 'all'} else []
-    archive_enabled = (not getattr(sys, '_export_skip_archive', False)
-                       and not getattr(sys, '_export_archive_written', False))
+    dual_interfaces = [
+        iface for iface in ifaces
+        if iface.net is not None
+        and getattr(iface, "source_view", None) is None
+        and iface.net.settings.get('net_type', 'aw') == 'aw'
+    ] if preset in {'large', 'all'} else []
+    archive_enabled = (
+        preset != 'interface'
+        and not getattr(sys, '_export_skip_archive', False)
+        and not getattr(sys, '_export_archive_written', False)
+    )
     total = (len(system_plan) + len(group_plan) * len(groups)
              + len(interface_plan) * len(ifaces) + len(canonical_interface_logs)
-             + analysis_count + len(dual_interfaces) + int(archive_enabled))
+             + len(dual_interfaces) + int(archive_enabled))
     progress = ExportProgress(total, sys)
 
     for name, kwargs in system_plan:
@@ -356,16 +410,6 @@ def export_preset(sys, preset):
         # group's export plan, rather than checking it from every individual
         # export stage.
         _move_vert_file(sys, group)
-        if preset in {'large', 'all'}:
-            _run_export(
-                progress,
-                f'{group.name}: nonpolar interface geometry',
-                _export_nonpolar_geometry,
-                sys=sys,
-                network=group.net,
-                directory=group.dir,
-                network_id=group.name,
-            )
     for iface in ifaces:
         interface_name = getattr(iface, 'name', 'interface')
         with export_color_cache(iface.net):
@@ -381,16 +425,8 @@ def export_preset(sys, preset):
             if iface in dual_interfaces:
                 _run_export(progress, f'{interface_name}: Apollonius dual',
                             _export_dual_geometry_without_launcher, iface=iface)
-            if preset in {'large', 'all'}:
-                _run_export(
-                    progress,
-                    f'{interface_name}: nonpolar interface geometry',
-                    _export_nonpolar_geometry,
-                    sys=sys,
-                    network=iface.net,
-                    directory=iface.dir,
-                    network_id=interface_name,
-                )
+            if preset == 'interface':
+                _normalise_interface_default_outputs(iface)
     if archive_enabled:
         _run_export(progress, 'network archive', _export_network_archive, sys=sys)
     progress.finish()
@@ -399,7 +435,10 @@ def export_preset(sys, preset):
 def _export_network_archive(sys):
     from vorpy.src.io import save_network
     destination = os.path.join(sys.files['dir'], str(sys.name) + '.vpy')
-    save_network(sys, destination)
+    if getattr(sys, '_fail_if_exists', False):
+        save_network(sys, destination, fail_if_exists=True)
+    else:
+        save_network(sys, destination)
     # Command._save_archive can reuse this completed archive for an explicit
     # destination, avoiding a second serialization/compression pass.
     sys._last_export_archive_path = str(Path(destination).resolve())
@@ -411,7 +450,91 @@ def _export_canonical_interface_log(iface):
     """Persist the canonical Results log without rebuilding cached geometry."""
     from vorpy.src.output.visualization import _compact_log
 
+    # Detached synthetic interfaces used by preset-planning tests have no
+    # output directory and cannot produce a filesystem log. Real interface
+    # exports assign ``iface.dir`` before this stage.
+    if getattr(iface, 'dir', None) is None:
+        return
     _compact_log(iface, Path(iface.dir) / 'logs.csv')
+
+
+def _rename_interface_output(directory, source_name, target_name):
+    source = Path(directory) / source_name
+    target = Path(directory) / target_name
+    if not source.exists() or source == target:
+        return
+    if target.exists():
+        raise FileExistsError(f'Refusing to overwrite interface export: {target}')
+    source.replace(target)
+
+
+def _write_interface_surrounding_exports(iface):
+    """Use VECTOR's PDB writer for the group-like surrounding products."""
+    system = getattr(iface, 'sys', None)
+    balls = getattr(system, 'balls', None)
+    if system is None or balls is None or getattr(iface, 'dir', None) is None:
+        return
+
+    group1 = getattr(iface, 'group1_indices', None)
+    if group1 is None:
+        group1 = getattr(getattr(iface, 'group1', None), 'ball_ndxs', ())
+    group1 = {int(index) for index in (group1 or ())}
+    try:
+        surrounding = set(iface.get_surrounding_indices(group1))
+    except (AttributeError, KeyError, TypeError, ValueError):
+        surrounding = set()
+
+    from vorpy.src.output.pdb import write_pdb
+
+    write_pdb(
+        atoms=sorted(surrounding), file_name='surr_atoms',
+        directory=iface.dir, sys=system,
+    )
+
+    residue_keys = set()
+    for index in surrounding:
+        row = balls.iloc[int(index)]
+        residue_keys.add(tuple(
+            str(row.get(name, '')).strip()
+            for name in ('chain_name', 'res_seq', 'pdb_ins_code', 'res_name')
+        ))
+    residue_atoms = []
+    for index, row in balls.iterrows():
+        key = tuple(
+            str(row.get(name, '')).strip()
+            for name in ('chain_name', 'res_seq', 'pdb_ins_code', 'res_name')
+        )
+        if key in residue_keys:
+            residue_atoms.append(int(index))
+    write_pdb(
+        atoms=residue_atoms, file_name='surr_residues',
+        directory=iface.dir, sys=system,
+    )
+
+
+def _normalise_interface_default_outputs(iface):
+    """Apply the CLI names to files emitted by the shared interface exporters."""
+    directory = getattr(iface, 'dir', None)
+    if directory is None:
+        return
+    for name in ('surfs', 'edges', 'verts'):
+        _rename_interface_output(directory, f'{name}.off', f'interface_{name}.off')
+    for source, target in (
+        ('group_1_atoms.pdb', 'group_a_atoms.pdb'),
+        ('group_2_atoms.pdb', 'group_b_atoms.pdb'),
+    ):
+        _rename_interface_output(directory, source, target)
+
+    info = Path(directory) / 'network_info.txt'
+    interface_info = Path(directory) / 'interface_info.txt'
+    if info.exists() and not interface_info.exists():
+        shutil.copyfile(info, interface_info)
+    _write_interface_surrounding_exports(iface)
+
+
+def export_interface_default(sys):
+    """Export the ordinary first-class interface result bundle."""
+    export_preset(sys, 'interface')
 
 
 def export_micro(sys):
@@ -443,13 +566,20 @@ def export_all(sys):
 def other_exports(sys, usr_npt):
     """Run one standalone export without adding preset or system side effects."""
     option = str(usr_npt).strip().lower()
-    groups = [group for group in sys.groups if group.net is not None]
+    groups = [
+        group for group in sys.groups
+        if group.net is not None or getattr(group, "source_view", None) is not None
+    ]
+    network_groups = [group for group in groups if group.net is not None]
 
     if option in {'none', 'no', 'skip'}:
         return
 
     if option in {'dual', 'apollonius'}:
-        interfaces = [iface for iface in (getattr(sys, 'ifaces', None) or []) if iface.net is not None]
+        interfaces = [
+            iface for iface in (getattr(sys, 'ifaces', None) or [])
+            if iface.net is not None and getattr(iface, "source_view", None) is None
+        ]
         if not interfaces:
             raise ValueError('-e dual requires a solved AW Interface; use the two-group -i workflow.')
         progress = ExportProgress(len(interfaces), sys)
@@ -491,6 +621,44 @@ def other_exports(sys, usr_npt):
         for iface in interfaces:
             state = 'AVAILABLE' if getattr(iface, 'water_topology', None) is not None else 'NOT_CALCULATED'
             print(f'Interface water analysis {iface.name}: {state}')
+        return
+
+    if option in {'nonpolar', 'nonpolar_geometry', 'nonpolar-interface-geometry'}:
+        interfaces = [iface for iface in (getattr(sys, 'ifaces', None) or [])
+                      if getattr(iface, 'net', None) is not None]
+        progress = ExportProgress(len(network_groups) + len(interfaces), sys)
+        for group in network_groups:
+            _set_group_directory(sys, group)
+            _run_export(
+                progress, f'{group.name}: nonpolar interface geometry',
+                _export_nonpolar_geometry, sys=sys, network=group.net,
+                directory=group.dir, network_id=group.name,
+            )
+        for iface in interfaces:
+            if getattr(iface, 'dir', None) is None and hasattr(iface, 'set_dir'):
+                iface.set_dir()
+            _run_export(
+                progress, f'{iface.name}: nonpolar interface geometry',
+                _export_nonpolar_geometry, sys=sys, network=iface.net,
+                directory=iface.dir, network_id=iface.name,
+            )
+        progress.finish()
+        return
+
+    if option in INTERFACE_EXPORT_OPTIONS and getattr(sys, 'ifaces', None):
+        interfaces = [
+            iface for iface in sys.ifaces
+            if getattr(iface, 'net', None) is not None
+        ]
+        progress = ExportProgress(len(interfaces), sys)
+        for iface in interfaces:
+            if getattr(iface, 'dir', None) is None and hasattr(iface, 'set_dir'):
+                iface.set_dir()
+            _run_export(
+                progress, f'{iface.name}: {option}', iface.export,
+                **INTERFACE_EXPORT_OPTIONS[option],
+            )
+        progress.finish()
         return
 
     if option in {'a', 'atoms', 'atom_cells'}:

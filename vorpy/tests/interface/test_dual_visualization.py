@@ -265,7 +265,7 @@ def test_visualize_reuses_cached_molecular_contact_exporter(tmp_path, monkeypatc
     assert manifest['layers']['molecular_contact_surface:A']['state'] == 'PARTIAL'
 
 
-def test_compact_interface_bundle_has_one_log_and_physical_surface(tmp_path):
+def test_compact_interface_bundle_does_not_fallback_to_full_network(tmp_path):
     from vorpy.src.output.visualization import export_compact_visualization_bundle
 
     iface = cached_interface(tmp_path)
@@ -282,9 +282,12 @@ def test_compact_interface_bundle_has_one_log_and_physical_surface(tmp_path):
     export_compact_visualization_bundle(system)
 
     root = tmp_path / 'interface_A_B'
-    assert (root / 'aw_surfs.off').stat().st_size > 0
-    assert (root / 'aw_edges.off').stat().st_size > 0
-    assert (root / 'aw_verts.pdb').stat().st_size > 0
+    assert not (root / 'interface_surfs.off').exists()
+    assert not (root / 'interface_edges.off').exists()
+    assert not (root / 'interface_verts.off').exists()
+    assert not (root / 'aw_surfs.off').exists()
+    assert not (root / 'aw_edges.off').exists()
+    assert not (root / 'aw_verts.pdb').exists()
     assert (root / 'logs.csv').read_text(encoding='utf-8').startswith(
         'interface_id,representation,side,quantity,value,units,status,provenance\n'
     )
@@ -294,6 +297,7 @@ def test_compact_interface_bundle_has_one_log_and_physical_surface(tmp_path):
     assert {row['representation'] for row in log_rows} <= {
         'physical_partition_interface', 'molecular_contact_surface',
         'alpha_selection', 'water_analysis', 'timing',
+        'dual_contact_complex', 'dual_generator_complex',
     }
     assert not (root / 'interface.pml').exists()
     assert not (root / 'dual_mapping_edges.off').exists()
@@ -306,6 +310,9 @@ def test_compact_interface_make_net_does_not_create_legacy_directory(tmp_path, m
         def __init__(self, **kwargs):
             self.balls = kwargs['locs']
             self.settings = kwargs['settings']
+
+        def refresh_solvent_provenance(self):
+            return None
 
     system = SimpleNamespace(
         files={'dir': str(tmp_path)}, _compact_interface_workflow=True,
@@ -320,8 +327,15 @@ def test_compact_interface_make_net_does_not_create_legacy_directory(tmp_path, m
     iface.group2 = SimpleNamespace(ball_ndxs=[2], name='B', group_id='B')
     monkeypatch.setattr(module, 'Network', FakeNetwork)
     monkeypatch.setattr(
-        module, 'network_geometry',
-        lambda _sys: ([], [], [], set(), None),
+        module, 'prepare_network_geometry',
+        lambda *_args: SimpleNamespace(
+            locations=[(0., 0., 0.), (1., 0., 0.)], radii=[1., 1.],
+            masses=[1., 1.], system_indices=(1, 2), stable_ids=('1', '2'),
+            solvent_local_indices=(), solvent_generator_ids=(),
+            solvent_mode='MOLECULE_ONLY', retained_system_indices=(),
+            retained_generator_ids=(), boundary_indices=(),
+            boundary_config=None, boundary_generators=(),
+        ),
     )
     monkeypatch.setattr(Interface, '_update_group_metadata', lambda *_args, **_kwargs: None)
 

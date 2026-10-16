@@ -587,7 +587,7 @@ def test_real_edta_partial_view_fails_closed_without_certification(solved, monke
     assert len(physical_ids) >= 2
     group_a, group_b = physical_ids[:1], physical_ids[1:2]
     monkeypatch.setattr(Network, 'build', lambda *a, **kw: pytest.fail('Archive loader rebuilt topology'))
-    with pytest.raises(NetworkViewError, match='Source cell completeness is not proven'):
+    with pytest.raises(NetworkViewError, match='completeness.*generator cells 8'):
         original.make_view(iface_grps=(group_a, group_b))
 
 
@@ -1264,7 +1264,7 @@ def test_export_equivalence_and_no_source(solved, archive, tmp_path):
                       shell_verts=True, surr_atoms=True, surr_resids=True, atom_surfs=True,
                       atom_edges=True, atom_verts=True, sep_verts=True, file_type='ply')
         assert (Path(group.dir) / 'group_atoms.pdb').stat().st_size > 0
-        assert (Path(group.dir) / 'info.txt').is_file()
+        assert (Path(group.dir) / 'network_info.txt').is_file()
         assert list(Path(group.dir).glob('*logs.csv'))
         assert list((Path(group.dir) / 'atoms').glob('*.ply'))
         assert list((Path(group.dir) / 'verts').glob('*.ply'))

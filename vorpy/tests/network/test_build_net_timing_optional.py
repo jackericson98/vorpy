@@ -127,3 +127,21 @@ def test_interface_diagnostic_is_opt_in_and_machine_readable(capsys):
         if line.startswith('VORPY_INTERFACE_DIAGNOSTICS ')
     )
     assert json.loads(line.removeprefix('VORPY_INTERFACE_DIAGNOSTICS ')) == report
+
+
+def test_timing_counts_distinguish_candidate_and_retained_facets():
+    net = _net(True)
+    build(
+        V_BALLS,
+        V_LOCS,
+        V_DUBS,
+        num_balls=5,
+        my_time=time.time(),
+        interface=True,
+        iface_grps=({0}, {1}),
+        net=net,
+    )
+
+    counts = net.build_net_counts
+    assert counts['candidate_facets'] == counts['accepted_facets'] + counts['discarded_facets']
+    assert counts['accepted_facets'] == 1

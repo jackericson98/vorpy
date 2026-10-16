@@ -1,4 +1,5 @@
 import os
+import sys
 import csv
 import json
 from hashlib import sha256
@@ -6,7 +7,6 @@ from vorpy.src.network.runtime_diagnostics import checkpoint, verbose_build
 import time
 import numpy as np
 import pandas as pd
-from datetime import datetime
 from time import perf_counter as now
 from numpy import array, inf, cbrt, sqrt
 from vorpy.src.calculations import get_time
@@ -29,6 +29,19 @@ from vorpy.src.boundary import (
     normalize_retained_system_indices,
     normalize_solvent_mode,
 )
+
+
+def _progress_label(value):
+    """Return a stable progress label without object memory addresses."""
+    if isinstance(value, str):
+        return value
+    if value is None:
+        return ""
+    for attribute in ("progress_label", "group_name", "name"):
+        label = getattr(value, attribute, None)
+        if isinstance(label, str) and label.strip():
+            return label
+    return type(value).__name__
 
 
 def _build_timing_enabled(net):
@@ -93,6 +106,7 @@ def _build_timing_payload(net, stages, total_seconds):
         'surfaces': row_count(getattr(net, 'surfs', None)),
         'complete_cells': sum(bool(value) for value in complete),
     }
+    counts.update(getattr(net, 'surface_counts', {}) or {})
     stage_total = sum(stages.values())
     return {
         'schema_version': 1,
@@ -180,12 +194,19 @@ class Network:
         # Optional presentation context for subordinate networks (for example,
         # buried-water networks solved as part of an Interface). Defaults keep
         # legacy behavior for ordinary System/Group networks.
-        self.progress_network_name = None
+        self.progress_network_name = (
+            settings.get('_progress_network_name')
+            if isinstance(settings, dict) else None
+        )
         self.progress_process_prefix = None
-        self.completion_kind = "network"
+        self.completion_kind = (
+            settings.get('_completion_kind', 'network')
+            if isinstance(settings, dict) else 'network'
+        )
         self.settings = settings  # Settings       : surf_res, surf_col, surf_schm, max_vert, net_type
         self.metrics = {'start': now()}  # Metrics        : Holds the time measurements for the build
         self.progress_window = None  # Prog. Window   : Progress window for GUI updates
+        self._progress_line_len = 0
         self.loaded_from_logs = False  # Logs Flag      : Determines how the net was created
 
         # Network element lists
@@ -369,7 +390,7 @@ class Network:
     def solvent_provenance(self):
         if self.solvent_mode is None:
             return None
-        return {
+        provenance = {
             "solvent_mode": self.solvent_mode,
             "solvent_generator_digest": self.solvent_generator_digest,
             "solvent_cells_complete": self.solvent_cells_complete,
@@ -377,6 +398,13 @@ class Network:
             "solvent_generator_ids": tuple(self.solvent_generator_ids),
             "generator_membership": self.generator_membership_evidence,
         }
+        resolution = (
+            self.settings.get("solvent_mode_resolution")
+            if isinstance(self.settings, dict) else None
+        )
+        if resolution is not None:
+            provenance["solvent_mode_resolution"] = resolution
+        return provenance
 
     @property
     def retained_generator_provenance(self):
@@ -543,17 +571,20 @@ class Network:
         """Report this network's current process to the parent System."""
         progress = max(0.0, min(float(progress), 100.0))
 
-        progress_process = process
+        progress_process = _progress_label(process)
         if self.progress_process_prefix:
-            progress_process = f"{self.progress_process_prefix} - {process}"
+            progress_process = f"{self.progress_process_prefix} - {progress_process}"
 
-        progress_network = self.progress_network_name or self.group_name
+        progress_network = _progress_label(
+            self.progress_network_name or self.group_name
+        )
 
-        if self.sys is not None:
-            if getattr(self.sys, 'frame_count', 0):
-                progress_network = (f'{progress_network} - Frame {self.sys.frame_index}'
-                                    f'/{self.sys.frame_count}')
-            self.sys.update_progress(
+        parent = getattr(self, 'sys', None)
+        if parent is not None:
+            if getattr(parent, 'frame_count', 0) > 1:
+                progress_network = (f'{progress_network} - Frame {parent.frame_index}'
+                                    f'/{parent.frame_count}')
+            parent.update_progress(
                 process=progress_process,
                 progress=progress,
                 network=progress_network,
@@ -561,14 +592,39 @@ class Network:
             return
 
         # Fallback for standalone Network use
+        verbose = bool(
+            getattr(self, 'verbose', False)
+            or (isinstance(self.settings, dict) and self.settings.get('verbose', False))
+        )
+        if not verbose and not getattr(sys.stdout, 'isatty', lambda: False)():
+            self._progress_line_len = 0
+            return
         my_time = now() - self.metrics['start']
         h, m, s = get_time(my_time)
+        message = (
+            f"{int(h)}:{int(m):02d}:{s:05.2f} - "
+            f'{progress_network} - {progress_process} - {progress:.2f} %'
+        )
+        interactive = getattr(sys.stdout, 'isatty', lambda: False)()
+        if not interactive:
+            process_changed = progress_process != getattr(
+                self, '_progress_last_process', None
+            )
+            self._progress_last_process = progress_process
+            self._progress_line_len = 0
+            if not verbose or (not process_changed and progress < 100.0):
+                return
+            print(message, flush=True)
+            return
+        padding = " " * max(
+            0, getattr(self, '_progress_line_len', 0) - len(message)
+        )
         print(
-            f"\r{int(h)}:{int(m):02d}:{s:05.2f} - "
-            f'{progress_network} - {progress_process} - {progress:.2f} %',
+            f"\r{message}{padding}",
             end="",
             flush=True,
         )
+        self._progress_line_len = len(message)
 
     def sort_balls(self, num_boxes=None):
         """
@@ -1293,10 +1349,23 @@ class Network:
         h, m, s = get_time(self.metrics['tot'])
         num_complete = len([_ for _ in self.balls['complete'] if _])
         completion_kind = self.completion_kind or "network"
-        # Start the completion summary on a fresh line.  Avoid printing hundreds
-        # of spaces to clear the progress line; copied/redirected transcripts
-        # otherwise contain huge whitespace blocks.
-        print()
-        print("\"{}\" {} built - {} complete cell{}, {} verts, {} surfs - {}:{}:{:.2f} s - finished at {}\n"
-              .format(self.group_name, completion_kind, num_complete, '' if num_complete == 1 else 's', len(self.verts),
-                      len(self.surfs), int(h), int(m), s, datetime.now()), end="")
+        completion_name = self.progress_network_name or self.group_name
+        # Normal CLI progress is already at the current cursor; adding a
+        # separator newline would leave a visible blank line.
+        parent = getattr(self, 'sys', None)
+        if parent is None or getattr(parent, 'verbose', False):
+            print()
+        print(
+            '"{}" {} built - {} complete cell{}, {:,} vertices, {:,} edges, '
+            '{:,} surfaces - elapsed {:.2f} s\n'.format(
+                completion_name,
+                completion_kind,
+                num_complete,
+                '' if num_complete == 1 else 's',
+                len(self.verts),
+                len(self.edges),
+                len(self.surfs),
+                int(h) * 3600 + int(m) * 60 + s,
+            ),
+            end='',
+        )

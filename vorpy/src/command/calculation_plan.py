@@ -36,6 +36,7 @@ _FLAG_ALIASES = {
     '-e': 'export', '--export': 'export',
     '--profile': 'profile',
     '--save-network': 'save_network',
+    '--timing-report': 'timing_report',
     '--load-network': 'load_network',
     '--all-frames': 'all_frames',
     '--parallel-frames': 'parallel_frames',
@@ -115,6 +116,21 @@ def _commands(tokens):
     if current:
         result.append(tuple(current))
     return tuple(result)
+
+
+def expand_group_tokens(tokens):
+    """Normalize one shell-quoted selector into legacy selector tokens.
+
+    Windows shells commonly pass ``"c A and c B"`` as one argv value.  The
+    legacy group interpreter consumes the equivalent unquoted token sequence.
+    Group selectors do not support meaningful whitespace inside one token, so
+    splitting only this command-block value is safe and keeps other CLI values
+    unchanged.
+    """
+    expanded = []
+    for token in tokens:
+        expanded.extend(str(token).split())
+    return tuple(expanded)
 
 
 @dataclass(frozen=True)
@@ -306,7 +322,12 @@ def build_calculation_plan(argv, *, input_source=None, analysis_profile=None):
 
     for block in blocks:
         if block.flag == 'group':
-            declared.append(GroupRequest(_commands(block.args), source='group'))
+            declared.append(
+                GroupRequest(
+                    _commands(expand_group_tokens(block.args)),
+                    source='group',
+                )
+            )
         elif block.flag == 'interface':
             interface_requests.append(InterfaceRequest(_interface_operands(block.args)))
         elif block.flag == 'calculate':
@@ -326,6 +347,9 @@ def build_calculation_plan(argv, *, input_source=None, analysis_profile=None):
             exports.extend(_commands(block.args))
         elif block.flag in {'load_network', 'save_network'}:
             archive.append(block)
+        elif block.flag == 'timing_report':
+            if len(block.args) != 1:
+                raise ValueError('--timing-report requires one JSON output path.')
         elif block.flag == 'profile':
             if len(block.args) != 1:
                 raise ValueError('--profile requires one profile name.')
@@ -381,5 +405,6 @@ def build_calculation_plan(argv, *, input_source=None, analysis_profile=None):
 
 __all__ = [
     'CalculationPlan', 'CalculationRequest', 'CommandBlock', 'GroupRequest',
-    'InterfaceRequest', 'build_calculation_plan', 'parse_command_blocks',
+    'InterfaceRequest', 'build_calculation_plan', 'expand_group_tokens',
+    'parse_command_blocks',
 ]

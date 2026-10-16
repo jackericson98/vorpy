@@ -1,3 +1,4 @@
+import io
 from types import SimpleNamespace
 
 import pandas as pd
@@ -135,6 +136,37 @@ def test_interface_view_preserves_ordered_sides_and_reversed_identity():
     assert forward.surfaces[0].data["orientation"] == (1.0, 0.0, 0.0)
 
 
+def test_interface_view_retains_supported_facets_and_marks_unresolved_facets():
+    network = _network()
+    network.surfs["sa"] = 0.0
+    extra = network.surfs.iloc[1].copy()
+    extra["balls"] = [0, 1, 2]
+    extra["sa"] = 1.5
+    network.surfs.loc[2] = extra
+    network.balls.loc[2, "complete"] = False
+
+    view = NetworkView.for_interface(network, [10], [11])
+
+    assert view.source_ids("surface") == (0,)
+    assert view.completeness.proven is False
+    assert view.completeness.unresolved_surface_ids == (2,)
+    assert view.completeness.unresolved_surface_area is not None
+    assert any("generator cells 2" in reason for reason in view.completeness.reasons)
+    supported_evidence = view.surfaces[0].evidence
+    assert supported_evidence.supported is True
+    assert supported_evidence.complete is True
+    assert supported_evidence.bounded is True
+    assert supported_evidence.support_generator_local_indices == (0, 1, 4)
+    assert len(view.completeness.unresolved_features) == 1
+    unresolved_evidence = view.completeness.unresolved_features[0]
+    assert unresolved_evidence.source_id == 2
+    assert unresolved_evidence.supported is False
+    assert unresolved_evidence.complete is False
+    assert unresolved_evidence.bounded is True
+    assert unresolved_evidence.support_generator_local_indices == (0, 1, 2, 4)
+    assert unresolved_evidence.area == pytest.approx(1.5)
+
+
 def test_view_is_snapshot_and_never_calls_network_build_stages(monkeypatch):
     network = _network()
     balls_before = network.balls.copy(deep=True)
@@ -262,3 +294,49 @@ def test_incomplete_or_broken_selection_fails_closed():
 
     with pytest.raises(NetworkViewError, match="Unsupported source solve context"):
         NetworkView.for_group(_network(scheme="unsupported"), [10])
+
+
+def test_interface_view_ignores_unrelated_incomplete_physical_cells():
+    network = _network()
+    network.balls.loc[2, "complete"] = False
+
+    view = NetworkView.for_interface(network, [10], [11])
+
+    assert view.completeness.proven
+    assert view.source_ids("surface") == (0,)
+    assert {feature.generator_system_ids[0] for feature in view.cells} == {10, 11}
+    assert 2 not in view.support_generator_local_indices
+
+
+def test_virtual_shell_exempts_incomplete_boundary_generator():
+    network = _network(incomplete=True)
+    network.solvent_mode = "SOLVENT_CONTEXT"
+
+    view = NetworkView.for_interface(network, [10], [11])
+
+    assert view.completeness.proven
+    assert view.boundary_generator_ids == ("boundary:4",)
+
+
+def test_interface_view_rejects_incomplete_incident_generator():
+    network = _network()
+    network.balls.loc[0, "complete"] = False
+
+    with pytest.raises(NetworkViewError, match="completeness.*generator cells 0"):
+        NetworkView.for_interface(network, [10], [11])
+
+
+def test_standalone_progress_pads_replaced_line(monkeypatch):
+    stream = io.StringIO()
+    stream.isatty = lambda: True
+    monkeypatch.setattr("sys.stdout", stream)
+    network = _network()
+    network.sys = None
+
+    network.update_progress("Vertices: " + "x" * 80, 50.0)
+    network.update_progress("Edges: 1 / 10", 10.0)
+
+    parts = stream.getvalue().split("\r")
+    assert len(parts) == 3
+    assert parts[-1].startswith("0:00:")
+    assert len(parts[-1]) >= len(parts[-2])

@@ -496,6 +496,77 @@ def interpret_group_commands(my_sys, group_dict, command):
     return group_dict
 
 
+def validate_group_selection(
+    my_sys,
+    selectors,
+    expected_counts,
+    *,
+    solvent_mode=None,
+    required_residue_names=(),
+    expected_active_generators=None,
+):
+    """Materialize and validate CLI groups against a parsed molecular model.
+
+    This is a pre-solve gate.  It uses the same ``ggroup``/``Group`` path as
+    the CLI, then checks exact membership before any network is built.
+    """
+    if len(selectors) != len(expected_counts):
+        raise ValueError(
+            'Expected group selector/count cardinality mismatch: '
+            f'{len(selectors)} selectors for {len(expected_counts)} counts.'
+        )
+
+    commands = {
+        index: [list(command) for command in group_commands]
+        for index, group_commands in enumerate(selectors)
+    }
+    ggroup(my_sys, commands, settings=None, make_net=False)
+    actual_counts = tuple(len(group.ball_ndxs) for group in (my_sys.groups or ()))
+    expected_counts = tuple(int(value) for value in expected_counts)
+    if actual_counts != expected_counts:
+        raise ValueError(
+            'CLI group membership mismatch: '
+            f'expected {expected_counts}, created {actual_counts}.'
+        )
+    if any(count <= 0 for count in actual_counts):
+        raise ValueError(f'CLI group selection produced an empty group: {actual_counts}.')
+
+    from vorpy.src.boundary import prepare_network_geometry
+
+    geometry = prepare_network_geometry(my_sys, solvent_mode=solvent_mode)
+    active_count = len(geometry.system_indices)
+    if expected_active_generators is not None and active_count != int(expected_active_generators):
+        raise ValueError(
+            'Active generator mismatch: '
+            f'expected {int(expected_active_generators)}, created {active_count}.'
+        )
+
+    required_rows = []
+    required_names = {str(name).strip().upper() for name in required_residue_names}
+    if required_names:
+        for index in range(len(my_sys.balls)):
+            row = my_sys.balls.iloc[index]
+            if str(row.get('res_name', '')).strip().upper() in required_names:
+                required_rows.append(index)
+        active_rows = {index for index in geometry.system_indices if index is not None}
+        if not set(required_rows).issubset(active_rows):
+            missing = sorted(set(required_rows) - active_rows)
+            raise ValueError(
+                'Required source generators were excluded from the active universe: '
+                f'{missing[:10]}'
+            )
+
+    return {
+        'status': 'PASS',
+        'expected_group_counts': expected_counts,
+        'actual_group_counts': actual_counts,
+        'active_generators': active_count,
+        'required_source_rows': tuple(required_rows),
+        'solvent_mode': geometry.solvent_mode,
+        'solvent_cells_complete': geometry.solvent_cells_complete,
+    }
+
+
 def ggroup(my_sys, group_commands, settings=None, make_net=True):
     """
     Creates molecular groups based on user-specified grouping commands.

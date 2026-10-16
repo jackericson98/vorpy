@@ -78,12 +78,12 @@ def test_system_exports_stay_at_root(tmp_path, monkeypatch):
     monkeypatch.setattr(
         output_sys,
         "export_sys_info",
-        lambda sys: Path(f"{sys.name}_info.txt").write_text("system\n", encoding="utf-8"),
+        lambda sys: Path("system_info.txt").write_text("system\n", encoding="utf-8"),
     )
     output_sys.export_sys(system, pdb=True, set_atoms=True, info=True)
 
     assert (tmp_path / "2KAI.pdb").is_file()
-    assert (tmp_path / "info.txt").is_file()
+    assert (tmp_path / "system_info.txt").is_file()
     assert (tmp_path / "set_atoms.pml").read_text(encoding="utf-8").startswith(
         "load 2KAI.pdb, 2KAI\n"
     )
@@ -218,58 +218,92 @@ def test_compact_rows_use_canonical_results_mappings(monkeypatch):
 
 
 
-def test_compact_interface_bundle_has_no_generic_wrappers(tmp_path):
+def test_compact_interface_bundle_has_no_generic_wrappers(tmp_path, monkeypatch):
+    from vorpy.src.output import visualization
     from vorpy.src.output.visualization import export_compact_visualization_bundle
     from vorpy.tests.interface.test_dual_visualization import cached_interface
 
     iface = cached_interface(tmp_path)
+    iface.group1.ball_ndxs = [10]
+    iface.group2.ball_ndxs = [13, 16]
     iface.dir = None
     system = SimpleNamespace(
         name="fixture", files={"dir": str(tmp_path)}, groups=[], ifaces=[iface],
         balls=None, update_progress=lambda **kwargs: None, verbose=False,
     )
     iface.sys = system
+    monkeypatch.setattr(
+        visualization,
+        "write_pdb",
+        lambda atoms, file_name, sys, directory=None: Path(directory, f"{file_name}.pdb").write_text(
+            "fixture\n", encoding="utf-8"
+        ),
+    )
 
     export_compact_visualization_bundle(system)
 
     root = tmp_path / "interface_A_B"
-    assert (root / "aw_surfs.off").is_file()
-    assert (root / "aw_edges.off").is_file()
-    assert (root / "aw_verts.pdb").is_file()
+    assert (root / "interface_surfs.off").is_file()
+    assert (root / "interface_edges.off").is_file()
+    assert (root / "interface_verts.off").is_file()
     assert (root / "aw_dual_edges.off").is_file()
     assert not (root / "interface.pml").exists()
-    assert (root / "info.txt").is_file()
-    info = (root / "info.txt").read_text(encoding="utf-8")
+    assert (root / "interface_info.txt").is_file()
+    info = (root / "interface_info.txt").read_text(encoding="utf-8")
     assert "Interface network topology:" in info
     assert "Surface classification:" in info
-    assert "Physical export selection: full_network" in info
+    assert "Physical export selection: direct_inter_group" in info
     with (root / "logs.csv").open(newline="", encoding="utf-8") as stream:
         assert csv.DictReader(stream).fieldnames == list(INTERFACE_LOG_COLUMNS)
     assert not (tmp_path / "groups").exists()
     assert not (tmp_path / "interfaces").exists()
 
 
-def test_compact_physical_mesh_preserves_all_cached_network_facets(tmp_path):
+def test_compact_physical_mesh_preserves_selected_cached_facets(tmp_path):
     from vorpy.src.output import visualization
     from vorpy.tests.interface.test_dual_visualization import cached_interface
 
     iface = cached_interface(tmp_path)
+    iface.group1.ball_ndxs = [10]
+    iface.group2.ball_ndxs = [13, 16]
     result = visualization._compact_physical_interface(iface, tmp_path / "bundle")
-    off = tmp_path / "bundle" / "aw_surfs.off"
+    off = tmp_path / "bundle" / "interface_surfs.off"
     lines = [line for line in off.read_text(encoding="utf-8").splitlines()
              if line.strip() and not line.lstrip().startswith("#")]
     vertex_count, facet_count, _ = (int(value) for value in lines[1].split()[:3])
-    expected_facets = sum(len(tris) for tris in iface.net.surfs["tris"])
+    direct = iface.net.surfs.iloc[[0, 1]]
+    expected_facets = sum(len(tris) for tris in direct["tris"])
     faces = lines[2 + vertex_count:2 + vertex_count + facet_count]
-    assert result["surface_count"] == len(iface.net.surfs)
-    assert result["selection_mode"] == "full_network"
-    assert result["area_A2"] == float(iface.net.surfs["sa"].sum())
+    assert result["surface_count"] == len(direct)
+    assert result["selection_mode"] == "direct_inter_group"
+    assert result["area_A2"] == float(direct["sa"].sum())
     assert facet_count == expected_facets
     assert len(faces) == facet_count
     assert all(
         fields[0] == "3" and all(0 <= int(index) < vertex_count for index in fields[1:4])
         for fields in (face.split() for face in faces)
     )
+
+
+def test_compact_physical_mesh_scopes_legacy_interface_to_direct_surfaces(tmp_path):
+    from vorpy.src.output import visualization
+    from vorpy.tests.interface.test_dual_visualization import cached_interface
+
+    iface = cached_interface(tmp_path)
+    iface.group1.ball_ndxs = [10]
+    iface.group2.ball_ndxs = [13, 16]
+    result = visualization._compact_physical_interface(iface, tmp_path / "bundle")
+
+    off = tmp_path / "bundle" / "interface_surfs.off"
+    lines = [line for line in off.read_text(encoding="utf-8").splitlines()
+             if line.strip() and not line.lstrip().startswith("#")]
+    vertex_count, facet_count, _ = (int(value) for value in lines[1].split()[:3])
+    direct = iface.net.surfs.iloc[[0, 1]]
+    assert result["surface_count"] == 2
+    assert result["selection_mode"] == "direct_inter_group"
+    assert result["area_A2"] == float(direct["sa"].sum())
+    assert facet_count == sum(len(tris) for tris in direct["tris"])
+    assert vertex_count == 8
 
 
 def test_compact_interface_bundle_writes_both_input_group_pdbs(tmp_path, monkeypatch):

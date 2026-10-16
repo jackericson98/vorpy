@@ -1,4 +1,4 @@
-"""Qt-independent parser and typed model for VorPy ``info.txt`` metadata."""
+"""Qt-independent parser and typed model for VorPy info metadata files."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -291,6 +291,142 @@ class VorPyBackend:
         system.ifaces.append(interface)
         return interface
 
+    def make_validated_interface_view(
+        self,
+        interface: Interface,
+        selection: InterfaceSolveSelection,
+        source_network,
+        *,
+        source_network_id: str | None = None,
+    ):
+        """Make an ordered view from a matching complete-system solve.
+
+        The dedicated interface network is intentionally cross-group filtered
+        and cannot prove whole-cell closure.  A validated view must therefore
+        come from a separately solved complete-system network with identical
+        solve context, generators, coordinates, radii, and provenance.
+        """
+        if not isinstance(interface, Interface):
+            raise TypeError("interface must be a VorPy Interface")
+        if not isinstance(selection, InterfaceSolveSelection):
+            raise TypeError("selection must be InterfaceSolveSelection")
+
+        interface_network = getattr(interface, "net", None)
+        if (
+            interface_network is None
+            or getattr(interface_network, "network_mode", None) != "interface"
+        ):
+            raise ValueError("A dedicated interface network is required")
+        if source_network is None or source_network is interface_network:
+            raise ValueError("A separate complete-system source network is required")
+        if getattr(source_network, "network_mode", None) != "complete":
+            raise ValueError("Validated interface views require a complete-system network")
+
+        if interface.interface_id != selection.interface_id:
+            raise ValueError("Interface identity does not match InterfaceSolveSelection")
+        if tuple(sorted(interface.group1.ball_ndxs)) != selection.group_a_system_indices:
+            raise ValueError("Interface Group A membership does not match selection")
+        if tuple(sorted(interface.group2.ball_ndxs)) != selection.group_b_system_indices:
+            raise ValueError("Interface Group B membership does not match selection")
+
+        interface_context = interface_network.get_solve_context_key()
+        source_context = source_network.get_solve_context_key()
+        for context_field in (
+            "schema_version",
+            "scheme",
+            "frame_id",
+            "partition_scheme",
+            "boundary_mode",
+            "boundary_config_digest",
+            "boundary_generator_digest",
+            "environment_digest",
+            "generator_digest",
+            "geometry_digest",
+            "physical_generator_ids",
+            "local_to_system",
+            "boundary_generator_ids",
+            "resolution",
+            "vertex_settings_digest",
+            "build_options_digest",
+            "solver_version",
+        ):
+            if getattr(source_context, context_field) != getattr(
+                interface_context, context_field
+            ):
+                raise ValueError(
+                    "Validated view source solve input does not match interface solve: "
+                    f"{context_field}"
+                )
+        if source_context.solver_settings_digest != interface_context.solver_settings_digest:
+            source_settings = dict(getattr(source_network, "settings", {}) or {})
+            interface_settings = dict(
+                getattr(interface_network, "settings", {}) or {}
+            )
+            # ``round_to`` affects only presentation/export formatting, not
+            # the solved geometry or scientific identity.
+            source_settings.pop("round_to", None)
+            interface_settings.pop("round_to", None)
+            if source_settings != interface_settings:
+                raise ValueError(
+                    "Validated view source solver settings do not match interface solve"
+                )
+
+        for attribute in (
+            "generator_system_indices",
+            "generator_stable_ids",
+            "solvent_local_indices",
+            "solvent_generator_ids",
+            "retained_system_indices",
+            "retained_generator_ids",
+            "boundary_indices",
+        ):
+            if tuple(getattr(source_network, attribute, ()) or ()) != tuple(
+                getattr(interface_network, attribute, ()) or ()
+            ):
+                raise ValueError(
+                    f"Validated view source {attribute} does not match interface solve"
+                )
+
+        source_boundary = set(getattr(source_network, "boundary_indices", ()) or ())
+        source_group = set(getattr(source_network, "group", ()) or ())
+        physical_local = set(range(len(source_network.balls))).difference(source_boundary)
+        if source_group != physical_local:
+            raise ValueError("Validated interface views require all physical source generators")
+
+        if len(source_network.balls) != len(interface_network.balls):
+            raise ValueError("Validated view source generator count does not match interface solve")
+        for local_index in range(len(interface_network.balls)):
+            source_ball = source_network.balls.iloc[local_index]
+            interface_ball = interface_network.balls.iloc[local_index]
+            if not np.array_equal(
+                np.asarray(source_ball["loc"], dtype=float),
+                np.asarray(interface_ball["loc"], dtype=float),
+            ) or float(source_ball["rad"]) != float(interface_ball["rad"]):
+                raise ValueError(
+                    "Validated view source coordinates/radii do not match interface solve"
+                )
+
+        producer_id = source_network_id or getattr(interface_network, "source_network_id", None)
+        if not isinstance(producer_id, str) or not producer_id.strip():
+            raise ValueError("Validated interface views require explicit source_network_id")
+        interface_source_id = getattr(interface_network, "source_network_id", None)
+        if interface_source_id != producer_id:
+            raise ValueError("Validated view producer identity does not match interface solve")
+        source_identity = getattr(source_network, "source_network_id", None)
+        if source_identity is not None and source_identity != producer_id:
+            raise ValueError("Validated view source network identity does not match producer")
+
+        view = source_network.make_view(
+            iface_grps=(
+                selection.group_a_system_indices,
+                selection.group_b_system_indices,
+            ),
+            source_network_id=producer_id,
+        )
+        if not getattr(getattr(view, "completeness", None), "proven", False):
+            raise ValueError("Validated interface view did not prove source completeness")
+        return view
+
     def make_interface_result_handoff(
         self,
         interface: Interface,
@@ -343,8 +479,14 @@ class VorPyBackend:
             raise TypeError("completeness_proven must be boolean")
 
         network = getattr(interface, "net", None)
-        if network is None or getattr(network, "network_mode", None) != "interface":
+        source_view = getattr(interface, "source_view", None)
+        if network is None:
+            raise ValueError("Typed interface Results require a solved source network")
+        source_derived = source_view is not None
+        if not source_derived and getattr(network, "network_mode", None) != "interface":
             raise ValueError("Typed interface Results require a dedicated interface network")
+        if source_derived and getattr(network, "network_mode", None) != "complete":
+            raise ValueError("Source-derived interface Results require a complete-system network")
         if interface.interface_id != selection.interface_id:
             raise ValueError("Interface identity does not match InterfaceSolveSelection")
         if tuple(sorted(interface.group1.ball_ndxs)) != selection.group_a_system_indices:
@@ -352,39 +494,47 @@ class VorPyBackend:
         if tuple(sorted(interface.group2.ball_ndxs)) != selection.group_b_system_indices:
             raise ValueError("Interface Group B membership does not match selection")
 
-        iface_groups = getattr(network, "iface_grps", None)
-        generator_system_indices = getattr(network, "generator_system_indices", None)
-        if (
-            not isinstance(iface_groups, tuple)
-            or len(iface_groups) != 2
-            or generator_system_indices is None
-        ):
-            raise ValueError(
-                "dedicated interface network is missing distinct generator-side evidence"
-            )
-        local_by_system = {
-            int(system_index): local_index
-            for local_index, system_index in enumerate(generator_system_indices)
-            if system_index is not None
-        }
-        expected_a = {
-            local_by_system[index]
-            for index in selection.group_a_system_indices
-            if index in local_by_system
-        }
-        expected_b = {
-            local_by_system[index]
-            for index in selection.group_b_system_indices
-            if index in local_by_system
-        }
-        if (
-            set(iface_groups[0]) != expected_a
-            or set(iface_groups[1]) != expected_b
-            or set(getattr(network, "group", ()) or ()) != expected_a | expected_b
-        ):
-            raise ValueError("Interface network membership is not the ordered A/B selection")
+        if source_derived:
+            if (
+                getattr(source_view, "selection_kind", None) != "interface"
+                or tuple(source_view.group_a_ids) != selection.group_a_system_indices
+                or tuple(source_view.group_b_ids) != selection.group_b_system_indices
+            ):
+                raise ValueError("Source interface view is not the ordered A/B selection")
+        else:
+            iface_groups = getattr(network, "iface_grps", None)
+            generator_system_indices = getattr(network, "generator_system_indices", None)
+            if (
+                not isinstance(iface_groups, tuple)
+                or len(iface_groups) != 2
+                or generator_system_indices is None
+            ):
+                raise ValueError(
+                    "dedicated interface network is missing distinct generator-side evidence"
+                )
+            local_by_system = {
+                int(system_index): local_index
+                for local_index, system_index in enumerate(generator_system_indices)
+                if system_index is not None
+            }
+            expected_a = {
+                local_by_system[index]
+                for index in selection.group_a_system_indices
+                if index in local_by_system
+            }
+            expected_b = {
+                local_by_system[index]
+                for index in selection.group_b_system_indices
+                if index in local_by_system
+            }
+            if (
+                set(iface_groups[0]) != expected_a
+                or set(iface_groups[1]) != expected_b
+                or set(getattr(network, "group", ()) or ()) != expected_a | expected_b
+            ):
+                raise ValueError("Interface network membership is not the ordered A/B selection")
 
-        source_network_id = getattr(network, "source_network_id", None)
+        source_network_id = getattr(source_view, "source_network_id", None) if source_derived else getattr(network, "source_network_id", None)
         if not isinstance(source_network_id, str) or not source_network_id.strip():
             raise ValueError("Typed interface Results require explicit source_network_id")
         if result_network_id == source_network_id:
@@ -459,19 +609,53 @@ class VorPyBackend:
             completeness={"completeness_proven": completeness_proven},
         )
         lineage_metadata["source_interface_id"] = selection.interface_id
-        geometry_lineage = make_geometry_lineage(
-            lineage_metadata,
-            solver_evidence={
-                "schema_version": 1,
-                "enabled": True,
-                "solve_key": context,
-                "completeness": {
-                    "completeness_proven": completeness_proven,
+        if source_derived:
+            geometry_lineage = make_geometry_lineage(
+                lineage_metadata,
+                view_evidence={
+                    "selection_id": source_view.selection_id,
+                    "source_network_id": source_view.source_network_id,
+                    "solve_context": source_view.solve_context,
+                    "solve_universe_id": source_view.solve_universe_id,
+                    "selection_kind": "interface",
+                    "system_ids": source_view.system_ids,
+                    "group_a_ids": source_view.group_a_ids,
+                    "group_b_ids": source_view.group_b_ids,
+                    "support_generator_local_indices": source_view.support_generator_local_indices,
+                    "completeness": {"proven": bool(source_view.completeness.proven)},
                 },
-            },
-        )
-        if geometry_lineage.origin.value != "DIRECT_SOLVE":
-            raise ValueError("Explicit interface solve evidence did not produce DIRECT_SOLVE lineage")
+            )
+            if geometry_lineage.origin.value != "MATERIALIZED_VIEW":
+                raise ValueError("Source interface view did not produce MATERIALIZED_VIEW lineage")
+        else:
+            geometry_lineage = make_geometry_lineage(
+                lineage_metadata,
+                solver_evidence={
+                    "schema_version": 1,
+                    "enabled": True,
+                    "solve_key": context,
+                    "completeness": {
+                        "completeness_proven": completeness_proven,
+                    },
+                },
+            )
+            if geometry_lineage.origin.value != "DIRECT_SOLVE":
+                raise ValueError("Explicit interface solve evidence did not produce DIRECT_SOLVE lineage")
+
+        analysis_metadata = getattr(analysis, "metadata", {}) or {}
+        if not isinstance(analysis_metadata, Mapping):
+            raise ValueError("Interface analysis metadata must be a mapping")
+        probe_metadata = analysis_metadata.get("probe")
+        if isinstance(probe_metadata, Mapping):
+            probe_radius = probe_metadata.get(
+                "radius", probe_metadata.get("probe_radius")
+            )
+            probe_units = probe_metadata.get(
+                "units", probe_metadata.get("probe_units")
+            )
+        else:
+            probe_radius = analysis_metadata.get("probe_radius")
+            probe_units = analysis_metadata.get("probe_units")
 
         result_identity = ResultIdentity(
             result_kind="interface",
@@ -492,6 +676,13 @@ class VorPyBackend:
                 if orientation == "A -> B"
                 else "group2 -> group1"
             ),
+            alpha_method=analysis_metadata.get(
+                "alpha_method", analysis_metadata.get("alpha_convention")
+            ),
+            alpha_value=analysis_metadata.get("alpha_value"),
+            alpha_units=analysis_metadata.get("alpha_units"),
+            probe_radius=probe_radius,
+            probe_units=probe_units,
             source_network_id=source_network_id,
             source_identity_status=source_identity_status,
             source_interface_id=selection.interface_id,
@@ -501,7 +692,7 @@ class VorPyBackend:
             solvent_mode=solvent_mode,
         )
         provenance = Provenance(
-            "FORGE ordered interface producer",
+            "FORGE source-network interface view" if source_derived else "FORGE ordered interface producer",
             source_revision=source_revision,
             details={
                 "shared_network_identity": shared_identity.payload(),

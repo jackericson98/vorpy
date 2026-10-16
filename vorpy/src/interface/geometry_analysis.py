@@ -8,6 +8,7 @@ from dataclasses import dataclass, field, asdict
 import hashlib
 import json
 import math
+import sys
 from time import perf_counter
 
 from vorpy.src.boundary import SOLVENT_RESIDUES
@@ -497,6 +498,99 @@ def geometry_cache_key(iface, alpha):
             id(iface.net.verts), float(alpha), iface.net.settings.get('net_type', 'aw'), 2)
 
 
+def _analysis_without_alpha(iface, result, groups, error, *, calculate_curvature):
+    """Retain solved physical geometry when optional alpha cannot load."""
+    from vorpy.src.geometry.interfaces import build_full_interface
+
+    reason = f'{type(error).__name__}: {error}'
+    text = str(error).lower()
+    failure_kind = (
+        'GUDHI_NATIVE_BLOCKED_OR_UNAVAILABLE'
+        if any(token in text for token in ('native extension', 'application control', 'dll'))
+        else 'GUDHI_UNAVAILABLE'
+    )
+    warning = (
+        'Optional alpha selection is unavailable; raw physical interface geometry '
+        f'is preserved and alpha-dependent Results are UNRESOLVED. {reason}'
+    )
+    print(f'WARNING: {warning}', file=sys.stderr, flush=True)
+
+    network = iface.net
+    raw_available = all(
+        getattr(network, name, None) is not None
+        for name in ('verts', 'edges', 'surfs')
+    )
+    result.metadata.update({
+        'geometry_status': 'GEOMETRY_COMPLETE' if raw_available else 'GEOMETRY_INCOMPLETE',
+        'analysis_status': 'UNRESOLVED',
+        'analysis_complete': False,
+        'alpha_status': 'UNRESOLVED',
+        'alpha_available': False,
+        'alpha_failure_kind': failure_kind,
+        'alpha_failure_reason': reason,
+        'raw_physical_geometry_available': raw_available,
+        'raw_physical_geometry_source': 'same solved network Voronoi surfaces, edges, and vertices',
+    })
+    result.alpha_selection = {
+        'eligible_bicolor_pairs': None,
+        'candidate_bicolor_pairs': None,
+        'selected_pairs': None,
+        'selected_physical_pairs': None,
+        'excluded_pairs': None,
+        'unresolved_pairs': None,
+        'mapping_failures': None,
+        'coverage': 0.,
+        'certified': False,
+        'status': 'unresolved',
+        'failure_kind': failure_kind,
+        'failure_reason': reason,
+    }
+    try:
+        representation = build_full_interface(
+            network, iface._geometry_dual, *groups,
+        )
+        iface._geometry_representation = representation
+        if calculate_curvature:
+            side = summarize_physical_interface(
+                representation, network, selection_complete=False,
+            )
+        else:
+            side = summarize_selected_interface(representation, selection_complete=False)
+        side['area_scope'] = 'full solved physical interface; alpha selection unavailable'
+        side['unresolved_reasons'] = list(dict.fromkeys(
+            [warning, *side.get('unresolved_reasons', ())]
+        ))
+    except (RuntimeError, ValueError, KeyError, AttributeError, IndexError, TypeError) as physical_error:
+        side = summarize_selected_interface(
+            getattr(iface, '_geometry_representation', None),
+            selection_complete=False,
+        ) if getattr(iface, '_geometry_representation', None) is not None else {
+            key: None for key in PHYSICAL_FIELDS
+        }
+        side.update({
+            'area_scope': 'full solved physical interface; alpha selection unavailable',
+            'unresolved_reasons': [warning, f'Physical summary unavailable: {type(physical_error).__name__}: {physical_error}'],
+        })
+    result.voronoi_side_1 = side
+    result.voronoi_side_2 = reverse_perspective(side)
+    result.coverage = {
+        key: side.get(key) for key in (
+            'mean_coverage', 'smooth_K_coverage', 'mean_certified',
+            'gaussian_total_certified', 'gaussian_coverage',
+            'manifold_incidence_certified', 'mean_supported_faces',
+            'mean_supported_internal_seams',
+        )
+    }
+    result.unresolved = list(dict.fromkeys(
+        [warning, *side.get('unresolved_reasons', ())]
+    ))
+    result.dry_solvent_comparison = {
+        'available': False,
+        'status': 'analysis unresolved: alpha selection unavailable',
+    }
+    return result
+
+
 def analyze_interface_geometry(iface, alpha=None, *, refresh=False,
                                calculate_curvature=True):
     """Analyze once per solve/query. No additional network solve is performed."""
@@ -538,7 +632,28 @@ def analyze_interface_geometry(iface, alpha=None, *, refresh=False,
             # Phase 1 AW selection requires only validated pair births.
             _analysis_progress(iface, 'Interface analysis | Building alpha selection', 20.0)
             started = perf_counter()
-            iface._geometry_filtration = build_alpha_filtration(iface.net, max_dimension=1 if scheme == 'aw' else 3)
+            try:
+                iface._geometry_filtration = build_alpha_filtration(
+                    iface.net, max_dimension=1 if scheme == 'aw' else 3
+                )
+            except (RuntimeError, ImportError, OSError) as error:
+                _stage_done(iface, 'Building alpha selection', started, 35.0, timings)
+                iface._geometry_source_key = source_key
+                iface._geometry_filtration = None
+                result = _analysis_without_alpha(
+                    iface, result, groups, error,
+                    calculate_curvature=calculate_curvature,
+                )
+                result.metadata['timings_seconds'] = dict(timings)
+                result.metadata['timing_total_seconds'] = sum(timings.values())
+                _analysis_progress(
+                    iface,
+                    'Interface analysis | Unresolved alpha selection; raw geometry retained',
+                    100.0,
+                )
+                iface.geometry_analysis = result
+                iface._geometry_analysis_key = key
+                return result
             _stage_done(iface, 'Building alpha selection', started, 35.0, timings)
             iface._geometry_source_key = source_key
         else:

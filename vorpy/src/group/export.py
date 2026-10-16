@@ -1,5 +1,6 @@
 import os
 from os import path
+from copy import copy
 from vorpy.src.output import write_pdb
 from vorpy.src.output import write_atom_cells
 from vorpy.src.output import write_logs
@@ -8,6 +9,7 @@ from vorpy.src.output import write_edges
 from vorpy.src.output import write_off_verts
 from vorpy.src.output.draw import DEFAULT_EDGE_RADIUS, DEFAULT_VERTEX_RADIUS
 from vorpy.src.output.curvature_colors import canonical_curvature_scheme, curvature_color_limit
+from vorpy.src.output.export_scope import export_scope
 
 
 def _group_topology_indices(grp):
@@ -86,6 +88,206 @@ def _surface_neighbor_system_indices(grp):
     )
 
 
+def _write_source_view_info(grp, scope):
+    view = scope.view
+    analysis = getattr(grp, "source_view_analysis", None)
+    with open(os.path.join(grp.dir, "network_info.txt"), "w", encoding="utf-8") as info:
+        info.write(f"VORPY GROUP INFORMATION: {grp.name}\n")
+        info.write("Geometry source: materialized full-system NetworkView\n")
+        info.write(f"Source network ID: {view.source_network_id}\n")
+        info.write(f"Source view ID: {view.selection_id}\n")
+        info.write(
+            f"Source surfaces / edges / vertices: {len(scope.surfaces)} / "
+            f"{len(scope.edges)} / {len(scope.vertices)}\n"
+        )
+        if analysis is not None:
+            info.write(f"Surface area: {analysis.area:.6f} A^2\n")
+            info.write(f"Volume: {analysis.volume:.6f} A^3\n")
+        info.write("\nSelected surface provenance:\n")
+        for feature in view.surfaces:
+            generators = ", ".join(str(value) for value in feature.generator_ids)
+            info.write(
+                f"  {feature.source_id}: generators=[{generators}], "
+                f"area={feature.data.get('sa', '')}\n"
+            )
+
+
+def _write_source_view_atom_cells(
+        grp, scope, *, file_type, scheme, color_map, color_limit,
+        edge_width, vertex_size, concave_colors):
+    atom_dir = os.path.join(grp.dir, "atoms")
+    os.makedirs(atom_dir, exist_ok=True)
+    net = scope.mesh_network()
+    for cell in scope.cells:
+        atom = net.balls.iloc[cell]
+        surface_ids = [
+            index for index in scope.surfaces
+            if cell in {
+                int(value)
+                for value in (net.surfs.iloc[index].get("balls", ()) or ())
+            }
+        ]
+        edge_ids = sorted({
+            int(edge)
+            for surface in surface_ids
+            for edge in (net.surfs.iloc[surface].get("edges", ()) or ())
+        })
+        vertex_ids = sorted({
+            int(vertex)
+            for surface in surface_ids
+            for vertex in (net.surfs.iloc[surface].get("verts", ()) or ())
+        })
+        name = str(atom.get("name", f"atom_{cell}")).strip() or f"atom_{cell}"
+        base_name = f"ball_{name}_{net.settings['net_type']}"
+        target = [cell]
+        if surface_ids:
+            write_surfs(
+                net, surface_ids, file_name=base_name, directory=atom_dir,
+                file_type=file_type, concave_colors=concave_colors,
+                ref_surfs=target, universal_max=False, color_scheme=scheme,
+                color_map=color_map, color_limit=color_limit,
+                target_cells=target, color_mode="cell",
+            )
+        if edge_ids:
+            write_edges(
+                net, edge_ids, file_name=base_name + "_edges", directory=atom_dir,
+                file_type=file_type, radius=edge_width, color_scheme=scheme,
+                color_map=color_map, color_limit=color_limit,
+                target_cells=target, color_mode="cell",
+            )
+        if vertex_ids:
+            write_off_verts(
+                net, vertex_ids, file_name=base_name + "_verts", directory=atom_dir,
+                file_type=file_type, vert_rad=vertex_size, color_scheme=scheme,
+                color_map=color_map, color_limit=color_limit,
+                target_cells=target, color_mode="cell",
+            )
+
+
+def _export_group_source_view(
+        grp, *, all_, atoms, atom_surfs, atom_edges, atom_verts, surfs,
+        sep_surfs, shell_surfs, edges, sep_edges, shell_edges, verts,
+        sep_verts, shell_verts, info, logs, surr_atoms, concave_colors,
+        round_to, file_type):
+    scope = export_scope(grp)
+    net = scope.mesh_network()
+    os.makedirs(grp.sys.files["dir"], exist_ok=True)
+    if grp.dir is None:
+        grp.dir = os.path.join(grp.sys.files["dir"], grp.name)
+    os.makedirs(grp.dir, exist_ok=True)
+
+    scheme = canonical_curvature_scheme(
+        grp.settings.get("surf_scheme") or net.settings.get("surf_scheme")
+    )
+    color_map = grp.settings.get("surf_col") or net.settings.get("surf_col", "coolwarm")
+    edge_width = grp.settings.get("edge_width", DEFAULT_EDGE_RADIUS)
+    vertex_size = grp.settings.get("vertex_size", DEFAULT_VERTEX_RADIUS)
+    color_limit = (
+        curvature_color_limit(net, scheme, scope.cells, mode="magnitude")
+        if scheme else None
+    )
+
+    if atoms or all_:
+        write_pdb(atoms=grp.ball_ndxs, file_name="group_atoms", directory=grp.dir, sys=grp.sys)
+    if (atom_surfs or atom_edges or atom_verts or all_) and scope.cells:
+        _write_source_view_atom_cells(
+            grp, scope, file_type=file_type, scheme=scheme, color_map=color_map,
+            color_limit=color_limit, edge_width=edge_width, vertex_size=vertex_size,
+            concave_colors=concave_colors,
+        )
+    if shell_surfs or all_:
+        write_surfs(
+            net, scope.surfaces, file_name="shell_surfs",
+            directory=grp.dir, file_type=file_type, color_scheme=scheme,
+            color_map=color_map, color_limit=color_limit, target_cells=scope.cells,
+            color_mode="magnitude",
+        )
+    if surfs or all_:
+        write_surfs(
+            net, scope.surfaces, file_name="surfs", directory=grp.dir,
+            file_type=file_type, color_scheme=scheme, color_map=color_map,
+            color_limit=color_limit, target_cells=scope.cells, color_mode="magnitude",
+        )
+    if sep_surfs or all_:
+        directory = os.path.join(grp.dir, "surfs")
+        os.makedirs(directory, exist_ok=True)
+        for index in scope.surfaces:
+            balls = net.surfs.iloc[index].get("balls", ())
+            write_surfs(
+                net, [index], file_name="b{}_b{}".format(*balls), directory=directory,
+                file_type=file_type, color_scheme=scheme, color_map=color_map,
+                color_limit=color_limit, target_cells=scope.cells, color_mode="magnitude",
+            )
+    if shell_edges or all_:
+        write_edges(
+            net, scope.edges,
+            file_name="shell_edges", directory=grp.dir,
+            file_type=file_type, color=grp.settings.get("edge_col"), radius=edge_width,
+            color_scheme=scheme, color_map=color_map, color_limit=color_limit,
+            target_cells=scope.cells, color_mode="magnitude",
+        )
+    if edges or all_:
+        write_edges(
+            net, scope.edges, file_name="edges", directory=grp.dir, file_type=file_type,
+            color=grp.settings.get("edge_col"), radius=edge_width,
+            color_scheme=scheme, color_map=color_map, color_limit=color_limit,
+            target_cells=scope.cells, color_mode="magnitude",
+        )
+    if sep_edges or all_:
+        directory = os.path.join(grp.dir, "edges")
+        os.makedirs(directory, exist_ok=True)
+        for index in scope.edges:
+            balls = net.edges.iloc[index].get("balls", ())
+            write_edges(
+                net, [index], file_name="b{}_b{}_b{}".format(*balls), directory=directory,
+                file_type=file_type, color=grp.settings.get("edge_col"), radius=edge_width,
+                color_scheme=scheme, color_map=color_map, color_limit=color_limit,
+                target_cells=scope.cells, color_mode="magnitude",
+            )
+    if shell_verts or all_:
+        write_off_verts(
+            net, scope.vertices, file_name="shell_verts", directory=grp.dir, file_type=file_type,
+            color=grp.settings.get("vert_col"), vert_rad=vertex_size,
+            color_scheme=scheme, color_map=color_map, color_limit=color_limit,
+            target_cells=scope.cells, color_mode="magnitude",
+        )
+    if verts or all_:
+        write_off_verts(
+            net, scope.vertices, file_name="verts", directory=grp.dir, file_type=file_type,
+            color=grp.settings.get("vert_col"), vert_rad=vertex_size,
+            color_scheme=scheme, color_map=color_map, color_limit=color_limit,
+            target_cells=scope.cells, color_mode="magnitude",
+        )
+    if sep_verts or all_:
+        directory = os.path.join(grp.dir, "verts")
+        os.makedirs(directory, exist_ok=True)
+        for index in scope.vertices:
+            balls = net.verts.iloc[index].get("balls", ())
+            write_off_verts(
+                net, [index], file_name="b{}_b{}_b{}_b{}".format(*balls), directory=directory,
+                file_type=file_type, color=grp.settings.get("vert_col"), vert_rad=vertex_size,
+                color_scheme=scheme, color_map=color_map, color_limit=color_limit,
+                target_cells=scope.cells, color_mode="magnitude",
+            )
+    if info or all_:
+        _write_source_view_info(grp, scope)
+    if logs or all_:
+        proxy = copy(grp)
+        proxy.net = scope.scoped_network()
+        proxy.get_info = lambda: None
+        cwd = os.getcwd()
+        try:
+            os.chdir(grp.dir)
+            write_logs(proxy, round_to=round_to)
+        finally:
+            os.chdir(cwd)
+    if surr_atoms or all_:
+        analysis = getattr(grp, "source_view_analysis", None)
+        neighbors = getattr(analysis, "competitor_system_ids", ()) if analysis is not None else ()
+        if neighbors:
+            write_pdb(atoms=list(neighbors), file_name="surr_atoms", directory=grp.dir, sys=grp.sys)
+
+
 def export_info(grp, directory=None):
     """
     Export a detailed human-readable summary of a VorPy group.
@@ -161,7 +363,7 @@ def export_info(grp, directory=None):
     # Write file
     # --------------------------------------------------------------
 
-    with open("info.txt", "w", encoding="utf-8") as info:
+    with open("network_info.txt", "w", encoding="utf-8") as info:
 
         # ==========================================================
         # HEADER
@@ -208,6 +410,13 @@ def export_info(grp, directory=None):
             ("surf_res", "Surface Resolution"),
             ("box_size", "Box Size"),
             ("max_vert", "Maximum Allowable Vertex"),
+            ("solvent_mode", "Solvent Mode"),
+            ("solvent_mode_resolution", "Solvent Mode Resolution"),
+            ("source_generator_count", "Source Generators"),
+            ("active_generator_count", "Active Generators"),
+            ("excluded_generator_count", "Excluded Generators"),
+            ("excluded_water_generator_count", "Excluded Water Generators"),
+            ("excluded_bulk_counterion_generator_count", "Excluded Na/Cl Generators"),
         ]
 
         for key, label in setting_labels:
@@ -878,7 +1087,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     layers : int, optional
         Number of layers to export around the group. If -1, exports all layers. Default is -1
     info : bool, optional
-        If True, exports group information to info.txt. Default is False
+        If True, exports group information to network_info.txt. Default is False
     surr_atoms : bool, optional
         If True, exports only outside atoms that directly share a surface with
         a Group atom. Default is False
@@ -939,7 +1148,7 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
     >>> group_exports(my_group, surr_atoms=True, info=True)
     # This will create:
     # - A file containing atoms surrounding the group
-    # - An info.txt file with group statistics
+    # - A network_info.txt file with group statistics
     # Useful for analyzing the group's environment and properties
     """
     if file_type is None:
@@ -949,6 +1158,16 @@ def group_exports(grp, all_=False, atoms=False, atom_surfs=False, atom_edges=Fal
         file_type = 'vtp'
     if file_type not in {'off', 'ply', 'vtp'}:
         raise ValueError("file_type must be 'off', 'ply', or 'vtp'")
+    if getattr(grp, "source_view", None) is not None:
+        return _export_group_source_view(
+            grp, all_=all_, atoms=atoms, atom_surfs=atom_surfs,
+            atom_edges=atom_edges, atom_verts=atom_verts, surfs=surfs,
+            sep_surfs=sep_surfs, shell_surfs=shell_surfs, edges=edges,
+            sep_edges=sep_edges, shell_edges=shell_edges, verts=verts,
+            sep_verts=sep_verts, shell_verts=shell_verts, info=info,
+            logs=logs, surr_atoms=surr_atoms, concave_colors=concave_colors,
+            round_to=round_to, file_type=file_type,
+        )
     edge_width = grp.settings.get('edge_width', DEFAULT_EDGE_RADIUS)
     vertex_size = grp.settings.get('vertex_size', DEFAULT_VERTEX_RADIUS)
 

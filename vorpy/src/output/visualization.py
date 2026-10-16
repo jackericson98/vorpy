@@ -27,10 +27,12 @@ from vorpy.src.geometry.visualization.export import (
 from vorpy.src.interface.selected_export import export_selected_interface
 from vorpy.src.output.mesh import write_mesh
 from vorpy.src.output.pdb import write_pdb
+from vorpy.src.output.verts import write_off_verts
 from vorpy.src.io.scientific_adapters import (
     canonical_environment, canonical_network_scope, scope, stable_id,
 )
 from vorpy.src.output.layout import interface_folder_name
+from vorpy.src.output.export_scope import export_scope
 from vorpy.src.network.aw_geometry_reuse import build_geometry_lineage_metadata
 from vorpy.src.results import (
     INTERFACE_LOG_COLUMNS,
@@ -39,6 +41,7 @@ from vorpy.src.results import (
     RESULT_METRIC_QUANTITY_TO_INTERFACE_LOG,
     RESULT_MOLECULAR_QUANTITY_TO_INTERFACE_LOG,
     InterfaceLogRow,
+    InterfaceResult,
     make_geometry_lineage,
     Provenance,
     ResultIdentity,
@@ -85,7 +88,7 @@ def _physical_interface(iface, directory):
         directory.mkdir(parents=True, exist_ok=True)
         iface.dir = str(directory)
         export_selected_interface(iface)
-    except (AttributeError, KeyError, TypeError, ValueError, RuntimeError) as error:
+    except (AttributeError, KeyError, TypeError, ValueError, RuntimeError, MemoryError) as error:
         return _status('UNRESOLVED', f'Cached physical interface is not exportable: {error}')
     finally:
         iface.dir = old_directory
@@ -368,6 +371,17 @@ def _cached_result_identity(iface, *, result_kind='interface', representation='v
 
 
 def _cached_interface_result(iface):
+    # A producer-attested typed result is the authoritative cache snapshot.
+    # The archive loader validates its archive/producer ownership before this
+    # cache-only path can consume it.
+    archive_id = getattr(getattr(iface, 'net', None), 'archive_id', None)
+    for result in getattr(iface, 'typed_results', ()) or ():
+        if (
+            isinstance(result, InterfaceResult)
+            and result.identity.network_id == archive_id
+            and result.identity.interface_id == getattr(iface, 'interface_id', None)
+        ):
+            return result
     analysis = getattr(iface, 'geometry_analysis', None)
     identity = _cached_result_identity(iface)
     archive_provenance = getattr(analysis, 'archive_provenance', None) if analysis is not None else None
@@ -620,7 +634,11 @@ def _compact_result_rows(iface):
                 name=_ALPHA_SELECTION_LOG_NAMES[name])
         rows.append(InterfaceLogRow(
             alpha_identity.interface_id or alpha_identity.result_id, 'alpha_selection', 'shared',
-            'alpha_value', alpha_identity.alpha_value, alpha_identity.alpha_units or '1',
+            'alpha_value',
+            None if alpha_result.status in {
+                Status.UNRESOLVED, Status.NOT_CALCULATED, Status.NOT_SUPPORTED,
+            } else alpha_identity.alpha_value,
+            alpha_identity.alpha_units or '1',
             alpha_result.status, provenance=alpha_result.provenance,
         ).as_csv_row())
     metadata = getattr(getattr(iface, 'geometry_analysis', None), 'metadata', {}) or {}
@@ -708,43 +726,56 @@ def _compact_physical_interface(iface, directory):
     directory.mkdir(parents=True, exist_ok=True)
     scheme = str((getattr(network, 'settings', {}) or {}).get('net_type',
                   getattr(representation, 'scheme', 'aw'))).lower()
-    prefix = 'power' if scheme in {'pow', 'power', 'prm'} else 'aw'
     names = {}
 
-    # The compact physical layer is the complete cached network partition.
-    # Alpha-selected surfaces remain scientific analysis, not the default mesh.
-    surface_mesh = _surface_mesh(network, list(range(len(surfaces))))
-    surface_target = directory / f'{prefix}_surfs.off'
-    if surface_mesh is not None:
-        write_mesh(surface_mesh, surface_target.name, directory=directory)
-        names['surfaces'] = surface_target
+    from vorpy.src.interface.export import _interface_physical_scope
+    try:
+        physical_scope = _interface_physical_scope(iface)
+    except (AttributeError, KeyError, TypeError, ValueError) as error:
+        return _status('UNRESOLVED', f'Cached physical interface is not exportable: {error}')
+    surface_positions = list(physical_scope.surfaces)
+    edge_positions = list(physical_scope.edges)
+    vertex_positions = list(physical_scope.vertices)
+    selection_mode = 'selected_source_view' if physical_scope.view is not None else 'direct_inter_group'
+    if not surface_positions:
+        return _status('NOT_CALCULATED', 'No direct physical A/B facets are available')
+    mesh_network = physical_scope.mesh_network()
 
-    edges = getattr(network, 'edges', None)
-    edge_mesh = (_physical_edge_mesh(network, list(range(len(edges))), DEFAULT_EDGE_RADIUS)
-                 if edges is not None and len(edges) else None)
-    edge_target = directory / f'{prefix}_edges.off'
-    if edge_mesh is not None:
-        write_mesh(edge_mesh, edge_target.name, directory=directory)
-        names['physical_edges'] = edge_target
+    try:
+        surface_mesh = _surface_mesh(mesh_network, surface_positions)
+        surface_target = directory / 'interface_surfs.off'
+        if surface_mesh is not None:
+            write_mesh(surface_mesh, surface_target.name, directory=directory)
+            names['surfaces'] = surface_target
 
-    vertex_target = directory / f'{prefix}_verts.pdb'
-    vertices = getattr(network, 'verts', None)
-    _write_vertex_pdb(
-        vertex_target,
-        vertices.to_dict('records') if hasattr(vertices, 'to_dict') else (),
-    )
+        edges = getattr(mesh_network, 'edges', None)
+        edge_mesh = (_physical_edge_mesh(mesh_network, edge_positions, DEFAULT_EDGE_RADIUS)
+                     if edges is not None and len(edges) else None)
+        edge_target = directory / 'interface_edges.off'
+        if edge_mesh is not None:
+            write_mesh(edge_mesh, edge_target.name, directory=directory)
+            names['physical_edges'] = edge_target
+
+        vertex_target = directory / 'interface_verts.off'
+        write_off_verts(
+            mesh_network, vertex_positions, file_name=vertex_target.name,
+            directory=directory, color=(0.9, 0.6, 0.1),
+        )
+    except MemoryError as error:
+        return _status('UNRESOLVED', f'Physical interface mesh allocation failed: {error}')
     if vertex_target.exists():
         names['physical_vertices'] = vertex_target
     files = tuple(path for path in names.values() if path.exists() and path.stat().st_size)
-    network_area = (float(surfaces['sa'].sum())
-                    if hasattr(surfaces, 'columns') and 'sa' in surfaces else None)
+    selected_surfaces = surfaces.iloc[surface_positions]
+    network_area = (float(selected_surfaces['sa'].sum())
+                    if hasattr(selected_surfaces, 'columns') and 'sa' in selected_surfaces else None)
     return _status('AVAILABLE', files=files) | {
         'scheme': scheme,
         'area_A2': network_area,
         'alpha_area_A2': getattr(representation, 'area_A2', None),
         'selected_surface_count': len(getattr(representation, 'selected_surfaces', ()) or ()),
-        'surface_count': len(surfaces),
-        'selection_mode': 'full_network',
+        'surface_count': len(surface_positions),
+        'selection_mode': selection_mode,
     }
 
 
@@ -833,7 +864,7 @@ def export_compact_visualization_bundle(sys):
         sys.files['dir'] = str(root)
         sys.exports(pdb=True, set_atoms=True, info=True)
     except (AttributeError, OSError, TypeError, ValueError):
-        (root / 'info.txt').write_text(f'VorPy system: {getattr(sys, "name", "system")}\n', encoding='utf-8')
+        (root / 'system_info.txt').write_text(f'VorPy system: {getattr(sys, "name", "system")}\n', encoding='utf-8')
     timings['system atom/info export'] = perf_counter() - started
 
     results = []
@@ -858,18 +889,35 @@ def export_compact_visualization_bundle(sys):
             export_info(iface, directory=str(interface_dir))
         except (AttributeError, KeyError, TypeError, ValueError):
             network = getattr(iface, 'net', None)
-            vertices = getattr(network, 'verts', None)
-            edges = getattr(network, 'edges', None)
-            surfaces = getattr(network, 'surfs', None)
+            source_view = getattr(iface, 'source_view', None)
+            if source_view is not None:
+                try:
+                    selected = export_scope(iface)
+                    vertex_count = len(selected.vertices)
+                    edge_count = len(selected.edges)
+                    surface_count = len(selected.surfaces)
+                except (AttributeError, KeyError, TypeError, ValueError):
+                    vertex_count = len(source_view.features('vertex'))
+                    edge_count = len(source_view.features('edge'))
+                    surface_count = len(source_view.features('surface'))
+                selection = 'selected_source_view'
+            else:
+                vertices = getattr(network, 'verts', None)
+                edges = getattr(network, 'edges', None)
+                surfaces = getattr(network, 'surfs', None)
+                vertex_count = 0 if vertices is None else len(vertices)
+                edge_count = 0 if edges is None else len(edges)
+                surface_count = 0 if surfaces is None else len(surfaces)
+                selection = 'full_network (all cached network surfaces)'
             representation = getattr(iface, '_geometry_representation', None)
-            (interface_dir / 'info.txt').write_text(
+            (interface_dir / 'network_info.txt').write_text(
                 f"{getattr(iface, 'name', interface_dir.name)}\n\n"
                 "Interface network topology:\n"
-                f"  Network vertices: {0 if vertices is None else len(vertices)}\n"
-                f"  Network edges: {0 if edges is None else len(edges)}\n"
-                f"  Network surfaces: {0 if surfaces is None else len(surfaces)}\n\n"
+                f"  Network vertices: {vertex_count}\n"
+                f"  Network edges: {edge_count}\n"
+                f"  Network surfaces: {surface_count}\n\n"
                 "Surface classification:\n"
-                "  Physical export selection: full_network (all cached network surfaces).\n"
+                f"  Physical export selection: {selection}.\n"
                 f"  Alpha metadata selection: {getattr(representation, 'selection_mode', 'not recorded')}\n"
                 "  Detailed statistics: unavailable for this cached interface.\n",
                 encoding='utf-8',

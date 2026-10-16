@@ -20,6 +20,13 @@ python vorpy example.pdb -e small and shell
 
 Presets are convenience bundles rather than mutually exclusive modes. Individual outputs can be added to a preset.
 
+The standard system summary is written as `system_info.txt`; each solved group
+or interface network writes `network_info.txt`. Older `info.txt` exports remain
+readable by the Workbench. The normal `large`/`all` presets retain physical AW
+surfaces, edges, vertices, contacts, and curvature outputs but do not create
+the experimental `nonpolar_interface_geometry/` tables. Request those tables
+explicitly with `-e nonpolar`.
+
 Every preset also saves `<system-name>.vpy` in the output directory. This is a
 solved-network ZIP archive containing JSON metadata/state and NumPy arrays; it
 can be loaded without rebuilding vertices, edges, or surface triangulations.
@@ -42,6 +49,10 @@ For a cache-only archive run, add `--profile-cache-export`. The opt-in
 export, and explicit-save wall/CPU time, peak RSS when supported, archive
 member counts, cached interface state, and existing export phases. It accepts
 `.vpy` input only and does not rebuild geometry.
+
+Archive timing remains available in regular logs and archive provenance. The
+standalone `<system>.vpy.timing.json` sidecar is emitted only for explicit
+verbose, diagnostic, or profiling runs.
 
 Atom cell meshes combine their already solved surface points and triangles,
 offsetting triangle indices for each surface. Exporting a cell does not run

@@ -96,7 +96,10 @@ def write_logs(group, net_name=None, round_to=None):
         sys_balls[index] = group.sys.balls.iloc[system_num].to_dict()
 
     # Pull surface topology out of pandas once.
-    surf_balls = net.surfs['balls'].tolist()
+    surf_balls = {
+        int(index): balls
+        for index, balls in net.surfs['balls'].items()
+    }
 
     # ------------------------------------------------------------------
     # Write log
@@ -112,10 +115,13 @@ def write_logs(group, net_name=None, round_to=None):
         lg_fl.writerow(["build informaiton"])
         lg_fl.writerow([
             "Name", "Location", "Completion Date", "Network Type", "Surface Resolution", "Box Size",
+            "Solvent Mode", "Solvent Mode Resolution",
             "Maximum Allowable Vertex", "Total Time", "Vertex Time", "Connect Time",
             "Surface Building Time", "Analysis time", "Maximum Found Vertex", "vorPy version"
         ])
 
+        solvent_mode = getattr(net, "solvent_mode", None)
+        solvent_mode = getattr(solvent_mode, "value", solvent_mode)
         lg_fl.writerow([
             group.sys.name,
             group.sys.files['base_file'],
@@ -123,6 +129,8 @@ def write_logs(group, net_name=None, round_to=None):
             net.settings['net_type'],
             net.settings['surf_res'],
             net.settings['box_size'],
+            solvent_mode,
+            net.settings.get('solvent_mode_resolution', 'unspecified'),
             net.settings['max_vert'],
             r(net.metrics['tot']),
             r(net.metrics['vert']),
@@ -226,6 +234,8 @@ def write_logs(group, net_name=None, round_to=None):
 
             nbrs = []
             for surf_ndx in atom.surfs:
+                if surf_ndx not in surf_balls:
+                    continue
                 balls = surf_balls[surf_ndx]
                 nbrs.append(balls[0] if balls[0] != atom_num else balls[1])
 

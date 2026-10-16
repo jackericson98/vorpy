@@ -9,6 +9,11 @@ MESH_SUFFIXES = {".off", ".ply", ".vtp"}
 
 
 def load_result_directory(directory: Path, progress=None):
+    failed_marker = directory / "EXPORT_FAILED.txt"
+    if failed_marker.is_file():
+        raise ValueError(
+            "This export is marked failed; partial geometry is not a valid archived Result."
+        )
     report = progress or (lambda label, value: None)
     report("Finding structure files…", 0)
     pdb_files = sorted(directory.rglob("*.pdb"))

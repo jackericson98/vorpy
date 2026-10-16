@@ -303,7 +303,7 @@ def make_geometry_lineage(
                 or not source_id
                 or not isinstance(solve_id, str)
                 or not solve_id
-                or proven is not True
+                or not isinstance(proven, bool)
                 or selection_kind not in {"group", "interface"}
             ):
                 return _lineage_unresolved("view evidence is not validated")
@@ -330,12 +330,12 @@ def make_geometry_lineage(
             completeness_value = values.get("completeness")
             if completeness_value is None:
                 values["completeness"] = {
-                    "completeness_proven": True,
-                    "view_completeness_proven": True,
+                    "completeness_proven": proven,
+                    "view_completeness_proven": proven,
                 }
             elif (
                 not isinstance(completeness_value, Mapping)
-                or completeness_value.get("completeness_proven") is not True
+                or completeness_value.get("completeness_proven") is not proven
             ):
                 return _lineage_unresolved("lineage completeness conflicts with view evidence")
             origin = GeometryLineageOrigin.MATERIALIZED_VIEW

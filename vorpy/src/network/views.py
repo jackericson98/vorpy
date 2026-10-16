@@ -40,10 +40,28 @@ class ViewCompleteness:
     scope: str
     reasons: tuple[str, ...] = ()
     counts: tuple[tuple[str, int], ...] = ()
+    unresolved_surface_ids: tuple[Any, ...] = ()
+    unresolved_surface_area: float | None = None
+    unresolved_features: tuple["ViewFeatureEvidence", ...] = ()
 
     @property
     def status(self) -> str:
         return "COMPLETE" if self.proven else "INCOMPLETE"
+
+
+@dataclass(frozen=True)
+class ViewFeatureEvidence:
+    """Per-feature support, completeness, and finite-geometry evidence."""
+
+    kind: str
+    source_id: Any
+    topology_index: int
+    supported: bool
+    complete: bool
+    bounded: bool | None
+    support_generator_local_indices: tuple[int, ...]
+    reasons: tuple[str, ...] = ()
+    area: float | None = None
 
 
 @dataclass(frozen=True)
@@ -58,6 +76,7 @@ class ViewFeature:
     generator_system_ids: tuple[int | None, ...]
     incidence: Mapping[str, tuple[Any, ...]]
     data: Mapping[str, Any]
+    evidence: ViewFeatureEvidence
 
 
 @dataclass(frozen=True)
@@ -217,7 +236,17 @@ class NetworkView:
         group_a_local = {system_to_local[value] for value in group_a_ids}
         group_b_local = {system_to_local[value] for value in group_b_ids}
 
+        boundary_completeness_exemptions = (
+            boundary_local
+            if _has_authoritative_solvent_provenance(source_network)
+            else frozenset()
+        )
         surface_candidates = []
+        unresolved_surface_positions = []
+        unresolved_surface_reasons = []
+        unresolved_surface_area = 0.0
+        unresolved_surface_area_known = True
+        unresolved_feature_evidence = []
         for position in range(len(surfs)):
             row = surfs.iloc[position]
             balls_ref = _row_indices(row, "balls", "surface", position)
@@ -229,10 +258,105 @@ class NetworkView:
                     set(balls_ref).intersection(group_a_local)
                     and set(balls_ref).intersection(group_b_local)
                 )
-            if selected:
-                surface_candidates.append(position)
+            if not selected:
+                continue
+
+            if selection_kind == "interface":
+                edge_refs = _row_indices(row, "edges", "surface", position)
+                vertex_refs = _row_indices(row, "verts", "surface", position)
+                _validate_indices(edge_refs, len(edges), "surface edges", position)
+                _validate_indices(vertex_refs, len(verts), "surface vertices", position)
+                surface_vertices = set(vertex_refs)
+                dependency_generators = set(balls_ref)
+                reasons = []
+                for edge_position in edge_refs:
+                    edge = edges.iloc[edge_position]
+                    edge_vertices = _row_indices(
+                        edge, "verts", "edge", edge_position
+                    )
+                    if not set(edge_vertices).issubset(surface_vertices):
+                        raise NetworkViewError(
+                            f"Surface {position} has an open edge/vertex boundary."
+                        )
+                    edge_balls = _row_indices(edge, "balls", "edge", edge_position)
+                    _validate_indices(edge_balls, len(balls), "edge balls", edge_position)
+                    dependency_generators.update(edge_balls)
+                    if not _complete_feature(edge):
+                        reasons.append(f"edge {edge_position} is incomplete")
+                for vertex_position in vertex_refs:
+                    vertex = verts.iloc[vertex_position]
+                    vertex_balls = _row_indices(
+                        vertex, "balls", "vertex", vertex_position
+                    )
+                    _validate_indices(
+                        vertex_balls, len(balls), "vertex balls", vertex_position
+                    )
+                    dependency_generators.update(vertex_balls)
+                    if not _complete_feature(vertex):
+                        reasons.append(f"vertex {vertex_position} is incomplete")
+                if not _complete_feature(row):
+                    reasons.append("surface is incomplete")
+                incomplete_cells = sorted(
+                    position
+                    for position in dependency_generators
+                    if position not in boundary_completeness_exemptions
+                    and not _complete_value(balls.iloc[position].get("complete"))
+                )
+                if incomplete_cells:
+                    reasons.append(
+                        "incomplete generator cells "
+                        + ", ".join(str(value) for value in incomplete_cells)
+                    )
+                if reasons:
+                    unresolved_surface_positions.append(position)
+                    source_id = _source_id(surfs, position)
+                    unresolved_surface_reasons.append(
+                        f"Source surface {source_id!r} omitted: "
+                        + "; ".join(reasons)
+                    )
+                    area_value = row.get("sa")
+                    if area_value is None:
+                        try:
+                            from vorpy.src.calculations import calc_surf_sa
+
+                            area_value = calc_surf_sa(
+                                tris=row.get("tris"), points=row.get("points")
+                            )
+                        except (KeyError, TypeError, ValueError):
+                            area_value = None
+                    try:
+                        area_value = float(area_value)
+                    except (TypeError, ValueError):
+                        area_evidence = None
+                        unresolved_surface_area_known = False
+                    else:
+                        if not np.isfinite(area_value):
+                            area_evidence = None
+                            unresolved_surface_area_known = False
+                        else:
+                            area_evidence = area_value
+                            if unresolved_surface_area_known:
+                                unresolved_surface_area += area_value
+                    unresolved_feature_evidence.append(ViewFeatureEvidence(
+                        kind="surface",
+                        source_id=source_id,
+                        topology_index=int(position),
+                        supported=False,
+                        complete=False,
+                        bounded=_feature_bounded("surface", row),
+                        support_generator_local_indices=tuple(sorted(dependency_generators)),
+                        reasons=tuple(reasons),
+                        area=area_evidence,
+                    ))
+                    continue
+            surface_candidates.append(position)
 
         if not surface_candidates:
+            if unresolved_surface_reasons:
+                raise NetworkViewError(
+                    "Selection has no completeness-proven supported source surfaces; "
+                    + unresolved_surface_reasons[0]
+                )
             raise NetworkViewError("Selection has no supported source surfaces.")
 
         selected_edges = set()
@@ -265,7 +389,10 @@ class NetworkView:
             _validate_indices(ball_refs, len(balls), "edge balls", edge_position)
             selected_vertices.update(vertex_refs)
 
-        relevant_generators = set(selected_local)
+        # Group views own every selected cell. Interface views own only the
+        # complete local dependency closure of retained A/B facets; unrelated
+        # incomplete cells must not invalidate an otherwise supported view.
+        relevant_generators = set(selected_local) if selection_kind == "group" else set()
         for vertex_position in sorted(selected_vertices):
             vertex = verts.iloc[vertex_position]
             ball_refs = _row_indices(vertex, "balls", "vertex", vertex_position)
@@ -280,11 +407,6 @@ class NetworkView:
                 _row_indices(surfs.iloc[surface_position], "balls", "surface", surface_position)
             )
 
-        boundary_completeness_exemptions = (
-            boundary_local
-            if _has_authoritative_solvent_provenance(source_network)
-            else frozenset()
-        )
         _validate_complete_cells(
             balls,
             relevant_generators,
@@ -307,7 +429,13 @@ class NetworkView:
             "generator_ids": generator_ids,
             "generator_system_ids": generator_system_ids,
         }
-        cell_positions = tuple(sorted(selected_local))
+        cell_positions = tuple(
+            sorted(
+                selected_local
+                if selection_kind == "group"
+                else selected_local.intersection(relevant_generators)
+            )
+        )
         surface_positions = tuple(sorted(surface_candidates))
         edge_positions = tuple(sorted(selected_edges))
         vertex_positions = tuple(sorted(selected_vertices))
@@ -336,15 +464,27 @@ class NetworkView:
             for index in sorted(relevant_generators.intersection(boundary_local))
         )
         completeness = ViewCompleteness(
-            proven=True,
+            proven=not unresolved_surface_reasons,
             scope=selection_kind,
+            reasons=tuple(unresolved_surface_reasons),
             counts=(
                 ("cells", len(cell_features)),
                 ("surfaces", len(surface_features)),
                 ("edges", len(edge_features)),
                 ("vertices", len(vertex_features)),
                 ("support_generators", len(relevant_generators)),
+                ("unresolved_surfaces", len(unresolved_surface_positions)),
             ),
+            unresolved_surface_ids=tuple(
+                _source_id(surfs, position)
+                for position in unresolved_surface_positions
+            ),
+            unresolved_surface_area=(
+                unresolved_surface_area
+                if unresolved_surface_positions and unresolved_surface_area_known
+                else None
+            ),
+            unresolved_features=tuple(unresolved_feature_evidence),
         )
         return cls(
             solve_context=context,
@@ -440,6 +580,21 @@ class NetworkView:
     def source_ids(self, kind: str) -> tuple[Any, ...]:
         return tuple(feature.source_id for feature in self.features(kind))
 
+    @property
+    def feature_evidence(self) -> tuple[ViewFeatureEvidence, ...]:
+        """Return evidence for retained features and omitted unresolved features."""
+        retained = tuple(
+            feature.evidence
+            for features in (
+                self.cell_features,
+                self.surface_features,
+                self.edge_features,
+                self.vertex_features,
+            )
+            for feature in features
+        )
+        return retained + self.completeness.unresolved_features
+
 
 def _normalize_system_ids(values: Sequence[int], label: str) -> tuple[int, ...]:
     if isinstance(values, Integral) and not isinstance(values, bool):
@@ -503,12 +658,57 @@ def _validate_complete_cells(
         if position in boundary_positions:
             continue
         value = balls.iloc[position].get("complete")
-        if value is None or (
-            isinstance(value, (float, np.floating)) and np.isnan(value)
-        ) or not bool(value):
+        if not _complete_value(value):
             raise NetworkViewError(
                 f"Source cell completeness is not proven for generator {position}."
             )
+
+
+def _complete_value(value: Any) -> bool:
+    return not (
+        value is None
+        or (
+            isinstance(value, (float, np.floating)) and np.isnan(value)
+        )
+        or not bool(value)
+    )
+
+
+def _complete_feature(row: Any) -> bool:
+    if "complete" not in row.index:
+        return True
+    return _complete_value(row.get("complete"))
+
+
+def _feature_bounded(kind: str, row: Any) -> bool | None:
+    """Report finite stored geometry without inferring completeness."""
+    field_name = {
+        "surface": "points",
+        "edge": "points",
+        "vertex": "loc",
+    }.get(kind)
+    if field_name is None:
+        return None
+    value = row.get(field_name)
+    if value is None:
+        return None
+    try:
+        values = np.asarray(value, dtype=float)
+    except (TypeError, ValueError):
+        return False
+    if values.size == 0:
+        return None
+    return bool(np.all(np.isfinite(values)))
+
+
+def _feature_area(kind: str, row: Any) -> float | None:
+    if kind != "surface":
+        return None
+    try:
+        value = float(row.get("sa"))
+    except (TypeError, ValueError):
+        return None
+    return value if np.isfinite(value) else None
 
 
 def _has_authoritative_solvent_provenance(source_network: Any) -> bool:
@@ -638,6 +838,16 @@ def _snapshot_features(kind: str, positions: Sequence[int], tables: Mapping[str,
                 key: tuple(value) for key, value in incidence.items()
             }),
             data=_freeze(row.to_dict()),
+            evidence=ViewFeatureEvidence(
+                kind=kind,
+                source_id=_source_id(frame, position),
+                topology_index=int(position),
+                supported=True,
+                complete=_complete_feature(row),
+                bounded=_feature_bounded(kind, row),
+                support_generator_local_indices=tuple(generator_local_indices),
+                area=_feature_area(kind, row),
+            ),
         ))
     return tuple(features)
 
@@ -680,5 +890,6 @@ __all__ = [
     "NetworkView",
     "NetworkViewError",
     "ViewCompleteness",
+    "ViewFeatureEvidence",
     "ViewFeature",
 ]

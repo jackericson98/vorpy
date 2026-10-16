@@ -10,11 +10,13 @@ import pytest
 from vorpy.src.interface.geometry_analysis import InterfaceGeometryAnalysis
 from vorpy.src.output import visualization
 from vorpy.src.results import (
+    AlphaSelectionResult,
     INTERFACE_LOG_COLUMNS,
     InterfaceResult,
     Provenance,
     ResultIdentity,
     Status,
+    adapt_alpha_selection,
 )
 
 
@@ -126,6 +128,80 @@ def _stub_identity(monkeypatch):
             representation, side
         ),
     )
+
+
+def _mismatched_alpha_source():
+    return {
+        "alpha_selection": {
+            "status": "partial",
+            "certified": False,
+            "eligible_bicolor_pairs": 2,
+            "candidate_bicolor_pairs": 2,
+            "selected_pairs": 2,
+            "certified_rejected_pairs": 0,
+            "unresolved_pairs": 1,
+            "selected_physical_pairs": 1,
+            "excluded_pairs": 0,
+            "coverage": 0.5,
+            "selected_generator_pairs": [[3, 8], [1320, 4061]],
+            "selected_system_pairs": [["system:A", "system:B"], ["system:X", "system:Y"]],
+            "selected_physical_system_pairs": [["system:A", "system:B"]],
+        }
+    }
+
+
+def test_alpha_selection_preserves_missing_ids_and_fails_closed(monkeypatch, tmp_path):
+    network = object()
+    source = _mismatched_alpha_source()
+    result = adapt_alpha_selection(
+        source,
+        _identity("alpha_selection"),
+        dual=_dual(network),
+        provenance=Provenance("synthetic alpha selection"),
+    )
+
+    assert isinstance(result, AlphaSelectionResult)
+    assert result.status is Status.UNRESOLVED
+    assert result.selected_dual_feature_ids == ("1:3,8", "1:1320,4061")
+    assert [feature.simplex_id for feature in result.selected_dual_features] == ["1:3,8"]
+    assert result.provenance.details["missing_dual_simplex_ids"] == ("1:1320,4061",)
+    assert "1:1320,4061" in json.dumps(result.to_dict())
+
+    analysis = InterfaceGeometryAnalysis(
+        metadata={"alpha_value": 1.4, "alpha_units": "A", "alpha_method": "additive"},
+        alpha_selection=source["alpha_selection"],
+    )
+    iface = SimpleNamespace(
+        net=network,
+        _geometry_dual=_dual(network),
+        geometry_analysis=analysis,
+        water_topology=None,
+        representation_caches={},
+    )
+    _stub_identity(monkeypatch)
+    monkeypatch.setattr(
+        visualization,
+        "_cached_interface_result",
+        lambda _iface: SimpleNamespace(
+            identity=_identity("voronoi"), provenance=Provenance("cached physical state"),
+            metrics={}, selection={}, topology=None, mean_curvature=None,
+            gaussian_curvature=None, contacts=(),
+        ),
+    )
+
+    cached = visualization._cached_alpha_selection_result(iface)
+    assert cached.status is Status.UNRESOLVED
+    assert cached.selected_dual_feature_ids == result.selected_dual_feature_ids
+
+    path = tmp_path / "logs.csv"
+    visualization._compact_log(iface, path)
+    with path.open(newline="", encoding="utf-8") as stream:
+        rows = list(csv.DictReader(stream))
+    alpha_rows = [row for row in rows if row["representation"] == "alpha_selection"]
+    assert alpha_rows
+    assert all(row["status"] == Status.UNRESOLVED.value for row in alpha_rows)
+    assert all(row["value"] == "" for row in alpha_rows)
+    assert all("1:1320,4061" in row["provenance"] for row in alpha_rows)
 
 
 @pytest.mark.parametrize("cache_state", ["missing", "stale", "valid"])

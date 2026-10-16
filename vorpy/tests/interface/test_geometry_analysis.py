@@ -292,14 +292,39 @@ def test_interface_build_can_skip_optional_water_pipeline(monkeypatch):
     assert iface.buried_water_groups == []
 
 
-def test_missing_dependency_is_reported_not_zero_filled(monkeypatch):
+def test_missing_dependency_preserves_solved_physical_geometry(monkeypatch, capsys, tmp_path):
     def unavailable(*args, **kwargs):
         raise RuntimeError('GUDHI unavailable')
     monkeypatch.setattr('vorpy.src.geometry.filtrations.alpha.build_alpha_filtration', unavailable)
-    result = analyze_interface_geometry(iface_for(_network()))
+    iface = iface_for(_network())
+    result = analyze_interface_geometry(iface)
+    assert result.metadata['geometry_status'] == 'GEOMETRY_COMPLETE'
+    assert result.metadata['analysis_status'] == 'UNRESOLVED'
+    assert result.metadata['alpha_failure_kind'] == 'GUDHI_UNAVAILABLE'
+    assert result.voronoi_side_1['area'] == 7.
+    assert result.voronoi_side_1['area_selection_complete'] is False
+    assert iface._geometry_representation.selection_mode == 'full'
+    assert len(iface.net.verts) and len(iface.net.edges) and len(iface.net.surfs)
+    iface._geometry_representation.export(tmp_path / 'physical-interface')
+    assert (tmp_path / 'physical-interface' / 'interface_surfaces.csv').stat().st_size > 0
+    assert (tmp_path / 'physical-interface' / 'interface_edges.csv').stat().st_size > 0
+    assert (tmp_path / 'physical-interface' / 'interface_vertices.csv').stat().st_size > 0
     assert result.voronoi_side_1['total_H'] is None
     assert not result.voronoi_side_1['mean_certified']
     assert 'GUDHI unavailable' in result.unresolved[0]
+    assert 'raw physical interface geometry is preserved' in capsys.readouterr().err
+
+
+def test_blocked_gudhi_native_failure_is_distinguished(monkeypatch, capsys):
+    def unavailable(*args, **kwargs):
+        raise RuntimeError(
+            'GUDHI native extension could not be loaded (possibly blocked by '
+            'Windows Application Control): DLL load failed'
+        )
+    monkeypatch.setattr('vorpy.src.geometry.filtrations.alpha.build_alpha_filtration', unavailable)
+    result = analyze_interface_geometry(iface_for(_network('pow')))
+    assert result.metadata['alpha_failure_kind'] == 'GUDHI_NATIVE_BLOCKED_OR_UNAVAILABLE'
+    assert 'Windows Application Control' in capsys.readouterr().err
 
 
 def test_interface_selection_can_skip_optional_curvature_and_topology(monkeypatch):

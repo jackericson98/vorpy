@@ -419,6 +419,21 @@ def build_surfs(net, store_points=True, calculate_curvature=True):
     net.surface_timing = outer_timing.copy()
     net.surface_timing['total'] = total_elapsed
     net.build_surf_timing = build_timing.copy()
+    net.surface_counts = {
+        'candidate_facets': total_surfs,
+        'accepted_facets': valid_surfs,
+        'discarded_facets': invalid_surfs,
+        'generated_points': total_points,
+        'generated_triangles': total_tris,
+        'surface_integration_calls': valid_surfs,
+        'analytic_bisector_calls': int(build_timing.get('analytic_bisector_calls', 0)),
+        'curvature_triangle_evaluations': int(
+            build_timing.get('curvature_triangle_evaluations', 0)
+        ),
+        'projection_evaluations': int(build_timing.get('proj_calls', 0)),
+        'triangulation_calls': int(build_timing.get('tri_calls', 0)),
+        'containment_queries': int(build_timing.get('com_contains_query', 0)),
+    }
 
     # Detailed timing output is controlled universally by -v / --verbose.
     if net.settings.get('verbose', False):

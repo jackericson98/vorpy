@@ -36,6 +36,11 @@ def test_export_failure_restores_state(tmp_path):
     cwd = os.getcwd()
     with pytest.raises(RuntimeError, match='write failed'):
         export_result(result, tmp_path, 'Custom', {'edges': True}, 3, 'vtp')
+    failed = next(tmp_path.glob('sample_*'))
+    assert (failed / 'EXPORT_FAILED.txt').read_text().startswith('RuntimeError: write failed')
+    from vorpy.workbench.services.result_directory import load_result_directory
+    with pytest.raises(ValueError, match='partial geometry is not a valid archived Result'):
+        load_result_directory(failed)
     assert os.getcwd() == cwd
     assert group.dir is None and group.sys.files['dir'] == 'original'
 

@@ -40,12 +40,21 @@ def export_result(result, directory, size, custom, round_to, file_type,
             network._export_color_provider = make_color_provider(result, color_overrides)
         group.dir = str(destination)
         group.sys.files['dir'] = str(parent)
-        group.exports(**options, round_to=round_to, file_type=file_type)
-        if atom_format or full_molecule:
-            from vorpy.workbench.services.atomic_export import export_atomic_selections
-            if full_molecule:
-                atomic_options['full_molecule'] = True
-            export_atomic_selections(result, atomic_options, destination, atom_format or 'pdb')
+        try:
+            group.exports(**options, round_to=round_to, file_type=file_type)
+            if atom_format or full_molecule:
+                from vorpy.workbench.services.atomic_export import export_atomic_selections
+                if full_molecule:
+                    atomic_options['full_molecule'] = True
+                export_atomic_selections(result, atomic_options, destination, atom_format or 'pdb')
+        except Exception as error:
+            try:
+                (destination / 'EXPORT_FAILED.txt').write_text(
+                    f'{type(error).__name__}: {error}\n', encoding='utf-8'
+                )
+            except OSError:
+                pass
+            raise
     finally:
         if network is not None:
             if previous_colors is missing:

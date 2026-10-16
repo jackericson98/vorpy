@@ -37,7 +37,8 @@ def argv_export(my_sys, usr_npt, add_on=None):
     Command-line export handler.
 
     Default behavior:
-    - If no export type is specified, export the large preset.
+    - If no export type is specified, interface workflows use the first-class
+      interface preset; other workflows use the large preset.
     - Format and directory commands modify the export but do not replace its preset.
     - If only modifiers are specified, export the large preset.
     - ``only`` explicitly restricts output to the export names that follow it.
@@ -71,7 +72,8 @@ def argv_export(my_sys, usr_npt, add_on=None):
             my_sys.dir = out_dir
             my_sys.files['dir'] = out_dir
 
-            print(f"Export directory set to: {out_dir}")
+            if getattr(my_sys, 'verbose', False):
+                print(f"Export directory set to: {out_dir}")
 
         elif command in FORMAT_COMMANDS:
             if len(npt) < 2:
@@ -96,12 +98,12 @@ def argv_export(my_sys, usr_npt, add_on=None):
         else:
             export_commands.append(npt)
 
-    # The interface CLI has a deliberately small default bundle.  Legacy
-    # non-interface commands retain the historical Large preset.
+    # Interface results have a first-class default bundle. Legacy non-interface
+    # commands retain the historical Large preset.
     if len(export_commands) == 0:
         if getattr(my_sys, '_compact_interface_workflow', False):
-            from vorpy.src.output.visualization import export_compact_visualization_bundle
-            export_compact_visualization_bundle(my_sys)
+            from vorpy.src.output.output import export_interface_default
+            export_interface_default(my_sys)
             return
         export_commands.append(['large'])
 
@@ -139,6 +141,8 @@ def export_npt(my_sys, usr_npt=None):
         - 'small'/'s'/'1': Medium-small export
         - 'large'/'l'/'3': Large export
         - 'all'/'a'/'everything': Full export
+        - 'interface': First-class physical interface export bundle
+        - 'nonpolar': Opt-in nonpolar interface geometry tables
         - Other custom export types
 
     Returns:
@@ -219,6 +223,12 @@ def export_npt(my_sys, usr_npt=None):
         # print("RUNNING export_all()\n")
 
         export_all(my_sys)
+
+    elif usr_npt.lower() in {'interface', 'interfaces'}:
+
+        # Keep the explicit preset equivalent to ordinary ``-i`` defaults.
+        from vorpy.src.output.output import export_interface_default
+        export_interface_default(my_sys)
 
     else:
 

@@ -5,6 +5,7 @@ not new scientific computations. Missing ratios, counts, and terms stay missing.
 """
 
 from collections.abc import Mapping
+from dataclasses import replace
 from math import isfinite
 from numbers import Real
 
@@ -227,10 +228,18 @@ def _quantity(
 
 
 def unavailable_interface(identity, *, status=Status.NOT_CALCULATED, provenance=None):
-    """Represent an absent/unsupported future representation without geometry."""
+    """Represent unavailable or failed interface extraction without geometry.
+
+    ``UNRESOLVED`` is distinct from ``NOT_CALCULATED``: a producer attempted
+    the extraction but could not prove the selected interface complete.
+    """
     status = Status(status)
-    if status not in {Status.NOT_CALCULATED, Status.NOT_SUPPORTED}:
-        raise ValueError("Absent representations require unavailable status")
+    if status not in {
+        Status.UNRESOLVED,
+        Status.NOT_CALCULATED,
+        Status.NOT_SUPPORTED,
+    }:
+        raise ValueError("Absent representations require an unavailable status")
     provenance = provenance or Provenance("cached scientific state unavailable")
 
     def q(name, units="1"):
@@ -334,6 +343,7 @@ def adapt_interface_analysis(
     extensions=(),
     cached_metrics=None,
     geometry_lineage=None,
+    unavailable_status=Status.NOT_CALCULATED,
 ):
     """Snapshot existing InterfaceGeometryAnalysis, with an explicit identity.
 
@@ -346,6 +356,7 @@ def adapt_interface_analysis(
     if analysis is None:
         return unavailable_interface(
             identity,
+            status=unavailable_status,
             provenance=_with_geometry_lineage(
                 provenance, geometry_lineage, "InterfaceGeometryAnalysis"
             ),
@@ -1363,12 +1374,6 @@ def adapt_alpha_selection(
         "excluded_pairs": "excluded_pairs",
         "coverage": "coverage",
     }
-    selection = {
-        name: _alpha_quantity(
-            name, payload.get(source_name), status, provenance, coverage=name == "coverage"
-        )
-        for name, source_name in aliases.items()
-    }
     generator_pairs = tuple(
         tuple(pair) for pair in (payload.get("selected_generator_pairs") or ())
     )
@@ -1377,12 +1382,35 @@ def adapt_alpha_selection(
     )
     selected_features = ()
     if dual is not None and selected_feature_ids:
-        selected_features = _dual_records(
-            dual,
-            provenance,
-            dimensions={1},
-            simplex_ids=selected_feature_ids,
+        available_features = _dual_records(dual, provenance, dimensions={1})
+        available_ids = {record.simplex_id for record in available_features}
+        missing_ids = tuple(sorted(set(selected_feature_ids) - available_ids))
+        if missing_ids:
+            provenance = replace(
+                provenance,
+                details={
+                    **provenance.details,
+                    "missing_dual_simplex_ids": missing_ids,
+                },
+                diagnostics=provenance.diagnostics + (
+                    "Alpha selection references dual simplex IDs absent from "
+                    "the supplied dual complex: " + ", ".join(missing_ids),
+                ),
+            )
+            # The producer's selected IDs remain evidence; only their optional
+            # dual records are absent from this solved-network incidence view.
+            status = Status.UNRESOLVED
+        selected_ids = set(selected_feature_ids)
+        selected_features = tuple(
+            record for record in available_features
+            if record.simplex_id in selected_ids
         )
+    selection = {
+        name: _alpha_quantity(
+            name, payload.get(source_name), status, provenance, coverage=name == "coverage"
+        )
+        for name, source_name in aliases.items()
+    }
     return AlphaSelectionResult(
         identity,
         provenance,

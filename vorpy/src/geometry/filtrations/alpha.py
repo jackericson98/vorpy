@@ -142,10 +142,21 @@ def _generator_inputs(network):
 def _gudhi_module():
     try:
         import gudhi
-    except ImportError as error:  # pragma: no cover - environment dependent
+    except ModuleNotFoundError as error:  # pragma: no cover - environment dependent
+        if getattr(error, "name", None) == "gudhi":
+            raise RuntimeError(
+                "GUDHI package is not installed; install a compatible GUDHI "
+                "build in the active environment. Raw physical geometry does "
+                "not require GUDHI."
+            ) from error
         raise RuntimeError(
-            "GUDHI is required for Primitive and Power alpha filtrations; "
-            "install a GUDHI version supporting AlphaComplex."
+            "GUDHI native extension could not be loaded (possibly blocked by "
+            f"Windows Application Control): {error}"
+        ) from error
+    except (ImportError, OSError) as error:  # pragma: no cover - environment dependent
+        raise RuntimeError(
+            "GUDHI native extension could not be loaded (possibly blocked by "
+            f"Windows Application Control): {error}"
         ) from error
     if not hasattr(gudhi, "AlphaComplex"):
         raise RuntimeError("Installed GUDHI does not expose AlphaComplex.")

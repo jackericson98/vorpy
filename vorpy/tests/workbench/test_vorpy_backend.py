@@ -202,6 +202,171 @@ def test_backend_builds_typed_ordered_interface_handoff():
     assert handoff.geometry_lineage.source_interface_id == selection.interface_id
 
 
+def test_real_pow_interface_build_reaches_typed_handoff_with_partial_status():
+    """A built non-union POW interface carries solver metadata into Results."""
+    locations = [
+        (-1.8, -0.9, -0.4), (-1.1, 0.7, 0.8),
+        (-0.5, -0.8, 1.1), (-0.2, 0.9, -1.2),
+        (0.5, -0.2, -0.8), (1.0, 1.2, 0.3),
+        (1.7, -1.0, 0.9), (1.9, 0.4, -1.1),
+    ]
+    system = System(
+        spheres=pd.DataFrame({
+            "loc": locations,
+            "rad": [0.7] * 8,
+            "mass": [12.0] * 8,
+            "num": list(range(100, 108)),
+            "res_name": ["ALA"] * 8,
+            "name": ["CA"] * 8,
+        }),
+        name="synthetic-real-pow",
+        make_dir=False,
+        solvent_mode=SolventMode.MOLECULE_ONLY,
+        retained_system_indices=(),
+    )
+    selection = InterfaceSolveSelection(
+        "synthetic-A__synthetic-B",
+        "synthetic-A",
+        (0, 1, 2, 3),
+        "synthetic-B",
+        (4, 5, 6, 7),
+    )
+    backend = VorPyBackend(VorPySolveSettings(
+        network_type="pow",
+        max_vertices=5,
+        surface_resolution=0.2,
+        source_network_id="producer:synthetic-real-pow",
+    ))
+    interface = backend.make_interface_network(system, selection)
+    system._compact_interface_workflow = True
+    interface.build(analyze_waters=False, calculate_curvature=False)
+
+    network = interface.net
+    handoff = backend.make_interface_result_handoff(
+        interface,
+        selection,
+        interface.geometry_analysis,
+        system_id="synthetic-real-pow",
+        result_network_id="archive:synthetic-real-pow",
+        radius_configuration_id="radii:synthetic-v1",
+        selection_id="view:synthetic-A__synthetic-B",
+        group_a_selection_id="view:synthetic-A",
+        group_b_selection_id="view:synthetic-B",
+        orientation="A -> B",
+        source_identity_status="AUTHORITATIVE",
+        source_revision="producer:synthetic-real-pow-v1",
+        environment="dry",
+        completeness_proven=False,
+    )
+
+    assert network.network_mode == "interface"
+    assert network.iface_grps == ({0, 1, 2, 3}, {4, 5, 6, 7})
+    assert set(network.group) == set(range(8))
+    assert len(network.verts) > 0
+    assert handoff.geometry_lineage.origin.value == "DIRECT_SOLVE"
+    assert handoff.result.identity.source_network_id == (
+        "producer:synthetic-real-pow"
+    )
+    assert handoff.result.identity.network_id == "archive:synthetic-real-pow"
+    assert handoff.result.identity.group_A == "synthetic-A"
+    assert handoff.result.identity.group_B == "synthetic-B"
+    assert handoff.result.status.value == "PARTIAL"
+
+
+def test_validated_interface_view_uses_matching_complete_source_network():
+    """Filtered interface cells stay incomplete; a matching full solve proves the view."""
+    from copy import deepcopy
+
+    from vorpy.src.boundary import BoundaryConfig, BoundaryMode
+    from vorpy.src.group import Group
+    from vorpy.src.network.views import NetworkViewError
+
+    locations = [
+        (-1.8, -0.9, -0.4), (-1.1, 0.7, 0.8),
+        (-0.5, -0.8, 1.1), (-0.2, 0.9, -1.2),
+        (0.5, -0.2, -0.8), (1.0, 1.2, 0.3),
+        (1.7, -1.0, 0.9), (1.9, 0.4, -1.1),
+    ]
+    source_id = "producer:validated-view-probe"
+    system = System(
+        spheres=pd.DataFrame({
+            "loc": locations,
+            "rad": [0.7] * 8,
+            "mass": [12.0] * 8,
+            "num": list(range(100, 108)),
+            "res_name": ["ALA"] * 8,
+            "name": ["CA"] * 8,
+        }),
+        name="validated-view-probe",
+        make_dir=False,
+        boundary_config=BoundaryConfig(mode=BoundaryMode.SHELL),
+        solvent_mode=SolventMode.MOLECULE_ONLY,
+        retained_system_indices=(),
+    )
+    system._compact_interface_workflow = True
+    selection = InterfaceSolveSelection(
+        "probe-A__probe-B", "probe-A", (0, 1, 2, 3),
+        "probe-B", (4, 5, 6, 7),
+    )
+    backend = VorPyBackend(VorPySolveSettings(
+        network_type="pow",
+        max_vertices=5,
+        surface_resolution=0.2,
+        source_network_id=source_id,
+    ))
+    interface = backend.make_interface_network(system, selection)
+    interface.build(analyze_waters=False, calculate_curvature=False)
+
+    full_group = Group(
+        sys=system,
+        name="validated-view-probe-full",
+        atoms=list(range(8)),
+        settings=deepcopy(interface.settings),
+        make_net=True,
+        build_net=False,
+        print_metrics=False,
+    )
+    if full_group in (system.groups or []):
+        system.groups.remove(full_group)
+    full_group.build(calculate_curvature=False)
+    full_network = full_group.net
+    full_network.source_network_id = source_id
+
+    assert int(interface.net.balls["complete"].astype(bool).sum()) == 0
+    assert int(full_network.balls["complete"].astype(bool).sum()) == 8
+    with pytest.raises(NetworkViewError, match="incomplete generator cells 0"):
+        interface.net.make_view(
+            iface_grps=(selection.group_a_system_indices, selection.group_b_system_indices),
+            source_network_id=source_id,
+        )
+
+    view = backend.make_validated_interface_view(
+        interface, selection, full_network, source_network_id=source_id
+    )
+    assert view.completeness.proven is True
+    assert view.selection_kind == "interface"
+    assert view.source_network_id == source_id
+    handoff = backend.make_interface_result_handoff(
+        interface,
+        selection,
+        interface.geometry_analysis,
+        system_id="validated-view-probe",
+        result_network_id="archive:validated-view-probe",
+        radius_configuration_id="radii:synthetic-v1",
+        selection_id=view.selection_id,
+        group_a_selection_id="view:probe-A",
+        group_b_selection_id="view:probe-B",
+        orientation="A -> B",
+        source_identity_status="AUTHORITATIVE",
+        source_revision="producer:validated-view-probe-v1",
+        environment="dry",
+        completeness_proven=view.completeness.proven,
+    )
+    assert handoff.geometry_lineage.origin.value == "DIRECT_SOLVE"
+    assert handoff.result.identity.source_network_id == source_id
+    assert handoff.result.status.value == "PARTIAL"
+
+
 def test_typed_interface_handoff_rejects_union_network():
     from vorpy.src.interface.geometry_analysis import InterfaceGeometryAnalysis
 

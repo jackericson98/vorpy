@@ -268,6 +268,8 @@ Workflow options:
 
   -c, --calculate <target>
     Request system, group, interface, or chain calculations.
+    For ordered typed A/B Results, combine -i with -c system; without a
+    validated full-system source, the interface status remains UNRESOLVED.
 
   -e, --export <type> [and <type> ...]
     Export a preset or component, such as small, medium, large, all, shell,
@@ -295,17 +297,27 @@ Analysis and execution:
     Limit that experimental export to pair-overlap analysis.
 
 Archive, frames, and diagnostics:
+  --fail-if-exists
+    Refuse existing output directories, archives, timing sidecars, and cache
+    profiles; reserve final targets atomically before/at save finalization.
   --save-network <path.vpy>
     Save the solved network archive at the requested path.
   --load-network <path.vpy>
     Load a solved network archive; this option must precede the archive path.
   --profile-cache-export
     Profile archive-load/export work without rebuilding geometry (.vpy only).
+  --timing-report <path.json>
+    Write opt-in machine-readable load, network, interface, analysis, export,
+    archive, and total wall-time measurements.
   --all-frames
     Process every frame in a PDB trajectory sequentially without prompting.
   --parallel-frames <workers>
     Process every PDB frame with up to this many worker processes.
     Implies --all-frames. Each frame has its own output folder and run.log.
+  Input naming convention
+    X.pdb is the solvated post-MD input, X_no_sol.pdb its dry pair, and
+    X_frames/X_fN.pdb a named frame; the CLI reports this context without
+    treating filenames as scientific certification.
   -v, --verbose
     Enable verbose build output.
   --diagnose-edges

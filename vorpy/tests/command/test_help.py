@@ -30,6 +30,7 @@ def test_help_lists_current_cli_options(capsys):
     for option in (
         "--profile",
         "--save-network",
+        "--fail-if-exists",
         "--load-network",
         "--profile-cache-export",
         "--boundary",

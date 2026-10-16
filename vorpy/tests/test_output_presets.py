@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -124,3 +125,114 @@ def test_rich_dual_derivatives_drop_preset_pymol_launchers(tmp_path):
     assert not list(dual.glob("*.pml"))
     assert not list(dual.glob("*.py"))
     assert json.loads((dual / "interface_dual_summary.json").read_text())["pymol_script"] is None
+
+
+def test_interface_default_preset_uses_first_class_layout_without_archive(tmp_path):
+    from vorpy.src.output.output import export_interface_default
+    from vorpy.tests.test_nexus_interface_output_contract import _contract_case
+
+    _, interface = _contract_case(tmp_path)
+    interface.sys.balls["rad"] = 1.7
+    interface.sys.exports = lambda **kwargs: None
+    interface.sys.update_progress = lambda **kwargs: None
+
+    export_interface_default(interface.sys)
+
+    directory = tmp_path / "interface"
+    assert {
+        "interface_surfs.off", "interface_edges.off", "interface_verts.off",
+        "interface_info.txt", "group_a_atoms.pdb", "group_b_atoms.pdb",
+        "surr_atoms.pdb", "surr_residues.pdb",
+    } <= {path.name for path in directory.iterdir()}
+    assert not (directory / "visualization_manifest.json").exists()
+    assert not list(tmp_path.glob("*.geometry.vpy"))
+    assert not (tmp_path / "synthetic-interface.vpy").exists()
+
+
+def test_interface_cli_default_and_explicit_exports_stay_separate(monkeypatch):
+    from vorpy.src.command.command_export import argv_export
+    from vorpy.src.output import output
+
+    default_calls = []
+    monkeypatch.setattr(
+        output, "export_interface_default",
+        lambda system: default_calls.append(system),
+    )
+    default_system = SimpleNamespace(_compact_interface_workflow=True)
+    argv_export(default_system, [])
+    assert default_calls == [default_system]
+
+    explicit_calls = []
+    interface = SimpleNamespace(
+        name="A_B_interface", net=SimpleNamespace(), dir=None,
+        export=lambda **kwargs: explicit_calls.append(kwargs),
+    )
+    explicit_system = SimpleNamespace(
+        groups=[], ifaces=[interface], update_progress=lambda **kwargs: None,
+    )
+    output.other_exports(explicit_system, "surfaces")
+    assert explicit_calls == [{"surfs": True}]
+
+
+def test_explicit_interface_preset_parses_with_directory_and_exports_files(tmp_path):
+    from vorpy.src.command.vpy_cmnd import Command
+    from vorpy.tests.test_nexus_interface_output_contract import _contract_case
+
+    _, interface = _contract_case(tmp_path)
+    system = interface.sys
+    system.balls["rad"] = 1.7
+    system.exports = lambda **kwargs: None
+    system.update_progress = lambda **kwargs: None
+    system.verbose = False
+    system.file_type = "off"
+
+    destination = tmp_path / "output" / "benchmarks" / "1bna_DB1976" / "pow_dry"
+    command = Command(sys=system)
+    command.base_file = str(tmp_path / "synthetic_interface.pdb")
+    command._arguments = [
+        command.base_file, "-i", "-e", "interface", "and", "dir", str(destination)
+    ]
+    command.parse_commands()
+    command._prepare_interface_output_directories()
+    command.run_exports()
+
+    assert command.exports == [["interface"]]
+    assert Path(system.files["dir"]) == destination / system.name
+    assert Path(interface.dir) == destination / system.name / "dna_ligand_interface"
+    assert {
+        "interface_surfs.off", "interface_edges.off", "interface_verts.off",
+        "interface_info.txt", "group_a_atoms.pdb", "group_b_atoms.pdb",
+        "surr_atoms.pdb", "surr_residues.pdb",
+    } <= {path.name for path in Path(interface.dir).iterdir()}
+    assert not (destination / "visualization_manifest.json").exists()
+    assert not list(destination.glob("*.geometry.vpy"))
+
+
+def test_interface_directory_and_internal_checkpoint_are_segregated(tmp_path, monkeypatch):
+    from vorpy.src.command.vpy_cmnd import Command
+
+    interface = SimpleNamespace(name="DNA_c_2_interface")
+    system = SimpleNamespace(
+        name="1bna_DB1976", files={"dir": str(tmp_path)}, ifaces=[interface],
+    )
+    command = Command(sys=system)
+    command._prepare_interface_output_directories()
+    assert Path(interface.dir) == tmp_path / "DNA_c_2_interface"
+    refusing = Command(sys=system)
+    refusing.fail_if_exists = True
+    with pytest.raises(SystemExit, match="existing interface output directory"):
+        refusing._prepare_interface_output_directories()
+
+    captured = {}
+    monkeypatch.setattr(
+        "vorpy.src.io.save_network",
+        lambda network, path, **kwargs: captured.setdefault("path", Path(path)) or path,
+    )
+    command.interface_mode = True
+    command.execution_profile = None
+    network = SimpleNamespace(group_name="1bna_DB1976_full_system", archive_provenance={})
+    checkpoint = command._persist_geometry_checkpoint(network, scope="full_system_source")
+
+    assert checkpoint == captured["path"]
+    assert checkpoint.parent == tmp_path / ".vorpy" / "checkpoints"
+    assert not (tmp_path / "1bna_DB1976_full_system.geometry.vpy").exists()

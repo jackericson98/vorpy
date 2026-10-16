@@ -106,6 +106,33 @@ def test_curved_surface_keeps_curvature_area_and_preserves_volumes(monkeypatch):
     )
 
 
+def test_surface_counts_record_geometry_work(monkeypatch):
+    points = np.array([
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+    ])
+    triangles = np.array([[0, 1, 2]])
+    net, _, surface = _single_surface_net(points, triangles, curvature_area=None)
+    monkeypatch.setattr(build_surfs_module, 'build_surf', lambda **kwargs: surface)
+
+    build_surfs(net)
+
+    assert net.surface_counts == {
+        'candidate_facets': 1,
+        'accepted_facets': 1,
+        'discarded_facets': 0,
+        'generated_points': 3,
+        'generated_triangles': 1,
+        'surface_integration_calls': 1,
+        'analytic_bisector_calls': 0,
+        'curvature_triangle_evaluations': 0,
+        'projection_evaluations': 0,
+        'triangulation_calls': 0,
+        'containment_queries': 0,
+    }
+
+
 def test_batched_surface_volume_preserves_empty_surface_zero():
     actual_volumes, actual_area = _surface_tetra_volumes(
         [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]],

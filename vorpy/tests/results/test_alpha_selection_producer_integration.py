@@ -16,6 +16,8 @@ from vorpy.src.results import (
     Provenance,
     ResultIdentity,
     Status,
+    adapt_alpha_selection,
+    adapt_interface_analysis,
 )
 
 
@@ -330,3 +332,38 @@ def test_cached_alpha_selection_writes_canonical_log_without_rebuilding(monkeypa
     assert (unavailable["value"], unavailable["status"]) == ("", "NOT_CALCULATED")
     assert (alpha_value["value"], alpha_value["units"]) == ("1.4", "A")
     assert "2kai_aw_cached_analysis" in alpha_value["provenance"]
+
+
+def test_unresolved_alpha_keeps_raw_physical_typed_result_available():
+    analysis = InterfaceGeometryAnalysis(
+        metadata={
+            "result_status": "PARTIAL",
+            "geometry_status": "GEOMETRY_COMPLETE",
+            "analysis_status": "UNRESOLVED",
+            "curvature_requested": True,
+        },
+        alpha_selection={
+            "status": "unresolved",
+            "certified": False,
+            "coverage": 0.0,
+            "failure_kind": "GUDHI_NATIVE_BLOCKED_OR_UNAVAILABLE",
+        },
+        voronoi_side_1={
+            "area": 7.0,
+            "area_scope": "full solved physical interface; alpha selection unavailable",
+            "area_selection_complete": False,
+        },
+        unresolved=["GUDHI native extension unavailable"],
+    )
+    physical = adapt_interface_analysis(analysis, _identity("voronoi"))
+    alpha = adapt_alpha_selection(
+        analysis, _identity("alpha_selection"),
+        provenance=Provenance("blocked alpha fixture"),
+    )
+
+    assert physical.status is Status.PARTIAL
+    assert physical.metrics["area"].value == 7.0
+    assert physical.metrics["area"].status is Status.PARTIAL
+    assert alpha.status is Status.UNRESOLVED
+    assert alpha.selection["coverage"].value is None
+    assert alpha.selection["coverage"].status is Status.UNRESOLVED

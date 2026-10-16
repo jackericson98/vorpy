@@ -24,6 +24,7 @@ def test_execution_profile_option_rejects_unknown_profile():
 def test_geometry_only_network_build_skips_scientific_stages(monkeypatch):
     network = Network.__new__(Network)
     network.group_name = 'synthetic'
+    network.progress_network_name = None
     network.completion_kind = 'network'
     network.settings = {
         'build_type': 'all', 'net_type': 'aw', 'verbose': False,
