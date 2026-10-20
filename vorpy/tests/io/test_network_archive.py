@@ -1391,7 +1391,10 @@ def test_aw_curvature_and_interface_records_round_trip(tmp_path):
         same(group.int_mean_curv, loaded.sys.groups[0].int_mean_curv)
         loaded.sys.set_output_directory(str(tmp_path / 'interface_output'))
         loaded_interface.export(atoms=True, surfs=True, edges=True, verts=True, info=True)
-        assert (Path(loaded_interface.dir) / 'interface_atoms.pdb').is_file()
+        # Contact-scoped interface exports use the public group/surrounding
+        # names; ``interface_atoms.pdb`` was the pre-scope legacy name.
+        assert (Path(loaded_interface.dir) / 'group_a_atoms.pdb').is_file()
+        assert (Path(loaded_interface.dir) / 'group_b_atoms.pdb').is_file()
     finally:
         os.chdir(cwd)
 

@@ -1,0 +1,272 @@
+ATLAS — compact canonical Results provenance
+=============================================
+
+Handoff recipients: VECTOR (CSV/export implementation) and NEXUSA (shared
+contract review). Published 2026-10-19.
+
+Finding
+-------
+The existing adapters reuse immutable Provenance objects in memory, but the
+canonical-log boundary expands the complete payload once per InterfaceLogRow.
+`_compact_result_rows()` attaches the same lineage, cache metadata, and large
+unresolved simplex evidence to every metric row; no digest index or sidecar
+currently exists. Numeric metrics and geometry are not duplicated by this
+boundary.
+
+Implementation
+--------------
+* `Provenance` now has deterministic payload serialization, round-trip loading,
+  and a content digest.
+* `ProvenanceContract` makes source/source SHA-256, method, scheme/settings,
+  ordered selections, generator IDs, dependency digests, status,
+  completeness, GeometryLineage, missing/unresolved evidence, and arbitrary
+  producer evidence explicit.
+* `ProvenanceCatalog` deduplicates entries and optional
+  `ProvenanceInventory` incidence/simplex payloads. Digests are validated.
+* Compact rows use new `provenance_ref` columns and `logs.provenance.json`;
+  legacy `logs.csv` columns and `.vpy` archive behavior are unchanged.
+* Missing sidecars/references fail with `ProvenanceSidecarMissingError`; bad
+  or stale digests fail with `ProvenanceDigestError`.
+
+Files modified
+--------------
+* `vorpy/src/results/model.py`
+* `vorpy/src/results/__init__.py`
+* `vorpy/tests/results/test_compact_provenance.py`
+* `vorpy/tests/geometry/test_dual_primary_separation.py`
+* `docs/development/results_provenance_compact_contract.md`
+* `.agent-reports/ATLAS.txt`
+
+Validation
+----------
+Synthetic 106-row 1BNA-scale metadata: legacy 3,773,381 bytes; compact CSV
+plus sidecar 192,316 bytes; 3 unique entries; metric value/units/status
+unchanged. Four compact provenance tests pass, including deterministic
+serialization, lineage round-trip, inventory reuse, missing/stale digests,
+partial/unresolved state, and legacy full-JSON reading. All Results tests plus
+output-layout/export-caching compatibility tests pass.
+
+Limitations / next action
+-------------------------
+VECTOR still needs to write/read the version-2 compact file and sidecar; this
+handoff intentionally does not modify VECTOR-owned exporters. Existing old
+logs and archives remain readable, but compact records require the sidecar and
+must not be downgraded to certified/empty provenance when it is absent.
+
+Dual-complex separation audit
+-----------------------------
+The PRM, POW, and AW builders dispatch from `Network.settings['net_type']` and
+extract incidence from the supplied solved network. PRM is labelled ordinary
+Delaunay, POW regular/weighted Delaunay, and AW abstract Apollonius incidence.
+`DualComplex.network` is an explicit source-object reference; generator IDs
+remain network-local and every simplex retains primal feature references,
+bounded/complete/support status, and unresolved evidence.
+
+`ApolloniusComplex`, `AlphaFiltration`, and `AWAlphaFiltration` only read
+primary tables while building their caches. Alpha queries return new filtered
+records. `build_full_interface` and `build_alpha_interface` create derived
+`InterfaceRepresentation` records from the source `surfs/edges/verts`; they do
+not delete source rows or rewrite source completeness. The alpha adapter keeps
+selected alpha pairs and mapped physical surfaces in separate fields and does
+not substitute selected area for the full physical-network record.
+
+The Results adapters enforce separate identities (`voronoi`, `dual*`, and
+`alpha_selection`) and keep `GeometryLineage` separate from scientific status.
+Archive loading validates network/interface ownership and marks invalid or
+unresolved typed results unresolved in fail-closed mode; legacy `.vpy` members
+are not rebuilt. Classic `aw_logs.csv`, `pow_logs.csv`, and `prm_logs.csv`
+remain produced by the existing physical geometry logger. Typed Results
+`logs.csv` and compact `logs.compact.csv`/sidecar are additive and do not
+replace those classic logs.
+
+Validation
+----------
+The bounded synthetic audit regression passed for all three schemes. It
+snapshots balls, surfaces, edges, vertices, row counts, and cell-completeness
+flags, then runs dual extraction and a POW alpha-to-physical mapping; all
+primary snapshots remain identical. The focused dual/alpha/Results/provenance
+set passed 42 tests. The archive, lineage, source-view, dual-visualization,
+output-layout, and export-caching compatibility set passed 122 tests. No
+molecular calculation or geometry rebuild was run.
+
+Handoff
+-------
+VECTOR may implement the writer/reader against
+`docs/development/results_provenance_compact_contract.md`; ATLAS-owned APIs
+are in `vorpy/src/results/model.py` and `vorpy/src/results/__init__.py`.
+VECTOR must leave classic scheme geometry logs and existing archive columns
+unchanged. NEXUSA should review the identity/sidecar fail-closed rules before
+integration. No VECTOR or FORGE-owned implementation file was modified by
+ATLAS.
+
+Shared self-contained checkpoint groundwork
+============================================
+
+Handoff recipients: VECTOR (archive encoding/I/O) and FORGE (future Group C
+topology proof); NEXUSA contract dependency: satisfied by the frozen
+implementation-review contract dated 2026-10-19. Published 2026-10-19.
+
+ATLAS added the identity and validation seam in
+`vorpy/src/results/checkpoint.py`, exported through
+`vorpy/src/results/__init__.py`. `CheckpointDocument` defines format
+`vorpy.system.checkpoint`, schema 1, and the one-root filename policy
+`<system>_checkpoint.vpy`. Its self-contained source record embeds original
+bytes plus filename, size, SHA-256, and source identity. Typed atom, residue,
+chain, group, network, cache, Result, provenance, completeness, and partial /
+unresolved records are retained without geometry solving.
+
+The dependency digest covers source SHA-256, coordinates, radii, solver and
+scheme settings, generator universe, and topology. Incompatible values return
+`STALE`; missing caches return `NOT_CALCULATED`; invalid types return
+`UNRESOLVED`. A/B and B/A share one physical interface ID with deterministic
+sorted reference orientation and preserved display orientation. Group C is an
+append-only feature identity contract only: `merge_supported` is false and a
+claimed certified merge is rejected until FORGE proves topology/incidence
+semantics.
+
+VECTOR handoff: encode this manifest inside one shared checkpoint, preserve
+same-directory temp + flush/sync + validate + atomic-replace behavior, and
+leave the prior valid archive on failure. Existing v3 archives stay readable
+and are not auto-rewritten; missing legacy source bytes are not silently
+promoted to self-contained or certified state. No VECTOR-owned exporter or
+`network_archive.py` was changed.
+
+Files added/modified for this milestone:
+* `vorpy/src/results/checkpoint.py`
+* `vorpy/src/results/__init__.py`
+* `vorpy/tests/results/test_checkpoint_contract.py`
+* `docs/development/checkpoint_contract.md`
+* `.agent-reports/ATLAS.txt`
+
+Validation: 17 focused synthetic checkpoint/provenance tests passed, including
+deterministic serialization, source-free reopen, digest invalidation for all
+required dependency inputs, missing metadata rejection, partial/unresolved
+status preservation, A/B identity equivalence, and Group C merge deferral.
+`py_compile` passed. No molecular solve, geometry rebuild, archive writer
+integration, v3 migration, or topology merge was run or claimed.
+
+Next action: VECTOR reviews the manifest and implements the archive container;
+FORGE later supplies the bounded topology-merge proof before any Group C merge
+support is enabled.
+
+Final checkpoint persistence API handoff
+========================================
+
+Published 2026-10-20 after reading the frozen NEXUSA implementation contract
+and its 2026-10-20 live-tree integration report. The report confirms the
+existing v3 writer is still active and that ATLAS must not edit the shared
+archive seam independently.
+
+ATLAS now exposes `CheckpointContainer`, `CheckpointPayload`,
+`CheckpointSaveBundle`, `CheckpointUpdatePlan`,
+`save_checkpoint_container`, `load_checkpoint_container`, and
+`prepare_checkpoint_update`. VECTOR receives canonical `manifest_bytes`, a
+deterministic `checkpoint/payloads/<sha256>.bin` member map, and a validated
+container digest. The inner document retains source bytes and SHA-256,
+coordinates/radii/atom identity, explicit competitor atom universe, settings,
+solvent policy, scoped networks, opaque geometry/analysis/cache payloads,
+typed Results, statuses, and compact provenance.
+
+The update plan requires a matching current container digest and validates the
+completed replacement before the writer may replace the destination. Explicit
+`CheckpointLoadError`, `CheckpointSaveError`, and `CheckpointUpdateError`
+cover malformed manifests/missing or stale payloads, invalid write bundles,
+and stale or post-write-invalid updates. VECTOR still owns same-directory temp
+files, flush/sync, ZIP encoding, and atomic replace; failed writes must leave
+the previous archive untouched.
+
+Certified Results must identify their source network. Certified PRM typed
+Results are rejected; PRM partial/unresolved state is retained. Group C
+remains identity/dependency-only with topology merge unsupported.
+
+Additional files changed:
+* `vorpy/src/results/checkpoint.py`
+* `vorpy/src/results/__init__.py`
+* `vorpy/tests/results/test_checkpoint_contract.py`
+* `docs/development/checkpoint_contract.md`
+* `.agent-reports/ATLAS.txt`
+
+Validation: 16 focused checkpoint tests and the complete
+`vorpy/tests/results` suite passed; `py_compile` passed. A preserved v3
+archive also loaded read-only with the existing loader (612 balls, 500
+vertices, 892 edges, 424 surfaces). No molecular solve, old-archive
+migration, or `network_archive.py`/VECTOR exporter edit was made.
+The API is ready for VECTOR integration, pending VECTOR's bounded live writer
+tests against the required five-tier/shared-root behavior.
+
+Canonical interface replay boundary-generator diagnosis
+========================================================
+
+Published 2026-10-20. Status: BLOCKED at the PRISM/VECTOR replay seam; no
+ATLAS correction was applied.
+
+Bounded reproducer (no molecular solve): construct the existing synthetic AW
+network from `vorpy.tests.network.test_views._network(scheme='aw')`, attach a
+four-atom `System`, set
+`generator_system_indices=(0, 1, 2, 3, None)`, stable IDs
+`system:0..system:3,boundary:4`, one explicit `BoundaryGenerator`, and
+`source_network_id='producer:aw-interface'`. Attach real `Group` A/B and an
+`Interface`, then call VECTOR's `write_checkpoint`. Replaying with the public
+CLI boundary:
+
+    vorpy --load-network aw_checkpoint.vpy -g "c A" -g "c B" -i
+
+fails before view construction with:
+
+    ArchiveError: Recovery source contains non-source boundary generators
+
+The exact same network saved through the legacy v3 serializer reloads and
+retains its boundary metadata. The canonical container's `network-v3` payload
+also reloads losslessly. Therefore this is not stale evidence (source bytes,
+SHA-256, payload digest, and dependency digest validate), not geometry
+reconstruction, and not generator-ID corruption.
+
+Cause: C plus a CLI adaptation error. `Checkpoint._load_canonical_checkpoint`
+selects the best available network payload; interface-only output can contain
+only a group/interface-scoped network. `_run_archive_interface_recovery` then
+passes that scoped network to `validate_network_source`. That validator is
+deliberately a full ordered molecular-source check: it requires every local
+generator to map to the source PDB and rejects `None` boundary memberships.
+An AW interface network legitimately has a local subset and virtual boundary
+generators, so the validator is checking the wrong identity boundary. No
+validation should be weakened.
+
+Separate metadata gap: VECTOR's `_network_payload` fallback
+`network-geometry` payload serializes only tables and settings. It omits
+boundary indices/generator records, local-to-source IDs, and solvent/context
+membership. Such a payload is correctly not accepted as replayable by the
+current canonical loader, but it cannot support lossless boundary replay until
+VECTOR preserves those fields or marks the scope non-replayable explicitly.
+
+Original/reloaded comparison on the v3 canonical payload:
+
+* generator IDs: equal (`system:0..system:3,boundary:4`);
+* local/source membership: equal (`0,1,2,3,None`);
+* boundary count/identity: equal (one, `boundary:4`);
+* solvent/context: equal (`FULL_SOLVENT`, no solvent rows in this fixture);
+* ordered A/B selection: equal (`(0,)` -> `(1,)`);
+* feature incidence: equal (surface 0 and all retained incidence);
+* source-network lineage: equal (`producer:aw-interface`);
+* Results: no typed Results were attached, so both archives correctly contain
+  zero Result records; network state remains `PARTIAL`.
+
+Handoffs
+--------
+
+PRISM must either load a full-system source network before interface replay,
+or add a canonical source-free replay adapter that validates the embedded
+source atom universe plus the scoped network's explicit boundary/context
+identity. It must not call the full-system `validate_network_source` on a
+scoped interface payload and must not build geometry. If no compatible full
+source payload exists, fail closed with a scope/identity diagnostic.
+
+VECTOR must include a replayable system/source network state alongside scoped
+interface states in a shared checkpoint, and must preserve boundary and
+solvent/context metadata in any partial geometry payload. NEXUSA should hold
+canonical interface replay acceptance until those handoffs land. FORGE has no
+geometry defect or requested change from this reproducer.
+
+Files changed for this diagnosis: `.agent-reports/ATLAS.txt` only. Validation:
+the bounded checkpoint/canonical-layout/v3 boundary regression selection passed
+21 tests. No molecular solve, geometry rebuild, VECTOR exporter edit, PRISM
+CLI edit, archive migration, commit, or push was performed.

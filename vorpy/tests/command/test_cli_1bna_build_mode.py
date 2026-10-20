@@ -47,7 +47,7 @@ def test_explicit_log_build_keeps_input_validation(tmp_path):
         command.build_groups_from_logs()
 
 
-def test_1bna_model1_interface_uses_full_source_default():
+def test_1bna_model1_interface_keeps_full_solvent_competitor_universe():
     command, system = _command(['-g', 'c A and c B', '-g', 'c C', '-i'])
     command.apply_settings()
     command._resolve_default_solvent_mode()
@@ -110,6 +110,7 @@ def test_normal_interface_build_path_is_used_for_logs_export(tmp_path, capsys):
     command.apply_settings()
     system.files['dir'] = str(tmp_path)
     built = []
+    interface_calls = []
 
     class StubGroup:
         name = 'stub'
@@ -127,13 +128,16 @@ def test_normal_interface_build_path_is_used_for_logs_export(tmp_path, capsys):
     command.run_exports = lambda: None
     command._save_archive = lambda: None
     command.build_groups_from_logs = lambda: pytest.fail('log reconstruction selected')
-    system.make_interfaces = lambda pairs, *, analyze_waters: None
+    system.make_interfaces = lambda pairs, *, analyze_waters: interface_calls.append(
+        (pairs, analyze_waters)
+    )
 
     command._process_system()
     output = capsys.readouterr().out
 
-    assert built == ['make_net', 'build', 'make_net', 'build']
-    assert 'Solving AW network...' in output
+    assert built == []
+    assert len(interface_calls) == 1
+    assert 'Solving AW interface network...' in output
     assert 'Extracting ' not in output
     assert 'Source generators:' not in output
     assert 'Active groups:' not in output

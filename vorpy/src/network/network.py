@@ -1225,6 +1225,9 @@ class Network:
                     },
                 }
 
+        if getattr(self.sys, '_cli_stage_output_enabled', False):
+            self.update_progress('Network construction', 0.0)
+
         # Reuse the System-level spatial index whenever possible. The first
         # full-system Network creates it; subsequent Groups/Interfaces attach it.
         if self.box is None and self.sys is not None:

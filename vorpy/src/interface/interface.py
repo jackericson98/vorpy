@@ -8,7 +8,12 @@ from vorpy.src.boundary import prepare_network_geometry
 from vorpy.src.interface.export import interface_exports
 from vorpy.src.interface.water import analyze_interface_waters
 from vorpy.src.interface.water import build_buried_water_groups
-from vorpy.src.output.layout import interface_folder_name, unique_output_directory
+from vorpy.src.output.layout import (
+    canonical_interface_directory,
+    canonical_layout_enabled,
+    interface_folder_name,
+    unique_output_directory,
+)
 
 
 class Interface:
@@ -68,6 +73,10 @@ class Interface:
 
     def set_dir(self):
         root = self.sys.files['dir']
+        if canonical_layout_enabled(self.sys):
+            self.dir = str(canonical_interface_directory(self.sys, self))
+            os.makedirs(self.dir, exist_ok=True)
+            return
         occupied = [getattr(interface, 'dir', None)
                     for interface in getattr(self.sys, 'ifaces', ()) or ()
                     if getattr(interface, 'dir', None)]
@@ -123,7 +132,11 @@ class Interface:
         The Network uses the complete system geometry but restricts vertex
         discovery to vertices involving balls from both interface sides.
         """
-        if self.dir is None and not getattr(self.sys, '_compact_interface_workflow', False):
+        if (
+            self.dir is None
+            and not getattr(self.sys, '_compact_interface_workflow', False)
+            and not getattr(self.sys, '_defer_interface_output_directory', False)
+        ):
             self.set_dir()
 
         self.group1_indices = set(self.group1.ball_ndxs)
@@ -231,6 +244,11 @@ class Interface:
         update_progress = getattr(self.sys, 'update_progress', None)
         if update_progress is not None:
             update_progress(
+                process='Analyzing geometry',
+                progress=0.0,
+                network=self.name,
+            )
+            update_progress(
                 process='Interface analysis | Preparing cached physical interface',
                 progress=0.0,
                 network=self.name,
@@ -238,6 +256,12 @@ class Interface:
         self.analyze_geometry(
             calculate_curvature=calculate_curvature
         )
+        if update_progress is not None:
+            update_progress(
+                process='Analyzing geometry',
+                progress=100.0,
+                network=self.name,
+            )
         self._interface_stage_timings = getattr(self, '_interface_stage_timings', {})
         self._interface_stage_timings['physical_interface'] = perf_counter() - analysis_started
 
@@ -431,8 +455,8 @@ class Interface:
             if built is not None:
                 metadata["built"] = built
 
-    def export(self, all_=False, atoms=False, surfs=False, edges=False, verts=False, logs=False, info=False,
-               group_info=False, round_to=3, dual=False, buried_water=None):
-        interface_exports(iface=self, all_=all_, atoms=atoms, surfs=surfs, edges=edges, verts=verts, logs=logs,
+    def export(self, all_=False, atoms=False, interface_atoms=False, surfs=False, edges=False, verts=False, logs=False, info=False,
+               group_info=False, round_to=3, dual=False, buried_water=None, contact_tables=False):
+        interface_exports(iface=self, all_=all_, atoms=atoms or interface_atoms, surfs=surfs, edges=edges, verts=verts, logs=logs,
                           info=info, group_info=group_info, round_to=round_to, dual=dual,
-                          buried_water=buried_water)
+                          buried_water=buried_water, contact_tables=contact_tables)

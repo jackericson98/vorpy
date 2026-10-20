@@ -94,7 +94,7 @@ def test_legacy_cli_interface_result_state_is_explicitly_unresolved(tmp_path, ca
     assert 'Warning: interface Results unresolved; see interface_info.txt' in capsys.readouterr().out
 
 
-def test_cli_explicit_ordered_interface_incomplete_validated_source_stays_unresolved(
+def test_cli_direct_ordered_interface_handoff_keeps_partial_geometry(
     tmp_path, capsys, monkeypatch
 ):
     system = System(
@@ -156,17 +156,18 @@ def test_cli_explicit_ordered_interface_incomplete_validated_source_stays_unreso
 
     command._process_system()
 
-    assert command.interface_results == ()
-    assert command.interface_result_state['status'] == 'UNRESOLVED'
-    assert command.interface_result_state['typed_result'] is False
-    assert 'NetworkViewError:' in command.interface_result_state['reason']
-    assert system.cli_interface_results == ()
+    assert len(command.interface_results) == 1
+    assert command.interface_result_state['status'] == 'PARTIAL'
+    assert command.interface_result_state['typed_result'] is True
+    assert command.interface_results[0].provenance.geometry_lineage.origin.value == (
+        'DIRECT_SOLVE'
+    )
+    assert system.cli_interface_results == command.interface_results
     assert saved['network'] is system
-    assert saved['network'].cli_interface_results == ()
+    assert saved['network'].cli_interface_results == command.interface_results
     assert saved['path'] == command.save_network_path
     output = capsys.readouterr().out
-    assert 'Warning: interface extraction failed: NetworkViewError:' in output
-    assert 'see interface_info.txt' in output
+    assert 'Warning: interface extraction failed:' not in output
     assert 'CERTIFIED' not in output
 
 

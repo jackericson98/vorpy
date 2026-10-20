@@ -44,7 +44,7 @@ def _build_reference(scheme, *, interface, competitor_near):
     return network
 
 
-@pytest.mark.parametrize("scheme", ["aw", "pow"])
+@pytest.mark.parametrize("scheme", ["aw", "pow", "prm"])
 def test_interface_geometry_matches_full_reference_and_competitor_suppression(scheme):
     full = _build_reference(scheme, interface=False, competitor_near=False)
     selected = _build_reference(scheme, interface=True, competitor_near=False)

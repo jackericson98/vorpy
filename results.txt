@@ -1,0 +1,1285 @@
+NEXUSA — Interface Pipeline Performance Integration
+Date: 2026-10-19
+
+Scope
+-----
+Bounded synthetic 12-atom POW CLI comparison. No real 1BNA solve was run.
+The existing FORGE/PRISM interface-routing changes were preserved. NEXUSA made
+no additional solver, export, archive, or scientific-input edits in this cycle.
+
+Stage timings (seconds)
+-----------------------
+Mode                              -i direct       -i -c system + -e all
+Load/initialization               0.0377425000    0.0407043000
+Solve/geometry                    1.9014898000    3.3820580000
+Meshing (vertex+connect+surface)  1.9010000000    3.3810000000
+Analysis                          0.0000000000    0.0739283000
+Interface extraction              0.1772620000    0.3790372000
+Export                            1.0891201000    6.4394982000
+Archive save                      0.0000000000    0.6505378000
+Total wall                        3.4986410000   11.6894970000
+
+The direct run built only the interface network. The explicit system run built
+12 complete source cells (308 vertices, 516 edges, 221 surfaces), then selected
+the interface (19 surfaces, 79 edges, 61 vertices). Direct and source-derived
+interface geometry matched by stable generator keys:
+
+- 19/19 surfaces; total area 94.715431564571148 A²; max delta 7.11e-15.
+- 79/79 edges; total length 93.595028907569059 A; max delta 4.44e-16.
+- 61/61 vertices; support keys equal; max coordinate delta 0.
+
+Output comparison
+-----------------
+- Default interface bundle: 16 files, 1,370,113 bytes, no automatic archive.
+- Explicit full export: 1,114 files, 12,956,228 bytes, including full-system,
+  group, interface, and archive outputs.
+- Minimal output is approximately 3.34x faster and 89.4% smaller on this fixture.
+- Raw logs and provenance are intentionally not byte-identical: direct and
+  source-derived results have different producer/source identities and scopes.
+
+Validation
+----------
+93 focused tests passed: AW/POW/PRM interface geometry, direct CLI routing and
+progress, FULL_SOLVENT competitor retention, full-system reuse, partial
+completeness, archive reload, cache-export profiling, calculation planning,
+frame-progress behavior, output presets, output paths, and source-view export
+scope.
+The archive reload/cache-export test reported cache export in 0.5502289000 s
+(load 0.4617227000 s; export 0.0867609000 s).
+
+Consultation / reuse decisions
+------------------------------
+- ATLAS: reuse typed Results, dependency digests, source/solve/frame/selection
+  identity, and archive validation; never equate archive ID with producer ID.
+- GAUSS: reuse stored surfaces, edges, vertices, curvature/topology and
+  interface tables; recompute only when source rows or completeness change.
+- VECTOR: recommended scientific minimum is `-e interface` (geometry, atoms,
+  logs, info); `-e micro` is metadata-only. Archive save remains separate.
+  Existing VECTOR synthetic AW warm measurements reduced default export from
+  67.2 ms to 47.0 ms, scope selection from 10.6 ms to 1.6 ms, and the default
+  bundle from 14 to 13 files (39,518 to 36,595 bytes). No `Network.build()` is
+  called during export.
+
+Tracked blockers and deferred work
+----------------------------------
+- PRM typed Results handoff remains unresolved; PRM geometry is exact and the
+  unsupported typed path must remain explicit.
+- Deferred project requirement: reconstructed dual-contact surfaces with
+  complete DNA-side and ligand-side triangulated patches, preserving natural
+  outer boundaries. Not implemented this cycle.
+
+Pilot command (prepared, not run)
+---------------------------------
+Input path verified read-only at `vorpy/data/1bna_DB1976.pdb` (860,624 bytes;
+SHA-256 B24AAF71BBEC96A32A0E6BDBBE89175AD9C52A99459AB1A696B7B7DD9D66FF4D).
+After user approval, run one isolated pilot:
+
+python vorpy 1bna_db1976 -g dna -g "c 2" -i --profile interface -e dir pilot-1bna-interface -e interface --timing-report pilot-1bna-interface.timing.json --fail-if-exists
+
+This command intentionally omits `-c system`; use it only as the minimal
+interface pilot. No commit or input overwrite was performed.
+
+NEXUSA FINAL GATE - 2026-10-19
+------------------------------
+
+Shared contract: `.agent-reports/NEXUSA_INTERFACE_EXPORT_ACCEPTANCE.md`.
+Ownership is non-overlapping: GAUSS metrics/acceptance; ATLAS typed Results,
+provenance and archives; FORGE geometry/FULL_SOLVENT completeness; VECTOR
+serialization/meshes/logs/archives; PRISM CLI routing/progress/timing. No
+ATLAS or GAUSS module was edited. Separate GAUSS/ATLAS handoff files were not
+present; their existing contracts were validated read-only.
+
+Integration evidence
+--------------------
+- `-i`: `interface_only=True`, `full_system_request=False`, requests only
+  `interface`; no full-system/group network target.
+- `-i -c system`: `interface_only=False`, `full_system_request=True`, requests
+  `system` then `interface`; source-derived interface views reuse geometry.
+- Wet input: 860,624 bytes, SHA-256
+  `B24AAF71BBEC96A32A0E6BDBBE89175AD9C52A99459AB1A696B7B7DD9D66FF4D`.
+  Parser membership is 10,494 atoms: chain A 379, B 379, C 47, blank-solvent
+  chain 9,689. Ordered `dna` is indices 0..757 (758 atoms; digest
+  `83a6897c4cf735b8b2cac260f75ecdb015ade0ca28b09b70c253674584d82c54`), and
+  `c_2` is indices 758..804 (47 MOL atoms; digest
+  `28d5be2089f911ca86f80c9571fa15212377c2ac58833a9f173d0537f4c6bba`).
+  Canonical `c A and c B` / `c C` is membership-identical.
+- `--profile interface` builds physical geometry and interface/alpha selection,
+  records area only for retained physical surfaces, and skips curvature,
+  topology and water analysis. A zero `Network.metrics['anal']` is expected:
+  interface mode calls `Network.build(calculate_curvature=False)`, which runs
+  `analyze_geometry_only` under completeness, not the full `analyze()` timer.
+  Interface analysis has its own measured `physical_interface` timing.
+- FULL_SOLVENT competitor retention, partial/unresolved status, source-view
+  reuse, AW/POW/PRM bounded geometry equivalence and no-rebuild export passed
+  synthetic tests. The archive-reloaded `iface.dir=None` regression is covered
+  by 3 archive round-trip tests plus the CLI archive/cache reload test; export
+  assigns a directory before any `os.makedirs` path. No solver formula changed.
+
+Export and performance evidence
+--------------------------------
+VECTOR's bounded AW warm median: default export 67.2 ms -> 47.0 ms; scope
+selection 10.6 ms -> 1.6 ms; default interface files 14 -> 13 and bytes
+39,518 -> 36,595. The compact interface bundle writes physical OFF meshes,
+contact atom PDBs, interface summary, surface/edge/vertex scientific tables,
+completeness fields, canonical typed-Results `logs.csv`, and compatibility
+`network_info.txt`; it omits full-system/group products, legacy scheme logs,
+dual/visualization products and automatic archives. Explicit presets retain
+legacy logs, larger meshes, dual products, water and archives. Geometry,
+analysis, export and optional archive-save timings are separate in the timing
+JSON; archive save is zero unless explicitly requested.
+
+Validation gate
+---------------
+Passed focused bounded groups: 16 CLI/parser/progress tests; 25 safe
+calculation-plan tests; 23 reuse/geometry/timing tests; 27 output/Results/
+solvent/archive-contract tests; 3 archive reload/cache tests; and 1 fresh
+process CLI archive/cache reload test. The metric/area/status contract suite
+added 49 bounded molecular-contact, output-layout and scientific-contract
+passes. The only broad-sweep failures are the
+known absent `1AAY.pdb` and `1AAY_no_sol.pdb` fixtures. No real 1BNA solve,
+full-system solve, overwrite or commit occurred. `gudhi` is absent (`find_spec`
+returned `None`): optional alpha-derived Results remain UNRESOLVED, but raw
+physical POW geometry/tables remain valid for visualization. PRM physical
+geometry is bounded-equivalent, but the CLI typed Results adapter intentionally
+rejects PRM and leaves its Result UNRESOLVED.
+
+Resources and pilot gate
+------------------------
+System memory is approximately 64 GiB total / 32.5 GiB free; C: has 360.09
+GiB free. The isolated destination
+`output/pilot_1bna_DB1976_pow_wet_interface_20261019` does not exist; existing
+output trees remain untouched. GO for a user-operated raw-geometry pilot with
+the command below. NO-GO for a certified alpha/typed-Results scientific run
+until GUDHI is available and the real FULL_SOLVENT completeness/metric output
+is reviewed. The provisional 211 direct-facet / 187.812 A^2 and 277 total-
+facet / 258.142 A^2 values were not revalidated because the real solve was
+prohibited.
+
+Exact pilot command (prepare only; do not run automatically)
+-------------------------------------------------------------
+```powershell
+$input = (Resolve-Path .\vorpy\data\1bna_DB1976.pdb).Path
+$pilot = Join-Path (Get-Location) 'output\pilot_1bna_DB1976_pow_wet_interface_20261019'
+$timing = Join-Path $pilot 'timing.json'
+$expected = 'B24AAF71BBEC96A32A0E6BDBBE89175AD9C52A99459AB1A696B7B7DD9D66FF4D'
+if ((Get-FileHash -LiteralPath $input -Algorithm SHA256).Hash.ToUpper() -ne $expected) { throw '1BNA input hash mismatch' }
+if (Test-Path -LiteralPath $pilot) { throw "Refusing existing pilot destination: $pilot" }
+$cliArgs = @('--fail-if-exists', $input, '-g', 'dna', '-g', 'c', '2', '-i', '-s', 'nt', 'pow', '--solvent-mode', 'FULL_SOLVENT', '--boundary', 'none', '--profile', 'interface', '--timing-report', $timing, '-e', 'dir', $pilot, '-e', 'interface')
+& .\.venv\Scripts\python.exe -m vorpy @cliArgs
+```
+
+NEXUSA GIT CHECKPOINT AUDIT - 2026-10-20
+========================================
+
+Scope
+-----
+Read-only checkpoint preparation. No files were staged, committed, pushed,
+deleted, reset, cleaned, or checked out. No EDTA, 1BNA, p53tet, or large
+molecular solve was launched.
+
+Repository state
+----------------
+* Branch: `wip/experimental-development`
+* HEAD: `b5ddc3245 checkpoint: preserve VorPy interface and benchmark development`
+* Remote: `origin`
+  `https://github.com/jackericson98/vorpy.git` (fetch and push)
+* Index: empty; no staged changes.
+* Worktree: 35 modified tracked paths and 1,541 untracked paths.
+* The modified tracked `vorpy/data/1bna_DB1976.pdb` was not changed or selected
+  for the proposed checkpoint.
+* Full `git diff --check` reports 20,948 whitespace diagnostics, all from that
+  protected PDB diff. The candidate source/test/workbench diff reports zero.
+
+Checkpoint contents
+-------------------
+The following 61 paths form one consistent interface/export/checkpoint
+development checkpoint: 33 modified tracked implementation/test paths plus 28
+new source, test, script, report, and contract paths.
+
+FORGE / geometry and completeness:
+
+* `vorpy/src/network/__init__.py`
+* `vorpy/src/network/analyze.py`
+* `vorpy/src/network/network.py`
+* `vorpy/src/network/incremental.py`
+* `vorpy/src/interface/interface.py` (shared with PRISM/VECTOR)
+* `vorpy/tests/network/test_geometry_completeness.py`
+* `vorpy/tests/network/test_pow_source_view_geometry.py`
+* `vorpy/tests/network/test_incremental_group_completion.py`
+* `vorpy/tests/network/test_gauss_cell_completeness.py`
+* `vorpy/tests/geometry/test_dual_primary_separation.py`
+
+PRISM / CLI planning, routing, progress, and workbench integration:
+
+* `vorpy/src/command/calculation_plan.py`
+* `vorpy/src/command/command_export.py`
+* `vorpy/src/command/commands.py`
+* `vorpy/src/command/vpy_cmnd.py`
+* `vorpy/src/system/system.py`
+* `vorpy/workbench/services/vorpy_backend.py`
+* `vorpy/tests/command/test_calculation_plan.py`
+* `vorpy/tests/command/test_cli_1bna_build_mode.py`
+* `vorpy/tests/command/test_cli_edta_exports.py`
+* `vorpy/tests/command/test_full_system_reuse.py`
+* `vorpy/tests/command/test_vpy_cmnd.py`
+* `vorpy/tests/command/test_export_plan.py`
+* `vorpy/tests/command/test_interface_only_cli.py`
+* `vorpy/tests/command/test_cli_progress.py`
+* `vorpy/tests/workbench/test_vorpy_backend.py`
+
+VECTOR / layout, classic logs, meshes, and writers:
+
+* `vorpy/src/group/export.py`
+* `vorpy/src/interface/export.py`
+* `vorpy/src/output/layout.py`
+* `vorpy/src/output/logs.py`
+* `vorpy/src/output/output.py`
+* `vorpy/src/output/sys.py`
+* `vorpy/src/output/system_info.py`
+* `vorpy/src/output/visualization.py`
+* `vorpy/src/output/checkpoint.py`
+* `vorpy/tests/output/test_source_view_export_scope.py`
+* `vorpy/tests/output/test_vector_canonical_layout.py`
+* `vorpy/tests/output/test_vector_source_less_archive.py`
+* `vorpy/tests/test_output_presets.py`
+* `vorpy/tests/io/test_interface_result_archive.py`
+* `vorpy/tests/io/test_network_archive.py`
+* `scripts/benchmark_canonical_export.py`
+
+ATLAS / typed Results, provenance, and checkpoint persistence:
+
+* `vorpy/src/results/__init__.py`
+* `vorpy/src/results/model.py`
+* `vorpy/src/results/checkpoint.py`
+* `vorpy/tests/results/test_checkpoint_contract.py`
+* `vorpy/tests/results/test_compact_provenance.py`
+
+GAUSS / scientific reporting and solvent checks:
+
+* `vorpy/tests/analyze/test_gauss_wet_interface_acceptance.py`
+* `vorpy/tests/test_solvent_modes.py`
+
+NEXUSA / contracts and integration evidence:
+
+* `results.txt`
+* `docs/development/checkpoint_contract.md`
+* `docs/development/results_provenance_compact_contract.md`
+* `.agent-reports/ATLAS.txt`
+* `.agent-reports/FORGE.txt`
+* `.agent-reports/GAUSS.txt`
+* `.agent-reports/PRISM.txt`
+* `.agent-reports/VECTOR.txt`
+* `.agent-reports/NEXUSA_CORE_STABILIZATION_ACCEPTANCE.md`
+* `.agent-reports/NEXUSA_EXPORT_ARCHITECTURE_AUDIT.md`
+* `.agent-reports/NEXUSA_EXPORT_CHECKPOINT_IMPLEMENTATION_CONTRACT.md`
+* `.agent-reports/NEXUSA_INTERFACE_EXPORT_ACCEPTANCE.md`
+* `.agent-reports/NEXUSA_VECTOR_HANDOFF.md`
+
+The ownership labels are coordination labels, not separate commits. The
+shared `interface.py`, `analyze.py`, Results exports, and archive tests should
+remain in this single checkpoint because their contracts cross agent
+boundaries.
+
+Explicit exclusions
+-------------------
+
+* `.idea/vorpy3.iml` (local IDE state).
+* Modified tracked `vorpy/data/1bna_DB1976.pdb` (scientific input; preserve
+  locally and transfer separately if needed).
+* `vorpy/data/1bna_DB1976_no_sol.pdb` and
+  `vorpy/data/1bna_db1976_frames/` (molecular data not part of the source
+  checkpoint).
+* All untracked `.nexusa_core_edta_*` and `.nexusa_perf_tmp` trees.
+* Root generated `aw_verts.txt`, `pow_verts.txt`, `prm_verts.txt`, and
+  `system_info.txt`.
+* All generated `.vpy` archives, PDB/mesh/log outputs, timing JSON, caches,
+  and test output directories. The inventory contains 7 untracked `.vpy`, 38
+  untracked PDBs, and 70 log/JSON/TXT-like generated files; none is proposed
+  for staging.
+
+No excluded file was deleted or modified during this audit.
+
+Verification
+------------
+The current bounded smoke selection collected and passed 49/49 tests, with no
+failures, skips, or timeouts:
+
+* source-less archive export: 2
+* canonical layout: 2
+* checkpoint contract: 16
+* export planning and public checkpoint loading: 11
+* interface-only CLI: 5
+* CLI progress: 13
+
+The broader prior acceptance evidence remains recorded above: 208/218 focused
+tests passed, with eight failures caused by absent 1AAY fixtures and two
+obsolete directory/source-less expectations. Live acceptance still has two
+real defects: fresh interface `--fail-if-exists` collides with the directory
+created by `Interface.set_dir()`, and canonical checkpoint interface replay
+rejects valid cached boundary generators. These are PRISM/VECTOR and
+PRISM/ATLAS/FORGE coordination defects respectively; they are not hidden by
+the passing unit tests. User-confirmed EDTA AW evidence remains 32 complete
+cells, 500 vertices, 892 edges, and 424 surfaces; no new molecular run was
+used here.
+
+Proposed staging and transfer procedure
+----------------------------------------
+Do not run these commands until the user approves the path list. They are
+explicit-path commands and intentionally do not use `git add -A`:
+
+```powershell
+git switch -c checkpoint/interface-export-architecture-2026-10-20
+git add -- `
+  .agent-reports/ATLAS.txt `
+  .agent-reports/FORGE.txt `
+  .agent-reports/GAUSS.txt `
+  .agent-reports/PRISM.txt `
+  .agent-reports/VECTOR.txt `
+  .agent-reports/NEXUSA_CORE_STABILIZATION_ACCEPTANCE.md `
+  .agent-reports/NEXUSA_EXPORT_ARCHITECTURE_AUDIT.md `
+  .agent-reports/NEXUSA_EXPORT_CHECKPOINT_IMPLEMENTATION_CONTRACT.md `
+  .agent-reports/NEXUSA_INTERFACE_EXPORT_ACCEPTANCE.md `
+  .agent-reports/NEXUSA_VECTOR_HANDOFF.md `
+  docs/development/checkpoint_contract.md `
+  docs/development/results_provenance_compact_contract.md `
+  results.txt `
+  scripts/benchmark_canonical_export.py `
+  vorpy/src/command/calculation_plan.py `
+  vorpy/src/command/command_export.py `
+  vorpy/src/command/commands.py `
+  vorpy/src/command/vpy_cmnd.py `
+  vorpy/src/group/export.py `
+  vorpy/src/interface/export.py `
+  vorpy/src/interface/interface.py `
+  vorpy/src/network/__init__.py `
+  vorpy/src/network/analyze.py `
+  vorpy/src/network/network.py `
+  vorpy/src/network/incremental.py `
+  vorpy/src/output/checkpoint.py `
+  vorpy/src/output/layout.py `
+  vorpy/src/output/logs.py `
+  vorpy/src/output/output.py `
+  vorpy/src/output/sys.py `
+  vorpy/src/output/system_info.py `
+  vorpy/src/output/visualization.py `
+  vorpy/src/results/__init__.py `
+  vorpy/src/results/model.py `
+  vorpy/src/results/checkpoint.py `
+  vorpy/src/system/system.py `
+  vorpy/workbench/services/vorpy_backend.py `
+  vorpy/tests/analyze/test_gauss_wet_interface_acceptance.py `
+  vorpy/tests/command/test_calculation_plan.py `
+  vorpy/tests/command/test_cli_1bna_build_mode.py `
+  vorpy/tests/command/test_cli_edta_exports.py `
+  vorpy/tests/command/test_full_system_reuse.py `
+  vorpy/tests/command/test_vpy_cmnd.py `
+  vorpy/tests/command/test_export_plan.py `
+  vorpy/tests/command/test_interface_only_cli.py `
+  vorpy/tests/command/test_cli_progress.py `
+  vorpy/tests/geometry/test_dual_primary_separation.py `
+  vorpy/tests/io/test_interface_result_archive.py `
+  vorpy/tests/io/test_network_archive.py `
+  vorpy/tests/network/test_geometry_completeness.py `
+  vorpy/tests/network/test_pow_source_view_geometry.py `
+  vorpy/tests/network/test_incremental_group_completion.py `
+  vorpy/tests/network/test_gauss_cell_completeness.py `
+  vorpy/tests/output/test_source_view_export_scope.py `
+  vorpy/tests/output/test_vector_canonical_layout.py `
+  vorpy/tests/output/test_vector_source_less_archive.py `
+  vorpy/tests/results/test_checkpoint_contract.py `
+  vorpy/tests/results/test_compact_provenance.py `
+  vorpy/tests/test_output_presets.py `
+  vorpy/tests/test_solvent_modes.py `
+  vorpy/tests/workbench/test_vorpy_backend.py
+git diff --cached --check
+git diff --cached --stat
+git status --short
+git commit -m "Checkpoint VorPy interface and export architecture development"
+git push -u origin checkpoint/interface-export-architecture-2026-10-20
+```
+
+The new checkpoint branch is recommended because the current branch is named
+`wip/experimental-development` and contains broad concurrent work. Branch
+creation, staging, commit, and push all remain pending explicit approval.
+
+On the other computer, after the push:
+
+```powershell
+git clone https://github.com/jackericson98/vorpy.git
+cd vorpy
+git fetch origin
+git switch --track -c checkpoint/interface-export-architecture-2026-10-20 origin/checkpoint/interface-export-architecture-2026-10-20
+git status --short
+.venv\Scripts\python.exe -m pytest -q vorpy/tests/output/test_vector_source_less_archive.py vorpy/tests/output/test_vector_canonical_layout.py vorpy/tests/results/test_checkpoint_contract.py vorpy/tests/command/test_export_plan.py vorpy/tests/command/test_interface_only_cli.py vorpy/tests/command/test_cli_progress.py
+```
+
+Checkpoint decision
+-------------------
+**READY for a curated development checkpoint after user review and approval**
+of the explicit path list. **NOT READY as a clean scientific release or pilot
+authorization** until the two live defects and missing 1AAY fixtures are
+resolved or explicitly accepted. The audit made no Git or scientific-input
+changes.
+Optional archive saving is explicit: append `@('--save-network', (Join-Path
+$pilot '1bna_DB1976_pow_wet_interface.vpy'))` to `$cliArgs` before invocation.
+
+Deferred: reconstructed gap-free DNA-side and ligand-side dual-contact patches
+with natural outer boundaries remain documented only and were not implemented.
+
+NEXUSA EDTA CORE STABILIZATION - 2026-10-19
+--------------------------------------------
+
+Observed regression
+~~~~~~~~~~~~~~~~~~~
+Existing current outputs `output/EDTA_559` and `output/EDTA_560` recorded the
+same EDTA input with `MOLECULE_ONLY`, 33 active generators (32 EDTA atoms plus
+retained Mg), 105 vertices, 182 edges, 81 surfaces, and only 3 complete
+cells. This is recorded as an observed regression, not an accepted baseline.
+The EDTA input was not changed; SHA-256 is
+`3B233F7E98A1253F1506D562C54E192DCBFDF7A99A2EFCBEBE6AECCD305F888F`.
+
+Root cause and repair
+~~~~~~~~~~~~~~~~~~~~~
+Historical records in `docs/performance/EDTA_PIPELINE_TIMING.md`,
+`docs/performance/EDTA_EDGE_CURVATURE_OPTIMIZATION.md`, and the historical
+`8f27ab76b` source show a wet full-system solve using all 612 loaded source
+rows as geometry context while selecting molecular cell owners. Current CLI
+routing instead applied `MOLECULE_ONLY` and removed 579 waters before the
+ordinary EDTA network was built. The current `boundary.py`/`Group.make_net`
+solver path was compared read-only; no solver formula or scientific metric was
+changed. The repair is PRISM-only routing: implicit wet ordinary solves now
+use `SOLVENT_CONTEXT`; plain `-c system` keeps the ordinary full-system route.
+The separate all-source network remains reserved for `-i -c system` reuse.
+
+Validation evidence
+~~~~~~~~~~~~~~~~~~~
+Using the unchanged EDTA PDB and `-s mv 5`:
+
+* default: 612 source/context balls, 500 vertices, 892 edges, 424 surfaces,
+  32 complete cells, `SOLVENT_CONTEXT`;
+* explicit `-c system`: same counts, memberships, serialized geometry and
+  32 complete cells; only archive timestamp/path bytes differed.
+
+Post-fix default timing was 24.382 s total: loading 0.049, geometry 16.021,
+analysis 0.499, export 6.290, archive save 1.281. The explicit-system run was
+20.840 s: loading 0.048, geometry 13.539, analysis 0.442, export 5.347,
+archive 1.247. The difference is warm-process variance, not a geometry
+difference. Each output contained 113 files (20,441,718 and 20,441,725 bytes);
+each archive contained 5,071 members (~2.591 MB compressed). Timing JSON keeps
+geometry, analysis, export, and archive phases separately observable.
+
+The shared acceptance contract is `.agent-reports/NEXUSA_CORE_STABILIZATION_ACCEPTANCE.md`.
+Ownership remains FORGE=geometry/completeness, PRISM=CLI routing/progress,
+GAUSS=scientific definitions, ATLAS=typed Results/provenance, VECTOR=logs,
+meshes/export/archive, and NEXUSA=integration/tests/root results. No ATLAS or
+GAUSS module was edited. The deferred reconstructed dual-contact patches were
+not implemented.
+
+Tests
+~~~~~
+Passed: focused solvent/plan checks (3), safe calculation-plan checks (27),
+EDTA CLI regression (1), synthetic AW/POW/PRM/output/Results matrix (48),
+archive/interface reload subset (13), and geometry completeness subset (4).
+The archive reload test now checks the current contact-scoped public names
+(`group_a_atoms.pdb` and `group_b_atoms.pdb`) rather than the obsolete
+`interface_atoms.pdb`; curvature/energy/angle fields, interface identity and
+no-rebuild export pass after reload. The only broader failures remain missing
+`1AAY.pdb` and `1AAY_no_sol.pdb` fixtures. No 1BNA run, molecular benchmark,
+destructive Git operation, staging, commit, push, or input overwrite occurred.
+
+Decision
+~~~~~~~~
+GO for restored EDTA default and explicit-system behavior and bounded
+interface/export integration. NO-GO for declaring the historical numerical
+baseline scientifically certified across all methods: real POW/PRM molecular
+runs were prohibited, optional GUDHI alpha results remain unavailable, and
+FULL_SOLVENT completeness/curvature acceptance for the future 1BNA pilot still
+requires review of that user-operated run.
+
+NEXUSA FINAL CORE STABILIZATION INTEGRATION - 2026-10-19
+----------------------------------------------------------
+
+Review and worktree
+~~~~~~~~~~~~~~~~~~~
+All current FORGE, PRISM, VECTOR, GAUSS, ATLAS and NEXUSA contracts were read,
+including `NEXUSA_VECTOR_HANDOFF.md`. The shared tree remains intentionally
+dirty: the tracked 1BNA PDB is modified and preserved, specialist source/test
+files are modified, and generated reports/archives are untracked. No files
+were deleted, reverted, staged, committed, pushed, or overwritten. The
+scoped tracked diff check for the integration paths is clean; repository-wide
+whitespace checking is not clean because the preserved dirty PDB contains
+existing trailing whitespace.
+
+EDTA three-versus-32 reconciliation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The preserved pre-repair outputs `output/EDTA_559/EDTA.vpy` and
+`output/EDTA_560/EDTA.vpy` prove that the earlier three-cell result was real
+archive state, not merely a printed/export-filter count:
+
+* 33 source/group generators, 33 selected owners, 3 complete cells;
+* 105 vertices, 182 edges, 81 surfaces;
+* AW, `MOLECULE_ONLY`, boundary `none`, `surf_res=0.2`, `box_size=1.25`,
+  `max_vert=5`, implicit-default solvent resolution.
+
+The preserved post-routing AW archives contain 612 source/context generators,
+32 selected cell owners, 580 context competitors, 32 complete selected cells,
+500 vertices, 892 edges and 424 surfaces. Both archives have identical
+per-cell closure evidence: zero missing faces, edges, vertex references, open
+edges or bad vertices. The historical POW reference remains distinct at
+504/896/425/32. EDTA SHA-256 remains
+`3B233F7E98A1253F1506D562C54E192DCBFDF7A99A2EFCBEBE6AECCD305F888F`.
+
+The FORGE generator-identity correction is integrated in
+`vorpy/src/network/analyze.py`: both geometry-only and full analysis now use
+`balls['num']`, not incidental `DataFrame.index`; its reindexing regression
+test passes. This explains a valid class of reload/filter completeness errors,
+but the exact historical three-cell CLI run has not been reproduced after the
+correction. Therefore the regression is not declared fixed until the guarded
+real EDTA confirmation below is run.
+
+CLI and logging integration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Read-only planning confirms `edta`, `edta -c system`, `edta -s mv 5`, and
+`edta -c system -s mv 5` all request one ordinary full-system network;
+`-g` remains independent group selection; two ordered groups plus `-i` request
+only the interface; `-i -c system` requests a source solve plus interface
+reuse; `--profile` changes analysis depth; and `-e` changes exports only.
+The live plan records AW/POW/PRM selection without changing the target.
+
+The default interface preset currently emits classic `<net_type>_logs.csv`
+alongside physical meshes/tables, canonical `logs.csv`, compact
+`logs.compact.csv`, and `logs.provenance.json`. Header-based readers accept
+the historical 36/12/5/9 section fields and the current 47/17/17/11
+superset. Positional compatibility is explicitly unsupported/unverified.
+Incomplete cells retain `Complete Cell?=False`; unavailable curvature is
+blank/NOT_CALCULATED, never fabricated zero. Legacy v3 logs/archives,
+typed Results, sidecar digest failures, and reload-to-export without
+`Network.build()` pass bounded tests.
+
+Compact canonical size decision
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The bounded 106-row measurement is explicit: legacy canonical `logs.csv`
+was 1,097,266 bytes and 101.2 ms; compact CSV plus provenance sidecar was
+42,425 bytes and 55.7 ms. The current compatibility bundle writes all three
+files at 1,139,691 bytes, so retaining the full legacy canonical CSV negates
+the disk-size advantage. Recommendation: future-compatible default should
+retain the classic scheme log and compact CSV/sidecar, while making the full
+legacy canonical CSV an explicit compatibility export. This is not changed
+unilaterally in this gate.
+
+Integrated test evidence
+~~~~~~~~~~~~~~~~~~~~~~~~
+Current bounded matrix, all run with `.venv\\Scripts\\python.exe -m pytest`:
+
+* scientific synthetic geometry/completeness/solvent/AW-POW-PRM/dual/curvature:
+  63 collected, 63 passed, 0 failed, 0 skipped, 0 timeouts;
+* routing/interface/reuse/progress/CLI adapter subset: 71 collected, 71
+  passed, 0 failed, 0 skipped, 0 timeouts;
+* classic logs, compact Results/provenance, output layouts/presets, source
+  views, archive reload and export caching: 102 collected, 102 passed, 0
+  failed, 0 skipped, 0 timeouts.
+
+The unsupported fixture-dependent probe has 8 failures, separately classified:
+7 planner tests and 1 full-system reuse test require absent
+`1AAY.pdb`/`1AAY_no_sol.pdb`. A separate GAUSS adjacent run previously hit a
+2KAI fixture setup timeout; it is not counted as acceptance evidence. No
+fresh real EDTA, POW, PRM, 1BNA, p53tet, or full molecular benchmark was run
+for this gate.
+
+Guarded user-operated EDTA confirmation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The destination `output/EDTA_confirmation_20261019` is currently absent.
+Run this command manually; it refuses a hash mismatch or existing output:
+
+```powershell
+$input = (Resolve-Path .\\vorpy\\data\\EDTA.pdb).Path
+$destination = Join-Path (Get-Location) 'output\\EDTA_confirmation_20261019'
+$timing = Join-Path $destination 'timing.json'
+$expected = '3B233F7E98A1253F1506D562C54E192DCBFDF7A99A2EFCBEBE6AECCD305F888F'
+if ((Get-FileHash -LiteralPath $input -Algorithm SHA256).Hash.ToUpper() -ne $expected) { throw 'EDTA input hash mismatch' }
+if (Test-Path -LiteralPath $destination) { throw "Refusing existing destination: $destination" }
+$args = @('--fail-if-exists', $input, '-s', 'mv', '5', '-e', 'dir', $destination, '--timing-report', $timing)
+& .\\.venv\\Scripts\\python.exe -m vorpy @args
+```
+
+After a successful default run, repeat with a distinct destination and add
+`'-c', 'system'` to `$args`; compare complete cells, source/context counts,
+vertices, edges, surfaces, settings, classic logs, timing JSON and archive
+bytes. Do not use an existing `output/EDTA_*` directory.
+
+Final decision
+~~~~~~~~~~~~~~
+NO-GO for returning to 1BNA wet/dry interface analysis or declaring EDTA
+restored. GO for bounded synthetic development and the guarded user-operated
+EDTA confirmation. The remaining specialist action is VECTOR/ATLAS agreement
+on making full legacy canonical CSV compatibility output opt-in; no scientific
+or solver change is requested.
+
+NEXUSA EXPORT ARCHITECTURE AUDIT - 2026-10-19
+----------------------------------------------
+
+Audit-only result
+~~~~~~~~~~~~~~~~~
+Added `.agent-reports/NEXUSA_EXPORT_ARCHITECTURE_AUDIT.md`. No calculation,
+solver, formula, export writer, test, input, or existing output was modified.
+No real EDTA, 1BNA, p53tet, or large molecular calculation was run.
+
+Key findings
+~~~~~~~~~~~~
+The repository already has System/Group/Interface objects, scoped interface
+views, cache-only archive reload, direct A/B area accounting, completeness
+guards, and typed/compact interface log serialization. It does not yet have a
+clean three-scope directory contract or a general incremental checkpoint API
+that can add an unsolved Group C while reusing A/B geometry.
+
+The CLI `tiny` route is metadata-only and has no edge visualization. The
+historical `small` route writes group surfaces and canonical interface logs,
+but not the classic interface scheme log. `-e small add surfs` and
+`-e large no shell` are not implemented modifiers: the current dispatcher
+uses only the first token in those blocks. `mol`, `cif`, `xyz`, and `txt` are
+accepted option names but their writers are stubs/not wired into system export.
+
+Bounded size evidence
+~~~~~~~~~~~~~~~~~~~~~
+Existing EDTA output: 113 files / 20,441,718 bytes; archive 2,590,914 bytes.
+Existing preserved 1BNA interface output: 14 files / 51,137,151 bytes,
+including a 47,023,524-byte `logs.csv`; excluding that file leaves 12 files /
+3,850,696 bytes. Its preserved full-system geometry checkpoint is
+514,250,919 bytes. These are read-only artifact measurements, not new solves.
+
+Recommendation
+~~~~~~~~~~~~~~
+Use proposed `small` as the normal minimal export: direct interface info,
+edge/surface visualization, contact atoms, classic scheme log for compatibility,
+compact typed Results plus provenance, and no unrelated full-system/group
+network output. Resolve archive-default, legacy-log, dual/alpha, water-tier,
+`network_info.txt` alias, and additive/subtractive grammar decisions before
+implementation. The deferred reconstructed dual-contact triangulation remains
+out of scope.
+
+NEXUSA EXPORT/CHECKPOINT IMPLEMENTATION CONTRACT - 2026-10-19
+-------------------------------------------------------------
+
+Published `.agent-reports/NEXUSA_EXPORT_CHECKPOINT_IMPLEMENTATION_CONTRACT.md`
+as the authoritative frozen contract for the System/Group/Interface output
+architecture. It fixes the single-root/source-copy/shared-checkpoint layout,
+five cumulative export tiers, interface-only scope rules, canonical component
+vocabulary, repeated `-e` precedence, legacy migration policy, ATLAS/VECTOR
+checkpoint boundary, status/no-contact semantics, acceptance matrix, and
+specialist file ownership.
+
+Contract authority supersedes older audit proposals where they conflict:
+normal tiers including `tiny` update one shared checkpoint; default interface
+exports omit standalone Results/provenance CSVs and classic interface logs;
+`all` does not implicitly enable alpha, dual, detailed-water, experimental, or
+obsolete products. PRM typed Results handoff remains an explicit blocker.
+
+Handoff: GO for bounded implementation planning and seam review by PRISM,
+ATLAS, VECTOR, FORGE, and GAUSS. NO-GO for real molecular solves, automatic
+archive migration, existing-output rewrites, deferred dual-contact
+triangulation, or declaring PRM typed Results resolved. No tests or molecular
+calculations were run for this contract-only publication.
+
+NEXUSA OUTPUT ARCHITECTURE MILESTONE INTEGRATION - 2026-10-20
+--------------------------------------------------------------
+
+Decision: PARTIAL / NO-GO for authorizing a real molecular pilot from this
+gate. Scientific/cache behavior is bounded-test green, but the frozen output
+architecture is not fully wired into the live writer/archive path.
+
+Worktree and preservation
+~~~~~~~~~~~~~~~~~~~~~~~~~
+The shared tree was reviewed without cleanup, staging, commit, push, deletion,
+or source modification. It remains dirty with concurrent specialist changes,
+untracked reports/tests/artifacts, and the tracked 1BNA input. Read-only
+hashes are:
+
+* `vorpy/data/1bna_DB1976.pdb`:
+  `B24AAF71BBEC96A32A0E6BDBBE89175AD9C52A99459AB1A696B7B7DD9D66FF4D`
+* `vorpy/data/EDTA.pdb`:
+  `3B233F7E98A1253F1506D562C54E192DCBFDF7A99A2EFCBEBE6AECCD305F888F`
+
+The latest PRISM, VECTOR, ATLAS, FORGE, GAUSS reports and the three NEXUSA
+contracts were reviewed. No new molecular calculation was launched.
+
+Live synthetic tier measurements
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Using the existing bounded AW interface contract case, with only the archive
+call stubbed for inventory measurement:
+
+| Preset | Root files | Root bytes | Scope files | Scope bytes | Observation |
+|---|---:|---:|---:|---:|---|
+| `tiny` | 3 | 13,295 | 2 | 12,170 | info plus compatibility alias; no edge/contact output |
+| `small` | 7 | 44,634 | 6 | 43,509 | surface/info plus canonical and compact logs |
+| `medium` | 17 | 55,026 | 16 | 53,901 | meshes/tables/PDBs plus classic and typed logs |
+| `large` | 10 | 19,416 | 9 | 18,291 | physical meshes/PDBs/info; no certified curvature/topology files |
+| `all` | 17 | 55,017 | 16 | 53,892 | medium-like output plus classic/typed logs |
+
+The explicit current `interface` bundle is 16 files / 53,904 bytes and emits
+`aw_logs.csv`, `logs.csv`, `logs.compact.csv`, and `logs.provenance.json`.
+Therefore the requested small/default no-redundant-log behavior is not live.
+The five-tier table excludes checkpoint bytes; the new `_checkpoint.vpy`
+writer is not integrated, so a valid per-tier checkpoint growth curve cannot
+be claimed. Preserved v3 evidence is EDTA `EDTA.vpy`: 2,590,914 bytes,
+5,071 members, 5,141,809 raw member bytes, 1.2809 s total archive time;
+the explicit-system preserved archive is 2,590,921 bytes (+7 bytes). The
+preserved 1BNA geometry checkpoint is 514,250,919 bytes and was not rebuilt.
+
+Acceptance status
+~~~~~~~~~~~~~~~~~
+
+* Original root source copy: **FAIL**. Current writers do not copy the exact
+  original basename/bytes for every tier; an explicit PDB export is not the
+  frozen source-copy policy.
+* One self-contained shared checkpoint for tiny through all: **FAIL/PARTIAL**.
+  ATLAS `CheckpointDocument` is validated as a pure contract, while live
+  output remains v3 `<system>.vpy` or internal `.geometry.vpy`.
+* Interface-only group placeholders without group solves: **FAIL**. Current
+  preparation creates the interface directory only, not the prescribed
+  `groups/A` and `groups/B` placeholders.
+* Requested standalone group outputs: **PASS** in bounded routing/layout
+  tests; no group solve is introduced by an interface-only plan.
+* Direct A/B scope, supporting-surface separation, A/B/B/A identity, typed
+  status/provenance, and cache-only reload export: **PASS** in bounded tests.
+* Exact five-tier writer contents: **PARTIAL/FAIL**. The planner describes
+  the frozen tiers, but the writer still has historical aliases: tiny has no
+  edge mesh, small writes canonical logs, medium/all include logs, and large
+  does not emit the contract's certified curvature/topology set.
+* Add/no/repeated `-e`: **PARTIAL**. Six plan-grammar tests pass, but the
+  live export-cache suite has two failures because `-e none` is rejected as
+  an unknown component; runtime dispatch is not fully plan-driven.
+* Optional legacy/advanced exports: **PARTIAL**. Classic logs and dual paths
+  remain accessible explicitly, but explicit `results`/`provenance` component
+  dispatch is not complete.
+* Atomic/backward-compatible archive behavior: **PASS for existing v3**;
+  **PARTIAL** for the new checkpoint manifest/source-copy integration.
+* Incremental geometry: **PARTIAL**. Bounded AW/POW/PRM recovery matches an
+  independently clean synthetic Group C (4 vertices, 4 edges, 1 surface),
+  but checkpoint/CLI merge remains deliberately deferred.
+* AW/POW/PRM and EDTA compatibility: **PARTIAL**. Synthetic geometry and
+  historical AW/POW distinctions are preserved; PRM typed Results, optional
+  GUDHI alpha, and a fresh real EDTA confirmation remain unresolved.
+
+Tests
+~~~~~
+Focused runs collected/passed: planner/preset 47/47; export-plan grammar
+6/6; CLI progress/interface routing 17/17; checkpoint/layout/reservation
+29/29; compact Results/archive compatibility 12/12; incremental/views 23/23;
+synthetic solve→reload→cache-only export 1/1; and the earlier integrated
+geometry/scientific, routing, and output matrices 63/63, 71/71, and 102/102.
+The live export-cache run collected 41: 39 passed, 2 failed, 0 skipped, and
+0 timed out. The two failures are the `none` archive-policy cases described
+above. Tests requiring missing `1AAY` fixtures remain excluded and separately
+reported; no full molecular benchmark was substituted.
+
+Specialist blockers
+~~~~~~~~~~~~~~~~~~~
+PRISM must finish plan-to-writer dispatch and `none` handling. VECTOR must
+integrate the ATLAS checkpoint container, root source copy, scope folders and
+exact tier inventories, and make redundant interface logs opt-in. ATLAS must
+finish archive-container integration while preserving fail-closed status and
+PRM's unresolved typed handoff. FORGE's incremental API needs checkpoint
+integration only after topology-merge proof. GAUSS has no bounded scientific
+formula blocker; GUDHI alpha and PRM typed Results remain explicit limits.
+
+Only NEXUSA updated this root report. The deferred reconstructed DNA-side and
+ligand-side dual-contact patches remain documentation-only. No real 1BNA,
+EDTA, p53tet, or large molecular solve was run.
+
+NEXUSA LIVE EXPORT ARCHITECTURE REVALIDATION - 2026-10-20
+===========================================================
+
+Decision: **PARTIAL / NO-GO** for authorizing a small molecular pilot from the
+live export architecture. This section supersedes the earlier pending
+``-e none`` failure note: the current planner and actual CLI now accept
+``-e none``. The remaining failures are writer/layout/checkpoint integration
+failures, not planner-only failures.
+
+Scope and preservation
+----------------------
+The latest PRISM, ATLAS, VECTOR, FORGE and GAUSS reports, frozen contracts,
+current source, tests and actual CLI/writers were reviewed. No product source,
+scientific input, historical output, staging, commit, push, cleanup or large
+molecular benchmark was performed by this gate. The tracked 1BNA input remains
+dirty but unchanged:
+
+* ``vorpy/data/1bna_DB1976.pdb`` SHA-256:
+  ``B24AAF71BBEC96A32A0E6BDBBE89175AD9C52A99459AB1A696B7B7DD9D66FF4D``
+* ``vorpy/data/EDTA.pdb`` SHA-256:
+  ``3B233F7E98A1253F1506D562C54E192DCBFDF7A99A2EFCBEBE6AECCD305F888F``
+
+System check: 63.91 GB visible memory, 37.67 GB free physical memory and
+358.27 GB free on C:. All live outputs used unique ``%TEMP%`` destinations
+with ``--fail-if-exists``; no destination collision occurred.
+
+Actual CLI tier inventory
+-------------------------
+The following table is from five separate bounded synthetic AW
+interface-only CLI runs (``-g c A and c B -g c I -i``), not mocked planners.
+The output root is the system directory created below each isolated tier
+destination. ``grouped.vpy`` is the legacy archive; the requested shared
+``*_checkpoint.vpy`` is absent in every tier.
+
+| tier | files | bytes | legacy .vpy bytes | checkpoint bytes | source PDB at root |
+|---|---:|---:|---:|---:|---|
+| tiny | 10 | 934,840 | 719,600 | 0 | no |
+| small | 11 | 1,167,664 | 754,205 | 0 | no |
+| medium | 15 | 1,269,129 | 754,131 | 0 | no |
+| large | 15 | 1,269,180 | 754,184 | 0 | no |
+| all | 15 | 1,269,170 | 754,178 | 0 | no |
+
+The interface-only files are under one ``<system>`` directory, with no
+``groups/A`` or ``groups/B`` folders. ``group_a_atoms.pdb`` contains 8 selected
+atoms (chains A/B); ``group_b_atoms.pdb`` contains 4 selected atoms (chain I),
+so the intended union is 12 atoms, but ``interface_atoms.pdb`` is absent.
+Tiny does contain ``interface_info.txt`` and ``interface_edges.off``. Small
+adds ``interface_surfs.off`` and remains free of logs. Medium adds the
+scientific CSV tables and vertices. Large is effectively the same as medium;
+all is not cumulative in this interface-only path.
+
+For comparison, five actual ``-i -c system`` synthetic runs produced:
+
+| tier | files | bytes | legacy .vpy | internal .geometry.vpy | exact source copy |
+|---|---:|---:|---:|---:|---|
+| tiny | 18 | 5,193,785 | 1,634,684 | 1,597,913 | no |
+| small | 21 | 6,918,250 | 1,634,709 | 1,597,920 | yes, nested |
+| medium | 26 | 7,350,958 | 1,634,679 | 1,597,903 | yes, nested |
+| large | 65 | 14,642,904 | 1,634,688 | 1,597,912 | yes, nested |
+| all | 1,125 | 18,409,221 | 1,634,644 | 1,597,890 | yes, nested |
+
+This confirms that the live writer still creates multiple legacy/internal
+archives rather than one shared self-contained checkpoint and that source-copy
+behavior depends on tier and is not a root policy.
+
+Gate results
+------------
+
+1. **FAIL** - byte-identical source copy is not present for interface-only or
+   tiny output; where present it is nested and tier-dependent.
+2. **FAIL** - no shared self-contained checkpoint exists. Live output uses
+   ``grouped.vpy`` and, for full-system reuse, an additional internal
+   ``.vorpy/checkpoints/*.geometry.vpy``. ATLAS checkpoint contract tests pass,
+   but that container is not wired into the live writer.
+3. **PASS/PARTIAL** - a legacy ``grouped.vpy`` reloaded while its source PDB
+   was temporarily renamed away, restoring 312 vertices, 523 edges and 224
+   surfaces. It is not a self-contained checkpoint because source bytes are
+   not embedded as a checkpoint manifest.
+4. **FAIL/PASS** - no ``groups/A`` and ``groups/B`` placeholders are made;
+   bounded routing confirms interface-only does not solve standalone groups.
+5. **FAIL** - the actual writer emits separate group PDBs, not the required
+   12-atom ``interface_atoms.pdb`` contact union.
+6. **PASS/PARTIAL** - tiny has info and edge geometry, but also has legacy
+   side effects and no contract checkpoint/source copy.
+7. **PASS/PARTIAL** - small has edges/surfaces and no interface logs in the
+   explicit small run, but lacks the required scope folders/source/checkpoint.
+8. **FAIL** - large and all are not cumulative in the interface-only writer;
+   the full-system all tier expands to 1,125 files due per-simplex exports.
+9. **PASS** - actual CLI dispatch verified additive surface output for
+   ``-e tiny -e add surfaces`` and removal of edge output for
+   ``-e tiny -e no edges``; repeated-operation grammar tests also pass.
+10. **PASS with caveat** - actual ``-e none`` exits 0, writes no archive or
+    interface files, and reports archive saving not requested. The solve still
+    leaves solver-generated ``aw_verts.txt``; this is not a writer archive.
+11. **PARTIAL** - actual default interface output contains classic
+    ``aw_logs.csv``, canonical ``logs.csv``, compact Results and
+    ``logs.provenance.json``; dual/water legacy routes remain tested. Direct
+    plan-component dispatch for standalone canonical/provenance names is not
+    complete.
+12. **PASS for legacy v3** - typed Results, provenance, statuses and lineage
+    survive bounded save/reload and cache-only export tests. New checkpoint
+    persistence remains unintegrated.
+13. **PASS for live v3 atomicity** - an actual synthetic ``os.replace`` failure
+    left the prior archive byte-identical and reloadable. This does not prove
+    the new ATLAS checkpoint update path, which is not live.
+14. **PASS bounded** - AW/POW/PRM source-view/interface identity, area ledger,
+    orientation and no-second-build tests pass; actual full-system CLI output
+    reports one network build, while interface-only tests report no group or
+    full-system network materialization.
+15. **PASS bounded** - cache-only CLI export was run with ``Network.build``
+    guarded to fail; the test completed and preserved typed lineage/status.
+
+Timing and performance evidence
+-------------------------------
+Actual tiny interface output separately reported: input loading 0.00 s,
+network/interface geometry 2.17 s, analysis 0.17 s, extraction 0.15 s,
+physical geometry 0.07 s, contact/summary 0.07 s, archive saving 0.65 s and
+final summary 0.00 s. Canonical serialization was not requested. The actual
+default interface run separately reported geometry 2.01 s, analysis 0.17 s,
+extraction 0.18 s, physical geometry 0.13 s, contact/summary 0.17 s and
+canonical serialization 0.43 s. Thus geometry, analysis, export categories
+and optional archive saving are independently observable. The prior bounded
+VECTOR optimization remains measured at 67.2 -> 47.0 ms synthetic default
+export and 10.6 -> 1.6 ms scope selection; no new performance regression was
+seen in these bounded checks. Storage remains the material issue: the live
+interface archive alone is approximately 0.72-0.75 MB per tier, while all
+full-system per-simplex exports reach 18.4 MB on the 12-atom synthetic case.
+
+EDTA and bounded test evidence
+------------------------------
+The safe EDTA CLI regression test passed and visibly verified the current
+default AW path's 32 complete-cell result. The user-provided current
+``edta -c system`` confirmation remains 32 complete cells, 500 vertices,
+892 edges and 424 surfaces; it was not repeated as a second molecular run.
+The current 1BNA input was not run.
+
+Current focused results (all with ``.venv\\Scripts\\python.exe -m pytest``):
+
+* actual writer/dispatch/layout/progress/interface set: 78 passed;
+* output/persistence/archive/typed Results set: 54 passed;
+* bounded AW/POW/PRM/reuse/solvent/completeness set: 84 passed;
+* synthetic solve -> reload -> cache-only and actual CLI integration: 2 passed;
+* safe EDTA default CLI regression: 1 passed;
+* complete ``vorpy/tests/results`` suite: 257 passed.
+
+No failures or timeouts occurred in these focused runs. Tests requiring absent
+``vorpy/data/1AAY.pdb`` and ``1AAY_no_sol.pdb`` were not run and remain an
+environment/fixture limitation, not a hidden pass. PRM certified typed Results,
+GUDHI-dependent alpha results, Group-C checkpoint merge, exact legacy positional
+CSV compatibility, and the new shared checkpoint writer remain unsupported or
+unproven.
+
+Final recommendation
+--------------------
+**NO-GO.** Authorize no molecular pilot until VECTOR integrates the ATLAS
+checkpoint/source-copy contract, the five-tier live writer layout, A/B
+placeholders and ``interface_atoms.pdb`` union, and PRISM routes explicit
+canonical/provenance selections consistently. The deferred reconstructed
+DNA-side/ligand-side contact patches remain documentation-only. Only NEXUSA
+updated this root report; no commit or push was made.
+
+NEXUSA FINAL LIVE OUTPUT ARCHITECTURE ACCEPTANCE — 2026-10-20
+================================================================
+
+Scope and safety
+----------------
+This gate used only the existing 12-atom bounded grouped synthetic fixture
+(`grouped.pdb`) and bounded archive fixtures. No 1BNA, EDTA, large molecular
+solve, input edit, deletion, staging, commit, or push was performed. The
+working tree was already dirty; its changes were preserved.
+
+Actual CLI output evidence
+--------------------------
+The live CLI and writers were run for AW, POW, and PRM interface-only small
+exports. Each exited 0 and wrote one canonical output root. The synthetic
+source copy was byte-identical in every run: 12 atoms, 965 bytes,
+SHA-256 `D015CD30AEB89FC541F497C801DF6BC5D9573DE43341FCF3F44669530FB0631A`.
+The selected groups were A=8 atoms and B=4 atoms. `interface_atoms.pdb` was
+the unique 12-atom contact union. Reversing the two CLI group operands gave
+the same canonical interface id `c_A_and_c_B__c_I` and the same union digest.
+The interface-only log contained one network build; no standalone A or B
+geometry solve was observed.
+
+Scheme      files  bytes    checkpoint bytes  final status  direct area
+AW          10     893,853  495,041           PARTIAL       97.680 A^2
+POW         10     997,360  618,406           PARTIAL       94.715 A^2
+PRM         10     930,731  566,982           UNRESOLVED    91.250 A^2
+
+AW/POW/PRM retained native geometry and status semantics. PRM's typed
+Results limitation remains unresolved; no fabricated curvature or completeness
+value was emitted. AW and POW were partial where the bounded fixture could not
+certify all science. `-i -c system` also exited 0, produced one full-system
+source network plus the reused interface, and added system/group scientific
+products without a second independent interface solve.
+
+Five-tier actual writer measurement
+------------------------------------
+Measured under
+`C:\Users\jacke\AppData\Local\Temp\vorpy_nexusa_tiers_a81ef1c34e0747038d4a87a166d98141`.
+Counts and bytes include every file below each tier's `grouped` root,
+including the one shared checkpoint.
+
+Tier    files  total bytes  checkpoint bytes
+tiny    9      678,649      469,342
+small   10     892,878      494,064
+medium  14     995,483      495,130
+large   14     995,597      495,073
+all     14     994,633      494,113
+
+Exact cumulative file contract observed:
+
+* Every tier: `aw_verts.txt`, `grouped.pdb`,
+  `grouped_checkpoint.vpy`, `groups\A\A.pdb`, `groups\B\B.pdb`,
+  `interfaces\c_A_and_c_B__c_I\interface_atoms.pdb`,
+  `interface_edges.off`, `interface_info.txt`, and
+  `system\system_info.txt`.
+* Small adds `interface_surfs.off`.
+* Medium, large, and all add `interface_edges.csv`,
+  `interface_surfaces.csv`, `interface_vertices.csv`, and
+  `interface_verts.off`.
+* No default `logs.csv`, `logs.compact.csv`, provenance sidecar, or
+  redundant full-system interface log was written. `aw_verts.txt` is a
+  remaining solver-generated 5.3-KB artifact outside the minimal writer
+  contract. Large/all are nearly identical because this fixture has no
+  additional supported dual, water, topology, shell, or derived products;
+  those states are reported as `NOT_SUPPORTED`, not empty fake files.
+
+The live `-e interface` preset independently produced the same minimal
+canonical layout as small, including physical edge/surface geometry, contact
+atoms, info, source copy, and checkpoint, without default logs.
+
+Checkpoint acceptance
+---------------------
+PASS: each tier had exactly one `<system>_checkpoint.vpy`. Direct loading of
+each checkpoint reported embedded source bytes, 12 atoms, 2 groups, 1
+interface, 1 network, 1 Results record, and 1 provenance entry. The tiny
+source was temporarily renamed out of the filesystem; `_load_checkpoint`
+still reloaded it with matching embedded source digest. A fault-injected
+`os.replace` failure left the prior checkpoint byte-identical, reloadable,
+and without a temporary archive.
+
+PASS: bounded legacy v1/v2/v3 archive readers and typed interface archives
+remain readable; existing archive cache tests preserved geometry/status and
+did not call `Network.build()`.
+
+FAIL: passing the new canonical checkpoint itself to the live CLI is not yet
+integrated. The CLI routes it through the legacy loader and fails with
+`ArchiveError: Unexpected archive member`. Thus self-contained reload is
+proven at the checkpoint API, but not as a user-facing cache-only CLI export.
+
+Source-less cases are distinguished: a synthetic object with no recoverable
+source bytes is correctly rejected rather than given a fabricated source
+copy (Case A). A valid new checkpoint is self-contained at the API (Case B),
+but the CLI path currently cannot consume it. Legacy cache-only CLI export
+also fails when canonical checkpoint emission is requested and the reloaded
+legacy system has no `base_file`; this is a compatibility defect, not proof
+that the embedded-checkpoint Case B is invalid.
+
+Atomic/collision findings
+-------------------------
+FAIL: an actual interface CLI run with `--fail-if-exists` failed during export
+preparation because canonical root preparation creates the interface folder
+before the existing directory guard checks it. The guard rejects the folder
+created by the same run. Unique destinations without that flag succeeded.
+This is a PRISM/VECTOR integration defect and blocks the collision-safety gate.
+
+PASS: repeated/add/no export-plan grammar and actual `-e none` dispatch tests
+passed. Explicit live `results provenance legacy_results` wrote
+`logs.compact.csv`, `logs.provenance.json`, and legacy `logs.csv`; classic
+headers remained readable. The default canonical bundle intentionally omits
+all three.
+
+Focused validation totals
+--------------------------
+* 48/48 canonical layout, checkpoint, Results/provenance, plan, interface,
+  and progress tests passed.
+* 59/60 AW/POW/PRM source-view, scope, solvent, reuse, and classic/archive
+  tests passed; 1 failed because `1AAY_no_sol.pdb` is absent.
+* 12/13 selected legacy archive tests passed; 1 failed on the source-less
+  canonical cache-only case described above.
+* 41/43 output-preset/cache tests passed; 1 old directory-name assertion
+  expects `dna_ligand_interface` instead of the frozen canonical id, and 1
+  source-less fixture fails the mandatory source-copy contract.
+* 46/53 calculation-plan/CLI tests passed; 7 require absent 1AAY fixtures.
+* Total across these non-overlapping focused selections: 206 passed, 11
+  failed, 0 timeouts. Missing 1AAY failures are fixture skips for acceptance
+  purposes, not concealed passes. No 1BNA/EDTA molecular run was repeated.
+
+Environment and destination safety
+-----------------------------------
+System memory: 63.91 GB total, 37.74 GB free. C: disk: 930.43 GB total,
+358.27 GB free. All acceptance destinations were unique GUID-named temporary
+folders; no existing scientific output was overwritten.
+
+Gate decision
+-------------
+Architecture result: **PARTIAL**. Bounded actual writers, five tiers,
+source identity, group/contact geometry, statuses, explicit logs, and atomic
+checkpoint writes pass. The gate is **NO-GO** for authorizing a real molecular
+pilot until VECTOR/PRISM/ATLAS resolve (1) `--fail-if-exists` self-collision,
+(2) live CLI loading/exporting of the new self-contained checkpoint without
+the source PDB, and (3) legacy source-less cache-export compatibility. The
+missing 1AAY fixture and the existing PRM/GUDHI scientific limitations remain
+separate from those integration blockers.
+
+Exact guarded user-operated EDTA confirmation command (not run here):
+
+```powershell
+$d = Join-Path $env:TEMP ('vorpy_edta_confirm_' + [guid]::NewGuid().ToString('N'))
+& .venv\Scripts\python.exe -m vorpy edta -s mv 5 -e small -e dir $d
+```
+
+Expected external acceptance remains 32 complete cells, 500 vertices, 892
+edges, and 424 surfaces for the user-confirmed AW EDTA baseline. No new
+scientific values or tolerances were changed.
+
+NEXUSA FINAL VORPY OUTPUT/CHECKPOINT INTEGRATION ACCEPTANCE — 2026-10-20
+==========================================================================
+
+Independent acceptance scope
+----------------------------
+This gate used bounded synthetic AW/POW/PRM systems and archive fixtures.
+No full EDTA CLI solve, 1BNA solve, source edit, destructive Git operation,
+stage, commit, or push was performed. One selected archive regression created
+a small EDTA fixture network (2 complete cells) as part of its test; the
+user-confirmed 32-cell EDTA baseline was not rerun.
+
+1. Fresh normal CLI acceptance
+------------------------------
+**PARTIAL / FAIL for interface `--fail-if-exists`; PASS for the other fresh
+writer behavior.**
+
+An existing destination was rejected at the loading stage before solving or
+writing: the pre-existing marker remained the only file. A fresh full-system
+synthetic run with `--fail-if-exists` exited 0 and wrote one source copy and
+one checkpoint. A fresh interface run without the flag exited 0 and produced
+the approved canonical layout. However, a genuinely fresh interface run with
+`--fail-if-exists` still exited 1 after interface construction: the real
+`Interface.set_dir()` creates `interfaces\\c_A_and_c_B__c_I`, then the CLI
+reservation guard treats that same directory as pre-existing. The failed run
+left `aw_verts.txt` and the nested interface directory, so this is not merely
+an expected collision rejection. The direct unit test passes because its
+fixture does not pre-create the interface directory through the real
+constructor; the live subprocess result is authoritative.
+
+For successful interface exports, source and selections were verified:
+
+* Root source: `grouped.pdb`, 12 atoms, 965 bytes,
+  SHA-256 `D015CD30AEB89FC541F497C801DF6BC5D9573DE43341FCF3F44669530FB0631A`.
+* Group A: 8 atoms, 686 bytes; group B: 4 atoms, 366 bytes.
+* `interface_atoms.pdb`: 12 unique atoms and the same digest as the source
+  for this fixture, with one interface network build and no standalone A/B
+  network builds.
+* Reversed A/B CLI selections retained the canonical id
+  `c_A_and_c_B__c_I` and the same contact-union digest.
+* `-e none`, repeated `-e`, `add`, and `no` were exercised through actual
+  writer dispatch; `-e none -e add edges -e no edges -e add edges` exited 0
+  and left only the final edge visualization plus the source copy.
+* Default interface output contained no classic/canonical/provenance logs.
+
+Actual five-tier output measurement
+------------------------------------
+Measured under
+`C:\Users\jacke\AppData\Local\Temp\vorpy_nexusa_final_tiers_9c526e9a145a4db290b147afdd8b3f67`.
+All five actual CLI runs exited 0. Counts include every file under the
+`grouped` output root, including the checkpoint.
+
+Tier    files  total bytes  checkpoint bytes
+tiny    9      680,044      470,725
+small   10     893,982      495,156
+medium  14     995,570      495,205
+large   14     995,903      495,367
+all     14     995,527      494,995
+
+Every tier wrote `aw_verts.txt`, `grouped.pdb`,
+`grouped_checkpoint.vpy`, `groups\\A\\A.pdb`, `groups\\B\\B.pdb`,
+`interfaces\\c_A_and_c_B__c_I\\interface_atoms.pdb`,
+`interface_edges.off`, `interface_info.txt`, and
+`system\\system_info.txt`. Small added `interface_surfs.off`. Medium,
+large, and all added `interface_edges.csv`, `interface_surfaces.csv`,
+`interface_vertices.csv`, and `interface_verts.off`. No redundant default
+logs or provenance sidecars were written. `aw_verts.txt` remains a small
+solver-generated artifact outside the minimal writer contract. Large/all
+remain equal in supported product families because the bounded fixture has no
+additional eligible derived, dual, water, topology, or shell products.
+
+Actual small scheme runs also all exited 0, with one interface network build:
+
+Scheme  files  bytes    checkpoint bytes  status       direct area
+AW      10     894,056  495,232           PARTIAL      97.680 A^2
+POW     10     996,974  618,008           PARTIAL      94.715 A^2
+PRM     10     931,331  567,570           UNRESOLVED   91.250 A^2
+
+No AW/POW/PRM geometry or scientific regression was observed. PRM typed
+Results remain intentionally unresolved where certification is unavailable.
+
+2. Canonical checkpoint public-CLI acceptance
+----------------------------------------------
+**PARTIAL.** The repaired public CLI now accepts a newly-written canonical
+checkpoint without the external source PDB. A source-backed synthetic
+checkpoint was written, its PDB was temporarily renamed away, and
+`python -m vorpy <checkpoint> -e tiny -e dir <new-destination>` exited 0.
+The re-export recovered the exact embedded source copy and preserved:
+
+* 12 atoms, 2 groups, 1 interface, 1 network, 1 Results record, and 1
+  provenance entry;
+* network status `PARTIAL` and completeness `{balls:184, edges:80,
+  surfs:19, verts:62}`;
+* matching source digest and network identity; and
+* no `Network.build()` call under an explicit public-command cache-only guard.
+
+An actual fault-injected `os.replace` failure left the previous checkpoint
+byte-identical, reloadable, and without a temporary file. The existing
+legacy archive readers remained byte-compatible.
+
+The remaining failure is interface-specific checkpoint replay. Replaying
+`-g c A and c B -g c I -i` from a canonical checkpoint fails with
+`ArchiveError: Recovery source contains non-source boundary generators` in
+`validate_network_source`. System-scope checkpoint reload/re-export passes;
+interface selection reuse from that checkpoint does not. Therefore the full
+canonical checkpoint CLI requirement is PARTIAL, not PASS.
+
+3. Legacy source-less archive acceptance
+-----------------------------------------
+**PASS for the requested milestone behavior; migration remains unsupported.**
+
+An actual public CLI run on a valid legacy v3 archive with its source removed
+exited 0. It wrote supported cached geometry/scientific exports and an atomic
+`system\\checkpoint_status.json` stating `NOT_WRITTEN`, reason
+`SOURCE_BYTES_UNAVAILABLE`, `exact_bytes_available: false`, and
+`scientific_archive_reloadable: true`. It did not write a reconstructed PDB,
+did not write a canonical checkpoint, and did not invoke a network rebuild.
+The focused source-less test also verified exact legacy archive bytes before
+and after export and preservation of a prior valid checkpoint on source loss.
+
+One older archive-profile test still expects `output_archive` to be populated
+when canonical migration is deliberately skipped; it now receives `None`.
+That is an obsolete expectation under the new contract and should be updated
+by VECTOR/ATLAS, not treated as a failure of legacy cache-only export.
+
+4. Focused compatibility tests
+------------------------------
+Current focused selections collected 218 tests: **208 passed, 10 failed,
+0 skipped, 0 timeouts**.
+
+* 20/20 canonical layout, source-less export, and checkpoint-contract tests
+  passed.
+* 28/28 export-plan, public checkpoint-load, `-e none`, interface routing,
+  and progress tests passed.
+* 59/60 AW/POW/PRM source-view, interface scope, solvent, reuse, and typed
+  archive tests passed; 1 failed solely because `vorpy/data/1AAY_no_sol.pdb`
+  is absent.
+* 42/43 output preset/cache tests passed; 1 obsolete test still expects the
+  historical `dna_ligand_interface` directory instead of the frozen
+  canonical id.
+* 12/13 selected legacy archive tests passed; 1 is the obsolete
+  source-less `output_archive` profile expectation described above.
+* 36/43 calculation-plan tests passed; 7 are blocked by absent
+  `1AAY.pdb`/`1AAY_no_sol.pdb` fixtures.
+* 11/11 `vpy_cmnd` tests passed, including bounded legacy archive reload.
+
+The eight missing-1AAY failures and two obsolete expectations are separated
+from the live acceptance defects. The user-confirmed EDTA evidence remains
+32 complete cells, 500 vertices, 892 edges, and 424 surfaces for both default
+AW and `-c system`; no full EDTA run was used to claim this result.
+
+5. Remaining ownership and decision
+------------------------------------
+* **PRISM/VECTOR:** real interface construction must reserve ownership of the
+  canonical interface directory before `--fail-if-exists` checks it, or avoid
+  creating it until reservation completes.
+* **PRISM/ATLAS with FORGE source-view coordination:** canonical checkpoint
+  interface replay must distinguish embedded source identity from cached
+  boundary generators; current validation rejects a valid cached interface
+  replay before export.
+* **VECTOR/ATLAS:** update the obsolete archive-profile expectation while
+  retaining the deliberate no-migration status.
+* **Test fixtures:** restore or explicitly mark the eight missing 1AAY cases.
+
+**Fresh interface architecture: PARTIAL/FAIL.**
+**Canonical checkpoint CLI: PARTIAL.**
+**Legacy source-less cache export: PASS.**
+
+Recommendation: **GO** for one user-operated, guarded full-system EDTA export
+validation only; **NO-GO** for the subsequent real 1BNA interface pilot until
+the live fresh-interface `--fail-if-exists` collision and canonical
+interface-replay boundary validation are repaired and re-tested.
+
+Suggested guarded EDTA validation command (not run here):
+
+```powershell
+$d = Join-Path $env:TEMP ('vorpy_edta_accept_' + [guid]::NewGuid().ToString('N'))
+& .venv\Scripts\python.exe -m vorpy edta -c system -s mv 5 -e tiny -e dir $d --fail-if-exists
+```
+
+The detailed Git checkpoint audit above is the authoritative staging, exclusion,
+test, and transfer record for this worktree.

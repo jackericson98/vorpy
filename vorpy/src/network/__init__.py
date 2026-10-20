@@ -13,6 +13,20 @@ from vorpy.src.network.aw_geometry_reuse import (
     build_solve_context_key,
 )
 from vorpy.src.network.views import NetworkView, NetworkViewError
+from vorpy.src.network.incremental import (
+    CandidateVertex,
+    EXACT_REUSE,
+    GeometryComparison,
+    IncrementalCompletionError,
+    IncrementalGroupPlan,
+    IncrementalGroupResult,
+    NORMAL_BUILD_REQUIRED,
+    VERIFIED_INCREMENTAL,
+    assess_incremental_group,
+    compare_incremental_geometry,
+    complete_group_incrementally,
+    discover_missing_vertex_candidates,
+)
 from vorpy.src.network.fill import calc_surf_point_from_plane
 
 

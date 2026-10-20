@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import re
 import csv
+import io
 import os
 from collections.abc import Mapping
 from dataclasses import fields, replace
@@ -35,6 +36,9 @@ from vorpy.src.output.layout import interface_folder_name
 from vorpy.src.output.export_scope import export_scope
 from vorpy.src.network.aw_geometry_reuse import build_geometry_lineage_metadata
 from vorpy.src.results import (
+    COMPACT_INTERFACE_LOG_COLUMNS,
+    COMPACT_INTERFACE_LOG_FILENAME,
+    COMPACT_PROVENANCE_SIDECAR_FILENAME,
     INTERFACE_LOG_COLUMNS,
     INTERFACE_LOG_QUANTITY_UNITS,
     RESULT_CURVATURE_QUANTITY_TO_INTERFACE_LOG,
@@ -44,6 +48,8 @@ from vorpy.src.results import (
     InterfaceResult,
     make_geometry_lineage,
     Provenance,
+    ProvenanceCatalog,
+    ProvenanceSidecarMissingError,
     ResultIdentity,
     Status,
     adapt_alpha_selection,
@@ -55,6 +61,8 @@ from vorpy.src.results import (
     unavailable_dual_contact_complex,
     unavailable_dual_generator_complex,
     unavailable_interface,
+    deserialize_interface_log_provenance,
+    resolve_interface_log_provenance_reference,
 )
 
 
@@ -569,8 +577,19 @@ def _iter_result_quantities(result):
             yield f'{block_name}.{name}', quantity
 
 
-def _compact_result_rows(iface):
-    rows = []
+def _compact_result_rows(iface, *, profile=None):
+    records = []
+    function_started = perf_counter()
+    adapter_seconds = 0.0
+    adapter_calls = 0
+
+    def adapter_call(callback, *args):
+        nonlocal adapter_calls, adapter_seconds
+        adapter_calls += 1
+        started = perf_counter()
+        value = callback(*args)
+        adapter_seconds += perf_counter() - started
+        return value
 
     def add(result, representation, side, path, quantity, name=None):
         log_name = name or RESULT_METRIC_QUANTITY_TO_INTERFACE_LOG.get(
@@ -601,7 +620,7 @@ def _compact_result_rows(iface):
                         'boundary_of_boundary_zero', 'beta0', 'beta1', 'beta2',
                     }):
                 return
-        rows.append(InterfaceLogRow(
+        records.append(InterfaceLogRow(
             interface_id=result.identity.interface_id or result.identity.result_id,
             representation=representation,
             side=side,
@@ -610,9 +629,9 @@ def _compact_result_rows(iface):
             units=quantity.units,
             status=quantity.status,
             provenance=quantity.provenance or result.provenance,
-        ).as_csv_row())
+        ))
 
-    result = _cached_interface_result(iface)
+    result = adapter_call(_cached_interface_result, iface)
     identity = result.identity
     for path, quantity in _iter_result_quantities(result):
         name = _TOPOLOGY_LOG_NAMES.get(quantity.name)
@@ -621,18 +640,18 @@ def _compact_result_rows(iface):
         add(result, 'physical_partition_interface', 'shared', path, quantity, name=name)
 
     if getattr(iface, '_geometry_dual', None) is not None:
-        for dual_result in _cached_dual_result_bundle(iface):
+        for dual_result in adapter_call(_cached_dual_result_bundle, iface):
             for path, quantity in _iter_result_quantities(dual_result):
                 add(dual_result, dual_result.identity.representation,
                     dual_result.identity.side, path, quantity)
 
-    alpha_result = _cached_alpha_selection_result(iface)
+    alpha_result = adapter_call(_cached_alpha_selection_result, iface)
     if alpha_result is not None:
         alpha_identity = alpha_result.identity
         for name, quantity in alpha_result.selection.items():
             add(alpha_result, 'alpha_selection', 'shared', f'selection.{name}', quantity,
                 name=_ALPHA_SELECTION_LOG_NAMES[name])
-        rows.append(InterfaceLogRow(
+        records.append(InterfaceLogRow(
             alpha_identity.interface_id or alpha_identity.result_id, 'alpha_selection', 'shared',
             'alpha_value',
             None if alpha_result.status in {
@@ -640,64 +659,276 @@ def _compact_result_rows(iface):
             } else alpha_identity.alpha_value,
             alpha_identity.alpha_units or '1',
             alpha_result.status, provenance=alpha_result.provenance,
-        ).as_csv_row())
+        ))
     metadata = getattr(getattr(iface, 'geometry_analysis', None), 'metadata', {}) or {}
     for quantity, value in (metadata.get('timings_seconds', {}) or {}).items():
         if value is not None:
-            rows.append(InterfaceLogRow(
+            records.append(InterfaceLogRow(
                 identity.interface_id or identity.result_id, 'timing', 'shared',
                 f'timing_{quantity}', value, 's', Status.CERTIFIED,
                 provenance=result.provenance,
-            ).as_csv_row())
+            ))
     if metadata.get('timing_total_seconds') is not None:
-        rows.append(InterfaceLogRow(
+        records.append(InterfaceLogRow(
             identity.interface_id or identity.result_id, 'timing', 'shared',
             'timing_total', metadata['timing_total_seconds'], 's', Status.CERTIFIED,
             provenance=result.provenance,
-        ).as_csv_row())
+        ))
 
     topology = getattr(iface, 'water_topology', None) or {}
     if isinstance(topology, dict):
         for quantity, value in (topology.get('summary', {}) or {}).items():
             if value is not None:
-                rows.append(InterfaceLogRow(
+                records.append(InterfaceLogRow(
                     identity.interface_id or identity.result_id, 'water_analysis', 'shared',
                     f'water_{quantity}', value, '1', Status.PARTIAL,
                     provenance=result.provenance,
-                ).as_csv_row())
+                ))
 
     caches = getattr(iface, 'representation_caches', None) or {}
     for side in ('A', 'B'):
         surface = caches.get(f'molecular_contact_surface:{side}')
         if surface is None:
             surface_result = unavailable_interface(
-                _cached_result_identity(iface), provenance=result.provenance)
+                adapter_call(_cached_result_identity, iface), provenance=result.provenance)
         else:
             try:
-                surface_result = _cached_surface_result(iface, surface)
+                surface_result = adapter_call(_cached_surface_result, iface, surface)
             except (AttributeError, KeyError, TypeError, ValueError):
                 surface_result = unavailable_interface(
-                    _cached_result_identity(iface), provenance=result.provenance)
+                    adapter_call(_cached_result_identity, iface), provenance=result.provenance)
         for path, quantity in _iter_result_quantities(surface_result):
             add(surface_result, 'molecular_contact_surface', side, path, quantity,
                 name=_TOPOLOGY_LOG_NAMES.get(quantity.name))
 
+    record_generation_seconds = perf_counter() - function_started - adapter_seconds
+    started = perf_counter()
+    provenance_json_cache = {}
+    rows = []
+    provenance_serializations = 0
+    for record in records:
+        provenance = record.provenance
+        if provenance is not None:
+            cache_key = id(provenance)
+            if cache_key in provenance_json_cache:
+                row = record.as_csv_row(
+                    provenance_json=provenance_json_cache[cache_key]
+                )
+            else:
+                row = record.as_csv_row()
+                provenance_json_cache[cache_key] = row['provenance']
+                provenance_serializations += 1
+        else:
+            row = record.as_csv_row()
+        rows.append(row)
+    legacy_json_seconds = perf_counter() - started
+    if profile is not None:
+        profile['timings']['results_adapter_preparation'] = adapter_seconds
+        profile['timings']['canonical_record_generation'] = max(
+            0.0, record_generation_seconds
+        )
+        profile['timings']['legacy_provenance_json_encoding'] = legacy_json_seconds
+        profile['counts'].update({
+            'canonical_records': len(records),
+            'adapter_calls': adapter_calls,
+            'legacy_provenance_serializations': provenance_serializations,
+        })
     return rows
 
 
-def _compact_log(iface, path):
-    """Write validated canonical Results with provenance preserved."""
-    rows = sorted(
-        _compact_result_rows(iface),
+def _sorted_log_rows(rows):
+    return sorted(
+        rows,
         key=lambda row: tuple(str(row.get(column, '')) for column in (
             'interface_id', 'representation', 'side', 'quantity',
         )),
     )
+
+
+def _encode_csv_rows(rows, fieldnames):
+    stream = io.StringIO(newline='')
+    writer = csv.DictWriter(stream, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(rows)
+    return stream.getvalue().encode('utf-8')
+
+
+def _compact_log(iface, path):
+    """Write the unchanged legacy canonical Results log."""
+    rows = _sorted_log_rows(_compact_result_rows(iface))
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open('w', newline='', encoding='utf-8') as stream:
-        writer = csv.DictWriter(stream, fieldnames=INTERFACE_LOG_COLUMNS)
-        writer.writeheader()
-        writer.writerows(row for row in rows)
+    path.write_bytes(_encode_csv_rows(rows, INTERFACE_LOG_COLUMNS))
+
+
+def _log_value_from_csv(value):
+    if value in (None, ''):
+        return None
+    try:
+        return json.loads(value)
+    except (TypeError, json.JSONDecodeError):
+        return value
+
+
+def _typed_log_rows(rows, profile):
+    started = perf_counter()
+    provenance_cache = {}
+    records = []
+    for row in rows:
+        provenance_text = row.get('provenance', '')
+        if provenance_text not in provenance_cache:
+            provenance_cache[provenance_text] = deserialize_interface_log_provenance(
+                provenance_text
+            )
+        records.append(InterfaceLogRow(
+            interface_id=row['interface_id'],
+            representation=row['representation'],
+            side=row['side'],
+            quantity=row['quantity'],
+            value=_log_value_from_csv(row.get('value')),
+            units=row['units'],
+            status=row['status'],
+            provenance=provenance_cache[provenance_text],
+        ))
+    profile['timings']['provenance_lookup_construction'] = perf_counter() - started
+    profile['counts']['provenance_rows'] = sum(
+        bool(row.get('provenance')) for row in rows
+    )
+    profile['counts']['unique_provenance'] = len(
+        [key for key in provenance_cache if key]
+    )
+    return records
+
+
+def _compact_log_bundle(iface, path, *, include_legacy=True):
+    """Write the compact Results/provenance pair, optionally retaining legacy CSV."""
+    path = Path(path)
+    total_started = perf_counter()
+    profile = {
+        'timings': {},
+        'counts': {},
+        'bytes': {},
+        'reused': {},
+        'timing_semantics': {
+            'results_adapter_preparation': 'cached Results/adapter calls only',
+            'canonical_record_generation': 'row mapping and validation excluding adapter calls',
+            'provenance_lookup_construction': 'unique provenance parsing plus catalog construction',
+            'json_encoding': 'compact sidecar JSON only',
+            'csv_encoding': 'in-memory CSV encoding, excluding filesystem writes',
+            'filesystem_writes': 'legacy CSV, compact CSV, and sidecar writes only',
+        },
+    }
+    existing = getattr(iface, 'interface_export_profile', {}) or {}
+    existing_timings = existing.get('timings', {})
+    profile['timings'].update({
+        'interface_scope_selection': existing_timings.get('scope_selection', 0.0),
+        'mesh_generation': existing_timings.get('mesh_network', 0.0),
+        'contact_table_generation': existing_timings.get(
+            'physical_interface_tables', 0.0
+        ),
+    })
+    profile['reused'].update({
+        'interface_scope': 'scope_selection' in existing_timings,
+        'mesh_network': 'mesh_network' in existing_timings,
+        'contact_tables': 'physical_interface_tables' in existing_timings,
+    })
+    started = perf_counter()
+    rows = _sorted_log_rows(_compact_result_rows(iface, profile=profile))
+    profile['timings']['results_and_records_total'] = perf_counter() - started
+
+    started = perf_counter()
+    legacy_payload = _encode_csv_rows(rows, INTERFACE_LOG_COLUMNS) if include_legacy else b''
+    profile['timings']['legacy_csv_encoding'] = perf_counter() - started
+
+    records = _typed_log_rows(rows, profile)
+    started = perf_counter()
+    unique_provenances = []
+    seen_provenance_ids = set()
+    for record in records:
+        provenance = record.provenance
+        if provenance is not None and id(provenance) not in seen_provenance_ids:
+            seen_provenance_ids.add(id(provenance))
+            unique_provenances.append(provenance)
+    catalog = ProvenanceCatalog.from_provenances(
+        unique_provenances
+    )
+    profile['timings']['provenance_catalog_construction'] = perf_counter() - started
+
+    started = perf_counter()
+    compact_payload = _encode_csv_rows(
+        (record.as_compact_csv_row(catalog) for record in records),
+        COMPACT_INTERFACE_LOG_COLUMNS,
+    )
+    profile['timings']['compact_csv_encoding'] = perf_counter() - started
+    started = perf_counter()
+    sidecar_payload = catalog.serialize().encode('utf-8')
+    profile['timings']['json_encoding'] = perf_counter() - started
+
+    compact_path = path.parent / COMPACT_INTERFACE_LOG_FILENAME
+    sidecar_path = path.parent / COMPACT_PROVENANCE_SIDECAR_FILENAME
+    path.parent.mkdir(parents=True, exist_ok=True)
+    started = perf_counter()
+    if include_legacy:
+        path.write_bytes(legacy_payload)
+    legacy_write = perf_counter() - started
+    started = perf_counter()
+    compact_path.write_bytes(compact_payload)
+    compact_write = perf_counter() - started
+    started = perf_counter()
+    sidecar_path.write_bytes(sidecar_payload)
+    sidecar_write = perf_counter() - started
+    profile['timings']['filesystem_writes'] = legacy_write + compact_write + sidecar_write
+    profile['timings']['legacy_filesystem_write'] = legacy_write
+    profile['timings']['compact_filesystem_write'] = compact_write
+    profile['timings']['sidecar_filesystem_write'] = sidecar_write
+    profile['bytes'].update({
+        'legacy_csv': len(legacy_payload),
+        'compact_csv': len(compact_payload),
+        'provenance_sidecar': len(sidecar_payload),
+        'total': len(legacy_payload) + len(compact_payload) + len(sidecar_payload),
+    })
+    profile['counts']['files_written'] = 2 + int(include_legacy)
+    profile['timings']['total'] = perf_counter() - total_started
+    archive_profile = getattr(getattr(iface, 'sys', None), 'archive_timing', None)
+    profile['archive'] = archive_profile or {'state': 'NOT_REQUESTED'}
+    iface.canonical_log_profile = profile
+    return profile
+
+
+def read_compact_log(path):
+    """Read a compact log and resolve every provenance reference fail-closed."""
+    path = Path(path)
+    sidecar_path = path.parent / COMPACT_PROVENANCE_SIDECAR_FILENAME
+    if not sidecar_path.is_file():
+        raise ProvenanceSidecarMissingError(str(sidecar_path))
+    catalog = ProvenanceCatalog.deserialize(sidecar_path.read_text(encoding='utf-8'))
+    with path.open(newline='', encoding='utf-8') as stream:
+        reader = csv.DictReader(stream)
+        if tuple(reader.fieldnames or ()) != COMPACT_INTERFACE_LOG_COLUMNS:
+            raise ValueError('Not a VorPy compact interface log')
+        rows = []
+        for row in reader:
+            row['provenance'] = resolve_interface_log_provenance_reference(
+                row.pop('provenance_ref'), catalog
+            )
+            rows.append(row)
+    return rows
+
+
+def read_interface_log(path):
+    """Read either the legacy full-provenance or compact canonical log."""
+    path = Path(path)
+    with path.open(newline='', encoding='utf-8') as stream:
+        reader = csv.DictReader(stream)
+        fieldnames = tuple(reader.fieldnames or ())
+        if fieldnames == COMPACT_INTERFACE_LOG_COLUMNS:
+            return read_compact_log(path)
+        if fieldnames != INTERFACE_LOG_COLUMNS:
+            raise ValueError('Not a VorPy interface log')
+        rows = list(reader)
+    for row in rows:
+        row['provenance'] = deserialize_interface_log_provenance(row['provenance'])
+    return rows
 
 
 def _write_vertex_pdb(path, vertices):
@@ -928,7 +1159,7 @@ def export_compact_visualization_bundle(sys):
         layers['dual_contact_complex'] = _compact_dual(iface, interface_dir)
         timings[f'{interface_dir.name}: physical interface writing'] = perf_counter() - started
         started = perf_counter()
-        _compact_log(iface, interface_dir / 'logs.csv')
+        _compact_log_bundle(iface, interface_dir / 'logs.csv')
         timings[f'{interface_dir.name}: canonical log writing'] = perf_counter() - started
 
         caches = getattr(iface, 'representation_caches', None) or {}

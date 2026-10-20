@@ -1,4 +1,5 @@
 from pathlib import Path
+import csv
 from types import SimpleNamespace
 
 import pytest
@@ -147,6 +148,79 @@ def test_interface_default_preset_uses_first_class_layout_without_archive(tmp_pa
     assert not (directory / "visualization_manifest.json").exists()
     assert not list(tmp_path.glob("*.geometry.vpy"))
     assert not (tmp_path / "synthetic-interface.vpy").exists()
+
+
+def test_interface_default_reuses_cache_and_emits_classic_logs(tmp_path, monkeypatch):
+    from vorpy.src.interface import export as interface_export
+    from vorpy.src.network import Network
+    from vorpy.src.output.export_scope import ExportScope
+    from vorpy.src.output.output import export_interface_default
+    from vorpy.tests.test_nexus_interface_output_contract import _contract_case
+
+    optimized_root = tmp_path / "optimized"
+    optimized_root.mkdir()
+    _, interface = _contract_case(optimized_root)
+    interface.sys.exports = lambda **kwargs: None
+    interface.sys.update_progress = lambda **kwargs: None
+    calls = {"scope": 0, "mesh": 0}
+    original_scope = interface_export._interface_physical_scope
+    original_mesh = ExportScope.mesh_network
+
+    def counted_scope(*args, **kwargs):
+        calls["scope"] += 1
+        return original_scope(*args, **kwargs)
+
+    def counted_mesh(scope, *args, **kwargs):
+        calls["mesh"] += 1
+        return original_mesh(scope, *args, **kwargs)
+
+    monkeypatch.setattr(interface_export, "_interface_physical_scope", counted_scope)
+    monkeypatch.setattr(ExportScope, "mesh_network", counted_mesh)
+    monkeypatch.setattr(Network, "build", lambda *args, **kwargs: pytest.fail(
+        "export rebuilt an existing network"
+    ))
+
+    export_interface_default(interface.sys)
+    optimized = Path(interface.dir)
+    assert calls == {"scope": 1, "mesh": 1}
+    assert (optimized / "logs.csv").is_file()
+    classic = optimized / "aw_logs.csv"
+    assert classic.is_file()
+    rows = list(csv.reader(classic.open(newline="", encoding="utf-8")))
+    atoms_header = rows[rows.index(["Atoms"]) + 1]
+    assert atoms_header[:5] == ["Index", "Name", "Chain", "Residue", "Residue Sequence"]
+    assert "Complete Cell?" in atoms_header
+    assert "Maximum Mean Curvature" in atoms_header
+
+    reference_root = tmp_path / "reference"
+    reference_root.mkdir()
+    _, reference = _contract_case(reference_root)
+    from vorpy.src.interface.export import interface_exports
+    interface_exports(
+        reference,
+        atoms=True,
+        surfs=True,
+        edges=True,
+        verts=True,
+        logs=True,
+        info=True,
+    )
+    reference_dir = Path(reference.dir)
+    equivalent = (
+        "interface_surfs.off", "interface_edges.off", "interface_verts.off",
+        "interface_info.txt", "network_info.txt",
+        "interface_surfaces.csv", "interface_edges.csv", "interface_vertices.csv",
+        "group_a_atoms.pdb", "group_b_atoms.pdb", "surr_atoms.pdb", "surr_residues.pdb",
+    )
+    for name in equivalent:
+        if name.endswith(".txt"):
+            actual = (optimized / name).read_text(encoding="utf-8")
+            expected = (reference_dir / name).read_text(encoding="utf-8")
+            actual = actual.replace(str(optimized_root), "<ROOT>")
+            expected = expected.replace(str(reference_root), "<ROOT>")
+            assert actual == expected
+        else:
+            assert (optimized / name).read_bytes() == (reference_dir / name).read_bytes()
 
 
 def test_interface_cli_default_and_explicit_exports_stay_separate(monkeypatch):

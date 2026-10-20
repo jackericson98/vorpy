@@ -11,6 +11,397 @@ from typing import Optional
 
 
 _CONJUNCTIONS = frozenset({'&', 'and', 'nd', 'also', '+', '&&'})
+
+# Export planning is deliberately kept in the command layer.  The output
+# writers consume these canonical names but do not decide CLI precedence.
+EXPORT_PRESETS = ('tiny', 'small', 'medium', 'large', 'all')
+_PRESET_ALIASES = {
+    'micro': 'tiny',
+    'i': 'tiny',
+    '0': 'tiny',
+    'smallest': 'tiny',
+    's': 'small',
+    '1': 'small',
+    'med': 'medium',
+    '2': 'medium',
+    'l': 'large',
+    '3': 'large',
+    'a': 'all',
+    'everything': 'all',
+}
+
+# The values are cumulative and intentionally use the vocabulary frozen by
+# NEXUSA, rather than writer keyword names such as ``surfs``.
+_PRESET_COMPONENTS = {
+    'system': {
+        'tiny': ('info', 'edges', 'logs'),
+        'small': ('info', 'edges', 'logs', 'surfaces'),
+        'medium': (
+            'info', 'edges', 'logs', 'surfaces', 'vertices',
+            'source_structure', 'pymol_atoms',
+        ),
+        'large': (
+            'info', 'edges', 'logs', 'surfaces', 'vertices',
+            'source_structure', 'pymol_atoms', 'shell', 'shell_edges',
+            'shell_vertices', 'atom_surfaces', 'atom_edges', 'atom_vertices',
+        ),
+        'all': (
+            'info', 'edges', 'logs', 'surfaces', 'vertices',
+            'source_structure', 'pymol_atoms', 'shell', 'shell_edges',
+            'shell_vertices', 'atom_surfaces', 'atom_edges', 'atom_vertices',
+            'separate_surfaces', 'separate_edges', 'separate_vertices',
+            'surrounding_atoms', 'surrounding_residues', 'external_atoms',
+        ),
+    },
+    'group': {
+        'tiny': ('info', 'edges', 'logs'),
+        'small': ('info', 'edges', 'logs', 'surfaces', 'group_atoms'),
+        'medium': (
+            'info', 'edges', 'logs', 'surfaces', 'group_atoms', 'vertices',
+            'surrounding_atoms', 'surrounding_residues',
+        ),
+        'large': (
+            'info', 'edges', 'logs', 'surfaces', 'group_atoms', 'vertices',
+            'surrounding_atoms', 'surrounding_residues', 'shell',
+            'shell_edges', 'shell_vertices', 'atom_surfaces', 'atom_edges',
+            'atom_vertices',
+        ),
+        'all': (
+            'info', 'edges', 'logs', 'surfaces', 'group_atoms', 'vertices',
+            'surrounding_atoms', 'surrounding_residues', 'shell',
+            'shell_edges', 'shell_vertices', 'atom_surfaces', 'atom_edges',
+            'atom_vertices', 'separate_surfaces', 'separate_edges',
+            'separate_vertices', 'external_atoms',
+        ),
+    },
+    'interface': {
+        'tiny': ('info', 'edges', 'interface_atoms'),
+        'small': ('info', 'edges', 'interface_atoms', 'surfaces'),
+        'medium': (
+            'info', 'edges', 'interface_atoms', 'surfaces', 'vertices',
+            'contact_tables', 'surrounding_atoms', 'surrounding_residues',
+        ),
+        'large': (
+            'info', 'edges', 'interface_atoms', 'surfaces', 'vertices',
+            'contact_tables', 'surrounding_atoms', 'surrounding_residues',
+            'curvature', 'topology', 'shell', 'shell_edges', 'shell_vertices',
+        ),
+        'all': (
+            'info', 'edges', 'interface_atoms', 'surfaces', 'vertices',
+            'contact_tables', 'surrounding_atoms', 'surrounding_residues',
+            'curvature', 'topology', 'shell', 'shell_edges', 'shell_vertices',
+        ),
+    },
+}
+
+_EXPORT_COMPONENT_ALIASES = {
+    'group_info': 'info',
+    'interface_info': 'info',
+    'system_info': 'info',
+    'edge': 'edges',
+    'interface_edges': 'edges',
+    'surfs': 'surfaces',
+    'surface': 'surfaces',
+    'interface_surfs': 'surfaces',
+    'verts': 'vertices',
+    'vertex': 'vertices',
+    'interface_verts': 'vertices',
+    'shell_surfs': 'shell',
+    'shell_surfaces': 'shell',
+    'shell_edge': 'shell_edges',
+    'shell_verts': 'shell_vertices',
+    'shell_vertex': 'shell_vertices',
+    'atoms': 'group_atoms',
+    'contact_atoms': 'interface_atoms',
+    'surr_atoms': 'surrounding_atoms',
+    'surr_resids': 'surrounding_residues',
+    'surr_residues': 'surrounding_residues',
+    'surrounding_resids': 'surrounding_residues',
+    'ext_atoms': 'external_atoms',
+    'sep_surfs': 'separate_surfaces',
+    'sep_edges': 'separate_edges',
+    'sep_verts': 'separate_vertices',
+    'atom_surfs': 'atom_surfaces',
+    'atom_verts': 'atom_vertices',
+    'scheme_logs': 'logs',
+    'classic_logs': 'logs',
+    'lgs': 'logs',
+    'canonical_results': 'results',
+    'typed_results': 'results',
+    'provenance_sidecar': 'provenance',
+    'legacy_logs': 'legacy_results',
+    'logs_csv': 'legacy_results',
+    'contacts': 'contact_tables',
+    'contact_table': 'contact_tables',
+    'curv': 'curvature',
+    'topo': 'topology',
+    'solvent': 'water',
+    'buried_water': 'water',
+    'apollonius': 'dual',
+    'alpha_dual': 'dual',
+    'alpha_complex': 'alpha',
+    'viz': 'visualization',
+    'pymol': 'visualization',
+    'pdb': 'source_structure',
+    'set_atoms': 'pymol_atoms',
+    'archive': 'checkpoint',
+    'network_archive': 'checkpoint',
+    'save_network': 'checkpoint',
+    'input': 'source',
+    'timing_report': 'timing',
+    'profile': 'timing',
+}
+
+_EXPORT_FAMILIES = {
+    'shell': ('shell', 'shell_edges', 'shell_vertices'),
+    'atom_surfaces': ('atom_surfaces', 'atom_edges', 'atom_vertices'),
+}
+_LEGACY_EXPORT_COMMANDS = frozenset({
+    'interface', 'default', 'nonpolar', 'dual', 'apollonius', 'visualize',
+    'water', 'waters', 'mol', 'cif', 'xyz', 'txt',
+})
+_NO_EXPORT_COMMANDS = frozenset({'none', 'skip'})
+_CANONICAL_EXPORT_COMPONENTS = frozenset(
+    component
+    for components in _PRESET_COMPONENTS.values()
+    for preset_components in components.values()
+    for component in preset_components
+) | frozenset({
+    'results', 'provenance', 'legacy_results', 'water', 'dual', 'alpha',
+    'visualization', 'checkpoint', 'source', 'timing', 'mol', 'cif', 'xyz',
+    'txt',
+})
+
+
+def canonical_export_component(token):
+    """Normalize one CLI export component without applying precedence."""
+    value = str(token).strip().lower().replace('-', '_')
+    return _EXPORT_COMPONENT_ALIASES.get(value, value)
+
+
+def _component_family(token):
+    canonical = canonical_export_component(token)
+    return _EXPORT_FAMILIES.get(canonical, (canonical,))
+
+
+def _scope_components(scope, preset):
+    if scope == 'mixed':
+        components = []
+        for scope_name in ('system', 'group', 'interface'):
+            components.extend(_PRESET_COMPONENTS[scope_name][preset])
+        return tuple(dict.fromkeys(components))
+    try:
+        return _PRESET_COMPONENTS[scope][preset]
+    except KeyError as error:
+        raise ValueError(
+            f"Unknown export scope {scope!r}; expected system, group, interface, or mixed."
+        ) from error
+
+
+def _export_operation_tokens(exports):
+    """Yield non-conjunction command tokens from raw or parsed ``-e`` blocks."""
+    if exports is None:
+        return
+    if isinstance(exports, str):
+        exports = (tuple(exports.split()),)
+    elif isinstance(exports, (list, tuple)) and all(
+        isinstance(value, str) for value in exports
+    ):
+        tokens = list(exports)
+        if '-e' in tokens or '--export' in tokens:
+            blocks = []
+            current = []
+            for token in tokens:
+                if token in {'-e', '--export'}:
+                    if current:
+                        blocks.append(tuple(current))
+                        current = []
+                else:
+                    current.append(token)
+            if current:
+                blocks.append(tuple(current))
+            exports = tuple(blocks)
+        else:
+            exports = (tuple(tokens),)
+    for block in exports:
+        if isinstance(block, str):
+            block = (block,)
+        tokens = tuple(str(token) for token in block)
+        current = []
+        for token in tokens:
+            if token.lower() in _CONJUNCTIONS:
+                if current:
+                    yield tuple(current)
+                    current = []
+            else:
+                current.append(token)
+        if current:
+            yield tuple(current)
+
+
+@dataclass(frozen=True)
+class ExportPlan:
+    """The normalized CLI export contract handed to output writers."""
+
+    scope: str
+    preset: str
+    included_components: tuple[str, ...]
+    excluded_components: tuple[str, ...]
+    checkpoint_policy: str = 'shared'
+    operations: tuple[tuple[str, ...], ...] = ()
+
+    def as_dict(self):
+        """Return a serialization-friendly view for summaries and adapters."""
+        return {
+            'scope': self.scope,
+            'preset': self.preset,
+            'included_components': self.included_components,
+            'excluded_components': self.excluded_components,
+            'checkpoint_policy': self.checkpoint_policy,
+            'operations': self.operations,
+        }
+
+
+def build_export_plan(exports=(), *, scope='system'):
+    """Normalize repeated ``-e`` blocks using the frozen CLI precedence rules."""
+    scope = str(scope).strip().lower()
+    if scope not in {'system', 'group', 'interface', 'mixed'}:
+        raise ValueError(
+            f"Unknown export scope {scope!r}; expected system, group, interface, or mixed."
+        )
+
+    preset = 'small'
+    included = list(_scope_components(scope, preset))
+    excluded = []
+    operations = []
+    checkpoint_policy = 'shared'
+    directives = {'add', 'no', 'remove', 'only'}
+    controls = {
+        'checkpoint', 'no_checkpoint', 'no_archive', 'no_network',
+        'no-archive', 'no-network', 'dir', 'directory', 'format',
+        'file_format', 'file_type', 'mesh_format',
+    }
+
+    def add_values(values):
+        for value in values:
+            if value not in included:
+                included.append(value)
+            while value in excluded:
+                excluded.remove(value)
+
+    def exclude_values(values):
+        for value in values:
+            while value in included:
+                included.remove(value)
+            if value not in excluded:
+                excluded.append(value)
+
+    for command in _export_operation_tokens(exports):
+        tokens = list(command)
+        while tokens:
+            head = tokens.pop(0).strip().lower().replace('-', '_')
+            if head in _NO_EXPORT_COMMANDS or (head == 'no' and not tokens):
+                # Historical ``-e none``/``-e skip`` is a real export plan:
+                # it writes no components and disables the automatic archive.
+                included = []
+                excluded = []
+                checkpoint_policy = 'none'
+                operations.append(('none',))
+                continue
+            if head in controls:
+                if head in {'no_archive', 'no_network', 'no_checkpoint'}:
+                    checkpoint_policy = 'none'
+                    operations.append(('no_checkpoint',))
+                elif head == 'checkpoint':
+                    checkpoint_policy = 'shared'
+                    operations.append(('checkpoint',))
+                else:
+                    operations.append(('control', head, *tokens))
+                break
+
+            if head in _PRESET_ALIASES or head in EXPORT_PRESETS:
+                preset = _PRESET_ALIASES.get(head, head)
+                preset_components = _scope_components(scope, preset)
+                included = list(preset_components)
+                # A later preset re-adds only components it explicitly
+                # contains; unrelated prior removals remain explicit until
+                # overridden.
+                for value in preset_components:
+                    while value in excluded:
+                        excluded.remove(value)
+                operations.append(('preset', preset))
+                continue
+
+            if head in _LEGACY_EXPORT_COMMANDS:
+                operations.append(('legacy', head, *tokens))
+                break
+
+            if head in directives:
+                operation = head
+                values_tokens = []
+                while tokens:
+                    candidate = tokens[0].strip().lower().replace('-', '_')
+                    if (
+                        candidate in directives
+                        or candidate in controls
+                        or candidate in _PRESET_ALIASES
+                        or candidate in EXPORT_PRESETS
+                    ):
+                        break
+                    values_tokens.append(tokens.pop(0))
+                if not values_tokens:
+                    raise ValueError(
+                        f"Export operation {head!r} requires a component."
+                    )
+                canonical = tuple(
+                    canonical_export_component(token) for token in values_tokens
+                )
+                unknown = tuple(
+                    token for token in canonical
+                    if token not in _CANONICAL_EXPORT_COMPONENTS
+                )
+                if unknown:
+                    raise ValueError(f"Unknown export component: {unknown[0]}")
+                operations.append((operation, *canonical))
+                values = []
+                for token in canonical:
+                    values.extend(_component_family(token))
+                if operation == 'add':
+                    add_values(values)
+                elif operation in {'no', 'remove'}:
+                    exclude_values(values)
+                else:  # only
+                    included = []
+                    excluded = []
+                    checkpoint_policy = 'explicit-only'
+                    add_values(values)
+                    if 'checkpoint' in values:
+                        checkpoint_policy = 'shared'
+                if 'checkpoint' in values and operation == 'add':
+                    checkpoint_policy = 'shared'
+                elif 'checkpoint' in values and operation in {'no', 'remove'}:
+                    checkpoint_policy = 'none'
+                continue
+
+            component = canonical_export_component(head)
+            if component not in _CANONICAL_EXPORT_COMPONENTS:
+                raise ValueError(f"Unknown export component: {head}")
+            values = _component_family(component)
+            operations.append(('add', component))
+            add_values(values)
+            if component == 'checkpoint':
+                checkpoint_policy = 'shared'
+
+    return ExportPlan(
+        scope=scope,
+        preset=preset,
+        included_components=tuple(included),
+        excluded_components=tuple(excluded),
+        checkpoint_policy=checkpoint_policy,
+        operations=tuple(operations),
+    )
+
+
 _TARGET_ALIASES = {
     's': 'system',
     'system': 'system',
@@ -49,6 +440,8 @@ _FLAG_ALIASES = {
     '--apollonius': 'apollonius',
     '--alpha-complex': 'alpha_complex',
 }
+
+_ANALYSIS_PROFILE_ALIASES = {'simple': 'geometry'}
 
 
 def _canonical_flag(token):
@@ -162,6 +555,11 @@ class InterfaceRequest:
     def key(self):
         return tuple(tuple(token.lower() for token in operand) for operand in self.operands)
 
+    @property
+    def identity_key(self):
+        """Return the unordered physical interface identity key."""
+        return tuple(sorted(self.key))
+
     def pair_count(self):
         if len(self.operands) < 2:
             return 1
@@ -191,14 +589,17 @@ class CalculationPlan:
     solver_settings: tuple[tuple[str, ...], ...] = ()
     analysis_profile: Optional[str] = None
     export_settings: tuple[tuple[str, ...], ...] = ()
+    export_plan: Optional[ExportPlan] = None
     archive_settings: tuple[CommandBlock, ...] = ()
     blocks: tuple[CommandBlock, ...] = ()
 
     @property
     def interface_only(self):
-        """Whether all group definitions are interface operands only."""
+        """Whether the plan requests interfaces without another network target."""
         return bool(self.interface_requests) and not (
-            self.all_groups_request or self.independent_group_requests
+            self.full_system_request
+            or self.all_groups_request
+            or self.independent_group_requests
         )
 
     @property
@@ -219,12 +620,13 @@ class CalculationPlan:
         for request in self.independent_group_requests:
             add(('group', request.key))
         for request in self.interface_requests:
-            operands = request.operands
+            operands = request.key
             if len(operands) >= 3:
                 for first, second in combinations(operands, 2):
-                    add(('interface', (first, second)))
+                    pair = tuple(sorted((first, second)))
+                    add(('interface', pair))
             else:
-                add(('interface', request.key))
+                add(('interface', request.identity_key))
         return tuple(requests)
 
 
@@ -353,13 +755,17 @@ def build_calculation_plan(argv, *, input_source=None, analysis_profile=None):
         elif block.flag == 'profile':
             if len(block.args) != 1:
                 raise ValueError('--profile requires one profile name.')
-            analysis_profile = block.args[0].lower()
+            analysis_profile = _ANALYSIS_PROFILE_ALIASES.get(
+                block.args[0].lower(), block.args[0].lower()
+            )
 
     if analysis_profile is not None:
-        analysis_profile = str(analysis_profile).lower()
+        analysis_profile = _ANALYSIS_PROFILE_ALIASES.get(
+            str(analysis_profile).lower(), str(analysis_profile).lower()
+        )
         if analysis_profile not in {'geometry', 'interface', 'analysis', 'full'}:
             raise ValueError(
-                '--profile requires geometry, interface, analysis, or full'
+                '--profile requires geometry, simple, interface, analysis, or full'
             )
 
     declared = list(_dedupe(declared, key=lambda item: item.key))
@@ -370,11 +776,15 @@ def build_calculation_plan(argv, *, input_source=None, analysis_profile=None):
         interface_requests.append(InterfaceRequest())
     interface_requests = list(_dedupe(interface_requests, key=lambda item: item.key))
 
-    # Top-level ``-g`` always requests an independent group solve.  Group
-    # selectors introduced by ``-i`` are interface definitions only and are
-    # appended below with source ``interface``.  ``-c g`` covers declared
-    # groups as one de-duplicated target.
+    # With ``-i``, top-level ``-g`` declarations define the ordered interface
+    # sides.  They are selection containers, not independent group solves.
+    # An explicit ``-c`` group target remains an independent calculation.
     independent = [] if all_groups else list(declared)
+    if interface_requests:
+        independent = [
+            request for request in independent
+            if request.source != 'group'
+        ]
     independent = list(_dedupe(independent, key=lambda item: item.key))
 
     # An interface selector can itself define groups.  Keep the declarations
@@ -385,6 +795,29 @@ def build_calculation_plan(argv, *, input_source=None, analysis_profile=None):
             request = GroupRequest((operand,), source='interface')
             if request.key not in {group.key for group in declared}:
                 declared.append(request)
+
+    # No target flag means the historical default: solve the complete input
+    # system.  Keep that default explicit in the plan so diagnostics and
+    # callers cannot confuse an ordinary full-system solve with "no work".
+    if not (
+        full_system
+        or all_groups
+        or all_interfaces
+        or independent
+        or interface_requests
+    ):
+        full_system = True
+
+    if interface_requests and (
+        full_system or all_groups or independent
+    ):
+        export_scope = 'mixed'
+    elif interface_requests:
+        export_scope = 'interface'
+    elif all_groups or independent:
+        export_scope = 'group'
+    else:
+        export_scope = 'system'
 
     return CalculationPlan(
         input_source=input_source,
@@ -398,13 +831,15 @@ def build_calculation_plan(argv, *, input_source=None, analysis_profile=None):
         solver_settings=tuple(solver_settings),
         analysis_profile=analysis_profile,
         export_settings=tuple(exports),
+        export_plan=build_export_plan(exports, scope=export_scope),
         archive_settings=tuple(archive),
         blocks=blocks,
     )
 
 
 __all__ = [
-    'CalculationPlan', 'CalculationRequest', 'CommandBlock', 'GroupRequest',
-    'InterfaceRequest', 'build_calculation_plan', 'expand_group_tokens',
-    'parse_command_blocks',
+    'CalculationPlan', 'CalculationRequest', 'CommandBlock', 'ExportPlan',
+    'EXPORT_PRESETS', 'GroupRequest', 'InterfaceRequest',
+    'build_calculation_plan', 'build_export_plan', 'canonical_export_component',
+    'expand_group_tokens', 'parse_command_blocks',
 ]

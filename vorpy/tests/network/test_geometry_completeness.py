@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from vorpy.src.boundary import SolventMode, prepare_network_geometry
+from vorpy.src.network.analyze import analyze_geometry_only
 from vorpy.src.network.network import Network
 from vorpy.src.system.system import System
 
@@ -128,6 +129,16 @@ def _closed_center_network():
         edges=edge_table,
         surfs=surface_table,
     )
+
+
+def test_geometry_only_completeness_uses_generator_numbers_after_reindexing():
+    network = _closed_center_network()
+    network.balls.index = range(10, 15)
+
+    analyze_geometry_only(network)
+
+    assert bool(network.balls.loc[10, "complete"]) is True
+    assert not network.balls.loc[11:, "complete"].any()
 
 
 def test_completeness_audit_separates_analytic_and_conservative_statuses():

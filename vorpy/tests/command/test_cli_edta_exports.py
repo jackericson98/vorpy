@@ -1,4 +1,5 @@
 import os
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -38,7 +39,7 @@ def test_edta_default_cli_exports_clean_aw_bundle(tmp_path):
     assert completed.returncode == 0, completed.stdout + "\n" + completed.stderr
     output = completed.stdout
     assert 'network built - ' in output
-    assert '32 complete cells' not in output
+    assert '32 complete cells' in output
     assert "Analysis - 100.00 %" not in output
     assert "Vertex Gaussian - 100%" not in output
     assert "Export - 100%" not in output
@@ -69,8 +70,8 @@ def test_edta_default_cli_exports_clean_aw_bundle(tmp_path):
     assert "Molecular Atoms:      32" in system_info
     assert "Waters:                193" in system_info
     assert "Total Atoms:            612" in system_info
-    assert "Active Generators:      33" in system_info
-    assert "Excluded Water:         579" in system_info
+    assert "Active Generators:      612" in system_info
+    assert "Excluded Water:         0" in system_info
     assert (network_dir / "surfs.off").stat().st_size > 0
     assert (network_dir / "edges.off").stat().st_size > 0
     assert (network_dir / "verts.off").stat().st_size > 0
@@ -79,12 +80,12 @@ def test_edta_default_cli_exports_clean_aw_bundle(tmp_path):
 
     archive = directory / "EDTA.vpy"
     restored = load_network(archive)
-    assert restored.solvent_mode == "MOLECULE_ONLY"
-    assert restored.retained_system_indices == (32,)
-    assert restored.settings["generator_policy"]["active_generator_count"] == 33
-    assert restored.settings["generator_policy"]["excluded_water_generator_count"] == 579
-    assert len(restored.balls) == 33
-    assert 0 < int(restored.balls.complete.astype(bool).sum()) < len(restored.balls)
+    assert restored.solvent_mode == "SOLVENT_CONTEXT"
+    assert restored.retained_system_indices == ()
+    assert restored.settings["generator_policy"]["active_generator_count"] == 612
+    assert restored.settings["generator_policy"]["excluded_water_generator_count"] == 0
+    assert len(restored.balls) == 612
+    assert int(restored.balls.complete.astype(bool).sum()) == 32
     assert len(restored.verts) > 0
     assert len(restored.edges) > 0
     assert len(restored.surfs) > 0

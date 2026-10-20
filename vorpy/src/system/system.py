@@ -518,8 +518,10 @@ class System:
         interactive = getattr(sys.stdout, 'isatty', lambda: False)()
         if not interactive:
             # Redirected output cannot interpret carriage-return redraws. Keep
-            # only phase changes/completions in verbose mode.
-            if not getattr(self, 'verbose', False) or not force:
+            # only phase changes/completions; interface CLI workflows opt in
+            # so their lifecycle remains visible without a second progress UI.
+            cli_stage_output = bool(getattr(self, '_cli_stage_output_enabled', False))
+            if (not getattr(self, 'verbose', False) and not cli_stage_output) or not force:
                 self._progress_last_emit = now_t
                 self._progress_last_process = self.run_process
                 self._progress_line_len = 0

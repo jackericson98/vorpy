@@ -3,6 +3,7 @@
 import json
 import hashlib
 import zipfile
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -220,6 +221,19 @@ def test_typed_interface_result_archive_round_trip_and_cache_export(tmp_path, mo
     assert '12.5' in text
     assert 'CERTIFIED' in text
     assert lineage.source_network_id in text
+
+    profile = visualization._compact_log_bundle(restored_interface, output)
+    compact_rows = visualization.read_compact_log(
+        output.with_name('logs.compact.csv')
+    )
+    assert compact_rows
+    assert compact_rows[0]['provenance'] is not None
+    assert profile['counts']['files_written'] == 3
+
+    # Classic geometry logs remain a separate cache-only export after reload.
+    from vorpy.src.interface.export import interface_exports
+    interface_exports(restored_interface, logs=True)
+    assert (Path(restored_interface.dir) / 'pow_logs.csv').is_file()
 
 
 def test_interface_archive_metadata_records_source_hash_and_purpose(tmp_path):

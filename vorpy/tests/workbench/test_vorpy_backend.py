@@ -202,6 +202,55 @@ def test_backend_builds_typed_ordered_interface_handoff():
     assert handoff.geometry_lineage.source_interface_id == selection.interface_id
 
 
+def test_full_solvent_direct_handoff_uses_partial_context_contract():
+    """Wet A/B geometry keeps water competitors without claiming cell closure."""
+    from vorpy.src.interface.geometry_analysis import InterfaceGeometryAnalysis
+
+    system = _interface_system(
+        solvent_mode=SolventMode.FULL_SOLVENT,
+        retained_system_indices=(1,),
+    )
+    settings = VorPySolveSettings(
+        solvent_mode=SolventMode.FULL_SOLVENT.value,
+        retained_system_indices=(1,),
+        source_network_id="producer:full-solvent-interface",
+    )
+    backend = VorPyBackend(settings)
+    selection = InterfaceSolveSelection(
+        "wet-A__wet-B", "wet-A", (0,), "wet-B", (2,)
+    )
+    interface = backend.make_interface_network(system, selection)
+    assert interface.net.solvent_mode == SolventMode.FULL_SOLVENT.value
+    assert interface.net.solvent_local_indices == (3,)
+    assert interface.net.solvent_cells_complete is False
+
+    handoff = backend.make_interface_result_handoff(
+        interface,
+        selection,
+        InterfaceGeometryAnalysis(metadata={"result_status": "PARTIAL"}),
+        system_id="wet-interface",
+        result_network_id="archive:wet-interface",
+        radius_configuration_id="radii:synthetic-v1",
+        selection_id="view:wet-A__wet-B",
+        group_a_selection_id="view:wet-A",
+        group_b_selection_id="view:wet-B",
+        orientation="A -> B",
+        source_identity_status="AUTHORITATIVE",
+        source_revision="producer:wet-interface-v1",
+        environment="solvent_competing",
+        completeness_proven=False,
+    )
+
+    assert handoff.identity.solvent_mode == SolventMode.SOLVENT_CONTEXT.value
+    assert handoff.result.identity.solvent_mode == SolventMode.SOLVENT_CONTEXT.value
+    assert handoff.result.provenance.details["source_solvent_provenance"][
+        "solvent_mode"
+    ] == SolventMode.FULL_SOLVENT.value
+    assert handoff.result.provenance.details["results_solvent_provenance"][
+        "scope"
+    ] == "direct_interface"
+
+
 def test_real_pow_interface_build_reaches_typed_handoff_with_partial_status():
     """A built non-union POW interface carries solver metadata into Results."""
     locations = [

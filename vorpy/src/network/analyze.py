@@ -244,14 +244,18 @@ def diagnose_geometry_completeness(net, *, tolerance=1e-9):
             or open_edges
             or bad_vertices
         )
-        if bool(row.get("complete", False)):
-            classification = "COMPLETE"
-        elif bounded is False:
+        # The producer flag is evidence, not a substitute for this independent
+        # audit.  A stale flag must not hide defects in a bounded cell.  A
+        # proven recession cone remains the primary reason for a hull cell;
+        # its additional missing relations are retained below as diagnostics.
+        if bounded is False:
             classification = "UNBOUNDED"
         elif topology_issues:
             classification = "INCOMPLETE_CONSTRUCTION"
         elif analytic_issues or bounded is None:
             classification = "UNSUPPORTED_ANALYTIC_GEOMETRY"
+        elif bool(row.get("complete", False)):
+            classification = "COMPLETE"
         else:
             classification = "OVERLY_CONSERVATIVE"
 
@@ -346,14 +350,14 @@ def _print_analysis_timing(timer, total):
 
 def analyze_geometry_only(net):
     """Populate only cell completeness needed by dual/interface selection."""
-    ball_index = net.balls.index.to_numpy()
+    ball_nums = net.balls['num'].to_numpy()
     ball_verts = net.balls['verts'].to_numpy()
     ball_edges = net.balls['edges'].to_numpy()
     ball_surfs = net.balls['surfs'].to_numpy()
     edge_ball_sets = [frozenset(balls) for balls in net.edges['balls'].to_numpy()]
     vert_edges = net.verts['edges'].to_numpy()
     vert_balls = net.verts['balls'].to_numpy()
-    num_to_pos = {int(num): pos for pos, num in enumerate(ball_index)}
+    num_to_pos = {int(num): pos for pos, num in enumerate(ball_nums)}
     complete = [False] * len(net.balls)
 
     for ball_num in net.group:
@@ -437,7 +441,6 @@ def analyze(
     ball_locs = net.balls['loc'].to_numpy()
     ball_locs_matrix = np.asarray([np.asarray(loc, dtype=float) for loc in ball_locs])
     ball_rads = net.balls['rad'].to_numpy(dtype=float)
-    ball_index = net.balls.index.to_numpy()
 
     surf_sa = net.surfs['sa'].to_numpy()
     surf_vols = net.surfs['vols'].to_numpy()
@@ -661,7 +664,7 @@ def analyze(
         ball_verts = ball_verts_all[ball_pos]
         ball_edges = ball_edges_all[ball_pos]
         complete = True
-        ball_index_value = ball_index[ball_pos]
+        ball_index_value = ball_nums[ball_pos]
         unresolved_vertices = getattr(net, "_aw_unresolved_vertex_curvature", set())
         if any(int(cell) == int(ball_num) for _, cell, _ in unresolved_vertices):
             complete = False

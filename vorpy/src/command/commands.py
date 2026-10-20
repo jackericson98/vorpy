@@ -271,13 +271,14 @@ Workflow options:
     For ordered typed A/B Results, combine -i with -c system; without a
     validated full-system source, the interface status remains UNRESOLVED.
 
-  -e, --export <type> [and <type> ...]
-    Export a preset or component, such as small, medium, large, all, shell,
-    logs, surfs, edges, verts, or no_archive.
+  -e, --export <type> [add|no|remove|only <component> ...]
+    Export tiny, small, medium, large, or all; repeat -e for ordered
+    modifiers such as "-e large no shell" or "-e tiny add logs".
 
 Analysis and execution:
-  --profile geometry|interface|analysis|full
-    Select the execution profile.
+  --profile geometry|simple|interface|analysis|full
+    Select the execution profile. The default is comprehensive; simple is a
+    fast geometry-only alias.
 
   --apollonius
     Request the AW Apollonius/dual interface representation.

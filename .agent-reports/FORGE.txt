@@ -1,0 +1,266 @@
+FORGE — FULL_SOLVENT direct-interface extraction repair
+========================================================
+
+Date: 2026-10-19
+Scope: bounded synthetic tests only. No real 1BNA solve was run.
+
+Root cause
+----------
+`Interface.make_net()` correctly constructed a dedicated A/B network while
+retaining the full physical competitor universe. In wet mode that universe
+included solvent, but `Network.refresh_solvent_provenance()` correctly marked
+the dedicated interface network as `solvent_cells_complete=False` because its
+group owns only the selected A/B generators.
+
+The failure was raised by
+`vorpy/src/results/shared_network.py:SharedNetworkIdentity.__post_init__`:
+`FULL_SOLVENT` identities require `solvent_cells_complete is True`. The CLI
+then passed the direct interface network's producer mode unchanged through
+`VorPyBackend.make_interface_result_handoff()`. That identity gate belongs to
+cell-dependent Results certification, not to direct physical A/B facet area or
+direct atom-pair extraction. It must remain fail-closed for closed-cell,
+buried-water, and complete solvent-cell metrics.
+
+Correction
+----------
+`vorpy/workbench/services/vorpy_backend.py` now preserves the producer's
+`FULL_SOLVENT` network and water competitors, but hands an incomplete direct
+A/B result to Results under the explicit `SOLVENT_CONTEXT` partial contract.
+The provenance records both `source_solvent_provenance` (the actual
+FULL_SOLVENT producer) and `results_solvent_provenance` (direct-interface
+scope). No SharedNetworkIdentity validation was relaxed and no competitor or
+completeness flag was fabricated. Source-derived interfaces from an explicitly
+requested full-system network retain the existing full-system identity path.
+
+Geometry/evidence contract
+--------------------------
+The direct producer retains all constructed surfaces, edges, vertices and
+generator membership. Existing extraction evidence separates:
+
+* direct bicolor A/B facets and direct area;
+* internal/supporting surfaces and total constructed area;
+* supported versus unresolved direct facets and unresolved area;
+* bounded/complete/supported edge and vertex closure;
+* solvent-context evidence versus FULL_SOLVENT cell-dependent quantities.
+
+Direct facet acceptance remains strict: finite nonnegative area, bounded and
+complete local geometry, supported incidence, and the scheme-specific rules.
+AW additionally requires complete participating AW cells for certified curved
+face terms. POW and PRM use their local face/edge/vertex closure rules. The
+direct geometry is exact for AW, POW and PRM in the bounded comparisons; PRM
+typed Results handoff remains an explicit unsupported blocker.
+
+Files modified
+--------------
+* `vorpy/workbench/services/vorpy_backend.py`
+  Direct incomplete FULL_SOLVENT handoffs use the explicit context contract.
+* `vorpy/tests/workbench/test_vorpy_backend.py`
+  Regression for wet competitors and provenance/status separation.
+* `vorpy/tests/command/test_interface_only_cli.py`
+  Bounded wet direct CLI regression; retains water and avoids the old
+  complete-solvent identity failure.
+
+Tests
+-----
+Passed:
+
+* `test_full_solvent_direct_handoff_uses_partial_context_contract` and the
+  existing typed handoff regression: 2 passed.
+* Wet direct CLI regression: 1 passed.
+* Existing AW/POW/PRM interface geometry/source-view comparison, including
+  unrelated incomplete exterior-cell handling: passed.
+* Existing GAUSS direct/supporting area ledger and partial-area tests:
+  passed for AW, POW and PRM.
+* Focused Workbench backend, ordered-handoff, SharedNetworkIdentity and CLI
+  suites: passed.
+
+The full `test_full_system_reuse.py` invocation had one unrelated fixture
+failure: `vorpy/data/1AAY_no_sol.pdb` is absent. The remaining eight reuse
+tests passed when that fixture-dependent test was excluded. This is an
+environment/data issue, not a geometry assertion failure.
+
+Known limitations
+-----------------
+* PRM exact geometry is constructed, but the CLI typed Results adapter still
+  rejects PRM and leaves that handoff unresolved; this is tracked, not hidden.
+* Optional GUDHI alpha-derived Results remain unavailable in this environment.
+* No real 1BNA solve, full-system molecular solve, export benchmark, input
+  overwrite, deletion, or commit was performed.
+
+Coordination
+------------
+GAUSS acceptance contract received and applied. ATLAS/NEXUSA should consume
+the explicit source/result solvent provenance split and preserve the existing
+FULL_SOLVENT fail-closed rule. VECTOR export modules were not edited.
+
+EDTA complete-cell regression audit
+====================================
+
+Date: 2026-10-19. No EDTA solve was launched by FORGE in this investigation.
+The existing NEXUSA archives were loaded read-only. The reported three-cell
+result was not reproducible in the current tree; both preserved default and
+explicit-system AW archives have the historical 32 selected complete cells.
+
+Construction trace
+------------------
+`Network.build()` performs spatial indexing/sorting, `find_verts()`,
+`connect()`, `build_edges()`, `build_surfaces()`, and then either `analyze()`
+or `analyze_geometry_only()`. The selected `net.group` controls which cells
+receive completeness and analysis values. Vertex discovery keeps a normal
+vertex when it has at least one selected generator; interface discovery
+requires both interface sides. Edge and surface incidence is then built from
+the retained vertices. Solvent is retained in the SOLVENT_CONTEXT competitor
+universe but is not a selected cell owner. No dual/alpha builder is called by
+`Network.build()`; those are opt-in command analysis after primal geometry.
+
+The completeness predicate is strict: every selected cell needs at least
+three vertices, four edges, and three surfaces; every vertex must have the
+expected three incident cell edges or three locally supported subset edges;
+AW unresolved analytic vertices also invalidate the cell in full analysis.
+There is no rule that removes a cell merely because it contacts solvent.
+
+Read-only inventory (both `EDTA.vpy` archives)
+-----------------------------------------------
+
+| stage | default | explicit-system |
+|---|---:|---:|
+| source generators | 612 | 612 |
+| active/context generators | 612 | 612 |
+| excluded generators | 0 | 0 |
+| selected cell owners | 32 | 32 |
+| constructed vertices | 500 | 500 |
+| constructed edges | 892 | 892 |
+| constructed surfaces | 424 | 424 |
+| selected complete cells | 32 | 32 |
+
+Per-cell closure inventory is identical in both archives. Each row is
+`local_id/system_id/stable_id: surfaces, edges, vertices; status`:
+
+```text
+0/0/system:0: 12,30,20 COMPLETE    1/1/system:1: 19,51,34 COMPLETE
+2/2/system:2: 12,30,20 COMPLETE    3/3/system:3: 22,60,40 COMPLETE
+4/4/system:4: 14,36,24 COMPLETE    5/5/system:5: 14,36,24 COMPLETE
+6/6/system:6: 19,51,34 COMPLETE    7/7/system:7: 10,24,16 COMPLETE
+8/8/system:8: 24,66,44 COMPLETE    9/9/system:9: 17,45,30 COMPLETE
+10/10/system:10: 18,48,32 COMPLETE 11/11/system:11: 17,45,30 COMPLETE
+12/12/system:12: 21,57,38 COMPLETE 13/13/system:13: 9,21,14 COMPLETE
+14/14/system:14: 22,60,40 COMPLETE 15/15/system:15: 17,48,32 COMPLETE
+16/16/system:16: 26,72,48 COMPLETE 17/17/system:17: 14,36,24 COMPLETE
+18/18/system:18: 18,48,32 COMPLETE 19/19/system:19: 25,69,46 COMPLETE
+20/20/system:20: 20,54,36 COMPLETE 21/21/system:21: 14,36,24 COMPLETE
+22/22/system:22: 24,66,44 COMPLETE 23/23/system:23: 16,42,28 COMPLETE
+24/24/system:24: 16,42,28 COMPLETE 25/25/system:25: 14,36,24 COMPLETE
+26/26/system:26: 16,42,28 COMPLETE 27/27/system:27: 15,39,26 COMPLETE
+28/28/system:28: 19,51,34 COMPLETE 29/29/system:29: 19,51,34 COMPLETE
+30/30/system:30: 25,69,46 COMPLETE 31/31/system:31: 15,39,26 COMPLETE
+```
+
+The independent audit reported zero missing faces, zero missing edges, zero
+missing vertex references, zero open edges, zero bad vertices, and bounded
+geometry for all 32 selected cells. The archives use no boundary and
+SOLVENT_CONTEXT. The 580 context generators are intentionally not reported as
+complete selected cells; they remain competitors, not silently fabricated
+closed cells.
+
+Failure classification
+----------------------
+The preserved EDTA evidence rules out A, B, C, and D for the current standard
+path: geometry exists, all 32 selected cells are complete, and the archive
+and classic logs retain them. E is also ruled out for these builds because
+dual construction is opt-in and downstream of primal build. The exact prior
+three-cell run cannot be attributed more narrowly without its output/archive;
+it is therefore recorded as unreproduced rather than declared fixed by a
+hard-coded count.
+
+Correction
+----------
+The completeness code had a latent identity error: it used the incidental
+`DataFrame.index` in the geometry-only cell map and full-analysis vertex
+ownership check, although topology and `net.group` use the explicit generator
+`balls['num']`. The correction uses `balls['num']` in both paths. This is
+behavior-preserving for ordinary zero-based tables and prevents valid cells
+from becoming incomplete after filtering, reload, or reindexing.
+
+Files modified
+--------------
+* `vorpy/src/network/analyze.py` — generator identity correction.
+* `vorpy/tests/network/test_geometry_completeness.py` — reindexed closed-cell
+  regression.
+* `.agent-reports/FORGE.txt` — this audit and inventory.
+
+Validation
+----------
+* `test_geometry_completeness.py -k "not edta"`: 3 passed.
+* `test_pow_source_view_geometry.py` and `test_build_net.py -k "not edta"`:
+  19 passed.
+* `test_aw_interface_curvature.py -k "not edta"`: 14 passed.
+* Preserved NEXUSA default and explicit-system archive audits: 32/32 selected
+  cells complete with identical topology counts.
+
+Not run: real EDTA, 1BNA, p53tet, full molecular solves, or the existing EDTA
+tests that launch a solve. Power/PRM/AW EDTA counts still need the
+user-authorized NEXUSA verification; the local archive evidence is AW only.
+
+Incremental group completion milestone
+=======================================
+
+Date: 2026-10-19. This bounded prototype does not alter CLI, archive, export,
+or EDTA construction paths. It accepts a solved source network and a requested
+group, then either returns the existing exact `NetworkView`, materializes only
+target-supported vertices plus exhaustively discovered bounded candidates, or
+returns/raises an explicit normal-build-required result.
+
+Reuse and dependency inventory
+------------------------------
+
+Vertices are reusable when their four-generator incidence, stable generator
+IDs, location, radius, and completeness are valid and at least one generator
+belongs to the requested group. Edges and surfaces are not copied blindly:
+they are rebuilt from reused/candidate vertices, preserving incidence and
+stable endpoint/face identities. Group cell measurements are compared after
+reanalysis. Reuse requires matching scheme, full physical generator universe,
+positions/radii, boundary configuration and IDs, solvent/context membership,
+resolution, solver/build settings, and solver version. Source group membership
+is deliberately excluded from the compatibility comparison so Group C can be
+derived from a compatible A/B source.
+
+Candidate validation enumerates all four-generator combinations only within a
+bounded generator/combination budget and verifies every candidate against the
+complete source competitor universe, including retained solvent/context
+generators. AW uses both roots; PRM uses primitive distance; POW uses the
+production squared-power bound. Incomplete source incidence is recorded as
+evidence and never promoted to complete.
+
+Files modified
+--------------
+
+* `vorpy/src/network/incremental.py` — FORGE-owned bounded planning,
+  candidate discovery, topology materialization, comparison, lineage and
+  invalidation ledger.
+* `vorpy/src/network/__init__.py` — public FORGE API exports.
+* `vorpy/tests/network/test_incremental_group_completion.py` — bounded AW,
+  POW and PRM exactness, source immutability, context mismatch, explicit
+  fallback, and no-reference fail-closed regressions.
+
+Validation
+----------
+
+* `.venv\\Scripts\\python.exe -m pytest -q vorpy/tests/network/test_incremental_group_completion.py vorpy/tests/network/test_views.py` — passed (23 tests).
+* Synthetic axis fixture: AW, POW and PRM recovered Group C with 4 vertices,
+  4 edges and 1 surface, matching an independently clean Group C geometry.
+* No molecular system, EDTA solve, large export, archive write, CLI route, or
+  full-system extra solve was run.
+
+Limitations and ATLAS requirements
+----------------------------------
+
+The materialization path is intentionally bounded and requires an independent
+clean target reference before it can be certified. Inputs over the search
+budget, missing stable identities, incompatible dependency digests, incomplete
+candidate search, or failed geometry comparison require an explicit normal
+build. The prototype is not yet wired into checkpoint incremental completion.
+ATLAS must persist stable generator/feature identities, source context and
+solver digests, partial vertex/cell evidence, lineage, invalidated analysis
+names, and completeness status atomically; stale or partial records must not
+be loaded as complete geometry. VECTOR, PRISM, and archive serialization were
+not modified.

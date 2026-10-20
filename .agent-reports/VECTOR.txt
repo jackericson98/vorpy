@@ -1,0 +1,138 @@
+VECTOR — interface export performance
+
+Scope: bounded synthetic AW interface (`_contract_case`, 5 generators, 4 surfaces,
+4 edges, 4 vertices); warm medians exclude the first JIT/import run.
+
+| Stage | Before | After |
+|---|---:|---:|
+| Default export wall time | 67.2 ms | 47.0 ms |
+| Scope selection (6 passes → 1) | 10.6 ms | 1.6 ms |
+| Mesh-network resolution (3 passes → 1) | 0.05 ms | 0.02 ms |
+| Surface / edge / vertex OFF | 1.6 / 2.8 / 2.8 ms | 1.4 / 3.4 / 3.1 ms |
+| Interface summary | 14.5 ms | 13.3 ms |
+| Legacy log | 3.8 ms | omitted by default |
+| Contact tables | 3.6 ms | 3.3 ms |
+| Contact PDBs | 6.3 ms | 7.4 ms |
+
+The default plan is now one cache-only interface pass. It writes physical OFF
+geometry, `interface_info.txt`, completeness/contact CSV tables, contact PDBs,
+and canonical typed-Results `logs.csv`. Explicit `logs` still writes the legacy
+scheme log. Source/network identities, native measurements, AW geometry, typed
+Results, and partial/unresolved states remain unchanged. `Network.build()` is
+not called during export.
+
+Output fell from 14 to 13 interface files and 39,518 to 36,595 bytes; the
+removed default artifact is redundant `aw_logs.csv`. `network_info.txt` remains
+as a compatibility summary alias.
+
+Archive control profile (synthetic, unchanged code): 29 members, ~26.0 KiB raw,
+~7.1 KiB compressed, ~10.3 KiB archive; warm total 17.1 ms before / 16.0 ms
+after, compression 2.7 / 2.5 ms, ZIP write 14.0 / 13.0 ms, filesystem replace
+0.44 / 0.49 ms. No archive or solver formulas were changed.
+
+Tests: focused output preset, source-view scope, layout, dual visualization,
+NEXUSA contract, export caching, and a new bounded equivalence/no-rebuild test;
+all passed, plus the existing EDTA archive-reload/no-rebuild regression. No
+1BNA calculation or large export was run. ATLAS/GAUSS modules were not edited;
+full AW/POW/PRM molecular benchmarks remain pending.
+
+## 2026-10-19 classic geometry-log restoration
+
+Historical evidence was checked in Git history, the committed legacy writers,
+parsers/tests, and local generated samples. The verified classic file names are
+`aw_logs.csv`, `pow_logs.csv`, and `prm_logs.csv`, selected from the network
+`net_type`. The section order is build information, group information, Atoms,
+Surfaces, Edges, and Vertices. Records retain atom/cell identity, coordinates,
+radii, contacts/neighbors, surface area and volume contributions, edge/vertex
+geometry, and supported curvature fields.
+
+Local historical samples exist at `output/cambrin_20/a_55/aw_logs.csv`,
+`output/cambrin_21/a_55/pow_logs.csv`, `output/cambrin_22/a_55/prm_logs.csv`,
+and the 1BNA interface output. The older samples have verified headers of 36
+atom fields, 12 surface fields, 5 edge fields, and 9 vertex fields. The current
+committed sectioned writer is a header-compatible superset: its current output
+is 47/17/17/11 fields after the curvature additions and `LogWriter` ordering.
+`vorpy.src.inputs.logs` and the header-driven readers accept both layouts. A
+byte-for-byte historical layout was not fabricated; exact compatibility with
+consumers that use positional offsets remains unverified.
+
+Implementation status: classic interface logs are now explicitly emitted by
+the default interface bundle as `<net_type>_logs.csv`; canonical typed Results
+remain separate as `logs.csv`, `logs.compact.csv`, and
+`logs.provenance.json`. The classic writer preserves `Complete Cell?` rows for
+active incomplete cells. Missing interface curvature is blank, while present
+numeric values and legacy contact/geometry fields are retained. Archive reload
+can export the classic log without `Network.build()`.
+
+Compact-export benchmark (bounded synthetic 106-row Results case, 2,000
+unresolved simplex identifiers, 7 warm repeats; no molecular solve): legacy
+canonical CSV median 101.2 ms, 1,097,266 bytes, 1 file; compact bundle median
+55.7 ms, 1,139,691 bytes including the unchanged legacy compatibility CSV and
+3 files. The compact CSV plus provenance sidecar are 42,425 bytes, a 96.1%
+reduction versus the legacy CSV. Compact artifact encoding/JSON/filesystem
+stages were approximately 6.5/2.9/1.3 ms; memory was not measured.
+
+Validation: 95 focused tests passed in 7.64 s across compact provenance,
+output layout/caching/presets, source-view exports, and typed interface archive
+reload. Added bounded checks cover default classic output, historical header
+fields, incomplete cells, blank unavailable curvature, and reload-to-classic
+export. No real 1BNA, EDTA, GROMACS, or full molecular solve was run.
+
+Handoff: NEXUSA should treat the two output categories as distinct and keep
+the positional-reader compatibility question open before declaring classic
+schema certification. ATLAS compact provenance and GAUSS scientific semantics
+were not redefined by this exporter change.
+
+## 2026-10-20 live canonical output integration
+
+The frozen NEXUSA layout, PRISM `ExportPlan`, ATLAS checkpoint container/update
+API, and GAUSS status semantics are now connected at the live writer boundary.
+Normalized exports create one root source copy, `system/`, `groups/`,
+`interfaces/`, and `<system>_checkpoint.vpy`. Interface-only exports create
+`groups/A/A.pdb`, `groups/B/B.pdb`, and an `interface_atoms.pdb` union of the
+validated direct A/B contact atoms without solving standalone group networks.
+Canonical interface defaults no longer emit classic `*_logs.csv`, `logs.csv`,
+or provenance sidecars. `results`, `provenance`, and `legacy_results` remain
+explicit component dispatches; direct legacy `export_preset` callers retain
+their compatibility behavior. Canonical group summaries use `group_info.txt`;
+legacy readers and legacy directories retain `network_info.txt`.
+
+Bounded synthetic interface matrix (`_contract_case`, 5 network generators,
+4 surfaces/edges/vertices; no molecular solve):
+
+| Preset | Files | Total bytes | Checkpoint bytes |
+|---|---:|---:|---:|
+| tiny | 8 | 14,986 | 2,895 |
+| small | 9 | 15,064 | 2,895 |
+| medium | 13 | 18,709 | 2,895 |
+| large | 13 | 18,705 | 2,895 |
+| all | 13 | 18,697 | 2,895 |
+
+The file sets are cumulative. Large/all curvature, topology, and shell
+components are represented as explicit `NOT_SUPPORTED` statuses in
+`interface_info.txt` when the current interface writer has no validated
+product; no scientific zero or fabricated mesh is emitted. The synthetic
+fixture cannot satisfy v3 archive index closure, so the checkpoint stores a
+lossless partial geometry-table payload; valid solved networks use the
+existing v3 bytes as the opaque checkpoint payload.
+
+Changed VECTOR integration files: `vorpy/src/output/layout.py`, new
+`vorpy/src/output/checkpoint.py`, `vorpy/src/output/output.py`,
+`vorpy/src/output/sys.py`, `vorpy/src/output/system_info.py`,
+`vorpy/src/output/visualization.py`, `vorpy/src/interface/interface.py`,
+`vorpy/src/interface/export.py`, `vorpy/src/group/export.py`,
+`vorpy/src/command/command_export.py`, and the bounded regression
+`vorpy/tests/output/test_vector_canonical_layout.py`; the command directory
+preparation hook in `vpy_cmnd.py` selects canonical paths when an ExportPlan
+is present.
+
+Validation: the new two-test canonical layout/tier regression passed; the
+focused layout/path/plan/interface/progress, source-view scope, NEXUSA
+contract, checkpoint, compact provenance, and interface archive selection
+covered 102 tests and passed in 8.42 s. A separate legacy preset/caching slice
+had 43 tests: 41 passed and 2 failed because one expects the old explicit
+interface directory and one source-less fixture cannot satisfy the mandatory
+source-preserving checkpoint. A subprocess end-to-end fixture was not used as
+a gate because it did not return a final pytest summary within the 30-second
+bounded wait. No real 1BNA/EDTA solve, GROMACS, full benchmark, or
+solver/formula change was performed.

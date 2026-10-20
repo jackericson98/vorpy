@@ -178,6 +178,26 @@ def test_empty_interface_exports_valid_empty_layers_and_unresolved_info(tmp_path
         assert (tmp_path / "empty_interface" / name).is_file()
 
 
+def test_classic_log_keeps_incomplete_cells_and_blank_unavailable_curvature(tmp_path):
+    source, _, interface = _case(tmp_path, "aw")
+    source.balls["sa"] = [1.0] * len(source.balls)
+    source.balls.loc[1, "complete"] = False
+
+    interface_exports(interface, logs=True)
+
+    with (tmp_path / "interface" / "aw_logs.csv").open(
+        newline="", encoding="utf-8"
+    ) as stream:
+        rows = list(csv.reader(stream))
+    header = rows[rows.index(["Atoms"]) + 1]
+    atom_rows = [dict(zip(header, row)) for row in rows[rows.index(header) + 1:]
+                 if row and len(row) == len(header)]
+    incomplete = next(row for row in atom_rows if row["Index"] == "1")
+    assert incomplete["Complete Cell?"] == "False"
+    assert incomplete["Maximum Mean Curvature"] == ""
+    assert incomplete["Integrated Gaussian Curvature"] == ""
+
+
 def test_interface_rechecks_broad_materialized_view_before_export(tmp_path):
     source, _, interface = _case(tmp_path, "pow", "SOLVENT_CONTEXT")
     # A group view contains the A-internal surface as well as the A/B facet.

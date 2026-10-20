@@ -1,0 +1,235 @@
+GAUSS — Wet DNA–ligand interface scientific acceptance
+========================================================
+
+Status: READY FOR FORGE / ATLAS / NEXUSA HANDOFF
+Date: 2026-10-19
+
+Scope and evidence
+------------------
+This contract is based on the existing solvent provenance, NetworkView
+completeness, physical-interface, open-topology, Results, and export code. The
+reported 1BNA counts/areas remain provisional observations and are not used as
+reference values. No 1BNA solve or arbitrary completeness exception was run.
+
+FULL_SOLVENT semantics
+----------------------
+Solvent membership and solvent-cell completeness are separate evidence.
+
+* MOLECULE_ONLY excludes competing explicit solvent generators.
+* SOLVENT_CONTEXT retains physical water/ion competitors and records that
+  solvent cells are not globally complete. It is sufficient for direct atom
+  pair contacts, bounded supported physical A/B facets, direct physical area,
+  and surrounding-water membership/context.
+* FULL_SOLVENT retains the same competitors and additionally requires
+  complete solvent-cell evidence. It is required for complete solvent-cell
+  metrics, closed-cell volume/topology, buried-water groups, and alpha results
+  whose acceptance depends on complete higher-dimensional cells. The ATLAS
+  SharedNetworkIdentity fail-closed error “FULL_SOLVENT requires complete
+  solvent cells” is correct for that identity; direct physical area must use a
+  solvent-context/partial contract when this evidence is absent.
+
+Feature-specific requirements
+-----------------------------
+Direct physical facet area requires a valid A/B bicolor mapping, finite area,
+bounded and complete local surface geometry, and supported incidence. AW also
+requires complete participating generator cells because its clipped curved
+patch can be truncated by an incomplete cell. PRM/POW area does not inherit
+that AW cell requirement, but still requires local face/edge/vertex closure.
+Direct atom-pair contacts use pair geometry/contact criteria; complete solvent
+cells are not required. Solvent presence alone never certifies buried water,
+closed topology, or complete curvature.
+
+Area accounting contract
+------------------------
+All values are in Å² and must be named independently:
+
+* direct_interface_area: only constructed Group-1/Group-2 facets;
+* internal_supporting_network_area: Group-1 internal, Group-2 internal, and
+  supporting/unclassified facets, not direct contact;
+* total_constructed_network_area: finite-area sum of every constructed network
+  surface; it is never a direct-contact metric;
+* known_supported_partial_area: finite area of the locally supported direct
+  subset, with supported/total facet counts;
+* unresolved_direct_area: finite area of omitted/incomplete direct facets when
+  known; otherwise null, never zero-filled.
+
+The export ledger now reports these fields from the existing surface classifier.
+VERIFIED means every direct facet is supported and finite. PARTIAL means a
+supported subset exists and other direct facets are unresolved. UNRESOLVED
+means no certifiable direct subset exists. NOT_CALCULATED means extraction was
+not attempted. In typed Results, VERIFIED maps to Status.CERTIFIED; PARTIAL,
+UNRESOLVED, and NOT_CALCULATED retain their corresponding Status semantics.
+
+Curvature/topology contract
+---------------------------
+NOT_CALCULATED means curvature/topology was not requested or not attempted;
+all unavailable quantities are null. UNRESOLVED means it was attempted but
+required incidence, integration, closure, or boundary terms could not be
+proved. A measured zero is a finite zero with CERTIFIED or PARTIAL status, not
+an unavailable value. Partial H/K retains finite supported terms plus
+support_count/total_count; a complete total remains null/UNRESOLVED.
+
+An open interface is not a closed surface: boundary edges are recorded, genus
+and closed-surface totals are not inferred, and uncalculated boundary
+Gaussian/mean terms remain unavailable. An open-boundary mean total may be
+certified only under the explicit no-free-boundary-scalar-term convention and
+only when all required face/seam terms are supported. Gaussian totals require
+manifold/orientable incidence and the required Gauss–Bonnet terms.
+
+Alpha acceptance
+----------------
+Pair-level alpha selection may be PARTIAL when pair births map but higher
+simplex/cell births are unresolved. It is NOT_CALCULATED when skipped,
+UNRESOLVED when attempted and blocked, and CERTIFIED only when all selected
+births/mappings needed by the requested alpha result are supported. Alpha is a
+separate derivative and never replaces direct physical facet area.
+
+Acceptance labels
+-----------------
+VERIFIED direct geometry: authoritative solve/source identity; all direct
+facets and required local closure supported; finite direct area; no unresolved
+direct facets. PARTIAL: same evidence for a strict subset, with explicit
+coverage and unresolved area. Complete local physical features require
+bounded/complete/supported surface, edge, and vertex records. Complete AW
+curvature additionally requires participating AW cells. Topology/curvature
+and alpha remain UNRESOLVED or NOT_CALCULATED unless their own evidence passes.
+
+Coordination handoff
+--------------------
+FORGE: preserve A/B facet classification, local feature evidence, and the
+SOLVENT_CONTEXT versus FULL_SOLVENT distinction. Do not promote incomplete AW
+cells or unresolved direct facets.
+
+ATLAS: preserve Status.NOT_CALCULATED versus Status.UNRESOLVED and coverage
+counts; keep SharedNetworkIdentity FULL_SOLVENT validation fail-closed. Do not
+relax it to certify direct area.
+
+NEXUSA: consume the named area ledger and export it alongside the existing
+facet counts. Do not label the total constructed network area as contact area.
+
+Validation
+----------
+* New bounded synthetic area ledger: 4 passed (AW, POW, PRM separation plus
+  partial-area accounting).
+* Combined focused interface geometry/status/solvent contract: 128 passed,
+  including the four new tests.
+* Existing output/source-view/NEXUSA export regression: 39 passed.
+* Focused total: 167 passed.
+* Existing pandas FutureWarning remains; no numerical tolerance/reference was
+  changed. Full suite, real 1BNA solves, and large benchmarks were not run.
+
+Cell completeness audit
+=======================
+Status: SCIENTIFIC CRITERIA READY FOR FORGE / NEXUSA; ATLAS COORDINATION
+
+Observed symptom and cause boundary
+------------------------------------
+The historical EDTA value of 32 is a producer ``balls.complete`` count under
+one recorded solve, not a proof that all 32 three-dimensional Voronoi cells
+are bounded, closed, or suitable for Gauss--Bonnet. The independent diagnostic
+now keeps three facts separate: producer reconstruction evidence, AW
+boundedness, and local incidence closure. A low count cannot be attributed to
+solvent adjacency without per-cell evidence. No EDTA calculation was run for
+this audit.
+
+Formal completeness criteria
+----------------------------
+For a physical generator, computational reconstruction is complete for a
+requested local metric only when the generator identity and all required
+incident surfaces, edges, and vertices exist; every referenced index is valid;
+the required generator cardinalities are correct; feature coordinates and
+areas are finite; and the required incidence relations are supported.
+
+This is not the same as a bounded or closed cell. With BoundaryMode.NONE,
+finite-generator hull cells can have a proven non-zero AW recession direction.
+They are ``UNBOUNDED`` even when their finite local faces are reconstructed.
+They cannot support closed-cell volume, closed topology, or closed-surface
+Gauss--Bonnet. A numerical shell/explicit boundary generator is an enclosure,
+not a physical cell; contact with it does not invalidate an adjacent physical
+cell when the local feature records are complete.
+
+For closed-cell metrics, additionally require bounded geometry, every cell
+edge incident to exactly two cell surfaces, valid vertex links, connected
+manifold incidence, and orientability. The current per-cell audit exposes
+missing faces, missing edges, missing vertex references, open edges, and bad
+vertex links; it is necessary evidence, not by itself a global manifold proof.
+
+Diagnostic classification table
+-------------------------------
+| Evidence | Classification | Scientific consequence |
+|---|---|---|
+| Proven recession cone | ``UNBOUNDED`` | Not a reconstruction failure; no closed-cell metric |
+| Bounded cell with missing feature/incidence or open closure | ``INCOMPLETE_CONSTRUCTION`` | No complete local/closed metric |
+| Boundedness solver unavailable or analytic branch unresolved | ``UNSUPPORTED_ANALYTIC_GEOMETRY`` | Boundedness/curvature unavailable, not zero |
+| Closure and boundedness pass but producer flag is false | ``OVERLY_CONSERVATIVE`` | Recheck producer bookkeeping; do not silently promote |
+| Producer flag true but bounded-cell audit finds defects | ``INCOMPLETE_CONSTRUCTION`` | Producer flag cannot override independent evidence |
+| Producer flag true and local audit passes | ``COMPLETE`` | Complete only for the proven local scope; bounded/closed remains separate |
+
+Solvent and boundary rules
+--------------------------
+Solvent is a competing generator, not an automatic invalidation. A physical
+cell may touch solvent and remain locally complete. Solvent invalidates a
+requested result only when a required solvent incident feature is absent or
+when the result claims complete solvent-cell metrics without complete evidence
+for every participating solvent generator. ``Network.refresh_solvent_provenance``
+currently establishes mode and membership (all solvent indices in the group);
+that field is not an independent per-cell closure proof and must not be read
+as one. ``FULL_SOLVENT`` therefore remains fail-closed for complete solvent
+metrics, while local SOLVENT_CONTEXT geometry may remain usable.
+
+AW / POW / PRM distinction
+--------------------------
+Primary local incidence checks are scheme-neutral. AW additionally needs the
+weighted recession/boundedness interpretation and complete participating AW
+cells for certified curved AW face/edge/alpha results. POW and PRM can certify
+a finite planar pair feature from its own supported local geometry without
+inheriting the AW whole-cell gate; closed-cell volume/topology still requires
+its own bounded closure evidence. Dual simplices and higher-order alpha births
+are derivative support. They must not mutate or become hidden requirements of
+the primary ``balls.complete`` predicate. The read-only dual interface test
+locks this separation.
+
+Historical EDTA acceptance evidence
+-----------------------------------
+The repository's shared stabilization contract records the accepted baseline:
+EDTA PDB, 32 selected molecular atoms, 612 source/context generators, no
+boundary, ``surf_res=0.2``, ``box_size=1.25``; Power reports 504 vertices,
+896 edges, 425 surfaces, and 32 complete selected cells; the older AW record
+reports 500 vertices, 892 edges, 424 surfaces, and 32 complete cells. These
+are method/settings-specific historical references, not a reason to relax
+current predicates. The existing CLI regression asserts the 32 count but was
+not executed in this audit.
+
+Bounded scientific acceptance tests
+------------------------------------
+The new synthetic tests cover: solvent contact and numerical-boundary contact
+without invalidation; stale producer-complete flags versus topology defects;
+AW/POW/PRM dual-gate differences; read-only dual behavior; and the existing
+bounded-center, hull/unbounded, analytic-unsupported, and conservative cases.
+Full-system acceptance requires per-cell reason evidence, independent counts
+of cells/features, explicit boundary and solvent membership, no unresolved
+required incidence, and separate closed/manifold/orientable checks before
+closed-cell curvature or Gauss--Bonnet is certified. Missing curvature remains
+unavailable, never numeric zero.
+
+FORGE requirements
+------------------
+1. Emit separate evidence for reconstruction completeness, boundedness,
+   closure, manifoldness/orientability, and solvent-cell completeness.
+2. Preserve boundary-generator markers and exclude numerical boundary cells
+   from physical-cell counts without penalizing adjacent physical cells.
+3. Emit per-cell diagnostic reasons and retain partial feature coverage;
+   solvent membership or dual participation alone cannot set a cell incomplete.
+4. Keep AW whole-cell requirements for AW curvature/alpha, while preserving
+   POW/PRM local planar support rules. Do not promote dual conditions into
+   primary-cell validity and do not alter geometry to recover 32.
+
+Validation update
+-----------------
+* New bounded cell-completeness tests: 5 passed.
+* Existing non-EDTA synthetic completeness tests: 2 passed.
+* Existing synthetic dual/interface regression: 2 passed.
+* Focused bounded audit total: 9 passed.
+* No EDTA calculation was run. A broader adjacent test invocation was stopped
+  by the repository's existing 2kai fixture timeout during setup; it is not
+  counted as acceptance evidence.

@@ -10,6 +10,7 @@ from vorpy.src.output import write_off_verts
 from vorpy.src.output.draw import DEFAULT_EDGE_RADIUS, DEFAULT_VERTEX_RADIUS
 from vorpy.src.output.curvature_colors import canonical_curvature_scheme, curvature_color_limit
 from vorpy.src.output.export_scope import export_scope
+from vorpy.src.output.layout import canonical_layout_enabled
 
 
 def _group_topology_indices(grp):
@@ -91,7 +92,8 @@ def _surface_neighbor_system_indices(grp):
 def _write_source_view_info(grp, scope):
     view = scope.view
     analysis = getattr(grp, "source_view_analysis", None)
-    with open(os.path.join(grp.dir, "network_info.txt"), "w", encoding="utf-8") as info:
+    filename = "group_info.txt" if canonical_layout_enabled(grp.sys) else "network_info.txt"
+    with open(os.path.join(grp.dir, filename), "w", encoding="utf-8") as info:
         info.write(f"VORPY GROUP INFORMATION: {grp.name}\n")
         info.write("Geometry source: materialized full-system NetworkView\n")
         info.write(f"Source network ID: {view.source_network_id}\n")
@@ -363,7 +365,8 @@ def export_info(grp, directory=None):
     # Write file
     # --------------------------------------------------------------
 
-    with open("network_info.txt", "w", encoding="utf-8") as info:
+    filename = "group_info.txt" if canonical_layout_enabled(grp.sys) else "network_info.txt"
+    with open(filename, "w", encoding="utf-8") as info:
 
         # ==========================================================
         # HEADER

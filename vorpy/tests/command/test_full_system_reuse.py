@@ -181,7 +181,7 @@ def test_partial_source_interface_preserves_unresolved_surface_area():
 
 
 @pytest.mark.parametrize("scheme", ["aw", "pow"])
-def test_full_system_pipeline_solves_source_once_and_never_builds_views(
+def test_interface_only_pipeline_builds_no_full_system_or_group_networks(
     monkeypatch, scheme, capsys, tmp_path
 ):
     source = _network(scheme=scheme)
@@ -204,12 +204,13 @@ def test_full_system_pipeline_solves_source_once_and_never_builds_views(
     command.groups = {0: [["c", "0"]], 1: [["c", "1"]]}
     command.settings_dict = {"net_type": scheme}
     command.interface_mode = True
-    command._build_group_networks = True
+    command._build_group_networks = False
     command.calculation_plan = build_calculation_plan(
         ["synthetic.input", "-g", "c", "0", "-g", "c", "1", "-i"],
         input_source="synthetic.input",
     )
     builds = []
+    interface_calls = []
 
     class FullGroup:
         def __init__(self, **kwargs):
@@ -228,6 +229,9 @@ def test_full_system_pipeline_solves_source_once_and_never_builds_views(
     command.load_files = lambda: None
     command.apply_settings = lambda: None
     command.create_groups = lambda: None
+    system.make_interfaces = lambda pairs, *, analyze_waters: interface_calls.append(
+        (pairs, analyze_waters)
+    )
     command.run_exports = lambda: None
     command._save_archive = lambda: None
     command._make_cli_interface_results = lambda pairs: ()
@@ -240,13 +244,13 @@ def test_full_system_pipeline_solves_source_once_and_never_builds_views(
 
     output = capsys.readouterr().out
 
-    assert len(builds) == 1
+    assert builds == []
+    assert len(interface_calls) == 1
     assert all(group.net is None for group in (group_a, group_b))
-    assert len(system.ifaces) == 1
-    assert system.ifaces[0].source_view.source_ids("surface") == (0,)
-    assert f"Solving {scheme.upper()} network..." in output
+    assert system.ifaces == []
+    assert f"Solving {scheme.upper()} interface network..." in output
     assert "Extracting " not in output
-    assert '"A_B_interface" built - ' in output
+    assert '"A_B_interface" built - ' not in output
     assert "Exporting results..." in output
     assert "Exporting interface results..." not in output
     assert "Interface Result status:" not in output

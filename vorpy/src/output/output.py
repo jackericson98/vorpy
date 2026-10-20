@@ -11,7 +11,13 @@ from pathlib import Path
 from vorpy.src.output.atoms import write_atom_cells
 from vorpy.src.output.curvature_colors import export_color_cache
 from vorpy.src.analyze.nonpolar_interface import export_geometry_tables, build_geometry_tables
-from vorpy.src.output.layout import unique_output_directory
+from vorpy.src.output.layout import (
+    canonical_group_directory,
+    canonical_layout_enabled,
+    canonical_system_directory,
+    prepare_canonical_root,
+    unique_output_directory,
+)
 
 
 SYSTEM_PRESETS = {
@@ -98,12 +104,16 @@ GROUP_PRESETS = {
 
 INTERFACE_PRESETS = {
     'interface': [
-        ('surfaces', {'surfs': True}),
-        ('edges', {'edges': True}),
-        ('vertices', {'verts': True}),
-        ('info', {'info': True}),
-        ('logs', {'logs': True}),
-        ('atoms', {'atoms': True}),
+        ('interface bundle', {
+            'atoms': True,
+            'surfs': True,
+            'edges': True,
+            'verts': True,
+            'logs': True,
+            'info': True,
+            'contact_tables': True,
+            'buried_water': False,
+        }),
     ],
     'micro': [('info', {'info': True, 'buried_water': False})],
     'tiny': [('info', {'info': True, 'buried_water': False})],
@@ -197,26 +207,84 @@ class ExportProgress:
         self.start = time.perf_counter()
         self.timings = {}
         self.counts = {}
+        self.stage_timings = {}
+        self.stage_counts = {}
         self.mesh_timings = {}
         self.verbose = bool(getattr(sys, 'verbose', False) or
                             (getattr(sys, 'settings', None) or {}).get('verbose', False) or
                             any((getattr(group, 'settings', None) or {}).get('verbose', False)
                                 for group in (getattr(sys, 'groups', None) or [])))
 
-    def show(self, name=None):
+    @staticmethod
+    def category(name, options=None):
+        """Map one export operation to the user-facing export stage."""
+        label = str(name or '').lower()
+        options = options or {}
+        if 'archive' in label:
+            return 'Saving archive'
+        if 'canonical' in label:
+            return 'Canonical-log preparation and serialization'
+        if (
+            label.startswith('interface')
+            and any(options.get(key, False) for key in ('surfs', 'edges', 'verts', 'atoms', 'pdb', 'set_atoms'))
+            and any(options.get(key, False) for key in ('info', 'logs', 'group_info', 'contact_tables'))
+        ):
+            return 'Exporting interface bundle'
+        if 'contact' in label or (
+            label.startswith('interface') and any(
+                options.get(key, False)
+                for key in ('info', 'logs', 'group_info', 'contact_tables')
+            )
+        ):
+            return 'Contact/summary exports'
+        geometry_requested = any(
+            options.get(key, False)
+            for key in ('surfs', 'edges', 'verts', 'atoms', 'pdb', 'set_atoms')
+        )
+        tables_requested = any(
+            options.get(key, False)
+            for key in ('info', 'logs', 'group_info', 'contact_tables')
+        )
+        if geometry_requested and tables_requested:
+            return 'Exporting interface bundle'
+        if geometry_requested:
+            return 'Exporting physical geometry'
+        if tables_requested:
+            return 'Exporting scientific tables'
+        if any(token in label for token in (
+            'surface', 'edge', 'vert', 'atom', 'pdb', 'pymol',
+            'mesh', 'geometry', 'nonpolar',
+        )):
+            return 'Exporting physical geometry'
+        if any(token in label for token in ('visual', 'dual')):
+            return 'Exporting visualization'
+        return 'Exporting scientific tables'
+
+    def show(self, name=None, options=None):
+        category = self.category(name, options)
         percent = 100.0 * self.current / self.total
-        process = 'Export' if name is None else f'Export: {name}'
+        if name is None:
+            process = category
+        else:
+            process = f'{category}: {name} ({self.current + 1}/{self.total})'
         self.sys.update_progress(process=process, progress=percent)
+        return category
+
+    def record(self, category, elapsed):
+        self.stage_timings[category] = self.stage_timings.get(category, 0.0) + elapsed
+        self.stage_counts[category] = self.stage_counts.get(category, 0) + 1
 
     def step(self):
         self.current = min(self.current + 1, self.total)
 
     def finish(self):
         self.current = self.total
-        self.sys.update_progress(process='Export', progress=100.0)
+        self.sys.update_progress(process='Exports complete', progress=100.0)
         total_elapsed = time.perf_counter() - self.start
         self.sys.export_timing = self.timings.copy()
         self.sys.export_timing['total'] = total_elapsed
+        self.sys.export_stage_timing = self.stage_timings.copy()
+        self.sys.export_stage_counts = self.stage_counts.copy()
         self.sys.export_mesh_timing = self.mesh_timings.copy()
         debug = str(os.environ.get('VORPY_EXPORT_TIMING', '0')).strip().lower()
         if not self.verbose and debug not in {'1', 'true', 'yes', 'on'}:
@@ -240,7 +308,11 @@ class ExportProgress:
 
 
 def _run_export(progress, name, func, **kwargs):
-    progress.show(name)
+    category = progress.show(name, kwargs)
+    stage_callback = getattr(progress.sys, '_cli_export_stage_callback', None)
+    notify_boundary = callable(stage_callback) and category != 'Exporting interface bundle'
+    if notify_boundary:
+        stage_callback(category, 'start', name)
     start = time.perf_counter()
     owner = getattr(func, '__self__', None)
     net = getattr(owner, 'net', None)
@@ -264,10 +336,13 @@ def _run_export(progress, name, func, **kwargs):
             file=sys.stderr,
             flush=True,
         )
+        if callable(stage_callback):
+            stage_callback(category, 'failed', error)
         raise
     elapsed = time.perf_counter() - start
     progress.timings[name] = progress.timings.get(name, 0.0) + elapsed
     progress.counts[name] = progress.counts.get(name, 0) + 1
+    progress.record(category, elapsed)
     details = ''
     if before is not None:
         phases = {phase: timing[phase] - before[phase] for phase in ('prepare', 'write')}
@@ -276,10 +351,24 @@ def _run_export(progress, name, func, **kwargs):
     if progress.verbose:
         print(f'\n[export] {name}: {elapsed:.2f}s{details}', flush=True)
     progress.step()
+    if notify_boundary:
+        stage_callback(category, 'finish', name)
 
 
 def _set_group_directory(sys, group):
     root = Path(sys.files['dir'])
+    if canonical_layout_enabled(sys):
+        balls = getattr(sys, 'balls', None)
+        total_atoms = len(balls) if balls is not None else 0
+        group_dir = canonical_system_directory(sys) if (
+            getattr(group, 'ball_ndxs', None) is not None
+            and total_atoms
+            and {int(index) for index in (getattr(group, 'ball_ndxs', ()) or ())}
+            == set(range(total_atoms))
+        ) else canonical_group_directory(sys, group)
+        group.dir = str(group_dir)
+        group_dir.mkdir(parents=True, exist_ok=True)
+        return
     group_indices = {int(index) for index in (getattr(group, 'ball_ndxs', ()) or ())}
     balls = getattr(sys, 'balls', None)
     total_atoms = len(balls) if balls is not None else 0
@@ -362,6 +451,8 @@ def _group_export_cache(group):
 
 def export_preset(sys, preset):
     """Execute one named export plan."""
+    if canonical_layout_enabled(sys):
+        prepare_canonical_root(sys)
     groups = [
         group for group in sys.groups
         if group.net is not None or getattr(group, "source_view", None) is not None
@@ -370,19 +461,16 @@ def export_preset(sys, preset):
     system_plan = SYSTEM_PRESETS[preset]
     group_plan = GROUP_PRESETS[preset]
     interface_plan = INTERFACE_PRESETS[preset]
-    # ``logs`` still includes the legacy sectioned interface CSV.  Whenever it
-    # is requested, also emit the canonical Results log: it preserves status,
-    # units, identity, and provenance without recalculating geometry.  ``small``
-    # has always supplied that canonical log even though its interface plan has
-    # no legacy ``logs`` entry.
+    # Preserve the legacy direct API. Normalized plans use explicit Results /
+    # provenance components and never add these files implicitly.
     write_canonical_interface_logs = (
-        preset == 'small'
-        or any(kwargs.get('logs', False) for _, kwargs in interface_plan)
+        not canonical_layout_enabled(sys)
+        and (preset in {'interface', 'small'}
+             or any(kwargs.get('logs', False) for _, kwargs in interface_plan))
     )
-    canonical_interface_logs = (
-        [iface for iface in ifaces if iface.net is not None]
-        if write_canonical_interface_logs else []
-    )
+    canonical_interface_logs = [
+        iface for iface in ifaces if iface.net is not None
+    ] if write_canonical_interface_logs else []
     dual_interfaces = [
         iface for iface in ifaces
         if iface.net is not None
@@ -390,7 +478,7 @@ def export_preset(sys, preset):
         and iface.net.settings.get('net_type', 'aw') == 'aw'
     ] if preset in {'large', 'all'} else []
     archive_enabled = (
-        preset != 'interface'
+        (preset != 'interface' or canonical_layout_enabled(sys))
         and not getattr(sys, '_export_skip_archive', False)
         and not getattr(sys, '_export_archive_written', False)
     )
@@ -425,7 +513,7 @@ def export_preset(sys, preset):
             if iface in dual_interfaces:
                 _run_export(progress, f'{interface_name}: Apollonius dual',
                             _export_dual_geometry_without_launcher, iface=iface)
-            if preset == 'interface':
+            if preset == 'interface' and not canonical_layout_enabled(sys):
                 _normalise_interface_default_outputs(iface)
     if archive_enabled:
         _run_export(progress, 'network archive', _export_network_archive, sys=sys)
@@ -433,6 +521,27 @@ def export_preset(sys, preset):
 
 
 def _export_network_archive(sys):
+    if canonical_layout_enabled(sys):
+        from vorpy.src.output.checkpoint import (
+            CheckpointSourceUnavailable,
+            write_checkpoint,
+            write_checkpoint_status,
+        )
+        try:
+            write_checkpoint(sys)
+        except CheckpointSourceUnavailable as error:
+            # A legacy v3 cache remains scientifically exportable, but ATLAS's
+            # canonical source contract cannot represent it without exact bytes.
+            write_checkpoint_status(
+                sys,
+                reason="SOURCE_BYTES_UNAVAILABLE",
+                error=error,
+            )
+            print(f"Canonical checkpoint not written: {error}")
+            return
+        if hasattr(sys, '_export_archive_written'):
+            sys._export_archive_written = True
+        return
     from vorpy.src.io import save_network
     destination = os.path.join(sys.files['dir'], str(sys.name) + '.vpy')
     if getattr(sys, '_fail_if_exists', False):
@@ -447,15 +556,34 @@ def _export_network_archive(sys):
 
 
 def _export_canonical_interface_log(iface):
-    """Persist the canonical Results log without rebuilding cached geometry."""
-    from vorpy.src.output.visualization import _compact_log
+    """Persist compact typed Results and one deduplicated provenance catalog."""
+    from vorpy.src.output.visualization import _compact_log_bundle
 
     # Detached synthetic interfaces used by preset-planning tests have no
     # output directory and cannot produce a filesystem log. Real interface
     # exports assign ``iface.dir`` before this stage.
     if getattr(iface, 'dir', None) is None:
         return
-    _compact_log(iface, Path(iface.dir) / 'logs.csv')
+    canonical = getattr(getattr(iface, 'sys', None), '_canonical_output_layout', False)
+    return _compact_log_bundle(
+        iface,
+        Path(iface.dir) / ('logs.compact.csv' if canonical else 'logs.csv'),
+        include_legacy=not canonical,
+    )
+
+
+def _export_legacy_interface_results(iface):
+    """Explicit compatibility export for the historical full-provenance CSV."""
+    from vorpy.src.output.visualization import _compact_log
+
+    if getattr(iface, 'dir', None) is None:
+        return
+    return _compact_log(iface, Path(iface.dir) / 'logs.csv')
+
+
+def _export_interface_provenance(iface):
+    """Explicit provenance option; compact Results remain the canonical reader pair."""
+    return _export_canonical_interface_log(iface)
 
 
 def _rename_interface_output(directory, source_name, target_name):
@@ -529,11 +657,20 @@ def _normalise_interface_default_outputs(iface):
     interface_info = Path(directory) / 'interface_info.txt'
     if info.exists() and not interface_info.exists():
         shutil.copyfile(info, interface_info)
-    _write_interface_surrounding_exports(iface)
+    # The default interface bundle already emits these contact PDBs. Keep the
+    # fallback for custom Interface exporters, but avoid rewriting them.
+    if not all((Path(directory) / name).exists()
+               for name in ('surr_atoms.pdb', 'surr_residues.pdb')):
+        _write_interface_surrounding_exports(iface)
 
 
 def export_interface_default(sys):
     """Export the ordinary first-class interface result bundle."""
+    plan = getattr(sys, '_export_plan', None)
+    if plan is not None:
+        from vorpy.src.command.command_export import _run_component_plan
+        _run_component_plan(sys, plan)
+        return
     export_preset(sys, 'interface')
 
 

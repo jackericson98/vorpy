@@ -2,6 +2,7 @@ import os
 from vorpy.src.output.system_info import export_sys_info
 from vorpy.src.output.pdb import write_pdb
 from vorpy.src.output.set_pymol_atoms import set_pymol_atoms
+from vorpy.src.output.layout import canonical_layout_enabled, canonical_system_directory
 
 
 def export_sys(sys, all_=False, pdb=False, set_atoms=False, info=False, mol=False, cif=False, xyz=False,
@@ -34,16 +35,33 @@ def export_sys(sys, all_=False, pdb=False, set_atoms=False, info=False, mol=Fals
         sys.set_output_directory()
     # If the information is requested, export it
     if info or all_:
-        os.chdir(sys.files['dir'])
-        export_sys_info(sys)
+        directory = (
+            canonical_system_directory(sys)
+            if canonical_layout_enabled(sys)
+            else sys.files['dir']
+        )
+        os.makedirs(directory, exist_ok=True)
+        if canonical_layout_enabled(sys):
+            export_sys_info(sys, directory=directory)
+        else:
+            os.chdir(sys.files['dir'])
+            export_sys_info(sys)
     if pdb or all_:
-        os.chdir(sys.files['dir'])
-        # Export a pdb file for the system
-        write_pdb(list(range(len(sys.balls))), sys.name, sys)
-        os.chdir(sys.files['dir'])
+        # The byte-identical source copy at the canonical root is the system
+        # structure; do not create a second full-system PDB in ``system/``.
+        if not canonical_layout_enabled(sys):
+            os.chdir(sys.files['dir'])
+            write_pdb(list(range(len(sys.balls))), sys.name, sys)
+            os.chdir(sys.files['dir'])
     # Write the alter atoms script
     if set_atoms or all_:
-        os.chdir(sys.files['dir'])
+        directory = (
+            canonical_system_directory(sys)
+            if canonical_layout_enabled(sys)
+            else sys.files['dir']
+        )
+        os.makedirs(directory, exist_ok=True)
+        os.chdir(directory)
         set_pymol_atoms(sys)
     # Print the output directory
     if print_output:

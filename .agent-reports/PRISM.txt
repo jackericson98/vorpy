@@ -1,0 +1,282 @@
+PRISM — Interface CLI Progress and Export UX
+=============================================
+
+Scope
+-----
+Bounded synthetic CLI work only. No molecular calculation, 1BNA run, or
+scientific geometry change was performed.
+
+Audit findings
+--------------
+The CLI already had one throttled System.update_progress stream and VECTOR's
+ExportProgress counted export operations. The visible gaps were:
+
+* redirected interface output suppressed all FORGE network/analysis phase
+  changes, leaving only the solve summary and “Exporting results...”;
+* export operation names did not identify scientific-table versus physical-
+  geometry work;
+* explicit --save-network archive writes had no PRISM stage boundary or
+  failure record;
+* direct interface timing started after make_interfaces(), so it could omit
+  the actual interface solve from the extraction boundary.
+
+Implementation
+--------------
+* Interface CLI runs now expose FORGE's existing phase-change updates on
+  redirected output, while TTY output keeps carriage-return throttling.
+* Network construction and interface geometry analysis have explicit progress
+  labels, without adding a second progress renderer.
+* PRISM reports Loading input, Export preparation, Saving archive, and Final
+  summary with measured elapsed seconds. Stage failures record stage,
+  exception type, message, and elapsed time, then re-raise the original
+  exception.
+* VECTOR ExportProgress now labels measurable operations as Exporting
+  scientific tables, Exporting physical geometry, Exporting visualization, or
+  Saving archive, including operation counts. It retains per-operation timing
+  and adds aggregate export-stage timing to the optional CLI timing report.
+* PRISM did not change preset selection or archive policy. The worktree also
+  contains a concurrent VECTOR preset edit that consolidates the default
+  interface bundle and adds contact-table output; it was preserved rather
+  than overwritten.
+
+Representative redirected output
+---------------------------------
+Solving AW interface network...
+Network construction - 0%
+Analyzing geometry - 0%
+Analyzing geometry - 100%
+Export preparation...
+Export preparation: complete (elapsed 0.01 s)
+Exporting interface bundle: interface: interface bundle (1/1)
+Exports complete - 100%
+Final summary...
+Final summary: complete (elapsed 0.00 s)
+Files exported to: ...
+
+Presets that expand into separate operations show the physical-geometry and
+scientific-table category labels independently; the concurrent compact bundle
+is reported as one combined measurable operation.
+
+Default export review
+---------------------
+`-i` with no `-e` continues to use the first-class `interface` preset. It
+exports only the selected interface (surfaces, edges, vertices, info, logs,
+atoms, and the concurrent contact-table addition), not system or independent-
+group products, and does not implicitly write an archive. `-e large`/`-e all`
+remain explicit opt-ins. For a future breaking UX revision, `small` is the
+reasonable compact default candidate (surface/info output), while `large` or
+`all` should remain explicit full exports. This PRISM change intentionally
+preserves the compatible preset selection.
+
+Files changed
+-------------
+* `vorpy/src/command/vpy_cmnd.py`
+* `vorpy/src/output/output.py`
+* `vorpy/src/interface/interface.py`
+* `vorpy/src/network/network.py`
+* `vorpy/src/system/system.py`
+* `vorpy/tests/command/test_cli_progress.py`
+
+The worktree also contains earlier/concurrent interface-CLI changes, the
+VECTOR preset/contact-table edit noted above, and unrelated generated
+artifacts; they were preserved.
+
+Validation
+----------
+* `test_cli_progress.py`: 8 passed, including AW/POW/PRM in TTY-like and
+  redirected streams, export category/count reporting, and archive failure
+  preservation.
+* Interface-only CLI, geometry, and FULL_SOLVENT synthetic regressions:
+  16 passed.
+* Full-system/interface routing regressions: 7 passed.
+* CLI handoff regressions: 3 passed.
+* Existing output preset, timing, export-diagnostic, and standalone-progress
+  checks passed in focused runs.
+* Compilation and task-scoped diff checks passed.
+
+Remaining issues
+----------------
+Three legacy planner tests remain blocked by absent `1AAY.pdb` and
+`1AAY_no_sol.pdb` fixtures. Full-suite validation and real-scale export timing
+were intentionally not run.
+
+PRISM CLI diagnostics and progress integration
+-----------------------------------------------
+Audit gate: FORGE/VECTOR/ATLAS status and timing seams are now available in
+the repository contract `.agent-reports/NEXUSA_INTERFACE_EXPORT_ACCEPTANCE.md`.
+PRISM consumed those seams without changing solver formulas, geometry, result
+contracts, or file serialization.
+
+Implementation
+--------------
+* Interface CLI stages now retain measured elapsed durations and expose input
+  loading, interface geometry solve, interface analysis, typed extraction,
+  alpha selection, export preparation, export categories, archive saving, and
+  final summary timing.
+* Final output separates scientific state from filesystem state. The final
+  state is `SUCCESS`, `PARTIAL`, `UNRESOLVED`, or `FAILED`; a written directory
+  no longer implies complete science. Required extraction and export failures
+  retain and re-raise their original exception while naming the failed stage.
+* The final scientific summary reads FORGE/GAUSS evidence only: direct facet
+  count/area, total constructed-network surface count/area, contact-atom
+  counts, completeness, curvature status, alpha status, and export directory.
+  Uncomputed curvature remains `NOT_CALCULATED`, never measured zero.
+* VECTOR export boundaries now provide one throttled CLI stage stream for
+  preparation, physical geometry, contact/summary tables, canonical-log
+  preparation/serialization, visualization, and archive saving. The default
+  interface bundle reports its internal substages without a profile dump or a
+  second progress renderer. Redirected output remains line-oriented.
+
+Representative terminal output
+------------------------------
+```
+Solving POW interface network...
+Solving interface...
+Solving interface: complete (elapsed 0.31 s)
+Export preparation...
+Export preparation: complete (elapsed 0.00 s)
+Exporting interface bundle: ... (1/1)
+Export preparation... / Contact/summary exports... / Exporting physical geometry...
+Canonical-log preparation and serialization... (interface: canonical logs)
+Canonical-log preparation and serialization: complete (elapsed 0.08 s)
+Final summary: PARTIAL (elapsed 0.00 s)
+  Alpha status: UNRESOLVED (optional capability unavailable: GUDHI ...)
+  Geometry completeness: 18/18 cells; direct geometry: VERIFIED
+Per-stage timing:
+  Interface geometry solve: 0.31 s
+  Canonical-log preparation and serialization: 0.08 s
+Export directory: ...
+Files exported to: ...
+```
+
+Validation
+----------
+* `test_cli_progress.py`: 13 passed, including AW/POW/PRM TTY and redirected
+  output, substage reporting, slow/failure boundaries, and archive exception
+  preservation.
+* Interface routing/reuse: 11 passed; CLI timing: 2 passed; output presets
+  and export diagnostics: 15 passed; EDTA CLI regression: 1 passed.
+* GAUSS bounded area/completeness and validation checks: 57 passed.
+* `py_compile` and task-scoped `git diff --check` passed. No real 1BNA or
+  full-system molecular benchmark was run.
+
+Method/status limitations
+--------------------------
+PRM exact physical geometry remains available, but its typed Results handoff
+is intentionally `UNRESOLVED`. Missing GUDHI is reported as unavailable alpha
+capability while raw geometry remains usable. FULL_SOLVENT remains fail-closed
+for required incomplete extraction; PRISM does not promote it. Canonical-log
+progress has measured start/finish visibility; no artificial percentage is
+shown for its unmeasurable internal serialization loop.
+
+NEXUSA handoff
+--------------
+This report is the repository handoff for NEXUSA. No direct NEXUSA messaging
+connector is available in this environment; no external notification was
+fabricated.
+
+PRISM normal CLI behavior audit
+-------------------------------
+Scope was limited to bounded planning and CLI regressions. No 1BNA or other
+real benchmark was run, and no solver or geometry algorithm was changed.
+
+Established command plan:
+
+* `edta` and `edta -c system` now have the same effective plan:
+  `full-system network`.
+* `edta -g "c A"` is one independent group target.
+* `1bna_db1976 -g dna -g "c 2"` is two ordered independent group targets.
+* Adding `-i` converts those top-level groups into ordered interface sides and
+  requests only `interface`; it does not add `system`.
+* Adding `-i -c system` requests `system` followed by the selected interface.
+* `-s`, `--profile`, and `-e` remain settings/analysis/export blocks; they do
+  not add a network target beyond the normal no-target full-system default.
+
+Root cause of the EDTA diagnostic confusion
+--------------------------------------------
+The legacy executor already built the default full-system Group path, but the
+new calculation plan represented an unqualified command as zero network
+requests. This made diagnostics look like no calculation was requested even
+though the executor selected the ordinary full-system group. Explicit
+`-c system` took the same legacy path. Bounded EDTA setup checks show both
+forms retain AW, `max_vert=5`, boundary `none`, `SOLVENT_CONTEXT`, 612 active
+generator IDs, and identical selected group membership. The reported three
+complete cells with `-s mv 5` is therefore a geometry/completeness result, not
+a CLI export-count filter; the CLI is not selecting only three generators.
+
+Implementation
+--------------
+* `vorpy/src/command/calculation_plan.py`: materialize the historical
+  full-system default as `full_system_request=True` when no target is given.
+* `vorpy/src/command/vpy_cmnd.py`: store a request summary on the System and,
+  for interface/verbose runs, print ordered targets, group selections,
+  solver/settings context, and active source-universe count. Progress now
+  labels `constructed` and `complete` cells separately; export counts are not
+  used for either value.
+* `vorpy/tests/command/test_calculation_plan.py`: regression coverage for all
+  requested command modes, option neutrality, default/explicit system
+  equivalence, ordered summary output, generator IDs, and cell-count labels.
+* `.agent-reports/PRISM.txt`: this audit, discrepancy, and validation handoff.
+
+Validation
+----------
+* Planning/adapter regressions excluding unavailable 1AAY fixtures: 35 passed.
+* Existing bounded EDTA CLI export regression: 1 passed.
+* Bounded 1BNA CLI routing tests (non-1AAY cases): 5 passed.
+* Existing interface-only routing and progress tests: 17 passed.
+* Existing command adapter tests: 11 passed; full-system reuse tests with
+  available fixtures: 8 passed.
+* `py_compile` and scoped `git diff --check`: passed.
+* Full `test_calculation_plan.py` remains blocked by 7 pre-existing failures
+  because `vorpy/data/1AAY.pdb` and `1AAY_no_sol.pdb` are absent. The related
+  full-system reuse suite has the same missing fixture limitation.
+
+Remaining limitations and NEXUSA discrepancy
+---------------------------------------------
+The CLI audit does not explain or alter the scientific count of complete cells
+under `max_vert=5`; FORGE owns that geometry/completeness question. No change
+was made to shared solver interfaces, competitor handling, tolerances, or
+exports. Expected geometry-construction improvement is therefore none in this
+milestone: the change makes the requested target explicit and prevents an
+accidental extra target, but does not reduce or approximate a solver. The
+request summary intentionally prints exact selectors and source ID counts
+rather than dumping large ID lists. This section is the PRISM handoff to
+NEXUSA; no direct messaging connector is available here.
+
+PRISM export-plan dependency gate
+---------------------------------
+Status: blocked pending NEXUSA's approved export-plan contract. No source,
+writer, archive, geometry, or test files were changed for this milestone.
+
+Read-only audit evidence:
+
+* `NEXUSA_INTERFACE_EXPORT_ACCEPTANCE.md` freezes ownership and interface
+  default-output scope, but does not freeze the five canonical tier contents,
+  additive/subtractive grammar, precedence, or checkpoint policy.
+* `NEXUSA_EXPORT_ARCHITECTURE_AUDIT.md` is explicitly design/audit only and
+  lists the `add`/`no` grammar, `small` archive default, legacy-log policy,
+  and scope-qualified output semantics as unresolved decisions.
+* Current `command_export.py` dispatches only `npt[0]` for ordinary blocks;
+  `-e small add surfs`, `-e large no shell`, and `-e all no atom_surfs` are
+  therefore not normalized plans. Current aliases are non-canonical:
+  `tiny` dispatches to `export_micro`, while `small` dispatches to
+  `export_tiny`.
+
+Required NEXUSA handoff before implementation:
+
+```text
+ExportPlan v1
+  scope: interface | group | system | mixed
+  preset: tiny | small | medium | large | all
+  included_components: ordered canonical component families
+  excluded_components: ordered canonical component families
+  checkpoint_policy: none | shared | explicit-only | required
+  operations: ordered preset/add/remove operations with descendant rules
+```
+
+The handoff must also certify whether `-i -c groups` materializes independent
+group networks, whether `-i -c system` permits group views/analysis without a
+second solve, and which archive/checkpoint artifacts are default versus
+explicit. Once NEXUSA approves those fields, PRISM can implement the parser and
+planning layer without changing VECTOR writers, ATLAS archives, or FORGE
+geometry.

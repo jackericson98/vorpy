@@ -7,7 +7,7 @@ from vorpy.src.boundary import (
 )
 
 
-def export_sys_info(sys):
+def export_sys_info(sys, directory=None):
     """
     Export a top-level manifest for a VorPy System.
 
@@ -78,16 +78,12 @@ def export_sys_info(sys):
     # ------------------------------------------------------------------
 
     base_file = files.get("base_file", None)
-    output_dir = files.get("dir", None)
+    output_dir = directory or files.get("dir", None)
 
     input_location = os.path.abspath(base_file) if base_file else "N/A"
     output_location = os.path.abspath(output_dir) if output_dir else os.getcwd()
 
-    output_path = (
-        os.path.join(output_dir, "system_info.txt")
-        if output_dir
-        else "system_info.txt"
-    )
+    output_path = os.path.join(output_dir, "system_info.txt") if output_dir else "system_info.txt"
 
     # ------------------------------------------------------------------
     # Write file

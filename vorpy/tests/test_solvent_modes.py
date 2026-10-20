@@ -204,6 +204,31 @@ def test_dedicated_interface_network_preserves_distinct_group_sides(tmp_path):
     assert network.network_mode == "interface"
 
 
+def test_full_solvent_interface_keeps_water_as_global_competitor(tmp_path):
+    system = System(
+        spheres=_balls(),
+        name="full-solvent-interface",
+        output_directory=str(tmp_path),
+        make_dir=False,
+        solvent_mode=SolventMode.FULL_SOLVENT,
+    )
+    group_a = Group(
+        system, name="solute-A", atoms=[0], make_net=False, build_net=False,
+    )
+    group_b = Group(
+        system, name="solute-B", atoms=[2], make_net=False, build_net=False,
+    )
+    system._compact_interface_workflow = True
+    interface = Interface(system, group_a, group_b)
+    network = interface.make_net()
+
+    assert network.generator_system_indices == (0, 1, 2)
+    assert network.solvent_local_indices == (1,)
+    assert network.group == [0, 2]
+    assert network.iface_grps == ({0}, {2})
+    assert network.solvent_mode == SolventMode.FULL_SOLVENT.value
+
+
 def test_molecule_only_view_accepts_incomplete_numerical_boundary_support():
     locations = [(0.0, 0.0, 0.0), (2.0, 0.0, 0.0), (1.0, 1.0, 2.0)]
     balls = pd.DataFrame({

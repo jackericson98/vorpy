@@ -17,6 +17,12 @@ from types import MappingProxyType
 from typing import ClassVar
 
 SCHEMA_VERSION = "1.0"
+PROVENANCE_SCHEMA_VERSION = "1"
+PROVENANCE_SIDECAR_FORMAT = "vorpy.results.provenance"
+COMPACT_INTERFACE_LOG_FORMAT = "vorpy.results.interface_log"
+COMPACT_INTERFACE_LOG_VERSION = "2"
+COMPACT_INTERFACE_LOG_FILENAME = "logs.compact.csv"
+COMPACT_PROVENANCE_SIDECAR_FILENAME = "logs.provenance.json"
 RESULT_SOLVENT_MODES = frozenset({
     "MOLECULE_ONLY",
     "SOLVENT_CONTEXT",
@@ -408,6 +414,9 @@ INTERFACE_LOG_BASE_COLUMNS = (
 INTERFACE_LOG_COLUMNS = INTERFACE_LOG_BASE_COLUMNS + ("provenance",)
 """Authoritative eight-column CSV header; provenance is nullable but present."""
 
+COMPACT_INTERFACE_LOG_COLUMNS = INTERFACE_LOG_BASE_COLUMNS + ("provenance_ref",)
+"""Versioned compact header; references resolve through the provenance sidecar."""
+
 INTERFACE_LOG_STATUS_VALUES = tuple(status.value for status in Status)
 
 INTERFACE_LOG_REPRESENTATIONS = frozenset(
@@ -709,6 +718,394 @@ class Provenance:
         value = self.details.get("geometry_lineage")
         return None if value is None else GeometryLineage.from_mapping(value)
 
+    @classmethod
+    def from_mapping(cls, value):
+        """Restore a typed provenance entry from a legacy or sidecar mapping."""
+        if isinstance(value, cls):
+            return value
+        if not isinstance(value, Mapping):
+            raise TypeError("Provenance must be a mapping")
+        names = {item.name for item in fields(cls)}
+        unknown = set(value).difference(names)
+        if unknown:
+            raise ValueError(
+                "Unknown provenance fields: " + ", ".join(sorted(map(str, unknown)))
+            )
+        if "source" not in value:
+            raise ValueError("Provenance requires a source")
+        return cls(**{name: value[name] for name in names if name in value})
+
+    def as_dict(self):
+        """Return the complete, detached legacy-compatible payload."""
+        return dictionary(self)
+
+    @property
+    def content_digest(self):
+        """Stable digest of the complete provenance payload."""
+        return stable_id("provenance-v1", self.as_dict())
+
+
+def _sha256_digest(value, label):
+    if not isinstance(value, str) or len(value) != 64:
+        raise ValueError(f"{label} must be a 64-character SHA-256 hex digest")
+    try:
+        int(value, 16)
+    except ValueError as exc:
+        raise ValueError(f"{label} must be a 64-character SHA-256 hex digest") from exc
+    return value.lower()
+
+
+def _content_digest(value, prefix, label):
+    if (
+        not isinstance(value, str)
+        or not value.startswith(prefix + ":")
+        or len(value) != len(prefix) + 65
+    ):
+        raise ValueError(f"{label} must use the {prefix}:<sha256> form")
+    try:
+        int(value.rsplit(":", 1)[1], 16)
+    except ValueError as exc:
+        raise ValueError(f"{label} must use the {prefix}:<sha256> form") from exc
+    return value
+
+
+@dataclass(frozen=True)
+class ProvenanceContract:
+    """Explicit, lossless provenance fields for new compact Results exports.
+
+    ``evidence`` carries producer-specific fields verbatim. Large incidence or
+    simplex inventories may live in ``ProvenanceInventory`` entries and be
+    named by ``inventory_refs``; no evidence is inferred or dropped.
+    """
+
+    source_id: str
+    method: str
+    scheme: str
+    ordered_selection: tuple[str, ...] = ()
+    source_revision: str | None = None
+    source_sha256: str | None = None
+    generator_ids: tuple[str, ...] = ()
+    settings: Mapping = field(default_factory=dict)
+    dependency_digests: tuple[str, ...] = ()
+    status: Status = Status.UNRESOLVED
+    completeness: Mapping = field(default_factory=dict)
+    geometry_lineage: GeometryLineage | None = None
+    missing_evidence: tuple[str, ...] = ()
+    unresolved_evidence: tuple[str, ...] = ()
+    inventory_refs: tuple[str, ...] = ()
+    evidence: Mapping = field(default_factory=dict)
+
+    def __post_init__(self):
+        for name in ("source_id", "method", "scheme"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value:
+                raise ValueError(f"{name} must be a non-empty string")
+        if self.source_revision is not None and not isinstance(self.source_revision, str):
+            raise TypeError("source_revision must be a string or null")
+        if self.source_sha256 is not None:
+            object.__setattr__(self, "source_sha256", _sha256_digest(self.source_sha256, "source_sha256"))
+        object.__setattr__(self, "status", Status(self.status))
+        for name in (
+            "ordered_selection",
+            "generator_ids",
+            "missing_evidence",
+            "unresolved_evidence",
+            "inventory_refs",
+        ):
+            values = tuple(getattr(self, name))
+            if any(not isinstance(value, str) or not value for value in values):
+                raise ValueError(f"{name} must contain non-empty strings")
+            object.__setattr__(self, name, values)
+        dependency_digests = tuple(self.dependency_digests)
+        if any(not isinstance(value, str) or not value for value in dependency_digests):
+            raise ValueError("dependency_digests must contain non-empty strings")
+        object.__setattr__(self, "dependency_digests", tuple(sorted(set(dependency_digests))))
+        for name in ("settings", "completeness", "evidence"):
+            value = getattr(self, name)
+            if not isinstance(value, Mapping):
+                raise TypeError(f"{name} must be a JSON mapping")
+            object.__setattr__(self, name, freeze(value))
+        if self.geometry_lineage is not None:
+            object.__setattr__(
+                self,
+                "geometry_lineage",
+                GeometryLineage.from_mapping(self.geometry_lineage),
+            )
+        for value in self.inventory_refs:
+            _content_digest(value, "inventory-v1", "inventory_refs entry")
+
+    @classmethod
+    def from_mapping(cls, value):
+        if isinstance(value, cls):
+            return value
+        if not isinstance(value, Mapping):
+            raise TypeError("Provenance contract must be a mapping")
+        names = {item.name for item in fields(cls)}
+        unknown = set(value).difference(names)
+        if unknown:
+            raise ValueError(
+                "Unknown provenance contract fields: "
+                + ", ".join(sorted(map(str, unknown)))
+            )
+        required = {"source_id", "method", "scheme"}
+        missing = required.difference(value)
+        if missing:
+            raise ValueError(
+                "Provenance contract is missing: " + ", ".join(sorted(missing))
+            )
+        return cls(**{name: value[name] for name in names if name in value})
+
+    def as_dict(self):
+        return dictionary(self)
+
+    @property
+    def content_digest(self):
+        return stable_id("provenance-v1", self.as_dict())
+
+    def to_provenance(self, *, details=None, diagnostics=()):
+        """Project the explicit contract into the legacy typed provenance API."""
+        merged = dict(details or {})
+        merged["canonical_provenance"] = self.as_dict()
+        if self.geometry_lineage is not None:
+            merged["geometry_lineage"] = self.geometry_lineage.as_dict()
+        return Provenance(
+            self.source_id,
+            source_revision=self.source_revision,
+            details=merged,
+            diagnostics=tuple(diagnostics) + self.unresolved_evidence,
+        )
+
+
+@dataclass(frozen=True)
+class ProvenanceReference:
+    """Small metric-row reference to one canonical sidecar payload."""
+
+    digest: str
+    schema_version: str = PROVENANCE_SCHEMA_VERSION
+
+    def __post_init__(self):
+        if self.schema_version != PROVENANCE_SCHEMA_VERSION:
+            raise ValueError("Unsupported provenance reference schema version")
+        _content_digest(self.digest, "provenance-v1", "provenance digest")
+
+    @classmethod
+    def from_value(cls, value):
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, str):
+            return cls(value)
+        if not isinstance(value, Mapping):
+            raise TypeError("Provenance reference must be a digest or mapping")
+        unknown = set(value).difference({"digest", "schema_version"})
+        if unknown:
+            raise ValueError(
+                "Unknown provenance reference fields: "
+                + ", ".join(sorted(map(str, unknown)))
+            )
+        return cls(**value)
+
+    def as_dict(self):
+        return {"digest": self.digest, "schema_version": self.schema_version}
+
+
+class ProvenanceSidecarMissingError(KeyError):
+    """A compact log references a sidecar entry that is not available."""
+
+
+class ProvenanceDigestError(ValueError):
+    """A sidecar key, reference, or payload digest is invalid or stale."""
+
+
+@dataclass(frozen=True)
+class ProvenanceInventory:
+    """Optional separately-addressed incidence/simplex evidence inventory."""
+
+    kind: str
+    payload: object
+
+    def __post_init__(self):
+        if not isinstance(self.kind, str) or not self.kind:
+            raise ValueError("inventory kind must be a non-empty string")
+        object.__setattr__(self, "payload", freeze(self.payload))
+
+    @classmethod
+    def from_mapping(cls, value):
+        if isinstance(value, cls):
+            return value
+        if not isinstance(value, Mapping) or set(value) != {"kind", "payload"}:
+            raise ValueError("Inventory must contain exactly kind and payload")
+        return cls(value["kind"], value["payload"])
+
+    def as_dict(self):
+        return {"kind": self.kind, "payload": dictionary(self.payload)}
+
+    @property
+    def content_digest(self):
+        return stable_id("inventory-v1", self.as_dict())
+
+
+@dataclass(frozen=True)
+class ProvenanceCatalog:
+    """Deduplicated provenance entries and optional evidence inventories."""
+
+    entries: Mapping[str, Provenance | ProvenanceContract] = field(default_factory=dict)
+    inventories: Mapping[str, ProvenanceInventory] = field(default_factory=dict)
+    format: str = PROVENANCE_SIDECAR_FORMAT
+    schema_version: str = PROVENANCE_SCHEMA_VERSION
+    _reference_cache: dict = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+
+    def __post_init__(self):
+        if self.format != PROVENANCE_SIDECAR_FORMAT:
+            raise ValueError("Unsupported provenance sidecar format")
+        if self.schema_version != PROVENANCE_SCHEMA_VERSION:
+            raise ValueError("Unsupported provenance sidecar schema version")
+        entries = {}
+        for digest, value in self.entries.items():
+            if isinstance(value, Mapping):
+                if value.get("record_type") == "contract":
+                    value = ProvenanceContract.from_mapping(
+                        {key: item for key, item in value.items() if key != "record_type"}
+                    )
+                else:
+                    value = Provenance.from_mapping(
+                        {key: item for key, item in value.items() if key != "record_type"}
+                    )
+            if not isinstance(value, (Provenance, ProvenanceContract)):
+                raise TypeError("Provenance catalog entries require typed records")
+            try:
+                expected = value.content_digest
+                _content_digest(digest, "provenance-v1", "provenance catalog key")
+            except ValueError as exc:
+                raise ProvenanceDigestError(str(exc)) from exc
+            if digest != expected:
+                raise ProvenanceDigestError(
+                    f"Provenance digest mismatch: key {digest!r} != payload {expected!r}"
+                )
+            entries[digest] = value
+        inventories = {}
+        for digest, value in self.inventories.items():
+            if isinstance(value, Mapping):
+                value = ProvenanceInventory.from_mapping(value)
+            if not isinstance(value, ProvenanceInventory):
+                raise TypeError("Provenance inventories require typed records")
+            try:
+                _content_digest(digest, "inventory-v1", "inventory catalog key")
+            except ValueError as exc:
+                raise ProvenanceDigestError(str(exc)) from exc
+            if digest != value.content_digest:
+                raise ProvenanceDigestError(
+                    f"Inventory digest mismatch: key {digest!r} != payload {value.content_digest!r}"
+                )
+            inventories[digest] = value
+        for value in entries.values():
+            if isinstance(value, ProvenanceContract):
+                missing = set(value.inventory_refs).difference(inventories)
+                if missing:
+                    raise ProvenanceSidecarMissingError(
+                        "Missing provenance inventories: " + ", ".join(sorted(missing))
+                    )
+        object.__setattr__(self, "entries", MappingProxyType(entries))
+        object.__setattr__(self, "inventories", MappingProxyType(inventories))
+
+    @classmethod
+    def from_provenances(cls, values, *, inventories=()):
+        entries = {}
+        for value in values:
+            if not isinstance(value, (Provenance, ProvenanceContract)):
+                raise TypeError("Provenance catalog values require typed records")
+            entries[value.content_digest] = value
+        inventory_entries = {}
+        for value in inventories:
+            if not isinstance(value, ProvenanceInventory):
+                raise TypeError("Provenance inventories require typed records")
+            inventory_entries[value.content_digest] = value
+        return cls(entries, inventory_entries)
+
+    @classmethod
+    def from_mapping(cls, value):
+        if not isinstance(value, Mapping):
+            raise TypeError("Provenance sidecar must be a mapping")
+        if value.get("format") != PROVENANCE_SIDECAR_FORMAT:
+            raise ValueError("Unsupported provenance sidecar format")
+        entries = {}
+        for digest, item in (value.get("entries") or {}).items():
+            if not isinstance(item, Mapping):
+                raise TypeError("Provenance sidecar entries must be mappings")
+            entries[digest] = item
+        return cls(
+            entries=entries,
+            inventories=value.get("inventories") or {},
+            format=value.get("format"),
+            schema_version=value.get("schema_version"),
+        )
+
+    @classmethod
+    def deserialize(cls, payload):
+        try:
+            value = json.loads(payload)
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise ValueError("Invalid provenance sidecar JSON") from exc
+        return cls.from_mapping(value)
+
+    def as_dict(self):
+        entries = {}
+        for digest, value in self.entries.items():
+            entry = value.as_dict()
+            if isinstance(value, ProvenanceContract):
+                entry = {"record_type": "contract", **entry}
+            entries[digest] = entry
+        return {
+            "format": self.format,
+            "schema_version": self.schema_version,
+            "entries": entries,
+            "inventories": {
+                digest: value.as_dict()
+                for digest, value in self.inventories.items()
+            },
+        }
+
+    def serialize(self):
+        return json.dumps(
+            self.as_dict(),
+            ensure_ascii=False,
+            allow_nan=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+
+    def reference(self, value):
+        if isinstance(value, Mapping) and not isinstance(
+            value, (Provenance, ProvenanceContract)
+        ):
+            value = (
+                ProvenanceContract.from_mapping(value)
+                if "source_id" in value
+                else Provenance.from_mapping(value)
+            )
+        if not isinstance(value, (Provenance, ProvenanceContract)):
+            raise TypeError("Provenance reference requires a typed record")
+        cached = self._reference_cache.get(id(value))
+        if cached is not None and cached[0] is value:
+            return cached[1]
+        digest = value.content_digest
+        if digest not in self.entries:
+            raise ProvenanceSidecarMissingError(digest)
+        reference = ProvenanceReference(digest)
+        self._reference_cache[id(value)] = (value, reference)
+        return reference
+
+    def resolve(self, reference):
+        try:
+            reference = ProvenanceReference.from_value(reference)
+        except (TypeError, ValueError) as exc:
+            raise ProvenanceDigestError(str(exc)) from exc
+        try:
+            return self.entries[reference.digest]
+        except KeyError as exc:
+            raise ProvenanceSidecarMissingError(reference.digest) from exc
+
 
 @dataclass(frozen=True)
 class ResultIdentity:
@@ -1003,10 +1400,49 @@ def serialize_interface_log_provenance(provenance):
     """Serialize optional provenance as canonical JSON, or an empty CSV field."""
     if provenance is None:
         return ""
-    if not isinstance(provenance, (Provenance, Mapping)):
-        raise TypeError("Interface-log provenance must be Provenance or a mapping")
+    if not isinstance(provenance, (Provenance, ProvenanceContract, Mapping)):
+        raise TypeError(
+            "Interface-log provenance must be Provenance, ProvenanceContract, or a mapping"
+        )
     value = _interface_log_json_value(provenance)
     return json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(",", ":"), sort_keys=True)
+
+
+def serialize_interface_log_provenance_reference(provenance, catalog):
+    """Serialize a compact metric-row reference without changing legacy rows."""
+    if provenance is None:
+        return ""
+    if not isinstance(catalog, ProvenanceCatalog):
+        raise TypeError("Compact provenance serialization requires ProvenanceCatalog")
+    if isinstance(provenance, Mapping) and not isinstance(
+        provenance, (Provenance, ProvenanceContract)
+    ):
+        provenance = Provenance.from_mapping(provenance)
+    return catalog.reference(provenance).digest
+
+
+def resolve_interface_log_provenance_reference(value, catalog):
+    """Resolve a compact row reference, failing closed for missing sidecars."""
+    if value in (None, ""):
+        return None
+    if not isinstance(catalog, ProvenanceCatalog):
+        raise TypeError("Compact provenance resolution requires ProvenanceCatalog")
+    return catalog.resolve(value)
+
+
+def deserialize_interface_log_provenance(value):
+    """Read an old full-provenance CSV field without requiring the sidecar."""
+    if value in (None, ""):
+        return None
+    try:
+        decoded = json.loads(value)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("Invalid interface-log provenance JSON") from exc
+    if isinstance(decoded, Mapping) and "source_id" in decoded:
+        return ProvenanceContract.from_mapping(decoded)
+    if isinstance(decoded, Mapping) and "source" in decoded:
+        return Provenance.from_mapping(decoded)
+    return decoded
 
 
 @dataclass(frozen=True)
@@ -1020,7 +1456,7 @@ class InterfaceLogRow:
     value: object | None
     units: str
     status: Status
-    provenance: Provenance | Mapping | None = None
+    provenance: Provenance | ProvenanceContract | Mapping | None = None
 
     def __post_init__(self):
         if not self.interface_id or not self.quantity or not self.units:
@@ -1058,10 +1494,14 @@ class InterfaceLogRow:
         elif expected_units is None:
             raise ValueError(f"Unsupported interface-log quantity: {self.quantity}")
         _interface_log_json_value(self.value)
-        if self.provenance is not None and not isinstance(self.provenance, (Provenance, Mapping)):
-            raise TypeError("Interface-log provenance must be Provenance or a mapping")
+        if self.provenance is not None and not isinstance(
+            self.provenance, (Provenance, ProvenanceContract, Mapping)
+        ):
+            raise TypeError(
+                "Interface-log provenance must be Provenance, ProvenanceContract, or a mapping"
+            )
 
-    def as_csv_row(self):
+    def as_csv_row(self, *, provenance_json=None):
         return {
             "interface_id": self.interface_id,
             "representation": self.representation,
@@ -1070,7 +1510,25 @@ class InterfaceLogRow:
             "value": serialize_interface_log_value(self.value),
             "units": self.units,
             "status": self.status.value,
-            "provenance": serialize_interface_log_provenance(self.provenance),
+            "provenance": (
+                serialize_interface_log_provenance(self.provenance)
+                if provenance_json is None else provenance_json
+            ),
+        }
+
+    def as_compact_csv_row(self, catalog):
+        """Return the v2 row whose provenance is resolved through a sidecar."""
+        return {
+            "interface_id": self.interface_id,
+            "representation": self.representation,
+            "side": self.side,
+            "quantity": self.quantity,
+            "value": serialize_interface_log_value(self.value),
+            "units": self.units,
+            "status": self.status.value,
+            "provenance_ref": serialize_interface_log_provenance_reference(
+                self.provenance, catalog
+            ),
         }
 
 

@@ -142,6 +142,27 @@ def _interface_export_profile_enabled():
 
 
 def _profile_stage(profile, name, callback):
+    stage_callback = profile.get('_cli_stage_callback') if profile is not None else None
+    stage_label = {
+        'scope_selection': 'Export preparation',
+        'mesh_network': 'Export preparation',
+        'contact_atom_pdb': 'Contact/summary exports',
+        'group_info': 'Contact/summary exports',
+        'interface_info': 'Contact/summary exports',
+        'legacy_interface_logs': 'Contact/summary exports',
+        'physical_interface_tables': 'Contact/summary exports',
+        'vertex_mesh': 'Exporting physical geometry',
+        'edge_mesh': 'Exporting physical geometry',
+        'surface_mesh': 'Exporting physical geometry',
+        'dual_visualization': 'Exporting visualization',
+        'buried_water_exports': 'Contact/summary exports',
+    }.get(name, 'Contact/summary exports')
+    if callable(stage_callback) and profile.get('_cli_stage_current') != stage_label:
+        current = profile.get('_cli_stage_current')
+        if current is not None:
+            stage_callback(current, 'finish')
+        stage_callback(stage_label, 'start')
+        profile['_cli_stage_current'] = stage_label
     if profile is None:
         return callback()
     started = time.perf_counter()
@@ -648,6 +669,119 @@ def get_interface_surface_sets(iface, network=None):
     )
 
 
+def summarize_interface_surface_areas(iface, network=None, *, supported_surface_ids=None):
+    """Return named area ledgers for one constructed interface network.
+
+    Direct A/B area is deliberately independent from the all-surface network
+    total.  ``supported_surface_ids`` is supplied by a materialized partial
+    view; for a direct solve, the row's local ``complete`` flag is the only
+    available support evidence.
+    """
+    network = iface.net if network is None else network
+    surfaces = getattr(network, "surfs", None) if network is not None else None
+    if surfaces is None:
+        return {
+            "status": "NOT_CALCULATED",
+            "direct_facet_count": 0,
+            "supported_direct_facet_count": 0,
+            "unresolved_direct_facet_count": 0,
+            "direct_interface_area_A2": None,
+            "known_supported_partial_area_A2": None,
+            "unresolved_direct_area_A2": None,
+            "internal_supporting_network_area_A2": None,
+            "total_constructed_network_area_A2": None,
+            "known_constructed_network_area_A2": None,
+        }
+
+    direct, group1, group2, supporting = get_interface_surface_sets(
+        iface, network=network
+    )
+
+    def rows(table):
+        return [] if table is None else list(table.iterrows())
+
+    def area(row):
+        try:
+            value = float(row.get("sa"))
+        except (TypeError, ValueError):
+            return None
+        return value if np.isfinite(value) and value >= 0.0 else None
+
+    def area_stats(table):
+        entries = rows(table)
+        values = [value for _, row in entries if (value := area(row)) is not None]
+        missing = len(entries) - len(values)
+        known = float(sum(values)) if values else None
+        exact = known if not missing else None
+        return entries, exact, known, missing
+
+    direct_rows, direct_area, _, direct_missing = area_stats(direct)
+    group1_rows, group1_area, group1_known, group1_missing = area_stats(group1)
+    group2_rows, group2_area, group2_known, group2_missing = area_stats(group2)
+    support_rows, support_area, support_known, support_missing = area_stats(supporting)
+    all_rows, total_area, total_known, total_missing = area_stats(surfaces)
+
+    supported_ids = None if supported_surface_ids is None else set(supported_surface_ids)
+    supported_rows = []
+    unresolved_rows = []
+    for source_id, row in direct_rows:
+        finite_area = area(row) is not None
+        if supported_ids is not None:
+            is_supported = source_id in supported_ids and finite_area
+        else:
+            complete = row.get("complete", True)
+            is_supported = bool(complete) and finite_area
+        (supported_rows if is_supported else unresolved_rows).append((source_id, row))
+
+    supported_values = [area(row) for _, row in supported_rows]
+    unresolved_values = [area(row) for _, row in unresolved_rows]
+    supported_area = float(sum(supported_values)) if supported_values else None
+    unresolved_area = (
+        float(sum(unresolved_values))
+        if all(value is not None for value in unresolved_values)
+        else None
+    )
+    direct_count = len(direct_rows)
+    supported_count = len(supported_rows)
+    unresolved_count = len(unresolved_rows)
+    if not direct_count:
+        status = "NOT_CALCULATED"
+    elif unresolved_count == 0 and direct_missing == 0:
+        status = "VERIFIED"
+    elif supported_count:
+        status = "PARTIAL"
+    else:
+        status = "UNRESOLVED"
+
+    non_direct_exact = (
+        float(sum(value for value in (group1_area, group2_area, support_area)
+                 if value is not None))
+        if not any(value is None and count for value, count in (
+            (group1_area, group1_missing),
+            (group2_area, group2_missing),
+            (support_area, support_missing),
+        ))
+        else None
+    )
+    non_direct_known = float(sum(value for value in (group1_known, group2_known, support_known)
+                                 if value is not None))
+    return {
+        "status": status,
+        "direct_facet_count": direct_count,
+        "supported_direct_facet_count": supported_count,
+        "unresolved_direct_facet_count": unresolved_count,
+        "direct_interface_area_A2": direct_area,
+        "known_supported_partial_area_A2": supported_area,
+        "unresolved_direct_area_A2": unresolved_area,
+        "internal_supporting_network_area_A2": non_direct_exact,
+        "known_internal_supporting_network_area_A2": non_direct_known,
+        "total_constructed_network_area_A2": total_area,
+        "known_constructed_network_area_A2": total_known,
+        "constructed_facet_count": len(all_rows),
+        "constructed_facet_area_missing_count": total_missing,
+    }
+
+
 def _interface_physical_scope(iface):
     """Return the direct A/B surface closure used by every physical writer."""
     scope = export_scope(iface)
@@ -915,7 +1049,25 @@ def _write_interface_atom_exports(iface, physical_scope):
     surrounding = _validated_surrounding_atoms(iface, surrounding)
     system = iface.sys
     base_file = str((getattr(system, "files", {}) or {}).get("base_file") or "")
-    if base_file.lower().endswith(".txt"):
+    canonical = getattr(system, "_canonical_output_layout", False)
+    if base_file.lower().endswith(".txt") and not canonical:
+        return {"group_a": group_a, "group_b": group_b, "surrounding": surrounding}
+    if canonical:
+        from vorpy.src.output.layout import canonical_groups_directory
+
+        group_a_dir = canonical_groups_directory(system) / "A"
+        group_b_dir = canonical_groups_directory(system) / "B"
+        group_a_dir.mkdir(parents=True, exist_ok=True)
+        group_b_dir.mkdir(parents=True, exist_ok=True)
+        selection_a = sorted(set(int(value) for value in (getattr(iface.group1, "ball_ndxs", ()) or ())))
+        selection_b = sorted(set(int(value) for value in (getattr(iface.group2, "ball_ndxs", ()) or ())))
+        write_pdb(selection_a, "A", system, directory=group_a_dir)
+        write_pdb(selection_b, "B", system, directory=group_b_dir)
+        contact_atoms = sorted(set(group_a) | set(group_b))
+        write_pdb(contact_atoms, "interface_atoms", system, directory=iface.dir)
+        contact_path = os.path.join(iface.dir, "interface_atoms.pdb")
+        if not os.path.exists(contact_path):
+            open(contact_path, "w", encoding="utf-8").close()
         return {"group_a": group_a, "group_b": group_b, "surrounding": surrounding}
     write_pdb(group_a, "group_a_atoms", system, directory=iface.dir)
     write_pdb(group_b, "group_b_atoms", system, directory=iface.dir)
@@ -1622,6 +1774,14 @@ def export_info(iface, directory=None, physical_scope=None):
         group2_surfaces,
         support_surfaces,
     ) = get_interface_surface_sets(iface)
+    supported_surface_ids = None
+    if physical_scope is not None and physical_scope.view is not None:
+        supported_surface_ids = set(physical_scope.source_ids("surface"))
+    area_ledger = summarize_interface_surface_areas(
+        iface,
+        network=source_network,
+        supported_surface_ids=supported_surface_ids,
+    )
 
     # One-sided or partially populated interfaces may not have explicit
     # surface-classification sets. Normalize them to empty DataFrames so
@@ -1666,6 +1826,13 @@ def export_info(iface, directory=None, physical_scope=None):
         info.write(f"  Solvent mode: {getattr(source_network, 'solvent_mode', None) or settings.get('solvent_mode', 'Not available')}\n")
         source_balls = getattr(source_network, "balls", None)
         info.write(f"  Source generators: {len(source_balls) if source_balls is not None else 'Not available'}\n\n")
+
+        component_status = getattr(iface, "export_component_status", {}) or {}
+        if component_status:
+            info.write("Requested component status:\n")
+            for component, status in sorted(component_status.items()):
+                info.write(f"  {component}: {status}\n")
+            info.write("\n")
 
         info.write("Interface atom membership:\n")
         info.write(f"  Group 1 atoms: {len(group1_atoms)}\n")
@@ -1718,6 +1885,32 @@ def export_info(iface, directory=None, physical_scope=None):
         info.write(
             f"  Supporting/unclassified surfaces: "
             f"{0 if support_surfaces is None else len(support_surfaces)}\n\n"
+        )
+        info.write("Scientific area accounting (constructed source network):\n")
+        info.write(
+            f"  Direct Group 1-Group 2 facet area (A²): "
+            f"{_format_metric(area_ledger['direct_interface_area_A2'])}\n"
+        )
+        info.write(
+            f"  Internal/supporting network area (A²): "
+            f"{_format_metric(area_ledger['internal_supporting_network_area_A2'])}\n"
+        )
+        info.write(
+            f"  Total constructed network area (A²): "
+            f"{_format_metric(area_ledger['total_constructed_network_area_A2'])}\n"
+        )
+        info.write(
+            f"  Known supported direct area (A²): "
+            f"{_format_metric(area_ledger['known_supported_partial_area_A2'])}\n"
+        )
+        info.write(
+            f"  Unresolved direct area (A²): "
+            f"{_format_metric(area_ledger['unresolved_direct_area_A2'])}\n"
+        )
+        info.write(
+            f"  Direct geometry status: {area_ledger['status']} "
+            f"({area_ledger['supported_direct_facet_count']}/"
+            f"{area_ledger['direct_facet_count']} supported facets)\n\n"
         )
         direct_surface_count = len(direct_surfaces) if direct_surfaces is not None else None
         direct_area = (
@@ -1903,23 +2096,33 @@ def export_info(iface, directory=None, physical_scope=None):
                 f"{negative_radii}\n\n"
             )
 
-    # Keep the established group-style filename as a compatibility copy;
-    # interface_info.txt is the canonical interface summary.
-    shutil.copyfile(file_path, os.path.join(directory, "network_info.txt"))
+    # Keep the established group-style filename only for legacy directories.
+    if not getattr(getattr(iface, "sys", None), "_canonical_output_layout", False):
+        shutil.copyfile(file_path, os.path.join(directory, "network_info.txt"))
 
 
 def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, verts=False, logs=False, info=False,
-                      group_info=False, round_to=3, dual=False, buried_water=None):
+                      group_info=False, round_to=3, dual=False, buried_water=None, contact_tables=False):
     """
     Export data belonging to an Interface and its dedicated Network.
     """
     if iface.net is None:
         print(f'Interface "{iface.name}" has no network to export.')
         return
+    if getattr(iface, 'dir', None) is None and hasattr(iface, 'set_dir'):
+        iface.set_dir()
 
     profile = {"timings": {}, "counts": {}, "measurements": {}}
-    if not _interface_export_profile_enabled():
+    stage_callback = getattr(
+        getattr(iface, 'sys', None), '_cli_export_stage_callback', None
+    )
+    if not _interface_export_profile_enabled() and not callable(stage_callback):
         profile = None
+    elif callable(stage_callback):
+        if profile is None:
+            profile = {"timings": {}, "counts": {}, "measurements": {}}
+            total_started = time.perf_counter()
+        profile['_cli_stage_callback'] = stage_callback
     total_started = time.perf_counter() if profile is not None else None
 
     scope = _profile_stage(
@@ -1944,7 +2147,13 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
             None if not area_values else float(sum(area_values))
         )
 
-    mesh_net = scope.mesh_network()
+    mesh_net = None
+    if surfs or edges or verts or all_:
+        mesh_net = _profile_stage(
+            profile,
+            "mesh_network",
+            scope.mesh_network,
+        )
     scoped_iface = None
     if info or logs or all_:
         scoped_iface = copy(iface)
@@ -2025,6 +2234,7 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
             "legacy_interface_logs",
             lambda: write_interface_logs(scoped_iface, round_to=round_to),
         )
+    if logs or contact_tables or all_:
         _profile_stage(
             profile,
             "physical_interface_tables",
@@ -2079,9 +2289,16 @@ def interface_exports(iface, all_=False, atoms=False, surfs=False, edges=False, 
         _profile_stage(profile, "surface_mesh", export_surfaces)
 
     if profile is not None:
+        stage_callback = profile.get('_cli_stage_callback')
+        current_stage = profile.get('_cli_stage_current')
+        if callable(stage_callback) and current_stage is not None:
+            stage_callback(current_stage, 'finish')
+        profile.pop('_cli_stage_callback', None)
+        profile.pop('_cli_stage_current', None)
         profile["timings"]["total"] = time.perf_counter() - total_started
         iface.interface_export_profile = profile
-        _interface_export_profile_summary(profile)
+        if _interface_export_profile_enabled():
+            _interface_export_profile_summary(profile)
 
     return profile
 

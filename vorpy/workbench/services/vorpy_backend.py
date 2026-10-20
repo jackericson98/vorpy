@@ -546,9 +546,24 @@ class VorPyBackend:
             raise ValueError(
                 f"Typed interface Results do not support geometry scheme {context.scheme!r}"
             )
-        solvent_mode = getattr(network.solvent_mode, "value", network.solvent_mode)
-        if not isinstance(solvent_mode, str) or not solvent_mode:
+        source_solvent_mode = getattr(network.solvent_mode, "value", network.solvent_mode)
+        solvent_cells_complete = getattr(network, "solvent_cells_complete", None)
+        if not isinstance(source_solvent_mode, str) or not source_solvent_mode:
             raise ValueError("Interface network is missing solvent_mode provenance")
+
+        # A dedicated interface keeps the FULL_SOLVENT competitor universe,
+        # but does not own complete solvent cells: its group is only A/B.
+        # Results therefore use the explicit partial solvent-context contract;
+        # SharedNetworkIdentity must continue rejecting uncertified
+        # FULL_SOLVENT identities for cell-dependent metrics.
+        solvent_mode = source_solvent_mode
+        direct_partial_solvent = (
+            not source_derived
+            and source_solvent_mode == SolventMode.FULL_SOLVENT.value
+            and solvent_cells_complete is not True
+        )
+        if direct_partial_solvent:
+            solvent_mode = SolventMode.SOLVENT_CONTEXT.value
 
         shared_identity = SharedNetworkIdentity(
             source_network_id=source_network_id,
@@ -698,6 +713,14 @@ class VorPyBackend:
                 "shared_network_identity": shared_identity.payload(),
                 "dependency_digest": dependency.dependency_digest,
                 "source_solvent_provenance": network.solvent_provenance,
+                "results_solvent_provenance": {
+                    "solvent_mode": solvent_mode,
+                    "solvent_generator_digest": getattr(
+                        network, "solvent_generator_digest", None
+                    ),
+                    "solvent_cells_complete": solvent_cells_complete,
+                    "scope": "direct_interface" if direct_partial_solvent else "source",
+                },
                 "source_retained_generator_provenance": (
                     network.retained_generator_provenance
                 ),
