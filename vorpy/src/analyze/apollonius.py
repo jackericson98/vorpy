@@ -407,6 +407,126 @@ class ApolloniusComplex:
             },
         }
 
+    def interface_completeness(self, group_a, group_b):
+        """Return scoped bicolor face/coface evidence without certifying it.
+
+        The local result is limited to selected pair faces and the explicit
+        network edge rows referenced by those faces. Global missing-face,
+        unsupported-feature, and incomplete-cell evidence is reported
+        separately. This diagnostic never changes ``is_supported`` or any
+        curvature certification decision.
+        """
+        group_a = {int(value) for value in group_a}
+        group_b = {int(value) for value in group_b}
+        if not group_a or not group_b or group_a.intersection(group_b):
+            raise ValueError("Interface groups must be non-empty and disjoint.")
+
+        def spans_pair(pair):
+            pair = set(pair)
+            return bool(pair.intersection(group_a)) and bool(pair.intersection(group_b))
+
+        diagnostics = self.incidence_diagnostics()
+        selected_faces = {
+            tuple(map(int, key))
+            for key in self.simplices[1]
+            if spans_pair(key)
+        }
+        missing_selected_faces = {
+            tuple(map(int, relation["missing_face"]))
+            for relation in diagnostics["missing_face_relations"]
+            if relation["face_dimension"] == 1
+            and spans_pair(relation["missing_face"])
+        }
+        selected_cofaces = set()
+        missing_selected_cofaces = set()
+        local_reasons = set()
+
+        for pair in sorted(selected_faces):
+            simplex = self.simplices[1][pair]
+            surface_features = [
+                feature for feature in simplex.primal_features
+                if feature.kind == "surf"
+            ]
+            if not surface_features:
+                local_reasons.add("selected_face_without_surface_record")
+                continue
+            for feature in surface_features:
+                surface_row = self.network.surfs.loc[feature.feature_id]
+                edge_ids = self._ids(self._row_value(surface_row, "edges", ()))
+                if not edge_ids:
+                    local_reasons.add("selected_face_without_coface")
+                    continue
+                for edge_id in edge_ids:
+                    if edge_id not in self.network.edges.index:
+                        missing_selected_cofaces.add((pair, int(edge_id), None))
+                        continue
+                    edge_row = self.network.edges.loc[edge_id]
+                    coface = tuple(sorted(self._ids(self._row_value(edge_row, "balls", ()))))
+                    if len(coface) != 3 or not set(pair).issubset(coface):
+                        missing_selected_cofaces.add((pair, int(edge_id), coface))
+                        continue
+                    triangle = self.simplices[2].get(coface)
+                    if triangle is None:
+                        missing_selected_cofaces.add((pair, int(edge_id), coface))
+                        continue
+                    incident_surfaces = self._ids(
+                        self._row_value(edge_row, "surfs", ())
+                    )
+                    if incident_surfaces and feature.feature_id not in incident_surfaces:
+                        missing_selected_cofaces.add((pair, int(edge_id), coface))
+                        continue
+                    selected_cofaces.add(coface)
+
+        unsupported_features = diagnostics["causes"]["unsupported_higher_order_incidence"]
+        global_reasons = set()
+        if diagnostics["missing_face_relations"]:
+            global_reasons.add("missing_face_relations")
+        if unsupported_features:
+            global_reasons.add("unsupported_higher_order_incidence")
+        if self.incomplete_features:
+            global_reasons.add("incomplete_network_geometry")
+
+        local_complete = bool(selected_faces) and not (
+            missing_selected_faces or missing_selected_cofaces or local_reasons
+        )
+        global_complete = not global_reasons
+        if not local_complete:
+            status = "LOCAL_UNRESOLVED"
+        elif not global_complete:
+            status = "LOCAL_COMPLETE_GLOBAL_UNRESOLVED"
+        else:
+            status = "GLOBAL_COMPLETE"
+
+        global_missing = tuple(
+            (
+                relation["simplex"],
+                tuple(map(int, relation["missing_face"])),
+                int(relation["face_dimension"]),
+            )
+            for relation in diagnostics["missing_face_relations"]
+        )
+        return {
+            "status": status,
+            "local_complete": local_complete,
+            "global_complete": global_complete,
+            "selected_faces": tuple(sorted(selected_faces)),
+            "selected_cofaces": tuple(sorted(selected_cofaces)),
+            "missing_selected_faces": tuple(sorted(missing_selected_faces)),
+            "missing_selected_cofaces": tuple(sorted(missing_selected_cofaces, key=repr)),
+            "global_missing_face_relations": global_missing,
+            "local_reasons": tuple(sorted(local_reasons)),
+            "global_reasons": tuple(sorted(global_reasons)),
+            "counts": {
+                "selected_faces": len(selected_faces),
+                "selected_cofaces": len(selected_cofaces),
+                "missing_selected_faces": len(missing_selected_faces),
+                "missing_selected_cofaces": len(missing_selected_cofaces),
+                "global_missing_face_relations": len(global_missing),
+                "unsupported_features": len(unsupported_features),
+                "incomplete_features": len(self.incomplete_features),
+            },
+        }
+
     def validate(self):
         """Validate simplicial closure of the supported bounded subcomplex."""
         errors = []

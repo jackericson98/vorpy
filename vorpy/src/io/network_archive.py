@@ -4,8 +4,9 @@ Public API accepts a Network, Group, or System on save and returns the selected
 Network on load. Its .sys retains all archived groups/interfaces and networks.
 No solve, triangulation, or scientific analysis is invoked by the loader.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, replace
 from datetime import datetime, timezone
+from collections.abc import Mapping
 from pathlib import Path
 import json
 import os
@@ -55,7 +56,231 @@ def _timing_manifest_path(path):
     return path.with_name(path.name + '.timing.json')
 
 
-def _write_timing_manifest(path, profile):
+def _source_sha256(path):
+    """Hash an available source file without making source loading a prerequisite."""
+    if not path:
+        return None
+    try:
+        digest = hashlib.sha256()
+        with Path(path).open('rb') as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                digest.update(chunk)
+        return digest.hexdigest()
+    except (OSError, TypeError, ValueError):
+        return None
+
+
+def _physical_generator_rows(network):
+    """Return source-generator rows while preserving attested boundaries.
+
+    Boundary generators are numerical geometry inputs, not source atoms.  A
+    recoverable checkpoint may therefore contain them alongside physical
+    source rows, but every boundary row must be explicitly identified.
+    """
+    balls = getattr(network, 'balls', None)
+    generator_indices = getattr(network, 'generator_system_indices', None)
+    if balls is None or generator_indices is None:
+        raise ArchiveError('Checkpoint lacks explicit generator identity metadata')
+    generator_indices = tuple(generator_indices)
+    if len(generator_indices) != len(balls):
+        raise ArchiveError('Checkpoint generator metadata disagrees with its balls table')
+
+    boundary_indices = tuple(getattr(network, 'boundary_indices', ()) or ())
+    boundary_set = set()
+    for value in boundary_indices:
+        if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
+            raise ArchiveError('Checkpoint boundary generator index is invalid')
+        value = int(value)
+        if value < 0 or value >= len(generator_indices) or value in boundary_set:
+            raise ArchiveError('Checkpoint boundary generator indices are invalid')
+        boundary_set.add(value)
+
+    physical = []
+    observed_boundaries = set()
+    for local_index, value in enumerate(generator_indices):
+        if value is None:
+            if local_index not in boundary_set:
+                raise ArchiveError('Recovery source contains an unattested boundary generator')
+            observed_boundaries.add(local_index)
+            continue
+        if local_index in boundary_set:
+            raise ArchiveError('Checkpoint boundary row has a physical generator ID')
+        if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or int(value) < 0:
+            raise ArchiveError(f'Checkpoint generator system index is invalid: {value!r}')
+        physical.append((local_index, int(value)))
+
+    if observed_boundaries != boundary_set:
+        raise ArchiveError('Checkpoint boundary indices do not match generator identities')
+    if boundary_set and len(getattr(network, 'boundary_generators', ()) or ()) != len(boundary_set):
+        raise ArchiveError('Checkpoint boundary generator metadata is incomplete')
+    return tuple(physical), boundary_set
+
+
+def validate_network_source(network, source_path, *, expected_scheme=None,
+                            expected_solvent_mode=None):
+    """Validate a loaded network against its recorded molecular source.
+
+    This is deliberately a source-table check only: it parses the source
+    atoms, but never constructs or analyzes a Network.  Recovery callers can
+    therefore fail closed before resolving selectors against stale geometry.
+    """
+    if not source_path:
+        raise ArchiveError('Checkpoint does not record an original structure path')
+    source = Path(source_path).expanduser().resolve()
+    if not source.is_file():
+        raise ArchiveError(f'Recovery source file does not exist: {source}')
+
+    metadata = dict(getattr(network, 'archive_metadata', {}) or {})
+    recorded_hash = metadata.get('source_sha256')
+    actual_hash = _source_sha256(source)
+    if not recorded_hash or actual_hash != recorded_hash:
+        raise ArchiveError(
+            'Recovery source hash does not match the checkpoint: '
+            f'recorded={recorded_hash!r}, actual={actual_hash!r}'
+        )
+
+    settings = dict(getattr(network, 'settings', {}) or {})
+    scheme = str(settings.get('net_type', '')).strip().lower()
+    if expected_scheme is not None and scheme != str(expected_scheme).strip().lower():
+        raise ArchiveError(
+            f'Recovery requires {expected_scheme!r} geometry, found {scheme!r}'
+        )
+    solvent_mode = settings.get('solvent_mode', getattr(network, 'solvent_mode', None))
+    solvent_mode = getattr(solvent_mode, 'value', solvent_mode)
+    solvent_mode = str(solvent_mode).strip().upper() if solvent_mode is not None else None
+    if expected_solvent_mode is not None and solvent_mode != str(expected_solvent_mode).strip().upper():
+        raise ArchiveError(
+            f'Recovery requires solvent mode {expected_solvent_mode!r}, '
+            f'found {solvent_mode!r}'
+        )
+
+    # Local generator order and stable IDs are part of the trust boundary;
+    # do not infer or repair them during recovery.
+    balls = getattr(network, 'balls', None)
+    stable_ids = getattr(network, 'generator_stable_ids', None)
+    physical_rows, boundary_indices = _physical_generator_rows(network)
+    if stable_ids is None or len(stable_ids) != len(balls):
+        raise ArchiveError('Checkpoint generator metadata disagrees with its balls table')
+    stable_ids = tuple(str(value) for value in stable_ids)
+    generator_indices = tuple(system_index for _, system_index in physical_rows)
+    if len(set(generator_indices)) != len(generator_indices):
+        raise ArchiveError('Checkpoint generator system indices are not unique')
+    for local_index in boundary_indices:
+        if not stable_ids[local_index]:
+            raise ArchiveError('Checkpoint boundary generator identity is missing')
+
+    # Import locally to keep archive loading independent of molecular input
+    # readers and to make it explicit that this path does not build geometry.
+    from vorpy.src.system.system import System
+
+    source_system = System(
+        str(source), make_dir=False, print_actions=False,
+        solvent_mode=expected_solvent_mode,
+    )
+    source_balls = source_system.balls
+    if source_balls is None or len(source_balls) != len(generator_indices):
+        raise ArchiveError(
+            'Checkpoint generator count does not match the recovery source: '
+            f'{len(generator_indices)} != {0 if source_balls is None else len(source_balls)}'
+        )
+    if tuple(generator_indices) != tuple(range(len(source_balls))):
+        raise ArchiveError('Checkpoint generators are not the ordered source PDB universe')
+
+    expected_stable_ids = tuple(
+        f'system:{system_index}' for _, system_index in physical_rows
+    )
+    physical_stable_ids = tuple(stable_ids[local_index] for local_index, _ in physical_rows)
+    if physical_stable_ids != expected_stable_ids:
+        raise ArchiveError('Checkpoint generator stable IDs do not match source order')
+
+    # A checkpoint may retain the source-generator policy separately from the
+    # ball table.  If it is present, it is an assertion about the exact source
+    # universe, not advisory presentation metadata.
+    provenance = dict(getattr(network, 'archive_provenance', {}) or {})
+    generator_policy = provenance.get('source_generator_policy')
+    if generator_policy is None:
+        generator_policy = settings.get('generator_policy')
+    if isinstance(generator_policy, Mapping):
+        policy_count = generator_policy.get('source_generator_count')
+        if policy_count is not None:
+            try:
+                policy_count = int(policy_count)
+            except (TypeError, ValueError, OverflowError) as error:
+                raise ArchiveError('Checkpoint source-generator policy count is unreadable') from error
+            if policy_count != len(generator_indices):
+                raise ArchiveError(
+                    'Checkpoint source-generator policy count does not match its balls table'
+                )
+        active_indices = generator_policy.get('active_system_indices')
+        if active_indices is not None:
+            try:
+                active_indices = tuple(int(value) for value in active_indices)
+            except (TypeError, ValueError, OverflowError) as error:
+                raise ArchiveError('Checkpoint active generator policy is unreadable') from error
+            if active_indices != generator_indices:
+                raise ArchiveError(
+                    'Checkpoint active generator policy does not match source order'
+                )
+
+    identity_balls = getattr(getattr(network, 'sys', None), 'balls', None)
+    if identity_balls is None or len(identity_balls) != len(source_balls):
+        raise ArchiveError('Checkpoint lacks the archived source atom table')
+    comparable = ('name', 'res_name', 'res_seq', 'chain_id', 'element')
+    for local_index, system_index in physical_rows:
+        archived = identity_balls.iloc[system_index]
+        geometry = balls.iloc[local_index]
+        original = source_balls.iloc[system_index]
+        for column in comparable:
+            if str(archived.get(column, '')) != str(original.get(column, '')):
+                raise ArchiveError(
+                    f'Generator identity mismatch at source index {system_index}: {column}'
+                )
+        try:
+            if not np.array_equal(
+                np.asarray(geometry['loc'], dtype=float),
+                np.asarray(original['loc'], dtype=float),
+            ) or not np.isclose(float(geometry['rad']), float(original['rad'])):
+                raise ArchiveError(
+                    f'Generator coordinates/radius mismatch at source index {system_index}'
+                )
+        except (KeyError, TypeError, ValueError) as error:
+            raise ArchiveError(
+                f'Generator geometry identity is unreadable at source index {system_index}'
+            ) from error
+
+    complete = balls.get('complete')
+    complete_count = (
+        int(complete.astype(bool).sum())
+        if complete is not None else None
+    )
+    scientific_result_status = str(
+        provenance.get('scientific_result_status')
+        or provenance.get('analysis_status')
+        or 'NOT_CALCULATED'
+    ).upper()
+    return {
+        'source_path': str(source),
+        'source_sha256': actual_hash,
+        'generator_count': len(generator_indices),
+        'scheme': scheme,
+        'solvent_mode': solvent_mode,
+        'boundary_mode': getattr(network, 'boundary_mode', None)
+        or settings.get('boundary_mode'),
+        'complete_cell_count': complete_count,
+        'complete_cell_evidence': complete is not None,
+        'generator_policy': generator_policy,
+        'geometry_status': provenance.get('geometry_status'),
+        'analysis_status': provenance.get('analysis_status'),
+        # Source/dependency validation succeeded; this is independent of
+        # whether optional scientific measurements are certified.
+        'geometry_checkpoint_valid': True,
+        'scientific_result_status': scientific_result_status,
+        'scientific_result_certified': scientific_result_status == 'CERTIFIED',
+        'settings': settings,
+    }
+
+
+def _write_timing_manifest(path, profile, *, fail_if_exists=False):
     """Atomically persist diagnostics beside the archive, not in its schema."""
     destination = _timing_manifest_path(path)
     manifest = {
@@ -69,7 +294,17 @@ def _write_timing_manifest(path, profile):
         with os.fdopen(fd, 'w', encoding='utf-8', newline='') as stream:
             json.dump(manifest, stream, allow_nan=False, separators=(',', ':'))
             stream.write('\n')
-        os.replace(temp_name, destination)
+        if fail_if_exists:
+            try:
+                # Hard-link creation is the Windows/POSIX exclusive-create
+                # primitive: a racing writer cannot replace the destination.
+                os.link(temp_name, destination)
+            except FileExistsError as error:
+                raise FileExistsError(
+                    f'Refusing to overwrite existing archive timing sidecar: {destination}'
+                ) from error
+        else:
+            os.replace(temp_name, destination)
     finally:
         if os.path.exists(temp_name):
             os.unlink(temp_name)
@@ -77,6 +312,13 @@ def _write_timing_manifest(path, profile):
 
 FORMAT = 'VorPy Network Archive'
 FORMAT_VERSION = 3
+GROUP_LAYER_ATOMS_CONTRACT = 'system_global_nonnegative_v1'
+ARCHIVE_PURPOSES = frozenset({
+    'interface_results',
+    'user_archive',
+    'recovery_checkpoint',
+    'cache_export',
+})
 FIELDS = {'system': SYSTEM_FIELDS, 'network': NETWORK_FIELDS, 'group': GROUP_FIELDS,
           'interface': INTERFACE_FIELDS, 'residue': RESIDUE_FIELDS,
           'chain': CHAIN_FIELDS, 'solvent': CHAIN_FIELDS}
@@ -90,6 +332,10 @@ LINKS = {
     'chain': ('residues',), 'solvent': ('residues',),
 }
 ADAPTERS = registry()
+# Boundary adapter records are referenced through the object table, not by
+# scientific archive identity. Assigning runtime IDs to these frozen config
+# values would change solve-context digests during archive preparation.
+IDENTITY_ADAPTERS = frozenset(ADAPTERS) - {'boundary_config', 'boundary_generator'}
 OPTIONAL_ADAPTER_FIELDS = {
     # These fields were added after the first molecular-contact archives.
     # Missing provenance remains unavailable; it is never inferred on load.
@@ -108,7 +354,34 @@ FIELDS['system'] += ('boundary_config', 'boundary_generators', 'boundary_mode',
 FIELDS['interface'] += ('geometry_analysis', '_geometry_dual', '_geometry_filtration',
     '_geometry_representation', 'analysis_provenance', 'archive_cache_state')
 V2_FIELDS = dict(FIELDS)
+# v3 optional extension: a subordinate network may own boundary generators
+# distinct from its parent System. Older v1/v2 and v3 archives omit this field.
+FIELDS['network'] += ('boundary_generators',)
+# v3 optional extension: preserve producer-attested solvent mode and the
+# local-to-System generator membership used by the solved network. These are
+# deliberately after the v1/v2 snapshots; absent fields remain unresolved.
+FIELDS['system'] += ('solvent_mode',)
+FIELDS['network'] += (
+    'generator_system_indices', 'generator_stable_ids',
+    'solvent_local_indices', 'solvent_generator_ids', 'solvent_mode',
+    'solvent_cells_complete', 'solvent_generator_digest',
+    'retained_system_indices', 'retained_generator_ids',
+    'retained_generator_digest',
+)
+# v3 optional extension: preserve the producer namespace separately from the
+# archive object ID. Missing legacy values remain unavailable on load.
+FIELDS['network'] += ('source_network_id',)
+# v3 optional extension: preserve checkpoint/analysis state without treating
+# a geometry checkpoint as an analysis-complete Result.
+FIELDS['network'] += ('archive_provenance',)
+# v3 optional extension: preserve the canonical solve dependency for native
+# interface vertex state; missing legacy values must fail closed on reuse.
+FIELDS['network'] += ('interface_vertex_state_dependency',)
+FIELDS['system'] += ('retained_system_indices',)
 FIELDS['interface'] += ('representation_caches', 'representation_links')
+# v3 optional extension: preserve the typed non-group interface handoff.  The
+# payload is a strict detached snapshot, not a reference to executable state.
+FIELDS['interface'] += ('typed_results', 'results_dependency')
 
 _REPRESENTATION_FIELDS = frozenset({
     'geometry_analysis', '_geometry_dual', '_geometry_filtration',
@@ -130,13 +403,255 @@ def _water_topology_snapshot(value):
     return value
 
 
+def _archive_provenance_value(value):
+    """Convert typed lineage nested in provenance to JSON-safe archive state."""
+    from vorpy.src.results import GeometryLineage
+
+    if isinstance(value, GeometryLineage):
+        return value.as_dict()
+    if isinstance(value, Mapping):
+        return {key: _archive_provenance_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_archive_provenance_value(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_archive_provenance_value(item) for item in value)
+    if isinstance(value, (set, frozenset)):
+        return type(value)(_archive_provenance_value(item) for item in value)
+    return value
+
+
+_INTERFACE_RESULT_SNAPSHOT_FORMAT = 'vorpy.interface_result_snapshot'
+_RESULTS_DEPENDENCY_SNAPSHOT_FORMAT = 'vorpy.results_dependency_snapshot'
+
+
+def _result_dictionary(value):
+    from vorpy.src.results.model import dictionary
+    return dictionary(value)
+
+
+def _result_snapshot(value):
+    from vorpy.src.results import InterfaceResult
+    if not isinstance(value, InterfaceResult):
+        raise ArchiveError('interface.typed_results must contain InterfaceResult values')
+    payload = _result_dictionary(value)
+    return {
+        'format': _INTERFACE_RESULT_SNAPSHOT_FORMAT,
+        'schema_version': 1,
+        'result_schema_version': payload.get('schema_version'),
+        'payload': payload,
+    }
+
+
+def _dependency_snapshot(value):
+    from vorpy.src.results import ResultsDependency
+    if not isinstance(value, ResultsDependency):
+        raise ArchiveError('interface.results_dependency must be ResultsDependency or None')
+    return {
+        'format': _RESULTS_DEPENDENCY_SNAPSHOT_FORMAT,
+        'schema_version': 1,
+        'payload': _result_dictionary(value),
+    }
+
+
+def _mapping(value, label):
+    if not isinstance(value, Mapping):
+        raise ArchiveError(f'{label} must be a mapping')
+    return dict(value)
+
+
+def _dataclass_payload(cls, value, label, *, converters=None):
+    payload = _mapping(value, label)
+    allowed = {item.name for item in fields(cls)}
+    unknown = set(payload).difference(allowed)
+    if unknown:
+        raise ArchiveError(f'{label} has unknown fields: {sorted(unknown)}')
+    converters = converters or {}
+    try:
+        return cls(**{
+            name: converters[name](item) if name in converters else item
+            for name, item in payload.items()
+        })
+    except (TypeError, ValueError, KeyError) as error:
+        raise ArchiveError(f'Invalid {label}: {error}') from error
+
+
+def _restore_result_provenance(value, label):
+    if value is None:
+        return None
+    from vorpy.src.results import Provenance
+    return _dataclass_payload(Provenance, value, label)
+
+
+def _restore_result_quantity(value, label):
+    from vorpy.src.results import Quantity
+    return _dataclass_payload(
+        Quantity, value, label,
+        converters={'status': lambda item: item,
+                    'provenance': lambda item: _restore_result_provenance(item, f'{label}.provenance')},
+    )
+
+
+def _restore_result_quantities(value, label):
+    payload = _mapping(value, label)
+    return {
+        name: _restore_result_quantity(item, f'{label}.{name}')
+        for name, item in payload.items()
+    }
+
+
+def _restore_interface_result(value):
+    from vorpy.src.results import (
+        AtomIdentity, ContactRecord, Environment, GaussianCurvature, InterfaceResult,
+        MeanCurvature, RepresentationExtension, ResultIdentity, Status, Topology,
+    )
+    snapshot = _mapping(value, 'interface result snapshot')
+    if snapshot.get('format') != _INTERFACE_RESULT_SNAPSHOT_FORMAT:
+        raise ArchiveError('Unsupported interface result snapshot format')
+    if snapshot.get('schema_version') != 1:
+        raise ArchiveError('Unsupported interface result snapshot schema version')
+    payload = _mapping(snapshot.get('payload'), 'interface result snapshot payload')
+    if snapshot.get('result_schema_version') != payload.get('schema_version'):
+        raise ArchiveError('Interface result snapshot schema version mismatch')
+    expected = {item.name for item in fields(InterfaceResult)}
+    unknown = set(payload).difference(expected)
+    if unknown:
+        raise ArchiveError(f'Interface result snapshot has unknown fields: {sorted(unknown)}')
+
+    def _quantity(value, name):
+        return _restore_result_quantity(value, f'interface result {name}')
+
+    def _quantity_map(value, name):
+        return _restore_result_quantities(value, f'interface result {name}')
+
+    def _environment(value):
+        if value is None:
+            return None
+        return _dataclass_payload(
+            Environment, value, 'interface result environment',
+            converters={'provenance': lambda item: _restore_result_provenance(
+                item, 'interface result environment.provenance')},
+        )
+
+    def _topology(value):
+        if value is None:
+            return None
+        return _dataclass_payload(
+            Topology, value, 'interface result topology',
+            converters={'quantities': lambda item: _quantity_map(item, 'topology.quantities')},
+        )
+
+    def _mean(value):
+        if value is None:
+            return None
+        return _dataclass_payload(
+            MeanCurvature, value, 'interface result mean_curvature',
+            converters={name: lambda item, name=name: _quantity(item, f'mean_curvature.{name}')
+                        for name in (
+                            'integrated_mean_curvature', 'complete_total',
+                            'smooth_face_contribution', 'edge_contribution',
+                            'boundary_contribution',
+                        )},
+        )
+
+    def _gaussian(value):
+        if value is None:
+            return None
+        return _dataclass_payload(
+            GaussianCurvature, value, 'interface result gaussian_curvature',
+            converters={name: lambda item, name=name: _quantity(item, f'gaussian_curvature.{name}')
+                        for name in (
+                            'integrated_gaussian_curvature', 'smooth_face_contribution',
+                            'intrinsic_discrete_contribution', 'intrinsic_seam_contribution',
+                            'interior_vertex_defects', 'boundary_geodesic_contribution',
+                            'boundary_corner_contribution', 'gauss_bonnet_completion',
+                            'gauss_bonnet_expected', 'gauss_bonnet_residual',
+                        )},
+        )
+
+    def _contact(value):
+        payload = _mapping(value, 'interface result contact')
+        return _dataclass_payload(
+            ContactRecord, payload, 'interface result contact',
+            converters={
+                'identity': lambda item: _dataclass_payload(
+                    ResultIdentity, item, 'interface result contact.identity'),
+                'atom_A': lambda item: _dataclass_payload(
+                    AtomIdentity, item, 'interface result contact.atom_A'),
+                'atom_B': lambda item: _dataclass_payload(
+                    AtomIdentity, item, 'interface result contact.atom_B'),
+                'quantities': lambda item: _quantity_map(item, 'contact.quantities'),
+                'provenance': lambda item: _restore_result_provenance(
+                    item, 'interface result contact.provenance'),
+            },
+        )
+
+    def _extension(value):
+        return _dataclass_payload(
+            RepresentationExtension, value, 'interface result extension',
+            converters={'provenance': lambda item: _restore_result_provenance(
+                item, 'interface result extension.provenance')},
+        )
+
+    converters = {
+        'identity': lambda item: _dataclass_payload(ResultIdentity, item, 'interface result identity'),
+        'status': lambda item: item,
+        'provenance': lambda item: _restore_result_provenance(item, 'interface result provenance'),
+        'environment': _environment,
+        'metrics': lambda item: _quantity_map(item, 'metrics'),
+        'topology': _topology,
+        'mean_curvature': _mean,
+        'gaussian_curvature': _gaussian,
+        'contacts': lambda item: tuple(_contact(entry) for entry in item)
+        if isinstance(item, (list, tuple)) else (_ for _ in ()).throw(
+            ArchiveError('interface result contacts must be a list')),
+        'selection': lambda item: _quantity_map(item, 'selection'),
+        'extensions': lambda item: tuple(_extension(entry) for entry in item)
+        if isinstance(item, (list, tuple)) else (_ for _ in ()).throw(
+            ArchiveError('interface result extensions must be a list')),
+    }
+    return _dataclass_payload(InterfaceResult, payload, 'interface result', converters=converters)
+
+
+def _restore_dependency(value):
+    from vorpy.src.results import ResultsDependency, SharedNetworkIdentity, Status
+    if value is None:
+        return None
+    snapshot = _mapping(value, 'results dependency snapshot')
+    if snapshot.get('format') != _RESULTS_DEPENDENCY_SNAPSHOT_FORMAT:
+        raise ArchiveError('Unsupported results dependency snapshot format')
+    if snapshot.get('schema_version') != 1:
+        raise ArchiveError('Unsupported results dependency snapshot schema version')
+    payload = _mapping(snapshot.get('payload'), 'results dependency snapshot payload')
+    return _dataclass_payload(
+        ResultsDependency, payload, 'results dependency',
+        converters={
+            'identity': lambda item: _dataclass_payload(
+                SharedNetworkIdentity, item, 'results dependency identity'),
+            'status': lambda item: Status(item),
+        },
+    )
+
+
 def _archive_field_value(kind, name, value):
+    if kind == 'interface' and name == 'typed_results':
+        if value is None:
+            return ()
+        if not isinstance(value, (list, tuple)):
+            raise ArchiveError('interface.typed_results must be a sequence')
+        return tuple(_result_snapshot(item) for item in value)
+    if kind == 'interface' and name == 'results_dependency':
+        return _dependency_snapshot(value) if value is not None else None
+    if name == 'solvent_mode' and value is not None:
+        # System stores the enum while Network stores its canonical string.
+        return getattr(value, 'value', value)
     if kind == 'interface' and name == 'water_topology':
         return _water_topology_snapshot(value)
     if kind == 'interface' and name == 'water_geometries' and value is not None:
         return [dict(geometry, topology_analysis=_water_topology_snapshot(geometry['topology_analysis']))
                 if isinstance(geometry, dict) and 'topology_analysis' in geometry else geometry
                 for geometry in value]
+    if name in {'archive_provenance', 'analysis_provenance'}:
+        return _archive_provenance_value(value)
     return value
 
 
@@ -191,17 +706,53 @@ def _collect(root):
     return objects, ids, types
 
 
-def save_network(network, path, *, progress=None):
+def _adopt_typed_result_archive_ids(objects, types):
+    """Bind a producer-issued archive ID before generic IDs are allocated."""
+    from vorpy.src.results import InterfaceResult
+
+    for iface in objects:
+        if types[type(iface)] != 'interface':
+            continue
+        network = getattr(iface, 'net', None)
+        candidates = {
+            result.identity.network_id
+            for result in (getattr(iface, 'typed_results', ()) or ())
+            if isinstance(result, InterfaceResult)
+        }
+        if not candidates:
+            continue
+        if len(candidates) != 1:
+            raise ArchiveError('interface typed results disagree on archive identity')
+        candidate = candidates.pop()
+        existing = getattr(network, 'archive_id', None)
+        if existing is None:
+            object.__setattr__(network, 'archive_id', candidate)
+
+
+def save_network(network, path, *, progress=None, fail_if_exists=False,
+                 write_timing_manifest=None, archive_purpose=None):
     """Atomically save the root network and its molecular/group/interface context."""
+    if archive_purpose is not None and archive_purpose not in ARCHIVE_PURPOSES:
+        raise ValueError(f'Unknown archive purpose: {archive_purpose!r}')
     root = _root(network)
     if root is None or root.sys is None:
         raise ArchiveError('A solved Network with a parent System is required')
+    if write_timing_manifest is None:
+        write_timing_manifest = getattr(root.sys, '_write_archive_timing_manifest', True)
     validate_network(root)
-    return _save_document(root, path, root, 'network', progress=progress)
+    return _save_document(
+        root, path, root, 'network', progress=progress,
+        fail_if_exists=fail_if_exists,
+        write_timing_manifest=write_timing_manifest,
+        archive_purpose=archive_purpose,
+    )
 
 
-def save_session(session, path, *, progress=None):
+def save_session(session, path, *, progress=None, fail_if_exists=False,
+                 write_timing_manifest=None, archive_purpose=None):
     """Save a complete session in the same .vpy object graph format."""
+    if archive_purpose is not None and archive_purpose not in ARCHIVE_PURPOSES:
+        raise ValueError(f'Unknown archive purpose: {archive_purpose!r}')
     if not isinstance(session, Session):
         session = Session.from_network(_root(session))
     # Normalize document membership using existing references only. This also
@@ -218,10 +769,20 @@ def save_session(session, path, *, progress=None):
     for network in session.networks:
         if all(getattr(network, name, None) is not None for name in ('balls', 'verts', 'edges', 'surfs')):
             validate_network(network)
-    return _save_document(session, path, session.active_network, 'session', progress=progress)
+    if write_timing_manifest is None:
+        owner = getattr(getattr(session, 'active_network', None), 'sys', None)
+        write_timing_manifest = getattr(owner, '_write_archive_timing_manifest', True)
+    return _save_document(
+        session, path, session.active_network, 'session', progress=progress,
+        fail_if_exists=fail_if_exists,
+        write_timing_manifest=write_timing_manifest,
+        archive_purpose=archive_purpose,
+    )
 
 
-def _save_document(document, path, root, document_kind, *, progress=None):
+def _save_document(document, path, root, document_kind, *, progress=None,
+                   fail_if_exists=False, write_timing_manifest=True,
+                   archive_purpose=None):
     profile = {name: 0.0 for name in (
         'archive_preparation', 'object_collection', 'object_table_traversal',
         'scientific_object_preparation', 'scientific_object_conversion',
@@ -234,6 +795,14 @@ def _save_document(document, path, root, document_kind, *, progress=None):
     profile['object_type_timings'] = {}
     profile['table_diagnostics'] = {}
     profile['size_histograms'] = {'members': {}, 'arrays': {}}
+    destination = Path(path).expanduser().resolve()
+    if fail_if_exists and (
+        destination.exists()
+        or _timing_manifest_path(destination).exists()
+    ):
+        raise FileExistsError(
+            f'Refusing to overwrite existing archive or timing sidecar: {destination}'
+        )
     profile.update({
         'member_count': 0,
         'uncompressed_member_bytes': 0,
@@ -271,11 +840,13 @@ def _save_document(document, path, root, document_kind, *, progress=None):
     objects, ids, types = _collect(document)
     profile['object_collection'] = perf_counter() - started
     _progress(progress, 'object_collection', len(objects), len(objects))
+    _validate_group_layer_atoms(objects, types, allow_legacy_sentinel=False)
+    _adopt_typed_result_archive_ids(objects, types)
     started = perf_counter()
     for obj in objects:
         kind = types[type(obj)]
         normalize_vocabulary(obj)
-        if kind in {'system', 'network', 'group', 'interface', 'session'} or kind in ADAPTERS:
+        if kind in {'system', 'network', 'group', 'interface', 'session'} or kind in IDENTITY_ADAPTERS:
             stable_id(obj)
         if kind == 'network':
             obj.network_scope = canonical_network_scope(getattr(obj, 'network_scope', None) or scope(obj))
@@ -320,6 +891,7 @@ def _save_document(document, path, root, document_kind, *, progress=None):
                     if cache_provenance != getattr(cache, 'archive_provenance', None):
                         object.__setattr__(cache, 'archive_provenance', cache_provenance)
             _validate_cache_owners(obj)
+            _validate_typed_result_owners(obj)
     stable_values = [getattr(obj, 'archive_id', None) for obj in objects if hasattr(obj, 'archive_id')]
     if len(stable_values) != len(set(stable_values)):
         raise ArchiveError('Duplicate stable archive identity')
@@ -363,11 +935,25 @@ def _save_document(document, path, root, document_kind, *, progress=None):
                     'is_boundary_generator': int(index) in boundary}
                 for index, row in obj.balls.iterrows()}
     profile['scientific_object_preparation'] = perf_counter() - started
-    destination = Path(path).expanduser().resolve()
     destination.parent.mkdir(parents=True, exist_ok=True)
     source = root.sys.files.get('base_file') if root is not None else None
+    if not source and root is not None:
+        # Reloaded systems may not retain runtime file handles in ``sys.files``.
+        # Preserve an already-attested source path; do not infer a new one.
+        source = (getattr(root, 'archive_metadata', {}) or {}).get(
+            'original_structure_path'
+        )
+    solve_universe_id = None
+    if root is not None and hasattr(root, 'get_solve_context_key'):
+        try:
+            solve_universe_id = root.get_solve_context_key().solve_universe_id
+        except (AttributeError, TypeError, ValueError):
+            # Legacy/incomplete archives remain serializable; recovery will
+            # fail closed if a caller requires a solve-universe identity.
+            solve_universe_id = None
     metadata = {
         'format': FORMAT, 'format_version': FORMAT_VERSION, 'vorpy_version': __version__,
+        'producer_contracts': {'group.layer_atoms': GROUP_LAYER_ATOMS_CONTRACT},
         'created_at': datetime.now(timezone.utc).isoformat(),
         'document_kind': document_kind, 'document_root': ids[id(document)],
         'root_network': ids[id(root)] if root is not None else None,
@@ -385,6 +971,11 @@ def _save_document(document, path, root, document_kind, *, progress=None):
             ('scheme', 'net_type'), ('surface_resolution', 'surf_res'), ('boundary_padding', 'box_size'),
             ('maximum_vertex_radius', 'max_vert'), ('probe_size', 'probe_size'))},
     }
+    if solve_universe_id is not None:
+        metadata['solve_universe_id'] = str(solve_universe_id)
+    metadata['source_sha256'] = _source_sha256(source)
+    if archive_purpose is not None:
+        metadata['archive_purpose'] = archive_purpose
     profile['archive_preparation'] = perf_counter() - document_started
     _progress(progress, 'archive_preparation', 1, 1)
     fd, temp_name = tempfile.mkstemp(prefix='.vorpy-', suffix='.tmp', dir=destination.parent)
@@ -432,7 +1023,17 @@ def _save_document(document, path, root, document_kind, *, progress=None):
         profile['zip_archive_write'] = perf_counter() - started
         _progress(progress, 'zip_finalization', 1, 1)
         started = perf_counter()
-        os.replace(temp_name, destination)
+        if fail_if_exists:
+            try:
+                # os.link() fails atomically when another producer wins the
+                # same destination between preflight and finalization.
+                os.link(temp_name, destination)
+            except FileExistsError as error:
+                raise FileExistsError(
+                    f'Refusing to overwrite existing archive: {destination}'
+                ) from error
+        else:
+            os.replace(temp_name, destination)
         profile['filesystem_replace'] = perf_counter() - started
     finally:
         if os.path.exists(temp_name):
@@ -447,8 +1048,13 @@ def _save_document(document, path, root, document_kind, *, progress=None):
     profile['member_count'] = writer.member_count if writer is not None else 0
     profile['peak_process_memory_bytes'], peak_source = _process_memory()
     profile['memory_source'] = peak_source
-    profile['timing_manifest'] = str(_timing_manifest_path(destination))
-    _write_timing_manifest(destination, profile)
+    profile['timing_manifest'] = (
+        str(_timing_manifest_path(destination)) if write_timing_manifest else None
+    )
+    if write_timing_manifest:
+        _write_timing_manifest(
+            destination, profile, fail_if_exists=fail_if_exists
+        )
     if root is not None and getattr(root, 'sys', None) is not None:
         root.sys.archive_timing = profile
     return destination
@@ -518,6 +1124,15 @@ def _read_v1(reader, metadata):
             # archive schema; absence remains a legacy limitation.
             obj.contact_selection_source = None
         if kind == 'system':
+            archived_solvent_mode = hasattr(obj, 'solvent_mode')
+            if archived_solvent_mode:
+                from vorpy.src.boundary import normalize_solvent_mode
+                obj.solvent_mode = normalize_solvent_mode(obj.solvent_mode)
+            else:
+                # Legacy archives do not attest a solvent generator universe.
+                obj.solvent_mode = None
+            if not hasattr(obj, 'retained_system_indices'):
+                obj.retained_system_indices = ()
             obj.files = dict.fromkeys(('base_file', 'ball_file', 'verts_file', 'net_file', 'ndx_file', 'frame_files'))
             obj.files.update(dir=None, root_dir=str(Path.cwd()))
             obj.gui = None
@@ -540,6 +1155,28 @@ def _read_v1(reader, metadata):
             obj._progress_line_len = 0
             obj.cmnds = None
         elif kind == 'network':
+            if not hasattr(obj, 'source_network_id'):
+                obj.source_network_id = None
+            if not hasattr(obj, 'generator_system_indices'):
+                obj.generator_system_indices = None
+            if not hasattr(obj, 'generator_stable_ids'):
+                obj.generator_stable_ids = None
+            if not hasattr(obj, 'solvent_local_indices'):
+                obj.solvent_local_indices = ()
+            if not hasattr(obj, 'solvent_generator_ids'):
+                obj.solvent_generator_ids = ()
+            if not hasattr(obj, 'solvent_mode'):
+                obj.solvent_mode = None
+            if not hasattr(obj, 'solvent_cells_complete'):
+                obj.solvent_cells_complete = None
+            if not hasattr(obj, 'solvent_generator_digest'):
+                obj.solvent_generator_digest = None
+            if not hasattr(obj, 'retained_system_indices'):
+                obj.retained_system_indices = ()
+            if not hasattr(obj, 'retained_generator_ids'):
+                obj.retained_generator_ids = ()
+            if not hasattr(obj, 'retained_generator_digest'):
+                obj.retained_generator_digest = None
             obj.progress_window = None
             obj.progress_network_name = None
             obj.progress_process_prefix = None
@@ -550,9 +1187,16 @@ def _read_v1(reader, metadata):
                 obj.verts = None
             else:
                 obj._buried_water_exports_complete = False
+                obj.typed_results = tuple(
+                    _restore_interface_result(item)
+                    for item in getattr(obj, 'typed_results', ()) or ()
+                )
+                obj.results_dependency = _restore_dependency(
+                    getattr(obj, 'results_dependency', None)
+                )
     for record, obj in zip(records, objects):
         kind = record['kind']
-        if kind in {'system', 'network', 'group', 'interface', 'session'} or kind in ADAPTERS:
+        if kind in {'system', 'network', 'group', 'interface', 'session'} or kind in IDENTITY_ADAPTERS:
             stable_id(obj)
         if kind == 'network':
             obj.network_scope = canonical_network_scope(getattr(obj, 'network_scope', None) or scope(obj))
@@ -564,6 +1208,7 @@ def _read_v1(reader, metadata):
         kind = record['kind']
         if kind == 'interface':
             _validate_cache_owners(obj)
+            _validate_typed_result_owners(obj, fail_closed=True)
             restore_runtime_keys(obj)
         elif kind == 'boundary_config':
             from vorpy.src.boundary import BoundaryMode
@@ -579,7 +1224,7 @@ def _read_v1(reader, metadata):
     root_id = metadata['root_network']
     if root_id is None and document_kind == 'session':
         document = _session_root(metadata, records, objects)
-        _validate_context(objects, records)
+        _validate_context(objects, records, metadata)
         return document
     if not isinstance(root_id, int) or not 0 <= root_id < len(objects) or records[root_id]['kind'] != 'network':
         raise ArchiveError('Invalid root network ID')
@@ -592,7 +1237,7 @@ def _read_v1(reader, metadata):
             raise ArchiveError(f'Entity count mismatch: {key}')
     if metadata['counts']['atoms'] != len(root.sys.balls):
         raise ArchiveError('Atom count mismatch')
-    _validate_context(objects, records)
+    _validate_context(objects, records, metadata)
     root.archive_metadata = metadata
     root.sys.archive_metadata = metadata
     if document_kind == 'session':
@@ -659,6 +1304,92 @@ def _validate_cache_owners(iface):
             raise ArchiveError('representation cache references another network')
 
 
+def _validate_typed_result_owners(iface, *, fail_closed=False):
+    """Validate typed interface ownership and optionally fail closed on load."""
+    from vorpy.src.results import (
+        InterfaceResult,
+        ResultsDependency,
+        Status,
+        validate_results_dependency,
+    )
+
+    results = getattr(iface, 'typed_results', ()) or ()
+    if not isinstance(results, (list, tuple)):
+        raise ArchiveError('interface.typed_results must be a sequence')
+    archive_id = getattr(iface.net, 'archive_id', None)
+    source_id = getattr(iface.net, 'source_network_id', None)
+    unresolved = []
+    for result in results:
+        if not isinstance(result, InterfaceResult):
+            raise ArchiveError('interface.typed_results must contain InterfaceResult values')
+        if result.identity.network_id != archive_id:
+            raise ArchiveError('interface typed result network identity disagrees with archive')
+        if result.identity.source_network_id == archive_id:
+            raise ArchiveError('interface typed result producer identity aliases archive identity')
+        if source_id is not None and result.identity.source_network_id != source_id:
+            raise ArchiveError('interface typed result producer identity disagrees with network')
+        if result.identity.interface_id != getattr(iface, 'interface_id', None):
+            raise ArchiveError('interface typed result interface identity disagrees with archive')
+        if result.identity.source_interface_id not in (None, getattr(iface, 'interface_id', None)):
+            raise ArchiveError('interface typed result source interface disagrees with archive')
+        group1_id = getattr(getattr(iface, 'group1', None), 'group_id', None)
+        group2_id = getattr(getattr(iface, 'group2', None), 'group_id', None)
+        if group1_id is not None and result.identity.group_A != group1_id:
+            raise ArchiveError('interface typed result Group A disagrees with archive')
+        if group2_id is not None and result.identity.group_B != group2_id:
+            raise ArchiveError('interface typed result Group B disagrees with archive')
+        if not all((
+            result.identity.group_A,
+            result.identity.group_B,
+            result.identity.orientation,
+            result.identity.selection_id,
+        )):
+            unresolved.append(result)
+            continue
+        lineage = result.provenance.geometry_lineage
+        if lineage is None or lineage.origin.value == 'UNRESOLVED':
+            unresolved.append(result)
+            continue
+        if lineage.source_network_id != result.identity.source_network_id:
+            unresolved.append(result)
+        if lineage.solve_universe_id != result.identity.solve_universe_id:
+            unresolved.append(result)
+        if lineage.source_interface_id not in (None, getattr(iface, 'interface_id', None)):
+            unresolved.append(result)
+    dependency = getattr(iface, 'results_dependency', None)
+    if dependency is not None:
+        if not isinstance(dependency, ResultsDependency):
+            raise ArchiveError('interface.results_dependency must be ResultsDependency or None')
+        if results and dependency.identity.source_network_id != results[0].identity.source_network_id:
+            raise ArchiveError('interface dependency producer identity disagrees with result')
+        if results and dependency.identity.solve_universe_id != results[0].identity.solve_universe_id:
+            raise ArchiveError('interface dependency solve identity disagrees with result')
+        if results and dependency.identity.selection_id != results[0].identity.selection_id:
+            unresolved.extend(results)
+        if results:
+            expected_orientation = {
+                'group1 -> group2': 'A -> B',
+                'group2 -> group1': 'B -> A',
+            }.get(results[0].identity.orientation)
+            if expected_orientation is None or dependency.identity.orientation != expected_orientation:
+                unresolved.extend(results)
+            if validate_results_dependency(dependency, dependency) in {
+                Status.UNRESOLVED,
+                Status.NOT_CALCULATED,
+                Status.NOT_SUPPORTED,
+            }:
+                unresolved.extend(results)
+    elif results:
+        unresolved.extend(results)
+    if fail_closed and unresolved:
+        unresolved_ids = {id(result) for result in unresolved}
+        iface.typed_results = tuple(
+            result if id(result) not in unresolved_ids
+            else replace(result, status=Status.UNRESOLVED)
+            for result in results
+        )
+
+
 # Explicit version dispatch is the insertion point for future schema migrations.
 LOADERS = {1: _read_v1, 2: _read_v1, 3: _read_v1}
 
@@ -721,12 +1452,106 @@ def _ids(values, valid, label):
     if not isinstance(values, (list, tuple, set, np.ndarray)):
         raise ArchiveError(f'{label}: expected a list of IDs')
     for value in values:
-        if not isinstance(value, (int, np.integer)) or int(value) not in valid:
+        if (isinstance(value, (bool, np.bool_))
+                or not isinstance(value, (int, np.integer)) or int(value) not in valid):
             raise ArchiveError(f'{label}: invalid/dangling ID {value!r}')
+
+
+def _validate_generator_metadata(net):
+    """Validate explicit producer membership without repairing it on load."""
+    ball_count = len(net.balls)
+    boundary_values = getattr(net, 'boundary_indices', None)
+    boundary_indices = set()
+    if boundary_values is not None:
+        if not isinstance(boundary_values, (list, tuple, set, np.ndarray)):
+            raise ArchiveError('network.boundary_indices: expected a list of IDs')
+        for value in boundary_values:
+            if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
+                raise ArchiveError(f'network.boundary_indices: invalid ID {value!r}')
+            value = int(value)
+            if value < 0 or value >= ball_count:
+                raise ArchiveError(f'network.boundary_indices: invalid/dangling ID {value!r}')
+            boundary_indices.add(value)
+        if len(boundary_indices) != len(boundary_values):
+            raise ArchiveError('network.boundary_indices: duplicate IDs')
+
+    boundary_generators = getattr(net, 'boundary_generators', None)
+    if boundary_generators is not None and not isinstance(
+            boundary_generators, (list, tuple, np.ndarray)):
+        raise ArchiveError('network.boundary_generators: expected a list of generators')
+    if boundary_generators is not None and len(boundary_generators):
+        if len(boundary_generators) != len(boundary_indices):
+            raise ArchiveError('network.boundary_generators: count disagrees with boundary_indices')
+        for generator in boundary_generators:
+            position = getattr(generator, 'position', None)
+            radius = getattr(generator, 'radius', None)
+            position_array = np.asarray(position) if position is not None else np.asarray(())
+            if (position_array.shape != (3,) or position_array.dtype.kind not in 'biuf'
+                    or not np.all(np.isfinite(position_array))):
+                raise ArchiveError('network.boundary_generators: invalid position')
+            if (isinstance(radius, bool) or not isinstance(radius, (int, float, np.number))
+                    or not np.isfinite(radius) or float(radius) <= 0):
+                raise ArchiveError('network.boundary_generators: invalid radius')
+
+    generator_system_indices = getattr(net, 'generator_system_indices', None)
+    if generator_system_indices is not None:
+        if not isinstance(generator_system_indices, (list, tuple, np.ndarray)):
+            raise ArchiveError('network.generator_system_indices: expected a list of IDs')
+        if len(generator_system_indices) != ball_count:
+            raise ArchiveError('network.generator_system_indices: length disagrees with balls')
+        system_numbers = net.balls.get('system_num')
+        for local_index, value in enumerate(generator_system_indices):
+            is_boundary = local_index in boundary_indices
+            if value is None:
+                if not is_boundary:
+                    raise ArchiveError(
+                        f'network.generator_system_indices: missing physical generator ID at {local_index}'
+                    )
+                expected = -1
+            else:
+                if (is_boundary or isinstance(value, bool)
+                        or not isinstance(value, (int, np.integer)) or int(value) < 0):
+                    raise ArchiveError(
+                        f'network.generator_system_indices: invalid physical generator ID {value!r}'
+                    )
+                expected = int(value)
+            if system_numbers is not None:
+                actual = system_numbers.iloc[local_index]
+                if pd.isna(actual):
+                    # Older/manual producers used a missing boundary marker;
+                    # preserve it rather than manufacturing the F10 -1 value.
+                    if not is_boundary:
+                        raise ArchiveError(
+                            f'network.generator_system_indices: disagrees with balls at {local_index}'
+                        )
+                elif int(actual) != expected:
+                    raise ArchiveError(
+                        f'network.generator_system_indices: disagrees with balls at {local_index}'
+                    )
+
+    generator_stable_ids = getattr(net, 'generator_stable_ids', None)
+    if generator_stable_ids is not None:
+        if (not isinstance(generator_stable_ids, (list, tuple, np.ndarray))
+                or len(generator_stable_ids) != ball_count
+                or any(not isinstance(value, str) or not value for value in generator_stable_ids)):
+            raise ArchiveError('network.generator_stable_ids: invalid generator IDs')
+        if len(set(generator_stable_ids)) != len(generator_stable_ids):
+            raise ArchiveError('network.generator_stable_ids: duplicate generator IDs')
+
+    retained_indices = getattr(net, 'retained_system_indices', None)
+    if retained_indices is not None:
+        for value in retained_indices:
+            if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or int(value) < 0:
+                raise ArchiveError(f'network.retained_system_indices: invalid ID {value!r}')
 
 
 def validate_network(net):
     """Validate table shapes, topology ID spaces, and mesh-local connectivity."""
+    source_network_id = getattr(net, 'source_network_id', None)
+    if source_network_id is not None and (
+        not isinstance(source_network_id, str) or not source_network_id.strip()
+    ):
+        raise ArchiveError('network.source_network_id must be a non-empty string or None')
     for key in ('balls', 'verts', 'edges', 'surfs'):
         table = getattr(net, key, None)
         if not isinstance(table, pd.DataFrame):
@@ -767,10 +1592,40 @@ def validate_network(net):
     if net.iface_grps is not None:
         for values in net.iface_grps:
             _ids(values, ball_ids, 'network.iface_grps')
+    _validate_generator_metadata(net)
 
 
-def _validate_context(objects, records):
+def _allow_legacy_layer_sentinel(metadata):
+    if 'producer_contracts' not in metadata:
+        return True
+    contracts = metadata['producer_contracts']
+    if not isinstance(contracts, dict):
+        raise ArchiveError('Invalid producer contract metadata')
+    if 'group.layer_atoms' not in contracts:
+        raise ArchiveError('Missing group.layer_atoms producer contract')
+    contract = contracts['group.layer_atoms']
+    if contract != GROUP_LAYER_ATOMS_CONTRACT:
+        raise ArchiveError('Unsupported group.layer_atoms producer contract')
+    return False
+
+
+def _validate_group_layer_atoms(objects, kinds, *, allow_legacy_sentinel):
+    system_class = _classes()['system']
+    for obj in objects:
+        if kinds[type(obj)] != 'group':
+            continue
+        if not isinstance(getattr(obj, 'sys', None), system_class):
+            raise ArchiveError('Invalid group context')
+        valid = set(range(len(obj.sys.balls)))
+        if allow_legacy_sentinel:
+            valid.add(-1)
+        for values in getattr(obj, 'layer_atoms', None) or []:
+            _ids(values, valid, 'group.layer_atoms')
+
+
+def _validate_context(objects, records, metadata):
     classes = _classes()
+    allow_legacy_layer_sentinel = _allow_legacy_layer_sentinel(metadata)
     for obj, record in zip(objects, records):
         kind = record['kind']
         if kind == 'system':
@@ -785,7 +1640,14 @@ def _validate_context(objects, records):
             _ids(obj.ball_ndxs, set(range(len(obj.sys.balls))), 'group.ball_ndxs')
             for key, table_name in (('layer_atoms', None), ('layer_net_atoms', 'balls'), ('layer_surfs', 'surfs'), ('layer_edges', 'edges'), ('layer_verts', 'verts')):
                 for values in getattr(obj, key, None) or []:
-                    valid = set(range(len(obj.sys.balls))) if table_name is None else set(obj.net.balls['num']) if table_name == 'balls' else set(range(len(getattr(obj.net, table_name))))
+                    if key == 'layer_atoms':
+                        valid = set(range(len(obj.sys.balls)))
+                        if allow_legacy_layer_sentinel:
+                            valid.add(-1)
+                    elif table_name == 'balls':
+                        valid = set(obj.net.balls['num'])
+                    else:
+                        valid = set(range(len(getattr(obj.net, table_name))))
                     _ids(values, valid, f'group.{key}')
         elif kind == 'interface':
             if not isinstance(obj.group1, classes['group']) or not isinstance(obj.group2, classes['group']):

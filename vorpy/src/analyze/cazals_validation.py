@@ -404,6 +404,9 @@ def analyze_case(pdb_path, output_dir, group_a_chains, group_b_chains,
     na, nb = len(interface_a), len(interface_b)
     r_ab = interface_atom_asymmetry(interface_a, interface_b)
     totals = result.edge_totals
+    edge_complete = getattr(result, "edge_contribution_complete", True)
+    curvature_status = getattr(result, "curvature_status", "CERTIFIED" if edge_complete else "UNRESOLVED")
+    curvature_complete = getattr(result, "total_curvature_certified", curvature_status == "CERTIFIED")
     positive_length = sum(edge.length for edge in result.included_edges if edge.beta_radians > 0)
     negative_length = sum(edge.length for edge in result.included_edges if edge.beta_radians < 0)
     c_abs = totals["unsigned"]
@@ -503,16 +506,26 @@ def analyze_case(pdb_path, output_dir, group_a_chains, group_b_chains,
                        **facet_area_statistics(valid_areas)},
         "connectivity": {"components": len(components), "significant_components": sum(c["significant"] for c in components),
                          "scc_threshold_fraction": SCC_AREA_FRACTION, "component_records": component_rows},
-        "curvature": {"positive_edges": totals["positive_edges"], "negative_edges": totals["negative_edges"],
-                      "C_plus_A_rad": totals["positive"], "C_minus_A_rad": totals["negative"],
-                      "C_signed_A_rad": totals["signed"], "C_unsigned_A_rad": totals["unsigned"],
-                      "L_A": totals["length"], "s_H_signed_rad": totals["signed_mean_rad"],
-                      "s_H_signed_deg": totals["signed_mean_deg"], "s_H_unsigned_rad": totals["unsigned_mean_rad"],
-                      "s_H_unsigned_deg": totals["unsigned_mean_deg"], "C_H_signed_A_rad": totals["signed"] / 2.0,
-                      "positive_beta_length_fraction": positive_length / totals["length"],
-                      "negative_beta_length_fraction": negative_length / totals["length"],
-                      "positive_abs_C_fraction": totals["positive"] / c_abs,
-                      "negative_abs_C_fraction": abs(totals["negative"]) / c_abs},
+        "curvature": {"status": curvature_status, "edge_contribution_complete": edge_complete,
+                      "positive_edges": totals["positive_edges"], "negative_edges": totals["negative_edges"],
+                      "observed_C_plus_A_rad": totals["positive"], "observed_C_minus_A_rad": totals["negative"],
+                      "observed_C_signed_A_rad": totals["signed"], "observed_C_unsigned_A_rad": totals["unsigned"],
+                      "observed_L_A": totals["length"],
+                      "curvature_total_certified": curvature_complete,
+                      "C_plus_A_rad": totals["positive"] if curvature_complete else None,
+                      "C_minus_A_rad": totals["negative"] if curvature_complete else None,
+                      "C_signed_A_rad": totals["signed"] if curvature_complete else None,
+                      "C_unsigned_A_rad": totals["unsigned"] if curvature_complete else None,
+                      "L_A": totals["length"] if curvature_complete else None,
+                      "s_H_signed_rad": totals["signed_mean_rad"] if curvature_complete else None,
+                      "s_H_signed_deg": totals["signed_mean_deg"] if curvature_complete else None,
+                      "s_H_unsigned_rad": totals["unsigned_mean_rad"] if curvature_complete else None,
+                      "s_H_unsigned_deg": totals["unsigned_mean_deg"] if curvature_complete else None,
+                      "C_H_signed_A_rad": totals["signed"] / 2.0 if curvature_complete else None,
+                      "positive_beta_length_fraction": positive_length / totals["length"] if curvature_complete and totals["length"] else None,
+                      "negative_beta_length_fraction": negative_length / totals["length"] if curvature_complete and totals["length"] else None,
+                      "positive_abs_C_fraction": totals["positive"] / c_abs if curvature_complete and c_abs else None,
+                      "negative_abs_C_fraction": abs(totals["negative"]) / c_abs if curvature_complete and c_abs else None},
         "lys15": {"residue_label": "chain I LYS 15" if pdb_path.stem.upper() == "2KAI" else None,
                   "atom_count": len(lys15_ids), "facet_count": len(lys15_facets),
                   "facet_area_A2": sum(facet_area.get(f.generator_ids, 0.0) for f in lys15_facets),
@@ -595,11 +608,12 @@ def _case_summary(summary):
         f"Bicolor facets full/alpha0/rejected beta/final={summary['full_regular_bicolor_facets']}/{summary['alpha_zero_bicolor_facets']}/{summary['condition_b_rejected']}/{summary['final_facets']}",
         f"Facet areas: finite={area['bounded_facets']}, unresolved={area['unresolved_facets']}, VIA={area['VIA_A2']:.9g} A^2, mean={area['mean_A2']:.9g}, median={area['median_A2']:.9g}, <1={area['fraction_below_1_A2']:.4%}, >10={area['fraction_above_10_A2']:.4%}, max={area['maximum_A2']:.9g}",
         f"Connectivity: cc={conn['components']}, scc(>=7.5% VIA)={conn['significant_components']}",
-        f"Curvature edges +/-={curve['positive_edges']}/{curve['negative_edges']}; L={curve['L_A']:.9g} A",
-        f"C+/C-/C_signed/C_unsigned={curve['C_plus_A_rad']:.9g}/{curve['C_minus_A_rad']:.9g}/{curve['C_signed_A_rad']:.9g}/{curve['C_unsigned_A_rad']:.9g} A rad",
-        f"s_H signed={curve['s_H_signed_rad']:.9g} rad/{curve['s_H_signed_deg']:.9g} deg; unsigned={curve['s_H_unsigned_rad']:.9g} rad/{curve['s_H_unsigned_deg']:.9g} deg; C_H=C/2={curve['C_H_signed_A_rad']:.9g} A rad",
-        f"Positive/negative beta edge-length fractions={curve['positive_beta_length_fraction']:.6%}/{curve['negative_beta_length_fraction']:.6%}",
-        f"Positive/negative |C| fractions={curve['positive_abs_C_fraction']:.6%}/{curve['negative_abs_C_fraction']:.6%}",
+        f"Curvature status={curve['status']}; edge coverage complete={curve['edge_contribution_complete']}",
+        f"Curvature edges +/-={curve['positive_edges']}/{curve['negative_edges']}; L={_fmt(curve['L_A'])} A (observed included L={curve['observed_L_A']:.9g} A)",
+        f"C+/C-/C_signed/C_unsigned={_fmt(curve['C_plus_A_rad'])}/{_fmt(curve['C_minus_A_rad'])}/{_fmt(curve['C_signed_A_rad'])}/{_fmt(curve['C_unsigned_A_rad'])} A rad",
+        f"s_H signed={_fmt(curve['s_H_signed_rad'])} rad/{_fmt(curve['s_H_signed_deg'])} deg; unsigned={_fmt(curve['s_H_unsigned_rad'])} rad/{_fmt(curve['s_H_unsigned_deg'])} deg; C_H=C/2={_fmt(curve['C_H_signed_A_rad'])} A rad",
+        f"Positive/negative beta edge-length fractions={_pct(curve['positive_beta_length_fraction'])}/{_pct(curve['negative_beta_length_fraction'])}",
+        f"Positive/negative |C| fractions={_pct(curve['positive_abs_C_fraction'])}/{_pct(curve['negative_abs_C_fraction'])}",
     ]
     beta_audit = summary["beta_audit"]
     lines.append(f"Beta triangle audit: max/RMS difference={beta_audit['max_abs_difference_deg']:.9g}/{beta_audit['rms_difference_deg']:.9g} deg; direct/supplementary/sign errors={beta_audit['direct_matches']}/{beta_audit['supplementary_matches']}/{beta_audit['sign_disagreements']}")
@@ -609,6 +623,14 @@ def _case_summary(summary):
         if values["N"]:
             lines.append(f"{label} |beta| N={values['N']}, mean/median/SD={values['mean_deg']:.6g}/{values['median_deg']:.6g}/{values['std_deg']:.6g} deg; p05/p25/p75/p95={values['p05_deg']:.6g}/{values['p25_deg']:.6g}/{values['p75_deg']:.6g}/{values['p95_deg']:.6g}")
     return "\n".join(lines) + "\n"
+
+
+def _fmt(value):
+    return "UNRESOLVED" if value is None else f"{value:.9g}"
+
+
+def _pct(value):
+    return "UNRESOLVED" if value is None else f"{value:.6%}"
 
 
 def main(argv=None):

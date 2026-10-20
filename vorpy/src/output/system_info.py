@@ -7,7 +7,7 @@ from vorpy.src.boundary import (
 )
 
 
-def export_sys_info(sys):
+def export_sys_info(sys, directory=None):
     """
     Export a top-level manifest for a VorPy System.
 
@@ -78,16 +78,12 @@ def export_sys_info(sys):
     # ------------------------------------------------------------------
 
     base_file = files.get("base_file", None)
-    output_dir = files.get("dir", None)
+    output_dir = directory or files.get("dir", None)
 
     input_location = os.path.abspath(base_file) if base_file else "N/A"
     output_location = os.path.abspath(output_dir) if output_dir else os.getcwd()
 
-    output_path = (
-        os.path.join(output_dir, sys.name + "_info.txt")
-        if output_dir
-        else sys.name + "_info.txt"
-    )
+    output_path = os.path.join(output_dir, "system_info.txt") if output_dir else "system_info.txt"
 
     # ------------------------------------------------------------------
     # Write file
@@ -122,6 +118,14 @@ def export_sys_info(sys):
                       "explicit": "Explicit solvent"}.get(mode_value, mode_value)
         info.write(f"Mode:                   {mode_label}\n")
         info.write(f"Explicit solvent detected: {'Yes' if detected else 'No'}\n")
+        solvent_mode = getattr(sys, "solvent_mode", None)
+        solvent_mode = getattr(solvent_mode, "value", solvent_mode)
+        if solvent_mode is not None:
+            info.write(f"Solvent mode:           {solvent_mode}\n")
+            info.write(
+                f"Solvent mode resolution: "
+                f"{getattr(sys, 'solvent_mode_resolution', 'unspecified')}\n"
+            )
         config = getattr(sys, "boundary_config", None)
         if config is not None and mode_value == BoundaryMode.SHELL.value:
             info.write(f"Probe radius:           {config.probe_radius:.3f} Å\n")
@@ -129,6 +133,30 @@ def export_sys_info(sys):
             info.write(f"Shell spacing:          {config.shell_spacing:.3f} Å\n")
             info.write(f"Generator radius:       {DEFAULT_BOUNDARY_GENERATOR_RADIUS:.3f} Å\n")
         info.write(f"Boundary generators:    {len(getattr(sys, 'boundary_generators', ())):,}\n\n")
+
+        policy = getattr(sys, "_source_generator_policy", None)
+        if policy is None:
+            for group in getattr(sys, "groups", ()) or ():
+                network = getattr(group, "net", None)
+                settings = getattr(network, "settings", None)
+                if isinstance(settings, dict):
+                    policy = settings.get("generator_policy")
+                    if policy is not None:
+                        break
+        if isinstance(policy, dict):
+            info.write("GENERATOR POLICY\n")
+            info.write("-" * 72 + "\n")
+            info.write(f"Policy:                 {clean(policy.get('name'))}\n")
+            info.write(f"Resolution:             {clean(policy.get('solvent_mode_resolution'))}\n")
+            info.write(f"Source Generators:      {int(policy.get('source_generator_count', 0)):,}\n")
+            info.write(f"Active Generators:      {int(policy.get('active_generator_count', 0)):,}\n")
+            info.write(f"Excluded Generators:    {int(policy.get('excluded_generator_count', 0)):,}\n")
+            info.write(f"Excluded Water:         {int(policy.get('excluded_water_generator_count', 0)):,}\n")
+            info.write(f"Excluded Na/Cl:         {int(policy.get('excluded_bulk_counterion_generator_count', 0)):,}\n")
+            provenance = policy.get('source_provenance') or {}
+            info.write(f"Source Dataset:          {clean(provenance.get('dataset_id'))}\n")
+            info.write(f"Source Role:             {clean(provenance.get('role'))}\n")
+            info.write(f"Source Evidence:         {clean(provenance.get('evidence'))}\n\n")
 
         # ==============================================================
         # MOLECULAR COMPOSITION

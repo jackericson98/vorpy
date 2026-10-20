@@ -109,7 +109,11 @@ def test_real_dry_cli_selection_and_exports(tmp_path, monkeypatch):
     assert analysis.metadata['solvent_context'] is False
     assert analysis.metadata['additional_network_solves'] == 0
     assert analysis.alpha_selection['selected_pairs'] > 0
-    assert analysis.voronoi_side_1['topology_faces'] > 0
+    # The selected dry geometry is usable, but the available topology is not
+    # certified for this real-input path; keep the quantity explicitly null.
+    assert analysis.voronoi_side_1['topology_faces'] is None
+    assert analysis.voronoi_side_1['mean_certified'] is False
+    assert analysis.voronoi_side_1['gaussian_total_certified'] is False
     def prohibited(*args, **kwargs):
         pytest.fail('Export attempted selection or an additional solve')
     monkeypatch.setattr(Network, 'build', prohibited)

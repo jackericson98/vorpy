@@ -1,0 +1,136 @@
+{
+  "schema": "vorpy.nexus.molecular_interface_benchmark",
+  "manifest_version": 1,
+  "created_date": "2026-10-16",
+  "status": "PLANNED",
+  "purpose": "Four isolated, supervised 1BNA-DB1976 MODEL 1 interface runs; this manifest contains no solved geometry or guessed measurements.",
+  "inputs": {
+    "wet": {
+      "path": "vorpy/data/1bna_DB1976.pdb",
+      "sha256": "B24AAF71BBEC96A32A0E6BDBBE89175AD9C52A99459AB1A696B7B7DD9D66FF4D",
+      "frame_policy": "single frame only",
+      "frame_count": 1,
+      "source_generators": 10494,
+      "molecular_atoms": 805,
+      "water_atoms": 9669,
+      "water_molecules": 3223,
+      "sodium_ions": 20,
+      "element_column_blank_records": 0
+    },
+    "dry": {
+      "path": "vorpy/data/1bna_DB1976_no_sol.pdb",
+      "sha256": "0243D7E3CC55E420C34CFFF31792A1398BEEC24336E48BB7954C1595AE8E5863",
+      "frame_policy": "single frame only",
+      "frame_count": 1,
+      "source_generators": 805,
+      "molecular_atoms": 805,
+      "water_atoms": 0,
+      "sodium_ions": 0,
+      "element_column_blank_records": 0
+    },
+    "matched_molecular_pair": {
+      "atom_count": 805,
+      "identity_order": "PDB serial/name/residue/chain/sequence",
+      "max_coordinate_delta_A": 0.0,
+      "verified_against_dry_prefix": true
+    },
+    "chemistry_audit": {
+      "group_a_selector": "c A and c B",
+      "group_a_atoms": 758,
+      "group_b_selector": "c C",
+      "group_b_atoms": 47,
+      "group_b_residue": "MOL 25",
+      "selenium_atom": "SE21",
+      "selenium_element": "SE",
+      "selenium_radius_A": 1.9,
+      "element_resolution": "PDB element fields are cross-checked against atom-name inference; the preflight must fail on any disagreement."
+    }
+  },
+  "runs": {
+    "aw_wet": {
+      "input": "wet",
+      "method": "aw",
+      "source_mode": "FULL_SOLVENT",
+      "boundary": "none",
+      "profile": "interface",
+      "settings": {"nt": "aw", "sr_A": 0.2, "mv_A": 5.0},
+      "groups": {"A": "c A and c B", "B": "c C"},
+      "output_root": "output/benchmarks/1bna_DB1976/aw_wet",
+      "system_output_directory": "output/benchmarks/1bna_DB1976/aw_wet/1bna_DB1976",
+      "interface_output_directory": "output/benchmarks/1bna_DB1976/aw_wet/1bna_DB1976/c_A_and_c_B_c_C_interface",
+      "archive": "output/benchmarks/1bna_DB1976/aw_wet/1bna_DB1976/1bna_DB1976_aw_wet.vpy",
+      "status": "PLANNED"
+    },
+    "pow_wet": {
+      "input": "wet",
+      "method": "pow",
+      "source_mode": "FULL_SOLVENT",
+      "boundary": "none",
+      "profile": "interface",
+      "settings": {"nt": "pow", "sr_A": 0.2, "mv_A": 5.0},
+      "groups": {"A": "c A and c B", "B": "c C"},
+      "output_root": "output/benchmarks/1bna_DB1976/pow_wet",
+      "system_output_directory": "output/benchmarks/1bna_DB1976/pow_wet/1bna_DB1976",
+      "interface_output_directory": "output/benchmarks/1bna_DB1976/pow_wet/1bna_DB1976/c_A_and_c_B_c_C_interface",
+      "archive": "output/benchmarks/1bna_DB1976/pow_wet/1bna_DB1976/1bna_DB1976_pow_wet.vpy",
+      "status": "PLANNED"
+    },
+    "aw_dry": {
+      "input": "dry",
+      "method": "aw",
+      "source_mode": "MOLECULE_ONLY",
+      "boundary": "none",
+      "profile": "interface",
+      "settings": {"nt": "aw", "sr_A": 0.2, "mv_A": 5.0},
+      "groups": {"A": "c A and c B", "B": "c C"},
+      "output_root": "output/benchmarks/1bna_DB1976/aw_dry",
+      "system_output_directory": "output/benchmarks/1bna_DB1976/aw_dry/1bna_DB1976_no_sol",
+      "interface_output_directory": "output/benchmarks/1bna_DB1976/aw_dry/1bna_DB1976_no_sol/c_A_and_c_B_c_C_interface",
+      "archive": "output/benchmarks/1bna_DB1976/aw_dry/1bna_DB1976_no_sol/1bna_DB1976_aw_dry.vpy",
+      "status": "PLANNED"
+    },
+    "pow_dry": {
+      "input": "dry",
+      "method": "pow",
+      "source_mode": "MOLECULE_ONLY",
+      "boundary": "none",
+      "profile": "interface",
+      "settings": {"nt": "pow", "sr_A": 0.2, "mv_A": 5.0},
+      "groups": {"A": "c A and c B", "B": "c C"},
+      "output_root": "output/benchmarks/1bna_DB1976/pow_dry",
+      "system_output_directory": "output/benchmarks/1bna_DB1976/pow_dry/1bna_DB1976_no_sol",
+      "interface_output_directory": "output/benchmarks/1bna_DB1976/pow_dry/1bna_DB1976_no_sol/c_A_and_c_B_c_C_interface",
+      "archive": "output/benchmarks/1bna_DB1976/pow_dry/1bna_DB1976_no_sol/1bna_DB1976_pow_dry.vpy",
+      "status": "PLANNED"
+    }
+  },
+  "acceptance": {
+    "source_solve_count_per_run": 1,
+    "required_physical_exports": [
+      "interface_surfs.off",
+      "interface_edges.off",
+      "interface_verts.off",
+      "interface_info.txt",
+      "interface_surfaces.csv",
+      "interface_edges.csv",
+      "interface_vertices.csv",
+      "group_a_atoms.pdb",
+      "group_b_atoms.pdb",
+      "surr_atoms.pdb",
+      "surr_residues.pdb"
+    ],
+    "required_archive": true,
+    "no_unrelated_full_system_geometry_in_interface_directory": true,
+    "no_visualization_manifest_in_interface_directory": true,
+    "missing_or_unresolved_geometry_is_not_success": true,
+    "curvature_not_calculated_must_remain_explicit": true
+  },
+  "environment": {
+    "python_executable": ".venv/Scripts/python.exe",
+    "python_version_verified": "3.10.11",
+    "vorpy_version_verified": "3.5.2",
+    "platform": "Windows PowerShell",
+    "preflight_script": "scripts/preflight_1bna_db1976_benchmark.py",
+    "postrun_validator": "scripts/validate_1bna_db1976_benchmark.py"
+  }
+}

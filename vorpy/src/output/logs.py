@@ -96,7 +96,10 @@ def write_logs(group, net_name=None, round_to=None):
         sys_balls[index] = group.sys.balls.iloc[system_num].to_dict()
 
     # Pull surface topology out of pandas once.
-    surf_balls = net.surfs['balls'].tolist()
+    surf_balls = {
+        int(index): balls
+        for index, balls in net.surfs['balls'].items()
+    }
 
     # ------------------------------------------------------------------
     # Write log
@@ -112,10 +115,13 @@ def write_logs(group, net_name=None, round_to=None):
         lg_fl.writerow(["build informaiton"])
         lg_fl.writerow([
             "Name", "Location", "Completion Date", "Network Type", "Surface Resolution", "Box Size",
+            "Solvent Mode", "Solvent Mode Resolution",
             "Maximum Allowable Vertex", "Total Time", "Vertex Time", "Connect Time",
             "Surface Building Time", "Analysis time", "Maximum Found Vertex", "vorPy version"
         ])
 
+        solvent_mode = getattr(net, "solvent_mode", None)
+        solvent_mode = getattr(solvent_mode, "value", solvent_mode)
         lg_fl.writerow([
             group.sys.name,
             group.sys.files['base_file'],
@@ -123,6 +129,8 @@ def write_logs(group, net_name=None, round_to=None):
             net.settings['net_type'],
             net.settings['surf_res'],
             net.settings['box_size'],
+            solvent_mode,
+            net.settings.get('solvent_mode_resolution', 'unspecified'),
             net.settings['max_vert'],
             r(net.metrics['tot']),
             r(net.metrics['vert']),
@@ -226,6 +234,8 @@ def write_logs(group, net_name=None, round_to=None):
 
             nbrs = []
             for surf_ndx in atom.surfs:
+                if surf_ndx not in surf_balls:
+                    continue
                 balls = surf_balls[surf_ndx]
                 nbrs.append(balls[0] if balls[0] != atom_num else balls[1])
 
@@ -437,6 +447,18 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                 return r(default)
             except (TypeError, ValueError):
                 return default
+
+    def optional_round(value):
+        """Keep unavailable curvature blank instead of manufacturing zero."""
+        if value is None:
+            return ""
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return ""
+        if not np.isfinite(number):
+            return ""
+        return r(number)
 
     def curvature_total(value):
         if isinstance(value, dict):
@@ -891,17 +913,17 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                 safe_round(atom.get("vdw_vol", 0.0)),
                 safe_round(atom_surface_area),
                 complete,
-                safe_round(atom.get("max_mean_curv", 0.0)),
-                safe_round(atom.get("avg_mean_surf_curv", 0.0)),
-                safe_round(atom.get("max_gauss_curv", 0.0)),
-                safe_round(atom.get("avg_gauss_surf_curv", 0.0)),
-                safe_round(atom.get("int_mean_curv", 0.0)),
-                safe_round(atom.get("int_mean_curv_sq", 0.0)),
-                safe_round(atom.get("int_gauss_curv", 0.0)),
-                safe_round(atom.get(
-                    "surf_energy",
-                    2.0 * safe_float(atom.get("int_mean_curv_sq", 0.0))
-                )),
+                optional_round(atom.get("max_mean_curv")),
+                optional_round(atom.get("avg_mean_surf_curv")),
+                optional_round(atom.get("max_gauss_curv")),
+                optional_round(atom.get("avg_gauss_surf_curv")),
+                optional_round(atom.get("int_mean_curv")),
+                optional_round(atom.get("int_mean_curv_sq")),
+                optional_round(atom.get("int_gauss_curv")),
+                optional_round(atom.get("surf_energy"))
+                if atom.get("surf_energy") is not None else optional_round(
+                    2.0 * safe_float(atom.get("int_mean_curv_sq"), default=float("nan"))
+                ),
                 safe_round(atom.get("sphericity", 0.0)),
                 safe_round(atom.get("isometric_quotient", 0.0)),
                 bool(atom.get("ball_inside", False)),
@@ -938,13 +960,13 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                     for row in bounding_box
                 ],
                 neighbors,
-                safe_round(atom.get("int_mean_curv_surface", atom.get("int_mean_curv", 0.0))),
-                safe_round(atom.get("int_mean_curv_edge", 0.0)),
-                safe_round(atom.get("int_mean_curv_total", atom.get("int_mean_curv", 0.0))),
-                safe_round(atom.get("int_gauss_curv_surface", atom.get("int_gauss_curv", 0.0))),
-                safe_round(atom.get("int_gauss_curv_edge", 0.0)),
-                safe_round(atom.get("int_gauss_curv_vertex", 0.0)),
-                safe_round(atom.get("int_gauss_curv_total", atom.get("int_gauss_curv", 0.0))),
+                optional_round(atom.get("int_mean_curv_surface", atom.get("int_mean_curv"))),
+                optional_round(atom.get("int_mean_curv_edge")),
+                optional_round(atom.get("int_mean_curv_total", atom.get("int_mean_curv"))),
+                optional_round(atom.get("int_gauss_curv_surface", atom.get("int_gauss_curv"))),
+                optional_round(atom.get("int_gauss_curv_edge")),
+                optional_round(atom.get("int_gauss_curv_vertex")),
+                optional_round(atom.get("int_gauss_curv_total", atom.get("int_gauss_curv"))),
             ]
             )
             _log_atom_rows += 1
@@ -1020,17 +1042,17 @@ def write_interface_logs(iface, net_name=None, round_to=None):
                         ball1,
                         ball2,
                         safe_round(surf.get("sa", 0.0)),
-                        safe_round(surf.get("mean_curv", 0.0)),
-                        safe_round(surf.get("avg_mean_curv", 0.0)),
-                        safe_round(surf.get("gauss_curv", 0.0)),
-                        safe_round(surf.get("avg_gauss_curv", 0.0)),
-                        safe_round(surf.get("int_mean_curv", 0.0)),
-                        safe_round(surf.get("int_mean_curv_sq", 0.0)),
-                        safe_round(surf.get("int_gauss_curv", 0.0)),
-                        safe_round(surf.get(
-                            "surf_energy",
-                            2.0 * safe_float(surf.get("int_mean_curv_sq", 0.0))
-                        )),
+                        optional_round(surf.get("mean_curv")),
+                        optional_round(surf.get("avg_mean_curv")),
+                        optional_round(surf.get("gauss_curv")),
+                        optional_round(surf.get("avg_gauss_curv")),
+                        optional_round(surf.get("int_mean_curv")),
+                        optional_round(surf.get("int_mean_curv_sq")),
+                        optional_round(surf.get("int_gauss_curv")),
+                        optional_round(surf.get("surf_energy"))
+                        if surf.get("surf_energy") is not None else optional_round(
+                            2.0 * safe_float(surf.get("int_mean_curv_sq"), default=float("nan"))
+                        ),
                         safe_round(ball1_volume),
                         safe_round(ball2_volume),
                         safe_round(surf.get("contact_area", 0.0)),

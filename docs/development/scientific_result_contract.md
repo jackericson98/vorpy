@@ -297,10 +297,10 @@ The current typed coverage is intentionally uneven:
 | --- | --- | --- |
 | `physical_partition_interface` | `InterfaceResult`, AW/Power identity, metrics, topology, H/K, selection | The current writer emits all eight columns, preserves provenance, and sorts by `(interface_id, representation, side, quantity)`. It must preserve `partition: "aw"` or `"power"` whenever identity is not available to the row consumer. |
 | `molecular_contact_surface` A/B | `MolecularContactSurfaceResult`, geometric counts, topology, H/K, patch provenance | The GAUSS conversion currently does not place surface `area` in `metrics`; the current writer has the canonical molecular-selection mapping, so it will log those aliases once the typed surface result is populated. |
-| `dual_contact_complex` | Canonical representation name and extension channel | No generic typed dual-result row adapter exists; no measurements may be copied from the primal interface. |
-| `dual_generator_complex` | `GeneratorComplex` and `generator_complex_extension()` with typed simplex/topology quantities | The extension is not traversed by the current compact log path; VECTOR/GAUSS must provide explicit side and quantity rows if dual counts are to be logged. |
+| `dual_contact_complex` | `DualContactComplexResult` and `DualSimplexRecord` snapshot typed dimension-one incidences | The adapter does not copy a primal measure. VECTOR must still emit only supported canonical log quantities. |
+| `dual_generator_complex` | `DualGeneratorComplexResult`, `GeneratorComplex`, and typed simplex/topology quantities | The adapter traverses explicit cached simplex IDs. VECTOR/GAUSS must provide explicit side and quantity rows if dual counts are to be logged. |
 | `dual_separator` | Reserved canonical representation only | Mathematics and measurements are not implemented; emit only explicit unavailable rows when requested. |
-| `alpha_selection` | Alpha identity fields and physical-interface selection quantities | There is no standalone typed `AlphaSelectionResult`; selection rows must use the canonical `alpha_*` names and retain native units for `alpha_value`. |
+| `alpha_selection` | `AlphaSelectionResult`, alpha identity, selected dual/system correspondences, and typed selection quantities | Selection rows use the canonical `alpha_*` names and retain native units for `alpha_value`; selected dual IDs are not physical measurements. |
 | `water_analysis` | Output metadata only | No typed Results water block currently exists; do not promote raw water metadata to certified science without a producer contract. |
 | `timing` | Output metadata only | No typed Results timing block currently exists; timings remain diagnostic rows with seconds and provenance. |
 

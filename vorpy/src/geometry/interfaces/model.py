@@ -53,6 +53,7 @@ class InterfaceEdge:
     dual_triangle_birth: float | None = None
     dual_triangle_status: str = "not_applicable"
     curvature_status: str = "not_computed"
+    signed_mean_curvature_A: float | None = None
 
 
 @dataclass(frozen=True)

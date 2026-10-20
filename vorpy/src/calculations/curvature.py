@@ -37,9 +37,10 @@ def gaussian_curvature(func, point, tol=1e-12):
     grad = np.array([fx, fy, fz], dtype=float)
     grad_mag = np.linalg.norm(grad)
 
-    # Guard against degenerate / ill-posed points
+    # A vanishing implicit gradient does not describe a regular surface at
+    # this point.  It is an unavailable measurement, not a flat patch.
     if not np.isfinite(grad_mag) or grad_mag < tol:
-        return 0.0
+        raise ValueError("Gaussian curvature is undefined for a degenerate implicit gradient.")
 
     # Hessian matrix
     hess = np.array([
@@ -64,14 +65,139 @@ def gaussian_curvature(func, point, tol=1e-12):
     denominator = grad_mag ** 4
 
     if not np.isfinite(denominator) or denominator < tol:
-        return 0.0
+        raise ValueError("Gaussian curvature denominator is undefined.")
 
     K = numerator / denominator
 
     if not np.isfinite(K):
-        return 0.0
+        raise ValueError("Gaussian curvature is non-finite.")
 
     return K
+
+
+def integrate_quadratic_surface_gaussian_curvature(
+        func, points, tris, plane_point, plane_normal, reference_point,
+        *, order=8, point_tolerance=1e-6, tol=1e-12):
+    """Integrate ``K dA`` on a quadratic surface over curved mesh triangles.
+
+    The stored surface mesh is a triangulation in a projection plane whose
+    vertices were lifted to the selected regular branch of the implicit
+    quadratic.  This routine re-lifts Duffy-mapped Gauss--Legendre points and
+    uses the implicit graph Jacobian, rather than multiplying centroid ``K``
+    by flat triangle area.  A failed branch, projection, or regularity check
+    is unresolved and raises ``ValueError``.
+    """
+    coefficients = np.asarray(func, dtype=float)
+    if (coefficients.ndim != 1 or coefficients.size < 14 or
+            not np.all(np.isfinite(coefficients))):
+        raise ValueError("Quadratic surface coefficients are incomplete.")
+    surface_points = np.asarray(points, dtype=float)
+    if surface_points.ndim != 2 or surface_points.shape[1] != 3:
+        raise ValueError("Surface points must be finite three-vectors.")
+    triangles = np.asarray(tris, dtype=int)
+    if triangles.ndim != 2 or triangles.shape[1] != 3:
+        raise ValueError("Surface triangles must have three indices.")
+    if len(triangles) == 0 or np.any(triangles < 0) or np.any(triangles >= len(surface_points)):
+        raise ValueError("Surface triangles are empty or out of bounds.")
+    plane_point = np.asarray(plane_point, dtype=float)
+    plane_normal = np.asarray(plane_normal, dtype=float)
+    reference_point = np.asarray(reference_point, dtype=float)
+    if any(vector.shape != (3,) or not np.all(np.isfinite(vector))
+           for vector in (plane_point, plane_normal, reference_point)):
+        raise ValueError("Surface projection metadata is incomplete.")
+    normal_length = float(np.linalg.norm(plane_normal))
+    if normal_length <= tol:
+        raise ValueError("Surface projection normal is degenerate.")
+    plane_normal = plane_normal / normal_length
+    if not np.all(np.isfinite(surface_points)):
+        raise ValueError("Surface points must be finite.")
+    order = int(order)
+    if order < 2:
+        raise ValueError("Curved-surface quadrature order must be at least two.")
+
+    A, B, C, D, E, F, G, Hc, Ic, J = coefficients[:10]
+
+    def gradient(point):
+        x, y, z = point
+        return np.array((
+            2.0*A*x + D*y + F*z + G,
+            2.0*B*y + D*x + E*z + Hc,
+            2.0*C*z + F*x + E*y + Ic,
+        ), dtype=float)
+
+    def surface_point(projected):
+        """Lift a plane point to the branch nearest the reference generator."""
+        direction = plane_normal
+        x, y, z = projected
+        a = A*direction[0]**2 + B*direction[1]**2 + C*direction[2]**2 \
+            + D*direction[0]*direction[1] + E*direction[1]*direction[2] \
+            + F*direction[2]*direction[0]
+        b = (2.0*A*direction[0]*x + 2.0*B*direction[1]*y
+             + 2.0*C*direction[2]*z
+             + D*(direction[0]*y + direction[1]*x)
+             + E*(direction[1]*z + direction[2]*y)
+             + F*(direction[2]*x + direction[0]*z)
+             + G*direction[0] + Hc*direction[1] + Ic*direction[2])
+        c = (A*x*x + B*y*y + C*z*z + D*x*y + E*y*z + F*z*x
+             + G*x + Hc*y + Ic*z + J)
+        scale = max(1.0, abs(b*b), abs(4.0*a*c))
+        discriminant = b*b - 4.0*a*c
+        if discriminant < -tol*scale:
+            raise ValueError("Surface projection has no real quadratic root.")
+        if abs(a) <= tol*max(1.0, abs(b), abs(c)):
+            if abs(b) <= tol*max(1.0, abs(c)):
+                raise ValueError("Surface projection has no regular root.")
+            roots = (-c/b,)
+        else:
+            root = float(np.sqrt(max(discriminant, 0.0)))
+            roots = ((-b + root)/(2.0*a), (-b - root)/(2.0*a))
+        candidates = [projected + value*direction for value in roots]
+        result = min(candidates, key=lambda value: float(np.linalg.norm(value-reference_point)))
+        if not np.all(np.isfinite(result)):
+            raise ValueError("Surface projection produced a non-finite point.")
+        return result
+
+    nodes, weights = np.polynomial.legendre.leggauss(order)
+    unit_nodes = 0.5*(nodes + 1.0)
+    unit_weights = 0.5*weights
+    total = 0.0
+    for triangle in triangles:
+        actual = surface_points[triangle]
+        projected = actual - np.outer(
+            (actual - plane_point) @ plane_normal, plane_normal
+        )
+        for actual_point, projected_point in zip(actual, projected, strict=True):
+            if np.linalg.norm(surface_point(projected_point) - actual_point) > point_tolerance:
+                raise ValueError("Stored surface point is not on the selected quadratic branch.")
+        first = projected[1] - projected[0]
+        second = projected[2] - projected[0]
+        plane_jacobian = float(np.linalg.norm(np.cross(first, second)))
+        if not np.isfinite(plane_jacobian) or plane_jacobian <= tol:
+            raise ValueError("Surface triangle projection is degenerate.")
+        for u, wu in zip(unit_nodes, unit_weights, strict=True):
+            for v, wv in zip(unit_nodes, unit_weights, strict=True):
+                barycentric_v = (1.0-u)*v
+                projected_point = projected[0] + u*first + barycentric_v*second
+                point = surface_point(projected_point)
+                grad = gradient(point)
+                grad_length = float(np.linalg.norm(grad))
+                denominator = float(np.dot(grad, plane_normal))
+                if (not np.isfinite(grad_length) or grad_length <= tol or
+                        abs(denominator) <= tol*max(1.0, grad_length)):
+                    raise ValueError("Quadratic surface graph is singular at a quadrature point.")
+                first_derivative = first - plane_normal * float(np.dot(grad, first)/denominator)
+                second_derivative = second - plane_normal * float(np.dot(grad, second)/denominator)
+                surface_jacobian = float(np.linalg.norm(
+                    np.cross(first_derivative, second_derivative)
+                ))
+                if not np.isfinite(surface_jacobian):
+                    raise ValueError("Quadratic surface Jacobian is non-finite.")
+                total += float(wu*wv*(1.0-u)*surface_jacobian*gaussian_curvature(
+                    coefficients, point, tol=tol
+                ))
+    if not np.isfinite(total):
+        raise ValueError("Curved-surface Gaussian integral is non-finite.")
+    return float(total)
 
 
 def mean_curvature(func, point, tol=1e-12):
@@ -119,9 +245,10 @@ def mean_curvature(func, point, tol=1e-12):
     # Gradient magnitude
     grad_mag = np.sqrt(fx ** 2 + fy ** 2 + fz ** 2)
 
-    # Guard against degenerate / ill-posed points
+    # A vanishing implicit gradient does not describe a regular surface at
+    # this point.  It is an unavailable measurement, not a flat patch.
     if not np.isfinite(grad_mag) or grad_mag < tol:
-        return 0.0
+        raise ValueError("Mean curvature is undefined for a degenerate implicit gradient.")
 
     H_mat = np.array([[fxx, fxy, fxz],
                       [fxy, fyy, fyz],
@@ -134,12 +261,11 @@ def mean_curvature(func, point, tol=1e-12):
 
     # denom is protected by the tol-check above, but keep it explicit
     if not np.isfinite(denom) or abs(denom) < tol:
-        return 0.0
+        raise ValueError("Mean curvature denominator is undefined.")
 
     H_val = num / denom
-    # Optional: clamp crazy values
     if not np.isfinite(H_val):
-        return 0.0
+        raise ValueError("Mean curvature is non-finite.")
 
     return H_val
 
@@ -301,7 +427,7 @@ def calc_surf_tri_curvs_both(func, points, tris, tol=1e-12):
     weighted_mean_sq = 0.0
     weighted_gauss = 0.0
 
-    for tri in tris:
+    for tri_index, tri in enumerate(tris):
         i0, i1, i2 = tri
         p0 = points[i0]
         p1 = points[i1]
@@ -320,8 +446,9 @@ def calc_surf_tri_curvs_both(func, points, tris, tol=1e-12):
         grad_sq = fx * fx + fy * fy + fz * fz
 
         if not np.isfinite(grad_sq) or grad_sq < tol * tol:
-            mean_val = 0.0
-            gauss_val = 0.0
+            raise ValueError(
+                f"Curvature is undefined at triangle {tri_index}: degenerate implicit gradient."
+            )
         else:
             grad_mag = np.sqrt(grad_sq)
 
@@ -336,11 +463,14 @@ def calc_surf_tri_curvs_both(func, points, tris, tol=1e-12):
             mean_denom = 2.0 * grad_sq * grad_mag
 
             if not np.isfinite(mean_denom) or abs(mean_denom) < tol:
-                mean_val = 0.0
-            else:
-                mean_val = mean_num / mean_denom
-                if not np.isfinite(mean_val):
-                    mean_val = 0.0
+                raise ValueError(
+                    f"Mean curvature is undefined at triangle {tri_index}: invalid denominator."
+                )
+            mean_val = mean_num / mean_denom
+            if not np.isfinite(mean_val):
+                raise ValueError(
+                    f"Mean curvature is non-finite at triangle {tri_index}."
+                )
 
             # Gaussian curvature:
             # K = grad^T adj(Hess) grad / |grad|^4
@@ -351,11 +481,14 @@ def calc_surf_tri_curvs_both(func, points, tris, tol=1e-12):
             gauss_denom = grad_sq * grad_sq
 
             if not np.isfinite(gauss_denom) or gauss_denom < tol:
-                gauss_val = 0.0
-            else:
-                gauss_val = gauss_num / gauss_denom
-                if not np.isfinite(gauss_val):
-                    gauss_val = 0.0
+                raise ValueError(
+                    f"Gaussian curvature is undefined at triangle {tri_index}: invalid denominator."
+                )
+            gauss_val = gauss_num / gauss_denom
+            if not np.isfinite(gauss_val):
+                raise ValueError(
+                    f"Gaussian curvature is non-finite at triangle {tri_index}."
+                )
 
         mean_tri_curvs.append(mean_val)
         gauss_tri_curvs.append(gauss_val)

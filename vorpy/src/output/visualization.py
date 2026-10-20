@@ -9,9 +9,10 @@ from __future__ import annotations
 import json
 import re
 import csv
+import io
 import os
 from collections.abc import Mapping
-from dataclasses import fields
+from dataclasses import fields, replace
 from time import perf_counter
 from pathlib import Path
 
@@ -27,22 +28,41 @@ from vorpy.src.geometry.visualization.export import (
 from vorpy.src.interface.selected_export import export_selected_interface
 from vorpy.src.output.mesh import write_mesh
 from vorpy.src.output.pdb import write_pdb
+from vorpy.src.output.verts import write_off_verts
 from vorpy.src.io.scientific_adapters import (
     canonical_environment, canonical_network_scope, scope, stable_id,
 )
 from vorpy.src.output.layout import interface_folder_name
+from vorpy.src.output.export_scope import export_scope
+from vorpy.src.network.aw_geometry_reuse import build_geometry_lineage_metadata
 from vorpy.src.results import (
+    COMPACT_INTERFACE_LOG_COLUMNS,
+    COMPACT_INTERFACE_LOG_FILENAME,
+    COMPACT_PROVENANCE_SIDECAR_FILENAME,
     INTERFACE_LOG_COLUMNS,
     INTERFACE_LOG_QUANTITY_UNITS,
     RESULT_CURVATURE_QUANTITY_TO_INTERFACE_LOG,
     RESULT_METRIC_QUANTITY_TO_INTERFACE_LOG,
     RESULT_MOLECULAR_QUANTITY_TO_INTERFACE_LOG,
     InterfaceLogRow,
+    InterfaceResult,
+    make_geometry_lineage,
     Provenance,
+    ProvenanceCatalog,
+    ProvenanceSidecarMissingError,
     ResultIdentity,
     Status,
+    adapt_alpha_selection,
+    adapt_dual_contact_complex,
+    adapt_dual_generator_complex,
     adapt_interface_analysis,
+    is_provisional_source_network_id,
+    unavailable_alpha_selection,
+    unavailable_dual_contact_complex,
+    unavailable_dual_generator_complex,
     unavailable_interface,
+    deserialize_interface_log_provenance,
+    resolve_interface_log_provenance_reference,
 )
 
 
@@ -76,7 +96,7 @@ def _physical_interface(iface, directory):
         directory.mkdir(parents=True, exist_ok=True)
         iface.dir = str(directory)
         export_selected_interface(iface)
-    except (AttributeError, KeyError, TypeError, ValueError, RuntimeError) as error:
+    except (AttributeError, KeyError, TypeError, ValueError, RuntimeError, MemoryError) as error:
         return _status('UNRESOLVED', f'Cached physical interface is not exportable: {error}')
     finally:
         iface.dir = old_directory
@@ -262,6 +282,16 @@ _ALPHA_LOG_NAMES = {
     'selected_features': 'alpha_selected_count',
     'mapped_surfaces': 'alpha_selected_physical_system_pairs',
 }
+_ALPHA_SELECTION_LOG_NAMES = {
+    'eligible_pairs': 'alpha_eligible_count',
+    'candidate_pairs': 'alpha_candidate_count',
+    'selected_features': 'alpha_selected_count',
+    'rejected_features': 'alpha_rejected_count',
+    'unresolved_features': 'alpha_unresolved_count',
+    'mapped_surfaces': 'alpha_selected_physical_count',
+    'excluded_pairs': 'alpha_excluded_count',
+    'coverage': 'alpha_coverage',
+}
 
 
 def _cached_result_identity(iface, *, result_kind='interface', representation='voronoi',
@@ -292,6 +322,26 @@ def _cached_result_identity(iface, *, result_kind='interface', representation='v
     )
     environment = canonical_environment(source.get('environment', metadata.get(
         'environment', 'solvent_competing' if metadata.get('solvent_context') else 'dry')))
+    producer_source_network_id = getattr(net, 'source_network_id', None)
+    if not isinstance(producer_source_network_id, str) or not producer_source_network_id.strip():
+        producer_source_network_id = None
+    source_identity_status = 'UNRESOLVED'
+    if producer_source_network_id is not None:
+        if producer_source_network_id == getattr(net, 'archive_id', None):
+            producer_source_network_id = None
+        else:
+            source_identity_status = 'AUTHORITATIVE'
+            get_context = getattr(net, 'get_solve_context_key', None)
+            if callable(get_context):
+                try:
+                    context = get_context()
+                except (AttributeError, TypeError, ValueError):
+                    context = None
+                solve_universe_id = getattr(context, 'solve_universe_id', None)
+                if isinstance(solve_universe_id, str) and is_provisional_source_network_id(
+                    producer_source_network_id, solve_universe_id
+                ):
+                    source_identity_status = 'PROVISIONAL'
     return ResultIdentity(
         result_kind=result_kind,
         system=str(getattr(sys, 'name', 'system')),
@@ -317,8 +367,9 @@ def _cached_result_identity(iface, *, result_kind='interface', representation='v
         molecular_surface_convention=getattr(surface, 'convention', None),
         definition_version=getattr(surface, 'definition_version', None),
         partner_id='B' if side == 'A' else 'A' if side == 'B' else None,
-        source_network_id=stable_id(net),
-        source_interface_id=stable_id(iface),
+        source_network_id=producer_source_network_id,
+        source_identity_status=source_identity_status,
+        source_interface_id=getattr(iface, 'interface_id', None),
         interaction_id=f'{getattr(sys, "name", "system")}:{getattr(iface, "name", "interface")}',
         orientation_convention=(
             'outward_molecular_normal' if result_kind == 'molecular_contact_surface'
@@ -328,14 +379,164 @@ def _cached_result_identity(iface, *, result_kind='interface', representation='v
 
 
 def _cached_interface_result(iface):
+    # A producer-attested typed result is the authoritative cache snapshot.
+    # The archive loader validates its archive/producer ownership before this
+    # cache-only path can consume it.
+    archive_id = getattr(getattr(iface, 'net', None), 'archive_id', None)
+    for result in getattr(iface, 'typed_results', ()) or ():
+        if (
+            isinstance(result, InterfaceResult)
+            and result.identity.network_id == archive_id
+            and result.identity.interface_id == getattr(iface, 'interface_id', None)
+        ):
+            return result
     analysis = getattr(iface, 'geometry_analysis', None)
     identity = _cached_result_identity(iface)
     archive_provenance = getattr(analysis, 'archive_provenance', None) if analysis is not None else None
     details = dict(archive_provenance) if isinstance(archive_provenance, Mapping) else {}
     provenance = Provenance('cached interface scientific state', scientific_state_id=stable_id(analysis)
                             if analysis is not None else None, details=details)
-    return (adapt_interface_analysis(analysis, identity, provenance=provenance)
-            if analysis is not None else unavailable_interface(identity, provenance=provenance))
+    if analysis is None:
+        return unavailable_interface(identity, provenance=provenance)
+    # Preserve producer lineage loaded from the archive; synthesize only for
+    # legacy caches that have no archived lineage record.
+    geometry_lineage = None
+    if provenance.geometry_lineage is None:
+        solver_evidence = getattr(iface.net, 'aw_solver_provenance', None)
+        try:
+            lineage_metadata = build_geometry_lineage_metadata(
+                iface.net,
+                selection_scope={
+                    'scope': 'interface',
+                    'source_interface_id': getattr(iface, 'interface_id', None),
+                },
+                orientation={'convention': 'physical_interface_A_to_B'},
+            )
+        except (AttributeError, TypeError, ValueError):
+            lineage_metadata = {}
+        geometry_lineage = make_geometry_lineage(
+            lineage_metadata,
+            solver_evidence=solver_evidence,
+        ).as_dict()
+    return adapt_interface_analysis(
+        analysis,
+        identity,
+        provenance=provenance,
+        geometry_lineage=geometry_lineage,
+    )
+
+
+def _cached_alpha_selection_result(iface):
+    """Adapt cached alpha-selection state; never query or rebuild geometry."""
+    analysis = getattr(iface, 'geometry_analysis', None)
+    identity = _cached_result_identity(iface, representation='alpha_selection')
+    # AlphaSelectionResult deliberately requires an explicit native alpha
+    # identity. Without it there is no standalone scientific selection result.
+    if identity.alpha_value is None:
+        return None
+    archive_provenance = getattr(analysis, 'archive_provenance', None) if analysis is not None else None
+    details = dict(archive_provenance) if isinstance(archive_provenance, Mapping) else {}
+    provenance = Provenance('cached alpha selection', scientific_state_id=stable_id(analysis)
+                            if analysis is not None else None, details=details)
+    dual = getattr(iface, '_geometry_dual', None)
+    if getattr(dual, 'network', None) is not getattr(iface, 'net', None):
+        dual = None
+    return (adapt_alpha_selection(analysis, identity, dual=dual, provenance=provenance)
+            if analysis is not None else unavailable_alpha_selection(identity, provenance=provenance))
+
+
+def _cached_contact_simplex_ids(dual):
+    """Return only explicit dimension-one contact IDs from ATLAS metadata."""
+    metadata = getattr(dual, 'metadata', None)
+    evidence = metadata.get('explicit_group_membership') if isinstance(metadata, Mapping) else None
+    if evidence is None:
+        return None
+    memberships = evidence['simplex_ids']
+    values = tuple(memberships['AB/contact'])
+    if any(not isinstance(value, str) or not value for value in values):
+        raise ValueError('Dual explicit simplex IDs must be nonempty strings')
+    return tuple(value for value in values if value.split(':', 1)[0] == '1')
+
+
+def _cached_dual_result_bundle(iface):
+    """Adapt the cached dual without rebuilding it or inventing A/B membership."""
+    contact_identity = _cached_result_identity(iface, representation='dual')
+    generator_identity = _cached_result_identity(
+        iface, representation='dual_generator_complex', side='AB/contact',
+    )
+    a_identity = _cached_result_identity(iface, representation='dual_a', side='A')
+    b_identity = _cached_result_identity(iface, representation='dual_b', side='B')
+    dual = getattr(iface, '_geometry_dual', None)
+    archive_provenance = getattr(dual, 'archive_provenance', None)
+    details = dict(archive_provenance) if isinstance(archive_provenance, Mapping) else {}
+    metadata = getattr(dual, 'metadata', None)
+    if isinstance(metadata, Mapping):
+        for name, value in metadata.items():
+            details.setdefault(name, value)
+    details['partition'] = contact_identity.partition
+    provenance = Provenance(
+        'cached dual complex',
+        scientific_state_id=stable_id(dual) if dual is not None else None,
+        details=details,
+    )
+
+    stale_reasons = []
+    if getattr(iface, 'archive_cache_state', None) == 'STALE':
+        stale_reasons.append('cached dual is marked stale')
+    if dual is not None and getattr(dual, 'network', None) is not getattr(iface, 'net', None):
+        stale_reasons.append('cached dual references another network')
+    if dual is not None:
+        cached_network_id = details.get('network_id')
+        if cached_network_id is not None and cached_network_id != contact_identity.network_id:
+            stale_reasons.append('cached dual references another network identity')
+        cached_interface_id = details.get('interface_id')
+        if cached_interface_id is not None and cached_interface_id != contact_identity.interface_id:
+            stale_reasons.append('cached dual references another interface identity')
+        cached_scheme = getattr(dual, 'scheme', None) or details.get('scheme')
+        expected_scheme = 'power' if contact_identity.partition == 'power' else contact_identity.partition
+        if cached_scheme is not None:
+            normalized_scheme = 'power' if str(cached_scheme).lower() in {'pow', 'power', 'prm'} else str(cached_scheme).lower()
+            if normalized_scheme != expected_scheme:
+                stale_reasons.append('cached dual uses another partition')
+
+    if dual is None:
+        return (
+            unavailable_dual_contact_complex(contact_identity, provenance=provenance),
+            unavailable_dual_generator_complex(generator_identity, provenance=provenance),
+            unavailable_dual_generator_complex(a_identity, provenance=provenance),
+            unavailable_dual_generator_complex(b_identity, provenance=provenance),
+        )
+    if stale_reasons:
+        stale = replace(
+            provenance,
+            diagnostics=provenance.diagnostics + tuple(stale_reasons),
+        )
+        return (
+            replace(unavailable_dual_contact_complex(contact_identity, provenance=stale),
+                    status=Status.STALE),
+            replace(unavailable_dual_generator_complex(generator_identity, provenance=stale),
+                    status=Status.STALE),
+            replace(unavailable_dual_generator_complex(a_identity, provenance=stale),
+                    status=Status.STALE),
+            replace(unavailable_dual_generator_complex(b_identity, provenance=stale),
+                    status=Status.STALE),
+        )
+    return (
+        adapt_dual_contact_complex(
+            dual,
+            contact_identity,
+            provenance=provenance,
+            simplex_ids=_cached_contact_simplex_ids(dual),
+        ),
+        adapt_dual_generator_complex(dual, generator_identity, provenance=provenance),
+        adapt_dual_generator_complex(dual, a_identity, provenance=provenance),
+        adapt_dual_generator_complex(dual, b_identity, provenance=provenance),
+    )
+
+
+def _cached_dual_results(iface):
+    """Return the existing contact and combined generator Results pair."""
+    return _cached_dual_result_bundle(iface)[:2]
 
 
 def _cached_surface_result(iface, surface):
@@ -376,8 +577,19 @@ def _iter_result_quantities(result):
             yield f'{block_name}.{name}', quantity
 
 
-def _compact_result_rows(iface):
-    rows = []
+def _compact_result_rows(iface, *, profile=None):
+    records = []
+    function_started = perf_counter()
+    adapter_seconds = 0.0
+    adapter_calls = 0
+
+    def adapter_call(callback, *args):
+        nonlocal adapter_calls, adapter_seconds
+        adapter_calls += 1
+        started = perf_counter()
+        value = callback(*args)
+        adapter_seconds += perf_counter() - started
+        return value
 
     def add(result, representation, side, path, quantity, name=None):
         log_name = name or RESULT_METRIC_QUANTITY_TO_INTERFACE_LOG.get(
@@ -408,7 +620,7 @@ def _compact_result_rows(iface):
                         'boundary_of_boundary_zero', 'beta0', 'beta1', 'beta2',
                     }):
                 return
-        rows.append(InterfaceLogRow(
+        records.append(InterfaceLogRow(
             interface_id=result.identity.interface_id or result.identity.result_id,
             representation=representation,
             side=side,
@@ -417,80 +629,306 @@ def _compact_result_rows(iface):
             units=quantity.units,
             status=quantity.status,
             provenance=quantity.provenance or result.provenance,
-        ).as_csv_row())
+        ))
 
-    result = _cached_interface_result(iface)
+    result = adapter_call(_cached_interface_result, iface)
+    identity = result.identity
     for path, quantity in _iter_result_quantities(result):
         name = _TOPOLOGY_LOG_NAMES.get(quantity.name)
         if path.startswith('selection.'):
             name = _ALPHA_LOG_NAMES.get(quantity.name)
         add(result, 'physical_partition_interface', 'shared', path, quantity, name=name)
 
-    identity = result.identity
-    if identity.alpha_value is not None:
-        rows.append(InterfaceLogRow(
-            identity.interface_id or identity.result_id, 'alpha_selection', 'shared',
-            'alpha_value', identity.alpha_value, identity.alpha_units or '1',
-            result.status, provenance=result.provenance,
-        ).as_csv_row())
+    if getattr(iface, '_geometry_dual', None) is not None:
+        for dual_result in adapter_call(_cached_dual_result_bundle, iface):
+            for path, quantity in _iter_result_quantities(dual_result):
+                add(dual_result, dual_result.identity.representation,
+                    dual_result.identity.side, path, quantity)
 
+    alpha_result = adapter_call(_cached_alpha_selection_result, iface)
+    if alpha_result is not None:
+        alpha_identity = alpha_result.identity
+        for name, quantity in alpha_result.selection.items():
+            add(alpha_result, 'alpha_selection', 'shared', f'selection.{name}', quantity,
+                name=_ALPHA_SELECTION_LOG_NAMES[name])
+        records.append(InterfaceLogRow(
+            alpha_identity.interface_id or alpha_identity.result_id, 'alpha_selection', 'shared',
+            'alpha_value',
+            None if alpha_result.status in {
+                Status.UNRESOLVED, Status.NOT_CALCULATED, Status.NOT_SUPPORTED,
+            } else alpha_identity.alpha_value,
+            alpha_identity.alpha_units or '1',
+            alpha_result.status, provenance=alpha_result.provenance,
+        ))
     metadata = getattr(getattr(iface, 'geometry_analysis', None), 'metadata', {}) or {}
     for quantity, value in (metadata.get('timings_seconds', {}) or {}).items():
         if value is not None:
-            rows.append(InterfaceLogRow(
+            records.append(InterfaceLogRow(
                 identity.interface_id or identity.result_id, 'timing', 'shared',
                 f'timing_{quantity}', value, 's', Status.CERTIFIED,
                 provenance=result.provenance,
-            ).as_csv_row())
+            ))
     if metadata.get('timing_total_seconds') is not None:
-        rows.append(InterfaceLogRow(
+        records.append(InterfaceLogRow(
             identity.interface_id or identity.result_id, 'timing', 'shared',
             'timing_total', metadata['timing_total_seconds'], 's', Status.CERTIFIED,
             provenance=result.provenance,
-        ).as_csv_row())
+        ))
 
     topology = getattr(iface, 'water_topology', None) or {}
     if isinstance(topology, dict):
         for quantity, value in (topology.get('summary', {}) or {}).items():
             if value is not None:
-                rows.append(InterfaceLogRow(
+                records.append(InterfaceLogRow(
                     identity.interface_id or identity.result_id, 'water_analysis', 'shared',
                     f'water_{quantity}', value, '1', Status.PARTIAL,
                     provenance=result.provenance,
-                ).as_csv_row())
+                ))
 
     caches = getattr(iface, 'representation_caches', None) or {}
     for side in ('A', 'B'):
         surface = caches.get(f'molecular_contact_surface:{side}')
         if surface is None:
             surface_result = unavailable_interface(
-                _cached_result_identity(iface), provenance=result.provenance)
+                adapter_call(_cached_result_identity, iface), provenance=result.provenance)
         else:
             try:
-                surface_result = _cached_surface_result(iface, surface)
+                surface_result = adapter_call(_cached_surface_result, iface, surface)
             except (AttributeError, KeyError, TypeError, ValueError):
                 surface_result = unavailable_interface(
-                    _cached_result_identity(iface), provenance=result.provenance)
+                    adapter_call(_cached_result_identity, iface), provenance=result.provenance)
         for path, quantity in _iter_result_quantities(surface_result):
             add(surface_result, 'molecular_contact_surface', side, path, quantity,
                 name=_TOPOLOGY_LOG_NAMES.get(quantity.name))
 
+    record_generation_seconds = perf_counter() - function_started - adapter_seconds
+    started = perf_counter()
+    provenance_json_cache = {}
+    rows = []
+    provenance_serializations = 0
+    for record in records:
+        provenance = record.provenance
+        if provenance is not None:
+            cache_key = id(provenance)
+            if cache_key in provenance_json_cache:
+                row = record.as_csv_row(
+                    provenance_json=provenance_json_cache[cache_key]
+                )
+            else:
+                row = record.as_csv_row()
+                provenance_json_cache[cache_key] = row['provenance']
+                provenance_serializations += 1
+        else:
+            row = record.as_csv_row()
+        rows.append(row)
+    legacy_json_seconds = perf_counter() - started
+    if profile is not None:
+        profile['timings']['results_adapter_preparation'] = adapter_seconds
+        profile['timings']['canonical_record_generation'] = max(
+            0.0, record_generation_seconds
+        )
+        profile['timings']['legacy_provenance_json_encoding'] = legacy_json_seconds
+        profile['counts'].update({
+            'canonical_records': len(records),
+            'adapter_calls': adapter_calls,
+            'legacy_provenance_serializations': provenance_serializations,
+        })
     return rows
 
 
-def _compact_log(iface, path):
-    """Write validated canonical Results with provenance preserved."""
-    rows = sorted(
-        _compact_result_rows(iface),
+def _sorted_log_rows(rows):
+    return sorted(
+        rows,
         key=lambda row: tuple(str(row.get(column, '')) for column in (
             'interface_id', 'representation', 'side', 'quantity',
         )),
     )
+
+
+def _encode_csv_rows(rows, fieldnames):
+    stream = io.StringIO(newline='')
+    writer = csv.DictWriter(stream, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(rows)
+    return stream.getvalue().encode('utf-8')
+
+
+def _compact_log(iface, path):
+    """Write the unchanged legacy canonical Results log."""
+    rows = _sorted_log_rows(_compact_result_rows(iface))
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open('w', newline='', encoding='utf-8') as stream:
-        writer = csv.DictWriter(stream, fieldnames=INTERFACE_LOG_COLUMNS)
-        writer.writeheader()
-        writer.writerows(row for row in rows)
+    path.write_bytes(_encode_csv_rows(rows, INTERFACE_LOG_COLUMNS))
+
+
+def _log_value_from_csv(value):
+    if value in (None, ''):
+        return None
+    try:
+        return json.loads(value)
+    except (TypeError, json.JSONDecodeError):
+        return value
+
+
+def _typed_log_rows(rows, profile):
+    started = perf_counter()
+    provenance_cache = {}
+    records = []
+    for row in rows:
+        provenance_text = row.get('provenance', '')
+        if provenance_text not in provenance_cache:
+            provenance_cache[provenance_text] = deserialize_interface_log_provenance(
+                provenance_text
+            )
+        records.append(InterfaceLogRow(
+            interface_id=row['interface_id'],
+            representation=row['representation'],
+            side=row['side'],
+            quantity=row['quantity'],
+            value=_log_value_from_csv(row.get('value')),
+            units=row['units'],
+            status=row['status'],
+            provenance=provenance_cache[provenance_text],
+        ))
+    profile['timings']['provenance_lookup_construction'] = perf_counter() - started
+    profile['counts']['provenance_rows'] = sum(
+        bool(row.get('provenance')) for row in rows
+    )
+    profile['counts']['unique_provenance'] = len(
+        [key for key in provenance_cache if key]
+    )
+    return records
+
+
+def _compact_log_bundle(iface, path, *, include_legacy=True):
+    """Write the compact Results/provenance pair, optionally retaining legacy CSV."""
+    path = Path(path)
+    total_started = perf_counter()
+    profile = {
+        'timings': {},
+        'counts': {},
+        'bytes': {},
+        'reused': {},
+        'timing_semantics': {
+            'results_adapter_preparation': 'cached Results/adapter calls only',
+            'canonical_record_generation': 'row mapping and validation excluding adapter calls',
+            'provenance_lookup_construction': 'unique provenance parsing plus catalog construction',
+            'json_encoding': 'compact sidecar JSON only',
+            'csv_encoding': 'in-memory CSV encoding, excluding filesystem writes',
+            'filesystem_writes': 'legacy CSV, compact CSV, and sidecar writes only',
+        },
+    }
+    existing = getattr(iface, 'interface_export_profile', {}) or {}
+    existing_timings = existing.get('timings', {})
+    profile['timings'].update({
+        'interface_scope_selection': existing_timings.get('scope_selection', 0.0),
+        'mesh_generation': existing_timings.get('mesh_network', 0.0),
+        'contact_table_generation': existing_timings.get(
+            'physical_interface_tables', 0.0
+        ),
+    })
+    profile['reused'].update({
+        'interface_scope': 'scope_selection' in existing_timings,
+        'mesh_network': 'mesh_network' in existing_timings,
+        'contact_tables': 'physical_interface_tables' in existing_timings,
+    })
+    started = perf_counter()
+    rows = _sorted_log_rows(_compact_result_rows(iface, profile=profile))
+    profile['timings']['results_and_records_total'] = perf_counter() - started
+
+    started = perf_counter()
+    legacy_payload = _encode_csv_rows(rows, INTERFACE_LOG_COLUMNS) if include_legacy else b''
+    profile['timings']['legacy_csv_encoding'] = perf_counter() - started
+
+    records = _typed_log_rows(rows, profile)
+    started = perf_counter()
+    unique_provenances = []
+    seen_provenance_ids = set()
+    for record in records:
+        provenance = record.provenance
+        if provenance is not None and id(provenance) not in seen_provenance_ids:
+            seen_provenance_ids.add(id(provenance))
+            unique_provenances.append(provenance)
+    catalog = ProvenanceCatalog.from_provenances(
+        unique_provenances
+    )
+    profile['timings']['provenance_catalog_construction'] = perf_counter() - started
+
+    started = perf_counter()
+    compact_payload = _encode_csv_rows(
+        (record.as_compact_csv_row(catalog) for record in records),
+        COMPACT_INTERFACE_LOG_COLUMNS,
+    )
+    profile['timings']['compact_csv_encoding'] = perf_counter() - started
+    started = perf_counter()
+    sidecar_payload = catalog.serialize().encode('utf-8')
+    profile['timings']['json_encoding'] = perf_counter() - started
+
+    compact_path = path.parent / COMPACT_INTERFACE_LOG_FILENAME
+    sidecar_path = path.parent / COMPACT_PROVENANCE_SIDECAR_FILENAME
+    path.parent.mkdir(parents=True, exist_ok=True)
+    started = perf_counter()
+    if include_legacy:
+        path.write_bytes(legacy_payload)
+    legacy_write = perf_counter() - started
+    started = perf_counter()
+    compact_path.write_bytes(compact_payload)
+    compact_write = perf_counter() - started
+    started = perf_counter()
+    sidecar_path.write_bytes(sidecar_payload)
+    sidecar_write = perf_counter() - started
+    profile['timings']['filesystem_writes'] = legacy_write + compact_write + sidecar_write
+    profile['timings']['legacy_filesystem_write'] = legacy_write
+    profile['timings']['compact_filesystem_write'] = compact_write
+    profile['timings']['sidecar_filesystem_write'] = sidecar_write
+    profile['bytes'].update({
+        'legacy_csv': len(legacy_payload),
+        'compact_csv': len(compact_payload),
+        'provenance_sidecar': len(sidecar_payload),
+        'total': len(legacy_payload) + len(compact_payload) + len(sidecar_payload),
+    })
+    profile['counts']['files_written'] = 2 + int(include_legacy)
+    profile['timings']['total'] = perf_counter() - total_started
+    archive_profile = getattr(getattr(iface, 'sys', None), 'archive_timing', None)
+    profile['archive'] = archive_profile or {'state': 'NOT_REQUESTED'}
+    iface.canonical_log_profile = profile
+    return profile
+
+
+def read_compact_log(path):
+    """Read a compact log and resolve every provenance reference fail-closed."""
+    path = Path(path)
+    sidecar_path = path.parent / COMPACT_PROVENANCE_SIDECAR_FILENAME
+    if not sidecar_path.is_file():
+        raise ProvenanceSidecarMissingError(str(sidecar_path))
+    catalog = ProvenanceCatalog.deserialize(sidecar_path.read_text(encoding='utf-8'))
+    with path.open(newline='', encoding='utf-8') as stream:
+        reader = csv.DictReader(stream)
+        if tuple(reader.fieldnames or ()) != COMPACT_INTERFACE_LOG_COLUMNS:
+            raise ValueError('Not a VorPy compact interface log')
+        rows = []
+        for row in reader:
+            row['provenance'] = resolve_interface_log_provenance_reference(
+                row.pop('provenance_ref'), catalog
+            )
+            rows.append(row)
+    return rows
+
+
+def read_interface_log(path):
+    """Read either the legacy full-provenance or compact canonical log."""
+    path = Path(path)
+    with path.open(newline='', encoding='utf-8') as stream:
+        reader = csv.DictReader(stream)
+        fieldnames = tuple(reader.fieldnames or ())
+        if fieldnames == COMPACT_INTERFACE_LOG_COLUMNS:
+            return read_compact_log(path)
+        if fieldnames != INTERFACE_LOG_COLUMNS:
+            raise ValueError('Not a VorPy interface log')
+        rows = list(reader)
+    for row in rows:
+        row['provenance'] = deserialize_interface_log_provenance(row['provenance'])
+    return rows
 
 
 def _write_vertex_pdb(path, vertices):
@@ -519,43 +957,56 @@ def _compact_physical_interface(iface, directory):
     directory.mkdir(parents=True, exist_ok=True)
     scheme = str((getattr(network, 'settings', {}) or {}).get('net_type',
                   getattr(representation, 'scheme', 'aw'))).lower()
-    prefix = 'power' if scheme in {'pow', 'power', 'prm'} else 'aw'
     names = {}
 
-    # The compact physical layer is the complete cached network partition.
-    # Alpha-selected surfaces remain scientific analysis, not the default mesh.
-    surface_mesh = _surface_mesh(network, list(range(len(surfaces))))
-    surface_target = directory / f'{prefix}_surfs.off'
-    if surface_mesh is not None:
-        write_mesh(surface_mesh, surface_target.name, directory=directory)
-        names['surfaces'] = surface_target
+    from vorpy.src.interface.export import _interface_physical_scope
+    try:
+        physical_scope = _interface_physical_scope(iface)
+    except (AttributeError, KeyError, TypeError, ValueError) as error:
+        return _status('UNRESOLVED', f'Cached physical interface is not exportable: {error}')
+    surface_positions = list(physical_scope.surfaces)
+    edge_positions = list(physical_scope.edges)
+    vertex_positions = list(physical_scope.vertices)
+    selection_mode = 'selected_source_view' if physical_scope.view is not None else 'direct_inter_group'
+    if not surface_positions:
+        return _status('NOT_CALCULATED', 'No direct physical A/B facets are available')
+    mesh_network = physical_scope.mesh_network()
 
-    edges = getattr(network, 'edges', None)
-    edge_mesh = (_physical_edge_mesh(network, list(range(len(edges))), DEFAULT_EDGE_RADIUS)
-                 if edges is not None and len(edges) else None)
-    edge_target = directory / f'{prefix}_edges.off'
-    if edge_mesh is not None:
-        write_mesh(edge_mesh, edge_target.name, directory=directory)
-        names['physical_edges'] = edge_target
+    try:
+        surface_mesh = _surface_mesh(mesh_network, surface_positions)
+        surface_target = directory / 'interface_surfs.off'
+        if surface_mesh is not None:
+            write_mesh(surface_mesh, surface_target.name, directory=directory)
+            names['surfaces'] = surface_target
 
-    vertex_target = directory / f'{prefix}_verts.pdb'
-    vertices = getattr(network, 'verts', None)
-    _write_vertex_pdb(
-        vertex_target,
-        vertices.to_dict('records') if hasattr(vertices, 'to_dict') else (),
-    )
+        edges = getattr(mesh_network, 'edges', None)
+        edge_mesh = (_physical_edge_mesh(mesh_network, edge_positions, DEFAULT_EDGE_RADIUS)
+                     if edges is not None and len(edges) else None)
+        edge_target = directory / 'interface_edges.off'
+        if edge_mesh is not None:
+            write_mesh(edge_mesh, edge_target.name, directory=directory)
+            names['physical_edges'] = edge_target
+
+        vertex_target = directory / 'interface_verts.off'
+        write_off_verts(
+            mesh_network, vertex_positions, file_name=vertex_target.name,
+            directory=directory, color=(0.9, 0.6, 0.1),
+        )
+    except MemoryError as error:
+        return _status('UNRESOLVED', f'Physical interface mesh allocation failed: {error}')
     if vertex_target.exists():
         names['physical_vertices'] = vertex_target
     files = tuple(path for path in names.values() if path.exists() and path.stat().st_size)
-    network_area = (float(surfaces['sa'].sum())
-                    if hasattr(surfaces, 'columns') and 'sa' in surfaces else None)
+    selected_surfaces = surfaces.iloc[surface_positions]
+    network_area = (float(selected_surfaces['sa'].sum())
+                    if hasattr(selected_surfaces, 'columns') and 'sa' in selected_surfaces else None)
     return _status('AVAILABLE', files=files) | {
         'scheme': scheme,
         'area_A2': network_area,
         'alpha_area_A2': getattr(representation, 'area_A2', None),
         'selected_surface_count': len(getattr(representation, 'selected_surfaces', ()) or ()),
-        'surface_count': len(surfaces),
-        'selection_mode': 'full_network',
+        'surface_count': len(surface_positions),
+        'selection_mode': selection_mode,
     }
 
 
@@ -644,7 +1095,7 @@ def export_compact_visualization_bundle(sys):
         sys.files['dir'] = str(root)
         sys.exports(pdb=True, set_atoms=True, info=True)
     except (AttributeError, OSError, TypeError, ValueError):
-        (root / 'info.txt').write_text(f'VorPy system: {getattr(sys, "name", "system")}\n', encoding='utf-8')
+        (root / 'system_info.txt').write_text(f'VorPy system: {getattr(sys, "name", "system")}\n', encoding='utf-8')
     timings['system atom/info export'] = perf_counter() - started
 
     results = []
@@ -669,18 +1120,35 @@ def export_compact_visualization_bundle(sys):
             export_info(iface, directory=str(interface_dir))
         except (AttributeError, KeyError, TypeError, ValueError):
             network = getattr(iface, 'net', None)
-            vertices = getattr(network, 'verts', None)
-            edges = getattr(network, 'edges', None)
-            surfaces = getattr(network, 'surfs', None)
+            source_view = getattr(iface, 'source_view', None)
+            if source_view is not None:
+                try:
+                    selected = export_scope(iface)
+                    vertex_count = len(selected.vertices)
+                    edge_count = len(selected.edges)
+                    surface_count = len(selected.surfaces)
+                except (AttributeError, KeyError, TypeError, ValueError):
+                    vertex_count = len(source_view.features('vertex'))
+                    edge_count = len(source_view.features('edge'))
+                    surface_count = len(source_view.features('surface'))
+                selection = 'selected_source_view'
+            else:
+                vertices = getattr(network, 'verts', None)
+                edges = getattr(network, 'edges', None)
+                surfaces = getattr(network, 'surfs', None)
+                vertex_count = 0 if vertices is None else len(vertices)
+                edge_count = 0 if edges is None else len(edges)
+                surface_count = 0 if surfaces is None else len(surfaces)
+                selection = 'full_network (all cached network surfaces)'
             representation = getattr(iface, '_geometry_representation', None)
-            (interface_dir / 'info.txt').write_text(
+            (interface_dir / 'network_info.txt').write_text(
                 f"{getattr(iface, 'name', interface_dir.name)}\n\n"
                 "Interface network topology:\n"
-                f"  Network vertices: {0 if vertices is None else len(vertices)}\n"
-                f"  Network edges: {0 if edges is None else len(edges)}\n"
-                f"  Network surfaces: {0 if surfaces is None else len(surfaces)}\n\n"
+                f"  Network vertices: {vertex_count}\n"
+                f"  Network edges: {edge_count}\n"
+                f"  Network surfaces: {surface_count}\n\n"
                 "Surface classification:\n"
-                "  Physical export selection: full_network (all cached network surfaces).\n"
+                f"  Physical export selection: {selection}.\n"
                 f"  Alpha metadata selection: {getattr(representation, 'selection_mode', 'not recorded')}\n"
                 "  Detailed statistics: unavailable for this cached interface.\n",
                 encoding='utf-8',
@@ -691,7 +1159,7 @@ def export_compact_visualization_bundle(sys):
         layers['dual_contact_complex'] = _compact_dual(iface, interface_dir)
         timings[f'{interface_dir.name}: physical interface writing'] = perf_counter() - started
         started = perf_counter()
-        _compact_log(iface, interface_dir / 'logs.csv')
+        _compact_log_bundle(iface, interface_dir / 'logs.csv')
         timings[f'{interface_dir.name}: canonical log writing'] = perf_counter() - started
 
         caches = getattr(iface, 'representation_caches', None) or {}

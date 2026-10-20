@@ -14,6 +14,7 @@ from vorpy.src.results import (
     AtomIdentity,
     Environment,
     GeneratorComplex,
+    GeometryLineageOrigin,
     InteractionLinks,
     MolecularContactSelection,
     MolecularContactSurfaceGeometry,
@@ -37,6 +38,7 @@ from vorpy.src.results import (
     generator_complex_extension,
     unavailable_interface,
 )
+from vorpy.src.results.model import dictionary
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -115,6 +117,46 @@ def test_power_exact_intrinsic_and_completed_values():
     )
     assert k.integrated_gaussian_curvature.value != k.gauss_bonnet_completion.value
     assert result.topology.genus_by_component == (0, 0)
+
+
+def test_failed_interface_extraction_preserves_unresolved_lineage():
+    """A failed view remains typed and cannot be mistaken for a solved interface."""
+    lineage = {
+        "origin": "MATERIALIZED_VIEW",
+        "solve_universe_id": "solve:synthetic:1",
+        "geometry_source_id": "geometry:synthetic:1",
+        "geometry_version": "aw-geometry-reuse-v1",
+        "solver_settings_digest": "settings:synthetic:1",
+        "environment_digest": "environment:synthetic:1",
+        "source_network_id": "network:source",
+        "source_view_id": "view:interface:1",
+        "selection_scope": {"selection_kind": "interface", "groups": {"A": [0], "B": [1]}},
+        "orientation": {"convention": "physical_interface_A_to_B"},
+        "completeness": {"completeness_proven": True, "local_facets_proven": True},
+        "solver_settings": {"net_type": "aw"},
+        "environment": {"network_environment": "dry"},
+    }
+    result = adapt_interface_analysis(
+        None,
+        identity(),
+        provenance=Provenance(
+            "source-derived interface extraction",
+            source_revision="network:source:v1",
+            details={"geometry_lineage": lineage, "failure": "generator 12 incomplete"},
+            diagnostics=("interface extraction incomplete",),
+        ),
+        unavailable_status=Status.UNRESOLVED,
+    )
+
+    assert result.status is Status.UNRESOLVED
+    assert result.provenance.geometry_lineage.origin is GeometryLineageOrigin.MATERIALIZED_VIEW
+    assert result.provenance.details["failure"] == "generator 12 incomplete"
+    assert result.metrics["area"].value is None
+    assert result.metrics["area"].status is Status.UNRESOLVED
+    assert result.to_dict()["status"] == Status.UNRESOLVED.value
+    assert result.to_dict()["provenance"]["details"]["geometry_lineage"]["origin"] == (
+        GeometryLineageOrigin.MATERIALIZED_VIEW.value
+    )
 
 
 @pytest.mark.parametrize(
@@ -280,6 +322,14 @@ def test_result_id_covers_scientific_identity(field, value):
     base = identity()
     assert replace(base, **{field: value}).result_id != base.result_id
     assert identity().result_id == base.result_id
+
+
+def test_result_identity_omits_null_source_status_but_keeps_explicit_status():
+    legacy = identity()
+    assert "source_identity_status" not in dictionary(legacy)
+    explicit = identity(source_identity_status="UNRESOLVED")
+    assert dictionary(explicit)["source_identity_status"] == "UNRESOLVED"
+    assert explicit.result_id != legacy.result_id
 
 
 def test_identity_and_scope_validation():

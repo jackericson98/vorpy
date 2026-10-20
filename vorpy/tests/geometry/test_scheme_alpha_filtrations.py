@@ -1,9 +1,11 @@
+import builtins
 from types import SimpleNamespace
 
 import pandas as pd
 import pytest
 
 from vorpy.src.geometry.filtrations import build_alpha_filtration
+from vorpy.src.geometry.filtrations.alpha import _gudhi_module
 
 
 def _network(scheme, locations, radii, surfaces=()):
@@ -71,3 +73,25 @@ def test_aw_unresolved_pair_is_not_fabricated_into_alpha_subcomplex():
     subcomplex = filtration.simplices_at(100.0)
     assert subcomplex.counts == {0: 2, 1: 0, 2: 0, 3: 0}
     assert len(subcomplex.blocked) == 1
+
+
+def test_gudhi_absence_and_native_block_are_distinguished(monkeypatch):
+    real_import = builtins.__import__
+
+    def missing(name, *args, **kwargs):
+        if name == 'gudhi':
+            raise ModuleNotFoundError("No module named 'gudhi'", name='gudhi')
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, '__import__', missing)
+    with pytest.raises(RuntimeError, match='GUDHI package is not installed'):
+        _gudhi_module()
+
+    def blocked(name, *args, **kwargs):
+        if name == 'gudhi':
+            raise ImportError('DLL load failed while importing _cubical_complex_ext')
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, '__import__', blocked)
+    with pytest.raises(RuntimeError, match='native extension.*Windows Application Control'):
+        _gudhi_module()

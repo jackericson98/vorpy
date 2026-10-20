@@ -1,4 +1,5 @@
 import time
+from itertools import combinations
 import numpy as np
 from numpy import pi, sqrt
 from time import perf_counter as now
@@ -7,6 +8,304 @@ from vorpy.src.calculations import calc_isoperimetric_quotient
 from vorpy.src.calculations import calc_contacts_cached
 from vorpy.src.calculations import calc_cell_point_properties_cached
 from vorpy.src.calculations import calc_cell_mass_properties_cached
+
+
+def _row_ids(row, field):
+    """Read an incidence list without changing the producer's tables."""
+    value = row.get(field, ())
+    if value is None:
+        return ()
+    try:
+        return tuple(int(item) for item in value)
+    except (TypeError, ValueError, OverflowError):
+        return ()
+
+
+def _weighted_cell_boundedness(net, ball_id, *, tolerance=1e-9):
+    """Check AW-cell boundedness from the exact weighted half-space recession cone.
+
+    For generator ``i``, the additive-weighted Voronoi cell inequalities have
+    recession constraints ``2(p_j-p_i) dot d <= 0``.  A non-zero bounded-box
+    solution is therefore a proof that the cell is unbounded.  This diagnostic
+    is deliberately AW-only; it does not infer boundedness for Power or
+    Primitive networks.
+    """
+    settings = getattr(net, "settings", None) or {}
+    if str(settings.get("net_type", "aw")).lower() != "aw":
+        return None, "unsupported_scheme"
+
+    try:
+        from scipy.optimize import linprog
+    except ImportError:
+        return None, "boundedness_solver_unavailable"
+
+    balls = net.balls
+    try:
+        generator_ids = tuple(int(value) for value in balls["num"])
+        location_by_id = {
+            generator_id: np.asarray(location, dtype=float)
+            for generator_id, location in zip(generator_ids, balls["loc"])
+        }
+        center = location_by_id[int(ball_id)]
+        locations = np.asarray(list(location_by_id.values()), dtype=float)
+    except (KeyError, TypeError, ValueError):
+        return None, "invalid_generator_geometry"
+    if center.shape != (3,) or locations.ndim != 2 or locations.shape[1] != 3:
+        return None, "invalid_generator_geometry"
+    if not np.isfinite(center).all() or not np.isfinite(locations).all():
+        return None, "invalid_generator_geometry"
+
+    rows = [
+        2.0 * (location - center)
+        for generator_id, location in location_by_id.items()
+        if generator_id != int(ball_id)
+    ]
+    if not rows:
+        return False, "unbounded_recession_cone"
+    matrix = np.asarray(rows, dtype=float)
+    zero = np.zeros(len(matrix), dtype=float)
+    bounds = [(-1.0, 1.0)] * 3
+    for axis in range(3):
+        direction = np.zeros(3, dtype=float)
+        direction[axis] = 1.0
+        maximum = linprog(
+            -direction,
+            A_ub=matrix,
+            b_ub=zero,
+            bounds=bounds,
+            method="highs",
+        )
+        minimum = linprog(
+            direction,
+            A_ub=matrix,
+            b_ub=zero,
+            bounds=bounds,
+            method="highs",
+        )
+        if not maximum.success or not minimum.success:
+            return None, "boundedness_solver_failed"
+        if -float(maximum.fun) > tolerance or float(minimum.fun) < -tolerance:
+            return False, "unbounded_recession_cone"
+    return True, "bounded_recession_cone"
+
+
+def diagnose_geometry_completeness(net, *, tolerance=1e-9):
+    """Return deterministic, read-only per-cell closure evidence.
+
+    ``missing_faces`` contains generator-pair relations expected by an
+    incident three-generator edge.  ``missing_edges`` contains generator-
+    triple relations expected by an incident four-generator vertex.
+    ``missing_vertices`` contains invalid edge endpoint references.  The
+    ``closure_relations`` mapping reports one-sided edge/surface incidence and
+    vertex-link counts.  AW boundedness is classified independently using the
+    weighted recession cone, so an open cell is not mistaken for a producer
+    omission.  The function never builds or mutates geometry.
+    """
+    if getattr(net, "balls", None) is None:
+        raise ValueError("Geometry completeness diagnostics require Network.balls.")
+
+    balls = net.balls
+    edges = getattr(net, "edges", None)
+    verts = getattr(net, "verts", None)
+    surfs = getattr(net, "surfs", None)
+    if edges is None or verts is None or surfs is None:
+        raise ValueError("Geometry completeness diagnostics require edges, vertices, and surfaces.")
+
+    ball_ids = tuple(int(value) for value in balls["num"])
+    ball_rows = {
+        int(row["num"]): row
+        for _, row in balls.iterrows()
+    }
+    boundary_positions = set(
+        int(value) for value in (getattr(net, "boundary_indices", ()) or ())
+    )
+    boundary_ids = {
+        ball_ids[position]
+        for position in boundary_positions
+        if 0 <= position < len(ball_ids)
+    }
+    group_ids = tuple(int(value) for value in (getattr(net, "group", ()) or ()))
+    surface_keys = {
+        tuple(sorted(_row_ids(row, "balls")))
+        for _, row in surfs.iterrows()
+        if len(_row_ids(row, "balls")) == 2
+    }
+    edge_keys = {
+        tuple(sorted(_row_ids(row, "balls")))
+        for _, row in edges.iterrows()
+        if len(_row_ids(row, "balls")) == 3
+    }
+    valid_edge_ids = {int(value) for value in edges.index}
+    valid_vertex_ids = {int(value) for value in verts.index}
+    valid_surface_ids = {int(value) for value in surfs.index}
+    surface_by_edge = {int(edge_id): [] for edge_id in edges.index}
+    for surface_id, row in surfs.iterrows():
+        for edge_id in _row_ids(row, "edges"):
+            if edge_id in surface_by_edge:
+                surface_by_edge[edge_id].append(int(surface_id))
+
+    unresolved_vertices = {}
+    for entry in getattr(net, "_aw_unresolved_vertex_curvature", ()) or ():
+        try:
+            vertex_id, cell_id, reason = entry
+            unresolved_vertices.setdefault(int(cell_id), []).append(
+                (int(vertex_id), str(reason))
+            )
+        except (TypeError, ValueError):
+            continue
+
+    cells = []
+    for cell_id in group_ids:
+        if cell_id not in ball_rows:
+            continue
+        row = ball_rows[cell_id]
+        cell_surface_ids = _row_ids(row, "surfs")
+        cell_edge_ids = _row_ids(row, "edges")
+        cell_vertex_ids = _row_ids(row, "verts")
+        missing_faces = set()
+        missing_edges = set()
+        missing_vertices = set()
+        open_edges = []
+        bad_vertices = []
+
+        for edge_id in cell_edge_ids:
+            if edge_id not in valid_edge_ids:
+                missing_edges.add((cell_id, edge_id))
+                continue
+            edge_row = edges.loc[edge_id]
+            edge_balls = _row_ids(edge_row, "balls")
+            for other_id in edge_balls:
+                if other_id == cell_id:
+                    continue
+                pair = tuple(sorted((cell_id, other_id)))
+                if pair not in surface_keys:
+                    missing_faces.add(pair)
+            incident_surfaces = tuple(
+                surface_id
+                for surface_id in surface_by_edge.get(edge_id, ())
+                if cell_id in _row_ids(surfs.loc[surface_id], "balls")
+            )
+            if len(incident_surfaces) != 2:
+                open_edges.append((edge_id, len(incident_surfaces)))
+            endpoints = _row_ids(edge_row, "verts")
+            if len(endpoints) != 2:
+                missing_vertices.add((edge_id, -1))
+            else:
+                missing_vertices.update(
+                    (edge_id, vertex_id)
+                    for vertex_id in endpoints
+                    if vertex_id not in valid_vertex_ids
+                )
+
+        for vertex_id in cell_vertex_ids:
+            if vertex_id not in valid_vertex_ids:
+                missing_vertices.add((-1, vertex_id))
+                continue
+            vertex_row = verts.loc[vertex_id]
+            vertex_balls = _row_ids(vertex_row, "balls")
+            for other_pair in combinations(
+                (value for value in vertex_balls if value != cell_id), 2
+            ):
+                triple = tuple(sorted((cell_id,) + tuple(other_pair)))
+                if triple not in edge_keys:
+                    missing_edges.add(triple)
+            vertex_edge_ids = _row_ids(vertex_row, "edges")
+            cell_vertex_edges = tuple(
+                edge_id
+                for edge_id in vertex_edge_ids
+                if edge_id in valid_edge_ids
+                and cell_id in _row_ids(edges.loc[edge_id], "balls")
+            )
+            vertex_surface_ids = tuple(
+                surface_id
+                for surface_id in _row_ids(vertex_row, "surfs")
+                if surface_id in valid_surface_ids
+                and cell_id in _row_ids(surfs.loc[surface_id], "balls")
+            )
+            if len(cell_vertex_edges) != 3 or len(vertex_surface_ids) < 3:
+                bad_vertices.append(
+                    (vertex_id, len(cell_vertex_edges), len(vertex_surface_ids))
+                )
+
+        if len(cell_vertex_ids) < 3 or len(cell_edge_ids) < 4 or len(cell_surface_ids) < 3:
+            minimum_feature_count = True
+        else:
+            minimum_feature_count = False
+
+        bounded, bounded_reason = _weighted_cell_boundedness(
+            net, cell_id, tolerance=tolerance
+        )
+        analytic_issues = tuple(sorted(unresolved_vertices.get(cell_id, ())))
+        topology_issues = bool(
+            minimum_feature_count
+            or missing_faces
+            or missing_edges
+            or missing_vertices
+            or open_edges
+            or bad_vertices
+        )
+        # The producer flag is evidence, not a substitute for this independent
+        # audit.  A stale flag must not hide defects in a bounded cell.  A
+        # proven recession cone remains the primary reason for a hull cell;
+        # its additional missing relations are retained below as diagnostics.
+        if bounded is False:
+            classification = "UNBOUNDED"
+        elif topology_issues:
+            classification = "INCOMPLETE_CONSTRUCTION"
+        elif analytic_issues or bounded is None:
+            classification = "UNSUPPORTED_ANALYTIC_GEOMETRY"
+        elif bool(row.get("complete", False)):
+            classification = "COMPLETE"
+        else:
+            classification = "OVERLY_CONSERVATIVE"
+
+        stable_id = row.get("stable_id")
+        if stable_id is None or str(stable_id) == "":
+            stable_id = f"system:{cell_id}"
+        system_id = row.get("system_num")
+        try:
+            system_id = None if system_id is None else int(system_id)
+        except (TypeError, ValueError, OverflowError):
+            system_id = None
+        cells.append({
+            "local_id": cell_id,
+            "system_id": system_id,
+            "stable_id": str(stable_id),
+            "boundary_generator": cell_id in boundary_ids,
+            "complete": bool(row.get("complete", False)),
+            "classification": classification,
+            "bounded": bounded,
+            "bounded_reason": bounded_reason,
+            "feature_counts": {
+                "surfaces": len(cell_surface_ids),
+                "edges": len(cell_edge_ids),
+                "vertices": len(cell_vertex_ids),
+            },
+            "missing_faces": tuple(sorted(missing_faces)),
+            "missing_edges": tuple(sorted(missing_edges)),
+            "missing_vertices": tuple(sorted(missing_vertices)),
+            "closure_relations": {
+                "open_edges": tuple(sorted(open_edges)),
+                "bad_vertices": tuple(sorted(bad_vertices)),
+            },
+            "unsupported_analytic_geometry": analytic_issues,
+        })
+
+    cells.sort(key=lambda item: item["local_id"])
+    classifications = {}
+    for cell in cells:
+        key = cell["classification"]
+        classifications[key] = classifications.get(key, 0) + 1
+    return {
+        "schema_version": 1,
+        "scheme": str((getattr(net, "settings", None) or {}).get("net_type", "aw")),
+        "counts": {
+            "cells": len(cells),
+            "complete": sum(cell["complete"] for cell in cells),
+            "classifications": dict(sorted(classifications.items())),
+        },
+        "cells": tuple(cells),
+    }
 
 
 def _rmsd(values, average):
@@ -51,14 +350,14 @@ def _print_analysis_timing(timer, total):
 
 def analyze_geometry_only(net):
     """Populate only cell completeness needed by dual/interface selection."""
-    ball_index = net.balls.index.to_numpy()
+    ball_nums = net.balls['num'].to_numpy()
     ball_verts = net.balls['verts'].to_numpy()
     ball_edges = net.balls['edges'].to_numpy()
     ball_surfs = net.balls['surfs'].to_numpy()
     edge_ball_sets = [frozenset(balls) for balls in net.edges['balls'].to_numpy()]
     vert_edges = net.verts['edges'].to_numpy()
     vert_balls = net.verts['balls'].to_numpy()
-    num_to_pos = {int(num): pos for pos, num in enumerate(ball_index)}
+    num_to_pos = {int(num): pos for pos, num in enumerate(ball_nums)}
     complete = [False] * len(net.balls)
 
     for ball_num in net.group:
@@ -142,7 +441,6 @@ def analyze(
     ball_locs = net.balls['loc'].to_numpy()
     ball_locs_matrix = np.asarray([np.asarray(loc, dtype=float) for loc in ball_locs])
     ball_rads = net.balls['rad'].to_numpy(dtype=float)
-    ball_index = net.balls.index.to_numpy()
 
     surf_sa = net.surfs['sa'].to_numpy()
     surf_vols = net.surfs['vols'].to_numpy()
@@ -366,7 +664,7 @@ def analyze(
         ball_verts = ball_verts_all[ball_pos]
         ball_edges = ball_edges_all[ball_pos]
         complete = True
-        ball_index_value = ball_index[ball_pos]
+        ball_index_value = ball_nums[ball_pos]
         unresolved_vertices = getattr(net, "_aw_unresolved_vertex_curvature", set())
         if any(int(cell) == int(ball_num) for _, cell, _ in unresolved_vertices):
             complete = False

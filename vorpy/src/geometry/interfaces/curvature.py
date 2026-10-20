@@ -23,10 +23,14 @@ class CurvatureSummary:
     orientation: str | None
     status: str = "available"
     source: str = ""
+    edge_contribution_complete: bool | None = None
+    total_curvature_certified: bool | None = None
 
 
 def _summary(scheme, selection_mode, area, smooth, signed, unsigned,
-             positive, negative, orientation, source):
+             positive, negative, orientation, source, *,
+             edge_contribution_complete=None,
+             total_curvature_certified=None, status=None):
     edge_half = None if signed is None else 0.5 * float(signed)
     combined = None if smooth is None or edge_half is None else float(smooth) + edge_half
     area_value = None if area is None else float(area)
@@ -44,7 +48,8 @@ def _summary(scheme, selection_mode, area, smooth, signed, unsigned,
         None if positive is None else float(positive),
         None if negative is None else float(negative),
         edge_half, combined, h_area, unsigned_area, cancellation,
-        orientation, "available", source,
+        orientation, status or ("CERTIFIED" if total_curvature_certified else "available"), source,
+        edge_contribution_complete, total_curvature_certified,
     )
 
 
@@ -53,11 +58,24 @@ def aw_curvature_summary(result, *, area_A2=None):
     area = result.interface_area if area_A2 is None else area_A2
     edge = result.edge_curvature
     selection = "full" if result.selection_mode == "raw" else result.selection_mode
+    edge_complete = getattr(result, "edge_contribution_complete", True)
+    total_certified = getattr(result, "total_curvature_certified", None)
+    status = getattr(result, "curvature_status", None)
+    if status is None:
+        status = ("UNRESOLVED" if edge_complete is False else
+                  "CERTIFIED" if total_certified is True else "PARTIAL")
+    signed = edge["signed"] if edge_complete else None
+    unsigned = edge["unsigned"] if edge_complete else None
+    positive = edge["positive"] if edge_complete else None
+    negative = edge["negative"] if edge_complete else None
     return _summary(
         "aw", selection, area, result.surface_curvature,
-        edge["signed"], edge["unsigned"], edge["positive"], edge["negative"],
+        signed, unsigned, positive, negative,
         "interface normal A-to-B; reversal flips signed smooth/edge/combined terms",
         "vorpy.src.analyze.aw_interface_curvature.AWInterfaceCurvatureResult",
+        edge_contribution_complete=edge_complete,
+        total_curvature_certified=total_certified,
+        status=status,
     )
 
 
@@ -65,9 +83,19 @@ def power_curvature_summary(result, *, area_A2=None):
     """Adapt existing Power curvature totals without changing its selection."""
     area = area_A2
     totals = result.edge_totals
+    edge_complete = getattr(result, "edge_contribution_complete", True)
+    status = getattr(result, "curvature_status", None)
+    edge_values_available = edge_complete and status not in {"UNRESOLVED", "NOT_CALCULATED"}
+    signed = totals["signed"] if edge_values_available else None
+    unsigned = totals["unsigned"] if edge_values_available else None
+    positive = totals["positive"] if edge_values_available else None
+    negative = totals["negative"] if edge_values_available else None
     return _summary(
         "power", "cazals_alpha0_power", area, result.smooth_surface_curvature,
-        totals["signed"], totals["unsigned"], totals["positive"], totals["negative"],
+        signed, unsigned, positive, negative,
         "Cazals sign: ABB positive, AAB negative; input groups A/B fixed",
         "vorpy.src.analyze.power_interface_curvature.PowerInterfaceCurvatureResult",
+        edge_contribution_complete=edge_complete,
+        total_curvature_certified=getattr(result, "total_curvature_certified", None),
+        status=status,
     )

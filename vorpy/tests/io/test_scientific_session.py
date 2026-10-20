@@ -1491,7 +1491,7 @@ with pytest.MonkeyPatch.context() as guard:
     system._loaded_from_archive = True
     export_preset(system, 'small')
     assert (root / 'fixture.vpy').is_file()
-    assert (root / 'info.txt').is_file()
+    assert (root / 'system_info.txt').is_file()
     assert list(root.rglob('*.off'))
     assert list(root.rglob('logs.csv'))
     assert not list(root.rglob('*.pdb'))

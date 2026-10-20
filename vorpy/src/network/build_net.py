@@ -680,6 +680,11 @@ def build(v_balls, v_locs, v_dubs, num_balls, my_time,
                                                 interface=interface, iface_grps=iface_grps, timings=timings,
                                                 net=net, counts=counts, diagnostics=diagnostics)
     counts['surfs'] = len(s_balls)
+    counts['candidate_facets'] = counts.get('unique_surface_keys', 0)
+    counts['accepted_facets'] = len(s_balls)
+    counts['discarded_facets'] = (
+        counts['candidate_facets'] - counts['accepted_facets']
+    )
     if topology_provenance is not None:
         topology_provenance['surface_construction'] = {
             'candidate_surfaces': counts.get('unique_surface_keys', 0),

@@ -235,73 +235,110 @@ def help_():
 
 def print_help():
     print("""
-Vorpy Help
+VorPy command-line help
 ---------------------------------
 
 Usage:
-  python vorpy.py <file> [options]
+  python -m vorpy <input> [options]
 
-File:
-  The first argument after 'vorpy.py' should be the file address of the ball or atom file.
-  If the file is located in the 'Data/test_data' folder, specify the file name without the path or extension.
-  Accepted file extensions include .pdb, .mol, .gro, .cif.
+Input:
+  A structure accepted by the legacy loader (.pdb, .mol, .gro, or .cif), or a
+  solved .vpy network archive.  Use --load-network before an archive path when
+  loading an archive explicitly.
 
-Options:
-  -l <file>
-    Load additional files like vertex files from previous runs, log files, Voronota vertex files, or GROMACS index files.
+Workflow options:
+  -l, --load <file> [and <file> ...]
+    Load additional vertex, log, Voronota, or GROMACS index files.
 
-  -s <setting value>
-    Adjust various simulation parameters:
-      sr - Surface Resolution: Default = 0.2
-      nt - Network Type: Default = Additively Weighted 'aw', Power 'pow', Primitive 'prm', or Compare 'com 'type1' 'type2''
-      mv - Maximum Vertex: Default = 40
-      bm - Box Multiplier: Default = 1.25
-      ew - Exported edge tube radius: Default = 0.05 A
-      vs - Exported vertex sphere radius: Default = 0.08 A
-      sc - Surface Color: Default = 'viridis', 'plasma', 'rainbow', or any other matplotlib colormap
-      ss - Surface Scheme: mean 'mean', Gaussian 'gauss', integrated mean 'int_mean_curv',
-           integrated mean squared 'int_mean_curv_sq', integrated Gaussian 'int_gauss_curv',
-           inside vs outside spheres 'nout', distance from center 'dist'
-      sf - Surface Coloring Scale: Default = linear 'lin', log 'log', squared 'square', cube 'cube'
-      ft - Geometry File Format: Default = 'off'; options are 'off', 'ply', and 'vtp'
-      ar - Adjust Radii: 'element' 'value' or 'atom name' 'value' or 'residue' 'atom name' 'value'
+  -s, --settings, --set <setting> <value>
+    Set solver/export values such as sr (surface resolution), nt (network type),
+    mv (maximum vertex), bm (box multiplier), sc, ss, sf, ft, ar, ew, and vs.
+    The current CLI execution default for mv is 5 A; lower-level legacy helpers
+    still default to 40 A.  The accepted mv range is 0.5-5000 A.  This split is
+    intentionally unchanged pending scientific-owner confirmation.
 
-  -g <identifier>
-    Select specific balls or molecular elements using identifiers such as:
-      b - Ball Identifier with index or range 'index1-index2'
-      a - Atom Identifier with element, name, index, or range 'index1-index2'
-      r - Residue Identifier with name, sequence number, index, or range 'index1-index2'
-      c - Chain Identifier with name, index, or range 'index1-index2'
-    Note: Use 'and' to combine components within the same group. Use multiple -g flags for multiple groups.
+  -g, --group <selector> [and <selector> ...]
+    Select balls, atoms, residues, or chains.  Repeat -g for multiple groups.
 
-  -c <calculation_type>
-    Identify additional calculations like interfaces between groups (iface, ifc, i) or calculating vertices up to specified layers (layers)
+  -b, --build
+    Request the legacy build command.
 
+  -i, --interface
+    Request interface calculations from selected groups.
+
+  -c, --calculate <target>
+    Request system, group, interface, or chain calculations.
+    For ordered typed A/B Results, combine -i with -c system; without a
+    validated full-system source, the interface status remains UNRESOLVED.
+
+  -e, --export <type> [add|no|remove|only <component> ...]
+    Export tiny, small, medium, large, or all; repeat -e for ordered
+    modifiers such as "-e large no shell" or "-e tiny add logs".
+
+Analysis and execution:
+  --profile geometry|simple|interface|analysis|full
+    Select the execution profile. The default is comprehensive; simple is a
+    fast geometry-only alias.
+
+  --apollonius
+    Request the AW Apollonius/dual interface representation.
+
+  --alpha-complex <alpha>
+    Request alpha-complex filtering at the given value in A.
+
+  --power-interface cazals
+    Run the Cazals-compatible Power interface workflow with two chain groups.
+  --power-probe-radius <A>  --power-alpha <value>  --power-M <value>
+  --power-vs-aw
+    Configure or compare the Power interface workflow.
+
+  --aw-alpha-experimental <alpha>
+    Export experimental AW alpha-filtration data; repeat for multiple values.
+  --aw-alpha-pairs-only-experimental
+    Limit that experimental export to pair-overlap analysis.
+
+Archive, frames, and diagnostics:
+  --fail-if-exists
+    Refuse existing output directories, archives, timing sidecars, and cache
+    profiles; reserve final targets atomically before/at save finalization.
+  --save-network <path.vpy>
+    Save the solved network archive at the requested path.
+  --load-network <path.vpy>
+    Load a solved network archive; this option must precede the archive path.
+  --profile-cache-export
+    Profile archive-load/export work without rebuilding geometry (.vpy only).
+  --timing-report <path.json>
+    Write opt-in machine-readable load, network, interface, analysis, export,
+    archive, and total wall-time measurements.
   --all-frames
     Process every frame in a PDB trajectory sequentially without prompting.
-
   --parallel-frames <workers>
     Process every PDB frame with up to this many worker processes.
     Implies --all-frames. Each frame has its own output folder and run.log.
+  Input naming convention
+    X.pdb is the solvated post-MD input, X_no_sol.pdb its dry pair, and
+    X_frames/X_fN.pdb a named frame; the CLI reports this context without
+    treating filenames as scientific certification.
+  -v, --verbose
+    Enable verbose build output.
+  --diagnose-edges
+    Audit constructed AW edges without changing exported geometry.
 
-  -e <export_type>
-    Specify the intensity and type of exports:
-      Options include: small, medium, large, all
-      Export choices: pdb, mol, cif, gro, set_atoms, info, logs, surfs, sep_surfs, edges, sep_edges, verts, sep_verts, shell, shell_edges, shell_verts, atoms, surr_atoms, surr_resids
+Boundary and solvent:
+  --boundary none|shell
+  --probe-radius <A>  --shell-spacing <A>  --shell-offset <A>
+    Configure the optional virtual solvent shell boundary.
+  --solvent-mode MOLECULE_ONLY|SOLVENT_CONTEXT|FULL_SOLVENT
+  --solvent-context  --full-solvent
+    Select the generator universe used for the solve.
 
-Examples:
-  Solve the network for tyrosine 2 and methionine 1 in the cambrin molecule, calculate their interface, and export large type results:
-    python vorpy.py cambrin -s sr 0.05 and mv 80 -g tyr 2 -g met 1 -c iface -e large
+Visualization:
+  --export-dual-visualization
+  --export-alpha-visualization <alpha>
+    Export the requested AW dual or alpha visualization.
 
-  Calculate the primitive and power networks for the mg atom in the EDTA_Mg molecule and compare the difference:
-    python vorpy.py EDTA_Mg -s nt compare prm pow -g mg
-
-  Solve the network for hairpin and export the shell with inside and outside parts of the surfaces highlighted at high resolution:
-    python vorpy.py hairpin -s ss nout and sr 0.01 and ft ply -e shell and pdb
-
-Note:
-  Each option flag and its arguments must be separated by spaces.
-  To use multiple commands for a single option, use 'and' or repeat the flag (except for groups to avoid creating multiple groups).
+Use -h or --help to show this page.  Flags may be combined with the legacy
+`and` separator where the selected command accepts multiple values.
 """)
 
 

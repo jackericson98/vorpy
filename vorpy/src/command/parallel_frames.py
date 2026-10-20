@@ -26,7 +26,11 @@ def run_frame(frame_file, directory, ordinal, total_frames, options, settings):
     with open(Path(directory) / 'run.log', 'w', encoding='utf-8', buffering=1) as log:
         with redirect_stdout(log), redirect_stderr(log):
             try:
-                system = System(file=frame_file, make_dir=False)
+                system = System(
+                    file=frame_file,
+                    make_dir=False,
+                    solvent_mode=options.get('solvent_mode'),
+                )
                 system.files['dir'] = directory
                 system.frame_index = ordinal
                 system.frame_count = total_frames
@@ -34,6 +38,7 @@ def run_frame(frame_file, directory, ordinal, total_frames, options, settings):
                 command.base_file = frame_file
                 for name, value in options.items():
                     setattr(command, name, deepcopy(value))
+                system.solvent_mode = command.solvent_mode
                 command._process_system()
                 return None
             except (Exception, SystemExit) as error:
@@ -64,9 +69,16 @@ def run_parallel_frames(parent, workers, total_frames=None):
     with closing(iter_pdb_frames(parent.base_file)) as frames, TemporaryDirectory(prefix='vorpy_parallel_') as staging:
         first_ordinal, first_file = next(frames)
         # Resolve export options once in the parent (including folder browsing).
-        system = System(file=first_file, make_dir=False)
+        system = System(
+            file=first_file,
+            make_dir=False,
+            solvent_mode=parent.solvent_mode,
+        )
         setup = Command(sys=system, settings=deepcopy(settings))
         setup.base_file = first_file
+        setup._arguments = list(getattr(parent, '_arguments', ()))
+        setup.solvent_mode = parent.solvent_mode
+        setup._solvent_mode_explicit = parent._solvent_mode_explicit
         setup.parse_commands()
         system.boundary_config = resolve_boundary(
             setup.boundary_config, system.has_explicit_solvent

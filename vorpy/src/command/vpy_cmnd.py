@@ -1,18 +1,32 @@
 import gc
+import json
+import math
 import os
 import re
+import shutil
 import sys
+import tempfile
 import tkinter as tk
+import zipfile
 from contextlib import closing
 from copy import deepcopy
 from itertools import combinations
 from pathlib import Path
 from tkinter import filedialog
+from time import perf_counter, process_time
 
-from vorpy.src.boundary import BoundaryConfig, resolve_boundary
+from vorpy.src.boundary import (
+    BoundaryConfig,
+    ION_RESIDUES,
+    SolventMode,
+    WATER_RESIDUES,
+    normalize_solvent_mode,
+    resolve_boundary,
+)
 from vorpy.src.command.command_export import argv_export
 from vorpy.src.command.calculation_plan import (
     build_calculation_plan,
+    expand_group_tokens,
 )
 from vorpy.src.command.commands import *
 from vorpy.src.command.group import ggroup
@@ -20,22 +34,161 @@ from vorpy.src.command.interface import build_interfaces
 from vorpy.src.command.interpret import get_file
 from vorpy.src.command.set import sett
 from vorpy.src.inputs.frames import count_pdb_frames, iter_pdb_frames
+from vorpy.src.inputs.source_context import describe_source, source_display_label
 from vorpy.src.inputs.net import read_net
+from vorpy.src.output.layout import (
+    canonical_interface_directory,
+    canonical_interfaces_directory,
+    canonical_layout_enabled,
+    interface_folder_name,
+    slug,
+    unique_output_directory,
+)
 from vorpy.src.system.system import System
 
 FRAME_OPTIONS = ('load_commands', 'groups', 'builds', 'exports',
                  'settings_cmnds', 'logs_files', 'interface_mode',
                  'verbose', 'diagnose_edges', 'boundary_config',
                  'boundary_explicitly_requested', 'boundary_warning_printed',
+                 'solvent_mode',
+                 '_solvent_mode_explicit',
                  'apollonius_requested', 'alpha_value', 'power_settings',
                  'power_vs_aw_requested', 'power_cli_arguments',
                  'aw_alpha_values', 'aw_alpha_pair_overlap_only',
                  'visualize_dual_requested', 'visualize_alpha_value',
-                 'execution_profile', 'calculation_plan',
-                 '_build_group_networks', '_full_system_separate',
+                 'execution_profile', 'calculation_plan', 'timing_report_path',
+                 'export_plan', '_build_group_networks', '_full_system_separate',
                  '_planned_interface_operands')
 
-EXECUTION_PROFILES = frozenset({'geometry', 'interface', 'analysis', 'full'})
+EXECUTION_PROFILES = frozenset({'geometry', 'simple', 'interface', 'analysis', 'full'})
+BOUNDARY_PROMPT_CHOICES = (
+    ('0', 'No boundary (default; use existing generators only)', 'none'),
+    ('1', 'Virtual solvent shell', 'shell'),
+)
+_BULK_COUNTERION_RESIDUES = frozenset({'NA', 'NA+', 'SOD', 'CL', 'CL-'})
+
+_LEGACY_INTERFACE_RESULT_REASON = (
+    'CLI interface geometry did not produce a validated typed Workbench '
+    'InterfaceResult; producer provenance and Results dependencies are unresolved.'
+)
+
+
+def _source_composition(system):
+    """Return compact chemistry counts from the parsed source table."""
+    balls = getattr(system, 'balls', None)
+    if balls is None or not hasattr(balls, 'columns'):
+        return {
+            'atoms': 0, 'molecular_atoms': 0, 'water_atoms': 0, 'ion_atoms': 0,
+            'residues': 0, 'waters': 0, 'molecular_chains': 0,
+        }
+
+    columns = set(balls.columns)
+    names = (
+        balls['res_name'].fillna('').astype(str).str.strip().str.upper()
+        if 'res_name' in columns else None
+    )
+    water_mask = names.isin(WATER_RESIDUES) if names is not None else None
+    ion_mask = names.isin(ION_RESIDUES) if names is not None else None
+    if water_mask is None:
+        water_mask = balls.index.to_series().map(lambda _: False)
+        ion_mask = balls.index.to_series().map(lambda _: False)
+    molecular_mask = ~(water_mask | ion_mask)
+
+    residues = list(getattr(system, 'residues', None) or ())
+    solvent = getattr(system, 'sol', None)
+    residues.extend(list(getattr(solvent, 'residues', None) or ()))
+    water_residues = sum(
+        str(getattr(residue, 'name', '')).strip().upper() in WATER_RESIDUES
+        for residue in residues
+    )
+
+    chain_column = next(
+        (
+            name for name in ('chain_id', 'chain', 'auth_asym_id', 'chain_name')
+            if name in columns
+            and balls.loc[molecular_mask, name].fillna('').astype(str).str.strip().ne('').any()
+        ),
+        None,
+    )
+    if chain_column is None:
+        molecular_chains = len(getattr(system, 'chains', None) or ())
+    else:
+        chain_values = (
+            balls.loc[molecular_mask, chain_column]
+            .fillna('')
+            .astype(str)
+            .str.strip()
+        )
+        molecular_chains = len({value for value in chain_values.tolist() if value})
+
+    return {
+        'atoms': len(balls),
+        'molecular_atoms': int(molecular_mask.sum()),
+        'water_atoms': int(water_mask.sum()),
+        'ion_atoms': int(ion_mask.sum()),
+        'residues': len(residues),
+        'waters': int(water_residues),
+        'molecular_chains': molecular_chains,
+    }
+
+
+def _print_source_summary(system):
+    counts = _source_composition(system)
+    print()
+    print(f'{getattr(system, "name", "Structure")} loaded')
+    print(
+        f'  {counts["atoms"]:,} atoms, {counts["residues"]:,} residues, '
+        f'{counts["molecular_chains"]:,} chains, {counts["waters"]:,} waters'
+    )
+
+
+def _legacy_interface_result_state():
+    """Describe the legacy CLI boundary without certifying its geometry."""
+    return {
+        'status': 'UNRESOLVED',
+        'typed_result': False,
+        'provenance': False,
+        'dependency': False,
+        'reason': _LEGACY_INTERFACE_RESULT_REASON,
+    }
+
+
+def _typed_cli_interface_result_state(handoffs, unresolved_count=0):
+    """Summarize live CLI handoffs without promoting scientific status."""
+    statuses = tuple(
+        getattr(getattr(handoff, 'result', None), 'status', 'UNRESOLVED')
+        for handoff in handoffs
+    )
+    status_values = tuple(
+        getattr(status, 'value', str(status)) for status in statuses
+    )
+    status = status_values[0] if len(set(status_values)) == 1 else 'PARTIAL'
+    reason = (
+        'Typed CLI ordered A/B InterfaceResult handoff; scientific '
+        'completeness and curvature certification remain explicit.'
+    )
+    if unresolved_count:
+        reason += f' {unresolved_count} unsupported route(s) remain UNRESOLVED.'
+    return {
+        'status': status,
+        'typed_result': True,
+        'provenance': all(
+            getattr(getattr(handoff, 'result', None), 'provenance', None) is not None
+            for handoff in handoffs
+        ),
+        'dependency': all(getattr(handoff, 'dependency', None) is not None for handoff in handoffs),
+        'reason': reason,
+        'statuses': status_values,
+    }
+
+
+def _finite_cli_value(value):
+    """Return a finite float for presentation, or ``None`` when unavailable."""
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return None
+    return value if math.isfinite(value) else None
 
 
 def execution_profile_cli_options(args):
@@ -50,7 +203,9 @@ def execution_profile_cli_options(args):
             try:
                 profile = str(next(args)).strip().lower()
             except StopIteration:
-                raise SystemExit('--profile requires geometry, interface, analysis, or full') from None
+                raise SystemExit('--profile requires geometry, simple, interface, analysis, or full') from None
+            if profile == 'simple':
+                profile = 'geometry'
             if profile not in EXECUTION_PROFILES:
                 raise SystemExit(
                     '--profile requires geometry, interface, analysis, or full'
@@ -58,6 +213,222 @@ def execution_profile_cli_options(args):
         else:
             remaining.append(arg)
     return remaining, profile
+
+
+def cache_export_profile_cli_options(args):
+    """Extract the opt-in archive-load/export profile before legacy parsing."""
+    remaining = []
+    enabled = False
+    for arg in args:
+        if arg == '--profile-cache-export':
+            if enabled:
+                raise SystemExit('--profile-cache-export may only be specified once')
+            enabled = True
+        else:
+            remaining.append(arg)
+    return remaining, enabled
+
+
+def fail_if_exists_cli_options(args):
+    """Extract the opt-in exclusive output/archive policy."""
+    remaining = []
+    enabled = False
+    for arg in args:
+        if arg == '--fail-if-exists':
+            if enabled:
+                raise SystemExit('--fail-if-exists may only be specified once')
+            enabled = True
+        else:
+            remaining.append(arg)
+    return remaining, enabled
+
+
+def timing_report_cli_options(args):
+    """Extract the opt-in machine-readable CLI timing report destination."""
+    remaining = []
+    report = None
+    args = iter(args)
+    for arg in args:
+        if arg != '--timing-report':
+            remaining.append(arg)
+            continue
+        if report is not None:
+            raise SystemExit('--timing-report may only be specified once')
+        try:
+            value = next(args)
+        except StopIteration:
+            raise SystemExit('--timing-report requires a JSON output path') from None
+        if value.startswith('-'):
+            raise SystemExit('--timing-report requires a JSON output path')
+        report = Path(value).expanduser().resolve()
+    return remaining, report
+
+
+def _prepare_output_directory(directory, *, fail_if_exists=False):
+    """Create an output directory, optionally reserving it atomically."""
+    directory = Path(directory).expanduser().resolve()
+    try:
+        directory.mkdir(parents=True, exist_ok=not fail_if_exists)
+    except FileExistsError as error:
+        if fail_if_exists:
+            raise FileExistsError(
+                f'Refusing to reuse existing output directory: {directory}'
+            ) from error
+        raise
+    return directory
+
+
+def _check_archive_target_available(path):
+    """Fail before a solve when an opt-in archive target is already present."""
+    path = Path(path).expanduser().resolve()
+    timing = path.with_name(path.name + '.timing.json')
+    if path.exists() or timing.exists():
+        raise SystemExit(
+            f'Refusing to overwrite existing archive or timing sidecar: {path}'
+        )
+    return path
+
+
+def _archive_member_counts(path):
+    """Inspect ZIP metadata only; do not read archive payloads."""
+    if path is None or not Path(path).is_file():
+        return None
+    with zipfile.ZipFile(path, 'r') as archive:
+        infos = archive.infolist()
+    return {
+        'member_count': len(infos),
+        'array_member_count': sum(info.filename.startswith('arrays/') for info in infos),
+        'table_member_count': sum(info.filename.startswith('tables/') for info in infos),
+        'json_member_count': sum(info.filename.endswith('.json') for info in infos),
+        'uncompressed_bytes': sum(info.file_size for info in infos),
+        'compressed_bytes': sum(info.compress_size for info in infos),
+        'archive_bytes': Path(path).stat().st_size,
+    }
+
+
+def _cache_export_state(system):
+    """Return a read-only summary of archived interface caches."""
+    interfaces = []
+    state_counts = {}
+    for index, interface in enumerate(getattr(system, 'ifaces', None) or []):
+        state = str(getattr(interface, 'archive_cache_state', None) or 'UNKNOWN')
+        state_counts[state] = state_counts.get(state, 0) + 1
+        caches = getattr(interface, 'representation_caches', None) or {}
+        interfaces.append({
+            'index': index,
+            'interface_id': getattr(interface, 'archive_id', None),
+            'network_id': getattr(getattr(interface, 'net', None), 'archive_id', None),
+            'archive_cache_state': state,
+            'geometry_analysis': getattr(interface, 'geometry_analysis', None) is not None,
+            'dual': getattr(interface, '_geometry_dual', None) is not None,
+            'filtration': getattr(interface, '_geometry_filtration', None) is not None,
+            'representation': getattr(interface, '_geometry_representation', None) is not None,
+            'representation_cache_keys': sorted(str(key) for key in caches),
+        })
+    return {
+        'interface_count': len(interfaces),
+        'state_counts': state_counts,
+        'interfaces': interfaces,
+    }
+
+
+def _atomic_copy(source, destination, *, fail_if_exists=False):
+    """Copy one completed artifact without exposing a partial destination."""
+    source = Path(source)
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if source.resolve() == destination.resolve():
+        return
+    fd, temporary = tempfile.mkstemp(prefix='.vorpy-copy-', suffix='.tmp', dir=destination.parent)
+    os.close(fd)
+    try:
+        shutil.copyfile(source, temporary)
+        if fail_if_exists:
+            try:
+                os.link(temporary, destination)
+            except FileExistsError as error:
+                raise FileExistsError(
+                    f'Refusing to overwrite existing archive: {destination}'
+                ) from error
+        else:
+            os.replace(temporary, destination)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def _copy_archive_artifacts(source, destination, *, fail_if_exists=False):
+    """Reuse an automatic archive and its timing sidecar for explicit output."""
+    source = Path(source)
+    destination = Path(destination)
+    _atomic_copy(source, destination, fail_if_exists=fail_if_exists)
+    source_timing = source.with_name(source.name + '.timing.json')
+    destination_timing = destination.with_name(destination.name + '.timing.json')
+    if not source_timing.is_file():
+        return
+    try:
+        manifest = json.loads(source_timing.read_text(encoding='utf-8'))
+        manifest['archive'] = destination.name
+        encoded = json.dumps(manifest, allow_nan=False, separators=(',', ':')) + '\n'
+        fd, temporary = tempfile.mkstemp(
+            prefix='.vorpy-timing-', suffix='.tmp', dir=destination_timing.parent
+        )
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8', newline='') as stream:
+                stream.write(encoded)
+            if fail_if_exists:
+                if destination_timing.exists():
+                    raise FileExistsError(
+                        f'Refusing to overwrite existing archive timing sidecar: {destination_timing}'
+                    )
+                os.link(temporary, destination_timing)
+            else:
+                os.replace(temporary, destination_timing)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+    except (OSError, TypeError, ValueError):
+        _atomic_copy(
+            source_timing, destination_timing,
+            fail_if_exists=fail_if_exists,
+        )
+
+
+def _profile_interval(started):
+    return {
+        'wall_seconds': perf_counter() - started[0],
+        'cpu_seconds': process_time() - started[1],
+    }
+
+
+def _write_cache_export_profile(system, input_archive, profile):
+    destination = Path(system.files['dir']) / 'cache_export_profile.json'
+    fail_if_exists = getattr(system, '_fail_if_exists', False)
+    payload = {
+        'format': 'vorpy.cache_export_profile',
+        'profile_version': 1,
+        'input_archive': Path(input_archive).name,
+        'output_directory': str(Path(system.files['dir']).resolve()),
+        **profile,
+    }
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix='.vorpy-profile-', suffix='.tmp', dir=destination.parent)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8', newline='') as stream:
+            json.dump(payload, stream, allow_nan=False, indent=2, sort_keys=True)
+            stream.write('\n')
+        if fail_if_exists:
+            try:
+                os.link(temporary, destination)
+            except FileExistsError as error:
+                raise FileExistsError(
+                    f'Refusing to overwrite existing cache export profile: {destination}'
+                ) from error
+        else:
+            os.replace(temporary, destination)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def available_cpu_count():
@@ -151,6 +522,36 @@ def boundary_cli_options(args):
         raise SystemExit(str(error)) from None
 
 
+def solvent_cli_options(args):
+    """Extract explicit solvent-generator-universe options."""
+    remaining = []
+    mode = None
+    args = iter(args)
+    for arg in args:
+        if arg == '--solvent-mode':
+            if mode is not None:
+                raise SystemExit('--solvent-mode may only be specified once')
+            try:
+                mode = normalize_solvent_mode(next(args))
+            except StopIteration:
+                raise SystemExit(
+                    '--solvent-mode requires MOLECULE_ONLY, SOLVENT_CONTEXT, or FULL_SOLVENT'
+                ) from None
+            except ValueError as error:
+                raise SystemExit(str(error)) from None
+        elif arg in {'--solvent-context', '--full-solvent'}:
+            if mode is not None:
+                raise SystemExit('solvent mode may only be specified once')
+            mode = (
+                SolventMode.SOLVENT_CONTEXT
+                if arg == '--solvent-context'
+                else SolventMode.FULL_SOLVENT
+            )
+        else:
+            remaining.append(arg)
+    return remaining, mode
+
+
 def visualization_cli_options(args):
     """Extract read-only dual visualization flags before legacy parsing."""
     remaining = []
@@ -212,16 +613,19 @@ def prompt_boundary(config):
     if not sys.stdin.isatty():
         return config
     print("\nNo explicit solvent was detected. Exterior cells may be unbounded.\n"
-          "Boundary methods:\n"
-          "    [0] No boundary (default; use existing generators only)\n"
-          "    [1] Virtual solvent shell\n"
-          "SES, SAS, and AW probe boundaries are planned and unavailable.")
+          "Boundary methods:")
+    for key, label, _ in BOUNDARY_PROMPT_CHOICES:
+        print(f"    [{key}] {label}")
+    print("SES, SAS, and AW probe boundaries are planned and unavailable.")
+    modes = {"": "none"}
+    for key, _, mode in BOUNDARY_PROMPT_CHOICES:
+        modes[key] = mode
+        modes[mode] = mode
     while True:
         try:
             answer = input("Choose boundary [0]: ").strip().lower()
         except EOFError:
             answer = ""
-        modes = {"": "none", "0": "none", "none": "none", "1": "shell", "shell": "shell"}
         if answer in modes:
             return BoundaryConfig(modes[answer], config.probe_radius,
                                   config.shell_spacing, config.shell_offset)
@@ -250,6 +654,8 @@ class Command:
         self.boundary_config = BoundaryConfig()
         self.boundary_explicitly_requested = False
         self.boundary_warning_printed = False
+        self.solvent_mode = SolventMode.MOLECULE_ONLY
+        self._solvent_mode_explicit = False
         self.apollonius_requested = False
         self.alpha_value = None
         self.power_settings = {'preset': None, 'probe_radius': 1.4, 'alpha': 0.0,
@@ -263,14 +669,546 @@ class Command:
         self.visualize_dual_requested = False
         self.visualize_alpha_value = None
         self.execution_profile = None
+        self.cache_export_profile = False
+        self.fail_if_exists = False
+        self.timing_report_path = None
+        self._cli_timing_started = None
+        self._cli_timing = None
+        self._cli_stage_enabled = False
+        self._cli_stage_name = None
+        self._cli_stage_started = None
+        self._cli_stage_timings = {}
+        self._cli_export_stage_name = None
+        self._cli_export_stage_started = None
+        self._cli_export_stage_timings = {}
+        self._cli_observed_timings = {}
+        self._cli_final_summary_printed = False
         self.calculation_plan = None
+        self.export_plan = None
         self._build_group_networks = False
         self._full_system_separate = False
         self._full_system_group = None
         self._planned_interface_operands = ()
+        self.interface_result_state = None
+        self.interface_results = ()
+        self.interface_result_handoffs = ()
+        self.interface_result_errors = ()
+        self._checkpoint_source_tempdir = None
+        # Directory ownership is process-local.  A new Command over a reused
+        # System must not inherit a failed run's reservations.
+        self._interface_reservation_owner = object()
 
     def run(self):
-        self._run_pipeline()
+        self._cli_timing_started = (perf_counter(), process_time())
+        try:
+            self._run_pipeline()
+        except BaseException as error:
+            if self._cli_export_stage_name is not None:
+                self._cli_export_stage_callback(
+                    self._cli_export_stage_name, 'failed', error
+                )
+            self._cli_stage_failed(error)
+            if self._cli_stage_enabled and not self._cli_final_summary_printed:
+                self._cli_report_final_summary(
+                    self._cli_output_directory(), status='FAILED'
+                )
+            raise
+        finally:
+            self._cleanup_checkpoint_source()
+
+    def _cleanup_checkpoint_source(self):
+        temporary = self._checkpoint_source_tempdir
+        if temporary is not None:
+            temporary.cleanup()
+            self._checkpoint_source_tempdir = None
+
+    def _cli_stage_start(self, name, *, announce=True):
+        """Start one high-level CLI stage without creating a second progress bar."""
+        if not self._cli_stage_enabled:
+            return
+        if self._cli_stage_name is not None:
+            self._cli_stage_failed(
+                RuntimeError(
+                    f'CLI stage {self._cli_stage_name!r} was left active before '
+                    f'{name!r} started'
+                )
+            )
+        self._cli_stage_name = str(name)
+        self._cli_stage_started = perf_counter()
+        if announce:
+            finish_progress = getattr(self.sys, 'finish_progress_line', None)
+            if callable(finish_progress):
+                finish_progress()
+            print(f'{self._cli_stage_name}...', flush=True)
+
+    def _cli_stage_finish(self, *, announce=True):
+        """Complete the active high-level stage and report measured elapsed time."""
+        if self._cli_stage_name is None:
+            return
+        name = self._cli_stage_name
+        started = self._cli_stage_started
+        elapsed = max(perf_counter() - started, 0.0) if started is not None else 0.0
+        self._cli_stage_timings[name] = elapsed
+        if self._cli_timing is not None:
+            self._cli_timing.setdefault('cli_stages', {})[name] = {
+                'wall_seconds': elapsed,
+                'cpu_seconds': None,
+                'source': 'PRISM CLI stage boundary',
+            }
+        self._cli_stage_name = None
+        self._cli_stage_started = None
+        if announce:
+            finish_progress = getattr(self.sys, 'finish_progress_line', None)
+            if callable(finish_progress):
+                finish_progress()
+            print(f'{name}: complete (elapsed {elapsed:.2f} s)', flush=True)
+
+    def _cli_stage_failed(self, error):
+        """Record and print a stage boundary failure, preserving the original error."""
+        if self._cli_stage_name is None:
+            return
+        name = self._cli_stage_name
+        started = self._cli_stage_started
+        elapsed = max(perf_counter() - started, 0.0) if started is not None else 0.0
+        failure = {
+            'stage': name,
+            'status': 'FAILED',
+            'exception_type': type(error).__name__,
+            'message': str(error),
+            'elapsed_seconds': elapsed,
+        }
+        if self.sys is not None:
+            self.sys.cli_stage_failure = failure
+        finish_progress = getattr(self.sys, 'finish_progress_line', None)
+        if callable(finish_progress):
+            finish_progress()
+        print(
+            f"Stage failed: {name} ({elapsed:.2f} s) - "
+            f'{type(error).__name__}: {error}',
+            file=sys.stderr,
+            flush=True,
+        )
+        self._cli_stage_name = None
+        self._cli_stage_started = None
+
+    def _cli_export_stage_callback(self, name, event, artifact=None):
+        """Render VECTOR export boundaries without starting another progress UI."""
+        if not self._cli_stage_enabled:
+            return
+        name = str(name)
+        if event == 'start':
+            if self._cli_export_stage_name is not None:
+                self._cli_export_stage_callback(
+                    self._cli_export_stage_name, 'finish'
+                )
+            self._cli_export_stage_name = name
+            self._cli_export_stage_started = perf_counter()
+            finish_progress = getattr(self.sys, 'finish_progress_line', None)
+            if callable(finish_progress):
+                finish_progress()
+            suffix = f' ({artifact})' if artifact else ''
+            print(f'{name}{suffix}...', flush=True)
+            return
+        if event == 'failed':
+            error = artifact if isinstance(artifact, BaseException) else RuntimeError(str(artifact))
+            started = self._cli_export_stage_started
+            elapsed = max(perf_counter() - started, 0.0) if started is not None else 0.0
+            self.sys.cli_export_stage_failure = {
+                'stage': name,
+                'status': 'FAILED',
+                'exception_type': type(error).__name__,
+                'message': str(error),
+                'elapsed_seconds': elapsed,
+            }
+            print(
+                f'Export stage failed: {name} ({elapsed:.2f} s) - '
+                f'{type(error).__name__}: {error}',
+                file=sys.stderr,
+                flush=True,
+            )
+            self._cli_export_stage_name = None
+            self._cli_export_stage_started = None
+            return
+        if event != 'finish' or self._cli_export_stage_name is None:
+            return
+        started = self._cli_export_stage_started
+        elapsed = max(perf_counter() - started, 0.0) if started is not None else 0.0
+        self._cli_export_stage_timings[name] = (
+            self._cli_export_stage_timings.get(name, 0.0) + elapsed
+        )
+        self._cli_export_stage_name = None
+        self._cli_export_stage_started = None
+        finish_progress = getattr(self.sys, 'finish_progress_line', None)
+        if callable(finish_progress):
+            finish_progress()
+        print(f'{name}: complete (elapsed {elapsed:.2f} s)', flush=True)
+
+    def _cli_output_directory(self):
+        if self.sys is None:
+            return None
+        files = getattr(self.sys, 'files', {}) or {}
+        directory = files.get('dir')
+        return os.path.normpath(os.path.abspath(str(directory))) if directory else None
+
+    @staticmethod
+    def _format_plan_selector(selector):
+        return ' '.join(str(token) for token in selector) or 'selected'
+
+    def _calculation_plan_summary(self):
+        """Return the effective CLI request without inferring geometry results."""
+        plan = self.calculation_plan
+        if plan is None:
+            return {}
+
+        targets = []
+        for request in plan.network_requests:
+            kind = request[0]
+            if kind == 'system':
+                targets.append('full-system network')
+            elif kind == 'groups':
+                targets.append('all declared group networks')
+            elif kind == 'group':
+                selectors = request[1]
+                targets.append(
+                    'group network ('
+                    + '; '.join(
+                        self._format_plan_selector(command)
+                        for command in selectors
+                    )
+                    + ')'
+                )
+            elif kind == 'interface':
+                operands = request[1]
+                if operands:
+                    targets.append(
+                        'interface ('
+                        + ' / '.join(
+                            self._format_plan_selector(operand)
+                            for operand in operands
+                        )
+                        + ')'
+                    )
+                else:
+                    targets.append('selected interface')
+
+        group_selections = [
+            {
+                'index': index,
+                'selector': ' and '.join(
+                    self._format_plan_selector(command)
+                    for command in commands
+                ),
+                'selected_cells': (
+                    len(getattr(self.sys.groups[index], 'ball_ndxs', ()) or ())
+                    if self.sys is not None
+                    and index < len(getattr(self.sys, 'groups', ()) or ())
+                    else None
+                ),
+            }
+            for index, commands in self.groups.items()
+        ]
+        target_scopes = tuple(
+            dict.fromkeys(
+                'group' if request[0] == 'groups' else request[0]
+                for request in plan.network_requests
+            )
+        )
+        group_names = []
+        for row in group_selections:
+            index = row['index']
+            if self.sys is not None and index < len(getattr(self.sys, 'groups', ()) or ()):
+                group_names.append(
+                    getattr(self.sys.groups[index], 'name', row['selector'])
+                )
+            else:
+                group_names.append(row['selector'])
+        settings = self.settings_dict or {}
+        policy = getattr(self, '_source_generator_policy', None) or {}
+        summary = {
+            'targets': tuple(targets),
+            'group_selections': tuple(group_selections),
+            'interface_only': bool(plan.interface_only),
+            'full_system_request': bool(plan.full_system_request),
+            'network_requests': tuple(plan.network_requests),
+            'method': settings.get('net_type', 'aw'),
+            'analysis_profile': self.execution_profile or plan.analysis_profile or 'comprehensive',
+            'target_scopes': target_scopes,
+            'group_names': tuple(group_names),
+            'boundary': getattr(
+                getattr(self, 'boundary_config', None), 'mode', None
+            ).value if getattr(
+                getattr(self, 'boundary_config', None), 'mode', None
+            ) is not None else 'none',
+            'solvent_mode': getattr(
+                getattr(self, 'solvent_mode', None), 'value', self.solvent_mode
+            ),
+            'active_generator_count': policy.get('active_generator_count'),
+            'active_system_indices': tuple(getattr(self, '_source_system_indices', ()) or ()),
+            'scope': plan.export_plan.scope if plan.export_plan is not None else None,
+            'output_tier': plan.export_plan.preset if plan.export_plan is not None else 'small',
+            'checkpoint_state': (
+                plan.export_plan.checkpoint_policy
+                if plan.export_plan is not None else 'shared'
+            ),
+        }
+        return summary
+
+    def _print_calculation_plan_summary(self):
+        """Print the request boundary; never present constructed cells as targets."""
+        summary = self._calculation_plan_summary()
+        if not summary:
+            return summary
+        if self.sys is not None:
+            self.sys.cli_calculation_plan_summary = summary
+        if not (self.verbose or self.interface_mode):
+            return summary
+        targets = '; '.join(summary['targets']) or 'none'
+        compact_groups = ', '.join(summary['group_names']) or 'none'
+        print(
+            '  Summary: '
+            f"method={str(summary['method']).upper()} "
+            f"scopes={','.join(summary['target_scopes']) or 'none'} "
+            f"groups={compact_groups} solvent={summary['solvent_mode']} "
+            f"analysis={summary['analysis_profile']} "
+            f"tier={summary['output_tier']} checkpoint={summary['checkpoint_state']}",
+            flush=True,
+        )
+        print('Calculation plan:', flush=True)
+        print(f'  Network targets: {targets}', flush=True)
+        if summary['group_selections']:
+            for group in summary['group_selections']:
+                selected = group['selected_cells']
+                suffix = '' if selected is None else f'; selected cells={selected:,}'
+                print(
+                    f"  Group {group['index']}: {group['selector']}{suffix}",
+                    flush=True,
+                )
+        elif summary['full_system_request']:
+            print('  Group selection: legacy default full-system group', flush=True)
+        if summary['interface_only'] or (
+            self.calculation_plan is not None
+            and self.calculation_plan.interface_requests
+        ):
+            print(
+                '  Interface source: '
+                + ('full-system network plus selected interface'
+                   if summary['full_system_request']
+                   else 'selected interface only'),
+                flush=True,
+            )
+        method = summary['method']
+        if isinstance(method, (list, tuple)):
+            method = '/'.join(str(value) for value in method)
+        print(
+            f"  Solver: {str(method).upper()}; analysis profile={summary['analysis_profile']}; "
+            f"boundary={summary['boundary']}; solvent={summary['solvent_mode']}",
+            flush=True,
+        )
+        print(
+            f"  Output: scope={summary['scope']}; tier={summary['output_tier']}; "
+            f"checkpoint={summary['checkpoint_state']}",
+            flush=True,
+        )
+        if summary['active_generator_count'] is not None:
+            print(
+                f"  Source generator universe: {summary['active_generator_count']:,} active system IDs",
+                flush=True,
+            )
+        return summary
+
+    def _print_network_cell_counts(self):
+        """Report constructed and complete cells as separate, labeled values."""
+        if not (self.verbose or self.interface_mode):
+            return
+        for name, network in self._diagnostic_networks():
+            balls = getattr(network, 'balls', None)
+            total = len(balls) if balls is not None else None
+            complete = None
+            if balls is not None and hasattr(balls, 'columns') and 'complete' in balls:
+                complete = int(balls['complete'].astype(bool).sum())
+            if total is None or complete is None:
+                print(f'Network cells ({name}): constructed=unavailable; complete=unavailable')
+            else:
+                print(
+                    f'Network cells ({name}): constructed={total:,}; '
+                    f'complete={complete:,}'
+                )
+
+    def _timing_phase_start(self):
+        if self._cli_timing is None:
+            return None
+        return perf_counter(), process_time()
+
+    def _record_timing_phase(self, name, started, *, source):
+        if self._cli_timing is None or started is None:
+            return
+        interval = _profile_interval(started)
+        interval['source'] = source
+        self._cli_timing['phases'][name] = interval
+
+    @staticmethod
+    def _timing_number(value):
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return 0.0
+        return number if number >= 0.0 else 0.0
+
+    def _record_network_timings(self):
+        """Use FORGE's completed network metrics without a second build timer."""
+        rows = []
+        geometry_seconds = 0.0
+        analysis_seconds = 0.0
+        for name, network in self._diagnostic_networks():
+            metrics = getattr(network, 'metrics', {}) or {}
+            total = self._timing_number(metrics.get('tot'))
+            analysis = min(self._timing_number(metrics.get('anal')), total)
+            geometry = max(total - analysis, 0.0)
+            geometry_seconds += geometry
+            analysis_seconds += analysis
+            rows.append({
+                'name': str(name),
+                'network_seconds': total,
+                'geometry_seconds': geometry,
+                'analysis_seconds': analysis,
+            })
+        self._cli_observed_timings['Network construction'] = geometry_seconds
+        if not (
+            self.calculation_plan is not None
+            and self.calculation_plan.full_system_request
+        ):
+            self._cli_observed_timings['Interface geometry solve'] = geometry_seconds
+        self._cli_observed_timings['Network analysis'] = analysis_seconds
+        if self._cli_timing is None:
+            return
+        self._cli_timing['networks'] = rows
+        self._cli_timing['phases']['geometry_network'] = {
+            'wall_seconds': geometry_seconds,
+            'cpu_seconds': None,
+            'source': "FORGE Network.metrics['tot'] - ['anal']",
+        }
+        self._cli_timing['phases']['analysis'] = {
+            'wall_seconds': analysis_seconds,
+            'cpu_seconds': None,
+            'source': "FORGE Network.metrics['anal']",
+        }
+
+    def _record_export_archive_timings(self, export_started):
+        """Consume VECTOR/ATLAS timings and keep archive time separate."""
+        export_timing = dict(getattr(self.sys, 'export_timing', {}) or {})
+        archive_timing = dict(getattr(self.sys, 'archive_timing', {}) or {})
+        export_total = self._timing_number(export_timing.get('total'))
+        archive_total = self._timing_number(archive_timing.get('total'))
+        cli_export_stages = dict(self._cli_export_stage_timings)
+        vector_export_stages = dict(getattr(self.sys, 'export_stage_timing', {}) or {})
+        export_stages = cli_export_stages or vector_export_stages
+        self._cli_observed_timings.update({
+            name: self._timing_number(value)
+            for name, value in export_stages.items()
+            if self._timing_number(value) > 0.0
+        })
+        if archive_total:
+            self._cli_observed_timings['Saving archive'] = archive_total
+        elif 'Saving archive' in self._cli_stage_timings:
+            self._cli_observed_timings['Saving archive'] = self._cli_stage_timings['Saving archive']
+        if self._cli_timing is None:
+            return
+        if export_total:
+            archive_in_export = 'network archive' in export_timing
+            export_seconds = (
+                max(export_total - archive_total, 0.0)
+                if archive_in_export else export_total
+            )
+            self._cli_timing['phases']['export'] = {
+                'wall_seconds': export_seconds,
+                'cpu_seconds': None,
+                'source': 'VECTOR ExportProgress.total',
+                'run_exports_seconds': export_total,
+            }
+            self._cli_timing['export_operations'] = export_timing
+            if vector_export_stages:
+                self._cli_timing['export_stages'] = vector_export_stages
+            if cli_export_stages:
+                self._cli_timing['cli_export_stages'] = cli_export_stages
+        elif export_started is not None:
+            self._record_timing_phase(
+                'export', export_started, source='PRISM CLI fallback boundary'
+            )
+        if archive_total:
+            self._cli_timing['phases']['archive_save'] = {
+                'wall_seconds': archive_total,
+                'cpu_seconds': None,
+                'source': 'ATLAS save_network.total',
+            }
+            self._cli_timing['archive_operations'] = archive_timing
+        else:
+            self._cli_timing['phases']['archive_save'] = {
+                'wall_seconds': 0.0,
+                'cpu_seconds': None,
+                'source': 'ATLAS save_network not requested',
+            }
+
+    def _write_timing_report(self, output_directory):
+        if self._cli_timing is None or self.timing_report_path is None:
+            return
+        if self._cli_timing_started is not None:
+            total = _profile_interval(self._cli_timing_started)
+            total['source'] = 'PRISM CLI run boundary'
+            self._cli_timing['phases']['total_wall'] = total
+        policy = getattr(self, '_source_generator_policy', None) or {}
+        settings = getattr(self, 'settings_dict', None) or {}
+        self._cli_timing.update({
+            'format': 'vorpy.cli_timing',
+            'output_directory': str(Path(output_directory).resolve()),
+            'input': str(Path(self.base_file).resolve()) if self.base_file else None,
+            'structure': getattr(self.sys, 'name', None),
+            'frame': {
+                'index': getattr(self.sys, 'frame_index', None),
+                'count': getattr(self.sys, 'frame_count', None),
+            },
+            'network_type': settings.get('net_type'),
+            'solvent_mode': getattr(
+                getattr(self, 'solvent_mode', None), 'value', self.solvent_mode
+            ),
+            'source_generator_policy': {
+                key: policy.get(key)
+                for key in (
+                    'source_generator_count', 'active_generator_count',
+                    'excluded_generator_count', 'excluded_water_generator_count',
+                    'excluded_bulk_counterion_generator_count',
+                )
+                if key in policy
+            },
+            'interfaces': [
+                getattr(interface, 'name', None)
+                for interface in (getattr(self.sys, 'ifaces', None) or [])
+            ],
+            'observed_stage_timings': dict(self._cli_observed_timings),
+            'cli_stage_timings': dict(self._cli_stage_timings),
+            'cli_export_stage_timings': dict(self._cli_export_stage_timings),
+            'final_status': self._cli_scientific_status(),
+        })
+        destination = self.timing_report_path
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        fd, temporary = tempfile.mkstemp(
+            prefix='.vorpy-cli-timing-', suffix='.tmp', dir=destination.parent
+        )
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8', newline='') as stream:
+                json.dump(self._cli_timing, stream, indent=2, sort_keys=True)
+                stream.write('\n')
+            if self.fail_if_exists:
+                try:
+                    os.link(temporary, destination)
+                except FileExistsError as error:
+                    raise SystemExit(
+                        f'Refusing to overwrite timing report: {destination}'
+                    ) from error
+            else:
+                os.replace(temporary, destination)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
 
     def _run_pipeline(self):
         """
@@ -293,6 +1231,27 @@ class Command:
         self._arguments, self.execution_profile = execution_profile_cli_options(
             self._arguments
         )
+        self._arguments, self.cache_export_profile = cache_export_profile_cli_options(
+            self._arguments
+        )
+        self._arguments, self.fail_if_exists = fail_if_exists_cli_options(
+            self._arguments
+        )
+        self._arguments, self.timing_report_path = timing_report_cli_options(
+            self._arguments
+        )
+        if self.timing_report_path is not None:
+            self._cli_timing = {
+                'schema_version': 1,
+                'unit': 'seconds',
+                'phases': {},
+            }
+            if self._cli_timing_started is None:
+                self._cli_timing_started = (perf_counter(), process_time())
+            if self.fail_if_exists and self.timing_report_path.exists():
+                raise SystemExit(
+                    f'Refusing to overwrite timing report: {self.timing_report_path}'
+                )
         if self._arguments and self._arguments[0] == '--load-network':
             self._arguments.pop(0)
         from vorpy.src.analyze.power_interface_cli import (
@@ -305,6 +1264,10 @@ class Command:
         input_arg = self._arguments[0]
 
         self._arguments, self.boundary_config, self.boundary_explicitly_requested = boundary_cli_options(self._arguments)
+        self._arguments, requested_solvent_mode = solvent_cli_options(self._arguments)
+        if requested_solvent_mode is not None:
+            self.solvent_mode = requested_solvent_mode
+            self._solvent_mode_explicit = True
         (self._arguments, self.visualize_dual_requested,
          self.visualize_alpha_value) = visualization_cli_options(self._arguments)
         if len(self._arguments) > 1:
@@ -330,6 +1293,8 @@ class Command:
         if self.base_file is None:
             raise SystemExit(f"Input file not found: {input_arg}. "
                              "Provide an existing path or a filename from vorpy/data.")
+        if self.cache_export_profile and Path(self.base_file).suffix.lower() != '.vpy':
+            raise SystemExit('--profile-cache-export requires a .vpy archive input')
         if Path(self.base_file).suffix.lower() == '.vpy':
             self._run_archive()
             return
@@ -384,6 +1349,14 @@ class Command:
                         break
                     print('Please enter y (all frames) or n (frame 1 only).')
 
+        # Interface workflows get the compact, stage-oriented CLI trace. Keep
+        # the established non-interface transcript unchanged.
+        self._cli_stage_enabled = any(
+            str(argument).lower() in {'-i', '--interface'}
+            for argument in self._arguments[1:]
+        )
+        self._cli_stage_start('Loading input')
+
         # The legacy PDB reader dereferences its optional solvent container
         # for crystallographic waters. For the two-protein AW comparison only,
         # use a temporary copy without water HETATM records; neither the source
@@ -403,22 +1376,43 @@ class Command:
                 system_input = comparison_temp
         try:
             if self.sys is None:
-                self.sys = System(file=str(system_input), make_dir=False, boundary_config=self.boundary_config)
+                self.sys = System(
+                    file=str(system_input), make_dir=False,
+                    boundary_config=self.boundary_config,
+                    solvent_mode=self.solvent_mode,
+                )
                 if comparison_temp is not None:
                     self.sys.name = Path(self.base_file).stem
             else:
                 self.sys.boundary_config = self.boundary_config
+                self.sys.solvent_mode = self.solvent_mode
+            self.sys._fail_if_exists = self.fail_if_exists
         finally:
             if comparison_temp is not None:
                 comparison_temp.unlink(missing_ok=True)
 
         # Parse the remaining command-line arguments
         self.parse_commands()
+        if self.interface_mode:
+            self._cli_stage_enabled = True
+            self.sys._cli_stage_output_enabled = True
+        self._cli_stage_finish()
+        self._record_timing_phase(
+            'loading_initialization',
+            self._cli_timing_started,
+            source='PRISM CLI input resolution, System load, and command parsing',
+        )
         if self.power_vs_aw_requested:
             self.interface_mode = True
             self.power_cli_arguments = list(self._arguments[1:])
 
-        self._process_system()
+        try:
+            self._process_system()
+        except BaseException:
+            finish_progress = getattr(self.sys, 'finish_progress_line', None)
+            if callable(finish_progress):
+                finish_progress()
+            raise
 
     def run_all_frames(self, total_frames=None, workers=None):
         """Run the normal workflow independently for every input PDB frame."""
@@ -449,6 +1443,7 @@ class Command:
                     frame_system = System(
                         file=frame_input, make_dir=False,
                         boundary_config=self.boundary_config,
+                        solvent_mode=self.solvent_mode,
                     )
                 finally:
                     if parser_temp is not None:
@@ -462,23 +1457,38 @@ class Command:
                 command.aw_alpha_pair_overlap_only = self.aw_alpha_pair_overlap_only
                 command.aw_alpha_solvent_chains_normalized = normalized_solvent
                 command.execution_profile = self.execution_profile
+                command.fail_if_exists = self.fail_if_exists
                 command.visualize_dual_requested = self.visualize_dual_requested
                 command.visualize_alpha_value = self.visualize_alpha_value
                 command.boundary_config = deepcopy(self.boundary_config)
                 command.boundary_explicitly_requested = self.boundary_explicitly_requested
                 command.boundary_warning_printed = self.boundary_warning_printed
+                command.solvent_mode = self.solvent_mode
+                command._solvent_mode_explicit = self._solvent_mode_explicit
                 if output_root is None:
                     command.parse_commands()
                     if frame_system.files['dir'] is None:
-                        frame_system.set_output_directory()
+                        frame_system.set_output_directory(
+                            fail_if_exists=self.fail_if_exists
+                        )
                     output_root = Path(frame_system.files['dir']) / 'frames'
                     options = {name: deepcopy(getattr(command, name)) for name in FRAME_OPTIONS}
                 else:
                     for name, value in options.items():
                         setattr(command, name, deepcopy(value))
-                frame_system.set_output_directory(str(output_root / f'frame_{ordinal:04d}'))
+                frame_system.set_output_directory(
+                    str(output_root / f'frame_{ordinal:04d}'),
+                    fail_if_exists=self.fail_if_exists,
+                )
                 print(f'Processing frame {ordinal}: {frame_system.files["dir"]}')
-                command._process_system()
+                try:
+                    command._process_system()
+                except BaseException:
+                    finish_progress = getattr(frame_system, 'finish_progress_line', None)
+                    if callable(finish_progress):
+                        finish_progress()
+                    raise
+                self.solvent_mode = command.solvent_mode
                 self.boundary_warning_printed = command.boundary_warning_printed
                 self.boundary_config = command.boundary_config
                 if output_root is not None:
@@ -565,23 +1575,51 @@ class Command:
                 requested_pairs = [(candidates[0], None)]
 
             for group1, group2 in requested_pairs:
-                marker = (id(group1), id(group2) if group2 is not None else None)
+                if group2 is None:
+                    marker = (id(group1), None)
+                else:
+                    marker = tuple(sorted((id(group1), id(group2))))
                 if marker not in seen:
                     seen.add(marker)
                     pairs.append((group1, group2))
         return pairs
 
     def _build_full_system_target(self):
-        """Build a separate full-system network when other targets coexist."""
-        if not self._full_system_separate or self._full_system_group is not None:
+        """Build the one full-system source network requested by the plan."""
+        plan = self.calculation_plan
+        full_system_requested = bool(
+            self._full_system_separate
+            or (plan is not None and plan.full_system_request)
+        )
+        if (
+            plan is not None
+            and plan.full_system_request
+            and not plan.interface_requests
+            and not plan.declared_group_requests
+        ):
+            # A plain ``-c system`` is the historical ordinary full-system
+            # solve: molecular cells use the loaded structure as context.
+            # The separate all-source network is reserved for interface reuse.
             return
+        if not full_system_requested or self._full_system_group is not None:
+            return
+        self._resolve_full_system_solvent_mode()
         from vorpy.src.group import Group
 
-        settings = deepcopy(self.settings_dict)
+        settings = deepcopy(self.settings_dict) or {}
+        if self.interface_mode or (plan is not None and plan.interface_requests):
+            settings['_progress_network_name'] = self.sys.name
+            # Interface extraction consumes the same completed source Network
+            # as a regular group solve; keep the public phase terminology
+            # identical to the normal CLI path.
+            settings['_completion_kind'] = 'network'
+        source_indices = getattr(self, '_source_system_indices', None)
+        if source_indices is None:
+            source_indices = tuple(range(len(self.sys.balls)))
         self._full_system_group = Group(
             sys=self.sys,
             name=f'{self.sys.name}_full_system',
-            atoms=list(range(len(self.sys.balls))),
+            atoms=list(source_indices),
             settings=settings,
             make_net=True,
             build_net=False,
@@ -591,16 +1629,1099 @@ class Command:
             self.sys, '_network_calculate_curvature', True
         )
         self._full_system_group.build(calculate_curvature=calculate_curvature)
+        source_network = getattr(self._full_system_group, 'net', None)
+        if source_network is not None:
+            self._record_generator_policy(source_network)
+            self._persist_geometry_checkpoint(
+                source_network,
+                scope='full_system_source',
+            )
+
+    def _full_system_reuse_enabled(self):
+        """Whether selected targets must be read-only views of the source solve."""
+        plan = self.calculation_plan
+        source = getattr(self._full_system_group, 'net', None)
+        return bool(
+            (self._full_system_separate
+             or (plan is not None and plan.full_system_request)
+             )
+            and source is not None
+            and getattr(source, 'verts', None) is not None
+            and getattr(source, 'edges', None) is not None
+            and getattr(source, 'surfs', None) is not None
+        )
+
+    def _persist_geometry_checkpoint(self, network, *, scope):
+        """Persist solved geometry before optional analysis can fail."""
+        output_dir = (getattr(self.sys, 'files', None) or {}).get('dir')
+        if output_dir is None:
+            return None
+        from vorpy.src.io import save_network
+
+        internal_interface_checkpoint = bool(
+            self.interface_mode
+            and self.execution_profile not in {'geometry', 'interface'}
+        )
+        checkpoint_dir = Path(output_dir)
+        if internal_interface_checkpoint:
+            checkpoint_dir = checkpoint_dir / '.vorpy' / 'checkpoints'
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+        provenance = dict(getattr(network, 'archive_provenance', {}) or {})
+        provenance.update({
+            'checkpoint_kind': 'solved_geometry',
+            'checkpoint_scope': scope,
+            'geometry_status': 'GEOMETRY_COMPLETE',
+            'analysis_status': 'NOT_CALCULATED',
+            'analysis_complete': False,
+        })
+        network.archive_provenance = provenance
+        destination = checkpoint_dir / (
+            f'{getattr(network, "group_name", None) or getattr(self.sys, "name", "network")}'
+            '.geometry.vpy'
+        )
+        archive = save_network(
+            network, destination, fail_if_exists=getattr(self, 'fail_if_exists', False)
+        )
+        self.sys._geometry_checkpoint_path = str(archive)
+        self.sys._geometry_checkpoint_status = 'GEOMETRY_COMPLETE'
+        self.sys._analysis_status = 'NOT_CALCULATED'
+        if not internal_interface_checkpoint or self.verbose:
+            print(f'Solved geometry checkpoint saved: {archive}')
+        return archive
+
+    def _full_system_source_network_id(self):
+        """Assign one producer namespace shared by every source-derived view."""
+        source = self._full_system_group.net
+        source_network_id = getattr(source, 'source_network_id', None)
+        if isinstance(source_network_id, str) and source_network_id.strip():
+            return source_network_id
+        from vorpy.src.results.model import stable_id
+
+        context = source.get_solve_context_key()
+        source_network_id = stable_id(
+            'producer:cli-full-system',
+            {
+                'source': str(self.base_file or getattr(self.sys, 'name', 'system')),
+                'frame': int(getattr(self.sys, 'frame_index', 1) or 1),
+                'solve_universe_id': context.solve_universe_id,
+            },
+        )
+        source.source_network_id = source_network_id
+        return source_network_id
+
+    def _attach_full_system_group_views(self):
+        """Attach read-only group views without creating subgroup Networks."""
+        plan = self.calculation_plan
+        # Interface-only commands use groups as interface sides.  Validating
+        # whole group views here would pull unrelated incomplete cells into the
+        # dependency check before the interface facets are selected.
+        if plan is None or not plan.full_system_request:
+            return
+        if not self._full_system_reuse_enabled():
+            return
+        from vorpy.src.group.shared_view import analyze_group_view, make_group_view
+
+        source = self._full_system_group.net
+        source_network_id = self._full_system_source_network_id()
+        for group in self.sys.groups or ():
+            view = make_group_view(
+                group, source, source_network_id=source_network_id
+            )
+            group.source_view = view
+            group.source_network = source
+            group.source_view_analysis = analyze_group_view(view)
+            # Keep existing scalar consumers useful while leaving curvature
+            # and subgroup topology explicitly unavailable on the Group.
+            group.sa = group.source_view_analysis.area
+            group.vol = group.source_view_analysis.volume
+
+    def _source_interface_analysis(self, view, interface_id):
+        """Summarize source facets; do not run alpha/dual/interface geometry."""
+        from vorpy.src.calculations import calc_surf_sa
+        from vorpy.src.interface.geometry_analysis import InterfaceGeometryAnalysis
+
+        group_a = set(view.group_a_ids)
+        group_b = set(view.group_b_ids)
+        facet_pairs = set()
+        area = 0.0
+        for surface in view.surfaces:
+            area_value = surface.data.get('sa')
+            if area_value is None:
+                try:
+                    area_value = calc_surf_sa(
+                        tris=surface.data['tris'], points=surface.data['points']
+                    )
+                except (KeyError, TypeError, ValueError) as error:
+                    raise ValueError(
+                        f'Source surface {surface.source_id!r} has no analytic area'
+                    ) from error
+            area += float(area_value)
+            side_a = group_a.intersection(surface.generator_system_ids)
+            side_b = group_b.intersection(surface.generator_system_ids)
+            facet_pairs.update((int(a), int(b)) for a in side_a for b in side_b)
+
+        reason = (
+            'Source-derived A/B facets from the solved full-system network; '
+            'no independent interface solve or alpha selection was performed.'
+        )
+        unresolved_reasons = [reason, *view.completeness.reasons]
+        area_scope = (
+            'supported full-system source A/B facets; unresolved source facets '
+            'were omitted'
+            if view.completeness.reasons
+            else 'complete full-system source A/B facets'
+        )
+        side = {
+            'interface_atoms': len({
+                index for surface in view.surfaces
+                for index in surface.generator_system_ids
+                if index is not None
+            }),
+            'area': area,
+            'area_scope': area_scope,
+            'area_selection_complete': bool(view.completeness.proven),
+            'selected_pairs': len(view.surfaces),
+            'selected_physical_pairs': len(view.surfaces),
+            'topology_faces': len(view.surfaces),
+            'topology_edges': len(view.edges),
+            'topology_vertices': len(view.vertices),
+            'mean_certified': False,
+            'gaussian_total_certified': False,
+            'mean_curvature_certified': False,
+            'gaussian_curvature_certified': False,
+            'manifold_incidence_certified': False,
+            'unresolved_reasons': unresolved_reasons,
+            'unresolved_surface_ids': view.completeness.unresolved_surface_ids,
+            'unresolved_surface_area': view.completeness.unresolved_surface_area,
+            'source_surface_ids': tuple(view.source_ids('surface')),
+            'source_edge_ids': tuple(view.source_ids('edge')),
+            'source_vertex_ids': tuple(view.source_ids('vertex')),
+            'source_generator_pairs': tuple(sorted(facet_pairs)),
+        }
+        metadata = {
+            'schema_version': 2,
+            'interface_id': interface_id,
+            'scheme': view.scheme,
+            'alpha_convention': 'not_applicable_source_facets',
+            'alpha_value': None,
+            'alpha_units': None,
+            'curvature_requested': False,
+            'additional_network_solves': 0,
+            'source_geometry': 'full_system_network_view',
+            'source_network_id': view.source_network_id,
+            'source_view_id': view.selection_id,
+            'solve_universe_id': view.solve_universe_id,
+            'geometry_status': 'GEOMETRY_COMPLETE',
+            'analysis_status': 'NOT_CALCULATED',
+            'analysis_complete': False,
+            'alpha_status': 'NOT_CALCULATED',
+            'raw_physical_geometry_available': True,
+            'result_status': 'PARTIAL',
+            'unresolved_surface_ids': view.completeness.unresolved_surface_ids,
+            'unresolved_surface_area': view.completeness.unresolved_surface_area,
+            'solvent_mode': getattr(
+                self._full_system_group.net.solvent_mode,
+                'value',
+                self._full_system_group.net.solvent_mode,
+            ),
+        }
+        return InterfaceGeometryAnalysis(
+            metadata=metadata,
+            alpha_selection={
+                'certified': False,
+                'status': 'not_calculated',
+                'coverage': None,
+                'method': 'not_applicable_source_facets',
+                'source_surface_ids': tuple(view.source_ids('surface')),
+                'source_generator_pairs': tuple(sorted(facet_pairs)),
+            },
+            voronoi_side_1=side,
+            voronoi_side_2=dict(side),
+            unresolved=unresolved_reasons,
+        )
+
+    def _attach_full_system_interface_views(self, interface_pairs):
+        """Create interface records backed by the full source network only."""
+        if not self._full_system_reuse_enabled():
+            return
+        from vorpy.src.interface import Interface
+        from vorpy.src.network.views import NetworkViewError
+
+        source = self._full_system_group.net
+        recovered = getattr(self.sys, '_archive_recovered_source', None)
+        source_network_id = self._full_system_source_network_id()
+        self.sys.ifaces = []
+        for group_a, group_b in interface_pairs:
+            interface = Interface(
+                sys=self.sys,
+                group1=group_a,
+                group2=group_b,
+            )
+            actual_group_b = interface.group2
+            try:
+                group_a_ids = tuple(sorted(int(index) for index in group_a.ball_ndxs))
+                group_b_ids = tuple(sorted(int(index) for index in actual_group_b.ball_ndxs))
+                if recovered is not None:
+                    view = recovered.make_interface_view(
+                        group_a_ids,
+                        group_b_ids,
+                        source_network_id=source_network_id,
+                    )
+                else:
+                    view = source.make_view(
+                        iface_grps=(group_a_ids, group_b_ids),
+                        source_network_id=source_network_id,
+                    )
+            except NetworkViewError as error:
+                # The solved source network is still a valid completed
+                # checkpoint; only this requested derived interface failed.
+                self.interface_result_errors += (
+                    f'{type(error).__name__}: {error}',
+                )
+                continue
+            # Interface.net remains the source owner for archive/link identity;
+            # all selected geometry is carried by source_view, never rebuilt.
+            interface.net = source
+            interface.source_view = view
+            interface.source_network = source
+            interface.geometry_source = 'FULL_SYSTEM_NETWORK_VIEW'
+            interface.group1_indices = set(group_a.ball_ndxs)
+            interface.group2_indices = set(actual_group_b.ball_ndxs)
+            interface.group2_name = actual_group_b.name
+            interface.geometry_analysis = self._source_interface_analysis(
+                view, interface.interface_id
+            )
+            interface._update_group_metadata(network_created=False, built=True)
+            for group in (group_a, actual_group_b):
+                metadata = group.interface_metadata[interface.interface_id]
+                metadata.update({
+                    'geometry_source': interface.geometry_source,
+                    'source_network_id': view.source_network_id,
+                    'source_view_id': view.selection_id,
+                    'completeness_proven': bool(view.completeness.proven),
+                })
+            self.sys.ifaces.append(interface)
+
+    @staticmethod
+    def _interface_group_label(group):
+        label = getattr(group, 'name', None) or getattr(group, 'group_id', None)
+        if isinstance(label, str) and label.strip():
+            return label
+        return type(group).__name__
+
+    @staticmethod
+    def _interface_reservation_id(group1, group2):
+        """Return the directory identity used by Interface.make_interface_id."""
+        group1_id = str(getattr(group1, 'group_id', None) or group1.name)
+        group2_id = (
+            f'{group1_id}__surrounding'
+            if group2 is None
+            else str(getattr(group2, 'group_id', None) or group2.name)
+        )
+        return (
+            f'{group1_id}__{group2_id}'
+            if group2 is None
+            else '__'.join(sorted((group1_id, group2_id)))
+        )
+
+    def _interface_reservations(self):
+        """Return this Command's explicit path-to-interface reservations."""
+        raw = getattr(self.sys, '_cli_interface_output_reservations', {}) or {}
+        return {
+            Path(path).resolve(): interface_id
+            for path, value in raw.items()
+            if isinstance(value, tuple)
+            and len(value) == 2
+            and value[0] is self._interface_reservation_owner
+            for interface_id in (str(value[1]),)
+        }
+
+    def _store_interface_reservations(self, reservations):
+        raw = getattr(self.sys, '_cli_interface_output_reservations', {}) or {}
+        for path, interface_id in reservations.items():
+            raw[str(Path(path).resolve())] = (
+                self._interface_reservation_owner,
+                str(interface_id),
+            )
+        self.sys._cli_interface_output_reservations = raw
+        self.sys._cli_owned_interface_directories = tuple(
+            str(path) for path in reservations
+        )
+        self.sys._cli_reserved_interface_directories = tuple(
+            str(Path(path).resolve()) for path in raw
+        )
+
+    def _prepare_interface_output_directories(self):
+        root = Path(self.sys.files['dir']).resolve()
+        if canonical_layout_enabled(self.sys):
+            interfaces = list(getattr(self.sys, 'ifaces', ()) or ())
+            owned = self._interface_reservations()
+            directories = [
+                canonical_interface_directory(self.sys, interface)
+                for interface in interfaces
+            ]
+            claimed = dict(owned)
+            for interface, directory in zip(interfaces, directories):
+                directory = directory.resolve()
+                interface_id = str(getattr(interface, 'interface_id', interface.name))
+                current_owner = claimed.get(directory)
+                if current_owner is not None and current_owner != interface_id:
+                    raise SystemExit(
+                        f'Refusing to reuse existing interface output directory: {directory}'
+                    )
+                if directory.exists() and self.fail_if_exists and current_owner != interface_id:
+                    raise SystemExit(
+                        f'Refusing to reuse existing interface output directory: {directory}'
+                    )
+                if not directory.exists():
+                    directory.mkdir(parents=True, exist_ok=False)
+                claimed[directory] = interface_id
+
+            from vorpy.src.output.layout import prepare_canonical_root
+            prepare_canonical_root(self.sys)
+            self._store_interface_reservations(claimed)
+            self.sys._cli_interface_output_prepared = True
+            for interface, directory in zip(interfaces, directories):
+                interface.dir = str(directory)
+            return
+        owned = self._interface_reservations()
+        claimed = dict(owned)
+        occupied = []
+        for interface in getattr(self.sys, 'ifaces', ()) or ():
+            name = slug(getattr(interface, 'name', 'interface'))
+            interface_id = str(getattr(interface, 'interface_id', interface.name))
+            directory = Path(getattr(interface, 'dir', None) or (root / name)).resolve()
+            if directory.exists():
+                current_owner = claimed.get(directory)
+                if current_owner is not None and current_owner != interface_id:
+                    raise SystemExit(
+                        f'Refusing to reuse existing interface output directory: '
+                        f'{directory}'
+                    )
+                if self.fail_if_exists and current_owner != interface_id:
+                    raise SystemExit(
+                        f'Refusing to reuse existing interface output directory: '
+                        f'{directory}'
+                    )
+                if current_owner == interface_id:
+                    interface.dir = str(directory)
+                    occupied.append(directory)
+                    continue
+                directory = unique_output_directory(root, name, occupied)
+            directory.mkdir(parents=True, exist_ok=False)
+            interface.dir = str(directory)
+            occupied.append(directory)
+            claimed[directory.resolve()] = interface_id
+        self._store_interface_reservations(claimed)
+
+    def _reserve_interface_output_destinations(self, interface_pairs):
+        """Validate interface destinations before Interface.make_net can touch them."""
+        if not self.fail_if_exists:
+            return
+        root = Path(self.sys.files['dir']).resolve()
+        reservations = self._interface_reservations()
+        planned = {}
+        for group1, group2 in interface_pairs:
+            interface_id = self._interface_reservation_id(group1, group2)
+            if canonical_layout_enabled(self.sys):
+                directory = canonical_interfaces_directory(self.sys) / slug(interface_id)
+            else:
+                candidate = (root / interface_folder_name(group1, group2)).resolve()
+                if candidate.exists() and candidate not in reservations:
+                    raise SystemExit(
+                        f'Refusing to reuse existing interface output directory: {candidate}'
+                    )
+                directory = (
+                    candidate
+                    if candidate not in reservations
+                    else unique_output_directory(root, candidate.name, (*reservations, *planned))
+                )
+            directory = directory.resolve()
+            current_owner = reservations.get(directory) or planned.get(directory)
+            if current_owner is not None:
+                if current_owner != interface_id:
+                    raise SystemExit(
+                        f'Refusing to reuse existing interface output directory: {directory}'
+                    )
+                continue
+            if directory.exists():
+                raise SystemExit(
+                    f'Refusing to reuse existing interface output directory: {directory}'
+                )
+            planned[directory] = interface_id
+        for directory in planned:
+            try:
+                directory.mkdir(parents=True, exist_ok=False)
+            except FileExistsError as error:
+                raise SystemExit(
+                    f'Refusing to reuse existing interface output directory: {directory}'
+                ) from error
+        reservations.update(planned)
+        self._store_interface_reservations(reservations)
+        self.sys._defer_interface_output_directory = True
+
+    @staticmethod
+    def _interface_arrow():
+        arrow = '↔'
+        encoding = getattr(sys.stdout, 'encoding', None)
+        if encoding:
+            try:
+                arrow.encode(encoding)
+            except UnicodeEncodeError:
+                return '<->'
+        return arrow
+
+    def _print_interface_statistics(self):
+        """Print compact source/interface counts without object reprs."""
+        for interface in getattr(self.sys, 'ifaces', ()) or ():
+            view = getattr(interface, 'source_view', None)
+            analysis = getattr(interface, 'geometry_analysis', None)
+            side = getattr(analysis, 'voronoi_side_1', {}) or {}
+            surfaces = side.get('topology_faces')
+            edges = side.get('topology_edges')
+            vertices = side.get('topology_vertices')
+            area = side.get('area')
+            if view is not None:
+                surfaces = len(view.surfaces) if surfaces is None else surfaces
+                edges = len(view.edges) if edges is None else edges
+                vertices = len(view.vertices) if vertices is None else vertices
+            if surfaces is None or edges is None or vertices is None:
+                continue
+            try:
+                unit = 'A²'
+                encoding = getattr(sys.stdout, 'encoding', None)
+                if encoding:
+                    try:
+                        unit.encode(encoding)
+                    except UnicodeEncodeError:
+                        unit = 'A^2'
+                area_text = f', area {float(area):,.3f} {unit}' if area is not None else ''
+            except (TypeError, ValueError):
+                area_text = ''
+            completeness = getattr(view, 'completeness', None)
+            if completeness is not None:
+                completeness_text = f' - geometry {completeness.status.lower()}'
+            else:
+                network = getattr(interface, 'net', None)
+                balls = getattr(network, 'balls', None)
+                complete = None
+                if balls is not None and hasattr(balls, 'columns') and 'complete' in balls:
+                    complete = int(balls['complete'].astype(bool).sum())
+                    completeness_text = f' - geometry {complete:,}/{len(balls):,} cells'
+                else:
+                    completeness_text = ''
+            print(
+                f'"{self._interface_group_label(interface)}" built - '
+                f'{int(surfaces):,} surfaces, {int(edges):,} edges, '
+                f'{int(vertices):,} vertices{area_text}{completeness_text}'
+            )
+            try:
+                from vorpy.src.interface.export import summarize_interface_surface_areas
+                ledger = summarize_interface_surface_areas(interface)
+            except (AttributeError, KeyError, TypeError, ValueError):
+                ledger = {}
+            if ledger:
+                direct_area = _finite_cli_value(ledger.get('direct_interface_area_A2'))
+                total_area = _finite_cli_value(ledger.get('total_constructed_network_area_A2'))
+                direct_area_text = 'n/a' if direct_area is None else f'{direct_area:,.3f} A^2'
+                total_area_text = 'n/a' if total_area is None else f'{total_area:,.3f} A^2'
+                print(
+                    f'  Direct interface facets: {ledger.get("direct_facet_count", "n/a")} '
+                    f'(area {direct_area_text}); '
+                    f'total constructed network surfaces: '
+                    f'{ledger.get("constructed_facet_count", "n/a")} '
+                    f'(area {total_area_text})'
+                )
+
+    def _record_interface_analysis_timings(self):
+        """Consume FORGE's cached analysis timings without rebuilding geometry."""
+        analysis_total = 0.0
+        alpha_total = 0.0
+        alpha_seen = False
+        for interface in getattr(self.sys, 'ifaces', ()) or ():
+            metadata = getattr(getattr(interface, 'geometry_analysis', None), 'metadata', {}) or {}
+            total = _finite_cli_value(metadata.get('timing_total_seconds'))
+            if total is not None:
+                analysis_total += total
+            for name, value in (metadata.get('timings_seconds', {}) or {}).items():
+                if 'alpha' in str(name).lower():
+                    measured = _finite_cli_value(value)
+                    if measured is not None:
+                        alpha_total += measured
+                        alpha_seen = True
+        if analysis_total:
+            self._cli_observed_timings['Interface analysis'] = analysis_total
+        if alpha_seen:
+            self._cli_observed_timings['Alpha selection'] = alpha_total
+
+    @staticmethod
+    def _format_cli_elapsed(value, *, unavailable='not measured'):
+        value = _finite_cli_value(value)
+        return unavailable if value is None else f'{value:.2f} s'
+
+    @staticmethod
+    def _interface_curvature_status(analysis):
+        metadata = getattr(analysis, 'metadata', {}) or {}
+        if metadata.get('curvature_requested') is False:
+            return 'NOT_CALCULATED', 'NOT_CALCULATED'
+        side = getattr(analysis, 'voronoi_side_1', {}) or {}
+        mean = (
+            'CERTIFIED' if side.get('mean_curvature_certified') else
+            'PARTIAL' if any(side.get(key) is not None for key in (
+                'smooth_integrated_mean_curvature', 'partial_integrated_mean_curvature',
+            )) else 'UNRESOLVED'
+        )
+        gaussian = (
+            'CERTIFIED' if side.get('gaussian_curvature_certified') else
+            'PARTIAL' if any(side.get(key) is not None for key in (
+                'smooth_integrated_gaussian_curvature', 'intrinsic_integrated_gaussian_curvature',
+            )) else 'UNRESOLVED'
+        )
+        return mean, gaussian
+
+    def _interface_contact_counts(self, interface):
+        """Return contact-atom counts only when the existing scoped evidence exists."""
+        profile = getattr(interface, 'interface_export_profile', {}) or {}
+        counts = profile.get('counts', {}) if isinstance(profile, dict) else {}
+        if any(key in counts for key in ('group_a_contact_atoms', 'group_b_contact_atoms')):
+            return {
+                'A': counts.get('group_a_contact_atoms'),
+                'B': counts.get('group_b_contact_atoms'),
+                'surrounding': counts.get('surrounding_atoms'),
+            }
+        try:
+            from vorpy.src.interface.export import (
+                _interface_physical_scope,
+                _interface_scope_atom_sets,
+            )
+            scope = _interface_physical_scope(interface)
+            selected = _interface_scope_atom_sets(interface, scope)
+            return {'A': len(selected[0]), 'B': len(selected[1]), 'surrounding': len(selected[2])}
+        except (AttributeError, KeyError, TypeError, ValueError):
+            return {}
+
+    def _interface_summary(self, interface):
+        analysis = getattr(interface, 'geometry_analysis', None)
+        metadata = getattr(analysis, 'metadata', {}) or {}
+        try:
+            from vorpy.src.interface.export import summarize_interface_surface_areas
+            ledger = summarize_interface_surface_areas(interface)
+        except (AttributeError, KeyError, TypeError, ValueError):
+            ledger = {}
+        network = getattr(interface, 'net', None)
+        balls = getattr(network, 'balls', None)
+        completeness = 'not reported'
+        if balls is not None and hasattr(balls, 'columns') and 'complete' in balls:
+            complete = int(balls['complete'].astype(bool).sum())
+            completeness = f'{complete:,}/{len(balls):,} cells'
+        view = getattr(interface, 'source_view', None)
+        if view is not None and getattr(view, 'completeness', None) is not None:
+            completeness = str(view.completeness.status)
+        alpha = metadata.get('alpha_status')
+        if alpha is None:
+            alpha = (getattr(analysis, 'alpha_selection', {}) or {}).get('status')
+        alpha = str(alpha or 'NOT_CALCULATED').upper()
+        mean_curvature, gaussian_curvature = self._interface_curvature_status(analysis)
+        return {
+            'analysis': analysis,
+            'metadata': metadata,
+            'ledger': ledger,
+            'completeness': completeness,
+            'alpha': alpha,
+            'mean_curvature': mean_curvature,
+            'gaussian_curvature': gaussian_curvature,
+            'contacts': self._interface_contact_counts(interface),
+        }
+
+    def _cli_scientific_status(self):
+        """Map producer evidence to a user-facing result state without promotion."""
+        if any(getattr(self.sys, name, None) for name in (
+            'cli_stage_failure', 'cli_export_stage_failure', 'export_failure',
+        )):
+            return 'FAILED'
+        if not self.interface_mode:
+            return 'SUCCESS'
+        interfaces = list(getattr(self.sys, 'ifaces', ()) or ())
+        if not interfaces:
+            return 'FAILED'
+        if getattr(self, 'interface_result_errors', ()):
+            return 'UNRESOLVED'
+        states = set((self.interface_result_state or {}).get('statuses', ()))
+        partial = bool(getattr(self.sys, '_optional_analysis_failures', ()))
+        unresolved = False
+        geometry_available = False
+        for interface in interfaces:
+            summary = self._interface_summary(interface)
+            ledger_status = str(summary['ledger'].get('status', '')).upper()
+            geometry_available |= getattr(interface, 'net', None) is not None
+            unresolved |= ledger_status == 'UNRESOLVED'
+            partial |= ledger_status == 'PARTIAL'
+            partial |= summary['alpha'] in {'PARTIAL', 'UNRESOLVED'}
+            if summary['metadata'].get('analysis_status') == 'UNRESOLVED':
+                unresolved |= not geometry_available
+                partial |= geometry_available
+        if 'UNRESOLVED' in states:
+            unresolved = True
+        if unresolved and not geometry_available:
+            return 'UNRESOLVED'
+        if unresolved or partial or 'PARTIAL' in states:
+            return 'PARTIAL' if geometry_available else 'UNRESOLVED'
+        if states and states <= {'CERTIFIED'}:
+            return 'SUCCESS'
+        return 'PARTIAL' if geometry_available else 'UNRESOLVED'
+
+    def _print_cli_scientific_summary(self):
+        for interface in getattr(self.sys, 'ifaces', ()) or ():
+            summary = self._interface_summary(interface)
+            ledger = summary['ledger']
+            direct_value = _finite_cli_value(ledger.get('direct_interface_area_A2'))
+            total_value = _finite_cli_value(ledger.get('total_constructed_network_area_A2'))
+            direct_area = 'n/a' if direct_value is None else f'{direct_value:,.3f} A^2'
+            total_area = 'n/a' if total_value is None else f'{total_value:,.3f} A^2'
+            contacts = summary['contacts']
+            contact_text = (
+                f'A={contacts.get("A", "n/a")}, B={contacts.get("B", "n/a")}, '
+                f'surrounding={contacts.get("surrounding", "n/a")}'
+                if contacts else 'not available'
+            )
+            print(f'Interface: {self._interface_group_label(interface)}')
+            print(
+                f'  Direct interface facets/area: '
+                f'{ledger.get("direct_facet_count", "n/a")} / {direct_area}'
+            )
+            print(
+                f'  Total constructed network surfaces/area: '
+                f'{ledger.get("constructed_facet_count", "n/a")} / {total_area}'
+            )
+            print(f'  Contact atoms (A/B/surrounding): {contact_text}')
+            print(f'  Geometry completeness: {summary["completeness"]}; direct geometry: {ledger.get("status", "n/a")}')
+            print(
+                f'  Curvature: mean={summary["mean_curvature"]}, '
+                f'Gaussian={summary["gaussian_curvature"]}'
+            )
+            alpha_reason = summary['metadata'].get('alpha_failure_reason')
+            if alpha_reason:
+                print(f'  Alpha status: {summary["alpha"]} (optional capability unavailable: {alpha_reason})')
+            else:
+                print(f'  Alpha status: {summary["alpha"]}')
+
+    def _cli_report_timings(self):
+        timings = dict(self._cli_observed_timings)
+        timings.update({
+            name: elapsed for name, elapsed in self._cli_stage_timings.items()
+            if name in {'Loading input', 'Export preparation', 'Saving archive', 'Final summary'}
+        })
+        if not timings.get('Alpha selection'):
+            timings['Alpha selection'] = None
+        interface_solve_missing = (
+            'not separately solved (source view)'
+            if self.calculation_plan is not None
+            and self.calculation_plan.full_system_request
+            else 'not measured'
+        )
+        print('Per-stage timing:')
+        for label, key, missing in (
+            ('Input loading', 'Loading input', 'not measured'),
+            ('Network construction', 'Network construction', 'not measured'),
+            ('Interface geometry solve', 'Interface geometry solve', interface_solve_missing),
+            ('Interface analysis', 'Interface analysis', 'not measured'),
+            ('Interface extraction', 'Interface extraction', 'not measured'),
+            ('Alpha selection', 'Alpha selection', 'not attempted'),
+            ('Export preparation', 'Export preparation', 'not measured'),
+            ('Physical geometry exports', 'Exporting physical geometry', 'not measured'),
+            ('Contact/summary exports', 'Contact/summary exports', 'not measured'),
+            ('Canonical-log preparation and serialization', 'Canonical-log preparation and serialization', 'not measured'),
+            ('Archive saving', 'Saving archive', 'not requested'),
+            ('Final completion summary', 'Final summary', 'not measured'),
+        ):
+            print(f'  {label}: {self._format_cli_elapsed(timings.get(key), unavailable=missing)}')
+
+    def _cli_report_final_summary(self, output_directory=None, *, status=None):
+        if self._cli_final_summary_printed:
+            return
+        self._cli_final_summary_printed = True
+        if status is None:
+            status = self._cli_scientific_status()
+        if self._cli_stage_enabled and self._cli_stage_name is None:
+            self._cli_stage_start('Final summary')
+            self._cli_stage_finish(announce=False)
+        elapsed = self._cli_stage_timings.get('Final summary')
+        print(
+            f'Final summary: {status}'
+            f' (elapsed {self._format_cli_elapsed(elapsed, unavailable="n/a")})',
+            flush=True,
+        )
+        if self.interface_mode:
+            self._print_cli_scientific_summary()
+        self._cli_report_timings()
+        if output_directory:
+            print(f'Export directory: {output_directory}', flush=True)
+
+    def _resolve_generator_policy(self):
+        """Resolve source membership without treating a wet PDB as a box."""
+        if self.sys is None:
+            return ()
+
+        previous = getattr(self, '_source_generator_policy', None)
+        if previous is not None:
+            return tuple(previous.get('excluded_system_indices', ()))
+
+        from vorpy.src.boundary import prepare_network_geometry
+
+        mode = normalize_solvent_mode(self.solvent_mode)
+        balls = getattr(self.sys, 'balls', None)
+        if balls is None:
+            return ()
+        rows = [
+            balls.iloc[index] if hasattr(balls, 'iloc') else balls[index]
+            for index in range(len(balls))
+        ]
+        def residue_name(row):
+            return str(
+                row.get('res_name', '') if hasattr(row, 'get')
+                else getattr(row, 'res_name', '')
+            ).strip().upper()
+
+        retained = set(getattr(self.sys, 'retained_system_indices', ()) or ())
+        structural_ions = set()
+        if mode is SolventMode.MOLECULE_ONLY:
+            for index, row in enumerate(rows):
+                residue = residue_name(row)
+                if residue in ION_RESIDUES and residue not in _BULK_COUNTERION_RESIDUES:
+                    structural_ions.add(index)
+            retained.update(structural_ions)
+
+        self.sys.retained_system_indices = tuple(sorted(retained))
+        geometry = prepare_network_geometry(
+            self.sys,
+            solvent_mode=mode,
+            retained_system_indices=self.sys.retained_system_indices,
+        )
+        active = tuple(
+            int(index) for index in geometry.system_indices if index is not None
+        )
+        active_set = set(active)
+        excluded = tuple(index for index in range(len(rows)) if index not in active_set)
+        excluded_water = tuple(
+            index for index in excluded
+            if residue_name(rows[index]) in WATER_RESIDUES
+        )
+        excluded_bulk_ions = tuple(
+            index for index in excluded
+            if residue_name(rows[index]) in _BULK_COUNTERION_RESIDUES
+        )
+        source = describe_source(self.base_file)
+        source_provenance = {
+            'path': str(Path(self.base_file).resolve()) if self.base_file else None,
+            'dataset_id': getattr(source, 'dataset_id', None),
+            'role': getattr(source, 'role', None),
+            'evidence': getattr(source, 'evidence', None),
+        }
+        stable_by_system = {
+            int(system_index): str(stable_id)
+            for stable_id, system_index in zip(
+                geometry.stable_ids, geometry.system_indices
+            )
+            if system_index is not None
+        }
+        interface_source = bool(
+            self.interface_mode
+            or (self.calculation_plan is not None and self.calculation_plan.interface_requests)
+        )
+        resolution = (
+            'explicit' if self._solvent_mode_explicit
+            else 'implicit_interface_full_solvent'
+            if interface_source and mode is SolventMode.FULL_SOLVENT
+            else 'implicit_default'
+        )
+        policy = {
+            'name': 'molecular_only' if mode is SolventMode.MOLECULE_ONLY else mode.value.lower(),
+            'solvent_mode': mode.value,
+            'solvent_mode_resolution': resolution,
+            'source_provenance': source_provenance,
+            'source_generator_count': len(rows),
+            'active_generator_count': len(active),
+            'excluded_generator_count': len(excluded),
+            'excluded_water_generator_count': len(excluded_water),
+            'excluded_bulk_counterion_generator_count': len(excluded_bulk_ions),
+            'excluded_system_indices': excluded,
+            'retained_system_indices': tuple(sorted(retained)),
+            'retained_structural_ion_indices': tuple(sorted(structural_ions)),
+            'retained_structural_ion_ids': tuple(
+                stable_by_system[index] for index in sorted(structural_ions)
+                if index in stable_by_system
+            ),
+            'active_system_indices': active,
+        }
+        self._source_generator_policy = policy
+        self._source_system_indices = active
+        self.sys._source_generator_policy = policy
+        self.sys.solvent_mode = mode
+        self.sys.solvent_mode_resolution = resolution
+        if self.settings_dict is None:
+            self.settings_dict = {}
+        self.settings_dict['solvent_mode'] = mode.value
+        self.settings_dict['solvent_mode_resolution'] = resolution
+        self.settings_dict['generator_policy'] = policy
+        return excluded
+
+    def _record_generator_policy(self, network):
+        """Persist source membership evidence in settings and archive provenance."""
+        policy = getattr(self, '_source_generator_policy', None)
+        if policy is None or network is None:
+            return
+        if not isinstance(getattr(network, 'settings', None), dict):
+            network.settings = {}
+        network.settings['generator_policy'] = policy
+        network.settings['solvent_mode_resolution'] = policy['solvent_mode_resolution']
+        for key in (
+            'source_generator_count', 'active_generator_count',
+            'excluded_generator_count', 'excluded_water_generator_count',
+            'excluded_bulk_counterion_generator_count',
+        ):
+            network.settings[key] = policy[key]
+        provenance = dict(getattr(network, 'archive_provenance', {}) or {})
+        provenance['source_generator_policy'] = policy
+        network.archive_provenance = provenance
+
+    def _resolve_full_system_solvent_mode(self):
+        """Resolve the full-system source membership before Group creation."""
+        plan = self.calculation_plan
+        if not (
+            plan is not None
+            and (self._full_system_separate or plan.full_system_request)
+            and self.sys is not None
+        ):
+            return ()
+        return self._resolve_generator_policy()
+
+    def _resolve_default_solvent_mode(self):
+        """Preserve the historical full-system context for wet inputs."""
+        if self.sys is None:
+            return False
+        plan = self.calculation_plan
+        interface_source = bool(
+            self.interface_mode
+            or (plan is not None and plan.interface_requests)
+        )
+        if interface_source and not self._solvent_mode_explicit:
+            self.solvent_mode = SolventMode.FULL_SOLVENT
+            self.sys.solvent_mode = self.solvent_mode
+        elif (
+            not interface_source
+            and not self._solvent_mode_explicit
+            and self.sys.has_explicit_solvent
+        ):
+            # The original full-system CLI solved molecular cells against the
+            # loaded wet structure while selecting only molecular cells.
+            self.solvent_mode = SolventMode.SOLVENT_CONTEXT
+            self.sys.solvent_mode = self.solvent_mode
+        self._resolve_generator_policy()
+        return True
+
+    def _make_cli_interface_results(self, interface_pairs):
+        """Adapt explicit live CLI interfaces through the Workbench seam."""
+        self.interface_results = ()
+        self.interface_result_handoffs = ()
+        # Preserve extraction failures recorded before typed-result adaptation.
+        interface_result_errors = tuple(
+            getattr(self, 'interface_result_errors', ()) or ()
+        )
+        self.interface_result_errors = interface_result_errors
+        self.sys.cli_interface_results = ()
+        self.sys.cli_interface_result_handoffs = ()
+        interfaces = list(getattr(self.sys, 'ifaces', ()) or ())
+        if not interface_pairs or len(interfaces) < len(interface_pairs):
+            return ()
+
+        from vorpy.src.network.views import NetworkViewError
+        from vorpy.src.results.model import stable_id
+        from vorpy.workbench.services.vorpy_backend import (
+            InterfaceSolveSelection,
+            VorPyBackend,
+        )
+
+        source = Path(self.base_file) if self.base_file else None
+        system_id = (
+            source.stem
+            if source is not None and source.stem
+            else str(getattr(self.sys, 'name', None) or 'cli-system')
+        )
+        source_path = str(source.resolve()) if source is not None else system_id
+        frame_index = int(getattr(self.sys, 'frame_index', 1) or 1)
+        handoffs = []
+
+        # System.make_interfaces appends in request order; only pair entries
+        # with an explicit second group are eligible for ordered A/B Results.
+        for (group_a, group_b), interface in zip(
+            interface_pairs, interfaces[-len(interface_pairs):]
+        ):
+            if group_b is None:
+                continue
+            try:
+                group_a_id = str(
+                    getattr(group_a, 'group_id', None)
+                    or getattr(group_a, 'name', '')
+                )
+                group_b_id = str(
+                    getattr(group_b, 'group_id', None)
+                    or getattr(group_b, 'name', '')
+                )
+                selection = InterfaceSolveSelection(
+                    interface_id=str(interface.interface_id),
+                    group_a_id=group_a_id,
+                    group_a_system_indices=tuple(sorted(int(index) for index in group_a.ball_ndxs)),
+                    group_b_id=group_b_id,
+                    group_b_system_indices=tuple(sorted(int(index) for index in group_b.ball_ndxs)),
+                )
+                network = interface.net
+                context = network.get_solve_context_key()
+                if context.scheme not in {'aw', 'pow'}:
+                    raise ValueError(
+                        f'CLI typed interface Results do not support geometry '
+                        f'scheme {context.scheme!r}; the exact interface geometry '
+                        'was still constructed.'
+                    )
+
+                source_view = getattr(interface, 'source_view', None)
+                source_network_id = (
+                    getattr(source_view, 'source_network_id', None)
+                    if source_view is not None
+                    else getattr(network, 'source_network_id', None)
+                )
+                if not isinstance(source_network_id, str) or not source_network_id.strip():
+                    source_network_id = stable_id(
+                        'producer:cli-interface',
+                        {
+                            'source': source_path,
+                            'frame': frame_index,
+                            'interface_id': selection.interface_id,
+                            'group_A_system_indices': selection.group_a_system_indices,
+                            'group_B_system_indices': selection.group_b_system_indices,
+                            'solve_universe_id': context.solve_universe_id,
+                        },
+                    )
+                    network.source_network_id = source_network_id
+
+                backend = VorPyBackend()
+                if source_view is not None:
+                    source_group = self._full_system_group
+                    source_network = getattr(source_group, 'net', None)
+                    if source_network is None:
+                        raise ValueError(
+                            'Validated full-system source network is required for '
+                            'ordered CLI InterfaceResult handoff'
+                        )
+                    if getattr(source_network, 'source_network_id', None) is None:
+                        source_network.source_network_id = source_network_id
+                    selection_id = source_view.selection_id
+                    completeness_proven = bool(source_view.completeness.proven)
+                else:
+                    # Direct interface solves are already complete geometry
+                    # producers; no full-system view or second solve is needed.
+                    selection_id = stable_id(
+                        'view',
+                        {
+                            'interface_id': selection.interface_id,
+                            'group_A_system_indices': selection.group_a_system_indices,
+                            'group_B_system_indices': selection.group_b_system_indices,
+                            'solve_universe_id': context.solve_universe_id,
+                        },
+                    )
+                    completeness_proven = bool(
+                        (getattr(interface.geometry_analysis, 'alpha_selection', {}) or {})
+                        .get('certified', False)
+                    )
+                result_network_id = getattr(network, 'archive_id', None) or stable_id(
+                    'archive:cli-interface',
+                    {
+                        'source': source_path,
+                        'frame': frame_index,
+                        'interface_id': selection.interface_id,
+                        'solve_universe_id': context.solve_universe_id,
+                    },
+                )
+                if result_network_id == source_network_id:
+                    result_network_id = stable_id(
+                        'archive:cli-interface',
+                        {'source_network_id': source_network_id, 'result': True},
+                    )
+                solvent_mode = getattr(network.solvent_mode, 'value', network.solvent_mode)
+                environment = (
+                    'solvent_competing'
+                    if solvent_mode != SolventMode.MOLECULE_ONLY.value
+                    else 'dry'
+                )
+                handoff = backend.make_interface_result_handoff(
+                    interface,
+                    selection,
+                    interface.geometry_analysis,
+                    system_id=system_id,
+                    result_network_id=result_network_id,
+                    radius_configuration_id='vorpy-backend-radii-v1',
+                    selection_id=selection_id,
+                    group_a_selection_id=stable_id(
+                        'view',
+                        {
+                            'group_id': selection.group_a_id,
+                            'system_ids': selection.group_a_system_indices,
+                        },
+                    ),
+                    group_b_selection_id=stable_id(
+                        'view',
+                        {
+                            'group_id': selection.group_b_id,
+                            'system_ids': selection.group_b_system_indices,
+                        },
+                    ),
+                    orientation='A -> B',
+                    source_identity_status='AUTHORITATIVE',
+                    source_revision=f'cli-interface:{context.solve_universe_id}',
+                    environment=environment,
+                    # Source-derived views and direct solves retain distinct
+                    # lineage in the backend handoff.
+                    completeness_proven=completeness_proven,
+                )
+            except (
+                AttributeError,
+                IndexError,
+                KeyError,
+                NetworkViewError,
+                TypeError,
+                ValueError,
+            ) as error:
+                # Legacy and unsupported routes remain visible as unresolved.
+                self.interface_result_errors += (
+                    f'{type(error).__name__}: {error}',
+                )
+                continue
+            interface.typed_results = (handoff.result,)
+            interface.results_dependency = handoff.dependency
+            interface.geometry_lineage = handoff.geometry_lineage
+            handoffs.append(handoff)
+
+        self.interface_result_handoffs = tuple(handoffs)
+        self.interface_results = tuple(handoff.result for handoff in handoffs)
+        self.sys.cli_interface_results = self.interface_results
+        self.sys.cli_interface_result_handoffs = self.interface_result_handoffs
+        return self.interface_result_handoffs
 
     def _process_system(self):
         """Build and export a loaded system using the parsed commands."""
         # Select the default only after export-directory commands have been applied.
         if self.sys.files['dir'] is None:
-            self.sys.set_output_directory()
+            self.sys.set_output_directory(fail_if_exists=self.fail_if_exists)
+
+        self.sys._fail_if_exists = self.fail_if_exists
 
         # Expose the CLI verbosity state at the system level so downstream
         # build/analyze/export code has one common place to query it.
         self.sys.verbose = self.verbose
+        self.sys._write_archive_timing_manifest = bool(
+            self.verbose or self.diagnose_edges or self.execution_profile is not None
+            or self.cache_export_profile or self.timing_report_path is not None
+        )
         interface_export_names = {
             str(command[0]).strip().lower()
             for command in self.exports if command
@@ -617,6 +2738,16 @@ class Command:
                 'logs', 'dual', 'apollonius', 'small', 'med', 'medium',
                 'large', 'all',
             }
+        )
+        interface_export_modifiers = {
+            'dir', 'directory', 'ft', 'file_type', 'file_format',
+            'format', 'mesh_format', 'no_archive', 'no-archive',
+            'no_network', 'no-network',
+        }
+        self.sys._interface_default_export = bool(
+            self.interface_mode
+            and not any(name not in interface_export_modifiers
+                        for name in interface_export_names)
         )
         self.sys._compact_interface_workflow = bool(
             self.interface_mode and (
@@ -641,10 +2772,24 @@ class Command:
         # Load any additional files
         self.load_files()
 
-        if getattr(self.sys, 'frame_count', 0):
-            print(f'{self.sys.name}: {self.sys.frame_count} frames found; '
-                  f'{self.sys.loaded_frame_count} frame loaded '
-                  f'(frame {self.sys.frame_index} only), {len(self.sys.balls):,} atoms.')
+        _print_source_summary(self.sys)
+
+        if getattr(self.sys, 'frame_count', 0) > 1:
+            if self.verbose:
+                if Path(self.base_file).suffix.lower() == '.pdb':
+                    print(
+                        'Input context: '
+                        + source_display_label(
+                            self.base_file,
+                            frame_index=getattr(self.sys, 'frame_index', 1),
+                            frame_count=getattr(self.sys, 'frame_count', 1),
+                        )
+                    )
+                print(f'{self.sys.name}: {self.sys.frame_count} frames found; '
+                      f'{self.sys.loaded_frame_count} frame loaded '
+                      f'(frame {self.sys.frame_index} only), {len(self.sys.balls):,} atoms.')
+            else:
+                print(f'  Frame: {self.sys.frame_index}/{self.sys.frame_count} loaded')
 
         # Apply command-line settings
         self.apply_settings()
@@ -663,10 +2808,42 @@ class Command:
                 raise SystemExit(str(error)) from None
             self.sys.boundary_mode = self.sys.boundary_config.mode.value
 
+        self._resolve_default_solvent_mode()
+        self._resolve_full_system_solvent_mode()
 
-        # Create the requested groups
-        self.create_groups()
+        plan = self.calculation_plan
+        if self.interface_mode:
+            self._cli_stage_enabled = True
+            self.sys._cli_stage_output_enabled = True
+            self.sys._cli_export_stage_callback = self._cli_export_stage_callback
+        if not self.verbose:
+            net_type = (self.settings_dict or {}).get('net_type', 'aw')
+            if isinstance(net_type, str):
+                if self.interface_mode and not (
+                    plan is not None and plan.full_system_request
+                ):
+                    print(
+                        f'\nSolving {net_type.upper()} interface network...',
+                        flush=True,
+                    )
+                else:
+                    print(f'\nSolving {net_type.upper()} network...', flush=True)
+
         self._build_full_system_target()
+
+        # Create the requested groups after solvent membership is resolved.
+        # In interface mode they are selection containers, not new Networks.
+        self.create_groups()
+        self._print_calculation_plan_summary()
+        # Interface-only requests need direct A/B source facets, not whole
+        # selected-group cell snapshots. Avoid rejecting a valid interface
+        # because an unrelated selected cell is incomplete.
+        interface_only = bool(
+            self.interface_mode
+            or (plan is not None and plan.interface_requests)
+        )
+        if not interface_only:
+            self._attach_full_system_group_views()
 
         comparison_mode = (
                 self.settings_dict is not None
@@ -726,7 +2903,8 @@ class Command:
             num_requested_groups = len(self.groups)
             num_created_groups = len(self.sys.groups or [])
 
-            if self._build_group_networks:
+            interface_pairs = self._planned_interface_pairs()
+            if self._build_group_networks and not self._full_system_reuse_enabled():
                 calculate_curvature = getattr(
                     self.sys, '_network_calculate_curvature', True
                 )
@@ -749,16 +2927,69 @@ class Command:
                 print(f"  requested groups: {num_requested_groups}")
                 print(f"  created groups: {num_created_groups}")
 
-            interface_pairs = self._planned_interface_pairs()
-
-            self.sys.make_interfaces(
-                interface_pairs,
-                analyze_waters=getattr(self.sys, '_interface_water_requested', False),
+            self._cli_stage_start('Solving interface')
+            deferred = getattr(
+                self.sys, '_defer_interface_output_directory', False
             )
+            try:
+                self._reserve_interface_output_destinations(interface_pairs)
+                if self._full_system_reuse_enabled():
+                    self._attach_full_system_interface_views(interface_pairs)
+                else:
+                    self.sys.make_interfaces(
+                        interface_pairs,
+                        analyze_waters=getattr(self.sys, '_interface_water_requested', False),
+                    )
+            except BaseException as error:
+                self._cli_stage_failed(error)
+                raise
+            finally:
+                if not deferred:
+                    self.sys._defer_interface_output_directory = False
+            self._cli_stage_finish()
+            if not self.verbose:
+                print()
+            self._print_interface_statistics()
+            extraction_wall_started = perf_counter()
+            extraction_timing_started = self._timing_phase_start()
+            handoffs = self._make_cli_interface_results(interface_pairs)
+            self._cli_observed_timings['Interface extraction'] = (
+                perf_counter() - extraction_wall_started
+            )
+            if handoffs:
+                self.interface_result_state = _typed_cli_interface_result_state(
+                    handoffs,
+                    unresolved_count=len(interface_pairs) - len(handoffs),
+                )
+            else:
+                self.interface_result_state = _legacy_interface_result_state()
+                if self.interface_result_errors:
+                    self.interface_result_state['reason'] += (
+                        ' Handoff diagnostics: '
+                        + ' | '.join(self.interface_result_errors)
+                    )
+                    print(
+                        'Warning: interface extraction failed: '
+                        + self.interface_result_errors[0]
+                        + '; see interface_info.txt'
+                    )
+                else:
+                    print(
+                        'Warning: interface Results unresolved; '
+                        'see interface_info.txt'
+                    )
+            self.sys.cli_interface_result_state = self.interface_result_state
+            self._record_timing_phase(
+                'interface_extraction', extraction_timing_started,
+                source='PRISM typed interface handoff',
+            )
+            self._record_interface_analysis_timings()
 
         # Standard full-group build
         else:
             for grp in self.sys.groups:
+                if self._full_system_reuse_enabled():
+                    continue
                 if self.execution_profile is None:
                     grp.build()
                 else:
@@ -771,10 +3002,28 @@ class Command:
         if self._full_system_group is not None and self._full_system_group not in self.sys.groups:
             self.sys.groups.append(self._full_system_group)
 
+        for _, network in self._diagnostic_networks():
+            self._record_generator_policy(network)
+        self._record_network_timings()
+        self._print_network_cell_counts()
+
         # Run optional read-only diagnostics after construction and before
         # export so the report describes the completed in-memory networks.
+        optional_analysis = []
         if self.diagnose_edges:
-            self.run_edge_diagnostics()
+            optional_analysis.append(('AW edge diagnostics', self.run_edge_diagnostics))
+        if self.apollonius_requested:
+            optional_analysis.append(('Apollonius analysis', self.run_apollonius))
+        if self.visualize_dual_requested:
+            optional_analysis.append(('dual visualization', self.run_dual_visualization))
+        if self.aw_alpha_values:
+            optional_analysis.append(('AW alpha analysis', self.run_aw_alpha_experimental))
+
+        for name, action in optional_analysis:
+            try:
+                action()
+            except (Exception, SystemExit) as error:
+                self._record_optional_analysis_failure(name, error)
 
         if self.power_vs_aw_requested:
             self.run_power_aw_comparison()
@@ -784,42 +3033,413 @@ class Command:
             # selected export keyword set.
             return
 
-        if self.apollonius_requested:
-            self.run_apollonius()
-
-        if self.visualize_dual_requested:
-            self.run_dual_visualization()
-
-        if self.aw_alpha_values:
-            self.run_aw_alpha_experimental()
-            self._save_archive()
-            return
+        if self.interface_mode:
+            self._cli_stage_start('Export preparation')
+            try:
+                self._prepare_interface_output_directories()
+            except BaseException as error:
+                self._cli_stage_failed(error)
+                raise
+            self._cli_stage_finish()
 
         # Export requested outputs
-        self.run_exports()
+        self.sys._last_export_archive_path = None
+        self.sys._last_export_archive_output_path = None
+        export_timing_started = self._timing_phase_start()
+        if not self.verbose:
+            print('\nExporting results...', flush=True)
+        try:
+            self.run_exports()
+        except BaseException:
+            # VECTOR's per-operation boundary records the precise export
+            # operation and re-raises the original exception.
+            raise
+        if self.verbose:
+            print(flush=True)
         self._save_archive()
+        output_directory = self.sys.files['dir']
+        if self.interface_mode and len(getattr(self.sys, 'ifaces', ()) or ()) == 1:
+            output_directory = self.sys.ifaces[0].dir or output_directory
+        output_directory = os.path.normpath(os.path.abspath(str(output_directory)))
+        self._record_export_archive_timings(export_timing_started)
+        if self._cli_stage_enabled:
+            self._cli_report_final_summary(output_directory)
+        self._write_timing_report(output_directory)
+        print(f'Files exported to: {output_directory}', flush=True)
+        print(flush=True)
 
     def _save_archive(self):
-        if self.save_network_path is not None:
-            from vorpy.src.io import save_network
+        if self.save_network_path is None:
+            return
+
+        self._cli_stage_start('Saving archive')
+        try:
             destination = self.save_network_path
             if getattr(self.sys, 'frame_count', 1) > 1:
                 destination = destination.with_name(f'{destination.stem}_frame_{self.sys.frame_index:04d}.vpy')
-            save_network(self.sys, destination)
-            print(f'Solved network saved: {destination}')
+            automatic = getattr(self.sys, '_last_export_archive_path', None)
+            if automatic and Path(automatic).is_file():
+                _copy_archive_artifacts(
+                    automatic, destination,
+                    fail_if_exists=self.fail_if_exists,
+                )
+            else:
+                from vorpy.src.io import save_network
+                if self.fail_if_exists:
+                    save_network(self.sys, destination, fail_if_exists=True)
+                else:
+                    save_network(self.sys, destination)
+            self.sys._last_export_archive_output_path = str(destination)
+            self.sys._last_export_archive_path = None
+        except BaseException as error:
+            self._cli_stage_failed(error)
+            raise
+        self._cli_stage_finish()
+        print(f'Solved network saved: {destination}')
+
+    def _run_archive_interface_recovery(self, network, archive_path):
+        """Recover an ordered interface from an already solved source network."""
+        from types import SimpleNamespace
+
+        from vorpy.src.io import ArchiveError, recover_network_source
+
+        metadata = dict(getattr(network, 'archive_metadata', {}) or {})
+        canonical = bool(getattr(self.sys, '_loaded_from_canonical_checkpoint', False))
+        source_path = self.sys.files.get('base_file') if canonical else metadata.get(
+            'original_structure_path'
+        )
+        settings = dict(getattr(network, 'settings', {}) or {})
+        source_kind = 'canonical_embedded' if canonical else (
+            'legacy_source_less' if not source_path else 'legacy_filesystem'
+        )
+        self.sys.archive_recovery_source_kind = source_kind
+        if not source_path:
+            raise ArchiveError(
+                'Cannot replay interface: source-less legacy archive has no '
+                'recoverable molecular source/dependency.'
+            )
+        expected_scheme = settings.get('net_type')
+        expected_solvent_mode = settings.get('solvent_mode')
+        if expected_scheme is None or expected_solvent_mode is None:
+            raise ArchiveError(
+                'Cannot replay interface: archive metadata lacks the recorded '
+                'network scheme and solvent mode.'
+            )
+        try:
+            recovered = recover_network_source(
+                network,
+                source_path,
+                expected_scheme=expected_scheme,
+                expected_solvent_mode=expected_solvent_mode,
+                expected_settings={
+                    'net_type': expected_scheme,
+                    'solvent_mode': expected_solvent_mode,
+                },
+                expected_solve_universe_id=metadata.get('solve_universe_id'),
+            )
+        except ArchiveError as error:
+            raise ArchiveError(
+                f'Cannot replay {str(expected_scheme).upper()} interface from '
+                f'{source_kind} checkpoint: {error}'
+            ) from error
+        validation = dict(recovered.validation)
+        validation.update({
+            'recovery_source_kind': source_kind,
+            'recovery_mode': 'canonical_replay' if canonical else 'legacy_replay',
+        })
+        recovery_provenance = {
+            'mode': validation['recovery_mode'],
+            'source_kind': source_kind,
+            'scheme': validation['scheme'],
+            'solvent_mode': validation['solvent_mode'],
+            'source_sha256': validation['source_sha256'],
+            'solve_universe_id': validation['solve_universe_id'],
+            'source_network_id': validation['source_network_id'],
+        }
+        self.sys._archive_recovered_source = recovered
+        self.sys.archive_recovery_provenance = recovery_provenance
+        network.archive_provenance = {
+            **dict(getattr(network, 'archive_provenance', {}) or {}),
+            'recovery': recovery_provenance,
+        }
+        self.sys.archive_recovery_validation = validation
+        self.sys.archive_recovery_checkpoint = str(Path(archive_path).resolve())
+        print(
+            f'Checkpoint replay: {source_kind}; method={str(validation["scheme"]).upper()} '
+            f'solvent={validation["solvent_mode"]}; geometry rebuild=none',
+            flush=True,
+        )
+        # Interface Result identity is the original source, while the loaded
+        # checkpoint remains the geometry producer and is never overwritten.
+        self.base_file = Path(validation['source_path'])
+        self.sys.files['base_file'] = str(self.base_file)
+        self._full_system_group = SimpleNamespace(net=network)
+        self._full_system_separate = True
+        self._build_group_networks = False
+
+        ggroup(self.sys, self.groups, dict(network.settings), make_net=False)
+        interface_pairs = self._planned_interface_pairs()
+        if not interface_pairs or any(group_b is None for _, group_b in interface_pairs):
+            raise ValueError(
+                'Checkpoint recovery requires two ordered interface selections: '
+                '-g <group A> -g <group B> -i'
+            )
+
+        # This reuses the existing source-view path. It only selects rows from
+        # loaded geometry; no Group or Network build is reachable here.
+        self._attach_full_system_interface_views(interface_pairs)
+        self._print_interface_statistics()
+        handoffs = self._make_cli_interface_results(interface_pairs)
+        if handoffs:
+            self.interface_result_state = _typed_cli_interface_result_state(
+                handoffs,
+                unresolved_count=len(interface_pairs) - len(handoffs),
+            )
+        else:
+            self.interface_result_state = _legacy_interface_result_state()
+            if self.interface_result_errors:
+                self.interface_result_state['reason'] += (
+                    ' Handoff diagnostics: '
+                    + ' | '.join(self.interface_result_errors)
+                )
+        self.sys.cli_interface_result_state = self.interface_result_state
+
+        self.sys._interface_default_export = not self.exports
+        self.sys._compact_interface_workflow = not self.exports or any(
+            command and str(command[0]).strip().lower() == 'visualize'
+            for command in self.exports
+        )
+        self.sys._interface_water_requested = False
+        self.sys._interface_curvature_requested = False
+        self.sys._network_calculate_curvature = False
+        self._prepare_interface_output_directories()
+        self.sys._last_export_archive_path = None
+        self.sys._last_export_archive_output_path = None
+        interfaces = list(getattr(self.sys, 'ifaces', ()) or ())
+        export_interfaces = self._partial_interface_export_views(interfaces)
+        self.sys.ifaces = export_interfaces
+        try:
+            self.run_exports()
+        finally:
+            self.sys.ifaces = interfaces
+        self._annotate_partial_interface_exports(interfaces)
+        self._save_archive()
+
+    @staticmethod
+    def _partial_interface_export_views(interfaces):
+        """Give legacy writers only locally valid rows from an incomplete view."""
+        from copy import copy
+
+        exported = []
+        for interface in interfaces:
+            view = getattr(interface, 'source_view', None)
+            if view is None or view.completeness.proven:
+                exported.append(interface)
+                continue
+            source = interface.net
+            if source is None:
+                exported.append(interface)
+                continue
+            detached_network = copy(source)
+            detached_network.balls = source.balls.copy()
+            surface_positions = [int(feature.topology_index) for feature in view.surfaces]
+            edge_positions = [int(feature.topology_index) for feature in view.edges]
+            vertex_positions = [int(feature.topology_index) for feature in view.vertices]
+            edge_map = {source_index: local_index for local_index, source_index in enumerate(edge_positions)}
+            vertex_map = {source_index: local_index for local_index, source_index in enumerate(vertex_positions)}
+            surface_map = {source_index: local_index for local_index, source_index in enumerate(surface_positions)}
+
+            def local_rows(table_name, positions):
+                table = getattr(source, table_name).iloc[positions].copy().reset_index(drop=True)
+                maps = {
+                    'surfs': {'edges': edge_map, 'verts': vertex_map},
+                    'edges': {'verts': vertex_map, 'surfs': surface_map},
+                    'verts': {'edges': edge_map, 'surfs': surface_map},
+                }.get(table_name, {})
+                for column, mapping in maps.items():
+                    if column not in table:
+                        continue
+                    table[column] = [
+                        [mapping[int(value)] for value in values if int(value) in mapping]
+                        for values in table[column]
+                    ]
+                return table
+
+            detached_network.surfs = local_rows('surfs', surface_positions)
+            detached_network.edges = local_rows('edges', edge_positions)
+            detached_network.verts = local_rows('verts', vertex_positions)
+            group_a_ids = set(int(value) for value in interface.group1_indices)
+            group_b_ids = set(int(value) for value in interface.group2_indices)
+            def direct_first(values):
+                direct = []
+                remainder = []
+                for value in values:
+                    system_id = int(source.balls.iloc[int(value)].get('system_num', value))
+                    (direct if system_id in group_a_ids or system_id in group_b_ids else remainder).append(value)
+                ordered = [
+                    value for value in direct
+                    if int(source.balls.iloc[int(value)].get('system_num', value)) in group_a_ids
+                ][:1]
+                ordered += [
+                    value for value in direct
+                    if int(source.balls.iloc[int(value)].get('system_num', value)) in group_b_ids
+                ][:1]
+                return ordered + [value for value in values if value not in ordered]
+            detached_network.surfs['balls'] = [
+                direct_first(values) for values in detached_network.surfs['balls']
+            ]
+            detached = copy(interface)
+            detached.net = detached_network
+            detached.source_network = source
+            detached.source_view = None
+            detached._recovery_partial_completeness = view.completeness
+            exported.append(detached)
+        return exported
+
+    @staticmethod
+    def _annotate_partial_interface_exports(interfaces):
+        """Keep view-level incompleteness visible in human-readable info files."""
+        for interface in interfaces:
+            view = getattr(interface, 'source_view', None)
+            if view is None or view.completeness.proven or not getattr(interface, 'dir', None):
+                continue
+            info = Path(interface.dir) / 'interface_info.txt'
+            if not info.is_file():
+                continue
+            analysis = getattr(interface, 'geometry_analysis', None)
+            side = getattr(analysis, 'voronoi_side_1', {}) or {}
+            area = side.get('area', 'not available')
+            with info.open('a', encoding='utf-8') as stream:
+                stream.write(
+                    '\nRecovery source-view status:\n'
+                    '  Completeness: INCOMPLETE\n'
+                    f'  Unresolved source facets: {len(view.completeness.unresolved_surface_ids)}\n'
+                    f'  Source-view physical facets: {len(view.surfaces)} surfaces, '
+                    f'{len(view.edges)} edges, {len(view.vertices)} vertices\n'
+                    f'  Source-view analytic area (Å²): {area}\n'
+                    '  Local physical facets were exported; global closure and curvature remain unresolved.\n'
+                )
+
+    @staticmethod
+    def _is_canonical_checkpoint(path):
+        try:
+            with zipfile.ZipFile(path, 'r') as archive:
+                return 'checkpoint/manifest.json' in archive.namelist()
+        except (OSError, zipfile.BadZipFile):
+            return False
+
+    def _load_canonical_checkpoint(self, path):
+        """Open a canonical checkpoint through its opaque legacy network payload."""
+        from vorpy.src.io import load_network
+        from vorpy.src.output.checkpoint import _load_checkpoint
+
+        container = _load_checkpoint(path)
+        document = container.document
+        payloads = {payload.payload_id: payload for payload in container.payloads}
+        candidates = [
+            state for state in document.networks
+            if state.payload_ref in payloads
+            and payloads[state.payload_ref].kind == 'network-v3'
+        ]
+        if not candidates:
+            raise ValueError(
+                'Canonical checkpoint has no loadable network-v3 geometry payload; '
+                'requested geometry is unavailable and no solve was attempted.'
+            )
+        state = max(
+            candidates,
+            key=lambda item: (
+                item.scope == 'system',
+                sum(int(value or 0) for value in item.completeness.values()),
+            ),
+        )
+        temporary = tempfile.TemporaryDirectory(prefix='vorpy-checkpoint-load-')
+        self._checkpoint_source_tempdir = temporary
+        root = Path(temporary.name)
+        payload_path = root / 'network.vpy'
+        source_path = root / document.source.filename
+        payload_path.write_bytes(payloads[state.payload_ref].content)
+        source_path.write_bytes(document.source.content)
+        try:
+            network = load_network(payload_path)
+        except Exception:
+            temporary.cleanup()
+            self._checkpoint_source_tempdir = None
+            raise
+
+        system = network.sys
+        system.files['base_file'] = str(source_path)
+        system.files['dir'] = str(Path(path).resolve().with_suffix('')) + '_exports'
+        system._loaded_from_canonical_checkpoint = True
+        system._checkpoint_container = container
+        system._checkpoint_document = document
+        system._checkpoint_network_states = tuple(document.networks)
+        system._checkpoint_group_states = tuple(document.groups)
+        system._checkpoint_interface_states = tuple(document.interfaces)
+        system._checkpoint_result_states = tuple(document.results)
+        system._checkpoint_provenance = document.provenance
+        network.archive_provenance = {
+            **dict(getattr(network, 'archive_provenance', {}) or {}),
+            'checkpoint_system_id': document.system_id,
+            'checkpoint_source_id': document.source.source_id,
+            'checkpoint_network_id': state.network_id,
+            'checkpoint_status': state.status.value,
+        }
+        system.archive_provenance = dict(network.archive_provenance)
+        # The payload is already solved geometry.  Restore attested settings
+        # and identity without constructing a new system or network.
+        if state.settings:
+            network.settings = dict(state.settings)
+        network.source_network_id = state.source_network_id
+        return network
 
     def _run_archive(self):
         from vorpy.src.io import group_from_network, load_network
-        network = load_network(self.base_file)
+        profile = None
+        profile_started = None
+        if self.cache_export_profile:
+            profile = {
+                'timing': {},
+                'export_phases': {},
+            }
+            profile_started = (perf_counter(), process_time())
+            started = (perf_counter(), process_time())
+        if self._is_canonical_checkpoint(self.base_file):
+            network = self._load_canonical_checkpoint(self.base_file)
+        else:
+            network = load_network(self.base_file)
+        if profile is not None:
+            profile['timing']['load'] = _profile_interval(started)
         self.sys = network.sys
         self.sys._loaded_from_archive = True
-        self.sys.set_output_directory(self.sys.files['dir'])
+        self.sys._fail_if_exists = self.fail_if_exists
+        if profile is not None:
+            started = (perf_counter(), process_time())
         self.parse_commands()
+        # Parse ``-e dir`` before reserving the default replay destination so
+        # a requested destination is not accompanied by an unused fallback.
+        output_dir = self.sys.files.get('dir')
+        if output_dir is None or not Path(output_dir).exists():
+            self.sys.set_output_directory(
+                output_dir, fail_if_exists=self.fail_if_exists
+            )
+        self.sys.verbose = self.verbose
+        self.sys._write_archive_timing_manifest = bool(
+            self.verbose or self.diagnose_edges or self.execution_profile is not None
+            or self.cache_export_profile
+        )
         self.sys._compact_interface_workflow = any(
             command and str(command[0]).strip().lower() == 'visualize'
             for command in self.exports
         )
-        if self.builds or self.load_commands or self.settings_cmnds or self.interface_mode:
+        if self.interface_mode:
+            self._run_archive_interface_recovery(network, self.base_file)
+            if profile is not None:
+                profile['timing']['command_setup'] = _profile_interval(started)
+                profile['timing']['export'] = 0.0
+                self._finish_cache_export_profile(profile, profile_started)
+            return
+        if self.builds or self.load_commands or self.settings_cmnds:
             raise ValueError('Archive input reuses solved geometry. Use -e export options or -g selections; rebuild/settings commands require a structure input.')
         if self.groups:
             previous = list(self.sys.groups)
@@ -835,12 +3455,55 @@ class Command:
             self.run_apollonius()
         if self.visualize_dual_requested:
             self.run_dual_visualization()
+        if profile is not None:
+            profile['timing']['command_setup'] = _profile_interval(started)
+            self.sys._last_export_archive_path = None
+            self.sys._last_export_archive_output_path = None
         if self.aw_alpha_values:
+            started = (perf_counter(), process_time())
             self.run_aw_alpha_experimental()
+            if profile is not None:
+                profile['timing']['export'] = _profile_interval(started)
+            started = (perf_counter(), process_time())
             self._save_archive()
+            if profile is not None:
+                profile['timing']['explicit_archive'] = _profile_interval(started)
+                self._finish_cache_export_profile(profile, profile_started)
             return
+        started = (perf_counter(), process_time())
         self.run_exports()
+        if profile is not None:
+            profile['timing']['export'] = _profile_interval(started)
+        started = (perf_counter(), process_time())
         self._save_archive()
+        if profile is not None:
+            profile['timing']['explicit_archive'] = _profile_interval(started)
+            self._finish_cache_export_profile(profile, profile_started)
+
+    def _finish_cache_export_profile(self, profile, profile_started):
+        """Persist the opt-in profile after cache-only export work completes."""
+        from vorpy.src.io.network_archive import _process_memory
+
+        profile['timing']['total'] = _profile_interval(profile_started)
+        output_archive = getattr(self.sys, '_last_export_archive_output_path', None)
+        output_archive = output_archive or getattr(self.sys, '_last_export_archive_path', None)
+        profile['archive_members'] = {
+            'input': _archive_member_counts(self.base_file),
+            'output': _archive_member_counts(output_archive),
+        }
+        profile['cache_state'] = _cache_export_state(self.sys)
+        profile['export_phases'] = {
+            'run_exports': profile['timing'].get('export'),
+            'operations': getattr(self.sys, 'export_timing', {}),
+            'mesh': getattr(self.sys, 'export_mesh_timing', {}),
+        }
+        rss, source = _process_memory()
+        profile['peak_rss_bytes'] = rss if source == 'resource_ru_maxrss' else None
+        profile['peak_rss_supported'] = source == 'resource_ru_maxrss'
+        profile['rss_bytes'] = rss
+        profile['memory_source'] = source
+        profile['output_archive'] = None if output_archive is None else Path(output_archive).name
+        _write_cache_export_profile(self.sys, self.base_file, profile)
 
     def build_groups_from_logs(self):
         """
@@ -925,6 +3588,12 @@ class Command:
             self.boundary_explicitly_requested = True
             if self.sys is not None:
                 self.sys.boundary_config = boundary_config
+        my_args, requested_solvent_mode = solvent_cli_options(my_args)
+        if requested_solvent_mode is not None:
+            self.solvent_mode = requested_solvent_mode
+            self._solvent_mode_explicit = True
+            if self.sys is not None:
+                self.sys.solvent_mode = requested_solvent_mode
         my_args, apollonius_requested, alpha_value = apollonius_cli_options(my_args)
         self.apollonius_requested = self.apollonius_requested or apollonius_requested
         if alpha_value is not None:
@@ -942,6 +3611,8 @@ class Command:
             if index + 1 >= len(my_args) or my_args[index + 1].startswith('-'):
                 raise ValueError('--save-network requires an output .vpy path')
             self.save_network_path = Path(my_args[index + 1]).expanduser().resolve()
+            if self.fail_if_exists:
+                _check_archive_target_available(self.save_network_path)
             del my_args[index:index + 2]
         # Use the normalized argv captured by _run_pipeline so custom options
         # such as --boundary never reach the legacy grouped parser.
@@ -1005,20 +3676,16 @@ class Command:
                 self.groups[group_counter].append(arg_cmnds)
             elif arg.lower() == '-b':
                 self.builds.append(arg_cmnds)
+                if arg_cmnds and arg_cmnds[0].lower() in {'logs', 'log'}:
+                    self.settings_cmnds.append(['bt', 'logs'])
+                    if len(arg_cmnds) > 1:
+                        self.logs_files.append(' '.join(arg_cmnds[1:]))
             elif arg.lower() == '-i':
                 self.interface_mode = True
 
-            if len(arg_cmnds) > 0 and arg_cmnds[0].lower() in {"logs", "log"}:
-                self.settings_cmnds.append(["bt", "logs"])
-
-                if len(arg_cmnds) > 1:
-                    self.logs_files.append(" ".join(arg_cmnds[1:]))
-            elif arg.lower() == '-e':
-                # If the argument is 'logs', add the build type and logs command
-                if arg_cmnds == 'logs':
-                    self.settings_cmnds.append(['bt', 'logs'])
+            if arg.lower() == '-e':
                 # If the argument is a directory command, format it
-                if arg_cmnds[0] in {'dir', 'directory'}:
+                if arg_cmnds and arg_cmnds[0] in {'dir', 'directory'}:
                     # Check if the direcory is in the browse names
                     if arg_cmnds[1] in browse_names:
                         # Launch the browse window
@@ -1034,12 +3701,19 @@ class Command:
                         base_dir = os.path.abspath(os.path.expanduser(arg_cmnds[1]))
                         system_dir = os.path.join(base_dir, self.sys.name)
 
-                        os.makedirs(system_dir, exist_ok=True)
+                        try:
+                            _prepare_output_directory(
+                                system_dir,
+                                fail_if_exists=self.fail_if_exists,
+                            )
+                        except FileExistsError as error:
+                            raise SystemExit(str(error)) from None
 
                         self.sys.dir = system_dir
                         self.sys.files['dir'] = system_dir
 
-                        print(f"Directory set to: {system_dir}")
+                        if self.verbose:
+                            print(f"Directory set to: {system_dir}")
                 else:
                     # Add the export command to the list
                     self.exports.append(arg_cmnds)
@@ -1047,6 +3721,16 @@ class Command:
     def parse_commands(self, counter=0):
         """Parse CLI blocks into a calculation plan and legacy command state."""
         my_args = list(getattr(self, '_arguments', sys.argv[1:])[1 + counter:])
+        my_args, timing_report = timing_report_cli_options(my_args)
+        if timing_report is not None and self.timing_report_path is None:
+            self.timing_report_path = timing_report
+            self._cli_timing = {
+                'schema_version': 1,
+                'unit': 'seconds',
+                'phases': {},
+            }
+            if self._cli_timing_started is None:
+                self._cli_timing_started = (perf_counter(), process_time())
         my_args, boundary_config, boundary_requested = boundary_cli_options(my_args)
         if boundary_requested:
             self.boundary_config = boundary_config
@@ -1074,6 +3758,8 @@ class Command:
             if index + 1 >= len(my_args) or my_args[index + 1].startswith('-'):
                 raise ValueError('--save-network requires an output .vpy path')
             self.save_network_path = Path(my_args[index + 1]).expanduser().resolve()
+            if self.fail_if_exists:
+                _check_archive_target_available(self.save_network_path)
             del my_args[index:index + 2]
         my_args, _ = frame_cli_options(my_args)
         my_args = [arg for arg in my_args if arg != '--all-frames']
@@ -1091,6 +3777,9 @@ class Command:
             analysis_profile=self.execution_profile,
         )
         plan = self.calculation_plan
+        self.export_plan = plan.export_plan
+        if self.sys is not None:
+            self.sys._export_plan = self.export_plan
         if self.execution_profile is None and plan.analysis_profile is not None:
             self.execution_profile = plan.analysis_profile
         self.interface_mode = bool(plan.interface_requests)
@@ -1101,10 +3790,7 @@ class Command:
             plan.all_groups_request
             or plan.independent_group_requests
         )
-        self._full_system_separate = bool(
-            plan.full_system_request
-            and (plan.interface_requests or plan.declared_group_requests)
-        )
+        self._full_system_separate = bool(plan.full_system_request)
 
         # Preserve the old execution containers while making block parsing
         # exact and ordered.  ``and`` remains a selector separator inside a
@@ -1125,7 +3811,7 @@ class Command:
                 group_counter += 1
                 commands = []
                 current = []
-                for token in block.args:
+                for token in expand_group_tokens(block.args):
                     if token.lower() in {'&', 'and', 'nd', 'also', '+', '&&'}:
                         if current:
                             commands.append(current)
@@ -1138,7 +3824,12 @@ class Command:
                 declared_keys.add(tuple(tuple(token.lower() for token in command)
                                         for command in commands))
             elif block.flag == 'build':
-                self.builds.append(list(block.args))
+                build = list(block.args)
+                self.builds.append(build)
+                if build and build[0].lower() in {'logs', 'log'}:
+                    self.settings_cmnds.append(['bt', 'logs'])
+                    if len(build) > 1:
+                        self.logs_files.append(' '.join(build[1:]))
             elif block.flag == 'interface':
                 self.interface_mode = True
             elif block.flag == 'export':
@@ -1174,10 +3865,17 @@ class Command:
                         else:
                             base_dir = os.path.abspath(os.path.expanduser(command[1]))
                             system_dir = os.path.join(base_dir, self.sys.name)
-                            os.makedirs(system_dir, exist_ok=True)
+                            try:
+                                _prepare_output_directory(
+                                    system_dir,
+                                    fail_if_exists=self.fail_if_exists,
+                                )
+                            except FileExistsError as error:
+                                raise SystemExit(str(error)) from None
                             self.sys.dir = system_dir
                             self.sys.files['dir'] = system_dir
-                            print(f"Directory set to: {system_dir}")
+                            if self.verbose:
+                                print(f"Directory set to: {system_dir}")
                     else:
                         self.exports.append(command)
 
@@ -1191,14 +3889,6 @@ class Command:
             self.groups[group_counter] = commands
             declared_keys.add(request.key)
 
-        if plan.full_system_request and not self.groups and not plan.interface_requests:
-            self.groups[0] = [['f']]
-
-        for command in self.exports:
-            if command and command[0].lower() in {'logs', 'log'}:
-                self.settings_cmnds.append(['bt', 'logs'])
-                if len(command) > 1:
-                    self.logs_files.append(' '.join(command[1:]))
 
     def load_files(self):
         """
@@ -1258,7 +3948,6 @@ class Command:
                 else:
                     self.sys.load_sys(file=file)
                     # noinspection PyUnresolvedReferences
-                    self.sys.print_info()
                     return self.sys
             # If the loaded file is a vertex or network file load them accordingly
             elif file[-3:] == 'txt':
@@ -1355,12 +4044,43 @@ class Command:
     def create_groups(self):
         # Interface mode only needs group definitions; the Interface creates
         # the single network that will actually be solved.
+        default_selection = not self.groups
+        make_net = (
+            not self._full_system_reuse_enabled()
+            and ((not self.interface_mode) or self._build_group_networks)
+        )
+        # The molecular default group is assembled from System.residues, while
+        # structural ions are held by the loader's solvent container.
+        retained_indices = tuple(getattr(self.sys, 'retained_system_indices', ()) or ())
+        if default_selection and retained_indices:
+            make_net = False
         ggroup(
             self.sys,
             self.groups,
             self.settings_dict,
-            make_net=(not self.interface_mode) or self._build_group_networks
+            make_net=make_net,
         )
+
+        plan = self.calculation_plan
+        implicit_full_default = bool(
+            self._full_system_reuse_enabled()
+            and plan is not None
+            and plan.full_system_request
+            and not plan.declared_group_requests
+            and not plan.interface_requests
+        )
+        for group in (self.sys.groups or []):
+            if default_selection and retained_indices:
+                group.add_balls(retained_indices)
+            elif implicit_full_default:
+                active = set(getattr(self, '_source_system_indices', ()))
+                group.ball_ndxs = [
+                    int(index) for index in group.ball_ndxs if int(index) in active
+                ]
+                group.atms = [
+                    int(index) for index in getattr(group, 'atms', ())
+                    if int(index) in active
+                ]
 
         # Propagate the universal verbose flag into every created group and
         # network. This lets existing timing code use:
@@ -1608,6 +4328,30 @@ class Command:
                 or 'Network'
             )
             yield str(name), net
+
+    def _record_optional_analysis_failure(self, name, error):
+        """Keep optional analysis failures visible while preserving exports."""
+        failure = {
+            'analysis': str(name),
+            'status': 'UNRESOLVED',
+            'error_type': type(error).__name__,
+            'message': str(error),
+        }
+        failures = list(getattr(self.sys, '_optional_analysis_failures', ()) or ())
+        failures.append(failure)
+        self.sys._optional_analysis_failures = failures
+        for _, network in self._diagnostic_networks():
+            provenance = dict(getattr(network, 'archive_provenance', {}) or {})
+            recorded = list(provenance.get('optional_analysis_failures', ()) or ())
+            recorded.append(failure)
+            provenance['optional_analysis_failures'] = recorded
+            provenance['analysis_status'] = 'PARTIAL'
+            network.archive_provenance = provenance
+        print(
+            f'Optional analysis {name} failed ({type(error).__name__}: {error}); '
+            'solved geometry exports continue.',
+            file=sys.stderr,
+        )
 
     @staticmethod
     def _diagnostic_number(value):

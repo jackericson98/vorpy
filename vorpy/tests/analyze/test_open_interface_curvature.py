@@ -1,5 +1,6 @@
 import math
 
+import numpy as np
 import pytest
 
 from vorpy.src.analyze.open_interface_curvature import (
@@ -9,6 +10,54 @@ from vorpy.src.analyze.open_interface_curvature import (
     polygon_gaussian_terms,
     planar_crease_mean,
 )
+from vorpy.src.calculations.curvature import (
+    integrate_quadratic_surface_gaussian_curvature,
+)
+from vorpy.src.network.fill import calc_surf_point_from_plane
+
+
+def _subdivide_projected_quadratic_mesh(
+        func, points, tris, plane_point, plane_normal, reference_point, levels):
+    plane_point = np.asarray(plane_point, dtype=float)
+    plane_normal = np.asarray(plane_normal, dtype=float)
+    plane_normal /= np.linalg.norm(plane_normal)
+    reference_point = np.asarray(reference_point, dtype=float)
+    coefficients = np.asarray(func, dtype=float)
+    leaves = []
+
+    def split(first, second, third, depth):
+        if depth == 0:
+            leaves.append((first, second, third))
+            return
+        first_second = 0.5 * (first + second)
+        second_third = 0.5 * (second + third)
+        third_first = 0.5 * (third + first)
+        split(first, first_second, third_first, depth - 1)
+        split(first_second, second, second_third, depth - 1)
+        split(third_first, second_third, third, depth - 1)
+        split(first_second, second_third, third_first, depth - 1)
+
+    for triangle in np.asarray(tris, dtype=int):
+        actual = np.asarray(points, dtype=float)[triangle]
+        projected = actual - np.outer(
+            (actual - plane_point) @ plane_normal, plane_normal
+        )
+        split(*projected, int(levels))
+
+    lifted = []
+    subdivided_tris = []
+    for triangle in leaves:
+        indices = []
+        for point in triangle:
+            lifted_point = calc_surf_point_from_plane(
+                point, plane_normal, coefficients, reference_point
+            )
+            if lifted_point is None:
+                raise ValueError("Projected subdivision left the quadratic branch domain.")
+            indices.append(len(lifted))
+            lifted.append(lifted_point)
+        subdivided_tris.append(tuple(indices))
+    return np.asarray(lifted), np.asarray(subdivided_tris, dtype=int)
 
 
 def test_planar_polygon_disk_gauss_bonnet_corner_turns():
@@ -28,6 +77,124 @@ def test_hemisphere_gauss_bonnet_exact_smooth_and_geodesic_terms():
         euler_characteristic=1)
     assert result["total_GB_left"] == pytest.approx(2 * math.pi)
     assert result["certified"]
+
+
+def test_full_sphere_and_cube_reference_decompose_gaussian_and_mean_terms():
+    sphere = gauss_bonnet_accounting(
+        smooth_K=4 * math.pi,
+        face_boundary_geodesic=0,
+        vertex_corner_terms=0,
+        euler_characteristic=2,
+    )
+    sphere_mean = integrated_mean_curvature([4 * math.pi * 2.0], [])
+    assert sphere["certified"]
+    assert sphere["total_GB_left"] == pytest.approx(4 * math.pi)
+    assert sphere["face_boundary_geodesic_K"] == 0
+    assert sphere_mean["total_H"] == pytest.approx(8 * math.pi)
+
+    coordinates = {
+        0: (-1, -1, -1), 1: (1, -1, -1), 2: (1, 1, -1), 3: (-1, 1, -1),
+        4: (-1, -1, 1), 5: (1, -1, 1), 6: (1, 1, 1), 7: (-1, 1, 1),
+    }
+    cube = polygon_gaussian_terms([
+        (0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4),
+        (3, 7, 6, 2), (0, 4, 7, 3), (1, 2, 6, 5),
+    ], coordinates)
+    assert cube["topology"]["vertices"] == 8
+    assert cube["topology"]["edges"] == 12
+    assert cube["topology"]["faces"] == 6
+    assert cube["topology"]["euler_characteristic"] == 2
+    assert cube["smooth_K"] == 0
+    assert cube["boundary_geodesic_K"] == 0
+    assert cube["interior_vertex_defect_K"] == pytest.approx(4 * math.pi)
+    assert cube["intrinsic_total_K"] == pytest.approx(4 * math.pi)
+    assert cube["certified"]
+
+    # A side-2 convex cube has twelve edges of length 2 and exterior turn pi/2.
+    cube_mean = integrated_mean_curvature([0.], [12 * 0.5 * 2.0 * (math.pi / 2)])
+    assert cube_mean["total_H"] == pytest.approx(6 * math.pi)
+
+
+def test_curved_quadratic_gaussian_integrator_spherical_cap_converges():
+    radius = 2.0
+    theta = math.pi / 3.0
+    boundary_count = 128
+    points = [(0.0, 0.0, radius)]
+    for index in range(boundary_count):
+        angle = 2.0 * math.pi * index / boundary_count
+        points.append((
+            radius * math.sin(theta) * math.cos(angle),
+            radius * math.sin(theta) * math.sin(angle),
+            radius * math.cos(theta),
+        ))
+    triangles = [
+        (0, index + 1, (index + 1) % boundary_count + 1)
+        for index in range(boundary_count)
+    ]
+    sphere = [1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+              -radius * radius, 0.0, 0.0, 0.0, 0.0]
+    values = [integrate_quadratic_surface_gaussian_curvature(
+        sphere, points, triangles, (0.0, 0.0, 0.0), (0.0, 0.0, 1.0),
+        (0.0, 0.0, radius), order=order,
+    ) for order in (4, 8, 16)]
+    expected = 2.0 * math.pi * (1.0 - math.cos(theta))
+    assert values[2] == pytest.approx(expected, abs=2e-3)
+    assert values[1] == pytest.approx(values[2], abs=1e-6)
+
+
+def test_projected_domain_subdivision_reduces_fixed_face_quadrature_error():
+    radius = 2.0
+    theta = math.pi / 3.0
+    boundary_count = 8
+    points = [(0.0, 0.0, radius)]
+    for index in range(boundary_count):
+        angle = 2.0 * math.pi * index / boundary_count
+        points.append((
+            radius * math.sin(theta) * math.cos(angle),
+            radius * math.sin(theta) * math.sin(angle),
+            radius * math.cos(theta),
+        ))
+    triangles = [
+        (0, index + 1, (index + 1) % boundary_count + 1)
+        for index in range(boundary_count)
+    ]
+    sphere = [1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+              -radius * radius, 0.0, 0.0, 0.0, 0.0]
+    fixed = {
+        order: integrate_quadratic_surface_gaussian_curvature(
+            sphere, points, triangles, (0.0, 0.0, 0.0), (0.0, 0.0, 1.0),
+            (0.0, 0.0, radius), order=order,
+        )
+        for order in (4, 8, 16)
+    }
+    subdivided_points, subdivided_tris = _subdivide_projected_quadratic_mesh(
+        sphere, points, triangles, (0.0, 0.0, 0.0), (0.0, 0.0, 1.0),
+        (0.0, 0.0, radius), levels=1,
+    )
+    adaptive = {
+        order: integrate_quadratic_surface_gaussian_curvature(
+            sphere, subdivided_points, subdivided_tris,
+            (0.0, 0.0, 0.0), (0.0, 0.0, 1.0), (0.0, 0.0, radius), order=order,
+        )
+        for order in (4, 8)
+    }
+    print("G13 spherical-face comparison:", fixed, "adaptive=", adaptive)
+    assert len(subdivided_tris) == 4 * len(triangles)
+    assert abs(adaptive[4] - fixed[16]) < abs(fixed[4] - fixed[16])
+    assert abs(fixed[8] - fixed[16]) < abs(adaptive[4] - fixed[16])
+    assert abs(fixed[4] - fixed[8]) == pytest.approx(
+        abs(fixed[4] - fixed[16]), rel=2e-3
+    )
+
+
+def test_curved_quadratic_gaussian_integrator_rejects_incomplete_surface_metadata():
+    with pytest.raises(ValueError):
+        integrate_quadratic_surface_gaussian_curvature(
+            [1.0] * 11,
+            [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)],
+            [(0, 1, 2)],
+            (0.0, 0.0, 0.0), (0.0, 0.0, 1.0), (0.0, 0.0, 0.0),
+        )
 
 
 @pytest.mark.parametrize("theta", [math.pi / 6, math.pi / 3, math.pi / 2])
@@ -64,7 +231,7 @@ def test_folded_planar_patch_has_extrinsic_crease_mean_but_zero_intrinsic_gaussi
     assert gb["certified"]
     assert gb["total_GB_left"] == pytest.approx(2 * math.pi)
     assert mean["internal_edge_H"] == pytest.approx(crease)
-    assert mean["boundary_H"] == 0
+    assert mean["boundary_H"] is None
     assert mean["total_H"] == pytest.approx(crease)
     assert gb["intrinsic_total_K"] == pytest.approx(0)
     assert planar_crease_mean(tuple(reversed(cycles[0])),
@@ -110,7 +277,7 @@ def test_spherical_parameterization_integrals_and_boundary_mean(radius, theta):
     kg = math.cos(theta)/(radius*math.sin(theta))*2*math.pi*radius*math.sin(theta)
     mean = integrated_mean_curvature([smooth_h], [])
     assert mean["total_H"] == pytest.approx(2*math.pi*radius*(1-math.cos(theta)))
-    assert mean["boundary_H"] == 0
+    assert mean["boundary_H"] is None
     gb = gauss_bonnet_accounting(smooth_K=smooth_k, face_boundary_geodesic=kg,
         vertex_corner_terms=0, euler_characteristic=1)
     assert gb["certified"]
@@ -141,6 +308,30 @@ def test_two_spherical_caps_glued_at_rim_have_intrinsic_seam_curvature():
 def test_free_boundary_term_is_not_mean_curvature():
     with pytest.raises(ValueError, match="not mean curvature"):
         integrated_mean_curvature([0], [], boundary_terms=[2 * math.pi])
+
+
+def test_open_boundary_corner_is_gaussian_only_and_mean_total_can_certify():
+    coords = {0: (0, 0, 0), 1: (2, 0, 0), 2: (2, 1, 0), 3: (0, 1, 0)}
+    gaussian = polygon_gaussian_terms([(0, 1, 2, 3)], coords)
+    mean = integrated_mean_curvature([0.], [])
+
+    assert gaussian["boundary_corner_K"] == pytest.approx(2 * math.pi)
+    assert mean["boundary_H"] is None
+    assert mean["total_H"] == 0.
+    assert mean["certified"] is True
+
+
+def test_closed_regular_interface_has_no_boundary_or_corner_mean_term():
+    tetrahedron = [(0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3)]
+    topology = analyze_surface_topology(tetrahedron)
+    mean = integrated_mean_curvature([0.], [])
+
+    assert topology["boundary_components"] == 0
+    assert topology["boundary_is_manifold"] and topology["orientable"]
+    assert topology["genus_sum"] == 0
+    assert mean["boundary_H"] is None
+    assert mean["total_H"] == 0.
+    assert mean["certified"] is True
 
 
 def test_topology_components_boundary_loops_and_genus_for_annulus():

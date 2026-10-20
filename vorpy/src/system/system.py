@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import threading
 from os import path
@@ -24,7 +25,25 @@ from vorpy.src.chemistry import special_radii
 from vorpy.src.chemistry import element_radii
 from vorpy.src.calculations import compare_networks
 from vorpy.src.calculations import get_time
-from vorpy.src.boundary import BoundaryConfig, has_explicit_solvent
+from vorpy.src.boundary import (
+    BoundaryConfig,
+    has_explicit_solvent,
+    normalize_solvent_mode,
+    normalize_retained_system_indices,
+)
+
+
+def _progress_label(value):
+    """Return a stable display label without falling back to object repr."""
+    if isinstance(value, str):
+        return value
+    if value is None:
+        return ""
+    for attribute in ("progress_label", "group_name", "name"):
+        label = getattr(value, attribute, None)
+        if isinstance(label, str) and label.strip():
+            return label
+    return type(value).__name__
 
 
 def infer_index_offset(index_map):
@@ -205,7 +224,8 @@ class System:
     def __init__(self, file=None, files=None, spheres=None, verts_file=None, balls_file=None, network_file=None,
                  index_file=None, frame_files=None, output_directory=None, gui=None, root_dir=None, print_actions=False,
                  atoms=None, residues=None, chains=None, segments=None, groups=None, ifaces=None, simple=False,
-                 name=None, make_dir=True, boundary_config=None):
+                 name=None, make_dir=True, boundary_config=None, solvent_mode=None,
+                 retained_system_indices=None):
         """
         Initialize a new System object for managing molecular systems and networks.
 
@@ -253,6 +273,9 @@ class System:
             Name describing the system
         make_dir : bool, optional
             Create the output directory during initialization (default True).
+        retained_system_indices : iterable of int, optional
+            Explicit System-global rows to retain as molecular generators even
+            when their residue is classified as solvent/ion.
 
         Methods
         -------
@@ -321,6 +344,10 @@ class System:
         self.element_radii = element_radii  # Element Radii       :   Dictionary of elements and their radii
         self.special_radii = special_radii  # Special Radii       :   Dictionary of residues and their atomic radii
         self.boundary_config = boundary_config or BoundaryConfig()
+        self.solvent_mode = normalize_solvent_mode(solvent_mode)
+        self.retained_system_indices = normalize_retained_system_indices(
+            retained_system_indices
+        )
         self.boundary_generators = ()
         self.boundary_mode = None
         self.round_to = None  # round_to            :   Decimals setting for the whole system
@@ -471,11 +498,11 @@ class System:
             self.start_run()
 
         if process is not None:
-            self.run_process = process
+            self.run_process = _progress_label(process)
         if progress is not None:
             self.run_progress = max(0.0, min(float(progress), 100.0))
         if network is not None:
-            self.run_network = network
+            self.run_network = _progress_label(network)
 
         now_t = time.perf_counter()
         process_changed = self.run_process != self._progress_last_process
@@ -488,6 +515,45 @@ class System:
             except Exception:
                 pass
 
+        interactive = getattr(sys.stdout, 'isatty', lambda: False)()
+        if not interactive:
+            # Redirected output cannot interpret carriage-return redraws. Keep
+            # only phase changes/completions; interface CLI workflows opt in
+            # so their lifecycle remains visible without a second progress UI.
+            cli_stage_output = bool(getattr(self, '_cli_stage_output_enabled', False))
+            if (not getattr(self, 'verbose', False) and not cli_stage_output) or not force:
+                self._progress_last_emit = now_t
+                self._progress_last_process = self.run_process
+                self._progress_line_len = 0
+                return
+            elapsed = self.get_run_time()
+            h = int(elapsed // 3600)
+            m = int((elapsed % 3600) // 60)
+            sec = elapsed % 60
+            network_text = f'{self.run_network} - ' if self.run_network else ""
+            print(
+                f"{h}:{m:02d}:{sec:05.2f} - {network_text}"
+                f"{self.run_process} - {self.run_progress:.2f} %",
+                flush=True,
+            )
+            self._progress_last_emit = now_t
+            self._progress_last_process = self.run_process
+            self._progress_line_len = 0
+            return
+
+        if not getattr(self, 'verbose', False) and self.run_progress >= 100.0:
+            if self._progress_line_len:
+                print("\r" + (" " * self._progress_line_len) + "\r", end="", flush=True)
+            self._progress_last_emit = now_t
+            self._progress_last_process = self.run_process
+            self._progress_line_len = 0
+            return
+
+        # Analysis still updates shared state and remains visible in verbose
+        # diagnostics, but normal CLI output has one solve indicator.
+        if not getattr(self, 'verbose', False) and str(self.run_process).startswith('Analysis'):
+            return
+
         if not force and (now_t - self._progress_last_emit) < 0.10:
             return
 
@@ -496,11 +562,14 @@ class System:
         m = int((elapsed % 3600) // 60)
         sec = elapsed % 60
         network_text = f'{self.run_network} - ' if self.run_network else ""
-        message = (
-            f"{h}:{m:02d}:{sec:05.2f} - "
-            f"{network_text}{self.run_process} - "
-            f"{self.run_progress:.2f} %"
-        )
+        if getattr(self, 'verbose', False):
+            message = (
+                f"{h}:{m:02d}:{sec:05.2f} - "
+                f"{network_text}{self.run_process} - "
+                f"{self.run_progress:.2f} %"
+            )
+        else:
+            message = f"{network_text}{self.run_process} - {self.run_progress:.0f}%"
 
         # Pad only the difference from the prior line. This prevents stale tail
         # characters without dumping hundreds of spaces into copied transcripts.
@@ -509,6 +578,18 @@ class System:
         self._progress_line_len = len(message)
         self._progress_last_emit = now_t
         self._progress_last_process = self.run_process
+
+    def finish_progress_line(self):
+        """Leave the terminal ready for an error or ordinary CLI message."""
+        if not self._progress_line_len:
+            return
+        if getattr(sys.stdout, 'isatty', lambda: False)():
+            if getattr(self, 'verbose', False):
+                print(flush=True)
+            else:
+                print("\r" + (" " * self._progress_line_len) + "\r",
+                      end="", flush=True)
+        self._progress_line_len = 0
 
     def set_files(self, base_file=None, ball_file=None, verts_file=None, net_file=None, ndx_file=None, file_dir=None,
                   frame_files=None, root_dir=None):
@@ -1082,7 +1163,7 @@ class System:
             )
             self.ifaces.append(interface)
 
-    def set_output_directory(self, directory=None):
+    def set_output_directory(self, directory=None, *, fail_if_exists=False):
         """
         Set the output directory for system exports.
 
@@ -1090,13 +1171,15 @@ class System:
         ----------
         directory : str, optional
             Path to the directory where system files will be exported
+        fail_if_exists : bool, optional
+            Atomically reserve the requested directory and fail if it exists.
 
         Notes
         -----
         If no directory is specified, a default directory will be used.
         The directory will be created if it doesn't exist.
         """
-        set_sys_dir(self, dir_name=directory)
+        set_sys_dir(self, dir_name=directory, fail_if_exists=fail_if_exists)
 
     def exports(self, all_=False, pdb=False, set_atoms=False, info=False, mol=False, cif=False, xyz=False, txt=False):
         """Export system data in various formats.

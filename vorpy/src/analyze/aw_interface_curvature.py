@@ -14,6 +14,10 @@ import numpy as np
 
 from vorpy.src.analyze.apollonius import ApolloniusComplex
 from vorpy.src.calculations.aw_interface_orientation import aw_interface_edge_orientation
+from vorpy.src.calculations.edge_geometry import (
+    AdditivelyWeightedTrisectorBranch,
+    match_aw_trisector_conic_to_samples,
+)
 from vorpy.src.network.edge_geometry_diagnostics import resolve_aw_network_edge
 
 
@@ -41,7 +45,7 @@ class InterfaceEdgeRecord:
     generator_ids: tuple[int, int, int]
     atom_numbers: tuple[int, int, int]
     dual_triangle: tuple[int, int, int]
-    surface_ids: tuple[int, int]
+    surface_ids: tuple[int, ...]
     geometry_type: str | None
     supported: bool
     feature_complete: bool
@@ -60,6 +64,10 @@ class InterfaceEdgeRecord:
     quadrature_order: int | None
     status: str
     reason: str = ""
+    # Conventional H=(k1+k2)/2 seam contribution.  The existing signed and
+    # unsigned fields intentionally remain the raw beta ds integrals.
+    signed_mean_curvature: float | None = None
+    unsigned_mean_curvature: float | None = None
 
 
 @dataclass
@@ -86,6 +94,11 @@ class AWInterfaceCurvatureResult:
         return {"A": len(self.group_a), "B": len(self.group_b)}
 
     @property
+    def completeness_evidence(self):
+        """Return analysis-only selected-face/coface evidence."""
+        return self.complex.interface_completeness(self.group_a, self.group_b)
+
+    @property
     def interface_area(self):
         return float(sum(record.area or 0.0 for record in self.selected_surfaces))
 
@@ -104,6 +117,128 @@ class AWInterfaceCurvatureResult:
             "unsigned": float(sum(record.unsigned_contribution or 0.0 for record in selected)),
             "length": float(sum(record.length or 0.0 for record in selected)),
         }
+
+    @property
+    def edge_contribution_complete(self):
+        """Whether every retained bicolor seam has a validated C_e."""
+        return not self.missing_edge_ids and all(
+            record.status == "included" for record in self.edges
+        )
+
+    @property
+    def missing_edge_ids(self):
+        """Surface-referenced edge rows absent from the analyzed network."""
+        referenced = set()
+        surfaces = getattr(self.network, "surfs", None)
+        if surfaces is None:
+            return ()
+        for record in self.selected_surfaces:
+            try:
+                values = surfaces.loc[record.surface_id].get("edges", ())
+                referenced.update(int(value) for value in values)
+            except (KeyError, TypeError, ValueError):
+                continue
+        represented = {record.edge_id for record in self.edges}
+        return tuple(sorted(referenced - represented))
+
+    @property
+    def edge_mean_curvature(self):
+        """Return the half-scaled seam integral only when edge coverage is complete."""
+        if not self.edge_contribution_complete:
+            return None
+        values = []
+        for record in self.edges:
+            value = record.signed_mean_curvature
+            if value is None and record.signed_contribution is not None:
+                value = 0.5 * float(record.signed_contribution)
+            if value is None or not np.isfinite(value):
+                return None
+            values.append(float(value))
+        return float(sum(values))
+
+    @property
+    def smooth_patch_contribution_complete(self):
+        """Whether every retained smooth patch has a finite integral ``H dA``."""
+        return all(
+            record.status == "included"
+            and record.integrated_mean_curvature is not None
+            and np.isfinite(record.integrated_mean_curvature)
+            for record in self.surfaces
+        )
+
+    @property
+    def integrated_mean_curvature(self):
+        """Return the signed, unit-preserving AW curvature accounting.
+
+        Smooth patches and seams are kept distinct.  A known smooth partial may
+        be reported, but an unresolved seam cannot become zero by aggregation.
+        Free-boundary and corner terms are not scalar mean-curvature measures
+        under the ``H=(k1+k2)/2`` convention, so they remain explicitly
+        inapplicable here.  Topology owns certification of the full total.
+        """
+        smooth_values = [
+            float(record.integrated_mean_curvature)
+            for record in self.selected_surfaces
+            if record.integrated_mean_curvature is not None
+            and np.isfinite(record.integrated_mean_curvature)
+        ]
+        smooth_partial = (
+            float(sum(smooth_values))
+            if smooth_values or not self.surfaces
+            else None
+        )
+        smooth = smooth_partial if self.smooth_patch_contribution_complete else None
+
+        edge_values = [
+            float(record.signed_contribution)
+            for record in self.selected_edges
+            if record.signed_contribution is not None
+            and np.isfinite(record.signed_contribution)
+        ]
+        raw_seam = (
+            float(sum(edge_values))
+            if edge_values or (not self.edges and not self.missing_edge_ids)
+            else None
+        )
+        seam = self.edge_mean_curvature
+        partial = (
+            float(smooth_partial + seam)
+            if smooth_partial is not None and seam is not None
+            else None
+        )
+        return {
+            # Names shared with the topology-aware open-interface kernel.
+            "smooth_H": smooth,
+            "internal_edge_H": seam,
+            "boundary_H": None,
+            "corner_H": None,
+            "partial_H": partial,
+            "total_H": None,
+            "smooth_patch": smooth,
+            "smooth_patch_partial": smooth_partial,
+            "signed_seam": seam,
+            "signed_seam_raw_beta_ds": raw_seam,
+            "boundary": None,
+            "corner": None,
+            "partial": partial,
+            "total": None,
+            "certified": False,
+            "smooth_patch_complete": self.smooth_patch_contribution_complete,
+            "signed_seam_complete": self.edge_contribution_complete,
+            "boundary_status": "not_applicable_scalar_H",
+            "corner_status": "not_applicable_scalar_H",
+            "unresolved": self.unresolved_reasons,
+            "unsupported": self.exclusion_diagnostics,
+            "orientation": "A-to-B",
+            "units": "angstrom",
+            "convention": "H=(k1+k2)/2; C_e=0.5*integral(beta ds)",
+            "provenance": "AW analytic smooth-patch records and validated A-to-B analytic edge records",
+        }
+
+    @property
+    def total_curvature_certified(self):
+        """Total H certification remains owned by the topology accounting pass."""
+        return False
 
     @property
     def edge_angle_statistics(self):
@@ -133,11 +268,14 @@ class AWInterfaceCurvatureResult:
 
     @property
     def unresolved_reasons(self):
-        return dict(Counter(
+        reasons = Counter(
             record.reason or record.status
             for record in [*self.surfaces, *self.edges]
             if record.status != "included"
-        ))
+        )
+        for edge_id in self.missing_edge_ids:
+            reasons[f"missing interface edge record {edge_id}"] += 1
+        return dict(reasons)
 
     @property
     def exclusion_diagnostics(self):
@@ -156,6 +294,8 @@ class AWInterfaceCurvatureResult:
         for record in self.edges:
             if record.status == "included":
                 continue
+            if len(record.surface_ids) != 2:
+                counts["incomplete_bicolor_surface_incidence"] += 1
             if not record.supported:
                 counts["unsupported_edge_incidence"] += 1
             if not record.feature_complete:
@@ -166,6 +306,8 @@ class AWInterfaceCurvatureResult:
                 counts["quadrature_not_converged"] += 1
             if record.reason.startswith("analytic edge integration failed"):
                 counts["analytic_integration_failure"] += 1
+        if self.missing_edge_ids:
+            counts["missing_interface_edge_record"] = len(self.missing_edge_ids)
         return dict(counts)
 
     @property
@@ -207,6 +349,8 @@ class AWInterfaceCurvatureResult:
             "Edge tangent: induced boundary orientation t=n x m_out; analytic tangent supplies ds only\n"
             "Beta extrema/mean: Gauss-Legendre quadrature-node diagnostics\n"
             f"C_H = C_smooth + 1/2 C_edge,signed: {self.combined_curvature:.9g} A\n"
+            f"Edge contribution complete: {self.edge_contribution_complete}; "
+            f"total curvature certified: {self.total_curvature_certified}\n"
             f"Quadrature convergence: {sum(r.integration_status == 'converged' for r in self.edges)} converged, "
             f"{sum(r.integration_status == 'maximum_order_reached' for r in self.edges)} reached maximum order\n"
             f"Exclusion diagnostics (independent flags): {self.exclusion_diagnostics}\n"
@@ -235,10 +379,11 @@ def analyze_aw_interface_curvature(
     """Measure a bicolor AW interface using solved surfaces and edges.
 
     Group arguments are network-local generator IDs. ``raw`` includes finite,
-    complete feature geometry while preserving its support flags; ``supported``
-    integrates only features in the supported Apollonius subcomplex. ``alpha``
-    is intentionally unavailable until the required pair-surface alpha births
-    are exact.
+    complete surface geometry while preserving its support flags; G2b edge
+    contributions are support-gated in both modes. ``supported`` additionally
+    restricts the selected surfaces to the supported Apollonius subcomplex.
+    ``alpha`` is intentionally unavailable until the required pair-surface
+    alpha births are exact.
     """
     mode = str(selection_mode).lower()
     if mode not in {"raw", "supported", "alpha"}:
@@ -332,8 +477,6 @@ def analyze_aw_interface_curvature(
             surface_id for surface_id in incident_surface_ids
             if surface_id in candidate_surface_ids
         ))
-        if len(bicolor_ids) != 2:
-            continue
         tri_key = tuple(sorted(ids))
         dual_triangle = complex_.simplices[2].get(tri_key)
         features = [ref for ref in (dual_triangle.primal_features if dual_triangle else ())
@@ -341,13 +484,24 @@ def analyze_aw_interface_curvature(
         feature_complete = any(feature.complete and feature.bounded for feature in features)
         cells_complete = any(feature.generator_cells_complete for feature in features)
         supported = bool(dual_triangle and complex_.is_supported(2, tri_key) and features)
+        if len(bicolor_ids) != 2:
+            result.edges.append(_edge_excluded_record(
+                network, edge_id, ids, tri_key, bicolor_ids, supported,
+                feature_complete, cells_complete,
+                "edge does not retain exactly two bicolor incident surfaces "
+                f"(found {len(bicolor_ids)})",
+            ))
+            continue
         both_surfaces_included = all(sid in selected_surface_ids for sid in bicolor_ids)
-        usable_by_mode = (mode == "raw" or supported) and feature_complete and cells_complete and both_surfaces_included
+        # G2b only assigns C_e to a supported, regular analytic seam.  The
+        # raw mode still reports candidates, but cannot promote unsupported
+        # incidence to a curvature contribution.
+        usable_by_mode = supported and feature_complete and cells_complete and both_surfaces_included
         if not usable_by_mode:
             reasons = []
             if not bicolor_ids:
                 reasons.append("primal edge does not reference two bicolor AW surfaces")
-            if mode == "supported" and not supported:
+            if not supported:
                 reasons.append("AW edge incidence is not in the supported Apollonius complex")
             if not feature_complete:
                 reasons.append("AW edge geometry is unbounded or incomplete")
@@ -368,17 +522,23 @@ def analyze_aw_interface_curvature(
                 order=int(quadrature_order), max_order=int(max_quadrature_order),
                 rtol=float(relative_tolerance), atol=float(absolute_tolerance),
             )
-            status = "included" if integral["status"] == "converged" else "unresolved"
+            converged = integral["status"] == "converged"
+            status = "included" if converged else "unresolved"
             reason = "" if status == "included" else "edge quadrature did not converge by maximum order"
             result.edges.append(InterfaceEdgeRecord(
                 int(edge_id), ids, _atom_numbers(network, ids), tri_key, bicolor_ids,
                 type(resolved.geometry).__name__, supported, feature_complete,
-                cells_complete, integral["length"], integral["signed"],
-                integral["unsigned"], integral["positive"], integral["negative"],
+                cells_complete, integral["length"],
+                integral["signed"] if converged else None,
+                integral["unsigned"] if converged else None,
+                integral["positive"] if converged else None,
+                integral["negative"] if converged else None,
                 integral["beta_min"], integral["beta_max"], integral["beta_mean"],
                 "Gauss-Legendre quadrature-node diagnostic",
                 integral["status"], integral["error"], integral["order"],
                 status, reason,
+                0.5 * integral["signed"] if converged else None,
+                0.5 * integral["unsigned"] if converged else None,
             ))
         except Exception as error:
             result.edges.append(_edge_excluded_record(
@@ -401,9 +561,37 @@ def _oriented_surface_curvatures(network):
             in zip(network.surfs.index, values, strict=True)}
 
 
+def _validated_edge_geometry(network, resolved):
+    """Use a validated nonsingular parameterization when a branch is ill-conditioned."""
+    geometry = resolved.geometry
+    # A clearance-parameterized branch is exact but becomes poorly conditioned
+    # near a conic turning point.  Reparameterize only after independently
+    # matching the stored endpoints and samples to a nonsingular conic; if that
+    # validation fails, retain the original branch and its fail-closed status.
+    branch = getattr(geometry, "source", None)
+    if isinstance(branch, AdditivelyWeightedTrisectorBranch):
+        edge_row = network.edges.loc[resolved.edge_index]
+        generator_ids = tuple(int(value) for value in edge_row["balls"])
+        vertex_ids = tuple(int(value) for value in edge_row["verts"])
+        try:
+            conic_match = match_aw_trisector_conic_to_samples(
+                [network.balls.loc[index, "loc"] for index in generator_ids],
+                [network.balls.loc[index, "rad"] for index in generator_ids],
+                vertex_ids,
+                [network.verts.loc[index, "loc"] for index in vertex_ids],
+                edge_row["points"],
+                tolerance=1e-6,
+            )
+            if conic_match.status == "matched_nonsingular":
+                geometry = conic_match.geometry
+        except (TypeError, ValueError, np.linalg.LinAlgError):
+            pass
+    return geometry
+
+
 def _integrate_edge_beta(network, resolved, surface_ids, group_a, group_b,
                          order, max_order, rtol, atol):
-    geometry = resolved.geometry
+    geometry = _validated_edge_geometry(network, resolved)
     surfaces = sorted(surface_ids)
     surface_pairs = [tuple(int(value) for value in network.surfs.loc[sid, "balls"])
                      for sid in surfaces]
@@ -447,6 +635,9 @@ def _integrate_edge_beta(network, resolved, surface_ids, group_a, group_b,
             negative += min(beta, 0.0) * ds_weight
             length += ds_weight
             beta_values.append(beta)
+        values = (signed, absolute, positive, negative, length, *beta_values)
+        if not all(np.isfinite(value) for value in values):
+            raise ValueError("AW interface edge curvature integral is non-finite.")
         return {"signed": signed, "unsigned": absolute, "positive": positive,
                 "negative": negative, "length": length,
                 "beta_min": min(beta_values), "beta_max": max(beta_values),
@@ -472,9 +663,29 @@ def _integrate_edge_beta(network, resolved, surface_ids, group_a, group_b,
 def _edge_excluded_record(network, edge_id, ids, tri_key, surface_ids, supported,
                           feature_complete, cells_complete, reason):
     return InterfaceEdgeRecord(
-        int(edge_id), ids, _atom_numbers(network, ids), tri_key, tuple(surface_ids),
-        None, supported, feature_complete, cells_complete, None, None, None, None,
-        None, None, None, None, None, "not_integrated", None, None, "excluded", reason,
+        edge_id=int(edge_id),
+        generator_ids=ids,
+        atom_numbers=_atom_numbers(network, ids),
+        dual_triangle=tri_key,
+        surface_ids=tuple(surface_ids),
+        geometry_type=None,
+        supported=supported,
+        feature_complete=feature_complete,
+        generator_cells_complete=cells_complete,
+        length=None,
+        signed_contribution=None,
+        unsigned_contribution=None,
+        positive_contribution=None,
+        negative_contribution=None,
+        beta_min=None,
+        beta_max=None,
+        beta_mean=None,
+        beta_statistics_method=None,
+        integration_status="unresolved",
+        estimated_error=None,
+        quadrature_order=None,
+        status="excluded",
+        reason=reason,
     )
 
 

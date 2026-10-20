@@ -28,6 +28,16 @@ def get_element(atom=None, atom_name=None):
     if atom_name is None:
         atom_name = atom['name']
 
+    # Some ligand PDBs omit columns 77-78.  SE21 is an explicit selenium
+    # atom name, so preserve the documented SE radius instead of treating it
+    # as one-letter sulfur.
+    normalized_name = str(atom_name).strip().upper()
+    if normalized_name == 'SE' or (
+        normalized_name.startswith('SE')
+        and normalized_name[2:3].isdigit()
+    ):
+        return 'SE'
+
     # Find the simple atom types:
     for name in ['C', 'O', 'H', 'N', 'P', 'S']:
         if atom_name[0] == name:
