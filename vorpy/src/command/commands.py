@@ -337,6 +337,12 @@ Visualization:
   --export-alpha-visualization <alpha>
     Export the requested AW dual or alpha visualization.
 
+Common examples:
+  python -m vorpy edta -c system -s nt aw and sr 0.2 and mv 5 -e small
+  python -m vorpy structure.pdb -g "c A and c B" -g "c C" -i
+  python -m vorpy structure.vpy --profile-cache-export -e medium
+  vorpy --help
+
 Use -h or --help to show this page.  Flags may be combined with the legacy
 `and` separator where the selected command accepts multiple values.
 """)
